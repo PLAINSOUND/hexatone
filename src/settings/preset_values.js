@@ -10,6 +10,8 @@ import scale_12_ji_7_11 from 'scales/12-JI-7+11.scl';
 import scale_12_ji_5_13 from 'scales/12-JI-5+13.scl';
 import scale_12_ji_sabat_I from 'scales/12-JI-SabatI.scl';
 import scale_12_ji_sabat_II from 'scales/12-JI-SabatII.scl';
+import scale_12_hamilton from 'scales/12-Hamilton12-24_25no23.scl';
+import scale_12_hs from 'scales/12-HS12-24_25no23.scl';
 
 import scale_17_ji_3l from 'scales/17-JI-3L-Ormavi.scl';
 import scale_17_ji_13l from 'scales/17-JI-13L-Sina.scl';
@@ -32,6 +34,7 @@ import scale_72_shs_12to48 from 'scales/72-SHS-12to48.scl';
 import scale_19_hs_34to52 from 'scales/19-HS-34to52.scl';
 import scale_53_hs_53to106 from 'scales/53-HS-53to106.scl';
 import scale_55_hs_55to110 from 'scales/55-HS-55to110.scl';
+import scale_55_criticalband from 'scales/55-CriticalBand.scl';
 
 import scale_14_hs_odd_3_5 from 'scales/14-HS-odd-3+5.scl';
 import scale_12_hs_odd_3_7 from 'scales/12-HS-odd-3+7.scl';
@@ -60,6 +63,7 @@ import scale_72_edo from 'scales/72edo.scl';
 
 import scale_1cent from 'scales/1cent.scl';
 import scale_harp from 'scales/harp.scl';
+import scale_55cents from 'scales/55cents.scl'
 
 
 //import the Scala file parser, which can output scale: [], colors: [], labels: [], errors: [],
@@ -135,6 +139,72 @@ export const presets = [
         "fundamental": 440,
         "reference_degree": 9,
         "midiin_degree0": 60,
+        "short_description": "12-RI-3L"
+      },
+      {
+        "name": "12-Harmonic",
+        "description": "12-tone 19-Limit Rational Intonation (JI) scale. Derived from the harmonic partial row, it is limited to partials 12°-25° over A, skipping 23°.",
+        "scale_import": scale_12_hs,
+        "scale": parseScale(scale_12_hs).scale,
+        "equivSteps": 12,
+        "note_names": [         
+          "E",
+          "E", "F",
+          "G", "G",
+          "A", "A",
+          "B",
+          "C", "C",
+          "D", "D"],
+        "key_labels": "note_names",
+        "note_colors": [
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff"],
+        "spectrum_colors": false,
+        "rSteps": 2,
+        "urSteps": 1,
+        "hexSize": 42,
+        "rotation": -16.102113751,  
+        "fundamental": 440,
+        "reference_degree": 5,
+        "midiin_degree0": 64,
+        "short_description": "12-RI-3L"
+      },
+      {
+        "name": "12-Subharmonic (Elsie Hamilton)",
+        "description": "12-tone 19-Limit Rational Intonation (JI) scale. Derived from the subharmonic partial row, it is limited to partials u12-u25 under F-comma-up, skipping 23°.",
+        "scale_import": scale_12_hamilton,
+        "scale": parseScale(scale_12_hamilton).scale,
+        "equivSteps": 12,
+        "note_names": [
+          "B",
+          "C", "C",
+          "D", "D",
+          "E",
+          "F", "F",
+          "G", "G",
+          "A", "B"],
+        "key_labels": "note_names",
+        "note_colors": [
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff"],
+        "spectrum_colors": false,
+        "rSteps": 2,
+        "urSteps": 1,
+        "hexSize": 42,
+        "rotation": -16.102113751,  
+        "fundamental": 352,
+        "reference_degree": 7,
+        "midiin_degree0": 58,
         "short_description": "12-RI-3L"
       },
       {
@@ -672,6 +742,72 @@ export const presets = [
     "name": "Harmonics and Subharmonics",
     settings: [
       {
+        "name": "12-Harmonic",
+        "description": "12-tone 19-Limit Rational Intonation (JI) scale. Derived from the harmonic partial row, it is limited to partials 12°-25° over A, skipping 23°.",
+        "scale_import": scale_12_hs,
+        "scale": parseScale(scale_12_hs).scale,
+        "equivSteps": 12,
+        "note_names": [         
+          "E",
+          "E", "F",
+          "G", "G",
+          "A", "A",
+          "B",
+          "C", "C",
+          "D", "D"],
+        "key_labels": "note_names",
+        "note_colors": [
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff"],
+        "spectrum_colors": false,
+        "rSteps": 2,
+        "urSteps": 1,
+        "hexSize": 42,
+        "rotation": -16.102113751,  
+        "fundamental": 440,
+        "reference_degree": 5,
+        "midiin_degree0": 64,
+        "short_description": "12-RI-3L"
+      },
+      {
+        "name": "12-Subharmonic (Elsie Hamilton)",
+        "description": "12-tone 19-Limit Rational Intonation (JI) scale. Derived from the subharmonic partial row, it is limited to partials u12-u25 under F-comma-up, skipping 23°.",
+        "scale_import": scale_12_hamilton,
+        "scale": parseScale(scale_12_hamilton).scale,
+        "equivSteps": 12,
+        "note_names": [
+          "B",
+          "C", "C",
+          "D", "D",
+          "E",
+          "F", "F",
+          "G", "G",
+          "A", "B"],
+        "key_labels": "note_names",
+        "note_colors": [
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff", "#d0d0d7",
+          "#ffffff"],
+        "spectrum_colors": false,
+        "rSteps": 2,
+        "urSteps": 1,
+        "hexSize": 42,
+        "rotation": -16.102113751,  
+        "fundamental": 352,
+        "reference_degree": 7,
+        "midiin_degree0": 58,
+        "short_description": "12-RI-3L"
+      },
+      {
         "name": "HS 12°-48°: harmonic partial row from 12° to 48°",
         "description": "A two octave cycle comprising the harmonic partial row from 12° to 48°. 12° is mapped to MIDI Note 60 (Middle C), and tuned to 240 Hz, giving 1° = 20 Hz. The entire series may be transposed to any fundamental by changing the Reference Frequency, which (in this case) will set the pitch-class 3°. The first octave of the scale (12° to 24°) has 12 pitch-classes, and the second (24° to 48°) has 24, mapping onto 3 octaves of a conventional keyboard. Note that partials below 12° may also be played by taking lower even-numbered scale degrees.",
         "scale_import": scale_36_hs_12to48,
@@ -883,6 +1019,51 @@ export const presets = [
         "reference_degree": 53,
         "midiin_degree0": 51,
         "short_description": "55-HS 55° to 110°"
+      },
+      {
+        "name": "55-Critical Band", 
+        "description": "55-tone 19-Limit Rational Intonation scale, based on James Tenney’s \"Critical Band\". The tones fan out geometrically around A 440, suggesting a sequence of fundamentals rising by octaves (127:128:129, 63:64:65, 31:32:33, 15:16:17, 7:8:9, 3:4:5, 1:2:3). As the frequency band widens, the chords become increasingly harmonic. The space between G-sharp and A-sharp is filled with small steps, the remaining pitch classes make a chromatic harmonic scale.",
+        "scale_import": scale_55_criticalband,
+        "scale": parseScale(scale_55_criticalband).scale,
+        "equivSteps": 55,
+        "note_names": [          
+          "A", "A", "A", 
+          "A", "A", "A", "A", 
+          "B", "B", "B", "B", "B", 
+          "C", "C", "C", "C", "C", 
+          "C", "C", "C", "C", 
+          "D", "D", "D", "D", "D", 
+          "D", "D", "D", "D", 
+          "E", "E", "E", "E", "E", 
+          "E", "E", "E", "E", "E", 
+          "F", "F", "F", "F", 
+          "G", "G", "G", "G", "G", 
+          "G", "G", "A", "A", 
+          "A", "127°"],
+        "key_labels": "note_names",
+        "note_colors": [
+          "#ffffff", "#e0effb", "#e9fff9", 
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9",  
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2",  
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9",  
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2",  
+          "#f4fae2", "#fff8e9"],
+        "spectrum_colors": false,
+        "rSteps": 9,
+        "urSteps": 5,
+        "hexSize": 42,
+        "rotation": -16.102113751,       
+        "fundamental": 220,
+        "reference_degree": 0,
+        "midiin_degree0": 46,
+        "short_description": "55-Critical Band"
       }
     ]
   },
@@ -2423,6 +2604,51 @@ export const presets = [
         "reference_degree": 54,
         "midiin_degree0": 60,
         "short_description": "72edo (Sims/Tenney)"
+      },
+      {
+        "name": "55-Heart of Tones", 
+        "description": "55-tone layout of 1200edo (1 cent steps) based on Pauline Oliveros’s \"Heart of Tones\". The central tone D expands outward by about a semitone on each side.",
+        "scale_import": scale_55cents,
+        "scale": parseScale(scale_55cents).scale,
+        "equivSteps": 55,
+        "note_names": [          
+          "0", "1", "2", 
+          "3", "4", "5", "6", 
+          "7", "8", "9", "10", "11", 
+          "12", "13", "14", "15", "16", 
+          "17", "18", "19", "20", 
+          "21", "22", "23", "25", "25", 
+          "26", "27", "-27", "-26", 
+          "-25", "-24", "-23", "-22", "-21", 
+          "-20", "-19", "-18", "-17", "-16", 
+          "-15", "-14", "-13", "-12", 
+          "-11", "-10", "-9", "-8", "-7", 
+          "-6", "-5", "-4", "-3", 
+          "-2", "-1"],
+        "key_labels": "note_names",
+        "note_colors": [
+          "#ffffff", "#e0effb", "#e9fff9", 
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9",  
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2",  
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9",  
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2", 
+          "#f4fae2", "#fff8e9", "#ffffff", "#e0effb", "#e9fff9", 
+          "#c0b2af", "#a9a9a9", "#a2a5b2", "#ada8b2",  
+          "#f4fae2", "#fff8e9"],
+        "spectrum_colors": false,
+        "rSteps": 9,
+        "urSteps": 5,
+        "hexSize": 42,
+        "rotation": -16.102113751,       
+        "fundamental": 293.333333,
+        "reference_degree": 0,
+        "midiin_degree0": 60,
+        "short_description": "55-Critical Band"
       }
     ]
   },

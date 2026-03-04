@@ -1,25 +1,22 @@
 @font-face {
-    font-family: 'Plainsound Text';
-    src:   
-        url("https://www.plainsound.org/fonts/PlainsoundText-Regular.otf") format("opentype");
-    font-weight: regular;
-    font-style: regular;
+    font-family: 'Plainsound Sans';
+    src: url("./fonts/PlainsoundSans-Regular.otf");
+    font-weight: normal;
+    font-style: normal;
 }
 
 @font-face {
-    font-family: 'Plainsound Text';
-    src:    
-        url("https://www.plainsound.org/fonts/PlainsoundText-Italic.otf") format("opentype");
-    font-weight: regular;
+    font-family: 'Plainsound Sans';
+    src: url("./fonts/PlainsoundSans-Italic.otf");
+    font-weight: normal; 
     font-style: italic;
 }
 
 @font-face {
-    font-family: 'Plainsound Text';
-    src:
-        url("https://www.plainsound.org/fonts/PlainsoundText-Bold.otf") format("opentype");
+    font-family: 'Plainsound Sans';
+    src: url("./fonts/PlainsoundSans-Bold.otf");
     font-weight: bold;
-    font-style: regular;
+    font-style: normal;
 }
 
 body {
@@ -29,7 +26,7 @@ body {
     background-position: top left;
     background-attachment: fixed;
     overflow: hidden;
-    font-family: 'Plainsound Text', 'Roboto Condensed', 'Arial Nova Condensed', 'Arial Narrow', Helvetica, Arial, 'Open Sans', sans-serif;
+    font-family: 'Plainsound Sans', sans-serif;
 }
 
 table {
