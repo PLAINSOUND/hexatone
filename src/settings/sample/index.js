@@ -13,31 +13,32 @@ const SampleSynth = (props) => (
         onChange={(e) => {
           props.onChange(e.target.name, e.target.value);
           sessionStorage.setItem(e.target.name, e.target.value);
-          //console.log("Sound Synthesis selected: ", sessionStorage.getItem(e.target.name));
-        }
-        }>
-        <option value = "OFF">OFF</option>
+        }}>
+        <option value="OFF">OFF</option>
         <option value="sample">Built-In Synth ON</option>
         <option value="midi">MIDI Output ON</option>
       </select>
     </label>
     <label>
-          Fixed velocity (touch input)
-          <input name="midi_velocity" type="number"
-            value={props.settings.midi_velocity}
-            step="1" min="1" max="127"
-            onChange={(e) => {
-              if (parseInt(e.target.value) >= 1 && parseInt(e.target.value) <= 127) {
-                props.onChange(e.target.name, parseInt(e.target.value));
-                sessionStorage.setItem(e.target.name, parseInt(e.target.value));
-              };
-            }
-            } />
+      Fixed velocity (touch input)
+      <input name="midi_velocity" type="text" inputMode="numeric"
+        key={props.settings.midi_velocity}
+        defaultValue={props.settings.midi_velocity}
+        onBlur={(e) => {
+          const val = parseInt(e.target.value);
+          if (!isNaN(val) && val >= 1 && val <= 127) {
+            props.onChange('midi_velocity', val);
+            sessionStorage.setItem('midi_velocity', val);
+          } else {
+            e.target.value = props.settings.midi_velocity;
+          }
+        }}
+      />
     </label>
     {props.settings.output === "sample" && (
       <Sample {...props}/>
     )}
-  </fieldset>  
+  </fieldset>
 );
 
 SampleSynth.propTypes = {

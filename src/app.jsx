@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'preact/hooks';
 
 import Keyboard from './keyboard';
 import { presets, default_settings } from './settings/preset_values';
-import { parseScale, scalaToCents, scalaToLabels, parsedScaleToLabels } from './settings/scale/parse-scale.js';
+import { parseScale, scalaToCents, scalaToLabels, parsedScaleToLabels, settingsToHexatonScala } from './settings/scale/parse-scale.js';
 import { create_sample_synth } from './sample_synth';
 import { instruments } from './sample_synth/instruments';
 
@@ -32,7 +32,9 @@ const findPreset = (preset) => {
   for (let g of presets) {
     for (let p of g.settings) {
       if (p.name === preset) {
-        return p;
+        // Generate annotated scala content so Build Layout preserves
+        // note names, colors and reference pitch for this preset
+        return { ...p, scale_import: settingsToHexatonScala(p) };
       }
     }
   }
@@ -43,7 +45,7 @@ const findPreset = (preset) => {
 const normalize = (settings) => {
   const fundamental_color = (settings.fundamental_color || "").replace(/#/, '');
   const note_colors = settings.note_colors.map(c => c ? c.replace(/#/, '') : "ffffff");
-  const rotation = settings.rotation * Math.PI / 180.0; // convert to radians
+  const rotation = settings.rotation * Math.PI / 180.0;
   const result = { ...settings, fundamental_color, keyCodeToCoords, note_colors, rotation };
   
   if (settings.key_labels === "enumerate") {
@@ -190,10 +192,6 @@ const App = () => {
     settings.output, midi]);
 
   const onChange = (key, value) => {
-    // ─── FIX 2: Always use the setter — never mutate settings directly ─────────
-    // Previously some callers did `settings.someKey = value` which bypasses
-    // Preact's state tracking entirely and won't trigger a re-render.
-    // This single setter is the only correct way to update settings.
     setSettings(s => ({ ...s, [key]: value }));
   };
 
@@ -203,16 +201,76 @@ const App = () => {
     setSettings(s => ({ ...s, ...findPreset(e.target.value) }));
   };
 
+  const onLoadCustomPreset = (preset) => {
+    if (synth && synth.prepare) synth.prepare();
+    setReady(true);
+    setSettings(s => ({ ...s, ...preset }));
+  };
+
   const onImport = () => {
     setSettings(s => {
       if (s.scale_import) {
-        const { filename, description, equivSteps, scale, labels, colors } = parseScale(s.scale_import);
+        const parsed = parseScale(s.scale_import);
+        const { filename, description, equivSteps, scale, labels, colors } = parsed;
+
+        // Fix: parsedScaleToLabels now correctly returns the mapped array
         const scala_names = parsedScaleToLabels(scale);
-        const f_color = colors.pop();
-        const f_name = labels.pop();
-        colors.unshift(f_color === "null" ? "#ffffff" : f_color);
-        labels.unshift(f_name === "null" ? "" : f_name);
-        return { ...s, name: filename, description, equivSteps, scale, scala_names, note_names: labels, note_colors: colors, key_labels: "scala_names" };
+
+        const hasNames = parsed.hexatone_note_names && parsed.hexatone_note_names.some(n => n);
+        const hasColors = parsed.hexatone_note_colors && parsed.hexatone_note_colors.some(c => c);
+        const hasMetadata = hasNames || hasColors;
+
+        let note_names, note_colors;
+
+        if (hasNames) {
+          // Use HEXATONE_* note names from file
+          note_names = parsed.hexatone_note_names;
+        } else if (labels.some(l => l)) {
+          // Use inline labels from scale data lines
+          const f_name = labels.pop();
+          labels.unshift(f_name === 'null' || !f_name ? '' : f_name);
+          note_names = labels;
+        } else {
+          // Plain scala file — clear names
+          note_names = [];
+        }
+
+        if (hasColors) {
+          // Use HEXATONE_* colors from file
+          note_colors = parsed.hexatone_note_colors;
+        } else if (colors.some(c => c)) {
+          // Use inline colors from scale data lines
+          const f_color = colors.pop();
+          colors.unshift(f_color === 'null' || !f_color ? '#ffffff' : f_color);
+          note_colors = colors;
+        } else {
+          // Plain scala file — clear colors, use spectrum
+          note_colors = [];
+        }
+
+        const fundamental = parsed.hexatone_fundamental || s.fundamental;
+        const reference_degree = parsed.hexatone_reference_degree !== undefined
+          ? parsed.hexatone_reference_degree
+          : s.reference_degree;
+        const midiin_degree0 = parsed.hexatone_midiin_degree0 || s.midiin_degree0;
+
+        return {
+          ...s,
+          name: filename || s.name,
+          description: description || s.description,
+          equivSteps,
+          scale,
+          scala_names,
+          note_names,
+          note_colors,
+          fundamental,
+          reference_degree,
+          midiin_degree0,
+          // Plain scala file: show ratios/cents as labels, use spectrum colors
+          key_labels: hasMetadata ? 'note_names' : 'scala_names',
+          spectrum_colors: hasMetadata ? false : true,
+          fundamental_color: hasMetadata ? s.fundamental_color : '#f2e3e3',
+        };
       } else {
         return s;
       }
@@ -252,6 +310,7 @@ const App = () => {
                     presets={presets}
                     onChange={onChange}
                     onImport={onImport}
+                    onLoadCustomPreset={onLoadCustomPreset}
                     settings={settings}
                     midi={midi}
                     instruments={instruments}/>

@@ -7,7 +7,6 @@ import KeyLabels from './key-labels';
 import ScaleTable from './scale-table';
 import ScalaImport from './scala-import';
 
-// import a file with scala data and optionally key labels and colors
 const Scale = (props) => {
   const [importing, setImporting] = useState(false);
 
@@ -21,20 +20,38 @@ const Scale = (props) => {
   return (
   <fieldset>
       <legend><b>Scale</b></legend>
-      <label >
+      <label>
         Reference Frequency (Hz value assigned to any Scale Degree)
-      <input name="fundamental" type="number"
-             value={props.settings.fundamental}
-          step="0.000001" min="0.015625" max="16384"
-          onChange={(e) => props.onChange(e.target.name, parseFloat(e.target.value))}
-             />
+        <input name="fundamental" type="text" inputMode="decimal"
+               key={props.settings.fundamental}
+               defaultValue={props.settings.fundamental}
+               step="0.000001" min="0.015625" max="16384"
+               onBlur={(e) => {
+                 const val = parseFloat(e.target.value);
+                 if (!isNaN(val) && val >= 0.015625 && val <= 16384) {
+                   props.onChange('fundamental', val);
+                 } else {
+                   e.target.value = props.settings.fundamental;
+                 }
+               }}
+        />
       </label>
-      <label >
+      <label>
         Scale Degree to which the Reference Frequency is applied
-      <input name="reference_degree" type="number"
-             value={props.settings.reference_degree}
-             step="1" min="0" max={props.settings.equivSteps - 1}
-             onChange={(e) => props.onChange(e.target.name, parseFloat(e.target.value))}/>
+        <input name="reference_degree" type="text" inputMode="numeric"
+               key={props.settings.reference_degree}
+               defaultValue={props.settings.reference_degree}
+               step="1" min="0" max={props.settings.equivSteps - 1}
+               onBlur={(e) => {
+                 const val = parseInt(e.target.value);
+                 const max = props.settings.equivSteps - 1;
+                 if (!isNaN(val) && val >= 0 && val <= max) {
+                   props.onChange('reference_degree', val);
+                 } else {
+                   e.target.value = props.settings.reference_degree;
+                 }
+               }}
+        />
       </label>
       <p>
       <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) messages, please set global tuning of (all) receiving instrument(s) to A4 = 440 Hz. Choosing a different Kammerton (i.e. 415 Hz or 442 Hz) will transpose everything accordingly. Commonly used values for the Reference Frequency C4 === MIDI Note 60 === Degree 0 are:<br /></em>
@@ -43,7 +60,7 @@ const Scale = (props) => {
       <Colors {...props} />
       <KeyLabels {...props} />
       <br />
-      <ScaleTable {...props} />  
+      <ScaleTable {...props} />
       <br />
       {importing
        ?(<ScalaImport {...props}
@@ -51,12 +68,11 @@ const Scale = (props) => {
                       onCancel={cancelImport}/>)
         : (<>
           <button type="button" onClick={startImporting}>
-            View / Edit / Import Scala File
+            View and Edit Scala File
           </button>
         </>)
       }
       <br />
-      
   </fieldset>
   );
 };

@@ -1,10 +1,9 @@
 import { h } from 'preact';
-import { Fragment } from 'preact/compat';
 import PropTypes from 'prop-types';
 
 const Presets = (props) => (
   <select onChange={props.onChange} name="presets">
-    <option>Choose Preset:</option>
+    <option value="">Choose a built-in tuning</option>
     {props.presets.map(group => (
       <optgroup label={group.name}>
         {group.settings.map(setting => (
@@ -12,7 +11,8 @@ const Presets = (props) => (
         ))}
       </optgroup>
     ))}
-  </select>);
+  </select>
+);
 
 Presets.propTypes = {
   onChange: PropTypes.func.isRequired,
@@ -21,7 +21,7 @@ Presets.propTypes = {
     settings: PropTypes.arrayOf(PropTypes.shape({
       name: PropTypes.string.isRequired,
     })),
-  })).isRequired
+  })).isRequired,
 };
 
 export default Presets;

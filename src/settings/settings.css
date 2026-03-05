@@ -127,4 +127,129 @@ input:out-of-range {
   color: rgb(214, 9, 9);
 }
 
+/* Color swatch + hidden picker + hex text input used in the scale table */
+.color-cell {
+  display: flex;
+  align-items: center;
+  flex-direction: row-reverse;  /* swatch on the right */
+  justify-content: flex-end;
+  gap: 4px;
+  height: 1.5em;
+  position: relative;
+}
 
+.color-swatch {
+  display: inline-block;
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 3px;
+  border: 1px solid #c3c8cb;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: box-shadow 0.1s ease;
+}
+
+.color-swatch:hover {
+  box-shadow: 0 0 0 2px #7cb7ff;
+}
+
+.color-swatch--disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.color-swatch--disabled:hover {
+  box-shadow: none;
+}
+
+.color-picker-hidden {
+  position: absolute;
+  right: 0;            /* hidden picker anchored behind the swatch on the right */
+  top: 0;
+  width: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.color-input {
+  width: calc(100% - 1.8em) !important;
+  height: 1.5em;
+  box-sizing: border-box;
+  background-color: rgb(254, 249, 244);
+  border-width: 1px;
+  border-radius: 3px;
+  border-style: solid;
+  border-color: #c3c8cb;
+  font-family: monospace;
+  font-size: 1.25em;
+}
+
+.color-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Custom presets table */
+.custom-presets-table {
+  width: 100%;
+  margin-bottom: 0.5em;
+}
+
+.custom-presets-table td {
+  padding: 0.1em 0.25em;
+  vertical-align: middle;
+}
+
+.custom-presets-table td:first-child {
+  width: 100%;
+}
+
+.custom-presets-table button {
+  white-space: nowrap;
+}
+
+.delete-btn {
+  color: #a00;
+}
+
+/* Save preset inline form */
+
+.save-preset-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25em;
+  margin-top: 0.25em;
+}
+
+.save-preset-form input[type="text"] {
+  width: 24em !important;
+  height: 1.5em;
+}
+
+.save-preset-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25em;
+  width: 24em;
+}
+
+.preset-error {
+  width: 100%;
+  margin: 0.25em 0 0;
+  color: #a00;
+  font-size: 0.9em;
+}
+
+label .color-cell {
+  flex-shrink: 0;
+  width: auto;
+}
+
+label .color-cell .color-input {
+  width: 6.3em !important;
+  flex: none;
+}
