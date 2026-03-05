@@ -65,7 +65,7 @@ export const ExtractBool = new Extract(x => x === "true", x => x.toString());
 export const ExtractBoolArray = new Extract(x => x === "true", x => x.toString());
 
 export function useQuery(spec, defaults) {
-  const initial = {};
+  const initial = { ...defaults };
   if (document.location.search.length > 0) {
     const query = new URLSearchParams(document.location.search.substring(1));
     for (let [key, extract] of Object.entries(spec)) {

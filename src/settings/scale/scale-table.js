@@ -47,10 +47,12 @@ const ScaleTable = (props) => {
   return (
     <table>
       <thead>
-        <th class="wide" id="leftaligned">Frequency Ratio&nbsp;&nbsp;|&nbsp;&nbsp;Cents&nbsp;&nbsp;|&nbsp;&nbsp;EDO-steps</th>
-        <th>Degree</th>
-        <th>Name</th>
-        <th>Colour</th>
+        <tr>
+          <th class="wide" id="leftaligned">Frequency Ratio&nbsp;&nbsp;|&nbsp;&nbsp;Cents&nbsp;&nbsp;|&nbsp;&nbsp;EDO-steps</th>
+          <th>Degree</th>
+          <th>Name</th>
+          <th>Colour</th>
+        </tr>
       </thead>
       <tbody>
         <tr>
@@ -132,7 +134,7 @@ ScaleTable.propTypes = {
     key_labels: PropTypes.string,
     spectrum_colors: PropTypes.bool,
     fundamental_color: PropTypes.number,
-    note_colors: PropTypes.arrayOf(colorProp),
+    note_colors: PropTypes.arrayOf(PropTypes.string),
     note_names: PropTypes.arrayOf(PropTypes.string)
   }),
 };

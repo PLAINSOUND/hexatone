@@ -1,36 +1,78 @@
-import axios from 'axios';
 import { instruments } from './instruments';
 import { scalaToCents } from '../settings/scale/parse-scale';
 
 // Three concepts:
 // Coordinates -> Scale degree -> Pitch/midi
+
+// ─── Single shared AudioContext ───────────────────────────────────────────────
+// Created lazily inside prepare() which is only called after a user gesture,
+// satisfying Chrome's autoplay policy. Reused across all synth instances to
+// avoid hitting the browser's context limit (~6).
+let sharedAudioContext = null;
+
+// ─── Single findInstrument replaces six identical loops ───────────────────────
+const findInstrument = (fileName) => {
+  for (const group of instruments) {
+    for (const instrument of group.instruments) {
+      if (instrument.fileName === fileName) {
+        return instrument;
+      }
+    }
+  }
+  console.error("Unable to find configured instrument:", fileName);
+  return null;
+};
+
 export const create_sample_synth = async (fileName, fundamental, reference_degree, scale) => {
   try {
-    const sampleGain = findGain(fileName);
-    const sampleAttack = findAttack(fileName);
-    const sampleRelease = findRelease(fileName);
-    const sampleLoop = findLoop(fileName);
-    const sampleLoopPoints = findLoopPoints(fileName);
-    const velocity_response = findVelocity(fileName);
-    const audioContext = new AudioContext();
-    const s110 = await loadSample(audioContext, fileName, "110");
-    const s220 = await loadSample(audioContext, fileName, "220");
-    const s440 = await loadSample(audioContext, fileName, "440");
-    const s880 = await loadSample(audioContext, fileName, "880");
+    const instrument = findInstrument(fileName);
+    if (!instrument) throw new Error(`Instrument not found: ${fileName}`);
 
-    const samples = [s110, s220, s440, s880];
+    const { gain: sampleGain, attack: sampleAttack, release: sampleRelease,
+            loop: sampleLoop, velocity: velocity_response } = instrument;
+    const sampleLoopPoints = instrument.loopPoints || [0, 0, 0, 0, 0, 0, 0, 0];
 
-    var offset = 0;
+    // ── Fetch raw ArrayBuffers now — no AudioContext needed, no gesture required
+    const [b110, b220, b440, b880] = await Promise.all([
+      fetch(`sounds/${fileName}110.mp3`).then(r => r.arrayBuffer()),
+      fetch(`sounds/${fileName}220.mp3`).then(r => r.arrayBuffer()),
+      fetch(`sounds/${fileName}440.mp3`).then(r => r.arrayBuffer()),
+      fetch(`sounds/${fileName}880.mp3`).then(r => r.arrayBuffer()),
+    ]);
+
+    const rawBuffers = [b110, b220, b440, b880];
+
+    // decodedBuffers is populated by prepare() after a user gesture
+    let decodedBuffers = null;
+
+    let offset = 0;
     if (reference_degree > 0) {
       offset = scalaToCents(scale[reference_degree - 1]);
-    };
-    //console.log("reference_degree:", reference_degree);
-    //console.log("offset_value:", offset);
-    
+    }
 
     return {
+      // ── Call once after a user gesture (e.g. preset selection) ───────────────
+      // Creates/resumes the AudioContext and decodes all samples so that noteOn
+      // is fully synchronous and has no latency.
+      prepare: async () => {
+        if (!sharedAudioContext) {
+          sharedAudioContext = new AudioContext();
+        }
+        if (sharedAudioContext.state === 'suspended') {
+          await sharedAudioContext.resume();
+        }
+        // slice(0) copies the buffer — decodeAudioData consumes its argument
+        decodedBuffers = await Promise.all(
+          rawBuffers.map(buf => sharedAudioContext.decodeAudioData(buf.slice(0)))
+        );
+      },
+
       makeHex: (coords, cents, velocity_played) => {
-        return new ActiveHex(coords, cents, velocity_played, fundamental, offset, sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints, velocity_response, samples, audioContext);
+        return new ActiveHex(
+          coords, cents, velocity_played, fundamental, offset,
+          sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
+          velocity_response, decodedBuffers, sharedAudioContext
+        );
       },
     };
   } catch (e) {
@@ -38,16 +80,12 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
   }
 };
 
-const loadSample = async (audioContext, name, freq) => {
-  const file = await axios.get(`sounds/${name}${freq}.mp3`, {responseType: "arraybuffer"});
-  const sample = await audioContext.decodeAudioData(file.data);
-  return sample;
-}
+function ActiveHex(coords, cents, velocity_played, fundamental, offset,
+  sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
+  velocity_response, sampleBuffer, audioContext) {
 
-function ActiveHex(coords, cents, velocity_played, fundamental, offset, sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints, velocity_response, sampleBuffer, audioContext) {
-  this.coords = coords;// these end up being used by the keys class
+  this.coords = coords;
   this.release = false;
-
   this.cents = cents;
   this.velocity_played = velocity_played;
   this.fundamental = fundamental;
@@ -62,150 +100,68 @@ function ActiveHex(coords, cents, velocity_played, fundamental, offset, sampleGa
   this.audioContext = audioContext;
 }
 
-// Does this need to be a param or is it constant for the hex? i think constant
 ActiveHex.prototype.noteOn = function() {
-  var freq = this.fundamental * Math.pow(2, (this.cents - this.offset) / 1200);
-  if (this.velocity_response) {
-    var vol = 0.15 + (0.85 * ((this.velocity_played / 127) ** 0.75));
-  } else { var vol = 0.85 };
-  //console.log("vol:", vol);
-  var source = this.audioContext.createBufferSource(); // creates a sound source
-  // choose sample
-  var sampleFreq = 110;
-  var sampleNumber = 0;
+  // Guard: prepare() may not have completed yet if the user is very fast
+  if (!this.sampleBuffer || !this.audioContext) return;
+
+  const freq = this.fundamental * Math.pow(2, (this.cents - this.offset) / 1200);
+  const vol = this.velocity_response
+    ? 0.15 + (0.85 * ((this.velocity_played / 127) ** 0.75))
+    : 0.85;
+
+  const source = this.audioContext.createBufferSource();
+
+  // Choose the sample closest to the target frequency
+  let sampleFreq = 110;
+  let sampleNumber = 0;
   if (freq > 155) {
     if (freq > 311) {
       if (freq > 622) {
-        sampleFreq = 880;
-        sampleNumber = 3;
+        sampleFreq = 880; sampleNumber = 3;
       } else {
-        sampleFreq = 440;
-        sampleNumber = 2;
+        sampleFreq = 440; sampleNumber = 2;
       }
     } else {
-      sampleFreq = 220;
-      sampleNumber = 1;
+      sampleFreq = 220; sampleNumber = 1;
     }
   }
 
-  if (!(this.sampleBuffer[sampleNumber])) return; // Sample not yet loaded
+  if (!this.sampleBuffer[sampleNumber]) return;
 
-  source.buffer = this.sampleBuffer[sampleNumber]; // tell the source which sound to play
-  source.loop = this.sampleLoop; // tell it to loop if needed
+  source.buffer = this.sampleBuffer[sampleNumber];
+  source.loop = this.sampleLoop;
+  source.loopStart = this.sampleLoopPoints[sampleNumber * 2] > 0
+    ? this.sampleLoopPoints[sampleNumber * 2] : 0;
+  source.loopEnd = this.sampleLoopPoints[(sampleNumber * 2) + 1] > 0
+    ? this.sampleLoopPoints[(sampleNumber * 2) + 1] : 0;
 
-  if (this.sampleLoopPoints[sampleNumber * 2] > 0) { // find the loop start
-    source.loopStart = this.sampleLoopPoints[sampleNumber * 2];
-  } else {
-    source.loopStart = 0;
-  };
-
-  if (this.sampleLoopPoints[(sampleNumber * 2) + 1] > 0) { // find the loop end
-    source.loopEnd = this.sampleLoopPoints[(sampleNumber * 2) + 1];
-  } else {
-    source.loopEnd = 0;
-  };
-
-  //console.log("current loop:", source.loopStart, source.loopEnd);
-  
   source.playbackRate.value = freq / sampleFreq;
-  // Create a gain node.
-  var gainNode = this.audioContext.createGain();
-  // Connect the source to the gain node.
+
+  const gainNode = this.audioContext.createGain();
   source.connect(gainNode);
-  // Connect the gain node to the destination.
   gainNode.connect(this.audioContext.destination);
-  source.connect(gainNode); // connect the source to the context's destination (the speakers)
   gainNode.gain.value = 0;
-  source.start(0); // play the source now
-  gainNode.gain.setTargetAtTime(this.sampleGain * vol, this.audioContext.currentTime, this.sampleAttack);
+  source.start(0);
+  gainNode.gain.setTargetAtTime(
+    this.sampleGain * vol,
+    this.audioContext.currentTime,
+    this.sampleAttack
+  );
   this.source = source;
   this.gainNode = gainNode;
 };
 
-ActiveHex.prototype.noteOff = function () {
-  var fadeout = this.audioContext.currentTime + this.sampleRelease;
-  if (this.gainNode) {
-    this.gainNode.gain.setTargetAtTime(0, this.audioContext.currentTime, this.sampleRelease);
-    //console.log("release:", this.sampleRelease);
-  }
-  if (this.source) {
-    this.source.stop(fadeout + 6);
-  }
-};
-
-const findGain = (fileName) => {
-  for (let g of instruments) {
-    for (let i of g.instruments) { 
-      if (i.fileName === fileName) {
-        return i.gain;
-      }
-    }
-  }
-  console.error("Unable to find configured instrument");
-  return 0;
-};
-
-const findAttack = (fileName) => {
-  for (let g of instruments) {
-    for (let i of g.instruments) { 
-      if (i.fileName === fileName) {
-        return i.attack;
-      }
-    }
-  }
-  console.error("Unable to find configured instrument");
-  return 0;
-};
-
-const findRelease = (fileName) => {
-  for (let g of instruments) {
-    for (let i of g.instruments) { 
-      if (i.fileName === fileName) {
-        return i.release;
-      }
-    }
-  }
-  console.error("Unable to find configured instrument");
-  return 0.1;
-};
-
-const findLoop = (fileName) => {
-  for (let g of instruments) {
-    for (let i of g.instruments) { 
-      if (i.fileName === fileName) {
-        return i.loop;
-      }
-    }
-  }
-  console.error("Unable to find configured instrument");
-  return false;
-};
-
-const findLoopPoints = (fileName) => {
-  for (let g of instruments) {
-    for (let i of g.instruments) { 
-      if (i.fileName === fileName) {
-        if (i.loopPoints) {
-          return i.loopPoints;
-        } else {
-          return [0, 0, 0, 0, 0, 0, 0, 0];
-        }
-      }
-    }
-  }
-  console.error("Unable to find configured instrument");
-};
-
-const findVelocity = (fileName) => {
-  for (let g of instruments) {
-    for (let i of g.instruments) { 
-      if (i.fileName === fileName) {
-        return i.velocity;
-      }
-    }
-  }
-  console.error("Unable to find configured instrument");
-  return false;
+ActiveHex.prototype.noteOff = function() {
+  if (!this.gainNode || !this.source) return;
+  const now = this.audioContext.currentTime;
+  const releaseEnd = now + this.sampleRelease * 4; // *4 gives a similar perceptual length to the old curve
+  // Cancel any scheduled gain changes, then ramp linearly to exactly 0.
+  // linearRampToValueAtTime reaches true zero, avoiding the click Firefox
+  // produces when a node is stopped with residual signal still present.
+  this.gainNode.gain.cancelScheduledValues(now);
+  this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+  this.gainNode.gain.linearRampToValueAtTime(0, releaseEnd);
+  this.source.stop(releaseEnd);
 };
 
 export default create_sample_synth;

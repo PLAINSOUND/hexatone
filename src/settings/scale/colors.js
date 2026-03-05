@@ -3,7 +3,8 @@ import { Fragment } from 'preact/compat';
 import PropTypes from 'prop-types';
 
 export const colorProp = function(props, propName, componentName) {
-  if (!/#[a-zA-Z0-9]{6}/.test(props[propName])) {
+  const value = props[propName];
+  if (value !== undefined && !/#[a-zA-Z0-9]{6}/.test(props[propName])) {
     return new Error(
       'Invalid hex color for prop `' + propName + '` supplied to' +
         ' `' + componentName + '`. Validation failed.'

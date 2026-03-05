@@ -5,6 +5,9 @@ import "./keyboard.css";
 import PropTypes from 'prop-types';
 
 const Keyboard = (props) => {
+  if (props.synth.prepare) {
+    props.synth.prepare();
+  }
   const canvas = useRef(null);
   useEffect(() => {
     const keys = new Keys(canvas.current, props.settings, props.synth, props.active);
@@ -14,8 +17,7 @@ const Keyboard = (props) => {
   return (
     <Fragment>
       <canvas ref={canvas} tabindex="1" className="keyboard"
-              width="1897" height="936"
-              style="height: 936px; width: 1897px; margin-top: -468px; margin-left: -948.5px;">
+        width={window.innerWidth} height={window.innerHeight}>
       </canvas>
     </Fragment>
   );
@@ -66,7 +68,6 @@ Keyboard.propTypes = {
     fundamental_color: PropTypes.string,    
   }).isRequired,
   synth: PropTypes.object.isRequired,
-  onQuit: PropTypes.func.isRequired,
 };
 
 export default Keyboard;

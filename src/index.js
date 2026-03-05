@@ -1,5 +1,4 @@
 import { h, render } from 'preact';
-import "regenerator-runtime/runtime";
 import {options} from 'preact';
 import PropTypes from 'prop-types';
 import App from './app.js';
