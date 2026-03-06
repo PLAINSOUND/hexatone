@@ -84,6 +84,7 @@ const CustomPresets = ({ settings, onLoad, isActive }) => {
     setPresets(next);
     setSelected(tuningName);
     setError('');
+    onLoad(preset); // marks this as the active source, resetting the built-in menu
   };
 
   const handleExport = () => {
