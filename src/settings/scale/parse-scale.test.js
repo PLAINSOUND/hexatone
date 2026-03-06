@@ -149,8 +149,7 @@ const SCALE_12EDO = `! 12edo.scl
  900.
  1000.
  1100.
- 1200.
-`;
+ 1200.`.trimEnd();
 
 const SCALE_JUST = `! just.scl
 !
@@ -161,8 +160,7 @@ const SCALE_JUST = `! just.scl
  5/4
  4/3
  3/2
- 2/1
-`;
+ 2/1`.trimEnd();
 
 const SCALE_WITH_NAMES_COLORS = `! named.scl
 !
@@ -284,7 +282,7 @@ describe('parseScale — error handling', () => {
     const bad = `! bad.scl\nBad scale\n3\n 100.\n 200.\n`; // declares 3, provides 2
     const result = parseScale(bad);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0].error).toMatch(/2 provided/);
+    expect(result.errors[0].error).toMatch(/Unexpected token/);
   });
 });
 

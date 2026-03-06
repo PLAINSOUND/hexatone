@@ -50,19 +50,18 @@ export default defineConfig({
     host: '0.0.0.0',
   },
 
-  // ── Vitest configuration ────────────────────────────────────────────────────
+  // ── Vitest ──────────────────────────────────────────────────────────────────
   test: {
     environment: 'jsdom',
-    globals: true,           // provides describe / it / expect without imports
+    globals: true,
     setupFiles: ['./vitest.setup.js'],
-    include: ['src/**/*.test.{js,jsx,ts,tsx}'],
-    // Alias rules are inherited from resolve.alias above.
-    // Mock static assets (fonts, images, audio, scala files) the same way
-    // the old Jest config did — just return an empty string.
-    server: {
-      deps: {
-        inline: ['@testing-library/preact'],
-      },
+    include: ['src/**/*.test.{js,jsx}'],
+
+    // Stub static assets — same role as the old Jest moduleNameMapper
+    moduleNameMapper: {
+      '\\.(mp3|wav|ogg|scl|ascl|svg|png|jpg|jpeg|gif|woff|woff2|ttf|eot)(\\?.*)?$':
+        '<rootDir>/__mocks__/fileMock.js',
+      '\\.(css|less)$': '<rootDir>/__mocks__/styleMock.js',
     },
   },
 });

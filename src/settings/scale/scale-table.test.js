@@ -1,179 +1,168 @@
-import { h } from 'preact';
-import { shallow, mount } from 'enzyme';
-import { act } from 'preact/test-utils';
+/**
+ * Tests for src/settings/scale/scale-table.js
+ *
+ * The ScaleTable component renders a table of scale degrees, names and colors.
+ * Tests use aria-labels (already present in the component) to find inputs,
+ * avoiding brittleness from position or implementation details.
+ */
 
+import { h } from 'preact';
+import { render, screen, fireEvent } from '@testing-library/preact';
 import ScaleTable from './scale-table';
 
-const scale_values = ["100", "200", "300", "400", "500", "600", "700", "800", "900", "1000", "1100", "1200"];
-const scale_labels = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const scale_colors = ["#ffffff", "#7b7b7b", "#ffffff", "#7b7b7b", "#ffffff", "#ffffff", "#7b7b7b", "#ffffff", "#7b7b7b", "#ffffff", "#7b7b7b", "#ffffff"];
-describe("The scale table", () => {
-  describe("Key labels", () => {
-    describe("Using enumerated key labels", () => {
-      const settings = {
-        scale: scale_values,
-        key_labels: "enumerate",
-        spectrum_colors: true,
-        fundamental_color: "#abcdef",
-      };
-      it("should disable all the label inputs and set the values to the generated values", () => {
-        const c = shallow(<ScaleTable settings={settings} onChange={()=>{}}/>);
-        const input = c.find('input[name="name4"]');
-        expect(input.prop("disabled")).toBe(true);
-        expect(input.prop("value")).toBe(4);
-      });
-    });
-    describe("Using blank key labels", () => {
-      const settings = {
-        scale: scale_values,
-        key_labels: "no_labels",
-        spectrum_colors: true,
-        fundamental_color: "#abcdef",
-      };
-      it("should disable all the label inputs and set the value blank", () => {
-        const c = shallow(<ScaleTable settings={settings} onChange={()=>{}}/>);
-        const input = c.find('input[name="name4"]');
-        expect(input.prop("disabled")).toBe(true);
-        expect(input.prop("value")).toBe("");
-      });
-    });
-    describe("Using explicit key labels", () => {
-      const settings = {
-        scale: scale_values,
-        key_labels: "note_names",
-        note_names: scale_labels,
-        spectrum_colors: true,
-        fundamental_color: "#abcdef",
-      };
-      it("should enable all the label inputs and populate values.", () => {
-        const c = shallow(<ScaleTable settings={settings} onChange={()=>{}}/>);
-        const input = c.find('input[name="name4"]');
-        expect(input.prop("disabled")).toBe(false);
-        expect(input.prop("value")).toBe(scale_labels[4]);
-      });
-      it("should update a value", () => {
-        const mockChange = jest.fn();
-        const c = shallow(<ScaleTable settings={settings} onChange={mockChange}/>);
-        const input = c.find('input[name="name3"]');
-        const event = { target: { value: 'X', name: 'name3'}};
-        input.prop('onChange')(event);
+// ── Fixtures ──────────────────────────────────────────────────────────────────
 
-        const expected = [...scale_labels];
-        expected[3] = 'X';
+const scale_values = [
+  '100.', '200.', '300.', '400.', '500.', '600.',
+  '700.', '800.', '900.', '1000.', '1100.', '1200.',
+];
+const scale_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const scale_colors = [
+  '#ffffff', '#7b7b7b', '#ffffff', '#7b7b7b', '#ffffff', '#ffffff',
+  '#7b7b7b', '#ffffff', '#7b7b7b', '#ffffff', '#7b7b7b', '#ffffff',
+];
 
-        expect(mockChange.mock.calls.length).toBe(1);
-        expect(mockChange.mock.calls[0][0]).toBe("note_names");
-        expect(mockChange.mock.calls[0][1]).toStrictEqual(expected);
-      });
-    });
+const settingsBase = {
+  scale: scale_values,
+  spectrum_colors: false,
+  note_colors: scale_colors,
+  note_names: scale_names,
+  key_labels: 'note_names',
+};
+
+// ── Key labels ────────────────────────────────────────────────────────────────
+
+describe('ScaleTable — key labels: note_names', () => {
+  it('name inputs are enabled when key_labels is note_names', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch name 0').disabled).toBe(false);
   });
 
-  describe("Scale colors", () => {
-    describe("Using explicit colors", () => {
-      const settings = {
-        scale: scale_values,
-        key_labels: "no_labels",
-        spectrum_colors: false,
-        note_colors: scale_colors,
-      };
-      it("should enable all the color inputs and populate values.", () => {
-        const c = shallow(<ScaleTable settings={settings} onChange={()=>{}}/>);
-        const input = c.find('input[name="color3"]');
-        expect(input.prop("disabled")).toBe(false);
-        expect(input.prop("value")).toBe(scale_colors[3]);
-      });
-      it("should update a value", () => {
-        const mockChange = jest.fn();
-        const c = shallow(<ScaleTable settings={settings} onChange={mockChange}/>);
-        const input = c.find('input[name="color3"]');
-        const event = { target: { value: '#fedcba', name: 'color3'}};
-        input.prop('onChange')(event);
-
-        const expected = [...scale_colors];
-        expected[3] = '#fedcba';
-
-        expect(mockChange.mock.calls.length).toBe(1);
-        expect(mockChange.mock.calls[0][0]).toBe("note_colors");
-        expect(mockChange.mock.calls[0][1]).toStrictEqual(expected);
-      });
-    });
-
-    describe("Using spectrum colors", () => {
-      it("should disable all the color inputs and show the generated values.", () => {
-        const settings = {
-          scale: scale_values,
-          key_labels: "no_labels",
-          spectrum_colors: true,
-          fundamental_color: "#abcdef",
-        };
-        const c = shallow(<ScaleTable settings={settings} onChange={()=>{}}/>);
-        const colors = c.find('input[type="color"]');
-        expect(colors.at(0).prop("disabled")).toBe(true);
-        expect(colors.at(0).prop("value")).toBe("#abcdef");
-        expect(colors.at(1).prop("value")).toBe("#abcdef");
-        expect(colors.at(2).prop("value")).toBe("#abcdef");
-        expect(colors.at(3).prop("value")).toBe("#abcdef");
-        expect(colors.at(4).prop("value")).toBe("#abcdef");
-        expect(colors.at(5).prop("value")).toBe("#abcdef");
-        expect(colors.at(6).prop("value")).toBe("#abcdef");
-        expect(colors.at(7).prop("value")).toBe("#abcdef");
-        expect(colors.at(8).prop("value")).toBe("#abcdef");
-        expect(colors.at(9).prop("value")).toBe("#abcdef");
-        expect(colors.at(10).prop("value")).toBe("#abcdef");
-        expect(colors.at(11).prop("value")).toBe("#abcdef");
-      });
-    });
+  it('name inputs are populated with note_names values', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch name 0').value).toBe('C');
+    expect(screen.getByLabelText('pitch name 3').value).toBe('D#');
   });
 
-  describe("The scale steps.", () => {
-    const settings = {
-      scale: scale_values,
-      key_labels: "note_names",
-      note_names: scale_labels,
-      spectrum_colors: false,
-      note_colors: scale_colors,
-    };
-    const c = shallow(<ScaleTable settings={settings} onChange={()=>{}}/>);
-    it("should render each of the steps in an input", () => {
-      expect(c.find('tbody').children()).toHaveLength(scale_values.length + 1);
-      const third = c.find('tr').at(2).find('input');
-      expect(third).toHaveLength(3);
-      expect(third.at(0).prop("name")).toBe("scale1");
-      expect(third.at(0).prop("value")).toBe(scale_values[1]);
-      expect(third.at(1).prop("name")).toBe("name2");
-      expect(third.at(1).prop("value")).toBe(scale_labels[2]);
-      expect(third.at(2).prop("name")).toBe("color2");
-      expect(third.at(2).prop("value")).toBe(scale_colors[2]);
-    });
-    it("should render the root without a scale input.", () => {
-      const first = c.find('tr').first().find('input');
-      expect(first).toHaveLength(2);
-      expect(first.at(0).prop("name")).toBe("name0");
-      expect(first.at(0).prop("value")).toBe(scale_labels[0]);
-      expect(first.at(1).prop("name")).toBe("color0");
-      expect(first.at(1).prop("value")).toBe(scale_colors[0]);
-    });
-    it("should render the last item with only the scale input and a disabled color", () => {
-      const last = c.find('tr').last().find('input');
-      expect(last).toHaveLength(2);
-      expect(last.at(0).prop("name")).toBe("scale11");
-      expect(last.at(0).prop("value")).toBe(scale_values[11]);
-      expect(last.at(1).prop("value")).toBe(scale_colors[0]);
-      expect(last.at(1).prop("disabled")).toBe(true);
-    });
-    it("should update a value", () => {
-      const mockChange = jest.fn();
-      const c = shallow(<ScaleTable settings={settings} onChange={mockChange}/>);
-      const input = c.find('input[name="scale11"]');
-      const event = { target: { value: '1100.7', name: 'scale11'}};
-      input.prop('onChange')(event);
+  it('calls onChange("note_names", ...) with updated array when a name is changed', () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText('pitch name 3');
+    fireEvent.change(input, { target: { value: 'Eb', name: 'name3' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toBe('note_names');
+    const updated = onChange.mock.calls[0][1];
+    expect(updated[3]).toBe('Eb');
+    expect(updated[0]).toBe('C');
+    expect(updated[4]).toBe('E');
+  });
+});
 
-      const expected = [...scale_values];
-      expected[11] = '1100.7';
+describe('ScaleTable — key labels: no_labels', () => {
+  const settings = { ...settingsBase, key_labels: 'no_labels' };
 
-      expect(mockChange.mock.calls.length).toBe(1);
-      expect(mockChange.mock.calls[0][0]).toBe("scale");
-      expect(mockChange.mock.calls[0][1]).toStrictEqual(expected);
-    });
+  it('name inputs are disabled', () => {
+    render(<ScaleTable settings={settings} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch name 0').disabled).toBe(true);
+  });
+});
+
+describe('ScaleTable — key labels: enumerate', () => {
+  const settings = { ...settingsBase, key_labels: 'enumerate' };
+
+  it('name inputs are disabled', () => {
+    render(<ScaleTable settings={settings} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch name 0').disabled).toBe(true);
+  });
+});
+
+// ── Scale values ──────────────────────────────────────────────────────────────
+
+describe('ScaleTable — scale value inputs', () => {
+  it('scale inputs are populated with the correct values', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch value 0').value).toBe('100.');
+    expect(screen.getByLabelText('pitch value 4').value).toBe('500.');
+  });
+
+  it('calls onChange("scale", ...) with updated array when a value is changed', () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText('pitch value 4');
+    fireEvent.change(input, { target: { value: '498.04', name: 'scale4' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toBe('scale');
+    const updated = onChange.mock.calls[0][1];
+    expect(updated[4]).toBe('498.04');
+    expect(updated[0]).toBe('100.');
+  });
+});
+
+// ── Colors ────────────────────────────────────────────────────────────────────
+
+describe('ScaleTable — explicit colors', () => {
+  it('color inputs are enabled when spectrum_colors is false', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch color 0').disabled).toBe(false);
+  });
+
+  it('color inputs have the correct values', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch color 0').value).toBe('#ffffff');
+    expect(screen.getByLabelText('pitch color 1').value).toBe('#7b7b7b');
+  });
+
+  it('calls onChange("note_colors", ...) with updated array when a color is changed', () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText('pitch color 2');
+    fireEvent.change(input, { target: { value: '#ff0000', name: 'color2' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toBe('note_colors');
+    const updated = onChange.mock.calls[0][1];
+    expect(updated[2]).toBe('#ff0000');
+    expect(updated[0]).toBe('#ffffff');
+  });
+});
+
+describe('ScaleTable — spectrum colors', () => {
+  const settings = {
+    ...settingsBase,
+    spectrum_colors: true,
+    fundamental_color: '#abcdef',
+  };
+
+  it('color inputs are disabled when spectrum_colors is true', () => {
+    render(<ScaleTable settings={settings} onChange={() => {}} />);
+    expect(screen.getByLabelText('pitch color 0').disabled).toBe(true);
+  });
+
+  it('all color inputs show the fundamental_color', () => {
+    render(<ScaleTable settings={settings} onChange={() => {}} />);
+    // degrees 0–11 (the equave repeat row uses aria-label="pitch color equave")
+    for (let i = 0; i < 12; i++) {
+      expect(screen.getByLabelText(`pitch color ${i}`).value).toBe('#abcdef');
+    }
+    // equave row always mirrors degree 0
+    expect(screen.getByLabelText('pitch color equave').value).toBe('#abcdef');
+  });
+});
+
+// ── Table structure ───────────────────────────────────────────────────────────
+
+describe('ScaleTable — table structure', () => {
+  it('renders a row for each scale degree plus root and equave', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    // scale_values has 12 entries; ScaleTable shows root + 11 intervals + equave repeat = 13 rows
+    const rows = document.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(scale_values.length + 1);
+  });
+
+  it('root row has no scale value input', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    // degree 0 row only has name and color inputs, no pitch value input
+    expect(screen.queryByLabelText('pitch value 0')).not.toBeNull(); // first interval = degree 1
+    // No "pitch value" aria-label for degree 0 (the 1/1 row)
+    expect(document.querySelectorAll('input[aria-label="pitch value -1"]').length).toBe(0);
   });
 });

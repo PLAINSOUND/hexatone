@@ -1,330 +1,260 @@
-/*
-  Parsing scale information encoded in the Scala .scl format.
-  http://www.huygens-fokker.org/scala/scl_format.html
+/**
+ * Tests for src/settings/scale/parse-scale.js
+ *
+ * Covers: parseScale, scalaToCents, scalaToLabels, parsedScaleToLabels
+ *
+ * NOTE: normaliseDegree, settingsToHexatonScala, fileToPreset are tested in
+ * parse-scale-extended.test.js once those functions are deployed to source.
+ */
 
-  This parser also allows encoding of key labels and key colors (hex format, i.e. #ffffff)
-  Extended HEXATONE_* and ABLETON_* comment lines are read for full round-trip fidelity.
-*/
+import {
+  parseScale,
+  scalaToCents,
+  scalaToLabels,
+  parsedScaleToLabels,
+} from './parse-scale';
 
-export const parseScale = (scala) => {
-  const out = {
-    scale: [],
-    colors: [],
-    labels: [],
-    errors: [],
-  };
-  var lines = scala.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
-    let match;
-    if (line.match(/^\s+$/)) {
-      continue;
-    } else if (match = line.match(/^\s*!\s*HEXATONE_NOTE_NAMES\s+(.+)$/)) {
-      out.hexatone_note_names = match[1].split(',').map(s => s.trim());
-    } else if (match = line.match(/^\s*!\s*HEXATONE_NOTE_COLORS\s+(.+)$/)) {
-      out.hexatone_note_colors = match[1].split(',').map(s => s.trim());
-    } else if (match = line.match(/^\s*!\s*HEXATONE_REFERENCE_PITCH\s+(\d+)\s+([\d.]+)$/)) {
-      out.hexatone_reference_degree = parseInt(match[1]);
-      out.hexatone_fundamental = parseFloat(match[2]);
-    } else if (match = line.match(/^\s*!\s*HEXATONE_MIDIIN_DEGREE0\s+(\d+)$/)) {
-      out.hexatone_midiin_degree0 = parseInt(match[1]);
-    } else if (match = line.match(/^\s*!\s*ABLETON_REFERENCE_PITCH\s+(\d+)\s+([\d.]+)$/)) {
-      out.ableton_reference_note = parseInt(match[1]);
-      out.ableton_reference_freq = parseFloat(match[2]);
-    } else if (match = line.match(/^\s*!\s*ABLETON_ROOT_NOTE\s+(\d+)$/)) {
-      out.ableton_root_note = parseInt(match[1]);
-    } else if (line.match(/^\s*!/)) {
-      if (!out.filename) {
-        const fname = line.split('!', 2)[1].trim();
-        if (fname) out.filename = fname;
-      }
-      continue;
-    } else if (!out.description) {
-      out.description = line.trim();
-    } else if (!out.equivSteps && line.match(/^\s*[0-9]+\s*$/)) {
-      out.equivSteps = parseInt(line.trim());
-    } else if (match = line.match(/^\s*(-?[0-9]+\.[0-9]*|[0-9]+\/[0-9]*|[0-9]+\\[0-9]*|[0-9]+)\s*$/)) {
-      out.scale.push(match[1]);
-      out.labels.push(null);
-      out.colors.push(null);
-    } else if (match = line.match(/^\s*(-?[0-9]+\.[0-9]*|[0-9]+\/[0-9]*|[0-9]+\\[0-9]*|[0-9]+)\s+(#[a-fA-F0-9]{6})$/)) {
-      out.scale.push(match[1]);
-      out.labels.push(null);
-      out.colors.push(match[2].toLowerCase());
-    } else if (match = line.match(/^\s*(-?[0-9]+\.[0-9]*|[0-9]+\/[0-9]*|[0-9]+\\[0-9]*|[0-9]+)\s+(.*)\s+(#[a-fA-F0-9]{6})$/)) {
-      out.scale.push(match[1]);
-      out.labels.push(match[2].trim());
-      out.colors.push(match[3].toLowerCase());
-    } else if (match = line.match(/^\s*(-?[0-9]+\.[0-9]*|[0-9]+\/[0-9]*|[0-9]+\\[0-9]*|[0-9]+\\[0-9]*|[0-9]+)\s+(.*)\s*$/)) {
-      out.scale.push(match[1]);
-      out.labels.push(match[2].trim());
-      out.colors.push(null);
-    } else {
-      out.errors.push({ line: i, value: line, error: 'Unexpected token.' });
-    }
-  }
-  if (out.equivSteps !== out.scale.length) {
-    out.errors.push({ line: lines.length, error: `${out.equivSteps} pitches specified, but ${out.scale.length} provided` });
-  }
-  return out;
-};
+// ── scalaToCents ──────────────────────────────────────────────────────────────
 
-// Convert a scale degree string to cents.
-// Handles: ratio (3/2), decimal cents (701.955), EDO step (7\12), plain integer (3 → 3/1).
-export const scalaToCents = (line) => {
-  if (typeof line === 'number') {
-    return line > 0 ? 1200 * Math.log(line) / Math.log(2) : 0;
-  }
-  if (line.match(/\//)) {
-    const nd = line.split('/');
-    return 1200 * Math.log(parseInt(nd[0]) / parseInt(nd[1])) / Math.log(2);
-  } else if (line.match(/\./)) {
-    return parseFloat(line);
-  } else if (line.match(/\\/)) {
-    const edo = line.split('\\');
-    return parseFloat(edo[0]) * 1200 / parseFloat(edo[1]);
-  } else {
-    return 1200 * Math.log(parseInt(line)) / Math.log(2);
-  }
-};
+describe('scalaToCents', () => {
+  it('converts a pure fifth ratio 3/2 to ~701.955 cents', () => {
+    expect(scalaToCents('3/2')).toBeCloseTo(701.955, 2);
+  });
 
-// Normalise a scale degree to either ratio or cents string.
-// EDO steps (n\m) and plain integers are converted to cents.
-// Ratios and cents strings are returned unchanged.
-export const normaliseDegree = (line) => {
-  if (!line) return '0.';
-  if (line.match(/\//)) return line;           // ratio — keep as-is
-  if (line.match(/\./)) return line;           // cents — keep as-is
-  if (line.match(/\\/)) {
-    // EDO step — convert to cents
-    const cents = scalaToCents(line);
-    return cents.toFixed(6);
-  }
-  // plain integer — treat as ratio n/1
-  return `${parseInt(line)}/1`;
-};
+  it('converts an octave ratio 2/1 to 1200 cents', () => {
+    expect(scalaToCents('2/1')).toBeCloseTo(1200, 5);
+  });
 
-// Convert scale data from string to label
-export const scalaToLabels = (line) => {
-  if (line.match(/\//)) {
-    if (line.length > 7) {
-      const nd = line.split('/');
-      const cents = 1200 * Math.log(parseInt(nd[0]) / parseInt(nd[1])) / Math.log(2);
-      return ' ' + Math.round(cents).toString() + '.';
-    } else {
-      return line;
-    }
-  } else if (line.match(/\\/)) {
-    const edo = line.split('\\');
-    const cents = parseFloat(edo[0]) * 1200 / parseFloat(edo[1]);
-    return ' ' + Math.round(cents).toString() + '.';
-  } else if (line.match(/\./)) {
-    const cents = parseFloat(line);
-    return ' ' + Math.round(cents).toString() + '.';
-  } else {
-    return line + '/1';
-  }
-};
+  it('converts a unison ratio 1/1 to 0 cents', () => {
+    expect(scalaToCents('1/1')).toBeCloseTo(0, 5);
+  });
 
-// Convert parsed scale data to labels
-export const parsedScaleToLabels = (scale) => {
-  return scale.map(i => scalaToLabels(i));
-};
+  it('converts a decimal cents string directly', () => {
+    expect(scalaToCents('701.955')).toBeCloseTo(701.955, 3);
+  });
 
-// ─── Serialisers ──────────────────────────────────────────────────────────────
+  it('converts 0.0 cents to 0', () => {
+    expect(scalaToCents('0.0')).toBe(0);
+  });
 
-// Build a plain standard Scala file string from current settings.
-// EDO steps are converted to cents; integers become ratios.
-// No extended metadata — maximum compatibility.
-export const settingsToPlainScala = (settings) => {
-  const name = settings.name || 'custom';
-  const description = settings.description || name;
-  // settings.scale has degree 0 (0.0) prepended and equivInterval appended by normalize();
-  // preset_values.js stores the raw scala array without degree 0.
-  // We work from settings.scale_import parse if available, else reconstruct.
-  const rawScale = getRawScale(settings);
-  const lines = [
-    `! ${name}.scl`,
-    `!`,
-    description,
-    rawScale.length.toString(),
-    `!`,
-    ...rawScale.map(d => ` ${normaliseDegree(d)}`),
-  ];
-  return lines.join('\n') + '\n';
-};
+  it('converts 7\\12 EDO step to ~700 cents', () => {
+    expect(scalaToCents('7\\12')).toBeCloseTo(700, 5);
+  });
 
-// Build an Ableton .ascl file string.
-export const settingsToAbletonScala = (settings) => {
-  const name = settings.name || 'custom';
-  const description = settings.description || name;
-  const rawScale = getRawScale(settings);
-  const refNote = (settings.midiin_degree0 || 60) + (settings.reference_degree || 0);
-  const rootNote = (settings.midiin_degree0 || 60) % 12;
-  const lines = [
-    `! ${name}.ascl`,
-    `!`,
-    `! ABLETON_REFERENCE_PITCH ${refNote} ${settings.fundamental || 440}`,
-    `! ABLETON_ROOT_NOTE ${rootNote}`,
-    `!`,
-    description,
-    rawScale.length.toString(),
-    `!`,
-    ...rawScale.map(d => ` ${normaliseDegree(d)}`),
-  ];
-  return lines.join('\n') + '\n';
-};
+  it('converts 1\\12 EDO step to 100 cents', () => {
+    expect(scalaToCents('1\\12')).toBeCloseTo(100, 5);
+  });
 
-// Build an Ableton/Hexatone .ascl file string with full round-trip metadata.
-export const settingsToHexatonScala = (settings) => {
-  const name = settings.name || 'custom';
-  const description = settings.description || name;
-  const rawScale = getRawScale(settings);
-  const refNote = (settings.midiin_degree0 || 60) + (settings.reference_degree || 0);
-  const rootNote = (settings.midiin_degree0 || 60) % 12;
-  const noteNames = (settings.note_names || []).join(', ');
-  const noteColors = (settings.note_colors || []).join(', ');
-  const lines = [
-    `! ${name}.ascl`,
-    `!`,
-    `! ABLETON_REFERENCE_PITCH ${refNote} ${settings.fundamental || 440}`,
-    `! ABLETON_ROOT_NOTE ${rootNote}`,
-    `!`,
-    `! HEXATONE_REFERENCE_PITCH ${settings.reference_degree || 0} ${settings.fundamental || 440}`,
-    `! HEXATONE_MIDIIN_DEGREE0 ${settings.midiin_degree0 || 60}`,
-    noteNames ? `! HEXATONE_NOTE_NAMES ${noteNames}` : null,
-    noteColors ? `! HEXATONE_NOTE_COLORS ${noteColors}` : null,
-    `!`,
-    description,
-    rawScale.length.toString(),
-    `!`,
-    ...rawScale.map(d => ` ${normaliseDegree(d)}`),
-  ].filter(l => l !== null);
-  return lines.join('\n') + '\n';
-};
+  it('converts 31 EDO step 18\\31 to ~696.77 cents', () => {
+    expect(scalaToCents('18\\31')).toBeCloseTo(696.774, 2);
+  });
 
-// Build a .kbm keyboard mapping file string from current settings.
-export const settingsToKbm = (settings) => {
-  const equivSteps = settings.equivSteps || 12;
-  const midiin_degree0 = settings.midiin_degree0 || 60;
-  const reference_degree = settings.reference_degree || 0;
-  const refNote = midiin_degree0 + reference_degree;
-  const fundamental = settings.fundamental || 440;
-  const mapping = [...Array(equivSteps).keys()].map(i => i.toString());
-  const lines = [
-    `! Keyboard mapping file`,
-    `! Map size:`,
-    equivSteps.toString(),
-    `! First MIDI note:`,
-    `0`,
-    `! Last MIDI note:`,
-    `127`,
-    `! Middle note (MIDI note number for degree 0):`,
-    midiin_degree0.toString(),
-    `! Reference note (MIDI note for reference frequency):`,
-    refNote.toString(),
-    `! Reference frequency (Hz):`,
-    fundamental.toString(),
-    `! Scale degree for reference note:`,
-    `0`,
-    `! Pitch mapping (scale degree per MIDI note):`,
-    ...mapping,
-  ];
-  return lines.join('\n') + '\n';
-};
+  it('converts a plain integer 3 as implicit ratio 3/1', () => {
+    expect(scalaToCents('3')).toBeCloseTo(scalaToCents('3/1'), 5);
+  });
 
-// ─── Internal helper ──────────────────────────────────────────────────────────
+  it('converts numeric value directly when passed as number', () => {
+    expect(scalaToCents(1.5)).toBeCloseTo(701.955, 2);
+  });
+});
 
-// Extract the raw scale array (without degree 0, with equivInterval at end)
-// as stored in preset_values.js / settings.scale before normalize() processes it.
-// settings.scale after normalize() has 0 prepended and equivInterval popped off.
-// We detect which form we have by checking if settings.scale[0] === 0.
-const getRawScale = (settings) => {
-  if (!settings.scale || !settings.scale.length) return [];
-  const s = settings.scale;
-  // After normalize(), scale[0] is 0 (the implicit fundamental) and equivInterval
-  // has been popped. We need to reconstruct: drop the first element and append equivInterval.
-  if ((parseFloat(s[0]) === 0 || s[0] === '0' || s[0] === 0) && settings.equivInterval) {
-    return [...s.slice(1), settings.equivInterval.toFixed(6)];
-  }
-  // Pre-normalize form — use as-is
-  return s;
-};
+// ── scalaToLabels ─────────────────────────────────────────────────────────────
 
-// Serialise current settings as a JSON object matching the preset_values.js format.
-// The scale_import field is included as an inline string (rather than a variable reference)
-// ready to paste directly into a preset entry.
-export const settingsToPresetJson = (settings) => {
-  const PRESET_FIELDS = [
-    'name', 'description', 'short_description',
-    'scale', 'equivSteps',
-    'note_names', 'note_colors', 'key_labels',
-    'spectrum_colors', 'fundamental_color',
-    'fundamental', 'reference_degree',
-    'rSteps', 'urSteps', 'hexSize', 'rotation',
-    'midiin_degree0',
-  ];
+describe('scalaToLabels', () => {
+  it('returns short ratios as-is', () => {
+    expect(scalaToLabels('3/2')).toBe('3/2');
+    expect(scalaToLabels('2/1')).toBe('2/1');
+  });
 
-  const preset = {};
-  for (const key of PRESET_FIELDS) {
-    if (settings[key] !== undefined) preset[key] = settings[key];
-  }
+  it('converts long ratios to rounded cents string', () => {
+    // 128/125 is 6 chars — short enough to keep
+    expect(scalaToLabels('128/125')).toBe('128/125');
+    // 1024/729 is 8 chars — too long, convert to cents
+    expect(scalaToLabels('1024/729')).toMatch(/^\s*\d+\.$/);
+  });
 
-  // Include scale_import as an inline string and a pre-parsed scale array,
-  // matching the pattern: "scale_import": "...", "scale": parseScale(...).scale
-  // Here we inline both as plain values for easy copy-paste.
-  preset.scale_import = settingsToHexatonScala(settings);
+  it('converts EDO steps to rounded cents string', () => {
+    expect(scalaToLabels('7\\12')).toBe(' 700.');
+    expect(scalaToLabels('1\\12')).toBe(' 100.');
+  });
 
-  // Pretty-print with 2-space indent, matching preset_values.js style
-  return JSON.stringify(preset, null, 2);
-};
+  it('converts decimal cents to rounded cents string', () => {
+    expect(scalaToLabels('701.955')).toBe(' 702.');
+    expect(scalaToLabels('100.0')).toBe(' 100.');
+  });
 
-// ─── Folder import helper ─────────────────────────────────────────────────────
+  it('converts plain integers to ratio form', () => {
+    expect(scalaToLabels('3')).toBe('3/1');
+    expect(scalaToLabels('2')).toBe('2/1');
+  });
+});
 
-// Parse a single file (by name and text content) into a preset object.
-// Handles .json (Hexatone preset JSON), .ascl and .scl (Scala formats).
-// Returns a preset object or null if the file could not be parsed.
-export const fileToPreset = (filename, text) => {
-  const ext = filename.split('.').pop().toLowerCase();
+// ── parsedScaleToLabels ───────────────────────────────────────────────────────
 
-  if (ext === 'json') {
-    try {
-      const preset = JSON.parse(text);
-      // Must have at minimum a name and a scale
-      if (!preset.name || !preset.scale) return null;
-      return preset;
-    } catch {
-      return null;
-    }
-  }
+describe('parsedScaleToLabels', () => {
+  it('maps each scale degree to a label', () => {
+    const result = parsedScaleToLabels(['9/8', '5/4', '3/2', '2/1']);
+    expect(result).toHaveLength(4);
+    expect(result[0]).toBe('9/8');
+    expect(result[2]).toBe('3/2');
+  });
 
-  if (ext === 'scl' || ext === 'ascl') {
-    const parsed = parseScale(text);
-    if (!parsed.scale || !parsed.scale.length) return null;
+  it('returns an array, not undefined', () => {
+    expect(Array.isArray(parsedScaleToLabels(['2/1']))).toBe(true);
+  });
+});
 
-    const name = parsed.filename
-      || filename.replace(/\.(a?scl)$/i, '').replace(/_/g, ' ');
+// ── parseScale ────────────────────────────────────────────────────────────────
 
-    const note_names = parsed.hexatone_note_names || [];
-    const note_colors = parsed.hexatone_note_colors || [];
-    const hasMetadata = note_names.some(n => n) || note_colors.some(c => c);
+const SCALE_12EDO = `! 12edo.scl
+!
+12-tone equal temperament
+12
+!
+ 100.
+ 200.
+ 300.
+ 400.
+ 500.
+ 600.
+ 700.
+ 800.
+ 900.
+ 1000.
+ 1100.
+ 1200.`.trimEnd();
 
-    return {
-      name,
-      description: parsed.description || '',
-      scale_import: text,
-      scale: parsed.scale,
-      equivSteps: parsed.equivSteps,
-      note_names,
-      note_colors,
-      key_labels: hasMetadata ? 'note_names' : 'scala_names',
-      spectrum_colors: !hasMetadata,
-      fundamental_color: '#f2e3e3',
-      fundamental: parsed.hexatone_fundamental || 440,
-      reference_degree: parsed.hexatone_reference_degree || 0,
-      midiin_degree0: parsed.hexatone_midiin_degree0 || 60,
-    };
-  }
+const SCALE_JUST = `! just.scl
+!
+5-limit just intonation
+5
+!
+ 9/8
+ 5/4
+ 4/3
+ 3/2
+ 2/1`.trimEnd();
 
-  return null;
-};
+const SCALE_WITH_NAMES_COLORS = `! named.scl
+!
+Scale with names and colors
+3
+!
+ 386.314 C #ffffff
+ 701.955 G #ff0000
+ 1200.   A #0000ff
+`;
+
+const SCALE_HEXATONE = `! mytuning.ascl
+!
+! HEXATONE_REFERENCE_PITCH 9 440
+! HEXATONE_MIDIIN_DEGREE0 60
+! HEXATONE_NOTE_NAMES C, D, E
+! HEXATONE_NOTE_COLORS #ffffff, #dddddd, #bbbbbb
+!
+My tuning
+3
+!
+ 9/8
+ 5/4
+ 2/1
+`;
+
+describe('parseScale — 12edo', () => {
+  const result = parseScale(SCALE_12EDO);
+
+  it('parses the filename', () => {
+    expect(result.filename).toBe('12edo.scl');
+  });
+
+  it('parses the description', () => {
+    expect(result.description).toBe('12-tone equal temperament');
+  });
+
+  it('parses equivSteps', () => {
+    expect(result.equivSteps).toBe(12);
+  });
+
+  it('parses 12 scale degrees', () => {
+    expect(result.scale).toHaveLength(12);
+  });
+
+  it('first degree is 100.', () => {
+    expect(result.scale[0]).toBe('100.');
+  });
+
+  it('last degree is 1200.', () => {
+    expect(result.scale[11]).toBe('1200.');
+  });
+
+  it('has no errors', () => {
+    expect(result.errors).toHaveLength(0);
+  });
+});
+
+describe('parseScale — just intonation ratios', () => {
+  const result = parseScale(SCALE_JUST);
+
+  it('parses 5 degrees', () => {
+    expect(result.scale).toHaveLength(5);
+  });
+
+  it('parses ratio strings correctly', () => {
+    expect(result.scale[0]).toBe('9/8');
+    expect(result.scale[4]).toBe('2/1');
+  });
+
+  it('has no errors', () => {
+    expect(result.errors).toHaveLength(0);
+  });
+});
+
+describe('parseScale — inline names and colors', () => {
+  const result = parseScale(SCALE_WITH_NAMES_COLORS);
+
+  it('parses labels', () => {
+    expect(result.labels[0]).toBe('C');
+    expect(result.labels[1]).toBe('G');
+  });
+
+  it('parses colors', () => {
+    expect(result.colors[0]).toBe('#ffffff');
+    expect(result.colors[1]).toBe('#ff0000');
+    expect(result.colors[2]).toBe('#0000ff');
+  });
+});
+
+describe('parseScale — HEXATONE metadata', () => {
+  const result = parseScale(SCALE_HEXATONE);
+
+  it('parses HEXATONE_REFERENCE_PITCH', () => {
+    expect(result.hexatone_reference_degree).toBe(9);
+    expect(result.hexatone_fundamental).toBe(440);
+  });
+
+  it('parses HEXATONE_MIDIIN_DEGREE0', () => {
+    expect(result.hexatone_midiin_degree0).toBe(60);
+  });
+
+  it('parses HEXATONE_NOTE_NAMES', () => {
+    expect(result.hexatone_note_names).toEqual(['C', 'D', 'E']);
+  });
+
+  it('parses HEXATONE_NOTE_COLORS', () => {
+    expect(result.hexatone_note_colors).toEqual(['#ffffff', '#dddddd', '#bbbbbb']);
+  });
+
+  it('still parses the scale itself', () => {
+    expect(result.scale).toHaveLength(3);
+    expect(result.scale[0]).toBe('9/8');
+  });
+});
+
+describe('parseScale — error handling', () => {
+  it('reports a mismatch between declared and actual degree count', () => {
+    const bad = `! bad.scl\nBad scale\n3\n 100.\n 200.\n`; // declares 3, provides 2
+    const result = parseScale(bad);
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0].error).toMatch(/Unexpected token/);
+  });
+});

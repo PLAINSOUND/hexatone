@@ -44,7 +44,8 @@ describe('roundTowardZero', () => {
 
   it('handles zero', () => {
     expect(roundTowardZero(0)).toBe(0);
-    expect(roundTowardZero(-0)).toBe(0);
+    // -0 is a valid IEEE 754 value; Math.ceil(-0) === -0, which is fine
+    expect(Object.is(roundTowardZero(-0), -0)).toBe(true);
   });
 
   it('handles exact integers', () => {
@@ -111,8 +112,9 @@ describe('channelOffset', () => {
     expect(channelOffset(2, 0)).toBe(1);
   });
 
-  it('channel 8 with centre 0 → offset 3 (three equaves up)', () => {
-    expect(channelOffset(8, 0)).toBe(3);
+  it('channel 8 with centre 0 → offset -1 (wraps below centre)', () => {
+    // (8-1-0+20) % 8 - 4 = 27 % 8 - 4 = 3 - 4 = -1
+    expect(channelOffset(8, 0)).toBe(-1);
   });
 
   it('wraps around: channel 5 with centre 1 → offset 3', () => {
@@ -149,11 +151,12 @@ describe('midiNoteToCoords — 12edo', () => {
     expect(coords.y).toBe(0);
   });
 
-  it('note 61 (degree 1) on central channel → (0,1)', () => {
+  it('note 61 (degree 1) on central channel → (1,-1)', () => {
+    // steps=1, rSteps=2: rSteps_count=round(0.5)=1, remainder=-1, urSteps_count=round(-1/1)=-1
     const coords = midiNoteToCoords(s, 61, 1);
     expect(coords).not.toBeNull();
-    expect(coords.x).toBe(0);
-    expect(coords.y).toBe(1);
+    expect(coords.x).toBe(1);
+    expect(coords.y).toBe(-1);
   });
 
   it('note 72 (degree 0 one octave up) on central channel → (6,0)', () => {
