@@ -29,7 +29,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     if (!instrument) throw new Error(`Instrument not found: ${fileName}`);
 
     const { gain: sampleGain, attack: sampleAttack, release: sampleRelease,
-            loop: sampleLoop, velocity: velocity_response } = instrument;
+            loop: sampleLoop, velocity: velocity_response,
+            aftertouch: aftertouch_amount = 0 } = instrument;
     const sampleLoopPoints = instrument.loopPoints || [0, 0, 0, 0, 0, 0, 0, 0];
 
     // ── Fetch raw ArrayBuffers now — no AudioContext needed, no gesture required
@@ -67,11 +68,11 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         );
       },
 
-      makeHex: (coords, cents, velocity_played) => {
+      makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played) => {
         return new ActiveHex(
-          coords, cents, velocity_played, fundamental, offset,
+          coords, cents, velocity_played, note_played, fundamental, offset,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-          velocity_response, decodedBuffers, sharedAudioContext
+          velocity_response, aftertouch_amount, decodedBuffers, sharedAudioContext
         );
       },
     };
@@ -80,14 +81,15 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
   }
 };
 
-function ActiveHex(coords, cents, velocity_played, fundamental, offset,
+function ActiveHex(coords, cents, velocity_played, note_played, fundamental, offset,
   sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-  velocity_response, sampleBuffer, audioContext) {
+  velocity_response, aftertouch_amount, sampleBuffer, audioContext) {
 
   this.coords = coords;
   this.release = false;
   this.cents = cents;
   this.velocity_played = velocity_played;
+  this.note_played = note_played;
   this.fundamental = fundamental;
   this.offset = offset;
   this.sampleGain = sampleGain;
@@ -96,6 +98,7 @@ function ActiveHex(coords, cents, velocity_played, fundamental, offset,
   this.sampleLoop = sampleLoop;
   this.sampleLoopPoints = sampleLoopPoints;
   this.velocity_response = velocity_response;
+  this.aftertouch_amount = aftertouch_amount;
   this.sampleBuffer = sampleBuffer;
   this.audioContext = audioContext;
 }
@@ -108,6 +111,7 @@ ActiveHex.prototype.noteOn = function() {
   const vol = this.velocity_response
     ? 0.15 + (0.85 * ((this.velocity_played / 127) ** 0.75))
     : 0.85;
+  this.base_vol = vol;
 
   const source = this.audioContext.createBufferSource();
 
@@ -149,6 +153,17 @@ ActiveHex.prototype.noteOn = function() {
   );
   this.source = source;
   this.gainNode = gainNode;
+};
+
+ActiveHex.prototype.aftertouch = function(value) {
+  if (!this.gainNode || !this.audioContext) return;
+  // value: 0-127. Scale to 0..aftertouch_amount extra gain on top of base_vol.
+  const extra = (value / 127) * this.aftertouch_amount;
+  const target = this.sampleGain * (this.base_vol + extra);
+  const now = this.audioContext.currentTime;
+  this.gainNode.gain.cancelScheduledValues(now);
+  this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+  this.gainNode.gain.linearRampToValueAtTime(target, now + 0.03);
 };
 
 ActiveHex.prototype.noteOff = function() {

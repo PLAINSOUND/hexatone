@@ -9,7 +9,8 @@ export const instruments = [
         attack: 0.116,
         release: 0.027,
         loop: true,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "WMRI5LST",
         name: "5-Limit (6 Harmonics)",
@@ -17,7 +18,8 @@ export const instruments = [
         attack: 0.112,
         release: 0.024,
         loop: true,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "WMRI7LST",
         name: "7-Limit (10 Harmonics)",
@@ -25,7 +27,8 @@ export const instruments = [
         attack: 0.108,
         release: 0.021,
         loop: true,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "WMRI11LST",
         name: "11-Limit (12 Harmonics)",
@@ -33,7 +36,8 @@ export const instruments = [
         attack: 0.104,
         release: 0.018,
         loop: true,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "WMRI13LST",
         name: "13-Limit (16 Harmonics)",
@@ -41,7 +45,8 @@ export const instruments = [
         attack: 0.1,
         release: 0.015,
         loop: true,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "WMRIByzantineST",
         name: "Reed (9 Harmonics)",
@@ -49,7 +54,8 @@ export const instruments = [
         attack: 0.096,
         release: 0.016,
         loop: true,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "hammond",
         name: "Hammond (9 Harmonics)",
@@ -57,7 +63,8 @@ export const instruments = [
         attack: 0.001,
         release: 0.016,
         loop: true,
-        velocity: false
+        velocity: false,
+        aftertouch: 0.4
       }
     ],
   },
@@ -71,7 +78,8 @@ export const instruments = [
         attack: 0,
         release: 0.002,
         loop: false,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "rhodes",
         name: "Fender Rhodes",
@@ -79,7 +87,8 @@ export const instruments = [
         attack: 0,
         release: 0.002,
         loop: false,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "HvP8_retuned",
         name: "Baroque Organ",
@@ -88,7 +97,8 @@ export const instruments = [
         release: 0.045,
         loop: true,
         loopPoints: [4.0, 5.2913, 2.287103, 4.1999, 2.287, 4.21495, 0.9711, 3.574],
-        velocity: false
+        velocity: false,
+        aftertouch: 0
       }, {
         fileName: "harpsichord",
         name: "Harpsichord",
@@ -96,7 +106,8 @@ export const instruments = [
         attack: 0,
         release: 0.075,
         loop: false,
-        velocity: false
+        velocity: false,
+        aftertouch: 0
       }, {
         fileName: "lute",
         name: "Lute-Stop",
@@ -104,7 +115,8 @@ export const instruments = [
         attack: 0,
         release: 0.2,
         loop: false,
-        velocity: false
+        velocity: false,
+        aftertouch: 0
       }, {
         fileName: "harp",
         name: "Harp",
@@ -112,7 +124,8 @@ export const instruments = [
         attack: 0,
         release: 1.5,
         loop: false,
-        velocity: true
+        velocity: true,
+        aftertouch: 0
       }, {
         fileName: "qanun",
         name: "Qanun",
@@ -120,7 +133,8 @@ export const instruments = [
         attack: 0,
         release: 1.5,
         loop: false,
-        velocity: true
+        velocity: true,
+        aftertouch: 0
       }, {
         fileName: "gayageum",
         name: "Gayageum",
@@ -128,7 +142,8 @@ export const instruments = [
         attack: 0,
         release: 1.0,
         loop: false,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.4
       }, {
         fileName: "vibes",
         name: "Vibraphone",
@@ -136,7 +151,8 @@ export const instruments = [
         attack: 0,
         release: 0.2,
         loop: false,
-        velocity: true
+        velocity: true,
+        aftertouch: 0
       }, {
         fileName: "sruti",
         name: "Srutibox Harmonium",
@@ -144,7 +160,8 @@ export const instruments = [
         attack: 0,
         release: 0.038,
         loop: true,
-        velocity: true
+        velocity: true,
+        aftertouch: 0.8
       }
     ]
   }

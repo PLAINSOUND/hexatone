@@ -104,6 +104,16 @@ class Keys {
         */
       });
 
+      this.midiin_data.addListener("keyaftertouch", e => {
+        // Polyphonic aftertouch for built-in synth — find the matching active hex
+        // by matching note + channel encoding, then ramp its gain smoothly
+        const note_played = e.message.dataBytes[0] + (128 * (e.message.channel - 1));
+        const hex = this.state.activeHexObjects.find(h => h.note_played === note_played);
+        if (hex && hex.aftertouch) {
+          hex.aftertouch(e.message.dataBytes[1]);
+        }
+      });
+
       this.midiin_data.addListener("controlchange", e => {
         if (e.message.dataBytes[0] == 64) {
           if (e.message.dataBytes[1] > 0) {
