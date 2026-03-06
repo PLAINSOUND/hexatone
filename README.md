@@ -17,3 +17,8 @@ Code on github: https://github.com/PLAINSOUND/hexatone.
 [The Music Notation Project Wiki](http://musicnotation.org/wiki/instruments/isomorphic-instruments/)
 
 [AltKeyboards](http://www.altkeyboards.com/instruments/isomorphic-keyboards)
+
+## Version history
+Version 1 : 2016- [Terpstra Keyboard] (http://terpstrakeyboard.com/) hexagonal keyboard proof of concept 
+Version 2 : 2022-26 Marc Sabat: Added MIDI input and output, developed Lumatone plug-and-play compatability and built-in presets, MTS output
+Version 3.0.0 : 2026- Added scala/json IO, user presets
