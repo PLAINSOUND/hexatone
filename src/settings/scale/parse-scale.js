@@ -250,3 +250,81 @@ const getRawScale = (settings) => {
   // Pre-normalize form — use as-is
   return s;
 };
+
+// Serialise current settings as a JSON object matching the preset_values.js format.
+// The scale_import field is included as an inline string (rather than a variable reference)
+// ready to paste directly into a preset entry.
+export const settingsToPresetJson = (settings) => {
+  const PRESET_FIELDS = [
+    'name', 'description', 'short_description',
+    'scale', 'equivSteps',
+    'note_names', 'note_colors', 'key_labels',
+    'spectrum_colors', 'fundamental_color',
+    'fundamental', 'reference_degree',
+    'rSteps', 'urSteps', 'hexSize', 'rotation',
+    'midiin_degree0',
+  ];
+
+  const preset = {};
+  for (const key of PRESET_FIELDS) {
+    if (settings[key] !== undefined) preset[key] = settings[key];
+  }
+
+  // Include scale_import as an inline string and a pre-parsed scale array,
+  // matching the pattern: "scale_import": "...", "scale": parseScale(...).scale
+  // Here we inline both as plain values for easy copy-paste.
+  preset.scale_import = settingsToHexatonScala(settings);
+
+  // Pretty-print with 2-space indent, matching preset_values.js style
+  return JSON.stringify(preset, null, 2);
+};
+
+// ─── Folder import helper ─────────────────────────────────────────────────────
+
+// Parse a single file (by name and text content) into a preset object.
+// Handles .json (Hexatone preset JSON), .ascl and .scl (Scala formats).
+// Returns a preset object or null if the file could not be parsed.
+export const fileToPreset = (filename, text) => {
+  const ext = filename.split('.').pop().toLowerCase();
+
+  if (ext === 'json') {
+    try {
+      const preset = JSON.parse(text);
+      // Must have at minimum a name and a scale
+      if (!preset.name || !preset.scale) return null;
+      return preset;
+    } catch {
+      return null;
+    }
+  }
+
+  if (ext === 'scl' || ext === 'ascl') {
+    const parsed = parseScale(text);
+    if (!parsed.scale || !parsed.scale.length) return null;
+
+    const name = parsed.filename
+      || filename.replace(/\.(a?scl)$/i, '').replace(/_/g, ' ');
+
+    const note_names = parsed.hexatone_note_names || [];
+    const note_colors = parsed.hexatone_note_colors || [];
+    const hasMetadata = note_names.some(n => n) || note_colors.some(c => c);
+
+    return {
+      name,
+      description: parsed.description || '',
+      scale_import: text,
+      scale: parsed.scale,
+      equivSteps: parsed.equivSteps,
+      note_names,
+      note_colors,
+      key_labels: hasMetadata ? 'note_names' : 'scala_names',
+      spectrum_colors: !hasMetadata,
+      fundamental_color: '#f2e3e3',
+      fundamental: parsed.hexatone_fundamental || 440,
+      reference_degree: parsed.hexatone_reference_degree || 0,
+      midiin_degree0: parsed.hexatone_midiin_degree0 || 60,
+    };
+  }
+
+  return null;
+};

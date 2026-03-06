@@ -121,7 +121,8 @@ const ScaleTable = (props) => {
     colors = props.settings.note_colors || [];
   }
 
-  const rows = scale.map((x, i) => [x, degrees[i], note_names[i], colors[i]]);
+  const rows = scale.map((x, i) => [x, degrees[i], note_names[i] || '', colors[i] || '#ffffff']);
+
 
   const scaleChange = e => {
     const next = [...(props.settings.scale || [])];
@@ -155,7 +156,7 @@ const ScaleTable = (props) => {
         </tr>
       </thead>
       <tbody>
-        <tr>
+        <tr key={`0-${props.importCount}`}>
           <td><em>1/1</em>&nbsp;&nbsp;&nbsp;=&nbsp;<em>0.0 cents</em>&nbsp;&nbsp;&nbsp;=&nbsp;&nbsp;0</td>
           <td>
             <input id="centered" type="text" disabled={editable_labels}
@@ -165,17 +166,17 @@ const ScaleTable = (props) => {
           </td>
           <td>
             <input id="centered" type="text" disabled={editable_labels}
-                   name="name0" value={note_names[0]} onChange={nameChange}
+                   name="name0" value={note_names[0] || ''} onChange={nameChange}
                    aria-label="pitch name 0"
             />
           </td>
           <td>
-            <ColorCell name="color0" value={colors[0]}
+            <ColorCell name="color0" value={colors[0] || '#ffffff'}
                        disabled={editable_colors} onChange={colorChange} />
           </td>
         </tr>
         {rows.slice(1).map(([freq, degree, name, color], i) => (
-          <tr>
+          <tr key={`${i + 1}-${props.importCount}`}>
             <td>
               <input type="text" name={`scale${i}`}
                      value={freq} onChange={scaleChange}
@@ -201,7 +202,7 @@ const ScaleTable = (props) => {
             </td>
           </tr>
         ))}
-        <tr>
+        <tr key={`equiv-${props.importCount}`}>
           <td>
             <input type="text"
                    name={`scale${scale.length - 1}`}

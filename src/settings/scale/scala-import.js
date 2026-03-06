@@ -5,6 +5,7 @@ import {
   settingsToAbletonScala,
   settingsToHexatonScala,
   settingsToKbm,
+  settingsToPresetJson,
 } from './parse-scale';
 
 // Trigger a file download in the browser
@@ -76,7 +77,7 @@ const ScalaImport = (props) => {
           onChange={handleFileOpen}
         />
         <button type="button" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
-          Open .scl or .ascl file
+          Open .scl / .ascl file
         </button>
         &nbsp;&nbsp;
         <button type="button" onClick={props.onImport}>Build Layout</button>
@@ -110,6 +111,13 @@ const ScalaImport = (props) => {
         <button type="button"
           onClick={() => downloadFile(settingsToHexatonScala(props.settings), `${name}.ascl`)}>
           Save .ascl file
+        </button>
+
+        <p><b>Preset JSON</b> — export current settings as a JSON object ready to paste
+          into <em>preset_values.js</em> as a new built-in preset</p>
+        <button type="button"
+          onClick={() => downloadFile(settingsToPresetJson(props.settings), `${name}.json`, 'application/json')}>
+          Save preset .json
         </button>
       </fieldset>
     </>

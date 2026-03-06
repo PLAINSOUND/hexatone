@@ -253,3 +253,10 @@ label .color-cell .color-input {
   width: 6.3em !important;
   flex: none;
 }
+
+.preset-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.125em;
+  line-height: 1.5em;
+}

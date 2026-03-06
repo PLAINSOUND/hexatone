@@ -32,8 +32,6 @@ const findPreset = (preset) => {
   for (let g of presets) {
     for (let p of g.settings) {
       if (p.name === preset) {
-        // Generate annotated scala content so Build Layout preserves
-        // note names, colors and reference pitch for this preset
         return { ...p, scale_import: settingsToHexatonScala(p) };
       }
     }
@@ -47,7 +45,7 @@ const normalize = (settings) => {
   const note_colors = settings.note_colors.map(c => c ? c.replace(/#/, '') : "ffffff");
   const rotation = settings.rotation * Math.PI / 180.0;
   const result = { ...settings, fundamental_color, keyCodeToCoords, note_colors, rotation };
-  
+
   if (settings.key_labels === "enumerate") {
     result["degree"] = true;
   } else if (settings.key_labels === "note_names") {
@@ -93,6 +91,8 @@ const sessionDefaults = {
 const App = () => {
   const [loading, setLoading] = useState(0);
   const [ready, setReady] = useState(false);
+  const [activeSource, setActiveSource] = useState(null);
+  const [importCount, setImportCount] = useState(0);
 
   const [settings, setSettings] = useQuery({
     name: ExtractString,
@@ -180,7 +180,6 @@ const App = () => {
       (settings.midi_channel >= 0) && settings.midi_mapping &&
       typeof settings.midi_velocity === "number") {
       setLoading(wait);
-
       create_midi_synth(settings.midiin_device, settings.midiin_degree0, midi.outputs.get(settings.midi_device), settings.midi_channel, settings.midi_mapping, settings.midi_velocity, settings.fundamental)
         .then(s => {
           setLoading(signal);
@@ -196,24 +195,26 @@ const App = () => {
   };
 
   const presetChanged = e => {
+    if (!e.target.value) return;
     if (synth && synth.prepare) synth.prepare();
     setReady(true);
+    setActiveSource('builtin');
     setSettings(s => ({ ...s, ...findPreset(e.target.value) }));
   };
 
   const onLoadCustomPreset = (preset) => {
     if (synth && synth.prepare) synth.prepare();
     setReady(true);
+    setActiveSource('user');
     setSettings(s => ({ ...s, ...preset }));
   };
 
   const onImport = () => {
+    setImportCount(c => c + 1);
     setSettings(s => {
       if (s.scale_import) {
         const parsed = parseScale(s.scale_import);
         const { filename, description, equivSteps, scale, labels, colors } = parsed;
-
-        // Fix: parsedScaleToLabels now correctly returns the mapped array
         const scala_names = parsedScaleToLabels(scale);
 
         const hasNames = parsed.hexatone_note_names && parsed.hexatone_note_names.some(n => n);
@@ -223,28 +224,22 @@ const App = () => {
         let note_names, note_colors;
 
         if (hasNames) {
-          // Use HEXATONE_* note names from file
           note_names = parsed.hexatone_note_names;
         } else if (labels.some(l => l)) {
-          // Use inline labels from scale data lines
           const f_name = labels.pop();
           labels.unshift(f_name === 'null' || !f_name ? '' : f_name);
           note_names = labels;
         } else {
-          // Plain scala file — clear names
           note_names = [];
         }
 
         if (hasColors) {
-          // Use HEXATONE_* colors from file
           note_colors = parsed.hexatone_note_colors;
         } else if (colors.some(c => c)) {
-          // Use inline colors from scale data lines
           const f_color = colors.pop();
           colors.unshift(f_color === 'null' || !f_color ? '#ffffff' : f_color);
           note_colors = colors;
         } else {
-          // Plain scala file — clear colors, use spectrum
           note_colors = [];
         }
 
@@ -266,7 +261,6 @@ const App = () => {
           fundamental,
           reference_degree,
           midiin_degree0,
-          // Plain scala file: show ratios/cents as labels, use spectrum colors
           key_labels: hasMetadata ? 'note_names' : 'scala_names',
           spectrum_colors: hasMetadata ? false : true,
           fundamental_color: hasMetadata ? s.fundamental_color : '#f2e3e3',
@@ -310,7 +304,9 @@ const App = () => {
                     presets={presets}
                     onChange={onChange}
                     onImport={onImport}
+                    importCount={importCount}
                     onLoadCustomPreset={onLoadCustomPreset}
+                    activeSource={activeSource}
                     settings={settings}
                     midi={midi}
                     instruments={instruments}/>

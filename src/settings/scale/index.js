@@ -60,7 +60,7 @@ const Scale = (props) => {
       <Colors {...props} />
       <KeyLabels {...props} />
       <br />
-      <ScaleTable {...props} />
+      <ScaleTable {...props} importCount={props.importCount} />
       <br />
       {importing
        ?(<ScalaImport {...props}
