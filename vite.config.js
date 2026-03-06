@@ -54,6 +54,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,           // provides describe / it / expect without imports
+    setupFiles: ['./vitest.setup.js'],
     include: ['src/**/*.test.{js,jsx,ts,tsx}'],
     // Alias rules are inherited from resolve.alias above.
     // Mock static assets (fonts, images, audio, scala files) the same way
