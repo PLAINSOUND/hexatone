@@ -7,7 +7,8 @@
     "start": "vite",
     "build": "vite build && node generate-sw.js",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "normalize.css": "^8.0.1",
@@ -15,55 +16,15 @@
     "webmidi": "^3.1.14"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
     "@preact/preset-vite": "^2.10.3",
-    "enzyme": "^3.10.0",
-    "enzyme-adapter-preact-pure": "^2.1.0",
-    "jest": "^24.9.0",
+    "@testing-library/preact": "^3.2.4",
+    "@testing-library/user-event": "^14.5.2",
+    "jsdom": "^25.0.1",
     "prop-types": "^15.8.1",
     "vite": "^7.3.1",
     "vite-plugin-svgr": "^4.5.0",
-    "web-audio-test-api": "^0.5.2",
+    "vitest": "^2.1.8",
     "workbox-build": "^7.4.0"
-  },
-  "babel": {
-    "presets": [
-      [
-        "@babel/preset-env",
-        {
-          "targets": "> 1% and last 2 versions and not dead"
-        }
-      ]
-    ],
-    "plugins": [
-      "@babel/plugin-proposal-class-properties",
-      [
-        "transform-react-remove-prop-types",
-        {
-          "mode": "remove",
-          "removeImport": "true",
-          "ignoreFilenames": [
-            "node_modules"
-          ]
-        }
-      ],
-      [
-        "@babel/plugin-transform-react-jsx",
-        {
-          "pragma": "h",
-          "pragmaFrag": "Fragment"
-        }
-      ]
-    ]
-  },
-  "jest": {
-    "moduleNameMapper": {
-      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|scl)$": "<rootDir>/__mocks__/fileMock.js",
-      "\\.(css|less)$": "<rootDir>/__mocks__/styleMock.js"
-    },
-    "setupFilesAfterEnv": [
-      "<rootDir>/enzyme.config.js"
-    ]
   },
   "packageManager": "yarn@4.13.0"
 }

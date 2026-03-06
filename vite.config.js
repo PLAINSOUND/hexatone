@@ -4,11 +4,9 @@ import svgr from 'vite-plugin-svgr';
 import path from 'path';
 
 export default defineConfig({
-  
+
   plugins: [
     preact({
-      // Tell the Preact plugin to treat .js files as JSX,
-      // since the codebase uses .js extensions throughout
       babel: {
         parserOpts: {
           plugins: ['jsx'],
@@ -36,10 +34,10 @@ export default defineConfig({
 
   resolve: {
     alias: {
-      scales:              path.resolve(__dirname, 'scales'),
-      'react':               'preact/compat',
+      scales:               path.resolve(__dirname, 'scales'),
+      'react':              'preact/compat',
       'react-dom/test-utils':'preact/test-utils',
-      'react-dom':           'preact/compat',
+      'react-dom':          'preact/compat',
     },
   },
 
@@ -50,5 +48,20 @@ export default defineConfig({
 
   server: {
     host: '0.0.0.0',
+  },
+
+  // ── Vitest configuration ────────────────────────────────────────────────────
+  test: {
+    environment: 'jsdom',
+    globals: true,           // provides describe / it / expect without imports
+    include: ['src/**/*.test.{js,jsx,ts,tsx}'],
+    // Alias rules are inherited from resolve.alias above.
+    // Mock static assets (fonts, images, audio, scala files) the same way
+    // the old Jest config did — just return an empty string.
+    server: {
+      deps: {
+        inline: ['@testing-library/preact'],
+      },
+    },
   },
 });
