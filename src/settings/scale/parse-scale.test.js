@@ -282,7 +282,8 @@ describe('parseScale — error handling', () => {
     const bad = `! bad.scl\nBad scale\n3\n 100.\n 200.\n`; // declares 3, provides 2
     const result = parseScale(bad);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0].error).toMatch(/Unexpected token/);
+    expect(result.errors[0].error).toMatch(/3 pitches specified, but 2 provided/);
+    //expect(result.errors[0].error).toMatch(/Unexpected token./);
   });
 });
 
