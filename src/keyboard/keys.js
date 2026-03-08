@@ -14,7 +14,7 @@ class Keys {
       hexHeight: settings.hexSize * 2,
       hexVert: settings.hexSize * 3 / 2,
       hexWidth: Math.sqrt(3) * settings.hexSize,
-      gcd: Euclid(settings.rSteps, settings.urSteps), // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and urSteps to obtain GCD
+      gcd: Euclid(settings.rSteps, settings.drSteps), // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
       offset: getOffset(settings.reference_degree, settings.scale),
       ...settings,
     };
@@ -330,13 +330,13 @@ class Keys {
 
     let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to the right to get near the played note
     let rSteps_to_steps = this.settings.rSteps * rSteps_count;
-    let urSteps_count = Math.round((steps - rSteps_to_steps) / this.settings.urSteps);
-    let urSteps_to_steps = this.settings.urSteps * urSteps_count;
-    let gcdSteps_count = Math.floor((steps - rSteps_to_steps - urSteps_to_steps) / this.settings.gcd[0]);    
+    let drSteps_count = Math.round((steps - rSteps_to_steps) / this.settings.drSteps);
+    let drSteps_to_steps = this.settings.drSteps * drSteps_count;
+    let gcdSteps_count = Math.floor((steps - rSteps_to_steps - drSteps_to_steps) / this.settings.gcd[0]);    
     let gcdSteps_to_steps = gcdSteps_count * this.settings.gcd[0];
-    let remainder = steps - rSteps_to_steps - urSteps_to_steps - gcdSteps_to_steps;
+    let remainder = steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
     if (remainder == 0) {
-      let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), urSteps_count + (gcdSteps_count * this.settings.gcd[2]));
+      let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), drSteps_count + (gcdSteps_count * this.settings.gcd[2]));
       let hex = this.hexOn(coords, note_played, velocity_played, bend);
       this.state.activeHexObjects.push(hex);
     };
@@ -351,13 +351,13 @@ class Keys {
 
     let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to the right to get near the played note, as before
     let rSteps_to_steps = this.settings.rSteps * rSteps_count;
-    let urSteps_count = Math.round((steps - rSteps_to_steps) / this.settings.urSteps);
-    let urSteps_to_steps = this.settings.urSteps * urSteps_count;
-    let gcdSteps_count = Math.floor((steps - rSteps_to_steps - urSteps_to_steps) / this.settings.gcd[0]);
+    let drSteps_count = Math.round((steps - rSteps_to_steps) / this.settings.drSteps);
+    let drSteps_to_steps = this.settings.drSteps * drSteps_count;
+    let gcdSteps_count = Math.floor((steps - rSteps_to_steps - drSteps_to_steps) / this.settings.gcd[0]);
     let gcdSteps_to_steps = gcdSteps_count * this.settings.gcd[0];
-    let remainder = steps - rSteps_to_steps - urSteps_to_steps - gcdSteps_to_steps;
+    let remainder = steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
     if (remainder == 0) {
-      let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), urSteps_count + (gcdSteps_count * this.settings.gcd[2]));
+      let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), drSteps_count + (gcdSteps_count * this.settings.gcd[2]));
       this.hexOff(coords);
       let hexIndex = this.state.activeHexObjects.findIndex(function (hex) {
         return coords.equals(hex.coords);
@@ -380,13 +380,13 @@ class Keys {
 
         let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to the right to get near the played note, as before
         let rSteps_to_steps = this.settings.rSteps * rSteps_count;
-        let urSteps_count = Math.round((steps - rSteps_to_steps) / this.settings.urSteps);
-        let urSteps_to_steps = this.settings.urSteps * urSteps_count;
-        let gcdSteps_count = Math.floor((steps - rSteps_to_steps - urSteps_to_steps) / this.settings.gcd[0]);
+        let drSteps_count = Math.round((steps - rSteps_to_steps) / this.settings.drSteps);
+        let drSteps_to_steps = this.settings.drSteps * drSteps_count;
+        let gcdSteps_count = Math.floor((steps - rSteps_to_steps - drSteps_to_steps) / this.settings.gcd[0]);
         let gcdSteps_to_steps = gcdSteps_count * this.settings.gcd[0];
-        let remainder = steps - rSteps_to_steps - urSteps_to_steps - gcdSteps_to_steps;
+        let remainder = steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
         if (remainder == 0) {
-          let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), urSteps_count + (gcdSteps_count * this.settings.gcd[2]));
+          let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), drSteps_count + (gcdSteps_count * this.settings.gcd[2]));
           this.hexOff(coords);
           let hexIndex = this.state.activeHexObjects.findIndex(function (hex) {
             return coords.equals(hex.coords);
@@ -760,7 +760,7 @@ class Keys {
     context.textAlign = "center";
     context.textBaseline = "middle";
 
-    let note = p.x * this.settings.rSteps + p.y * this.settings.urSteps;
+    let note = p.x * this.settings.rSteps + p.y * this.settings.drSteps;
     // TODO this should be parsed already
     let equivSteps = this.settings.scale.length;
     let equivMultiple = Math.floor(note / equivSteps);
@@ -861,7 +861,7 @@ class Keys {
   };
 
   hexCoordsToCents(coords) {
-    let distance = (coords.x * this.settings.rSteps) + (coords.y * this.settings.urSteps);
+    let distance = (coords.x * this.settings.rSteps) + (coords.y * this.settings.drSteps);
     let octs = this.roundTowardZero(distance / this.settings.scale.length);
     let octs_prev = this.roundTowardZero((distance - 1) / this.settings.scale.length);
     let octs_next = this.roundTowardZero((distance + 1) / this.settings.scale.length);

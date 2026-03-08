@@ -2,6 +2,7 @@ import { h, createRef } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import PropTypes from 'prop-types';
 import { fileToPreset, settingsToPresetJson } from './scale/parse-scale';
+import { downloadLtn } from './scale/lumatone-export';
 
 const STORAGE_KEY = 'hexatone_custom_presets';
 
@@ -11,7 +12,7 @@ const PRESET_FIELDS = [
   'note_names', 'note_colors', 'key_labels',
   'spectrum_colors', 'fundamental_color',
   'fundamental', 'reference_degree',
-  'rSteps', 'urSteps', 'hexSize', 'rotation',
+  'rSteps', 'drSteps', 'hexSize', 'rotation',
   'midiin_degree0',
 ];
 
@@ -93,6 +94,14 @@ const CustomPresets = ({ settings, onLoad, isActive }) => {
       return;
     }
     downloadFile(settingsToPresetJson(settings), `${safeName(tuningName)}.json`);
+  };
+
+  const handleExportLtn = () => {
+    if (!tuningName) {
+      setError('Please enter a name in the Name and Description section first.');
+      return;
+    }
+    downloadLtn(settings, {}, `${safeName(tuningName)}.ltn`);
   };
 
   const handleDelete = () => {
@@ -210,13 +219,18 @@ const CustomPresets = ({ settings, onLoad, isActive }) => {
       </label>
 
       {/* ── Save / Export row ── */}
-      <label>
+        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button type="button" onClick={handleSave}>
           {saveLabel}
         </button>
-        <button type="button" onClick={handleExport}>
-          Export preset
-        </button>
+        <span style={{ display: 'flex', gap: '6px' }}>
+          <button type="button" onClick={handleExport}>
+            Export .json
+          </button>
+          <button type="button" onClick={handleExportLtn}>
+            Export .ltn
+          </button>
+        </span>
       </label>
 
       {/* Hidden folder input — outside any label to prevent accidental triggers */}

@@ -79,12 +79,13 @@ const sessionDefaults = {
   midiin_channel:   parseInt(sessionStorage.getItem("midiin_channel"))  || 0,
   midi_device:      sessionStorage.getItem("midi_device")       || "OFF",
   midi_channel:     parseInt(sessionStorage.getItem("midi_channel"))    || 0,
-  midi_mapping:     sessionStorage.getItem("midi_mapping")      || "sequential",
+  midi_mapping:     sessionStorage.getItem("midi_mapping")      || "MTS1",
   midi_velocity:    parseInt(sessionStorage.getItem("midi_velocity"))   || 72,
   sysex_type:       parseInt(sessionStorage.getItem("sysex_type"))      || 127,
   device_id:        parseInt(sessionStorage.getItem("device_id"))       || 127,
   tuning_map_number:  parseInt(sessionStorage.getItem("tuning_map_number"))  || 0,
   tuning_map_degree0: parseInt(sessionStorage.getItem("tuning_map_degree0")) || 60,
+  fundamental_color: parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
   reference_degree: 0,
 };
 
@@ -120,7 +121,7 @@ const App = () => {
 
     // Layout
     rSteps: ExtractInt,
-    urSteps: ExtractInt,
+    drSteps: ExtractInt,
     hexSize: ExtractInt,
     rotation: ExtractInt,
     // Scale
@@ -275,7 +276,7 @@ const App = () => {
     (((settings.output === "midi") && (settings.midi_device !== "OFF") && (settings.midi_channel >= 0) && settings.midi_mapping &&
       (typeof settings.midi_velocity === "number") && (settings.midi_velocity > 0)) ||
      (settings.output === "sample" && (settings.fundamental >= 0.015625) && settings.instrument)) &&
-      settings.rSteps && settings.urSteps &&
+      settings.rSteps && settings.drSteps &&
       settings.hexSize && settings.hexSize >= 20 && typeof settings.rotation === "number" &&
       settings.scale && settings.equivSteps &&
       (settings.no_labels || settings.degree && settings.note_names || !settings.degree) &&

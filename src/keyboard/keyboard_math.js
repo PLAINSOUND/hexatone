@@ -26,15 +26,15 @@ export const roundTowardZero = (val) =>
  * Convert a hex grid coordinate to cents (and related values).
  *
  * @param {Point}  coords    - hex grid position {x, y}
- * @param {object} settings  - { rSteps, urSteps, scale (cents array), equivInterval, equivSteps }
+ * @param {object} settings  - { rSteps, drSteps, scale (cents array), equivInterval, equivSteps }
  * @returns {[number, number, number, number, number, number, number]}
  *   [cents, reducedSteps, distance, octs, equivSteps, cents_prev, cents_next]
  */
 export const hexCoordsToCents = (coords, settings) => {
-  const { rSteps, urSteps, scale, equivInterval, equivSteps } = settings;
+  const { rSteps, drSteps, scale, equivInterval, equivSteps } = settings;
   const len = scale.length;
 
-  const distance = (coords.x * rSteps) + (coords.y * urSteps);
+  const distance = (coords.x * rSteps) + (coords.y * drSteps);
 
   let octs      = roundTowardZero(distance / len);
   let octs_prev = roundTowardZero((distance - 1) / len);
@@ -77,13 +77,13 @@ export const channelOffset = (midiChannel, midiin_channel) =>
  * Returns a Point if the note maps to a valid grid position, or null if
  * the note number doesn't land on a grid intersection (remainder != 0).
  *
- * @param {object} settings - { midiin_degree0, midiin_channel, equivSteps, rSteps, urSteps, gcd }
+ * @param {object} settings - { midiin_degree0, midiin_channel, equivSteps, rSteps, drSteps, gcd }
  * @param {number} noteNumber   - MIDI note number (0-127)
  * @param {number} midiChannel  - 1-indexed MIDI channel
  * @returns {Point|null}
  */
 export const midiNoteToCoords = (settings, noteNumber, midiChannel) => {
-  const { midiin_degree0, midiin_channel, equivSteps, rSteps, urSteps, gcd } = settings;
+  const { midiin_degree0, midiin_channel, equivSteps, rSteps, drSteps, gcd } = settings;
 
   const offset = channelOffset(midiChannel, midiin_channel);
   const steps  = (noteNumber - midiin_degree0) + (offset * equivSteps);
@@ -91,18 +91,18 @@ export const midiNoteToCoords = (settings, noteNumber, midiChannel) => {
   const rSteps_count   = Math.round(steps / rSteps);
   const rSteps_to_steps = rSteps * rSteps_count;
 
-  const urSteps_count   = Math.round((steps - rSteps_to_steps) / urSteps);
-  const urSteps_to_steps = urSteps * urSteps_count;
+  const drSteps_count   = Math.round((steps - rSteps_to_steps) / drSteps);
+  const drSteps_to_steps = drSteps * drSteps_count;
 
-  const gcdSteps_count   = Math.floor((steps - rSteps_to_steps - urSteps_to_steps) / gcd[0]);
+  const gcdSteps_count   = Math.floor((steps - rSteps_to_steps - drSteps_to_steps) / gcd[0]);
   const gcdSteps_to_steps = gcdSteps_count * gcd[0];
 
-  const remainder = steps - rSteps_to_steps - urSteps_to_steps - gcdSteps_to_steps;
+  const remainder = steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
 
   if (remainder !== 0) return null;
 
   return new Point(
     rSteps_count  + (gcdSteps_count * gcd[1]),
-    urSteps_count + (gcdSteps_count * gcd[2])
+    drSteps_count + (gcdSteps_count * gcd[2])
   );
 };

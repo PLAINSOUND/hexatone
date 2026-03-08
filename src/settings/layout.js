@@ -22,16 +22,16 @@ const Layout = (props) => (
     </label>
     <label>
       Right-Downward-Facing Steps
-      <input name="urSteps" type="text" inputMode="numeric"
-             key={props.settings.urSteps}
-             defaultValue={props.settings.urSteps}
+      <input name="drSteps" type="text" inputMode="numeric"
+             key={props.settings.drSteps}
+             defaultValue={props.settings.drSteps}
              min="-1220" max="1220"
              onBlur={(e) => {
                const val = parseInt(e.target.value);
                if (!isNaN(val) && val >= -1220 && val <= 1220) {
-                 props.onChange('urSteps', val);
+                 props.onChange('drSteps', val);
                } else {
-                 e.target.value = props.settings.urSteps;
+                 e.target.value = props.settings.drSteps;
                }
              }}
       />
@@ -76,7 +76,7 @@ Layout.propTypes = {
   settings: PropTypes.shape({
     rotation: PropTypes.number,
     hexSize: PropTypes.number,
-    urSteps: PropTypes.number,
+    drSteps: PropTypes.number,
     rSteps: PropTypes.number,
   }),
 };

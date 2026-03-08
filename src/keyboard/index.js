@@ -53,7 +53,7 @@ Keyboard.propTypes = {
 
     // Layout
     rSteps: PropTypes.number,
-    urSteps: PropTypes.number,
+    drSteps: PropTypes.number,
     hexSize: PropTypes.number,
     rotation: PropTypes.number,
     // Scale

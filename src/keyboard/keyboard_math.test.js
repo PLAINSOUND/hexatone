@@ -18,13 +18,13 @@ const make12edoSettings = (overrides = {}) => {
   const scale = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100];
   return {
     rSteps: 2,
-    urSteps: 1,
+    drSteps: 1,
     scale,                  // 12 entries, 0-indexed, degree 0 = 0 cents
     equivInterval: 1200,
     equivSteps: 12,
     midiin_degree0: 60,
     midiin_channel: 0,
-    gcd: Euclid(2, 1),      // [1, 1, -1] for rSteps=2, urSteps=1
+    gcd: Euclid(2, 1),      // [1, 1, -1] for rSteps=2, drSteps=1
     ...overrides,
   };
 };
@@ -56,7 +56,7 @@ describe('roundTowardZero', () => {
 
 // ── hexCoordsToCents ──────────────────────────────────────────────────────────
 
-describe('hexCoordsToCents — 12edo Wicki-Hayden layout (rSteps=2, urSteps=1)', () => {
+describe('hexCoordsToCents — 12edo Wicki-Hayden layout (rSteps=2, drSteps=1)', () => {
   const s = make12edoSettings();
 
   it('origin (0,0) maps to 0 cents, degree 0, distance 0, octave 0', () => {
@@ -73,7 +73,7 @@ describe('hexCoordsToCents — 12edo Wicki-Hayden layout (rSteps=2, urSteps=1)',
     expect(cents).toBe(200);
   });
 
-  it('one step up-right (0,1) maps to degree 1 = 100 cents', () => {
+  it('one step down-right (0,1) maps to degree 1 = 100 cents', () => {
     const [cents, reducedSteps] = hexCoordsToCents(new Point(0, 1), s);
     expect(reducedSteps).toBe(1);
     expect(cents).toBe(100);
@@ -152,7 +152,7 @@ describe('midiNoteToCoords — 12edo', () => {
   });
 
   it('note 61 (degree 1) on central channel → (1,-1)', () => {
-    // steps=1, rSteps=2: rSteps_count=round(0.5)=1, remainder=-1, urSteps_count=round(-1/1)=-1
+    // steps=1, rSteps=2: rSteps_count=round(0.5)=1, remainder=-1, drSteps_count=round(-1/1)=-1
     const coords = midiNoteToCoords(s, 61, 1);
     expect(coords).not.toBeNull();
     expect(coords.x).toBe(1);
@@ -175,17 +175,17 @@ describe('midiNoteToCoords — 12edo', () => {
   });
 
   it('note that does not land on the grid returns null', () => {
-    // In a 12edo layout with rSteps=2, urSteps=1, every semitone lands on
+    // In a 12edo layout with rSteps=2, drSteps=1, every semitone lands on
     // the grid — so test with a 5edo layout where some MIDI notes miss
     const s5 = make12edoSettings({
       rSteps: 2,
-      urSteps: 1,
+      drSteps: 1,
       equivSteps: 5,
       gcd: Euclid(2, 1),
     });
     // MIDI note offset of 3 from degree0: steps=3, rSteps=2 → remainder=1 → null
     // (depends on exact gcd arithmetic — this checks the null path exists)
-    const result = midiNoteToCoords({ ...s5, rSteps: 3, urSteps: 2, gcd: Euclid(3, 2) }, 63, 1);
+    const result = midiNoteToCoords({ ...s5, rSteps: 3, drSteps: 2, gcd: Euclid(3, 2) }, 63, 1);
     // just assert it returns either a Point or null, not throw
     expect(result === null || result instanceof Point).toBe(true);
   });
