@@ -369,11 +369,43 @@ describe('hexatoneMappingForLumatone', () => {
     expect(boards12[2][27].ktyp).toBe(1);
   });
 
-  it('central key uses fundamental_color', () => {
-    expect(boards12[2][27].color).toBe(cssToLtnColor(S12.fundamental_color));
+  it('central key (B2K27) uses LUMATONE_TONIC colour when colorTransfer=true', () => {
+    // LUMATONE_TONIC = '#df270e'
+    expect(boards12[2][27].color).toBe('DF270E');
   });
 
-  it('no two active keys share (note, channel) — 12-edo', () => {
+  it('central key uses fundamental_color when colorTransfer=false', () => {
+    const b = hexatoneMappingForLumatone(S12, { colorTransfer: false });
+    expect(b[2][27].color).toBe(cssToLtnColor(S12.fundamental_color));
+  });
+
+  it('non-central degree-0 keys use LUMATONE_TONIC_OTHER when colorTransfer=true', () => {
+    // LUMATONE_TONIC_OTHER = '#902e20'
+    const tonicOtherLtn = '902E20';
+    for (let b = 0; b < 5; b++) {
+      for (let k = 0; k < 56; k++) {
+        if (b === 2 && k === 27) continue;  // skip the reference key itself
+        const s = keyStepsFromRef(k, b, 7, 5);
+        const degree = ((s % 12) + 12) % 12;
+        if (degree === 0) {
+          expect(boards12[b][k].color).toBe(tonicOtherLtn);
+        }
+      }
+    }
+  });
+
+  it('degree 0 keys all use fundamental_color when colorTransfer=false (12-edo)', () => {
+    const bNoTransfer = hexatoneMappingForLumatone(S12, { colorTransfer: false });
+    for (let b = 0; b < 5; b++) {
+      for (let k = 0; k < 56; k++) {
+        const s      = keyStepsFromRef(k, b, 7, 5);
+        const degree = ((s % 12) + 12) % 12;
+        if (degree === 0) {
+          expect(bNoTransfer[b][k].color).toBe(cssToLtnColor(S12.fundamental_color));
+        }
+      }
+    }
+  });
     const pairs = boards12.flat().filter(k => k.ktyp !== 0).map(k => `${k.channel}:${k.note}`);
     expect(new Set(pairs).size).toBe(pairs.length);
   });
@@ -477,7 +509,7 @@ describe('boardsToLtn', () => {
   });
 
   it('contains the global footer', () => {
-    expect(ltn).toContain('AfterTouchActive=0');
+    expect(ltn).toContain('AfterTouchActive=1');
     expect(ltn).toContain('VelocityIntrvlTbl=');
     expect(ltn).toContain('LumaTouchConfig=');
   });

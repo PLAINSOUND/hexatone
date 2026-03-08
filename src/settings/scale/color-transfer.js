@@ -7,8 +7,7 @@
  *
  * The Lumatone's physical key LEDs render colours differently from an sRGB
  * screen.  Rather than applying a single global curve, this module maintains a
- * DATABASE of (screen colour, lumatone colour) pairs contributed by hand — the
- * ground truth.
+ * DATABASE of (screen colour, lumatone colour) pairs — the ground truth.
  *
  * For any input colour:
  *   1. EXACT MATCH — if the colour is in the database, return its known
@@ -30,19 +29,44 @@
  * The result is exact at each database point, smooth between them, and
  * identity-like far from all points.
  *
+ * ── Special tonic colours ────────────────────────────────────────────────────
+ *
+ * The scale 1/1 (central pitch) uses Lumatone-only colours that are not
+ * derived from any screen colour at all, and are never routed through
+ * transferColor().  They are exported as named constants for use in
+ * lumatone-export.js:
+ *
+ *   LUMATONE_TONIC        '#df270e'  – the 1/1 key on the reference board
+ *   LUMATONE_TONIC_OTHER  '#902e20'  – the same pitch class in other equaves
+ *
+ * The corresponding Hexatone screen colour '#ffebed' is kept in Hexatone only
+ * and is never sent to the Lumatone.
+ *
+ * ── Incomplete / ambiguous entries (not included) ────────────────────────────
+ *
+ * The following entries from the source notes were omitted because they lack
+ * a complete screen→Lumatone pair and cannot anchor the RBF interpolation:
+ *
+ *   u17  #c3c3e9           — screen colour only, no Lumatone value given
+ *   u17  ccccdb / 7b7bb    — Lumatone value is 5 digits (likely typo; unclear intent)
+ *   u19  bedce4            — screen colour only, no Lumatone value given
+ *   133° / 501A33          — Lumatone value only, no screen colour given
+ *
+ * Correct these in the source notes and add them here once complete.
+ *
  * ── Database format ──────────────────────────────────────────────────────────
  *
  *   COLOR_PAIRS  is a plain array of [screenHex, lumatoneHex] pairs.
- *   Add your own entries to improve accuracy for your palette.
  *   Both hex values are 6-digit lowercase strings without '#'.
+ *   When a screen hex appears more than once, the FIRST entry wins for
+ *   exact-match lookup; ALL entries influence RBF interpolation.
  *
  * ── Public API ───────────────────────────────────────────────────────────────
  *
- *   transferColor(hex)  → '#rrggbb'
- *     Apply the transfer to a single CSS hex colour.
- *
- *   COLOR_PAIRS
- *     The live database array — add, remove, or edit entries at runtime.
+ *   LUMATONE_TONIC        – Lumatone colour for the 1/1 key
+ *   LUMATONE_TONIC_OTHER  – Lumatone colour for other-equave 1/1 keys
+ *   COLOR_PAIRS           – the live database array
+ *   transferColor(hex)    – '#rrggbb'
  */
 
 // ── okLab conversion (self-contained) ────────────────────────────────────────
@@ -91,24 +115,39 @@ function oklabToHex(L, a, b) {
     .join('');
 }
 
+// ── Special tonic colours (Lumatone-only, not screen-derived) ─────────────────
+
+/** Lumatone colour for the scale 1/1 on its reference board. */
+export const LUMATONE_TONIC       = '#df270e';
+
+/** Lumatone colour for the scale 1/1 in other equave transpositions. */
+export const LUMATONE_TONIC_OTHER = '#902e20';
+
 // ── Colour pair database ──────────────────────────────────────────────────────
 //
 // Format: [screenHex, lumatoneHex]
 // All entries are 6-digit hex strings, lowercase, no '#'.
+// First occurrence of a screen hex wins for exact-match lookup.
+// All entries contribute to RBF interpolation.
 //
-// Source: Marc's hand-crafted Hexatone → Lumatone colour equivalents.
-// Add new rows as you calibrate more colours on your unit.
+// Where a screen colour appears in multiple harmonic contexts with different
+// Lumatone targets, all variants are listed so interpolation is informed by
+// the full range of that colour's usage.
 
 export const COLOR_PAIRS = [
+
+  // ── Neutral / universal ───────────────────────────────────────────────────
+  ['ffffff', 'ffffff'],   // pure white
+  ['fafa82', 'fae989'],   // ivory
+
+  // ── 53-Tertial ────────────────────────────────────────────────────────────
+  ['ffe070', 'b8880d'],   // vv Bb
+  ['fceec5', 'd4b253'],   // vv naturals
+
   // ── 12-edo ────────────────────────────────────────────────────────────────
-  // whites
-  ['ededf7', 'e1e1f8'],
-  // C accent / pinky
-  ['fef6f7', 'e6b4aa'],
-  // blacks — two Lumatone variants exist; the first is used for exact-match lookup.
-  // The second is kept as a named entry for manual assignment in the app.
-  ['c3c3d5', '507bd8'],   // black key — blue variant (default)
-  // ['c3c3d5', '6378a8'], // black key — dark-blue variant (uncomment to swap)
+  ['ffdfdb', 'de8e84'],   // C accent pink
+  ['ededf7', 'e1e1f8'],   // white
+  ['c3c3d5', '507bd8'],   // black
 
   // ── 12-tone meantone ──────────────────────────────────────────────────────
   ['f9f7eb', 'fef4ac'],   // white
@@ -118,54 +157,105 @@ export const COLOR_PAIRS = [
   ['dddae2', '756f81'],   // diesis down
 
   // ── Pythagorean ───────────────────────────────────────────────────────────
-  ['d0d0d7', '5d5d60'],   // black
+  ['d0d0d7', '5d5d60'],   // black (d0d0d7 also = blue-silver; first entry wins)
 
   // ── Yellow / 5-limit ─────────────────────────────────────────────────────
-  ['fffae5', 'fbe57c'],   // 5° 15° 45° light
+  ['fffae5', 'fbe57c'],   // 5° 15° 45° 135°
   ['fef5be', 'ffe63f'],   // 25° 75° 225°
   ['ffef8a', 'cdaf06'],   // 125°
-  ['dee2da', '425d3b'],   // u5 u15
+  ['dee2da', '425d3b'],   // u5 u15 (dee2da also = 43°; first entry wins)
 
   // ── Red / 7-limit ─────────────────────────────────────────────────────────
-  ['ffe5e5', 'ff98aa'],   // 7° 21° 63° 189° light
+  ['ffe5e5', 'ff98aa'],   // 7° 21° 63° 189°
   ['ffcba8', 'f88942'],   // 35° 105° 315°
-  ['ffd270', 'ffae00'],   // 175°
-  ['f8c9c9', 'b45f5f'],   // 49° 147°
-  ['ffa8a8', 'b95a00'],   // 245°
+  ['ffd270', 'd47f00'],   // 175°
+  ['f8c9c9', 'e56568'],   // 49° 147°
+  ['ffa8a8', 'ab502c'],   // 245°
   ['e2caca', '8e4f45'],   // u7
+  ['d0d6e1', '3d5873'],   // u7 sharps (41)
+  ['ece6df', 'bfa688'],   // 7°u5
+  ['ecc9a2', 'c19563'],   // 5°u7
 
   // ── Green / 11-limit ──────────────────────────────────────────────────────
   ['dfffd6', '7aff4f'],   // 11° 33° 99°
   ['ddfe95', 'bbff05'],   // 55° 165°
-  ['e9ecc1', '626d04'],   // 77° 231°
+  ['e9ecc1', '829000'],   // 77° 231°
   ['c3ffad', '30b604'],   // 121°
+  ['cee3e2', '578d78'],   // u11
+  ['bae5f7', '6591a3'],   // 7°u11
+  ['e4fbe6', '3d9c43'],   // 11°u7
+  ['e1d0e1', '7e9b60'],   // 5°u11
+  ['e2eecd', '92cc2d'],   // 11°u5
 
   // ── Purple / 13-limit ─────────────────────────────────────────────────────
   ['e6d7fe', 'ad76ff'],   // 13° 39° 117°
-  ['e9d7d3', '7a6677'],   // 65° 195°
-  ['ebd0e0', '814285'],   // 91°
+  ['e9d7d3', 'a078a9'],   // 65° 195°
+  ['ebd0e0', '834476'],   // 91°
+  ['90f9cd', '00f77c'],   // 143°
   ['dbb3ff', '6800ff'],   // 169°
+  ['cba9fe', '554969'],   // u13
+  ['e4f6fb', '9dd799'],   // 5°u13
+  ['e4fbf1', '86ce66'],   // 13°u5
 
   // ── Dark grey / 17-limit ─────────────────────────────────────────────────
-  ['cfcfcf', '383838'],   // 17° 51° 153° neutral
+  ['cfcfcf', '5e5e5e'],   // 17° 51° 153°
   ['eceae4', '908958'],   // 85° 255°
   ['ded4d5', '3e2f2f'],   // 119°
+  ['ccdbce', '334d28'],   // 187°
+  ['c3b4d5', '493959'],   // 221°
 
   // ── Pale blue / 19-limit ─────────────────────────────────────────────────
   ['d6f7ff', '9dbfef'],   // 19° 57° 171°
   ['e5fff9', '5b8d8d'],   // 95°
+  ['f4e6f2', 'a68fb8'],   // 133°
+  ['caf7e3', '87ec85'],   // 209°
+  ['dbe6ff', '8b8ed4'],   // 247°
 
-  // ── 53-Tertial ────────────────────────────────────────────────────────────
-  ['ffe070', 'b8880d'],   // vv Bb
-  ['fceec5', 'd4b253'],   // vv naturals
+  // ── Dark green / 23-limit ─────────────────────────────────────────────────
+  ['d3dab9', '96a853'],   // 23° 69° 207°
+  ['95c69b', '003405'],   // 23° brighter variant
+  ['90d597', '014d08'],   // 115°
+  ['91b195', '224100'],   // 161°
+  ['69ec79', '216a25'],   // 253°
 
-  // ── Silver / grey-tinted (contextual variants) ────────────────────────────
-  // These screen colours appear elsewhere in the DB with different Lumatone
-  // targets — these darker variants are used in specific scale contexts.
-  // The exact-match lookup returns the first occurrence; these influence
-  // interpolation for nearby unseen colours via RBF weighting.
-  ['dee2da', '3b5d4d'],   // green-silver (vs u5/u15 → 425d3b above)
-  ['d0d0d7', '5a5f64'],   // blue-silver  (vs Pythag black → 5d5d60 above)
+  // ── Dark blue / 29-limit ──────────────────────────────────────────────────
+  ['b6ecd0', '4ba369'],   // 29° 87°
+  ['8aafff', '0037b0'],   // 29° brighter variant
+  ['b4cbfe', '3c74ed'],   // 145°
+  ['b0a9fe', '2f00c7'],   // 203°
+
+  // ── Turquoise / 31-limit ──────────────────────────────────────────────────
+  ['d1c2c2', '6c4741'],   // 31° 93°
+  ['68f3ec', '006c52'],   // 31° brighter variant
+  ['0afff3', '008e8e'],   // 155°
+  ['0fd2c8', '095e72'],   // 217°
+
+  // ── Silver / 37-limit ────────────────────────────────────────────────────
+  // cee3e2 also appears as u11; first entry (u11 = 578d78) wins for exact-match.
+  // This 37° variant (779a8b) still contributes to interpolation.
+  ['cee3e2', '779a8b'],   // 37° 111°
+  ['dfebdb', '98b585'],   // 185°
+
+  // ── Dark rose / 41-limit ─────────────────────────────────────────────────
+  ['f2cdc5', '8e4f45'],   // 41° 123°
+  ['d39e92', '7b4e44'],   // 41° darker variant
+  ['e0b49e', '735036'],   // 205°
+
+  // ── Dark orange / 43-limit ───────────────────────────────────────────────
+  // dee2da also = u5-u15; first entry wins for exact-match.
+  ['dee2da', '425d3b'],   // 43° 129°
+  ['c9a573', '6c3e00'],   // 43° darker variant
+  ['e8c28c', '725007'],   // 215°
+
+  // ── Pink / 47-limit ──────────────────────────────────────────────────────
+  ['ffb8da', 'ac2764'],   // 47° 141°
+  ['f79cc5', 'ae1f38'],   // 235°
+
+  // ── 59° ──────────────────────────────────────────────────────────────────
+  ['e5adff', 'a017de'],   // 59°
+
+  // ── Higher primes (generic) ───────────────────────────────────────────────
+  ['ededed', '898989'],   // higher primes
 ];
 
 // ── Pre-computed okLab representations ───────────────────────────────────────
@@ -183,10 +273,8 @@ const _db = COLOR_PAIRS.map(([sc, lm]) => {
 
 // ── Transfer function ─────────────────────────────────────────────────────────
 
-const SIGMA         = 0.10;   // RBF bandwidth in okLab units
-const W_FALLBACK    = 0.30;   // Fallback weight — damps correction to identity
-                              // when query is far from all database entries.
-                              // Increase to make extrapolation more conservative.
+const SIGMA      = 0.10;   // RBF bandwidth in okLab units
+const W_FALLBACK = 0.10;   // Damps correction toward identity far from all DB entries.
 
 /**
  * Apply the screen→Lumatone colour transfer to a CSS hex colour.
@@ -194,6 +282,9 @@ const W_FALLBACK    = 0.30;   // Fallback weight — damps correction to identit
  * - Exact database matches are returned unchanged (guaranteed by zero distance).
  * - Colours between database entries are smoothly interpolated in okLab.
  * - Colours far from all entries fall back toward identity (no change).
+ *
+ * The tonic (degree 0) colour is handled separately in lumatone-export.js using
+ * LUMATONE_TONIC / LUMATONE_TONIC_OTHER and never passes through this function.
  *
  * @param {string} hex  CSS hex colour ('#rrggbb', '#rgb', or 'rrggbb')
  * @returns {string}    Adjusted colour as '#rrggbb'
@@ -204,7 +295,7 @@ export function transferColor(hex) {
   if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
   if (!/^[0-9a-f]{6}$/.test(hex)) return '#' + hex;   // passthrough if unrecognised
 
-  // 1. Exact lookup — if the input is already a database entry, return its pair.
+  // 1. Exact lookup — first matching entry in the database wins.
   const exact = _db.find(p => p.sc === hex);
   if (exact) return '#' + exact.lm;
 
