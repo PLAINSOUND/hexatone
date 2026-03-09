@@ -144,6 +144,17 @@ export const COLOR_PAIRS = [
   ['ffe070', 'b8880d'],   // vv Bb
   ['fceec5', 'd4b253'],   // vv naturals
 
+  // ── 55-Luma ───────────────────────────────────────────────────────────────
+  ['efffcc', 'd9f2a2'], // yellow-green
+  ['fdf5d3', 'ffed9f'], // ivory
+  ['c2f6ff', 'ade9f3'], // blue
+  ['d0fbd7', 'A8E6B2'], // blue-green
+
+  ['9c92af', '1e1928'], // ivory-blacks
+  ['8f8f8f', '1c1c1c'], // white-blacks
+  ['927cb1', '110128'], // blue-blacks
+  ['a18dce', '160D29'], // green-blacks 
+
   // ── 12-edo ────────────────────────────────────────────────────────────────
   ['ffdfdb', 'de8e84'],   // C accent pink
   ['ededf7', 'e1e1f8'],   // white

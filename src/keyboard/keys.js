@@ -654,12 +654,12 @@ class Keys {
 
   drawGrid() {
     let max = (this.state.centerpoint.x > this.state.centerpoint.y) ?
-        this.state.centerpoint.x / this.settings.hexSize :
-        this.state.centerpoint.y / this.settings.hexSize;
+        this.state.centerpoint.x/ this.settings.hexSize :
+        this.state.centerpoint.y/ this.settings.hexSize;
     max = Math.floor(max);
     for (let r = -max; r < max; r++) {
-      for (let ur = -max; ur < max; ur++) {
-        let coords = new Point(r, ur);
+      for (let dr = -max; dr < max; dr++) {
+        let coords = new Point(r, dr);
         this.hexOff(coords);
       }
     }
