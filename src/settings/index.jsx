@@ -10,7 +10,7 @@ import MIDIio from './midi';
 
 import './settings.css';
 
-const Settings = ({ presetChanged, presets, settings, onChange, onImport, importCount, onLoadCustomPreset, activeSource, activePresetName, isPresetDirty, onRevertBuiltin, onRevertUser, midi, instruments }) => (
+const Settings = ({ presetChanged, presets, settings, onChange, onImport, importCount, onLoadCustomPreset, activeSource, activePresetName, isPresetDirty, onRevertBuiltin, onRevertUser, midi, instruments, keysRef }) => (
   <form>
     <fieldset>
       <legend><b>Built-in Tunings</b></legend>
@@ -25,7 +25,7 @@ const Settings = ({ presetChanged, presets, settings, onChange, onImport, import
                    activeSource={activeSource}
                    activePresetName={activePresetName} isPresetDirty={isPresetDirty} onRevert={onRevertUser} />
     <Info onChange={onChange} settings={settings} />
-    <Scale onChange={onChange} settings={settings} onImport={onImport} importCount={importCount} />
+    <Scale onChange={onChange} settings={settings} onImport={onImport} importCount={importCount} keysRef={keysRef} />
     <Layout onChange={onChange} settings={settings} />
     <SampleSynth onChange={onChange} settings={settings} instruments={instruments} />
     <MIDIio onChange={onChange} settings={settings} midi={midi} />

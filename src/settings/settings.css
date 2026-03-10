@@ -224,3 +224,114 @@ label .color-cell .color-input {
 .preset-selector-row select {
   flex: none;
 }
+
+/* ── Tune cell — live pitch tuning drag handle ─────────────────────────── */
+
+/* Top-align all cells. Left col drives row height (input + optional tune handle).
+   Right cols align to top of that, matching the input naturally. */
+table td {
+  vertical-align: top;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* freq-cell: input on top, tune handle directly below with a small gap. */
+.freq-cell {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+}
+
+/* tune-cell sits inline with the input — no vertical margins.
+   When dirty, cents+buttons appear and the row expands naturally. */
+.tune-cell {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.78em;
+}
+
+.tune-handle {
+  cursor: ew-resize;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 22px;
+  border-radius: 3px;
+  background: #e8e8e8;
+  color: #555;
+  touch-action: none;
+  border: 1px solid #ccc;
+  font-size: 1em;
+  line-height: 1;
+  margin-left: auto; /* right-align to match input above */
+}
+.tune-handle:hover { background: #d0d0d0; color: #222; }
+.tune-handle:active { background: #bbb; cursor: grabbing; }
+
+.tune-delta {
+  font-family: monospace;
+  font-size: 1.35em;
+  line-height: 1;
+  color: #c87800;
+  min-width: 4em;
+  text-align: right;
+  padding-left: 2px;
+  margin-right: 12px;
+}
+.tune-delta.tune-comparing { color: #5566dd; font-style: italic; }
+
+.tune-actions { display: flex; gap: 3px; align-items: center; }
+
+.tune-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #ebebeb;
+  color: #444;
+  cursor: pointer;
+  font-size: 1.05em;
+  line-height: 1;
+}
+.tune-btn:hover { background: #d8d8d8; color: #111; }
+.tune-btn--active { background: #dde; color: #336; border-color: #99b; }
+.tune-btn--save   { color: #2a7a2a; border-color: #6aaa6a; }
+.tune-btn--save:hover { background: #d8eed8; }
+.tune-btn--revert { color: #882222; border-color: #cc8888; }
+.tune-btn--revert:hover { background: #eedada; }
+
+.tune-btn-compare {
+  font-size: 1.3em;
+  line-height: 1;
+}
+
+/* Tonic cue label */
+.tonic-label {
+  line-height: 1.5;
+  color: #888;
+  font-size: 0.9em;
+}
+
+/* Equave row — auto-generated, read-only feel */
+input.equiv-cell,
+input.equiv-cell:disabled {
+  color: #aaa;
+  border-color: #ddd;
+  background: transparent;
+  -webkit-text-fill-color: #aaa; /* overrides browser disabled grey on some platforms */
+}
+
+/* Freq input fills available width, handle sits flush to its right */
+.freq-cell input {
+  flex: 1;
+  min-width: 0;
+}

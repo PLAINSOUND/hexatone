@@ -29,6 +29,7 @@ class Keys {
       sustain: false,
       sustainedNotes: [],
       shiftHeld: false,
+      isTuneDragging: false,
       pressedKeys: new Set(),
       activeHexObjects: [],
       isTouchDown: false,
@@ -76,7 +77,10 @@ class Keys {
     if ((this.settings.midiin_device !== "OFF") && (this.settings.midiin_channel >= 0)) { // get the MIDI noteons and noteoffs to play the internal sounds
     
       this.midiin_data = WebMidi.getInputById(this.settings.midiin_device);
-      
+
+      if (!this.midiin_data) {
+      } else { // this.midiin_data exists
+
       this.midiin_data.addListener("noteon", e => {
         //console.log("(input) note_on", e.message.channel, e.note.number, e.note.rawAttack);
         this.midinoteOn(e);
@@ -215,9 +219,44 @@ class Keys {
             */
           };
         };
-      };
+      }; // end else (midiin_data exists)
+      }; // end if midiin_data guard
     };
   }; // end of constructor
+
+  /**
+   * Live-retune a single scale degree while notes are held.
+   * Updates this.settings.scale[degree] and redraws that degree's hexes.
+   * Also calls hex.retune(newCents) on any currently-sounding or sustained notes
+   * at that degree — including notes held under the Shift sustain pedal.
+   * @param {number} degree   - reducedSteps index (1..equivSteps-1; 0 = tonic, fixed)
+   * @param {number} newCents - new value in cents
+   */
+  updateScaleDegree = (degree, newCents) => {
+    if (!this.settings.scale || degree < 0 || degree >= this.settings.scale.length) return;
+    // Compute delta before mutating scale, so we can shift each hex by the same amount
+    // regardless of which octave it was played in.
+    const oldCents = this.settings.scale[degree];
+    const delta = newCents - oldCents;
+    this.settings.scale[degree] = newCents;
+    for (const hex of this.state.activeHexObjects) {
+      const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
+      if (reducedSteps === degree && hex.retune) hex.retune(hex.cents + delta);
+    }
+    for (const [hex] of this.state.sustainedNotes) {
+      const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
+      if (reducedSteps === degree && hex.retune) hex.retune(hex.cents + delta);
+    }
+    this.drawGrid();
+  };
+
+  /**
+   * Called by TuneCell on pointer-down/up so Shift-sustain keyup guard
+   * knows a sidebar drag is in progress and won't drop the sustain.
+   */
+  setTuneDragging = (active) => {
+    this.state.isTuneDragging = active;
+  };
 
   /**
    * Imperatively update colors and redraw without reconstructing the Keys instance.
@@ -560,7 +599,7 @@ class Keys {
   onKeyUp = (e) => {
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       this.state.shiftHeld = false;
-      if (!this.state.isMouseDown && !this.state.isTouchDown) {
+      if (!this.state.isMouseDown && !this.state.isTouchDown && !this.state.isTuneDragging) {
         this.sustainOff();
       }
       return;
@@ -608,7 +647,8 @@ class Keys {
     }
     // If Shift was held but its keyup already fired while the mouse was down
     // (spurious keyup), release sustain now that the mouse is up too.
-    if (!this.state.shiftHeld && this.state.sustain) {
+    // But don't release if a tune-handle drag is in progress in the sidebar.
+    if (!this.state.shiftHeld && this.state.sustain && !this.state.isTuneDragging) {
       this.sustainOff();
     }
   };

@@ -406,7 +406,7 @@ const App = () => {
           PLAINSOUND HEXATONE
         </h1>
         <p>
-          <em>TO PLAY: click on notes, use a touchscreen, attach a MIDI keyboard or a Lumatone. When this sidebar is minimised, a computer keyboard may also be used as an input device. The H key is mapped to scale degree 0 and the SHIFT key acts as a sustain pedal, allowing chords to be played.</em>
+          <em>TO PLAY: click on notes, use a touchscreen, attach a MIDI keyboard or a Lumatone. When this sidebar is minimised, a computer keyboard may also be used as an input device. The H key is mapped to scale degree 0 and the spacebar acts as a sustain pedal, allowing chords to be played.</em>
         </p>
         <Settings presetChanged={presetChanged}
                     presets={presets}

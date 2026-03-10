@@ -140,6 +140,7 @@ ActiveHex.prototype.noteOn = function() {
     ? this.sampleLoopPoints[(sampleNumber * 2) + 1] : 0;
 
   source.playbackRate.value = freq / sampleFreq;
+  this.sampleFreq = sampleFreq; // stored so retune() can ramp playbackRate
 
   const gainNode = this.audioContext.createGain();
   source.connect(gainNode);
@@ -153,6 +154,22 @@ ActiveHex.prototype.noteOn = function() {
   );
   this.source = source;
   this.gainNode = gainNode;
+};
+
+/**
+ * Smoothly retune a held note to a new cents value by ramping playbackRate.
+ * No note-off/note-on — the sound continues uninterrupted.
+ */
+ActiveHex.prototype.retune = function(newCents) {
+  //console.log('[retune] ActiveHex.retune called, newCents:', newCents, 'source:', !!this.source, 'sampleFreq:', this.sampleFreq);
+  if (!this.source || !this.audioContext || !this.sampleFreq) return;
+  const newFreq = this.fundamental * Math.pow(2, (newCents - this.offset) / 1200);
+  const newRate = newFreq / this.sampleFreq;
+  const now = this.audioContext.currentTime;
+  this.source.playbackRate.cancelScheduledValues(now);
+  this.source.playbackRate.setValueAtTime(this.source.playbackRate.value, now);
+  this.source.playbackRate.linearRampToValueAtTime(newRate, now + 0.025); // 25ms glide
+  this.cents = newCents;
 };
 
 ActiveHex.prototype.aftertouch = function(value) {

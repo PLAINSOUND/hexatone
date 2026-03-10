@@ -16,7 +16,9 @@ const Keyboard = (props) => {
   useEffect(() => {
     const keys = new Keys(canvas.current, props.settings, props.synth, props.active);
     keysRef.current = keys;
+    //console.log('[Keyboard] Keys constructed, calling onKeysReady');
     if (props.onKeysReady) props.onKeysReady(keys);
+    //console.log('[Keyboard] onKeysReady done');
     return () => keys.deconstruct();
   }, [canvas, props.structuralSettings, props.synth]);
 
