@@ -1,12 +1,15 @@
 import { h } from 'preact';
 import PropTypes from 'prop-types';
 
-const Layout = (props) => (
+const Layout = (props) => {
+  const maxDegree = (props.settings.equivSteps || 1) - 1;
+  return (
   <fieldset>
     <legend><b>Layout</b></legend>
     <label>
       Right-Facing Steps
       <input name="rSteps" type="text" inputMode="numeric"
+             class="sidebar-input"
              key={props.settings.rSteps}
              defaultValue={props.settings.rSteps}
              min="-1220" max="1220"
@@ -23,6 +26,7 @@ const Layout = (props) => (
     <label>
       Right-Downward-Facing Steps
       <input name="drSteps" type="text" inputMode="numeric"
+             class="sidebar-input"
              key={props.settings.drSteps}
              defaultValue={props.settings.drSteps}
              min="-1220" max="1220"
@@ -37,8 +41,26 @@ const Layout = (props) => (
       />
     </label>
     <label>
+      Central Scale Degree
+      <input name="center_degree" type="text" inputMode="numeric"
+             class="sidebar-input"
+             key={`${props.settings.center_degree}-${maxDegree}`}
+             defaultValue={props.settings.center_degree || 0}
+             step="1" min="0" max={maxDegree}
+             onBlur={(e) => {
+               const val = parseInt(e.target.value);
+               if (!isNaN(val) && val >= 0 && val <= maxDegree) {
+                 props.onChange('center_degree', val);
+               } else {
+                 e.target.value = props.settings.center_degree || 0;
+               }
+             }}
+      />
+    </label>
+    <label>
       Hex Size (pixels)
       <input name="hexSize" type="text" inputMode="numeric"
+             class="sidebar-input"
              key={props.settings.hexSize}
              defaultValue={props.settings.hexSize}
              min="20" max="1000"
@@ -55,6 +77,7 @@ const Layout = (props) => (
     <label>
       Rotation (degrees clockwise)
       <input name="rotation" type="text" inputMode="decimal"
+             class="sidebar-input"
              key={props.settings.rotation}
              defaultValue={props.settings.rotation}
              min="-360" max="360"
@@ -69,7 +92,8 @@ const Layout = (props) => (
       />
     </label>
   </fieldset>
-);
+  );
+};
 
 Layout.propTypes = {
   onChange: PropTypes.func.isRequired,
@@ -78,6 +102,8 @@ Layout.propTypes = {
     hexSize: PropTypes.number,
     drSteps: PropTypes.number,
     rSteps: PropTypes.number,
+    center_degree: PropTypes.number,
+    equivSteps: PropTypes.number,
   }),
 };
 

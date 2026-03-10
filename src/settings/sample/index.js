@@ -10,6 +10,7 @@ const SampleSynth = (props) => (
       Built-In Synth / MIDI Output
       <select value={props.settings.output}
         name="output"
+        class="sidebar-input"
         onChange={(e) => {
           props.onChange(e.target.name, e.target.value);
           sessionStorage.setItem(e.target.name, e.target.value);
@@ -22,6 +23,7 @@ const SampleSynth = (props) => (
     <label>
       Fixed velocity (touch input)
       <input name="midi_velocity" type="text" inputMode="numeric"
+        class="sidebar-input"
         key={props.settings.midi_velocity}
         defaultValue={props.settings.midi_velocity}
         onBlur={(e) => {

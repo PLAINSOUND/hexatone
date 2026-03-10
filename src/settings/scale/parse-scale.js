@@ -261,7 +261,7 @@ export const settingsToPresetJson = (settings) => {
     'note_names', 'note_colors', 'key_labels',
     'spectrum_colors', 'fundamental_color',
     'fundamental', 'reference_degree',
-    'rSteps', 'drSteps', 'hexSize', 'rotation',
+    'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
     'midiin_degree0',
   ];
 

@@ -60,17 +60,6 @@ select {
   border-color: #c3c8cb;
 }
 
-input[type="number"] {
-    width: 24em;
-    height: 1.5em;
-    box-sizing: border-box;
-    background-color: rgb(254, 249, 244); 
-    border-width: 1px; 
-    border-radius: 3px;
-    border-style: solid;
-    border-color: #c3c8cb;
-}
-
 input[type="text"] {
   width: 24em;
   height: 1.5em;
@@ -192,49 +181,8 @@ input:out-of-range {
   cursor: not-allowed;
 }
 
-/* Custom presets table */
-.custom-presets-table {
-  width: 100%;
-  margin-bottom: 0.5em;
-}
-
-.custom-presets-table td {
-  padding: 0.1em 0.25em;
-  vertical-align: middle;
-}
-
-.custom-presets-table td:first-child {
-  width: 100%;
-}
-
-.custom-presets-table button {
-  white-space: nowrap;
-}
-
 .delete-btn {
   color: #a00;
-}
-
-/* Save preset inline form */
-
-.save-preset-form {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.25em;
-  margin-top: 0.25em;
-}
-
-.save-preset-form input[type="text"] {
-  width: 24em !important;
-  height: 1.5em;
-}
-
-.save-preset-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.25em;
-  width: 24em;
 }
 
 .preset-error {
@@ -259,4 +207,11 @@ label .color-cell .color-input {
   justify-content: space-between;
   margin-top: 0.125em;
   line-height: 1.5em;
+}
+
+/* Inputs and selects in sidebar label rows — width matches the start of the
+   scale table's "Degree" column, which is the right half of the .wide (50%)
+   first column. Using 50% here tracks the sidebar width automatically. */
+.sidebar-input {
+  width: 50% !important;
 }

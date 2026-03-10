@@ -10,12 +10,14 @@ import { scalaToCents } from '../settings/scale/parse-scale';
 
 class Keys {
   constructor(canvas, settings, synth, typing,) {
+    const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
       hexVert: settings.hexSize * 3 / 2,
       hexWidth: Math.sqrt(3) * settings.hexSize,
-      gcd: Euclid(settings.rSteps, settings.drSteps), // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
+      gcd, // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
       offset: getOffset(settings.reference_degree, settings.scale),
+      centerHexOffset: computeCenterOffset(settings.rSteps, settings.drSteps, settings.center_degree || 0, gcd),
       ...settings,
     };
     this.synth = synth; // use built-in sounds or send MIDI out to an external synth
@@ -657,8 +659,10 @@ class Keys {
         this.state.centerpoint.x/ this.settings.hexSize :
         this.state.centerpoint.y/ this.settings.hexSize;
     max = Math.floor(max);
-    for (let r = -max; r < max; r++) {
-      for (let dr = -max; dr < max; dr++) {
+    const ox = this.settings.centerHexOffset.x;
+    const oy = this.settings.centerHexOffset.y;
+    for (let r = -max + ox; r < max + ox; r++) {
+      for (let dr = -max + oy; dr < max + oy; dr++) {
         let coords = new Point(r, dr);
         this.hexOff(coords);
       }
@@ -666,8 +670,10 @@ class Keys {
   };
 
   hexCoordsToScreen(hex) { /* Point */
-    let screenX = this.state.centerpoint.x + hex.x * this.settings.hexWidth + hex.y * this.settings.hexWidth / 2;
-    let screenY = this.state.centerpoint.y + hex.y * this.settings.hexVert;
+    const ox = this.settings.centerHexOffset.x;
+    const oy = this.settings.centerHexOffset.y;
+    let screenX = this.state.centerpoint.x + (hex.x - ox) * this.settings.hexWidth + (hex.y - oy) * this.settings.hexWidth / 2;
+    let screenY = this.state.centerpoint.y + (hex.y - oy) * this.settings.hexVert;
     return (new Point(screenX, screenY));
   };
 
@@ -889,14 +895,16 @@ class Keys {
 
   getHexCoordsAt(coords) {
     coords = applyMatrixToPoint(this.state.rotationMatrix, coords);
+    const ox = this.settings.centerHexOffset.x;
+    const oy = this.settings.centerHexOffset.y;
     let x = coords.x - this.state.centerpoint.x;
     let y = coords.y - this.state.centerpoint.y;
 
     let q = (x * Math.sqrt(3) / 3 - y / 3) / this.settings.hexSize;
     let r = y * 2 / 3 / this.settings.hexSize;
 
-    q = Math.round(q);
-    r = Math.round(r);
+    q = Math.round(q) + ox;
+    r = Math.round(r) + oy;
 
     let guess = this.hexCoordsToScreen(new Point(q, r));
 
@@ -932,6 +940,39 @@ function getOffset(reference_degree, scale) {
   //console.log("offset_value (cents, ratio):", offset);
   
   return offset;
+};
+
+/**
+ * Compute the lattice offset that places `center_degree` at the screen centre.
+ *
+ * Returns a Point(r, dr) such that  r * rSteps + dr * drSteps === center_degree
+ * and (r, dr) is the lattice solution closest to the origin (min r² + dr²).
+ *
+ * Uses the Bézout coefficients already computed by Euclid() — passed in as `gcd`
+ * so the constructor can reuse the value it already computed.
+ *
+ * @param {number} rSteps
+ * @param {number} drSteps
+ * @param {number} degree   – target scale degree (0 → no shift)
+ * @param {number[]} gcd    – result of Euclid(rSteps, drSteps): [g, bx, by]
+ * @returns {Point}
+ */
+function computeCenterOffset(rSteps, drSteps, degree, gcd) {
+  if (!degree) return new Point(0, 0);
+  const [g, bx, by] = gcd;
+  if (degree % g !== 0) return new Point(0, 0); // degree not reachable in this layout
+  const signR  = rSteps  >= 0 ? 1 : -1;
+  const signDR = drSteps >= 0 ? 1 : -1;
+  const d  = degree / g;
+  const r0  = d * bx * signR;
+  const dr0 = d * by * signDR;
+  // All solutions: (r0 + k*stepR, dr0 + k*stepDR) for integer k
+  const stepR  =  drSteps / g;
+  const stepDR = -rSteps  / g;
+  // Pick k that minimises r² + dr²
+  const denom = stepR * stepR + stepDR * stepDR;
+  const k = denom ? Math.round(-(r0 * stepR + dr0 * stepDR) / denom) : 0;
+  return new Point(r0 + k * stepR, dr0 + k * stepDR);
 };
 
 function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degree0, scale, name, equave, fundamental, offset) {

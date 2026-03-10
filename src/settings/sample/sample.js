@@ -23,6 +23,7 @@ Sample.propTypes = {
 
 const Instruments = (props) => (
   <select name="instrument"
+    class="sidebar-input"
     value={props.value}
     onChange={(e) => {
       props.onChange(e.target.name, e.target.value);

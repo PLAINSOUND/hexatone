@@ -23,6 +23,7 @@ const Scale = (props) => {
       <label>
         Reference Frequency (Hz value assigned to any Scale Degree)
         <input name="fundamental" type="text" inputMode="decimal"
+               class="sidebar-input"
                key={props.settings.fundamental}
                defaultValue={props.settings.fundamental}
                step="0.000001" min="0.015625" max="16384"
@@ -39,6 +40,7 @@ const Scale = (props) => {
       <label>
         Scale Degree to which the Reference Frequency is applied
         <input name="reference_degree" type="text" inputMode="numeric"
+               class="sidebar-input"
                key={props.settings.reference_degree}
                defaultValue={props.settings.reference_degree}
                step="1" min="0" max={props.settings.equivSteps - 1}
