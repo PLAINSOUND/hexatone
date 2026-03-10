@@ -1,5 +1,5 @@
 import { h, render, Fragment } from 'preact';
-import { useRef, useEffect, useState } from 'preact/hooks';
+import { useRef, useEffect } from 'preact/hooks';
 import Keys from './keys';
 import "./keyboard.css";
 import PropTypes from 'prop-types';
@@ -9,10 +9,28 @@ const Keyboard = (props) => {
     props.synth.prepare();
   }
   const canvas = useRef(null);
+  const keysRef = useRef(null);
+
+  // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
+  // NOT when colors change. Color changes are handled imperatively below.
   useEffect(() => {
     const keys = new Keys(canvas.current, props.settings, props.synth, props.active);
+    keysRef.current = keys;
+    if (props.onKeysReady) props.onKeysReady(keys);
     return () => keys.deconstruct();
-  }, [canvas, props.settings, props.synth]);
+  }, [canvas, props.structuralSettings, props.synth]);
+
+  // When colors change, push them into the live Keys instance and redraw immediately.
+  const noteColorsKey = props.settings.note_colors ? JSON.stringify(props.settings.note_colors) : '';
+  useEffect(() => {
+    if (keysRef.current && props.settings) {
+      keysRef.current.updateColors({
+        note_colors:       props.settings.note_colors,
+        spectrum_colors:   props.settings.spectrum_colors,
+        fundamental_color: props.settings.fundamental_color,
+      });
+    }
+  }, [noteColorsKey, props.settings.spectrum_colors, props.settings.fundamental_color]);
 
   return (
     <Fragment>
@@ -24,6 +42,7 @@ const Keyboard = (props) => {
 };
 
 Keyboard.propTypes = {
+  structuralSettings: PropTypes.object,
   settings: PropTypes.shape({
     keyCodeToCoords: PropTypes.object,
     degree: PropTypes.bool,

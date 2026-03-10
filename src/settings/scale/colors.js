@@ -1,5 +1,6 @@
 import { h, createRef } from 'preact';
 import { Fragment } from 'preact/compat';
+import { useRef } from 'preact/hooks';
 import PropTypes from 'prop-types';
 
 export const colorProp = function(props, propName, componentName) {
@@ -36,10 +37,24 @@ const Colors = (props) => {
     if (pickerRef.current) pickerRef.current.click();
   };
 
+  const lastFire = useRef(0);
+
+  const handlePickerInput = (e) => {
+    const hex = e.target.value;
+    if (textRef.current) textRef.current.value = hex;
+    if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
+    const now = Date.now();
+    if (now - lastFire.current >= 60) {
+      lastFire.current = now;
+      props.onChange('fundamental_color', hex);
+    }
+  };
+
   const handlePickerChange = (e) => {
     const hex = e.target.value;
     if (textRef.current) textRef.current.value = hex;
     if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
+    lastFire.current = 0;
     props.onChange('fundamental_color', hex);
   };
 
@@ -89,6 +104,7 @@ const Colors = (props) => {
               type="color"
               class="color-picker-hidden"
               value={safe}
+              onInput={handlePickerInput}
               onChange={handlePickerChange}
               tabIndex={-1}
               aria-hidden="true"

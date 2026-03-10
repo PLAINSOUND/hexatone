@@ -1,5 +1,5 @@
 import { h, createRef } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import PropTypes from 'prop-types';
 import { fileToPreset, settingsToPresetJson } from './scale/parse-scale';
 import { downloadLtn } from './scale/lumatone-export';
@@ -42,21 +42,32 @@ const downloadFile = (content, filename, mimeType = 'application/json') => {
 const safeName = (name) =>
   (name || 'preset').replace(/[^a-zA-Z0-9_\-]/g, '_');
 
-const CustomPresets = ({ settings, onLoad, isActive }) => {
+const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetName, isPresetDirty, onRevert }) => {
   const [presets, setPresets] = useState(loadCustomPresets);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
+  // Only reveal the full UI once the user actively engages in this session —
+  // not just because presets exist in localStorage from a previous session.
+  const [expanded, setExpanded] = useState(() => loadCustomPresets().length > 0);
   const folderInputRef = createRef();
 
-  // Reset selection when a built-in tuning is chosen
+  // Reset selection only when switching away from a user preset to a built-in
+  const wasActive = useRef(false);
   useEffect(() => {
-    if (!isActive) setSelected('');
+    if (wasActive.current && !isActive) setSelected('');
+    if (isActive) setExpanded(true);
+    wasActive.current = isActive;
   }, [isActive]);
+
+  useEffect(() => {
+    if (activeSource) setExpanded(true);
+  }, [activeSource]);
 
   const handleSelect = (e) => {
     const val = e.target.value;
     setSelected(val);
+    setExpanded(true);
     if (!val) return;
     const preset = presets.find(p => p.name === val);
     if (preset) onLoad(preset);
@@ -84,6 +95,7 @@ const CustomPresets = ({ settings, onLoad, isActive }) => {
     saveCustomPresets(next);
     setPresets(next);
     setSelected(tuningName);
+    setExpanded(true);
     setError('');
     onLoad(preset); // marks this as the active source, resetting the built-in menu
   };
@@ -199,41 +211,28 @@ const CustomPresets = ({ settings, onLoad, isActive }) => {
     <fieldset>
       <legend><b>User Tunings</b></legend>
 
-      {/* ── Selector row ── */}
-      <label>
-        <select value={selected} onChange={handleSelect}>
-          <option value="">
-            {presets.length === 0 ? 'No user tunings saved yet' : 'Choose User Tuning:'}
-          </option>
-          {presets.map(p => (
-            <option key={p.name} value={p.name}>{p.name}</option>
-          ))}
-        </select>
-        {presets.length > 0 && (
+      {/* ── Selector row — only shown once there are saved presets ── */}
+      {expanded && presets.length > 0 && (
+        <label class="preset-selector-row">
+          <select value={selected} onChange={handleSelect}>
+            <option value="">Choose User Tuning:</option>
+            {presets.map(p => (
+              <option key={p.name} value={p.name}>{p.name}</option>
+            ))}
+          </select>
+          {isActive && isPresetDirty && onRevert && (
+            <button type="button" onClick={onRevert}>Reload saved</button>
+          )}
           <button type="button" class="delete-btn"
+                  style={{ marginLeft: 'auto' }}
                   disabled={!selected}
                   onClick={handleDelete}>
             Delete
           </button>
-        )}
-      </label>
+        </label>
+      )}
 
-      {/* ── Save / Export row ── */}
-        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button type="button" onClick={handleSave}>
-          {saveLabel}
-        </button>
-        <span style={{ display: 'flex', gap: '6px' }}>
-          <button type="button" onClick={handleExport}>
-            Export .json
-          </button>
-          <button type="button" onClick={handleExportLtn}>
-            Export .ltn
-          </button>
-        </span>
-      </label>
-
-      {/* Hidden folder input — outside any label to prevent accidental triggers */}
+      {/* ── Choose folder — always visible ── */}
       <input
         ref={folderInputRef}
         type="file"
@@ -243,14 +242,12 @@ const CustomPresets = ({ settings, onLoad, isActive }) => {
         style={{ display: 'none' }}
         onChange={handleFolderChange}
       />
-
-      {/* ── Folder import / Clear row ── */}
       <div class="preset-actions">
         <button type="button"
                 onClick={() => folderInputRef.current && folderInputRef.current.click()}>
           Choose folder…
         </button>
-        {presets.length > 0 && (
+        {expanded && presets.length > 0 && (
           confirmClear ? (
             <span>
               <em>Clear all user tunings?&nbsp;</em>
@@ -266,6 +263,23 @@ const CustomPresets = ({ settings, onLoad, isActive }) => {
         )}
       </div>
 
+      {/* ── Save / Export — only when a preset is active or selected ── */}
+      {(isActive || selected) && (
+        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button type="button" onClick={handleSave}>
+            {saveLabel}
+          </button>
+          <span style={{ display: 'flex', gap: '6px' }}>
+            <button type="button" onClick={handleExport}>
+              Export .json
+            </button>
+            <button type="button" onClick={handleExportLtn}>
+              Export .ltn
+            </button>
+          </span>
+        </label>
+      )}
+
       {error && <p class="preset-error">{error}</p>}
     </fieldset>
   );
@@ -275,6 +289,10 @@ CustomPresets.propTypes = {
   settings: PropTypes.object.isRequired,
   onLoad: PropTypes.func.isRequired,
   isActive: PropTypes.bool,
+  activeSource: PropTypes.string,
+  activePresetName: PropTypes.string,
+  isPresetDirty: PropTypes.bool,
+  onRevert: PropTypes.func,
 };
 
 export default CustomPresets;

@@ -1,5 +1,5 @@
 import { h, render } from 'preact';
-import { useState, useEffect, useMemo } from 'preact/hooks';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'preact/hooks';
 
 import Keyboard from './keyboard';
 import { presets, default_settings } from './settings/preset_values';
@@ -13,6 +13,7 @@ import { create_midi_synth} from './midi_synth';
 import keyCodeToCoords from './settings/keycodes';
 import { useQuery, Extract, ExtractInt, ExtractString, ExtractFloat, ExtractBool, ExtractJoinedString } from './use-query';
 import Settings from './settings';
+import { loadCustomPresets } from './settings/custom-presets';
 import Blurb from './blurb';
 
 import PropTypes from 'prop-types';
@@ -40,11 +41,17 @@ const findPreset = (preset) => {
   return default_settings;
 };
 
-const normalize = (settings) => {
-  const fundamental_color = (settings.fundamental_color || "").replace(/#/, '');
-  const note_colors = settings.note_colors.map(c => c ? c.replace(/#/, '') : "ffffff");
+// Color fields only — changes here should NOT reconstruct the hex grid.
+const normalizeColors = (settings) => ({
+  fundamental_color: (settings.fundamental_color || "").replace(/#/, ''),
+  note_colors: (settings.note_colors || []).map(c => c ? c.replace(/#/, '') : "ffffff"),
+  spectrum_colors: settings.spectrum_colors,
+});
+
+// Everything except colors — changes here rebuild the Keys instance.
+const normalizeStructural = (settings) => {
   const rotation = settings.rotation * Math.PI / 180.0;
-  const result = { ...settings, fundamental_color, keyCodeToCoords, note_colors, rotation };
+  const result = { ...settings, keyCodeToCoords, rotation };
 
   if (settings.key_labels === "enumerate") {
     result["degree"] = true;
@@ -72,6 +79,22 @@ const normalize = (settings) => {
   return result;
 };
 
+const normalize = (settings) => ({
+  ...normalizeStructural(settings),
+  ...normalizeColors(settings),
+});
+
+// Preset-specific fields are never restored from URL or localStorage on reload.
+// They only come from the preset_values defaults or an explicit preset load.
+const PRESET_SKIP_KEYS = [
+  'name', 'description', 'scale', 'note_names', 'note_colors',
+  'spectrum_colors', 'fundamental_color', 'fundamental', 'reference_degree',
+  'center_degree', 'equivSteps', 'rSteps', 'drSteps', 'key_labels',
+  'hexSize', 'rotation',
+];
+// Only these text fields need to start visually empty on a fresh load
+const DISPLAY_EMPTY_KEYS = ['name', 'description', 'key_labels'];
+
 const sessionDefaults = {
   output:           sessionStorage.getItem("output")            || "sample",
   instrument:       sessionStorage.getItem("instrument")        || "WMRIByzantineST",
@@ -93,6 +116,29 @@ const App = () => {
   const [loading, setLoading] = useState(0);
   const [ready, setReady] = useState(false);
   const [activeSource, setActiveSource] = useState(null);
+  const [activePresetName, setActivePresetName] = useState(null);
+  // Snapshot stored in state so updating it triggers a re-render and
+  // isPresetDirty recalculates correctly.
+  const [savedPresetSnapshot, setSavedPresetSnapshot] = useState(null);
+  const keysRef = useRef(null); // live Keys instance for imperative color updates
+
+  // Fields that count as "edits" for dirty detection.
+  // Reuse the same field list for dirty detection
+  const DIRTY_FIELDS = PRESET_SKIP_KEYS;
+
+  const snapshotOf = (s) => {
+    const snap = {};
+    for (const k of DIRTY_FIELDS) snap[k] = JSON.stringify(s[k]);
+    return snap;
+  };
+
+  const isDirty = (snap, s) => {
+    if (!snap) return false;
+    for (const k of DIRTY_FIELDS) {
+      if (JSON.stringify(s[k]) !== snap[k]) return true;
+    }
+    return false;
+  };
   const [importCount, setImportCount] = useState(0);
 
   const [settings, setSettings] = useQuery({
@@ -133,7 +179,16 @@ const App = () => {
     fundamental_color: ExtractString,
     note_colors: ExtractJoinedString
 
-  }, { ...default_settings, ...sessionDefaults });
+  }, {
+    ...default_settings,
+    ...sessionDefaults,
+    // Preset-specific fields start empty — populated only when a preset is loaded.
+    // scale/note_names/note_colors handle null gracefully (render empty table).
+    name: '', description: '', key_labels: '',
+    scale: null, note_names: null, note_colors: null,
+    equivSteps: null, fundamental: null, reference_degree: null,
+    center_degree: null,
+  }, PRESET_SKIP_KEYS);
 
   const [active, setActive] = useState(false);
   const [synth, setSynth] = useState(null);
@@ -191,8 +246,23 @@ const App = () => {
     settings.midi_device, settings.midi_channel, settings.midi_mapping, settings.midi_velocity,
     settings.output, midi]);
 
+  const COLOR_KEYS = new Set(['note_colors', 'spectrum_colors', 'fundamental_color']);
+
   const onChange = (key, value) => {
-    setSettings(s => ({ ...s, [key]: value }));
+    setSettings(s => {
+      const next = { ...s, [key]: value };
+      // For color changes, also push directly to the live Keys instance so the
+      // hex grid updates immediately during swatch drag without waiting for a
+      // full React render cycle.
+      if (COLOR_KEYS.has(key) && keysRef.current) {
+        keysRef.current.updateColors({
+          note_colors:       key === 'note_colors'       ? normalizeColors(next).note_colors       : normalizeColors(s).note_colors,
+          spectrum_colors:   key === 'spectrum_colors'   ? value                                   : s.spectrum_colors,
+          fundamental_color: key === 'fundamental_color' ? (value || '').replace(/#/, '')          : (s.fundamental_color || '').replace(/#/, ''),
+        });
+      }
+      return next;
+    });
   };
 
   const presetChanged = e => {
@@ -200,14 +270,21 @@ const App = () => {
     if (synth && synth.prepare) synth.prepare();
     setReady(true);
     setActiveSource('builtin');
-    setSettings(s => ({ ...s, ...findPreset(e.target.value) }));
+    setActivePresetName(e.target.value);
+    const presetData = findPreset(e.target.value);
+    const mergedBuiltin = { ...settings, ...presetData };
+    setSavedPresetSnapshot(snapshotOf(mergedBuiltin));
+    setSettings(() => mergedBuiltin);
   };
 
   const onLoadCustomPreset = (preset) => {
     if (synth && synth.prepare) synth.prepare();
     setReady(true);
     setActiveSource('user');
-    setSettings(s => ({ ...s, ...preset }));
+    setActivePresetName(preset.name || null);
+    const mergedUser = { ...settings, ...preset };
+    setSavedPresetSnapshot(snapshotOf(mergedUser));
+    setSettings(() => mergedUser);
   };
 
   const onImport = () => {
@@ -283,10 +360,40 @@ const App = () => {
       ((settings.spectrum_colors && settings.fundamental_color) || settings.note_colors)
   ), [settings]);
 
+  // Stable string keys for array deps — prevents new array references from
+  // triggering spurious memo recomputations and Keys reconstructions.
+  const scaleKey        = JSON.stringify(settings.scale);
+  const noteNamesKey    = JSON.stringify(settings.note_names);
+  const noteColorsKey   = JSON.stringify(settings.note_colors);
+
+  // Structural settings: everything except colors. Memoized so Keys is only
+  // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
+  const structuralSettings = useMemo(() => normalizeStructural(settings), [
+    settings.rSteps, settings.drSteps, settings.hexSize, settings.rotation,
+    scaleKey, settings.equivSteps, noteNamesKey, settings.key_labels,
+    settings.fundamental, settings.reference_degree, settings.center_degree,
+    settings.output, settings.instrument, settings.midiin_device,
+    settings.midiin_channel, settings.midiin_degree0,
+    settings.midi_device, settings.midi_channel, settings.midi_mapping,
+    settings.midi_velocity, settings.sysex_auto, settings.sysex_type,
+  ]);
+
+  // Color settings: only the color fields. Changes here update the live Keys
+  // instance imperatively (via updateColors) without reconstructing it.
+  const colorSettings = useMemo(() => normalizeColors(settings), [
+    noteColorsKey, settings.spectrum_colors, settings.fundamental_color,
+  ]);
+
+  const normalizedSettings = useMemo(() => ({
+    ...structuralSettings, ...colorSettings,
+  }), [structuralSettings, colorSettings]);
+
   return (
     <div className={active ? "hide" : "show"}>
       {loading === 0 && ready && isValid && synth && (
-        <Keyboard synth={synth} settings={normalize(settings)}
+        <Keyboard synth={synth} settings={normalizedSettings}
+                  structuralSettings={structuralSettings}
+                  onKeysReady={useCallback(keys => { keysRef.current = keys; }, [])}
                   active={active} />
       )}
 
@@ -308,9 +415,30 @@ const App = () => {
                     importCount={importCount}
                     onLoadCustomPreset={onLoadCustomPreset}
                     activeSource={activeSource}
+                    activePresetName={activePresetName}
+                    isPresetDirty={isDirty(savedPresetSnapshot, settings)}
+                    onRevertBuiltin={() => {
+                      if (activePresetName) {
+                        const presetData = findPreset(activePresetName);
+                        const mergedRevertB = { ...settings, ...presetData };
+                        setSavedPresetSnapshot(snapshotOf(mergedRevertB));
+                        setSettings(() => mergedRevertB);
+                      }
+                    }}
+                    onRevertUser={() => {
+                      if (activePresetName) {
+                        const saved = loadCustomPresets().find(p => p.name === activePresetName);
+                        if (saved) {
+                          const mergedRevertU = { ...settings, ...saved };
+                          setSavedPresetSnapshot(snapshotOf(mergedRevertU));
+                          setSettings(() => mergedRevertU);
+                        }
+                      }
+                    }}
                     settings={settings}
                     midi={midi}
-                    instruments={instruments}/>
+                    instruments={instruments}
+                    keysRef={keysRef}/>
         <Blurb />
       </nav>
     </div>

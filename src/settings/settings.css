@@ -215,3 +215,12 @@ label .color-cell .color-input {
 .sidebar-input {
   width: 50% !important;
 }
+
+/* Preset selector rows — select stays at natural width, buttons cluster at left */
+.preset-selector-row {
+  justify-content: flex-start;
+  gap: 6px;
+}
+.preset-selector-row select {
+  flex: none;
+}

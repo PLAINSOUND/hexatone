@@ -64,17 +64,22 @@ export const ExtractIntArray = new Extract(x => Number.parseInt(x), x => x.toStr
 export const ExtractBool = new Extract(x => x === "true", x => x.toString());
 export const ExtractBoolArray = new Extract(x => x === "true", x => x.toString());
 
-export function useQuery(spec, defaults) {
+export function useQuery(spec, defaults, skipKeys = []) {
+  // Clear any previously persisted values for skipped keys
+  skipKeys.forEach(k => localStorage.removeItem(k));
+
   const initial = { ...defaults };
   if (document.location.search.length > 0) {
     const query = new URLSearchParams(document.location.search.substring(1));
     for (let [key, extract] of Object.entries(spec)) {
+      if (skipKeys.includes(key)) continue;
       if (query.has(key)) {
         initial[key] = extract.extract(query, key);
       }
     }
   } else {
     for (let [key, extract] of Object.entries(spec)) {
+      if (skipKeys.includes(key)) continue;
       if (localStorage.getItem(key)) {
         initial[key] = extract.restore(key);
       }
@@ -98,6 +103,7 @@ export function useQuery(spec, defaults) {
     const query = new URLSearchParams();
     const next = next_f(values);
     for (let [key, extract] of Object.entries(spec)) {
+      if (skipKeys.includes(key)) continue;
       if (key in next && next[key]) {
         extract.insert(query, key, next[key]);
         extract.store(key, next[key]);

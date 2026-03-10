@@ -28,6 +28,7 @@ class Keys {
       context: canvas.getContext('2d'),
       sustain: false,
       sustainedNotes: [],
+      shiftHeld: false,
       pressedKeys: new Set(),
       activeHexObjects: [],
       isTouchDown: false,
@@ -43,15 +44,14 @@ class Keys {
     this.resizeHandler();
 
     // Set up keyboard, touch and mouse event handlers
-    if (this.typing) {
-      window.addEventListener("keydown", this.onKeyDown, false);
-      window.addEventListener("keyup", this.onKeyUp, false);
-    };
+    // Key listeners always on window — Shift sustain must work even when sidebar is closed.
+    window.addEventListener("keydown", this.onKeyDown, false);
+    window.addEventListener("keyup", this.onKeyUp, false);
     this.state.canvas.addEventListener("touchstart", this.handleTouch, false);
     this.state.canvas.addEventListener("touchend", this.handleTouch, false);
     this.state.canvas.addEventListener("touchmove", this.handleTouch, false);
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
-    this.state.canvas.addEventListener("mouseup", this.mouseUp, false);
+    window.addEventListener("mouseup", this.mouseUp, false);
    
    /* 
     console.log("midiin_device:", this.settings.midiin_device);
@@ -219,6 +219,17 @@ class Keys {
     };
   }; // end of constructor
 
+  /**
+   * Imperatively update colors and redraw without reconstructing the Keys instance.
+   * Called by keyboard/index.js when color settings change.
+   */
+  updateColors = (colors) => {
+    this.settings.note_colors = colors.note_colors;
+    this.settings.spectrum_colors = colors.spectrum_colors;
+    this.settings.fundamental_color = colors.fundamental_color;
+    this.drawGrid();
+  };
+
   deconstruct = () => {
     for (let hex of this.state.activeHexObjects) {
       hex.noteOff();
@@ -230,16 +241,13 @@ class Keys {
     window.removeEventListener('resize', this.resizeHandler, false);
     window.removeEventListener('orientationchange', this.resizeHandler, false);
 
-    // Keyboard, touch and mouse event handlers
-    if (this.typing) {
-      window.removeEventListener("keydown", this.onKeyDown, false);
-      window.removeEventListener("keyup", this.onKeyUp, false);
-    };
+    window.removeEventListener("keydown", this.onKeyDown, false);
+    window.removeEventListener("keyup", this.onKeyUp, false);
     this.state.canvas.removeEventListener("touchstart", this.handleTouch, false);
     this.state.canvas.removeEventListener("touchend", this.handleTouch, false);
     this.state.canvas.removeEventListener("touchmove", this.handleTouch, false);
     this.state.canvas.removeEventListener("mousedown", this.mouseDown, false);
-    this.state.canvas.removeEventListener("mouseup", this.mouseUp, false);
+    window.removeEventListener("mouseup", this.mouseUp, false);
     this.state.canvas.removeEventListener("mousemove", this.mouseActive, false);
 
     if (this.midiin_data) {
@@ -515,12 +523,29 @@ class Keys {
     this.drawGrid();
   };
 
+  inputIsFocused = () => {
+    const tag = document.activeElement && document.activeElement.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  };
+
   onKeyDown = (e) => {
+    // Shift: momentary sustain. Track shiftHeld separately because clicking
+    // the canvas while Shift is held fires a spurious keyup immediately,
+    // which would drop the sustain before mouse-up.
+    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) {
+      this.state.shiftHeld = true;
+      this.sustainOn();
+      return;
+    }
+
+    // All other keys: only active when sidebar is open; bail if input focused.
+    if (!this.typing) return;
+    if (this.inputIsFocused()) return;
+
     e.preventDefault();
-    //console.log("key", e.code, this.settings.keyCodeToCoords[e.code]);
     if (e.repeat) {
       return;
-    } else if (e.code == "Space") {
+    } else if (e.code === 'Space') {
       this.sustainOn();
     } else if (!this.state.isMouseDown && !this.state.isTouchDown
       && (e.code in this.settings.keyCodeToCoords)
@@ -533,7 +558,17 @@ class Keys {
   };
 
   onKeyUp = (e) => {
-    if (e.code == "Space") {
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      this.state.shiftHeld = false;
+      if (!this.state.isMouseDown && !this.state.isTouchDown) {
+        this.sustainOff();
+      }
+      return;
+    }
+
+    if (this.inputIsFocused()) return;
+
+    if (e.code === 'Space') {
       this.sustainOff();
     } else if (!this.state.isMouseDown && !this.state.isTouchDown
       && (e.code in this.settings.keyCodeToCoords)) {
@@ -560,9 +595,21 @@ class Keys {
     }
     this.state.canvas.removeEventListener("mousemove", this.mouseActive);
     if (this.state.activeHexObjects.length > 0) {
-      this.hexOff(this.state.activeHexObjects[0].coords);
-      this.noteOff(this.state.activeHexObjects[0]);
-      this.state.activeHexObjects.pop();
+      const hex = this.state.activeHexObjects[0];
+      if (this.state.sustain) {
+        this.hexOff(hex.coords);
+        this.state.sustainedNotes.push([hex, 0]);
+        this.state.activeHexObjects.pop();
+      } else {
+        this.hexOff(hex.coords);
+        this.noteOff(hex);
+        this.state.activeHexObjects.pop();
+      }
+    }
+    // If Shift was held but its keyup already fired while the mouse was down
+    // (spurious keyup), release sustain now that the mouse is up too.
+    if (!this.state.shiftHeld && this.state.sustain) {
+      this.sustainOff();
     }
   };
 
@@ -645,8 +692,11 @@ class Keys {
     for (let i = this.state.activeHexObjects.length - 1; i >= 0; i--) {
       if (this.state.activeHexObjects[i].release) {
         this.hexOff(this.state.activeHexObjects[i].coords);
-        this.noteOff(this.state.activeHexObjects[i]);
-        // TODO yeahhhhh, don't mutate array while looping through it.
+        if (this.state.sustain) {
+          this.state.sustainedNotes.push([this.state.activeHexObjects[i], 0]);
+        } else {
+          this.noteOff(this.state.activeHexObjects[i]);
+        }
         this.state.activeHexObjects.splice(i, 1);
       }
     }

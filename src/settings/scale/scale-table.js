@@ -1,4 +1,5 @@
 import { h, createRef } from 'preact';
+import { useRef } from 'preact/hooks';
 import PropTypes from 'prop-types';
 
 // Normalise a hex string to the form #rrggbb.
@@ -24,6 +25,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
   const pickerRef = createRef();
   const textRef = createRef();
   const swatchRef = createRef();
+  const lastFire = useRef(0);
 
   // Clicking the swatch triggers the hidden color picker
   const handleSwatchClick = () => {
@@ -32,11 +34,24 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     }
   };
 
-  // Color picker change — update text input and swatch live
-  const handlePickerChange = (e) => {
-    const hex = e.target.value; // always #rrggbb from native picker
+  // onInput: throttled to ~60ms so the hex grid updates smoothly without lag
+  const handlePickerInput = (e) => {
+    const hex = e.target.value;
     if (textRef.current) textRef.current.value = hex;
     if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
+    const now = Date.now();
+    if (now - lastFire.current >= 60) {
+      lastFire.current = now;
+      onChange({ target: { name, value: hex } });
+    }
+  };
+
+  // onChange: always fires on picker close to commit the final value
+  const handlePickerChange = (e) => {
+    const hex = e.target.value;
+    if (textRef.current) textRef.current.value = hex;
+    if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
+    lastFire.current = 0; // reset throttle so final value always commits
     onChange({ target: { name, value: hex } });
   };
 
@@ -81,6 +96,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
         class="color-picker-hidden"
         value={safe}
         disabled={disabled}
+        onInput={handlePickerInput}
         onChange={handlePickerChange}
         tabIndex={-1}
         aria-hidden="true"
