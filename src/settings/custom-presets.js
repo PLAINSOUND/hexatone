@@ -263,8 +263,8 @@ const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetN
         )}
       </div>
 
-      {/* ── Save / Export — only when a preset is active or selected ── */}
-      {(isActive || selected) && (
+      {/* ── Save / Export — whenever any preset is loaded or one is selected ── */}
+      {(activeSource || selected) && (
         <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button type="button" onClick={handleSave}>
             {saveLabel}
