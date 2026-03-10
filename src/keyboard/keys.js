@@ -577,8 +577,8 @@ class Keys {
       return;
     }
 
-    // All other keys: only active when sidebar is open; bail if input focused.
-    if (!this.typing) return;
+    // All other keys: only active when sidebar is closed (typing=false means sidebar closed).
+    if (this.typing) return;
     if (this.inputIsFocused()) return;
 
     e.preventDefault();
