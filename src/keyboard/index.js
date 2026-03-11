@@ -14,7 +14,7 @@ const Keyboard = (props) => {
   // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
   // NOT when colors change. Color changes are handled imperatively below.
   useEffect(() => {
-    const keys = new Keys(canvas.current, props.settings, props.synth, props.active);
+    const keys = new Keys(canvas.current, props.settings, props.synth, props.active, props.onLatchChange);
     keysRef.current = keys;
     //console.log('[Keyboard] Keys constructed, calling onKeysReady');
     if (props.onKeysReady) props.onKeysReady(keys);
@@ -36,7 +36,7 @@ const Keyboard = (props) => {
 
   return (
     <Fragment>
-      <canvas ref={canvas} tabindex="1" className="keyboard"
+      <canvas ref={canvas} tabindex="1" className="keyboard" onContextMenu={e => e.preventDefault()}
         width={window.innerWidth} height={window.innerHeight}>
       </canvas>
     </Fragment>

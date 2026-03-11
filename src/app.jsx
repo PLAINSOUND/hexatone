@@ -191,6 +191,30 @@ const App = () => {
   }, PRESET_SKIP_KEYS);
 
   const [active, setActive] = useState(false);
+  const [latch, setLatch] = useState(false);
+
+  // Long-press sidebar button to toggle latch (sustain while playing)
+  const longPressTimer = useRef(null);
+  const longPressFired = useRef(false);
+
+  const onSidebarTouchStart = useCallback((e) => {
+    longPressFired.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      if (keysRef.current) keysRef.current.latchToggle();
+    }, 400);
+  }, []);
+
+  const onSidebarTouchEnd = useCallback((e) => {
+    clearTimeout(longPressTimer.current);
+    if (longPressFired.current) {
+      e.preventDefault();
+    }
+  }, []);
+
+  const onSidebarTouchMove = useCallback(() => {
+    clearTimeout(longPressTimer.current);
+  }, []);
   const [synth, setSynth] = useState(null);
   const [midi, setMidi] = useState(null);
   const wait = l => l + 1;
@@ -394,11 +418,12 @@ const App = () => {
         <Keyboard synth={synth} settings={normalizedSettings}
                   structuralSettings={structuralSettings}
                   onKeysReady={useCallback(keys => { keysRef.current = keys; }, [])}
+                  onLatchChange={useCallback(v => setLatch(v), [])}
                   active={active} />
       )}
 
       {loading > 0 && <Loading/>}
-      <button id="sidebar-button" onClick={() => setActive(s => !s)}>
+      <button id="sidebar-button" className={latch ? "latch-active" : ""} onClick={() => setActive(s => !s)} onTouchStart={onSidebarTouchStart} onTouchEnd={onSidebarTouchEnd} onTouchMove={onSidebarTouchMove} onContextMenu={e => e.preventDefault()}>
         <div>&gt;</div>
       </button>
       <nav id="sidebar">
@@ -406,7 +431,7 @@ const App = () => {
           PLAINSOUND HEXATONE
         </h1>
         <p>
-          <em>TO PLAY: click on notes, use a touchscreen, attach a MIDI keyboard or a Lumatone. When this sidebar is minimised, a computer keyboard may also be used as an input device. The H key is mapped to scale degree 0 and the spacebar acts as a sustain pedal, allowing chords to be played.</em>
+          <em>TO PLAY: click on notes, use a touchscreen, attach a MIDI keyboard or a Lumatone. A computer keyboard may also be used as an input device: the H key is mapped to Central Scale Degree, the spacebar acts as a sustain pedal, and the SHIFT key functions as a latch to permit hands free sustains.</em>
         </p>
         <Settings presetChanged={presetChanged}
                     presets={presets}

@@ -18,8 +18,13 @@ label {
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
+    align-items: baseline;
     margin-top: 0.125em;
     line-height: 1.5em;
+}
+
+label > .sidebar-input {
+    margin-left: auto;
 }
 
 table {
@@ -50,7 +55,7 @@ textarea {
 }
 
 select {
-  width: 24em;
+  width: min(24em, 100%);
   height: 1.5em;
   box-sizing: border-box;
   background-color: rgb(254, 249, 244);
@@ -61,7 +66,7 @@ select {
 }
 
 input[type="text"] {
-  width: 24em;
+  width: min(24em, 100%);
   height: 1.5em;
   box-sizing: border-box;
   background-color: rgb(254, 249, 244);
@@ -153,14 +158,16 @@ input:out-of-range {
 
 .color-picker-hidden {
   position: absolute;
-  right: 0;            /* hidden picker anchored behind the swatch on the right */
+  right: 0;
   top: 0;
-  width: 0 !important;
-  height: 0 !important;
+  width: 1.4em !important;
+  height: 1.4em !important;
   padding: 0 !important;
   border: none !important;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
+  /* Sit on top of the swatch so iOS registers a real touch on the picker */
+  pointer-events: all;
 }
 
 .color-input {
@@ -179,6 +186,22 @@ input:out-of-range {
 .color-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Expand colour cell on focus so full hex value is visible on narrow screens */
+.color-cell:focus-within {
+  position: absolute;
+  z-index: 5;
+  background: rgb(254, 249, 244);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  height: auto;
+  min-width: 10em;
+  right: 0;
+}
+
+.color-cell:focus-within .color-input {
+  width: calc(10em - 1.8em) !important;
 }
 
 .delete-btn {
@@ -214,6 +237,7 @@ label .color-cell .color-input {
    first column. Using 50% here tracks the sidebar width automatically. */
 .sidebar-input {
   width: 50% !important;
+  text-align: right;
 }
 
 /* Preset selector rows — select stays at natural width, buttons cluster at left */
@@ -233,6 +257,7 @@ table td {
   vertical-align: top;
   padding-top: 0;
   padding-bottom: 0;
+  position: relative;
 }
 
 /* freq-cell: input on top, tune handle directly below with a small gap. */
@@ -323,11 +348,13 @@ table td {
 
 /* Equave row — auto-generated, read-only feel */
 input.equiv-cell,
-input.equiv-cell:disabled {
+input.equiv-cell:disabled,
+table input:disabled {
   color: #aaa;
   border-color: #ddd;
   background: transparent;
-  -webkit-text-fill-color: #aaa; /* overrides browser disabled grey on some platforms */
+  -webkit-text-fill-color: #aaa; /* overrides iOS/Safari disabled grey */
+  opacity: 1; /* iOS reduces opacity on disabled inputs */
 }
 
 /* Freq input fills available width, handle sits flush to its right */

@@ -347,15 +347,26 @@ const ScaleTable = (props) => {
         ))}
         <tr key={`equiv-${props.importCount}`}>
           <td>
-            <input type="text" class="equiv-cell"
-                   name={`scale${scale.length - 1}`}
-                   value={equiv_interval} onChange={scaleChange}
-                   aria-label={`pitch ${scale.length - 1}`}
-            />
+            <div class="freq-cell">
+              <input type="text"
+                     name={`scale${scale.length - 1}`}
+                     value={equiv_interval} onChange={scaleChange}
+                     aria-label={`pitch ${scale.length - 1}`}
+              />
+              <TuneCell
+                key={`tune-equiv-${props.importCount}`}
+                scaleStr={String(equiv_interval)}
+                degree={scale.length}
+                keysRef={props.keysRef}
+                onChange={(newStr) => {
+                  const next = [...(props.settings.scale || [])];
+                  next[next.length - 1] = newStr;
+                  props.onChange('scale', next);
+                }}
+              />
+            </div>
           </td>
-          <td>
-            <input id="centered" type="text" class="equiv-cell" disabled value={scale.length} />
-          </td>
+          <td></td>
           <td>
             <input id="centered" type="text" disabled class="equiv-cell"
                    value={note_names[0] || ''}

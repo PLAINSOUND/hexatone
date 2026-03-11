@@ -21,7 +21,7 @@ const Scale = (props) => {
   <fieldset>
       <legend><b>Scale</b></legend>
       <label>
-        Reference Frequency (Hz value assigned to any Scale Degree)
+        Reference Frequency (Hz)
         <input name="fundamental" type="text" inputMode="decimal"
                class="sidebar-input"
                key={props.settings.fundamental}
@@ -38,7 +38,7 @@ const Scale = (props) => {
         />
       </label>
       <label>
-        Scale Degree to which the Reference Frequency is applied
+        Assigned to Scale Degree
         <input name="reference_degree" type="text" inputMode="numeric"
                class="sidebar-input"
                key={props.settings.reference_degree}

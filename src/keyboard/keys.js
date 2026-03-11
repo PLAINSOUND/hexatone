@@ -9,7 +9,7 @@ import { mtsToMidiFloat, centsToMTS } from '../midi_synth';
 import { scalaToCents } from '../settings/scale/parse-scale';
 
 class Keys {
-  constructor(canvas, settings, synth, typing,) {
+  constructor(canvas, settings, synth, typing, onLatchChange) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -22,12 +22,15 @@ class Keys {
     };
     this.synth = synth; // use built-in sounds or send MIDI out to an external synth
     this.typing = typing;
+    this.onLatchChange = onLatchChange || null;
     this.bend = 0;
     this.state = {
       canvas,
       context: canvas.getContext('2d'),
       sustain: false,
+      latch: false,
       sustainedNotes: [],
+      sustainedCoords: new Set(), // coord strings of sustained notes, for redraw
       shiftHeld: false,
       isTuneDragging: false,
       pressedKeys: new Set(),
@@ -233,7 +236,29 @@ class Keys {
    * @param {number} newCents - new value in cents
    */
   updateScaleDegree = (degree, newCents) => {
-    if (!this.settings.scale || degree < 0 || degree >= this.settings.scale.length) return;
+    if (!this.settings.scale || degree < 0) return;
+
+    // The equave is stored as equivInterval, not in the scale array.
+    // TuneCell passes degree === scale.length for the equave row.
+    if (degree === this.settings.scale.length) {
+      const oldEquiv = this.settings.equivInterval;
+      const equivDelta = newCents - oldEquiv;
+      this.settings.equivInterval = newCents;
+      // Each hex is at octs * equivInterval + scale[reducedSteps],
+      // so changing equivInterval by equivDelta shifts it by octs * equivDelta.
+      for (const hex of this.state.activeHexObjects) {
+        const [, , , octs] = this.hexCoordsToCents(hex.coords);
+        if (hex.retune) hex.retune(hex.cents + octs * equivDelta);
+      }
+      for (const [hex] of this.state.sustainedNotes) {
+        const [, , , octs] = this.hexCoordsToCents(hex.coords);
+        if (hex.retune) hex.retune(hex.cents + octs * equivDelta);
+      }
+      this.drawGrid();
+      return;
+    }
+
+    if (degree >= this.settings.scale.length) return;
     // Compute delta before mutating scale, so we can shift each hex by the same amount
     // regardless of which octave it was played in.
     const oldCents = this.settings.scale[degree];
@@ -407,7 +432,7 @@ class Keys {
     let remainder = steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
     if (remainder == 0) {
       let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), drSteps_count + (gcdSteps_count * this.settings.gcd[2]));
-      this.hexOff(coords);
+      if (!this.state.sustain) this.hexOff(coords);
       let hexIndex = this.state.activeHexObjects.findIndex(function (hex) {
         return coords.equals(hex.coords);
       });
@@ -436,7 +461,7 @@ class Keys {
         let remainder = steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
         if (remainder == 0) {
           let coords = new Point(rSteps_count + (gcdSteps_count * this.settings.gcd[1]), drSteps_count + (gcdSteps_count * this.settings.gcd[2]));
-          this.hexOff(coords);
+          if (!this.state.sustain) this.hexOff(coords);
           let hexIndex = this.state.activeHexObjects.findIndex(function (hex) {
             return coords.equals(hex.coords);
           });
@@ -474,30 +499,72 @@ class Keys {
 
   hexOff(coords) {
     const [cents, pressed_interval] = this.hexCoordsToCents(coords);
-    const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
+    const key = coords.x + ',' + coords.y;
+    const isSustained = this.state.sustainedCoords.has(key);
+    const [color, text_color] = this.centsToColor(cents, isSustained, pressed_interval);
     this.drawHex(coords, color, text_color);
   };
 
   noteOff(hex, release_velocity) {
     if (this.state.sustain) {
       this.state.sustainedNotes.push([hex, release_velocity]);
+      // Keep the hex visually lit while it's sustained
+      const key = hex.coords.x + ',' + hex.coords.y;
+      this.state.sustainedCoords.add(key);
+      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+      const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
+      this.drawHex(hex.coords, color, text_color);
     } else {
       hex.noteOff(release_velocity);
     }
   };
 
-  sustainOff() {
-    this.state.sustain = false;
-    for (let note = 0; note < this.state.sustainedNotes.length; note++) {
-      this.noteOff(this.state.sustainedNotes[note][0], this.state.sustainedNotes[note][1]);
+  sustainOff(force = false) {
+    if (this.state.latch && !force) return; // latch holds unless forced (e.g. Space)
+    if (this.state.latch) {
+      // Force-release also clears latch
+      this.state.latch = false;
     }
+    this.state.sustain = false;
+    const notesToRelease = this.state.sustainedNotes;
     this.state.sustainedNotes = [];
+    this.state.sustainedCoords.clear();
+    for (let note = 0; note < notesToRelease.length; note++) {
+      const hex = notesToRelease[note][0];
+      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
+      this.drawHex(hex.coords, color, text_color);
+      hex.noteOff(notesToRelease[note][1]);
+    }
+    // Fire React callback AFTER all visual/audio cleanup — Preact may flush
+    // synchronously and trigger a re-render that redraws hexes mid-cleanup.
+    if (this.onLatchChange) this.onLatchChange(false);
     // tempAlert('Sustain Off', 900);
   };
 
   sustainOn() {
     this.state.sustain = true;
     // tempAlert('Sustain On', 900);
+  }
+
+  latchToggle() {
+    if (this.state.latch) {
+      // Second press: release everything and turn latch off
+      this.state.latch = false;
+      this.sustainOff(true); // clears sustainedCoords, redraws, then fires onLatchChange
+    } else {
+      // First press: engage latch — sustain current and all subsequent notes
+      this.state.latch = true;
+      this.state.sustain = true;
+      if (this.onLatchChange) this.onLatchChange(true);
+      // Capture any currently active notes into sustainedNotes
+      for (const hex of this.state.activeHexObjects) {
+        if (!this.state.sustainedNotes.find(([h]) => h === hex)) {
+          this.state.sustainedNotes.push([hex, 0]);
+          this.state.sustainedCoords.add(hex.coords.x + ',' + hex.coords.y);
+        }
+      }
+    }
   }
 
   /**************** Event Handlers ****************/
@@ -573,7 +640,7 @@ class Keys {
     // which would drop the sustain before mouse-up.
     if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) {
       this.state.shiftHeld = true;
-      this.sustainOn();
+      this.latchToggle();
       return;
     }
 
@@ -590,7 +657,9 @@ class Keys {
       && (e.code in this.settings.keyCodeToCoords)
       && !this.state.pressedKeys.has(e.code)) {
       this.state.pressedKeys.add(e.code);
-      let coords = this.settings.keyCodeToCoords[e.code];
+      const kbOffset = this.settings.centerHexOffset;
+      const kbRaw = this.settings.keyCodeToCoords[e.code];
+      let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
       let hex = this.hexOn(coords);
       this.state.activeHexObjects.push(hex);
     }
@@ -599,22 +668,22 @@ class Keys {
   onKeyUp = (e) => {
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       this.state.shiftHeld = false;
-      if (!this.state.isMouseDown && !this.state.isTouchDown && !this.state.isTuneDragging) {
-        this.sustainOff();
-      }
+      // Shift is now latch (toggle) — no release action on key-up
       return;
     }
 
     if (this.inputIsFocused()) return;
 
     if (e.code === 'Space') {
-      this.sustainOff();
+      this.sustainOff(true); // force-release overrides latch
     } else if (!this.state.isMouseDown && !this.state.isTouchDown
       && (e.code in this.settings.keyCodeToCoords)) {
       if (this.state.pressedKeys.has(e.code)) {
         this.state.pressedKeys.delete(e.code);
-        let coords = this.settings.keyCodeToCoords[e.code];
-        this.hexOff(coords);
+        const kbOffset = this.settings.centerHexOffset;
+        const kbRaw = this.settings.keyCodeToCoords[e.code];
+        let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+        if (!this.state.sustain) this.hexOff(coords);
         let hexIndex = this.state.activeHexObjects.findIndex(function (hex) {
           return coords.equals(hex.coords);
         });
@@ -635,15 +704,9 @@ class Keys {
     this.state.canvas.removeEventListener("mousemove", this.mouseActive);
     if (this.state.activeHexObjects.length > 0) {
       const hex = this.state.activeHexObjects[0];
-      if (this.state.sustain) {
-        this.hexOff(hex.coords);
-        this.state.sustainedNotes.push([hex, 0]);
-        this.state.activeHexObjects.pop();
-      } else {
-        this.hexOff(hex.coords);
-        this.noteOff(hex);
-        this.state.activeHexObjects.pop();
-      }
+      if (!this.state.sustain) this.hexOff(hex.coords);
+      this.noteOff(hex, 0);
+      this.state.activeHexObjects.pop();
     }
     // If Shift was held but its keyup already fired while the mouse was down
     // (spurious keyup), release sustain now that the mouse is up too.
@@ -731,12 +794,8 @@ class Keys {
 
     for (let i = this.state.activeHexObjects.length - 1; i >= 0; i--) {
       if (this.state.activeHexObjects[i].release) {
-        this.hexOff(this.state.activeHexObjects[i].coords);
-        if (this.state.sustain) {
-          this.state.sustainedNotes.push([this.state.activeHexObjects[i], 0]);
-        } else {
-          this.noteOff(this.state.activeHexObjects[i]);
-        }
+        if (!this.state.sustain) this.hexOff(this.state.activeHexObjects[i].coords);
+        this.noteOff(this.state.activeHexObjects[i], 0);
         this.state.activeHexObjects.splice(i, 1);
       }
     }

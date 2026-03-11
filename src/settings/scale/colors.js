@@ -88,8 +88,7 @@ const Colors = (props) => {
       {props.settings.spectrum_colors && (
         <label>
           Choose Central Hue
-            <div style={{ display: 'flex', justifyContent: 'flex-end', width: '24em' }}>
-            <div class="color-cell">
+            <div class="color-cell sidebar-input">
             <span
               ref={swatchRef}
               class="color-swatch"
@@ -121,7 +120,6 @@ const Colors = (props) => {
               onBlur={handleTextBlur}
               aria-label="hex colour for central hue"
             />
-          </div>
           </div>
         </label>
       )}

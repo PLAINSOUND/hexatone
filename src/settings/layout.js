@@ -24,7 +24,7 @@ const Layout = (props) => {
       />
     </label>
     <label>
-      Right-Downward-Facing Steps
+      Right-Downward Steps
       <input name="drSteps" type="text" inputMode="numeric"
              class="sidebar-input"
              key={props.settings.drSteps}
@@ -75,7 +75,7 @@ const Layout = (props) => {
       />
     </label>
     <label>
-      Rotation (degrees clockwise)
+      Rotation Clockwise (°)
       <input name="rotation" type="text" inputMode="decimal"
              class="sidebar-input"
              key={props.settings.rotation}
