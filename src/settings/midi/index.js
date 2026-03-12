@@ -1,8 +1,6 @@
 import { h } from 'preact';
 import { Fragment } from 'preact/compat';
 import PropTypes from 'prop-types';
-import MidiOut from './midiout';
-import MidiTuning from './mts';
 
 const MIDIio = (props) => {
   // midiin_degree0 is the MIDI note that triggers step 0 (degree 0) internally.
@@ -14,7 +12,7 @@ const MIDIio = (props) => {
 
   return (
   <fieldset>
-    <legend><b>MIDI Settings</b></legend>
+    <legend><b>MIDI Inputs</b></legend>
     <label>
       Input Port
       <select value={props.settings.midiin_device}
@@ -44,7 +42,7 @@ const MIDIio = (props) => {
       </select>
     </label>
     <label>
-      Assign MIDI Note that plays Central Degree ({center_degree})
+      MIDI Note assigned to play Central Scale Degree ({center_degree})
       <input name="midiin_degree0" type="text" inputMode="numeric"
         class="sidebar-input"
         key={`${props.settings.midiin_degree0}-${center_degree}`}
@@ -63,12 +61,7 @@ const MIDIio = (props) => {
     <em>Input is received on all channels. Notes on the Central Input Channel remain untransposed. Other channels are transposed by multiples of the selected scale&rsquo;s interval of repetition (usually an octave, but it may be any value). Thus, multichannel controllers are automatically mapped onto transpositions of the selected scale (up to 128 pitches per channel).</em>
     <br /><br />
 
-    {(props.settings.output === "midi" && props.midi) && (
-      <MidiOut {...props}/>
-    )}
-    {(props.settings.output === "midi" && props.midi) && (
-      <MidiTuning {...props}/>
-    )}
+
   </fieldset>
   );
 };
@@ -79,7 +72,7 @@ MIDIio.propTypes = {
     midiin_channel: PropTypes.number,
     midiin_degree0: PropTypes.number,
     center_degree: PropTypes.number,
-    output: PropTypes.string,
+
   }).isRequired,
   midi: PropTypes.object,
   onChange: PropTypes.func.isRequired,

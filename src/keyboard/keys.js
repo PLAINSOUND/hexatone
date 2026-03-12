@@ -38,7 +38,12 @@ class Keys {
       isTouchDown: false,
       isMouseDown: false
     };
-    this.mts_tuning_map = mtsTuningMap(this.settings.sysex_type, this.settings.device_id, this.settings.tuning_map_number, this.settings.tuning_map_degree0, this.settings.scale, this.settings.name, this.settings.equivInterval, this.settings.fundamental, this.settings.offset); // generate the tuning map sysex data
+    // tuning_map_degree0: use explicit override if set, otherwise derive from the central MIDI note
+    // (midiin_degree0 is stored as the note for degree 0; add center_degree to get the central note)
+    const center_degree      = this.settings.center_degree  || 0;
+    const central_midi_note  = (this.settings.midiin_degree0 != null ? this.settings.midiin_degree0 : 60) + center_degree;
+    const tuning_map_degree0 = this.settings.tuning_map_degree0 != null ? this.settings.tuning_map_degree0 : central_midi_note;
+    this.mts_tuning_map = mtsTuningMap(this.settings.sysex_type, this.settings.device_id, this.settings.tuning_map_number, tuning_map_degree0, this.settings.scale, this.settings.name, this.settings.equivInterval, this.settings.fundamental, this.settings.offset);
     
     // Set up resize handler
     window.addEventListener('resize', this.resizeHandler, false);
@@ -65,12 +70,7 @@ class Keys {
     console.log("midi_mapping:", this.settings.midi_mapping); */
 
     
-    if (sessionStorage.getItem("sysex_auto") == "true") {
-      this.settings.sysex_auto = false;
-      this.settings.sysex_auto = true;
-    } else {
-      this.settings.sysex_auto = false;
-    };
+    // sysex_auto comes from settings directly; sessionStorage read was redundant and error-prone
 
     if ((this.settings.sysex_auto) && (this.settings.midi_device !== "OFF") && (this.settings.midi_channel >= 0)) {
       this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
@@ -330,18 +330,24 @@ class Keys {
   };
 
   mtsSendMap = () => { // send the tuning map
-    let sysex = this.mts_tuning_map;
-    
-    if (this.midiout_data) {
-      if (this.settings.sysex_type == "127") {
-        for (let i = 0; i < 128; i++) {
-          //console.log("mtsMap", i, ": ", sysex[i]);
-          this.midiout_data.sendSysex([sysex[i].shift()], sysex[i]);
-        };
-      } else if (this.settings.sysex_type == "126") {
-        //console.log("mtsMap: ", sysex);
-        this.midiout_data.sendSysex([sysex.shift()], sysex);
+    if (!this.midiout_data) return;
+    const sysex_type = parseInt(this.settings.sysex_type);
+
+    if (sysex_type === 127) {
+      // Real-time single-note tuning change: one message per note.
+      // Each entry is [127, device_id, 8, 2, map#, 1, note, mts0, mts1, mts2].
+      // sendSysex(manufacturer, data) prepends F0+manufacturer and appends F7.
+      // We copy each array to avoid mutating the stored tuning map.
+      for (let i = 0; i < 128; i++) {
+        const msg = [...this.mts_tuning_map[i]];
+        const manufacturer = msg.shift(); // 127 = universal real-time
+        this.midiout_data.sendSysex([manufacturer], msg);
       };
+    } else if (sysex_type === 126) {
+      // Non-real-time bulk tuning dump: single message for all 128 notes.
+      const msg = [...this.mts_tuning_map];
+      const manufacturer = msg.shift(); // 126 = universal non-real-time
+      this.midiout_data.sendSysex([manufacturer], msg);
     };
   };
 
@@ -1126,7 +1132,7 @@ function computeCenterOffset(rSteps, drSteps, degree, gcd) {
 
 function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degree0, scale, name, equave, fundamental, offset) {
   //console.log("mts-input-scale:", scale)
-  if (sysex_type == "127") {
+  if (parseInt(sysex_type) === 127) {
     let header = [127, device_id, 8, 2, tuning_map_number, 1]; // sysex real-time single-note tuning change of tuning map, 128 notes
     let fundamental_cents = 1200 * Math.log2(fundamental / 440);
     let degree_0_cents = fundamental_cents - offset[0];
@@ -1135,9 +1141,12 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
 
     for (let i = 0; i < 128; i++) {
       mts_data[i] = [127, 127, 127];
-      let bend = scale[((i - tuning_map_degree0) + (128 * scale.length)) % scale.length] + map_offset + (equave * (Math.floor(((i - tuning_map_degree0) + (128 * scale.length)) / scale.length) - 128));
-      if (typeof(bend) == "number") {
-        mts_data[i] = centsToMTS(tuning_map_degree0, bend);
+      // target_cents: pitch of slot i in cents, measured from degree_0_cents.
+      // tuning_map_degree0 is the MIDI note anchor; target_cents is the offset from it.
+      // centsToMTS(note, bend): note = float MIDI anchor, bend = cents offset from that anchor.
+      const target_cents = scale[((i - tuning_map_degree0) + (128 * scale.length)) % scale.length] + map_offset + (equave * (Math.floor(((i - tuning_map_degree0) + (128 * scale.length)) / scale.length) - 128));
+      if (typeof target_cents === "number") {
+        mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
         //console.log("mts_data[", i, "]:", mts_data[i]);
       };
     };
@@ -1187,7 +1196,7 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
     //console.log("mts-tuning_map", sysex);
     return sysex;
 
-  } else if (sysex_type == "126") {
+  } else if (parseInt(sysex_type) === 126) {
     let name_array = Array.from(name);
     let ascii_name = [];
     for (let i = 0; i < 16; i++) {
@@ -1202,7 +1211,7 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
       };
     };
     
-    let header = [126, device_id, 8, 1, tuning_map_number]; // sysex real-time single-note tuning change of tuning map, 128 notes
+    let header = [126, device_id, 8, 1, tuning_map_number]; // non-real-time bulk tuning dump (0x7E=126): 128 notes
     for (let i = 0; i < 16; i++) {
       header.push(ascii_name[i]);
     };
@@ -1213,9 +1222,9 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
 
     for (let i = 0; i < 128; i++) {
       mts_data[i] = [127, 127, 127];
-      let bend = scale[((i - tuning_map_degree0) + (128 * scale.length)) % scale.length] + map_offset + (equave * (Math.floor(((i - tuning_map_degree0) + (128 * scale.length)) / scale.length) - 128));
-      if (typeof(bend) == "number") {
-        mts_data[i] = centsToMTS(tuning_map_degree0,);
+      const target_cents = scale[((i - tuning_map_degree0) + (128 * scale.length)) % scale.length] + map_offset + (equave * (Math.floor(((i - tuning_map_degree0) + (128 * scale.length)) / scale.length) - 128));
+      if (typeof target_cents === "number") {
+        mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
       };
     }; 
     
@@ -1241,14 +1250,18 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
       high--;
     };*/
 
-    for (let i = 127; i > high; i--) {
-      if ( (high >= 0) && (mts_data[high] <= 127) && (mts_data[high] != [127, 127, 127]) ) {
-        mts_data[i] = mts_data[high]; // repeat the highest possible note at the top of the map as needed
-      } else {
-        mts_data[i] = [i, 0, 0]; // if data is invalid, load 12edo
-      };
+    // Clamp entries that fell out of MTS range to their nearest valid value.
+    // [127,127,127] is reserved as "no tuning data" — replace with max valid.
+    for (let i = 0; i < 128; i++) {
+      if (mts_data[i][0] === 127 && mts_data[i][1] === 127 && mts_data[i][2] === 127) {
+        mts_data[i] = [127, 127, 126]; // highest valid MTS value
+      }
     };
 
+    // Build sysex payload: header + 128×3 tuning bytes.
+    // Note: header starts with 126 (0x7E = universal non-real-time manufacturer ID).
+    // sendSysex(manufacturer, data) will wrap with F0…F7, so we shift 126 off
+    // and pass the rest as data — checksum must be computed on the data portion only.
     let sysex = [];
     for (let i = 0; i < header.length; i++) {
       sysex.push(header[i]);
@@ -1259,12 +1272,13 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
       sysex.push(mts_data[i][2]);
     };
 
-    let checksum = sysex[0] ^ sysex[1];
-
-    for (let i = 2; i < sysex.length; i++) {
-      checksum = checksum ^ sysex[i];
+    // Checksum per MTS spec: XOR of all bytes from device_id through last tuning byte,
+    // masked to 7 bits. sysex[0] is 126 (manufacturer), so start from index 1.
+    let checksum = 0;
+    for (let i = 1; i < sysex.length; i++) {
+      checksum ^= sysex[i];
     };
-
+    checksum &= 0x7F;
     sysex.push(checksum);
     
     return sysex;

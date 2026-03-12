@@ -30,8 +30,8 @@ const MidiOut = (props) => (
         }
         }>
         <option>---choose how the notes are sent---</option>
-        <option value="multichannel">multichannel, each cycle wraps around MIDI Degree 0</option>
-        <option value="sequential">all notes on selected channel, around MIDI Degree 0</option>
+        {/* <option value="multichannel">multichannel, each cycle wraps around MIDI Degree 0</option> */}
+        {/* <option value="sequential">all notes on selected channel, around MIDI Degree 0</option> */}
         <option value="MTS1">all notes and MTS tuning data on selected channel</option>
         <option value="MTS2">Pianoteq range MTS tuning data on selected channel</option>
       </select>
@@ -55,9 +55,7 @@ const MidiOut = (props) => (
       </select>
     </label>
     
-    <p>
-      <em>MIDI Output is determined by the selected MIDI Mapping. In "Multichannel" each transposed cycle of the scale, up to a maximum of 128 degrees, is sent on a different MIDI channel, around the Central Output Channel. "All notes on selected channel" sends scale degrees as successive MIDI notes on one channel only. In either of these settings, the synth will need to load a global tuning map. To send a global tuning map based on the selected scala file and reference frequency, please choose from the options below.</em>
-    </p>
+
     <p>
       <em>The "MTS" Midi Mappings offer an alternative approach, by sending a real-time single-note MIDI tuning message followed by a MIDI note, which triggers the retuned pitch, allowing scales with any number of notes to be played. In this case, MIDI notes used for triggering are unrelated to actual pitches. They simply cycle sequentially through all 128 possible note numbers. This allows polyphonic combinations of up to 128 retuned notes on a single channel. However, some software (e.g. Pianoteq) may filter out notes or process sounds based on the incoming note numbers, causing unexpected results.</em>
     </p>    

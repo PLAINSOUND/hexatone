@@ -3,14 +3,14 @@ h1 {
 }
 
 h1 a {
-    color: black;
+    color: #330000;
 }
 
 fieldset {
     margin-bottom: 0.5em;
     border-width: 1px;
     border-radius: 3px;
-    border-color: #c3c8cb;
+    border-color: #c8b8b8;
     border-style: solid;
 }
 
@@ -47,45 +47,45 @@ textarea {
     height: 8.5em;
     box-sizing: border-box;
     -webkit-overflow-scrolling: touch;
-    background-color: rgb(254, 249, 244);
+    background-color: #faf9f8;
     border-width: 1px;
     border-radius: 3px;
     border-style: solid;
-    border-color: #c3c8cb;
+    border-color: #c8b8b8;
 }
 
 select {
   width: min(24em, 100%);
   height: 1.5em;
   box-sizing: border-box;
-  background-color: rgb(254, 249, 244);
+  background-color: #faf9f8;
   border-width: 1px;
   border-radius: 3px;
   border-style: solid;
-  border-color: #c3c8cb;
+  border-color: #c8b8b8;
 }
 
 input[type="text"] {
   width: min(24em, 100%);
   height: 1.5em;
   box-sizing: border-box;
-  background-color: rgb(254, 249, 244);
+  background-color: #faf9f8;
   border-width: 1px;
   border-radius: 3px;
   border-style: solid;
-  border-color: #c3c8cb;
+  border-color: #c8b8b8;
 }
 
 input[type="color"] {
   height: 1.5em;
   width: 2.5em;
   box-sizing: border-box;
-  background-color: rgb(254, 249, 244);
+  background-color: #faf9f8;
   border-width: 1px;
   color:  rgb(245, 241, 240);
   border-radius: 3px;
   border-style: solid;
-  border-color: #c3c8cb;
+  border-color: #c8b8b8;
 }
 
 input[type="color"]::-webkit-color-swatch {
@@ -97,28 +97,28 @@ table input[type="text"] {
   height: 1.5em;
   width: 95%;
   box-sizing: border-box;
-  background-color: rgb(254, 249, 244);
+  background-color: #faf9f8;
   border-width: 1px;
   border-radius: 3px;
   border-style: solid;
-  border-color: #c3c8cb;
+  border-color: #c8b8b8;
 }
 
 table input[type="color"] {
   height: 1.5em;
   width: 2.5em;
   box-sizing: border-box;
-  background-color: rgb(254, 249, 244);
+  background-color: #faf9f8;
   border-width: 1px;
   color:  rgb(245, 241, 240);
   border-radius: 3px;
   border-style: solid;
-  border-color: #c3c8cb;
+  border-color: #c8b8b8;
 }
 
 input:out-of-range {
-  background-color: rgb(255, 233, 233);
-  color: rgb(214, 9, 9);
+  background-color: #fde8e8;
+  color: #990000;
 }
 
 /* Color swatch + hidden picker + hex text input used in the scale table */
@@ -144,7 +144,7 @@ input:out-of-range {
 }
 
 .color-swatch:hover {
-  box-shadow: 0 0 0 2px #7cb7ff;
+  box-shadow: 0 0 0 2px rgba(153, 0, 0, 0.4);
 }
 
 .color-swatch--disabled {
@@ -174,11 +174,11 @@ input:out-of-range {
   width: calc(100% - 1.8em) !important;
   height: 1.5em;
   box-sizing: border-box;
-  background-color: rgb(254, 249, 244);
+  background-color: #faf9f8;
   border-width: 1px;
   border-radius: 3px;
   border-style: solid;
-  border-color: #c3c8cb;
+  border-color: #c8b8b8;
   font-family: monospace;
   font-size: 1.25em;
 }
@@ -192,7 +192,7 @@ input:out-of-range {
 .color-cell:focus-within {
   position: absolute;
   z-index: 5;
-  background: rgb(254, 249, 244);
+  background: #faf9f8;
   border-radius: 3px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   height: auto;
@@ -205,13 +205,13 @@ input:out-of-range {
 }
 
 .delete-btn {
-  color: #a00;
+  color: #990000;
 }
 
 .preset-error {
   width: 100%;
   margin: 0.25em 0 0;
-  color: #a00;
+  color: #990000;
   font-size: 0.9em;
 }
 
@@ -287,28 +287,28 @@ table td {
   width: 28px;
   height: 22px;
   border-radius: 3px;
-  background: #e8e8e8;
-  color: #555;
+  background: #ede8e8;
+  color: #330000;
   touch-action: none;
-  border: 1px solid #ccc;
+  border: 1px solid #c8b8b8;
   font-size: 1em;
   line-height: 1;
   margin-left: auto; /* right-align to match input above */
 }
-.tune-handle:hover { background: #d0d0d0; color: #222; }
-.tune-handle:active { background: #bbb; cursor: grabbing; }
+.tune-handle:hover { background: #ddd0d0; color: #330000; }
+.tune-handle:active { background: #ccbbbb; cursor: grabbing; }
 
 .tune-delta {
   font-family: monospace;
   font-size: 1.35em;
   line-height: 1;
-  color: #c87800;
+  color: #990000;
   min-width: 4em;
   text-align: right;
   padding-left: 2px;
   margin-right: 12px;
 }
-.tune-delta.tune-comparing { color: #5566dd; font-style: italic; }
+.tune-delta.tune-comparing { color: #660000; font-style: italic; }
 
 .tune-actions { display: flex; gap: 3px; align-items: center; }
 
@@ -319,20 +319,20 @@ table td {
   width: 26px;
   height: 22px;
   padding: 0;
-  border: 1px solid #bbb;
+  border: 1px solid #c8b8b8;
   border-radius: 4px;
-  background: #ebebeb;
-  color: #444;
+  background: #ede8e8;
+  color: #330000;
   cursor: pointer;
   font-size: 1.05em;
   line-height: 1;
 }
-.tune-btn:hover { background: #d8d8d8; color: #111; }
-.tune-btn--active { background: #dde; color: #336; border-color: #99b; }
-.tune-btn--save   { color: #2a7a2a; border-color: #6aaa6a; }
-.tune-btn--save:hover { background: #d8eed8; }
-.tune-btn--revert { color: #882222; border-color: #cc8888; }
-.tune-btn--revert:hover { background: #eedada; }
+.tune-btn:hover { background: #ddd0d0; color: #330000; }
+.tune-btn--active { background: #ede8e8; color: #330000; border-color: #c8b8b8; }
+.tune-btn--save   { color: #330000; border-color: #c8b8b8; }
+.tune-btn--save:hover { background: #ede8e8; }
+.tune-btn--revert { color: #990000; border-color: #cc9999; }
+.tune-btn--revert:hover { background: #f5eded; }
 
 .tune-btn-compare {
   font-size: 1.3em;
@@ -342,7 +342,7 @@ table td {
 /* Tonic cue label */
 .tonic-label {
   line-height: 1.5;
-  color: #888;
+  color: #996666;
   font-size: 0.9em;
 }
 
@@ -350,10 +350,10 @@ table td {
 input.equiv-cell,
 input.equiv-cell:disabled,
 table input:disabled {
-  color: #aaa;
-  border-color: #ddd;
+  color: #bb9999;
+  border-color: #e8d8d8;
   background: transparent;
-  -webkit-text-fill-color: #aaa; /* overrides iOS/Safari disabled grey */
+  -webkit-text-fill-color: #bb9999; /* overrides iOS/Safari disabled grey */
   opacity: 1; /* iOS reduces opacity on disabled inputs */
 }
 
@@ -362,3 +362,95 @@ table input:disabled {
   flex: 1;
   min-width: 0;
 }
+/* ── Links — no blue, no underline; inherit sidebar text colour ─────────── */
+a {
+  color: #990000;
+  text-decoration: none;
+}
+a:hover {
+  color: #ff0000;
+}
+
+/* ── Checkboxes — custom warm-grey appearance ───────────────────────────── */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.1em;
+  height: 1.1em;
+  border: 1px solid #b0adb0;
+  border-radius: 3px;
+  background: #faf9f8;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  vertical-align: middle;
+  margin: 0;
+}
+input[type="checkbox"]:checked {
+  background: #990000;
+  border-color: #990000;
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.2em;
+  top: 0.05em;
+  width: 0.35em;
+  height: 0.6em;
+  border: 2px solid rgb(243, 241, 240);
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(153, 0, 0, 0.25);
+}
+
+/* ── Range slider — warm-grey, no browser chrome ───────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 50%;
+  height: 1.1em;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+}
+input[type="range"]:focus {
+  outline: none;
+}
+/* Track */
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: #c8b8b8;
+  border-radius: 2px;
+}
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  background: #c8b8b8;
+  border-radius: 2px;
+}
+/* Thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  background: #990000;
+  border: none;
+  margin-top: -0.32em;
+  transition: background 0.1s ease;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  background: #990000;
+  border: none;
+  transition: background 0.1s ease;
+}
+input[type="range"]:hover::-webkit-slider-thumb { background: #ff0000; }
+input[type="range"]:hover::-moz-range-thumb     { background: #ff0000; }

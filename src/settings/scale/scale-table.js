@@ -277,7 +277,7 @@ const ScaleTable = (props) => {
     <table>
       <thead>
         <tr>
-          <th class="wide" id="leftaligned">Frequency Ratio&nbsp;&nbsp;|&nbsp;&nbsp;Cents&nbsp;&nbsp;|&nbsp;&nbsp;EDO-steps</th>
+          <th class="wide" id="leftaligned">Ratio&nbsp;&nbsp;|&nbsp;&nbsp;Cents&nbsp;&nbsp;|&nbsp;&nbsp;EDO</th>
           <th>Degree</th>
           <th>Name</th>
           <th>Colour</th>

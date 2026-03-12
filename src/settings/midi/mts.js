@@ -17,10 +17,10 @@ const MidiTuning = (props) => (
     </label>
     <label>
       Type of Sysex Message(s)
-      <select value={props.settings.sysex_type}
+      <select value={String(props.settings.sysex_type)}
         name="sysex_type"
         onChange={(e) => {
-          props.onChange(e.target.name, e.target.value);
+          props.onChange(e.target.name, parseInt(e.target.value));
           sessionStorage.setItem(e.target.name, e.target.value);
         }}>
         <option value="127">real-time (127)</option>
@@ -85,7 +85,7 @@ const MidiTuning = (props) => (
 MidiTuning.propTypes = {
   settings: PropTypes.shape({
     sysex_auto: PropTypes.bool,
-    sysex_type: PropTypes.string,
+    sysex_type: PropTypes.number,
     device_id: PropTypes.number,
     tuning_map_number: PropTypes.number,
     tuning_map_degree0: PropTypes.number,

@@ -9,6 +9,8 @@ import { instruments } from './sample_synth/instruments';
 
 import { enableMidi, midi_in } from './settings/midi/midiin';
 import { create_midi_synth} from './midi_synth';
+import create_mpe_synth from './mpe_synth';
+import { create_composite_synth } from './composite_synth';
 
 import keyCodeToCoords from './settings/keycodes';
 import { useQuery, Extract, ExtractInt, ExtractString, ExtractFloat, ExtractBool, ExtractJoinedString } from './use-query';
@@ -96,7 +98,13 @@ const PRESET_SKIP_KEYS = [
 const DISPLAY_EMPTY_KEYS = ['name', 'description', 'key_labels'];
 
 const sessionDefaults = {
-  output:           sessionStorage.getItem("output")            || "sample",
+  output_sample:    (sessionStorage.getItem("output_sample") ?? "true") !== "false",
+  output_mts:       sessionStorage.getItem("output_mts") === "true",
+  output_mpe:       sessionStorage.getItem("output_mpe") === "true",
+  mpe_device:       sessionStorage.getItem("mpe_device")       || "OFF",
+  mpe_master_ch:    sessionStorage.getItem("mpe_master_ch")    || "1",
+  mpe_lo_ch:        parseInt(sessionStorage.getItem("mpe_lo_ch"))   || 2,
+  mpe_hi_ch:        parseInt(sessionStorage.getItem("mpe_hi_ch"))   || 8,
   instrument:       sessionStorage.getItem("instrument")        || "WMRIByzantineST",
   midiin_device:    sessionStorage.getItem("midiin_device")     || "OFF",
   midiin_channel:   parseInt(sessionStorage.getItem("midiin_channel"))  || 0,
@@ -107,7 +115,7 @@ const sessionDefaults = {
   sysex_type:       parseInt(sessionStorage.getItem("sysex_type"))      || 127,
   device_id:        parseInt(sessionStorage.getItem("device_id"))       || 127,
   tuning_map_number:  parseInt(sessionStorage.getItem("tuning_map_number"))  || 0,
-  tuning_map_degree0: parseInt(sessionStorage.getItem("tuning_map_degree0")) || 60,
+  tuning_map_degree0: sessionStorage.getItem("tuning_map_degree0") !== null ? parseInt(sessionStorage.getItem("tuning_map_degree0")) : null,
   fundamental_color: parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
   reference_degree: 0,
 };
@@ -121,6 +129,7 @@ const App = () => {
   // isPresetDirty recalculates correctly.
   const [savedPresetSnapshot, setSavedPresetSnapshot] = useState(null);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
+  const synthRef = useRef(null); // live synth instance for imperative volume/mute control
 
   // Fields that count as "edits" for dirty detection.
   // Reuse the same field list for dirty detection
@@ -151,7 +160,13 @@ const App = () => {
     midiin_degree0: ExtractInt,
 
     // Output
-    output: ExtractString,
+    output_sample: ExtractBool,
+    output_mts:    ExtractBool,
+    output_mpe:    ExtractBool,
+    mpe_device:    ExtractString,
+    mpe_master_ch: ExtractString,
+    mpe_lo_ch:     ExtractInt,
+    mpe_hi_ch:     ExtractInt,
     instrument: ExtractString,
     fundamental: ExtractFloat,
     reference_degree: ExtractInt,
@@ -247,28 +262,59 @@ const App = () => {
   useEffect(() => {
     if (!ready) return;
 
-    if (settings.output === "sample"
-        && settings.instrument && settings.fundamental) {
-      setLoading(wait);
-      create_sample_synth(settings.instrument, settings.fundamental, settings.reference_degree, settings.scale)
-        .then(s => {
-          setLoading(signal);
-          setSynth(s);
-        });
+    const wantSample = settings.output_sample && settings.instrument && settings.instrument !== 'OFF' && settings.fundamental;
+    const wantMts    = settings.output_mts && midi &&
+                       settings.midi_device !== "OFF" && settings.midi_channel >= 0 &&
+                       settings.midi_mapping && typeof settings.midi_velocity === "number";
+    const wantMpe    = settings.output_mpe && midi &&
+                       settings.mpe_device !== "OFF" &&
+                       settings.mpe_lo_ch > 0 && settings.mpe_hi_ch >= settings.mpe_lo_ch;
+
+    if (!wantSample && !wantMts && !wantMpe) {
+      setSynth(null);
+      return;
     }
-    if (midi && settings.output === "midi" && (settings.midi_device !== "OFF") &&
-      (settings.midi_channel >= 0) && settings.midi_mapping &&
-      typeof settings.midi_velocity === "number") {
-      setLoading(wait);
-      create_midi_synth(settings.midiin_device, settings.midiin_degree0, midi.outputs.get(settings.midi_device), settings.midi_channel, settings.midi_mapping, settings.midi_velocity, settings.fundamental)
-        .then(s => {
-          setLoading(signal);
-          setSynth(s);
-        });
+
+    setLoading(wait);
+    const promises = [];
+
+    if (wantSample) {
+      promises.push(
+        create_sample_synth(settings.instrument, settings.fundamental, settings.reference_degree, settings.scale)
+      );
     }
+    if (wantMts) {
+      promises.push(
+        create_midi_synth(settings.midiin_device, settings.midiin_degree0,
+          midi.outputs.get(settings.midi_device), settings.midi_channel,
+          settings.midi_mapping, settings.midi_velocity, settings.fundamental)
+      );
+    }
+    if (wantMpe) {
+      promises.push(
+        create_mpe_synth(
+          midi.outputs.get(settings.mpe_device),
+          settings.mpe_master_ch,
+          settings.mpe_lo_ch,
+          settings.mpe_hi_ch
+        )
+      );
+    }
+
+    Promise.all(promises).then(synths => {
+      setLoading(signal);
+      const s = synths.length === 1 ? synths[0] : create_composite_synth(synths);
+      if (s.prepare) s.prepare();
+      setSynth(s);
+    });
   }, [settings.instrument, settings.fundamental, settings.reference_degree, settings.scale,
     settings.midi_device, settings.midi_channel, settings.midi_mapping, settings.midi_velocity,
-    settings.output, midi]);
+    settings.output_sample, settings.output_mts,
+    settings.output_mpe, settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch,
+    midi]);
+
+  // Keep synthRef in sync so volume/mute can be applied imperatively
+  useEffect(() => { synthRef.current = synth; }, [synth]);
 
   const COLOR_KEYS = new Set(['note_colors', 'spectrum_colors', 'fundamental_color']);
 
@@ -291,7 +337,6 @@ const App = () => {
 
   const presetChanged = e => {
     if (!e.target.value) return;
-    if (synth && synth.prepare) synth.prepare();
     setReady(true);
     setActiveSource('builtin');
     setActivePresetName(e.target.value);
@@ -302,7 +347,6 @@ const App = () => {
   };
 
   const onLoadCustomPreset = (preset) => {
-    if (synth && synth.prepare) synth.prepare();
     setReady(true);
     setActiveSource('user');
     setActivePresetName(preset.name || null);
@@ -374,14 +418,11 @@ const App = () => {
   };
 
   const isValid = useMemo(() => (
-    (((settings.output === "midi") && (settings.midi_device !== "OFF") && (settings.midi_channel >= 0) && settings.midi_mapping &&
-      (typeof settings.midi_velocity === "number") && (settings.midi_velocity > 0)) ||
-     (settings.output === "sample" && (settings.fundamental >= 0.015625) && settings.instrument)) &&
-      settings.rSteps && settings.drSteps &&
-      settings.hexSize && settings.hexSize >= 20 && typeof settings.rotation === "number" &&
-      settings.scale && settings.equivSteps &&
-      (settings.no_labels || settings.degree && settings.note_names || !settings.degree) &&
-      ((settings.spectrum_colors && settings.fundamental_color) || settings.note_colors)
+    settings.rSteps && settings.drSteps &&
+    settings.hexSize && settings.hexSize >= 20 && typeof settings.rotation === "number" &&
+    settings.scale && settings.equivSteps &&
+    (settings.no_labels || settings.degree && settings.note_names || !settings.degree) &&
+    ((settings.spectrum_colors && settings.fundamental_color) || settings.note_colors)
   ), [settings]);
 
   // Stable string keys for array deps — prevents new array references from
@@ -396,10 +437,11 @@ const App = () => {
     settings.rSteps, settings.drSteps, settings.hexSize, settings.rotation,
     scaleKey, settings.equivSteps, noteNamesKey, settings.key_labels,
     settings.fundamental, settings.reference_degree, settings.center_degree,
-    settings.output, settings.instrument, settings.midiin_device,
+    settings.instrument, settings.midiin_device,
     settings.midiin_channel, settings.midiin_degree0,
     settings.midi_device, settings.midi_channel, settings.midi_mapping,
     settings.midi_velocity, settings.sysex_auto, settings.sysex_type,
+    settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch,
   ]);
 
   // Color settings: only the color fields. Changes here update the live Keys
@@ -412,10 +454,25 @@ const App = () => {
     ...structuralSettings, ...colorSettings,
   }), [structuralSettings, colorSettings]);
 
+  // Imperative volume/mute — does not rebuild Keys
+  const onVolumeChange = useCallback((volume, muted) => {
+    if (synthRef.current && synthRef.current.setVolume) {
+      synthRef.current.setVolume(muted ? 0 : volume);
+    }
+  }, []);
+
+  // Null synth: visual-only, no audio. Used when no output is configured.
+  const nullSynth = {
+    makeHex: (coords, cents) => ({
+      coords, cents, release: false,
+      noteOn: () => {}, noteOff: () => {}, retune: () => {},
+    }),
+  };
+
   return (
     <div className={active ? "hide" : "show"}>
-      {loading === 0 && ready && isValid && synth && (
-        <Keyboard synth={synth} settings={normalizedSettings}
+      {loading === 0 && ready && isValid && (
+        <Keyboard synth={synth || nullSynth} settings={normalizedSettings}
                   structuralSettings={structuralSettings}
                   onKeysReady={useCallback(keys => { keysRef.current = keys; }, [])}
                   onLatchChange={useCallback(v => setLatch(v), [])}
@@ -436,6 +493,7 @@ const App = () => {
         <Settings presetChanged={presetChanged}
                     presets={presets}
                     onChange={onChange}
+                    onVolumeChange={onVolumeChange}
                     onImport={onImport}
                     importCount={importCount}
                     onLoadCustomPreset={onLoadCustomPreset}

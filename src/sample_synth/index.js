@@ -45,6 +45,10 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
     // decodedBuffers is populated by prepare() after a user gesture
     let decodedBuffers = null;
+    let masterGain = null;
+    const storedVolume = parseFloat(localStorage.getItem('synth_volume') ?? '1');
+    const storedMuted  = localStorage.getItem('synth_muted') === 'true';
+    let masterVolume = (isNaN(storedVolume) ? 1.0 : storedVolume) * (storedMuted ? 0 : 1);
 
     let offset = 0;
     if (reference_degree > 0) {
@@ -62,17 +66,30 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         if (sharedAudioContext.state === 'suspended') {
           await sharedAudioContext.resume();
         }
+        // Master gain node — all voices connect here before destination
+        if (!masterGain) {
+          masterGain = sharedAudioContext.createGain();
+          masterGain.gain.value = masterVolume;
+          masterGain.connect(sharedAudioContext.destination);
+        }
         // slice(0) copies the buffer — decodeAudioData consumes its argument
         decodedBuffers = await Promise.all(
           rawBuffers.map(buf => sharedAudioContext.decodeAudioData(buf.slice(0)))
         );
       },
 
+      setVolume: (value) => {
+        masterVolume = Math.max(0, Math.min(1, value));
+        if (masterGain) {
+          masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.02);
+        }
+      },
+
       makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played) => {
         return new ActiveHex(
           coords, cents, velocity_played, note_played, fundamental, offset,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-          velocity_response, aftertouch_amount, decodedBuffers, sharedAudioContext
+          velocity_response, aftertouch_amount, decodedBuffers, sharedAudioContext, masterGain
         );
       },
     };
@@ -83,7 +100,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
 function ActiveHex(coords, cents, velocity_played, note_played, fundamental, offset,
   sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-  velocity_response, aftertouch_amount, sampleBuffer, audioContext) {
+  velocity_response, aftertouch_amount, sampleBuffer, audioContext, masterGain) {
 
   this.coords = coords;
   this.release = false;
@@ -101,6 +118,7 @@ function ActiveHex(coords, cents, velocity_played, note_played, fundamental, off
   this.aftertouch_amount = aftertouch_amount;
   this.sampleBuffer = sampleBuffer;
   this.audioContext = audioContext;
+  this.masterGain = masterGain || null;
 }
 
 ActiveHex.prototype.noteOn = function() {
@@ -144,7 +162,7 @@ ActiveHex.prototype.noteOn = function() {
 
   const gainNode = this.audioContext.createGain();
   source.connect(gainNode);
-  gainNode.connect(this.audioContext.destination);
+  gainNode.connect(this.masterGain || this.audioContext.destination);
   gainNode.gain.value = 0;
   source.start(0);
   gainNode.gain.setTargetAtTime(

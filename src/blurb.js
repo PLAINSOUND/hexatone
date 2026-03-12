@@ -16,5 +16,7 @@ const Blurb = () => (
     <p>
       <em>The text font with embedded HEJI accidentals (Plainsound Sans) used in this web app may be obtained on <a href="https://github.com/PLAINSOUND">PLAINSOUND github</a>. The accidentals follow the Unicode standard music font layout and their unicode data for copy/paste may be found at <a href="https://w3c.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html" >w3c.github.io/smufl/latest/tables</a>.</em>
     </p>
+    <p><b>Support our open access content with a <a href="https://ko-fi.com/plainsound">donation</a>.</b></p>
+    
   </div>);
 export default Blurb;

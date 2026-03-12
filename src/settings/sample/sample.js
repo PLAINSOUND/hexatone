@@ -1,20 +1,58 @@
 import { h } from 'preact';
+import { useState } from 'preact/hooks';
 import { Fragment } from 'preact/compat';
 import PropTypes from 'prop-types';
 
-const Sample = (props) => (
-  <>
-    <label>
-      Internal Instruments
-      <Instruments value={props.settings.instrument}
-                   groups={props.instruments}
-                   onChange={props.onChange}/>
-    </label>
-  </>
-);
+const Sample = (props) => {
+  const [muted,  setMuted]  = useState(() => localStorage.getItem('synth_muted') === 'true');
+  const [volume, setVolume] = useState(() => parseFloat(localStorage.getItem('synth_volume') ?? '1') || 1.0);
+
+  const handleVolume = (e) => {
+    const val = parseFloat(e.target.value);
+    setVolume(val);
+    localStorage.setItem('synth_volume', val);
+    if (props.onVolumeChange) props.onVolumeChange(val, muted);
+  };
+
+  const handleMute = (e) => {
+    const m = e.target.checked;
+    setMuted(m);
+    localStorage.setItem('synth_muted', m);
+    if (props.onVolumeChange) props.onVolumeChange(volume, m);
+  };
+
+  return (
+    <>
+      <label>
+        Internal Instruments
+        <Instruments value={props.settings.instrument}
+                     groups={props.instruments}
+                     onChange={props.onChange}/>
+      </label>
+      <label>
+        Volume
+        <input type="range" name="synth_volume"
+          min="0" max="1" step="0.01"
+          value={volume}
+          class="sidebar-input"
+          onInput={handleVolume}
+          style={{ padding: 0 }}
+        />
+      </label>
+      <label>
+        Mute
+        <input type="checkbox" name="synth_mute"
+          checked={muted}
+          onChange={handleMute}
+        />
+      </label>
+    </>
+  );
+};
 
 Sample.propTypes = {
   onChange: PropTypes.func.isRequired,
+  onVolumeChange: PropTypes.func,
   instruments: PropTypes.array,
   settings: PropTypes.shape({
     instrument: PropTypes.string,
@@ -28,9 +66,8 @@ const Instruments = (props) => (
     onChange={(e) => {
       props.onChange(e.target.name, e.target.value);
       sessionStorage.setItem(e.target.name, e.target.value);
-      //console.log("Instrument: ", sessionStorage.getItem(e.target.name));
-    }
-    } >
+    }}>
+    <option value="OFF">OFF (no sound)</option>
     {props.groups.map(group => (
       <optgroup label={group.name}>
         {group.instruments.map(instrument => (
@@ -51,6 +88,6 @@ Instruments.propTypes = {
       fileName: PropTypes.string.isRequired,
     })),
   })),
-}
+};
 
 export default Sample;

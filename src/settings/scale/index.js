@@ -8,7 +8,8 @@ import ScaleTable from './scale-table';
 import ScalaImport from './scala-import';
 
 const Scale = (props) => {
-  const [importing, setImporting] = useState(false);
+  const [importing,  setImporting]  = useState(false);
+  const [collapsed,  setCollapsed]  = useState(false);
 
   const doImport = () => {
     props.onImport();
@@ -19,7 +20,16 @@ const Scale = (props) => {
 
   return (
   <fieldset>
-      <legend><b>Scale</b></legend>
+      <legend>
+        <b>Scale</b>
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          title={collapsed ? 'Expand scale settings' : 'Collapse scale settings'}
+          style={{ marginLeft: '0.6em', padding: '0 0.4em', fontSize: '0.8em',
+                   lineHeight: '1.4', verticalAlign: 'middle', cursor: 'pointer' }}
+        >{collapsed ? '▶' : '▼'}</button>
+      </legend>
       <label>
         Reference Frequency (Hz)
         <input name="fundamental" type="text" inputMode="decimal"
@@ -38,7 +48,7 @@ const Scale = (props) => {
         />
       </label>
       <label>
-        Assigned to Scale Degree
+        Assigned Scale Degree
         <input name="reference_degree" type="text" inputMode="numeric"
                class="sidebar-input"
                key={props.settings.reference_degree}
@@ -55,6 +65,7 @@ const Scale = (props) => {
                }}
         />
       </label>
+      {!collapsed && (<>
       <p>
       <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) messages, please set global tuning of (all) receiving instrument(s) to A4 = 440 Hz. Choosing a different Kammerton (i.e. 415 Hz or 442 Hz) will transpose everything accordingly. Commonly used values for the Reference Frequency C4 === MIDI Note 60 === Degree 0 are:<br /></em>
         261.6255653 Hz <em>(12edo)</em> or 260.740741 Hz <em>(Pythagorean / HEJI Notation)</em>.
@@ -75,6 +86,7 @@ const Scale = (props) => {
         </>)
       }
       <br />
+      </>)}
   </fieldset>
   );
 };

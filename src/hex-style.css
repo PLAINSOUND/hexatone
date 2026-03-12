@@ -46,19 +46,18 @@ table {
 }
 
 #sidebar {
-    background-color: white;
     transition: transform 0.3s ease-in-out;
     z-index: 10;
     overflow: auto;
-    background-color: rgb(243, 241, 240);
-        color: rgb(92, 89, 96);
+    background-color: #faf9f8;
+    color: #330000;
 }
 
 #sidebar-button {
     position: fixed;
     z-index: 11;
-    background-color: #7cb7ff;
-    border: 1px solid #0057C0;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
     -webkit-touch-callout: none;
     user-select: none;
     transition: background-color 0.15s ease, border-color 0.15s ease;
@@ -70,7 +69,11 @@ table {
 }
 
 a {
-    color: #157FFF;
+    color: #990000;
+    text-decoration: none;
+}
+a:hover {
+    color: #ff0000;
 }
 /* Sidebar is attached to top and fills viewport for small screens */
 @media (max-width: 480px) {
@@ -85,8 +88,8 @@ a {
         padding-left: 1em;
         padding-right: 1em;
         overflow-x: hidden;
-        background-color: rgb(243, 241, 240);
-        color: rgb(92, 89, 96);
+        background-color: #faf9f8;
+        color: #330000;
     }
 
     #sidebar-button {
@@ -131,8 +134,8 @@ a {
         max-width: 40em;
         padding-left: 3.5em;
         padding-right: 1em;
-        background-color: rgb(235, 232, 230);
-        color: rgb(103, 101, 106);
+        background-color: #faf9f8;
+        color: #330000;
     }
 
     #sidebar-button {

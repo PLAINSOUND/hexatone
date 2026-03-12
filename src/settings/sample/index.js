@@ -7,45 +7,26 @@ const SampleSynth = (props) => (
   <fieldset>
     <legend><b>Sound Synthesis</b></legend>
     <label>
-      Built-In Synth / MIDI Output
-      <select value={props.settings.output}
-        name="output"
-        class="sidebar-input"
+      Built-In Synth
+      <input name="output_sample" type="checkbox"
+        checked={!!props.settings.output_sample}
         onChange={(e) => {
-          props.onChange(e.target.name, e.target.value);
-          sessionStorage.setItem(e.target.name, e.target.value);
-        }}>
-        <option value="OFF">OFF</option>
-        <option value="sample">Built-In Synth ON</option>
-        <option value="midi">MIDI Output ON</option>
-      </select>
+          props.onChange(e.target.name, e.target.checked);
+          sessionStorage.setItem(e.target.name, e.target.checked);
+        }} />
     </label>
-    <label>
-      Fixed velocity (touch input)
-      <input name="midi_velocity" type="text" inputMode="numeric"
-        class="sidebar-input"
-        key={props.settings.midi_velocity}
-        defaultValue={props.settings.midi_velocity}
-        onBlur={(e) => {
-          const val = parseInt(e.target.value);
-          if (!isNaN(val) && val >= 1 && val <= 127) {
-            props.onChange('midi_velocity', val);
-            sessionStorage.setItem('midi_velocity', val);
-          } else {
-            e.target.value = props.settings.midi_velocity;
-          }
-        }}
-      />
-    </label>
-    {props.settings.output === "sample" && (
-      <Sample {...props}/>
+    {props.settings.output_sample && (
+      <Sample {...props} onVolumeChange={props.onVolumeChange}/>
     )}
+    {/* Fixed velocity hard-coded to 72; midi_velocity UI hidden */}
   </fieldset>
 );
 
 SampleSynth.propTypes = {
   settings: PropTypes.shape({
-    output: PropTypes.string,
+    output_sample: PropTypes.bool,
+    output_mts:    PropTypes.bool,
+    output_mpe:    PropTypes.bool,
   }).isRequired,
   midi: PropTypes.object,
   onChange: PropTypes.func.isRequired,
