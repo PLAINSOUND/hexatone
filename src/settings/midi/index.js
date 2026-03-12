@@ -42,7 +42,7 @@ const MIDIio = (props) => {
       </select>
     </label>
     <label>
-      MIDI Note assigned to play Central Scale Degree ({center_degree})
+      MIDI Note assigned to Central Scale Degree ({center_degree})
       <input name="midiin_degree0" type="text" inputMode="numeric"
         class="sidebar-input"
         key={`${props.settings.midiin_degree0}-${center_degree}`}

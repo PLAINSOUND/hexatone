@@ -93,7 +93,11 @@ export class VoicePool {
   get freeCount()   { return this._free.length; }
 }
 
-/** Stable string key for a coords value (array or primitive). */
+/** Stable string key for a coords value (array, Point {x,y}, or primitive). */
 function coordsKey(coords) {
-  return Array.isArray(coords) ? coords.join(',') : String(coords);
+  if (Array.isArray(coords)) return coords.join(',');
+  if (coords !== null && typeof coords === 'object' && 'x' in coords && 'y' in coords) {
+    return coords.x + ',' + coords.y;
+  }
+  return String(coords);
 }

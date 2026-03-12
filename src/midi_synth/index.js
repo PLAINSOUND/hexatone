@@ -7,7 +7,7 @@ for (let i = 0; i < 128; i++) {
   tuningmap[i] = [i, 0, 0];
 }
 
-export const create_midi_synth = async (midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental) => {
+export const create_midi_synth = async (midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental, sysex_type, device_id) => {
 
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
   // MTS1: all 128 MIDI notes available as carriers
@@ -17,13 +17,18 @@ export const create_midi_synth = async (midiin_device, midiin_degree0, midi_outp
   const pool_mts2_low  = new VoicePool(Array.from({ length: 66 }, (_, i) => i + 23));
   const pool_mts2_high = new VoicePool(Array.from({ length: 18 }, (_, i) => i + 89));
 
+  // sysex_type: 127 = real-time (0x7F), 126 = non-real-time (0x7E)
+  const sysex_rt     = (sysex_type != null ? sysex_type : 127) & 0x7F;
+  const sysex_dev_id = (device_id  != null ? device_id  : 127) & 0x7F;
+
   return {
     makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, offset) => {
       return new MidiHex(
         coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
         note_played, velocity_played, bend, offset,
         midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental,
-        pool_mts1, pool_mts2_low, pool_mts2_high
+        pool_mts1, pool_mts2_low, pool_mts2_high,
+        sysex_rt, sysex_dev_id
       );
     }
   };
@@ -41,7 +46,8 @@ function MidiHex(
   coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
   note_played, velocity_played, bend, offset,
   midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental,
-  pool_mts1, pool_mts2_low, pool_mts2_high
+  pool_mts1, pool_mts2_low, pool_mts2_high,
+  sysex_rt, sysex_dev_id
 ) {
   if (midiin_degree0 > 127) midiin_degree0 = 127;
   else if (midiin_degree0 < 0) midiin_degree0 = 0;
@@ -114,9 +120,11 @@ function MidiHex(
     this.midiin_device = midiin_device;
     this.midiin_degree0 = midiin_degree0;
     this.midi_output   = midi_output;
-    this.channel   = split;
-    this.steps     = steps_cycle;
-    this.mts       = mts;
+    this.channel      = split;
+    this.steps        = steps_cycle;
+    this.mts          = mts;
+    this.sysex_rt     = sysex_rt     != null ? sysex_rt     : 127;
+    this.sysex_dev_id = sysex_dev_id != null ? sysex_dev_id : 127;
 
   } else {
     console.log("Please choose an output channel!");
@@ -125,8 +133,10 @@ function MidiHex(
 
 MidiHex.prototype.noteOn = function () {
   if (this.mts.length > 0) {
-    this.midi_output.send([240, 127, 127, 8, 2, 0, 1,
-      this.mts[0], this.mts[1], this.mts[2], this.mts[3], 247]);
+    // F0 <rt> <device_id> 08 02 00 01 <slot> <note> <fine_msb> <fine_lsb> F7
+    // rt: 0x7F = real-time, 0x7E = non-real-time
+    this.midi_output.send([0xF0, this.sysex_rt, this.sysex_dev_id, 0x08, 0x02, 0x00, 0x01,
+      this.mts[0], this.mts[1], this.mts[2], this.mts[3], 0xF7]);
   }
   this.midi_output.send([144 + this.channel, this.steps, this.velocity]);
 };

@@ -290,7 +290,8 @@ const App = () => {
       promises.push(
         create_midi_synth(settings.midiin_device, settings.midiin_degree0,
           midi.outputs.get(settings.midi_device), settings.midi_channel,
-          settings.midi_mapping, settings.midi_velocity, settings.fundamental)
+          settings.midi_mapping, settings.midi_velocity, settings.fundamental,
+          settings.sysex_type, settings.device_id)
       );
     }
     if (wantMpe) {

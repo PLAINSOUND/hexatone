@@ -748,6 +748,21 @@ class Keys {
     coords = this.getHexCoordsAt(coords);
 
     if (this.state.activeHexObjects.length == 0) {
+      // When latch is active, clicking a sustained hex toggles it off.
+      if (this.state.latch) {
+        const key = coords.x + ',' + coords.y;
+        const sustainedIdx = this.state.sustainedNotes.findIndex(([h]) =>
+          h.coords.x === coords.x && h.coords.y === coords.y
+        );
+        if (sustainedIdx !== -1) {
+          const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
+          this.state.sustainedNotes.splice(sustainedIdx, 1);
+          this.state.sustainedCoords.delete(key);
+          hex.noteOff(vel);
+          this.hexOff(coords);
+          return;
+        }
+      }
       this.state.activeHexObjects[0] = this.hexOn(coords);
     } else {
       let first = this.state.activeHexObjects[0];
@@ -798,6 +813,26 @@ class Keys {
           found = true;
         }
       }
+
+      if (!found) {
+        // When latch is active, check if this coord is in sustainedNotes —
+        // if so, release it (toggle off) rather than triggering a new note.
+        if (this.state.latch) {
+          const key = coords.x + ',' + coords.y;
+          const sustainedIdx = this.state.sustainedNotes.findIndex(([h]) =>
+            h.coords.x === coords.x && h.coords.y === coords.y
+          );
+          if (sustainedIdx !== -1) {
+            const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
+            this.state.sustainedNotes.splice(sustainedIdx, 1);
+            this.state.sustainedCoords.delete(key);
+            hex.noteOff(vel);
+            this.hexOff(coords);
+            found = true; // don't trigger a new note
+          }
+        }
+      }
+
       if (!(found)) {
         let newHex = this.hexOn(coords);
         this.state.activeHexObjects.push(newHex);
