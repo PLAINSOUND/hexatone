@@ -16,6 +16,9 @@ export const create_composite_synth = (synths) => ({
       coords:  hexes[0].coords,
       cents:   hexes[0].cents,
       release: false,
+      // Expose stolen coords from any child synth that had to evict a voice.
+      // Keys.js uses this to redraw the displaced hex.
+      _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),
 
       noteOn() {
         hexes.forEach(h => h.noteOn());

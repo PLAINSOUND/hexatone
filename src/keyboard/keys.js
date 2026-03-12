@@ -353,8 +353,46 @@ class Keys {
       };
     } else if (sysex_type === 126) {
       // Non-real-time bulk tuning dump: single message for all 128 notes.
+      // Build a protected copy: any carrier slot currently held by a sustained
+      // or active note keeps its exact current tuning bytes so the synth does
+      // not retune it mid-sustain.
+      const sustainedSlots = new Map(); // carrier slot → [mts1, mts2, mts3]
+      const allActive = [
+        ...this.state.activeHexObjects,
+        ...this.state.sustainedNotes.map(([h]) => h),
+      ];
+      for (const hex of allActive) {
+        if (hex.mts && hex.mts.length >= 4) {
+          sustainedSlots.set(hex.mts[0], [hex.mts[1], hex.mts[2], hex.mts[3]]);
+        }
+      }
+
+      // Clone the full 128-entry tuning map and patch protected slots
       const msg = [...this.mts_tuning_map];
       const manufacturer = msg.shift(); // 126 = universal non-real-time
+      // After shift, layout is:
+      //   [device_id, 8, 1, map#, name(16 bytes)] = 20 header bytes
+      //   then 128 × 3 tuning bytes (note0_tt, note0_yy, note0_zz, ...)
+      //   then 1 checksum byte
+      const HEADER_LEN = 20;
+      let patched = false;
+      for (const [slot, tuning] of sustainedSlots) {
+        const offset = HEADER_LEN + slot * 3;
+        if (offset + 2 < msg.length - 1) { // -1 to stay before checksum
+          msg[offset]     = tuning[0];
+          msg[offset + 1] = tuning[1];
+          msg[offset + 2] = tuning[2];
+          patched = true;
+        }
+      }
+
+      // Recompute checksum if any entries were patched (XOR bytes 1..end-1)
+      if (patched) {
+        let checksum = 0;
+        for (let i = 1; i < msg.length - 1; i++) checksum ^= msg[i];
+        msg[msg.length - 1] = checksum & 0x7F;
+      }
+
       this.midiout_data.sendSysex([manufacturer], msg);
     };
   };
