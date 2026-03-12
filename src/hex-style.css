@@ -19,14 +19,22 @@
     font-style: normal;
 }
 
+html, body {
+    overflow: hidden;
+    max-width: 100%;
+    height: 100%;
+    position: relative;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: auto;
+}
+
 body {
 	-webkit-touch-callout: none;
 	background-image: url("Pattern3D_06.png");
     transition: transform .3s ease-in-out;
     background-repeat: repeat;
     background-position: top left;
-    background-attachment: fixed;
-    overflow: hidden;
+    background-attachment: scroll;
     font-family: 'Plainsound Sans', sans-serif;
 }
 
@@ -48,7 +56,8 @@ table {
 #sidebar {
     transition: transform 0.3s ease-in-out;
     z-index: 10;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     background-color: #faf9f8;
     color: #330000;
 }
@@ -130,6 +139,9 @@ a:hover {
 /* Sidebar is attached to left side for larger screens */
 @media (min-width: 480px) {
     #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
         height: 100vh;
         max-width: 40em;
         padding-left: 3.5em;
@@ -171,4 +183,105 @@ a:hover {
     .show #sidebar-button div {
         transform: rotate(180deg);
     }
+}
+/* ── iOS landscape: move sidebar button clear of Dynamic Island ── */
+@media (max-height: 500px) and (orientation: landscape) {
+    #sidebar-button {
+        top: 75vh;
+        transform: translate(0, -50%);
+    }
+}
+
+/* ── Sustain island — floating tap target centred at bottom ── */
+/* ── Bottom controls: SUSTAIN centred, redraw bottom-right ── */
+#bottom-bar {
+    display: contents;
+}
+
+#sustain-island {
+    position: fixed;
+    bottom: 1.2em;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    padding: 0.45em 1.6em;
+    border-radius: 999px;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
+    color: #990000;
+    font-size: 0.95em;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+    -webkit-touch-callout: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#redraw-button {
+    position: fixed;
+    bottom: 1.25em;
+    right: 1em;
+    z-index: 11;
+    width: 2.2em;
+    height: 2.2em;
+    border-radius: 50%;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
+    color: #990000;
+    font-size: 1.1em;
+    line-height: 1;
+    -webkit-touch-callout: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+#redraw-button:active {
+    background-color: #ddd0d0;
+}
+
+/* Hide redraw button when sidebar is open */
+.show #redraw-button {
+    display: none;
+}
+
+#sustain-island {
+    padding: 0.45em 1.6em;
+    border-radius: 999px;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
+    color: #990000;
+    font-size: 0.95em;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+    -webkit-touch-callout: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#sustain-island.latch-active {
+    background-color: #ff3333;
+    border-color: #aa0000;
+    color: #fff;
+}
+
+#redraw-button {
+    width: 2.2em;
+    height: 2.2em;
+    border-radius: 50%;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
+    color: #990000;
+    font-size: 1.1em;
+    line-height: 1;
+    -webkit-touch-callout: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+#redraw-button:active {
+    background-color: #ddd0d0;
 }

@@ -27,9 +27,12 @@ import './loader.css';
 
 export const Loading = () => <LoadingIcon />;
 
-let notChrome = !/Chrome/.test(navigator.userAgent);
-let alertMessage = "Please use a desktop version of Google Chrome or Microsoft Edge to fully access this site.\nSome key features of the Web MIDI API do not currently work on phones or in other browsers. For Apple devices a recent version of iOS is required."
-if (notChrome) alert(alertMessage);
+
+
+
+const ua = navigator.userAgent;
+const isSafariOnly = /Safari/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua) && !/Firefox/.test(ua);
+if (isSafariOnly) alert("Safari is not fully supported.\nFor the best experience please use Firefox or a Chromium-based browser such as Brave or Chrome.\nWeb MIDI features require a Chromium-based browser.");
 
 const findPreset = (preset) => {
   for (let g of presets) {
@@ -483,6 +486,22 @@ const App = () => {
       <button id="sidebar-button" className={latch ? "latch-active" : ""} onClick={() => setActive(s => !s)} onTouchStart={onSidebarTouchStart} onTouchEnd={onSidebarTouchEnd} onTouchMove={onSidebarTouchMove} onContextMenu={e => e.preventDefault()}>
         <div>&gt;</div>
       </button>
+      <div id="bottom-bar">
+        <button id="sustain-island"
+          className={latch ? "latch-active" : ""}
+          onClick={() => { if (keysRef.current) keysRef.current.latchToggle(); }}
+          onPointerDown={(e) => { if (e.pointerType === "touch") e.preventDefault(); }}
+          onContextMenu={e => e.preventDefault()}>
+          <b>SUSTAIN</b>
+        </button>
+        <button id="redraw-button"
+          title="Redraw keyboard"
+          onPointerDown={(e) => { e.preventDefault(); if (keysRef.current) keysRef.current.resizeHandler(); }}
+          onClick={() => { if (keysRef.current) keysRef.current.resizeHandler(); }}
+          onContextMenu={e => e.preventDefault()}>
+          ↺
+        </button>
+      </div>
       <nav id="sidebar">
         <h1>
           PLAINSOUND HEXATONE

@@ -1,5 +1,5 @@
 import { h, render, Fragment } from 'preact';
-import { useRef, useEffect } from 'preact/hooks';
+import { useRef, useEffect, useCallback } from 'preact/hooks';
 import Keys from './keys';
 import "./keyboard.css";
 import PropTypes from 'prop-types';
@@ -21,6 +21,25 @@ const Keyboard = (props) => {
     //console.log('[Keyboard] onKeysReady done');
     return () => keys.deconstruct();
   }, [canvas, props.structuralSettings, props.synth]);
+
+  // After every render that doesn't reconstruct Keys, schedule a redraw via
+  // requestAnimationFrame so it runs after the browser has finished painting.
+  // This covers: latch colour changes, loading state changes, any parent
+  // re-render that clears the canvas without triggering a Keys reconstruction.
+  const renderCount = useRef(0);
+  useEffect(() => {
+    renderCount.current += 1;
+    if (renderCount.current <= 1) return; // skip first mount — constructor handles it
+    let raf;
+    if (keysRef.current) raf = requestAnimationFrame(() => keysRef.current && keysRef.current.resizeHandler());
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  });  // no deps — runs after every render
+
+  // Also trigger immediately (not just rAF) on sidebar open/close so the
+  // CSS transition has the correct canvas size from the start.
+  useEffect(() => {
+    if (keysRef.current) keysRef.current.resizeHandler();
+  }, [props.active]);
 
   // When colors change, push them into the live Keys instance and redraw immediately.
   const noteColorsKey = props.settings.note_colors ? JSON.stringify(props.settings.note_colors) : '';

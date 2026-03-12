@@ -48,6 +48,11 @@ class Keys {
     // Set up resize handler
     window.addEventListener('resize', this.resizeHandler, false);
     window.addEventListener('orientationchange', this.resizeHandler, false);
+    // visualViewport fires when browser chrome (toolbars) appear/disappear,
+    // which window.resize misses — catches Brave's toolbar toggling.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', this.resizeHandler, false);
+    }
 
     //... and give it an initial call, which does the initial draw
     this.resizeHandler();
@@ -304,6 +309,9 @@ class Keys {
 
     window.removeEventListener('resize', this.resizeHandler, false);
     window.removeEventListener('orientationchange', this.resizeHandler, false);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this.resizeHandler, false);
+    }
 
     window.removeEventListener("keydown", this.onKeyDown, false);
     window.removeEventListener("keyup", this.onKeyUp, false);
@@ -597,18 +605,22 @@ class Keys {
   };
 
   resizeHandler = () => {
-    // Resize Inner and outer coordinates of canvas to preserve aspect ratio
+    // visualViewport gives the actual visible area after browser chrome
+    // (Brave/Edge toolbar, iOS tab bar, safe areas) is subtracted.
+    // Canvas is position:fixed top:0 left:0 — we set its size to exactly
+    // the visible viewport, and offset by visualViewport.offsetLeft/Top
+    // to handle any panning the browser may apply.
+    const newWidth  = window.innerWidth;
+    const newHeight = window.innerHeight;
 
-    let newWidth = window.innerWidth;
-    let newHeight = window.innerHeight;
-
+    this.state.canvas.style.width  = newWidth  + 'px';
     this.state.canvas.style.height = newHeight + 'px';
-    this.state.canvas.style.width = newWidth + 'px';
+    this.state.canvas.style.left   = '0px';
+    this.state.canvas.style.top    = '0px';
+    this.state.canvas.style.marginLeft = '';
+    this.state.canvas.style.marginTop  = '';
 
-    this.state.canvas.style.marginTop = (-newHeight / 2) + 'px';
-    this.state.canvas.style.marginLeft = (-newWidth / 2) + 'px';
-
-    this.state.canvas.width = newWidth;
+    this.state.canvas.width  = newWidth;
     this.state.canvas.height = newHeight;
 
     // Find new centerpoint
@@ -748,25 +760,17 @@ class Keys {
   };
 
   getPointerPosition(e) {
-    let parentPosition = this.getPosition(e.currentTarget);
-    let xPosition = e.clientX - parentPosition.x;
-    let yPosition = e.clientY - parentPosition.y;
-    return new Point(xPosition, yPosition);
+    // getBoundingClientRect gives the actual rendered position in viewport
+    // coordinates, consistent with clientX/clientY on all browsers and
+    // correctly accounts for CSS transforms, margins, and safe-area insets.
+    const rect = e.currentTarget.getBoundingClientRect();
+    return new Point(e.clientX - rect.left, e.clientY - rect.top);
   };
 
   getPosition(element) {
-    let xPosition = 0;
-    let yPosition = 0;
-
-    while (element) {
-      xPosition += (element.offsetLeft - element.scrollLeft + element.clientLeft);
-      yPosition += (element.offsetTop - element.scrollTop + element.clientTop);
-      element = element.offsetParent;
-    }
-    return {
-      x: xPosition,
-      y: yPosition
-    };
+    // Legacy offsetParent walk — kept for reference but no longer used.
+    const rect = element.getBoundingClientRect();
+    return { x: rect.left, y: rect.top };
   };
 
   handleTouch = (e) => {
@@ -782,8 +786,10 @@ class Keys {
     };
 
     for (let i = 0; i < e.targetTouches.length; i++) {
-      let coords = this.getHexCoordsAt(new Point(e.targetTouches[i].pageX - this.state.canvas.offsetLeft,
-        e.targetTouches[i].pageY - this.state.canvas.offsetTop));
+      const rect = this.state.canvas.getBoundingClientRect();
+      let coords = this.getHexCoordsAt(new Point(
+        e.targetTouches[i].clientX - rect.left,
+        e.targetTouches[i].clientY - rect.top));
       let found = false;
 
       for (let j = 0; j < this.state.activeHexObjects.length; j++) {
