@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="The MIDI Tuning Standard documentation - Technical specifications for MIDI instrument tuning commands">
+  <title>The MIDI Tuning Standard</title>
+  <link rel="stylesheet" href="/hex-style.css">
+  <style>
+    body {
+      font-family: 'Plainsound Sans', sans-serif;
+      background-color: #faf9f8;
+      color: #330000;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    h3 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    h3 a {
+      color: #330000;
+    }
+
+    p {
+      margin-bottom: 1.2rem;
+      line-height: 1.44;
+    }
+
+    h4 {
+      font-size: 1.5rem;
+      margin: 0.9rem 0 1rem;
+      font-weight: 600;
+    }
+
+    pre {
+      background: #ede8e8;
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.95rem;
+      border: 1px solid #c8b8b8;
+    }
+
+    a {
+      color: #990000;
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: #ff0000;
+    }
+
+    fieldset {
+      margin-bottom: 0.5em;
+      border-width: 1px;
+      border-radius: 3px;
+      border-color: #c8b8b8;
+      border-style: solid;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1.5rem 1rem;
+      }
+
+      h3 {
+        font-size: 1.5rem;
+      }
+
+      h4 {
+        font-size: 1.25rem;
+      }
+
+      pre {
+        font-size: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h3>MTS: The MIDI Tuning Standard</h3>
+
+  <p style="text-align: center; font-size: 0.9rem; color: #996666; margin-bottom: 2rem;">
+    Content sourced from <a href="http://www.microtonal-synthesis.com/MIDItuning.html" target="_blank" rel="noopener">microtonal-synthesis.com</a><br>
+    Official specification: <a href="https://midi.org/midi-tuning-updated-specification" target="_blank" rel="noopener">MIDI.org</a>
+  </p>
+
+  <p>The MIDI Tuning Standard was ratified by the MIDI Manufacturers Association in January 1992. Credit should be given to Robert Rich and Carter Scholz who wrote and lobbied for this addition to the MIDI specification. Manufacturers have the option of supporting the tuning standard partially or in full. It is featured on some Emu and Ensoniq instruments. Currently they implement only the non-realtime features of the standard.</p>
+
+  <fieldset>
+    <h4>Non-realtime messages</h4>
+
+    <p>Request a bulk tuning dump from your synthesizer by sending the following codes:</p>
+
+    <pre>F0 7E id 08 00 tt F7</pre>
+
+    <p>where</p>
+
+    <pre>F0 7E  = universal non-realtime SysEx header
+id     = target device ID
+08     = sub-ID #1 (MIDI tuning standard)
+00     = sub-ID #2 (bulk dump request)
+tt     = tuning program number 0 to 127 in hexadecimal
+F7     = end of SysEx message</pre>
+
+    <p>for example, request a bulk dump of tuning program 16 from device 1 with the following message:</p>
+
+    <pre>F0 7E 01 08 00 10 F7</pre>
+
+    <p>The synthesizer sends the bulk tuning dump in the following format:</p>
+
+    <pre>F0 7E id 08 01 tt &lt;tn&gt;x16 &lt;xx yy zz&gt;x128 ck F7</pre>
+
+    <p>where</p>
+
+    <pre>F0 7E = universal non-realtime SysEx header
+id    = target device ID
+08    = sub-ID #1 (MIDI tuning standard)
+01    = sub-ID #2 (Bulk dump reply)
+tt    = tuning program number 0 to 127 in hexadecimal
+tn    = tuning name (16 ASCII characters)
+xx yy zz    = frequency data for one note (repeated 128 times)
+               see below for format
+ck    = checksum
+F7    = end of SysEx message</pre>
+  </fieldset>
+
+  <fieldset>
+    <h4>Realtime messages</h4>
+
+    <p>The following message changes the tuning of one or more notes in realtime. The "preferred" method according to the specification is to change the tuning immediately for any notes currently sounding. The optional method is to change the tuning only for new notes that follow the tuning message. In reality, the preferred method depends on what the composer is trying to accomplish and this author recommends a global parameter on the synthesizer to select between immediate and new note only retuning.</p>
+
+    <pre>F0 7F id 08 02 tt ll [kk xx yy zz]x(ll) F7</pre>
+
+    <p>where</p>
+
+    <pre>F0 7F = universal realtime SysEx header
+id    = target device ID
+08    = sub-id #1 (MIDI tuning standard)
+02    = sub-id #2 (note change)
+tt    = tuning program number from 0 to 127
+ll    = number of notes to be changed (sets of [kk xx yy zz])
+[kk xx yy zz] = MIDI note number, followed by frequency data for note
+F7    = end of SysEx message</pre>
+  </fieldset>
+
+  <fieldset>
+    <h4>Tuning program and bank changes</h4>
+
+    <p>Tuning programs and banks are changed using registered parameter number controller messages.</p>
+
+    <p>Tuning program change</p>
+
+    <pre>Bn 64 00 65 03 06 tt (data entry)
+Bn 64 00 65 03 60 7F (data increment)
+Bn 64 00 65 03 61 7F (data decrement)
+
+n = basic channel number
+tt = tuning program number from 1 to 128</pre>
+
+    <p>Tuning bank change</p>
+
+    <pre>Bn 64 00 65 04 06 tt (data entry)
+Bn 64 00 65 04 60 7F (data increment)
+Bn 64 00 65 04 61 7F (data decrement)
+
+n = basic channel number
+tt = tuning bank number from 1 to 128</pre>
+  </fieldset>
+
+  <fieldset>
+    <h4>Frequency data format (all bytes in hex)</h4>
+
+    <pre>xx = semitone (MIDI note number to retune to, unit is 100 cents)
+yy = MSB of fractional part (1/128 semitone = 100/128 cents = .78125 cent units)
+zz = LSB of fractional part (1/16384 semitone = 100/16384 cents = .0061 cent units)
+
+7F 7F 7F is reserved for no change to the existing note tuning</pre>
+  </fieldset>
+
+</body>
+</html>

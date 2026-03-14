@@ -72,26 +72,31 @@ const Scale = (props) => {
       </label>
       {!collapsed && (<>
       <p>
-      <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) messages, please set global tuning of (all) receiving instrument(s) to A4 = 440 Hz. Choosing a different Kammerton (i.e. 415 Hz or 442 Hz) will transpose everything accordingly. Commonly used values for the Reference Frequency C4 === MIDI Note 60 === Degree 0 are:<br /></em>
-        261.6255653 Hz <em>(12edo)</em> or 260.740741 Hz <em>(Pythagorean / HEJI Notation)</em>.
+      <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) or MPE messages, simply keep the global tuning of receiving instruments at default value, A4 = 440 Hz. Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE will automatically transpose built-in and external sounds accordingly.</em>
+      </p>
+      <p>
+      <em>
+      Use the table below to edit the scale degrees, their note names, and colours. The icon to the left of the Degree display allows the pitch to be dynamically retuned, compared, saved, or reverted.</em>
       </p>
       <Colors {...props} />
       <KeyLabels {...props} />
       <br />
       <ScaleTable {...props} importCount={props.importCount} />
       <br />
+      </>)}
       {importing
-       ?(<ScalaImport {...props}
+       ?(<div style={collapsed ? { marginTop: '1rem' } : {}}>
+          <ScalaImport {...props}
                       onImport={doImport}
-                      onCancel={cancelImport}/>)
+                      onCancel={cancelImport}/>
+        </div>)
         : (<>
-          <button type="button" onClick={startImporting}>
-            View and Edit Scala File
+          <button type="button" onClick={startImporting}
+            style={collapsed ? { marginTop: '1rem' } : {}}>
+            Edit Scala File
           </button>
         </>)
       }
-      <br />
-      </>)}
   </fieldset>
   );
 };

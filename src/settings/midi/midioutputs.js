@@ -142,7 +142,7 @@ const MidiOutputs = (props) => {
                   }} />
               </label>
 
-              <p><em>The <a href="http://www.microtonal-synthesis.com/MIDItuning.html" target="_new">MIDI Tuning Standard</a> allows external synthesizers to receive sysex messages modifying the tuning of each MIDI note. Using the free <a href="https://oddsound.com/mtsespmini.php" target="_new">Oddsound MTS-ESP Mini</a> plug-in, MTS data can be translated to retune softsynths via other protocols.</em></p>
+              <p><em>The <a href="/midituning.html">MIDI Tuning Standard</a> allows external synthesizers to receive sysex messages modifying the tuning of each MIDI note. The free <a href="https://oddsound.com/mtsespmini.php">Oddsound MTS-ESP Mini</a> VST plug-in translates MTS data to retune supported client software synths.</em></p>
             </>
           )}
         </>
@@ -205,6 +205,23 @@ const MidiOutputs = (props) => {
                   {loCh}–{hiCh} ({hiCh - loCh + 1} voices)
                 </span>
               </label>
+{/*
+              <label>
+                Pitch Bend Range (semitones)
+                <input name="mpe_pitchbend_range" type="text" inputMode="numeric"
+                  class="sidebar-input"
+                  key={settings.mpe_pitchbend_range}
+                  defaultValue={settings.mpe_pitchbend_range ?? 48}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 0 && val <= 96) save('mpe_pitchbend_range', val, onChange);
+                    else e.target.value = settings.mpe_pitchbend_range ?? 48;
+                  }} />
+              </label>
+*/}
+              <p>
+                <em><a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a> is a standard allowing per-note independent modulation of MIDI notes.</em>
+              </p>
             </>
           )}
         </>
@@ -231,6 +248,7 @@ MidiOutputs.propTypes = {
     mpe_master_ch:      PropTypes.string,
     mpe_lo_ch:          PropTypes.number,
     mpe_hi_ch:          PropTypes.number,
+    mpe_pitchbend_range: PropTypes.number,
   }).isRequired,
   midi:     PropTypes.object,
   onChange: PropTypes.func.isRequired,

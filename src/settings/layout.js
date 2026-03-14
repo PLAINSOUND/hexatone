@@ -5,7 +5,7 @@ const Layout = (props) => {
   const maxDegree = (props.settings.equivSteps || 1) - 1;
   return (
   <fieldset>
-    <legend><b>Layout</b></legend>
+    <legend><b>Hexatone Layout</b></legend>
     <label>
       Right-Facing Steps
       <input name="rSteps" type="text" inputMode="numeric"

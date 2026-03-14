@@ -14,6 +14,7 @@ const PRESET_FIELDS = [
   'fundamental', 'reference_degree',
   'rSteps', 'drSteps', 'hexSize', 'rotation',
   'midiin_degree0',
+  'mpe_pitchbend_range',
 ];
 
 export const loadCustomPresets = () => {

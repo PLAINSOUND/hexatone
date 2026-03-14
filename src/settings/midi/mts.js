@@ -77,7 +77,7 @@ const MidiTuning = (props) => (
     </label>
 
     <p>
-    <em>The <a href="http://www.microtonal-synthesis.com/MIDItuning.html" target="_new">MIDI Tuning Standard</a>, described in detail at <a href="https://www.midi.org/specifications/midi1-specifications/general-midi-specifications/general-midi-2/midi-tuning-updated" target="_new">midi.org</a>, allows external synthesizers to receive data modifying the tuning of each MIDI note. This is done by system exclusive messages: either a non-real-time "Bulk Tuning Dump" or 128 real-time "Single-Note Tuning Changes". The receiving synth will need to be set to receive sysex into the specified Tuning Map slot. Using the free <a href="https://oddsound.com/mtsespmini.php" target="_new">Oddsound MTS-ESP Mini</a> plug-in, it is possible to translate MTS data to retune softsynths using other protocols (MPE or multichannel pitchbend).</em>
+    <em>The <a href="/midituning.html">MIDI Tuning Standard</a>, described in detail at <a href="https://midi.org/midi-tuning-updated-specification">midi.org</a>, allows external synthesizers to receive data modifying the tuning of each MIDI note. This is done by system exclusive messages: either a non-real-time "Bulk Tuning Dump" or 128 real-time "Single-Note Tuning Changes". The receiving synth will need to be set to receive sysex into the specified Tuning Map slot. Using the free <a href="https://oddsound.com/mtsespmini.php">Oddsound MTS-ESP Mini</a> plug-in, it is possible to translate MTS data to retune softsynths using other protocols (MPE or multichannel pitchbend).</em>
     </p>
   </>
 );

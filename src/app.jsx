@@ -108,6 +108,7 @@ const sessionDefaults = {
   mpe_master_ch:    sessionStorage.getItem("mpe_master_ch")    || "1",
   mpe_lo_ch:        parseInt(sessionStorage.getItem("mpe_lo_ch"))   || 2,
   mpe_hi_ch:        parseInt(sessionStorage.getItem("mpe_hi_ch"))   || 8,
+  mpe_pitchbend_range: parseInt(sessionStorage.getItem("mpe_pitchbend_range")) || 48,
   instrument:       sessionStorage.getItem("instrument")        || "WMRIByzantineST",
   midiin_device:    sessionStorage.getItem("midiin_device")     || "OFF",
   midiin_channel:   parseInt(sessionStorage.getItem("midiin_channel"))  || 0,
@@ -170,6 +171,7 @@ const App = () => {
     mpe_master_ch: ExtractString,
     mpe_lo_ch:     ExtractInt,
     mpe_hi_ch:     ExtractInt,
+    mpe_pitchbend_range: ExtractInt,
     instrument: ExtractString,
     fundamental: ExtractFloat,
     reference_degree: ExtractInt,
@@ -327,7 +329,10 @@ const App = () => {
           midi.outputs.get(settings.mpe_device),
           settings.mpe_master_ch,
           settings.mpe_lo_ch,
-          settings.mpe_hi_ch
+          settings.mpe_hi_ch,
+          settings.fundamental,
+          settings.offset ? settings.offset[1] : 1,
+          settings.mpe_pitchbend_range ?? 48
         )
       );
     }
@@ -341,7 +346,7 @@ const App = () => {
   }, [settings.instrument, settings.fundamental, settings.reference_degree, settings.scale,
     settings.midi_device, settings.midi_channel, settings.midi_mapping, settings.midi_velocity,
     settings.output_sample, settings.output_mts,
-    settings.output_mpe, settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch,
+    settings.output_mpe, settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch, settings.mpe_pitchbend_range,
     midi]);
 
   // Keep synthRef in sync so volume/mute can be applied imperatively

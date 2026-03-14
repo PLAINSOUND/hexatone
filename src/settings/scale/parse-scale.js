@@ -263,6 +263,7 @@ export const settingsToPresetJson = (settings) => {
     'fundamental', 'reference_degree',
     'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
     'midiin_degree0',
+    'mpe_pitchbend_range',
   ];
 
   const preset = {};

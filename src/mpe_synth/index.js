@@ -15,11 +15,14 @@
 
 import { VoicePool } from "../voice_pool";
 
-// Semitone range of the pitch bend — sent once as RPN 0 on master channel.
-// 48 semitones covers ±4 octaves, enough for any scale degree.
-const BEND_RANGE_ST = 48;
+// Convert absolute cents + reference settings to cents relative to MIDI note 60 (C4)
+function centsToMidiCents(cents, fundamental, referenceRatio) {
+  const ref = fundamental / referenceRatio;
+  const refOffset = 1200 * Math.log2(ref / 261.6255653);
+  return cents + refOffset;
+}
 
-export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch) => {
+export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch, fundamental = 440, referenceRatio = 1, bendRange = 48) => {
   if (!midi_output) return null;
 
   // master_ch: 1-based MIDI channel number, or null/undefined for no master
@@ -43,7 +46,7 @@ export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch) => 
     // Set pitch bend range on master channel (RPN 0x0000)
     midi_output.send([0xB0 + masterCh, 101, 0]);
     midi_output.send([0xB0 + masterCh, 100, 0]);
-    midi_output.send([0xB0 + masterCh, 6, BEND_RANGE_ST]);
+    midi_output.send([0xB0 + masterCh, 6, bendRange]);
     midi_output.send([0xB0 + masterCh, 38, 0]);
   }
 
@@ -52,48 +55,50 @@ export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch) => 
     const c = ch - 1; // 0-based
     midi_output.send([0xB0 + c, 101, 0]);
     midi_output.send([0xB0 + c, 100, 0]);
-    midi_output.send([0xB0 + c, 6, BEND_RANGE_ST]);
+    midi_output.send([0xB0 + c, 6, bendRange]);
     midi_output.send([0xB0 + c, 38, 0]);
   }
 
   return {
-    makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, offset) => {
-      return new MpeHex(coords, cents, velocity_played, midi_output, pool, BEND_RANGE_ST);
+    makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, referenceRatio) => {
+      return new MpeHex(coords, cents, velocity_played, midi_output, pool, fundamental, referenceRatio, bendRange);
     },
   };
 };
 
 /**
  * Convert a cents offset to a 14-bit pitch bend value.
- * bend_range_st: the configured bend range in semitones (±)
+ * Uses the configured bend range.
  */
-function centsToBend(cents_offset, bend_range_st) {
+function centsToBend(cents_offset, bendRange) {
   // 0x2000 = 8192 = centre (no bend)
-  // Full range: -8192 (−bend_range_st semitones) … +8191 (+bend_range_st semitones)
-  const ratio = cents_offset / (bend_range_st * 100);
+  // Full range: -8192 (−bendRange semitones) … +8191 (+bendRange semitones)
+  const ratio = 24 * cents_offset / (bendRange * 100); // bug????
   const raw   = Math.round(ratio * 8192);
   const clamped = Math.max(-8192, Math.min(8191, raw));
   return clamped + 8192; // unsigned 0–16383
 }
 
 /**
- * Nearest MIDI note and cents deviation for a given cents value.
+ * Nearest MIDI note and cents deviation for MIDI-relative cents.
  * e.g. 350¢ → note 3 (Eb4 relative to C4=0¢), deviation +50¢
  */
-function centsToNoteAndBend(cents) {
-  const note_float = cents / 100;
+function centsToNoteAndBend(midi_cents) {
+  const note_float = midi_cents / 100;
   const note       = Math.round(note_float);
   const deviation  = (note_float - note) * 100; // cents
   return { note: Math.max(0, Math.min(127, note + 60)), deviation };
 }
 
-function MpeHex(coords, cents, velocity_played, midi_output, pool, bend_range_st) {
+function MpeHex(coords, cents, velocity_played, midi_output, pool, fundamental, referenceRatio, bendRange) {
   this.coords      = coords;
   this.cents       = cents;
   this.release     = false;
   this.midi_output = midi_output;
   this.pool        = pool;
-  this.bend_range_st = bend_range_st;
+  this.fundamental = fundamental;
+  this.referenceRatio = referenceRatio;
+  this.bendRange = bendRange;
   this.velocity    = Math.max(1, Math.min(127, velocity_played || 72));
 
   // Allocate voice channel — steal oldest if pool exhausted
@@ -106,9 +111,11 @@ function MpeHex(coords, cents, velocity_played, midi_output, pool, bend_range_st
   this.channel = slot; // 1-based
 
   // Compute MIDI note and pitch bend for this pitch
-  const { note, deviation } = centsToNoteAndBend(cents);
+  // Convert absolute cents to MIDI-relative cents using reference frequency
+  const midi_cents = centsToMidiCents(cents, fundamental, referenceRatio);
+  const { note, deviation } = centsToNoteAndBend(midi_cents);
   this.note = note;
-  this.bend = centsToBend(deviation, bend_range_st);
+  this.bend = centsToBend(deviation, bendRange);
 }
 
 MpeHex.prototype.noteOn = function () {
@@ -130,8 +137,9 @@ MpeHex.prototype.noteOff = function (release_velocity) {
 
 MpeHex.prototype.retune = function (newCents) {
   this.cents = newCents;
-  const { note, deviation } = centsToNoteAndBend(newCents);
-  const bend    = centsToBend(deviation, this.bend_range_st);
+  const midi_cents = centsToMidiCents(newCents, this.fundamental, this.referenceRatio);
+  const { note, deviation } = centsToNoteAndBend(midi_cents);
+  const bend    = centsToBend(deviation, this.bendRange);
   const c       = this.channel - 1;
   const bendLSB = bend & 0x7F;
   const bendMSB = (bend >> 7) & 0x7F;

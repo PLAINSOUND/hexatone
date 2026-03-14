@@ -40,10 +40,26 @@ const ScalaImport = (props) => {
   const name = safeName(props.settings);
 
   return (
-    <>
+    <div style={{ position: 'relative' }}>
       {/* ── Import section ─────────────────────────────────────────────── */}
       <fieldset>
-        <legend><b>Import Scala File</b></legend>
+        <legend><b>Scala File</b></legend>
+        <button type="button" onClick={props.onCancel}
+          title="Close"
+          style={{
+            position: 'absolute',
+            top: '-0.2em',
+            right: '-0.6em',
+            padding: '0.3em 0.4em',
+            fontSize: '1em',
+            lineHeight: 1,
+            cursor: 'pointer',
+            background: '#faf9f8',
+            border: 'none',
+            color: '#990000',
+          }}>
+          ✕
+        </button>
         <p>
           copy/paste or type below using the Scala file format:&nbsp;
           <a href="http://www.huygens-fokker.org/scala/scl_format.html">[Scala format]</a>&nbsp;
@@ -51,15 +67,10 @@ const ScalaImport = (props) => {
         </p>
         <p>
           <b>Name</b> <em>(optional):</em> "!" followed by scala file name, e.g. "! myScale.scl"<br />
-          "<b>!</b>" <em>(optional):</em> precedes a comment or empty line<br />
+          <b>!</b> precedes a comment or empty line<br />
           <b>Description</b>: some text about the scale<br />
           <b>Size</b>: the number of scale degrees<br />
-          <b>Scale</b>: a list of ratios (b/a) or cents (numbers with a decimal point)<br /><br />
-          <em>Note: Degree 0 (1/1 or 0.0 cents) is set automatically from the Reference Frequency;
-          the scale starts with Degree 1 and ends with the interval of repetition (usually 2/1 or
-          1200.0 cents). For convenience, scale degrees may be placed in any order; each degree may
-          also be followed by a label (text) and a color (#xxxxxx). To copy/paste HEJI accidentals
-          refer to: <a href="https://w3c.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html">w3c.github.io/smufl</a>.</em>
+          <b>Scale</b>: a list of ratios (b/a) or cents (numbers with a decimal point)
         </p>
         <label>
           <textarea name="scale_import"
@@ -81,46 +92,43 @@ const ScalaImport = (props) => {
         </button>
         &nbsp;&nbsp;
         <button type="button" onClick={props.onImport}>Build Layout</button>
-        &nbsp;&nbsp;
-        <button type="button" onClick={props.onCancel}>Hide</button>
       </fieldset>
 
       {/* ── Export section ─────────────────────────────────────────────── */}
       <fieldset>
-        <legend><b>Export Scala File</b></legend>
+        <legend><b>Export</b></legend>
 
         <p><b>Plain Scala</b> — standard .scl format, compatible with all Scala-aware software</p>
         <button type="button"
           onClick={() => downloadFile(settingsToPlainScala(props.settings), `${name}.scl`)}>
-          Save .scl file
+          Save .scl
         </button>
         &nbsp;&nbsp;
         <button type="button"
           onClick={() => downloadFile(settingsToKbm(props.settings), `${name}.kbm`)}>
-          Save .kbm file
+          Save .kbm
         </button>
-
+{/*
         <p><b>Ableton Scala</b> — .ascl format with Ableton reference pitch metadata</p>
         <button type="button"
           onClick={() => downloadFile(settingsToAbletonScala(props.settings), `${name}.ascl`)}>
-          Save .ascl file
+          Save .ascl
         </button>
-
+*/}
         <p><b>Ableton / Hexatone Scala</b> — .ascl format with full round-trip metadata
           (note names, colors, reference pitch) for re-import into Hexatone</p>
         <button type="button"
           onClick={() => downloadFile(settingsToHexatonScala(props.settings), `${name}.ascl`)}>
-          Save .ascl file
+          Save .ascl
         </button>
 
-        <p><b>Preset JSON</b> — export current settings as a JSON object ready to paste
-          into <em>preset_values.js</em> as a new built-in preset</p>
+        <p><b>User Preset JSON</b> — export current Tuning as a JSON file</p>
         <button type="button"
           onClick={() => downloadFile(settingsToPresetJson(props.settings), `${name}.json`, 'application/json')}>
-          Save preset .json
+          Save .json
         </button>
       </fieldset>
-    </>
+    </div>
   );
 };
 
