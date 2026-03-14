@@ -2,7 +2,7 @@ import { h } from 'preact';
 import PropTypes from 'prop-types';
 
 const Presets = (props) => (
-  <select onChange={props.onChange} name="presets" value={props.isActive ? undefined : ''}>
+  <select onChange={props.onChange} name="presets" value={props.isActive && props.activePresetName ? props.activePresetName : ''}>
     <option value="">Choose a built-in tuning:</option>
     {props.presets.map(group => (
       <optgroup label={group.name}>
@@ -17,6 +17,7 @@ const Presets = (props) => (
 Presets.propTypes = {
   onChange: PropTypes.func.isRequired,
   isActive: PropTypes.bool,
+  activePresetName: PropTypes.string,
   presets: PropTypes.arrayOf(PropTypes.shape({
     name: PropTypes.string.isRequired,
     settings: PropTypes.arrayOf(PropTypes.shape({

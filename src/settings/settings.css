@@ -371,7 +371,7 @@ a:hover {
   color: #ff0000;
 }
 
-/* ── Checkboxes — custom warm-grey appearance ───────────────────────────── */
+/* Checkboxes — custom warm-grey appearance — also when inside sidebar-input span */
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;

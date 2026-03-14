@@ -13,7 +13,7 @@ const Settings = ({ presetChanged, presets, settings, onChange, onImport, import
     <fieldset>
       <legend><b>Built-in Tunings</b></legend>
       <label class="preset-selector-row">
-        <Presets onChange={presetChanged} presets={presets} isActive={activeSource === 'builtin'} />
+        <Presets onChange={presetChanged} presets={presets} isActive={activeSource === 'builtin'} activePresetName={activeSource === 'builtin' ? activePresetName : null} />
         {activeSource === 'builtin' && isPresetDirty && (
           <button type="button" onClick={onRevertBuiltin}>Reload saved</button>
         )}
@@ -27,7 +27,7 @@ const Settings = ({ presetChanged, presets, settings, onChange, onImport, import
     <Layout onChange={onChange} settings={settings} />
     <SampleSynth onChange={onChange} settings={settings} instruments={instruments} onVolumeChange={onVolumeChange} />
     <MIDIio onChange={onChange} settings={settings} midi={midi} />
-    <MidiOutputs onChange={onChange} settings={settings} midi={midi} />
+    <MidiOutputs onChange={onChange} settings={settings} midi={midi} keysRef={keysRef} />
   </form>
 );
 export default Settings;

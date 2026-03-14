@@ -60,6 +60,13 @@ const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetN
     wasActive.current = isActive;
   }, [isActive]);
 
+  // Sync selected with activePresetName when restoring a user preset on reload
+  useEffect(() => {
+    if (isActive && activePresetName && !selected) {
+      setSelected(activePresetName);
+    }
+  }, [isActive, activePresetName]);
+
   useEffect(() => {
     if (activeSource) setExpanded(true);
   }, [activeSource]);

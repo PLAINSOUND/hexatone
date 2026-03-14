@@ -134,8 +134,8 @@ function MidiHex(
 MidiHex.prototype.noteOn = function () {
   if (this.mts.length > 0) {
     // F0 <rt> <device_id> 08 02 00 01 <slot> <note> <fine_msb> <fine_lsb> F7
-    // rt: 0x7F = real-time, 0x7E = non-real-time
-    this.midi_output.send([0xF0, this.sysex_rt, this.sysex_dev_id, 0x08, 0x02, 0x00, 0x01,
+    // rt: single-note real-time MUST always be 0x7F (not affected by sysex_type setting)
+    this.midi_output.send([0xF0, 127, this.sysex_dev_id, 0x08, 0x02, 0x00, 0x01,
       this.mts[0], this.mts[1], this.mts[2], this.mts[3], 0xF7]);
   }
   this.midi_output.send([144 + this.channel, this.steps, this.velocity]);

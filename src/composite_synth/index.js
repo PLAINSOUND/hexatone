@@ -44,4 +44,8 @@ export const create_composite_synth = (synths) => ({
   prepare() {
     synths.forEach(s => s.prepare && s.prepare());
   },
+
+  setVolume(value) {
+    synths.forEach(s => s.setVolume && s.setVolume(value));
+  },
 });

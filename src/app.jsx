@@ -115,7 +115,7 @@ const sessionDefaults = {
   midi_channel:     parseInt(sessionStorage.getItem("midi_channel"))    || 0,
   midi_mapping:     sessionStorage.getItem("midi_mapping")      || "MTS1",
   midi_velocity:    parseInt(sessionStorage.getItem("midi_velocity"))   || 72,
-  sysex_type:       parseInt(sessionStorage.getItem("sysex_type"))      || 127,
+  sysex_type:       parseInt(sessionStorage.getItem("sysex_type"))      || 126,
   device_id:        parseInt(sessionStorage.getItem("device_id"))       || 127,
   tuning_map_number:  parseInt(sessionStorage.getItem("tuning_map_number"))  || 0,
   tuning_map_degree0: sessionStorage.getItem("tuning_map_degree0") !== null ? parseInt(sessionStorage.getItem("tuning_map_degree0")) : null,
@@ -253,6 +253,33 @@ const App = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const savedSource = sessionStorage.getItem('hexatone_preset_source');
+    const savedName = sessionStorage.getItem('hexatone_preset_name');
+    if (!savedSource || !savedName) return;
+
+    if (savedSource === 'builtin') {
+      setReady(true);
+      setActiveSource('builtin');
+      setActivePresetName(savedName);
+      const presetData = findPreset(savedName);
+      if (presetData) {
+        setSavedPresetSnapshot(snapshotOf({ ...settings, ...presetData }));
+        setSettings(() => ({ ...settings, ...presetData }));
+      }
+    } else if (savedSource === 'user') {
+      const customPresets = loadCustomPresets();
+      const preset = customPresets.find(p => p.name === savedName);
+      if (preset) {
+        setReady(true);
+        setActiveSource('user');
+        setActivePresetName(preset.name);
+        setSavedPresetSnapshot(snapshotOf({ ...settings, ...preset }));
+        setSettings(() => ({ ...settings, ...preset }));
+      }
+    }
+  }, []);
+
   function onMIDISuccess(midiAccess) {
     console.log("Web MIDI API with sysex for MTS messages is ready!");
     setMidi(midiAccess);
@@ -344,6 +371,8 @@ const App = () => {
     setReady(true);
     setActiveSource('builtin');
     setActivePresetName(e.target.value);
+    sessionStorage.setItem('hexatone_preset_source', 'builtin');
+    sessionStorage.setItem('hexatone_preset_name', e.target.value);
     const presetData = findPreset(e.target.value);
     const mergedBuiltin = { ...settings, ...presetData };
     setSavedPresetSnapshot(snapshotOf(mergedBuiltin));
@@ -354,6 +383,12 @@ const App = () => {
     setReady(true);
     setActiveSource('user');
     setActivePresetName(preset.name || null);
+    sessionStorage.setItem('hexatone_preset_source', 'user');
+    if (preset.name) {
+      sessionStorage.setItem('hexatone_preset_name', preset.name);
+    } else {
+      sessionStorage.removeItem('hexatone_preset_name');
+    }
     const mergedUser = { ...settings, ...preset };
     setSavedPresetSnapshot(snapshotOf(mergedUser));
     setSettings(() => mergedUser);

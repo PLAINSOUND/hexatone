@@ -337,8 +337,9 @@ class Keys {
       };
   };
 
-  mtsSendMap = () => { // send the tuning map
-    if (!this.midiout_data) return;
+  mtsSendMap = (midiOutput) => { // send the tuning map
+    const output = midiOutput || this.midiout_data;
+    if (!output) return;
     const sysex_type = parseInt(this.settings.sysex_type);
 
     if (sysex_type === 127) {
@@ -349,7 +350,7 @@ class Keys {
       for (let i = 0; i < 128; i++) {
         const msg = [...this.mts_tuning_map[i]];
         const manufacturer = msg.shift(); // 127 = universal real-time
-        this.midiout_data.sendSysex([manufacturer], msg);
+        output.sendSysex([manufacturer], msg);
       };
     } else if (sysex_type === 126) {
       // Non-real-time bulk tuning dump: single message for all 128 notes.
@@ -393,7 +394,7 @@ class Keys {
         msg[msg.length - 1] = checksum & 0x7F;
       }
 
-      this.midiout_data.sendSysex([manufacturer], msg);
+      output.sendSysex([manufacturer], msg);
     };
   };
 

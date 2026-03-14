@@ -9,7 +9,7 @@ import ScalaImport from './scala-import';
 
 const Scale = (props) => {
   const [importing,  setImporting]  = useState(false);
-  const [collapsed,  setCollapsed]  = useState(false);
+  const [collapsed,  setCollapsed]  = useState(() => sessionStorage.getItem('hexatone_scale_collapsed') === 'true');
 
   const doImport = () => {
     props.onImport();
@@ -18,13 +18,18 @@ const Scale = (props) => {
   const cancelImport = () => setImporting(false);
   const startImporting = () => setImporting(true);
 
+  const handleToggle = (c) => {
+    sessionStorage.setItem('hexatone_scale_collapsed', c);
+    setCollapsed(c);
+  };
+
   return (
   <fieldset>
       <legend>
         <b>Scale</b>
         <button
           type="button"
-          onClick={() => setCollapsed(c => !c)}
+          onClick={() => handleToggle(!collapsed)}
           title={collapsed ? 'Expand scale settings' : 'Collapse scale settings'}
           style={{ marginLeft: '0.6em', padding: '0 0.4em', fontSize: '0.8em',
                    lineHeight: '1.4', verticalAlign: 'middle', cursor: 'pointer' }}
