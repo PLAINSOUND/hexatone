@@ -13,6 +13,9 @@ const Keyboard = (props) => {
 
   // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
   // NOT when colors change. Color changes are handled imperatively below.
+
+  // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
+  // NOT when colors change. Color changes are handled imperatively below.
   useEffect(() => {
     const keys = new Keys(canvas.current, props.settings, props.synth, props.active, props.onLatchChange);
     keysRef.current = keys;
@@ -36,9 +39,17 @@ const Keyboard = (props) => {
   });  // no deps — runs after every render
 
   // Also trigger immediately (not just rAF) on sidebar open/close so the
-  // CSS transition has the correct canvas size from the start.
+  // CSS transition has the correct canvas size from the start, and update
+  // the typing state so keyboard keys don't trigger when sidebar is open.
+  // Note: props.active=true means sidebar is open, so typing should be true.
   useEffect(() => {
-    if (keysRef.current) keysRef.current.resizeHandler();
+    if (keysRef.current) {
+      keysRef.current.resizeHandler();
+      // Directly update the typing property if the Keys instance exists
+      if (keysRef.current && typeof keysRef.current.typing !== 'undefined') {
+        keysRef.current.typing = props.active;
+      }
+    }
   }, [props.active]);
 
   // When colors change, push them into the live Keys instance and redraw immediately.

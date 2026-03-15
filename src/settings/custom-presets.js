@@ -43,7 +43,7 @@ const downloadFile = (content, filename, mimeType = 'application/json') => {
 const safeName = (name) =>
   (name || 'preset').replace(/[^a-zA-Z0-9_\-]/g, '_');
 
-const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetName, isPresetDirty, onRevert }) => {
+const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, activePresetName, isPresetDirty, onRevert }) => {
   const [presets, setPresets] = useState(loadCustomPresets);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
@@ -131,6 +131,7 @@ const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetN
     setPresets(next);
     setSelected('');
     setError('');
+    if (onClear) onClear();
   };
 
   const handleClear = () => setConfirmClear(true);
@@ -141,6 +142,7 @@ const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetN
     setSelected('');
     setError('');
     setConfirmClear(false);
+    if (onClear) onClear();
   };
 
   // Folder import — reads all .scl, .ascl, .json files in the chosen folder
@@ -228,7 +230,7 @@ const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetN
               <option key={p.name} value={p.name}>{p.name}</option>
             ))}
           </select>
-          {isActive && isPresetDirty && onRevert && (
+          {isActive && onRevert && (
             <button type="button" onClick={onRevert}>Reload saved</button>
           )}
           <button type="button" class="delete-btn"
@@ -271,12 +273,15 @@ const CustomPresets = ({ settings, onLoad, isActive, activeSource, activePresetN
         )}
       </div>
 
-      {/* ── Save / Export — whenever any preset is loaded or one is selected ── */}
+      {/* ── Save / Export — save only when dirty, export whenever any preset is loaded or selected ── */}
       {(activeSource || selected) && (
         <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button type="button" onClick={handleSave}>
-            {saveLabel}
-          </button>
+          {isPresetDirty && (
+            <button type="button" onClick={handleSave}>
+              {saveLabel}
+            </button>
+          )}
+          {!isPresetDirty && <span></span>}
           <span style={{ display: 'flex', gap: '6px' }}>
             <button type="button" onClick={handleExport}>
               Export .json

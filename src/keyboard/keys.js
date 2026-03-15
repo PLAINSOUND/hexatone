@@ -31,7 +31,7 @@ class Keys {
       latch: false,
       sustainedNotes: [],
       sustainedCoords: new Set(), // coord strings of sustained notes, for redraw
-      shiftHeld: false,
+      escHeld: false,
       isTuneDragging: false,
       pressedKeys: new Set(),
       activeHexObjects: [],
@@ -692,11 +692,11 @@ class Keys {
   };
 
   onKeyDown = (e) => {
-    // Shift: momentary sustain. Track shiftHeld separately because clicking
-    // the canvas while Shift is held fires a spurious keyup immediately,
+    // Escape: toggle sustain. Track escHeld separately because clicking
+    // the canvas while Escape is held fires a spurious keyup immediately,
     // which would drop the sustain before mouse-up.
-    if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) {
-      this.state.shiftHeld = true;
+    if (e.code === 'Escape' && !e.repeat) {
+      this.state.escHeld = true;
       this.latchToggle();
       return;
     }
@@ -723,12 +723,14 @@ class Keys {
   };
 
   onKeyUp = (e) => {
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      this.state.shiftHeld = false;
-      // Shift is now latch (toggle) — no release action on key-up
+    if (e.code === 'Escape') {
+      this.state.escHeld = false;
+      // Escape is now latch (toggle) — no release action on key-up
       return;
     }
 
+    // Only process other keys when sidebar is closed and no input is focused
+    if (this.typing) return;
     if (this.inputIsFocused()) return;
 
     if (e.code === 'Space') {
@@ -765,10 +767,10 @@ class Keys {
       this.noteOff(hex, 0);
       this.state.activeHexObjects.pop();
     }
-    // If Shift was held but its keyup already fired while the mouse was down
+    // If Escape was held but its keyup already fired while the mouse was down
     // (spurious keyup), release sustain now that the mouse is up too.
     // But don't release if a tune-handle drag is in progress in the sidebar.
-    if (!this.state.shiftHeld && this.state.sustain && !this.state.isTuneDragging) {
+    if (!this.state.escHeld && this.state.sustain && !this.state.isTuneDragging) {
       this.sustainOff();
     }
   };
@@ -1363,4 +1365,6 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
     
     return sysex;
   };
-};
+}
+
+// The class is exported at line 1168

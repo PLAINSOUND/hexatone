@@ -1210,7 +1210,7 @@ export const presets = [
         "drSteps": 5,
         "hexSize": 42,
         "rotation": -16.102113751,       
-        "fundamental": 220,
+        "fundamental": 440,
         "reference_degree": 0,
         "midiin_degree0": 46,
         "center_degree": 0,
@@ -2845,7 +2845,7 @@ export const presets = [
         "reference_degree": 0,
         "midiin_degree0": 60,
         "center_degree": 0,
-        "short_description": "55-Critical Band"
+        "short_description": "55-Heart of Tones"
       }
     ]
   },

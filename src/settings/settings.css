@@ -285,15 +285,15 @@ table td {
   align-items: center;
   justify-content: center;
   width: 28px;
-  height: 22px;
+  height: 16px;
   border-radius: 3px;
   background: #ede8e8;
   color: #330000;
   touch-action: none;
   border: 1px solid #c8b8b8;
-  font-size: 1em;
-  line-height: 1;
+  font-size: 1.7em;
   margin-left: auto; /* right-align to match input above */
+  margin-right: 3px;
 }
 .tune-handle:hover { background: #ddd0d0; color: #330000; }
 .tune-handle:active { background: #ccbbbb; cursor: grabbing; }

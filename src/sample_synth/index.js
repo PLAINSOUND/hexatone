@@ -40,15 +40,11 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       fetch(`sounds/${fileName}440.mp3`).then(r => r.arrayBuffer()),
       fetch(`sounds/${fileName}880.mp3`).then(r => r.arrayBuffer()),
     ]);
-
     const rawBuffers = [b110, b220, b440, b880];
 
-    // decodedBuffers is populated by prepare() after a user gesture
     let decodedBuffers = null;
     let masterGain = null;
-    const storedVolume = parseFloat(localStorage.getItem('synth_volume') ?? '1');
-    const storedMuted  = localStorage.getItem('synth_muted') === 'true';
-    let masterVolume = (isNaN(storedVolume) ? 1.0 : storedVolume) * (storedMuted ? 0 : 1);
+    let masterVolume = 1.0;
 
     let offset = 0;
     if (reference_degree > 0) {
@@ -64,7 +60,11 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           sharedAudioContext = new AudioContext();
         }
         if (sharedAudioContext.state === 'suspended') {
-          await sharedAudioContext.resume();
+          try {
+            await sharedAudioContext.resume();
+          } catch (e) {
+            console.warn('AudioContext autoplay blocked:', e.message);
+          }
         }
         // Master gain node — all voices connect here before destination
         if (!masterGain) {
@@ -179,39 +179,20 @@ ActiveHex.prototype.noteOn = function() {
  * No note-off/note-on — the sound continues uninterrupted.
  */
 ActiveHex.prototype.retune = function(newCents) {
-  //console.log('[retune] ActiveHex.retune called, newCents:', newCents, 'source:', !!this.source, 'sampleFreq:', this.sampleFreq);
-  if (!this.source || !this.audioContext || !this.sampleFreq) return;
-  const newFreq = this.fundamental * Math.pow(2, (newCents - this.offset) / 1200);
-  const newRate = newFreq / this.sampleFreq;
-  const now = this.audioContext.currentTime;
-  this.source.playbackRate.cancelScheduledValues(now);
-  this.source.playbackRate.setValueAtTime(this.source.playbackRate.value, now);
-  this.source.playbackRate.linearRampToValueAtTime(newRate, now + 0.025); // 25ms glide
   this.cents = newCents;
+  const freq = this.fundamental * Math.pow(2, (newCents - this.offset) / 1200);
+  const newFreq = this.sampleFreq * this.source.playbackRate.value;
+  this.source.playbackRate.setTargetAtTime(freq / this.sampleFreq, this.audioContext.currentTime, 0.02);
 };
 
-ActiveHex.prototype.aftertouch = function(value) {
-  if (!this.gainNode || !this.audioContext) return;
-  // value: 0-127. Scale to 0..aftertouch_amount extra gain on top of base_vol.
-  const extra = (value / 127) * this.aftertouch_amount;
-  const target = this.sampleGain * (this.base_vol + extra);
-  const now = this.audioContext.currentTime;
-  this.gainNode.gain.cancelScheduledValues(now);
-  this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-  this.gainNode.gain.linearRampToValueAtTime(target, now + 0.03);
-};
-
-ActiveHex.prototype.noteOff = function() {
-  if (!this.gainNode || !this.source) return;
-  const now = this.audioContext.currentTime;
-  const releaseEnd = now + this.sampleRelease * 4; // *4 gives a similar perceptual length to the old curve
-  // Cancel any scheduled gain changes, then ramp linearly to exactly 0.
-  // linearRampToValueAtTime reaches true zero, avoiding the click Firefox
-  // produces when a node is stopped with residual signal still present.
-  this.gainNode.gain.cancelScheduledValues(now);
-  this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-  this.gainNode.gain.linearRampToValueAtTime(0, releaseEnd);
-  this.source.stop(releaseEnd);
+ActiveHex.prototype.noteOff = function(release_velocity) {
+  const vel = release_velocity != null ? release_velocity : this.base_vol;
+  if (this.gainNode) {
+    this.gainNode.gain.setTargetAtTime(0, this.audioContext.currentTime, this.sampleRelease);
+  }
+  if (this.source) {
+    this.source.stop(this.audioContext.currentTime + this.sampleRelease * 2);
+  }
 };
 
 export default create_sample_synth;

@@ -25,6 +25,19 @@ import "./hex-style.css";
 import LoadingIcon from './hex.svg?react';
 import './loader.css';
 
+// On browser refresh (not initial load), clear scale settings to start fresh
+if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
+  const scaleKeysToClear = [
+    'scale', 'scale_import', 'note_names', 'note_colors', 'key_labels',
+    'fundamental', 'reference_degree', 'equivSteps', 'equivInterval',
+    'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
+    'midiin_degree0', 'spectrum_colors', 'fundamental_color',
+    'name', 'description', 'short_description',
+    'hexatone_preset_source', 'hexatone_preset_name',
+  ];
+  scaleKeysToClear.forEach(key => sessionStorage.removeItem(key));
+}
+
 export const Loading = () => <LoadingIcon />;
 
 
@@ -100,6 +113,27 @@ const PRESET_SKIP_KEYS = [
 // Only these text fields need to start visually empty on a fresh load
 const DISPLAY_EMPTY_KEYS = ['name', 'description', 'key_labels'];
 
+// Scale hexSize down on phones (max-width 480px), but not below 20
+const scaleHexSizeForScreen = (hexSize) => {
+  if (window.innerWidth <= 480 && hexSize > 20) {
+    return Math.max(20, Math.floor(hexSize * 0.7));
+  }
+  return hexSize;
+};
+
+// Scale-related keys to clear on reset (keeps output settings)
+const SCALE_KEYS_TO_CLEAR = [
+  'scale', 'scale_import', 'note_names', 'note_colors', 'key_labels',
+  'fundamental', 'reference_degree', 'equivSteps', 'equivInterval',
+  'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
+  'midiin_degree0', 'spectrum_colors', 'fundamental_color',
+  'name', 'description', 'short_description',
+];
+
+const clearScaleSettings = () => {
+  SCALE_KEYS_TO_CLEAR.forEach(key => sessionStorage.removeItem(key));
+};
+
 const sessionDefaults = {
   output_sample:    (sessionStorage.getItem("output_sample") ?? "true") !== "false",
   output_mts:       sessionStorage.getItem("output_mts") === "true",
@@ -127,6 +161,7 @@ const sessionDefaults = {
 const App = () => {
   const [loading, setLoading] = useState(0);
   const [ready, setReady] = useState(false);
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [activeSource, setActiveSource] = useState(null);
   const [activePresetName, setActivePresetName] = useState(null);
   // Snapshot stored in state so updating it triggers a re-render and
@@ -260,24 +295,27 @@ const App = () => {
     const savedName = sessionStorage.getItem('hexatone_preset_name');
     if (!savedSource || !savedName) return;
 
+    // Enable the app - this will trigger synth creation
+    setReady(true);
+
     if (savedSource === 'builtin') {
-      setReady(true);
       setActiveSource('builtin');
       setActivePresetName(savedName);
       const presetData = findPreset(savedName);
       if (presetData) {
-        setSavedPresetSnapshot(snapshotOf({ ...settings, ...presetData }));
-        setSettings(() => ({ ...settings, ...presetData }));
+        const adjustedPreset = { ...presetData, hexSize: scaleHexSizeForScreen(presetData.hexSize) };
+        setSavedPresetSnapshot(snapshotOf({ ...settings, ...adjustedPreset }));
+        setSettings(() => ({ ...settings, ...adjustedPreset }));
       }
     } else if (savedSource === 'user') {
       const customPresets = loadCustomPresets();
       const preset = customPresets.find(p => p.name === savedName);
       if (preset) {
-        setReady(true);
         setActiveSource('user');
         setActivePresetName(preset.name);
-        setSavedPresetSnapshot(snapshotOf({ ...settings, ...preset }));
-        setSettings(() => ({ ...settings, ...preset }));
+        const adjustedPreset = { ...preset, hexSize: scaleHexSizeForScreen(preset.hexSize) };
+        setSavedPresetSnapshot(snapshotOf({ ...settings, ...adjustedPreset }));
+        setSettings(() => ({ ...settings, ...adjustedPreset }));
       }
     }
   }, []);
@@ -331,7 +369,7 @@ const App = () => {
           settings.mpe_lo_ch,
           settings.mpe_hi_ch,
           settings.fundamental,
-          settings.offset ? settings.offset[1] : 1,
+          settings.offset ? settings.offset[0] : 0,
           settings.mpe_pitchbend_range ?? 48
         )
       );
@@ -339,8 +377,18 @@ const App = () => {
 
     Promise.all(promises).then(synths => {
       setLoading(signal);
-      const s = synths.length === 1 ? synths[0] : create_composite_synth(synths);
-      if (s.prepare) s.prepare();
+      // Filter out null/undefined synths (e.g., MIDI device unavailable)
+      const validSynths = synths.filter(s => s != null);
+      if (validSynths.length === 0) {
+        setSynth(null);
+        return;
+      }
+      const s = validSynths.length === 1 ? validSynths[0] : create_composite_synth(validSynths);
+      // Only call prepare() when user has interacted (not on initial page load)
+      // This avoids Chrome's autoplay policy blocking AudioContext
+      if (s.prepare && userHasInteracted) {
+        s.prepare();
+      }
       setSynth(s);
     });
   }, [settings.instrument, settings.fundamental, settings.reference_degree, settings.scale,
@@ -351,6 +399,13 @@ const App = () => {
 
   // Keep synthRef in sync so volume/mute can be applied imperatively
   useEffect(() => { synthRef.current = synth; }, [synth]);
+
+  // On first user interaction, prepare audio (if not already done)
+  useEffect(() => {
+    if (userHasInteracted && synth && synth.prepare) {
+      synth.prepare();
+    }
+  }, [userHasInteracted, synth]);
 
   const COLOR_KEYS = new Set(['note_colors', 'spectrum_colors', 'fundamental_color']);
 
@@ -371,9 +426,46 @@ const App = () => {
     });
   };
 
+  const resetScale = () => {
+    setUserHasInteracted(true);
+    clearScaleSettings();
+    // Reload the page to apply fresh defaults
+    window.location.reload();
+  };
+
+  const onClearUserPresets = () => {
+    // Get remaining presets after delete/clear
+    const remaining = loadCustomPresets();
+    
+    // Clear user preset state
+    setActiveSource(null);
+    setActivePresetName(null);
+    sessionStorage.removeItem('hexatone_preset_source');
+    sessionStorage.removeItem('hexatone_preset_name');
+    
+    if (remaining.length > 0) {
+      // Load the first remaining preset
+      const preset = remaining[0];
+      setActiveSource('user');
+      setActivePresetName(preset.name);
+      sessionStorage.setItem('hexatone_preset_source', 'user');
+      sessionStorage.setItem('hexatone_preset_name', preset.name);
+      const merged = { ...settings, ...preset };
+      setSavedPresetSnapshot(snapshotOf(merged));
+      setSettings(() => merged);
+    } else {
+      // No presets left - clear scale settings and reload
+      setReady(true);
+      setUserHasInteracted(true);
+      clearScaleSettings();
+      window.location.reload();
+    }
+  };
+
   const presetChanged = e => {
     if (!e.target.value) return;
     setReady(true);
+    setUserHasInteracted(true); // User gesture - AudioContext can start
     setActiveSource('builtin');
     setActivePresetName(e.target.value);
     sessionStorage.setItem('hexatone_preset_source', 'builtin');
@@ -386,6 +478,7 @@ const App = () => {
 
   const onLoadCustomPreset = (preset) => {
     setReady(true);
+    setUserHasInteracted(true); // User gesture - AudioContext can start
     setActiveSource('user');
     setActivePresetName(preset.name || null);
     sessionStorage.setItem('hexatone_preset_source', 'user');
@@ -514,7 +607,7 @@ const App = () => {
   };
 
   return (
-    <div className={active ? "hide" : "show"}>
+    <div className={active ? "hide" : "show"} onClick={() => setUserHasInteracted(true)}>
       {loading === 0 && ready && isValid && (
         <Keyboard synth={synth || nullSynth} settings={normalizedSettings}
                   structuralSettings={structuralSettings}
@@ -548,7 +641,7 @@ const App = () => {
           PLAINSOUND HEXATONE
         </h1>
         <p>
-          <em>TO PLAY: click on notes, use a touchscreen, attach a MIDI keyboard or a Lumatone. A computer keyboard may also be used as an input device: the H key is mapped to Central Scale Degree, the spacebar acts as a sustain pedal, and the SHIFT key functions as a latch to permit hands free sustains.</em>
+          <em>TO PLAY: click on notes, use a touchscreen, attach a MIDI keyboard or a Lumatone. A computer keyboard may also be used as an input device: the H key is mapped to Central Scale Degree, the spacebar acts as a sustain pedal, and the ESC key functions as a latch to permit hands free sustains.</em>
         </p>
         <Settings presetChanged={presetChanged}
                     presets={presets}
@@ -557,10 +650,12 @@ const App = () => {
                     onImport={onImport}
                     importCount={importCount}
                     onLoadCustomPreset={onLoadCustomPreset}
+                    onClearUserPresets={onClearUserPresets}
                     activeSource={activeSource}
                     activePresetName={activePresetName}
                     isPresetDirty={isDirty(savedPresetSnapshot, settings)}
                     onRevertBuiltin={() => {
+                      setUserHasInteracted(true);
                       if (activePresetName) {
                         const presetData = findPreset(activePresetName);
                         const mergedRevertB = { ...settings, ...presetData };
@@ -569,6 +664,7 @@ const App = () => {
                       }
                     }}
                     onRevertUser={() => {
+                      setUserHasInteracted(true);
                       if (activePresetName) {
                         const saved = loadCustomPresets().find(p => p.name === activePresetName);
                         if (saved) {

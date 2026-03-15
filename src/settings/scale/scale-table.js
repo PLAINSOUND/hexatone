@@ -150,7 +150,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
   }, [keysRef, degree]);
 
   const onPointerDown = useCallback((e) => {
-    // Set flag BEFORE setPointerCapture — capture triggers a spurious Shift keyup
+    // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
     // which would drop sustain; the flag guards against that in keys.js.
     if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
       keysRef.current.setTuneDragging(true);
@@ -166,7 +166,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
     // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
     // sensitivity = base * speed^1.8 — superlinear so fast moves cover more ground
     const speed = Math.abs(dx);
-    const sensitivity = 0.05 * Math.pow(speed, 1.4); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
+    const sensitivity = 0.05 * Math.pow(speed, 1.5); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
     const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
     dragStart.current.lastX = e.clientX;
     dragStart.current.accCents = newCents;
@@ -178,8 +178,8 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
     dragStart.current = null;
     if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
       keysRef.current.setTuneDragging(false);
-      // If Shift is still physically held, re-engage sustain now drag is done
-      if (keysRef.current.state && keysRef.current.state.shiftHeld) {
+      // If Escape is still physically held, re-engage sustain now drag is done
+      if (keysRef.current.state && keysRef.current.state.escHeld) {
         keysRef.current.sustainOn();
       }
     }
@@ -207,7 +207,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
   }, [pushToKeys]);
 
   const delta = isDirty ? (tunedCents - originalCents.current) : 0;
-  const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}¢` : `${delta.toFixed(1)}¢`;
+  const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
 
   return (
     <div class="tune-cell">
@@ -217,7 +217,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
         </span>
       )}
       {isDirty && <button type="button" class={`tune-btn${comparing ? ' tune-btn--active' : ''}`}
-                  onClick={onCompare} title="A/B compare with original"><span class="tune-btn-compare">↺</span></button>}
+                  onClick={onCompare} title="A/B compare with original"><span class="tune-btn-compare" style={{ display: 'block', marginTop: '-4px' }}>↺</span></button>}
       {isDirty && <button type="button" class="tune-btn tune-btn--save"
                   onClick={onSave} title="Save tuning">✓</button>}
       {isDirty && <button type="button" class="tune-btn tune-btn--revert"
@@ -228,6 +228,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        style={{ paddingBottom: '6px' }}
       >⟺</span>
     </div>
   );
