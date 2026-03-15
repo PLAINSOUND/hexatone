@@ -631,7 +631,7 @@ const App = () => {
       <div id="bottom-bar">
         <button id="sustain-island"
           className={latch ? "latch-active" : ""}
-          onClick={() => { if (keysRef.current) keysRef.current.latchToggle(); }}
+          onClick={(e) => { e.stopPropagation(); if (keysRef.current) keysRef.current.latchToggle(); }}
           onPointerDown={(e) => { if (e.pointerType === "touch") e.preventDefault(); }}
           onContextMenu={e => e.preventDefault()}>
           <b>SUSTAIN</b>
@@ -639,9 +639,15 @@ const App = () => {
         <button id="redraw-button"
           title="Redraw keyboard"
           onPointerDown={(e) => { e.preventDefault(); if (keysRef.current) keysRef.current.resizeHandler(); }}
-          onClick={() => { if (keysRef.current) keysRef.current.resizeHandler(); }}
+          onClick={(e) => { e.stopPropagation(); if (keysRef.current) keysRef.current.resizeHandler(); }}
           onContextMenu={e => e.preventDefault()}>
           ↺
+        </button>
+        <button id="panic-button"
+          title="Panic - kill all stuck notes"
+          onClick={(e) => { e.stopPropagation(); if (keysRef.current) keysRef.current.panic(); }}
+          onContextMenu={e => e.preventDefault()}>
+          <b>ALL NOTES OFF</b>
         </button>
       </div>
       <nav id="sidebar">

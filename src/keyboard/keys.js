@@ -505,7 +505,7 @@ class Keys {
         let steps_offset = channel_offset * this.settings.equivSteps;
         steps = steps + steps_offset;
 
-        let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to the right to get near the played note, as before
+        let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to get near the played note, as before
         let rSteps_to_steps = this.settings.rSteps * rSteps_count;
         let drSteps_count = Math.round((steps - rSteps_to_steps) / this.settings.drSteps);
         let drSteps_to_steps = this.settings.drSteps * drSteps_count;
@@ -529,6 +529,56 @@ class Keys {
     } else {
       console.log("No held notes to be released.")
     };
+  };
+
+  panic = () => {
+    // Work with a copy to avoid iteration issues
+    const activeHexes = [...this.state.activeHexObjects];
+    const sustainedHexes = [...this.state.sustainedNotes];
+
+    // Kill all active notes (mouse/touch/keyboard played) - process newest first
+    for (let i = activeHexes.length - 1; i >= 0; i--) {
+      const hex = activeHexes[i];
+      // Use the same noteOff method as sustainOff for proper audio handling
+      hex.noteOff(0);
+      
+      // Redraw hex as unpressed
+      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
+      this.drawHex(hex.coords, color, text_color);
+    }
+    this.state.activeHexObjects = [];
+
+    // Kill all sustained notes - process newest first
+    for (let i = sustainedHexes.length - 1; i >= 0; i--) {
+      const [hex, releaseVel] = sustainedHexes[i];
+      hex.noteOff(releaseVel);
+      
+      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
+      this.drawHex(hex.coords, color, text_color);
+    }
+
+    // Kill all sustained notes - process newest first
+    for (let i = sustainedHexes.length - 1; i >= 0; i--) {
+      const [hex, releaseVel] = sustainedHexes[i];
+      hex.noteOff(releaseVel);
+      
+      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
+      this.drawHex(hex.coords, color, text_color);
+    }
+    this.state.sustainedNotes = [];
+    this.state.sustainedCoords.clear();
+
+    // Clear MIDI note tracking
+    notes.played = [];
+
+    // Reset sustain/latch state
+    this.state.sustain = false;
+    if (this.onLatchChange) this.onLatchChange(false);
+
+    console.log("PANIC - all notes killed!");
   };
   
   hexOn(coords, note_played, velocity_played, bend) {
@@ -755,6 +805,10 @@ class Keys {
   };
 
   mouseUp = (e) => {
+    // Only process mouseup if it originated from the canvas
+    // This prevents clicking on UI buttons from releasing notes
+    if (e.target !== this.state.canvas) return;
+
     this.state.isMouseDown = false;
 
     if (this.state.pressedKeys.size != 0 || this.state.isTouchDown) {

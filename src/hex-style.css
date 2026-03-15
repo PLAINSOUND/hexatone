@@ -193,9 +193,32 @@ a:hover {
 }
 
 /* ── Sustain island — floating tap target centred at bottom ── */
-/* ── Bottom controls: SUSTAIN centred, redraw bottom-right ── */
+/* ── Bottom controls: SUSTAIN centred, panic left, redraw right ── */
 #bottom-bar {
     display: contents;
+}
+
+#panic-button {
+    position: fixed;
+    bottom: 1.2em;
+    right: 4.5em;
+    z-index: 11;
+    padding: 0.45em 1.6em;
+    border-radius: 999px;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
+    color: #990000;
+    font-size: 0.95em;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+    -webkit-touch-callout: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+#panic-button:active {
+    background-color: #ddcccc;
 }
 
 #sustain-island {
@@ -239,11 +262,6 @@ a:hover {
 
 #redraw-button:active {
     background-color: #ddd0d0;
-}
-
-/* Hide redraw button when sidebar is open */
-.show #redraw-button {
-    display: none;
 }
 
 #sustain-island {
