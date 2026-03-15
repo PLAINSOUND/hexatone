@@ -274,15 +274,12 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
         )}
       </div>
 
-      {/* ── Save / Export — save only when dirty, export whenever any preset is loaded or selected ── */}
-      {(activeSource || selected) && (
+      {/* ── Save / Export — show when a preset is active ── */}
+      {activeSource && (
         <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {isPresetDirty && (
-            <button type="button" onClick={handleSave}>
-              {saveLabel}
-            </button>
-          )}
-          {!isPresetDirty && <span></span>}
+          <button type="button" onClick={handleSave}>
+            {saveLabel}
+          </button>
           <span style={{ display: 'flex', gap: '6px' }}>
             <button type="button" onClick={handleExport}>
               Export .json

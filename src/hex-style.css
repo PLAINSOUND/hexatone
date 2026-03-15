@@ -192,6 +192,27 @@ a:hover {
     }
 }
 
+/* ── Phone portrait: move sustain button to left ── */
+@media (max-width: 600px) {
+    #sustain-island {
+        left: 3em !important;
+        transform: none !important;
+    }
+}
+
+/* ── Phone landscape: adjust bottom buttons to prevent overlap ── */
+@media (max-height: 500px) and (orientation: landscape) {
+    #sustain-island {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    #panic-button {
+        right: 4.5em;
+        left: auto;
+        transform: none;
+    }
+}
+
 /* ── Sustain island — floating tap target centred at bottom ── */
 /* ── Bottom controls: SUSTAIN centred, panic left, redraw right ── */
 #bottom-bar {
@@ -224,8 +245,6 @@ a:hover {
 #sustain-island {
     position: fixed;
     bottom: 1.2em;
-    left: 50%;
-    transform: translateX(-50%);
     z-index: 11;
     padding: 0.45em 1.6em;
     border-radius: 999px;
