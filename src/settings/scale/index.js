@@ -9,7 +9,7 @@ import ScalaImport from './scala-import';
 
 const Scale = (props) => {
   const [importing,  setImporting]  = useState(false);
-  const [collapsed,  setCollapsed]  = useState(() => sessionStorage.getItem('hexatone_scale_collapsed') === 'true');
+  const [collapsed,  setCollapsed]  = useState(() => sessionStorage.getItem('hexatone_scale_collapsed') !== 'false');
 
   const doImport = () => {
     props.onImport();

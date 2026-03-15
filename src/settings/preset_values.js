@@ -107,7 +107,6 @@ export const presets = [
         "reference_degree": 9,
         "midiin_degree0": 60,
         "center_degree": 0,
-        "center_degree": 0,
         "short_description": "12edo"
       },
       {
@@ -530,6 +529,7 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,        
         "fundamental": 260.740741,
+        "reference_degree": 0,
         "midiin_degree0": 60,
         "center_degree": 0,
         "short_description": "12-RI-3.5.13",

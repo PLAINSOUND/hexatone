@@ -1,11 +1,30 @@
 import { h } from 'preact';
+import { useState } from 'preact/hooks';
 import PropTypes from 'prop-types';
 
 const Layout = (props) => {
+  const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem('hexatone_layout_collapsed') !== 'false');
   const maxDegree = (props.settings.equivSteps || 1) - 1;
+
+  const handleToggle = (c) => {
+    sessionStorage.setItem('hexatone_layout_collapsed', c);
+    setCollapsed(c);
+  };
+
   return (
   <fieldset>
-    <legend><b>Hexatone Layout</b></legend>
+    <legend>
+      <b>Hexatone Layout</b>
+      <button
+        type="button"
+        onClick={() => handleToggle(!collapsed)}
+        title={collapsed ? 'Expand layout settings' : 'Collapse layout settings'}
+        style={{ marginLeft: '0.6em', padding: '0 0.4em', fontSize: '0.8em',
+                 lineHeight: '1.4', verticalAlign: 'middle', cursor: 'pointer' }}
+      >{collapsed ? '▶' : '▼'}</button>
+    </legend>
+    {collapsed ? null : (
+    <>
     <label>
       Right-Facing Steps
       <input name="rSteps" type="text" inputMode="numeric"
@@ -88,9 +107,11 @@ const Layout = (props) => {
                } else {
                  e.target.value = props.settings.rotation;
                }
-             }}
+              }}
       />
     </label>
+    </>
+    )}
   </fieldset>
   );
 };
