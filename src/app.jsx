@@ -144,7 +144,7 @@ const sessionDefaults = {
   mpe_hi_ch:        parseInt(sessionStorage.getItem("mpe_hi_ch"))   || 8,
   mpe_mode:         sessionStorage.getItem("mpe_mode")          || "Ableton_workaround",
   mpe_pitchbend_range: parseInt(sessionStorage.getItem("mpe_pitchbend_range")) || 48,
-  instrument:       sessionStorage.getItem("instrument")        || "WMRIByzantineST",
+  instrument:       sessionStorage.getItem("instrument")        || "HvP8_retuned",
   midiin_device:    sessionStorage.getItem("midiin_device")     || "OFF",
   midiin_channel:   parseInt(sessionStorage.getItem("midiin_channel"))  || 0,
   midi_device:      sessionStorage.getItem("midi_device")       || "OFF",
@@ -416,8 +416,19 @@ const App = () => {
   }, [userHasInteracted, synth]);
 
   const COLOR_KEYS = new Set(['note_colors', 'spectrum_colors', 'fundamental_color']);
+  const SCALE_KEYS = new Set(['scale', 'note_names', 'fundamental', 'reference_degree']);
 
   const onChange = (key, value) => {
+    // If scale is about to change and sustain is active, release it first
+    // to prevent stuck sustain state after Keys reconstruction
+    if (SCALE_KEYS.has(key)) {
+      if (keysRef.current && keysRef.current.state.sustain) {
+        keysRef.current.sustainOff(true);
+      }
+      // Also reset the React latch state to match
+      setLatch(false);
+    }
+
     setSettings(s => {
       const next = { ...s, [key]: value };
       // For color changes, also push directly to the live Keys instance so the
