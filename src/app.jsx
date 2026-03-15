@@ -428,7 +428,7 @@ const App = () => {
   }, [userHasInteracted, synth]);
 
   const COLOR_KEYS = new Set(['note_colors', 'spectrum_colors', 'fundamental_color']);
-  const SCALE_KEYS = new Set(['scale', 'note_names', 'fundamental', 'reference_degree']);
+  const SCALE_KEYS = new Set(['scale', 'note_names', 'fundamental', 'reference_degree', 'equivSteps']);
 
   const onChange = (key, value) => {
     // If scale is about to change and sustain is active, release it first
@@ -439,6 +439,8 @@ const App = () => {
       }
       // Also reset the React latch state to match
       setLatch(false);
+      // Trigger re-render of scale table
+      setImportCount(c => c + 1);
     }
 
     // When equivSteps changes, resize the scale array to match
@@ -457,7 +459,7 @@ const App = () => {
           padding.push(String(newSize * 100) + '.0');
           newScale = [...currentScale, ...padding];
         } else {
-          // Truncate to new size
+          // Truncate or keep same size
           newScale = currentScale.slice(0, newSize);
         }
         return { ...s, [key]: value, scale: newScale };

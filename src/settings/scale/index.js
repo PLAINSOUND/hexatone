@@ -76,6 +76,27 @@ const Scale = (props) => {
                 }}
         />
       </label>
+      <label>
+        Scale Size
+        <input name="equivSteps" type="text" inputMode="numeric"
+               class="sidebar-input"
+               value={props.settings.equivSteps}
+               step="1" min="1" max="2048"
+               onChange={(e) => {
+                 const val = parseInt(e.target.value);
+                 if (!isNaN(val) && val >= 1 && val <= 2048) {
+                   props.onChange('equivSteps', val);
+                 }
+               }}
+               onBlur={(e) => {
+                 const val = parseInt(e.target.value);
+                 if (!isNaN(val) && val >= 1 && val <= 2048) {
+                   props.onChange('note_names', null);
+                   props.onChange('spectrum_colors', true);
+                 }
+               }}
+        />
+      </label>
       {!collapsed && (<>
       <p>
       <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) or MPE messages, keep the global tuning of receiving instruments at default value, A4 = 440 Hz. Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE will automatically transpose built-in and external sounds accordingly.</em>
@@ -86,27 +107,8 @@ const Scale = (props) => {
       </p>
       <Colors {...props} />
       <KeyLabels {...props} />
-      <label>
-        Scale Size
-        <input name="equivSteps" type="text" inputMode="numeric"
-               class="sidebar-input"
-               key={props.settings.equivSteps}
-               defaultValue={props.settings.equivSteps}
-               step="1" min="1" max="2048"
-               onBlur={(e) => {
-                 const val = parseInt(e.target.value);
-                 if (!isNaN(val) && val >= 1 && val <= 2048) {
-                   props.onChange('equivSteps', val);
-                   props.onChange('note_names', null);
-                   props.onChange('spectrum_colors', true);
-                 } else {
-                   e.target.value = props.settings.equivSteps;
-                 }
-               }}
-        />
-      </label>
       <br />
-      <ScaleTable {...props} importCount={props.importCount} />
+      <ScaleTable key={props.settings.scale?.length} {...props} importCount={props.importCount} />
       <br />
       </>)}
       {importing
@@ -159,8 +161,6 @@ const Scale = (props) => {
               newScale.push(String((i * step).toFixed(1)));
             }
             props.onChange('scale', newScale);
-            props.onChange('note_names', null);
-            props.onChange('spectrum_colors', true);
           }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
             Divide Equave into {props.settings.equivSteps} Equal Parts
           </button>
@@ -172,8 +172,6 @@ const Scale = (props) => {
               newScale.push(String((i * step).toFixed(1)));
             }
             props.onChange('scale', newScale);
-            props.onChange('note_names', null);
-            props.onChange('spectrum_colors', true);
           }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
             Divide Octave into {props.settings.equivSteps} Equal Parts
           </button>

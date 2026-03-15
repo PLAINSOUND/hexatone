@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
 export class Extract {
   constructor(from, to) {
@@ -87,6 +87,8 @@ export function useQuery(spec, defaults, skipKeys = []) {
   }
 
   const [values, setValues] = useState(initial);
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
 
   function handle(e) {
     const query = new URLSearchParams(document.location.search.substring(1));
@@ -101,7 +103,7 @@ export function useQuery(spec, defaults, skipKeys = []) {
 
   function setState(next_f) {
     const query = new URLSearchParams();
-    const next = next_f(values);
+    const next = next_f(valuesRef.current);
     for (let [key, extract] of Object.entries(spec)) {
       if (skipKeys.includes(key)) continue;
       if (key in next && next[key]) {
