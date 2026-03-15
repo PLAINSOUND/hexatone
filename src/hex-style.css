@@ -246,6 +246,7 @@ a:hover {
     position: fixed;
     bottom: 1.2em;
     z-index: 11;
+
     padding: 0.45em 1.6em;
     border-radius: 999px;
     background-color: #f0e9e9;
@@ -286,6 +287,8 @@ a:hover {
 #sustain-island {
     padding: 0.45em 1.6em;
     border-radius: 999px;
+    left: 50%;
+    transform: translateX(-50%);
     background-color: #f0e9e9;
     border: 1px solid #c0aaaa;
     color: #990000;

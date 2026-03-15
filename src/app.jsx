@@ -113,10 +113,10 @@ const PRESET_SKIP_KEYS = [
 // Only these text fields need to start visually empty on a fresh load
 const DISPLAY_EMPTY_KEYS = ['name', 'description', 'key_labels'];
 
-// Scale hexSize down on phones (max-width 480px), but not below 20
+// Scale hexSize down on phones (max-width 600px), but not below 20
 const scaleHexSizeForScreen = (hexSize) => {
-  if (window.innerWidth <= 480 && hexSize > 20) {
-    return Math.max(20, Math.floor(hexSize * 0.7));
+  if (window.innerWidth <= 600 && hexSize > 20) {
+    return Math.max(20, Math.floor(hexSize * 0.75));
   }
   return hexSize;
 };
@@ -479,7 +479,8 @@ const App = () => {
     sessionStorage.setItem('hexatone_preset_source', 'builtin');
     sessionStorage.setItem('hexatone_preset_name', e.target.value);
     const presetData = findPreset(e.target.value);
-    const mergedBuiltin = { ...settings, ...presetData };
+    const adjustedPreset = { ...presetData, hexSize: scaleHexSizeForScreen(presetData.hexSize) };
+    const mergedBuiltin = { ...settings, ...adjustedPreset };
     setSavedPresetSnapshot(snapshotOf(mergedBuiltin));
     setSettings(() => mergedBuiltin);
   };
@@ -495,7 +496,8 @@ const App = () => {
     } else {
       sessionStorage.removeItem('hexatone_preset_name');
     }
-    const mergedUser = { ...settings, ...preset };
+    const adjustedPreset = { ...preset, hexSize: scaleHexSizeForScreen(preset.hexSize) };
+    const mergedUser = { ...settings, ...adjustedPreset };
     setSavedPresetSnapshot(snapshotOf(mergedUser));
     setSettings(() => mergedUser);
   };
