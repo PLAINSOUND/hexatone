@@ -2,8 +2,12 @@
  * mpe_synth — MPE (MIDI Polyphonic Expression) output.
  *
  * Each note gets its own voice channel, allocated from a VoicePool.
- * Pitch is expressed as pitch bend on the voice channel (14-bit, ±48 semitones
- * range so any microtonally retuned note fits within one bend range).
+ * Pitch is expressed as pitch bend on the voice channel.
+ *
+ * Two modes:
+ * - Ableton_workaround: pitch bend range fixed at 48, MIDI note constrained to satisfy
+ *   note % 16 = channel (so Ableton can reconstruct the channel from the note number)
+ * - Full_MPE: user-selectable pitch bend range 1-96, nearest MIDI note + pitch bend
  *
  * MPE zone layout (lower zone, Ableton default):
  *   Master channel:  1  (or 16 for upper zone, or none)
@@ -14,16 +18,107 @@
  */
 
 import { VoicePool } from "../voice_pool";
+import { scalaToCents } from "../settings/scale/parse-scale";
 
-// Convert absolute cents + reference settings to cents relative to MIDI note 60 (C4)
-function centsToMidiCents(cents, fundamental, referenceRatio) {
-  const ref = fundamental / referenceRatio;
-  const refOffset = 1200 * Math.log2(ref / 261.6255653);
-  return cents + refOffset;
+/**
+ * Calculate the frequency at central degree.
+ */
+function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale, equivSteps, equave) {
+  // Calculate cents offset from reference degree to center degree
+  let ref_cents_from_degree0 = 0;
+  if (reference_degree > 0) {
+    ref_cents_from_degree0 = scalaToCents(scale[reference_degree - 1]);
+  }
+  let centraldegree_cents_from_degree0 = 0;
+  if (center_degree > 0) {
+    centraldegree_cents_from_degree0 = scalaToCents(scale[center_degree - 1]);
+  }
+  
+// Frequency at degree 0 (center_degree steps below center)
+  const freq_at_degree_0 = fundamental / Math.pow(2, ref_cents_from_degree0 / 1200);
+
+  // Frequency at center degree
+  const freqAtCentral = freq_at_degree_0 * Math.pow(2, centraldegree_cents_from_degree0 / 1200);
+  
+  return freqAtCentral;
+
 }
 
-export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch, fundamental = 440, referenceRatio = 1, bendRange = 48) => {
+/**
+ * Calculate MIDI note and pitch bend for a given frequency.
+ * 
+ * @param {number} freq - Frequency in Hz
+ * @param {number} midiNoteForDegree0 - MIDI note number that plays degree 0
+ * @param {number} channel - Voice channel (1-based)
+ * @param {number} bendRange - Pitch bend range in semitones
+ * @param {string} mode - "Ableton_workaround" or "Full_MPE"
+ * @returns {Object} { note, bend }
+ */
+function freqToMidiAndCents(freq, center_degree, channel, bendRange, mode) {
+  // Convert frequency to cents relative to degree 0
+  // We need freqAtDegree0 for this calculation
+  // But since we're passed freq directly, we calculate relative to A4 and adjust
+  
+  // For now, let's calculate the target MIDI note from the frequency
+  // MIDI note = 69 + 12*log2(freq/440)
+  const targetMidiNote = 69 + 12 * Math.log2(freq / 440);
+  
+  let note, deviation;
+  
+  if (mode === "Ableton_workaround") {
+    // Ableton workaround: note % 16 must equal channel
+    // Find note in range [channel, channel+15, channel+30, ...] closest to target
+    const baseNote = channel % 16;
+    const octaveOffset = Math.round((targetMidiNote - baseNote) / 16);
+    note = baseNote + octaveOffset * 16;
+    note = Math.max(0, Math.min(127, note));
+    
+    // Calculate deviation in cents
+    deviation = (targetMidiNote - note) * 100.0;
+  } else {
+    // Full MPE: nearest MIDI note
+    note = Math.round(targetMidiNote);
+    note = Math.max(0, Math.min(127, note));
+    deviation = (targetMidiNote - note) * 100.0;
+  }
+  
+  return { note, deviation };
+}
+
+/**
+ * Convert cents deviation to 14-bit pitch bend value.
+ */
+function deviationToBend(cents_offset, bendRange) {
+  // 0x2000 = 8192 = centre (no bend)
+  // Full range: -8192 (−bendRange semitones) … +8191 (+bendRange semitones)
+  console.log("cents_offset, bendRange",[cents_offset,bendRange])
+  const ratio = cents_offset / (bendRange * 100);
+  const raw   = Math.round(ratio * 8192);
+  const clamped = Math.max(-8192, Math.min(8191, raw));
+  console.log("MPE:clamped",clamped);
+  return clamped + 8192; // unsigned 0–16383
+}
+
+export const create_mpe_synth = async (
+  midi_output,
+  master_ch,
+  lo_ch,
+  hi_ch,
+  fundamental = 440,
+  reference_degree = 0,
+  center_degree = 0,
+  midiin_degree0 = 60,
+  scale,
+  mpe_mode = "Ableton_workaround",
+  bendRange = 48,
+  equivSteps = 12,
+  equave = 2
+) => {
   if (!midi_output) return null;
+
+  // Determine actual bend range: always 48 for Ableton_workaround, user-specified for Full_MPE
+  const actualBendRange = mpe_mode === "Ableton_workaround" ? 48 : bendRange;
+  console.log("MPE:bendrange",actualBendRange);
 
   // master_ch: 1-based MIDI channel number, or null/undefined for no master
   // lo_ch, hi_ch: 1-based MIDI channel numbers for voice pool
@@ -31,6 +126,10 @@ export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch, fun
   const voiceIds  = [];
   for (let ch = lo_ch; ch <= hi_ch; ch++) voiceIds.push(ch);
   const pool = new VoicePool(voiceIds); // slot = 1-based channel number
+
+  // Calculate frequency at central degree
+  const freqAtCentral = calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale, equivSteps, equave);
+  const midiNoteForDegree0 = midiin_degree0 + center_degree;
 
   // Send MPE zone configuration RPN on master channel
   if (masterCh !== null) {
@@ -46,7 +145,7 @@ export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch, fun
     // Set pitch bend range on master channel (RPN 0x0000)
     midi_output.send([0xB0 + masterCh, 101, 0]);
     midi_output.send([0xB0 + masterCh, 100, 0]);
-    midi_output.send([0xB0 + masterCh, 6, bendRange]);
+    midi_output.send([0xB0 + masterCh, 6, actualBendRange]);
     midi_output.send([0xB0 + masterCh, 38, 0]);
   }
 
@@ -55,50 +154,34 @@ export const create_mpe_synth = async (midi_output, master_ch, lo_ch, hi_ch, fun
     const c = ch - 1; // 0-based
     midi_output.send([0xB0 + c, 101, 0]);
     midi_output.send([0xB0 + c, 100, 0]);
-    midi_output.send([0xB0 + c, 6, bendRange]);
+    midi_output.send([0xB0 + c, 6, actualBendRange]);
     midi_output.send([0xB0 + c, 38, 0]);
   }
 
   return {
-    makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, referenceRatio) => {
-      return new MpeHex(coords, cents, velocity_played, midi_output, pool, fundamental, referenceRatio, bendRange);
+    makeHex: (coords, cents, velocity_played, steps, center_degree, equaves, equivSteps, cents_prev, cents_next, note_played, bend, offsetCents) => {
+      return new MpeHex(
+        coords, cents, velocity_played, steps, center_degree,
+        midi_output, pool,
+        freqAtCentral, midiNoteForDegree0,
+        actualBendRange, mpe_mode
+      );
     },
   };
 };
 
-/**
- * Convert a cents offset to a 14-bit pitch bend value.
- * Uses the configured bend range.
- */
-function centsToBend(cents_offset, bendRange) {
-  // 0x2000 = 8192 = centre (no bend)
-  // Full range: -8192 (−bendRange semitones) … +8191 (+bendRange semitones)
-  const ratio = 24 * cents_offset / (bendRange * 100); // bug????
-  const raw   = Math.round(ratio * 8192);
-  const clamped = Math.max(-8192, Math.min(8191, raw));
-  return clamped + 8192; // unsigned 0–16383
-}
-
-/**
- * Nearest MIDI note and cents deviation for MIDI-relative cents.
- * e.g. 350¢ → note 3 (Eb4 relative to C4=0¢), deviation +50¢
- */
-function centsToNoteAndBend(midi_cents) {
-  const note_float = midi_cents / 100;
-  const note       = Math.round(note_float);
-  const deviation  = (note_float - note) * 100; // cents
-  return { note: Math.max(0, Math.min(127, note + 60)), deviation };
-}
-
-function MpeHex(coords, cents, velocity_played, midi_output, pool, fundamental, referenceRatio, bendRange) {
+function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_output, pool, freqAtCentral, midiNoteForDegree0, bendRange, mode) {
   this.coords      = coords;
   this.cents       = cents;
+  this.steps       = steps;
+  this.center_degree = center_degree;
   this.release     = false;
   this.midi_output = midi_output;
   this.pool        = pool;
-  this.fundamental = fundamental;
-  this.referenceRatio = referenceRatio;
+  this.freqAtCentral = freqAtCentral;
+  this.midiNoteForDegree0 = midiNoteForDegree0;
   this.bendRange = bendRange;
+  this.mode = mode;
   this.velocity    = Math.max(1, Math.min(127, velocity_played || 72));
 
   // Allocate voice channel — steal oldest if pool exhausted
@@ -110,12 +193,13 @@ function MpeHex(coords, cents, velocity_played, midi_output, pool, fundamental, 
   }
   this.channel = slot; // 1-based
 
-  // Compute MIDI note and pitch bend for this pitch
-  // Convert absolute cents to MIDI-relative cents using reference frequency
-  const midi_cents = centsToMidiCents(cents, fundamental, referenceRatio);
-  const { note, deviation } = centsToNoteAndBend(midi_cents);
+  // Calculate frequency from cents (deviation from degree 0)
+  const freq = this.freqAtCentral * Math.pow(2, cents / 1200);
+
+  // Calculate MIDI note and pitch bend
+  const { note, deviation } = freqToMidiAndCents(freq, this.center_degree, this.channel, this.bendRange, this.mode);
   this.note = note;
-  this.bend = centsToBend(deviation, bendRange);
+  this.bend = deviationToBend(deviation, bendRange);
 }
 
 MpeHex.prototype.noteOn = function () {
@@ -135,17 +219,25 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   this.pool.noteOff(this.coords);
 };
 
+/*
 MpeHex.prototype.retune = function (newCents) {
   this.cents = newCents;
-  const midi_cents = centsToMidiCents(newCents, this.fundamental, this.referenceRatio);
-  const { note, deviation } = centsToNoteAndBend(midi_cents);
-  const bend    = centsToBend(deviation, this.bendRange);
+  
+  // Calculate new frequency from cents
+  const freq = this.freqAtCentral * Math.pow(2, newCents / 1200);
+  
+  // Recalculate MIDI note and pitch bend
+  const { note, bend } = freqToMidiAndCents(freq, this.freqAtCentral, this.midiNoteForDegree0, this.channel, this.bendRange, this.mode);
+  this.note = note;
+  this.bend = bend;
+  
+  // Send new pitch bend
   const c       = this.channel - 1;
   const bendLSB = bend & 0x7F;
   const bendMSB = (bend >> 7) & 0x7F;
   this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
-  // Note number doesn't change mid-hold — only bend moves
 };
+*/
 
 MpeHex.prototype.aftertouch = function (value) {
   const c = this.channel - 1;

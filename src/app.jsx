@@ -142,6 +142,7 @@ const sessionDefaults = {
   mpe_master_ch:    sessionStorage.getItem("mpe_master_ch")    || "1",
   mpe_lo_ch:        parseInt(sessionStorage.getItem("mpe_lo_ch"))   || 2,
   mpe_hi_ch:        parseInt(sessionStorage.getItem("mpe_hi_ch"))   || 8,
+  mpe_mode:         sessionStorage.getItem("mpe_mode")          || "Ableton_workaround",
   mpe_pitchbend_range: parseInt(sessionStorage.getItem("mpe_pitchbend_range")) || 48,
   instrument:       sessionStorage.getItem("instrument")        || "WMRIByzantineST",
   midiin_device:    sessionStorage.getItem("midiin_device")     || "OFF",
@@ -206,6 +207,7 @@ const App = () => {
     mpe_master_ch: ExtractString,
     mpe_lo_ch:     ExtractInt,
     mpe_hi_ch:     ExtractInt,
+    mpe_mode:      ExtractString,
     mpe_pitchbend_range: ExtractInt,
     instrument: ExtractString,
     fundamental: ExtractFloat,
@@ -369,8 +371,14 @@ const App = () => {
           settings.mpe_lo_ch,
           settings.mpe_hi_ch,
           settings.fundamental,
-          settings.offset ? settings.offset[0] : 0,
-          settings.mpe_pitchbend_range ?? 48
+          settings.reference_degree,
+          settings.center_degree,
+          settings.midiin_degree0,
+          settings.scale,
+          settings.mpe_mode,
+          settings.mpe_pitchbend_range ?? 48,
+          settings.equivSteps,
+          settings.equivInterval
         )
       );
     }

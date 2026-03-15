@@ -205,20 +205,31 @@ const MidiOutputs = (props) => {
                   {loCh}–{hiCh} ({hiCh - loCh + 1} voices)
                 </span>
               </label>
-{/*
+
               <label>
-                Pitch Bend Range (semitones)
-                <input name="mpe_pitchbend_range" type="text" inputMode="numeric"
-                  class="sidebar-input"
-                  key={settings.mpe_pitchbend_range}
-                  defaultValue={settings.mpe_pitchbend_range ?? 48}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 0 && val <= 96) save('mpe_pitchbend_range', val, onChange);
-                    else e.target.value = settings.mpe_pitchbend_range ?? 48;
-                  }} />
+                Mode
+                <select name="mpe_mode" class="sidebar-input"
+                  value={settings.mpe_mode || "Ableton_workaround"}
+                  onChange={(e) => save(e.target.name, e.target.value, onChange)}>
+                  <option value="Ableton_workaround">Ableton workaround (fixed 48)</option>
+                  <option value="Full_MPE">Full MPE (user range)</option>
+                </select>
               </label>
-*/}
+
+              {settings.mpe_mode === "Full_MPE" && (
+                <label>
+                  Pitch Bend Range (semitones)
+                  <input name="mpe_pitchbend_range" type="text" inputMode="numeric"
+                    class="sidebar-input"
+                    key={settings.mpe_pitchbend_range}
+                    defaultValue={settings.mpe_pitchbend_range ?? 48}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1 && val <= 96) save('mpe_pitchbend_range', val, onChange);
+                      else e.target.value = settings.mpe_pitchbend_range ?? 48;
+                    }} />
+                </label>
+              )}
               <p>
                 <em><a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a> is a standard allowing per-note independent modulation of MIDI notes.</em>
               </p>
@@ -248,6 +259,7 @@ MidiOutputs.propTypes = {
     mpe_master_ch:      PropTypes.string,
     mpe_lo_ch:          PropTypes.number,
     mpe_hi_ch:          PropTypes.number,
+    mpe_mode:           PropTypes.string,
     mpe_pitchbend_range: PropTypes.number,
   }).isRequired,
   midi:     PropTypes.object,

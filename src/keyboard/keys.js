@@ -16,7 +16,7 @@ class Keys {
       hexVert: settings.hexSize * 3 / 2,
       hexWidth: Math.sqrt(3) * settings.hexSize,
       gcd, // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
-      offset: getOffset(settings.reference_degree, settings.scale),
+      degree0toRef_asArray: degree0ToRef(settings.reference_degree, settings.scale),
       centerHexOffset: computeCenterOffset(settings.rSteps, settings.drSteps, settings.center_degree || 0, gcd),
       ...settings,
     };
@@ -43,7 +43,7 @@ class Keys {
     const center_degree      = this.settings.center_degree  || 0;
     const central_midi_note  = (this.settings.midiin_degree0 != null ? this.settings.midiin_degree0 : 60) + center_degree;
     const tuning_map_degree0 = this.settings.tuning_map_degree0 != null ? this.settings.tuning_map_degree0 : central_midi_note;
-    this.mts_tuning_map = mtsTuningMap(this.settings.sysex_type, this.settings.device_id, this.settings.tuning_map_number, tuning_map_degree0, this.settings.scale, this.settings.name, this.settings.equivInterval, this.settings.fundamental, this.settings.offset);
+    this.mts_tuning_map = mtsTuningMap(this.settings.sysex_type, this.settings.device_id, this.settings.tuning_map_number, tuning_map_degree0, this.settings.scale, this.settings.name, this.settings.equivInterval, this.settings.fundamental, this.settings.degree0toRef_asArray);
     
     // Set up resize handler
     window.addEventListener('resize', this.resizeHandler, false);
@@ -378,11 +378,11 @@ class Keys {
       const HEADER_LEN = 20;
       let patched = false;
       for (const [slot, tuning] of sustainedSlots) {
-        const offset = HEADER_LEN + slot * 3;
-        if (offset + 2 < msg.length - 1) { // -1 to stay before checksum
-          msg[offset]     = tuning[0];
-          msg[offset + 1] = tuning[1];
-          msg[offset + 2] = tuning[2];
+        const skip = HEADER_LEN + slot * 3;
+        if (skip + 2 < msg.length - 1) { // -1 to stay before checksum
+          msg[skip]     = tuning[0];
+          msg[skip + 1] = tuning[1];
+          msg[skip + 2] = tuning[2];
           patched = true;
         }
       }
@@ -544,8 +544,8 @@ class Keys {
     const [cents, pressed_interval, steps, equaves, equivSteps, cents_prev, cents_next] = this.hexCoordsToCents(coords);
     const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
     this.drawHex(coords, color, text_color);
-    let offset = this.settings.offset[1];
-    const hex = this.synth.makeHex(coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, offset);
+    let degree0toRef_ratio = this.settings.degree0toRef_asArray[1];
+    const hex = this.synth.makeHex(coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, degree0toRef_ratio);
     hex.noteOn();
     return hex;
   };
@@ -1167,16 +1167,14 @@ class Keys {
 
 export default Keys;
 
-function getOffset(reference_degree, scale) {
-  let offset = [0, 1];
+function degree0ToRef(reference_degree, scale) {
+  let degree0_to_reference_asArray = [0, 1];
   if (reference_degree > 0) {
-    offset[0] = scale[reference_degree];
-    offset[1] = 2 ** (offset[0] / 1200); // offset ratio
+    degree0_to_reference_asArray[0] = scale[reference_degree];
+    degree0_to_reference_asArray[1] = 2 ** (degree0_to_reference_asArray[0] / 1200); // offset ratio
   };
-  //console.log("reference_degree:", reference_degree);
-  //console.log("offset_value (cents, ratio):", offset);
-  
-  return offset;
+   
+  return degree0_to_reference_asArray;
 };
 
 /**
@@ -1212,12 +1210,12 @@ function computeCenterOffset(rSteps, drSteps, degree, gcd) {
   return new Point(r0 + k * stepR, dr0 + k * stepDR);
 };
 
-function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degree0, scale, name, equave, fundamental, offset) {
+function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degree0, scale, name, equave, fundamental, degree0toRef_asArray) {
   //console.log("mts-input-scale:", scale)
   if (parseInt(sysex_type) === 127) {
     let header = [127, device_id, 8, 2, tuning_map_number, 1]; // sysex real-time single-note tuning change of tuning map, 128 notes
     let fundamental_cents = 1200 * Math.log2(fundamental / 440);
-    let degree_0_cents = fundamental_cents - offset[0];
+    let degree_0_cents = fundamental_cents - degree0toRef_asArray[0];
     let map_offset = degree_0_cents - (100 * (tuning_map_degree0 - 69));
     let mts_data = [];
 
@@ -1298,7 +1296,7 @@ function mtsTuningMap(sysex_type, device_id, tuning_map_number, tuning_map_degre
       header.push(ascii_name[i]);
     };
     let fundamental_cents = 1200 * Math.log2(fundamental / 440);
-    let degree_0_cents = fundamental_cents - offset[0];
+    let degree_0_cents = fundamental_cents - degree0toRef_asArray[0];
     let map_offset = degree_0_cents - (100 * (tuning_map_degree0 - 69));
     let mts_data = [];
 

@@ -46,9 +46,9 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     let masterGain = null;
     let masterVolume = 1.0;
 
-    let offset = 0;
+    let centsToReference = 0;
     if (reference_degree > 0) {
-      offset = scalaToCents(scale[reference_degree - 1]);
+      centsToReference = scalaToCents(scale[reference_degree - 1]);
     }
 
     return {
@@ -87,7 +87,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
       makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played) => {
         return new ActiveHex(
-          coords, cents, velocity_played, note_played, fundamental, offset,
+          coords, cents, velocity_played, note_played, fundamental, centsToReference,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
           velocity_response, aftertouch_amount, decodedBuffers, sharedAudioContext, masterGain
         );
@@ -98,7 +98,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
   }
 };
 
-function ActiveHex(coords, cents, velocity_played, note_played, fundamental, offset,
+function ActiveHex(coords, cents, velocity_played, note_played, fundamental, centsToReference,
   sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
   velocity_response, aftertouch_amount, sampleBuffer, audioContext, masterGain) {
 
@@ -108,7 +108,7 @@ function ActiveHex(coords, cents, velocity_played, note_played, fundamental, off
   this.velocity_played = velocity_played;
   this.note_played = note_played;
   this.fundamental = fundamental;
-  this.offset = offset;
+  this.centsToReference = centsToReference;
   this.sampleGain = sampleGain;
   this.sampleAttack = sampleAttack;
   this.sampleRelease = sampleRelease;
@@ -125,7 +125,7 @@ ActiveHex.prototype.noteOn = function() {
   // Guard: prepare() may not have completed yet if the user is very fast
   if (!this.sampleBuffer || !this.audioContext) return;
 
-  const freq = this.fundamental * Math.pow(2, (this.cents - this.offset) / 1200);
+  const freq = this.fundamental * Math.pow(2, (this.cents - this.centsToReference) / 1200);
   const vol = this.velocity_response
     ? 0.15 + (0.85 * ((this.velocity_played / 127) ** 0.75))
     : 0.85;
@@ -180,7 +180,7 @@ ActiveHex.prototype.noteOn = function() {
  */
 ActiveHex.prototype.retune = function(newCents) {
   this.cents = newCents;
-  const freq = this.fundamental * Math.pow(2, (newCents - this.offset) / 1200);
+  const freq = this.fundamental * Math.pow(2, (newCents - this.centsToReference) / 1200);
   const newFreq = this.sampleFreq * this.source.playbackRate.value;
   this.source.playbackRate.setTargetAtTime(freq / this.sampleFreq, this.audioContext.currentTime, 0.02);
 };

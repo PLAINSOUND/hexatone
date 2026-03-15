@@ -22,10 +22,10 @@ export const create_midi_synth = async (midiin_device, midiin_degree0, midi_outp
   const sysex_dev_id = (device_id  != null ? device_id  : 127) & 0x7F;
 
   return {
-    makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, offset) => {
+    makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, degree0toRef_ratio) => {
       return new MidiHex(
         coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
-        note_played, velocity_played, bend, offset,
+        note_played, velocity_played, bend, degree0toRef_ratio,
         midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental,
         pool_mts1, pool_mts2_low, pool_mts2_high,
         sysex_rt, sysex_dev_id
@@ -44,7 +44,7 @@ for (let i = 0; i < 2048; i++) {
 
 function MidiHex(
   coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
-  note_played, velocity_played, bend, offset,
+  note_played, velocity_played, bend, degree0toRef_ratio,
   midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental,
   pool_mts1, pool_mts2_low, pool_mts2_high,
   sysex_rt, sysex_dev_id
@@ -62,7 +62,7 @@ function MidiHex(
     /* DEPRECATED: sequential and multichannel output modes removed. */
 
     if (midi_mapping === "MTS1" || midi_mapping === "MTS2") {
-      const ref        = fundamental / offset;
+      const ref        = fundamental / degree0toRef_ratio;
       const ref_offset = 1200 * Math.log2(ref / 261.6255653);
       const ref_cents  = cents + ref_offset;
       bend_up          = cents_next - cents;
