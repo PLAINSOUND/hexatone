@@ -6,17 +6,23 @@ import Colors, { colorProp } from './colors';
 import KeyLabels from './key-labels';
 import ScaleTable from './scale-table';
 import ScalaImport from './scala-import';
+import { settingsToHexatonScala } from './parse-scale';
 
 const Scale = (props) => {
   const [importing,  setImporting]  = useState(false);
-  const [collapsed,  setCollapsed]  = useState(() => sessionStorage.getItem('hexatone_scale_collapsed') !== 'false');
+  const [collapsed,  setCollapsed]  = useState(() => sessionStorage.getItem('hexatone_scale_collapsed') === 'true');
 
   const doImport = () => {
     props.onImport();
     setImporting(false);
   };
   const cancelImport = () => setImporting(false);
-  const startImporting = () => setImporting(true);
+  const startImporting = () => {
+    // Generate Scala content from current scale table settings
+    const scalaContent = settingsToHexatonScala(props.settings);
+    props.onChange('scale_import', scalaContent);
+    setImporting(true);
+  };
 
   const handleToggle = (c) => {
     sessionStorage.setItem('hexatone_scale_collapsed', c);
@@ -67,12 +73,12 @@ const Scale = (props) => {
                  } else {
                    e.target.value = props.settings.reference_degree;
                  }
-               }}
+                }}
         />
       </label>
       {!collapsed && (<>
       <p>
-      <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) or MPE messages, simply keep the global tuning of receiving instruments at default value, A4 = 440 Hz. Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE will automatically transpose built-in and external sounds accordingly.</em>
+      <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) or MPE messages, keep the global tuning of receiving instruments at default value, A4 = 440 Hz. Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE will automatically transpose built-in and external sounds accordingly.</em>
       </p>
       <p>
       <em>
@@ -80,6 +86,25 @@ const Scale = (props) => {
       </p>
       <Colors {...props} />
       <KeyLabels {...props} />
+      <label>
+        Scale Size
+        <input name="equivSteps" type="text" inputMode="numeric"
+               class="sidebar-input"
+               key={props.settings.equivSteps}
+               defaultValue={props.settings.equivSteps}
+               step="1" min="1" max="2048"
+               onBlur={(e) => {
+                 const val = parseInt(e.target.value);
+                 if (!isNaN(val) && val >= 1 && val <= 2048) {
+                   props.onChange('equivSteps', val);
+                   props.onChange('note_names', null);
+                   props.onChange('spectrum_colors', true);
+                 } else {
+                   e.target.value = props.settings.equivSteps;
+                 }
+               }}
+        />
+      </label>
       <br />
       <ScaleTable {...props} importCount={props.importCount} />
       <br />
@@ -91,8 +116,69 @@ const Scale = (props) => {
                       onCancel={cancelImport}/>
         </div>)
         : (<>
+          <button type="button" onClick={() => {
+            const n = props.settings.equivSteps || 12;
+            let equaveStr = (props.settings.scale && props.settings.scale[n - 1]) 
+              ? props.settings.scale[n - 1] 
+              : String(n * 100);
+            
+            let equaveCents;
+            
+            // Check for ratio format: m/n (e.g., "3/2")
+            if (equaveStr.includes('/') && !equaveStr.includes('\\')) {
+              const parts = equaveStr.split('/');
+              const num = parseFloat(parts[0]);
+              const den = parseFloat(parts[1]);
+              equaveCents = 1200 * Math.log2(num / den);
+            }
+            // Check for EDO format: m\n (e.g., "3\2")
+            else if (equaveStr.includes('\\')) {
+              const parts = equaveStr.split('\\');
+              const m = parseFloat(parts[0]);
+              const n_edo = parseFloat(parts[1]);
+              equaveCents = 1200 * m / n_edo;
+            }
+            // Check if it's only digits (no decimal) - treat as ratio like "3" meaning "3/1"
+            else if (!equaveStr.includes('.') && /^[\d]+$/.test(equaveStr.trim())) {
+              const num = parseFloat(equaveStr);
+              equaveCents = 1200 * Math.log2(num / 1);
+            }
+            // Otherwise treat as cents (has decimal point)
+            else {
+              equaveCents = parseFloat(equaveStr);
+            }
+            
+            // Handle NaN or invalid values
+            if (isNaN(equaveCents)) {
+              equaveCents = n * 100;
+            }
+            
+            const step = equaveCents / n;
+            const newScale = [];
+            for (let i = 1; i <= n; i++) {
+              newScale.push(String((i * step).toFixed(1)));
+            }
+            props.onChange('scale', newScale);
+            props.onChange('note_names', null);
+            props.onChange('spectrum_colors', true);
+          }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
+            Divide Equave into {props.settings.equivSteps} Equal Parts
+          </button>
+          <button type="button" onClick={() => {
+            const n = props.settings.equivSteps || 12;
+            const step = 1200 / n;
+            const newScale = [];
+            for (let i = 1; i <= n; i++) {
+              newScale.push(String((i * step).toFixed(1)));
+            }
+            props.onChange('scale', newScale);
+            props.onChange('note_names', null);
+            props.onChange('spectrum_colors', true);
+          }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
+            Divide Octave into {props.settings.equivSteps} Equal Parts
+          </button>
           <button type="button" onClick={startImporting}
-            style={collapsed ? { marginTop: '1rem' } : {}}>
+            style={collapsed ? { marginTop: '1rem', marginLeft: '0.2rem' } : { marginTop: '1rem', marginLeft: '0.2rem' }}>
             Edit Scala File
           </button>
         </>)
@@ -103,6 +189,7 @@ const Scale = (props) => {
 
 Scale.propTypes = {
   onImport: PropTypes.func.isRequired,
+  onChange: PropTypes.func.isRequired,
 };
 
 export default Scale;

@@ -130,6 +130,7 @@ input:out-of-range {
   gap: 4px;
   height: 1.5em;
   position: relative;
+  text-align: right;
 }
 
 .color-swatch {
@@ -181,6 +182,7 @@ input:out-of-range {
   border-color: #c8b8b8;
   font-family: monospace;
   font-size: 1.25em;
+  text-align: right;
 }
 
 .color-input:disabled {
@@ -218,11 +220,30 @@ input:out-of-range {
 label .color-cell {
   flex-shrink: 0;
   width: auto;
+  margin-left: 50%;
+}
+
+/* Mobile: reduce margin for narrow screens */
+@media (max-width: 550px) {
+  label .color-cell {
+    margin-left: 30%;
+  }
 }
 
 label .color-cell .color-input {
   width: 6.3em !important;
   flex: none;
+  text-align: right;
+}
+
+/* Mobile: stack buttons vertically */
+@media (max-width: 550px) {
+  .divide-octave-btn, .edit-scala-btn {
+    margin-left: 0 !important;
+    margin-top: 0.5rem;
+    display: block;
+    width: 100%;
+  }
 }
 
 .preset-actions {

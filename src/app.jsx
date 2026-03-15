@@ -84,8 +84,9 @@ const normalizeStructural = (settings) => {
   };
 
   if (settings.scale) {
-    const scala_names = settings.scale.map(i => scalaToLabels(i));
-    const scale = settings.scale.map(i => scalaToCents(i));
+    const scaleAsStrings = settings.scale.map(i => String(i));
+    const scala_names = scaleAsStrings.map(i => scalaToLabels(i));
+    const scale = settings.scale.map(i => scalaToCents(String(i)));
     const equivInterval = scale.pop();
     scale.unshift(0);
     scala_names.pop();
@@ -115,10 +116,11 @@ const DISPLAY_EMPTY_KEYS = ['name', 'description', 'key_labels'];
 
 // Scale hexSize down on phones (max-width 600px), but not below 20
 const scaleHexSizeForScreen = (hexSize) => {
-  if (window.innerWidth <= 600 && hexSize > 20) {
-    return Math.max(20, Math.floor(hexSize * 0.75));
+  const size = hexSize || 42; // default to 42 if undefined
+  if (window.innerWidth <= 600 && size > 20) {
+    return Math.max(20, Math.floor(size * 0.75));
   }
-  return hexSize;
+  return size;
 };
 
 // Scale-related keys to clear on reset (keeps output settings)
@@ -156,7 +158,17 @@ const sessionDefaults = {
   tuning_map_number:  parseInt(sessionStorage.getItem("tuning_map_number"))  || 0,
   tuning_map_degree0: sessionStorage.getItem("tuning_map_degree0") !== null ? parseInt(sessionStorage.getItem("tuning_map_degree0")) : null,
   fundamental_color: parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
+  spectrum_colors: true,
+  key_labels: 'no_labels',
+  fundamental: 260.740741,
   reference_degree: 0,
+  equivSteps: 12,
+  scale: ["100.0", "200.0", "300.0", "400.0", "500.0", "600.0", "700.0", "800.0", "900.0", "1000.0", "1100.0", "1200.0"],
+  rSteps: 2,
+  drSteps: 1,
+  center_degree: 0,
+  hexSize: 42,
+  rotation: -16.102113751,
 };
 
 const App = () => {
@@ -241,10 +253,8 @@ const App = () => {
     ...sessionDefaults,
     // Preset-specific fields start empty — populated only when a preset is loaded.
     // scale/note_names/note_colors handle null gracefully (render empty table).
-    name: '', description: '', key_labels: '',
-    scale: null, note_names: null, note_colors: null,
-    equivSteps: null, fundamental: null, reference_degree: null,
-    center_degree: null,
+    name: '', description: '',
+    note_names: null, note_colors: null,
   }, PRESET_SKIP_KEYS);
 
   const [active, setActive] = useState(false);
@@ -295,10 +305,12 @@ const App = () => {
   useEffect(() => {
     const savedSource = sessionStorage.getItem('hexatone_preset_source');
     const savedName = sessionStorage.getItem('hexatone_preset_name');
-    if (!savedSource || !savedName) return;
 
     // Enable the app - this will trigger synth creation
+    // On fresh load with defaults, still enable the app
     setReady(true);
+
+    if (!savedSource || !savedName) return;
 
     if (savedSource === 'builtin') {
       setActiveSource('builtin');
@@ -429,6 +441,30 @@ const App = () => {
       setLatch(false);
     }
 
+    // When equivSteps changes, resize the scale array to match
+    if (key === 'equivSteps') {
+      setSettings(s => {
+        const newSize = value;
+        const currentScale = s.scale || [];
+        let newScale;
+        if (newSize > currentScale.length) {
+          // Pad with default cents values (100 cents per degree)
+          const padding = [];
+          for (let i = currentScale.length; i < newSize - 1; i++) {
+            padding.push(String((i + 1) * 100) + '.0');
+          }
+          // Last one should be the equave (newSize * 100 cents)
+          padding.push(String(newSize * 100) + '.0');
+          newScale = [...currentScale, ...padding];
+        } else {
+          // Truncate to new size
+          newScale = currentScale.slice(0, newSize);
+        }
+        return { ...s, [key]: value, scale: newScale };
+      });
+      return;
+    }
+
     setSettings(s => {
       const next = { ...s, [key]: value };
       // For color changes, also push directly to the live Keys instance so the
@@ -515,6 +551,11 @@ const App = () => {
 
   const onImport = () => {
     setImportCount(c => c + 1);
+    // On fresh load, scale exists but scale_import may not - ensure ready is set
+    if (!settings.scale_import && settings.scale) {
+      setReady(true);
+      setUserHasInteracted(true);
+    }
     setSettings(s => {
       if (s.scale_import) {
         const parsed = parseScale(s.scale_import);

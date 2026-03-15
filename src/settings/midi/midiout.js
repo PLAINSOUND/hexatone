@@ -57,7 +57,7 @@ const MidiOut = (props) => (
     
 
     <p>
-      <em>The "MTS" Midi Mappings offer an alternative approach, by sending a real-time single-note MIDI tuning message followed by a MIDI note, which triggers the retuned pitch, allowing scales with any number of notes to be played. In this case, MIDI notes used for triggering are unrelated to actual pitches. They simply cycle sequentially through all 128 possible note numbers. This allows polyphonic combinations of up to 128 retuned notes on a single channel. However, some software (e.g. Pianoteq) may filter out notes or process sounds based on the incoming note numbers, causing unexpected results.</em>
+      <em>The "MTS" Midi Mappings offer an alternative approach, by sending a real-time single-note MIDI tuning message followed by a MIDI note, which triggers the retuned pitch, allowing scales with any number of notes to be played. In this case, MIDI notes used for triggering are unrelated to actual pitches. This allows polyphonic combinations of up to 128 retuned notes on a single channel. Some software (e.g. Pianoteq) may filter out notes or process sounds based on the incoming note numbers, so a special reduced range option is also provided.</em>
     </p>    
   </>
 );

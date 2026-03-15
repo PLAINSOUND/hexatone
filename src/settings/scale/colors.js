@@ -88,7 +88,7 @@ const Colors = (props) => {
       {props.settings.spectrum_colors && (
         <label>
           Choose Central Hue
-            <div class="color-cell sidebar-input">
+          <div class="color-cell" style={{ marginLeft: '50%' }}>
             <span
               ref={swatchRef}
               class="color-swatch"

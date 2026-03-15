@@ -178,9 +178,22 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       return;
     }
 
+    // Handle duplicates within the imported files themselves - keep first occurrence only
+    const seenNames = new Set();
+    const uniqueParsed = [];
+    for (const p of parsed) {
+      if (!seenNames.has(p.name)) {
+        seenNames.add(p.name);
+        uniqueParsed.push(p);
+      }
+    }
+    if (uniqueParsed.length < parsed.length) {
+      console.log(`Skipped ${parsed.length - uniqueParsed.length} duplicate tuning(s) in folder`);
+    }
+
     // Check for name clashes with existing presets
     const existing = loadCustomPresets();
-    const clashes = parsed.filter(p => existing.some(e => e.name === p.name));
+    const clashes = uniqueParsed.filter(p => existing.some(e => e.name === p.name));
 
     if (clashes.length > 0) {
       const names = clashes.map(p => p.name).join(', ');
@@ -189,7 +202,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       );
       if (!overwrite) {
         // Skip clashing files, only add new ones
-        const newOnly = parsed.filter(p => !existing.some(e => e.name === p.name));
+        const newOnly = uniqueParsed.filter(p => !existing.some(e => e.name === p.name));
         if (!newOnly.length) {
           setError('No new tunings to import.');
           e.target.value = '';
@@ -207,13 +220,14 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
     // Merge: overwrite clashes, append new
     const next = [
       ...existing.map(ex => {
-        const match = parsed.find(p => p.name === ex.name);
+        const match = uniqueParsed.find(p => p.name === ex.name);
         return match || ex;
       }),
-      ...parsed.filter(p => !existing.some(ex => ex.name === p.name)),
+      ...uniqueParsed.filter(p => !existing.some(ex => ex.name === p.name)),
     ];
     saveCustomPresets(next);
     setPresets(next);
+    setExpanded(true);
     setError('');
     e.target.value = '';
   };

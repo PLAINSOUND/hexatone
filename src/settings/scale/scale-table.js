@@ -367,16 +367,22 @@ const ScaleTable = (props) => {
               />
             </div>
           </td>
-          <td></td>
           <td>
             <input id="centered" type="text" disabled class="equiv-cell"
-                   value={note_names[0] || ''}
-                   aria-label="equave note name"
+                   value={scale.length}
+                   aria-label="equave degree"
             />
           </td>
           <td>
-            <ColorCell name="color_equiv" value={colors[0]}
-                       disabled={true} onChange={() => {}} />
+            <input id="centered" type="text" disabled={editable_labels}
+                   name={`name${scale.length - 1}`} 
+                   value={note_names[scale.length - 1] || ''} 
+                   onChange={nameChange}
+                   aria-label={`pitch name ${scale.length - 1}`}
+            />
+          </td>
+          <td>
+            <span style={{ fontWeight: 'bold', display: 'block', textAlign: 'center', marginTop: '0.25em' }}>Equave</span>
           </td>
         </tr>
       </tbody>
