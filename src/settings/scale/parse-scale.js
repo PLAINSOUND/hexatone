@@ -26,8 +26,8 @@ export const parseScale = (scala) => {
     } else if (match = line.match(/^\s*!\s*HEXATONE_REFERENCE_PITCH\s+(\d+)\s+([\d.]+)$/)) {
       out.hexatone_reference_degree = parseInt(match[1]);
       out.hexatone_fundamental = parseFloat(match[2]);
-    } else if (match = line.match(/^\s*!\s*HEXATONE_MIDIIN_DEGREE0\s+(\d+)$/)) {
-      out.hexatone_midiin_degree0 = parseInt(match[1]);
+    } else if (match = line.match(/^\s*!\s*HEXATONE_midiin_central_degree\s+(\d+)$/)) {
+      out.hexatone_midiin_central_degree = parseInt(match[1]);
     } else if (match = line.match(/^\s*!\s*ABLETON_REFERENCE_PITCH\s+(\d+)\s+([\d.]+)$/)) {
       out.ableton_reference_note = parseInt(match[1]);
       out.ableton_reference_freq = parseFloat(match[2]);
@@ -159,8 +159,8 @@ export const settingsToAbletonScala = (settings) => {
   const name = settings.name || 'custom';
   const description = settings.description || name;
   const rawScale = getRawScale(settings);
-  const refNote = (settings.midiin_degree0 || 60) + (settings.reference_degree || 0);
-  const rootNote = (settings.midiin_degree0 || 60) % 12;
+  const refNote = (settings.midiin_central_degree || 60) + (settings.reference_degree || 0);
+  const rootNote = (settings.midiin_central_degree || 60) % 12;
   const lines = [
     `! ${name}.ascl`,
     `!`,
@@ -180,8 +180,8 @@ export const settingsToHexatonScala = (settings) => {
   const name = settings.name || 'custom';
   const description = settings.description || name;
   const rawScale = getRawScale(settings);
-  const refNote = (settings.midiin_degree0 || 60) + (settings.reference_degree || 0);
-  const rootNote = (settings.midiin_degree0 || 60) % 12;
+  const refNote = (settings.midiin_central_degree || 60) + (settings.reference_degree || 0);
+  const rootNote = (settings.midiin_central_degree || 60) % 12;
   const noteNames = (settings.note_names || []).join(', ');
   const noteColors = (settings.note_colors || []).join(', ');
   const lines = [
@@ -191,7 +191,7 @@ export const settingsToHexatonScala = (settings) => {
     `! ABLETON_ROOT_NOTE ${rootNote}`,
     `!`,
     `! HEXATONE_REFERENCE_PITCH ${settings.reference_degree || 0} ${settings.fundamental || 440}`,
-    `! HEXATONE_MIDIIN_DEGREE0 ${settings.midiin_degree0 || 60}`,
+    `! HEXATONE_midiin_central_degree ${settings.midiin_central_degree || 60}`,
     noteNames ? `! HEXATONE_NOTE_NAMES ${noteNames}` : null,
     noteColors ? `! HEXATONE_NOTE_COLORS ${noteColors}` : null,
     `!`,
@@ -206,9 +206,9 @@ export const settingsToHexatonScala = (settings) => {
 // Build a .kbm keyboard mapping file string from current settings.
 export const settingsToKbm = (settings) => {
   const equivSteps = settings.equivSteps || 12;
-  const midiin_degree0 = settings.midiin_degree0 || 60;
+  const midiin_central_degree = settings.midiin_central_degree || 60;
   const reference_degree = settings.reference_degree || 0;
-  const refNote = midiin_degree0 + reference_degree;
+  const refNote = midiin_central_degree + reference_degree;
   const fundamental = settings.fundamental || 440;
   const mapping = [...Array(equivSteps).keys()].map(i => i.toString());
   const lines = [
@@ -220,7 +220,7 @@ export const settingsToKbm = (settings) => {
     `! Last MIDI note:`,
     `127`,
     `! Middle note (MIDI note number for degree 0):`,
-    midiin_degree0.toString(),
+    midiin_central_degree.toString(),
     `! Reference note (MIDI note for reference frequency):`,
     refNote.toString(),
     `! Reference frequency (Hz):`,
@@ -262,7 +262,7 @@ export const settingsToPresetJson = (settings) => {
     'spectrum_colors', 'fundamental_color',
     'fundamental', 'reference_degree',
     'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
-    'midiin_degree0',
+    'midiin_central_degree',
     'mpe_pitchbend_range',
   ];
 
@@ -323,7 +323,7 @@ export const fileToPreset = (filename, text) => {
       fundamental_color: '#f2e3e3',
       fundamental: parsed.hexatone_fundamental || 440,
       reference_degree: parsed.hexatone_reference_degree || 0,
-      midiin_degree0: parsed.hexatone_midiin_degree0 || 60,
+      midiin_central_degree: parsed.hexatone_midiin_central_degree || 60,
     };
   }
 

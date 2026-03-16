@@ -31,7 +31,7 @@ if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
     'scale', 'scale_import', 'note_names', 'note_colors', 'key_labels',
     'fundamental', 'reference_degree', 'equivSteps', 'equivInterval',
     'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
-    'midiin_degree0', 'spectrum_colors', 'fundamental_color',
+    'midiin_central_degree', 'spectrum_colors', 'fundamental_color',
     'name', 'description', 'short_description',
     'hexatone_preset_source', 'hexatone_preset_name',
   ];
@@ -128,7 +128,7 @@ const SCALE_KEYS_TO_CLEAR = [
   'scale', 'scale_import', 'note_names', 'note_colors', 'key_labels',
   'fundamental', 'reference_degree', 'equivSteps', 'equivInterval',
   'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
-  'midiin_degree0', 'spectrum_colors', 'fundamental_color',
+  'midiin_central_degree', 'spectrum_colors', 'fundamental_color',
   'name', 'description', 'short_description',
 ];
 
@@ -209,7 +209,7 @@ const App = () => {
     // Input
     midiin_device: ExtractString,
     midiin_channel: ExtractInt,
-    midiin_degree0: ExtractInt,
+    midiin_central_degree: ExtractInt,
 
     // Output
     output_sample: ExtractBool,
@@ -369,7 +369,7 @@ const App = () => {
     }
     if (wantMts) {
       promises.push(
-        create_midi_synth(settings.midiin_device, settings.midiin_degree0,
+        create_midi_synth(settings.midiin_device, settings.midiin_central_degree,
           midi.outputs.get(settings.midi_device), settings.midi_channel,
           settings.midi_mapping, settings.midi_velocity, settings.fundamental,
           settings.sysex_type, settings.device_id)
@@ -385,7 +385,7 @@ const App = () => {
           settings.fundamental,
           settings.reference_degree,
           settings.center_degree,
-          settings.midiin_degree0,
+          settings.midiin_central_degree,
           settings.scale,
           settings.mpe_mode,
           settings.mpe_pitchbend_range ?? 48,
@@ -594,7 +594,7 @@ const App = () => {
         const reference_degree = parsed.hexatone_reference_degree !== undefined
           ? parsed.hexatone_reference_degree
           : s.reference_degree;
-        const midiin_degree0 = parsed.hexatone_midiin_degree0 || s.midiin_degree0;
+        const midiin_central_degree = parsed.hexatone_midiin_central_degree || s.midiin_central_degree;
 
         return {
           ...s,
@@ -607,7 +607,7 @@ const App = () => {
           note_colors,
           fundamental,
           reference_degree,
-          midiin_degree0,
+          midiin_central_degree,
           key_labels: hasMetadata ? 'note_names' : 'scala_names',
           spectrum_colors: hasMetadata ? false : true,
           fundamental_color: hasMetadata ? s.fundamental_color : '#f2e3e3',
@@ -639,7 +639,7 @@ const App = () => {
     scaleKey, settings.equivSteps, noteNamesKey, settings.key_labels,
     settings.fundamental, settings.reference_degree, settings.center_degree,
     settings.instrument, settings.midiin_device,
-    settings.midiin_channel, settings.midiin_degree0,
+    settings.midiin_channel, settings.midiin_central_degree,
     settings.midi_device, settings.midi_channel, settings.midi_mapping,
     settings.midi_velocity, settings.sysex_auto, settings.sysex_type,
     settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch,

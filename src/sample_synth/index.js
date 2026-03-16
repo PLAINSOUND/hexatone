@@ -85,7 +85,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         }
       },
 
-      makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played) => {
+      makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
+        note_played, velocity_played, bend, degree0toRef_ratio) => {
         return new ActiveHex(
           coords, cents, velocity_played, note_played, fundamental, centsToReference,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,

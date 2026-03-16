@@ -7,7 +7,7 @@ for (let i = 0; i < 128; i++) {
   tuningmap[i] = [i, 0, 0];
 }
 
-export const create_midi_synth = async (midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental, sysex_type, device_id) => {
+export const create_midi_synth = async (midiin_device, midiin_central_degree, midi_output, channel, midi_mapping, velocity, fundamental, sysex_type, device_id) => {
 
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
   // MTS1: all 128 MIDI notes available as carriers
@@ -22,11 +22,12 @@ export const create_midi_synth = async (midiin_device, midiin_degree0, midi_outp
   const sysex_dev_id = (device_id  != null ? device_id  : 127) & 0x7F;
 
   return {
-    makeHex: (coords, cents, velocity_played, steps, equaves, equivSteps, cents_prev, cents_next, note_played, bend, degree0toRef_ratio) => {
+    makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
+      note_played, velocity_played, bend, degree0toRef_ratio) => {
       return new MidiHex(
         coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
         note_played, velocity_played, bend, degree0toRef_ratio,
-        midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental,
+        midiin_device, midiin_central_degree, midi_output, channel, midi_mapping, velocity, fundamental,
         pool_mts1, pool_mts2_low, pool_mts2_high,
         sysex_rt, sysex_dev_id
       );
@@ -45,12 +46,12 @@ for (let i = 0; i < 2048; i++) {
 function MidiHex(
   coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
   note_played, velocity_played, bend, degree0toRef_ratio,
-  midiin_device, midiin_degree0, midi_output, channel, midi_mapping, velocity, fundamental,
+  midiin_device, midiin_central_degree, midi_output, channel, midi_mapping, velocity, fundamental,
   pool_mts1, pool_mts2_low, pool_mts2_high,
   sysex_rt, sysex_dev_id
 ) {
-  if (midiin_degree0 > 127) midiin_degree0 = 127;
-  else if (midiin_degree0 < 0) midiin_degree0 = 0;
+  if (midiin_central_degree > 127) midiin_central_degree = 127;
+  else if (midiin_central_degree < 0) midiin_central_degree = 0;
 
   let split = channel;
   let steps_cycle;
@@ -118,7 +119,7 @@ function MidiHex(
     this.velocity  = velocity_played > 0 ? velocity_played : velocity;
     this.note_played   = note_played;
     this.midiin_device = midiin_device;
-    this.midiin_degree0 = midiin_degree0;
+    this.midiin_central_degree = midiin_central_degree;
     this.midi_output   = midi_output;
     this.channel      = split;
     this.steps        = steps_cycle;

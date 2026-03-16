@@ -77,16 +77,16 @@ export const channelOffset = (midiChannel, midiin_channel) =>
  * Returns a Point if the note maps to a valid grid position, or null if
  * the note number doesn't land on a grid intersection (remainder != 0).
  *
- * @param {object} settings - { midiin_degree0, midiin_channel, equivSteps, rSteps, drSteps, gcd }
+ * @param {object} settings - { midiin_central_degree, midiin_channel, equivSteps, rSteps, drSteps, gcd }
  * @param {number} noteNumber   - MIDI note number (0-127)
  * @param {number} midiChannel  - 1-indexed MIDI channel
  * @returns {Point|null}
  */
 export const midiNoteToCoords = (settings, noteNumber, midiChannel) => {
-  const { midiin_degree0, midiin_channel, equivSteps, rSteps, drSteps, gcd } = settings;
+  const { midiin_central_degree, midiin_channel, equivSteps, rSteps, drSteps, gcd } = settings;
 
   const offset = channelOffset(midiChannel, midiin_channel);
-  const steps  = (noteNumber - midiin_degree0) + (offset * equivSteps);
+  const steps  = (noteNumber - midiin_central_degree) + (offset * equivSteps);
 
   const rSteps_count   = Math.round(steps / rSteps);
   const rSteps_to_steps = rSteps * rSteps_count;

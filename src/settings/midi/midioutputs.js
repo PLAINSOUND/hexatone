@@ -15,9 +15,9 @@ const save = (name, value, onChange) => {
 
 const MidiOutputs = (props) => {
   const { settings, onChange, midi } = props;
-  // Central MIDI note: defaults to the same note used for MIDI input (midiin_degree0 + center_degree).
+  // Central MIDI note: defaults to the same note used for MIDI input (midiin_central_degree + center_degree).
   const center_degree   = settings.center_degree  || 0;
-  const centralMidiNote = (settings.midiin_degree0 != null ? settings.midiin_degree0 : 60) + center_degree;
+  const centralMidiNote = (settings.midiin_central_degree != null ? settings.midiin_central_degree : 60) + center_degree;
   const tuningMapNote   = settings.tuning_map_degree0 != null ? settings.tuning_map_degree0 : centralMidiNote;
   const masterCh  = settings.mpe_master_ch || '1';
   const available = voiceChannels(masterCh);
@@ -252,7 +252,7 @@ MidiOutputs.propTypes = {
     device_id:          PropTypes.number,
     tuning_map_number:  PropTypes.number,
     tuning_map_degree0: PropTypes.number,
-    midiin_degree0:     PropTypes.number,
+    midiin_central_degree:     PropTypes.number,
     center_degree:      PropTypes.number,
     output_mpe:         PropTypes.bool,
     mpe_device:         PropTypes.string,

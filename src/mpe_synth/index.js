@@ -111,7 +111,7 @@ export const create_mpe_synth = async (
   fundamental = 440,
   reference_degree = 0,
   center_degree = 0,
-  midiin_degree0 = 60,
+  midiin_central_degree = 60,
   scale,
   mpe_mode = "Ableton_workaround",
   bendRange = 48,
@@ -133,7 +133,7 @@ export const create_mpe_synth = async (
 
   // Calculate frequency at central degree
   const freqAtCentral = calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale, equivSteps, equave);
-  const midiNoteForDegree0 = midiin_degree0 + center_degree;
+  const midiNoteForDegree0 = midiin_central_degree + center_degree;
 
   // Send MPE zone configuration RPN on master channel
   if (masterCh !== null) {
@@ -163,7 +163,8 @@ export const create_mpe_synth = async (
   }
 
   return {
-    makeHex: (coords, cents, velocity_played, steps, center_degree, equaves, equivSteps, cents_prev, cents_next, note_played, bend, offsetCents) => {
+    makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
+      note_played, velocity_played, bend, degree0toRef_ratio) => {
       return new MpeHex(
         coords, cents, velocity_played, steps, center_degree,
         midi_output, pool,
