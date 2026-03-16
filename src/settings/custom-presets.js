@@ -246,7 +246,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
             ))}
           </select>
           {isActive && onRevert && (
-            <button type="button" onClick={onRevert}>Reload saved</button>
+            <button type="button" onClick={onRevert}>Reload current</button>
           )}
           <button type="button" class="delete-btn"
                   style={{ marginLeft: 'auto' }}

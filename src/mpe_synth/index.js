@@ -8,6 +8,7 @@
  * - Ableton_workaround: pitch bend range fixed at 48, MIDI note constrained to satisfy
  *   note % 16 = channel (so Ableton can reconstruct the channel from the note number and users can play multiple notes that are close to each other by sending them on different MIDI notes)
  * - Full_MPE: user-selectable pitch bend range 1-96, nearest MIDI note + pitch bend
+ * optimal tuning resolution like MTS is PB range 1, optimal glissando range is 96 (Continuum)
  *
  * MPE zone layout (lower zone, Ableton default):
  *   Master channel:  1  (or 16 for upper zone, or none)
@@ -15,6 +16,29 @@
  *
  * On master channel: program change, global CC, all-notes-off
  * On voice channels: note-on/off + pitch bend + channel pressure (aftertouch)
+ * 
+ * ALGORITHM has 2 parts 1.) is direct from app to MPE, 2.) adds a layer of incoming MIDI notes
+ * 
+ * 1.) Determine from the hex which MPE data to send:
+ * from incoming values fundamental (reference Frequency) and cents we calculate a MIDIcents value
+ * MIDIcents = 1200 * log2 (fundamental / 440) + 69 + cents; this is the sounding note that will be send as MPE by the modes above on the channel assigned by the voice allocator
+ * 
+ * 2.) determine which hex the incoming MIDI note and channel need to trigger as follows:
+ * obtain the MIDI note and channel 
+ * consider the (Central) MIDI Input Channel (midiin_channel) for transposition by equaves
+ * we need to know which hex to play
+ * midiin_central_degree plays central_degree
+ * 
+ * we need to look at
+ * note_played
+ * 
+ * + (channel_played - midiin_channel) % 8 * equivSteps   ---- this needs to be adjusted so equaves up and down are nicely handled ----
+ * 
+ * - midiin_central degree - central_degree
+ * 
+ * to determine the number of scale steps from fundamental, which gives us a hex to play.
+ * 
+ * 
  */
 
 import { VoicePool } from "../voice_pool";

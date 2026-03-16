@@ -334,11 +334,11 @@ const ScaleTable = (props) => {
               />
             </td>
             <td>
-              <input id="centered" type="text" disabled={editable_labels}
-                     name={`name${i + 1}`} value={name}
-                     onChange={nameChange}
-                     aria-label={`pitch name ${i}`}
-              />
+            <input id="centered" type="text" disabled={editable_labels}
+                   name={`name${i + 1}`} value={name}
+                   onChange={nameChange}
+                   aria-label={`pitch name ${i + 1}`}
+            />
             </td>
             <td>
               <ColorCell name={`color${i + 1}`} value={color}
@@ -374,11 +374,9 @@ const ScaleTable = (props) => {
             />
           </td>
           <td>
-            <input id="centered" type="text" disabled={editable_labels}
-                   name={`name${scale.length - 1}`} 
-                   value={note_names[scale.length - 1] || ''} 
-                   onChange={nameChange}
-                   aria-label={`pitch name ${scale.length - 1}`}
+            <input id="centered" type="text" disabled class="equiv-cell"
+                   value={note_names[0] || ''}
+                   aria-label="pitch name equave"
             />
           </td>
           <td>

@@ -103,20 +103,21 @@ describe('ScaleTable — scale value inputs', () => {
 describe('ScaleTable — explicit colors', () => {
   it('color inputs are enabled when spectrum_colors is false', () => {
     render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
-    expect(screen.getByLabelText('pitch color 0').disabled).toBe(false);
+    expect(screen.getByLabelText('hex colour for color0').disabled).toBe(false);
   });
 
   it('color inputs have the correct values', () => {
     render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
-    expect(screen.getByLabelText('pitch color 0').value).toBe('#ffffff');
-    expect(screen.getByLabelText('pitch color 1').value).toBe('#7b7b7b');
+    expect(screen.getByLabelText('hex colour for color0').value).toBe('#ffffff');
+    expect(screen.getByLabelText('hex colour for color1').value).toBe('#7b7b7b');
   });
 
   it('calls onChange("note_colors", ...) with updated array when a color is changed', () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
-    const input = screen.getByLabelText('pitch color 2');
+    const input = screen.getByLabelText('hex colour for color2');
     fireEvent.change(input, { target: { value: '#ff0000', name: 'color2' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toBe('note_colors');
     const updated = onChange.mock.calls[0][1];
@@ -134,17 +135,15 @@ describe('ScaleTable — spectrum colors', () => {
 
   it('color inputs are disabled when spectrum_colors is true', () => {
     render(<ScaleTable settings={settings} onChange={() => {}} />);
-    expect(screen.getByLabelText('pitch color 0').disabled).toBe(true);
+    expect(screen.getByLabelText('hex colour for color0').disabled).toBe(true);
   });
 
   it('all color inputs show the fundamental_color', () => {
     render(<ScaleTable settings={settings} onChange={() => {}} />);
-    // degrees 0–11 (the equave repeat row uses aria-label="pitch color equave")
+    // degrees 0–11
     for (let i = 0; i < 12; i++) {
-      expect(screen.getByLabelText(`pitch color ${i}`).value).toBe('#abcdef');
+      expect(screen.getByLabelText(`hex colour for color${i}`).value).toBe('#abcdef');
     }
-    // equave row always mirrors degree 0
-    expect(screen.getByLabelText('pitch color equave').value).toBe('#abcdef');
   });
 });
 
@@ -164,5 +163,13 @@ describe('ScaleTable — table structure', () => {
     expect(screen.queryByLabelText('pitch value 0')).not.toBeNull(); // first interval = degree 1
     // No "pitch value" aria-label for degree 0 (the 1/1 row)
     expect(document.querySelectorAll('input[aria-label="pitch value -1"]').length).toBe(0);
+  });
+
+  it('equave row shows the same note name as degree 0', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    // The equave should show the same name as degree 0 (root)
+    const equaveNameInput = screen.getByLabelText('pitch name equave');
+    expect(equaveNameInput.value).toBe('C');
+    expect(equaveNameInput.disabled).toBe(true);
   });
 });

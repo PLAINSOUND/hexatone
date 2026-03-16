@@ -30,7 +30,6 @@ if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
   const scaleKeysToClear = [
     'scale', 'scale_import', 'note_names', 'note_colors', 'key_labels',
     'fundamental', 'reference_degree', 'equivSteps', 'equivInterval',
-    'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
     'midiin_central_degree', 'spectrum_colors', 'fundamental_color',
     'name', 'description', 'short_description',
     'hexatone_preset_source', 'hexatone_preset_name',

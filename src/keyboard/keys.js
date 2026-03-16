@@ -759,7 +759,7 @@ class Keys {
     }
 
     // All other keys: only active when sidebar is closed (typing=false means sidebar closed).
-    if (this.typing) return;
+    if (!this.typing) return;
     if (this.inputIsFocused()) return;
 
     e.preventDefault();
@@ -787,7 +787,7 @@ class Keys {
     }
 
     // Only process other keys when sidebar is closed and no input is focused
-    if (this.typing) return;
+    if (!this.typing) return;
     if (this.inputIsFocused()) return;
 
     if (e.code === 'Space') {
