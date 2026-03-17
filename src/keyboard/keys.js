@@ -566,6 +566,7 @@ class Keys {
       this.drawHex(hex.coords, color, text_color);
     }
 
+    /*
     // Kill all sustained notes - process newest first
     for (let i = sustainedHexes.length - 1; i >= 0; i--) {
       const [hex, releaseVel] = sustainedHexes[i];
@@ -575,6 +576,8 @@ class Keys {
       const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
       this.drawHex(hex.coords, color, text_color);
     }
+*/
+
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
 
@@ -587,11 +590,17 @@ class Keys {
 
     console.log("PANIC - all notes killed!");
   };
+
+  resetLatch = () => {
+    // Reset sustain/latch state
+    this.state.sustain = false;
+    if (this.onLatchChange) this.onLatchChange(false);
+  };
   
   hexOn(coords, note_played, velocity_played, bend) {
     if (!bend) {
       bend = 0;
-    };
+    }; 
     if (!velocity_played) {
       velocity_played = this.settings.midi_velocity;
     };
@@ -748,10 +757,12 @@ class Keys {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   };
 
+  
   onKeyDown = (e) => {
     // Escape: toggle sustain. Track escHeld separately because clicking
     // the canvas while Escape is held fires a spurious keyup immediately,
     // which would drop the sustain before mouse-up.
+    
     if (e.code === 'Escape' && !e.repeat) {
       this.state.escHeld = true;
       this.latchToggle();
@@ -779,7 +790,9 @@ class Keys {
     }
   };
 
+  
   onKeyUp = (e) => {
+
     if (e.code === 'Escape') {
       this.state.escHeld = false;
       // Escape is now latch (toggle) — no release action on key-up

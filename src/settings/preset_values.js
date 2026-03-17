@@ -109,8 +109,7 @@ export const presets = [
         "hexSize": 38,
         "rotation": -16.102113751,
         "center_degree": 18,
-        "midiin_central_degree": 60,
-        "instrument": "sruti"
+        "midiin_central_degree": 60
       },
       {
         "name": "Pauline Oliveros: Heart of Tones", 
@@ -156,8 +155,7 @@ export const presets = [
         "reference_degree": 0,
         "midiin_central_degree": 60,
         "center_degree": 0,
-        "short_description": "55-Heart of Tones",
-        "instrument": "WMRI3LST"
+        "short_description": "55-Heart of Tones"
       },
       {
         "name": "Chromatic Scale of Harmonic Partials over A",
@@ -216,8 +214,7 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
-        "midiin_central_degree": 64,
-        "instrument": "WMRI3LST"
+        "midiin_central_degree": 64
       },
       {
         "name": "James Tenney: Critical Band 55 tone layout", 
@@ -263,8 +260,7 @@ export const presets = [
         "reference_degree": 0,
         "midiin_central_degree": 46,
         "center_degree": 0,
-        "short_description": "55-Critical Band",
-        "instrument": "WMRI3LST"
+        "short_description": "55-Critical Band"
       },
       {
         "name": "Elsie Hamilton Subharmonic Modes",
@@ -323,8 +319,7 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
-        "midiin_central_degree": 58,
-        "instrument": "harp"
+        "midiin_central_degree": 58
       },
       {
         "name": "Sabat: The Tree (Odd Partial Notation)",
@@ -363,7 +358,6 @@ export const presets = [
         "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (47-limit)",
-        "instrument": "HvP8_retuned"
       },
       {
         "name": "Sabat: The Tree (HEJI)",
@@ -400,8 +394,7 @@ export const presets = [
         "reference_degree": 56,
         "midiin_central_degree": 60,
         "center_degree": 0,
-        "short_description": "Odd Partial PC (47-limit)",
-        "instrument": "rhodes"
+        "short_description": "Odd Partial PC (47-limit)"
       }
     ]
   },
