@@ -430,6 +430,16 @@ const App = () => {
   const SCALE_KEYS = new Set(['scale', 'note_names', 'fundamental', 'reference_degree', 'equivSteps']);
 
   const onChange = (key, value) => {
+    // If instrument is about to change, stop all currently playing notes
+    // This prevents the old instrument's sounds from continuing after switch
+    if (key === 'instrument') {
+      if (keysRef.current) {
+        keysRef.current.panic();
+      }
+      // Reset latch state to match
+      setLatch(false);
+    }
+
     // If scale is about to change and sustain is active, release it first
     // to prevent stuck sustain state after Keys reconstruction
     if (SCALE_KEYS.has(key)) {
