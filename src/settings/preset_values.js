@@ -75,7 +75,7 @@ export const presets = [
   {"name": "Marc Sabat / NYKY Ensemble",
     settings: [
       {
-        "name": "43 tone JI scale of Harry Partch",
+        "name": "Harry Partch: 43 tone Just Intonation scale",
         "description": "The classic 43-tone 11-Limit Rational Intonation scale by Harry Partch, consisting of 43 divisions per octave derived symmetrically from both harmonic and subharmonic partial rows (otonalities and utonalities) up to a prime limit of 11. The ratio notation follows Partch's original tuning, but this version is transposed so 1/1 = A (441 Hz). The open strings are the ratios 32/27 (C), 16/9 (G), 4/3 (D), 1/1 (A), and 3/2 (E).",
         "short_description": "43-JI-11L Partch (A)",
         "scale": [
@@ -110,10 +110,10 @@ export const presets = [
         "rotation": -16.102113751,
         "center_degree": 18,
         "midiin_central_degree": 60,
-        "mpe_pitchbend_range": 48   
+        "instrument": "sruti"
       },
       {
-        "name": "55 tone Layout for Heart of Tones", 
+        "name": "Pauline Oliveros: Heart of Tones", 
         "description": "55-tone layout of tiny 1 cent steps based on Pauline Oliveros’s \"Heart of Tones\". The central tone D expands outward by about a semitone on each side.",
         "scale_import": scale_55cents,
         "scale": parseScale(scale_55cents).scale,
@@ -156,56 +156,11 @@ export const presets = [
         "reference_degree": 0,
         "midiin_central_degree": 60,
         "center_degree": 0,
-        "short_description": "55-Heart of Tones"
+        "short_description": "55-Heart of Tones",
+        "instrument": "WMRI3LST"
       },
       {
-        "name": "55 tone layout for Critical Band", 
-        "description": "55-tone 19-Limit Rational Intonation scale, based on James Tenney’s \"Critical Band\". The tones fan out around A 440, beginning with very small intervals. As the frequency band widens, the chords become increasingly harmonic. The space between G-sharp and A-sharp is filled with small steps, the remaining pitch classes make a chromatic harmonic scale.",
-        "scale_import": scale_55_criticalband,
-        "scale": parseScale(scale_55_criticalband).scale,
-        "equivSteps": 55,
-        "note_names": [          
-          "A", "A", "A", 
-          "A", "A", "A", "A", 
-          "B", "B", "B", "B", "B", 
-          "C", "C", "C", "C", "C", 
-          "C", "C", "C", "C", 
-          "D", "D", "D", "D", "D", 
-          "D", "D", "D", "D", 
-          "E", "E", "E", "E", "E", 
-          "E", "E", "E", "E", "E", 
-          "F", "F", "F", "F", 
-          "G", "G", "G", "G", "G", 
-          "G", "G", "A", "A", 
-          "A", "127°"],
-        "key_labels": "note_names",
-        "note_colors": [ 
-          "#ffffff", "#d8f7fd", "#ddfde3", 
-          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
-          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
-          "#f5ffe0", "#fbf6e0", "#ffdbdb", "#d8f7fd", "#ddfde3", 
-          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
-          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
-          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
-          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
-          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
-          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
-          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
-          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
-          "#f5ffe0", "#fbf6e0"],
-        "spectrum_colors": false,
-        "rSteps": 9,
-        "drSteps": 5,
-        "hexSize": 38,
-        "rotation": -16.102113751,       
-        "fundamental": 441,
-        "reference_degree": 0,
-        "midiin_central_degree": 46,
-        "center_degree": 0,
-        "short_description": "55-Critical Band"
-      },
-      {
-        "name": "12 Harmonic Partials of A",
+        "name": "Chromatic Scale of Harmonic Partials over A",
         "description": "12-tone 23-limit Rational Intonation (JI) scale. Derived from the harmonic partial row, it is a chromatic scale of the lowest partials that fit on a standard piano keyboard: 16°, 17°, 18°, 19°, 20°, 21°, 22°, 24°, 25°, 26°, 28°, 30° over A.",
         "short_description": "12-RI-3L",
         "scale": [
@@ -262,10 +217,58 @@ export const presets = [
         "rotation": -16.102113751,
         "center_degree": 6,
         "midiin_central_degree": 64,
+        "instrument": "WMRI3LST"
       },
       {
-        "name": "12 Subharmonics for Elsie Hamilton",
-        "description": "12-tone 13-Limit Rational Intonation (JI) scale including the 8 note modes used by JI pioneer Elsie Hamilton (1880-1965). Inspired by Kathleen Schlesinger's research into ancient instruments and modes, Hamilton worked with a subharmonic scale found when instruments have holes or frets placed at equal distances. The intervals fall downward from E, A, F, D, B, following the intervals of the harmonic partials taken downward.",
+        "name": "James Tenney: Critical Band 55 tone layout", 
+        "description": "55-tone 19-Limit Rational Intonation scale, based on James Tenney’s \"Critical Band\". The tones fan out around A 440, beginning with very small intervals. As the frequency band widens, the chords become increasingly harmonic. The space between G-sharp and A-sharp is filled with small steps, the remaining pitch classes make a chromatic harmonic scale.",
+        "scale_import": scale_55_criticalband,
+        "scale": parseScale(scale_55_criticalband).scale,
+        "equivSteps": 55,
+        "note_names": [          
+          "A", "A", "A", 
+          "A", "A", "A", "A", 
+          "B", "B", "B", "B", "B", 
+          "C", "C", "C", "C", "C", 
+          "C", "C", "C", "C", 
+          "D", "D", "D", "D", "D", 
+          "D", "D", "D", "D", 
+          "E", "E", "E", "E", "E", 
+          "E", "E", "E", "E", "E", 
+          "F", "F", "F", "F", 
+          "G", "G", "G", "G", "G", 
+          "G", "G", "A", "A", 
+          "A", "127°"],
+        "key_labels": "note_names",
+        "note_colors": [ 
+          "#ffffff", "#d8f7fd", "#ddfde3", 
+          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
+          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
+          "#f5ffe0", "#fbf6e0", "#ffdbdb", "#d8f7fd", "#ddfde3", 
+          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
+          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
+          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
+          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
+          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
+          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
+          "#f5ffe0", "#fbf6e0", "#ffffff", "#d8f7fd", "#ddfde3", 
+          "#bab4c0", "#adadad", "#b5a5ca", "#ada5c0", 
+          "#f5ffe0", "#fbf6e0"],
+        "spectrum_colors": false,
+        "rSteps": 9,
+        "drSteps": 5,
+        "hexSize": 38,
+        "rotation": -16.102113751,       
+        "fundamental": 441,
+        "reference_degree": 0,
+        "midiin_central_degree": 46,
+        "center_degree": 0,
+        "short_description": "55-Critical Band",
+        "instrument": "WMRI3LST"
+      },
+      {
+        "name": "Elsie Hamilton Subharmonic Modes",
+        "description": "12-tone 13-Limit Rational Intonation (JI) scale including the 8 note modes used by JI pioneer Elsie Hamilton (1880-1965). Inspired by Kathleen Schlesinger's research into ancient instruments and modes (The Greek Aulos), Hamilton worked with subharmonic modes which emerge naturally when instruments have holes or frets placed at equal distances. The intervals fall downward from E, A, F, D, B, following the intervals of the harmonic partials taken downward.",
         "short_description": "12-RI-3L",
         "scale": [
           "12/11",
@@ -320,10 +323,11 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
-        "midiin_central_degree": 58
+        "midiin_central_degree": 58,
+        "instrument": "harp"
       },
       {
-        "name": "Sabat The Tree (Odd Partial Notation)",
+        "name": "Sabat: The Tree (Odd Partial Notation)",
         "description": "81-tone Rational Intonation gamut, consisting of pitch classes derived from odd harmonic partials not exceeding 256° and comprising only products of primes <= 47. The limit chosen is the highest prime that allows each pitch to be part of an harmonic chord comprising (at least) identities 1° 3° 5°. Notated as harmonic odd partial pitch classes.",
         "scale_import": scale_81_hs_odd_47l,
         "scale": parseScale(scale_81_hs_odd_47l).scale,
@@ -354,14 +358,15 @@ export const presets = [
         "drSteps": 5,
         "hexSize": 38,
         "rotation": -16.102113751,       
-        "fundamental": 440,
+        "fundamental": 441,
         "reference_degree": 56,
         "midiin_central_degree": 60,
         "center_degree": 0,
-        "short_description": "Odd Partial PC (47-limit)"
+        "short_description": "Odd Partial PC (47-limit)",
+        "instrument": "HvP8_retuned"
       },
       {
-        "name": "Sabat The Tree (HEJI)",
+        "name": "Sabat: The Tree (HEJI)",
         "description": "81-tone Rational Intonation gamut, consisting of pitch classes derived from odd harmonic partials not exceeding 256° and comprising only products of primes <= 47. The limit chosen is the highest prime that allows each pitch to be part of an harmonic chord comprising (at least) identities 1° 3° 5°. Notated in Helmholtz Ellis JI Pitch Notation",
         "scale_import": scale_81_hs_odd_47l,
         "scale": parseScale(scale_81_hs_odd_47l).scale,
@@ -391,11 +396,12 @@ export const presets = [
         "drSteps": 5,
         "hexSize": 38,
         "rotation": -16.102113751,       
-        "fundamental": 440,
+        "fundamental": 441,
         "reference_degree": 56,
         "midiin_central_degree": 60,
         "center_degree": 0,
-        "short_description": "Odd Partial PC (47-limit)"
+        "short_description": "Odd Partial PC (47-limit)",
+        "instrument": "rhodes"
       }
     ]
   },

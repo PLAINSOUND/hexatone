@@ -41,7 +41,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     if (textRef.current) textRef.current.value = hex;
     if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
     const now = Date.now();
-    if (now - lastFire.current >= 83) {
+    if (now - lastFire.current >= 80) {
       lastFire.current = now;
       onChange({ target: { name, value: hex } });
     }

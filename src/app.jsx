@@ -44,7 +44,7 @@ export const Loading = () => <LoadingIcon />;
 
 const ua = navigator.userAgent;
 const isSafariOnly = /Safari/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua) && !/Firefox/.test(ua);
-if (isSafariOnly) alert("Safari is not fully supported.\nFor the best experience please use Firefox or a Chromium-based browser such as Brave or Chrome.\nWeb MIDI features require a Chromium-based browser.");
+if (isSafariOnly) alert("Safari is not fully supported.\nFor the best experience please use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.");
 
 const findPreset = (preset) => {
   for (let g of presets) {

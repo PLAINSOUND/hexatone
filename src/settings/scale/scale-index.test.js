@@ -1,7 +1,7 @@
 /**
  * Tests for src/settings/scale/index.js (the Scale settings panel)
  *
- * The component always shows the ScaleTable. When "View and Edit Scala File"
+ * The component always shows the ScaleTable. When "Edit Scala File"
  * is clicked, ScalaImport is shown alongside (not instead of) the table.
  * The ScalaImport cancel button is labelled "Hide".
  * The ScalaImport confirm button is labelled "Build Layout".
@@ -30,9 +30,9 @@ describe('Scale panel — default state', () => {
     expect(document.querySelector('table')).not.toBeNull();
   });
 
-  it('renders the "View and Edit Scala File" button', () => {
+  it('renders the "Edit Scala File" button', () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
-    expect(screen.getByRole('button', { name: /view and edit scala file/i })).not.toBeNull();
+    expect(screen.getByRole('button', { name: /edit scala file/i })).not.toBeNull();
   });
 
   it('does not show the scala import textarea initially', () => {
@@ -44,7 +44,7 @@ describe('Scale panel — default state', () => {
 describe('Scale panel — clicking import', () => {
   it('shows the import panel (with textarea) when the button is clicked', () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: /view and edit scala file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /edit scala file/i }));
     // ScalaImport renders alongside the table, not instead of it
     expect(document.querySelector('textarea')).not.toBeNull();
   });
@@ -53,7 +53,7 @@ describe('Scale panel — clicking import', () => {
 describe('Scale panel — cancelling import', () => {
   it('hides the import panel when "Hide" is clicked', () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: /view and edit scala file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /edit scala file/i }));
     fireEvent.click(screen.getByRole('button', { name: /^hide$/i }));
     expect(document.querySelector('textarea')).toBeNull();
   });
@@ -61,7 +61,7 @@ describe('Scale panel — cancelling import', () => {
   it('does not call onImport when cancelled', () => {
     const onImport = vi.fn();
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={onImport} />);
-    fireEvent.click(screen.getByRole('button', { name: /view and edit scala file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /edit scala file/i }));
     fireEvent.click(screen.getByRole('button', { name: /^hide$/i }));
     expect(onImport).not.toHaveBeenCalled();
   });
@@ -71,7 +71,7 @@ describe('Scale panel — completing import', () => {
   it('calls onImport and hides the import panel', () => {
     const onImport = vi.fn();
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={onImport} />);
-    fireEvent.click(screen.getByRole('button', { name: /view and edit scala file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /edit scala file/i }));
     fireEvent.click(screen.getByRole('button', { name: /build layout/i }));
     expect(onImport).toHaveBeenCalledTimes(1);
     expect(document.querySelector('textarea')).toBeNull();
