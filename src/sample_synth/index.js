@@ -176,14 +176,30 @@ ActiveHex.prototype.noteOn = function() {
 };
 
 /**
- * Smoothly retune a held note to a new cents value by ramping playbackRate.
- * No note-off/note-on — the sound continues uninterrupted.
+ * Smoothly retune a held note to a new cents value.
+ * Uses adaptive time constant: larger pitch changes get smoother glides.
  */
 ActiveHex.prototype.retune = function(newCents) {
+  const oldCents = this.cents;
   this.cents = newCents;
+  
   const freq = this.fundamental * Math.pow(2, (newCents - this.centsToReference) / 1200);
-  const newFreq = this.sampleFreq * this.source.playbackRate.value;
-  this.source.playbackRate.setTargetAtTime(freq / this.sampleFreq, this.audioContext.currentTime, 0.02);
+  const targetPlaybackRate = freq / this.sampleFreq;
+  
+  // Adaptive time constant based on pitch change size
+  const delta = Math.abs(newCents - oldCents);
+  let timeConstant;
+  if (delta < 5) {
+    timeConstant = 0.005; // ~5ms - nearly instant for tiny adjustments
+  } else if (delta < 20) {
+    timeConstant = 0.015; // ~15ms - quick for small changes
+  } else if (delta < 50) {
+    timeConstant = 0.025; // ~25ms - smooth for medium changes
+  } else {
+    timeConstant = 0.04;  // ~40ms - noticeable glide for large changes
+  }
+  
+  this.source.playbackRate.setTargetAtTime(targetPlaybackRate, this.audioContext.currentTime, timeConstant);
 };
 
 ActiveHex.prototype.noteOff = function(release_velocity) {

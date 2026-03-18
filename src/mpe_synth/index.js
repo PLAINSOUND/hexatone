@@ -250,25 +250,86 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   this.pool.noteOff(this.coords);
 };
 
-/*
-MpeHex.prototype.retune = function (newCents) {
+
+/**
+ * Smoothly retune a held note to a new cents value.
+ * Sends interpolated pitch bend messages for smooth pitch glide.
+ * If the pitch crosses the pitch bend range boundary, sends note-off
+ * and note-on on new note.
+ */
+MpeHex.prototype.retune = function(newCents) {
+  const oldCents = this.cents;
   this.cents = newCents;
   
   // Calculate new frequency from cents
   const freq = this.freqAtCentral * Math.pow(2, newCents / 1200);
   
   // Recalculate MIDI note and pitch bend
-  const { note, bend } = freqToMidiAndCents(freq, this.freqAtCentral, this.midiNoteForDegree0, this.channel, this.bendRange, this.mode);
-  this.note = note;
-  this.bend = bend;
+  const { note, deviation } = freqToMidiAndCents(freq, this.center_degree, this.channel, this.scale, this.mode);
+  const newNote = note;
+  const newBend = deviationToBend(deviation, this.bendRange);
   
-  // Send new pitch bend
-  const c       = this.channel - 1;
-  const bendLSB = bend & 0x7F;
-  const bendMSB = (bend >> 7) & 0x7F;
-  this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
+  const c = this.channel - 1; // 0-based for MIDI
+  
+  // Check if we crossed the pitch bend range boundary (note number changed)
+  const noteChanged = newNote !== this.note;
+  
+  if (noteChanged) {
+    // Send note-off on old note
+    this.midi_output.send([0x80 + c, this.note, this.velocity]);
+    
+    // Update stored values
+    this.note = newNote;
+    this.bend = newBend;
+    
+    // Send new pitch bend (before note-on, per MPE spec)
+    const bendLSB = this.bend & 0x7F;
+    const bendMSB = (this.bend >> 7) & 0x7F;
+    this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
+    
+    // Send note-on on new note
+    this.midi_output.send([0x90 + c, this.note, this.velocity]);
+  } else {
+    // Interpolate pitch bend for smooth transition
+    const oldBend = this.bend;
+    const delta = newBend - oldBend;
+    
+    // For small changes, send single message. For larger, interpolate.
+    if (Math.abs(delta) < 200) {
+      // Small change - send single pitch bend
+      this.bend = newBend;
+      const bendLSB = this.bend & 0x7F;
+      const bendMSB = (this.bend >> 7) & 0x7F;
+      this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
+    } else {
+      // Larger change - interpolate over ~30ms
+      const steps = Math.min(8, Math.max(3, Math.ceil(Math.abs(delta) / 200)));
+      const stepDelta = delta / steps;
+      let step = 0;
+      
+      const sendStep = () => {
+        step++;
+        this.bend = Math.round(oldBend + stepDelta * step);
+        
+        const bendLSB = this.bend & 0x7F;
+        const bendMSB = (this.bend >> 7) & 0x7F;
+        this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
+        
+        if (step < steps) {
+          setTimeout(sendStep, 4);
+        } else {
+          // Ensure final value is exact
+          this.bend = newBend;
+          const bendLSB = this.bend & 0x7F;
+          const bendMSB = (this.bend >> 7) & 0x7F;
+          this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
+        }
+      };
+      
+      sendStep();
+    }
+  }
 };
-*/
 
 MpeHex.prototype.aftertouch = function (value) {
   const c = this.channel - 1;

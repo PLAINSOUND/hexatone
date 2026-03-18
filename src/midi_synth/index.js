@@ -110,7 +110,7 @@ function MidiHex(
       this._pool  = pool;
     }
 
-    this.coords    = coords;
+        this.coords    = coords;
     this.cents     = cents;
     this.bend_down = bend_down;
     this.bend_up   = bend_up;
@@ -126,6 +126,8 @@ function MidiHex(
     this.mts          = mts;
     this.sysex_rt     = sysex_rt     != null ? sysex_rt     : 127;
     this.sysex_dev_id = sysex_dev_id != null ? sysex_dev_id : 127;
+    this.fundamental      = fundamental;      // needed for retune
+    this.degree0toRef_ratio = degree0toRef_ratio; // needed for retune
 
   } else {
     console.log("Please choose an output channel!");
@@ -158,6 +160,77 @@ MidiHex.prototype.noteOff = function (release_velocity) {
   // Return slot to pool
   if (this._pool) {
     this._pool.noteOff(this.coords);
+  }
+};
+
+/**
+ * Smoothly retune a held note to a new cents value.
+ * Sends interpolated MTS real-time tuning messages for smooth pitch glide.
+ */
+MidiHex.prototype.retune = function(newCents) {
+  const oldCents = this.cents;
+  this.cents = newCents;
+  
+  const delta = newCents - oldCents;
+  
+  // For small changes, send single message. For larger, interpolate.
+  if (Math.abs(delta) < 5) {
+    // Small change - send single tuning message
+    this._sendMtsTuning(newCents);
+  } else {
+    // Larger change - interpolate over ~30ms
+    const steps = Math.min(8, Math.max(3, Math.ceil(Math.abs(delta) / 10)));
+    const stepDelta = delta / steps;
+    let step = 0;
+    
+    const sendStep = () => {
+      step++;
+      const interpolatedCents = oldCents + stepDelta * step;
+      this._sendMtsTuning(interpolatedCents);
+      
+      if (step < steps) {
+        setTimeout(sendStep, 4);
+      } else {
+        // Final update with exact target
+        this._sendMtsTuning(newCents);
+        this._updateKeymap();
+      }
+    };
+    
+    sendStep();
+  }
+};
+
+/**
+ * Send MTS tuning message for given cents value.
+ */
+MidiHex.prototype._sendMtsTuning = function(cents) {
+  // Calculate frequency at degree 0 from fundamental (applied at reference degree)
+  const ref = this.fundamental / this.degree0toRef_ratio;
+  const ref_offset = 1200 * Math.log2(ref / 261.6255653);
+  const ref_cents = cents + ref_offset;
+  const steps_from_ref = Math.floor(ref_cents / 100.0);
+  
+  // Update MTS array
+  this.mts[1] = (steps_from_ref + 180) % 120;
+  let fine = (ref_cents * 0.01) - steps_from_ref;
+  fine = Math.round(16384 * fine);
+  if (fine === 16384) fine = 16383;
+  this.mts[2] = (fine & 16383) >> 7;
+  this.mts[3] = fine & 127;
+  
+  // Send real-time single-note tuning message
+  this.midi_output.send([0xF0, 127, this.sysex_dev_id, 0x08, 0x02, 0x00, 0x01,
+    this.mts[0], this.mts[1], this.mts[2], this.mts[3], 0xF7]);
+};
+
+/**
+ * Update keymap with current tuning.
+ */
+MidiHex.prototype._updateKeymap = function() {
+  if (this.note_played != null) {
+    keymap[this.note_played] = [this.mts[0], this.mts[1], this.mts[2], this.mts[3], 
+                                 this.bend_down, this.bend_up, this.channel];
   }
 };
 

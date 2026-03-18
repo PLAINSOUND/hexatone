@@ -683,11 +683,11 @@ const App = () => {
     ((settings.spectrum_colors && settings.fundamental_color) || settings.note_colors)
   ), [settings]);
 
-  // Stable string keys for array deps — prevents new array references from
-  // triggering spurious memo recomputations and Keys reconstructions.
-  const scaleKey        = JSON.stringify(settings.scale);
-  const noteNamesKey    = JSON.stringify(settings.note_names);
-  const noteColorsKey   = JSON.stringify(settings.note_colors);
+    // Stable string keys for array deps — memoized so stringify only runs when
+  // the array content actually changes, not on every render.
+  const scaleKey      = useMemo(() => JSON.stringify(settings.scale), [settings.scale]);
+  const noteNamesKey  = useMemo(() => JSON.stringify(settings.note_names), [settings.note_names]);
+  const noteColorsKey = useMemo(() => JSON.stringify(settings.note_colors), [settings.note_colors]);
 
     // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
