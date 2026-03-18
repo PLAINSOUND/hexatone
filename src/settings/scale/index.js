@@ -88,13 +88,6 @@ const Scale = (props) => {
                    props.onChange('equivSteps', val);
                  }
                }}
-               onBlur={(e) => {
-                 const val = parseInt(e.target.value);
-                 if (!isNaN(val) && val >= 1 && val <= 2048) {
-                   props.onChange('note_names', null);
-                   props.onChange('spectrum_colors', true);
-                 }
-               }}
         />
       </label>
       {!collapsed && (<>
@@ -160,7 +153,7 @@ const Scale = (props) => {
             for (let i = 1; i <= n; i++) {
               newScale.push(String((i * step).toFixed(1)));
             }
-            props.onChange('scale', newScale);
+            props.onChange('scale_divide', newScale);
           }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
             Divide Equave into {props.settings.equivSteps} Equal Parts
           </button>
@@ -171,7 +164,7 @@ const Scale = (props) => {
             for (let i = 1; i <= n; i++) {
               newScale.push(String((i * step).toFixed(1)));
             }
-            props.onChange('scale', newScale);
+            props.onChange('scale_divide', newScale);
           }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
             Divide Octave into {props.settings.equivSteps} Equal Parts
           </button>

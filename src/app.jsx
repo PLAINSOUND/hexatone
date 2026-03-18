@@ -440,21 +440,17 @@ const App = () => {
       setLatch(false);
     }
 
-    // If scale is about to change and sustain is active, release it first
-    // to prevent stuck sustain state after Keys reconstruction
-    if (SCALE_KEYS.has(key)) {
-      if (keysRef.current && keysRef.current.state.sustain) {
-        keysRef.current.sustainOff(true);
-      }
-      // Also reset the React latch state to match
-      setLatch(false);
-      // Trigger re-render of scale table
-      setImportCount(c => c + 1);
-    }
-
-    // When equivSteps changes, resize the scale array to match
+    // When equivSteps changes, resize the scale array and reset scale-related settings
+    // This must be handled BEFORE the SCALE_KEYS block so panic() is called instead of sustainOff()
     if (key === 'equivSteps') {
-      setSettings(s => {
+      // Kill all notes and clear sustain state - scale is being fundamentally restructured
+      if (keysRef.current) {
+        keysRef.current.panic();
+      }
+      setLatch(false);
+      setImportCount(c => c + 1);
+
+            setSettings(s => {
         const newSize = value;
         const currentScale = s.scale || [];
         let newScale;
@@ -471,7 +467,41 @@ const App = () => {
           // Truncate or keep same size
           newScale = currentScale.slice(0, newSize);
         }
-        return { ...s, [key]: value, scale: newScale };
+        // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
+        const newNoteNames = newScale.map((_, i) => newScale[(i - 1 + newScale.length) % newScale.length]);
+        return {
+          ...s,
+          [key]: value,
+          scale: newScale,
+          note_names: newNoteNames,
+          spectrum_colors: true,
+          fundamental_color: '#f2e3e3',
+        };
+      });
+      return;
+    }
+
+    // When scale is divided into equal parts (Divide Equave / Divide Octave buttons)
+    // Same treatment as equivSteps: panic and reset scale-related settings
+    if (key === 'scale_divide') {
+      if (keysRef.current) {
+        keysRef.current.panic();
+      }
+      setLatch(false);
+      setImportCount(c => c + 1);
+
+      setSettings(s => {
+        const newScale = value;
+        
+        // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
+        const newNoteNames = newScale.map((_, i) => newScale[(i - 1 + newScale.length) % newScale.length]);
+        return {
+        ...s,
+        scale: newScale,
+        note_names: newNoteNames,
+        spectrum_colors: true,
+        fundamental_color: '#f2e3e3',
+        };
       });
       return;
     }
