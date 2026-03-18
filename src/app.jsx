@@ -524,20 +524,19 @@ const App = () => {
       return;
     }
 
-    setSettings(s => {
-      const next = { ...s, [key]: value };
-      // For color changes, also push directly to the live Keys instance so the
-      // hex grid updates immediately during swatch drag without waiting for a
-      // full React render cycle.
-      if (COLOR_KEYS.has(key) && keysRef.current) {
-        keysRef.current.updateColors({
-          note_colors:       key === 'note_colors'       ? normalizeColors(next).note_colors       : normalizeColors(s).note_colors,
-          spectrum_colors:   key === 'spectrum_colors'   ? value                                   : s.spectrum_colors,
-          fundamental_color: key === 'fundamental_color' ? (value || '').replace(/#/, '')          : (s.fundamental_color || '').replace(/#/, ''),
-        });
-      }
-      return next;
-    });
+        // For color changes, push to the live Keys instance BEFORE setSettings.
+    // This uses the current keysRef at call time, avoiding stale references
+    // if a reconstruction happens during the React batch.
+    if (COLOR_KEYS.has(key) && keysRef.current) {
+      const colorUpdate = {
+        note_colors:       key === 'note_colors'       ? normalizeColors({ ...settings, [key]: value }).note_colors : normalizeColors(settings).note_colors,
+        spectrum_colors:   key === 'spectrum_colors'   ? value : settings.spectrum_colors,
+        fundamental_color: key === 'fundamental_color' ? (value || '').replace(/#/, '') : (settings.fundamental_color || '').replace(/#/, ''),
+      };
+      keysRef.current.updateColors(colorUpdate);
+    }
+
+    setSettings(s => ({ ...s, [key]: value }));
   };
 
   const resetScale = () => {
