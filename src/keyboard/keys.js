@@ -294,15 +294,27 @@ class Keys {
     this.state.isTuneDragging = active;
   };
 
+    setTuneDragging = (active) => {
+    this.state.isTuneDragging = active;
+  };
+
   /**
    * Imperatively update colors and redraw without reconstructing the Keys instance.
-   * Called by keyboard/index.js when color settings change.
+   * RAF-batched: multiple rapid color changes result in only one redraw per frame.
    */
   updateColors = (colors) => {
     this.settings.note_colors = colors.note_colors;
     this.settings.spectrum_colors = colors.spectrum_colors;
     this.settings.fundamental_color = colors.fundamental_color;
-    this.drawGrid();
+
+    // Batch redraws via RAF - at most one per 16ms frame
+    if (!this._colorRafPending) {
+      this._colorRafPending = true;
+      requestAnimationFrame(() => {
+        this._colorRafPending = false;
+        this.drawGrid();
+      });
+    }
   };
 
   deconstruct = () => {

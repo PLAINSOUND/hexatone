@@ -27,6 +27,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
   const textRef = createRef();
   const swatchRef = createRef();
   const lastFire = useRef(0);
+  const lastEventTime = useRef(0);
 
   // Clicking the swatch triggers the hidden color picker
   const handleSwatchClick = () => {
@@ -35,13 +36,28 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     }
   };
 
-  // onInput: throttled to ~60ms so the hex grid updates smoothly without lag
+  // onInput: velocity-adaptive throttling
+  // Fast movement → fewer updates (coarser, ~100ms gap)
+  // Slow movement → more updates (finer, ~16ms gap = 60fps)
   const handlePickerInput = (e) => {
     const hex = e.target.value;
+    const now = Date.now();
+
+    // Always update local UI immediately (no perceived lag)
     if (textRef.current) textRef.current.value = hex;
     if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
-    const now = Date.now();
-    if (now - lastFire.current >= 80) {
+
+    // Measure event frequency as proxy for drag speed
+    const timeSinceLastEvent = now - lastEventTime.current;
+    lastEventTime.current = now;
+
+    // Adaptive throttle: fast drag (small gap) → longer throttle
+    // 0ms gap (very fast) → 100ms throttle
+    // 80ms+ gap (slow) → 16ms throttle (60fps)
+    const speedFactor = Math.max(0, Math.min(1, (80 - timeSinceLastEvent) / 80));
+    const throttle = 16 + speedFactor * 84; // 16-100ms range
+
+    if (now - lastFire.current >= throttle) {
       lastFire.current = now;
       onChange({ target: { name, value: hex } });
     }
@@ -121,7 +137,6 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     </div>
   );
 };
-
 
 /**
  * TuneCell — drag-to-tune control for a single scale degree.
