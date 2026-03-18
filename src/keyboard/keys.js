@@ -306,6 +306,9 @@ class Keys {
   };
 
   deconstruct = () => {
+  
+    this.panic();
+
     for (let hex of this.state.activeHexObjects) {
       hex.noteOff();
     };

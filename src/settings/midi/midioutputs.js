@@ -283,7 +283,7 @@ const MidiOutputs = (props) => {
               </label>
 
               <p>
-                <em><a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a> is a standard allowing per-note independent modulation of MIDI notes. PLEASE NOTE this feature is under construction and not yet fully functional!</em>
+                <em><a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a> is a standard allowing per-note independent modulation of MIDI notes.</em>
               </p>
             </>
           )}

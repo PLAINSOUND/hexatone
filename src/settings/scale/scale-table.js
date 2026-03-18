@@ -132,6 +132,9 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
   const [tunedCents, setTunedCents] = useState(null);
   const [comparing, setComparing] = useState(false);
   const dragStart = useRef(null);
+  // Capture the Keys instance when drag starts — keysRef.current may change
+  // during reconciliation, so we need the specific instance we set drag on
+  const dragKeysInstance = useRef(null);
 
   // Keep originalCents in sync when scale string changes from outside
   useEffect(() => {
@@ -139,6 +142,18 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
       originalCents.current = scalaToCents(scaleStr);
     }
   }, [scaleStr]);
+
+  // Clean up drag state on unmount — ensures setTuneDragging(false) is called
+  // on the CORRECT Keys instance even if the component is removed mid-drag
+  useEffect(() => {
+    return () => {
+      // Use the captured instance from when drag started, not keysRef.current
+      // which may now point to a new Keys instance after reconstruction
+      if (dragKeysInstance.current && dragKeysInstance.current.setTuneDragging) {
+        dragKeysInstance.current.setTuneDragging(false);
+      }
+    };
+  }, []);
 
   const currentCents = tunedCents !== null ? tunedCents : originalCents.current;
   const isDirty = tunedCents !== null && Math.abs(tunedCents - originalCents.current) > 0.001;
@@ -152,8 +167,10 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
   const onPointerDown = useCallback((e) => {
     // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
     // which would drop sustain; the flag guards against that in keys.js.
+    // Also capture the Keys instance for cleanup in case we're unmounted mid-drag.
     if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
       keysRef.current.setTuneDragging(true);
+      dragKeysInstance.current = keysRef.current;
     }
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStart.current = { lastX: e.clientX, accCents: currentCents };

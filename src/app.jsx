@@ -690,7 +690,7 @@ const App = () => {
   const noteNamesKey    = JSON.stringify(settings.note_names);
   const noteColorsKey   = JSON.stringify(settings.note_colors);
 
-  // Structural settings: everything except colors. Memoized so Keys is only
+    // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
   const structuralSettings = useMemo(() => normalizeStructural(settings), [
     settings.rSteps, settings.drSteps, settings.hexSize, settings.rotation,
@@ -702,6 +702,17 @@ const App = () => {
     settings.midi_velocity, settings.sysex_auto, settings.sysex_type,
     settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch,
   ]);
+
+  // Reset latch (sustain UI state) when Keys is reconstructed.
+  // The new Keys instance starts with sustain: false, so the UI must match.
+  // Using a ref to skip the initial render (no reconstruction on first mount).
+  const prevStructuralRef = useRef(null);
+  useEffect(() => {
+    if (prevStructuralRef.current !== null && prevStructuralRef.current !== structuralSettings) {
+      setLatch(false);
+    }
+    prevStructuralRef.current = structuralSettings;
+  }, [structuralSettings]);
 
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
