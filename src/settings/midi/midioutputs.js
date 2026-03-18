@@ -13,6 +13,34 @@ const save = (name, value, onChange) => {
   sessionStorage.setItem(name, value);
 };
 
+// Send MPE pitch bend range RPN to all voice channels
+const sendMpePitchBendRange = (output, masterCh, loCh, hiCh, bendRange, mpeMode) => {
+  if (!output) return;
+  
+  const masterChNum = masterCh != null && masterCh !== 'none' ? parseInt(masterCh) - 1 : null;
+  const actualBendRange = mpeMode === "Ableton_workaround" ? 48 : (bendRange || 48);
+  
+  // Send MPE zone configuration RPN on master channel
+  if (masterChNum !== null) {
+    const numVoices = hiCh - loCh + 1;
+    // RPN 0x0006 (MPE config) = number of member channels
+    output.send([0xB0 + masterChNum, 101, 0]);     // RPN MSB = 0
+    output.send([0xB0 + masterChNum, 100, 6]);     // RPN LSB = 6
+    output.send([0xB0 + masterChNum, 6, numVoices]); // data entry MSB
+    output.send([0xB0 + masterChNum, 38, 0]);      // data entry LSB
+  }
+  
+  // Send pitch bend range RPN on all voice channels
+  // RPN 0x0000 (pitch bend range)
+  for (let ch = loCh; ch <= hiCh; ch++) {
+    const c = ch - 1; // 0-based
+    output.send([0xB0 + c, 101, 0]);     // RPN MSB = 0
+    output.send([0xB0 + c, 100, 0]);     // RPN LSB = 0
+    output.send([0xB0 + c, 6, actualBendRange]); // data entry MSB (semitones)
+    output.send([0xB0 + c, 38, 0]);      // data entry LSB
+  }
+};
+
 const MidiOutputs = (props) => {
   const { settings, onChange, midi } = props;
   // Central MIDI note: defaults to the same note used for MIDI input (midiin_central_degree + center_degree).
@@ -206,7 +234,7 @@ const MidiOutputs = (props) => {
                 </span>
               </label>
 
-              <label>
+                            <label>
                 Mode
                 <select name="mpe_mode" class="sidebar-input"
                   value={settings.mpe_mode || "Ableton_workaround"}
@@ -230,6 +258,30 @@ const MidiOutputs = (props) => {
                     }} />
                 </label>
               )}
+
+              <label>
+                Send MPE Configuration
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                  <button type="button"
+                    style={{ fontSize: '0.85em' }}
+                    onClick={() => {
+                      const output = WebMidi.getOutputById(settings.mpe_device);
+                      if (output) {
+                        sendMpePitchBendRange(
+                          output,
+                          settings.mpe_master_ch,
+                          settings.mpe_lo_ch,
+                          settings.mpe_hi_ch,
+                          settings.mpe_pitchbend_range ?? 48,
+                          settings.mpe_mode
+                        );
+                      }
+                    }}>
+                    Send Pitch Bend Range
+                  </button>
+                </span>
+              </label>
+
               <p>
                 <em><a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a> is a standard allowing per-note independent modulation of MIDI notes. PLEASE NOTE this feature is under construction and not yet fully functional!</em>
               </p>

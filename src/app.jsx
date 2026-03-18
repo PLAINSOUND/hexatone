@@ -413,7 +413,7 @@ const App = () => {
   }, [settings.instrument, settings.fundamental, settings.reference_degree, settings.scale,
     settings.midi_device, settings.midi_channel, settings.midi_mapping, settings.midi_velocity,
     settings.output_sample, settings.output_mts,
-    settings.output_mpe, settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch, settings.mpe_pitchbend_range,
+    settings.output_mpe, settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch, settings.mpe_pitchbend_range, settings.mpe_mode,
     midi]);
 
   // Keep synthRef in sync so volume/mute can be applied imperatively
@@ -491,16 +491,34 @@ const App = () => {
       setImportCount(c => c + 1);
 
       setSettings(s => {
+        // Use the incoming value (new scale), not s.scale (old scale)
         const newScale = value;
+        const equivSteps = s.equivSteps || newScale.length;
+        const equaveValue = newScale[newScale.length - 1];
+        
+        // Check if equave is an octave (1200 cents, 1200.0, 2/1, or "2")
+        const isOctave = equaveValue === '2' || 
+                         equaveValue === '2/1' || 
+                         equaveValue === '1200' || 
+                         equaveValue === '1200.0' ||
+                         /^1200\.?0*$/.test(equaveValue);
+        
+        // Generate name and description (simplify for octave)
+        const equaveForName = isOctave ? '2' : equaveValue;
+        const equaveForDesc = isOctave ? 'Octave' : `${equaveValue} cents`;
+        const newName = `${equivSteps}ed${equaveForName}`;
+        const newDescription = `${equaveForDesc} divided into ${equivSteps} equal steps`;
         
         // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
         const newNoteNames = newScale.map((_, i) => newScale[(i - 1 + newScale.length) % newScale.length]);
         return {
-        ...s,
-        scale: newScale,
-        note_names: newNoteNames,
-        spectrum_colors: true,
-        fundamental_color: '#f2e3e3',
+          ...s,
+          scale: newScale,
+          name: newName,
+          description: newDescription,
+          note_names: newNoteNames,
+          spectrum_colors: true,
+          fundamental_color: '#f2e3e3',
         };
       });
       return;
