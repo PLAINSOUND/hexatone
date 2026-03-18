@@ -113,7 +113,7 @@ export function useQuery(spec, defaults, skipKeys = []) {
     }
     const url = new URL(location.toString());
     url.search = query.toString();
-    history.pushState({}, "Hexatone WebApp", url);
+    history.replaceState({}, "Hexatone WebApp", url);
 
     setValues(next);
   }

@@ -528,7 +528,8 @@ const App = () => {
     }
   };
 
-  const presetChanged = e => {
+  const presetChanged = async e => {
+    if (synth?.prepare) await synth.prepare();
     if (!e.target.value) return;
     setReady(true);
     setUserHasInteracted(true); // User gesture - AudioContext can start
