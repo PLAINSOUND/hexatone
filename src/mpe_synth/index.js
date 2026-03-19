@@ -200,13 +200,14 @@ export const create_mpe_synth = async (
         midi_output, pool,
         freqAtCentral, midiNoteForDegree0,
         actualBendRange, mpe_mode,
-        scale
+        scale,
+        note_played  // for aftertouch tracking
       );
     },
   };
 };
 
-function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_output, pool, freqAtCentral, midiNoteForDegree0, bendRange, mode, scale) {
+function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_output, pool, freqAtCentral, midiNoteForDegree0, bendRange, mode, scale, note_played) {
   this.coords = coords;
   this.cents = cents;
   this.steps = steps;
@@ -220,6 +221,7 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_outpu
   this.mode = mode;
   this.scale = scale;
   this.velocity = Math.max(1, Math.min(127, velocity_played || 72));
+  this.note_played = note_played;  // for aftertouch tracking from Lumatone
 
   // Allocate voice channel — steal oldest if pool exhausted
   const { slot, stolen, lastBend, lastNote, cleanSlot, stolenSlot, stolenNote, retrigger } = pool.noteOn(coords);
@@ -281,7 +283,7 @@ MpeHex.prototype.noteOn = function () {
   setTimeout(() => {
     this.midi_output.send([0x90 + c, this.note, this.velocity]);
     //console.log(`  → noteOn SENT: [${0x90 + c}, ${this.note}, ${this.velocity}]`);
-  }, 2);
+  }, 1);
 };
 
 MpeHex.prototype.noteOff = function (release_velocity) {
@@ -377,9 +379,13 @@ MpeHex.prototype.retune = function(newCents) {
 };
 
 MpeHex.prototype.aftertouch = function (value) {
+  // Guard: don't send aftertouch if voice was stolen
+  if (this.release) return;
+  
   const c = this.channel - 1;
   // Channel pressure on the voice channel = MPE per-note pressure
   this.midi_output.send([0xD0 + c, Math.max(0, Math.min(127, value))]);
+  //console.log(`AFTERTOUCH: note_played=${this.note_played} → MPE channel ${this.channel} value=${value}`);
 };
 
 export default create_mpe_synth;
