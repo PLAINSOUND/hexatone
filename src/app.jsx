@@ -787,7 +787,7 @@ const App = () => {
           <em>TO PLAY click or touch notes, attach a MIDI keyboard or a Lumatone. With sidebar closed, a computer keyboard also plays notes: H is mapped to Central Scale Degree; SPACEBAR sustains while pressed; SHIFT+keys sustains individual notes; ESC toggles a hand-free latch sustain.</em>
         </p>
         <p>
-          <em>Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE automatically transposes built-in and external MIDI sounds. Edit scale degrees, note names, and colours below. Each pitch may be retuned, compared, saved, or reverted in real-time.</em>
+          <em>Setting Reference Frequency and Assigned Scale Degree automatically transposes built-in and external sounds. Edit scale degrees, note names, and colours below: pitches may be retuned, compared, saved, or reverted in real-time. Layouts and scala files may be exported and loaded to the User Tunings menu.</em>
         </p>
         <Settings presetChanged={presetChanged}
                     presets={presets}

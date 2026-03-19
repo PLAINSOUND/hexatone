@@ -90,12 +90,7 @@ const Scale = (props) => {
         />
       </label>
       {!collapsed && (<>
-      <p>
-      <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) or MPE messages, keep the global tuning of receiving instruments at default value, A4 = 440 Hz. Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE will automatically transpose built-in and external sounds accordingly.</em>
-      </p>
-      <p>
-      <em>Use the table below to edit the scale degrees, their note names, and colours. The icon to the left of the Degree display allows the pitch to be dynamically retuned, compared, saved, or reverted.</em>
-      </p>
+     
       <label>
         Scale Size
         <input name="equivSteps" type="text" inputMode="numeric"
