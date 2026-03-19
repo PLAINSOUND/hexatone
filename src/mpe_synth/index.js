@@ -93,10 +93,19 @@ function freqToMidiAndCents(freq, center_degree, channel, scale, mode) {
     const baseNote = channel % 16;
     const octaveOffset = Math.round((targetMidiNote - baseNote) / 16);
     note = baseNote + octaveOffset * 16;
-    note = Math.max(0, Math.min(127, note));
+    
+    // BUG FIX: if clamped, find nearest valid note within MIDI range
+    if (note > 127) {
+      // Find highest valid note for this channel
+      note = baseNote + Math.floor((127 - baseNote) / 16) * 16;
+    } else if (note < 0) {
+      note = baseNote;  // lowest valid note for this channel
+    }
     
     // Calculate deviation in cents
     deviation = (targetMidiNote - note) * 100.0;
+    
+    console.log(`Ableton: target=${targetMidiNote.toFixed(2)} channel=${channel} baseNote=${baseNote} octaveOffset=${octaveOffset} note=${note} deviation=${deviation.toFixed(0)} cents`);
   } else {
     // Full MPE: nearest MIDI note
     note = Math.round(targetMidiNote);
@@ -177,6 +186,12 @@ export const create_mpe_synth = async (
     midi_output.send([0xB0 + c, 38, 0]);
   }
 
+  // Initialize all voice channels to centered pitch bend (8192)
+  for (const ch of voiceIds) {
+    const c = ch - 1; // 0-based
+    midi_output.send([0xE0 + c, 0, 64]);  // 8192 = centered
+  }
+
   return {
     makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
       note_played, velocity_played, bend, degree0toRef_ratio) => {
@@ -207,14 +222,28 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_outpu
   this.velocity = Math.max(1, Math.min(127, velocity_played || 72));
 
   // Allocate voice channel — steal oldest if pool exhausted
-  const { slot, stolen, lastBend, retrigger } = pool.noteOn(coords);
+  const { slot, stolen, lastBend, lastNote, cleanSlot, stolenSlot, stolenNote, retrigger } = pool.noteOn(coords);
   
+  console.log(`=== NEW NOTE ===`);
+  console.log(`  slot=${slot} cleanSlot=${cleanSlot} stolenSlot=${stolenSlot} lastBend=${lastBend}`);
+  
+  // Reset pitch bend on cleanSlot (channel that was killed in previous steal)
+  // This gives the release tail time to fade before we reset PB
+  if (cleanSlot !== null) {
+    const csc = cleanSlot - 1;  // 0-based
+    midi_output.send([0xE0 + csc, 0, 64]);  // 8192 = centered
+    console.log(`  → RESET PB on cleanSlot ${cleanSlot} to center (8192)`);
+  } else if (stolen !== null) {
+    // FIRST steal: using reserved cleanSlot, but NO PB reset sent!
+    // This could be the bug - the channel might have residual PB
+    console.log(`  → FIRST STEAL: no cleanSlot reset, channel ${slot} should already be at 8192`);
+  }
+  
+  // Kill stolen voice with noteOff on its channel
   if (stolen !== null) {
-    // Send note-off on stolen channel using last known note/bend for that slot
-    const sc = slot - 1;
-    // Get the last note played on this channel from the pool's tracked state
-    // For now, use a reasonable default - ideally we'd track this per-slot
-    midi_output.send([0x80 + sc, 60, 0]);
+    const ssc = stolenSlot - 1;  // 0-based channel of killed voice
+    midi_output.send([0x80 + ssc, stolenNote, 0]);
+    console.log(`  → KILL voice on channel ${stolenSlot}, note ${stolenNote}`);
   }
   
   this.channel = slot; // 1-based
@@ -227,39 +256,39 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_outpu
   this.note = note;
   this.bend = deviationToBend(deviation, bendRange);
   
-  // Store lastBend for reference (will be 8192 if clean slot was used)
-  this._lastBend = lastBend;
+  // Send pitch bend NOW (in constructor) so it's ready before noteOn
+  const c = this.channel - 1;
+  const bendLSB = this.bend & 0x7F;
+  const bendMSB = (this.bend >> 7) & 0x7F;
+  midi_output.send([0xE0 + c, bendLSB, bendMSB]);
+  
+  // Debug: log the actual bend values
+  const bendOffset = this.bend - 8192;  // signed offset from center
+  const bendSemis = (bendOffset / 8192) * bendRange;
+  console.log(`BEND: channel=${this.channel} note=${this.note} deviation=${deviation.toFixed(0)}¢ bend=${this.bend} (offset=${bendOffset}, ${bendSemis.toFixed(2)} semitones) LSB=${bendLSB} MSB=${bendMSB}`);
+  
+  // Track current bend and note in pool for future reference
+  pool.setLastBend(this.channel, this.bend);
+  pool.setLastNote(this.channel, this.note);
 }
 
 MpeHex.prototype.noteOn = function () {
   const c = this.channel - 1; // 0-based for MIDI status byte
-  // 1. Pitch bend first (before note-on, per MPE spec)
-  const bendLSB = this.bend & 0x7F;
-  const bendMSB = (this.bend >> 7) & 0x7F;
-  this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
-  // 2. Note on
-  this.midi_output.send([0x90 + c, this.note, this.velocity]);
   
-  // Track current bend and note in pool for future reference
-  this.pool.setLastBend(this.channel, this.bend);
+  // Pitch bend already sent in constructor
+  // Small delay for synth to process pitch bend before noteOn
+  console.log(`noteOn: channel=${this.channel} note=${this.note} velocity=${this.velocity} (delaying 2ms)`);
+  setTimeout(() => {
+    this.midi_output.send([0x90 + c, this.note, this.velocity]);
+    console.log(`  → noteOn SENT: [${0x90 + c}, ${this.note}, ${this.velocity}]`);
+  }, 2);
 };
 
 MpeHex.prototype.noteOff = function (release_velocity) {
   const c = this.channel - 1;
   const vel = release_velocity != null ? release_velocity : this.velocity;
   this.midi_output.send([0x80 + c, this.note, vel]);
-  
-  // Store slot before releasing to pool
-  const slot = this.channel;
   this.pool.noteOff(this.coords);
-  
-  // After brief delay, reset pitch bend and mark as clean
-  setTimeout(() => {
-    // Reset pitch bend to center (8192 = 0x00 LSB, 0x40 MSB)
-    this.midi_output.send([0xE0 + (slot - 1), 0, 64]);
-    // Mark this slot as clean (ready for immediate reuse)
-    this.pool.markClean(slot);
-  }, 50);  // Adjust timing based on your synth's release tail
 };
 
 
@@ -294,6 +323,7 @@ MpeHex.prototype.retune = function(newCents) {
     this.note = newNote;
     this.bend = newBend;
     this.pool.setLastBend(this.channel, this.bend);
+    this.pool.setLastNote(this.channel, this.note);
     
     // Send new pitch bend (before note-on, per MPE spec)
     const bendLSB = this.bend & 0x7F;
