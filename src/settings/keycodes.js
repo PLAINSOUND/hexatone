@@ -51,8 +51,7 @@ const keyCodeToCoords = {
   KeyM : new Point(1, 1),
   Comma : new Point(2, 1),
   Period : new Point(3, 1),
-  Slash : new Point(4, 1),
-  ShiftRight : new Point(5, 1),
+  Slash : new Point(4, 1)
 };
 
 export default keyCodeToCoords;

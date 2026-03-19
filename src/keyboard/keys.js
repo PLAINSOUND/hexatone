@@ -34,6 +34,7 @@ class Keys {
       escHeld: false,
       isTuneDragging: false,
       pressedKeys: new Set(),
+      shiftSustainedKeys: new Set(), // keys held with Shift for individual sustain
       activeHexObjects: [],
       isTouchDown: false,
       isMouseDown: false
@@ -595,6 +596,8 @@ class Keys {
 
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
+    this.state.shiftSustainedKeys.clear();
+    this.state.pressedKeys.clear();
 
     // Clear MIDI note tracking
     notes.played = [];
@@ -775,7 +778,7 @@ class Keys {
   };
 
   
-  onKeyDown = (e) => {
+    onKeyDown = (e) => {
     // Escape: toggle sustain. Track escHeld separately because clicking
     // the canvas while Escape is held fires a spurious keyup immediately,
     // which would drop the sustain before mouse-up.
@@ -790,25 +793,99 @@ class Keys {
     if (!this.typing) return;
     if (this.inputIsFocused()) return;
 
+    // Block note-on if Command/Ctrl/Alt are held (browser shortcuts)
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
     e.preventDefault();
     if (e.repeat) {
       return;
     } else if (e.code === 'Space') {
       this.sustainOn();
     } else if (!this.state.isMouseDown && !this.state.isTouchDown
-      && (e.code in this.settings.keyCodeToCoords)
-      && !this.state.pressedKeys.has(e.code)) {
-      this.state.pressedKeys.add(e.code);
-      const kbOffset = this.settings.centerHexOffset;
-      const kbRaw = this.settings.keyCodeToCoords[e.code];
-      let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-      let hex = this.hexOn(coords);
-      this.state.activeHexObjects.push(hex);
+      && (e.code in this.settings.keyCodeToCoords)) {
+      
+      // Shift+key: individual note sustain (latch for this specific key)
+      // If key is already shift-sustained, release it
+      if (e.shiftKey) {
+        if (this.state.shiftSustainedKeys.has(e.code)) {
+          // Release the shift-sustained note
+          this.state.shiftSustainedKeys.delete(e.code);
+          const kbOffset = this.settings.centerHexOffset;
+          const kbRaw = this.settings.keyCodeToCoords[e.code];
+          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+          // Find and release the sustained hex
+          let hexIndex = this.state.sustainedNotes.findIndex(([h]) =>
+            h.coords.x === coords.x && h.coords.y === coords.y
+          );
+          if (hexIndex !== -1) {
+            const [hex, vel] = this.state.sustainedNotes[hexIndex];
+            this.state.sustainedNotes.splice(hexIndex, 1);
+            const key = coords.x + ',' + coords.y;
+            this.state.sustainedCoords.delete(key);
+            this.hexOff(coords);
+            hex.noteOff(vel);
+          }
+          // Also remove from activeHexObjects if present
+          let activeIndex = this.state.activeHexObjects.findIndex(h =>
+            h.coords.x === coords.x && h.coords.y === coords.y
+          );
+          if (activeIndex !== -1) {
+            this.state.activeHexObjects.splice(activeIndex, 1);
+          }
+        } else {
+          // Play note and shift-sustain it
+          this.state.pressedKeys.add(e.code);
+          this.state.shiftSustainedKeys.add(e.code);
+          const kbOffset = this.settings.centerHexOffset;
+          const kbRaw = this.settings.keyCodeToCoords[e.code];
+          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+          let hex = this.hexOn(coords);
+          this.state.activeHexObjects.push(hex);
+          // Add to sustained notes immediately
+          this.state.sustainedNotes.push([hex, 0]);
+          const key = coords.x + ',' + coords.y;
+          this.state.sustainedCoords.add(key);
+        }
+      } else {
+        // No Shift: check if this key was shift-sustained, if so release it
+        if (this.state.shiftSustainedKeys.has(e.code)) {
+          this.state.shiftSustainedKeys.delete(e.code);
+          const kbOffset = this.settings.centerHexOffset;
+          const kbRaw = this.settings.keyCodeToCoords[e.code];
+          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+          // Find and release the sustained hex
+          let hexIndex = this.state.sustainedNotes.findIndex(([h]) =>
+            h.coords.x === coords.x && h.coords.y === coords.y
+          );
+          if (hexIndex !== -1) {
+            const [hex, vel] = this.state.sustainedNotes[hexIndex];
+            this.state.sustainedNotes.splice(hexIndex, 1);
+            const key = coords.x + ',' + coords.y;
+            this.state.sustainedCoords.delete(key);
+            this.hexOff(coords);
+            hex.noteOff(vel);
+          }
+          // Also remove from activeHexObjects if present
+          let activeIndex = this.state.activeHexObjects.findIndex(h =>
+            h.coords.x === coords.x && h.coords.y === coords.y
+          );
+          if (activeIndex !== -1) {
+            this.state.activeHexObjects.splice(activeIndex, 1);
+          }
+        } else if (!this.state.pressedKeys.has(e.code)) {
+          // Normal note-on
+          this.state.pressedKeys.add(e.code);
+          const kbOffset = this.settings.centerHexOffset;
+          const kbRaw = this.settings.keyCodeToCoords[e.code];
+          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+          let hex = this.hexOn(coords);
+          this.state.activeHexObjects.push(hex);
+        }
+      }
     }
   };
 
-  
-  onKeyUp = (e) => {
+    onKeyUp = (e) => {
 
     if (e.code === 'Escape') {
       this.state.escHeld = false;
@@ -824,6 +901,12 @@ class Keys {
       this.sustainOff(true); // force-release overrides latch
     } else if (!this.state.isMouseDown && !this.state.isTouchDown
       && (e.code in this.settings.keyCodeToCoords)) {
+      // Skip release for shift-sustained keys - they stay held until re-pressed without Shift
+      if (this.state.shiftSustainedKeys.has(e.code)) {
+        // Remove from pressedKeys but keep in shiftSustainedKeys and sustainedNotes
+        this.state.pressedKeys.delete(e.code);
+        return;
+      }
       if (this.state.pressedKeys.has(e.code)) {
         this.state.pressedKeys.delete(e.code);
         const kbOffset = this.settings.centerHexOffset;
