@@ -44,7 +44,7 @@ for (let i = 0; i < 2048; i++) {
 }
 
 function MidiHex(
-  coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
+  coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
   note_played, velocity_played, bend, degree0toRef_ratio,
   midiin_device, midiin_central_degree, midi_output, channel, midi_mapping, velocity, fundamental,
   pool_mts1, pool_mts2_low, pool_mts2_high,
@@ -60,44 +60,58 @@ function MidiHex(
   let bend_up   = 0;
 
   if (channel >= 0) {
-    /* DEPRECATED: sequential and multichannel output modes removed. */
-
     if (midi_mapping === "MTS1" || midi_mapping === "MTS2") {
       const ref        = fundamental / degree0toRef_ratio;
-      const ref_offset = 1200 * Math.log2(ref / 261.6255653);
-      const ref_cents  = cents + ref_offset;
-      bend_up          = cents_next - cents;
-      bend_down        = cents - cents_prev;
+      const ref_offset = 1200 * Math.log2(ref / 261.6255653); // compensated to tempered C at 4409, so correct MTS is sent to 440. Hz tuned (default) instruments, allowing app to globally change the Kammerton
+      const ref_cents  = cents + ref_offset; // cents from C@A-440
+      
+      bend_up   = cents_next - cents;
+      bend_down = cents - cents_prev;
 
       const steps_from_ref = Math.floor(ref_cents / 100.0);
 
-      // ── Choose pool and slot ─────────────────────────────────────────────
+      // Calculate target pitch in cents
+      // This is what we want to hear, in cents from reference
+      const targetMIDIFloat = ref_cents * 0.01 + 60; // absolute Cents in MIDI terms
+      console.log("target:", targetMIDIFloat);
+      
+      // Ideal MIDI note (the natural pitch we want to match timbre-wise)
+      const idealNote = Math.max(0, Math.min(Math.round(targetMIDIFloat), 127));
+      console.log("MidiHex idealNote:", idealNote);
+
+      // Choose pool based on mapping and target note
       let pool;
       if (midi_mapping === "MTS1") {
         pool = pool_mts1;
       } else {
-        // MTS2: split by target MIDI note (mts[1]) to stay inside Pianoteq ranges
-        const target_note = (steps_from_ref + 180) % 120;
-        pool = target_note <= 88 ? pool_mts2_low : pool_mts2_high;
+        // MTS2: route to appropriate pool based on ideal note
+        pool = idealNote <= 88 ? pool_mts2_low : pool_mts2_high;
       }
 
-      const { slot, stolen } = pool.noteOn(coords);
-
-      // If a voice was stolen, send its noteOff now so the synth doesn't hang
+      // Note-number-aware allocation!
+      const { slot, stolen, distance, retrigger } = pool.noteOn(coords, targetMIDIFloat);
+      
+      // If voice was stolen, send noteOff on that slot
       if (stolen !== null) {
-        const stolenKeymap = note_played != null ? keymap[note_played] : null;
-        // stolen slot IS the slot we just got back — send noteOff on it
         midi_output.send([128 + channel, slot, velocity]);
       }
 
-      // ── Compute MTS tuning bytes ─────────────────────────────────────────
-      mts[0] = slot;
+      // Now compute MTS tuning for this slot
+      // The slot IS the near the note number we're using
+      mts[0] = slot;  // Slot number
       mts[1] = (steps_from_ref + 180) % 120;
+      
+      // Calculate fine tuning offset
+      // target pitch = slot * 100 + fine
+      // fine = target - slot * 100
       let fine = (ref_cents * 0.01) - steps_from_ref;
-      fine = Math.round(16384 * fine);
+
+      console.log("MTS retuning note:", mts[1], "fine:", fine);
+      fine = Math.round(16384 * (fine));  // Convert to 14-bit
       if (fine === 16384) fine = 16383;
-      mts[3] = fine & 127;
-      mts[2] = (fine & 16383) >> 7;
+      
+      mts[2] = (fine & 16383) >> 7;  // MSB
+      mts[3] = fine & 127;           // LSB
 
       steps_cycle = mts[0];
       tuningmap[mts[0]] = [mts[1], mts[2], mts[3]];
@@ -106,8 +120,7 @@ function MidiHex(
         keymap[note_played] = [mts[0], mts[1], mts[2], mts[3], bend_down, bend_up, channel];
       }
 
-      // Store pool reference so noteOff can return the slot
-      this._pool  = pool;
+      this._pool = pool;
     }
 
         this.coords    = coords;
