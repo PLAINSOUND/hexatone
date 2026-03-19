@@ -39,6 +39,7 @@ const Sample = (props) => {
           style={{ padding: 0 }}
         />
       </label>
+      {/*
       <label>
         Mute
         <input type="checkbox" name="synth_mute"
@@ -46,6 +47,7 @@ const Sample = (props) => {
           onChange={handleMute}
         />
       </label>
+      */}
     </>
   );
 };
