@@ -555,7 +555,29 @@ class Keys {
     };
   };
 
-  panic = () => {
+    panic = () => {
+    // Send MIDI All Notes Off (CC 123) to external devices first
+    // This tells external synths to stop all sound immediately
+    
+    // MTS output - send CC123 on configured channel
+    if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
+      this.midiout_data.sendControlChange(123, 0, { channels: this.settings.midi_channel + 1 });
+    }
+    
+    // MPE output - send CC123 on all MPE channels (master + note channels)
+    if (this.settings.mpe_device !== "OFF" && this.settings.mpe_lo_ch > 0 && this.settings.mpe_hi_ch >= this.settings.mpe_lo_ch) {
+      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
+      if (mpeOutput) {
+        // Send on master channel
+        const masterCh = parseInt(this.settings.mpe_master_ch) || 1;
+        mpeOutput.sendControlChange(123, 0, { channels: masterCh });
+        // Send on all note channels
+        for (let ch = this.settings.mpe_lo_ch; ch <= this.settings.mpe_hi_ch; ch++) {
+          mpeOutput.sendControlChange(123, 0, { channels: ch });
+        }
+      }
+    }
+
     // Work with a copy to avoid iteration issues
     const activeHexes = [...this.state.activeHexObjects];
     const sustainedHexes = [...this.state.sustainedNotes];
@@ -582,18 +604,6 @@ class Keys {
       const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
       this.drawHex(hex.coords, color, text_color);
     }
-
-    /*
-    // Kill all sustained notes - process newest first
-    for (let i = sustainedHexes.length - 1; i >= 0; i--) {
-      const [hex, releaseVel] = sustainedHexes[i];
-      hex.noteOff(releaseVel);
-      
-      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
-      this.drawHex(hex.coords, color, text_color);
-    }
-*/
 
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
@@ -782,8 +792,16 @@ class Keys {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   };
 
-  
     onKeyDown = (e) => {
+    // DEBUG: check what key code is produced
+    // console.log('Key pressed:', e.code, e.key);
+    
+    // Delete : Panic - kill all notes
+    if ((e.code === 'Delete' && !e.repeat) || (e.code === 'Backspace' && !e.repeat)) {
+      this.panic();
+      return;
+    }
+    
     // Escape: toggle sustain. Track escHeld separately because clicking
     // the canvas while Escape is held fires a spurious keyup immediately,
     // which would drop the sustain before mouse-up.
@@ -809,80 +827,84 @@ class Keys {
     } else if (!this.state.isMouseDown && !this.state.isTouchDown
       && (e.code in this.settings.keyCodeToCoords)) {
       
+      const kbOffset = this.settings.centerHexOffset;
+      const kbRaw = this.settings.keyCodeToCoords[e.code];
+      let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+      const key = coords.x + ',' + coords.y;
+      
       // Shift+key: individual note sustain (latch for this specific key)
-      // If key is already shift-sustained, release it
       if (e.shiftKey) {
         if (this.state.shiftSustainedKeys.has(e.code)) {
           // Release the shift-sustained note
           this.state.shiftSustainedKeys.delete(e.code);
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-          // Find and release the sustained hex
-          let hexIndex = this.state.sustainedNotes.findIndex(([h]) =>
+          // Remove ALL entries for this coord
+          this.state.sustainedNotes = this.state.sustainedNotes.filter(([h]) =>
+            !(h.coords.x === coords.x && h.coords.y === coords.y)
+          );
+          this.state.sustainedCoords.delete(key);
+          this.hexOff(coords);
+          // Find and call noteOff on the hex
+          const hex = this.state.activeHexObjects.find(h =>
             h.coords.x === coords.x && h.coords.y === coords.y
           );
-          if (hexIndex !== -1) {
-            const [hex, vel] = this.state.sustainedNotes[hexIndex];
-            this.state.sustainedNotes.splice(hexIndex, 1);
-            const key = coords.x + ',' + coords.y;
-            this.state.sustainedCoords.delete(key);
-            this.hexOff(coords);
-            hex.noteOff(vel);
-          }
-          // Also remove from activeHexObjects if present
-          let activeIndex = this.state.activeHexObjects.findIndex(h =>
-            h.coords.x === coords.x && h.coords.y === coords.y
+          if (hex) hex.noteOff(0);
+          // Remove from activeHexObjects
+          this.state.activeHexObjects = this.state.activeHexObjects.filter(h =>
+            !(h.coords.x === coords.x && h.coords.y === coords.y)
           );
-          if (activeIndex !== -1) {
-            this.state.activeHexObjects.splice(activeIndex, 1);
-          }
         } else {
           // Play note and shift-sustain it
           this.state.pressedKeys.add(e.code);
           this.state.shiftSustainedKeys.add(e.code);
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
           let hex = this.hexOn(coords);
           this.state.activeHexObjects.push(hex);
           // Add to sustained notes immediately
           this.state.sustainedNotes.push([hex, 0]);
-          const key = coords.x + ',' + coords.y;
           this.state.sustainedCoords.add(key);
         }
       } else {
         // No Shift: check if this key was shift-sustained, if so release it
         if (this.state.shiftSustainedKeys.has(e.code)) {
           this.state.shiftSustainedKeys.delete(e.code);
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-          // Find and release the sustained hex
-          let hexIndex = this.state.sustainedNotes.findIndex(([h]) =>
+          // Remove ALL entries for this coord
+          this.state.sustainedNotes = this.state.sustainedNotes.filter(([h]) =>
+            !(h.coords.x === coords.x && h.coords.y === coords.y)
+          );
+          this.state.sustainedCoords.delete(key);
+          this.hexOff(coords);
+          // Find and call noteOff on the hex
+          const hex = this.state.activeHexObjects.find(h =>
             h.coords.x === coords.x && h.coords.y === coords.y
           );
-          if (hexIndex !== -1) {
-            const [hex, vel] = this.state.sustainedNotes[hexIndex];
-            this.state.sustainedNotes.splice(hexIndex, 1);
-            const key = coords.x + ',' + coords.y;
+          if (hex) hex.noteOff(0);
+          // Remove from activeHexObjects
+          this.state.activeHexObjects = this.state.activeHexObjects.filter(h =>
+            !(h.coords.x === coords.x && h.coords.y === coords.y)
+          );
+        } else if (this.state.latch) {
+          // With latch on: check if this note is already sustained, toggle it off
+          const sustainedIdx = this.state.sustainedNotes.findIndex(([h]) =>
+            h.coords.x === coords.x && h.coords.y === coords.y
+          );
+          if (sustainedIdx !== -1) {
+            // Toggle off the sustained note
+            const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
+            // Remove ALL entries for this coord
+            this.state.sustainedNotes = this.state.sustainedNotes.filter(([h]) =>
+              !(h.coords.x === coords.x && h.coords.y === coords.y)
+            );
             this.state.sustainedCoords.delete(key);
-            this.hexOff(coords);
             hex.noteOff(vel);
-          }
-          // Also remove from activeHexObjects if present
-          let activeIndex = this.state.activeHexObjects.findIndex(h =>
-            h.coords.x === coords.x && h.coords.y === coords.y
-          );
-          if (activeIndex !== -1) {
-            this.state.activeHexObjects.splice(activeIndex, 1);
+            this.hexOff(coords);
+          } else if (!this.state.pressedKeys.has(e.code)) {
+            // Not sustained - play new note
+            this.state.pressedKeys.add(e.code);
+            let hex = this.hexOn(coords);
+            this.state.activeHexObjects.push(hex);
           }
         } else if (!this.state.pressedKeys.has(e.code)) {
-          // Normal note-on
+          // Normal note-on (no latch)
           this.state.pressedKeys.add(e.code);
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
           let hex = this.hexOn(coords);
           this.state.activeHexObjects.push(hex);
         }
@@ -890,7 +912,7 @@ class Keys {
     }
   };
 
-    onKeyUp = (e) => {
+  onKeyUp = (e) => {
 
     if (e.code === 'Escape') {
       this.state.escHeld = false;

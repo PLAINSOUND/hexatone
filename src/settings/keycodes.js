@@ -14,7 +14,6 @@ const keyCodeToCoords = {
   Digit0 : new Point(4, -2),
   Minus : new Point(5, -2),
   Equal: new Point(6, -2),
-  Backspace : new Point(7, -2),
 
   KeyQ : new Point(-5, -1),
   KeyW : new Point(-4, -1),

@@ -73,11 +73,11 @@ function MidiHex(
       // Calculate target pitch in cents
       // This is what we want to hear, in cents from reference
       const targetMIDIFloat = ref_cents * 0.01 + 60; // absolute Cents in MIDI terms
-      console.log("target:", targetMIDIFloat);
+      //console.log("target:", targetMIDIFloat);
       
       // Ideal MIDI note (the natural pitch we want to match timbre-wise)
       const idealNote = Math.max(0, Math.min(Math.round(targetMIDIFloat), 127));
-      console.log("MidiHex idealNote:", idealNote);
+      //console.log("MidiHex idealNote:", idealNote);
 
       // Choose pool based on mapping and target note
       let pool;
@@ -106,7 +106,7 @@ function MidiHex(
       // fine = target - slot * 100
       let fine = (ref_cents * 0.01) - steps_from_ref;
 
-      console.log("MTS retuning note:", mts[1], "fine:", fine);
+      //console.log("MTS retuning note:", mts[1], "fine:", fine);
       fine = Math.round(16384 * (fine));  // Convert to 14-bit
       if (fine === 16384) fine = 16383;
       
@@ -143,7 +143,7 @@ function MidiHex(
     this.degree0toRef_ratio = degree0toRef_ratio; // needed for retune
 
   } else {
-    console.log("Please choose an output channel!");
+    //console.log("Please choose an output channel!");
   }
 }
 
