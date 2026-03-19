@@ -41,7 +41,7 @@
  * 
  */
 
-import { VoicePool } from "../voice_pool";
+import { VoicePool } from "../voice_pool_oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
 
 /**
@@ -89,7 +89,7 @@ function freqToMidiAndCents(freq, center_degree, channel, scale, mode) {
   if (center_degree > 0) {
     centraldegree_cents_from_degree0 = scalaToCents(scale[center_degree - 1]);
   };
-  const targetMidiNote = 69 + (12 * Math.log2(freq / 440)) - centraldegree_cents_from_degree0;
+  const targetMidiNote = 69 + (12 * Math.log2(freq / 440)) - (centraldegree_cents_from_degree0 * 0.01);
   
   let note, deviation;
   
