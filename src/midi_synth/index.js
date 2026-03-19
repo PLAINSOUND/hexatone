@@ -1,6 +1,6 @@
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { WebMidi } from "webmidi";
-import { VoicePool } from "../voice_pool";
+import { VoicePool } from "../voice_pool_nearest";
 
 export const tuningmap = new Array(128);
 for (let i = 0; i < 128; i++) {
