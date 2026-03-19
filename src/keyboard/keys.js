@@ -601,6 +601,7 @@ class Keys {
 
     // Reset sustain/latch state
     this.state.sustain = false;
+    this.state.latch = false;
     if (this.onLatchChange) this.onLatchChange(false);
 
     console.log("PANIC - all notes killed!");
@@ -609,6 +610,7 @@ class Keys {
   resetLatch = () => {
     // Reset sustain/latch state
     this.state.sustain = false;
+    this.state.latch = false;
     if (this.onLatchChange) this.onLatchChange(false);
   };
   
