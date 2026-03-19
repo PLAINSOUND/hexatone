@@ -784,7 +784,7 @@ const App = () => {
           PLAINSOUND HEXATONE
         </h1>
         <p>
-          <em>TO PLAY: click on notes, use a touchscreen, attach a MIDI keyboard or a Lumatone. A computer keyboard may also be used as an input device: the H key is mapped to Central Scale Degree, the spacebar acts as a sustain pedal, and the ESC key functions as a latch to permit hands free sustains.</em>
+          <em>TO PLAY click or touch notes, attach a MIDI keyboard or a Lumatone. With sidebar closed, a computer keyboard also plays notes: H is mapped to Central Scale Degree; SPACEBAR sustains while pressed; SHIFT+keys sustains individual notes; ESC toggles a hand-free latch sustain.</em>
         </p>
         <Settings presetChanged={presetChanged}
                     presets={presets}

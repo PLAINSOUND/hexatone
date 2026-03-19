@@ -37,7 +37,8 @@ class Keys {
       shiftSustainedKeys: new Set(), // keys held with Shift for individual sustain
       activeHexObjects: [],
       isTouchDown: false,
-      isMouseDown: false
+      isMouseDown: false,
+      recentlyToggledOff: new Set(), // coords strings recently toggled off
     };
     // tuning_map_degree0: use explicit override if set, otherwise derive from the central MIDI note
     // (midiin_central_degree is stored as the note for degree 0; add center_degree to get the central note)
@@ -644,15 +645,19 @@ class Keys {
     this.drawHex(coords, color, text_color);
   };
 
-  noteOff(hex, release_velocity) {
+    noteOff(hex, release_velocity) {
     if (this.state.sustain) {
-      this.state.sustainedNotes.push([hex, release_velocity]);
-      // Keep the hex visually lit while it's sustained
-      const key = hex.coords.x + ',' + hex.coords.y;
-      this.state.sustainedCoords.add(key);
-      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
-      this.drawHex(hex.coords, color, text_color);
+      // Check if already in sustainedNotes to prevent duplicates
+      const alreadySustained = this.state.sustainedNotes.find(([h]) => h === hex);
+      if (!alreadySustained) {
+        this.state.sustainedNotes.push([hex, release_velocity]);
+        // Keep the hex visually lit while it's sustained
+        const key = hex.coords.x + ',' + hex.coords.y;
+        this.state.sustainedCoords.add(key);
+        const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+        const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
+        this.drawHex(hex.coords, color, text_color);
+      }
     } else {
       hex.noteOff(release_velocity);
     }
@@ -958,30 +963,67 @@ class Keys {
     this.mouseActive(e);
   };
 
-  mouseActive = (e) => {
+      mouseActive = (e) => {
     let coords = this.getPointerPosition(e);
     coords = this.getHexCoordsAt(coords);
+    const key = coords.x + ',' + coords.y;
 
     if (this.state.activeHexObjects.length == 0) {
       // When latch is active, clicking a sustained hex toggles it off.
       if (this.state.latch) {
-        const key = coords.x + ',' + coords.y;
         const sustainedIdx = this.state.sustainedNotes.findIndex(([h]) =>
           h.coords.x === coords.x && h.coords.y === coords.y
         );
         if (sustainedIdx !== -1) {
           const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-          this.state.sustainedNotes.splice(sustainedIdx, 1);
+          // Remove ALL entries for this coord
+          this.state.sustainedNotes = this.state.sustainedNotes.filter(([h]) =>
+            !(h.coords.x === coords.x && h.coords.y === coords.y)
+          );
           this.state.sustainedCoords.delete(key);
           hex.noteOff(vel);
           this.hexOff(coords);
+          // Mark as recently toggled off to prevent immediate re-trigger
+          this.state.recentlyToggledOff.add(key);
           return;
         }
+      }
+      // Don't re-trigger a note that was just toggled off
+      if (this.state.recentlyToggledOff.has(key)) {
+        return;
       }
       this.state.activeHexObjects[0] = this.hexOn(coords);
     } else {
       let first = this.state.activeHexObjects[0];
       if (!(coords.equals(first.coords))) {
+        // Leaving current hex - clear its "recently toggled" status
+        const firstKey = first.coords.x + ',' + first.coords.y;
+        this.state.recentlyToggledOff.delete(firstKey);
+        
+        // Check if moving to a sustained note (with latch) - toggle it off
+        if (this.state.latch) {
+          const sustainedIdx = this.state.sustainedNotes.findIndex(([h]) =>
+            h.coords.x === coords.x && h.coords.y === coords.y
+          );
+          if (sustainedIdx !== -1) {
+            // Release the old active hex first
+            this.hexOff(first.coords);
+            this.noteOff(first);
+            this.state.activeHexObjects = [];
+            // Then toggle off the sustained note
+            const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
+            // Remove ALL entries for this coord
+            this.state.sustainedNotes = this.state.sustainedNotes.filter(([h]) =>
+              !(h.coords.x === coords.x && h.coords.y === coords.y)
+            );
+            this.state.sustainedCoords.delete(key);
+            hex.noteOff(vel);
+            this.hexOff(coords);
+            // Mark as recently toggled off to prevent immediate re-trigger
+            this.state.recentlyToggledOff.add(key);
+            return;
+          }
+        }
         this.hexOff(first.coords);
         this.noteOff(first);
         this.state.activeHexObjects[0] = this.hexOn(coords);
@@ -1003,7 +1045,7 @@ class Keys {
     return { x: rect.left, y: rect.top };
   };
 
-  handleTouch = (e) => {
+    handleTouch = (e) => {
     e.preventDefault();
     if (this.state.pressedKeys.size != 0 || this.state.isMouseDown) {
       this.state.isTouchDown = false;
@@ -1032,14 +1074,18 @@ class Keys {
       if (!found) {
         // When latch is active, check if this coord is in sustainedNotes —
         // if so, release it (toggle off) rather than triggering a new note.
-        if (this.state.latch) {
+        // ONLY do this on touchstart, not touchmove (to prevent re-triggering)
+        if (this.state.latch && e.type === 'touchstart') {
           const key = coords.x + ',' + coords.y;
           const sustainedIdx = this.state.sustainedNotes.findIndex(([h]) =>
             h.coords.x === coords.x && h.coords.y === coords.y
           );
           if (sustainedIdx !== -1) {
             const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-            this.state.sustainedNotes.splice(sustainedIdx, 1);
+            // Remove ALL entries for this coord (in case of duplicates)
+            this.state.sustainedNotes = this.state.sustainedNotes.filter(([h]) =>
+              !(h.coords.x === coords.x && h.coords.y === coords.y)
+            );
             this.state.sustainedCoords.delete(key);
             hex.noteOff(vel);
             this.hexOff(coords);
