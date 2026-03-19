@@ -70,7 +70,7 @@ export class VoicePool {
     if (this._active.has(key)) {
       const slot = this._active.get(key);
       slot.lastUsed = Date.now();
-      console.log("voice_pool retriggered");
+      // console.log("voice_pool retriggered");
       return { slot: slot.id, stolen: null, distance: 0, retrigger: true };
     }
     
@@ -94,7 +94,7 @@ export class VoicePool {
         
         const distance = Math.abs(targetMIDIFloat - noteNum);
 
-        console.log("voice_pool first available: ", ["slot:", slot.id, "not stolen", "distance:", distance, "retrigger: false"]);
+        // console.log("voice_pool first available: ", ["slot:", slot.id, "not stolen", "distance:", distance, "retrigger: false"]);
 
         return { slot: slot.id, stolen: null, distance, retrigger: false };
       }
@@ -126,7 +126,7 @@ export class VoicePool {
       bestVictim.lastUsed = Date.now();
       this._active.set(key, bestVictim);
 
-      console.log("voice_pool had to steal: ", ["slot:", bestVictimt.id, "stolen", "distance:", bestDistance, "retrigger: false"]);
+      // console.log("voice_pool had to steal: ", ["slot:", bestVictim.id, "stolen", "distance:", bestDistance, "retrigger: false"]);
       
       return { slot: bestVictim.id, stolen, distance: bestDistance, retrigger: false };
     }

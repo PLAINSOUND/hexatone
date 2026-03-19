@@ -1,103 +1,148 @@
 /**
- * VoicePool — LRU polyphony manager for MTS and MPE slot assignment.
- *
- * Given a set of slot IDs (MIDI notes for MTS, channel numbers for MPE),
- * allocates one slot per noteOn and frees it on noteOff.  When all slots
- * are in use, steals the oldest active slot ("steal oldest" policy, same
- * as MaxMSP poly~).
- *
- * Usage:
- *   const pool = new VoicePool([0,1,2,...,127]);
- *   const slot = pool.noteOn(coords);   // returns slot ID
- *   pool.noteOff(coords);               // frees the slot
- *   pool.clear();                       // all-notes-off
+ * VoicePool — LRU polyphony manager with O(1) operations.
+ * Includes dedicated "clean" slot for glitch-free MPE voice assignment.
  */
 export class VoicePool {
   constructor(slotIds) {
-    // free: available slot IDs, front = most-recently-freed (reuse soon)
-    this._free   = [...slotIds];
-    // active: { coords, slot } in order oldest → newest
-    this._active = [];
-    // fast lookup: coords key → active entry
-    this._map    = new Map();
+    this._free = [...slotIds];
+    this._active = new Map();  // coordsKey → { slot, prev, next }
+    this._head = null;  // oldest
+    this._tail = null;  // newest
+    this._lastBend = new Map();  // slot → last bend value
+    this._cleanSlot = null;  // slot with known-centered pitch bend
   }
 
-  /**
-   * Allocate a slot for coords.  Returns { slot, stolen } where stolen is
-   * the coords key that was evicted (so the caller can send a noteOff).
-   */
   noteOn(coords) {
     const key = coordsKey(coords);
 
-    // Retrigger: already has a slot — move to back (most recent), keep slot
-    if (this._map.has(key)) {
-      const entry = this._map.get(key);
-      this._active = this._active.filter(e => e !== entry);
-      this._active.push(entry);
-      return { slot: entry.slot, stolen: null };
+    // Retrigger: move to tail (most recent)
+    if (this._active.has(key)) {
+      const entry = this._active.get(key);
+      this._moveToTail(entry);
+      return { 
+        slot: entry.slot, 
+        stolen: null, 
+        lastBend: this._lastBend.get(entry.slot) || 8192,
+        retrigger: true 
+      };
     }
 
     let stolen = null;
     let slot;
+    let lastBend = 8192;
 
-    if (this._free.length > 0) {
-      // Take from free pool
-      slot = this._free.shift();
+    // Priority: clean slot > free pool > steal oldest
+    if (this._cleanSlot !== null) {
+      // Use the dedicated clean slot (guaranteed centered pitch bend)
+      slot = this._cleanSlot;
+      this._cleanSlot = null;  // consumed
+      lastBend = 8192;  // guaranteed centered
+    } else if (this._free.length > 0) {
+      slot = this._free.pop();
+      lastBend = this._lastBend.get(slot) || 8192;
     } else {
-      // Steal oldest active voice
-      const victim = this._active.shift();
-      this._map.delete(coordsKey(victim.coords));
+      // Steal oldest (head of linked list) - O(1)
+      const victim = this._head;
+      this._remove(victim);
       stolen = victim.coords;
-      slot   = victim.slot;
+      slot = victim.slot;
+      lastBend = this._lastBend.get(slot) || 8192;
     }
 
-    const entry = { coords, slot };
-    this._active.push(entry);
-    this._map.set(key, entry);
-    return { slot, stolen };
+    // Add to tail
+    const entry = { key, coords, slot, prev: this._tail, next: null };
+    if (this._tail) this._tail.next = entry;
+    this._tail = entry;
+    if (!this._head) this._head = entry;
+    
+    this._active.set(key, entry);
+    
+    return { slot, stolen, lastBend, retrigger: false };
   }
 
-  /**
-   * Free the slot assigned to coords.  Returns the slot ID so the caller
-   * can send noteOff on it, or null if coords wasn't active.
-   */
   noteOff(coords) {
     const key = coordsKey(coords);
-    const entry = this._map.get(key);
+    const entry = this._active.get(key);
     if (!entry) return null;
 
-    this._map.delete(key);
-    this._active = this._active.filter(e => e !== entry);
-    // Return freed slot to front of free list (LIFO within free — minimises
-    // slot churn for synths that have per-slot state like reverb tails)
-    this._free.unshift(entry.slot);
+    this._remove(entry);
+    this._active.delete(key);
+    this._free.push(entry.slot);
+    
     return entry.slot;
   }
 
-  /** Release all active voices.  Returns array of { coords, slot } to noteOff. */
+  /**
+   * Mark a slot as having centered pitch bend.
+   * Call this after resetting pitch bend on a freed voice.
+   */
+  markClean(slot) {
+    // Only mark if slot is currently free (not active)
+    if (!this._isActive(slot)) {
+      this._cleanSlot = slot;
+      // Remove from free pool if present (clean slot is reserved)
+      const idx = this._free.indexOf(slot);
+      if (idx !== -1) {
+        this._free.splice(idx, 1);
+      }
+    }
+  }
+
+  _isActive(slot) {
+    for (const entry of this._active.values()) {
+      if (entry.slot === slot) return true;
+    }
+    return false;
+  }
+
+  _remove(entry) {
+    if (entry.prev) entry.prev.next = entry.next;
+    if (entry.next) entry.next.prev = entry.prev;
+    if (this._head === entry) this._head = entry.next;
+    if (this._tail === entry) this._tail = entry.prev;
+  }
+
+  _moveToTail(entry) {
+    this._remove(entry);
+    entry.prev = this._tail;
+    entry.next = null;
+    if (this._tail) this._tail.next = entry;
+    this._tail = entry;
+    if (!this._head) this._head = entry;
+  }
+
+  setLastBend(slot, bend) {
+    this._lastBend.set(slot, bend);
+  }
+
+  getLastBend(slot) {
+    return this._lastBend.get(slot) || 8192;
+  }
+
   clear() {
-    const victims = [...this._active];
-    this._free   = [...this._free, ...victims.map(e => e.slot)];
-    this._active = [];
-    this._map.clear();
+    const victims = Array.from(this._active.values()).map(e => ({ coords: e.coords, slot: e.slot }));
+    this._free = [...this._free, ...victims.map(v => v.slot)];
+    this._active.clear();
+    this._head = null;
+    this._tail = null;
+    this._cleanSlot = null;
     return victims;
   }
 
-  /** Look up the slot currently assigned to coords without allocating. */
   getSlot(coords) {
-    const entry = this._map.get(coordsKey(coords));
+    const entry = this._active.get(coordsKey(coords));
     return entry ? entry.slot : null;
   }
 
-  get activeCount() { return this._active.length; }
-  get freeCount()   { return this._free.length; }
+  get activeCount() { return this._active.size; }
+  get freeCount() { return this._free.length; }
+  get cleanSlot() { return this._cleanSlot; }
 }
 
-/** Stable string key for a coords value (array, Point {x,y}, or primitive). */
 function coordsKey(coords) {
   if (Array.isArray(coords)) return coords.join(',');
   if (coords !== null && typeof coords === 'object' && 'x' in coords && 'y' in coords) {
-    return coords.x + ',' + coords.y;
+    return `${coords.x},${coords.y}`;
   }
   return String(coords);
 }
