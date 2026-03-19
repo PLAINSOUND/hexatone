@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'preact/hooks'
 import Keyboard from './keyboard';
 import { presets, default_settings } from './settings/preset_values';
 import { parseScale, scalaToCents, scalaToLabels, parsedScaleToLabels, settingsToHexatonScala } from './settings/scale/parse-scale.js';
-import { create_sample_synth } from './sample_synth';
+import { create_sample_synth, forceResumeAudioContext } from './sample_synth';
 import { instruments } from './sample_synth/instruments';
 
 import { enableMidi, midi_in } from './settings/midi/midiin';
@@ -761,9 +761,14 @@ const App = () => {
           <b>SUSTAIN</b>
         </button>
         <button id="redraw-button"
-          title="Redraw keyboard"
+          title="Redraw keyboard / Resume audio"
           onPointerDown={(e) => { e.preventDefault(); if (keysRef.current) keysRef.current.resizeHandler(); }}
-          onClick={(e) => { e.stopPropagation(); if (keysRef.current) keysRef.current.resizeHandler(); }}
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (keysRef.current) keysRef.current.resizeHandler();
+            // Resume AudioContext if suspended (iOS background recovery)
+            await forceResumeAudioContext();
+          }}
           onContextMenu={e => e.preventDefault()}>
           ↺
         </button>

@@ -10,6 +10,51 @@ import { scalaToCents } from '../settings/scale/parse-scale';
 // avoid hitting the browser's context limit (~6).
 let sharedAudioContext = null;
 
+// ─── iOS Detection ─────────────────────────────────────────────────────────────
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// ─── iOS Audio Context Resume Handler ──────────────────────────────────────────
+// On iOS, AudioContext can become suspended when app goes to background.
+// This handler resumes it when the page becomes visible again.
+let iosVisibilityHandler = null;
+
+const setupIOSAudioHandler = () => {
+  if (!isIOS) return;
+  
+  // Remove existing handler if any
+  if (iosVisibilityHandler) {
+    document.removeEventListener('visibilitychange', iosVisibilityHandler);
+  }
+  
+  iosVisibilityHandler = async () => {
+    if (document.visibilityState === 'visible' && sharedAudioContext) {
+      if (sharedAudioContext.state === 'suspended' || sharedAudioContext.state === 'interrupted') {
+        try {
+          await sharedAudioContext.resume();
+          console.log('iOS: AudioContext resumed on visibility change');
+        } catch (e) {
+          console.warn('iOS: Failed to resume AudioContext:', e.message);
+        }
+      }
+    }
+  };
+  
+  document.addEventListener('visibilitychange', iosVisibilityHandler);
+  
+  // Also handle page show (for iOS Safari when returning from background)
+  window.addEventListener('pageshow', async () => {
+    if (sharedAudioContext && sharedAudioContext.state !== 'running') {
+      try {
+        await sharedAudioContext.resume();
+        console.log('iOS: AudioContext resumed on pageshow');
+      } catch (e) {
+        console.warn('iOS: Failed to resume AudioContext on pageshow:', e.message);
+      }
+    }
+  });
+};
+
 // ─── Single findInstrument replaces six identical loops ───────────────────────
 const findInstrument = (fileName) => {
   for (const group of instruments) {
@@ -57,15 +102,28 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       // is fully synchronous and has no latency.
       prepare: async () => {
         if (!sharedAudioContext) {
-          sharedAudioContext = new AudioContext();
+          // iOS 17+ prefers webkitAudioContext for some edge cases
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          sharedAudioContext = new AudioContextClass();
+          
+          // Setup iOS-specific handlers
+          setupIOSAudioHandler();
         }
-        if (sharedAudioContext.state === 'suspended') {
+        
+        // iOS: Always try to resume on prepare (might be suspended after backgrounding)
+        if (sharedAudioContext.state === 'suspended' || sharedAudioContext.state === 'interrupted') {
           try {
             await sharedAudioContext.resume();
+            console.log('AudioContext resumed, state:', sharedAudioContext.state);
           } catch (e) {
             console.warn('AudioContext autoplay blocked:', e.message);
+            // On iOS, we may need user to tap again - signal this somehow
+            if (isIOS) {
+              console.warn('iOS: Please tap somewhere to enable audio');
+            }
           }
         }
+        
         // Master gain node — all voices connect here before destination
         if (!masterGain) {
           masterGain = sharedAudioContext.createGain();
@@ -202,8 +260,14 @@ ActiveHex.prototype.retune = function(newCents) {
   this.source.playbackRate.setTargetAtTime(targetPlaybackRate, this.audioContext.currentTime, timeConstant);
 };
 
+ActiveHex.prototype.aftertouch = function(value) {
+  if (this.release || !this.gainNode) return;
+  const pressure = Math.max(0, Math.min(127, value)) / 127;
+  const targetGain = this.sampleGain * this.base_vol * (1 + this.aftertouch_amount * pressure);
+  this.gainNode.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.02);
+};
+
 ActiveHex.prototype.noteOff = function(release_velocity) {
-  const vel = release_velocity != null ? release_velocity : this.base_vol;
   if (this.gainNode) {
     this.gainNode.gain.setTargetAtTime(0, this.audioContext.currentTime, this.sampleRelease);
   }
@@ -211,5 +275,43 @@ ActiveHex.prototype.noteOff = function(release_velocity) {
     this.source.stop(this.audioContext.currentTime + this.sampleRelease * 2);
   }
 };
+
+// ─── iOS Audio Helper Exports ──────────────────────────────────────────────────
+
+/**
+ * Check if AudioContext is running (for UI indicators)
+ */
+export const isAudioContextRunning = () => {
+  return sharedAudioContext?.state === 'running';
+};
+
+/**
+ * Get current AudioContext state (for debugging)
+ */
+export const getAudioContextState = () => {
+  return sharedAudioContext?.state || 'not created';
+};
+
+/**
+ * Force resume AudioContext (call on user interaction if audio is muted)
+ */
+export const forceResumeAudioContext = async () => {
+  if (sharedAudioContext && sharedAudioContext.state !== 'running') {
+    try {
+      await sharedAudioContext.resume();
+      console.log('AudioContext force-resumed, state:', sharedAudioContext.state);
+      return true;
+    } catch (e) {
+      console.warn('Failed to force-resume AudioContext:', e.message);
+      return false;
+    }
+  }
+  return sharedAudioContext?.state === 'running';
+};
+
+/**
+ * Check if running on iOS (for UI conditional rendering)
+ */
+export const isRunningOnIOS = () => isIOS;
 
 export default create_sample_synth;
