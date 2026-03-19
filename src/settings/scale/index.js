@@ -6,7 +6,7 @@ import Colors, { colorProp } from './colors';
 import KeyLabels from './key-labels';
 import ScaleTable from './scale-table';
 import ScalaImport from './scala-import';
-import { settingsToHexatonScala } from './parse-scale';
+import { settingsToHexatonScala, scalaToCents } from './parse-scale';
 
 const Scale = (props) => {
   const [importing,  setImporting]  = useState(false);
@@ -27,6 +27,19 @@ const Scale = (props) => {
   const handleToggle = (c) => {
     sessionStorage.setItem('hexatone_scale_collapsed', c);
     setCollapsed(c);
+  };
+
+  // Get current equave value from scale array
+  const scale = props.settings.scale || [];
+  const equaveValue = scale.length > 0 ? scale[scale.length - 1] : String((props.settings.equivSteps || 12) * 100);
+
+  // Handle equave change - update the last element of scale array
+  const handleEquaveChange = (e) => {
+    const next = [...scale];
+    if (next.length > 0) {
+      next[next.length - 1] = e.target.value;
+      props.onChange('scale', next);
+    }
   };
 
   return (
@@ -76,6 +89,13 @@ const Scale = (props) => {
                 }}
         />
       </label>
+      {!collapsed && (<>
+      <p>
+      <em>To obtain the desired absolute frequencies when using MIDI output with MTS (MIDI Tuning) or MPE messages, keep the global tuning of receiving instruments at default value, A4 = 440 Hz. Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE will automatically transpose built-in and external sounds accordingly.</em>
+      </p>
+      <p>
+      <em>Use the table below to edit the scale degrees, their note names, and colours. The icon to the left of the Degree display allows the pitch to be dynamically retuned, compared, saved, or reverted.</em>
+      </p>
       <label>
         Scale Size
         <input name="equivSteps" type="text" inputMode="numeric"
@@ -90,10 +110,74 @@ const Scale = (props) => {
                }}
         />
       </label>
-      {!collapsed && (<>
-      <p>
-      <em>Setting the Reference Frequency and Assigned Scale Degree in PLAINSOUND HEXATONE will automatically transpose built-in and external sounds. Edit scale degrees, note names, and colours below. Each pitch may be retuned, compared, saved, or reverted in real-time.</em>
-      </p>
+      <label>
+        Equave
+        <input name="equave" type="text"
+               class="sidebar-input"
+               key={equaveValue}
+               defaultValue={equaveValue}
+               onBlur={handleEquaveChange}
+        />
+      </label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingTop: '0.5rem', marginBottom: '0.5rem' }}>
+        <button type="button" onClick={() => {
+          const n = props.settings.equivSteps || 12;
+          let equaveStr = (props.settings.scale && props.settings.scale[n - 1]) 
+            ? props.settings.scale[n - 1] 
+            : String(n * 100);
+          
+          let equaveCents;
+          
+          // Check for ratio format: m/n (e.g., "3/2")
+          if (equaveStr.includes('/') && !equaveStr.includes('\\')) {
+            const parts = equaveStr.split('/');
+            const num = parseFloat(parts[0]);
+            const den = parseFloat(parts[1]);
+            equaveCents = 1200 * Math.log2(num / den);
+          }
+          // Check for EDO format: m\n (e.g., "3\2")
+          else if (equaveStr.includes('\\')) {
+            const parts = equaveStr.split('\\');
+            const m = parseFloat(parts[0]);
+            const n_edo = parseFloat(parts[1]);
+            equaveCents = 1200 * m / n_edo;
+          }
+          // Check if it's only digits (no decimal) - treat as ratio like "3" meaning "3/1"
+          else if (!equaveStr.includes('.') && /^[\d]+$/.test(equaveStr.trim())) {
+            const num = parseFloat(equaveStr);
+            equaveCents = 1200 * Math.log2(num / 1);
+          }
+          // Otherwise treat as cents (has decimal point)
+          else {
+            equaveCents = parseFloat(equaveStr);
+          }
+          
+          // Handle NaN or invalid values
+          if (isNaN(equaveCents)) {
+            equaveCents = n * 100;
+          }
+          
+          const step = equaveCents / n;
+          const newScale = [];
+          for (let i = 1; i <= n; i++) {
+            newScale.push(String((i * step).toFixed(1)));
+          }
+          props.onChange('scale_divide', newScale);
+        }}>
+          Divide Equave into {props.settings.equivSteps} Equal Divisions
+        </button>
+        <button type="button" onClick={() => {
+          const n = props.settings.equivSteps || 12;
+          const step = 1200 / n;
+          const newScale = [];
+          for (let i = 1; i <= n; i++) {
+            newScale.push(String((i * step).toFixed(1)));
+          }
+          props.onChange('scale_divide', newScale);
+        }}>
+          Divide Octave into {props.settings.equivSteps} Equal Divisions
+        </button>
+      </div>
       <Colors {...props} />
       <KeyLabels {...props} />
       <br />
@@ -101,71 +185,14 @@ const Scale = (props) => {
       <br />
       </>)}
       {importing
-       ?(<div style={collapsed ? { marginTop: '1rem' } : {}}>
+       ?(<div>
           <ScalaImport {...props}
                       onImport={doImport}
                       onCancel={cancelImport}/>
         </div>)
         : (<>
-          <button type="button" onClick={() => {
-            const n = props.settings.equivSteps || 12;
-            let equaveStr = (props.settings.scale && props.settings.scale[n - 1]) 
-              ? props.settings.scale[n - 1] 
-              : String(n * 100);
-            
-            let equaveCents;
-            
-            // Check for ratio format: m/n (e.g., "3/2")
-            if (equaveStr.includes('/') && !equaveStr.includes('\\')) {
-              const parts = equaveStr.split('/');
-              const num = parseFloat(parts[0]);
-              const den = parseFloat(parts[1]);
-              equaveCents = 1200 * Math.log2(num / den);
-            }
-            // Check for EDO format: m\n (e.g., "3\2")
-            else if (equaveStr.includes('\\')) {
-              const parts = equaveStr.split('\\');
-              const m = parseFloat(parts[0]);
-              const n_edo = parseFloat(parts[1]);
-              equaveCents = 1200 * m / n_edo;
-            }
-            // Check if it's only digits (no decimal) - treat as ratio like "3" meaning "3/1"
-            else if (!equaveStr.includes('.') && /^[\d]+$/.test(equaveStr.trim())) {
-              const num = parseFloat(equaveStr);
-              equaveCents = 1200 * Math.log2(num / 1);
-            }
-            // Otherwise treat as cents (has decimal point)
-            else {
-              equaveCents = parseFloat(equaveStr);
-            }
-            
-            // Handle NaN or invalid values
-            if (isNaN(equaveCents)) {
-              equaveCents = n * 100;
-            }
-            
-            const step = equaveCents / n;
-            const newScale = [];
-            for (let i = 1; i <= n; i++) {
-              newScale.push(String((i * step).toFixed(1)));
-            }
-            props.onChange('scale_divide', newScale);
-          }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
-            Divide Equave into {props.settings.equivSteps} Equal Parts
-          </button>
-          <button type="button" onClick={() => {
-            const n = props.settings.equivSteps || 12;
-            const step = 1200 / n;
-            const newScale = [];
-            for (let i = 1; i <= n; i++) {
-              newScale.push(String((i * step).toFixed(1)));
-            }
-            props.onChange('scale_divide', newScale);
-          }} style={{ marginTop: '0.2rem', marginLeft: '0.2rem' }}>
-            Divide Octave into {props.settings.equivSteps} Equal Parts
-          </button>
           <button type="button" onClick={startImporting}
-            style={collapsed ? { marginTop: '1rem', marginLeft: '0.2rem' } : { marginTop: '1rem', marginLeft: '0.2rem' }}>
+            style={{ marginTop: '0.5rem', marginLeft: '0rem' }}>
             Edit Scala File
           </button>
         </>)
