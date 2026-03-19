@@ -116,7 +116,7 @@ const DISPLAY_EMPTY_KEYS = ['name', 'description', 'key_labels'];
 // Scale hexSize down on phones (max-width 600px), but not below 20
 const scaleHexSizeForScreen = (hexSize) => {
   const size = hexSize || 42; // default to 42 if undefined
-  if (window.innerWidth <= 600 && size > 20) {
+  if (window.innerWidth <= 600 && size > 31) {
     return Math.max(20, Math.floor(size * 0.75));
   }
   return size;
@@ -797,11 +797,12 @@ const App = () => {
                     activeSource={activeSource}
                     activePresetName={activePresetName}
                     isPresetDirty={isDirty(savedPresetSnapshot, settings)}
-                    onRevertBuiltin={() => {
+                                        onRevertBuiltin={() => {
                       setUserHasInteracted(true);
                       if (activePresetName) {
                         const presetData = findPreset(activePresetName);
-                        const mergedRevertB = { ...settings, ...presetData };
+                        const adjustedPreset = { ...presetData, hexSize: scaleHexSizeForScreen(presetData.hexSize) };
+                        const mergedRevertB = { ...settings, ...adjustedPreset };
                         setSavedPresetSnapshot(snapshotOf(mergedRevertB));
                         setSettings(() => mergedRevertB);
                       }
@@ -811,7 +812,8 @@ const App = () => {
                       if (activePresetName) {
                         const saved = loadCustomPresets().find(p => p.name === activePresetName);
                         if (saved) {
-                          const mergedRevertU = { ...settings, ...saved };
+                          const adjustedPreset = { ...saved, hexSize: scaleHexSizeForScreen(saved.hexSize) };
+                          const mergedRevertU = { ...settings, ...adjustedPreset };
                           setSavedPresetSnapshot(snapshotOf(mergedRevertU));
                           setSettings(() => mergedRevertU);
                         }

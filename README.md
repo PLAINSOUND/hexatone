@@ -8,7 +8,7 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.0.1 (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html).
+Current version 3.0.2 (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html).
 Code on github: https://github.com/PLAINSOUND/hexatone.
 
 ## Isomorphic Keyboards
@@ -23,3 +23,4 @@ Version 1 : 2016- [Terpstra Keyboard] (http://terpstrakeyboard.com/) hexagonal k
 Version 2 : 2022-26 Marc Sabat: Added MIDI input and output, developed Lumatone plug-and-play compatability and built-in presets, MTS output  
 Version 3.0.0 : 2026- Added scala/json IO, user presets, polyphonic aftertouch response with built-in sounds  
 Version 3.0.1 : March 2026 Updated UX, added latch sustain, moveable centre scale degree
+Version 3.0.2 : Major reactivity fixes, MTS & MPE functionality scaled, scale resizing and Divide Octave/Equave features

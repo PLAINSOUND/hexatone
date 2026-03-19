@@ -9,7 +9,7 @@ const Blurb = () => (
       Initial development by James Fenn with additions and modifications from <a href="http://brandlew.com/" >Brandon&nbsp;Lewis</a>, <a href="http://whatmusicreallyis.com/" title="What Music Really İs" >Bo&nbsp;Constantinsen</a>, <a href="https://sites.google.com/site/wangchengu/" >Chengu&nbsp;Wang</a>, <a href="https://ashton.snelgrove.science">Ashton&nbsp;Snelgrove</a>. Sampling credits to Scott&nbsp;Thompson, Tim&nbsp;Kahn, Carlos&nbsp;Vaquero, Dr.&nbsp;Ozan&nbsp;Yarman, Lars Palo, and Soni Musicae.
     </p>
     <p>
-      Designed and programmed by <a href="https://www.plainsound.org" >Marc&nbsp;Sabat</a>. Current version 3.0.1 (March 2026), released under <a href="https://www.gnu.org/licenses/gpl-3.0.en.html">GPL-3.0</a>. Open source code at <a href="https://github.com/PLAINSOUND/hexatone" >github.com/PLAINSOUND/hexatone</a>.
+      Designed and programmed by <a href="https://www.plainsound.org" >Marc&nbsp;Sabat</a>. Current version 3.0.2 (March 2026), released under <a href="https://www.gnu.org/licenses/gpl-3.0.en.html">GPL-3.0</a>. Open source code at <a href="https://github.com/PLAINSOUND/hexatone" >github.com/PLAINSOUND/hexatone</a>.
     </p>
     <p>
       <em>The text font with embedded HEJI accidentals (Plainsound Sans) used in this web app may be obtained on <a href="https://github.com/PLAINSOUND">PLAINSOUND github</a>. The accidentals follow the Unicode standard music font layout and their unicode data for copy/paste may be found at <a href="https://w3c.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html" >w3c.github.io/smufl/latest/tables</a>.</em>
