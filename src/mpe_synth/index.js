@@ -105,7 +105,7 @@ function freqToMidiAndCents(freq, center_degree, channel, scale, mode) {
     // Calculate deviation in cents
     deviation = (targetMidiNote - note) * 100.0;
     
-    console.log(`Ableton: target=${targetMidiNote.toFixed(2)} channel=${channel} baseNote=${baseNote} octaveOffset=${octaveOffset} note=${note} deviation=${deviation.toFixed(0)} cents`);
+    //console.log(`Ableton: target=${targetMidiNote.toFixed(2)} channel=${channel} baseNote=${baseNote} octaveOffset=${octaveOffset} note=${note} deviation=${deviation.toFixed(0)} cents`);
   } else {
     // Full MPE: nearest MIDI note
     note = Math.round(targetMidiNote);
@@ -224,26 +224,26 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_outpu
   // Allocate voice channel — steal oldest if pool exhausted
   const { slot, stolen, lastBend, lastNote, cleanSlot, stolenSlot, stolenNote, retrigger } = pool.noteOn(coords);
   
-  console.log(`=== NEW NOTE ===`);
-  console.log(`  slot=${slot} cleanSlot=${cleanSlot} stolenSlot=${stolenSlot} lastBend=${lastBend}`);
+  //console.log(`=== NEW NOTE ===`);
+  //console.log(`  slot=${slot} cleanSlot=${cleanSlot} stolenSlot=${stolenSlot} lastBend=${lastBend}`);
   
   // Reset pitch bend on cleanSlot (channel that was killed in previous steal)
   // This gives the release tail time to fade before we reset PB
   if (cleanSlot !== null) {
     const csc = cleanSlot - 1;  // 0-based
     midi_output.send([0xE0 + csc, 0, 64]);  // 8192 = centered
-    console.log(`  → RESET PB on cleanSlot ${cleanSlot} to center (8192)`);
+    //console.log(`  → RESET PB on cleanSlot ${cleanSlot} to center (8192)`);
   } else if (stolen !== null) {
     // FIRST steal: using reserved cleanSlot, but NO PB reset sent!
     // This could be the bug - the channel might have residual PB
-    console.log(`  → FIRST STEAL: no cleanSlot reset, channel ${slot} should already be at 8192`);
+    //console.log(`  → FIRST STEAL: no cleanSlot reset, channel ${slot} should already be at 8192`);
   }
   
   // Kill stolen voice with noteOff on its channel
   if (stolen !== null) {
     const ssc = stolenSlot - 1;  // 0-based channel of killed voice
     midi_output.send([0x80 + ssc, stolenNote, 0]);
-    console.log(`  → KILL voice on channel ${stolenSlot}, note ${stolenNote}`);
+    //console.log(`  → KILL voice on channel ${stolenSlot}, note ${stolenNote}`);
   }
   
   this.channel = slot; // 1-based
@@ -265,7 +265,7 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_outpu
   // Debug: log the actual bend values
   const bendOffset = this.bend - 8192;  // signed offset from center
   const bendSemis = (bendOffset / 8192) * bendRange;
-  console.log(`BEND: channel=${this.channel} note=${this.note} deviation=${deviation.toFixed(0)}¢ bend=${this.bend} (offset=${bendOffset}, ${bendSemis.toFixed(2)} semitones) LSB=${bendLSB} MSB=${bendMSB}`);
+  //console.log(`BEND: channel=${this.channel} note=${this.note} deviation=${deviation.toFixed(0)}¢ bend=${this.bend} (offset=${bendOffset}, ${bendSemis.toFixed(2)} semitones) LSB=${bendLSB} MSB=${bendMSB}`);
   
   // Track current bend and note in pool for future reference
   pool.setLastBend(this.channel, this.bend);
@@ -277,10 +277,10 @@ MpeHex.prototype.noteOn = function () {
   
   // Pitch bend already sent in constructor
   // Small delay for synth to process pitch bend before noteOn
-  console.log(`noteOn: channel=${this.channel} note=${this.note} velocity=${this.velocity} (delaying 2ms)`);
+  //console.log(`noteOn: channel=${this.channel} note=${this.note} velocity=${this.velocity} (delaying 2ms)`);
   setTimeout(() => {
     this.midi_output.send([0x90 + c, this.note, this.velocity]);
-    console.log(`  → noteOn SENT: [${0x90 + c}, ${this.note}, ${this.velocity}]`);
+    //console.log(`  → noteOn SENT: [${0x90 + c}, ${this.note}, ${this.velocity}]`);
   }, 2);
 };
 

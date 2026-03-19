@@ -31,7 +31,7 @@ export class VoicePool {
     if (this._active.has(key)) {
       const entry = this._active.get(key);
       this._moveToTail(entry);
-      console.log(`  → RETRIGGER on channel ${entry.slot}`);
+      //console.log(`  → RETRIGGER on channel ${entry.slot}`);
       return { 
         slot: entry.slot, 
         stolen: null, 
@@ -57,7 +57,7 @@ export class VoicePool {
       slot = this._free.shift();
       lastBend = this._lastBend.get(slot) || 8192;
       lastNote = this._lastNote.get(slot) || 60;
-      console.log(`  → ALLOC from free: channel ${slot}`);
+      //console.log(`  → ALLOC from free: channel ${slot}`);
     } else {
       // All free slots used - need to steal
       
@@ -70,14 +70,14 @@ export class VoicePool {
         lastBend = 8192;  // will be 8192 after reset
         lastNote = this._lastNote.get(slot) || 60;
         this._pendingClean = null;
-        console.log(`  → STEAL using pendingClean: channel ${slot}`);
+        //console.log(`  → STEAL using pendingClean: channel ${slot}`);
       } else if (this._cleanSlot !== null) {
         // First steal: use the reserved clean slot
         slot = this._cleanSlot;
         lastBend = 8192;  // guaranteed centered
         lastNote = this._lastNote.get(slot) || 60;
         this._cleanSlot = null;
-        console.log(`  → STEAL using cleanSlot: channel ${slot}`);
+        //console.log(`  → STEAL using cleanSlot: channel ${slot}`);
       }
       
       // Kill oldest to make room
@@ -89,7 +89,7 @@ export class VoicePool {
       
       // The killed channel becomes pending clean for next steal
       this._pendingClean = victim.slot;
-      console.log(`  → KILL oldest: channel ${victim.slot} (now pendingClean)`);
+      //console.log(`  → KILL oldest: channel ${victim.slot} (now pendingClean)`);
     }
 
     // Add to tail
@@ -100,7 +100,7 @@ export class VoicePool {
     
     this._active.set(key, entry);
     
-    console.log(`  → RESULT: channel=${slot}, cleanSlot=${cleanSlot}, stolenSlot=${stolenSlot}`);
+    //console.log(`  → RESULT: channel=${slot}, cleanSlot=${cleanSlot}, stolenSlot=${stolenSlot}`);
     this._logState("noteOn END");
     
     return { slot, stolen, lastBend, lastNote, cleanSlot, stolenSlot, stolenNote, retrigger: false };
@@ -111,7 +111,7 @@ export class VoicePool {
     const entry = this._active.get(key);
     if (!entry) return null;
 
-    console.log(`noteOff: channel ${entry.slot} released`);
+    //console.log(`noteOff: channel ${entry.slot} released`);
     
     this._remove(entry);
     this._active.delete(key);
@@ -122,7 +122,7 @@ export class VoicePool {
     // If this was the pending clean channel, clear it
     if (this._pendingClean === entry.slot) {
       this._pendingClean = null;
-      console.log(`  → Was pendingClean, cleared`);
+      //console.log(`  → Was pendingClean, cleared`);
     }
     
     this._logState("noteOff END");
@@ -131,7 +131,7 @@ export class VoicePool {
 
   _logState(label) {
     const activeSlots = Array.from(this._active.values()).map(e => e.slot);
-    console.log(`  [${label}] free=${JSON.stringify(this._free)} active=${JSON.stringify(activeSlots)} cleanSlot=${this._cleanSlot} pendingClean=${this._pendingClean}`);
+    //console.log(`  [${label}] free=${JSON.stringify(this._free)} active=${JSON.stringify(activeSlots)} cleanSlot=${this._cleanSlot} pendingClean=${this._pendingClean}`);
   }
 
   _remove(entry) {
