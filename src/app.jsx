@@ -246,7 +246,7 @@ const sessionDefaults = {
     parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
   spectrum_colors: true,
   key_labels: "no_labels",
-  retuning_mode: 'recalculate_reference',  // or 'transpose_scale'
+  retuning_mode: "recalculate_reference", // or 'transpose_scale'
   fundamental: 260.740741,
   reference_degree: 0,
   equivSteps: 12,
@@ -342,7 +342,6 @@ const App = () => {
       rotation: ExtractInt,
       // Scale
       scale: ExtractJoinedString,
-      key_labels: ExtractString,
       key_labels: ExtractString,
       retuning_mode: ExtractString,
       equivSteps: ExtractInt,
@@ -715,6 +714,10 @@ const App = () => {
     }
 
     setSettings((s) => ({ ...s, [key]: value }));
+  };
+
+  const onAtomicChange = (updates) => {
+    setSettings((s) => ({ ...s, ...updates }));
   };
 
   const resetScale = () => {
@@ -1107,6 +1110,7 @@ const App = () => {
           presetChanged={presetChanged}
           presets={presets}
           onChange={onChange}
+          onAtomicChange={onAtomicChange}
           onVolumeChange={onVolumeChange}
           onImport={onImport}
           importCount={importCount}

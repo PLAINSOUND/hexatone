@@ -195,7 +195,7 @@ const Scale = (props) => {
         <Colors {...props} />
         <KeyLabels {...props} />
         <br />
-        <ScaleTable key={props.settings.scale?.length} {...props} importCount={props.importCount} />
+        <ScaleTable key={props.settings.scale?.length} {...props} importCount={props.importCount}/>
         <br />
       </>)}
       {importing

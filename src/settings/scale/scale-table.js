@@ -231,27 +231,24 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, reference_degree, funda
     pushToKeys(next ? originalCents.current : tunedCents);
   }, [comparing, tunedCents, pushToKeys]);
 
-    const onSave = useCallback(() => {
+  const onSave = useCallback(() => {
     const saveVal = tunedCents !== null ? tunedCents : originalCents.current;
     const str = saveVal.toFixed(6);
-    
-    // If retuning the reference degree with 'recalculate_reference' mode,
-    // recalculate the fundamental to keep the sounding pitch the same.
+
     if (isReferenceDegree && retuning_mode !== 'transpose_scale') {
       const delta = tunedCents - originalCents.current;
       const newFundamental = fundamental * Math.pow(2, delta / 1200.0);
-      console.log('[TuneCell] Recalculating fundamental:', {
-        degree,
-        reference_degree,
-        delta,
-        oldFundamental: fundamental,
-        newFundamental
-      });
+      // NEW: pass both changes atomically via a combined callback
       if (onFundamentalChange) {
-        onFundamentalChange(newFundamental);
+        onFundamentalChange(newFundamental, str);  // ← pass str along
+        // Don't call onChange(str) separately — let onFundamentalChange handle it
+      } else {
+        onChange(str);
       }
+    } else {
+      onChange(str);
     }
-    
+
     originalCents.current = saveVal;
     setTunedCents(null);
     setComparing(false);
@@ -419,11 +416,16 @@ const ScaleTable = (props) => {
                   reference_degree={props.settings.reference_degree}
                   fundamental={props.settings.fundamental}
                   retuning_mode={props.settings.retuning_mode}
-                  onFundamentalChange={(newFreq) => props.onChange('fundamental', newFreq)}
-                  onChange={(newStr) => {
-                    const next = [...(props.settings.scale || [])];
-                    next[i] = newStr;
-                    props.onChange('scale', next);
+                  onFundamentalChange={(newFreq, newStr) => {
+                    // If newStr is provided (reference degree retune), apply both atomically
+                    if (newStr !== undefined) {
+                      const next = [...(props.settings.scale || [])];
+                      next[i] = newStr;
+                      // Single setSettings call covers both — no race between two renders
+                      props.onAtomicChange({ fundamental: newFreq, scale: next });
+                    } else {
+                      props.onChange('fundamental', newFreq);
+                    }
                   }}
                 />
               </div>
@@ -534,6 +536,7 @@ const ScaleTable = (props) => {
 ScaleTable.propTypes = {
   keysRef: PropTypes.object,
   onChange: PropTypes.func.isRequired,
+  onAtomicChange: PropTypes.func,
   importCount: PropTypes.number,
   settings: PropTypes.shape({
     scale: PropTypes.arrayOf(PropTypes.string),
