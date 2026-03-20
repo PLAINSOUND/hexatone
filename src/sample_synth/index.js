@@ -276,7 +276,7 @@ ActiveHex.prototype.noteOff = function(release_velocity) {
   
   if (this.gainNode && this.audioContext) {
     const now = this.audioContext.currentTime;
-    const releaseTime = this.sampleRelease || 0.1;
+    const releaseTime = this.sampleRelease || 4.0;
     
     // Cancel any scheduled values
     this.gainNode.gain.cancelScheduledValues(now);
