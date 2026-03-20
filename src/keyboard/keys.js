@@ -1525,9 +1525,11 @@ class Keys {
       if (this.settings.degree) {
         name = "" + reducedNote;
       } else if (this.settings.note) {
-        name = this.settings.note_names[reducedNote];
+        // Safe access: if note_names is undefined or index out of bounds, show nothing
+        name = this.settings.note_names?.[reducedNote] ?? "";
       } else if (this.settings.scala) {
-        name = this.settings.scala_names[reducedNote];
+        // Safe access: scala_names should always exist if scale exists, but be defensive
+        name = this.settings.scala_names?.[reducedNote] ?? "";
       } else if (this.settings.cents) {
         name =
           Math.round(
@@ -1566,10 +1568,12 @@ class Keys {
     let returnColor;
 
     if (!this.settings.spectrum_colors) {
-      if (typeof this.settings.note_colors[pressed_interval] === "undefined") {
+      // Safe access: check note_colors exists before indexing
+      const colors = this.settings.note_colors;
+      if (!colors || typeof colors[pressed_interval] === "undefined") {
         returnColor = "#EDEDE4";
       } else {
-        returnColor = this.settings.note_colors[pressed_interval];
+        returnColor = colors[pressed_interval];
       }
 
       let oldColor = returnColor;
@@ -1887,5 +1891,3 @@ function mtsTuningMap(
     return sysex;
   }
 }
-
-// The class is exported at line 1168

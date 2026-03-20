@@ -105,9 +105,21 @@ const normalizeColors = (settings) => ({
 
 // Everything except colors — changes here rebuild the Keys instance.
 const normalizeStructural = (settings) => {
-  const rotation = (settings.rotation * Math.PI) / 180.0;
-  const result = { ...settings, keyCodeToCoords, rotation };
+  const rotation = (settings.rotation * Math.PI) / 180.0; // converts degrees to radians
+  const result = {
+    ...settings,
+    keyCodeToCoords,
+    rotation,
+    // Provide empty array defaults for label arrays that could be undefined.
+    // This prevents crashes when accessing note_names[i] or scala_names[i].
+    // When the array is empty, the hex just shows no label.
+    note_names: settings.note_names || [],
+    scala_names: [], // Will be populated below if scale exists
+  };
 
+  // Set label flags based on key_labels selection.
+  // These flags (degree, note, scala, cents, no_labels) are checked in keys.js
+  // to decide what text to draw on each hex.
   if (settings.key_labels === "enumerate") {
     result["degree"] = true;
   } else if (settings.key_labels === "note_names") {
@@ -118,8 +130,14 @@ const normalizeStructural = (settings) => {
     result["cents"] = true;
   } else if (settings.key_labels === "no_labels") {
     result["no_labels"] = true;
+  } else {
+    // Handle 'equaves', undefined, or unknown values:
+    // Default to no_labels (blank keys) which requires no data.
+    result["no_labels"] = true;
   }
 
+  // Build scala_names and normalized scale array from the scale setting.
+  // This is required for key_labels === 'scala_names' and for cents calculations.
   if (settings.scale) {
     const scaleAsStrings = settings.scale.map((i) => String(i));
     const scala_names = scaleAsStrings.map((i) => scalaToLabels(i));
@@ -847,22 +865,52 @@ const App = () => {
     });
   };
 
-  const isValid = useMemo(
-    () =>
+  // Validate that all required settings are present and consistent.
+  // This prevents Keys from being constructed with invalid state that would crash.
+  const isValid = useMemo(() => {
+    // Layout validation: hexSize must be >= 20, rotation must be a number
+    const hasLayout =
       settings.rSteps &&
       settings.drSteps &&
       settings.hexSize &&
       settings.hexSize >= 20 &&
-      typeof settings.rotation === "number" &&
+      typeof settings.rotation === "number";
+
+    // Scale validation: must have a scale array with at least one element
+    const hasScale =
       settings.scale &&
-      settings.equivSteps &&
-      (settings.no_labels ||
-        (settings.degree && settings.note_names) ||
-        !settings.degree) &&
-      ((settings.spectrum_colors && settings.fundamental_color) ||
-        settings.note_colors),
-    [settings],
-  );
+      Array.isArray(settings.scale) &&
+      settings.scale.length > 0 &&
+      settings.equivSteps;
+
+    // Label validation: check requirements based on selected key_labels type.
+    // Each label type has different data requirements:
+    // - 'no_labels', 'equaves', 'enumerate', 'cents': need only scale
+    // - 'scala_names': needs scale (to generate scala_names)
+    // - 'note_names': needs note_names array with elements
+    const labelType = settings.key_labels;
+    const labelsValid =
+      !labelType ||
+      labelType === "no_labels" ||
+      labelType === "equaves" ||
+      labelType === "enumerate" ||
+      labelType === "cents" ||
+      (labelType === "scala_names" && hasScale) ||
+      (labelType === "note_names" &&
+        settings.note_names &&
+        Array.isArray(settings.note_names) &&
+        settings.note_names.length > 0);
+
+    // Color validation: either use spectrum_colors with fundamental_color,
+    // or use note_colors array
+    const colorsValid =
+      (settings.spectrum_colors && settings.fundamental_color) ||
+      (settings.note_colors &&
+        Array.isArray(settings.note_colors) &&
+        settings.note_colors.length > 0);
+
+    return hasLayout && hasScale && labelsValid && colorsValid;
+  }, [settings]);
 
   // Stable string keys for array deps — memoized so stringify only runs when
   // the array content actually changes, not on every render.
