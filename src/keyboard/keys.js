@@ -899,12 +899,32 @@ class Keys {
           if (activeIndex !== -1) {
             this.state.activeHexObjects.splice(activeIndex, 1);
           }
-        } else if (!this.state.pressedKeys.has(e.code)) {
-          // Normal note-on
-          this.state.pressedKeys.add(e.code);
+                } else if (!this.state.pressedKeys.has(e.code)) {
+          // Calculate coords for this key
           const kbOffset = this.settings.centerHexOffset;
           const kbRaw = this.settings.keyCodeToCoords[e.code];
           let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+          
+          // When latch is active, check if this note is already sustained
+          // If so, toggle it off (same behavior as mouse/touch)
+          if (this.state.latch) {
+            const key = coords.x + ',' + coords.y;
+            const sustainedIdx = this.state.sustainedNotes.findIndex(([h]) =>
+              h.coords.x === coords.x && h.coords.y === coords.y
+            );
+            if (sustainedIdx !== -1) {
+              // Toggle off: release the sustained note
+              const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
+              this.state.sustainedNotes.splice(sustainedIdx, 1);
+              this.state.sustainedCoords.delete(key);
+              hex.noteOff(vel);
+              this.hexOff(coords);
+              return; // Don't trigger a new note
+            }
+          }
+          
+          // Normal note-on (no latch, or note not sustained)
+          this.state.pressedKeys.add(e.code);
           let hex = this.hexOn(coords);
           this.state.activeHexObjects.push(hex);
         }
