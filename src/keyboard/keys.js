@@ -240,9 +240,9 @@ class Keys {
               //console.log("Pitch Bend (thru)", e.message.dataBytes[0], e.message.dataBytes[1]);
               this.midiout_data.sendPitchBend(
                 2.0 *
-                  (e.message.dataBytes[0] / 16384.0 +
-                    e.message.dataBytes[1] / 128.0) -
-                  1.0,
+                (e.message.dataBytes[0] / 16384.0 +
+                  e.message.dataBytes[1] / 128.0) -
+                1.0,
                 { channels: this.settings.midi_channel + 1 },
               );
             });
@@ -284,9 +284,9 @@ class Keys {
                 //console.log("Pitch Bend (thru)", e.message.dataBytes[0], e.message.dataBytes[1]);
                 this.midiout_data.sendPitchBend(
                   2.0 *
-                    (e.message.dataBytes[0] / 16384.0 +
-                      e.message.dataBytes[1] / 128.0) -
-                    1.0,
+                  (e.message.dataBytes[0] / 16384.0 +
+                    e.message.dataBytes[1] / 128.0) -
+                  1.0,
                   { channels: this.settings.midi_channel + 1 },
                 );
               });
@@ -332,9 +332,9 @@ class Keys {
                 //console.log("Pitch Bend (thru)", e.message.dataBytes[0], e.message.dataBytes[1]);
                 this.midiout_data.sendPitchBend(
                   2.0 *
-                    (e.message.dataBytes[0] / 16384.0 +
-                      e.message.dataBytes[1] / 128.0) -
-                    1.0,
+                  (e.message.dataBytes[0] / 16384.0 +
+                    e.message.dataBytes[1] / 128.0) -
+                  1.0,
                   { channels: this.settings.midi_channel + 1 },
                 );
               });
@@ -1197,48 +1197,42 @@ class Keys {
   };
 
   mouseUp = (e) => {
-    // Always reset isMouseDown to prevent stuck state when mouse is released outside canvas
+    // Gate on isMouseDown — only true if this drag started on the canvas.
+    // This correctly handles both off-canvas releases (processes activeHexObjects)
+    // and UI button clicks (isMouseDown was never set, so we ignore them).
+    if (!this.state.isMouseDown) return;
     this.state.isMouseDown = false;
+    this.state.mouseDownToggledCoord = null;
 
-    // Only process mouseup if it originated from the canvas
-    // This prevents clicking on UI buttons from releasing notes
-    if (e.target !== this.state.canvas) return;
+    if (this.state.pressedKeys.size != 0 || this.state.isTouchDown) return;
 
-    if (this.state.pressedKeys.size != 0 || this.state.isTouchDown) {
-      return;
-    }
     this.state.canvas.removeEventListener("mousemove", this.mouseActive);
-    if (this.state.activeHexObjects.length > 0) {
-      const hex = this.state.activeHexObjects[0];
+
+    for (const hex of this.state.activeHexObjects) {
       if (!this.state.sustain) this.hexOff(hex.coords);
       this.noteOff(hex, 0);
-      this.state.activeHexObjects.pop();
     }
-    // If Escape was held but its keyup already fired while the mouse was down
-    // (spurious keyup), release sustain now that the mouse is up too.
-    // But don't release if a tune-handle drag is in progress in the sidebar.
-    if (
-      !this.state.escHeld &&
-      this.state.sustain &&
-      !this.state.isTuneDragging
-    ) {
+    this.state.activeHexObjects = [];
+
+    // If Escape keyup fired spuriously while mouse was down,
+    // release sustain now. But not if a tune-handle drag is in progress.
+    if (!this.state.escHeld && this.state.sustain && !this.state.isTuneDragging) {
       this.sustainOff();
     }
   };
 
   mouseDown = (e) => {
-    if (this.state.pressedKeys.size != 0 || this.state.isTouchDown) {
-      return;
-    }
+    if (this.state.pressedKeys.size != 0 || this.state.isTouchDown) return;
 
-    // Clean up any stale state from incomplete mouseUp (released outside canvas)
-    // This ensures latch toggle works reliably
-    if (this.state.activeHexObjects.length > 0) {
-      // The stale hex was never properly sustained, just clear it
-      // (it might still be playing audio, but will be silenced when toggled)
-      this.state.activeHexObjects = [];
+    // Clean up stale activeHexObjects (e.g. mouseUp fired off-canvas).
+    // Call hex.noteOff directly — bypassing noteOff() — so stale notes
+    // are silenced outright rather than being routed into sustainedNotes.
+    for (const hex of this.state.activeHexObjects) {
+      hex.noteOff(0);
     }
+    this.state.activeHexObjects = [];
 
+    this.state.mouseDownToggledCoord = null;
     this.state.isMouseDown = true;
     this.state.canvas.addEventListener("mousemove", this.mouseActive, false);
     this.mouseActive(e);
@@ -1261,14 +1255,17 @@ class Keys {
           this.state.sustainedCoords.delete(key);
           hex.noteOff(vel);
           this.hexOff(coords);
+          this.state.mouseDownToggledCoord = key;
           return;
         }
+        // Guard: don't re-play a coord just toggled off this click
+        if (this.state.mouseDownToggledCoord === key) return;
       }
       this.state.activeHexObjects[0] = this.hexOn(coords);
     } else {
       let first = this.state.activeHexObjects[0];
       if (!coords.equals(first.coords)) {
-        // When sliding TO a sustained note, check by coords, not object reference!
+        // When sliding TO a sustained note, check by coords, not object reference.
         if (this.state.latch) {
           const key = coords.x + "," + coords.y;
           const sustainedIdx = this.state.sustainedNotes.findIndex(
@@ -1277,20 +1274,21 @@ class Keys {
           if (sustainedIdx !== -1) {
             // Release old active hex
             this.hexOff(first.coords);
-            this.noteOff(first);
+            this.noteOff(first, 0);
             this.state.activeHexObjects = [];
-            // Toggle off the sustained note - USE the hex from sustainedNotes[sustainedIdx]
+            // Toggle off the sustained note
             const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
             this.state.sustainedNotes.splice(sustainedIdx, 1);
             this.state.sustainedCoords.delete(key);
             hex.noteOff(vel);
             this.hexOff(coords);
+            this.state.mouseDownToggledCoord = key;
             return;
           }
         }
         // Normal slide to new hex
         this.hexOff(first.coords);
-        this.noteOff(first);
+        this.noteOff(first, 0);
         this.state.activeHexObjects[0] = this.hexOn(coords);
       }
     }
@@ -1536,7 +1534,7 @@ class Keys {
             (this.settings.scale[reducedNote] -
               this.settings.scale[this.settings.reference_degree] +
               1200) %
-              1200,
+            1200,
           ).toString() + ".";
       }
 
@@ -1791,10 +1789,10 @@ function mtsTuningMap(
         scale[(i - tuning_map_degree0 + 128 * scale.length) % scale.length] +
         map_offset +
         equave *
-          (Math.floor(
-            (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
-          ) -
-            128);
+        (Math.floor(
+          (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
+        ) -
+          128);
       if (typeof target_cents === "number") {
         mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
         //console.log("mts_data[", i, "]:", mts_data[i]);
@@ -1844,10 +1842,10 @@ function mtsTuningMap(
         scale[(i - tuning_map_degree0 + 128 * scale.length) % scale.length] +
         map_offset +
         equave *
-          (Math.floor(
-            (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
-          ) -
-            128);
+        (Math.floor(
+          (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
+        ) -
+          128);
       if (typeof target_cents === "number") {
         mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
       }
