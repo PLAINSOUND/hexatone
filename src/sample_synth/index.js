@@ -178,6 +178,7 @@ function ActiveHex(coords, cents, velocity_played, note_played, fundamental, cen
   this.sampleBuffer = sampleBuffer;
   this.audioContext = audioContext;
   this.masterGain = masterGain || null;
+  this._noteOffCalled = false; // Guard against double noteOff
 }
 
 ActiveHex.prototype.noteOn = function() {
@@ -268,11 +269,30 @@ ActiveHex.prototype.aftertouch = function(value) {
 };
 
 ActiveHex.prototype.noteOff = function(release_velocity) {
-  if (this.gainNode) {
-    this.gainNode.gain.setTargetAtTime(0, this.audioContext.currentTime, this.sampleRelease);
-  }
-  if (this.source) {
-    this.source.stop(this.audioContext.currentTime + this.sampleRelease * 2);
+  // Guard against double noteOff - prevents clicks from duplicate release calls
+  if (this._noteOffCalled) return;
+  this._noteOffCalled = true;
+  this.release = true;
+  
+  if (this.gainNode && this.audioContext) {
+    const now = this.audioContext.currentTime;
+    const releaseTime = this.sampleRelease || 0.1;
+    
+    // Cancel any scheduled values
+    this.gainNode.gain.cancelScheduledValues(now);
+    
+    // CRITICAL: Must set current value explicitly with setValueAtTime
+    // exponentialRampToValueAtTime requires a definite starting point
+    this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+    
+    // Use exponentialRampToValueAtTime for smooth fade to silence
+    // Must use a value > 0 (0.0001) because exponential ramp can't reach 0
+    this.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + releaseTime);
+    
+    // Stop the source slightly after the fade completes
+    if (this.source) {
+      this.source.stop(now + releaseTime + 0.05);
+    }
   }
 };
 
