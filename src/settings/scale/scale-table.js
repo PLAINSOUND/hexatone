@@ -1,14 +1,14 @@
-import { h, createRef } from 'preact';
-import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
-import PropTypes from 'prop-types';
-import { scalaToCents } from './parse-scale';
+import { h, createRef } from "preact";
+import { useState, useRef, useCallback, useEffect } from "preact/hooks";
+import PropTypes from "prop-types";
+import { scalaToCents } from "./parse-scale";
 
 // Normalise a hex string to the form #rrggbb.
 // Accepts:  #rgb  #rrggbb  rgb  rrggbb
 // Returns the normalised string, or null if invalid.
 const normaliseHex = (raw) => {
   if (!raw) return null;
-  const s = raw.trim().replace(/^#/, '');
+  const s = raw.trim().replace(/^#/, "");
   if (/^[0-9a-fA-F]{3}$/.test(s)) {
     const [r, g, b] = s;
     return `#${r}${r}${g}${g}${b}${b}`;
@@ -22,7 +22,7 @@ const normaliseHex = (raw) => {
 // A colour cell: a clickable swatch that opens a colour picker,
 // alongside a hex text input that accepts typed or pasted values.
 const ColorCell = ({ name, value, disabled, onChange }) => {
-  const safe = normaliseHex(value || '#ffffff') || '#ffffff';
+  const safe = normaliseHex(value || "#ffffff") || "#ffffff";
   const pickerRef = createRef();
   const textRef = createRef();
   const swatchRef = createRef();
@@ -54,7 +54,10 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     // Adaptive throttle: fast drag (small gap) → longer throttle
     // 0ms gap (very fast) → 100ms throttle
     // 80ms+ gap (slow) → 16ms throttle (60fps)
-    const speedFactor = Math.max(0, Math.min(1, (80 - timeSinceLastEvent) / 80));
+    const speedFactor = Math.max(
+      0,
+      Math.min(1, (80 - timeSinceLastEvent) / 80),
+    );
     const throttle = 16 + speedFactor * 84; // 16-100ms range
 
     if (now - lastFire.current >= throttle) {
@@ -98,11 +101,11 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
       {/* Visible swatch — clicking opens the hidden picker */}
       <span
         ref={swatchRef}
-        class={`color-swatch${disabled ? ' color-swatch--disabled' : ''}`}
+        class={`color-swatch${disabled ? " color-swatch--disabled" : ""}`}
         style={{ backgroundColor: safe }}
         onClick={handleSwatchClick}
-        title={disabled ? undefined : 'Click to open colour picker'}
-        role={disabled ? undefined : 'button'}
+        title={disabled ? undefined : "Click to open colour picker"}
+        role={disabled ? undefined : "button"}
         aria-label={disabled ? undefined : `open colour picker for ${name}`}
       />
 
@@ -164,47 +167,60 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
     return () => {
       // Use the captured instance from when drag started, not keysRef.current
       // which may now point to a new Keys instance after reconstruction
-      if (dragKeysInstance.current && dragKeysInstance.current.setTuneDragging) {
+      if (
+        dragKeysInstance.current &&
+        dragKeysInstance.current.setTuneDragging
+      ) {
         dragKeysInstance.current.setTuneDragging(false);
       }
     };
   }, []);
 
   const currentCents = tunedCents !== null ? tunedCents : originalCents.current;
-  const isDirty = tunedCents !== null && Math.abs(tunedCents - originalCents.current) > 0.001;
+  const isDirty =
+    tunedCents !== null && Math.abs(tunedCents - originalCents.current) > 0.001;
 
-  const pushToKeys = useCallback((cents) => {
-    if (keysRef && keysRef.current && keysRef.current.updateScaleDegree) {
-      keysRef.current.updateScaleDegree(degree, cents);
-    }
-  }, [keysRef, degree]);
+  const pushToKeys = useCallback(
+    (cents) => {
+      if (keysRef && keysRef.current && keysRef.current.updateScaleDegree) {
+        keysRef.current.updateScaleDegree(degree, cents);
+      }
+    },
+    [keysRef, degree],
+  );
 
-  const onPointerDown = useCallback((e) => {
-    // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
-    // which would drop sustain; the flag guards against that in keys.js.
-    // Also capture the Keys instance for cleanup in case we're unmounted mid-drag.
-    if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
-      keysRef.current.setTuneDragging(true);
-      dragKeysInstance.current = keysRef.current;
-    }
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStart.current = { lastX: e.clientX, accCents: currentCents };
-  }, [currentCents, keysRef]);
+  const onPointerDown = useCallback(
+    (e) => {
+      // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
+      // which would drop sustain; the flag guards against that in keys.js.
+      // Also capture the Keys instance for cleanup in case we're unmounted mid-drag.
+      if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
+        keysRef.current.setTuneDragging(true);
+        dragKeysInstance.current = keysRef.current;
+      }
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragStart.current = { lastX: e.clientX, accCents: currentCents };
+    },
+    [currentCents, keysRef],
+  );
 
-  const onPointerMove = useCallback((e) => {
-    if (!dragStart.current) return;
-    const dx = e.clientX - dragStart.current.lastX;
-    if (dx === 0) return;
-    // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
-    // sensitivity = base * speed^1.8 — superlinear so fast moves cover more ground
-    const speed = Math.abs(dx);
-    const sensitivity = 0.05 * Math.pow(speed, 1.5); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
-    const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
-    dragStart.current.lastX = e.clientX;
-    dragStart.current.accCents = newCents;
-    setTunedCents(newCents);
-    if (!comparing) pushToKeys(newCents);
-  }, [comparing, pushToKeys]);
+  const onPointerMove = useCallback(
+    (e) => {
+      if (!dragStart.current) return;
+      const dx = e.clientX - dragStart.current.lastX;
+      if (dx === 0) return;
+      // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
+      // sensitivity = base * speed^1.8 — superlinear so fast moves cover more ground
+      const speed = Math.abs(dx);
+      const sensitivity = 0.05 * Math.pow(speed, 1.5); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
+      const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
+      dragStart.current.lastX = e.clientX;
+      dragStart.current.accCents = newCents;
+      setTunedCents(newCents);
+      if (!comparing) pushToKeys(newCents);
+    },
+    [comparing, pushToKeys],
+  );
 
   const onPointerUp = useCallback(() => {
     dragStart.current = null;
@@ -238,30 +254,62 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
     pushToKeys(originalCents.current);
   }, [pushToKeys]);
 
-  const delta = isDirty ? (tunedCents - originalCents.current) : 0;
-  const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
+  const delta = isDirty ? tunedCents - originalCents.current : 0;
+  const deltaStr =
+    delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
 
   return (
     <div class="tune-cell">
       {isDirty && (
-        <span class={`tune-delta${comparing ? ' tune-comparing' : ''}`}>
-          {comparing ? 'orig' : deltaStr}
+        <span class={`tune-delta${comparing ? " tune-comparing" : ""}`}>
+          {comparing ? "orig" : deltaStr}
         </span>
       )}
-      {isDirty && <button type="button" class={`tune-btn${comparing ? ' tune-btn--active' : ''}`}
-                  onClick={onCompare} title="A/B compare with original"><span class="tune-btn-compare" style={{ display: 'block', marginTop: '-4px' }}>↺</span></button>}
-      {isDirty && <button type="button" class="tune-btn tune-btn--save"
-                  onClick={onSave} title="Save tuning">✓</button>}
-      {isDirty && <button type="button" class="tune-btn tune-btn--revert"
-                  onClick={onRevert} title="Revert to original">✕</button>}
+      {isDirty && (
+        <button
+          type="button"
+          class={`tune-btn${comparing ? " tune-btn--active" : ""}`}
+          onClick={onCompare}
+          title="A/B compare with original"
+        >
+          <span
+            class="tune-btn-compare"
+            style={{ display: "block", marginTop: "-4px" }}
+          >
+            ↺
+          </span>
+        </button>
+      )}
+      {isDirty && (
+        <button
+          type="button"
+          class="tune-btn tune-btn--save"
+          onClick={onSave}
+          title="Save tuning"
+        >
+          ✓
+        </button>
+      )}
+      {isDirty && (
+        <button
+          type="button"
+          class="tune-btn tune-btn--revert"
+          onClick={onRevert}
+          title="Revert to original"
+        >
+          ✕
+        </button>
+      )}
       <span
         class="tune-handle"
         title="Drag left/right to tune — slow for fine, fast for coarse"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        style={{ paddingBottom: '6px' }}
-      >⟺</span>
+        style={{ paddingBottom: "6px" }}
+      >
+        ⟺
+      </span>
     </div>
   );
 };
@@ -282,35 +330,41 @@ const ScaleTable = (props) => {
     colors = props.settings.note_colors || [];
   }
 
-  const rows = scale.map((x, i) => [x, degrees[i], note_names[i] || '', colors[i] || '#ffffff']);
+  const rows = scale.map((x, i) => [
+    x,
+    degrees[i],
+    note_names[i] || "",
+    colors[i] || "#ffffff",
+  ]);
 
-
-  const scaleChange = e => {
+  const scaleChange = (e) => {
     const next = [...(props.settings.scale || [])];
-    next[parseInt(e.target.name.replace(/scale/, ''))] = e.target.value;
-    props.onChange('scale', next);
+    next[parseInt(e.target.name.replace(/scale/, ""))] = e.target.value;
+    props.onChange("scale", next);
   };
 
-  const colorChange = e => {
+  const colorChange = (e) => {
     const next = [...(props.settings.note_colors || [])];
-    next[parseInt(e.target.name.replace(/color/, ''))] = e.target.value;
-    props.onChange('note_colors', next);
+    next[parseInt(e.target.name.replace(/color/, ""))] = e.target.value;
+    props.onChange("note_colors", next);
   };
 
-  const nameChange = e => {
+  const nameChange = (e) => {
     const next = [...(props.settings.note_names || [])];
-    next[parseInt(e.target.name.replace(/name/, ''))] = e.target.value;
-    props.onChange('note_names', next);
+    next[parseInt(e.target.name.replace(/name/, ""))] = e.target.value;
+    props.onChange("note_names", next);
   };
 
-  const editable_labels = props.settings.key_labels !== 'note_names';
+  const editable_labels = props.settings.key_labels !== "note_names";
   const editable_colors = props.settings.spectrum_colors;
 
   return (
     <table>
       <thead>
         <tr>
-          <th class="wide" id="leftaligned">Ratio&nbsp;&nbsp;|&nbsp;&nbsp;Cents&nbsp;&nbsp;|&nbsp;&nbsp;EDO</th>
+          <th class="wide" id="leftaligned">
+            Ratio&nbsp;&nbsp;|&nbsp;&nbsp;Cents&nbsp;&nbsp;|&nbsp;&nbsp;EDO
+          </th>
           <th>Degree</th>
           <th>Name</th>
           <th>Colour</th>
@@ -319,32 +373,76 @@ const ScaleTable = (props) => {
       <tbody>
         <tr key={`0-${props.importCount}`}>
           <td class="tonic-label">
-            <span>1/1&nbsp;&nbsp;|&nbsp;&nbsp;0.0&nbsp;&nbsp;|&nbsp;&nbsp;0\n</span><br/>
+            <span>
+              1/1&nbsp;&nbsp;|&nbsp;&nbsp;0.0&nbsp;&nbsp;|&nbsp;&nbsp;0\n
+            </span>
+            <br />
           </td>
-          <td>
-            <input id="centered" type="text" disabled class="equiv-cell"
-                   value={degrees[0]}
-                   aria-label="pitch degree 0"
+          <td
+            class={
+              props.settings.reference_degree === 0
+                ? "reference-degree-cell"
+                : undefined
+            }
+          >
+            <input
+              id="centered"
+              type="text"
+              disabled
+              class="equiv-cell"
+              value={degrees[0]}
+              aria-label="pitch degree 0"
             />
           </td>
-          <td>
-            <input id="centered" type="text" disabled={editable_labels}
-                   name="name0" value={note_names[0] || ''} onChange={nameChange}
-                   aria-label="pitch name 0"
+          <td
+            class={
+              props.settings.reference_degree === 0
+                ? "reference-degree-cell"
+                : undefined
+            }
+          >
+            <input
+              id="centered"
+              type="text"
+              disabled={editable_labels}
+              name="name0"
+              value={note_names[0] || ""}
+              onChange={nameChange}
+              aria-label="pitch name 0"
             />
           </td>
-          <td>
-            <ColorCell name="color0" value={colors[0] || '#ffffff'}
-                       disabled={editable_colors} onChange={colorChange} />
+          <td
+            class={
+              props.settings.reference_degree === 0
+                ? "reference-degree-cell"
+                : undefined
+            }
+          >
+            <ColorCell
+              name="color0"
+              value={colors[0] || "#ffffff"}
+              disabled={editable_colors}
+              onChange={colorChange}
+            />
           </td>
         </tr>
         {rows.slice(1).map(([freq, degree, name, color], i) => (
-          <tr key={`${i + 1}-${props.importCount}`}>
+          <tr
+            key={`${i + 1}-${props.importCount}`}
+            class={
+              props.settings.reference_degree === i + 1
+                ? "reference-degree-row"
+                : undefined
+            }
+          >
             <td>
               <div class="freq-cell">
-                <input type="text" name={`scale${i}`}
-                       value={freq} onChange={scaleChange}
-                       aria-label={`pitch value ${i}`}
+                <input
+                  type="text"
+                  name={`scale${i}`}
+                  value={freq}
+                  onChange={scaleChange}
+                  aria-label={`pitch value ${i}`}
                 />
                 <TuneCell
                   key={`tune${i + 1}-${props.importCount}`}
@@ -354,37 +452,58 @@ const ScaleTable = (props) => {
                   onChange={(newStr) => {
                     const next = [...(props.settings.scale || [])];
                     next[i] = newStr;
-                    props.onChange('scale', next);
+                    props.onChange("scale", next);
                   }}
                 />
               </div>
             </td>
             <td>
-              <input id="centered" type="text" disabled class="equiv-cell"
-                     value={degree}
-                     aria-label={`pitch degree ${i}`}
+              <input
+                id="centered"
+                type="text"
+                disabled
+                class="equiv-cell"
+                value={degree}
+                aria-label={`pitch degree ${i}`}
               />
             </td>
             <td>
-            <input id="centered" type="text" disabled={editable_labels}
-                   name={`name${i + 1}`} value={name}
-                   onChange={nameChange}
-                   aria-label={`pitch name ${i + 1}`}
-            />
+              <input
+                id="centered"
+                type="text"
+                disabled={editable_labels}
+                name={`name${i + 1}`}
+                value={name}
+                onChange={nameChange}
+                aria-label={`pitch name ${i + 1}`}
+              />
             </td>
             <td>
-              <ColorCell name={`color${i + 1}`} value={color}
-                         disabled={editable_colors} onChange={colorChange} />
+              <ColorCell
+                name={`color${i + 1}`}
+                value={color}
+                disabled={editable_colors}
+                onChange={colorChange}
+              />
             </td>
           </tr>
         ))}
-        <tr key={`equiv-${props.importCount}`}>
+        <tr
+          key={`equiv-${props.importCount}`}
+          class={
+            props.settings.reference_degree === 0
+              ? "reference-degree-row"
+              : undefined
+          }
+        >
           <td>
             <div class="freq-cell">
-              <input type="text"
-                     name={`scale${scale.length - 1}`}
-                     value={equiv_interval} onChange={scaleChange}
-                     aria-label={`pitch ${scale.length - 1}`}
+              <input
+                type="text"
+                name={`scale${scale.length - 1}`}
+                value={equiv_interval}
+                onChange={scaleChange}
+                aria-label={`pitch ${scale.length - 1}`}
               />
               <TuneCell
                 key={`tune-equiv-${props.importCount}`}
@@ -394,25 +513,42 @@ const ScaleTable = (props) => {
                 onChange={(newStr) => {
                   const next = [...(props.settings.scale || [])];
                   next[next.length - 1] = newStr;
-                  props.onChange('scale', next);
+                  props.onChange("scale", next);
                 }}
               />
             </div>
           </td>
           <td>
-            <input id="centered" type="text" disabled class="equiv-cell"
-                   value={scale.length}
-                   aria-label="equave degree"
+            <input
+              id="centered"
+              type="text"
+              disabled
+              class="equiv-cell"
+              value={scale.length}
+              aria-label="equave degree"
             />
           </td>
           <td>
-            <input id="centered" type="text" disabled class="equiv-cell"
-                   value={note_names[0] || ''}
-                   aria-label="pitch name equave"
+            <input
+              id="centered"
+              type="text"
+              disabled
+              class="equiv-cell"
+              value={note_names[0] || ""}
+              aria-label="pitch name equave"
             />
           </td>
           <td>
-            <span style={{ fontWeight: 'bold', display: 'block', textAlign: 'center', marginTop: '0.25em' }}>Equave</span>
+            <span
+              style={{
+                fontWeight: "bold",
+                display: "block",
+                textAlign: "center",
+                marginTop: "0.25em",
+              }}
+            >
+              Equave
+            </span>
           </td>
         </tr>
       </tbody>
@@ -430,6 +566,7 @@ ScaleTable.propTypes = {
     fundamental_color: PropTypes.string,
     note_colors: PropTypes.arrayOf(PropTypes.string),
     note_names: PropTypes.arrayOf(PropTypes.string),
+    reference_degree: PropTypes.number,
   }),
 };
 

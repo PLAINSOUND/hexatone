@@ -253,6 +253,36 @@ label .color-cell .color-input {
   line-height: 1.5em;
 }
 
+/* ── Reference Degree row highlight ───────────────────────────────────── */
+/* Highlights the scale table row that corresponds to the reference_degree */
+/* (the degree tuned to the Reference Frequency) */
+
+/* Full row highlight (used for degrees 1-n and equave) */
+.reference-degree-row {
+  background-color: #fff8A8;  /* pale lemon yellow */
+}
+
+.reference-degree-row td:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.reference-degree-row td:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+/* Individual cell highlight (used for degree 0 right-side columns only) */
+.reference-degree-cell {
+  background-color: #fff8A8;  /* pale lemon yellow */
+}
+
+.reference-degree-cell:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.reference-degree-cell:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
 /* Inputs and selects in sidebar label rows — width matches the start of the
    scale table's "Degree" column, which is the right half of the .wide (50%)
    first column. Using 50% here tracks the sidebar width automatically. */
