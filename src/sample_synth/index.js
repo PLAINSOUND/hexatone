@@ -260,50 +260,20 @@ ActiveHex.prototype.retune = function(newCents) {
   this.source.playbackRate.setTargetAtTime(targetPlaybackRate, this.audioContext.currentTime, timeConstant);
 };
 
-ActiveHex.prototype.noteOff = function(release_velocity) {
-  if (this.release) return;  // Guard against double noteOff
-  this.release = true;
-  
-  if (this.gainNode && this.source) {
-    const now = this.audioContext.currentTime;
-    // Use exponentialRampToValueAtTime for a smooth, click-free release
-    // We can't ramp to exactly 0, so use 0.0001 (effectively silent)
-    // The release time is used directly as the fade duration
-    // Add a small minimum to prevent ultra-short releases from clicking
-    const releaseTime = Math.max(this.sampleRelease, 0.01);
-    
-    // Cancel any scheduled values and set the current value as the starting point
-    this.gainNode.gain.cancelScheduledValues(now);
-    this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-    this.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + releaseTime);
-    
-    // Stop the source slightly after the ramp completes
-    this.source.stop(now + releaseTime + 0.02);
-  }
+ActiveHex.prototype.aftertouch = function(value) {
+  if (this.release || !this.gainNode) return;
+  const pressure = Math.max(0, Math.min(127, value)) / 127;
+  const targetGain = this.sampleGain * this.base_vol * (1 + this.aftertouch_amount * pressure);
+  this.gainNode.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.02);
 };
 
-/**
- * Handle aftertouch (channel pressure) for a held note.
- * Modulates the gain based on pressure value.
- * @param {number} value - Aftertouch pressure value (0-127)
- */
-ActiveHex.prototype.aftertouch = function(value) {
-  // Guard: don't process aftertouch if note is releasing or aftertouch is disabled
-  if (this.release || !this.gainNode || this.aftertouch_amount === 0) return;
-  
-  // Calculate the target gain based on aftertouch
-  // aftertouch_amount ranges from 0 to ~0.8 in the instrument configs
-  // The gain scales from base_vol to base_vol * (1 + aftertouch_amount)
-  const pressure = value / 127;  // 0 to 1
-  const aftertouchMultiplier = 1 + (pressure * this.aftertouch_amount * 2);
-  const targetGain = this.sampleGain * this.base_vol * aftertouchMultiplier;
-  
-  // Smoothly ramp to the new gain value
-  this.gainNode.gain.setTargetAtTime(
-    Math.max(0.0001, targetGain),
-    this.audioContext.currentTime,
-    0.02  // 20ms smoothing for responsive but smooth response
-  );
+ActiveHex.prototype.noteOff = function(release_velocity) {
+  if (this.gainNode) {
+    this.gainNode.gain.setTargetAtTime(0, this.audioContext.currentTime, this.sampleRelease);
+  }
+  if (this.source) {
+    this.source.stop(this.audioContext.currentTime + this.sampleRelease * 2);
+  }
 };
 
 // ─── iOS Audio Helper Exports ──────────────────────────────────────────────────
