@@ -144,8 +144,12 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
 /**
  * TuneCell — drag-to-tune control for a single scale degree.
  * Drag left/right to retune; A/B compare; save or revert.
+ * 
+ * When retuning the reference_degree, behavior depends on retuning_mode:
+ * - 'recalculate_reference' (default): Keep current sound, recalculate Reference Frequency
+ * - 'transpose_scale': Transpose entire scale, preserve Reference Frequency
  */
-const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
+const TuneCell = ({ scaleStr, degree, keysRef, onChange, reference_degree, fundamental, onFundamentalChange, retuning_mode }) => {
   const originalCents = useRef(scalaToCents(scaleStr));
   const [tunedCents, setTunedCents] = useState(null);
   const [comparing, setComparing] = useState(false);
@@ -167,60 +171,48 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
     return () => {
       // Use the captured instance from when drag started, not keysRef.current
       // which may now point to a new Keys instance after reconstruction
-      if (
-        dragKeysInstance.current &&
-        dragKeysInstance.current.setTuneDragging
-      ) {
+      if (dragKeysInstance.current && dragKeysInstance.current.setTuneDragging) {
         dragKeysInstance.current.setTuneDragging(false);
       }
     };
   }, []);
 
   const currentCents = tunedCents !== null ? tunedCents : originalCents.current;
-  const isDirty =
-    tunedCents !== null && Math.abs(tunedCents - originalCents.current) > 0.001;
+  const isDirty = tunedCents !== null && Math.abs(tunedCents - originalCents.current) > 0.001;
+  const isReferenceDegree = degree === reference_degree;
 
-  const pushToKeys = useCallback(
-    (cents) => {
-      if (keysRef && keysRef.current && keysRef.current.updateScaleDegree) {
-        keysRef.current.updateScaleDegree(degree, cents);
-      }
-    },
-    [keysRef, degree],
-  );
+  const pushToKeys = useCallback((cents) => {
+    if (keysRef && keysRef.current && keysRef.current.updateScaleDegree) {
+      keysRef.current.updateScaleDegree(degree, cents);
+    }
+  }, [keysRef, degree]);
 
-  const onPointerDown = useCallback(
-    (e) => {
-      // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
-      // which would drop sustain; the flag guards against that in keys.js.
-      // Also capture the Keys instance for cleanup in case we're unmounted mid-drag.
-      if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
-        keysRef.current.setTuneDragging(true);
-        dragKeysInstance.current = keysRef.current;
-      }
-      e.currentTarget.setPointerCapture(e.pointerId);
-      dragStart.current = { lastX: e.clientX, accCents: currentCents };
-    },
-    [currentCents, keysRef],
-  );
+  const onPointerDown = useCallback((e) => {
+    // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
+    // which would drop sustain; the flag guards against that in keys.js.
+    // Also capture the Keys instance for cleanup in case we're unmounted mid-drag.
+    if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
+      keysRef.current.setTuneDragging(true);
+      dragKeysInstance.current = keysRef.current;
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStart.current = { lastX: e.clientX, accCents: currentCents };
+  }, [currentCents, keysRef]);
 
-  const onPointerMove = useCallback(
-    (e) => {
-      if (!dragStart.current) return;
-      const dx = e.clientX - dragStart.current.lastX;
-      if (dx === 0) return;
-      // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
-      // sensitivity = base * speed^1.8 — superlinear so fast moves cover more ground
-      const speed = Math.abs(dx);
-      const sensitivity = 0.05 * Math.pow(speed, 1.5); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
-      const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
-      dragStart.current.lastX = e.clientX;
-      dragStart.current.accCents = newCents;
-      setTunedCents(newCents);
-      if (!comparing) pushToKeys(newCents);
-    },
-    [comparing, pushToKeys],
-  );
+  const onPointerMove = useCallback((e) => {
+    if (!dragStart.current) return;
+    const dx = e.clientX - dragStart.current.lastX;
+    if (dx === 0) return;
+    // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
+    // sensitivity = base * speed^1.8 — superlinear so fast moves cover more ground
+    const speed = Math.abs(dx);
+    const sensitivity = 0.05 * Math.pow(speed, 1.5); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
+    const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
+    dragStart.current.lastX = e.clientX;
+    dragStart.current.accCents = newCents;
+    setTunedCents(newCents);
+    if (!comparing) pushToKeys(newCents);
+  }, [comparing, pushToKeys]);
 
   const onPointerUp = useCallback(() => {
     dragStart.current = null;
@@ -239,14 +231,32 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
     pushToKeys(next ? originalCents.current : tunedCents);
   }, [comparing, tunedCents, pushToKeys]);
 
-  const onSave = useCallback(() => {
+    const onSave = useCallback(() => {
     const saveVal = tunedCents !== null ? tunedCents : originalCents.current;
     const str = saveVal.toFixed(6);
+    
+    // If retuning the reference degree with 'recalculate_reference' mode,
+    // recalculate the fundamental to keep the sounding pitch the same.
+    if (isReferenceDegree && retuning_mode !== 'transpose_scale') {
+      const delta = tunedCents - originalCents.current;
+      const newFundamental = fundamental * Math.pow(2, delta / 1200.0);
+      console.log('[TuneCell] Recalculating fundamental:', {
+        degree,
+        reference_degree,
+        delta,
+        oldFundamental: fundamental,
+        newFundamental
+      });
+      if (onFundamentalChange) {
+        onFundamentalChange(newFundamental);
+      }
+    }
+    
     originalCents.current = saveVal;
     setTunedCents(null);
     setComparing(false);
     onChange(str);
-  }, [tunedCents, onChange]);
+  }, [tunedCents, isReferenceDegree, retuning_mode, fundamental, onFundamentalChange, onChange, degree, reference_degree]);
 
   const onRevert = useCallback(() => {
     setTunedCents(null);
@@ -254,62 +264,30 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange }) => {
     pushToKeys(originalCents.current);
   }, [pushToKeys]);
 
-  const delta = isDirty ? tunedCents - originalCents.current : 0;
-  const deltaStr =
-    delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
+  const delta = isDirty ? (tunedCents - originalCents.current) : 0;
+  const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
 
   return (
     <div class="tune-cell">
       {isDirty && (
-        <span class={`tune-delta${comparing ? " tune-comparing" : ""}`}>
-          {comparing ? "orig" : deltaStr}
+        <span class={`tune-delta${comparing ? ' tune-comparing' : ''}`}>
+          {comparing ? 'orig' : deltaStr}
         </span>
       )}
-      {isDirty && (
-        <button
-          type="button"
-          class={`tune-btn${comparing ? " tune-btn--active" : ""}`}
-          onClick={onCompare}
-          title="A/B compare with original"
-        >
-          <span
-            class="tune-btn-compare"
-            style={{ display: "block", marginTop: "-4px" }}
-          >
-            ↺
-          </span>
-        </button>
-      )}
-      {isDirty && (
-        <button
-          type="button"
-          class="tune-btn tune-btn--save"
-          onClick={onSave}
-          title="Save tuning"
-        >
-          ✓
-        </button>
-      )}
-      {isDirty && (
-        <button
-          type="button"
-          class="tune-btn tune-btn--revert"
-          onClick={onRevert}
-          title="Revert to original"
-        >
-          ✕
-        </button>
-      )}
+      {isDirty && <button type="button" class={`tune-btn${comparing ? ' tune-btn--active' : ''}`}
+        onClick={onCompare} title="A/B compare with original"><span class="tune-btn-compare" style={{ display: 'block', marginTop: '-4px' }}>↺</span></button>}
+      {isDirty && <button type="button" class="tune-btn tune-btn--save"
+        onClick={onSave} title="Save tuning">✓</button>}
+      {isDirty && <button type="button" class="tune-btn tune-btn--revert"
+        onClick={onRevert} title="Revert to original">✕</button>}
       <span
         class="tune-handle"
         title="Drag left/right to tune — slow for fine, fast for coarse"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        style={{ paddingBottom: "6px" }}
-      >
-        ⟺
-      </span>
+        style={{ paddingBottom: '6px' }}
+      >⟺</span>
     </div>
   );
 };
@@ -371,20 +349,21 @@ const ScaleTable = (props) => {
         </tr>
       </thead>
       <tbody>
-        <tr key={`0-${props.importCount}`}>
+        <tr
+          key={`0-${props.importCount}`}
+          class={
+            props.settings.reference_degree === 0
+              ? "reference-degree-row"
+              : undefined
+          }
+        >
           <td class="tonic-label">
             <span>
               1/1&nbsp;&nbsp;|&nbsp;&nbsp;0.0&nbsp;&nbsp;|&nbsp;&nbsp;0\n
             </span>
             <br />
           </td>
-          <td
-            class={
-              props.settings.reference_degree === 0
-                ? "reference-degree-cell"
-                : undefined
-            }
-          >
+          <td>
             <input
               id="centered"
               type="text"
@@ -394,13 +373,7 @@ const ScaleTable = (props) => {
               aria-label="pitch degree 0"
             />
           </td>
-          <td
-            class={
-              props.settings.reference_degree === 0
-                ? "reference-degree-cell"
-                : undefined
-            }
-          >
+          <td>
             <input
               id="centered"
               type="text"
@@ -411,13 +384,7 @@ const ScaleTable = (props) => {
               aria-label="pitch name 0"
             />
           </td>
-          <td
-            class={
-              props.settings.reference_degree === 0
-                ? "reference-degree-cell"
-                : undefined
-            }
-          >
+          <td>
             <ColorCell
               name="color0"
               value={colors[0] || "#ffffff"}
@@ -449,10 +416,14 @@ const ScaleTable = (props) => {
                   scaleStr={(props.settings.scale || [])[i] || String(freq)}
                   degree={i + 1}
                   keysRef={props.keysRef}
+                  reference_degree={props.settings.reference_degree}
+                  fundamental={props.settings.fundamental}
+                  retuning_mode={props.settings.retuning_mode}
+                  onFundamentalChange={(newFreq) => props.onChange('fundamental', newFreq)}
                   onChange={(newStr) => {
                     const next = [...(props.settings.scale || [])];
                     next[i] = newStr;
-                    props.onChange("scale", next);
+                    props.onChange('scale', next);
                   }}
                 />
               </div>
@@ -510,10 +481,14 @@ const ScaleTable = (props) => {
                 scaleStr={String(equiv_interval)}
                 degree={scale.length}
                 keysRef={props.keysRef}
+                reference_degree={props.settings.reference_degree}
+                fundamental={props.settings.fundamental}
+                retuning_mode={props.settings.retuning_mode}
+                onFundamentalChange={(newFreq) => props.onChange('fundamental', newFreq)}
                 onChange={(newStr) => {
                   const next = [...(props.settings.scale || [])];
                   next[next.length - 1] = newStr;
-                  props.onChange("scale", next);
+                  props.onChange('scale', next);
                 }}
               />
             </div>
@@ -559,6 +534,7 @@ const ScaleTable = (props) => {
 ScaleTable.propTypes = {
   keysRef: PropTypes.object,
   onChange: PropTypes.func.isRequired,
+  importCount: PropTypes.number,
   settings: PropTypes.shape({
     scale: PropTypes.arrayOf(PropTypes.string),
     key_labels: PropTypes.string,
@@ -567,6 +543,8 @@ ScaleTable.propTypes = {
     note_colors: PropTypes.arrayOf(PropTypes.string),
     note_names: PropTypes.arrayOf(PropTypes.string),
     reference_degree: PropTypes.number,
+    fundamental: PropTypes.number,
+    retuning_mode: PropTypes.string,
   }),
 };
 

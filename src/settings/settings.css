@@ -1,57 +1,59 @@
 h1 {
-    text-align: center;
+  text-align: center;
 }
 
 h1 a {
-    color: #330000;
+  color: #330000;
 }
 
 fieldset {
-    margin-bottom: 0.5em;
-    border-width: 1px;
-    border-radius: 3px;
-    border-color: #c8b8b8;
-    border-style: solid;
+  margin-bottom: 0.5em;
+  border-width: 1px;
+  border-radius: 3px;
+  border-color: #c8b8b8;
+  border-style: solid;
 }
 
 label {
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    align-items: baseline;
-    margin-top: 0.125em;
-    line-height: 1.5em;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-top: 0.125em;
+  line-height: 1.5em;
 }
 
-label > .sidebar-input {
-    margin-left: auto;
+label>.sidebar-input {
+  margin-left: auto;
 }
 
 table {
-    width: 100%;
-    border-collapse: collapse;
+  width: 100%;
+  border-collapse: collapse;
 }
 
-table td, table th, table {
-    padding: 0;
-    height: 1.7em;
-    box-sizing: border-box;
+table td,
+table th,
+table {
+  padding: 0;
+  height: 1.7em;
+  box-sizing: border-box;
 }
 
-table td > em {
-    margin-left: 0.25em;
+table td>em {
+  margin-left: 0.25em;
 }
 
 textarea {
-    width: 100%;
-    height: 8.5em;
-    box-sizing: border-box;
-    -webkit-overflow-scrolling: touch;
-    background-color: #faf9f8;
-    border-width: 1px;
-    border-radius: 3px;
-    border-style: solid;
-    border-color: #c8b8b8;
+  width: 100%;
+  height: 8.5em;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  background-color: #faf9f8;
+  border-width: 1px;
+  border-radius: 3px;
+  border-style: solid;
+  border-color: #c8b8b8;
 }
 
 select {
@@ -82,14 +84,14 @@ input[type="color"] {
   box-sizing: border-box;
   background-color: #faf9f8;
   border-width: 1px;
-  color:  rgb(245, 241, 240);
+  color: rgb(245, 241, 240);
   border-radius: 3px;
   border-style: solid;
   border-color: #c8b8b8;
 }
 
 input[type="color"]::-webkit-color-swatch {
-	border: none;
+  border: none;
   border-radius: 3px;
 }
 
@@ -110,7 +112,7 @@ table input[type="color"] {
   box-sizing: border-box;
   background-color: #faf9f8;
   border-width: 1px;
-  color:  rgb(245, 241, 240);
+  color: rgb(245, 241, 240);
   border-radius: 3px;
   border-style: solid;
   border-color: #c8b8b8;
@@ -125,7 +127,8 @@ input:out-of-range {
 .color-cell {
   display: flex;
   align-items: center;
-  flex-direction: row-reverse;  /* swatch on the right */
+  flex-direction: row-reverse;
+  /* swatch on the right */
   justify-content: flex-end;
   gap: 4px;
   height: 1.5em;
@@ -196,7 +199,7 @@ input:out-of-range {
   z-index: 5;
   background: #faf9f8;
   border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   height: auto;
   min-width: 10em;
   right: 0;
@@ -238,7 +241,9 @@ label .color-cell .color-input {
 
 /* Mobile: stack buttons vertically */
 @media (max-width: 550px) {
-  .divide-octave-btn, .edit-scala-btn {
+
+  .divide-octave-btn,
+  .edit-scala-btn {
     margin-left: 0 !important;
     margin-top: 0.5rem;
     display: block;
@@ -259,7 +264,8 @@ label .color-cell .color-input {
 
 /* Full row highlight (used for degrees 1-n and equave) */
 .reference-degree-row {
-  background-color: #fff8A8;  /* pale lemon yellow */
+  background-color: #fff8A8;
+  /* pale lemon yellow */
 }
 
 .reference-degree-row td:first-child {
@@ -272,7 +278,8 @@ label .color-cell .color-input {
 
 /* Individual cell highlight (used for degree 0 right-side columns only) */
 .reference-degree-cell {
-  background-color: #fff8A8;  /* pale lemon yellow */
+  background-color: #fff8A8;
+  /* pale lemon yellow */
 }
 
 .reference-degree-cell:first-child {
@@ -296,6 +303,7 @@ label .color-cell .color-input {
   justify-content: flex-start;
   gap: 6px;
 }
+
 .preset-selector-row select {
   flex: none;
 }
@@ -343,11 +351,20 @@ table td {
   touch-action: none;
   border: 1px solid #c8b8b8;
   font-size: 1.7em;
-  margin-left: auto; /* right-align to match input above */
+  margin-left: auto;
+  /* right-align to match input above */
   margin-right: 3px;
 }
-.tune-handle:hover { background: #ddd0d0; color: #330000; }
-.tune-handle:active { background: #ccbbbb; cursor: grabbing; }
+
+.tune-handle:hover {
+  background: #ddd0d0;
+  color: #330000;
+}
+
+.tune-handle:active {
+  background: #ccbbbb;
+  cursor: grabbing;
+}
 
 .tune-delta {
   font-family: monospace;
@@ -359,9 +376,17 @@ table td {
   padding-left: 2px;
   margin-right: 12px;
 }
-.tune-delta.tune-comparing { color: #660000; font-style: italic; }
 
-.tune-actions { display: flex; gap: 3px; align-items: center; }
+.tune-delta.tune-comparing {
+  color: #660000;
+  font-style: italic;
+}
+
+.tune-actions {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
 
 .tune-btn {
   display: inline-flex;
@@ -378,12 +403,35 @@ table td {
   font-size: 1.05em;
   line-height: 1;
 }
-.tune-btn:hover { background: #ddd0d0; color: #330000; }
-.tune-btn--active { background: #ede8e8; color: #330000; border-color: #c8b8b8; }
-.tune-btn--save   { color: #330000; border-color: #c8b8b8; }
-.tune-btn--save:hover { background: #ede8e8; }
-.tune-btn--revert { color: #990000; border-color: #cc9999; }
-.tune-btn--revert:hover { background: #f5eded; }
+
+.tune-btn:hover {
+  background: #ddd0d0;
+  color: #330000;
+}
+
+.tune-btn--active {
+  background: #ede8e8;
+  color: #330000;
+  border-color: #c8b8b8;
+}
+
+.tune-btn--save {
+  color: #330000;
+  border-color: #c8b8b8;
+}
+
+.tune-btn--save:hover {
+  background: #ede8e8;
+}
+
+.tune-btn--revert {
+  color: #990000;
+  border-color: #cc9999;
+}
+
+.tune-btn--revert:hover {
+  background: #f5eded;
+}
 
 .tune-btn-compare {
   font-size: 1.3em;
@@ -404,8 +452,10 @@ table input:disabled {
   color: #bb9999;
   border-color: #e8d8d8;
   background: transparent;
-  -webkit-text-fill-color: #bb9999; /* overrides iOS/Safari disabled grey */
-  opacity: 1; /* iOS reduces opacity on disabled inputs */
+  -webkit-text-fill-color: #bb9999;
+  /* overrides iOS/Safari disabled grey */
+  opacity: 1;
+  /* iOS reduces opacity on disabled inputs */
 }
 
 /* Freq input fills available width, handle sits flush to its right */
@@ -413,11 +463,13 @@ table input:disabled {
   flex: 1;
   min-width: 0;
 }
+
 /* ── Links — no blue, no underline; inherit sidebar text colour ─────────── */
 a {
   color: #990000;
   text-decoration: none;
 }
+
 a:hover {
   color: #ff0000;
 }
@@ -437,10 +489,12 @@ input[type="checkbox"] {
   vertical-align: middle;
   margin: 0;
 }
+
 input[type="checkbox"]:checked {
   background: #990000;
   border-color: #990000;
 }
+
 input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
@@ -453,6 +507,7 @@ input[type="checkbox"]:checked::after {
   border-left: none;
   transform: rotate(45deg);
 }
+
 input[type="checkbox"]:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(153, 0, 0, 0.25);
@@ -470,20 +525,24 @@ input[type="range"] {
   padding: 0;
   vertical-align: middle;
 }
+
 input[type="range"]:focus {
   outline: none;
 }
+
 /* Track */
 input[type="range"]::-webkit-slider-runnable-track {
   height: 3px;
   background: #c8b8b8;
   border-radius: 2px;
 }
+
 input[type="range"]::-moz-range-track {
   height: 3px;
   background: #c8b8b8;
   border-radius: 2px;
 }
+
 /* Thumb */
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -495,6 +554,7 @@ input[type="range"]::-webkit-slider-thumb {
   margin-top: -0.32em;
   transition: background 0.1s ease;
 }
+
 input[type="range"]::-moz-range-thumb {
   width: 0.85em;
   height: 0.85em;
@@ -503,5 +563,11 @@ input[type="range"]::-moz-range-thumb {
   border: none;
   transition: background 0.1s ease;
 }
-input[type="range"]:hover::-webkit-slider-thumb { background: #ff0000; }
-input[type="range"]:hover::-moz-range-thumb     { background: #ff0000; }
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  background: #ff0000;
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+  background: #ff0000;
+}

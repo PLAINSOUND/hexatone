@@ -53,7 +53,6 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
     "note_names",
     "note_colors",
     "key_labels",
-    "fundamental",
     "reference_degree",
     "equivSteps",
     "equivInterval",
@@ -168,7 +167,6 @@ const PRESET_SKIP_KEYS = [
   "note_colors",
   "spectrum_colors",
   "fundamental_color",
-  "fundamental",
   "reference_degree",
   "center_degree",
   "equivSteps",
@@ -248,6 +246,7 @@ const sessionDefaults = {
     parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
   spectrum_colors: true,
   key_labels: "no_labels",
+  retuning_mode: 'recalculate_reference',  // or 'transpose_scale'
   fundamental: 260.740741,
   reference_degree: 0,
   equivSteps: 12,
@@ -344,6 +343,8 @@ const App = () => {
       // Scale
       scale: ExtractJoinedString,
       key_labels: ExtractString,
+      key_labels: ExtractString,
+      retuning_mode: ExtractString,
       equivSteps: ExtractInt,
       note_names: ExtractJoinedString,
       spectrum_colors: ExtractBool,
