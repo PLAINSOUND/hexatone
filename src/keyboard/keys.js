@@ -38,7 +38,6 @@ class Keys {
       activeHexObjects: [],
       isTouchDown: false,
       isMouseDown: false,
-      recentlyToggledOff: new Set(), // coords strings recently toggled off
     };
     // tuning_map_degree0: use explicit override if set, otherwise derive from the central MIDI note
     // (midiin_central_degree is stored as the note for degree 0; add center_degree to get the central note)
@@ -66,6 +65,7 @@ class Keys {
     this.state.canvas.addEventListener("touchstart", this.handleTouch, false);
     this.state.canvas.addEventListener("touchend", this.handleTouch, false);
     this.state.canvas.addEventListener("touchmove", this.handleTouch, false);
+    this.state.canvas.addEventListener("touchcancel", this.handleTouchCancel, false);
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
     window.addEventListener("mouseup", this.mouseUp, false);
    
@@ -341,6 +341,7 @@ class Keys {
     this.state.canvas.removeEventListener("touchstart", this.handleTouch, false);
     this.state.canvas.removeEventListener("touchend", this.handleTouch, false);
     this.state.canvas.removeEventListener("touchmove", this.handleTouch, false);
+    this.state.canvas.removeEventListener("touchcancel", this.handleTouchCancel, false);
     this.state.canvas.removeEventListener("mousedown", this.mouseDown, false);
     window.removeEventListener("mouseup", this.mouseUp, false);
     this.state.canvas.removeEventListener("mousemove", this.mouseActive, false);
@@ -951,11 +952,12 @@ class Keys {
   };
 
   mouseUp = (e) => {
+    // Always reset isMouseDown to prevent stuck state when mouse is released outside canvas
+    this.state.isMouseDown = false;
+
     // Only process mouseup if it originated from the canvas
     // This prevents clicking on UI buttons from releasing notes
     if (e.target !== this.state.canvas) return;
-
-    this.state.isMouseDown = false;
 
     if (this.state.pressedKeys.size != 0 || this.state.isTouchDown) {
       return;
@@ -1086,6 +1088,20 @@ class Keys {
         this.noteOff(this.state.activeHexObjects[i], 0);
         this.state.activeHexObjects.splice(i, 1);
       }
+    }
+  };
+
+  // Handle touchcancel - when the browser cancels a touch (e.g., gesture, notification)
+  // This prevents notes from getting stuck on mobile
+  handleTouchCancel = (e) => {
+    this.state.isTouchDown = false;
+
+    // Release all active touch notes
+    for (let i = this.state.activeHexObjects.length - 1; i >= 0; i--) {
+      const hex = this.state.activeHexObjects[i];
+      if (!this.state.sustain) this.hexOff(hex.coords);
+      this.noteOff(hex, 0);
+      this.state.activeHexObjects.splice(i, 1);
     }
   };
 
