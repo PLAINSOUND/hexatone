@@ -1,50 +1,86 @@
-import { h, render } from 'preact';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'preact/hooks';
+import { h, render } from "preact";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "preact/hooks";
 
-import Keyboard from './keyboard';
-import { presets, default_settings } from './settings/preset_values';
-import { parseScale, scalaToCents, scalaToLabels, parsedScaleToLabels, settingsToHexatonScala } from './settings/scale/parse-scale.js';
-import { create_sample_synth, forceResumeAudioContext } from './sample_synth';
-import { instruments } from './sample_synth/instruments';
+import Keyboard from "./keyboard";
+import { presets, default_settings } from "./settings/preset_values";
+import {
+  parseScale,
+  scalaToCents,
+  scalaToLabels,
+  parsedScaleToLabels,
+  settingsToHexatonScala,
+} from "./settings/scale/parse-scale.js";
+import { create_sample_synth, forceResumeAudioContext } from "./sample_synth";
+import { instruments } from "./sample_synth/instruments";
 
-import { enableMidi, midi_in } from './settings/midi/midiin';
-import { create_midi_synth} from './midi_synth';
-import create_mpe_synth from './mpe_synth';
-import { create_composite_synth } from './composite_synth';
+import { enableMidi, midi_in } from "./settings/midi/midiin";
+import { create_midi_synth } from "./midi_synth";
+import create_mpe_synth from "./mpe_synth";
+import { create_composite_synth } from "./composite_synth";
 
-import keyCodeToCoords from './settings/keycodes';
-import { useQuery, Extract, ExtractInt, ExtractString, ExtractFloat, ExtractBool, ExtractJoinedString } from './use-query';
-import Settings from './settings';
-import { loadCustomPresets } from './settings/custom-presets';
-import Blurb from './blurb';
+import keyCodeToCoords from "./settings/keycodes";
+import {
+  useQuery,
+  Extract,
+  ExtractInt,
+  ExtractString,
+  ExtractFloat,
+  ExtractBool,
+  ExtractJoinedString,
+} from "./use-query";
+import Settings from "./settings";
+import { loadCustomPresets } from "./settings/custom-presets";
+import Blurb from "./blurb";
 
-import PropTypes from 'prop-types';
+import PropTypes from "prop-types";
 
 import "normalize.css";
 import "./hex-style.css";
-import LoadingIcon from './hex.svg?react';
-import './loader.css';
+import LoadingIcon from "./hex.svg?react";
+import "./loader.css";
 
 // On browser refresh (not initial load), clear scale settings to start fresh
-if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
+if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
   const scaleKeysToClear = [
-    'scale', 'scale_import', 'note_names', 'note_colors', 'key_labels',
-    'fundamental', 'reference_degree', 'equivSteps', 'equivInterval',
-    'midiin_central_degree', 'spectrum_colors', 'fundamental_color',
-    'name', 'description', 'short_description',
-    'hexatone_preset_source', 'hexatone_preset_name',
+    "scale",
+    "scale_import",
+    "note_names",
+    "note_colors",
+    "key_labels",
+    "fundamental",
+    "reference_degree",
+    "equivSteps",
+    "equivInterval",
+    "midiin_central_degree",
+    "spectrum_colors",
+    "fundamental_color",
+    "name",
+    "description",
+    "short_description",
+    "hexatone_preset_source",
+    "hexatone_preset_name",
   ];
-  scaleKeysToClear.forEach(key => sessionStorage.removeItem(key));
+  scaleKeysToClear.forEach((key) => sessionStorage.removeItem(key));
 }
 
 export const Loading = () => <LoadingIcon />;
 
-
-
-
 const ua = navigator.userAgent;
-const isSafariOnly = /Safari/.test(ua) && !/Chrome/.test(ua) && !/Chromium/.test(ua) && !/Firefox/.test(ua);
-if (isSafariOnly) alert("Safari is not fully supported.\nFor the best experience please use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.");
+const isSafariOnly =
+  /Safari/.test(ua) &&
+  !/Chrome/.test(ua) &&
+  !/Chromium/.test(ua) &&
+  !/Firefox/.test(ua);
+if (isSafariOnly)
+  alert(
+    "Safari is not fully supported.\nFor the best experience please use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.",
+  );
 
 const findPreset = (preset) => {
   for (let g of presets) {
@@ -60,14 +96,16 @@ const findPreset = (preset) => {
 
 // Color fields only — changes here should NOT reconstruct the hex grid.
 const normalizeColors = (settings) => ({
-  fundamental_color: (settings.fundamental_color || "").replace(/#/, ''),
-  note_colors: (settings.note_colors || []).map(c => c ? c.replace(/#/, '') : "ffffff"),
+  fundamental_color: (settings.fundamental_color || "").replace(/#/, ""),
+  note_colors: (settings.note_colors || []).map((c) =>
+    c ? c.replace(/#/, "") : "ffffff",
+  ),
   spectrum_colors: settings.spectrum_colors,
 });
 
 // Everything except colors — changes here rebuild the Keys instance.
 const normalizeStructural = (settings) => {
-  const rotation = settings.rotation * Math.PI / 180.0;
+  const rotation = (settings.rotation * Math.PI) / 180.0;
   const result = { ...settings, keyCodeToCoords, rotation };
 
   if (settings.key_labels === "enumerate") {
@@ -80,12 +118,12 @@ const normalizeStructural = (settings) => {
     result["cents"] = true;
   } else if (settings.key_labels === "no_labels") {
     result["no_labels"] = true;
-  };
+  }
 
   if (settings.scale) {
-    const scaleAsStrings = settings.scale.map(i => String(i));
-    const scala_names = scaleAsStrings.map(i => scalaToLabels(i));
-    const scale = settings.scale.map(i => scalaToCents(String(i)));
+    const scaleAsStrings = settings.scale.map((i) => String(i));
+    const scala_names = scaleAsStrings.map((i) => scalaToLabels(i));
+    const scale = settings.scale.map((i) => scalaToCents(String(i)));
     const equivInterval = scale.pop();
     scale.unshift(0);
     scala_names.pop();
@@ -105,13 +143,25 @@ const normalize = (settings) => ({
 // Preset-specific fields are never restored from URL or localStorage on reload.
 // They only come from the preset_values defaults or an explicit preset load.
 const PRESET_SKIP_KEYS = [
-  'name', 'description', 'scale', 'note_names', 'note_colors',
-  'spectrum_colors', 'fundamental_color', 'fundamental', 'reference_degree',
-  'center_degree', 'equivSteps', 'rSteps', 'drSteps', 'key_labels',
-  'hexSize', 'rotation',
+  "name",
+  "description",
+  "scale",
+  "note_names",
+  "note_colors",
+  "spectrum_colors",
+  "fundamental_color",
+  "fundamental",
+  "reference_degree",
+  "center_degree",
+  "equivSteps",
+  "rSteps",
+  "drSteps",
+  "key_labels",
+  "hexSize",
+  "rotation",
 ];
 // Only these text fields need to start visually empty on a fresh load
-const DISPLAY_EMPTY_KEYS = ['name', 'description', 'key_labels'];
+const DISPLAY_EMPTY_KEYS = ["name", "description", "key_labels"];
 
 // Scale hexSize down on phones (max-width 600px), but not below 20
 const scaleHexSizeForScreen = (hexSize) => {
@@ -124,45 +174,79 @@ const scaleHexSizeForScreen = (hexSize) => {
 
 // Scale-related keys to clear on reset (keeps output settings)
 const SCALE_KEYS_TO_CLEAR = [
-  'scale', 'scale_import', 'note_names', 'note_colors', 'key_labels',
-  'fundamental', 'reference_degree', 'equivSteps', 'equivInterval',
-  'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
-  'midiin_central_degree', 'spectrum_colors', 'fundamental_color',
-  'name', 'description', 'short_description',
+  "scale",
+  "scale_import",
+  "note_names",
+  "note_colors",
+  "key_labels",
+  "fundamental",
+  "reference_degree",
+  "equivSteps",
+  "equivInterval",
+  "rSteps",
+  "drSteps",
+  "hexSize",
+  "rotation",
+  "center_degree",
+  "midiin_central_degree",
+  "spectrum_colors",
+  "fundamental_color",
+  "name",
+  "description",
+  "short_description",
 ];
 
 const clearScaleSettings = () => {
-  SCALE_KEYS_TO_CLEAR.forEach(key => sessionStorage.removeItem(key));
+  SCALE_KEYS_TO_CLEAR.forEach((key) => sessionStorage.removeItem(key));
 };
 
 const sessionDefaults = {
-  output_sample:    (sessionStorage.getItem("output_sample") ?? "true") !== "false",
-  output_mts:       sessionStorage.getItem("output_mts") === "true",
-  output_mpe:       sessionStorage.getItem("output_mpe") === "true",
-  mpe_device:       sessionStorage.getItem("mpe_device")       || "OFF",
-  mpe_master_ch:    sessionStorage.getItem("mpe_master_ch")    || "1",
-  mpe_lo_ch:        parseInt(sessionStorage.getItem("mpe_lo_ch"))   || 2,
-  mpe_hi_ch:        parseInt(sessionStorage.getItem("mpe_hi_ch"))   || 8,
-  mpe_mode:         sessionStorage.getItem("mpe_mode")          || "Ableton_workaround",
-  mpe_pitchbend_range: parseInt(sessionStorage.getItem("mpe_pitchbend_range")) || 48,
-  instrument:       sessionStorage.getItem("instrument")        || "HvP8_retuned",
-  midiin_device:    sessionStorage.getItem("midiin_device")     || "OFF",
-  midiin_channel:   parseInt(sessionStorage.getItem("midiin_channel"))  || 0,
-  midi_device:      sessionStorage.getItem("midi_device")       || "OFF",
-  midi_channel:     parseInt(sessionStorage.getItem("midi_channel"))    || 0,
-  midi_mapping:     sessionStorage.getItem("midi_mapping")      || "MTS1",
-  midi_velocity:    parseInt(sessionStorage.getItem("midi_velocity"))   || 72,
-  sysex_type:       parseInt(sessionStorage.getItem("sysex_type"))      || 126,
-  device_id:        parseInt(sessionStorage.getItem("device_id"))       || 127,
-  tuning_map_number:  parseInt(sessionStorage.getItem("tuning_map_number"))  || 0,
-  tuning_map_degree0: sessionStorage.getItem("tuning_map_degree0") !== null ? parseInt(sessionStorage.getItem("tuning_map_degree0")) : null,
-  fundamental_color: parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
+  output_sample:
+    (sessionStorage.getItem("output_sample") ?? "true") !== "false",
+  output_mts: sessionStorage.getItem("output_mts") === "true",
+  output_mpe: sessionStorage.getItem("output_mpe") === "true",
+  mpe_device: sessionStorage.getItem("mpe_device") || "OFF",
+  mpe_master_ch: sessionStorage.getItem("mpe_master_ch") || "1",
+  mpe_lo_ch: parseInt(sessionStorage.getItem("mpe_lo_ch")) || 2,
+  mpe_hi_ch: parseInt(sessionStorage.getItem("mpe_hi_ch")) || 8,
+  mpe_mode: sessionStorage.getItem("mpe_mode") || "Ableton_workaround",
+  mpe_pitchbend_range:
+    parseInt(sessionStorage.getItem("mpe_pitchbend_range")) || 48,
+  instrument: sessionStorage.getItem("instrument") || "HvP8_retuned",
+  midiin_device: sessionStorage.getItem("midiin_device") || "OFF",
+  midiin_channel: parseInt(sessionStorage.getItem("midiin_channel")) || 0,
+  midi_device: sessionStorage.getItem("midi_device") || "OFF",
+  midi_channel: parseInt(sessionStorage.getItem("midi_channel")) || 0,
+  midi_mapping: sessionStorage.getItem("midi_mapping") || "MTS1",
+  midi_velocity: parseInt(sessionStorage.getItem("midi_velocity")) || 72,
+  sysex_type: parseInt(sessionStorage.getItem("sysex_type")) || 126,
+  device_id: parseInt(sessionStorage.getItem("device_id")) || 127,
+  tuning_map_number: parseInt(sessionStorage.getItem("tuning_map_number")) || 0,
+  tuning_map_degree0:
+    sessionStorage.getItem("tuning_map_degree0") !== null
+      ? parseInt(sessionStorage.getItem("tuning_map_degree0"))
+      : null,
+  fundamental_color:
+    parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
   spectrum_colors: true,
-  key_labels: 'no_labels',
+  key_labels: "no_labels",
   fundamental: 260.740741,
   reference_degree: 0,
   equivSteps: 12,
-  scale: ["100.0", "200.0", "300.0", "400.0", "500.0", "600.0", "700.0", "800.0", "900.0", "1000.0", "1100.0", "1200.0"],
+  scale: [
+    "100.0",
+    "200.0",
+    "300.0",
+    "400.0",
+    "500.0",
+    "600.0",
+    "700.0",
+    "800.0",
+    "900.0",
+    "1000.0",
+    "1100.0",
+    "1200.0",
+  ],
   rSteps: 2,
   drSteps: 1,
   center_degree: 0,
@@ -201,60 +285,65 @@ const App = () => {
   };
   const [importCount, setImportCount] = useState(0);
 
-  const [settings, setSettings] = useQuery({
-    name: ExtractString,
-    description: ExtractString,
+  const [settings, setSettings] = useQuery(
+    {
+      name: ExtractString,
+      description: ExtractString,
 
-    // Input
-    midiin_device: ExtractString,
-    midiin_channel: ExtractInt,
-    midiin_central_degree: ExtractInt,
+      // Input
+      midiin_device: ExtractString,
+      midiin_channel: ExtractInt,
+      midiin_central_degree: ExtractInt,
 
-    // Output
-    output_sample: ExtractBool,
-    output_mts:    ExtractBool,
-    output_mpe:    ExtractBool,
-    mpe_device:    ExtractString,
-    mpe_master_ch: ExtractString,
-    mpe_lo_ch:     ExtractInt,
-    mpe_hi_ch:     ExtractInt,
-    mpe_mode:      ExtractString,
-    mpe_pitchbend_range: ExtractInt,
-    instrument: ExtractString,
-    fundamental: ExtractFloat,
-    reference_degree: ExtractInt,
-    midi_mapping: ExtractString,
-    midi_device: ExtractString,
-    midi_channel: ExtractInt,
-    midi_velocity: ExtractInt,
-    sysex_auto: ExtractBool,
-    sysex_type: ExtractInt,
-    device_id: ExtractInt,
-    tuning_map_number: ExtractInt,
-    tuning_map_degree0: ExtractInt,
+      // Output
+      output_sample: ExtractBool,
+      output_mts: ExtractBool,
+      output_mpe: ExtractBool,
+      mpe_device: ExtractString,
+      mpe_master_ch: ExtractString,
+      mpe_lo_ch: ExtractInt,
+      mpe_hi_ch: ExtractInt,
+      mpe_mode: ExtractString,
+      mpe_pitchbend_range: ExtractInt,
+      instrument: ExtractString,
+      fundamental: ExtractFloat,
+      reference_degree: ExtractInt,
+      midi_mapping: ExtractString,
+      midi_device: ExtractString,
+      midi_channel: ExtractInt,
+      midi_velocity: ExtractInt,
+      sysex_auto: ExtractBool,
+      sysex_type: ExtractInt,
+      device_id: ExtractInt,
+      tuning_map_number: ExtractInt,
+      tuning_map_degree0: ExtractInt,
 
-    // Layout
-    rSteps: ExtractInt,
-    drSteps: ExtractInt,
-    hexSize: ExtractInt,
-    rotation: ExtractInt,
-    // Scale
-    scale: ExtractJoinedString,
-    key_labels: ExtractString,
-    equivSteps: ExtractInt,
-    note_names: ExtractJoinedString,
-    spectrum_colors: ExtractBool,
-    fundamental_color: ExtractString,
-    note_colors: ExtractJoinedString
-
-  }, {
-    ...default_settings,
-    ...sessionDefaults,
-    // Preset-specific fields start empty — populated only when a preset is loaded.
-    // scale/note_names/note_colors handle null gracefully (render empty table).
-    name: '', description: '',
-    note_names: null, note_colors: null,
-  }, PRESET_SKIP_KEYS);
+      // Layout
+      rSteps: ExtractInt,
+      drSteps: ExtractInt,
+      hexSize: ExtractInt,
+      rotation: ExtractInt,
+      // Scale
+      scale: ExtractJoinedString,
+      key_labels: ExtractString,
+      equivSteps: ExtractInt,
+      note_names: ExtractJoinedString,
+      spectrum_colors: ExtractBool,
+      fundamental_color: ExtractString,
+      note_colors: ExtractJoinedString,
+    },
+    {
+      ...default_settings,
+      ...sessionDefaults,
+      // Preset-specific fields start empty — populated only when a preset is loaded.
+      // scale/note_names/note_colors handle null gracefully (render empty table).
+      name: "",
+      description: "",
+      note_names: null,
+      note_colors: null,
+    },
+    PRESET_SKIP_KEYS,
+  );
 
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
@@ -283,27 +372,26 @@ const App = () => {
   }, []);
   const [synth, setSynth] = useState(null);
   const [midi, setMidi] = useState(null);
-  const wait = l => l + 1;
-  const signal = l => l - 1;
+  const wait = (l) => l + 1;
+  const signal = (l) => l - 1;
 
   useEffect(() => {
-    enableMidi().catch(err => console.warn("WebMidi could not initialise:", err));
+    enableMidi().catch((err) =>
+      console.warn("WebMidi could not initialise:", err),
+    );
 
     if (navigator.requestMIDIAccess) {
       setLoading(wait);
-      navigator.requestMIDIAccess({ sysex: true }).then(
-        m => {
-          setLoading(signal);
-          onMIDISuccess(m);
-        },
-        onMIDIFailure
-      );
+      navigator.requestMIDIAccess({ sysex: true }).then((m) => {
+        setLoading(signal);
+        onMIDISuccess(m);
+      }, onMIDIFailure);
     }
   }, []);
 
   useEffect(() => {
-    const savedSource = sessionStorage.getItem('hexatone_preset_source');
-    const savedName = sessionStorage.getItem('hexatone_preset_name');
+    const savedSource = sessionStorage.getItem("hexatone_preset_source");
+    const savedName = sessionStorage.getItem("hexatone_preset_name");
 
     // Enable the app - this will trigger synth creation
     // On fresh load with defaults, still enable the app
@@ -311,22 +399,28 @@ const App = () => {
 
     if (!savedSource || !savedName) return;
 
-    if (savedSource === 'builtin') {
-      setActiveSource('builtin');
+    if (savedSource === "builtin") {
+      setActiveSource("builtin");
       setActivePresetName(savedName);
       const presetData = findPreset(savedName);
       if (presetData) {
-        const adjustedPreset = { ...presetData, hexSize: scaleHexSizeForScreen(presetData.hexSize) };
+        const adjustedPreset = {
+          ...presetData,
+          hexSize: scaleHexSizeForScreen(presetData.hexSize),
+        };
         setSavedPresetSnapshot(snapshotOf({ ...settings, ...adjustedPreset }));
         setSettings(() => ({ ...settings, ...adjustedPreset }));
       }
-    } else if (savedSource === 'user') {
+    } else if (savedSource === "user") {
       const customPresets = loadCustomPresets();
-      const preset = customPresets.find(p => p.name === savedName);
+      const preset = customPresets.find((p) => p.name === savedName);
       if (preset) {
-        setActiveSource('user');
+        setActiveSource("user");
         setActivePresetName(preset.name);
-        const adjustedPreset = { ...preset, hexSize: scaleHexSizeForScreen(preset.hexSize) };
+        const adjustedPreset = {
+          ...preset,
+          hexSize: scaleHexSizeForScreen(preset.hexSize),
+        };
         setSavedPresetSnapshot(snapshotOf({ ...settings, ...adjustedPreset }));
         setSettings(() => ({ ...settings, ...adjustedPreset }));
       }
@@ -339,19 +433,30 @@ const App = () => {
   }
 
   function onMIDIFailure() {
-    console.log('Web MIDI API could not initialise!');
+    console.log("Web MIDI API could not initialise!");
   }
 
   useEffect(() => {
     if (!ready) return;
 
-    const wantSample = settings.output_sample && settings.instrument && settings.instrument !== 'OFF' && settings.fundamental;
-    const wantMts    = settings.output_mts && midi &&
-                       settings.midi_device !== "OFF" && settings.midi_channel >= 0 &&
-                       settings.midi_mapping && typeof settings.midi_velocity === "number";
-    const wantMpe    = settings.output_mpe && midi &&
-                       settings.mpe_device !== "OFF" &&
-                       settings.mpe_lo_ch > 0 && settings.mpe_hi_ch >= settings.mpe_lo_ch;
+    const wantSample =
+      settings.output_sample &&
+      settings.instrument &&
+      settings.instrument !== "OFF" &&
+      settings.fundamental;
+    const wantMts =
+      settings.output_mts &&
+      midi &&
+      settings.midi_device !== "OFF" &&
+      settings.midi_channel >= 0 &&
+      settings.midi_mapping &&
+      typeof settings.midi_velocity === "number";
+    const wantMpe =
+      settings.output_mpe &&
+      midi &&
+      settings.mpe_device !== "OFF" &&
+      settings.mpe_lo_ch > 0 &&
+      settings.mpe_hi_ch >= settings.mpe_lo_ch;
 
     if (!wantSample && !wantMts && !wantMpe) {
       setSynth(null);
@@ -363,15 +468,27 @@ const App = () => {
 
     if (wantSample) {
       promises.push(
-        create_sample_synth(settings.instrument, settings.fundamental, settings.reference_degree, settings.scale)
+        create_sample_synth(
+          settings.instrument,
+          settings.fundamental,
+          settings.reference_degree,
+          settings.scale,
+        ),
       );
     }
     if (wantMts) {
       promises.push(
-        create_midi_synth(settings.midiin_device, settings.midiin_central_degree,
-          midi.outputs.get(settings.midi_device), settings.midi_channel,
-          settings.midi_mapping, settings.midi_velocity, settings.fundamental,
-          settings.sysex_type, settings.device_id)
+        create_midi_synth(
+          settings.midiin_device,
+          settings.midiin_central_degree,
+          midi.outputs.get(settings.midi_device),
+          settings.midi_channel,
+          settings.midi_mapping,
+          settings.midi_velocity,
+          settings.fundamental,
+          settings.sysex_type,
+          settings.device_id,
+        ),
       );
     }
     if (wantMpe) {
@@ -389,20 +506,23 @@ const App = () => {
           settings.mpe_mode,
           settings.mpe_pitchbend_range ?? 48,
           settings.equivSteps,
-          settings.equivInterval
-        )
+          settings.equivInterval,
+        ),
       );
     }
 
-    Promise.all(promises).then(synths => {
+    Promise.all(promises).then((synths) => {
       setLoading(signal);
       // Filter out null/undefined synths (e.g., MIDI device unavailable)
-      const validSynths = synths.filter(s => s != null);
+      const validSynths = synths.filter((s) => s != null);
       if (validSynths.length === 0) {
         setSynth(null);
         return;
       }
-      const s = validSynths.length === 1 ? validSynths[0] : create_composite_synth(validSynths);
+      const s =
+        validSynths.length === 1
+          ? validSynths[0]
+          : create_composite_synth(validSynths);
       // Only call prepare() when user has interacted (not on initial page load)
       // This avoids Chrome's autoplay policy blocking AudioContext
       if (s.prepare && userHasInteracted) {
@@ -410,14 +530,31 @@ const App = () => {
       }
       setSynth(s);
     });
-  }, [settings.instrument, settings.fundamental, settings.reference_degree, settings.scale,
-    settings.midi_device, settings.midi_channel, settings.midi_mapping, settings.midi_velocity,
-    settings.output_sample, settings.output_mts,
-    settings.output_mpe, settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch, settings.mpe_pitchbend_range, settings.mpe_mode,
-    midi]);
+  }, [
+    settings.instrument,
+    settings.fundamental,
+    settings.reference_degree,
+    settings.scale,
+    settings.midi_device,
+    settings.midi_channel,
+    settings.midi_mapping,
+    settings.midi_velocity,
+    settings.output_sample,
+    settings.output_mts,
+    settings.output_mpe,
+    settings.mpe_device,
+    settings.mpe_master_ch,
+    settings.mpe_lo_ch,
+    settings.mpe_hi_ch,
+    settings.mpe_pitchbend_range,
+    settings.mpe_mode,
+    midi,
+  ]);
 
   // Keep synthRef in sync so volume/mute can be applied imperatively
-  useEffect(() => { synthRef.current = synth; }, [synth]);
+  useEffect(() => {
+    synthRef.current = synth;
+  }, [synth]);
 
   // On first user interaction, prepare audio (if not already done)
   useEffect(() => {
@@ -426,13 +563,23 @@ const App = () => {
     }
   }, [userHasInteracted, synth]);
 
-  const COLOR_KEYS = new Set(['note_colors', 'spectrum_colors', 'fundamental_color']);
-  const SCALE_KEYS = new Set(['scale', 'note_names', 'fundamental', 'reference_degree', 'equivSteps']);
+  const COLOR_KEYS = new Set([
+    "note_colors",
+    "spectrum_colors",
+    "fundamental_color",
+  ]);
+  const SCALE_KEYS = new Set([
+    "scale",
+    "note_names",
+    "fundamental",
+    "reference_degree",
+    "equivSteps",
+  ]);
 
   const onChange = (key, value) => {
     // If instrument is about to change, stop all currently playing notes
     // This prevents the old instrument's sounds from continuing after switch
-    if (key === 'instrument') {
+    if (key === "instrument") {
       if (keysRef.current) {
         keysRef.current.panic();
       }
@@ -442,15 +589,15 @@ const App = () => {
 
     // When equivSteps changes, resize the scale array and reset scale-related settings
     // This must be handled BEFORE the SCALE_KEYS block so panic() is called instead of sustainOff()
-    if (key === 'equivSteps') {
+    if (key === "equivSteps") {
       // Kill all notes and clear sustain state - scale is being fundamentally restructured
       if (keysRef.current) {
         keysRef.current.panic();
       }
       setLatch(false);
-      setImportCount(c => c + 1);
+      setImportCount((c) => c + 1);
 
-            setSettings(s => {
+      setSettings((s) => {
         const newSize = value;
         const currentScale = s.scale || [];
         let newScale;
@@ -458,24 +605,26 @@ const App = () => {
           // Pad with default cents values (100 cents per degree)
           const padding = [];
           for (let i = currentScale.length; i < newSize - 1; i++) {
-            padding.push(String((i + 1) * 100) + '.0');
+            padding.push(String((i + 1) * 100) + ".0");
           }
           // Last one should be the equave (newSize * 100 cents)
-          padding.push(String(newSize * 100) + '.0');
+          padding.push(String(newSize * 100) + ".0");
           newScale = [...currentScale, ...padding];
         } else {
           // Truncate or keep same size
           newScale = currentScale.slice(0, newSize);
         }
         // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
-        const newNoteNames = newScale.map((_, i) => newScale[(i - 1 + newScale.length) % newScale.length]);
+        const newNoteNames = newScale.map(
+          (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
+        );
         return {
           ...s,
           [key]: value,
           scale: newScale,
           note_names: newNoteNames,
           spectrum_colors: true,
-          fundamental_color: '#f2e3e3',
+          fundamental_color: "#f2e3e3",
         };
       });
       return;
@@ -483,34 +632,37 @@ const App = () => {
 
     // When scale is divided into equal parts (Divide Equave / Divide Octave buttons)
     // Same treatment as equivSteps: panic and reset scale-related settings
-    if (key === 'scale_divide') {
+    if (key === "scale_divide") {
       if (keysRef.current) {
         keysRef.current.panic();
       }
       setLatch(false);
-      setImportCount(c => c + 1);
+      setImportCount((c) => c + 1);
 
-      setSettings(s => {
+      setSettings((s) => {
         // Use the incoming value (new scale), not s.scale (old scale)
         const newScale = value;
         const equivSteps = s.equivSteps || newScale.length;
         const equaveValue = newScale[newScale.length - 1];
-        
+
         // Check if equave is an octave (1200 cents, 1200.0, 2/1, or "2")
-        const isOctave = equaveValue === '2' || 
-                         equaveValue === '2/1' || 
-                         equaveValue === '1200' || 
-                         equaveValue === '1200.0' ||
-                         /^1200\.?0*$/.test(equaveValue);
-        
+        const isOctave =
+          equaveValue === "2" ||
+          equaveValue === "2/1" ||
+          equaveValue === "1200" ||
+          equaveValue === "1200.0" ||
+          /^1200\.?0*$/.test(equaveValue);
+
         // Generate name and description (simplify for octave)
-        const equaveForName = isOctave ? '2' : equaveValue;
-        const equaveForDesc = isOctave ? 'Octave' : `${equaveValue} cents`;
+        const equaveForName = isOctave ? "2" : equaveValue;
+        const equaveForDesc = isOctave ? "Octave" : `${equaveValue} cents`;
         const newName = `${equivSteps}ed${equaveForName}`;
         const newDescription = `${equaveForDesc} divided into ${equivSteps} equal steps`;
-        
+
         // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
-        const newNoteNames = newScale.map((_, i) => newScale[(i - 1 + newScale.length) % newScale.length]);
+        const newNoteNames = newScale.map(
+          (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
+        );
         return {
           ...s,
           scale: newScale,
@@ -518,25 +670,32 @@ const App = () => {
           description: newDescription,
           note_names: newNoteNames,
           spectrum_colors: true,
-          fundamental_color: '#f2e3e3',
+          fundamental_color: "#f2e3e3",
         };
       });
       return;
     }
 
-        // For color changes, push to the live Keys instance BEFORE setSettings.
+    // For color changes, push to the live Keys instance BEFORE setSettings.
     // This uses the current keysRef at call time, avoiding stale references
     // if a reconstruction happens during the React batch.
     if (COLOR_KEYS.has(key) && keysRef.current) {
       const colorUpdate = {
-        note_colors:       key === 'note_colors'       ? normalizeColors({ ...settings, [key]: value }).note_colors : normalizeColors(settings).note_colors,
-        spectrum_colors:   key === 'spectrum_colors'   ? value : settings.spectrum_colors,
-        fundamental_color: key === 'fundamental_color' ? (value || '').replace(/#/, '') : (settings.fundamental_color || '').replace(/#/, ''),
+        note_colors:
+          key === "note_colors"
+            ? normalizeColors({ ...settings, [key]: value }).note_colors
+            : normalizeColors(settings).note_colors,
+        spectrum_colors:
+          key === "spectrum_colors" ? value : settings.spectrum_colors,
+        fundamental_color:
+          key === "fundamental_color"
+            ? (value || "").replace(/#/, "")
+            : (settings.fundamental_color || "").replace(/#/, ""),
       };
       keysRef.current.updateColors(colorUpdate);
     }
 
-    setSettings(s => ({ ...s, [key]: value }));
+    setSettings((s) => ({ ...s, [key]: value }));
   };
 
   const resetScale = () => {
@@ -549,20 +708,20 @@ const App = () => {
   const onClearUserPresets = () => {
     // Get remaining presets after delete/clear
     const remaining = loadCustomPresets();
-    
+
     // Clear user preset state
     setActiveSource(null);
     setActivePresetName(null);
-    sessionStorage.removeItem('hexatone_preset_source');
-    sessionStorage.removeItem('hexatone_preset_name');
-    
+    sessionStorage.removeItem("hexatone_preset_source");
+    sessionStorage.removeItem("hexatone_preset_name");
+
     if (remaining.length > 0) {
       // Load the first remaining preset
       const preset = remaining[0];
-      setActiveSource('user');
+      setActiveSource("user");
       setActivePresetName(preset.name);
-      sessionStorage.setItem('hexatone_preset_source', 'user');
-      sessionStorage.setItem('hexatone_preset_name', preset.name);
+      sessionStorage.setItem("hexatone_preset_source", "user");
+      sessionStorage.setItem("hexatone_preset_name", preset.name);
       const merged = { ...settings, ...preset };
       setSavedPresetSnapshot(snapshotOf(merged));
       setSettings(() => merged);
@@ -575,17 +734,20 @@ const App = () => {
     }
   };
 
-  const presetChanged = async e => {
+  const presetChanged = async (e) => {
     if (synth?.prepare) await synth.prepare();
     if (!e.target.value) return;
     setReady(true);
     setUserHasInteracted(true); // User gesture - AudioContext can start
-    setActiveSource('builtin');
+    setActiveSource("builtin");
     setActivePresetName(e.target.value);
-    sessionStorage.setItem('hexatone_preset_source', 'builtin');
-    sessionStorage.setItem('hexatone_preset_name', e.target.value);
+    sessionStorage.setItem("hexatone_preset_source", "builtin");
+    sessionStorage.setItem("hexatone_preset_name", e.target.value);
     const presetData = findPreset(e.target.value);
-    const adjustedPreset = { ...presetData, hexSize: scaleHexSizeForScreen(presetData.hexSize) };
+    const adjustedPreset = {
+      ...presetData,
+      hexSize: scaleHexSizeForScreen(presetData.hexSize),
+    };
     const mergedBuiltin = { ...settings, ...adjustedPreset };
     setSavedPresetSnapshot(snapshotOf(mergedBuiltin));
     setSettings(() => mergedBuiltin);
@@ -594,44 +756,52 @@ const App = () => {
   const onLoadCustomPreset = (preset) => {
     setReady(true);
     setUserHasInteracted(true); // User gesture - AudioContext can start
-    setActiveSource('user');
+    setActiveSource("user");
     setActivePresetName(preset.name || null);
-    sessionStorage.setItem('hexatone_preset_source', 'user');
+    sessionStorage.setItem("hexatone_preset_source", "user");
     if (preset.name) {
-      sessionStorage.setItem('hexatone_preset_name', preset.name);
+      sessionStorage.setItem("hexatone_preset_name", preset.name);
     } else {
-      sessionStorage.removeItem('hexatone_preset_name');
+      sessionStorage.removeItem("hexatone_preset_name");
     }
-    const adjustedPreset = { ...preset, hexSize: scaleHexSizeForScreen(preset.hexSize) };
+    const adjustedPreset = {
+      ...preset,
+      hexSize: scaleHexSizeForScreen(preset.hexSize),
+    };
     const mergedUser = { ...settings, ...adjustedPreset };
     setSavedPresetSnapshot(snapshotOf(mergedUser));
     setSettings(() => mergedUser);
   };
 
   const onImport = () => {
-    setImportCount(c => c + 1);
+    setImportCount((c) => c + 1);
     // On fresh load, scale exists but scale_import may not - ensure ready is set
     if (!settings.scale_import && settings.scale) {
       setReady(true);
       setUserHasInteracted(true);
     }
-    setSettings(s => {
+    setSettings((s) => {
       if (s.scale_import) {
         const parsed = parseScale(s.scale_import);
-        const { filename, description, equivSteps, scale, labels, colors } = parsed;
+        const { filename, description, equivSteps, scale, labels, colors } =
+          parsed;
         const scala_names = parsedScaleToLabels(scale);
 
-        const hasNames = parsed.hexatone_note_names && parsed.hexatone_note_names.some(n => n);
-        const hasColors = parsed.hexatone_note_colors && parsed.hexatone_note_colors.some(c => c);
+        const hasNames =
+          parsed.hexatone_note_names &&
+          parsed.hexatone_note_names.some((n) => n);
+        const hasColors =
+          parsed.hexatone_note_colors &&
+          parsed.hexatone_note_colors.some((c) => c);
         const hasMetadata = hasNames || hasColors;
 
         let note_names, note_colors;
 
         if (hasNames) {
           note_names = parsed.hexatone_note_names;
-        } else if (labels.some(l => l)) {
+        } else if (labels.some((l) => l)) {
           const f_name = labels.pop();
-          labels.unshift(f_name === 'null' || !f_name ? '' : f_name);
+          labels.unshift(f_name === "null" || !f_name ? "" : f_name);
           note_names = labels;
         } else {
           note_names = [];
@@ -639,19 +809,21 @@ const App = () => {
 
         if (hasColors) {
           note_colors = parsed.hexatone_note_colors;
-        } else if (colors.some(c => c)) {
+        } else if (colors.some((c) => c)) {
           const f_color = colors.pop();
-          colors.unshift(f_color === 'null' || !f_color ? '#ffffff' : f_color);
+          colors.unshift(f_color === "null" || !f_color ? "#ffffff" : f_color);
           note_colors = colors;
         } else {
           note_colors = [];
         }
 
         const fundamental = parsed.hexatone_fundamental || s.fundamental;
-        const reference_degree = parsed.hexatone_reference_degree !== undefined
-          ? parsed.hexatone_reference_degree
-          : s.reference_degree;
-        const midiin_central_degree = parsed.hexatone_midiin_central_degree || s.midiin_central_degree;
+        const reference_degree =
+          parsed.hexatone_reference_degree !== undefined
+            ? parsed.hexatone_reference_degree
+            : s.reference_degree;
+        const midiin_central_degree =
+          parsed.hexatone_midiin_central_degree || s.midiin_central_degree;
 
         return {
           ...s,
@@ -665,9 +837,9 @@ const App = () => {
           fundamental,
           reference_degree,
           midiin_central_degree,
-          key_labels: hasMetadata ? 'note_names' : 'scala_names',
+          key_labels: hasMetadata ? "note_names" : "scala_names",
           spectrum_colors: hasMetadata ? false : true,
-          fundamental_color: hasMetadata ? s.fundamental_color : '#f2e3e3',
+          fundamental_color: hasMetadata ? s.fundamental_color : "#f2e3e3",
         };
       } else {
         return s;
@@ -675,39 +847,80 @@ const App = () => {
     });
   };
 
-  const isValid = useMemo(() => (
-    settings.rSteps && settings.drSteps &&
-    settings.hexSize && settings.hexSize >= 20 && typeof settings.rotation === "number" &&
-    settings.scale && settings.equivSteps &&
-    (settings.no_labels || settings.degree && settings.note_names || !settings.degree) &&
-    ((settings.spectrum_colors && settings.fundamental_color) || settings.note_colors)
-  ), [settings]);
+  const isValid = useMemo(
+    () =>
+      settings.rSteps &&
+      settings.drSteps &&
+      settings.hexSize &&
+      settings.hexSize >= 20 &&
+      typeof settings.rotation === "number" &&
+      settings.scale &&
+      settings.equivSteps &&
+      (settings.no_labels ||
+        (settings.degree && settings.note_names) ||
+        !settings.degree) &&
+      ((settings.spectrum_colors && settings.fundamental_color) ||
+        settings.note_colors),
+    [settings],
+  );
 
-    // Stable string keys for array deps — memoized so stringify only runs when
+  // Stable string keys for array deps — memoized so stringify only runs when
   // the array content actually changes, not on every render.
-  const scaleKey      = useMemo(() => JSON.stringify(settings.scale), [settings.scale]);
-  const noteNamesKey  = useMemo(() => JSON.stringify(settings.note_names), [settings.note_names]);
-  const noteColorsKey = useMemo(() => JSON.stringify(settings.note_colors), [settings.note_colors]);
+  const scaleKey = useMemo(
+    () => JSON.stringify(settings.scale),
+    [settings.scale],
+  );
+  const noteNamesKey = useMemo(
+    () => JSON.stringify(settings.note_names),
+    [settings.note_names],
+  );
+  const noteColorsKey = useMemo(
+    () => JSON.stringify(settings.note_colors),
+    [settings.note_colors],
+  );
 
-    // Structural settings: everything except colors. Memoized so Keys is only
+  // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
-  const structuralSettings = useMemo(() => normalizeStructural(settings), [
-    settings.rSteps, settings.drSteps, settings.hexSize, settings.rotation,
-    scaleKey, settings.equivSteps, noteNamesKey, settings.key_labels,
-    settings.fundamental, settings.reference_degree, settings.center_degree,
-    settings.instrument, settings.midiin_device,
-    settings.midiin_channel, settings.midiin_central_degree,
-    settings.midi_device, settings.midi_channel, settings.midi_mapping,
-    settings.midi_velocity, settings.sysex_auto, settings.sysex_type,
-    settings.mpe_device, settings.mpe_master_ch, settings.mpe_lo_ch, settings.mpe_hi_ch,
-  ]);
+  const structuralSettings = useMemo(
+    () => normalizeStructural(settings),
+    [
+      settings.rSteps,
+      settings.drSteps,
+      settings.hexSize,
+      settings.rotation,
+      scaleKey,
+      settings.equivSteps,
+      noteNamesKey,
+      settings.key_labels,
+      settings.fundamental,
+      settings.reference_degree,
+      settings.center_degree,
+      settings.instrument,
+      settings.midiin_device,
+      settings.midiin_channel,
+      settings.midiin_central_degree,
+      settings.midi_device,
+      settings.midi_channel,
+      settings.midi_mapping,
+      settings.midi_velocity,
+      settings.sysex_auto,
+      settings.sysex_type,
+      settings.mpe_device,
+      settings.mpe_master_ch,
+      settings.mpe_lo_ch,
+      settings.mpe_hi_ch,
+    ],
+  );
 
   // Reset latch (sustain UI state) when Keys is reconstructed.
   // The new Keys instance starts with sustain: false, so the UI must match.
   // Using a ref to skip the initial render (no reconstruction on first mount).
   const prevStructuralRef = useRef(null);
   useEffect(() => {
-    if (prevStructuralRef.current !== null && prevStructuralRef.current !== structuralSettings) {
+    if (
+      prevStructuralRef.current !== null &&
+      prevStructuralRef.current !== structuralSettings
+    ) {
       setLatch(false);
     }
     prevStructuralRef.current = structuralSettings;
@@ -715,13 +928,18 @@ const App = () => {
 
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
-  const colorSettings = useMemo(() => normalizeColors(settings), [
-    noteColorsKey, settings.spectrum_colors, settings.fundamental_color,
-  ]);
+  const colorSettings = useMemo(
+    () => normalizeColors(settings),
+    [noteColorsKey, settings.spectrum_colors, settings.fundamental_color],
+  );
 
-  const normalizedSettings = useMemo(() => ({
-    ...structuralSettings, ...colorSettings,
-  }), [structuralSettings, colorSettings]);
+  const normalizedSettings = useMemo(
+    () => ({
+      ...structuralSettings,
+      ...colorSettings,
+    }),
+    [structuralSettings, colorSettings],
+  );
 
   // Imperative volume/mute — does not rebuild Keys
   const onVolumeChange = useCallback((volume, muted) => {
@@ -733,100 +951,158 @@ const App = () => {
   // Null synth: visual-only, no audio. Used when no output is configured.
   const nullSynth = {
     makeHex: (coords, cents) => ({
-      coords, cents, release: false,
-      noteOn: () => {}, noteOff: () => {}, retune: () => {},
+      coords,
+      cents,
+      release: false,
+      noteOn: () => {},
+      noteOff: () => {},
+      retune: () => {},
     }),
   };
 
   return (
-    <div className={active ? "hide" : "show"} onClick={() => setUserHasInteracted(true)}>
+    <div
+      className={active ? "hide" : "show"}
+      onClick={() => setUserHasInteracted(true)}
+    >
       {loading === 0 && ready && isValid && (
-        <Keyboard synth={synth || nullSynth} settings={normalizedSettings}
-                  structuralSettings={structuralSettings}
-                  onKeysReady={useCallback(keys => { keysRef.current = keys; }, [])}
-                  onLatchChange={useCallback(v => setLatch(v), [])}
-                  active={active} />
+        <Keyboard
+          synth={synth || nullSynth}
+          settings={normalizedSettings}
+          structuralSettings={structuralSettings}
+          onKeysReady={useCallback((keys) => {
+            keysRef.current = keys;
+          }, [])}
+          onLatchChange={useCallback((v) => setLatch(v), [])}
+          active={active}
+        />
       )}
 
-      {loading > 0 && <Loading/>}
-      <button id="sidebar-button" className={latch ? "latch-active" : ""} onClick={() => setActive(s => !s)} onTouchStart={onSidebarTouchStart} onTouchEnd={onSidebarTouchEnd} onTouchMove={onSidebarTouchMove} onContextMenu={e => e.preventDefault()}>
+      {loading > 0 && <Loading />}
+      <button
+        id="sidebar-button"
+        className={latch ? "latch-active" : ""}
+        onClick={() => setActive((s) => !s)}
+        onTouchStart={onSidebarTouchStart}
+        onTouchEnd={onSidebarTouchEnd}
+        onTouchMove={onSidebarTouchMove}
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <div>&gt;</div>
       </button>
       <div id="bottom-bar">
-        <button id="sustain-island"
+        <button
+          id="sustain-island"
           className={latch ? "latch-active" : ""}
-          onClick={(e) => { e.stopPropagation(); if (keysRef.current) keysRef.current.latchToggle(); }}
-          onPointerDown={(e) => { if (e.pointerType === "touch") e.preventDefault(); }}
-          onContextMenu={e => e.preventDefault()}>
+          onClick={(e) => {
+            e.stopPropagation();
+            if (keysRef.current) keysRef.current.latchToggle();
+          }}
+          onPointerDown={(e) => {
+            if (e.pointerType === "touch") e.preventDefault();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
           <b>SUSTAIN</b>
         </button>
-        <button id="redraw-button"
+        <button
+          id="redraw-button"
           title="Redraw keyboard / Resume audio"
-          onPointerDown={(e) => { e.preventDefault(); if (keysRef.current) keysRef.current.resizeHandler(); }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            if (keysRef.current) keysRef.current.resizeHandler();
+          }}
           onClick={async (e) => {
             e.stopPropagation();
             if (keysRef.current) keysRef.current.resizeHandler();
             // Resume AudioContext if suspended (iOS background recovery)
             await forceResumeAudioContext();
           }}
-          onContextMenu={e => e.preventDefault()}>
+          onContextMenu={(e) => e.preventDefault()}
+        >
           ↺
         </button>
-        <button id="panic-button"
+        <button
+          id="panic-button"
           title="Panic - kill all stuck notes"
-          onClick={(e) => { e.stopPropagation(); if (keysRef.current) keysRef.current.panic(); }}
-          onContextMenu={e => e.preventDefault()}>
+          onClick={(e) => {
+            e.stopPropagation();
+            if (keysRef.current) keysRef.current.panic();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
           <b>ALL NOTES OFF</b>
         </button>
       </div>
       <nav id="sidebar">
-        <h1>
-          PLAINSOUND HEXATONE
-        </h1>
+        <h1>PLAINSOUND HEXATONE</h1>
         <p>
-          <em>TO PLAY click or touch notes, attach a MIDI keyboard or a Lumatone. With sidebar closed, a computer keyboard also plays notes: H is mapped to Central Scale Degree; SPACEBAR sustains while pressed; SHIFT+keys sustains individual notes; ESC toggles a hand-free latch sustain.</em>
+          <em>
+            TO PLAY click or touch notes, attach a MIDI keyboard or a Lumatone.
+            With sidebar closed, a computer keyboard also plays notes: H is
+            mapped to Central Scale Degree; SPACEBAR sustains while pressed;
+            SHIFT+keys sustains individual notes; ESC toggles a hand-free latch
+            sustain.
+          </em>
         </p>
         <p>
-          <em>Setting Reference Frequency and Assigned Scale Degree automatically transposes built-in and external sounds. Edit scale degrees, note names, and colours below: pitches may be retuned, compared, saved, or reverted in real-time. Layouts and scala files may be exported and loaded to the User Tunings menu.</em>
+          <em>
+            Setting Reference Frequency and Assigned Scale Degree automatically
+            transposes built-in and external sounds. Edit scale degrees, note
+            names, and colours below: pitches may be retuned, compared, saved,
+            or reverted in real-time. Layouts and scala files may be exported
+            and loaded to the User Tunings menu.
+          </em>
         </p>
-        <Settings presetChanged={presetChanged}
-                    presets={presets}
-                    onChange={onChange}
-                    onVolumeChange={onVolumeChange}
-                    onImport={onImport}
-                    importCount={importCount}
-                    onLoadCustomPreset={onLoadCustomPreset}
-                    onClearUserPresets={onClearUserPresets}
-                    activeSource={activeSource}
-                    activePresetName={activePresetName}
-                    isPresetDirty={isDirty(savedPresetSnapshot, settings)}
-                                        onRevertBuiltin={() => {
-                      setUserHasInteracted(true);
-                      if (activePresetName) {
-                        const presetData = findPreset(activePresetName);
-                        const adjustedPreset = { ...presetData, hexSize: scaleHexSizeForScreen(presetData.hexSize) };
-                        const mergedRevertB = { ...settings, ...adjustedPreset };
-                        setSavedPresetSnapshot(snapshotOf(mergedRevertB));
-                        setSettings(() => mergedRevertB);
-                      }
-                    }}
-                    onRevertUser={() => {
-                      setUserHasInteracted(true);
-                      if (activePresetName) {
-                        const saved = loadCustomPresets().find(p => p.name === activePresetName);
-                        if (saved) {
-                          const adjustedPreset = { ...saved, hexSize: scaleHexSizeForScreen(saved.hexSize) };
-                          const mergedRevertU = { ...settings, ...adjustedPreset };
-                          setSavedPresetSnapshot(snapshotOf(mergedRevertU));
-                          setSettings(() => mergedRevertU);
-                        }
-                      }
-                    }}
-                    settings={settings}
-                    midi={midi}
-                    instruments={instruments}
-                    keysRef={keysRef}/>
+        <Settings
+          presetChanged={presetChanged}
+          presets={presets}
+          onChange={onChange}
+          onVolumeChange={onVolumeChange}
+          onImport={onImport}
+          importCount={importCount}
+          onLoadCustomPreset={onLoadCustomPreset}
+          onClearUserPresets={onClearUserPresets}
+          activeSource={activeSource}
+          activePresetName={activePresetName}
+          isPresetDirty={isDirty(savedPresetSnapshot, settings)}
+          onRevertBuiltin={() => {
+            setUserHasInteracted(true);
+            if (activePresetName) {
+              const presetData = findPreset(activePresetName);
+              const adjustedPreset = {
+                ...presetData,
+                hexSize: scaleHexSizeForScreen(presetData.hexSize),
+              };
+              const mergedRevertB = { ...settings, ...adjustedPreset };
+              setSavedPresetSnapshot(snapshotOf(mergedRevertB));
+              setSettings(() => mergedRevertB);
+            }
+          }}
+          onRevertUser={() => {
+            setUserHasInteracted(true);
+            if (activePresetName) {
+              const saved = loadCustomPresets().find(
+                (p) => p.name === activePresetName,
+              );
+              if (saved) {
+                const adjustedPreset = {
+                  ...saved,
+                  hexSize: scaleHexSizeForScreen(saved.hexSize),
+                };
+                const mergedRevertU = { ...settings, ...adjustedPreset };
+                setSavedPresetSnapshot(snapshotOf(mergedRevertU));
+                setSettings(() => mergedRevertU);
+              }
+            }
+          }}
+          settings={settings}
+          midi={midi}
+          instruments={instruments}
+          keysRef={keysRef}
+        />
         <Blurb />
+        <div id="sidebar-spacer"></div>
       </nav>
     </div>
   );

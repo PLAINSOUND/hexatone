@@ -53,6 +53,24 @@ table {
     text-align: center;
 }
 
+#sidebar-spacer {
+    height: 0.7em;
+}
+
+/* Phone portrait: spacer prevents iOS bounce from hiding bottom content */
+@media (max-width: 480px) {
+    #sidebar-spacer {
+        height: 3em;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    #sidebar-spacer {
+        top: 75vh;
+        height: 1.5em;
+    }
+}
+
 #sidebar {
     transition: transform 0.3s ease-in-out;
     z-index: 10;
