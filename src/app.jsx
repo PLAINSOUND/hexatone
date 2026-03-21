@@ -246,7 +246,8 @@ const sessionDefaults = {
     parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
   spectrum_colors: true,
   key_labels: "no_labels",
-  retuning_mode: "recalculate_reference", // or 'transpose_scale'
+  retuning_mode: 'recalculate_reference',  // or 'transpose_scale'
+  axis49_center_note: 49,
   fundamental: 260.740741,
   reference_degree: 0,
   equivSteps: 12,
@@ -311,6 +312,7 @@ const App = () => {
       midiin_device: ExtractString,
       midiin_channel: ExtractInt,
       midiin_central_degree: ExtractInt,
+      axis49_center_note: ExtractInt,
 
       // Output
       output_sample: ExtractBool,
@@ -716,7 +718,7 @@ const App = () => {
     setSettings((s) => ({ ...s, [key]: value }));
   };
 
-  const onAtomicChange = (updates) => {
+   const onAtomicChange = (updates) => {
     setSettings((s) => ({ ...s, ...updates }));
   };
 
@@ -951,6 +953,7 @@ const App = () => {
       settings.midiin_device,
       settings.midiin_channel,
       settings.midiin_central_degree,
+      settings.axis49_center_note,
       settings.midi_device,
       settings.midi_channel,
       settings.midi_mapping,

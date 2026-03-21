@@ -18,6 +18,8 @@ import { keymap, notes } from "../midi_synth";
 import { mtsToMidiFloat, centsToMTS } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 
+import { buildRawCoords, bestFitOffset } from '../controllers/axis49.js';
+
 class Keys {
   constructor(canvas, settings, synth, typing, onLatchChange) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
@@ -347,6 +349,16 @@ class Keys {
             */
             }
           }
+        // AXIS-49 selfless mode: detected by device name containing 'axis'.
+        // axis49_center_note (1–98) is the physical key the user wants at the
+        // centre of the hexatone display. Defaults to 49 (middle of the grid).
+        if (this.midiin_data.name?.toLowerCase().includes('axis')) {
+          const centerNote = this.settings.axis49_center_note ?? 49;
+          this.buildAxis49Table(centerNote);
+          console.log('[AXIS-49] selfless mode — centre note:', centerNote,
+            '| on-screen notes:', this.axis49CoverageCount);
+        }
+
         } // end else (midiin_data exists)
       } // end if midiin_data guard
     }
@@ -592,25 +604,50 @@ class Keys {
 
   midinoteOn = (e) => {
     const bend = this.bend || 0;
-    const steps = (e.note.number - this.settings.midiin_central_degree)
-                + this.channelToStepsOffset(e.message.channel);
-    // note_played encodes both note number and channel for MTS key pressure recovery
     const note_played = e.note.number + 128 * (e.message.channel - 1);
     const velocity_played = e.note.rawAttack;
 
+    if (this.axis49Table) {
+      // AXIS-49 selfless mode: direct physical-coord lookup, no channel arithmetic.
+      const coords = this.axis49Table.get(e.note.number);
+      if (coords) {
+        const hex = this.hexOn(coords, note_played, velocity_played, bend);
+        this.state.activeHexObjects.push(hex);
+      }
+      return;
+    }
+
+    // Generic mode: derive step count from note + channel offset.
+    const steps = (e.note.number - this.settings.midiin_central_degree)
+                + this.channelToStepsOffset(e.message.channel);
     const coords = this.bestVisibleCoord(steps);
     if (coords !== null) {
       const hex = this.hexOn(coords, note_played, velocity_played, bend);
       this.state.activeHexObjects.push(hex);
-      // Update anchor for the next note's locality search
       this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
     }
   };
 
   midinoteOff = (e) => {
+    if (this.axis49Table) {
+      // AXIS-49 selfless mode: direct lookup.
+      const coords = this.axis49Table.get(e.note.number);
+      if (coords) {
+        if (!this.state.sustain) this.hexOff(coords);
+        const hexIndex = this.state.activeHexObjects.findIndex(
+          (hex) => coords.equals(hex.coords)
+        );
+        if (hexIndex !== -1) {
+          this.noteOff(this.state.activeHexObjects[hexIndex], e.note.rawRelease);
+          this.state.activeHexObjects.splice(hexIndex, 1);
+        }
+      }
+      return;
+    }
+
+    // Generic mode.
     const steps = (e.note.number - this.settings.midiin_central_degree)
                 + this.channelToStepsOffset(e.message.channel);
-
     for (const coords of this.stepsToVisibleCoords(steps)) {
       if (!this.state.sustain) this.hexOff(coords);
       const hexIndex = this.state.activeHexObjects.findIndex(
@@ -627,11 +664,27 @@ class Keys {
     if (notes.played.length > 0) {
       for (const note_played of notes.played) {
         const note   = note_played % 128;
-        const ch_raw = Math.floor(note_played / 128); // 0-based channel index
-        // channelToStepsOffset expects 1-based channel number, so +1
-        const steps  = (note - this.settings.midiin_central_degree)
-                     + this.channelToStepsOffset(ch_raw + 1);
+        const ch_raw = Math.floor(note_played / 128);
 
+        if (this.axis49Table) {
+          // AXIS-49 selfless mode: note_played === note (single channel, ch_raw=0).
+          const coords = this.axis49Table.get(note);
+          if (coords) {
+            if (!this.state.sustain) this.hexOff(coords);
+            const hexIndex = this.state.activeHexObjects.findIndex(
+              (hex) => coords.equals(hex.coords)
+            );
+            if (hexIndex !== -1) {
+              this.noteOff(this.state.activeHexObjects[hexIndex], 64);
+              this.state.activeHexObjects.splice(hexIndex, 1);
+            }
+          }
+          continue;
+        }
+
+        // Generic mode: channelToStepsOffset expects 1-based channel, so +1.
+        const steps = (note - this.settings.midiin_central_degree)
+                    + this.channelToStepsOffset(ch_raw + 1);
         for (const coords of this.stepsToVisibleCoords(steps)) {
           if (!this.state.sustain) this.hexOff(coords);
           const hexIndex = this.state.activeHexObjects.findIndex(
@@ -1393,6 +1446,34 @@ class Keys {
     return this.stepsTable?.get(steps) ?? [];
   }
 
+  // Builds a direct MIDI-note → hexatone-coords lookup for the AXIS-49 in
+  // selfless mode (notes 1–98, single channel).
+  //
+  // Steps:
+  //  1. Compute raw (x,y) for each note relative to centerNote at (0,0).
+  //  2. Run a best-fit search (±10 offset in each axis) to find the integer
+  //     shift that maximises the number of notes landing on visible hexes,
+  //     tie-breaking by smallest shift from (0,0) so the anchor stays central.
+  //  3. Apply shift + centerHexOffset to produce final Point coords.
+  //
+  // stepsTable must be built before calling this (resizeHandler guarantees it).
+  buildAxis49Table(centerNote) {
+    const raw = buildRawCoords(centerNote);
+    const { dx, dy, count } = bestFitOffset(
+      raw,
+      this.stepsTable,
+      this.settings.centerHexOffset
+    );
+    const ox = this.settings.centerHexOffset.x + dx;
+    const oy = this.settings.centerHexOffset.y + dy;
+
+    this.axis49Table = new Map();
+    for (const [note, { x, y }] of raw) {
+      this.axis49Table.set(note, new Point(x + ox, y + oy));
+    }
+    this.axis49CoverageCount = count;
+  }
+
   // Returns the single best coord for a note-on.
   //
   // Strategy: decaying anchor + radius gate.
@@ -1410,9 +1491,8 @@ class Keys {
     if (candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
 
-    const BOTTOM_BAR_APPROX = 24; // px — adjust to match actual bar height
     const cx = this.state.centerpoint.x;
-    const cy = this.state.centerpoint.y - BOTTOM_BAR_APPROX / 2;
+    const cy = this.state.centerpoint.y;
 
     // Decay anchor 15% back toward centre each note.
     const DECAY = 0.15;
