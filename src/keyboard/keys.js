@@ -56,6 +56,7 @@ class Keys {
       activeHexObjects: [],
       isTouchDown: false,
       isMouseDown: false,
+      lastMidiCoords: null, // screen-space Point of the most recently activated MIDI hex
     };
     // tuning_map_degree0: use explicit override if set, otherwise derive from the central MIDI note
     // (midiin_central_degree is stored as the note for degree 0; add center_degree to get the central note)
@@ -590,73 +591,32 @@ class Keys {
   */
 
   midinoteOn = (e) => {
-    // TO DO ! make this controller layout aware for fixed unique mappings!, this is simply guessing which hex might be good to light up. For optimising screen coverage, this needs to be aware of which hexes are actually visible to the user.
+    const bend = this.bend || 0;
+    const steps = (e.note.number - this.settings.midiin_central_degree)
+                + this.channelToStepsOffset(e.message.channel);
+    // note_played encodes both note number and channel for MTS key pressure recovery
+    const note_played = e.note.number + 128 * (e.message.channel - 1);
+    const velocity_played = e.note.rawAttack;
 
-    let bend = 0;
-    if (this.bend) {
-      bend = this.bend;
-    }
-    //console.log("note_on-bend", bend);
-    let steps = e.note.number - this.settings.midiin_central_degree;
-    let channel_offset = e.message.channel - 1 - this.settings.midiin_channel;
-    channel_offset = ((channel_offset + 20) % 8) - 4;
-    //console.log("transposition (in equaves)", channel_offset);
-    let steps_offset = channel_offset * this.settings.equivSteps;
-    steps = steps + steps_offset;
-    let note_played = e.note.number + 128 * (e.message.channel - 1); // allows note and channel to be encoded and recovered for MTS key pressure
-    let velocity_played = e.note.rawAttack;
-
-    let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to the right to get near the played note
-    let rSteps_to_steps = this.settings.rSteps * rSteps_count;
-    let drSteps_count = Math.round(
-      (steps - rSteps_to_steps) / this.settings.drSteps,
-    );
-    let drSteps_to_steps = this.settings.drSteps * drSteps_count;
-    let gcdSteps_count = Math.floor(
-      (steps - rSteps_to_steps - drSteps_to_steps) / this.settings.gcd[0],
-    );
-    let gcdSteps_to_steps = gcdSteps_count * this.settings.gcd[0];
-    let remainder =
-      steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
-    if (remainder == 0) {
-      let coords = new Point(
-        rSteps_count + gcdSteps_count * this.settings.gcd[1],
-        drSteps_count + gcdSteps_count * this.settings.gcd[2],
-      );
-      let hex = this.hexOn(coords, note_played, velocity_played, bend);
+    const coords = this.bestVisibleCoord(steps);
+    if (coords !== null) {
+      const hex = this.hexOn(coords, note_played, velocity_played, bend);
       this.state.activeHexObjects.push(hex);
+      // Update anchor for the next note's locality search
+      this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
     }
   };
 
   midinoteOff = (e) => {
-    let steps = e.note.number - this.settings.midiin_central_degree;
-    let channel_offset = e.message.channel - 1 - this.settings.midiin_channel;
-    channel_offset = ((channel_offset + 20) % 8) - 4;
-    let steps_offset = channel_offset * this.settings.equivSteps;
-    steps = steps + steps_offset;
+    const steps = (e.note.number - this.settings.midiin_central_degree)
+                + this.channelToStepsOffset(e.message.channel);
 
-    let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to the right to get near the played note, as before
-    let rSteps_to_steps = this.settings.rSteps * rSteps_count;
-    let drSteps_count = Math.round(
-      (steps - rSteps_to_steps) / this.settings.drSteps,
-    );
-    let drSteps_to_steps = this.settings.drSteps * drSteps_count;
-    let gcdSteps_count = Math.floor(
-      (steps - rSteps_to_steps - drSteps_to_steps) / this.settings.gcd[0],
-    );
-    let gcdSteps_to_steps = gcdSteps_count * this.settings.gcd[0];
-    let remainder =
-      steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
-    if (remainder == 0) {
-      let coords = new Point(
-        rSteps_count + gcdSteps_count * this.settings.gcd[1],
-        drSteps_count + gcdSteps_count * this.settings.gcd[2],
-      );
+    for (const coords of this.stepsToVisibleCoords(steps)) {
       if (!this.state.sustain) this.hexOff(coords);
-      let hexIndex = this.state.activeHexObjects.findIndex(function (hex) {
-        return coords.equals(hex.coords);
-      });
-      if (hexIndex != -1) {
+      const hexIndex = this.state.activeHexObjects.findIndex(
+        (hex) => coords.equals(hex.coords)
+      );
+      if (hexIndex !== -1) {
         this.noteOff(this.state.activeHexObjects[hexIndex], e.note.rawRelease);
         this.state.activeHexObjects.splice(hexIndex, 1);
       }
@@ -665,37 +625,19 @@ class Keys {
 
   allnotesOff = () => {
     if (notes.played.length > 0) {
-      for (let i = 0; i < notes.played.length; i++) {
-        let steps =
-          (notes.played[i] % 128) - this.settings.midiin_central_degree;
-        let channel_offset =
-          Math.floor(notes.played[i] / 128) - this.settings.midiin_channel;
-        channel_offset = ((channel_offset + 20) % 8) - 4;
-        let steps_offset = channel_offset * this.settings.equivSteps;
-        steps = steps + steps_offset;
+      for (const note_played of notes.played) {
+        const note   = note_played % 128;
+        const ch_raw = Math.floor(note_played / 128); // 0-based channel index
+        // channelToStepsOffset expects 1-based channel number, so +1
+        const steps  = (note - this.settings.midiin_central_degree)
+                     + this.channelToStepsOffset(ch_raw + 1);
 
-        let rSteps_count = Math.round(steps / this.settings.rSteps); // how many steps to get near the played note, as before
-        let rSteps_to_steps = this.settings.rSteps * rSteps_count;
-        let drSteps_count = Math.round(
-          (steps - rSteps_to_steps) / this.settings.drSteps,
-        );
-        let drSteps_to_steps = this.settings.drSteps * drSteps_count;
-        let gcdSteps_count = Math.floor(
-          (steps - rSteps_to_steps - drSteps_to_steps) / this.settings.gcd[0],
-        );
-        let gcdSteps_to_steps = gcdSteps_count * this.settings.gcd[0];
-        let remainder =
-          steps - rSteps_to_steps - drSteps_to_steps - gcdSteps_to_steps;
-        if (remainder == 0) {
-          let coords = new Point(
-            rSteps_count + gcdSteps_count * this.settings.gcd[1],
-            drSteps_count + gcdSteps_count * this.settings.gcd[2],
-          );
+        for (const coords of this.stepsToVisibleCoords(steps)) {
           if (!this.state.sustain) this.hexOff(coords);
-          let hexIndex = this.state.activeHexObjects.findIndex(function (hex) {
-            return coords.equals(hex.coords);
-          });
-          if (hexIndex != -1) {
+          const hexIndex = this.state.activeHexObjects.findIndex(
+            (hex) => coords.equals(hex.coords)
+          );
+          if (hexIndex !== -1) {
             this.noteOff(this.state.activeHexObjects[hexIndex], 64);
             this.state.activeHexObjects.splice(hexIndex, 1);
           }
@@ -1005,8 +947,11 @@ class Keys {
     this.state.context.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
 
     // Redraw Grid
-
     this.drawGrid();
+
+    // Rebuild the steps→coords lookup table now that centerpoint and grid range
+    // are up to date. Must come after drawGrid() so centerpoint is already set.
+    this.buildStepsTable();
   };
 
   inputIsFocused = () => {
@@ -1402,6 +1347,109 @@ class Keys {
         this.hexOff(coords);
       }
     }
+  }
+
+  // Returns the steps offset (in scale degrees) contributed by the MIDI channel.
+  // Legacy mode: 16 channels treated as two groups of 8, each group offset ±4
+  // equaves around midiin_channel. Isolated here so it can be replaced cleanly
+  // when channel_offset is decoupled from equivSteps in a future step.
+  channelToStepsOffset(channel) {
+    const channel_offset = ((channel - 1 - this.settings.midiin_channel + 20) % 8) - 4;
+    return channel_offset * this.settings.equivSteps;
+  }
+
+  // Builds a Map from steps (scale-degree distance from origin) to an array of
+  // all visible coords that produce that steps value. Covers exactly the same
+  // hex range as drawGrid(), so every lit hex is guaranteed to be on-screen.
+  // Must be called after this.state.centerpoint is set and whenever layout
+  // settings change (triggered via resizeHandler).
+  buildStepsTable() {
+    const max = Math.floor(
+      Math.max(this.state.centerpoint.x, this.state.centerpoint.y)
+      / this.settings.hexSize
+    );
+    const ox = this.settings.centerHexOffset.x;
+    const oy = this.settings.centerHexOffset.y;
+
+    this.stepsTable = new Map();
+    for (let r = -max + ox; r < max + ox; r++) {
+      for (let dr = -max + oy; dr < max + oy; dr++) {
+        const coords = new Point(r, dr);
+        // hexCoordsToCents returns [cents, reducedSteps, distance, ...];
+        // 'distance' (index 2) is the raw step count from the origin — our key.
+        const [, , steps] = this.hexCoordsToCents(coords);
+        if (!this.stepsTable.has(steps)) {
+          this.stepsTable.set(steps, []);
+        }
+        this.stepsTable.get(steps).push(coords);
+      }
+    }
+  }
+
+  // Returns all visible coords for a given steps value, or [] if none on screen.
+  // Used by midinoteOff / allnotesOff to scan activeHexObjects for the coord
+  // that was actually activated — must return the full candidate list.
+  stepsToVisibleCoords(steps) {
+    return this.stepsTable?.get(steps) ?? [];
+  }
+
+  // Returns the single best coord for a note-on.
+  //
+  // Strategy: decaying anchor + radius gate.
+  //
+  // The anchor starts at lastMidiCoords and is pulled 15% of the way back
+  // toward screen centre on every call, so a melodic run stays local while
+  // a drift toward the edge is continuously corrected. Candidates outside
+  // 75% of the screen half-dimension are filtered out first (gate); if every
+  // candidate is outside the gate we fall back to the full set so there is
+  // always a result. Among survivors, pick the one nearest the anchor.
+  //
+  // Returns null only when no candidates exist at all.
+  bestVisibleCoord(steps) {
+    const candidates = this.stepsToVisibleCoords(steps);
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0];
+
+    const BOTTOM_BAR_APPROX = 24; // px — adjust to match actual bar height
+    const cx = this.state.centerpoint.x;
+    const cy = this.state.centerpoint.y - BOTTOM_BAR_APPROX / 2;
+
+    // Decay anchor 15% back toward centre each note.
+    const DECAY = 0.15;
+    const last = this.state.lastMidiCoords;
+    const anchorX = last ? last.x + DECAY * (cx - last.x) : cx;
+    const anchorY = last ? last.y + DECAY * (cy - last.y) : cy;
+
+    // Gate: exclude candidates whose screen position is beyond 75% of the
+    // smaller half-dimension (keeps notes away from the canvas edge).
+    const GATE_FRACTION = 0.75;
+    const gate = GATE_FRACTION * Math.min(cx, cy); // cx,cy are half-dimensions
+    const gate2 = gate * gate;
+
+    let pool = candidates.filter((coords) => {
+      const s = this.hexCoordsToScreen(coords);
+      const dx = s.x - cx;
+      const dy = s.y - cy;
+      return dx * dx + dy * dy <= gate2;
+    });
+
+    // Safety fallback: if every candidate is outside the gate use them all.
+    if (pool.length === 0) pool = candidates;
+
+    // Pick the pool member nearest to the decayed anchor.
+    let best = null;
+    let bestDist = Infinity;
+    for (const coords of pool) {
+      const s = this.hexCoordsToScreen(coords);
+      const dx = s.x - anchorX;
+      const dy = s.y - anchorY;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = coords;
+      }
+    }
+    return best;
   }
 
   hexCoordsToScreen(hex) {
