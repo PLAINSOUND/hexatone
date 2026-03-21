@@ -1,131 +1,73 @@
 /**
- * mpe_synth — MPE (MIDI Polyphonic Expression) output.
+ * mpe_synth — MPE output.
  *
- * Each note gets its own voice channel, allocated from a VoicePool.
- * Pitch is expressed as pitch bend on the voice channel.
+ * Key design decisions:
  *
- * Two modes:
- * - Ableton_workaround: pitch bend range fixed at 48, MIDI note constrained to satisfy
- *   note % 16 = channel (so Ableton can reconstruct the channel from the note number and users can play multiple notes that are close to each other by sending them on different MIDI notes)
- * - Full_MPE: user-selectable pitch bend range 1-96, nearest MIDI note + pitch bend
- * optimal tuning resolution like MTS is PB range 1, optimal glissando range is 96 (Continuum)
+ * PB → noteOn timing:
+ *   Uses WebMIDI's send(data, timestamp) to schedule noteOn exactly PB_GUARD_MS
+ *   after the pitch-bend message, at the MIDI driver level with sub-ms precision.
+ *   No setTimeout — no timer jitter, no 4ms browser minimum.
  *
- * MPE zone layout (lower zone, Ableton default):
- *   Master channel:  1  (or 16 for upper zone, or none)
- *   Voice channels:  mpe_lo_ch … mpe_hi_ch  (default 2–8)
+ * Release tails:
+ *   After noteOff, a channel stays in RELEASING state for releaseGuardMs (default
+ *   300ms). No PB reset is sent during this window — the tail decays undisturbed
+ *   at the note's own pitch. The channel becomes IDLE when the guard expires, and
+ *   the correct PB is set before the next noteOn that uses it.
  *
- * On master channel: program change, global CC, all-notes-off
- * On voice channels: note-on/off + pitch bend + channel pressure (aftertouch)
- * 
- * ALGORITHM has 2 parts 1.) is direct from app to MPE, 2.) adds a layer of incoming MIDI notes
- * 
- * 1.) Determine from the hex which MPE data to send:
- * from incoming values fundamental (reference Frequency) and cents we calculate a MIDIcents value
- * MIDIcents = 1200 * log2 (fundamental / 440) + 69 + cents; this is the sounding note that will be send as MPE by the modes above on the channel assigned by the voice allocator
- * 
- * 2.) determine which hex the incoming MIDI note and channel need to trigger as follows:
- * obtain the MIDI note and channel 
- * consider the (Central) MIDI Input Channel (midiin_channel) for transposition by equaves
- * we need to know which hex to play
- * midiin_central_degree plays central_degree
- * 
- * we need to look at
- * note_played
- * 
- * + (channel_played - midiin_channel) % 8 * equivSteps   ---- this needs to be adjusted so equaves up and down are nicely handled ----
- * 
- * - midiin_central degree - central_degree
- * 
- * to determine the number of scale steps from fundamental, which gives us a hex to play.
- * 
- * 
+ * Voice stealing:
+ *   Prefers IDLE > oldest-RELEASING > oldest-SOUNDING.
+ *   Optional closestPitchSteal mode (useful for slow-release microtonal presets)
+ *   selects the SOUNDING channel whose bend is nearest to the incoming note's
+ *   bend, minimising the audible pitch jump on the stolen tail.
  */
 
 import { VoicePool } from "../voice_pool_oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
 
-/**
- * Calculate the frequency at central degree.
- */
-function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale, equivSteps, equave) {
-  // Calculate cents offset from reference degree to center degree
-  let ref_cents_from_degree0 = 0;
-  if (reference_degree > 0) {
-    ref_cents_from_degree0 = scalaToCents(scale[reference_degree - 1]);
-  }
-  let centraldegree_cents_from_degree0 = 0;
-  if (center_degree > 0) {
-    centraldegree_cents_from_degree0 = scalaToCents(scale[center_degree - 1]);
-  }
-  
-  // Frequency at degree 0 (center_degree steps below center)
-  const freq_at_degree_0 = fundamental / Math.pow(2, ref_cents_from_degree0 / 1200);
+// Time (ms) between sending PB and sending noteOn on the same channel.
+// 2ms is enough for virtually all synths; increase if you still hear attack glitches.
+const PB_GUARD_MS = 2;
 
-  // Frequency at center degree
-  const freqAtCentral = freq_at_degree_0 * Math.pow(2, centraldegree_cents_from_degree0 / 1200);
-  
-  return freqAtCentral;
+function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale, equivSteps, equave) {
+  let ref_cents = 0;
+  if (reference_degree > 0) ref_cents = scalaToCents(scale[reference_degree - 1]);
+  let center_cents = 0;
+  if (center_degree > 0) center_cents = scalaToCents(scale[center_degree - 1]);
+  const freq_at_degree_0 = fundamental / Math.pow(2, ref_cents / 1200);
+  return freq_at_degree_0 * Math.pow(2, center_cents / 1200);
 }
 
-/**
- * Calculate MIDI note and pitch bend for a given frequency.
- * 
- * @param {number} freq - Frequency in Hz
- * @param {number} center_degree - The central degree of the scale
- * @param {number} channel - Voice channel (1-based)
- * @param {number[]} scale - The scale in cents
- * @param {string} mode - "Ableton_workaround" or "Full_MPE"
- * @returns {Object} { note, deviation }
- */
 function freqToMidiAndCents(freq, center_degree, channel, scale, mode) {
-  // Convert frequency to cents relative to degree 0
-  let centraldegree_cents_from_degree0 = 0;
-  if (center_degree > 0) {
-    centraldegree_cents_from_degree0 = scalaToCents(scale[center_degree - 1]);
-  }
-  const targetMidiNote = 69 + (12 * Math.log2(freq / 440)) - (centraldegree_cents_from_degree0 * 0.01);
-  
+  let center_cents = 0;
+  if (center_degree > 0) center_cents = scalaToCents(scale[center_degree - 1]);
+  const targetMidi = 69 + 12 * Math.log2(freq / 440) - center_cents * 0.01;
+
   let note, deviation;
-  
-  if (mode === "Ableton_workaround") {
-    // Ableton workaround: note % 16 must equal channel
-    // Find note in range [channel, channel+15, channel+30, ...] closest to target
+  if (mode === 'Ableton_workaround') {
     const baseNote = channel % 16;
-    const octaveOffset = Math.round((targetMidiNote - baseNote) / 16);
+    const octaveOffset = Math.round((targetMidi - baseNote) / 16);
     note = baseNote + octaveOffset * 16;
-    
-    // BUG FIX: if clamped, find nearest valid note within MIDI range
-    if (note > 127) {
-      // Find highest valid note for this channel
-      note = baseNote + Math.floor((127 - baseNote) / 16) * 16;
-    } else if (note < 0) {
-      note = baseNote;  // lowest valid note for this channel
-    }
-    
-    // Calculate deviation in cents
-    deviation = (targetMidiNote - note) * 100.0;
-    
-    //console.log(`Ableton: target=${targetMidiNote.toFixed(2)} channel=${channel} baseNote=${baseNote} octaveOffset=${octaveOffset} note=${note} deviation=${deviation.toFixed(0)} cents`);
+    if (note > 127) note = baseNote + Math.floor((127 - baseNote) / 16) * 16;
+    else if (note < 0) note = baseNote;
+    deviation = (targetMidi - note) * 100.0;
   } else {
-    // Full MPE: nearest MIDI note
-    note = Math.round(targetMidiNote);
-    note = Math.max(0, Math.min(127, note));
-    deviation = (targetMidiNote - note) * 100.0;
+    note = Math.max(0, Math.min(127, Math.round(targetMidi)));
+    deviation = (targetMidi - note) * 100.0;
   }
-  
   return { note, deviation };
 }
 
-/**
- * Convert cents deviation to 14-bit pitch bend value.
- */
 function deviationToBend(cents_offset, bendRange) {
-  // 0x2000 = 8192 = centre (no bend)
-  // Full range: -8192 (−bendRange semitones) … +8191 (+bendRange semitones)
-  const ratio = cents_offset / (bendRange * 100);
-  const raw = Math.round(ratio * 8192);
+  const ratio   = cents_offset / (bendRange * 100);
+  const raw     = Math.round(ratio * 8192);
   const clamped = Math.max(-8192, Math.min(8191, raw));
   return clamped + 8192; // unsigned 0–16383
+}
+
+function sendBend(midi_output, channel0, bend, timestamp) {
+  const lsb = bend & 0x7F;
+  const msb = (bend >> 7) & 0x7F;
+  midi_output.send([0xE0 + channel0, lsb, msb], timestamp);
 }
 
 export const create_mpe_synth = async (
@@ -133,259 +75,173 @@ export const create_mpe_synth = async (
   master_ch,
   lo_ch,
   hi_ch,
-  fundamental = 440,
-  reference_degree = 0,
-  center_degree = 0,
+  fundamental        = 440,
+  reference_degree   = 0,
+  center_degree      = 0,
   midiin_central_degree = 60,
   scale,
-  mpe_mode = "Ableton_workaround",
-  bendRange = 48,
-  equivSteps = 12,
-  equave = 2
+  mpe_mode           = 'Ableton_workaround',
+  bendRange          = 48,
+  equivSteps         = 12,
+  equave             = 2,
+  releaseGuardMs     = 300,   // ms — should match your synth's longest release
+  closestPitchSteal  = false  // true = steal closest-pitch SOUNDING voice
 ) => {
   if (!midi_output) return null;
 
-  // Determine actual bend range: always 48 for Ableton_workaround, user-specified for Full_MPE
-  const actualBendRange = mpe_mode === "Ableton_workaround" ? 48 : bendRange;
-
-  // master_ch: 1-based MIDI channel number, or null/undefined for no master
-  // lo_ch, hi_ch: 1-based MIDI channel numbers for voice pool
-  const masterCh = master_ch != null ? parseInt(master_ch) - 1 : null; // 0-based for send
-  const voiceIds = [];
+  const actualBendRange = mpe_mode === 'Ableton_workaround' ? 48 : bendRange;
+  const masterCh        = master_ch != null ? parseInt(master_ch) - 1 : null;
+  const voiceIds        = [];
   for (let ch = lo_ch; ch <= hi_ch; ch++) voiceIds.push(ch);
-  const pool = new VoicePool(voiceIds); // slot = 1-based channel number
 
-  // Calculate frequency at central degree
-  const freqAtCentral = calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale, equivSteps, equave);
+  const pool = new VoicePool(voiceIds, releaseGuardMs, closestPitchSteal);
+
+  const freqAtCentral    = calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale, equivSteps, equave);
   const midiNoteForDegree0 = midiin_central_degree + center_degree;
 
-  // Send MPE zone configuration RPN on master channel
+  // MPE zone RPN on master channel
   if (masterCh !== null) {
     const numVoices = hi_ch - lo_ch + 1;
-    // RPN 0x0006 (MPE config) = number of member channels
-    // MSB select: CC 100 = 0x00, CC 101 = 0x06
-    // Data entry: CC 6 = numVoices, CC 38 = 0
-    midi_output.send([0xB0 + masterCh, 100, 0]);   // RPN LSB
-    midi_output.send([0xB0 + masterCh, 101, 6]);   // RPN MSB (0x0006 = MPE config)
-    midi_output.send([0xB0 + masterCh, 6, numVoices]); // data entry MSB
-    midi_output.send([0xB0 + masterCh, 38, 0]);    // data entry LSB
-
-    // Set pitch bend range on master channel (RPN 0x0000)
+    midi_output.send([0xB0 + masterCh, 100, 0]);
+    midi_output.send([0xB0 + masterCh, 101, 6]);
+    midi_output.send([0xB0 + masterCh, 6, numVoices]);
+    midi_output.send([0xB0 + masterCh, 38, 0]);
     midi_output.send([0xB0 + masterCh, 101, 0]);
     midi_output.send([0xB0 + masterCh, 100, 0]);
     midi_output.send([0xB0 + masterCh, 6, actualBendRange]);
     midi_output.send([0xB0 + masterCh, 38, 0]);
   }
 
-  // Set pitch bend range on every voice channel
+  // Pitch-bend range RPN and initial centred PB on every voice channel
   for (const ch of voiceIds) {
-    const c = ch - 1; // 0-based
+    const c = ch - 1;
     midi_output.send([0xB0 + c, 101, 0]);
     midi_output.send([0xB0 + c, 100, 0]);
     midi_output.send([0xB0 + c, 6, actualBendRange]);
     midi_output.send([0xB0 + c, 38, 0]);
-  }
-
-  // Initialize all voice channels to centered pitch bend (8192)
-  for (const ch of voiceIds) {
-    const c = ch - 1; // 0-based
-    midi_output.send([0xE0 + c, 0, 64]);  // 8192 = centered
+    midi_output.send([0xE0 + c, 0, 64]); // 8192 = centred
   }
 
   return {
-    makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
-      note_played, velocity_played, bend, degree0toRef_ratio) => {
+    makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
+              note_played, velocity_played, bend, degree0toRef_ratio) => {
       return new MpeHex(
         coords, cents, velocity_played, steps, center_degree,
         midi_output, pool,
         freqAtCentral, midiNoteForDegree0,
-        actualBendRange, mpe_mode,
-        scale,
-        note_played  // for aftertouch tracking
+        actualBendRange, mpe_mode, scale,
+        note_played
       );
     },
   };
 };
 
-function MpeHex(coords, cents, velocity_played, steps, center_degree, midi_output, pool, freqAtCentral, midiNoteForDegree0, bendRange, mode, scale, note_played) {
-  this.coords = coords;
-  this.cents = cents;
-  this.steps = steps;
-  this.center_degree = center_degree;
-  this.release = false;
-  this.midi_output = midi_output;
-  this.pool = pool;
-  this.freqAtCentral = freqAtCentral;
+function MpeHex(coords, cents, velocity_played, steps, center_degree,
+                midi_output, pool, freqAtCentral, midiNoteForDegree0,
+                bendRange, mode, scale, note_played) {
+  this.coords            = coords;
+  this.cents             = cents;
+  this.steps             = steps;
+  this.center_degree     = center_degree;
+  this.release           = false;
+  this.midi_output       = midi_output;
+  this.pool              = pool;
+  this.freqAtCentral     = freqAtCentral;
   this.midiNoteForDegree0 = midiNoteForDegree0;
-  this.bendRange = bendRange;
-  this.mode = mode;
-  this.scale = scale;
-  this.velocity = Math.max(1, Math.min(127, velocity_played || 72));
-  this.note_played = note_played;  // for aftertouch tracking from Lumatone
+  this.bendRange         = bendRange;
+  this.mode              = mode;
+  this.scale             = scale;
+  this.velocity          = Math.max(1, Math.min(127, velocity_played || 72));
+  this.note_played       = note_played;
 
-  // Allocate voice channel — steal oldest if pool exhausted
-  const { slot, stolen, lastBend, lastNote, cleanSlot, stolenSlot, stolenNote, retrigger } = pool.noteOn(coords);
-  
-  //console.log(`=== NEW NOTE ===`);
-  //console.log(`  slot=${slot} cleanSlot=${cleanSlot} stolenSlot=${stolenSlot} lastBend=${lastBend}`);
-  
-  // Reset pitch bend on cleanSlot (channel that was killed in previous steal)
-  // This gives the release tail time to fade before we reset PB
-  if (cleanSlot !== null) {
-    const csc = cleanSlot - 1;  // 0-based
-    midi_output.send([0xE0 + csc, 0, 64]);  // 8192 = centered
-    //console.log(`  → RESET PB on cleanSlot ${cleanSlot} to center (8192)`);
-  } else if (stolen !== null) {
-    // FIRST steal: using reserved cleanSlot, but NO PB reset sent!
-    // This could be the bug - the channel might have residual PB
-    //console.log(`  → FIRST STEAL: no cleanSlot reset, channel ${slot} should already be at 8192`);
-  }
-  
-  // Kill stolen voice with noteOff on its channel
+  // Calculate the pitch we need before allocating, so closestPitchSteal can use it
+  const freq                = freqAtCentral * Math.pow(2, cents / 1200);
+  // channel not yet known, use placeholder 1 for Ableton mode (corrected below)
+  const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
+  const bendGuess           = deviationToBend((69 + 12 * Math.log2(freq / 440) - noteGuess) * 100, bendRange);
+
+  const { slot, stolen, stolenSlot, stolenNote, retrigger } =
+    pool.noteOn(coords, bendGuess);
+
+  // Kill the stolen voice BEFORE sending our own PB — noteOff on its channel.
+  // The stolen channel's state is already RELEASING in the pool.
+  // We do NOT send a PB reset to it — its tail decays at the original pitch.
   if (stolen !== null) {
-    const ssc = stolenSlot - 1;  // 0-based channel of killed voice
+    const ssc = stolenSlot - 1;
     midi_output.send([0x80 + ssc, stolenNote, 0]);
-    //console.log(`  → KILL voice on channel ${stolenSlot}, note ${stolenNote}`);
   }
-  
+
   this.channel = slot; // 1-based
 
-  // Calculate frequency from cents (deviation from degree 0)
-  const freq = this.freqAtCentral * Math.pow(2, cents / 1200);
-
-  // Calculate MIDI note and pitch bend
-  const { note, deviation } = freqToMidiAndCents(freq, this.center_degree, this.channel, this.scale, this.mode);
+  // Recalculate with actual channel (matters for Ableton_workaround mode)
+  const { note, deviation } = freqToMidiAndCents(freq, center_degree, this.channel, scale, mode);
   this.note = note;
   this.bend = deviationToBend(deviation, bendRange);
-  
-  // Send pitch bend NOW (in constructor) so it's ready before noteOn
-  const c = this.channel - 1;
-  const bendLSB = this.bend & 0x7F;
-  const bendMSB = (this.bend >> 7) & 0x7F;
-  midi_output.send([0xE0 + c, bendLSB, bendMSB]);
-  
-  // Debug: log the actual bend values
-  const bendOffset = this.bend - 8192;  // signed offset from center
-  const bendSemis = (bendOffset / 8192) * bendRange;
-  //console.log(`BEND: channel=${this.channel} note=${this.note} deviation=${deviation.toFixed(0)}¢ bend=${this.bend} (offset=${bendOffset}, ${bendSemis.toFixed(2)} semitones) LSB=${bendLSB} MSB=${bendMSB}`);
-  
-  // Track current bend and note in pool for future reference
+
+  // Send PB now, schedule noteOn PB_GUARD_MS later using WebMIDI timestamps.
+  // This is processed by the MIDI driver scheduler — no setTimeout jitter.
+  const c    = this.channel - 1;
+  const now  = performance.now();
+  sendBend(midi_output, c, this.bend, now);
+  midi_output.send([0x90 + c, this.note, this.velocity], now + PB_GUARD_MS);
+
   pool.setLastBend(this.channel, this.bend);
   pool.setLastNote(this.channel, this.note);
 }
 
 MpeHex.prototype.noteOn = function () {
-  const c = this.channel - 1; // 0-based for MIDI status byte
-  
-  // Pitch bend already sent in constructor
-  // Small delay for synth to process pitch bend before noteOn
-  //console.log(`noteOn: channel=${this.channel} note=${this.note} velocity=${this.velocity} (delaying 2ms)`);
-  setTimeout(() => {
-    this.midi_output.send([0x90 + c, this.note, this.velocity]);
-    //console.log(`  → noteOn SENT: [${0x90 + c}, ${this.note}, ${this.velocity}]`);
-  }, 1);
+  // noteOn was already scheduled in the constructor via WebMIDI timestamp.
+  // This method is called by keys.js after construction — nothing to do here.
 };
 
 MpeHex.prototype.noteOff = function (release_velocity) {
-  const c = this.channel - 1;
+  const c   = this.channel - 1;
   const vel = release_velocity != null ? release_velocity : this.velocity;
+  // Send noteOff immediately — no PB reset
   this.midi_output.send([0x80 + c, this.note, vel]);
+  // Mark RELEASING in pool (starts the guard timer)
   this.pool.noteOff(this.coords);
+  // Guard against aftertouch arriving after release
+  this.release = true;
 };
 
-
 /**
- * Smoothly retune a held note to a new cents value.
- * Sends interpolated pitch bend messages for smooth pitch glide.
- * If the pitch crosses the pitch bend range boundary, sends note-off
- * and note-on on new note.
+ * Retune a held note to newCents.
+ * Sends a single pitch bend update — no interpolation timers.
+ * The UI interaction already provides natural rate limiting.
+ * If the MIDI note number needs to change, sends noteOff → PB → noteOn
+ * using WebMIDI timestamps.
  */
-MpeHex.prototype.retune = function(newCents) {
-  const oldCents = this.cents;
+MpeHex.prototype.retune = function (newCents) {
   this.cents = newCents;
-  
-  // Calculate new frequency from cents
-  const freq = this.freqAtCentral * Math.pow(2, newCents / 1200);
-  
-  // Recalculate MIDI note and pitch bend
+
+  const freq               = this.freqAtCentral * Math.pow(2, newCents / 1200);
   const { note, deviation } = freqToMidiAndCents(freq, this.center_degree, this.channel, this.scale, this.mode);
-  const newNote = note;
-  const newBend = deviationToBend(deviation, this.bendRange);
-  
-  const c = this.channel - 1; // 0-based for MIDI
-  
-  // Check if we crossed the pitch bend range boundary (note number changed)
-  const noteChanged = newNote !== this.note;
-  
-  if (noteChanged) {
-    // Send note-off on old note
-    this.midi_output.send([0x80 + c, this.note, this.velocity]);
-    
-    // Update stored values
-    this.note = newNote;
+  const newBend            = deviationToBend(deviation, this.bendRange);
+  const c                  = this.channel - 1;
+
+  if (note !== this.note) {
+    // Note number change: noteOff → PB → noteOn with timing guard
+    const now = performance.now();
+    this.midi_output.send([0x80 + c, this.note, this.velocity], now);
+    this.note = note;
     this.bend = newBend;
     this.pool.setLastBend(this.channel, this.bend);
     this.pool.setLastNote(this.channel, this.note);
-    
-    // Send new pitch bend (before note-on, per MPE spec)
-    const bendLSB = this.bend & 0x7F;
-    const bendMSB = (this.bend >> 7) & 0x7F;
-    this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
-    
-    // Send note-on on new note
-    this.midi_output.send([0x90 + c, this.note, this.velocity]);
+    sendBend(this.midi_output, c, this.bend, now + 0.5);
+    this.midi_output.send([0x90 + c, this.note, this.velocity], now + PB_GUARD_MS);
   } else {
-    // Interpolate pitch bend for smooth transition
-    const oldBend = this.bend;
-    const delta = newBend - oldBend;
-    
-    // For small changes, send single message. For larger, interpolate.
-    if (Math.abs(delta) < 200) {
-      // Small change - send single pitch bend
-      this.bend = newBend;
-      this.pool.setLastBend(this.channel, this.bend);
-      const bendLSB = this.bend & 0x7F;
-      const bendMSB = (this.bend >> 7) & 0x7F;
-      this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
-    } else {
-      // Larger change - interpolate over ~30ms
-      const steps = Math.min(8, Math.max(3, Math.ceil(Math.abs(delta) / 200)));
-      const stepDelta = delta / steps;
-      let step = 0;
-      
-      const sendStep = () => {
-        step++;
-        this.bend = Math.round(oldBend + stepDelta * step);
-        
-        const bendLSB = this.bend & 0x7F;
-        const bendMSB = (this.bend >> 7) & 0x7F;
-        this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
-        
-        if (step < steps) {
-          setTimeout(sendStep, 4);
-        } else {
-          // Ensure final value is exact
-          this.bend = newBend;
-          this.pool.setLastBend(this.channel, this.bend);
-          const bendLSB = this.bend & 0x7F;
-          const bendMSB = (this.bend >> 7) & 0x7F;
-          this.midi_output.send([0xE0 + c, bendLSB, bendMSB]);
-        }
-      };
-      
-      sendStep();
-    }
+    // Same note: single PB update, no timing guard needed
+    this.bend = newBend;
+    this.pool.setLastBend(this.channel, this.bend);
+    sendBend(this.midi_output, c, this.bend);
   }
 };
 
 MpeHex.prototype.aftertouch = function (value) {
-  // Guard: don't send aftertouch if voice was stolen
   if (this.release) return;
-  
   const c = this.channel - 1;
-  // Channel pressure on the voice channel = MPE per-note pressure
   this.midi_output.send([0xD0 + c, Math.max(0, Math.min(127, value))]);
-  //console.log(`AFTERTOUCH: note_played=${this.note_played} → MPE channel ${this.channel} value=${value}`);
 };
 
 export default create_mpe_synth;

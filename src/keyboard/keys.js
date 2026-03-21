@@ -19,6 +19,7 @@ import { mtsToMidiFloat, centsToMTS } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 
 import { buildRawCoords, bestFitOffset } from '../controllers/axis49.js';
+import { buildLumatoneRawCoords, bestFitOffset as lumatoneBestFit } from '../controllers/lumatone.js';
 
 class Keys {
   constructor(canvas, settings, synth, typing, onLatchChange) {
@@ -359,6 +360,14 @@ class Keys {
             '| on-screen notes:', this.axis49CoverageCount);
         }
 
+        if (this.midiin_data.name?.toLowerCase().includes('lumatone')) {
+          const ch   = this.settings.lumatone_center_channel ?? 3;
+          const note = this.settings.lumatone_center_note    ?? 27;
+          this.buildLumatoneTable(ch, note);
+          console.log('[Lumatone] detected — anchor ch:', ch, 'note:', note,
+            '| on-screen keys:', this.lumatoneCoverageCount);
+        }
+
         } // end else (midiin_data exists)
       } // end if midiin_data guard
     }
@@ -602,36 +611,79 @@ class Keys {
   };
   */
 
-  midinoteOn = (e) => {
-    const bend = this.bend || 0;
-    const note_played = e.note.number + 128 * (e.message.channel - 1);
-    const velocity_played = e.note.rawAttack;
+ // Helper: if latch is active and coords is already sustained, toggle it off.
+// Returns true if the note was toggled off (caller should return/continue).
+_midiLatchToggle(coords, releaseVelocity = 0) {
+  if (!this.state.latch) return false;
+  const key = coords.x + ',' + coords.y;
+  const sustainedIdx = this.state.sustainedNotes.findIndex(
+    ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
+  );
+  if (sustainedIdx === -1) return false;
+  const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
+  this.state.sustainedNotes.splice(sustainedIdx, 1);
+  this.state.sustainedCoords.delete(key);
+  hex.noteOff(releaseVelocity || vel);
+  this.hexOff(coords);
+  return true;
+}
 
-    if (this.axis49Table) {
-      // AXIS-49 selfless mode: direct physical-coord lookup, no channel arithmetic.
-      const coords = this.axis49Table.get(e.note.number);
-      if (coords) {
-        const hex = this.hexOn(coords, note_played, velocity_played, bend);
-        this.state.activeHexObjects.push(hex);
-      }
-      return;
-    }
+midinoteOn = (e) => {
+  const bend = this.bend || 0;
+  const note_played = e.note.number + 128 * (e.message.channel - 1);
+  const velocity_played = e.note.rawAttack;
 
-    // Generic mode: derive step count from note + channel offset.
-    const steps = (e.note.number - this.settings.midiin_central_degree)
-                + this.channelToStepsOffset(e.message.channel);
-    const coords = this.bestVisibleCoord(steps);
-    if (coords !== null) {
+  if (this.axis49Table) {
+    const coords = this.axis49Table.get(e.note.number);
+    if (coords) {
+      if (this._midiLatchToggle(coords, velocity_played)) return;
       const hex = this.hexOn(coords, note_played, velocity_played, bend);
       this.state.activeHexObjects.push(hex);
-      this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
     }
-  };
+    return;
+  }
+
+  if (this.lumatoneTable) {
+    const coords = this.lumatoneTable.get(`${e.message.channel},${e.note.number}`);
+    if (coords) {
+      if (this._midiLatchToggle(coords, velocity_played)) return;
+      const hex = this.hexOn(coords, note_played, velocity_played, bend);
+      this.state.activeHexObjects.push(hex);
+    }
+    return;
+  }
+
+  // Generic mode
+  const steps = (e.note.number - this.settings.midiin_central_degree)
+              + this.channelToStepsOffset(e.message.channel);
+  const coords = this.bestVisibleCoord(steps);
+  if (coords !== null) {
+    if (this._midiLatchToggle(coords, velocity_played)) return;
+    const hex = this.hexOn(coords, note_played, velocity_played, bend);
+    this.state.activeHexObjects.push(hex);
+    this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
+  }
+};
 
   midinoteOff = (e) => {
     if (this.axis49Table) {
       // AXIS-49 selfless mode: direct lookup.
       const coords = this.axis49Table.get(e.note.number);
+      if (coords) {
+        if (!this.state.sustain) this.hexOff(coords);
+        const hexIndex = this.state.activeHexObjects.findIndex(
+          (hex) => coords.equals(hex.coords)
+        );
+        if (hexIndex !== -1) {
+          this.noteOff(this.state.activeHexObjects[hexIndex], e.note.rawRelease);
+          this.state.activeHexObjects.splice(hexIndex, 1);
+        }
+      }
+      return;
+    }
+
+    if (this.lumatoneTable) {
+      const coords = this.lumatoneTable.get(`${e.message.channel},${e.note.number}`);
       if (coords) {
         if (!this.state.sustain) this.hexOff(coords);
         const hexIndex = this.state.activeHexObjects.findIndex(
@@ -669,6 +721,22 @@ class Keys {
         if (this.axis49Table) {
           // AXIS-49 selfless mode: note_played === note (single channel, ch_raw=0).
           const coords = this.axis49Table.get(note);
+          if (coords) {
+            if (!this.state.sustain) this.hexOff(coords);
+            const hexIndex = this.state.activeHexObjects.findIndex(
+              (hex) => coords.equals(hex.coords)
+            );
+            if (hexIndex !== -1) {
+              this.noteOff(this.state.activeHexObjects[hexIndex], 64);
+              this.state.activeHexObjects.splice(hexIndex, 1);
+            }
+          }
+          continue;
+        }
+
+        if (this.lumatoneTable) {
+          const channel = ch_raw + 1;
+          const coords = this.lumatoneTable.get(`${channel},${note}`);
           if (coords) {
             if (!this.state.sustain) this.hexOff(coords);
             const hexIndex = this.state.activeHexObjects.findIndex(
@@ -1444,6 +1512,23 @@ class Keys {
   // that was actually activated — must return the full candidate list.
   stepsToVisibleCoords(steps) {
     return this.stepsTable?.get(steps) ?? [];
+  }
+
+  // Builds a direct (channel, note) → hexatone-coords lookup for the Lumatone.
+  buildLumatoneTable(anchorChannel, anchorNote) {
+    const raw = buildLumatoneRawCoords(anchorChannel, anchorNote);
+    const { dx, dy, count } = lumatoneBestFit(
+      raw,
+      this.stepsTable,
+      this.settings.centerHexOffset
+    );
+    const ox = this.settings.centerHexOffset.x + dx;
+    const oy = this.settings.centerHexOffset.y + dy;
+    this.lumatoneTable = new Map();
+    for (const [key, { x, y }] of raw) {
+      this.lumatoneTable.set(key, new Point(x + ox, y + oy));
+    }
+    this.lumatoneCoverageCount = count;
   }
 
   // Builds a direct MIDI-note → hexatone-coords lookup for the AXIS-49 in

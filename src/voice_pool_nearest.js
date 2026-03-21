@@ -1,163 +1,169 @@
 /**
- * VoicePool for MTS - note-number-aware allocation.
- * 
- * Prioritizes matching the carrier note number to the target pitch,
- * which preserves timbre characteristics of physical modeling synths.
+ * VoicePool — note-number-aware allocator for MTS synths.
+ *
+ * Allocates the carrier MIDI note nearest to the target pitch, preserving
+ * the timbre character of physical-modelling synths where note number
+ * affects body resonance, string tension, etc.
+ *
+ * When stealing is required it picks the active voice whose carrier note
+ * is nearest to the incoming pitch, minimising retuning distance and the
+ * audible artifact on the stolen note's tail.
+ *
+ * Changes from previous version:
+ *  - Pre-built Set for O(1) membership test (was O(n) array.includes)
+ *  - Spiral search works directly on the Set, no intermediate array per call
+ *  - noteOn returns stolenSlot so caller can send noteOff to the right note
+ *  - clear() returns victims array consistent with MPE VoicePool API
  */
 export class VoicePool {
   /**
-   * @param {number[]} slotIds - Available MIDI note numbers (e.g., 0-127 for MTS1)
-   * @param {Object} options - Configuration options, unused
+   * @param {number[]} slotIds  Available MIDI note numbers (0–127 for MTS1)
    */
-  constructor(slotIds, options = {}) {
-    // Create slot objects
-    this._slots = new Map();
-    for (const id of slotIds) {
-      this._slots.set(id, {
-        id,
-        coords: null,      // currently playing hex coords (null = free)
-        lastUsed: 0
-      });
+  constructor(slotIds) {
+    this._allSlots = [...slotIds];
+    this._slotSet  = new Set(slotIds);    // O(1) membership — built once
+
+    // Per-slot state: null = free, otherwise the coords currently playing
+    this._coords   = new Map();           // slot → coords | null
+    this._lastUsed = new Map();           // slot → timestamp (ms)
+    for (const s of slotIds) {
+      this._coords.set(s, null);
+      this._lastUsed.set(s, 0);
     }
-    
-    // Fast lookup: coords → slot
+
+    // Fast reverse lookup: coordsKey → slot
     this._active = new Map();
   }
 
   /**
-   * Generate search order: spiral outward from target note.
-   * Returns array of note numbers in order of preference.
-   */
-  _generateSearchOrder(targetNote, availableNotes) {
-    const order = [];
-    const tried = new Set();
-    
-    for (let offset = 0; offset < 128; offset++) {
-      // Try target + offset
-      const up = targetNote + offset;
-      if (up <= 127 && !tried.has(up) && availableNotes.includes(up)) {
-        order.push(up);
-        tried.add(up);
-      }
-      
-      // Try target - offset
-      if (offset > 0) {
-        const down = targetNote - offset;
-        if (down >= 0 && !tried.has(down) && availableNotes.includes(down)) {
-          order.push(down);
-          tried.add(down);
-        }
-      }
-      
-      // Stop if we've found all available notes
-      if (order.length >= availableNotes.length) break;
-    }
-    
-    return order;
-  }
-
-  /**
-   * Request a slot for a note at target cents.
-   * 
-   * @param {Object} coords - Hex coordinates
-   * @param {number} targetMIDIfloat - Target pitch as float MIDI value
-   * @returns {Object} { slot, stolen, distance }
+   * Allocate a carrier note for a new note at `coords`.
+   *
+   * Searches outward from `targetMIDIFloat` for a free slot.
+   * If none free, steals the active slot nearest to `targetMIDIFloat`
+   * (smallest retuning distance), tiebroken by oldest lastUsed.
+   *
+   * @param {Object} coords          Hex coordinates
+   * @param {number} targetMIDIFloat Target pitch as float MIDI note (e.g. 60.37)
+   * @returns {{ slot, stolenSlot, stolen, distance, retrigger }}
+   *   slot        — allocated carrier note number
+   *   stolenSlot  — carrier note of the killed voice (null if no steal)
+   *   stolen      — coords of the killed voice (null if no steal)
+   *   distance    — semitones between target and allocated carrier
+   *   retrigger   — true if coords was already active
    */
   noteOn(coords, targetMIDIFloat) {
     const key = coordsKey(coords);
-    
-    // Already playing? Retrigger same slot
+
+    // Retrigger: already active, refresh timestamp
     if (this._active.has(key)) {
       const slot = this._active.get(key);
-      slot.lastUsed = Date.now();
-      // console.log("voice_pool retriggered");
-      return { slot: slot.id, stolen: null, distance: 0, retrigger: true };
+      this._lastUsed.set(slot, Date.now());
+      return { slot, stolenSlot: null, stolen: null, distance: 0, retrigger: true };
     }
-    
-    // Calculate ideal MIDI note number for this pitch
-    const targetNote = Math.floor(targetMIDIFloat);
-    
-    // Get list of available note numbers from this pool
-    const availableNotes = Array.from(this._slots.keys());
-    
-    // Search spiral: target note first, then outward
-    const searchOrder = this._generateSearchOrder(targetNote, availableNotes);
-    
-    // Find first available slot
-    for (const noteNum of searchOrder) {
-      const slot = this._slots.get(noteNum);
-      if (slot.coords === null) {
-        // Found available slot!
-        slot.coords = coords;
-        slot.lastUsed = Date.now();
-        this._active.set(key, slot);
-        
-        const distance = Math.abs(targetMIDIFloat - noteNum);
 
-        // console.log("voice_pool first available: ", ["slot:", slot.id, "not stolen", "distance:", distance, "retrigger: false"]);
+    const target = Math.round(targetMIDIFloat);
 
-        return { slot: slot.id, stolen: null, distance, retrigger: false };
+    // Spiral outward from target: try target±0, target±1, target±2 …
+    // Uses pre-built Set — no intermediate array, O(1) per probe.
+    for (let offset = 0; offset <= 127; offset++) {
+      const candidates = offset === 0
+        ? [target]
+        : Math.abs(targetMIDIFloat - (target + offset)) <= Math.abs(targetMIDIFloat - (target - offset))
+          ? [target + offset, target - offset]
+          : [target - offset, target + offset];
+      for (const candidate of candidates) {
+        if (candidate < 0 || candidate > 127) continue;
+        if (!this._slotSet.has(candidate)) continue;
+        if (this._coords.get(candidate) !== null) continue;
+
+        // Found a free slot
+        this._coords.set(candidate, coords);
+        this._lastUsed.set(candidate, Date.now());
+        this._active.set(key, candidate);
+        return {
+          slot: candidate,
+          stolenSlot: null,
+          stolen: null,
+          distance: Math.abs(targetMIDIFloat - candidate),
+          retrigger: false,
+        };
       }
     }
-    
-    // All slots in use - steal the one closest to our target
-    // (it will need the smallest retuning anyway)
-    let bestVictim = null;
-    let bestDistance = Infinity;
-    
-    for (const slot of this._slots.values()) {
-      if (slot.coords !== null) {
-        const dist = Math.abs(targetMIDIFloat - slot.id);
-        // Tie-breaker: prefer stealing older notes
-        if (dist < bestDistance || 
-            (dist === bestDistance && slot.lastUsed < bestVictim.lastUsed)) {
-          bestDistance = dist;
-          bestVictim = slot;
-        }
+
+    // No free slot — steal the active note nearest to target (smallest retuning)
+    // Tiebreak: prefer older notes (lower lastUsed)
+    let victimSlot = null;
+    let bestDist   = Infinity;
+    let bestAge    = Infinity;
+
+    for (const slot of this._allSlots) {
+      if (this._coords.get(slot) === null) continue; // free (shouldn't happen here)
+      const dist = Math.abs(targetMIDIFloat - slot);
+      const age  = this._lastUsed.get(slot);
+      if (dist < bestDist || (dist === bestDist && age < bestAge)) {
+        bestDist = dist; bestAge = age; victimSlot = slot;
       }
     }
-    
-    if (bestVictim) {
-      const stolenKey = coordsKey(bestVictim.coords);
-      this._active.delete(stolenKey);
-      
-      const stolen = bestVictim.coords;
-      bestVictim.coords = coords;
-      bestVictim.lastUsed = Date.now();
-      this._active.set(key, bestVictim);
 
-      // console.log("voice_pool had to steal: ", ["slot:", bestVictim.id, "stolen", "distance:", bestDistance, "retrigger: false"]);
-      
-      return { slot: bestVictim.id, stolen, distance: bestDistance, retrigger: false };
+    if (victimSlot === null) {
+      // Should never happen; defensive fallback
+      console.warn('VoicePool: no slots available');
+      return { slot: target, stolenSlot: null, stolen: null, distance: 0, retrigger: false };
     }
-    
-    // Should never reach here
-    return { slot: 0, stolen: null, distance: 0, retrigger: false };
+
+    const stolenCoords = this._coords.get(victimSlot);
+    const stolenKey    = coordsKey(stolenCoords);
+
+    this._active.delete(stolenKey);
+    this._coords.set(victimSlot, coords);
+    this._lastUsed.set(victimSlot, Date.now());
+    this._active.set(key, victimSlot);
+
+    return {
+      slot: victimSlot,
+      stolenSlot: victimSlot,  // same number — it IS the carrier note for noteOff
+      stolen: stolenCoords,
+      distance: bestDist,
+      retrigger: false,
+    };
   }
 
-  /**
-   * Release a slot.
-   */
+  /** Release the slot assigned to `coords`. */
   noteOff(coords) {
-    const key = coordsKey(coords);
+    const key  = coordsKey(coords);
     const slot = this._active.get(key);
-    if (slot) {
-      slot.coords = null;
-      this._active.delete(key);
-    }
+    if (slot == null) return null;
+    this._coords.set(slot, null);
+    this._active.delete(key);
+    return slot;
+  }
+
+  /** Return the carrier note number for `coords`, or null if not active. */
+  getSlot(coords) {
+    return this._active.get(coordsKey(coords)) ?? null;
   }
 
   /**
-   * Clear all slots.
+   * Release all voices and return an array of { coords, slot } for each,
+   * so the caller can send noteOff messages.
    */
   clear() {
-    for (const slot of this._slots.values()) {
-      slot.coords = null;
+    const victims = [];
+    for (const [key, slot] of this._active) {
+      victims.push({ coords: this._coords.get(slot), slot });
     }
+    for (const s of this._allSlots) this._coords.set(s, null);
     this._active.clear();
+    return victims;
   }
+
+  get activeCount() { return this._active.size; }
+  get freeCount()   { return this._allSlots.filter(s => this._coords.get(s) === null).length; }
 }
 
 function coordsKey(coords) {
-  return `${coords.x},${coords.y}`;
+  if (coords === null || coords === undefined) return 'null';
+  if (Array.isArray(coords)) return coords.join(',');
+  if (typeof coords === 'object' && 'x' in coords) return `${coords.x},${coords.y}`;
+  return String(coords);
 }

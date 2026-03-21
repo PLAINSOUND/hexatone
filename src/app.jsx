@@ -247,7 +247,9 @@ const sessionDefaults = {
   spectrum_colors: true,
   key_labels: "no_labels",
   retuning_mode: 'recalculate_reference',  // or 'transpose_scale'
-  axis49_center_note: 49,
+  axis49_center_note: 53,
+  lumatone_center_channel: 3,
+  lumatone_center_note: 27,
   fundamental: 260.740741,
   reference_degree: 0,
   equivSteps: 12,
@@ -313,6 +315,8 @@ const App = () => {
       midiin_channel: ExtractInt,
       midiin_central_degree: ExtractInt,
       axis49_center_note: ExtractInt,
+      lumatone_center_channel: ExtractInt,
+      lumatone_center_note: ExtractInt,
 
       // Output
       output_sample: ExtractBool,
@@ -954,6 +958,8 @@ const App = () => {
       settings.midiin_channel,
       settings.midiin_central_degree,
       settings.axis49_center_note,
+      settings.lumatone_center_channel,
+      settings.lumatone_center_note,
       settings.midi_device,
       settings.midi_channel,
       settings.midi_mapping,

@@ -3,15 +3,15 @@ import { Fragment } from 'preact/compat';
 import PropTypes from 'prop-types';
 
 const MIDIio = (props) => {
-  // Detect whether the connected device is an AXIS-49 (name includes 'axis').
-  const isAxis49 = props.midi &&
-    props.settings.midiin_device &&
-    props.settings.midiin_device !== 'OFF' &&
-    (() => {
-      const dev = Array.from(props.midi.inputs.values())
-        .find(m => m.id === props.settings.midiin_device);
-      return dev?.name?.toLowerCase().includes('axis-4') ?? false;
-    })();
+  // Detect connected controller type by device name.
+  const connectedDevice = props.midi && props.settings.midiin_device &&
+    props.settings.midiin_device !== 'OFF'
+    ? Array.from(props.midi.inputs.values())
+        .find(m => m.id === props.settings.midiin_device)
+    : null;
+  const deviceName = connectedDevice?.name?.toLowerCase() ?? '';
+  const isAxis49   = deviceName.includes('axis-4');
+  const isLumatone = deviceName.includes('lumatone');
   // midiin_central_degree is the MIDI note that triggers step 0 (degree 0) internally.
   // We expose it to the user as the note that plays the *central* degree, so:
   //   displayed value  = midiin_central_degree + center_degree
@@ -74,6 +74,49 @@ const MIDIio = (props) => {
                 }}
               />
             </label>
+          ) : isLumatone ? (
+            <>
+              <label>
+                Lumatone Centre Block (channel 1–5)
+                <input
+                  name="lumatone_center_channel"
+                  type="text"
+                  inputMode="numeric"
+                  class="sidebar-input"
+                  key={props.settings.lumatone_center_channel}
+                  defaultValue={props.settings.lumatone_center_channel ?? 3}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 1 && val <= 5) {
+                      props.onChange('lumatone_center_channel', val);
+                      sessionStorage.setItem('lumatone_center_channel', val);
+                    } else {
+                      e.target.value = props.settings.lumatone_center_channel ?? 3;
+                    }
+                  }}
+                />
+              </label>
+              <label>
+                Lumatone Centre Key in block (0–55)
+                <input
+                  name="lumatone_center_note"
+                  type="text"
+                  inputMode="numeric"
+                  class="sidebar-input"
+                  key={props.settings.lumatone_center_note}
+                  defaultValue={props.settings.lumatone_center_note ?? 27}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 0 && val <= 55) {
+                      props.onChange('lumatone_center_note', val);
+                      sessionStorage.setItem('lumatone_center_note', val);
+                    } else {
+                      e.target.value = props.settings.lumatone_center_note ?? 27;
+                    }
+                  }}
+                />
+              </label>
+            </>
           ) : (
             <label>
               MIDI Note assigned to Central Scale Degree ({center_degree})
@@ -94,7 +137,9 @@ const MIDIio = (props) => {
           )}
           <br />
           <em>{isAxis49
-            ? 'Choose a a physical key (1–98 in selfless mode) to map to the central scale degree on screen.'
+            ? 'Choose a physical key (1\u201398 in selfless mode) to map to the central scale degree on screen.'
+            : isLumatone
+            ? 'Block (channel 1\u20135) and key within that block (0\u201355) that maps to the centre of the screen. The mapping shifts automatically to maximise on-screen coverage.'
             : 'Input is received on all channels. Notes on the Central Input Channel remain untransposed. Other channels are transposed by multiples of the selected scale\u2019s interval of repetition (usually an octave, but it may be any value). Multichannel controllers like the Lumatone are automatically mapped onto transpositions of the selected scale (up to 128 pitches per channel/equave).'
           }</em>
 
@@ -112,6 +157,8 @@ MIDIio.propTypes = {
     midiin_channel: PropTypes.number,
     midiin_central_degree: PropTypes.number,
     axis49_center_note: PropTypes.number,
+    lumatone_center_channel: PropTypes.number,
+    lumatone_center_note: PropTypes.number,
     center_degree: PropTypes.number,
   }).isRequired,
   midi: PropTypes.object,

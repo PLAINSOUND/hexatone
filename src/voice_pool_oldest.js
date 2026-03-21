@@ -1,137 +1,222 @@
 /**
- * VoicePool — LRU polyphony manager with O(1) operations.
- * 
- * Reserved channel strategy for MPE:
- * - One channel is always reserved (clean, centered PB)
- * - Max polyphony = total channels - 1
- * - When stealing: use the clean channel, kill oldest
- * - Killed channel becomes "pending clean" for next steal
- * - On next steal: reset PB on pending, then use it
+ * VoicePool — polyphony manager for MPE.
+ *
+ * Channel states:
+ *   IDLE      – free, no note, PB at whatever the last note left it (doesn't
+ *               matter — the correct PB is always sent before every noteOn)
+ *   SOUNDING  – note is held
+ *   RELEASING – noteOff sent; release tail may still be audible
+ *
+ * Allocation priority:
+ *   1. IDLE channels (FIFO — maximises time before reuse)
+ *   2. RELEASING channels (oldest noteOff first — most likely decayed)
+ *   3. SOUNDING channels (steal oldest — last resort)
+ *
+ * For microtonal use, an optional closestPitch mode selects the SOUNDING
+ * channel whose current bend is nearest the incoming note's required bend,
+ * minimising the audible pitch jump on the stolen note's release tail.
+ *
+ * No "clean channel" reservation is needed because the correct PB is always
+ * sent before noteOn via the WebMIDI timestamp scheduler.
  */
 export class VoicePool {
-  constructor(slotIds) {
-    // Reserve one channel (the first one) as the clean slot
-    this._cleanSlot = slotIds[0];
-    this._free = [...slotIds.slice(1)];  // remaining channels go to free pool
-    this._active = new Map();  // coordsKey → { key, coords, slot, prev, next }
-    this._head = null;  // oldest
-    this._tail = null;  // newest
-    this._lastBend = new Map();  // slot → last bend value
-    this._lastNote = new Map();  // slot → last note number
-    this._pendingClean = null;  // channel that was killed, needs PB reset before reuse
+  /**
+   * @param {number[]} slotIds          – 1-based MIDI channel numbers
+   * @param {number}   releaseGuardMs   – ms to hold a channel in RELEASING
+   *                                      state before it becomes IDLE again
+   *                                      (should match synth release time; default 300)
+   * @param {boolean}  closestPitchSteal – when stealing a SOUNDING voice, prefer
+   *                                       the channel whose bend is nearest to
+   *                                       the incoming note's bend (default false)
+   */
+  constructor(slotIds, releaseGuardMs = 300, closestPitchSteal = false) {
+    this._allSlots        = [...slotIds];
+    this._releaseGuardMs  = releaseGuardMs;
+    this._closestPitch    = closestPitchSteal;
+
+    // Per-channel state
+    // state: 'IDLE' | 'SOUNDING' | 'RELEASING'
+    this._state     = new Map(); // slot → state
+    this._noteOffAt = new Map(); // slot → timestamp (ms) when noteOff was sent
+    this._lastBend  = new Map(); // slot → last bend value (14-bit unsigned)
+    this._lastNote  = new Map(); // slot → last MIDI note number
+
+    // Active voice linked list (oldest head → newest tail)
+    this._active = new Map(); // coordsKey → entry { key, coords, slot, prev, next }
+    this._head   = null;
+    this._tail   = null;
+
+    for (const s of slotIds) {
+      this._state.set(s, 'IDLE');
+      this._lastBend.set(s, 8192);
+      this._lastNote.set(s, 60);
+    }
   }
 
-  noteOn(coords) {
+  /**
+   * Allocate a channel for a new note at `coords`.
+   *
+   * Returns:
+   *  { slot, stolen, stolenSlot, stolenNote, retrigger }
+   *
+   *  stolen     – coords of the killed note (null if no steal)
+   *  stolenSlot – channel of the killed note (null if no steal)
+   *  stolenNote – MIDI note of the killed note (null if no steal)
+   *  retrigger  – true if coords was already active (moved to tail)
+   *
+   * The caller is responsible for sending PB(newBend) then noteOn
+   * to `slot` using the WebMIDI timestamp mechanism.
+   * Do NOT send a PB reset to any channel — let releasing tails decay.
+   */
+  noteOn(coords, incomingBend = 8192) {
     const key = coordsKey(coords);
-    
-    // Debug: log current state
-    this._logState("noteOn START");
 
-    // Retrigger: move to tail (most recent)
+    // Retrigger: note already active, just refresh its position in the LRU list
     if (this._active.has(key)) {
       const entry = this._active.get(key);
       this._moveToTail(entry);
-      //console.log(`  → RETRIGGER on channel ${entry.slot}`);
-      return { 
-        slot: entry.slot, 
-        stolen: null, 
-        lastBend: this._lastBend.get(entry.slot) || 8192,
-        lastNote: this._lastNote.get(entry.slot) || 60,
-        cleanSlot: null,
-        stolenSlot: null,
-        stolenNote: null,
-        retrigger: true 
+      return {
+        slot: entry.slot,
+        stolen: null, stolenSlot: null, stolenNote: null,
+        retrigger: true,
       };
     }
 
-    let stolen = null;
-    let slot;
-    let lastBend = 8192;
-    let lastNote = 60;
-    let cleanSlot = null;  // channel that needs PB reset before we use it
-    let stolenSlot = null;  // channel of the killed voice
-    let stolenNote = null;  // note number of the killed voice
+    // Expire any RELEASING channels that have passed the guard time
+    this._expireReleasing();
 
-    if (this._free.length > 0) {
-      // Use free slot (FIFO for max time before reuse)
-      slot = this._free.shift();
-      lastBend = this._lastBend.get(slot) || 8192;
-      lastNote = this._lastNote.get(slot) || 60;
-      //console.log(`  → ALLOC from free: channel ${slot}`);
-    } else {
-      // All free slots used - need to steal
-      
-      // Determine which slot to use
-      if (this._pendingClean !== null) {
-        // We have a pending clean channel from previous steal
-        // Caller must reset PB on it, then use it
-        cleanSlot = this._pendingClean;
-        slot = this._pendingClean;
-        lastBend = 8192;  // will be 8192 after reset
-        lastNote = this._lastNote.get(slot) || 60;
-        this._pendingClean = null;
-        //console.log(`  → STEAL using pendingClean: channel ${slot}`);
-      } else if (this._cleanSlot !== null) {
-        // First steal: use the reserved clean slot
-        slot = this._cleanSlot;
-        lastBend = 8192;  // guaranteed centered
-        lastNote = this._lastNote.get(slot) || 60;
-        this._cleanSlot = null;
-        //console.log(`  → STEAL using cleanSlot: channel ${slot}`);
-      }
-      
-      // Kill oldest to make room
-      const victim = this._head;
-      this._remove(victim);
-      stolen = victim.coords;
-      stolenSlot = victim.slot;
-      stolenNote = this._lastNote.get(victim.slot) || 60;
-      
-      // The killed channel becomes pending clean for next steal
-      this._pendingClean = victim.slot;
-      //console.log(`  → KILL oldest: channel ${victim.slot} (now pendingClean)`);
+    let slot   = null;
+    let stolen = null, stolenSlot = null, stolenNote = null;
+
+    // 1. Try IDLE channel (FIFO: scan _allSlots in order)
+    for (const s of this._allSlots) {
+      if (this._state.get(s) === 'IDLE') { slot = s; break; }
     }
 
-    // Add to tail
+    // 2. Try oldest RELEASING channel
+    if (slot === null) {
+      let oldestTime = Infinity, oldestSlot = null;
+      for (const [s, t] of this._noteOffAt) {
+        if (this._state.get(s) === 'RELEASING' && t < oldestTime) {
+          oldestTime = t; oldestSlot = s;
+        }
+      }
+      if (oldestSlot !== null) slot = oldestSlot;
+    }
+
+    // 3. Steal a SOUNDING channel
+    if (slot === null) {
+      let victim;
+      if (this._closestPitch) {
+        // Find the SOUNDING voice whose bend is nearest to incomingBend
+        victim = this._closestBendVictim(incomingBend);
+      } else {
+        // Oldest SOUNDING voice
+        victim = this._head;
+      }
+      if (!victim) throw new Error('VoicePool: no channels available');
+
+      stolen     = victim.coords;
+      stolenSlot = victim.slot;
+      stolenNote = this._lastNote.get(victim.slot) ?? 60;
+      slot       = victim.slot;
+
+      this._remove(victim);
+      this._active.delete(victim.key);
+      // Caller sends noteOff on stolenSlot; we set state to RELEASING
+      // (caller will invoke noteOff() on the stolen hex, which calls pool.noteOff())
+    }
+
+    // Register the new voice
     const entry = { key, coords, slot, prev: this._tail, next: null };
     if (this._tail) this._tail.next = entry;
     this._tail = entry;
     if (!this._head) this._head = entry;
-    
     this._active.set(key, entry);
-    
-    //console.log(`  → RESULT: channel=${slot}, cleanSlot=${cleanSlot}, stolenSlot=${stolenSlot}`);
-    this._logState("noteOn END");
-    
-    return { slot, stolen, lastBend, lastNote, cleanSlot, stolenSlot, stolenNote, retrigger: false };
+    this._state.set(slot, 'SOUNDING');
+
+    return { slot, stolen, stolenSlot, stolenNote, retrigger: false };
   }
 
+  /**
+   * Release the channel assigned to `coords`.
+   * Marks it RELEASING (not immediately available) to let the tail decay.
+   * Returns the slot, or null if coords wasn't active.
+   */
   noteOff(coords) {
-    const key = coordsKey(coords);
+    const key   = coordsKey(coords);
     const entry = this._active.get(key);
     if (!entry) return null;
 
-    //console.log(`noteOff: channel ${entry.slot} released`);
-    
+    const slot = entry.slot;
     this._remove(entry);
     this._active.delete(key);
-    
-    // Return slot to free pool
-    this._free.push(entry.slot);
-    
-    // If this was the pending clean channel, clear it
-    if (this._pendingClean === entry.slot) {
-      this._pendingClean = null;
-      //console.log(`  → Was pendingClean, cleared`);
-    }
-    
-    this._logState("noteOff END");
-    return entry.slot;
+
+    // Mark RELEASING — will become IDLE after releaseGuardMs
+    this._state.set(slot, 'RELEASING');
+    this._noteOffAt.set(slot, performance.now());
+
+    return slot;
   }
 
-  _logState(label) {
-    const activeSlots = Array.from(this._active.values()).map(e => e.slot);
-    //console.log(`  [${label}] free=${JSON.stringify(this._free)} active=${JSON.stringify(activeSlots)} cleanSlot=${this._cleanSlot} pendingClean=${this._pendingClean}`);
+  /** Called by the synth to record the bend that was sent to a channel. */
+  setLastBend(slot, bend)  { this._lastBend.set(slot, bend);  }
+  getLastBend(slot)        { return this._lastBend.get(slot) ?? 8192; }
+
+  /** Called by the synth to record the MIDI note sent to a channel. */
+  setLastNote(slot, note)  { this._lastNote.set(slot, note);  }
+  getLastNote(slot)        { return this._lastNote.get(slot) ?? 60;   }
+
+  getSlot(coords) {
+    const entry = this._active.get(coordsKey(coords));
+    return entry ? entry.slot : null;
+  }
+
+  get activeCount()  { return this._active.size; }
+  get freeCount()    { return this._allSlots.filter(s => this._state.get(s) === 'IDLE').length; }
+
+  /**
+   * Kill all active voices. Returns array of {coords, slot} for each.
+   * Caller is responsible for sending noteOff to each slot.
+   */
+  clear() {
+    const victims = Array.from(this._active.values()).map(e => ({
+      coords: e.coords, slot: e.slot,
+    }));
+    this._active.clear();
+    this._head = null;
+    this._tail = null;
+    for (const s of this._allSlots) {
+      this._state.set(s, 'IDLE');
+      this._noteOffAt.delete(s);
+    }
+    return victims;
+  }
+
+  // ── Private ─────────────────────────────────────────────────────────────
+
+  _expireReleasing() {
+    const now = performance.now();
+    for (const [s, t] of this._noteOffAt) {
+      if (this._state.get(s) === 'RELEASING' && now - t >= this._releaseGuardMs) {
+        this._state.set(s, 'IDLE');
+        this._noteOffAt.delete(s);
+      }
+    }
+  }
+
+  _closestBendVictim(targetBend) {
+    // Walk the active LRU list, find SOUNDING voice with bend nearest to targetBend
+    let best = null, bestDist = Infinity;
+    let node = this._head;
+    while (node) {
+      if (this._state.get(node.slot) === 'SOUNDING') {
+        const dist = Math.abs((this._lastBend.get(node.slot) ?? 8192) - targetBend);
+        if (dist < bestDist) { bestDist = dist; best = node; }
+      }
+      node = node.next;
+    }
+    return best;
   }
 
   _remove(entry) {
@@ -149,53 +234,11 @@ export class VoicePool {
     this._tail = entry;
     if (!this._head) this._head = entry;
   }
-
-  setLastBend(slot, bend) {
-    this._lastBend.set(slot, bend);
-  }
-
-  getLastBend(slot) {
-    return this._lastBend.get(slot) || 8192;
-  }
-
-  setLastNote(slot, note) {
-    this._lastNote.set(slot, note);
-  }
-
-  getLastNote(slot) {
-    return this._lastNote.get(slot) || 60;
-  }
-
-  clear() {
-    const victims = Array.from(this._active.values()).map(e => ({ coords: e.coords, slot: e.slot }));
-
-    this._cleanSlot = this._allSlots[0] || null;
-    this._free = [...this._allSlots.slice(1)];  // fresh from original
-    this._cleanSlot = allSlots[0] || null;
-    this._free = allSlots.slice(1);
-    
-    this._active.clear();
-    this._head = null;
-    this._tail = null;
-    this._pendingClean = null;
-    return victims;
-  }
-
-  getSlot(coords) {
-    const entry = this._active.get(coordsKey(coords));
-    return entry ? entry.slot : null;
-  }
-
-  get activeCount() { return this._active.size; }
-  get freeCount() { return this._free.length; }
-  get cleanSlot() { return this._cleanSlot; }
-  get pendingClean() { return this._pendingClean; }
 }
 
 function coordsKey(coords) {
   if (Array.isArray(coords)) return coords.join(',');
-  if (coords !== null && typeof coords === 'object' && 'x' in coords && 'y' in coords) {
+  if (coords !== null && typeof coords === 'object' && 'x' in coords && 'y' in coords)
     return `${coords.x},${coords.y}`;
-  }
   return String(coords);
 }
