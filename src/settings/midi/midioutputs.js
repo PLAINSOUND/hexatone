@@ -85,9 +85,21 @@ const MidiOutputs = (props) => {
 
       {/* ── MTS ────────────────────────────────────────────────────────── */}
 
+      
+
+      <label>
+        Real-Time MTS
+        <input
+          name="output_mts"
+          type="checkbox"
+          checked={!!settings.output_mts}
+          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+        />
+      </label>
+
       <p>
         <em>
-          The <a href="/midituning.html">MIDI Tuning Standard</a> (MTS) uses
+          The <a href="/midituning.html">MIDI Tuning Standard</a> uses
           sysex messages to modify the tuning of each MIDI note. The free{" "}
           <a href="https://oddsound.com/mtsespmini.php">
             Oddsound MTS-ESP Mini
@@ -96,16 +108,6 @@ const MidiOutputs = (props) => {
           synths.{" "}
         </em>
       </p>
-
-      <label>
-        MTS
-        <input
-          name="output_mts"
-          type="checkbox"
-          checked={!!settings.output_mts}
-          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
-        />
-      </label>
 
       {settings.output_mts && (
         <>
@@ -128,6 +130,14 @@ const MidiOutputs = (props) => {
 
           {settings.midi_device && settings.midi_device !== "OFF" && (
             <>
+              {settings.midi_mapping === 'DIRECT' && (
+                <p style={{ fontSize: '0.85em', color: '#996666', margin: '0.25em 0' }}>
+                  <em>Sends plain MIDI notes using the hex layout. Pre-sends a
+                  non-real-time 128-note tuning map so synths like the Prophet&#x2011;5
+                  play microtonally. Enable Auto&#x2011;Send and click Send Map once
+                  after loading a preset.</em>
+                </p>
+              )}
               <label>
                 Channel
                 <select
@@ -155,105 +165,126 @@ const MidiOutputs = (props) => {
                   name="midi_mapping"
                   class="sidebar-input"
                   value={settings.midi_mapping}
-                  onChange={(e) =>
-                    save(e.target.name, e.target.value, onChange)
-                  }
+                  onChange={(e) => {
+                    save(e.target.name, e.target.value, onChange);
+                    // DIRECT always uses non-real-time bulk map
+                    if (e.target.value === 'DIRECT') save('sysex_type', 126, onChange);
+                  }}
                 >
                   <option>---choose how notes are sent---</option>
                   <option value="MTS1">
-                    real-time MTS & 128 note polyphony
+                    real-time MTS with full 128 note polyphony
                   </option>
                   <option value="MTS2">
-                    real-time MTS & Pianoteq/Arturia range limits
-                  </option>
-                  <option value="DIRECT">
-                    128 MIDI notes follow hex layout
+                    real-time MTS with Pianoteq/Arturia range
                   </option>
                 </select>
               </label>
 
+            </>
+          )}
+        </>
+      )}
+
+      {/* ── DIRECT ─────────────────────────────────────────────────────── */}
+
+      
+
+      <label>
+        DIRECT MIDI + MTS Sysex Tuning Map
+        <input
+          name="output_direct"
+          type="checkbox"
+          checked={!!settings.output_direct}
+          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+        />
+      </label>
+
+      <p><em>
+        MIDI notes follow the hex layout. 128-note non-real-time sysex tuning maps (bulk dump) permit synths like the Prophet&#x2011;5
+        play microtonally.
+      </em></p>
+
+      {settings.output_direct && (
+        <>
+          <label>
+            Port
+            <select
+              name="direct_device"
+              class="sidebar-input"
+              value={settings.direct_device || "OFF"}
+              onChange={(e) => save(e.target.name, e.target.value, onChange)}
+            >
+              <option value="OFF">OFF</option>
+              {outputs.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </label>
+
+          {settings.direct_device && settings.direct_device !== "OFF" && (
+            <>
               <label>
-                Auto-Send 128-note Sysex Map
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginLeft: "auto",
-                  }}
+                Channel
+                <select
+                  name="direct_channel"
+                  class="sidebar-input"
+                  value={settings.direct_channel ?? -1}
+                  onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
                 >
+                  <option value="-1">---choose a MIDI output channel---</option>
+                  {[...Array(16).keys()].map((i) => (
+                    <option key={i} value={i}>{i + 1}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Tuning Map
+                <span style={{ display: "flex", alignItems: "center",
+                               gap: "8px", marginLeft: "auto" }}>
                   <input
-                    name="sysex_auto"
+                    name="direct_sysex_auto"
                     type="checkbox"
-                    checked={!!settings.sysex_auto}
-                    onChange={(e) =>
-                      save(e.target.name, e.target.checked, onChange)
-                    }
+                    checked={!!settings.direct_sysex_auto}
+                    onChange={(e) => save(e.target.name, e.target.checked, onChange)}
                   />
-                  <button
-                    type="button"
-                    style={{ fontSize: "0.85em" }}
+                  <button type="button" style={{ fontSize: "0.85em" }}
                     onClick={() => {
-                      const output = WebMidi.getOutputById(
-                        settings.midi_device,
-                      );
-                      if (output && props.keysRef && props.keysRef.current) {
+                      const output = WebMidi.getOutputById(settings.direct_device);
+                      if (output && props.keysRef?.current)
                         props.keysRef.current.mtsSendMap(output);
-                      }
                     }}
-                  >
-                    Send Map
-                  </button>
+                  >Send Map</button>
                 </span>
               </label>
 
               <label>
-                Sysex Tuning Map Format
-                <select
-                  name="sysex_type"
-                  class="sidebar-input"
-                  value={String(settings.sysex_type)}
-                  onChange={(e) =>
-                    save(e.target.name, parseInt(e.target.value), onChange)
-                  }
-                >
-                  <option value="127">real-time (127)</option>
-                  <option value="126">non-real-time (126)</option>
-                </select>
-              </label>
-
-              <label>
                 Device ID (127 = all)
-                <input
-                  name="device_id"
-                  type="text"
-                  inputMode="numeric"
+                <input name="direct_device_id" type="text" inputMode="numeric"
                   class="sidebar-input"
-                  key={settings.device_id}
-                  defaultValue={settings.device_id}
+                  key={settings.direct_device_id ?? 127}
+                  defaultValue={settings.direct_device_id ?? 127}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
-                      save("device_id", val, onChange);
-                    else e.target.value = settings.device_id;
+                      save("direct_device_id", val, onChange);
+                    else e.target.value = settings.direct_device_id ?? 127;
                   }}
                 />
               </label>
 
               <label>
                 Tuning Map Number
-                <input
-                  name="tuning_map_number"
-                  type="text"
-                  inputMode="numeric"
+                <input name="direct_tuning_map_number" type="text" inputMode="numeric"
                   class="sidebar-input"
-                  key={settings.tuning_map_number}
-                  defaultValue={settings.tuning_map_number}
+                  key={settings.direct_tuning_map_number ?? 0}
+                  defaultValue={settings.direct_tuning_map_number ?? 0}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
-                      save("tuning_map_number", val, onChange);
-                    else e.target.value = settings.tuning_map_number;
+                      save("direct_tuning_map_number", val, onChange);
+                    else e.target.value = settings.direct_tuning_map_number ?? 0;
                   }}
                 />
               </label>
@@ -281,14 +312,7 @@ const MidiOutputs = (props) => {
       )}
 
       {/* ── MPE ────────────────────────────────────────────────────────── */}
-      <p>
-        <em>
-          <a href="https://midi.org/mpe-midi-polyphonic-expression">
-            MIDI Polyphonic Expression
-          </a>{" "}
-          (MPE) is a standard allowing per-note polyphonic bend and modulation.
-        </em>
-      </p>
+     
 
       <label>
         MPE
@@ -299,6 +323,15 @@ const MidiOutputs = (props) => {
           onChange={(e) => save(e.target.name, e.target.checked, onChange)}
         />
       </label>
+
+       <p>
+        <em>
+          <a href="https://midi.org/mpe-midi-polyphonic-expression">
+            MIDI Polyphonic Expression
+          </a>{" "}
+          allows per-note polyphonic bend and modulation with limited polyphony.
+        </em>
+      </p>
 
       {settings.output_mpe && (
         <>
@@ -496,6 +529,12 @@ MidiOutputs.propTypes = {
     midiin_central_degree: PropTypes.number,
     center_degree: PropTypes.number,
     output_mpe: PropTypes.bool,
+    output_direct: PropTypes.bool,
+    direct_device: PropTypes.string,
+    direct_channel: PropTypes.number,
+    direct_sysex_auto: PropTypes.bool,
+    direct_device_id: PropTypes.number,
+    direct_tuning_map_number: PropTypes.number,
     mpe_device: PropTypes.string,
     mpe_master_ch: PropTypes.string,
     mpe_lo_ch: PropTypes.number,

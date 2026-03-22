@@ -221,6 +221,12 @@ const sessionDefaults = {
     (sessionStorage.getItem("output_sample") ?? "true") !== "false",
   output_mts: sessionStorage.getItem("output_mts") === "true",
   output_mpe: sessionStorage.getItem("output_mpe") === "true",
+  output_direct: sessionStorage.getItem("output_direct") === "true",
+  direct_device: sessionStorage.getItem("direct_device") || "OFF",
+  direct_channel: parseInt(sessionStorage.getItem("direct_channel")) || -1,
+  direct_sysex_auto: sessionStorage.getItem("direct_sysex_auto") === "true",
+  direct_device_id: parseInt(sessionStorage.getItem("direct_device_id")) || 127,
+  direct_tuning_map_number: parseInt(sessionStorage.getItem("direct_tuning_map_number")) || 0,
   mpe_device: sessionStorage.getItem("mpe_device") || "OFF",
   mpe_master_ch: sessionStorage.getItem("mpe_master_ch") || "1",
   mpe_lo_ch: parseInt(sessionStorage.getItem("mpe_lo_ch")) || 2,
@@ -337,6 +343,12 @@ const App = () => {
       output_sample: ExtractBool,
       output_mts: ExtractBool,
       output_mpe: ExtractBool,
+      output_direct: ExtractBool,
+      direct_device: ExtractString,
+      direct_channel: ExtractInt,
+      direct_sysex_auto: ExtractBool,
+      direct_device_id: ExtractInt,
+      direct_tuning_map_number: ExtractInt,
       mpe_device: ExtractString,
       mpe_master_ch: ExtractString,
       mpe_lo_ch: ExtractInt,
@@ -490,6 +502,14 @@ const App = () => {
       settings.midi_device !== "OFF" &&
       settings.midi_channel >= 0 &&
       settings.midi_mapping &&
+      settings.midi_mapping !== "DIRECT" &&
+      typeof settings.midi_velocity === "number";
+    // DIRECT: plain noteOns + pre-sent bulk map, independent port/channel
+    const wantDirect =
+      settings.output_direct &&
+      midi &&
+      settings.direct_device && settings.direct_device !== "OFF" &&
+      settings.direct_channel >= 0 &&
       typeof settings.midi_velocity === "number";
     const wantMpe =
       settings.output_mpe &&
@@ -498,7 +518,7 @@ const App = () => {
       settings.mpe_lo_ch > 0 &&
       settings.mpe_hi_ch >= settings.mpe_lo_ch;
 
-    if (!wantSample && !wantMts && !wantMpe) {
+    if (!wantSample && !wantMts && !wantDirect && !wantMpe) {
       setSynth(null);
       return;
     }
@@ -528,6 +548,21 @@ const App = () => {
           settings.fundamental,
           settings.sysex_type,
           settings.device_id,
+        ),
+      );
+    }
+    if (wantDirect) {
+      promises.push(
+        create_midi_synth(
+          settings.midiin_device,
+          settings.midiin_central_degree,
+          midi.outputs.get(settings.direct_device),
+          settings.direct_channel,
+          "DIRECT",
+          settings.midi_velocity,
+          settings.fundamental,
+          126, // always non-RT bulk for DIRECT
+          settings.direct_device_id ?? 127,
         ),
       );
     }
@@ -583,6 +618,9 @@ const App = () => {
     settings.output_sample,
     settings.output_mts,
     settings.output_mpe,
+    settings.output_direct,
+    settings.direct_device,
+    settings.direct_channel,
     settings.mpe_device,
     settings.mpe_master_ch,
     settings.mpe_lo_ch,
@@ -990,6 +1028,10 @@ const App = () => {
       settings.midi_mapping,
       settings.midi_velocity,
       settings.sysex_auto,
+      settings.output_direct,
+      settings.direct_device,
+      settings.direct_channel,
+      settings.direct_sysex_auto,
       settings.sysex_type,
       settings.mpe_device,
       settings.mpe_master_ch,

@@ -563,7 +563,11 @@ class Keys {
     // send the tuning map
     const output = midiOutput || this.midiout_data;
     if (!output) return;
-    const sysex_type = parseInt(this.settings.sysex_type);
+    // When called with a direct output, use 126 (non-RT bulk)
+    const isDirectOutput = this.settings.output_direct &&
+      this.settings.direct_device && this.settings.direct_device !== 'OFF' &&
+      output.id === this.settings.direct_device;
+    const sysex_type = isDirectOutput ? 126 : parseInt(this.settings.sysex_type);
 
     if (sysex_type === 127) {
       // Real-time single-note tuning change: one message per note.
@@ -700,17 +704,16 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     const note_played = e.note.number + 128 * (e.message.channel - 1);
     const velocity_played = e.note.rawAttack;
 
-    // Bypass mode: forward raw note to MIDI output, still trigger hexOn via
-    // generic steps so the built-in sample synth plays.
-    // Only active when a known controller is mapped (controllerMap exists).
+    // Bypass mode: hexOn feeds all synths at the correct mapped pitch.
+    // Raw MIDI forward only fires when MTS is off (MTS output via hexOn is
+    // already correct; forwarding the raw note would double it at wrong pitch).
     if (this.settings.midi_passthrough && this.controllerMap) {
-      if (this.midiout_data && this.settings.midi_channel >= 0) {
+      if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOn(e.note.number, {
           channels: this.settings.midi_channel + 1,
           rawAttack: velocity_played,
         });
       }
-      // Generic steps path for sample synth
       const steps = (e.note.number - this.settings.midiin_central_degree)
                   + this.channelToStepsOffset(e.message.channel);
       const bypassCoords = this.bestVisibleCoord(steps);
@@ -735,13 +738,12 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
 
   midinoteOff = (e) => {
     if (this.settings.midi_passthrough && this.controllerMap) {
-      if (this.midiout_data && this.settings.midi_channel >= 0) {
+      if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOff(e.note.number, {
           channels: this.settings.midi_channel + 1,
           rawRelease: e.note.rawRelease,
         });
       }
-      // Release via generic steps path
       const steps = (e.note.number - this.settings.midiin_central_degree)
                   + this.channelToStepsOffset(e.message.channel);
       for (const coords of this.stepsToVisibleCoords(steps)) {
