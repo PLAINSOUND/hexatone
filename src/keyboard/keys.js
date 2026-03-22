@@ -20,6 +20,7 @@ import { scalaToCents } from "../settings/scale/parse-scale";
 
 import { buildRawCoords, bestFitOffset } from '../controllers/axis49.js';
 import { buildLumatoneRawCoords, bestFitOffset as lumatoneBestFit } from '../controllers/lumatone.js';
+import { RecencyStack } from '../recency_stack.js';
 
 class Keys {
   constructor(canvas, settings, synth, typing, onLatchChange) {
@@ -61,6 +62,19 @@ class Keys {
       isMouseDown: false,
       lastMidiCoords: null, // screen-space Point of the most recently activated MIDI hex
     };
+    // Recency stack — tracks all sounding notes most-recent-first.
+    // The front entry receives wheel bend; see _handleWheelBend().
+    this.recencyStack = new RecencyStack();
+
+    // Wheel bend state — controller-agnostic.
+    // _wheelBend:      current offset in cents applied to the front note.
+    // _wheelTarget:    the hex currently being bent.
+    // _wheelBaseCents: that hex's pitch before any bend was applied.
+    //                  Snapshot feature will read this + _wheelBend.
+    this._wheelBend      = 0;
+    this._wheelTarget    = null;
+    this._wheelBaseCents = null;
+
     // tuning_map_degree0: use explicit override if set, otherwise derive from the central MIDI note
     // (midiin_central_degree is stored as the note for degree 0; add center_degree to get the central note)
     const center_degree = this.settings.center_degree || 0;
@@ -368,6 +382,14 @@ class Keys {
             '| on-screen keys:', this.lumatoneCoverageCount);
         }
 
+        // Universal pitch-wheel → recency-stack target.
+        // Runs for ALL midi_mapping modes.  The existing per-mode pitchbend
+        // listeners (forwarding to output) are preserved alongside this one.
+        this.midiin_data.addListener('pitchbend', (e) => {
+          const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
+          this._handleWheelBend(val14);
+        });
+
         } // end else (midiin_data exists)
       } // end if midiin_data guard
     }
@@ -454,14 +476,18 @@ class Keys {
   };
 
   deconstruct = () => {
-    this.panic();
-
-    for (let hex of this.state.activeHexObjects) {
-      hex.noteOff();
+    // Graceful noteOff for all active and sustained notes — allows synth
+    // release envelopes to run rather than cutting sound abruptly via panic().
+    for (const hex of this.state.activeHexObjects) {
+      hex.noteOff(0);
     }
-    for (let hex of this.state.sustainedNotes) {
-      hex.noteOff();
+    for (const [hex, vel] of this.state.sustainedNotes) {
+      hex.noteOff(vel);
     }
+    this.state.activeHexObjects = [];
+    this.state.sustainedNotes = [];
+    this.state.sustainedCoords.clear();
+    this.recencyStack.clear();
 
     window.removeEventListener("resize", this.resizeHandler, false);
     window.removeEventListener("orientationchange", this.resizeHandler, false);
@@ -611,7 +637,7 @@ class Keys {
   };
   */
 
- // Helper: if latch is active and coords is already sustained, toggle it off.
+  // Helper: if latch is active and coords is already sustained, toggle it off.
 // Returns true if the note was toggled off (caller should return/continue).
 _midiLatchToggle(coords, releaseVelocity = 0) {
   if (!this.state.latch) return false;
@@ -628,22 +654,23 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
   return true;
 }
 
-midinoteOn = (e) => {
-  const bend = this.bend || 0;
-  const note_played = e.note.number + 128 * (e.message.channel - 1);
-  const velocity_played = e.note.rawAttack;
+  midinoteOn = (e) => {
+    const bend = this.bend || 0;
+    const note_played = e.note.number + 128 * (e.message.channel - 1);
+    const velocity_played = e.note.rawAttack;
 
-  if (this.axis49Table) {
-    const coords = this.axis49Table.get(e.note.number);
-    if (coords) {
+    if (this.axis49Table) {
+      // AXIS-49 selfless mode: direct physical-coord lookup, no channel arithmetic.
+      const coords = this.axis49Table.get(e.note.number);
+      if (coords) {
       if (this._midiLatchToggle(coords, velocity_played)) return;
-      const hex = this.hexOn(coords, note_played, velocity_played, bend);
-      this.state.activeHexObjects.push(hex);
+        const hex = this.hexOn(coords, note_played, velocity_played, bend);
+        this.state.activeHexObjects.push(hex);
+      }
+      return;
     }
-    return;
-  }
-
-  if (this.lumatoneTable) {
+    
+    if (this.lumatoneTable) {
     const coords = this.lumatoneTable.get(`${e.message.channel},${e.note.number}`);
     if (coords) {
       if (this._midiLatchToggle(coords, velocity_played)) return;
@@ -654,16 +681,18 @@ midinoteOn = (e) => {
   }
 
   // Generic mode
-  const steps = (e.note.number - this.settings.midiin_central_degree)
-              + this.channelToStepsOffset(e.message.channel);
-  const coords = this.bestVisibleCoord(steps);
-  if (coords !== null) {
-    if (this._midiLatchToggle(coords, velocity_played)) return;
-    const hex = this.hexOn(coords, note_played, velocity_played, bend);
-    this.state.activeHexObjects.push(hex);
-    this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
-  }
-};
+
+    // Generic mode: derive step count from note + channel offset.
+    const steps = (e.note.number - this.settings.midiin_central_degree)
+                + this.channelToStepsOffset(e.message.channel);
+    const coords = this.bestVisibleCoord(steps);
+    if (coords !== null) {
+      if (this._midiLatchToggle(coords, velocity_played)) return;
+      const hex = this.hexOn(coords, note_played, velocity_played, bend);
+      this.state.activeHexObjects.push(hex);
+      this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
+    }
+  };
 
   midinoteOff = (e) => {
     if (this.axis49Table) {
@@ -749,8 +778,8 @@ midinoteOn = (e) => {
           }
           continue;
         }
-
-        // Generic mode: channelToStepsOffset expects 1-based channel, so +1.
+        
+         // Generic mode: channelToStepsOffset expects 1-based channel, so +1.
         const steps = (note - this.settings.midiin_central_degree)
                     + this.channelToStepsOffset(ch_raw + 1);
         for (const coords of this.stepsToVisibleCoords(steps)) {
@@ -851,12 +880,39 @@ midinoteOn = (e) => {
     // Clear MIDI note tracking
     notes.played = [];
 
+    // Reset recency stack and wheel bend
+    this.recencyStack.clear();
+    this._wheelBend      = 0;
+    this._wheelTarget    = null;
+    this._wheelBaseCents = null;
+
     // Reset sustain/latch state
     this.state.sustain = false;
     this.state.latch = false;
     if (this.onLatchChange) this.onLatchChange(false);
 
     console.log("PANIC - all notes killed!");
+  };
+
+  // Release all notes currently held via computer keyboard keys.
+  // Called when the sidebar closes, because onKeyUp stops firing once
+  // typing becomes false and the sidebar no longer has focus.
+  releaseAllKeyboardNotes = () => {
+    for (const code of this.state.pressedKeys) {
+      const kbRaw = this.settings.keyCodeToCoords[code];
+      if (!kbRaw) continue;
+      const kbOffset = this.settings.centerHexOffset;
+      const coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
+      if (!this.state.sustain) this.hexOff(coords);
+      const hexIndex = this.state.activeHexObjects.findIndex(
+        (h) => coords.equals(h.coords)
+      );
+      if (hexIndex !== -1) {
+        this.noteOff(this.state.activeHexObjects[hexIndex], 0);
+        this.state.activeHexObjects.splice(hexIndex, 1);
+      }
+    }
+    this.state.pressedKeys.clear();
   };
 
   resetLatch = () => {
@@ -906,6 +962,9 @@ midinoteOn = (e) => {
       degree0toRef_ratio,
     );
     hex.noteOn();
+    // Track in recency stack so wheel bend and snapshot can find this note.
+    this.recencyStack.push(hex);
+    this._updateWheelTarget();
     return hex;
   }
 
@@ -944,6 +1003,9 @@ midinoteOn = (e) => {
       }
     } else {
       hex.noteOff(release_velocity);
+      // Note is going silent — remove from recency stack and update wheel target.
+      this.recencyStack.remove(hex);
+      this._updateWheelTarget();
     }
   }
 
@@ -967,7 +1029,9 @@ midinoteOn = (e) => {
       );
       this.drawHex(hex.coords, color, text_color);
       hex.noteOff(notesToRelease[note][1]);
+      this.recencyStack.remove(hex);
     }
+    this._updateWheelTarget();
     // Fire React callback AFTER all visual/audio cleanup — Preact may flush
     // synchronously and trigger a re-render that redraws hexes mid-cleanup.
     if (this.onLatchChange) this.onLatchChange(false);
@@ -1557,6 +1621,67 @@ midinoteOn = (e) => {
       this.axis49Table.set(note, new Point(x + ox, y + oy));
     }
     this.axis49CoverageCount = count;
+  }
+
+  // ── Recency-stack wheel bend ──────────────────────────────────────────────
+  //
+  // _handleWheelBend is the universal entry point: call it with any 14-bit
+  // value (0–16383, centre 8192) from any controller — wheel, expression pedal,
+  // OSC, or the future mod-matrix.  It targets the front of the recency stack.
+  //
+  // _updateWheelTarget is called whenever the stack changes (noteOn/Off/panic)
+  // to silently redirect the current bend to the new front note.
+  //
+  // Snapshot integration (future): capture `_wheelBaseCents + _wheelBend` as
+  // the committed new pitch for _wheelTarget, then reset _wheelBend to 0.
+
+  _handleWheelBend(val14) {
+    // Default ±200 cents (2 semitones) — will become a setting.
+    const rangeCents = this.settings.midi_wheel_range ?? 200;
+    this._wheelBend = ((val14 - 8192) / 8192) * rangeCents;
+
+    const target = this.recencyStack.front;
+    if (!target) return;
+
+    // Ensure we have the right base — handles the case where _updateWheelTarget
+    // set a new target and the wheel moved before the next noteOn/Off.
+    if (this._wheelTarget !== target) {
+      if (this._wheelTarget && this._wheelBend === 0) {
+        // Wheel is at centre — safe to silently adopt new target.
+      }
+      this._wheelTarget    = target;
+      this._wheelBaseCents = target.cents;
+    }
+
+    target.retune(this._wheelBaseCents + this._wheelBend);
+  }
+
+  // Called whenever the recency stack changes.  If the front note has changed,
+  // resets the old target to its base pitch and redirects bend to the new front.
+  _updateWheelTarget() {
+    const newFront = this.recencyStack.front;
+    if (newFront === this._wheelTarget) return; // no change
+
+    // Reset pitch on the old target only if it's still sounding.
+    // If it has been released its channel may have been reallocated,
+    // and retuning it would send a spurious PB to the new note.
+    if (this._wheelTarget && !this._wheelTarget.release &&
+        this._wheelBaseCents !== null) {
+      this._wheelTarget.retune(this._wheelBaseCents);
+    }
+
+    this._wheelTarget = newFront;
+
+    if (newFront) {
+      // Capture the new target's unmodified pitch as the bend origin.
+      this._wheelBaseCents = newFront.cents;
+      // Apply the current wheel position immediately if it's non-zero.
+      if (this._wheelBend !== 0) {
+        newFront.retune(this._wheelBaseCents + this._wheelBend);
+      }
+    } else {
+      this._wheelBaseCents = null;
+    }
   }
 
   // Returns the single best coord for a note-on.

@@ -228,6 +228,8 @@ const sessionDefaults = {
   mpe_mode: sessionStorage.getItem("mpe_mode") || "Ableton_workaround",
   mpe_pitchbend_range:
     parseInt(sessionStorage.getItem("mpe_pitchbend_range")) || 48,
+  mpe_pitchbend_range_manager:
+    parseInt(sessionStorage.getItem("mpe_pitchbend_range_manager")) || 2,
   instrument: sessionStorage.getItem("instrument") || "HvP8_retuned",
   midiin_device: sessionStorage.getItem("midiin_device") || "OFF",
   midiin_channel: parseInt(sessionStorage.getItem("midiin_channel")) || 0,
@@ -248,6 +250,7 @@ const sessionDefaults = {
   key_labels: "no_labels",
   retuning_mode: 'recalculate_reference',  // or 'transpose_scale'
   axis49_center_note: 53,
+  wheel_to_recent: false,
   lumatone_center_channel: 3,
   lumatone_center_note: 27,
   fundamental: 260.740741,
@@ -315,6 +318,7 @@ const App = () => {
       midiin_channel: ExtractInt,
       midiin_central_degree: ExtractInt,
       axis49_center_note: ExtractInt,
+      wheel_to_recent: ExtractBool,
       lumatone_center_channel: ExtractInt,
       lumatone_center_note: ExtractInt,
 
@@ -328,6 +332,7 @@ const App = () => {
       mpe_hi_ch: ExtractInt,
       mpe_mode: ExtractString,
       mpe_pitchbend_range: ExtractInt,
+      mpe_pitchbend_range_manager: ExtractInt,
       instrument: ExtractString,
       fundamental: ExtractFloat,
       reference_degree: ExtractInt,
@@ -529,6 +534,7 @@ const App = () => {
           settings.scale,
           settings.mpe_mode,
           settings.mpe_pitchbend_range ?? 48,
+          settings.mpe_pitchbend_range_manager ?? 2,
           settings.equivSteps,
           settings.equivInterval,
         ),
@@ -571,6 +577,7 @@ const App = () => {
     settings.mpe_lo_ch,
     settings.mpe_hi_ch,
     settings.mpe_pitchbend_range,
+    settings.mpe_pitchbend_range_manager,
     settings.mpe_mode,
     midi,
   ]);
@@ -958,6 +965,7 @@ const App = () => {
       settings.midiin_channel,
       settings.midiin_central_degree,
       settings.axis49_center_note,
+      settings.wheel_to_recent,
       settings.lumatone_center_channel,
       settings.lumatone_center_note,
       settings.midi_device,

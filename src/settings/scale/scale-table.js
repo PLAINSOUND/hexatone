@@ -252,7 +252,6 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, reference_degree, funda
     originalCents.current = saveVal;
     setTunedCents(null);
     setComparing(false);
-    onChange(str);
   }, [tunedCents, isReferenceDegree, retuning_mode, fundamental, onFundamentalChange, onChange, degree, reference_degree]);
 
   const onRevert = useCallback(() => {
@@ -416,6 +415,11 @@ const ScaleTable = (props) => {
                   reference_degree={props.settings.reference_degree}
                   fundamental={props.settings.fundamental}
                   retuning_mode={props.settings.retuning_mode}
+                  onChange={(newStr) => {
+                    const next = [...(props.settings.scale || [])];
+                    next[i] = newStr;
+                    props.onChange('scale', next);
+                  }}
                   onFundamentalChange={(newFreq, newStr) => {
                     // If newStr is provided (reference degree retune), apply both atomically
                     if (newStr !== undefined) {

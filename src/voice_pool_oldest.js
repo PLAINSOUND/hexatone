@@ -38,6 +38,7 @@ export class VoicePool {
     // state: 'IDLE' | 'SOUNDING' | 'RELEASING'
     this._state     = new Map(); // slot → state
     this._noteOffAt = new Map(); // slot → timestamp (ms) when noteOff was sent
+    this._idleQueue = [...slotIds]; // FIFO: front = next to use, back = most recently released
     this._lastBend  = new Map(); // slot → last bend value (14-bit unsigned)
     this._lastNote  = new Map(); // slot → last MIDI note number
 
@@ -87,13 +88,15 @@ export class VoicePool {
 
     let slot   = null;
     let stolen = null, stolenSlot = null, stolenNote = null;
+    // wasReleasing: true whenever the allocated channel had a decaying tail
+    // (whether from step 2 reuse or step 3 steal). Caller sends CC120 to
+    // silence the tail before sending new PB + noteOn.
+    let stolenWasReleasing = false;
 
-    // 1. Try IDLE channel (FIFO: scan _allSlots in order)
-    for (const s of this._allSlots) {
-      if (this._state.get(s) === 'IDLE') { slot = s; break; }
-    }
+    // 1. Take from front of idle queue — round-robin by release order.
+    if (this._idleQueue.length > 0) slot = this._idleQueue.shift();
 
-    // 2. Try oldest RELEASING channel
+    // 2. Try oldest RELEASING channel — flag so caller sends CC120
     if (slot === null) {
       let oldestTime = Infinity, oldestSlot = null;
       for (const [s, t] of this._noteOffAt) {
@@ -101,30 +104,50 @@ export class VoicePool {
           oldestTime = t; oldestSlot = s;
         }
       }
-      if (oldestSlot !== null) slot = oldestSlot;
+      if (oldestSlot !== null) {
+        slot = oldestSlot;
+        stolenWasReleasing = true;   // tail still decaying — needs CC120
+        stolenSlot = oldestSlot;     // expose to caller
+        this._noteOffAt.delete(oldestSlot);
+        // Remove from idle queue if it somehow got re-queued
+        const qi = this._idleQueue.indexOf(oldestSlot);
+        if (qi !== -1) this._idleQueue.splice(qi, 1);
+      }
     }
 
-    // 3. Steal a SOUNDING channel
+    // 3. Steal — prefer oldest RELEASING over SOUNDING to preserve live notes.
+    //    stolenWasReleasing tells the caller whether to send CC120 (silent cut)
+    //    or a regular noteOff on the stolen channel.
     if (slot === null) {
-      let victim;
-      if (this._closestPitch) {
-        // Find the SOUNDING voice whose bend is nearest to incomingBend
-        victim = this._closestBendVictim(incomingBend);
-      } else {
-        // Oldest SOUNDING voice
-        victim = this._head;
+      let victim = null;
+
+      // 3a. Prefer stealing oldest RELEASING (tail already decaying).
+      //     After _expireReleasing() some RELEASING channels may still remain.
+      let oldestRelTime = Infinity;
+      for (const [s, t] of this._noteOffAt) {
+        if (this._state.get(s) === 'RELEASING' && t < oldestRelTime) {
+          oldestRelTime = t;
+          victim = { slot: s, coords: null, key: null };
+          stolenWasReleasing = true;
+        }
       }
-      if (!victim) throw new Error('VoicePool: no channels available');
 
-      stolen     = victim.coords;
+      // 3b. Fall back to stealing a SOUNDING voice.
+      if (victim === null || victim.coords === null) {
+        stolenWasReleasing = false;
+        victim = this._closestPitch
+          ? this._closestBendVictim(incomingBend)
+          : this._head;
+        if (!victim) throw new Error('VoicePool: no channels available');
+        stolen     = victim.coords;
+        stolenNote = this._lastNote.get(victim.slot) ?? 60;
+        this._remove(victim);
+        this._active.delete(victim.key);
+      }
+
       stolenSlot = victim.slot;
-      stolenNote = this._lastNote.get(victim.slot) ?? 60;
       slot       = victim.slot;
-
-      this._remove(victim);
-      this._active.delete(victim.key);
-      // Caller sends noteOff on stolenSlot; we set state to RELEASING
-      // (caller will invoke noteOff() on the stolen hex, which calls pool.noteOff())
+      this._noteOffAt.delete(slot); // clear RELEASING state
     }
 
     // Register the new voice
@@ -135,7 +158,7 @@ export class VoicePool {
     this._active.set(key, entry);
     this._state.set(slot, 'SOUNDING');
 
-    return { slot, stolen, stolenSlot, stolenNote, retrigger: false };
+    return { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing, retrigger: false };
   }
 
   /**
@@ -159,6 +182,11 @@ export class VoicePool {
     return slot;
   }
 
+  /** Returns the current state of a slot: 'IDLE' | 'SOUNDING' | 'RELEASING'. */
+  getChannelState(slot) {
+    return this._state.get(slot) ?? 'IDLE';
+  }
+
   /** Called by the synth to record the bend that was sent to a channel. */
   setLastBend(slot, bend)  { this._lastBend.set(slot, bend);  }
   getLastBend(slot)        { return this._lastBend.get(slot) ?? 8192; }
@@ -173,7 +201,7 @@ export class VoicePool {
   }
 
   get activeCount()  { return this._active.size; }
-  get freeCount()    { return this._allSlots.filter(s => this._state.get(s) === 'IDLE').length; }
+  get freeCount()    { return this._idleQueue.length; }
 
   /**
    * Kill all active voices. Returns array of {coords, slot} for each.
@@ -190,6 +218,7 @@ export class VoicePool {
       this._state.set(s, 'IDLE');
       this._noteOffAt.delete(s);
     }
+    this._idleQueue = [...this._allSlots];
     return victims;
   }
 
@@ -201,6 +230,7 @@ export class VoicePool {
       if (this._state.get(s) === 'RELEASING' && now - t >= this._releaseGuardMs) {
         this._state.set(s, 'IDLE');
         this._noteOffAt.delete(s);
+        this._idleQueue.push(s);   // back of queue — used last, true round-robin
       }
     }
   }

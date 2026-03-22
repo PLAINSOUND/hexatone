@@ -45,10 +45,11 @@ const Keyboard = (props) => {
   useEffect(() => {
     if (keysRef.current) {
       keysRef.current.resizeHandler();
-      // Directly update the typing property if the Keys instance exists
-      if (keysRef.current && typeof keysRef.current.typing !== 'undefined') {
-        keysRef.current.typing = props.active;
-      }
+      keysRef.current.typing = props.active;
+      // When sidebar opens, release any computer keyboard notes that are held.
+      // onKeyUp won't fire for them once typing becomes true (sidebar has focus),
+      // so without this they stay stuck indefinitely.
+      if (!props.active) keysRef.current.releaseAllKeyboardNotes();
     }
   }, [props.active]);
 
@@ -57,8 +58,8 @@ const Keyboard = (props) => {
   useEffect(() => {
     if (keysRef.current && props.settings) {
       keysRef.current.updateColors({
-        note_colors:       props.settings.note_colors,
-        spectrum_colors:   props.settings.spectrum_colors,
+        note_colors: props.settings.note_colors,
+        spectrum_colors: props.settings.spectrum_colors,
         fundamental_color: props.settings.fundamental_color,
       });
     }
@@ -116,7 +117,7 @@ Keyboard.propTypes = {
     note_names: PropTypes.arrayOf(PropTypes.string),
     note_colors: PropTypes.arrayOf(PropTypes.string),
     spectrum_colors: PropTypes.bool,
-    fundamental_color: PropTypes.string,    
+    fundamental_color: PropTypes.string,
   }).isRequired,
   synth: PropTypes.object.isRequired,
 };

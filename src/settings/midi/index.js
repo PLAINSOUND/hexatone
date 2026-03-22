@@ -7,10 +7,10 @@ const MIDIio = (props) => {
   const connectedDevice = props.midi && props.settings.midiin_device &&
     props.settings.midiin_device !== 'OFF'
     ? Array.from(props.midi.inputs.values())
-        .find(m => m.id === props.settings.midiin_device)
+      .find(m => m.id === props.settings.midiin_device)
     : null;
   const deviceName = connectedDevice?.name?.toLowerCase() ?? '';
-  const isAxis49   = deviceName.includes('axis-4');
+  const isAxis49 = deviceName.includes('axis-4');
   const isLumatone = deviceName.includes('lumatone');
   // midiin_central_degree is the MIDI note that triggers step 0 (degree 0) internally.
   // We expose it to the user as the note that plays the *central* degree, so:
@@ -55,7 +55,7 @@ const MIDIio = (props) => {
           </label>
           {isAxis49 ? (
             <label>
-              AXIS-49 Centre Key (1–98)
+              AXIS-49 Key Mapping
               <input
                 name="axis49_center_note"
                 type="text"
@@ -135,15 +135,27 @@ const MIDIio = (props) => {
               />
             </label>
           )}
-          <br />
-          <em>{isAxis49
-            ? 'Choose a physical key (1\u201398 in selfless mode) to map to the central scale degree on screen.'
-            : isLumatone
-            ? 'Block (channel 1\u20135) and key within that block (0\u201355) that maps to the centre of the screen. The mapping shifts automatically to maximise on-screen coverage.'
-            : 'Input is received on all channels. Notes on the Central Input Channel remain untransposed. Other channels are transposed by multiples of the selected scale\u2019s interval of repetition (usually an octave, but it may be any value). Multichannel controllers like the Lumatone are automatically mapped onto transpositions of the selected scale (up to 128 pitches per channel/equave).'
-          }</em>
 
-          <br /><br />
+          <p>
+            <em>{isAxis49
+              ? 'Choose a physical key on the AXIS-49 (note numbers 1\u201398 in selfless mode) to map to the central scale degree on screen.'
+              : isLumatone
+                ? 'Block (channel 1\u20135) and key within that block (0\u201355) that maps to the centre of the screen. The mapping shifts automatically to maximise on-screen coverage.'
+                : 'Input is received on all channels. Notes on the Central Input Channel remain untransposed. Other channels are transposed by multiples of the selected scale\u2019s interval of repetition (usually an octave, but it may be any value). Multichannel controllers like the Lumatone are automatically mapped onto transpositions of the selected scale (up to 128 pitches per channel/equave).'
+            }</em></p>
+
+          <label>
+            Pitch Wheel → Most Recent Note
+            <input
+              name="wheel_to_recent"
+              type="checkbox"
+              checked={!!props.settings.wheel_to_recent}
+              onChange={(e) => {
+                props.onChange('wheel_to_recent', e.target.checked);
+                sessionStorage.setItem('wheel_to_recent', e.target.checked);
+              }}
+            />
+          </label>
         </>
       )}
 
@@ -159,6 +171,7 @@ MIDIio.propTypes = {
     axis49_center_note: PropTypes.number,
     lumatone_center_channel: PropTypes.number,
     lumatone_center_note: PropTypes.number,
+    wheel_to_recent: PropTypes.bool,
     center_degree: PropTypes.number,
   }).isRequired,
   midi: PropTypes.object,

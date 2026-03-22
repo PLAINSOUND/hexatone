@@ -19,7 +19,8 @@ const sendMpePitchBendRange = (
   masterCh,
   loCh,
   hiCh,
-  bendRange,
+  bendRange = 48,
+  bendRangeManager = 2,
   mpeMode,
 ) => {
   if (!output) return;
@@ -28,6 +29,7 @@ const sendMpePitchBendRange = (
     masterCh != null && masterCh !== "none" ? parseInt(masterCh) - 1 : null;
   const actualBendRange =
     mpeMode === "Ableton_workaround" ? 48 : bendRange || 48;
+  const managerBendRange = mpeMode === 'Ableton_workaround' ? 2 : bendRangeManager || 2;
 
   // Send MPE zone configuration RPN on master channel
   if (masterChNum !== null) {
@@ -36,7 +38,9 @@ const sendMpePitchBendRange = (
     output.send([0xb0 + masterChNum, 101, 0]); // RPN MSB = 0
     output.send([0xb0 + masterChNum, 100, 6]); // RPN LSB = 6
     output.send([0xb0 + masterChNum, 6, numVoices]); // data entry MSB
-    output.send([0xb0 + masterChNum, 38, 0]); // data entry LSB
+    output.send([0xb0 + masterChNum, 101, 0]); // RPN MSB = 0
+    output.send([0xb0 + masterChNum, 100, 0]); // RPN LSB = 0
+    output.send([0xb0 + masterChNum, 6, managerBendRange]); // data entry MSB
   }
 
   // Send pitch bend range RPN on all voice channels
@@ -46,7 +50,7 @@ const sendMpePitchBendRange = (
     output.send([0xb0 + c, 101, 0]); // RPN MSB = 0
     output.send([0xb0 + c, 100, 0]); // RPN LSB = 0
     output.send([0xb0 + c, 6, actualBendRange]); // data entry MSB (semitones)
-    output.send([0xb0 + c, 38, 0]); // data entry LSB
+    
   }
 };
 
@@ -106,7 +110,7 @@ const MidiOutputs = (props) => {
       {settings.output_mts && (
         <>
           <label>
-            MTS Output Port
+            Port
             <select
               name="midi_device"
               class="sidebar-input"
@@ -125,7 +129,28 @@ const MidiOutputs = (props) => {
           {settings.midi_device && settings.midi_device !== "OFF" && (
             <>
               <label>
-                MIDI Output Style
+                Channel
+                <select
+                  name="midi_channel"
+                  class="sidebar-input"
+                  value={settings.midi_channel}
+                  onChange={(e) =>
+                    save(e.target.name, parseInt(e.target.value), onChange)
+                  }
+                >
+                  <option value="-1">
+                    ---choose a MIDI output channel---
+                    </option>
+                  {[...Array(16).keys()].map((i) => (
+                    <option key={i} value={i}>
+                      {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              
+              <label>
+                Message Style
                 <select
                   name="midi_mapping"
                   class="sidebar-input"
@@ -136,35 +161,14 @@ const MidiOutputs = (props) => {
                 >
                   <option>---choose how notes are sent---</option>
                   <option value="MTS1">
-                    128-note-polyphonic + real-time MTS
+                    real-time MTS & 128 note polyphony
                   </option>
                   <option value="MTS2">
-                    Pianoteq-range-polyphonic + real-time MTS
+                    real-time MTS & Pianoteq/Arturia range limits
                   </option>
                   <option value="DIRECT">
-                    128 MIDI notes follow hex-layout
+                    128 MIDI notes follow hex layout
                   </option>
-                </select>
-              </label>
-
-              <label>
-                Output Channel
-                <select
-                  name="midi_channel"
-                  class="sidebar-input"
-                  value={settings.midi_channel}
-                  onChange={(e) =>
-                    save(e.target.name, parseInt(e.target.value), onChange)
-                  }
-                >
-                  <option value="-1">
-                    ---place the scale fundamental (1/1 = C4 = note 60)---
-                  </option>
-                  {[...Array(16).keys()].map((i) => (
-                    <option key={i} value={i}>
-                      {i + 1}
-                    </option>
-                  ))}
                 </select>
               </label>
 
@@ -299,7 +303,7 @@ const MidiOutputs = (props) => {
       {settings.output_mpe && (
         <>
           <label>
-            MPE Output Port
+            Port
             <select
               name="mpe_device"
               class="sidebar-input"
@@ -318,7 +322,7 @@ const MidiOutputs = (props) => {
           {settings.mpe_device && settings.mpe_device !== "OFF" && (
             <>
               <label>
-                Master Channel
+                Manager Channel
                 <select
                   name="mpe_master_ch"
                   class="sidebar-input"
@@ -334,7 +338,7 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
-                Voice Low Channel
+                Lowest Member Channel
                 <select
                   name="mpe_lo_ch"
                   class="sidebar-input"
@@ -352,7 +356,7 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
-                Voice High Channel
+                Highest Member Channel
                 <select
                   name="mpe_hi_ch"
                   class="sidebar-input"
@@ -370,7 +374,6 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
-                Active voices
                 <span
                   class="sidebar-input"
                   style={{
@@ -384,7 +387,7 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
-                Mode
+                Message Style
                 <select
                   name="mpe_mode"
                   class="sidebar-input"
@@ -394,15 +397,34 @@ const MidiOutputs = (props) => {
                   }
                 >
                   <option value="Ableton_workaround">
-                    Ableton workaround (fixed 48)
+                    Ableton compatible: unique notes & PB 48
                   </option>
-                  <option value="Full_MPE">Full MPE (user range)</option>
+                  <option value="Full_MPE">MPE standard: nearest notes & user PB</option>
                 </select>
               </label>
 
               {settings.mpe_mode === "Full_MPE" && (
+                <>
                 <label>
-                  Pitch Bend Range (semitones)
+                  Pitch Wheel range (semitones)
+                  <input
+                    name="mpe_pitchbend_range_manager"
+                    type="text"
+                    inputMode="numeric"
+                    class="sidebar-input"
+                    key={settings.mpe_pitchbend_range_manager}
+                    defaultValue={settings.mpe_pitchbend_range_manager ?? 2}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 0 && val <= 12)
+                        save("mpe_pitchbend_range_manager", val, onChange);
+                      else e.target.value = settings.mpe_pitchbend_range_manager ?? 2;
+                    }}
+                  />
+                </label>
+                
+                <label>
+                  MPE PB Range (semitones)
                   <input
                     name="mpe_pitchbend_range"
                     type="text"
@@ -418,10 +440,10 @@ const MidiOutputs = (props) => {
                     }}
                   />
                 </label>
-              )}
-
+                </>
+                )}
               <label>
-                Send MPE Configuration
+                MPE Configuration (RPN)
                 <span
                   style={{
                     display: "flex",
@@ -442,6 +464,7 @@ const MidiOutputs = (props) => {
                           settings.mpe_lo_ch,
                           settings.mpe_hi_ch,
                           settings.mpe_pitchbend_range ?? 48,
+                          settings.mpe_pitchbend_range_manager ?? 2,
                           settings.mpe_mode,
                         );
                       }
@@ -479,6 +502,7 @@ MidiOutputs.propTypes = {
     mpe_hi_ch: PropTypes.number,
     mpe_mode: PropTypes.string,
     mpe_pitchbend_range: PropTypes.number,
+    mpe_pitchbend_range_manager: PropTypes.number,
   }).isRequired,
   midi: PropTypes.object,
   onChange: PropTypes.func.isRequired,
