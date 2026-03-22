@@ -337,6 +337,22 @@ table td {
   font-size: 0.78em;
 }
 
+/* Equave row has no TuneCell — this spacer keeps the input the same width */
+.tune-cell-spacer {
+  display: inline-flex;
+  width: 33px;
+  flex-shrink: 0;
+}
+
+/* Scale the inline FundamentalTuneCell to match the scale table tune-cells */
+.tune-cell--inline {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.78em;
+}
+
 .tune-handle {
   cursor: ew-resize;
   user-select: none;
@@ -353,7 +369,7 @@ table td {
   font-size: 1.7em;
   margin-left: auto;
   /* right-align to match input above */
-  margin-right: 3px;
+  margin-right: 0px;
 }
 
 .tune-handle:hover {
@@ -462,6 +478,33 @@ table input:disabled {
 .freq-cell input {
   flex: 1;
   min-width: 0;
+}
+
+/* .freq-cell.sidebar-input — no longer used */
+
+/* ── Reference Frequency row ──────────────────────────────────────────
+ * The right-side wrapper mirrors the scale table's freq-cell pattern:
+ * input fills available space, tune handle fixed at right edge.
+ * Width matches .sidebar-input (50%) so it aligns with rows below.
+ * Tweak --fundamental-input-width to adjust the input portion.
+ * ------------------------------------------------------------------- */
+.fundamental-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 50%;           /* matches .sidebar-input */
+  margin-left: auto;    /* right-aligns like .sidebar-input */
+}
+
+.fundamental-right input {
+  flex: 1;              /* fills space left after tune handle */
+  min-width: 0;
+  text-align: right;
+  height: 1.5em;
+  box-sizing: border-box;
+  background-color: #faf9f8;
+  border: 1px solid #c8b8b8;
+  border-radius: 3px;
 }
 
 /* ── Links — no blue, no underline; inherit sidebar text colour ─────────── */

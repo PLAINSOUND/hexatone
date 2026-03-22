@@ -149,7 +149,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
  * - 'recalculate_reference' (default): Keep current sound, recalculate Reference Frequency
  * - 'transpose_scale': Transpose entire scale, preserve Reference Frequency
  */
-const TuneCell = ({ scaleStr, degree, keysRef, onChange, reference_degree, fundamental, onFundamentalChange, retuning_mode }) => {
+const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, reference_degree, fundamental, onFundamentalChange, retuning_mode }) => {
   const originalCents = useRef(scalaToCents(scaleStr));
   const [tunedCents, setTunedCents] = useState(null);
   const [comparing, setComparing] = useState(false);
@@ -182,7 +182,12 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, reference_degree, funda
   const isReferenceDegree = degree === reference_degree;
 
   const pushToKeys = useCallback((cents) => {
-    if (keysRef && keysRef.current && keysRef.current.updateScaleDegree) {
+    if (!keysRef || !keysRef.current) return;
+    if (degree === 0) {
+      // Only retune degree-0 notes; all other notes stay at their pitch.
+      // cents is the absolute offset from 0 (the drag value from originalCents=0).
+      if (keysRef.current.previewDegree0) keysRef.current.previewDegree0(cents);
+    } else if (keysRef.current.updateScaleDegree) {
       keysRef.current.updateScaleDegree(degree, cents);
     }
   }, [keysRef, degree]);
@@ -235,13 +240,16 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, reference_degree, funda
     const saveVal = tunedCents !== null ? tunedCents : originalCents.current;
     const str = saveVal.toFixed(6);
 
-    if (isReferenceDegree && retuning_mode !== 'transpose_scale') {
+    if (degree === 0) {
+      // Degree 0 retuning: shift all other scale degrees by -delta so that
+      // all notes except degree 0 remain at the same absolute pitch.
+      // onDegree0Save receives the delta in cents.
+      if (onDegree0Save) onDegree0Save(saveVal); // saveVal === delta (originalCents is 0)
+    } else if (isReferenceDegree && retuning_mode !== 'transpose_scale') {
       const delta = tunedCents - originalCents.current;
       const newFundamental = fundamental * Math.pow(2, delta / 1200.0);
-      // NEW: pass both changes atomically via a combined callback
       if (onFundamentalChange) {
-        onFundamentalChange(newFundamental, str);  // ← pass str along
-        // Don't call onChange(str) separately — let onFundamentalChange handle it
+        onFundamentalChange(newFundamental, str);
       } else {
         onChange(str);
       }
@@ -249,10 +257,16 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, reference_degree, funda
       onChange(str);
     }
 
-    originalCents.current = saveVal;
+    // For degree 0 the scale value is always 0 after save — the delta was
+    // baked into the other scale degrees / fundamental on save, so the next
+    // drag must start from 0, not from saveVal.
+    originalCents.current = degree === 0 ? 0 : saveVal;
     setTunedCents(null);
     setComparing(false);
-  }, [tunedCents, isReferenceDegree, retuning_mode, fundamental, onFundamentalChange, onChange, degree, reference_degree]);
+    // Restore live preview to 0 so held degree-0 notes return to base pitch
+    if (degree === 0) pushToKeys(0);
+  }, [tunedCents, degree, isReferenceDegree, retuning_mode, fundamental,
+      onFundamentalChange, onDegree0Save, onChange, pushToKeys]);
 
   const onRevert = useCallback(() => {
     setTunedCents(null);
@@ -353,11 +367,51 @@ const ScaleTable = (props) => {
               : undefined
           }
         >
-          <td class="tonic-label">
-            <span>
-              1/1&nbsp;&nbsp;|&nbsp;&nbsp;0.0&nbsp;&nbsp;|&nbsp;&nbsp;0\n
-            </span>
-            <br />
+          <td>
+            <div class="freq-cell">
+              <input
+                type="text"
+                disabled
+                value="1/1  |  0.0  |  0\n"
+                aria-label="pitch value 0"
+              />
+              <TuneCell
+                key={`tune0-${props.importCount}`}
+                scaleStr="0.0"
+                degree={0}
+                keysRef={props.keysRef}
+                reference_degree={props.settings.reference_degree}
+                fundamental={props.settings.fundamental}
+                retuning_mode={props.settings.retuning_mode}
+                onDegree0Save={(delta) => {
+                  // delta: cents degree 0 moved up.
+                  // The equave is never touched — it is a period ratio, not a pitch.
+                  const oldScale = [...(props.settings.scale || [])];
+                  const equave = oldScale[oldScale.length - 1]; // preserve as-is
+                  // Subtract delta from every degree except the equave so all
+                  // other notes stay at the same absolute Hz.
+                  const newScale = oldScale.map((str, idx) => {
+                    if (idx === oldScale.length - 1) return str; // equave unchanged
+                    const cents = scalaToCents(String(str));
+                    return (cents - delta).toFixed(6);
+                  });
+                  const ref = props.settings.reference_degree;
+                  if (ref === 0) {
+                    // Degree 0 is the reference: fundamental shifts up by delta.
+                    // Scale degrees (excl. equave) shift down by delta to keep
+                    // all other notes at the same Hz.
+                    const newFundamental = props.settings.fundamental
+                      * Math.pow(2, delta / 1200.0);
+                    props.onAtomicChange({ scale: newScale, fundamental: newFundamental });
+                  } else {
+                    // Another degree is the reference: fundamental stays.
+                    // Subtracting delta from all non-equave scale degrees keeps
+                    // every other note at the same Hz and shifts degree 0 up.
+                    props.onChange('scale', newScale);
+                  }
+                }}
+              />
+            </div>
           </td>
           <td>
             <input
@@ -421,11 +475,9 @@ const ScaleTable = (props) => {
                     props.onChange('scale', next);
                   }}
                   onFundamentalChange={(newFreq, newStr) => {
-                    // If newStr is provided (reference degree retune), apply both atomically
                     if (newStr !== undefined) {
                       const next = [...(props.settings.scale || [])];
                       next[i] = newStr;
-                      // Single setSettings call covers both — no race between two renders
                       props.onAtomicChange({ fundamental: newFreq, scale: next });
                     } else {
                       props.onChange('fundamental', newFreq);
@@ -482,21 +534,7 @@ const ScaleTable = (props) => {
                 onChange={scaleChange}
                 aria-label={`pitch ${scale.length - 1}`}
               />
-              <TuneCell
-                key={`tune-equiv-${props.importCount}`}
-                scaleStr={String(equiv_interval)}
-                degree={scale.length}
-                keysRef={props.keysRef}
-                reference_degree={props.settings.reference_degree}
-                fundamental={props.settings.fundamental}
-                retuning_mode={props.settings.retuning_mode}
-                onFundamentalChange={(newFreq) => props.onChange('fundamental', newFreq)}
-                onChange={(newStr) => {
-                  const next = [...(props.settings.scale || [])];
-                  next[next.length - 1] = newStr;
-                  props.onChange('scale', next);
-                }}
-              />
+              <div class="tune-cell-spacer" aria-hidden="true" />
             </div>
           </td>
           <td>

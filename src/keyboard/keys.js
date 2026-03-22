@@ -445,6 +445,67 @@ class Keys {
   };
 
   /**
+   * Live preview for degree-0 drag: retune only notes whose reducedSteps === 0
+   * to (their base cents + deltaCents). All other notes are left untouched.
+   * On revert call with deltaCents=0 to restore originals.
+   * @param {number} deltaCents  cents to add to degree-0 notes (signed)
+   */
+  previewDegree0 = (deltaCents) => {
+    const baseCents = 0; // degree 0 is always 0¢ in the scale
+    const newCents = baseCents + deltaCents;
+    for (const hex of this.state.activeHexObjects) {
+      const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
+      if (reducedSteps === 0 && hex.retune) {
+        // degree-0 note at octave octs: pitch = octs * equivInterval + 0
+        hex.retune(octs * this.settings.equivInterval + newCents);
+      }
+    }
+    for (const [hex] of this.state.sustainedNotes) {
+      const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
+      if (reducedSteps === 0 && hex.retune) {
+        hex.retune(octs * this.settings.equivInterval + newCents);
+      }
+    }
+  };
+
+  // Snapshot of hex.cents at the start of a fundamental drag, keyed by
+  // coordsKey so we can apply an absolute offset on every move event.
+  _fundamentalSnapshot = null;
+
+  /**
+   * Capture the current pitch of every sounding note before dragging begins.
+   * Must be called from onPointerDown before the first previewFundamental call.
+   */
+  snapshotForFundamentalPreview = () => {
+    this._fundamentalSnapshot = new Map();
+    for (const hex of this.state.activeHexObjects) {
+      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex.cents);
+    }
+    for (const [hex] of this.state.sustainedNotes) {
+      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex.cents);
+    }
+  };
+
+  /**
+   * Live preview for fundamental-frequency drag.
+   * Applies an absolute offset from the snapshot taken at drag start.
+   * Call with 0 to restore originals on revert.
+   * Scale is untouched — on save only fundamental is updated.
+   * @param {number} deltaCents  absolute cents offset from drag-start pitch
+   */
+  previewFundamental = (deltaCents) => {
+    const snap = this._fundamentalSnapshot;
+    const applyTo = (hex) => {
+      const key = hex.coords.x + ',' + hex.coords.y;
+      const base = snap ? (snap.get(key) ?? hex.cents) : hex.cents;
+      if (hex.retune) hex.retune(base + deltaCents);
+    };
+    for (const hex of this.state.activeHexObjects) applyTo(hex);
+    for (const [hex] of this.state.sustainedNotes) applyTo(hex);
+    if (deltaCents === 0) this._fundamentalSnapshot = null;
+  };
+
+  /**
    * Called by TuneCell on pointer-down/up so Shift-sustain keyup guard
    * knows a sidebar drag is in progress and won't drop the sustain.
    */
@@ -488,6 +549,7 @@ class Keys {
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
+
 
     window.removeEventListener("resize", this.resizeHandler, false);
     window.removeEventListener("orientationchange", this.resizeHandler, false);
