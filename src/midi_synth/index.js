@@ -258,6 +258,65 @@ MidiHex.prototype._updateKeymap = function() {
   }
 };
 
+/**
+ * DirectHex — for DIRECT midi_mapping mode.
+ * Sends plain noteOn/noteOff. No per-note sysex.
+ * Relies on a pre-sent 128-note non-real-time bulk tuning map.
+ * Carrier note = nearest semitone to target pitch (same calc as MTS1).
+ */
+function DirectHex(
+  coords, cents, steps, equaves,
+  note_played, velocity_played, velocity,
+  midi_output, channel,
+  fundamental, degree0toRef_ratio
+) {
+  this.coords      = coords;
+  this.cents       = cents;
+  this.release     = false;
+  this._noteOffCalled = false;
+  this.midi_output = midi_output;
+  this.channel     = channel;
+  this.velocity    = velocity_played > 0 ? velocity_played : velocity;
+  this.note_played = note_played;
+
+  // Carrier note: nearest semitone to target pitch
+  if (channel >= 0 && fundamental && degree0toRef_ratio) {
+    const ref        = fundamental / degree0toRef_ratio;
+    const ref_offset = 1200 * Math.log2(ref / 261.6255653);
+    const ref_cents  = cents + ref_offset;
+    this.carrier = Math.max(0, Math.min(Math.round(ref_cents * 0.01 + 60), 127));
+  } else {
+    this.carrier = 60;
+  }
+}
+
+DirectHex.prototype.noteOn = function () {
+  if (this.channel >= 0 && this.midi_output) {
+    this.midi_output.send([0x90 + this.channel, this.carrier, this.velocity]);
+  }
+};
+
+DirectHex.prototype.noteOff = function (release_velocity) {
+  if (this._noteOffCalled) return;
+  this._noteOffCalled = true;
+  this.release = true;
+  if (this.channel >= 0 && this.midi_output) {
+    const vel = release_velocity || this.velocity;
+    this.midi_output.send([0x80 + this.channel, this.carrier, vel]);
+  }
+};
+
+DirectHex.prototype.aftertouch = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xA0 + this.channel, this.carrier,
+    Math.max(0, Math.min(127, value))]);
+};
+
+DirectHex.prototype.retune = function () {
+  // No-op: DIRECT uses a static pre-sent map.
+};
+
+
 export function centsToMTS(note, bend) {
   let mts = [0, 0, 0];
   if (typeof note === "number" && typeof bend === "number") {
