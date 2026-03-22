@@ -27,11 +27,8 @@ import { scalaToCents } from "../settings/scale/parse-scale";
 // PB is sent at t=now (no timestamp — MIDI port queues it immediately).
 // noteOn is scheduled at t=now+PB_GUARD_MS so the driver sees PB first.
 // noteOff is NEVER delayed — delaying it risks stuck notes.
-// When reusing a RELEASING channel (CC120 already sent), add CC120_GUARD_MS
-// before PB+noteOn so the synth has time to fully cut DSP before new pitch arrives.
 const PB_GUARD_MS    = 2;    // ms: gap between PB and noteOn
-const CC120_GUARD_MS = 15;   // ms: gap between CC120 and new PB+noteOn
-const RELEASE_GUARD_MS = 500;
+const RELEASE_GUARD_MS = 300;
 
 function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale) {
   let ref_cents = 0;
@@ -186,37 +183,20 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree,
   const c = this.channel - 1;
   const now = performance.now();
 
-  // Handle outgoing voice and schedule new PB + noteOn:
-  //
-  //  RELEASING reuse: tail still ringing — CC120 silences it immediately,
-  //  then wait CC120_GUARD_MS before new PB arrives so the synth has fully
-  //  cut DSP before it sees the new pitch.
-  //
-  //  SOUNDING steal: live note — noteOff triggers its release envelope,
-  //  then PB + noteOn follow immediately (PB_GUARD_MS gap between them).
-  //
-  //  IDLE: no outgoing voice — PB immediate, noteOn PB_GUARD_MS later.
-
-  if (stolenSlot !== null && stolenWasReleasing) {
-    // RELEASING reuse: silence immediately, then delay new note
-    const ssc = stolenSlot - 1;
-    midi_output.send([0xB0 + ssc, 120, 0]);                       // CC120 now
-    sendBend(midi_output, c, this.bend, now + CC120_GUARD_MS);    // PB after guard
-    midi_output.send([0x90 + c, this.note, this.velocity],
-      now + CC120_GUARD_MS + PB_GUARD_MS);                        // noteOn after PB
-  } else if (stolenSlot !== null && stolenNote != null) {
-    // SOUNDING steal: noteOff lets release envelope run, then PB + noteOn
-    const ssc = stolenSlot - 1;
-    midi_output.send([0x80 + ssc, stolenNote, 0]);                // noteOff now
-    sendBend(midi_output, c, this.bend, now);                     // PB now
-    midi_output.send([0x90 + c, this.note, this.velocity],
-      now + PB_GUARD_MS);                                         // noteOn after PB
-  } else {
-    // IDLE: PB now, noteOn after guard
-    sendBend(midi_output, c, this.bend, now);                     // PB now
-    midi_output.send([0x90 + c, this.note, this.velocity],
-      now + PB_GUARD_MS);                                         // noteOn after PB
+  // For all cases: send noteOff on the outgoing voice (if any), then
+  // PB + noteOn on the new channel. No CC120 — let the synth's release
+  // envelope run naturally. A brief pitch shift on a dying tail is less
+  // disruptive than a hard cut that can destabilise soft synth patches.
+  if (stolenSlot !== null && stolenNote != null) {
+    // SOUNDING steal: send noteOff so the release envelope runs
+    midi_output.send([0x80 + (stolenSlot - 1), stolenNote, 0]);
   }
+  // RELEASING reuse: tail already decaying — no message needed,
+  // new PB will briefly affect it but it's already quiet.
+
+  // PB now, noteOn after guard — same path for all cases
+  sendBend(midi_output, c, this.bend, now);
+  midi_output.send([0x90 + c, this.note, this.velocity], now + PB_GUARD_MS);
 
   pool.setLastBend(this.channel, this.bend);
   pool.setLastNote(this.channel, this.note);
