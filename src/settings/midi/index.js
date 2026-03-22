@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { Fragment } from 'preact/compat';
 import PropTypes from 'prop-types';
+import { detectController } from '../../controllers/registry.js';
 
 const MIDIio = (props) => {
   // Detect connected controller type by device name.
@@ -53,88 +54,82 @@ const MIDIio = (props) => {
               {[...Array(16).keys()].map(i => <option value={i}>{i + 1}</option>)}
             </select>
           </label>
-          {isAxis49 ? (
-            <label>
-              AXIS-49 Key Mapping
-              <input
-                name="axis49_center_note"
-                type="text"
-                inputMode="numeric"
-                class="sidebar-input"
-                key={props.settings.axis49_center_note}
-                defaultValue={props.settings.axis49_center_note ?? 49}
-                onBlur={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val) && val >= 1 && val <= 98) {
-                    props.onChange('axis49_center_note', val);
-                    sessionStorage.setItem('axis49_center_note', val);
-                  } else {
-                    e.target.value = props.settings.axis49_center_note ?? 49;
-                  }
-                }}
-              />
-            </label>
-          ) : isLumatone ? (
-            <>
-              <label>
-                Lumatone Centre Block (channel 1–5)
-                <input
-                  name="lumatone_center_channel"
-                  type="text"
-                  inputMode="numeric"
-                  class="sidebar-input"
-                  key={props.settings.lumatone_center_channel}
-                  defaultValue={props.settings.lumatone_center_channel ?? 3}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 1 && val <= 5) {
-                      props.onChange('lumatone_center_channel', val);
-                      sessionStorage.setItem('lumatone_center_channel', val);
-                    } else {
-                      e.target.value = props.settings.lumatone_center_channel ?? 3;
-                    }
-                  }}
-                />
-              </label>
-              <label>
-                Lumatone Centre Key in block (0–55)
-                <input
-                  name="lumatone_center_note"
-                  type="text"
-                  inputMode="numeric"
-                  class="sidebar-input"
-                  key={props.settings.lumatone_center_note}
-                  defaultValue={props.settings.lumatone_center_note ?? 27}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 0 && val <= 55) {
-                      props.onChange('lumatone_center_note', val);
-                      sessionStorage.setItem('lumatone_center_note', val);
-                    } else {
-                      e.target.value = props.settings.lumatone_center_note ?? 27;
-                    }
-                  }}
-                />
-              </label>
-            </>
-          ) : (
-            <label>
-              MIDI Note assigned to Central Scale Degree ({center_degree})
-              <input name="midiin_central_degree" type="text" inputMode="numeric"
-                class="sidebar-input"
-                key={`${props.settings.midiin_central_degree}-${center_degree}`}
-                defaultValue={centralNote}
-                onBlur={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val) && val >= 0 && val <= 127) {
-                    props.onChange('midiin_central_degree', val - center_degree);
-                  } else {
-                    e.target.value = centralNote;
-                  }
-                }}
-              />
-            </label>
-          )}
+          {/* ── Dynamic controller UI from registry ── */}
+          {connectedDevice && (() => {
+            const ctrl = detectController(deviceName);
+            if (ctrl) return (
+              <>
+                <label style={{ fontStyle: 'italic', color: '#996666' }}>
+                  {ctrl.name}
+                  <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
+                    {ctrl.description}
+                  </span>
+                </label>
+                {ctrl.anchor.map(a => (
+                  <label key={a.key}>
+                    {a.label}
+                    <input
+                      name={a.key}
+                      type="text"
+                      inputMode="numeric"
+                      class="sidebar-input"
+                      key={props.settings[a.key] ?? a.default}
+                      defaultValue={props.settings[a.key] ?? a.default}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= a.min && val <= a.max) {
+                          props.onChange(a.key, val);
+                          sessionStorage.setItem(a.key, val);
+                        } else {
+                          e.target.value = props.settings[a.key] ?? a.default;
+                        }
+                      }}
+                    />
+                  </label>
+                ))}
+                <label>
+                  Bypass Key Mapping
+                  <input
+                    name="midi_passthrough"
+                    type="checkbox"
+                    checked={props.settings.midi_passthrough !== false}
+                    onChange={(e) => {
+                      props.onChange('midi_passthrough', e.target.checked);
+                      sessionStorage.setItem('midi_passthrough', e.target.checked);
+                    }}
+                  />
+                </label>
+              </>
+            );
+            // Unknown controller
+            return (
+              <>
+                <label>
+                  MIDI Note assigned to Central Scale Degree ({center_degree})
+                  <input name="midiin_central_degree" type="text" inputMode="numeric"
+                    class="sidebar-input"
+                    key={`${props.settings.midiin_central_degree}-${center_degree}`}
+                    defaultValue={centralNote}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 0 && val <= 127) {
+                        props.onChange('midiin_central_degree', val - center_degree);
+                      } else {
+                        e.target.value = centralNote;
+                      }
+                    }}
+                  />
+                </label>
+                <p><em>
+                  Controller geometry not recognised — using channel-per-octave mapping.
+                  <br/>
+                  <a href="https://github.com/PLAINSOUND/hexatone/issues/new?title=Controller+geometry+request&body=Controller+name:+" target="_blank">
+                    Request geometry integration
+                  </a>
+                </em></p>
+              </>
+            );
+          })()}
 
           <p>
             <em>{isAxis49
@@ -144,6 +139,45 @@ const MIDIio = (props) => {
                 : 'Input is received on all channels. Notes on the Central Input Channel remain untransposed. Other channels are transposed by multiples of the selected scale\u2019s interval of repetition (usually an octave, but it may be any value). Multichannel controllers like the Lumatone are automatically mapped onto transpositions of the selected scale (up to 128 pitches per channel/equave).'
             }</em></p>
 
+          <label>
+            Steps per Channel
+            <input
+              name="midiin_steps_per_channel"
+              type="text"
+              inputMode="numeric"
+              class="sidebar-input"
+              key={props.settings.midiin_steps_per_channel ?? 'auto'}
+              defaultValue={props.settings.midiin_steps_per_channel ?? ''}
+              placeholder={`automatically set to 1 equave (${props.settings.equivSteps ?? '…'} steps)`}
+              onBlur={(e) => {
+                const raw = e.target.value.trim();
+                if (raw === '') {
+                  props.onChange('midiin_steps_per_channel', null);
+                  sessionStorage.removeItem('midiin_steps_per_channel');
+                } else {
+                  const val = parseInt(raw);
+                  if (!isNaN(val) && val >= 1) {
+                    props.onChange('midiin_steps_per_channel', val);
+                    sessionStorage.setItem('midiin_steps_per_channel', val);
+                  } else {
+                    e.target.value = props.settings.midiin_steps_per_channel ?? '';
+                  }
+                }
+              }}
+            />
+          </label>
+          <label>
+            Legacy Channel Mode
+            <input
+              name="midiin_channel_legacy"
+              type="checkbox"
+              checked={!!props.settings.midiin_channel_legacy}
+              onChange={(e) => {
+                props.onChange('midiin_channel_legacy', e.target.checked);
+                sessionStorage.setItem('midiin_channel_legacy', e.target.checked);
+              }}
+            />
+          </label>
           <label>
             Pitch Wheel → Most Recent Note
             <input
@@ -171,6 +205,12 @@ MIDIio.propTypes = {
     axis49_center_note: PropTypes.number,
     lumatone_center_channel: PropTypes.number,
     lumatone_center_note: PropTypes.number,
+    controller_anchor_note: PropTypes.number,
+    lumatone_center_channel: PropTypes.number,
+    lumatone_center_note: PropTypes.number,
+    midiin_steps_per_channel: PropTypes.number,
+    midi_passthrough: PropTypes.bool,
+    midiin_channel_legacy: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
     center_degree: PropTypes.number,
   }).isRequired,

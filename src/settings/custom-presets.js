@@ -240,7 +240,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       {expanded && presets.length > 0 && (
         <label class="preset-selector-row">
           <select value={selected} onChange={handleSelect}>
-            <option value="">Choose User Tuning:</option>
+            <option value="">Choose a user tuning:</option>
             {presets.map(p => (
               <option key={p.name} value={p.name}>{p.name}</option>
             ))}

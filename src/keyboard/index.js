@@ -49,7 +49,8 @@ const Keyboard = (props) => {
       // When sidebar opens, release any computer keyboard notes that are held.
       // onKeyUp won't fire for them once typing becomes true (sidebar has focus),
       // so without this they stay stuck indefinitely.
-      if (!props.active) keysRef.current.releaseAllKeyboardNotes();
+      if (!props.active && typeof keysRef.current.releaseAllKeyboardNotes === 'function')
+        keysRef.current.releaseAllKeyboardNotes();
     }
   }, [props.active]);
 

@@ -233,6 +233,13 @@ const sessionDefaults = {
   instrument: sessionStorage.getItem("instrument") || "HvP8_retuned",
   midiin_device: sessionStorage.getItem("midiin_device") || "OFF",
   midiin_channel: parseInt(sessionStorage.getItem("midiin_channel")) || 0,
+  midiin_steps_per_channel: sessionStorage.getItem("midiin_steps_per_channel") !== null
+    ? parseInt(sessionStorage.getItem("midiin_steps_per_channel")) : null,
+  controller_anchor_note: sessionStorage.getItem("controller_anchor_note") !== null
+    ? parseInt(sessionStorage.getItem("controller_anchor_note")) : null,
+  midiin_channel_legacy: sessionStorage.getItem("midiin_channel_legacy") !== null
+    ? sessionStorage.getItem("midiin_channel_legacy") === 'true' : true,
+  midi_passthrough: sessionStorage.getItem("midi_passthrough") !== 'false',
   midi_device: sessionStorage.getItem("midi_device") || "OFF",
   midi_channel: parseInt(sessionStorage.getItem("midi_channel")) || 0,
   midi_mapping: sessionStorage.getItem("midi_mapping") || "MTS1",
@@ -316,6 +323,10 @@ const App = () => {
       // Input
       midiin_device: ExtractString,
       midiin_channel: ExtractInt,
+      midiin_steps_per_channel: ExtractInt,
+      controller_anchor_note: ExtractInt,
+      midiin_channel_legacy: ExtractBool,
+      midi_passthrough: ExtractBool,
       midiin_central_degree: ExtractInt,
       axis49_center_note: ExtractInt,
       wheel_to_recent: ExtractBool,
@@ -534,7 +545,7 @@ const App = () => {
           settings.scale,
           settings.mpe_mode,
           settings.mpe_pitchbend_range ?? 48,
-          settings.mpe_pitchbend_range_manager ?? 2,
+          settings.mpe_manager_pitchbend_range ?? 2,
           settings.equivSteps,
           settings.equivInterval,
         ),
@@ -577,7 +588,6 @@ const App = () => {
     settings.mpe_lo_ch,
     settings.mpe_hi_ch,
     settings.mpe_pitchbend_range,
-    settings.mpe_pitchbend_range_manager,
     settings.mpe_mode,
     midi,
   ]);
@@ -963,11 +973,18 @@ const App = () => {
       settings.instrument,
       settings.midiin_device,
       settings.midiin_channel,
+      settings.midiin_steps_per_channel,
+      settings.controller_anchor_note,
+      settings.midiin_channel_legacy,
+      settings.midi_passthrough,
       settings.midiin_central_degree,
       settings.axis49_center_note,
       settings.wheel_to_recent,
       settings.lumatone_center_channel,
       settings.lumatone_center_note,
+      settings.output_mts,
+      settings.output_mpe,
+      settings.output_sample,
       settings.midi_device,
       settings.midi_channel,
       settings.midi_mapping,
@@ -1041,7 +1058,14 @@ const App = () => {
           structuralSettings={structuralSettings}
           onKeysReady={useCallback((keys) => {
             keysRef.current = keys;
-          }, [])}
+            // When controller auto-centres, write back adjusted midiin_central_degree
+            keys.onCentralDegreeAdjust = (stepShift) => {
+              const current = settings.midiin_central_degree ?? 60;
+              const adjusted = current - stepShift;
+              sessionStorage.setItem('midiin_central_degree', adjusted);
+              setSettings(s => ({ ...s, midiin_central_degree: adjusted }));
+            };
+          }, [settings.midiin_central_degree])}
           onLatchChange={useCallback((v) => setLatch(v), [])}
           active={active}
         />
