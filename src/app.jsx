@@ -222,6 +222,9 @@ const sessionDefaults = {
   output_mts: sessionStorage.getItem("output_mts") === "true",
   output_mpe: sessionStorage.getItem("output_mpe") === "true",
   output_direct: sessionStorage.getItem("output_direct") === "true",
+  fluidsynth_device: sessionStorage.getItem("fluidsynth_device") || "",
+  fluidsynth_channel: sessionStorage.getItem("fluidsynth_channel") !== null
+    ? parseInt(sessionStorage.getItem("fluidsynth_channel")) : -1,
   direct_device: sessionStorage.getItem("direct_device") || "OFF",
   direct_channel: parseInt(sessionStorage.getItem("direct_channel")) || -1,
   direct_sysex_auto: sessionStorage.getItem("direct_sysex_auto") === "true",
@@ -344,6 +347,8 @@ const App = () => {
       output_mts: ExtractBool,
       output_mpe: ExtractBool,
       output_direct: ExtractBool,
+      fluidsynth_device: ExtractString,
+      fluidsynth_channel: ExtractInt,
       direct_device: ExtractString,
       direct_channel: ExtractInt,
       direct_sysex_auto: ExtractBool,
@@ -536,6 +541,17 @@ const App = () => {
         ),
       );
     }
+    // FluidSynth mirror: second MTS instance on the auto-detected FluidSynth port.
+    // Disabled when main MTS port IS the FluidSynth port (would double notes).
+    const fluidsynthOutputObj = midi && settings.fluidsynth_device
+      ? midi.outputs.get(settings.fluidsynth_device) : null;
+    const mtsPortIsFluidsynth = fluidsynthOutputObj &&
+      settings.midi_device === settings.fluidsynth_device;
+    const wantFluidsynth = wantMts &&
+      !!fluidsynthOutputObj &&
+      !mtsPortIsFluidsynth &&
+      settings.fluidsynth_channel >= 0;
+
     if (wantMts) {
       promises.push(
         create_midi_synth(
@@ -543,6 +559,21 @@ const App = () => {
           settings.midiin_central_degree,
           midi.outputs.get(settings.midi_device),
           settings.midi_channel,
+          settings.midi_mapping,
+          settings.midi_velocity,
+          settings.fundamental,
+          settings.sysex_type,
+          settings.device_id,
+        ),
+      );
+    }
+    if (wantFluidsynth) {
+      promises.push(
+        create_midi_synth(
+          settings.midiin_device,
+          settings.midiin_central_degree,
+          fluidsynthOutputObj,
+          settings.fluidsynth_channel,
           settings.midi_mapping,
           settings.midi_velocity,
           settings.fundamental,
@@ -621,6 +652,8 @@ const App = () => {
     settings.output_direct,
     settings.direct_device,
     settings.direct_channel,
+    settings.fluidsynth_device,
+    settings.fluidsynth_channel,
     settings.mpe_device,
     settings.mpe_master_ch,
     settings.mpe_lo_ch,
@@ -1032,6 +1065,8 @@ const App = () => {
       settings.direct_device,
       settings.direct_channel,
       settings.direct_sysex_auto,
+      settings.fluidsynth_device,
+      settings.fluidsynth_channel,
       settings.sysex_type,
       settings.mpe_device,
       settings.mpe_master_ch,

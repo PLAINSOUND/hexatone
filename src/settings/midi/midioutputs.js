@@ -1,4 +1,5 @@
 import { h } from "preact";
+import { useEffect, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";
 
@@ -77,6 +78,26 @@ const MidiOutputs = (props) => {
 
   const outputs = midi ? Array.from(midi.outputs.values()) : [];
 
+  // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
+  // macOS FluidSynth creates a new port on each launch; we find it by name.
+  const fluidsynthOutput = outputs.find(m => m.name.toLowerCase().includes("fluid")) ?? null;
+  const fluidsynthFound  = !!fluidsynthOutput;
+  // If a new fluidsynth port appears, auto-save its id so keys.js can find it.
+  useEffect(() => {
+    if (fluidsynthOutput && settings.fluidsynth_device !== fluidsynthOutput.id) {
+      // Only update if user has enabled fluidsynth_channel (opted in)
+      if (settings.fluidsynth_channel >= 0) {
+        save("fluidsynth_device", fluidsynthOutput.id, onChange);
+      }
+    }
+    if (!fluidsynthOutput && settings.fluidsynth_device) {
+      save("fluidsynth_device", "", onChange);
+    }
+  }, [fluidsynthOutput?.id]);
+  // Is the user-selected main MTS port the same as FluidSynth? Warn if so.
+  const mtsPortIsFluidsynth = fluidsynthOutput &&
+    settings.midi_device === fluidsynthOutput.id;
+
   return (
     <fieldset>
       <legend>
@@ -88,7 +109,7 @@ const MidiOutputs = (props) => {
       
 
       <label>
-        Real-Time MTS
+        <b>MTS Real-Time Tuning</b>
         <input
           name="output_mts"
           type="checkbox"
@@ -97,7 +118,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p>
+      <p style={{ marginTop: 0.5 }}>
         <em>
           The <a href="/midituning.html">MIDI Tuning Standard</a> uses
           sysex messages to modify the tuning of each MIDI note. The free{" "}
@@ -181,17 +202,98 @@ const MidiOutputs = (props) => {
                 </select>
               </label>
 
+              {/* ── FluidSynth mirror output ───────────────────────── */}
+              {(() => {
+                const fsConnected = !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0);
+                return (
+                  <>
+                    <label style={{ marginTop: "0.5em" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {/* LED: green=found, bright+glow=connected */}
+                        <span style={{
+                          display: "inline-block", width: "10px", height: "10px",
+                          borderRadius: "50%",
+                          background: fsConnected ? "#22cc44" : fluidsynthFound ? "#558855" : "#1a4422",
+                          boxShadow: fsConnected ? "0 0 5px #22cc44" : "none",
+                          flexShrink: 0,
+                        }} />
+                        FluidSynth
+                        {fluidsynthFound && (
+                          <span style={{ fontSize: "0.8em", color: "#669966" }}>
+                            {fluidsynthOutput.name}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!fluidsynthFound && !fsConnected}
+                        style={{
+                          fontSize: "0.85em",
+                          background: fsConnected ? "#84f39a" : undefined,
+                          color: fsConnected ? "#003300" : undefined,
+                          borderColor: fsConnected ? "#84f39a" : undefined,
+                        }}
+                        onClick={() => {
+                          if (fsConnected) {
+                            // Disconnect
+                            save("fluidsynth_device", "", onChange);
+                            save("fluidsynth_channel", -1, onChange);
+                          } else {
+                            // Connect
+                            if (!fluidsynthOutput) return;
+                            save("fluidsynth_device", fluidsynthOutput.id, onChange);
+                            save("fluidsynth_channel",
+                              settings.midi_channel >= 0 ? settings.midi_channel : 0,
+                              onChange);
+                          }
+                        }}
+                        title={fsConnected
+                          ? "Disconnect FluidSynth mirror"
+                          : fluidsynthFound ? "Connect MTS mirror to FluidSynth" : "FluidSynth not found"}
+                      >
+                        {fsConnected ? "Disconnect" : fluidsynthFound ? "Connect" : "Not found"}
+                      </button>
+                    </label>
+
+                    {fsConnected && (
+                      <>
+                        <label>
+                          FluidSynth Channel
+                          <select
+                            name="fluidsynth_channel"
+                            class="sidebar-input"
+                            value={settings.fluidsynth_channel ?? -1}
+                            onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
+                          >
+                            {[...Array(16).keys()].map(i => (
+                              <option key={i} value={i}>{i + 1}</option>
+                            ))}
+                          </select>
+                        </label>
+                        {mtsPortIsFluidsynth && (
+                          <p style={{ color: "#cc4400", fontSize: "0.85em", margin: "0.2em 0" }}>
+                            ⚠ Main MTS port is FluidSynth — mirror disabled to prevent doubling.
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+
             </>
           )}
         </>
       )}
+
+      <br />
 
       {/* ── DIRECT ─────────────────────────────────────────────────────── */}
 
       
 
       <label>
-        DIRECT MIDI + MTS Sysex Tuning Map
+        <b>Direct MIDI | MTS Tuning Map</b>
         <input
           name="output_direct"
           type="checkbox"
@@ -200,7 +302,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p><em>
+      <p style={{ marginTop: 0.5 }}><em>
         MIDI notes follow the hex layout. 128-note non-real-time sysex tuning maps (bulk dump) permit synths like the Prophet&#x2011;5
         play microtonally.
       </em></p>
@@ -315,7 +417,7 @@ const MidiOutputs = (props) => {
      
 
       <label>
-        MPE
+        <b>MPE</b>
         <input
           name="output_mpe"
           type="checkbox"
@@ -324,7 +426,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-       <p>
+       <p style={{ marginTop: 0.5 }}>
         <em>
           <a href="https://midi.org/mpe-midi-polyphonic-expression">
             MIDI Polyphonic Expression
@@ -530,6 +632,8 @@ MidiOutputs.propTypes = {
     center_degree: PropTypes.number,
     output_mpe: PropTypes.bool,
     output_direct: PropTypes.bool,
+    fluidsynth_device: PropTypes.string,
+    fluidsynth_channel: PropTypes.number,
     direct_device: PropTypes.string,
     direct_channel: PropTypes.number,
     direct_sysex_auto: PropTypes.bool,

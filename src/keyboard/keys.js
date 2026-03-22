@@ -151,6 +151,19 @@ class Keys {
       this.mtsSendMap();
     }
 
+    // FluidSynth mirror: auto-send tuning map to FluidSynth if connected and
+    // not the same port as the main MTS output (which would double the messages).
+    if (
+      this.settings.output_mts &&
+      this.settings.sysex_auto &&
+      this.settings.fluidsynth_device &&
+      this.settings.fluidsynth_channel >= 0 &&
+      this.settings.fluidsynth_device !== this.settings.midi_device
+    ) {
+      const fsOut = WebMidi.getOutputById(this.settings.fluidsynth_device);
+      if (fsOut) this.mtsSendMap(fsOut);
+    }
+
     if (
       this.settings.midiin_device !== "OFF" &&
       this.settings.midiin_channel >= 0
