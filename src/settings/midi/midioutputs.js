@@ -222,18 +222,22 @@ const MidiOutputs = (props) => {
               flexWrap: "wrap", alignItems: "baseline",
               marginTop: "0.5em", lineHeight: "1.5em",
             }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
                 <span style={{
                   display: "inline-block", width: "10px", height: "10px",
                   borderRadius: "50%",
                   background: fsConnected ? "#22cc44" : fluidsynthFound ? "#558855" : "#1a4422",
                   boxShadow: fsConnected ? "0 0 5px #22cc44" : "none",
                   flexShrink: 0,
+                  alignSelf: "top",
                 }} />
-                FluidSynth
+                <span>FluidSynth</span>
                 {fluidsynthFound && (
-                  <span style={{ fontSize: "0.8em", color: "#669966" }}>
-                    {fluidsynthOutput.name}
+                  <span style={{
+                    fontSize: "0.85em",
+                    color: "#669966",
+                  }}>
+                    [ {fluidsynthOutput.name} ]
                   </span>
                 )}
               </span>
@@ -345,7 +349,7 @@ const MidiOutputs = (props) => {
               <label>
                 Auto-Send Tuning Map
                 <span style={{ display: "flex", alignItems: "center",
-                               gap: "8px", marginLeft: "auto" }}>
+                               gap: "8px", marginLeft: "auto", marginTop: "4px" }}>
                   <input
                     name="direct_sysex_auto"
                     type="checkbox"
@@ -414,8 +418,9 @@ const MidiOutputs = (props) => {
         </>
       )}
 
+      <br />
+
       {/* ── MPE ────────────────────────────────────────────────────────── */}
-     
 
       <label>
         <b>MPE</b>
@@ -515,7 +520,7 @@ const MidiOutputs = (props) => {
                   style={{
                     textAlign: "right",
                     color: "#996666",
-                    fontSize: "0.9em",
+                    fontSize: "0.85em",
                   }}
                 >
                   {loCh}–{hiCh} ({hiCh - loCh + 1} voices)
@@ -590,7 +595,7 @@ const MidiOutputs = (props) => {
                 >
                   <button
                     type="button"
-                    style={{ fontSize: "0.85em" }}
+                    style={{ fontSize: "0.85em" , marginTop: "4px"}}
                     onClick={() => {
                       const output = WebMidi.getOutputById(settings.mpe_device);
                       if (output) {

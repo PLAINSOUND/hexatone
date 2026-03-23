@@ -185,43 +185,43 @@ MidiHex.prototype.noteOff = function (release_velocity) {
   }
 };
 
+// Minimum jump (in cents) that triggers the noteOff → retune → noteOn pattern.
+// Smooth TuneCell drags are always well below this; octave shifts (±1200¢) are always above.
+const MTS_JUMP_THRESHOLD_CENTS = 400;
+
+// Gap between MTS retune sysex and the rescheduled noteOn, in milliseconds.
+// Mirrors PB_GUARD_MS in mpe_synth — gives the driver time to process the
+// tuning message before the note-on arrives at the MIDI port.
+const MTS_NOTE_GUARD_MS = 2;
+
 /**
- * Smoothly retune a held note to a new cents value.
- * Sends interpolated MTS real-time tuning messages for smooth pitch glide.
+ * Retune a held note to a new cents value.
+ *
+ * Small jumps (TuneCell / FundamentalTuneCell drags, < MTS_JUMP_THRESHOLD_CENTS):
+ *   Send the MTS sysex immediately. Pointer events fire at ~60 fps; the event
+ *   stream itself is the glide. No setTimeout, no overlapping chains.
+ *
+ * Large jumps (octave shift, ≥ MTS_JUMP_THRESHOLD_CENTS):
+ *   noteOff → MTS retune sysex → noteOn, all sequenced with WebMIDI timestamps
+ *   so the driver processes them in order with sub-ms precision. Mirrors the
+ *   mechanism MpeHex uses for PB_GUARD_MS.
  */
 MidiHex.prototype.retune = function(newCents) {
   if (this.release) return;
-  const oldCents = this.cents;
+  const delta = Math.abs(newCents - this.cents);
   this.cents = newCents;
-  
-  const delta = newCents - oldCents;
-  
-  // For small changes, send single message. For larger, interpolate.
-  if (Math.abs(delta) < 5) {
-    // Small change - send single tuning message
+
+  if (delta >= MTS_JUMP_THRESHOLD_CENTS) {
+    // Large jump: silence the note, retune, restart — avoids audible pitch-
+    // glide artefacts when the synth hears the old pitch while ringing.
+    const now = performance.now();
+    this.midi_output.send([0x80 + this.channel, this.steps, this.velocity], now);
     this._sendMtsTuning(newCents);
+    this.midi_output.send([0x90 + this.channel, this.steps, this.velocity], now + MTS_NOTE_GUARD_MS);
   } else {
-    // Larger change - interpolate over ~30ms
-    const steps = Math.min(8, Math.max(3, Math.ceil(Math.abs(delta) / 10)));
-    const stepDelta = delta / steps;
-    let step = 0;
-    
-    const sendStep = () => {
-      step++;
-      const interpolatedCents = oldCents + stepDelta * step;
-      this._sendMtsTuning(interpolatedCents);
-      
-      if (step < steps) {
-        setTimeout(sendStep, 4);
-      } else {
-        // Final update with exact target
-        this._sendMtsTuning(newCents);
-        this._updateKeymap();
-      }
-    };
-    
-    sendStep();
+    this._sendMtsTuning(newCents);
   }
+  this._updateKeymap();
 };
 
 /**

@@ -44,8 +44,18 @@ const Settings = ({
           }
         />
         {activeSource === "builtin" && onRevertBuiltin && (
-          <button type="button" onClick={onRevertBuiltin}>
-            Reload saved
+          <button
+            type="button"
+            onClick={onRevertBuiltin}
+            style={{
+              fontSize: "1.3rem",
+              lineHeight: "0.86",
+              overflow: "visible",
+              alignSelf: "center",
+              marginTop: "0em",
+            }}
+          >
+            ⟳
           </button>
         )}
       </label>
@@ -76,7 +86,12 @@ const Settings = ({
       instruments={instruments}
       onVolumeChange={onVolumeChange}
     />
-    <MIDIio onChange={onChange} settings={settings} midi={midi} midiTick={midiTick} />
+    <MIDIio
+      onChange={onChange}
+      settings={settings}
+      midi={midi}
+      midiTick={midiTick}
+    />
     <MidiOutputs
       onChange={onChange}
       settings={settings}

@@ -217,7 +217,7 @@ input:out-of-range {
   width: 100%;
   margin: 0.25em 0 0;
   color: #990000;
-  font-size: 0.9em;
+  font-size: 0.85em;
 }
 
 label .color-cell {
@@ -458,7 +458,7 @@ table td {
 .tonic-label {
   line-height: 1.5;
   color: #996666;
-  font-size: 0.9em;
+  font-size: 0.85em;
 }
 
 /* Equave row — auto-generated, read-only feel */

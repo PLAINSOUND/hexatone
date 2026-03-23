@@ -504,10 +504,11 @@ class Keys {
       this.settings.fundamental,
       this.settings.degree0toRef_asArray,
     );
-    if (this.settings.output_mts && this.midiout_data) this.mtsSendMap();
-    if (this.settings.fluidsynth_device) {
-      const fsOut = WebMidi.getOutputById(this.settings.fluidsynth_device);
-      if (fsOut) this.mtsSendMap(fsOut);
+    if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
+    if (this.settings.output_direct && this.settings.direct_sysex_auto &&
+        this.settings.direct_device && this.settings.direct_device !== 'OFF') {
+      const directOut = WebMidi.getOutputById(this.settings.direct_device);
+      if (directOut) this.mtsSendMap(directOut);
     }
     this.drawGrid();
   };
@@ -540,11 +541,12 @@ class Keys {
       if ('fundamental' in hex) hex.fundamental = newFundamental;
       if (hex.retune) hex.retune(hex.cents);
     }
-    // Re-send tuning map to MTS output
-    if (this.settings.output_mts && this.midiout_data) this.mtsSendMap();
-    if (this.settings.fluidsynth_device) {
-      const fsOut = WebMidi.getOutputById(this.settings.fluidsynth_device);
-      if (fsOut) this.mtsSendMap(fsOut);
+    // Re-send tuning map if auto-send is enabled for the relevant output
+    if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
+    if (this.settings.output_direct && this.settings.direct_sysex_auto &&
+        this.settings.direct_device && this.settings.direct_device !== 'OFF') {
+      const directOut = WebMidi.getOutputById(this.settings.direct_device);
+      if (directOut) this.mtsSendMap(directOut);
     }
   };
 

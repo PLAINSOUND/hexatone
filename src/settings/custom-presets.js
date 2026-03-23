@@ -246,12 +246,20 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
             ))}
           </select>
           {isActive && onRevert && (
-            <button type="button" onClick={onRevert}>Reload current</button>
+            <button type="button" onClick={onRevertBuiltin} style={{
+              fontSize: "1.3rem",
+              lineHeight: "0.86",
+              overflow: "visible",
+              alignSelf: "center",
+              marginTop: "0em"
+            }}>
+              ⟳
+            </button>
           )}
           <button type="button" class="delete-btn"
-                  style={{ marginLeft: 'auto' }}
-                  disabled={!selected}
-                  onClick={handleDelete}>
+            style={{ marginLeft: 'auto', width: 90 }}
+            disabled={!selected}
+            onClick={handleDelete}>
             Delete
           </button>
         </label>
@@ -267,9 +275,9 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
         style={{ display: 'none' }}
         onChange={handleFolderChange}
       />
-      <div class="preset-actions">
+      <div class="preset-actions" style={{ marginTop: 4 }}>
         <button type="button"
-                onClick={() => folderInputRef.current && folderInputRef.current.click()}>
+          onClick={() => folderInputRef.current && folderInputRef.current.click()}>
           Choose folder…
         </button>
         {expanded && presets.length > 0 && (
@@ -281,7 +289,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
               <button type="button" onClick={() => setConfirmClear(false)}>Cancel</button>
             </span>
           ) : (
-            <button type="button" class="delete-btn" onClick={handleClear}>
+            <button type="button" class="delete-btn" style={{ marginLeft: 'auto', width: 90 }} onClick={handleClear}>
               Clear all
             </button>
           )
@@ -290,15 +298,15 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
 
       {/* ── Save / Export — show when a preset is active ── */}
       {activeSource && (
-        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
           <button type="button" onClick={handleSave}>
             {saveLabel}
           </button>
           <span style={{ display: 'flex', gap: '6px' }}>
-            <button type="button" onClick={handleExport}>
+            <button type="button" style={{ width: 90 }} onClick={handleExport}>
               Export .json
             </button>
-            <button type="button" onClick={handleExportLtn}>
+            <button type="button" style={{ width: 90 }} onClick={handleExportLtn}>
               Export .ltn
             </button>
           </span>
