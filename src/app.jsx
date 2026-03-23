@@ -56,7 +56,7 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
     "reference_degree",
     "equivSteps",
     "equivInterval",
-    "midiin_central_degree",
+    // midiin_central_degree excluded — hardware setting, persists across presets
     "spectrum_colors",
     "fundamental_color",
     "name",
@@ -204,7 +204,7 @@ const SCALE_KEYS_TO_CLEAR = [
   "hexSize",
   "rotation",
   "center_degree",
-  "midiin_central_degree",
+  // "midiin_central_degree" excluded — hardware setting, persists across presets
   "spectrum_colors",
   "fundamental_color",
   "name",
@@ -404,6 +404,7 @@ const App = () => {
 
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
+  const [octaveTranspose, setOctaveTranspose] = useState(0);
 
   // Long-press sidebar button to toggle latch (sustain while playing)
   const longPressTimer = useRef(null);
@@ -429,6 +430,9 @@ const App = () => {
   }, []);
   const [synth, setSynth] = useState(null);
   const [midi, setMidi] = useState(null);
+  // Increments whenever MIDI devices connect or disconnect (onstatechange).
+  // Passed as a prop so components re-render and the synth useEffect re-runs.
+  const [midiTick, setMidiTick] = useState(0);
   const wait = (l) => l + 1;
   const signal = (l) => l - 1;
 
@@ -487,6 +491,9 @@ const App = () => {
   function onMIDISuccess(midiAccess) {
     console.log("Web MIDI API with sysex for MTS messages is ready!");
     setMidi(midiAccess);
+    // Re-render UI and re-run synth creation whenever MIDI devices change
+    // (e.g. FluidSynth starting after page load, controller connecting late).
+    midiAccess.onstatechange = () => setMidiTick(t => t + 1);
   }
 
   function onMIDIFailure() {
@@ -523,7 +530,20 @@ const App = () => {
       settings.mpe_lo_ch > 0 &&
       settings.mpe_hi_ch >= settings.mpe_lo_ch;
 
-    if (!wantSample && !wantMts && !wantDirect && !wantMpe) {
+    // FluidSynth mirror — must be computed before the early-return guard below,
+    // otherwise the TDZ reference to wantFluidsynth in that condition would throw
+    // a ReferenceError whenever wantSample is false and no MIDI is configured.
+    const fluidsynthOutputObj = midi && settings.fluidsynth_device
+      ? midi.outputs.get(settings.fluidsynth_device) : null;
+    const mtsPortIsFluidsynth = fluidsynthOutputObj &&
+      settings.midi_device === settings.fluidsynth_device;
+    const wantFluidsynth =
+      !!fluidsynthOutputObj &&
+      !mtsPortIsFluidsynth &&
+      settings.fluidsynth_channel >= 0 &&
+      typeof settings.midi_velocity === "number";
+
+    if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe) {
       setSynth(null);
       return;
     }
@@ -541,17 +561,6 @@ const App = () => {
         ),
       );
     }
-    // FluidSynth mirror: second MTS instance on the auto-detected FluidSynth port.
-    // Disabled when main MTS port IS the FluidSynth port (would double notes).
-    const fluidsynthOutputObj = midi && settings.fluidsynth_device
-      ? midi.outputs.get(settings.fluidsynth_device) : null;
-    const mtsPortIsFluidsynth = fluidsynthOutputObj &&
-      settings.midi_device === settings.fluidsynth_device;
-    const wantFluidsynth = wantMts &&
-      !!fluidsynthOutputObj &&
-      !mtsPortIsFluidsynth &&
-      settings.fluidsynth_channel >= 0;
-
     if (wantMts) {
       promises.push(
         create_midi_synth(
@@ -574,7 +583,7 @@ const App = () => {
           settings.midiin_central_degree,
           fluidsynthOutputObj,
           settings.fluidsynth_channel,
-          settings.midi_mapping,
+          settings.midi_mapping || "MTS1",
           settings.midi_velocity,
           settings.fundamental,
           settings.sysex_type,
@@ -639,7 +648,8 @@ const App = () => {
     });
   }, [
     settings.instrument,
-    settings.fundamental,
+    // fundamental removed from deps — synth uses makeHex per note,
+    // fundamental change is handled imperatively via updateFundamental
     settings.reference_degree,
     settings.scale,
     settings.midi_device,
@@ -661,7 +671,21 @@ const App = () => {
     settings.mpe_pitchbend_range,
     settings.mpe_mode,
     midi,
+    midiTick,
   ]);
+
+  // Octave shift: multiply fundamental by 2^(dir * equivInterval / 1200)
+  const shiftOctave = (dir) => {
+    setOctaveTranspose(t => t + dir);
+    if (keysRef.current?.shiftOctave)
+      keysRef.current.shiftOctave(dir);
+  };
+
+  // When fundamental changes from sidebar/preset, propagate to live Keys.
+  useEffect(() => {
+    if (keysRef.current?.updateFundamental)
+      keysRef.current.updateFundamental(settings.fundamental);
+  }, [settings.fundamental]);
 
   // Keep synthRef in sync so volume/mute can be applied imperatively
   useEffect(() => {
@@ -1038,7 +1062,7 @@ const App = () => {
       settings.equivSteps,
       noteNamesKey,
       settings.key_labels,
-      settings.fundamental,
+      // fundamental handled imperatively via keysRef.current.updateFundamental
       settings.reference_degree,
       settings.center_degree,
       settings.instrument,
@@ -1089,6 +1113,11 @@ const App = () => {
     prevStructuralRef.current = structuralSettings;
   }, [structuralSettings]);
 
+  // Reset octave transpose display when structuralSettings change (preset load etc.)
+  useEffect(() => {
+    setOctaveTranspose(0);
+  }, [structuralSettings]);
+
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
@@ -1135,14 +1164,7 @@ const App = () => {
           structuralSettings={structuralSettings}
           onKeysReady={useCallback((keys) => {
             keysRef.current = keys;
-            // When controller auto-centres, write back adjusted midiin_central_degree
-            keys.onCentralDegreeAdjust = (stepShift) => {
-              const current = settings.midiin_central_degree ?? 60;
-              const adjusted = current - stepShift;
-              sessionStorage.setItem('midiin_central_degree', adjusted);
-              setSettings(s => ({ ...s, midiin_central_degree: adjusted }));
-            };
-          }, [settings.midiin_central_degree])}
+          }, [])}
           onLatchChange={useCallback((v) => setLatch(v), [])}
           active={active}
         />
@@ -1161,6 +1183,22 @@ const App = () => {
         <div>&gt;</div>
       </button>
       <div id="bottom-bar">
+        <div id="octave-island">
+          <button className="octave-btn" title="Octave down"
+            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onClick={(e) => { e.stopPropagation(); shiftOctave(-1); }}
+            onContextMenu={(e) => e.preventDefault()}
+          >▼</button>
+          <span className="octave-display">
+            {octaveTranspose === 0 ? "OCT" : octaveTranspose > 0
+              ? `+${octaveTranspose}` : `${octaveTranspose}`}
+          </span>
+          <button className="octave-btn" title="Octave up"
+            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onClick={(e) => { e.stopPropagation(); shiftOctave(+1); }}
+            onContextMenu={(e) => e.preventDefault()}
+          >▲</button>
+        </div>
         <button
           id="sustain-island"
           className={latch ? "latch-active" : ""}
@@ -1269,6 +1307,7 @@ const App = () => {
           }}
           settings={settings}
           midi={midi}
+          midiTick={midiTick}
           instruments={instruments}
           keysRef={keysRef}
         />

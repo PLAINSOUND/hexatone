@@ -4,6 +4,8 @@ import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
 
 const MIDIio = (props) => {
+  // props.midiTick is unused directly — its presence as a changing prop forces
+  // re-render when MIDI devices connect/disconnect, refreshing the inputs list.
   // Detect connected controller type by device name.
   const connectedDevice = props.midi && props.settings.midiin_device &&
     props.settings.midiin_device !== 'OFF'
@@ -65,28 +67,26 @@ const MIDIio = (props) => {
                     {ctrl.description}
                   </span>
                 </label>
-                {ctrl.anchor.map(a => (
-                  <label key={a.key}>
-                    {a.label}
-                    <input
-                      name={a.key}
-                      type="text"
-                      inputMode="numeric"
-                      class="sidebar-input"
-                      key={props.settings[a.key] ?? a.default}
-                      defaultValue={props.settings[a.key] ?? a.default}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (!isNaN(val) && val >= a.min && val <= a.max) {
-                          props.onChange(a.key, val);
-                          sessionStorage.setItem(a.key, val);
-                        } else {
-                          e.target.value = props.settings[a.key] ?? a.default;
-                        }
-                      }}
-                    />
-                  </label>
-                ))}
+                {/* Universal anchor: MIDI note → central degree.
+                    Bypass ON: raw notes positioned relative to this anchor.
+                    Bypass OFF: controller geometry wraps around this same anchor. */}
+                <label>
+                  MIDI Note → Central Degree ({center_degree})
+                  <input name="midiin_central_degree" type="text" inputMode="numeric"
+                    class="sidebar-input"
+                    key={`${props.settings.midiin_central_degree}-${center_degree}`}
+                    defaultValue={centralNote}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 0 && val <= 127) {
+                        props.onChange('midiin_central_degree', val - center_degree);
+                        sessionStorage.setItem('midiin_central_degree', val - center_degree);
+                      } else {
+                        e.target.value = centralNote;
+                      }
+                    }}
+                  />
+                </label>
                 <label>
                   Bypass Key Mapping
                   <input

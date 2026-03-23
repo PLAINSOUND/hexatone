@@ -20,7 +20,7 @@
  * controller.multiChannel is false (ignoreChannel behaviour).
  *
  * To request a new geometry: https://github.com/PLAINSOUND/hexatone/issues/new
- * or email plainsound@plainsound.org — include controller name, MIDI note layout,
+ * or email hexatone@plainsound.org — include controller name, MIDI note layout,
  * and a photo or diagram of the physical key arrangement.
  */
 
@@ -43,28 +43,36 @@ function makeMap(entries) {
 // Within each bank, odd columns stagger 0.5 rows down.
 // note = col * 7 + row + 1  (col 0–13, row 0–6)
 
-function buildAxis49Map(anchorNote) {
-  const ROWS = 7, COLS = 14, BANK = 7;
+// THIS LOGIC IS FLAWED: THE APP ALREADY CAN PROCESS FROM COORDS, WE ONLY NEED TO CALCULATE COORDS!
+
+function buildAxis49Map(anchorNote, anchorChannel, rSteps, drSteps) {
+  // AXIS-49 Selfless mode: 14 cols × 7 rows, notes 1-98, single channel.
+  // Anchor: the AXIS MIDI note that maps to the screen centre degree.
+  // Physical layout: +1 col = ROWS notes apart. Each note = 1 chromatic step.
+  //
+  // Screen (x, y) formula — pitch steps from anchor = x*rSteps + y*drSteps:
+  //   x = col - anchorCol          (column offset; 1 col = rSteps steps if rSteps=7)
+  //   y = round((steps - x*rSteps) / drSteps)  (residual onto y axis)
+  //
+  // With rSteps=7, drSteps=4 (standard Wicki-Hayden Bosanquet):
+  //   note 53 (anchor) → (0,0)
+  //   note 60 (+7 steps, +1 col) → (1,0)
+  //   note 57 (+4 steps, same col) → (0,1)
+
+  const ROWS = 7, COLS = 14;
   const anchorNote1 = Math.max(1, Math.min(98, anchorNote));
-  const anchorCol = Math.floor((anchorNote1 - 1) / ROWS);
-  const anchorRow = (anchorNote1 - 1) % ROWS;
+  const anchorCol   = Math.floor((anchorNote1 - 1) / ROWS);
+  const rs = rSteps  || 7;
+  const ds = drSteps || 4;
 
-  // Continuous y position in hex space
-  function hexY(col, row) {
-    const bank = Math.floor(col / BANK);
-    const colInBank = col % BANK;
-    return row + (colInBank % 2 === 1 ? 0.5 : 0) + bank * 0.5;
-  }
-
-  const ay = hexY(anchorCol, anchorRow);
   const entries = [];
-
   for (let col = 0; col < COLS; col++) {
     for (let row = 0; row < ROWS; row++) {
-      const note = col * ROWS + row + 1;
-      const dx = col - anchorCol;
-      const dy = Math.round(hexY(col, row) - ay);
-      entries.push({ ch: 1, note, x: dx, y: dy });
+      const note  = col * ROWS + row + 1;
+      const steps = note - anchorNote1;       // chromatic steps from anchor
+      const x     = col - anchorCol;          // column offset
+      const y     = Math.round((steps - x * rs) / ds);
+      entries.push({ ch: 1, note, x, y });
     }
   }
   return makeMap(entries);
@@ -216,11 +224,8 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('axis-4') || name.includes('axis 4'),
     description: 'Selfless mode (single channel, notes 1–98). 14×7 isomorphic hex grid.',
     multiChannel: false,
-    anchor: [
-      { key: 'axis49_center_note', label: 'Centre key (1–98)',
-        type: 'int', min: 1, max: 98, default: 49 },
-    ],
-    buildMap: (params) => buildAxis49Map(params.axis49_center_note ?? 49),
+    anchorDefault: 49,  // AXIS-49 physical note 49 is the centre key
+    buildMap: (anchorNote, anchorChannel, rSteps, drSteps) => buildAxis49Map(anchorNote ?? 49, anchorChannel, rSteps, drSteps),
   },
 
   {
@@ -229,16 +234,9 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('lumatone'),
     description: '5 blocks × 56 keys, channels 1–5 encode block position.',
     multiChannel: true,
-    anchor: [
-      { key: 'lumatone_center_channel', label: 'Centre block (1–5)',
-        type: 'int', min: 1, max: 5, default: 3 },
-      { key: 'lumatone_center_note', label: 'Centre key in block (0–55)',
-        type: 'int', min: 0, max: 55, default: 27 },
-    ],
-    buildMap: (params) => buildLumatoneMap(
-      params.lumatone_center_channel ?? 3,
-      params.lumatone_center_note ?? 27
-    ),
+    anchorDefault: 27,  // note 27 in centre block is the default centre key
+    anchorChannelDefault: 3,  // centre block
+    buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 27),
   },
 
   {
@@ -247,11 +245,8 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('linnstrument'),
     description: '16×8 grid, row per channel (ch1–8). Default 4ths tuning (+1 col = +1, +1 row = +5).',
     multiChannel: true,
-    anchor: [
-      { key: 'controller_anchor_note', label: 'Bottom-left MIDI note',
-        type: 'int', min: 0, max: 127, default: 30 },
-    ],
-    buildMap: (params) => buildLinnstrumentMap(params.controller_anchor_note ?? 30),
+    anchorDefault: 30,
+    buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 30),
   },
 
   {
@@ -260,11 +255,8 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('push 2') || name.includes('push 3') || name.includes('push2') || name.includes('push3'),
     description: '8×8 isomorphic grid, single channel. Default 4ths tuning.',
     multiChannel: false,
-    anchor: [
-      { key: 'controller_anchor_note', label: 'Bottom-left MIDI note',
-        type: 'int', min: 0, max: 127, default: 36 },
-    ],
-    buildMap: (params) => buildPushMap(params.controller_anchor_note ?? 36),
+    anchorDefault: 36,
+    buildMap: (anchorNote) => buildPushMap(anchorNote ?? 36),
   },
 
   {
@@ -273,11 +265,8 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('launchpad'),
     description: '8×8 grid in programmer mode. Set device to scale/isomorphic mode for best results.',
     multiChannel: false,
-    anchor: [
-      { key: 'controller_anchor_note', label: 'Bottom-left note (programmer mode)',
-        type: 'int', min: 11, max: 88, default: 36 },
-    ],
-    buildMap: (params) => buildLaunchpadMap(params.controller_anchor_note ?? 36),
+    anchorDefault: 36,
+    buildMap: (anchorNote) => buildLaunchpadMap(anchorNote ?? 36),
   },
 
   {
@@ -286,11 +275,8 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('exquis'),
     description: '7×11 hex grid, single channel. Set device to isomorphic mode.',
     multiChannel: false,
-    anchor: [
-      { key: 'controller_anchor_note', label: 'Centre MIDI note',
-        type: 'int', min: 0, max: 127, default: 60 },
-    ],
-    buildMap: (params) => buildExquisMap(params.controller_anchor_note ?? 60),
+    anchorDefault: 60,
+    buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 60),
   },
 ];
 
@@ -306,12 +292,16 @@ export function detectController(deviceName) {
 }
 
 /**
- * Extract anchor parameter values from a settings object for a given controller.
+ * Get the anchor MIDI note for a controller from settings.
+ * Universal: always uses midiin_central_degree (the MIDI note → central screen degree mapping).
+ * Falls back to controller's anchorDefault if not set.
  */
+export function getAnchorNote(controller, settings) {
+  if (settings.midiin_central_degree != null) return settings.midiin_central_degree;
+  return controller.anchorDefault ?? 60;
+}
+
+/** Legacy alias */
 export function getAnchorParams(controller, settings) {
-  const params = {};
-  for (const a of controller.anchor) {
-    params[a.key] = settings[a.key] ?? a.default;
-  }
-  return params;
+  return { anchorNote: getAnchorNote(controller, settings) };
 }

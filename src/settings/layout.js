@@ -23,6 +23,23 @@ const Layout = (props) => {
                  lineHeight: '1.4', verticalAlign: 'middle', cursor: 'pointer' }}
       >{collapsed ? '▶' : '▼'}</button>
     </legend>
+    <label>
+      Central Scale Degree
+      <input name="center_degree" type="text" inputMode="numeric"
+             class="sidebar-input"
+             key={`${props.settings.center_degree}-${maxDegree}`}
+             defaultValue={props.settings.center_degree || 0}
+             step="1" min="0" max={maxDegree}
+             onBlur={(e) => {
+               const val = parseInt(e.target.value);
+               if (!isNaN(val) && val >= 0 && val <= maxDegree) {
+                 props.onChange('center_degree', val);
+               } else {
+                 e.target.value = props.settings.center_degree || 0;
+               }
+             }}
+      />
+    </label>
     {collapsed ? null : (
     <>
     <label>
@@ -55,23 +72,6 @@ const Layout = (props) => {
                  props.onChange('drSteps', val);
                } else {
                  e.target.value = props.settings.drSteps;
-               }
-             }}
-      />
-    </label>
-    <label>
-      Central Scale Degree
-      <input name="center_degree" type="text" inputMode="numeric"
-             class="sidebar-input"
-             key={`${props.settings.center_degree}-${maxDegree}`}
-             defaultValue={props.settings.center_degree || 0}
-             step="1" min="0" max={maxDegree}
-             onBlur={(e) => {
-               const val = parseInt(e.target.value);
-               if (!isNaN(val) && val >= 0 && val <= maxDegree) {
-                 props.onChange('center_degree', val);
-               } else {
-                 e.target.value = props.settings.center_degree || 0;
                }
              }}
       />

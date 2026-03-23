@@ -27,7 +27,7 @@ import { scalaToCents } from "../settings/scale/parse-scale";
 // PB is sent at t=now (no timestamp — MIDI port queues it immediately).
 // noteOn is scheduled at t=now+PB_GUARD_MS so the driver sees PB first.
 // noteOff is NEVER delayed — delaying it risks stuck notes.
-const PB_GUARD_MS    = 2;    // ms: gap between PB and noteOn
+const PB_GUARD_MS = 2;    // ms: gap between PB and noteOn
 const RELEASE_GUARD_MS = 300;
 
 function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale) {
@@ -221,9 +221,9 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   // channel is still IDLE (not reallocated to a new note in the meantime).
   // This keeps channels clean for monitoring and for synths that retain PB
   // state across notes.
-  const channel   = this.channel;
-  const pool      = this.pool;
-  const midi_out  = this.midi_output;
+  const channel = this.channel;
+  const pool = this.pool;
+  const midi_out = this.midi_output;
   setTimeout(() => {
     if (pool.getChannelState(channel) === 'IDLE') {
       midi_out.send([0xE0 + c, 0, 64]); // PB centred (8192)

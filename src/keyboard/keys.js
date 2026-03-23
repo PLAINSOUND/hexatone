@@ -18,7 +18,7 @@ import { keymap, notes } from "../midi_synth";
 import { mtsToMidiFloat, centsToMTS } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 
-import { detectController, getAnchorParams } from '../controllers/registry.js';
+import { detectController, getAnchorNote } from '../controllers/registry.js';
 import { RecencyStack } from '../recency_stack.js';
 
 class Keys {
@@ -44,10 +44,6 @@ class Keys {
     this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or DIRECT) to an external synth
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
-    // Callback set by app.jsx — called when detectAndBuildControllerMap
-    // finds a better midiin_central_degree offset for the connected controller.
-    this.onCentralDegreeAdjust = null;
-    this._lastStepShift = null;
     this.bend = 0;
     this.state = {
       canvas,
@@ -151,18 +147,7 @@ class Keys {
       this.mtsSendMap();
     }
 
-    // FluidSynth mirror: auto-send tuning map to FluidSynth if connected and
-    // not the same port as the main MTS output (which would double the messages).
-    if (
-      this.settings.output_mts &&
-      this.settings.sysex_auto &&
-      this.settings.fluidsynth_device &&
-      this.settings.fluidsynth_channel >= 0 &&
-      this.settings.fluidsynth_device !== this.settings.midi_device
-    ) {
-      const fsOut = WebMidi.getOutputById(this.settings.fluidsynth_device);
-      if (fsOut) this.mtsSendMap(fsOut);
-    }
+    
 
     if (
       this.settings.midiin_device !== "OFF" &&
@@ -382,8 +367,32 @@ class Keys {
             */
             }
           }
-        // Detect controller geometry from registry and build unified lookup map.
-        this.detectAndBuildControllerMap();
+        // Detect controller geometry and build a direct coordinate lookup map.
+        // registry.buildMap() returns Map<"ch.note", {x,y}> with the anchor at (0,0).
+        // Adding centerHexOffset converts to absolute hex-grid coords — the same
+        // space that hexOn() / hexOff() / hexCoordsToCents() operate in.
+        // No best-fit search needed: the anchor key always lands at the screen centre.
+        if (!this.stepsTable || this.stepsTable.size === 0) this.buildStepsTable();
+        {
+          const deviceName = this.midiin_data.name?.toLowerCase() ?? '';
+          const entry = detectController(deviceName);
+          if (entry) {
+            this.controller = entry;
+            const anchorNote = getAnchorNote(entry, this.settings);
+            const anchorChannel = this.settings.lumatone_center_channel ?? entry.anchorChannelDefault ?? 3;
+            const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
+            const ox = this.settings.centerHexOffset.x;
+            const oy = this.settings.centerHexOffset.y;
+            this.controllerMap = new Map();
+            for (const [key, { x, y }] of rawOffsets) {
+              this.controllerMap.set(key, new Point(x + ox, y + oy));
+            }
+            console.log('[Controller] built map for:', entry.id, 'size:', this.controllerMap.size);
+          } else {
+            this.controller = null;
+            this.controllerMap = null;
+          }
+        }
 
         // Universal pitch-wheel → recency-stack target.
         // Runs for ALL midi_mapping modes.  The existing per-mode pitchbend
@@ -458,6 +467,84 @@ class Keys {
       const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === 0 && hex.retune)
         hex.retune(octs * this.settings.equivInterval + newCents);
+    }
+  };
+
+  // Imperatively update the Reference Frequency without rebuilding Keys.
+  // Rebuilds mts_tuning_map, retuning all sounding/sustained notes,
+  // and re-sends the tuning map to any active MTS/Direct output.
+  // Shift all pitches by ±1 equave without rebuilding Keys.
+  // Updates octave_offset in this.settings, redraws the grid
+  // (so colours update), and retunes any sounding/sustained notes.
+  shiftOctave = (dir) => {
+    this.settings.octave_offset = (this.settings.octave_offset || 0) + dir;
+    // Retune all sounding and sustained notes
+    for (const hex of this.state.activeHexObjects) {
+      const [newCents] = this.hexCoordsToCents(hex.coords);
+      if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
+      if (hex.retune) hex.retune(newCents);
+    }
+    for (const [hex] of this.state.sustainedNotes) {
+      const [newCents] = this.hexCoordsToCents(hex.coords);
+      if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
+      if (hex.retune) hex.retune(newCents);
+    }
+    // Rebuild MTS map with new pitch offsets and re-send
+    const central_midi_note = (this.settings.midiin_central_degree ?? 60)
+      + (this.settings.center_degree || 0);
+    const tuning_map_degree0 = this.settings.tuning_map_degree0 ?? central_midi_note;
+    this.mts_tuning_map = mtsTuningMap(
+      this.settings.sysex_type,
+      this.settings.device_id,
+      this.settings.tuning_map_number,
+      tuning_map_degree0,
+      this.settings.scale,
+      this.settings.name,
+      this.settings.equivInterval,
+      this.settings.fundamental,
+      this.settings.degree0toRef_asArray,
+    );
+    if (this.settings.output_mts && this.midiout_data) this.mtsSendMap();
+    if (this.settings.fluidsynth_device) {
+      const fsOut = WebMidi.getOutputById(this.settings.fluidsynth_device);
+      if (fsOut) this.mtsSendMap(fsOut);
+    }
+    this.drawGrid();
+  };
+
+  updateFundamental = (newFundamental) => {
+    this.settings.fundamental = newFundamental;
+    // Rebuild MTS tuning map with new fundamental
+    const central_midi_note = (this.settings.midiin_central_degree ?? 60)
+      + (this.settings.center_degree || 0);
+    const tuning_map_degree0 = this.settings.tuning_map_degree0 ?? central_midi_note;
+    this.mts_tuning_map = mtsTuningMap(
+      this.settings.sysex_type,
+      this.settings.device_id,
+      this.settings.tuning_map_number,
+      tuning_map_degree0,
+      this.settings.scale,
+      this.settings.name,
+      this.settings.equivInterval,
+      newFundamental,
+      this.settings.degree0toRef_asArray,
+    );
+    // Update fundamental on all sounding/sustained hex objects, then retune.
+    // Both MidiHex and ActiveHex store this.fundamental at construction;
+    // we patch it directly so retune() uses the new value.
+    const allHexes = [
+      ...this.state.activeHexObjects,
+      ...[...this.state.sustainedNotes].map(([h]) => h),
+    ];
+    for (const hex of allHexes) {
+      if ('fundamental' in hex) hex.fundamental = newFundamental;
+      if (hex.retune) hex.retune(hex.cents);
+    }
+    // Re-send tuning map to MTS output
+    if (this.settings.output_mts && this.midiout_data) this.mtsSendMap();
+    if (this.settings.fluidsynth_device) {
+      const fsOut = WebMidi.getOutputById(this.settings.fluidsynth_device);
+      if (fsOut) this.mtsSendMap(fsOut);
     }
   };
 
@@ -717,10 +804,11 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     const note_played = e.note.number + 128 * (e.message.channel - 1);
     const velocity_played = e.note.rawAttack;
 
-    // Bypass mode: hexOn feeds all synths at the correct mapped pitch.
-    // Raw MIDI forward only fires when MTS is off (MTS output via hexOn is
-    // already correct; forwarding the raw note would double it at wrong pitch).
-    if (this.settings.midi_passthrough && this.controllerMap) {
+    let coords;
+
+    if (this.settings.midi_passthrough) {
+      // Bypass mode: ignore controller geometry, use step arithmetic.
+      // Also forward raw notes when MTS output is off (MTS via hexOn would double them).
       if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOn(e.note.number, {
           channels: this.settings.midi_channel + 1,
@@ -729,29 +817,40 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
       }
       const steps = (e.note.number - this.settings.midiin_central_degree)
                   + this.channelToStepsOffset(e.message.channel);
-      const bypassCoords = this.bestVisibleCoord(steps);
-      if (bypassCoords !== null) {
-        if (this._midiLatchToggle(bypassCoords, velocity_played)) return;
-        const hex = this.hexOn(bypassCoords, note_played, velocity_played, bend);
-        this.state.activeHexObjects.push(hex);
-        this.state.lastMidiCoords = this.hexCoordsToScreen(bypassCoords);
-      }
-      return;
+      coords = this.bestVisibleCoord(steps);
+    } else if (this.controllerMap) {
+      // Known controller: direct coordinate lookup from pre-built map.
+      // Single-channel controllers always use ch=1; multi-channel use the real channel.
+      const ch = this.controller.multiChannel ? e.message.channel : 1;
+      const baseCoords = this.controllerMap.get(`${ch}.${e.note.number}`) ?? null;
+      if (baseCoords === null) return;
+      // For single-channel controllers, apply the per-channel step offset so that
+      // sending notes on different MIDI channels transposes by the configured amount
+      // (default: one equave per channel). Multi-channel controllers encode physical
+      // position in the channel — adding a step offset on top would be wrong.
+      coords = this.controller.multiChannel
+        ? baseCoords
+        : this._applyChannelOffset(baseCoords, e.message.channel);
+    } else {
+      // Generic keyboard: step arithmetic with channel-based transposition.
+      const steps = (e.note.number - this.settings.midiin_central_degree)
+                  + this.channelToStepsOffset(e.message.channel);
+      coords = this.bestVisibleCoord(steps);
     }
 
-    // Unified controller path
-    const coords = this._resolveControllerCoords(e.note.number, e.message.channel);
-    if (coords !== null) {
-      if (this._midiLatchToggle(coords, velocity_played)) return;
-      const hex = this.hexOn(coords, note_played, velocity_played, bend);
-      this.state.activeHexObjects.push(hex);
-      this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
-    }
+    if (coords === null) return;
+    if (this._midiLatchToggle(coords, velocity_played)) return;
+    const hex = this.hexOn(coords, note_played, velocity_played, bend);
+    this.state.activeHexObjects.push(hex);
+    this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
   };
 
   midinoteOff = (e) => {
-    if (this.settings.midi_passthrough && this.controllerMap) {
-      if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
+    let coordsList;
+
+    if (this.settings.midi_passthrough || !this.controllerMap) {
+      // Bypass or generic keyboard: step arithmetic (may hit multiple visible coords).
+      if (this.settings.midi_passthrough && !this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOff(e.note.number, {
           channels: this.settings.midi_channel + 1,
           rawRelease: e.note.rawRelease,
@@ -759,22 +858,23 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
       }
       const steps = (e.note.number - this.settings.midiin_central_degree)
                   + this.channelToStepsOffset(e.message.channel);
-      for (const coords of this.stepsToVisibleCoords(steps)) {
-        if (!this.state.sustain) this.hexOff(coords);
-        const hexIndex = this.state.activeHexObjects.findIndex(h => coords.equals(h.coords));
-        if (hexIndex !== -1) {
-          this.noteOff(this.state.activeHexObjects[hexIndex], e.note.rawRelease);
-          this.state.activeHexObjects.splice(hexIndex, 1);
-        }
+      coordsList = this.stepsToVisibleCoords(steps);
+    } else {
+      // Known controller: direct lookup returns exactly one coord.
+      const ch = this.controller.multiChannel ? e.message.channel : 1;
+      const baseCoords = this.controllerMap.get(`${ch}.${e.note.number}`);
+      if (!baseCoords) { coordsList = []; }
+      else {
+        const resolved = this.controller.multiChannel
+          ? baseCoords
+          : this._applyChannelOffset(baseCoords, e.message.channel);
+        coordsList = resolved ? [resolved] : [];
       }
-      return;
     }
-    const coordsList = this._resolveControllerCoordsAll(e.note.number, e.message.channel);
+
     for (const coords of coordsList) {
       if (!this.state.sustain) this.hexOff(coords);
-      const hexIndex = this.state.activeHexObjects.findIndex(
-        (hex) => coords.equals(hex.coords)
-      );
+      const hexIndex = this.state.activeHexObjects.findIndex(h => coords.equals(h.coords));
       if (hexIndex !== -1) {
         this.noteOff(this.state.activeHexObjects[hexIndex], e.note.rawRelease);
         this.state.activeHexObjects.splice(hexIndex, 1);
@@ -785,21 +885,35 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
   allnotesOff = () => {
     if (notes.played.length > 0) {
       for (const note_played of notes.played) {
-        const note   = note_played % 128;
-        const ch_raw = Math.floor(note_played / 128);
+        const note    = note_played % 128;
+        const channel = Math.floor(note_played / 128) + 1; // 1-indexed
 
-        const coordsList = this._resolveControllerCoordsAll(note, ch_raw + 1);
-        {
+        let coordsList;
+        if (!this.settings.midi_passthrough && this.controllerMap) {
+          // Known controller: direct lookup.
+          const ch = this.controller.multiChannel ? channel : 1;
+          const baseCoords = this.controllerMap.get(`${ch}.${note}`);
+          if (!baseCoords) { coordsList = []; }
+          else {
+            const resolved = this.controller.multiChannel
+              ? baseCoords
+              : this._applyChannelOffset(baseCoords, channel);
+            coordsList = resolved ? [resolved] : [];
+          }
+        } else {
+          // Bypass or generic keyboard: step arithmetic.
+          const steps = (note - this.settings.midiin_central_degree)
+                      + this.channelToStepsOffset(channel);
+          coordsList = this.stepsToVisibleCoords(steps);
+        }
+
         for (const coords of coordsList) {
           if (!this.state.sustain) this.hexOff(coords);
-          const hexIndex = this.state.activeHexObjects.findIndex(
-            (hex) => coords.equals(hex.coords)
-          );
+          const hexIndex = this.state.activeHexObjects.findIndex(h => coords.equals(h.coords));
           if (hexIndex !== -1) {
             this.noteOff(this.state.activeHexObjects[hexIndex], 64);
             this.state.activeHexObjects.splice(hexIndex, 1);
           }
-        }
         }
       }
       notes.played = [];
@@ -969,6 +1083,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     // Track in recency stack so wheel bend and snapshot can find this note.
     this.recencyStack.push(hex);
     this._updateWheelTarget();
+    console.log("hex on at ", [coords.x, coords.y]);
     return hex;
   }
 
@@ -1141,9 +1256,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     // Rebuild the steps→coords lookup table now that centerpoint and grid range
     // are up to date. Must come after drawGrid() so centerpoint is already set.
     this.buildStepsTable();
-    // Controller map rebuild disabled in resizeHandler — too expensive per-frame.
-    // Map is built once in the MIDI setup block (constructor) when device connects.
-    // TODO: re-enable with debounce once overlay feature is ready.
+    
   };
 
   inputIsFocused = () => {
@@ -1541,43 +1654,6 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     }
   }
 
-  // ── Unified controller coordinate resolution ─────────────────────────────
-  //
-  // _resolveControllerCoords returns a single Point (or null) for a given
-  // note+channel. Used by midinoteOn.
-  //
-  // _resolveControllerCoordsAll returns an array of Points (may be multiple
-  // for the generic step-arithmetic path). Used by midinoteOff/allnotesOff.
-
-  _resolveControllerCoords(note, channel) {
-    if (this.controllerMap) {
-      // Mapped controller: look up 'ch.note'
-      // Single-channel controllers: always use ch=1 as key
-      const ch = (this.controller && !this.controller.multiChannel) ? 1 : channel;
-      const pt = this.controllerMap.get(`${ch}.${note}`);
-      if (!pt) return null;
-      // _applyChannelOffset adds step-based transposition on top of physical mapping
-      return this._applyChannelOffset(pt, channel);
-    }
-    // Generic: step arithmetic
-    const steps = (note - this.settings.midiin_central_degree)
-                + this.channelToStepsOffset(channel);
-    return this.bestVisibleCoord(steps);
-  }
-
-  _resolveControllerCoordsAll(note, channel) {
-    if (this.controllerMap) {
-      const ch = (this.controller && !this.controller.multiChannel) ? 1 : channel;
-      const pt = this.controllerMap.get(`${ch}.${note}`);
-      if (!pt) return [];
-      return [this._applyChannelOffset(pt, channel)];
-    }
-    // Generic: may have multiple coords per step
-    const steps = (note - this.settings.midiin_central_degree)
-                + this.channelToStepsOffset(channel);
-    return this.stepsToVisibleCoords(steps);
-  }
-
   // Returns the steps offset (in scale degrees) contributed by the MIDI channel.
   // Legacy mode: 16 channels treated as two groups of 8, each group offset ±4
   // equaves around midiin_channel. Isolated here so it can be replaced cleanly
@@ -1627,92 +1703,6 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
   // that was actually activated — must return the full candidate list.
   stepsToVisibleCoords(steps) {
     return this.stepsTable?.get(steps) ?? [];
-  }
-
-  // Builds a direct (channel, note) → hexatone-coords lookup for the Lumatone.
-  /**
-   * Detect the connected controller from the registry and build a unified
-   * lookup map:  Map<'ch.note', Point>  where Point is an absolute hex coord.
-   *
-   * Also computes this.controllerReachable (Set<'x,y'>) used by drawHex to
-   * visually distinguish reachable from unreachable keys.
-   *
-   * Writes back an adjusted midiin_central_degree via this.onCentralDegreeAdjust
-   * so the controller lands optimally on the visible canvas.
-   *
-   * Called from resizeHandler (stepsTable is always fresh by then) and
-   * from the MIDI input setup block after a device is connected.
-   */
-  detectAndBuildControllerMap() {
-    // Keep legacy aliases null so old code paths are inert
-    this.axis49Table    = null;
-    this.lumatoneTable  = null;
-
-    if (!this.midiin_data) {
-      this.controller = null; this.controllerMap = null;
-      this.controllerReachable = new Set(); return;
-    }
-
-    const deviceName = this.midiin_data.name?.toLowerCase() ?? '';
-    const entry = detectController(deviceName);
-    if (!entry) {
-      this.controller = null; this.controllerMap = null;
-      this.controllerReachable = new Set(); return;
-    }
-
-    this.controller = entry;
-
-    try {
-      const params = getAnchorParams(entry, this.settings);
-      const rawOffsets = entry.buildMap(params); // Map<'ch.note', {x,y}>
-
-      // ── Best-fit: find (dx,dy) maximising on-screen coverage ──────────
-      // Build set of normalised screen coords (relative to centerHexOffset)
-      const ox0 = this.settings.centerHexOffset.x;
-      const oy0 = this.settings.centerHexOffset.y;
-      const onScreen = new Set();
-      for (const coords of this.stepsTable.values())
-        for (const p of coords)
-          onScreen.add(`${p.x - ox0},${p.y - oy0}`);
-
-      let bestDx = 0, bestDy = 0, bestCount = 0;
-      for (let dx = -8; dx <= 8; dx++) {
-        for (let dy = -8; dy <= 8; dy++) {
-          let count = 0;
-          for (const { x, y } of rawOffsets.values())
-            if (onScreen.has(`${x + dx},${y + dy}`)) count++;
-          if (count > bestCount) { bestCount = count; bestDx = dx; bestDy = dy; }
-        }
-      }
-
-      // ── Convert best-fit offset to a midiin_central_degree adjustment ─
-      // (dx, dy) shifts the controller by dx*rSteps + dy*drSteps scale steps.
-      // Subtracting that from midiin_central_degree moves the screen anchor
-      // so the controller lands at the optimal position.
-      const stepShift = bestDx * this.settings.rSteps + bestDy * this.settings.drSteps;
-      // Only fire if stepShift changed since last call — prevents the loop:
-      // resizeHandler → detectAndBuildControllerMap → same stepShift → skip.
-      if (stepShift !== 0 && stepShift !== this._lastStepShift && this.onCentralDegreeAdjust) {
-        this._lastStepShift = stepShift;
-        const cb = this.onCentralDegreeAdjust;
-        this.onCentralDegreeAdjust = null; // null before call to prevent re-entry
-        cb(stepShift);
-      }
-
-      // ── Build final Point map ──────────────────────────────────────────
-      const ox = ox0 + bestDx;
-      const oy = oy0 + bestDy;
-      this.controllerMap = new Map();
-      for (const [key, { x, y }] of rawOffsets) {
-        this.controllerMap.set(key, new Point(x + ox, y + oy));
-        // controllerReachable disabled — TODO re-enable for overlay
-      }
-
-    } catch(e) {
-      console.error('[Controller] detectAndBuildControllerMap failed:', e.message);
-      this.controller = null;
-      this.controllerMap = null;
-    }
   }
 
   // ── Recency-stack wheel bend ──────────────────────────────────────────────
@@ -2095,13 +2085,15 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
       reducedSteps_next += this.settings.scale.length;
       octs_next -= 1;
     }
+    // octave_offset shifts all pitches by N equaves without rebuilding
+    const octOff = this.settings.octave_offset || 0;
     let cents =
-      octs * this.settings.equivInterval + this.settings.scale[reducedSteps];
+      (octs + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps];
     let cents_prev =
-      octs_prev * this.settings.equivInterval +
+      (octs_prev + octOff) * this.settings.equivInterval +
       this.settings.scale[reducedSteps_prev];
     let cents_next =
-      octs_next * this.settings.equivInterval +
+      (octs_next + octOff) * this.settings.equivInterval +
       this.settings.scale[reducedSteps_next];
     /*  let dataArray = [
       "cents = ", cents,

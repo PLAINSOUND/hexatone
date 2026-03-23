@@ -15,6 +15,7 @@ import { settingsToHexatonScala, scalaToCents } from './parse-scale';
  */
 const FundamentalTuneCell = ({ fundamental, keysRef, onChange, setTuneDragging }) => {
   const [deltaCents, setDeltaCents] = useState(null); // null = no drag in progress
+  const [comparing, setComparing] = useState(false);
   const dragStart = useRef(null);
   const dragKeysInstance = useRef(null);
 
@@ -26,6 +27,13 @@ const FundamentalTuneCell = ({ fundamental, keysRef, onChange, setTuneDragging }
   const isDirty = deltaCents !== null && Math.abs(deltaCents) > 0.001;
   const delta = isDirty ? deltaCents : 0;
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}¢` : `${delta.toFixed(1)}¢`;
+
+  const onCompare = useCallback(() => {
+    const next = !comparing;
+    setComparing(next);
+    if (keysRef?.current?.previewFundamental)
+      keysRef.current.previewFundamental(next ? 0 : deltaCents);
+  }, [comparing, deltaCents, keysRef]);
 
   const onPointerDown = useCallback((e) => {
     if (keysRef?.current?.setTuneDragging) {
@@ -69,17 +77,25 @@ const FundamentalTuneCell = ({ fundamental, keysRef, onChange, setTuneDragging }
     if (keysRef?.current?.previewFundamental)
       keysRef.current.previewFundamental(0);
     setDeltaCents(null);
+    setComparing(false);
   }, [deltaCents, fundamental, onChange, keysRef]);
 
   const onRevert = useCallback(() => {
     if (keysRef?.current?.previewFundamental)
       keysRef.current.previewFundamental(0);
     setDeltaCents(null);
+    setComparing(false);
   }, [keysRef]);
 
   return (
     <div class="tune-cell--inline">
-      {isDirty && <span class="tune-delta">{deltaStr}</span>}
+      {isDirty && (
+        <span class={`tune-delta${comparing ? ' tune-comparing' : ''}`}>
+          {comparing ? 'orig' : deltaStr}
+        </span>
+      )}
+      {isDirty && <button type="button" class={`tune-btn${comparing ? ' tune-btn--active' : ''}`}
+        onClick={onCompare} title="A/B compare with original"><span class="tune-btn-compare" style={{ display: 'block', marginTop: '-4px' }}>↺</span></button>}
       {isDirty && <button type="button" class="tune-btn tune-btn--save"
         onClick={onSave} title="Save new Reference Frequency">✓</button>}
       {isDirty && <button type="button" class="tune-btn tune-btn--revert"

@@ -56,7 +56,9 @@ const sendMpePitchBendRange = (
 };
 
 const MidiOutputs = (props) => {
-  const { settings, onChange, midi } = props;
+  // midiTick is unused directly — its presence as a changing prop forces
+  // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
+  const { settings, onChange, midi, midiTick: _midiTick } = props;
   // Central MIDI note: defaults to the same note used for MIDI input (midiin_central_degree + center_degree).
   const center_degree = settings.center_degree || 0;
   const centralMidiNote =
@@ -82,16 +84,13 @@ const MidiOutputs = (props) => {
   // macOS FluidSynth creates a new port on each launch; we find it by name.
   const fluidsynthOutput = outputs.find(m => m.name.toLowerCase().includes("fluid")) ?? null;
   const fluidsynthFound  = !!fluidsynthOutput;
-  // If a new fluidsynth port appears, auto-save its id so keys.js can find it.
+  // When the FluidSynth port disappears, clear the saved device so the UI
+  // reflects the disconnected state. Do NOT auto-reconnect when it reappears —
+  // the user explicitly presses Connect to opt in.
   useEffect(() => {
-    if (fluidsynthOutput && settings.fluidsynth_device !== fluidsynthOutput.id) {
-      // Only update if user has enabled fluidsynth_channel (opted in)
-      if (settings.fluidsynth_channel >= 0) {
-        save("fluidsynth_device", fluidsynthOutput.id, onChange);
-      }
-    }
     if (!fluidsynthOutput && settings.fluidsynth_device) {
       save("fluidsynth_device", "", onChange);
+      save("fluidsynth_channel", -1, onChange);
     }
   }, [fluidsynthOutput?.id]);
   // Is the user-selected main MTS port the same as FluidSynth? Warn if so.
@@ -202,89 +201,91 @@ const MidiOutputs = (props) => {
                 </select>
               </label>
 
-              {/* ── FluidSynth mirror output ───────────────────────── */}
-              {(() => {
-                const fsConnected = !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0);
-                return (
-                  <>
-                    <label style={{ marginTop: "0.5em" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        {/* LED: green=found, bright+glow=connected */}
-                        <span style={{
-                          display: "inline-block", width: "10px", height: "10px",
-                          borderRadius: "50%",
-                          background: fsConnected ? "#22cc44" : fluidsynthFound ? "#558855" : "#1a4422",
-                          boxShadow: fsConnected ? "0 0 5px #22cc44" : "none",
-                          flexShrink: 0,
-                        }} />
-                        FluidSynth
-                        {fluidsynthFound && (
-                          <span style={{ fontSize: "0.8em", color: "#669966" }}>
-                            {fluidsynthOutput.name}
-                          </span>
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={!fluidsynthFound && !fsConnected}
-                        style={{
-                          fontSize: "0.85em",
-                          background: fsConnected ? "#84f39a" : undefined,
-                          color: fsConnected ? "#003300" : undefined,
-                          borderColor: fsConnected ? "#84f39a" : undefined,
-                        }}
-                        onClick={() => {
-                          if (fsConnected) {
-                            // Disconnect
-                            save("fluidsynth_device", "", onChange);
-                            save("fluidsynth_channel", -1, onChange);
-                          } else {
-                            // Connect
-                            if (!fluidsynthOutput) return;
-                            save("fluidsynth_device", fluidsynthOutput.id, onChange);
-                            save("fluidsynth_channel",
-                              settings.midi_channel >= 0 ? settings.midi_channel : 0,
-                              onChange);
-                          }
-                        }}
-                        title={fsConnected
-                          ? "Disconnect FluidSynth mirror"
-                          : fluidsynthFound ? "Connect MTS mirror to FluidSynth" : "FluidSynth not found"}
-                      >
-                        {fsConnected ? "Disconnect" : fluidsynthFound ? "Connect" : "Not found"}
-                      </button>
-                    </label>
 
-                    {fsConnected && (
-                      <>
-                        <label>
-                          FluidSynth Channel
-                          <select
-                            name="fluidsynth_channel"
-                            class="sidebar-input"
-                            value={settings.fluidsynth_channel ?? -1}
-                            onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
-                          >
-                            {[...Array(16).keys()].map(i => (
-                              <option key={i} value={i}>{i + 1}</option>
-                            ))}
-                          </select>
-                        </label>
-                        {mtsPortIsFluidsynth && (
-                          <p style={{ color: "#cc4400", fontSize: "0.85em", margin: "0.2em 0" }}>
-                            ⚠ Main MTS port is FluidSynth — mirror disabled to prevent doubling.
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </>
-                );
-              })()}
 
             </>
           )}
         </>
       )}
+
+      {/* ── FluidSynth mirror — shown when MTS on OR already connected ── */}
+      {(settings.output_mts || !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0)) && (() => {
+        const fsConnected = !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0);
+        return (
+          <>
+            {/* Use div instead of label — button inside label causes browsers to
+                fire a second synthetic click on the button (via the label's implicit
+                control activation), which arrives after Preact re-renders with
+                fsConnected=true and immediately triggers the Disconnect branch. */}
+            <div style={{
+              display: "flex", justifyContent: "space-between",
+              flexWrap: "wrap", alignItems: "baseline",
+              marginTop: "0.5em", lineHeight: "1.5em",
+            }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{
+                  display: "inline-block", width: "10px", height: "10px",
+                  borderRadius: "50%",
+                  background: fsConnected ? "#22cc44" : fluidsynthFound ? "#558855" : "#1a4422",
+                  boxShadow: fsConnected ? "0 0 5px #22cc44" : "none",
+                  flexShrink: 0,
+                }} />
+                FluidSynth
+                {fluidsynthFound && (
+                  <span style={{ fontSize: "0.8em", color: "#669966" }}>
+                    {fluidsynthOutput.name}
+                  </span>
+                )}
+              </span>
+              <button
+                type="button"
+                disabled={!fluidsynthFound && !fsConnected}
+                style={{
+                  fontSize: "0.85em",
+                  background: fsConnected ? "#22cc44" : undefined,
+                  color: fsConnected ? "#003300" : undefined,
+                  borderColor: fsConnected ? "#22cc44" : undefined,
+                }}
+                onClick={() => {
+                  if (fsConnected) {
+                    save("fluidsynth_device", "", onChange);
+                    save("fluidsynth_channel", -1, onChange);
+                  } else {
+                    if (!fluidsynthOutput) return;
+                    save("fluidsynth_device", fluidsynthOutput.id, onChange);
+                    save("fluidsynth_channel",
+                      settings.midi_channel >= 0 ? settings.midi_channel : 0, onChange);
+                  }
+                }}
+                title={fsConnected ? "Disconnect FluidSynth mirror"
+                  : fluidsynthFound ? "Connect MTS mirror to FluidSynth" : "FluidSynth not found"}
+              >
+                {fsConnected ? "Disconnect" : fluidsynthFound ? "Connect" : "Not found"}
+              </button>
+            </div>
+            {fsConnected && (
+              <>
+                <label>
+                  FluidSynth Channel
+                  <select name="fluidsynth_channel" class="sidebar-input"
+                    value={settings.fluidsynth_channel ?? -1}
+                    onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
+                  >
+                    {[...Array(16).keys()].map(i => (
+                      <option key={i} value={i}>{i + 1}</option>
+                    ))}
+                  </select>
+                </label>
+                {mtsPortIsFluidsynth && (
+                  <p style={{ color: "#cc4400", fontSize: "0.85em", margin: "0.2em 0" }}>
+                    ⚠ Main MTS port is FluidSynth — mirror disabled to prevent doubling.
+                  </p>
+                )}
+              </>
+            )}
+          </>
+        );
+      })()}
 
       <br />
 
@@ -342,7 +343,7 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
-                Tuning Map
+                Auto-Send Tuning Map
                 <span style={{ display: "flex", alignItems: "center",
                                gap: "8px", marginLeft: "auto" }}>
                   <input

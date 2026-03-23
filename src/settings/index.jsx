@@ -24,6 +24,7 @@ const Settings = ({
   onRevertBuiltin,
   onRevertUser,
   midi,
+  midiTick,
   instruments,
   keysRef,
   onVolumeChange,
@@ -75,11 +76,12 @@ const Settings = ({
       instruments={instruments}
       onVolumeChange={onVolumeChange}
     />
-    <MIDIio onChange={onChange} settings={settings} midi={midi} />
+    <MIDIio onChange={onChange} settings={settings} midi={midi} midiTick={midiTick} />
     <MidiOutputs
       onChange={onChange}
       settings={settings}
       midi={midi}
+      midiTick={midiTick}
       keysRef={keysRef}
     />
   </form>

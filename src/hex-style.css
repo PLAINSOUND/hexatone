@@ -325,6 +325,52 @@ a:hover {
     color: #fff;
 }
 
+#octave-island {
+    position: fixed;
+    bottom: 1.2em;
+    left: calc(50% - 13em);
+    z-index: 11;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border-radius: 999px;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
+    overflow: hidden;
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+.octave-btn {
+    background: none;
+    border: none;
+    color: #990000;
+    font-size: 0.85em;
+    padding: 0.45em 0.75em;
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1;
+    transition: background-color 0.1s ease;
+}
+
+.octave-btn:active {
+    background-color: #ddcccc;
+}
+
+.octave-display {
+    color: #990000;
+    font-size: 0.95em;
+    font-family: inherit;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    min-width: 2.8em;
+    text-align: center;
+    border-left: 1px solid #c0aaaa;
+    border-right: 1px solid #c0aaaa;
+    padding: 0.45em 0.3em;
+    pointer-events: none;
+}
+
 #redraw-button {
     width: 2.2em;
     height: 2.2em;
