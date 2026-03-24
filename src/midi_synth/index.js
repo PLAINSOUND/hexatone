@@ -29,7 +29,7 @@ export const create_midi_synth = async (midiin_device, midiin_central_degree, mi
           coords, cents, steps, equaves,
           note_played, velocity_played, velocity,
           midi_output, channel,
-          fundamental, degree0toRef_ratio
+          midiin_central_degree  // anchor resolved by caller (app.jsx)
         );
       }
       return new MidiHex(
@@ -268,7 +268,7 @@ function DirectHex(
   coords, cents, steps, equaves,
   note_played, velocity_played, velocity,
   midi_output, channel,
-  fundamental, degree0toRef_ratio
+  anchor
 ) {
   this.coords      = coords;
   this.cents       = cents;
@@ -279,15 +279,10 @@ function DirectHex(
   this.velocity    = velocity_played > 0 ? velocity_played : velocity;
   this.note_played = note_played;
 
-  // Carrier note: nearest semitone to target pitch
-  if (channel >= 0 && fundamental && degree0toRef_ratio) {
-    const ref        = fundamental / degree0toRef_ratio;
-    const ref_offset = 1200 * Math.log2(ref / 261.6255653);
-    const ref_cents  = cents + ref_offset;
-    this.carrier = Math.max(0, Math.min(Math.round(ref_cents * 0.01 + 60), 127));
-  } else {
-    this.carrier = 60;
-  }
+  // Carrier note: the MIDI note the pre-sent tuning map has assigned to this step.
+  // The anchor (= midiin_central_degree, or natural anchor derived from the tuning)
+  // maps to scale step 0; each step away adds/subtracts 1 MIDI note, clamped 0–127.
+  this.carrier = Math.max(0, Math.min(anchor + steps, 127));
 }
 
 DirectHex.prototype.noteOn = function () {
@@ -301,7 +296,7 @@ DirectHex.prototype.noteOff = function (release_velocity) {
   this._noteOffCalled = true;
   this.release = true;
   if (this.channel >= 0 && this.midi_output) {
-    const vel = release_velocity || this.velocity;
+    const vel = release_velocity != null ? release_velocity : this.velocity;
     this.midi_output.send([0x80 + this.channel, this.carrier, vel]);
   }
 };

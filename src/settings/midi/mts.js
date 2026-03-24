@@ -59,22 +59,7 @@ const MidiTuning = (props) => (
         }}
       />
     </label>
-    <label>
-      MIDI Note for Degree 0
-      <input name="tuning_map_degree0" type="text" inputMode="numeric"
-        key={props.settings.tuning_map_degree0}
-        defaultValue={props.settings.tuning_map_degree0}
-        onBlur={(e) => {
-          const val = parseInt(e.target.value);
-          if (!isNaN(val) && val >= 0 && val <= 127) {
-            props.onChange('tuning_map_degree0', val);
-            sessionStorage.setItem('tuning_map_degree0', val);
-          } else {
-            e.target.value = props.settings.tuning_map_degree0;
-          }
-        }}
-      />
-    </label>
+
 
     <p>
     <em>The <a href="/midituning.html">MIDI Tuning Standard</a>, described in detail at <a href="https://midi.org/midi-tuning-updated-specification">midi.org</a>, allows external synthesizers to receive data modifying the tuning of each MIDI note. This is done by system exclusive messages: either a non-real-time "Bulk Tuning Dump" or 128 real-time "Single-Note Tuning Changes". The receiving synth will need to be set to receive sysex into the specified Tuning Map slot. Using the free <a href="https://oddsound.com/mtsespmini.php">Oddsound MTS-ESP Mini</a> plug-in, it is possible to translate MTS data to retune softsynths using other protocols (MPE or multichannel pitchbend).</em>
@@ -88,7 +73,6 @@ MidiTuning.propTypes = {
     sysex_type: PropTypes.number,
     device_id: PropTypes.number,
     tuning_map_number: PropTypes.number,
-    tuning_map_degree0: PropTypes.number,
   }).isRequired,
   onChange: PropTypes.func.isRequired,
 };

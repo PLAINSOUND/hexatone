@@ -257,10 +257,6 @@ const sessionDefaults = {
   sysex_type: parseInt(sessionStorage.getItem("sysex_type")) || 126,
   device_id: parseInt(sessionStorage.getItem("device_id")) || 127,
   tuning_map_number: parseInt(sessionStorage.getItem("tuning_map_number")) || 0,
-  tuning_map_degree0:
-    sessionStorage.getItem("tuning_map_degree0") !== null
-      ? parseInt(sessionStorage.getItem("tuning_map_degree0"))
-      : null,
   fundamental_color:
     parseInt(sessionStorage.getItem("fundamental_color")) || "#f2e3e3",
   spectrum_colors: true,
@@ -373,7 +369,6 @@ const App = () => {
       sysex_type: ExtractInt,
       device_id: ExtractInt,
       tuning_map_number: ExtractInt,
-      tuning_map_degree0: ExtractInt,
 
       // Layout
       rSteps: ExtractInt,
@@ -597,10 +592,14 @@ const App = () => {
       );
     }
     if (wantDirect) {
+      // Resolve the tuning-map anchor: controller anchor if set, otherwise
+      // centre the on-screen grid at MIDI 64 for maximum coverage.
+      const directAnchor = settings.midiin_central_degree
+        ?? Math.max(0, Math.min(127, 64 - (settings.center_degree || 0)));
       promises.push(
         create_midi_synth(
           settings.midiin_device,
-          settings.midiin_central_degree,
+          directAnchor,
           midi.outputs.get(settings.direct_device),
           settings.direct_channel,
           "DIRECT",

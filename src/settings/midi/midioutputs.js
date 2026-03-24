@@ -59,12 +59,6 @@ const MidiOutputs = (props) => {
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
-  // Central MIDI note: midiin_central_degree is now stored as the raw physical MIDI note.
-  const centralMidiNote = settings.midiin_central_degree ?? 60;
-  const tuningMapNote =
-    settings.tuning_map_degree0 != null
-      ? settings.tuning_map_degree0
-      : centralMidiNote;
   const masterCh = settings.mpe_master_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch)
@@ -393,23 +387,7 @@ const MidiOutputs = (props) => {
                 />
               </label>
 
-              <label>
-                Central MIDI Note
-                <input
-                  name="tuning_map_degree0"
-                  type="text"
-                  inputMode="numeric"
-                  class="sidebar-input"
-                  key={tuningMapNote}
-                  defaultValue={tuningMapNote}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 0 && val <= 127)
-                      save("tuning_map_degree0", val, onChange);
-                    else e.target.value = tuningMapNote;
-                  }}
-                />
-              </label>
+
             </>
           )}
         </>
@@ -630,8 +608,6 @@ MidiOutputs.propTypes = {
     sysex_type: PropTypes.number,
     device_id: PropTypes.number,
     tuning_map_number: PropTypes.number,
-    tuning_map_degree0: PropTypes.number,
-    midiin_central_degree: PropTypes.number,
     center_degree: PropTypes.number,
     output_mpe: PropTypes.bool,
     output_direct: PropTypes.bool,

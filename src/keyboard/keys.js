@@ -74,13 +74,10 @@ class Keys {
     this._wheelTarget    = null;
     this._wheelBaseCents = null;
 
-    // tuning_map_degree0: use explicit override if set, otherwise use the physical anchor note directly.
-    // midiin_central_degree is now stored as the raw physical MIDI note number.
-    const central_midi_note = this.settings.midiin_central_degree ?? 60;
-    const tuning_map_degree0 =
-      this.settings.tuning_map_degree0 != null
-        ? this.settings.tuning_map_degree0
-        : central_midi_note;
+    // midiin_central_degree is the physical anchor note (set by controller detection/learn).
+    // Fall back to the natural anchor (centre hex → MIDI 64) when not set.
+    const tuning_map_degree0 = this.settings.midiin_central_degree
+      ?? computeNaturalAnchor(this.settings.center_degree);
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
       this.settings.device_id,
@@ -513,13 +510,12 @@ class Keys {
     // Each MidiHex.noteOn() sends its own single-note real-time sysex, so
     // new notes are individually retuned at trigger time regardless.
     // Only send the bulk map immediately when not deferring (or when silent).
-    const central_midi_note = this.settings.midiin_central_degree ?? 60;
-    const tuning_map_degree0 = this.settings.tuning_map_degree0 ?? central_midi_note;
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
       this.settings.device_id,
       this.settings.tuning_map_number,
-      tuning_map_degree0,
+      this.settings.midiin_central_degree
+        ?? computeNaturalAnchor(this.settings.center_degree),
       this.settings.scale,
       this.settings.name,
       this.settings.equivInterval,
@@ -540,13 +536,12 @@ class Keys {
   updateFundamental = (newFundamental) => {
     this.settings.fundamental = newFundamental;
     // Rebuild MTS tuning map with new fundamental
-    const central_midi_note = this.settings.midiin_central_degree ?? 60;
-    const tuning_map_degree0 = this.settings.tuning_map_degree0 ?? central_midi_note;
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
       this.settings.device_id,
       this.settings.tuning_map_number,
-      tuning_map_degree0,
+      this.settings.midiin_central_degree
+        ?? computeNaturalAnchor(this.settings.center_degree),
       this.settings.scale,
       this.settings.name,
       this.settings.equivInterval,
@@ -2233,6 +2228,16 @@ function computeCenterOffset(rSteps, drSteps, degree, gcd) {
   const denom = stepR * stepR + stepDR * stepDR;
   const k = denom ? Math.round(-(r0 * stepR + dr0 * stepDR) / denom) : 0;
   return new Point(r0 + k * stepR, dr0 + k * stepDR);
+}
+
+/**
+ * Default tuning-map anchor when no MIDI controller has set midiin_central_degree.
+ * Places the on-screen centre hex at MIDI note 64, maximising coverage on both sides.
+ * The centre hex has steps = center_degree, so carrier = anchor + center_degree = 64
+ * ⟹ anchor = 64 − center_degree.
+ */
+function computeNaturalAnchor(center_degree) {
+  return Math.max(0, Math.min(127, 64 - (center_degree || 0)));
 }
 
 function mtsTuningMap(

@@ -109,7 +109,6 @@ Keyboard.propTypes = {
     sysex_type: PropTypes.number,
     device_id: PropTypes.number,
     tuning_map_number: PropTypes.number,
-    tuning_map_degree0: PropTypes.number,
 
     // Layout
     rSteps: PropTypes.number,
