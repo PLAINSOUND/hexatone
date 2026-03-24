@@ -246,7 +246,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
             ))}
           </select>
           {isActive && onRevert && (
-            <button type="button" onClick={onRevertBuiltin} style={{
+            <button type="button" onClick={onRevert} style={{
               fontSize: "1.3rem",
               lineHeight: "0.86",
               overflow: "visible",
