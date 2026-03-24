@@ -330,7 +330,7 @@ const MidiOutputs = (props) => {
                   value={settings.direct_channel ?? -1}
                   onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
                 >
-                  <option value="-1">---choose a MIDI output channel---</option>
+                  <option value="-1">OFF</option>
                   {[...Array(16).keys()].map((i) => (
                     <option key={i} value={i}>{i + 1}</option>
                   ))}
