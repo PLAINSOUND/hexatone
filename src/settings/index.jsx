@@ -21,6 +21,8 @@ const Settings = ({
   activeSource,
   activePresetName,
   isPresetDirty,
+  persistOnReload,
+  setPersistOnReload,
   onRevertBuiltin,
   onRevertUser,
   midi,
@@ -59,6 +61,14 @@ const Settings = ({
             ⟳
           </button>
         )}
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: "0.4em", marginTop: "0.4em", fontSize: "0.85em" }}>
+        <input
+          type="checkbox"
+          checked={persistOnReload}
+          onChange={(e) => setPersistOnReload(e.target.checked)}
+        />
+        Restore last preset on page reload
       </label>
     </fieldset>
     <CustomPresets

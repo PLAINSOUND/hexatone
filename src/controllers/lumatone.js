@@ -52,9 +52,9 @@ export function lumatoneNoteOffset(note, anchorNote) {
 }
 
 /**
- * Build raw hex coords for all 5 × 55 = 275 Lumatone keys.
+ * Build raw hex coords for all 5 × 56 = 280 Lumatone keys.
  *
- * anchorChannel (1–5) and anchorNote (0–54) define the key that maps
+ * anchorChannel (1–5) and anchorNote (0–55) define the key that maps
  * to hexatone origin (0, 0).
  *
  * Returns a Map keyed by the string "channel,note" (e.g. "2,33")

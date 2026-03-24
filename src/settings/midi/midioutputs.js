@@ -594,6 +594,44 @@ const MidiOutputs = (props) => {
           )}
         </>
       )}
+      <br />
+
+      {/* ── OSC → SuperCollider ─────────────────────────────────────────── */}
+
+      <label>
+        <b>OSC → SuperCollider</b>
+        <input
+          name="output_osc"
+          type="checkbox"
+          checked={!!settings.output_osc}
+          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+        />
+      </label>
+
+      <p style={{ marginTop: 0.5 }}><em>
+        Sends notes directly to SuperCollider via a local WebSocket→OSC bridge.
+        Requires <code>yarn osc-bridge</code> running locally and SC loaded with
+        OSCResponders.scd.
+      </em></p>
+
+      {settings.output_osc && (
+        <label>
+          Bridge URL
+          <input
+            name="osc_bridge_url"
+            type="text"
+            class="sidebar-input"
+            key={settings.osc_bridge_url}
+            defaultValue={settings.osc_bridge_url || "ws://localhost:8089"}
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              if (val) save("osc_bridge_url", val, onChange);
+              else e.target.value = settings.osc_bridge_url || "ws://localhost:8089";
+            }}
+          />
+        </label>
+      )}
+
     </fieldset>
   );
 };
@@ -625,6 +663,8 @@ MidiOutputs.propTypes = {
     mpe_mode: PropTypes.string,
     mpe_pitchbend_range: PropTypes.number,
     mpe_pitchbend_range_manager: PropTypes.number,
+    output_osc: PropTypes.bool,
+    osc_bridge_url: PropTypes.string,
   }).isRequired,
   midi: PropTypes.object,
   onChange: PropTypes.func.isRequired,

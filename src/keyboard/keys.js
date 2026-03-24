@@ -70,20 +70,20 @@ class Keys {
     // _wheelTarget:    the hex currently being bent.
     // _wheelBaseCents: that hex's pitch before any bend was applied.
     //                  Snapshot feature will read this + _wheelBend.
-    this._wheelBend      = 0;
-    this._wheelTarget    = null;
+    this._wheelBend = 0;
+    this._wheelTarget = null;
     this._wheelBaseCents = null;
 
     // midiin_central_degree is the physical anchor note (set by controller detection/learn).
     // Fall back to the nearest MIDI note to the centre hex's frequency when not set.
     const tuning_map_degree0 = this.settings.midiin_central_degree
       ?? computeNaturalAnchor(
-          this.settings.fundamental,
-          this.settings.degree0toRef_asArray[0],
-          this.settings.scale,
-          this.settings.equivInterval,
-          this.settings.center_degree,
-        );
+        this.settings.fundamental,
+        this.settings.degree0toRef_asArray[0],
+        this.settings.scale,
+        this.settings.equivInterval,
+        this.settings.center_degree,
+      );
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
       this.settings.device_id,
@@ -145,8 +145,6 @@ class Keys {
       this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
       this.mtsSendMap();
     }
-
-    
 
     //console.log('[Keys] MIDI init — device:', JSON.stringify(this.settings.midiin_device), 'channel:', this.settings.midiin_channel, 'passthrough:', this.settings.midi_passthrough);
     if (
@@ -521,13 +519,13 @@ class Keys {
       this.settings.device_id,
       this.settings.tuning_map_number,
       this.settings.midiin_central_degree
-        ?? computeNaturalAnchor(
-            this.settings.fundamental,
-            this.settings.degree0toRef_asArray[0],
-            this.settings.scale,
-            this.settings.equivInterval,
-            this.settings.center_degree,
-          ),
+      ?? computeNaturalAnchor(
+        this.settings.fundamental,
+        this.settings.degree0toRef_asArray[0],
+        this.settings.scale,
+        this.settings.equivInterval,
+        this.settings.center_degree,
+      ),
       this.settings.scale,
       this.settings.name,
       this.settings.equivInterval,
@@ -537,7 +535,7 @@ class Keys {
     if (!skipRetune) {
       if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
       if (this.settings.output_direct && this.settings.direct_sysex_auto &&
-          this.settings.direct_device && this.settings.direct_device !== 'OFF') {
+        this.settings.direct_device && this.settings.direct_device !== 'OFF') {
         const directOut = WebMidi.getOutputById(this.settings.direct_device);
         if (directOut) this.mtsSendMap(directOut);
       }
@@ -553,13 +551,13 @@ class Keys {
       this.settings.device_id,
       this.settings.tuning_map_number,
       this.settings.midiin_central_degree
-        ?? computeNaturalAnchor(
-            this.settings.fundamental,
-            this.settings.degree0toRef_asArray[0],
-            this.settings.scale,
-            this.settings.equivInterval,
-            this.settings.center_degree,
-          ),
+      ?? computeNaturalAnchor(
+        this.settings.fundamental,
+        this.settings.degree0toRef_asArray[0],
+        this.settings.scale,
+        this.settings.equivInterval,
+        this.settings.center_degree,
+      ),
       this.settings.scale,
       this.settings.name,
       this.settings.equivInterval,
@@ -592,7 +590,7 @@ class Keys {
     // Re-send tuning map if auto-send is enabled for the relevant output
     if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
     if (this.settings.output_direct && this.settings.direct_sysex_auto &&
-        this.settings.direct_device && this.settings.direct_device !== 'OFF') {
+      this.settings.direct_device && this.settings.direct_device !== 'OFF') {
       const directOut = WebMidi.getOutputById(this.settings.direct_device);
       if (directOut) this.mtsSendMap(directOut);
     }
@@ -603,15 +601,15 @@ class Keys {
   snapshotForFundamentalPreview = () => {
     this._fundamentalSnapshot = new Map();
     for (const hex of this.state.activeHexObjects)
-      this._fundamentalSnapshot.set(hex.coords.x+','+hex.coords.y, hex.cents);
+      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex.cents);
     for (const [hex] of this.state.sustainedNotes)
-      this._fundamentalSnapshot.set(hex.coords.x+','+hex.coords.y, hex.cents);
+      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex.cents);
   };
 
   previewFundamental = (deltaCents) => {
     const snap = this._fundamentalSnapshot;
     const applyTo = (hex) => {
-      const key = hex.coords.x+','+hex.coords.y;
+      const key = hex.coords.x + ',' + hex.coords.y;
       const base = snap ? (snap.get(key) ?? hex.cents) : hex.cents;
       if (hex.retune) hex.retune(base + deltaCents);
     };
@@ -837,21 +835,21 @@ class Keys {
   */
 
   // Helper: if latch is active and coords is already sustained, toggle it off.
-// Returns true if the note was toggled off (caller should return/continue).
-_midiLatchToggle(coords, releaseVelocity = 0) {
-  if (!this.state.latch) return false;
-  const key = coords.x + ',' + coords.y;
-  const sustainedIdx = this.state.sustainedNotes.findIndex(
-    ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-  );
-  if (sustainedIdx === -1) return false;
-  const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-  this.state.sustainedNotes.splice(sustainedIdx, 1);
-  this.state.sustainedCoords.delete(key);
-  hex.noteOff(releaseVelocity || vel);
-  this.hexOff(coords);
-  return true;
-}
+  // Returns true if the note was toggled off (caller should return/continue).
+  _midiLatchToggle(coords, releaseVelocity = 0) {
+    if (!this.state.latch) return false;
+    const key = coords.x + ',' + coords.y;
+    const sustainedIdx = this.state.sustainedNotes.findIndex(
+      ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
+    );
+    if (sustainedIdx === -1) return false;
+    const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
+    this.state.sustainedNotes.splice(sustainedIdx, 1);
+    this.state.sustainedCoords.delete(key);
+    hex.noteOff(releaseVelocity || vel);
+    this.hexOff(coords);
+    return true;
+  }
 
   // Apply channel step offset to a base coordinate.
   // Gets the raw steps at baseCoords, adds channelToStepsOffset(channel),
@@ -884,8 +882,8 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
         });
       }
       const steps = (e.note.number - this.settings.midiin_central_degree)
-                  + (this.settings.center_degree || 0)
-                  + this.channelToStepsOffset(e.message.channel);
+        + (this.settings.center_degree || 0)
+        + this.channelToStepsOffset(e.message.channel);
       coords = this.bestVisibleCoord(steps);
     } else if (this.controllerMap) {
       // Known controller: direct coordinate lookup from pre-built map.
@@ -901,8 +899,8 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     } else {
       // Generic keyboard: step arithmetic with channel-based transposition.
       const steps = (e.note.number - this.settings.midiin_central_degree)
-                  + (this.settings.center_degree || 0)
-                  + this.channelToStepsOffset(e.message.channel);
+        + (this.settings.center_degree || 0)
+        + this.channelToStepsOffset(e.message.channel);
       coords = this.bestVisibleCoord(steps);
     }
 
@@ -925,8 +923,8 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
         });
       }
       const steps = (e.note.number - this.settings.midiin_central_degree)
-                  + (this.settings.center_degree || 0)
-                  + this.channelToStepsOffset(e.message.channel);
+        + (this.settings.center_degree || 0)
+        + this.channelToStepsOffset(e.message.channel);
       coordsList = this.stepsToVisibleCoords(steps);
     } else {
       // Known controller: direct lookup returns exactly one coord.
@@ -948,7 +946,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
   allnotesOff = () => {
     if (notes.played.length > 0) {
       for (const note_played of notes.played) {
-        const note    = note_played % 128;
+        const note = note_played % 128;
         const channel = Math.floor(note_played / 128) + 1; // 1-indexed
 
         let coordsList;
@@ -960,8 +958,8 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
         } else {
           // Bypass or generic keyboard: step arithmetic.
           const steps = (note - this.settings.midiin_central_degree)
-                      + (this.settings.center_degree || 0)
-                      + this.channelToStepsOffset(channel);
+            + (this.settings.center_degree || 0)
+            + this.channelToStepsOffset(channel);
           coordsList = this.stepsToVisibleCoords(steps);
         }
 
@@ -1063,8 +1061,8 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
 
     // Reset recency stack and wheel bend
     this.recencyStack.clear();
-    this._wheelBend      = 0;
-    this._wheelTarget    = null;
+    this._wheelBend = 0;
+    this._wheelTarget = null;
     this._wheelBaseCents = null;
 
     // Reset sustain/latch state
@@ -1314,7 +1312,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     // Rebuild the steps→coords lookup table now that centerpoint and grid range
     // are up to date. Must come after drawGrid() so centerpoint is already set.
     this.buildStepsTable();
-    
+
   };
 
   inputIsFocused = () => {
@@ -1781,7 +1779,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
       if (this._wheelTarget && this._wheelBend === 0) {
         // Wheel is at centre — safe to silently adopt new target.
       }
-      this._wheelTarget    = target;
+      this._wheelTarget = target;
       this._wheelBaseCents = target.cents;
     }
 
@@ -1798,7 +1796,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     // If it has been released its channel may have been reallocated,
     // and retuning it would send a spurious PB to the new note.
     if (this._wheelTarget && !this._wheelTarget.release &&
-        this._wheelBaseCents !== null) {
+      this._wheelBaseCents !== null) {
       this._wheelTarget.retune(this._wheelBaseCents);
     }
 
@@ -1819,16 +1817,16 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
   // Desaturate a CSS hex colour toward grey by the given amount (0=none, 1=full grey).
   _desaturateColor(hex, amount) {
     if (!hex || hex.length < 6) return hex;
-    const h = hex.replace('#','');
+    const h = hex.replace('#', '');
     if (h.length < 6) return hex;
-    const r = parseInt(h.slice(0,2),16);
-    const g = parseInt(h.slice(2,4),16);
-    const b = parseInt(h.slice(4,6),16);
-    const grey = 0.299*r + 0.587*g + 0.114*b;
-    const nr = Math.round(r + (grey-r)*amount);
-    const ng = Math.round(g + (grey-g)*amount);
-    const nb = Math.round(b + (grey-b)*amount);
-    return '#' + [nr,ng,nb].map(v=>v.toString(16).padStart(2,'0')).join('');
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    const grey = 0.299 * r + 0.587 * g + 0.114 * b;
+    const nr = Math.round(r + (grey - r) * amount);
+    const ng = Math.round(g + (grey - g) * amount);
+    const nb = Math.round(b + (grey - b) * amount);
+    return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
   }
 
   // Returns the single best coord for a note-on.
