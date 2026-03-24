@@ -1,3 +1,4 @@
+import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController } from "./controllers/registry.js";
 import { normalizeColors } from "./normalize-settings.js";
 
@@ -42,7 +43,21 @@ const useSettingsChange = (
   setSettings,
   { midi, setMidiLearnActive, keysRef, setLatch, bumpImportCount },
 ) => {
-  const onChange = (key, value) => {
+  // Keep a ref to settings so onChange/onAtomicChange can read current values
+  // without being recreated on every render. This is the key optimisation:
+  // stable callback references mean the Settings tree doesn't re-render on
+  // every color drag tick — only the canvas (imperative) and the color memos update.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  // midi can also change (device connect/disconnect), keep it stable too.
+  const midiRef = useRef(midi);
+  useEffect(() => { midiRef.current = midi; }, [midi]);
+
+  const onChange = useCallback((key, value) => {
+    const s = settingsRef.current;
+    const m = midiRef.current;
+
     // Toggle MIDI-learn mode — handled outside settings state (no URL sync needed).
     if (key === "midiLearnAnchor") {
       setMidiLearnActive(value);
@@ -53,8 +68,8 @@ const useSettingsChange = (
     // (or fall back to the controller's built-in default on first use).
     if (key === "midiin_device") {
       let anchorMidiNote = null;
-      if (value && value !== "OFF" && midi) {
-        const input = Array.from(midi.inputs.values()).find((m) => m.id === value);
+      if (value && value !== "OFF" && m) {
+        const input = Array.from(m.inputs.values()).find((i) => i.id === value);
         if (input) {
           const ctrl = detectController(input.name.toLowerCase());
           if (ctrl) {
@@ -63,8 +78,8 @@ const useSettingsChange = (
           }
         }
       }
-      setSettings((s) => ({
-        ...s,
+      setSettings((prev) => ({
+        ...prev,
         midiin_device: value,
         ...(anchorMidiNote !== null ? { midiin_central_degree: anchorMidiNote } : {}),
       }));
@@ -78,7 +93,7 @@ const useSettingsChange = (
     // When the user manually changes the anchor note for a known controller, save it
     // to localStorage keyed by controller ID so it's restored on next connect.
     if (key === "midiin_central_degree") {
-      const ctrl = getConnectedController(settings.midiin_device, midi);
+      const ctrl = getConnectedController(s.midiin_device, m);
       if (ctrl) {
         // value IS the raw physical MIDI note number — store directly.
         localStorage.setItem(`${ctrl.id}_anchor`, String(value));
@@ -99,29 +114,25 @@ const useSettingsChange = (
       if (keysRef.current) keysRef.current.panic();
       setLatch(false);
       bumpImportCount();
-      setSettings((s) => {
+      setSettings((prev) => {
         const newSize = value;
-        const currentScale = s.scale || [];
+        const currentScale = prev.scale || [];
         let newScale;
         if (newSize > currentScale.length) {
-          // Pad with default cents values (100 cents per degree)
           const padding = [];
           for (let i = currentScale.length; i < newSize - 1; i++) {
             padding.push(String((i + 1) * 100) + ".0");
           }
-          // Last one should be the equave (newSize * 100 cents)
           padding.push(String(newSize * 100) + ".0");
           newScale = [...currentScale, ...padding];
         } else {
-          // Truncate or keep same size
           newScale = currentScale.slice(0, newSize);
         }
-        // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
         const newNoteNames = newScale.map(
           (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
         );
         return {
-          ...s,
+          ...prev,
           [key]: value,
           scale: newScale,
           note_names: newNoteNames,
@@ -138,32 +149,25 @@ const useSettingsChange = (
       if (keysRef.current) keysRef.current.panic();
       setLatch(false);
       bumpImportCount();
-      setSettings((s) => {
-        // Use the incoming value (new scale), not s.scale (old scale)
+      setSettings((prev) => {
         const newScale = value;
-        const equivSteps = s.equivSteps || newScale.length;
+        const equivSteps = prev.equivSteps || newScale.length;
         const equaveValue = newScale[newScale.length - 1];
-
-        // Check if equave is an octave (1200 cents, 1200.0, 2/1, or "2")
         const isOctave =
           equaveValue === "2" ||
           equaveValue === "2/1" ||
           equaveValue === "1200" ||
           equaveValue === "1200.0" ||
           /^1200\.?0*$/.test(equaveValue);
-
-        // Generate name and description (simplify for octave)
         const equaveForName = isOctave ? "2" : equaveValue;
         const equaveForDesc = isOctave ? "Octave" : `${equaveValue} cents`;
         const newName = `${equivSteps}ed${equaveForName}`;
         const newDescription = `${equaveForDesc} divided into ${equivSteps} equal steps`;
-
-        // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
         const newNoteNames = newScale.map(
           (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
         );
         return {
-          ...s,
+          ...prev,
           scale: newScale,
           name: newName,
           description: newDescription,
@@ -176,30 +180,29 @@ const useSettingsChange = (
     }
 
     // For color changes, push to the live Keys instance BEFORE setSettings.
-    // This uses the current keysRef at call time, avoiding stale references
-    // if a reconstruction happens during the React batch.
+    // Reading current colors from settingsRef avoids stale closure values.
     if (COLOR_KEYS.has(key) && keysRef.current) {
       const colorUpdate = {
         note_colors:
           key === "note_colors"
-            ? normalizeColors({ ...settings, [key]: value }).note_colors
-            : normalizeColors(settings).note_colors,
+            ? normalizeColors({ ...s, [key]: value }).note_colors
+            : normalizeColors(s).note_colors,
         spectrum_colors:
-          key === "spectrum_colors" ? value : settings.spectrum_colors,
+          key === "spectrum_colors" ? value : s.spectrum_colors,
         fundamental_color:
           key === "fundamental_color"
             ? (value || "").replace(/#/, "")
-            : (settings.fundamental_color || "").replace(/#/, ""),
+            : (s.fundamental_color || "").replace(/#/, ""),
       };
       keysRef.current.updateColors(colorUpdate);
     }
 
-    setSettings((s) => ({ ...s, [key]: value }));
-  };
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  }, []); // stable — reads live values via settingsRef/midiRef
 
-  const onAtomicChange = (updates) => {
-    setSettings((s) => ({ ...s, ...updates }));
-  };
+  const onAtomicChange = useCallback((updates) => {
+    setSettings((prev) => ({ ...prev, ...updates }));
+  }, []);
 
   return { onChange, onAtomicChange };
 };

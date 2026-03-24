@@ -1,4 +1,4 @@
-import { h, render } from "preact";
+import { h } from "preact";
 import {
   useState,
   useEffect,
@@ -17,14 +17,13 @@ import keyCodeToCoords from "./settings/keycodes";
 import useSynthWiring from "./use-synth-wiring.js";
 import {
   useQuery,
-  Extract,
   ExtractInt,
   ExtractString,
   ExtractFloat,
   ExtractBool,
   ExtractJoinedString,
 } from "./use-query";
-import usePresets, { PRESET_SKIP_KEYS, clearScaleSettings } from "./use-presets.js";
+import usePresets, { PRESET_SKIP_KEYS } from "./use-presets.js";
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
@@ -237,206 +236,13 @@ const App = () => {
     setReady(true);
   }, []);
 
-  const COLOR_KEYS = new Set([
-    "note_colors",
-    "spectrum_colors",
-    "fundamental_color",
-  ]);
-  const SCALE_KEYS = new Set([
-    "scale",
-    "note_names",
-    "fundamental",
-    "reference_degree",
-    "equivSteps",
-  ]);
-
-  // Return the detectController entry for the currently connected input device, or null.
-  const getConnectedController = (deviceId) => {
-    if (!deviceId || deviceId === 'OFF' || !midi) return null;
-    const input = Array.from(midi.inputs.values()).find(m => m.id === deviceId);
-    return input ? detectController(input.name.toLowerCase()) : null;
-  };
-
-  const onChange = (key, value) => {
-    // Toggle MIDI-learn mode — handled outside settings state (no URL sync needed).
-    if (key === 'midiLearnAnchor') {
-      setMidiLearnActive(value);
-      return;
-    }
-
-    // When the MIDI input device is selected, load the per-controller saved anchor note
-    // (or fall back to the controller's built-in default on first use).
-    if (key === 'midiin_device') {
-      let anchorMidiNote = null;
-      if (value && value !== 'OFF' && midi) {
-        const input = Array.from(midi.inputs.values()).find(m => m.id === value);
-        if (input) {
-          const ctrl = detectController(input.name.toLowerCase());
-          if (ctrl) {
-            const saved = localStorage.getItem(`${ctrl.id}_anchor`);
-            anchorMidiNote = saved !== null ? parseInt(saved) : ctrl.anchorDefault;
-          }
-        }
-      }
-      setSettings(s => ({
-        ...s,
-        midiin_device: value,
-        ...(anchorMidiNote !== null ? { midiin_central_degree: anchorMidiNote } : {}),
-      }));
-      sessionStorage.setItem('midiin_device', value);
-      if (anchorMidiNote !== null) {
-        sessionStorage.setItem('midiin_central_degree', String(anchorMidiNote));
-      }
-      return;
-    }
-
-    // When the user manually changes the anchor note for a known controller, save it
-    // to localStorage keyed by controller ID so it's restored on next connect.
-    if (key === 'midiin_central_degree') {
-      const ctrl = getConnectedController(settings.midiin_device);
-      if (ctrl) {
-        // value IS the raw physical MIDI note number — store directly.
-        localStorage.setItem(`${ctrl.id}_anchor`, String(value));
-      }
-      // Fall through to normal setSettings
-    }
-
-    // If instrument is about to change, stop all currently playing notes
-    // This prevents the old instrument's sounds from continuing after switch
-    if (key === "instrument") {
-      if (keysRef.current) {
-        keysRef.current.panic();
-      }
-      // Reset latch state to match
-      setLatch(false);
-    }
-
-    // When equivSteps changes, resize the scale array and reset scale-related settings
-    // This must be handled BEFORE the SCALE_KEYS block so panic() is called instead of sustainOff()
-    if (key === "equivSteps") {
-      // Kill all notes and clear sustain state - scale is being fundamentally restructured
-      if (keysRef.current) {
-        keysRef.current.panic();
-      }
-      setLatch(false);
-      bumpImportCount();
-
-      setSettings((s) => {
-        const newSize = value;
-        const currentScale = s.scale || [];
-        let newScale;
-        if (newSize > currentScale.length) {
-          // Pad with default cents values (100 cents per degree)
-          const padding = [];
-          for (let i = currentScale.length; i < newSize - 1; i++) {
-            padding.push(String((i + 1) * 100) + ".0");
-          }
-          // Last one should be the equave (newSize * 100 cents)
-          padding.push(String(newSize * 100) + ".0");
-          newScale = [...currentScale, ...padding];
-        } else {
-          // Truncate or keep same size
-          newScale = currentScale.slice(0, newSize);
-        }
-        // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
-        const newNoteNames = newScale.map(
-          (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
-        );
-        return {
-          ...s,
-          [key]: value,
-          scale: newScale,
-          note_names: newNoteNames,
-          spectrum_colors: true,
-          fundamental_color: "#f2e3e3",
-        };
-      });
-      return;
-    }
-
-    // When scale is divided into equal parts (Divide Equave / Divide Octave buttons)
-    // Same treatment as equivSteps: panic and reset scale-related settings
-    if (key === "scale_divide") {
-      if (keysRef.current) {
-        keysRef.current.panic();
-      }
-      setLatch(false);
-      bumpImportCount();
-
-      setSettings((s) => {
-        // Use the incoming value (new scale), not s.scale (old scale)
-        const newScale = value;
-        const equivSteps = s.equivSteps || newScale.length;
-        const equaveValue = newScale[newScale.length - 1];
-
-        // Check if equave is an octave (1200 cents, 1200.0, 2/1, or "2")
-        const isOctave =
-          equaveValue === "2" ||
-          equaveValue === "2/1" ||
-          equaveValue === "1200" ||
-          equaveValue === "1200.0" ||
-          /^1200\.?0*$/.test(equaveValue);
-
-        // Generate name and description (simplify for octave)
-        const equaveForName = isOctave ? "2" : equaveValue;
-        const equaveForDesc = isOctave ? "Octave" : `${equaveValue} cents`;
-        const newName = `${equivSteps}ed${equaveForName}`;
-        const newDescription = `${equaveForDesc} divided into ${equivSteps} equal steps`;
-
-        // Populate note_names from scale with shift: degree i has name scale[(i - 1 + n) % n]
-        const newNoteNames = newScale.map(
-          (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
-        );
-        return {
-          ...s,
-          scale: newScale,
-          name: newName,
-          description: newDescription,
-          note_names: newNoteNames,
-          spectrum_colors: true,
-          fundamental_color: "#f2e3e3",
-        };
-      });
-      return;
-    }
-
-    // For color changes, push to the live Keys instance BEFORE setSettings.
-    // This uses the current keysRef at call time, avoiding stale references
-    // if a reconstruction happens during the React batch.
-    if (COLOR_KEYS.has(key) && keysRef.current) {
-      const colorUpdate = {
-        note_colors:
-          key === "note_colors"
-            ? normalizeColors({ ...settings, [key]: value }).note_colors
-            : normalizeColors(settings).note_colors,
-        spectrum_colors:
-          key === "spectrum_colors" ? value : settings.spectrum_colors,
-        fundamental_color:
-          key === "fundamental_color"
-            ? (value || "").replace(/#/, "")
-            : (settings.fundamental_color || "").replace(/#/, ""),
-      };
-      keysRef.current.updateColors(colorUpdate);
-    }
-
-    setSettings((s) => ({ ...s, [key]: value }));
-  };
-
-  const onAtomicChange = (updates) => {
-    setSettings((s) => ({ ...s, ...updates }));
-  };
-
-  // Called by keys.js when the user presses a key during MIDI-learn mode.
-  // Saves the physical MIDI note as the new anchor for this controller and
-  // updates midiin_central_degree so the controller map rebuilds immediately.
-
-  const resetScale = () => {
-    setUserHasInteracted(true);
-    clearScaleSettings();
-    // Reload the page to apply fresh defaults
-    window.location.reload();
-  };
-
+  const { onChange, onAtomicChange } = useSettingsChange(settings, setSettings, {
+    midi,
+    setMidiLearnActive,
+    keysRef,
+    setLatch,
+    bumpImportCount,
+  });
 
   // Validate that all required settings are present and consistent.
   // This prevents Keys from being constructed with invalid state that would crash.
