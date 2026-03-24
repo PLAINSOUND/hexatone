@@ -593,9 +593,17 @@ const App = () => {
     }
     if (wantDirect) {
       // Resolve the tuning-map anchor: controller anchor if set, otherwise
-      // centre the on-screen grid at MIDI 64 for maximum coverage.
+      // compute nearest MIDI note to the on-screen centre hex's frequency.
+      const _d0RefCents = settings.reference_degree > 0
+        ? (settings.scale[settings.reference_degree] || 0) : 0;
+      const _degree0Midi = 69 + (1200 * Math.log2((settings.fundamental || 440) / 440) - _d0RefCents) / 100;
+      const _cd = settings.center_degree || 0;
+      const _scLen = settings.scale?.length || 12;
+      const _octs = Math.floor(_cd / _scLen);
+      const _red = ((_cd % _scLen) + _scLen) % _scLen;
+      const _centerPitch = _octs * (settings.equivInterval || 1200) + (settings.scale?.[_red] || 0);
       const directAnchor = settings.midiin_central_degree
-        ?? Math.max(0, Math.min(127, 64 - (settings.center_degree || 0)));
+        ?? Math.max(0, Math.min(127, Math.round(_degree0Midi + _centerPitch / 100)));
       promises.push(
         create_midi_synth(
           settings.midiin_device,

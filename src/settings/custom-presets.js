@@ -13,6 +13,7 @@ const PRESET_FIELDS = [
   'spectrum_colors', 'fundamental_color',
   'fundamental', 'reference_degree',
   'rSteps', 'drSteps', 'hexSize', 'rotation',
+  'midiin_central_degree',
   'mpe_mode',
   'mpe_pitchbend_range',
 ];

@@ -75,9 +75,15 @@ class Keys {
     this._wheelBaseCents = null;
 
     // midiin_central_degree is the physical anchor note (set by controller detection/learn).
-    // Fall back to the natural anchor (centre hex → MIDI 64) when not set.
+    // Fall back to the nearest MIDI note to the centre hex's frequency when not set.
     const tuning_map_degree0 = this.settings.midiin_central_degree
-      ?? computeNaturalAnchor(this.settings.center_degree);
+      ?? computeNaturalAnchor(
+          this.settings.fundamental,
+          this.settings.degree0toRef_asArray[0],
+          this.settings.scale,
+          this.settings.equivInterval,
+          this.settings.center_degree,
+        );
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
       this.settings.device_id,
@@ -515,7 +521,13 @@ class Keys {
       this.settings.device_id,
       this.settings.tuning_map_number,
       this.settings.midiin_central_degree
-        ?? computeNaturalAnchor(this.settings.center_degree),
+        ?? computeNaturalAnchor(
+            this.settings.fundamental,
+            this.settings.degree0toRef_asArray[0],
+            this.settings.scale,
+            this.settings.equivInterval,
+            this.settings.center_degree,
+          ),
       this.settings.scale,
       this.settings.name,
       this.settings.equivInterval,
@@ -541,7 +553,13 @@ class Keys {
       this.settings.device_id,
       this.settings.tuning_map_number,
       this.settings.midiin_central_degree
-        ?? computeNaturalAnchor(this.settings.center_degree),
+        ?? computeNaturalAnchor(
+            this.settings.fundamental,
+            this.settings.degree0toRef_asArray[0],
+            this.settings.scale,
+            this.settings.equivInterval,
+            this.settings.center_degree,
+          ),
       this.settings.scale,
       this.settings.name,
       this.settings.equivInterval,
@@ -2232,12 +2250,25 @@ function computeCenterOffset(rSteps, drSteps, degree, gcd) {
 
 /**
  * Default tuning-map anchor when no MIDI controller has set midiin_central_degree.
- * Places the on-screen centre hex at MIDI note 64, maximising coverage on both sides.
- * The centre hex has steps = center_degree, so carrier = anchor + center_degree = 64
- * ⟹ anchor = 64 − center_degree.
+ * Returns the nearest MIDI note to the frequency of the on-screen centre hex,
+ * which is typically in the A3–A4 range and gives good coverage either side.
+ *
+ * @param {number}   fundamental         Hz assigned to reference_degree
+ * @param {number}   degree0toRef_cents  cents from degree 0 to reference degree
+ *                                       (= settings.degree0toRef_asArray[0])
+ * @param {number[]} scale               numeric-cents scale array (scale[0] = 0)
+ * @param {number}   equivInterval       equivalence interval in cents (e.g. 1200)
+ * @param {number}   center_degree       scale degree shown at screen centre
  */
-function computeNaturalAnchor(center_degree) {
-  return Math.max(0, Math.min(127, 64 - (center_degree || 0)));
+function computeNaturalAnchor(fundamental, degree0toRef_cents, scale, equivInterval, center_degree) {
+  // Absolute position of scale degree 0 in MIDI note space
+  const degree0_midi = 69 + (1200 * Math.log2(fundamental / 440) - degree0toRef_cents) / 100;
+  // Pitch of center_degree from degree 0 in cents
+  const cd = center_degree || 0;
+  let octs = Math.floor(cd / scale.length);
+  let red = ((cd % scale.length) + scale.length) % scale.length;
+  const center_pitch_cents = octs * equivInterval + scale[red];
+  return Math.max(0, Math.min(127, Math.round(degree0_midi + center_pitch_cents / 100)));
 }
 
 function mtsTuningMap(
