@@ -13,9 +13,10 @@ export const create_composite_synth = (synths) => ({
     return {
       // Keys.js reads coords, cents, release from the hex object.
       // All synths receive the same coords/cents so any one is authoritative.
-      coords:  hexes[0].coords,
-      cents:   hexes[0].cents,
-      release: false,
+      coords:      hexes[0].coords,
+      cents:       hexes[0].cents,
+      release:     false,
+      note_played: hexes[0].note_played,
       // Expose stolen coords from any child synth that had to evict a voice.
       // Keys.js uses this to redraw the displaced hex.
       _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),
