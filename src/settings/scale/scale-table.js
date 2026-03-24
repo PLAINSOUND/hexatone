@@ -157,6 +157,11 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
   // Capture the Keys instance when drag starts — keysRef.current may change
   // during reconciliation, so we need the specific instance we set drag on
   const dragKeysInstance = useRef(null);
+  // Glide state for velocity-scaled pitch interpolation.
+  // Uses frame-delta exponential decay so there is never a mismatch between
+  // performance.now() (pointer events) and rAF timestamps. Only two values
+  // matter: what is currently playing and where we are headed.
+  const glideRef = useRef({ rafId: null, playingCents: null, targetCents: null, lastFrameTime: 0 });
 
   // Keep originalCents in sync when scale string changes from outside
   useEffect(() => {
@@ -165,10 +170,11 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
     }
   }, [scaleStr]);
 
-  // Clean up drag state on unmount — ensures setTuneDragging(false) is called
-  // on the CORRECT Keys instance even if the component is removed mid-drag
+  // Clean up drag state and any in-flight glide on unmount.
   useEffect(() => {
     return () => {
+      const g = glideRef.current;
+      if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
       // Use the captured instance from when drag started, not keysRef.current
       // which may now point to a new Keys instance after reconstruction
       if (dragKeysInstance.current && dragKeysInstance.current.setTuneDragging) {
@@ -192,6 +198,56 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
     }
   }, [keysRef, degree]);
 
+  // Smoothly move the playing pitch toward targetCents using per-frame exponential
+  // decay (tau = 20 ms). Because dt is always measured between consecutive rAF
+  // timestamps, there is no performance.now() / rAF-timestamp mismatch that
+  // would cause the direction-flip glitch. Retargeting simply updates g.targetCents;
+  // the single running loop tracks it automatically — no lag accumulates.
+  // Deltas under 0.5¢ snap immediately so fine tuning stays perfectly responsive.
+  const glideTo = useCallback((targetCents) => {
+    const g = glideRef.current;
+
+    // Before the first drag, playingCents is null — snap to anchor immediately.
+    if (g.playingCents === null) {
+      g.targetCents = targetCents;
+      g.playingCents = targetCents;
+      pushToKeys(targetCents);
+      return;
+    }
+
+    g.targetCents = targetCents;
+
+    const delta = Math.abs(targetCents - g.playingCents);
+    if (delta < 0.5) {
+      if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
+      g.playingCents = targetCents;
+      pushToKeys(targetCents);
+      return;
+    }
+
+    if (!g.rafId) {
+      // Seed lastFrameTime one nominal frame in the past so the first tick
+      // gets a sensible dt without mixing performance.now() into the rAF domain.
+      g.lastFrameTime = performance.now() - 16;
+      const tick = (now) => {
+        const dt = Math.min(Math.max(now - g.lastFrameTime, 0), 50); // clamp: guard against tab-switch pauses
+        g.lastFrameTime = now;
+        const factor = 1 - Math.exp(-dt / 20); // tau = 20 ms → ~95 % covered in 60 ms
+        g.playingCents = g.playingCents + (g.targetCents - g.playingCents) * factor;
+        if (Math.abs(g.targetCents - g.playingCents) < 0.5) {
+          g.playingCents = g.targetCents;
+          pushToKeys(g.targetCents);
+          g.rafId = null;
+        } else {
+          pushToKeys(g.playingCents);
+          g.rafId = requestAnimationFrame(tick);
+        }
+      };
+      g.rafId = requestAnimationFrame(tick);
+    }
+    // else: running loop will track updated g.targetCents on the next tick
+  }, [pushToKeys]);
+
   const onPointerDown = useCallback((e) => {
     // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
     // which would drop sustain; the flag guards against that in keys.js.
@@ -201,6 +257,13 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
       dragKeysInstance.current = keysRef.current;
     }
     e.currentTarget.setPointerCapture(e.pointerId);
+    // Cancel any in-flight glide and anchor playingCents to the current displayed
+    // value. This prevents a stale playingCents from a previous drag causing an
+    // audible jump on the first glideTo call of the new drag.
+    const g = glideRef.current;
+    if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
+    g.playingCents = currentCents;
+    g.targetCents = currentCents;
     dragStart.current = { lastX: e.clientX, accCents: currentCents };
   }, [currentCents, keysRef]);
 
@@ -209,15 +272,17 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
     const dx = e.clientX - dragStart.current.lastX;
     if (dx === 0) return;
     // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
-    // sensitivity = base * speed^1.8 — superlinear so fast moves cover more ground
+    // sensitivity = base * speed^1.5 — superlinear so fast moves cover more ground
     const speed = Math.abs(dx);
     const sensitivity = 0.05 * Math.pow(speed, 1.5); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
     const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
     dragStart.current.lastX = e.clientX;
     dragStart.current.accCents = newCents;
     setTunedCents(newCents);
-    if (!comparing) pushToKeys(newCents);
-  }, [comparing, pushToKeys]);
+    // Use glideTo so fast swipes interpolate smoothly rather than jumping.
+    // While comparing, the original pitch is playing — don't update the preview.
+    if (!comparing) glideTo(newCents);
+  }, [comparing, glideTo]);
 
   const onPointerUp = useCallback(() => {
     dragStart.current = null;
@@ -231,12 +296,20 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
   }, [keysRef]);
 
   const onCompare = useCallback(() => {
+    const g = glideRef.current;
+    if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
+    g.playingCents = null;
+    g.targetCents = null;
     const next = !comparing;
     setComparing(next);
     pushToKeys(next ? originalCents.current : tunedCents);
   }, [comparing, tunedCents, pushToKeys]);
 
   const onSave = useCallback(() => {
+    const g = glideRef.current;
+    if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
+    g.playingCents = null;
+    g.targetCents = null;
     const saveVal = tunedCents !== null ? tunedCents : originalCents.current;
     const str = saveVal.toFixed(6);
 
@@ -269,6 +342,10 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
       onFundamentalChange, onDegree0Save, onChange, pushToKeys]);
 
   const onRevert = useCallback(() => {
+    const g = glideRef.current;
+    if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
+    g.playingCents = null;
+    g.targetCents = null;
     setTunedCents(null);
     setComparing(false);
     pushToKeys(originalCents.current);

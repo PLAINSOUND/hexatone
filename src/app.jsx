@@ -20,6 +20,7 @@ import { create_sample_synth, forceResumeAudioContext } from "./sample_synth";
 import { instruments } from "./sample_synth/instruments";
 
 import { enableMidi, midi_in } from "./settings/midi/midiin";
+import { detectController } from "./controllers/registry.js";
 import { create_midi_synth } from "./midi_synth";
 import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
@@ -430,6 +431,7 @@ const App = () => {
   }, []);
   const [synth, setSynth] = useState(null);
   const [midi, setMidi] = useState(null);
+  const [midiLearnActive, setMidiLearnActive] = useState(false);
   // Increments whenever MIDI devices connect or disconnect (onstatechange).
   // Passed as a prop so components re-render and the synth useEffect re-runs.
   const [midiTick, setMidiTick] = useState(0);
@@ -712,7 +714,58 @@ const App = () => {
     "equivSteps",
   ]);
 
+  // Return the detectController entry for the currently connected input device, or null.
+  const getConnectedController = (deviceId) => {
+    if (!deviceId || deviceId === 'OFF' || !midi) return null;
+    const input = Array.from(midi.inputs.values()).find(m => m.id === deviceId);
+    return input ? detectController(input.name.toLowerCase()) : null;
+  };
+
   const onChange = (key, value) => {
+    // Toggle MIDI-learn mode — handled outside settings state (no URL sync needed).
+    if (key === 'midiLearnAnchor') {
+      setMidiLearnActive(value);
+      return;
+    }
+
+    // When the MIDI input device is selected, load the per-controller saved anchor note
+    // (or fall back to the controller's built-in default on first use).
+    if (key === 'midiin_device') {
+      let anchorMidiNote = null;
+      if (value && value !== 'OFF' && midi) {
+        const input = Array.from(midi.inputs.values()).find(m => m.id === value);
+        if (input) {
+          const ctrl = detectController(input.name.toLowerCase());
+          if (ctrl) {
+            const saved = localStorage.getItem(`${ctrl.id}_anchor`);
+            anchorMidiNote = saved !== null ? parseInt(saved) : ctrl.anchorDefault;
+          }
+        }
+      }
+      const centerDeg = settings.center_degree || 0;
+      setSettings(s => ({
+        ...s,
+        midiin_device: value,
+        ...(anchorMidiNote !== null ? { midiin_central_degree: anchorMidiNote - centerDeg } : {}),
+      }));
+      sessionStorage.setItem('midiin_device', value);
+      if (anchorMidiNote !== null) {
+        sessionStorage.setItem('midiin_central_degree', String(anchorMidiNote - centerDeg));
+      }
+      return;
+    }
+
+    // When the user manually changes the anchor note for a known controller, save it
+    // to localStorage keyed by controller ID so it's restored on next connect.
+    if (key === 'midiin_central_degree') {
+      const ctrl = getConnectedController(settings.midiin_device);
+      if (ctrl) {
+        // Store the physical MIDI note number so it stays correct if center_degree changes.
+        localStorage.setItem(`${ctrl.id}_anchor`, String(value + (settings.center_degree || 0)));
+      }
+      // Fall through to normal setSettings
+    }
+
     // If instrument is about to change, stop all currently playing notes
     // This prevents the old instrument's sounds from continuing after switch
     if (key === "instrument") {
@@ -834,9 +887,28 @@ const App = () => {
     setSettings((s) => ({ ...s, [key]: value }));
   };
 
-   const onAtomicChange = (updates) => {
+  const onAtomicChange = (updates) => {
     setSettings((s) => ({ ...s, ...updates }));
   };
+
+  // Called by keys.js when the user presses a key during MIDI-learn mode.
+  // Saves the physical MIDI note as the new anchor for this controller and
+  // updates midiin_central_degree so the controller map rebuilds immediately.
+  const onAnchorLearn = useCallback((noteNum) => {
+    setMidiLearnActive(false);
+    const centerDeg = settings.center_degree || 0;
+    const stored = noteNum - centerDeg;
+    // Persist per-controller in localStorage.
+    if (settings.midiin_device && settings.midiin_device !== 'OFF' && midi) {
+      const input = Array.from(midi.inputs.values()).find(m => m.id === settings.midiin_device);
+      if (input) {
+        const ctrl = detectController(input.name.toLowerCase());
+        if (ctrl) localStorage.setItem(`${ctrl.id}_anchor`, String(noteNum));
+      }
+    }
+    sessionStorage.setItem('midiin_central_degree', String(stored));
+    setSettings(s => ({ ...s, midiin_central_degree: stored }));
+  }, [settings.midiin_device, settings.center_degree, midi]);
 
   const resetScale = () => {
     setUserHasInteracted(true);
@@ -1167,6 +1239,8 @@ const App = () => {
           }, [])}
           onLatchChange={useCallback((v) => setLatch(v), [])}
           active={active}
+          midiLearnActive={midiLearnActive}
+          onAnchorLearn={onAnchorLearn}
         />
       )}
 
@@ -1267,6 +1341,7 @@ const App = () => {
           presets={presets}
           onChange={onChange}
           onAtomicChange={onAtomicChange}
+          midiLearnActive={midiLearnActive}
           onVolumeChange={onVolumeChange}
           onImport={onImport}
           importCount={importCount}

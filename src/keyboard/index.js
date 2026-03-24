@@ -54,6 +54,13 @@ const Keyboard = (props) => {
     }
   }, [props.active]);
 
+  // Imperatively set/clear MIDI-learn mode on the live Keys instance.
+  useEffect(() => {
+    if (keysRef.current) {
+      keysRef.current.setMidiLearnMode(!!props.midiLearnActive, props.onAnchorLearn);
+    }
+  }, [props.midiLearnActive, props.onAnchorLearn]);
+
   // When colors change, push them into the live Keys instance and redraw immediately.
   const noteColorsKey = props.settings.note_colors ? JSON.stringify(props.settings.note_colors) : '';
   useEffect(() => {

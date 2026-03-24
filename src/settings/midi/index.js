@@ -1,26 +1,50 @@
 import { h } from 'preact';
-import { Fragment } from 'preact/compat';
 import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
 
 const MIDIio = (props) => {
   // props.midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the inputs list.
-  // Detect connected controller type by device name.
   const connectedDevice = props.midi && props.settings.midiin_device &&
     props.settings.midiin_device !== 'OFF'
     ? Array.from(props.midi.inputs.values())
       .find(m => m.id === props.settings.midiin_device)
     : null;
   const deviceName = connectedDevice?.name?.toLowerCase() ?? '';
-  const isAxis49 = deviceName.includes('axis-4');
-  const isLumatone = deviceName.includes('lumatone');
-  // midiin_central_degree is the MIDI note that triggers step 0 (degree 0) internally.
-  // We expose it to the user as the note that plays the *central* degree, so:
-  //   displayed value  = midiin_central_degree + center_degree
-  //   stored value     = entered value  − center_degree
+  // Detect 2D controller (null when device is disconnected or unrecognised).
+  const ctrl = detectController(deviceName);
+
+  // midiin_central_degree is stored as (MIDI note − center_degree).
+  // Display as the actual MIDI note that plays the central screen degree.
   const center_degree = props.settings.center_degree || 0;
   const centralNote = (props.settings.midiin_central_degree || 60) + center_degree;
+
+  // Channel transposition mode derived from midiin_steps_per_channel:
+  //   null  → 'equave'  (one equave per channel, default)
+  //   0     → 'none'    (all channels untransposed)
+  //   N > 0 → 'custom'  (N scale degrees per channel)
+  const spc = props.settings.midiin_steps_per_channel;
+  const stepsMode = (spc === null || spc === undefined) ? 'equave' : spc === 0 ? 'none' : 'custom';
+
+  const setStepsMode = (mode) => {
+    if (mode === 'none') {
+      props.onChange('midiin_steps_per_channel', 0);
+      sessionStorage.setItem('midiin_steps_per_channel', '0');
+    } else if (mode === 'equave') {
+      props.onChange('midiin_steps_per_channel', null);
+      sessionStorage.removeItem('midiin_steps_per_channel');
+    } else if (mode === 'custom') {
+      // Seed with equivSteps so the user has a sensible starting value.
+      const initial = props.settings.equivSteps ?? 12;
+      props.onChange('midiin_steps_per_channel', initial);
+      sessionStorage.setItem('midiin_steps_per_channel', String(initial));
+    }
+  };
+
+  // Channel Transposition is shown when the 2D controller map is NOT active:
+  //   - unknown / no device connected
+  //   - known 2D controller with Bypass Key Mapping enabled
+  const using2DMap = ctrl && !props.settings.midi_passthrough;
 
   return (
     <fieldset>
@@ -43,37 +67,27 @@ const MIDIio = (props) => {
 
       {props.settings.midiin_device && props.settings.midiin_device !== 'OFF' && (
         <>
-          <label>
-            Central Input Channel
-            <select value={props.settings.midiin_channel}
-              name="midiin_channel"
-              class="sidebar-input"
-              onChange={(e) => {
-                props.onChange(e.target.name, parseInt(e.target.value));
-                sessionStorage.setItem(e.target.name, e.target.value);
-              }}>
-              <option value="-1">---choose a channel on which input is untransposed---</option>
-              {[...Array(16).keys()].map(i => <option value={i}>{i + 1}</option>)}
-            </select>
-          </label>
-          {/* ── Dynamic controller UI from registry ── */}
-          {connectedDevice && (() => {
-            const ctrl = detectController(deviceName);
-            if (ctrl) return (
-              <>
-                <label style={{ fontStyle: 'italic', color: '#996666' }}>
-                  {ctrl.name}
-                  <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em', lineHeight: 1., marginBottom: 6 }}>
-                    {ctrl.description}
-                  </span>
-                </label>
-                {/* Universal anchor: MIDI note → central degree.
-                    Bypass ON: raw notes positioned relative to this anchor.
-                    Bypass OFF: controller geometry wraps around this same anchor. */}
-                <label>
-                  MIDI Note → Central Degree ({center_degree})
+          {/* ── Known 2D controller ── */}
+          {ctrl ? (
+            <>
+              <label style={{ fontStyle: 'italic', color: '#996666' }}>
+                {ctrl.name}
+                <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em', lineHeight: 1, marginBottom: 6 }}>
+                  {ctrl.description}
+                </span>
+              </label>
+              {/* Anchor: the physical key whose MIDI note maps to the central screen degree.
+                  Used in both 2D-map mode and bypass mode. */}
+              <label>
+                Anchor Key → Central Degree ({center_degree})
+                <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', textAlign: 'left' }}>
+                  <button type="button"
+                    onClick={() => props.onChange('midiLearnAnchor', !props.midiLearnActive)}
+                    style={{ fontSize: '0.8em', whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
+                    {props.midiLearnActive ? '● Listening…' : 'Learn'}
+                  </button>
                   <input name="midiin_central_degree" type="text" inputMode="numeric"
-                    class="sidebar-input"
+                    style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
                     key={`${props.settings.midiin_central_degree}-${center_degree}`}
                     defaultValue={centralNote}
                     onBlur={(e) => {
@@ -86,98 +100,95 @@ const MIDIio = (props) => {
                       }
                     }}
                   />
-                </label>
-                <label>
-                  Bypass Key Mapping
-                  <input
-                    name="midi_passthrough"
-                    type="checkbox"
-                    checked={!!props.settings.midi_passthrough}
-                    onChange={(e) => {
-                      props.onChange('midi_passthrough', e.target.checked);
-                      sessionStorage.setItem('midi_passthrough', e.target.checked);
-                    }}
-                  />
-                </label>
-              </>
-            );
-            // Unknown controller
-            return (
-              <>
-                <label>
-                  MIDI Note assigned to Central Scale Degree ({center_degree})
+                </span>
+              </label>
+              <label>
+                Sequential mode (bypass 2D geometry)
+                <input
+                  name="midi_passthrough"
+                  type="checkbox"
+                  checked={!!props.settings.midi_passthrough}
+                  onChange={(e) => {
+                    props.onChange('midi_passthrough', e.target.checked);
+                    sessionStorage.setItem('midi_passthrough', e.target.checked);
+                  }}
+                />
+              </label>
+              {props.settings.midi_passthrough && (
+                <p><em style={{ color: '#996666' }}>
+                  2D geometry bypassed — notes mapped sequentially, channel transposition active below.
+                </em></p>
+              )}
+            </>
+          ) : (
+            /* ── Unknown / sequential controller ── */
+            <>
+              <label>
+                MIDI Note → Central Degree ({center_degree})
+                <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', textAlign: 'left' }}>
+                  <button type="button"
+                    onClick={() => props.onChange('midiLearnAnchor', !props.midiLearnActive)}
+                    style={{ fontSize: '0.8em', whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
+                    {props.midiLearnActive ? '● Listening…' : 'Learn'}
+                  </button>
                   <input name="midiin_central_degree" type="text" inputMode="numeric"
-                    class="sidebar-input"
+                    style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
                     key={`${props.settings.midiin_central_degree}-${center_degree}`}
                     defaultValue={centralNote}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value);
                       if (!isNaN(val) && val >= 0 && val <= 127) {
                         props.onChange('midiin_central_degree', val - center_degree);
+                        sessionStorage.setItem('midiin_central_degree', val - center_degree);
                       } else {
                         e.target.value = centralNote;
                       }
                     }}
                   />
+                </span>
+              </label>
+              <p><em>
+                Controller not recognised as 2D isomorphic — using sequential mapping.{' '}<br />
+                <a href="https://github.com/PLAINSOUND/hexatone/issues/new?title=Controller+geometry+request&body=Controller+name:+" target="_blank">
+                  Request geometry integration
+                </a>
+              </em></p>
+            </>
+          )}
+
+          {/* ── Channel Transposition — for sequential path only (not 2D map mode) ── */}
+          {!using2DMap && (
+            <>
+              <label>
+                Channel Transposition
+                <select class="sidebar-input" value={stepsMode}
+                  onChange={(e) => setStepsMode(e.target.value)}>
+                  <option value="equave">Channels → equaves ({props.settings.equivSteps ?? '…'} steps each)</option>
+                  <option value="none">No transposition</option>
+                  <option value="custom">Custom…</option>
+                </select>
+              </label>
+              {stepsMode === 'custom' && (
+                <label>
+                  Degrees per channel
+                  <input type="text" inputMode="numeric" class="sidebar-input"
+                    key={props.settings.midiin_steps_per_channel}
+                    defaultValue={props.settings.midiin_steps_per_channel ?? ''}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value.trim());
+                      if (!isNaN(val) && val >= 1) {
+                        props.onChange('midiin_steps_per_channel', val);
+                        sessionStorage.setItem('midiin_steps_per_channel', String(val));
+                      } else {
+                        e.target.value = props.settings.midiin_steps_per_channel ?? '';
+                      }
+                    }}
+                  />
                 </label>
-                <p><em>
-                  Controller geometry not recognised — using channel-per-octave mapping.
-                  <br/>
-                  <a href="https://github.com/PLAINSOUND/hexatone/issues/new?title=Controller+geometry+request&body=Controller+name:+" target="_blank">
-                    Request geometry integration
-                  </a>
-                </em></p>
-              </>
-            );
-          })()}
+              )}
+            </>
+          )}
 
-          <p>
-            <em>{isAxis49
-              ? 'Choose a physical key on the AXIS-49 (note numbers 1\u201398 in selfless mode) to map to the central scale degree on screen.'
-              : isLumatone
-                ? 'Block (channel 1\u20135) and key within that block (0\u201355) that maps to the centre of the screen. The mapping shifts automatically to maximise on-screen coverage.'
-                : 'Input is received on all channels. Notes on the Central Input Channel remain untransposed. Other channels are transposed by multiples of the selected scale\u2019s interval of repetition (usually an octave, but it may be any value). Multichannel controllers like the Lumatone are automatically mapped onto transpositions of the selected scale (up to 128 pitches per channel/equave).'
-            }</em></p>
-
-          <label>
-            Steps per Channel
-            <input
-              name="midiin_steps_per_channel"
-              type="text"
-              inputMode="numeric"
-              class="sidebar-input"
-              key={props.settings.midiin_steps_per_channel ?? 'auto'}
-              defaultValue={props.settings.midiin_steps_per_channel ?? ''}
-              placeholder={`automatically set to 1 equave (${props.settings.equivSteps ?? '…'} steps)`}
-              onBlur={(e) => {
-                const raw = e.target.value.trim();
-                if (raw === '') {
-                  props.onChange('midiin_steps_per_channel', null);
-                  sessionStorage.removeItem('midiin_steps_per_channel');
-                } else {
-                  const val = parseInt(raw);
-                  if (!isNaN(val) && val >= 1) {
-                    props.onChange('midiin_steps_per_channel', val);
-                    sessionStorage.setItem('midiin_steps_per_channel', val);
-                  } else {
-                    e.target.value = props.settings.midiin_steps_per_channel ?? '';
-                  }
-                }
-              }}
-            />
-          </label>
-          <label>
-            Legacy Channel Mode
-            <input
-              name="midiin_channel_legacy"
-              type="checkbox"
-              checked={!!props.settings.midiin_channel_legacy}
-              onChange={(e) => {
-                props.onChange('midiin_channel_legacy', e.target.checked);
-                sessionStorage.setItem('midiin_channel_legacy', e.target.checked);
-              }}
-            />
-          </label>
           <label>
             Pitch Wheel → Most Recent Note
             <input
@@ -200,21 +211,15 @@ const MIDIio = (props) => {
 MIDIio.propTypes = {
   settings: PropTypes.shape({
     midiin_device: PropTypes.string,
-    midiin_channel: PropTypes.number,
     midiin_central_degree: PropTypes.number,
-    axis49_center_note: PropTypes.number,
-    lumatone_center_channel: PropTypes.number,
-    lumatone_center_note: PropTypes.number,
-    controller_anchor_note: PropTypes.number,
-    lumatone_center_channel: PropTypes.number,
-    lumatone_center_note: PropTypes.number,
     midiin_steps_per_channel: PropTypes.number,
     midi_passthrough: PropTypes.bool,
-    midiin_channel_legacy: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
     center_degree: PropTypes.number,
+    equivSteps: PropTypes.number,
   }).isRequired,
   midi: PropTypes.object,
+  midiLearnActive: PropTypes.bool,
   onChange: PropTypes.func.isRequired,
 };
 

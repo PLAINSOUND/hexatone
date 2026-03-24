@@ -68,15 +68,23 @@ function buildAxis49Map(anchorNote) {
   const note1     = Math.max(1, Math.min(98, anchorNote));
   const anchorCol = Math.floor((note1 - 1) / AXIS49_ROWS);
   const anchorRow = (note1 - 1) % AXIS49_ROWS;
-  const { y: ay } = axis49HexSpace(anchorCol, anchorRow);
+  const { x: axPhys, y: ayPhys } = axis49HexSpace(anchorCol, anchorRow);
 
   const entries = [];
   for (let col = 0; col < AXIS49_COLS; col++) {
     for (let row = 0; row < AXIS49_ROWS; row++) {
       const note = col * AXIS49_ROWS + row + 1;
-      const { y } = axis49HexSpace(col, row);
-      // x offset is exact (integer cols differ by integers); y needs rounding
-      entries.push({ ch: 1, note, x: col - anchorCol, y: Math.round(y - ay) });
+      const { x: xPhys, y: yPhys } = axis49HexSpace(col, row);
+      // Transform physical hex-space offsets to hexatone axial (r, dr) coords.
+      // Basis vectors from AXIS-49 physical layout:
+      //   down in same column  (Δx_phys=0, Δy_phys=1)  → hexatone (−1, +1)
+      //   right even→odd col   (Δx_phys=1, Δy_phys=0.5)→ hexatone  (0, +1)
+      // Solving gives the 2×2 linear map:
+      //   hx = 0.5·Δx_phys − Δy_phys
+      //   hy = 0.5·Δx_phys + Δy_phys
+      const dx = xPhys - axPhys;
+      const dy = yPhys - ayPhys;
+      entries.push({ ch: 1, note, x: Math.round(0.5 * dx - dy), y: Math.round(0.5 * dx + dy) });
     }
   }
   return makeMap(entries);
@@ -201,6 +209,20 @@ function buildLaunchpadMap(anchorNote, colStep = 2, rowStep = 5) {
   return result;
 }
 
+// ── Generic Single-Channel Keyboard ──────────────────────────────────────────
+// Any device sending 128 notes on a single MIDI channel.
+// Notes are mapped linearly along the x-axis: note N → x = N − anchorNote, y = 0.
+// Designed for use with DIRECT + Tuning Map output, where hexatone sends back
+// the exact tuning for each received MIDI note number.
+
+function buildGenericKeyboardMap(anchorNote) {
+  const entries = [];
+  for (let note = 0; note <= 127; note++) {
+    entries.push({ ch: 1, note, x: note - anchorNote, y: 0 });
+  }
+  return makeMap(entries);
+}
+
 // ── Exquis ────────────────────────────────────────────────────────────────────
 // Hexagonal grid 7 columns × 11 rows, single channel.
 // Notes sent as standard MIDI 0–127, isomorphic layout configurable on device.
@@ -226,7 +248,7 @@ export const CONTROLLER_REGISTRY = [
     id: 'axis49',
     name: 'C-Thru AXIS-49 2A',
     detect: name => name.includes('axis-4') || name.includes('axis 4'),
-    description: 'Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hex.',
+    description: 'Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hexes.',
     multiChannel: false,
     anchorDefault: 53,  // AXIS-49 physical note 49 is the centre key
     buildMap: (anchorNote) => buildAxis49Map(anchorNote ?? 53),
@@ -281,6 +303,17 @@ export const CONTROLLER_REGISTRY = [
     multiChannel: false,
     anchorDefault: 60,
     buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 60),
+  },
+
+  {
+    id: 'generic',
+    name: 'Generic Single-Channel Keyboard',
+    // Never auto-detected — selected manually via the controller override dropdown.
+    detect: () => false,
+    description: '128 notes on ch 1, mapped linearly around the anchor. Use with DIRECT + Tuning Map output.',
+    multiChannel: false,
+    anchorDefault: 60,
+    buildMap: (anchorNote) => buildGenericKeyboardMap(anchorNote ?? 60),
   },
 ];
 

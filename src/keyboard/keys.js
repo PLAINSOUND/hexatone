@@ -149,7 +149,7 @@ class Keys {
 
     
 
-    console.log('[Keys] MIDI init — device:', JSON.stringify(this.settings.midiin_device), 'channel:', this.settings.midiin_channel, 'passthrough:', this.settings.midi_passthrough);
+    //console.log('[Keys] MIDI init — device:', JSON.stringify(this.settings.midiin_device), 'channel:', this.settings.midiin_channel, 'passthrough:', this.settings.midi_passthrough);
     if (
       this.settings.midiin_device !== "OFF" &&
       this.settings.midiin_channel >= 0
@@ -157,13 +157,21 @@ class Keys {
       // get the MIDI noteons and noteoffs to play the internal sounds
 
       this.midiin_data = WebMidi.getInputById(this.settings.midiin_device);
-      console.log('[Keys] midiin_data lookup →', this.midiin_data ? JSON.stringify(this.midiin_data.name) : 'NULL (device not found by WebMidi)');
+      //console.log('[Keys] midiin_data lookup →', this.midiin_data ? JSON.stringify(this.midiin_data.name) : 'NULL (device not found by WebMidi)');
 
       if (!this.midiin_data) {
       } else {
         // this.midiin_data exists
 
+        this._midiLearnCallback = null; // set by setMidiLearnMode()
+
         this.midiin_data.addListener("noteon", (e) => {
+          // MIDI learn: capture the next note-on as the new anchor, don't play it.
+          if (this._midiLearnCallback) {
+            this._midiLearnCallback(e.note.number);
+            this._midiLearnCallback = null;
+            return;
+          }
           //console.log("(input) note_on", e.message.channel, e.note.number, e.note.rawAttack);
           this.midinoteOn(e);
           notes.played.unshift(e.note.number + 128 * (e.message.channel - 1));
@@ -378,7 +386,7 @@ class Keys {
         if (!this.stepsTable || this.stepsTable.size === 0) this.buildStepsTable();
         {
           const deviceName = this.midiin_data.name?.toLowerCase() ?? '';
-          console.log('[Controller] MIDI input device name:', JSON.stringify(this.midiin_data.name));
+          //console.log('[Controller] MIDI input device name:', JSON.stringify(this.midiin_data.name));
           const entry = detectController(deviceName);
           if (entry) {
             this.controller = entry;
@@ -391,7 +399,7 @@ class Keys {
             for (const [key, { x, y }] of rawOffsets) {
               this.controllerMap.set(key, new Point(x + ox, y + oy));
             }
-            console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
+            //console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
           } else {
             this.controller = null;
             this.controllerMap = null;
@@ -617,6 +625,17 @@ class Keys {
         this.drawGrid();
       });
     }
+  };
+
+  /**
+   * Activate or cancel MIDI-learn mode for the anchor note.
+   * While active, the next note-on from the hardware controller is captured as
+   * the new anchor and forwarded to `callback(noteNumber)` instead of being played.
+   * @param {boolean} active
+   * @param {function(number):void} [callback]
+   */
+  setMidiLearnMode = (active, callback) => {
+    this._midiLearnCallback = active ? (callback ?? null) : null;
   };
 
   deconstruct = () => {
@@ -1666,19 +1685,11 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
   }
 
   // Returns the steps offset (in scale degrees) contributed by the MIDI channel.
-  // Legacy mode: 16 channels treated as two groups of 8, each group offset ±4
-  // equaves around midiin_channel. Isolated here so it can be replaced cleanly
-  // when channel_offset is decoupled from equivSteps in a future step.
+  // Channel 1 is always home (offset 0). Each subsequent channel shifts by
+  // stepsPerChannel degrees: null → one equave (equivSteps), 0 → no shift, N → N degrees.
   channelToStepsOffset(channel) {
     const stepsPerChannel = this.settings.midiin_steps_per_channel ?? this.settings.equivSteps;
-    const centerCh = (this.settings.midiin_channel >= 0) ? this.settings.midiin_channel : 0;
-    const legacy = this.settings.midiin_channel_legacy !== false;
-    if (legacy) {
-      const channel_offset = ((channel - 1 - centerCh + 20) % 8) - 4;
-      return channel_offset * stepsPerChannel;
-    }
-    const channel_offset = channel - 1 - centerCh;
-    return channel_offset * stepsPerChannel;
+    return (channel - 1) * stepsPerChannel;
   }
 
   // Builds a Map from steps (scale-degree distance from origin) to an array of

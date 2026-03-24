@@ -28,6 +28,7 @@ const Settings = ({
   instruments,
   keysRef,
   onVolumeChange,
+  midiLearnActive,
 }) => (
   <form onSubmit={(e) => e.preventDefault()}>
     <fieldset>
@@ -91,6 +92,7 @@ const Settings = ({
       settings={settings}
       midi={midi}
       midiTick={midiTick}
+      midiLearnActive={midiLearnActive}
     />
     <MidiOutputs
       onChange={onChange}
