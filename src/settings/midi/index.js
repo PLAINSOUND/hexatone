@@ -63,7 +63,7 @@ const MIDIio = (props) => {
               <>
                 <label style={{ fontStyle: 'italic', color: '#996666' }}>
                   {ctrl.name}
-                  <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
+                  <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em', lineHeight: 1., marginBottom: 6 }}>
                     {ctrl.description}
                   </span>
                 </label>
@@ -92,7 +92,7 @@ const MIDIio = (props) => {
                   <input
                     name="midi_passthrough"
                     type="checkbox"
-                    checked={props.settings.midi_passthrough !== false}
+                    checked={!!props.settings.midi_passthrough}
                     onChange={(e) => {
                       props.onChange('midi_passthrough', e.target.checked);
                       sessionStorage.setItem('midi_passthrough', e.target.checked);

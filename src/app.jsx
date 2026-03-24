@@ -248,7 +248,7 @@ const sessionDefaults = {
     ? parseInt(sessionStorage.getItem("controller_anchor_note")) : null,
   midiin_channel_legacy: sessionStorage.getItem("midiin_channel_legacy") !== null
     ? sessionStorage.getItem("midiin_channel_legacy") === 'true' : true,
-  midi_passthrough: sessionStorage.getItem("midi_passthrough") !== 'false',
+  midi_passthrough: sessionStorage.getItem("midi_passthrough") === 'true',
   midi_device: sessionStorage.getItem("midi_device") || "OFF",
   midi_channel: parseInt(sessionStorage.getItem("midi_channel")) || 0,
   midi_mapping: sessionStorage.getItem("midi_mapping") || "MTS1",

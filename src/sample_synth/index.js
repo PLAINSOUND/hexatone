@@ -10,6 +10,17 @@ import { scalaToCents } from '../settings/scale/parse-scale';
 // avoid hitting the browser's context limit (~6).
 let sharedAudioContext = null;
 
+// ─── Decoded buffer cache ──────────────────────────────────────────────────────
+// Keyed by fileName. Decoded AudioBuffers are context-bound, so the cache is
+// invalidated whenever sharedAudioContext is replaced (rare — only if the old
+// context is closed and a new one is created).
+// Without this cache, every port-connect or preset change that recreates the
+// sample synth instance would leave decodedBuffers = null until prepare()
+// resolves, causing the first note to be silent (the user would only hear the
+// previous note's decaying release tail — a short "peep").
+let decodedBufferCache = {};
+let decodedBufferCacheContext = null; // the AudioContext the cache was built for
+
 // ─── iOS Detection ─────────────────────────────────────────────────────────────
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -130,10 +141,26 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           masterGain.gain.value = masterVolume;
           masterGain.connect(sharedAudioContext.destination);
         }
-        // slice(0) copies the buffer — decodeAudioData consumes its argument
-        decodedBuffers = await Promise.all(
-          rawBuffers.map(buf => sharedAudioContext.decodeAudioData(buf.slice(0)))
-        );
+        // Invalidate the decoded-buffer cache if the AudioContext has been replaced
+        // (e.g. closed and recreated). AudioBuffers are context-bound and cannot
+        // be shared across context instances.
+        if (decodedBufferCacheContext !== sharedAudioContext) {
+          decodedBufferCache = {};
+          decodedBufferCacheContext = sharedAudioContext;
+        }
+        // Use cached buffers if available — avoids the async decode gap that
+        // would leave decodedBuffers = null on the first note after a synth
+        // rebuild (e.g. when a MIDI port is connected), which would otherwise
+        // cause the user to hear only the old note's decaying release tail.
+        if (decodedBufferCache[fileName]) {
+          decodedBuffers = decodedBufferCache[fileName];
+        } else {
+          // slice(0) copies the buffer — decodeAudioData consumes its argument
+          decodedBuffers = await Promise.all(
+            rawBuffers.map(buf => sharedAudioContext.decodeAudioData(buf.slice(0)))
+          );
+          decodedBufferCache[fileName] = decodedBuffers;
+        }
       },
 
       setVolume: (value) => {
@@ -235,30 +262,31 @@ ActiveHex.prototype.noteOn = function() {
 };
 
 /**
- * Smoothly retune a held note to a new cents value.
- * Uses adaptive time constant: larger pitch changes get smoother glides.
+ * Retune a held note to a new cents value.
+ *
+ * Small jumps (TuneCell / FundamentalTuneCell drags): a brief anti-zipper time
+ * constant (~5 ms) smooths the ~60 fps pointer-event stream without adding
+ * perceptible glide — the pointer stream itself is the glide.
+ *
+ * Large jumps (octave shift, ≥ 400 ¢): instant setValueAtTime, matching the
+ * MTS and MPE synths which also removed interpolation for octave-shift retunes.
  */
 ActiveHex.prototype.retune = function(newCents) {
-  const oldCents = this.cents;
+  if (!this.source) return;
+  const delta = Math.abs(newCents - this.cents);
   this.cents = newCents;
-  
+
   const freq = this.fundamental * Math.pow(2, (newCents - this.centsToReference) / 1200);
   const targetPlaybackRate = freq / this.sampleFreq;
-  
-  // Adaptive time constant based on pitch change size
-  const delta = Math.abs(newCents - oldCents);
-  let timeConstant;
-  if (delta < 5) {
-    timeConstant = 0.005; // ~5ms - nearly instant for tiny adjustments
-  } else if (delta < 20) {
-    timeConstant = 0.015; // ~15ms - quick for small changes
-  } else if (delta < 50) {
-    timeConstant = 0.025; // ~25ms - smooth for medium changes
+  const now = this.audioContext.currentTime;
+
+  if (delta >= 400) {
+    // Large jump (octave shift): instant — no audible glide artefact.
+    this.source.playbackRate.setValueAtTime(targetPlaybackRate, now);
   } else {
-    timeConstant = 0.04;  // ~40ms - noticeable glide for large changes
+    // Small change: ~5 ms anti-zipper smoothing.
+    this.source.playbackRate.setTargetAtTime(targetPlaybackRate, now, 0.005);
   }
-  
-  this.source.playbackRate.setTargetAtTime(targetPlaybackRate, this.audioContext.currentTime, timeConstant);
 };
 
 ActiveHex.prototype.aftertouch = function(value) {

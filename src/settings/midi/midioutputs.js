@@ -249,6 +249,7 @@ const MidiOutputs = (props) => {
                   background: fsConnected ? "#22cc44" : undefined,
                   color: fsConnected ? "#003300" : undefined,
                   borderColor: fsConnected ? "#22cc44" : undefined,
+                  marginBottom:3, marginTop:10
                 }}
                 onClick={() => {
                   if (fsConnected) {

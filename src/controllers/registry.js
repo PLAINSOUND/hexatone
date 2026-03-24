@@ -33,46 +33,50 @@ function makeMap(entries) {
   const m = new Map();
   for (const { ch, note, x, y } of entries) {
     m.set(`${ch}.${note}`, { x, y });
-  }
+  };
+  console.log("map built with", m.size, "entries");
   return m;
 }
 
 // ── AXIS-49 2A ────────────────────────────────────────────────────────────────
 // 14 columns × 7 rows, single MIDI channel (selfless mode, notes 1–98).
-// Two banks of 7 columns; Bank 2 (cols 7-13) is staggered 0.5 rows down.
-// Within each bank, odd columns stagger 0.5 rows down.
-// note = col * 7 + row + 1  (col 0–13, row 0–6)
+// Notes are numbered column-first: note = col * 7 + row + 1 (0-indexed col/row).
+//
+// Physical geometry (flat-top hexagons):
+//   • Odd columns within each bank of 7 are staggered DOWN by 0.5 hex unit.
+//   • Bank 2 (cols 7–13) is additionally shifted DOWN by 0.5 relative to Bank 1.
+//   Continuous hex-space position: x = col, y = row + altOffset + bankOffset.
+//
+// The 0.5 offsets resolve to integer hex-grid cells via Math.round(y - anchorY),
+// correctly mapping all 98 keys into hexatone's axial (r, dr) space where
+// +r = right and +dr = down. rSteps / drSteps are irrelevant — this is geometry.
 
-// THIS LOGIC IS FLAWED: THE APP ALREADY CAN PROCESS FROM COORDS, WE ONLY NEED TO CALCULATE COORDS!
+const AXIS49_ROWS          = 7;
+const AXIS49_COLS          = 14;
+const AXIS49_COLS_PER_BANK = 7;
 
-function buildAxis49Map(anchorNote, anchorChannel, rSteps, drSteps) {
-  // AXIS-49 Selfless mode: 14 cols × 7 rows, notes 1-98, single channel.
-  // Anchor: the AXIS MIDI note that maps to the screen centre degree.
-  // Physical layout: +1 col = ROWS notes apart. Each note = 1 chromatic step.
-  //
-  // Screen (x, y) formula — pitch steps from anchor = x*rSteps + y*drSteps:
-  //   x = col - anchorCol          (column offset; 1 col = rSteps steps if rSteps=7)
-  //   y = round((steps - x*rSteps) / drSteps)  (residual onto y axis)
-  //
-  // With rSteps=7, drSteps=4 (standard Wicki-Hayden Bosanquet):
-  //   note 53 (anchor) → (0,0)
-  //   note 60 (+7 steps, +1 col) → (1,0)
-  //   note 57 (+4 steps, same col) → (0,1)
+function axis49HexSpace(col, row) {
+  const bank      = Math.floor(col / AXIS49_COLS_PER_BANK);
+  const colInBank = col % AXIS49_COLS_PER_BANK;
+  return {
+    x: col,
+    y: row + (colInBank % 2 === 1 ? 0.5 : 0) + bank * 0.5,
+  };
+}
 
-  const ROWS = 7, COLS = 14;
-  const anchorNote1 = Math.max(1, Math.min(98, anchorNote));
-  const anchorCol   = Math.floor((anchorNote1 - 1) / ROWS);
-  const rs = rSteps  || 7;
-  const ds = drSteps || 4;
+function buildAxis49Map(anchorNote) {
+  const note1     = Math.max(1, Math.min(98, anchorNote));
+  const anchorCol = Math.floor((note1 - 1) / AXIS49_ROWS);
+  const anchorRow = (note1 - 1) % AXIS49_ROWS;
+  const { y: ay } = axis49HexSpace(anchorCol, anchorRow);
 
   const entries = [];
-  for (let col = 0; col < COLS; col++) {
-    for (let row = 0; row < ROWS; row++) {
-      const note  = col * ROWS + row + 1;
-      const steps = note - anchorNote1;       // chromatic steps from anchor
-      const x     = col - anchorCol;          // column offset
-      const y     = Math.round((steps - x * rs) / ds);
-      entries.push({ ch: 1, note, x, y });
+  for (let col = 0; col < AXIS49_COLS; col++) {
+    for (let row = 0; row < AXIS49_ROWS; row++) {
+      const note = col * AXIS49_ROWS + row + 1;
+      const { y } = axis49HexSpace(col, row);
+      // x offset is exact (integer cols differ by integers); y needs rounding
+      entries.push({ ch: 1, note, x: col - anchorCol, y: Math.round(y - ay) });
     }
   }
   return makeMap(entries);
@@ -222,10 +226,10 @@ export const CONTROLLER_REGISTRY = [
     id: 'axis49',
     name: 'C-Thru AXIS-49 2A',
     detect: name => name.includes('axis-4') || name.includes('axis 4'),
-    description: 'Selfless mode (single channel, notes 1–98). 14×7 isomorphic hex grid.',
+    description: 'Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hex.',
     multiChannel: false,
-    anchorDefault: 49,  // AXIS-49 physical note 49 is the centre key
-    buildMap: (anchorNote, anchorChannel, rSteps, drSteps) => buildAxis49Map(anchorNote ?? 49, anchorChannel, rSteps, drSteps),
+    anchorDefault: 53,  // AXIS-49 physical note 49 is the centre key
+    buildMap: (anchorNote) => buildAxis49Map(anchorNote ?? 53),
   },
 
   {

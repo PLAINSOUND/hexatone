@@ -247,15 +247,23 @@ MpeHex.prototype.retune = function (newCents) {
   const c = this.channel - 1;
 
   if (note !== this.note) {
-    // Note number change: noteOff now, PB now, noteOn after PB_GUARD_MS
-    const now = performance.now();
+    // Note number change: noteOff → PB → noteOn, all sent without timestamps (immediate).
+    //
+    // Unlike the constructor — where PB_GUARD_MS is needed because there is a JS return
+    // between the PB send and the noteOn call — here all three messages are sent in the
+    // same synchronous call. The MIDI driver processes them in FIFO order, so PB arrives
+    // before noteOn without any scheduling gap.
+    //
+    // Using PB_GUARD_MS here creates a 2ms window where a sustainOff noteOff (sent
+    // without a timestamp) can arrive at the driver BEFORE the scheduled noteOn, leaving
+    // the rescheduled note stuck. Removing the timestamp eliminates that race entirely.
     this.midi_output.send([0x80 + c, this.note, this.velocity]);
     this.note = note;
     this.bend = newBend;
     this.pool.setLastBend(this.channel, this.bend);
     this.pool.setLastNote(this.channel, this.note);
-    sendBend(this.midi_output, c, this.bend, now);
-    this.midi_output.send([0x90 + c, this.note, this.velocity], now + PB_GUARD_MS);
+    sendBend(this.midi_output, c, this.bend);
+    this.midi_output.send([0x90 + c, this.note, this.velocity]);
   } else {
     // Same note: single PB update, no timing guard needed
     this.bend = newBend;

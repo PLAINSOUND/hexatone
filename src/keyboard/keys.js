@@ -149,6 +149,7 @@ class Keys {
 
     
 
+    console.log('[Keys] MIDI init — device:', JSON.stringify(this.settings.midiin_device), 'channel:', this.settings.midiin_channel, 'passthrough:', this.settings.midi_passthrough);
     if (
       this.settings.midiin_device !== "OFF" &&
       this.settings.midiin_channel >= 0
@@ -156,6 +157,7 @@ class Keys {
       // get the MIDI noteons and noteoffs to play the internal sounds
 
       this.midiin_data = WebMidi.getInputById(this.settings.midiin_device);
+      console.log('[Keys] midiin_data lookup →', this.midiin_data ? JSON.stringify(this.midiin_data.name) : 'NULL (device not found by WebMidi)');
 
       if (!this.midiin_data) {
       } else {
@@ -367,6 +369,7 @@ class Keys {
             */
             }
           }
+        } // end if (output_mts)
         // Detect controller geometry and build a direct coordinate lookup map.
         // registry.buildMap() returns Map<"ch.note", {x,y}> with the anchor at (0,0).
         // Adding centerHexOffset converts to absolute hex-grid coords — the same
@@ -375,6 +378,7 @@ class Keys {
         if (!this.stepsTable || this.stepsTable.size === 0) this.buildStepsTable();
         {
           const deviceName = this.midiin_data.name?.toLowerCase() ?? '';
+          console.log('[Controller] MIDI input device name:', JSON.stringify(this.midiin_data.name));
           const entry = detectController(deviceName);
           if (entry) {
             this.controller = entry;
@@ -387,10 +391,11 @@ class Keys {
             for (const [key, { x, y }] of rawOffsets) {
               this.controllerMap.set(key, new Point(x + ox, y + oy));
             }
-            console.log('[Controller] built map for:', entry.id, 'size:', this.controllerMap.size);
+            console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
           } else {
             this.controller = null;
             this.controllerMap = null;
+            console.log('[Controller] no geometry found for device — using step arithmetic');
           }
         }
 
@@ -402,9 +407,8 @@ class Keys {
           this._handleWheelBend(val14);
         });
 
-        } // end else (midiin_data exists)
-      } // end if midiin_data guard
-    }
+      } // end else (midiin_data exists)
+    } // end if midiin_data guard
   } // end of constructor
 
   /**
@@ -530,6 +534,15 @@ class Keys {
       newFundamental,
       this.settings.degree0toRef_asArray,
     );
+    // If a TuneCell drag preview is in progress (or was abandoned without Save/Revert),
+    // _fundamentalSnapshot holds the pre-preview base cents for each hex — the correct
+    // scale-derived pitches before any drag offset was applied.
+    // Using snapshot values here makes updateFundamental order-independent with respect
+    // to previewFundamental(0): it works correctly whether the effect fires before or
+    // after onSave's cleanup call, and also handles abandoned drags where hex.cents
+    // was left at base+delta.
+    const snap = this._fundamentalSnapshot;
+    this._fundamentalSnapshot = null; // clear — official update supersedes the preview
     // Update fundamental on all sounding/sustained hex objects, then retune.
     // Both MidiHex and ActiveHex store this.fundamental at construction;
     // we patch it directly so retune() uses the new value.
@@ -539,7 +552,10 @@ class Keys {
     ];
     for (const hex of allHexes) {
       if ('fundamental' in hex) hex.fundamental = newFundamental;
-      if (hex.retune) hex.retune(hex.cents);
+      const key = hex.coords.x + ',' + hex.coords.y;
+      const trueCents = snap ? (snap.get(key) ?? hex.cents) : hex.cents;
+      hex.cents = trueCents; // sync to base, cancelling any preview offset
+      if (hex.retune) hex.retune(trueCents);
     }
     // Re-send tuning map if auto-send is enabled for the relevant output
     if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
@@ -616,6 +632,13 @@ class Keys {
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
+
+    // Notify the app that latch/sustain is gone — the new Keys instance will
+    // start with latch: false, so the UI indicator must match. Without this,
+    // synth-only rebuilds (e.g. FluidSynth connecting) leave the app showing
+    // latch as active while the new Keys has no sustain state, causing the
+    // next click to produce a brief non-sustained note instead of latching.
+    if (this.onLatchChange) this.onLatchChange(false);
 
 
     window.removeEventListener("resize", this.resizeHandler, false);
@@ -826,13 +849,11 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
       const ch = this.controller.multiChannel ? e.message.channel : 1;
       const baseCoords = this.controllerMap.get(`${ch}.${e.note.number}`) ?? null;
       if (baseCoords === null) return;
-      // For single-channel controllers, apply the per-channel step offset so that
-      // sending notes on different MIDI channels transposes by the configured amount
-      // (default: one equave per channel). Multi-channel controllers encode physical
-      // position in the channel — adding a step offset on top would be wrong.
-      coords = this.controller.multiChannel
-        ? baseCoords
-        : this._applyChannelOffset(baseCoords, e.message.channel);
+      // The controllerMap already encodes physical position exactly — no channel offset.
+      // Applying _applyChannelOffset here would use bestVisibleCoord() which is
+      // position-dependent and returns different results on note-on vs note-off,
+      // causing stuck notes. Use baseCoords directly.
+      coords = baseCoords;
     } else {
       // Generic keyboard: step arithmetic with channel-based transposition.
       const steps = (e.note.number - this.settings.midiin_central_degree)
@@ -865,13 +886,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
       // Known controller: direct lookup returns exactly one coord.
       const ch = this.controller.multiChannel ? e.message.channel : 1;
       const baseCoords = this.controllerMap.get(`${ch}.${e.note.number}`);
-      if (!baseCoords) { coordsList = []; }
-      else {
-        const resolved = this.controller.multiChannel
-          ? baseCoords
-          : this._applyChannelOffset(baseCoords, e.message.channel);
-        coordsList = resolved ? [resolved] : [];
-      }
+      coordsList = baseCoords ? [baseCoords] : [];
     }
 
     for (const coords of coordsList) {
@@ -895,13 +910,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
           // Known controller: direct lookup.
           const ch = this.controller.multiChannel ? channel : 1;
           const baseCoords = this.controllerMap.get(`${ch}.${note}`);
-          if (!baseCoords) { coordsList = []; }
-          else {
-            const resolved = this.controller.multiChannel
-              ? baseCoords
-              : this._applyChannelOffset(baseCoords, channel);
-            coordsList = resolved ? [resolved] : [];
-          }
+          coordsList = baseCoords ? [baseCoords] : [];
         } else {
           // Bypass or generic keyboard: step arithmetic.
           const steps = (note - this.settings.midiin_central_degree)
@@ -1085,7 +1094,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     // Track in recency stack so wheel bend and snapshot can find this note.
     this.recencyStack.push(hex);
     this._updateWheelTarget();
-    console.log("hex on at ", [coords.x, coords.y]);
+    //console.log("hex on at ", [coords.x, coords.y]);
     return hex;
   }
 

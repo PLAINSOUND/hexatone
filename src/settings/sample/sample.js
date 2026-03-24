@@ -30,13 +30,13 @@ const Sample = (props) => {
                      onChange={props.onChange}/>
       </label>
       <label>
-        Volume
+        <span>Volume</span>
         <input type="range" name="synth_volume"
           min="0" max="1" step="0.01"
           value={volume}
           class="sidebar-input"
           onInput={handleVolume}
-          style={{ padding: 0 }}
+          style={{transform:"translateY(5px)"}}
         />
       </label>
       {/*
