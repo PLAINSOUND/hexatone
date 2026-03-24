@@ -239,6 +239,11 @@ MpeHex.prototype.noteOff = function (release_velocity) {
  * using WebMIDI timestamps.
  */
 MpeHex.prototype.retune = function (newCents) {
+  // Guard: never retune a released note. The TuneCell glide rAF can outlive
+  // noteOff (it's not cancelled on latch toggle), so without this check:
+  //  - PB messages continue to a RELEASING channel → audible pitch bend on tail
+  //  - A note-number change triggers noteOff+noteOn on a RELEASING channel → ghost note
+  if (this.release) return;
   this.cents = newCents;
 
   const freq = this.freqAtCentral * Math.pow(2, newCents / 1200);
