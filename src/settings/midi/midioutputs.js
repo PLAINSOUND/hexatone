@@ -59,12 +59,8 @@ const MidiOutputs = (props) => {
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
-  // Central MIDI note: defaults to the same note used for MIDI input (midiin_central_degree + center_degree).
-  const center_degree = settings.center_degree || 0;
-  const centralMidiNote =
-    (settings.midiin_central_degree != null
-      ? settings.midiin_central_degree
-      : 60) + center_degree;
+  // Central MIDI note: midiin_central_degree is now stored as the raw physical MIDI note.
+  const centralMidiNote = settings.midiin_central_degree ?? 60;
   const tuningMapNote =
     settings.tuning_map_degree0 != null
       ? settings.tuning_map_degree0

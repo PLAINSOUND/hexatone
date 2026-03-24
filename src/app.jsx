@@ -629,24 +629,30 @@ const App = () => {
       );
     }
 
-    Promise.all(promises).then((synths) => {
-      setLoading(signal);
+    Promise.all(promises).then(async (synths) => {
       // Filter out null/undefined synths (e.g., MIDI device unavailable)
       const validSynths = synths.filter((s) => s != null);
       if (validSynths.length === 0) {
         setSynth(null);
+        setLoading(signal);
         return;
       }
       const s =
         validSynths.length === 1
           ? validSynths[0]
           : create_composite_synth(validSynths);
-      // Only call prepare() when user has interacted (not on initial page load)
-      // This avoids Chrome's autoplay policy blocking AudioContext
+      // Await prepare() before setting the synth AND before clearing the
+      // loading state. This guarantees:
+      //  1. decodedBuffers is set before the keyboard becomes interactive.
+      //  2. The keyboard does not re-appear with the OLD synth while the new
+      //     one is still being prepared — which would let the user click a note
+      //     on the old synth, then have it cut off by Keys reconstruction when
+      //     setSynth(new) arrives, producing a "peep".
       if (s.prepare && userHasInteracted) {
-        s.prepare();
+        await s.prepare();
       }
       setSynth(s);
+      setLoading(signal);
     });
   }, [
     settings.instrument,

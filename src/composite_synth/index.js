@@ -40,9 +40,10 @@ export const create_composite_synth = (synths) => ({
     };
   },
 
-  // prepare() is called by app.jsx on preset change — forward if present
+  // prepare() is called by app.jsx on preset change — forward and return a
+  // combined promise so the caller can await all sub-synths being ready.
   prepare() {
-    synths.forEach(s => s.prepare && s.prepare());
+    return Promise.all(synths.filter(s => s.prepare).map(s => s.prepare()));
   },
 
   setVolume(value) {

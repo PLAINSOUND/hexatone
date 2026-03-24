@@ -100,7 +100,7 @@ export const create_mpe_synth = async (
   const pool = new VoicePool(voiceIds, releaseGuardMs, closestPitchSteal);
 
   const freqAtCentral = calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale);
-  const midiNoteForDegree0 = midiin_central_degree + center_degree;
+  const midiNoteForDegree0 = midiin_central_degree;
 
   // MPE configuration RPN message on manager channel
   if (masterCh !== null) {
