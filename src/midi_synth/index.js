@@ -175,7 +175,7 @@ MidiHex.prototype.aftertouch = function (value) {
 };
 
 MidiHex.prototype.noteOff = function (release_velocity) {
-  const velocity = release_velocity || this.velocity;
+  const velocity = release_velocity != null ? release_velocity : this.velocity;
   this.midi_output.send([128 + this.channel, this.steps, velocity]);
   this.release = true;
 
