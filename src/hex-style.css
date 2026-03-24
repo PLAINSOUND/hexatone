@@ -357,6 +357,11 @@ a:hover {
     background-color: #ddcccc;
 }
 
+.octave-defer-active {
+    background-color: #e8d4d4;
+    transition: background-color 0.1s ease;
+}
+
 .octave-display {
     color: #990000;
     font-size: 0.95em;

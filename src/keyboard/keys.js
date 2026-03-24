@@ -484,20 +484,35 @@ class Keys {
   // Shift all pitches by ±1 equave without rebuilding Keys.
   // Updates octave_offset in this.settings, redraws the grid
   // (so colours update), and retunes any sounding/sustained notes.
-  shiftOctave = (dir) => {
+  shiftOctave = (dir, deferred = false) => {
     this.settings.octave_offset = (this.settings.octave_offset || 0) + dir;
-    // Retune all sounding and sustained notes
-    for (const hex of this.state.activeHexObjects) {
-      const [newCents] = this.hexCoordsToCents(hex.coords);
-      if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
-      if (hex.retune) hex.retune(newCents);
+
+    // In deferred mode, sounding notes keep their current pitch — the shift
+    // only applies to the next new note. If there are no sounding notes,
+    // deferred and immediate are equivalent.
+    const hasSoundingNotes =
+      this.state.activeHexObjects.length > 0 ||
+      this.state.sustainedNotes.length > 0;
+    const skipRetune = deferred && hasSoundingNotes;
+
+    if (!skipRetune) {
+      // Retune all sounding and sustained notes immediately
+      for (const hex of this.state.activeHexObjects) {
+        const [newCents] = this.hexCoordsToCents(hex.coords);
+        if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
+        if (hex.retune) hex.retune(newCents);
+      }
+      for (const [hex] of this.state.sustainedNotes) {
+        const [newCents] = this.hexCoordsToCents(hex.coords);
+        if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
+        if (hex.retune) hex.retune(newCents);
+      }
     }
-    for (const [hex] of this.state.sustainedNotes) {
-      const [newCents] = this.hexCoordsToCents(hex.coords);
-      if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
-      if (hex.retune) hex.retune(newCents);
-    }
-    // Rebuild MTS map with new pitch offsets and re-send
+
+    // Always rebuild the in-memory MTS map so new notes use the new offset.
+    // Each MidiHex.noteOn() sends its own single-note real-time sysex, so
+    // new notes are individually retuned at trigger time regardless.
+    // Only send the bulk map immediately when not deferring (or when silent).
     const central_midi_note = this.settings.midiin_central_degree ?? 60;
     const tuning_map_degree0 = this.settings.tuning_map_degree0 ?? central_midi_note;
     this.mts_tuning_map = mtsTuningMap(
@@ -511,11 +526,13 @@ class Keys {
       this.settings.fundamental,
       this.settings.degree0toRef_asArray,
     );
-    if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
-    if (this.settings.output_direct && this.settings.direct_sysex_auto &&
-        this.settings.direct_device && this.settings.direct_device !== 'OFF') {
-      const directOut = WebMidi.getOutputById(this.settings.direct_device);
-      if (directOut) this.mtsSendMap(directOut);
+    if (!skipRetune) {
+      if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
+      if (this.settings.output_direct && this.settings.direct_sysex_auto &&
+          this.settings.direct_device && this.settings.direct_device !== 'OFF') {
+        const directOut = WebMidi.getOutputById(this.settings.direct_device);
+        if (directOut) this.mtsSendMap(directOut);
+      }
     }
     this.drawGrid();
   };

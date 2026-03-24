@@ -406,6 +406,9 @@ const App = () => {
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
   const [octaveTranspose, setOctaveTranspose] = useState(0);
+  const [octaveDeferred, setOctaveDeferred] = useState(
+    () => sessionStorage.getItem('octave_deferred') === 'true'
+  );
 
   // Long-press sidebar button to toggle latch (sustain while playing)
   const longPressTimer = useRef(null);
@@ -686,7 +689,14 @@ const App = () => {
   const shiftOctave = (dir) => {
     setOctaveTranspose(t => t + dir);
     if (keysRef.current?.shiftOctave)
-      keysRef.current.shiftOctave(dir);
+      keysRef.current.shiftOctave(dir, octaveDeferred);
+  };
+
+  const toggleOctaveDeferred = (e) => {
+    e.stopPropagation();
+    const next = !octaveDeferred;
+    setOctaveDeferred(next);
+    sessionStorage.setItem('octave_deferred', next);
   };
 
   // When fundamental changes from sidebar/preset, propagate to live Keys.
@@ -1266,7 +1276,12 @@ const App = () => {
             onClick={(e) => { e.stopPropagation(); shiftOctave(-1); }}
             onContextMenu={(e) => e.preventDefault()}
           >▼</button>
-          <span className="octave-display">
+          <span
+            className={`octave-display${octaveDeferred ? ' octave-defer-active' : ''}`}
+            title={octaveDeferred ? 'Transpose on next event' : 'Transpose immediately'}
+            onClick={toggleOctaveDeferred}
+            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+          >
             {octaveTranspose === 0 ? "OCT" : octaveTranspose > 0
               ? `+${octaveTranspose}` : `${octaveTranspose}`}
           </span>
