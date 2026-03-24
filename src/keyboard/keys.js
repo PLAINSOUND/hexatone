@@ -74,13 +74,9 @@ class Keys {
     this._wheelTarget    = null;
     this._wheelBaseCents = null;
 
-    // tuning_map_degree0: use explicit override if set, otherwise derive from the central MIDI note
-    // (midiin_central_degree is stored as the note for degree 0; add center_degree to get the central note)
-    const center_degree = this.settings.center_degree || 0;
-    const central_midi_note =
-      (this.settings.midiin_central_degree != null
-        ? this.settings.midiin_central_degree
-        : 60) + center_degree;
+    // tuning_map_degree0: use explicit override if set, otherwise use the physical anchor note directly.
+    // midiin_central_degree is now stored as the raw physical MIDI note number.
+    const central_midi_note = this.settings.midiin_central_degree ?? 60;
     const tuning_map_degree0 =
       this.settings.tuning_map_degree0 != null
         ? this.settings.tuning_map_degree0
@@ -502,8 +498,7 @@ class Keys {
       if (hex.retune) hex.retune(newCents);
     }
     // Rebuild MTS map with new pitch offsets and re-send
-    const central_midi_note = (this.settings.midiin_central_degree ?? 60)
-      + (this.settings.center_degree || 0);
+    const central_midi_note = this.settings.midiin_central_degree ?? 60;
     const tuning_map_degree0 = this.settings.tuning_map_degree0 ?? central_midi_note;
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
@@ -528,8 +523,7 @@ class Keys {
   updateFundamental = (newFundamental) => {
     this.settings.fundamental = newFundamental;
     // Rebuild MTS tuning map with new fundamental
-    const central_midi_note = (this.settings.midiin_central_degree ?? 60)
-      + (this.settings.center_degree || 0);
+    const central_midi_note = this.settings.midiin_central_degree ?? 60;
     const tuning_map_degree0 = this.settings.tuning_map_degree0 ?? central_midi_note;
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
@@ -860,6 +854,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
         });
       }
       const steps = (e.note.number - this.settings.midiin_central_degree)
+                  + (this.settings.center_degree || 0)
                   + this.channelToStepsOffset(e.message.channel);
       coords = this.bestVisibleCoord(steps);
     } else if (this.controllerMap) {
@@ -876,6 +871,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
     } else {
       // Generic keyboard: step arithmetic with channel-based transposition.
       const steps = (e.note.number - this.settings.midiin_central_degree)
+                  + (this.settings.center_degree || 0)
                   + this.channelToStepsOffset(e.message.channel);
       coords = this.bestVisibleCoord(steps);
     }
@@ -899,6 +895,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
         });
       }
       const steps = (e.note.number - this.settings.midiin_central_degree)
+                  + (this.settings.center_degree || 0)
                   + this.channelToStepsOffset(e.message.channel);
       coordsList = this.stepsToVisibleCoords(steps);
     } else {
@@ -933,6 +930,7 @@ _midiLatchToggle(coords, releaseVelocity = 0) {
         } else {
           // Bypass or generic keyboard: step arithmetic.
           const steps = (note - this.settings.midiin_central_degree)
+                      + (this.settings.center_degree || 0)
                       + this.channelToStepsOffset(channel);
           coordsList = this.stepsToVisibleCoords(steps);
         }

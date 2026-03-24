@@ -272,7 +272,7 @@ ActiveHex.prototype.noteOn = function() {
  * MTS and MPE synths which also removed interpolation for octave-shift retunes.
  */
 ActiveHex.prototype.retune = function(newCents) {
-  if (!this.source) return;
+  if (this.release || !this.source) return;
   const delta = Math.abs(newCents - this.cents);
   this.cents = newCents;
 

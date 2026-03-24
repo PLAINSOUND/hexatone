@@ -742,15 +742,14 @@ const App = () => {
           }
         }
       }
-      const centerDeg = settings.center_degree || 0;
       setSettings(s => ({
         ...s,
         midiin_device: value,
-        ...(anchorMidiNote !== null ? { midiin_central_degree: anchorMidiNote - centerDeg } : {}),
+        ...(anchorMidiNote !== null ? { midiin_central_degree: anchorMidiNote } : {}),
       }));
       sessionStorage.setItem('midiin_device', value);
       if (anchorMidiNote !== null) {
-        sessionStorage.setItem('midiin_central_degree', String(anchorMidiNote - centerDeg));
+        sessionStorage.setItem('midiin_central_degree', String(anchorMidiNote));
       }
       return;
     }
@@ -760,8 +759,8 @@ const App = () => {
     if (key === 'midiin_central_degree') {
       const ctrl = getConnectedController(settings.midiin_device);
       if (ctrl) {
-        // Store the physical MIDI note number so it stays correct if center_degree changes.
-        localStorage.setItem(`${ctrl.id}_anchor`, String(value + (settings.center_degree || 0)));
+        // value IS the raw physical MIDI note number — store directly.
+        localStorage.setItem(`${ctrl.id}_anchor`, String(value));
       }
       // Fall through to normal setSettings
     }
@@ -896,9 +895,7 @@ const App = () => {
   // updates midiin_central_degree so the controller map rebuilds immediately.
   const onAnchorLearn = useCallback((noteNum) => {
     setMidiLearnActive(false);
-    const centerDeg = settings.center_degree || 0;
-    const stored = noteNum - centerDeg;
-    // Persist per-controller in localStorage.
+    // Store the raw physical MIDI note number directly.
     if (settings.midiin_device && settings.midiin_device !== 'OFF' && midi) {
       const input = Array.from(midi.inputs.values()).find(m => m.id === settings.midiin_device);
       if (input) {
@@ -906,9 +903,9 @@ const App = () => {
         if (ctrl) localStorage.setItem(`${ctrl.id}_anchor`, String(noteNum));
       }
     }
-    sessionStorage.setItem('midiin_central_degree', String(stored));
-    setSettings(s => ({ ...s, midiin_central_degree: stored }));
-  }, [settings.midiin_device, settings.center_degree, midi]);
+    sessionStorage.setItem('midiin_central_degree', String(noteNum));
+    setSettings(s => ({ ...s, midiin_central_degree: noteNum }));
+  }, [settings.midiin_device, midi]);
 
   const resetScale = () => {
     setUserHasInteracted(true);

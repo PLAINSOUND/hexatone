@@ -14,10 +14,9 @@ const MIDIio = (props) => {
   // Detect 2D controller (null when device is disconnected or unrecognised).
   const ctrl = detectController(deviceName);
 
-  // midiin_central_degree is stored as (MIDI note − center_degree).
-  // Display as the actual MIDI note that plays the central screen degree.
+  // midiin_central_degree is stored as the raw physical MIDI note number.
   const center_degree = props.settings.center_degree || 0;
-  const centralNote = (props.settings.midiin_central_degree || 60) + center_degree;
+  const centralNote = props.settings.midiin_central_degree ?? 60;
 
   // Channel transposition mode derived from midiin_steps_per_channel:
   //   null  → 'equave'  (one equave per channel, default)
@@ -88,13 +87,13 @@ const MIDIio = (props) => {
                   </button>
                   <input name="midiin_central_degree" type="text" inputMode="numeric"
                     style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
-                    key={`${props.settings.midiin_central_degree}-${center_degree}`}
+                    key={props.settings.midiin_central_degree}
                     defaultValue={centralNote}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value);
                       if (!isNaN(val) && val >= 0 && val <= 127) {
-                        props.onChange('midiin_central_degree', val - center_degree);
-                        sessionStorage.setItem('midiin_central_degree', val - center_degree);
+                        props.onChange('midiin_central_degree', val);
+                        sessionStorage.setItem('midiin_central_degree', val);
                       } else {
                         e.target.value = centralNote;
                       }
@@ -133,13 +132,13 @@ const MIDIio = (props) => {
                   </button>
                   <input name="midiin_central_degree" type="text" inputMode="numeric"
                     style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
-                    key={`${props.settings.midiin_central_degree}-${center_degree}`}
+                    key={props.settings.midiin_central_degree}
                     defaultValue={centralNote}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value);
                       if (!isNaN(val) && val >= 0 && val <= 127) {
-                        props.onChange('midiin_central_degree', val - center_degree);
-                        sessionStorage.setItem('midiin_central_degree', val - center_degree);
+                        props.onChange('midiin_central_degree', val);
+                        sessionStorage.setItem('midiin_central_degree', val);
                       } else {
                         e.target.value = centralNote;
                       }
