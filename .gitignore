@@ -4,6 +4,9 @@ node_modules/
 # Build output
 build/
 
+# OSC bridge pre-built binaries (large, build locally with: yarn build-bridge)
+osc-bridge/dist/
+
 # Vite / Vitest cache
 .vite/
 coverage/

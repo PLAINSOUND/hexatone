@@ -1,5 +1,7 @@
 /**
- * Lumatone controller mapping — selfless mode
+ * Lumatone controller mapping — layout of keys follows the .ltn format
+ * Keys are numbered 0-55 (mapped to MIDI Note Numbers) in five blocks 
+ * numbered 1-5 (mapped to MIDI Channels)
  *
  * Physical layout:
  *   5 blocks (boards), each on a separate MIDI channel (1–5).
@@ -16,17 +18,18 @@
  *     row  9:  5 keys — notes 49..53
  *     row 10:  2 keys — notes 54..55
  *
- *   The block forms a parallelogram slanting down-left. Every row n
- *   contains a key at (0, n). Rows 0–8 start at r = -floor(dr/2)
+ *   The block forms a parallelogram slanting down-left (from the
+ *   perspective of the bottom left key). Every row n contains a key 
+ *   at (0, n) - down-right diagonal. Rows 0–8 start at r = -floor(dr/2)
  *   (no even/odd distinction — pairs of rows share the same start_r).
- *   Rows 9 and 10 are indented (shifted right by 1).
+ *   Row 9 is shifted right by 1, Row 10 is shifted right by 3.
  *
  *   Verified neighbours of default anchor note 26 (r=-1, dr=5):
  *     left=25(-1,0)  right=27(+1,0)
  *     upper-left=20(0,-1)  upper-right=21(+1,-1)
  *     lower-left=32(-1,+1)  lower-right=33(0,+1)
  *
- * Inter-block layout:
+ *   Inter-block layout:
  *   Each successive block shifts by (+6r, +2dr) to match the physical staircase.
  *   Adjust LUMATONE_BLOCK_OFFSETS if your instrument's staircase differs.
  */
@@ -36,10 +39,10 @@ export const LUMATONE_NOTES_PER_BLOCK = 56;
 
 export const LUMATONE_BLOCK_OFFSETS = [
   { x:  0, y:  0 },   // channel 1
-  { x:  6, y:  2 },   // channel 2
-  { x: 12, y:  4 },   // channel 3
-  { x: 18, y:  6 },   // channel 4
-  { x: 24, y:  8 },   // channel 5
+  { x:  5, y:  2 },   // channel 2
+  { x: 10, y:  4 },   // channel 3
+  { x: 15, y:  6 },   // channel 4
+  { x: 20, y:  8 },   // channel 5
 ];
 
 // [r, dr] position of each note 0–55 within a block.

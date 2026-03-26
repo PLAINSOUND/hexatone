@@ -77,7 +77,14 @@ export class MidiCoordResolver {
     const stepsPerChannel =
       this.settings.midiin_steps_per_channel ?? this.settings.equivSteps;
     const anchorChannel = this.settings.midiin_anchor_channel ?? 1;
-    return (channel - anchorChannel) * stepsPerChannel;
+    // Legacy mode: wrap channel into 1–8 before computing offset.
+    // Allows Lumatone mappings that use channels 9–16 to be treated
+    // identically to channels 1–8 (mod 8).  Default is true for
+    // backward compatibility with older presets.
+    const effectiveChannel = this.settings.midiin_channel_legacy
+      ? ((channel - 1) % 8) + 1
+      : channel;
+    return (effectiveChannel - anchorChannel) * stepsPerChannel;
   }
 
   /**

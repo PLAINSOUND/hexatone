@@ -19,6 +19,9 @@ const MIDIio = (props) => {
   const centralNote = props.settings.midiin_central_degree ?? 60;
   // anchorChannel for the 2D controller map (Lumatone): stored in lumatone_center_channel.
   const anchorChannel = props.settings.lumatone_center_channel ?? ctrl?.anchorChannelDefault ?? null;
+  // For multi-channel 2D controllers (Lumatone), the anchor note within the block is
+  // stored in lumatone_center_note (0–55), not midiin_central_degree (0–127).
+  const lumatoneAnchorNote = props.settings.lumatone_center_note ?? ctrl?.anchorDefault ?? 26;
   // anchorChannel for sequential / step-arithmetic path: stored in midiin_anchor_channel.
   const seqAnchorChannel = props.settings.midiin_anchor_channel ?? 1;
 
@@ -121,20 +124,41 @@ const MIDIio = (props) => {
                       />
                     )
                   )}
-                  <input name="midiin_central_degree" type="text" inputMode="numeric"
-                    style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
-                    key={props.settings.midiin_central_degree}
-                    defaultValue={centralNote}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (!isNaN(val) && val >= 0 && val <= 127) {
-                        props.onChange('midiin_central_degree', val);
-                        sessionStorage.setItem('midiin_central_degree', val);
-                      } else {
-                        e.target.value = centralNote;
-                      }
-                    }}
-                  />
+                  {/* Multi-channel 2D controllers (Lumatone) store the anchor block-note
+                      in lumatone_center_note (0–55). Single-channel / sequential path
+                      uses midiin_central_degree (0–127). */}
+                  {ctrl?.multiChannel ? (
+                    <input name="lumatone_center_note" type="text" inputMode="numeric"
+                      title="Note number within anchor block (0–55)"
+                      style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
+                      key={lumatoneAnchorNote}
+                      defaultValue={lumatoneAnchorNote}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= 0 && val <= 55) {
+                          props.onChange('lumatone_center_note', val);
+                          sessionStorage.setItem('lumatone_center_note', String(val));
+                        } else {
+                          e.target.value = lumatoneAnchorNote;
+                        }
+                      }}
+                    />
+                  ) : (
+                    <input name="midiin_central_degree" type="text" inputMode="numeric"
+                      style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
+                      key={props.settings.midiin_central_degree}
+                      defaultValue={centralNote}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= 0 && val <= 127) {
+                          props.onChange('midiin_central_degree', val);
+                          sessionStorage.setItem('midiin_central_degree', val);
+                        } else {
+                          e.target.value = centralNote;
+                        }
+                      }}
+                    />
+                  )}
                 </span>
               </label>
               <label>
@@ -238,6 +262,18 @@ const MIDIio = (props) => {
                   />
                 </label>
               )}
+              <label title="Wrap channels 9–16 to 1–8 before computing transposition offset. Enable for Lumatone mappings that use channels 9–13.">
+                Channels mod 8 (legacy)
+                <input
+                  name="midiin_channel_legacy"
+                  type="checkbox"
+                  checked={!!props.settings.midiin_channel_legacy}
+                  onChange={(e) => {
+                    props.onChange('midiin_channel_legacy', e.target.checked);
+                    sessionStorage.setItem('midiin_channel_legacy', e.target.checked);
+                  }}
+                />
+              </label>
             </>
           )}
 
@@ -266,6 +302,8 @@ MIDIio.propTypes = {
     midiin_central_degree: PropTypes.number,
     midiin_steps_per_channel: PropTypes.number,
     midi_passthrough: PropTypes.bool,
+    midiin_channel_legacy: PropTypes.bool,
+    lumatone_center_note: PropTypes.number,
     wheel_to_recent: PropTypes.bool,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,

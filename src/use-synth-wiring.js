@@ -369,7 +369,9 @@ const useSynthWiring = (
     sessionStorage.setItem("midiin_anchor_channel", String(ch));
     if (ctrl?.anchorChannelDefault != null) {
       update.lumatone_center_channel = ch;
+      update.lumatone_center_note = noteNum;  // noteNum is 0–55 for Lumatone blocks
       sessionStorage.setItem("lumatone_center_channel", String(ch));
+      sessionStorage.setItem("lumatone_center_note", String(noteNum));
     }
     setSettings((s) => ({ ...s, ...update }));
   }, [settings.midiin_device, midi]);

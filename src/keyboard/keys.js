@@ -400,7 +400,11 @@ class Keys {
           const entry = detectController(deviceName);
           if (entry) {
             this.controller = entry;
-            const anchorNote = getAnchorNote(entry, this.settings);
+            // Multi-channel controllers (e.g. Lumatone) use a per-block note number (0–55),
+            // stored in lumatone_center_note. Single-channel controllers use midiin_central_degree (0–127).
+            const anchorNote = entry.multiChannel
+              ? (this.settings.lumatone_center_note ?? entry.anchorDefault ?? 26)
+              : getAnchorNote(entry, this.settings);
             const anchorChannel = this.settings.lumatone_center_channel ?? entry.anchorChannelDefault ?? 3;
             const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
             const ox = this.settings.centerHexOffset.x;

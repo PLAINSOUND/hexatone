@@ -11,7 +11,7 @@ const PRESET_FIELDS = [
   'scale_import', 'scale', 'equivSteps', 'equivInterval',
   'note_names', 'note_colors', 'key_labels',
   'spectrum_colors', 'fundamental_color',
-  'fundamental', 'reference_degree',
+  'fundamental', 'reference_degree', 'center_degree',
   'rSteps', 'drSteps', 'hexSize', 'rotation',
   'midiin_central_degree',
   'mpe_mode',
