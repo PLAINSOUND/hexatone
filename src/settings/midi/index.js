@@ -2,6 +2,7 @@ import { h } from 'preact';
 import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
 import { downloadLtn, DEFAULT_CENTRAL_BOARD, DEFAULT_CENTRAL_KEY, DEFAULT_CENTRAL_CHANNEL, DEFAULT_CENTRAL_NOTE } from '../scale/lumatone-export.js';
+import { scalaToCents } from '../scale/parse-scale.js';
 
 const MIDIio = (props) => {
   // props.midiTick is unused directly — its presence as a changing prop forces
@@ -180,50 +181,62 @@ const MIDIio = (props) => {
                 </em></p>
               )}
 
-              {/* ── Lumatone LED colour sync + layout download ── */}
+              {/* ── Lumatone LED colour sync + layout ── */}
               {ctrl?.id === 'lumatone' && (
                 <>
-                  <label style={{ fontStyle: 'italic', color: props.lumatoneRawPorts ? '#669966' : '#996666' }}>
-                    LED Output
-                    <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
-                      {props.lumatoneRawPorts
-                        ? `Connected — ${props.lumatoneRawPorts.output.name}`
-                        : 'Not found (output port unavailable)'}
-                    </span>
-                  </label>
-                  {props.lumatoneRawPorts && (
-                    <label>
-                      Auto-Send Colors
-                      <span style={{ display: 'flex', alignItems: 'center',
-                                     gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
-                        <input
-                          name="lumatone_led_sync"
-                          type="checkbox"
-                          checked={!!props.settings.lumatone_led_sync}
-                          onChange={(e) => {
-                            props.onChange('lumatone_led_sync', e.target.checked);
-                            sessionStorage.setItem('lumatone_led_sync', e.target.checked);
-                            if (e.target.checked) props.keysRef?.current?.syncLumatoneLEDs?.();
-                          }}
-                        />
-                        <button type="button" style={{ fontSize: '0.85em' }}
-                          onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
-                        >Sync now</button>
-                      </span>
-                    </label>
+                  {/* LED sync only makes sense in 2D geometry mode */}
+                  {!props.settings.midi_passthrough && (
+                    <>
+                      <label style={{ fontStyle: 'italic', color: props.lumatoneRawPorts ? '#669966' : '#996666', marginTop: '0.5em' }}>
+                        LED Output
+                        <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
+                          {props.lumatoneRawPorts
+                            ? `Connected — ${props.lumatoneRawPorts.output.name}`
+                            : 'Not found (output port unavailable)'}
+                        </span>
+                      </label>
+                      {props.lumatoneRawPorts && (
+                        <label>
+                          Auto-Send Colors
+                          <span style={{ display: 'flex', alignItems: 'center',
+                                         gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
+                            <input
+                              name="lumatone_led_sync"
+                              type="checkbox"
+                              checked={!!props.settings.lumatone_led_sync}
+                              onChange={(e) => {
+                                props.onChange('lumatone_led_sync', e.target.checked);
+                                sessionStorage.setItem('lumatone_led_sync', e.target.checked);
+                                if (e.target.checked) props.keysRef?.current?.syncLumatoneLEDs?.();
+                              }}
+                            />
+                            <button type="button" style={{ fontSize: '0.85em' }}
+                              onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
+                            >Sync now</button>
+                          </span>
+                        </label>
+                      )}
+                    </>
                   )}
                   <label>
-                    Layout file (.ltn)
+                    {props.settings.midi_passthrough ? 'Layout file for sequential mode' : 'Layout file (.ltn)'}
                     <span style={{ display: 'flex', alignItems: 'center',
                                    gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
+                      {props.lumatoneRawPorts && (
+                        <button
+                          type="button"
+                          style={{ fontSize: '0.85em' }}
+                          title="Send notes + colours to Lumatone via sysex (~10–15 s, one-time setup)"
+                          onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
+                        >
+                          Send to Lumatone
+                        </button>
+                      )}
                       <button
                         type="button"
                         style={{ fontSize: '0.85em' }}
-                        title="Download the current key/channel/colour mapping as a Lumatone Editor layout file"
+                        title="Download as .ltn file for Lumatone Editor"
                         onClick={() => {
-                          // Map stored 1-indexed lumatone_center_channel → 0-indexed centralChannel.
-                          // Map lumatone_center_note (key index 0–55) → centralNote.
-                          // Fall back to the module defaults when the user hasn't configured anchors yet.
                           const ch0  = props.settings.lumatone_center_channel != null
                             ? props.settings.lumatone_center_channel - 1
                             : DEFAULT_CENTRAL_CHANNEL;
@@ -233,10 +246,10 @@ const MIDIio = (props) => {
                           const safeName = (props.settings.name || 'hexatone')
                             .replace(/[^a-zA-Z0-9_-]/g, '_');
                           downloadLtn(props.settings, {
-                            centralBoard:     DEFAULT_CENTRAL_BOARD,
-                            centralKeyIndex:  DEFAULT_CENTRAL_KEY,
-                            centralChannel:   ch0,
-                            centralNote:      note,
+                            centralBoard:    DEFAULT_CENTRAL_BOARD,
+                            centralKeyIndex: DEFAULT_CENTRAL_KEY,
+                            centralChannel:  ch0,
+                            centralNote:     note,
                           }, `${safeName}.ltn`);
                         }}
                       >
@@ -345,7 +358,7 @@ const MIDIio = (props) => {
             </>
           )}
 
-          <label>
+          <label style={{ marginTop: '0.8em' }}>
             Pitch Wheel → Most Recent Note
             <input
               name="wheel_to_recent"
@@ -357,6 +370,46 @@ const MIDIio = (props) => {
               }}
             />
           </label>
+
+          {props.settings.wheel_to_recent && (
+            <>
+              <label style={{ opacity: props.settings.wheel_scale_aware ? 0.4 : 1 }}>
+                Wheel range (Scala)
+                <input
+                  type="text"
+                  style={{ width: '5em' }}
+                  disabled={!!props.settings.wheel_scale_aware}
+                  value={props.settings.midi_wheel_range ?? '9/8'}
+                  onChange={(e) => {
+                    props.onChange('midi_wheel_range', e.target.value);
+                    sessionStorage.setItem('midi_wheel_range', e.target.value);
+                  }}
+                />
+                <span style={{ marginLeft: '0.5em', color: '#666', fontSize: '0.85em' }}>
+                  {(() => {
+                    try {
+                      const c = scalaToCents(props.settings.midi_wheel_range ?? '9/8');
+                      return isFinite(c) ? `${c.toFixed(1)} ¢` : '';
+                    } catch { return ''; }
+                  })()}
+                </span>
+              </label>
+
+              {/*
+              <label>
+                Scale-aware (asymmetric)
+                <input
+                  name="wheel_scale_aware"
+                  type="checkbox"
+                  checked={!!props.settings.wheel_scale_aware}
+                  onChange={(e) => {
+                    props.onChange('wheel_scale_aware', e.target.checked);
+                    sessionStorage.setItem('wheel_scale_aware', e.target.checked);
+                  }}
+                />
+              </label>*/}
+            </>
+          )}
         </>
       )}
 
@@ -375,6 +428,8 @@ MIDIio.propTypes = {
     lumatone_center_note: PropTypes.number,
     lumatone_led_sync: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
+    midi_wheel_range: PropTypes.string,
+    wheel_scale_aware: PropTypes.bool,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
     name: PropTypes.string,

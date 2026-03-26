@@ -53,6 +53,8 @@ const sessionDefaults = {
   retuning_mode: 'recalculate_reference',  // or 'transpose_scale'
   axis49_center_note: 53,
   wheel_to_recent: false,
+  midi_wheel_range: sessionStorage.getItem('midi_wheel_range') || '9/8',
+  wheel_scale_aware: sessionStorage.getItem('wheel_scale_aware') === 'true',
   lumatone_center_channel: 3,
   lumatone_center_note: 26,
   lumatone_led_sync: sessionStorage.getItem('lumatone_led_sync') === 'true',

@@ -228,7 +228,7 @@ export const CONTROLLER_REGISTRY = [
   {
     id: 'lumatone',
     name: 'Lumatone',
-    detect: name => name.includes('lumatone'),
+    detect: name => name.includes('lumatone') || name.includes('midi function'),
     description: '5 blocks × 56 keys, channels 1–5 encode block position.',
     multiChannel: true,
     anchorDefault: 26,  // note 26 in centre block is the default centre key

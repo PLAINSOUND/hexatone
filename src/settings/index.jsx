@@ -68,13 +68,13 @@ const Settings = ({
           </button>
         )}
       </label>
-      <label style={{ display: "flex", alignItems: "center", gap: "0.4em", marginTop: "0.4em", fontSize: "0.85em" }}>
+      <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.4em" }}>
         <input
           type="checkbox"
           checked={persistOnReload}
           onChange={(e) => setPersistOnReload(e.target.checked)}
         />
-        Restore last preset on page reload
+        <em style={{ color: '#996666' }}>Restore preset on reload</em>
       </label>
     </fieldset>
     <CustomPresets

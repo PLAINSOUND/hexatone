@@ -210,11 +210,27 @@ a:hover {
     }
 }
 
-/* ── Phone portrait: move sustain button to left ── */
+/* ── Phone portrait: centre sustain + panic side by side, compact width ── */
 @media (max-width: 600px) {
     #sustain-island {
-        left: 3em !important;
-        transform: none !important;
+        left: 42% !important;
+        transform: translateX(calc(-100% - 0.3em)) !important;
+        padding-left: 0.9em !important;
+        padding-right: 0.9em !important;
+        font-size: 0.82em !important;
+    }
+    #panic-button {
+        right: auto !important;
+        left: 50%;
+        transform: translateX(0.3em);
+        padding: 0.45em 0.65em !important;
+        font-size: 0.82em !important;
+    }
+    #octave-island {
+        font-size: 0.82em;
+        bottom: 4.6em !important;
+        left: 50% !important;
+        transform: translateX(-50%);
     }
 }
 
@@ -275,6 +291,7 @@ a:hover {
     font-family: inherit;
     letter-spacing: 0.04em;
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
     user-select: none;
     cursor: pointer;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -371,7 +388,7 @@ a:hover {
 #snapshot-button {
     position: fixed;
     bottom: 1.25em;
-    left: 1em;
+    left: 0.6em;
     z-index: 11;
     width: 2.2em;
     height: 2.2em;
@@ -395,7 +412,7 @@ a:hover {
 #redraw-button {
     position: fixed;
     bottom: 1.25em;
-    right: 1em;
+    right: 0.6em;
     z-index: 11;
     width: 2.2em;
     height: 2.2em;

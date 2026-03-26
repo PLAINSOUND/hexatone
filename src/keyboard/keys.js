@@ -806,6 +806,46 @@ class Keys {
   };
 
   /**
+   * Send the complete Lumatone layout — note/channel (CMD 00h) + colour (CMD 01h)
+   * for all 280 keys — via the ACK-gated sysex queue.
+   *
+   * Note assignment: key k on board b → MIDI note k, channel b-1 (0-indexed).
+   * This matches the standard Lumatone sequential layout (key = note, block = channel).
+   *
+   * Prepends a CMD 0Eh to enable polyphonic aftertouch on the hardware.
+   *
+   * One-time setup only — key assignments don't change; use syncLumatoneLEDs()
+   * for subsequent colour updates.
+   */
+  sendLumatoneLayout = () => {
+    if (!this.lumatoneLEDs) return;
+
+    // Build colour lookup from the live controllerMap (board.key → '#rrggbb').
+    const colorMap = new Map();
+    if (this.controllerMap) {
+      for (const [mapKey, coords] of this.controllerMap) {
+        colorMap.set(mapKey, this._getLumatoneHexColor(coords));
+      }
+    }
+
+    const entries = [];
+    for (let b = 1; b <= 5; b++) {
+      for (let k = 0; k < 56; k++) {
+        entries.push({
+          board:    b,               // sysex board byte 1–5
+          key:      k,               // key index 0–55
+          note:     k,               // note = key index (sequential mapping)
+          channel:  b - 1,           // 0-indexed channel (0–4)
+          hexColor: colorMap.get(`${b}.${k}`) || '#1E1928',
+        });
+      }
+    }
+
+    // Enable polyphonic aftertouch before the key layout.
+    this.lumatoneLEDs.sendLayout(entries, [{ cmd: 0x0E, board: 0, value: 1 }]);
+  };
+
+  /**
    * Activate or cancel MIDI-learn mode for the anchor note.
    * While active, the next note-on from the hardware controller is captured as
    * the new anchor and forwarded to `callback(noteNumber, channel)` instead of being played.
@@ -1381,6 +1421,9 @@ class Keys {
       degree0toRef_ratio,
     );
     hex.noteOn();
+    // Store neighbour pitches for scale-aware wheel bend.
+    hex.cents_prev = cents_prev;
+    hex.cents_next = cents_next;
     // Track in recency stack so wheel bend and snapshot can find this note.
     this.recencyStack.push(hex);
     this._updateWheelTarget();
@@ -1978,9 +2021,7 @@ class Keys {
   // the committed new pitch for _wheelTarget, then reset _wheelBend to 0.
 
   _handleWheelBend(val14) {
-    // Default ±200 cents (2 semitones) — will become a setting.
-    const rangeCents = this.settings.midi_wheel_range ?? 200;
-    this._wheelBend = ((val14 - 8192) / 8192) * rangeCents;
+    if (!this.settings.wheel_to_recent) return;
 
     const target = this.recencyStack.front;
     if (!target) return;
@@ -1988,14 +2029,30 @@ class Keys {
     // Ensure we have the right base — handles the case where _updateWheelTarget
     // set a new target and the wheel moved before the next noteOn/Off.
     if (this._wheelTarget !== target) {
-      if (this._wheelTarget && this._wheelBend === 0) {
-        // Wheel is at centre — safe to silently adopt new target.
-      }
       this._wheelTarget = target;
       this._wheelBaseCents = target.cents;
     }
 
-    target.retune(this._wheelBaseCents + this._wheelBend);
+    const norm = (val14 - 8192) / 8192; // −1 … +1
+
+    let bentCents;
+    if (this.settings.wheel_scale_aware && target.cents_prev != null && target.cents_next != null) {
+      // Asymmetric scale-aware bend:
+      //   wheel down (norm < 0) → slide toward cents_prev (one scale degree below)
+      //   wheel up   (norm > 0) → slide toward cents_next (one scale degree above)
+      if (norm < 0) {
+        bentCents = this._wheelBaseCents + norm * (this._wheelBaseCents - target.cents_prev);
+      } else {
+        bentCents = this._wheelBaseCents + norm * (target.cents_next - this._wheelBaseCents);
+      }
+    } else {
+      // Symmetric fixed-range bend.
+      const rangeCents = scalaToCents(this.settings.midi_wheel_range ?? '9/8');
+      bentCents = this._wheelBaseCents + norm * rangeCents;
+    }
+
+    this._wheelBend = bentCents - this._wheelBaseCents;
+    target.retune(bentCents);
   }
 
   // Called whenever the recency stack changes.  If the front note has changed,

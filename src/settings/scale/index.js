@@ -208,19 +208,8 @@ const Scale = (props) => {
           }}
         />
       </label>
-      {/*
-      <label>
-        Scale Degree Retuning
-        <select name="retuning_mode" class="sidebar-input"
-          value={props.settings.retuning_mode || 'recalculate_reference'}
-          onChange={(e) => props.onChange('retuning_mode', e.target.value)}>
-          <option value="recalculate_reference">Auto-Recalculate Reference</option>
-          <option value="transpose_scale">Preserve Reference and Transpose Scale</option>
-        </select>
-      </label>
-      */}
-      {!collapsed && (<>
-
+      {!collapsed && (
+        <>
         <label>
           Scale Size
           <input name="equivSteps" type="text" inputMode="numeric"

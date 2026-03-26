@@ -298,15 +298,15 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
 
       {/* ── Save / Export — show when a preset is active ── */}
       {activeSource && (
-        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, rowGap: '0.25em' }}>
           <button type="button" onClick={handleSave}>
             {saveLabel}
           </button>
           <span style={{ display: 'flex', gap: '6px' }}>
-            <button type="button" style={{ width: 90 }} onClick={handleExport}>
+            <button type="button" style={{ whiteSpace: 'nowrap' }} onClick={handleExport}>
               Export .json
             </button>
-            <button type="button" style={{ width: 90 }} onClick={handleExportLtn}>
+            <button type="button" style={{ whiteSpace: 'nowrap' }} onClick={handleExportLtn}>
               Export .ltn
             </button>
           </span>

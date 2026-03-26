@@ -102,14 +102,19 @@ export class LumatoneLEDs {
    *   channel  0–15   MIDI channel, 0-indexed (0 = MIDI ch 1)
    *   hexColor '#rrggbb'
    */
-  sendLayout(entries) {
-    this._queue = [];
-    for (const { board, key, note, channel, hexColor } of entries) {
-      // CMD 00h first so the key responds immediately at the correct pitch,
-      // then CMD 01h so the LED colour follows.
-      this._queue.push({ cmd: 0x00, board, key, note, channel });
-      this._queue.push({ cmd: 0x01, board, key, ...this._parseHex(hexColor) });
-    }
+  /**
+   * @param {Array<{ board, key, note, channel, hexColor }>} entries
+   * @param {Array<object>} [preamble]  Raw queue entries to send before the key data
+   *   (e.g. [{ cmd: 0x0E, board: 0, value: 1 }] to enable aftertouch first).
+   */
+  sendLayout(entries, preamble = []) {
+    this._queue = [
+      ...preamble,
+      ...entries.flatMap(({ board, key, note, channel, hexColor }) => [
+        { cmd: 0x00, board, key, note, channel },
+        { cmd: 0x01, board, key, ...this._parseHex(hexColor) },
+      ]),
+    ];
     if (!this._pending) this._advance();
   }
 
@@ -213,6 +218,17 @@ export class LumatoneLEDs {
         entry.note,     // MIDI note 0–127
         entry.channel,  // MIDI channel 0-indexed (0–15)
         0x01,           // keyType = 1 (note on/off)
+        0xF7,
+      ]);
+    } else if (cmd === 0x0E) {
+      // CMD 0Eh: Global toggle (e.g. aftertouch activation)
+      // F0 00 21 50 [section] 0E [value] 00 00 00 F7
+      msg = new Uint8Array([
+        0xF0, ...MFR,
+        board,         // section (0 = global)
+        0x0E,
+        entry.value,   // 1 = on, 0 = off
+        0x00, 0x00, 0x00,
         0xF7,
       ]);
     } else {

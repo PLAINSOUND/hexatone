@@ -59,6 +59,10 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
       "short_description",
       "hexatone_preset_source",
       "hexatone_preset_name",
+      // Auto-send features cleared on reload — must be explicitly re-enabled each session
+      // to prevent unexpected sysex traffic on startup.
+      "lumatone_led_sync",
+      "direct_sysex_auto",
     ];
     scaleKeysToClear.forEach((key) => sessionStorage.removeItem(key));
   }

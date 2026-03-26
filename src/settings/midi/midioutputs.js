@@ -519,26 +519,10 @@ const MidiOutputs = (props) => {
                 </select>
               </label>
 
+              
+
               {settings.mpe_mode === "Full_MPE" && (
                 <>
-                <label>
-                  Pitch Wheel range (semitones)
-                  <input
-                    name="mpe_pitchbend_range_manager"
-                    type="text"
-                    inputMode="numeric"
-                    class="sidebar-input"
-                    key={settings.mpe_pitchbend_range_manager}
-                    defaultValue={settings.mpe_pitchbend_range_manager ?? 2}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (!isNaN(val) && val >= 0 && val <= 12)
-                        save("mpe_pitchbend_range_manager", val, onChange);
-                      else e.target.value = settings.mpe_pitchbend_range_manager ?? 2;
-                    }}
-                  />
-                </label>
-                
                 <label>
                   MPE PB Range (semitones)
                   <input

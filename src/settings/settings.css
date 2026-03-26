@@ -18,8 +18,8 @@ label {
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
-  align-items: baseline;
-  margin-top: 0.125em;
+  align-items: center;
+  margin-top: 0.25em;
   line-height: 1.5em;
 }
 
