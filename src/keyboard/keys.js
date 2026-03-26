@@ -17,6 +17,12 @@ import { midi_in } from "../settings/midi/midiin";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote } from '../controllers/registry.js';
+import { LumatoneLEDs } from '../controllers/lumatone-leds.js';
+import {
+  transferColor,
+  LUMATONE_TONIC,
+  LUMATONE_TONIC_OTHER,
+} from '../settings/scale/color-transfer.js';
 import { RecencyStack } from '../recency_stack.js';
 import { MidiCoordResolver } from './midi-coord-resolver.js';
 import {
@@ -24,7 +30,7 @@ import {
 } from './mts-helpers.js';
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange) {
+  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -431,6 +437,24 @@ class Keys {
 
       } // end else (midiin_data exists)
     } // end if midiin_data guard
+
+    // ── Lumatone LED engine ──────────────────────────────────────────────────
+    // Initialise when raw Lumatone MIDI ports are provided (Lumatone is the
+    // active input controller) and a controller map has been built.
+    // The initial color sync is deferred until after resizeHandler() completes
+    // so that the canvas size and stepsTable are fully established first.
+    // We post it as a microtask to ensure this.controllerMap is set (MIDI setup
+    // runs inside the midiin_data guard above, before we reach here).
+    this.lumatoneLEDs = null;
+    if (lumatoneRawPorts && this.controllerMap) {
+      this.lumatoneLEDs = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
+      // Send initial full color map after construction settles.
+      Promise.resolve().then(() => {
+        if (this.lumatoneLEDs && this.controllerMap) {
+          this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
+        }
+      });
+    }
   } // end of constructor
 
   /**
@@ -662,6 +686,13 @@ class Keys {
         this.drawGrid();
       });
     }
+
+    // Propagate color changes to Lumatone LEDs when the LED engine is active.
+    // sendAll() replaces the entire pending queue so rapid picker drags always
+    // converge to the latest color state without unbounded queue growth.
+    if (this.lumatoneLEDs && this.controllerMap) {
+      this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
+    }
   };
 
   /**
@@ -676,6 +707,79 @@ class Keys {
   setMidiLearnMode = (active, callback) => {
     this._midiLearnCallback = active ? (callback ?? null) : null;
   };
+
+  // ── Lumatone LED helpers ────────────────────────────────────────────────────
+
+  /**
+   * Build the full list of { board, key, hexColor } entries for all keys in
+   * controllerMap.  Applies screen→Lumatone colour transfer and handles the
+   * tonic (degree 0) special colours.
+   *
+   * @returns {Array<{ board: number, key: number, hexColor: string }>}
+   */
+  _buildLumatoneColorEntries() {
+    const entries = [];
+    for (const [mapKey, coords] of this.controllerMap) {
+      // mapKey format: "ch.note"  (ch = board 1-5, note = key 0-55 within block)
+      const dotIdx = mapKey.indexOf('.');
+      const board  = parseInt(mapKey.slice(0, dotIdx), 10);
+      const key    = parseInt(mapKey.slice(dotIdx + 1), 10);
+      const hexColor = this._getLumatoneHexColor(coords);
+      entries.push({ board, key, hexColor });
+    }
+    return entries;
+  }
+
+  /**
+   * Return the Lumatone-adjusted hex color ('#rrggbb') for a key at the given
+   * hex-grid coords.
+   *
+   * Degree 0 (tonic) uses the special Lumatone tonic constants rather than
+   * routing through transferColor(), matching the behaviour of lumatone-export.js.
+   *
+   * @param {Point} coords  – absolute hex-grid coordinates
+   * @returns {string}      – '#rrggbb'
+   */
+  _getLumatoneHexColor(coords) {
+    const [cents, reducedSteps, , octs] = this.hexCoordsToCents(coords);
+
+    if (reducedSteps === 0) {
+      // Tonic: use Lumatone-specific constants (not screen-derived).
+      return octs === 0 ? LUMATONE_TONIC : LUMATONE_TONIC_OTHER;
+    }
+
+    // All other degrees: get screen color then map to Lumatone space.
+    const screenHex = this._getScreenHexColor(cents, reducedSteps);
+    return transferColor(screenHex);
+  }
+
+  /**
+   * Return the unpressed screen hex color for the given degree / cents value,
+   * applying the same logic as centsToColor() (without the pressed-key darkening).
+   *
+   * @param {number} cents         – pitch in cents (used for spectrum mode)
+   * @param {number} reducedSteps  – scale degree index
+   * @returns {string}             – '#rrggbb'
+   */
+  _getScreenHexColor(cents, reducedSteps) {
+    if (!this.settings.spectrum_colors) {
+      const colors = this.settings.note_colors;
+      if (!colors || typeof colors[reducedSteps] === 'undefined') return '#edede4';
+      return nameToHex(colors[reducedSteps]);
+    }
+
+    // Spectrum mode: derive hue from cents position (same formula as centsToColor).
+    const fcolor = hex2rgb('#' + this.settings.fundamental_color);
+    const hsv    = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
+    let h = hsv.h / 360;
+    const s = hsv.s / 100;
+    const v = hsv.v / 100;
+    let reduced = (cents / 1200) % 1;
+    if (reduced < 0) reduced += 1;
+    h = (reduced + h) % 1;
+    const { red, green, blue } = HSVtoRGB2(h, s, v);
+    return rgbToHex(red, green, blue);
+  }
 
   deconstruct = () => {
     // Graceful noteOff for all active and sustained notes — allows synth
@@ -697,6 +801,12 @@ class Keys {
     // latch as active while the new Keys has no sustain state, causing the
     // next click to produce a brief non-sustained note instead of latching.
     if (this.onLatchChange) this.onLatchChange(false);
+
+    // Clean up Lumatone LED engine — removes the ACK listener from the input port.
+    if (this.lumatoneLEDs) {
+      this.lumatoneLEDs.destroy();
+      this.lumatoneLEDs = null;
+    }
 
 
     window.removeEventListener("resize", this.resizeHandler, false);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "preact/hooks";
+import { useState, useEffect, useCallback, useMemo } from "preact/hooks";
 import { enableMidi } from "./settings/midi/midiin";
 import { create_sample_synth } from "./sample_synth";
 import { create_midi_synth } from "./midi_synth";
@@ -82,6 +82,13 @@ const useSynthWiring = (
   useEffect(() => {
     if (!ready) return;
 
+    // Guard against stale async resolutions: if this effect re-runs (settings
+    // changed again before the previous Promise.all resolved), the old chain
+    // should not call setSynth. Without this, rapid toggles can leave the synth
+    // in a stale configuration — e.g. toggling MPE on then sample off could end
+    // up with a composite(sample+mpe) synth if the first Promise.all resolved last.
+    let cancelled = false;
+
     const wantSample =
       settings.output_sample &&
       settings.instrument &&
@@ -132,7 +139,7 @@ const useSynthWiring = (
 
     if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe && !wantOsc) {
       setSynth(null);
-      return;
+      return () => { cancelled = true; };
     }
 
     setLoading(wait);
@@ -237,6 +244,7 @@ const useSynthWiring = (
     }
 
     Promise.all(promises).then(async (synths) => {
+      if (cancelled) { setLoading(signal); return; }
       // Filter out null/undefined synths (e.g., MIDI device unavailable)
       const validSynths = synths.filter((s) => s != null);
       if (validSynths.length === 0) {
@@ -258,9 +266,12 @@ const useSynthWiring = (
       if (s.prepare && userHasInteracted) {
         await s.prepare();
       }
+      if (cancelled) { setLoading(signal); return; }
       setSynth(s);
       setLoading(signal);
     });
+
+    return () => { cancelled = true; };
   }, [
     settings.instrument,
     // fundamental removed from deps — synth uses makeHex per note,
@@ -376,6 +387,24 @@ const useSynthWiring = (
     setSettings((s) => ({ ...s, ...update }));
   }, [settings.midiin_device, midi]);
 
+  // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
+  // When the active MIDI input is a Lumatone, resolve the matching raw Web MIDI
+  // input (for ACK sysex listening) and output (for LED sysex sends).
+  // These are passed to Keys so it can drive the LED feedback engine.
+  const lumatoneRawPorts = useMemo(() => {
+    if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
+    const rawIn = midi.inputs.get(settings.midiin_device);
+    if (!rawIn) return null;
+    const ctrl = detectController(rawIn.name.toLowerCase());
+    if (!ctrl || ctrl.id !== 'lumatone') return null;
+    // The Lumatone exposes both input and output ports with the same device name.
+    const rawOut = Array.from(midi.outputs.values()).find(
+      (o) => ctrl.detect(o.name.toLowerCase()),
+    );
+    if (!rawOut) return null;
+    return { input: rawIn, output: rawOut };
+  }, [midi, midiTick, settings.midiin_device]);
+
   return {
     synth,
     midi,
@@ -390,6 +419,7 @@ const useSynthWiring = (
     toggleOctaveDeferred,
     onVolumeChange,
     onAnchorLearn,
+    lumatoneRawPorts,
   };
 };
 

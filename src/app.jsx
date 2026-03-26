@@ -200,6 +200,7 @@ const App = () => {
     toggleOctaveDeferred,
     onVolumeChange,
     onAnchorLearn,
+    lumatoneRawPorts,
   } = useSynthWiring(settings, setSettings, {
     ready,
     userHasInteracted,
@@ -423,6 +424,7 @@ const App = () => {
           active={active}
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
+          lumatoneRawPorts={lumatoneRawPorts}
         />
       )}
 
