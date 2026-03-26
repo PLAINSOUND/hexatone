@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
+import { downloadLtn, DEFAULT_CENTRAL_BOARD, DEFAULT_CENTRAL_KEY, DEFAULT_CENTRAL_CHANNEL, DEFAULT_CENTRAL_NOTE } from '../scale/lumatone-export.js';
 
 const MIDIio = (props) => {
   // props.midiTick is unused directly — its presence as a changing prop forces
@@ -179,7 +180,7 @@ const MIDIio = (props) => {
                 </em></p>
               )}
 
-              {/* ── Lumatone LED colour sync ── */}
+              {/* ── Lumatone LED colour sync + layout download ── */}
               {ctrl?.id === 'lumatone' && (
                 <>
                   <label style={{ fontStyle: 'italic', color: props.lumatoneRawPorts ? '#669966' : '#996666' }}>
@@ -211,6 +212,38 @@ const MIDIio = (props) => {
                       </span>
                     </label>
                   )}
+                  <label>
+                    Layout file (.ltn)
+                    <span style={{ display: 'flex', alignItems: 'center',
+                                   gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        style={{ fontSize: '0.85em' }}
+                        title="Download the current key/channel/colour mapping as a Lumatone Editor layout file"
+                        onClick={() => {
+                          // Map stored 1-indexed lumatone_center_channel → 0-indexed centralChannel.
+                          // Map lumatone_center_note (key index 0–55) → centralNote.
+                          // Fall back to the module defaults when the user hasn't configured anchors yet.
+                          const ch0  = props.settings.lumatone_center_channel != null
+                            ? props.settings.lumatone_center_channel - 1
+                            : DEFAULT_CENTRAL_CHANNEL;
+                          const note = props.settings.lumatone_center_note  != null
+                            ? props.settings.lumatone_center_note
+                            : DEFAULT_CENTRAL_NOTE;
+                          const safeName = (props.settings.name || 'hexatone')
+                            .replace(/[^a-zA-Z0-9_-]/g, '_');
+                          downloadLtn(props.settings, {
+                            centralBoard:     DEFAULT_CENTRAL_BOARD,
+                            centralKeyIndex:  DEFAULT_CENTRAL_KEY,
+                            centralChannel:   ch0,
+                            centralNote:      note,
+                          }, `${safeName}.ltn`);
+                        }}
+                      >
+                        Download
+                      </button>
+                    </span>
+                  </label>
                 </>
               )}
             </>
@@ -338,11 +371,13 @@ MIDIio.propTypes = {
     midiin_steps_per_channel: PropTypes.number,
     midi_passthrough: PropTypes.bool,
     midiin_channel_legacy: PropTypes.bool,
+    lumatone_center_channel: PropTypes.number,
     lumatone_center_note: PropTypes.number,
     lumatone_led_sync: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
+    name: PropTypes.string,
   }).isRequired,
   midi: PropTypes.object,
   midiLearnActive: PropTypes.bool,

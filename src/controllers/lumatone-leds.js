@@ -1,7 +1,14 @@
 /**
  * lumatone-leds.js
  *
- * ACK-gated sysex queue engine for Lumatone key LED colour control.
+ * ACK-gated sysex queue engine for Lumatone key configuration and LED colour.
+ *
+ * ── Protocol: CMD 00h — Set key function (note + channel) ────────────────────
+ *
+ *   Send:  F0 00 21 50 [board 1-5] 00 [key 0-55] [note 0-127] [ch 0-15] 01 F7
+ *   ACK:   F0 00 21 50 [board]     00 01                                  F7
+ *
+ *   ch is 0-indexed (0 = MIDI ch 1).  Last byte (0x01) is keyType = note on/off.
  *
  * ── Protocol: CMD 01h — Set key LED colour ───────────────────────────────────
  *
@@ -51,7 +58,7 @@ export class LumatoneLEDs {
   constructor(outputPort, inputPort) {
     this._out     = outputPort;
     this._in      = inputPort;
-    this._queue   = [];      // Array of { board:1-5, key:0-55, r, g, b }
+    this._queue   = [];      // Array of { cmd, board:1-5, key:0-55, ... }
     this._pending = false;   // True while awaiting an ACK for queue[0]
     this._timer   = null;    // ACK-timeout handle (clearTimeout on ACK)
 
@@ -72,10 +79,37 @@ export class LumatoneLEDs {
    */
   sendAll(entries) {
     this._queue = entries.map(({ board, key, hexColor }) => ({
+      cmd: 0x01,
       board,
       key,
       ...this._parseHex(hexColor),
     }));
+    if (!this._pending) this._advance();
+  }
+
+  /**
+   * Send a full Lumatone layout: CMD 00h (note + channel) followed immediately
+   * by CMD 01h (colour) for each of the 280 keys, interleaved per key so the
+   * board fills in visually as the transfer progresses (~10–15 s total).
+   *
+   * This is a one-time setup operation.  Subsequent colour-only updates should
+   * use sendAll() or updateDegree() which only queue CMD 01h messages.
+   *
+   * @param {Array<{ board, key, note, channel, hexColor }>} entries
+   *   board    1–5  (1-indexed, matches sysex board byte)
+   *   key      0–55
+   *   note     0–127  MIDI note number
+   *   channel  0–15   MIDI channel, 0-indexed (0 = MIDI ch 1)
+   *   hexColor '#rrggbb'
+   */
+  sendLayout(entries) {
+    this._queue = [];
+    for (const { board, key, note, channel, hexColor } of entries) {
+      // CMD 00h first so the key responds immediately at the correct pitch,
+      // then CMD 01h so the LED colour follows.
+      this._queue.push({ cmd: 0x00, board, key, note, channel });
+      this._queue.push({ cmd: 0x01, board, key, ...this._parseHex(hexColor) });
+    }
     if (!this._pending) this._advance();
   }
 
@@ -94,6 +128,7 @@ export class LumatoneLEDs {
    */
   updateDegree(entries) {
     const parsed = entries.map(({ board, key, hexColor }) => ({
+      cmd: 0x01,
       board,
       key,
       ...this._parseHex(hexColor),
@@ -163,24 +198,38 @@ export class LumatoneLEDs {
     }
 
     this._pending = true;
-    const { board, key, r, g, b } = this._queue[0]; // peek — shifted on ACK/timeout
+    const entry = this._queue[0]; // peek — shifted on ACK/timeout
+    const { cmd, board, key } = entry;
 
-    // CMD 01h: Set key LED colour
-    // F0 00 21 50 [board] 01 [key] rHi rLo gHi gLo bHi bLo F7
-    const msg = new Uint8Array([
-      0xF0,
-      ...MFR,
-      board,        // board index 1–5 (= MIDI channel for Lumatone blocks)
-      0x01,         // CMD 01h
-      key,          // key index 0–55 within the block
-      r >> 4,       // rHi  (high nibble of red,   0–15)
-      r & 0x0F,     // rLo  (low  nibble of red,   0–15)
-      g >> 4,       // gHi
-      g & 0x0F,     // gLo
-      b >> 4,       // bHi
-      b & 0x0F,     // bLo
-      0xF7,
-    ]);
+    let msg;
+    if (cmd === 0x00) {
+      // CMD 00h: Set key function (note + channel)
+      // F0 00 21 50 [board 1-5] 00 [key] [note] [ch 0-indexed] 01 F7
+      msg = new Uint8Array([
+        0xF0, ...MFR,
+        board,          // board 1–5
+        0x00,           // CMD 00h
+        key,            // key 0–55
+        entry.note,     // MIDI note 0–127
+        entry.channel,  // MIDI channel 0-indexed (0–15)
+        0x01,           // keyType = 1 (note on/off)
+        0xF7,
+      ]);
+    } else {
+      // CMD 01h: Set key LED colour
+      // F0 00 21 50 [board 1-5] 01 [key] rHi rLo gHi gLo bHi bLo F7
+      const { r, g, b } = entry;
+      msg = new Uint8Array([
+        0xF0, ...MFR,
+        board,       // board 1–5
+        0x01,        // CMD 01h
+        key,         // key 0–55
+        r >> 4, r & 0x0F,
+        g >> 4, g & 0x0F,
+        b >> 4, b & 0x0F,
+        0xF7,
+      ]);
+    }
 
     this._out.send(msg);
 
@@ -190,42 +239,41 @@ export class LumatoneLEDs {
       this._pending = false;
       const skipped = this._queue.shift();
       console.warn(
-        '[LumatoneLEDs] ACK timeout — skipping board', skipped?.board,
-        'key', skipped?.key,
+        '[LumatoneLEDs] ACK timeout — skipping cmd', skipped?.cmd?.toString(16),
+        'board', skipped?.board, 'key', skipped?.key,
       );
       this._advance();
     }, ACK_TIMEOUT_MS);
   }
 
   /**
-   * Raw MIDI message handler — filters for Lumatone CMD 01h ACKs only.
+   * Raw MIDI message handler — filters for Lumatone CMD 00h and CMD 01h ACKs.
    *
-   * ACK format: F0 00 21 50 [board] 01 01 F7  (8 bytes)
+   * ACK format: F0 00 21 50 [board] [cmd] 01 F7  (8 bytes)
    *   byte 0: F0  (sysex start)
    *   byte 1: 00  )
    *   byte 2: 21  ) manufacturer ID
    *   byte 3: 50  )
    *   byte 4: board (1–5, must match what we sent)
-   *   byte 5: 01  (command echo = CMD 01h)
-   *   byte 6: 01  (status = ACK / success)
-   *   byte 7: F7  (sysex end)
+   *   byte 5: cmd  (command echo — 00h or 01h, must match pending entry)
+   *   byte 6: 01   (status = ACK / success)
+   *   byte 7: F7   (sysex end)
    */
   _onMessage(event) {
-    if (!this._pending) return;
+    if (!this._pending || this._queue.length === 0) return;
 
     const d = event.data;
     if (
-      d.length !== 8  ||
-      d[0] !== 0xF0   || d[1] !== 0x00 || d[2] !== 0x21 || d[3] !== 0x50 ||
-      /* d[4] = board — checked below */
-      d[5] !== 0x01   || // command echo
-      d[6] !== 0x01   || // ACK status
+      d.length !== 8 ||
+      d[0] !== 0xF0  || d[1] !== 0x00 || d[2] !== 0x21 || d[3] !== 0x50 ||
+      /* d[4] = board, d[5] = cmd — checked below */
+      d[6] !== 0x01  || // ACK status
       d[7] !== 0xF7
     ) return;
 
-    // Verify the board byte matches the entry we sent.
-    const ackBoard = d[4];
-    if (this._queue.length === 0 || this._queue[0].board !== ackBoard) return;
+    // Command echo and board byte must both match the in-flight entry.
+    const pending = this._queue[0];
+    if (d[5] !== pending.cmd || d[4] !== pending.board) return;
 
     // Valid ACK received — clear timeout and advance.
     if (this._timer !== null) {
