@@ -32,6 +32,8 @@ const sessionDefaults = {
   midiin_channel: parseInt(sessionStorage.getItem("midiin_channel")) || 0,
   midiin_steps_per_channel: sessionStorage.getItem("midiin_steps_per_channel") !== null
     ? parseInt(sessionStorage.getItem("midiin_steps_per_channel")) : null,
+  midiin_anchor_channel: sessionStorage.getItem("midiin_anchor_channel") !== null
+    ? parseInt(sessionStorage.getItem("midiin_anchor_channel")) : 1,
   controller_anchor_note: sessionStorage.getItem("controller_anchor_note") !== null
     ? parseInt(sessionStorage.getItem("controller_anchor_note")) : null,
   midiin_channel_legacy: sessionStorage.getItem("midiin_channel_legacy") !== null
@@ -52,7 +54,7 @@ const sessionDefaults = {
   axis49_center_note: 53,
   wheel_to_recent: false,
   lumatone_center_channel: 3,
-  lumatone_center_note: 27,
+  lumatone_center_note: 26,
   fundamental: 260.740741,
   reference_degree: 0,
   equivSteps: 12,

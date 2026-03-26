@@ -15,11 +15,13 @@ import {
 import { WebMidi } from "webmidi";
 import { midi_in } from "../settings/midi/midiin";
 import { keymap, notes } from "../midi_synth";
-import { mtsToMidiFloat, centsToMTS } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
-
 import { detectController, getAnchorNote } from '../controllers/registry.js';
 import { RecencyStack } from '../recency_stack.js';
+import { MidiCoordResolver } from './midi-coord-resolver.js';
+import {
+  degree0ToRef, computeNaturalAnchor, mtsTuningMap,
+} from './mts-helpers.js';
 
 class Keys {
   constructor(canvas, settings, synth, typing, onLatchChange) {
@@ -59,11 +61,19 @@ class Keys {
       activeHexObjects: [],
       isTouchDown: false,
       isMouseDown: false,
-      lastMidiCoords: null, // screen-space Point of the most recently activated MIDI hex
     };
     // Recency stack — tracks all sounding notes most-recent-first.
     // The front entry receives wheel bend; see _handleWheelBend().
     this.recencyStack = new RecencyStack();
+
+    // MIDI coordinate resolver — maps note/channel → hex-grid coords.
+    // Injected with bound geometry methods so it has no direct reference to Keys.
+    this.coordResolver = new MidiCoordResolver(
+      this.settings,
+      this.hexCoordsToCents.bind(this),
+      this.hexCoordsToScreen.bind(this),
+      () => this.state.centerpoint,
+    );
 
     // Wheel bend state — controller-agnostic.
     // _wheelBend:      current offset in cents applied to the front note.
@@ -74,16 +84,17 @@ class Keys {
     this._wheelTarget = null;
     this._wheelBaseCents = null;
 
-    // midiin_central_degree is the physical anchor note (set by controller detection/learn).
-    // Fall back to the nearest MIDI note to the centre hex's frequency when not set.
-    const tuning_map_degree0 = this.settings.midiin_central_degree
-      ?? computeNaturalAnchor(
-        this.settings.fundamental,
-        this.settings.degree0toRef_asArray[0],
-        this.settings.scale,
-        this.settings.equivInterval,
-        this.settings.center_degree,
-      );
+    // The tuning map anchor is always derived from the musical content (fundamental,
+    // scale, center_degree) — independent of midiin_central_degree, which is a
+    // hardware input setting. The hex grid is the shared reference: the tuning map
+    // is built from the grid, and the input anchor maps hardware keys onto the grid.
+    const tuning_map_degree0 = computeNaturalAnchor(
+      this.settings.fundamental,
+      this.settings.degree0toRef_asArray[0],
+      this.settings.scale,
+      this.settings.equivInterval,
+      this.settings.center_degree,
+    );
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
       this.settings.device_id,
@@ -165,7 +176,9 @@ class Keys {
         this.midiin_data.addListener("noteon", (e) => {
           // MIDI learn: capture the next note-on as the new anchor, don't play it.
           if (this._midiLearnCallback) {
-            this._midiLearnCallback(e.note.number);
+            // Pass both note number and channel so multi-channel controllers
+            // (e.g. Lumatone) can identify which block/channel the anchor is on.
+            this._midiLearnCallback(e.note.number, e.message.channel);
             this._midiLearnCallback = null;
             return;
           }
@@ -380,7 +393,7 @@ class Keys {
         // Adding centerHexOffset converts to absolute hex-grid coords — the same
         // space that hexOn() / hexOff() / hexCoordsToCents() operate in.
         // No best-fit search needed: the anchor key always lands at the screen centre.
-        if (!this.stepsTable || this.stepsTable.size === 0) this.buildStepsTable();
+        if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
         {
           const deviceName = this.midiin_data.name?.toLowerCase() ?? '';
           //console.log('[Controller] MIDI input device name:', JSON.stringify(this.midiin_data.name));
@@ -518,8 +531,7 @@ class Keys {
       this.settings.sysex_type,
       this.settings.device_id,
       this.settings.tuning_map_number,
-      this.settings.midiin_central_degree
-      ?? computeNaturalAnchor(
+      computeNaturalAnchor(
         this.settings.fundamental,
         this.settings.degree0toRef_asArray[0],
         this.settings.scale,
@@ -550,8 +562,7 @@ class Keys {
       this.settings.sysex_type,
       this.settings.device_id,
       this.settings.tuning_map_number,
-      this.settings.midiin_central_degree
-      ?? computeNaturalAnchor(
+      computeNaturalAnchor(
         this.settings.fundamental,
         this.settings.degree0toRef_asArray[0],
         this.settings.scale,
@@ -652,9 +663,11 @@ class Keys {
   /**
    * Activate or cancel MIDI-learn mode for the anchor note.
    * While active, the next note-on from the hardware controller is captured as
-   * the new anchor and forwarded to `callback(noteNumber)` instead of being played.
+   * the new anchor and forwarded to `callback(noteNumber, channel)` instead of being played.
+   * The channel (1-based) is included so multi-channel controllers (e.g. Lumatone)
+   * can identify which channel/block the anchor key belongs to.
    * @param {boolean} active
-   * @param {function(number):void} [callback]
+   * @param {function(number, number):void} [callback]
    */
   setMidiLearnMode = (active, callback) => {
     this._midiLearnCallback = active ? (callback ?? null) : null;
@@ -881,16 +894,21 @@ class Keys {
           rawAttack: velocity_played,
         });
       }
-      const steps = (e.note.number - this.settings.midiin_central_degree)
-        + (this.settings.center_degree || 0)
-        + this.channelToStepsOffset(e.message.channel);
-      coords = this.bestVisibleCoord(steps);
+      coords = this.coordResolver.bestVisibleCoord(
+        this.coordResolver.noteToSteps(e.note.number, e.message.channel),
+      );
     } else if (this.controllerMap) {
       // Known controller: direct coordinate lookup from pre-built map.
       // Single-channel controllers always use ch=1; multi-channel use the real channel.
       const ch = this.controller.multiChannel ? e.message.channel : 1;
       const baseCoords = this.controllerMap.get(`${ch}.${e.note.number}`) ?? null;
       if (baseCoords === null) return;
+      // Guard: skip keys that map outside the visible grid (e.g. edge keys on a
+      // multi-block controller whose block offset places them off-screen).
+      // stepsTable covers all visible hexes — if coords aren't in it, don't draw.
+      if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
+      const [,,steps] = this.hexCoordsToCents(baseCoords);
+      if (!this.coordResolver.stepsTable.has(steps)) return;
       // The controllerMap already encodes physical position exactly — no channel offset.
       // Applying _applyChannelOffset here would use bestVisibleCoord() which is
       // position-dependent and returns different results on note-on vs note-off,
@@ -898,17 +916,16 @@ class Keys {
       coords = baseCoords;
     } else {
       // Generic keyboard: step arithmetic with channel-based transposition.
-      const steps = (e.note.number - this.settings.midiin_central_degree)
-        + (this.settings.center_degree || 0)
-        + this.channelToStepsOffset(e.message.channel);
-      coords = this.bestVisibleCoord(steps);
+      coords = this.coordResolver.bestVisibleCoord(
+        this.coordResolver.noteToSteps(e.note.number, e.message.channel),
+      );
     }
 
     if (coords === null) return;
     if (this._midiLatchToggle(coords, velocity_played)) return;
     const hex = this.hexOn(coords, note_played, velocity_played, bend);
     this.state.activeHexObjects.push(hex);
-    this.state.lastMidiCoords = this.hexCoordsToScreen(coords);
+    this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(coords);
   };
 
   midinoteOff = (e) => {
@@ -922,10 +939,9 @@ class Keys {
           rawRelease: e.note.rawRelease,
         });
       }
-      const steps = (e.note.number - this.settings.midiin_central_degree)
-        + (this.settings.center_degree || 0)
-        + this.channelToStepsOffset(e.message.channel);
-      coordsList = this.stepsToVisibleCoords(steps);
+      coordsList = this.coordResolver.stepsToVisibleCoords(
+        this.coordResolver.noteToSteps(e.note.number, e.message.channel),
+      );
     } else {
       // Known controller: direct lookup returns exactly one coord.
       const ch = this.controller.multiChannel ? e.message.channel : 1;
@@ -957,10 +973,9 @@ class Keys {
           coordsList = baseCoords ? [baseCoords] : [];
         } else {
           // Bypass or generic keyboard: step arithmetic.
-          const steps = (note - this.settings.midiin_central_degree)
-            + (this.settings.center_degree || 0)
-            + this.channelToStepsOffset(channel);
-          coordsList = this.stepsToVisibleCoords(steps);
+          coordsList = this.coordResolver.stepsToVisibleCoords(
+            this.coordResolver.noteToSteps(note, channel),
+          );
         }
 
         for (const coords of coordsList) {
@@ -1311,7 +1326,7 @@ class Keys {
 
     // Rebuild the steps→coords lookup table now that centerpoint and grid range
     // are up to date. Must come after drawGrid() so centerpoint is already set.
-    this.buildStepsTable();
+    this.coordResolver.buildStepsTable();
 
   };
 
@@ -1713,45 +1728,12 @@ class Keys {
   // Returns the steps offset (in scale degrees) contributed by the MIDI channel.
   // Channel 1 is always home (offset 0). Each subsequent channel shifts by
   // stepsPerChannel degrees: null → one equave (equivSteps), 0 → no shift, N → N degrees.
-  channelToStepsOffset(channel) {
-    const stepsPerChannel = this.settings.midiin_steps_per_channel ?? this.settings.equivSteps;
-    return (channel - 1) * stepsPerChannel;
-  }
-
-  // Builds a Map from steps (scale-degree distance from origin) to an array of
-  // all visible coords that produce that steps value. Covers exactly the same
-  // hex range as drawGrid(), so every lit hex is guaranteed to be on-screen.
-  // Must be called after this.state.centerpoint is set and whenever layout
-  // settings change (triggered via resizeHandler).
-  buildStepsTable() {
-    const max = Math.floor(
-      Math.max(this.state.centerpoint.x, this.state.centerpoint.y)
-      / this.settings.hexSize
-    );
-    const ox = this.settings.centerHexOffset.x;
-    const oy = this.settings.centerHexOffset.y;
-
-    this.stepsTable = new Map();
-    for (let r = -max + ox; r < max + ox; r++) {
-      for (let dr = -max + oy; dr < max + oy; dr++) {
-        const coords = new Point(r, dr);
-        // hexCoordsToCents returns [cents, reducedSteps, distance, ...];
-        // 'distance' (index 2) is the raw step count from the origin — our key.
-        const [, , steps] = this.hexCoordsToCents(coords);
-        if (!this.stepsTable.has(steps)) {
-          this.stepsTable.set(steps, []);
-        }
-        this.stepsTable.get(steps).push(coords);
-      }
-    }
-  }
-
-  // Returns all visible coords for a given steps value, or [] if none on screen.
-  // Used by midinoteOff / allnotesOff to scan activeHexObjects for the coord
-  // that was actually activated — must return the full candidate list.
-  stepsToVisibleCoords(steps) {
-    return this.stepsTable?.get(steps) ?? [];
-  }
+  // Delegating shims — logic lives in MidiCoordResolver (midi-coord-resolver.js).
+  // Kept here so existing call sites inside Keys (midinoteOn/Off, allnotesOff)
+  // continue to work without change.
+  channelToStepsOffset(channel) { return this.coordResolver.channelToStepsOffset(channel); }
+  buildStepsTable()              { this.coordResolver.buildStepsTable(); }
+  stepsToVisibleCoords(steps)    { return this.coordResolver.stepsToVisibleCoords(steps); }
 
   // ── Recency-stack wheel bend ──────────────────────────────────────────────
   //
@@ -1829,63 +1811,7 @@ class Keys {
     return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
   }
 
-  // Returns the single best coord for a note-on.
-  //
-  // Strategy: decaying anchor + radius gate.
-  //
-  // The anchor starts at lastMidiCoords and is pulled 15% of the way back
-  // toward screen centre on every call, so a melodic run stays local while
-  // a drift toward the edge is continuously corrected. Candidates outside
-  // 75% of the screen half-dimension are filtered out first (gate); if every
-  // candidate is outside the gate we fall back to the full set so there is
-  // always a result. Among survivors, pick the one nearest the anchor.
-  //
-  // Returns null only when no candidates exist at all.
-  bestVisibleCoord(steps) {
-    const candidates = this.stepsToVisibleCoords(steps);
-    if (candidates.length === 0) return null;
-    if (candidates.length === 1) return candidates[0];
-
-    const cx = this.state.centerpoint.x;
-    const cy = this.state.centerpoint.y;
-
-    // Decay anchor 15% back toward centre each note.
-    const DECAY = 0.15;
-    const last = this.state.lastMidiCoords;
-    const anchorX = last ? last.x + DECAY * (cx - last.x) : cx;
-    const anchorY = last ? last.y + DECAY * (cy - last.y) : cy;
-
-    // Gate: exclude candidates whose screen position is beyond 75% of the
-    // smaller half-dimension (keeps notes away from the canvas edge).
-    const GATE_FRACTION = 0.75;
-    const gate = GATE_FRACTION * Math.min(cx, cy); // cx,cy are half-dimensions
-    const gate2 = gate * gate;
-
-    let pool = candidates.filter((coords) => {
-      const s = this.hexCoordsToScreen(coords);
-      const dx = s.x - cx;
-      const dy = s.y - cy;
-      return dx * dx + dy * dy <= gate2;
-    });
-
-    // Safety fallback: if every candidate is outside the gate use them all.
-    if (pool.length === 0) pool = candidates;
-
-    // Pick the pool member nearest to the decayed anchor.
-    let best = null;
-    let bestDist = Infinity;
-    for (const coords of pool) {
-      const s = this.hexCoordsToScreen(coords);
-      const dx = s.x - anchorX;
-      const dy = s.y - anchorY;
-      const dist = dx * dx + dy * dy;
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = coords;
-      }
-    }
-    return best;
-  }
+  bestVisibleCoord(steps) { return this.coordResolver.bestVisibleCoord(steps); }
 
   hexCoordsToScreen(hex) {
     /* Point */
@@ -2201,17 +2127,6 @@ class Keys {
 
 export default Keys;
 
-function degree0ToRef(reference_degree, scale) {
-  let degree0_to_reference_asArray = [0, 1];
-  if (reference_degree > 0) {
-    degree0_to_reference_asArray[0] = scale[reference_degree];
-    degree0_to_reference_asArray[1] =
-      2 ** (degree0_to_reference_asArray[0] / 1200); // offset ratio
-  }
-
-  return degree0_to_reference_asArray;
-}
-
 /**
  * Compute the lattice offset that places `center_degree` at the screen centre.
  *
@@ -2244,156 +2159,4 @@ function computeCenterOffset(rSteps, drSteps, degree, gcd) {
   const denom = stepR * stepR + stepDR * stepDR;
   const k = denom ? Math.round(-(r0 * stepR + dr0 * stepDR) / denom) : 0;
   return new Point(r0 + k * stepR, dr0 + k * stepDR);
-}
-
-/**
- * Default tuning-map anchor when no MIDI controller has set midiin_central_degree.
- * Returns the nearest MIDI note to the frequency of the on-screen centre hex,
- * which is typically in the A3–A4 range and gives good coverage either side.
- *
- * @param {number}   fundamental         Hz assigned to reference_degree
- * @param {number}   degree0toRef_cents  cents from degree 0 to reference degree
- *                                       (= settings.degree0toRef_asArray[0])
- * @param {number[]} scale               numeric-cents scale array (scale[0] = 0)
- * @param {number}   equivInterval       equivalence interval in cents (e.g. 1200)
- * @param {number}   center_degree       scale degree shown at screen centre
- */
-function computeNaturalAnchor(fundamental, degree0toRef_cents, scale, equivInterval, center_degree) {
-  // Absolute position of scale degree 0 in MIDI note space
-  const degree0_midi = 69 + (1200 * Math.log2(fundamental / 440) - degree0toRef_cents) / 100;
-  // Pitch of center_degree from degree 0 in cents
-  const cd = center_degree || 0;
-  let octs = Math.floor(cd / scale.length);
-  let red = ((cd % scale.length) + scale.length) % scale.length;
-  const center_pitch_cents = octs * equivInterval + scale[red];
-  return Math.max(0, Math.min(127, Math.round(degree0_midi + center_pitch_cents / 100)));
-}
-
-function mtsTuningMap(
-  sysex_type,
-  device_id,
-  tuning_map_number,
-  tuning_map_degree0,
-  scale,
-  name,
-  equave,
-  fundamental,
-  degree0toRef_asArray,
-) {
-  //console.log("mts-input-scale:", scale)
-  if (parseInt(sysex_type) === 127) {
-    let header = [127, device_id, 8, 2, tuning_map_number, 1]; // sysex real-time single-note tuning change of tuning map, 128 notes
-    let fundamental_cents = 1200 * Math.log2(fundamental / 440);
-    let degree_0_cents = fundamental_cents - degree0toRef_asArray[0];
-    let map_offset = degree_0_cents - 100 * (tuning_map_degree0 - 69);
-    let mts_data = [];
-
-    for (let i = 0; i < 128; i++) {
-      mts_data[i] = [127, 127, 127];
-      // target_cents: pitch of slot i in cents, measured from degree_0_cents.
-      // tuning_map_degree0 is the MIDI note anchor; target_cents is the offset from it.
-      // centsToMTS(note, bend): note = float MIDI anchor, bend = cents offset from that anchor.
-      const target_cents =
-        scale[(i - tuning_map_degree0 + 128 * scale.length) % scale.length] +
-        map_offset +
-        equave *
-        (Math.floor(
-          (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
-        ) -
-          128);
-      if (typeof target_cents === "number") {
-        mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
-        //console.log("mts_data[", i, "]:", mts_data[i]);
-      }
-    }
-
-    let sysex = [];
-    for (let j = 0; j < 128; j++) {
-      sysex[j] = [];
-      for (let i = 0; i < header.length; i++) {
-        sysex[j].push(header[i]);
-      }
-      sysex[j].push(j);
-      sysex[j].push(mts_data[j][0]);
-      sysex[j].push(mts_data[j][1]);
-      sysex[j].push(mts_data[j][2]);
-    }
-    //console.log("mts-tuning_map", sysex);
-    return sysex;
-  } else if (parseInt(sysex_type) === 126) {
-    let name_array = Array.from(name);
-    let ascii_name = [];
-    for (let i = 0; i < 16; i++) {
-      let char = 32;
-      if (i < name_array.length) {
-        char = name_array[i].charCodeAt();
-      }
-      if (char > 31 && char < 128) {
-        ascii_name.push(char);
-      } else {
-        ascii_name.push(32); // pad with spaces if needed
-      }
-    }
-
-    let header = [126, device_id, 8, 1, tuning_map_number]; // non-real-time bulk tuning dump (0x7E=126): 128 notes
-    for (let i = 0; i < 16; i++) {
-      header.push(ascii_name[i]);
-    }
-    let fundamental_cents = 1200 * Math.log2(fundamental / 440);
-    let degree_0_cents = fundamental_cents - degree0toRef_asArray[0];
-    let map_offset = degree_0_cents - 100 * (tuning_map_degree0 - 69);
-    let mts_data = [];
-
-    for (let i = 0; i < 128; i++) {
-      mts_data[i] = [127, 127, 127];
-      const target_cents =
-        scale[(i - tuning_map_degree0 + 128 * scale.length) % scale.length] +
-        map_offset +
-        equave *
-        (Math.floor(
-          (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
-        ) -
-          128);
-      if (typeof target_cents === "number") {
-        mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
-      }
-    }
-
-    // Clamp entries that fell out of MTS range to their nearest valid value.
-    // [127,127,127] is reserved as "no tuning data" — replace with max valid.
-    for (let i = 0; i < 128; i++) {
-      if (
-        mts_data[i][0] === 127 &&
-        mts_data[i][1] === 127 &&
-        mts_data[i][2] === 127
-      ) {
-        mts_data[i] = [127, 127, 126]; // highest valid MTS value
-      }
-    }
-
-    // Build sysex payload: header + 128×3 tuning bytes.
-    // Note: header starts with 126 (0x7E = universal non-real-time manufacturer ID).
-    // sendSysex(manufacturer, data) will wrap with F0…F7, so we shift 126 off
-    // and pass the rest as data — checksum must be computed on the data portion only.
-    let sysex = [];
-    for (let i = 0; i < header.length; i++) {
-      sysex.push(header[i]);
-    }
-    for (let i = 0; i < 128; i++) {
-      sysex.push(mts_data[i][0]);
-      sysex.push(mts_data[i][1]);
-      sysex.push(mts_data[i][2]);
-    }
-
-    // Checksum per MTS spec: XOR of all bytes from device_id through last tuning byte,
-    // masked to 7 bits. sysex[0] is 126 (manufacturer), so start from index 1.
-    let checksum = 0;
-    for (let i = 1; i < sysex.length; i++) {
-      checksum ^= sysex[i];
-    }
-    checksum &= 0x7f;
-    sysex.push(checksum);
-
-    return sysex;
-  }
 }

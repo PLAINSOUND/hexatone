@@ -609,9 +609,9 @@ const MidiOutputs = (props) => {
       </label>
 
       <p style={{ marginTop: 0.5 }}><em>
-        Sends notes directly to SuperCollider via a local WebSocket→OSC bridge.
-        Requires <code>yarn osc-bridge</code> running locally and SC loaded with
-        OSCResponders.scd.
+        Sends notes directly to SuperCollider via a local WebSocket→OSC bridge.{/*/<br />
+        Run </em> (&nbsp;<code>yarn osc-bridge</code>&nbsp;) <em> locally and load SC patch with
+        OSCResponders.scd.*/}
       </em></p>
 
       {settings.output_osc && (

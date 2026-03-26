@@ -135,11 +135,15 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           }
         }
         
-        // Master gain node — all voices connect here before destination
+        // Master gain node — all voices connect here before destination.
+        // Start at 0 and ramp to target volume over 15 ms so that any note
+        // scheduled at the exact moment the AudioContext resumes doesn't
+        // produce a click or blip before the graph has settled.
         if (!masterGain) {
           masterGain = sharedAudioContext.createGain();
-          masterGain.gain.value = masterVolume;
+          masterGain.gain.value = 0;
           masterGain.connect(sharedAudioContext.destination);
+          masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
         }
         // Invalidate the decoded-buffer cache if the AudioContext has been replaced
         // (e.g. closed and recreated). AudioBuffers are context-bound and cannot

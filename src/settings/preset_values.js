@@ -115,8 +115,7 @@ export const presets = [
         "drSteps": 4,
         "hexSize": 38,
         "rotation": -16.102113751,
-        "center_degree": 18,
-        "midiin_central_degree": 60
+        "center_degree": 18
       },
       {
         "name": "Pauline Oliveros: Heart of Tones", 
@@ -160,7 +159,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 294,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "55-Heart of Tones"
       },
@@ -221,7 +219,6 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
-        "midiin_central_degree": 64
       },
       {
         "name": "James Tenney: Critical Band 55 tone layout", 
@@ -265,7 +262,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 441,
         "reference_degree": 0,
-        "midiin_central_degree": 46,
         "center_degree": 0,
         "short_description": "55-Critical Band"
       },
@@ -326,7 +322,6 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
-        "midiin_central_degree": 58
       },
       {
         "name": "Sabat: The Tree (Odd Partial Notation)",
@@ -362,7 +357,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 441,
         "reference_degree": 56,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (47-limit)",
       },
@@ -399,7 +393,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 441,
         "reference_degree": 56,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (47-limit)"
       }
@@ -438,7 +431,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12edo"
       },
@@ -472,7 +464,6 @@ export const presets = [
         "rotation": -16.102113751,  
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-RI-3L"
       },
@@ -506,7 +497,6 @@ export const presets = [
         "rotation": -16.102113751,  
         "fundamental": 440,
         "reference_degree": 5,
-        "midiin_central_degree": 64,
         "center_degree": 5,
         "short_description": "12-RI-3L"
       },
@@ -541,7 +531,6 @@ export const presets = [
         "rotation": -16.102113751,  
         "fundamental": 352,
         "reference_degree": 7,
-        "midiin_central_degree": 58,
         "center_degree": 7,
         "short_description": "12-RI-3L"
       },
@@ -602,7 +591,6 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
-        "midiin_central_degree": 58
       },
       {
         "name": "1/4-Comma Meantone (pure thirds)",
@@ -634,7 +622,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-MT"
       },
@@ -668,7 +655,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 260.740741,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-RI-5L"
       },
@@ -727,7 +713,6 @@ export const presets = [
         "rotation": 40.9,       
         "fundamental": 440,
         "reference_degree": 39,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-tone-combined"
       },
@@ -761,7 +746,6 @@ export const presets = [
         "rotation": -16.102113751,        
         "fundamental": 260.740741,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-RI-7L",
       },
@@ -795,7 +779,6 @@ export const presets = [
         "rotation": -16.102113751,        
         "fundamental": 260.740741,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-RI-7L-blues",
       },
@@ -829,7 +812,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-RI-3.7.11",
       },
@@ -863,7 +845,6 @@ export const presets = [
         "rotation": -16.102113751,        
         "fundamental": 260.740741,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-RI-3.5.13",
       },
@@ -897,7 +878,6 @@ export const presets = [
         "rotation": -16.102113751,        
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-SabatI",
       },
@@ -931,7 +911,6 @@ export const presets = [
         "rotation": -16.102113751,        
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "12-SabatII",
       }
@@ -970,7 +949,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 17,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "22-Farabi"
       },
@@ -1004,7 +982,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 17,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "22-Sabat-Maqam"
       },
@@ -1038,7 +1015,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 13,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "17-JI-13L Ibn Sina"
       },
@@ -1072,7 +1048,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 13,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "17-JI-3L Ormavi"
       }  
@@ -1111,7 +1086,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 17,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "22-JI-5L Śrutis (Sambamurthy/Daniélou)"
       },
@@ -1145,7 +1119,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 17,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "22-JI-5L Śrutis (Sambamurthy/Daniélou)"
       }      
@@ -1184,7 +1157,6 @@ export const presets = [
         "rotation": -16.102113751,  
         "fundamental": 440,
         "reference_degree": 5,
-        "midiin_central_degree": 64,
         "center_degree": 5,
         "short_description": "12-RI-3L"
       },
@@ -1219,7 +1191,6 @@ export const presets = [
         "rotation": -16.102113751,  
         "fundamental": 352,
         "reference_degree": 7,
-        "midiin_central_degree": 58,
         "center_degree": 7,
         "short_description": "12-RI-3L"
       },
@@ -1280,7 +1251,6 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
-        "midiin_central_degree": 58
       },
       {
         "name": "HS 12°-48°: harmonic partial row from 12° to 48°",
@@ -1303,7 +1273,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 240,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "36-HS 12° to 24°"
       },
@@ -1328,7 +1297,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 240,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "36-HS 12° to 24°"
       },
@@ -1354,7 +1322,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 240,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "72-HSS 12 to 48"
       },
@@ -1379,7 +1346,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 240,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "72-SHS 12 to 48"
       },
@@ -1403,7 +1369,6 @@ export const presets = [
         "rotation": -16.102113751,   
         "fundamental": 440,
         "reference_degree": 15,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "19-HS 34 to 52"
       },
@@ -1427,7 +1392,6 @@ export const presets = [
         "rotation": -16.102113751,   
         "fundamental": 440,
         "reference_degree": 15,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "19-HS 34 to 52-Odd"
       },
@@ -1463,7 +1427,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 220,
         "reference_degree": 1,
-        "midiin_central_degree": 49,
         "center_degree": 0,
         "short_description": "53-HS 53° to 106°"
       },
@@ -1499,7 +1462,6 @@ export const presets = [
         "rotation": -8.2,
         "fundamental": 440,
         "reference_degree": 53,
-        "midiin_central_degree": 51,
         "center_degree": 0,
         "short_description": "55-HS 55° to 110°"
       },
@@ -1545,7 +1507,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 0,
-        "midiin_central_degree": 46,
         "center_degree": 0,
         "short_description": "55-Critical Band"
       }
@@ -1584,7 +1545,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,5)"
       },
@@ -1618,7 +1578,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 9,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,5)"
       },
@@ -1654,7 +1613,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 8,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,7)"
       },
@@ -1690,7 +1648,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 8,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,7)"
       },
@@ -1726,7 +1683,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 12,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,7,11)"
       },
@@ -1762,7 +1718,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 12,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,7,11)"
       },
@@ -1796,7 +1751,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 14,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,5,13)"
       },
@@ -1830,7 +1784,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 14,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC SG (3,5,13)"
       },
@@ -1864,7 +1817,6 @@ export const presets = [
         "rotation": -21.05,       
         "fundamental": 440,
         "reference_degree": 28,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (13-Limit)"
       },
@@ -1898,7 +1850,6 @@ export const presets = [
         "rotation": -21.05,       
         "fundamental": 440,
         "reference_degree": 28,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (13-Limit)"
       },
@@ -1934,7 +1885,6 @@ export const presets = [
         "rotation": -8.2,       
         "fundamental": 440,
         "reference_degree": 38,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (19-limit)"
       },
@@ -1970,7 +1920,6 @@ export const presets = [
         "rotation": -8.2,       
         "fundamental": 440,
         "reference_degree": 38,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (19-limit)"
       },
@@ -2008,7 +1957,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 56,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (47-limit)"
       },
@@ -2045,7 +1993,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 56,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (47-limit)"
       },
@@ -2079,7 +2026,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 15,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Odd Partial PC (37to47)"
       },
@@ -2113,7 +2059,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 40,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "53-near-isomorphic odd partial set"
       },
@@ -2147,7 +2092,6 @@ export const presets = [
          "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 40,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "53-near-isomorphic odd partial set"
       }
@@ -2186,7 +2130,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 40,
-        "midiin_central_degree": 60,
         "center_degree": 9,
         "short_description": "53-JI-3L Extended Tertial"
       },
@@ -2220,7 +2163,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 41,
-        "midiin_central_degree": 60,
         "center_degree": 9,
         "short_description": "55-JI-5L Quintal Euler Lattice"
       },
@@ -2254,7 +2196,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 31,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "41-JI-7L Sabat-Young"
       },
@@ -2288,7 +2229,6 @@ export const presets = [
         "rotation": -46,       
         "fundamental": 440,
         "reference_degree": 31,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "41-JI-7L Sabat-Young Lattice"
       },
@@ -2322,7 +2262,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 260.740741,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "31-JI-7L Fokker"
       },
@@ -2358,7 +2297,6 @@ export const presets = [
         "rotation": -16.102113751,        
         "fundamental": 293.3333333,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "13-RI-7L-P5",
       },
@@ -2392,7 +2330,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 392,
         "reference_degree": 25,
-        "midiin_central_degree": 60,
         "center_degree": 25,
         "short_description": "43-JI-11L Partch (G)"
       },
@@ -2426,7 +2363,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 392,
         "reference_degree": 25,
-        "midiin_central_degree": 60,
         "center_degree": 25,
         "short_description": "43-JI-11L Partch (G)"
       },
@@ -2461,7 +2397,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 32,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "43-JI-11L Partch (C)"
       },
@@ -2495,7 +2430,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 260.740741,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "17-JI-11L Wilson"
       },
@@ -2529,7 +2463,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 40,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "53-RI-13L Cam Taylor"
       }
@@ -2568,7 +2501,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 23,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "31-Extended-Meantone (g♭-a♯♯♯) - Vicentino I"
       },
@@ -2602,7 +2534,6 @@ export const presets = [
         "rotation": -34.5,
         "fundamental": 440,
         "reference_degree": 28,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "19 from Extended Meantone with P5s - Vicentino II"
       },
@@ -2636,7 +2567,6 @@ export const presets = [
         "rotation": -21.2,
         "fundamental": 440,
         "reference_degree": 27,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "35-MT Helmholtz"
       },
@@ -2670,7 +2600,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 32,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "43-mt, D♭♭♭-D♯♯♯"
       },
@@ -2704,7 +2633,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 41,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "55-mt, a♭♭♭♭-g♯♯♯♯"
       }
@@ -2743,7 +2671,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 14,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "19edo (Salinas)"
       },
@@ -2777,7 +2704,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 14,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "19edo (Salinas, Septimal Notation)"
       },
@@ -2811,7 +2737,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 17,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "22-JI-5L Śrutis (Sambamurthy/Daniélou)"
       },
@@ -2845,7 +2770,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 23,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "31edo (g♭♭-a♯♯)"
       },
@@ -2879,7 +2803,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 23,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "31edo (quartertone)"
       },
@@ -2913,7 +2836,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 23,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "31edo (Vicentino Notation)"
       },
@@ -2947,7 +2869,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 31,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "41edo (Septimal-Tertial Notation)"
       },
@@ -2981,7 +2902,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 32,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "43edo (Sauveur, D♭♭♭-D♯♯♯)"
       },
@@ -3016,7 +2936,6 @@ export const presets = [
         "fundamental": 260.772,
         "fundamental": 440,
         "reference_degree": 40,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "53edo (Mercator/Newton, Quintal-Tertial Notation)"
       },
@@ -3050,7 +2969,6 @@ export const presets = [
         "rotation": -6,
         "fundamental": 440,
         "reference_degree": 40,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "53edo (Euler Lattice Layout)"
       },
@@ -3084,7 +3002,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 41,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "55edo (Telemann, a♭♭♭♭-g♯♯♯♯)"
       },
@@ -3130,7 +3047,6 @@ export const presets = [
         "rotation": -16.102113751,
         "fundamental": 440,
         "reference_degree": 54,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "72edo (Sims/Tenney)"
       },
@@ -3176,7 +3092,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 293.333333,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "55-Heart of Tones"
       }
@@ -3202,7 +3117,6 @@ export const presets = [
         "rotation": -29.3577535,
         "fundamental": 240,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Interval Tester by Quintal Commas (22 cents)"
       },
@@ -3223,7 +3137,6 @@ export const presets = [
         "rotation": -29.3577535,
         "fundamental": 240,
         "reference_degree": 0,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Interval Tester by Diesis (41 cents)"
       },
@@ -3257,7 +3170,6 @@ export const presets = [
         "rotation": -16.102113751,       
         "fundamental": 440,
         "reference_degree": 17,
-        "midiin_central_degree": 60,
         "center_degree": 0,
         "short_description": "Harp"
       }      

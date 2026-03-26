@@ -5,9 +5,6 @@ import "./keyboard.css";
 import PropTypes from 'prop-types';
 
 const Keyboard = (props) => {
-  if (props.synth.prepare) {
-    props.synth.prepare();
-  }
   const canvas = useRef(null);
   const keysRef = useRef(null);
 

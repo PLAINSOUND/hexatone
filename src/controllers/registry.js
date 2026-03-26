@@ -1,3 +1,5 @@
+import { lumatoneNoteOffset, LUMATONE_BLOCK_OFFSETS, LUMATONE_NOTES_PER_BLOCK, LUMATONE_BLOCKS } from './lumatone.js';
+
 /**
  * controllers/registry.js
  *
@@ -92,49 +94,18 @@ function buildAxis49Map(anchorNote) {
 
 // ── Lumatone ──────────────────────────────────────────────────────────────────
 // 5 blocks × 56 keys, one MIDI channel per block (channels 1–5).
-// Within-block formula (anchor note A, note N):
-//   diff = N - A
-//   x_raw = ((diff % 6) + 6) % 6; x = x_raw > 3 ? x_raw - 6 : x_raw  (-2..+3)
-//   y = (diff - x) / 6  (-5..+4)
-// Block offsets: each successive block shifts by +6 in x (horizontal staircase).
-// Physical y-offset between blocks needs hardware calibration; default 0.
-
-const LUMATONE_NOTES = 56;
-const LUMATONE_BLOCKS = 5;
-// Default inter-block offset in hex grid units [dx, dy] per block step
-const BLOCK_OFFSETS = [
-  { dx: 0,  dy: 0  }, // block 1 (channel 1) — anchor block
-  { dx: 6,  dy: 0  }, // block 2
-  { dx: 12, dy: 0  }, // block 3
-  { dx: 18, dy: 0  }, // block 4
-  { dx: 24, dy: 0  }, // block 5
-];
-
-function lumatoneNoteOffset(note, anchorNote) {
-  const diff = note - anchorNote;
-  let x = ((diff % 6) + 6) % 6;
-  if (x > 3) x -= 6;
-  const y = (diff - x) / 6;
-  return { x, y };
-}
+// Geometry and block offsets defined in lumatone.js; imported above.
 
 function buildLumatoneMap(anchorChannel, anchorNote) {
+  const anchorBlockOffset = LUMATONE_BLOCK_OFFSETS[anchorChannel - 1];
   const entries = [];
   for (let block = 0; block < LUMATONE_BLOCKS; block++) {
-    const ch = block + 1;                  // 1-based channel
-    const bx = BLOCK_OFFSETS[block].dx;
-    const by = BLOCK_OFFSETS[block].dy;
-    for (let note = 0; note < LUMATONE_NOTES; note++) {
-      // Offset within block relative to anchorNote (only meaningful for anchor block)
+    const ch = block + 1;
+    const bx = LUMATONE_BLOCK_OFFSETS[block].x - anchorBlockOffset.x;
+    const by = LUMATONE_BLOCK_OFFSETS[block].y - anchorBlockOffset.y;
+    for (let note = 0; note < LUMATONE_NOTES_PER_BLOCK; note++) {
       const { x, y } = lumatoneNoteOffset(note, anchorNote);
-      // Add block displacement relative to anchor block
-      const anchorBlockDx = BLOCK_OFFSETS[anchorChannel - 1].dx;
-      const anchorBlockDy = BLOCK_OFFSETS[anchorChannel - 1].dy;
-      entries.push({
-        ch, note,
-        x: x + bx - anchorBlockDx,
-        y: y + by - anchorBlockDy,
-      });
+      entries.push({ ch, note, x: x + bx, y: y + by });
     }
   }
   return makeMap(entries);
@@ -260,9 +231,9 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('lumatone'),
     description: '5 blocks × 56 keys, channels 1–5 encode block position.',
     multiChannel: true,
-    anchorDefault: 27,  // note 27 in centre block is the default centre key
+    anchorDefault: 26,  // note 26 in centre block is the default centre key
     anchorChannelDefault: 3,  // centre block
-    buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 27),
+    buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 26),
   },
 
   {

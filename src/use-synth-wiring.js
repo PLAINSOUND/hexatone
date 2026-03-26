@@ -6,6 +6,7 @@ import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
 import { create_osc_synth } from "./osc_synth";
 import { detectController } from "./controllers/registry.js";
+import { computeNaturalAnchor } from "./keyboard/mts-helpers.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
@@ -178,18 +179,16 @@ const useSynthWiring = (
       );
     }
     if (wantDirect) {
-      // Resolve the tuning-map anchor: controller anchor if set, otherwise
-      // compute nearest MIDI note to the on-screen centre hex's frequency.
-      const _d0RefCents = settings.reference_degree > 0
-        ? (settings.scale[settings.reference_degree] || 0) : 0;
-      const _degree0Midi = 69 + (1200 * Math.log2((settings.fundamental || 440) / 440) - _d0RefCents) / 100;
-      const _cd = settings.center_degree || 0;
-      const _scLen = settings.scale?.length || 12;
-      const _octs = Math.floor(_cd / _scLen);
-      const _red = ((_cd % _scLen) + _scLen) % _scLen;
-      const _centerPitch = _octs * (settings.equivInterval || 1200) + (settings.scale?.[_red] || 0);
-      const directAnchor = settings.midiin_central_degree
-        ?? Math.max(0, Math.min(127, Math.round(_degree0Midi + _centerPitch / 100)));
+      // Tuning-map anchor is always derived from the musical content — the hex grid
+      // is the shared reference between output and input. midiin_central_degree is
+      // a hardware input setting and must not influence the output carrier mapping.
+      const directAnchor = computeNaturalAnchor(
+        settings.fundamental,
+        settings.degree0toRef_asArray?.[0] ?? 0,
+        settings.scale,
+        settings.equivInterval,
+        settings.center_degree,
+      );
       promises.push(
         create_midi_synth(
           settings.midiin_device,
@@ -337,22 +336,42 @@ const useSynthWiring = (
   }, []);
 
   // Called by keys.js when the user presses a key during MIDI-learn mode.
-  // Saves the physical MIDI note as the new anchor for this controller and
-  // updates midiin_central_degree so the controller map rebuilds immediately.
-  const onAnchorLearn = useCallback((noteNum) => {
+  // Saves the anchor note + channel so the controller map (2D path) and the
+  // step-arithmetic path (sequential/unknown) both resolve correctly.
+  const onAnchorLearn = useCallback((noteNum, channel) => {
     setMidiLearnActive(false);
-    // Store the raw physical MIDI note number directly.
+    const ch = channel ?? 1;
+    let ctrl = null;
     if (settings.midiin_device && settings.midiin_device !== "OFF" && midi) {
       const input = Array.from(midi.inputs.values()).find(
         (m) => m.id === settings.midiin_device,
       );
-      if (input) {
-        const ctrl = detectController(input.name.toLowerCase());
-        if (ctrl) localStorage.setItem(`${ctrl.id}_anchor`, String(noteNum));
+      if (input) ctrl = detectController(input.name.toLowerCase());
+    }
+
+    // Persist anchor note per controller (for restore on reconnect).
+    if (ctrl) {
+      localStorage.setItem(`${ctrl.id}_anchor`, String(noteNum));
+      // For channel-aware controllers (e.g. Lumatone): also save anchor channel.
+      if (ctrl.anchorChannelDefault != null) {
+        localStorage.setItem(`${ctrl.id}_anchor_channel`, String(ch));
       }
     }
+
+    // midiin_anchor_channel drives the relative channel-offset formula in
+    // noteToSteps() for all paths (sequential, unknown, passthrough).
+    // For the Lumatone 2D-map path, lumatone_center_channel is also updated.
+    const update = {
+      midiin_central_degree: noteNum,
+      midiin_anchor_channel: ch,
+    };
     sessionStorage.setItem("midiin_central_degree", String(noteNum));
-    setSettings((s) => ({ ...s, midiin_central_degree: noteNum }));
+    sessionStorage.setItem("midiin_anchor_channel", String(ch));
+    if (ctrl?.anchorChannelDefault != null) {
+      update.lumatone_center_channel = ch;
+      sessionStorage.setItem("lumatone_center_channel", String(ch));
+    }
+    setSettings((s) => ({ ...s, ...update }));
   }, [settings.midiin_device, midi]);
 
   return {

@@ -17,6 +17,10 @@ const MIDIio = (props) => {
   // midiin_central_degree is stored as the raw physical MIDI note number.
   const center_degree = props.settings.center_degree || 0;
   const centralNote = props.settings.midiin_central_degree ?? 60;
+  // anchorChannel for the 2D controller map (Lumatone): stored in lumatone_center_channel.
+  const anchorChannel = props.settings.lumatone_center_channel ?? ctrl?.anchorChannelDefault ?? null;
+  // anchorChannel for sequential / step-arithmetic path: stored in midiin_anchor_channel.
+  const seqAnchorChannel = props.settings.midiin_anchor_channel ?? 1;
 
   // Channel transposition mode derived from midiin_steps_per_channel:
   //   null  → 'equave'  (one equave per channel, default)
@@ -75,7 +79,8 @@ const MIDIio = (props) => {
                   {ctrl.description}
                 </span>
               </label>
-              {/* Anchor: the physical key whose MIDI note maps to the central screen degree.
+              {/* Anchor: the physical key whose MIDI note (and channel, for multi-channel
+                  controllers like Lumatone) maps to the central screen degree.
                   Used in both 2D-map mode and bypass mode. */}
               <label>
                 Anchor Key → Central Degree ({center_degree})
@@ -85,6 +90,37 @@ const MIDIio = (props) => {
                     style={{ fontSize: '0.8em', whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
                     {props.midiLearnActive ? '● Listening…' : 'Learn'}
                   </button>
+                  {/* Channel field — shown for all known controllers.
+                      Editable for multi-channel controllers (e.g. Lumatone);
+                      greyed-out fixed "1" for single-channel controllers (e.g. AXIS-49). */}
+                  {ctrl && (
+                    ctrl.anchorChannelDefault != null ? (
+                      <input name="lumatone_center_channel" type="text" inputMode="numeric"
+                        title="MIDI channel of anchor key (1–5 for Lumatone)"
+                        style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                        key={anchorChannel}
+                        defaultValue={anchorChannel}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 1 && val <= 16) {
+                            props.onChange('lumatone_center_channel', val);
+                            sessionStorage.setItem('lumatone_center_channel', val);
+                            // Keep midiin_anchor_channel in sync so sequential/passthrough
+                            // mode uses the same anchor channel as the 2D map.
+                            props.onChange('midiin_anchor_channel', val);
+                            sessionStorage.setItem('midiin_anchor_channel', val);
+                          } else {
+                            e.target.value = anchorChannel;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <input type="text" value="1" disabled
+                        title="Single-channel controller (ch 1)"
+                        style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#f0eded', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0, color: '#999', cursor: 'default' }}
+                      />
+                    )
+                  )}
                   <input name="midiin_central_degree" type="text" inputMode="numeric"
                     style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
                     key={props.settings.midiin_central_degree}
@@ -123,13 +159,30 @@ const MIDIio = (props) => {
             /* ── Unknown / sequential controller ── */
             <>
               <label>
-                MIDI Note → Central Degree ({center_degree})
+                Anchor Note → Central Degree ({center_degree})
                 <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', textAlign: 'left' }}>
                   <button type="button"
                     onClick={() => props.onChange('midiLearnAnchor', !props.midiLearnActive)}
                     style={{ fontSize: '0.8em', whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
                     {props.midiLearnActive ? '● Listening…' : 'Learn'}
                   </button>
+                  {/* Anchor channel — editable so keyboard splits / multi-channel devices
+                      can set which channel is the reference for transposition. */}
+                  <input name="midiin_anchor_channel" type="text" inputMode="numeric"
+                    title="MIDI channel of anchor note (other channels shift by stepsPerChannel)"
+                    style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                    key={seqAnchorChannel}
+                    defaultValue={seqAnchorChannel}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1 && val <= 16) {
+                        props.onChange('midiin_anchor_channel', val);
+                        sessionStorage.setItem('midiin_anchor_channel', val);
+                      } else {
+                        e.target.value = seqAnchorChannel;
+                      }
+                    }}
+                  />
                   <input name="midiin_central_degree" type="text" inputMode="numeric"
                     style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
                     key={props.settings.midiin_central_degree}

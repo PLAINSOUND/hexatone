@@ -68,6 +68,7 @@ const useSettingsChange = (
     // (or fall back to the controller's built-in default on first use).
     if (key === "midiin_device") {
       let anchorMidiNote = null;
+      let anchorChannel = null;
       if (value && value !== "OFF" && m) {
         const input = Array.from(m.inputs.values()).find((i) => i.id === value);
         if (input) {
@@ -75,6 +76,11 @@ const useSettingsChange = (
           if (ctrl) {
             const saved = localStorage.getItem(`${ctrl.id}_anchor`);
             anchorMidiNote = saved !== null ? parseInt(saved) : ctrl.anchorDefault;
+            // Restore saved anchor channel for channel-aware controllers (e.g. Lumatone).
+            if (ctrl.anchorChannelDefault != null) {
+              const savedCh = localStorage.getItem(`${ctrl.id}_anchor_channel`);
+              anchorChannel = savedCh !== null ? parseInt(savedCh) : ctrl.anchorChannelDefault;
+            }
           }
         }
       }
@@ -82,10 +88,14 @@ const useSettingsChange = (
         ...prev,
         midiin_device: value,
         ...(anchorMidiNote !== null ? { midiin_central_degree: anchorMidiNote } : {}),
+        ...(anchorChannel !== null ? { lumatone_center_channel: anchorChannel } : {}),
       }));
       sessionStorage.setItem("midiin_device", value);
       if (anchorMidiNote !== null) {
         sessionStorage.setItem("midiin_central_degree", String(anchorMidiNote));
+      }
+      if (anchorChannel !== null) {
+        sessionStorage.setItem("lumatone_center_channel", String(anchorChannel));
       }
       return;
     }
@@ -98,6 +108,23 @@ const useSettingsChange = (
         // value IS the raw physical MIDI note number — store directly.
         localStorage.setItem(`${ctrl.id}_anchor`, String(value));
       }
+      // Fall through to normal setSettings
+    }
+
+    // When the user manually changes the anchor channel for a channel-aware controller
+    // (e.g. Lumatone), persist it to localStorage so it's restored on next connect.
+    if (key === "lumatone_center_channel") {
+      const ctrl = getConnectedController(s.midiin_device, m);
+      if (ctrl && ctrl.anchorChannelDefault != null) {
+        localStorage.setItem(`${ctrl.id}_anchor_channel`, String(value));
+      }
+      // Fall through to normal setSettings
+    }
+
+    // midiin_anchor_channel drives channel-relative transposition in noteToSteps().
+    // Persist to sessionStorage so it survives page refresh.
+    if (key === "midiin_anchor_channel") {
+      sessionStorage.setItem("midiin_anchor_channel", String(value));
       // Fall through to normal setSettings
     }
 
