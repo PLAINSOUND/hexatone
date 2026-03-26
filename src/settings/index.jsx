@@ -31,6 +31,7 @@ const Settings = ({
   keysRef,
   onVolumeChange,
   midiLearnActive,
+  lumatoneRawPorts,
 }) => (
   <form onSubmit={(e) => e.preventDefault()}>
     <fieldset>
@@ -103,6 +104,8 @@ const Settings = ({
       midi={midi}
       midiTick={midiTick}
       midiLearnActive={midiLearnActive}
+      lumatoneRawPorts={lumatoneRawPorts}
+      keysRef={keysRef}
     />
     <MidiOutputs
       onChange={onChange}

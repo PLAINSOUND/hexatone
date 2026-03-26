@@ -548,6 +548,7 @@ const App = () => {
           midiTick={midiTick}
           instruments={instruments}
           keysRef={keysRef}
+          lumatoneRawPorts={lumatoneRawPorts}
         />
         <Blurb />
         <div id="sidebar-spacer"></div>

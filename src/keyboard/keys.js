@@ -448,12 +448,14 @@ class Keys {
     this.lumatoneLEDs = null;
     if (lumatoneRawPorts && this.controllerMap) {
       this.lumatoneLEDs = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
-      // Send initial full color map after construction settles.
-      Promise.resolve().then(() => {
-        if (this.lumatoneLEDs && this.controllerMap) {
-          this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
-        }
-      });
+      // Send initial full color map after construction settles — only if auto-sync is on.
+      if (this.settings.lumatone_led_sync) {
+        Promise.resolve().then(() => {
+          if (this.lumatoneLEDs && this.controllerMap) {
+            this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
+          }
+        });
+      }
     }
   } // end of constructor
 
@@ -687,9 +689,19 @@ class Keys {
       });
     }
 
-    // Propagate color changes to Lumatone LEDs when the LED engine is active.
+    // Propagate color changes to Lumatone LEDs when auto-sync is enabled.
     // sendAll() replaces the entire pending queue so rapid picker drags always
     // converge to the latest color state without unbounded queue growth.
+    if (this.lumatoneLEDs && this.controllerMap && this.settings.lumatone_led_sync) {
+      this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
+    }
+  };
+
+  /**
+   * Manually trigger a full Lumatone LED color sync regardless of the
+   * lumatone_led_sync auto-sync setting.  Called by the "Sync now" button.
+   */
+  syncLumatoneLEDs = () => {
     if (this.lumatoneLEDs && this.controllerMap) {
       this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
     }

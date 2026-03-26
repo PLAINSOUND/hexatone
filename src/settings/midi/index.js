@@ -178,6 +178,41 @@ const MIDIio = (props) => {
                   2D geometry bypassed — notes mapped sequentially, channel transposition active below.
                 </em></p>
               )}
+
+              {/* ── Lumatone LED colour sync ── */}
+              {ctrl?.id === 'lumatone' && (
+                <>
+                  <label style={{ fontStyle: 'italic', color: props.lumatoneRawPorts ? '#669966' : '#996666' }}>
+                    LED Output
+                    <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
+                      {props.lumatoneRawPorts
+                        ? `Connected — ${props.lumatoneRawPorts.output.name}`
+                        : 'Not found (output port unavailable)'}
+                    </span>
+                  </label>
+                  {props.lumatoneRawPorts && (
+                    <label>
+                      Auto-Send Colors
+                      <span style={{ display: 'flex', alignItems: 'center',
+                                     gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
+                        <input
+                          name="lumatone_led_sync"
+                          type="checkbox"
+                          checked={!!props.settings.lumatone_led_sync}
+                          onChange={(e) => {
+                            props.onChange('lumatone_led_sync', e.target.checked);
+                            sessionStorage.setItem('lumatone_led_sync', e.target.checked);
+                            if (e.target.checked) props.keysRef?.current?.syncLumatoneLEDs?.();
+                          }}
+                        />
+                        <button type="button" style={{ fontSize: '0.85em' }}
+                          onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
+                        >Sync now</button>
+                      </span>
+                    </label>
+                  )}
+                </>
+              )}
             </>
           ) : (
             /* ── Unknown / sequential controller ── */
@@ -304,12 +339,15 @@ MIDIio.propTypes = {
     midi_passthrough: PropTypes.bool,
     midiin_channel_legacy: PropTypes.bool,
     lumatone_center_note: PropTypes.number,
+    lumatone_led_sync: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
   }).isRequired,
   midi: PropTypes.object,
   midiLearnActive: PropTypes.bool,
+  lumatoneRawPorts: PropTypes.object,
+  keysRef: PropTypes.object,
   onChange: PropTypes.func.isRequired,
 };
 

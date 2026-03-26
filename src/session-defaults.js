@@ -55,6 +55,7 @@ const sessionDefaults = {
   wheel_to_recent: false,
   lumatone_center_channel: 3,
   lumatone_center_note: 26,
+  lumatone_led_sync: sessionStorage.getItem('lumatone_led_sync') === 'true',
   fundamental: 260.740741,
   reference_degree: 0,
   equivSteps: 12,
