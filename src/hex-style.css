@@ -251,6 +251,7 @@ a:hover {
     font-family: inherit;
     letter-spacing: 0.04em;
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
     user-select: none;
     cursor: pointer;
     transition: background-color 0.15s ease;
@@ -279,6 +280,118 @@ a:hover {
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
+/* ── Snapshot list — glass panel above the snapshot button ── */
+#snapshot-list {
+    position: fixed;
+    bottom: 4.5em;
+    left: 0.5em;
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: rgba(240, 228, 228, 0.55);
+    -webkit-backdrop-filter: blur(12px) saturate(0.7);
+    backdrop-filter: blur(12px) saturate(0.7);
+    border: 1px solid rgba(200, 175, 175, 0.45);
+    box-shadow: 0 2px 12px rgba(100, 60, 60, 0.12);
+}
+
+.snapshot-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 6px;
+    transition: background-color 0.1s ease;
+}
+
+.snapshot-drag-over {
+    background: rgba(200, 160, 160, 0.35);
+    outline: 1px solid rgba(153, 0, 0, 0.3);
+}
+
+.snapshot-drag-handle {
+    cursor: grab;
+    color: rgba(120, 60, 60, 0.5);
+    font-size: 1.1em;
+    padding: 0 2px;
+    -webkit-user-select: none;
+    user-select: none;
+    line-height: 1;
+}
+
+.snapshot-play-btn {
+    padding: 0.2em 0.65em;
+    border-radius: 999px;
+    background-color: rgba(255, 248, 248, 0.75);
+    border: 1px solid rgba(192, 160, 160, 0.6);
+    color: #880000;
+    font-size: 0.82em;
+    font-family: inherit;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.snapshot-play-btn:active {
+    background-color: rgba(220, 200, 200, 0.85);
+}
+
+.snapshot-playing .snapshot-play-btn {
+    background-color: rgba(220, 200, 200, 0.85);
+    border-color: #aa0000;
+    font-weight: bold;
+}
+
+.snapshot-del-btn {
+    width: 1.5em;
+    height: 1.5em;
+    border-radius: 50%;
+    background: rgba(180, 140, 140, 0.28);
+    border: 1px solid rgba(170, 120, 120, 0.4);
+    color: #770000;
+    font-size: 0.75em;
+    line-height: 1;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.snapshot-del-btn:hover, .snapshot-del-btn:active {
+    background: rgba(180, 100, 100, 0.45);
+    color: #ffffff;
+    border-color: rgba(160, 80, 80, 0.6);
+}
+
+#snapshot-button {
+    position: fixed;
+    bottom: 1.25em;
+    left: 1em;
+    z-index: 11;
+    width: 2.2em;
+    height: 2.2em;
+    border-radius: 50%;
+    background-color: #f0e9e9;
+    border: 1px solid #c0aaaa;
+    color: #990000;
+    font-size: 1.1em;
+    line-height: 1;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+#snapshot-button:active {
+    background-color: #ddcccc;
+}
+
 #redraw-button {
     position: fixed;
     bottom: 1.25em;
@@ -293,6 +406,7 @@ a:hover {
     font-size: 1.1em;
     line-height: 1;
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
     user-select: none;
     cursor: pointer;
     transition: background-color 0.15s ease;
@@ -314,6 +428,7 @@ a:hover {
     font-family: inherit;
     letter-spacing: 0.04em;
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
     user-select: none;
     cursor: pointer;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -338,6 +453,7 @@ a:hover {
     border: 1px solid #c0aaaa;
     overflow: hidden;
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
     user-select: none;
 }
 
@@ -386,6 +502,7 @@ a:hover {
     font-size: 1.1em;
     line-height: 1;
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
     user-select: none;
     cursor: pointer;
     transition: background-color 0.15s ease;

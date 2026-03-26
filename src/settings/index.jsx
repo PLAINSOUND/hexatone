@@ -7,6 +7,7 @@ import Layout from "./layout";
 import SampleSynth from "./sample";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
+import Snapshots from "./snapshots.jsx";
 import "./settings.css";
 const Settings = ({
   presetChanged,
@@ -32,6 +33,10 @@ const Settings = ({
   onVolumeChange,
   midiLearnActive,
   lumatoneRawPorts,
+  snapshots,
+  playingSnapshotId,
+  onPlaySnapshot,
+  onDeleteSnapshot,
 }) => (
   <form onSubmit={(e) => e.preventDefault()}>
     <fieldset>

@@ -697,6 +697,104 @@ class Keys {
     }
   };
 
+  // ── Snapshot capture & playback ────────────────────────────────────────────
+
+  /**
+   * Capture all currently sounding notes (active + sustained/latched) as a
+   * scale-agnostic snapshot.  Each note is stored as a MIDI float (midicents)
+   * where 69.0 = A4 (440 Hz), plus its played velocity.
+   *
+   * Returns an empty array if no notes are sounding.
+   * Duplicate pitches (same key pressed from multiple paths) are deduplicated.
+   *
+   * @returns {Array<{ midicents: number, velocity: number }>}
+   */
+  getSnapshot() {
+    // centsToReference: the scale offset of the reference sample from degree 0.
+    // Needed to reconstruct absolute frequency from hex.cents.
+    const centsToRef = (this.settings.reference_degree > 0)
+      ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+      : 0;
+    const fund = this.settings.fundamental;
+
+    const seen = new Map(); // rounded midicents string → entry (dedup)
+    const add = (hex, vel) => {
+      // freq = fundamental * 2^((cents - centsToRef) / 1200)
+      const freq = fund * Math.pow(2, (hex.cents - centsToRef) / 1200);
+      const midicents = 69 + Math.log2(freq / 440) * 12;
+      const key = midicents.toFixed(3);
+      if (!seen.has(key)) {
+        seen.set(key, { midicents, velocity: vel ?? 72 });
+      }
+    };
+
+    for (const hex of this.state.activeHexObjects) {
+      add(hex, hex.velocity_played);
+    }
+    for (const [hex, vel] of this.state.sustainedNotes) {
+      add(hex, vel ?? hex.velocity_played);
+    }
+
+    return Array.from(seen.values());
+  }
+
+  /**
+   * Play back a snapshot through the current synth.
+   * Pitches are absolute (midicents → Hz), re-computed relative to the
+   * current fundamental so playback is scale-agnostic.
+   *
+   * Note: for the sample synth this is exact.  MIDI/MTS synths use dummy
+   * hex coords and will play at the nearest available voice mapping — suitable
+   * for proof-of-concept; a proper coord-resolution pass is deferred.
+   *
+   * Stops any previously playing snapshot first.
+   *
+   * @param {Array<{ midicents: number, velocity: number }>} notes
+   */
+  playSnapshot(notes) {
+    this.stopSnapshot();
+
+    const centsToRef = (this.settings.reference_degree > 0)
+      ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+      : 0;
+    const fund = this.settings.fundamental;
+    const degree0toRef_ratio = this.settings.degree0toRef_asArray?.[1] ?? 1;
+
+    this._snapshotHexes = notes.map(({ midicents, velocity }, i) => {
+      // Convert absolute pitch back to synth-relative cents.
+      const freq = 440 * Math.pow(2, (midicents - 69) / 12);
+      const synthCents = centsToRef + Math.log2(freq / fund) * 1200;
+      // Dummy coords placed well outside the normal play grid so they never
+      // collide with user-pressed keys.  Unique per note to allow polyphony.
+      const dummyCoords = new Point(9000 + i, 9000 + i);
+      const hex = this.synth.makeHex(
+        dummyCoords,
+        synthCents,
+        0,          // steps (unused for playback)
+        0,          // equaves
+        this.settings.equivSteps,
+        synthCents, // cents_prev
+        synthCents, // cents_next
+        undefined,  // note_played
+        velocity,
+        0,          // bend
+        degree0toRef_ratio,
+      );
+      hex.noteOn();
+      return hex;
+    });
+  }
+
+  /**
+   * Stop any snapshot currently playing.  Safe to call when nothing is playing.
+   */
+  stopSnapshot() {
+    if (this._snapshotHexes?.length) {
+      for (const hex of this._snapshotHexes) hex.noteOff(0);
+      this._snapshotHexes = [];
+    }
+  }
+
   /**
    * Manually trigger a full Lumatone LED color sync regardless of the
    * lumatone_led_sync auto-sync setting.  Called by the "Sync now" button.
@@ -813,6 +911,9 @@ class Keys {
     // latch as active while the new Keys has no sustain state, causing the
     // next click to produce a brief non-sustained note instead of latching.
     if (this.onLatchChange) this.onLatchChange(false);
+
+    // Stop any snapshot that is still playing.
+    this.stopSnapshot();
 
     // Clean up Lumatone LED engine — removes the ACK listener from the input port.
     if (this.lumatoneLEDs) {
@@ -1210,6 +1311,9 @@ class Keys {
     this.state.sustain = false;
     this.state.latch = false;
     if (this.onLatchChange) this.onLatchChange(false);
+
+    // Stop any snapshot playback
+    this.stopSnapshot();
 
     console.log("PANIC - all notes killed!");
   };

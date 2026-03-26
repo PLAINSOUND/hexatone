@@ -211,6 +211,53 @@ const App = () => {
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
 
+  // ── Snapshots ─────────────────────────────────────────────────────────────
+  const [snapshots, setSnapshots] = useState([]);
+  const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
+  const snapshotIdRef = useRef(0);
+  const dragIdRef = useRef(null);
+  const [dragOverId, setDragOverId] = useState(null);
+
+  const onTakeSnapshot = useCallback(() => {
+    const notes = keysRef.current?.getSnapshot();
+    if (!notes?.length) return;
+    const id = ++snapshotIdRef.current;
+    setSnapshots((prev) => [...prev, { id, notes }]);
+  }, []);
+
+  const onPlaySnapshot = useCallback((id) => {
+    if (playingSnapshotId === id) {
+      // Toggle off: stop the currently playing snapshot
+      keysRef.current?.stopSnapshot();
+      setPlayingSnapshotId(null);
+    } else {
+      const snap = snapshots.find((s) => s.id === id);
+      if (!snap) return;
+      keysRef.current?.playSnapshot(snap.notes);
+      setPlayingSnapshotId(id);
+    }
+  }, [playingSnapshotId, snapshots]);
+
+  const onDeleteSnapshot = useCallback((id) => {
+    if (playingSnapshotId === id) {
+      keysRef.current?.stopSnapshot();
+      setPlayingSnapshotId(null);
+    }
+    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+  }, [playingSnapshotId]);
+
+  const onMoveSnapshot = useCallback((fromId, toId) => {
+    setSnapshots((prev) => {
+      const fromIdx = prev.findIndex((s) => s.id === fromId);
+      const toIdx = prev.findIndex((s) => s.id === toId);
+      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+  }, []);
+
   // Long-press sidebar button to toggle latch (sustain while playing)
   const longPressTimer = useRef(null);
   const longPressFired = useRef(false);
@@ -477,6 +524,15 @@ const App = () => {
           <b>SUSTAIN</b>
         </button>
         <button
+          id="snapshot-button"
+          title="Capture current notes as a snapshot"
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={(e) => { e.stopPropagation(); onTakeSnapshot(); }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          ◉
+        </button>
+        <button
           id="redraw-button"
           title="Redraw keyboard / Resume audio"
           onPointerDown={(e) => {
@@ -505,6 +561,47 @@ const App = () => {
           <b>ALL NOTES OFF</b>
         </button>
       </div>
+
+      {/* ── Snapshot list — fixed overlay, visible without opening the sidebar ── */}
+      {snapshots.length > 0 && (
+        <div id="snapshot-list" onContextMenu={(e) => e.preventDefault()}>
+          {snapshots.map((snap, index) => {
+            const isPlaying = snap.id === playingSnapshotId;
+            const isDragOver = dragOverId === snap.id;
+            return (
+              <div
+                key={snap.id}
+                class={`snapshot-row${isPlaying ? ' snapshot-playing' : ''}${isDragOver ? ' snapshot-drag-over' : ''}`}
+                draggable={true}
+                onDragStart={(e) => { dragIdRef.current = snap.id; e.dataTransfer.effectAllowed = 'move'; }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverId(snap.id); }}
+                onDragLeave={() => setDragOverId(null)}
+                onDrop={(e) => { e.preventDefault(); setDragOverId(null); if (dragIdRef.current !== null && dragIdRef.current !== snap.id) onMoveSnapshot(dragIdRef.current, snap.id); dragIdRef.current = null; }}
+                onDragEnd={() => { setDragOverId(null); dragIdRef.current = null; }}
+              >
+                <span class="snapshot-drag-handle" title="Drag to reorder">⠿</span>
+                <button
+                  class="snapshot-play-btn"
+                  title={isPlaying ? 'Stop' : 'Play snapshot'}
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); onPlaySnapshot(snap.id); }}
+                >
+                  {isPlaying ? '■' : '▶'} {index + 1}
+                </button>
+                <button
+                  class="snapshot-del-btn"
+                  title="Delete snapshot"
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.stopPropagation(); onDeleteSnapshot(snap.id); }}
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <nav id="sidebar">
         <h1>PLAINSOUND HEXATONE</h1>
         <p>
@@ -549,6 +646,10 @@ const App = () => {
           instruments={instruments}
           keysRef={keysRef}
           lumatoneRawPorts={lumatoneRawPorts}
+          snapshots={snapshots}
+          playingSnapshotId={playingSnapshotId}
+          onPlaySnapshot={onPlaySnapshot}
+          onDeleteSnapshot={onDeleteSnapshot}
         />
         <Blurb />
         <div id="sidebar-spacer"></div>
