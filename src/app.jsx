@@ -478,6 +478,7 @@ const App = () => {
             keysRef.current = keys;
           }, [])}
           onLatchChange={useCallback((v) => setLatch(v), [])}
+          onTakeSnapshot={onTakeSnapshot}
           active={active}
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
@@ -636,18 +637,10 @@ const App = () => {
             With sidebar closed, a computer keyboard also plays notes: H is
             mapped to Central Scale Degree; SPACEBAR sustains while pressed;
             SHIFT+keys sustains individual notes; ESC toggles a hand-free latch
-            sustain.
+            sustain. ENTER takes a snapshot.
           </em>
         </p>
-        <p>
-          <em>
-            Setting Reference Frequency and Assigned Scale Degree automatically
-            transposes built-in and external sounds. Edit scale degrees, note
-            names, and colours below: pitches may be retuned, compared, saved,
-            or reverted in real-time. Layouts and scala files may be exported
-            and loaded to the User Tunings menu.
-          </em>
-        </p>
+        
         <Settings
           presetChanged={presetChanged}
           presets={presets}

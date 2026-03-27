@@ -77,7 +77,7 @@ const Layout = (props) => {
       />
     </label>
     <label>
-      Hex Size (pixels)
+      Hex Size
       <input name="hexSize" type="text" inputMode="numeric"
              class="sidebar-input"
              key={props.settings.hexSize}
@@ -94,7 +94,7 @@ const Layout = (props) => {
       />
     </label>
     <label>
-      Rotation Clockwise (°)
+      Rotation Clockwise
       <input name="rotation" type="text" inputMode="decimal"
              class="sidebar-input"
              key={props.settings.rotation}

@@ -30,7 +30,7 @@ import {
 } from './mts-helpers.js';
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null) {
+  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -52,6 +52,7 @@ class Keys {
     this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or DIRECT) to an external synth
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
+    this.onTakeSnapshot = onTakeSnapshot || null;
     this.bend = 0;
     this.state = {
       canvas,
@@ -1667,6 +1668,20 @@ class Keys {
       this.state.escHeld = true;
       this.latchToggle();
       return;
+    }
+
+    // Enter: take a snapshot of currently-sounding notes (only when notes are active).
+    if (e.code === "Enter" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const hasNotes =
+        this.state.activeMouse !== null ||
+        this.state.activeTouch.size > 0 ||
+        this.state.activeKeyboard.size > 0 ||
+        this.state.activeMidi.size > 0 ||
+        this.state.sustainedNotes.length > 0;
+      if (hasNotes && this.onTakeSnapshot) {
+        this.onTakeSnapshot();
+        return;
+      }
     }
 
     // All other keys: only active when sidebar is closed (typing=false means sidebar closed).
