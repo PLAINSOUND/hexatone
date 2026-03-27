@@ -75,15 +75,21 @@ const isSafariOnly =
   /Safari/.test(ua) &&
   !/Chrome/.test(ua) &&
   !/Chromium/.test(ua) &&
-  !/Firefox/.test(ua);
-if (isSafariOnly)
-  alert(
-    "Safari is not fully supported.\nFor the best experience please use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.",
-  );
+  !/Firefox/.test(ua) &&
+  !/FxiOS/.test(ua);   // Firefox on iOS uses FxiOS token, not "Firefox"
+const isIOS =
+  /iPad|iPhone|iPod/.test(ua) ||
+  (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS 13+ desktop mode
+const isMIDIWeb = /MIDIWeb/.test(ua);
+// Banner messages rendered in JSX (not alert()) so links are clickable.
+// showBanner: null = no banner, "ios" = iOS MIDI warning, "safari" = Safari warning.
+const initialBanner =
+  isIOS && !isMIDIWeb ? "ios" : isSafariOnly ? "safari" : null;
 
 const App = () => {
   const [ready, setReady] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
+  const [banner, setBanner] = useState(initialBanner);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
 
@@ -480,6 +486,22 @@ const App = () => {
       )}
 
       {loading > 0 && <Loading />}
+      {banner === "ios" && (
+        <div id="ios-banner">
+          WebMIDI on iOS is an experimental feature. Install the{" "}
+          <a href="https://testflight.apple.com/join/f7YNhJ3j" target="_blank" rel="noopener noreferrer">
+            MIDIWeb browser
+          </a>{" "}
+          to use MIDI features in PLAINSOUND HEXATONE.
+          <button onClick={() => setBanner(null)}>✕</button>
+        </div>
+      )}
+      {banner === "safari" && (
+        <div id="ios-banner">
+          Safari is not fully supported. For the best experience use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.
+          <button onClick={() => setBanner(null)}>✕</button>
+        </div>
+      )}
       <button
         id="sidebar-button"
         className={latch ? "latch-active" : ""}

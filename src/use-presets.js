@@ -163,9 +163,13 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
   }, []);
 
   const presetChanged = async (e) => {
-    if (synthRef.current?.prepare) await synthRef.current.prepare();
     if (!e.target.value) return;
+    // Mark user interaction immediately — before any await — so that
+    // useSynthWiring sees userHasInteracted=true when it rebuilds the synth
+    // after setSettings, and can call prepare() within the same gesture window.
+    // On iOS, calling resume() outside the direct gesture turn causes a stall.
     onUserInteraction();
+    if (synthRef.current?.prepare) await synthRef.current.prepare();
     setActiveSource("builtin");
     setActivePresetName(e.target.value);
     sessionStorage.setItem("hexatone_preset_source", "builtin");
