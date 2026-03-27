@@ -36,7 +36,12 @@ jobs:
         run: yarn install --immutable
 
       - name: Build
-        run: yarn vite build --base=/hexatone/ && node generate-sw.js
+        run: |
+          node_modules/.bin/vite build --base=/hexatone/
+          node generate-sw.js
+
+      - name: Check build output
+        run: ls -la build/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
