@@ -41,6 +41,10 @@ export default defineConfig({
     },
   },
 
+  // Base path: '/' for production (hexatone.plainsound.org), '/hexatone/' for
+  // GitHub Pages preview (plainsound.github.io/hexatone). Set via env var in CI.
+  base: process.env.VITE_BASE_PATH || '/',
+
   build: {
     outDir: 'build',
     sourcemap: true,
