@@ -37,11 +37,15 @@ jobs:
 
       - name: Build
         run: |
-          yarn vite build --base=/hexatone/
-          yarn node generate-sw.js
+          echo "Base path: $VITE_BASE_PATH"
+          yarn run build
+        env:
+          VITE_BASE_PATH: /hexatone/
 
       - name: Check build output
-        run: ls -la build/
+        run: |
+          ls -la build/
+          head -5 build/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
