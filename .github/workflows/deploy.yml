@@ -37,8 +37,8 @@ jobs:
 
       - name: Build
         run: |
-          node_modules/.bin/vite build --base=/hexatone/
-          node generate-sw.js
+          yarn vite build --base=/hexatone/
+          yarn node generate-sw.js
 
       - name: Check build output
         run: ls -la build/

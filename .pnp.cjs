@@ -35,7 +35,6 @@ const RAW_RUNTIME_STATE =
           ["@testing-library/user-event", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:14.6.1"],\
           ["jsdom", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:25.0.1"],\
           ["normalize.css", "npm:8.0.1"],\
-          ["osc", "npm:2.4.5"],\
           ["preact", "npm:10.28.4"],\
           ["prop-types", "npm:15.8.1"],\
           ["terpstrakeyboard", "workspace:."],\
@@ -43,8 +42,7 @@ const RAW_RUNTIME_STATE =
           ["vite-plugin-svgr", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:4.5.0"],\
           ["vitest", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:2.1.9"],\
           ["webmidi", "npm:3.1.14"],\
-          ["workbox-build", "npm:7.4.0"],\
-          ["ws", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:8.20.0"]\
+          ["workbox-build", "npm:7.4.0"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -3221,158 +3219,6 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
-    ["@serialport/binding-mock", [\
-      ["npm:10.2.2", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-binding-mock-npm-10.2.2-53721ff234-10c0.zip/node_modules/@serialport/binding-mock/",\
-        "packageDependencies": [\
-          ["@serialport/binding-mock", "npm:10.2.2"],\
-          ["@serialport/bindings-interface", "npm:1.2.2"],\
-          ["debug", "virtual:85d5d916b6a745b2f8de0d4b1704b7084bdd4f7573c1ef5d1c877f2c866045a9b29fe2bc752d1b73e531c378a0518dd3f9fa187b31427fb9bacbe34b14715dde#npm:4.4.3"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/bindings-cpp", [\
-      ["npm:12.0.1", {\
-        "packageLocation": "./.yarn/unplugged/@serialport-bindings-cpp-npm-12.0.1-5ab6130605/node_modules/@serialport/bindings-cpp/",\
-        "packageDependencies": [\
-          ["@serialport/bindings-cpp", "npm:12.0.1"],\
-          ["@serialport/bindings-interface", "npm:1.2.2"],\
-          ["@serialport/parser-readline", "npm:11.0.0"],\
-          ["debug", "virtual:5ab613060563d00320f0244e6f3efea0fdd573bf58fb6cb86d09e856deff05b7d56feb4684b4c7aaf2f99edeeabcc0e8fdb824fa45af065ebcff7c33cb43d8d3#npm:4.3.4"],\
-          ["node-addon-api", "npm:7.0.0"],\
-          ["node-gyp", "npm:12.2.0"],\
-          ["node-gyp-build", "npm:4.6.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/bindings-interface", [\
-      ["npm:1.2.2", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-bindings-interface-npm-1.2.2-e597dbc676-10c0.zip/node_modules/@serialport/bindings-interface/",\
-        "packageDependencies": [\
-          ["@serialport/bindings-interface", "npm:1.2.2"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-byte-length", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-byte-length-npm-12.0.0-f07e8513d0-10c0.zip/node_modules/@serialport/parser-byte-length/",\
-        "packageDependencies": [\
-          ["@serialport/parser-byte-length", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-cctalk", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-cctalk-npm-12.0.0-2a811fbb68-10c0.zip/node_modules/@serialport/parser-cctalk/",\
-        "packageDependencies": [\
-          ["@serialport/parser-cctalk", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-delimiter", [\
-      ["npm:11.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-delimiter-npm-11.0.0-f84f97b011-10c0.zip/node_modules/@serialport/parser-delimiter/",\
-        "packageDependencies": [\
-          ["@serialport/parser-delimiter", "npm:11.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }],\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-delimiter-npm-12.0.0-0af834cdc1-10c0.zip/node_modules/@serialport/parser-delimiter/",\
-        "packageDependencies": [\
-          ["@serialport/parser-delimiter", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-inter-byte-timeout", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-inter-byte-timeout-npm-12.0.0-af9d587ee2-10c0.zip/node_modules/@serialport/parser-inter-byte-timeout/",\
-        "packageDependencies": [\
-          ["@serialport/parser-inter-byte-timeout", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-packet-length", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-packet-length-npm-12.0.0-7cecde83eb-10c0.zip/node_modules/@serialport/parser-packet-length/",\
-        "packageDependencies": [\
-          ["@serialport/parser-packet-length", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-readline", [\
-      ["npm:11.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-readline-npm-11.0.0-ac0831a56c-10c0.zip/node_modules/@serialport/parser-readline/",\
-        "packageDependencies": [\
-          ["@serialport/parser-delimiter", "npm:11.0.0"],\
-          ["@serialport/parser-readline", "npm:11.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }],\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-readline-npm-12.0.0-f327c50257-10c0.zip/node_modules/@serialport/parser-readline/",\
-        "packageDependencies": [\
-          ["@serialport/parser-delimiter", "npm:12.0.0"],\
-          ["@serialport/parser-readline", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-ready", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-ready-npm-12.0.0-203658d238-10c0.zip/node_modules/@serialport/parser-ready/",\
-        "packageDependencies": [\
-          ["@serialport/parser-ready", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-regex", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-regex-npm-12.0.0-e3717cc372-10c0.zip/node_modules/@serialport/parser-regex/",\
-        "packageDependencies": [\
-          ["@serialport/parser-regex", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-slip-encoder", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-slip-encoder-npm-12.0.0-f988d67a00-10c0.zip/node_modules/@serialport/parser-slip-encoder/",\
-        "packageDependencies": [\
-          ["@serialport/parser-slip-encoder", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/parser-spacepacket", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-parser-spacepacket-npm-12.0.0-85fad577b1-10c0.zip/node_modules/@serialport/parser-spacepacket/",\
-        "packageDependencies": [\
-          ["@serialport/parser-spacepacket", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@serialport/stream", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/@serialport-stream-npm-12.0.0-ac89965362-10c0.zip/node_modules/@serialport/stream/",\
-        "packageDependencies": [\
-          ["@serialport/bindings-interface", "npm:1.2.2"],\
-          ["@serialport/stream", "npm:12.0.0"],\
-          ["debug", "virtual:5ab613060563d00320f0244e6f3efea0fdd573bf58fb6cb86d09e856deff05b7d56feb4684b4c7aaf2f99edeeabcc0e8fdb824fa45af065ebcff7c33cb43d8d3#npm:4.3.4"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
     ["@surma/rollup-plugin-off-main-thread", [\
       ["npm:2.2.3", {\
         "packageLocation": "./.yarn/unplugged/@surma-rollup-plugin-off-main-thread-npm-2.2.3-1f57d3eded/node_modules/@surma/rollup-plugin-off-main-thread/",\
@@ -4542,33 +4388,12 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["debug", [\
-      ["npm:4.3.4", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/debug-npm-4.3.4-4513954577-10c0.zip/node_modules/debug/",\
-        "packageDependencies": [\
-          ["debug", "npm:4.3.4"]\
-        ],\
-        "linkType": "SOFT"\
-      }],\
       ["npm:4.4.3", {\
         "packageLocation": "../../../../../../../.yarn/berry/cache/debug-npm-4.4.3-0105c6123a-10c0.zip/node_modules/debug/",\
         "packageDependencies": [\
           ["debug", "npm:4.4.3"]\
         ],\
         "linkType": "SOFT"\
-      }],\
-      ["virtual:5ab613060563d00320f0244e6f3efea0fdd573bf58fb6cb86d09e856deff05b7d56feb4684b4c7aaf2f99edeeabcc0e8fdb824fa45af065ebcff7c33cb43d8d3#npm:4.3.4", {\
-        "packageLocation": "./.yarn/__virtual__/debug-virtual-99898c10ec/8/.yarn/berry/cache/debug-npm-4.3.4-4513954577-10c0.zip/node_modules/debug/",\
-        "packageDependencies": [\
-          ["@types/supports-color", null],\
-          ["debug", "virtual:5ab613060563d00320f0244e6f3efea0fdd573bf58fb6cb86d09e856deff05b7d56feb4684b4c7aaf2f99edeeabcc0e8fdb824fa45af065ebcff7c33cb43d8d3#npm:4.3.4"],\
-          ["ms", "npm:2.1.2"],\
-          ["supports-color", null]\
-        ],\
-        "packagePeers": [\
-          "@types/supports-color",\
-          "supports-color"\
-        ],\
-        "linkType": "HARD"\
       }],\
       ["virtual:85d5d916b6a745b2f8de0d4b1704b7084bdd4f7573c1ef5d1c877f2c866045a9b29fe2bc752d1b73e531c378a0518dd3f9fa187b31427fb9bacbe34b14715dde#npm:4.4.3", {\
         "packageLocation": "./.yarn/__virtual__/debug-virtual-ce2b683fbc/8/.yarn/berry/cache/debug-npm-4.4.3-0105c6123a-10c0.zip/node_modules/debug/",\
@@ -6125,15 +5950,6 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
-    ["long", [\
-      ["npm:4.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/long-npm-4.0.0-ecd96a31ed-10c0.zip/node_modules/long/",\
-        "packageDependencies": [\
-          ["long", "npm:4.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
     ["loose-envify", [\
       ["npm:1.4.0", {\
         "packageLocation": "../../../../../../../.yarn/berry/cache/loose-envify-npm-1.4.0-6307b72ccf-10c0.zip/node_modules/loose-envify/",\
@@ -6361,13 +6177,6 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["ms", [\
-      ["npm:2.1.2", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/ms-npm-2.1.2-ec0c1512ff-10c0.zip/node_modules/ms/",\
-        "packageDependencies": [\
-          ["ms", "npm:2.1.2"]\
-        ],\
-        "linkType": "HARD"\
-      }],\
       ["npm:2.1.3", {\
         "packageLocation": "../../../../../../../.yarn/berry/cache/ms-npm-2.1.3-81ff3cfac1-10c0.zip/node_modules/ms/",\
         "packageDependencies": [\
@@ -6405,16 +6214,6 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
-    ["node-addon-api", [\
-      ["npm:7.0.0", {\
-        "packageLocation": "./.yarn/unplugged/node-addon-api-npm-7.0.0-988c806c8b/node_modules/node-addon-api/",\
-        "packageDependencies": [\
-          ["node-addon-api", "npm:7.0.0"],\
-          ["node-gyp", "npm:12.2.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
     ["node-gyp", [\
       ["npm:12.2.0", {\
         "packageLocation": "./.yarn/unplugged/node-gyp-npm-12.2.0-11f8fe84f1/node_modules/node-gyp/",\
@@ -6430,15 +6229,6 @@ const RAW_RUNTIME_STATE =
           ["tar", "npm:7.5.10"],\
           ["tinyglobby", "npm:0.2.15"],\
           ["which", "npm:6.0.1"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["node-gyp-build", [\
-      ["npm:4.6.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/node-gyp-build-npm-4.6.0-5434aac3e5-10c0.zip/node_modules/node-gyp-build/",\
-        "packageDependencies": [\
-          ["node-gyp-build", "npm:4.6.0"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -6550,20 +6340,6 @@ const RAW_RUNTIME_STATE =
           ["has-symbols", "npm:1.1.0"],\
           ["object-keys", "npm:1.1.1"],\
           ["object.assign", "npm:4.1.7"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["osc", [\
-      ["npm:2.4.5", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/osc-npm-2.4.5-58669b0bec-10c0.zip/node_modules/osc/",\
-        "packageDependencies": [\
-          ["long", "npm:4.0.0"],\
-          ["osc", "npm:2.4.5"],\
-          ["serialport", "npm:12.0.0"],\
-          ["slip", "npm:1.0.2"],\
-          ["wolfy87-eventemitter", "npm:5.2.9"],\
-          ["ws", "virtual:58669b0beca85e61f8031776a9d583f2d002ac4eca522918117f5fe346432a164b49dcf3983e585fbca78f3e419d08cf28e8200fac478347df9245c3f7232cb9#npm:8.18.0"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -7094,29 +6870,6 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
-    ["serialport", [\
-      ["npm:12.0.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/serialport-npm-12.0.0-eba7a77ce2-10c0.zip/node_modules/serialport/",\
-        "packageDependencies": [\
-          ["@serialport/binding-mock", "npm:10.2.2"],\
-          ["@serialport/bindings-cpp", "npm:12.0.1"],\
-          ["@serialport/parser-byte-length", "npm:12.0.0"],\
-          ["@serialport/parser-cctalk", "npm:12.0.0"],\
-          ["@serialport/parser-delimiter", "npm:12.0.0"],\
-          ["@serialport/parser-inter-byte-timeout", "npm:12.0.0"],\
-          ["@serialport/parser-packet-length", "npm:12.0.0"],\
-          ["@serialport/parser-readline", "npm:12.0.0"],\
-          ["@serialport/parser-ready", "npm:12.0.0"],\
-          ["@serialport/parser-regex", "npm:12.0.0"],\
-          ["@serialport/parser-slip-encoder", "npm:12.0.0"],\
-          ["@serialport/parser-spacepacket", "npm:12.0.0"],\
-          ["@serialport/stream", "npm:12.0.0"],\
-          ["debug", "virtual:5ab613060563d00320f0244e6f3efea0fdd573bf58fb6cb86d09e856deff05b7d56feb4684b4c7aaf2f99edeeabcc0e8fdb824fa45af065ebcff7c33cb43d8d3#npm:4.3.4"],\
-          ["serialport", "npm:12.0.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
     ["set-function-length", [\
       ["npm:1.2.2", {\
         "packageLocation": "../../../../../../../.yarn/berry/cache/set-function-length-npm-1.2.2-243073748b-10c0.zip/node_modules/set-function-length/",\
@@ -7252,15 +7005,6 @@ const RAW_RUNTIME_STATE =
         "packageDependencies": [\
           ["kolorist", "npm:1.8.0"],\
           ["simple-code-frame", "npm:1.3.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["slip", [\
-      ["npm:1.0.2", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/slip-npm-1.0.2-f941f9f402-10c0.zip/node_modules/slip/",\
-        "packageDependencies": [\
-          ["slip", "npm:1.0.2"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -7586,7 +7330,6 @@ const RAW_RUNTIME_STATE =
           ["@testing-library/user-event", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:14.6.1"],\
           ["jsdom", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:25.0.1"],\
           ["normalize.css", "npm:8.0.1"],\
-          ["osc", "npm:2.4.5"],\
           ["preact", "npm:10.28.4"],\
           ["prop-types", "npm:15.8.1"],\
           ["terpstrakeyboard", "workspace:."],\
@@ -7594,8 +7337,7 @@ const RAW_RUNTIME_STATE =
           ["vite-plugin-svgr", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:4.5.0"],\
           ["vitest", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:2.1.9"],\
           ["webmidi", "npm:3.1.14"],\
-          ["workbox-build", "npm:7.4.0"],\
-          ["ws", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:8.20.0"]\
+          ["workbox-build", "npm:7.4.0"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -8329,15 +8071,6 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
-    ["wolfy87-eventemitter", [\
-      ["npm:5.2.9", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/wolfy87-eventemitter-npm-5.2.9-b8937a672d-10c0.zip/node_modules/wolfy87-eventemitter/",\
-        "packageDependencies": [\
-          ["wolfy87-eventemitter", "npm:5.2.9"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
     ["workbox-background-sync", [\
       ["npm:7.4.0", {\
         "packageLocation": "../../../../../../../.yarn/berry/cache/workbox-background-sync-npm-7.4.0-659bb9dab3-10c0.zip/node_modules/workbox-background-sync/",\
@@ -8547,43 +8280,12 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["ws", [\
-      ["npm:8.18.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/ws-npm-8.18.0-56f68bc4d6-10c0.zip/node_modules/ws/",\
-        "packageDependencies": [\
-          ["ws", "npm:8.18.0"]\
-        ],\
-        "linkType": "SOFT"\
-      }],\
       ["npm:8.19.0", {\
         "packageLocation": "../../../../../../../.yarn/berry/cache/ws-npm-8.19.0-c967c046a5-10c0.zip/node_modules/ws/",\
         "packageDependencies": [\
           ["ws", "npm:8.19.0"]\
         ],\
         "linkType": "SOFT"\
-      }],\
-      ["npm:8.20.0", {\
-        "packageLocation": "../../../../../../../.yarn/berry/cache/ws-npm-8.20.0-b8684d1fe3-10c0.zip/node_modules/ws/",\
-        "packageDependencies": [\
-          ["ws", "npm:8.20.0"]\
-        ],\
-        "linkType": "SOFT"\
-      }],\
-      ["virtual:58669b0beca85e61f8031776a9d583f2d002ac4eca522918117f5fe346432a164b49dcf3983e585fbca78f3e419d08cf28e8200fac478347df9245c3f7232cb9#npm:8.18.0", {\
-        "packageLocation": "./.yarn/__virtual__/ws-virtual-7a4630c882/8/.yarn/berry/cache/ws-npm-8.18.0-56f68bc4d6-10c0.zip/node_modules/ws/",\
-        "packageDependencies": [\
-          ["@types/bufferutil", null],\
-          ["@types/utf-8-validate", null],\
-          ["bufferutil", null],\
-          ["utf-8-validate", null],\
-          ["ws", "virtual:58669b0beca85e61f8031776a9d583f2d002ac4eca522918117f5fe346432a164b49dcf3983e585fbca78f3e419d08cf28e8200fac478347df9245c3f7232cb9#npm:8.18.0"]\
-        ],\
-        "packagePeers": [\
-          "@types/bufferutil",\
-          "@types/utf-8-validate",\
-          "bufferutil",\
-          "utf-8-validate"\
-        ],\
-        "linkType": "HARD"\
       }],\
       ["virtual:cbbd87fdf0c2574a4b130e1a226388c091ad352f982b16853f3640179bc29d259a42de2ed0f6ef9c2f9c8a67e6c9be07c9d62870baa2235d84712a5683107045#npm:8.19.0", {\
         "packageLocation": "./.yarn/__virtual__/ws-virtual-a0ed9b51fb/8/.yarn/berry/cache/ws-npm-8.19.0-c967c046a5-10c0.zip/node_modules/ws/",\
@@ -8593,23 +8295,6 @@ const RAW_RUNTIME_STATE =
           ["bufferutil", null],\
           ["utf-8-validate", null],\
           ["ws", "virtual:cbbd87fdf0c2574a4b130e1a226388c091ad352f982b16853f3640179bc29d259a42de2ed0f6ef9c2f9c8a67e6c9be07c9d62870baa2235d84712a5683107045#npm:8.19.0"]\
-        ],\
-        "packagePeers": [\
-          "@types/bufferutil",\
-          "@types/utf-8-validate",\
-          "bufferutil",\
-          "utf-8-validate"\
-        ],\
-        "linkType": "HARD"\
-      }],\
-      ["virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:8.20.0", {\
-        "packageLocation": "./.yarn/__virtual__/ws-virtual-d1a585f32f/8/.yarn/berry/cache/ws-npm-8.20.0-b8684d1fe3-10c0.zip/node_modules/ws/",\
-        "packageDependencies": [\
-          ["@types/bufferutil", null],\
-          ["@types/utf-8-validate", null],\
-          ["bufferutil", null],\
-          ["utf-8-validate", null],\
-          ["ws", "virtual:f4db98e0eaad2a100b6548c36b9aefc62e811e9b8371220bd3b4c3f1eb9d76834fac4a8c201b8ef9c253438363ed9aa48b5ad64e067721d7df55a8a2242fc837#npm:8.20.0"]\
         ],\
         "packagePeers": [\
           "@types/bufferutil",\
