@@ -289,7 +289,7 @@ const MidiOutputs = (props) => {
       
 
       <label>
-        <b>Direct MIDI | MTS Tuning Map</b>
+        <b>MTS Tuning Map</b>
         <input
           name="output_direct"
           type="checkbox"
@@ -299,8 +299,7 @@ const MidiOutputs = (props) => {
       </label>
 
       <p style={{ marginTop: 0.5 }}><em>
-        MIDI notes follow the hex layout. 128-note non-real-time sysex tuning maps (bulk dump) permit synths like the Prophet&#x2011;5
-        play microtonally.
+        MIDI notes adapt to the hex layout. Send 128-note non-real-time sysex tuning map as bulk dump.
       </em></p>
 
       {settings.output_direct && (
@@ -449,7 +448,7 @@ const MidiOutputs = (props) => {
                 >
                   <option value="1">Channel 1</option>
                   <option value="16">Channel 16</option>
-                  <option value="none">None</option>
+                  <option value="-1">None</option>
                 </select>
               </label>
 

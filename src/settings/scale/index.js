@@ -208,96 +208,96 @@ const Scale = (props) => {
           }}
         />
       </label>
+      <label>
+        Scale Size
+        <input name="equivSteps" type="text" inputMode="numeric"
+          class="sidebar-input"
+          value={props.settings.equivSteps}
+          step="1" min="1" max="2048"
+          onChange={(e) => {
+            const val = parseInt(e.target.value);
+            if (!isNaN(val) && val >= 1 && val <= 2048) {
+              props.onChange('equivSteps', val);
+            }
+          }}
+        />
+      </label>
       {!collapsed && (
         <>
-        <label>
-          Scale Size
-          <input name="equivSteps" type="text" inputMode="numeric"
-            class="sidebar-input"
-            value={props.settings.equivSteps}
-            step="1" min="1" max="2048"
-            onChange={(e) => {
-              const val = parseInt(e.target.value);
-              if (!isNaN(val) && val >= 1 && val <= 2048) {
-                props.onChange('equivSteps', val);
+          <label>
+            Equave
+            <input name="equave" type="text"
+              class="sidebar-input"
+              key={equaveValue}
+              defaultValue={equaveValue}
+              onBlur={handleEquaveChange}
+            />
+          </label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingTop: '0.5rem', marginBottom: '0.5rem' }}>
+            <button type="button" onClick={() => {
+              const n = props.settings.equivSteps || 12;
+              let equaveStr = (props.settings.scale && props.settings.scale[n - 1])
+                ? props.settings.scale[n - 1]
+                : String(n * 100);
+
+              let equaveCents;
+
+              // Check for ratio format: m/n (e.g., "3/2")
+              if (equaveStr.includes('/') && !equaveStr.includes('\\')) {
+                const parts = equaveStr.split('/');
+                const num = parseFloat(parts[0]);
+                const den = parseFloat(parts[1]);
+                equaveCents = 1200 * Math.log2(num / den);
               }
-            }}
-          />
-        </label>
-        <label>
-          Equave
-          <input name="equave" type="text"
-            class="sidebar-input"
-            key={equaveValue}
-            defaultValue={equaveValue}
-            onBlur={handleEquaveChange}
-          />
-        </label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingTop: '0.5rem', marginBottom: '0.5rem' }}>
-          <button type="button" onClick={() => {
-            const n = props.settings.equivSteps || 12;
-            let equaveStr = (props.settings.scale && props.settings.scale[n - 1])
-              ? props.settings.scale[n - 1]
-              : String(n * 100);
+              // Check for EDO format: m\n (e.g., "3\2")
+              else if (equaveStr.includes('\\')) {
+                const parts = equaveStr.split('\\');
+                const m = parseFloat(parts[0]);
+                const n_edo = parseFloat(parts[1]);
+                equaveCents = 1200 * m / n_edo;
+              }
+              // Check if it's only digits (no decimal) - treat as ratio like "3" meaning "3/1"
+              else if (!equaveStr.includes('.') && /^[\d]+$/.test(equaveStr.trim())) {
+                const num = parseFloat(equaveStr);
+                equaveCents = 1200 * Math.log2(num / 1);
+              }
+              // Otherwise treat as cents (has decimal point)
+              else {
+                equaveCents = parseFloat(equaveStr);
+              }
 
-            let equaveCents;
+              // Handle NaN or invalid values
+              if (isNaN(equaveCents)) {
+                equaveCents = n * 100;
+              }
 
-            // Check for ratio format: m/n (e.g., "3/2")
-            if (equaveStr.includes('/') && !equaveStr.includes('\\')) {
-              const parts = equaveStr.split('/');
-              const num = parseFloat(parts[0]);
-              const den = parseFloat(parts[1]);
-              equaveCents = 1200 * Math.log2(num / den);
-            }
-            // Check for EDO format: m\n (e.g., "3\2")
-            else if (equaveStr.includes('\\')) {
-              const parts = equaveStr.split('\\');
-              const m = parseFloat(parts[0]);
-              const n_edo = parseFloat(parts[1]);
-              equaveCents = 1200 * m / n_edo;
-            }
-            // Check if it's only digits (no decimal) - treat as ratio like "3" meaning "3/1"
-            else if (!equaveStr.includes('.') && /^[\d]+$/.test(equaveStr.trim())) {
-              const num = parseFloat(equaveStr);
-              equaveCents = 1200 * Math.log2(num / 1);
-            }
-            // Otherwise treat as cents (has decimal point)
-            else {
-              equaveCents = parseFloat(equaveStr);
-            }
-
-            // Handle NaN or invalid values
-            if (isNaN(equaveCents)) {
-              equaveCents = n * 100;
-            }
-
-            const step = equaveCents / n;
-            const newScale = [];
-            for (let i = 1; i <= n; i++) {
-              newScale.push(String((i * step).toFixed(1)));
-            }
-            props.onChange('scale_divide', newScale);
-          }}>
-            Divide Equave into {props.settings.equivSteps} Equal Divisions
-          </button>
-          <button type="button" onClick={() => {
-            const n = props.settings.equivSteps || 12;
-            const step = 1200 / n;
-            const newScale = [];
-            for (let i = 1; i <= n; i++) {
-              newScale.push(String((i * step).toFixed(1)));
-            }
-            props.onChange('scale_divide', newScale);
-          }}>
-            Divide Octave into {props.settings.equivSteps} Equal Divisions
-          </button>
-        </div>
-        <Colors {...props} />
-        <KeyLabels {...props} />
-        <br />
-        <ScaleTable key={props.settings.scale?.length} {...props} importCount={props.importCount} />
-        <br />
-      </>)}
+              const step = equaveCents / n;
+              const newScale = [];
+              for (let i = 1; i <= n; i++) {
+                newScale.push(String((i * step).toFixed(1)));
+              }
+              props.onChange('scale_divide', newScale);
+            }}>
+              Divide Equave into {props.settings.equivSteps} Equal Divisions
+            </button>
+            <button type="button" onClick={() => {
+              const n = props.settings.equivSteps || 12;
+              const step = 1200 / n;
+              const newScale = [];
+              for (let i = 1; i <= n; i++) {
+                newScale.push(String((i * step).toFixed(1)));
+              }
+              props.onChange('scale_divide', newScale);
+            }}>
+              Divide Octave into {props.settings.equivSteps} Equal Divisions
+            </button>
+          </div>
+          <Colors {...props} />
+          <KeyLabels {...props} />
+          <br />
+          <ScaleTable key={props.settings.scale?.length} {...props} importCount={props.importCount} />
+          <br />
+        </>)}
       {importing
         ? (<div>
           <ScalaImport {...props}

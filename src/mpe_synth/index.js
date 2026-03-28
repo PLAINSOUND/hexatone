@@ -93,7 +93,7 @@ export const create_mpe_synth = async (
 
   const actualBendRange = mpe_mode === 'Ableton_workaround' ? 48 : bendRange || 48;
   const managerBendRange = mpe_mode === 'Ableton_workaround' ? 2 : bendRangeManager || 2;
-  const masterCh = master_ch != null ? parseInt(master_ch) - 1 : null;
+  const masterCh = master_ch != "-1" ? parseInt(master_ch) - 1 : -1;
   const voiceIds = [];
   for (let ch = lo_ch; ch <= hi_ch; ch++) voiceIds.push(ch);
 
@@ -103,7 +103,7 @@ export const create_mpe_synth = async (
   const midiNoteForDegree0 = midiin_central_degree;
 
   // MPE configuration RPN message on manager channel
-  if (masterCh !== null) {
+  if (masterCh !== -1) {
     const numVoices = hi_ch - lo_ch + 1;
     midi_output.send([0xB0 + masterCh, 101, 0]);
     midi_output.send([0xB0 + masterCh, 100, 6]);

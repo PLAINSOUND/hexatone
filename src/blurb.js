@@ -38,8 +38,8 @@ const Blurb = () => (
       source code at{" "}
       <a href="https://github.com/PLAINSOUND/hexatone">
         github.com/PLAINSOUND/hexatone
-      </a>. Join the community on 
-      <a href="https://discord.gg/NGVTmDFPtf">discord</a>.
+      </a>. Join the community on{" "}
+      <a href="https://discord.gg/NGVTmDFPtf">discord</a>
       .
     </p>
     <p>
