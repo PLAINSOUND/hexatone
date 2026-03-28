@@ -1,6 +1,7 @@
 # Plainsound Hexatone
 
-[Run the keyboard](https://hexatone.plainsound.org) | 
+[Run the keyboard](https://hexatone.plainsound.org)  
+
 [Try the dev branch](https://plainsound.github.io/hexatone)
 
 Designed by [Siemen Terpstra](http://siementerpstra.com/) in the late 1980s, based on [Erv Wilson's microtonal keyboard designs](https://www.anaphoria.com/wilsonkeyboard.html) (1967-), inspired by [R.H.M. Bosanquet](https://en.wikipedia.org/wiki/Robert_Holford_Macdowall_Bosanquet)'s [Generalised Keyboard](https://en.wikipedia.org/wiki/Generalized_keyboard) (1873) and Ivo Salzinger's Tastatura Nova Perfecta (1721).
