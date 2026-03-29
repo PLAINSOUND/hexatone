@@ -26,7 +26,7 @@
           return r.right > window.innerWidth + 1;
         });
         if (over.length) console.warn('[overflow] elements wider than viewport:', over.map(el => ({ tag: el.tagName, id: el.id, class: el.className, right: el.getBoundingClientRect().right, innerWidth: window.innerWidth })));
-        else console.log('[overflow] no overflowing elements found');
+        //else console.log('[overflow] no overflowing elements found');
       }, 1000);
     });
   </script>
