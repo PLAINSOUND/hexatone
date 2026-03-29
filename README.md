@@ -23,6 +23,6 @@ Current version 3dev (2026), released as Free/Libre and Open Source Software und
 Version 1 : 2016- [Terpstra Keyboard] (http://terpstrakeyboard.com/) hexagonal keyboard proof of concept  
 Version 2 : 2022-26 Marc Sabat: Added MIDI input and output, developed Lumatone plug-and-play compatability and built-in presets, MTS output  
 Version 3.0.0 : 2026- Added scala/json IO, user presets, polyphonic aftertouch response with built-in sounds  
-Version 3.0.1 : March 2026 Updated UX, added latch sustain, moveable centre scale degree
-Version 3.0.2 : Major reactivity fixes, MTS & MPE functionality scaled, scale resizing and Divide Octave/Equave features
+Version 3.0.1 : March 2026 Updated UX, added latch sustain, moveable centre scale degree  
+Version 3.0.2 : Major reactivity fixes, MTS & MPE functionality scaled, scale resizing and Divide Octave/Equave features  
 Version 3.1.0-beta.1 : (current) refactoring code to automatically map isomorphic controllers, changed octave-to-equave to allow user specified behaviour for other scales; fixes to TuneCell and various bugfixes; option to retain scale on reload, fixed input interoperability logic (mouse, touch, computer keyboard, MIDI)
