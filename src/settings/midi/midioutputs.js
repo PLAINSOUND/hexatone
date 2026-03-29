@@ -59,7 +59,7 @@ const MidiOutputs = (props) => {
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
-  const masterCh = settings.mpe_master_ch || "1";
+  const masterCh = settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch)
     ? settings.mpe_lo_ch
@@ -439,7 +439,7 @@ const MidiOutputs = (props) => {
               <label>
                 Manager Channel
                 <select
-                  name="mpe_master_ch"
+                  name="mpe_manager_ch"
                   class="sidebar-input"
                   value={masterCh}
                   onChange={(e) =>
@@ -559,7 +559,7 @@ const MidiOutputs = (props) => {
                       if (output) {
                         sendMpePitchBendRange(
                           output,
-                          settings.mpe_master_ch,
+                          settings.mpe_manager_ch,
                           settings.mpe_lo_ch,
                           settings.mpe_hi_ch,
                           settings.mpe_pitchbend_range ?? 48,
@@ -640,7 +640,7 @@ MidiOutputs.propTypes = {
     direct_device_id: PropTypes.number,
     direct_tuning_map_number: PropTypes.number,
     mpe_device: PropTypes.string,
-    mpe_master_ch: PropTypes.string,
+    mpe_manager_ch: PropTypes.string,
     mpe_lo_ch: PropTypes.number,
     mpe_hi_ch: PropTypes.number,
     mpe_mode: PropTypes.string,

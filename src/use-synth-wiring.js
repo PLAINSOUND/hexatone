@@ -226,7 +226,7 @@ const useSynthWiring = (
       promises.push(
         create_mpe_synth(
           midi.outputs.get(settings.mpe_device),
-          settings.mpe_master_ch,
+          settings.mpe_manager_ch,
           settings.mpe_lo_ch,
           settings.mpe_hi_ch,
           settings.fundamental,
@@ -292,7 +292,7 @@ const useSynthWiring = (
     settings.fluidsynth_device,
     settings.fluidsynth_channel,
     settings.mpe_device,
-    settings.mpe_master_ch,
+    settings.mpe_manager_ch,
     settings.mpe_lo_ch,
     settings.mpe_hi_ch,
     settings.mpe_pitchbend_range,

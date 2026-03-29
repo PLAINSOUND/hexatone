@@ -1317,8 +1317,8 @@ class Keys {
       const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
       if (mpeOutput) {
         // Send on master channel
-        const masterCh = parseInt(this.settings.mpe_master_ch) || 1;
-        mpeOutput.sendControlChange(123, 0, { channels: masterCh });
+        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
+        mpeOutput.sendControlChange(123, 0, { channels: managerCh });
         // Send on all note channels
         for (
           let ch = this.settings.mpe_lo_ch;

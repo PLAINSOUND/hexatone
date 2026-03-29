@@ -19,7 +19,7 @@ const sessionDefaults = {
   direct_device_id: parseInt(sessionStorage.getItem("direct_device_id")) || 127,
   direct_tuning_map_number: parseInt(sessionStorage.getItem("direct_tuning_map_number")) || 0,
   mpe_device: sessionStorage.getItem("mpe_device") || "OFF",
-  mpe_master_ch: sessionStorage.getItem("mpe_master_ch") || "1",
+  mpe_manager_ch: sessionStorage.getItem("mpe_manager_ch") || "1",
   mpe_lo_ch: parseInt(sessionStorage.getItem("mpe_lo_ch")) || 2,
   mpe_hi_ch: parseInt(sessionStorage.getItem("mpe_hi_ch")) || 8,
   mpe_mode: sessionStorage.getItem("mpe_mode") || "Ableton_workaround",
