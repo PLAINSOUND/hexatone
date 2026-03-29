@@ -1,8 +1,8 @@
 {
   "type": "module",
   "private": true,
-  "name": "terpstrakeyboard",
-  "repository": "git@github.com:wcgbg/terpstrakeyboard.git",
+  "name": "plainsound-hexatone",
+  "repository": "git@github.com:PLAINSOUND/hexatone.git",
   "scripts": {
     "start": "vite",
     "osc-bridge": "node osc-bridge/index.js",
