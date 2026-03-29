@@ -14,6 +14,7 @@ const sessionDefaults = {
   fluidsynth_channel: sessionStorage.getItem("fluidsynth_channel") !== null
     ? parseInt(sessionStorage.getItem("fluidsynth_channel")) : -1,
   direct_device: sessionStorage.getItem("direct_device") || "OFF",
+  direct_mode: sessionStorage.getItem("direct_mode") || "dynamic",
   direct_channel: parseInt(sessionStorage.getItem("direct_channel")) || -1,
   direct_sysex_auto: sessionStorage.getItem("direct_sysex_auto") === "true",
   direct_device_id: parseInt(sessionStorage.getItem("direct_device_id")) || 127,

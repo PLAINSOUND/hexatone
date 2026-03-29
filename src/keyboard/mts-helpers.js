@@ -135,6 +135,176 @@ export function computeNaturalAnchor(
   );
 }
 
+/**
+ * Compute the absolute pitch of the center degree in Hz.
+ *
+ * @param {number} fundamental         Hz assigned to reference_degree
+ * @param {number} degree0toRef_cents  cents from degree 0 to reference degree
+ * @param {number[]} scale             numeric-cents scale array (scale[0] = 0)
+ * @param {number} equivInterval       equivalence interval in cents
+ * @param {number} center_degree       scale degree shown at screen centre
+ * @returns {number}                   center pitch in Hz
+ */
+export function computeCenterPitchHz(
+  fundamental,
+  degree0toRef_cents,
+  scale,
+  equivInterval,
+  center_degree,
+) {
+  const degree0_hz = fundamental / (2 ** (degree0toRef_cents / 1200));
+  const cd = center_degree || 0;
+  const octs = Math.floor(cd / scale.length);
+  const red = ((cd % scale.length) + scale.length) % scale.length;
+  const center_pitch_cents = octs * equivInterval + scale[red];
+  return degree0_hz * (2 ** (center_pitch_cents / 1200));
+}
+
+/**
+ * Choose a musically sensible central MIDI note for a static 128-note map.
+ * Searches A3..C5 and picks the note whose pitch is closest to centerPitchHz.
+ *
+ * @param {number} centerPitchHz  center pitch in Hz
+ * @returns {number}              MIDI note number in range 57..72
+ */
+export function chooseStaticMapCenterMidi(centerPitchHz) {
+  let bestMidi = 69;
+  let bestError = Infinity;
+  for (let midi = 57; midi <= 72; midi++) {
+    const hz = 440 * (2 ** ((midi - 69) / 12));
+    const centsError = Math.abs(1200 * Math.log2(centerPitchHz / hz));
+    if (centsError < bestError) {
+      bestError = centsError;
+      bestMidi = midi;
+    }
+  }
+  return bestMidi;
+}
+
+/**
+ * Convert a chosen center MIDI note into the abstract degree-0 anchor used by
+ * the static bulk map. This value may sit outside 0..127; that is fine for
+ * map construction, and only the actually played carrier note is clamped.
+ *
+ * @param {number} centerMidiNote  MIDI note chosen for the on-screen center
+ * @param {number} centerDegree    scale degree shown at screen centre
+ * @returns {number}               abstract MIDI note for scale degree 0
+ */
+export function computeStaticMapDegree0(centerMidiNote, centerDegree) {
+  return Math.round(centerMidiNote) - (centerDegree || 0);
+}
+
+/**
+ * Build the raw 128-entry tuning data for a tuning map.
+ *
+ * @param {number} tuning_map_degree0  MIDI note number that maps to scale degree 0
+ * @param {number[]} scale             numeric-cents array (scale[0] = 0)
+ * @param {number} equave              equivalence interval in cents
+ * @param {number} fundamental         Hz assigned to the reference degree
+ * @param {number[]} degree0toRef_asArray [cents, ratio] from degree0ToRef()
+ * @returns {number[][]}               Array[128] of [tt, yy, zz]
+ */
+export function buildTuningMapEntries(
+  tuning_map_degree0,
+  scale,
+  equave,
+  fundamental,
+  degree0toRef_asArray,
+) {
+  const fundamental_cents = 1200 * Math.log2(fundamental / 440);
+  const degree_0_cents = fundamental_cents - degree0toRef_asArray[0];
+  const map_offset = degree_0_cents - 100 * (tuning_map_degree0 - 69);
+
+  const mts_data = [];
+  for (let i = 0; i < 128; i++) {
+    mts_data[i] = [127, 127, 127];
+    const target_cents =
+      scale[(i - tuning_map_degree0 + 128 * scale.length) % scale.length] +
+      map_offset +
+      equave *
+        (Math.floor(
+          (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
+        ) -
+          128);
+    if (typeof target_cents === "number") {
+      mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
+    }
+  }
+
+  return mts_data;
+}
+
+/**
+ * Serialize 128 tuning entries as a non-real-time bulk dump.
+ *
+ * @param {number} device_id           MTS device ID (0–127, 127 = broadcast)
+ * @param {number} tuning_map_number   Which tuning-map slot to fill (0–127)
+ * @param {string} name                Preset name
+ * @param {number[][]} entries         Array[128] of [tt, yy, zz]
+ * @returns {number[]}                 full bulk-dump byte payload
+ */
+export function buildBulkDumpMessage(
+  device_id,
+  tuning_map_number,
+  name,
+  entries,
+) {
+  const clampedEntries = entries.map((triplet) => (
+    triplet[0] === 127 && triplet[1] === 127 && triplet[2] === 127
+      ? [127, 127, 126]
+      : triplet
+  ));
+
+  const name_chars = Array.from(name || "");
+  const ascii_name = Array.from({ length: 16 }, (_, i) => {
+    const code = i < name_chars.length ? name_chars[i].charCodeAt(0) : 32;
+    return code > 31 && code < 128 ? code : 32;
+  });
+
+  const sysex = [126, device_id, 8, 1, tuning_map_number, ...ascii_name];
+  for (let i = 0; i < 128; i++) {
+    sysex.push(...clampedEntries[i]);
+  }
+
+  let checksum = 0;
+  for (let i = 1; i < sysex.length; i++) checksum ^= sysex[i];
+  sysex.push(checksum & 0x7f);
+
+  return sysex;
+}
+
+/**
+ * Build one real-time single-note tuning message payload.
+ *
+ * @param {number} device_id           MTS device ID (0–127, 127 = broadcast)
+ * @param {number} tuning_map_number   Which tuning-map slot to fill (0–127)
+ * @param {number} midi_note           target MIDI note/carrier
+ * @param {number[]} triplet           [tt, yy, zz]
+ * @returns {number[]}                 one full real-time message payload
+ */
+export function buildRealtimeSingleNoteMessage(
+  device_id,
+  tuning_map_number,
+  midi_note,
+  triplet,
+) {
+  return [127, device_id, 8, 2, tuning_map_number, 1, midi_note, ...triplet];
+}
+
+/**
+ * Return a copy of tuning-map entries with one note replaced.
+ *
+ * @param {number[][]} entries         Array[128] of [tt, yy, zz]
+ * @param {number} midi_note           slot to replace
+ * @param {number[]} triplet           [tt, yy, zz]
+ * @returns {number[][]}               copied array with one entry patched
+ */
+export function patchTuningEntry(entries, midi_note, triplet) {
+  const next = entries.map((entry) => [...entry]);
+  next[midi_note] = [...triplet];
+  return next;
+}
+
 // ── mtsTuningMap ─────────────────────────────────────────────────────────────
 
 /**
@@ -165,74 +335,33 @@ export function mtsTuningMap(
   fundamental,
   degree0toRef_asArray,
 ) {
-  const fundamental_cents = 1200 * Math.log2(fundamental / 440);
-  const degree_0_cents = fundamental_cents - degree0toRef_asArray[0];
-  const map_offset = degree_0_cents - 100 * (tuning_map_degree0 - 69);
-
-  // Build the 128 MTS tuning entries (shared by both sysex types).
-  const mts_data = [];
-  for (let i = 0; i < 128; i++) {
-    mts_data[i] = [127, 127, 127]; // default: no tuning data
-    const target_cents =
-      scale[(i - tuning_map_degree0 + 128 * scale.length) % scale.length] +
-      map_offset +
-      equave *
-        (Math.floor(
-          (i - tuning_map_degree0 + 128 * scale.length) / scale.length,
-        ) -
-          128);
-    if (typeof target_cents === "number") {
-      mts_data[i] = centsToMTS(tuning_map_degree0, target_cents);
-    }
-  }
+  const mts_data = buildTuningMapEntries(
+    tuning_map_degree0,
+    scale,
+    equave,
+    fundamental,
+    degree0toRef_asArray,
+  );
 
   if (parseInt(sysex_type) === 127) {
     // ── Real-time single-note tuning change (one message per note) ────────────
-    // Each entry: [127, device_id, 8, 2, map#, 1, note, tt, yy, zz]
-    const header = [127, device_id, 8, 2, tuning_map_number, 1];
     const sysex = [];
     for (let j = 0; j < 128; j++) {
-      sysex[j] = [...header, j, ...mts_data[j]];
+      sysex[j] = buildRealtimeSingleNoteMessage(
+        device_id,
+        tuning_map_number,
+        j,
+        mts_data[j],
+      );
     }
     return sysex;
 
   } else if (parseInt(sysex_type) === 126) {
-    // ── Non-real-time bulk tuning dump (single message, 128 notes) ───────────
-
-    // Clamp entries that fell out of MTS range.
-    // [127,127,127] is reserved as "no tuning data" — replace with max valid.
-    for (let i = 0; i < 128; i++) {
-      if (
-        mts_data[i][0] === 127 &&
-        mts_data[i][1] === 127 &&
-        mts_data[i][2] === 127
-      ) {
-        mts_data[i] = [127, 127, 126];
-      }
-    }
-
-    // Encode preset name as 16 ASCII bytes (space-padded, non-printable → space).
-    const name_chars = Array.from(name || "");
-    const ascii_name = Array.from({ length: 16 }, (_, i) => {
-      const code = i < name_chars.length ? name_chars[i].charCodeAt(0) : 32;
-      return code > 31 && code < 128 ? code : 32;
-    });
-
-    // Header: [126, device_id, 8, 1, map#, ...16 name bytes]
-    const header = [126, device_id, 8, 1, tuning_map_number, ...ascii_name];
-
-    // Payload: header bytes + 128×3 tuning bytes
-    const sysex = [...header];
-    for (let i = 0; i < 128; i++) {
-      sysex.push(...mts_data[i]);
-    }
-
-    // Checksum: XOR of all bytes from index 1 onward, masked to 7 bits.
-    // sysex[0] is 126 (manufacturer byte, excluded from checksum).
-    let checksum = 0;
-    for (let i = 1; i < sysex.length; i++) checksum ^= sysex[i];
-    sysex.push(checksum & 0x7f);
-
-    return sysex;
+    return buildBulkDumpMessage(
+      device_id,
+      tuning_map_number,
+      name,
+      mts_data,
+    );
   }
 }

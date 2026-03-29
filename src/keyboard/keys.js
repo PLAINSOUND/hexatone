@@ -27,6 +27,7 @@ import { RecencyStack } from '../recency_stack.js';
 import { MidiCoordResolver } from './midi-coord-resolver.js';
 import {
   degree0ToRef, computeNaturalAnchor, mtsTuningMap,
+  computeCenterPitchHz, chooseStaticMapCenterMidi, computeStaticMapDegree0,
 } from './mts-helpers.js';
 
 class Keys {
@@ -583,7 +584,7 @@ class Keys {
     );
     if (!skipRetune) {
       if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
-      if (this.settings.output_direct && this.settings.direct_sysex_auto &&
+      if (this.settings.output_direct && this.settings.direct_mode === "static" && this.settings.direct_sysex_auto &&
         this.settings.direct_device && this.settings.direct_device !== 'OFF') {
         const directOut = WebMidi.getOutputById(this.settings.direct_device);
         if (directOut) this.mtsSendMap(directOut);
@@ -637,7 +638,7 @@ class Keys {
     }
     // Re-send tuning map if auto-send is enabled for the relevant output
     if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
-    if (this.settings.output_direct && this.settings.direct_sysex_auto &&
+    if (this.settings.output_direct && this.settings.direct_mode === "static" && this.settings.direct_sysex_auto &&
       this.settings.direct_device && this.settings.direct_device !== 'OFF') {
       const directOut = WebMidi.getOutputById(this.settings.direct_device);
       if (directOut) this.mtsSendMap(directOut);
@@ -1024,6 +1025,38 @@ class Keys {
       this.settings.direct_device && this.settings.direct_device !== 'OFF' &&
       output.id === this.settings.direct_device;
     const sysex_type = isDirectOutput ? 126 : parseInt(this.settings.sysex_type);
+    const tuningMap = isDirectOutput
+      ? mtsTuningMap(
+        126,
+        this.settings.direct_device_id ?? 127,
+        this.settings.direct_tuning_map_number ?? 0,
+        this.settings.direct_mode === "static"
+          ? computeStaticMapDegree0(
+            chooseStaticMapCenterMidi(
+              computeCenterPitchHz(
+                this.settings.fundamental,
+                this.settings.degree0toRef_asArray[0],
+                this.settings.scale,
+                this.settings.equivInterval,
+                this.settings.center_degree,
+              ),
+            ),
+            this.settings.center_degree,
+          )
+          : computeNaturalAnchor(
+            this.settings.fundamental,
+            this.settings.degree0toRef_asArray[0],
+            this.settings.scale,
+            this.settings.equivInterval,
+            this.settings.center_degree,
+          ),
+        this.settings.scale,
+        this.settings.name,
+        this.settings.equivInterval,
+        this.settings.fundamental,
+        this.settings.degree0toRef_asArray,
+      )
+      : this.mts_tuning_map;
 
     if (sysex_type === 127) {
       // Real-time single-note tuning change: one message per note.
@@ -1031,7 +1064,7 @@ class Keys {
       // sendSysex(manufacturer, data) prepends F0+manufacturer and appends F7.
       // We copy each array to avoid mutating the stored tuning map.
       for (let i = 0; i < 128; i++) {
-        const msg = [...this.mts_tuning_map[i]];
+        const msg = [...tuningMap[i]];
         const manufacturer = msg.shift(); // 127 = universal real-time
         output.sendSysex([manufacturer], msg);
       }
@@ -1052,7 +1085,7 @@ class Keys {
       }
 
       // Clone the full 128-entry tuning map and patch protected slots
-      const msg = [...this.mts_tuning_map];
+      const msg = [...tuningMap];
       const manufacturer = msg.shift(); // 126 = universal non-real-time
       // After shift, layout is:
       //   [device_id, 8, 1, map#, name(16 bytes)] = 20 header bytes

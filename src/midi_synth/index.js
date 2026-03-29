@@ -1,13 +1,44 @@
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { WebMidi } from "webmidi";
 import { VoicePool } from "../voice_pool_nearest";
+import {
+  buildBulkDumpMessage,
+  buildTuningMapEntries,
+} from "../keyboard/mts-helpers.js";
 
 export const tuningmap = new Array(128);
 for (let i = 0; i < 128; i++) {
   tuningmap[i] = [i, 0, 0];
 }
 
-export const create_midi_synth = async (midiin_device, midiin_central_degree, midi_output, channel, midi_mapping, velocity, fundamental, sysex_type, device_id) => {
+export const create_midi_synth = async ({
+  outputMode,
+  tuningContext,
+  legacyInput,
+  getDynamicBulkConfig = null,
+}) => {
+  const {
+    output: midi_output,
+    channel,
+    midiMapping: midi_mapping,
+    transportMode,
+    velocity,
+    sysexType: sysex_type,
+    deviceId: device_id,
+    mapNumber,
+    anchorNote,
+  } = outputMode;
+  const {
+    fundamental,
+    degree0toRefAsArray,
+    scale,
+    equivInterval,
+    name,
+  } = tuningContext;
+  const {
+    midiin_device,
+    midiin_central_degree,
+  } = legacyInput;
 
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
   // MTS1: all 128 MIDI notes available as carriers
@@ -20,16 +51,52 @@ export const create_midi_synth = async (midiin_device, midiin_central_degree, mi
   // sysex_type: 127 = real-time (0x7F), 126 = non-real-time (0x7E)
   const sysex_rt     = (sysex_type != null ? sysex_type : 127) & 0x7F;
   const sysex_dev_id = (device_id  != null ? device_id  : 127) & 0x7F;
+  const dynamicEntries = midi_mapping === "DIRECT" && transportMode === "bulk_dynamic_map" &&
+    scale && degree0toRefAsArray
+    ? buildTuningMapEntries(
+      anchorNote ?? midiin_central_degree ?? 60,
+      scale,
+      equivInterval,
+      fundamental,
+      degree0toRefAsArray,
+    )
+    : null;
+  const dynamicTransport = midi_mapping === "DIRECT" && transportMode === "bulk_dynamic_map" && dynamicEntries
+    ? createBulkDynamicTransport({
+      midi_output,
+      channel,
+      velocity,
+      device_id: sysex_dev_id,
+      map_number: mapNumber ?? 0,
+      name: name || "",
+      entries: dynamicEntries,
+      pool: pool_mts1,
+      fundamental,
+      getDynamicBulkConfig,
+    })
+    : null;
 
   return {
     makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
       note_played, velocity_played, bend, degree0toRef_ratio) => {
       if (midi_mapping === 'DIRECT') {
-        return new DirectHex(
+        if (transportMode === "bulk_dynamic_map") {
+          return new DynamicBulkHex(
+            coords, cents, steps, equaves,
+            note_played, velocity_played, velocity,
+            midi_output, channel,
+            dynamicTransport,
+            degree0toRef_ratio,
+            fundamental,
+            cents_prev,
+            cents_next,
+          );
+        }
+        return new StaticBulkHex(
           coords, cents, steps, equaves,
           note_played, velocity_played, velocity,
           midi_output, channel,
-          midiin_central_degree  // anchor resolved by caller (app.jsx)
+          anchorNote ?? midiin_central_degree,
         );
       }
       return new MidiHex(
@@ -50,6 +117,11 @@ export const keymap = new Array(128);
 for (let i = 0; i < 2048; i++) {
   keymap[i] = [i % 128, 0, 0, 0, 0, 0, 0];
 }
+
+// Guard delay between sending a bulk-dump retune and the following noteOn in
+// Dynamic Bulk Dump mode. Leave at 0 for immediate trigger; increase slightly
+// if a target synth needs time to apply the incoming map before sounding.
+const DIRECT_BULK_GUARD_MS = 0;
 
 function MidiHex(
   coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
@@ -258,17 +330,97 @@ MidiHex.prototype._updateKeymap = function() {
   }
 };
 
+function createBulkDynamicTransport({
+  midi_output,
+  channel,
+  velocity,
+  device_id,
+  map_number,
+  name,
+  entries,
+  pool,
+  getDynamicBulkConfig,
+}) {
+  let currentEntries = entries.map((entry) => [...entry]);
+
+  const sendBulkDump = () => {
+    const liveConfig = getDynamicBulkConfig ? getDynamicBulkConfig() : null;
+    const dump = buildBulkDumpMessage(
+      liveConfig?.deviceId ?? device_id,
+      liveConfig?.mapNumber ?? map_number,
+      liveConfig?.name ?? name,
+      currentEntries,
+    );
+    midi_output.send([0xF0, ...dump, 0xF7]);
+  };
+
+  return {
+    allocate(coords, targetMidiFloat) {
+      return pool.noteOn(coords, targetMidiFloat);
+    },
+    release(coords) {
+      pool.noteOff(coords);
+    },
+    noteOn({ coords, carrier, triplet, velocity: noteVelocity }) {
+      currentEntries[carrier] = [...triplet];
+      sendBulkDump();
+      const noteOnVelocity = noteVelocity > 0 ? noteVelocity : velocity;
+      const at = DIRECT_BULK_GUARD_MS > 0
+        ? performance.now() + DIRECT_BULK_GUARD_MS
+        : undefined;
+      midi_output.send([0x90 + channel, carrier, noteOnVelocity], at);
+    },
+    noteOff({ carrier, velocity: noteVelocity }) {
+      midi_output.send([0x80 + channel, carrier, noteVelocity != null ? noteVelocity : velocity]);
+    },
+    retune({ carrier, triplet }) {
+      currentEntries[carrier] = [...triplet];
+      sendBulkDump();
+    },
+  };
+}
+
+function buildDynamicBulkAllocation({
+  coords,
+  cents,
+  cents_prev,
+  cents_next,
+  degree0toRef_ratio,
+  fundamental,
+  transport,
+}) {
+  const ref = fundamental / degree0toRef_ratio;
+  const ref_offset = 1200 * Math.log2(ref / 261.6255653);
+  const ref_cents = cents + ref_offset;
+  const targetMIDIFloat = ref_cents * 0.01 + 60;
+  const idealNote = Math.max(0, Math.min(Math.round(targetMIDIFloat), 127));
+  const allocation = transport.allocate(coords, targetMIDIFloat);
+  const carrier = allocation.slot;
+  const triplet = centsToMTS(carrier, (targetMIDIFloat - carrier) * 100);
+  return {
+    carrier,
+    triplet,
+    ref_cents,
+    targetMIDIFloat,
+    idealNote,
+    stolenSlot: allocation.stolenSlot,
+    stolen: allocation.stolen,
+  };
+}
+
 /**
- * DirectHex — for DIRECT midi_mapping mode.
- * Sends plain noteOn/noteOff. No per-note sysex.
- * Relies on a pre-sent 128-note non-real-time bulk tuning map.
- * Carrier note = nearest semitone to target pitch (same calc as MTS1).
+ * DynamicBulkHex — current transport behind the DIRECT section.
+ * Uses MTS1-like carrier allocation but sends a full bulk dump before noteOn.
  */
-function DirectHex(
+function DynamicBulkHex(
   coords, cents, steps, equaves,
   note_played, velocity_played, velocity,
   midi_output, channel,
-  anchor
+  transport,
+  degree0toRef_ratio,
+  fundamental,
+  cents_prev,
+  cents_next,
 ) {
   this.coords      = coords;
   this.cents       = cents;
@@ -278,20 +430,94 @@ function DirectHex(
   this.channel     = channel;
   this.velocity    = velocity_played > 0 ? velocity_played : velocity;
   this.note_played = note_played;
-
-  // Carrier note: the MIDI note the pre-sent tuning map has assigned to this step.
-  // The anchor (= midiin_central_degree, or natural anchor derived from the tuning)
-  // maps to scale step 0; each step away adds/subtracts 1 MIDI note, clamped 0–127.
-  this.carrier = Math.max(0, Math.min(anchor + steps, 127));
+  this.transport   = transport;
+  this.degree0toRef_ratio = degree0toRef_ratio;
+  this.fundamental = fundamental;
+  this.cents_prev  = cents_prev;
+  this.cents_next  = cents_next;
+  this.mts         = [];
 }
 
-DirectHex.prototype.noteOn = function () {
+DynamicBulkHex.prototype.noteOn = function () {
+  if (this.channel >= 0 && this.midi_output && this.transport) {
+    const allocation = buildDynamicBulkAllocation({
+      coords: this.coords,
+      cents: this.cents,
+      cents_prev: this.cents_prev,
+      cents_next: this.cents_next,
+      degree0toRef_ratio: this.degree0toRef_ratio,
+      fundamental: this.fundamental,
+      transport: this.transport,
+    });
+
+    this.carrier = allocation.carrier;
+    this.mts = [allocation.carrier, ...allocation.triplet];
+    if (allocation.stolenSlot !== null) {
+      this.transport.noteOff({ carrier: allocation.stolenSlot, velocity: this.velocity });
+    }
+    this.transport.noteOn({
+      coords: this.coords,
+      carrier: allocation.carrier,
+      triplet: allocation.triplet,
+      velocity: this.velocity,
+    });
+  }
+};
+
+DynamicBulkHex.prototype.noteOff = function (release_velocity) {
+  if (this._noteOffCalled) return;
+  this._noteOffCalled = true;
+  this.release = true;
+  if (this.channel >= 0 && this.midi_output && this.transport && this.carrier != null) {
+    const vel = release_velocity != null ? release_velocity : this.velocity;
+    this.transport.noteOff({ carrier: this.carrier, velocity: vel });
+    this.transport.release(this.coords);
+  }
+};
+
+DynamicBulkHex.prototype.aftertouch = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xA0 + this.channel, this.carrier,
+    Math.max(0, Math.min(127, value))]);
+};
+
+DynamicBulkHex.prototype.retune = function (newCents) {
+  if (this.release || !this.transport || this.carrier == null) return;
+  this.cents = newCents;
+  const targetMIDIFloat =
+    ((newCents + 1200 * Math.log2((this.fundamental / this.degree0toRef_ratio) / 261.6255653)) * 0.01) + 60;
+  const triplet = centsToMTS(this.carrier, (targetMIDIFloat - this.carrier) * 100);
+  this.mts = [this.carrier, ...triplet];
+  this.transport.retune({ carrier: this.carrier, triplet });
+};
+
+/**
+ * StaticBulkHex — sequential playback against a pre-sent centered bulk map.
+ */
+function StaticBulkHex(
+  coords, cents, steps, equaves,
+  note_played, velocity_played, velocity,
+  midi_output, channel,
+  anchor,
+) {
+  this.coords      = coords;
+  this.cents       = cents;
+  this.release     = false;
+  this._noteOffCalled = false;
+  this.midi_output = midi_output;
+  this.channel     = channel;
+  this.velocity    = velocity_played > 0 ? velocity_played : velocity;
+  this.note_played = note_played;
+  this.carrier     = Math.max(0, Math.min(anchor + steps, 127));
+}
+
+StaticBulkHex.prototype.noteOn = function () {
   if (this.channel >= 0 && this.midi_output) {
     this.midi_output.send([0x90 + this.channel, this.carrier, this.velocity]);
   }
 };
 
-DirectHex.prototype.noteOff = function (release_velocity) {
+StaticBulkHex.prototype.noteOff = function (release_velocity) {
   if (this._noteOffCalled) return;
   this._noteOffCalled = true;
   this.release = true;
@@ -301,14 +527,14 @@ DirectHex.prototype.noteOff = function (release_velocity) {
   }
 };
 
-DirectHex.prototype.aftertouch = function (value) {
+StaticBulkHex.prototype.aftertouch = function (value) {
   if (this.release || !this.midi_output) return;
   this.midi_output.send([0xA0 + this.channel, this.carrier,
     Math.max(0, Math.min(127, value))]);
 };
 
-DirectHex.prototype.retune = function () {
-  // No-op: DIRECT uses a static pre-sent map.
+StaticBulkHex.prototype.retune = function () {
+  // Static bulk mode uses the last sent snapshot until the map is resent.
 };
 
 

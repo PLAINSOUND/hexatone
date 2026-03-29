@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "preact/hooks";
+import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "./settings/midi/midiin";
 import { create_sample_synth } from "./sample_synth";
 import { create_midi_synth } from "./midi_synth";
@@ -6,12 +6,141 @@ import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
 import { create_osc_synth } from "./osc_synth";
 import { detectController } from "./controllers/registry.js";
-import { computeNaturalAnchor } from "./keyboard/mts-helpers.js";
+import { WebMidi } from "webmidi";
+import { scalaToCents } from "./settings/scale/parse-scale.js";
+import {
+  computeNaturalAnchor,
+  computeCenterPitchHz,
+  chooseStaticMapCenterMidi,
+  computeStaticMapDegree0,
+  degree0ToRef,
+} from "./keyboard/mts-helpers.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
 const wait   = (l) => l + 1;
 const signal = (l) => l - 1;
+
+export const deriveTuningRuntime = (settings) => {
+  if (!settings.scale || !Array.isArray(settings.scale) || settings.scale.length === 0) {
+    return null;
+  }
+
+  const scaleAsCents = settings.scale.map((value) => scalaToCents(String(value)));
+  const equivInterval = scaleAsCents[scaleAsCents.length - 1];
+  const scale = [0, ...scaleAsCents.slice(0, -1)];
+  const degree0toRefAsArray = degree0ToRef(settings.reference_degree, scale);
+
+  return {
+    scale,
+    equivInterval,
+    degree0toRefAsArray,
+    name: settings.name,
+    fundamental: settings.fundamental,
+  };
+};
+
+export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
+  const outputs = [];
+  const midiVelocity = settings.midi_velocity;
+
+  if (
+    settings.output_mts &&
+    midi &&
+    settings.midi_device !== "OFF" &&
+    settings.midi_channel >= 0 &&
+    settings.midi_mapping &&
+    settings.midi_mapping !== "DIRECT" &&
+    typeof midiVelocity === "number"
+  ) {
+    outputs.push({
+      family: "mts",
+      allocationMode: settings.midi_mapping === "MTS2" ? "mts2" : "mts1",
+      transportMode: "single_note_realtime",
+      output: midi.outputs.get(settings.midi_device),
+      channel: settings.midi_channel,
+      velocity: midiVelocity,
+      deviceId: settings.device_id ?? 127,
+      mapNumber: settings.tuning_map_number ?? 0,
+      anchorNote: settings.midiin_central_degree,
+      sysexType: settings.sysex_type,
+    });
+  }
+
+  const fluidsynthOutputObj = midi && settings.fluidsynth_device
+    ? midi.outputs.get(settings.fluidsynth_device) : null;
+  const mtsPortIsFluidsynth = fluidsynthOutputObj &&
+    settings.midi_device === settings.fluidsynth_device;
+  if (
+    fluidsynthOutputObj &&
+    !mtsPortIsFluidsynth &&
+    settings.fluidsynth_channel >= 0 &&
+    typeof midiVelocity === "number"
+  ) {
+    outputs.push({
+      family: "mts",
+      allocationMode: settings.midi_mapping === "MTS2" ? "mts2" : "mts1",
+      transportMode: "single_note_realtime",
+      output: fluidsynthOutputObj,
+      channel: settings.fluidsynth_channel,
+      velocity: midiVelocity,
+      deviceId: settings.device_id ?? 127,
+      mapNumber: settings.tuning_map_number ?? 0,
+      anchorNote: settings.midiin_central_degree,
+      sysexType: settings.sysex_type,
+    });
+  }
+
+  if (
+    settings.output_direct &&
+    midi &&
+    settings.direct_device &&
+    settings.direct_device !== "OFF" &&
+    settings.direct_channel >= 0 &&
+    typeof midiVelocity === "number" &&
+    tuningRuntime
+  ) {
+    const isStaticMode = settings.direct_mode === "static";
+    const directAnchor = isStaticMode
+      ? computeStaticMapDegree0(
+        chooseStaticMapCenterMidi(
+          computeCenterPitchHz(
+            tuningRuntime.fundamental,
+            tuningRuntime.degree0toRefAsArray[0],
+            tuningRuntime.scale,
+            tuningRuntime.equivInterval,
+            settings.center_degree,
+          ),
+        ),
+        settings.center_degree,
+      )
+      : computeNaturalAnchor(
+        tuningRuntime.fundamental,
+        tuningRuntime.degree0toRefAsArray[0],
+        tuningRuntime.scale,
+        tuningRuntime.equivInterval,
+        settings.center_degree,
+      );
+    outputs.push({
+      family: "mts",
+      allocationMode: isStaticMode ? "static_map" : "mts1",
+      transportMode: isStaticMode ? "bulk_static_map" : "bulk_dynamic_map",
+      output: midi.outputs.get(settings.direct_device),
+      channel: settings.direct_channel,
+      velocity: midiVelocity,
+      deviceId: settings.direct_device_id ?? 127,
+      mapNumber: settings.direct_tuning_map_number ?? 0,
+      anchorNote: directAnchor,
+      sysexType: 126,
+    });
+  }
+
+  return {
+    outputs,
+    fluidsynthOutputObj,
+    mtsPortIsFluidsynth,
+  };
+};
 
 /**
  * Manages all synth and MIDI lifecycle for the app:
@@ -39,6 +168,8 @@ const useSynthWiring = (
   setSettings,
   { ready, userHasInteracted, keysRef, synthRef },
 ) => {
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
   const [synth,           setSynth]           = useState(null);
   const [midi,            setMidi]            = useState(null);
   const [midiLearnActive, setMidiLearnActive] = useState(false);
@@ -95,22 +226,12 @@ const useSynthWiring = (
       settings.instrument !== "OFF" &&
       settings.fundamental;
 
-    const wantMts =
-      settings.output_mts &&
-      midi &&
-      settings.midi_device !== "OFF" &&
-      settings.midi_channel >= 0 &&
-      settings.midi_mapping &&
-      settings.midi_mapping !== "DIRECT" &&
-      typeof settings.midi_velocity === "number";
-
-    // DIRECT: plain noteOns + pre-sent bulk map, independent port/channel
-    const wantDirect =
-      settings.output_direct &&
-      midi &&
-      settings.direct_device && settings.direct_device !== "OFF" &&
-      settings.direct_channel >= 0 &&
-      typeof settings.midi_velocity === "number";
+    const tuningRuntime = deriveTuningRuntime(settings);
+    const outputRuntime = deriveOutputRuntime(settings, midi, tuningRuntime);
+    const mtsOutputs = outputRuntime.outputs.filter((o) => o.family === "mts");
+    const wantMts = mtsOutputs.some((o) => o.transportMode === "single_note_realtime");
+    const wantDirect = mtsOutputs.some((o) =>
+      o.transportMode === "bulk_dynamic_map" || o.transportMode === "bulk_static_map");
 
     const wantMpe =
       settings.output_mpe &&
@@ -127,15 +248,8 @@ const useSynthWiring = (
     // FluidSynth mirror — must be computed before the early-return guard below,
     // otherwise the TDZ reference to wantFluidsynth in that condition would throw
     // a ReferenceError whenever wantSample is false and no MIDI is configured.
-    const fluidsynthOutputObj = midi && settings.fluidsynth_device
-      ? midi.outputs.get(settings.fluidsynth_device) : null;
-    const mtsPortIsFluidsynth = fluidsynthOutputObj &&
-      settings.midi_device === settings.fluidsynth_device;
-    const wantFluidsynth =
-      !!fluidsynthOutputObj &&
-      !mtsPortIsFluidsynth &&
-      settings.fluidsynth_channel >= 0 &&
-      typeof settings.midi_velocity === "number";
+    const { fluidsynthOutputObj, mtsPortIsFluidsynth } = outputRuntime;
+    const wantFluidsynth = mtsOutputs.some((o) => o.output === fluidsynthOutputObj);
 
     if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe && !wantOsc) {
       setSynth(null);
@@ -155,60 +269,47 @@ const useSynthWiring = (
         ),
       );
     }
-    if (wantMts) {
-      promises.push(
-        create_midi_synth(
-          settings.midiin_device,
-          settings.midiin_central_degree,
-          midi.outputs.get(settings.midi_device),
-          settings.midi_channel,
-          settings.midi_mapping,
-          settings.midi_velocity,
-          settings.fundamental,
-          settings.sysex_type,
-          settings.device_id,
-        ),
-      );
-    }
-    if (wantFluidsynth) {
-      promises.push(
-        create_midi_synth(
-          settings.midiin_device,
-          settings.midiin_central_degree,
-          fluidsynthOutputObj,
-          settings.fluidsynth_channel,
-          settings.midi_mapping || "MTS1",
-          settings.midi_velocity,
-          settings.fundamental,
-          settings.sysex_type,
-          settings.device_id,
-        ),
-      );
-    }
-    if (wantDirect) {
-      // Tuning-map anchor is always derived from the musical content — the hex grid
-      // is the shared reference between output and input. midiin_central_degree is
-      // a hardware input setting and must not influence the output carrier mapping.
-      const directAnchor = computeNaturalAnchor(
-        settings.fundamental,
-        settings.degree0toRef_asArray?.[0] ?? 0,
-        settings.scale,
-        settings.equivInterval,
-        settings.center_degree,
-      );
-      promises.push(
-        create_midi_synth(
-          settings.midiin_device,
-          directAnchor,
-          midi.outputs.get(settings.direct_device),
-          settings.direct_channel,
-          "DIRECT",
-          settings.midi_velocity,
-          settings.fundamental,
-          126, // always non-RT bulk for DIRECT
-          settings.direct_device_id ?? 127,
-        ),
-      );
+    if (wantMts || wantFluidsynth || wantDirect) {
+      for (const outputMode of mtsOutputs) {
+        if (!outputMode.output) continue;
+        const anchorNote = outputMode.transportMode === "bulk_dynamic_map" ||
+          outputMode.transportMode === "bulk_static_map"
+          ? outputMode.anchorNote
+          : settings.midiin_central_degree;
+        const midiMapping =
+          outputMode.transportMode === "bulk_dynamic_map" ||
+          outputMode.transportMode === "bulk_static_map"
+            ? "DIRECT"
+            : outputMode.allocationMode === "mts2" ? "MTS2" : "MTS1";
+
+        promises.push(
+          create_midi_synth({
+            outputMode: {
+              ...outputMode,
+              anchorNote,
+              midiMapping,
+            },
+            tuningContext: {
+              fundamental: tuningRuntime?.fundamental,
+              degree0toRefAsArray: tuningRuntime?.degree0toRefAsArray,
+              scale: tuningRuntime?.scale,
+              equivInterval: tuningRuntime?.equivInterval,
+              name: tuningRuntime?.name,
+            },
+            legacyInput: {
+              midiin_device: settings.midiin_device,
+              midiin_central_degree: anchorNote,
+            },
+            getDynamicBulkConfig: outputMode.transportMode === "bulk_dynamic_map"
+              ? () => ({
+                deviceId: settingsRef.current.direct_device_id ?? 127,
+                mapNumber: settingsRef.current.direct_tuning_map_number ?? 0,
+                name: settingsRef.current.name || "",
+              })
+              : null,
+          }),
+        );
+      }
     }
     if (wantOsc) {
       promises.push(
@@ -274,23 +375,31 @@ const useSynthWiring = (
     return () => { cancelled = true; };
   }, [
     settings.instrument,
-    // fundamental removed from deps — synth uses makeHex per note,
-    // fundamental change is handled imperatively via updateFundamental
+    // MIDI output runtimes derive anchors and tuning context from the current
+    // fundamental and center degree, so those changes must rebuild the synth.
+    settings.fundamental,
     settings.reference_degree,
+    settings.center_degree,
     settings.scale,
     settings.midi_device,
     settings.midi_channel,
     settings.midi_mapping,
     settings.midi_velocity,
+    settings.device_id,
+    settings.tuning_map_number,
     settings.output_sample,
     settings.output_mts,
     settings.output_mpe,
     settings.output_direct,
     settings.output_osc,
     settings.direct_device,
+    settings.direct_mode,
     settings.direct_channel,
+    settings.direct_device_id,
+    settings.direct_tuning_map_number,
     settings.fluidsynth_device,
     settings.fluidsynth_channel,
+    settings.sysex_type,
     settings.mpe_device,
     settings.mpe_manager_ch,
     settings.mpe_lo_ch,
@@ -322,6 +431,42 @@ const useSynthWiring = (
     if (keysRef.current?.updateFundamental)
       keysRef.current.updateFundamental(settings.fundamental);
   }, [settings.fundamental]);
+
+  // In DIRECT static mode, turning on auto-send or changing map parameters
+  // should immediately send the current static snapshot without waiting for
+  // another retune action. Defer to the next frame so any Keys reconstruction
+  // from structural setting changes has already completed.
+  useEffect(() => {
+    if (
+      !ready ||
+      !settings.output_direct ||
+      settings.direct_mode !== "static" ||
+      !settings.direct_sysex_auto ||
+      !settings.direct_device ||
+      settings.direct_device === "OFF" ||
+      !keysRef.current
+    ) return;
+
+    const output = WebMidi.getOutputById(settings.direct_device);
+    if (!output) return;
+
+    let raf = requestAnimationFrame(() => {
+      if (keysRef.current) keysRef.current.mtsSendMap(output);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [
+    ready,
+    midi,
+    settings.output_direct,
+    settings.direct_mode,
+    settings.direct_sysex_auto,
+    settings.direct_device,
+    settings.direct_device_id,
+    settings.direct_tuning_map_number,
+    settings.center_degree,
+    settings.reference_degree,
+    settings.scale,
+  ]);
 
   // ── Octave shift ────────────────────────────────────────────────────────────
 

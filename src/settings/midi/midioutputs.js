@@ -289,7 +289,7 @@ const MidiOutputs = (props) => {
       
 
       <label>
-        <b>MTS Tuning Map</b>
+        <b>MTS Bulk Dump Tuning Maps</b>
         <input
           name="output_direct"
           type="checkbox"
@@ -299,7 +299,9 @@ const MidiOutputs = (props) => {
       </label>
 
       <p style={{ marginTop: 0.5 }}><em>
-        MIDI notes adapt to the hex layout. Send 128-note non-real-time sysex tuning map as bulk dump.
+        Playing notes rewrites one slot in a 128-note non-real-time MTS bulk dump,
+        sends the updated map automatically, then triggers the note. The button below
+        sends a static snapshot of the current map.
       </em></p>
 
       {settings.output_direct && (
@@ -322,6 +324,19 @@ const MidiOutputs = (props) => {
           {settings.direct_device && settings.direct_device !== "OFF" && (
             <>
               <label>
+                Mode
+                <select
+                  name="direct_mode"
+                  class="sidebar-input"
+                  value={settings.direct_mode || "dynamic"}
+                  onChange={(e) => save(e.target.name, e.target.value, onChange)}
+                >
+                  <option value="dynamic">Dynamic Bulk Dump</option>
+                  <option value="static">Static Bulk Dump</option>
+                </select>
+              </label>
+
+              <label>
                 Channel
                 <select
                   name="direct_channel"
@@ -336,25 +351,27 @@ const MidiOutputs = (props) => {
                 </select>
               </label>
 
-              <label>
-                Auto-Send Tuning Map
-                <span style={{ display: "flex", alignItems: "center",
-                               gap: "8px", marginLeft: "auto", marginTop: "4px" }}>
-                  <input
-                    name="direct_sysex_auto"
-                    type="checkbox"
-                    checked={!!settings.direct_sysex_auto}
-                    onChange={(e) => save(e.target.name, e.target.checked, onChange)}
-                  />
-                  <button type="button" style={{ fontSize: "0.85em" }}
-                    onClick={() => {
-                      const output = WebMidi.getOutputById(settings.direct_device);
-                      if (output && props.keysRef?.current)
-                        props.keysRef.current.mtsSendMap(output);
-                    }}
-                  >Send Map</button>
-                </span>
-              </label>
+              {settings.direct_mode === "static" && (
+                <label>
+                  Auto-Send Static Map
+                  <span style={{ display: "flex", alignItems: "center",
+                                 gap: "8px", marginLeft: "auto", marginTop: "4px" }}>
+                    <input
+                      name="direct_sysex_auto"
+                      type="checkbox"
+                      checked={!!settings.direct_sysex_auto}
+                      onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+                    />
+                    <button type="button" style={{ fontSize: "0.85em" }}
+                      onClick={() => {
+                        const output = WebMidi.getOutputById(settings.direct_device);
+                        if (output && props.keysRef?.current)
+                          props.keysRef.current.mtsSendMap(output);
+                      }}
+                    >Send Static Map</button>
+                  </span>
+                </label>
+              )}
 
               <label>
                 Device ID (127 = all)
@@ -635,6 +652,7 @@ MidiOutputs.propTypes = {
     fluidsynth_device: PropTypes.string,
     fluidsynth_channel: PropTypes.number,
     direct_device: PropTypes.string,
+    direct_mode: PropTypes.string,
     direct_channel: PropTypes.number,
     direct_sysex_auto: PropTypes.bool,
     direct_device_id: PropTypes.number,
