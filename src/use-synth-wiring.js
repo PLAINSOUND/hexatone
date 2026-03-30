@@ -14,6 +14,7 @@ import {
   chooseStaticMapCenterMidi,
   computeStaticMapDegree0,
   degree0ToRef,
+  resolveBulkDumpName,
 } from "./keyboard/mts-helpers.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
@@ -130,6 +131,11 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       velocity: midiVelocity,
       deviceId: settings.direct_device_id ?? 127,
       mapNumber: settings.direct_tuning_map_number ?? 0,
+      mapName: resolveBulkDumpName(
+        settings.direct_tuning_map_name,
+        settings.short_description,
+        settings.name,
+      ),
       anchorNote: directAnchor,
       sysexType: 126,
     });
@@ -304,7 +310,11 @@ const useSynthWiring = (
               ? () => ({
                 deviceId: settingsRef.current.direct_device_id ?? 127,
                 mapNumber: settingsRef.current.direct_tuning_map_number ?? 0,
-                name: settingsRef.current.name || "",
+                name: resolveBulkDumpName(
+                  settingsRef.current.direct_tuning_map_name,
+                  settingsRef.current.short_description,
+                  settingsRef.current.name,
+                ),
               })
               : null,
           }),
@@ -397,6 +407,7 @@ const useSynthWiring = (
     settings.direct_channel,
     settings.direct_device_id,
     settings.direct_tuning_map_number,
+    settings.direct_tuning_map_name,
     settings.fluidsynth_device,
     settings.fluidsynth_channel,
     settings.sysex_type,
@@ -463,6 +474,7 @@ const useSynthWiring = (
     settings.direct_device,
     settings.direct_device_id,
     settings.direct_tuning_map_number,
+    settings.direct_tuning_map_name,
     settings.center_degree,
     settings.reference_degree,
     settings.scale,

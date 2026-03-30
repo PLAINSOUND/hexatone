@@ -19,6 +19,7 @@ const sessionDefaults = {
   direct_sysex_auto: sessionStorage.getItem("direct_sysex_auto") === "true",
   direct_device_id: parseInt(sessionStorage.getItem("direct_device_id")) || 127,
   direct_tuning_map_number: parseInt(sessionStorage.getItem("direct_tuning_map_number")) || 0,
+  direct_tuning_map_name: sessionStorage.getItem("direct_tuning_map_name"),
   mpe_device: sessionStorage.getItem("mpe_device") || "OFF",
   mpe_manager_ch: sessionStorage.getItem("mpe_manager_ch") || "1",
   mpe_lo_ch: parseInt(sessionStorage.getItem("mpe_lo_ch")) || 2,

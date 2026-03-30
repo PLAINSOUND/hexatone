@@ -2,6 +2,10 @@ import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";
+import {
+  resolveBulkDumpName,
+  sanitizeBulkDumpName,
+} from "../../keyboard/mts-helpers.js";
 
 const voiceChannels = (masterCh) => {
   if (masterCh === "1") return Array.from({ length: 15 }, (_, i) => i + 2);
@@ -69,6 +73,11 @@ const MidiOutputs = (props) => {
     : Math.min(available[available.length - 1], loCh + 6);
 
   const outputs = midi ? Array.from(midi.outputs.values()) : [];
+  const directTuningMapName = resolveBulkDumpName(
+    settings.direct_tuning_map_name,
+    settings.short_description,
+    settings.name,
+  );
 
   // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
   // macOS FluidSynth creates a new port on each launch; we find it by name.
@@ -403,6 +412,22 @@ const MidiOutputs = (props) => {
                 />
               </label>
 
+              <label>
+                Tuning Map Name
+                <input
+                  name="direct_tuning_map_name"
+                  type="text"
+                  class="sidebar-input"
+                  maxLength={16}
+                  value={directTuningMapName}
+                  onInput={(e) => {
+                    const next = sanitizeBulkDumpName(e.target.value);
+                    if (e.target.value !== next) e.target.value = next;
+                    save("direct_tuning_map_name", next, onChange);
+                  }}
+                />
+              </label>
+
 
             </>
           )}
@@ -657,6 +682,9 @@ MidiOutputs.propTypes = {
     direct_sysex_auto: PropTypes.bool,
     direct_device_id: PropTypes.number,
     direct_tuning_map_number: PropTypes.number,
+    direct_tuning_map_name: PropTypes.string,
+    short_description: PropTypes.string,
+    name: PropTypes.string,
     mpe_device: PropTypes.string,
     mpe_manager_ch: PropTypes.string,
     mpe_lo_ch: PropTypes.number,

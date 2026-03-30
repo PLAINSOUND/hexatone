@@ -28,6 +28,7 @@ import { MidiCoordResolver } from './midi-coord-resolver.js';
 import {
   degree0ToRef, computeNaturalAnchor, mtsTuningMap,
   computeCenterPitchHz, chooseStaticMapCenterMidi, computeStaticMapDegree0,
+  resolveBulkDumpName,
 } from './mts-helpers.js';
 
 class Keys {
@@ -565,6 +566,11 @@ class Keys {
     // Each MidiHex.noteOn() sends its own single-note real-time sysex, so
     // new notes are individually retuned at trigger time regardless.
     // Only send the bulk map immediately when not deferring (or when silent).
+    const bulkDumpName = resolveBulkDumpName(
+      this.settings.direct_tuning_map_name,
+      this.settings.short_description,
+      this.settings.name,
+    );
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
       this.settings.device_id,
@@ -577,19 +583,25 @@ class Keys {
         this.settings.center_degree,
       ),
       this.settings.scale,
-      this.settings.name,
+      bulkDumpName,
       this.settings.equivInterval,
       this.settings.fundamental,
       this.settings.degree0toRef_asArray,
     );
+    const directAutoSend = (
+      this.settings.output_direct &&
+      this.settings.direct_mode === "static" &&
+      this.settings.direct_sysex_auto &&
+      this.settings.direct_device &&
+      this.settings.direct_device !== "OFF"
+    );
+    const directOut = directAutoSend
+      ? WebMidi.getOutputById(this.settings.direct_device)
+      : null;
     if (!skipRetune) {
       if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
-      if (this.settings.output_direct && this.settings.direct_mode === "static" && this.settings.direct_sysex_auto &&
-        this.settings.direct_device && this.settings.direct_device !== 'OFF') {
-        const directOut = WebMidi.getOutputById(this.settings.direct_device);
-        if (directOut) this.mtsSendMap(directOut);
-      }
     }
+    if (directOut) this.mtsSendMap(directOut);
     this.drawGrid();
   };
 
@@ -1051,7 +1063,11 @@ class Keys {
             this.settings.center_degree,
           ),
         this.settings.scale,
-        this.settings.name,
+        resolveBulkDumpName(
+          this.settings.direct_tuning_map_name,
+          this.settings.short_description,
+          this.settings.name,
+        ),
         this.settings.equivInterval,
         this.settings.fundamental,
         this.settings.degree0toRef_asArray,

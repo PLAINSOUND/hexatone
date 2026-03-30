@@ -412,6 +412,7 @@ const App = () => {
       settings.direct_sysex_auto,
       settings.direct_device_id,
       settings.direct_tuning_map_number,
+      settings.direct_tuning_map_name,
       settings.fluidsynth_device,
       settings.fluidsynth_channel,
       settings.sysex_type,

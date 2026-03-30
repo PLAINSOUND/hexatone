@@ -6,6 +6,8 @@ import {
   buildBulkDumpMessage,
   patchTuningEntry,
   degree0ToRef,
+  sanitizeBulkDumpName,
+  resolveBulkDumpName,
 } from "./mts-helpers.js";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
 
@@ -79,6 +81,20 @@ describe("mts-helpers", () => {
       let checksum = 0;
       for (let i = 1; i < sysex.length - 1; i++) checksum ^= sysex[i];
       expect(sysex[sysex.length - 1]).toBe(checksum & 0x7f);
+    });
+  });
+
+  describe("bulk dump naming helpers", () => {
+    it("sanitizes to 16 printable ASCII characters", () => {
+      expect(sanitizeBulkDumpName("abcDEF1234567890!")).toBe("abcDEF1234567890");
+      expect(sanitizeBulkDumpName("naïve name")).toBe("nave name");
+    });
+
+    it("prefers explicit override, then short description, then fallback name", () => {
+      expect(resolveBulkDumpName("CustomMap", "ShortDesc", "Long Name")).toBe("CustomMap");
+      expect(resolveBulkDumpName(null, "ShortDesc", "Long Name")).toBe("ShortDesc");
+      expect(resolveBulkDumpName(undefined, "", "Long Name")).toBe("Long Name");
+      expect(resolveBulkDumpName("", "ShortDesc", "Long Name")).toBe("");
     });
   });
 

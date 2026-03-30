@@ -74,6 +74,26 @@ export function centsToMTS(note, bend) {
   return mts;
 }
 
+export function sanitizeBulkDumpName(name) {
+  return Array.from(String(name ?? ""))
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code > 31 && code < 128;
+    })
+    .slice(0, 16)
+    .join("");
+}
+
+export function resolveBulkDumpName(overrideName, shortDescription, fallbackName) {
+  if (overrideName !== null && overrideName !== undefined) {
+    return sanitizeBulkDumpName(overrideName);
+  }
+  if (shortDescription) {
+    return sanitizeBulkDumpName(shortDescription);
+  }
+  return sanitizeBulkDumpName(fallbackName);
+}
+
 /**
  * Decode a 3-byte MTS value back to a float MIDI note number.
  *

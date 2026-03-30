@@ -1,6 +1,6 @@
 /**
- * AXIS-49 2A Controller Mapping
- * https://www.c-thru-music.com/cgi/?page=prod_axis-49
+ * TS41 MIDI keyboard Controller Mapping
+ * https://tristanbay.com/gear/ts41-midi-keyboard/
  *
  * buildRawCoords(anchorNote) — used by keys.js buildAxis49Table.
  * Returns a Map<noteNumber, {x,y}> of coordinates relative to the anchor
@@ -13,14 +13,13 @@
 
 // ── Physical geometry ──────────────────────────────────────────────────────
 
-const AXIS49_COLUMNS     = 14;
-const AXIS49_ROWS        = 7;
-export const AXIS49_TOTAL_NOTES = 98;
-const COLUMNS_PER_BANK   = 7;
+const TS41_COLUMNS     = 37;
+const TS41_ROWS        = 13;
+export const TS41_TOTAL_NOTES = 126;
 
-// note (1-98) → {col, row}
+// note (1-126) → {col, row}
 function noteToPhysical(note) {
-  if (note < 1 || note > 98) return null;
+  if (note < 1 || note > 126) return null;
   const col = Math.floor((note - 1) / AXIS49_ROWS);
   const row = (note - 1) % AXIS49_ROWS;
   return { col, row };

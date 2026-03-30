@@ -26,6 +26,7 @@ export const create_midi_synth = async ({
     sysexType: sysex_type,
     deviceId: device_id,
     mapNumber,
+    mapName,
     anchorNote,
   } = outputMode;
   const {
@@ -68,7 +69,7 @@ export const create_midi_synth = async ({
       velocity,
       device_id: sysex_dev_id,
       map_number: mapNumber ?? 0,
-      name: name || "",
+      name: mapName ?? name ?? "",
       entries: dynamicEntries,
       pool: pool_mts1,
       fundamental,
