@@ -5639,7 +5639,7 @@ export const presets = [
       },
       {
         "name": "41-(13-Limit) Breed",
-        "description": "41-tone 13-Limit Rational Intonation scale by Graham Breed’s 41-tone 13-Limit Rational Intonation scale, consisting of 41 notes per octave derived from harmonic partial row intervals up to a prime limit of 13. This 13-Limit scale demonstrates an asymmetric harmonic and partially-subharmonic construction producing a continuous chain of perfect fifths and \"quasi-fifths\". By its similarity to the other 41-tone scales found here, this version demonstrates the concept of \"rational temperament\", where enharmonically proximal ratios may substitute for missing notes as slightly mistuned alternates. Compare this tuning to 41edo temperament.",
+        "description": "Graham Breed’s 41-tone 13-Limit Rational Intonation scale, consisting of 41 notes per octave derived from harmonic partial row intervals up to a prime limit of 13. This 13-Limit scale demonstrates an asymmetric harmonic and partially-subharmonic construction producing a continuous chain of perfect fifths and \"quasi-fifths\". By its similarity to the other 41-tone scales found here, this version demonstrates the concept of \"rational temperament\", where enharmonically proximal ratios may substitute for missing notes as slightly mistuned alternates. Compare this tuning to 41edo temperament.",
         "short_description": "41-JI-13L(Breed)",
         "scale": [
           "81/80",
