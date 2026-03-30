@@ -92,6 +92,76 @@ function buildAxis49Map(anchorNote) {
   return makeMap(entries);
 }
 
+/**
+ * TS41 MIDI keyboard Controller Mapping
+ * https://tristanbay.com/gear/ts41-midi-keyboard/
+ *
+ * buildRawCoords(anchorNote) — used by keys.js buildAxis49Table.
+ * Returns a Map<noteNumber, {x,y}> of coordinates relative to the anchor
+ * note's position, using the AXIS-49 physical geometry.
+ *
+ * bestFitOffset(rawCoords, stepsTable, centerHexOffset) — finds the
+ * (dx,dy) translation that maximises how many AXIS-49 keys land on
+ * visible hexatone coordinates.
+ */
+
+// ── Physical geometry ──────────────────────────────────────────────────────
+
+const TS41_COLUMNS     = 37;
+const TS41_ROWS        = 13;
+export const TS41_TOTAL_NOTES = 126;
+
+// note (1-126) → {col, row}
+// columns repeat in patterns of 12 with the following number of notes in each column
+// TS41_COLUMNS_PATTERN = [3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 3, 4];
+const TS41_COLUMNS_OFFSET = [3, 7, 10, 13, 17, 20, 24, 27, 31, 34, 37, 41]; // note number in top position
+const TS41_ROWS_OFFSET = [1,0,1,2,1,2,1,2,1,2,3,2,3,2,3,4,3,4,3,4,3,4,5,4,5,4,5,6,5,6,5,6,5,6,7,6,7]; //top position row number
+
+function noteToPhysical(note) {
+  if (note < 1 || note > 126) return null;
+  const block = Math.floor((note - 1) / 41);
+  const posInBlock = ((note - 1) % 41) + 1;  // 1..41, avoids mod-41 === 0 edge case
+  const blockOffset = TS41_COLUMNS_OFFSET.findLastIndex((offset) => offset < posInBlock);
+  const offsetValue = blockOffset + 1;
+  const col = 12 * block + offsetValue;
+  const rowOffset = TS41_ROWS_OFFSET[col];
+  const match = TS41_COLUMNS_OFFSET[1 + TS41_COLUMNS_OFFSET.findLastIndex((offset) => offset < posInBlock)];
+  const row = rowOffset + 2 * (match - posInBlock);
+  return { row, col };
+}
+
+// Physical {col, row} → hexatone axial (x, y) coords.
+//
+// TS41 Bosanquet basis vectors (physical → hex):
+//   rStep:  Δcol=+2, Δrow=0  → hex (+1,  0)
+//   drStep: Δcol=+1, Δrow=+1 → hex ( 0, +1)
+//
+// Inverting that 2×2 system:
+//   hx = (col - row) / 2
+//   hy = row
+//
+// col and row are always even+even or odd+odd (the layout guarantees col-row
+// is always even), so (col - row) / 2 is always an integer — no rounding needed.
+
+function physicalToHexSpace(col, row) {
+  return { x: (col - row) / 2, y: row };
+}
+
+function buildTS41Map(anchorNote) {
+  const note1 = Math.max(1, Math.min(TS41_TOTAL_NOTES, anchorNote));
+  const anchorPhys = noteToPhysical(note1);
+  const { x: ax, y: ay } = physicalToHexSpace(anchorPhys.col, anchorPhys.row);
+
+  const entries = [];
+  for (let note = 1; note <= TS41_TOTAL_NOTES; note++) {
+    const phys = noteToPhysical(note);
+    if (!phys) continue;
+    const { x, y } = physicalToHexSpace(phys.col, phys.row);
+    entries.push({ ch: 1, note, x: x - ax, y: y - ay });
+  }
+  return makeMap(entries);
+}
+
 // ── Lumatone ──────────────────────────────────────────────────────────────────
 // 5 blocks × 56 keys, one MIDI channel per block (channels 1–5).
 // Geometry and block offsets defined in lumatone.js; imported above.
@@ -223,6 +293,16 @@ export const CONTROLLER_REGISTRY = [
     multiChannel: false,
     anchorDefault: 53,  // AXIS-49 physical note 49 is the centre key
     buildMap: (anchorNote) => buildAxis49Map(anchorNote ?? 53),
+  },
+
+  {
+    id: 'ts41',
+    name: 'TS41 MIDI Keyboard',
+    detect: name => name.includes('ts41'),
+    description: '41edo mode (Ch 1, Notes 1–126). Bosanquet Layout.',
+    multiChannel: false,
+    anchorDefault: 36,  // AXIS-49 physical note 49 is the centre key
+    buildMap: (anchorNote) => buildTS41Map(anchorNote ?? 36),
   },
 
   {
