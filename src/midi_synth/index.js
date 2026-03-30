@@ -539,36 +539,9 @@ StaticBulkHex.prototype.retune = function () {
 };
 
 
-export function centsToMTS(note, bend) {
-  let mts = [0, 0, 0];
-  if (typeof note === "number" && typeof bend === "number") {
-    if (note >= 0) {
-      mts[0] = Math.floor(note);
-    } else {
-      mts[0] = -1 * Math.floor(-1 * note);
-      if (mts[0] > note) mts[0] -= 1;
-    }
-    let total_bend = (bend * 0.01) + note - mts[0];
-    let shift = total_bend >= 0
-      ? Math.floor(total_bend)
-      : -1 * Math.floor(-1 * total_bend);
-    if (shift > total_bend) shift -= 1;
-    const remainder = total_bend - shift;
-    mts[0] += shift;
-    if (mts[0] < 0) {
-      mts = [0, 0, 0];
-    } else if (mts[0] > 127) {
-      mts = [127, 127, 126];
-    } else {
-      let fine = Math.round(16384 * remainder);
-      if (fine === 16384) fine = 16383;
-      mts[1] = Math.floor(fine / 128);
-      mts[2] = Math.round(128 * ((fine / 128) - mts[1]));
-      if (mts[2] === 128) mts[2] = 127;
-    }
-  }
-  return mts;
-}
+// centsToMTS is now canonical in src/tuning/mts-format.js.
+// Re-exported here for any external callers that import it from this module.
+export { centsToMTS } from "../tuning/mts-format.js";
 
 export function mtsToMidiFloat(mts) {
   return mts[0] + (mts[1] / 128) + (mts[2] / 16384);

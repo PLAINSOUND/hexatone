@@ -42,7 +42,8 @@ const RAW_RUNTIME_STATE =
           ["vite-plugin-svgr", "virtual:38cad48f1a3dc4e4542cb98d7a61db3057fa74250a3173594fb26a783cfa3e5ff633cdbb178be8459ad4e4abb9841d2f04e8a86c781d985c300d43730da3c5dc#npm:4.5.0"],\
           ["vitest", "virtual:38cad48f1a3dc4e4542cb98d7a61db3057fa74250a3173594fb26a783cfa3e5ff633cdbb178be8459ad4e4abb9841d2f04e8a86c781d985c300d43730da3c5dc#npm:2.1.9"],\
           ["webmidi", "npm:3.1.14"],\
-          ["workbox-build", "npm:7.4.0"]\
+          ["workbox-build", "npm:7.4.0"],\
+          ["xen-dev-utils", "npm:0.12.0"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -6506,7 +6507,8 @@ const RAW_RUNTIME_STATE =
           ["vite-plugin-svgr", "virtual:38cad48f1a3dc4e4542cb98d7a61db3057fa74250a3173594fb26a783cfa3e5ff633cdbb178be8459ad4e4abb9841d2f04e8a86c781d985c300d43730da3c5dc#npm:4.5.0"],\
           ["vitest", "virtual:38cad48f1a3dc4e4542cb98d7a61db3057fa74250a3173594fb26a783cfa3e5ff633cdbb178be8459ad4e4abb9841d2f04e8a86c781d985c300d43730da3c5dc#npm:2.1.9"],\
           ["webmidi", "npm:3.1.14"],\
-          ["workbox-build", "npm:7.4.0"]\
+          ["workbox-build", "npm:7.4.0"],\
+          ["xen-dev-utils", "npm:0.12.0"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -8301,6 +8303,15 @@ const RAW_RUNTIME_STATE =
           "@types/utf-8-validate",\
           "bufferutil",\
           "utf-8-validate"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["xen-dev-utils", [\
+      ["npm:0.12.0", {\
+        "packageLocation": "../../../../../../../.yarn/berry/cache/xen-dev-utils-npm-0.12.0-33f6fd17a3-10c0.zip/node_modules/xen-dev-utils/",\
+        "packageDependencies": [\
+          ["xen-dev-utils", "npm:0.12.0"]\
         ],\
         "linkType": "HARD"\
       }]\

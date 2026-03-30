@@ -24,7 +24,7 @@ const getConnectedController = (deviceId, midi) => {
  *   - Anchor-note persistence (localStorage keyed by controller ID)
  *   - Instrument switch (panic + latch reset)
  *   - equivSteps resize (panic, scale resize, bump importCount)
- *   - scale_divide (panic, scale replace, bump importCount)
+ *   - scale_divide (panic, scale replace, bump importCount, switch preset focus)
  *   - Color changes (imperative canvas push before React re-render)
  *   - All other keys (plain setSettings)
  *
@@ -36,13 +36,16 @@ const getConnectedController = (deviceId, midi) => {
  * @param {object}   options.keysRef         - Ref to the live Keys canvas
  * @param {function} options.setLatch        - Latch state setter
  * @param {function} options.bumpImportCount - Increment the scale import counter
+ * @param {function} options.onUserScaleEdit - Called with the new scale name when
+ *                                            scale_divide fires; switches preset
+ *                                            focus to User Tunings in the UI
  *
  * @returns {{ onChange, onAtomicChange }}
  */
 const useSettingsChange = (
   settings,
   setSettings,
-  { midi, setMidiLearnActive, keysRef, setLatch, bumpImportCount },
+  { midi, setMidiLearnActive, keysRef, setLatch, bumpImportCount, onUserScaleEdit },
 ) => {
   // Keep a ref to settings so onChange/onAtomicChange can read current values
   // without being recreated on every render. This is the key optimisation:
@@ -163,33 +166,36 @@ const useSettingsChange = (
       if (keysRef.current) keysRef.current.panic();
       setLatch(false);
       bumpImportCount();
-      setSettings((prev) => {
-        const newScale = value;
-        const equivSteps = prev.equivSteps || newScale.length;
-        const equaveValue = newScale[newScale.length - 1];
-        const isOctave =
-          equaveValue === "2" ||
-          equaveValue === "2/1" ||
-          equaveValue === "1200" ||
-          equaveValue === "1200.0" ||
-          /^1200\.?0*$/.test(equaveValue);
-        const equaveForName = isOctave ? "2" : equaveValue;
-        const equaveForDesc = isOctave ? "Octave" : `${equaveValue} cents`;
-        const newName = `${equivSteps}ed${equaveForName}`;
-        const newDescription = `${equaveForDesc} divided into ${equivSteps} equal steps`;
-        const newNoteNames = newScale.map(
-          (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
-        );
-        return {
-          ...prev,
-          scale: newScale,
-          name: newName,
-          description: newDescription,
-          note_names: newNoteNames,
-          spectrum_colors: true,
-          fundamental_color: "#f2e3e3",
-        };
-      });
+      // Compute name before setSettings so we can pass it to onUserScaleEdit
+      // synchronously — setSettings is async (batched), so we derive the name
+      // from the current settings snapshot rather than waiting for the update.
+      const newScale = value;
+      const equivSteps = s.equivSteps || newScale.length;
+      const equaveValue = newScale[newScale.length - 1];
+      const isOctave =
+        equaveValue === "2" ||
+        equaveValue === "2/1" ||
+        equaveValue === "1200" ||
+        equaveValue === "1200.0" ||
+        /^1200\.?0*$/.test(equaveValue);
+      const equaveForName = isOctave ? "2" : equaveValue;
+      const equaveForDesc = isOctave ? "Octave" : `${equaveValue} cents`;
+      const newName = `${equivSteps}ed${equaveForName}`;
+      const newDescription = `${equaveForDesc} divided into ${equivSteps} equal steps`;
+      const newNoteNames = newScale.map(
+        (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
+      );
+      setSettings((prev) => ({
+        ...prev,
+        scale: newScale,
+        name: newName,
+        description: newDescription,
+        note_names: newNoteNames,
+        spectrum_colors: true,
+        fundamental_color: "#f2e3e3",
+      }));
+      // Switch the preset selector to User Tunings showing the generated name.
+      if (onUserScaleEdit) onUserScaleEdit(newName);
       return;
     }
 

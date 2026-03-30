@@ -257,7 +257,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
             </button>
           )}
           <button type="button" class="delete-btn"
-            style={{ marginLeft: 'auto', width: 90 }}
+            style={{ marginLeft: 'auto', width: 85 }}
             disabled={!selected}
             onClick={handleDelete}>
             Delete
@@ -289,7 +289,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
               <button type="button" onClick={() => setConfirmClear(false)}>Cancel</button>
             </span>
           ) : (
-            <button type="button" class="delete-btn" style={{ marginLeft: 'auto', width: 90 }} onClick={handleClear}>
+            <button type="button" class="delete-btn" style={{ marginLeft: 'auto', width: 85 }} onClick={handleClear}>
               Clear all
             </button>
           )
@@ -303,10 +303,10 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
             {saveLabel}
           </button>
           <span style={{ display: 'flex', gap: '6px' }}>
-            <button type="button" style={{ whiteSpace: 'nowrap' }} onClick={handleExport}>
+            <button type="button" style={{ whiteSpace: 'nowrap', width: 85 }} onClick={handleExport}>
               Export .json
             </button>
-            <button type="button" style={{ whiteSpace: 'nowrap' }} onClick={handleExportLtn}>
+            <button type="button" style={{ whiteSpace: 'nowrap', width: 85 }} onClick={handleExportLtn}>
               Export .ltn
             </button>
           </span>

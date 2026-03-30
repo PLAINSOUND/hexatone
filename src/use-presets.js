@@ -259,6 +259,20 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
     }
   };
 
+  // Called by useSettingsChange when scale_divide fires — the user has
+  // generated a new scale that is no longer tied to any loaded preset.
+  const onUserScaleEdit = (name) => {
+    setActiveSource("user");
+    setActivePresetName(name || null);
+    sessionStorage.setItem("hexatone_preset_source", "user");
+    if (name) {
+      sessionStorage.setItem("hexatone_preset_name", name);
+    } else {
+      sessionStorage.removeItem("hexatone_preset_name");
+    }
+    setSavedPresetSnapshot(null);
+  };
+
   return {
     activeSource,
     activePresetName,
@@ -270,6 +284,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
     onClearUserPresets,
     onRevertBuiltin,
     onRevertUser,
+    onUserScaleEdit,
   };
 };
 

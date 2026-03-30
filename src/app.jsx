@@ -130,6 +130,7 @@ const App = () => {
     onClearUserPresets,
     onRevertBuiltin,
     onRevertUser,
+    onUserScaleEdit,
   } = usePresets(settings, setSettings, {
     synthRef,
     onUserInteraction: () => setUserHasInteracted(true),
@@ -249,6 +250,7 @@ const App = () => {
     keysRef,
     setLatch,
     bumpImportCount,
+    onUserScaleEdit,
   });
 
   // Validate that all required settings are present and consistent.
