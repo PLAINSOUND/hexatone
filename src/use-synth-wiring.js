@@ -6,6 +6,7 @@ import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
 import { create_osc_synth } from "./osc_synth";
 import { detectController } from "./controllers/registry.js";
+import { saveAnchorFromLearn } from "./input/controller-anchor.js";
 import { WebMidi } from "webmidi";
 import { scalaToCents } from "./settings/scale/parse-scale.js";
 import {
@@ -212,6 +213,103 @@ const useSynthWiring = (
     }
   }, []);
 
+  // ── Reconstruction boundary contract ────────────────────────────────────────
+  //
+  // This block documents which settings changes trigger which kind of update.
+  // It is the single source of truth for reactivity decisions in this file.
+  // Before adding a new setting to ANY dependency array below, classify it here.
+  //
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │ FULL SYNTH REBUILD                                                      │
+  // │ Tears down and recreates all active output engines via Promise.all.     │
+  // │ Controlled by the main useEffect dependency array (lines below).        │
+  // │                                                                         │
+  // │  Tuning/pitch (all outputs depend on these):                            │
+  // │    instrument          — sample buffers must be reloaded                │
+  // │    fundamental         — root pitch changes all MTS calculations        │
+  // │    reference_degree    — changes offset between scale degree 0 and ref  │
+  // │    center_degree       — changes static bulk map anchor calculation      │
+  // │    scale               — changes all per-note pitch values              │
+  // │                                                                         │
+  // │  MTS real-time output:                                                  │
+  // │    output_mts          — enable/disable the real-time MTS engine        │
+  // │    midi_device         — output port changes require new synth object   │
+  // │    midi_channel        — channel is baked into the synth at creation    │
+  // │    midi_mapping        — MTS1 vs MTS2 allocation mode                  │
+  // │    midi_velocity       — velocity is baked into the output config       │
+  // │    device_id           — MTS sysex device ID (broadcast vs addressed)   │
+  // │    tuning_map_number   — MTS map slot to write                          │
+  // │    sysex_type          — sysex type byte (126 vs 127)                   │
+  // │    fluidsynth_device   — FluidSynth mirror port                         │
+  // │    fluidsynth_channel  — FluidSynth mirror channel                      │
+  // │                                                                         │
+  // │  MTS bulk dump output:                                                  │
+  // │    output_direct       — enable/disable the bulk dump engine            │
+  // │    direct_device       — output port (new port = new synth object)      │
+  // │    direct_mode         — dynamic vs static changes allocation strategy  │
+  // │    direct_channel      — MIDI channel for note-on after bulk dump       │
+  // │    direct_device_id    — device ID in bulk dump sysex header            │
+  // │    direct_tuning_map_number — map slot in bulk dump header              │
+  // │    direct_tuning_map_name   — map name string in bulk dump payload      │
+  // │                                                                         │
+  // │  MPE output:                                                            │
+  // │    output_mpe          — enable/disable MPE engine                      │
+  // │    mpe_device          — output port                                    │
+  // │    mpe_manager_ch      — MPE zone manager channel                       │
+  // │    mpe_lo_ch           — first member channel                           │
+  // │    mpe_hi_ch           — last member channel                            │
+  // │    mpe_pitchbend_range — pitch bend range baked at MPE init             │
+  // │    mpe_mode            — Ableton workaround vs standard MPE             │
+  // │                                                                         │
+  // │  OSC output:                                                            │
+  // │    output_osc          — enable/disable OSC WebSocket bridge            │
+  // │                                                                         │
+  // │  MIDI state:                                                            │
+  // │    midi                — MIDI access object (initial grant or revoke)   │
+  // │    midiTick            — incremented on every device connect/disconnect │
+  // └─────────────────────────────────────────────────────────────────────────┘
+  //
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │ CANVAS-ONLY UPDATE (no synth rebuild)                                   │
+  // │ Imperative call to keysRef.current — bypasses React render.             │
+  // │                                                                         │
+  // │    fundamental         → keysRef.current.updateFundamental()            │
+  // │                          Redraws note labels on the hex grid.           │
+  // │    note_colors         → handled in use-settings-change.js              │
+  // │    spectrum_colors     → handled in use-settings-change.js              │
+  // │    fundamental_color   → handled in use-settings-change.js              │
+  // └─────────────────────────────────────────────────────────────────────────┘
+  //
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │ AUTO-SEND TRIGGER (no synth rebuild, no canvas redraw)                  │
+  // │ RAF-debounced call to keysRef.current.mtsSendMap().                     │
+  // │ Only fires when output_direct + direct_mode=static + direct_sysex_auto. │
+  // │                                                                         │
+  // │    direct_sysex_auto       — turning auto-send on should send now       │
+  // │    direct_device           — port change should resend                  │
+  // │    direct_device_id        — header param change should resend          │
+  // │    direct_tuning_map_number — header param change should resend         │
+  // │    direct_tuning_map_name  — header param change should resend          │
+  // │    center_degree           — map anchor changed, resend                 │
+  // │    reference_degree        — pitch context changed, resend              │
+  // │    scale                   — pitch content changed, resend              │
+  // └─────────────────────────────────────────────────────────────────────────┘
+  //
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │ NO REBUILD NEEDED                                                       │
+  // │ Used per-note at play time; not baked into synth construction.          │
+  // │                                                                         │
+  // │    key_labels          — canvas label mode (handled in keys.js)         │
+  // │    retuning_mode       — transpose vs recalculate (keys.js per-note)    │
+  // │    wheel_to_recent     — modwheel routing (keys.js per-event)           │
+  // │    midi_wheel_range    — wheel pitch range (keys.js per-event)          │
+  // │    wheel_scale_aware   — wheel snap mode (keys.js per-event)            │
+  // │    midiin_central_degree — anchor for incoming MIDI (keys.js)           │
+  // │    midiin_channel      — input filter (keys.js)                         │
+  // │    midi_passthrough    — MIDI pass-through flag (keys.js)               │
+  // │    lumatone_led_sync   — LED feedback toggle (keys.js)                  │
+  // └─────────────────────────────────────────────────────────────────────────┘
+  //
   // ── Synth creation ───────────────────────────────────────────────────────────
   // Reconstructs the composite synth whenever any relevant setting or MIDI
   // state changes. Runs only after the app is ready (setReady has fired).
@@ -517,29 +615,21 @@ const useSynthWiring = (
       if (input) ctrl = detectController(input.name.toLowerCase());
     }
 
-    // Persist anchor note per controller (for restore on reconnect).
-    if (ctrl) {
-      localStorage.setItem(`${ctrl.id}_anchor`, String(noteNum));
-      // For channel-aware controllers (e.g. Lumatone): also save anchor channel.
-      if (ctrl.anchorChannelDefault != null) {
-        localStorage.setItem(`${ctrl.id}_anchor_channel`, String(ch));
-      }
-    }
+    // Persist anchor note per controller and build the settings update.
+    // saveAnchorFromLearn handles both single-channel and channel-aware (Lumatone)
+    // controllers in one place; returns the update object to merge into settings.
+    const update = ctrl
+      ? saveAnchorFromLearn(ctrl, noteNum, ch)
+      : { midiin_central_degree: noteNum, midiin_anchor_channel: ch };
 
     // midiin_anchor_channel drives the relative channel-offset formula in
     // noteToSteps() for all paths (sequential, unknown, passthrough).
     // For the Lumatone 2D-map path, lumatone_center_channel is also updated.
-    const update = {
-      midiin_central_degree: noteNum,
-      midiin_anchor_channel: ch,
-    };
     sessionStorage.setItem("midiin_central_degree", String(noteNum));
     sessionStorage.setItem("midiin_anchor_channel", String(ch));
-    if (ctrl?.anchorChannelDefault != null) {
-      update.lumatone_center_channel = ch;
-      update.lumatone_center_note = noteNum;  // noteNum is 0–55 for Lumatone blocks
-      sessionStorage.setItem("lumatone_center_channel", String(ch));
-      sessionStorage.setItem("lumatone_center_note", String(noteNum));
+    if (update.lumatone_center_channel != null) {
+      sessionStorage.setItem("lumatone_center_channel", String(update.lumatone_center_channel));
+      sessionStorage.setItem("lumatone_center_note",    String(update.lumatone_center_note));
     }
     setSettings((s) => ({ ...s, ...update }));
   }, [settings.midiin_device, midi]);

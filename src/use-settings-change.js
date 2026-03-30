@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController } from "./controllers/registry.js";
 import { normalizeColors } from "./normalize-settings.js";
+import { loadAnchorSettingsUpdate, saveAnchor, saveAnchorChannel } from "./input/controller-anchor.js";
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
@@ -67,35 +68,25 @@ const useSettingsChange = (
     // When the MIDI input device is selected, load the per-controller saved anchor note
     // (or fall back to the controller's built-in default on first use).
     if (key === "midiin_device") {
-      let anchorMidiNote = null;
-      let anchorChannel = null;
+      let anchorUpdate = null;
       if (value && value !== "OFF" && m) {
         const input = Array.from(m.inputs.values()).find((i) => i.id === value);
         if (input) {
           const ctrl = detectController(input.name.toLowerCase());
-          if (ctrl) {
-            const saved = localStorage.getItem(`${ctrl.id}_anchor`);
-            anchorMidiNote = saved !== null ? parseInt(saved) : ctrl.anchorDefault;
-            // Restore saved anchor channel for channel-aware controllers (e.g. Lumatone).
-            if (ctrl.anchorChannelDefault != null) {
-              const savedCh = localStorage.getItem(`${ctrl.id}_anchor_channel`);
-              anchorChannel = savedCh !== null ? parseInt(savedCh) : ctrl.anchorChannelDefault;
-            }
-          }
+          if (ctrl) anchorUpdate = loadAnchorSettingsUpdate(ctrl);
         }
       }
       setSettings((prev) => ({
         ...prev,
         midiin_device: value,
-        ...(anchorMidiNote !== null ? { midiin_central_degree: anchorMidiNote } : {}),
-        ...(anchorChannel !== null ? { lumatone_center_channel: anchorChannel } : {}),
+        ...(anchorUpdate ?? {}),
       }));
       sessionStorage.setItem("midiin_device", value);
-      if (anchorMidiNote !== null) {
-        sessionStorage.setItem("midiin_central_degree", String(anchorMidiNote));
+      if (anchorUpdate?.midiin_central_degree != null) {
+        sessionStorage.setItem("midiin_central_degree", String(anchorUpdate.midiin_central_degree));
       }
-      if (anchorChannel !== null) {
-        sessionStorage.setItem("lumatone_center_channel", String(anchorChannel));
+      if (anchorUpdate?.lumatone_center_channel != null) {
+        sessionStorage.setItem("lumatone_center_channel", String(anchorUpdate.lumatone_center_channel));
       }
       return;
     }
@@ -104,10 +95,8 @@ const useSettingsChange = (
     // to localStorage keyed by controller ID so it's restored on next connect.
     if (key === "midiin_central_degree") {
       const ctrl = getConnectedController(s.midiin_device, m);
-      if (ctrl) {
-        // value IS the raw physical MIDI note number — store directly.
-        localStorage.setItem(`${ctrl.id}_anchor`, String(value));
-      }
+      // value IS the raw physical MIDI note number — store directly.
+      if (ctrl) saveAnchor(ctrl, value);
       // Fall through to normal setSettings
     }
 
@@ -115,9 +104,7 @@ const useSettingsChange = (
     // (e.g. Lumatone), persist it to localStorage so it's restored on next connect.
     if (key === "lumatone_center_channel") {
       const ctrl = getConnectedController(s.midiin_device, m);
-      if (ctrl && ctrl.anchorChannelDefault != null) {
-        localStorage.setItem(`${ctrl.id}_anchor_channel`, String(value));
-      }
+      if (ctrl) saveAnchorChannel(ctrl, value);
       // Fall through to normal setSettings
     }
 

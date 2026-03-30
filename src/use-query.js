@@ -80,7 +80,7 @@ export function useQuery(spec, defaults, skipKeys = []) {
   } else {
     for (let [key, extract] of Object.entries(spec)) {
       if (skipKeys.includes(key)) continue;
-      if (localStorage.getItem(key)) {
+      if (localStorage.getItem(key) !== null) {
         initial[key] = extract.restore(key);
       }
     }

@@ -1,3 +1,19 @@
+One thing the registry surfaced worth noting: axis49_center_note, lumatone_center_channel, and lumatone_center_note are currently in session-defaults.js as plain hardcoded values but I've classified them as runtime in the registry — they should never be persisted since they're overwritten when a controller is detected. That's a cleanup we can make when we wire the registry into session-defaults.js in Step 5.
+
+Step 3 complete. The contract block in src/use-synth-wiring.js now documents four explicit categories:
+
+Full synth rebuild — 28 keys across tuning, MTS real-time, MTS bulk, MPE, OSC, and MIDI state, each with a one-line reason
+Canvas-only update — fundamental → updateFundamental(), color keys → use-settings-change.js
+Auto-send trigger — the RAF-debounced static map send path and what drives it
+No rebuild needed — input/UI settings consumed per-event by keys.js, not at construction time
+Two things the contract surfaced worth noting for later:
+
+midi_velocity is in the full-rebuild array but is used per-note — it could be moved to the no-rebuild category and read live from settingsRef.current like direct_device_id already is. That's a future optimization.
+
+direct_tuning_map_name and direct_tuning_map_number appear in both the full-rebuild array and the auto-send trigger array — meaning a map-number change currently causes a full synth teardown+rebuild just to update a header field. Once the output transport is its own module (Step 8), this can be narrowed to a transport-only update.
+
+
+
 # Hexatone IO Refactor — Code Review and Annotations
 
 *Review date: 2026-03-30. Written after examining the current codebase state

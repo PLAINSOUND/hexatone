@@ -50,6 +50,38 @@ describe('Extract', () => {
   });
 });
 
+// ── Falsy-value round-trip tests ──────────────────────────────────────────────
+// Guards against the localStorage.getItem(key) truthiness check that drops
+// valid stored values of 0, false, and empty string.
+
+describe('ExtractInt falsy round-trip', () => {
+  it('restores 0 correctly (not collapsed to null)', () => {
+    ExtractInt.store('int_zero', 0);
+    expect(ExtractInt.restore('int_zero')).toBe(0);
+  });
+});
+
+describe('ExtractFloat falsy round-trip', () => {
+  it('restores 0.0 correctly (not collapsed to null)', () => {
+    ExtractFloat.store('float_zero', 0.0);
+    expect(ExtractFloat.restore('float_zero')).toBe(0);
+  });
+});
+
+describe('ExtractBool falsy round-trip', () => {
+  it('restores false correctly (not collapsed to null)', () => {
+    ExtractBool.store('bool_false', false);
+    expect(ExtractBool.restore('bool_false')).toBe(false);
+  });
+});
+
+describe('ExtractString falsy round-trip', () => {
+  it('restores empty string correctly (not collapsed to null)', () => {
+    ExtractString.store('str_empty', '');
+    expect(ExtractString.restore('str_empty')).toBe('');
+  });
+});
+
 // ── ExtractArray class ────────────────────────────────────────────────────────
 
 describe('ExtractArray', () => {
