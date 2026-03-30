@@ -382,7 +382,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
 // sidebar display of the scala file, degrees, note names, colors in an html table format
 const ScaleTable = (props) => {
   const scale = [...(props.settings.scale || [])];
-  const equiv_interval = scale.length ? scale.pop() : 0;
+  const equiv_interval = scale.length ? scale.pop() : "2/1";
   scale.unshift(0);
 
   const degrees = [...Array(scale.length).keys()];

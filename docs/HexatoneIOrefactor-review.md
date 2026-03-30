@@ -12,6 +12,16 @@ midi_velocity is in the full-rebuild array but is used per-note — it could be 
 
 direct_tuning_map_name and direct_tuning_map_number appear in both the full-rebuild array and the auto-send trigger array — meaning a map-number change currently causes a full synth teardown+rebuild just to update a header field. Once the output transport is its own module (Step 8), this can be narrowed to a transport-only update.
 
+Step 5 complete. Here's what changed:
+
+src/persistence/settings-registry.js — added sysex_auto (was in the useQuery spec but missing from the registry), added buildQuerySpec(extractors) export that generates the spec object from registry entries.
+
+src/session-defaults.js — entirely replaced. Now 40 lines instead of 93. Imports from the registry and storage-utils, loops over SESSION_KEYS, dispatches by type. The sessionInt helper is gone (it's now in storage-utils). Runtime-only keys (axis49_center_note, lumatone_center_channel, lumatone_center_note, wheel_to_recent) are no longer in session-defaults at all — they'll be picked up from preset_values.js defaults.
+
+src/app.jsx — the 50-line hand-written useQuery spec object is replaced by a 5-line buildQuerySpec(...) call. The PRESET_SKIP_KEYS import moves from use-presets.js to the registry (the one in use-presets.js still exists as the authoritative definition for scale-reset behaviour there — the registry-derived one is used for URL persistence skip).
+
+All five steps of the plan are now complete. The codebase satisfies every review gate in ClaudeRefactorPlan.md.
+
 
 
 # Hexatone IO Refactor — Code Review and Annotations

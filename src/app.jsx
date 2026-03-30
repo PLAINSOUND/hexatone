@@ -8,7 +8,7 @@ import {
 } from "preact/hooks";
 
 import Keyboard from "./keyboard";
-import { presets, default_settings } from "./settings/preset_values";
+import { presets } from "./settings/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
 import { forceResumeAudioContext } from "./sample_synth";
 import { instruments } from "./sample_synth/instruments";
@@ -23,7 +23,8 @@ import {
   ExtractBool,
   ExtractJoinedString,
 } from "./use-query";
-import usePresets, { PRESET_SKIP_KEYS } from "./use-presets.js";
+import usePresets from "./use-presets.js";
+import { buildQuerySpec, buildRegistryDefaults, PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
@@ -94,78 +95,24 @@ const App = () => {
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
 
   const [settings, setSettings] = useQuery(
+    buildQuerySpec({
+      int:    ExtractInt,
+      float:  ExtractFloat,
+      bool:   ExtractBool,
+      string: ExtractString,
+      joined: ExtractJoinedString,
+    }),
     {
-      name: ExtractString,
-      description: ExtractString,
-
-      // Input
-      midiin_device: ExtractString,
-      midiin_channel: ExtractInt,
-      midiin_steps_per_channel: ExtractInt,
-      midiin_anchor_channel: ExtractInt,
-      controller_anchor_note: ExtractInt,
-      midiin_channel_legacy: ExtractBool,
-      midi_passthrough: ExtractBool,
-      midiin_central_degree: ExtractInt,
-      axis49_center_note: ExtractInt,
-      wheel_to_recent: ExtractBool,
-      lumatone_center_channel: ExtractInt,
-      lumatone_center_note: ExtractInt,
-
-      // Output
-      output_sample: ExtractBool,
-      output_mts: ExtractBool,
-      output_mpe: ExtractBool,
-      output_direct: ExtractBool,
-      fluidsynth_device: ExtractString,
-      fluidsynth_channel: ExtractInt,
-      direct_device: ExtractString,
-      direct_mode: ExtractString,
-      direct_channel: ExtractInt,
-      direct_sysex_auto: ExtractBool,
-      direct_device_id: ExtractInt,
-      direct_tuning_map_number: ExtractInt,
-      mpe_device: ExtractString,
-      mpe_manager_ch: ExtractString,
-      mpe_lo_ch: ExtractInt,
-      mpe_hi_ch: ExtractInt,
-      mpe_mode: ExtractString,
-      mpe_pitchbend_range: ExtractInt,
-      mpe_pitchbend_range_manager: ExtractInt,
-      instrument: ExtractString,
-      fundamental: ExtractFloat,
-      reference_degree: ExtractInt,
-      midi_mapping: ExtractString,
-      midi_device: ExtractString,
-      midi_channel: ExtractInt,
-      midi_velocity: ExtractInt,
-      sysex_auto: ExtractBool,
-      sysex_type: ExtractInt,
-      device_id: ExtractInt,
-      tuning_map_number: ExtractInt,
-
-      // Layout
-      rSteps: ExtractInt,
-      drSteps: ExtractInt,
-      hexSize: ExtractInt,
-      rotation: ExtractInt,
-      // Scale
-      scale: ExtractJoinedString,
-      key_labels: ExtractString,
-      retuning_mode: ExtractString,
-      equivSteps: ExtractInt,
-      note_names: ExtractJoinedString,
-      spectrum_colors: ExtractBool,
-      fundamental_color: ExtractString,
-      note_colors: ExtractJoinedString,
-    },
-    {
-      ...default_settings,
+      // 1. Registry url/runtime defaults — blank-slate values for all keys.
+      //    scale/note_names/note_colors are null so the table starts empty.
+      ...buildRegistryDefaults(),
+      // 2. Session defaults — restore device/output choices from sessionStorage.
       ...sessionDefaults,
-      // Preset-specific fields start empty — populated only when a preset is loaded.
-      // scale/note_names/note_colors handle null gracefully (render empty table).
+      // 3. Preset-specific fields always start empty — populated only when a
+      //    preset is explicitly loaded. null is handled gracefully everywhere.
       name: "",
       description: "",
+      scale: null,
       note_names: null,
       note_colors: null,
     },

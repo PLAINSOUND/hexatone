@@ -92,6 +92,7 @@ export const SETTINGS_REGISTRY = [
   { key: 'midi_channel',      tier: 'session', type: 'int',    default: 0 },
   { key: 'midi_mapping',      tier: 'session', type: 'string', default: 'MTS1' },
   { key: 'midi_velocity',     tier: 'session', type: 'int',    default: 72 },
+  { key: 'sysex_auto',        tier: 'session', type: 'bool',   default: false },
   { key: 'sysex_type',        tier: 'session', type: 'int',    default: 126 },
   { key: 'device_id',         tier: 'session', type: 'int',    default: 127 },
   { key: 'tuning_map_number', tier: 'session', type: 'int',    default: 0 },
@@ -140,7 +141,7 @@ export const SETTINGS_REGISTRY = [
   // and is intentionally not part of the settings object.
 ];
 
-// ── Derived lookup maps ───────────────────────────────────────────────────────
+// ── Derived lookup maps ────────────────────────────────────────────────────────
 
 /** All entries keyed by settings key for O(1) lookup. */
 export const REGISTRY_BY_KEY = Object.fromEntries(
@@ -166,3 +167,54 @@ export const RUNTIME_KEYS = SETTINGS_REGISTRY
 export const PRESET_SKIP_KEYS = SETTINGS_REGISTRY
   .filter(e => e.presetSkip)
   .map(e => e.key);
+
+/**
+ * Build the spec object for useQuery from the registry.
+ *
+ * Maps each 'url'-tier key to its corresponding Extract* instance.
+ * The extractors are passed in by the caller so this module stays free of
+ * Preact/use-query imports (pure data layer).
+ *
+ * @param {object} extractors  { int, float, bool, string, joined } — Extract* instances
+ * @returns {object}  spec object for useQuery
+ *
+ * Usage in app.jsx:
+ *   import { buildQuerySpec } from './persistence/settings-registry.js';
+ *   import { ExtractInt, ExtractFloat, ... } from './use-query.js';
+ *   const spec = buildQuerySpec({ int: ExtractInt, float: ExtractFloat,
+ *                                  bool: ExtractBool, string: ExtractString,
+ *                                  joined: ExtractJoinedString });
+ */
+/**
+ * Build a flat object of default values for all url-tier and runtime-tier keys.
+ * Used as the base layer in the useQuery defaults object, before preset_values
+ * default_settings and sessionDefaults are spread on top.
+ *
+ * This restores the blank-slate defaults that previously lived at the bottom of
+ * session-defaults.js (scale, rSteps, drSteps, hexSize, rotation, equivSteps,
+ * reference_degree, center_degree, fundamental, etc.).
+ */
+export function buildRegistryDefaults() {
+  const defaults = {};
+  for (const entry of SETTINGS_REGISTRY) {
+    if (entry.tier === 'url' || entry.tier === 'runtime') {
+      if (entry.default !== undefined) defaults[entry.key] = entry.default;
+    }
+  }
+  return defaults;
+}
+
+export function buildQuerySpec(extractors) {
+  const spec = {};
+  for (const entry of SETTINGS_REGISTRY) {
+    if (entry.tier !== 'url') continue;
+    switch (entry.type) {
+      case 'int':    spec[entry.key] = extractors.int;    break;
+      case 'float':  spec[entry.key] = extractors.float;  break;
+      case 'bool':   spec[entry.key] = extractors.bool;   break;
+      case 'string': spec[entry.key] = extractors.string; break;
+      case 'joined': spec[entry.key] = extractors.joined; break;
+    }
+  }
+  return spec;
+}

@@ -143,7 +143,7 @@ const Scale = (props) => {
 
   // Get current equave value from scale array
   const scale = props.settings.scale || [];
-  const equaveValue = scale.length > 0 ? scale[scale.length - 1] : String((props.settings.equivSteps || 12) * 100);
+  const equaveValue = scale.length > 0 ? scale[scale.length - 1] : "2/1";
 
   // Handle equave change - update the last element of scale array
   const handleEquaveChange = (e) => {
@@ -238,7 +238,7 @@ const Scale = (props) => {
               const n = props.settings.equivSteps || 12;
               let equaveStr = (props.settings.scale && props.settings.scale[n - 1])
                 ? props.settings.scale[n - 1]
-                : String(n * 100);
+                : "2/1";
 
               let equaveCents;
 
