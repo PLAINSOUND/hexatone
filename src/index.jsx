@@ -18,7 +18,7 @@ if (process.env.NODE_ENV !== "production") {
 
 // ── Version tracking for cache busting ─────────────────────────────────────
 // Increment this version for each release to force cache refresh
-const APP_VERSION = '3.1.0-beta.1';
+const APP_VERSION = '3.1.0-beta.2';
 
 // Check stored version and force reload if mismatch
 const storedVersion = localStorage.getItem('hexatone_version');
