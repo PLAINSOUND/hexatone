@@ -321,6 +321,10 @@ That means:
 This is one of the main reasons input and output must be refactored together
 rather than as separate subsystems.
 
+### TODO: OCT handling for static map
+
+The current UI exposes an OCT button that either applies an octave shift immediately or defers it until held notes are released. The static bulk dump needs to mirror that behaviour: every non-deferred OCT press must recalc the 128-note map (incrementing the carrier slot numbers by 12 cents-equivalent) and re-send it when auto-send is on. In deferred mode the tuning map should skip the carrier slots currently held by sounding notes, send the rest of the map, and then keep tracking those held slots so that as each note releases its entry is updated and a fresh map is sent until no deferred carriers remain. This TODO belongs here because it ties the UI shortcut (OCT button state) directly to the static bulk transport that assumes a fixed 128-note map; it should be resolved before finalizing the static bulk behaviour in Phase 6.
+
 ## Persistence Principles
 
 The persistence refactor still applies unchanged at the architectural level.
