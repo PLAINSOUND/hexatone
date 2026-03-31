@@ -208,6 +208,10 @@ const useSynthWiring = (
         // Re-render UI and re-run synth creation whenever MIDI devices change.
         m.onstatechange = () => setMidiTick((t) => t + 1);
       }, () => {
+        // Must decrement loading even on failure — on iOS, requestMIDIAccess with
+        // sysex:true is rejected (no sysex support without MIDIWeb). Without this
+        // setLoading(signal) the counter stays at 1 and the spinner never clears.
+        setLoading(signal);
         console.log("Web MIDI API could not initialise!");
       });
     }
@@ -465,16 +469,20 @@ const useSynthWiring = (
         validSynths.length === 1
           ? validSynths[0]
           : create_composite_synth(validSynths);
-      // Await prepare() before setting the synth AND before clearing the
-      // loading state. This guarantees:
-      //  1. decodedBuffers is set before the keyboard becomes interactive.
-      //  2. The keyboard does not re-appear with the OLD synth while the new
-      //     one is still being prepared — which would let the user click a note
-      //     on the old synth, then have it cut off by Keys reconstruction when
-      //     setSynth(new) arrives, producing a "peep".
-      if (s.prepare && userHasInteracted) {
-        await s.prepare();
-      }
+      // Set the synth and clear the spinner immediately — do NOT await prepare()
+      // here. On iOS, prepare() calls AudioContext.resume() + decodeAudioData,
+      // both of which require a running AudioContext. The synth effect runs outside
+      // the original gesture window (React defers effects), so resume() stalls and
+      // decodeAudioData never resolves, leaving the loading counter permanently at 1.
+      //
+      // prepare() is called in two safe places instead:
+      //  1. presetChanged() in use-presets.js — directly inside the gesture handler,
+      //     before setSettings fires, so the AudioContext is within the gesture window.
+      //  2. The userHasInteracted effect below — fires when the user next taps the canvas.
+      //
+      // Trade-off: on desktop, the first note after a preset change may briefly use the
+      // old decoded buffers (a very short "peep") if the new instrument hasn't decoded
+      // yet. Acceptable given that the iOS hang is the worse failure.
       if (cancelled) { setLoading(signal); return; }
       setSynth(s);
       setLoading(signal);
