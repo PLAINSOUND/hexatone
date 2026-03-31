@@ -67,7 +67,8 @@ class Keys {
       pitchBendMode:     'recency',
       pressureMode:      'recency',
       wheelToRecent:     settings.wheel_to_recent,
-      wheelRange:        settings.midi_wheel_range ?? '28/27',
+      // wheelRange and bendRange both use midiin_bend_range — unified with Pitch Bend Interval UI.
+      wheelRange:        settings.midiin_bend_range ?? '28/27',
       wheelScaleAware:   settings.wheel_scale_aware,
       wheelSemitones:    settings.midi_wheel_semitones ?? 2,
       // Pitch bend range for incoming hardware controller bend messages.
@@ -310,17 +311,17 @@ class Keys {
               if (hex.expression) hex.expression(value);
             }
           } else if (cc === 74) {
-            // CC74 (timbre/slide) is dropped in MTS output mode — no meaningful mapping.
-            if (!isMTSOutput) {
-              if (this.inputRuntime.mpeInput) {
-                // MPE input mode: CC74 is per-voice, carried on the note's channel.
-                const entry = this.state.activeMidiByChannel.get(e.message.channel);
-                if (entry && !entry.hex.release && entry.hex.cc74) entry.hex.cc74(value);
-              } else {
-                // Non-MPE: brightness to front of recency stack (global target).
-                const front = this.recencyStack.front;
-                if (front && front.cc74) front.cc74(value);
-              }
+            // CC74 (timbre/slide): always routed to active hexes (sample synth filter,
+            // MPE voice expression, etc.) regardless of output mode.
+            // Passthrough to MTS output is suppressed above — no meaningful MTS mapping.
+            if (this.inputRuntime.mpeInput) {
+              // MPE input mode: CC74 is per-voice, carried on the note's channel.
+              const entry = this.state.activeMidiByChannel.get(e.message.channel);
+              if (entry && !entry.hex.release && entry.hex.cc74) entry.hex.cc74(value);
+            } else {
+              // Non-MPE: brightness to front of recency stack (global target).
+              const front = this.recencyStack.front;
+              if (front && front.cc74) front.cc74(value);
             }
           }
         });

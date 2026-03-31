@@ -103,6 +103,9 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     let decodedBuffers = null;
     let masterGain = null;
     let masterVolume = 1.0;
+    // Last known mod wheel position (0–127). New notes initialize their filter
+    // to this value so the first CC1 message never causes a discontinuous jump.
+    let lastModWheel = 0;
 
     let centsToReference = 0;
     if (reference_degree > 0) {
@@ -182,7 +185,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           coords, cents, velocity_played, note_played, fundamental, centsToReference,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
           velocity_response, aftertouch_amount, filter_freq, filter_amount,
-          decodedBuffers, sharedAudioContext, masterGain
+          decodedBuffers, sharedAudioContext, masterGain, lastModWheel,
+          (v) => { lastModWheel = v; }
         );
       },
     };
@@ -194,7 +198,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 function ActiveHex(coords, cents, velocity_played, note_played, fundamental, centsToReference,
   sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
   velocity_response, aftertouch_amount, filter_freq, filter_amount,
-  sampleBuffer, audioContext, masterGain) {
+  sampleBuffer, audioContext, masterGain, initialModWheel, setModWheel) {
 
   this.coords = coords;
   this.release = false;
@@ -215,6 +219,8 @@ function ActiveHex(coords, cents, velocity_played, note_played, fundamental, cen
   this.sampleBuffer = sampleBuffer;
   this.audioContext = audioContext;
   this.masterGain = masterGain || null;
+  this.initialModWheel = initialModWheel || 0;
+  this._setModWheel = setModWheel || null;
   this._noteOffCalled = false; // Guard against double noteOff
 }
 
@@ -259,12 +265,18 @@ ActiveHex.prototype.noteOn = function() {
 
   const gainNode = this.audioContext.createGain();
 
-  // Lowpass filter — cc74 (slide/timbre) sweeps the cutoff.
+  // Lowpass filter — cc74 (slide/timbre) and mod wheel sweep the cutoff.
   // When filter_amount is 0 the filter sits fully open (20 kHz) and cc74 has no effect.
+  // Initialize to the current mod wheel position so the first CC1 event is seamless.
   const filterNode = this.audioContext.createBiquadFilter();
   filterNode.type = 'lowpass';
   filterNode.Q.value = 1.0;
-  filterNode.frequency.value = this.filter_amount > 0 ? this.filter_freq : 20000;
+  if (this.filter_amount > 0) {
+    const initNorm = this.initialModWheel / 127;
+    filterNode.frequency.value = this.filter_freq * Math.pow(2, initNorm * this.filter_amount);
+  } else {
+    filterNode.frequency.value = 20000;
+  }
 
   source.connect(gainNode);
   gainNode.connect(filterNode);
@@ -333,7 +345,13 @@ ActiveHex.prototype.cc74 = function(value) {
   this.filterNode.frequency.setTargetAtTime(targetFreq, this.audioContext.currentTime, 0.04);
 };
 
-ActiveHex.prototype.modwheel   = function() {};
+// modwheel (CC1): broadcast to all active voices — drives the same filter as cc74.
+// Also updates the synth-level lastModWheel so notes played after a wheel move
+// initialize their filter at the correct position (no discontinuity on first event).
+ActiveHex.prototype.modwheel = function(value) {
+  if (this._setModWheel) this._setModWheel(value);
+  this.cc74(value);
+};
 ActiveHex.prototype.expression = function() {};
 
 ActiveHex.prototype.noteOff = function(release_velocity) {

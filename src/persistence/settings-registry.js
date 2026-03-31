@@ -97,7 +97,7 @@ export const SETTINGS_REGISTRY = [
   { key: 'midiin_mpe_hi_ch',        tier: 'session', type: 'int',    default: 15 },
   { key: 'midiin_scale_tolerance',  tier: 'url',     type: 'int',    default: 50 },
   { key: 'midiin_pitchbend_mode',   tier: 'session', type: 'string', default: 'recency' },
-  { key: 'midiin_pressure_mode',    tier: 'session', type: 'string', default: 'recency' },
+  { key: 'midiin_pressure_mode',    tier: 'session', type: 'string', default: 'all' },
 
   // ── Controller anchors (hardware-scoped, survive device disconnect) ──────────
   // These are keyed dynamically as "${controllerId}_anchor" in localStorage.

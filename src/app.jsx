@@ -330,9 +330,11 @@ const App = () => {
     scaleTolerance:   settings.midiin_scale_tolerance ?? 50,
     pitchBendMode:    settings.midiin_pitchbend_mode || 'recency',
     pressureMode:     settings.midiin_pressure_mode || 'recency',
-    // Wheel settings kept here for Keys to use alongside routing mode
+    // Wheel settings kept here for Keys to use alongside routing mode.
+    // wheelRange and bendRange both read from midiin_bend_range — the UI
+    // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
     wheelToRecent:    settings.wheel_to_recent,
-    wheelRange:       settings.midi_wheel_range ?? '28/27',
+    wheelRange:       settings.midiin_bend_range ?? '28/27',
     wheelScaleAware:  settings.wheel_scale_aware,
     // Pitch bend range for incoming hardware controller bend messages.
     bendRange:        settings.midiin_bend_range ?? '28/27',
@@ -349,7 +351,6 @@ const App = () => {
     settings.midiin_pitchbend_mode,
     settings.midiin_pressure_mode,
     settings.wheel_to_recent,
-    settings.midi_wheel_range,
     settings.wheel_scale_aware,
     settings.midiin_bend_range,
     settings.midiin_bend_flip,
