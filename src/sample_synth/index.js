@@ -86,7 +86,9 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
     const { gain: sampleGain, attack: sampleAttack, release: sampleRelease,
             loop: sampleLoop, velocity: velocity_response,
-            aftertouch: aftertouch_amount = 0 } = instrument;
+            aftertouch: aftertouch_amount = 0,
+            filter_freq: filter_freq = 8000,
+            filter_amount: filter_amount = 0 } = instrument;
     const sampleLoopPoints = instrument.loopPoints || [0, 0, 0, 0, 0, 0, 0, 0];
 
     // ── Fetch raw ArrayBuffers now — no AudioContext needed, no gesture required
@@ -174,12 +176,13 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         }
       },
 
-      makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
+      makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
         note_played, velocity_played, bend, degree0toRef_ratio) => {
         return new ActiveHex(
           coords, cents, velocity_played, note_played, fundamental, centsToReference,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-          velocity_response, aftertouch_amount, decodedBuffers, sharedAudioContext, masterGain
+          velocity_response, aftertouch_amount, filter_freq, filter_amount,
+          decodedBuffers, sharedAudioContext, masterGain
         );
       },
     };
@@ -190,7 +193,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
 function ActiveHex(coords, cents, velocity_played, note_played, fundamental, centsToReference,
   sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-  velocity_response, aftertouch_amount, sampleBuffer, audioContext, masterGain) {
+  velocity_response, aftertouch_amount, filter_freq, filter_amount,
+  sampleBuffer, audioContext, masterGain) {
 
   this.coords = coords;
   this.release = false;
@@ -206,6 +210,8 @@ function ActiveHex(coords, cents, velocity_played, note_played, fundamental, cen
   this.sampleLoopPoints = sampleLoopPoints;
   this.velocity_response = velocity_response;
   this.aftertouch_amount = aftertouch_amount;
+  this.filter_freq = filter_freq;   // resting cutoff frequency (Hz)
+  this.filter_amount = filter_amount; // octaves of sweep available above resting freq
   this.sampleBuffer = sampleBuffer;
   this.audioContext = audioContext;
   this.masterGain = masterGain || null;
@@ -252,8 +258,18 @@ ActiveHex.prototype.noteOn = function() {
   this.sampleFreq = sampleFreq; // stored so retune() can ramp playbackRate
 
   const gainNode = this.audioContext.createGain();
+
+  // Lowpass filter — cc74 (slide/timbre) sweeps the cutoff.
+  // When filter_amount is 0 the filter sits fully open (20 kHz) and cc74 has no effect.
+  const filterNode = this.audioContext.createBiquadFilter();
+  filterNode.type = 'lowpass';
+  filterNode.Q.value = 1.0;
+  filterNode.frequency.value = this.filter_amount > 0 ? this.filter_freq : 20000;
+
   source.connect(gainNode);
-  gainNode.connect(this.masterGain || this.audioContext.destination);
+  gainNode.connect(filterNode);
+  filterNode.connect(this.masterGain || this.audioContext.destination);
+
   gainNode.gain.value = 0;
   source.start(0);
   gainNode.gain.setTargetAtTime(
@@ -263,6 +279,7 @@ ActiveHex.prototype.noteOn = function() {
   );
   this.source = source;
   this.gainNode = gainNode;
+  this.filterNode = filterNode;
 };
 
 /**
@@ -297,7 +314,7 @@ ActiveHex.prototype.aftertouch = function(value) {
   if (this.release || !this.gainNode) return;
   const pressure = Math.max(0, Math.min(127, value)) / 127;
   const targetGain = this.sampleGain * this.base_vol * (1 + this.aftertouch_amount * pressure);
-  this.gainNode.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.02);
+  this.gainNode.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.04);
 };
 
 // pressure: same as aftertouch for the sample engine (gain modulation).
@@ -305,8 +322,17 @@ ActiveHex.prototype.pressure = function(value) {
   this.aftertouch(value);
 };
 
-// cc74, modwheel, expression: no Web Audio mapping yet — no-ops.
-ActiveHex.prototype.cc74       = function() {};
+// cc74 (slide / timbre): sweeps the lowpass filter cutoff.
+// norm 0–1 maps logarithmically from filter_freq to filter_freq * 2^filter_amount.
+// When filter_amount is 0 the filter is fully open and this is a no-op.
+ActiveHex.prototype.cc74 = function(value) {
+  if (this.release || !this.filterNode || this.filter_amount === 0) return;
+  const norm = Math.max(0, Math.min(127, value)) / 127;
+  // Logarithmic sweep: cc74=0 → filter_freq, cc74=127 → filter_freq * 2^filter_amount
+  const targetFreq = this.filter_freq * Math.pow(2, norm * this.filter_amount);
+  this.filterNode.frequency.setTargetAtTime(targetFreq, this.audioContext.currentTime, 0.04);
+};
+
 ActiveHex.prototype.modwheel   = function() {};
 ActiveHex.prototype.expression = function() {};
 

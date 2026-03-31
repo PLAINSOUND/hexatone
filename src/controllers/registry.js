@@ -376,6 +376,10 @@ export const CONTROLLER_REGISTRY = [
     mpe: false,  // channels encode block geometry, not per-voice MPE expression
     anchorDefault: 26,  // note 26 in centre block is the default centre key
     anchorChannelDefault: 3,  // centre block
+    // In sequential/bypass mode: channels 1–5 map to blocks — transposition by equave
+    // and mod-8 wrapping are both needed for correct note mapping.
+    sequentialTransposeDefault: null,  // null = equave (one equave per channel)
+    sequentialLegacyDefault: true,     // wrap channels 9–16 → 1–8
     buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 26),
   },
 
@@ -419,7 +423,7 @@ export const CONTROLLER_REGISTRY = [
     id: 'exquis',
     name: 'Exquis (Intuitive Instruments)',
     detect: name => name.includes('exquis'),
-    description: '61-note hex grid. Use Rainbow Layout (Preset 6).',
+    description: '61-note hex grid. Press Settings2 button to choose MPE or Ch1 + PolyAftertouch (push encoder1), Pitch Bend Range (set encoder2 to 48) and Rainbow Layout (encoder3, 6).',
     multiChannel: false,
     mpe: true,  // Exquis sends MPE (per-note pitch bend and pressure on individual channels)
     // In Rainbow Layout the Exquis always uses ch 2–15 for MPE voices.
@@ -427,6 +431,9 @@ export const CONTROLLER_REGISTRY = [
     mpeVoiceChannels: { lo: 2, hi: 15 },
     anchorDefault: 19,
     buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
+    // Default to sequential (bypass 2D geometry) on first connect — the user must
+    // manually select Rainbow Layout on the device before 2D geometry is meaningful.
+    passthroughDefault: true,
   },
 
   {

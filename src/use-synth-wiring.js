@@ -652,6 +652,22 @@ const useSynthWiring = (
     return { input: rawIn, output: rawOut };
   }, [midi, midiTick, settings.midiin_device]);
 
+  // When the active MIDI input is an Exquis, resolve both raw Web MIDI ports.
+  // Output is needed for SysEx sends (LED colors, dev mode).
+  // Input is needed to listen for Refresh (03h) from the device.
+  const exquisRawPorts = useMemo(() => {
+    if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
+    const rawIn = midi.inputs.get(settings.midiin_device);
+    if (!rawIn) return null;
+    const ctrl = detectController(rawIn.name.toLowerCase());
+    if (!ctrl || ctrl.id !== 'exquis') return null;
+    const rawOut = Array.from(midi.outputs.values()).find(
+      (o) => ctrl.detect(o.name.toLowerCase()),
+    );
+    if (!rawOut) return null;
+    return { input: rawIn, output: rawOut };
+  }, [midi, midiTick, settings.midiin_device]);
+
   return {
     synth,
     midi,
@@ -667,6 +683,7 @@ const useSynthWiring = (
     onVolumeChange,
     onAnchorLearn,
     lumatoneRawPorts,
+    exquisRawPorts,
   };
 };
 

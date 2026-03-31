@@ -160,6 +160,7 @@ const App = () => {
     onVolumeChange,
     onAnchorLearn,
     lumatoneRawPorts,
+    exquisRawPorts,
   } = useSynthWiring(settings, setSettings, {
     ready,
     userHasInteracted,
@@ -331,8 +332,11 @@ const App = () => {
     pressureMode:     settings.midiin_pressure_mode || 'recency',
     // Wheel settings kept here for Keys to use alongside routing mode
     wheelToRecent:    settings.wheel_to_recent,
-    wheelRange:       settings.midi_wheel_range ?? '9/8',
+    wheelRange:       settings.midi_wheel_range ?? '28/27',
     wheelScaleAware:  settings.wheel_scale_aware,
+    // Pitch bend range for incoming hardware controller bend messages.
+    bendRange:        settings.midiin_bend_range ?? '28/27',
+    bendFlip:         !!settings.midiin_bend_flip,
   }), [
     settings.midiin_mapping_target,
     settings.midi_passthrough,
@@ -347,6 +351,8 @@ const App = () => {
     settings.wheel_to_recent,
     settings.midi_wheel_range,
     settings.wheel_scale_aware,
+    settings.midiin_bend_range,
+    settings.midiin_bend_flip,
   ]);
 
   // Structural settings: everything except colors. Memoized so Keys is only
@@ -478,6 +484,7 @@ const App = () => {
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
           lumatoneRawPorts={lumatoneRawPorts}
+          exquisRawPorts={exquisRawPorts}
         />
       )}
 
@@ -660,6 +667,7 @@ const App = () => {
           instruments={instruments}
           keysRef={keysRef}
           lumatoneRawPorts={lumatoneRawPorts}
+          exquisRawPorts={exquisRawPorts}
           snapshots={snapshots}
           playingSnapshotId={playingSnapshotId}
           onPlaySnapshot={onPlaySnapshot}

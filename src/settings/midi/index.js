@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
+import { saveControllerPref } from '../../input/controller-anchor.js';
 import { downloadLtn, DEFAULT_CENTRAL_BOARD, DEFAULT_CENTRAL_KEY, DEFAULT_CENTRAL_CHANNEL, DEFAULT_CENTRAL_NOTE } from '../scale/lumatone-export.js';
 import { scalaToCents } from '../scale/parse-scale.js';
 
@@ -50,12 +51,29 @@ const MIDIio = (props) => {
     }
   };
 
-  // Channel Transposition is shown when the 2D controller map is NOT active:
-  //   - unknown / no device connected
-  //   - known 2D controller with Bypass Key Mapping enabled
+  // Channel Transposition is shown when sequential arithmetic is meaningful:
+  //   - not in active 2D geometry mode
+  //   - AND not a multichannel controller (Lumatone, LinnStrument, TonalPlexus —
+  //     their channels encode layout geometry, not keyboard splits)
   const using2DMap = ctrl && !props.settings.midi_passthrough;
+  // Channel Transposition is shown when sequential channel-offset arithmetic is meaningful:
+  //   - not in active 2D geometry mode
+  //   - not when MPE is on (channels carry per-voice expression, not splits)
+  //   - not for single-channel known controllers (AXIS-49, TS41, Push, Launchpad, Exquis)
+  //     — they only ever send on one channel so transposition has no effect
+  //   - shown for unknown controllers (may be a multichannel keyboard split)
+  //   - shown for multichannel non-MPE controllers in sequential/bypass mode (Lumatone)
+  const isMultiChannelSequential = !ctrl || ctrl.multiChannel;
+  const showChannelTranspose = !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
 
-  const [mpeSetupOpen, setMpeSetupOpen] = useState(false);
+  // mpeSetupOpen removed — MPE options are shown flat when MPE is enabled.
+
+  // Exquis dev mode test panel state
+  const [exquisDevOpen, setExquisDevOpen] = useState(false);
+  const [devMaskBits, setDevMaskBits] = useState(0x01); // bitmask built from checkboxes
+  const [devZone, setDevZone] = useState('100');   // button/encoder CC id (ch 16)
+  const [devValue, setDevValue] = useState('127');  // value to send
+  const [devPadId, setDevPadId] = useState('0');   // pad ID for CMD 04 color test (0–60)
 
   return (
     <fieldset>
@@ -78,6 +96,77 @@ const MIDIio = (props) => {
 
       {props.settings.midiin_device && props.settings.midiin_device !== 'OFF' && (
         <>
+          {/* ── MPE / Poly-AT Input ─────────────────────────────────────────────
+              Shown first — MPE mode changes the meaning of all controls below it.
+              Shown for MPE-capable controllers and unknown controllers.
+              See claude-context/midi-input-ux.md for the full visibility spec. */}
+          {(!ctrl || ctrl.mpe) && (
+            <>
+              <label>
+                Enable MPE Input
+                <input
+                  name="midiin_mpe_input"
+                  type="checkbox"
+                  checked={!!props.settings.midiin_mpe_input}
+                  onChange={(e) => {
+                    props.onChange('midiin_mpe_input', e.target.checked);
+                    saveControllerPref(ctrl, 'midiin_mpe_input', e.target.checked);
+                  }}
+                />
+              </label>
+
+              {/* Voice channel range — shown when MPE is on */}
+              {props.settings.midiin_mpe_input && !ctrl?.mpeVoiceChannels && (
+                <label title="Voice data channels (ch 1 and 16 are typically MPE manager/global channels)">
+                  Voice channels {props.settings.midiin_mpe_lo_ch ?? 2}–{props.settings.midiin_mpe_hi_ch ?? 15}
+                  <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      key={props.settings.midiin_mpe_lo_ch ?? 2}
+                      defaultValue={props.settings.midiin_mpe_lo_ch ?? 2}
+                      style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                      onBlur={(e) => {
+                        const v = parseInt(e.target.value);
+                        if (!isNaN(v) && v >= 1 && v <= 16) {
+                          props.onChange('midiin_mpe_lo_ch', v);
+                          sessionStorage.setItem('midiin_mpe_lo_ch', String(v));
+                        } else {
+                          e.target.value = props.settings.midiin_mpe_lo_ch ?? 2;
+                        }
+                      }}
+                    />
+                    <span>–</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      key={props.settings.midiin_mpe_hi_ch ?? 15}
+                      defaultValue={props.settings.midiin_mpe_hi_ch ?? 15}
+                      style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                      onBlur={(e) => {
+                        const v = parseInt(e.target.value);
+                        if (!isNaN(v) && v >= 1 && v <= 16) {
+                          props.onChange('midiin_mpe_hi_ch', v);
+                          sessionStorage.setItem('midiin_mpe_hi_ch', String(v));
+                        } else {
+                          e.target.value = props.settings.midiin_mpe_hi_ch ?? 15;
+                        }
+                      }}
+                    />
+                  </span>
+                </label>
+              )}
+              {props.settings.midiin_mpe_input && ctrl?.mpeVoiceChannels && (
+                <label title="Voice channel range is fixed by this controller's hardware configuration">
+                  Voice channels
+                  <span class="sidebar-input" style={{ color: '#888', fontStyle: 'italic' }}>
+                    {ctrl.mpeVoiceChannels.lo}–{ctrl.mpeVoiceChannels.hi} (fixed)
+                  </span>
+                </label>
+              )}
+            </>
+          )}
+
           {/* ── Known 2D controller ── */}
           {ctrl ? (
             <>
@@ -178,11 +267,6 @@ const MIDIio = (props) => {
                   }}
                 />
               </label>
-              {props.settings.midi_passthrough && (
-                <p><em style={{ color: '#996666' }}>
-                  2D geometry bypassed — notes mapped sequentially, channel transposition active below.
-                </em></p>
-              )}
 
               {/* ── Lumatone LED colour sync + layout ── */}
               {ctrl?.id === 'lumatone' && (
@@ -221,8 +305,9 @@ const MIDIio = (props) => {
                       )}
                     </>
                   )}
-                  <label>
-                    {props.settings.midi_passthrough ? 'Layout file for sequential mode' : 'Layout file (.ltn)'}
+                  {/* Layout file only applies to 2D geometry mode — not sequential */}
+                  {!props.settings.midi_passthrough && <label>
+                    Layout file (.ltn)
                     <span style={{ display: 'flex', alignItems: 'center',
                                    gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
                       {props.lumatoneRawPorts && (
@@ -259,7 +344,192 @@ const MIDIio = (props) => {
                         Download
                       </button>
                     </span>
+                  </label>}
+                </>
+              )}
+
+              {/* ── Exquis SysEx Output status ── reserved for future firmware revision
+                  that exposes LED control without requiring dev mode takeover.
+                  Re-enable when LED sync is functional. */}
+              {false && ctrl?.id === 'exquis' && (
+                <label style={{ fontStyle: 'italic', color: props.exquisRawPorts ? '#669966' : '#996666', marginTop: '0.5em' }}>
+                  SysEx Output
+                  <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
+                    {props.exquisRawPorts
+                      ? `Connected — ${props.exquisRawPorts.output.name}`
+                      : 'Not found (output port unavailable)'}
+                  </span>
+                </label>
+              )}
+              {/* Key color sync — disabled: dev mode kills MPE (pads send note-on ch16 only).
+                  Palette approach (CMD 02 + CC ch16) also did not work. Awaiting firmware update. */}
+              {false && ctrl?.id === 'exquis' && props.exquisRawPorts && !props.settings.midi_passthrough && (
+                <label>
+                  Key colors
+                  <span class="sidebar-input">
+                    <button type="button" style={{ fontSize: '0.85em' }}
+                      onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}>
+                      Sync now
+                    </button>
+                  </span>
+                </label>
+              )}
+
+              {/* ── Exquis Dev Mode test panel ── disabled: dev mode takes over pads,
+                  leaving only note-on ch16 (no MPE expression). Left here for future
+                  firmware update that may expose LED control without dev mode takeover. */}
+              {false && ctrl?.id === 'exquis' && props.exquisRawPorts && (
+                <>
+                  <label style={{ marginTop: '0.6em', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => setExquisDevOpen(o => !o)}>
+                    {exquisDevOpen ? '▾' : '▸'} Dev Mode Test
+                    <span class="sidebar-input" />
                   </label>
+
+                  {exquisDevOpen && (() => {
+                    const out = props.exquisRawPorts.output;
+                    const DUALO = [0xF0, 0x00, 0x21, 0x7E, 0x7F];
+                    return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+
+                      {/* Enter / Exit dev mode — zone bitmask via checkboxes */}
+                      {[
+                        { bit: 0x01, label: 'Pads' },
+                        { bit: 0x02, label: 'Encoders' },
+                        { bit: 0x04, label: 'Slider' },
+                        { bit: 0x08, label: 'Up/Down buttons' },
+                        { bit: 0x10, label: 'Settings/Sound buttons' },
+                        { bit: 0x20, label: 'All other buttons' },
+                      ].map(({ bit, label }) => (
+                        <label key={bit}>
+                          {label}
+                          <input type="checkbox"
+                            checked={!!(devMaskBits & bit)}
+                            onChange={e => setDevMaskBits(b => e.target.checked ? b | bit : b & ~bit)}
+                          />
+                        </label>
+                      ))}
+                      <label>
+                        Dev mode (mask: {devMaskBits.toString(16).toUpperCase().padStart(2, '0')})
+                        <span class="sidebar-input" style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                          <button type="button" style={{ fontSize: '0.85em' }}
+                            onClick={() => out.send([...DUALO, 0x00, devMaskBits, 0xF7])}>
+                            Enter</button>
+                          <button type="button" style={{ fontSize: '0.85em' }}
+                            onClick={() => out.send([...DUALO, 0x00, 0x00, 0xF7])}>
+                            Exit</button>
+                        </span>
+                      </label>
+
+                      {/* CMD 04 — direct RGB (in dev mode) */}
+                      <label style={{ marginTop: '0.4em' }} title="CMD 04: set pad color directly. Device must be in dev mode.">
+                        Pad color test
+                        <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <span style={{ fontSize: '0.85em', color: '#666' }}>pad</span>
+                          <input type="text" inputMode="numeric"
+                            value={devPadId}
+                            onChange={e => setDevPadId(e.target.value)}
+                            style={{ width: '2.5em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
+                          />
+                          <button type="button" style={{ fontSize: '0.85em', background: '#c00', color: '#fff', border: 'none', borderRadius: '3px', padding: '0 6px', cursor: 'pointer' }}
+                            onClick={() => {
+                              const id = parseInt(devPadId);
+                              if (isNaN(id) || id < 0 || id > 60) return;
+                              out.send([...DUALO, 0x04, id, 127, 0, 0, 0x00, 0xF7]);
+                            }}>Red</button>
+                          <button type="button" style={{ fontSize: '0.85em' }}
+                            onClick={() => {
+                              const payload = [...DUALO, 0x04, 0x00];
+                              for (let i = 0; i < 61; i++) payload.push(127, 0, 0, 0x00);
+                              payload.push(0xF7);
+                              out.send(payload);
+                            }}>All red</button>
+                        </span>
+                      </label>
+
+                      {/* CMD 02 — palette write + CC ch16 trigger (outside dev mode) */}
+                      <label style={{ marginTop: '0.4em' }} title="CMD 02: write bright red into palette slot 0, then trigger it via CC ch16. Tests whether palette colors work outside dev mode.">
+                        Palette test
+                        <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <span style={{ fontSize: '0.85em', color: '#666' }}>pad</span>
+                          <input type="text" inputMode="numeric"
+                            value={devPadId}
+                            onChange={e => setDevPadId(e.target.value)}
+                            style={{ width: '2.5em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
+                          />
+                          <button type="button" style={{ fontSize: '0.85em' }}
+                            title="Write red into palette slot 0 via CMD 02 (works in or out of dev mode)"
+                            onClick={() => {
+                              // CMD 02: write 1 color at index 0 — bright red (127, 0, 0)
+                              out.send([...DUALO, 0x02, 0x00, 127, 0, 0, 0xF7]);
+                            }}>Write palette</button>
+                          <button type="button" style={{ fontSize: '0.85em' }}
+                            title="Trigger palette slot 0 on this pad via CC ch16 (BF pad 0x00)"
+                            onClick={() => {
+                              const id = parseInt(devPadId);
+                              if (isNaN(id) || id < 0 || id > 60) return;
+                              // BF = CC on ch 16; id = pad/control ID; value = palette index
+                              out.send([0xBF, id & 0x7F, 0x00]);
+                            }}>Trigger CC</button>
+                        </span>
+                      </label>
+
+                      {/* Send CC on ch 16 — button/encoder raw test */}
+                      <label style={{ marginTop: '0.3em' }}>
+                        Ch 16 CC id
+                        <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <select value={devZone} onChange={e => setDevZone(e.target.value)}
+                            style={{ height: '1.5em', fontSize: '0.9em', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}>
+                            <optgroup label="Settings buttons">
+                              <option value="100">100 — Settings (1)</option>
+                              <option value="101">101 — Sound / Settings (2)</option>
+                            </optgroup>
+                            <optgroup label="Transport buttons">
+                              <option value="102">102 — Record</option>
+                              <option value="103">103 — Loop</option>
+                              <option value="104">104 — Clips</option>
+                              <option value="105">105 — Play/Stop</option>
+                              <option value="106">106 — Down</option>
+                              <option value="107">107 — Up</option>
+                              <option value="108">108 — Undo</option>
+                              <option value="109">109 — Redo</option>
+                            </optgroup>
+                            <optgroup label="Encoders (turn: value = 64+delta)">
+                              <option value="110">110 — Encoder 1</option>
+                              <option value="111">111 — Encoder 2</option>
+                              <option value="112">112 — Encoder 3</option>
+                              <option value="113">113 — Encoder 4</option>
+                            </optgroup>
+                          </select>
+                        </span>
+                      </label>
+                      <label title="7F=press/on, 00=release/off; encoder turn: 65=+1 CW, 63=-1 CCW">
+                        Value
+                        <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <input type="text" inputMode="numeric"
+                            value={devValue}
+                            onChange={e => setDevValue(e.target.value)}
+                            style={{ width: '3em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
+                          />
+                          <button type="button" style={{ fontSize: '0.85em' }}
+                            onClick={() => {
+                              const cc = parseInt(devZone);
+                              const val = parseInt(devValue);
+                              if (isNaN(cc) || isNaN(val)) return;
+                              out.send([0xBF, cc & 0x7F, val & 0x7F]);
+                            }}>CC</button>
+                          <button type="button" style={{ fontSize: '0.85em' }}
+                            onClick={() => {
+                              const note = parseInt(devZone);
+                              const vel = parseInt(devValue);
+                              if (isNaN(note) || isNaN(vel)) return;
+                              out.send([0x9F, note & 0x7F, vel & 0x7F]);
+                            }}>Note</button>
+                        </span>
+                      </label>
+                    </div>
+                    );
+                  })()}
                 </>
               )}
             </>
@@ -307,17 +577,13 @@ const MIDIio = (props) => {
                   />
                 </span>
               </label>
-              <p><em>
-                Controller not recognised as 2D isomorphic — using sequential mapping.{' '}<br />
-                <a href="https://github.com/PLAINSOUND/hexatone/issues/new?title=Controller+geometry+request&body=Controller+name:+" target="_blank">
-                  Request geometry integration
-                </a>
-              </em></p>
             </>
           )}
 
-          {/* ── Channel Transposition — for sequential path only (not 2D map mode) ── */}
-          {!using2DMap && (
+          {/* ── Channel Transposition — sequential single-channel path only.
+              Hidden for active 2D geometry mode AND for multichannel controllers
+              (Lumatone, LinnStrument, TonalPlexus — channels encode layout, not splits). */}
+          {showChannelTranspose && (
             <>
               <label>
                 Channel Transposition
@@ -361,131 +627,82 @@ const MIDIio = (props) => {
             </>
           )}
 
-          <label style={{ marginTop: '0.8em' }}>
-            Pitch Wheel → Most Recent Note
-            <input
-              name="wheel_to_recent"
-              type="checkbox"
-              checked={!!props.settings.wheel_to_recent}
-              onChange={(e) => {
-                props.onChange('wheel_to_recent', e.target.checked);
-                sessionStorage.setItem('wheel_to_recent', e.target.checked);
-              }}
-            />
-          </label>
+          {/* Pitch Wheel → Most Recent Note — shown only when MPE is off */}
+          {!props.settings.midiin_mpe_input && (
+            <label>
+              Pitch Wheel → Most Recent Note
+              <input
+                name="wheel_to_recent"
+                type="checkbox"
+                checked={!!props.settings.wheel_to_recent}
+                onChange={(e) => {
+                  props.onChange('wheel_to_recent', e.target.checked);
+                  sessionStorage.setItem('wheel_to_recent', e.target.checked);
+                }}
+              />
+            </label>
+          )}
 
-          {props.settings.wheel_to_recent && (
-            <>
-              <label style={{ opacity: props.settings.wheel_scale_aware ? 0.4 : 1 }}>
-                Wheel range (Scala)
+          {/* ── Pitch Bend Interval ──────────────────────────────────────────────
+              Form A (Scala): MPE on OR wheel-to-recent on.
+                midiin_bend_range — ±full deflection maps to this interval.
+                Set hardware to max range (e.g. Exquis encoder2=48) for resolution.
+              Form B (12edo semitones): MPE off AND wheel-to-recent off.
+                midi_wheel_semitones — raw PB passthrough; sample synth retuned directly.
+              See claude-context/midi-input-ux.md for full spec. */}
+          {(props.settings.midiin_mpe_input || props.settings.wheel_to_recent) ? (
+            <label title="Pitch Bend Interval: the musical interval that ±full deflection maps to. Set hardware to max range for best resolution.">
+              Pitch Bend Interval (Scala)
+              <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
                 <input
                   type="text"
-                  style={{ width: '5em' }}
-                  disabled={!!props.settings.wheel_scale_aware}
-                  value={props.settings.midi_wheel_range ?? '9/8'}
+                  style={{ width: '5em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
+                  value={props.settings.midiin_bend_range ?? '28/27'}
                   onChange={(e) => {
-                    props.onChange('midi_wheel_range', e.target.value);
-                    sessionStorage.setItem('midi_wheel_range', e.target.value);
+                    props.onChange('midiin_bend_range', e.target.value);
+                    saveControllerPref(null, 'midiin_bend_range', e.target.value);
                   }}
                 />
-                <span style={{ marginLeft: '0.5em', color: '#666', fontSize: '0.85em' }}>
+                <span style={{ color: '#666', fontSize: '0.85em', minWidth: '3.5em', textAlign: 'right' }}>
                   {(() => {
                     try {
-                      const c = scalaToCents(props.settings.midi_wheel_range ?? '9/8');
+                      const c = scalaToCents(props.settings.midiin_bend_range ?? '28/27');
                       return isFinite(c) ? `${c.toFixed(1)} ¢` : '';
                     } catch { return ''; }
                   })()}
                 </span>
-              </label>
-
-              {/*
-              <label>
-                Scale-aware (asymmetric)
-                <input
-                  name="wheel_scale_aware"
-                  type="checkbox"
-                  checked={!!props.settings.wheel_scale_aware}
-                  onChange={(e) => {
-                    props.onChange('wheel_scale_aware', e.target.checked);
-                    sessionStorage.setItem('wheel_scale_aware', e.target.checked);
-                  }}
-                />
-              </label>*/}
-            </>
+              </span>
+            </label>
+          ) : (
+            <label title="Standard wheel range in 12-edo semitones. Raw pitch bend passes through to all MIDI outputs; user adjusts range to match in their synth.">
+              Pitch Bend Interval (12edo semitones)
+              <input
+                type="number"
+                min="1"
+                max="24"
+                style={{ width: '3.5em' }}
+                value={props.settings.midi_wheel_semitones ?? 2}
+                onChange={(e) => {
+                  const v = Math.max(1, Math.min(24, parseInt(e.target.value) || 2));
+                  props.onChange('midi_wheel_semitones', v);
+                  sessionStorage.setItem('midi_wheel_semitones', v);
+                }}
+              />
+            </label>
           )}
-        </>
-      )}
 
-      {/* ── MPE Setup ─────────────────────────────────────────────────────── */}
-      <label style={{ marginTop: '0.8em', cursor: 'pointer', userSelect: 'none' }}
-        onClick={() => setMpeSetupOpen(o => !o)}>
-        {mpeSetupOpen ? '▾' : '▸'} MPE Input Setup
-        <span class="sidebar-input" />
-      </label>
-
-      {mpeSetupOpen && (
-        <>
-          <label>
-            Enable MPE Input
+          {/* Reverse Bend Direction — always shown when device is connected */}
+          <label title="Reverse pitch bend direction — useful when the controller surface is oriented so that sliding towards higher pitch sends negative bend values.">
+            Reverse Bend Direction
             <input
-              name="midiin_mpe_input"
               type="checkbox"
-              checked={!!props.settings.midiin_mpe_input}
+              checked={!!props.settings.midiin_bend_flip}
               onChange={(e) => {
-                props.onChange('midiin_mpe_input', e.target.checked);
-                sessionStorage.setItem('midiin_mpe_input', e.target.checked);
+                props.onChange('midiin_bend_flip', e.target.checked);
+                saveControllerPref(ctrl, 'midiin_bend_flip', e.target.checked);
               }}
             />
           </label>
-
-          {props.settings.midiin_mpe_input && !ctrl?.mpeVoiceChannels && (
-            <label title="Voice data channels (ch 1 and 16 are typically MPE manager/global channels)">
-              Voice channels {props.settings.midiin_mpe_lo_ch ?? 2}–{props.settings.midiin_mpe_hi_ch ?? 15}
-              <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  key={props.settings.midiin_mpe_lo_ch ?? 2}
-                  defaultValue={props.settings.midiin_mpe_lo_ch ?? 2}
-                  style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
-                  onBlur={(e) => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v) && v >= 1 && v <= 16) {
-                      props.onChange('midiin_mpe_lo_ch', v);
-                      sessionStorage.setItem('midiin_mpe_lo_ch', String(v));
-                    } else {
-                      e.target.value = props.settings.midiin_mpe_lo_ch ?? 2;
-                    }
-                  }}
-                />
-                <span>–</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  key={props.settings.midiin_mpe_hi_ch ?? 15}
-                  defaultValue={props.settings.midiin_mpe_hi_ch ?? 15}
-                  style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
-                  onBlur={(e) => {
-                    const v = parseInt(e.target.value);
-                    if (!isNaN(v) && v >= 1 && v <= 16) {
-                      props.onChange('midiin_mpe_hi_ch', v);
-                      sessionStorage.setItem('midiin_mpe_hi_ch', String(v));
-                    } else {
-                      e.target.value = props.settings.midiin_mpe_hi_ch ?? 15;
-                    }
-                  }}
-                />
-              </span>
-            </label>
-          )}
-          {props.settings.midiin_mpe_input && ctrl?.mpeVoiceChannels && (
-            <label title="Voice channel range is fixed by this controller's hardware configuration">
-              Voice channels
-              <span class="sidebar-input" style={{ color: '#888', fontStyle: 'italic' }}>
-                {ctrl.mpeVoiceChannels.lo}–{ctrl.mpeVoiceChannels.hi} (fixed)
-              </span>
-            </label>
-          )}
         </>
       )}
 
@@ -505,10 +722,13 @@ MIDIio.propTypes = {
     lumatone_led_sync: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
     midi_wheel_range: PropTypes.string,
+    midi_wheel_semitones: PropTypes.number,
     wheel_scale_aware: PropTypes.bool,
     midiin_mpe_input: PropTypes.bool,
     midiin_mpe_lo_ch: PropTypes.number,
     midiin_mpe_hi_ch: PropTypes.number,
+    midiin_bend_range: PropTypes.string,
+    midiin_bend_flip: PropTypes.bool,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
     name: PropTypes.string,
@@ -516,6 +736,7 @@ MIDIio.propTypes = {
   midi: PropTypes.object,
   midiLearnActive: PropTypes.bool,
   lumatoneRawPorts: PropTypes.object,
+  exquisRawOutput: PropTypes.object,
   keysRef: PropTypes.object,
   onChange: PropTypes.func.isRequired,
 };

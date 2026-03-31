@@ -65,6 +65,20 @@ export const SETTINGS_REGISTRY = [
   { key: 'hexSize',           tier: 'url',     type: 'int',     default: 42,    presetSkip: true },
   { key: 'rotation',          tier: 'url',     type: 'float',   default: -16.102113751, presetSkip: true },
 
+  // ── Per-controller local preferences ─────────────────────────────────────────
+  // tier: 'local'  — stored in localStorage, not URL-synced, not session-scoped.
+  // perController: true  — storage key is `${controllerId}_${key}`.
+  //                        Value is loaded into settings on controller connect
+  //                        via loadControllerPrefs() in controller-anchor.js.
+  // perController: false — storage key is the plain key (cross-controller pref).
+  //
+  // These keys also appear in the 'session' section below as their runtime
+  // representation in the settings object. The 'local' entries here describe
+  // the *persistence* layer; the session entries describe the *live* state.
+  { key: 'midiin_mpe_input',  tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Enable MPE input for this controller' },
+  { key: 'midiin_bend_flip',  tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Reverse pitch bend direction for this controller' },
+  { key: 'midiin_bend_range', tier: 'local', type: 'string', default: '28/27', perController: false, description: 'Pitch bend interval (shared across controllers)' },
+
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: 'midiin_device',           tier: 'session', type: 'string', default: 'OFF' },
   { key: 'midiin_channel',          tier: 'session', type: 'int',    default: 0 },
@@ -73,10 +87,10 @@ export const SETTINGS_REGISTRY = [
   { key: 'controller_anchor_note',  tier: 'session', type: 'int',    default: null },
   { key: 'midiin_channel_legacy',   tier: 'session', type: 'bool',   default: false },
   { key: 'midi_passthrough',        tier: 'session', type: 'bool',   default: false },
-  { key: 'midiin_central_degree',   tier: 'session', type: 'int',    default: null },
+  { key: 'midiin_central_degree',   tier: 'session', type: 'int',    default: 60 },
   // Input runtime mode keys
   { key: 'midiin_mapping_target',   tier: 'session', type: 'string', default: 'hex_layout' },
-  { key: 'midiin_mpe_input',        tier: 'session', type: 'bool',   default: false },
+  // midiin_mpe_input, midiin_bend_range, midiin_bend_flip are 'local' tier (see above).
   // MPE input voice channel range. Channels 1 and 16 are typically reserved
   // (manager/global channel per MPE spec), so the default voice range is 2–15.
   { key: 'midiin_mpe_lo_ch',        tier: 'session', type: 'int',    default: 2 },
@@ -139,9 +153,10 @@ export const SETTINGS_REGISTRY = [
   { key: 'axis49_center_note',     tier: 'runtime', type: 'int',  default: 53 },
   { key: 'lumatone_center_channel',tier: 'runtime', type: 'int',  default: 3 },
   { key: 'lumatone_center_note',   tier: 'runtime', type: 'int',  default: 26 },
-  { key: 'wheel_to_recent',        tier: 'runtime', type: 'bool', default: false },
-  { key: 'midi_wheel_range',       tier: 'session', type: 'string', default: '9/8' },
+  { key: 'wheel_to_recent',        tier: 'session', type: 'bool', default: true },
+  { key: 'midi_wheel_range',       tier: 'session', type: 'string', default: '28/27' },
   { key: 'wheel_scale_aware',      tier: 'session', type: 'bool',   default: false },
+  { key: 'midi_wheel_semitones',   tier: 'session', type: 'int',    default: 2 },
 
   // ── Lumatone LED sync ─────────────────────────────────────────────────────────
   { key: 'lumatone_led_sync', tier: 'session', type: 'bool', default: false },
@@ -172,6 +187,18 @@ export const SESSION_KEYS = SETTINGS_REGISTRY
 export const RUNTIME_KEYS = SETTINGS_REGISTRY
   .filter(e => e.tier === 'runtime')
   .map(e => e.key);
+
+/** All local-tier entries (localStorage, not session, not URL). */
+export const LOCAL_ENTRIES = SETTINGS_REGISTRY
+  .filter(e => e.tier === 'local');
+
+/** Local-tier entries that are scoped per-controller (key = `${ctrlId}_${key}`). */
+export const PER_CONTROLLER_ENTRIES = SETTINGS_REGISTRY
+  .filter(e => e.tier === 'local' && e.perController);
+
+/** Local-tier entries shared across all controllers (key = plain key). */
+export const CROSS_CONTROLLER_ENTRIES = SETTINGS_REGISTRY
+  .filter(e => e.tier === 'local' && !e.perController);
 
 /** Keys excluded from URL/localStorage persistence (preset-specific). */
 export const PRESET_SKIP_KEYS = SETTINGS_REGISTRY
@@ -207,7 +234,7 @@ export const PRESET_SKIP_KEYS = SETTINGS_REGISTRY
 export function buildRegistryDefaults() {
   const defaults = {};
   for (const entry of SETTINGS_REGISTRY) {
-    if (entry.tier === 'url' || entry.tier === 'runtime') {
+    if (entry.tier === 'url' || entry.tier === 'runtime' || entry.tier === 'local') {
       if (entry.default !== undefined) defaults[entry.key] = entry.default;
     }
   }

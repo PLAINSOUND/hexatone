@@ -18,6 +18,7 @@ import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote } from '../controllers/registry.js';
 import { LumatoneLEDs } from '../controllers/lumatone-leds.js';
+// import { ExquisLEDs } from '../controllers/exquis-leds.js'; // disabled: dev mode kills MPE
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -32,7 +33,7 @@ import {
 } from './mts-helpers.js';
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null) {
+  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, exquisRawPorts = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -66,8 +67,14 @@ class Keys {
       pitchBendMode:     'recency',
       pressureMode:      'recency',
       wheelToRecent:     settings.wheel_to_recent,
-      wheelRange:        settings.midi_wheel_range ?? '9/8',
+      wheelRange:        settings.midi_wheel_range ?? '28/27',
       wheelScaleAware:   settings.wheel_scale_aware,
+      wheelSemitones:    settings.midi_wheel_semitones ?? 2,
+      // Pitch bend range for incoming hardware controller bend messages.
+      // Applies to MPE per-note bend and single-channel pitch wheel.
+      // Must match the range configured on the hardware device.
+      bendRange:         settings.midiin_bend_range ?? '28/27',
+      bendFlip:          !!settings.midiin_bend_flip,
     };
 
     this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or DIRECT) to an external synth
@@ -270,7 +277,9 @@ class Keys {
           const value = e.message.dataBytes[1];
 
           // ── Passthrough to all active outputs ─────────────────────────────
-          this._passthroughCC(cc, value);
+          // CC74 is not forwarded in MTS mode — no meaningful mapping exists.
+          const isMTSOutput = this.settings.midi_mapping === 'MTS1' || this.settings.midi_mapping === 'MTS2';
+          if (!(cc === 74 && isMTSOutput)) this._passthroughCC(cc, value);
 
           // ── Internal consumption ──────────────────────────────────────────
           if (cc === 64) {
@@ -301,14 +310,17 @@ class Keys {
               if (hex.expression) hex.expression(value);
             }
           } else if (cc === 74) {
-            if (this.inputRuntime.mpeInput) {
-              // MPE input mode: CC74 is per-voice, carried on the note's channel.
-              const entry = this.state.activeMidiByChannel.get(e.message.channel);
-              if (entry && !entry.hex.release && entry.hex.cc74) entry.hex.cc74(value);
-            } else {
-              // Non-MPE: brightness to front of recency stack (global target).
-              const front = this.recencyStack.front;
-              if (front && front.cc74) front.cc74(value);
+            // CC74 (timbre/slide) is dropped in MTS output mode — no meaningful mapping.
+            if (!isMTSOutput) {
+              if (this.inputRuntime.mpeInput) {
+                // MPE input mode: CC74 is per-voice, carried on the note's channel.
+                const entry = this.state.activeMidiByChannel.get(e.message.channel);
+                if (entry && !entry.hex.release && entry.hex.cc74) entry.hex.cc74(value);
+              } else {
+                // Non-MPE: brightness to front of recency stack (global target).
+                const front = this.recencyStack.front;
+                if (front && front.cc74) front.cc74(value);
+              }
             }
           }
         });
@@ -319,8 +331,13 @@ class Keys {
 
           if (this.inputRuntime.mpeInput) {
             // MPE input mode: channel pressure is per-voice, carried on the note's channel.
+            // We've resolved which note it belongs to, so route as polyphonic aftertouch
+            // (hex.aftertouch) rather than channel pressure (hex.pressure) — this lets
+            // MTS output send 0xAn poly-AT with the correct carrier note number.
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
-            if (entry && !entry.hex.release && entry.hex.pressure) entry.hex.pressure(value);
+            if (entry && !entry.hex.release) {
+              if (entry.hex.aftertouch) entry.hex.aftertouch(value);
+            }
             return;
           }
 
@@ -447,8 +464,9 @@ class Keys {
             if (entry && !entry.hex.release) {
               // Bend from baseCents (frozen at note-on) — NOT from hex.cents,
               // which retune() mutates, causing infinite accumulation.
-              const norm = (val14 - 8192) / 8192; // −1…+1
-              const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '9/8');
+              let norm = (val14 - 8192) / 8192; // −1…+1
+              if (this.inputRuntime.bendFlip) norm = -norm;
+              const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
               entry.hex.retune(entry.baseCents + norm * rangeCents);
             }
             // In MPE input mode we do NOT pass through to the output — each hex's
@@ -456,9 +474,25 @@ class Keys {
             return;
           }
 
-          // Non-MPE: dispatch by pitchBendMode, then pass through to outputs.
-          this._handleWheelBend(val14);
-          this._passthroughPitchBend(val14);
+          // Non-MPE: dispatch to wheel bend handler, then passthrough to outputs.
+          //
+          // wheelToRecent (recency/all mode): uses hex.retune() for pitch — do NOT
+          // also send raw PB to MTS output (that would double-bend MTS synths).
+          //
+          // Standard mode (!wheelToRecent): raw pitch bend passthrough to ALL outputs,
+          // including MTS — the user adjusts the wheel range in their synth.
+          // Sample synth voices are also retuned directly so they bend too.
+          const val14f = this.inputRuntime.bendFlip ? (16383 - val14) : val14;
+          this._handleWheelBend(val14f);
+          if (this.inputRuntime.wheelToRecent) {
+            // Recency/all mode: skip MTS passthrough (retune() handles it).
+            if (!(this.settings.midi_mapping === 'MTS1' || this.settings.midi_mapping === 'MTS2')) {
+              this._passthroughPitchBend(val14f);
+            }
+          } else {
+            // Standard mode: raw PB to all outputs (MTS included).
+            this._passthroughPitchBend(val14f);
+          }
         });
 
       } // end else (midiin_data exists)
@@ -483,6 +517,20 @@ class Keys {
         });
       }
     }
+
+    // ── Exquis LED engine ────────────────────────────────────────────────────
+    // Disabled: Exquis dev mode takes over pads, disabling MPE (only note-on
+    // ch16 in dev mode — no XYZ expression). Palette approach (CMD 02 + CC
+    // ch16) also did not produce visible results. Left for future firmware.
+    this.exquisLEDs = null;
+    // if (exquisRawPorts && this.controllerMap && !this.settings.midi_passthrough) {
+    //   this.exquisLEDs = new ExquisLEDs(exquisRawPorts.output, exquisRawPorts.input);
+    //   Promise.resolve().then(() => {
+    //     if (this.exquisLEDs && this.controllerMap) {
+    //       this.exquisLEDs.sendColors(this._buildExquisColorArray());
+    //     }
+    //   });
+    // }
   } // end of constructor
 
   /**
@@ -735,6 +783,11 @@ class Keys {
     if (this.lumatoneLEDs && this.controllerMap && this.settings.lumatone_led_sync) {
       this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
     }
+
+    // Exquis LED color sync disabled — see constructor note above.
+    // if (this.exquisLEDs && this.controllerMap) {
+    //   this.exquisLEDs.sendColors(this._buildExquisColorArray());
+    // }
   };
 
   // ── Snapshot capture & playback ────────────────────────────────────────────
@@ -845,6 +898,13 @@ class Keys {
     }
   };
 
+  // syncExquisLEDs disabled — dev mode kills MPE. Left for future firmware update.
+  // syncExquisLEDs = () => {
+  //   if (this.exquisLEDs && this.controllerMap) {
+  //     this.exquisLEDs.sendColors(this._buildExquisColorArray());
+  //   }
+  // };
+
   /**
    * Send the complete Lumatone layout — note/channel (CMD 00h) + colour (CMD 01h)
    * for all 280 keys — via the ACK-gated sysex queue.
@@ -918,6 +978,29 @@ class Keys {
       entries.push({ board, key, hexColor });
     }
     return entries;
+  }
+
+  // ── Exquis LED helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Build a 61-element color array for the Exquis, indexed by Rainbow Layout
+   * note number (0–60 = pad ID).
+   *
+   * controllerMap keys are "1.note" (single channel), so the note number is
+   * everything after the dot. Unmapped pads default to black.
+   *
+   * @returns {string[]}  61 CSS hex colors ('#rrggbb')
+   */
+  _buildExquisColorArray() {
+    const colors = new Array(61).fill('#000000');
+    for (const [mapKey, coords] of this.controllerMap) {
+      const note = parseInt(mapKey.slice(mapKey.indexOf('.') + 1), 10);
+      if (note >= 0 && note <= 60) {
+        const [cents, reducedSteps] = this.hexCoordsToCents(coords);
+        colors[note] = this._getScreenHexColor(cents, reducedSteps);
+      }
+    }
+    return colors;
   }
 
   /**
@@ -1004,6 +1087,12 @@ class Keys {
       this.lumatoneLEDs.destroy();
       this.lumatoneLEDs = null;
     }
+
+    // Exquis LED engine cleanup disabled alongside the engine above.
+    // if (this.exquisLEDs) {
+    //   this.exquisLEDs.destroy();
+    //   this.exquisLEDs = null;
+    // }
 
 
     window.removeEventListener("resize", this.resizeHandler, false);
@@ -1291,6 +1380,9 @@ class Keys {
     if (coords === null) return;
     if (this._midiLatchToggle(coords, velocity_played)) return;
     const hex = this.hexOn(coords, note_played, velocity_played, bend);
+    // Freeze base pitch so all-notes wheel bend and standard wheel mode can always
+    // compute offset from the original pitch, not from hex.cents which retune() mutates.
+    hex._baseCents = hex.cents;
     this.state.activeMidi.set(note_played, hex);
     // In MPE input mode also track by channel so per-channel expression events
     // (pitch bend, pressure, CC74) can look up the correct hex directly.
@@ -2206,17 +2298,26 @@ class Keys {
   // value (0–16383, centre 8192) from any controller — wheel, expression pedal,
   // OSC, or the future mod-matrix.
   //
-  // Two routing modes (inputRuntime.pitchBendMode):
+  // Two top-level modes:
   //
-  //   'recency' (default): target the front of the recency stack.
-  //     _updateWheelTarget keeps the target in sync as notes change.
-  //     Scale-aware asymmetric bend is available in this mode only.
+  //   Standard mode (!wheelToRecent):
+  //     Raw pitch bend passthrough to all MIDI outputs (caller's responsibility,
+  //     see pitchbend listener above).  For sample synth, retune all active hexes
+  //     directly using the semitone range (inputRuntime.wheelSemitones).
+  //     No recency-stack logic — all voices move together.
   //
-  //   'all': apply the same bend offset to every currently sounding hex.
-  //     Each hex is shifted by the same number of cents from its own base pitch.
-  //     For MPE output the host receives a manager-channel PB (zone-wide, one
-  //     message) via _passthroughPitchBend — individual voice channels are not
-  //     also retuned to avoid doubling the bend.
+  //   Recency/all mode (wheelToRecent = true):
+  //     Two sub-modes (inputRuntime.pitchBendMode):
+  //
+  //     'recency' (default): target the front of the recency stack.
+  //       _updateWheelTarget keeps the target in sync as notes change.
+  //       Scale-aware asymmetric bend is available in this mode only.
+  //
+  //     'all': apply the same bend offset to every currently sounding hex.
+  //       Each hex is shifted by the same number of cents from its own base pitch.
+  //       For MPE output the host receives a manager-channel PB (zone-wide, one
+  //       message) via _passthroughPitchBend — individual voice channels are not
+  //       also retuned to avoid doubling the bend.
   //
   // _wheelBend stores the current offset in cents (0 at rest).  It is used by
   // _updateWheelTarget to apply an in-flight bend when the recency front changes.
@@ -2225,7 +2326,18 @@ class Keys {
   // the committed pitch for _wheelTarget, then reset _wheelBend to 0.
 
   _handleWheelBend(val14) {
-    if (!this.inputRuntime.wheelToRecent) return;
+    if (!this.inputRuntime.wheelToRecent) {
+      // Standard mode: retune sample synth voices only (MIDI passthrough is
+      // handled in the pitchbend listener above).  Uses semitone range.
+      // Uses hex._baseCents (frozen at note-on) to avoid accumulation drift.
+      const norm = (val14 - 8192) / 8192; // −1 … +1
+      const rangeCents = (this.inputRuntime.wheelSemitones ?? 2) * 100;
+      const offsetCents = norm * rangeCents;
+      for (const hex of this._allActiveHexes()) {
+        hex.retune((hex._baseCents ?? hex.cents) + offsetCents);
+      }
+      return;
+    }
 
     const norm = (val14 - 8192) / 8192; // −1 … +1
 
@@ -2233,11 +2345,12 @@ class Keys {
       // All-notes mode: apply a uniform cent offset to every active hex.
       // We use the symmetric fixed-range calculation only (scale-aware
       // asymmetric bend is inherently single-target).
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '9/8');
+      // Uses hex._baseCents (frozen at note-on) to avoid accumulation drift.
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '28/27');
       const offsetCents = norm * rangeCents;
       this._wheelBend = offsetCents;
       for (const hex of this._allActiveHexes()) {
-        hex.retune(hex.cents + offsetCents);
+        hex.retune((hex._baseCents ?? hex.cents) + offsetCents);
       }
       return;
     }
@@ -2265,7 +2378,7 @@ class Keys {
       }
     } else {
       // Symmetric fixed-range bend.
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '9/8');
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '28/27');
       bentCents = this._wheelBaseCents + norm * rangeCents;
     }
 

@@ -33,6 +33,7 @@ const Settings = ({
   onVolumeChange,
   midiLearnActive,
   lumatoneRawPorts,
+  exquisRawPorts,
   snapshots,
   playingSnapshotId,
   onPlaySnapshot,
@@ -110,6 +111,7 @@ const Settings = ({
       midiTick={midiTick}
       midiLearnActive={midiLearnActive}
       lumatoneRawPorts={lumatoneRawPorts}
+      exquisRawPorts={exquisRawPorts}
       keysRef={keysRef}
     />
     <MidiOutputs

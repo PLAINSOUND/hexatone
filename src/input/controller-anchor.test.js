@@ -39,13 +39,14 @@ const LINNSTRUMENT = {
   mpeVoiceChannels: null,
 };
 
-// MPE controller with fixed hardware voice channel range (Exquis)
+// MPE controller with fixed hardware voice channel range + passthrough default (Exquis)
 const EXQUIS = {
   id: 'exquis',
   anchorDefault: 0,
   anchorChannelDefault: undefined,
   mpe: true,
   mpeVoiceChannels: { lo: 2, hi: 15 },
+  passthroughDefault: true,
 };
 
 beforeEach(() => {
@@ -134,7 +135,7 @@ describe('saveAnchorChannel', () => {
 describe('loadAnchorSettingsUpdate', () => {
   it('returns midiin_central_degree and mpe=false from anchorDefault when nothing stored', () => {
     const update = loadAnchorSettingsUpdate(AXIS49);
-    expect(update).toEqual({ midiin_central_degree: 53, midiin_mpe_input: false });
+    expect(update).toMatchObject({ midiin_central_degree: 53, midiin_mpe_input: false });
   });
 
   it('returns midiin_central_degree from stored value', () => {
@@ -181,6 +182,16 @@ describe('loadAnchorSettingsUpdate', () => {
     expect(update.midiin_mpe_input).toBe(true);
     expect(update.midiin_mpe_lo_ch).toBe(2);
     expect(update.midiin_mpe_hi_ch).toBe(15);
+  });
+
+  it('sets midi_passthrough=true for controllers with passthroughDefault', () => {
+    const update = loadAnchorSettingsUpdate(EXQUIS);
+    expect(update.midi_passthrough).toBe(true);
+  });
+
+  it('does not set midi_passthrough for controllers without passthroughDefault', () => {
+    const update = loadAnchorSettingsUpdate(AXIS49);
+    expect(update).not.toHaveProperty('midi_passthrough');
   });
 });
 
