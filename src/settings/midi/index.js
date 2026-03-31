@@ -80,7 +80,7 @@ const MIDIio = (props) => {
             <>
               <label style={{ fontStyle: 'italic', color: '#996666' }}>
                 {ctrl.name}
-                <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
+                <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em', lineHeight: 1 }}>
                   {ctrl.description}
                 </span>
               </label>

@@ -14,13 +14,13 @@ const Keyboard = (props) => {
   // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
   // NOT when colors change. Color changes are handled imperatively below.
   useEffect(() => {
-    const keys = new Keys(canvas.current, props.settings, props.synth, props.active, props.onLatchChange, props.lumatoneRawPorts, props.onTakeSnapshot);
+    const keys = new Keys(canvas.current, props.settings, props.synth, props.active, props.onLatchChange, props.lumatoneRawPorts, props.onTakeSnapshot, props.inputRuntime);
     keysRef.current = keys;
     //console.log('[Keyboard] Keys constructed, calling onKeysReady');
     if (props.onKeysReady) props.onKeysReady(keys);
     //console.log('[Keyboard] onKeysReady done');
     return () => keys.deconstruct();
-  }, [canvas, props.structuralSettings, props.synth]);
+  }, [canvas, props.structuralSettings, props.inputRuntime, props.synth]);
 
   // After every render that doesn't reconstruct Keys, schedule a redraw via
   // requestAnimationFrame so it runs after the browser has finished painting.

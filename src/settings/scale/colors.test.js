@@ -50,16 +50,14 @@ describe('Colors — interactions', () => {
     expect(onChange).toHaveBeenCalledWith('spectrum_colors', true);
   });
 
-  it('calls onChange with new color when hue text input is committed', () => {
+  it('calls onChange with new color when the color picker value is committed', () => {
     const onChange = vi.fn();
     const settings = { spectrum_colors: true, fundamental_color: '#abcdef' };
     render(<Colors settings={settings} onChange={onChange} />);
-    const input = screen.getByLabelText('hex colour for central hue');
-    // Simulate user typing a new value
-    fireEvent.input(input, { target: { value: '#ff0000' } });
-    // Blur triggers handleTextBlur which calls onChange
-    input.blur();
-    fireEvent.blur(input);
+    // The hidden color picker input fires onChange (handlePickerChange) on commit.
+    // Query by type since it has aria-hidden and no label.
+    const picker = document.querySelector('input[type="color"]');
+    fireEvent.change(picker, { target: { value: '#ff0000' } });
     expect(onChange).toHaveBeenCalledWith('fundamental_color', '#ff0000');
   });
 });

@@ -37,9 +37,13 @@ export class MidiCoordResolver {
    * @param {function} hexCoordsToCents  - (Point) → [cents, reducedSteps, distance, ...]
    * @param {function} hexCoordsToScreen - (Point) → Point  (hex → canvas pixels)
    * @param {function} getCenterpoint    - () → Point  (canvas half-dimensions)
+   * @param {object}   [inputRuntime]    - Optional inputRuntime object; when provided,
+   *                                       its stepsPerChannel/legacyChannelMode/seqAnchorChannel
+   *                                       take precedence over the matching settings fields.
    */
-  constructor(settings, hexCoordsToCents, hexCoordsToScreen, getCenterpoint) {
+  constructor(settings, hexCoordsToCents, hexCoordsToScreen, getCenterpoint, inputRuntime = null) {
     this.settings         = settings;
+    this.inputRuntime     = inputRuntime;
     this._hexCoordsToCents  = hexCoordsToCents;
     this._hexCoordsToScreen = hexCoordsToScreen;
     this._getCenterpoint    = getCenterpoint;
@@ -66,22 +70,28 @@ export class MidiCoordResolver {
    *   - The anchor note on the anchor channel always maps to center_degree,
    *     making Learn work correctly however many channels the device uses.
    *
-   * With midiin_steps_per_channel === null (default): one equave per channel step.
-   * With midiin_steps_per_channel === 0: no transposition (all channels identical).
-   * With midiin_steps_per_channel === N: N degrees per channel step.
+   * With midiin_steps_per_channel === 0 (default): no transposition (all channels identical).
+   * With midiin_steps_per_channel === null: one equave per channel step (legacy UI option).
+   * With midiin_steps_per_channel === N > 0: N degrees per channel step.
    *
    * @param {number} channel  1-indexed MIDI channel
    * @returns {number}        integer scale-degree offset
    */
   channelToStepsOffset(channel) {
+    // Prefer inputRuntime values when available (set at Keys construction time from
+    // derived inputRuntime); fall back to raw settings for backwards compatibility.
+    const ir = this.inputRuntime;
     const stepsPerChannel =
-      this.settings.midiin_steps_per_channel ?? this.settings.equivSteps;
-    const anchorChannel = this.settings.midiin_anchor_channel ?? 1;
+      (ir ? ir.stepsPerChannel : this.settings.midiin_steps_per_channel)
+      ?? this.settings.equivSteps;
+    const anchorChannel =
+      (ir ? ir.seqAnchorChannel : this.settings.midiin_anchor_channel) ?? 1;
     // Legacy mode: wrap channel into 1–8 before computing offset.
     // Allows Lumatone mappings that use channels 9–16 to be treated
     // identically to channels 1–8 (mod 8).  Default is true for
     // backward compatibility with older presets.
-    const effectiveChannel = this.settings.midiin_channel_legacy
+    const legacyMode = ir ? ir.legacyChannelMode : this.settings.midiin_channel_legacy;
+    const effectiveChannel = legacyMode
       ? ((channel - 1) % 8) + 1
       : channel;
     return (effectiveChannel - anchorChannel) * stepsPerChannel;

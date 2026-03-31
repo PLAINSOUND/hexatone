@@ -300,6 +300,16 @@ ActiveHex.prototype.aftertouch = function(value) {
   this.gainNode.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.02);
 };
 
+// pressure: same as aftertouch for the sample engine (gain modulation).
+ActiveHex.prototype.pressure = function(value) {
+  this.aftertouch(value);
+};
+
+// cc74, modwheel, expression: no Web Audio mapping yet — no-ops.
+ActiveHex.prototype.cc74       = function() {};
+ActiveHex.prototype.modwheel   = function() {};
+ActiveHex.prototype.expression = function() {};
+
 ActiveHex.prototype.noteOff = function(release_velocity) {
   // Guard against double noteOff - prevents clicks from duplicate release calls
   if (this._noteOffCalled) return;

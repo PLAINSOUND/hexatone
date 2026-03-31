@@ -219,6 +219,16 @@ OscHex.prototype.aftertouch = function (value) {
   }
 };
 
+// pressure: same as aftertouch for OSC engine (SC filter modulation).
+OscHex.prototype.pressure = function (value) {
+  this.aftertouch(value);
+};
+
+// cc74, modwheel, expression: no SC mapping yet — no-ops.
+OscHex.prototype.cc74       = function() {};
+OscHex.prototype.modwheel   = function() {};
+OscHex.prototype.expression = function() {};
+
 /**
  * Convert scale-relative cents to Hz using the same formula as midi_synth.
  * cents = interval from scale root; fundamental + degree0toRef_ratio anchor

@@ -54,7 +54,7 @@ describe('Scale panel — cancelling import', () => {
   it('hides the import panel when "Hide" is clicked', () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /edit scala file/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^hide$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^✕$/ }));
     expect(document.querySelector('textarea')).toBeNull();
   });
 
@@ -62,7 +62,7 @@ describe('Scale panel — cancelling import', () => {
     const onImport = vi.fn();
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={onImport} />);
     fireEvent.click(screen.getByRole('button', { name: /edit scala file/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^hide$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^✕$/ }));
     expect(onImport).not.toHaveBeenCalled();
   });
 });

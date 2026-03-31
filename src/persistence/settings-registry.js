@@ -68,12 +68,18 @@ export const SETTINGS_REGISTRY = [
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: 'midiin_device',           tier: 'session', type: 'string', default: 'OFF' },
   { key: 'midiin_channel',          tier: 'session', type: 'int',    default: 0 },
-  { key: 'midiin_steps_per_channel',tier: 'session', type: 'int',    default: null },
+  { key: 'midiin_steps_per_channel',tier: 'session', type: 'int',    default: 0 },
   { key: 'midiin_anchor_channel',   tier: 'session', type: 'int',    default: 1 },
   { key: 'controller_anchor_note',  tier: 'session', type: 'int',    default: null },
-  { key: 'midiin_channel_legacy',   tier: 'session', type: 'bool',   default: true },
+  { key: 'midiin_channel_legacy',   tier: 'session', type: 'bool',   default: false },
   { key: 'midi_passthrough',        tier: 'session', type: 'bool',   default: false },
   { key: 'midiin_central_degree',   tier: 'session', type: 'int',    default: null },
+  // Input runtime mode keys
+  { key: 'midiin_mapping_target',   tier: 'session', type: 'string', default: 'hex_layout' },
+  { key: 'midiin_mpe_input',        tier: 'session', type: 'bool',   default: false },
+  { key: 'midiin_scale_tolerance',  tier: 'url',     type: 'int',    default: 50 },
+  { key: 'midiin_pitchbend_mode',   tier: 'session', type: 'string', default: 'recency' },
+  { key: 'midiin_pressure_mode',    tier: 'session', type: 'string', default: 'recency' },
 
   // ── Controller anchors (hardware-scoped, survive device disconnect) ──────────
   // These are keyed dynamically as "${controllerId}_anchor" in localStorage.

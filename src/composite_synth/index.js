@@ -38,6 +38,22 @@ export const create_composite_synth = (synths) => ({
       aftertouch(value) {
         hexes.forEach(h => h.aftertouch && h.aftertouch(value));
       },
+
+      pressure(value) {
+        hexes.forEach(h => h.pressure && h.pressure(value));
+      },
+
+      cc74(value) {
+        hexes.forEach(h => h.cc74 && h.cc74(value));
+      },
+
+      modwheel(value) {
+        hexes.forEach(h => h.modwheel && h.modwheel(value));
+      },
+
+      expression(value) {
+        hexes.forEach(h => h.expression && h.expression(value));
+      },
     };
   },
 

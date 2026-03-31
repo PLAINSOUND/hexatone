@@ -315,6 +315,40 @@ const App = () => {
     [settings.note_colors],
   );
 
+  // Input runtime: derived from settings, passed to Keys as the authoritative
+  // source of truth for all input mode decisions. Keys reads from inputRuntime
+  // rather than from settings directly for any input-related branch.
+  const inputRuntime = useMemo(() => ({
+    target:           settings.midiin_mapping_target || 'hex_layout',
+    layoutMode:       settings.midi_passthrough ? 'sequential' : 'controller_geometry',
+    mpeInput:         !!settings.midiin_mpe_input,
+    seqAnchorNote:    settings.midiin_central_degree ?? 60,
+    seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
+    stepsPerChannel:  settings.midiin_steps_per_channel,
+    legacyChannelMode: settings.midiin_channel_legacy,
+    scaleTolerance:   settings.midiin_scale_tolerance ?? 50,
+    pitchBendMode:    settings.midiin_pitchbend_mode || 'recency',
+    pressureMode:     settings.midiin_pressure_mode || 'recency',
+    // Wheel settings kept here for Keys to use alongside routing mode
+    wheelToRecent:    settings.wheel_to_recent,
+    wheelRange:       settings.midi_wheel_range ?? '9/8',
+    wheelScaleAware:  settings.wheel_scale_aware,
+  }), [
+    settings.midiin_mapping_target,
+    settings.midi_passthrough,
+    settings.midiin_mpe_input,
+    settings.midiin_central_degree,
+    settings.midiin_anchor_channel,
+    settings.midiin_steps_per_channel,
+    settings.midiin_channel_legacy,
+    settings.midiin_scale_tolerance,
+    settings.midiin_pitchbend_mode,
+    settings.midiin_pressure_mode,
+    settings.wheel_to_recent,
+    settings.midi_wheel_range,
+    settings.wheel_scale_aware,
+  ]);
+
   // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
   const structuralSettings = useMemo(
@@ -342,6 +376,10 @@ const App = () => {
       settings.midiin_central_degree,
       settings.axis49_center_note,
       settings.wheel_to_recent,
+      settings.midiin_mapping_target,
+      settings.midiin_mpe_input,
+      settings.midiin_pitchbend_mode,
+      settings.midiin_pressure_mode,
       settings.lumatone_center_channel,
       settings.lumatone_center_note,
       settings.output_mts,
@@ -429,6 +467,7 @@ const App = () => {
         <Keyboard
           synth={synth || nullSynth}
           settings={normalizedSettings}
+          inputRuntime={inputRuntime}
           structuralSettings={structuralSettings}
           onKeysReady={useCallback((keys) => {
             keysRef.current = keys;

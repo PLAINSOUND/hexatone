@@ -239,12 +239,34 @@ MidiHex.prototype.noteOn = function () {
 };
 
 MidiHex.prototype.aftertouch = function (value) {
-  // MTS: polyphonic key pressure on the carrier note (0xA0 = poly aftertouch)
-  // MPE: channel pressure on the voice's own channel (0xD0 = channel pressure)
-  // For now emit poly aftertouch; MPE synth will override with channel pressure.
+  // Polyphonic key pressure on the carrier note.
   if (this.midi_output && this.steps != null) {
-    this.midi_output.send([0xA0 + this.channel, this.steps, value]);
+    this.midi_output.send([0xA0 + this.channel, this.steps, Math.max(0, Math.min(127, value))]);
   }
+};
+
+// pressure: channel pressure on the output channel (coarser than poly AT, but widely supported).
+MidiHex.prototype.pressure = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xD0 + this.channel, Math.max(0, Math.min(127, value))]);
+};
+
+// cc74: brightness / timbre on the output channel.
+MidiHex.prototype.cc74 = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
+};
+
+// modwheel: CC1 on the output channel.
+MidiHex.prototype.modwheel = function (value) {
+  if (!this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
+};
+
+// expression: CC11 on the output channel.
+MidiHex.prototype.expression = function (value) {
+  if (!this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
 MidiHex.prototype.noteOff = function (release_velocity) {
@@ -482,6 +504,26 @@ DynamicBulkHex.prototype.aftertouch = function (value) {
     Math.max(0, Math.min(127, value))]);
 };
 
+DynamicBulkHex.prototype.pressure = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xD0 + this.channel, Math.max(0, Math.min(127, value))]);
+};
+
+DynamicBulkHex.prototype.cc74 = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
+};
+
+DynamicBulkHex.prototype.modwheel = function (value) {
+  if (!this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
+};
+
+DynamicBulkHex.prototype.expression = function (value) {
+  if (!this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
+};
+
 DynamicBulkHex.prototype.retune = function (newCents) {
   if (this.release || !this.transport || this.carrier == null) return;
   this.cents = newCents;
@@ -532,6 +574,26 @@ StaticBulkHex.prototype.aftertouch = function (value) {
   if (this.release || !this.midi_output) return;
   this.midi_output.send([0xA0 + this.channel, this.carrier,
     Math.max(0, Math.min(127, value))]);
+};
+
+StaticBulkHex.prototype.pressure = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xD0 + this.channel, Math.max(0, Math.min(127, value))]);
+};
+
+StaticBulkHex.prototype.cc74 = function (value) {
+  if (this.release || !this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
+};
+
+StaticBulkHex.prototype.modwheel = function (value) {
+  if (!this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
+};
+
+StaticBulkHex.prototype.expression = function (value) {
+  if (!this.midi_output) return;
+  this.midi_output.send([0xB0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
 StaticBulkHex.prototype.retune = function () {

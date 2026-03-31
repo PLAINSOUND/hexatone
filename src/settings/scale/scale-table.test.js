@@ -157,12 +157,14 @@ describe('ScaleTable — table structure', () => {
     expect(rows.length).toBe(scale_values.length + 1);
   });
 
-  it('root row has no scale value input', () => {
+  it('root row has a disabled "pitch value root" input, not an editable one', () => {
     render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
-    // degree 0 row only has name and color inputs, no pitch value input
-    expect(screen.queryByLabelText('pitch value 0')).not.toBeNull(); // first interval = degree 1
-    // No "pitch value" aria-label for degree 0 (the 1/1 row)
-    expect(document.querySelectorAll('input[aria-label="pitch value -1"]').length).toBe(0);
+    // The 1/1 root cell is labelled "pitch value root" and is disabled
+    const rootInput = screen.getByLabelText('pitch value root');
+    expect(rootInput).not.toBeNull();
+    expect(rootInput.disabled).toBe(true);
+    // The first editable interval is "pitch value 0" (scale index 0)
+    expect(screen.getByLabelText('pitch value 0').disabled).toBe(false);
   });
 
   it('equave row shows the same note name as degree 0', () => {

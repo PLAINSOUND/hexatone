@@ -19,6 +19,7 @@ const AXIS49 = {
   id: 'axis49',
   anchorDefault: 53,
   anchorChannelDefault: undefined,
+  mpe: false,
 };
 
 // Channel-aware controller (Lumatone)
@@ -26,6 +27,15 @@ const LUMATONE = {
   id: 'lumatone',
   anchorDefault: 26,
   anchorChannelDefault: 3,
+  mpe: false,
+};
+
+// MPE controller (LinnStrument)
+const LINNSTRUMENT = {
+  id: 'linnstrument128',
+  anchorDefault: 30,
+  anchorChannelDefault: undefined,
+  mpe: true,
 };
 
 beforeEach(() => {
@@ -112,21 +122,29 @@ describe('saveAnchorChannel', () => {
 // ── loadAnchorSettingsUpdate ──────────────────────────────────────────────────
 
 describe('loadAnchorSettingsUpdate', () => {
-  it('returns midiin_central_degree from anchorDefault when nothing stored', () => {
+  it('returns midiin_central_degree and mpe=false from anchorDefault when nothing stored', () => {
     const update = loadAnchorSettingsUpdate(AXIS49);
-    expect(update).toEqual({ midiin_central_degree: 53 });
+    expect(update).toEqual({ midiin_central_degree: 53, midiin_mpe_input: false });
   });
 
   it('returns midiin_central_degree from stored value', () => {
     localStorage.setItem('axis49_anchor', '48');
     const update = loadAnchorSettingsUpdate(AXIS49);
-    expect(update).toEqual({ midiin_central_degree: 48 });
+    expect(update.midiin_central_degree).toBe(48);
+    expect(update.midiin_mpe_input).toBe(false);
+  });
+
+  it('sets midiin_mpe_input=true for MPE controllers', () => {
+    const update = loadAnchorSettingsUpdate(LINNSTRUMENT);
+    expect(update.midiin_central_degree).toBe(30);
+    expect(update.midiin_mpe_input).toBe(true);
   });
 
   it('includes lumatone_center_channel for channel-aware controllers', () => {
     const update = loadAnchorSettingsUpdate(LUMATONE);
     expect(update.midiin_central_degree).toBe(26);
     expect(update.lumatone_center_channel).toBe(3);
+    expect(update.midiin_mpe_input).toBe(false);
   });
 
   it('restores saved channel for Lumatone', () => {

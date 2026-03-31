@@ -32,7 +32,7 @@ import {
 } from './mts-helpers.js';
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null) {
+  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -51,6 +51,25 @@ class Keys {
       ),
       ...settings,
     };
+    // inputRuntime: authoritative source for all input mode decisions.
+    // Falls back to settings-derived values when not provided (backwards compat
+    // with any direct Keys construction that doesn't pass it yet).
+    this.inputRuntime = inputRuntime || {
+      target:            'hex_layout',
+      layoutMode:        settings.midi_passthrough ? 'sequential' : 'controller_geometry',
+      mpeInput:          false,
+      seqAnchorNote:     settings.midiin_central_degree ?? 60,
+      seqAnchorChannel:  settings.midiin_anchor_channel ?? 1,
+      stepsPerChannel:   settings.midiin_steps_per_channel,
+      legacyChannelMode: settings.midiin_channel_legacy,
+      scaleTolerance:    50,
+      pitchBendMode:     'recency',
+      pressureMode:      'recency',
+      wheelToRecent:     settings.wheel_to_recent,
+      wheelRange:        settings.midi_wheel_range ?? '9/8',
+      wheelScaleAware:   settings.wheel_scale_aware,
+    };
+
     this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or DIRECT) to an external synth
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
@@ -87,6 +106,7 @@ class Keys {
       this.hexCoordsToCents.bind(this),
       this.hexCoordsToScreen.bind(this),
       () => this.state.centerpoint,
+      this.inputRuntime,
     );
 
     // Wheel bend state — controller-agnostic.
@@ -1216,7 +1236,7 @@ class Keys {
   // If stepsPerChannel is effectively zero (single-channel device or
   // stepsPerChannel === 0) returns baseCoords unchanged.
   _applyChannelOffset(baseCoords, channel) {
-    const stepsPerChannel = this.settings.midiin_steps_per_channel ?? this.settings.equivSteps;
+    const stepsPerChannel = this.inputRuntime.stepsPerChannel ?? this.settings.equivSteps;
     if (!stepsPerChannel) return baseCoords;
     const channelOffset = this.channelToStepsOffset(channel);
     if (channelOffset === 0) return baseCoords;
@@ -1231,8 +1251,8 @@ class Keys {
 
     let coords;
 
-    if (this.settings.midi_passthrough) {
-      // Bypass mode: ignore controller geometry, use step arithmetic.
+    if (this.inputRuntime.layoutMode === 'sequential') {
+      // Sequential mode: ignore controller geometry, use step arithmetic.
       // Also forward raw notes when MTS output is off (MTS via hexOn would double them).
       if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOn(e.note.number, {
@@ -1277,9 +1297,9 @@ class Keys {
   midinoteOff = (e) => {
     let coordsList;
 
-    if (this.settings.midi_passthrough || !this.controllerMap) {
-      // Bypass or generic keyboard: step arithmetic (may hit multiple visible coords).
-      if (this.settings.midi_passthrough && !this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
+    if (this.inputRuntime.layoutMode === 'sequential' || !this.controllerMap) {
+      // Sequential or generic keyboard: step arithmetic (may hit multiple visible coords).
+      if (this.inputRuntime.layoutMode === 'sequential' && !this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOff(e.note.number, {
           channels: this.settings.midi_channel + 1,
           rawRelease: e.note.rawRelease,
@@ -1314,13 +1334,13 @@ class Keys {
         const channel = Math.floor(note_played / 128) + 1; // 1-indexed
 
         let coordsList;
-        if (!this.settings.midi_passthrough && this.controllerMap) {
+        if (this.inputRuntime.layoutMode !== 'sequential' && this.controllerMap) {
           // Known controller: direct lookup.
           const ch = this.controller.multiChannel ? channel : 1;
           const baseCoords = this.controllerMap.get(`${ch}.${note}`);
           coordsList = baseCoords ? [baseCoords] : [];
         } else {
-          // Bypass or generic keyboard: step arithmetic.
+          // Sequential or generic keyboard: step arithmetic.
           coordsList = this.coordResolver.stepsToVisibleCoords(
             this.coordResolver.noteToSteps(note, channel),
           );
@@ -2120,7 +2140,7 @@ class Keys {
   // the committed new pitch for _wheelTarget, then reset _wheelBend to 0.
 
   _handleWheelBend(val14) {
-    if (!this.settings.wheel_to_recent) return;
+    if (!this.inputRuntime.wheelToRecent) return;
 
     const target = this.recencyStack.front;
     if (!target) return;
@@ -2135,7 +2155,7 @@ class Keys {
     const norm = (val14 - 8192) / 8192; // −1 … +1
 
     let bentCents;
-    if (this.settings.wheel_scale_aware && target.cents_prev != null && target.cents_next != null) {
+    if (this.inputRuntime.wheelScaleAware && target.cents_prev != null && target.cents_next != null) {
       // Asymmetric scale-aware bend:
       //   wheel down (norm < 0) → slide toward cents_prev (one scale degree below)
       //   wheel up   (norm > 0) → slide toward cents_next (one scale degree above)
@@ -2146,7 +2166,7 @@ class Keys {
       }
     } else {
       // Symmetric fixed-range bend.
-      const rangeCents = scalaToCents(this.settings.midi_wheel_range ?? '9/8');
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '9/8');
       bentCents = this._wheelBaseCents + norm * rangeCents;
     }
 

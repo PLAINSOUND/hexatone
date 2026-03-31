@@ -406,6 +406,8 @@ describe('hexatoneMappingForLumatone', () => {
       }
     }
   });
+
+  it('no two active keys share (note, channel) — 12-edo', () => {
     const pairs = boards12.flat().filter(k => k.ktyp !== 0).map(k => `${k.channel}:${k.note}`);
     expect(new Set(pairs).size).toBe(pairs.length);
   });

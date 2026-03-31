@@ -76,16 +76,19 @@ export function saveAnchorChannel(controller, channel) {
 
 /**
  * Given a controller, return the full anchor state to merge into settings:
- *   { midiin_central_degree, lumatone_center_channel? }
+ *   { midiin_central_degree, lumatone_center_channel?, midiin_mpe_input }
  *
  * Used by use-settings-change.js on device selection.
+ * Automatically sets midiin_mpe_input based on whether the controller is MPE.
  *
  * @param {object} controller  Registry entry
- * @returns {{ midiin_central_degree: number, lumatone_center_channel?: number }}
+ * @returns {{ midiin_central_degree: number, midiin_mpe_input: boolean,
+ *             lumatone_center_channel?: number }}
  */
 export function loadAnchorSettingsUpdate(controller) {
   const update = {
     midiin_central_degree: loadSavedAnchor(controller),
+    midiin_mpe_input: !!controller.mpe,
   };
   const ch = loadSavedAnchorChannel(controller);
   if (ch !== null) update.lumatone_center_channel = ch;

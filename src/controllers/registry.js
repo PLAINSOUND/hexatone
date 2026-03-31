@@ -12,6 +12,10 @@ import { lumatoneNoteOffset, LUMATONE_BLOCK_OFFSETS, LUMATONE_NOTES_PER_BLOCK, L
  *   description   – shown in UI
  *   multiChannel  – true if channel encodes layout position (e.g. Lumatone blocks)
  *                   false if channel only carries step offset (AXIS-49, Push, etc.)
+ *   mpe           – true if the controller sends MPE (per-channel per-voice pitch bend,
+ *                   pressure, and CC74). When true, Hexatone should automatically enable
+ *                   midiin_mpe_input so each channel's expression is routed to its hex.
+ *                   false for single-channel or block-channel controllers.
  *   anchor        – array of setting descriptors for the UI
  *   buildMap(anchorParams) → Map<"ch.note", {x,y}>
  *                   x,y are integer offsets from the anchor key in hex-grid units.
@@ -41,6 +45,8 @@ function makeMap(entries) {
 }
 
 // ── AXIS-49 2A ────────────────────────────────────────────────────────────────
+// https://www.c-thru-music.com/cgi/?page=prod_axis-49
+//
 // 14 columns × 7 rows, single MIDI channel (selfless mode, notes 1–98).
 // Notes are numbered column-first: note = col * 7 + row + 1 (0-indexed col/row).
 //
@@ -162,6 +168,64 @@ function buildTS41Map(anchorNote) {
   return makeMap(entries);
 }
 
+// ── Intuitive Instruments Exquis ──────────────────────────────────────────────
+// 61 keys (Rainbow Layout, Preset 6), single MIDI channel, notes 0–60.
+// Notes are numbered column-first:
+//   Even columns (0,2,4,6,8,10) have 6 keys each (notes at rows 0–5).
+//   Odd columns  (1,3,5,7,9)    have 5 keys each (notes at rows 0–4).
+// Column k starts at note: sum of sizes of all previous columns.
+//   Even col c: offset = 6*(c/2) + 5*((c-1)/2+1)   simplified: 6*(c÷2) + 5*⌈c/2⌉
+//   ...or precomputed: col 0→0, 1→6, 2→11, 3→17, 4→22, 5→28, 6→33, 7→39, 8→44, 9→50, 10→55.
+//
+// Physical geometry (pointy-top hexagons, same orientation as AXIS-49):
+//   Odd columns are staggered DOWN by 0.5 hex unit.
+//   x_phys = col,  y_phys = row + (col % 2 === 1 ? 0.5 : 0)
+//
+// Hexatone axial (r, dr) coordinates via same basis transform as AXIS-49:
+//   hx = 0.5·Δx_phys − Δy_phys
+//   hy = 0.5·Δx_phys + Δy_phys
+
+const EXQUIS_COL_OFFSETS = [0, 6, 11, 17, 22, 28, 33, 39, 44, 50, 55];
+const EXQUIS_COL_SIZES   = [6, 5, 6, 5, 6, 5, 6, 5, 6, 5, 6];
+
+/** Convert Exquis note 0–60 → { col, row } in physical grid. */
+function exquisNoteToColRow(note) {
+  // Find which column the note falls in using the precomputed offsets.
+  let col = 10;
+  for (let c = 0; c < 11; c++) {
+    if (note < EXQUIS_COL_OFFSETS[c] + EXQUIS_COL_SIZES[c]) { col = c; break; }
+  }
+  const row = note - EXQUIS_COL_OFFSETS[col];
+  return { col, row };
+}
+
+/** Physical (col, row) → continuous hex-space (x_phys, y_phys). */
+function exquisHexSpace(col, row) {
+  return {
+    x: col,
+    y: row + (col % 2 === 1 ? 0.5 : 0),
+  };
+}
+
+function buildExquisMap(anchorNote) {
+  const note1 = Math.max(0, Math.min(60, anchorNote));
+  const { col: anchorCol, row: anchorRow } = exquisNoteToColRow(note1);
+  const { x: axPhys, y: ayPhys } = exquisHexSpace(anchorCol, anchorRow);
+
+  const entries = [];
+  for (let note = 0; note <= 60; note++) {
+    const { col, row } = exquisNoteToColRow(note);
+    const { x: xPhys, y: yPhys } = exquisHexSpace(col, row);
+    // Same basis transform as AXIS-49 (pointy-top hex, same orientation):
+    //   hx = 0.5·Δx_phys − Δy_phys
+    //   hy = 0.5·Δx_phys + Δy_phys
+    const dx = xPhys - axPhys;
+    const dy = yPhys - ayPhys;
+    entries.push({ ch: 1, note, x: Math.round(0.5 * dx - dy), y: Math.round(0.5 * dx + dy) });
+  }
+  return makeMap(entries);
+}
+
 // ── Lumatone ──────────────────────────────────────────────────────────────────
 // 5 blocks × 56 keys, one MIDI channel per block (channels 1–5).
 // Geometry and block offsets defined in lumatone.js; imported above.
@@ -264,24 +328,6 @@ function buildGenericKeyboardMap(anchorNote) {
   return makeMap(entries);
 }
 
-// ── Exquis ────────────────────────────────────────────────────────────────────
-// Hexagonal grid 7 columns × 11 rows, single channel.
-// Notes sent as standard MIDI 0–127, isomorphic layout configurable on device.
-// Default: +1 col = +2 semitones, +1 row = +5 semitones.
-
-function buildExquisMap(anchorNote, colStep = 2, rowStep = 5) {
-  const COLS = 7, ROWS = 11;
-  const entries = [];
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      const note = anchorNote + col * colStep + row * rowStep;
-      if (note < 0 || note > 127) continue;
-      entries.push({ ch: 1, note, x: col, y: row });
-    }
-  }
-  return makeMap(entries);
-}
-
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 export const CONTROLLER_REGISTRY = [
@@ -291,6 +337,7 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('axis-4') || name.includes('axis 4'),
     description: 'Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hexes.',
     multiChannel: false,
+    mpe: false,
     anchorDefault: 53,  // AXIS-49 physical note 49 is the centre key
     buildMap: (anchorNote) => buildAxis49Map(anchorNote ?? 53),
   },
@@ -301,7 +348,8 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('ts41'),
     description: '41edo mode (Ch 1, Notes 1–126). Bosanquet Layout.',
     multiChannel: false,
-    anchorDefault: 36,  // AXIS-49 physical note 49 is the centre key
+    mpe: false,
+    anchorDefault: 36,
     buildMap: (anchorNote) => buildTS41Map(anchorNote ?? 36),
   },
 
@@ -311,6 +359,7 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('lumatone') || name.includes('midi function'),
     description: '5 blocks × 56 keys, channels 1–5 encode block position.',
     multiChannel: true,
+    mpe: false,  // channels encode block geometry, not per-voice MPE expression
     anchorDefault: 26,  // note 26 in centre block is the default centre key
     anchorChannelDefault: 3,  // centre block
     buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 26),
@@ -320,8 +369,9 @@ export const CONTROLLER_REGISTRY = [
     id: 'linnstrument128',
     name: 'Roger Linn Design LinnStrument 128',
     detect: name => name.includes('linnstrument'),
-    description: '16×8 grid, row per channel (ch1–8). Default 4ths tuning (+1 col = +1, +1 row = +5).',
+    description: '16×8 grid, row per channel (ch1–8). Sends MPE: per-voice pitch bend, pressure, and CC74.',
     multiChannel: true,
+    mpe: true,  // each row's channel carries per-voice expression for that voice
     anchorDefault: 30,
     buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 30),
   },
@@ -332,6 +382,7 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('push 2') || name.includes('push 3') || name.includes('push2') || name.includes('push3'),
     description: '8×8 isomorphic grid, single channel. Default 4ths tuning.',
     multiChannel: false,
+    mpe: false,
     anchorDefault: 36,
     buildMap: (anchorNote) => buildPushMap(anchorNote ?? 36),
   },
@@ -342,6 +393,7 @@ export const CONTROLLER_REGISTRY = [
     detect: name => name.includes('launchpad'),
     description: '8×8 grid in programmer mode. Set device to scale/isomorphic mode for best results.',
     multiChannel: false,
+    mpe: false,
     anchorDefault: 36,
     buildMap: (anchorNote) => buildLaunchpadMap(anchorNote ?? 36),
   },
@@ -350,10 +402,11 @@ export const CONTROLLER_REGISTRY = [
     id: 'exquis',
     name: 'Exquis (Intuitive Instruments)',
     detect: name => name.includes('exquis'),
-    description: '7×11 hex grid, single channel. Set device to isomorphic mode.',
+    description: '61-note hex grid. Use Rainbow Layout (Preset 6).',
     multiChannel: false,
-    anchorDefault: 60,
-    buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 60),
+    mpe: true,  // Exquis sends MPE (per-note pitch bend and pressure on individual channels)
+    anchorDefault: 19,
+    buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
   },
 
   {
@@ -363,6 +416,7 @@ export const CONTROLLER_REGISTRY = [
     detect: () => false,
     description: '128 notes on ch 1, mapped linearly around the anchor. Use with DIRECT + Tuning Map output.',
     multiChannel: false,
+    mpe: false,
     anchorDefault: 60,
     buildMap: (anchorNote) => buildGenericKeyboardMap(anchorNote ?? 60),
   },

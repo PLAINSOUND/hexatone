@@ -141,7 +141,7 @@ export const create_mpe_synth = async (
         midi_output, pool,
         freqAtCentral, midiNoteForDegree0,
         actualBendRange, mpe_mode, scale,
-        note_played
+        note_played, masterCh
       );
     },
   };
@@ -149,7 +149,7 @@ export const create_mpe_synth = async (
 
 function MpeHex(coords, cents, velocity_played, steps, center_degree,
   midi_output, pool, freqAtCentral, midiNoteForDegree0,
-  bendRange, mode, scale, note_played) {
+  bendRange, mode, scale, note_played, masterCh) {
   this.coords = coords;
   this.cents = cents;
   this.steps = steps;
@@ -164,6 +164,8 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree,
   this.scale = scale;
   this.velocity = Math.max(1, Math.min(127, velocity_played || 72));
   this.note_played = note_played;
+  // masterCh is 0-indexed (same as c = channel - 1); -1 means no manager channel.
+  this.masterCh = masterCh ?? -1;
 
   // Calculate the pitch we need before allocating, so closestPitchSteal can use it
   const freq = freqAtCentral * Math.pow(2, cents / 1200);
@@ -281,6 +283,30 @@ MpeHex.prototype.aftertouch = function (value) {
   if (this.release) return;
   const c = this.channel - 1;
   this.midi_output.send([0xD0 + c, Math.max(0, Math.min(127, value))]);
+};
+
+// pressure: channel pressure on the voice's own channel (same as aftertouch for MPE).
+MpeHex.prototype.pressure = function (value) {
+  this.aftertouch(value);
+};
+
+// cc74: brightness / timbre — per-voice CC on the voice channel (MPE dimension 3).
+MpeHex.prototype.cc74 = function (value) {
+  if (this.release) return;
+  const c = this.channel - 1;
+  this.midi_output.send([0xB0 + c, 74, Math.max(0, Math.min(127, value))]);
+};
+
+// modwheel: CC1 — zone-wide, sent on manager channel.
+MpeHex.prototype.modwheel = function (value) {
+  if (this.masterCh < 0) return;
+  this.midi_output.send([0xB0 + this.masterCh, 1, Math.max(0, Math.min(127, value))]);
+};
+
+// expression: CC11 — zone-wide, sent on manager channel.
+MpeHex.prototype.expression = function (value) {
+  if (this.masterCh < 0) return;
+  this.midi_output.send([0xB0 + this.masterCh, 11, Math.max(0, Math.min(127, value))]);
 };
 
 export default create_mpe_synth;

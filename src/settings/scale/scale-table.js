@@ -450,7 +450,7 @@ const ScaleTable = (props) => {
                 type="text"
                 disabled
                 value="1/1  |  0.0  |  0\n"
-                aria-label="pitch value 0"
+                aria-label="pitch value root"
               />
               <TuneCell
                 key={`tune0-${props.importCount}`}
