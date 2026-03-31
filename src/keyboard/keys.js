@@ -33,7 +33,7 @@ import {
 } from './mts-helpers.js';
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, exquisRawPorts = null) {
+  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, exquisRawPorts = null, onFirstInteraction = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -82,6 +82,9 @@ class Keys {
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
+    // Called once on the first touch — within the iOS gesture window — so the
+    // AudioContext can be resumed and samples decoded without hanging.
+    this._onFirstInteraction = onFirstInteraction || null;
     this.bend = 0;
     this.state = {
       canvas,
@@ -2122,6 +2125,11 @@ class Keys {
 
   handleTouch = (e) => {
     e.preventDefault();
+    // First touch: fire the interaction callback (iOS AudioContext resume).
+    if (this._onFirstInteraction) {
+      this._onFirstInteraction();
+      this._onFirstInteraction = null;
+    }
     // Touch now operates independently — no mutex guard against mouse/keyboard.
 
     this.state.isTouchDown = e.targetTouches.length !== 0;

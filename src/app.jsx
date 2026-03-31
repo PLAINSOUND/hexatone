@@ -486,6 +486,12 @@ const App = () => {
           onAnchorLearn={onAnchorLearn}
           lumatoneRawPorts={lumatoneRawPorts}
           exquisRawPorts={exquisRawPorts}
+          onFirstInteraction={useCallback(() => {
+            setUserHasInteracted(true);
+            // Called from the first touch on the canvas — within the iOS gesture
+            // window — so AudioContext.resume() and decodeAudioData will succeed.
+            if (synthRef.current?.prepare) synthRef.current.prepare();
+          }, [])}
         />
       )}
 
