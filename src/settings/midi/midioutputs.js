@@ -308,9 +308,7 @@ const MidiOutputs = (props) => {
       </label>
 
       <p style={{ marginTop: 0.5 }}><em>
-        Playing notes rewrites one slot in a 128-note non-real-time MTS bulk dump,
-        sends the updated map automatically, then triggers the note. The button below
-        sends a static snapshot of the current map.
+        Old-school non-real-time 128 note mapping. Two modes are available: Dynamic emulates real-time MTS by sending a new map before each note on, performance depends on synth. Static is the classic approach: send a map (automatically or manually) and then play on one channel.
       </em></p>
 
       {settings.output_direct && (
