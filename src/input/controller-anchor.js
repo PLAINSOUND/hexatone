@@ -76,14 +76,19 @@ export function saveAnchorChannel(controller, channel) {
 
 /**
  * Given a controller, return the full anchor state to merge into settings:
- *   { midiin_central_degree, lumatone_center_channel?, midiin_mpe_input }
+ *   { midiin_central_degree, lumatone_center_channel?, midiin_mpe_input,
+ *     midiin_mpe_lo_ch?, midiin_mpe_hi_ch? }
  *
  * Used by use-settings-change.js on device selection.
  * Automatically sets midiin_mpe_input based on whether the controller is MPE.
+ * When the controller has a fixed `mpeVoiceChannels` range, also applies
+ * those channel bounds to midiin_mpe_lo_ch / midiin_mpe_hi_ch (hides the
+ * manual picker in the MPE Setup UI).
  *
  * @param {object} controller  Registry entry
  * @returns {{ midiin_central_degree: number, midiin_mpe_input: boolean,
- *             lumatone_center_channel?: number }}
+ *             lumatone_center_channel?: number,
+ *             midiin_mpe_lo_ch?: number, midiin_mpe_hi_ch?: number }}
  */
 export function loadAnchorSettingsUpdate(controller) {
   const update = {
@@ -92,6 +97,13 @@ export function loadAnchorSettingsUpdate(controller) {
   };
   const ch = loadSavedAnchorChannel(controller);
   if (ch !== null) update.lumatone_center_channel = ch;
+  // Auto-apply fixed MPE voice channel range for controllers that define one.
+  // When mpeVoiceChannels is non-null, the UI picker is hidden and these values
+  // are set programmatically so the engine uses the correct range immediately.
+  if (controller.mpeVoiceChannels) {
+    update.midiin_mpe_lo_ch = controller.mpeVoiceChannels.lo;
+    update.midiin_mpe_hi_ch = controller.mpeVoiceChannels.hi;
+  }
   return update;
 }
 

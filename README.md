@@ -20,9 +20,36 @@ Current version 3dev (2026), released as Free/Libre and Open Source Software und
 [AltKeyboards](http://www.altkeyboards.com/instruments/isomorphic-keyboards)
 
 ## Version history
-Version 1 : 2016- [Terpstra Keyboard] (http://terpstrakeyboard.com/) hexagonal keyboard proof of concept  
-Version 2 : 2022-26 Marc Sabat: Added MIDI input and output, developed Lumatone plug-and-play compatability and built-in presets, MTS output  
-Version 3.0.0 : 2026- Added scala/json IO, user presets, polyphonic aftertouch response with built-in sounds  
-Version 3.0.1 : March 2026 Updated UX, added latch sustain, moveable centre scale degree  
-Version 3.0.2 : Major reactivity fixes, MTS & MPE functionality scaled, scale resizing and Divide Octave/Equave features  
-Version 3.1.0-beta.2 : (current) refactoring code to automatically map isomorphic controllers, changed octave-to-equave to allow user specified behaviour for other scales; fixes to TuneCell and various bugfixes; option to retain scale on reload, fixed input interoperability logic (mouse, touch, computer keyboard, MIDI)
+
+### 3.1.0-beta.2 *(current, March 2026)*
+Refactored code to automatically map isomorphic controllers. Changed octave-to-equave harcoded logic to allow user-specified behaviour for other scales (no tranposition, transposition by a specified number of scale degrees, or by equave); full independent retuneability of all scale degrees and reference, automatic scale file rewrite; option to refresh or retain scale on reload; fixed input interoperability logic (mouse, touch, computer keyboard, MIDI); MPE input mode with per-voice pitch bend and pressure routing. Under the hood fixes: refactoring persistence and loading logic. Cleaning up code, preparing for integration of scale math with xen-devs.
+
+**Supported 2D isomorphic controller geometries (auto-detected by MIDI device name):**
+- **Lumatone** https://www.lumatone.io/ — 280-key isomorphic surface, 5 blocks × 56 keys, channels 1–5 encode block position (0-55)
+- **C-Thru AXIS-49** https://www.c-thru-music.com/cgi/?page=prod_axis-49 — 14×7 isomorphic hexes, selfless mode (ch 1, notes 1–98)
+- **TS41 MIDI Keyboard** https://tristanbay.com/gear/ts41-midi-keyboard/ — 41-EDO Bosanquet layout, single channel (ch 1, notes 1–126)
+- **Exquis (Intuitive Instruments)** https://dualo.com/en/welcome/ — 61-note isomorphic hex grid, Rainbow Layout (Preset 6), MPE output on ch 2–15  
+
+**In progress but untested:**
+- **Tonal Plexus** https://hpi.zentral.zone/tonalplexus - (ch 3-14, layout for 205edo)
+- **C-Thru AXIS-64** — 16×8 variant of the AXIS-49 layout, not tested
+- **Roger Linn Design LinnStrument 128** — 16×8 grid, one row per channel (ch 1–8), full MPE support
+- **Ableton Push 2 / Push 3** — 8×8 isomorphic pad grid, single channel, default 4ths tuning
+- **Novation Launchpad (Pro / X / Mini mk3)** — 8×8 grid in programmer mode
+
+---
+
+### 3.0.2 *(March 2026)*
+Major reactivity fixes; MTS & MPE functionality expanded; scale resizing and Divide Octave/Equave features.
+
+### 3.0.1 *(early 2026)*
+Updated UX; added latch sustain; moveable centre scale degree.
+
+### 3.0.0 *(early 2026)*
+Added Scala/JSON IO; user presets; polyphonic aftertouch response with built-in sounds.
+
+### Version 2 *(2022–2026)*
+Marc Sabat forked from Ashton Snelgrove's webpack rebuild with rudimentary MIDI. Added full MIDI input and output path; Lumatone plug-and-play compatibility with channels-to-equaves logic; reshaped built-in presets; user-switchable Built-In/MTS/normal MIDI output options. Added and edited samples.
+
+### Version 1 *(2016)*
+[Terpstra Keyboard](http://terpstrakeyboard.com/) — hexagonal keyboard proof of concept.

@@ -30,12 +30,22 @@ const LUMATONE = {
   mpe: false,
 };
 
-// MPE controller (LinnStrument)
+// MPE controller (LinnStrument) — user-configurable voice channel range
 const LINNSTRUMENT = {
   id: 'linnstrument128',
   anchorDefault: 30,
   anchorChannelDefault: undefined,
   mpe: true,
+  mpeVoiceChannels: null,
+};
+
+// MPE controller with fixed hardware voice channel range (Exquis)
+const EXQUIS = {
+  id: 'exquis',
+  anchorDefault: 0,
+  anchorChannelDefault: undefined,
+  mpe: true,
+  mpeVoiceChannels: { lo: 2, hi: 15 },
 };
 
 beforeEach(() => {
@@ -158,6 +168,19 @@ describe('loadAnchorSettingsUpdate', () => {
   it('does not include lumatone_center_channel for single-channel controllers', () => {
     const update = loadAnchorSettingsUpdate(AXIS49);
     expect(update).not.toHaveProperty('lumatone_center_channel');
+  });
+
+  it('does not set mpe channel range for controllers with mpeVoiceChannels=null', () => {
+    const update = loadAnchorSettingsUpdate(LINNSTRUMENT);
+    expect(update).not.toHaveProperty('midiin_mpe_lo_ch');
+    expect(update).not.toHaveProperty('midiin_mpe_hi_ch');
+  });
+
+  it('auto-applies fixed mpe channel range for controllers with mpeVoiceChannels', () => {
+    const update = loadAnchorSettingsUpdate(EXQUIS);
+    expect(update.midiin_mpe_input).toBe(true);
+    expect(update.midiin_mpe_lo_ch).toBe(2);
+    expect(update.midiin_mpe_hi_ch).toBe(15);
   });
 });
 

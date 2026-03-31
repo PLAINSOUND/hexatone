@@ -1,4 +1,5 @@
 import { h } from 'preact';
+import { useState } from 'preact/hooks';
 import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
 import { downloadLtn, DEFAULT_CENTRAL_BOARD, DEFAULT_CENTRAL_KEY, DEFAULT_CENTRAL_CHANNEL, DEFAULT_CENTRAL_NOTE } from '../scale/lumatone-export.js';
@@ -53,6 +54,8 @@ const MIDIio = (props) => {
   //   - unknown / no device connected
   //   - known 2D controller with Bypass Key Mapping enabled
   const using2DMap = ctrl && !props.settings.midi_passthrough;
+
+  const [mpeSetupOpen, setMpeSetupOpen] = useState(false);
 
   return (
     <fieldset>
@@ -413,6 +416,79 @@ const MIDIio = (props) => {
         </>
       )}
 
+      {/* ── MPE Setup ─────────────────────────────────────────────────────── */}
+      <label style={{ marginTop: '0.8em', cursor: 'pointer', userSelect: 'none' }}
+        onClick={() => setMpeSetupOpen(o => !o)}>
+        {mpeSetupOpen ? '▾' : '▸'} MPE Input Setup
+        <span class="sidebar-input" />
+      </label>
+
+      {mpeSetupOpen && (
+        <>
+          <label>
+            Enable MPE Input
+            <input
+              name="midiin_mpe_input"
+              type="checkbox"
+              checked={!!props.settings.midiin_mpe_input}
+              onChange={(e) => {
+                props.onChange('midiin_mpe_input', e.target.checked);
+                sessionStorage.setItem('midiin_mpe_input', e.target.checked);
+              }}
+            />
+          </label>
+
+          {props.settings.midiin_mpe_input && !ctrl?.mpeVoiceChannels && (
+            <label title="Voice data channels (ch 1 and 16 are typically MPE manager/global channels)">
+              Voice channels {props.settings.midiin_mpe_lo_ch ?? 2}–{props.settings.midiin_mpe_hi_ch ?? 15}
+              <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  key={props.settings.midiin_mpe_lo_ch ?? 2}
+                  defaultValue={props.settings.midiin_mpe_lo_ch ?? 2}
+                  style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                  onBlur={(e) => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v) && v >= 1 && v <= 16) {
+                      props.onChange('midiin_mpe_lo_ch', v);
+                      sessionStorage.setItem('midiin_mpe_lo_ch', String(v));
+                    } else {
+                      e.target.value = props.settings.midiin_mpe_lo_ch ?? 2;
+                    }
+                  }}
+                />
+                <span>–</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  key={props.settings.midiin_mpe_hi_ch ?? 15}
+                  defaultValue={props.settings.midiin_mpe_hi_ch ?? 15}
+                  style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                  onBlur={(e) => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v) && v >= 1 && v <= 16) {
+                      props.onChange('midiin_mpe_hi_ch', v);
+                      sessionStorage.setItem('midiin_mpe_hi_ch', String(v));
+                    } else {
+                      e.target.value = props.settings.midiin_mpe_hi_ch ?? 15;
+                    }
+                  }}
+                />
+              </span>
+            </label>
+          )}
+          {props.settings.midiin_mpe_input && ctrl?.mpeVoiceChannels && (
+            <label title="Voice channel range is fixed by this controller's hardware configuration">
+              Voice channels
+              <span class="sidebar-input" style={{ color: '#888', fontStyle: 'italic' }}>
+                {ctrl.mpeVoiceChannels.lo}–{ctrl.mpeVoiceChannels.hi} (fixed)
+              </span>
+            </label>
+          )}
+        </>
+      )}
+
     </fieldset>
   );
 };
@@ -430,6 +506,9 @@ MIDIio.propTypes = {
     wheel_to_recent: PropTypes.bool,
     midi_wheel_range: PropTypes.string,
     wheel_scale_aware: PropTypes.bool,
+    midiin_mpe_input: PropTypes.bool,
+    midiin_mpe_lo_ch: PropTypes.number,
+    midiin_mpe_hi_ch: PropTypes.number,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
     name: PropTypes.string,

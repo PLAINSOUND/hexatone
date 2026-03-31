@@ -92,6 +92,7 @@ class Keys {
       activeTouch: new Map(),        // touchId (e.identifier) → hex
       activeKeyboard: new Map(),     // e.code (string) → hex
       activeMidi: new Map(),         // note_played (ch*128+note) → hex
+      activeMidiByChannel: new Map(), // MIDI channel (1–16) → hex; populated in MPE input mode only
       isTouchDown: false,
       isMouseDown: false,
     };
@@ -257,26 +258,83 @@ class Keys {
           }
         });
 
+        // Universal CC listener — runs for all output modes.
+        // 1. Passes all CCs through to the configured output channel(s).
+        // 2. Consumes CC64/66/67 (sustain/sostenuto/soft) internally AND forwards.
+        // 3. Consumes CC120/121/123 (all-sound-off/reset/all-notes-off) internally.
+        // 4. Routes CC1/CC11 (modwheel/expression) to all active hexes (global broadcast).
+        // 5. Routes CC74 (brightness) to the front-of-recency-stack hex (non-MPE mode).
+        //    In MPE input mode (Step 3.5) CC74 will be routed per-channel instead.
         this.midiin_data.addListener("controlchange", (e) => {
-          if (e.message.dataBytes[0] == 64) {
-            if (e.message.dataBytes[1] > 0) {
+          const cc    = e.message.dataBytes[0];
+          const value = e.message.dataBytes[1];
+
+          // ── Passthrough to all active outputs ─────────────────────────────
+          this._passthroughCC(cc, value);
+
+          // ── Internal consumption ──────────────────────────────────────────
+          if (cc === 64) {
+            // Sustain pedal
+            if (value > 0) {
               this.sustainOn();
-              //console.log("Controller 64 (Sustain Pedal) On");
             } else {
               this.sustainOff();
-              //console.log("Controller 64 (Sustain Pedal) Off");
+            }
+          } else if (cc === 66) {
+            // Sostenuto — stub; full implementation in a later step
+          } else if (cc === 67) {
+            // Soft pedal — stub; full implementation in a later step
+          } else if (cc === 120 || cc === 123) {
+            // All Sound Off / All Notes Off
+            this.allnotesOff();
+          } else if (cc === 121) {
+            // Reset All Controllers
+            this.sustainOff();
+          } else if (cc === 1) {
+            // Mod wheel — broadcast to all active hexes (zone-wide)
+            for (const hex of this._allActiveHexes()) {
+              if (hex.modwheel) hex.modwheel(value);
+            }
+          } else if (cc === 11) {
+            // Expression — broadcast to all active hexes (zone-wide)
+            for (const hex of this._allActiveHexes()) {
+              if (hex.expression) hex.expression(value);
+            }
+          } else if (cc === 74) {
+            if (this.inputRuntime.mpeInput) {
+              // MPE input mode: CC74 is per-voice, carried on the note's channel.
+              const entry = this.state.activeMidiByChannel.get(e.message.channel);
+              if (entry && !entry.hex.release && entry.hex.cc74) entry.hex.cc74(value);
+            } else {
+              // Non-MPE: brightness to front of recency stack (global target).
+              const front = this.recencyStack.front;
+              if (front && front.cc74) front.cc74(value);
             }
           }
+        });
 
-          if (e.message.dataBytes[0] == 123) {
-            console.log("Controller 123 (All Notes Off) Received");
-            console.log("Notes being played:", notes.played);
-            this.allnotesOff();
+        // Universal channel-pressure (aftertouch) listener.
+        this.midiin_data.addListener("channelaftertouch", (e) => {
+          const value = e.message.dataBytes[0];
+
+          if (this.inputRuntime.mpeInput) {
+            // MPE input mode: channel pressure is per-voice, carried on the note's channel.
+            const entry = this.state.activeMidiByChannel.get(e.message.channel);
+            if (entry && !entry.hex.release && entry.hex.pressure) entry.hex.pressure(value);
+            return;
           }
 
-          if (e.message.dataBytes[0] == 121) {
-            console.log("Controller 121 (All Controllers Off) Received");
-            this.sustainOff();
+          // Non-MPE: passthrough then dispatch by pressureMode.
+          this._passthroughChannelPressure(value);
+
+          if (this.inputRuntime.pressureMode === 'all') {
+            for (const hex of this._allActiveHexes()) {
+              if (hex.pressure) hex.pressure(value);
+            }
+          } else {
+            // 'recency' mode (default): target front of recency stack
+            const front = this.recencyStack.front;
+            if (front && front.pressure) front.pressure(value);
           }
         });
 
@@ -288,38 +346,17 @@ class Keys {
           // forward other MIDI data through to output (only when MTS is enabled)
           this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
 
+          // CC and channel-pressure passthrough is now handled by the universal
+          // controlchange / channelaftertouch listeners above (_passthroughCC /
+          // _passthroughChannelPressure).  Only per-mode pitchbend and keyaftertouch
+          // passthrough with note-remapping logic are kept here.
+
+          // Pitchbend passthrough is now handled universally by _passthroughPitchBend
+          // (called from the universal 'pitchbend' listener below).
+          // Only keyaftertouch listeners with note-remapping logic are kept here.
+
           if (this.settings.midi_mapping == "multichannel") {
-            // in multichannel output send controlchange and channel pressure on selected channel only, this mode is currently NOT USED, to be replaced by DIRECT mode
-
-            this.midiin_data.addListener("controlchange", (e) => {
-              //console.log("Control Change (thru on all channels)", e.message.dataBytes[0], e.message.dataBytes[1]);
-              this.midiout_data.sendControlChange(
-                e.message.dataBytes[0],
-                e.message.dataBytes[1],
-                { channels: this.settings.midi_channel + 1 },
-              );
-            });
-
-            this.midiin_data.addListener("channelaftertouch", (e) => {
-              //console.log("Channel Pressure (thru on all channels) ", e.message.dataBytes[0]);
-              this.midiout_data.sendChannelAftertouch(e.message.dataBytes[0], {
-                channels: this.settings.midi_channel + 1,
-                rawValue: true,
-              });
-            });
-
-            this.midiin_data.addListener("pitchbend", (e) => {
-              // TODO decide what multichannel pitchbend should do, for now on output channel only
-              //console.log("Pitch Bend (thru)", e.message.dataBytes[0], e.message.dataBytes[1]);
-              this.midiout_data.sendPitchBend(
-                2.0 *
-                (e.message.dataBytes[0] / 16384.0 +
-                  e.message.dataBytes[1] / 128.0) -
-                1.0,
-                { channels: this.settings.midi_channel + 1 },
-              );
-            });
-
+            // Multichannel output — currently NOT USED, to be replaced by DIRECT mode.
             this.midiin_data.addListener("keyaftertouch", (e) => {
               let note = e.message.dataBytes[0] + 128 * (e.message.channel - 1); // finds index of stored MTS data
               this.midiout_data.sendKeyAftertouch(
@@ -327,96 +364,42 @@ class Keys {
                 e.message.dataBytes[1],
                 { channels: keymap[note][6] + 1, rawValue: true },
               );
-              //console.log("Key Pressure MultiCh", keymap[note][6] + 1, keymap[note][0], e.message.dataBytes[1]);
             });
           } else {
-            // in single-channel output send controlchange and channel pressure only on selected channel
-
-            this.midiin_data.addListener("controlchange", (e) => {
-              //console.log("(thru) Control Change", this.settings.midi_channel + 1, e.message.dataBytes[0], e.message.dataBytes[1]);
-              this.midiout_data.sendControlChange(
-                e.message.dataBytes[0],
-                e.message.dataBytes[1],
-                { channels: this.settings.midi_channel + 1 },
-              );
-            });
-
-            this.midiin_data.addListener("channelaftertouch", (e) => {
-              //console.log("Channel Aftertouch (thru)", this.settings.midi_channel + 1, e.message.dataBytes[0]);
-              this.midiout_data.sendChannelAftertouch(e.message.dataBytes[0], {
-                channels: this.settings.midi_channel + 1,
-                rawValue: true,
-              });
-            });
-
+            // Single-channel output.
             if (this.settings.midi_mapping == "sequential") {
-              // handling of sequential, also currently inactive, to be replaced by "DIRECT" mode, and mts output of key pressure
-
-              this.midiin_data.addListener("pitchbend", (e) => {
-                // TO DO!!! decide what pitchbend should do
-                //console.log("Pitch Bend (thru)", e.message.dataBytes[0], e.message.dataBytes[1]);
-                this.midiout_data.sendPitchBend(
-                  2.0 *
-                  (e.message.dataBytes[0] / 16384.0 +
-                    e.message.dataBytes[1] / 128.0) -
-                  1.0,
-                  { channels: this.settings.midi_channel + 1 },
-                );
-              });
-
-              /*          Note that the channels-to-equave-transposition logic in the next section will need overhaul
-               *          once static mapping per MIDI control surface is implemented. New logic: unique layout mapping
-               *          unique MIDI+channel identifiers (MIDI2 compatible) i.e. Channel*128 + Note Number, and this
-               *          is to be dynamically allocated based on layout and scale to optimise coverage and polyphony.
-               */
+              // Sequential — inactive, to be replaced by DIRECT mode.
+              // Note-remapping: channel offset → equave shift → remapped output note.
+              // Note that the channels-to-equave-transposition logic here will need
+              // overhaul once static mapping per MIDI control surface is implemented.
               this.midiin_data.addListener("keyaftertouch", (e) => {
-                let channel_offset =
-                  e.message.channel - 1 - this.settings.midiin_channel; // calculates the difference between selected central MIDI Input channel and the actual channel being sent and uses this to offset by up to +/- 4 equaves
-                channel_offset = ((channel_offset + 20) % 8) - 4;
-                let note_offset = channel_offset * this.settings.equivSteps;
-                let note =
-                  (e.message.dataBytes[0] + note_offset + 16 * 128) % 128; // matches note cycling in midi_synth/index,js
+                // equaveShift: how many equaves this channel is transposed relative to
+                // the anchor channel (midiin_channel). Range −4…+3, wrapping at 8 channels.
+                let equaveShift =
+                  e.message.channel - 1 - this.settings.midiin_channel;
+                equaveShift = ((equaveShift + 20) % 8) - 4;
+                // scaleStepShift: the same transposition expressed as scale degrees
+                // (equaveShift × equivSteps), used to remap the output note number.
+                const scaleStepShift = equaveShift * this.settings.equivSteps;
+                let note = (e.message.dataBytes[0] + scaleStepShift + 16 * 128) % 128;
                 this.midiout_data.sendKeyAftertouch(
                   note,
                   e.message.dataBytes[1],
                   { channels: this.settings.midi_channel + 1, rawValue: true },
                 );
-                //console.log("Key Pressure Seq", this.settings.midi_channel + 1, note, e.message.dataBytes[1]);
               });
             } else if (
               this.settings.midi_mapping == "MTS1" ||
               this.settings.midi_mapping == "MTS2"
             ) {
               this.midiin_data.addListener("keyaftertouch", (e) => {
-                let note =
-                  e.message.dataBytes[0] + 128 * (e.message.channel - 1); // finds index of stored MTS data
-                //console.log("note", note);
-                //console.log("keymap", keymap[note][0]);
+                let note = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
                 this.midiout_data.sendKeyAftertouch(
                   keymap[note][0],
                   e.message.dataBytes[1],
                   { channels: this.settings.midi_channel + 1, rawValue: true },
                 );
-                //console.log("Key Pressure MTS", this.settings.midi_channel + 1, keymap[note][0], e.message.dataBytes[1]);
               });
-
-              this.midiin_data.addListener("pitchbend", (e) => {
-                // TODO decide what multichannel pitchbend should do, for now on output channel only
-                //console.log("Pitch Bend (thru)", e.message.dataBytes[0], e.message.dataBytes[1]);
-                this.midiout_data.sendPitchBend(
-                  2.0 *
-                  (e.message.dataBytes[0] / 16384.0 +
-                    e.message.dataBytes[1] / 128.0) -
-                  1.0,
-                  { channels: this.settings.midi_channel + 1 },
-                );
-              });
-
-              /*
-            this.midiin_data.addListener("pitchbend", e => { // pitchbend is processed as MTS real-time data allowing every note a different bend radius TO DO ... reactivate this feature !
-              this.mtsBend(e);       
-            });
-            */
             }
           }
         } // end if (output_mts)
@@ -453,12 +436,29 @@ class Keys {
           }
         }
 
-        // Universal pitch-wheel → recency-stack target.
-        // Runs for ALL midi_mapping modes.  The existing per-mode pitchbend
-        // listeners (forwarding to output) are preserved alongside this one.
+        // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
         this.midiin_data.addListener('pitchbend', (e) => {
           const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
+
+          if (this.inputRuntime.mpeInput) {
+            // MPE input mode: pitch bend is per-voice, carried on the note's channel.
+            // Route to the hex registered on this channel, bypassing the recency stack.
+            const entry = this.state.activeMidiByChannel.get(e.message.channel);
+            if (entry && !entry.hex.release) {
+              // Bend from baseCents (frozen at note-on) — NOT from hex.cents,
+              // which retune() mutates, causing infinite accumulation.
+              const norm = (val14 - 8192) / 8192; // −1…+1
+              const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '9/8');
+              entry.hex.retune(entry.baseCents + norm * rangeCents);
+            }
+            // In MPE input mode we do NOT pass through to the output — each hex's
+            // retune() call handles expression for its own output engine.
+            return;
+          }
+
+          // Non-MPE: dispatch by pitchBendMode, then pass through to outputs.
           this._handleWheelBend(val14);
+          this._passthroughPitchBend(val14);
         });
 
       } // end else (midiin_data exists)
@@ -984,6 +984,7 @@ class Keys {
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
+    this.state.activeMidiByChannel.clear();
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
@@ -1291,6 +1292,13 @@ class Keys {
     if (this._midiLatchToggle(coords, velocity_played)) return;
     const hex = this.hexOn(coords, note_played, velocity_played, bend);
     this.state.activeMidi.set(note_played, hex);
+    // In MPE input mode also track by channel so per-channel expression events
+    // (pitch bend, pressure, CC74) can look up the correct hex directly.
+    if (this.inputRuntime.mpeInput) {
+      // Store both the hex and its base pitch (cents at note-on, before any bend).
+      // The pitch bend handler reads baseCents — not hex.cents, which retune() mutates.
+      this.state.activeMidiByChannel.set(e.message.channel, { hex, baseCents: hex.cents });
+    }
     this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(coords);
   };
 
@@ -1320,6 +1328,13 @@ class Keys {
     if (hex) {
       this.noteOff(hex, e.note.rawRelease);
       this.state.activeMidi.delete(note_played); // clear BEFORE hexOff
+      // In MPE input mode, remove the channel→hex mapping. Only remove if this
+      // note's hex is still the registered one — a fast retrigger on the same
+      // channel could have already registered a newer hex.
+      if (this.inputRuntime.mpeInput &&
+          this.state.activeMidiByChannel.get(e.message.channel)?.hex === hex) {
+        this.state.activeMidiByChannel.delete(e.message.channel);
+      }
     }
     // hexOff is called per coord for visual update (may cover multiple visible coords)
     for (const coords of coordsList) {
@@ -1356,6 +1371,7 @@ class Keys {
         }
       }
       notes.played = [];
+      this.state.activeMidiByChannel.clear();
       console.log("All notes released!");
     } else {
       console.log("No held notes to be released.");
@@ -1419,6 +1435,7 @@ class Keys {
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
+    this.state.activeMidiByChannel.clear();
     // Reset drag-state flags in case panic fires mid-drag
     this.state.isMouseDown = false;
     this.state.isTouchDown = false;
@@ -2127,21 +2144,105 @@ class Keys {
   buildStepsTable()              { this.coordResolver.buildStepsTable(); }
   stepsToVisibleCoords(steps)    { return this.coordResolver.stepsToVisibleCoords(steps); }
 
-  // ── Recency-stack wheel bend ──────────────────────────────────────────────
+  // ── CC and channel-pressure passthrough ──────────────────────────────────
+  //
+  // Send a CC or channel-pressure message to all currently active MIDI outputs:
+  //   - MTS output: send on configured midi_channel
+  //   - MPE output: send on the manager channel (zone-wide per MPE spec)
+  // These helpers are called from the universal controlchange / channelaftertouch
+  // listeners before any internal consumption logic.
+
+  _passthroughCC(cc, value) {
+    if (this.midiout_data && this.settings.midi_device !== 'OFF' && this.settings.midi_channel >= 0) {
+      this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
+    }
+    if (this.settings.output_mpe && this.settings.mpe_device !== 'OFF') {
+      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
+      if (mpeOutput) {
+        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
+        mpeOutput.sendControlChange(cc, value, { channels: managerCh });
+      }
+    }
+  }
+
+  _passthroughChannelPressure(value) {
+    if (this.midiout_data && this.settings.midi_device !== 'OFF' && this.settings.midi_channel >= 0) {
+      this.midiout_data.sendChannelAftertouch(value, { channels: this.settings.midi_channel + 1, rawValue: true });
+    }
+    if (this.settings.output_mpe && this.settings.mpe_device !== 'OFF') {
+      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
+      if (mpeOutput) {
+        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
+        mpeOutput.sendChannelAftertouch(value, { channels: managerCh, rawValue: true });
+      }
+    }
+  }
+
+  // Send a pitch-bend message to all active outputs.
+  // val14: 0–16383 (centre 8192).  Converted to WebMidi's −1…+1 float.
+  // For MPE output we send on the manager channel (zone-wide per MPE spec).
+  // Individual MPE voice-channel bends are handled by the hex's retune() call —
+  // we do not also send on the manager channel when in MPE input mode, since
+  // that would double-apply the bend.
+  _passthroughPitchBend(val14) {
+    const normalized = (val14 / 8192.0) - 1.0; // 0→−1, 8192→0, 16383→≈+1
+    if (this.midiout_data && this.settings.midi_device !== 'OFF' && this.settings.midi_channel >= 0) {
+      this.midiout_data.sendPitchBend(normalized, { channels: this.settings.midi_channel + 1 });
+    }
+    // MPE: only send zone-wide PB on manager channel when NOT in MPE input mode.
+    // In MPE input mode each voice channel carries its own per-note bend via retune().
+    if (!this.inputRuntime.mpeInput && this.settings.output_mpe && this.settings.mpe_device !== 'OFF') {
+      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
+      if (mpeOutput) {
+        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
+        mpeOutput.sendPitchBend(normalized, { channels: managerCh });
+      }
+    }
+  }
+
+  // ── Wheel bend (pitch bend routing) ──────────────────────────────────────
   //
   // _handleWheelBend is the universal entry point: call it with any 14-bit
   // value (0–16383, centre 8192) from any controller — wheel, expression pedal,
-  // OSC, or the future mod-matrix.  It targets the front of the recency stack.
+  // OSC, or the future mod-matrix.
   //
-  // _updateWheelTarget is called whenever the stack changes (noteOn/Off/panic)
-  // to silently redirect the current bend to the new front note.
+  // Two routing modes (inputRuntime.pitchBendMode):
+  //
+  //   'recency' (default): target the front of the recency stack.
+  //     _updateWheelTarget keeps the target in sync as notes change.
+  //     Scale-aware asymmetric bend is available in this mode only.
+  //
+  //   'all': apply the same bend offset to every currently sounding hex.
+  //     Each hex is shifted by the same number of cents from its own base pitch.
+  //     For MPE output the host receives a manager-channel PB (zone-wide, one
+  //     message) via _passthroughPitchBend — individual voice channels are not
+  //     also retuned to avoid doubling the bend.
+  //
+  // _wheelBend stores the current offset in cents (0 at rest).  It is used by
+  // _updateWheelTarget to apply an in-flight bend when the recency front changes.
   //
   // Snapshot integration (future): capture `_wheelBaseCents + _wheelBend` as
-  // the committed new pitch for _wheelTarget, then reset _wheelBend to 0.
+  // the committed pitch for _wheelTarget, then reset _wheelBend to 0.
 
   _handleWheelBend(val14) {
     if (!this.inputRuntime.wheelToRecent) return;
 
+    const norm = (val14 - 8192) / 8192; // −1 … +1
+
+    if (this.inputRuntime.pitchBendMode === 'all') {
+      // All-notes mode: apply a uniform cent offset to every active hex.
+      // We use the symmetric fixed-range calculation only (scale-aware
+      // asymmetric bend is inherently single-target).
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '9/8');
+      const offsetCents = norm * rangeCents;
+      this._wheelBend = offsetCents;
+      for (const hex of this._allActiveHexes()) {
+        hex.retune(hex.cents + offsetCents);
+      }
+      return;
+    }
+
+    // 'recency' mode (default): target the front of the recency stack.
     const target = this.recencyStack.front;
     if (!target) return;
 
@@ -2151,8 +2252,6 @@ class Keys {
       this._wheelTarget = target;
       this._wheelBaseCents = target.cents;
     }
-
-    const norm = (val14 - 8192) / 8192; // −1 … +1
 
     let bentCents;
     if (this.inputRuntime.wheelScaleAware && target.cents_prev != null && target.cents_next != null) {

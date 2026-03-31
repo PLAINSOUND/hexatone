@@ -16,6 +16,10 @@ import { lumatoneNoteOffset, LUMATONE_BLOCK_OFFSETS, LUMATONE_NOTES_PER_BLOCK, L
  *                   pressure, and CC74). When true, Hexatone should automatically enable
  *                   midiin_mpe_input so each channel's expression is routed to its hex.
  *                   false for single-channel or block-channel controllers.
+ *   mpeVoiceChannels – { lo, hi } if the controller uses a fixed, known MPE voice
+ *                   channel range (e.g. Exquis: { lo: 2, hi: 15 }). null means the
+ *                   range is user-configurable and the UI picker is shown. Only
+ *                   present on entries where mpe is true.
  *   anchor        – array of setting descriptors for the UI
  *   buildMap(anchorParams) → Map<"ch.note", {x,y}>
  *                   x,y are integer offsets from the anchor key in hex-grid units.
@@ -120,19 +124,27 @@ export const TS41_TOTAL_NOTES = 126;
 // note (1-126) → {col, row}
 // columns repeat in patterns of 12 with the following number of notes in each column
 // TS41_COLUMNS_PATTERN = [3, 4, 3, 3, 4, 3, 4, 3, 4, 3, 3, 4];
-const TS41_COLUMNS_OFFSET = [3, 7, 10, 13, 17, 20, 24, 27, 31, 34, 37, 41]; // note number in top position
-const TS41_ROWS_OFFSET = [1,0,1,2,1,2,1,2,1,2,3,2,3,2,3,4,3,4,3,4,3,4,5,4,5,4,5,6,5,6,5,6,5,6,7,6,7]; //top position row number
+//
+// TS41_COL_NOTE_START[c]: the note-number of the topmost key in column c (within a 41-note block).
+// Used to find which column a note-in-block belongs to (findLastIndex where start < posInBlock).
+const TS41_COL_NOTE_START = [3, 7, 10, 13, 17, 20, 24, 27, 31, 34, 37, 41];
+// TS41_COL_ROW_START[col]: the physical row of the topmost key in that column (0-indexed, 37 columns total).
+const TS41_COL_ROW_START = [1,0,1,2,1,2,1,2,1,2,3,2,3,2,3,4,3,4,3,4,3,4,5,4,5,4,5,6,5,6,5,6,5,6,7,6,7];
 
 function noteToPhysical(note) {
   if (note < 1 || note > 126) return null;
   const block = Math.floor((note - 1) / 41);
   const posInBlock = ((note - 1) % 41) + 1;  // 1..41, avoids mod-41 === 0 edge case
-  const blockOffset = TS41_COLUMNS_OFFSET.findLastIndex((offset) => offset < posInBlock);
-  const offsetValue = blockOffset + 1;
-  const col = 12 * block + offsetValue;
-  const rowOffset = TS41_ROWS_OFFSET[col];
-  const match = TS41_COLUMNS_OFFSET[1 + TS41_COLUMNS_OFFSET.findLastIndex((offset) => offset < posInBlock)];
-  const row = rowOffset + 2 * (match - posInBlock);
+  // colInBlock: 0-indexed column within the 12-column repeating block.
+  // findLastIndex returns the index of the last column whose top-note start < posInBlock.
+  const colInBlock = TS41_COL_NOTE_START.findLastIndex((noteStart) => noteStart < posInBlock) + 1;
+  const col = 12 * block + colInBlock;
+  // topRow: physical row of the topmost key in this column.
+  const topRow = TS41_COL_ROW_START[col];
+  // nextColNoteStart: note-number of the topmost key in the next column (= note-start of colInBlock+1).
+  const nextColNoteStart = TS41_COL_NOTE_START[colInBlock];
+  // rows are spaced 2 apart; the topmost key is at topRow, keys below are at topRow+2, topRow+4, ...
+  const row = topRow + 2 * (nextColNoteStart - posInBlock);
   return { row, col };
 }
 
@@ -185,17 +197,19 @@ function buildTS41Map(anchorNote) {
 //   hx = 0.5·Δx_phys − Δy_phys
 //   hy = 0.5·Δx_phys + Δy_phys
 
-const EXQUIS_COL_OFFSETS = [0, 6, 11, 17, 22, 28, 33, 39, 44, 50, 55];
-const EXQUIS_COL_SIZES   = [6, 5, 6, 5, 6, 5, 6, 5, 6, 5, 6];
+// EXQUIS_COL_NOTE_START[c]: first MIDI note number assigned to column c (0-indexed, notes 0–60).
+const EXQUIS_COL_NOTE_START = [0, 6, 11, 17, 22, 28, 33, 39, 44, 50, 55];
+// EXQUIS_COL_SIZES[c]: number of keys in column c (even cols=6, odd cols=5).
+const EXQUIS_COL_SIZES      = [6, 5, 6, 5, 6, 5, 6, 5, 6, 5, 6];
 
 /** Convert Exquis note 0–60 → { col, row } in physical grid. */
 function exquisNoteToColRow(note) {
-  // Find which column the note falls in using the precomputed offsets.
+  // Find which column the note falls in using the precomputed column note-starts.
   let col = 10;
   for (let c = 0; c < 11; c++) {
-    if (note < EXQUIS_COL_OFFSETS[c] + EXQUIS_COL_SIZES[c]) { col = c; break; }
+    if (note < EXQUIS_COL_NOTE_START[c] + EXQUIS_COL_SIZES[c]) { col = c; break; }
   }
-  const row = note - EXQUIS_COL_OFFSETS[col];
+  const row = note - EXQUIS_COL_NOTE_START[col];
   return { col, row };
 }
 
@@ -372,6 +386,9 @@ export const CONTROLLER_REGISTRY = [
     description: '16×8 grid, row per channel (ch1–8). Sends MPE: per-voice pitch bend, pressure, and CC74.',
     multiChannel: true,
     mpe: true,  // each row's channel carries per-voice expression for that voice
+    // LinnStrument uses ch 1–8 (one per row); configurable on device but 1–8 is the default.
+    // null here means user-configurable — the MPE channel range picker is shown in the UI.
+    mpeVoiceChannels: null,
     anchorDefault: 30,
     buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 30),
   },
@@ -405,6 +422,9 @@ export const CONTROLLER_REGISTRY = [
     description: '61-note hex grid. Use Rainbow Layout (Preset 6).',
     multiChannel: false,
     mpe: true,  // Exquis sends MPE (per-note pitch bend and pressure on individual channels)
+    // In Rainbow Layout the Exquis always uses ch 2–15 for MPE voices.
+    // This is fixed by the device — the channel range picker is hidden in the UI.
+    mpeVoiceChannels: { lo: 2, hi: 15 },
     anchorDefault: 19,
     buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
   },

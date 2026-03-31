@@ -77,6 +77,10 @@ export const SETTINGS_REGISTRY = [
   // Input runtime mode keys
   { key: 'midiin_mapping_target',   tier: 'session', type: 'string', default: 'hex_layout' },
   { key: 'midiin_mpe_input',        tier: 'session', type: 'bool',   default: false },
+  // MPE input voice channel range. Channels 1 and 16 are typically reserved
+  // (manager/global channel per MPE spec), so the default voice range is 2–15.
+  { key: 'midiin_mpe_lo_ch',        tier: 'session', type: 'int',    default: 2 },
+  { key: 'midiin_mpe_hi_ch',        tier: 'session', type: 'int',    default: 15 },
   { key: 'midiin_scale_tolerance',  tier: 'url',     type: 'int',    default: 50 },
   { key: 'midiin_pitchbend_mode',   tier: 'session', type: 'string', default: 'recency' },
   { key: 'midiin_pressure_mode',    tier: 'session', type: 'string', default: 'recency' },
