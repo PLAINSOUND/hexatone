@@ -431,9 +431,6 @@ export const CONTROLLER_REGISTRY = [
     mpeVoiceChannels: { lo: 2, hi: 15 },
     anchorDefault: 19,
     buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
-    // Default to sequential (bypass 2D geometry) on first connect — the user must
-    // manually select Rainbow Layout on the device before 2D geometry is meaningful.
-    passthroughDefault: true,
   },
 
   {
