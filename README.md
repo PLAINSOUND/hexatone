@@ -21,6 +21,9 @@ Current version 3dev (2026), released as Free/Libre and Open Source Software und
 
 ## Version history
 
+### 3.1.0-beta.3 *(current, April 2026)*
+Updated docs/hexatone with issues.md and roadmap.md to build overview of app development in preparation for opening to community collaboration. Input includes two targets: nearest scale degree or hex coords.
+
 ### 3.1.0-beta.2 *(current, March 2026)*
 Refactored code to automatically map isomorphic controllers. Changed octave-to-equave harcoded logic to allow user-specified behaviour for other scales (no tranposition, transposition by a specified number of scale degrees, or by equave); full independent retuneability of all scale degrees and reference, automatic scale file rewrite; option to refresh or retain scale on reload; fixed input interoperability logic (mouse, touch, computer keyboard, MIDI); MPE input mode with per-voice pitch bend and pressure routing. Under the hood fixes: refactoring persistence and loading logic. Cleaning up code, preparing for integration of scale math with xen-devs.
 

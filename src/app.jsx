@@ -327,7 +327,8 @@ const App = () => {
     seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
     stepsPerChannel:  settings.midiin_steps_per_channel,
     legacyChannelMode: settings.midiin_channel_legacy,
-    scaleTolerance:   settings.midiin_scale_tolerance ?? 50,
+    scaleTolerance:   settings.midiin_scale_tolerance ?? 25,
+    scaleFallback:    settings.midiin_scale_fallback || 'accept',
     pitchBendMode:    settings.midiin_pitchbend_mode || 'recency',
     pressureMode:     settings.midiin_pressure_mode || 'recency',
     // Wheel settings kept here for Keys to use alongside routing mode.
@@ -348,6 +349,7 @@ const App = () => {
     settings.midiin_steps_per_channel,
     settings.midiin_channel_legacy,
     settings.midiin_scale_tolerance,
+    settings.midiin_scale_fallback,
     settings.midiin_pitchbend_mode,
     settings.midiin_pressure_mode,
     settings.wheel_to_recent,

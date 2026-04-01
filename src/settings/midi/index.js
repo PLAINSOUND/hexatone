@@ -55,6 +55,7 @@ const MIDIio = (props) => {
   //   - not in active 2D geometry mode
   //   - AND not a multichannel controller (Lumatone, LinnStrument, TonalPlexus —
   //     their channels encode layout geometry, not keyboard splits)
+  const scaleMode = (props.settings.midiin_mapping_target || 'hex_layout') === 'scale';
   const using2DMap = ctrl && !props.settings.midi_passthrough;
   // Channel Transposition is shown when sequential channel-offset arithmetic is meaningful:
   //   - not in active 2D geometry mode
@@ -63,8 +64,9 @@ const MIDIio = (props) => {
   //     — they only ever send on one channel so transposition has no effect
   //   - shown for unknown controllers (may be a multichannel keyboard split)
   //   - shown for multichannel non-MPE controllers in sequential/bypass mode (Lumatone)
+  //   - hidden in scale mode (pitch is mapped directly; geometry/channel layout irrelevant)
   const isMultiChannelSequential = !ctrl || ctrl.multiChannel;
-  const showChannelTranspose = !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
+  const showChannelTranspose = !scaleMode && !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
 
   // mpeSetupOpen removed — MPE options are shown flat when MPE is enabled.
 
@@ -93,6 +95,59 @@ const MIDIio = (props) => {
           ))}
         </select>
       </label>
+
+      <label>
+        Input Mode
+        <select
+          class="sidebar-input"
+          value={props.settings.midiin_mapping_target || 'hex_layout'}
+          onChange={(e) => {
+            props.onChange('midiin_mapping_target', e.target.value);
+            sessionStorage.setItem('midiin_mapping_target', e.target.value);
+          }}
+        >
+          <option value="hex_layout">MIDI to Hex Layout</option>
+          <option value="scale">MIDI to Nearest Scale Degree</option>
+        </select>
+      </label>
+
+      {(props.settings.midiin_mapping_target || 'hex_layout') === 'scale' && (
+        <>
+          <label title="Maximum distance in cents before a note is considered out of tolerance">
+            Tolerance (cents)
+            <input
+              type="text"
+              inputMode="numeric"
+              class="sidebar-input"
+              key={props.settings.midiin_scale_tolerance ?? 25}
+              defaultValue={props.settings.midiin_scale_tolerance ?? 25}
+              onBlur={(e) => {
+                const v = parseInt(e.target.value);
+                if (!isNaN(v) && v >= 0) {
+                  props.onChange('midiin_scale_tolerance', v);
+                  sessionStorage.setItem('midiin_scale_tolerance', String(v));
+                } else {
+                  e.target.value = props.settings.midiin_scale_tolerance ?? 25;
+                }
+              }}
+            />
+          </label>
+          <label title="What to do when no scale degree is within tolerance">
+            Out of tolerance
+            <select
+              class="sidebar-input"
+              value={props.settings.midiin_scale_fallback || 'accept'}
+              onChange={(e) => {
+                props.onChange('midiin_scale_fallback', e.target.value);
+                sessionStorage.setItem('midiin_scale_fallback', e.target.value);
+              }}
+            >
+              <option value="discard">Discard</option>
+              <option value="accept">Accept Best</option>
+            </select>
+          </label>
+        </>
+      )}
 
       {props.settings.midiin_device && props.settings.midiin_device !== 'OFF' && (
         <>
@@ -167,8 +222,8 @@ const MIDIio = (props) => {
             </>
           )}
 
-          {/* ── Known 2D controller ── */}
-          {ctrl ? (
+          {/* ── Known 2D controller / sequential anchor ── hidden in scale mode */}
+          {!scaleMode && (ctrl ? (
             <>
               <label style={{ fontStyle: 'italic', color: '#996666' }}>
                 {ctrl.name}
@@ -578,7 +633,7 @@ const MIDIio = (props) => {
                 </span>
               </label>
             </>
-          )}
+          ))}
 
           {/* ── Channel Transposition — sequential single-channel path only.
               Hidden for active 2D geometry mode AND for multichannel controllers
@@ -678,12 +733,13 @@ const MIDIio = (props) => {
               Pitch Bend Interval (12edo semitones)
               <input
                 type="number"
-                min="1"
+                min="0"
                 max="24"
                 style={{ width: '3.5em' }}
                 value={props.settings.midi_wheel_semitones ?? 2}
                 onChange={(e) => {
-                  const v = Math.max(1, Math.min(24, parseInt(e.target.value) || 2));
+                  const parsed = parseInt(e.target.value);
+                  const v = Math.max(0, Math.min(24, isNaN(parsed) ? 2 : parsed));
                   props.onChange('midi_wheel_semitones', v);
                   sessionStorage.setItem('midi_wheel_semitones', v);
                 }}

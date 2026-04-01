@@ -26,6 +26,7 @@ import {
 } from '../settings/scale/color-transfer.js';
 import { RecencyStack } from '../recency_stack.js';
 import { MidiCoordResolver } from './midi-coord-resolver.js';
+import { findNearestDegree } from '../input/scale-mapper.js';
 import {
   degree0ToRef, computeNaturalAnchor, mtsTuningMap,
   computeCenterPitchHz, chooseStaticMapCenterMidi, computeStaticMapDegree0,
@@ -1345,7 +1346,24 @@ class Keys {
 
     let coords;
 
-    if (this.inputRuntime.layoutMode === 'sequential') {
+    if (this.inputRuntime.target === 'scale') {
+      // Scale target mode: map incoming MIDI pitch to nearest scale degree.
+      // Pitch offset from anchor note in 12-EDO cents (equal temperament reference).
+      const pitchCents = (e.note.number - this.settings.midiin_central_degree) * 100;
+      const result = findNearestDegree(
+        pitchCents,
+        this.settings.scale,
+        this.settings.equivInterval,
+        this.inputRuntime.scaleTolerance ?? 50,
+        this.inputRuntime.scaleFallback || 'discard',
+      );
+      if (result === null) return; // out of tolerance, discard
+      // result.steps is relative to degree 0; add center_degree to place it at
+      // the correct screen position (same offset as noteToSteps does for layout mode).
+      const steps = result.steps + (this.settings.center_degree || 0);
+      if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
+      coords = this.coordResolver.bestVisibleCoord(steps);
+    } else if (this.inputRuntime.layoutMode === 'sequential') {
       // Sequential mode: ignore controller geometry, use step arithmetic.
       // Also forward raw notes when MTS output is off (MTS via hexOn would double them).
       if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
@@ -1401,7 +1419,24 @@ class Keys {
   midinoteOff = (e) => {
     let coordsList;
 
-    if (this.inputRuntime.layoutMode === 'sequential' || !this.controllerMap) {
+    if (this.inputRuntime.target === 'scale') {
+      // Scale mode: re-resolve pitch to steps to find coords for visual release.
+      const pitchCents = (e.note.number - this.settings.midiin_central_degree) * 100;
+      const result = findNearestDegree(
+        pitchCents,
+        this.settings.scale,
+        this.settings.equivInterval,
+        this.inputRuntime.scaleTolerance ?? 50,
+        // Always accept on note-off — we must release whatever was activated.
+        'accept',
+      );
+      if (result === null) {
+        coordsList = [];
+      } else {
+        const steps = result.steps + (this.settings.center_degree || 0);
+        coordsList = this.coordResolver.stepsToVisibleCoords(steps);
+      }
+    } else if (this.inputRuntime.layoutMode === 'sequential' || !this.controllerMap) {
       // Sequential or generic keyboard: step arithmetic (may hit multiple visible coords).
       if (this.inputRuntime.layoutMode === 'sequential' && !this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOff(e.note.number, {
