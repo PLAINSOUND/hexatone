@@ -2,6 +2,7 @@ import { h, createRef } from "preact";
 import { useState, useRef, useCallback, useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "./parse-scale";
+import ScalaInput from './scala-input.js';
 
 // Normalise a hex string to the form #rrggbb.
 // Accepts:  #rgb  #rrggbb  rgb  rrggbb
@@ -402,9 +403,9 @@ const ScaleTable = (props) => {
     colors[i] || "#ffffff",
   ]);
 
-  const scaleChange = (e) => {
+  const scaleChangeAt = (i, str) => {
     const next = [...(props.settings.scale || [])];
-    next[parseInt(e.target.name.replace(/scale/, ""))] = e.target.value;
+    next[i] = str;
     props.onChange("scale", next);
   };
 
@@ -531,11 +532,13 @@ const ScaleTable = (props) => {
           >
             <td>
               <div class="freq-cell">
-                <input
-                  type="text"
+                <ScalaInput
+                  context="degree"
                   name={`scale${i}`}
                   value={freq}
-                  onChange={scaleChange}
+                  onAnyChange={(str) => scaleChangeAt(i, str)}
+                  onChange={(str) => scaleChangeAt(i, str)}
+                  showCents={false}
                   aria-label={`pitch value ${i}`}
                 />
                 <TuneCell
@@ -604,11 +607,13 @@ const ScaleTable = (props) => {
         >
           <td>
             <div class="freq-cell">
-              <input
-                type="text"
+              <ScalaInput
+                context="interval"
                 name={`scale${scale.length - 1}`}
                 value={equiv_interval}
-                onChange={scaleChange}
+                onAnyChange={(str) => scaleChangeAt(scale.length - 1, str)}
+                onChange={(str) => scaleChangeAt(scale.length - 1, str)}
+                showCents={false}
                 aria-label={`pitch ${scale.length - 1}`}
               />
               <div class="tune-cell-spacer" aria-hidden="true" />

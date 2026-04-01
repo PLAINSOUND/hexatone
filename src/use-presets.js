@@ -2,27 +2,9 @@ import { useState, useEffect } from "preact/hooks";
 import { presets, default_settings } from "./settings/preset_values";
 import { settingsToHexatonScala } from "./settings/scale/parse-scale.js";
 import { loadCustomPresets } from "./settings/custom-presets";
+import { PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
 
-// Preset-specific fields are never restored from URL or localStorage on reload.
-// They only come from the preset_values defaults or an explicit preset load.
-export const PRESET_SKIP_KEYS = [
-  "name",
-  "description",
-  "scale",
-  "note_names",
-  "note_colors",
-  "spectrum_colors",
-  "fundamental_color",
-  "fundamental",
-  "reference_degree",
-  "center_degree",
-  "equivSteps",
-  "rSteps",
-  "drSteps",
-  "key_labels",
-  "hexSize",
-  "rotation",
-];
+export { PRESET_SKIP_KEYS };
 
 // Scale-related keys to clear on reset (keeps output settings)
 export const SCALE_KEYS_TO_CLEAR = [

@@ -23,7 +23,7 @@ import {
   ExtractBool,
   ExtractJoinedString,
 } from "./use-query";
-import usePresets from "./use-presets.js";
+import usePresets, { SCALE_KEYS_TO_CLEAR } from "./use-presets.js";
 import { buildQuerySpec, buildRegistryDefaults, PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
@@ -43,29 +43,17 @@ import "./loader.css";
 if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
   const shouldPersist = localStorage.getItem("hexatone_persist_on_reload") === "true";
   if (!shouldPersist) {
-    const scaleKeysToClear = [
-      "scale",
-      "scale_import",
-      "note_names",
-      "note_colors",
-      "key_labels",
-      "reference_degree",
-      "equivSteps",
-      "equivInterval",
-      // midiin_central_degree excluded — hardware setting, persists across presets
-      "spectrum_colors",
-      "fundamental_color",
-      "name",
-      "description",
-      "short_description",
+    // SCALE_KEYS_TO_CLEAR covers all scale/preset keys.
+    // Additionally clear these session flags on reload to prevent unexpected
+    // sysex traffic and stale preset-source state on startup.
+    const extraKeysToClear = [
       "hexatone_preset_source",
       "hexatone_preset_name",
-      // Auto-send features cleared on reload — must be explicitly re-enabled each session
-      // to prevent unexpected sysex traffic on startup.
       "lumatone_led_sync",
       "direct_sysex_auto",
     ];
-    scaleKeysToClear.forEach((key) => sessionStorage.removeItem(key));
+    [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear]
+      .forEach((key) => sessionStorage.removeItem(key));
   }
 }
 

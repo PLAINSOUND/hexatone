@@ -88,6 +88,37 @@ export const scalaToCents = (line) => {
   }
 };
 
+/**
+ * Parse and validate a Scala-style interval string.
+ *
+ * @param {string} str   Raw user input (ratio, cents, EDO step, plain integer).
+ * @param {'degree'|'interval'} context
+ *   'degree'   — 0¢ is valid (unison in a scale).
+ *   'interval' — 0¢ is invalid (meaningless bend / equave range).
+ * @returns {{ cents: number|null, valid: boolean, error: string|null }}
+ */
+export function parseScalaInterval(str, context = 'degree') {
+  if (typeof str !== 'string' || str.trim() === '') {
+    return { cents: null, valid: false, error: 'empty' };
+  }
+  let cents;
+  try {
+    cents = scalaToCents(str);
+  } catch (e) {
+    return { cents: null, valid: false, error: 'parse error' };
+  }
+  if (!isFinite(cents) || isNaN(cents)) {
+    return { cents: null, valid: false, error: 'invalid' };
+  }
+  if (cents < 0) {
+    return { cents, valid: false, error: 'negative' };
+  }
+  if (cents === 0 && context === 'interval') {
+    return { cents: 0, valid: true, error: null };
+  }
+  return { cents, valid: true, error: null };
+}
+
 // Normalise a scale degree to either ratio or cents string.
 // EDO steps (n\m) and plain integers are converted to cents.
 // Ratios and cents strings are returned unchanged.

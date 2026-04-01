@@ -6,7 +6,8 @@ import Colors, { colorProp } from './colors';
 import KeyLabels from './key-labels';
 import ScaleTable from './scale-table';
 import ScalaImport from './scala-import';
-import { settingsToHexatonScala, scalaToCents } from './parse-scale';
+import { settingsToHexatonScala, parseScalaInterval } from './parse-scale';
+import ScalaInput from './scala-input.js';
 
 /**
  * Inline drag-to-tune handle for the Reference Frequency.
@@ -146,10 +147,10 @@ const Scale = (props) => {
   const equaveValue = scale.length > 0 ? scale[scale.length - 1] : "2/1";
 
   // Handle equave change - update the last element of scale array
-  const handleEquaveChange = (e) => {
+  const handleEquaveChange = (str) => {
     const next = [...scale];
     if (next.length > 0) {
-      next[next.length - 1] = e.target.value;
+      next[next.length - 1] = str;
       props.onChange('scale', next);
     }
   };
@@ -226,50 +227,23 @@ const Scale = (props) => {
         <>
           <label>
             Equave
-            <input name="equave" type="text"
-              class="sidebar-input"
-              key={equaveValue}
-              defaultValue={equaveValue}
-              onBlur={handleEquaveChange}
+            <ScalaInput
+              context="interval"
+              value={equaveValue}
+              onChange={handleEquaveChange}
+              style={{ width: '4em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', borderRadius: '3px' }}
+              wrapperClass="sidebar-input"
             />
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingTop: '0.5rem', marginBottom: '0.5rem' }}>
             <button type="button" onClick={() => {
               const n = props.settings.equivSteps || 12;
-              let equaveStr = (props.settings.scale && props.settings.scale[n - 1])
+              const equaveStr = (props.settings.scale && props.settings.scale[n - 1])
                 ? props.settings.scale[n - 1]
                 : "2/1";
 
-              let equaveCents;
-
-              // Check for ratio format: m/n (e.g., "3/2")
-              if (equaveStr.includes('/') && !equaveStr.includes('\\')) {
-                const parts = equaveStr.split('/');
-                const num = parseFloat(parts[0]);
-                const den = parseFloat(parts[1]);
-                equaveCents = 1200 * Math.log2(num / den);
-              }
-              // Check for EDO format: m\n (e.g., "3\2")
-              else if (equaveStr.includes('\\')) {
-                const parts = equaveStr.split('\\');
-                const m = parseFloat(parts[0]);
-                const n_edo = parseFloat(parts[1]);
-                equaveCents = 1200 * m / n_edo;
-              }
-              // Check if it's only digits (no decimal) - treat as ratio like "3" meaning "3/1"
-              else if (!equaveStr.includes('.') && /^[\d]+$/.test(equaveStr.trim())) {
-                const num = parseFloat(equaveStr);
-                equaveCents = 1200 * Math.log2(num / 1);
-              }
-              // Otherwise treat as cents (has decimal point)
-              else {
-                equaveCents = parseFloat(equaveStr);
-              }
-
-              // Handle NaN or invalid values
-              if (isNaN(equaveCents)) {
-                equaveCents = n * 100;
-              }
+              const { cents: parsed, valid } = parseScalaInterval(equaveStr, 'interval');
+              const equaveCents = valid ? parsed : n * 100;
 
               const step = equaveCents / n;
               const newScale = [];

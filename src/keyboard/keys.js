@@ -1348,8 +1348,10 @@ class Keys {
 
     if (this.inputRuntime.target === 'scale') {
       // Scale target mode: map incoming MIDI pitch to nearest scale degree.
-      // Pitch offset from anchor note in 12-EDO cents (equal temperament reference).
-      const pitchCents = (e.note.number - this.settings.midiin_central_degree) * 100;
+      // Mirror noteToSteps(): anchor note maps to center_degree, so pitch relative
+      // to degree 0 = (note - midiin_central_degree + center_degree) semitones.
+      const pitchCents = (e.note.number - this.settings.midiin_central_degree
+        + (this.settings.center_degree || 0)) * 100;
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,
@@ -1358,11 +1360,8 @@ class Keys {
         this.inputRuntime.scaleFallback || 'discard',
       );
       if (result === null) return; // out of tolerance, discard
-      // result.steps is relative to degree 0; add center_degree to place it at
-      // the correct screen position (same offset as noteToSteps does for layout mode).
-      const steps = result.steps + (this.settings.center_degree || 0);
       if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
-      coords = this.coordResolver.bestVisibleCoord(steps);
+      coords = this.coordResolver.bestVisibleCoord(result.steps);
     } else if (this.inputRuntime.layoutMode === 'sequential') {
       // Sequential mode: ignore controller geometry, use step arithmetic.
       // Also forward raw notes when MTS output is off (MTS via hexOn would double them).
@@ -1421,7 +1420,9 @@ class Keys {
 
     if (this.inputRuntime.target === 'scale') {
       // Scale mode: re-resolve pitch to steps to find coords for visual release.
-      const pitchCents = (e.note.number - this.settings.midiin_central_degree) * 100;
+      // Mirror noteToSteps(): same reference as midinoteOn.
+      const pitchCents = (e.note.number - this.settings.midiin_central_degree
+        + (this.settings.center_degree || 0)) * 100;
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,
@@ -1433,8 +1434,7 @@ class Keys {
       if (result === null) {
         coordsList = [];
       } else {
-        const steps = result.steps + (this.settings.center_degree || 0);
-        coordsList = this.coordResolver.stepsToVisibleCoords(steps);
+        coordsList = this.coordResolver.stepsToVisibleCoords(result.steps);
       }
     } else if (this.inputRuntime.layoutMode === 'sequential' || !this.controllerMap) {
       // Sequential or generic keyboard: step arithmetic (may hit multiple visible coords).

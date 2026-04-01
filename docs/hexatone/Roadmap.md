@@ -144,7 +144,15 @@ Fix: `onFirstInteraction` callback plumbed through `Keyboard → Keys`; called s
 Confirmed fixed 2026-04-01. Preset selector correctly switches to "User Tunings" after generating an equal division scale. (See Issues.md BUG-01.)
 
 ### A2 — Pitch bend smoothness / MPE stuck notes  `todo` `high` `large`
-`_handleWheelBend` may flood at 14-bit resolution; MPE stuck notes from `releaseGuardMs` / retrigger path / `Ableton_workaround` out-of-range notes. Requires audit and likely throttling. (See Issues.md BUG-02.)
+Audit completed 2026-04-01. Three distinct issues found:
+
+1. **Dynamic Bulk Dump flooded by wheel** — `DynamicBulkHex.retune()` sends a full 128-note (408-byte) bulk dump on every `retune()` call. At 14-bit MIDI resolution (~500 events/sec) this overflows the SysEx queue. Fix: throttle via `requestAnimationFrame` coalescing or a `lastSentAt` guard.
+
+2. **Retrigger path sends no noteOff** — `VoicePool.noteOn()` detects retrigger (same coords already active) and returns `stolenSlot: null`. `MpeHex` constructor only sends a noteOff when `stolenSlot !== null`, so a retriggered note gets PB + noteOn without a prior noteOff → stuck note in downstream synth.
+
+3. **`Ableton_workaround` bend overflow** — `channel % 16 = 0` sets `baseNote = 0`; fallback clamps (`note = baseNote`, `note = baseNote + 112`) can place the note outside the ±48-semitone bend range, producing wrong pitch. `deviationToBend()` clamps the MIDI value so no corruption, but the pitch is wrong and silent notes can result.
+
+Priority order for fixes: #2 (stuck notes) → #1 (smoothness) → #3 (Ableton edge case). (See Issues.md BUG-02.)
 
 ### A3 — Scale-mapper test coverage  `todo` `medium` `small`
 Write `src/input/scale-mapper.test.js`: nearest degree in 12-EDO/31-EDO/JI; tolerance gate; `'accept'` vs `'discard'`; octave wrapping; exact match; negative pitchCents. (See Issues.md TEST-01.)
@@ -289,7 +297,7 @@ Rewrite `src/settings/scale/lumatone-export.js` to derive geometry from `buildLu
 `AXIS49_MAP` / `getAxis49Position` legacy exports; `buildLumatoneRawCoords` duplicate; `ExtractArray` in `use-query.js`; `colors.test-fix-unfinished.js`; commented-out `console.log` statements. (Issues.md CLEAN-01.)
 
 ### F5 — Persistence unification  `todo` `low` `xlarge`
-The registry exists but `useQuery` still writes to both URL and localStorage on every `setSettings` call, making URLs extremely long. Proposed: URL params only written on explicit "share" action; sessionStorage for all transient state; localStorage for presets only. (Issues.md ARCH-06.)
+The registry exists and list duplications have been eliminated (2026-04-01: `PRESET_SKIP_KEYS` and `SCALE_KEYS_TO_CLEAR` now have single authoritative sources). However `useQuery` still writes to both URL and localStorage on every `setSettings` call, making URLs extremely long. Proposed: URL params only written on explicit "share" action; sessionStorage for all transient state; localStorage for presets only. (Issues.md ARCH-06.)
 
 ---
 

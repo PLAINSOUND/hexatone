@@ -292,10 +292,13 @@ label .color-cell .color-input {
 
 /* Inputs and selects in sidebar label rows — width matches the start of the
    scale table's "Degree" column, which is the right half of the .wide (50%)
-   first column. Using 50% here tracks the sidebar width automatically. */
+   first column. Using 50% here tracks the sidebar width automatically.
+   When used on a ScalaInput wrapper <span>, justify-content right-aligns
+   the inner input + cents preview. */
 .sidebar-input {
   width: 50% !important;
   text-align: right;
+  justify-content: flex-end;
 }
 
 /* Preset selector rows — select stays at natural width, buttons cluster at left */
@@ -474,13 +477,19 @@ table input:disabled {
   /* iOS reduces opacity on disabled inputs */
 }
 
-/* Freq input fills available width, handle sits flush to its right */
-.freq-cell input {
+/* Freq input fills available width, handle sits flush to its right.
+   ScalaInput wraps <input> in a <span> — both the span wrapper and
+   the input itself need flex/min-width so the cell stretches correctly. */
+.freq-cell input,
+.freq-cell > span {
   flex: 1;
   min-width: 0;
 }
-
-/* .freq-cell.sidebar-input — no longer used */
+.freq-cell > span input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
 
 /* ── Reference Frequency row ──────────────────────────────────────────
  * The right-side wrapper mirrors the scale table's freq-cell pattern:

@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
 import { saveControllerPref } from '../../input/controller-anchor.js';
 import { downloadLtn, DEFAULT_CENTRAL_BOARD, DEFAULT_CENTRAL_KEY, DEFAULT_CENTRAL_CHANNEL, DEFAULT_CENTRAL_NOTE } from '../scale/lumatone-export.js';
-import { scalaToCents } from '../scale/parse-scale.js';
+import ScalaInput from '../scale/scala-input.js';
 
 const MIDIio = (props) => {
   // props.midiTick is unused directly — its presence as a changing prop forces
@@ -708,25 +708,16 @@ const MIDIio = (props) => {
           {(props.settings.midiin_mpe_input || props.settings.wheel_to_recent) ? (
             <label title="Pitch Bend Interval: the musical interval that ±full deflection maps to. Set hardware to max range for best resolution.">
               Pitch Bend Interval (Scala)
-              <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                <input
-                  type="text"
-                  style={{ width: '5em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
-                  value={props.settings.midiin_bend_range ?? '28/27'}
-                  onChange={(e) => {
-                    props.onChange('midiin_bend_range', e.target.value);
-                    saveControllerPref(null, 'midiin_bend_range', e.target.value);
-                  }}
-                />
-                <span style={{ color: '#666', fontSize: '0.85em', minWidth: '3.5em', textAlign: 'right' }}>
-                  {(() => {
-                    try {
-                      const c = scalaToCents(props.settings.midiin_bend_range ?? '28/27');
-                      return isFinite(c) ? `${c.toFixed(1)} ¢` : '';
-                    } catch { return ''; }
-                  })()}
-                </span>
-              </span>
+              <ScalaInput
+                context="interval"
+                value={props.settings.midiin_bend_range ?? '28/27'}
+                onChange={(str) => {
+                  props.onChange('midiin_bend_range', str);
+                  saveControllerPref(null, 'midiin_bend_range', str);
+                }}
+                wrapperClass="sidebar-input"
+                style={{ width: '5em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', borderRadius: '3px' }}
+              />
             </label>
           ) : (
             <label title="Standard wheel range in 12-edo semitones. Raw pitch bend passes through to all MIDI outputs; user adjusts range to match in their synth.">

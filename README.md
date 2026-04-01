@@ -10,7 +10,7 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.1.0-beta.3 (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Current version 3.1.0-beta.4 (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
 
 ## Isomorphic Keyboards
 [Wikipedia](https://en.wikipedia.org/wiki/Isomorphic_keyboard)
@@ -21,7 +21,9 @@ Current version 3.1.0-beta.3 (2026), released as Free/Libre and Open Source Soft
 
 ## Version history
 
-### 3.1.0-beta.3 *(current, April 2026)*
+### 3.1.0-beta.4 *(current)*
+
+### 3.1.0-beta.3 *(April 2026)*
 
 **MIDI input — scale target mode:** new Input Mode selector in MIDI settings: *MIDI to Hex Layout* (existing behaviour) or *MIDI to Nearest Scale Degree*. In scale mode, incoming MIDI pitch is matched to the closest degree of the active scale by cent distance, across any tuning or equave. User-configurable tolerance (default 25¢) and out-of-tolerance behaviour (Accept Best / Discard). Geometry, anchor, and transposition controls are hidden when scale mode is active.
 

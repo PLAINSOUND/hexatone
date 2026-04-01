@@ -20,11 +20,15 @@ After generating an equal division scale, the preset selector now correctly swit
 
 Pitch bend is unsatisfactory across all synths, and MPE output has stuck-note issues.
 
-**Likely causes to audit:**
-- `_handleWheelBend` fires on every raw MIDI pitch-bend event (~500/sec at 14-bit resolution); may be flooding MTS retune or MPE bend messages — add throttling if needed.
-- MPE stuck notes: `noteOff` is never delayed, but a PB message arriving after `noteOff` on a RELEASING channel could interact with the `releaseGuardMs` window — audit timing in `MpeHex.noteOff` and the pool state machine.
-- `retrigger` flag in `pool.noteOn` — check whether the retrigger path always sends a clean `noteOff` before the new `noteOn`, especially when the stolen voice is in RELEASING state.
-- `Ableton_workaround` mode in `freqToMidiAndCents` uses `channel % 16` as the base MIDI note — verify this doesn't produce out-of-range notes at the extremes of the voice channel range (silent stuck notes).
+**Audit completed 2026-04-01 — three root causes identified:**
+
+1. **Dynamic Bulk Dump flooded by wheel** — `DynamicBulkHex.retune()` sends a full 128-note (408-byte) bulk dump on every call. At 14-bit MIDI resolution (~500 events/sec) this overflows the SysEx queue. Fix: throttle via `requestAnimationFrame` coalescing or a `lastSentAt` guard.
+
+2. **Retrigger path sends no noteOff** — `VoicePool.noteOn()` detects retrigger (same coords already active) and returns `stolenSlot: null`. `MpeHex` constructor only sends a noteOff when `stolenSlot !== null`, so a retriggered note gets PB + noteOn without a prior noteOff → stuck note in downstream synth.
+
+3. **`Ableton_workaround` bend overflow** — `channel % 16 = 0` sets `baseNote = 0`; fallback clamps (`note = baseNote`, `note = baseNote + 112`) can place the note outside the ±48-semitone bend range. `deviationToBend()` clamps the MIDI value so no corruption, but the pitch is wrong and silent notes can result.
+
+**Priority order for fixes:** #2 (stuck notes) → #1 (smoothness) → #3 (Ableton edge case).
 
 ---
 
@@ -40,7 +44,37 @@ Fixed 2026-04-01. `fundamental` was `tier: 'url'` without `presetSkip: true`, so
 
 ---
 
-### BUG-04 · `lumatone-export.js` geometry inconsistencies (6 failing tests)
+### BUG-04 · Scale target input mode: pitch shifted by anchor/center_degree offset
+**Tags:** `done`
+
+Fixed 2026-04-01. In `keys.js` `midinoteOn/Off`, the scale-mapper path computed `pitchCents` as `(note - midiin_central_degree) * 100`, then added `center_degree` back after `findNearestDegree` returned. This was wrong: `findNearestDegree` expects cents measured from scale degree 0, but `midiin_central_degree` maps to `center_degree` — not degree 0. On a fresh load with default `midiin_central_degree = 60` and `center_degree = 0` the offset happened to cancel; with any non-zero `center_degree` the result was shifted.
+
+**Fix:** mirror `noteToSteps()` exactly — include `center_degree` in the pitch reference before the search, and use `result.steps` directly without re-adding `center_degree`:
+```js
+const pitchCents = (e.note.number - midiin_central_degree + center_degree) * 100;
+const steps = result.steps; // no + center_degree
+```
+Applied identically to both `midinoteOn` and `midinoteOff`.
+
+---
+
+### BUG-05 · Scala interval fields accept negative values and zero ranges
+**Tags:** `done`
+
+Fixed 2026-04-01. No Scala-style text input in the UI validated its value — negative cents, zero-range intervals, and NaN-producing strings (e.g. `"0/0"`) were all silently accepted and passed downstream to `scalaToCents`.
+
+Additionally, the "Divide Equave" button in the scale panel had a 30-line inline duplicate of `scalaToCents` logic (using `Math.log2` instead of the shared function) with no zero/negative guard.
+
+**Fix:**
+- Added `parseScalaInterval(str, context)` to `src/settings/scale/parse-scale.js` — returns `{ cents, valid, error }`. Validates: non-finite/NaN → invalid; negative → invalid; zero in `'interval'` context → invalid (zero bend range or equave is meaningless).
+- Added `ScalaInput` component (`src/settings/scale/scala-input.js`) — wraps any Scala text field with red-border feedback on invalid input, cents preview, zero coercion to `"0."` on blur (degree context), and revert-to-last-good on blur (invalid entry).
+- Wired `ScalaInput` into all four affected locations: Pitch Bend Interval (`midiin_bend_range`), Equave sidebar input, all scale table degree cells, scale table equave row.
+- Replaced the inline Divide Equave parser with `parseScalaInterval(equaveStr, 'interval')`.
+- CSS updated: `.freq-cell > span` and `.freq-cell > span input` added to handle `ScalaInput`'s wrapper `<span>` inside the flex cell; `.sidebar-input` gains `justify-content: flex-end` for when it is applied to a flex wrapper.
+
+---
+
+### BUG-06 · `lumatone-export.js` geometry inconsistencies (6 failing tests)
 **Tags:** `todo` `medium` `medium`
 
 `src/settings/scale/lumatone-export.js` has a standalone hex geometry implementation (`BOARD_KEY_COORDS`, `keyStepsFromRef`) that duplicates logic now in `controllers/registry.js`. The export tests expose inconsistencies: wrong col range, wrong step values for key 33.
@@ -95,7 +129,7 @@ All `inputRuntime` fields are wired in `app.jsx` useMemo. `keys.js` reads input 
 ### ARCH-05 · Rewrite `lumatone-export.js` using registry geometry
 **Tags:** `todo` `medium` `large`
 
-`src/settings/scale/lumatone-export.js` has a standalone hex geometry implementation that duplicates `controllers/registry.js` (`buildLumatoneMap`, `LUMATONE_BLOCK_OFFSETS`). This causes the 6 failing export tests (see BUG-04).
+`src/settings/scale/lumatone-export.js` has a standalone hex geometry implementation that duplicates `controllers/registry.js` (`buildLumatoneMap`, `LUMATONE_BLOCK_OFFSETS`). This causes the 6 failing export tests (see BUG-06).
 
 **Plan:**
 - Rewrite `lumatone-export.js` to derive key positions from `buildLumatoneMap` — the authoritative source.
@@ -113,7 +147,7 @@ All `inputRuntime` fields are wired in `app.jsx` useMemo. `keys.js` reads input 
 Three overlapping stores with no clear rules. Problems:
 - `useQuery` writes to both URL and localStorage on every `setSettings` call → URLs grow enormous; localStorage goes stale when URL is shared.
 - `sessionDefaults` reads sessionStorage *before* `useQuery` runs → fragile merge order.
-- `PRESET_SKIP_KEYS` doesn't match `SCALE_KEYS_TO_CLEAR` → asymmetries on reset.
+- ~~`PRESET_SKIP_KEYS` doesn't match `SCALE_KEYS_TO_CLEAR` → asymmetries on reset~~ — fixed 2026-04-01: both now derive from the registry / single exported list.
 
 **Proposed model:**
 - **URL params:** Shareable layout state only. Written on explicit "share" action, not on every change.
@@ -379,3 +413,10 @@ Five output mode classes in `src/midi_synth/index.js` + `src/mpe_synth/`, `src/s
 ### DONE: Input/output correlation for static bulk (Phase C4)
 **Tags:** `done`
 `scale` input target and `hex_layout` anchor both use `center_degree` as the shared anchor. `center-anchor.js` is the common foundation.
+
+### DONE: Persistence list deduplication
+**Tags:** `done`
+Fixed 2026-04-01. Three issues resolved:
+- `use-presets.js` had its own hardcoded `PRESET_SKIP_KEYS` (16 keys) duplicating the registry export. Replaced with `import { PRESET_SKIP_KEYS } from './persistence/settings-registry.js'` + re-export.
+- `app.jsx` `scaleKeysToClear` local array was missing `fundamental`, `rSteps`, `drSteps`, `rotation`, `hexSize` vs `use-presets.js SCALE_KEYS_TO_CLEAR`. Replaced with `[...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear]` where extras are the four session-flag keys specific to the reload context (`hexatone_preset_source`, `hexatone_preset_name`, `lumatone_led_sync`, `direct_sysex_auto`).
+- `DIRTY_FIELDS` in `use-presets.js` now automatically tracks the registry since `PRESET_SKIP_KEYS` is imported directly.
