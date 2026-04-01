@@ -14,11 +14,21 @@ const Keyboard = (props) => {
   // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
   // NOT when colors change. Color changes are handled imperatively below.
   useEffect(() => {
-    const keys = new Keys(canvas.current, props.settings, props.synth, props.active, props.onLatchChange, props.lumatoneRawPorts, props.onTakeSnapshot, props.inputRuntime, props.exquisRawPorts, props.onFirstInteraction);
+    // If the previous Keys instance had an Exquis LED engine and the new one
+    // won't (scale mode, no ports), do a final teardown (clears + quit) before
+    // constructing the new instance so the device exits App Mode cleanly.
+    const prev = keysRef.current;
+    const newHasExquis = !!props.exquisRawPorts
+      && props.inputRuntime?.target !== 'scale'
+      && !props.settings?.midi_passthrough;
+    if (prev?.exquisLEDs && !newHasExquis) {
+      prev.exquisLEDs.destroyFinal();
+      prev.exquisLEDs = null;
+    }
+
+    const keys = new Keys(canvas.current, props.settings, props.synth, props.active, props.onLatchChange, props.lumatoneRawPorts, props.onTakeSnapshot, props.inputRuntime, props.exquisRawPorts, props.onFirstInteraction, props.onExquisLedStatus);
     keysRef.current = keys;
-    //console.log('[Keyboard] Keys constructed, calling onKeysReady');
     if (props.onKeysReady) props.onKeysReady(keys);
-    //console.log('[Keyboard] onKeysReady done');
     return () => keys.deconstruct();
   }, [canvas, props.structuralSettings, props.inputRuntime, props.synth]);
 

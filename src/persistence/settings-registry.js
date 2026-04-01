@@ -75,9 +75,10 @@ export const SETTINGS_REGISTRY = [
   // These keys also appear in the 'session' section below as their runtime
   // representation in the settings object. The 'local' entries here describe
   // the *persistence* layer; the session entries describe the *live* state.
-  { key: 'midiin_mpe_input',  tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Enable MPE input for this controller' },
-  { key: 'midiin_bend_flip',  tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Reverse pitch bend direction for this controller' },
-  { key: 'midiin_bend_range', tier: 'local', type: 'string', default: '28/27', perController: false, description: 'Pitch bend interval (shared across controllers)' },
+  { key: 'midiin_mpe_input',         tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Enable MPE input for this controller' },
+  { key: 'midiin_bend_flip',         tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Reverse pitch bend direction for this controller' },
+  { key: 'midiin_bend_range',        tier: 'local', type: 'string', default: '64/63', perController: false, description: 'Pitch bend interval (shared across controllers)' },
+  { key: 'midiin_scale_bend_range',  tier: 'local', type: 'int',    default: 48,      perController: true,  description: 'MPE pitch bend range (semitones) used in Nearest Scale Degree mode' },
 
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: 'midiin_device',           tier: 'session', type: 'string', default: 'OFF' },
@@ -155,12 +156,15 @@ export const SETTINGS_REGISTRY = [
   { key: 'lumatone_center_channel',tier: 'runtime', type: 'int',  default: 3 },
   { key: 'lumatone_center_note',   tier: 'runtime', type: 'int',  default: 26 },
   { key: 'wheel_to_recent',        tier: 'session', type: 'bool', default: true },
-  { key: 'midi_wheel_range',       tier: 'session', type: 'string', default: '28/27' },
+  { key: 'midi_wheel_range',       tier: 'session', type: 'string', default: '64/63' },
   { key: 'wheel_scale_aware',      tier: 'session', type: 'bool',   default: false },
   { key: 'midi_wheel_semitones',   tier: 'session', type: 'int',    default: 2 },
 
   // ── Lumatone LED sync ─────────────────────────────────────────────────────────
   { key: 'lumatone_led_sync', tier: 'session', type: 'bool', default: false },
+  { key: 'exquis_led_sync',        tier: 'session', type: 'bool', default: false },
+  { key: 'exquis_led_luminosity',  tier: 'local',   type: 'int',   default: 40,  perController: false, description: 'Exquis LED global brightness (0–100, firmware clamps above 100)' },
+  { key: 'exquis_led_saturation',  tier: 'local',   type: 'float', default: 1.5, perController: false, description: 'Exquis LED colour saturation multiplier applied in okLab space (1.0–2.5)' },
 
   // ── App preferences (localStorage, not session) ───────────────────────────────
   // hexatone_persist_on_reload is handled separately in app.jsx / use-presets.js

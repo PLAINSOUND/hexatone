@@ -1,0 +1,509 @@
+Guide To Exquis Customisation via sysex, App Mode
+0. Scope
+This document describes the App mode SysEx protocol used by Exquis for host integration.
+0.1 Disclaimer and compatibility
+Use of the Exquis App-mode SysEx API is at the sole risk of the user/integrator. Intuitive Instruments may modify protocol details, command behavior, timing, routing,
+persistence semantics, or related firmware/app behavior at its discretion, including without prior notice. No guarantee is provided that custom integrations will remain
+compatible across future firmware or app releases.
+Firmware compatibility target for this document:
+Exquis firmware version 3.0.0 (as reported by version response constants in current firmware source snapshot)
+It covers:
+App-mode connection/heartbeat behavior
+App-mode SysEx commands and parameters
+App-mode emitted events
+App-mode remote/native behavior routing
+It does not cover:
+Dev mode command payload details ( CMD 0x7F )
+Dev mode channel-message API
+For Dev mode, use DevMode.md .
+1. Protocol legend
+1.1 Frame and byte roles
+Wire frame (on-wire bytes): This is the exact SysEx byte sequence transmitted on MIDI (USB-MIDI or DIN), including start/end markers.
+F0 00 21 7E CMD P1 P2 ... PN F7
+In this frame:
+F0 is the first transmitted byte
+F7 is the last transmitted byte
+bytes between them are the Exquis SysEx payload
+Some APIs expose full wire frames, others expose only bytes between F0 and F7 .
+Legend:
+F0 / F7 : SysEx start/end
+00 21 7E : Exquis manufacturer bytes
+CMD : command ID byte
+P1..PN : command parameters
+Important:
+CMD is always the first payload byte after 00 21 7E
+Parameters are positional ( P1 , P2 , ...)
+1.2 Direction tags
+H->E : Host sends to Exquis
+E->H : Exquis sends to host
+1.3 Value conventions
+Most values are 7-bit: 0..127
+Boolean fields use {0|1}
+RGB in SysEx is 0..127 per channel ( rgb7 ), Firmware converts incoming rgb7 to LED internal range by *2
+2. Mode and connection model
+Before sending commands, choose the correct mode. Mode selection determines control feel, emitted data type, and what the host is expected to handle.
+Exquis runtime modes:
+Standalone mode: Exquis runs local firmware behavior for normal playing and local UI flow.
+App mode: host-linked mode maintained by SysEx heartbeat; host can configure notes, colors, curves, routing, and persistent slots while keeping expressive
+play paths where desired.
+Dev mode: optional control takeover mode for scripting/integration workflows (separate spec), where selected zones are handled through the Dev-mode API.
+These modes can coexist in controlled combinations depending on routing:
+Standalone only
+App mode (with per-component native/remote routing)
+Standalone + Dev mode zone takeover
+Practical rule:
+If your goal is a custom playable instrument layout, use App mode (typically with pad_remote=0 ).
+If your goal is DAW/control-surface takeover logic, use Dev mode.
+2.1 App mode lifecycle ( H->E E->H )
+App mode behaves like a live host/device session, not a permanent latched state. The firmware keeps App mode active only while valid App-mode SysEx traffic is
+present. In practice, this acts as a connection watchdog: if the host keeps communicating, App mode stays active; if the host stops (app closed, crash, cable issue),
+Exquis automatically falls back to local behavior.
+Heartbeat message:
+Host sends every ~500 ms: F0 00 21 7E F7 (you'll notice this is an empty payload)
+Exquis echoes back the same message to the host to confirm back awerness of the host behing present.
+Timeout behavior:
+Firmware drops App connection after about 10 seconds without valid App-mode SysEx activity
+Official app marks hardware disconnected after about 5 seconds without heartbeat echo
+Explicit exit:
+F0 00 21 7E 03 F7 ( CMD 0x03 , quit )
+2.2 Remote ownership flags ( H->E )
+In App mode, each control family can be switched between native and remote behavior:
+pad_remote ( CMD 0x1E )
+button_remote ( CMD 0x28 )
+knob_remote ( CMD 0x32 )
+slider_remote ( CMD 0x3C )
+Rule:
+0 = native firmware path
+1 = remote SysEx event path
+These flags are independent and can be combined.
+What each flag changes:
+pad_remote
+0 : pads stay on the native expressive engine (note on/off + expressive data path).
+1 : pads stop using native note-engine output and emit pad_click SysEx events ( CMD 0x20 , press/release).
+Host implication: with 1 , the host must interpret pad presses and drive pad LED behavior intentionally.
+button_remote
+0 : panel buttons and encoder push buttons follow native firmware behavior.
+1 : panel buttons emit button_click ( CMD 0x2A ) and encoder push buttons emit knob_click ( CMD 0x34 ) as SysEx.
+Extra: freeze state changes are also emitted with CMD 0x08 .
+Host implication: with 1 , host handles button semantics/events.
+knob_remote (rotation only)
+0 : encoder rotation stays native (absolute CC path).
+1 : encoder rotation emits relative SysEx turn events: knob_left ( CMD 0x35 ) and knob_right ( CMD 0x36 ).
+Host implication: with 1 , host should treat turns as relative deltas, not absolute values.
+slider_remote
+0 : slider stays native (firmware pattern-dependent behavior).
+1 : slider emits touch-state SysEx slider_click ( CMD 0x3E , touched/released).
+Host implication: with 1 , host receives touch state, not continuous slider position.
+Important distinction:
+Encoder push behavior is controlled by button_remote .
+Encoder rotation behavior is controlled by knob_remote .
+4. App-mode command catalog ( H->E )
+This section covers only messages sent by the host to Exquis. These commands are used to configure Exquis behavior, routing, visual feedback, and stored state
+during an active App-mode session.
+4.1 Parameter dictionaries
+Component IDs
+Parameter Range Used by (CMD) Direction Mode/path relevance
+note_id 0..60
+0x15 note_number , 0x14
+note_colour
+H->E
+App mode, typically expressive/native pad path
+( pad_remote=0 )
+pad_id 0..60 0x1F pad_colour H->E App mode remote pad path (pad_remote=1 )
+button_id (LED
+color) 0..13 0x29 button_colour H->E App mode; most stable in remote button path
+( button_remote=1 )
+knob_id 0..3 0x33 , 0x37 , 0x38 H->E App mode control/color setup; rotation remote events are
+E->H
+slider_zone_id 0..5 0x3D slider_colour H->E App mode slider LED segments; typically used with
+slider_remote=1
+curve_id 0..4 0x46 , 0x47 , 0x48 H->E App mode curve tuning; not tied to remote flags
+layout_index 0..7
+0x50 layout_dump , 0x51
+layout_erase
+H->E App mode stored layout slot transfer (payload format:
+section 7.1)
+scale_index 0..31
+0x5A scale_dump , 0x5B
+scale_erase
+H->E App mode stored scale slot transfer (payload format:
+section 7.2)
+Button IDs and slots
+button_colour IDs ( H->E set command CMD 0x29 )
+Used by:
+Set command CMD 0x29 ( button_colour )
+Used for:
+Setting LED colors for panel buttons ( 0..9 ) and encoder push-button LEDs ( 10..13 )
+Host-driven visual feedback in App mode (status, mode, transport state, etc.)
+Remote-state dependency:
+Most predictable when button_remote=1 (host owns button behavior/feedback path).
+With button_remote=0 , native firmware logic can overwrite button LEDs during local behavior updates.
+button_id LED target
+0..9 Panel button LEDs (same physical order as
+button_click )
+10..13 Encoder push-button LEDs (Enc1..Enc4 )
+button_cc slots ( H->E set command CMD 0x2B )
+Used by:
+Set command CMD 0x2B ( button_cc )
+Used for:
+Configuring CC numbers used by native button-generated MIDI CC messages
+Storing per-slot button CC configuration in device flash-backed settings
+Remote-state dependency:
+Effective on the native button CC path ( button_remote=0 in App mode, or Standalone native behavior).
+When button_remote=1 , button interactions are emitted as SysEx click events instead of native CC behavior.
+button_cc accepts slot indices 0..9 .
+Current native control-path usage in firmware:
+button_slot Native mapping currently
+used
+2 Record button CC
+3 Loop button CC
+4 Scene/Clips button CC
+Other slots ( 0,1,5,6,7,8,9 ) are currently not supported.
+Related command:
+Encoder push-button CC mapping is configured with CMD 0x38 ( knob_button_cc ), not button_cc .
+Common scalar parameters
+Parameter Range Notes
+bool {0 or 1} Non-zero may be treated as true in firmware booleans
+rgb7 0..127 Converted internally to {0 .. 254} values by *2 in the
+firmware
+cc 0..127 MIDI CC number
+curve_value 0..100 Firmware clamps curve min/max/bend to 100
+slider_pattern expected 0..7 Arpeggiator pattern enum
+4.2 Session and synchronization commands
+These commands apply in App mode regardless of pad_remote , button_remote , knob_remote , and slider_remote values.
+CMD Name Frame ( H->E ) Parameters Effect
+none heartbeat F0 00 21 7E F7 none Keeps App mode alive, triggers echo
+0x00 version F0 00 21 7E 00
+F7
+none Requests firmware version response
+0x01 save F0 00 21 7E 01
+P1 F7
+P1 : 0 full save, 1 parampage
+save Triggers persistence workflow (see section 4.6)
+0x02 flush F0 00 21 7E 02
+F7
+none Requests Exquis state dump sequence (slot dump payload
+formats: section 7)
+0x03 quit F0 00 21 7E 03
+F7
+none Exits App mode immediately
+4.3 Routing, note map, color, controls commands
+Remote = 0 (native path)
+CMD Name Frame ( H->E ) Parameters
+0x14 note_colour F0 00 21 7E 14 P1 P2 P3 P4 F7 P1 note_id , P2 r , P3 g , P4 b
+0x15 note_number F0 00 21 7E 15 P1 P2 F7 P1 note_id , P2 midi_note
+0x2B button_cc F0 00 21 7E 2B P1 P2 F7 P1 button_slot , P2 cc
+0x37 knob_cc F0 00 21 7E 37 P1 P2 F7 P1 knob_id , P2 cc
+0x38 knob_button_cc F0 00 21 7E 38 P1 P2 F7 P1 knob_id , P2 cc
+Implementation note (firmware behavior):
+note_number ( 0x15 ), note_colour ( 0x14 ), and layout-flag commands ( 0x53..0x57 ) trigger an internal auto-bulk monitor window that stays active until
+~10 ms of inactivity, then exits bulk mode.
+For full-layout live updates, send these frames in a contiguous burst with stable ordering to avoid visual partial-update artifacts while bulk mode is closing.
+Remote = 1 (remote path)
+CMD Name Frame ( H->E ) Parameters
+0x1F pad_colour F0 00 21 7E 1F P1 P2 P3 P4 F7 P1 pad_id , P2 r , P3 g , P4 b
+0x29 button_colour F0 00 21 7E 29 P1 P2 P3 P4 F7 P1 button_id , P2 r , P3 g , P4 b
+0x33 knob_colour F0 00 21 7E 33 P1 P2 P3 P4 F7 P1 knob_id , P2 r , P3 g , P4 b
+0x3D slider_colour F0 00 21 7E 3D P1 P2 P3 P4 F7 P1 slider_zone_id , P2 r , P3 g , P4 b
+Remote-agnostic
+CMD Name Frame ( H->E ) Parameters
+0x1E pad_remote F0 00 21 7E 1E P1 F7 `P1 {0
+0x28 button_remote F0 00 21 7E 28 P1 F7 `P1 {0
+0x32 knob_remote F0 00 21 7E 32 P1 F7 `P1 {0
+0x3C slider_remote F0 00 21 7E 3C P1 F7 `P1 {0
+0x3F slider_latch F0 00 21 7E 3F P1 F7 `P1 {0
+0x40 slider_pattern F0 00 21 7E 40 P1 F7 P1 pattern_id
+4.4 Engine and layout flags commands
+These commands apply in App mode regardless of pad_remote , button_remote , knob_remote , and slider_remote values.
+CMD Name Frame ( H->E ) Parameters Notes
+0x05 luminosity F0 00 21 7E 05 P1 F7 P1 value Used directly as LED luminosity factor
+input
+0x06 sensitivity F0 00 21 7E 06 P1 F7 P1 threshold Used directly as FSR threshold input
+0x07 mpe F0 00 21 7E 07 P1 F7 `P1 {0 1}`
+0x46 curve_min F0 00 21 7E 46 P1 P2 F7 P1 curve_id , P2 value P2 clamped to 100
+0x47 curve_max F0 00 21 7E 47 P1 P2 F7 P1 curve_id , P2 value P2 clamped to 100
+0x48 curve_bend F0 00 21 7E 48 P1 P2 F7 P1 curve_id , P2 value P2 clamped to 100
+0x53 isomorphic F0 00 21 7E 53 P1 F7 `P1 {0 1}`
+0x54 twoPath F0 00 21 7E 54 P1 F7 `P1 {0 1}`
+0x55 flipX F0 00 21 7E 55 P1 F7 `P1 {0 1}`
+0x56 flipY F0 00 21 7E 56 P1 F7 `P1 {0 1}`
+0x57 flipXY F0 00 21 7E 57 P1 F7 `P1 {0 1}`
+4.5 Persistent slot transfer
+These commands apply in App mode regardless of pad_remote , button_remote , knob_remote , and slider_remote values.
+CMD Name Frame ( H->E ) Parameters
+0x50 layout_dump F0 00 21 7E 50 P1
+DATA[350] F7
+P1 layout_index , serialized layout blob (section 7.1); updates slot buffer immediately,
+persistent after save P1=0 (section 4.6)
+0x51 layout_erase F0 00 21 7E 51 P1 F7
+P1 layout_index ; updates slot buffer immediately, persistent after save P1=0 (section
+4.6)
+0x5A scale_dump F0 00 21 7E 5A P1
+DATA[112] F7
+P1 scale_index , serialized scale blob (section 7.2); updates slot buffer immediately,
+persistent after save P1=0 (section 4.6)
+0x5B scale_erase F0 00 21 7E 5B P1 F7
+P1 scale_index ; updates slot buffer immediately, persistent after save P1=0 (section
+4.6)
+4.6 Persistence semantics ( save command)
+Slot and config updates in App mode are applied immediately in runtime memory, but persistence to flash is explicit.
+layout_dump , layout_erase , scale_dump , scale_erase update slot buffers immediately.
+These updates are visible right away in flush responses, but the currently active play layout/scale is not switched by these commands in this firmware
+snapshot.
+Slot updates are not guaranteed after reboot until full save.
+save with P1=0 performs a full flash commit of flash-backed buffers (slots and other stored config).
+save with P1=1 commits only the param-page subset used by App settings flow ( luminosity , sensitivity , slider_latch , slider_pattern ), not full
+slot buffers.
+Buffer/page sizes and slot counts are summarized in section 7.3.
+Practical rule:
+If you want slot edits/erases to survive reboot, send save with P1=0 after your dump/erase sequence.
+5. App-mode emitted messages (E->H )
+This section covers only messages sent by Exquis to the host. These messages must be received and interpreted by the host application to drive remote behavior
+and state synchronization.
+5.1 Parameter dictionaries
+Component IDs
+Parameter Range Used by (CMD) Direction Mode/path relevance
+pad_id 0..60 0x20 pad_click E->H App mode remote pad path (pad_remote=1 )
+button_id
+(click) 0..9
+0x2A
+button_click
+E->H App mode remote button path (button_remote=1 )
+knob_id 0..3 0x34 , 0x35 , 0x36 E->H
+Rotation remote events with knob_remote=1 ; knob-click events with
+button_remote=1
+curve_id 0..4 0x46 , 0x47 , 0x48 E->H App mode flush feedback; not tied to remote flags
+layout_index 0..7
+0x50
+layout_dump
+E->H App mode stored layout slot transfer in flush response (payload format:
+section 7.1)
+scale_index 0..31 0x5A scale_dump E->H App mode stored scale slot transfer in flush response (payload format:
+section 7.2)
+Button IDs and slots
+button_click IDs ( E->H events)
+Used by:
+Event command CMD 0x2A ( button_click )
+Used for:
+Reporting panel-button press/release to the host when button_remote=1
+Letting host scripts/apps implement their own button behavior logic
+Remote-state dependency:
+Emitted when button_remote=1 (App mode remote button path active).
+button_id Physical control
+0 Settings
+1 Sound
+2 Record
+3 Loop
+4 Scene/Clips
+5 Play
+6 Down
+7 Up
+8 Left
+9 Right
+Common scalar parameters
+Parameter Range Notes
+bool {0 or 1} Non-zero may be treated as true in firmware booleans
+rgb7 0..127 Converted internally to {0 .. 254} values by *2 in the
+firmware
+cc 0..127 MIDI CC number
+curve_value 0..100 Firmware clamps curve min/max/bend to 100
+slider_pattern expected 0..7 Arpeggiator pattern enum
+5.2 Session and responses
+These responses are emitted in App mode regardless of pad_remote , button_remote , knob_remote , and slider_remote values.
+Type Frame ( E->H ) Notes
+heartbeat echo F0 00 21 7E F7 Echo of host heartbeat
+version
+response
+F0 00 21 7E 00 major minor patch
+F7
+Reply to CMD 0x00
+flush response sequence of SysEx frames Reply to CMD 0x02 , not a single packet (includes slot dumps; payload formats in
+section 7)
+5.3 Remote interaction events (when corresponding *_remote=1 )
+These events are emitted only when the corresponding control family is in remote mode ( *_remote=1 ).
+CMD Event Frame ( E->H ) Parameters
+0x20 pad_click F0 00 21 7E 20 P1 P2 F7 P1 pad_id , `P2 {0 release
+P1 button_id , `P2 {0
+0x2A button_click F0 00 21 7E 2A P1 P2 F7 release
+0x34 knob_click F0 00 21 7E 34 P1 P2 F7 P1 knob_id , `P2 {0 release
+0x35 knob_left F0 00 21 7E 35 P1 P2 F7 P1 knob_id , P2 delta
+0x36 knob_right F0 00 21 7E 36 P1 P2 F7 P1 knob_id , P2 delta
+0x3E slider_click F0 00 21 7E 3E P1 F7 `P1 {0 not touched
+CMD Event Frame ( E->H ) Parameters
+5.4 Additional emitted event
+This event is emitted only when button remote mode is enabled ( button_remote=1 ).
+CMD Event Frame ( E->H ) Meaning
+0x08 freeze
+state F0 00 21 7E 08 P1 F7 `P1 {0 not
+frozen
+6. Flush response sequence (CMD 0x02 )
+flush returns a sequence of frames in this order:
+luminosity
+sensitivity
+slider_latch
+slider_pattern
+knob_cc for knob_id 0..3
+knob_button_cc for knob_id 0..3
+button_cc for slots 2 , 3 , 4
+curve_min/max/bend for curve_id 0..4
+all valid scale_dump slots (payload format: section 7.2)
+all valid layout_dump slots (payload format: section 7.1)
+Note:
+flush reflects current runtime buffers, including unsaved slot edits; use save P1=0 for reboot persistence (section 4.6).
+7. Bulk payload schemas
+7.1 layout_dump payload data ( DATA[350] )
+Total structure:
+1 + 100 + 5 + (61 * 4) = 350 bytes
+Offsets inside DATA :
+0 : valid flag ( 0 means valid)
+1..100 : name (ASCII, zero-padded)
+101 : isomorphic
+102 : twoPath
+103 : flipX
+104 : flipY
+105 : flipXY
+106..349 : 61 note records, each [noteNumber, r, g, b] with rgb7 values
+note_id ordering used by firmware/app:
+note_id 0..60 maps row-wise from bottom to top.
+Within each row, order is left-to-right.
+Row pattern is 6,5,6,5,6,5,6,5,6,5,6 (bottom row first).
+7.2 scale_dump payload data ( DATA[112] )
+Total structure:
+1 + 100 + 11 = 112 bytes
+Offsets inside DATA :
+0 : valid flag ( 0 means valid)
+1..100 : name (ASCII, zero-padded)
+101..111 : interval flags in order m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7
+8. Behavior matrix by mode
+Control family Standalone App mode with
+remote 0
+App mode with remote 1
+Pads Native note engine (note +
+expressive MIDI) Same as Standalone pad_click SysEx events
+Panel buttons Native firmware behavior / CC
+behavior Same as Standalone button_click SysEx events
+Encoder push
+buttons Native button/sustain behavior Same as Standalone knob_click SysEx events (+ freeze event for
+encoder 4 push)
+Encoder rotation Native absolute CC behavior Same as Standalone knob_left / knob_right SysEx events
+Slider Native behavior (pattern-dependent
+MIDI) Same as Standalone slider_click touch state SysEx event
+Notes:
+Native knob CC values are absolute ( 0..127 )
+Remote knob events are relative: direction is in command ( left/right ), magnitude is in delta
+9. Integration checklist
+Use this order when validating a host integration:
+1. Verify SysEx framing and manufacturer bytes ( F0 00 21 7E ... F7 )
+2. Start heartbeat at ~500 ms and confirm echo
+3. Confirm App-mode connected state before sending remote switches
+4. Set required *_remote flags explicitly
+5. Validate IDs/ranges for each command
+6. Use flush to verify host/device state alignment
+7. If you changed persistent slots/settings, send save ( P1=0 ) to persist to flash (section 4.6)
+10. Minimal practical sequence
+Example: custom playable layout with expressive pads.
+1. Start heartbeat loop
+F0 00 21 7E F7 every ~500 ms
+2. Keep pads on native expressive engine
+F0 00 21 7E 1E 00 F7
+3. Send note map and note colors
+note_number and note_colour for pad IDs 0..60
+4. Set layout flags
+isomorphic , twoPath , flipX , flipY , flipXY as needed
+5. Optional persistence
+send layout_dump (payload format: section 7.1), then save ( P1=0 , persistence semantics in section 4.6)
+11. Examples
+11.1 Standard host session: expressive pads + host-driven LED layout (simple Exquis layout), start to quit
+Goal:
+Pads stay on the native expressive engine (MPE/native note behavior).
+Host app controls the visual note map + LED colors.
+Host may optionally store the same layout into a persistent slot.
+Exact command order:
+1. Start App-mode keepalive (active-sensing style heartbeat)
+Send every ~500 ms during the whole session:
+F0 00 21 7E F7
+Reference: sections 2.1 , 4.2 ( heartbeat ), 5.2 (heartbeat echo).
+2. (Optional but recommended) ask firmware version once
+F0 00 21 7E 00 F7
+Reference: sections 4.2 ( version ), 5.2 (version response).
+3. Explicitly set routing for this use case
+Keep pads expressive/native:
+F0 00 21 7E 1E 00 F7 ( pad_remote=0 )
+Keep buttons native (optional, but typical for this scenario):
+F0 00 21 7E 28 00 F7 ( button_remote=0 )
+Keep knob rotation native (optional):
+F0 00 21 7E 32 00 F7 ( knob_remote=0 )
+Keep slider native (optional):
+F0 00 21 7E 3C 00 F7 ( slider_remote=0 )
+Reference: sections 2.2 , 4.3 (remote-agnostic routing commands), 8 (behavior matrix).
+4. Apply runtime layout flags (example: Exquis-style isomorphic)
+F0 00 21 7E 53 01 F7 ( isomorphic=1 )
+F0 00 21 7E 54 01 F7 ( twoPath=1 )
+F0 00 21 7E 55 00 F7 ( flipX=0 )
+F0 00 21 7E 56 00 F7 ( flipY=0 )
+F0 00 21 7E 57 00 F7 ( flipXY=0 )
+Reference: sections 4.4 , 7.1 (same flag fields in layout_dump payload).
+5. Apply runtime note map and LED colors for all pads (host-owned visual layout)
+For each note_id from 0 to 60 , send in this order:
+F0 00 21 7E 15 <note_id> <midi_note> F7 ( note_number )
+F0 00 21 7E 14 <note_id> <r> <g> <b> F7 ( note_colour , rgb7 0..127 )
+Keep this as one contiguous burst for full-layout updates.
+Reference: sections 4.1 ( note_id , rgb7 ), 4.3 ( note_number , note_colour + implementation note), 7.1 ( note_id ordering).
+6. (Optional) Persist the same layout to a slot
+Build DATA[350] with schema from section 7.1 (same flags + note/color records used at runtime).
+Write slot (example slot 0 ):
+F0 00 21 7E 50 00 DATA[350] F7 ( layout_dump )
+Commit to flash:
+F0 00 21 7E 01 00 F7 ( save P1=0 )
+Reference: sections 4.5 ( layout_dump ), 7.1 ( DATA[350] schema), 4.6 (persistence semantics).
+7. (Optional) Verify buffers with flush
+F0 00 21 7E 02 F7
+Parse returned layout_dump frames from flush sequence.
+Reference: sections 4.2 ( flush ), 5.2 (flush response type), 6 (flush sequence), 5.1 / 7.1 ( layout_dump IDs + payload).
+8. Normal run state
+Continue heartbeat ( F0 00 21 7E F7 every ~500 ms).
+Send incremental runtime updates as needed ( 0x15 , 0x14 , 0x53..0x57 ).
+Reference: sections 2.1 , 4.2 , 4.3 , 4.4 .
+9. Quit cleanly
+F0 00 21 7E 03 F7 ( quit )
+Stop heartbeat loop after sending quit.
+Reference: sections 2.1 , 4.2 ( quit ).
+11.2 Take control of Encoder 1: listen to state, optionally turn LED off or set LED color
+Goal:
+Host receives Encoder 1 rotation events.
+Host may also receive Encoder 1 push-click events.
+Host controls Encoder 1 LED color (including fully off).
+Exact command order:
+1. Start App-mode keepalive (active-sensing style heartbeat)
+Send every ~500 ms during the whole session:
+F0 00 21 7E F7
+Reference: sections 2.1 , 4.2 ( heartbeat ), 5.2 (heartbeat echo).
+2. Enable remote mode for encoder rotation
+F0 00 21 7E 32 01 F7 ( knob_remote=1 )
+Reference: sections 2.2 , 4.3 (remote-agnostic), 8 (encoder rotation behavior).
+3. (Optional) If you also want encoder push-click events, enable button remote mode
+F0 00 21 7E 28 01 F7 ( button_remote=1 )
+Without this, encoder push stays in native behavior and no knob_click event is emitted.
+Reference: sections 2.2 , 5.3 ( knob_click dependency), 8 (encoder push behavior).
+4. Listen to incoming Encoder 1 events from Exquis ( E->H )
+Turn left:F0 00 21 7E 35 00 <delta> F7 ( knob_left , knob_id=0 )
+Turn right:
+F0 00 21 7E 36 00 <delta> F7 ( knob_right , knob_id=0 )
+(If step 3 enabled) push/release:
+F0 00 21 7E 34 00 01 F7 (press), F0 00 21 7E 34 00 00 F7 (release)
+Reference: sections 5.1 ( knob_id ), 5.3 ( knob_left , knob_right , knob_click ), 8 .
+5. Optionally set Encoder 1 LED color (host-owned visual feedback)
+Set any color ( rgb7 , 0..127 each):
+F0 00 21 7E 33 00 <r> <g> <b> F7 ( knob_colour , knob_id=0 )
+Turn LED off (color 0 0 0):
+F0 00 21 7E 33 00 00 00 00 F7
+Reference: sections 4.1 ( knob_id , rgb7 ), 4.3 ( knob_colour in remote path), 5.1 .
+6. Normal run state
+Keep heartbeat active.
+React to 0x35 / 0x36 deltas in host logic.
+Update 0x33 LED color as needed for mode/state feedback.
+Reference: sections 2.1 , 4.2 , 4.3 , 5.3 .
+7. Quit cleanly
+F0 00 21 7E 03 F7 ( quit )
+Stop heartbeat loop after sending quit.
+Reference: sections 2.1 , 4.2 ( quit ).

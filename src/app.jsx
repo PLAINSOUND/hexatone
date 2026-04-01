@@ -159,6 +159,10 @@ const App = () => {
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
 
+  // Exquis LED App Mode status — set asynchronously after firmware version check.
+  // null = pending / not connected; { ok: true } = active; { ok: false, reason } = failed.
+  const [exquisLedStatus, setExquisLedStatus] = useState(null);
+
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
   const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
@@ -323,11 +327,13 @@ const App = () => {
     // wheelRange and bendRange both read from midiin_bend_range — the UI
     // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
     wheelToRecent:    settings.wheel_to_recent,
-    wheelRange:       settings.midiin_bend_range ?? '28/27',
+    wheelRange:       settings.midiin_bend_range ?? '64/63',
     wheelScaleAware:  settings.wheel_scale_aware,
     // Pitch bend range for incoming hardware controller bend messages.
-    bendRange:        settings.midiin_bend_range ?? '28/27',
+    bendRange:        settings.midiin_bend_range ?? '64/63',
     bendFlip:         !!settings.midiin_bend_flip,
+    // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
+    scaleBendRange:   settings.midiin_scale_bend_range ?? 48,
   }), [
     settings.midiin_mapping_target,
     settings.midi_passthrough,
@@ -344,6 +350,7 @@ const App = () => {
     settings.wheel_scale_aware,
     settings.midiin_bend_range,
     settings.midiin_bend_flip,
+    settings.midiin_scale_bend_range,
   ]);
 
   // Structural settings: everything except colors. Memoized so Keys is only
@@ -476,6 +483,9 @@ const App = () => {
           onAnchorLearn={onAnchorLearn}
           lumatoneRawPorts={lumatoneRawPorts}
           exquisRawPorts={exquisRawPorts}
+          onExquisLedStatus={useCallback((ok, reason) => {
+            setExquisLedStatus(ok ? { ok: true } : { ok: false, reason });
+          }, [])}
           onFirstInteraction={useCallback(() => {
             setUserHasInteracted(true);
             // Called from the first touch on the canvas — within the iOS gesture
@@ -665,6 +675,7 @@ const App = () => {
           keysRef={keysRef}
           lumatoneRawPorts={lumatoneRawPorts}
           exquisRawPorts={exquisRawPorts}
+          exquisLedStatus={exquisLedStatus}
           snapshots={snapshots}
           playingSnapshotId={playingSnapshotId}
           onPlaySnapshot={onPlaySnapshot}

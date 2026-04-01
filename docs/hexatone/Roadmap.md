@@ -157,6 +157,26 @@ Priority order for fixes: #2 (stuck notes) → #1 (smoothness) → #3 (Ableton e
 ### A3 — Scale-mapper test coverage  `todo` `medium` `small`
 Write `src/input/scale-mapper.test.js`: nearest degree in 12-EDO/31-EDO/JI; tolerance gate; `'accept'` vs `'discard'`; octave wrapping; exact match; negative pitchCents. (See Issues.md TEST-01.)
 
+### A4 — Scale target mode: pitch mapped to wrong degree  `done`
+Fixed 2026-04-01. The scale-mapper path used `midiin_central_degree` and `center_degree` (layout/hardware settings) to compute the pitch reference, causing wrong degree matches whenever the preset tuning diverged from 12-EDO defaults.
+
+The two input modes have separate chains:
+- **Layout mode** — hardware geometry: `note → steps (anchor + center_degree) → coords → hexCoordsToCents → pitch`. Layout settings are essential.
+- **Scale mode** — musical pitch: `note → pitchHz → pitchCents relative to degree0Hz → findNearestDegree → steps → coords`. Layout settings are irrelevant.
+
+Fix: compute `degree0Hz` from `fundamental` and `reference_degree` only; convert incoming MIDI note to Hz; take the log ratio. No layout parameters involved:
+```js
+const degree0Hz  = fundamental / 2^(degree0toRefCents / 1200);
+const pitchHz    = 440 * 2^((note - 69) / 12);
+const pitchCents = 1200 * log2(pitchHz / degree0Hz);
+```
+Applied identically to `midinoteOn` and `midinoteOff`. (See Issues.md BUG-04.)
+
+### A5 — Scala interval fields accept negative values and zero ranges  `done`
+Fixed 2026-04-01. No Scala-style text input validated its value. The Divide Equave button also had a 30-line inline duplicate of `scalaToCents` with no zero/negative guard.
+
+Fix: added `parseScalaInterval(str, context)` to `parse-scale.js`; new `ScalaInput` component with red-border feedback, cents preview, zero coercion, and revert-on-invalid; wired into all four Scala input fields (Pitch Bend Interval, Equave sidebar, scale table degree cells, scale table equave row); Divide Equave button now uses `parseScalaInterval`. CSS updated for `ScalaInput`'s wrapper `<span>` inside flex cells. (See Issues.md BUG-05.)
+
 ---
 
 ## Phase B: Architecture Cleanup  `todo` `medium`
@@ -251,11 +271,13 @@ Wire into `normaliseDegree` and `scalaToCents`. All downstream code continues to
 
 This is the foundation for:
 - JI identity checks and harmonic analysis
-- Monzo-based harmonic-radius matching in scale-mapper (FEAT-03)
+- Monzo-based harmonic-radius matching in scale-mapper (see Phase G)
 - Future temperament calculations
 - `getConvergents()` for nearest-valid-tuning in dynamic retuning
 
 **Dependency:** `yarn add xen-dev-utils` (add before starting this phase).
+
+**Phase G depends on this phase being complete first.**
 
 ---
 
@@ -269,6 +291,158 @@ Rename internal implementation keys to domain-facing names:
 - Decide whether `DIRECT` remains a user-facing label (recommended: yes, mapping to static bulk mode)
 
 **Requires a migration pass** to avoid breaking existing user sessions. Phase C is now stable, so this can proceed when there is appetite for the migration effort.
+
+---
+
+## Phase G: Harmonic-Radius Chord Matching for Scale Mode  `todo` `low` `xlarge`
+
+*Depends on Phase D (Exact Interval Layer). Sketched 2026-04-01.*
+
+### Motivation
+
+The current `findNearestDegree` function resolves each incoming MIDI note independently: it folds the note's Hz into `[0, equave)` and picks the closest scale degree by cent distance alone. This works for monophonic or step-by-step input but breaks down when the incoming controller sends chords with microtonal inflection. Two notes each closest to a scale degree individually can together form an interval that is far from any harmonically meaningful ratio in the scale — producing a mistuned chord even though each note "matched".
+
+The fix is a polyphonic matching layer that evaluates the **harmonic plausibility of the incoming chord as a whole**, adjusts degree assignments globally to minimise total harmonic error, and does so in real time.
+
+### Conceptual architecture
+
+```
+Incoming notes (Hz per note, from MTS or MPE pre-bend)
+  │
+  ▼
+1. Per-note nearest-degree candidates
+   findNearestDegree → { steps, distanceCents }[]          (existing, per note)
+   Also compute ±1 neighbours as alternate candidates.
+
+  │
+  ▼
+2. Interval rationalisation (xen-dev-utils)
+   For each pair of simultaneously sounding notes:
+     - compute the interval in cents: Δ = pitchHz_b / pitchHz_a → cents
+     - use xen-dev-utils getConvergents(Δ) to find the nearest simple ratio
+     - store as { ratio: Fraction, errorCents }
+
+  │
+  ▼
+3. Harmonic radius per assignment (Sabat/Tenney/Benedetti)
+   Two complementary scores, both using Marc Sabat's extension of Tenney/Benedetti
+   harmonic distance to chords:
+
+   Each radius measure has two parallel variants, mirroring the
+   Tenney/Benedetti duality:
+
+   ── Geometric (Radius) variant ──────────────────────────────────────────
+   Work directly with the partial integers. Geometric mean over all
+   numerators and denominators of the chord expressed as a ratio
+   constellation in lowest terms.
+
+     Pairwise (dyad):   Radius(p/q)  = sqrt(p * q)
+     Full chord (N notes, partials P = {p1, q1, p2, q2, …}):
+       Harmonic Radius  = (∏ P)^(1/|P|)
+       Odd Radius       = (∏ odd_parts(P))^(1/|P|)
+
+   Note: for a dyad, Harmonic Radius = sqrt(p * q) — pairwise and
+   full-chord scores are on the same scale.
+
+   ── Log Radius (arithmetic mean of log₂ partials) variant ───────────────
+   Take log₂ of each partial before averaging — analogous to how
+   Tenney distance = log₂(p * q) is the log form of the dyad radius.
+
+     Pairwise (dyad):   logRadius(p/q)  = log2(p * q)   [= Tenney distance]
+     Full chord:
+       log Harmonic Radius = (1/|P|) * Σ log2(partials)
+       log Odd Radius      = (1/|P|) * Σ log2(odd_parts)
+
+   The log variant is additive and cheaper to compute; the geometric
+   variant preserves ratio intuition. Both are monotonically equivalent
+   for ranking, so either can be used in the scoring function.
+   `midiin_scale_radius_mode` selects which variant is active.
+
+   Use both pairwise and full-chord scores: pairwise catches dissonant
+   dyads within an otherwise simple chord; full-chord radius rewards
+   voicings that sit inside a low harmonic series.
+   Lower radius = more harmonically simple chord.
+
+  │
+  ▼
+4. Global assignment optimisation
+   For a chord of N notes, each with K candidates (K ≈ 3: nearest + two neighbours):
+     - enumerate K^N assignments (small: K=3, N≤6 → ≤729 candidates)
+     - score each by: w_individual * sum(distanceCents²) + w_pairwise * sum(sqrt(p*q) per pair) + w_chord * harmonicRadius (or oddRadius)
+     - return the assignment with lowest combined score
+
+  │
+  ▼
+5. Chord continuity (voice-leading)
+   Keep a "previous chord" buffer: the last resolved degree assignment.
+   Penalise assignments that move each voice by more than ½ equave from its
+   previous degree — preserves smooth voice-leading across chord changes.
+   Weight: w_continuity * sum(|newDegree_i − prevDegree_i|)
+
+  │
+  ▼
+6. Output: best assignment vector → existing coords resolution path
+```
+
+### Key data structures
+
+```js
+// Per-active-note state (stored in activeMidi / activeMidiByChannel entries)
+{
+  noteNumber: int,
+  pitchHz: float,          // exact Hz (from MTS/MPE pre-bend, or 12-EDO)
+  candidateDegrees: [      // nearest + neighbours
+    { steps: int, distanceCents: float },
+    ...
+  ],
+  assignedDegree: int,     // result of global optimisation
+}
+
+// Chord state (stored on Keys instance)
+this._prevChordAssignment = Map<noteNumber, steps>   // previous resolved chord
+this._currentChordNotes   = Map<noteNumber, { pitchHz, candidateDegrees }>
+```
+
+### New functions / files
+
+| Location | Function | Purpose |
+|---|---|---|
+| `src/input/scale-mapper.js` | `findCandidates(pitchCents, scale, equave, window)` | returns N nearest degrees within `window` cents |
+| `src/input/chord-rationaliser.js` | `rationaliseChord(notes, scale, equave, options)` | steps 3–5 above; returns best assignment vector |
+| `src/tuning/harmonic-radius.js` | `harmonicRadius(fractions[])`, `oddRadius(fractions[])`, `logHarmonicRadius(fractions[])`, `logOddRadius(fractions[])` | Geometric and log variants of Sabat/Tenney/Benedetti chord radius; dyad case recovers sqrt(p·q) and log2(p·q) respectively |
+
+`rationaliseChord` depends on `xen-dev-utils` `getConvergents` and `Fraction`. It is a **pure function** (no side effects) suitable for unit testing.
+
+### Triggering strategy
+
+The optimiser runs on **every note-on and note-off** in scale mode, over the full set of currently active notes. At typical polyphony (2–6 notes) the K^N search over 3 candidates is ≤ 729 iterations of simple arithmetic — well under 1 ms even on mobile.
+
+The **previous chord buffer** is reset on `allNotesOff` and on controller disconnect.
+
+### Settings to add (session tier)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `midiin_scale_pairwise_weight` | `0.3` | weight of summed pairwise Tenney distance in scoring |
+| `midiin_scale_chord_weight` | `0.3` | weight of full-chord Harmonic/Odd Radius in scoring |
+| `midiin_scale_radius_mode` | `'log_harmonic'` | `'harmonic'` geometric mean of partials; `'odd'` geometric mean of odd parts; `'log_harmonic'` arithmetic mean of log₂ partials; `'log_odd'` arithmetic mean of log₂ odd parts |
+| `midiin_scale_continuity_weight` | `0.3` | weight of voice-leading continuity penalty |
+| `midiin_scale_candidate_window` | `75` | cent window for alternate candidates (± this value around nearest) |
+
+### Implementation order
+
+1. **Phase D first** — `parseInterval` must return `{ monzo }` before step 3 can look up harmonic distances from the scale.
+2. `findCandidates` in `scale-mapper.js` — extend existing function, backward compatible.
+3. `tenneyDistance` + `chordHarmonicRadius` in `src/tuning/harmonic-radius.js` — pure math, unit testable independently.
+4. `rationaliseChord` in `src/input/chord-rationaliser.js` — integrates 1–3.
+5. Wire into `midinoteOn` / `midinoteOff` in `keys.js` (scale mode path only).
+6. Add the three new session settings to the registry and expose in the MIDI Inputs UI.
+
+### Open questions / deferred decisions
+
+- **Enharmonic equivalents in non-octave equaves** — equave folding before rationalisation may need adjustment for stretched/compressed octaves. Leave as todo within chord-rationaliser.js.
+- **Polyphony cap** — if N > 6, fall back to per-note greedy matching to avoid combinatorial blowup. Threshold is a constant, not a user setting.
+- **MTS sysex received mid-chord** — `_mtsInputTable` update does not retroactively retune held notes. Accepted limitation; document in Issues.
 
 ---
 
@@ -291,7 +465,7 @@ Split ~2300-line `keys.js` into:
 **Do when `keys.js` needs significant new features** — not a standalone priority.
 
 ### F3 — Lumatone export rewrite  `todo` `medium` `large`
-Rewrite `src/settings/scale/lumatone-export.js` to derive geometry from `buildLumatoneMap` in `registry.js`, eliminating the duplicate standalone implementation and fixing 6 failing export tests. Phase C is now stable, so the geometry layer is ready. (Issues.md ARCH-05, BUG-04.)
+Rewrite `src/settings/scale/lumatone-export.js` to derive geometry from `buildLumatoneMap` in `registry.js`, eliminating the duplicate standalone implementation and fixing 6 failing export tests. Phase C is now stable, so the geometry layer is ready. (Issues.md ARCH-05, BUG-06.)
 
 ### F4 — Dead code removal  `todo` `low` `trivial`
 `AXIS49_MAP` / `getAxis49Position` legacy exports; `buildLumatoneRawCoords` duplicate; `ExtractArray` in `use-query.js`; `colors.test-fix-unfinished.js`; commented-out `console.log` statements. (Issues.md CLEAN-01.)
@@ -305,9 +479,11 @@ The registry exists and list duplications have been eliminated (2026-04-01: `PRE
 
 ```
 NOW (bugs blocking normal use)
-  A1  Preset/scale reactivity regression         high   small
+  A1  Preset/scale reactivity regression         high   small   DONE
   A2  Pitch bend / MPE stuck notes               high   large
   A3  scale-mapper tests                         medium small
+  A4  Scale target mode pitch reference          high   small   DONE
+  A5  Scala input validation                     medium small   DONE
 
 SHORT TERM (complete structural work already started)
   B1  Delete mts-helpers.js shim                 medium small
@@ -315,7 +491,8 @@ SHORT TERM (complete structural work already started)
   C5  OCT button / static map                    medium medium
 
 LONGER TERM (foundational / quality)
-  D   Exact interval layer (xen-dev-utils)        low   xlarge
+  D   Exact interval layer (xen-dev-utils)        low   xlarge  ← G depends on this
+  G   Harmonic-radius chord matching              low   xlarge  ← depends on D
   E   Settings UX renaming (direct_ → mts_bulk_) low   medium
   F1  Test coverage                               low   medium
   F3  Lumatone export rewrite                     medium large

@@ -339,7 +339,7 @@ const MIDIio = (props) => {
                       </label>
                       {props.lumatoneRawPorts && (
                         <label>
-                          Auto-Send Colors
+                          Auto Send Colours
                           <span style={{ display: 'flex', alignItems: 'center',
                                          gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
                             <input
@@ -354,7 +354,7 @@ const MIDIio = (props) => {
                             />
                             <button type="button" style={{ fontSize: '0.85em' }}
                               onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
-                            >Sync now</button>
+                            >Send Now</button>
                           </span>
                         </label>
                       )}
@@ -403,32 +403,99 @@ const MIDIio = (props) => {
                 </>
               )}
 
-              {/* ── Exquis SysEx Output status ── reserved for future firmware revision
-                  that exposes LED control without requiring dev mode takeover.
-                  Re-enable when LED sync is functional. */}
-              {false && ctrl?.id === 'exquis' && (
-                <label style={{ fontStyle: 'italic', color: props.exquisRawPorts ? '#669966' : '#996666', marginTop: '0.5em' }}>
-                  SysEx Output
-                  <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
-                    {props.exquisRawPorts
-                      ? `Connected — ${props.exquisRawPorts.output.name}`
-                      : 'Not found (output port unavailable)'}
-                  </span>
-                </label>
-              )}
-              {/* Key color sync — disabled: dev mode kills MPE (pads send note-on ch16 only).
-                  Palette approach (CMD 02 + CC ch16) also did not work. Awaiting firmware update. */}
-              {false && ctrl?.id === 'exquis' && props.exquisRawPorts && !props.settings.midi_passthrough && (
-                <label>
-                  Key colors
-                  <span class="sidebar-input">
-                    <button type="button" style={{ fontSize: '0.85em' }}
-                      onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}>
-                      Sync now
-                    </button>
-                  </span>
-                </label>
-              )}
+              {/* ── Exquis LED colour sync — App Mode (pad_remote=0), hex layout only ── */}
+              {ctrl?.id === 'exquis' && !props.settings.midi_passthrough && !scaleMode && (() => {
+                const ledStatus = props.exquisLedStatus; // null | { ok: true } | { ok: false, reason }
+                const portConnected = !!props.exquisRawPorts;
+                // Colour and status text for the LED Output line:
+                //   no port       → red,   "Not found (output port unavailable)"
+                //   port, pending → green, "Connected — <name>"
+                //   port, ok      → green, "Connected — <name>"
+                //   port, failed  → red,   "Firmware x found: please update to use key colours"
+                const isFailed = portConnected && ledStatus && !ledStatus.ok;
+                const labelColor = (!portConnected || isFailed) ? '#996666' : '#669966';
+                const statusText = !portConnected
+                  ? 'Not found (output port unavailable)'
+                  : isFailed
+                    ? `Firmware ${ledStatus.reason} found: please update to use key colours`
+                    : `Connected — ${props.exquisRawPorts.output.name}`;
+                return (
+                  <>
+                    <label style={{ fontStyle: 'italic', color: labelColor, marginTop: '0.5em' }}>
+                      LED Output
+                      <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em' }}>
+                        {statusText}
+                      </span>
+                    </label>
+                    {portConnected && !isFailed && (
+                      <>
+                        <label>
+                          Auto Send Colours
+                          <span style={{ display: 'flex', alignItems: 'center',
+                                         gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
+                            <input
+                              name="exquis_led_sync"
+                              type="checkbox"
+                              checked={!!props.settings.exquis_led_sync}
+                              onChange={(e) => {
+                                props.onChange('exquis_led_sync', e.target.checked);
+                                sessionStorage.setItem('exquis_led_sync', e.target.checked);
+                                if (e.target.checked) props.keysRef?.current?.syncExquisLEDs?.();
+                              }}
+                            />
+                            <button type="button" style={{ fontSize: '0.85em' }}
+                              onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}
+                            >Send Now</button>
+                            <button type="button" style={{ fontSize: '0.85em' }}
+                              onClick={() => props.keysRef?.current?.exquisLEDs?.clearColors?.()}
+                            >Clear</button>
+                          </span>
+                        </label>
+                        <label>
+                          LED Brightness
+                          <span class="sidebar-input" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                            <input
+                              type="range"
+                              min="0" max="100" step="1"
+                              value={props.settings.exquis_led_luminosity ?? 40}
+                              style={{ width: '100%' }}
+                              onInput={(e) => {
+                                const v = parseInt(e.target.value);
+                                props.onChange('exquis_led_luminosity', v);
+                                localStorage.setItem('exquis_led_luminosity', String(v));
+                                props.keysRef?.current?.exquisLEDs?.setLuminosity(v);
+                              }}
+                            />
+                            <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: '2.5em', textAlign: 'right', fontSize: '0.85em' }}>
+                              {props.settings.exquis_led_luminosity ?? 40}
+                            </span>
+                          </span>
+                        </label>
+                        <label>
+                          LED Saturation
+                          <span class="sidebar-input" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                            <input
+                              type="range"
+                              min="0.75" max="2.5" step="0.05"
+                              value={props.settings.exquis_led_saturation ?? 1.5}
+                              style={{ width: '100%' }}
+                              onInput={(e) => {
+                                const v = parseFloat(e.target.value);
+                                props.onChange('exquis_led_saturation', v);
+                                localStorage.setItem('exquis_led_saturation', String(v));
+                                props.keysRef?.current?.exquisLEDs?.setSaturation(v);
+                              }}
+                            />
+                            <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: '2.5em', textAlign: 'right', fontSize: '0.85em' }}>
+                              {(props.settings.exquis_led_saturation ?? 1.5).toFixed(1)}
+                            </span>
+                          </span>
+                        </label>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* ── Exquis Dev Mode test panel ── disabled: dev mode takes over pads,
                   leaving only note-on ch16 (no MPE expression). Left here for future
@@ -710,7 +777,7 @@ const MIDIio = (props) => {
               Pitch Bend Interval (Scala)
               <ScalaInput
                 context="interval"
-                value={props.settings.midiin_bend_range ?? '28/27'}
+                value={props.settings.midiin_bend_range ?? '64/63'}
                 onChange={(str) => {
                   props.onChange('midiin_bend_range', str);
                   saveControllerPref(null, 'midiin_bend_range', str);

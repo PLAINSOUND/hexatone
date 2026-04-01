@@ -34,6 +34,7 @@ const Settings = ({
   midiLearnActive,
   lumatoneRawPorts,
   exquisRawPorts,
+  exquisLedStatus,
   snapshots,
   playingSnapshotId,
   onPlaySnapshot,
@@ -112,6 +113,7 @@ const Settings = ({
       midiLearnActive={midiLearnActive}
       lumatoneRawPorts={lumatoneRawPorts}
       exquisRawPorts={exquisRawPorts}
+      exquisLedStatus={exquisLedStatus}
       keysRef={keysRef}
     />
     <MidiOutputs

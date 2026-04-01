@@ -44,17 +44,28 @@ Fixed 2026-04-01. `fundamental` was `tier: 'url'` without `presetSkip: true`, so
 
 ---
 
-### BUG-04 · Scale target input mode: pitch shifted by anchor/center_degree offset
+### BUG-04 · Scale target input mode: incoming MIDI pitch mapped to wrong scale degree
 **Tags:** `done`
 
-Fixed 2026-04-01. In `keys.js` `midinoteOn/Off`, the scale-mapper path computed `pitchCents` as `(note - midiin_central_degree) * 100`, then added `center_degree` back after `findNearestDegree` returned. This was wrong: `findNearestDegree` expects cents measured from scale degree 0, but `midiin_central_degree` maps to `center_degree` — not degree 0. On a fresh load with default `midiin_central_degree = 60` and `center_degree = 0` the offset happened to cancel; with any non-zero `center_degree` the result was shifted.
+Fixed 2026-04-01. The scale-mapper path in `keys.js` `midinoteOn/Off` went through two incorrect intermediate forms before reaching the correct solution:
 
-**Fix:** mirror `noteToSteps()` exactly — include `center_degree` in the pitch reference before the search, and use `result.steps` directly without re-adding `center_degree`:
+**Original code** used `(note - midiin_central_degree) * 100` then added `center_degree` after the search — wrong because `midiin_central_degree` maps to `center_degree`, not degree 0, so the reference was misaligned.
+
+**First attempted fix** mirrored `noteToSteps()` using `(note - midiin_central_degree + center_degree) * 100` — still wrong because this uses 12-EDO semitone arithmetic anchored to a hardware setting, not to the musical tuning (`fundamental` + `reference_degree`). Notes triggered incorrect degrees whenever the preset tuning diverged from 12-EDO or the reference was not A=440.
+
+**Root cause:** the two input modes have fundamentally different chains:
+- **Layout mode** — hardware geometry chain: `note → steps (via midiin_central_degree + center_degree anchor) → coords`. The anchor maps physical keys onto grid positions; `hexCoordsToCents` derives pitch from grid position. Layout settings are essential here.
+- **Scale mode** — musical pitch chain: `note → pitchHz (12-EDO absolute) → pitchCents (relative to degree0Hz) → findNearestDegree → steps → coords`. Layout settings (`midiin_central_degree`, `center_degree`, `rSteps`) are entirely irrelevant.
+
+**Correct fix:** compute `degree0Hz` from `fundamental` and `reference_degree`, convert incoming MIDI to Hz, then take the log ratio — no layout parameters involved:
+
 ```js
-const pitchCents = (e.note.number - midiin_central_degree + center_degree) * 100;
-const steps = result.steps; // no + center_degree
+const degree0Hz = fundamental / 2^(degree0toRefCents / 1200);
+const pitchHz   = 440 * 2^((note - 69) / 12);
+const pitchCents = 1200 * log2(pitchHz / degree0Hz);
 ```
-Applied identically to both `midinoteOn` and `midinoteOff`.
+
+`degree0toRefCents` comes from `this.settings.degree0toRef_asArray[0]` (pre-computed at Keys construction from `reference_degree` and the normalised scale). Applied identically to both `midinoteOn` and `midinoteOff`.
 
 ---
 

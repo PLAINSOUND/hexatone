@@ -18,7 +18,7 @@ import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote } from '../controllers/registry.js';
 import { LumatoneLEDs } from '../controllers/lumatone-leds.js';
-// import { ExquisLEDs } from '../controllers/exquis-leds.js'; // disabled: dev mode kills MPE
+import { ExquisLEDs } from '../controllers/exquis-leds.js';
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -34,7 +34,7 @@ import {
 } from './mts-helpers.js';
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, exquisRawPorts = null, onFirstInteraction = null) {
+  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, exquisRawPorts = null, onFirstInteraction = null, onExquisLedStatus = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -69,13 +69,13 @@ class Keys {
       pressureMode:      'recency',
       wheelToRecent:     settings.wheel_to_recent,
       // wheelRange and bendRange both use midiin_bend_range — unified with Pitch Bend Interval UI.
-      wheelRange:        settings.midiin_bend_range ?? '28/27',
+      wheelRange:        settings.midiin_bend_range ?? '64/63',
       wheelScaleAware:   settings.wheel_scale_aware,
       wheelSemitones:    settings.midi_wheel_semitones ?? 2,
       // Pitch bend range for incoming hardware controller bend messages.
       // Applies to MPE per-note bend and single-channel pitch wheel.
       // Must match the range configured on the hardware device.
-      bendRange:         settings.midiin_bend_range ?? '28/27',
+      bendRange:         settings.midiin_bend_range ?? '64/63',
       bendFlip:          !!settings.midiin_bend_flip,
     };
 
@@ -121,6 +121,17 @@ class Keys {
       () => this.state.centerpoint,
       this.inputRuntime,
     );
+
+    // Scale mode microtuning state.
+    // _mtsInputTable:    Map<noteNumber (0–127), Hz> — populated by incoming MTS
+    //                    Single Note Tuning Change sysex. Used when target='scale'
+    //                    and mpeInput=false to get the exact pitch of each note.
+    // _scaleModePreBend: Map<channel (1–16), val14 (0–16383)> — the most recent
+    //                    pitchbend value received on each channel when target='scale'
+    //                    and mpeInput=true. Captured before note-on arrives so the
+    //                    exact intended pitch can be resolved at note-on time.
+    this._mtsInputTable    = new Map();
+    this._scaleModePreBend = new Map();
 
     // Wheel bend state — controller-agnostic.
     // _wheelBend:      current offset in cents applied to the front note.
@@ -476,6 +487,11 @@ class Keys {
             }
             // In MPE input mode we do NOT pass through to the output — each hex's
             // retune() call handles expression for its own output engine.
+            // Scale mode pre-bend capture: record bend per channel so note-on can
+            // use it to resolve the exact intended pitch.
+            if (this.inputRuntime.target === 'scale') {
+              this._scaleModePreBend.set(e.message.channel, val14);
+            }
             return;
           }
 
@@ -497,6 +513,33 @@ class Keys {
           } else {
             // Standard mode: raw PB to all outputs (MTS included).
             this._passthroughPitchBend(val14f);
+          }
+        });
+
+        // MTS Single Note Tuning Change sysex listener — non-MPE scale mode only.
+        // Sysex format (Universal Real-Time, 0xF0 0x7F):
+        //   F0 7F <device_id> 08 02 <count> [<note> <xx> <yy> <zz>] ... F7
+        // Hz per note: 440 * 2^((note + semiFrac - 69) / 12)
+        //   where semiFrac = xx + (yy*128 + zz) / 16384 (xx = semitone, yy:zz = fraction)
+        // Reference: MIDI Tuning Standard (MTS), CA-020.
+        this.midiin_data.addListener('sysex', (e) => {
+          if (this.inputRuntime.target !== 'scale' || this.inputRuntime.mpeInput) return;
+          const d = e.message.data;
+          // Minimum: F0 7F dev 08 02 count note xx yy zz F7 = 11 bytes, count >= 1
+          if (d.length < 11) return;
+          // d[0]=0xF0, d[1]=0x7F (Universal Real-Time), d[2]=device id, d[3]=0x08, d[4]=0x02
+          if (d[1] !== 0x7F || d[3] !== 0x08 || d[4] !== 0x02) return;
+          const count = d[5];
+          for (let i = 0; i < count; i++) {
+            const offset = 6 + i * 4;
+            if (offset + 3 >= d.length) break; // guard against truncated message
+            const noteNum  = d[offset];
+            const semis    = d[offset + 1];          // semitone (0–127)
+            const fracHi   = d[offset + 2];          // MSB of 14-bit fraction
+            const fracLo   = d[offset + 3];          // LSB of 14-bit fraction
+            const semiFrac = semis + (fracHi * 128 + fracLo) / 16384;
+            const hz = 440 * Math.pow(2, (semiFrac - 69) / 12);
+            this._mtsInputTable.set(noteNum, hz);
           }
         });
 
@@ -524,18 +567,29 @@ class Keys {
     }
 
     // ── Exquis LED engine ────────────────────────────────────────────────────
-    // Disabled: Exquis dev mode takes over pads, disabling MPE (only note-on
-    // ch16 in dev mode — no XYZ expression). Palette approach (CMD 02 + CC
-    // ch16) also did not produce visible results. Left for future firmware.
+    // App Mode (pad_remote=0): keeps the native MPE engine running while
+    // the host drives LED colors via CMD 0x14 (note_colour). A heartbeat
+    // interval inside ExquisLEDs keeps App Mode alive for the session.
     this.exquisLEDs = null;
-    // if (exquisRawPorts && this.controllerMap && !this.settings.midi_passthrough) {
-    //   this.exquisLEDs = new ExquisLEDs(exquisRawPorts.output, exquisRawPorts.input);
-    //   Promise.resolve().then(() => {
-    //     if (this.exquisLEDs && this.controllerMap) {
-    //       this.exquisLEDs.sendColors(this._buildExquisColorArray());
-    //     }
-    //   });
-    // }
+    if (exquisRawPorts && this.controllerMap && !this.settings.midi_passthrough
+        && this.inputRuntime.target !== 'scale') {
+      // Only send initial colors if auto-send is enabled — if it's off, pads
+      // stay dark (App Mode is active but we don't push any colors).
+      const initialColors = this.settings.exquis_led_sync
+        ? this._buildExquisColorArray()
+        : null;
+      this.exquisLEDs = new ExquisLEDs(
+        exquisRawPorts.output,
+        exquisRawPorts.input,
+        initialColors,
+        (ok, reason) => {
+          if (!ok) console.warn('[Keys] Exquis App Mode unavailable:', reason);
+          if (onExquisLedStatus) onExquisLedStatus(ok, reason);
+        },
+        this.settings.exquis_led_luminosity ?? 40,
+        this.settings.exquis_led_saturation ?? 1.5,
+      );
+    }
   } // end of constructor
 
   /**
@@ -789,10 +843,9 @@ class Keys {
       this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
     }
 
-    // Exquis LED color sync disabled — see constructor note above.
-    // if (this.exquisLEDs && this.controllerMap) {
-    //   this.exquisLEDs.sendColors(this._buildExquisColorArray());
-    // }
+    if (this.exquisLEDs && this.controllerMap && this.settings.exquis_led_sync) {
+      this.exquisLEDs.sendColors(this._buildExquisColorArray());
+    }
   };
 
   // ── Snapshot capture & playback ────────────────────────────────────────────
@@ -903,12 +956,11 @@ class Keys {
     }
   };
 
-  // syncExquisLEDs disabled — dev mode kills MPE. Left for future firmware update.
-  // syncExquisLEDs = () => {
-  //   if (this.exquisLEDs && this.controllerMap) {
-  //     this.exquisLEDs.sendColors(this._buildExquisColorArray());
-  //   }
-  // };
+  syncExquisLEDs = () => {
+    if (this.exquisLEDs && this.controllerMap) {
+      this.exquisLEDs.sendColors(this._buildExquisColorArray());
+    }
+  };
 
   /**
    * Send the complete Lumatone layout — note/channel (CMD 00h) + colour (CMD 01h)
@@ -1001,8 +1053,7 @@ class Keys {
     for (const [mapKey, coords] of this.controllerMap) {
       const note = parseInt(mapKey.slice(mapKey.indexOf('.') + 1), 10);
       if (note >= 0 && note <= 60) {
-        const [cents, reducedSteps] = this.hexCoordsToCents(coords);
-        colors[note] = this._getScreenHexColor(cents, reducedSteps);
+        colors[note] = this._getLumatoneHexColor(coords);
       }
     }
     return colors;
@@ -1093,11 +1144,10 @@ class Keys {
       this.lumatoneLEDs = null;
     }
 
-    // Exquis LED engine cleanup disabled alongside the engine above.
-    // if (this.exquisLEDs) {
-    //   this.exquisLEDs.destroy();
-    //   this.exquisLEDs = null;
-    // }
+    if (this.exquisLEDs) {
+      this.exquisLEDs.destroy();
+      this.exquisLEDs = null;
+    }
 
 
     window.removeEventListener("resize", this.resizeHandler, false);
@@ -1348,10 +1398,26 @@ class Keys {
 
     if (this.inputRuntime.target === 'scale') {
       // Scale target mode: map incoming MIDI pitch to nearest scale degree.
-      // Mirror noteToSteps(): anchor note maps to center_degree, so pitch relative
-      // to degree 0 = (note - midiin_central_degree + center_degree) semitones.
-      const pitchCents = (e.note.number - this.settings.midiin_central_degree
-        + (this.settings.center_degree || 0)) * 100;
+      // Purely musical reference — independent of layout settings
+      // (center_degree, midiin_central_degree, rSteps, etc.).
+      // degree0Hz: the absolute frequency of scale degree 0 (fundamental anchors
+      // reference_degree; degree0toRefCents is the cents offset from 0 to that anchor).
+      // pitchCents: incoming note expressed as cents above degree 0.
+      const degree0toRefCents = this.settings.degree0toRef_asArray[0];
+      const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
+      // Resolve exact pitch: MPE pre-bend > MTS table > plain 12-EDO.
+      let pitchHz;
+      if (this.inputRuntime.mpeInput) {
+        const preBend = this._scaleModePreBend.get(e.message.channel) ?? 8192;
+        const norm = (preBend - 8192) / 8192; // −1…+1
+        const bendRange = this.inputRuntime.scaleBendRange ?? 48;
+        const baseHz = 440 * Math.pow(2, (e.note.number - 69) / 12);
+        pitchHz = baseHz * Math.pow(2, norm * bendRange / 12);
+      } else {
+        pitchHz = this._mtsInputTable.get(e.note.number)
+          ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
+      }
+      const pitchCents = 1200 * Math.log2(pitchHz / degree0Hz);
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,
@@ -1419,10 +1485,23 @@ class Keys {
     let coordsList;
 
     if (this.inputRuntime.target === 'scale') {
-      // Scale mode: re-resolve pitch to steps to find coords for visual release.
-      // Mirror noteToSteps(): same reference as midinoteOn.
-      const pitchCents = (e.note.number - this.settings.midiin_central_degree
-        + (this.settings.center_degree || 0)) * 100;
+      // Scale mode: re-resolve pitch to steps for visual release.
+      // Identical reference as midinoteOn.
+      const degree0toRefCents = this.settings.degree0toRef_asArray[0];
+      const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
+      // Mirror the same pitch resolution as midinoteOn so we release the right key.
+      let pitchHz;
+      if (this.inputRuntime.mpeInput) {
+        const preBend = this._scaleModePreBend.get(e.message.channel) ?? 8192;
+        const norm = (preBend - 8192) / 8192;
+        const bendRange = this.inputRuntime.scaleBendRange ?? 48;
+        const baseHz = 440 * Math.pow(2, (e.note.number - 69) / 12);
+        pitchHz = baseHz * Math.pow(2, norm * bendRange / 12);
+      } else {
+        pitchHz = this._mtsInputTable.get(e.note.number)
+          ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
+      }
+      const pitchCents = 1200 * Math.log2(pitchHz / degree0Hz);
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,
@@ -2390,7 +2469,7 @@ class Keys {
       // We use the symmetric fixed-range calculation only (scale-aware
       // asymmetric bend is inherently single-target).
       // Uses hex._baseCents (frozen at note-on) to avoid accumulation drift.
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '28/27');
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '64/63');
       const offsetCents = norm * rangeCents;
       this._wheelBend = offsetCents;
       for (const hex of this._allActiveHexes()) {
@@ -2422,7 +2501,7 @@ class Keys {
       }
     } else {
       // Symmetric fixed-range bend.
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '28/27');
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '64/63');
       bentCents = this._wheelBaseCents + norm * rangeCents;
     }
 
