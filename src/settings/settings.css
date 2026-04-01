@@ -336,6 +336,7 @@ table td {
   display: flex;
   flex-direction: row;
   align-items: center;
+  margin-right: 3px;
   gap: 3px;
   font-size: 0.78em;
 }
