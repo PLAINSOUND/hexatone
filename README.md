@@ -10,7 +10,7 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3dev (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Current version 3.1.0-beta.3 (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
 
 ## Isomorphic Keyboards
 [Wikipedia](https://en.wikipedia.org/wiki/Isomorphic_keyboard)
@@ -22,9 +22,20 @@ Current version 3dev (2026), released as Free/Libre and Open Source Software und
 ## Version history
 
 ### 3.1.0-beta.3 *(current, April 2026)*
-Updated docs/hexatone with issues.md and roadmap.md to build overview of app development in preparation for opening to community collaboration. Input includes two targets: nearest scale degree or hex coords.
 
-### 3.1.0-beta.2 *(current, March 2026)*
+**MIDI input — scale target mode:** new Input Mode selector in MIDI settings: *MIDI to Hex Layout* (existing behaviour) or *MIDI to Nearest Scale Degree*. In scale mode, incoming MIDI pitch is matched to the closest degree of the active scale by cent distance, across any tuning or equave. User-configurable tolerance (default 25¢) and out-of-tolerance behaviour (Accept Best / Discard). Geometry, anchor, and transposition controls are hidden when scale mode is active.
+
+**MTS output — Dynamic Bulk Dump:** new transport mode for synths that accept MTS bulk dumps but not single-note real-time SysEx. On each note-on, the carrier slot is patched in a maintained 128-note map and the full dump is sent before triggering the note. Shares carrier selection and MTS encoding with the existing real-time mode.
+
+**MTS output — Centered Static Bulk Dump:** the static 128-note map is now automatically centered around the screen's `center_degree`. The centering algorithm searches MIDI notes 57–72 (A3–C5) for the note whose 12-EDO pitch class best matches the center pitch, maximising usable keyboard coverage. Sustained notes are protected from mid-phrase map updates; Auto-Send option resends the map whenever relevant settings change.
+
+**Expression:** mod wheel (CC1) is now routed to the sample synth's lowpass filter, matching the MPE slide (CC74) path. Channel pressure (aftertouch) now broadcasts to all sounding voices simultaneously by default (was recency-stack only). Both are also forwarded to MIDI and MPE outputs.
+
+**iOS fix:** audio now starts on the first touch without requiring the refresh button.
+
+**Docs:** `docs/hexatone/` added with `Roadmap.md` and `Issues.md` — structured development overview for community collaboration.
+
+### 3.1.0-beta.2 *(March 2026)*
 Refactored code to automatically map isomorphic controllers. Changed octave-to-equave harcoded logic to allow user-specified behaviour for other scales (no tranposition, transposition by a specified number of scale degrees, or by equave); full independent retuneability of all scale degrees and reference, automatic scale file rewrite; option to refresh or retain scale on reload; fixed input interoperability logic (mouse, touch, computer keyboard, MIDI); MPE input mode with per-voice pitch bend and pressure routing. Under the hood fixes: refactoring persistence and loading logic. Cleaning up code, preparing for integration of scale math with xen-devs.
 
 **Supported 2D isomorphic controller geometries (auto-detected by MIDI device name):**
