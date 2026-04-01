@@ -18,7 +18,6 @@ import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote } from '../controllers/registry.js';
 import { LumatoneLEDs } from '../controllers/lumatone-leds.js';
-import { ExquisLEDs } from '../controllers/exquis-leds.js';
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -34,7 +33,7 @@ import {
 } from './mts-helpers.js';
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, exquisRawPorts = null, onFirstInteraction = null, onExquisLedStatus = null) {
+  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, onFirstInteraction = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -566,30 +565,8 @@ class Keys {
       }
     }
 
-    // ── Exquis LED engine ────────────────────────────────────────────────────
-    // App Mode (pad_remote=0): keeps the native MPE engine running while
-    // the host drives LED colors via CMD 0x14 (note_colour). A heartbeat
-    // interval inside ExquisLEDs keeps App Mode alive for the session.
+    // exquisLEDs is assigned externally by keyboard/index.js after construction.
     this.exquisLEDs = null;
-    if (exquisRawPorts && this.controllerMap && !this.settings.midi_passthrough
-        && this.inputRuntime.target !== 'scale') {
-      // Only send initial colors if auto-send is enabled — if it's off, pads
-      // stay dark (App Mode is active but we don't push any colors).
-      const initialColors = this.settings.exquis_led_sync
-        ? this._buildExquisColorArray()
-        : null;
-      this.exquisLEDs = new ExquisLEDs(
-        exquisRawPorts.output,
-        exquisRawPorts.input,
-        initialColors,
-        (ok, reason) => {
-          if (!ok) console.warn('[Keys] Exquis App Mode unavailable:', reason);
-          if (onExquisLedStatus) onExquisLedStatus(ok, reason);
-        },
-        this.settings.exquis_led_luminosity ?? 40,
-        this.settings.exquis_led_saturation ?? 1.5,
-      );
-    }
   } // end of constructor
 
   /**
@@ -843,7 +820,7 @@ class Keys {
       this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
     }
 
-    if (this.exquisLEDs && this.controllerMap && this.settings.exquis_led_sync) {
+    if (this.exquisLEDs && this.settings.exquis_led_sync) {
       this.exquisLEDs.sendColors(this._buildExquisColorArray());
     }
   };
@@ -1144,10 +1121,6 @@ class Keys {
       this.lumatoneLEDs = null;
     }
 
-    if (this.exquisLEDs) {
-      this.exquisLEDs.destroy();
-      this.exquisLEDs = null;
-    }
 
 
     window.removeEventListener("resize", this.resizeHandler, false);

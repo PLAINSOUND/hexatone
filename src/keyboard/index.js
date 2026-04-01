@@ -1,74 +1,56 @@
 import { h, render, Fragment } from 'preact';
-import { useRef, useEffect, useCallback } from 'preact/hooks';
+import { useRef, useEffect } from 'preact/hooks';
 import Keys from './keys';
 import "./keyboard.css";
 import PropTypes from 'prop-types';
 
 const Keyboard = (props) => {
-  const canvas = useRef(null);
+  const canvas  = useRef(null);
   const keysRef = useRef(null);
 
-  // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
-  // NOT when colors change. Color changes are handled imperatively below.
-
-  // Reconstruct Keys only when structural settings change (scale, layout, MIDI) —
-  // NOT when colors change. Color changes are handled imperatively below.
+  // ── Keys reconstruction ────────────────────────────────────────────────────
+  // Runs when structural settings change. ExquisLEDs is managed in app.jsx
+  // and assigned to keys.exquisLEDs via props.exquisLedsRef after construction.
   useEffect(() => {
-    // If the previous Keys instance had an Exquis LED engine and the new one
-    // won't (scale mode, no ports), do a final teardown (clears + quit) before
-    // constructing the new instance so the device exits App Mode cleanly.
-    const prev = keysRef.current;
-    const newHasExquis = !!props.exquisRawPorts
-      && props.inputRuntime?.target !== 'scale'
-      && !props.settings?.midi_passthrough;
-    if (prev?.exquisLEDs && !newHasExquis) {
-      prev.exquisLEDs.destroyFinal();
-      prev.exquisLEDs = null;
-    }
-
-    const keys = new Keys(canvas.current, props.settings, props.synth, props.active, props.onLatchChange, props.lumatoneRawPorts, props.onTakeSnapshot, props.inputRuntime, props.exquisRawPorts, props.onFirstInteraction, props.onExquisLedStatus);
+    const keys = new Keys(
+      canvas.current, props.settings, props.synth, props.active,
+      props.onLatchChange, props.lumatoneRawPorts, props.onTakeSnapshot,
+      props.inputRuntime, props.onFirstInteraction,
+    );
+    keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
     keysRef.current = keys;
     if (props.onKeysReady) props.onKeysReady(keys);
-    return () => keys.deconstruct();
+    return () => {
+      keys.exquisLEDs = null;
+      keys.deconstruct();
+    };
   }, [canvas, props.structuralSettings, props.inputRuntime, props.synth]);
 
-  // After every render that doesn't reconstruct Keys, schedule a redraw via
-  // requestAnimationFrame so it runs after the browser has finished painting.
-  // This covers: latch colour changes, loading state changes, any parent
-  // re-render that clears the canvas without triggering a Keys reconstruction.
+  // After every render, schedule a redraw via rAF.
   const renderCount = useRef(0);
   useEffect(() => {
     renderCount.current += 1;
-    if (renderCount.current <= 1) return; // skip first mount — constructor handles it
+    if (renderCount.current <= 1) return;
     let raf;
     if (keysRef.current) raf = requestAnimationFrame(() => keysRef.current && keysRef.current.resizeHandler());
     return () => { if (raf) cancelAnimationFrame(raf); };
-  });  // no deps — runs after every render
+  });
 
-  // Also trigger immediately (not just rAF) on sidebar open/close so the
-  // CSS transition has the correct canvas size from the start, and update
-  // the typing state so keyboard keys don't trigger when sidebar is open.
-  // Note: props.active=true means sidebar is open, so typing should be true.
   useEffect(() => {
     if (keysRef.current) {
       keysRef.current.resizeHandler();
       keysRef.current.typing = props.active;
-      // When sidebar opens, release any computer keyboard notes that are held.
-      // onKeyUp won't fire for them once typing becomes true (sidebar has focus),
-      // so without this they stay stuck indefinitely.
       if (!props.active && typeof keysRef.current.releaseAllKeyboardNotes === 'function')
         keysRef.current.releaseAllKeyboardNotes();
     }
   }, [props.active]);
 
-  // Imperatively set/clear MIDI-learn mode on the live Keys instance.
   useEffect(() => {
     if (keysRef.current) {
       keysRef.current.setMidiLearnMode(!!props.midiLearnActive, props.onAnchorLearn);
     }
   }, [props.midiLearnActive, props.onAnchorLearn]);
 
-  // When colors change, push them into the live Keys instance and redraw immediately.
   const noteColorsKey = props.settings.note_colors ? JSON.stringify(props.settings.note_colors) : '';
   useEffect(() => {
     if (keysRef.current && props.settings) {
@@ -91,19 +73,16 @@ const Keyboard = (props) => {
 
 Keyboard.propTypes = {
   structuralSettings: PropTypes.object,
+  exquisLedsRef: PropTypes.object,
   settings: PropTypes.shape({
     keyCodeToCoords: PropTypes.object,
     degree: PropTypes.bool,
     note: PropTypes.bool,
     scala: PropTypes.bool,
     no_labels: PropTypes.bool,
-
-    // Input
     midiin_device: PropTypes.string,
     midiin_channel: PropTypes.number,
     midiin_central_degree: PropTypes.number,
-
-    // Output
     output: PropTypes.string,
     instrument: PropTypes.string,
     fundamental: PropTypes.number,
@@ -117,13 +96,10 @@ Keyboard.propTypes = {
     sysex_type: PropTypes.number,
     device_id: PropTypes.number,
     tuning_map_number: PropTypes.number,
-
-    // Layout
     rSteps: PropTypes.number,
     drSteps: PropTypes.number,
     hexSize: PropTypes.number,
     rotation: PropTypes.number,
-    // Scale
     scale: PropTypes.arrayOf(PropTypes.number),
     equivInterval: PropTypes.number,
     equivSteps: PropTypes.number,

@@ -28,6 +28,7 @@ import { buildQuerySpec, buildRegistryDefaults, PRESET_SKIP_KEYS } from "./persi
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
+import { ExquisLEDs } from "./controllers/exquis-leds.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
 
@@ -162,6 +163,7 @@ const App = () => {
   // Exquis LED App Mode status — set asynchronously after firmware version check.
   // null = pending / not connected; { ok: true } = active; { ok: false, reason } = failed.
   const [exquisLedStatus, setExquisLedStatus] = useState(null);
+  const exquisLedsRef = useRef(null);
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
@@ -433,6 +435,41 @@ const App = () => {
     setOctaveTranspose(0);
   }, [structuralSettings]);
 
+  // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
+  // Lives here (not in Keyboard) so App Mode is active even before a scale is
+  // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
+  useEffect(() => {
+    const wantAppMode = !!exquisRawPorts
+      && inputRuntime?.target !== 'scale';
+
+    if (!wantAppMode) {
+      if (exquisLedsRef.current) {
+        exquisLedsRef.current.exit();
+        exquisLedsRef.current = null;
+        if (keysRef.current) keysRef.current.exquisLEDs = null;
+      }
+      return;
+    }
+
+    if (exquisLedsRef.current) return;
+
+    const leds = new ExquisLEDs(
+      exquisRawPorts.output,
+      exquisRawPorts.input,
+      (ok, reason) => setExquisLedStatus(ok ? { ok: true } : { ok: false, reason }),
+      settings.exquis_led_luminosity ?? 40,
+      settings.exquis_led_saturation ?? 1.5,
+    );
+    exquisLedsRef.current = leds;
+    if (keysRef.current) keysRef.current.exquisLEDs = leds;
+
+    return () => {
+      leds.exit();
+      exquisLedsRef.current = null;
+      if (keysRef.current) keysRef.current.exquisLEDs = null;
+    };
+  }, [exquisRawPorts, inputRuntime?.target]);
+
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
@@ -475,6 +512,7 @@ const App = () => {
           structuralSettings={structuralSettings}
           onKeysReady={useCallback((keys) => {
             keysRef.current = keys;
+            keys.exquisLEDs = exquisLedsRef.current;
           }, [])}
           onLatchChange={useCallback((v) => setLatch(v), [])}
           onTakeSnapshot={onTakeSnapshot}
@@ -482,10 +520,7 @@ const App = () => {
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
           lumatoneRawPorts={lumatoneRawPorts}
-          exquisRawPorts={exquisRawPorts}
-          onExquisLedStatus={useCallback((ok, reason) => {
-            setExquisLedStatus(ok ? { ok: true } : { ok: false, reason });
-          }, [])}
+          exquisLedsRef={exquisLedsRef}
           onFirstInteraction={useCallback(() => {
             setUserHasInteracted(true);
             // Called from the first touch on the canvas — within the iOS gesture

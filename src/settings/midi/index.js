@@ -439,8 +439,11 @@ const MIDIio = (props) => {
                               checked={!!props.settings.exquis_led_sync}
                               onChange={(e) => {
                                 props.onChange('exquis_led_sync', e.target.checked);
-                                sessionStorage.setItem('exquis_led_sync', e.target.checked);
-                                if (e.target.checked) props.keysRef?.current?.syncExquisLEDs?.();
+                                localStorage.setItem('exquis_led_sync', e.target.checked);
+                                const keys = props.keysRef?.current;
+                                if (keys) keys.settings.exquis_led_sync = e.target.checked;
+                                if (e.target.checked) keys?.syncExquisLEDs?.();
+                                else keys?.exquisLEDs?.clearColors?.();
                               }}
                             />
                             <button type="button" style={{ fontSize: '0.85em' }}
