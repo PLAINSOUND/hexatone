@@ -171,48 +171,57 @@ Registry default is `260.740741` (middle C). Users expect `440` Hz. Change regis
 
 ---
 
-## Phase C: Output Domain  `todo` `high`
+## Phase C: Output Domain  `done` `high`
 
-*HexatoneIOrefactor.md Phases 4–6. The main remaining feature work.*
+*HexatoneIOrefactor.md Phases 4–6. Completed before 2026-04-01.*
 
-### C1 — Define explicit output transport strategies  `todo` `high` `large`
-Move transport logic into output-specific modules under `src/output/`. Keep `keys.js` focused on hex activation and orchestration.
+All five output modes are implemented, production-ready, and integrated with the full settings/persistence system.
 
-Five output modes need clean runtime representations:
-- Sample synth (already relatively clean)
-- MPE output
-- MTS real-time (single-note sysex per carrier)
-- MTS dynamic bulk dump (patch + full dump on each note-on)
-- MTS static bulk dump (one map, built once, MIDI keyboard plays it)
+### C1 — Output transport strategies  `done`
 
-Per-mode: required settings, runtime state, rebuild triggers, and transport logic should all be co-located.
+Five output mode classes in `src/midi_synth/index.js`, plus `src/mpe_synth/`, `src/sample_synth/`, `src/osc_synth/`, composited via `src/composite_synth/`:
 
-### C2 — Dynamic Bulk Dump output  `todo` `high` `large`
+| Mode | Class | Transport |
+|---|---|---|
+| Sample synth | `ActiveHex` | Web Audio API |
+| MPE output | `MpeHex` | Per-channel MIDI, voice pool |
+| MTS real-time | `MidiHex` | Single-note real-time sysex per carrier (MTS1/MTS2) |
+| MTS dynamic bulk | `DynamicBulkHex` | Maintain 128-note map; patch + full dump on each note-on |
+| MTS static bulk | `StaticBulkHex` | Pre-built centered map; MIDI keyboard plays sequentially |
+| OSC | `OscHex` | WebSocket bridge to SuperCollider |
 
-*HexatoneIOrefactor.md Phase 5.*
+All share a unified `makeHex()` interface. `create_composite_synth()` fans out `makeHex/noteOn/noteOff/retune` to all active synths simultaneously.
 
-Enables bulk-dump-only synths to receive real-time MTS with MTS1-style semantics:
-- Maintain an in-memory 128-note map.
-- On note-on: choose carrier (MTS1 allocation logic), compute triplet, patch the map, send full bulk dump, trigger note.
-- Shared core with MTS real-time: same carrier selection, same MTS encoding — only the transport step differs.
-- Investigate whether a note-on delay after sysex send is needed in practice.
-- Leave reduced-range (MTS2-style) allocation as a later extension.
+`deriveOutputRuntime(settings, midi, tuningRuntime)` in `use-synth-wiring.js` builds the config array consumed by `create_midi_synth()`. Separate MTS output objects for main port and optional FluidSynth mirror.
 
-### C3 — Centered Static Bulk Dump  `todo` `high` `medium`
+### C2 — Dynamic Bulk Dump output  `done`
 
-*HexatoneIOrefactor.md Phase 6.*
+`createBulkDynamicTransport()` maintains an in-memory 128-note map. On each note-on: voice pool allocation, carrier selection, MTS triplet computation, map patch, full bulk dump sent, then note triggered. Guard delay (`DIRECT_BULK_GUARD_MS`, currently 0 ms) is configurable. Retuning on held notes patches the carrier slot and resends.
 
-The static 128-note map should be musically centered around `center_degree` on screen:
-1. Derive the pitch of `center_degree`.
-2. Search MIDI notes 57–72 (A3–C5) for the note whose 12-EDO pitch class best matches.
-3. Build the map centered on that note.
+Shared MTS math with real-time mode via `src/tuning/mts-format.js` — only the transport step differs.
 
-This maximises useful range coverage and makes the screen center and external keyboard physically correspond. `chooseStaticMapCenterMidi` in `src/tuning/center-anchor.js` already provides the search logic.
+### C3 — Centered Static Bulk Dump  `done`
 
-Also: OCT button must recalculate and re-send the map (or defer carrier slots that are currently held) — see Issues.md FEAT-06.
+`StaticBulkHex` plays notes as `anchor + steps` from a pre-built centered map. Centering algorithm (in `src/tuning/center-anchor.js`):
+1. `computeCenterPitchHz()` — pitch of `center_degree`.
+2. `chooseStaticMapCenterMidi()` — search MIDI 57–72 (A3–C5) for best 12-EDO pitch-class match.
+3. `computeStaticMapDegree0()` — convert chosen MIDI note to abstract degree-0 anchor for the map.
 
-### C4 — Input/output correlation for static bulk  `todo` `medium` `small`
-Ensure `scale` input target (nearest-degree mapping) and `hex_layout` anchor interpretation both align with the centered static map. The same centering logic should inform both incoming anchor interpretation and outgoing map construction.
+`mtsSendMap()` in `keys.js` builds and sends the bulk dump with **sustained-note protection**: held notes keep their last tuning bytes; checksum is recomputed if any protected slots differ.
+
+Auto-Send checkbox triggers immediate resend on any relevant settings change. Full UI in `src/settings/midi/midioutputs.js`.
+
+### C4 — Input/output correlation for static bulk  `done`
+
+`scale` input target (nearest-degree mapping via `findNearestDegree`) and `hex_layout` anchor interpretation both use the same centered `center_degree` as the static map anchor. The centering logic in `center-anchor.js` is the shared foundation for both sides.
+
+### C5 — OCT button / static map deferred  `todo` `medium` `medium`
+
+The OCT button applies an octave shift to the view. The static bulk dump must mirror this:
+- **Non-deferred OCT:** recalculate the 128-note map (shift carrier slots by 12 semitones) and re-send when auto-send is on.
+- **Deferred OCT:** skip carrier slots currently held by sounding notes, send the rest, then update deferred slots as each note releases.
+
+This ties the UI OCT state directly to the static bulk transport. (See Issues.md FEAT-06.)
 
 ---
 
@@ -251,7 +260,7 @@ Rename internal implementation keys to domain-facing names:
 - `sysex_type` → clearer transport naming
 - Decide whether `DIRECT` remains a user-facing label (recommended: yes, mapping to static bulk mode)
 
-**Requires a migration pass** to avoid breaking existing user sessions. Do after output transport modules (Phase C) are stable, since the rename should align with the new domain model.
+**Requires a migration pass** to avoid breaking existing user sessions. Phase C is now stable, so this can proceed when there is appetite for the migration effort.
 
 ---
 
@@ -274,7 +283,7 @@ Split ~2300-line `keys.js` into:
 **Do when `keys.js` needs significant new features** — not a standalone priority.
 
 ### F3 — Lumatone export rewrite  `todo` `medium` `large`
-Rewrite `src/settings/scale/lumatone-export.js` to derive geometry from `buildLumatoneMap` in `registry.js`, eliminating the duplicate standalone implementation and fixing 6 failing export tests. Do after Phase C (controller geometry layer must be stable). (Issues.md ARCH-05, BUG-04.)
+Rewrite `src/settings/scale/lumatone-export.js` to derive geometry from `buildLumatoneMap` in `registry.js`, eliminating the duplicate standalone implementation and fixing 6 failing export tests. Phase C is now stable, so the geometry layer is ready. (Issues.md ARCH-05, BUG-04.)
 
 ### F4 — Dead code removal  `todo` `low` `trivial`
 `AXIS49_MAP` / `getAxis49Position` legacy exports; `buildLumatoneRawCoords` duplicate; `ExtractArray` in `use-query.js`; `colors.test-fix-unfinished.js`; commented-out `console.log` statements. (Issues.md CLEAN-01.)
@@ -288,21 +297,15 @@ The registry exists but `useQuery` still writes to both URL and localStorage on 
 
 ```
 NOW (bugs blocking normal use)
-  A1  Preset/scale reactivity regression         high  small
-  A2  Pitch bend / MPE stuck notes               high  large
+  A1  Preset/scale reactivity regression         high   small
+  A2  Pitch bend / MPE stuck notes               high   large
   A3  scale-mapper tests                         medium small
 
 SHORT TERM (complete structural work already started)
   B1  Delete mts-helpers.js shim                 medium small
-  B2  Extract deriveOutputRuntime()              medium medium
   B4  Fix fundamental default to 440             medium small
   B3  useScaleImport / useSessionDefaults hooks  low    medium
-
-MEDIUM TERM (main new feature work)
-  C1  Output transport module design             high   large
-  C2  Dynamic Bulk Dump output                   high   large
-  C3  Centered Static Bulk Dump                  high   medium
-  C4  Input/output correlation for static bulk   medium small
+  C5  OCT button / static map                    medium medium
 
 LONGER TERM (foundational / quality)
   D   Exact interval layer (xen-dev-utils)        low   xlarge

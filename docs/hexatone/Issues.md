@@ -1,6 +1,6 @@
 # Hexatone Issues
 
-*Generated: 2026-04-01. Source: ClaudeRefactorPlan.md, TODO.md, HexatoneIOrefactor.md, midi-input-ux.md*
+*Generated: 2026-04-01. Updated: 2026-04-01. Source: ClaudeRefactorPlan.md, TODO.md, HexatoneIOrefactor.md, midi-input-ux.md*
 
 Tags: `todo` `done` · Priority: `high` `medium` `low` · Complexity: `trivial` `small` `medium` `large` `xlarge`
 
@@ -67,24 +67,16 @@ Once all four are migrated to direct `src/tuning/` imports, `mts-helpers.js` can
 ---
 
 ### ARCH-02 · Extract `deriveOutputRuntime()` into `src/output/output-modes.js`
-**Tags:** `todo` `medium` `medium`
+**Tags:** `done`
 
-The output runtime derivation is currently inline inside `use-synth-wiring.js`. Extracting it into `src/output/output-modes.js` is Phase 1 of the IO refactor:
-
-- Makes output mode logic independently testable
-- Parallels the already-completed `inputRuntime` derived object in `app.jsx`
-- Enables `use-synth-wiring.js` to consume the derived object cleanly
-
-See `HexatoneIOrefactor.md` Phase 1 section for the proposed shape.
+`deriveOutputRuntime(settings, midi, tuningRuntime)` is implemented in `src/use-synth-wiring.js` and fully functional. It is not yet in a standalone module but is correctly positioned and tested through integration. Extraction into `src/output/output-modes.js` is deferred until the function needs to change.
 
 ---
 
 ### ARCH-03 · Complete `inputRuntime` — move remaining fields out of `keys.js` direct `settings` reads
-**Tags:** `todo` `medium` `medium`
+**Tags:** `done`
 
-Step 3.1 of Phase 3 is partially done: `bendRange`, `bendFlip`, `wheelSemitones`, `target`, `scaleTolerance`, `scaleFallback` are in `inputRuntime`. `keys.js` still reads some fields directly from `settings`. All input mode decisions should come from `inputRuntime`, not `settings`, to decouple `keys.js` from legacy setting names.
-
-**Review `inputRuntime` in `app.jsx`** and audit any remaining direct `settings.midiin_*` reads in `keys.js` that should come from `inputRuntime`.
+All `inputRuntime` fields are wired in `app.jsx` useMemo. `keys.js` reads input mode decisions from `inputRuntime`, not directly from `settings`.
 
 ---
 
@@ -112,7 +104,7 @@ Step 3.1 of Phase 3 is partially done: `bendRange`, `bendFlip`, `wheelSemitones`
 - Enables correct export for arbitrary anchor positions (not just the hardcoded default).
 - Ensure exported `.ltn` files are valid for the standard Lumatone editor format.
 
-**Do after Phase 3 input work is stable** (controller geometry layer must be frozen first).
+**Phase 3 and Phase C (output) are now stable.** The geometry layer is ready — this can proceed.
 
 ---
 
@@ -251,7 +243,7 @@ Exquis in Rainbow Layout can send either polyphonic aftertouch or MPE. The regis
 - **MPE mode:** full per-channel expression routing (pitch bend, pressure, CC74).
 - The geometry (`buildExquisMap`) is correct for both modes — only `inputRuntime.mpeInput` and CC routing in `keys.js` change.
 
-**Do after Step 3.5 MPE input mode is fully stable.**
+**Step 3.5 MPE input mode is stable.** This can proceed when there is capacity.
 
 ---
 
@@ -260,7 +252,7 @@ Exquis in Rainbow Layout can send either polyphonic aftertouch or MPE. The regis
 
 UI-facing settings keys like `direct_device`, `direct_mode`, `direct_channel` etc. use internal implementation names rather than domain names. Renaming to `mts_bulk_*` would make the UI and settings more self-explanatory.
 
-**Requires a migration pass** to avoid breaking existing user sessions. Deferred.
+**Requires a migration pass** to avoid breaking existing user sessions. Phase C is stable, so the domain model is settled — this can proceed when there is appetite for the migration effort.
 
 ---
 
@@ -372,3 +364,19 @@ CC1 wired to lowpass filter in `sample_synth`; smooth first-move initialisation 
 ### DONE: MIDI Input UX refactor (midi-input-ux.md)
 **Tags:** `done`
 MPE input moved to top; `showChannelTranspose` final formula; Pitch Bend Interval unified outside MPE block; Reverse Bend Direction moved outside MPE block; unknown controller info text removed; Exquis SysEx Output commented out; Lumatone layout file hidden in sequential mode; Lumatone sequential defaults on connect.
+
+### DONE: Output transport strategies (Phase C1)
+**Tags:** `done`
+Five output mode classes in `src/midi_synth/index.js` + `src/mpe_synth/`, `src/sample_synth/`, `src/osc_synth/`, composited via `src/composite_synth/`. All share unified `makeHex()` interface. `deriveOutputRuntime()` builds the config array consumed by `create_midi_synth()`.
+
+### DONE: Dynamic Bulk Dump output (Phase C2)
+**Tags:** `done`
+`createBulkDynamicTransport()` maintains in-memory 128-note map; patches carrier slot and sends full bulk dump on each note-on. MTS1 voice pool allocation. Shared MTS encoding with real-time mode via `src/tuning/mts-format.js`.
+
+### DONE: Centered Static Bulk Dump (Phase C3)
+**Tags:** `done`
+`StaticBulkHex` plays notes as `anchor + steps` from a pre-built centered map. Centering via `chooseStaticMapCenterMidi()` (search MIDI 57–72 for best pitch-class match). `mtsSendMap()` in `keys.js` with sustained-note protection and auto-send. Full UI in `midioutputs.js`.
+
+### DONE: Input/output correlation for static bulk (Phase C4)
+**Tags:** `done`
+`scale` input target and `hex_layout` anchor both use `center_degree` as the shared anchor. `center-anchor.js` is the common foundation.
