@@ -140,8 +140,8 @@ Fix: `onFirstInteraction` callback plumbed through `Keyboard → Keys`; called s
 
 *These block normal use or are known regressions. Do before new feature work.*
 
-### A1 — Preset/scale reactivity regression  `todo` `high` `small`
-After generating an equal division scale, the preset selector doesn't switch to "User Tunings". Investigate `use-presets.js` dirty-detection and the `scale_divide` handler in `use-settings-change.js`. (See Issues.md BUG-01.)
+### A1 — Preset/scale reactivity regression  `done`
+Confirmed fixed 2026-04-01. Preset selector correctly switches to "User Tunings" after generating an equal division scale. (See Issues.md BUG-01.)
 
 ### A2 — Pitch bend smoothness / MPE stuck notes  `todo` `high` `large`
 `_handleWheelBend` may flood at 14-bit resolution; MPE stuck notes from `releaseGuardMs` / retrigger path / `Ableton_workaround` out-of-range notes. Requires audit and likely throttling. (See Issues.md BUG-02.)
@@ -166,8 +166,8 @@ Two hooks remain to extract (from `TODO.md` §2.3–2.4):
 - `useScaleImport` — `onImport` handler + `importCount`; self-contained import parsing.
 - `useSessionDefaults` — 50-line defaults object into a mount-once factory.
 
-### B4 — Fundamental default value  `todo` `medium` `small`
-Registry default is `260.740741` (middle C). Users expect `440` Hz. Change registry default to `440`; update `reference_degree` default to A-degree of the default scale; clear `fundamental` from localStorage on reload when preset restoration is disabled. (See Issues.md BUG-03.)
+### B4 — Fundamental default value  `done`
+Fixed 2026-04-01. `fundamental` added to `PRESET_SKIP_KEYS`; registry default changed to `440` Hz; `presetSkip: true` added to registry entry. Fresh loads now start at concert A. (See Issues.md BUG-03.)
 
 ---
 
@@ -303,7 +303,6 @@ NOW (bugs blocking normal use)
 
 SHORT TERM (complete structural work already started)
   B1  Delete mts-helpers.js shim                 medium small
-  B4  Fix fundamental default to 440             medium small
   B3  useScaleImport / useSessionDefaults hooks  low    medium
   C5  OCT button / static map                    medium medium
 

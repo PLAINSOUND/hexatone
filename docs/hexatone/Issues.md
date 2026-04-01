@@ -9,11 +9,9 @@ Tags: `todo` `done` · Priority: `high` `medium` `low` · Complexity: `trivial` 
 ## Bugs
 
 ### BUG-01 · Preset/scale reactivity regression
-**Tags:** `todo` `high` `small`
+**Tags:** `done`
 
-After generating an equal division scale (e.g. "Divide Equave into 12 Equal Divisions"), the preset selector does not switch focus to "User Tunings" and does not display the generated scale name (e.g. "12ed2"). This behaviour worked before the persistence refactor (Step 5) and is now broken.
-
-**Investigate:** `use-presets.js` dirty-detection logic and the `scale_divide` handler in `use-settings-change.js`. Likely the `name`/`description` fields are no longer being set correctly when `scale_divide` fires.
+After generating an equal division scale, the preset selector now correctly switches to "User Tunings" and displays the generated name. Confirmed fixed 2026-04-01 — likely resolved as a side effect of the persistence refactor flushing stale state.
 
 ---
 
@@ -31,13 +29,14 @@ Pitch bend is unsatisfactory across all synths, and MPE output has stuck-note is
 ---
 
 ### BUG-03 · Fundamental defaults to wrong value on fresh load
-**Tags:** `todo` `medium` `small`
+**Tags:** `done`
 
-When "Restore preset on reload" is unchecked and the user refreshes, the fundamental frequency from the last loaded preset persists instead of resetting to the expected default. The `fundamental` key is `tier: 'url'` in the registry (synced to URL + localStorage), so it survives reload even when preset-skip keys are cleared.
+Fixed 2026-04-01. `fundamental` was `tier: 'url'` without `presetSkip: true`, so it survived fresh loads via localStorage even when other scale keys were cleared.
 
-**Fix options:**
-- When preset restoration is disabled on load, clear `fundamental` from localStorage (and from the URL if present) so the registry default is used.
-- Or: change the registry default from `260.740741` (middle C at A=440) to `440` (concert A), and update `reference_degree` default to the A-degree of the default scale. Users expect 440.
+**Fix:**
+- Added `fundamental` to `PRESET_SKIP_KEYS` in `use-presets.js` — it now clears on reload alongside `scale`, `reference_degree`, etc.
+- Added `presetSkip: true` to the `fundamental` entry in `settings-registry.js`.
+- Changed the registry default from `260.740741` to `440` Hz — on a fresh load with no preset, the app now starts at concert A.
 
 ---
 

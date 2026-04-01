@@ -13,6 +13,7 @@ export const PRESET_SKIP_KEYS = [
   "note_colors",
   "spectrum_colors",
   "fundamental_color",
+  "fundamental",
   "reference_degree",
   "center_degree",
   "equivSteps",
