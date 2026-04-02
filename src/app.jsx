@@ -462,6 +462,7 @@ const App = () => {
       (ok, reason) => setExquisLedStatus(ok ? { ok: true } : { ok: false, reason }),
       settings.exquis_led_luminosity ?? 15,
       settings.exquis_led_saturation ?? 1.5,
+      settings.midiin_mpe_input ?? true,
     );
     exquisLedsRef.current = leds;
     if (keysRef.current) keysRef.current.exquisLEDs = leds;
@@ -472,6 +473,14 @@ const App = () => {
       if (keysRef.current) keysRef.current.exquisLEDs = null;
     };
   }, [exquisRawPorts, inputRuntime?.target]);
+
+  // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
+  // ExquisLEDs.setMPEMode() defers the send until all pads are released.
+  useEffect(() => {
+    if (exquisLedsRef.current?.ready) {
+      exquisLedsRef.current.setMPEMode(!!settings.midiin_mpe_input);
+    }
+  }, [settings.midiin_mpe_input]);
 
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.

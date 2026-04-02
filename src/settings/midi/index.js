@@ -222,6 +222,15 @@ const MIDIio = (props) => {
             </>
           )}
 
+          {/* ── Controller description in scale mode ── */}
+          {scaleMode && ctrl?.descriptionScale && (
+            <label style={{ fontStyle: 'italic', color: '#996666' }}>
+              {ctrl.name}
+              <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em', lineHeight: 1 }}>
+                {ctrl.descriptionScale}
+              </span>
+            </label>
+          )}
           {/* ── Known 2D controller / sequential anchor ── hidden in scale mode */}
           {!scaleMode && (ctrl ? (
             <>
@@ -460,7 +469,7 @@ const MIDIio = (props) => {
                             <input
                               type="range"
                               min="0" max="100" step="1"
-                              value={props.settings.exquis_led_luminosity ?? 40}
+                              value={props.settings.exquis_led_luminosity ?? 15}
                               style={{ width: '100%' }}
                               onInput={(e) => {
                                 const v = parseInt(e.target.value);
@@ -470,7 +479,7 @@ const MIDIio = (props) => {
                               }}
                             />
                             <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: '2.5em', textAlign: 'right', fontSize: '0.85em' }}>
-                              {props.settings.exquis_led_luminosity ?? 40}
+                              {props.settings.exquis_led_luminosity ?? 15}
                             </span>
                           </span>
                         </label>

@@ -164,7 +164,7 @@ Implemented App Mode LED colour sync for the Exquis (Intuitive Instruments) cont
 
 **Settings added** (`settings-registry.js`, all `tier: 'local'`, `perController: false`):
 - `exquis_led_sync` (bool, default false) — Auto Send Colours checkbox
-- `exquis_led_luminosity` (int, default 40) — LED brightness slider 0–100
+- `exquis_led_luminosity` (int, default 15) — LED brightness slider 0–100
 - `exquis_led_saturation` (float, default 1.5) — okLab chroma multiplier slider 0.75–2.5
 
 **Persistence:** All three keys are `local` cross-controller tier. They are loaded into `sessionDefaults` at startup by reading `CROSS_CONTROLLER_ENTRIES` from localStorage directly — without waiting for the user to select a device (which is when `loadControllerPrefs` normally fires).

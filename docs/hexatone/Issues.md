@@ -87,6 +87,34 @@ Additionally, the "Divide Equave" button in the scale panel had a 30-line inline
 
 ---
 
+### BUG-07 · Exquis firmware: pad stuck after MPE mode switch while held
+**Tags:** `todo` `medium` `trivial` · **Upstream firmware bug — workaround in place**
+
+**Observed behaviour:** If a pad is physically held on the Exquis when `CMD 0x07` (MPE mode toggle) is sent via App Mode SysEx, that pad becomes permanently unresponsive — it stops sending note-on for that pad ID until the device is power-cycled. All other pads continue to work normally.
+
+**Root cause:** Exquis firmware does not flush held pad state before processing the mode switch. The pad's internal press/release state machine gets stuck in "pressed", so subsequent note-on events for that pad are suppressed.
+
+**Workaround (implemented 2026-04-02):** `ExquisLEDs.setMPEMode()` defers sending `CMD 0x07` until all pads are released. A `_heldPadCount` counter is maintained by tracking note-on/note-off messages from the Exquis input port in `_onMessage`. When the user toggles MPE mode, `_mpeModePending` is set; the actual SysEx is sent on the note-off event that brings `_heldPadCount` to zero. If no pads are held at toggle time, the command is sent immediately.
+
+**To report to Intuitive Instruments:**
+
+> **Subject:** App Mode firmware bug — CMD 0x07 (mpe) while pad held causes permanent pad lockout
+>
+> When `CMD 0x07` is sent while a pad is physically held, that pad stops generating note-on events for the remainder of the session. The pad appears stuck in a "pressed" state internally — it does not respond to new presses until the device is power-cycled. All other pads are unaffected.
+>
+> Repro steps:
+> 1. Enter App Mode (heartbeat + `pad_remote=0`).
+> 2. Hold any pad down.
+> 3. While the pad is held, send `F0 00 21 7E 07 01 F7` (or `07 00`).
+> 4. Release the pad.
+> 5. Press the same pad again — no note-on is generated.
+>
+> Expected: `CMD 0x07` applies cleanly regardless of pad hold state; the device flushes or defers internal pad state.
+>
+> Firmware version under test: 3.0.0.
+
+---
+
 ### BUG-06 · `lumatone-export.js` geometry inconsistencies (6 failing tests)
 **Tags:** `todo` `medium` `medium`
 
@@ -307,6 +335,8 @@ Exquis in Rainbow Layout can send either polyphonic aftertouch or MPE. The regis
 - **Poly-AT mode:** route `keyaftertouch` per-note; no per-note bend.
 - **MPE mode:** full per-channel expression routing (pitch bend, pressure, CC74).
 - The geometry (`buildExquisMap`) is correct for both modes — only `inputRuntime.mpeInput` and CC routing in `keys.js` change.
+
+**Partial implementation 2026-04-02:** Hexatone now sends `CMD 0x07 P1={0|1}` via App Mode to switch the Exquis between MPE and Poly-AT output when the user toggles "Enable MPE Input". See BUG-07 for the firmware workaround required.
 
 **Step 3.5 MPE input mode is stable.** This can proceed when there is capacity.
 
