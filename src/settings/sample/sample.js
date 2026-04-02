@@ -24,13 +24,13 @@ const Sample = (props) => {
   return (
     <>
       <label>
-        Internal Instruments
+        Sampled Instrument
         <Instruments value={props.settings.instrument}
                      groups={props.instruments}
                      onChange={props.onChange}/>
       </label>
       <label>
-        <span>Volume</span>
+        <span>Synth Volume</span>
         <input type="range" name="synth_volume"
           min="0" max="1" step="0.01"
           value={volume}
@@ -39,7 +39,7 @@ const Sample = (props) => {
           style={{transform:"translateY(5px)"}}
         />
       </label>
-      {/*
+      {
       <label>
         Mute
         <input type="checkbox" name="synth_mute"
@@ -47,7 +47,7 @@ const Sample = (props) => {
           onChange={handleMute}
         />
       </label>
-      */}
+      }
     </>
   );
 };

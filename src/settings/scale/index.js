@@ -158,7 +158,7 @@ const Scale = (props) => {
   return (
     <fieldset>
       <legend>
-        <b>Scale</b>
+        <b>Scale Settings</b>
         <button
           type="button"
           onClick={() => handleToggle(!collapsed)}

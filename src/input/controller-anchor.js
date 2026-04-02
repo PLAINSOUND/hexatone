@@ -79,9 +79,12 @@ export function loadControllerPrefs(controller) {
     if (raw !== null) {
       update[entry.key] = parseLocalValue(raw, entry.type);
     } else {
-      // Special fallback: MPE input defaults to device capability, not registry default.
+      // First-connect fallbacks: use device capability rather than registry default
+      // when nothing has been explicitly saved for this controller yet.
       if (entry.key === 'midiin_mpe_input') {
         update[entry.key] = !!controller.mpe;
+      } else if (entry.key === 'midi_passthrough') {
+        update[entry.key] = !!controller.passthroughDefault;
       } else {
         update[entry.key] = entry.default;
       }
@@ -176,13 +179,15 @@ export function saveAnchorChannel(controller, channel) {
 
 /**
  * Build the full settings update to apply when a controller is connected.
- * Called by use-settings-change.js on MIDI input device selection.
+ * Called from use-synth-wiring.js whenever (midi, midiin_device) resolves to
+ * a known controller — on page refresh, device selection, or reconnect.
  *
  * Merges:
  *   - Anchor note / channel (special, controller-specific fallbacks)
  *   - All local-tier prefs (registry-driven via loadControllerPrefs)
+ *     midi_passthrough and midiin_mpe_input use first-connect fallbacks
+ *     (controller.passthroughDefault, controller.mpe) when nothing is saved.
  *   - Fixed MPE voice channel range (if controller defines mpeVoiceChannels)
- *   - Sequential passthrough default (if controller.passthroughDefault)
  *
  * @param {object} controller  Registry entry
  * @returns {object}  Partial settings update
@@ -190,7 +195,8 @@ export function saveAnchorChannel(controller, channel) {
 export function loadAnchorSettingsUpdate(controller) {
   const update = {
     midiin_central_degree: loadSavedAnchor(controller),
-    // All local-tier prefs (midiin_mpe_input, midiin_bend_flip, midiin_bend_range, …)
+    // All local-tier prefs — includes midi_passthrough and midiin_mpe_input
+    // with their first-connect fallbacks handled inside loadControllerPrefs.
     ...loadControllerPrefs(controller),
   };
 
@@ -201,12 +207,6 @@ export function loadAnchorSettingsUpdate(controller) {
   if (controller.mpeVoiceChannels) {
     update.midiin_mpe_lo_ch = controller.mpeVoiceChannels.lo;
     update.midiin_mpe_hi_ch = controller.mpeVoiceChannels.hi;
-  }
-
-  // Some controllers (e.g. Exquis) default to sequential mode on first connect
-  // because 2D geometry requires manual device setup (e.g. Rainbow Layout).
-  if (controller.passthroughDefault) {
-    update.midi_passthrough = true;
   }
 
   // Apply controller-specific sequential transposition defaults (e.g. Lumatone:

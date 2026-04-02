@@ -15,6 +15,7 @@ import { instruments } from "./sample_synth/instruments";
 
 import keyCodeToCoords from "./settings/keycodes";
 import useSynthWiring from "./use-synth-wiring.js";
+import { useMidiGuardian } from "./use-midi-guardian.js";
 import {
   useQuery,
   ExtractInt,
@@ -156,6 +157,8 @@ const App = () => {
     keysRef,
     synthRef,
   });
+
+  const { panic: guardianPanic } = useMidiGuardian(midi, settings);
 
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
@@ -457,7 +460,7 @@ const App = () => {
       exquisRawPorts.output,
       exquisRawPorts.input,
       (ok, reason) => setExquisLedStatus(ok ? { ok: true } : { ok: false, reason }),
-      settings.exquis_led_luminosity ?? 40,
+      settings.exquis_led_luminosity ?? 15,
       settings.exquis_led_saturation ?? 1.5,
     );
     exquisLedsRef.current = leds;
@@ -513,6 +516,11 @@ const App = () => {
           onKeysReady={useCallback((keys) => {
             keysRef.current = keys;
             keys.exquisLEDs = exquisLedsRef.current;
+            // Sync LEDs after reconstruction — geometry may have changed (rSteps,
+            // drSteps, etc.) without triggering the color useEffect in keyboard/index.js.
+            if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
+              keys.syncExquisLEDs();
+            }
           }, [])}
           onLatchChange={useCallback((v) => setLatch(v), [])}
           onTakeSnapshot={onTakeSnapshot}
@@ -625,6 +633,7 @@ const App = () => {
           title="Panic - kill all stuck notes"
           onClick={(e) => {
             e.stopPropagation();
+            guardianPanic();
             if (keysRef.current) keysRef.current.panic();
           }}
           onContextMenu={(e) => e.preventDefault()}

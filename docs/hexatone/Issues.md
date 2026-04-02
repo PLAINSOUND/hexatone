@@ -20,15 +20,17 @@ After generating an equal division scale, the preset selector now correctly swit
 
 Pitch bend is unsatisfactory across all synths, and MPE output has stuck-note issues.
 
-**Audit completed 2026-04-01 — three root causes identified:**
+**Audit completed 2026-04-01 — three root causes identified and fixed 2026-04-02:**
 
-1. **Dynamic Bulk Dump flooded by wheel** — `DynamicBulkHex.retune()` sends a full 128-note (408-byte) bulk dump on every call. At 14-bit MIDI resolution (~500 events/sec) this overflows the SysEx queue. Fix: throttle via `requestAnimationFrame` coalescing or a `lastSentAt` guard.
+1. **Dynamic Bulk Dump flooded by wheel** — `DynamicBulkHex.retune()` was sending a full 128-note (408-byte) bulk dump on every call. At 14-bit MIDI resolution (~500 events/sec) this overflows the SysEx queue. **Fixed:** `transport.retune()` in `createBulkDynamicTransport` now coalesces via `requestAnimationFrame` — map entries update immediately but the SysEx send fires at most once per frame (~60fps). `noteOn` cancels any pending rAF before sending its own immediate dump.
 
-2. **Retrigger path sends no noteOff** — `VoicePool.noteOn()` detects retrigger (same coords already active) and returns `stolenSlot: null`. `MpeHex` constructor only sends a noteOff when `stolenSlot !== null`, so a retriggered note gets PB + noteOn without a prior noteOff → stuck note in downstream synth.
+2. **Retrigger path sends no noteOff** — `VoicePool.noteOn()` detects retrigger (same coords already active) and returns `retrigger: true, stolenSlot: null`. `MpeHex` constructor only sent a noteOff when `stolenSlot !== null`, so a retriggered note got PB + noteOn without a prior noteOff → stuck note in downstream synth. **Fixed:** `MpeHex` constructor now checks `retrigger` first and sends `noteOff` for `pool.getLastNote(channel)` before the new PB + noteOn.
 
-3. **`Ableton_workaround` bend overflow** — `channel % 16 = 0` sets `baseNote = 0`; fallback clamps (`note = baseNote`, `note = baseNote + 112`) can place the note outside the ±48-semitone bend range. `deviationToBend()` clamps the MIDI value so no corruption, but the pitch is wrong and silent notes can result.
+3. **`Ableton_workaround` note selection wrong** — `channel % 16` was used as `baseNote` (always MIDI 0–15), completely disconnected from the target pitch. For channel 16, `baseNote = 0`, producing notes near MIDI 0 or 112. **Fixed:** Start from `nearestNote = round(targetMidi)` (same as normal mode), then apply `channelOffset = c - 16*floor(c/8)` where `c = channel - 1`. Channels 0–7 raise by 0..+7 semitones; channels 8–15 lower by 1..8 semitones. The played note is always within ±8 semitones of the target; pitch bend corrects the remainder. Edge clamping (MIDI 0/127) is safe because deviation stays small when the target itself is near the boundary.
 
-**Priority order for fixes:** #2 (stuck notes) → #1 (smoothness) → #3 (Ableton edge case).
+**Also removed `PB_GUARD_MS`:** PB and noteOn are sent in the same synchronous block in the constructor — MIDI driver FIFO guarantees ordering without a timer.
+
+**Needs hardware + DAW verification** before closing.
 
 ---
 
@@ -177,6 +179,25 @@ This eliminates the URL-gets-enormous problem and the three-way merge on load.
 Remaining hook extractions identified in `TODO.md`:
 - **`useScaleImport`** — `onImport` handler + `importCount`; import parsing (Scala format, Hexatone JSON, labels, colours, metadata detection) is entirely independent of other concerns.
 - **`useSessionDefaults`** — 50-line `sessionDefaults` object into a hook or factory that reads sessionStorage once and returns merged defaults.
+
+---
+
+### ARCH-08 · Per-controller prefs: single derived-state owner
+**Tags:** `todo` `high` `small`
+
+**Decision made 2026-04-02.** See Roadmap.md B5 for full design.
+
+**How we got here:**
+
+`midiin_mpe_input` was resetting to `false` on every page refresh, even for known MPE controllers (e.g. Exquis). Root cause: `loadAnchorSettingsUpdate` — which reads per-controller prefs from localStorage — only fires when the user explicitly changes `midiin_device` in the dropdown (`use-settings-change.js`). Page refresh, fresh start, and future auto-connect paths were all gaps.
+
+A patch (`_controllerPrefsApplied` ref in `use-synth-wiring.js`) was added as a short-term fix, but this approach does not scale: every new connect path needs its own patch, and with LinnStrument, Tonal Plexus, Seaboard and others coming, the code will fragment.
+
+**The structural problem:** per-controller prefs load is treated as an *event* (user action) rather than *derived state* (system condition). Any time `(midi, midiin_device)` resolves to a known controller, the prefs should be applied — unconditionally, idempotently, from one place.
+
+**The `passthroughDefault` complication:** `loadAnchorSettingsUpdate` currently applies `midi_passthrough: true` unconditionally for Exquis. If the effect re-fires, it resets `midi_passthrough` even after the user has switched to hex mode. Fix: register `midi_passthrough` as a `local`-tier per-controller setting, with `controller.passthroughDefault` as its first-connect fallback (same pattern as `midiin_mpe_input` → `!!controller.mpe`).
+
+**Steps:** see Roadmap.md B5.
 
 ---
 

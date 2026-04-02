@@ -1096,6 +1096,10 @@ class Keys {
     for (const [hex, vel] of this.state.sustainedNotes) {
       hex.noteOff(vel);
     }
+    // Belt-and-suspenders: send CC123 on all output channels. Covers the case
+    // where notes were held on a physical controller at the moment of refresh —
+    // the MIDI input listener is torn down before noteOff can fire normally.
+    if (this.synth?.allSoundOff) this.synth.allSoundOff();
     this.state.activeMouse = null;
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
@@ -1562,41 +1566,11 @@ class Keys {
   };
 
   panic = () => {
-    // Send MIDI All Notes Off (CC 123) to external devices first
-    // This tells external synths to stop all sound immediately
-
-    // MTS output - send CC123 on configured channel
-    if (
-      this.midiout_data &&
-      this.settings.midi_device !== "OFF" &&
-      this.settings.midi_channel >= 0
-    ) {
-      this.midiout_data.sendControlChange(123, 0, {
-        channels: this.settings.midi_channel + 1,
-      });
-    }
-
-    // MPE output - send CC123 on all MPE channels (master + note channels)
-    if (
-      this.settings.mpe_device !== "OFF" &&
-      this.settings.mpe_lo_ch > 0 &&
-      this.settings.mpe_hi_ch >= this.settings.mpe_lo_ch
-    ) {
-      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
-      if (mpeOutput) {
-        // Send on master channel
-        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
-        mpeOutput.sendControlChange(123, 0, { channels: managerCh });
-        // Send on all note channels
-        for (
-          let ch = this.settings.mpe_lo_ch;
-          ch <= this.settings.mpe_hi_ch;
-          ch++
-        ) {
-          mpeOutput.sendControlChange(123, 0, { channels: ch });
-        }
-      }
-    }
+    // Send CC123 (All Notes Off) to all active output engines.
+    // allSoundOff() on the composite synth fans out to every child (MPE, MTS,
+    // static bulk, sample) using their own raw output ports — no WebMidi
+    // dependency, no settings lookup, always reaches the right channels.
+    if (this.synth?.allSoundOff) this.synth.allSoundOff();
 
     // Work with a copy to avoid iteration issues
     const activeHexes = [...this._allActiveHexes()];

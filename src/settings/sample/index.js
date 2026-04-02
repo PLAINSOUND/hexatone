@@ -5,9 +5,9 @@ import Sample from './sample';
 
 const SampleSynth = (props) => (
   <fieldset>
-    <legend><b>Sound Synthesis</b></legend>
+    <legend><b>Built-In Sounds</b></legend>
     <label>
-      Built-In Synth
+      Use Internal Synth
       <input name="output_sample" type="checkbox"
         checked={!!props.settings.output_sample}
         onChange={(e) => {

@@ -107,7 +107,13 @@ export const create_midi_synth = async ({
         pool_mts1, pool_mts2_low, pool_mts2_high,
         sysex_rt, sysex_dev_id
       );
-    }
+    },
+
+    allSoundOff: () => {
+      if (!midi_output) return;
+      // Send CC123 on the configured output channel.
+      midi_output.send([0xB0 + channel, 123, 0]);
+    },
   };
 };
 
@@ -366,6 +372,9 @@ function createBulkDynamicTransport({
 }) {
   let currentEntries = entries.map((entry) => [...entry]);
 
+  // Pending rAF handle for retune coalescing — null when no dump is scheduled.
+  let _retunePending = null;
+
   const sendBulkDump = () => {
     const liveConfig = getDynamicBulkConfig ? getDynamicBulkConfig() : null;
     const dump = buildBulkDumpMessage(
@@ -385,6 +394,8 @@ function createBulkDynamicTransport({
       pool.noteOff(coords);
     },
     noteOn({ coords, carrier, triplet, velocity: noteVelocity }) {
+      // Cancel any pending coalesced retune — the noteOn dump supersedes it.
+      if (_retunePending !== null) { cancelAnimationFrame(_retunePending); _retunePending = null; }
       currentEntries[carrier] = [...triplet];
       sendBulkDump();
       const noteOnVelocity = noteVelocity > 0 ? noteVelocity : velocity;
@@ -397,8 +408,15 @@ function createBulkDynamicTransport({
       midi_output.send([0x80 + channel, carrier, noteVelocity != null ? noteVelocity : velocity]);
     },
     retune({ carrier, triplet }) {
+      // Update the map immediately so the latest pitch is always in currentEntries,
+      // but coalesce the bulk dump to at most one send per animation frame.
       currentEntries[carrier] = [...triplet];
-      sendBulkDump();
+      if (_retunePending === null) {
+        _retunePending = requestAnimationFrame(() => {
+          _retunePending = null;
+          sendBulkDump();
+        });
+      }
     },
   };
 }

@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController } from "./controllers/registry.js";
 import { normalizeColors } from "./normalize-settings.js";
-import { loadAnchorSettingsUpdate, saveAnchor, saveAnchorChannel } from "./input/controller-anchor.js";
+import { saveAnchor, saveAnchorChannel } from "./input/controller-anchor.js";
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
@@ -71,26 +71,10 @@ const useSettingsChange = (
     // When the MIDI input device is selected, load the per-controller saved anchor note
     // (or fall back to the controller's built-in default on first use).
     if (key === "midiin_device") {
-      let anchorUpdate = null;
-      if (value && value !== "OFF" && m) {
-        const input = Array.from(m.inputs.values()).find((i) => i.id === value);
-        if (input) {
-          const ctrl = detectController(input.name.toLowerCase());
-          if (ctrl) anchorUpdate = loadAnchorSettingsUpdate(ctrl);
-        }
-      }
-      setSettings((prev) => ({
-        ...prev,
-        midiin_device: value,
-        ...(anchorUpdate ?? {}),
-      }));
+      // Per-controller prefs (midiin_mpe_input, midi_passthrough, etc.) are now
+      // loaded by the effect in use-synth-wiring.js that owns this as derived state.
+      setSettings((prev) => ({ ...prev, midiin_device: value }));
       sessionStorage.setItem("midiin_device", value);
-      if (anchorUpdate?.midiin_central_degree != null) {
-        sessionStorage.setItem("midiin_central_degree", String(anchorUpdate.midiin_central_degree));
-      }
-      if (anchorUpdate?.lumatone_center_channel != null) {
-        sessionStorage.setItem("lumatone_center_channel", String(anchorUpdate.lumatone_center_channel));
-      }
       return;
     }
 

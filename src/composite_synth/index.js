@@ -66,4 +66,8 @@ export const create_composite_synth = (synths) => ({
   setVolume(value) {
     synths.forEach(s => s.setVolume && s.setVolume(value));
   },
+
+  allSoundOff() {
+    synths.forEach(s => s.allSoundOff && s.allSoundOff());
+  },
 });

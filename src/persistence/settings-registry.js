@@ -79,6 +79,7 @@ export const SETTINGS_REGISTRY = [
   { key: 'midiin_bend_flip',         tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Reverse pitch bend direction for this controller' },
   { key: 'midiin_bend_range',        tier: 'local', type: 'string', default: '64/63', perController: false, description: 'Pitch bend interval (shared across controllers)' },
   { key: 'midiin_scale_bend_range',  tier: 'local', type: 'int',    default: 48,      perController: true,  description: 'MPE pitch bend range (semitones) used in Nearest Scale Degree mode' },
+  { key: 'midi_passthrough',         tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Sequential (passthrough) mode for this controller' },
 
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: 'midiin_device',           tier: 'session', type: 'string', default: 'OFF' },
@@ -87,7 +88,7 @@ export const SETTINGS_REGISTRY = [
   { key: 'midiin_anchor_channel',   tier: 'session', type: 'int',    default: 1 },
   { key: 'controller_anchor_note',  tier: 'session', type: 'int',    default: null },
   { key: 'midiin_channel_legacy',   tier: 'session', type: 'bool',   default: false },
-  { key: 'midi_passthrough',        tier: 'session', type: 'bool',   default: false },
+  // midi_passthrough is tier: 'local', perController: true — see per-controller section above.
   { key: 'midiin_central_degree',   tier: 'session', type: 'int',    default: 60 },
   // Input runtime mode keys
   { key: 'midiin_mapping_target',   tier: 'session', type: 'string', default: 'hex_layout' },
@@ -110,7 +111,7 @@ export const SETTINGS_REGISTRY = [
 
   // ── Sample synth ─────────────────────────────────────────────────────────────
   { key: 'output_sample',   tier: 'session', type: 'bool',   default: true },
-  { key: 'instrument',      tier: 'session', type: 'string', default: 'HvP8_retuned' },
+  { key: 'instrument',      tier: 'session', type: 'string', default: 'WMRIByzantineST' },
 
   // ── MTS real-time output ──────────────────────────────────────────────────────
   { key: 'output_mts',        tier: 'session', type: 'bool',   default: false },

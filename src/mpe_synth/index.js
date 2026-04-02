@@ -24,10 +24,9 @@
 import { VoicePool } from "../voice_pool_oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
 
-// PB is sent at t=now (no timestamp — MIDI port queues it immediately).
-// noteOn is scheduled at t=now+PB_GUARD_MS so the driver sees PB first.
+// PB and noteOn are sent in the same synchronous call — the MIDI driver
+// processes them in FIFO order, so PB always arrives before noteOn.
 // noteOff is NEVER delayed — delaying it risks stuck notes.
-const PB_GUARD_MS = 2;    // ms: gap between PB and noteOn
 const RELEASE_GUARD_MS = 300;
 
 function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale) {
@@ -45,11 +44,16 @@ function freqToMidiAndCents(freq, center_degree, channel, scale, mode) {
 
   let note, deviation;
   if (mode === 'Ableton_workaround') {
-    const baseNote = channel % 16;
-    const octaveOffset = Math.round((targetMidi - baseNote) / 16);
-    note = baseNote + octaveOffset * 16;
-    if (note > 127) note = baseNote + 112; //Math.floor((127 - baseNote) / 16) * 16;
-    else if (note < 0) note = baseNote;
+    // Start from the nearest MIDI note to the target, then offset by channel index
+    // so the note's value mod 16 matches the 0-indexed channel.
+    // Channels 0–7  add  0..+7  semitones (offset = c)
+    // Channels 8–15 add -8..-1  semitones (offset = c - 16)
+    // This keeps the played note within ±8 semitones (half an octave) of the
+    // target, with pitch bend correcting the remainder.
+    const c = channel - 1;                                    // 0-indexed
+    const nearestNote = Math.max(0, Math.min(127, Math.round(targetMidi)));
+    const channelOffset = c - 16 * Math.floor(c / 8);        // 0..+7 or -8..-1
+    note = Math.max(0, Math.min(127, nearestNote + channelOffset));
     deviation = (targetMidi - note) * 100.0;
   } else {
     note = Math.max(0, Math.min(127, Math.round(targetMidi)));
@@ -65,10 +69,10 @@ function deviationToBend(cents_offset, bendRange) {
   return clamped + 8192; // unsigned 0–16383
 }
 
-function sendBend(midi_output, channel0, bend, timestamp) {
+function sendBend(midi_output, channel0, bend) {
   const lsb = bend & 0x7F;
   const msb = (bend >> 7) & 0x7F;
-  midi_output.send([0xE0 + channel0, lsb, msb], timestamp);
+  midi_output.send([0xE0 + channel0, lsb, msb]);
 }
 
 export const create_mpe_synth = async (
@@ -144,6 +148,19 @@ export const create_mpe_synth = async (
         note_played, masterCh
       );
     },
+
+    /**
+     * Send CC123 (All Notes Off) on every voice channel and the manager channel.
+     * Uses the raw midi_output directly — no hex state, no WebMidi dependency.
+     * Safe to call at any time, including during deconstruct and page unload.
+     */
+    allSoundOff: () => {
+      if (!midi_output) return;
+      for (const ch of voiceIds) {
+        midi_output.send([0xB0 + (ch - 1), 123, 0]);
+      }
+      if (masterCh >= 0) midi_output.send([0xB0 + masterCh, 123, 0]);
+    },
   };
 };
 
@@ -183,22 +200,26 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree,
   this.note = note;
   this.bend = deviationToBend(deviation, bendRange);
   const c = this.channel - 1;
-  const now = performance.now();
 
   // For all cases: send noteOff on the outgoing voice (if any), then
   // PB + noteOn on the new channel. No CC120 — let the synth's release
   // envelope run naturally. A brief pitch shift on a dying tail is less
   // disruptive than a hard cut that can destabilise soft synth patches.
-  if (stolenSlot !== null && stolenNote != null) {
+  if (retrigger) {
+    // Same coords re-pressed while still held: the pool reused the same channel.
+    // Send noteOff for the previously-held note so the synth doesn't stack voices.
+    const prevNote = pool.getLastNote(this.channel);
+    midi_output.send([0x80 + c, prevNote, 0]);
+  } else if (stolenSlot !== null && stolenNote != null) {
     // SOUNDING steal: send noteOff so the release envelope runs
     midi_output.send([0x80 + (stolenSlot - 1), stolenNote, 0]);
   }
   // RELEASING reuse: tail already decaying — no message needed,
   // new PB will briefly affect it but it's already quiet.
 
-  // PB now, noteOn after guard — same path for all cases
-  sendBend(midi_output, c, this.bend, now);
-  midi_output.send([0x90 + c, this.note, this.velocity], now + PB_GUARD_MS);
+  // PB then noteOn — FIFO order guarantees PB arrives first
+  sendBend(midi_output, c, this.bend);
+  midi_output.send([0x90 + c, this.note, this.velocity]);
 
   pool.setLastBend(this.channel, this.bend);
   pool.setLastNote(this.channel, this.note);

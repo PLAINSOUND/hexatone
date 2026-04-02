@@ -1,6 +1,6 @@
 # Hexatone Refactor Roadmap
 
-*Synthesised: 2026-04-01. Updated: 2026-04-01. Sources: ClaudeRefactorPlan.md, HexatoneIOrefactor.md, TODO.md, midi-input-ux.md.*
+*Synthesised: 2026-04-01. Updated: 2026-04-02. Sources: ClaudeRefactorPlan.md, HexatoneIOrefactor.md, TODO.md, midi-input-ux.md.*
 
 Tags: `done` `in-progress` `todo` · Priority: `high` `medium` `low` · Complexity: `trivial` `small` `medium` `large` `xlarge`
 
@@ -136,6 +136,48 @@ Fix: `onFirstInteraction` callback plumbed through `Keyboard → Keys`; called s
 
 ---
 
+### Exquis App Mode LED Engine  `done` `high`
+
+*Completed 2026-04-01*
+
+Implemented App Mode LED colour sync for the Exquis (Intuitive Instruments) controller. App Mode keeps the native MPE engine fully active (`pad_remote=0`) while the host drives LED colours independently — unlike Dev Mode which disabled MPE.
+
+**Protocol** (`F0 00 21 7E <CMD> [...] F7`):
+- `0x00` version request/response — firmware ≥ 3.0.0 required
+- `0x1E 0x00` pad_remote=0 — keep native MPE engine
+- `0x05` luminosity — global brightness 0–100
+- `0x14` note_colour — rgb7 (0–127), note_id 0–60
+- heartbeat empty payload — every 500 ms, App Mode drops after ~10 s without it
+- `0x03` quit — exit App Mode cleanly
+
+**Key architectural decisions:**
+
+1. **App Mode lifecycle lives in `app.jsx`**, not inside `Keyboard` or `Keys`. `Keyboard` only mounts when `isValid` (a scale is loaded), but App Mode must be active as soon as the Exquis is selected as input — even on a blank page with no preset. Moving the `useEffect` to `app.jsx` solved this.
+
+2. **One long-lived `ExquisLEDs` instance** stored in `exquisLedsRef`. Created when `exquisRawPorts` becomes non-null and `inputRuntime.target !== 'scale'`. Destroyed only on genuine exit (scale mode switch or device disconnect) via `exit()`. During Keys reconstruction (preset change, layout change), the instance is assigned imperatively to the new Keys — no version re-query, no heartbeat gap.
+
+3. **`midi_passthrough` does not block App Mode.** The Exquis defaults to `passthroughDefault: true` (Sequential mode) on first connect. App Mode should still activate in sequential mode — the check is `target !== 'scale'` only.
+
+4. **Pads always blank on App Mode entry** — `_enterAppMode()` sends black to all 61 pads unconditionally before any colour send. `pad_remote=0` alone does not clear the Rainbow display.
+
+5. **Colours sent only explicitly** — `sendColors()` and `clearColors()` are called from `updateColors` (when `exquis_led_sync` is on and colour settings change) or from the Send Now / Clear buttons. Nothing is sent during connection or reconstruction.
+
+**Settings added** (`settings-registry.js`, all `tier: 'local'`, `perController: false`):
+- `exquis_led_sync` (bool, default false) — Auto Send Colours checkbox
+- `exquis_led_luminosity` (int, default 40) — LED brightness slider 0–100
+- `exquis_led_saturation` (float, default 1.5) — okLab chroma multiplier slider 0.75–2.5
+
+**Persistence:** All three keys are `local` cross-controller tier. They are loaded into `sessionDefaults` at startup by reading `CROSS_CONTROLLER_ENTRIES` from localStorage directly — without waiting for the user to select a device (which is when `loadControllerPrefs` normally fires).
+
+**Files:**
+- `src/controllers/exquis-leds.js` — `ExquisLEDs` class: version query, `_enterAppMode()`, `sendColors()`, `clearColors()`, `setLuminosity()`, `setSaturation()`, `exit()`; inline okLab saturation boost helpers
+- `src/app.jsx` — `exquisLedsRef` + App Mode `useEffect`; `exquisLedsRef` passed to `Keyboard` and attached to `Keys` in `onKeysReady`
+- `src/keyboard/index.js` — Keys reconstruction assigns `exquisLedsRef.current` to `keys.exquisLEDs`; no LED lifecycle here
+- `src/session-defaults.js` — reads `CROSS_CONTROLLER_ENTRIES` from localStorage at startup
+- `src/settings/midi/index.js` — LED Output status line, Auto Send Colours checkbox, Send Now / Clear buttons, LED Brightness and Saturation sliders
+
+---
+
 ## Phase A: Immediate Bugs  `todo` `high`
 
 *These block normal use or are known regressions. Do before new feature work.*
@@ -196,6 +238,43 @@ Two hooks remain to extract (from `TODO.md` §2.3–2.4):
 
 ### B4 — Fundamental default value  `done`
 Fixed 2026-04-01. `fundamental` added to `PRESET_SKIP_KEYS`; registry default changed to `440` Hz; `presetSkip: true` added to registry entry. Fresh loads now start at concert A. (See Issues.md BUG-03.)
+
+### B5 — Per-controller prefs: single derived-state owner  `todo` `high` `small`
+
+*Decided 2026-04-02. See Issues.md ARCH-08 for decision rationale.*
+
+Per-controller prefs (`midiin_mpe_input`, `midiin_bend_flip`, `midiin_bend_range`, and the new `midi_passthrough`) currently load via an event — only when the user explicitly selects a device in the dropdown (`use-settings-change.js`). This means page refresh, fresh start, and any future connect path each need their own patch. As the controller registry grows (LinnStrument, Tonal Plexus, Seaboard, etc.) this becomes unsustainable.
+
+**Design:**
+
+Per-controller prefs should be **derived state**, not an event response. A single `useEffect` in `use-synth-wiring.js` owns the load, firing whenever `(midi, settings.midiin_device)` resolves to a known controller — regardless of how that state was reached:
+
+```js
+useEffect(() => {
+  if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return;
+  const input = Array.from(midi.inputs.values()).find(i => i.id === settings.midiin_device);
+  if (!input) return;
+  const ctrl = detectController(input.name.toLowerCase());
+  if (!ctrl) return;
+  setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl) }));
+}, [midi, settings.midiin_device]);
+```
+
+This fires on: page refresh, user dropdown selection, fresh start, future auto-connect paths. Zero extra code per new controller.
+
+**The `passthroughDefault` problem:**
+
+`loadAnchorSettingsUpdate` currently applies `midi_passthrough: true` unconditionally for controllers with `passthroughDefault`. If the effect re-fires (e.g. on midiTick), it resets `midi_passthrough` even when the user has switched to hex mode.
+
+Fix: add `midi_passthrough` to the per-controller local registry (`perController: true`). `loadControllerPrefs` already handles the "only apply default when nothing saved" pattern (see `midiin_mpe_input` fallback). Apply the same pattern: if `${controller.id}_midi_passthrough` is in localStorage, use it; otherwise fall back to `controller.passthroughDefault ?? false`.
+
+**Steps:**
+1. Add `midi_passthrough` to `SETTINGS_REGISTRY` as `tier: 'local'`, `perController: true`, `default: false`.
+2. Add fallback in `loadControllerPrefs` for `midi_passthrough` → `controller.passthroughDefault ?? false` when nothing saved.
+3. Replace the `if (controller.passthroughDefault) update.midi_passthrough = true` hardcode in `loadAnchorSettingsUpdate` with the registry-driven path.
+4. Replace the `_controllerPrefsApplied` ref patch in `use-synth-wiring.js` with the clean `[midi, settings.midiin_device]` effect (no guard ref needed — `loadControllerPrefs` is idempotent).
+5. Remove the `loadAnchorSettingsUpdate` call from `use-settings-change.js` (redundant once the effect owns it).
+6. Verify fresh start clears `midiin_device` from sessionStorage so the effect re-fires on next device selection.
 
 ---
 

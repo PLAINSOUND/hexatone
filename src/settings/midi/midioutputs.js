@@ -207,8 +207,8 @@ const MidiOutputs = (props) => {
         </>
       )}
 
-      {/* ── FluidSynth mirror — shown when MTS on OR already connected ── */}
-      {(settings.output_mts || !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0)) && (() => {
+      {/* ── FluidSynth mirror — shown only when MTS Real-Time is on ── */}
+      {settings.output_mts && (() => {
         const fsConnected = !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0);
         return (
           <>

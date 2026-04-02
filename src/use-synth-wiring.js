@@ -6,7 +6,7 @@ import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
 import { create_osc_synth } from "./osc_synth";
 import { detectController } from "./controllers/registry.js";
-import { saveAnchorFromLearn } from "./input/controller-anchor.js";
+import { saveAnchorFromLearn, loadAnchorSettingsUpdate } from "./input/controller-anchor.js";
 import { WebMidi } from "webmidi";
 import { scalaToCents } from "./settings/scale/parse-scale.js";
 import {
@@ -74,6 +74,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
   const mtsPortIsFluidsynth = fluidsynthOutputObj &&
     settings.midi_device === settings.fluidsynth_device;
   if (
+    settings.output_mts &&
     fluidsynthOutputObj &&
     !mtsPortIsFluidsynth &&
     settings.fluidsynth_channel >= 0 &&
@@ -600,6 +601,20 @@ const useSynthWiring = (
     setOctaveDeferred(next);
     sessionStorage.setItem("octave_deferred", next);
   };
+
+  // ── Per-controller prefs: single derived-state owner ────────────────────────
+  // Fires whenever (midi, midiin_device) resolves to a known controller —
+  // on page refresh, dropdown selection, fresh start, or any future connect path.
+  // loadControllerPrefs is idempotent: it reads saved values (or first-connect
+  // fallbacks) so re-firing on the same device is safe.
+  useEffect(() => {
+    if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return;
+    const input = Array.from(midi.inputs.values()).find(i => i.id === settings.midiin_device);
+    if (!input) return;
+    const ctrl = detectController(input.name.toLowerCase());
+    if (!ctrl) return;
+    setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl) }));
+  }, [midi, settings.midiin_device]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────
 
