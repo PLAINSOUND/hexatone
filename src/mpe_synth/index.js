@@ -260,8 +260,13 @@ MpeHex.prototype.noteOff = function (release_velocity) {
  * The UI interaction already provides natural rate limiting.
  * If the MIDI note number needs to change, sends noteOff → PB → noteOn
  * using WebMIDI timestamps.
+ *
+ * @param {number}  newCents  - Target pitch in cents from freqAtCentral.
+ * @param {boolean} bendOnly  - When true (controller expression bend), never change
+ *                              the MIDI note number — only clamp and send pitch bend.
+ *                              Prevents reattack when the bend crosses a semitone boundary.
  */
-MpeHex.prototype.retune = function (newCents) {
+MpeHex.prototype.retune = function (newCents, bendOnly = false) {
   // Guard: never retune a released note. The TuneCell glide rAF can outlive
   // noteOff (it's not cancelled on latch toggle), so without this check:
   //  - PB messages continue to a RELEASING channel → audible pitch bend on tail
@@ -271,11 +276,10 @@ MpeHex.prototype.retune = function (newCents) {
 
   const freq = this.freqAtCentral * Math.pow(2, newCents / 1200);
   const { note, deviation } = freqToMidiAndCents(freq, this.center_degree, this.channel, this.scale, this.mode);
-  const newBend = deviationToBend(deviation, this.bendRange);
   const c = this.channel - 1;
 
-  if (note !== this.note) {
-    // Note number change: noteOff → PB → noteOn, all sent without timestamps (immediate).
+  if (!bendOnly && note !== this.note) {
+    // Scale/tuning change: note number must change — noteOff → PB → noteOn.
     //
     // Unlike the constructor — where PB_GUARD_MS is needed because there is a JS return
     // between the PB send and the noteOn call — here all three messages are sent in the
@@ -285,6 +289,7 @@ MpeHex.prototype.retune = function (newCents) {
     // Using PB_GUARD_MS here creates a 2ms window where a sustainOff noteOff (sent
     // without a timestamp) can arrive at the driver BEFORE the scheduled noteOn, leaving
     // the rescheduled note stuck. Removing the timestamp eliminates that race entirely.
+    const newBend = deviationToBend(deviation, this.bendRange);
     this.midi_output.send([0x80 + c, this.note, this.velocity]);
     this.note = note;
     this.bend = newBend;
@@ -293,7 +298,14 @@ MpeHex.prototype.retune = function (newCents) {
     sendBend(this.midi_output, c, this.bend);
     this.midi_output.send([0x90 + c, this.note, this.velocity]);
   } else {
-    // Same note: single PB update, no timing guard needed
+    // Same note, or bendOnly: send PB only, clamped to ±8192. No reattack.
+    // When bendOnly, recompute deviation against the locked note (this.note) rather
+    // than the newly-computed note, preserving center_degree correction by using
+    // the already-corrected targetMidi from freqToMidiAndCents.
+    const bendDeviation = bendOnly
+      ? deviation + (note - this.note) * 100
+      : deviation;
+    const newBend = deviationToBend(bendDeviation, this.bendRange);
     this.bend = newBend;
     this.pool.setLastBend(this.channel, this.bend);
     sendBend(this.midi_output, c, this.bend);

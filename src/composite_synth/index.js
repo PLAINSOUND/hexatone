@@ -29,10 +29,10 @@ export const create_composite_synth = (synths) => ({
         hexes.forEach(h => h.noteOff(release_velocity));
       },
 
-      retune(newCents) {
+      retune(newCents, bendOnly = false) {
         // Update our own cents so keys.js sustain logic stays in sync
         this.cents = newCents;
-        hexes.forEach(h => h.retune && h.retune(newCents));
+        hexes.forEach(h => h.retune && h.retune(newCents, bendOnly));
       },
 
       aftertouch(value) {

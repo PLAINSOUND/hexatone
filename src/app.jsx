@@ -79,6 +79,7 @@ const initialBanner =
 
 const App = () => {
   const [ready, setReady] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [banner, setBanner] = useState(initialBanner);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
@@ -466,7 +467,7 @@ const App = () => {
         }
       },
       settings.exquis_led_luminosity ?? 15,
-      settings.exquis_led_saturation ?? 1.5,
+      settings.exquis_led_saturation ?? 1.3,
       settings.midiin_mpe_input ?? true,
     );
     exquisLedsRef.current = leds;
@@ -700,13 +701,35 @@ const App = () => {
         <h1>PLAINSOUND HEXATONE</h1>
         <p>
           <em>
-            TO PLAY click or touch notes, attach a MIDI keyboard or a Lumatone.
-            With sidebar closed, a computer keyboard also plays notes: H is
-            mapped to Central Scale Degree; SPACEBAR sustains while pressed;
-            SHIFT+keys sustains individual notes; ESC toggles a hand-free latch
-            sustain. ENTER takes a snapshot.
+            TO PLAY click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. ESC toggles a hand-free latch sustain. ENTER takes snapshots across tunings.{' '}
+            {!showManual && (
+              <span style={{ cursor: 'pointer', color: '#990000' }} onClick={() => setShowManual(true)}>… more</span>
+            )}
           </em>
         </p>
+
+        {showManual && (
+          <fieldset style={{ position: 'relative', marginBottom: '0.5em', background: '#f0e9e9', border: '1px solid #c0aaaa', }}>
+            <legend><b>Manual</b></legend>
+            <button type="button" onClick={() => setShowManual(false)}
+              title="Close"
+              style={{
+                position: 'absolute',
+                top: '-1.4em',
+                right: '-0.8em',
+                padding: '0.3em 0.4em',
+                fontSize: '1em',
+                lineHeight: 1,
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none',
+                color: '#990000',
+              }}>
+              ✕
+            </button>
+            <p><em>This is a placeholder — add your content here.</em></p>
+          </fieldset>
+        )}
         
         <Settings
           presetChanged={presetChanged}

@@ -131,6 +131,9 @@ class Keys {
     //                    exact intended pitch can be resolved at note-on time.
     this._mtsInputTable    = new Map();
     this._scaleModePreBend = new Map();
+    // Per-channel slew state for MPE input pitch bend smoothing.
+    // Map<channel, { current: float, target: float, raf: id|null }>
+    this._bendSlew = new Map();
 
     // Wheel bend state — controller-agnostic.
     // _wheelBend:      current offset in cents applied to the front note.
@@ -477,12 +480,10 @@ class Keys {
             // Route to the hex registered on this channel, bypassing the recency stack.
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
             if (entry && !entry.hex.release) {
-              // Bend from baseCents (frozen at note-on) — NOT from hex.cents,
-              // which retune() mutates, causing infinite accumulation.
-              let norm = (val14 - 8192) / 8192; // −1…+1
+              let norm = (val14 - 8192) / 8192;
               if (this.inputRuntime.bendFlip) norm = -norm;
               const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
-              entry.hex.retune(entry.baseCents + norm * rangeCents);
+              entry.hex.retune(entry.baseCents + norm * rangeCents, true);
             }
             // In MPE input mode we do NOT pass through to the output — each hex's
             // retune() call handles expression for its own output engine.
@@ -1104,7 +1105,7 @@ class Keys {
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
-    this.state.activeMidiByChannel.clear();
+    this.state.activeMidiByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
@@ -1521,6 +1522,8 @@ class Keys {
       if (this.inputRuntime.mpeInput &&
           this.state.activeMidiByChannel.get(e.message.channel)?.hex === hex) {
         this.state.activeMidiByChannel.delete(e.message.channel);
+        const slew = this._bendSlew.get(e.message.channel);
+        if (slew) { if (slew.raf !== null) cancelAnimationFrame(slew.raf); this._bendSlew.delete(e.message.channel); }
       }
     }
     // hexOff is called per coord for visual update (may cover multiple visible coords)
@@ -1558,7 +1561,7 @@ class Keys {
         }
       }
       notes.played = [];
-      this.state.activeMidiByChannel.clear();
+      this.state.activeMidiByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
       console.log("All notes released!");
     } else {
       console.log("No held notes to be released.");
@@ -1592,7 +1595,7 @@ class Keys {
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
-    this.state.activeMidiByChannel.clear();
+    this.state.activeMidiByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
     // Reset drag-state flags in case panic fires mid-drag
     this.state.isMouseDown = false;
     this.state.isTouchDown = false;
@@ -2404,7 +2407,7 @@ class Keys {
       const rangeCents = (this.inputRuntime.wheelSemitones ?? 2) * 100;
       const offsetCents = norm * rangeCents;
       for (const hex of this._allActiveHexes()) {
-        hex.retune((hex._baseCents ?? hex.cents) + offsetCents);
+        hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
       }
       return;
     }
@@ -2420,7 +2423,7 @@ class Keys {
       const offsetCents = norm * rangeCents;
       this._wheelBend = offsetCents;
       for (const hex of this._allActiveHexes()) {
-        hex.retune((hex._baseCents ?? hex.cents) + offsetCents);
+        hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
       }
       return;
     }
@@ -2453,7 +2456,7 @@ class Keys {
     }
 
     this._wheelBend = bentCents - this._wheelBaseCents;
-    target.retune(bentCents);
+    target.retune(bentCents, true);
   }
 
   // Called whenever the recency stack changes.  If the front note has changed,

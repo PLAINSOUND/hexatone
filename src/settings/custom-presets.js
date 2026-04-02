@@ -305,10 +305,10 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
           <span style={{ display: 'flex', gap: '6px' }}>
             <button type="button" style={{ whiteSpace: 'nowrap', width: 85 }} onClick={handleExport}>
               Export .json
-            </button>
+            </button> {/*
             <button type="button" style={{ whiteSpace: 'nowrap', width: 85 }} onClick={handleExportLtn}>
               Export .ltn
-            </button>
+            </button>*/}
           </span>
         </label>
       )}

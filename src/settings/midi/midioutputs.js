@@ -63,6 +63,7 @@ const MidiOutputs = (props) => {
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
+  const [fsVolume, setFsVolume] = useState(parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100"));
   const masterCh = settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch)
@@ -257,8 +258,12 @@ const MidiOutputs = (props) => {
                   } else {
                     if (!fluidsynthOutput) return;
                     save("fluidsynth_device", fluidsynthOutput.id, onChange);
-                    save("fluidsynth_channel",
-                      settings.midi_channel >= 0 ? settings.midi_channel : 0, onChange);
+                    const saved = parseInt(localStorage.getItem("fluidsynth_channel_pref"));
+                    const ch = !isNaN(saved) && saved >= 0 ? saved
+                      : settings.midi_channel >= 0 ? settings.midi_channel : 0;
+                    save("fluidsynth_channel", ch, onChange);
+                    const vol = parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100");
+                    fluidsynthOutput.send([0xB0 | ch, 7, vol]);
                   }
                 }}
                 title={fsConnected ? "Disconnect FluidSynth mirror"
@@ -273,12 +278,36 @@ const MidiOutputs = (props) => {
                   FluidSynth Channel
                   <select name="fluidsynth_channel" class="sidebar-input"
                     value={settings.fluidsynth_channel ?? -1}
-                    onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
+                    onChange={(e) => {
+                      const ch = parseInt(e.target.value);
+                      localStorage.setItem("fluidsynth_channel_pref", ch);
+                      save(e.target.name, ch, onChange);
+                    }}
                   >
                     {[...Array(16).keys()].map(i => (
                       <option key={i} value={i}>{i + 1}</option>
                     ))}
                   </select>
+                </label>
+                <label>
+                  FluidSynth Volume
+                  <span class="sidebar-input" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                    <input type="range" min="0" max="127" step="1"
+                      style={{ width: '100%' }}
+                      defaultValue={parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100")}
+                      onInput={(e) => {
+                        const v = parseInt(e.target.value);
+                        localStorage.setItem("fluidsynth_volume_pref", v);
+                        setFsVolume(v);
+                        if (fluidsynthOutput && settings.fluidsynth_channel >= 0) {
+                          fluidsynthOutput.send([0xB0 | settings.fluidsynth_channel, 7, v]);
+                        }
+                      }}
+                    />
+                    <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: '2.5em', textAlign: 'right', fontSize: '0.85em' }}>
+                      {fsVolume}
+                    </span>
+                  </span>
                 </label>
                 {mtsPortIsFluidsynth && (
                   <p style={{ color: "#cc4400", fontSize: "0.85em", margin: "0.2em 0" }}>

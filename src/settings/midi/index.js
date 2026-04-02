@@ -224,7 +224,7 @@ const MIDIio = (props) => {
 
           {/* ── Controller description in scale mode ── */}
           {scaleMode && ctrl?.descriptionScale && (
-            <label style={{ fontStyle: 'italic', color: '#996666' }}>
+            <label style={{ fontStyle: 'italic', color: '#996666', marginBottom: '0.5em' }}>
               {ctrl.name}
               <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em', lineHeight: 1 }}>
                 {ctrl.descriptionScale}
@@ -234,7 +234,7 @@ const MIDIio = (props) => {
           {/* ── Known 2D controller / sequential anchor ── hidden in scale mode */}
           {!scaleMode && (ctrl ? (
             <>
-              <label style={{ fontStyle: 'italic', color: '#996666' }}>
+              <label style={{ fontStyle: 'italic', color: '#996666', marginBottom: '0.5em' }}>
                 {ctrl.name}
                 <span class="sidebar-input" style={{ textAlign: 'right', fontSize: '0.85em', lineHeight: 1 }}>
                   {ctrl.description}
@@ -488,8 +488,8 @@ const MIDIio = (props) => {
                           <span class="sidebar-input" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
                             <input
                               type="range"
-                              min="0.75" max="2.5" step="0.05"
-                              value={props.settings.exquis_led_saturation ?? 1.5}
+                              min="0.75" max="2.5" step="0.01"
+                              value={props.settings.exquis_led_saturation ?? 1.3}
                               style={{ width: '100%' }}
                               onInput={(e) => {
                                 const v = parseFloat(e.target.value);
@@ -499,7 +499,7 @@ const MIDIio = (props) => {
                               }}
                             />
                             <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: '2.5em', textAlign: 'right', fontSize: '0.85em' }}>
-                              {(props.settings.exquis_led_saturation ?? 1.5).toFixed(1)}
+                              {(() => { const v = props.settings.exquis_led_saturation ?? 1.3; return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(2); })()}
                             </span>
                           </span>
                         </label>

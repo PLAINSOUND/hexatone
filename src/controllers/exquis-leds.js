@@ -146,6 +146,7 @@ export class ExquisLEDs {
   /** Send 61 pad colors. No-op if not ready. */
   sendColors(colors) {
     if (!this._ready || !this._out) return;
+    this._lastColors = colors;
     for (let noteId = 0; noteId < 61; noteId++) {
       const { r, g, b } = _boostSaturation(colors[noteId] ?? '#000000', this._saturation);
       this._out.send(new Uint8Array([...HDR, 0x14, noteId, r >> 1, g >> 1, b >> 1, 0xF7]));
@@ -167,10 +168,11 @@ export class ExquisLEDs {
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xF7]));
   }
 
-  /** Update saturation multiplier. Does not resend colors — caller should follow with sendColors(). */
+  /** Update saturation multiplier and resend last colors if available. No-op if not ready. */
   setSaturation(factor) {
-    if (!this._ready) return;
+    if (!this._ready || !this._out) return;
     this._saturation = Math.max(0.75, Math.min(2.5, factor));
+    if (this._lastColors) this.sendColors(this._lastColors);
   }
 
   /** Schedule a CMD 0x07 MPE mode switch, deferred until all pads are released.

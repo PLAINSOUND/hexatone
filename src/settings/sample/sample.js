@@ -31,13 +31,17 @@ const Sample = (props) => {
       </label>
       <label>
         <span>Synth Volume</span>
-        <input type="range" name="synth_volume"
-          min="0" max="1" step="0.01"
-          value={volume}
-          class="sidebar-input"
-          onInput={handleVolume}
-          style={{transform:"translateY(5px)"}}
-        />
+        <span class="sidebar-input" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+          <input type="range" name="synth_volume"
+            min="0" max="1" step="0.01"
+            value={volume}
+            style={{ width: '100%' }}
+            onInput={handleVolume}
+          />
+          <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: '2.5em', textAlign: 'right', fontSize: '0.85em' }}>
+            {Number.isInteger(volume) ? volume.toFixed(0) : volume.toFixed(2)}
+          </span>
+        </span>
       </label>
       {
       <label>

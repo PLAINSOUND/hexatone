@@ -41,7 +41,7 @@ const Settings = ({
   onDeleteSnapshot,
 }) => (
   <form onSubmit={(e) => e.preventDefault()}>
-    <fieldset>
+    <fieldset style={{marginTop: '1em'}}>
       <legend>
         <b>Built-in Tunings</b>
       </legend>

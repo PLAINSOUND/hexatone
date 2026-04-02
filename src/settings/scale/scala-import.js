@@ -40,7 +40,7 @@ const ScalaImport = (props) => {
   const name = safeName(props.settings);
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' , marginTop: '0.65em' }}>
       {/* ── Import section ─────────────────────────────────────────────── */}
       <fieldset>
         <legend><b>Scala File</b></legend>

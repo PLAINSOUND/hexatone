@@ -532,8 +532,15 @@ const useSynthWiring = (
 
   // Keep synthRef in sync so volume control and preset loading can reach the
   // live synth without depending on the React render cycle.
+  // Also apply the persisted volume immediately so the synth starts at the
+  // user's saved level rather than the default.
   useEffect(() => {
     synthRef.current = synth;
+    if (synth?.setVolume) {
+      const muted  = localStorage.getItem('synth_muted') === 'true';
+      const volume = parseFloat(localStorage.getItem('synth_volume') ?? '1') || 1.0;
+      synth.setVolume(muted ? 0 : volume);
+    }
   }, [synth]);
 
   // On first user interaction, prepare audio context (iOS/Safari requirement).
