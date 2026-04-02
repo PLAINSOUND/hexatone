@@ -86,6 +86,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
     const { gain: sampleGain, attack: sampleAttack, release: sampleRelease,
             loop: sampleLoop, velocity: velocity_response,
+            velocity_floor = 0.15, velocity_exp = 0.75,
             aftertouch: aftertouch_amount = 0,
             filter_low, filter_mid, filter_high } = instrument;
 
@@ -195,7 +196,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         return new ActiveHex(
           coords, cents, velocity_played, note_played, fundamental, centsToReference,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-          velocity_response, aftertouch_amount, filterCoeffs,
+          velocity_response, velocity_floor, velocity_exp, aftertouch_amount, filterCoeffs,
           decodedBuffers, sharedAudioContext, masterGain, lastModWheel,
           (v) => { lastModWheel = v; }
         );
@@ -208,7 +209,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
 function ActiveHex(coords, cents, velocity_played, note_played, fundamental, centsToReference,
   sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-  velocity_response, aftertouch_amount, filterCoeffs,
+  velocity_response, velocity_floor, velocity_exp, aftertouch_amount, filterCoeffs,
   sampleBuffer, audioContext, masterGain, initialModWheel, setModWheel) {
 
   this.coords = coords;
@@ -224,6 +225,8 @@ function ActiveHex(coords, cents, velocity_played, note_played, fundamental, cen
   this.sampleLoop = sampleLoop;
   this.sampleLoopPoints = sampleLoopPoints;
   this.velocity_response = velocity_response;
+  this.velocity_floor = velocity_floor;
+  this.velocity_exp   = velocity_exp;
   this.aftertouch_amount = aftertouch_amount;
   this.filterCoeffs = filterCoeffs; // quadratic log2-freq coefficients {A,B,C}, or null
   this.sampleBuffer = sampleBuffer;
@@ -240,8 +243,8 @@ ActiveHex.prototype.noteOn = function() {
 
   const freq = this.fundamental * Math.pow(2, (this.cents - this.centsToReference) / 1200);
   const vol = this.velocity_response
-    ? 0.15 + (0.85 * ((this.velocity_played / 127) ** 0.75))
-    : 0.85;
+    ? this.velocity_floor + ((1 - this.velocity_floor) * ((this.velocity_played / 127) ** this.velocity_exp))
+    : 1.0 - this.velocity_floor;
   this.base_vol = vol;
 
   const source = this.audioContext.createBufferSource();
