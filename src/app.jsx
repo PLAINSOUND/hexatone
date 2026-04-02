@@ -459,7 +459,12 @@ const App = () => {
     const leds = new ExquisLEDs(
       exquisRawPorts.output,
       exquisRawPorts.input,
-      (ok, reason) => setExquisLedStatus(ok ? { ok: true } : { ok: false, reason }),
+      (ok, reason) => {
+        setExquisLedStatus(ok ? { ok: true } : { ok: false, reason });
+        if (ok && keysRef.current?.settings?.exquis_led_sync) {
+          keysRef.current.syncExquisLEDs();
+        }
+      },
       settings.exquis_led_luminosity ?? 15,
       settings.exquis_led_saturation ?? 1.5,
       settings.midiin_mpe_input ?? true,
