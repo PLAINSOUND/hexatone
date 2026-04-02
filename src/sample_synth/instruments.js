@@ -70,7 +70,7 @@ export const instruments = [
         release: 0.008,
         loop: true,
         velocity: false,
-        aftertouch: 0,
+        aftertouch: 1,
         filter_low: 2000, filter_mid: 3000, filter_high: 20000,
       }
     ],
@@ -163,7 +163,7 @@ export const instruments = [
       }, {
         fileName: "sruti",
         name: "Srutibox Harmonium",
-        gain: 0.18,
+        gain: 0.1,
         attack: 0,
         release: 0.25,
         loop: true,
