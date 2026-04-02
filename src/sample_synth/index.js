@@ -87,8 +87,19 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     const { gain: sampleGain, attack: sampleAttack, release: sampleRelease,
             loop: sampleLoop, velocity: velocity_response,
             aftertouch: aftertouch_amount = 0,
-            filter_freq: filter_freq = 8000,
-            filter_amount: filter_amount = 0 } = instrument;
+            filter_low, filter_mid, filter_high } = instrument;
+
+    // Fit a quadratic through (0→low, 64→mid, 127→high) in log2-frequency space.
+    // If the three-point spec is absent, fall back to fully open filter (no sweep).
+    const filterCoeffs = (filter_low && filter_mid && filter_high) ? (() => {
+      const n  = 64 / 127;
+      const C  = Math.log2(filter_low);
+      const lh = Math.log2(filter_high / filter_low);
+      const lm = Math.log2(filter_mid  / filter_low);
+      const A  = (lm - n * lh) / (n * n - n);
+      const B  = lh - A;
+      return { A, B, C };
+    })() : null;
     const sampleLoopPoints = instrument.loopPoints || [0, 0, 0, 0, 0, 0, 0, 0];
 
     // ── Fetch raw ArrayBuffers now — no AudioContext needed, no gesture required
@@ -184,7 +195,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         return new ActiveHex(
           coords, cents, velocity_played, note_played, fundamental, centsToReference,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-          velocity_response, aftertouch_amount, filter_freq, filter_amount,
+          velocity_response, aftertouch_amount, filterCoeffs,
           decodedBuffers, sharedAudioContext, masterGain, lastModWheel,
           (v) => { lastModWheel = v; }
         );
@@ -197,7 +208,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
 function ActiveHex(coords, cents, velocity_played, note_played, fundamental, centsToReference,
   sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
-  velocity_response, aftertouch_amount, filter_freq, filter_amount,
+  velocity_response, aftertouch_amount, filterCoeffs,
   sampleBuffer, audioContext, masterGain, initialModWheel, setModWheel) {
 
   this.coords = coords;
@@ -214,8 +225,7 @@ function ActiveHex(coords, cents, velocity_played, note_played, fundamental, cen
   this.sampleLoopPoints = sampleLoopPoints;
   this.velocity_response = velocity_response;
   this.aftertouch_amount = aftertouch_amount;
-  this.filter_freq = filter_freq;   // resting cutoff frequency (Hz)
-  this.filter_amount = filter_amount; // octaves of sweep available above resting freq
+  this.filterCoeffs = filterCoeffs; // quadratic log2-freq coefficients {A,B,C}, or null
   this.sampleBuffer = sampleBuffer;
   this.audioContext = audioContext;
   this.masterGain = masterGain || null;
@@ -271,9 +281,10 @@ ActiveHex.prototype.noteOn = function() {
   const filterNode = this.audioContext.createBiquadFilter();
   filterNode.type = 'lowpass';
   filterNode.Q.value = 1.0;
-  if (this.filter_amount > 0) {
-    const initNorm = this.initialModWheel / 127;
-    filterNode.frequency.value = this.filter_freq * Math.pow(2, initNorm * this.filter_amount);
+  if (this.filterCoeffs) {
+    const n = this.initialModWheel / 127;
+    const { A, B, C } = this.filterCoeffs;
+    filterNode.frequency.value = Math.pow(2, A*n*n + B*n + C);
   } else {
     filterNode.frequency.value = 20000;
   }
@@ -338,10 +349,10 @@ ActiveHex.prototype.pressure = function(value) {
 // norm 0–1 maps logarithmically from filter_freq to filter_freq * 2^filter_amount.
 // When filter_amount is 0 the filter is fully open and this is a no-op.
 ActiveHex.prototype.cc74 = function(value) {
-  if (this.release || !this.filterNode || this.filter_amount === 0) return;
-  const norm = Math.max(0, Math.min(127, value)) / 127;
-  // Logarithmic sweep: cc74=0 → filter_freq, cc74=127 → filter_freq * 2^filter_amount
-  const targetFreq = this.filter_freq * Math.pow(2, norm * this.filter_amount);
+  if (this.release || !this.filterNode || !this.filterCoeffs) return;
+  const n = Math.max(0, Math.min(127, value)) / 127;
+  const { A, B, C } = this.filterCoeffs;
+  const targetFreq = Math.pow(2, A*n*n + B*n + C);
   this.filterNode.frequency.setTargetAtTime(targetFreq, this.audioContext.currentTime, 0.04);
 };
 
