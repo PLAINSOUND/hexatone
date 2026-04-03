@@ -244,7 +244,7 @@ function buildExquisMap(anchorNote) {
 // 5 blocks × 56 keys, one MIDI channel per block (channels 1–5).
 // Geometry and block offsets defined in lumatone.js; imported above.
 
-function buildLumatoneMap(anchorChannel, anchorNote) {
+function buildLumatoneMap(anchorNote, anchorChannel) {
   const anchorBlockOffset = LUMATONE_BLOCK_OFFSETS[anchorChannel - 1];
   const entries = [];
   for (let block = 0; block < LUMATONE_BLOCKS; block++) {
@@ -380,7 +380,7 @@ export const CONTROLLER_REGISTRY = [
     // and mod-8 wrapping are both needed for correct note mapping.
     sequentialTransposeDefault: null,  // null = equave (one equave per channel)
     sequentialLegacyDefault: true,     // wrap channels 9–16 → 1–8
-    buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 26),
+    buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorNote ?? 26, anchorChannel ?? 3),
   },
 
   {

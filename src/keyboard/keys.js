@@ -450,24 +450,27 @@ class Keys {
           const entry = detectController(deviceName);
           if (entry) {
             this.controller = entry;
-            // Multi-channel controllers (e.g. Lumatone) use a per-block note number (0–55),
-            // stored in lumatone_center_note. Single-channel controllers use midiin_central_degree (0–127).
-            const anchorNote = entry.multiChannel
-              ? (this.settings.lumatone_center_note ?? entry.anchorDefault ?? 26)
-              : getAnchorNote(entry, this.settings);
-            const anchorChannel = this.settings.lumatone_center_channel ?? entry.anchorChannelDefault ?? 3;
-            const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
-            const ox = this.settings.centerHexOffset.x;
-            const oy = this.settings.centerHexOffset.y;
-            this.controllerMap = new Map();
-            for (const [key, { x, y }] of rawOffsets) {
-              this.controllerMap.set(key, new Point(x + ox, y + oy));
+            // In sequential mode, controller geometry is bypassed — only step arithmetic is used.
+            // For multi-channel controllers like Lumatone, the map is only valid in 2D geometry mode
+            // (notes 0-55, channels 1-5). Skip building the map in sequential mode.
+            const isSequential = this.settings.midi_passthrough;
+            const buildGeometryMap = !isSequential && entry.multiChannel;
+            
+            if (buildGeometryMap) {
+              const anchorNote = this.settings.lumatone_center_note ?? entry.anchorDefault ?? 26;
+              const anchorChannel = this.settings.lumatone_center_channel ?? entry.anchorChannelDefault ?? 3;
+              const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
+              const ox = this.settings.centerHexOffset.x;
+              const oy = this.settings.centerHexOffset.y;
+              this.controllerMap = new Map();
+              for (const [key, { x, y }] of rawOffsets) {
+                this.controllerMap.set(key, new Point(x + ox, y + oy));
+              }
+              //console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
+            } else {
+              this.controllerMap = null;
+              //console.log('[Controller] sequential mode — no geometry map for:', entry.id);
             }
-            //console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
-          } else {
-            this.controller = null;
-            this.controllerMap = null;
-            console.log('[Controller] no geometry found for device — using step arithmetic');
           }
         }
 
