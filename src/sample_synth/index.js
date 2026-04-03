@@ -245,7 +245,7 @@ ActiveHex.prototype.noteOn = function() {
   const vol = this.velocity_response
     ? this.velocity_floor + ((1 - this.velocity_floor) * ((this.velocity_played / 127) ** this.velocity_exp))
     : 1.0 - this.velocity_floor;
-  console.log("vol:",vol);
+  //console.log("vol:",vol);
   this.base_vol = vol;
 
   const source = this.audioContext.createBufferSource();
