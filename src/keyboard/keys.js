@@ -452,18 +452,54 @@ class Keys {
             this.controller = entry;
             // Multi-channel controllers (e.g. Lumatone) use a per-block note number (0–55),
             // stored in lumatone_center_note. Single-channel controllers use midiin_central_degree (0–127).
-            const anchorNote = entry.multiChannel
-              ? (this.settings.lumatone_center_note ?? entry.anchorDefault ?? 26)
-              : getAnchorNote(entry, this.settings);
-            const anchorChannel = this.settings.lumatone_center_channel ?? entry.anchorChannelDefault ?? 3;
-            const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
-            const ox = this.settings.centerHexOffset.x;
-            const oy = this.settings.centerHexOffset.y;
-            this.controllerMap = new Map();
-            for (const [key, { x, y }] of rawOffsets) {
-              this.controllerMap.set(key, new Point(x + ox, y + oy));
+            // In sequential mode, controller geometry is bypassed — only step arithmetic is used.
+            // But we still build the map so LED color sync works for single-channel controllers.
+            const isSequential = this.settings.midi_passthrough;
+            const useGeometryMap = !isSequential || !entry.multiChannel;
+            
+            if (useGeometryMap) {
+              // For multi-channel controllers (Lumatone): validate anchor within valid ranges
+              // For single-channel controllers: always build the map (for LED color sync)
+              let anchorNote;
+              let anchorChannel;
+              
+              if (entry.multiChannel) {
+                // Multi-channel: use lumatone_center_note, lumatone_center_channel
+                const constraints = entry.learnConstraints;
+                anchorNote = this.settings.lumatone_center_note;
+                anchorChannel = this.settings.lumatone_center_channel;
+                
+                // Defensive validation: ensure anchor values are within controller's valid ranges
+                if (constraints?.noteRange) {
+                  const { min, max } = constraints.noteRange;
+                  if (anchorNote == null || anchorNote < min || anchorNote > max) {
+                    anchorNote = entry.anchorDefault ?? 26;
+                  }
+                }
+                if (constraints?.channelRange) {
+                  const { min, max } = constraints.channelRange;
+                  if (anchorChannel == null || anchorChannel < min || anchorChannel > max) {
+                    anchorChannel = entry.anchorChannelDefault ?? 3;
+                  }
+                }
+              } else {
+                // Single-channel: use midiin_central_degree (Exquis, AXIS-49, etc.)
+                anchorNote = getAnchorNote(entry, this.settings);
+                anchorChannel = 1;
+              }
+              
+              const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
+              const ox = this.settings.centerHexOffset.x;
+              const oy = this.settings.centerHexOffset.y;
+              this.controllerMap = new Map();
+              for (const [key, { x, y }] of rawOffsets) {
+                this.controllerMap.set(key, new Point(x + ox, y + oy));
+              }
+              //console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
+            } else {
+              this.controllerMap = null;
+              //console.log('[Controller] sequential mode for multi-channel — no geometry map');
             }
-            //console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
           } else {
             this.controller = null;
             this.controllerMap = null;

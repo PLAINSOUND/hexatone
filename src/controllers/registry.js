@@ -381,6 +381,11 @@ export const CONTROLLER_REGISTRY = [
     sequentialTransposeDefault: null,  // null = equave (one equave per channel)
     sequentialLegacyDefault: true,     // wrap channels 9–16 → 1–8
     buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 26),
+    learnConstraints: {
+      noteRange:     { min: 0, max: 55 },
+      channelRange:  { min: 1, max: 5 },
+      multiChannel:  true,
+    },
   },
 
   {
