@@ -9,7 +9,7 @@ export const instruments = [
         attack: 0.5,
         release: 0.3,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 1,
+        velocity: true, velocity_floor: 0.3, velocity_exp: 1,
         aftertouch: 3.5,
         filter_low: 750, filter_mid: 1500, filter_high: 20000,
       }, {
@@ -19,7 +19,7 @@ export const instruments = [
         attack: 0.25,
         release: 0.25,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 1,
+        velocity: true, velocity_floor: 0.3, velocity_exp: 1,
         aftertouch: 3.5,
         filter_low: 1200, filter_mid: 1600, filter_high: 14000,
       }, {
@@ -29,7 +29,7 @@ export const instruments = [
         attack: 0.2,
         release: 0.2,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 1,
+        velocity: true, velocity_floor: 0.3, velocity_exp: 1,
         aftertouch: 3.5,
         filter_low: 1200, filter_mid: 1600, filter_high: 8000,
       }, {
@@ -39,7 +39,7 @@ export const instruments = [
         attack: 0.104,
         release: 0.068,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 1,
+        velocity: true, velocity_floor: 0.3, velocity_exp: 1,
         aftertouch: 3.5,
         filter_low: 1400, filter_mid: 1800, filter_high: 7000,
       }, {
@@ -49,7 +49,7 @@ export const instruments = [
         attack: 0.095,
         release: 0.085,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 1,
+        velocity: true, velocity_floor: 0.3, velocity_exp: 1,
         aftertouch: 3.5,
         filter_low: 1600, filter_mid: 2000, filter_high: 5000,
       }, {
@@ -59,17 +59,17 @@ export const instruments = [
         attack: 0.1,
         release: 0.1,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 1,
+        velocity: true, velocity_floor: 0.3, velocity_exp: 1,
         aftertouch: 3.5,
         filter_low: 2000, filter_mid: 2200, filter_high: 5000,
       }, {
         fileName: "hammond",
         name: "Hammond (9 Harmonics)",
-        gain: 0.6,
+        gain: 0.55,
         attack: 0,
         release: 0.008,
         loop: true,
-        velocity: true, velocity_floor: 0.75, velocity_exp: 0.8,
+        velocity: true, velocity_floor: 0.6, velocity_exp: 0.8,
         aftertouch: 1.2,
         filter_low: 2000, filter_mid: 3000, filter_high: 20000,
       }
@@ -99,7 +99,7 @@ export const instruments = [
       }, {
         fileName: "HvP8_retuned",
         name: "Baroque Organ",
-        gain: 0.8,
+        gain: 0.7,
         attack: 0,
         release: 0.3,
         loop: true,
@@ -163,12 +163,12 @@ export const instruments = [
       }, {
         fileName: "sruti",
         name: "Srutibox Harmonium",
-        gain: 0.3,
+        gain: 0.27,
         attack: 0,
         release: 0.5,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 1.2,
-        aftertouch: 5.2,
+        velocity: true, velocity_floor: 0.4, velocity_exp: 1.2,
+        aftertouch: 4.5,
         filter_low: 1600, filter_mid: 3336, filter_high: 12591,
       }
     ]
