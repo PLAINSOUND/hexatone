@@ -74,16 +74,18 @@ const FundamentalTuneCell = ({ fundamental, keysRef, onChange, setTuneDragging }
   const onSave = useCallback(() => {
     const newFundamental = fundamental * Math.pow(2, deltaCents / 1200);
     onChange('fundamental', newFundamental);
-    // Restore notes to their scale-derived pitch — Keys rebuild will use new fundamental
+    // Restore notes to their scale-derived pitch — Keys rebuild will use new fundamental.
+    // clearSnapshot=true ends the drag session; updateFundamental in keys.js also clears it.
     if (keysRef?.current?.previewFundamental)
-      keysRef.current.previewFundamental(0);
+      keysRef.current.previewFundamental(0, true);
     setDeltaCents(null);
     setComparing(false);
   }, [deltaCents, fundamental, onChange, keysRef]);
 
   const onRevert = useCallback(() => {
+    // clearSnapshot=true ends the drag session so the snapshot is not reused.
     if (keysRef?.current?.previewFundamental)
-      keysRef.current.previewFundamental(0);
+      keysRef.current.previewFundamental(0, true);
     setDeltaCents(null);
     setComparing(false);
   }, [keysRef]);

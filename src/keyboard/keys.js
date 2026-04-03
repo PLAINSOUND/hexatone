@@ -772,7 +772,7 @@ class Keys {
       this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex.cents);
   };
 
-  previewFundamental = (deltaCents) => {
+  previewFundamental = (deltaCents, clearSnapshot = false) => {
     const snap = this._fundamentalSnapshot;
     const applyTo = (hex) => {
       const key = hex.coords.x + ',' + hex.coords.y;
@@ -781,7 +781,7 @@ class Keys {
     };
     for (const hex of this._allActiveHexes()) applyTo(hex);
     for (const [hex] of this.state.sustainedNotes) applyTo(hex);
-    if (deltaCents === 0) this._fundamentalSnapshot = null;
+    if (clearSnapshot) this._fundamentalSnapshot = null;
   };
 
   /**

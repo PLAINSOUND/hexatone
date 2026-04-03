@@ -16,7 +16,7 @@ After generating an equal division scale, the preset selector now correctly swit
 ---
 
 ### BUG-02 · Pitch bend smoothness and MPE stuck notes
-**Tags:** `todo` `high` `large`
+**Tags:** `done` `high` `large`
 
 Pitch bend is unsatisfactory across all synths, and MPE output has stuck-note issues.
 
@@ -115,7 +115,7 @@ Additionally, the "Divide Equave" button in the scale panel had a 30-line inline
 
 ---
 
-### BUG-06 · `lumatone-export.js` geometry inconsistencies (6 failing tests)
+### BUG-08 · `lumatone-export.js` geometry inconsistencies (6 failing tests)
 **Tags:** `todo` `medium` `medium`
 
 `src/settings/scale/lumatone-export.js` has a standalone hex geometry implementation (`BOARD_KEY_COORDS`, `keyStepsFromRef`) that duplicates logic now in `controllers/registry.js`. The export tests expose inconsistencies: wrong col range, wrong step values for key 33.
@@ -123,6 +123,29 @@ Additionally, the "Divide Equave" button in the scale panel had a 30-line inline
 **Do not fix these tests individually** — they will be replaced when the module is rewritten. See ARCH-05.
 
 ---
+
+### BUG-09 Fundamental Tune Cell not working as expected
+**Tags:** done
+
+The bug
+In previewFundamental (keys.js:775), the snapshot was unconditionally cleared whenever deltaCents === 0:
+
+if (deltaCents === 0) this._fundamentalSnapshot = null;  // ← the problem
+onCompare calls previewFundamental(0) to restore the original pitch for the A/B listen. This correctly retunes to the snapshot base, but then destroyed the snapshot as a side-effect. On the next Compare click back to the retuned state, snap was null, so base = hex.cents (now the original pitch), and the delta was applied correctly — once. But the following click to original called previewFundamental(0) again with hex.cents = original + delta, returning original + delta + 0, not original. Each cycle accumulated another +delta.
+
+Fix: previewFundamental now takes an explicit clearSnapshot parameter (default false). Only onSave and onRevert pass true — they are the calls that genuinely end the drag session. onCompare continues to pass no argument (default false), so the snapshot survives the full compare cycle
+
+
+### BUG-10 Dynamic Tuning Map failure
+
+Summary of the two fixes
+Bug 1 — centsToMTS is not defined (src/midi_synth/index.js:4-7)
+buildDynamicBulkAllocation calls centsToMTS but it was never imported. The file imported buildBulkDumpMessage and buildTuningMapEntries from mts-helpers.js but omitted centsToMTS. Added it to the import. This was the root cause of the Dynamic Bulk Dump crash on every noteOn.
+
+Bug 2 — Data bytes must be integers between 0 and 255 (src/keyboard/keys.js:1230-1284)
+The static bulk dump in mtsSendMap was using output.sendSysex([manufacturer], msg) where it had msg.shift()-ed the leading 126 byte off and passed it as the manufacturer. WebMidi's sendSysex rejects this — 126 isn't a valid manufacturer ID in its validation model.
+
+The fix matches the pattern already used by createBulkDynamicTransport.sendBulkDump(): use output.send([0xF0, ...msg, 0xF7]) with the full flat payload intact. As part of this, corrected HEADER_LEN from 20 to 21 (the leading 126 byte is part of the payload, so header = 126 + device_id + 8 + 1 + map# + 16-byte name = 21 bytes, not 20) — the sustained-note slot patching was therefore also writing into the wrong positions.
 
 ## Architecture / Refactoring
 

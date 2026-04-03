@@ -163,11 +163,11 @@ export const instruments = [
       }, {
         fileName: "sruti",
         name: "Srutibox Harmonium",
-        gain: 0.1,
+        gain: 1,
         attack: 0,
-        release: 0.25,
+        release: 0.5,
         loop: true,
-        velocity: true, velocity_floor: 0.5, velocity_exp: 0.75,
+        velocity: true, velocity_floor: 0.01, velocity_exp: 2,
         aftertouch: 7.0,
         filter_low: 1600, filter_mid: 3336, filter_high: 12591,
       }
