@@ -1229,10 +1229,14 @@ class Keys {
       }
     } else if (sysex_type === 126) {
       // Non-real-time bulk tuning dump: single message for all 128 notes.
+      // tuningMap is a flat byte array from buildBulkDumpMessage, already starting
+      // with 126 (0x7E universal non-real-time). Send as raw bytes via output.send()
+      // matching the pattern used by createBulkDynamicTransport.sendBulkDump().
+      //
       // Build a protected copy: any carrier slot currently held by a sustained
       // or active note keeps its exact current tuning bytes so the synth does
       // not retune it mid-sustain.
-      const sustainedSlots = new Map(); // carrier slot → [mts1, mts2, mts3]
+      const sustainedSlots = new Map(); // carrier slot → [tt, yy, zz]
       const allActive = [
         ...this._allActiveHexes(),
         ...this.state.sustainedNotes.map(([h]) => h),
@@ -1243,14 +1247,13 @@ class Keys {
         }
       }
 
-      // Clone the full 128-entry tuning map and patch protected slots
-      const msg = [...tuningMap];
-      const manufacturer = msg.shift(); // 126 = universal non-real-time
-      // After shift, layout is:
-      //   [device_id, 8, 1, map#, name(16 bytes)] = 20 header bytes
+      // Clone and patch protected slots.
+      // Layout of tuningMap (from buildBulkDumpMessage):
+      //   [126, device_id, 8, 1, map#, name(16 bytes)] = 21 header bytes
       //   then 128 × 3 tuning bytes (note0_tt, note0_yy, note0_zz, ...)
       //   then 1 checksum byte
-      const HEADER_LEN = 20;
+      const msg = [...tuningMap];
+      const HEADER_LEN = 21; // 126 + device_id + 8 + 1 + map# + 16-byte name
       let patched = false;
       for (const [slot, tuning] of sustainedSlots) {
         const skip = HEADER_LEN + slot * 3;
@@ -1270,7 +1273,7 @@ class Keys {
         msg[msg.length - 1] = checksum & 0x7f;
       }
 
-      output.sendSysex([manufacturer], msg);
+      output.send([0xF0, ...msg, 0xF7]);
     }
   };
 

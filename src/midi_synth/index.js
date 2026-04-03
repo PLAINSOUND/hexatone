@@ -4,6 +4,7 @@ import { VoicePool } from "../voice_pool_nearest";
 import {
   buildBulkDumpMessage,
   buildTuningMapEntries,
+  centsToMTS,
 } from "../keyboard/mts-helpers.js";
 
 export const tuningmap = new Array(128);
@@ -619,9 +620,9 @@ StaticBulkHex.prototype.retune = function () {
 };
 
 
-// centsToMTS is now canonical in src/tuning/mts-format.js.
-// Re-exported here for any external callers that import it from this module.
-export { centsToMTS } from "../tuning/mts-format.js";
+// centsToMTS is imported from mts-helpers.js above and re-exported here
+// for any external callers that import it from this module.
+export { centsToMTS };
 
 export function mtsToMidiFloat(mts) {
   return mts[0] + (mts[1] / 128) + (mts[2] / 16384);
