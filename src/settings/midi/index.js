@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
 import { saveControllerPref } from '../../input/controller-anchor.js';
@@ -17,6 +17,14 @@ const MIDIio = (props) => {
   const deviceName = connectedDevice?.name?.toLowerCase() ?? '';
   // Detect 2D controller (null when device is disconnected or unrecognised).
   const ctrl = detectController(deviceName);
+
+  // Auto-clear the anchor learn warning after 3 seconds
+  useEffect(() => {
+    if (props.anchorLearnWarning) {
+      const timer = setTimeout(() => props.setAnchorLearnWarning(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [props.anchorLearnWarning]);
 
   // midiin_central_degree is stored as the raw physical MIDI note number.
   const center_degree = props.settings.center_degree || 0;
@@ -245,13 +253,14 @@ const MIDIio = (props) => {
                   Used in both 2D-map mode and bypass mode. */}
               <label>
                 Anchor Key → Central Degree ({center_degree})
-                <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', textAlign: 'left' }}>
-                  <button type="button"
-                    onClick={() => props.onChange('midiLearnAnchor', !props.midiLearnActive)}
-                    style={{ fontSize: '0.8em', whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
-                    {props.midiLearnActive ? '● Listening…' : 'Learn'}
-                  </button>
-                  {/* Channel field — shown for all known controllers.
+                <span class="sidebar-input" style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                  <span style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <button type="button"
+                      onClick={() => props.onChange('midiLearnAnchor', !props.midiLearnActive)}
+                      style={{ fontSize: '0.8em', whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
+                      {props.midiLearnActive ? '● Listening…' : 'Learn'}
+                    </button>
+                    {/* Channel field — shown for all known controllers.
                       Editable for multi-channel controllers (e.g. Lumatone);
                       greyed-out fixed "1" for single-channel controllers (e.g. AXIS-49). */}
                   {ctrl && (
@@ -259,9 +268,8 @@ const MIDIio = (props) => {
                       <input name="lumatone_center_channel" type="text" inputMode="numeric"
                         title="MIDI channel of anchor key (1–5 for Lumatone)"
                         style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
-                        key={anchorChannel}
-                        defaultValue={anchorChannel}
-                        onBlur={(e) => {
+                        value={anchorChannel ?? ''}
+                        onChange={(e) => {
                           const val = parseInt(e.target.value);
                           if (!isNaN(val) && val >= 1 && val <= 16) {
                             props.onChange('lumatone_center_channel', val);
@@ -270,8 +278,12 @@ const MIDIio = (props) => {
                             // mode uses the same anchor channel as the 2D map.
                             props.onChange('midiin_anchor_channel', val);
                             sessionStorage.setItem('midiin_anchor_channel', val);
-                          } else {
-                            e.target.value = anchorChannel;
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (isNaN(val) || val < 1 || val > 16) {
+                            e.target.value = anchorChannel ?? '';
                           }
                         }}
                       />
@@ -289,33 +301,52 @@ const MIDIio = (props) => {
                     <input name="lumatone_center_note" type="text" inputMode="numeric"
                       title="Note number within anchor block (0–55)"
                       style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
-                      key={lumatoneAnchorNote}
-                      defaultValue={lumatoneAnchorNote}
-                      onBlur={(e) => {
+                      value={lumatoneAnchorNote ?? ''}
+                      onChange={(e) => {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val >= 0 && val <= 55) {
                           props.onChange('lumatone_center_note', val);
                           sessionStorage.setItem('lumatone_center_note', String(val));
-                        } else {
-                          e.target.value = lumatoneAnchorNote;
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (isNaN(val) || val < 0 || val > 55) {
+                          e.target.value = lumatoneAnchorNote ?? '';
                         }
                       }}
                     />
                   ) : (
                     <input name="midiin_central_degree" type="text" inputMode="numeric"
                       style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
-                      key={props.settings.midiin_central_degree}
-                      defaultValue={centralNote}
-                      onBlur={(e) => {
+                      value={centralNote ?? ''}
+                      onChange={(e) => {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val >= 0 && val <= 127) {
                           props.onChange('midiin_central_degree', val);
                           sessionStorage.setItem('midiin_central_degree', val);
-                        } else {
-                          e.target.value = centralNote;
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (isNaN(val) || val < 0 || val > 127) {
+                          e.target.value = centralNote ?? '';
                         }
                       }}
                     />
+                  )}
+                  </span>
+                  {/* Warning message displayed when MIDI learn fails validation */}
+                  {props.anchorLearnWarning && (
+                    <span style={{
+                      fontStyle: 'italic',
+                      fontSize: '0.85em',
+                      color: '#990000',
+                      lineHeight: 1,
+                      marginTop: '0.2em',
+                    }}>
+                      {props.anchorLearnWarning}
+                    </span>
                   )}
                 </span>
               </label>
@@ -326,8 +357,26 @@ const MIDIio = (props) => {
                   type="checkbox"
                   checked={!!props.settings.midi_passthrough}
                   onChange={(e) => {
-                    props.onChange('midi_passthrough', e.target.checked);
-                    sessionStorage.setItem('midi_passthrough', e.target.checked);
+                    const newPassthrough = e.target.checked;
+                    props.onChange('midi_passthrough', newPassthrough);
+                    sessionStorage.setItem('midi_passthrough', newPassthrough);
+                    
+                    // When switching modes, load the saved anchors for the new mode
+                    if (ctrl?.multiChannel) {
+                      if (newPassthrough) {
+                        // Switching TO sequential: load sequential anchors
+                        const seqAnchor = localStorage.getItem(`${ctrl.id}_seq_anchor`);
+                        const seqChannel = localStorage.getItem(`${ctrl.id}_seq_anchor_channel`);
+                        if (seqAnchor !== null) props.onChange('midiin_central_degree', parseInt(seqAnchor));
+                        if (seqChannel !== null) props.onChange('midiin_anchor_channel', parseInt(seqChannel));
+                      } else {
+                        // Switching TO 2D geometry: load geometry anchors
+                        const geoAnchor = localStorage.getItem(`${ctrl.id}_anchor`);
+                        const geoChannel = localStorage.getItem(`${ctrl.id}_anchor_channel`);
+                        if (geoAnchor !== null) props.onChange('lumatone_center_note', parseInt(geoAnchor));
+                        if (geoChannel !== null) props.onChange('lumatone_center_channel', parseInt(geoChannel));
+                      }
+                    }
                   }}
                 />
               </label>
@@ -371,7 +420,7 @@ const MIDIio = (props) => {
                   )}
                   {/* Layout file only applies to 2D geometry mode — not sequential */}
                   {!props.settings.midi_passthrough && <label>
-                    Layout file (.ltn)
+                    Layout File (.ltn)
                     <span style={{ display: 'flex', alignItems: 'center',
                                    gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
                       {props.lumatoneRawPorts && (
@@ -865,6 +914,8 @@ MIDIio.propTypes = {
   exquisRawOutput: PropTypes.object,
   keysRef: PropTypes.object,
   onChange: PropTypes.func.isRequired,
+  anchorLearnWarning: PropTypes.string,
+  setAnchorLearnWarning: PropTypes.func,
 };
 
 export default MIDIio;

@@ -16,7 +16,7 @@ import { WebMidi } from "webmidi";
 import { midi_in } from "../settings/midi/midiin";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
-import { detectController, getAnchorNote } from '../controllers/registry.js';
+import { detectController, getAnchorNote, CONTROLLER_REGISTRY } from '../controllers/registry.js';
 import { LumatoneLEDs } from '../controllers/lumatone-leds.js';
 import {
   transferColor,
@@ -457,8 +457,25 @@ class Keys {
             const buildGeometryMap = !isSequential && entry.multiChannel;
             
             if (buildGeometryMap) {
-              const anchorNote = this.settings.lumatone_center_note ?? entry.anchorDefault ?? 26;
-              const anchorChannel = this.settings.lumatone_center_channel ?? entry.anchorChannelDefault ?? 3;
+              // Defensive validation: ensure anchor values are within controller's valid ranges
+              const constraints = entry.learnConstraints;
+              let anchorNote = this.settings.lumatone_center_note;
+              let anchorChannel = this.settings.lumatone_center_channel;
+              
+              if (constraints?.noteRange) {
+                const { min, max } = constraints.noteRange;
+                if (anchorNote == null || anchorNote < min || anchorNote > max) {
+                  anchorNote = entry.anchorDefault ?? 26;
+                }
+              }
+              
+              if (constraints?.channelRange) {
+                const { min, max } = constraints.channelRange;
+                if (anchorChannel == null || anchorChannel < min || anchorChannel > max) {
+                  anchorChannel = entry.anchorChannelDefault ?? 3;
+                }
+              }
+              
               const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
               const ox = this.settings.centerHexOffset.x;
               const oy = this.settings.centerHexOffset.y;

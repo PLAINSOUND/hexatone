@@ -354,6 +354,11 @@ export const CONTROLLER_REGISTRY = [
     mpe: false,
     anchorDefault: 53,  // AXIS-49 physical note 49 is the centre key
     buildMap: (anchorNote) => buildAxis49Map(anchorNote ?? 53),
+    learnConstraints: {
+      noteRange:     { min: 1, max: 98 },
+      channelRange:  null,
+      multiChannel:  false,
+    },
   },
 
   {
@@ -365,6 +370,11 @@ export const CONTROLLER_REGISTRY = [
     mpe: false,
     anchorDefault: 36,
     buildMap: (anchorNote) => buildTS41Map(anchorNote ?? 36),
+    learnConstraints: {
+      noteRange:     { min: 1, max: 126 },
+      channelRange:  null,
+      multiChannel:  false,
+    },
   },
 
   {
@@ -381,6 +391,11 @@ export const CONTROLLER_REGISTRY = [
     sequentialTransposeDefault: null,  // null = equave (one equave per channel)
     sequentialLegacyDefault: true,     // wrap channels 9–16 → 1–8
     buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorNote ?? 26, anchorChannel ?? 3),
+    learnConstraints: {
+      noteRange:     { min: 0, max: 55 },
+      channelRange:  { min: 1, max: 5 },
+      multiChannel:  true,
+    },
   },
 
   {
@@ -395,6 +410,11 @@ export const CONTROLLER_REGISTRY = [
     mpeVoiceChannels: null,
     anchorDefault: 30,
     buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 30),
+    learnConstraints: {
+      noteRange:     { min: 0, max: 127 },
+      channelRange:  { min: 1, max: 8 },
+      multiChannel:  true,
+    },
   },
 
   {
@@ -406,6 +426,11 @@ export const CONTROLLER_REGISTRY = [
     mpe: false,
     anchorDefault: 36,
     buildMap: (anchorNote) => buildPushMap(anchorNote ?? 36),
+    learnConstraints: {
+      noteRange:     { min: 0, max: 127 },
+      channelRange:  null,
+      multiChannel:  false,
+    },
   },
 
   {
@@ -417,6 +442,11 @@ export const CONTROLLER_REGISTRY = [
     mpe: false,
     anchorDefault: 36,
     buildMap: (anchorNote) => buildLaunchpadMap(anchorNote ?? 36),
+    learnConstraints: {
+      noteRange:     { min: 0, max: 127 },
+      channelRange:  null,
+      multiChannel:  false,
+    },
   },
 
   {
@@ -432,6 +462,11 @@ export const CONTROLLER_REGISTRY = [
     mpeVoiceChannels: { lo: 2, hi: 15 },
     anchorDefault: 19,
     buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
+    learnConstraints: {
+      noteRange:     { min: 0, max: 60 },
+      channelRange:  null,
+      multiChannel:  false,
+    },
   },
 
   {
@@ -444,6 +479,11 @@ export const CONTROLLER_REGISTRY = [
     mpe: false,
     anchorDefault: 60,
     buildMap: (anchorNote) => buildGenericKeyboardMap(anchorNote ?? 60),
+    learnConstraints: {
+      noteRange:     { min: 0, max: 127 },
+      channelRange:  null,
+      multiChannel:  false,
+    },
   },
 ];
 

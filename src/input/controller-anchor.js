@@ -175,6 +175,86 @@ export function saveAnchorChannel(controller, channel) {
   localStorage.setItem(`${controller.id}_anchor_channel`, String(channel));
 }
 
+// ── Sequential anchor helpers (for passthrough/sequential mode) ─────────────────
+
+/**
+ * Load the saved sequential anchor note for a controller from localStorage.
+ * Falls back to `controller.anchorDefault` if no value has been saved.
+ *
+ * @param {object} controller  Registry entry
+ * @returns {number}
+ */
+export function loadSavedSeqAnchor(controller) {
+  const raw = localStorage.getItem(`${controller.id}_seq_anchor`);
+  return raw !== null ? parseInt(raw, 10) : controller.anchorDefault;
+}
+
+/**
+ * Load the saved sequential anchor channel for a controller from localStorage.
+ * Falls back to `controller.anchorChannelDefault` if no value has been saved.
+ *
+ * @param {object} controller
+ * @returns {number|null}
+ */
+export function loadSavedSeqAnchorChannel(controller) {
+  if (controller.anchorChannelDefault == null) return null;
+  const raw = localStorage.getItem(`${controller.id}_seq_anchor_channel`);
+  return raw !== null ? parseInt(raw, 10) : controller.anchorChannelDefault;
+}
+
+/**
+ * Save a sequential anchor note for a controller to localStorage.
+ *
+ * @param {object} controller
+ * @param {number} note
+ */
+export function saveSeqAnchor(controller, note) {
+  localStorage.setItem(`${controller.id}_seq_anchor`, String(note));
+}
+
+/**
+ * Save a sequential anchor channel for a channel-aware controller.
+ * No-op for single-channel controllers.
+ *
+ * @param {object} controller
+ * @param {number} channel
+ */
+export function saveSeqAnchorChannel(controller, channel) {
+  if (controller.anchorChannelDefault == null) return;
+  localStorage.setItem(`${controller.id}_seq_anchor_channel`, String(channel));
+}
+
+// ── Learn validation ────────────────────────────────────────────────────────────
+
+/**
+ * Validate a learned note/channel against controller constraints.
+ * Used in 2D geometry mode to ensure learned values are within valid ranges.
+ *
+ * @param {object} controller  Registry entry
+ * @param {number} note        Learned note
+ * @param {number} channel     Learned channel
+ * @returns {{ valid: boolean, warning: string|null }}
+ */
+export function validateLearn(controller, note, channel) {
+  const c = controller.learnConstraints;
+  if (!c) return { valid: true, warning: null };
+
+  const noteOk = note >= c.noteRange.min && note <= c.noteRange.max;
+  const chOk = !c.channelRange || (channel >= c.channelRange.min && channel <= c.channelRange.max);
+
+  if (!noteOk || !chOk) {
+    let msg = `Note must be ${c.noteRange.min}–${c.noteRange.max}.`;
+    if (c.channelRange) {
+      msg += ` Channel must be ${c.channelRange.min}–${c.channelRange.max}.`;
+    }
+    if (c.multiChannel) {
+      msg = `Please send the 2D ${controller.name} Layout File to your device!`;
+    }
+    return { valid: false, warning: msg };
+  }
+  return { valid: true, warning: null };
+}
+
 // ── Combined helpers used by call sites ───────────────────────────────────────
 
 /**
@@ -183,7 +263,8 @@ export function saveAnchorChannel(controller, channel) {
  * a known controller — on page refresh, device selection, or reconnect.
  *
  * Merges:
- *   - Anchor note / channel (special, controller-specific fallbacks)
+ *   - Sequential mode anchors (midiin_central_degree, midiin_anchor_channel)
+ *   - 2D geometry anchors (lumatone_center_note, lumatone_center_channel)
  *   - All local-tier prefs (registry-driven via loadControllerPrefs)
  *     midi_passthrough and midiin_mpe_input use first-connect fallbacks
  *     (controller.passthroughDefault, controller.mpe) when nothing is saved.
@@ -194,55 +275,76 @@ export function saveAnchorChannel(controller, channel) {
  */
 export function loadAnchorSettingsUpdate(controller) {
   const update = {
-    midiin_central_degree: loadSavedAnchor(controller),
+    // Sequential mode anchors (loaded from per-controller localStorage)
+    midiin_central_degree:    loadSavedSeqAnchor(controller),
+    midiin_anchor_channel:    loadSavedSeqAnchorChannel(controller) ?? 1,
+    // 2D geometry anchors (loaded from per-controller localStorage)
+    lumatone_center_note:      loadSavedAnchor(controller),
+    lumatone_center_channel:   loadSavedAnchorChannel(controller),
     // All local-tier prefs — includes midi_passthrough and midiin_mpe_input
     // with their first-connect fallbacks handled inside loadControllerPrefs.
     ...loadControllerPrefs(controller),
+    // Fixed MPE voice channel range
+    ...(controller.mpeVoiceChannels ? {
+      midiin_mpe_lo_ch: controller.mpeVoiceChannels.lo,
+      midiin_mpe_hi_ch: controller.mpeVoiceChannels.hi,
+    } : {}),
+    // Sequential defaults
+    ...('sequentialTransposeDefault' in controller ? {
+      midiin_steps_per_channel: controller.sequentialTransposeDefault,
+    } : {}),
+    ...('sequentialLegacyDefault' in controller ? {
+      midiin_channel_legacy: controller.sequentialLegacyDefault,
+    } : {}),
   };
-
-  const ch = loadSavedAnchorChannel(controller);
-  if (ch !== null) update.lumatone_center_channel = ch;
-
-  // Auto-apply fixed MPE voice channel range for controllers that define one.
-  if (controller.mpeVoiceChannels) {
-    update.midiin_mpe_lo_ch = controller.mpeVoiceChannels.lo;
-    update.midiin_mpe_hi_ch = controller.mpeVoiceChannels.hi;
-  }
-
-  // Apply controller-specific sequential transposition defaults (e.g. Lumatone:
-  // equave transposition + mod-8 wrapping for its 5-block channel layout).
-  if ('sequentialTransposeDefault' in controller) {
-    update.midiin_steps_per_channel = controller.sequentialTransposeDefault;
-  }
-  if ('sequentialLegacyDefault' in controller) {
-    update.midiin_channel_legacy = controller.sequentialLegacyDefault;
-  }
 
   return update;
 }
 
 /**
  * Save all anchor state after a MIDI-learn event and return the settings
- * update to merge. Mirrors loadAnchorSettingsUpdate but writes rather than reads.
+ * update to merge.
+ *
+ * Mode-aware: in sequential mode, stores arbitrary MIDI values. In 2D geometry
+ * mode, validates against controller constraints and returns a warning if invalid.
  *
  * Used by use-synth-wiring.js in onAnchorLearn.
  *
- * @param {object} controller
- * @param {number} note     Learned anchor note
- * @param {number} channel  Learned anchor channel
- * @returns {object}  Partial settings update
+ * @param {object}  controller     Registry entry
+ * @param {number}  note           Learned anchor note
+ * @param {number}  channel        Learned anchor channel
+ * @param {boolean} isSequential   True if in sequential/passthrough mode
+ * @returns {{ update: object|null, warning: string|null }}
  */
-export function saveAnchorFromLearn(controller, note, channel) {
-  saveAnchor(controller, note);
-  saveAnchorChannel(controller, channel);
-
-  const update = {
-    midiin_central_degree: note,
-    midiin_anchor_channel: channel,
-  };
-  if (controller.anchorChannelDefault != null) {
-    update.lumatone_center_channel = channel;
-    update.lumatone_center_note    = note; // 0–55 within the block for Lumatone
+export function saveAnchorFromLearn(controller, note, channel, isSequential) {
+  // Validate against controller constraints in 2D geometry mode
+  if (!isSequential) {
+    const validation = validateLearn(controller, note, channel);
+    if (!validation.valid) {
+      return { update: null, warning: validation.warning };
+    }
   }
-  return update;
+
+  if (isSequential) {
+    // Sequential mode: store arbitrary MIDI values
+    saveSeqAnchor(controller, note);
+    saveSeqAnchorChannel(controller, channel);
+    return {
+      update: { midiin_central_degree: note, midiin_anchor_channel: channel },
+      warning: null,
+    };
+  }
+
+  // 2D geometry mode: validated, store geometry anchors
+  if (controller.multiChannel) {
+    saveAnchor(controller, note);
+    saveAnchorChannel(controller, channel);
+    return {
+      update: { lumatone_center_note: note, lumatone_center_channel: channel },
+      warning: null,
+    };
+  } else {
+    saveAnchor(controller, note);
+    return { update: { midiin_central_degree: note }, warning: null };
+  }
 }

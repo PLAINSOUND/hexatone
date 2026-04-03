@@ -174,7 +174,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
 const useSynthWiring = (
   settings,
   setSettings,
-  { ready, userHasInteracted, keysRef, synthRef },
+  { ready, userHasInteracted, keysRef, synthRef, setAnchorLearnWarning },
 ) => {
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
@@ -637,6 +637,8 @@ const useSynthWiring = (
   const onAnchorLearn = useCallback((noteNum, channel) => {
     setMidiLearnActive(false);
     const ch = channel ?? 1;
+    const isSequential = settings.midi_passthrough;
+    
     let ctrl = null;
     if (settings.midiin_device && settings.midiin_device !== "OFF" && midi) {
       const input = Array.from(midi.inputs.values()).find(
@@ -645,24 +647,38 @@ const useSynthWiring = (
       if (input) ctrl = detectController(input.name.toLowerCase());
     }
 
-    // Persist anchor note per controller and build the settings update.
-    // saveAnchorFromLearn handles both single-channel and channel-aware (Lumatone)
-    // controllers in one place; returns the update object to merge into settings.
-    const update = ctrl
-      ? saveAnchorFromLearn(ctrl, noteNum, ch)
-      : { midiin_central_degree: noteNum, midiin_anchor_channel: ch };
+    // Pass isSequential to get mode-appropriate validation and storage.
+    // saveAnchorFromLearn returns { update, warning } where warning is non-null
+    // if validation failed in 2D geometry mode.
+    const result = ctrl
+      ? saveAnchorFromLearn(ctrl, noteNum, ch, isSequential)
+      : { update: { midiin_central_degree: noteNum, midiin_anchor_channel: ch }, warning: null };
 
-    // midiin_anchor_channel drives the relative channel-offset formula in
-    // noteToSteps() for all paths (sequential, unknown, passthrough).
-    // For the Lumatone 2D-map path, lumatone_center_channel is also updated.
+    // Handle validation failure — show warning in the UI
+    if (result.warning) {
+      setAnchorLearnWarning(result.warning);
+      return;
+    }
+
+    const { update } = result;
+
+    // Persist to sessionStorage
     sessionStorage.setItem("midiin_central_degree", String(noteNum));
     sessionStorage.setItem("midiin_anchor_channel", String(ch));
-    if (update.lumatone_center_channel != null) {
-      sessionStorage.setItem("lumatone_center_channel", String(update.lumatone_center_channel));
-      sessionStorage.setItem("lumatone_center_note",    String(update.lumatone_center_note));
+
+    // Persist mode-appropriate anchors to localStorage
+    if (isSequential && ctrl?.multiChannel) {
+      // Sequential mode: store as sequential anchors
+      localStorage.setItem(`${ctrl.id}_seq_anchor`, String(noteNum));
+      localStorage.setItem(`${ctrl.id}_seq_anchor_channel`, String(ch));
+    } else if (!isSequential && update.lumatone_center_note != null) {
+      // 2D geometry mode: store as geometry anchors
+      localStorage.setItem(`${ctrl.id}_anchor`, String(update.lumatone_center_note));
+      localStorage.setItem(`${ctrl.id}_anchor_channel`, String(update.lumatone_center_channel));
     }
+
     setSettings((s) => ({ ...s, ...update }));
-  }, [settings.midiin_device, midi]);
+  }, [settings.midiin_device, settings.midi_passthrough, midi]);
 
   // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
   // When the active MIDI input is a Lumatone, resolve the matching raw Web MIDI

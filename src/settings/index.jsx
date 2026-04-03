@@ -39,6 +39,8 @@ const Settings = ({
   playingSnapshotId,
   onPlaySnapshot,
   onDeleteSnapshot,
+  anchorLearnWarning,
+  setAnchorLearnWarning,
 }) => (
   <form onSubmit={(e) => e.preventDefault()}>
     <fieldset style={{marginTop: '1em'}}>
@@ -115,6 +117,8 @@ const Settings = ({
       exquisRawPorts={exquisRawPorts}
       exquisLedStatus={exquisLedStatus}
       keysRef={keysRef}
+      anchorLearnWarning={anchorLearnWarning}
+      setAnchorLearnWarning={setAnchorLearnWarning}
     />
     <MidiOutputs
       onChange={onChange}

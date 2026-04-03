@@ -103,11 +103,24 @@ export const SETTINGS_REGISTRY = [
   { key: 'midiin_pressure_mode',    tier: 'session', type: 'string', default: 'all' },
 
   // ── Controller anchors (hardware-scoped, survive device disconnect) ──────────
-  // These are keyed dynamically as "${controllerId}_anchor" in localStorage.
+  // These are keyed dynamically as "${controllerId}_*" in localStorage.
   // Listed here as a documentation anchor for the local tier; not used directly
   // by the registry loop since the key name is runtime-derived.
+  //
+  // Sequential anchors (used when midi_passthrough=true):
+  //   ${controllerId}_seq_anchor         — anchor note (0-127)
+  //   ${controllerId}_seq_anchor_channel — anchor channel (1-16)
+  //
+  // 2D geometry anchors (used when midi_passthrough=false, for multi-channel controllers):
+  //   ${controllerId}_anchor            — anchor note within block (0-55 for Lumatone)
+  //   ${controllerId}_anchor_channel    — anchor channel (1-5 for Lumatone)
+  //
+  // Legacy anchors (used for single-channel controllers):
+  //   ${controllerId}_anchor           — anchor note (0-127)
   // { key: '${controllerId}_anchor',         tier: 'local', type: 'int' },
   // { key: '${controllerId}_anchor_channel', tier: 'local', type: 'int' },
+  // { key: '${controllerId}_seq_anchor',      tier: 'local', type: 'int' },
+  // { key: '${controllerId}_seq_anchor_channel', tier: 'local', type: 'int' },
 
   // ── Sample synth ─────────────────────────────────────────────────────────────
   { key: 'output_sample',   tier: 'session', type: 'bool',   default: true },

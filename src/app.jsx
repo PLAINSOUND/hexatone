@@ -82,6 +82,7 @@ const App = () => {
   const [showManual, setShowManual] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [banner, setBanner] = useState(initialBanner);
+  const [anchorLearnWarning, setAnchorLearnWarning] = useState(null);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
 
@@ -157,6 +158,7 @@ const App = () => {
     userHasInteracted,
     keysRef,
     synthRef,
+    setAnchorLearnWarning,
   });
 
   const { panic: guardianPanic } = useMidiGuardian(midi, settings);
@@ -761,6 +763,8 @@ const App = () => {
           playingSnapshotId={playingSnapshotId}
           onPlaySnapshot={onPlaySnapshot}
           onDeleteSnapshot={onDeleteSnapshot}
+          anchorLearnWarning={anchorLearnWarning}
+          setAnchorLearnWarning={setAnchorLearnWarning}
         />
         <Blurb />
         <div id="sidebar-spacer"></div>
