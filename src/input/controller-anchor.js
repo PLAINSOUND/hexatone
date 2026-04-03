@@ -136,6 +136,7 @@ export function saveControllerPref(controller, key, value) {
  * @returns {number}
  */
 export function loadSavedAnchor(controller) {
+  if (!controller) return undefined;
   const raw = localStorage.getItem(`${controller.id}_anchor`);
   return raw !== null ? parseInt(raw, 10) : controller.anchorDefault;
 }
@@ -148,6 +149,7 @@ export function loadSavedAnchor(controller) {
  * @returns {number|null}
  */
 export function loadSavedAnchorChannel(controller) {
+  if (!controller) return null;
   if (controller.anchorChannelDefault == null) return null;
   const raw = localStorage.getItem(`${controller.id}_anchor_channel`);
   return raw !== null ? parseInt(raw, 10) : controller.anchorChannelDefault;
@@ -160,6 +162,7 @@ export function loadSavedAnchorChannel(controller) {
  * @param {number} note
  */
 export function saveAnchor(controller, note) {
+  if (!controller) return;
   localStorage.setItem(`${controller.id}_anchor`, String(note));
 }
 
@@ -171,6 +174,7 @@ export function saveAnchor(controller, note) {
  * @param {number} channel
  */
 export function saveAnchorChannel(controller, channel) {
+  if (!controller) return;
   if (controller.anchorChannelDefault == null) return;
   localStorage.setItem(`${controller.id}_anchor_channel`, String(channel));
 }
@@ -185,8 +189,10 @@ export function saveAnchorChannel(controller, channel) {
  * @returns {number}
  */
 export function loadSavedSeqAnchor(controller) {
+  if (!controller) return undefined;
   const raw = localStorage.getItem(`${controller.id}_seq_anchor`);
-  return raw !== null ? parseInt(raw, 10) : controller.anchorDefault;
+  return raw !== null ? parseInt(raw, 10)
+    : controller.seqAnchorDefault ?? controller.anchorDefault;
 }
 
 /**
@@ -197,9 +203,11 @@ export function loadSavedSeqAnchor(controller) {
  * @returns {number|null}
  */
 export function loadSavedSeqAnchorChannel(controller) {
-  if (controller.anchorChannelDefault == null) return null;
+  if (!controller) return null;
+  if (controller.seqAnchorChannelDefault == null && controller.anchorChannelDefault == null) return null;
   const raw = localStorage.getItem(`${controller.id}_seq_anchor_channel`);
-  return raw !== null ? parseInt(raw, 10) : controller.anchorChannelDefault;
+  return raw !== null ? parseInt(raw, 10)
+    : controller.seqAnchorChannelDefault ?? controller.anchorChannelDefault;
 }
 
 /**
@@ -209,6 +217,7 @@ export function loadSavedSeqAnchorChannel(controller) {
  * @param {number} note
  */
 export function saveSeqAnchor(controller, note) {
+  if (!controller) return;
   localStorage.setItem(`${controller.id}_seq_anchor`, String(note));
 }
 
@@ -220,7 +229,8 @@ export function saveSeqAnchor(controller, note) {
  * @param {number} channel
  */
 export function saveSeqAnchorChannel(controller, channel) {
-  if (controller.anchorChannelDefault == null) return;
+  if (!controller) return;
+  if (controller.seqAnchorChannelDefault == null && controller.anchorChannelDefault == null) return;
   localStorage.setItem(`${controller.id}_seq_anchor_channel`, String(channel));
 }
 

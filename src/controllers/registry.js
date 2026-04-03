@@ -386,6 +386,8 @@ export const CONTROLLER_REGISTRY = [
     mpe: false,  // channels encode block geometry, not per-voice MPE expression
     anchorDefault: 26,  // note 26 in centre block is the default centre key
     anchorChannelDefault: 3,  // centre block
+    seqAnchorDefault: 60,       // sequential mode: physical MIDI note 60
+    seqAnchorChannelDefault: 4, // sequential mode: block channel 4
     // In sequential/bypass mode: channels 1–5 map to blocks — transposition by equave
     // and mod-8 wrapping are both needed for correct note mapping.
     sequentialTransposeDefault: null,  // null = equave (one equave per channel)
