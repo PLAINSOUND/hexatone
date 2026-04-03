@@ -60,7 +60,7 @@ export const instruments = [
         release: 0.1,
         loop: true,
         velocity: true, velocity_floor: 0.3, velocity_exp: 1,
-        aftertouch: 3.5,
+        aftertouch: 3,
         filter_low: 2000, filter_mid: 2200, filter_high: 5000,
       }, {
         fileName: "hammond",
@@ -168,7 +168,7 @@ export const instruments = [
         release: 0.5,
         loop: true,
         velocity: true, velocity_floor: 0.4, velocity_exp: 1.2,
-        aftertouch: 4.5,
+        aftertouch: 4,
         filter_low: 1600, filter_mid: 3336, filter_high: 12591,
       }
     ]
