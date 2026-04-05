@@ -1,0 +1,53 @@
+{
+  "piece_id": "bwv1001_adagio",
+  "source_files": {
+    "midi": "../MIDI/bwv1001/vs1-1ada.mid",
+    "score_pdf": "../TUNED/Sei Bach-Intonazioni_Ia_IIa_IIIa_2024.pdf",
+    "score_sibelius": "../TUNED/Sei Bach-IntonazioniSIB2024win-FINAL.sib",
+    "heji_map": "./heji-map.bach-subset.json"
+  },
+  "reference": {
+    "base_pitch": "A4",
+    "base_frequency_hz": 440.0,
+    "monzo_primes": [2, 3, 5, 7, 11, 13, 17, 19]
+  },
+  "notes": [
+    {
+      "event_id": "n0001",
+      "midi": {
+        "track": null,
+        "channel": null,
+        "note": null,
+        "on_tick": null,
+        "off_tick": null,
+        "on_seconds": null,
+        "off_seconds": null
+      },
+      "score": {
+        "measure": null,
+        "beat": null,
+        "voice": null,
+        "staff_note": null,
+        "octave": null,
+        "western_accidental": null,
+        "heji_ids": [],
+        "heji_glyphs": [],
+        "heji_text": ""
+      },
+      "computed": {
+        "pythagorean_monzo": null,
+        "heji_delta_monzo": null,
+        "full_monzo": null,
+        "ratio": null,
+        "cents_from_A4": null,
+        "frequency_hz": null,
+        "midicents": null
+      },
+      "tags": {
+        "phrase_id": null,
+        "double_stop_group": null,
+        "comment": ""
+      }
+    }
+  ]
+}
