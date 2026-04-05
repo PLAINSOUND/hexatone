@@ -191,6 +191,10 @@ const useSynthWiring = (
   const [octaveDeferred,  setOctaveDeferred]  = useState(
     () => sessionStorage.getItem("octave_deferred") === "true",
   );
+  const sampleSynthRef = useRef({ key: null, synth: null });
+  const mpeSynthRef = useRef({ key: null, synth: null });
+  const mtsSynthsRef = useRef(new Map());
+  const oscSynthRef = useRef({ key: null, synth: null });
 
   // ── MIDI access ─────────────────────────────────────────────────────────────
 
@@ -368,19 +372,57 @@ const useSynthWiring = (
     setLoading(wait);
     const promises = [];
 
+    const sampleKey = wantSample
+      ? JSON.stringify([settings.instrument, settings.fundamental, settings.reference_degree, settings.scale])
+      : null;
+    if (!wantSample && sampleSynthRef.current.synth) {
+      sampleSynthRef.current.synth.releaseAll?.();
+      sampleSynthRef.current = { key: null, synth: null };
+    }
+
     if (wantSample) {
-      promises.push(
-        create_sample_synth(
-          settings.instrument,
-          settings.fundamental,
-          settings.reference_degree,
-          settings.scale,
-        ),
-      );
+      if (sampleSynthRef.current.key === sampleKey && sampleSynthRef.current.synth) {
+        promises.push(Promise.resolve(sampleSynthRef.current.synth));
+      } else {
+        promises.push(
+          create_sample_synth(
+            settings.instrument,
+            settings.fundamental,
+            settings.reference_degree,
+            settings.scale,
+          ).then((s) => {
+            if (!cancelled) sampleSynthRef.current = { key: sampleKey, synth: s };
+            return s;
+          }),
+        );
+      }
     }
     if (wantMts || wantFluidsynth || wantDirect) {
+      const desiredMtsKeys = new Set();
       for (const outputMode of mtsOutputs) {
         if (!outputMode.output) continue;
+        const mtsKey = JSON.stringify([
+          outputMode.transportMode,
+          outputMode.output?.id,
+          outputMode.channel,
+          outputMode.velocity,
+          outputMode.deviceId,
+          outputMode.mapNumber,
+          outputMode.mapName,
+          outputMode.anchorNote,
+          outputMode.sysexType,
+          settings.fundamental,
+          settings.reference_degree,
+          settings.center_degree,
+          settings.scale,
+          settings.midi_mapping,
+        ]);
+        desiredMtsKeys.add(mtsKey);
+        const existing = mtsSynthsRef.current.get(mtsKey);
+        if (existing) {
+          promises.push(Promise.resolve(existing));
+          continue;
+        }
         const anchorNote = outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
           ? outputMode.anchorNote
@@ -420,41 +462,96 @@ const useSynthWiring = (
                 ),
               })
               : null,
+          }).then((s) => {
+            if (!cancelled) mtsSynthsRef.current.set(mtsKey, s);
+            return s;
           }),
         );
       }
+      for (const [key, synth] of mtsSynthsRef.current) {
+        if (!desiredMtsKeys.has(key)) {
+          synth.releaseAll?.();
+          mtsSynthsRef.current.delete(key);
+        }
+      }
+    } else if (mtsSynthsRef.current.size > 0) {
+      for (const synth of mtsSynthsRef.current.values()) synth.releaseAll?.();
+      mtsSynthsRef.current.clear();
     }
     if (wantOsc) {
-      promises.push(
-        create_osc_synth(
-          settings.osc_bridge_url || "ws://localhost:8089",
-          settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-          settings.osc_volumes     || [0.5, 0.5, 0.5, 0.5],
-          settings.fundamental,
-          settings.reference_degree,
-          settings.scale,
-        ),
-      );
+      const oscKey = JSON.stringify([
+        settings.osc_bridge_url || "ws://localhost:8089",
+        settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
+        settings.osc_volumes || [0.5, 0.5, 0.5, 0.5],
+        settings.fundamental,
+        settings.reference_degree,
+        settings.scale,
+      ]);
+      if (oscSynthRef.current.key === oscKey && oscSynthRef.current.synth) {
+        promises.push(Promise.resolve(oscSynthRef.current.synth));
+      } else {
+        promises.push(
+          create_osc_synth(
+            settings.osc_bridge_url || "ws://localhost:8089",
+            settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
+            settings.osc_volumes     || [0.5, 0.5, 0.5, 0.5],
+            settings.fundamental,
+            settings.reference_degree,
+            settings.scale,
+          ).then((s) => {
+            if (!cancelled) oscSynthRef.current = { key: oscKey, synth: s };
+            return s;
+          }),
+        );
+      }
+    } else {
+      oscSynthRef.current = { key: null, synth: null };
     }
     if (wantMpe) {
-      promises.push(
-        create_mpe_synth(
-          midi.outputs.get(settings.mpe_device),
-          settings.mpe_manager_ch,
-          settings.mpe_lo_ch,
-          settings.mpe_hi_ch,
-          settings.fundamental,
-          settings.reference_degree,
-          settings.center_degree,
-          settings.midiin_central_degree,
-          settings.scale,
-          settings.mpe_mode,
-          settings.mpe_pitchbend_range ?? 48,
-          settings.mpe_manager_pitchbend_range ?? 2,
-          settings.equivSteps,
-          settings.equivInterval,
-        ),
-      );
+      const mpeKey = JSON.stringify([
+        settings.mpe_device,
+        settings.mpe_manager_ch,
+        settings.mpe_lo_ch,
+        settings.mpe_hi_ch,
+        settings.fundamental,
+        settings.reference_degree,
+        settings.center_degree,
+        settings.midiin_central_degree,
+        settings.scale,
+        settings.mpe_mode,
+        settings.mpe_pitchbend_range ?? 48,
+        settings.mpe_manager_pitchbend_range ?? 2,
+        settings.equivSteps,
+        settings.equivInterval,
+      ]);
+      if (mpeSynthRef.current.key === mpeKey && mpeSynthRef.current.synth) {
+        promises.push(Promise.resolve(mpeSynthRef.current.synth));
+      } else {
+        promises.push(
+          create_mpe_synth(
+            midi.outputs.get(settings.mpe_device),
+            settings.mpe_manager_ch,
+            settings.mpe_lo_ch,
+            settings.mpe_hi_ch,
+            settings.fundamental,
+            settings.reference_degree,
+            settings.center_degree,
+            settings.midiin_central_degree,
+            settings.scale,
+            settings.mpe_mode,
+            settings.mpe_pitchbend_range ?? 48,
+            settings.mpe_manager_pitchbend_range ?? 2,
+            settings.equivSteps,
+            settings.equivInterval,
+          ).then((s) => {
+            if (!cancelled) mpeSynthRef.current = { key: mpeKey, synth: s };
+            return s;
+          }),
+        );
+      }
+    } else if (mpeSynthRef.current.synth) {
+      mpeSynthRef.current.synth.releaseAll?.();
+      mpeSynthRef.current = { key: null, synth: null };
     }
 
     Promise.all(promises).then(async (synths) => {

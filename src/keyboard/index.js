@@ -24,7 +24,16 @@ const Keyboard = (props) => {
       keys.exquisLEDs = null;
       keys.deconstruct();
     };
-  }, [canvas, props.structuralSettings, props.inputRuntime, props.synth]);
+  }, [canvas, props.structuralSettings, props.inputRuntime]);
+
+  // Output/synth changes should not tear down the live keyboard. Existing notes
+  // keep their current hex objects so tails can decay naturally; new notes use
+  // the latest synth/output configuration.
+  useEffect(() => {
+    if (keysRef.current?.updateLiveOutputState) {
+      keysRef.current.updateLiveOutputState(props.liveOutputSettings, props.synth);
+    }
+  }, [props.liveOutputSettings, props.synth]);
 
   // After every render, schedule a redraw via rAF.
   const renderCount = useRef(0);
@@ -73,6 +82,7 @@ const Keyboard = (props) => {
 
 Keyboard.propTypes = {
   structuralSettings: PropTypes.object,
+  liveOutputSettings: PropTypes.object,
   exquisLedsRef: PropTypes.object,
   settings: PropTypes.shape({
     keyCodeToCoords: PropTypes.object,

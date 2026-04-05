@@ -44,7 +44,7 @@ const FundamentalTuneCell = ({ fundamental, keysRef, onChange, setTuneDragging }
     // Snapshot base pitch of all sounding notes before drag begins
     if (keysRef?.current?.snapshotForFundamentalPreview)
       keysRef.current.snapshotForFundamentalPreview();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     dragStart.current = { lastX: e.clientX, acc: 0 };
   }, [keysRef]);
 

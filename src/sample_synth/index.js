@@ -124,7 +124,10 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       centsToReference = scalaToCents(scale[reference_degree - 1]);
     }
 
+    const activeHexes = new Set();
+
     return {
+      family: "sample",
       // ── Call once after a user gesture (e.g. preset selection) ───────────────
       // Creates/resumes the AudioContext and decodes all samples so that noteOn
       // is fully synchronous and has no latency.
@@ -193,13 +196,24 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
       makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
         note_played, velocity_played, bend, degree0toRef_ratio) => {
-        return new ActiveHex(
+        const hex = new ActiveHex(
           coords, cents, velocity_played, note_played, fundamental, centsToReference,
           sampleGain, sampleAttack, sampleRelease, sampleLoop, sampleLoopPoints,
           velocity_response, velocity_floor, velocity_exp, aftertouch_amount, filterCoeffs,
           decodedBuffers, sharedAudioContext, masterGain, lastModWheel,
           (v) => { lastModWheel = v; }
         );
+        activeHexes.add(hex);
+        const originalNoteOff = hex.noteOff.bind(hex);
+        hex.noteOff = (release_velocity) => {
+          originalNoteOff(release_velocity);
+          activeHexes.delete(hex);
+        };
+        return hex;
+      },
+
+      releaseAll: () => {
+        for (const hex of [...activeHexes]) hex.noteOff(0);
       },
     };
   } catch (e) {

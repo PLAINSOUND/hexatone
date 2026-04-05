@@ -78,12 +78,16 @@ export const create_midi_synth = async ({
     })
     : null;
 
+  const activeHexes = new Set();
+
   return {
+    family: "mts",
     makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next, 
       note_played, velocity_played, bend, degree0toRef_ratio) => {
+      let hex;
       if (midi_mapping === 'DIRECT') {
         if (transportMode === "bulk_dynamic_map") {
-          return new DynamicBulkHex(
+          hex = new DynamicBulkHex(
             coords, cents, steps, equaves,
             note_played, velocity_played, velocity,
             midi_output, channel,
@@ -93,27 +97,40 @@ export const create_midi_synth = async ({
             cents_prev,
             cents_next,
           );
+        } else {
+          hex = new StaticBulkHex(
+            coords, cents, steps, equaves,
+            note_played, velocity_played, velocity,
+            midi_output, channel,
+            anchorNote ?? midiin_central_degree,
+          );
         }
-        return new StaticBulkHex(
-          coords, cents, steps, equaves,
-          note_played, velocity_played, velocity,
-          midi_output, channel,
-          anchorNote ?? midiin_central_degree,
+      } else {
+        hex = new MidiHex(
+          coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
+          note_played, velocity_played, bend, degree0toRef_ratio,
+          midiin_device, midiin_central_degree, midi_output, channel, midi_mapping, velocity, fundamental,
+          pool_mts1, pool_mts2_low, pool_mts2_high,
+          sysex_rt, sysex_dev_id
         );
       }
-      return new MidiHex(
-        coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
-        note_played, velocity_played, bend, degree0toRef_ratio,
-        midiin_device, midiin_central_degree, midi_output, channel, midi_mapping, velocity, fundamental,
-        pool_mts1, pool_mts2_low, pool_mts2_high,
-        sysex_rt, sysex_dev_id
-      );
+      activeHexes.add(hex);
+      const originalNoteOff = hex.noteOff.bind(hex);
+      hex.noteOff = (release_velocity) => {
+        originalNoteOff(release_velocity);
+        activeHexes.delete(hex);
+      };
+      return hex;
     },
 
     allSoundOff: () => {
       if (!midi_output) return;
       // Send CC123 on the configured output channel.
       midi_output.send([0xB0 + channel, 123, 0]);
+    },
+
+    releaseAll: () => {
+      for (const hex of [...activeHexes]) hex.noteOff(0);
     },
   };
 };

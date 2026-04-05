@@ -32,6 +32,11 @@ import {
   resolveBulkDumpName,
 } from './mts-helpers.js';
 
+const RETUNE_GLIDE_TICK_MS = 4;
+const RETUNE_GLIDE_TAU_MS = 40;
+const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
+const RETUNE_GLIDE_SNAP_CENTS = 0.1;
+
 class Keys {
   constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, onFirstInteraction = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
@@ -129,17 +134,24 @@ class Keys {
     //                    pitchbend value received on each channel when target='scale'
     //                    and mpeInput=true. Captured before note-on arrives so the
     //                    exact intended pitch can be resolved at note-on time.
+    // _mpeInputBendByChannel: current per-channel bend state for MPE input mode.
     this._mtsInputTable    = new Map();
     this._scaleModePreBend = new Map();
+    this._mpeInputBendByChannel = new Map();
+    this._retuneGlides = new Map();
+    this._retuneGlideTimer = null;
+    this._retuneGlideLastTime = 0;
     // Per-channel slew state for MPE input pitch bend smoothing.
     // Map<channel, { current: float, target: float, raf: id|null }>
     this._bendSlew = new Map();
 
     // Wheel bend state — controller-agnostic.
-    // _wheelBend:      current offset in cents applied to the front note.
+    // _wheelValue14:   most recent non-MPE pitch-bend value (0–16383).
+    // _wheelBend:      current offset in cents applied by the active wheel mode.
     // _wheelTarget:    the hex currently being bent.
     // _wheelBaseCents: that hex's pitch before any bend was applied.
     //                  Snapshot feature will read this + _wheelBend.
+    this._wheelValue14 = 8192;
     this._wheelBend = 0;
     this._wheelTarget = null;
     this._wheelBaseCents = null;
@@ -514,12 +526,15 @@ class Keys {
           if (this.inputRuntime.mpeInput) {
             // MPE input mode: pitch bend is per-voice, carried on the note's channel.
             // Route to the hex registered on this channel, bypassing the recency stack.
+            this._mpeInputBendByChannel.set(e.message.channel, val14);
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
             if (entry && !entry.hex.release) {
               let norm = (val14 - 8192) / 8192;
               if (this.inputRuntime.bendFlip) norm = -norm;
               const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
-              entry.hex.retune(entry.baseCents + norm * rangeCents, true);
+              const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
+              entry.baseCents = baseCents;
+              entry.hex.retune(baseCents + norm * rangeCents, true);
             }
             // In MPE input mode we do NOT pass through to the output — each hex's
             // retune() call handles expression for its own output engine.
@@ -623,17 +638,22 @@ class Keys {
     if (degree === this.settings.scale.length) {
       const oldEquiv = this.settings.equivInterval;
       const equivDelta = newCents - oldEquiv;
+      const bendOnly = !!this.inputRuntime.mpeInput;
       this.settings.equivInterval = newCents;
       // Each hex is at octs * equivInterval + scale[reducedSteps],
       // so changing equivInterval by equivDelta shifts it by octs * equivDelta.
       for (const hex of this._allActiveHexes()) {
         const [, , , octs] = this.hexCoordsToCents(hex.coords);
-        if (hex.retune) hex.retune(hex.cents + octs * equivDelta);
+        const baseCents = (hex._baseCents ?? hex.cents) + octs * equivDelta;
+        this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
       for (const [hex] of this.state.sustainedNotes) {
         const [, , , octs] = this.hexCoordsToCents(hex.coords);
-        if (hex.retune) hex.retune(hex.cents + octs * equivDelta);
+        const baseCents = (hex._baseCents ?? hex.cents) + octs * equivDelta;
+        this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
+      this._refreshSoundingHexNeighbors();
+      this._kickRetuneGlides();
       this.drawGrid();
       return;
     }
@@ -643,30 +663,46 @@ class Keys {
     // regardless of which octave it was played in.
     const oldCents = this.settings.scale[degree];
     const delta = newCents - oldCents;
+    const bendOnly = !!this.inputRuntime.mpeInput;
     this.settings.scale[degree] = newCents;
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
-      if (reducedSteps === degree && hex.retune) hex.retune(hex.cents + delta);
+      if (reducedSteps === degree && hex.retune) {
+        const baseCents = (hex._baseCents ?? hex.cents) + delta;
+        this._queueRetuneGlide(hex, baseCents, bendOnly);
+      }
     }
     for (const [hex] of this.state.sustainedNotes) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
-      if (reducedSteps === degree && hex.retune) hex.retune(hex.cents + delta);
+      if (reducedSteps === degree && hex.retune) {
+        const baseCents = (hex._baseCents ?? hex.cents) + delta;
+        this._queueRetuneGlide(hex, baseCents, bendOnly);
+      }
     }
+    this._refreshSoundingHexNeighbors();
+    this._kickRetuneGlides();
     this.drawGrid();
   };
 
   previewDegree0 = (deltaCents) => {
     const newCents = deltaCents;
+    const bendOnly = !!this.inputRuntime.mpeInput;
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
-      if (reducedSteps === 0 && hex.retune)
-        hex.retune(octs * this.settings.equivInterval + newCents);
+      if (reducedSteps === 0 && hex.retune) {
+        const baseCents = octs * this.settings.equivInterval + newCents;
+        this._queueRetuneGlide(hex, baseCents, bendOnly);
+      }
     }
     for (const [hex] of this.state.sustainedNotes) {
       const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
-      if (reducedSteps === 0 && hex.retune)
-        hex.retune(octs * this.settings.equivInterval + newCents);
+      if (reducedSteps === 0 && hex.retune) {
+        const baseCents = octs * this.settings.equivInterval + newCents;
+        this._queueRetuneGlide(hex, baseCents, bendOnly);
+      }
     }
+    this._refreshSoundingHexNeighbors();
+    this._kickRetuneGlides();
   };
 
   // Imperatively update the Reference Frequency without rebuilding Keys.
@@ -748,6 +784,7 @@ class Keys {
 
   updateFundamental = (newFundamental) => {
     this.settings.fundamental = newFundamental;
+    const bendOnly = !!this.inputRuntime.mpeInput;
     // Rebuild MTS tuning map with new fundamental
     this.mts_tuning_map = mtsTuningMap(
       this.settings.sysex_type,
@@ -773,8 +810,9 @@ class Keys {
     // to previewFundamental(0): it works correctly whether the effect fires before or
     // after onSave's cleanup call, and also handles abandoned drags where hex.cents
     // was left at base+delta.
-    const snap = this._fundamentalSnapshot;
+    const snap = this._fundamentalPreviewSnapshot ?? this._fundamentalSnapshot;
     this._fundamentalSnapshot = null; // clear — official update supersedes the preview
+    this._fundamentalPreviewSnapshot = null;
     // Update fundamental on all sounding/sustained hex objects, then retune.
     // Both MidiHex and ActiveHex store this.fundamental at construction;
     // we patch it directly so retune() uses the new value.
@@ -785,10 +823,11 @@ class Keys {
     for (const hex of allHexes) {
       if ('fundamental' in hex) hex.fundamental = newFundamental;
       const key = hex.coords.x + ',' + hex.coords.y;
-      const trueCents = snap ? (snap.get(key) ?? hex.cents) : hex.cents;
-      hex.cents = trueCents; // sync to base, cancelling any preview offset
-      if (hex.retune) hex.retune(trueCents);
+      const trueCents = snap ? (snap.get(key) ?? (hex._baseCents ?? hex.cents)) : (hex._baseCents ?? hex.cents);
+      this._queueRetuneGlide(hex, trueCents, bendOnly);
     }
+    this._refreshSoundingHexNeighbors();
+    this._kickRetuneGlides();
     // Re-send tuning map if auto-send is enabled for the relevant output
     if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
     if (this.settings.output_direct && this.settings.direct_mode === "static" && this.settings.direct_sysex_auto &&
@@ -799,25 +838,33 @@ class Keys {
   };
 
   _fundamentalSnapshot = null;
+  _fundamentalPreviewSnapshot = null;
 
   snapshotForFundamentalPreview = () => {
     this._fundamentalSnapshot = new Map();
     for (const hex of this._allActiveHexes())
-      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex.cents);
+      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex._baseCents ?? hex.cents);
     for (const [hex] of this.state.sustainedNotes)
-      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex.cents);
+      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex._baseCents ?? hex.cents);
+    this._fundamentalPreviewSnapshot = new Map(this._fundamentalSnapshot);
   };
 
   previewFundamental = (deltaCents, clearSnapshot = false) => {
-    const snap = this._fundamentalSnapshot;
+    const snap = this._fundamentalPreviewSnapshot ?? this._fundamentalSnapshot;
+    const bendOnly = !!this.inputRuntime.mpeInput;
     const applyTo = (hex) => {
       const key = hex.coords.x + ',' + hex.coords.y;
-      const base = snap ? (snap.get(key) ?? hex.cents) : hex.cents;
-      if (hex.retune) hex.retune(base + deltaCents);
+      const base = snap ? (snap.get(key) ?? (hex._baseCents ?? hex.cents)) : (hex._baseCents ?? hex.cents);
+      this._queueRetuneGlide(hex, base + deltaCents, bendOnly);
     };
     for (const hex of this._allActiveHexes()) applyTo(hex);
     for (const [hex] of this.state.sustainedNotes) applyTo(hex);
-    if (clearSnapshot) this._fundamentalSnapshot = null;
+    this._refreshSoundingHexNeighbors();
+    this._kickRetuneGlides();
+    if (clearSnapshot) {
+      this._fundamentalSnapshot = null;
+      this._fundamentalPreviewSnapshot = null;
+    }
   };
 
   /**
@@ -860,6 +907,16 @@ class Keys {
     if (this.exquisLEDs && this.settings.exquis_led_sync) {
       this.exquisLEDs.sendColors(this._buildExquisColorArray());
     }
+  };
+
+  updateLiveOutputState = (nextSettings, synth) => {
+    if (synth) this.synth = synth;
+    if (nextSettings) Object.assign(this.settings, nextSettings);
+    this.midiout_data = (
+      this.settings.output_mts &&
+      this.settings.midi_device !== "OFF" &&
+      this.settings.midi_channel >= 0
+    ) ? WebMidi.getOutputById(this.settings.midi_device) : null;
   };
 
   // ── Snapshot capture & playback ────────────────────────────────────────────
@@ -1125,6 +1182,12 @@ class Keys {
   }
 
   deconstruct = () => {
+    if (this._retuneGlideTimer != null) {
+      clearTimeout(this._retuneGlideTimer);
+      this._retuneGlideTimer = null;
+    }
+    this._retuneGlides.clear();
+    this._retuneGlideLastTime = 0;
     // Graceful noteOff for all active and sustained notes — allows synth
     // release envelopes to run rather than cutting sound abruptly via panic().
     for (const hex of this._allActiveHexes()) {
@@ -1141,7 +1204,7 @@ class Keys {
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
-    this.state.activeMidiByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
+    this.state.activeMidiByChannel.clear(); this._mpeInputBendByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
@@ -1487,6 +1550,7 @@ class Keys {
     // Freeze base pitch so all-notes wheel bend and standard wheel mode can always
     // compute offset from the original pitch, not from hex.cents which retune() mutates.
     hex._baseCents = hex.cents;
+    if (this.inputRuntime.mpeInput) hex._inputChannel = e.message.channel;
     this.state.activeMidi.set(note_played, hex);
     // In MPE input mode also track by channel so per-channel expression events
     // (pitch bend, pressure, CC74) can look up the correct hex directly.
@@ -1561,6 +1625,7 @@ class Keys {
       if (this.inputRuntime.mpeInput &&
           this.state.activeMidiByChannel.get(e.message.channel)?.hex === hex) {
         this.state.activeMidiByChannel.delete(e.message.channel);
+        this._mpeInputBendByChannel.delete(e.message.channel);
         const slew = this._bendSlew.get(e.message.channel);
         if (slew) { if (slew.raf !== null) cancelAnimationFrame(slew.raf); this._bendSlew.delete(e.message.channel); }
       }
@@ -1572,6 +1637,12 @@ class Keys {
   };
 
   allnotesOff = () => {
+    this._retuneGlides.clear();
+    if (this._retuneGlideTimer != null) {
+      clearTimeout(this._retuneGlideTimer);
+      this._retuneGlideTimer = null;
+    }
+    this._retuneGlideLastTime = 0;
     if (notes.played.length > 0) {
       for (const note_played of notes.played) {
         const note = note_played % 128;
@@ -1600,7 +1671,7 @@ class Keys {
         }
       }
       notes.played = [];
-      this.state.activeMidiByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
+      this.state.activeMidiByChannel.clear(); this._mpeInputBendByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
       console.log("All notes released!");
     } else {
       console.log("No held notes to be released.");
@@ -1608,6 +1679,12 @@ class Keys {
   };
 
   panic = () => {
+    this._retuneGlides.clear();
+    if (this._retuneGlideTimer != null) {
+      clearTimeout(this._retuneGlideTimer);
+      this._retuneGlideTimer = null;
+    }
+    this._retuneGlideLastTime = 0;
     // Send CC123 (All Notes Off) to all active output engines.
     // allSoundOff() on the composite synth fans out to every child (MPE, MTS,
     // static bulk, sample) using their own raw output ports — no WebMidi
@@ -1634,7 +1711,7 @@ class Keys {
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
-    this.state.activeMidiByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
+    this.state.activeMidiByChannel.clear(); this._mpeInputBendByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
     // Reset drag-state flags in case panic fires mid-drag
     this.state.isMouseDown = false;
     this.state.isTouchDown = false;
@@ -1742,6 +1819,7 @@ class Keys {
       degree0toRef_ratio,
     );
     hex.noteOn();
+    hex._baseCents = hex.cents;
     // Store neighbour pitches for scale-aware wheel bend.
     hex.cents_prev = cents_prev;
     hex.cents_next = cents_next;
@@ -2438,6 +2516,7 @@ class Keys {
   // the committed pitch for _wheelTarget, then reset _wheelBend to 0.
 
   _handleWheelBend(val14) {
+    this._wheelValue14 = val14;
     if (!this.inputRuntime.wheelToRecent) {
       // Standard mode: retune sample synth voices only (MIDI passthrough is
       // handled in the pitchbend listener above).  Uses semitone range.
@@ -2445,6 +2524,7 @@ class Keys {
       const norm = (val14 - 8192) / 8192; // −1 … +1
       const rangeCents = (this.inputRuntime.wheelSemitones ?? 2) * 100;
       const offsetCents = norm * rangeCents;
+      this._wheelBend = offsetCents;
       for (const hex of this._allActiveHexes()) {
         hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
       }
@@ -2496,6 +2576,117 @@ class Keys {
 
     this._wheelBend = bentCents - this._wheelBaseCents;
     target.retune(bentCents, true);
+  }
+
+  _reapplyCurrentWheelBend() {
+    if (this.inputRuntime.mpeInput) return;
+    if (this._wheelValue14 === 8192) return;
+    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === 'recency') {
+      this._wheelTarget = null;
+      this._wheelBaseCents = null;
+    }
+    this._handleWheelBend(this._wheelValue14);
+  }
+
+  _retuneHexFromBase(hex, baseCents, bendOnly = false) {
+    if (!hex?.retune || hex.release) return;
+    hex._baseCents = baseCents;
+    if (this.inputRuntime.mpeInput && hex._inputChannel != null) {
+      let norm = ((this._mpeInputBendByChannel.get(hex._inputChannel) ?? 8192) - 8192) / 8192;
+      if (this.inputRuntime.bendFlip) norm = -norm;
+      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
+      hex.retune(baseCents + norm * rangeCents, true);
+      const entry = this.state.activeMidiByChannel.get(hex._inputChannel);
+      if (entry?.hex === hex) entry.baseCents = baseCents;
+      return;
+    }
+    hex.retune(baseCents, bendOnly);
+  }
+
+  _queueRetuneGlide(hex, targetBase, bendOnly = false) {
+    if (!hex?.retune || hex.release) return;
+    const currentBase = this._retuneGlides.get(hex)?.currentBase ?? (hex._baseCents ?? hex.cents);
+    this._retuneGlides.set(hex, { currentBase, targetBase, bendOnly });
+  }
+
+  _kickRetuneGlides() {
+    if (this._retuneGlides.size === 0) return;
+    if (this._retuneGlideTimer == null) {
+      this._retuneGlideLastTime = performance.now() - RETUNE_GLIDE_TICK_MS;
+      this._retuneGlideTimer = setTimeout(this._tickRetuneGlides, 0);
+    }
+  }
+
+  _tickRetuneGlides = () => {
+    this._retuneGlideTimer = null;
+    if (this._retuneGlides.size === 0) {
+      this._retuneGlideLastTime = 0;
+      return;
+    }
+
+    const now = performance.now();
+    const dt = this._retuneGlideLastTime
+      ? Math.min(Math.max(now - this._retuneGlideLastTime, 1), 50)
+      : RETUNE_GLIDE_TICK_MS;
+    this._retuneGlideLastTime = now;
+
+    let hasPending = false;
+    for (const [hex, glide] of this._retuneGlides) {
+      if (!hex?.retune || hex.release) {
+        this._retuneGlides.delete(hex);
+        continue;
+      }
+      const factor = 1 - Math.exp(-dt / RETUNE_GLIDE_TAU_MS);
+      const desiredStep = (glide.targetBase - glide.currentBase) * factor;
+      const maxStep = (RETUNE_GLIDE_MAX_CENTS_PER_SEC * dt) / 1000;
+      const step = Math.sign(desiredStep) * Math.min(Math.abs(desiredStep), maxStep);
+      let nextBase = glide.currentBase + step;
+      if (Math.abs(glide.targetBase - nextBase) < RETUNE_GLIDE_SNAP_CENTS) {
+        nextBase = glide.targetBase;
+      } else {
+        hasPending = true;
+      }
+      glide.currentBase = nextBase;
+      this._retuneHexFromBase(hex, nextBase, glide.bendOnly);
+      if (nextBase === glide.targetBase) this._retuneGlides.delete(hex);
+    }
+
+    this._refreshSoundingHexNeighbors();
+    if (!this.inputRuntime.mpeInput && this._wheelValue14 !== 8192) {
+      this._reapplyCurrentWheelBend();
+    }
+
+    if (hasPending || this._retuneGlides.size > 0) {
+      this._retuneGlideTimer = setTimeout(this._tickRetuneGlides, RETUNE_GLIDE_TICK_MS);
+    } else {
+      this._retuneGlideLastTime = 0;
+    }
+  }
+
+  _reapplyCurrentInputBends() {
+    if (this.inputRuntime.mpeInput) {
+      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
+      for (const [channel, entry] of this.state.activeMidiByChannel) {
+        if (!entry || entry.hex.release) continue;
+        let norm = ((this._mpeInputBendByChannel.get(channel) ?? 8192) - 8192) / 8192;
+        if (this.inputRuntime.bendFlip) norm = -norm;
+        const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
+        entry.baseCents = baseCents;
+        entry.hex.retune(baseCents + norm * rangeCents, true);
+      }
+      return;
+    }
+    this._reapplyCurrentWheelBend();
+  }
+
+  _refreshSoundingHexNeighbors() {
+    const refresh = (hex) => {
+      const [, , , , , cents_prev, cents_next] = this.hexCoordsToCents(hex.coords);
+      hex.cents_prev = cents_prev;
+      hex.cents_next = cents_next;
+    };
+    for (const hex of this._allActiveHexes()) refresh(hex);
+    for (const [hex] of this.state.sustainedNotes) refresh(hex);
   }
 
   // Called whenever the recency stack changes.  If the front note has changed,

@@ -10,7 +10,7 @@
  *
  * Release tails:
  *   After noteOff, a channel stays in RELEASING state for releaseGuardMs (default
- *   300ms). No PB reset is sent during this window — the tail decays undisturbed
+ *   500ms). No PB reset is sent during this window — the tail decays undisturbed
  *   at the note's own pitch. The channel becomes IDLE when the guard expires, and
  *   the correct PB is set before the next noteOn that uses it.
  *
@@ -27,7 +27,7 @@ import { scalaToCents } from "../settings/scale/parse-scale";
 // PB and noteOn are sent in the same synchronous call — the MIDI driver
 // processes them in FIFO order, so PB always arrives before noteOn.
 // noteOff is NEVER delayed — delaying it risks stuck notes.
-const RELEASE_GUARD_MS = 300;
+const RELEASE_GUARD_MS = 500;
 
 function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale) {
   let ref_cents = 0;
@@ -120,6 +120,10 @@ export const create_mpe_synth = async (
 
   // Send pitch-bend range RPN on every voice channel immediately —
   // this is configuration data, not audio, so no artifact.
+  // Also send an immediate PB centre reset on startup so the first note after
+  // re-enabling MPE cannot inherit stale bend from a previous MPE session.
+  // Keep the deferred reset as well so any old release tails are eventually
+  // cleaned up once the guard window has passed.
   // Delay the PB centre reset by RELEASE_GUARD_MS so any release tails
   // from the previous Keys instance can decay undisturbed at their own
   // pitch before the channel is reset.
@@ -128,25 +132,38 @@ export const create_mpe_synth = async (
     midi_output.send([0xB0 + c, 101, 0]);
     midi_output.send([0xB0 + c, 100, 0]);
     midi_output.send([0xB0 + c, 6, actualBendRange]);
+    midi_output.send([0xE0 + c, 0, 64]); // 8192 = centred
   }
   // PB centre reset — deferred so old release tails finish first
   setTimeout(() => {
     for (const ch of voiceIds) {
       const c = ch - 1;
-      midi_output.send([0xE0 + c, 0, 64]); // 8192 = centred
+      if (pool.getChannelState(ch) === 'IDLE') {
+        midi_output.send([0xE0 + c, 0, 64]); // 8192 = centred
+      }
     }
   }, releaseGuardMs);
 
+  const activeHexes = new Set();
+
   return {
+    family: "mpe",
     makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
       note_played, velocity_played, bend, degree0toRef_ratio) => {
-      return new MpeHex(
+      const hex = new MpeHex(
         coords, cents, velocity_played, steps, center_degree,
         midi_output, pool,
         freqAtCentral, midiNoteForDegree0,
         actualBendRange, mpe_mode, scale,
         note_played, masterCh
       );
+      activeHexes.add(hex);
+      const originalNoteOff = hex.noteOff.bind(hex);
+      hex.noteOff = (release_velocity) => {
+        originalNoteOff(release_velocity);
+        activeHexes.delete(hex);
+      };
+      return hex;
     },
 
     /**
@@ -160,6 +177,10 @@ export const create_mpe_synth = async (
         midi_output.send([0xB0 + (ch - 1), 123, 0]);
       }
       if (masterCh >= 0) midi_output.send([0xB0 + masterCh, 123, 0]);
+    },
+
+    releaseAll: () => {
+      for (const hex of [...activeHexes]) hex.noteOff(0);
     },
   };
 };
