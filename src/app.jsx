@@ -701,7 +701,7 @@ const App = () => {
         <h1>PLAINSOUND HEXATONE</h1>
         <p>
           <em>
-            TO PLAY click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. ESC toggles a hand-free latch sustain. ENTER takes snapshots across tunings.{' '}
+            TO PLAY choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. Play internal sounds or retune MIDI synths. Edit the scale in the table or drag to retune. ESC toggles a hand-free latch sustain. ENTER takes snapshots across tunings.{' '}
             {!showManual && (
               <span style={{ cursor: 'pointer', color: '#990000' }} onClick={() => setShowManual(true)}>… more</span>
             )}
