@@ -174,4 +174,28 @@ describe('ScaleTable — table structure', () => {
     expect(equaveNameInput.value).toBe('C');
     expect(equaveNameInput.disabled).toBe(true);
   });
+
+  it('highlights only the degree 0 row when reference_degree is 0', () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, reference_degree: 0 }}
+        onChange={() => {}}
+      />,
+    );
+    const rows = document.querySelectorAll('tbody tr');
+    expect(rows[0].classList.contains('reference-degree-row')).toBe(true);
+    expect(rows[rows.length - 1].classList.contains('reference-degree-row')).toBe(false);
+  });
+
+  it('highlights the center-degree row separately in pale green', () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, reference_degree: 0, center_degree: 3 }}
+        onChange={() => {}}
+      />,
+    );
+    const rows = document.querySelectorAll('tbody tr');
+    expect(rows[3].classList.contains('center-degree-row')).toBe(true);
+    expect(rows[0].classList.contains('center-degree-row')).toBe(false);
+  });
 });

@@ -1,6 +1,6 @@
 # Hexatone Issues
 
-*Generated: 2026-04-01. Updated: 2026-04-01. Source: ClaudeRefactorPlan.md, TODO.md, HexatoneIOrefactor.md, midi-input-ux.md*
+*Generated: 2026-04-01. Updated: 2026-04-05. Source: ClaudeRefactorPlan.md, TODO.md, HexatoneIOrefactor.md, midi-input-ux.md*
 
 Tags: `todo` `done` · Priority: `high` `medium` `low` · Complexity: `trivial` `small` `medium` `large` `xlarge`
 
@@ -20,7 +20,7 @@ After generating an equal division scale, the preset selector now correctly swit
 
 Pitch bend is unsatisfactory across all synths, and MPE output has stuck-note issues.
 
-**Audit completed 2026-04-01 — three root causes identified and fixed 2026-04-02:**
+**Audit completed 2026-04-01. Initial transport/stuck-note fixes landed 2026-04-02. Held-note retune and output-lifecycle fixes completed 2026-04-05.**
 
 1. **Dynamic Bulk Dump flooded by wheel** — `DynamicBulkHex.retune()` was sending a full 128-note (408-byte) bulk dump on every call. At 14-bit MIDI resolution (~500 events/sec) this overflows the SysEx queue. **Fixed:** `transport.retune()` in `createBulkDynamicTransport` now coalesces via `requestAnimationFrame` — map entries update immediately but the SysEx send fires at most once per frame (~60fps). `noteOn` cancels any pending rAF before sending its own immediate dump.
 
@@ -30,7 +30,19 @@ Pitch bend is unsatisfactory across all synths, and MPE output has stuck-note is
 
 **Also removed `PB_GUARD_MS`:** PB and noteOn are sent in the same synchronous block in the constructor — MIDI driver FIFO guarantees ordering without a timer.
 
-**Needs hardware + DAW verification** before closing.
+**Follow-up work completed 2026-04-05:**
+
+4. **Held-note retunes were driven by stale pitch bases** — live TuneCell / reference-frequency drags could retune a sounding note, but incoming bend would still resolve from the note-on base and snap back toward the old pitch. **Fixed:** held-note retunes now update against each note's live `_baseCents`, MPE input bend resolves from the live base, and current bend state is reapplied after preview/save/revert transitions. MPE held-note retunes stay in bend-only mode so glides can cross semitone boundaries continuously.
+
+5. **Retune smoothing lived in the wrong layer** — drag smoothing in the scale-table UI was tied to pointer / animation cadence, which produced zippering on large drags and poor agreement across outputs. **Fixed:** the glide model moved into `keys.js` as a shared held-note retune scheduler. TuneCell now sends target cents immediately; `Keys` advances one shared cents-domain glide for all active outputs. Current defaults: `tick=4 ms`, `tau=40 ms`, `max slew=4800 cents/sec`, `snap=0.1 cents`.
+
+6. **Reference Frequency A/B preview accumulated intervals** — compare mode could keep reapplying the same shift instead of restoring the original snapshot. **Fixed:** fundamental preview now resolves against an immutable preview snapshot for the full compare cycle.
+
+7. **Output toggles were too destructive** — enabling/disabling sample/MTS/MPE rebuilt the composite synth stack, cutting tails and retriggering MPE startup corrections. **Fixed:** live output changes no longer reconstruct `Keys`; unchanged synth families are reused, disabled families drain via `releaseAll()`, and old notes are allowed to tail naturally on their existing family object while new notes use the new output set.
+
+8. **MPE startup state could be dirty after re-enable** — the first note after recreating the MPE synth could start from stale PB state and then correct itself. **Fixed:** MPE synth creation now immediately recenters voice-channel PB, keeps a deferred cleanup pass, and only sends that deferred reset on `IDLE` channels so active/retriggered notes are not zeroed underneath the player.
+
+**Regression watchpoint:** the deferred MPE release guard is currently `500 ms`. It is intentionally conservative to protect lingering tails during output switches, but it should stay under observation in case hardware or patch-specific regressions reappear. If first-note startup or unexpected PB-zeroing returns, inspect the interaction between the guard window, `IDLE`-only deferred reset, and long-release external patches first.
 
 ---
 

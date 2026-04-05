@@ -268,6 +268,42 @@ label .color-cell .color-input {
   /* pale lemon yellow */
 }
 
+.reference-degree-label {
+  border-radius: 4px;
+  padding: 0 0.25em;
+}
+
+.reference-degree-row input:not(:disabled),
+.reference-degree-row .color-input,
+.reference-degree-row .color-cell:focus-within {
+  background-color: #fff8A8;
+}
+
+.center-degree-row {
+  background-color: #dff4d8;
+}
+
+.center-degree-label {
+  border-radius: 4px;
+  padding: 0 0.25em;
+}
+
+.center-degree-row input:not(:disabled),
+.center-degree-row .color-input,
+.center-degree-row .color-cell:focus-within {
+  background-color: #dff4d8;
+}
+
+.reference-degree-row.center-degree-row {
+  background-color: #fff8A8;
+}
+
+.reference-degree-row.center-degree-row input:not(:disabled),
+.reference-degree-row.center-degree-row .color-input,
+.reference-degree-row.center-degree-row .color-cell:focus-within {
+  background-color: #fff8A8;
+}
+
 .reference-degree-row td:first-child {
   border-radius: 4px 0 0 4px;
 }

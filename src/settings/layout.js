@@ -3,7 +3,7 @@ import { useState } from 'preact/hooks';
 import PropTypes from 'prop-types';
 
 const Layout = (props) => {
-  const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem('hexatone_layout_collapsed') !== 'false');
+  const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem('hexatone_layout_collapsed') === 'true');
   const maxDegree = (props.settings.equivSteps || 1) - 1;
 
   const handleToggle = (c) => {
@@ -18,12 +18,12 @@ const Layout = (props) => {
       <button
         type="button"
         onClick={() => handleToggle(!collapsed)}
-        title={collapsed ? 'Expand layout settings' : 'Collapse layout settings'}
+        title={collapsed ? 'Toggle to show Hexatone Layout settings' : 'Toggle to hide Hexatone Layout settings'}
         style={{ marginLeft: '0.6em', padding: '0 0.4em', fontSize: '0.8em',
                  lineHeight: '1.4', verticalAlign: 'middle', cursor: 'pointer' }}
       >{collapsed ? '▶' : '▼'}</button>
     </legend>
-    <label>
+    <label class="center-degree-row center-degree-label">
       Central Scale Degree
       <input name="center_degree" type="text" inputMode="numeric"
              class="sidebar-input"

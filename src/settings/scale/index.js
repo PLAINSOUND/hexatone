@@ -164,7 +164,7 @@ const Scale = (props) => {
         <button
           type="button"
           onClick={() => handleToggle(!collapsed)}
-          title={collapsed ? 'Expand scale settings' : 'Collapse scale settings'}
+          title={collapsed ? 'Toggle to show scale table' : 'Toggle to hide scale table'}
           style={{
             marginLeft: '0.6em', padding: '0 0.4em', fontSize: '0.8em',
             lineHeight: '1.4', verticalAlign: 'middle', cursor: 'pointer'
@@ -193,7 +193,7 @@ const Scale = (props) => {
           />
         </span>
       </label>
-      <label>
+      <label class="reference-degree-row reference-degree-label">
         Assigned Scale Degree
         <input name="reference_degree" type="text" inputMode="numeric"
           class="sidebar-input"

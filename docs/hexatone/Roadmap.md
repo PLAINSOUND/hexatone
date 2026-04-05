@@ -1,6 +1,6 @@
 # Hexatone Refactor Roadmap
 
-*Synthesised: 2026-04-01. Updated: 2026-04-02. Sources: ClaudeRefactorPlan.md, HexatoneIOrefactor.md, TODO.md, midi-input-ux.md.*
+*Synthesised: 2026-04-01. Updated: 2026-04-05. Sources: ClaudeRefactorPlan.md, HexatoneIOrefactor.md, TODO.md, midi-input-ux.md.*
 
 Tags: `done` `in-progress` `todo` · Priority: `high` `medium` `low` · Complexity: `trivial` `small` `medium` `large` `xlarge`
 
@@ -178,6 +178,30 @@ Implemented App Mode LED colour sync for the Exquis (Intuitive Instruments) cont
 
 ---
 
+### Fix: Shared Held-Note Retune Glide and Output Toggle Lifecycle  `done` `high`
+
+*Completed 2026-04-05*
+
+Pitch-bend smoothness, held-note retuning, compare previews, and output toggles were all interacting through separate ad-hoc paths. This has now been consolidated into one runtime model.
+
+**What changed:**
+- **Held-note glide moved into `keys.js`.** TuneCell / reference-frequency drags now send target cents immediately; `Keys` owns a shared cents-domain retune scheduler for sounding notes.
+- **Current glide defaults:** `tick = 4 ms`, `tau = 40 ms`, `max slew = 4800 cents/sec`, `snap = 0.1 cents`.
+- **MPE held-note retunes stay bend-only.** A sounding note now traverses intermediate semitones continuously instead of hopping carrier notes while dragged.
+- **Live bend resolves from the active pitch base.** MPE input bend and preview/save/revert paths reuse the note's live `_baseCents`, so bending a retuned note no longer snaps back toward its original note-on pitch.
+- **Reference Frequency compare now uses an immutable preview snapshot.** A/B no longer accumulates the same interval on each toggle.
+- **Output toggles are no longer structural.** `Keyboard` no longer reconstructs `Keys` on synth/output changes; `use-synth-wiring` reuses unchanged synth families and drains disabled ones with `releaseAll()`.
+- **MPE startup state is cleaned explicitly.** Voice channels are recentred on synth creation, and the deferred cleanup pass now only resets `IDLE` channels.
+
+**Why this architecture is better:**
+- One glide model in cents keeps sample synth, MPE, and MTS perceptually aligned.
+- UI event cadence no longer determines retune quality.
+- Output toggles behave like routing changes rather than full instrument teardown.
+
+**Keep in sight:** the deferred MPE release guard is currently `500 ms`. It protects tails during output switches, but it is still a tuning constant rather than a proven invariant. If regressions reappear, inspect first-note startup and delayed PB-zeroing behavior before widening the guard further.
+
+---
+
 ## Phase A: Immediate Bugs  `todo` `high`
 
 *These block normal use or are known regressions. Do before new feature work.*
@@ -185,16 +209,20 @@ Implemented App Mode LED colour sync for the Exquis (Intuitive Instruments) cont
 ### A1 — Preset/scale reactivity regression  `done`
 Confirmed fixed 2026-04-01. Preset selector correctly switches to "User Tunings" after generating an equal division scale. (See Issues.md BUG-01.)
 
-### A2 — Pitch bend smoothness / MPE stuck notes  `todo` `high` `large`
-Audit completed 2026-04-01. Three distinct issues found:
+### A2 — Pitch bend smoothness / MPE stuck notes  `done` `high` `large`
+Audit completed 2026-04-01. Initial transport/stuck-note fixes landed 2026-04-02; held-note retune and output-lifecycle work completed 2026-04-05.
 
-1. **Dynamic Bulk Dump flooded by wheel** — `DynamicBulkHex.retune()` sends a full 128-note (408-byte) bulk dump on every `retune()` call. At 14-bit MIDI resolution (~500 events/sec) this overflows the SysEx queue. Fix: throttle via `requestAnimationFrame` coalescing or a `lastSentAt` guard.
+**Delivered:**
+- Dynamic Bulk Dump retune coalescing to stop wheel-driven SysEx flooding.
+- Correct MPE retrigger noteOff behavior.
+- `Ableton_workaround` carrier-note selection fixed so the played note stays near the target pitch.
+- Shared held-note retune glide in `keys.js`, replacing UI-driven drag smoothing.
+- MPE bend-only live retuning across semitone boundaries.
+- Fundamental compare snapshot fix.
+- Non-structural live output toggling with synth-family reuse and `releaseAll()` drainage for disabled outputs.
+- MPE startup PB cleanup with an `IDLE`-only deferred reset.
 
-2. **Retrigger path sends no noteOff** — `VoicePool.noteOn()` detects retrigger (same coords already active) and returns `stolenSlot: null`. `MpeHex` constructor only sends a noteOff when `stolenSlot !== null`, so a retriggered note gets PB + noteOn without a prior noteOff → stuck note in downstream synth.
-
-3. **`Ableton_workaround` bend overflow** — `channel % 16 = 0` sets `baseNote = 0`; fallback clamps (`note = baseNote`, `note = baseNote + 112`) can place the note outside the ±48-semitone bend range, producing wrong pitch. `deviationToBend()` clamps the MIDI value so no corruption, but the pitch is wrong and silent notes can result.
-
-Priority order for fixes: #2 (stuck notes) → #1 (smoothness) → #3 (Ableton edge case). (See Issues.md BUG-02.)
+**Residual watchpoint:** the MPE release guard currently sits at `500 ms`. Treat it as an observed safeguard, not final truth; keep it under hardware regression watch around output switching, long-release patches, and first-note behavior after re-enable. (See Issues.md BUG-02.)
 
 ### A3 — Scale-mapper test coverage  `todo` `medium` `small`
 Write `src/input/scale-mapper.test.js`: nearest degree in 12-EDO/31-EDO/JI; tolerance gate; `'accept'` vs `'discard'`; octave wrapping; exact match; negative pitchCents. (See Issues.md TEST-01.)

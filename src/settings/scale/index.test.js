@@ -39,6 +39,12 @@ describe('Scale panel — default state', () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     expect(document.querySelector('textarea')).toBeNull();
   });
+
+  it('highlights the Assigned Scale Degree row', () => {
+    render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
+    const label = screen.getByText('Assigned Scale Degree').closest('label');
+    expect(label?.classList.contains('reference-degree-row')).toBe(true);
+  });
 });
 
 describe('Scale panel — clicking import', () => {

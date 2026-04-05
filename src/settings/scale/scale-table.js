@@ -366,11 +366,10 @@ const ScaleTable = (props) => {
       <tbody>
         <tr
           key={`0-${props.importCount}`}
-          class={
-            props.settings.reference_degree === 0
-              ? "reference-degree-row"
-              : undefined
-          }
+          class={[
+            props.settings.reference_degree === 0 ? "reference-degree-row" : "",
+            props.settings.center_degree === 0 ? "center-degree-row" : "",
+          ].filter(Boolean).join(" ") || undefined}
         >
           <td>
             <div class="freq-cell">
@@ -451,11 +450,10 @@ const ScaleTable = (props) => {
         {rows.slice(1).map(([freq, degree, name, color], i) => (
           <tr
             key={`${i + 1}-${props.importCount}`}
-            class={
-              props.settings.reference_degree === i + 1
-                ? "reference-degree-row"
-                : undefined
-            }
+            class={[
+              props.settings.reference_degree === i + 1 ? "reference-degree-row" : "",
+              props.settings.center_degree === i + 1 ? "center-degree-row" : "",
+            ].filter(Boolean).join(" ") || undefined}
           >
             <td>
               <div class="freq-cell">
@@ -527,7 +525,7 @@ const ScaleTable = (props) => {
         <tr
           key={`equiv-${props.importCount}`}
           class={
-            props.settings.reference_degree === 0
+            props.settings.reference_degree === scale.length
               ? "reference-degree-row"
               : undefined
           }
@@ -597,6 +595,7 @@ ScaleTable.propTypes = {
     note_colors: PropTypes.arrayOf(PropTypes.string),
     note_names: PropTypes.arrayOf(PropTypes.string),
     reference_degree: PropTypes.number,
+    center_degree: PropTypes.number,
     fundamental: PropTypes.number,
     retuning_mode: PropTypes.string,
   }),
