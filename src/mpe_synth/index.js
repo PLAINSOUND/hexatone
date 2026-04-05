@@ -179,6 +179,20 @@ export const create_mpe_synth = async (
       if (masterCh >= 0) midi_output.send([0xB0 + masterCh, 123, 0]);
     },
 
+    applyControllerState: (state = {}) => {
+      if (!midi_output || masterCh < 0) return;
+      const ccValues = state.ccValues || {};
+      for (const [cc, value] of Object.entries(ccValues)) {
+        midi_output.send([0xB0 + masterCh, Number(cc) & 0x7F, Math.max(0, Math.min(127, value))]);
+      }
+      if (state.channelPressure != null) {
+        midi_output.send([0xD0 + masterCh, Math.max(0, Math.min(127, state.channelPressure))]);
+      }
+      if (state.pitchBend14 != null) {
+        sendBend(midi_output, masterCh, Math.max(0, Math.min(16383, state.pitchBend14)));
+      }
+    },
+
     releaseAll: () => {
       for (const hex of [...activeHexes]) hex.noteOff(0);
     },

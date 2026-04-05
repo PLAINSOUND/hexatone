@@ -67,6 +67,8 @@ const MIDIio = (props) => {
   //   - hidden in scale mode (pitch is mapped directly; geometry/channel layout irrelevant)
   const isMultiChannelSequential = !ctrl || ctrl.multiChannel;
   const showChannelTranspose = !scaleMode && !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
+  const showExquisBendControls = !(ctrl?.id === 'exquis' && !props.settings.midiin_mpe_input);
+  const showWheelToRecent = !(ctrl?.id === 'exquis' && !props.settings.midiin_mpe_input);
 
   // mpeSetupOpen removed — MPE options are shown flat when MPE is enabled.
 
@@ -165,7 +167,13 @@ const MIDIio = (props) => {
                   checked={!!props.settings.midiin_mpe_input}
                   onChange={(e) => {
                     props.onChange('midiin_mpe_input', e.target.checked);
-                    saveControllerPref(ctrl, 'midiin_mpe_input', e.target.checked);
+                    saveControllerPref(
+                      ctrl,
+                      'midiin_mpe_input',
+                      e.target.checked,
+                      props.settings,
+                      { midiin_mpe_input: e.target.checked },
+                    );
                   }}
                 />
               </label>
@@ -243,7 +251,7 @@ const MIDIio = (props) => {
               {/* Anchor: the physical key whose MIDI note (and channel, for multi-channel
                   controllers like Lumatone) maps to the central screen degree.
                   Used in both 2D-map mode and bypass mode. */}
-              <label>
+              <label class="center-degree-row center-degree-label">
                 Anchor Key → Central Degree ({center_degree})
                 <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', textAlign: 'left' }}>
                   <button type="button"
@@ -328,6 +336,13 @@ const MIDIio = (props) => {
                   onChange={(e) => {
                     props.onChange('midi_passthrough', e.target.checked);
                     sessionStorage.setItem('midi_passthrough', e.target.checked);
+                    saveControllerPref(
+                      ctrl,
+                      'midi_passthrough',
+                      e.target.checked,
+                      props.settings,
+                      { midi_passthrough: e.target.checked },
+                    );
                   }}
                 />
               </label>
@@ -413,7 +428,7 @@ const MIDIio = (props) => {
               )}
 
               {/* ── Exquis LED colour sync — App Mode (pad_remote=0), hex layout only ── */}
-              {ctrl?.id === 'exquis' && !props.settings.midi_passthrough && !scaleMode && (() => {
+              {ctrl?.id === 'exquis' && !scaleMode && (() => {
                 const ledStatus = props.exquisLedStatus; // null | { ok: true } | { ok: false, reason }
                 const portConnected = !!props.exquisRawPorts;
                 // Colour and status text for the LED Output line:
@@ -762,7 +777,7 @@ const MIDIio = (props) => {
           )}
 
           {/* Pitch Wheel → Most Recent Note — shown only when MPE is off */}
-          {!props.settings.midiin_mpe_input && (
+          {!props.settings.midiin_mpe_input && showWheelToRecent && (
             <label>
               Pitch Wheel → Most Recent Note
               <input
@@ -784,7 +799,7 @@ const MIDIio = (props) => {
               Form B (12edo semitones): MPE off AND wheel-to-recent off.
                 midi_wheel_semitones — raw PB passthrough; sample synth retuned directly.
               See claude-context/midi-input-ux.md for full spec. */}
-          {(props.settings.midiin_mpe_input || props.settings.wheel_to_recent) ? (
+          {showExquisBendControls && ((props.settings.midiin_mpe_input || props.settings.wheel_to_recent) ? (
             <label title="Pitch Bend Interval: the musical interval that ±full deflection maps to. Set hardware to max range for best resolution.">
               Pitch Bend Interval (Scala)
               <ScalaInput
@@ -815,20 +830,20 @@ const MIDIio = (props) => {
                 }}
               />
             </label>
-          )}
+          ))}
 
           {/* Reverse Bend Direction — always shown when device is connected */}
-          <label title="Reverse pitch bend direction — useful when the controller surface is oriented so that sliding towards higher pitch sends negative bend values.">
+          {showExquisBendControls && <label title="Reverse pitch bend direction — useful when the controller surface is oriented so that sliding towards higher pitch sends negative bend values.">
             Reverse Bend Direction
             <input
               type="checkbox"
               checked={!!props.settings.midiin_bend_flip}
               onChange={(e) => {
                 props.onChange('midiin_bend_flip', e.target.checked);
-                saveControllerPref(ctrl, 'midiin_bend_flip', e.target.checked);
+                saveControllerPref(ctrl, 'midiin_bend_flip', e.target.checked, props.settings);
               }}
             />
-          </label>
+          </label>}
         </>
       )}
 

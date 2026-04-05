@@ -267,42 +267,94 @@ Two hooks remain to extract (from `TODO.md` §2.3–2.4):
 ### B4 — Fundamental default value  `done`
 Fixed 2026-04-01. `fundamental` added to `PRESET_SKIP_KEYS`; registry default changed to `440` Hz; `presetSkip: true` added to registry entry. Fresh loads now start at concert A. (See Issues.md BUG-03.)
 
-### B5 — Per-controller prefs: single derived-state owner  `todo` `high` `small`
+### B5 — Mode-aware controller prefs and anchors  `todo` `high` `medium`
 
-*Decided 2026-04-02. See Issues.md ARCH-08 for decision rationale.*
+*Reframed 2026-04-05. Builds on the derived-state owner work in Issues.md ARCH-08.*
 
-Per-controller prefs (`midiin_mpe_input`, `midiin_bend_flip`, `midiin_bend_range`, and the new `midi_passthrough`) currently load via an event — only when the user explicitly selects a device in the dropdown (`use-settings-change.js`). This means page refresh, fresh start, and any future connect path each need their own patch. As the controller registry grows (LinnStrument, Tonal Plexus, Seaboard, etc.) this becomes unsustainable.
+The current architecture is directionally correct: controller prefs load from one derived-state path rather than from scattered UI events. But it is still keyed at the wrong granularity. As the controller registry grows (Exquis, LinnStrument, Lumatone, Tonal Plexus, Push, Launchpad, etc.), `controller.id` alone is no longer enough.
+
+**The missing concept is controller mode/state.**
+
+Many controllers have more than one meaningful operating state, each with different anchor semantics and different defaults:
+- **Lumatone** — 2D geometry vs bypass/sequential layout
+- **Exquis / LinnStrument** — MPE vs standard polytouch / multichannel operation
+- Future SysEx-capable controllers — mode, colour, or routing states that change anchor behaviour
+
+If prefs are keyed only by `controller.id`, one mode overwrites another. The right persistence identity is:
+
+```txt
+controllerId + modeKey
+```
+
+Examples:
+- `lumatone + layout2d`
+- `lumatone + bypass`
+- `exquis + mpe`
+- `exquis + poly`
 
 **Design:**
 
-Per-controller prefs should be **derived state**, not an event response. A single `useEffect` in `use-synth-wiring.js` owns the load, firing whenever `(midi, settings.midiin_device)` resolves to a known controller — regardless of how that state was reached:
+Keep the current architecture, but formalise three layers:
+
+1. **Hardware profile** — registry-owned, stable facts
+   - detection
+   - geometry builder
+   - multichannel / MPE capability
+   - SysEx capabilities
+   - fixed MPE channel ranges
+
+2. **Controller modes** — registry-owned, per-mode defaults
+   - mode names (`layout2d`, `bypass`, `mpe`, `poly`, `default`, ...)
+   - mode resolver: `resolveMode(settings, controller)`
+   - default prefs per mode
+
+3. **User prefs** — persisted overrides keyed by `{ controllerId, modeKey }`
+   - anchor note
+   - anchor channel
+   - `midiin_mpe_input`
+   - `midi_passthrough`
+   - optionally `midiin_steps_per_channel`, `midiin_channel_legacy`, bend prefs if they prove mode-specific
+
+**Target registry shape:**
 
 ```js
-useEffect(() => {
-  if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return;
-  const input = Array.from(midi.inputs.values()).find(i => i.id === settings.midiin_device);
-  if (!input) return;
-  const ctrl = detectController(input.name.toLowerCase());
-  if (!ctrl) return;
-  setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl) }));
-}, [midi, settings.midiin_device]);
+{
+  id: 'lumatone',
+  modes: {
+    layout2d: {
+      defaultPrefs: { anchorNote: 26, anchorChannel: 3, midi_passthrough: false },
+    },
+    bypass: {
+      defaultPrefs: { anchorNote: 60, anchorChannel: 4, midi_passthrough: true },
+    },
+  },
+  resolveMode(settings) {
+    return settings.midi_passthrough ? 'bypass' : 'layout2d';
+  },
+}
 ```
 
-This fires on: page refresh, user dropdown selection, fresh start, future auto-connect paths. Zero extra code per new controller.
+Simple controllers keep a single `default` mode.
 
-**The `passthroughDefault` problem:**
+**Why this is better than more special cases:**
+- The existing derived-state load in `use-synth-wiring.js` remains the one owner.
+- New controllers become mostly data entries in `controllers/registry.js`.
+- Learn-anchor, hot-plug, and mode flips can restore the correct last-used anchor for that controller state.
+- First-connect behaviour becomes clear: use mode defaults when no saved override exists.
 
-`loadAnchorSettingsUpdate` currently applies `midi_passthrough: true` unconditionally for controllers with `passthroughDefault`. If the effect re-fires (e.g. on midiTick), it resets `midi_passthrough` even when the user has switched to hex mode.
+**Refactor direction:**
+1. Extend controller registry entries with `modes` and `resolveMode(settings)`.
+2. Upgrade `input/controller-anchor.js` from controller-only prefs to controller-plus-mode prefs.
+3. Move anchor note/channel into the same mode-aware preference model instead of keeping them as legacy special keys.
+4. Keep the app-facing output of the loader flat — it should still emit the current settings update object (`midiin_central_degree`, `lumatone_center_channel`, `midi_passthrough`, etc.).
+5. Add one-time compatibility migration: if old `${controller.id}_anchor` keys exist and no mode-specific value exists yet, import them into the currently resolved mode.
 
-Fix: add `midi_passthrough` to the per-controller local registry (`perController: true`). `loadControllerPrefs` already handles the "only apply default when nothing saved" pattern (see `midiin_mpe_input` fallback). Apply the same pattern: if `${controller.id}_midi_passthrough` is in localStorage, use it; otherwise fall back to `controller.passthroughDefault ?? false`.
+**Priority controllers for the new model:**
+- Exquis
+- Lumatone
+- LinnStrument
 
-**Steps:**
-1. Add `midi_passthrough` to `SETTINGS_REGISTRY` as `tier: 'local'`, `perController: true`, `default: false`.
-2. Add fallback in `loadControllerPrefs` for `midi_passthrough` → `controller.passthroughDefault ?? false` when nothing saved.
-3. Replace the `if (controller.passthroughDefault) update.midi_passthrough = true` hardcode in `loadAnchorSettingsUpdate` with the registry-driven path.
-4. Replace the `_controllerPrefsApplied` ref patch in `use-synth-wiring.js` with the clean `[midi, settings.midiin_device]` effect (no guard ref needed — `loadControllerPrefs` is idempotent).
-5. Remove the `loadAnchorSettingsUpdate` call from `use-settings-change.js` (redundant once the effect owns it).
-6. Verify fresh start clears `midiin_device` from sessionStorage so the effect re-fires on next device selection.
+These cover the important cases: MPE, multichannel geometry, and explicit mode-dependent anchors.
 
 ---
 

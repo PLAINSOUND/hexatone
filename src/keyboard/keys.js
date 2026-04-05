@@ -155,6 +155,8 @@ class Keys {
     this._wheelBend = 0;
     this._wheelTarget = null;
     this._wheelBaseCents = null;
+    this._controllerCCValues = new Map();
+    this._channelPressureValue = 0;
 
     // The tuning map anchor is always derived from the musical content (fundamental,
     // scale, center_degree) — independent of midiin_central_degree, which is a
@@ -306,6 +308,15 @@ class Keys {
           const cc    = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
 
+          if (cc === 121) {
+            this._controllerCCValues.clear();
+            for (const resetCC of [1, 11, 64, 66, 67, 74]) {
+              this._controllerCCValues.set(resetCC, 0);
+            }
+          } else if (cc !== 120 && cc !== 123) {
+            this._controllerCCValues.set(cc, value);
+          }
+
           // ── Passthrough to all active outputs ─────────────────────────────
           // CC74 is not forwarded in MTS mode — no meaningful mapping exists.
           const isMTSOutput = this.settings.midi_mapping === 'MTS1' || this.settings.midi_mapping === 'MTS2';
@@ -353,11 +364,14 @@ class Keys {
               if (front && front.cc74) front.cc74(value);
             }
           }
+
+          this._rememberControllerStateInSynth();
         });
 
         // Universal channel-pressure (aftertouch) listener.
         this.midiin_data.addListener("channelaftertouch", (e) => {
           const value = e.message.dataBytes[0];
+          this._channelPressureValue = value;
 
           if (this.inputRuntime.mpeInput) {
             // MPE input mode: channel pressure is per-voice, carried on the note's channel.
@@ -383,6 +397,8 @@ class Keys {
             const front = this.recencyStack.front;
             if (front && front.pressure) front.pressure(value);
           }
+
+          this._rememberControllerStateInSynth();
         });
 
         if (
@@ -565,6 +581,7 @@ class Keys {
             // Standard mode: raw PB to all outputs (MTS included).
             this._passthroughPitchBend(val14f);
           }
+          this._rememberControllerStateInSynth();
         });
 
         // MTS Single Note Tuning Change sysex listener — non-MPE scale mode only.
@@ -917,6 +934,7 @@ class Keys {
       this.settings.midi_device !== "OFF" &&
       this.settings.midi_channel >= 0
     ) ? WebMidi.getOutputById(this.settings.midi_device) : null;
+    this._pushControllerStateToSynth();
   };
 
   // ── Snapshot capture & playback ────────────────────────────────────────────
@@ -1121,6 +1139,33 @@ class Keys {
    */
   _buildExquisColorArray() {
     const colors = new Array(61).fill('#000000');
+
+    if (this.inputRuntime?.layoutMode === 'sequential') {
+      const scale = this.settings.scale || [];
+      const len = scale.length;
+      if (len === 0) return colors;
+
+      const anchorNote = this.settings.midiin_central_degree ?? 60;
+      const centerDegree = this.settings.center_degree || 0;
+
+      for (let note = 0; note <= 60; note++) {
+        let steps = (note - anchorNote) + centerDegree;
+        let octs = Math.trunc(steps / len);
+        let reducedSteps = steps % len;
+        if (reducedSteps < 0) {
+          reducedSteps += len;
+          octs -= 1;
+        }
+        const cents = octs * this.settings.equivInterval + scale[reducedSteps];
+        if (reducedSteps === 0) {
+          colors[note] = octs === 0 ? LUMATONE_TONIC : LUMATONE_TONIC_OTHER;
+        } else {
+          colors[note] = transferColor(this._getScreenHexColor(cents, reducedSteps));
+        }
+      }
+      return colors;
+    }
+
     for (const [mapKey, coords] of this.controllerMap) {
       const note = parseInt(mapKey.slice(mapKey.indexOf('.') + 1), 10);
       if (note >= 0 && note <= 60) {
@@ -1826,6 +1871,7 @@ class Keys {
     // Track in recency stack so wheel bend and snapshot can find this note.
     this.recencyStack.push(hex);
     this._updateWheelTarget();
+    this._applyCurrentWheelToHex(hex);
     //console.log("hex on at ", [coords.x, coords.y]);
     return hex;
   }
@@ -2482,6 +2528,26 @@ class Keys {
     }
   }
 
+  _getControllerState() {
+    return {
+      ccValues: Object.fromEntries(this._controllerCCValues),
+      channelPressure: this._channelPressureValue,
+      pitchBend14: this._wheelValue14,
+    };
+  }
+
+  _pushControllerStateToSynth() {
+    if (this.synth?.applyControllerState) {
+      this.synth.applyControllerState(this._getControllerState());
+    }
+  }
+
+  _rememberControllerStateInSynth() {
+    if (this.synth?.rememberControllerState) {
+      this.synth.rememberControllerState(this._getControllerState());
+    }
+  }
+
   // ── Wheel bend (pitch bend routing) ──────────────────────────────────────
   //
   // _handleWheelBend is the universal entry point: call it with any 14-bit
@@ -2576,6 +2642,21 @@ class Keys {
 
     this._wheelBend = bentCents - this._wheelBaseCents;
     target.retune(bentCents, true);
+  }
+
+  _applyCurrentWheelToHex(hex) {
+    if (!hex || this._wheelValue14 === 8192) return;
+    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === 'recency') {
+      return;
+    }
+    const baseCents = hex._baseCents ?? hex.cents;
+    if (!this.inputRuntime.wheelToRecent) {
+      hex.retune(baseCents + this._wheelBend, true);
+      return;
+    }
+    if (this.inputRuntime.pitchBendMode === 'all') {
+      hex.retune(baseCents + this._wheelBend, true);
+    }
   }
 
   _reapplyCurrentWheelBend() {

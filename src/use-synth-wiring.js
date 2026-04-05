@@ -707,8 +707,9 @@ const useSynthWiring = (
   };
 
   // ── Per-controller prefs: single derived-state owner ────────────────────────
-  // Fires whenever (midi, midiin_device) resolves to a known controller —
-  // on page refresh, dropdown selection, fresh start, or any future connect path.
+  // Fires whenever the resolved controller identity or controller mode changes.
+  // For Exquis, controller mode is geometry-scoped (layout2d vs bypass), so
+  // switching midi_passthrough must reapply the correct saved bucket.
   // loadControllerPrefs is idempotent: it reads saved values (or first-connect
   // fallbacks) so re-firing on the same device is safe.
   useEffect(() => {
@@ -717,8 +718,8 @@ const useSynthWiring = (
     if (!input) return;
     const ctrl = detectController(input.name.toLowerCase());
     if (!ctrl) return;
-    setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl) }));
-  }, [midi, settings.midiin_device]);
+    setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settings) }));
+  }, [midi, settings.midiin_device, settings.midiin_mpe_input, settings.midi_passthrough]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────
 
@@ -746,7 +747,7 @@ const useSynthWiring = (
     // saveAnchorFromLearn handles both single-channel and channel-aware (Lumatone)
     // controllers in one place; returns the update object to merge into settings.
     const update = ctrl
-      ? saveAnchorFromLearn(ctrl, noteNum, ch)
+      ? saveAnchorFromLearn(ctrl, noteNum, ch, settings)
       : { midiin_central_degree: noteNum, midiin_anchor_channel: ch };
 
     // midiin_anchor_channel drives the relative channel-offset formula in

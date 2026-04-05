@@ -166,3 +166,39 @@ describe("mpe_synth first-note ordering", () => {
     expect(midi_output.send.mock.calls[1][0][0] & 0xF0).toBe(0x90);
   });
 });
+
+describe("mpe_synth controller-state replay", () => {
+  it("replays saved CC, channel pressure, and pitch bend on the manager channel", async () => {
+    const midi_output = { send: vi.fn() };
+
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "Ableton_workaround",
+      48,
+      2,
+      12,
+      2,
+      500,
+    );
+
+    midi_output.send.mockClear();
+    synth.applyControllerState({
+      ccValues: { 1: 88, 64: 127 },
+      channelPressure: 31,
+      pitchBend14: 9000,
+    });
+
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 1, 88]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 64, 127]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xD0, 31]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xE0, 9000 & 0x7F, (9000 >> 7) & 0x7F]);
+  });
+});

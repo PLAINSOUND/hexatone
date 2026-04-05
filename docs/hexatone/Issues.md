@@ -245,10 +245,10 @@ Remaining hook extractions identified in `TODO.md`:
 
 ---
 
-### ARCH-08 · Per-controller prefs: single derived-state owner
-**Tags:** `todo` `high` `small`
+### ARCH-08 · Mode-aware controller prefs and anchors
+**Tags:** `todo` `high` `medium`
 
-**Decision made 2026-04-02.** See Roadmap.md B5 for full design.
+**Decision updated 2026-04-05.** See Roadmap.md B5 for full design.
 
 **How we got here:**
 
@@ -256,11 +256,28 @@ Remaining hook extractions identified in `TODO.md`:
 
 A patch (`_controllerPrefsApplied` ref in `use-synth-wiring.js`) was added as a short-term fix, but this approach does not scale: every new connect path needs its own patch, and with LinnStrument, Tonal Plexus, Seaboard and others coming, the code will fragment.
 
-**The structural problem:** per-controller prefs load is treated as an *event* (user action) rather than *derived state* (system condition). Any time `(midi, midiin_device)` resolves to a known controller, the prefs should be applied — unconditionally, idempotently, from one place.
+**The structural problem:** controller prefs are now loaded from one derived-state path, which is good, but they are still keyed only by `controller.id`. That is already too coarse for the next controller wave.
 
-**The `passthroughDefault` complication:** `loadAnchorSettingsUpdate` currently applies `midi_passthrough: true` unconditionally for Exquis. If the effect re-fires, it resets `midi_passthrough` even after the user has switched to hex mode. Fix: register `midi_passthrough` as a `local`-tier per-controller setting, with `controller.passthroughDefault` as its first-connect fallback (same pattern as `midiin_mpe_input` → `!!controller.mpe`).
+Examples that need separate remembered state:
+- Lumatone 2D layout vs bypass/sequential
+- Exquis MPE vs standard/polytouch operation
+- Future LinnStrument or Tonal Plexus modes with different anchor assumptions
 
-**Steps:** see Roadmap.md B5.
+The correct persistence identity is:
+
+```txt
+controllerId + modeKey
+```
+
+not just `controllerId`.
+
+That means anchor note/channel and related shared fields should be remembered per controller state, not globally and not controller-only. The current derived-state owner in `use-synth-wiring.js` should remain, but it should resolve:
+1. controller
+2. controller mode
+3. saved prefs for that `{ controllerId, modeKey }`
+4. mode defaults for anything not yet saved
+
+**Refactor direction:** see Roadmap.md B5.
 
 ---
 

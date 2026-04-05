@@ -67,6 +67,14 @@ export const create_composite_synth = (synths) => ({
     synths.forEach(s => s.setVolume && s.setVolume(value));
   },
 
+  rememberControllerState(state) {
+    synths.forEach(s => s.rememberControllerState && s.rememberControllerState(state));
+  },
+
+  applyControllerState(state) {
+    synths.forEach(s => s.applyControllerState && s.applyControllerState(state));
+  },
+
   allSoundOff() {
     synths.forEach(s => s.allSoundOff && s.allSoundOff());
   },

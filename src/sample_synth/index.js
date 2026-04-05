@@ -118,6 +118,11 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     // Last known mod wheel position (0–127). New notes initialize their filter
     // to this value so the first CC1 message never causes a discontinuous jump.
     let lastModWheel = 0;
+    let controllerState = {
+      ccValues: {},
+      channelPressure: 0,
+      pitchBend14: 8192,
+    };
 
     let centsToReference = 0;
     if (reference_degree > 0) {
@@ -192,6 +197,30 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         if (masterGain) {
           masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.02);
         }
+      },
+
+      rememberControllerState: (state = {}) => {
+        controllerState = {
+          ...controllerState,
+          ...state,
+          ccValues: {
+            ...controllerState.ccValues,
+            ...(state.ccValues || {}),
+          },
+        };
+        lastModWheel = controllerState.ccValues[1] ?? 0;
+      },
+
+      applyControllerState: (state = {}) => {
+        controllerState = {
+          ...controllerState,
+          ...state,
+          ccValues: {
+            ...controllerState.ccValues,
+            ...(state.ccValues || {}),
+          },
+        };
+        lastModWheel = controllerState.ccValues[1] ?? 0;
       },
 
       makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,

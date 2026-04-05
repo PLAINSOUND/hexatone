@@ -436,6 +436,26 @@ export const CONTROLLER_REGISTRY = [
     // This is fixed by the device — the channel range picker is hidden in the UI.
     mpeVoiceChannels: { lo: 2, hi: 15 },
     anchorDefault: 19,
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote: 19,
+          midi_passthrough: false,
+          midiin_mpe_input: true,
+          midiin_bend_flip: true,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote: 19,
+          midi_passthrough: true,
+          midiin_mpe_input: false,
+          midiin_bend_flip: false,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
     buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
   },
 

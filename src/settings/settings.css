@@ -290,8 +290,10 @@ label .color-cell .color-input {
 
 .center-degree-row input:not(:disabled),
 .center-degree-row .color-input,
-.center-degree-row .color-cell:focus-within {
-  background-color: #dff4d8;
+.center-degree-row .color-cell:focus-within,
+.center-degree-row .sidebar-input,
+.center-degree-row .sidebar-input input {
+  background-color: #dff4d8 !important;
 }
 
 .reference-degree-row.center-degree-row {

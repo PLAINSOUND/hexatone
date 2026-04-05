@@ -129,6 +129,21 @@ export const create_midi_synth = async ({
       midi_output.send([0xB0 + channel, 123, 0]);
     },
 
+    applyControllerState: (state = {}) => {
+      if (!midi_output || channel == null || channel < 0) return;
+      const ccValues = state.ccValues || {};
+      for (const [cc, value] of Object.entries(ccValues)) {
+        midi_output.send([0xB0 + channel, Number(cc) & 0x7F, Math.max(0, Math.min(127, value))]);
+      }
+      if (state.channelPressure != null) {
+        midi_output.send([0xD0 + channel, Math.max(0, Math.min(127, state.channelPressure))]);
+      }
+      if (state.pitchBend14 != null) {
+        const bend = Math.max(0, Math.min(16383, state.pitchBend14));
+        midi_output.send([0xE0 + channel, bend & 0x7F, (bend >> 7) & 0x7F]);
+      }
+    },
+
     releaseAll: () => {
       for (const hex of [...activeHexes]) hex.noteOff(0);
     },

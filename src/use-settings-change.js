@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController } from "./controllers/registry.js";
 import { normalizeColors } from "./normalize-settings.js";
-import { saveAnchor, saveAnchorChannel } from "./input/controller-anchor.js";
+import { saveAnchor, saveAnchorChannel, loadAnchorSettingsUpdate } from "./input/controller-anchor.js";
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
@@ -71,9 +71,17 @@ const useSettingsChange = (
     // When the MIDI input device is selected, load the per-controller saved anchor note
     // (or fall back to the controller's built-in default on first use).
     if (key === "midiin_device") {
-      // Per-controller prefs (midiin_mpe_input, midi_passthrough, etc.) are now
-      // loaded by the effect in use-synth-wiring.js that owns this as derived state.
-      setSettings((prev) => ({ ...prev, midiin_device: value }));
+      const input = m ? Array.from(m.inputs.values()).find((mm) => mm.id === value) : null;
+      const ctrl = input ? detectController(input.name.toLowerCase()) : null;
+      // Optimistically preload known-controller prefs on explicit device selection
+      // so the first live instance is constructed with the right anchor/mode.
+      // The derived-state effect in use-synth-wiring.js remains the long-term owner
+      // for refresh, reconnect, and any future non-UI connect paths.
+      setSettings((prev) => ({
+        ...prev,
+        midiin_device: value,
+        ...(ctrl ? loadAnchorSettingsUpdate(ctrl, prev) : {}),
+      }));
       sessionStorage.setItem("midiin_device", value);
       return;
     }
@@ -83,7 +91,7 @@ const useSettingsChange = (
     if (key === "midiin_central_degree") {
       const ctrl = getConnectedController(s.midiin_device, m);
       // value IS the raw physical MIDI note number — store directly.
-      if (ctrl) saveAnchor(ctrl, value);
+      if (ctrl) saveAnchor(ctrl, value, s);
       // Fall through to normal setSettings
     }
 
@@ -91,7 +99,7 @@ const useSettingsChange = (
     // (e.g. Lumatone), persist it to localStorage so it's restored on next connect.
     if (key === "lumatone_center_channel") {
       const ctrl = getConnectedController(s.midiin_device, m);
-      if (ctrl) saveAnchorChannel(ctrl, value);
+      if (ctrl) saveAnchorChannel(ctrl, value, s);
       // Fall through to normal setSettings
     }
 

@@ -36,6 +36,53 @@
 
 import { PER_CONTROLLER_ENTRIES, CROSS_CONTROLLER_ENTRIES } from '../persistence/settings-registry.js';
 
+function isModeAwareController(controller) {
+  return !!controller?.modes && typeof controller?.resolveMode === 'function';
+}
+
+function getModeStorageKey(controller) {
+  return `${controller.id}__active_mode`;
+}
+
+function getModeScopedStorageKey(controller, modeKey, key) {
+  return `${controller.id}__${modeKey}__${key}`;
+}
+
+function getLegacyStorageKey(controller, key) {
+  return `${controller.id}_${key}`;
+}
+
+function getModeDefault(controller, modeKey, key) {
+  return controller?.modes?.[modeKey]?.defaultPrefs?.[key];
+}
+
+export function getControllerMode(controller, settings = null, overrides = null, { preferStored = true } = {}) {
+  if (!isModeAwareController(controller)) return 'default';
+
+  const merged = { ...(settings || {}), ...(overrides || {}) };
+  if (!preferStored) {
+    const resolved = controller.resolveMode(merged);
+    if (resolved && controller.modes[resolved]) return resolved;
+  }
+
+  const stored = localStorage.getItem(getModeStorageKey(controller));
+  if (preferStored && stored && controller.modes[stored]) return stored;
+
+  if (controller.defaultMode && controller.modes[controller.defaultMode]) {
+    return controller.defaultMode;
+  }
+
+  const resolved = controller.resolveMode(merged);
+  if (resolved && controller.modes[resolved]) return resolved;
+  return Object.keys(controller.modes)[0] ?? 'default';
+}
+
+export function saveControllerMode(controller, modeKey) {
+  if (!isModeAwareController(controller)) return;
+  if (!modeKey || !controller.modes?.[modeKey]) return;
+  localStorage.setItem(getModeStorageKey(controller), modeKey);
+}
+
 // ── Generic registry-driven load/save ─────────────────────────────────────────
 
 /**
@@ -70,18 +117,25 @@ function parseLocalValue(raw, type) {
  * @param {object} controller  Registry entry (must have .id)
  * @returns {object}  Partial settings update
  */
-export function loadControllerPrefs(controller) {
+export function loadControllerPrefs(controller, settings = null) {
   const update = {};
+  const modeKey = getControllerMode(controller, settings);
 
   for (const entry of PER_CONTROLLER_ENTRIES) {
-    const storageKey = `${controller.id}_${entry.key}`;
-    const raw = localStorage.getItem(storageKey);
+    const raw = isModeAwareController(controller)
+      ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, entry.key))
+        ?? localStorage.getItem(getLegacyStorageKey(controller, entry.key))
+      : localStorage.getItem(getLegacyStorageKey(controller, entry.key));
+
     if (raw !== null) {
       update[entry.key] = parseLocalValue(raw, entry.type);
     } else {
+      const modeDefault = getModeDefault(controller, modeKey, entry.key);
       // First-connect fallbacks: use device capability rather than registry default
       // when nothing has been explicitly saved for this controller yet.
-      if (entry.key === 'midiin_mpe_input') {
+      if (modeDefault !== undefined) {
+        update[entry.key] = modeDefault;
+      } else if (entry.key === 'midiin_mpe_input') {
         update[entry.key] = !!controller.mpe;
       } else if (entry.key === 'midi_passthrough') {
         update[entry.key] = !!controller.passthroughDefault;
@@ -111,11 +165,17 @@ export function loadControllerPrefs(controller) {
  * @param {string}      key         Settings key (must be a local-tier registry entry)
  * @param {*}           value       Value to save
  */
-export function saveControllerPref(controller, key, value) {
+export function saveControllerPref(controller, key, value, settings = null, overrides = null) {
   const perEntry = PER_CONTROLLER_ENTRIES.find(e => e.key === key);
   if (perEntry) {
     if (!controller) { console.warn(`saveControllerPref: no controller for per-controller key "${key}"`); return; }
-    localStorage.setItem(`${controller.id}_${key}`, String(value));
+    const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
+    if (isModeAwareController(controller)) {
+      localStorage.setItem(getModeScopedStorageKey(controller, modeKey, key), String(value));
+      saveControllerMode(controller, modeKey);
+    } else {
+      localStorage.setItem(getLegacyStorageKey(controller, key), String(value));
+    }
     return;
   }
   const crossEntry = CROSS_CONTROLLER_ENTRIES.find(e => e.key === key);
@@ -135,9 +195,14 @@ export function saveControllerPref(controller, key, value) {
  * @param {object} controller  Registry entry (must have .id and .anchorDefault)
  * @returns {number}
  */
-export function loadSavedAnchor(controller) {
-  const raw = localStorage.getItem(`${controller.id}_anchor`);
-  return raw !== null ? parseInt(raw, 10) : controller.anchorDefault;
+export function loadSavedAnchor(controller, settings = null) {
+  const modeKey = getControllerMode(controller, settings);
+  const raw = isModeAwareController(controller)
+    ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, 'anchor'))
+      ?? localStorage.getItem(getLegacyStorageKey(controller, 'anchor'))
+    : localStorage.getItem(getLegacyStorageKey(controller, 'anchor'));
+  if (raw !== null) return parseInt(raw, 10);
+  return getModeDefault(controller, modeKey, 'anchorNote') ?? controller.anchorDefault;
 }
 
 /**
@@ -147,10 +212,15 @@ export function loadSavedAnchor(controller) {
  * @param {object} controller
  * @returns {number|null}
  */
-export function loadSavedAnchorChannel(controller) {
+export function loadSavedAnchorChannel(controller, settings = null) {
   if (controller.anchorChannelDefault == null) return null;
-  const raw = localStorage.getItem(`${controller.id}_anchor_channel`);
-  return raw !== null ? parseInt(raw, 10) : controller.anchorChannelDefault;
+  const modeKey = getControllerMode(controller, settings);
+  const raw = isModeAwareController(controller)
+    ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, 'anchor_channel'))
+      ?? localStorage.getItem(getLegacyStorageKey(controller, 'anchor_channel'))
+    : localStorage.getItem(getLegacyStorageKey(controller, 'anchor_channel'));
+  if (raw !== null) return parseInt(raw, 10);
+  return getModeDefault(controller, modeKey, 'anchorChannel') ?? controller.anchorChannelDefault;
 }
 
 /**
@@ -159,8 +229,14 @@ export function loadSavedAnchorChannel(controller) {
  * @param {object} controller
  * @param {number} note
  */
-export function saveAnchor(controller, note) {
-  localStorage.setItem(`${controller.id}_anchor`, String(note));
+export function saveAnchor(controller, note, settings = null, overrides = null) {
+  const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
+  if (isModeAwareController(controller)) {
+    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, 'anchor'), String(note));
+    saveControllerMode(controller, modeKey);
+    return;
+  }
+  localStorage.setItem(getLegacyStorageKey(controller, 'anchor'), String(note));
 }
 
 /**
@@ -170,9 +246,15 @@ export function saveAnchor(controller, note) {
  * @param {object} controller
  * @param {number} channel
  */
-export function saveAnchorChannel(controller, channel) {
+export function saveAnchorChannel(controller, channel, settings = null, overrides = null) {
   if (controller.anchorChannelDefault == null) return;
-  localStorage.setItem(`${controller.id}_anchor_channel`, String(channel));
+  const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
+  if (isModeAwareController(controller)) {
+    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, 'anchor_channel'), String(channel));
+    saveControllerMode(controller, modeKey);
+    return;
+  }
+  localStorage.setItem(getLegacyStorageKey(controller, 'anchor_channel'), String(channel));
 }
 
 // ── Combined helpers used by call sites ───────────────────────────────────────
@@ -192,15 +274,16 @@ export function saveAnchorChannel(controller, channel) {
  * @param {object} controller  Registry entry
  * @returns {object}  Partial settings update
  */
-export function loadAnchorSettingsUpdate(controller) {
+export function loadAnchorSettingsUpdate(controller, settings = null) {
+  const modeKey = getControllerMode(controller, settings);
   const update = {
-    midiin_central_degree: loadSavedAnchor(controller),
+    midiin_central_degree: loadSavedAnchor(controller, settings),
     // All local-tier prefs — includes midi_passthrough and midiin_mpe_input
     // with their first-connect fallbacks handled inside loadControllerPrefs.
-    ...loadControllerPrefs(controller),
+    ...loadControllerPrefs(controller, settings),
   };
 
-  const ch = loadSavedAnchorChannel(controller);
+  const ch = loadSavedAnchorChannel(controller, settings);
   if (ch !== null) update.lumatone_center_channel = ch;
 
   // Auto-apply fixed MPE voice channel range for controllers that define one.
@@ -232,9 +315,9 @@ export function loadAnchorSettingsUpdate(controller) {
  * @param {number} channel  Learned anchor channel
  * @returns {object}  Partial settings update
  */
-export function saveAnchorFromLearn(controller, note, channel) {
-  saveAnchor(controller, note);
-  saveAnchorChannel(controller, channel);
+export function saveAnchorFromLearn(controller, note, channel, settings = null, overrides = null) {
+  saveAnchor(controller, note, settings, overrides);
+  saveAnchorChannel(controller, channel, settings, overrides);
 
   const update = {
     midiin_central_degree: note,
