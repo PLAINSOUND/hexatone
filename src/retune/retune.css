@@ -1,0 +1,246 @@
+@font-face {
+  font-family: "Plainsound Sans";
+  src: url("../fonts/PlainsoundSans-Regular.otf");
+  font-weight: normal;
+  font-style: normal;
+}
+
+html, body, #application {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: "Plainsound Sans", sans-serif;
+  background: linear-gradient(180deg, #f2eee8 0%, #e8dfd3 100%);
+  color: #2d1712;
+}
+
+.retune-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+.retune-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #d8cbbb;
+  background: rgba(255, 252, 248, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.retune-toolbar button,
+.retune-toolbar label,
+.retune-toolbar select,
+.retune-toolbar input {
+  font: inherit;
+}
+
+.retune-toolbar button {
+  border: 1px solid #bda792;
+  background: #fff9f1;
+  color: #5a2617;
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.retune-toolbar .meta {
+  color: #775447;
+  font-size: 0.92rem;
+}
+
+.retune-main {
+  display: grid;
+  grid-template-columns: 280px 1fr 340px;
+  min-height: 0;
+}
+
+.retune-panel {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid #d8cbbb;
+  background: rgba(255, 249, 241, 0.8);
+}
+
+.retune-panel:last-child {
+  border-right: none;
+  border-left: 1px solid #d8cbbb;
+}
+
+.event-list {
+  padding: 0.75rem;
+}
+
+.event-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  margin-bottom: 0.3rem;
+  cursor: pointer;
+}
+
+.event-row.selected {
+  background: #d95d3920;
+  outline: 1px solid #d95d39;
+}
+
+.event-row:hover {
+  background: #00000008;
+}
+
+.event-row .mini {
+  color: #7a6255;
+  font-size: 0.84rem;
+}
+
+.viewer {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  min-height: 0;
+}
+
+.viewer-section {
+  min-height: 0;
+  overflow: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+.viewer-section + .viewer-section {
+  border-top: 1px solid #d8cbbb;
+}
+
+.viewer-title {
+  font-size: 0.9rem;
+  color: #6b4f46;
+  margin-bottom: 0.35rem;
+}
+
+.canvas-wrap {
+  min-width: 100%;
+  width: max-content;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid #d8cbbb;
+  border-radius: 10px;
+}
+
+.editor {
+  padding: 0.9rem;
+}
+
+.editor h3 {
+  margin: 0 0 0.75rem;
+}
+
+.editor-section {
+  margin-bottom: 1rem;
+}
+
+.editor-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #68483e;
+  font-size: 0.9rem;
+}
+
+.editor input,
+.editor select,
+.editor textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid #ccb7a7;
+  background: #fffdf9;
+  font: inherit;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(52px, 0.7fr) minmax(64px, 0.8fr) minmax(0, 1.4fr);
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.glyph-grid.extra {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.glyph-button {
+  min-height: 52px;
+  border-radius: 10px;
+  border: 1px solid #ccb7a7;
+  background: #fff9f1;
+  color: #44231a;
+  cursor: pointer;
+  font-family: "Plainsound Sans", sans-serif;
+}
+
+.glyph-button.selected {
+  background: #5e2314;
+  color: #fff7f2;
+  border-color: #5e2314;
+}
+
+.glyph-button .glyph {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.glyph-button .tiny {
+  display: block;
+  font-size: 0.72rem;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.computed-box {
+  font-size: 0.88rem;
+  background: #fffdf9;
+  border: 1px solid #ccb7a7;
+  border-radius: 10px;
+  padding: 0.6rem;
+  line-height: 1.45;
+}
+
+.computed-box code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 1100px) {
+  .retune-main {
+    grid-template-columns: 240px 1fr 300px;
+  }
+}
+
+@media (max-width: 900px) {
+  .retune-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: 220px 1fr 420px;
+  }
+
+  .retune-panel,
+  .retune-panel:last-child {
+    border-right: none;
+    border-left: none;
+    border-bottom: 1px solid #d8cbbb;
+  }
+}
