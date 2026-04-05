@@ -23,6 +23,9 @@ Current version 3.1.0-beta.4 (2026), released as Free/Libre and Open Source Soft
 
 ### 3.1.0-beta.4 *(current)*
 
+**Controller database reactivity based on mode 2D geometry or bypass**
+**TuneCell smoothing architecture rebuilt**
+
 ### 3.1.0-beta.3 *(April 2026)*
 
 **MIDI input — scale target mode:** new Input Mode selector in MIDI settings: *MIDI to Hex Layout* (existing behaviour) or *MIDI to Nearest Scale Degree*. In scale mode, incoming MIDI pitch is matched to the closest degree of the active scale by cent distance, across any tuning or equave. User-configurable tolerance (default 25¢) and out-of-tolerance behaviour (Accept Best / Discard). Geometry, anchor, and transposition controls are hidden when scale mode is active.
