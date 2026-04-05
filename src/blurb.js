@@ -47,8 +47,8 @@ const Blurb = () => (
         The text font with embedded HEJI accidentals (Plainsound Sans) is
         designed by Thomas Nicholson. Unicode data for copying/pasting may be
         found at{" "}
-        <a href="https://w3c.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html">
-          w3c.github.io/smufl/latest/tables
+        <a href="https://w3c-cg.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html">
+          w3c-cg.github.io/smufl/latest/tables
         </a>
         .
       </em>

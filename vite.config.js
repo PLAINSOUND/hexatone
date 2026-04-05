@@ -48,6 +48,12 @@ export default defineConfig({
   build: {
     outDir: 'build',
     sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        retune: path.resolve(__dirname, 'retune.html'),
+      },
+    },
   },
 
   server: {
