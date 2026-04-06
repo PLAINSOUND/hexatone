@@ -165,7 +165,7 @@ export const SETTINGS_REGISTRY = [
   { key: 'midi_wheel_semitones',   tier: 'session', type: 'int',    default: 2 },
 
   // ── Lumatone LED sync ─────────────────────────────────────────────────────────
-  { key: 'lumatone_led_sync', tier: 'session', type: 'bool', default: false },
+  { key: 'lumatone_led_sync', tier: 'local', type: 'bool', default: false, perController: false, description: 'Auto Send Colours to Lumatone LEDs when scale changes' },
   { key: 'exquis_led_sync',        tier: 'local', type: 'bool',  default: true,  perController: false, description: 'Auto Send Colours to Exquis LEDs when scale changes' },
   { key: 'exquis_led_luminosity',  tier: 'local', type: 'int',   default: 15,   perController: false, description: 'Exquis LED global brightness (0–100, firmware clamps above 100)' },
   { key: 'exquis_led_saturation',  tier: 'local', type: 'float', default: 1.3,  perController: false, description: 'Exquis LED colour saturation multiplier applied in okLab space (1.0–2.5)' },

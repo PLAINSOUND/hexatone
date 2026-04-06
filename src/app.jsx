@@ -52,7 +52,6 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
     const extraKeysToClear = [
       "hexatone_preset_source",
       "hexatone_preset_name",
-      "lumatone_led_sync",
       "direct_sysex_auto",
     ];
     [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear]

@@ -2,42 +2,15 @@
 
 *Created: 2026-04-05. Purpose: short next-steps list derived from Roadmap.md plus current code state.*
 
-## 1. Lumatone mode-aware controller prefs
+## 1. Lumatone mode-aware controller prefs   DONE
 
-Highest priority.
+Separate persisted anchors for `layout2d` and `bypass`, following the Exquis pattern.
+Defaults: 2D note 26/ch 3, bypass note 60/ch 4.
+`midiin_anchor_channel` set on connect in both modes so channel-offset arithmetic is correct.
+Sequential transposition suppressed in bypass. `lumatone_led_sync` persists at controller level.
+Lumatone LED first-send stall fixed (lifetime keyed on stable port IDs, owned in app.jsx).
 
-Implement the new `controllerId + modeKey` persistence model for **Lumatone only**, following the Exquis pattern but with Lumatone-specific modes:
-- `layout2d`
-- `bypass`
-
-Required behavior:
-- separate persisted anchors for 2D and bypass
-- defaults:
-  - 2D: note `26`, channel `3`
-  - bypass: note `60`, channel `4`
-- Pitch Wheel settings remain available in both modes
-- mode flips restore the correct saved anchor and related prefs
-
-Why this is first:
-- it validates the controller architecture on the next important hardware target
-- it prevents new Lumatone-specific special cases from spreading through the UI and persistence code
-
-## 2. Lumatone first-load colour send bug
-
-Test and fix the known first-send problem on hardware.
-
-Observed behavior:
-- on first Lumatone selection / first colour send, only one key updates
-- second send works correctly
-
-Likely area already patched:
-- controller-pref preload on device selection in `src/use-settings-change.js`
-
-Next step:
-- verify on real hardware
-- if still failing, trace initial LED/layout send ordering and stale synth/Keys lifetime on first controller selection
-
-## 3. Scale-mapper tests
+## 2. Scale-mapper tests
 
 Add `src/input/scale-mapper.test.js`.
 
@@ -93,7 +66,7 @@ Why:
 
 Best done after the Lumatone mode/persistence pass.
 
-## 7. Static bulk OCT synchronization
+## 7. Static bulk OCT synchronization   DONE
 
 Implement Roadmap item `C5`.
 

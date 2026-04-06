@@ -32,6 +32,34 @@ const LUMATONE = {
   mpe: false,
 };
 
+// Mode-aware Lumatone (matches the real registry entry)
+const LUMATONE_MODES = {
+  id: 'lumatone',
+  anchorDefault: 26,
+  anchorChannelDefault: 3,
+  mpe: false,
+  sequentialTransposeDefault: null,  // null = equave per channel
+  sequentialLegacyDefault: true,     // wrap channels 9–16 → 1–8
+  defaultMode: 'layout2d',
+  modes: {
+    layout2d: {
+      defaultPrefs: {
+        anchorNote:    26,
+        anchorChannel: 3,
+        midi_passthrough: false,
+      },
+    },
+    bypass: {
+      defaultPrefs: {
+        anchorNote:    60,
+        anchorChannel: 4,
+        midi_passthrough: true,
+      },
+    },
+  },
+  resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+};
+
 // MPE controller (LinnStrument) — user-configurable voice channel range
 const LINNSTRUMENT = {
   id: 'linnstrument128',
@@ -305,5 +333,108 @@ describe('saveAnchorFromLearn', () => {
     saveAnchorFromLearn(EXQUIS, 8, 1, { midi_passthrough: true });
     expect(localStorage.getItem('exquis__layout2d__anchor')).toBe('18');
     expect(localStorage.getItem('exquis__bypass__anchor')).toBe('8');
+  });
+
+  it('saves Lumatone learned anchors into the correct mode bucket', () => {
+    saveAnchorFromLearn(LUMATONE_MODES, 30, 2, { midi_passthrough: false });
+    saveAnchorFromLearn(LUMATONE_MODES, 55, 5, { midi_passthrough: true });
+    expect(localStorage.getItem('lumatone__layout2d__anchor')).toBe('30');
+    expect(localStorage.getItem('lumatone__layout2d__anchor_channel')).toBe('2');
+    expect(localStorage.getItem('lumatone__bypass__anchor')).toBe('55');
+    expect(localStorage.getItem('lumatone__bypass__anchor_channel')).toBe('5');
+  });
+});
+
+// ── Lumatone mode-aware prefs ─────────────────────────────────────────────────
+
+describe('Lumatone mode-aware controller prefs', () => {
+  it('defaults to layout2d mode on first connect', () => {
+    expect(getControllerMode(LUMATONE_MODES)).toBe('layout2d');
+  });
+
+  it('resolves bypass mode from settings when no stored mode exists', () => {
+    expect(getControllerMode(LUMATONE_MODES, { midi_passthrough: true })).toBe('bypass');
+  });
+
+  it('restores stored active mode on reconnect', () => {
+    localStorage.setItem('lumatone__active_mode', 'bypass');
+    expect(getControllerMode(LUMATONE_MODES)).toBe('bypass');
+  });
+
+  it('loads default layout2d anchor note and channel when nothing stored', () => {
+    const update = loadAnchorSettingsUpdate(LUMATONE_MODES);
+    expect(update.midiin_central_degree).toBe(26);
+    expect(update.midiin_anchor_channel).toBe(3);
+    expect(update.lumatone_center_channel).toBe(3);
+    expect(update.lumatone_center_note).toBe(26);
+    expect(update.midi_passthrough).toBe(false);
+  });
+
+  it('loads default bypass anchor note and channel when nothing stored', () => {
+    localStorage.setItem('lumatone__active_mode', 'bypass');
+    const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
+    expect(update.midiin_central_degree).toBe(60);
+    expect(update.midiin_anchor_channel).toBe(4);
+    expect(update.lumatone_center_channel).toBe(4);
+    expect(update.lumatone_center_note).toBe(60);
+    expect(update.midi_passthrough).toBe(true);
+  });
+
+  it('loads saved layout2d anchor after user changes it', () => {
+    saveAnchor(LUMATONE_MODES, 10, { midi_passthrough: false });
+    saveAnchorChannel(LUMATONE_MODES, 2, { midi_passthrough: false });
+    const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
+    expect(update.midiin_central_degree).toBe(10);
+    expect(update.midiin_anchor_channel).toBe(2);
+    expect(update.lumatone_center_channel).toBe(2);
+    expect(update.lumatone_center_note).toBe(10);
+  });
+
+  it('switches anchor when toggling between layout2d and bypass', () => {
+    saveAnchor(LUMATONE_MODES, 15, { midi_passthrough: false });
+    saveAnchorChannel(LUMATONE_MODES, 2, { midi_passthrough: false });
+    saveAnchor(LUMATONE_MODES, 48, { midi_passthrough: true });
+    saveAnchorChannel(LUMATONE_MODES, 5, { midi_passthrough: true });
+
+    const update2d = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
+    expect(update2d.midiin_central_degree).toBe(15);
+    expect(update2d.midiin_anchor_channel).toBe(2);
+    expect(update2d.lumatone_center_channel).toBe(2);
+    expect(update2d.lumatone_center_note).toBe(15);
+
+    const updateBypass = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
+    expect(updateBypass.midiin_central_degree).toBe(48);
+    expect(updateBypass.midiin_anchor_channel).toBe(5);
+    expect(updateBypass.lumatone_center_channel).toBe(5);
+    expect(updateBypass.lumatone_center_note).toBe(48);
+  });
+
+  it('saves mode-scoped prefs and remembers the active mode', () => {
+    saveControllerPref(LUMATONE_MODES, 'midi_passthrough', true,
+      { midi_passthrough: false }, { midi_passthrough: true });
+    expect(localStorage.getItem('lumatone__bypass__midi_passthrough')).toBe('true');
+    expect(localStorage.getItem('lumatone__active_mode')).toBe('bypass');
+  });
+
+  it('falls back to legacy flat anchor if no mode-specific anchor exists', () => {
+    localStorage.setItem('lumatone_anchor', '33');
+    localStorage.setItem('lumatone_anchor_channel', '2');
+    const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
+    expect(update.midiin_central_degree).toBe(33);
+    expect(update.midiin_anchor_channel).toBe(2);
+    expect(update.lumatone_center_channel).toBe(2);
+    expect(update.lumatone_center_note).toBe(33);
+  });
+
+  it('applies sequential transposition defaults in layout2d mode', () => {
+    const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
+    expect(update.midiin_steps_per_channel).toBe(null);  // equave per channel
+    expect(update.midiin_channel_legacy).toBe(true);
+  });
+
+  it('does NOT apply sequential transposition in bypass mode', () => {
+    const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
+    expect(update.midiin_steps_per_channel).toBeUndefined();
+    expect(update.midiin_channel_legacy).toBeUndefined();
   });
 });

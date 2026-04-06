@@ -386,6 +386,26 @@ export const CONTROLLER_REGISTRY = [
       channelRange:  { min: 1, max: 5 },
       multiChannel:  true,
     },
+    // Mode-aware persistence: separate anchor and prefs for 2D geometry vs bypass.
+    // Anchor note (0–55 within block) and channel (1–5) both differ between modes.
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote:    26,  // note 26 within the centre block
+          anchorChannel: 3,   // block 3 = centre block
+          midi_passthrough: false,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote:    60,  // MIDI note 60 in sequential mode (full 0–127 range)
+          anchorChannel: 4,
+          midi_passthrough: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
   },
 
   {

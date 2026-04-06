@@ -68,12 +68,17 @@ export function getControllerMode(controller, settings = null, overrides = null,
   const stored = localStorage.getItem(getModeStorageKey(controller));
   if (preferStored && stored && controller.modes[stored]) return stored;
 
+  // No stored mode — try resolving from live settings before falling back
+  // to defaultMode. This handles first-connect where the stored mode is absent
+  // but the current settings already indicate a non-default mode (e.g.
+  // midi_passthrough: true → bypass).
+  const resolved = controller.resolveMode(merged);
+  if (resolved && controller.modes[resolved]) return resolved;
+
   if (controller.defaultMode && controller.modes[controller.defaultMode]) {
     return controller.defaultMode;
   }
 
-  const resolved = controller.resolveMode(merged);
-  if (resolved && controller.modes[resolved]) return resolved;
   return Object.keys(controller.modes)[0] ?? 'default';
 }
 
@@ -115,11 +120,15 @@ function parseLocalValue(raw, type) {
  *   Falls back to the registry default.
  *
  * @param {object} controller  Registry entry (must have .id)
+ * @param {object|null} settings
+ * @param {object} [opts]
+ * @param {boolean} [opts.preferStored=true]  When false, resolve mode from live
+ *   settings rather than stored active mode (use when settings is authoritative).
  * @returns {object}  Partial settings update
  */
-export function loadControllerPrefs(controller, settings = null) {
+export function loadControllerPrefs(controller, settings = null, { preferStored = true } = {}) {
   const update = {};
-  const modeKey = getControllerMode(controller, settings);
+  const modeKey = getControllerMode(controller, settings, null, { preferStored });
 
   for (const entry of PER_CONTROLLER_ENTRIES) {
     const raw = isModeAwareController(controller)
@@ -193,10 +202,14 @@ export function saveControllerPref(controller, key, value, settings = null, over
  * Falls back to `controller.anchorDefault` if no value has been saved.
  *
  * @param {object} controller  Registry entry (must have .id and .anchorDefault)
+ * @param {object|null} settings
+ * @param {object} [opts]
+ * @param {boolean} [opts.preferStored=true]  When false, resolve mode from live
+ *   settings rather than stored active mode.
  * @returns {number}
  */
-export function loadSavedAnchor(controller, settings = null) {
-  const modeKey = getControllerMode(controller, settings);
+export function loadSavedAnchor(controller, settings = null, { preferStored = true } = {}) {
+  const modeKey = getControllerMode(controller, settings, null, { preferStored });
   const raw = isModeAwareController(controller)
     ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, 'anchor'))
       ?? localStorage.getItem(getLegacyStorageKey(controller, 'anchor'))
@@ -210,11 +223,15 @@ export function loadSavedAnchor(controller, settings = null) {
  * Returns null for single-channel controllers (no anchorChannelDefault).
  *
  * @param {object} controller
+ * @param {object|null} settings
+ * @param {object} [opts]
+ * @param {boolean} [opts.preferStored=true]  When false, resolve mode from live
+ *   settings rather than stored active mode.
  * @returns {number|null}
  */
-export function loadSavedAnchorChannel(controller, settings = null) {
+export function loadSavedAnchorChannel(controller, settings = null, { preferStored = true } = {}) {
   if (controller.anchorChannelDefault == null) return null;
-  const modeKey = getControllerMode(controller, settings);
+  const modeKey = getControllerMode(controller, settings, null, { preferStored });
   const raw = isModeAwareController(controller)
     ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, 'anchor_channel'))
       ?? localStorage.getItem(getLegacyStorageKey(controller, 'anchor_channel'))
@@ -275,16 +292,29 @@ export function saveAnchorChannel(controller, channel, settings = null, override
  * @returns {object}  Partial settings update
  */
 export function loadAnchorSettingsUpdate(controller, settings = null) {
-  const modeKey = getControllerMode(controller, settings);
+  // When live settings are available, resolve the mode from them (e.g. from
+  // midi_passthrough) rather than from the stored active mode, which may
+  // reflect a previous session in a different mode.
+  const preferStored = settings === null;
   const update = {
-    midiin_central_degree: loadSavedAnchor(controller, settings),
+    midiin_central_degree: loadSavedAnchor(controller, settings, { preferStored }),
     // All local-tier prefs — includes midi_passthrough and midiin_mpe_input
     // with their first-connect fallbacks handled inside loadControllerPrefs.
-    ...loadControllerPrefs(controller, settings),
+    ...loadControllerPrefs(controller, settings, { preferStored }),
   };
 
-  const ch = loadSavedAnchorChannel(controller, settings);
-  if (ch !== null) update.lumatone_center_channel = ch;
+  const ch = loadSavedAnchorChannel(controller, settings, { preferStored });
+  if (ch !== null) {
+    // midiin_anchor_channel drives the channel-offset formula in channelToStepsOffset()
+    // for all layouts (sequential, passthrough). Must match the loaded anchor channel
+    // so that (incomingChannel - anchorChannel) evaluates to 0 at the anchor position.
+    update.midiin_anchor_channel = ch;
+    update.lumatone_center_channel = ch;
+    // lumatone_center_note is the block-local anchor note (0–55), which is the
+    // same value loadSavedAnchor returned above. Populate it here so Keys has
+    // both fields correctly set without relying on session-scoped stale defaults.
+    update.lumatone_center_note = update.midiin_central_degree;
+  }
 
   // Auto-apply fixed MPE voice channel range for controllers that define one.
   if (controller.mpeVoiceChannels) {
@@ -294,11 +324,17 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
 
   // Apply controller-specific sequential transposition defaults (e.g. Lumatone:
   // equave transposition + mod-8 wrapping for its 5-block channel layout).
-  if ('sequentialTransposeDefault' in controller) {
-    update.midiin_steps_per_channel = controller.sequentialTransposeDefault;
-  }
-  if ('sequentialLegacyDefault' in controller) {
-    update.midiin_channel_legacy = controller.sequentialLegacyDefault;
+  // Skip in bypass mode — the controller is acting as a plain MIDI device and
+  // channel-based transposition would produce wrong pitches.
+  const activeMode = getControllerMode(controller, settings, null, { preferStored });
+  const isLayout = !isModeAwareController(controller) || activeMode !== 'bypass';
+  if (isLayout) {
+    if ('sequentialTransposeDefault' in controller) {
+      update.midiin_steps_per_channel = controller.sequentialTransposeDefault;
+    }
+    if ('sequentialLegacyDefault' in controller) {
+      update.midiin_channel_legacy = controller.sequentialLegacyDefault;
+    }
   }
 
   return update;

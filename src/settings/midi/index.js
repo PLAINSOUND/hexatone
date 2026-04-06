@@ -372,8 +372,10 @@ const MIDIio = (props) => {
                               checked={!!props.settings.lumatone_led_sync}
                               onChange={(e) => {
                                 props.onChange('lumatone_led_sync', e.target.checked);
-                                sessionStorage.setItem('lumatone_led_sync', e.target.checked);
-                                if (e.target.checked) props.keysRef?.current?.syncLumatoneLEDs?.();
+                                localStorage.setItem('lumatone_led_sync', e.target.checked);
+                                const keys = props.keysRef?.current;
+                                if (keys) keys.settings.lumatone_led_sync = e.target.checked;
+                                if (e.target.checked) keys?.syncLumatoneLEDs?.();
                               }}
                             />
                             <button type="button" style={{ fontSize: '0.85em' }}
