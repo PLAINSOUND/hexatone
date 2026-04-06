@@ -699,9 +699,9 @@ const useSynthWiring = (
       keysRef.current.shiftOctave(dir, octaveDeferred);
   };
 
-  const toggleOctaveDeferred = (e) => {
-    e.stopPropagation();
-    const next = !octaveDeferred;
+  const setOctaveDeferredMode = useCallback((next, e = null) => {
+    e?.stopPropagation?.();
+    if (next === octaveDeferred) return;
     setOctaveDeferred(next);
     sessionStorage.setItem("octave_deferred", next);
     if (
@@ -722,7 +722,48 @@ const useSynthWiring = (
         });
       }
     }
+  }, [
+    octaveDeferred,
+    ready,
+    settings.output_direct,
+    settings.direct_mode,
+    settings.direct_device,
+    keysRef,
+  ]);
+
+  const toggleOctaveDeferred = (e) => {
+    setOctaveDeferredMode(!octaveDeferred, e);
   };
+
+  useEffect(() => {
+    const inputIsFocused = () => {
+      const tag = document.activeElement?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    };
+
+    const handleOctaveKeys = (e) => {
+      if (inputIsFocused()) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.repeat) return;
+
+      if (e.code === "ArrowUp") {
+        e.preventDefault();
+        shiftOctave(1);
+      } else if (e.code === "ArrowDown") {
+        e.preventDefault();
+        shiftOctave(-1);
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        setOctaveDeferredMode(true);
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        setOctaveDeferredMode(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleOctaveKeys, false);
+    return () => window.removeEventListener("keydown", handleOctaveKeys, false);
+  }, [shiftOctave, setOctaveDeferredMode]);
 
   // ── Per-controller prefs: single derived-state owner ────────────────────────
   // Fires whenever the resolved controller identity or controller mode changes.
