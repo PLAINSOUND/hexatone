@@ -24,6 +24,13 @@ const AXIS49 = {
   mpe: false,
 };
 
+const GENERIC = {
+  id: 'generic',
+  anchorDefault: 60,
+  anchorChannelDefault: undefined,
+  mpe: false,
+};
+
 // Channel-aware controller (Lumatone)
 const LUMATONE = {
   id: 'lumatone',
@@ -257,6 +264,12 @@ describe('loadAnchorSettingsUpdate', () => {
 
   it('does not include lumatone_center_channel for single-channel controllers', () => {
     const update = loadAnchorSettingsUpdate(AXIS49);
+    expect(update).not.toHaveProperty('lumatone_center_channel');
+  });
+
+  it('resets the sequential anchor channel to 1 for single-channel controllers', () => {
+    const update = loadAnchorSettingsUpdate(GENERIC);
+    expect(update.midiin_anchor_channel).toBe(1);
     expect(update).not.toHaveProperty('lumatone_center_channel');
   });
 

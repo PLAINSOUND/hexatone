@@ -75,6 +75,17 @@ function sendBend(midi_output, channel0, bend) {
   midi_output.send([0xE0 + channel0, lsb, msb]);
 }
 
+function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
+  midi_output.send([0xB0 + channel0, 101, msb & 0x7F]);
+  midi_output.send([0xB0 + channel0, 100, lsb & 0x7F]);
+  midi_output.send([0xB0 + channel0, 6, dataMsb & 0x7F]);
+  midi_output.send([0xB0 + channel0, 38, dataLsb & 0x7F]);
+  // Null RPN selection so later Data Entry messages cannot accidentally keep
+  // editing the previously selected parameter on stricter hardware synths.
+  midi_output.send([0xB0 + channel0, 101, 127]);
+  midi_output.send([0xB0 + channel0, 100, 127]);
+}
+
 export const create_mpe_synth = async (
   midi_output,
   master_ch,
@@ -109,13 +120,8 @@ export const create_mpe_synth = async (
   // MPE configuration RPN message on manager channel
   if (masterCh !== -1) {
     const numVoices = hi_ch - lo_ch + 1;
-    midi_output.send([0xB0 + masterCh, 101, 0]);
-    midi_output.send([0xB0 + masterCh, 100, 6]);
-    midi_output.send([0xB0 + masterCh, 6, numVoices]);
-    midi_output.send([0xB0 + masterCh, 101, 0]);
-    midi_output.send([0xB0 + masterCh, 100, 0]);
-    midi_output.send([0xB0 + masterCh, 6, managerBendRange]); // set Pitch Bend range on the Manager Channel
-    // midi_output.send([0xB0 + masterCh, 38, 0]);  // non-functional
+    sendRpn(midi_output, masterCh, 0, 6, numVoices, 0);
+    sendRpn(midi_output, masterCh, 0, 0, managerBendRange, 0);
   }
 
   // Send pitch-bend range RPN on every voice channel immediately —
@@ -129,9 +135,7 @@ export const create_mpe_synth = async (
   // pitch before the channel is reset.
   for (const ch of voiceIds) {
     const c = ch - 1;
-    midi_output.send([0xB0 + c, 101, 0]);
-    midi_output.send([0xB0 + c, 100, 0]);
-    midi_output.send([0xB0 + c, 6, actualBendRange]);
+    sendRpn(midi_output, c, 0, 0, actualBendRange, 0);
     midi_output.send([0xE0 + c, 0, 64]); // 8192 = centred
   }
   // PB centre reset — deferred so old release tails finish first

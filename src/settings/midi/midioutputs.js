@@ -18,6 +18,15 @@ const save = (name, value, onChange) => {
   sessionStorage.setItem(name, value);
 };
 
+const sendRpn = (output, channel0, msb, lsb, dataMsb, dataLsb = 0) => {
+  output.send([0xb0 + channel0, 101, msb & 0x7f]);
+  output.send([0xb0 + channel0, 100, lsb & 0x7f]);
+  output.send([0xb0 + channel0, 6, dataMsb & 0x7f]);
+  output.send([0xb0 + channel0, 38, dataLsb & 0x7f]);
+  output.send([0xb0 + channel0, 101, 127]);
+  output.send([0xb0 + channel0, 100, 127]);
+};
+
 // Send MPE pitch bend range RPN to all voice channels
 const sendMpePitchBendRange = (
   output,
@@ -39,23 +48,15 @@ const sendMpePitchBendRange = (
   // Send MPE zone configuration RPN on master channel
   if (masterChNum !== null) {
     const numVoices = hiCh - loCh + 1;
-    // RPN 0x0006 (MPE config) = number of member channels
-    output.send([0xb0 + masterChNum, 101, 0]); // RPN MSB = 0
-    output.send([0xb0 + masterChNum, 100, 6]); // RPN LSB = 6
-    output.send([0xb0 + masterChNum, 6, numVoices]); // data entry MSB
-    output.send([0xb0 + masterChNum, 101, 0]); // RPN MSB = 0
-    output.send([0xb0 + masterChNum, 100, 0]); // RPN LSB = 0
-    output.send([0xb0 + masterChNum, 6, managerBendRange]); // data entry MSB
+    sendRpn(output, masterChNum, 0, 6, numVoices, 0);
+    sendRpn(output, masterChNum, 0, 0, managerBendRange, 0);
   }
 
   // Send pitch bend range RPN on all voice channels
   // RPN 0x0000 (pitch bend range)
   for (let ch = loCh; ch <= hiCh; ch++) {
     const c = ch - 1; // 0-based
-    output.send([0xb0 + c, 101, 0]); // RPN MSB = 0
-    output.send([0xb0 + c, 100, 0]); // RPN LSB = 0
-    output.send([0xb0 + c, 6, actualBendRange]); // data entry MSB (semitones)
-    
+    sendRpn(output, c, 0, 0, actualBendRange, 0);
   }
 };
 

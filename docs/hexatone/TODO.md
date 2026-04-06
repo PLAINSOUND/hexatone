@@ -10,7 +10,7 @@ Defaults: 2D note 26/ch 3, bypass note 60/ch 4.
 Sequential transposition suppressed in bypass. `lumatone_led_sync` persists at controller level.
 Lumatone LED first-send stall fixed (lifetime keyed on stable port IDs, owned in app.jsx).
 
-## 2. Scale-mapper tests
+## 2. Scale-mapper tests   DONE
 
 Add `src/input/scale-mapper.test.js`.
 

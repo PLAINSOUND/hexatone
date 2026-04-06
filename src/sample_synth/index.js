@@ -380,6 +380,12 @@ ActiveHex.prototype.retune = function(newCents) {
   }
 };
 
+// Standard wheel mode in Hexatone bends the internal sample engine directly in
+// cents space. External MIDI/MPE outputs use raw pitch-bend passthrough instead.
+ActiveHex.prototype.standardWheelRetune = function(newCents) {
+  this.retune(newCents, true);
+};
+
 ActiveHex.prototype.aftertouch = function(value) {
   if (this.release || !this.gainNode) return;
   const pressure = Math.max(0, Math.min(127, value)) / 127;

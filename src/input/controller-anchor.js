@@ -314,6 +314,10 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
     // same value loadSavedAnchor returned above. Populate it here so Keys has
     // both fields correctly set without relying on session-scoped stale defaults.
     update.lumatone_center_note = update.midiin_central_degree;
+  } else {
+    // Single-channel controllers must actively clear any stale anchor-channel
+    // state left by a previously connected multichannel controller.
+    update.midiin_anchor_channel = 1;
   }
 
   // Auto-apply fixed MPE voice channel range for controllers that define one.

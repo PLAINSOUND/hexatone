@@ -336,6 +336,7 @@ const App = () => {
     wheelToRecent:    settings.wheel_to_recent,
     wheelRange:       settings.midiin_bend_range ?? '64/63',
     wheelScaleAware:  settings.wheel_scale_aware,
+    wheelSemitones:   settings.midi_wheel_semitones ?? 2,
     // Pitch bend range for incoming hardware controller bend messages.
     bendRange:        settings.midiin_bend_range ?? '64/63',
     bendFlip:         !!settings.midiin_bend_flip,
@@ -355,6 +356,7 @@ const App = () => {
     settings.midiin_pressure_mode,
     settings.wheel_to_recent,
     settings.wheel_scale_aware,
+    settings.midi_wheel_semitones,
     settings.midiin_bend_range,
     settings.midiin_bend_flip,
     settings.midiin_scale_bend_range,

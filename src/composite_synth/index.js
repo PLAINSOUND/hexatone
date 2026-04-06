@@ -35,6 +35,11 @@ export const create_composite_synth = (synths) => ({
         hexes.forEach(h => h.retune && h.retune(newCents, bendOnly));
       },
 
+      standardWheelRetune(newCents) {
+        this.cents = newCents;
+        hexes.forEach((h) => h.standardWheelRetune && h.standardWheelRetune(newCents));
+      },
+
       aftertouch(value) {
         hexes.forEach(h => h.aftertouch && h.aftertouch(value));
       },

@@ -41,6 +41,42 @@ describe("mpe_synth startup state", () => {
     expect(midi_output.send).toHaveBeenCalledWith([0xE0 + 3, 0, 64]);
   });
 
+  it("sends full RPN sequences for manager and member pitch-bend setup", async () => {
+    const midi_output = { send: vi.fn() };
+
+    await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      12,
+      2,
+      12,
+      2,
+      500,
+    );
+
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 101, 0]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 100, 6]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 6, 1]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 38, 0]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 101, 127]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0, 100, 127]);
+
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0 + 1, 101, 0]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0 + 1, 100, 0]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0 + 1, 6, 12]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0 + 1, 38, 0]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0 + 1, 101, 127]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xB0 + 1, 100, 127]);
+  });
+
   it("re-centers every voice channel again after the release guard", async () => {
     const midi_output = { send: vi.fn() };
 

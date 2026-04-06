@@ -3,6 +3,7 @@ import {
   deriveOutputRuntime,
   deriveTuningRuntime,
   resolveOctaveShortcutAction,
+  resolveInputController,
 } from "./use-synth-wiring.js";
 
 const partchScale = [
@@ -132,5 +133,18 @@ describe("use-synth-wiring octave shortcuts", () => {
 
   it("ignores unrelated keys", () => {
     expect(resolveOctaveShortcutAction({ code: "KeyA" }, false)).toBeNull();
+  });
+});
+
+describe("use-synth-wiring controller resolution", () => {
+  it("falls back unknown inputs to the Generic keyboard controller", () => {
+    const ctrl = resolveInputController({ name: "KORG microKEY-37" });
+    expect(ctrl?.id).toBe("generic");
+    expect(ctrl?.anchorDefault).toBe(60);
+  });
+
+  it("keeps known controllers on their dedicated registry entries", () => {
+    const ctrl = resolveInputController({ name: "Lumatone" });
+    expect(ctrl?.id).toBe("lumatone");
   });
 });

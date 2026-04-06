@@ -5,7 +5,7 @@ import { create_midi_synth } from "./midi_synth";
 import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
 import { create_osc_synth } from "./osc_synth";
-import { detectController } from "./controllers/registry.js";
+import { detectController, getControllerById } from "./controllers/registry.js";
 import { saveAnchorFromLearn, loadAnchorSettingsUpdate } from "./input/controller-anchor.js";
 import { WebMidi } from "webmidi";
 import { scalaToCents } from "./settings/scale/parse-scale.js";
@@ -22,6 +22,11 @@ import {
 // lets multiple async operations overlap without prematurely hiding the spinner.
 const wait   = (l) => l + 1;
 const signal = (l) => l - 1;
+
+export const resolveInputController = (input) => {
+  if (!input?.name) return getControllerById("generic");
+  return detectController(input.name.toLowerCase()) ?? getControllerById("generic");
+};
 
 export const deriveTuningRuntime = (settings) => {
   if (!settings.scale || !Array.isArray(settings.scale) || settings.scale.length === 0) {
@@ -66,6 +71,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       mapNumber: settings.tuning_map_number ?? 0,
       anchorNote: settings.midiin_central_degree,
       sysexType: settings.sysex_type,
+      pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
   }
 
@@ -91,6 +97,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       mapNumber: settings.tuning_map_number ?? 0,
       anchorNote: settings.midiin_central_degree,
       sysexType: settings.sysex_type,
+      pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
   }
 
@@ -140,6 +147,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       ),
       anchorNote: directAnchor,
       sysexType: 126,
+      pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
   }
 
@@ -539,7 +547,7 @@ const useSynthWiring = (
         settings.scale,
         settings.mpe_mode,
         settings.mpe_pitchbend_range ?? 48,
-        settings.mpe_manager_pitchbend_range ?? 2,
+        settings.mpe_pitchbend_range_manager ?? 2,
         settings.equivSteps,
         settings.equivInterval,
       ]);
@@ -559,7 +567,7 @@ const useSynthWiring = (
             settings.scale,
             settings.mpe_mode,
             settings.mpe_pitchbend_range ?? 48,
-            settings.mpe_manager_pitchbend_range ?? 2,
+            settings.mpe_pitchbend_range_manager ?? 2,
             settings.equivSteps,
             settings.equivInterval,
           ).then((s) => {
@@ -601,6 +609,11 @@ const useSynthWiring = (
       // old decoded buffers (a very short "peep") if the new instrument hasn't decoded
       // yet. Acceptable given that the iOS hang is the worse failure.
       if (cancelled) { setLoading(signal); return; }
+      // Push current controller state into the newly-built synth immediately,
+      // without waiting for the next Keyboard render/effect cycle. This closes
+      // a timing gap where a freshly swapped sample synth could briefly become
+      // active with default wheel/mod state after an instrument change.
+      keysRef.current?.updateLiveOutputState?.(null, s);
       setSynth(s);
       setLoading(signal);
     });
@@ -618,6 +631,7 @@ const useSynthWiring = (
     settings.midi_channel,
     settings.midi_mapping,
     settings.midi_velocity,
+    settings.midi_wheel_semitones,
     settings.device_id,
     settings.tuning_map_number,
     settings.output_sample,
@@ -639,6 +653,7 @@ const useSynthWiring = (
     settings.mpe_lo_ch,
     settings.mpe_hi_ch,
     settings.mpe_pitchbend_range,
+    settings.mpe_pitchbend_range_manager,
     settings.mpe_mode,
     midi,
     midiTick,
@@ -785,7 +800,7 @@ const useSynthWiring = (
     if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return;
     const input = Array.from(midi.inputs.values()).find(i => i.id === settings.midiin_device);
     if (!input) return;
-    const ctrl = detectController(input.name.toLowerCase());
+    const ctrl = resolveInputController(input);
     if (!ctrl) return;
     setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settings) }));
   }, [midi, settings.midiin_device, settings.midiin_mpe_input, settings.midi_passthrough]);
@@ -809,7 +824,7 @@ const useSynthWiring = (
       const input = Array.from(midi.inputs.values()).find(
         (m) => m.id === settings.midiin_device,
       );
-      if (input) ctrl = detectController(input.name.toLowerCase());
+      if (input) ctrl = resolveInputController(input);
     }
 
     // Persist anchor note per controller and build the settings update.

@@ -2650,6 +2650,9 @@ class Keys {
   }
 
   _pushControllerStateToSynth() {
+    if (this.synth?.rememberControllerState) {
+      this.synth.rememberControllerState(this._getControllerState());
+    }
     if (this.synth?.applyControllerState) {
       this.synth.applyControllerState(this._getControllerState());
     }
@@ -2697,15 +2700,17 @@ class Keys {
   _handleWheelBend(val14) {
     this._wheelValue14 = val14;
     if (!this.inputRuntime.wheelToRecent) {
-      // Standard mode: retune sample synth voices only (MIDI passthrough is
-      // handled in the pitchbend listener above).  Uses semitone range.
+      // Standard mode: bend the internal sample engine only. External MIDI/MTS/MPE
+      // outputs receive raw pitch-bend passthrough in the listener above.
       // Uses hex._baseCents (frozen at note-on) to avoid accumulation drift.
       const norm = (val14 - 8192) / 8192; // −1 … +1
       const rangeCents = (this.inputRuntime.wheelSemitones ?? 2) * 100;
       const offsetCents = norm * rangeCents;
       this._wheelBend = offsetCents;
       for (const hex of this._allActiveHexes()) {
-        hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
+        if (hex.standardWheelRetune) {
+          hex.standardWheelRetune((hex._baseCents ?? hex.cents) + offsetCents);
+        }
       }
       return;
     }

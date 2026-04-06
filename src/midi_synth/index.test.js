@@ -16,6 +16,42 @@ afterEach(() => {
 });
 
 describe("midi_synth controller-state replay", () => {
+  it("sends a full pitch-bend-range RPN on synth creation", async () => {
+    const output = { send: vi.fn() };
+    await create_midi_synth({
+      outputMode: {
+        output,
+        channel: 2,
+        midiMapping: "MTS1",
+        transportMode: "single_note_realtime",
+        velocity: 72,
+        sysexType: 127,
+        deviceId: 127,
+        mapNumber: 0,
+        anchorNote: 60,
+        pitchBendRange: 12,
+      },
+      tuningContext: {
+        fundamental: 440,
+        degree0toRefAsArray: [0, 1],
+        scale: scale12,
+        equivInterval: 1200,
+        name: "test",
+      },
+      legacyInput: {
+        midiin_device: "input-1",
+        midiin_central_degree: 60,
+      },
+    });
+
+    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 101, 0]);
+    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 100, 0]);
+    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 6, 12]);
+    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 38, 0]);
+    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 101, 127]);
+    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 100, 127]);
+  });
+
   it("replays saved CC, channel pressure, and pitch bend to the output channel", async () => {
     const output = { send: vi.fn() };
     const synth = await create_midi_synth({
@@ -29,6 +65,7 @@ describe("midi_synth controller-state replay", () => {
         deviceId: 127,
         mapNumber: 0,
         anchorNote: 60,
+        pitchBendRange: 2,
       },
       tuningContext: {
         fundamental: 440,

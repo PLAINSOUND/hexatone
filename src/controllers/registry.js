@@ -503,6 +503,11 @@ export function detectController(deviceName) {
   return CONTROLLER_REGISTRY.find(c => c.detect(name)) ?? null;
 }
 
+export function getControllerById(id) {
+  if (!id) return null;
+  return CONTROLLER_REGISTRY.find((controller) => controller.id === id) ?? null;
+}
+
 /**
  * Get the anchor MIDI note for a controller from settings.
  * Universal: always uses midiin_central_degree (the MIDI note → central screen degree mapping).

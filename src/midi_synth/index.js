@@ -7,6 +7,15 @@ import {
   centsToMTS,
 } from "../keyboard/mts-helpers.js";
 
+function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
+  midi_output.send([0xB0 + channel0, 101, msb & 0x7F]);
+  midi_output.send([0xB0 + channel0, 100, lsb & 0x7F]);
+  midi_output.send([0xB0 + channel0, 6, dataMsb & 0x7F]);
+  midi_output.send([0xB0 + channel0, 38, dataLsb & 0x7F]);
+  midi_output.send([0xB0 + channel0, 101, 127]);
+  midi_output.send([0xB0 + channel0, 100, 127]);
+}
+
 export const tuningmap = new Array(128);
 for (let i = 0; i < 128; i++) {
   tuningmap[i] = [i, 0, 0];
@@ -29,6 +38,7 @@ export const create_midi_synth = async ({
     mapNumber,
     mapName,
     anchorNote,
+    pitchBendRange = 2,
   } = outputMode;
   const {
     fundamental,
@@ -88,6 +98,10 @@ export const create_midi_synth = async ({
           })),
     })
     : null;
+
+  if (midi_output && channel != null && channel >= 0) {
+    sendRpn(midi_output, channel, 0, 0, pitchBendRange, 0);
+  }
 
   const activeHexes = new Set();
 

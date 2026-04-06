@@ -76,7 +76,6 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
     null,
     null,
     null,
-    null,
     {
       target: "hex_layout",
       layoutMode: "controller_geometry",
@@ -155,6 +154,96 @@ describe("Keys MIDI input integration", () => {
 
     expect(hexOn).toHaveBeenCalledTimes(1);
     expect(hexOn.mock.calls[0][0]).toEqual(new Point(2, 3));
+  });
+
+  it("replays remembered controller state to a newly swapped synth", () => {
+    const oldSynth = {
+      rememberControllerState: vi.fn(),
+      applyControllerState: vi.fn(),
+    };
+    const keys = createKeys({}, {}, oldSynth);
+
+    keys._controllerCCValues.set(1, 93);
+    keys._channelPressureValue = 54;
+    keys._wheelValue14 = 12000;
+
+    const newSynth = {
+      rememberControllerState: vi.fn(),
+      applyControllerState: vi.fn(),
+    };
+
+    keys.updateLiveOutputState(null, newSynth);
+
+    expect(newSynth.rememberControllerState).toHaveBeenCalledWith({
+      ccValues: { 1: 93 },
+      channelPressure: 54,
+      pitchBend14: 12000,
+    });
+    expect(newSynth.applyControllerState).toHaveBeenCalledWith({
+      ccValues: { 1: 93 },
+      channelPressure: 54,
+      pitchBend14: 12000,
+    });
+  });
+
+  it("uses the configured standard wheel semitone range when wheel-to-recent is off", () => {
+    const standardWheelRetuneA = vi.fn();
+    const standardWheelRetuneB = vi.fn();
+    const keys = createKeys({}, {
+      wheelToRecent: false,
+      wheelSemitones: 12,
+    });
+    const hexA = {
+      release: false,
+      _baseCents: 1000,
+      cents: 1000,
+      standardWheelRetune: standardWheelRetuneA,
+    };
+    const hexB = {
+      release: false,
+      _baseCents: 2200,
+      cents: 2200,
+      standardWheelRetune: standardWheelRetuneB,
+    };
+    keys.state.activeMidi.set(60, hexA);
+    keys.state.activeMidi.set(61, hexB);
+
+    keys._handleWheelBend(16383);
+
+    expect(standardWheelRetuneA).toHaveBeenCalledTimes(1);
+    expect(standardWheelRetuneB).toHaveBeenCalledTimes(1);
+    expect(standardWheelRetuneA.mock.calls[0][0]).toBeCloseTo(2200, 0);
+    expect(standardWheelRetuneB.mock.calls[0][0]).toBeCloseTo(3400, 0);
+  });
+
+  it("does not directly retune non-sample hexes in standard wheel mode", () => {
+    const standardWheelRetune = vi.fn();
+    const retune = vi.fn();
+    const keys = createKeys({}, {
+      wheelToRecent: false,
+      wheelSemitones: 2,
+    });
+    const sampleLikeHex = {
+      release: false,
+      _baseCents: 1000,
+      cents: 1000,
+      standardWheelRetune,
+      retune,
+    };
+    const mpeLikeHex = {
+      release: false,
+      _baseCents: 1500,
+      cents: 1500,
+      retune: vi.fn(),
+    };
+    keys.state.activeMidi.set(60, sampleLikeHex);
+    keys.state.activeMidi.set(61, mpeLikeHex);
+
+    keys._handleWheelBend(16383);
+
+    expect(standardWheelRetune).toHaveBeenCalledTimes(1);
+    expect(retune).not.toHaveBeenCalled();
+    expect(mpeLikeHex.retune).not.toHaveBeenCalled();
   });
 
   it("keeps sustained MIDI notes lit until sustain is released", () => {
