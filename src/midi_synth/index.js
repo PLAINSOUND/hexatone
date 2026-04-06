@@ -45,6 +45,10 @@ export const create_midi_synth = async ({
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
   // MTS1: all 128 MIDI notes available as carriers
   const pool_mts1 = new VoicePool(Array.from({ length: 128 }, (_, i) => i));
+  const pool_direct_dynamic = new VoicePool(
+    Array.from({ length: 128 }, (_, i) => i),
+    750,
+  );
 
   // MTS2 (Pianoteq): low pool notes 23–88, high pool notes 89–106
   const pool_mts2_low  = new VoicePool(Array.from({ length: 66 }, (_, i) => i + 23));
@@ -72,9 +76,16 @@ export const create_midi_synth = async ({
       map_number: mapNumber ?? 0,
       name: mapName ?? name ?? "",
       entries: dynamicEntries,
-      pool: pool_mts1,
+      pool: pool_direct_dynamic,
       fundamental,
       getDynamicBulkConfig,
+      getProtectedEntries: () =>
+        [...activeHexes]
+          .filter((hex) => !hex.release && hex.mts?.length >= 4)
+          .map((hex) => ({
+            carrier: hex.mts[0],
+            triplet: [hex.mts[1], hex.mts[2], hex.mts[3]],
+          })),
     })
     : null;
 
@@ -103,6 +114,8 @@ export const create_midi_synth = async ({
             note_played, velocity_played, velocity,
             midi_output, channel,
             anchorNote ?? midiin_central_degree,
+            degree0toRef_ratio,
+            fundamental,
           );
         }
       } else {
@@ -402,6 +415,7 @@ function createBulkDynamicTransport({
   entries,
   pool,
   getDynamicBulkConfig,
+  getProtectedEntries,
 }) {
   let currentEntries = entries.map((entry) => [...entry]);
 
@@ -409,12 +423,18 @@ function createBulkDynamicTransport({
   let _retunePending = null;
 
   const sendBulkDump = () => {
+    const protectedEntries = getProtectedEntries ? getProtectedEntries() : [];
+    const entriesForDump = currentEntries.map((entry) => [...entry]);
+    for (const entry of protectedEntries) {
+      if (entry?.carrier == null || !entry.triplet) continue;
+      entriesForDump[entry.carrier] = [...entry.triplet];
+    }
     const liveConfig = getDynamicBulkConfig ? getDynamicBulkConfig() : null;
     const dump = buildBulkDumpMessage(
       liveConfig?.deviceId ?? device_id,
       liveConfig?.mapNumber ?? map_number,
       liveConfig?.name ?? name,
-      currentEntries,
+      entriesForDump,
     );
     midi_output.send([0xF0, ...dump, 0xF7]);
   };
@@ -450,6 +470,9 @@ function createBulkDynamicTransport({
           sendBulkDump();
         });
       }
+    },
+    setEntry({ carrier, triplet }) {
+      currentEntries[carrier] = [...triplet];
     },
   };
 }
@@ -582,7 +605,12 @@ DynamicBulkHex.prototype.retune = function (newCents) {
     ((newCents + 1200 * Math.log2((this.fundamental / this.degree0toRef_ratio) / 261.6255653)) * 0.01) + 60;
   const triplet = centsToMTS(this.carrier, (targetMIDIFloat - this.carrier) * 100);
   this.mts = [this.carrier, ...triplet];
-  this.transport.retune({ carrier: this.carrier, triplet });
+  this.transport.setEntry?.({ carrier: this.carrier, triplet });
+  // Bulk-dump mode is now deliberately non-live for held-note retuning:
+  // TuneCell drags, held-note glides, and recency wheel retune must not flood
+  // the synth with repeated full-map traffic. We keep the local cents/MTS state
+  // current so OCT-triggered bulk resends and later noteOn dumps reflect the
+  // heard pitch without sending live bulk traffic on every retune gesture.
 };
 
 /**
@@ -593,6 +621,8 @@ function StaticBulkHex(
   note_played, velocity_played, velocity,
   midi_output, channel,
   anchor,
+  degree0toRef_ratio,
+  fundamental,
 ) {
   this.coords      = coords;
   this.cents       = cents;
@@ -603,7 +633,19 @@ function StaticBulkHex(
   this.velocity    = velocity_played > 0 ? velocity_played : velocity;
   this.note_played = note_played;
   this.carrier     = Math.max(0, Math.min(anchor + steps, 127));
+  this.degree0toRef_ratio = degree0toRef_ratio;
+  this.fundamental = fundamental;
+  this.mts = null;
+  this._updateMts(cents);
 }
+
+StaticBulkHex.prototype._updateMts = function (cents) {
+  if (this.degree0toRef_ratio == null || this.fundamental == null) return;
+  const targetMIDIFloat =
+    ((cents + 1200 * Math.log2((this.fundamental / this.degree0toRef_ratio) / 261.6255653)) * 0.01) + 60;
+  const triplet = centsToMTS(this.carrier, (targetMIDIFloat - this.carrier) * 100);
+  this.mts = [this.carrier, ...triplet];
+};
 
 StaticBulkHex.prototype.noteOn = function () {
   if (this.channel >= 0 && this.midi_output) {
@@ -647,8 +689,14 @@ StaticBulkHex.prototype.expression = function (value) {
   this.midi_output.send([0xB0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
-StaticBulkHex.prototype.retune = function () {
-  // Static bulk mode uses the last sent snapshot until the map is resent.
+StaticBulkHex.prototype.retune = function (newCents) {
+  // Static bulk mode does not emit per-note transport traffic here, but it
+  // does keep its current cents/MTS state up to date so held-slot-protected
+  // bulk resends can reflect the pitch the user is actually hearing.
+  if (typeof newCents === "number") {
+    this.cents = newCents;
+    this._updateMts(newCents);
+  }
 };
 
 

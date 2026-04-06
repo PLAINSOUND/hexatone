@@ -37,12 +37,13 @@ export function buildTuningMapEntries(
   equave,
   fundamental,
   degree0toRefAsArray,
+  octaveOffset = 0,
 ) {
   // Express fundamental in cents relative to A4 = MIDI 69.
   // degree0toRefAsArray[0] is the cents offset from degree 0 to the reference degree,
   // so subtracting it gives the cents position of degree 0 itself.
   const fundamentalCents = 1200 * Math.log2(fundamental / 440);
-  const degree0Cents = fundamentalCents - degree0toRefAsArray[0];
+  const degree0Cents = fundamentalCents - degree0toRefAsArray[0] + octaveOffset * equave;
 
   // map_offset: cents distance between degree 0 and MIDI note tuningMapDegree0
   // assuming 12-EDO spacing (100 cents/semitone) for carrier note placement.
@@ -115,6 +116,7 @@ export function mtsTuningMap(
   equave,
   fundamental,
   degree0toRefAsArray,
+  octaveOffset = 0,
 ) {
   const mtsData = buildTuningMapEntries(
     tuningMapDegree0,
@@ -122,6 +124,7 @@ export function mtsTuningMap(
     equave,
     fundamental,
     degree0toRefAsArray,
+    octaveOffset,
   );
 
   if (parseInt(sysexType) === 127) {

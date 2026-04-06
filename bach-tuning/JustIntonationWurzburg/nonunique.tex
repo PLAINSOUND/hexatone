@@ -1,0 +1,31 @@
+ 
+So far the method outlined above determines the best possible tuning result for a fixed table of given interval sizes (see Table \ref{tablejustint}). However, the frequency ratios in JI are not unique; rather there are various possible choices for certain intervals, defining different variants of just intonation (see Table \ref{tableseveralintervalstablejustint}). This suggests that the tuning result can be improved by finding the best possible solution among these variants~\cite{Duffin}.
+
+\begin{table}
+\centering
+\footnotesize
+\begin{tabular}{|c|c||l|l|l|} \hline
+$k'-k$ & Interval Name & \multicolumn{3}{|c|}{Tuning alternatives $p/q$ \ \ \ ($\phi^\JI_{k,k'}[\cent]$)} \\ \hline
+0 & Unison 		& 1/1 (0)	&		&		\\
+1 & Semitone 		& 16/15 (+11.73)& 25/24 (-29.32)&		\\
+2 & Major Second 	& 9/8 (+3.91)	& 10/9 (-17.60)	&		\\
+3 & Minor Third 	& 6/5 (+15.64)	&		&		\\
+4 & Major Third 	& 5/4 (-13.69)	&		&		\\
+5 & Fourth 		& 4/3 (-1.96)	&		& 		\\
+6 & Tritone 		& 45/32 (-9.78) &		&		\\
+7 & Fifth 		& 3/2 (+1.96)	&		&		\\
+8 & Minor Sixth 	& 8/5 (+13.69)	&		&		\\
+9 & Major Sixth 	& 5/3 (-15.64)	&	 	& 		\\
+10 & Minor Seventh 	& 16/9 (-3.91)	& 9/5 (+17.60)	& 7/4 (-31.17)	\\
+11 & Major Seventh 	& 15/8 (-11.73) &		&		\\
+12 & Octave 		& 2/1 (0)	&		&		\\
+\hline 
+\end{tabular}
+\caption{\label{tableseveralintervalstablejustint} List of possible frequency ratios of just chromatic intervals. The third column contains the same data as in Table ~\ref{tablejustint}. In addition the most important alternative tuning ratios are shown.}
+\end{table}
+
+The advantage of admitting several variants can be explained by the following example. Two successive major seconds with the ratio of 9/8 (+3.9\cent) make up a major third with the ratio of 81/64 ($+7.8\cent$) which differs significantly from the just ratio of 5/4 ($-13.7\cent$). However, if we combine two \textit{different} justly intoned variants of major seconds with the ratios of 9/8 ($+3.9\cent$) and 10/9 ($-17.6 \cent$) the resulting major third has exactly the just frequency ratio of 5/4 ($-13.7\cent$).
+
+What determines the correct choice of the interval size? In a procedural setting this is a highly complex music-theoretical problem that requires a thorough analysis of the harmonic progression. But in practice the decision for the best fitting interval is made aurally on an intuitive basis (although a general understanding of the harmonic progression is part of the process). Inspired by this observation we implement non-unique interval sizes in the algorithm described above by repeating the minimization procedure for all possible combinations of the alternative interval sizes listed in Table~\ref{tableseveralintervalstablejustint} and then to take the solution with the lowest deviation from JI. 
+
+The four alternative ratios listed in Table~\ref{tableseveralintervalstablejustint} have been chosen empirically. There are of course many more possible ratios which could be added as well. However, as we minimize over all possible combination of interval sizes, it is clear that the execution time grows exponentially with the number of alternative ratios. This is the reason why the table is restricted to only four alternative entries for the most flexible intervals.

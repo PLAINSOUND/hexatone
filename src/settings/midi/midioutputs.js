@@ -365,7 +365,15 @@ const MidiOutputs = (props) => {
                   name="direct_mode"
                   class="sidebar-input"
                   value={settings.direct_mode || "dynamic"}
-                  onChange={(e) => save(e.target.name, e.target.value, onChange)}
+                  onChange={(e) => {
+                    const nextMode = e.target.value;
+                    save(e.target.name, nextMode, onChange);
+                    // Static bulk dump only initializes after a map push, so
+                    // enable auto-send when the user switches into static mode.
+                    if (nextMode === "static" && !settings.direct_sysex_auto) {
+                      save("direct_sysex_auto", true, onChange);
+                    }
+                  }}
                 >
                   <option value="dynamic">Dynamic Bulk Dump</option>
                   <option value="static">Static Bulk Dump</option>

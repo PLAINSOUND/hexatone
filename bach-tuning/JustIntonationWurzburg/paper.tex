@@ -1,0 +1,232 @@
+%===============================================================
+%	Just Intonation
+%===============================================================
+\pdfoutput=1
+\documentclass[a4paper,11pt]{iopart}
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}		
+\usepackage[T1]{fontenc}               
+\usepackage{cite}
+\usepackage{color}
+\usepackage{amsfonts}
+\usepackage{wasysym}
+\usepackage{srcltx}
+\usepackage{hyperref}
+\parskip 2mm
+
+\begin{document}
+\title{Playing Music in Just Intonation -- \\A Dynamically Adapting Tuning Scheme}
+\author{Karolin Stange$^{1,2}$, Christoph Wick$^3$, and Haye Hinrichsen$^1$}
+\address{$^1$ Fakult\"at f\"ur Physik und Astronomie, Universit\"at W\"urzburg\\ Am Hubland, 97074 W\"urzburg, Germany}
+\address{$^2$ Hochschule f\"ur Musik, Hofstallstr. 6–8, 97070 W\"urzburg, Germany}
+\address{$^3$ Fakult\"at f\"ur Mathematik und Informatik, Universit\"at W\"urzburg\\ Am Hubland, 97074 W\"urzburg, Germany}
+\ead{hinrichsen@physik.uni-wuerzburg.de}
+
+\begin{abstract}
+\input{abstract.tex}
+\end{abstract}
+
+
+% MACROS
+\def\d{{\rm d}}
+\def\0{\emptyset}
+
+\def\alphavec{{\vect{\alpha}}}
+
+\def\comment#1{\color{red}[\textbf{comment: #1}]\color{black}}
+\def\mark#1{\color{red}#1 \color{black}}
+
+\def\ET{{\rm\scriptscriptstyle ET}}
+\def\JI{{\rm\scriptscriptstyle JI}}
+\def\OPT{{\rm\scriptscriptstyle opt}}
+\def\REF{{\rm\scriptscriptstyle ref}}
+
+\pagestyle{plain}
+
+%===============================================
+\section{Introduction}
+%===============================================
+
+\input{introduction.tex}
+
+%==========================================================================
+\section{Definitions and Notations}
+%==========================================================================
+
+\input{notations.tex}
+
+%==========================================================================
+\section{Vertical Intonation -- Adaptive Tuning of a Single Chord}
+%==========================================================================
+
+\input{vertical.tex}
+
+%==========================================================================
+\section{Horizontal Intonation -- Adaptive Tuning in the Harmonic Progression}
+%==========================================================================
+
+\input{horizontal.tex}
+
+%==========================================================================
+\section{Dealing with Non-Unique Interval Sizes}
+%==========================================================================
+
+\input{nonunique.tex}
+
+%==========================================================================
+\section{Open-Source Demonstration Software -- Technical Details}
+%==========================================================================
+
+\input{software.tex}
+
+%==========================================================================
+\section{Outlook}
+%==========================================================================
+
+\input{outlook.tex}
+
+%==========================================================================
+\appendix
+\section{Controlling the Global Pitch}
+%==========================================================================
+
+\input{appendix.tex}
+
+%==========================================================================
+\section*{References}
+\begin{thebibliography}{99}
+%==========================================================================
+
+\bibitem{White}
+H. E. White and D. E. White, \textit{Physics and Music: The Science of Musical Sound}, Dover Books on Music, reprint (2014).
+
+\bibitem{Geller}
+D. Geller, \textit{Praktische Intonationslehre für Instrumentalisten und Sänger}, Bärenreiter (1997).
+
+\bibitem{mcdermott}
+H. J. McDermott, H. Andriana, and A. J. Oxenham, \textit{Individual differences reveal the basis of consonance}, Curr. Biol. \textbf{20}, 1035 (2019)
+
+\bibitem{stolzenburg}
+F. Stolzenburg, \textit{Harmony perception by periodicity detection}, J. Math. Music \textbf{9}, 215 (2015).
+
+\bibitem{milne}
+A. J. Milner, R. Lney, and D. B. Sharp, \textit{A spectral pitch class model of the probe tone data and scalic tonality}, Music Perception \textbf{32}, 364 (2015).
+
+\bibitem{parncutt}
+R. Parncutt and H. Graham, \textit{Consonance and dissonance in music theory and psychology: Disentangling dissonant dichotomies.}, J. Int. Music Stud. \textbf{5} (2011).
+
+\bibitem{mathews}
+M. V. Mathews, J. R. Pierce, A. Reeves, and L. A. Roberts,
+\textit{Theoretical and experimental explorations of the Bohlen--Pierce scale},
+J. Acoust. Soc. Am. \textbf{4}, 1214 (1988).
+
+\bibitem{Huygens}
+C. Huygens, \textit{Lettre touchant le cycle harmonique}, Rotterdam (1691).
+
+\bibitem{Barbour}
+J. M. Barbour, \textit{Tuning and Temperament: A Historical Survey}, Dover Books on Music (2004).
+
+\bibitem{DuffinBook}
+R. W. Duffin, \textit{How Equal Temperament Ruined Harmony (and Why You Should Care)}, W. W. Norton \& Company (2008).
+
+\bibitem{DuffinArticle}
+R. W. Duffin, \textit{Just Intonation in Renaissance Theory and Practice}, Music Theory Online (MTO) 12, 3 (2006).
+
+\bibitem{MGG}
+see e.g.: \textit{Die Musik in Geschichte und Gegenwart}, ed. by Friedrich Blume, Bärenreiter/Metzler (1998),  \href{https://mgg-online.com}{\tt mgg-online.com}
+
+\bibitem{Zarlino}
+G. Zarlino, \textit{Le Istitutioni Harmoniche} (1558), online at \href{http://imslp.org/wiki/Le_Istitutioni_Harmoniche_(Zarlino,_Gioseffo)}{IMSLP}
+
+\bibitem{Vicentino}
+see e.g.: \href{https://www.youtube.com/watch?v=0akGtDPVRxk}{Nicola Vicentino: Musica prisca caput on YouTube}
+
+\bibitem{Wiki}
+see e.g.: \href{https://en.wikipedia.org/wiki/Music_and_mathematics}{Wikipedia: Music and Mathematics}
+
+\bibitem{Oettingen}
+A. von Oettingen, \textit{Die Grundlagen der Musikwissenschaft und das duale Reinistrument}, Teubner Verlag, p. 155-361 (1917).
+
+\bibitem{fokker}
+A. Fokker (1955), see e.g. \href{http://www.huygens-fokker.org/instruments/fokkerorgan.html}{\texttt{www.huygens-fokker.org/instruments/fokkerorgan.html}}.
+
+\bibitem{macritchie}
+J. MacRitchie and A. J. Milne,
+\textit{Exploring the Effects of Pitch Layout on Learning a New Musical Instrument},
+Appl. Sci. \textbf{7}, 1218 (2017).
+
+\bibitem{Douglas}
+D. Keislar, \textit{History and Principles of Microtonal Keyboards}, Computer Music Journal 11, 18 (1987), Published with corrections in 1988 as “History and Principles of
+Microtonal Keyboard Design,” Report STAN-M-45, Stanford University.
+Available online at \href{http://ccrma.stanford.edu/STANM/stanms/stanm45}{\texttt{ccrma.stanford.edu/STANM/stanms/stanm45}}.
+
+\bibitem{Orthotonophonium}
+Figure taken from \href{https://commons.wikimedia.org/wiki/File:Orthotonophonium.jpg}{Wikimedia commons (public domain)}.
+
+\bibitem{Casals}
+Pablo Casals, in: S. Applebaum, \textit{The Way They Play}, Vol. 1, Paganiniana Publications (1972).
+
+\bibitem{GrovenMax}
+D. L\o{}berg Code, \textit{Groven.Max: An Adaptive Tuning System for MIDI Pianos}, Computer Music Journal 26, 50 (2002). See also \href{http://wmich.edu/mus-theo/groven/}{\tt wmich.edu/mus-theo/groven/}
+
+\bibitem{Justonic}
+G. J. William and R. A. Weyler, \textit{Just Intonation Tuning}, US-Pat. CA 2182662 (1995). Commercial software distributed by \textit{Justonic Tuning Inc} until spring 2016.
+
+\bibitem{Mutabor}  
+R. Wille \textit{et al.}, \href{http://www.math.tu-dresden.de/~mutabor/}{\tt www.math.tu-dresden.de/{\raise.17ex\hbox{$\scriptstyle\sim$}}mutabor/}
+
+\bibitem{Hermode}
+W. Mohrlok, \href{http://www.hermode.com/index_de.html}{\tt www.hermode.com/index\_de.html}
+
+\bibitem{Sethares}
+W. A. Sethares,\textit{ Adaptive tunings for musical scales}, Journal of the Acoustical Society of America 96, 10 (1994). Free software available at \href{http://homepages.cae.wisc.edu/~sethares/software/TFSdocs/index.html}{\tt homepages.cae.wisc.edu/{\raise.17ex\hbox{$\scriptstyle\sim$}}sethares}
+
+\bibitem{Laubenfels}
+J. de Laubenfels, unpublished (2000), see also Ref.~\cite{Sethares2005}.
+
+\bibitem{Sethares2005}
+A. W. Sethares, \textit{Tuning, timbre, spectrum, scale}, Springer Science and Business Media, see Chapter 8.3 on adaptive tuning. The quoted private website of John de Laubenfels is not available any more.
+
+\bibitem{Tonnetz}
+L. Euler, \textit{Tentamen novae theoriae musicae ex certissismis harmoniae principiis dilucide expositae} Saint Petersburg Academy 147 (1739). See also \href{https://en.wikipedia.org/wiki/Tonnetz}{\tt wikipedia.org/wiki/Tonnetz}.
+
+\bibitem{Premiere}
+The first public perfomance was realized by D. L. Code in 2001, see \href{http://wmich.edu/mus-theo/groven/konsert.html}{\tt wmich.edu/mus-theo/groven}.
+
+\bibitem{JustIntonation}
+``Just Intonation'' is a demonstration software developed by the authors of this paper running on various platforms, see \href{http://just-intonation.org}{\tt http://just-intonation.org}. 
+
+\bibitem{MidiNorm}
+For MIDI specifications see e.g. \href{http://www.midi.org/specifications}{\tt www.midi.org/specifications}.
+
+\bibitem{Cohen}
+H.F. Cohen, \textit{Quantifying Music: The Science of Music at the First Stage of Scientific Revolution 1580-1650}. Springer, Berlin (1984).
+
+\bibitem{milne2016}
+A. J. Milne, R. Laney, and D. B. Sharp, 
+\textit{Testing a spectral model of tonal affinity with microtonal melodies and inharmonic spectra}, Musicae Scien., \textbf{20}, 465 (2016).
+
+\bibitem{WittmannPoeppel}
+M. Wittmann and E. P\"oppel, \textit{Temporal mechanisms of the brain as fundamentals of communication -- with special reference to music perception and performance}, Musicae Scientiae, Special Issue 1999-2000, 13-28
+
+\bibitem{LehmannGoldhahn}
+A. C. Lehmann and S. Goldhahn, \textit{Duration of playing bursts and redundandy of melodic jass improvisations in John Coltrane's ``Giant Steps''}. Musicae Scientiae 20 (2016) 345-360.
+
+\bibitem{Duffin}
+The necessity to deal with various interval sizes was pointed out to us by Ross W. Duffin (private communication).
+
+\bibitem{ETAdaption}
+R. Kopiez, \textit{Intonation of harmonic intervals: Adaptability of expert musicians to equal temperament and just intonation}, 
+Music Perception: An Interdisciplinary Journal 4, 383 (2003).
+
+\bibitem{helmholtz}
+H. von Helmholtz, \textit{Die Lehre von den Tonempfindungen: als physiologische Grundlage für die Theorie der Musik}, Friedrich Vieweg \& Sohn, Braunschweig (1865).
+
+\bibitem{MPE}
+Midi Association, \textit{MIDI Polyphonic Expression, a new MIDI standard}, see \href{https://www.midi.org/articles/midi-polyphonic-expression-mpe0}{\tt www.midi.org/articles/midi-polyphonic-expression-mpe}
+
+\end{thebibliography}
+\end{document}
+
+
+

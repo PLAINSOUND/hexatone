@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import Keys from "./keys.js";
 import Point from "./point.js";
+import { WebMidi } from "webmidi";
 
 const edo12 = Array.from({ length: 12 }, (_, i) => i * 100);
 
@@ -66,12 +67,12 @@ function makeMidiEvent(note, channel = 1, velocity = 96, release = 64) {
   };
 }
 
-function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}) {
+function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = {}) {
   const canvas = makeCanvas();
   const keys = new Keys(
     canvas,
     makeSettings(settingsOverrides),
-    {},
+    synth,
     null,
     null,
     null,
@@ -109,6 +110,8 @@ describe("Keys MIDI input integration", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     drawGridSpy.mockRestore();
   });
 
@@ -184,5 +187,150 @@ describe("Keys MIDI input integration", () => {
 
     expect(hexNoteOff).toHaveBeenCalledWith(55);
     expect(keys.state.sustainedNotes).toHaveLength(0);
+  });
+
+  it("keeps sounding static-bulk notes as the heard reference during immediate OCT", () => {
+    const directOut = { id: "direct-out" };
+    vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
+
+    const keys = createKeys({
+      output_direct: true,
+      direct_mode: "static",
+      direct_device: "direct-out",
+      direct_channel: 0,
+    });
+    const hex = {
+      coords: new Point(1, 0),
+      cents: 100,
+      retune: vi.fn(),
+      noteOff: vi.fn(),
+      mts: [61, 61, 0, 0],
+      _baseCents: 2500,
+    };
+    keys.state.activeMidi.set(61, hex);
+    keys.mtsSendMap = vi.fn();
+
+    keys.shiftOctave(1, false);
+
+    expect(hex.retune).toHaveBeenCalledWith(3700);
+    expect(hex._baseCents).toBe(3700);
+    expect(keys.mtsSendMap).toHaveBeenCalledWith(directOut, false, false);
+    expect(keys._deferredBulkMapRefresh).toBe(false);
+  });
+
+  it("sends a protected static bulk map immediately in deferred OCT mode", () => {
+    const directOut = { id: "direct-out" };
+    vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
+
+    const keys = createKeys({
+      output_direct: true,
+      direct_mode: "static",
+      direct_device: "direct-out",
+      direct_channel: 0,
+    });
+    const hex = {
+      coords: new Point(1, 0),
+      cents: 100,
+      retune: vi.fn(),
+      noteOff: vi.fn(),
+      mts: [61, 61, 0, 0],
+    };
+    keys.state.activeMidi.set(61, hex);
+    keys.mtsSendMap = vi.fn();
+
+    keys.shiftOctave(1, true);
+
+    expect(hex.retune).not.toHaveBeenCalled();
+    expect(keys.mtsSendMap).toHaveBeenCalledWith(directOut, true, false);
+    expect(keys._deferredBulkMapRefresh).toBe(false);
+
+    keys.state.activeMidi.delete(61);
+    keys.noteOff(hex, 64);
+
+    expect(hex.noteOff).toHaveBeenCalledWith(64);
+    expect(keys.mtsSendMap).toHaveBeenCalledTimes(1);
+  });
+
+  it("also resends the bulk map for dynamic DIRECT octave shifts", () => {
+    const directOut = { id: "direct-out" };
+    vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
+
+    const keys = createKeys({
+      output_direct: true,
+      direct_mode: "dynamic",
+      direct_device: "direct-out",
+      direct_channel: 0,
+    });
+    keys.mtsSendMap = vi.fn();
+
+    keys.shiftOctave(1, true);
+
+    expect(keys.mtsSendMap).toHaveBeenCalledWith(directOut, false, true);
+  });
+
+  it("protects recently released dynamic DIRECT notes from OCT bulk-map resends during release tails", () => {
+    vi.useFakeTimers();
+    const directOut = { id: "direct-out" };
+    vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
+
+    const keys = createKeys({
+      output_direct: true,
+      direct_mode: "dynamic",
+      direct_device: "direct-out",
+      direct_channel: 0,
+    });
+    const hex = {
+      coords: new Point(1, 0),
+      cents: 100,
+      retune: vi.fn(),
+      noteOff: vi.fn(),
+      mts: [61, 61, 0, 0],
+    };
+    keys.mtsSendMap = vi.fn();
+
+    keys.noteOff(hex, 64);
+    keys.shiftOctave(1, false);
+
+    expect(keys.mtsSendMap).toHaveBeenCalledWith(directOut, true, true);
+
+    keys.mtsSendMap.mockClear();
+    vi.advanceTimersByTime(800);
+    keys.shiftOctave(1, false);
+
+    expect(keys.mtsSendMap).toHaveBeenCalledWith(directOut, false, true);
+  });
+
+  it("updates the wheel target base after immediate OCT so older sustained notes do not snap back", () => {
+    const keys = createKeys();
+    const oldHex = {
+      coords: new Point(1, 0),
+      cents: 2500,
+      _baseCents: 2500,
+      retune: vi.fn(),
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const newHex = {
+      coords: new Point(2, 0),
+      cents: 100,
+      retune: vi.fn(),
+      noteOff: vi.fn(),
+      release: false,
+    };
+
+    keys.state.sustainedNotes = [[oldHex, 0]];
+    keys.recencyStack.push(oldHex);
+    keys._wheelTarget = oldHex;
+    keys._wheelBaseCents = 2500;
+
+    keys.shiftOctave(1, false);
+    expect(keys._wheelBaseCents).toBe(3700);
+
+    oldHex.retune.mockClear();
+    keys.recencyStack.push(newHex);
+    keys._updateWheelTarget();
+
+    expect(oldHex.retune).toHaveBeenCalledWith(3700);
+    expect(keys._wheelTarget).toBe(newHex);
   });
 });

@@ -36,6 +36,7 @@ const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
 const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
+const BULK_RELEASE_PROTECT_MS = 750;
 
 class Keys {
   constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, onFirstInteraction = null) {
@@ -141,6 +142,10 @@ class Keys {
     this._retuneGlides = new Map();
     this._retuneGlideTimer = null;
     this._retuneGlideLastTime = 0;
+    this._deferredBulkMapRefresh = false;
+    this._deferredBulkMapTimer = null;
+    this._staticDeferredBulkActive = false;
+    this._recentlyReleasedHexes = new Map();
     // Per-channel slew state for MPE input pitch bend smoothing.
     // Map<channel, { current: float, target: float, raf: id|null }>
     this._bendSlew = new Map();
@@ -179,6 +184,7 @@ class Keys {
       this.settings.equivInterval,
       this.settings.fundamental,
       this.settings.degree0toRef_asArray,
+      this.settings.octave_offset || 0,
     );
 
     // Set up resize handler
@@ -730,36 +736,46 @@ class Keys {
   // (so colours update), and retunes any sounding/sustained notes.
   shiftOctave = (dir, deferred = false) => {
     this.settings.octave_offset = (this.settings.octave_offset || 0) + dir;
+    const isStaticDirect =
+      this.settings.output_direct &&
+      this.settings.direct_mode === "static";
+    const isStaticDirectDeferred = deferred && isStaticDirect;
 
     // In deferred mode, sounding notes keep their current pitch — the shift
     // only applies to the next new note. If there are no sounding notes,
     // deferred and immediate are equivalent.
-    const hasSoundingNotes =
-      this.state.activeMouse !== null ||
-      this.state.activeTouch.size > 0 ||
-      this.state.activeKeyboard.size > 0 ||
-      this.state.activeMidi.size > 0 ||
-      this.state.sustainedNotes.length > 0;
+    const hasSoundingNotes = this._hasSoundingNotes();
     const skipRetune = deferred && hasSoundingNotes;
+    if (isStaticDirect) {
+      this._deferredBulkMapRefresh = false;
+      this._staticDeferredBulkActive = false;
+    } else {
+    this._staticDeferredBulkActive = isStaticDirectDeferred && hasSoundingNotes;
+    this._deferredBulkMapRefresh = skipRetune && this._hasDeferredBulkTargets();
+    }
 
     if (!skipRetune) {
       // Retune all sounding and sustained notes immediately
       for (const hex of this._allActiveHexes()) {
-        const [newCents] = this.hexCoordsToCents(hex.coords);
+        const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
         if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
+        hex._baseCents = newCents;
       }
       for (const [hex] of this.state.sustainedNotes) {
-        const [newCents] = this.hexCoordsToCents(hex.coords);
+        const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
         if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
+        hex._baseCents = newCents;
+      }
+      if (this._wheelBaseCents !== null) {
+        this._wheelBaseCents += dir * this.settings.equivInterval;
       }
     }
 
     // Always rebuild the in-memory MTS map so new notes use the new offset.
     // Each MidiHex.noteOn() sends its own single-note real-time sysex, so
     // new notes are individually retuned at trigger time regardless.
-    // Only send the bulk map immediately when not deferring (or when silent).
     const bulkDumpName = resolveBulkDumpName(
       this.settings.direct_tuning_map_name,
       this.settings.short_description,
@@ -781,21 +797,23 @@ class Keys {
       this.settings.equivInterval,
       this.settings.fundamental,
       this.settings.degree0toRef_asArray,
+      this.settings.octave_offset || 0,
     );
-    const directAutoSend = (
-      this.settings.output_direct &&
-      this.settings.direct_mode === "static" &&
-      this.settings.direct_sysex_auto &&
-      this.settings.direct_device &&
-      this.settings.direct_device !== "OFF"
-    );
-    const directOut = directAutoSend
-      ? WebMidi.getOutputById(this.settings.direct_device)
-      : null;
-    if (!skipRetune) {
-      if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
+    if (this._deferredBulkMapTimer != null) {
+      clearTimeout(this._deferredBulkMapTimer);
+      this._deferredBulkMapTimer = null;
     }
-    if (directOut) this.mtsSendMap(directOut);
+    if (isStaticDirect) {
+      this._sendBulkDumpOctaveRefresh(deferred && hasSoundingNotes, false);
+    } else if (!skipRetune) {
+      this._deferredBulkMapRefresh = false;
+      this._staticDeferredBulkActive = false;
+      this._sendBulkDumpOctaveRefresh(
+        hasSoundingNotes || this._hasRecentReleasedBulkTargets(),
+      );
+    } else {
+      this._sendBulkDumpOctaveRefresh(!this._staticDeferredBulkActive, !this._staticDeferredBulkActive);
+    }
     this.drawGrid();
   };
 
@@ -819,6 +837,7 @@ class Keys {
       this.settings.equivInterval,
       newFundamental,
       this.settings.degree0toRef_asArray,
+      this.settings.octave_offset || 0,
     );
     // If a TuneCell drag preview is in progress (or was abandoned without Save/Revert),
     // _fundamentalSnapshot holds the pre-preview base cents for each hex — the correct
@@ -1231,8 +1250,18 @@ class Keys {
       clearTimeout(this._retuneGlideTimer);
       this._retuneGlideTimer = null;
     }
+    if (this._deferredBulkMapTimer != null) {
+      clearTimeout(this._deferredBulkMapTimer);
+      this._deferredBulkMapTimer = null;
+    }
+    for (const timeoutId of this._recentlyReleasedHexes.values()) {
+      clearTimeout(timeoutId);
+    }
+    this._recentlyReleasedHexes.clear();
     this._retuneGlides.clear();
     this._retuneGlideLastTime = 0;
+    this._deferredBulkMapRefresh = false;
+    this._staticDeferredBulkActive = false;
     // Graceful noteOff for all active and sustained notes — allows synth
     // release envelopes to run rather than cutting sound abruptly via panic().
     for (const hex of this._allActiveHexes()) {
@@ -1315,7 +1344,7 @@ class Keys {
     }
   };
 
-  mtsSendMap = (midiOutput) => {
+  mtsSendMap = (midiOutput, protectHeld = true, protectRecentReleased = true) => {
     // send the tuning map
     const output = midiOutput || this.midiout_data;
     if (!output) return;
@@ -1348,7 +1377,7 @@ class Keys {
             this.settings.scale,
             this.settings.equivInterval,
             this.settings.center_degree,
-          ),
+        ),
         this.settings.scale,
         resolveBulkDumpName(
           this.settings.direct_tuning_map_name,
@@ -1358,6 +1387,7 @@ class Keys {
         this.settings.equivInterval,
         this.settings.fundamental,
         this.settings.degree0toRef_asArray,
+        this.settings.octave_offset || 0,
       )
       : this.mts_tuning_map;
 
@@ -1381,13 +1411,13 @@ class Keys {
       // or active note keeps its exact current tuning bytes so the synth does
       // not retune it mid-sustain.
       const sustainedSlots = new Map(); // carrier slot → [tt, yy, zz]
-      const allActive = [
-        ...this._allActiveHexes(),
-        ...this.state.sustainedNotes.map(([h]) => h),
-      ];
-      for (const hex of allActive) {
-        if (hex.mts && hex.mts.length >= 4) {
-          sustainedSlots.set(hex.mts[0], [hex.mts[1], hex.mts[2], hex.mts[3]]);
+      if (protectHeld) {
+        for (const hex of this._collectProtectedBulkHexes(protectRecentReleased)) {
+          if (hex.mts && hex.mts.length >= 4) {
+            if (!sustainedSlots.has(hex.mts[0])) {
+              sustainedSlots.set(hex.mts[0], [hex.mts[1], hex.mts[2], hex.mts[3]]);
+            }
+          }
         }
       }
 
@@ -1476,6 +1506,7 @@ class Keys {
     this.state.sustainedNotes.splice(sustainedIdx, 1);
     this.state.sustainedCoords.delete(key);
     hex.noteOff(releaseVelocity || vel);
+    this._scheduleDeferredBulkRefresh();
     this.hexOff(coords);
     return true;
   }
@@ -1498,6 +1529,82 @@ class Keys {
       if (hex.coords.equals(coords)) return true;
     }
     return false;
+  }
+
+  _hasSoundingNotes() {
+    return (
+      this.state.activeMouse !== null ||
+      this.state.activeTouch.size > 0 ||
+      this.state.activeKeyboard.size > 0 ||
+      this.state.activeMidi.size > 0 ||
+      this.state.sustainedNotes.length > 0
+    );
+  }
+
+  _hasRecentReleasedBulkTargets() {
+    return this._recentlyReleasedHexes.size > 0;
+  }
+
+  _collectProtectedBulkHexes(includeRecentReleased = true) {
+    return [
+      ...this._allActiveHexes(),
+      ...this.state.sustainedNotes.map(([h]) => h),
+      ...(includeRecentReleased ? this._recentlyReleasedHexes.keys() : []),
+    ];
+  }
+
+  _hasDeferredBulkTargets() {
+    const hasBulkMts =
+      this.settings.output_mts &&
+      this.midiout_data &&
+      parseInt(this.settings.sysex_type) === 126;
+    const hasDirectBulk =
+      this.settings.output_direct &&
+      this.settings.direct_device &&
+      this.settings.direct_device !== "OFF";
+    return hasBulkMts || hasDirectBulk;
+  }
+
+  _sendBulkDumpOctaveRefresh(protectHeld = true, protectRecentReleased = true) {
+    if (
+      this.settings.output_mts &&
+      this.midiout_data &&
+      parseInt(this.settings.sysex_type) === 126
+    ) {
+      this.mtsSendMap(this.midiout_data, protectHeld, protectRecentReleased);
+    }
+
+    if (
+      this.settings.output_direct &&
+      this.settings.direct_device &&
+      this.settings.direct_device !== "OFF"
+    ) {
+      const directOut = WebMidi.getOutputById(this.settings.direct_device);
+      if (directOut) this.mtsSendMap(directOut, protectHeld, protectRecentReleased);
+    }
+  }
+
+  _scheduleDeferredBulkRefresh() {
+    if (!this._deferredBulkMapRefresh) return;
+    if (this._deferredBulkMapTimer != null) return;
+    this._deferredBulkMapTimer = setTimeout(() => {
+      this._deferredBulkMapTimer = null;
+      if (!this._deferredBulkMapRefresh) return;
+      this._sendBulkDumpOctaveRefresh(true);
+      if (!this._hasSoundingNotes() && !this._hasRecentReleasedBulkTargets()) {
+        this._deferredBulkMapRefresh = false;
+      }
+    }, 0);
+  }
+
+  _trackRecentlyReleasedHex(hex) {
+    if (!hex?.mts || hex.mts.length < 4 || !this._hasDeferredBulkTargets()) return;
+    const existing = this._recentlyReleasedHexes.get(hex);
+    if (existing != null) clearTimeout(existing);
+    const timeoutId = setTimeout(() => {
+      this._recentlyReleasedHexes.delete(hex);
+    }, BULK_RELEASE_PROTECT_MS);
+    this._recentlyReleasedHexes.set(hex, timeoutId);
   }
 
   // Apply channel step offset to a base coordinate.
@@ -1825,6 +1932,13 @@ class Keys {
   };
 
   hexOn(coords, note_played, velocity_played, bend) {
+    if (this._staticDeferredBulkActive && this._deferredBulkMapRefresh) {
+      this._sendBulkDumpOctaveRefresh(this._hasSoundingNotes(), false);
+      this._deferredBulkMapRefresh = false;
+      if (!this._hasSoundingNotes()) {
+        this._staticDeferredBulkActive = false;
+      }
+    }
     if (!bend) {
       bend = 0;
     }
@@ -1913,10 +2027,20 @@ class Keys {
         this.drawHex(hex.coords, color, text_color);
       }
     } else {
+      if (this._deferredBulkMapRefresh && !this._staticDeferredBulkActive) {
+        this._sendBulkDumpOctaveRefresh(true);
+      }
       hex.noteOff(release_velocity);
+      this._trackRecentlyReleasedHex(hex);
       // Note is going silent — remove from recency stack and update wheel target.
       this.recencyStack.remove(hex);
       this._updateWheelTarget();
+      if (this._staticDeferredBulkActive) {
+        this._deferredBulkMapRefresh = this._hasSoundingNotes();
+        if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;
+      } else {
+        this._scheduleDeferredBulkRefresh();
+      }
     }
   }
 
@@ -1930,6 +2054,9 @@ class Keys {
     const notesToRelease = this.state.sustainedNotes;
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
+    if (this._deferredBulkMapRefresh && !this._staticDeferredBulkActive && notesToRelease.length > 0) {
+      this._sendBulkDumpOctaveRefresh(true);
+    }
     for (let note = 0; note < notesToRelease.length; note++) {
       const hex = notesToRelease[note][0];
       const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
@@ -1940,9 +2067,16 @@ class Keys {
       );
       this.drawHex(hex.coords, color, text_color);
       hex.noteOff(notesToRelease[note][1]);
+      this._trackRecentlyReleasedHex(hex);
       this.recencyStack.remove(hex);
     }
     this._updateWheelTarget();
+    if (this._staticDeferredBulkActive) {
+      this._deferredBulkMapRefresh = this._hasSoundingNotes();
+      if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;
+    } else {
+      this._scheduleDeferredBulkRefresh();
+    }
     // Fire React callback AFTER all visual/audio cleanup — Preact may flush
     // synchronously and trigger a re-render that redraws hexes mid-cleanup.
     if (this.onLatchChange) this.onLatchChange(false);

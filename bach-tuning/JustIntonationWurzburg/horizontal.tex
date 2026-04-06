@@ -1,0 +1,77 @@
+ 
+Normally we perceive combinations of tones as `in tune' or `out of tune' if they are played simultaneously. However, as demonstrated by~\cite{milne2016}, we are also capable of recognizing the intonation of sequentially played tones, provided that the elapsed time  in between is not too large. Apparently our sense of hearing is able to memorize sounds and their spectra for a short while. In empirical studies it was found that this psychoacoustic intonational short-term memory is characterized by a typical time scale of about three seconds~\cite{WittmannPoeppel,LehmannGoldhahn}. 
+
+If the chords are tuned separately as described in the last section, the sudden change of the chordal root may lead to unpleasant intonational discontinuities between chords. This requires that the intonational memory has to be taken into account by correlating the pitches of subsequent chords in a harmonic progression. In the following we describe how the intonational memory can be incorporated in the suggested framework of adaptive tuning.
+
+\subsection{Intonational memory}
+%---------------------------------
+
+Pressing a key $k$ the instrument produces a sound with the time-dependent intensity (volume) $I_k(t)$ which decays to zero when the key is released. In order to implement the intonational memory, we introduce a \textit{memory function} $M_k(t)$ interpreted as the `virtual intensity' at which the sound of a key $k$ is memorized. When a new key is pressed $M_k(t)$ is initially set to the actual intensity $I_k(t)$. Thereafter, it follows $I(t)$ by means of the over-damped first-order differential equation
+%
+\begin{equation}
+\frac{\d M_k(t)}{\d t} \;=\; \frac{1}{\tau_M} \, \Bigl(I_k(t)-M_k(t)\Bigr)\,,
+\end{equation}
+%
+where $\tau_M \approx 3$s is the characteristic time scale of the intonational memory. For example, if the volume of a key drops suddenly to zero after releasing a key, $M(t)$ will decrease exponentially as $e^{-t/\tau_m}$.
+
+This simple model of the intonational memory can be improved further by observing that it also takes some time to recognize the pitch of a newly pressed key. In fact, it is quite easy to memorize the pitches of long sustained notes while individual short notes at high tempo are much harder to remember. This suggests that there is another typical time scale $\tau_R$ for recognizing the pitch of a sound which may be taken into account by considering the dynamics
+%
+\begin{equation}
+\label{memory}
+\frac{\d M_k(t)}{\d t} \;=\; 
+\left\{ \begin{array}{cc}
+        \frac{1}{\tau_R} \Bigl(I_k(t)-M_k(t)\Bigr) & \mbox{ if } M_k(t) < I_k(t) \\[2mm]
+        \frac{1}{\tau_M} \Bigl(I_k(t)-M_k(t)\Bigr) & \mbox{ if }  M_k(t) \geq I_k(t)
+        \end{array}\,.
+\right.
+\end{equation}
+%
+Among musicians the typical value of $\tau_R$ is expected to be smaller than $\tau_M$, and it seems that values in the vicinity of one second are a reasonable choice.
+
+\subsection{Horizontal adaptive tuning}
+%--------------------------------------
+
+In order to correlate the intonation of subsequent chords, we use the same mechanism as described above for the case of vertical tuning. To this end let us consider a memorized key with the index $k_m$ that was tuned to the pitch $\tilde \Lambda_m$, followed by a newly pressed key with the index $k_i$ (including the case that the same key is pressed again). The aim is to tune the pitch $\Lambda_i(t)$ dynamically in such a way that the interval size $\tilde\Lambda_m-\Lambda_i(t)$ approximates as much as possible the ideal interval size $\Phi_{k_i,k_m}^\JI$ of JI, as listed in Table \ref{tablejustint}. In other words, we have to determine $\vec\lambda$ in such a way that $\tilde\lambda_m-\lambda_i(t)$ deviates as little as possible from $\phi_{im}^\JI:=\phi_{k_i,k_m}^\JI$. This leads to simply adding a memory term in the potential
+
+\begin{equation}
+ \fl
+V[\vec\lambda] \,=\; \frac14 \sum_{i,j} w_{ij}(t) \Bigl( \lambda_j(t)-\lambda_i(t)-\phi^\JI_{ij}\Bigr)^2 \,+\,
+\frac{1}{2} \sum_{i}\sum_{m}\tilde w_{im}(t)\, \Bigl( \tilde\lambda_m-\lambda_i(t)-\phi^\JI_{im}\Bigr)^2
+\end{equation}
+%
+where $k_i,k_j$ with $i,j\in \{1,\ldots, N\}$ run over all audible keys while $k_m$ with  $m\in\{1,\ldots,M\}$ runs over the memorized keys. Here $\tilde w_{im}(t)$ is a time-dependent weight factor reflecting the actual intensity of the key $k_i$ and the memorized intensity of the key $k_m$. Again this potential can be written in the vector notation (\ref{GeneralV}) with
+%
+\begin{eqnarray}
+\label{eqa}
+\mathbf{A}_{ij} &=& \left\{
+\begin{array}{ll}
+-w_{ij} & \mbox{ if } i\neq j  \\
+\sum_{\ell} w_{i\ell} \,+\, \sum_m \tilde w_{im} & \mbox{ if } i=j 
+\end{array}\right.
+\\[2mm]
+\label{eqb}
+b_i &=& \sum_j w_{ij} \,\phi_{ij} \;+\; \sum_m \tilde w_{im} \,
+(\phi_{im}-\tilde\lambda_m) \\
+\label{eqc}
+c&=&\frac14 \sum_{i,j} w_{ij} \phi_{ij}^2 \,+\, \frac{1}{2} \sum_i \sum_m \tilde w_{im} \,
+(\phi_{im}-\tilde\lambda_m)^2
+\end{eqnarray}
+%
+and its minimum is attained at $\vec\lambda^\OPT=-\mathbf A^{-1}\vec b$. Note that this method automatically finds a tempered compromise if the chordal roots of a harmonic progression are incompatible.
+
+\subsection{Pitch Drift Compensation}
+\label{PitchDrift}
+%-----------------------------
+
+One of the major disadvantages of dynamical tuning schemes with temporal correlation is the gradual migration of the overall pitch. For example, playing a full chromatic scale of 12 semitones with  fixed sizes $\Phi_{k,k+1}^\JI$=111.73$\cent$ (frequency ratio $16/15$) one ends up with 1340.76$\cent$, which is more than a half tone higher than an octave. In practice the pitch drift meanders in positive and negative direction, depending on the actual harmonic progression.
+
+The pitch drift can be reduced by admitting different interval sizes, as will be explained in the next section. For example, 12  semitones with alternating sizes of $111.73\cent$ $(16/15)$ and $92.18\cent$ $(135/128)$ form six whole tones of $3.91\cent$ ($9/8$) add up to $1223.46\cent$ which is much closer to a just octave of $1200\cent$. But even this improvement does yet not eliminate the pitch progression entirely.
+
+It is therefore meaningful to implement an additional pitch drift compensating mechanism by slowly adjusting all pitches uniformly in such a way that the desired reference pitch is approached, as described by the differential equation
+%
+\begin{equation}
+\frac{\d \lambda_j}{\d t} \;=\; \frac{1}{\tau_c} \,
+\Biggl(\Bigl(\frac{1}{N}\sum_{i\in\{k_1,\ldots,k_N\}} \lambda_i\Bigr)-\lambda^\REF \Biggr)\,,\qquad {j \in\{k_1,\ldots,k_N\}\,.
+}\end{equation}
+% 
+Here $\lambda^\REF=1200*\log_2(f_{k_0}/440$ Hz) is the global pitch versus 440 Hz while $\tau_c$ defines the typical time scale on which the compensation takes place.  Note that the pitch drift affects the frequencies of all pressed keys equally without changing the relative frequency ratios between them. This means that the harmonic texture of the sound remains the same, only the overall pitch varies slowly with time. In contrast to the vertical and horizontal tuning, which takes place immediately after pressing a new key, the time scale for the pitch compensation is much larger and should be chosen such that the gradual compensation not noticeable for the listener.

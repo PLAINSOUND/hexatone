@@ -628,8 +628,8 @@ const App = () => {
             onContextMenu={(e) => e.preventDefault()}
           >▼</button>
           <span
-            className={`octave-display${octaveDeferred ? ' octave-defer-active' : ''}`}
-            title={octaveDeferred ? 'Transpose on next event' : 'Transpose immediately'}
+            className={`octave-display${!octaveDeferred ? ' octave-defer-active' : ''}`}
+            title={octaveDeferred ? 'Transpose on next event' : 'Transpose sounding notes immediately'}
             onClick={toggleOctaveDeferred}
             style={{ cursor: 'pointer', pointerEvents: 'auto' }}
           >

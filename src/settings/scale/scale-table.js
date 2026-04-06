@@ -149,6 +149,11 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
  * When retuning the reference_degree, behavior depends on retuning_mode:
  * - 'recalculate_reference' (default): Keep current sound, recalculate Reference Frequency
  * - 'transpose_scale': Transpose entire scale, preserve Reference Frequency
+ *
+ * retuning_mode is intentionally internal for now. There is currently no
+ * user-facing toggle in the UI, so Hexatone always runs with the default
+ * 'recalculate_reference' behavior. Keep the alternate path in place and
+ * documented here in case a dedicated UX control is added later.
  */
 const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, reference_degree, fundamental, onFundamentalChange, retuning_mode }) => {
   const originalCents = useRef(scalaToCents(scaleStr));
@@ -214,7 +219,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
     // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
     // sensitivity = base * speed^1.5 — superlinear so fast moves cover more ground
     const speed = Math.abs(dx);
-    const sensitivity = 0.05 * Math.pow(speed, 1.5); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
+    const sensitivity = 0.05 * Math.pow(speed, 1.125); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
     const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
     dragStart.current.lastX = e.clientX;
     dragStart.current.accCents = newCents;

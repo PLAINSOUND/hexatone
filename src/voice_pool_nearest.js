@@ -19,16 +19,19 @@ export class VoicePool {
   /**
    * @param {number[]} slotIds  Available MIDI note numbers (0–127 for MTS1)
    */
-  constructor(slotIds) {
+  constructor(slotIds, releaseGuardMs = 0) {
     this._allSlots = [...slotIds];
     this._slotSet  = new Set(slotIds);    // O(1) membership — built once
+    this._releaseGuardMs = Math.max(0, Number(releaseGuardMs) || 0);
 
     // Per-slot state: null = free, otherwise the coords currently playing
     this._coords   = new Map();           // slot → coords | null
     this._lastUsed = new Map();           // slot → timestamp (ms)
+    this._releasedAt = new Map();         // slot → release timestamp (ms)
     for (const s of slotIds) {
       this._coords.set(s, null);
       this._lastUsed.set(s, 0);
+      this._releasedAt.set(s, 0);
     }
 
     // Fast reverse lookup: coordsKey → slot
@@ -53,11 +56,12 @@ export class VoicePool {
    */
   noteOn(coords, targetMIDIFloat) {
     const key = coordsKey(coords);
+    const now = Date.now();
 
     // Retrigger: already active, refresh timestamp
     if (this._active.has(key)) {
       const slot = this._active.get(key);
-      this._lastUsed.set(slot, Date.now());
+      this._lastUsed.set(slot, now);
       return { slot, stolenSlot: null, stolen: null, distance: 0, retrigger: true };
     }
 
@@ -65,29 +69,37 @@ export class VoicePool {
 
     // Spiral outward from target: try target±0, target±1, target±2 …
     // Uses pre-built Set — no intermediate array, O(1) per probe.
-    for (let offset = 0; offset <= 127; offset++) {
-      const candidates = offset === 0
-        ? [target]
-        : Math.abs(targetMIDIFloat - (target + offset)) <= Math.abs(targetMIDIFloat - (target - offset))
-          ? [target + offset, target - offset]
-          : [target - offset, target + offset];
-      for (const candidate of candidates) {
-        if (candidate < 0 || candidate > 127) continue;
-        if (!this._slotSet.has(candidate)) continue;
-        if (this._coords.get(candidate) !== null) continue;
+    const allocateFreeSlot = (allowGuarded) => {
+      for (let offset = 0; offset <= 127; offset++) {
+        const candidates = offset === 0
+          ? [target]
+          : Math.abs(targetMIDIFloat - (target + offset)) <= Math.abs(targetMIDIFloat - (target - offset))
+            ? [target + offset, target - offset]
+            : [target - offset, target + offset];
+        for (const candidate of candidates) {
+          if (candidate < 0 || candidate > 127) continue;
+          if (!this._slotSet.has(candidate)) continue;
+          if (this._coords.get(candidate) !== null) continue;
+          if (!allowGuarded && this._isSlotGuarded(candidate, now)) continue;
 
-        // Found a free slot
-        this._coords.set(candidate, coords);
-        this._lastUsed.set(candidate, Date.now());
-        this._active.set(key, candidate);
-        return {
-          slot: candidate,
-          stolenSlot: null,
-          stolen: null,
-          distance: Math.abs(targetMIDIFloat - candidate),
-          retrigger: false,
-        };
+          this._coords.set(candidate, coords);
+          this._lastUsed.set(candidate, now);
+          this._active.set(key, candidate);
+          return {
+            slot: candidate,
+            stolenSlot: null,
+            stolen: null,
+            distance: Math.abs(targetMIDIFloat - candidate),
+            retrigger: false,
+          };
+        }
       }
+      return null;
+    };
+
+    const freeSlot = allocateFreeSlot(false) ?? allocateFreeSlot(true);
+    if (freeSlot) {
+      return freeSlot;
     }
 
     // No free slot — steal the active note nearest to target (smallest retuning)
@@ -134,6 +146,7 @@ export class VoicePool {
     const slot = this._active.get(key);
     if (slot == null) return null;
     this._coords.set(slot, null);
+    this._releasedAt.set(slot, Date.now());
     this._active.delete(key);
     return slot;
   }
@@ -152,9 +165,17 @@ export class VoicePool {
     for (const [key, slot] of this._active) {
       victims.push({ coords: this._coords.get(slot), slot });
     }
-    for (const s of this._allSlots) this._coords.set(s, null);
+    for (const s of this._allSlots) {
+      this._coords.set(s, null);
+      this._releasedAt.set(s, 0);
+    }
     this._active.clear();
     return victims;
+  }
+
+  _isSlotGuarded(slot, now) {
+    if (this._releaseGuardMs <= 0) return false;
+    return (now - (this._releasedAt.get(slot) ?? 0)) < this._releaseGuardMs;
   }
 
   get activeCount() { return this._active.size; }

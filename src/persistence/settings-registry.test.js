@@ -97,6 +97,11 @@ describe('SESSION_KEYS', () => {
       expect(REGISTRY_BY_KEY[key].tier).toBe('session');
     }
   });
+
+  it('includes retuning_mode so it is not shared via URL', () => {
+    expect(SESSION_KEYS).toContain('retuning_mode');
+    expect(URL_KEYS).not.toContain('retuning_mode');
+  });
 });
 
 describe('RUNTIME_KEYS', () => {

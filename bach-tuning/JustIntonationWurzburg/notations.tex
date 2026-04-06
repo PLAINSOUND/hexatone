@@ -1,0 +1,88 @@
+We start with basic definitions and notations, which will be used throughout this article.
+
+\subsection{Frequencies and Equal Temperament}
+%--------------------------------------------
+In the following we consider a standard chromatic keyboard with keys enumerated from left to right by the index $k \in \{0,\ldots,K-1\}$.\footnote{For example, in the MIDI norm~\cite{MidiNorm} $k$ runs from 0 to 127 with the reference key A4 located at $k_0=69$.} For traditional keyboard instruments the corresponding frequencies $f_0,\ldots,f_{N-1}$ are constant throughout the performance, meaning that they have to be tuned beforehand according to a certain temperament. As mentioned above, Western music of today is predominantly based on the \textit{equal temperament} (ET) with twelve equally-sized semitones, defined by 
+%
+\begin{equation}
+\label{fET}
+f_k^\ET \;:=\; f_{k_0} \, 2^{(k-k_0)/12}\,,
+\end{equation}
+%
+where $k_0$ denotes the index of the reference key and $f_{k_0}$ the corresponding reference frequency (usually A4 with $f_{k_0}=440$ Hz). 
+
+An interval between two tones $k$ and $k'$ is characterized by a certain frequency ratio $f_{k'}/f_{k}$. In the ET this ratio is given by $f_{k'}^\ET/f_{k}^\ET = 2^{(k'-k)/12}$. The main advantage of the ET is that this ratio depends only on the difference $k'-k$, meaning that the frequency ratios are invariant under transpositions (key changes $k\to k+const$). Therefore, apart from the global pitch, the ET sounds identical in all keys. 
+
+\subsection{Consonance and Just Intonation}
+%----------------------
+Two tones are justly intoned if the corresponding frequency ratio $f_{k'}/f_{k}$ is given by a simple rational number $R=m/n$. For example, a just octave has the frequency ratio 2:1 while the just perfect fifth corresponds to the ratio 3:2 (see Table \ref{tablejustint}). As outlined in the introduction, the impression of consonance is particularly pronounced if $m$ and $n$ are small. 
+
+\textit{Just intonation} (JI) is a tuning scheme where the frequencies $f_k$ are tuned according to rational numbers with respect to a certain keynote $k^*$ in an octave-repeating pattern:
+%
+\begin{equation}
+f^\JI_k = R^\JI_{k,k^*} \, f^\JI_{k^*}\,.
+\end{equation}
+%
+A possible choice of the rational numbers $R^\JI_{k,k^*}$ is given in Table \ref{tablejustint}. With respect to the keynote the resulting interval ratios $f^\JI_k/f^\JI_{k^*}$ are exactly those listed in the table. However, in contrast to the ET these frequency ratios are not invariant under transpositions. For example, for keynote C the fifth C-G has the correct frequency ratio 3:2 but the fifth D-A has the ratio $40/27 \simeq 1.48$ which is clearly too small. Therefore, as already outlined in the introduction, JI as a static tuning can only be used in the scale referring to its keynote (and a few complementary keys) while it sounds dissonant in most other keys. 
+
+\begin{table}
+\centering
+\footnotesize
+\begin{tabular}{|c|c||c|c||c|c|c|} \hline
+$k'-k$ & Interval& $f^\ET_{k'}/f^\ET_{k}$ & $R^\JI_{k,k'}=m/n$ & $\Phi^\JI_{k,k'}[\cent]$ & $\Phi^\ET_{k,k'}[\cent]$ & Deviation  $\phi^\JI_{k,k'}[\cent]$ \\ \hline 
+0 & Unison 		& 1		& 1 	& 0 & 0 & 0 \\
+1 & Semitone 		& 1.0595	& 16/15 & 111.73 & 100 & +11.73 \\
+2 & Major Second 	& 1.1225 	& 9/8 	& 203.91 & 200 & +3.91 \\
+3 & Minor Third 	& 1.1892	& 6/5 	& 315.64 & 300 & +15.64 \\
+4 & Major Third 	& 1.2599	& 5/4 	& 386.31 & 400 & -13.69 \\
+5 & Fourth 		& 1.3348 	& 4/3 	& 498.04 & 500 & -1.96 \\
+6 & Tritone 		& 1.4142	& 45/32 & 590.22 & 600 & -9.78 \\
+7 & Fifth 		& 1.4983	& 3/2 	& 701.96 & 700 & +1.96 \\
+8 & Minor Sixth 	& 1.5874	& 8/5 	& 813.69 & 800 & +13.69 \\
+9 & Major Sixth 	& 1.6818	& 5/3 	& 884.36 & 900 & -15.64 \\
+%10 & Minor Seventh 	& 1.7818	& 7/4 	& 968.83 & 1000 & -31.17 \\
+10 & Minor Seventh 	& 1.7818	& 9/5 	& 1017.60 & 1000 & +17.60 \\
+11 & Major Seventh 	& 1.8878	& 15/8	& 1088.27 & 1100 & -11.73 \\
+12 & Octave 		& 2		& 2 	& 1200 & 1200 & 0 \\
+\hline 
+\end{tabular}
+\caption{\label{tablejustint} List of chromatic interval sizes. The table shows the number of semitones $k-k'$, the frequency ratio $f^\ET_{k'}/f^\ET_{k}$ in the equal temperament, the just ratios $R^\JI_{k,k'}=m/n$ according to Table~\ref{tab:frequencyratios}, the interval sizes $\Phi_{k,k'}$ in cents for just intonation (JI) and the equal temperament (ET), as well as the cent difference $\phi^\JI_{k,k'}$ between the two values. Note that the choice of $m/n$ for a given interval is not always unique. For example, the minor seventh can be tuned according to the ratio 9/5 or 7/4 (see Table \ref{tableseveralintervalstablejustint} in Sect. 4).}
+\end{table}
+
+
+\subsection{Logarithmic pitches and interval sizes}
+%--------------------------------------------
+Combining several musical intervals in a chord the corresponding frequency ratios multiply. Therefore, as already pointed out by Huygens in 1691 \cite{Huygens,Cohen}, it is convenient to consider the \textit{logarithm} of frequency ratios, quantified in units of cents. The logarithm transforms multiplication into addition and allows one to add the sizes of adjacent intervals. Using this convention we define pitches and interval sizes as follows:
+%
+\begin{itemize}
+\item 
+  The \textit{absolute pitch} $\Lambda_k$ of the key $k$ on the keyboard is defined as the cent difference between the frequency of the key $k$ and that of the reference key $k_0$ (A4):
+  \begin{equation}
+  \Lambda_k \;:=\; 1200 \log_2 \Bigl( \frac{f_k}{f_{k_0}}\Bigr)=1200\Bigl(\log_2 f_k- \log_2 f_{k_0}\Bigr) \,,
+  \end{equation}
+  where $\log_2 f =\log f/\log 2$ denotes the logarithm to the base 2. For example, the pitches in the ET~(\ref{fET}) are simply given by multiples of 100 cent:
+  \begin{equation}
+  \Lambda^\ET_k \;=\; 100(k-k_0).
+  \end{equation}
+  For the actual \textit{pitch deviation} of the key $k$ relative to the ET we use the notation
+  \begin{equation}
+  \lambda_k \;:=\; \Lambda_k - \Lambda^\ET_k \,.
+  \end{equation}
+  \vspace{4mm}
+
+\item 
+  The microtonal \textit{absolute interval size} $\Phi_{k,k'}$ between two keys $k$ and $k'$ is defined as the corresponding pitch difference in units of cents:  
+  \begin{equation}
+  \Phi_{k,k'} \;=\; \Lambda_{k'}-\Lambda_k \;=\; 1200\Bigl(\log_2 f_{k'}- \log_2 f_k\Bigr).
+  \end{equation}
+  In the ET~(\ref{fET}) the interval sizes are given by the number of semitones times 100:
+  \begin{equation}
+  \Phi^\ET_{k,k'} \;=\; \Lambda^\ET_{k'}-\Lambda^\ET_k \;=\; 100(k'-k).
+  \end{equation}
+  For the actual \textit{interval size deviation} from the ET we use the notation
+  \begin{equation}
+  \phi_{k,k'} \;:=\; \Phi_{k,k'} -\Phi^\ET_{k,k'} \;=\; \lambda_{k'}-\lambda_k \,. 
+  \end{equation}
+  For JI a list of possible values for $\Phi^\JI_{k,k'}$ and $\phi^\JI_{k,k'}$ is given in Table \ref{tablejustint}.
+\end{itemize}
+%

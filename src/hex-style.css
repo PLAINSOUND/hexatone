@@ -491,8 +491,9 @@ a:hover {
 }
 
 .octave-defer-active {
-    background-color: #e8d4d4;
-    transition: background-color 0.1s ease;
+    background-color: #f3cec5;
+    color: #8a2a1f;
+    transition: background-color 0.1s ease, color 0.1s ease;
 }
 
 .octave-display {

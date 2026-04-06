@@ -80,6 +80,13 @@ describe("buildTuningMapEntries", () => {
     const decodedDeg0 = mtsToMidiFloat(entries[69]);
     expect(decodedDeg0).toBeCloseTo(65.0, 2);
   });
+
+  it("shifts every entry by the current octave offset when requested", () => {
+    const base = buildTuningMapEntries(69, edo12Scale, edo12Equave, 440, [0, 1], 0);
+    const shifted = buildTuningMapEntries(69, edo12Scale, edo12Equave, 440, [0, 1], 1);
+    expect(mtsToMidiFloat(shifted[69]) - mtsToMidiFloat(base[69])).toBeCloseTo(12, 2);
+    expect(mtsToMidiFloat(shifted[81]) - mtsToMidiFloat(base[81])).toBeCloseTo(12, 2);
+  });
 });
 
 // ── patchTuningEntry ──────────────────────────────────────────────────────────

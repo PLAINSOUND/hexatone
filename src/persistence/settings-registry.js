@@ -56,7 +56,10 @@ export const SETTINGS_REGISTRY = [
   { key: 'spectrum_colors',   tier: 'url',     type: 'bool',    default: true,  presetSkip: true },
   { key: 'fundamental_color', tier: 'url',     type: 'string',  default: '#f2e3e3', presetSkip: true },
   { key: 'key_labels',        tier: 'url',     type: 'string',  default: 'no_labels', presetSkip: true },
-  { key: 'retuning_mode',     tier: 'url',     type: 'string',  default: 'recalculate_reference' },
+  // Internal-only for now: TuneCell supports an alternate reference-degree save
+  // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
+  // remains session-scoped and stays out of share URLs.
+  { key: 'retuning_mode',     tier: 'session', type: 'string',  default: 'recalculate_reference' },
 
   // ── Layout / grid ────────────────────────────────────────────────────────────
   { key: 'rSteps',            tier: 'url',     type: 'int',     default: 2,     presetSkip: true },

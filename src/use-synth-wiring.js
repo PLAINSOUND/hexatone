@@ -189,7 +189,7 @@ const useSynthWiring = (
   const [loading,         setLoading]         = useState(0);
   const [octaveTranspose, setOctaveTranspose] = useState(0);
   const [octaveDeferred,  setOctaveDeferred]  = useState(
-    () => sessionStorage.getItem("octave_deferred") === "true",
+    () => sessionStorage.getItem("octave_deferred") !== "false",
   );
   const sampleSynthRef = useRef({ key: null, synth: null });
   const mpeSynthRef = useRef({ key: null, synth: null });
@@ -704,6 +704,24 @@ const useSynthWiring = (
     const next = !octaveDeferred;
     setOctaveDeferred(next);
     sessionStorage.setItem("octave_deferred", next);
+    if (
+      !next &&
+      ready &&
+      settings.output_direct &&
+      settings.direct_mode === "static" &&
+      settings.direct_device &&
+      settings.direct_device !== "OFF" &&
+      keysRef.current?.mtsSendMap
+    ) {
+      const output = WebMidi.getOutputById(settings.direct_device);
+      if (output) {
+        requestAnimationFrame(() => {
+          if (keysRef.current?.mtsSendMap) {
+            keysRef.current.mtsSendMap(output, false, false);
+          }
+        });
+      }
+    }
   };
 
   // ── Per-controller prefs: single derived-state owner ────────────────────────
