@@ -39,6 +39,51 @@ const LUMATONE = {
   mpe: false,
 };
 
+// Mode-aware AXIS-49 (matches the real registry entry)
+const AXIS49_MODES = {
+  id: 'axis49',
+  anchorDefault: 53,
+  anchorChannelDefault: undefined,
+  mpe: false,
+  defaultMode: 'layout2d',
+  modes: {
+    layout2d: {
+      defaultPrefs: {
+        anchorNote:       53,
+        midi_passthrough: false,
+      },
+    },
+    bypass: {
+      defaultPrefs: {
+        anchorNote:       50,
+        midi_passthrough: true,
+      },
+    },
+  },
+  resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+};
+
+// Shared helper: builds a minimal mode-aware single-channel mock
+function makeSingleChannelModes(id, layout2dNote, bypassNote = 60) {
+  return {
+    id,
+    anchorDefault: layout2dNote,
+    anchorChannelDefault: undefined,
+    mpe: false,
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: { defaultPrefs: { anchorNote: layout2dNote, midi_passthrough: false } },
+      bypass:   { defaultPrefs: { anchorNote: bypassNote,   midi_passthrough: true  } },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+  };
+}
+
+const TS41_MODES      = makeSingleChannelModes('ts41',      36);
+const PUSH2_MODES     = makeSingleChannelModes('push2',     36);
+const LAUNCHPAD_MODES = makeSingleChannelModes('launchpad', 36);
+const GENERIC_MODES   = makeSingleChannelModes('generic',   60);
+
 // Mode-aware Lumatone (matches the real registry entry)
 const LUMATONE_MODES = {
   id: 'lumatone',
@@ -451,3 +496,115 @@ describe('Lumatone mode-aware controller prefs', () => {
     expect(update.midiin_channel_legacy).toBeUndefined();
   });
 });
+
+describe('AXIS-49 mode-aware controller prefs', () => {
+  it('defaults to layout2d on first connect', () => {
+    expect(getControllerMode(AXIS49_MODES)).toBe('layout2d');
+  });
+
+  it('resolves bypass from settings when nothing stored', () => {
+    expect(getControllerMode(AXIS49_MODES, { midi_passthrough: true })).toBe('bypass');
+  });
+
+  it('restores stored mode on reconnect', () => {
+    localStorage.setItem('axis49__active_mode', 'bypass');
+    expect(getControllerMode(AXIS49_MODES)).toBe('bypass');
+  });
+
+  it('loads default layout2d anchor (note 53) on first connect', () => {
+    const update = loadAnchorSettingsUpdate(AXIS49_MODES);
+    expect(update.midiin_central_degree).toBe(53);
+    expect(update.midi_passthrough).toBe(false);
+  });
+
+  it('loads default bypass anchor (note 50) when settings say passthrough', () => {
+    const update = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: true });
+    expect(update.midiin_central_degree).toBe(50);
+    expect(update.midi_passthrough).toBe(true);
+  });
+
+  it('switches anchor when toggling between modes', () => {
+    saveAnchor(AXIS49_MODES, 40, { midi_passthrough: false });
+    saveAnchor(AXIS49_MODES, 60, { midi_passthrough: true });
+
+    const update2d = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: false });
+    expect(update2d.midiin_central_degree).toBe(40);
+
+    const updateBypass = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: true });
+    expect(updateBypass.midiin_central_degree).toBe(60);
+  });
+
+  it('saves into mode-scoped storage key', () => {
+    saveAnchor(AXIS49_MODES, 45, { midi_passthrough: false });
+    expect(localStorage.getItem('axis49__layout2d__anchor')).toBe('45');
+    saveAnchor(AXIS49_MODES, 55, { midi_passthrough: true });
+    expect(localStorage.getItem('axis49__bypass__anchor')).toBe('55');
+  });
+
+  it('falls back to legacy flat anchor if no mode-specific anchor exists', () => {
+    localStorage.setItem('axis49_anchor', '30');
+    const update = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: false });
+    expect(update.midiin_central_degree).toBe(30);
+  });
+});
+
+// ── Shared behaviour suite for simple single-channel mode-aware controllers ───
+// TS41, Push2, Launchpad, and Generic all use the same layout2d/bypass pattern
+// with no anchorChannelDefault. This helper drives identical assertions for each.
+
+function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) {
+  describe(`${label} mode-aware controller prefs`, () => {
+    it('defaults to layout2d on first connect', () => {
+      expect(getControllerMode(ctrl)).toBe('layout2d');
+    });
+
+    it('resolves bypass from settings when nothing stored', () => {
+      expect(getControllerMode(ctrl, { midi_passthrough: true })).toBe('bypass');
+    });
+
+    it('restores stored mode on reconnect', () => {
+      localStorage.setItem(`${ctrl.id}__active_mode`, 'bypass');
+      expect(getControllerMode(ctrl)).toBe('bypass');
+    });
+
+    it(`loads default layout2d anchor (note ${layout2dNote}) on first connect`, () => {
+      const update = loadAnchorSettingsUpdate(ctrl);
+      expect(update.midiin_central_degree).toBe(layout2dNote);
+      expect(update.midi_passthrough).toBe(false);
+    });
+
+    it(`loads default bypass anchor (note ${bypassNote}) when settings say passthrough`, () => {
+      const update = loadAnchorSettingsUpdate(ctrl, { midi_passthrough: true });
+      expect(update.midiin_central_degree).toBe(bypassNote);
+      expect(update.midi_passthrough).toBe(true);
+    });
+
+    it('switches anchor when toggling between modes', () => {
+      saveAnchor(ctrl, layout2dNote - 5, { midi_passthrough: false });
+      saveAnchor(ctrl, bypassNote  + 5, { midi_passthrough: true  });
+
+      expect(loadAnchorSettingsUpdate(ctrl, { midi_passthrough: false }).midiin_central_degree)
+        .toBe(layout2dNote - 5);
+      expect(loadAnchorSettingsUpdate(ctrl, { midi_passthrough: true  }).midiin_central_degree)
+        .toBe(bypassNote + 5);
+    });
+
+    it('saves into mode-scoped storage keys', () => {
+      saveAnchor(ctrl, 10, { midi_passthrough: false });
+      expect(localStorage.getItem(`${ctrl.id}__layout2d__anchor`)).toBe('10');
+      saveAnchor(ctrl, 20, { midi_passthrough: true });
+      expect(localStorage.getItem(`${ctrl.id}__bypass__anchor`)).toBe('20');
+    });
+
+    it('falls back to legacy flat anchor if no mode-specific anchor exists', () => {
+      localStorage.setItem(`${ctrl.id}_anchor`, '77');
+      const update = loadAnchorSettingsUpdate(ctrl, { midi_passthrough: false });
+      expect(update.midiin_central_degree).toBe(77);
+    });
+  });
+}
+
+describeSingleChannelModes('TS41',      TS41_MODES,      36);
+describeSingleChannelModes('Push2',     PUSH2_MODES,     36);
+describeSingleChannelModes('Launchpad', LAUNCHPAD_MODES, 36);
+describeSingleChannelModes('Generic',   GENERIC_MODES,   60);

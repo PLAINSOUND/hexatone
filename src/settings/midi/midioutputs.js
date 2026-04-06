@@ -5,7 +5,7 @@ import PropTypes from "prop-types";
 import {
   resolveBulkDumpName,
   sanitizeBulkDumpName,
-} from "../../keyboard/mts-helpers.js";
+} from "../../tuning/mts-format.js";
 
 const voiceChannels = (masterCh) => {
   if (masterCh === "1") return Array.from({ length: 15 }, (_, i) => i + 2);

@@ -659,8 +659,10 @@ Split ~2300-line `keys.js` into:
 
 **Do when `keys.js` needs significant new features** — not a standalone priority.
 
-### F3 — Lumatone export rewrite  `todo` `medium` `large`
-Rewrite `src/settings/scale/lumatone-export.js` to derive geometry from `buildLumatoneMap` in `registry.js`, eliminating the duplicate standalone implementation and fixing 6 failing export tests. Phase C is now stable, so the geometry layer is ready. (Issues.md ARCH-05, BUG-06.)
+### F3 — Lumatone .ltn export  `todo` `medium` `large`
+*2026-04-06: Retired the old `lumatone-export.js` — its geometry was wrong and inconsistent with the registry model. The "Download .ltn" and "Export .ltn" UI buttons have been removed. "Send to Lumatone" (live sysex via `sendLumatoneLayout`) remains and works correctly.*
+
+The export should be rethought from first principles: what a bypass-mode user needs is a .ltn that assigns sequential MIDI notes per block (matching Hexatone's bypass input expectations) with the correct rSteps/drSteps layout and live colours. Build this using `NOTE_XY` + `LUMATONE_BLOCK_OFFSETS` from `controllers/lumatone.js` once the use-case is clear.
 
 ### F4 — Dead code removal  `todo` `low` `trivial`
 `AXIS49_MAP` / `getAxis49Position` legacy exports; `buildLumatoneRawCoords` duplicate; `ExtractArray` in `use-query.js`; `colors.test-fix-unfinished.js`; commented-out `console.log` statements. (Issues.md CLEAN-01.)

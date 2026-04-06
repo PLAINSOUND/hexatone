@@ -352,7 +352,23 @@ export const CONTROLLER_REGISTRY = [
     description: 'Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hexes.',
     multiChannel: false,
     mpe: false,
-    anchorDefault: 53,  // AXIS-49 physical note 49 is the centre key
+    anchorDefault: 53,  // note 53 is the centre key in selfless mode
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote:       53,
+          midi_passthrough: false,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote:       50,  // centre of the 0–127 MIDI range
+          midi_passthrough: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
     buildMap: (anchorNote) => buildAxis49Map(anchorNote ?? 53),
   },
 
@@ -364,6 +380,22 @@ export const CONTROLLER_REGISTRY = [
     multiChannel: false,
     mpe: false,
     anchorDefault: 36,
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote:       36,
+          midi_passthrough: false,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote:       60,
+          midi_passthrough: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
     buildMap: (anchorNote) => buildTS41Map(anchorNote ?? 36),
   },
 
@@ -430,6 +462,22 @@ export const CONTROLLER_REGISTRY = [
     multiChannel: false,
     mpe: false,
     anchorDefault: 36,
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote:       36,
+          midi_passthrough: false,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote:       60,
+          midi_passthrough: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
     buildMap: (anchorNote) => buildPushMap(anchorNote ?? 36),
   },
 
@@ -441,6 +489,22 @@ export const CONTROLLER_REGISTRY = [
     multiChannel: false,
     mpe: false,
     anchorDefault: 36,
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote:       36,
+          midi_passthrough: false,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote:       60,
+          midi_passthrough: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
     buildMap: (anchorNote) => buildLaunchpadMap(anchorNote ?? 36),
   },
 
@@ -488,6 +552,22 @@ export const CONTROLLER_REGISTRY = [
     multiChannel: false,
     mpe: false,
     anchorDefault: 60,
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote:       60,
+          midi_passthrough: false,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote:       60,
+          midi_passthrough: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
     buildMap: (anchorNote) => buildGenericKeyboardMap(anchorNote ?? 60),
   },
 ];

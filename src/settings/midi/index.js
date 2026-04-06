@@ -3,7 +3,6 @@ import { useState } from 'preact/hooks';
 import PropTypes from 'prop-types';
 import { detectController } from '../../controllers/registry.js';
 import { saveControllerPref } from '../../input/controller-anchor.js';
-import { downloadLtn, DEFAULT_CENTRAL_BOARD, DEFAULT_CENTRAL_KEY, DEFAULT_CENTRAL_CHANNEL, DEFAULT_CENTRAL_NOTE } from '../scale/lumatone-export.js';
 import ScalaInput from '../scale/scala-input.js';
 
 const MIDIio = (props) => {
@@ -386,46 +385,23 @@ const MIDIio = (props) => {
                       )}
                     </>
                   )}
-                  {/* Layout file only applies to 2D geometry mode — not sequential */}
-                  {!props.settings.midi_passthrough && <label>
-                    Layout file (.ltn)
-                    <span style={{ display: 'flex', alignItems: 'center',
-                                   gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
-                      {props.lumatoneRawPorts && (
+                  {/* Layout file (.ltn) — TODO: reimplement export using registry geometry */}
+                  {!props.settings.midi_passthrough && props.lumatoneRawPorts && (
+                    <label>
+                      Send to Lumatone
+                      <span style={{ display: 'flex', alignItems: 'center',
+                                     gap: '8px', marginLeft: 'auto', marginTop: '4px' }}>
                         <button
                           type="button"
                           style={{ fontSize: '0.85em' }}
                           title="Send notes + colours to Lumatone via sysex (~10–15 s, one-time setup)"
                           onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
                         >
-                          Send to Lumatone
+                          Send Now
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        style={{ fontSize: '0.85em' }}
-                        title="Download as .ltn file for Lumatone Editor"
-                        onClick={() => {
-                          const ch0  = props.settings.lumatone_center_channel != null
-                            ? props.settings.lumatone_center_channel - 1
-                            : DEFAULT_CENTRAL_CHANNEL;
-                          const note = props.settings.lumatone_center_note  != null
-                            ? props.settings.lumatone_center_note
-                            : DEFAULT_CENTRAL_NOTE;
-                          const safeName = (props.settings.name || 'hexatone')
-                            .replace(/[^a-zA-Z0-9_-]/g, '_');
-                          downloadLtn(props.settings, {
-                            centralBoard:    DEFAULT_CENTRAL_BOARD,
-                            centralKeyIndex: DEFAULT_CENTRAL_KEY,
-                            centralChannel:  ch0,
-                            centralNote:     note,
-                          }, `${safeName}.ltn`);
-                        }}
-                      >
-                        Download
-                      </button>
-                    </span>
-                  </label>}
+                      </span>
+                    </label>
+                  )}
                 </>
               )}
 

@@ -2,7 +2,6 @@ import { h, createRef } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import PropTypes from 'prop-types';
 import { fileToPreset, settingsToPresetJson } from './scale/parse-scale';
-import { downloadLtn } from './scale/lumatone-export';
 
 const STORAGE_KEY = 'hexatone_custom_presets';
 
@@ -115,14 +114,6 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       return;
     }
     downloadFile(settingsToPresetJson(settings), `${safeName(tuningName)}.json`);
-  };
-
-  const handleExportLtn = () => {
-    if (!tuningName) {
-      setError('Please enter a name in the Name and Description section first.');
-      return;
-    }
-    downloadLtn(settings, {}, `${safeName(tuningName)}.ltn`);
   };
 
   const handleDelete = () => {

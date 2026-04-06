@@ -15,8 +15,8 @@ import {
   chooseStaticMapCenterMidi,
   computeStaticMapDegree0,
   degree0ToRef,
-  resolveBulkDumpName,
-} from "./keyboard/mts-helpers.js";
+} from "./tuning/center-anchor.js";
+import { resolveBulkDumpName } from "./tuning/mts-format.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.

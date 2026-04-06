@@ -1,11 +1,8 @@
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { WebMidi } from "webmidi";
 import { VoicePool } from "../voice_pool_nearest";
-import {
-  buildBulkDumpMessage,
-  buildTuningMapEntries,
-  centsToMTS,
-} from "../keyboard/mts-helpers.js";
+import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
+import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 
 function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
   midi_output.send([0xB0 + channel0, 101, msb & 0x7F]);

@@ -26,10 +26,11 @@ import { RecencyStack } from '../recency_stack.js';
 import { MidiCoordResolver } from './midi-coord-resolver.js';
 import { findNearestDegree } from '../input/scale-mapper.js';
 import {
-  degree0ToRef, computeNaturalAnchor, mtsTuningMap,
+  degree0ToRef, computeNaturalAnchor,
   computeCenterPitchHz, chooseStaticMapCenterMidi, computeStaticMapDegree0,
-  resolveBulkDumpName,
-} from './mts-helpers.js';
+} from '../tuning/center-anchor.js';
+import { mtsTuningMap } from '../tuning/tuning-map.js';
+import { resolveBulkDumpName } from '../tuning/mts-format.js';
 
 const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;

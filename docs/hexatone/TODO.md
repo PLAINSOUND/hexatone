@@ -55,16 +55,11 @@ Remaining callers noted in Roadmap / Issues:
 
 This is a contained cleanup and should be done once current controller work is stable.
 
-## 6. Rewrite `lumatone-export.js`
+## 6. Lumatone .ltn export  *(retired old code — rethink before rebuilding)*
 
-Rewrite `src/settings/scale/lumatone-export.js` to use controller-registry geometry instead of its standalone copy.
+`lumatone-export.js` and its test were deleted 2026-04-06. The geometry was wrong and inconsistent with the registry. "Download .ltn" and "Export .ltn" UI buttons removed. "Send to Lumatone" (live sysex) is unaffected and still works.
 
-Why:
-- fixes the known export inconsistencies properly
-- removes duplicated geometry logic
-- aligns export behavior with the live controller model
-
-Best done after the Lumatone mode/persistence pass.
+Future export should be built from `NOTE_XY` + `LUMATONE_BLOCK_OFFSETS` in `controllers/lumatone.js` once the use-case (bypass-mode sequential layout with colours) is clearly specified. See Roadmap F3.
 
 ## 7. Static bulk OCT synchronization   DONE
 
