@@ -159,6 +159,27 @@ The static bulk dump in mtsSendMap was using output.sendSysex([manufacturer], ms
 
 The fix matches the pattern already used by createBulkDynamicTransport.sendBulkDump(): use output.send([0xF0, ...msg, 0xF7]) with the full flat payload intact. As part of this, corrected HEADER_LEN from 20 to 21 (the leading 126 byte is part of the payload, so header = 126 + device_id + 8 + 1 + map# + 16-byte name = 21 bytes, not 20) — the sustained-note slot patching was therefore also writing into the wrong positions.
 
+### BUG-11 · Lumatone first-load colour send stalls after one key
+**Tags:** `done` `medium` `medium`
+
+On first Lumatone selection in a fresh session, Send Now and Auto Send would transmit exactly one sysex message, receive its ACK, then go silent. Subsequent sends worked correctly.
+
+**Root cause:** Two interacting problems:
+
+1. **`LumatoneLEDs` lived inside `Keys`** — it was constructed in the `Keys` constructor, which receives `lumatoneRawPorts` as a parameter. `lumatoneRawPorts` is a `useMemo` that returns a new object `{ input, output }` on every render. When controller prefs were loaded immediately after device selection (same synchronous batch), a second render fired, the `lumatoneRawPorts` reference changed, and the old `Keys`/`LumatoneLEDs` was destroyed and recreated — but by then the first ACK was in flight. The destroyed instance had `this._out = null`; when `_onMessage` fired and called `_advance()`, `this._out.send()` threw silently and the queue died.
+
+2. **Even after lifting `LumatoneLEDs` into `app.jsx`** (mirroring the Exquis pattern), the `useEffect` was still keyed on the `lumatoneRawPorts` object reference, so the same destroy/recreate race persisted.
+
+**Fix (2026-04-06):** Two changes:
+
+- **Lifted `LumatoneLEDs` out of `Keys` into `app.jsx`**, managed by a `useEffect` — exactly the same architecture as `ExquisLEDs`. `Keys` receives the instance via `onKeysReady` (and `lumatoneLedsRef`), not at construction time. `deconstruct()` just nulls the reference; `app.jsx` owns the lifecycle.
+
+- **Keyed the lifecycle effect on port IDs** (`lumatoneInId`, `lumatoneOutId` — stable Web MIDI port ID strings) rather than the `lumatoneRawPorts` container object. The engine is only destroyed and recreated when the actual hardware port changes, not on every render that happens to recreate the wrapper object.
+
+**Files changed:** `src/app.jsx`, `src/keyboard/keys.js`, `src/keyboard/index.js`.
+
+---
+
 ## Architecture / Refactoring
 
 ### ARCH-01 · Migrate 4 shim callers off `mts-helpers.js`

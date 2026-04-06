@@ -14,14 +14,16 @@ const Keyboard = (props) => {
   useEffect(() => {
     const keys = new Keys(
       canvas.current, props.settings, props.synth, props.active,
-      props.onLatchChange, props.lumatoneRawPorts, props.onTakeSnapshot,
+      props.onLatchChange, props.onTakeSnapshot,
       props.inputRuntime, props.onFirstInteraction,
     );
-    keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
+    keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
+    keys.exquisLEDs   = props.exquisLedsRef?.current ?? null;
     keysRef.current = keys;
     if (props.onKeysReady) props.onKeysReady(keys);
     return () => {
-      keys.exquisLEDs = null;
+      keys.lumatoneLEDs = null;
+      keys.exquisLEDs   = null;
       keys.deconstruct();
     };
   }, [canvas, props.structuralSettings, props.inputRuntime]);
@@ -83,6 +85,7 @@ const Keyboard = (props) => {
 Keyboard.propTypes = {
   structuralSettings: PropTypes.object,
   liveOutputSettings: PropTypes.object,
+  lumatoneLedsRef: PropTypes.object,
   exquisLedsRef: PropTypes.object,
   settings: PropTypes.shape({
     keyCodeToCoords: PropTypes.object,

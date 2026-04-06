@@ -17,7 +17,6 @@ import { midi_in } from "../settings/midi/midiin";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote } from '../controllers/registry.js';
-import { LumatoneLEDs } from '../controllers/lumatone-leds.js';
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -39,7 +38,7 @@ const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 const BULK_RELEASE_PROTECT_MS = 750;
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, lumatoneRawPorts = null, onTakeSnapshot = null, inputRuntime = null, onFirstInteraction = null) {
+  constructor(canvas, settings, synth, typing, onLatchChange, onTakeSnapshot = null, inputRuntime = null, onFirstInteraction = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -620,28 +619,11 @@ class Keys {
       } // end else (midiin_data exists)
     } // end if midiin_data guard
 
-    // ── Lumatone LED engine ──────────────────────────────────────────────────
-    // Initialise when raw Lumatone MIDI ports are provided (Lumatone is the
-    // active input controller) and a controller map has been built.
-    // The initial color sync is deferred until after resizeHandler() completes
-    // so that the canvas size and stepsTable are fully established first.
-    // We post it as a microtask to ensure this.controllerMap is set (MIDI setup
-    // runs inside the midiin_data guard above, before we reach here).
+    // lumatoneLEDs and exquisLEDs are assigned externally by app.jsx after
+    // construction, via onKeysReady — the same pattern so both LED engines
+    // have a stable, long-lived lifecycle independent of Keys reconstruction.
     this.lumatoneLEDs = null;
-    if (lumatoneRawPorts && this.controllerMap) {
-      this.lumatoneLEDs = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
-      // Send initial full color map after construction settles — only if auto-sync is on.
-      if (this.settings.lumatone_led_sync) {
-        Promise.resolve().then(() => {
-          if (this.lumatoneLEDs && this.controllerMap) {
-            this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
-          }
-        });
-      }
-    }
-
-    // exquisLEDs is assigned externally by keyboard/index.js after construction.
-    this.exquisLEDs = null;
+    this.exquisLEDs   = null;
   } // end of constructor
 
   /**
@@ -1293,11 +1275,8 @@ class Keys {
     // Stop any snapshot that is still playing.
     this.stopSnapshot();
 
-    // Clean up Lumatone LED engine — removes the ACK listener from the input port.
-    if (this.lumatoneLEDs) {
-      this.lumatoneLEDs.destroy();
-      this.lumatoneLEDs = null;
-    }
+    // lumatoneLEDs is owned by app.jsx (same as exquisLEDs) — not destroyed here.
+    this.lumatoneLEDs = null;
 
 
 

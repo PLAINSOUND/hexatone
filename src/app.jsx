@@ -30,6 +30,7 @@ import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
 import { ExquisLEDs } from "./controllers/exquis-leds.js";
+import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
 
@@ -167,7 +168,8 @@ const App = () => {
   // Exquis LED App Mode status — set asynchronously after firmware version check.
   // null = pending / not connected; { ok: true } = active; { ok: false, reason } = failed.
   const [exquisLedStatus, setExquisLedStatus] = useState(null);
-  const exquisLedsRef = useRef(null);
+  const exquisLedsRef   = useRef(null);
+  const lumatoneLedsRef = useRef(null);
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
@@ -526,6 +528,40 @@ const App = () => {
     }
   }, [settings.midiin_mpe_input]);
 
+  // ── Lumatone LED lifecycle ─────────────────────────────────────────────────
+  // Mirrors the Exquis pattern: LumatoneLEDs lives here in app.jsx, not inside
+  // Keys, so it is constructed as soon as the Lumatone ports are resolved —
+  // independently of Keys reconstruction. Keys receives a reference via
+  // onKeysReady and lumatoneLedsRef, exactly like exquisLedsRef.
+  //
+  // We depend on the port IDs (stable strings) rather than lumatoneRawPorts
+  // (a new object reference every render), so the effect only recreates the
+  // LumatoneLEDs engine when the actual hardware ports change — not on every
+  // settings update that happens to re-run the lumatoneRawPorts useMemo.
+  const lumatoneInId  = lumatoneRawPorts?.input?.id  ?? null;
+  const lumatoneOutId = lumatoneRawPorts?.output?.id ?? null;
+  useEffect(() => {
+    if (!lumatoneRawPorts) {
+      if (lumatoneLedsRef.current) {
+        lumatoneLedsRef.current.destroy();
+        lumatoneLedsRef.current = null;
+        if (keysRef.current) keysRef.current.lumatoneLEDs = null;
+      }
+      return;
+    }
+
+    const leds = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
+    lumatoneLedsRef.current = leds;
+    if (keysRef.current) keysRef.current.lumatoneLEDs = leds;
+
+    return () => {
+      leds.destroy();
+      lumatoneLedsRef.current = null;
+      if (keysRef.current) keysRef.current.lumatoneLEDs = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lumatoneInId, lumatoneOutId]);
+
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
@@ -569,9 +605,13 @@ const App = () => {
           structuralSettings={structuralSettings}
           onKeysReady={useCallback((keys) => {
             keysRef.current = keys;
-            keys.exquisLEDs = exquisLedsRef.current;
+            keys.lumatoneLEDs = lumatoneLedsRef.current;
+            keys.exquisLEDs   = exquisLedsRef.current;
             // Sync LEDs after reconstruction — geometry may have changed (rSteps,
             // drSteps, etc.) without triggering the color useEffect in keyboard/index.js.
+            if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
+              keys.syncLumatoneLEDs();
+            }
             if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
               keys.syncExquisLEDs();
             }
@@ -581,7 +621,7 @@ const App = () => {
           active={active}
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
-          lumatoneRawPorts={lumatoneRawPorts}
+          lumatoneLedsRef={lumatoneLedsRef}
           exquisLedsRef={exquisLedsRef}
           onFirstInteraction={useCallback(() => {
             setUserHasInteracted(true);
