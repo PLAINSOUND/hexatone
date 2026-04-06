@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { deriveOutputRuntime, deriveTuningRuntime } from "./use-synth-wiring.js";
+import {
+  deriveOutputRuntime,
+  deriveTuningRuntime,
+  resolveOctaveShortcutAction,
+} from "./use-synth-wiring.js";
 
 const partchScale = [
   "81/80",
@@ -92,5 +96,41 @@ describe("use-synth-wiring runtime derivation", () => {
     expect(outputs[0].allocationMode).toBe("mts1");
     expect(outputs[0].mapNumber).toBe(5);
     expect(outputs[0].deviceId).toBe(12);
+  });
+});
+
+describe("use-synth-wiring octave shortcuts", () => {
+  it("maps up/down arrows to octave shifts", () => {
+    expect(resolveOctaveShortcutAction({ code: "ArrowUp" }, false)).toEqual({
+      type: "shift",
+      dir: 1,
+    });
+    expect(resolveOctaveShortcutAction({ code: "ArrowDown" }, false)).toEqual({
+      type: "shift",
+      dir: -1,
+    });
+  });
+
+  it("maps left/right arrows to deferred/immediate OCT mode", () => {
+    expect(resolveOctaveShortcutAction({ code: "ArrowLeft" }, false)).toEqual({
+      type: "mode",
+      deferred: true,
+    });
+    expect(resolveOctaveShortcutAction({ code: "ArrowRight" }, false)).toEqual({
+      type: "mode",
+      deferred: false,
+    });
+  });
+
+  it("ignores octave shortcuts while typing or using modified/browser shortcuts", () => {
+    expect(resolveOctaveShortcutAction({ code: "ArrowUp" }, true)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowUp", ctrlKey: true }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowRight", metaKey: true }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowLeft", altKey: true }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowDown", repeat: true }, false)).toBeNull();
+  });
+
+  it("ignores unrelated keys", () => {
+    expect(resolveOctaveShortcutAction({ code: "KeyA" }, false)).toBeNull();
   });
 });

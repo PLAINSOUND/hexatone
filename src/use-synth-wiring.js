@@ -150,6 +150,25 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
   };
 };
 
+export const resolveOctaveShortcutAction = (event, inputFocused = false) => {
+  if (inputFocused) return null;
+  if (event.metaKey || event.ctrlKey || event.altKey) return null;
+  if (event.repeat) return null;
+
+  switch (event.code) {
+    case "ArrowUp":
+      return { type: "shift", dir: 1 };
+    case "ArrowDown":
+      return { type: "shift", dir: -1 };
+    case "ArrowLeft":
+      return { type: "mode", deferred: true };
+    case "ArrowRight":
+      return { type: "mode", deferred: false };
+    default:
+      return null;
+  }
+};
+
 /**
  * Manages all synth and MIDI lifecycle for the app:
  *   - Web MIDI initialisation and device-change tracking
@@ -742,22 +761,13 @@ const useSynthWiring = (
     };
 
     const handleOctaveKeys = (e) => {
-      if (inputIsFocused()) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.repeat) return;
-
-      if (e.code === "ArrowUp") {
-        e.preventDefault();
-        shiftOctave(1);
-      } else if (e.code === "ArrowDown") {
-        e.preventDefault();
-        shiftOctave(-1);
-      } else if (e.code === "ArrowLeft") {
-        e.preventDefault();
-        setOctaveDeferredMode(true);
-      } else if (e.code === "ArrowRight") {
-        e.preventDefault();
-        setOctaveDeferredMode(false);
+      const action = resolveOctaveShortcutAction(e, inputIsFocused());
+      if (!action) return;
+      e.preventDefault();
+      if (action.type === "shift") {
+        shiftOctave(action.dir);
+      } else if (action.type === "mode") {
+        setOctaveDeferredMode(action.deferred);
       }
     };
 
