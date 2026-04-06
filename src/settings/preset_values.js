@@ -204,7 +204,7 @@ export const presets = [
           "#dee2da",
           "#cee3e2",
           "#fffae5",
-          "#ffffff",
+          "#d0d0d7",
           "#e2caca",
           "#ffe5e5",
           "#ffffff",
