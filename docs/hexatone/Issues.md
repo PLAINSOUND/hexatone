@@ -380,7 +380,7 @@ Replace the cent-distance metric in `findNearestDegree` with a monzo-based JI ha
 ---
 
 ### FEAT-04 · Exquis dual-mode support (poly-AT vs MPE)
-**Tags:** `todo` `medium` `medium`
+**Tags:** `done` `medium` `medium`
 
 Exquis in Rainbow Layout can send either polyphonic aftertouch or MPE. The registry currently marks Exquis as `mpe: true`. This needs revisiting:
 - Detect or let the user select which mode the device is in.
