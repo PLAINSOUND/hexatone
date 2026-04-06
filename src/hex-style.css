@@ -30,7 +30,7 @@ html, body {
 
 body {
 	-webkit-touch-callout: none;
-	background-image: url("Pattern3D_06.png");
+	background-image: url("./img/Pattern3D_06.png");
     transition: transform .3s ease-in-out;
     background-repeat: repeat;
     background-position: top left;

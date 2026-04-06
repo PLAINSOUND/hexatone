@@ -410,6 +410,42 @@ The OCT button applies an octave shift to the view. The static bulk dump must mi
 
 This ties the UI OCT state directly to the static bulk transport. (See Issues.md FEAT-06.)
 
+### C6 — Research: multitimbral static bulk spread  `todo` `low` `large`
+
+Investigate a third bulk-dump strategy for synths that can host multiple simultaneously addressable parts/programs on different MIDI channels, where each part holds its own static tuning map and the allocator spreads notes across those parts.
+
+**Motivation:** dynamic bulk dump is flexible but can become latency-prone and drop notes under dense data flow. A multitimbral static approach could trade setup complexity for lower live transport traffic by preloading several maps and switching channels instead of rewriting one map continuously.
+
+**Candidate shape:**
+- Preload `N` static maps, one per part/program/channel group.
+- Where the hardware couples tuning data to the currently active user program, require multiple copies of the same sound in multiple user program slots.
+- Route note-ons to the part whose preloaded map best covers the target pitch window.
+- Keep note-offs, sustain, aftertouch, and controller passthrough bound to the allocated part/channel.
+
+**Known user-experience cost:**
+- Not user-friendly.
+- Requires multiple copies of the same sound in user program slots.
+- Sound design becomes harder because edits must be replicated across those linked programs.
+- Setup may depend on an old-style hardware "multi mode" or equivalent multi-channel layering/split workflow.
+
+**Capability model to confirm before any implementation:**
+- Does the synth support multiple simultaneously active parts/programs on different MIDI channels?
+- Is tuning map selection global, per-part, or per-program?
+- Can multiple parts respond polyphonically to the same or overlapping key ranges?
+- Can identical sounds be hosted in several parts without breaking modulation/state assumptions?
+
+**Architecture if pursued later:**
+- Add a new output runtime mode, tentatively `bulk_static_multitimbral`.
+- Extend output capability descriptors with:
+  - `multitimbralParts`
+  - `tuningScope: 'global' | 'per_part' | 'per_program'`
+  - `partChannels`
+  - `programCoupledTuning`
+- Add a part allocator that chooses both `mapId` and `channel`.
+- Keep this separate from dynamic bulk mode so transport complexity stays isolated.
+
+**Expectation:** this is likely only worthwhile for a narrow class of older or workstation-style synths. It is probably too cumbersome to be a primary Hexatone path, but it is worth mapping because it could benefit users whose instruments support bulk dump yet do not cope well with live dynamic retuning traffic.
+
 ---
 
 ## Phase D: Exact Interval Layer  `todo` `low` `xlarge`
@@ -648,6 +684,7 @@ SHORT TERM (complete structural work already started)
   B1  Delete mts-helpers.js shim                 medium small
   B3  useScaleImport / useSessionDefaults hooks  low    medium
   C5  OCT button / static map                    medium medium
+  C6  Multitimbral static bulk spread research   low    large
 
 LONGER TERM (foundational / quality)
   D   Exact interval layer (xen-dev-utils)        low   xlarge  ← G depends on this

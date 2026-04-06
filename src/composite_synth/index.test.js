@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { create_composite_synth } from "./composite_synth/index.js";
+import { create_composite_synth } from "./index.js";
 
 describe("composite_synth controller-state replay", () => {
   it("fans out remembered and replayed controller state to child synths", () => {

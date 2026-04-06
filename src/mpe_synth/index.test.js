@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { create_mpe_synth } from "./mpe_synth/index.js";
+import { create_mpe_synth } from "./index.js";
 
 const scale12 = [
   "100.", "200.", "300.", "400.", "500.", "600.",

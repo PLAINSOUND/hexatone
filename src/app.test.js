@@ -19,7 +19,7 @@ import { render } from '@testing-library/preact';
 // Loading is a trivially simple named export — just verify it renders without
 // throwing. The SVG content is mocked by the asset stub.
 
-vi.mock('./hex.svg?react', () => ({
+vi.mock('./img/hex.svg?react', () => ({
   default: () => <svg data-testid="loading-icon" />,
 }));
 

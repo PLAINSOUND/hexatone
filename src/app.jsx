@@ -37,7 +37,7 @@ import PropTypes from "prop-types";
 
 import "normalize.css";
 import "./hex-style.css";
-import LoadingIcon from "./hex.svg?react";
+import LoadingIcon from "./img/hex.svg?react";
 import "./loader.css";
 
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless

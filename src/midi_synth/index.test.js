@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { create_midi_synth } from "./midi_synth/index.js";
+import { create_midi_synth } from "./index.js";
 
 const scale12 = [
   "100.", "200.", "300.", "400.", "500.", "600.",
