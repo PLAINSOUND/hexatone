@@ -38,6 +38,28 @@ const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 const BULK_RELEASE_PROTECT_MS = 750;
 
+function isTextEntryElement(el) {
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.tagName === "TEXTAREA") return true;
+  if (el.tagName === "SELECT") return true;
+  if (el.isContentEditable) return true;
+  if (el.tagName !== "INPUT") return false;
+
+  const type = (el.getAttribute("type") || "text").toLowerCase();
+  return ![
+    "button",
+    "checkbox",
+    "color",
+    "file",
+    "hidden",
+    "image",
+    "radio",
+    "range",
+    "reset",
+    "submit",
+  ].includes(type);
+}
+
 class Keys {
   constructor(canvas, settings, synth, typing, onLatchChange, onTakeSnapshot = null, inputRuntime = null, onFirstInteraction = null) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
@@ -88,6 +110,10 @@ class Keys {
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
+    this.visualViewportResizeHandler = () => {
+      if (isTextEntryElement(document.activeElement)) return;
+      this.resizeHandler();
+    };
     // Called once on the first touch — within the iOS gesture window — so the
     // AudioContext can be resumed and samples decoded without hanging.
     this._onFirstInteraction = onFirstInteraction || null;
@@ -195,7 +221,7 @@ class Keys {
     if (window.visualViewport) {
       window.visualViewport.addEventListener(
         "resize",
-        this.resizeHandler,
+        this.visualViewportResizeHandler,
         false,
       );
     }
@@ -1286,7 +1312,7 @@ class Keys {
     if (window.visualViewport) {
       window.visualViewport.removeEventListener(
         "resize",
-        this.resizeHandler,
+        this.visualViewportResizeHandler,
         false,
       );
     }

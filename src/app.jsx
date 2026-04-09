@@ -121,8 +121,10 @@ const App = () => {
   const [banner, setBanner] = useState(getInitialBanner);
   const [landscapeSafeSide, setLandscapeSafeSide] = useState("none");
   const [textEntryActive, setTextEntryActive] = useState(false);
+  const [viewportKeyboardOpen, setViewportKeyboardOpen] = useState(false);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
+  const viewportBaselineRef = useRef(0);
 
   const hideBannerForSession = useCallback((bannerKey) => {
     sessionStorage.setItem(getBannerSessionKey(bannerKey), "true");
@@ -182,6 +184,46 @@ const App = () => {
       document.removeEventListener("focusout", syncTextEntryState);
     };
   }, []);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const resetBaseline = () => {
+      viewportBaselineRef.current = viewport.height;
+      setViewportKeyboardOpen(false);
+    };
+
+    const syncViewportKeyboardState = () => {
+      const currentHeight = viewport.height;
+      const baseline = viewportBaselineRef.current || currentHeight;
+      const activeTextEntry = isTextEntryElement(document.activeElement);
+
+      if (!activeTextEntry) {
+        if (currentHeight > baseline) viewportBaselineRef.current = currentHeight;
+        setViewportKeyboardOpen(false);
+        return;
+      }
+
+      setViewportKeyboardOpen(baseline - currentHeight > 120);
+    };
+
+    resetBaseline();
+    viewport.addEventListener("resize", syncViewportKeyboardState);
+    window.addEventListener("orientationchange", resetBaseline);
+    window.addEventListener("resize", syncViewportKeyboardState);
+    return () => {
+      viewport.removeEventListener("resize", syncViewportKeyboardState);
+      window.removeEventListener("orientationchange", resetBaseline);
+      window.removeEventListener("resize", syncViewportKeyboardState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!textEntryActive && !viewportKeyboardOpen && keysRef.current) {
+      keysRef.current.resizeHandler();
+    }
+  }, [textEntryActive, viewportKeyboardOpen]);
 
   const [settings, setSettings] = useQuery(
     buildQuerySpec({
@@ -694,7 +736,7 @@ const App = () => {
     <div
       className={[
         active ? "hide" : "show",
-        textEntryActive ? "text-entry-active" : "",
+        (textEntryActive || viewportKeyboardOpen) ? "text-entry-active" : "",
       ].filter(Boolean).join(" ")}
       onClick={() => setUserHasInteracted(true)}
     >
