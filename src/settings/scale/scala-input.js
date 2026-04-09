@@ -30,6 +30,7 @@ const ScalaInput = ({
   onChange,
   onAnyChange,
   context = 'degree',
+  inputMode,
   style,
   wrapperStyle,
   wrapperClass,
@@ -52,6 +53,7 @@ const ScalaInput = ({
       ? (style?.border ?? '1px solid #c8b8b8')
       : '1.5px solid #c0392b',
   };
+  const resolvedInputMode = inputMode ?? 'decimal';
 
   const handleChange = (e) => {
     const s = e.target.value;
@@ -82,6 +84,7 @@ const ScalaInput = ({
     <span class={wrapperClass} style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', ...wrapperStyle }}>
       <input
         type="text"
+        inputMode={resolvedInputMode}
         value={draft}
         onInput={handleChange}
         onChange={handleChange}

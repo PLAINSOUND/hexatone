@@ -74,16 +74,77 @@ const isIOS =
 const isMIDIWeb = /MIDIWeb/.test(ua);
 // Banner messages rendered in JSX (not alert()) so links are clickable.
 // showBanner: null = no banner, "ios" = iOS MIDI warning, "safari" = Safari warning.
-const initialBanner =
-  isIOS && !isMIDIWeb ? "ios" : isSafariOnly ? "safari" : null;
+const BANNER_KEY_VERSION = "v1";
+const getBannerSessionKey = (bannerKey) =>
+  `hexatone_banner_${bannerKey}_${BANNER_KEY_VERSION}_hidden_session`;
+const getBannerDismissKey = (bannerKey) =>
+  `hexatone_banner_${bannerKey}_${BANNER_KEY_VERSION}_dismissed`;
+
+function getBannerCandidate() {
+  return isIOS && !isMIDIWeb ? "ios" : isSafariOnly ? "safari" : null;
+}
+
+function getInitialBanner() {
+  const candidate = getBannerCandidate();
+  if (!candidate) return null;
+  if (localStorage.getItem(getBannerDismissKey(candidate)) === "true") return null;
+  if (sessionStorage.getItem(getBannerSessionKey(candidate)) === "true") return null;
+  return candidate;
+}
 
 const App = () => {
   const [ready, setReady] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
-  const [banner, setBanner] = useState(initialBanner);
+  const [banner, setBanner] = useState(getInitialBanner);
+  const [landscapeSafeSide, setLandscapeSafeSide] = useState("none");
   const keysRef = useRef(null); // live Keys instance for imperative color updates
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
+
+  const hideBannerForSession = useCallback((bannerKey) => {
+    sessionStorage.setItem(getBannerSessionKey(bannerKey), "true");
+    setBanner(null);
+  }, []);
+
+  const dismissBanner = useCallback((bannerKey) => {
+    localStorage.setItem(getBannerDismissKey(bannerKey), "true");
+    sessionStorage.removeItem(getBannerSessionKey(bannerKey));
+    setBanner(null);
+  }, []);
+
+  useEffect(() => {
+    const readPxVar = (name) => {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      const parsed = parseFloat(raw);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const updateLandscapeSafeSide = () => {
+      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+      if (!isLandscape) {
+        setLandscapeSafeSide("none");
+        return;
+      }
+
+      const leftInset = readPxVar("--safe-area-left");
+      const rightInset = readPxVar("--safe-area-right");
+      if (leftInset > rightInset && leftInset > 0.5) {
+        setLandscapeSafeSide("left");
+      } else if (rightInset > leftInset && rightInset > 0.5) {
+        setLandscapeSafeSide("right");
+      } else {
+        setLandscapeSafeSide("none");
+      }
+    };
+
+    updateLandscapeSafeSide();
+    window.addEventListener("resize", updateLandscapeSafeSide);
+    window.addEventListener("orientationchange", updateLandscapeSafeSide);
+    return () => {
+      window.removeEventListener("resize", updateLandscapeSafeSide);
+      window.removeEventListener("orientationchange", updateLandscapeSafeSide);
+    };
+  }, []);
 
   const [settings, setSettings] = useQuery(
     buildQuerySpec({
@@ -636,23 +697,36 @@ const App = () => {
       {loading > 0 && <Loading />}
       {banner === "ios" && (
         <div id="ios-banner">
-          WebMIDI on iOS is an experimental feature. Install the{" "}
-          <a href="https://testflight.apple.com/join/f7YNhJ3j" target="_blank" rel="noopener noreferrer">
-            MIDIWeb browser
-          </a>{" "}
-          to use MIDI features in PLAINSOUND HEXATONE.
-          <button onClick={() => setBanner(null)}>✕</button>
+          <div className="ios-banner__message">
+            WebMIDI on iOS is an experimental feature. Install the{" "}
+            <a href="https://testflight.apple.com/join/f7YNhJ3j" target="_blank" rel="noopener noreferrer">
+              MIDIWeb browser
+            </a>{" "}
+            to use MIDI features in PLAINSOUND HEXATONE.
+          </div>
+          <div className="ios-banner__actions">
+            <button onClick={() => hideBannerForSession("ios")}>Remind Me Later</button>
+            <button onClick={() => dismissBanner("ios")}>Dismiss</button>
+          </div>
         </div>
       )}
       {banner === "safari" && (
         <div id="ios-banner">
-          Safari is not fully supported. For the best experience use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.
-          <button onClick={() => setBanner(null)}>✕</button>
+          <div className="ios-banner__message">
+            Safari is not fully supported. For the best experience use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.
+          </div>
+          <div className="ios-banner__actions">
+            <button onClick={() => hideBannerForSession("safari")}>Remind Me Later</button>
+            <button onClick={() => dismissBanner("safari")}>Dismiss</button>
+          </div>
         </div>
       )}
       <button
         id="sidebar-button"
-        className={latch ? "latch-active" : ""}
+        className={[
+          latch ? "latch-active" : "",
+          landscapeSafeSide !== "none" ? `landscape-safe-${landscapeSafeSide}` : "",
+        ].filter(Boolean).join(" ")}
         onClick={() => setActive((s) => !s)}
         onTouchStart={onSidebarTouchStart}
         onTouchEnd={onSidebarTouchEnd}
