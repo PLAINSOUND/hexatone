@@ -53,6 +53,12 @@ body {
   font-size: 0.92rem;
 }
 
+.retune-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+}
+
 .retune-main {
   display: grid;
   grid-template-columns: 280px 1fr 340px;

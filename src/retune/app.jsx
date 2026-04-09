@@ -6,6 +6,7 @@ import { parseMidi } from "./midi-parser.js";
 import { centsFromMonzo, fullMonzoForSelection, guessSpellingFromMidi, ratioFromMonzo, staffStepIndex } from "./pitch-model.js";
 
 const SAMPLE_MIDI = "/bach-tuning/MIDI/bwv1001/vs1-1ada.mid";
+const RETUNE_WORKSPACE_STORAGE_KEY = "hexatone_retune_workspace_v1";
 
 function makeAnnotation(note) {
   const guess = guessSpellingFromMidi(note.midiNote);
@@ -152,11 +153,27 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-function PianoRoll({ notes, annotations, selectedIds, onSelect, pxPerTick }) {
+function buildCorpusPayload(midiDoc, annotations) {
+  return {
+    piece_id: "bwv1001_adagio",
+    midi_meta: {
+      format: midiDoc.format,
+      ppq: midiDoc.ppq,
+      tempos: midiDoc.tempos,
+      timeSignatures: midiDoc.timeSignatures,
+    },
+    source_files: {
+      midi: "bach-tuning/MIDI/bwv1001/vs1-1ada.mid",
+    },
+    notes: midiDoc.notes.map((note) => buildCorpusNote(note, annotations[note.eventId])),
+  };
+}
+
+function PianoRoll({ notes, annotations, selectedIds, onSelect, pxPerTick, viewportWidth }) {
   const minNote = Math.min(...notes.map((note) => note.midiNote), 55);
   const maxNote = Math.max(...notes.map((note) => note.midiNote), 80);
   const noteHeight = 14;
-  const width = Math.max(900, Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 60);
+  const width = Math.max(viewportWidth ?? 0, Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 60);
   const height = (maxNote - minNote + 1) * noteHeight + 20;
 
   return (
@@ -204,8 +221,8 @@ function PianoRoll({ notes, annotations, selectedIds, onSelect, pxPerTick }) {
   );
 }
 
-function StaffView({ notes, annotations, selectedIds, onSelect, pxPerTick }) {
-  const width = Math.max(900, Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 80);
+function StaffView({ notes, annotations, selectedIds, onSelect, pxPerTick, viewportWidth }) {
+  const width = Math.max(viewportWidth ?? 0, Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 80);
   const height = 230;
   const staffTop = 68;
   const lineGap = 14;
@@ -214,6 +231,35 @@ function StaffView({ notes, annotations, selectedIds, onSelect, pxPerTick }) {
   const bottomLineStep = staffStepIndex("E", 4);
   const topLineStep = staffStepIndex("F", 5);
   const yForStep = (step) => middleLineY - ((step - middleStep) * lineGap) / 2;
+  const noteXOffsets = useMemo(() => {
+    const offsets = {};
+    const notesByTick = new Map();
+
+    notes.forEach((note) => {
+      const annotation = annotations[note.eventId];
+      if (!annotation) return;
+      const step = staffStepIndex(annotation.letter, annotation.octave);
+      const bucket = notesByTick.get(note.onTick) ?? [];
+      bucket.push({ eventId: note.eventId, step });
+      notesByTick.set(note.onTick, bucket);
+    });
+
+    notesByTick.forEach((bucket) => {
+      bucket.sort((a, b) => a.step - b.step);
+      let lastPlacedStep = null;
+      let lastColumn = 0;
+      bucket.forEach(({ eventId, step }) => {
+        const column = lastPlacedStep != null && Math.abs(step - lastPlacedStep) <= 1
+          ? lastColumn + 1
+          : 0;
+        offsets[eventId] = column * 10;
+        lastPlacedStep = step;
+        lastColumn = column;
+      });
+    });
+
+    return offsets;
+  }, [notes, annotations]);
 
   return (
     <svg className="canvas-wrap" width={width} height={height}>
@@ -232,7 +278,7 @@ function StaffView({ notes, annotations, selectedIds, onSelect, pxPerTick }) {
         const annotation = annotations[note.eventId];
         const step = staffStepIndex(annotation.letter, annotation.octave);
         const y = yForStep(step);
-        const x = note.onTick * pxPerTick + 40;
+        const x = note.onTick * pxPerTick + 40 + (noteXOffsets[note.eventId] ?? 0);
         const selected = selectedIds.includes(note.eventId);
         const glyphs = glyphStringForSelection(annotation.baseId, annotation.extraIds);
         const ledgerSteps = [];
@@ -430,6 +476,8 @@ export default function RetuneApp() {
   const [annotations, setAnnotations] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [pxPerTick, setPxPerTick] = useState(0.14);
+  const [zoomBounds, setZoomBounds] = useState({ min: 0.005, max: 1.2 });
+  const [viewerWidth, setViewerWidth] = useState(0);
   const midiInputRef = useRef(null);
   const jsonInputRef = useRef(null);
   const pianoSectionRef = useRef(null);
@@ -462,7 +510,25 @@ export default function RetuneApp() {
   };
 
   useEffect(() => {
-    loadSample().catch((error) => console.error("Failed to load sample MIDI:", error));
+    const restoreWorkspace = async () => {
+      const saved = localStorage.getItem(RETUNE_WORKSPACE_STORAGE_KEY);
+      if (!saved) {
+        await loadSample();
+        return;
+      }
+
+      const workspace = JSON.parse(saved);
+      if (workspace?.corpusJson) {
+        await loadCorpusJson(workspace.corpusJson);
+        setSelectedIds(Array.isArray(workspace.selectedIds) ? workspace.selectedIds : []);
+        if (Number.isFinite(workspace.pxPerTick)) setPxPerTick(workspace.pxPerTick);
+        return;
+      }
+
+      await loadSample();
+    };
+
+    restoreWorkspace().catch((error) => console.error("Failed to restore retune workspace:", error));
   }, []);
 
   const notes = midiDoc?.notes ?? [];
@@ -471,6 +537,10 @@ export default function RetuneApp() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setSelectedIds([]);
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       if (e.key.toLowerCase() !== "a") return;
       if (!notes.length) return;
@@ -500,8 +570,51 @@ export default function RetuneApp() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [notes, annotations]);
 
+  useEffect(() => {
+    const updateViewerMetrics = () => {
+      const nextViewerWidth = Math.max(
+        pianoSectionRef.current?.clientWidth ?? 0,
+        staffSectionRef.current?.clientWidth ?? 0,
+      );
+      setViewerWidth(nextViewerWidth);
+
+      if (!notes.length || nextViewerWidth <= 0) return;
+
+      const maxOffTick = Math.max(...notes.map((note) => note.offTick), 1);
+      const shortestNoteTicks = Math.max(
+        1,
+        Math.min(...notes.map((note) => Math.max(1, note.offTick - note.onTick))),
+      );
+
+      const fitPadding = 160;
+      const minVisibleShortestWidth = 48;
+      const nextMin = Math.max(0.001, (nextViewerWidth - fitPadding) / maxOffTick);
+      const nextMax = Math.max(nextMin, minVisibleShortestWidth / shortestNoteTicks);
+
+      setZoomBounds({ min: nextMin, max: nextMax });
+      setPxPerTick((current) => Math.min(nextMax, Math.max(nextMin, current)));
+    };
+
+    updateViewerMetrics();
+    window.addEventListener("resize", updateViewerMetrics);
+    return () => window.removeEventListener("resize", updateViewerMetrics);
+  }, [notes]);
+
+  useEffect(() => {
+    if (!midiDoc) return;
+    const payload = buildCorpusPayload(midiDoc, annotations);
+    localStorage.setItem(
+      RETUNE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        corpusJson: JSON.stringify(payload),
+        selectedIds,
+        pxPerTick,
+      }),
+    );
+  }, [midiDoc, annotations, selectedIds, pxPerTick]);
+
   const setZoom = (nextValue, anchorRatio = 0.5) => {
-    const clamped = Math.max(0.005, Math.min(1.2, nextValue));
+    const clamped = Math.max(zoomBounds.min, Math.min(zoomBounds.max, nextValue));
     const sections = [pianoSectionRef.current, staffSectionRef.current].filter(Boolean);
     const snapshots = sections.map((section) => ({
       section,
@@ -541,19 +654,7 @@ export default function RetuneApp() {
 
   const exportCorpus = () => {
     if (!midiDoc) return;
-    const payload = {
-      piece_id: "bwv1001_adagio",
-      midi_meta: {
-        format: midiDoc.format,
-        ppq: midiDoc.ppq,
-        tempos: midiDoc.tempos,
-        timeSignatures: midiDoc.timeSignatures,
-      },
-      source_files: {
-        midi: "bach-tuning/MIDI/bwv1001/vs1-1ada.mid",
-      },
-      notes: midiDoc.notes.map((note) => buildCorpusNote(note, annotations[note.eventId])),
-    };
+    const payload = buildCorpusPayload(midiDoc, annotations);
     downloadJson("bwv1001_adagio.annotated.json", payload);
   };
 
@@ -622,16 +723,19 @@ export default function RetuneApp() {
           {" "}
           <input
             type="range"
-            min="0.005"
-            max="1.2"
+            min={zoomBounds.min}
+            max={zoomBounds.max}
             step="0.0025"
             value={pxPerTick}
             onInput={(e) => setZoom(Number(e.target.value))}
             style={{ verticalAlign: "middle", marginLeft: "0.4rem" }}
           />
         </label>
-        <div className="meta">
-          Load MIDI or reopen a saved JSON annotation. Scroll up/down over the views to zoom.
+        <div className="meta retune-shortcuts">
+          <span>Cmd/Ctrl-click: add or remove note</span>
+          <span>Cmd/Ctrl-A: select subsequent notes with the same pitch class</span>
+          <span>Escape: clear selection</span>
+          <span>Wheel / two-finger vertical scroll: zoom at pointer</span>
         </div>
       </div>
 
@@ -651,7 +755,7 @@ export default function RetuneApp() {
               onScroll={() => syncHorizontalScroll(pianoSectionRef.current, staffSectionRef.current)}
             >
               <div className="viewer-title">Piano Roll</div>
-              <PianoRoll notes={notes} annotations={annotations} selectedIds={selectedIds} onSelect={handleSelect} pxPerTick={pxPerTick} />
+              <PianoRoll notes={notes} annotations={annotations} selectedIds={selectedIds} onSelect={handleSelect} pxPerTick={pxPerTick} viewportWidth={viewerWidth ? Math.max(0, viewerWidth - 24) : 0} />
             </div>
             <div
               className="viewer-section"
@@ -660,7 +764,7 @@ export default function RetuneApp() {
               onScroll={() => syncHorizontalScroll(staffSectionRef.current, pianoSectionRef.current)}
             >
               <div className="viewer-title">Staff View</div>
-              <StaffView notes={notes} annotations={annotations} selectedIds={selectedIds} onSelect={handleSelect} pxPerTick={pxPerTick} />
+              <StaffView notes={notes} annotations={annotations} selectedIds={selectedIds} onSelect={handleSelect} pxPerTick={pxPerTick} viewportWidth={viewerWidth ? Math.max(0, viewerWidth - 24) : 0} />
             </div>
           </div>
 

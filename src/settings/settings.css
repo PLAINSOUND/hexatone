@@ -279,7 +279,7 @@ label .color-cell .color-input {
 }
 
 .center-degree-row {
-  background-color: #dff4d8;
+  background-color: #ffebed;
 }
 
 .center-degree-label {
@@ -291,7 +291,7 @@ label .color-cell .color-input {
 .center-degree-row .color-cell:focus-within,
 .center-degree-row .sidebar-input,
 .center-degree-row .sidebar-input input {
-  background-color: #dff4d8 !important;
+  background-color: #ffebed !important;
 }
 
 .reference-degree-row.center-degree-row {
