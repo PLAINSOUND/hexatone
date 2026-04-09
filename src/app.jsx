@@ -92,12 +92,35 @@ function getInitialBanner() {
   return candidate;
 }
 
+function isTextEntryElement(el) {
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.tagName === "TEXTAREA") return true;
+  if (el.tagName === "SELECT") return true;
+  if (el.isContentEditable) return true;
+  if (el.tagName !== "INPUT") return false;
+
+  const type = (el.getAttribute("type") || "text").toLowerCase();
+  return ![
+    "button",
+    "checkbox",
+    "color",
+    "file",
+    "hidden",
+    "image",
+    "radio",
+    "range",
+    "reset",
+    "submit",
+  ].includes(type);
+}
+
 const App = () => {
   const [ready, setReady] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [banner, setBanner] = useState(getInitialBanner);
   const [landscapeSafeSide, setLandscapeSafeSide] = useState("none");
+  const [textEntryActive, setTextEntryActive] = useState(false);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
 
@@ -143,6 +166,20 @@ const App = () => {
     return () => {
       window.removeEventListener("resize", updateLandscapeSafeSide);
       window.removeEventListener("orientationchange", updateLandscapeSafeSide);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncTextEntryState = () => {
+      setTextEntryActive(isTextEntryElement(document.activeElement));
+    };
+
+    syncTextEntryState();
+    document.addEventListener("focusin", syncTextEntryState);
+    document.addEventListener("focusout", syncTextEntryState);
+    return () => {
+      document.removeEventListener("focusin", syncTextEntryState);
+      document.removeEventListener("focusout", syncTextEntryState);
     };
   }, []);
 
@@ -655,7 +692,10 @@ const App = () => {
 
   return (
     <div
-      className={active ? "hide" : "show"}
+      className={[
+        active ? "hide" : "show",
+        textEntryActive ? "text-entry-active" : "",
+      ].filter(Boolean).join(" ")}
       onClick={() => setUserHasInteracted(true)}
     >
       {loading === 0 && ready && isValid && (
