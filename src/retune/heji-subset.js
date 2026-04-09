@@ -25,6 +25,21 @@ export const EXTRA_MODIFIERS = [
   { id: "17_limit:1", family: "17_limit", amount: 1, label: "17 up", glyph: "" },
 ];
 
+const FAMILY_PRIMES = {
+  septimal: 7,
+  undecimal: 11,
+  tridecimal: 13,
+  "17_limit": 17,
+  "19_limit": 19,
+  "23_limit": 23,
+  "29_limit": 29,
+  "31_limit": 31,
+  "37_limit": 37,
+  "41_limit": 41,
+  "43_limit": 43,
+  "47_limit": 47,
+};
+
 export const BASE_BY_ID = Object.fromEntries(BASE_SYMBOLS.map((item) => [item.id, item]));
 export const BASE_BY_GLYPH = Object.fromEntries(BASE_SYMBOLS.map((item) => [item.glyph, item]));
 export const EXTRA_BY_ID = Object.fromEntries(EXTRA_MODIFIERS.map((item) => [item.id, item]));
@@ -58,6 +73,17 @@ export const HEJI_GLYPH_SEQUENCE = [
   ...EXTRA_MODIFIERS.map((item) => item.glyph),
 ];
 
+export function sortExtraIds(extraIds = []) {
+  return [...extraIds].sort((a, b) => {
+    const itemA = EXTRA_BY_ID[a];
+    const itemB = EXTRA_BY_ID[b];
+    const primeA = FAMILY_PRIMES[itemA?.family] ?? 0;
+    const primeB = FAMILY_PRIMES[itemB?.family] ?? 0;
+    if (primeA !== primeB) return primeB - primeA;
+    return (itemA?.amount ?? 0) - (itemB?.amount ?? 0);
+  });
+}
+
 export function parseHejiGlyphInput(text, fallbackBaseId = "natural:0") {
   let baseId = fallbackBaseId;
   const extras = [];
@@ -71,10 +97,12 @@ export function parseHejiGlyphInput(text, fallbackBaseId = "natural:0") {
       if (!extras.includes(id)) extras.push(id);
     }
   }
-  return { baseId, extraIds: extras };
+  return { baseId, extraIds: sortExtraIds(extras) };
 }
 
 export function glyphStringForSelection(baseId, extraIds) {
   const base = BASE_BY_ID[baseId];
-  return `${base ? base.glyph : ""}${extraIds.map((id) => EXTRA_BY_ID[id]?.glyph ?? "").join("")}`;
+  const orderedExtras = sortExtraIds(extraIds);
+  const showBaseGlyph = !(baseId === "natural:0" && orderedExtras.length > 0);
+  return `${orderedExtras.map((id) => EXTRA_BY_ID[id]?.glyph ?? "").join("")}${showBaseGlyph && base ? base.glyph : ""}`;
 }
