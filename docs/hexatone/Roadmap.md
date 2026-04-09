@@ -1,6 +1,6 @@
 # Hexatone Refactor Roadmap
 
-*Synthesised: 2026-04-01. Updated: 2026-04-05. Sources: ClaudeRefactorPlan.md, HexatoneIOrefactor.md, TODO.md, midi-input-ux.md.*
+*Synthesised: 2026-04-01. Updated: 2026-04-06. Sources: ClaudeRefactorPlan.md, HexatoneIOrefactor.md, TODO.md, midi-input-ux.md.*
 
 Tags: `done` `in-progress` `todo` · Priority: `high` `medium` `low` · Complexity: `trivial` `small` `medium` `large` `xlarge`
 
@@ -267,9 +267,9 @@ Two hooks remain to extract (from `TODO.md` §2.3–2.4):
 ### B4 — Fundamental default value  `done`
 Fixed 2026-04-01. `fundamental` added to `PRESET_SKIP_KEYS`; registry default changed to `440` Hz; `presetSkip: true` added to registry entry. Fresh loads now start at concert A. (See Issues.md BUG-03.)
 
-### B5 — Mode-aware controller prefs and anchors  `todo` `high` `medium`
+### B5 — Mode-aware controller prefs and anchors  `done` `high` `medium`
 
-*Reframed 2026-04-05. Builds on the derived-state owner work in Issues.md ARCH-08.*
+*Reframed 2026-04-05. Completed 2026-04-06. See SESSION_SUMMARY_2026-04-06.md.*
 
 The current architecture is directionally correct: controller prefs load from one derived-state path rather than from scattered UI events. But it is still keyed at the wrong granularity. As the controller registry grows (Exquis, LinnStrument, Lumatone, Tonal Plexus, Push, Launchpad, etc.), `controller.id` alone is no longer enough.
 
@@ -675,25 +675,29 @@ The registry exists and list duplications have been eliminated (2026-04-01: `PRE
 ## Execution Order Summary
 
 ```
-NOW (bugs blocking normal use)
+DONE
   A1  Preset/scale reactivity regression         high   small   DONE
-  A2  Pitch bend / MPE stuck notes               high   large
-  A3  scale-mapper tests                         medium small
+  A2  Pitch bend / MPE stuck notes               high   large   DONE
   A4  Scale target mode pitch reference          high   small   DONE
   A5  Scala input validation                     medium small   DONE
+  B5  Mode-aware controller prefs (all devices)  high   medium  DONE 2026-04-06
 
-SHORT TERM (complete structural work already started)
+NEXT (pre-sequencer arc cleanup)
+  A3  scale-mapper tests                         medium small   ← immediate next
+  C5  OCT button / static map sync               medium medium
   B1  Delete mts-helpers.js shim                 medium small
-  B3  useScaleImport / useSessionDefaults hooks  low    medium
-  C5  OCT button / static map                    medium medium
-  C6  Multitimbral static bulk spread research   low    large
+  F3  Lumatone export rethink                    medium large
+  F4  Dead code removal                          low    trivial
+  B3  useScaleImport hook extraction             low    medium
 
-LONGER TERM (foundational / quality)
-  D   Exact interval layer (xen-dev-utils)        low   xlarge  ← G depends on this
-  G   Harmonic-radius chord matching              low   xlarge  ← depends on D
-  E   Settings UX renaming (direct_ → mts_bulk_) low   medium
-  F1  Test coverage                               low   medium
-  F3  Lumatone export rewrite                     medium large
-  F2  keys.js split                               low   xlarge
-  F5  Persistence unification                     low   xlarge
+RETUNING / SEQUENCER ARC (start after above)
+  D   Exact interval layer (xen-dev-utils)       low    xlarge  ← G depends on this
+  G   Harmonic-radius chord matching             low    xlarge  ← depends on D
+  [sequencer — design first]
+
+LONGER TERM (architectural quality)
+  E   Settings key renaming (direct_ → mts_bulk_) low  medium
+  F1  Remaining test coverage                    low    medium
+  F2  keys.js split                              low    xlarge
+  F5  Persistence unification                    low    xlarge
 ```

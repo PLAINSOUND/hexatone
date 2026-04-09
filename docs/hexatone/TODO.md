@@ -1,6 +1,9 @@
 # Hexatone Targeted TODO
 
-*Created: 2026-04-05. Purpose: short next-steps list derived from Roadmap.md plus current code state.*
+*Created: 2026-04-05. Updated: 2026-04-06.*
+*Purpose: short next-steps list derived from Roadmap.md plus current code state.*
+
+---
 
 ## 1. Lumatone mode-aware controller prefs   DONE
 
@@ -10,7 +13,9 @@ Defaults: 2D note 26/ch 3, bypass note 60/ch 4.
 Sequential transposition suppressed in bypass. `lumatone_led_sync` persists at controller level.
 Lumatone LED first-send stall fixed (lifetime keyed on stable port IDs, owned in app.jsx).
 
-## 2. Scale-mapper tests   DONE
+---
+
+## 2. Scale-mapper tests   ← NEXT
 
 Add `src/input/scale-mapper.test.js`.
 
@@ -18,78 +23,108 @@ Cover:
 - nearest degree in 12-EDO
 - nearest degree in 31-EDO
 - nearest degree in JI
-- tolerance gate
-- `'accept'` vs `'discard'`
+- tolerance gate (`'discard'` returns null when pitch too far)
+- `'accept'` mode always returns best match
 - octave wrapping
-- exact match
+- exact match (0¢ distance)
 - negative `pitchCents`
 
-Why now:
-- small task
-- protects a newer input path that is now structurally important
+Why now: small task, protects a newer input path that is now structurally important.
 
-## 4. Controller-state replay follow-through
+---
 
-The basic replay path is now implemented for:
+## 3. Controller-state replay hardware verification
+
+The basic replay path is implemented for:
 - CC state memory
 - pitch wheel position
 - channel pressure replay
 - synth reattachment / patch-change replay
 
 Next step:
-- hardware-test mod wheel, sustain, pitch wheel, and related controller-state carry-over
-- confirm behavior on sample synth, direct MIDI, and MPE outputs
-- extend engine response later as more synth parameters become CC-aware
+- hardware-test mod wheel, sustain, pitch wheel, and controller-state carry-over with AXIS-49, Lumatone, and Exquis
+- confirm on sample synth, direct MIDI, and MPE outputs
 
-This is not a crisis item, but it should be verified while controller/input work is active.
+Not a crisis item, but verify while controller/input work is fresh.
 
-## 5. Remove `mts-helpers.js` shim
+---
 
-Migrate remaining callers to direct `src/tuning/` imports, then delete the shim.
+## 4. Before entering the retuning/sequencer arc — pre-flight checklist
 
-Remaining callers noted in Roadmap / Issues:
-- `src/keyboard/keys.js`
-- `src/use-synth-wiring.js`
-- `src/midi_synth/index.js`
-- `src/midioutputs.js`
+These are the remaining cleanup and closure items that should be resolved (or consciously deferred) before the development focus shifts to retuning logic and sequencer work. Ordered by priority.
 
-This is a contained cleanup and should be done once current controller work is stable.
+### 4a. Delete `mts-helpers.js` shim   `medium` `small`
+Migrate 4 remaining callers to direct `src/tuning/` imports, then delete the shim.
+Callers: `src/keyboard/keys.js`, `src/use-synth-wiring.js`, `src/midi_synth/index.js`, `src/midioutputs.js`.
+(Roadmap B1 / Issues ARCH-01)
 
-## 6. Lumatone .ltn export  *(retired old code — rethink before rebuilding)*
+### 4b. LinnStrument mode-aware prefs   `medium` `small`
+LinnStrument is the one controller not yet upgraded to the `defaultMode`/`modes`/`resolveMode` pattern.
+Its bypass semantics (multi-channel MPE vs standard) are different from single-channel controllers.
+Do when LinnStrument is available for hardware testing.
 
-`lumatone-export.js` and its test were deleted 2026-04-06. The geometry was wrong and inconsistent with the registry. "Download .ltn" and "Export .ltn" UI buttons removed. "Send to Lumatone" (live sysex) is unaffected and still works.
+### 4c. OCT + static bulk dump synchronisation   `medium` `medium`
+OCT transpose must update the static bulk map:
+- immediate mode: recalculate and resend (when auto-send is on)
+- deferred mode: skip held carrier slots, update on release
+(Roadmap C5 / Issues FEAT-06)
 
-Future export should be built from `NOTE_XY` + `LUMATONE_BLOCK_OFFSETS` in `controllers/lumatone.js` once the use-case (bypass-mode sequential layout with colours) is clearly specified. See Roadmap F3.
+### 4d. Lumatone .ltn export rethink   `medium` `large`
+Old `lumatone-export.js` retired 2026-04-06 (geometry was wrong). The "Send to Lumatone" live
+sysex path is unaffected. A future export should be built from registry geometry once the
+bypass-mode use-case is clearly specified. See Roadmap F3.
 
-## 7. Static bulk OCT synchronization   DONE
+### 4e. Dead code removal   `low` `trivial`
+- `controllers/axis49.js` — legacy `AXIS49_MAP`, `getAxis49Position`
+- `controllers/lumatone.js` — `buildLumatoneRawCoords` duplicate
+- `use-query.js` — `ExtractArray` class (never used)
+- `settings/scale/colors.test-fix-unfinished.js`
+- Commented-out `console.log` statements
+(Issues CLEAN-01)
 
-Implement Roadmap item `C5`.
+### 4f. `useScaleImport` hook extraction   `low` `medium`
+Extract `onImport` handler + `importCount` from `app.jsx` into `useScaleImport`.
+Self-contained; enables TEST-04 (synth wiring tests). (Roadmap B3 / Issues ARCH-07)
 
-Needed behavior:
-- non-deferred OCT updates static bulk maps immediately
-- deferred OCT skips still-sounding carrier slots and updates them on release
+### 4g. TEST-02 Controller registry tests   `low` `medium`
+- Each controller's `buildMap()` returns correct `(x, y)` for known anchor values
+- `detectController()` matches expected device name strings
+- Anchor at `(0, 0)` for the anchor key
+- Map size matches expected key count (98 for AXIS-49, 280 for Lumatone, etc.)
 
-This is the main remaining output-domain feature gap.
+---
 
-## 8. Later, not immediate
+## 5. Retuning logic and sequencer arc   ← FUTURE
 
-Defer until the controller/runtime layer settles:
-- `app.jsx` hook extractions
-- `keys.js` module split
-- exact interval layer
-- harmonic-radius chord matching
+This is the next major development arc. Do not start until the pre-flight checklist (item 4) is
+reviewed and the most critical items are resolved.
 
-These are still real tasks, but they are not the right next moves while controller architecture is actively being verified on hardware.
+Key work in this arc (see Roadmap Phases D, G, and sequencer design docs):
 
+- **Phase D — Exact interval layer** (`src/tuning/interval.js`): stop discarding ratio identity
+  at `normalize()`. Wrap `xen-dev-utils` `Fraction` + `toMonzo()`. Foundation for everything below.
 
-# TODO
+- **Phase G — Harmonic-radius chord matching** for scale-target input mode:
+  - `findCandidates` in `scale-mapper.js` (extend existing, backward-compatible)
+  - `harmonicRadius.js` — pure math, Marc Sabat/Tenney/Benedetti chord radius
+  - `chord-rationaliser.js` — global polyphonic degree assignment
+  - Wire into `midinoteOn/Off` (scale mode path only)
+  - Depends on Phase D
 
-## Big Structural TODO
+- **Sequencer** — no design doc yet. Define scope before coding.
 
-- `keys.js` is still the main architectural pressure point in Hexatone.
-- Before adding much more live-retuning, controller-routing, sequencer, or expressive-input logic, plan the split outlined in [docs/hexatone/issues.md](/Users/marcsabat/Library/CloudStorage/OneDrive-Personal/mail_pl_org/Documents/GitHub/hexatone/docs/hexatone/issues.md) under `ARCH-04`.
-- Target extraction order:
-  - `src/input/midi-input-handler.js`
-  - `src/input/pointer-input-handler.js`
-  - `src/keyboard/hex-renderer.js`
-- Keep using focused tests to pin behavior in place first, especially around `midinoteOn/Off`, sustain/latch state, controller geometry, and held-note retuning.
+---
+
+## 6. Deferred architecture (do not rush)
+
+These are real but should not interrupt active musical work:
+
+- `app.jsx` hook extractions (Roadmap B3)
+- `keys.js` module split (Roadmap F2) — only when `keys.js` needs significant new features
+- Persistence unification: URL/session/local separation (Roadmap F5)
+- Settings key renaming `direct_*` → `mts_bulk_*` (Roadmap E / Issues FEAT-05)
+- TEST-03 `midinoteOn/Off` integration tests
+- TEST-04 Synth wiring tests (after `useScaleImport` extraction)
+- TS16 and Tonal Plexus registry entries (Issues FEAT-07)
+- CLEAN-02 MIDI input settings panel UX spec verification
+- CLEAN-03 Code style consistency (semicolons, PropTypes, array dep keys)

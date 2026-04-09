@@ -1,6 +1,6 @@
 # Hexatone Issues
 
-*Generated: 2026-04-01. Updated: 2026-04-05. Source: ClaudeRefactorPlan.md, TODO.md, HexatoneIOrefactor.md, midi-input-ux.md*
+*Generated: 2026-04-01. Updated: 2026-04-06. Source: ClaudeRefactorPlan.md, TODO.md, HexatoneIOrefactor.md, midi-input-ux.md*
 
 Tags: `todo` `done` · Priority: `high` `medium` `low` · Complexity: `trivial` `small` `medium` `large` `xlarge`
 
@@ -267,9 +267,9 @@ Remaining hook extractions identified in `TODO.md`:
 ---
 
 ### ARCH-08 · Mode-aware controller prefs and anchors
-**Tags:** `todo` `high` `medium`
+**Tags:** `done` `high` `medium`
 
-**Decision updated 2026-04-05.** See Roadmap.md B5 for full design.
+**Completed 2026-04-06.** See SESSION_SUMMARY_2026-04-06.md and Roadmap.md B5 for design rationale.
 
 **How we got here:**
 
@@ -350,13 +350,9 @@ Mock synth + mock canvas → verify `hexOn` called with correct coords for known
 ---
 
 ### TEST-05 · `src/input/controller-anchor.test.js` — anchor load/save coverage
-**Tags:** `todo` `low` `small`
+**Tags:** `done` `low` `small`
 
-- Given mock controller + mock localStorage with saved value, returns that value.
-- Falls back to `controller.anchorDefault` when nothing stored.
-- `saveAnchor` writes the correct key to localStorage.
-- Lumatone channel variants work the same way.
-- `loadControllerPrefs` applies `!!controller.mpe` as default for `midiin_mpe_input`.
+88 tests as of 2026-04-06. Covers: single-channel and multi-channel controllers, mode-aware persistence for all registered controllers (AXIS-49, TS41, Push2, Launchpad, Generic, Lumatone, Exquis), mode-toggle switching, legacy fallback, mode-scoped storage keys, bypass anchor isolation, and sequential transposition suppression.
 
 ---
 
