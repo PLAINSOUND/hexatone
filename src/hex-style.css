@@ -464,7 +464,7 @@ a:hover {
 .text-entry-active #sidebar-button,
 .text-entry-active #bottom-bar,
 .text-entry-active #snapshot-list {
-    opacity: 0;
+    display: none !important;
     pointer-events: none;
 }
 

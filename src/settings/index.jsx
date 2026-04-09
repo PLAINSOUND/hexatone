@@ -40,7 +40,7 @@ const Settings = ({
   onPlaySnapshot,
   onDeleteSnapshot,
 }) => (
-  <form onSubmit={(e) => e.preventDefault()}>
+  <div autoComplete="off" role="group" aria-label="Hexatone settings">
     <fieldset style={{marginTop: '1em'}}>
       <legend>
         <b>Built-in Tunings</b>
@@ -123,6 +123,6 @@ const Settings = ({
       midiTick={midiTick}
       keysRef={keysRef}
     />
-  </form>
+  </div>
 );
 export default Settings;
