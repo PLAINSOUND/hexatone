@@ -10,7 +10,6 @@ import {
 import Keyboard from "./keyboard";
 import { presets } from "./settings/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
-import { forceResumeAudioContext } from "./sample_synth";
 import { instruments } from "./sample_synth/instruments";
 
 import keyCodeToCoords from "./settings/keycodes";
@@ -872,8 +871,9 @@ const App = () => {
           onClick={async (e) => {
             e.stopPropagation();
             if (keysRef.current) keysRef.current.resizeHandler();
-            // Resume AudioContext if suspended (iOS background recovery)
-            await forceResumeAudioContext();
+            // Re-prepare the active synth within the user gesture so iOS can
+            // resume or recreate the AudioContext after background dormancy.
+            if (synthRef.current?.prepare) await synthRef.current.prepare();
           }}
           onContextMenu={(e) => e.preventDefault()}
         >

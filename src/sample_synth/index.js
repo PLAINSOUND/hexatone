@@ -29,6 +29,14 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
 // On iOS, AudioContext can become suspended when app goes to background.
 // This handler resumes it when the page becomes visible again.
 let iosVisibilityHandler = null;
+let iosPageShowHandler = null;
+
+const createSharedAudioContext = () => {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  sharedAudioContext = new AudioContextClass();
+  setupIOSAudioHandler();
+  return sharedAudioContext;
+};
 
 const setupIOSAudioHandler = () => {
   if (!isIOS) return;
@@ -54,8 +62,12 @@ const setupIOSAudioHandler = () => {
   document.addEventListener('visibilitychange', iosVisibilityHandler);
   
   // Also handle page show (for iOS Safari when returning from background)
-  window.addEventListener('pageshow', async () => {
-    if (sharedAudioContext && sharedAudioContext.state !== 'running') {
+  if (iosPageShowHandler) {
+    window.removeEventListener('pageshow', iosPageShowHandler);
+  }
+
+  iosPageShowHandler = async () => {
+    if (sharedAudioContext && sharedAudioContext.state !== 'running' && sharedAudioContext.state !== 'closed') {
       try {
         await sharedAudioContext.resume();
         console.log('iOS: AudioContext resumed on pageshow');
@@ -63,7 +75,9 @@ const setupIOSAudioHandler = () => {
         console.warn('iOS: Failed to resume AudioContext on pageshow:', e.message);
       }
     }
-  });
+  };
+
+  window.addEventListener('pageshow', iosPageShowHandler);
 };
 
 // ─── Single findInstrument replaces six identical loops ───────────────────────
@@ -137,13 +151,9 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       // Creates/resumes the AudioContext and decodes all samples so that noteOn
       // is fully synchronous and has no latency.
       prepare: async () => {
-        if (!sharedAudioContext) {
-          // iOS 17+ prefers webkitAudioContext for some edge cases
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          sharedAudioContext = new AudioContextClass();
-          
-          // Setup iOS-specific handlers
-          setupIOSAudioHandler();
+        if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
+          sharedAudioContext = createSharedAudioContext();
+          masterGain = null;
         }
         
         // iOS: Always try to resume on prepare (might be suspended after backgrounding)
