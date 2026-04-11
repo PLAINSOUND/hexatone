@@ -336,6 +336,9 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
     if ('sequentialTransposeDefault' in controller) {
       update.midiin_steps_per_channel = controller.sequentialTransposeDefault;
     }
+    if ('sequentialChannelGroupSize' in controller) {
+      update.midiin_channel_group_size = controller.sequentialChannelGroupSize;
+    }
     if ('sequentialLegacyDefault' in controller) {
       update.midiin_channel_legacy = controller.sequentialLegacyDefault;
     }

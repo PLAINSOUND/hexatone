@@ -16,7 +16,7 @@ import { WebMidi } from "webmidi";
 import { midi_in } from "../settings/midi/midiin";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
-import { detectController, getAnchorNote } from '../controllers/registry.js';
+import { detectController, getAnchorNote, getControllerById } from '../controllers/registry.js';
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -90,6 +90,7 @@ class Keys {
       seqAnchorNote:     settings.midiin_central_degree ?? 60,
       seqAnchorChannel:  settings.midiin_anchor_channel ?? 1,
       stepsPerChannel:   settings.midiin_steps_per_channel,
+      channelGroupSize:  settings.midiin_channel_group_size ?? 1,
       legacyChannelMode: settings.midiin_channel_legacy,
       scaleTolerance:    50,
       pitchBendMode:     'recency',
@@ -506,8 +507,11 @@ class Keys {
         if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
         {
           const deviceName = this.midiin_data.name?.toLowerCase() ?? '';
+          const overrideId = this.settings.midiin_controller_override || 'auto';
           //console.log('[Controller] MIDI input device name:', JSON.stringify(this.midiin_data.name));
-          const entry = detectController(deviceName);
+          const entry = overrideId !== 'auto'
+            ? getControllerById(overrideId)
+            : detectController(deviceName);
           if (entry) {
             this.controller = entry;
             // Multi-channel controllers (e.g. Lumatone) use a per-block note number (0–55),
@@ -1681,20 +1685,16 @@ class Keys {
     } else if (this.controllerMap) {
       // Known controller: direct coordinate lookup from pre-built map.
       // Single-channel controllers always use ch=1; multi-channel use the real channel.
-      const ch = this.controller.multiChannel ? e.message.channel : 1;
-      const baseCoords = this.controllerMap.get(`${ch}.${e.note.number}`) ?? null;
+      const lookupChannel = this.controller.multiChannel ? e.message.channel : 1;
+      const baseCoords = this.controllerMap.get(`${lookupChannel}.${e.note.number}`) ?? null;
       if (baseCoords === null) return;
-      // Guard: skip keys that map outside the visible grid (e.g. edge keys on a
-      // multi-block controller whose block offset places them off-screen).
-      // stepsTable covers all visible hexes — if coords aren't in it, don't draw.
-      if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
-      const [,,steps] = this.hexCoordsToCents(baseCoords);
-      if (!this.coordResolver.stepsTable.has(steps)) return;
+      const inputChannel = e.message.channel;
       // The controllerMap already encodes physical position exactly — no channel offset.
-      // Applying _applyChannelOffset here would use bestVisibleCoord() which is
-      // position-dependent and returns different results on note-on vs note-off,
-      // causing stuck notes. Use baseCoords directly.
-      coords = baseCoords;
+      // Controllers that opt into channel-offset arithmetic on top of their map
+      // (e.g. Generic Keyboard) apply the user's per-channel transposition here.
+      coords = this.controller.applyChannelOffsetOnMap
+        ? this._applyChannelOffset(baseCoords, inputChannel)
+        : baseCoords;
     } else {
       // Generic keyboard: step arithmetic with channel-based transposition.
       coords = this.coordResolver.bestVisibleCoord(
@@ -1767,9 +1767,16 @@ class Keys {
       );
     } else {
       // Known controller: direct lookup returns exactly one coord.
-      const ch = this.controller.multiChannel ? e.message.channel : 1;
-      const baseCoords = this.controllerMap.get(`${ch}.${e.note.number}`);
-      coordsList = baseCoords ? [baseCoords] : [];
+      const lookupChannel = this.controller.multiChannel ? e.message.channel : 1;
+      const baseCoords = this.controllerMap.get(`${lookupChannel}.${e.note.number}`);
+      if (!baseCoords) {
+        coordsList = [];
+      } else {
+        const coords = this.controller.applyChannelOffsetOnMap
+          ? this._applyChannelOffset(baseCoords, e.message.channel)
+          : baseCoords;
+        coordsList = [coords];
+      }
     }
 
     const note_played = e.note.number + 128 * (e.message.channel - 1);
@@ -1809,9 +1816,16 @@ class Keys {
         let coordsList;
         if (this.inputRuntime.layoutMode !== 'sequential' && this.controllerMap) {
           // Known controller: direct lookup.
-          const ch = this.controller.multiChannel ? channel : 1;
-          const baseCoords = this.controllerMap.get(`${ch}.${note}`);
-          coordsList = baseCoords ? [baseCoords] : [];
+          const lookupChannel = this.controller.multiChannel ? channel : 1;
+          const baseCoords = this.controllerMap.get(`${lookupChannel}.${note}`);
+          if (!baseCoords) {
+            coordsList = [];
+          } else {
+            const coords = this.controller.applyChannelOffsetOnMap
+              ? this._applyChannelOffset(baseCoords, channel)
+              : baseCoords;
+            coordsList = [coords];
+          }
         } else {
           // Sequential or generic keyboard: step arithmetic.
           coordsList = this.coordResolver.stepsToVisibleCoords(

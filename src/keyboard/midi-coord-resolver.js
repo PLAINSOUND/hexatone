@@ -38,8 +38,9 @@ export class MidiCoordResolver {
    * @param {function} hexCoordsToScreen - (Point) → Point  (hex → canvas pixels)
    * @param {function} getCenterpoint    - () → Point  (canvas half-dimensions)
    * @param {object}   [inputRuntime]    - Optional inputRuntime object; when provided,
-   *                                       its stepsPerChannel/legacyChannelMode/seqAnchorChannel
-   *                                       take precedence over the matching settings fields.
+   *                                       its stepsPerChannel/channelGroupSize/
+   *                                       legacyChannelMode/seqAnchorChannel take precedence
+   *                                       over the matching settings fields.
    */
   constructor(settings, hexCoordsToCents, hexCoordsToScreen, getCenterpoint, inputRuntime = null) {
     this.settings         = settings;
@@ -65,14 +66,14 @@ export class MidiCoordResolver {
    * This means:
    *   - Single-channel devices (AXIS-49, etc.) always play on ch 1 = anchor ch 1
    *     → offset is always 0, regardless of stepsPerChannel setting.
-   *   - Multi-channel devices or keyboard splits: each channel above/below the
-   *     anchor shifts by stepsPerChannel (default: one equave).
+   *   - Multi-channel devices or keyboard splits: each channel group above/below
+   *     the anchor shifts by stepsPerChannel (default: one equave).
    *   - The anchor note on the anchor channel always maps to center_degree,
    *     making Learn work correctly however many channels the device uses.
    *
-   * With midiin_steps_per_channel === 0 (default): no transposition (all channels identical).
-   * With midiin_steps_per_channel === null: one equave per channel step (legacy UI option).
-   * With midiin_steps_per_channel === N > 0: N degrees per channel step.
+   * With midiin_steps_per_channel === 0 (default): no transposition (all groups identical).
+   * With midiin_steps_per_channel === null: one equave per group step (legacy UI option).
+   * With midiin_steps_per_channel === N > 0: N degrees per group step.
    *
    * @param {number} channel  1-indexed MIDI channel
    * @returns {number}        integer scale-degree offset
@@ -86,6 +87,10 @@ export class MidiCoordResolver {
       ?? this.settings.equivSteps;
     const anchorChannel =
       (ir ? ir.seqAnchorChannel : this.settings.midiin_anchor_channel) ?? 1;
+    const channelGroupSize = Math.max(
+      1,
+      (ir ? ir.channelGroupSize : this.settings.midiin_channel_group_size) ?? 1,
+    );
     // Legacy mode: wrap channel into 1–8 before computing offset.
     // Allows Lumatone mappings that use channels 9–16 to be treated
     // identically to channels 1–8 (mod 8).  Default is true for
@@ -94,7 +99,12 @@ export class MidiCoordResolver {
     const effectiveChannel = legacyMode
       ? ((channel - 1) % 8) + 1
       : channel;
-    return (effectiveChannel - anchorChannel) * stepsPerChannel;
+    const effectiveAnchorChannel = legacyMode
+      ? ((anchorChannel - 1) % 8) + 1
+      : anchorChannel;
+    const groupIndex = Math.floor((effectiveChannel - 1) / channelGroupSize);
+    const anchorGroupIndex = Math.floor((effectiveAnchorChannel - 1) / channelGroupSize);
+    return (groupIndex - anchorGroupIndex) * stepsPerChannel;
   }
 
   /**

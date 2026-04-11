@@ -83,6 +83,10 @@ const TS41_MODES      = makeSingleChannelModes('ts41',      36);
 const PUSH2_MODES     = makeSingleChannelModes('push2',     36);
 const LAUNCHPAD_MODES = makeSingleChannelModes('launchpad', 36);
 const GENERIC_MODES   = makeSingleChannelModes('generic',   60);
+GENERIC_MODES.anchorChannelDefault = 1;
+GENERIC_MODES.supportsSequentialChannelOffset = true;
+GENERIC_MODES.modes.layout2d.defaultPrefs.anchorChannel = 1;
+GENERIC_MODES.modes.bypass.defaultPrefs.anchorChannel = 1;
 
 // Mode-aware Lumatone (matches the real registry entry)
 const LUMATONE_MODES = {
@@ -105,6 +109,34 @@ const LUMATONE_MODES = {
       defaultPrefs: {
         anchorNote:    60,
         anchorChannel: 4,
+        midi_passthrough: true,
+      },
+    },
+  },
+  resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+};
+
+const TONALPLEXUS_MODES = {
+  id: 'tonalplexus',
+  anchorDefault: 7,
+  anchorChannelDefault: 9,
+  mpe: false,
+  sequentialTransposeDefault: null,
+  sequentialChannelGroupSize: 2,
+  sequentialLegacyDefault: false,
+  defaultMode: 'layout2d',
+  modes: {
+    layout2d: {
+      defaultPrefs: {
+        anchorNote: 7,
+        anchorChannel: 9,
+        midi_passthrough: false,
+      },
+    },
+    bypass: {
+      defaultPrefs: {
+        anchorNote: 7,
+        anchorChannel: 9,
         midi_passthrough: true,
       },
     },
@@ -493,6 +525,7 @@ describe('Lumatone mode-aware controller prefs', () => {
   it('does NOT apply sequential transposition in bypass mode', () => {
     const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
     expect(update.midiin_steps_per_channel).toBeUndefined();
+    expect(update.midiin_channel_group_size).toBeUndefined();
     expect(update.midiin_channel_legacy).toBeUndefined();
   });
 });
@@ -545,6 +578,29 @@ describe('AXIS-49 mode-aware controller prefs', () => {
     localStorage.setItem('axis49_anchor', '30');
     const update = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: false });
     expect(update.midiin_central_degree).toBe(30);
+  });
+});
+
+describe('Tonal Plexus mode-aware controller prefs', () => {
+  it('loads the corrected TPX default anchor and pair grouping', () => {
+    const update = loadAnchorSettingsUpdate(TONALPLEXUS_MODES, { midi_passthrough: false });
+    expect(update.midiin_central_degree).toBe(7);
+    expect(update.midiin_anchor_channel).toBe(9);
+    expect(update.lumatone_center_channel).toBe(9);
+    expect(update.lumatone_center_note).toBe(7);
+    expect(update.midiin_steps_per_channel).toBe(null);
+    expect(update.midiin_channel_group_size).toBe(2);
+    expect(update.midiin_channel_legacy).toBe(false);
+  });
+});
+
+describe('Generic keyboard mode-aware controller prefs', () => {
+  it('loads the default anchor channel and keeps channel offsets visible', () => {
+    const update = loadAnchorSettingsUpdate(GENERIC_MODES, { midi_passthrough: false });
+    expect(update.midiin_central_degree).toBe(60);
+    expect(update.midiin_anchor_channel).toBe(1);
+    expect(update.lumatone_center_channel).toBe(1);
+    expect(update.lumatone_center_note).toBe(60);
   });
 });
 
@@ -607,4 +663,3 @@ function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) 
 describeSingleChannelModes('TS41',      TS41_MODES,      36);
 describeSingleChannelModes('Push2',     PUSH2_MODES,     36);
 describeSingleChannelModes('Launchpad', LAUNCHPAD_MODES, 36);
-describeSingleChannelModes('Generic',   GENERIC_MODES,   60);

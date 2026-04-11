@@ -23,7 +23,10 @@ import { resolveBulkDumpName } from "./tuning/mts-format.js";
 const wait   = (l) => l + 1;
 const signal = (l) => l - 1;
 
-export const resolveInputController = (input) => {
+export const resolveInputController = (input, controllerOverrideId = "auto") => {
+  if (controllerOverrideId && controllerOverrideId !== "auto") {
+    return getControllerById(controllerOverrideId) ?? getControllerById("generic");
+  }
   if (!input?.name) return getControllerById("generic");
   return detectController(input.name.toLowerCase()) ?? getControllerById("generic");
 };
@@ -800,10 +803,10 @@ const useSynthWiring = (
     if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return;
     const input = Array.from(midi.inputs.values()).find(i => i.id === settings.midiin_device);
     if (!input) return;
-    const ctrl = resolveInputController(input);
+    const ctrl = resolveInputController(input, settings.midiin_controller_override);
     if (!ctrl) return;
     setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settings) }));
-  }, [midi, settings.midiin_device, settings.midiin_mpe_input, settings.midi_passthrough]);
+  }, [midi, settings.midiin_device, settings.midiin_controller_override, settings.midiin_mpe_input, settings.midi_passthrough]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────
 
@@ -824,7 +827,7 @@ const useSynthWiring = (
       const input = Array.from(midi.inputs.values()).find(
         (m) => m.id === settings.midiin_device,
       );
-      if (input) ctrl = resolveInputController(input);
+      if (input) ctrl = resolveInputController(input, settings.midiin_controller_override);
     }
 
     // Persist anchor note per controller and build the settings update.
@@ -844,7 +847,7 @@ const useSynthWiring = (
       sessionStorage.setItem("lumatone_center_note",    String(update.lumatone_center_note));
     }
     setSettings((s) => ({ ...s, ...update }));
-  }, [settings.midiin_device, midi]);
+  }, [settings.midiin_device, settings.midiin_controller_override, midi]);
 
   // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
   // When the active MIDI input is a Lumatone, resolve the matching raw Web MIDI
@@ -854,7 +857,7 @@ const useSynthWiring = (
     if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
     const rawIn = midi.inputs.get(settings.midiin_device);
     if (!rawIn) return null;
-    const ctrl = detectController(rawIn.name.toLowerCase());
+    const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== 'lumatone') return null;
     // The Lumatone exposes both input and output ports with the same device name.
     const rawOut = Array.from(midi.outputs.values()).find(
@@ -862,7 +865,7 @@ const useSynthWiring = (
     );
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
-  }, [midi, midiTick, settings.midiin_device]);
+  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override]);
 
   // When the active MIDI input is an Exquis, resolve both raw Web MIDI ports.
   // Output is needed for SysEx sends (LED colors, dev mode).
@@ -871,14 +874,14 @@ const useSynthWiring = (
     if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
     const rawIn = midi.inputs.get(settings.midiin_device);
     if (!rawIn) return null;
-    const ctrl = detectController(rawIn.name.toLowerCase());
+    const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== 'exquis') return null;
     const rawOut = Array.from(midi.outputs.values()).find(
       (o) => ctrl.detect(o.name.toLowerCase()),
     );
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
-  }, [midi, midiTick, settings.midiin_device]);
+  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override]);
 
   return {
     synth,

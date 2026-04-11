@@ -83,6 +83,7 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
       seqAnchorNote: 60,
       seqAnchorChannel: 1,
       stepsPerChannel: 0,
+      channelGroupSize: 1,
       legacyChannelMode: true,
       scaleTolerance: 50,
       scaleFallback: "discard",
@@ -138,6 +139,26 @@ describe("Keys MIDI input integration", () => {
     expect(hexOff).toHaveBeenCalledWith(new Point(1, 0));
   });
 
+  it("groups sequential channel transposition by channel pairs when configured", () => {
+    const keys = createKeys(
+      { midiin_central_degree: 60, equivSteps: 12 },
+      {
+        layoutMode: "sequential",
+        seqAnchorChannel: 10,
+        stepsPerChannel: null,
+        channelGroupSize: 2,
+        legacyChannelMode: false,
+      },
+    );
+
+    expect(keys.coordResolver.noteToSteps(60, 9)).toBe(0);
+    expect(keys.coordResolver.noteToSteps(60, 10)).toBe(0);
+    expect(keys.coordResolver.noteToSteps(60, 11)).toBe(12);
+    expect(keys.coordResolver.noteToSteps(60, 12)).toBe(12);
+    expect(keys.coordResolver.noteToSteps(60, 7)).toBe(-12);
+    expect(keys.coordResolver.noteToSteps(60, 8)).toBe(-12);
+  });
+
   it("uses controller geometry maps directly for known controller input", () => {
     const keys = createKeys();
     const hexOn = vi.fn((coords) => ({
@@ -154,6 +175,80 @@ describe("Keys MIDI input integration", () => {
 
     expect(hexOn).toHaveBeenCalledTimes(1);
     expect(hexOn.mock.calls[0][0]).toEqual(new Point(2, 3));
+  });
+
+  it("does not drop known-controller keys just because their coords are off the visible grid", () => {
+    const keys = createKeys();
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 300200,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys.controller = { multiChannel: false };
+    keys.controllerMap = new Map([["1.64", new Point(200, 200)]]);
+
+    keys.midinoteOn(makeMidiEvent(64));
+
+    expect(hexOn).toHaveBeenCalledTimes(1);
+    expect(hexOn.mock.calls[0][0]).toEqual(new Point(200, 200));
+  });
+
+  it("honors manual controller override even when the MIDI port name is unknown", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({ name: "USB MIDI Interface", addListener: vi.fn() });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_channel: 0,
+      midiin_controller_override: "tonalplexus",
+      lumatone_center_channel: 9,
+      lumatone_center_note: 7,
+    });
+
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 300200,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+
+    keys.midinoteOn(makeMidiEvent(7, 9));
+
+    expect(keys.controller?.id).toBe("tonalplexus");
+    expect(hexOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies channel offsets for the Generic Keyboard controller map", () => {
+    const keys = createKeys(
+      {
+        midiin_central_degree: 60,
+        midiin_anchor_channel: 4,
+      },
+      {
+        stepsPerChannel: null,
+        seqAnchorChannel: 4,
+      },
+    );
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 100,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys.controller = {
+      multiChannel: false,
+      applyChannelOffsetOnMap: true,
+    };
+    keys.controllerMap = new Map([["1.60", new Point(0, 0)]]);
+    keys.bestVisibleCoord = vi.fn(() => new Point(12, 0));
+
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    expect(hexOn).toHaveBeenCalledTimes(1);
+    expect(keys.bestVisibleCoord).toHaveBeenCalledWith(12);
+    expect(hexOn.mock.calls[0][0]).toEqual(new Point(12, 0));
   });
 
   it("replays remembered controller state to a newly swapped synth", () => {

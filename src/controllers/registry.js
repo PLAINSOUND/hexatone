@@ -259,6 +259,140 @@ function buildLumatoneMap(anchorChannel, anchorNote) {
   return makeMap(entries);
 }
 
+// ── Tonal Plexus ──────────────────────────────────────────────────────────────
+// First-pass geometry for the HPI Tonal Plexus / TPX.
+//
+// The hardware exposes 6 physical Bosanquet blocks across channel pairs:
+//   3–4, 5–6, 7–8, 9–10, 11–12, 13–14
+//
+// Per block:
+//   odd channel  = notes 0–104  (105 addresses)
+//   even channel = notes 0–105  (106 addresses)
+//   total MIDI addresses per block = 211
+//
+// The physical block has 205 keys, so 6 addresses are seam aliases. The exact
+// aliasing visible in the supplied TPX diagram is not yet fully machine-read, so
+// this implementation makes the seam assumptions explicit in one place and keeps
+// the rest of the geometry deterministic and easy to refine after hardware tests.
+//
+// Geometry model:
+//   • One TPX block is represented as two side-by-side half-fields:
+//       6 odd-channel columns + 6 even-channel columns
+//   • Columns use pointy-top hex staggering (same continuous hex-space model as
+//     AXIS-49 / Exquis): x = col, y = row + (col % 2 === 1 ? 0.5 : 0)
+//   • Six blocks are then laid out horizontally with a fixed block stride.
+//
+// This is sufficient for 2D key recognition and can be tightened later by
+// adjusting only TPX_COLUMN_LAYOUT / TPX_SEAM_ALIASES / TPX_BLOCK_OFFSETS.
+
+const TPX_CHANNEL_PAIRS = [
+  { odd: 3,  even: 4  },
+  { odd: 5,  even: 6  },
+  { odd: 7,  even: 8  },
+  { odd: 9,  even: 10 },
+  { odd: 11, even: 12 },
+  { odd: 13, even: 14 },
+];
+
+const TPX_BLOCK_STRIDE_X = 14;
+const TPX_BLOCK_OFFSETS = TPX_CHANNEL_PAIRS.map((_, index) => ({
+  x: index * TPX_BLOCK_STRIDE_X,
+  y: 0,
+}));
+
+const TPX_COLUMN_LAYOUT = [
+  { channelKind: 'odd',  x: 0,  start: 0,  length: 18 },
+  { channelKind: 'odd',  x: 1,  start: 18, length: 18 },
+  { channelKind: 'odd',  x: 2,  start: 36, length: 16 },
+  { channelKind: 'odd',  x: 3,  start: 52, length: 17 },
+  { channelKind: 'odd',  x: 4,  start: 69, length: 19 },
+  { channelKind: 'odd',  x: 5,  start: 88, length: 17 },
+  { channelKind: 'even', x: 6,  start: 0,  length: 18 },
+  { channelKind: 'even', x: 7,  start: 18, length: 18 },
+  { channelKind: 'even', x: 8,  start: 36, length: 16 },
+  { channelKind: 'even', x: 9,  start: 52, length: 18 },
+  { channelKind: 'even', x: 10, start: 70, length: 18 },
+  { channelKind: 'even', x: 11, start: 88, length: 18 },
+];
+
+// Inferred duplicate-note aliases from the TPX reference image and user notes.
+// The currently confirmed duplicates are the repeated note numbers on the odd
+// channel. These addresses collapse onto the same physical hex.
+const TPX_SEAM_ALIASES = new Map([
+  ['odd.18', 'odd.17'],
+  ['odd.36', 'odd.35'],
+  ['odd.52', 'odd.51'],
+  ['odd.69', 'odd.68'],
+  ['odd.88', 'odd.87'],
+]);
+
+function tpxHexSpace(col, row) {
+  return {
+    x: col,
+    y: row + (col % 2 === 1 ? 0.5 : 0),
+  };
+}
+
+function buildTonalPlexusBlockAddressMap() {
+  const block = new Map();
+
+  for (const { channelKind, x: col, start, length } of TPX_COLUMN_LAYOUT) {
+    for (let offset = 0; offset < length; offset++) {
+      const note = start + offset;
+      const key = `${channelKind}.${note}`;
+      const coords = tpxHexSpace(col, offset);
+      block.set(key, coords);
+    }
+  }
+
+  for (const [targetKey, sourceKey] of TPX_SEAM_ALIASES) {
+    const sourceCoords = block.get(sourceKey);
+    if (!sourceCoords) {
+      throw new Error(`TPX seam alias source missing: ${sourceKey}`);
+    }
+    block.set(targetKey, sourceCoords);
+  }
+
+  return block;
+}
+
+const TPX_BLOCK_ADDRESS_MAP = buildTonalPlexusBlockAddressMap();
+
+function buildTonalPlexusMap(anchorChannel, anchorNote) {
+  const anchorPairIndex = TPX_CHANNEL_PAIRS.findIndex(
+    ({ odd, even }) => anchorChannel === odd || anchorChannel === even,
+  );
+  const safePairIndex = anchorPairIndex >= 0 ? anchorPairIndex : 2;
+  const safeAnchorChannel = anchorPairIndex >= 0 ? anchorChannel : TPX_CHANNEL_PAIRS[safePairIndex].even;
+  const anchorChannelKind = safeAnchorChannel % 2 === 1 ? 'odd' : 'even';
+  const anchorLocal = TPX_BLOCK_ADDRESS_MAP.get(`${anchorChannelKind}.${anchorNote}`)
+    ?? TPX_BLOCK_ADDRESS_MAP.get(`even.${anchorNote}`)
+    ?? TPX_BLOCK_ADDRESS_MAP.get(`odd.${anchorNote}`)
+    ?? TPX_BLOCK_ADDRESS_MAP.get('even.60');
+  const anchorBlockOffset = TPX_BLOCK_OFFSETS[safePairIndex];
+  const anchorWorldX = anchorLocal.x + anchorBlockOffset.x;
+  const anchorWorldY = anchorLocal.y + anchorBlockOffset.y;
+
+  const entries = [];
+  for (let pairIndex = 0; pairIndex < TPX_CHANNEL_PAIRS.length; pairIndex++) {
+    const pair = TPX_CHANNEL_PAIRS[pairIndex];
+    const blockOffset = TPX_BLOCK_OFFSETS[pairIndex];
+    for (const [key, local] of TPX_BLOCK_ADDRESS_MAP.entries()) {
+      const [channelKind, noteString] = key.split('.');
+      const note = Number(noteString);
+      const ch = channelKind === 'odd' ? pair.odd : pair.even;
+      entries.push({
+        ch,
+        note,
+        x: Math.round(local.x + blockOffset.x - anchorWorldX),
+        y: Math.round(local.y + blockOffset.y - anchorWorldY),
+      });
+    }
+  }
+
+  return makeMap(entries);
+}
+
 // ── LinnStrument 128 ──────────────────────────────────────────────────────────
 // 16 columns × 8 rows, multi-channel (each row = one channel, channels 1–8).
 // Default note layout: each column = +1 semitone, each row = +5 semitones up.
@@ -345,6 +479,44 @@ function buildGenericKeyboardMap(anchorNote) {
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 export const CONTROLLER_REGISTRY = [
+  {
+    id: 'tonalplexus',
+    name: 'Tonal Plexus',
+    detect: name => name.includes('tonal plexus') || name.includes('tonalplexus') || name.includes('tpx'),
+    description: '6 Bosanquet blocks across channel pairs 3–14. First-pass 205-key-per-block geometry with explicit seam aliases.',
+    multiChannel: true,
+    mpe: false,
+    anchorDefault: 7,
+    anchorChannelDefault: 9,
+    sequentialTransposeDefault: null,
+    sequentialChannelGroupSize: 2,
+    sequentialLegacyDefault: false,
+    learnConstraints: {
+      noteRange:    { min: 0, max: 105 },
+      channelRange: { min: 3, max: 14 },
+      multiChannel: true,
+    },
+    defaultMode: 'layout2d',
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote: 7,
+          anchorChannel: 9,
+          midi_passthrough: false,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote: 7,
+          anchorChannel: 9,
+          midi_passthrough: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    buildMap: (anchorNote, anchorChannel) => buildTonalPlexusMap(anchorChannel ?? 9, anchorNote ?? 7),
+  },
+
   {
     id: 'axis49',
     name: 'C-Thru AXIS-49 2A',
@@ -548,21 +720,26 @@ export const CONTROLLER_REGISTRY = [
     name: 'Generic Single-Channel Keyboard',
     // Never auto-detected — selected manually via the controller override dropdown.
     detect: () => false,
-    description: '128 notes on ch 1, mapped linearly around the anchor. Use with DIRECT + Tuning Map output.',
+    description: '128 notes mapped linearly around the anchor. Anchor channel and per-channel offset are user-configurable.',
     multiChannel: false,
     mpe: false,
     anchorDefault: 60,
+    anchorChannelDefault: 1,
+    supportsSequentialChannelOffset: true,
+    applyChannelOffsetOnMap: true,
     defaultMode: 'layout2d',
     modes: {
       layout2d: {
         defaultPrefs: {
           anchorNote:       60,
+          anchorChannel:    1,
           midi_passthrough: false,
         },
       },
       bypass: {
         defaultPrefs: {
           anchorNote:       60,
+          anchorChannel:    1,
           midi_passthrough: true,
         },
       },

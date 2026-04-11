@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from "preact/hooks";
-import { detectController } from "./controllers/registry.js";
+import { detectController, getControllerById } from "./controllers/registry.js";
 import { normalizeColors } from "./normalize-settings.js";
 import { saveAnchor, saveAnchorChannel, loadAnchorSettingsUpdate } from "./input/controller-anchor.js";
 
@@ -8,7 +8,10 @@ import { saveAnchor, saveAnchorChannel, loadAnchorSettingsUpdate } from "./input
 const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color"]);
 
 // Return the detectController entry for the currently connected input device, or null.
-const getConnectedController = (deviceId, midi) => {
+const getConnectedController = (deviceId, midi, controllerOverrideId = "auto") => {
+  if (controllerOverrideId && controllerOverrideId !== "auto") {
+    return getControllerById(controllerOverrideId);
+  }
   if (!deviceId || deviceId === "OFF" || !midi) return null;
   const input = Array.from(midi.inputs.values()).find((m) => m.id === deviceId);
   return input ? detectController(input.name.toLowerCase()) : null;
@@ -72,7 +75,10 @@ const useSettingsChange = (
     // (or fall back to the controller's built-in default on first use).
     if (key === "midiin_device") {
       const input = m ? Array.from(m.inputs.values()).find((mm) => mm.id === value) : null;
-      const ctrl = input ? detectController(input.name.toLowerCase()) : null;
+      const overrideId = s.midiin_controller_override || "auto";
+      const ctrl = overrideId !== "auto"
+        ? getControllerById(overrideId)
+        : input ? detectController(input.name.toLowerCase()) : null;
       // Optimistically preload known-controller prefs on explicit device selection
       // so the first live instance is constructed with the right anchor/mode.
       // The derived-state effect in use-synth-wiring.js remains the long-term owner
@@ -86,10 +92,21 @@ const useSettingsChange = (
       return;
     }
 
+    if (key === "midiin_controller_override") {
+      const ctrl = getConnectedController(s.midiin_device, m, value);
+      setSettings((prev) => ({
+        ...prev,
+        midiin_controller_override: value,
+        ...(ctrl ? loadAnchorSettingsUpdate(ctrl, { ...prev, midiin_controller_override: value }) : {}),
+      }));
+      sessionStorage.setItem("midiin_controller_override", value);
+      return;
+    }
+
     // When the user manually changes the anchor note for a known controller, save it
     // to localStorage keyed by controller ID so it's restored on next connect.
     if (key === "midiin_central_degree") {
-      const ctrl = getConnectedController(s.midiin_device, m);
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
       // value IS the raw physical MIDI note number — store directly.
       if (ctrl) saveAnchor(ctrl, value, s);
       // Fall through to normal setSettings
@@ -98,7 +115,7 @@ const useSettingsChange = (
     // When the user manually changes the anchor channel for a channel-aware controller
     // (e.g. Lumatone), persist it to localStorage so it's restored on next connect.
     if (key === "lumatone_center_channel") {
-      const ctrl = getConnectedController(s.midiin_device, m);
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
       if (ctrl) saveAnchorChannel(ctrl, value, s);
       // Fall through to normal setSettings
     }

@@ -86,8 +86,10 @@ export const SETTINGS_REGISTRY = [
 
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: 'midiin_device',           tier: 'session', type: 'string', default: 'OFF' },
+  { key: 'midiin_controller_override', tier: 'session', type: 'string', default: 'auto' },
   { key: 'midiin_channel',          tier: 'session', type: 'int',    default: 0 },
   { key: 'midiin_steps_per_channel',tier: 'session', type: 'int',    default: 0 },
+  { key: 'midiin_channel_group_size',tier: 'session', type: 'int',    default: 1 },
   { key: 'midiin_anchor_channel',   tier: 'session', type: 'int',    default: 1 },
   { key: 'controller_anchor_note',  tier: 'session', type: 'int',    default: null },
   { key: 'midiin_channel_legacy',   tier: 'session', type: 'bool',   default: false },

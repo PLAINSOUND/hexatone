@@ -147,4 +147,14 @@ describe("use-synth-wiring controller resolution", () => {
     const ctrl = resolveInputController({ name: "Lumatone" });
     expect(ctrl?.id).toBe("lumatone");
   });
+
+  it("honors manual controller override before port-name detection", () => {
+    const ctrl = resolveInputController({ name: "USB MIDI Interface" }, "tonalplexus");
+    expect(ctrl?.id).toBe("tonalplexus");
+  });
+
+  it("falls back override typos to the Generic keyboard controller", () => {
+    const ctrl = resolveInputController({ name: "USB MIDI Interface" }, "not-a-controller");
+    expect(ctrl?.id).toBe("generic");
+  });
 });

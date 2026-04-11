@@ -1,9 +1,18 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import PropTypes from 'prop-types';
-import { detectController } from '../../controllers/registry.js';
+import { detectController, getControllerById } from '../../controllers/registry.js';
 import { saveControllerPref } from '../../input/controller-anchor.js';
 import ScalaInput from '../scale/scala-input.js';
+
+const MANUAL_CONTROLLER_OPTIONS = [
+  { id: 'axis49', label: 'AXIS-49' },
+  { id: 'exquis', label: 'Exquis' },
+  { id: 'generic', label: 'Generic Keyboard' },
+  { id: 'lumatone', label: 'Lumatone' },
+  { id: 'tonalplexus', label: 'Tonal Plexus' },
+  { id: 'ts41', label: 'TS41' },
+];
 
 const MIDIio = (props) => {
   // props.midiTick is unused directly — its presence as a changing prop forces
@@ -14,17 +23,22 @@ const MIDIio = (props) => {
       .find(m => m.id === props.settings.midiin_device)
     : null;
   const deviceName = connectedDevice?.name?.toLowerCase() ?? '';
+  const controllerOverrideId = props.settings.midiin_controller_override || 'auto';
   // Detect 2D controller (null when device is disconnected or unrecognised).
-  const ctrl = detectController(deviceName);
+  const ctrl = controllerOverrideId !== 'auto'
+    ? getControllerById(controllerOverrideId)
+    : detectController(deviceName);
 
   // midiin_central_degree is stored as the raw physical MIDI note number.
   const center_degree = props.settings.center_degree || 0;
   const centralNote = props.settings.midiin_central_degree ?? 60;
-  // anchorChannel for the 2D controller map (Lumatone): stored in lumatone_center_channel.
+  const anchorNoteRange = ctrl?.learnConstraints?.noteRange ?? { min: 0, max: 127 };
+  const anchorChannelRange = ctrl?.learnConstraints?.channelRange ?? { min: 1, max: 16 };
+  // anchorChannel for the 2D controller map: stored in lumatone_center_channel.
   const anchorChannel = props.settings.lumatone_center_channel ?? ctrl?.anchorChannelDefault ?? null;
-  // For multi-channel 2D controllers (Lumatone), the anchor note within the block is
-  // stored in lumatone_center_note (0–55), not midiin_central_degree (0–127).
-  const lumatoneAnchorNote = props.settings.lumatone_center_note ?? ctrl?.anchorDefault ?? 26;
+  // For multi-channel 2D controllers, the anchor note within the block is
+  // stored in lumatone_center_note rather than midiin_central_degree.
+  const controllerAnchorNote = props.settings.lumatone_center_note ?? ctrl?.anchorDefault ?? anchorNoteRange.min;
   // anchorChannel for sequential / step-arithmetic path: stored in midiin_anchor_channel.
   const seqAnchorChannel = props.settings.midiin_anchor_channel ?? 1;
 
@@ -55,7 +69,7 @@ const MIDIio = (props) => {
   //   - AND not a multichannel controller (Lumatone, LinnStrument, TonalPlexus —
   //     their channels encode layout geometry, not keyboard splits)
   const scaleMode = (props.settings.midiin_mapping_target || 'hex_layout') === 'scale';
-  const using2DMap = ctrl && !props.settings.midi_passthrough;
+  const using2DMap = ctrl && !ctrl.supportsSequentialChannelOffset && !props.settings.midi_passthrough;
   // Channel Transposition is shown when sequential channel-offset arithmetic is meaningful:
   //   - not in active 2D geometry mode
   //   - not when MPE is on (channels carry per-voice expression, not splits)
@@ -64,7 +78,7 @@ const MIDIio = (props) => {
   //   - shown for unknown controllers (may be a multichannel keyboard split)
   //   - shown for multichannel non-MPE controllers in sequential/bypass mode (Lumatone)
   //   - hidden in scale mode (pitch is mapped directly; geometry/channel layout irrelevant)
-  const isMultiChannelSequential = !ctrl || ctrl.multiChannel;
+  const isMultiChannelSequential = !ctrl || ctrl.multiChannel || ctrl.supportsSequentialChannelOffset;
   const showChannelTranspose = !scaleMode && !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
   const showExquisBendControls = !(ctrl?.id === 'exquis' && !props.settings.midiin_mpe_input);
   const showWheelToRecent = !(ctrl?.id === 'exquis' && !props.settings.midiin_mpe_input);
@@ -93,6 +107,23 @@ const MIDIio = (props) => {
           <option value="OFF">OFF</option>
           {props.midi && Array.from(props.midi.inputs.values()).map(m => (
             <option value={m.id}>{m.name}</option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Controller Geometry
+        <select
+          class="sidebar-input"
+          value={controllerOverrideId}
+          onChange={(e) => {
+            props.onChange('midiin_controller_override', e.target.value);
+            sessionStorage.setItem('midiin_controller_override', e.target.value);
+          }}
+        >
+          <option value="auto">Auto Detect</option>
+          {MANUAL_CONTROLLER_OPTIONS.map((option) => (
+            <option value={option.id}>{option.label}</option>
           ))}
         </select>
       </label>
@@ -264,13 +295,13 @@ const MIDIio = (props) => {
                   {ctrl && (
                     ctrl.anchorChannelDefault != null ? (
                       <input name="lumatone_center_channel" type="text" inputMode="numeric"
-                        title="MIDI channel of anchor key (1–5 for Lumatone)"
+                        title={`MIDI channel of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
                         style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
                         key={anchorChannel}
                         defaultValue={anchorChannel}
                         onBlur={(e) => {
                           const val = parseInt(e.target.value);
-                          if (!isNaN(val) && val >= 1 && val <= 16) {
+                          if (!isNaN(val) && val >= anchorChannelRange.min && val <= anchorChannelRange.max) {
                             props.onChange('lumatone_center_channel', val);
                             sessionStorage.setItem('lumatone_center_channel', val);
                             // Keep midiin_anchor_channel in sync so sequential/passthrough
@@ -289,22 +320,22 @@ const MIDIio = (props) => {
                       />
                     )
                   )}
-                  {/* Multi-channel 2D controllers (Lumatone) store the anchor block-note
-                      in lumatone_center_note (0–55). Single-channel / sequential path
+                  {/* Multi-channel 2D controllers store the anchor block-note
+                      in lumatone_center_note. Single-channel / sequential path
                       uses midiin_central_degree (0–127). */}
                   {ctrl?.multiChannel ? (
                     <input name="lumatone_center_note" type="text" inputMode="numeric"
-                      title="Note number within anchor block (0–55)"
+                      title={`Note number within anchor block (${anchorNoteRange.min}–${anchorNoteRange.max})`}
                       style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
-                      key={lumatoneAnchorNote}
-                      defaultValue={lumatoneAnchorNote}
+                      key={controllerAnchorNote}
+                      defaultValue={controllerAnchorNote}
                       onBlur={(e) => {
                         const val = parseInt(e.target.value);
-                        if (!isNaN(val) && val >= 0 && val <= 55) {
+                        if (!isNaN(val) && val >= anchorNoteRange.min && val <= anchorNoteRange.max) {
                           props.onChange('lumatone_center_note', val);
                           sessionStorage.setItem('lumatone_center_note', String(val));
                         } else {
-                          e.target.value = lumatoneAnchorNote;
+                          e.target.value = controllerAnchorNote;
                         }
                       }}
                     />
@@ -832,6 +863,7 @@ const MIDIio = (props) => {
 MIDIio.propTypes = {
   settings: PropTypes.shape({
     midiin_device: PropTypes.string,
+    midiin_controller_override: PropTypes.string,
     midiin_central_degree: PropTypes.number,
     midiin_steps_per_channel: PropTypes.number,
     midi_passthrough: PropTypes.bool,
