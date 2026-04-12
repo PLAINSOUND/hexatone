@@ -4,6 +4,7 @@ import {
   detectController,
   normalizeTonalPlexus41Input,
   normalizeTonalPlexus41InputWithSettings,
+  normalizeTonalPlexus205Degree,
 } from "./registry.js";
 
 const getController = (id) => CONTROLLER_REGISTRY.find((controller) => controller.id === id);
@@ -87,5 +88,18 @@ describe("controller registry", () => {
     expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 53 })).toEqual({ channel: 4, note: 46 });
     expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 53 })).toEqual({ channel: 4, note: -4 });
     expect(normalizeTonalPlexus41InputWithSettings(9, 4, { equivSteps: 53 })).toEqual({ channel: 4, note: 0 });
+  });
+
+  it("normalizes TPX raw addresses into one 205edo cycle per block", () => {
+    expect(normalizeTonalPlexus205Degree(9, 7)).toEqual({ block: 3, degree: 0 });
+    expect(normalizeTonalPlexus205Degree(9, 17)).toEqual({ block: 3, degree: 10 });
+    expect(normalizeTonalPlexus205Degree(9, 18)).toEqual({ block: 3, degree: 10 });
+    expect(normalizeTonalPlexus205Degree(9, 68)).toEqual({ block: 3, degree: 60 });
+    expect(normalizeTonalPlexus205Degree(9, 69)).toEqual({ block: 3, degree: 60 });
+    expect(normalizeTonalPlexus205Degree(9, 104)).toEqual({ block: 3, degree: 95 });
+    expect(normalizeTonalPlexus205Degree(10, 0)).toEqual({ block: 3, degree: 95 });
+    expect(normalizeTonalPlexus205Degree(10, 35)).toEqual({ block: 3, degree: 130 });
+    expect(normalizeTonalPlexus205Degree(10, 36)).toEqual({ block: 3, degree: 130 });
+    expect(normalizeTonalPlexus205Degree(10, 105)).toEqual({ block: 3, degree: 197 });
   });
 });

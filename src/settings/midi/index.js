@@ -29,6 +29,7 @@ const MIDIio = (props) => {
     ? getControllerById(controllerOverrideId)
     : detectController(deviceName);
   const tonalPlexus41Mode = ctrl?.id === 'tonalplexus' && getTonalPlexusInputMode(props.settings) === 'blocks_41';
+  const tonalPlexus205Mode = ctrl?.id === 'tonalplexus' && getTonalPlexusInputMode(props.settings) === 'layout_205';
 
   // midiin_central_degree is stored as the raw physical MIDI note number.
   const center_degree = props.settings.center_degree || 0;
@@ -165,7 +166,7 @@ const MIDIio = (props) => {
                 }}
               >
                 <option value="blocks_41">41 notes per block</option>
-                <option value="layout_205">205edo fixed layout</option>
+                <option value="layout_205">205edo to nearest scale degree</option>
               </select>
             </label>
           )}
@@ -315,8 +316,9 @@ const MIDIio = (props) => {
                 <span class="sidebar-input" style={{ display: 'flex', gap: '4px', alignItems: 'center', textAlign: 'left' }}>
                   <button type="button"
                     onClick={() => props.onChange('midiLearnAnchor', !props.midiLearnActive)}
+                    disabled={tonalPlexus205Mode}
                     style={{ fontSize: '0.8em', whiteSpace: 'nowrap', cursor: 'pointer', flexShrink: 0 }}>
-                    {props.midiLearnActive ? '● Listening…' : 'Learn'}
+                    {tonalPlexus205Mode ? 'Fixed' : props.midiLearnActive ? '● Listening…' : 'Learn'}
                   </button>
                   {/* Channel field — shown for all known controllers.
                       Editable for multi-channel controllers (e.g. Lumatone);
@@ -324,10 +326,11 @@ const MIDIio = (props) => {
                   {ctrl && (
                     ctrl.anchorChannelDefault != null ? (
                       <input name="lumatone_center_channel" type="text" inputMode="numeric"
-                      title={`${tonalPlexus41Mode ? 'Block' : 'MIDI channel'} of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
-                        style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                        title={`${tonalPlexus41Mode ? 'Block' : 'MIDI channel'} of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
+                        style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: tonalPlexus205Mode ? '#f0eded' : '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0, color: tonalPlexus205Mode ? '#999' : undefined, cursor: tonalPlexus205Mode ? 'default' : undefined }}
                         key={anchorChannel}
                         defaultValue={anchorChannel}
+                        disabled={tonalPlexus205Mode}
                         onBlur={(e) => {
                           const val = parseInt(e.target.value);
                           if (!isNaN(val) && val >= anchorChannelRange.min && val <= anchorChannelRange.max) {
@@ -355,9 +358,10 @@ const MIDIio = (props) => {
                   {ctrl?.multiChannel ? (
                     <input name="lumatone_center_note" type="text" inputMode="numeric"
                       title={`${tonalPlexus41Mode ? 'Slot' : 'Note number'} within anchor ${tonalPlexus41Mode ? 'block' : 'block'} (${anchorNoteRange.min}–${anchorNoteRange.max})`}
-                      style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
+                      style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: tonalPlexus205Mode ? '#f0eded' : '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', color: tonalPlexus205Mode ? '#999' : undefined, cursor: tonalPlexus205Mode ? 'default' : undefined }}
                       key={controllerAnchorNote}
                       defaultValue={controllerAnchorNote}
+                      disabled={tonalPlexus205Mode}
                       onBlur={(e) => {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val >= anchorNoteRange.min && val <= anchorNoteRange.max) {

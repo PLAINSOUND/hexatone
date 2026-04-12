@@ -446,6 +446,29 @@ export function normalizeTonalPlexus41Input(channel, note) {
   return normalizeTonalPlexus41InputWithSettings(channel, note, {});
 }
 
+export function normalizeTonalPlexus205Degree(channel, note) {
+  const channel0 = channel - 1;
+  if (channel0 < 2 || channel0 > 13) return null;
+
+  const blockIndex = Math.floor((channel0 - 2) / 2);
+  const isEvenChannel = channel0 % 2 === 0;
+
+  if (isEvenChannel) {
+    if (note < 0 || note > 104) return null;
+    let degree = note - 7;
+    if (note >= 18) degree -= 1;
+    if (note >= 69) degree -= 1;
+    return { block: blockIndex, degree };
+  }
+
+  if (note < 0 || note > 105) return null;
+  let degree = 95 + note;
+  if (note >= 36) degree -= 1;
+  if (note >= 52) degree -= 1;
+  if (note >= 88) degree -= 1;
+  return { block: blockIndex, degree };
+}
+
 export function normalizeTonalPlexus41InputWithSettings(channel, note, settings = {}) {
   const channel0 = channel - 1;
   if (channel0 < 2 || channel0 > 13) return null;
@@ -550,7 +573,7 @@ export const CONTROLLER_REGISTRY = [
     id: 'tonalplexus',
     name: 'Tonal Plexus',
     detect: name => name.includes('tonal plexus') || name.includes('tonalplexus') || name.includes('tpx'),
-    description: '6 Bosanquet blocks across channel pairs 3–14. 2 TPX user modes: 41 notes per block works with any hexatone layout; 205edo mode needs the dedicated 205edo TPX preset.',
+    description: '6 Bosanquet blocks across channel pairs 3–14. 2 TPX user modes: 41 notes per block works with any hexatone layout; 205edo mode maps to nearest scale degree.',
     multiChannel: true,
     mpe: false,
     anchorDefault: 7,
@@ -588,6 +611,12 @@ export const CONTROLLER_REGISTRY = [
         ? normalizeTonalPlexus41InputWithSettings(channel, note, settings)
         : { channel, note }
     ),
+    resolveScaleInputPitchCents: (channel, note, settings = {}) => {
+      if (getTonalPlexusInputMode(settings) !== 'layout_205') return null;
+      const normalized = normalizeTonalPlexus205Degree(channel, note);
+      if (!normalized) return null;
+      return normalized.degree * (1200 / 205);
+    },
     buildMap: (anchorNote, anchorChannel) => buildTonalPlexusMap(anchorChannel ?? 9, anchorNote ?? 7),
   },
 

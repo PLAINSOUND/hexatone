@@ -1636,6 +1636,15 @@ class Keys {
     return this.controller?.normalizeInput?.(channel, note, this.settings) ?? { channel, note };
   }
 
+  _resolveScaleInputPitchCents(channel, note, fallbackPitchHz) {
+    const controllerPitchCents = this.controller?.resolveScaleInputPitchCents?.(channel, note, this.settings);
+    if (controllerPitchCents != null) return controllerPitchCents;
+
+    const degree0toRefCents = this.settings.degree0toRef_asArray[0];
+    const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
+    return 1200 * Math.log2(fallbackPitchHz / degree0Hz);
+  }
+
   midinoteOn = (e) => {
     const bend = this.bend || 0;
     const note_played = e.note.number + 128 * (e.message.channel - 1);
@@ -1664,7 +1673,7 @@ class Keys {
         pitchHz = this._mtsInputTable.get(e.note.number)
           ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
       }
-      const pitchCents = 1200 * Math.log2(pitchHz / degree0Hz);
+      const pitchCents = this._resolveScaleInputPitchCents(e.message.channel, e.note.number, pitchHz);
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,
@@ -1747,7 +1756,7 @@ class Keys {
         pitchHz = this._mtsInputTable.get(e.note.number)
           ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
       }
-      const pitchCents = 1200 * Math.log2(pitchHz / degree0Hz);
+      const pitchCents = this._resolveScaleInputPitchCents(e.message.channel, e.note.number, pitchHz);
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,

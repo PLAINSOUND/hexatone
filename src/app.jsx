@@ -469,6 +469,7 @@ const App = () => {
     if (overrideId !== "auto") return getControllerById(overrideId);
     return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
   }, [connectedInput, settings.midiin_controller_override]);
+  const forceScaleTarget = inputController?.id === "tonalplexus" && settings.tonalplexus_input_mode === "layout_205";
   const normalizedSeqAnchor = useMemo(
     () => inputController?.normalizeInput?.(
       settings.midiin_anchor_channel ?? 1,
@@ -482,7 +483,7 @@ const App = () => {
   );
 
   const inputRuntime = useMemo(() => ({
-    target:           settings.midiin_mapping_target || 'hex_layout',
+    target:           forceScaleTarget ? 'scale' : (settings.midiin_mapping_target || 'hex_layout'),
     layoutMode:       settings.midi_passthrough ? 'sequential' : 'controller_geometry',
     mpeInput:         !!settings.midiin_mpe_input,
     seqAnchorNote:    normalizedSeqAnchor.note,
@@ -526,6 +527,7 @@ const App = () => {
     settings.midiin_scale_bend_range,
     settings,
     normalizedSeqAnchor,
+    forceScaleTarget,
   ]);
 
   // Structural settings: everything except colors. Memoized so Keys is only
