@@ -225,51 +225,51 @@ const Scale = (props) => {
           }}
         />
       </label>
+      <label>
+        Equave
+        <ScalaInput
+          context="interval"
+          value={equaveValue}
+          onChange={handleEquaveChange}
+          style={{ width: '4em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', borderRadius: '3px' }}
+          wrapperClass="sidebar-input"
+        />
+      </label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingTop: '0.5rem', marginBottom: '0.5rem' }}>
+        <button type="button" onClick={() => {
+          const n = props.settings.equivSteps || 12;
+          const equaveStr = (props.settings.scale && props.settings.scale[n - 1])
+            ? props.settings.scale[n - 1]
+            : "2/1";
+
+          const { cents: parsed, valid } = parseScalaInterval(equaveStr, 'interval');
+          const equaveCents = valid ? parsed : n * 100;
+
+          const step = equaveCents / n;
+          const newScale = [];
+          for (let i = 1; i <= n; i++) {
+            newScale.push(String((i * step).toFixed(1)));
+          }
+          props.onChange('scale_divide', newScale);
+        }}>
+          Divide Equave into {props.settings.equivSteps} Equal Divisions
+        </button>
+        <button type="button" onClick={() => {
+          const n = props.settings.equivSteps || 12;
+          const step = 1200 / n;
+          const newScale = [];
+          for (let i = 1; i <= n; i++) {
+            newScale.push(String((i * step).toFixed(1)));
+          }
+          props.onChange('scale_divide', newScale);
+        }}>
+          Divide Octave into {props.settings.equivSteps} Equal Divisions
+        </button>
+      </div>
+      <Colors {...props} />
+      <KeyLabels {...props} />
       {!collapsed && (
         <>
-          <label>
-            Equave
-            <ScalaInput
-              context="interval"
-              value={equaveValue}
-              onChange={handleEquaveChange}
-              style={{ width: '4em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', borderRadius: '3px' }}
-              wrapperClass="sidebar-input"
-            />
-          </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', paddingTop: '0.5rem', marginBottom: '0.5rem' }}>
-            <button type="button" onClick={() => {
-              const n = props.settings.equivSteps || 12;
-              const equaveStr = (props.settings.scale && props.settings.scale[n - 1])
-                ? props.settings.scale[n - 1]
-                : "2/1";
-
-              const { cents: parsed, valid } = parseScalaInterval(equaveStr, 'interval');
-              const equaveCents = valid ? parsed : n * 100;
-
-              const step = equaveCents / n;
-              const newScale = [];
-              for (let i = 1; i <= n; i++) {
-                newScale.push(String((i * step).toFixed(1)));
-              }
-              props.onChange('scale_divide', newScale);
-            }}>
-              Divide Equave into {props.settings.equivSteps} Equal Divisions
-            </button>
-            <button type="button" onClick={() => {
-              const n = props.settings.equivSteps || 12;
-              const step = 1200 / n;
-              const newScale = [];
-              for (let i = 1; i <= n; i++) {
-                newScale.push(String((i * step).toFixed(1)));
-              }
-              props.onChange('scale_divide', newScale);
-            }}>
-              Divide Octave into {props.settings.equivSteps} Equal Divisions
-            </button>
-          </div>
-          <Colors {...props} />
-          <KeyLabels {...props} />
           <br />
           <ScaleTable key={props.settings.scale?.length} {...props} importCount={props.importCount} />
           <br />

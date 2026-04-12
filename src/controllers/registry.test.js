@@ -33,7 +33,7 @@ describe("controller registry", () => {
     expect(getController("push2").buildMap(36).size).toBe(43);
     expect(getController("launchpad").buildMap(36).size).toBe(64);
     expect(getController("exquis").buildMap(19).size).toBe(61);
-    expect(getController("generic").buildMap(60).size).toBe(128);
+    expect(getController("generic").buildMap).toBeUndefined();
   });
 
   it("collapses inferred TPX seam aliases onto shared physical coordinates", () => {

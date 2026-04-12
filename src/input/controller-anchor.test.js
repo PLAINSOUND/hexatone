@@ -605,7 +605,7 @@ describe('Generic keyboard mode-aware controller prefs', () => {
 });
 
 // ── Shared behaviour suite for simple single-channel mode-aware controllers ───
-// TS41, Push2, Launchpad, and Generic all use the same layout2d/bypass pattern
+// TS41, Push2, and Launchpad all use the same layout2d/bypass pattern
 // with no anchorChannelDefault. This helper drives identical assertions for each.
 
 function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) {
@@ -663,3 +663,24 @@ function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) 
 describeSingleChannelModes('TS41',      TS41_MODES,      36);
 describeSingleChannelModes('Push2',     PUSH2_MODES,     36);
 describeSingleChannelModes('Launchpad', LAUNCHPAD_MODES, 36);
+
+describe('Generic Keyboard controller prefs', () => {
+  it('uses the single stored anchor note', () => {
+    saveAnchor(GENERIC_MODES, 72);
+    expect(loadAnchorSettingsUpdate(GENERIC_MODES).midiin_central_degree).toBe(72);
+  });
+
+  it('uses the single stored anchor channel', () => {
+    saveAnchorChannel(GENERIC_MODES, 4);
+    const update = loadAnchorSettingsUpdate(GENERIC_MODES);
+    expect(update.midiin_anchor_channel).toBe(4);
+    expect(update.lumatone_center_channel).toBe(4);
+    expect(update.lumatone_center_note).toBe(60);
+  });
+
+  it('falls back to legacy flat anchor if no anchor has been stored', () => {
+    localStorage.setItem('generic_anchor', '77');
+    const update = loadAnchorSettingsUpdate(GENERIC_MODES);
+    expect(update.midiin_central_degree).toBe(77);
+  });
+});

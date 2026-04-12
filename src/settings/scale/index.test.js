@@ -25,6 +25,10 @@ const minimalSettings = {
 };
 
 describe('Scale panel — default state', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it('renders the scale table by default', () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     expect(document.querySelector('table')).not.toBeNull();
@@ -44,6 +48,14 @@ describe('Scale panel — default state', () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     const label = screen.getByText('Assigned Scale Degree').closest('label');
     expect(label?.classList.contains('reference-degree-row')).toBe(true);
+  });
+
+  it('keeps settings through Key Labels visible when the table is collapsed', () => {
+    sessionStorage.setItem('hexatone_scale_collapsed', 'true');
+    render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
+    expect(document.querySelector('table')).toBeNull();
+    expect(screen.getByText('Equave')).not.toBeNull();
+    expect(screen.getByText('Key Labels')).not.toBeNull();
   });
 });
 

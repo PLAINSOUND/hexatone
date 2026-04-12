@@ -462,20 +462,6 @@ function buildLaunchpadMap(anchorNote, colStep = 2, rowStep = 5) {
   return result;
 }
 
-// ── Generic Single-Channel Keyboard ──────────────────────────────────────────
-// Any device sending 128 notes on a single MIDI channel.
-// Notes are mapped linearly along the x-axis: note N → x = N − anchorNote, y = 0.
-// Designed for use with DIRECT + Tuning Map output, where hexatone sends back
-// the exact tuning for each received MIDI note number.
-
-function buildGenericKeyboardMap(anchorNote) {
-  const entries = [];
-  for (let note = 0; note <= 127; note++) {
-    entries.push({ ch: 1, note, x: note - anchorNote, y: 0 });
-  }
-  return makeMap(entries);
-}
-
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 export const CONTROLLER_REGISTRY = [
@@ -720,32 +706,12 @@ export const CONTROLLER_REGISTRY = [
     name: 'Generic Single-Channel Keyboard',
     // Never auto-detected — selected manually via the controller override dropdown.
     detect: () => false,
-    description: '128 notes mapped linearly around the anchor. Anchor channel and per-channel offset are user-configurable.',
+    description: '1D keyboard input. 2D geometry is bypassed; anchor channel and per-channel offset are user-configurable.',
     multiChannel: false,
     mpe: false,
     anchorDefault: 60,
     anchorChannelDefault: 1,
     supportsSequentialChannelOffset: true,
-    applyChannelOffsetOnMap: true,
-    defaultMode: 'layout2d',
-    modes: {
-      layout2d: {
-        defaultPrefs: {
-          anchorNote:       60,
-          anchorChannel:    1,
-          midi_passthrough: false,
-        },
-      },
-      bypass: {
-        defaultPrefs: {
-          anchorNote:       60,
-          anchorChannel:    1,
-          midi_passthrough: true,
-        },
-      },
-    },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
-    buildMap: (anchorNote) => buildGenericKeyboardMap(anchorNote ?? 60),
   },
 ];
 

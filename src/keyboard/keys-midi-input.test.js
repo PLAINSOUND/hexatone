@@ -219,7 +219,7 @@ describe("Keys MIDI input integration", () => {
     expect(hexOn).toHaveBeenCalledTimes(1);
   });
 
-  it("applies channel offsets for the Generic Keyboard controller map", () => {
+  it("applies channel offsets for generic keyboard step arithmetic without a controller map", () => {
     const keys = createKeys(
       {
         midiin_central_degree: 60,
@@ -237,17 +237,16 @@ describe("Keys MIDI input integration", () => {
     }));
     keys.hexOn = hexOn;
     keys.hexOff = vi.fn();
-    keys.controller = {
-      multiChannel: false,
-      applyChannelOffsetOnMap: true,
-    };
-    keys.controllerMap = new Map([["1.60", new Point(0, 0)]]);
-    keys.bestVisibleCoord = vi.fn(() => new Point(12, 0));
+    keys.controller = null;
+    keys.controllerMap = null;
+    keys.coordResolver.noteToSteps = vi.fn(() => 12);
+    keys.coordResolver.bestVisibleCoord = vi.fn(() => new Point(12, 0));
 
     keys.midinoteOn(makeMidiEvent(60, 5));
 
     expect(hexOn).toHaveBeenCalledTimes(1);
-    expect(keys.bestVisibleCoord).toHaveBeenCalledWith(12);
+    expect(keys.coordResolver.noteToSteps).toHaveBeenCalledWith(60, 5);
+    expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(12);
     expect(hexOn.mock.calls[0][0]).toEqual(new Point(12, 0));
   });
 

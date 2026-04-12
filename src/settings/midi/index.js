@@ -82,6 +82,7 @@ const MIDIio = (props) => {
   const showChannelTranspose = !scaleMode && !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
   const showExquisBendControls = !(ctrl?.id === 'exquis' && !props.settings.midiin_mpe_input);
   const showWheelToRecent = !(ctrl?.id === 'exquis' && !props.settings.midiin_mpe_input);
+  const genericBypassesGeometry = ctrl?.id === 'generic';
 
   // mpeSetupOpen removed — MPE options are shown flat when MPE is enabled.
 
@@ -357,25 +358,34 @@ const MIDIio = (props) => {
                   )}
                 </span>
               </label>
-              <label>
-                Sequential mode (bypass 2D geometry)
-                <input
-                  name="midi_passthrough"
-                  type="checkbox"
-                  checked={!!props.settings.midi_passthrough}
-                  onChange={(e) => {
-                    props.onChange('midi_passthrough', e.target.checked);
-                    sessionStorage.setItem('midi_passthrough', e.target.checked);
-                    saveControllerPref(
-                      ctrl,
-                      'midi_passthrough',
-                      e.target.checked,
-                      props.settings,
-                      { midi_passthrough: e.target.checked },
-                    );
-                  }}
-                />
-              </label>
+              {genericBypassesGeometry ? (
+                <label>
+                  2D Geometry
+                  <span class="sidebar-input" style={{ color: '#888', fontStyle: 'italic' }}>
+                    2D geometry is bypassed
+                  </span>
+                </label>
+              ) : (
+                <label>
+                  Sequential mode (bypass 2D geometry)
+                  <input
+                    name="midi_passthrough"
+                    type="checkbox"
+                    checked={!!props.settings.midi_passthrough}
+                    onChange={(e) => {
+                      props.onChange('midi_passthrough', e.target.checked);
+                      sessionStorage.setItem('midi_passthrough', e.target.checked);
+                      saveControllerPref(
+                        ctrl,
+                        'midi_passthrough',
+                        e.target.checked,
+                        props.settings,
+                        { midi_passthrough: e.target.checked },
+                      );
+                    }}
+                  />
+                </label>
+              )}
 
               {/* ── Lumatone LED colour sync + layout ── */}
               {ctrl?.id === 'lumatone' && (
