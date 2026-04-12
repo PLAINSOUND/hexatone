@@ -428,13 +428,13 @@ const App = () => {
         Array.isArray(settings.note_names) &&
         settings.note_names.length > 0);
 
-    // Color validation: either use spectrum_colors with fundamental_color,
-    // or use note_colors array
+    const normalizedColors = normalizeColors(settings);
+    // Color validation: spectrum mode uses the central hue directly; when
+    // spectrum is off, missing note_colors are auto-derived from that same hue.
     const colorsValid =
-      (settings.spectrum_colors && settings.fundamental_color) ||
-      (settings.note_colors &&
-        Array.isArray(settings.note_colors) &&
-        settings.note_colors.length > 0);
+      !!normalizedColors.fundamental_color &&
+      Array.isArray(normalizedColors.note_colors) &&
+      normalizedColors.note_colors.length > 0;
 
     return hasLayout && hasScale && labelsValid && colorsValid;
   }, [settings]);

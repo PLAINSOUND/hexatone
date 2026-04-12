@@ -1,14 +1,39 @@
 import { scalaToCents, scalaToLabels } from "./settings/scale/parse-scale.js";
 import keyCodeToCoords from "./settings/keycodes";
+import { hex2rgb, rgb2hsv, HSVtoRGB2, rgbToHex } from "./keyboard/color_utils.js";
+
+export function deriveSpectrumNoteColors(settings, fundamentalColor) {
+  const count = settings.equivSteps || settings.scale?.length || 0;
+  if (!count) return [];
+
+  let fcolor = hex2rgb(`#${fundamentalColor || "f2e3e3"}`);
+  fcolor = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
+  const baseHue = fcolor.h / 360;
+  const sat = fcolor.s / 100;
+  const val = fcolor.v / 100;
+
+  return Array.from({ length: count }, (_, index) => {
+    const hue = (baseHue + index / count) % 1;
+    const rgb = HSVtoRGB2(hue, sat, val);
+    return rgbToHex(rgb.red, rgb.green, rgb.blue).replace(/^#/, "");
+  });
+}
 
 // Color fields only — changes here should NOT reconstruct the hex grid.
-export const normalizeColors = (settings) => ({
-  fundamental_color: (settings.fundamental_color || "").replace(/#/, ""),
-  note_colors: (settings.note_colors || []).map((c) =>
+export const normalizeColors = (settings) => {
+  const fundamental_color = (settings.fundamental_color || "").replace(/#/, "");
+  const note_colors = (settings.note_colors || []).map((c) =>
     c ? c.replace(/#/, "") : "ffffff",
-  ),
-  spectrum_colors: settings.spectrum_colors,
-});
+  );
+
+  return {
+    fundamental_color,
+    note_colors: note_colors.length > 0
+      ? note_colors
+      : deriveSpectrumNoteColors(settings, fundamental_color),
+    spectrum_colors: settings.spectrum_colors,
+  };
+};
 
 // Everything except colors — changes here rebuild the Keys instance.
 export const normalizeStructural = (settings) => {

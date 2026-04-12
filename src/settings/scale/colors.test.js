@@ -28,7 +28,7 @@ describe('Colors — spectrum colors off', () => {
 });
 
 describe('Colors — spectrum colors on', () => {
-  const settings = { spectrum_colors: true, fundamental_color: '#abcdef' };
+  const settings = { spectrum_colors: true, fundamental_color: '#abcdef', equivSteps: 12 };
 
   it('renders the hue picker when spectrum is on', () => {
     render(<Colors settings={settings} onChange={() => {}} />);
@@ -38,6 +38,11 @@ describe('Colors — spectrum colors on', () => {
   it('hue picker has the correct value', () => {
     render(<Colors settings={settings} onChange={() => {}} />);
     expect(screen.getByLabelText('hex colour for central hue').value).toBe('#abcdef');
+  });
+
+  it('renders the load spectrum colors action', () => {
+    render(<Colors settings={settings} onChange={() => {}} />);
+    expect(screen.getByRole('button', { name: /load spectrum colors/i })).not.toBeNull();
   });
 });
 
@@ -59,5 +64,16 @@ describe('Colors — interactions', () => {
     const picker = document.querySelector('input[type="color"]');
     fireEvent.change(picker, { target: { value: '#ff0000' } });
     expect(onChange).toHaveBeenCalledWith('fundamental_color', '#ff0000');
+  });
+
+  it('loads the derived spectrum palette into note_colors when requested', () => {
+    const onChange = vi.fn();
+    const settings = { spectrum_colors: true, fundamental_color: '#abcdef', equivSteps: 12 };
+    render(<Colors settings={settings} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /load spectrum colors/i }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toBe('note_colors');
+    expect(onChange.mock.calls[0][1]).toHaveLength(12);
+    expect(onChange.mock.calls[0][1][0]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 });

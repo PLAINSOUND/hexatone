@@ -2,6 +2,7 @@ import { h, createRef } from 'preact';
 import { Fragment } from 'preact/compat';
 import { useRef } from 'preact/hooks';
 import PropTypes from 'prop-types';
+import { deriveSpectrumNoteColors } from '../../normalize-settings.js';
 
 export const colorProp = function(props, propName, componentName) {
   const value = props[propName];
@@ -77,6 +78,11 @@ const Colors = (props) => {
     }
   };
 
+  const handleLoadSpectrumColors = () => {
+    const colors = deriveSpectrumNoteColors(props.settings, safe.replace(/^#/, ''));
+    props.onChange('note_colors', colors.map((color) => `#${color}`));
+  };
+
   return (
     <>
       <label>
@@ -86,42 +92,52 @@ const Colors = (props) => {
                onChange={(e) => props.onChange(e.target.name, e.target.checked)} />
       </label>
       {props.settings.spectrum_colors && (
-        <label>
-          Choose Central Hue
-          <div class="color-cell" style={{ marginLeft: '50%' }}>
-            <span
-              ref={swatchRef}
-              class="color-swatch"
-              style={{ backgroundColor: safe }}
-              onClick={handleSwatchClick}
-              title="Click to open colour picker"
-              role="button"
-              aria-label="open colour picker for central hue"
-            />
-            <input
-              ref={pickerRef}
-              type="color"
-              class="color-picker-hidden"
-              value={safe}
-              onInput={handlePickerInput}
-              onChange={handlePickerChange}
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-            <input
-              ref={textRef}
-              type="text"
-              class="color-input"
-              defaultValue={safe}
-              key={safe}
-              maxLength={7}
-              placeholder="#rrggbb"
-              onInput={handleTextInput}
-              onBlur={handleTextBlur}
-              aria-label="hex colour for central hue"
-            />
-          </div>
-        </label>
+        <>
+          <label>
+            Choose Central Hue
+            <div class="color-cell" style={{ marginLeft: '50%' }}>
+              <span
+                ref={swatchRef}
+                class="color-swatch"
+                style={{ backgroundColor: safe }}
+                onClick={handleSwatchClick}
+                title="Click to open colour picker"
+                role="button"
+                aria-label="open colour picker for central hue"
+              />
+              <input
+                ref={pickerRef}
+                type="color"
+                class="color-picker-hidden"
+                value={safe}
+                onInput={handlePickerInput}
+                onChange={handlePickerChange}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+              <input
+                ref={textRef}
+                type="text"
+                class="color-input"
+                defaultValue={safe}
+                key={safe}
+                maxLength={7}
+                placeholder="#rrggbb"
+                onInput={handleTextInput}
+                onBlur={handleTextBlur}
+                aria-label="hex colour for central hue"
+              />
+            </div>
+          </label>
+          <label>
+            Table Colors
+            <span class="sidebar-input" style={{ textAlign: 'right' }}>
+              <button type="button" aria-label="Load Spectrum Colors" onClick={handleLoadSpectrumColors}>
+                Load Spectrum Colors to Scale Table
+              </button>
+            </span>
+          </label>
+        </>
       )}
     </>
   );
@@ -132,6 +148,9 @@ Colors.propTypes = {
   settings: PropTypes.shape({
     spectrum_colors: PropTypes.bool,
     fundamental_color: colorProp,
+    note_colors: PropTypes.arrayOf(PropTypes.string),
+    equivSteps: PropTypes.number,
+    scale: PropTypes.array,
   }),
 };
 
