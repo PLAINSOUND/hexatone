@@ -83,6 +83,7 @@ export const SETTINGS_REGISTRY = [
   { key: 'midiin_bend_range',        tier: 'local', type: 'string', default: '64/63', perController: false, description: 'Pitch bend interval (shared across controllers)' },
   { key: 'midiin_scale_bend_range',  tier: 'local', type: 'int',    default: 48,      perController: true,  description: 'MPE pitch bend range (semitones) used in Nearest Scale Degree mode' },
   { key: 'midi_passthrough',         tier: 'local', type: 'bool',   default: false,   perController: true,  description: 'Sequential (passthrough) mode for this controller' },
+  { key: 'tonalplexus_input_mode',   tier: 'local', type: 'string', default: 'blocks_41', perController: true, description: 'Tonal Plexus input interpretation for this controller' },
 
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: 'midiin_device',           tier: 'session', type: 'string', default: 'OFF' },

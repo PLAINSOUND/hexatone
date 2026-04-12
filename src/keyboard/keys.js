@@ -90,6 +90,7 @@ class Keys {
       seqAnchorNote:     settings.midiin_central_degree ?? 60,
       seqAnchorChannel:  settings.midiin_anchor_channel ?? 1,
       stepsPerChannel:   settings.midiin_steps_per_channel,
+      stepsPerChannelDefault: settings.equivSteps,
       channelGroupSize:  settings.midiin_channel_group_size ?? 1,
       legacyChannelMode: settings.midiin_channel_legacy,
       scaleTolerance:    50,
@@ -1631,6 +1632,10 @@ class Keys {
     return this.bestVisibleCoord(baseSteps + channelOffset) ?? baseCoords;
   }
 
+  _normalizeInputAddress(channel, note) {
+    return this.controller?.normalizeInput?.(channel, note, this.settings) ?? { channel, note };
+  }
+
   midinoteOn = (e) => {
     const bend = this.bend || 0;
     const note_played = e.note.number + 128 * (e.message.channel - 1);
@@ -1671,6 +1676,8 @@ class Keys {
       if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
       coords = this.coordResolver.bestVisibleCoord(result.steps);
     } else if (this.inputRuntime.layoutMode === 'sequential') {
+      const normalized = this._normalizeInputAddress(e.message.channel, e.note.number);
+      if (!normalized) return;
       // Sequential mode: ignore controller geometry, use step arithmetic.
       // Also forward raw notes when MTS output is off (MTS via hexOn would double them).
       if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
@@ -1680,7 +1687,7 @@ class Keys {
         });
       }
       coords = this.coordResolver.bestVisibleCoord(
-        this.coordResolver.noteToSteps(e.note.number, e.message.channel),
+        this.coordResolver.noteToSteps(normalized.note, normalized.channel),
       );
     } else if (this.controllerMap) {
       // Known controller: direct coordinate lookup from pre-built map.
@@ -1755,6 +1762,7 @@ class Keys {
         coordsList = this.coordResolver.stepsToVisibleCoords(result.steps);
       }
     } else if (this.inputRuntime.layoutMode === 'sequential' || !this.controllerMap) {
+      const normalized = this._normalizeInputAddress(e.message.channel, e.note.number);
       // Sequential or generic keyboard: step arithmetic (may hit multiple visible coords).
       if (this.inputRuntime.layoutMode === 'sequential' && !this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
         this.midiout_data.sendNoteOff(e.note.number, {
@@ -1762,9 +1770,11 @@ class Keys {
           rawRelease: e.note.rawRelease,
         });
       }
-      coordsList = this.coordResolver.stepsToVisibleCoords(
-        this.coordResolver.noteToSteps(e.note.number, e.message.channel),
-      );
+      coordsList = normalized
+        ? this.coordResolver.stepsToVisibleCoords(
+          this.coordResolver.noteToSteps(normalized.note, normalized.channel),
+        )
+        : [];
     } else {
       // Known controller: direct lookup returns exactly one coord.
       const lookupChannel = this.controller.multiChannel ? e.message.channel : 1;
@@ -1828,8 +1838,9 @@ class Keys {
           }
         } else {
           // Sequential or generic keyboard: step arithmetic.
+          const normalized = this._normalizeInputAddress(channel, note);
           coordsList = this.coordResolver.stepsToVisibleCoords(
-            this.coordResolver.noteToSteps(note, channel),
+            this.coordResolver.noteToSteps(normalized.note, normalized.channel),
           );
         }
 

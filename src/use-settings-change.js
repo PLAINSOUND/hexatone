@@ -103,6 +103,18 @@ const useSettingsChange = (
       return;
     }
 
+    if (key === "tonalplexus_input_mode") {
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
+      setSettings((prev) => ({
+        ...prev,
+        tonalplexus_input_mode: value,
+        ...(ctrl?.id === 'tonalplexus'
+          ? loadAnchorSettingsUpdate(ctrl, { ...prev, tonalplexus_input_mode: value })
+          : {}),
+      }));
+      return;
+    }
+
     // When the user manually changes the anchor note for a known controller, save it
     // to localStorage keyed by controller ID so it's restored on next connect.
     if (key === "midiin_central_degree") {

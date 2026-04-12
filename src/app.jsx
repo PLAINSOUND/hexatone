@@ -30,6 +30,7 @@ import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
 import { ExquisLEDs } from "./controllers/exquis-leds.js";
 import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
+import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
 
@@ -457,13 +458,37 @@ const App = () => {
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
   // rather than from settings directly for any input-related branch.
+  const connectedInput = useMemo(
+    () => (midi && settings.midiin_device && settings.midiin_device !== "OFF"
+      ? Array.from(midi.inputs.values()).find((input) => input.id === settings.midiin_device) ?? null
+      : null),
+    [midi, settings.midiin_device],
+  );
+  const inputController = useMemo(() => {
+    const overrideId = settings.midiin_controller_override || "auto";
+    if (overrideId !== "auto") return getControllerById(overrideId);
+    return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
+  }, [connectedInput, settings.midiin_controller_override]);
+  const normalizedSeqAnchor = useMemo(
+    () => inputController?.normalizeInput?.(
+      settings.midiin_anchor_channel ?? 1,
+      settings.midiin_central_degree ?? 60,
+      settings,
+    ) ?? {
+      channel: settings.midiin_anchor_channel ?? 1,
+      note: settings.midiin_central_degree ?? 60,
+    },
+    [inputController, settings],
+  );
+
   const inputRuntime = useMemo(() => ({
     target:           settings.midiin_mapping_target || 'hex_layout',
     layoutMode:       settings.midi_passthrough ? 'sequential' : 'controller_geometry',
     mpeInput:         !!settings.midiin_mpe_input,
-    seqAnchorNote:    settings.midiin_central_degree ?? 60,
-    seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
+    seqAnchorNote:    normalizedSeqAnchor.note,
+    seqAnchorChannel: normalizedSeqAnchor.channel,
     stepsPerChannel:  settings.midiin_steps_per_channel,
+    stepsPerChannelDefault: settings.equivSteps,
     channelGroupSize: settings.midiin_channel_group_size ?? 1,
     legacyChannelMode: settings.midiin_channel_legacy,
     scaleTolerance:   settings.midiin_scale_tolerance ?? 25,
@@ -486,8 +511,6 @@ const App = () => {
     settings.midiin_mapping_target,
     settings.midi_passthrough,
     settings.midiin_mpe_input,
-    settings.midiin_central_degree,
-    settings.midiin_anchor_channel,
     settings.midiin_steps_per_channel,
     settings.midiin_channel_group_size,
     settings.midiin_channel_legacy,
@@ -501,6 +524,8 @@ const App = () => {
     settings.midiin_bend_range,
     settings.midiin_bend_flip,
     settings.midiin_scale_bend_range,
+    settings,
+    normalizedSeqAnchor,
   ]);
 
   // Structural settings: everything except colors. Memoized so Keys is only

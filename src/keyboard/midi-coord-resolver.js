@@ -82,9 +82,9 @@ export class MidiCoordResolver {
     // Prefer inputRuntime values when available (set at Keys construction time from
     // derived inputRuntime); fall back to raw settings for backwards compatibility.
     const ir = this.inputRuntime;
-    const stepsPerChannel =
-      (ir ? ir.stepsPerChannel : this.settings.midiin_steps_per_channel)
-      ?? this.settings.equivSteps;
+    const explicitStepsPerChannel = ir ? ir.stepsPerChannel : this.settings.midiin_steps_per_channel;
+    const defaultStepsPerChannel = ir?.stepsPerChannelDefault ?? this.settings.equivSteps;
+    const stepsPerChannel = explicitStepsPerChannel ?? defaultStepsPerChannel;
     const anchorChannel =
       (ir ? ir.seqAnchorChannel : this.settings.midiin_anchor_channel) ?? 1;
     const channelGroupSize = Math.max(
@@ -118,8 +118,11 @@ export class MidiCoordResolver {
    * @returns {number}           integer scale-degree distance
    */
   noteToSteps(noteNumber, channel) {
+    const ir = this.inputRuntime;
+    const anchorNote =
+      (ir ? ir.seqAnchorNote : this.settings.midiin_central_degree) ?? 60;
     return (
-      (noteNumber - this.settings.midiin_central_degree) +
+      (noteNumber - anchorNote) +
       (this.settings.center_degree || 0) +
       this.channelToStepsOffset(channel)
     );

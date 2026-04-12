@@ -840,8 +840,8 @@ const useSynthWiring = (
     // midiin_anchor_channel drives the relative channel-offset formula in
     // noteToSteps() for all paths (sequential, unknown, passthrough).
     // For the Lumatone 2D-map path, lumatone_center_channel is also updated.
-    sessionStorage.setItem("midiin_central_degree", String(noteNum));
-    sessionStorage.setItem("midiin_anchor_channel", String(ch));
+    sessionStorage.setItem("midiin_central_degree", String(update.midiin_central_degree));
+    sessionStorage.setItem("midiin_anchor_channel", String(update.midiin_anchor_channel));
     if (update.lumatone_center_channel != null) {
       sessionStorage.setItem("lumatone_center_channel", String(update.lumatone_center_channel));
       sessionStorage.setItem("lumatone_center_note",    String(update.lumatone_center_note));

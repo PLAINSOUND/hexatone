@@ -393,6 +393,87 @@ function buildTonalPlexusMap(anchorChannel, anchorNote) {
   return makeMap(entries);
 }
 
+const TPX_41_EVEN_GROUPS = [
+  [0, 4], [5, 9], [10, 14], [15, 20], [21, 25],
+  [26, 30], [31, 35], [36, 40], [41, 45], [46, 50],
+  [51, 55], [56, 60], [61, 65], [66, 71], [72, 76],
+  [77, 81], [82, 86], [87, 91], [92, 96], [97, 101],
+];
+
+const TPX_41_ODD_GROUPS = [
+  [3, 7], [8, 12], [13, 17], [18, 22], [23, 27],
+  [28, 32], [33, 38], [39, 43], [44, 48], [49, 54],
+  [55, 59], [60, 64], [65, 69], [70, 74], [75, 79],
+  [80, 84], [85, 90], [91, 95], [96, 100], [101, 105],
+];
+
+export function getTonalPlexusInputMode(settings = {}) {
+  return settings.tonalplexus_input_mode || 'blocks_41';
+}
+
+function getTonalPlexus41ExtraCounts(settings = {}) {
+  const equivSteps = settings.equivSteps ?? 41;
+  const extraSteps = Math.max(0, Math.min(10, equivSteps - 41));
+  if (extraSteps <= 4) {
+    return {
+      topExtraCount: extraSteps,
+      bottomExtraCount: 0,
+    };
+  }
+  if (extraSteps <= 8) {
+    return {
+      topExtraCount: 4,
+      bottomExtraCount: extraSteps - 4,
+    };
+  }
+  if (extraSteps === 9) {
+    return {
+      topExtraCount: 5,
+      bottomExtraCount: 4,
+    };
+  }
+  return {
+    topExtraCount: 5,
+    bottomExtraCount: 5,
+  };
+}
+
+function findTonalPlexusGroupIndex(note, groups) {
+  return groups.findIndex(([lo, hi]) => note >= lo && note <= hi);
+}
+
+export function normalizeTonalPlexus41Input(channel, note) {
+  return normalizeTonalPlexus41InputWithSettings(channel, note, {});
+}
+
+export function normalizeTonalPlexus41InputWithSettings(channel, note, settings = {}) {
+  const channel0 = channel - 1;
+  if (channel0 < 2 || channel0 > 13) return null;
+
+  const blockIndex = Math.floor((channel0 - 2) / 2);
+  const isEvenChannel = channel0 % 2 === 0;
+  const { topExtraCount, bottomExtraCount } = getTonalPlexus41ExtraCounts(settings);
+
+  if (isEvenChannel) {
+    if (note >= 0 && note < bottomExtraCount) {
+      return { channel: blockIndex + 1, note: note - bottomExtraCount + 1 };
+    }
+    if (note >= 102 && note <= 104) return { channel: blockIndex + 1, note: 21 };
+    const groupIndex = findTonalPlexusGroupIndex(note, TPX_41_EVEN_GROUPS);
+    return groupIndex >= 0 ? { channel: blockIndex + 1, note: groupIndex + 1 } : null;
+  }
+
+  if (note >= 0 && note <= 2) return { channel: blockIndex + 1, note: 21 };
+  if (topExtraCount > 0) {
+    const topExtraStart = 106 - topExtraCount;
+    if (note >= topExtraStart && note <= 105) {
+      return { channel: blockIndex + 1, note: 42 + (note - topExtraStart) };
+    }
+  }
+  const groupIndex = findTonalPlexusGroupIndex(note, TPX_41_ODD_GROUPS);
+  return groupIndex >= 0 ? { channel: blockIndex + 1, note: groupIndex + 22 } : null;
+}
+
 // ── LinnStrument 128 ──────────────────────────────────────────────────────────
 // 16 columns × 8 rows, multi-channel (each row = one channel, channels 1–8).
 // Default note layout: each column = +1 semitone, each row = +5 semitones up.
@@ -469,37 +550,44 @@ export const CONTROLLER_REGISTRY = [
     id: 'tonalplexus',
     name: 'Tonal Plexus',
     detect: name => name.includes('tonal plexus') || name.includes('tonalplexus') || name.includes('tpx'),
-    description: '6 Bosanquet blocks across channel pairs 3–14. First-pass 205-key-per-block geometry with explicit seam aliases.',
+    description: '6 Bosanquet blocks across channel pairs 3–14. 2 TPX user modes: 41 notes per block works with any hexatone layout; 205edo mode needs the dedicated 205edo TPX preset.',
     multiChannel: true,
     mpe: false,
     anchorDefault: 7,
     anchorChannelDefault: 9,
     sequentialTransposeDefault: null,
-    sequentialChannelGroupSize: 2,
+    sequentialChannelGroupSize: 1,
     sequentialLegacyDefault: false,
     learnConstraints: {
       noteRange:    { min: 0, max: 105 },
       channelRange: { min: 3, max: 14 },
       multiChannel: true,
     },
-    defaultMode: 'layout2d',
+    defaultMode: 'blocks41',
     modes: {
-      layout2d: {
-        defaultPrefs: {
-          anchorNote: 7,
-          anchorChannel: 9,
-          midi_passthrough: false,
-        },
-      },
-      bypass: {
+      blocks41: {
         defaultPrefs: {
           anchorNote: 7,
           anchorChannel: 9,
           midi_passthrough: true,
+          tonalplexus_input_mode: 'blocks_41',
+        },
+      },
+      layout205: {
+        defaultPrefs: {
+          anchorNote: 7,
+          anchorChannel: 9,
+          midi_passthrough: false,
+          tonalplexus_input_mode: 'layout_205',
         },
       },
     },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    resolveMode: (settings = {}) => (getTonalPlexusInputMode(settings) === 'layout_205' ? 'layout205' : 'blocks41'),
+    normalizeInput: (channel, note, settings = {}) => (
+      getTonalPlexusInputMode(settings) === 'blocks_41'
+        ? normalizeTonalPlexus41InputWithSettings(channel, note, settings)
+        : { channel, note }
+    ),
     buildMap: (anchorNote, anchorChannel) => buildTonalPlexusMap(anchorChannel ?? 9, anchorNote ?? 7),
   },
 

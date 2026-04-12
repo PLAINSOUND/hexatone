@@ -122,26 +122,28 @@ const TONALPLEXUS_MODES = {
   anchorChannelDefault: 9,
   mpe: false,
   sequentialTransposeDefault: null,
-  sequentialChannelGroupSize: 2,
+  sequentialChannelGroupSize: 1,
   sequentialLegacyDefault: false,
-  defaultMode: 'layout2d',
+  defaultMode: 'blocks41',
   modes: {
-    layout2d: {
-      defaultPrefs: {
-        anchorNote: 7,
-        anchorChannel: 9,
-        midi_passthrough: false,
-      },
-    },
-    bypass: {
+    blocks41: {
       defaultPrefs: {
         anchorNote: 7,
         anchorChannel: 9,
         midi_passthrough: true,
+        tonalplexus_input_mode: 'blocks_41',
+      },
+    },
+    layout205: {
+      defaultPrefs: {
+        anchorNote: 7,
+        anchorChannel: 9,
+        midi_passthrough: false,
+        tonalplexus_input_mode: 'layout_205',
       },
     },
   },
-  resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+  resolveMode: (settings = {}) => (settings.tonalplexus_input_mode === 'layout_205' ? 'layout205' : 'blocks41'),
 };
 
 // MPE controller (LinnStrument) — user-configurable voice channel range
@@ -582,15 +584,23 @@ describe('AXIS-49 mode-aware controller prefs', () => {
 });
 
 describe('Tonal Plexus mode-aware controller prefs', () => {
-  it('loads the corrected TPX default anchor and pair grouping', () => {
-    const update = loadAnchorSettingsUpdate(TONALPLEXUS_MODES, { midi_passthrough: false });
+  it('loads the default 41-slot TPX anchor and block grouping', () => {
+    const update = loadAnchorSettingsUpdate(TONALPLEXUS_MODES, { tonalplexus_input_mode: 'blocks_41' });
     expect(update.midiin_central_degree).toBe(7);
     expect(update.midiin_anchor_channel).toBe(9);
     expect(update.lumatone_center_channel).toBe(9);
     expect(update.lumatone_center_note).toBe(7);
     expect(update.midiin_steps_per_channel).toBe(null);
-    expect(update.midiin_channel_group_size).toBe(2);
+    expect(update.midiin_channel_group_size).toBe(1);
     expect(update.midiin_channel_legacy).toBe(false);
+  });
+
+  it('restores the 205edo TPX anchor when that mode is selected', () => {
+    const update = loadAnchorSettingsUpdate(TONALPLEXUS_MODES, { tonalplexus_input_mode: 'layout_205' });
+    expect(update.midiin_central_degree).toBe(7);
+    expect(update.midiin_anchor_channel).toBe(9);
+    expect(update.lumatone_center_channel).toBe(9);
+    expect(update.lumatone_center_note).toBe(7);
   });
 });
 

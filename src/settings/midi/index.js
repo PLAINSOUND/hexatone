@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import PropTypes from 'prop-types';
-import { detectController, getControllerById } from '../../controllers/registry.js';
+import { detectController, getControllerById, getTonalPlexusInputMode } from '../../controllers/registry.js';
 import { saveControllerPref } from '../../input/controller-anchor.js';
 import ScalaInput from '../scale/scala-input.js';
 
@@ -28,6 +28,7 @@ const MIDIio = (props) => {
   const ctrl = controllerOverrideId !== 'auto'
     ? getControllerById(controllerOverrideId)
     : detectController(deviceName);
+  const tonalPlexus41Mode = ctrl?.id === 'tonalplexus' && getTonalPlexusInputMode(props.settings) === 'blocks_41';
 
   // midiin_central_degree is stored as the raw physical MIDI note number.
   const center_degree = props.settings.center_degree || 0;
@@ -57,7 +58,7 @@ const MIDIio = (props) => {
       props.onChange('midiin_steps_per_channel', null);
       sessionStorage.removeItem('midiin_steps_per_channel');
     } else if (mode === 'custom') {
-      // Seed with equivSteps so the user has a sensible starting value.
+      // Seed with the current equave size so the user has a sensible starting value.
       const initial = props.settings.equivSteps ?? 12;
       props.onChange('midiin_steps_per_channel', initial);
       sessionStorage.setItem('midiin_steps_per_channel', String(initial));
@@ -69,7 +70,7 @@ const MIDIio = (props) => {
   //   - AND not a multichannel controller (Lumatone, LinnStrument, TonalPlexus —
   //     their channels encode layout geometry, not keyboard splits)
   const scaleMode = (props.settings.midiin_mapping_target || 'hex_layout') === 'scale';
-  const using2DMap = ctrl && !ctrl.supportsSequentialChannelOffset && !props.settings.midi_passthrough;
+  const using2DMap = ctrl && !tonalPlexus41Mode && !ctrl.supportsSequentialChannelOffset && !props.settings.midi_passthrough;
   // Channel Transposition is shown when sequential channel-offset arithmetic is meaningful:
   //   - not in active 2D geometry mode
   //   - not when MPE is on (channels carry per-voice expression, not splits)
@@ -113,23 +114,6 @@ const MIDIio = (props) => {
       </label>
 
       <label>
-        Controller Geometry
-        <select
-          class="sidebar-input"
-          value={controllerOverrideId}
-          onChange={(e) => {
-            props.onChange('midiin_controller_override', e.target.value);
-            sessionStorage.setItem('midiin_controller_override', e.target.value);
-          }}
-        >
-          <option value="auto">Auto Detect</option>
-          {MANUAL_CONTROLLER_OPTIONS.map((option) => (
-            <option value={option.id}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-
-      <label>
         Input Mode
         <select
           class="sidebar-input"
@@ -144,7 +128,51 @@ const MIDIio = (props) => {
         </select>
       </label>
 
-      {(props.settings.midiin_mapping_target || 'hex_layout') === 'scale' && (
+      {!scaleMode && (
+        <>
+          <label>
+            Controller Geometry
+            <select
+              class="sidebar-input"
+              value={controllerOverrideId}
+              onChange={(e) => {
+                props.onChange('midiin_controller_override', e.target.value);
+                sessionStorage.setItem('midiin_controller_override', e.target.value);
+              }}
+            >
+              <option value="auto">Auto Detect</option>
+              {MANUAL_CONTROLLER_OPTIONS.map((option) => (
+                <option value={option.id}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          {ctrl?.id === 'tonalplexus' && (
+            <label>
+              Tonal Plexus Mode
+              <select
+                class="sidebar-input"
+                value={getTonalPlexusInputMode(props.settings)}
+                onChange={(e) => {
+                  props.onChange('tonalplexus_input_mode', e.target.value);
+                  saveControllerPref(
+                    ctrl,
+                    'tonalplexus_input_mode',
+                    e.target.value,
+                    props.settings,
+                    { tonalplexus_input_mode: e.target.value },
+                  );
+                }}
+              >
+                <option value="blocks_41">41 notes per block</option>
+                <option value="layout_205">205edo fixed layout</option>
+              </select>
+            </label>
+          )}
+        </>
+      )}
+
+      {scaleMode && (
         <>
           <label title="Maximum distance in cents before a note is considered out of tolerance">
             Tolerance (cents)
@@ -296,7 +324,7 @@ const MIDIio = (props) => {
                   {ctrl && (
                     ctrl.anchorChannelDefault != null ? (
                       <input name="lumatone_center_channel" type="text" inputMode="numeric"
-                        title={`MIDI channel of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
+                      title={`${tonalPlexus41Mode ? 'Block' : 'MIDI channel'} of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
                         style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
                         key={anchorChannel}
                         defaultValue={anchorChannel}
@@ -326,7 +354,7 @@ const MIDIio = (props) => {
                       uses midiin_central_degree (0–127). */}
                   {ctrl?.multiChannel ? (
                     <input name="lumatone_center_note" type="text" inputMode="numeric"
-                      title={`Note number within anchor block (${anchorNoteRange.min}–${anchorNoteRange.max})`}
+                      title={`${tonalPlexus41Mode ? 'Slot' : 'Note number'} within anchor ${tonalPlexus41Mode ? 'block' : 'block'} (${anchorNoteRange.min}–${anchorNoteRange.max})`}
                       style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
                       key={controllerAnchorNote}
                       defaultValue={controllerAnchorNote}
@@ -363,6 +391,13 @@ const MIDIio = (props) => {
                   2D Geometry
                   <span class="sidebar-input" style={{ color: '#888', fontStyle: 'italic' }}>
                     2D geometry is bypassed
+                  </span>
+                </label>
+              ) : tonalPlexus41Mode ? (
+                <label>
+                  2D Geometry
+                  <span class="sidebar-input" style={{ color: '#888', fontStyle: 'italic' }}>
+                    41 notes per block mode uses grouped block-slot translation
                   </span>
                 </label>
               ) : (
@@ -754,17 +789,17 @@ const MIDIio = (props) => {
           {showChannelTranspose && (
             <>
               <label>
-                Channel Transposition
+                {tonalPlexus41Mode ? 'Block Transposition' : 'Channel Transposition'}
                 <select class="sidebar-input" value={stepsMode}
                   onChange={(e) => setStepsMode(e.target.value)}>
-                  <option value="equave">Channels → equaves ({props.settings.equivSteps ?? '…'} steps each)</option>
+                  <option value="equave">{tonalPlexus41Mode ? `Blocks → equaves (${props.settings.equivSteps ?? '…'} steps each)` : `Channels → equaves (${props.settings.equivSteps ?? '…'} steps each)`}</option>
                   <option value="none">No transposition</option>
                   <option value="custom">Custom…</option>
                 </select>
               </label>
               {stepsMode === 'custom' && (
                 <label>
-                  Degrees per channel
+                  {tonalPlexus41Mode ? 'Degrees per block' : 'Degrees per channel'}
                   <input type="text" inputMode="numeric" class="sidebar-input"
                     key={props.settings.midiin_steps_per_channel}
                     defaultValue={props.settings.midiin_steps_per_channel ?? ''}
@@ -780,18 +815,20 @@ const MIDIio = (props) => {
                   />
                 </label>
               )}
-              <label title="Wrap channels 9–16 to 1–8 before computing transposition offset. Enable for Lumatone mappings that use channels 9–13.">
-                Channels mod 8 (legacy)
-                <input
-                  name="midiin_channel_legacy"
-                  type="checkbox"
-                  checked={!!props.settings.midiin_channel_legacy}
-                  onChange={(e) => {
-                    props.onChange('midiin_channel_legacy', e.target.checked);
-                    sessionStorage.setItem('midiin_channel_legacy', e.target.checked);
-                  }}
-                />
-              </label>
+              {!tonalPlexus41Mode && (
+                <label title="Wrap channels 9–16 to 1–8 before computing transposition offset. Enable for Lumatone mappings that use channels 9–13.">
+                  Channels mod 8 (legacy)
+                  <input
+                    name="midiin_channel_legacy"
+                    type="checkbox"
+                    checked={!!props.settings.midiin_channel_legacy}
+                    onChange={(e) => {
+                      props.onChange('midiin_channel_legacy', e.target.checked);
+                      sessionStorage.setItem('midiin_channel_legacy', e.target.checked);
+                    }}
+                  />
+                </label>
+              )}
             </>
           )}
 

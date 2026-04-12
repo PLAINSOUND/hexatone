@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { CONTROLLER_REGISTRY, detectController } from "./registry.js";
+import {
+  CONTROLLER_REGISTRY,
+  detectController,
+  normalizeTonalPlexus41Input,
+  normalizeTonalPlexus41InputWithSettings,
+} from "./registry.js";
 
 const getController = (id) => CONTROLLER_REGISTRY.find((controller) => controller.id === id);
 
@@ -52,5 +57,35 @@ describe("controller registry", () => {
         .map(([, { x, y }]) => `${x},${y}`),
     );
     expect(blockCoords.size).toBe(206);
+  });
+
+  it("normalizes Tonal Plexus raw addresses into 41 slots per block", () => {
+    expect(normalizeTonalPlexus41Input(9, 7)).toEqual({ channel: 4, note: 2 });
+    expect(normalizeTonalPlexus41Input(9, 103)).toEqual({ channel: 4, note: 21 });
+    expect(normalizeTonalPlexus41Input(10, 1)).toEqual({ channel: 4, note: 21 });
+    expect(normalizeTonalPlexus41Input(10, 75)).toEqual({ channel: 4, note: 36 });
+  });
+
+  it("adds TPX top-end bonus notes for 42–45 note scales without renumbering the 41 base slots", () => {
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 42 })).toEqual({ channel: 4, note: 42 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 104, { equivSteps: 43 })).toEqual({ channel: 4, note: 42 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 43 })).toEqual({ channel: 4, note: 43 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 103, { equivSteps: 45 })).toEqual({ channel: 4, note: 43 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 101, { equivSteps: 45 })).toEqual({ channel: 4, note: 41 });
+  });
+
+  it("adds TPX bottom-end bonus notes for 46–49 note scales while keeping the base 41 slots fixed", () => {
+    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 46 })).toEqual({ channel: 4, note: 0 });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 49 })).toEqual({ channel: 4, note: -3 });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 3, { equivSteps: 49 })).toEqual({ channel: 4, note: 0 });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 4, { equivSteps: 49 })).toEqual({ channel: 4, note: 1 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 49 })).toEqual({ channel: 4, note: 45 });
+  });
+
+  it("fully splits both TPX extreme 5-note groups for 51+ note scales", () => {
+    expect(normalizeTonalPlexus41InputWithSettings(10, 101, { equivSteps: 53 })).toEqual({ channel: 4, note: 42 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 53 })).toEqual({ channel: 4, note: 46 });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 53 })).toEqual({ channel: 4, note: -4 });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 4, { equivSteps: 53 })).toEqual({ channel: 4, note: 0 });
   });
 });
