@@ -573,7 +573,7 @@ export const CONTROLLER_REGISTRY = [
     id: 'tonalplexus',
     name: 'Tonal Plexus',
     detect: name => name.includes('tonal plexus') || name.includes('tonalplexus') || name.includes('tpx'),
-    description: '6 Bosanquet blocks across channel pairs 3–14. 2 TPX user modes: 41 notes per block works with any hexatone layout; 205edo mode maps to nearest scale degree.',
+    description: '6 Bosanquet blocks across channel pairs 3–14.',
     multiChannel: true,
     mpe: false,
     anchorDefault: 7,
