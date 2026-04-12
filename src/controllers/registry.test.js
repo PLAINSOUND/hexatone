@@ -102,4 +102,14 @@ describe("controller registry", () => {
     expect(normalizeTonalPlexus205Degree(10, 36)).toEqual({ block: 3, degree: 130 });
     expect(normalizeTonalPlexus205Degree(10, 105)).toEqual({ block: 3, degree: 197 });
   });
+
+  it("anchors TPX 205edo pitch mapping to the current center degree", () => {
+    const tonalPlexus = getController("tonalplexus");
+    expect(tonalPlexus.resolveScaleInputPitchCents(9, 7, {
+      tonalplexus_input_mode: "layout_205",
+      center_degree: 5,
+      equivInterval: 1200,
+      scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+    })).toBe(500);
+  });
 });

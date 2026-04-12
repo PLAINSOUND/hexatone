@@ -469,6 +469,16 @@ export function normalizeTonalPlexus205Degree(channel, note) {
   return { block: blockIndex, degree };
 }
 
+function getCenterDegreePitchCents(settings = {}) {
+  const scale = settings.scale || [];
+  const equivInterval = settings.equivInterval ?? 1200;
+  const centerDegree = settings.center_degree || 0;
+  if (!Array.isArray(scale) || scale.length === 0) return 0;
+  const octs = Math.floor(centerDegree / scale.length);
+  const reduced = ((centerDegree % scale.length) + scale.length) % scale.length;
+  return octs * equivInterval + scale[reduced];
+}
+
 export function normalizeTonalPlexus41InputWithSettings(channel, note, settings = {}) {
   const channel0 = channel - 1;
   if (channel0 < 2 || channel0 > 13) return null;
@@ -615,7 +625,7 @@ export const CONTROLLER_REGISTRY = [
       if (getTonalPlexusInputMode(settings) !== 'layout_205') return null;
       const normalized = normalizeTonalPlexus205Degree(channel, note);
       if (!normalized) return null;
-      return normalized.degree * (1200 / 205);
+      return getCenterDegreePitchCents(settings) + normalized.degree * (1200 / 205);
     },
     buildMap: (anchorNote, anchorChannel) => buildTonalPlexusMap(anchorChannel ?? 9, anchorNote ?? 7),
   },
