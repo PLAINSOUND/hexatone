@@ -461,7 +461,6 @@ a:hover {
     background-color: #ddd0d0;
 }
 
-.text-entry-active #sidebar-button,
 .text-entry-active #bottom-bar,
 .text-entry-active #snapshot-list {
     display: none !important;
