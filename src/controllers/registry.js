@@ -625,7 +625,13 @@ export const CONTROLLER_REGISTRY = [
       if (getTonalPlexusInputMode(settings) !== 'layout_205') return null;
       const normalized = normalizeTonalPlexus205Degree(channel, note);
       if (!normalized) return null;
-      return getCenterDegreePitchCents(settings) + normalized.degree * (1200 / 205);
+      const equave = settings.equivInterval ?? 1200;
+      const centerBlockIndex = 3; // channels 9-10
+      return (
+        getCenterDegreePitchCents(settings) +
+        (normalized.block - centerBlockIndex) * equave +
+        normalized.degree * (1200 / 205)
+      );
     },
     buildMap: (anchorNote, anchorChannel) => buildTonalPlexusMap(anchorChannel ?? 9, anchorNote ?? 7),
   },

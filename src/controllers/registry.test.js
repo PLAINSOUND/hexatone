@@ -112,4 +112,18 @@ describe("controller registry", () => {
       scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
     })).toBe(500);
   });
+
+  it("transposes TPX 205edo mode by one equave per block around channels 9-10", () => {
+    const tonalPlexus = getController("tonalplexus");
+    const settings = {
+      tonalplexus_input_mode: "layout_205",
+      center_degree: 5,
+      equivInterval: 1200,
+      scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+    };
+
+    expect(tonalPlexus.resolveScaleInputPitchCents(9, 7, settings)).toBe(500);
+    expect(tonalPlexus.resolveScaleInputPitchCents(7, 7, settings)).toBe(-700);
+    expect(tonalPlexus.resolveScaleInputPitchCents(11, 7, settings)).toBe(1700);
+  });
 });
