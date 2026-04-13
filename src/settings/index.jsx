@@ -16,7 +16,7 @@ const WebMIDISettings = ({ midiAccess, midiAccessError, ensureMidiAccess }) => {
 
   return (
     <fieldset>
-      <legend><b>WebMIDI</b></legend>
+      <legend><b>Enable MIDI</b></legend>
       <label>
         Enable MIDI
         <input
