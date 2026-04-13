@@ -96,24 +96,10 @@ const MIDIio = (props) => {
   const [devPadId, setDevPadId] = useState('0');   // pad ID for CMD 04 color test (0–60)
   const hasBasicMidi = !!props.midi;
   const hasSysexMidi = props.midiAccess === 'sysex';
-  const requestBasicMidi = () => props.ensureMidiAccess?.({ sysex: false });
-  const requestSysexMidi = () => props.ensureMidiAccess?.({ sysex: true });
 
   return (
     <fieldset>
       <legend><b>MIDI In from Controller</b></legend>
-      {!hasBasicMidi && (
-        <>
-          <button type="button" onClick={() => requestBasicMidi()}>
-            Enable MIDI Input
-          </button>
-          {props.midiAccessError && (
-            <p style={{ color: '#996666', fontSize: '0.85em', margin: '0.5em 0 0' }}>
-              <em>{props.midiAccessError}</em>
-            </p>
-          )}
-        </>
-      )}
       <label>
         Input Port
         <select value={props.settings.midiin_device}
@@ -466,8 +452,8 @@ const MIDIio = (props) => {
                               name="lumatone_led_sync"
                               type="checkbox"
                               checked={!!props.settings.lumatone_led_sync}
-                              onChange={async (e) => {
-                                if (e.target.checked && !(await requestSysexMidi())) return;
+                              disabled={!hasSysexMidi}
+                              onChange={(e) => {
                                 props.onChange('lumatone_led_sync', e.target.checked);
                                 localStorage.setItem('lumatone_led_sync', e.target.checked);
                                 const keys = props.keysRef?.current;
@@ -476,10 +462,8 @@ const MIDIio = (props) => {
                               }}
                             />
                             <button type="button" style={{ fontSize: '0.85em' }}
-                              onClick={async () => {
-                                if (!(await requestSysexMidi())) return;
-                                props.keysRef?.current?.syncLumatoneLEDs?.();
-                              }}
+                              disabled={!hasSysexMidi}
+                              onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
                             >Send Now</button>
                           </span>
                         </label>
@@ -495,11 +479,9 @@ const MIDIio = (props) => {
                         <button
                           type="button"
                           style={{ fontSize: '0.85em' }}
+                          disabled={!hasSysexMidi}
                           title="Send notes + colours to Lumatone via sysex (~10–15 s, one-time setup)"
-                          onClick={async () => {
-                            if (!(await requestSysexMidi())) return;
-                            props.keysRef?.current?.sendLumatoneLayout?.();
-                          }}
+                          onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
                         >
                           Send Now
                         </button>
@@ -543,8 +525,8 @@ const MIDIio = (props) => {
                               name="exquis_led_sync"
                               type="checkbox"
                               checked={!!props.settings.exquis_led_sync}
-                              onChange={async (e) => {
-                                if (e.target.checked && !(await requestSysexMidi())) return;
+                              disabled={!hasSysexMidi}
+                              onChange={(e) => {
                                 props.onChange('exquis_led_sync', e.target.checked);
                                 localStorage.setItem('exquis_led_sync', e.target.checked);
                                 const keys = props.keysRef?.current;
@@ -554,16 +536,12 @@ const MIDIio = (props) => {
                               }}
                             />
                             <button type="button" style={{ fontSize: '0.85em' }}
-                              onClick={async () => {
-                                if (!(await requestSysexMidi())) return;
-                                props.keysRef?.current?.syncExquisLEDs?.();
-                              }}
+                              disabled={!hasSysexMidi}
+                              onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}
                             >Send Now</button>
                             <button type="button" style={{ fontSize: '0.85em' }}
-                              onClick={async () => {
-                                if (!(await requestSysexMidi())) return;
-                                props.keysRef?.current?.exquisLEDs?.clearColors?.();
-                              }}
+                              disabled={!hasSysexMidi}
+                              onClick={() => props.keysRef?.current?.exquisLEDs?.clearColors?.()}
                             >Clear</button>
                           </span>
                         </label>

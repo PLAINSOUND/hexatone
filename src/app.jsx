@@ -771,7 +771,7 @@ const App = () => {
       ].filter(Boolean).join(" ")}
       onClick={() => setUserHasInteracted(true)}
     >
-      {loading === 0 && ready && isValid && (
+      {ready && isValid && (
         <Keyboard
           synth={synth || nullSynth}
           settings={normalizedSettings}

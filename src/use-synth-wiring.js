@@ -248,7 +248,6 @@ const useSynthWiring = (
     }
 
     const request = (async () => {
-      setLoading(wait);
       setMidiAccessError(null);
       try {
         await enableMidi({ sysex });
@@ -271,7 +270,6 @@ const useSynthWiring = (
         );
         return false;
       } finally {
-        setLoading(signal);
         midiRequestRef.current = null;
       }
     })();

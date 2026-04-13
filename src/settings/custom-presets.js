@@ -48,9 +48,11 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
+  const [includeSubfolders, setIncludeSubfolders] = useState(false);
   // Only reveal the full UI once the user actively engages in this session —
   // not just because presets exist in localStorage from a previous session.
   const [expanded, setExpanded] = useState(() => loadCustomPresets().length > 0);
+  const fileInputRef = createRef();
   const folderInputRef = createRef();
 
   // Reset selection only when switching away from a user preset to a built-in
@@ -137,39 +139,13 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
     if (onClear) onClear();
   };
 
-  // Folder import — reads all .scl, .ascl, .json files in the chosen folder
-  const handleFolderChange = async (e) => {
-    const files = Array.from(e.target.files).filter(f =>
-      /\.(scl|ascl|json)$/i.test(f.name)
-    );
-    if (!files.length) {
-      setError('No .scl, .ascl or .json files found in the chosen folder.');
-      e.target.value = '';
-      return;
-    }
-
-    // Read all files
-    const results = await Promise.all(files.map(file =>
-      new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve({ name: file.name, text: ev.target.result });
-        reader.onerror = () => resolve(null);
-        reader.readAsText(file);
-      })
-    ));
-
-    const parsed = results
-      .filter(Boolean)
-      .map(({ name, text }) => fileToPreset(name, text))
-      .filter(Boolean);
-
+  const mergeImportedPresets = (parsed, emptyMessage, inputEl) => {
     if (!parsed.length) {
-      setError('No valid tunings found in the chosen folder.');
-      e.target.value = '';
+      setError(emptyMessage);
+      if (inputEl) inputEl.value = '';
       return;
     }
 
-    // Handle duplicates within the imported files themselves - keep first occurrence only
     const seenNames = new Set();
     const uniqueParsed = [];
     for (const p of parsed) {
@@ -179,10 +155,9 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       }
     }
     if (uniqueParsed.length < parsed.length) {
-      console.log(`Skipped ${parsed.length - uniqueParsed.length} duplicate tuning(s) in folder`);
+      console.log(`Skipped ${parsed.length - uniqueParsed.length} duplicate tuning(s) in import`);
     }
 
-    // Check for name clashes with existing presets
     const existing = loadCustomPresets();
     const clashes = uniqueParsed.filter(p => existing.some(e => e.name === p.name));
 
@@ -192,23 +167,22 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
         `${clashes.length} tuning${clashes.length > 1 ? 's' : ''} already exist with the same name:\n\n${names}\n\nOverwrite?`
       );
       if (!overwrite) {
-        // Skip clashing files, only add new ones
         const newOnly = uniqueParsed.filter(p => !existing.some(e => e.name === p.name));
         if (!newOnly.length) {
           setError('No new tunings to import.');
-          e.target.value = '';
+          if (inputEl) inputEl.value = '';
           return;
         }
         const next = [...existing, ...newOnly];
         saveCustomPresets(next);
         setPresets(next);
+        setExpanded(true);
         setError('');
-        e.target.value = '';
+        if (inputEl) inputEl.value = '';
         return;
       }
     }
 
-    // Merge: overwrite clashes, append new
     const next = [
       ...existing.map(ex => {
         const match = uniqueParsed.find(p => p.name === ex.name);
@@ -220,7 +194,61 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
     setPresets(next);
     setExpanded(true);
     setError('');
-    e.target.value = '';
+    if (inputEl) inputEl.value = '';
+  };
+
+  const readPresetFiles = async (files) => {
+    const results = await Promise.all(files.map(file =>
+      new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve({ name: file.name, text: ev.target.result });
+        reader.onerror = () => resolve(null);
+        reader.readAsText(file);
+      })
+    ));
+
+    return results
+      .filter(Boolean)
+      .map(({ name, text }) => fileToPreset(name, text))
+      .filter(Boolean);
+  };
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files).filter(f =>
+      /\.(scl|ascl|json)$/i.test(f.name)
+    );
+    if (!files.length) {
+      setError('No .scl, .ascl or .json files were selected.');
+      e.target.value = '';
+      return;
+    }
+
+    const parsed = await readPresetFiles(files);
+    mergeImportedPresets(parsed, 'No valid tunings found in the selected files.', e.target);
+  };
+
+  // Folder import — reads all .scl, .ascl, .json files in the chosen folder
+  const handleFolderChange = async (e) => {
+    const files = Array.from(e.target.files)
+      .filter(f => /\.(scl|ascl|json)$/i.test(f.name))
+      .filter(f => {
+        if (includeSubfolders) return true;
+        const rel = f.webkitRelativePath || '';
+        if (!rel) return true;
+        const parts = rel.split('/').filter(Boolean);
+        return parts.length <= 2;
+      });
+
+    if (!files.length) {
+      setError(includeSubfolders
+        ? 'No .scl, .ascl or .json files found in the chosen folder.'
+        : 'No .scl, .ascl or .json files found in the chosen folder root.');
+      e.target.value = '';
+      return;
+    }
+
+    const parsed = await readPresetFiles(files);
+    mergeImportedPresets(parsed, 'No valid tunings found in the chosen folder.', e.target);
   };
 
   return (
@@ -256,7 +284,15 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
         </label>
       )}
 
-      {/* ── Choose folder — always visible ── */}
+      {/* ── Import actions — always visible ── */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept=".scl,.ascl,.json"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
       <input
         ref={folderInputRef}
         type="file"
@@ -268,8 +304,12 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       />
       <div class="preset-actions" style={{ marginTop: 4 }}>
         <button type="button"
+          onClick={() => fileInputRef.current && fileInputRef.current.click()}>
+          Open file(s)…
+        </button>
+        <button type="button"
           onClick={() => folderInputRef.current && folderInputRef.current.click()}>
-          Choose folder…
+          Import folder…
         </button>
         {expanded && presets.length > 0 && (
           confirmClear ? (
@@ -286,6 +326,14 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
           )
         )}
       </div>
+      <label style={{ justifyContent: 'flex-start', gap: '0.5em', marginTop: '0.35em' }}>
+        <input
+          type="checkbox"
+          checked={includeSubfolders}
+          onChange={(e) => setIncludeSubfolders(e.target.checked)}
+        />
+        <em style={{ color: '#996666' }}>Include subfolders</em>
+      </label>
 
       {/* ── Save / Export — show when a preset is active ── */}
       {activeSource && (

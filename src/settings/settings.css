@@ -254,6 +254,7 @@ label .color-cell .color-input {
 .preset-actions {
   display: flex;
   justify-content: space-between;
+  gap: 0.4rem;
   margin-top: 0.125em;
   line-height: 1.5em;
 }

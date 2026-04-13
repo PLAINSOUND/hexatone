@@ -9,6 +9,42 @@ import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
 import Snapshots from "./snapshots.jsx";
 import "./settings.css";
+
+const WebMIDISettings = ({ midiAccess, midiAccessError, ensureMidiAccess }) => {
+  const midiEnabled = midiAccess === "basic" || midiAccess === "sysex";
+  const sysexEnabled = midiAccess === "sysex";
+
+  return (
+    <fieldset>
+      <legend><b>WebMIDI</b></legend>
+      <label>
+        Enable MIDI
+        <input
+          type="checkbox"
+          checked={midiEnabled}
+          onChange={() => {
+            if (!midiEnabled) ensureMidiAccess?.({ sysex: false });
+          }}
+        />
+      </label>
+      <label>
+        Enable Sysex
+        <input
+          type="checkbox"
+          checked={sysexEnabled}
+          onChange={() => {
+            if (!sysexEnabled) ensureMidiAccess?.({ sysex: true });
+          }}
+        />
+      </label>
+      {midiAccessError && (
+        <p style={{ color: "#996666", fontSize: "0.85em", margin: "0.4em 0 0" }}>
+          <em>{midiAccessError}</em>
+        </p>
+      )}
+    </fieldset>
+  );
+};
 const Settings = ({
   presetChanged,
   presets,
@@ -107,6 +143,11 @@ const Settings = ({
       settings={settings}
       instruments={instruments}
       onVolumeChange={onVolumeChange}
+    />
+    <WebMIDISettings
+      midiAccess={midiAccess}
+      midiAccessError={midiAccessError}
+      ensureMidiAccess={ensureMidiAccess}
     />
     <MIDIio
       onChange={onChange}
