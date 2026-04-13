@@ -262,17 +262,10 @@ label .color-cell .color-input {
 
 .preset-action-btn,
 .preset-utility-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2em;
   max-width: 100%;
-  padding: 0.15em 0.7em;
   white-space: normal;
   word-break: normal;
   overflow-wrap: anywhere;
-  text-align: center;
-  box-sizing: border-box;
 }
 
 .preset-action-btn {
