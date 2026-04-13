@@ -96,16 +96,10 @@ const Settings = ({
         {activeSource === "builtin" && onRevertBuiltin && (
           <button
             type="button"
+            class="preset-refresh-btn"
             onClick={onRevertBuiltin}
-            style={{
-              fontSize: "1.3rem",
-              lineHeight: "0.86",
-              overflow: "visible",
-              alignSelf: "center",
-              marginTop: "0em",
-            }}
           >
-            ⟳
+            <span class="preset-refresh-glyph">⟳</span>
           </button>
         )}
       </label>

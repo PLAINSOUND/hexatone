@@ -271,7 +271,11 @@ const Scale = (props) => {
       {!collapsed && (
         <>
           <br />
-          <ScaleTable key={props.settings.scale?.length} {...props} importCount={props.importCount} />
+          <ScaleTable
+            key={props.settings.scale?.length}
+            {...props}
+            importCount={props.importCount}
+          />
           <br />
         </>)}
       {importing

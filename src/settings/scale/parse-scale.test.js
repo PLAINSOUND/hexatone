@@ -13,6 +13,7 @@ import {
   normaliseDegree,
   settingsToHexatonScala,
   fileToPreset,
+  settingsToPresetJson,
 } from './parse-scale';
 
 // ── scalaToCents ──────────────────────────────────────────────────────────────
@@ -329,6 +330,28 @@ describe('settingsToHexatonScala → parseScale round-trip', () => {
     expect(parsed.equivSteps).toBe(4);
     expect(parsed.scale).toHaveLength(4);
     expect(parsed.errors).toHaveLength(0);
+  });
+});
+
+describe('settingsToPresetJson', () => {
+  it('omits controller- and runtime-specific fields from exported preset JSON', () => {
+    const json = settingsToPresetJson({
+      name: 'Export Test',
+      scale: ['100.', '1200.'],
+      equivSteps: 2,
+      scale_import: '! inline scala',
+      midiin_central_degree: 64,
+      mpe_pitchbend_range: 48,
+      fundamental: 440,
+    });
+    const parsed = JSON.parse(json);
+
+    expect(parsed.name).toBe('Export Test');
+    expect(parsed.scale).toEqual(['100.', '1200.']);
+    expect(parsed.fundamental).toBe(440);
+    expect(parsed.scale_import).toBeUndefined();
+    expect(parsed.midiin_central_degree).toBeUndefined();
+    expect(parsed.mpe_pitchbend_range).toBeUndefined();
   });
 });
 

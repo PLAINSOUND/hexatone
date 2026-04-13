@@ -282,9 +282,7 @@ const getRawScale = (settings) => {
   return s;
 };
 
-// Serialise current settings as a JSON object matching the preset_values.js format.
-// The scale_import field is included as an inline string (rather than a variable reference)
-// ready to paste directly into a preset entry.
+// Serialise current settings as a compact JSON object for user-preset export.
 export const settingsToPresetJson = (settings) => {
   const PRESET_FIELDS = [
     'name', 'description', 'short_description',
@@ -293,19 +291,12 @@ export const settingsToPresetJson = (settings) => {
     'spectrum_colors', 'fundamental_color',
     'fundamental', 'reference_degree',
     'rSteps', 'drSteps', 'hexSize', 'rotation', 'center_degree',
-    'midiin_central_degree',
-    'mpe_pitchbend_range',
   ];
 
   const preset = {};
   for (const key of PRESET_FIELDS) {
     if (settings[key] !== undefined) preset[key] = settings[key];
   }
-
-  // Include scale_import as an inline string and a pre-parsed scale array,
-  // matching the pattern: "scale_import": "...", "scale": parseScale(...).scale
-  // Here we inline both as plain values for easy copy-paste.
-  preset.scale_import = settingsToHexatonScala(settings);
 
   // Pretty-print with 2-space indent, matching preset_values.js style
   return JSON.stringify(preset, null, 2);

@@ -849,41 +849,55 @@ const App = () => {
         <div>&gt;</div>
       </button>
       <div id="bottom-bar">
-        <div id="octave-island">
-          <button className="octave-btn" title="Octave down"
-            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onClick={(e) => { e.stopPropagation(); shiftOctave(-1); }}
+        <div id="main-bottom-controls">
+          <div id="octave-island">
+            <button className="octave-btn" title="Octave down"
+              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={(e) => { e.stopPropagation(); shiftOctave(-1); }}
+              onContextMenu={(e) => e.preventDefault()}
+            >▼</button>
+            <span
+              className={`octave-display${!octaveDeferred ? ' octave-defer-active' : ''}`}
+              title={octaveDeferred ? 'Transpose on next event' : 'Transpose sounding notes immediately'}
+              onClick={toggleOctaveDeferred}
+              style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+            >
+              {octaveTranspose === 0 ? "OCT" : octaveTranspose > 0
+                ? `+${octaveTranspose}` : `${octaveTranspose}`}
+            </span>
+            <button className="octave-btn" title="Octave up"
+              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={(e) => { e.stopPropagation(); shiftOctave(+1); }}
+              onContextMenu={(e) => e.preventDefault()}
+            >▲</button>
+          </div>
+          <button
+            id="sustain-island"
+            className={latch ? "latch-active" : ""}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (keysRef.current) keysRef.current.latchToggle();
+            }}
+            onPointerDown={(e) => {
+              if (e.pointerType === "touch") e.preventDefault();
+            }}
             onContextMenu={(e) => e.preventDefault()}
-          >▼</button>
-          <span
-            className={`octave-display${!octaveDeferred ? ' octave-defer-active' : ''}`}
-            title={octaveDeferred ? 'Transpose on next event' : 'Transpose sounding notes immediately'}
-            onClick={toggleOctaveDeferred}
-            style={{ cursor: 'pointer', pointerEvents: 'auto' }}
           >
-            {octaveTranspose === 0 ? "OCT" : octaveTranspose > 0
-              ? `+${octaveTranspose}` : `${octaveTranspose}`}
-          </span>
-          <button className="octave-btn" title="Octave up"
-            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onClick={(e) => { e.stopPropagation(); shiftOctave(+1); }}
+            <b>SUSTAIN</b>
+          </button>
+          <button
+            id="panic-button"
+            title="Panic - kill all stuck notes"
+            onClick={(e) => {
+              e.stopPropagation();
+              guardianPanic();
+              if (keysRef.current) keysRef.current.panic();
+            }}
             onContextMenu={(e) => e.preventDefault()}
-          >▲</button>
+          >
+            <b>PANIC</b>
+          </button>
         </div>
-        <button
-          id="sustain-island"
-          className={latch ? "latch-active" : ""}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (keysRef.current) keysRef.current.latchToggle();
-          }}
-          onPointerDown={(e) => {
-            if (e.pointerType === "touch") e.preventDefault();
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <b>SUSTAIN</b>
-        </button>
         <button
           id="snapshot-button"
           title="Capture current notes as a snapshot"
@@ -910,18 +924,6 @@ const App = () => {
           onContextMenu={(e) => e.preventDefault()}
         >
           ↺
-        </button>
-        <button
-          id="panic-button"
-          title="Panic - kill all stuck notes"
-          onClick={(e) => {
-            e.stopPropagation();
-            guardianPanic();
-            if (keysRef.current) keysRef.current.panic();
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <b>ALL NOTES OFF</b>
         </button>
       </div>
 

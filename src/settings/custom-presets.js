@@ -265,18 +265,12 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
             ))}
           </select>
           {isActive && onRevert && (
-            <button type="button" onClick={onRevert} style={{
-              fontSize: "1.3rem",
-              lineHeight: "0.86",
-              overflow: "visible",
-              alignSelf: "center",
-              marginTop: "0em"
-            }}>
-              ⟳
+            <button type="button" class="preset-refresh-btn" onClick={onRevert}>
+              <span class="preset-refresh-glyph">⟳</span>
             </button>
           )}
-          <button type="button" class="delete-btn"
-            style={{ marginLeft: 'auto', width: 85 }}
+          <button type="button" class="delete-btn preset-utility-btn"
+            style={{ marginLeft: 'auto' }}
             disabled={!selected}
             onClick={handleDelete}>
             Delete
@@ -304,12 +298,14 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       />
       <div class="preset-actions" style={{ marginTop: 4 }}>
         <button type="button"
+          class="preset-action-btn"
           onClick={() => fileInputRef.current && fileInputRef.current.click()}>
-          Open file(s)…
+          Open File(s)…
         </button>
         <button type="button"
+          class="preset-action-btn"
           onClick={() => folderInputRef.current && folderInputRef.current.click()}>
-          Import folder…
+          Import Folder(s)…
         </button>
         {expanded && presets.length > 0 && (
           confirmClear ? (
@@ -320,7 +316,7 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
               <button type="button" onClick={() => setConfirmClear(false)}>Cancel</button>
             </span>
           ) : (
-            <button type="button" class="delete-btn" style={{ marginLeft: 'auto', width: 85 }} onClick={handleClear}>
+            <button type="button" class="delete-btn preset-utility-btn" style={{ marginLeft: 'auto' }} onClick={handleClear}>
               Clear all
             </button>
           )
@@ -338,14 +334,14 @@ const CustomPresets = ({ settings, onLoad, onClear, isActive, activeSource, acti
       {/* ── Save / Export — show when a preset is active ── */}
       {activeSource && (
         <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, rowGap: '0.25em' }}>
-          <button type="button" onClick={handleSave}>
+          <button type="button" class="preset-action-btn" onClick={handleSave}>
             {saveLabel}
           </button>
           <span style={{ display: 'flex', gap: '6px' }}>
-            <button type="button" style={{ whiteSpace: 'nowrap', width: 85 }} onClick={handleExport}>
+            <button type="button" class="preset-utility-btn" onClick={handleExport}>
               Export .json
             </button> {/*
-            <button type="button" style={{ whiteSpace: 'nowrap', width: 85 }} onClick={handleExportLtn}>
+            <button type="button" class="preset-utility-btn" onClick={handleExportLtn}>
               Export .ltn
             </button>*/}
           </span>

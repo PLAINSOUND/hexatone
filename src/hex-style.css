@@ -238,27 +238,42 @@ a:hover {
     }
 }
 
-/* ── Phone portrait: centre sustain + panic side by side, compact width ── */
-@media (max-width: 600px) {
-    #sustain-island {
-        left: 42% !important;
-        transform: translateX(calc(-100% - 0.3em)) !important;
-        padding-left: 0.9em !important;
-        padding-right: 0.9em !important;
-        font-size: 0.82em !important;
-    }
-    #panic-button {
-        right: auto !important;
+/* ── Phone portrait: keep OCT / SUSTAIN / PANIC in one evenly-spaced row ── */
+@media (max-width: 600px) and (orientation: portrait) {
+    #main-bottom-controls {
+        position: fixed;
+        bottom: 1.2em;
         left: 50%;
-        transform: translateX(0.3em);
-        padding: 0.45em 0.65em !important;
-        font-size: 0.82em !important;
-    }
-    #octave-island {
-        font-size: 0.82em;
-        bottom: 4.6em !important;
-        left: 50% !important;
         transform: translateX(-50%);
+        z-index: 11;
+        display: flex;
+        align-items: center;
+        gap: 0.6em;
+    }
+
+    #main-bottom-controls #octave-island,
+    #main-bottom-controls #sustain-island,
+    #main-bottom-controls #panic-button {
+        position: static !important;
+        bottom: auto !important;
+        left: auto !important;
+        right: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+    }
+
+    #main-bottom-controls #sustain-island {
+        padding: 0.38em 1.05em !important;
+        font-size: 0.8em !important;
+    }
+
+    #main-bottom-controls #panic-button {
+        padding: 0.38em 0.9em !important;
+        font-size: 0.8em !important;
+    }
+
+    #main-bottom-controls #octave-island {
+        font-size: 0.8em !important;
     }
 }
 

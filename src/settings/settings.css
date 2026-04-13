@@ -253,10 +253,35 @@ label .color-cell .color-input {
 
 .preset-actions {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 0.4rem;
   margin-top: 0.125em;
   line-height: 1.5em;
+}
+
+.preset-action-btn,
+.preset-utility-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2em;
+  max-width: 100%;
+  padding: 0.15em 0.7em;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.preset-action-btn {
+  flex: 0 1 auto;
+}
+
+.preset-utility-btn {
+  flex: 0 1 auto;
+  min-width: fit-content;
 }
 
 /* ── Reference Degree row highlight ───────────────────────────────────── */
@@ -346,6 +371,39 @@ label .color-cell .color-input {
 
 .preset-selector-row select {
   flex: none;
+}
+
+.preset-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 2.1em;
+  min-width: 2.1em;
+  height: 2.1em;
+  min-height: 2.1em;
+  padding: 0;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.preset-refresh-glyph {
+  display: block;
+  font-size: 1.3rem;
+  line-height: 1;
+  transform: translateY(-0.02em);
+}
+
+@media (max-width: 550px) {
+  .preset-selector-row {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .preset-selector-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }
 
 /* ── Tune cell — live pitch tuning drag handle ─────────────────────────── */
