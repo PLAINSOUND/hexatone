@@ -33,7 +33,7 @@ const Blurb = () => (
     <p>
       Designed and programmed by{" "}
       <a href="https://www.plainsound.org">Marc&nbsp;Sabat</a>. Current version
-      3.1.0 (April 2026), released under{" "}
+      3.2.0-alpha.1 (April 2026), released under{" "}
       <a href="https://www.gnu.org/licenses/gpl-3.0.en.html">GPL-3.0</a>. Open
       source code at{" "}
       <a href="https://github.com/PLAINSOUND/hexatone">
