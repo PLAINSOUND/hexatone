@@ -378,10 +378,10 @@ label .color-cell .color-input {
   align-items: center;
   justify-content: center;
   align-self: center;
-  width: 2.1em;
-  min-width: 2.1em;
-  height: 2.1em;
-  min-height: 2.1em;
+  width: 1.7em;
+  min-width: 1.7em;
+  height: 1.7em;
+  min-height: 1.7em;
   padding: 0;
   line-height: 1;
   box-sizing: border-box;

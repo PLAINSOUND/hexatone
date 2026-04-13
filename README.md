@@ -10,7 +10,7 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.1.0-beta.4 (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Current version 3.1.0 (2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
 
 ## Isomorphic Keyboards
 [Wikipedia](https://en.wikipedia.org/wiki/Isomorphic_keyboard)
@@ -21,12 +21,13 @@ Current version 3.1.0-beta.4 (2026), released as Free/Libre and Open Source Soft
 
 ## Version history
 
-### 3.1.0-beta.4 *(current)*
+### 3.1.0 *(current)*
+
+**WebMIDI and Sysex made User-Selectable**
 
 **Controller database reactivity based on mode 2D geometry or bypass**
-**TuneCell smoothing architecture rebuilt**
 
-### 3.1.0-beta.3 *(April 2026)*
+**TuneCell smoothing rebuilt**
 
 **MIDI input — scale target mode:** new Input Mode selector in MIDI settings: *MIDI to Hex Layout* (existing behaviour) or *MIDI to Nearest Scale Degree*. In scale mode, incoming MIDI pitch is matched to the closest degree of the active scale by cent distance, across any tuning or equave. User-configurable tolerance (default 25¢) and out-of-tolerance behaviour (Accept Best / Discard). Geometry, anchor, and transposition controls are hidden when scale mode is active.
 
@@ -38,19 +39,25 @@ Current version 3.1.0-beta.4 (2026), released as Free/Libre and Open Source Soft
 
 **iOS fix:** audio now starts on the first touch without requiring the refresh button.
 
-**Docs:** `docs/hexatone/` added with `Roadmap.md` and `Issues.md` — structured development overview for community collaboration.
+**Changed octave-to-equave hardcoded logic to allow user-specified behaviour for other scales (no tranposition, transposition by a specified number of scale degrees, or by equave)**
 
-### 3.1.0-beta.2 *(March 2026)*
-Refactored code to automatically map isomorphic controllers. Changed octave-to-equave harcoded logic to allow user-specified behaviour for other scales (no tranposition, transposition by a specified number of scale degrees, or by equave); full independent retuneability of all scale degrees and reference, automatic scale file rewrite; option to refresh or retain scale on reload; fixed input interoperability logic (mouse, touch, computer keyboard, MIDI); MPE input mode with per-voice pitch bend and pressure routing. Under the hood fixes: refactoring persistence and loading logic. Cleaning up code, preparing for integration of scale math with xen-devs.
+**Independent retuneability of all scale degrees and reference**
+
+**fixed input interoperability logic (mouse, touch, computer keyboard, MIDI)**
+
+**Added MPE input mode with per-voice pitch bend and pressure routing**
+
+**Under the hood fixes: refactored persistence and loading logic. Preparing for integration of scale math with xen-devs.**
 
 **Supported 2D isomorphic controller geometries (auto-detected by MIDI device name):**
 - **Lumatone** https://www.lumatone.io/ — 280-key isomorphic surface, 5 blocks × 56 keys, channels 1–5 encode block position (0-55)
 - **C-Thru AXIS-49** https://www.c-thru-music.com/cgi/?page=prod_axis-49 — 14×7 isomorphic hexes, selfless mode (ch 1, notes 1–98)
 - **TS41 MIDI Keyboard** https://tristanbay.com/gear/ts41-midi-keyboard/ — 41-EDO Bosanquet layout, single channel (ch 1, notes 1–126)
-- **Exquis (Intuitive Instruments)** https://dualo.com/en/welcome/ — 61-note isomorphic hex grid, Rainbow Layout (Preset 6), MPE output on ch 2–15  
+- **Exquis (Intuitive Instruments)** https://dualo.com/en/welcome/ — 61-note isomorphic hex grid, Rainbow Layout (Preset 6), MPE output on ch 2–15
+- **Tonal Plexus** https://hpi.zentral.zone/tonalplexus - (ch 3-14, layout for 205edo)
 
 **In progress but untested:**
-- **Tonal Plexus** https://hpi.zentral.zone/tonalplexus - (ch 3-14, layout for 205edo)
+
 - **C-Thru AXIS-64** — 16×8 variant of the AXIS-49 layout, not tested
 - **Roger Linn Design LinnStrument 128** — 16×8 grid, one row per channel (ch 1–8), full MPE support
 - **Ableton Push 2 / Push 3** — 8×8 isomorphic pad grid, single channel, default 4ths tuning
