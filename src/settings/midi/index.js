@@ -94,15 +94,32 @@ const MIDIio = (props) => {
   const [devZone, setDevZone] = useState('100');   // button/encoder CC id (ch 16)
   const [devValue, setDevValue] = useState('127');  // value to send
   const [devPadId, setDevPadId] = useState('0');   // pad ID for CMD 04 color test (0–60)
+  const hasBasicMidi = !!props.midi;
+  const hasSysexMidi = props.midiAccess === 'sysex';
+  const requestBasicMidi = () => props.ensureMidiAccess?.({ sysex: false });
+  const requestSysexMidi = () => props.ensureMidiAccess?.({ sysex: true });
 
   return (
     <fieldset>
       <legend><b>MIDI In from Controller</b></legend>
+      {!hasBasicMidi && (
+        <>
+          <button type="button" onClick={() => requestBasicMidi()}>
+            Enable MIDI Input
+          </button>
+          {props.midiAccessError && (
+            <p style={{ color: '#996666', fontSize: '0.85em', margin: '0.5em 0 0' }}>
+              <em>{props.midiAccessError}</em>
+            </p>
+          )}
+        </>
+      )}
       <label>
         Input Port
         <select value={props.settings.midiin_device}
           name="midiin_device"
           class="sidebar-input"
+          disabled={!hasBasicMidi}
           onChange={(e) => {
             props.onChange(e.target.name, e.target.value);
             sessionStorage.setItem(e.target.name, e.target.value);
@@ -449,7 +466,8 @@ const MIDIio = (props) => {
                               name="lumatone_led_sync"
                               type="checkbox"
                               checked={!!props.settings.lumatone_led_sync}
-                              onChange={(e) => {
+                              onChange={async (e) => {
+                                if (e.target.checked && !(await requestSysexMidi())) return;
                                 props.onChange('lumatone_led_sync', e.target.checked);
                                 localStorage.setItem('lumatone_led_sync', e.target.checked);
                                 const keys = props.keysRef?.current;
@@ -458,7 +476,10 @@ const MIDIio = (props) => {
                               }}
                             />
                             <button type="button" style={{ fontSize: '0.85em' }}
-                              onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
+                              onClick={async () => {
+                                if (!(await requestSysexMidi())) return;
+                                props.keysRef?.current?.syncLumatoneLEDs?.();
+                              }}
                             >Send Now</button>
                           </span>
                         </label>
@@ -475,7 +496,10 @@ const MIDIio = (props) => {
                           type="button"
                           style={{ fontSize: '0.85em' }}
                           title="Send notes + colours to Lumatone via sysex (~10–15 s, one-time setup)"
-                          onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
+                          onClick={async () => {
+                            if (!(await requestSysexMidi())) return;
+                            props.keysRef?.current?.sendLumatoneLayout?.();
+                          }}
                         >
                           Send Now
                         </button>
@@ -519,7 +543,8 @@ const MIDIio = (props) => {
                               name="exquis_led_sync"
                               type="checkbox"
                               checked={!!props.settings.exquis_led_sync}
-                              onChange={(e) => {
+                              onChange={async (e) => {
+                                if (e.target.checked && !(await requestSysexMidi())) return;
                                 props.onChange('exquis_led_sync', e.target.checked);
                                 localStorage.setItem('exquis_led_sync', e.target.checked);
                                 const keys = props.keysRef?.current;
@@ -529,13 +554,24 @@ const MIDIio = (props) => {
                               }}
                             />
                             <button type="button" style={{ fontSize: '0.85em' }}
-                              onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}
+                              onClick={async () => {
+                                if (!(await requestSysexMidi())) return;
+                                props.keysRef?.current?.syncExquisLEDs?.();
+                              }}
                             >Send Now</button>
                             <button type="button" style={{ fontSize: '0.85em' }}
-                              onClick={() => props.keysRef?.current?.exquisLEDs?.clearColors?.()}
+                              onClick={async () => {
+                                if (!(await requestSysexMidi())) return;
+                                props.keysRef?.current?.exquisLEDs?.clearColors?.();
+                              }}
                             >Clear</button>
                           </span>
                         </label>
+                        {!hasSysexMidi && (
+                          <p style={{ color: '#996666', fontSize: '0.85em', margin: '0.25em 0 0.5em' }}>
+                            <em>Allow SysEx to sync Exquis key colours.</em>
+                          </p>
+                        )}
                         <label>
                           LED Brightness
                           <span class="sidebar-input" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
@@ -936,10 +972,13 @@ MIDIio.propTypes = {
     name: PropTypes.string,
   }).isRequired,
   midi: PropTypes.object,
+  midiAccess: PropTypes.string,
+  midiAccessError: PropTypes.string,
   midiLearnActive: PropTypes.bool,
   lumatoneRawPorts: PropTypes.object,
   exquisRawOutput: PropTypes.object,
   keysRef: PropTypes.object,
+  ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,
 };
 

@@ -2,9 +2,10 @@ import { WebMidi } from "webmidi";
 
 export var midi_in = [];
 
-export function enableMidi() {
+export function enableMidi(options = {}) {
+  const { sysex = false } = options;
   return WebMidi
-    .enable({ sysex: true })
+    .enable({ sysex })
     .then(() => {
       midi_in = WebMidi.inputs; // assign to global
     });

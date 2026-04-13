@@ -27,6 +27,9 @@ const Settings = ({
   onRevertBuiltin,
   onRevertUser,
   midi,
+  midiAccess,
+  midiAccessError,
+  ensureMidiAccess,
   midiTick,
   instruments,
   keysRef,
@@ -109,6 +112,9 @@ const Settings = ({
       onChange={onChange}
       settings={settings}
       midi={midi}
+      midiAccess={midiAccess}
+      midiAccessError={midiAccessError}
+      ensureMidiAccess={ensureMidiAccess}
       midiTick={midiTick}
       midiLearnActive={midiLearnActive}
       lumatoneRawPorts={lumatoneRawPorts}
@@ -120,6 +126,9 @@ const Settings = ({
       onChange={onChange}
       settings={settings}
       midi={midi}
+      midiAccess={midiAccess}
+      midiAccessError={midiAccessError}
+      ensureMidiAccess={ensureMidiAccess}
       midiTick={midiTick}
       keysRef={keysRef}
     />

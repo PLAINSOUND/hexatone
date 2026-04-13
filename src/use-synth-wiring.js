@@ -22,6 +22,11 @@ import { resolveBulkDumpName } from "./tuning/mts-format.js";
 // lets multiple async operations overlap without prematurely hiding the spinner.
 const wait   = (l) => l + 1;
 const signal = (l) => l - 1;
+const midiAccessRank = {
+  none: 0,
+  basic: 1,
+  sysex: 2,
+};
 
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {
@@ -210,6 +215,8 @@ const useSynthWiring = (
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   const [synth,           setSynth]           = useState(null);
   const [midi,            setMidi]            = useState(null);
+  const [midiAccess,      setMidiAccess]      = useState("none");
+  const [midiAccessError, setMidiAccessError] = useState(null);
   const [midiLearnActive, setMidiLearnActive] = useState(false);
   // Incremented on every MIDI onstatechange so dependent effects re-run when
   // devices connect or disconnect (e.g. FluidSynth starting after page load).
@@ -225,32 +232,53 @@ const useSynthWiring = (
   const mpeSynthRef = useRef({ key: null, synth: null });
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
+  const midiRequestRef = useRef(null);
 
   // ── MIDI access ─────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    // webmidi.js library init (used for device name helpers only)
-    enableMidi().catch((err) =>
-      console.warn("WebMidi could not initialise:", err),
-    );
-
-    if (navigator.requestMIDIAccess) {
-      setLoading(wait);
-      navigator.requestMIDIAccess({ sysex: true }).then((m) => {
-        setLoading(signal);
-        console.log("Web MIDI API with sysex for MTS messages is ready!");
-        setMidi(m);
-        // Re-render UI and re-run synth creation whenever MIDI devices change.
-        m.onstatechange = () => setMidiTick((t) => t + 1);
-      }, () => {
-        // Must decrement loading even on failure — on iOS, requestMIDIAccess with
-        // sysex:true is rejected (no sysex support without MIDIWeb). Without this
-        // setLoading(signal) the counter stays at 1 and the spinner never clears.
-        setLoading(signal);
-        console.log("Web MIDI API could not initialise!");
-      });
+  const ensureMidiAccess = useCallback(async ({ sysex = false } = {}) => {
+    const targetAccess = sysex ? "sysex" : "basic";
+    if (midiAccessRank[midiAccess] >= midiAccessRank[targetAccess]) return true;
+    if (!navigator.requestMIDIAccess) {
+      setMidiAccessError("Web MIDI is not available in this browser.");
+      return false;
     }
-  }, []);
+    if (midiRequestRef.current && midiRequestRef.current.target === targetAccess) {
+      return midiRequestRef.current.promise;
+    }
+
+    const request = (async () => {
+      setLoading(wait);
+      setMidiAccessError(null);
+      try {
+        await enableMidi({ sysex });
+        const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
+        console.log(
+          sysex
+            ? "Web MIDI API with sysex is ready!"
+            : "Web MIDI API is ready!",
+        );
+        midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
+        setMidi(midiAccessObj);
+        setMidiAccess(targetAccess);
+        return true;
+      } catch (err) {
+        console.warn("Web MIDI could not initialise:", err);
+        setMidiAccessError(
+          sysex
+            ? "MIDI SysEx access was not granted."
+            : "MIDI access was not granted.",
+        );
+        return false;
+      } finally {
+        setLoading(signal);
+        midiRequestRef.current = null;
+      }
+    })();
+
+    midiRequestRef.current = { target: targetAccess, promise: request };
+    return request;
+  }, [midiAccess]);
 
   // ── Reconstruction boundary contract ────────────────────────────────────────
   //
@@ -854,6 +882,7 @@ const useSynthWiring = (
   // input (for ACK sysex listening) and output (for LED sysex sends).
   // These are passed to Keys so it can drive the LED feedback engine.
   const lumatoneRawPorts = useMemo(() => {
+    if (midiAccess !== 'sysex') return null;
     if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
     const rawIn = midi.inputs.get(settings.midiin_device);
     if (!rawIn) return null;
@@ -865,12 +894,13 @@ const useSynthWiring = (
     );
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
-  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override]);
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]);
 
   // When the active MIDI input is an Exquis, resolve both raw Web MIDI ports.
   // Output is needed for SysEx sends (LED colors, dev mode).
   // Input is needed to listen for Refresh (03h) from the device.
   const exquisRawPorts = useMemo(() => {
+    if (midiAccess !== 'sysex') return null;
     if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
     const rawIn = midi.inputs.get(settings.midiin_device);
     if (!rawIn) return null;
@@ -881,11 +911,14 @@ const useSynthWiring = (
     );
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
-  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override]);
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]);
 
   return {
     synth,
     midi,
+    midiAccess,
+    midiAccessError,
+    ensureMidiAccess,
     midiTick,
     loading,
     midiLearnActive,

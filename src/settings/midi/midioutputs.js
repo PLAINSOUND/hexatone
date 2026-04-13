@@ -80,6 +80,10 @@ const MidiOutputs = (props) => {
     settings.short_description,
     settings.name,
   );
+  const hasBasicMidi = !!midi;
+  const hasSysexMidi = props.midiAccess === "sysex";
+  const requestBasicMidi = () => props.ensureMidiAccess?.({ sysex: false });
+  const requestSysexMidi = () => props.ensureMidiAccess?.({ sysex: true });
 
   // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
   // macOS FluidSynth creates a new port on each launch; we find it by name.
@@ -104,6 +108,20 @@ const MidiOutputs = (props) => {
         <b>MIDI Outputs</b>
       </legend>
 
+      {!hasBasicMidi && (
+        <>
+          <button type="button" onClick={() => requestBasicMidi()}>
+            Enable MIDI Output
+          </button>
+          {props.midiAccessError && (
+            <p style={{ color: "#996666", fontSize: "0.85em", margin: "0.5em 0 0" }}>
+              <em>{props.midiAccessError}</em>
+            </p>
+          )}
+          <br />
+        </>
+      )}
+
       {/* ── MTS ────────────────────────────────────────────────────────── */}
 
       
@@ -114,7 +132,10 @@ const MidiOutputs = (props) => {
           name="output_mts"
           type="checkbox"
           checked={!!settings.output_mts}
-          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+          onChange={async (e) => {
+            if (e.target.checked && !(await requestSysexMidi())) return;
+            save(e.target.name, e.target.checked, onChange);
+          }}
         />
       </label>
 
@@ -132,6 +153,11 @@ const MidiOutputs = (props) => {
 
       {settings.output_mts && (
         <>
+          {!hasSysexMidi && (
+            <p style={{ color: "#996666", fontSize: "0.85em", margin: "0.25em 0 0.5em" }}>
+              <em>Choose “Allow” for SysEx to use MTS tuning messages.</em>
+            </p>
+          )}
           <label>
             Port
             <select
@@ -333,7 +359,10 @@ const MidiOutputs = (props) => {
           name="output_direct"
           type="checkbox"
           checked={!!settings.output_direct}
-          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+          onChange={async (e) => {
+            if (e.target.checked && !(await requestSysexMidi())) return;
+            save(e.target.name, e.target.checked, onChange);
+          }}
         />
       </label>
 
@@ -405,10 +434,14 @@ const MidiOutputs = (props) => {
                       name="direct_sysex_auto"
                       type="checkbox"
                       checked={!!settings.direct_sysex_auto}
-                      onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+                      onChange={async (e) => {
+                        if (e.target.checked && !(await requestSysexMidi())) return;
+                        save(e.target.name, e.target.checked, onChange);
+                      }}
                     />
                     <button type="button" style={{ fontSize: "0.85em" }}
-                      onClick={() => {
+                      onClick={async () => {
+                        if (!(await requestSysexMidi())) return;
                         const output = WebMidi.getOutputById(settings.direct_device);
                         if (output && props.keysRef?.current)
                           props.keysRef.current.mtsSendMap(output);
@@ -732,6 +765,9 @@ MidiOutputs.propTypes = {
     osc_bridge_url: PropTypes.string,
   }).isRequired,
   midi: PropTypes.object,
+  midiAccess: PropTypes.string,
+  midiAccessError: PropTypes.string,
+  ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,
   keysRef: PropTypes.object,
 };

@@ -279,6 +279,9 @@ const App = () => {
   const {
     synth,
     midi,
+    midiAccess,
+    midiAccessError,
+    ensureMidiAccess,
     midiTick,
     loading,
     midiLearnActive,
@@ -1023,6 +1026,9 @@ const App = () => {
           onRevertUser={onRevertUser}
           settings={settings}
           midi={midi}
+          midiAccess={midiAccess}
+          midiAccessError={midiAccessError}
+          ensureMidiAccess={ensureMidiAccess}
           midiTick={midiTick}
           instruments={instruments}
           keysRef={keysRef}
