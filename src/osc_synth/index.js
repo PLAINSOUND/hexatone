@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import { VoicePool } from "../voice_pool_nearest";
 import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
 
 /**
@@ -12,8 +13,8 @@ import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table
  *   /n_set mod                                → broadcast to all four servers, node 1
  *   /n_set vol (fader)                        → node 1 on specific layer server (57101–57104)
  *
- * Node IDs: noteNumber * 4 + layerIndex + NODE_OFFSET, giving a unique stable ID per
- * note+layer without any state tracking. Requires the caller to pass note_played.
+ * Node IDs are derived from a shared 128-slot nearest-note voice pool, matching
+ * the MTS1 real-time allocation model and keeping IDs stable and bounded.
  *
  * Requires the osc-bridge Node.js process to be running locally:
  *   node osc-bridge/index.js
@@ -21,14 +22,16 @@ import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table
 
 const WS_URL_DEFAULT = "ws://localhost:8089";
 const OSC_LAYER_PORTS = [57101, 57102, 57103, 57104];
-const NODE_SLOT_BASES = [1000, 3000, 5000, 7000];
+const NODE_ID_BASES = [100000, 300000, 500000, 700000];
 const MAX_NOTE_SLOTS = 128;
 const midiCcToScParam = (value) => 1 + value / 127;
 
-// Fallback monotonic node IDs only for cases without a usable note_played slot.
-// Fixed per-layer note slots use 1000+NN, 3000+NN, 5000+NN, 7000+NN.
-let _nextNodeId = 9000;
-const nextNodeId = () => _nextNodeId++;
+const _nextLayerNodeIds = NODE_ID_BASES.map((base) => base);
+const nextNodeId = (layerIndex) => {
+  const next = _nextLayerNodeIds[layerIndex];
+  _nextLayerNodeIds[layerIndex] += 1;
+  return next;
+};
 
 const clampMidiValue = (value, fallback = 64) => {
   if (!Number.isFinite(value)) return fallback;
@@ -38,12 +41,6 @@ const clampMidiValue = (value, fallback = 64) => {
 const normalizeOffVelocity = (value, fallback = 64) => {
   if (!Number.isFinite(value)) return fallback;
   return value <= 1 ? clampMidiValue(value * 127, fallback) : clampMidiValue(value, fallback);
-};
-
-const resolveNoteSlot = (notePlayed) => {
-  if (!Number.isInteger(notePlayed)) return null;
-  if (notePlayed < 0 || notePlayed >= MAX_NOTE_SLOTS) return null;
-  return notePlayed;
 };
 
 const releaseNode = (socket, port, nodeId, offVel) => {
@@ -154,8 +151,14 @@ export const create_osc_synth = async (
   const socket = getSocket(wsUrl);
   const _volumes = [...volumes];
   const _mod = { value: 1.0 };
+  const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
   const _slotState = synthNames.map(() =>
-    Array.from({ length: MAX_NOTE_SLOTS }, () => ({ token: 0, active: false, onVel: 64 })),
+    Array.from({ length: MAX_NOTE_SLOTS }, () => ({
+      token: 0,
+      active: false,
+      onVel: 64,
+      nodeId: null,
+    })),
   );
 
   const setLayerVolume = (index, value) => {
@@ -199,6 +202,7 @@ export const create_osc_synth = async (
         fundamental,
         degree0toRef_ratio ?? 1,
         _mod,
+        _pool,
         _slotState,
         bend,
         velocity_played,
@@ -236,8 +240,8 @@ export const create_osc_synth = async (
 /**
  * OscHex — one instance per held note, one SC synth node per active layer.
  *
- * Node IDs are derived from note_played + layer index — stable and predictable,
- * no state tracking required on the SC side.
+ * Voice slots are pooled like MTS real-time allocation, but SC node IDs are
+ * always fresh so released tails cannot collide with a newly started note.
  */
 function OscHex(
   coords,
@@ -250,6 +254,7 @@ function OscHex(
   fundamental,
   degree0toRef_ratio,
   modRef,
+  pool,
   slotState,
   bend,
   velocity_played,
@@ -265,33 +270,35 @@ function OscHex(
   this._fundamental = fundamental;
   this._degree0toRef = degree0toRef_ratio;
   this._modRef = modRef;
+  this._pool = pool;
   this._slotState = slotState;
-  this._noteSlot = resolveNoteSlot(notePlayed);
+  this._slot = null;
   this._bend = Number.isFinite(bend) && bend > 0 ? bend : 1;
   this._onVel = clampMidiValue(velocity_played, 72);
   this._filter = 1;
 
   this._tokens = synthNames.map(() => null);
-  this._nodeIds = synthNames.map((_, i) =>
-    this._noteSlot === null ? nextNodeId() : NODE_SLOT_BASES[i] + this._noteSlot,
-  );
+  this._nodeIds = synthNames.map((_, i) => nextNodeId(i));
 
   this._freq = this._centsToHz(cents);
 }
 
 OscHex.prototype.noteOn = function () {
   if (this.release) return;
+  const { slot } = this._pool.noteOn(this.coords, this._targetMidiFloat());
+  this._slot = slot;
+  this._nodeIds = this._synthNames.map((_, i) => nextNodeId(i));
+
   for (let i = 0; i < this._synthNames.length; i++) {
-    if (this._noteSlot !== null) {
-      const slot = this._slotState[i][this._noteSlot];
-      if (slot.active) {
-        releaseNode(this._socket, OSC_LAYER_PORTS[i], this._nodeIds[i], slot.onVel);
-      }
-      slot.token += 1;
-      slot.active = true;
-      slot.onVel = this._onVel;
-      this._tokens[i] = slot.token;
+    const slotState = this._slotState[i][slot];
+    if (slotState.active && slotState.nodeId != null) {
+      releaseNode(this._socket, OSC_LAYER_PORTS[i], slotState.nodeId, slotState.onVel);
     }
+    slotState.token += 1;
+    slotState.active = true;
+    slotState.onVel = this._onVel;
+    slotState.nodeId = this._nodeIds[i];
+    this._tokens[i] = slotState.token;
 
     this._socket.send(
       "/s_new",
@@ -314,26 +321,19 @@ OscHex.prototype.noteOn = function () {
 OscHex.prototype.noteOff = function (release_velocity) {
   if (this.release) return;
   this.release = true;
+  const slot = this._pool.noteOff(this.coords);
+  if (slot == null) return;
   for (let i = 0; i < this._synthNames.length; i++) {
-    if (this._noteSlot !== null) {
-      const slot = this._slotState[i][this._noteSlot];
-      if (!slot.active || slot.token !== this._tokens[i]) continue;
-      releaseNode(
-        this._socket,
-        OSC_LAYER_PORTS[i],
-        this._nodeIds[i],
-        normalizeOffVelocity(release_velocity, slot.onVel),
-      );
-      slot.active = false;
-      continue;
-    }
-
+    const slotState = this._slotState[i][slot];
+    if (!slotState.active || slotState.token !== this._tokens[i]) continue;
     releaseNode(
       this._socket,
       OSC_LAYER_PORTS[i],
       this._nodeIds[i],
-      normalizeOffVelocity(release_velocity, this._onVel),
+      normalizeOffVelocity(release_velocity, slotState.onVel),
     );
+    slotState.active = false;
+    slotState.nodeId = null;
   }
 };
 
@@ -342,10 +342,9 @@ OscHex.prototype.retune = function (newCents) {
   this.cents = newCents;
   this._freq = this._centsToHz(newCents);
   for (let i = 0; i < this._synthNames.length; i++) {
-    if (this._noteSlot !== null) {
-      const slot = this._slotState[i][this._noteSlot];
-      if (!slot.active || slot.token !== this._tokens[i]) continue;
-    }
+    if (this._slot == null) continue;
+    const slotState = this._slotState[i][this._slot];
+    if (!slotState.active || slotState.token !== this._tokens[i]) continue;
     this._socket.send(
       "/n_set",
       [
@@ -363,10 +362,9 @@ OscHex.prototype.aftertouch = function (value) {
   const filter = 1 + value / 127;
   this._filter = filter;
   for (let i = 0; i < this._synthNames.length; i++) {
-    if (this._noteSlot !== null) {
-      const slot = this._slotState[i][this._noteSlot];
-      if (!slot.active || slot.token !== this._tokens[i]) continue;
-    }
+    if (this._slot == null) continue;
+    const slotState = this._slotState[i][this._slot];
+    if (!slotState.active || slotState.token !== this._tokens[i]) continue;
     this._socket.send(
       "/n_set",
       [
@@ -387,10 +385,9 @@ OscHex.prototype.pitchbend = function (value) {
   if (this.release) return;
   this._bend = value;
   for (let i = 0; i < this._synthNames.length; i++) {
-    if (this._noteSlot !== null) {
-      const slot = this._slotState[i][this._noteSlot];
-      if (!slot.active || slot.token !== this._tokens[i]) continue;
-    }
+    if (this._slot == null) continue;
+    const slotState = this._slotState[i][this._slot];
+    if (!slotState.active || slotState.token !== this._tokens[i]) continue;
     this._socket.send(
       "/n_set",
       [
@@ -438,4 +435,11 @@ OscHex.prototype._centsToHz = function (cents) {
   const ref = this._fundamental / this._degree0toRef;
   const ref_offset = 1200 * Math.log2(ref / C4_440);
   return C4_440 * Math.pow(2, (cents + ref_offset) / 1200);
+};
+
+OscHex.prototype._targetMidiFloat = function () {
+  const ref = this._fundamental / this._degree0toRef;
+  const refOffset = 1200 * Math.log2(ref / 261.6255653);
+  const refCents = this.cents + refOffset;
+  return refCents * 0.01 + 60;
 };
