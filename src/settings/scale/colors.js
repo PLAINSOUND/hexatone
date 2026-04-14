@@ -124,6 +124,7 @@ const Colors = (props) => {
                 maxLength={7}
                 placeholder="#rrggbb"
                 onInput={handleTextInput}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                 onBlur={handleTextBlur}
                 aria-label="hex colour for central hue"
               />

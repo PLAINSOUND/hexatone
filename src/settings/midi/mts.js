@@ -32,6 +32,7 @@ const MidiTuning = (props) => (
       <input name="device_id" type="text" inputMode="numeric"
         key={props.settings.device_id}
         defaultValue={props.settings.device_id}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
         onBlur={(e) => {
           const val = parseInt(e.target.value);
           if (!isNaN(val) && val >= 0 && val <= 127) {
@@ -48,6 +49,7 @@ const MidiTuning = (props) => (
       <input name="tuning_map_number" type="text" inputMode="numeric"
         key={props.settings.tuning_map_number}
         defaultValue={props.settings.tuning_map_number}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
         onBlur={(e) => {
           const val = parseInt(e.target.value);
           if (!isNaN(val) && val >= 0 && val <= 127) {

@@ -433,6 +433,7 @@ const MidiOutputs = (props) => {
                   class="sidebar-input"
                   key={settings.direct_device_id ?? 127}
                   defaultValue={settings.direct_device_id ?? 127}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
@@ -448,6 +449,7 @@ const MidiOutputs = (props) => {
                   class="sidebar-input"
                   key={settings.direct_tuning_map_number ?? 0}
                   defaultValue={settings.direct_tuning_map_number ?? 0}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
@@ -618,7 +620,8 @@ const MidiOutputs = (props) => {
                     class="sidebar-input"
                     key={settings.mpe_pitchbend_range}
                     defaultValue={settings.mpe_pitchbend_range ?? 48}
-                    onBlur={(e) => {
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                  onBlur={(e) => {
                       const val = parseInt(e.target.value);
                       if (!isNaN(val) && val >= 1 && val <= 96)
                         save("mpe_pitchbend_range", val, onChange);

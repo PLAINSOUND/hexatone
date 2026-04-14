@@ -177,6 +177,7 @@ const Scale = (props) => {
           <input name="fundamental" type="text" inputMode="decimal"
             value={fundamentalDisplay}
             onInput={(e) => setFundamentalDisplay(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
             onBlur={(e) => {
               const val = parseFloat(e.target.value);
               if (!isNaN(val) && val >= 0.015625 && val <= 16384) {

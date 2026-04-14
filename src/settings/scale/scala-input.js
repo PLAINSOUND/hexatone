@@ -89,6 +89,7 @@ const ScalaInput = ({
         onInput={handleChange}
         onChange={handleChange}
         onBlur={handleBlur}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
         style={inputStyle}
         {...rest}
       />

@@ -1,4 +1,4 @@
-import { monzosEqual } from "xen-dev-utils";
+import { monzoToCents, monzosEqual } from "xen-dev-utils";
 import { CANONICAL_MONZO_BASIS } from "../tuning/interval.js";
 
 export const HEJI_MONZO_BASIS = CANONICAL_MONZO_BASIS;
@@ -462,7 +462,7 @@ export function monzoToHeji(monzo, options = {}) {
             extraIds,
             label: formatHejiLabel({ letter, octave, baseId, schismaAmount, extraIds }),
           };
-          if (!best || compareHejiSpellings(spelling, best, options) < 0) {
+          if (!best || compareHejiSpellings(spelling, best, { ...options, targetMonzo: monzo }) < 0) {
             best = spelling;
           }
         }
@@ -493,6 +493,44 @@ function candidateScore(candidate, options = {}) {
     NATURALS_FROM_C_REF[candidate.letter],
     CHROMATIC_MONZOS[base.chromatic] ?? ZERO_MONZO,
   );
+  const policy = options.notationPolicy ?? null;
+  if (policy === "53_tertial_center_d") {
+    const natural = naturalBaseMonzo(candidate.letter, candidate.octave) ?? ZERO_MONZO;
+    const target = options.targetMonzo ?? hejiToMonzo(candidate);
+    const distanceFromNatural = Math.round(Math.abs(monzoToCents(subtractMonzos(target, natural))) * 1000);
+    const forbiddenChromatic =
+      (base.chromatic === "sharp" && (candidate.letter === "E" || candidate.letter === "B")) ||
+      (base.chromatic === "flat" && (candidate.letter === "F" || candidate.letter === "C")) ?
+        1 :
+        0;
+    return [
+      forbiddenChromatic,
+      distanceFromNatural,
+      Math.abs(candidate.schismaAmount ?? 0),
+      Math.abs(base.syntonic ?? 0),
+      Math.abs((pythagorean[1] ?? 0) - (center[1] ?? 0)),
+      base.chromatic === "natural" ? 0 : 1,
+      Math.abs(candidate.octave - 4),
+      LETTER_ORDER[candidate.letter] ?? 99,
+    ];
+  }
+  if (policy === "farabi_center_c") {
+    const natural = naturalBaseMonzo(candidate.letter, candidate.octave) ?? ZERO_MONZO;
+    const target = options.targetMonzo ?? hejiToMonzo(candidate);
+    const distanceFromNatural = Math.round(Math.abs(monzoToCents(subtractMonzos(target, natural))) * 1000);
+    const hasHigherPrimes = (candidate.extraIds?.length ?? 0) > 0;
+    const avoidGbSide = !hasHigherPrimes && candidate.letter === "G" && base.chromatic === "flat" ? 1 : 0;
+    return [
+      hasHigherPrimes ? Math.abs(candidate.schismaAmount ?? 0) : 0,
+      hasHigherPrimes ? Math.abs(base.syntonic ?? 0) : 0,
+      avoidGbSide,
+      Math.abs((pythagorean[1] ?? 0) - (ZERO_MONZO[1] ?? 0)),
+      distanceFromNatural,
+      base.chromatic === "natural" ? 0 : 1,
+      Math.abs(candidate.octave - 4),
+      LETTER_ORDER[candidate.letter] ?? 99,
+    ];
+  }
   return [
     Math.abs((pythagorean[1] ?? 0) - (center[1] ?? 0)),
     Math.abs(candidate.schismaAmount ?? 0),

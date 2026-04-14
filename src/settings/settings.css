@@ -130,7 +130,7 @@ input:out-of-range {
   flex-direction: row-reverse;
   /* swatch on the right */
   justify-content: flex-end;
-  gap: 4px;
+  gap: 2px;
   height: 1.5em;
   position: relative;
   text-align: right;
@@ -184,7 +184,7 @@ input:out-of-range {
   border-style: solid;
   border-color: #c8b8b8;
   font-family: monospace;
-  font-size: 1.25em;
+  font-size: 1.15em;
   text-align: right;
 }
 
@@ -275,6 +275,44 @@ label .color-cell .color-input {
 .preset-utility-btn {
   flex: 0 1 auto;
   min-width: fit-content;
+}
+
+.scale-degree-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45em;
+  width: 100%;
+}
+
+th.scale-data-col,
+td.scale-data-col {
+  width: 55%;
+}
+
+th.scale-frequency-col,
+td.scale-frequency-col {
+  width: 14%;
+}
+
+th.scale-name-col,
+td.scale-name-col {
+  width: 12%;
+}
+
+th.scale-color-col,
+td.scale-color-col {
+  width: 19%;
+}
+
+.degree-gutter {
+  width: 4ch;
+  min-width: 4ch;
+  padding-top: 0.1em;
+  text-align: right;
+  color: #7a6666;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 /* ── Reference Degree row highlight ───────────────────────────────────── */
@@ -415,7 +453,8 @@ table td {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 3px;
+  gap: 0;
+  width: 100%;
 }
 
 /* tune-cell sits inline with the input — no vertical margins.
@@ -424,9 +463,10 @@ table td {
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin-right: 3px;
   gap: 3px;
   font-size: 0.78em;
+  margin-left: 4px;
+  margin-right: 4px;
 }
 
 /* Equave row has no TuneCell — this spacer keeps the input the same width */
@@ -566,6 +606,13 @@ table input:disabled {
   /* iOS reduces opacity on disabled inputs */
 }
 
+/* Frequency inputs are editable — restore normal text appearance */
+td.scale-frequency-col input.equiv-cell:not(:disabled) {
+  color: inherit;
+  -webkit-text-fill-color: inherit;
+  border-color: #c8b8b8;
+}
+
 /* Freq input fills available width, handle sits flush to its right.
    ScalaInput wraps <input> in a <span> — both the span wrapper and
    the input itself need flex/min-width so the cell stretches correctly. */
@@ -578,6 +625,28 @@ table input:disabled {
   flex: 1;
   min-width: 0;
   width: 100%;
+}
+
+td.scale-name-col input {
+  width: 100%;
+}
+
+td.scale-name-col {
+  padding-right: 2px;
+}
+
+td.scale-color-col {
+  padding-left: 2px;
+}
+
+td.scale-color-col .color-cell {
+  width: 100%;
+  justify-content: stretch;
+}
+
+td.scale-color-col .color-input {
+  width: 100% !important;
+  min-width: 5.5em;
 }
 
 /* ── Reference Frequency row ──────────────────────────────────────────

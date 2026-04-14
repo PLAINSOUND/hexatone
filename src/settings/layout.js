@@ -30,6 +30,7 @@ const Layout = (props) => {
              key={`${props.settings.center_degree}-${maxDegree}`}
              defaultValue={props.settings.center_degree || 0}
              step="1" min="0" max={maxDegree}
+             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
              onBlur={(e) => {
                const val = parseInt(e.target.value);
                if (!isNaN(val) && val >= 0 && val <= maxDegree) {
@@ -49,6 +50,7 @@ const Layout = (props) => {
              key={props.settings.rSteps}
              defaultValue={props.settings.rSteps}
              min="-1220" max="1220"
+             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
              onBlur={(e) => {
                const val = parseInt(e.target.value);
                if (!isNaN(val) && val >= -1220 && val <= 1220) {
@@ -66,6 +68,7 @@ const Layout = (props) => {
              key={props.settings.drSteps}
              defaultValue={props.settings.drSteps}
              min="-1220" max="1220"
+             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
              onBlur={(e) => {
                const val = parseInt(e.target.value);
                if (!isNaN(val) && val >= -1220 && val <= 1220) {
@@ -83,6 +86,7 @@ const Layout = (props) => {
              key={props.settings.hexSize}
              defaultValue={props.settings.hexSize}
              min="20" max="1000"
+             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
              onBlur={(e) => {
                const val = parseInt(e.target.value);
                if (!isNaN(val) && val >= 20 && val <= 1000) {
@@ -100,6 +104,7 @@ const Layout = (props) => {
              key={props.settings.rotation}
              defaultValue={props.settings.rotation}
              min="-360" max="360"
+             onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
              onBlur={(e) => {
                const val = parseFloat(e.target.value);
                if (!isNaN(val) && val >= -360 && val <= 360) {

@@ -186,6 +186,7 @@ const MIDIio = (props) => {
               class="sidebar-input"
               key={props.settings.midiin_scale_tolerance ?? 25}
               defaultValue={props.settings.midiin_scale_tolerance ?? 25}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
               onBlur={(e) => {
                 const v = parseInt(e.target.value);
                 if (!isNaN(v) && v >= 0) {
@@ -252,6 +253,7 @@ const MIDIio = (props) => {
                       key={props.settings.midiin_mpe_lo_ch ?? 2}
                       defaultValue={props.settings.midiin_mpe_lo_ch ?? 2}
                       style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                       onBlur={(e) => {
                         const v = parseInt(e.target.value);
                         if (!isNaN(v) && v >= 1 && v <= 16) {
@@ -269,6 +271,7 @@ const MIDIio = (props) => {
                       key={props.settings.midiin_mpe_hi_ch ?? 15}
                       defaultValue={props.settings.midiin_mpe_hi_ch ?? 15}
                       style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                       onBlur={(e) => {
                         const v = parseInt(e.target.value);
                         if (!isNaN(v) && v >= 1 && v <= 16) {
@@ -334,6 +337,7 @@ const MIDIio = (props) => {
                         key={anchorChannel}
                         defaultValue={anchorChannel}
                         disabled={tonalPlexus205Mode}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                         onBlur={(e) => {
                           const val = parseInt(e.target.value);
                           if (!isNaN(val) && val >= anchorChannelRange.min && val <= anchorChannelRange.max) {
@@ -365,6 +369,7 @@ const MIDIio = (props) => {
                       key={controllerAnchorNote}
                       defaultValue={controllerAnchorNote}
                       disabled={tonalPlexus205Mode}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                       onBlur={(e) => {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val >= anchorNoteRange.min && val <= anchorNoteRange.max) {
@@ -380,6 +385,7 @@ const MIDIio = (props) => {
                       style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
                       key={props.settings.midiin_central_degree}
                       defaultValue={centralNote}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                       onBlur={(e) => {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val >= 0 && val <= 127) {
@@ -772,6 +778,7 @@ const MIDIio = (props) => {
                     style={{ width: '2.2em', textAlign: 'center', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px', flexShrink: 0 }}
                     key={seqAnchorChannel}
                     defaultValue={seqAnchorChannel}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value);
                       if (!isNaN(val) && val >= 1 && val <= 16) {
@@ -786,6 +793,7 @@ const MIDIio = (props) => {
                     style={{ flex: 1, minWidth: 0, width: 'auto', textAlign: 'right', height: '1.5em', boxSizing: 'border-box', background: '#faf9f8', border: '1px solid #c8b8b8', borderRadius: '3px' }}
                     key={props.settings.midiin_central_degree}
                     defaultValue={centralNote}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value);
                       if (!isNaN(val) && val >= 0 && val <= 127) {
@@ -821,6 +829,7 @@ const MIDIio = (props) => {
                   <input type="text" inputMode="numeric" class="sidebar-input"
                     key={props.settings.midiin_steps_per_channel}
                     defaultValue={props.settings.midiin_steps_per_channel ?? ''}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
                     onBlur={(e) => {
                       const val = parseInt(e.target.value.trim());
                       if (!isNaN(val) && val >= 1) {

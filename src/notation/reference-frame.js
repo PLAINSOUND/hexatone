@@ -55,6 +55,7 @@ export function spellPitchClassFromReferenceFrame(frame, ratioText, options = {}
     octaveMin: options.octaveMin ?? frame.anchorOctave - 2,
     octaveMax: options.octaveMax ?? frame.anchorOctave + 2,
     allowSchismaConventional: options.allowSchismaConventional ?? false,
+    notationPolicy: options.notationPolicy,
   });
   if (!spelled.supported) {
     return {

@@ -61,18 +61,18 @@ describe('ScaleTable — key labels: note_names', () => {
 describe('ScaleTable — key labels: no_labels', () => {
   const settings = { ...settingsBase, key_labels: 'no_labels' };
 
-  it('name inputs are disabled', () => {
+  it('name inputs are always enabled regardless of key_labels', () => {
     render(<ScaleTable settings={settings} onChange={() => {}} />);
-    expect(screen.getByLabelText('pitch name 0').disabled).toBe(true);
+    expect(screen.getByLabelText('pitch name 0').disabled).toBe(false);
   });
 });
 
 describe('ScaleTable — key labels: enumerate', () => {
   const settings = { ...settingsBase, key_labels: 'enumerate' };
 
-  it('name inputs are disabled', () => {
+  it('name inputs are always enabled regardless of key_labels', () => {
     render(<ScaleTable settings={settings} onChange={() => {}} />);
-    expect(screen.getByLabelText('pitch name 0').disabled).toBe(true);
+    expect(screen.getByLabelText('pitch name 0').disabled).toBe(false);
   });
 });
 
@@ -173,6 +173,26 @@ describe('ScaleTable — table structure', () => {
     const equaveNameInput = screen.getByLabelText('pitch name equave');
     expect(equaveNameInput.value).toBe('C');
     expect(equaveNameInput.disabled).toBe(true);
+  });
+
+  it('shows degrees in a read-only gutter instead of a dedicated Degree column', () => {
+    render(<ScaleTable settings={settingsBase} onChange={() => {}} />);
+    expect(screen.queryByText('Degree')).toBeNull();
+    expect(screen.getByLabelText('scale degree gutter 0').textContent).toBe('0');
+    expect(screen.getByLabelText('scale degree gutter 4').textContent).toBe('4');
+    expect(screen.getByLabelText('scale degree gutter equave').textContent).toBe('12');
+  });
+
+  it('shows computed frequencies based on reference degree and reference frequency', () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9 }}
+        onChange={() => {}}
+      />,
+    );
+    expect(document.querySelector('input[aria-label="pitch frequency 9"]').value).toBe('440.0');
+    expect(document.querySelector('input[aria-label="pitch frequency 0"]').value).toBe('261.6');
+    expect(document.querySelector('input[aria-label="equave frequency"]').value).toBe('523.3');
   });
 
   it('highlights only the degree 0 row when reference_degree is 0', () => {

@@ -135,10 +135,46 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
         maxLength={7}
         placeholder="#rrggbb"
         onInput={handleTextInput}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
         onBlur={handleTextBlur}
         aria-label={`hex colour for ${name}`}
       />
     </div>
+  );
+};
+
+const formatFrequencyHz = (value) => {
+  if (!Number.isFinite(value)) return "";
+  return value.toFixed(1);
+};
+
+const FrequencyInput = ({ ariaLabel, value, onCommit, disabled = false, deviationCents = null, comparing = false }) => {
+  const display = formatFrequencyHz(value);
+  const isDirty = deviationCents !== null && Math.abs(deviationCents) > 0.001;
+  // Match the tune-delta / tune-comparing colour scheme
+  const color = isDirty ? (comparing ? '#660000' : '#990000') : undefined;
+  const fontStyle = comparing ? 'italic' : undefined;
+  return (
+    <input
+      id="centered"
+      type="text"
+      inputMode="decimal"
+      disabled={disabled}
+      class="equiv-cell"
+      key={display}
+      defaultValue={display}
+      aria-label={ariaLabel}
+      style={color ? { color, WebkitTextFillColor: color, fontStyle } : undefined}
+      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+      onBlur={(e) => {
+        const next = parseFloat(e.target.value);
+        if (!Number.isFinite(next) || next <= 0 || disabled) {
+          e.target.value = display;
+          return;
+        }
+        onCommit(next);
+      }}
+    />
   );
 };
 
@@ -155,7 +191,19 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
  * 'recalculate_reference' behavior. Keep the alternate path in place and
  * documented here in case a dedicated UX control is added later.
  */
-const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, reference_degree, fundamental, onFundamentalChange, retuning_mode }) => {
+const TuneCell = ({
+  scaleStr,
+  degree,
+  keysRef,
+  onChange,
+  onDegree0Save,
+  reference_degree,
+  fundamental,
+  onFundamentalChange,
+  retuning_mode,
+  onPreviewChange,
+  resetVersion,
+}) => {
   const originalCents = useRef(scalaToCents(scaleStr));
   const [tunedCents, setTunedCents] = useState(null);
   const [comparing, setComparing] = useState(false);
@@ -163,12 +211,37 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
   // Capture the Keys instance when drag starts — keysRef.current may change
   // during reconciliation, so we need the specific instance we set drag on
   const dragKeysInstance = useRef(null);
+  // Keep the latest onPreviewChange in a ref so effects don't re-fire when
+  // the parent re-renders and creates a new function reference.
+  const onPreviewChangeRef = useRef(onPreviewChange);
+  useEffect(() => { onPreviewChangeRef.current = onPreviewChange; }, [onPreviewChange]);
   // Keep originalCents in sync when scale string changes from outside
   useEffect(() => {
     if (tunedCents === null) {
       originalCents.current = scalaToCents(scaleStr);
     }
   }, [scaleStr]);
+
+  // When a direct text edit commits a new scale value, discard any in-flight
+  // drag state so the TuneCell resets to the newly committed pitch.
+  useEffect(() => {
+    if (resetVersion === undefined || resetVersion === 0) return;
+    originalCents.current = scalaToCents(scaleStr);
+    setTunedCents(null);
+    setComparing(false);
+  }, [resetVersion]);
+
+  // Broadcast live preview cents + comparing state to the parent frequency column.
+  // Only re-runs when these values change, not when the callback identity changes.
+  useEffect(() => {
+    if (onPreviewChangeRef.current) onPreviewChangeRef.current(degree, tunedCents, comparing);
+  }, [degree, tunedCents, comparing]);
+
+  useEffect(() => {
+    return () => {
+      if (onPreviewChangeRef.current) onPreviewChangeRef.current(degree, null);
+    };
+  }, [degree]);
 
   // Clean up drag state and any in-flight glide on unmount.
   useEffect(() => {
@@ -316,7 +389,7 @@ const TuneCell = ({ scaleStr, degree, keysRef, onChange, onDegree0Save, referenc
 const ScaleTable = (props) => {
   const scale = [...(props.settings.scale || [])];
   const equiv_interval = scale.length ? scale.pop() : "2/1";
-  scale.unshift(0);
+  scale.unshift("0.");
 
   const degrees = [...Array(scale.length).keys()];
   const note_names = props.settings.note_names || [];
@@ -334,11 +407,18 @@ const ScaleTable = (props) => {
     note_names[i] || "",
     colors[i] || "#ffffff",
   ]);
+  const referenceDegree = props.settings.reference_degree || 0;
 
   const scaleChangeAt = (i, str) => {
     const next = [...(props.settings.scale || [])];
     next[i] = str;
     props.onChange("scale", next);
+  };
+  // Called only on blur-commit (not on every keystroke) so TuneCell can reset.
+  // degree index here is the TuneCell degree (i+1 for scale rows, scale.length for equave).
+  const scaleCommitAt = (i, str, tuneCellDegree) => {
+    scaleChangeAt(i, str);
+    bumpResetVersion(tuneCellDegree);
   };
 
   const colorChange = (e) => {
@@ -353,19 +433,92 @@ const ScaleTable = (props) => {
     props.onChange("note_names", next);
   };
 
-  const editable_labels = props.settings.key_labels !== "note_names";
   const editable_colors = props.settings.spectrum_colors;
+  // previewState: per-degree { cents, comparing } set by TuneCell during drag
+  const [previewState, setPreviewState] = useState({});
+  // resetVersion: per-degree counter, bumped when a direct text edit commits a new
+  // scale value so TuneCell can discard its in-flight drag state.
+  const [resetVersion, setResetVersion] = useState({});
+  const bumpResetVersion = useCallback((degreeIndex) => {
+    setResetVersion((prev) => ({ ...prev, [degreeIndex]: (prev[degreeIndex] ?? 0) + 1 }));
+  }, []);
+
+  const effectiveCentsAtDegree = (degreeIndex) => {
+    const state = previewState[degreeIndex];
+    if (state && state.cents !== null) return state.cents;
+    return scalaToCents(String(scale[degreeIndex] ?? equiv_interval));
+  };
+  const referenceCents = effectiveCentsAtDegree(referenceDegree);
+  const frequencyAtDegree = (degreeIndex) => {
+    const cents = effectiveCentsAtDegree(degreeIndex);
+    return props.settings.fundamental * Math.pow(2, (cents - referenceCents) / 1200.0);
+  };
+  const centsFromFrequency = (frequency) =>
+    referenceCents + 1200 * Math.log2(frequency / props.settings.fundamental);
+  // deviationCentsAtDegree: cents delta from committed value (for frequency colour)
+  const deviationCentsAtDegree = (degreeIndex) => {
+    const state = previewState[degreeIndex];
+    if (!state || state.cents === null) return null;
+    const committed = scalaToCents(String(scale[degreeIndex] ?? equiv_interval));
+    return state.cents - committed;
+  };
+  const isComparingAtDegree = (degreeIndex) => !!(previewState[degreeIndex]?.comparing);
+  const updatePreviewCents = useCallback((degreeIndex, cents, comparing = false) => {
+    setPreviewState((prev) => {
+      const cur = prev[degreeIndex];
+      if (cur && cur.cents === cents && cur.comparing === comparing) return prev;
+      if (cents === null) {
+        if (!cur || cur.cents === null) return prev;
+        return { ...prev, [degreeIndex]: { cents: null, comparing: false } };
+      }
+      return { ...prev, [degreeIndex]: { cents, comparing } };
+    });
+  }, []);
+  const commitFrequencyAtDegree = (degreeIndex, frequency) => {
+    const targetCents = centsFromFrequency(frequency);
+
+    if (degreeIndex === 0) {
+      const delta = targetCents;
+      const oldScale = [...(props.settings.scale || [])];
+      const newScale = oldScale.map((str, idx) => {
+        if (idx === oldScale.length - 1) return str;
+        const cents = scalaToCents(String(str));
+        return (cents - delta).toFixed(6);
+      });
+      if (referenceDegree === 0) {
+        props.onAtomicChange({
+          scale: newScale,
+          fundamental: props.settings.fundamental * Math.pow(2, delta / 1200.0),
+        });
+      } else {
+        props.onChange("scale", newScale);
+      }
+      return;
+    }
+
+    if (degreeIndex === referenceDegree && props.settings.retuning_mode !== "transpose_scale") {
+      props.onChange("fundamental", frequency);
+      return;
+    }
+
+    if (degreeIndex === scale.length) {
+      scaleChangeAt(scale.length - 1, targetCents.toFixed(6));
+      return;
+    }
+
+    scaleChangeAt(degreeIndex - 1, targetCents.toFixed(6));
+  };
 
   return (
     <table>
       <thead>
         <tr>
-          <th class="wide" id="leftaligned">
-            Ratio&nbsp;&nbsp;|&nbsp;&nbsp;Cents&nbsp;&nbsp;|&nbsp;&nbsp;EDO
+          <th class="wide scale-data-col" id="leftaligned">
+            Degree&nbsp;:&nbsp;&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
           </th>
-          <th>Degree</th>
-          <th>Name</th>
-          <th>Colour</th>
+          <th class="scale-frequency-col">Frequency</th>
+          <th class="scale-name-col">Name</th>
+          <th class="scale-color-col">Colour</th>
         </tr>
       </thead>
       <tbody>
@@ -376,8 +529,10 @@ const ScaleTable = (props) => {
             props.settings.center_degree === 0 ? "center-degree-row" : "",
           ].filter(Boolean).join(" ") || undefined}
         >
-          <td>
-            <div class="freq-cell">
+          <td class="scale-data-col">
+            <div class="scale-degree-cell">
+              <span class="degree-gutter" aria-label="scale degree gutter 0">{degrees[0]}</span>
+              <div class="freq-cell">
               <input
                 type="text"
                 disabled
@@ -392,6 +547,7 @@ const ScaleTable = (props) => {
                 reference_degree={props.settings.reference_degree}
                 fundamental={props.settings.fundamental}
                 retuning_mode={props.settings.retuning_mode}
+                onPreviewChange={updatePreviewCents}
                 onDegree0Save={(delta) => {
                   // delta: cents degree 0 moved up.
                   // The equave is never touched — it is a period ratio, not a pitch.
@@ -420,30 +576,30 @@ const ScaleTable = (props) => {
                   }
                 }}
               />
+              </div>
             </div>
           </td>
-          <td>
-            <input
-              id="centered"
-              type="text"
-              disabled
-              class="equiv-cell"
-              value={degrees[0]}
-              aria-label="pitch degree 0"
+          <td class="scale-frequency-col">
+            <FrequencyInput
+              ariaLabel="pitch frequency 0"
+              value={frequencyAtDegree(0)}
+              onCommit={(frequency) => commitFrequencyAtDegree(0, frequency)}
+              deviationCents={deviationCentsAtDegree(0)}
+              comparing={isComparingAtDegree(0)}
             />
           </td>
-          <td>
+          <td class="scale-name-col">
             <input
               id="centered"
               type="text"
-              disabled={editable_labels}
+
               name="name0"
               value={note_names[0] || ""}
               onChange={nameChange}
               aria-label="pitch name 0"
             />
           </td>
-          <td>
+          <td class="scale-color-col">
             <ColorCell
               name="color0"
               value={colors[0] || "#ffffff"}
@@ -460,64 +616,68 @@ const ScaleTable = (props) => {
               props.settings.center_degree === i + 1 ? "center-degree-row" : "",
             ].filter(Boolean).join(" ") || undefined}
           >
-            <td>
-              <div class="freq-cell">
-                <ScalaInput
-                  context="degree"
-                  name={`scale${i}`}
-                  value={freq}
-                  onAnyChange={(str) => scaleChangeAt(i, str)}
-                  onChange={(str) => scaleChangeAt(i, str)}
-                  showCents={false}
-                  aria-label={`pitch value ${i}`}
-                />
-                <TuneCell
-                  key={`tune${i + 1}-${props.importCount}`}
-                  scaleStr={(props.settings.scale || [])[i] || String(freq)}
-                  degree={i + 1}
-                  keysRef={props.keysRef}
-                  reference_degree={props.settings.reference_degree}
-                  fundamental={props.settings.fundamental}
-                  retuning_mode={props.settings.retuning_mode}
-                  onChange={(newStr) => {
-                    const next = [...(props.settings.scale || [])];
-                    next[i] = newStr;
-                    props.onChange('scale', next);
-                  }}
-                  onFundamentalChange={(newFreq, newStr) => {
-                    if (newStr !== undefined) {
+            <td class="scale-data-col">
+              <div class="scale-degree-cell">
+                <span class="degree-gutter" aria-label={`scale degree gutter ${i + 1}`}>{degree}</span>
+                <div class="freq-cell">
+                  <ScalaInput
+                    context="degree"
+                    name={`scale${i}`}
+                    value={freq}
+                    onAnyChange={(str) => scaleChangeAt(i, str)}
+                    onChange={(str) => scaleCommitAt(i, str, i + 1)}
+                    showCents={false}
+                    aria-label={`pitch value ${i}`}
+                  />
+                  <TuneCell
+                    key={`tune${i + 1}-${props.importCount}`}
+                    scaleStr={(props.settings.scale || [])[i] || String(freq)}
+                    degree={i + 1}
+                    keysRef={props.keysRef}
+                    reference_degree={props.settings.reference_degree}
+                    fundamental={props.settings.fundamental}
+                    retuning_mode={props.settings.retuning_mode}
+                    onPreviewChange={updatePreviewCents}
+                    resetVersion={resetVersion[i + 1] ?? 0}
+                    onChange={(newStr) => {
                       const next = [...(props.settings.scale || [])];
                       next[i] = newStr;
-                      props.onAtomicChange({ fundamental: newFreq, scale: next });
-                    } else {
-                      props.onChange('fundamental', newFreq);
-                    }
-                  }}
-                />
+                      props.onChange('scale', next);
+                    }}
+                    onFundamentalChange={(newFreq, newStr) => {
+                      if (newStr !== undefined) {
+                        const next = [...(props.settings.scale || [])];
+                        next[i] = newStr;
+                        props.onAtomicChange({ fundamental: newFreq, scale: next });
+                      } else {
+                        props.onChange('fundamental', newFreq);
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </td>
-            <td>
-              <input
-                id="centered"
-                type="text"
-                disabled
-                class="equiv-cell"
-                value={degree}
-                aria-label={`pitch degree ${i}`}
+            <td class="scale-frequency-col">
+              <FrequencyInput
+                ariaLabel={`pitch frequency ${i + 1}`}
+                value={frequencyAtDegree(i + 1)}
+                onCommit={(frequency) => commitFrequencyAtDegree(i + 1, frequency)}
+                deviationCents={deviationCentsAtDegree(i + 1)}
+                comparing={isComparingAtDegree(i + 1)}
               />
             </td>
-            <td>
+            <td class="scale-name-col">
               <input
                 id="centered"
                 type="text"
-                disabled={editable_labels}
+  
                 name={`name${i + 1}`}
                 value={name}
                 onChange={nameChange}
                 aria-label={`pitch name ${i + 1}`}
               />
             </td>
-            <td>
+            <td class="scale-color-col">
               <ColorCell
                 name={`color${i + 1}`}
                 value={color}
@@ -535,31 +695,33 @@ const ScaleTable = (props) => {
               : undefined
           }
         >
-          <td>
-            <div class="freq-cell">
-              <ScalaInput
-                context="interval"
-                name={`scale${scale.length - 1}`}
-                value={equiv_interval}
-                onAnyChange={(str) => scaleChangeAt(scale.length - 1, str)}
-                onChange={(str) => scaleChangeAt(scale.length - 1, str)}
-                showCents={false}
-                aria-label={`pitch ${scale.length - 1}`}
-              />
-              <div class="tune-cell-spacer" aria-hidden="true" />
+          <td class="scale-data-col">
+            <div class="scale-degree-cell">
+              <span class="degree-gutter" aria-label="scale degree gutter equave">{scale.length}</span>
+              <div class="freq-cell">
+                <ScalaInput
+                  context="interval"
+                  name={`scale${scale.length - 1}`}
+                  value={equiv_interval}
+                  onAnyChange={(str) => scaleChangeAt(scale.length - 1, str)}
+                  onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}
+                  showCents={false}
+                  aria-label={`pitch ${scale.length - 1}`}
+                />
+                <div class="tune-cell-spacer" aria-hidden="true" />
+              </div>
             </div>
           </td>
-          <td>
-            <input
-              id="centered"
-              type="text"
-              disabled
-              class="equiv-cell"
-              value={scale.length}
-              aria-label="equave degree"
+          <td class="scale-frequency-col">
+            <FrequencyInput
+              ariaLabel="equave frequency"
+              value={frequencyAtDegree(scale.length)}
+              onCommit={(frequency) => commitFrequencyAtDegree(scale.length, frequency)}
+              deviationCents={deviationCentsAtDegree(scale.length)}
+              comparing={isComparingAtDegree(scale.length)}
             />
           </td>
-          <td>
+          <td class="scale-name-col">
             <input
               id="centered"
               type="text"
@@ -569,7 +731,7 @@ const ScaleTable = (props) => {
               aria-label="pitch name equave"
             />
           </td>
-          <td>
+          <td class="scale-color-col">
             <span
               style={{
                 fontWeight: "bold",
