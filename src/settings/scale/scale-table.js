@@ -144,7 +144,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
 
 const formatFrequencyHz = (value) => {
   if (!Number.isFinite(value)) return "";
-  return value.toFixed(1);
+  return value.toFixed(6);
 };
 
 const FrequencyInput = ({
@@ -563,11 +563,11 @@ const ScaleTable = (props) => {
       <thead>
         <tr>
           <th class="wide scale-data-col" id="leftaligned">
-            Degree&nbsp;:&nbsp;&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
+            Degree&nbsp;:&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
           </th>
-          <th class="scale-frequency-col">Frequency</th>
+          <th class="scale-frequency-col">Frequency&nbsp;&nbsp;</th>
           <th class="scale-name-col">Name</th>
-          <th class="scale-color-col">Colour</th>
+          <th class="scale-color-col">Colour&nbsp;&nbsp;&nbsp;</th>
         </tr>
       </thead>
       <tbody>

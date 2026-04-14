@@ -290,17 +290,17 @@ td.scale-data-col {
 
 th.scale-frequency-col,
 td.scale-frequency-col {
-  width: 14%;
+  width: 17%;
 }
 
 th.scale-name-col,
 td.scale-name-col {
-  width: 12%;
+  width: 10%;
 }
 
 th.scale-color-col,
 td.scale-color-col {
-  width: 19%;
+  width: 18%;
 }
 
 .degree-gutter {
@@ -619,6 +619,7 @@ td.scale-frequency-col input.equiv-cell:not(:disabled) {
 .freq-cell > span {
   flex: 1;
   min-width: 0;
+  width: 100%;
 }
 .freq-cell > span input {
   flex: 1;
