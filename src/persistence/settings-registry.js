@@ -148,6 +148,20 @@ export const SETTINGS_REGISTRY = [
   { key: "midiin_scale_fallback", tier: "session", type: "string", default: "accept" },
   { key: "midiin_pitchbend_mode", tier: "session", type: "string", default: "recency" },
   { key: "midiin_pressure_mode", tier: "session", type: "string", default: "all" },
+  {
+    key: "midiin_modwheel_value",
+    tier: "session",
+    type: "int",
+    default: 0,
+    description: "Last known CC1 mod-wheel value for the active MIDI input, restored on refresh",
+  },
+  {
+    key: "midiin_modwheel_source",
+    tier: "session",
+    type: "string",
+    default: "",
+    description: "MIDI input device id that the restored mod-wheel value belongs to",
+  },
 
   // ── Controller anchors (hardware-scoped, survive device disconnect) ──────────
   // These are keyed dynamically as "${controllerId}_anchor" in localStorage.
@@ -196,6 +210,38 @@ export const SETTINGS_REGISTRY = [
   { key: "fluidsynth_channel", tier: "session", type: "int", default: -1 },
   { key: "output_osc", tier: "session", type: "bool", default: false },
   { key: "osc_bridge_url", tier: "session", type: "string", default: "ws://localhost:8089" },
+  {
+    key: "osc_volume_pluck",
+    tier: "session",
+    type: "float",
+    default: 0.5,
+    description: "OSC layer volume for the pluck synth; persisted across refresh and used at note-on",
+  },
+  {
+    key: "osc_volume_buzz",
+    tier: "session",
+    type: "float",
+    default: 0.5,
+    description: "OSC layer volume for the buzz/string synth; persisted across refresh and used at note-on",
+  },
+  {
+    key: "osc_volume_formant",
+    tier: "session",
+    type: "float",
+    default: 0.5,
+    description: "OSC layer volume for the formant synth; persisted across refresh and used at note-on",
+  },
+  {
+    key: "osc_volume_saw",
+    tier: "session",
+    type: "float",
+    default: 0.5,
+    description: "OSC layer volume for the saw/tone synth; persisted across refresh and used at note-on",
+  },
+  // WebMIDI permission/access level restored on refresh so the explicit
+  // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
+  // This is session-scoped runtime state, not a shareable preset value.
+  { key: "webmidi_access", tier: "session", type: "string", default: "none" },
 
   // ── Controller geometry (runtime-derived, never stored) ───────────────────────
   // These are computed from the detected controller at startup; persisting them

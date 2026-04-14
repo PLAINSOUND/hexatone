@@ -1,26 +1,30 @@
+/* eslint-disable no-console */
+import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
+
 /**
  * osc_synth — sends note events directly to SuperCollider via WebSocket → OSC bridge.
  *
  * Implements the same interface as midi_synth and sample_synth:
  *   makeHex(coords, cents, ...) → { noteOn(), noteOff(), retune(), aftertouch() }
  *
- * Each note maps to a SC synth node. The browser owns node IDs (monotonic counter),
- * so no state-tracking arrays are needed on the SC side — just SynthDefs.
+ * Routing:
+ *   /s_new, note /n_set (bend, filter, gate)  → directly to layer server (57101–57104)
+ *   /n_set mod                                → broadcast to all four servers, node 1
+ *   /n_set vol (fader)                        → node 1 on specific layer server (57101–57104)
+ *
+ * Node IDs: noteNumber * 4 + layerIndex + NODE_OFFSET, giving a unique stable ID per
+ * note+layer without any state tracking. Requires the caller to pass note_played.
  *
  * Requires the osc-bridge Node.js process to be running locally:
  *   node osc-bridge/index.js
- *
- * Configuration (passed to create_osc_synth):
- *   wsUrl      — WebSocket URL of the bridge (default "ws://localhost:8089")
- *   synthNames — array of 4 SC synth names, one per layer e.g. ["pluck","string","formant","tone"]
- *   volumes    — Float32Array or array of 4 volume values 0–1, one per layer
- *   serverIds  — scsynth group/target node IDs for each layer (default [1,1,1,1])
  */
 
 const WS_URL_DEFAULT = "ws://localhost:8089";
+const OSC_LAYER_PORTS = [57101, 57102, 57103, 57104];
+const midiCcToScParam = (value) => 1 + value / 127;
 
 // Monotonic node ID counter. scsynth reserves 0 (root) and 1 (default group).
-// We start at 2000 to stay well clear of any SC-allocated nodes.
+// Start at 2000 to stay well clear of SC-allocated nodes.
 let _nextNodeId = 2000;
 const nextNodeId = () => _nextNodeId++;
 
@@ -42,7 +46,6 @@ class OscSocket {
     ws.onopen = () => {
       console.log("[osc_synth] Connected to osc-bridge:", this._url);
       this._ws = ws;
-      // Flush any messages that arrived while we were connecting
       for (const msg of this._queue) ws.send(msg);
       this._queue = [];
     };
@@ -58,37 +61,54 @@ class OscSocket {
     };
   }
 
-  send(address, args) {
-    const msg = JSON.stringify({ address, args });
+  send(address, args, port = OSC_LAYER_PORTS[0]) {
+    const msg = JSON.stringify({ port, address, args });
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
       this._ws.send(msg);
     } else {
-      // Buffer briefly during reconnect — avoids losing the first notes
-      // after a bridge restart. Cap at 64 to avoid unbounded growth.
       if (this._queue.length < 64) this._queue.push(msg);
     }
   }
 }
 
-// One shared socket per WSUrl — avoids duplicate connections if create_osc_synth
-// is called multiple times with the same bridge address.
+// One shared socket per wsUrl.
 const _sockets = new Map();
 function getSocket(url) {
   if (!_sockets.has(url)) _sockets.set(url, new OscSocket(url));
   return _sockets.get(url);
 }
 
+const buildSNewArgs = (synthName, id, targetGroup, freq, bend, onVel, mod, filter, vol) => {
+  const args = [
+    { type: "s", value: synthName },
+    { type: "i", value: id },
+    { type: "i", value: 1 }, // addAction: addToTail
+    { type: "i", value: targetGroup },
+    { type: "s", value: "freq" },
+    { type: "f", value: freq },
+    { type: "s", value: "on_vel" },
+    { type: "f", value: onVel },
+    { type: "s", value: "bend" },
+    { type: "f", value: bend },
+    { type: "s", value: "filter" },
+    { type: "f", value: filter },
+    { type: "s", value: "mod" },
+    { type: "f", value: mod },
+    { type: "s", value: "vol" },
+    { type: "f", value: vol },
+    { type: "s", value: "gate" },
+    { type: "i", value: 1 },
+  ];
+
+  if (synthName === "formant") {
+    args.push(...formantPresetToOscArgs(pickRandomFormantPreset()));
+  }
+
+  return args;
+};
+
 /**
- * Factory — mirrors the async signature of create_midi_synth / create_mpe_synth
- * so it can be used identically in use-synth-wiring.js.
- *
- * @param {string}   wsUrl              - WebSocket bridge URL
- * @param {string[]} synthNames         - SC SynthDef names, one per layer [pluck, string, formant, tone]
- * @param {number[]} volumes            - Initial volume per layer, 0–1
- * @param {number}   fundamental        - Reference frequency in Hz (e.g. 440)
- * @param {number}   reference_degree   - Scale degree index that maps to fundamental
- * @param {number[]} scale              - Array of cent values for each scale degree
- * @param {number}   targetGroup        - SC node group to add synths to (default 1 = default group)
+ * Factory — mirrors the async signature of create_midi_synth / create_mpe_synth.
  */
 export const create_osc_synth = async (
   wsUrl = WS_URL_DEFAULT,
@@ -100,20 +120,34 @@ export const create_osc_synth = async (
   targetGroup = 1,
 ) => {
   const socket = getSocket(wsUrl);
-  // Mutable volume array — updated by setVolume, read by each new OscHex
   const _volumes = [...volumes];
-  // Shared mod state — updated by setMod, stamped onto each new note's /s_new
-  const _mod = { value: 0.0 };
+  const _mod = { value: 1.0 };
+
+  const setLayerVolume = (index, value) => {
+    if (index < 0 || index >= _volumes.length) return;
+    const next = Math.max(0, Math.min(1, value));
+    _volumes[index] = next;
+    // /n_set \vol to node 1 (default group) on this layer's scsynth server directly.
+    socket.send(
+      "/n_set",
+      [
+        { type: "i", value: 1 },
+        { type: "s", value: "vol" },
+        { type: "f", value: next },
+      ],
+      OSC_LAYER_PORTS[index],
+    );
+  };
 
   return {
     makeHex: (
       coords,
       cents,
-      steps,
-      equaves,
-      equivSteps,
-      cents_prev,
-      cents_next,
+      _steps,
+      _equaves,
+      _equivSteps,
+      _cents_prev,
+      _cents_next,
       note_played,
       velocity_played,
       bend,
@@ -122,6 +156,7 @@ export const create_osc_synth = async (
       return new OscHex(
         coords,
         cents,
+        note_played,
         socket,
         synthNames,
         _volumes,
@@ -129,6 +164,8 @@ export const create_osc_synth = async (
         fundamental,
         degree0toRef_ratio ?? 1,
         _mod,
+        bend,
+        velocity_played,
       );
     },
 
@@ -136,24 +173,40 @@ export const create_osc_synth = async (
       _mod.value = value;
     },
 
+    rememberControllerState(state) {
+      const mod = state?.ccValues?.[1];
+      if (Number.isFinite(mod)) _mod.value = midiCcToScParam(mod);
+    },
+
+    applyControllerState(state) {
+      const mod = state?.ccValues?.[1];
+      if (Number.isFinite(mod)) _mod.value = midiCcToScParam(mod);
+    },
+
     prepare() {
-      // Nothing async needed; socket connects lazily.
       return Promise.resolve();
     },
 
     setVolume(value) {
-      // Update all layers equally. Could be per-layer if needed later.
-      for (let i = 0; i < _volumes.length; i++) _volumes[i] = value;
+      for (let i = 0; i < _volumes.length; i++) setLayerVolume(i, value);
+    },
+
+    setLayerVolume(index, value) {
+      setLayerVolume(index, value);
     },
   };
 };
 
 /**
  * OscHex — one instance per held note, one SC synth node per active layer.
+ *
+ * Node IDs are derived from note_played + layer index — stable and predictable,
+ * no state tracking required on the SC side.
  */
 function OscHex(
   coords,
   cents,
+  _notePlayed,
   socket,
   synthNames,
   volumes,
@@ -161,6 +214,8 @@ function OscHex(
   fundamental,
   degree0toRef_ratio,
   modRef,
+  bend,
+  velocity_played,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -172,10 +227,13 @@ function OscHex(
   this._targetGroup = targetGroup;
   this._fundamental = fundamental;
   this._degree0toRef = degree0toRef_ratio;
-  this._modRef = modRef; // shared { value } object so noteOn sees current mod level
+  this._modRef = modRef;
+  this._bend = Number.isFinite(bend) && bend > 0 ? bend : 1;
+  this._onVel = Math.max(1, Math.min(127, velocity_played || 72));
+  this._filter = 1;
 
-  // One node ID per layer; null = layer has vol 0 so no node created
-  this._nodeIds = synthNames.map(() => null);
+  // One unique node ID per layer, assigned at construction time
+  this._nodeIds = synthNames.map(() => nextNodeId());
 
   this._freq = this._centsToHz(cents);
 }
@@ -183,28 +241,21 @@ function OscHex(
 OscHex.prototype.noteOn = function () {
   if (this.release) return;
   for (let i = 0; i < this._synthNames.length; i++) {
-    const vol = this._volumes[i];
-    if (vol <= 0) continue; // skip silent layers — no node needed
-
-    const nodeId = nextNodeId();
-    this._nodeIds[i] = nodeId;
-
-    // /s_new synthName nodeId addAction targetID [args...]
-    // addAction 1 = add to tail of targetGroup
-    this._socket.send("/s_new", [
-      { type: "s", value: this._synthNames[i] },
-      { type: "i", value: nodeId },
-      { type: "i", value: 1 }, // addAction: addToTail
-      { type: "i", value: this._targetGroup },
-      { type: "s", value: "freq" },
-      { type: "f", value: this._freq },
-      { type: "s", value: "gate" },
-      { type: "i", value: 1 },
-      { type: "s", value: "vol" },
-      { type: "f", value: 1.0 }, // SC faders control vol via /n_set
-      { type: "s", value: "mod" },
-      { type: "f", value: this._modRef.value },
-    ]);
+    this._socket.send(
+      "/s_new",
+      buildSNewArgs(
+        this._synthNames[i],
+        this._nodeIds[i],
+        this._targetGroup,
+        this._freq,
+        this._bend,
+        this._onVel,
+        this._modRef.value,
+        this._filter,
+        this._volumes[i],
+      ),
+      OSC_LAYER_PORTS[i],
+    );
   }
 };
 
@@ -212,70 +263,104 @@ OscHex.prototype.noteOff = function (release_velocity) {
   if (this.release) return;
   this.release = true;
   const offVel = release_velocity != null ? release_velocity / 127 : 0.5;
-  for (let i = 0; i < this._nodeIds.length; i++) {
-    const id = this._nodeIds[i];
-    if (id === null) continue;
-    this._socket.send("/n_set", [
-      { type: "i", value: id },
-      { type: "s", value: "off_vel" },
-      { type: "f", value: offVel },
-      { type: "s", value: "gate" },
-      { type: "i", value: 0 },
-    ]);
-    this._nodeIds[i] = null;
+  for (let i = 0; i < this._synthNames.length; i++) {
+    this._socket.send(
+      "/n_set",
+      [
+        { type: "i", value: this._nodeIds[i] },
+        { type: "s", value: "off_vel" },
+        { type: "f", value: offVel },
+        { type: "s", value: "gate" },
+        { type: "i", value: 0 },
+      ],
+      OSC_LAYER_PORTS[i],
+    );
   }
 };
 
 OscHex.prototype.retune = function (newCents) {
   if (this.release) return;
   this.cents = newCents;
-  const freq = this._centsToHz(newCents);
-  this._freq = freq;
-  for (const id of this._nodeIds) {
-    if (id === null) continue;
-    this._socket.send("/n_set", [
-      { type: "i", value: id },
-      { type: "s", value: "freq" },
-      { type: "f", value: freq },
-    ]);
+  this._freq = this._centsToHz(newCents);
+  for (let i = 0; i < this._synthNames.length; i++) {
+    this._socket.send(
+      "/n_set",
+      [
+        { type: "i", value: this._nodeIds[i] },
+        { type: "s", value: "freq" },
+        { type: "f", value: this._freq },
+      ],
+      OSC_LAYER_PORTS[i],
+    );
   }
 };
 
 OscHex.prototype.aftertouch = function (value) {
   if (this.release) return;
-  // Map 0–127 to 1–2 (same scale as the SC filter parameter)
   const filter = 1 + value / 127;
-  for (const id of this._nodeIds) {
-    if (id === null) continue;
-    this._socket.send("/n_set", [
-      { type: "i", value: id },
-      { type: "s", value: "filter" },
-      { type: "f", value: filter },
-    ]);
+  this._filter = filter;
+  for (let i = 0; i < this._synthNames.length; i++) {
+    this._socket.send(
+      "/n_set",
+      [
+        { type: "i", value: this._nodeIds[i] },
+        { type: "s", value: "filter" },
+        { type: "f", value: filter },
+      ],
+      OSC_LAYER_PORTS[i],
+    );
   }
 };
 
-// pressure: same as aftertouch for OSC engine (SC filter modulation).
 OscHex.prototype.pressure = function (value) {
   this.aftertouch(value);
 };
 
-// cc74, modwheel, expression: no SC mapping yet — no-ops.
-OscHex.prototype.cc74 = function () {};
-OscHex.prototype.modwheel = function () {};
+OscHex.prototype.pitchbend = function (value) {
+  if (this.release) return;
+  this._bend = value;
+  for (let i = 0; i < this._synthNames.length; i++) {
+    this._socket.send(
+      "/n_set",
+      [
+        { type: "i", value: this._nodeIds[i] },
+        { type: "s", value: "bend" },
+        { type: "f", value },
+      ],
+      OSC_LAYER_PORTS[i],
+    );
+  }
+};
+
+// CC74 → filter on individual nodes
+OscHex.prototype.cc74 = function (value) {
+  this.aftertouch(value);
+};
+
+// Modwheel → broadcast /n_set \mod to node 1 on all four servers
+OscHex.prototype.modwheel = function (value) {
+  const mod = midiCcToScParam(value);
+  this._modRef.value = mod;
+  for (const port of OSC_LAYER_PORTS) {
+    this._socket.send(
+      "/n_set",
+      [
+        { type: "i", value: 1 },
+        { type: "s", value: "mod" },
+        { type: "f", value: mod },
+      ],
+      port,
+    );
+  }
+};
+
 OscHex.prototype.expression = function () {};
 
 /**
- * Convert scale-relative cents to Hz using the same formula as midi_synth.
- * cents = interval from scale root; fundamental + degree0toRef_ratio anchor
- * it to an absolute frequency, matching how SC's ~tuningMap is built.
- *
+ * Convert scale-relative cents to Hz.
  *   ref        = fundamental / degree0toRef_ratio   (Hz of scale degree 0)
- *   ref_offset = 1200 * log2(ref / C4_440)          (cents from C4@A440)
- *   abs_cents  = cents + ref_offset                  (absolute cents from C4)
- *   Hz         = C4_440 * 2^(abs_cents / 1200)
- *
- * C4 at A=440 ≈ 261.6255653 Hz (equal temperament).
+ *   ref_offset = 1200 * log2(ref / C4_440)
+ *   Hz         = C4_440 * 2^((cents + ref_offset) / 1200)
  */
 OscHex.prototype._centsToHz = function (cents) {
   const C4_440 = 261.6255653;

@@ -45,6 +45,8 @@ function makeSettings(overrides = {}) {
     midi_device: "OFF",
     midi_channel: -1,
     midiin_device: "OFF",
+    midiin_modwheel_value: 0,
+    midiin_modwheel_source: "",
     midiin_channel: -1,
     midiin_central_degree: 60,
     midi_mapping: "DIRECT",
@@ -303,6 +305,35 @@ describe("Keys MIDI input integration", () => {
       ccValues: { 1: 93 },
       channelPressure: 54,
       pitchBend14: 12000,
+    });
+  });
+
+  it("restores persisted mod wheel state on refresh for the same MIDI input device", () => {
+    const synth = {
+      rememberControllerState: vi.fn(),
+      applyControllerState: vi.fn(),
+    };
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_modwheel_value: 91,
+        midiin_modwheel_source: "input-1",
+      },
+      {},
+      synth,
+    );
+
+    keys.updateLiveOutputState(null, synth);
+
+    expect(synth.rememberControllerState).toHaveBeenCalledWith({
+      ccValues: { 1: 91 },
+      channelPressure: 0,
+      pitchBend14: 8192,
+    });
+    expect(synth.applyControllerState).toHaveBeenCalledWith({
+      ccValues: { 1: 91 },
+      channelPressure: 0,
+      pitchBend14: 8192,
     });
   });
 

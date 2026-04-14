@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { render } from "preact";
 import { options } from "preact";
 import PropTypes from "prop-types";

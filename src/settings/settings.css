@@ -605,11 +605,13 @@ table input:disabled {
   /* iOS reduces opacity on disabled inputs */
 }
 
-/* Frequency inputs are editable — restore normal text appearance */
-td.scale-frequency-col input.equiv-cell:not(:disabled) {
+/* Frequency inputs are editable — do not inherit the read-only equave style */
+td.scale-frequency-col input.frequency-input {
   color: inherit;
-  -webkit-text-fill-color: inherit;
+  -webkit-text-fill-color: currentColor;
   border-color: #c8b8b8;
+  background-color: #faf9f8;
+  opacity: 1;
 }
 
 /* Freq input fills available width, handle sits flush to its right.

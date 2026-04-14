@@ -7,12 +7,13 @@
  * Run with:  node osc-bridge/index.js
  *
  * Listens for JSON messages on WebSocket port 8089 (browser → bridge),
- * encodes them as OSC and forwards via UDP to sclang on port 57120.
+ * encodes them as OSC and forwards via UDP to SuperCollider on port 57100 by default.
  *
  * Message format from browser:
  *   { address: "/s_new", args: [...] }
  *   { address: "/n_set", args: [...] }
  *   { address: "/n_free", args: [...] }
+ *   { port: 57103, address: "/n_set", args: [...] }
  *
  * Each arg is either a plain number/string, or a typed object:
  *   { type: "i", value: 1 }    integer
@@ -27,7 +28,7 @@ const { createHash } = require("node:crypto");
 
 const WS_PORT = 8089;
 const SC_HOST = "127.0.0.1";
-const SC_PORT = 57120; // sclang default OSC port
+const SC_PORT = 57100; // sclang / dispatcher port in the Hexatone SC setup
 
 // ── UDP socket to sclang ─────────────────────────────────────────────────────
 
@@ -37,9 +38,9 @@ udp.bind(0, () => {
 });
 udp.on("error", (err) => console.error("[osc-bridge] UDP error:", err.message));
 
-function sendOsc(address, args) {
+function sendOsc(address, args, port = SC_PORT) {
   const buf = encodeOsc(address, args);
-  udp.send(buf, SC_PORT, SC_HOST, (err) => {
+  udp.send(buf, port, SC_HOST, (err) => {
     if (err) console.error("[osc-bridge] UDP send error:", err.message);
   });
 }
@@ -125,7 +126,7 @@ server.on("upgrade", (req, socket, head) => {
         continue;
       }
 
-      sendOsc(msg.address, msg.args);
+      sendOsc(msg.address, msg.args, Number.isFinite(msg.port) ? msg.port : SC_PORT);
     }
   });
 

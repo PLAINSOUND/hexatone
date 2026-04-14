@@ -14,6 +14,8 @@ const save = (name, value, onChange) => {
   sessionStorage.setItem(name, value);
 };
 
+const clampOscVolume = (value) => Math.max(0, Math.min(1, value));
+
 const sendRpn = (output, channel0, msb, lsb, dataMsb, dataLsb = 0) => {
   output.send([0xb0 + channel0, 101, msb & 0x7f]);
   output.send([0xb0 + channel0, 100, lsb & 0x7f]);
@@ -61,6 +63,12 @@ const MidiOutputs = (props) => {
   const [fsVolume, setFsVolume] = useState(
     parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100"),
   );
+  const [oscDraftVolumes, setOscDraftVolumes] = useState({
+    osc_volume_pluck: settings.osc_volume_pluck ?? 0.5,
+    osc_volume_buzz: settings.osc_volume_buzz ?? 0.5,
+    osc_volume_formant: settings.osc_volume_formant ?? 0.5,
+    osc_volume_saw: settings.osc_volume_saw ?? 0.5,
+  });
   const masterCh = settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
@@ -76,6 +84,20 @@ const MidiOutputs = (props) => {
   );
   const hasSysexMidi = props.midiAccess === "sysex";
 
+  useEffect(() => {
+    setOscDraftVolumes({
+      osc_volume_pluck: settings.osc_volume_pluck ?? 0.5,
+      osc_volume_buzz: settings.osc_volume_buzz ?? 0.5,
+      osc_volume_formant: settings.osc_volume_formant ?? 0.5,
+      osc_volume_saw: settings.osc_volume_saw ?? 0.5,
+    });
+  }, [
+    settings.osc_volume_pluck,
+    settings.osc_volume_buzz,
+    settings.osc_volume_formant,
+    settings.osc_volume_saw,
+  ]);
+
   // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
   // macOS FluidSynth creates a new port on each launch; we find it by name.
   const fluidsynthOutput = outputs.find((m) => m.name.toLowerCase().includes("fluid")) ?? null;
@@ -88,6 +110,7 @@ const MidiOutputs = (props) => {
       save("fluidsynth_device", "", onChange);
       save("fluidsynth_channel", -1, onChange);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires on port disconnect only; onChange is stable
   }, [fluidsynthOutput?.id]);
   // Is the user-selected main MTS port the same as FluidSynth? Warn if so.
   const mtsPortIsFluidsynth = fluidsynthOutput && settings.midi_device === fluidsynthOutput.id;
@@ -724,7 +747,7 @@ const MidiOutputs = (props) => {
 
       <p style={{ marginTop: 0.5 }}>
         <em>
-          Sends notes directly to SuperCollider via a local WebSocket→OSC bridge.
+          Sends notes directly to SuperCollider via a local WebSocket→OSC bridge. Run "yarn osc-bridge" in a locally cloned repo and use the SuperCollider folder to initialise the synths and servers.
           {/*/<br />
         Run </em> (&nbsp;<code>yarn osc-bridge</code>&nbsp;) <em> locally and load SC patch with
         OSCResponders.scd.*/}
@@ -732,21 +755,57 @@ const MidiOutputs = (props) => {
       </p>
 
       {settings.output_osc && (
-        <label>
-          Bridge URL
-          <input
-            name="osc_bridge_url"
-            type="text"
-            class="sidebar-input"
-            key={settings.osc_bridge_url}
-            defaultValue={settings.osc_bridge_url || "ws://localhost:8089"}
-            onBlur={(e) => {
-              const val = e.target.value.trim();
-              if (val) save("osc_bridge_url", val, onChange);
-              else e.target.value = settings.osc_bridge_url || "ws://localhost:8089";
-            }}
-          />
-        </label>
+        <>
+          <label>
+            Bridge URL
+            <input
+              name="osc_bridge_url"
+              type="text"
+              class="sidebar-input"
+              key={settings.osc_bridge_url}
+              defaultValue={settings.osc_bridge_url || "ws://localhost:8089"}
+              onBlur={(e) => {
+                const val = e.target.value.trim();
+                if (val) save("osc_bridge_url", val, onChange);
+                else e.target.value = settings.osc_bridge_url || "ws://localhost:8089";
+              }}
+            />
+          </label>
+
+          {[
+            ["osc_volume_pluck", "Pluck"],
+            ["osc_volume_buzz", "Buzz"],
+            ["osc_volume_formant", "Formant"],
+            ["osc_volume_saw", "Saw"],
+          ].map(([key, label], index) => (
+            <label key={key}>
+              {label}
+              <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={oscDraftVolumes[key] ?? 0.5}
+                  onInput={(e) => {
+                    const next = clampOscVolume(parseFloat(e.target.value));
+                    setOscDraftVolumes((prev) => ({ ...prev, [key]: next }));
+                    props.onOscLayerVolumeChange?.(index, next);
+                  }}
+                  onChange={(e) => {
+                    const next = clampOscVolume(parseFloat(e.target.value));
+                    setOscDraftVolumes((prev) => ({ ...prev, [key]: next }));
+                    save(key, next, onChange);
+                  }}
+                  style={{ flex: 1, width: "100%" }}
+                />
+                <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  {(oscDraftVolumes[key] ?? 0.5).toFixed(2)}
+                </span>
+              </span>
+            </label>
+          ))}
+        </>
       )}
     </fieldset>
   );
@@ -785,12 +844,17 @@ MidiOutputs.propTypes = {
     mpe_pitchbend_range_manager: PropTypes.number,
     output_osc: PropTypes.bool,
     osc_bridge_url: PropTypes.string,
+    osc_volume_pluck: PropTypes.number,
+    osc_volume_buzz: PropTypes.number,
+    osc_volume_formant: PropTypes.number,
+    osc_volume_saw: PropTypes.number,
   }).isRequired,
   midi: PropTypes.object,
   midiAccess: PropTypes.string,
   midiAccessError: PropTypes.string,
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,
+  onOscLayerVolumeChange: PropTypes.func,
   keysRef: PropTypes.object,
 };
 

@@ -17,7 +17,7 @@ const WebMIDISettings = ({ midiAccess, midiAccessError, ensureMidiAccess }) => {
   return (
     <fieldset>
       <legend>
-        <b>Enable MIDI</b>
+        <b>WebMIDI</b>
       </legend>
       <label>
         Enable MIDI
@@ -72,6 +72,7 @@ const Settings = ({
   instruments,
   keysRef,
   onVolumeChange,
+  onOscLayerVolumeChange,
   midiLearnActive,
   lumatoneRawPorts,
   exquisRawPorts,
@@ -151,6 +152,7 @@ const Settings = ({
     />
     <MidiOutputs
       onChange={onChange}
+      onOscLayerVolumeChange={onOscLayerVolumeChange}
       settings={settings}
       midi={midi}
       midiAccess={midiAccess}

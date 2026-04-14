@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "./settings/midi/midiin";
 import { create_sample_synth } from "./sample_synth";
@@ -17,15 +18,30 @@ import {
   degree0ToRef,
 } from "./tuning/center-anchor.js";
 import { resolveBulkDumpName } from "./tuning/mts-format.js";
+import { REGISTRY_BY_KEY } from "./persistence/settings-registry.js";
+import { sessionFloat } from "./persistence/storage-utils.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
 const wait = (l) => l + 1;
 const signal = (l) => l - 1;
+const MIDI_ACCESS_SESSION_KEY = REGISTRY_BY_KEY.webmidi_access.key;
 const midiAccessRank = {
   none: 0,
   basic: 1,
   sysex: 2,
+};
+
+export const deriveOscVolumes = (settings) => {
+  if (Array.isArray(settings.osc_volumes) && settings.osc_volumes.length === 4) {
+    return settings.osc_volumes;
+  }
+  return [
+    sessionFloat(REGISTRY_BY_KEY.osc_volume_pluck.key, settings.osc_volume_pluck ?? 0.5),
+    sessionFloat(REGISTRY_BY_KEY.osc_volume_buzz.key, settings.osc_volume_buzz ?? 0.5),
+    sessionFloat(REGISTRY_BY_KEY.osc_volume_formant.key, settings.osc_volume_formant ?? 0.5),
+    sessionFloat(REGISTRY_BY_KEY.osc_volume_saw.key, settings.osc_volume_saw ?? 0.5),
+  ];
 };
 
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
@@ -231,6 +247,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
   const midiRequestRef = useRef(null);
+  const midiRestoreAttemptedRef = useRef(false);
 
   // ── MIDI access ─────────────────────────────────────────────────────────────
 
@@ -255,9 +272,15 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
           setMidi(midiAccessObj);
           setMidiAccess(targetAccess);
+          sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, targetAccess);
           return true;
         } catch (err) {
           console.warn("Web MIDI could not initialise:", err);
+          if (midiAccessRank[midiAccess] > midiAccessRank.none) {
+            sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, midiAccess);
+          } else {
+            sessionStorage.removeItem(MIDI_ACCESS_SESSION_KEY);
+          }
           setMidiAccessError(
             sysex ? "MIDI SysEx access was not granted." : "MIDI access was not granted.",
           );
@@ -272,6 +295,29 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     },
     [midiAccess],
   );
+
+  useEffect(() => {
+    if (midiRestoreAttemptedRef.current) return;
+    const savedAccess = sessionStorage.getItem(MIDI_ACCESS_SESSION_KEY);
+    if (!savedAccess || savedAccess === "none") {
+      midiRestoreAttemptedRef.current = true;
+      return;
+    }
+
+    midiRestoreAttemptedRef.current = true;
+    const wantsSysex = savedAccess === "sysex";
+    ensureMidiAccess({ sysex: wantsSysex }).then((ok) => {
+      if (ok) return;
+      setSettings((prev) => ({
+        ...prev,
+        midiin_device: "OFF",
+        midi_device: "OFF",
+        direct_device: "OFF",
+        mpe_device: "OFF",
+        fluidsynth_device: "OFF",
+      }));
+    });
+  }, [ensureMidiAccess, setSettings]);
 
   // ── Reconstruction boundary contract ────────────────────────────────────────
   //
@@ -543,7 +589,6 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       const oscKey = JSON.stringify([
         settings.osc_bridge_url || "ws://localhost:8089",
         settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-        settings.osc_volumes || [0.5, 0.5, 0.5, 0.5],
         settings.fundamental,
         settings.reference_degree,
         settings.scale,
@@ -555,7 +600,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           create_osc_synth(
             settings.osc_bridge_url || "ws://localhost:8089",
             settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-            settings.osc_volumes || [0.5, 0.5, 0.5, 0.5],
+            deriveOscVolumes(settings),
             settings.fundamental,
             settings.reference_degree,
             settings.scale,
@@ -855,13 +900,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     const ctrl = resolveInputController(input, settings.midiin_controller_override);
     if (!ctrl) return;
     setSettings((s) => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settingsRef.current) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
   }, [
     midi,
     settings.midiin_device,
     settings.midiin_controller_override,
     settings.midiin_mpe_input,
     settings.midi_passthrough,
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
   ]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────
@@ -871,6 +916,11 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       synthRef.current.setVolume(muted ? 0 : volume);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- synthRef is a stable ref
+  }, []);
+
+  const onOscLayerVolumeChange = useCallback((index, value) => {
+    const oscSynth = oscSynthRef.current.synth;
+    if (oscSynth?.setLayerVolume) oscSynth.setLayerVolume(index, value);
   }, []);
 
   // Called by keys.js when the user presses a key during MIDI-learn mode.
@@ -959,6 +1009,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     shiftOctave,
     toggleOctaveDeferred,
     onVolumeChange,
+    onOscLayerVolumeChange,
     onAnchorLearn,
     lumatoneRawPorts,
     exquisRawPorts,

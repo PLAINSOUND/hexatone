@@ -607,9 +607,10 @@ export default function RetuneApp() {
       await loadSample();
     };
 
-    restoreWorkspace().catch((error) =>
-      console.error("Failed to restore retune workspace:", error),
-    );
+    restoreWorkspace().catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error("Failed to restore retune workspace:", error);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: restores persisted workspace on initial load
   }, []);
 

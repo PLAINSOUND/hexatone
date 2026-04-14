@@ -1,25 +1,21 @@
 // some OSC debug commands
 
 "cat /tmp/osc-bridge.log".unixCmdGetStdOut.postln;
+"pkill -f osc-bridge".unixCmd;
+"lsof -i :8089".unixCmdGetStdOut.postln; // view whats going on
 
 And add a temporary OSC monitor to see if /s_new messages are arriving:
 ~servers[1].dumpOSC(1);
+~servers[1].queryAllNodes;
 
 OSCFunc({ |msg| msg.postln }, '/s_new');
 OSCFunc({ |msg| msg.postln }, '/n_set');
-s.sendMsg(\n_set, 2, \vol, 0.5);
-
-"pkill -f osc-bridge".unixCmd;
-"lsof -i :8089".unixCmdGetStdOut.postln; // view whats going on
 
 // terminal cmds
 // lsof -i :8089
 // lsof -ti :8089 | xargs kill -9
 
-
-~servers[1].queryAllNodes;
-
-( // REBOOT INTERPRETER, then run this first to set up and start server: choose between default (fiveservers = false) or 5 servers (fiveservers = true)
+( // Run this first to set up and start five servers
 // ~to_headphones and ~to_speakers assume you are running an aggregate device (macOS) with a 2 channel audio loopback device (Blackhole) on the first 2 channels, followed by Headphones on 3-4 and Built-In on 5-6; otherwise set the audio channels for headphones and speakers accordingly
 
 var id = 57100, count = 0, cleanup, fiveservers = true;
@@ -251,32 +247,76 @@ View.globalKeyDownAction = k;
 ~channels = Array.fill(1, { ~modelPrototype.copy.put(\value, 0.0) });
 ~labels = ["PLUCK", "BUZZ", "FORMANT", "SAW"];
 
-// Timbral mod fader — mirrors ~controlchange[~mod_cc] (mod wheel CC1).
-// Internal value 0–1 maps to the exponential 1–2 range used by the synths.
-~mod_model = ~modelPrototype.copy.put(\value, 0.0);
+if (~use_osc.not) {
+	// Timbral mod fader — mirrors ~controlchange[~mod_cc] (mod wheel CC1).
+	// Internal value 0–1 maps to the exponential 1–2 range used by the synths.
+	~mod_model = ~modelPrototype.copy.put(\value, 0.0);
 
-~sliders = ~levels.collect { |model, i|
-	Slider()
-	.background_(Color.fromHexString("#aaaaaa"))
+	~sliders = ~levels.collect { |model, i|
+		Slider()
+		.background_(Color.fromHexString("#aaaaaa"))
+		.orientation_(\vertical)
+		.value_(model.getValue)
+		.action_({ |view|
+			model.value = view.value;
+			~numbers[i].value = view.value;
+
+			if (~internal_synth) {
+				(0..15).do { |channel|
+					(0..127).do { |note| if (~notes[channel][note][i].isPlaying)
+						{ ~notes[channel][note][i].set(\vol,view.value) }
+					}
+				}
+			};
+		})
+		.onClose_({ ~controllers_levels[i].remove })
+	};
+
+	~numbers = ~levels.collect { |model, i|
+		NumberBox()
+		.font_(Font("Plainsound Text", 15))
+		.align_(\center)
+		.clipLo_(0.0)
+		.clipHi_(1.0)
+		.minDecimals_(2)
+		.scroll_step_(0.1)
+		.step_(0.01)
+		.value_(model.getValue)
+		.action_({ |view|
+			model.value = view.value;
+			~sliders[i].value = view.value;
+
+			if (~internal_synth) {
+				(0..15).do { |channel|
+					(0..127).do { |note| if (~notes[channel][note][i].isPlaying)
+						{ ~notes[channel][note][i].set(\vol,view.value)}
+					}
+				}
+			}
+		})
+		.onClose_({ ~controllers_levels[i].remove })
+	};
+
+	~mod_slider = Slider()
+	.background_(Color.fromHexString("#88aaaa"))
 	.orientation_(\vertical)
-	.value_(model.getValue)
+	.value_(~mod_model.getValue)
 	.action_({ |view|
-		model.value = view.value;
-		~numbers[i].value = view.value;
-
-		if (~internal_synth) {
-			(0..15).do { |channel|
-				(0..127).do { |note| if (~notes[channel][note][i].isPlaying)
-					{ ~notes[channel][note][i].set(\vol,view.value) }
+		var modVal = view.value.linexp(0, 1, 1, 2); // 0–1 → 1–2 exponential
+		~mod_model.value = view.value;
+		~mod_number.value = view.value;
+		~controlchange[~mod_cc] = modVal;
+		(0..15).do { |channel|
+			(0..127).do { |note|
+				(0..3).do { |synth| if (~notes[channel][note][synth].isPlaying)
+					{ ~notes[channel][note][synth].set(\mod, modVal) }
 				}
 			}
 		};
 	})
-	.onClose_({ ~controllers_levels[i].remove })
-};
+	.onClose_({ ~controller_mod.remove });
 
-~numbers = ~levels.collect { |model, i|
-	NumberBox()
+	~mod_number = NumberBox()
 	.font_(Font("Plainsound Text", 15))
 	.align_(\center)
 	.clipLo_(0.0)
@@ -284,196 +324,156 @@ View.globalKeyDownAction = k;
 	.minDecimals_(2)
 	.scroll_step_(0.1)
 	.step_(0.01)
-	.value_(model.getValue)
+	.value_(~mod_model.getValue)
 	.action_({ |view|
-		model.value = view.value;
-		~sliders[i].value = view.value;
-
-		if (~internal_synth) {
-			(0..15).do { |channel|
-				(0..127).do { |note| if (~notes[channel][note][i].isPlaying)
-					{ ~notes[channel][note][i].set(\vol,view.value)}
+		var modVal = view.value.linexp(0, 1, 1, 2);
+		~mod_model.value = view.value;
+		~mod_slider.value = view.value;
+		~controlchange[~mod_cc] = modVal;
+		(0..15).do { |channel|
+			(0..127).do { |note|
+				(0..3).do { |synth| if (~notes[channel][note][synth].isPlaying)
+					{ ~notes[channel][note][synth].set(\mod, modVal) }
 				}
 			}
+		};
+	})
+	.onClose_({ ~controller_mod.remove });
+
+	~controller_mod = SimpleController(~mod_model)
+	.put(\value, { |object, whatChanged, value|
+		defer {
+			~mod_slider.value = value;
+			~mod_number.value = value;
 		}
 	})
-	.onClose_({ ~controllers_levels[i].remove })
-};
-
-~mod_slider = Slider()
-.background_(Color.fromHexString("#88aaaa"))
-.orientation_(\vertical)
-.value_(~mod_model.getValue)
-.action_({ |view|
-	var modVal = view.value.linexp(0, 1, 1, 2); // 0–1 → 1–2 exponential
-	~mod_model.value = view.value;
-	~mod_number.value = view.value;
-	~controlchange[~mod_cc] = modVal;
-	(0..15).do { |channel|
-		(0..127).do { |note|
-			(0..3).do { |synth| if (~notes[channel][note][synth].isPlaying)
-				{ ~notes[channel][note][synth].set(\mod, modVal) }
-			}
+	.put(\didFree, {
+		defer {
+			~mod_slider.remove;
+			~mod_number.remove;
 		}
+	});
+
+	~tuning = ~maps.collect { |model, i|
+		NumberBox()
+		.font_(Font("Plainsound Text", 15))
+		.align_ (\center)
+		.clipLo_(0)
+		.clipHi_(127)
+		.scroll_step_(1)
+		.step_(1)
+		.value_(model.getValue)
+		.value_(0)
+		.action_({ |view|
+			model.value = view.value;
+			~current_map = view.value;
+		})
+		.onClose_({ ~controllers_maps[i].remove })
 	};
-})
-.onClose_({ ~controller_mod.remove });
 
-~mod_number = NumberBox()
-.font_(Font("Plainsound Text", 15))
-.align_(\center)
-.clipLo_(0.0)
-.clipHi_(1.0)
-.minDecimals_(2)
-.scroll_step_(0.1)
-.step_(0.01)
-.value_(~mod_model.getValue)
-.action_({ |view|
-	var modVal = view.value.linexp(0, 1, 1, 2);
-	~mod_model.value = view.value;
-	~mod_slider.value = view.value;
-	~controlchange[~mod_cc] = modVal;
-	(0..15).do { |channel|
-		(0..127).do { |note|
-			(0..3).do { |synth| if (~notes[channel][note][synth].isPlaying)
-				{ ~notes[channel][note][synth].set(\mod, modVal) }
-			}
-		}
+	~octave = ~channels.collect { |model, i|
+		NumberBox()
+		.font_(Font("Plainsound Text", 15))
+		.align_ (\center)
+		.clipLo_(1)
+		.clipHi_(16)
+		.scroll_step_(1)
+		.step_(1)
+		.value_(model.getValue)
+		.value_(4)
+		.action_({ |view|
+			model.value = view.value;
+			~main_channel = view.value;
+		})
+		.onClose_({ ~controllers_channels[i].remove })
 	};
-})
-.onClose_({ ~controller_mod.remove });
 
-~controller_mod = SimpleController(~mod_model)
-.put(\value, { |object, whatChanged, value|
-	defer {
-		~mod_slider.value = value;
-		~mod_number.value = value;
-	}
-})
-.put(\didFree, {
-	defer {
-		~mod_slider.remove;
-		~mod_number.remove;
-	}
-});
+	~controllers_levels = ~levels.collect { |model, i|
+		SimpleController(model)
+		.put(\value, { |object, whatChanged, value|
+			defer {
+				~sliders[i].value = value;
+				~numbers[i].value = value;
+			}
+		})
+		.put(\didFree, {
+			defer {
+				~sliders[i].remove;
+				~numbers[i].remove;
+			}
+		})
+	};
 
-~tuning = ~maps.collect { |model, i|
-	NumberBox()
-	.font_(Font("Plainsound Text", 15))
-	.align_ (\center)
-	.clipLo_(0)
-	.clipHi_(127)
-	.scroll_step_(1)
-	.step_(1)
-	.value_(model.getValue)
-	.value_(0)
-	.action_({ |view|
-		model.value = view.value;
-		~current_map = view.value;
-	})
-	.onClose_({ ~controllers_maps[i].remove })
-};
+	~controllers_maps = ~maps.collect { |model, i|
+		SimpleController(model)
+		.put(\value, { |object, whatChanged, value|
+			defer {
+				~tuning[i].value = value;
+			}
+		})
+		.put(\didFree, {
+			defer {
+				~tuning[i].remove;
+			}
+		})
+	};
 
-~octave = ~channels.collect { |model, i|
-	NumberBox()
-	.font_(Font("Plainsound Text", 15))
-	.align_ (\center)
-	.clipLo_(1)
-	.clipHi_(16)
-	.scroll_step_(1)
-	.step_(1)
-	.value_(model.getValue)
-	.value_(4)
-	.action_({ |view|
-		model.value = view.value;
-		~main_channel = view.value;
-	})
-	.onClose_({ ~controllers_channels[i].remove })
-};
+	~controllers_channels = ~channels.collect { |model, i|
+		SimpleController(model)
+		.put(\value, { |object, whatChanged, value|
+			defer {
+				~octave[i].value = value;
+			}
+		})
+		.put(\didFree, {
+			defer {
+				~octave[i].remove;
+			}
+		})
+	};
 
-~controllers_levels = ~levels.collect { |model, i|
-	SimpleController(model)
-	.put(\value, { |object, whatChanged, value|
-		defer {
-			~sliders[i].value = value;
-			~numbers[i].value = value;
-		}
-	})
-	.put(\didFree, {
-		defer {
-			~sliders[i].remove;
-			~numbers[i].remove;
-		}
-	})
-};
+	w = Window.new("Hpschd Tanpura Organ",
+		Rect(
+			Window.screenBounds.width * 6 / 7,
+			Window.screenBounds.height * 3 / 5,
+			Window.screenBounds.width / 7,
+			(Window.screenBounds.height * 2 / 5)
+	)).front; // GUI window
 
-~controllers_maps = ~maps.collect { |model, i|
-	SimpleController(model)
-	.put(\value, { |object, whatChanged, value|
-		defer {
-			~tuning[i].value = value;
-		}
-	})
-	.put(\didFree, {
-		defer {
-			~tuning[i].remove;
-		}
-	})
-};
-
-~controllers_channels = ~channels.collect { |model, i|
-	SimpleController(model)
-	.put(\value, { |object, whatChanged, value|
-		defer {
-			~octave[i].value = value;
-		}
-	})
-	.put(\didFree, {
-		defer {
-			~octave[i].remove;
-		}
-	})
-};
-
-w = Window.new("Hpschd Tanpura Organ",
-	Rect(
-		Window.screenBounds.width * 6 / 7,
-		Window.screenBounds.height * 3 / 5,
-		Window.screenBounds.width / 7,
-		(Window.screenBounds.height * 2 / 5)
-)).front; // GUI window
-
-w.layout = VLayout(
-	HLayout(
-		VLayout(
-			StaticText().string_(~labels[0]).align_(\center).font_(Font("Plainsound Text", 11)),
-			~sliders[0], ~numbers[0]
-		),
-		VLayout(
-			StaticText().string_(~labels[1]).align_(\center).font_(Font("Plainsound Text", 11)),
-			~sliders[1], ~numbers[1]
-		),
-		VLayout(
-			StaticText().string_(~labels[2]).align_(\center).font_(Font("Plainsound Text", 11)),
-			~sliders[2], ~numbers[2]
-		),
-		VLayout(
-			StaticText().string_(~labels[3]).align_(\center).font_(Font("Plainsound Text", 11)),
-			~sliders[3], ~numbers[3]
-		),
-		VLayout(
-			StaticText().string_("MOD").align_(\center).font_(Font("Plainsound Text", 11))
-				.stringColor_(Color.fromHexString("#226666")),
-			~mod_slider,
-			~mod_number
+	w.layout = VLayout(
+		HLayout(
+			VLayout(
+				StaticText().string_(~labels[0]).align_(\center).font_(Font("Plainsound Text", 11)),
+				~sliders[0], ~numbers[0]
+			),
+			VLayout(
+				StaticText().string_(~labels[1]).align_(\center).font_(Font("Plainsound Text", 11)),
+				~sliders[1], ~numbers[1]
+			),
+			VLayout(
+				StaticText().string_(~labels[2]).align_(\center).font_(Font("Plainsound Text", 11)),
+				~sliders[2], ~numbers[2]
+			),
+			VLayout(
+				StaticText().string_(~labels[3]).align_(\center).font_(Font("Plainsound Text", 11)),
+				~sliders[3], ~numbers[3]
+			),
+			VLayout(
+				StaticText().string_("MOD").align_(\center).font_(Font("Plainsound Text", 11))
+					.stringColor_(Color.fromHexString("#226666")),
+				~mod_slider,
+				~mod_number
+			)
 		)
-	)
-);
+	);
 
-w.front;
+	w.front;
+} {
+	"OSC mode active — SuperCollider GUI faders hidden".postln;
+};
 
 ~cleanup_midi = {
-	w.close;
+	if (w.notNil) { w.close; };
 
 	// Stop the osc-bridge process if it was started in OSC mode
 	if (~use_osc && ~bridge_pid.notNil && (~bridge_pid > 0)) {
@@ -511,7 +511,7 @@ w.front;
 
 CmdPeriod.doOnce(~cleanup_midi);
 
-"Use faders to mix the Synths!";
+if (~use_osc.not) { "Use faders to mix the Synths!"; };
 
 )
 

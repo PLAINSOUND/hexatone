@@ -88,7 +88,7 @@ const CustomPresets = ({
     if (isActive && activePresetName && !selected) {
       setSelected(activePresetName);
     }
-  }, [isActive, activePresetName]);
+  }, [isActive, activePresetName, selected]);
 
   useEffect(() => {
     if (activeSource) setExpanded(true);
@@ -175,6 +175,7 @@ const CustomPresets = ({
       }
     }
     if (uniqueParsed.length < parsed.length) {
+      // eslint-disable-next-line no-console
       console.log(`Skipped ${parsed.length - uniqueParsed.length} duplicate tuning(s) in import`);
     }
 

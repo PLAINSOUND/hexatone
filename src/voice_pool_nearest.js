@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * VoicePool — note-number-aware allocator for MTS synths.
  *

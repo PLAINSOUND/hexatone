@@ -1,18 +1,19 @@
 // OSCResponders.scd — direct OSC input from hexatone via osc-bridge
 //
 // hexatone owns node IDs and sends:
-//   /s_new  synthName nodeId addAction targetGroup freq gate vol
-//   /n_set  nodeId [key val ...]
-//   /n_free nodeId
+//   /s_new  synthName nodeId addAction targetGroup freq gate vol  → routed by synth name to correct server
+//   /n_set  nodeId [key val ...]                                  → broadcast to all servers (unknown nodes ignored)
+//   /n_free nodeId                                                → broadcast to all servers
+//   /n_set on layer ports (57101-57104)                          → sent directly to scsynth, bypasses sclang
 //
-// No state-tracking arrays, no isPlaying checks, no MIDIFuncs.
-// The SC side just routes /s_new to the correct server based on synth name.
+// The volume faders send /n_set to node 1 (default group) directly on the scsynth
+// server ports (57101-57104) via osc-bridge — sclang is not in that path.
 //
 // Server routing (matches LumatoneSynths.scd):
-//   \pluck   → ~servers[1]
-//   \string  → ~servers[2]
-//   \formant → ~servers[3]
-//   \tone    → ~servers[4]
+//   \pluck   → ~servers[1]  port 57101
+//   \string  → ~servers[2]  port 57102
+//   \formant → ~servers[3]  port 57103
+//   \tone    → ~servers[4]  port 57104
 
 // Map synth name → server index, matching the assignment in HelperFunctionsSynth
 ~osc_server_map = Dictionary.newFrom([
@@ -24,9 +25,10 @@
 
 // /s_new  — create a synth node
 // Args: synthName(s) nodeId(i) addAction(i) targetGroup(i) [key(s) val(f) ...]
-// The browser always sends vol:1.0; we override it with the current fader level.
+// Hexatone sends the current layer volume in the \vol arg, so note-ons reflect
+// the browser mixer state immediately after refresh or UI changes.
 ~osc_s_new = OSCFunc({ |msg, time, addr|
-	var synthName, nodeId, addAction, targetGroup, args, serverIdx, srv, volIdx;
+	var synthName, nodeId, addAction, targetGroup, args, serverIdx, srv;
 
 	synthName   = msg[1].asSymbol;
 	nodeId      = msg[2].asInteger;
@@ -36,12 +38,6 @@
 
 	serverIdx = ~osc_server_map[synthName];
 	if (serverIdx.notNil) {
-		// Inject current fader level — replace the vol value in args
-		volIdx = args.indexOf(\vol);
-		if (volIdx.notNil) {
-			args[volIdx + 1] = ~levels[serverIdx - 1].getValue;
-		};
-
 		srv = ~servers[serverIdx];
 		srv.sendMsg(\s_new, synthName, nodeId, addAction, targetGroup, *args);
 	} {
@@ -50,14 +46,12 @@
 }, '/s_new');
 
 // /n_set — set parameters on a running node
-// Args: nodeId(i) [key(s) val(f) ...]
-// We broadcast to all servers since we don't track which server owns each node.
-// scsynth silently ignores /n_set for unknown node IDs, so this is safe.
+// Args: nodeId(i) [key val ...]
+// Broadcast to all servers — scsynth silently ignores unknown node IDs.
 ~osc_n_set = OSCFunc({ |msg, time, addr|
 	var nodeId, args;
 	nodeId = msg[1].asInteger;
 	args   = msg[2..];
-	// Broadcast to all synth servers (1..4) — safe, unknown nodes are ignored
 	(1..4).do { |i| ~servers[i].sendMsg(\n_set, nodeId, *args) };
 }, '/n_set');
 

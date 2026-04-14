@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * input/controller-anchor.js
  *

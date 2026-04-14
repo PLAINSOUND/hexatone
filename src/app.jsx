@@ -20,6 +20,7 @@ import {
   buildQuerySpec,
   buildRegistryDefaults,
   PRESET_SKIP_KEYS,
+  REGISTRY_BY_KEY,
 } from "./persistence/settings-registry.js";
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
@@ -48,6 +49,7 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
       "hexatone_preset_source",
       "hexatone_preset_name",
       "direct_sysex_auto",
+      REGISTRY_BY_KEY.webmidi_access.key,
     ];
     [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear].forEach((key) => sessionStorage.removeItem(key));
   }
@@ -280,6 +282,7 @@ const App = () => {
     shiftOctave,
     toggleOctaveDeferred,
     onVolumeChange,
+    onOscLayerVolumeChange,
     onAnchorLearn,
     lumatoneRawPorts,
     exquisRawPorts,
@@ -576,7 +579,6 @@ const App = () => {
       mpe_pitchbend_range: settings.mpe_pitchbend_range,
       mpe_mode: settings.mpe_mode,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- explicit field list avoids retrigger on structural/scale changes
     [
       settings.instrument,
       settings.output_sample,
@@ -715,6 +717,7 @@ const App = () => {
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
     () => normalizeColors(settings),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only color fields listed; avoids retrigger on every settings change
     [noteColorsKey, settings.spectrum_colors, settings.fundamental_color],
   );
 
@@ -1084,6 +1087,7 @@ const App = () => {
           onAtomicChange={onAtomicChange}
           midiLearnActive={midiLearnActive}
           onVolumeChange={onVolumeChange}
+          onOscLayerVolumeChange={onOscLayerVolumeChange}
           onImport={onImport}
           importCount={importCount}
           onLoadCustomPreset={onLoadCustomPreset}

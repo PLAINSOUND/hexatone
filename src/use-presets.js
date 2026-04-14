@@ -42,7 +42,6 @@ export const findPreset = (preset) => {
       }
     }
   }
-  console.log("Unable to find preset");
   return default_settings;
 };
 

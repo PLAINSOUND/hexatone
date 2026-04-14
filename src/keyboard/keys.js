@@ -197,6 +197,14 @@ class Keys {
     this._wheelTarget = null;
     this._wheelBaseCents = null;
     this._controllerCCValues = new Map();
+    if (
+      this.settings.midiin_device &&
+      this.settings.midiin_device !== "OFF" &&
+      this.settings.midiin_modwheel_source === this.settings.midiin_device &&
+      Number.isFinite(this.settings.midiin_modwheel_value)
+    ) {
+      this._controllerCCValues.set(1, this.settings.midiin_modwheel_value);
+    }
     this._channelPressureValue = 0;
 
     // The tuning map anchor is always derived from the musical content (fundamental,
@@ -371,6 +379,10 @@ class Keys {
             this.sustainOff();
           } else if (cc === 1) {
             // Mod wheel — broadcast to all active hexes (zone-wide)
+            if (this.settings.midiin_device && this.settings.midiin_device !== "OFF") {
+              sessionStorage.setItem("midiin_modwheel_value", String(value));
+              sessionStorage.setItem("midiin_modwheel_source", this.settings.midiin_device);
+            }
             for (const hex of this._allActiveHexes()) {
               if (hex.modwheel) hex.modwheel(value);
             }
@@ -563,7 +575,7 @@ class Keys {
           } else {
             this.controller = null;
             this.controllerMap = null;
-            console.log("[Controller] no geometry found for device — using step arithmetic");
+            // No geometry map for this device — step arithmetic will be used instead
           }
         }
 
@@ -1878,9 +1890,7 @@ class Keys {
         if (s.raf !== null) cancelAnimationFrame(s.raf);
       });
       this._bendSlew.clear();
-      console.log("All notes released!");
     } else {
-      console.log("No held notes to be released.");
     }
   };
 
@@ -1956,7 +1966,6 @@ class Keys {
     // Stop any snapshot playback
     this.stopSnapshot();
 
-    console.log("PANIC - all notes killed!");
   };
 
   releaseAllKeyboardNotes = () => {

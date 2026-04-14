@@ -49,7 +49,6 @@ function makeMap(entries) {
   for (const { ch, note, x, y } of entries) {
     m.set(`${ch}.${note}`, { x, y });
   }
-  console.log("map built with", m.size, "entries");
   return m;
 }
 

@@ -35,6 +35,12 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test
+
       - name: Build
         run: |
           echo "Base path: $VITE_BASE_PATH"

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";
 

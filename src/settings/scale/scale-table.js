@@ -144,7 +144,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
 
 const formatFrequencyHz = (value) => {
   if (!Number.isFinite(value)) return "";
-  return value.toFixed(6);
+  return value.toFixed(1);
 };
 
 const FrequencyInput = ({
@@ -166,7 +166,7 @@ const FrequencyInput = ({
       type="text"
       inputMode="decimal"
       disabled={disabled}
-      class="equiv-cell"
+      class="frequency-input"
       key={display}
       defaultValue={display}
       aria-label={ariaLabel}
@@ -230,6 +230,7 @@ const TuneCell = ({
     if (tunedCents === null) {
       originalCents.current = scalaToCents(scaleStr);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tunedCents guards drag-active state; intentionally not a dep
   }, [scaleStr]);
 
   // When a direct text edit commits a new scale value, discard any in-flight
@@ -239,6 +240,7 @@ const TuneCell = ({
     originalCents.current = scalaToCents(scaleStr);
     setTunedCents(null);
     setComparing(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scaleStr is the committed value at reset time; setters are stable
   }, [resetVersion]);
 
   // Broadcast live preview cents + comparing state to the parent frequency column.
