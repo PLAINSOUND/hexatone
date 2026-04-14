@@ -1,7 +1,11 @@
 import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import { normalizeColors } from "./normalize-settings.js";
-import { saveAnchor, saveAnchorChannel, loadAnchorSettingsUpdate } from "./input/controller-anchor.js";
+import {
+  saveAnchor,
+  saveAnchorChannel,
+  loadAnchorSettingsUpdate,
+} from "./input/controller-anchor.js";
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
@@ -55,11 +59,15 @@ const useSettingsChange = (
   // stable callback references mean the Settings tree doesn't re-render on
   // every color drag tick — only the canvas (imperative) and the color memos update.
   const settingsRef = useRef(settings);
-  useEffect(() => { settingsRef.current = settings; }, [settings]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   // midi can also change (device connect/disconnect), keep it stable too.
   const midiRef = useRef(midi);
-  useEffect(() => { midiRef.current = midi; }, [midi]);
+  useEffect(() => {
+    midiRef.current = midi;
+  }, [midi]);
 
   const onChange = useCallback((key, value) => {
     const s = settingsRef.current;
@@ -76,9 +84,12 @@ const useSettingsChange = (
     if (key === "midiin_device") {
       const input = m ? Array.from(m.inputs.values()).find((mm) => mm.id === value) : null;
       const overrideId = s.midiin_controller_override || "auto";
-      const ctrl = overrideId !== "auto"
-        ? getControllerById(overrideId)
-        : input ? detectController(input.name.toLowerCase()) : null;
+      const ctrl =
+        overrideId !== "auto"
+          ? getControllerById(overrideId)
+          : input
+            ? detectController(input.name.toLowerCase())
+            : null;
       // Optimistically preload known-controller prefs on explicit device selection
       // so the first live instance is constructed with the right anchor/mode.
       // The derived-state effect in use-synth-wiring.js remains the long-term owner
@@ -97,7 +108,9 @@ const useSettingsChange = (
       setSettings((prev) => ({
         ...prev,
         midiin_controller_override: value,
-        ...(ctrl ? loadAnchorSettingsUpdate(ctrl, { ...prev, midiin_controller_override: value }) : {}),
+        ...(ctrl
+          ? loadAnchorSettingsUpdate(ctrl, { ...prev, midiin_controller_override: value })
+          : {}),
       }));
       sessionStorage.setItem("midiin_controller_override", value);
       return;
@@ -108,7 +121,7 @@ const useSettingsChange = (
       setSettings((prev) => ({
         ...prev,
         tonalplexus_input_mode: value,
-        ...(ctrl?.id === 'tonalplexus'
+        ...(ctrl?.id === "tonalplexus"
           ? loadAnchorSettingsUpdate(ctrl, { ...prev, tonalplexus_input_mode: value })
           : {}),
       }));
@@ -228,8 +241,7 @@ const useSettingsChange = (
           key === "note_colors"
             ? normalizeColors({ ...s, [key]: value }).note_colors
             : normalizeColors(s).note_colors,
-        spectrum_colors:
-          key === "spectrum_colors" ? value : s.spectrum_colors,
+        spectrum_colors: key === "spectrum_colors" ? value : s.spectrum_colors,
         fundamental_color:
           key === "fundamental_color"
             ? (value || "").replace(/#/, "")

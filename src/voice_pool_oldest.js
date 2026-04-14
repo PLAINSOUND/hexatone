@@ -30,25 +30,25 @@ export class VoicePool {
    *                                       the incoming note's bend (default false)
    */
   constructor(slotIds, releaseGuardMs = 300, closestPitchSteal = false) {
-    this._allSlots        = [...slotIds];
-    this._releaseGuardMs  = releaseGuardMs;
-    this._closestPitch    = closestPitchSteal;
+    this._allSlots = [...slotIds];
+    this._releaseGuardMs = releaseGuardMs;
+    this._closestPitch = closestPitchSteal;
 
     // Per-channel state
     // state: 'IDLE' | 'SOUNDING' | 'RELEASING'
-    this._state     = new Map(); // slot → state
+    this._state = new Map(); // slot → state
     this._noteOffAt = new Map(); // slot → timestamp (ms) when noteOff was sent
     this._idleQueue = [...slotIds]; // FIFO: front = next to use, back = most recently released
-    this._lastBend  = new Map(); // slot → last bend value (14-bit unsigned)
-    this._lastNote  = new Map(); // slot → last MIDI note number
+    this._lastBend = new Map(); // slot → last bend value (14-bit unsigned)
+    this._lastNote = new Map(); // slot → last MIDI note number
 
     // Active voice linked list (oldest head → newest tail)
     this._active = new Map(); // coordsKey → entry { key, coords, slot, prev, next }
-    this._head   = null;
-    this._tail   = null;
+    this._head = null;
+    this._tail = null;
 
     for (const s of slotIds) {
-      this._state.set(s, 'IDLE');
+      this._state.set(s, "IDLE");
       this._lastBend.set(s, 8192);
       this._lastNote.set(s, 60);
     }
@@ -78,7 +78,9 @@ export class VoicePool {
       this._moveToTail(entry);
       return {
         slot: entry.slot,
-        stolen: null, stolenSlot: null, stolenNote: null,
+        stolen: null,
+        stolenSlot: null,
+        stolenNote: null,
         retrigger: true,
       };
     }
@@ -86,8 +88,10 @@ export class VoicePool {
     // Expire any RELEASING channels that have passed the guard time
     this._expireReleasing();
 
-    let slot   = null;
-    let stolen = null, stolenSlot = null, stolenNote = null;
+    let slot = null;
+    let stolen = null,
+      stolenSlot = null,
+      stolenNote = null;
     // wasReleasing: true whenever the allocated channel had a decaying tail
     // (whether from step 2 reuse or step 3 steal). Caller sends CC120 to
     // silence the tail before sending new PB + noteOn.
@@ -98,16 +102,18 @@ export class VoicePool {
 
     // 2. Try oldest RELEASING channel — flag so caller sends CC120
     if (slot === null) {
-      let oldestTime = Infinity, oldestSlot = null;
+      let oldestTime = Infinity,
+        oldestSlot = null;
       for (const [s, t] of this._noteOffAt) {
-        if (this._state.get(s) === 'RELEASING' && t < oldestTime) {
-          oldestTime = t; oldestSlot = s;
+        if (this._state.get(s) === "RELEASING" && t < oldestTime) {
+          oldestTime = t;
+          oldestSlot = s;
         }
       }
       if (oldestSlot !== null) {
         slot = oldestSlot;
-        stolenWasReleasing = true;   // tail still decaying — needs CC120
-        stolenSlot = oldestSlot;     // expose to caller
+        stolenWasReleasing = true; // tail still decaying — needs CC120
+        stolenSlot = oldestSlot; // expose to caller
         this._noteOffAt.delete(oldestSlot);
         // Remove from idle queue if it somehow got re-queued
         const qi = this._idleQueue.indexOf(oldestSlot);
@@ -125,7 +131,7 @@ export class VoicePool {
       //     After _expireReleasing() some RELEASING channels may still remain.
       let oldestRelTime = Infinity;
       for (const [s, t] of this._noteOffAt) {
-        if (this._state.get(s) === 'RELEASING' && t < oldestRelTime) {
+        if (this._state.get(s) === "RELEASING" && t < oldestRelTime) {
           oldestRelTime = t;
           victim = { slot: s, coords: null, key: null };
           stolenWasReleasing = true;
@@ -135,18 +141,16 @@ export class VoicePool {
       // 3b. Fall back to stealing a SOUNDING voice.
       if (victim === null || victim.coords === null) {
         stolenWasReleasing = false;
-        victim = this._closestPitch
-          ? this._closestBendVictim(incomingBend)
-          : this._head;
-        if (!victim) throw new Error('VoicePool: no channels available');
-        stolen     = victim.coords;
+        victim = this._closestPitch ? this._closestBendVictim(incomingBend) : this._head;
+        if (!victim) throw new Error("VoicePool: no channels available");
+        stolen = victim.coords;
         stolenNote = this._lastNote.get(victim.slot) ?? 60;
         this._remove(victim);
         this._active.delete(victim.key);
       }
 
       stolenSlot = victim.slot;
-      slot       = victim.slot;
+      slot = victim.slot;
       this._noteOffAt.delete(slot); // clear RELEASING state
     }
 
@@ -156,7 +160,7 @@ export class VoicePool {
     this._tail = entry;
     if (!this._head) this._head = entry;
     this._active.set(key, entry);
-    this._state.set(slot, 'SOUNDING');
+    this._state.set(slot, "SOUNDING");
 
     return { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing, retrigger: false };
   }
@@ -167,7 +171,7 @@ export class VoicePool {
    * Returns the slot, or null if coords wasn't active.
    */
   noteOff(coords) {
-    const key   = coordsKey(coords);
+    const key = coordsKey(coords);
     const entry = this._active.get(key);
     if (!entry) return null;
 
@@ -176,7 +180,7 @@ export class VoicePool {
     this._active.delete(key);
 
     // Mark RELEASING — will become IDLE after releaseGuardMs
-    this._state.set(slot, 'RELEASING');
+    this._state.set(slot, "RELEASING");
     this._noteOffAt.set(slot, performance.now());
 
     return slot;
@@ -184,38 +188,51 @@ export class VoicePool {
 
   /** Returns the current state of a slot: 'IDLE' | 'SOUNDING' | 'RELEASING'. */
   getChannelState(slot) {
-    return this._state.get(slot) ?? 'IDLE';
+    return this._state.get(slot) ?? "IDLE";
   }
 
   /** Called by the synth to record the bend that was sent to a channel. */
-  setLastBend(slot, bend)  { this._lastBend.set(slot, bend);  }
-  getLastBend(slot)        { return this._lastBend.get(slot) ?? 8192; }
+  setLastBend(slot, bend) {
+    this._lastBend.set(slot, bend);
+  }
+  getLastBend(slot) {
+    return this._lastBend.get(slot) ?? 8192;
+  }
 
   /** Called by the synth to record the MIDI note sent to a channel. */
-  setLastNote(slot, note)  { this._lastNote.set(slot, note);  }
-  getLastNote(slot)        { return this._lastNote.get(slot) ?? 60;   }
+  setLastNote(slot, note) {
+    this._lastNote.set(slot, note);
+  }
+  getLastNote(slot) {
+    return this._lastNote.get(slot) ?? 60;
+  }
 
   getSlot(coords) {
     const entry = this._active.get(coordsKey(coords));
     return entry ? entry.slot : null;
   }
 
-  get activeCount()  { return this._active.size; }
-  get freeCount()    { return this._idleQueue.length; }
+  get activeCount() {
+    return this._active.size;
+  }
+  get freeCount() {
+    return this._idleQueue.length;
+  }
 
   /**
    * Kill all active voices. Returns array of {coords, slot} for each.
    * Caller is responsible for sending noteOff to each slot.
    */
   clear() {
-    const victims = Array.from(this._active.values()).map(e => ({
-      coords: e.coords, slot: e.slot,
+    const victims = Array.from(this._active.values()).map((e) => ({
+      coords: e.coords,
+      slot: e.slot,
     }));
     this._active.clear();
     this._head = null;
     this._tail = null;
     for (const s of this._allSlots) {
-      this._state.set(s, 'IDLE');
+      this._state.set(s, "IDLE");
       this._noteOffAt.delete(s);
     }
     this._idleQueue = [...this._allSlots];
@@ -227,22 +244,26 @@ export class VoicePool {
   _expireReleasing() {
     const now = performance.now();
     for (const [s, t] of this._noteOffAt) {
-      if (this._state.get(s) === 'RELEASING' && now - t >= this._releaseGuardMs) {
-        this._state.set(s, 'IDLE');
+      if (this._state.get(s) === "RELEASING" && now - t >= this._releaseGuardMs) {
+        this._state.set(s, "IDLE");
         this._noteOffAt.delete(s);
-        this._idleQueue.push(s);   // back of queue — used last, true round-robin
+        this._idleQueue.push(s); // back of queue — used last, true round-robin
       }
     }
   }
 
   _closestBendVictim(targetBend) {
     // Walk the active LRU list, find SOUNDING voice with bend nearest to targetBend
-    let best = null, bestDist = Infinity;
+    let best = null,
+      bestDist = Infinity;
     let node = this._head;
     while (node) {
-      if (this._state.get(node.slot) === 'SOUNDING') {
+      if (this._state.get(node.slot) === "SOUNDING") {
         const dist = Math.abs((this._lastBend.get(node.slot) ?? 8192) - targetBend);
-        if (dist < bestDist) { bestDist = dist; best = node; }
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = node;
+        }
       }
       node = node.next;
     }
@@ -267,8 +288,8 @@ export class VoicePool {
 }
 
 function coordsKey(coords) {
-  if (Array.isArray(coords)) return coords.join(',');
-  if (coords !== null && typeof coords === 'object' && 'x' in coords && 'y' in coords)
+  if (Array.isArray(coords)) return coords.join(",");
+  if (coords !== null && typeof coords === "object" && "x" in coords && "y" in coords)
     return `${coords.x},${coords.y}`;
   return String(coords);
 }

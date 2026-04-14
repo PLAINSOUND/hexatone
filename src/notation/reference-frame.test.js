@@ -6,13 +6,17 @@ function presetNoteNames(presetName) {
   const presetText = fs.readFileSync("src/settings/preset_values.js", "utf8");
   const index = presetText.indexOf(presetName);
   const block = presetText.slice(index, index + 12000);
-  return [...block.match(/note_names:\s*\[(.*?)\],\s*key_labels/s)[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  return [
+    ...block.match(/note_names:\s*\[(.*?)\],\s*key_labels/s)[1].matchAll(/['"]([^'"]+)['"]/g),
+  ].map((match) => match[1]);
 }
 
 function jsonPresetArray(block, key, nextKey) {
-  return [...block.match(new RegExp(`"${key}":\\s*\\[(.*?)\\],\\s*"${nextKey}"`, "s"))[1].matchAll(/"([^"]+)"/g)].map(
-    (match) => match[1],
-  );
+  return [
+    ...block
+      .match(new RegExp(`["']?${key}["']?:\\s*\\[(.*?)\\],\\s*["']?${nextKey}["']?`, "s"))[1]
+      .matchAll(/['"]([^'"]+)['"]/g),
+  ].map((match) => match[1]);
 }
 
 describe("notation/reference-frame", () => {
@@ -25,7 +29,9 @@ describe("notation/reference-frame", () => {
       anchorRatio: degrees[56],
     });
 
-    const generated = spellScaleFromReferenceFrame(degrees, frame).map((item) => item.pitchClassGlyphs);
+    const generated = spellScaleFromReferenceFrame(degrees, frame).map(
+      (item) => item.pitchClassGlyphs,
+    );
     expect(generated).toEqual(expected);
   });
 
@@ -38,7 +44,9 @@ describe("notation/reference-frame", () => {
       anchorRatio: degrees[9],
     });
 
-    const generated = spellScaleFromReferenceFrame(degrees, frame).map((item) => item.pitchClassGlyphs);
+    const generated = spellScaleFromReferenceFrame(degrees, frame).map(
+      (item) => item.pitchClassGlyphs,
+    );
     expect(generated).toEqual(expected);
   });
 
@@ -51,18 +59,20 @@ describe("notation/reference-frame", () => {
       anchorRatio: degrees[40],
     });
 
-    const generated = spellScaleFromReferenceFrame(degrees, frame).map((item) => item.pitchClassGlyphs);
+    const generated = spellScaleFromReferenceFrame(degrees, frame).map(
+      (item) => item.pitchClassGlyphs,
+    );
     expect(generated).toEqual(expected);
   });
 
   it("reproduces 53-Tertial (center D) from its centered policy", () => {
     const presetText = fs.readFileSync("src/settings/preset_values.js", "utf8");
-    const start = presetText.indexOf('"name": "53-Tertial (center D)"');
+    const start = presetText.search(/['"]?name['"]?\s*:\s*['"]53-Tertial \(center D\)['"]/);
     const block = presetText.slice(start, presetText.indexOf("      {", start + 1));
     const scala = jsonPresetArray(block, "scale", "equivSteps");
     const expected = jsonPresetArray(block, "note_names", "note_colors");
     const degrees = ["1/1", ...scala.slice(0, -1)];
-    const referenceDegree = Number(block.match(/"reference_degree":\s*(\d+)/)[1]);
+    const referenceDegree = Number(block.match(/['"]?reference_degree['"]?\s*:\s*(\d+)/)[1]);
     const frame = createReferenceFrame({
       anchorLabel: expected[referenceDegree],
       anchorRatio: degrees[referenceDegree],

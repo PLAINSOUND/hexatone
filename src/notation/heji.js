@@ -72,7 +72,10 @@ export const BASE_SYMBOLS = [
 
 export const BASE_BY_ID = Object.fromEntries(BASE_SYMBOLS.map((item) => [item.id, item]));
 export const BASE_BY_GLYPH = Object.fromEntries(
-  BASE_SYMBOLS.flatMap((item) => [[item.glyph, item], ...(item.aliases ?? []).map((alias) => [alias, item])]),
+  BASE_SYMBOLS.flatMap((item) => [
+    [item.glyph, item],
+    ...(item.aliases ?? []).map((alias) => [alias, item]),
+  ]),
 );
 
 const ZERO_MONZO = zeroMonzo();
@@ -227,7 +230,9 @@ export const HEJI_FAMILIES = [
 export const EXTRA_MODIFIERS = HEJI_FAMILIES.flatMap((family) => [family.lower, family.upper]);
 export const EXTRA_BY_ID = Object.fromEntries(EXTRA_MODIFIERS.map((item) => [item.id, item]));
 export const EXTRA_BY_GLYPH = Object.fromEntries(EXTRA_MODIFIERS.map((item) => [item.glyph, item]));
-export const EXTRA_MONZOS = Object.fromEntries(EXTRA_MODIFIERS.map((item) => [item.id, item.monzo]));
+export const EXTRA_MONZOS = Object.fromEntries(
+  EXTRA_MODIFIERS.map((item) => [item.id, item.monzo]),
+);
 export const SPECIAL_GLYPH_SEQUENCES = {
   "": ["septimal:-1", "septimal:-1"],
   "": ["septimal:1", "septimal:1"],
@@ -292,7 +297,8 @@ export function sortExtraIds(extraIds = []) {
     const primeA = itemA?.prime ?? 0;
     const primeB = itemB?.prime ?? 0;
     if (primeA !== primeB) return primeB - primeA;
-    if ((itemA?.amount ?? 0) !== (itemB?.amount ?? 0)) return (itemA?.amount ?? 0) - (itemB?.amount ?? 0);
+    if ((itemA?.amount ?? 0) !== (itemB?.amount ?? 0))
+      return (itemA?.amount ?? 0) - (itemB?.amount ?? 0);
     return a.localeCompare(b);
   });
 }
@@ -307,7 +313,13 @@ export function hejiDeltaMonzoForSelection(baseId = "natural:0", extraIds = [], 
   );
 }
 
-export function hejiToMonzo({ letter, octave, baseId = "natural:0", schismaAmount = 0, extraIds = [] }) {
+export function hejiToMonzo({
+  letter,
+  octave,
+  baseId = "natural:0",
+  schismaAmount = 0,
+  extraIds = [],
+}) {
   return addMonzos(
     naturalBaseMonzo(letter, octave),
     CHROMATIC_MONZOS[(BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"]).chromatic],
@@ -388,12 +400,15 @@ export function glyphStringForSelection(baseId = "natural:0", extraIds = [], sch
   return `${glyphs}${SCHISMA_GLYPHS[schismaAmount] ?? ""}${showBaseGlyph ? base.glyph : ""}`;
 }
 
-export function formatHejiLabel({ letter, octave, baseId = "natural:0", schismaAmount = 0, extraIds = [] }) {
+export function formatHejiLabel({
+  letter,
+  octave,
+  baseId = "natural:0",
+  schismaAmount = 0,
+  extraIds = [],
+}) {
   const base = BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"];
-  const chromatic =
-    base.chromatic === "flat" ? "b" :
-      base.chromatic === "sharp" ? "#" :
-        "";
+  const chromatic = base.chromatic === "flat" ? "b" : base.chromatic === "sharp" ? "#" : "";
   const glyphs = glyphStringForSelection(baseId, extraIds, schismaAmount);
   return {
     ascii: `${letter}${chromatic}${octave}`,
@@ -445,7 +460,8 @@ export function monzoToHeji(monzo, options = {}) {
           const baseMonzo = addMonzos(
             naturalBaseMonzo(letter, octave),
             CHROMATIC_MONZOS[(BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"]).chromatic],
-            SYNTONIC_BY_AMOUNT[(BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"]).syntonic] ?? ZERO_MONZO,
+            SYNTONIC_BY_AMOUNT[(BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"]).syntonic] ??
+              ZERO_MONZO,
             SCHISMA_BY_AMOUNT[schismaAmount] ?? ZERO_MONZO,
           );
           const delta = subtractMonzos(monzo, baseMonzo);
@@ -462,7 +478,10 @@ export function monzoToHeji(monzo, options = {}) {
             extraIds,
             label: formatHejiLabel({ letter, octave, baseId, schismaAmount, extraIds }),
           };
-          if (!best || compareHejiSpellings(spelling, best, { ...options, targetMonzo: monzo }) < 0) {
+          if (
+            !best ||
+            compareHejiSpellings(spelling, best, { ...options, targetMonzo: monzo }) < 0
+          ) {
             best = spelling;
           }
         }
@@ -497,12 +516,14 @@ function candidateScore(candidate, options = {}) {
   if (policy === "53_tertial_center_d") {
     const natural = naturalBaseMonzo(candidate.letter, candidate.octave) ?? ZERO_MONZO;
     const target = options.targetMonzo ?? hejiToMonzo(candidate);
-    const distanceFromNatural = Math.round(Math.abs(monzoToCents(subtractMonzos(target, natural))) * 1000);
+    const distanceFromNatural = Math.round(
+      Math.abs(monzoToCents(subtractMonzos(target, natural))) * 1000,
+    );
     const forbiddenChromatic =
       (base.chromatic === "sharp" && (candidate.letter === "E" || candidate.letter === "B")) ||
-      (base.chromatic === "flat" && (candidate.letter === "F" || candidate.letter === "C")) ?
-        1 :
-        0;
+      (base.chromatic === "flat" && (candidate.letter === "F" || candidate.letter === "C"))
+        ? 1
+        : 0;
     return [
       forbiddenChromatic,
       distanceFromNatural,
@@ -517,9 +538,12 @@ function candidateScore(candidate, options = {}) {
   if (policy === "farabi_center_c") {
     const natural = naturalBaseMonzo(candidate.letter, candidate.octave) ?? ZERO_MONZO;
     const target = options.targetMonzo ?? hejiToMonzo(candidate);
-    const distanceFromNatural = Math.round(Math.abs(monzoToCents(subtractMonzos(target, natural))) * 1000);
+    const distanceFromNatural = Math.round(
+      Math.abs(monzoToCents(subtractMonzos(target, natural))) * 1000,
+    );
     const hasHigherPrimes = (candidate.extraIds?.length ?? 0) > 0;
-    const avoidGbSide = !hasHigherPrimes && candidate.letter === "G" && base.chromatic === "flat" ? 1 : 0;
+    const avoidGbSide =
+      !hasHigherPrimes && candidate.letter === "G" && base.chromatic === "flat" ? 1 : 0;
     return [
       hasHigherPrimes ? Math.abs(candidate.schismaAmount ?? 0) : 0,
       hasHigherPrimes ? Math.abs(base.syntonic ?? 0) : 0,
@@ -547,7 +571,8 @@ export function compareHejiSpellings(a, b, options = {}) {
   if (a.letter !== b.letter) return LETTER_ORDER[a.letter] - LETTER_ORDER[b.letter];
   if (a.octave !== b.octave) return a.octave - b.octave;
   if (a.baseId !== b.baseId) return a.baseId.localeCompare(b.baseId);
-  if ((a.schismaAmount ?? 0) !== (b.schismaAmount ?? 0)) return (a.schismaAmount ?? 0) - (b.schismaAmount ?? 0);
+  if ((a.schismaAmount ?? 0) !== (b.schismaAmount ?? 0))
+    return (a.schismaAmount ?? 0) - (b.schismaAmount ?? 0);
   return compareArraysDescending(a.extraIds, b.extraIds);
 }
 

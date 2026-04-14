@@ -16,7 +16,9 @@ const WebMIDISettings = ({ midiAccess, midiAccessError, ensureMidiAccess }) => {
 
   return (
     <fieldset>
-      <legend><b>Enable MIDI</b></legend>
+      <legend>
+        <b>Enable MIDI</b>
+      </legend>
       <label>
         Enable MIDI
         <input
@@ -80,7 +82,7 @@ const Settings = ({
   onDeleteSnapshot,
 }) => (
   <div autoComplete="off" role="group" aria-label="Hexatone settings">
-    <fieldset style={{marginTop: '1em'}}>
+    <fieldset style={{ marginTop: "1em" }}>
       <legend>
         <b>Built-in Tunings</b>
       </legend>
@@ -89,16 +91,10 @@ const Settings = ({
           onChange={presetChanged}
           presets={presets}
           isActive={activeSource === "builtin"}
-          activePresetName={
-            activeSource === "builtin" ? activePresetName : null
-          }
+          activePresetName={activeSource === "builtin" ? activePresetName : null}
         />
         {activeSource === "builtin" && onRevertBuiltin && (
-          <button
-            type="button"
-            class="preset-refresh-btn"
-            onClick={onRevertBuiltin}
-          >
+          <button type="button" class="preset-refresh-btn" onClick={onRevertBuiltin}>
             <span class="preset-refresh-glyph">⟳</span>
           </button>
         )}
@@ -109,7 +105,7 @@ const Settings = ({
           checked={persistOnReload}
           onChange={(e) => setPersistOnReload(e.target.checked)}
         />
-        <em style={{ color: '#996666' }}>Restore preset on reload</em>
+        <em style={{ color: "#996666" }}>Restore preset on reload</em>
       </label>
     </fieldset>
     <CustomPresets

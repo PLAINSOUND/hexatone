@@ -1,22 +1,26 @@
-import { h, createRef } from 'preact';
-import { Fragment } from 'preact/compat';
-import { useRef } from 'preact/hooks';
-import PropTypes from 'prop-types';
-import { deriveSpectrumNoteColors } from '../../normalize-settings.js';
+import { h, createRef } from "preact";
+import { Fragment } from "preact/compat";
+import { useRef } from "preact/hooks";
+import PropTypes from "prop-types";
+import { deriveSpectrumNoteColors } from "../../normalize-settings.js";
 
-export const colorProp = function(props, propName, componentName) {
+export const colorProp = function (props, propName, componentName) {
   const value = props[propName];
   if (value !== undefined && !/#[a-zA-Z0-9]{6}/.test(props[propName])) {
     return new Error(
-      'Invalid hex color for prop `' + propName + '` supplied to' +
-        ' `' + componentName + '`. Validation failed.'
+      "Invalid hex color for prop `" +
+        propName +
+        "` supplied to" +
+        " `" +
+        componentName +
+        "`. Validation failed.",
     );
   }
 };
 
 const normaliseHex = (raw) => {
   if (!raw) return null;
-  const s = raw.trim().replace(/^#/, '');
+  const s = raw.trim().replace(/^#/, "");
   if (/^[0-9a-fA-F]{3}$/.test(s)) {
     const [r, g, b] = s;
     return `#${r}${r}${g}${g}${b}${b}`;
@@ -32,7 +36,7 @@ const Colors = (props) => {
   const textRef = createRef();
   const swatchRef = createRef();
 
-  const safe = normaliseHex(props.settings.fundamental_color || '#f2e3e3') || '#f2e3e3';
+  const safe = normaliseHex(props.settings.fundamental_color || "#f2e3e3") || "#f2e3e3";
 
   const handleSwatchClick = () => {
     if (pickerRef.current) pickerRef.current.click();
@@ -47,7 +51,7 @@ const Colors = (props) => {
     const now = Date.now();
     if (now - lastFire.current >= 60) {
       lastFire.current = now;
-      props.onChange('fundamental_color', hex);
+      props.onChange("fundamental_color", hex);
     }
   };
 
@@ -56,7 +60,7 @@ const Colors = (props) => {
     if (textRef.current) textRef.current.value = hex;
     if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
     lastFire.current = 0;
-    props.onChange('fundamental_color', hex);
+    props.onChange("fundamental_color", hex);
   };
 
   const handleTextInput = (e) => {
@@ -70,7 +74,7 @@ const Colors = (props) => {
   const handleTextBlur = (e) => {
     const hex = normaliseHex(e.target.value);
     if (hex) {
-      props.onChange('fundamental_color', hex);
+      props.onChange("fundamental_color", hex);
     } else {
       e.target.value = safe;
       if (swatchRef.current) swatchRef.current.style.backgroundColor = safe;
@@ -79,23 +83,29 @@ const Colors = (props) => {
   };
 
   const handleLoadSpectrumColors = () => {
-    const colors = deriveSpectrumNoteColors(props.settings, safe.replace(/^#/, ''));
-    props.onChange('note_colors', colors.map((color) => `#${color}`));
+    const colors = deriveSpectrumNoteColors(props.settings, safe.replace(/^#/, ""));
+    props.onChange(
+      "note_colors",
+      colors.map((color) => `#${color}`),
+    );
   };
 
   return (
     <>
       <label>
         Use Spectrum Colors
-        <input name="spectrum_colors" type="checkbox"
-               checked={props.settings.spectrum_colors}
-               onChange={(e) => props.onChange(e.target.name, e.target.checked)} />
+        <input
+          name="spectrum_colors"
+          type="checkbox"
+          checked={props.settings.spectrum_colors}
+          onChange={(e) => props.onChange(e.target.name, e.target.checked)}
+        />
       </label>
       {props.settings.spectrum_colors && (
         <>
           <label>
             Choose Central Hue
-            <div class="color-cell" style={{ marginLeft: '50%' }}>
+            <div class="color-cell" style={{ marginLeft: "50%" }}>
               <span
                 ref={swatchRef}
                 class="color-swatch"
@@ -124,7 +134,9 @@ const Colors = (props) => {
                 maxLength={7}
                 placeholder="#rrggbb"
                 onInput={handleTextInput}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.target.blur();
+                }}
                 onBlur={handleTextBlur}
                 aria-label="hex colour for central hue"
               />
@@ -132,8 +144,12 @@ const Colors = (props) => {
           </label>
           <label>
             Table Colors
-            <span class="sidebar-input" style={{ textAlign: 'right' }}>
-              <button type="button" aria-label="Load Spectrum Colors" onClick={handleLoadSpectrumColors}>
+            <span class="sidebar-input" style={{ textAlign: "right" }}>
+              <button
+                type="button"
+                aria-label="Load Spectrum Colors"
+                onClick={handleLoadSpectrumColors}
+              >
                 Load Spectrum Colors to Scale Table
               </button>
             </span>

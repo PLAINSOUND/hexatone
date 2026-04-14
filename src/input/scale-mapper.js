@@ -53,8 +53,12 @@ export function findNearestDegree(pitchCents, scale, equave, toleranceCents, fal
   // Reduced pitch within [0, equave)
   let reduced = pitchCents - octave * equave;
   // Guard against floating-point landing exactly on equave
-  if (reduced >= equave) { reduced -= equave; }
-  if (reduced < 0) { reduced += equave; }
+  if (reduced >= equave) {
+    reduced -= equave;
+  }
+  if (reduced < 0) {
+    reduced += equave;
+  }
 
   let bestDegree = 0;
   let bestDist = Infinity;
@@ -72,14 +76,14 @@ export function findNearestDegree(pitchCents, scale, equave, toleranceCents, fal
     }
   }
 
-  if (fallback === 'discard' && bestDist > toleranceCents) {
+  if (fallback === "discard" && bestDist > toleranceCents) {
     return null;
   }
 
   // Adjust octave if the best match was across the equave boundary (wrap-around).
   // e.g. pitch near equave might match degree 0 of the next octave.
   let adjustedOctave = octave;
-  const distUp   = Math.abs(reduced - scale[bestDegree]);
+  const distUp = Math.abs(reduced - scale[bestDegree]);
   const distDown = equave - distUp;
   if (distDown < distUp && scale[bestDegree] > reduced) {
     // We wrapped: matched degree is actually in the octave below

@@ -1,8 +1,5 @@
 import { useState } from "preact/hooks";
-import {
-  parseScale,
-  parsedScaleToLabels,
-} from "./settings/scale/parse-scale.js";
+import { parseScale, parsedScaleToLabels } from "./settings/scale/parse-scale.js";
 
 /**
  * Manages scale-file import state and logic.
@@ -41,12 +38,8 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
       const { filename, description, equivSteps, scale, labels, colors } = parsed;
       const scala_names = parsedScaleToLabels(scale);
 
-      const hasNames =
-        parsed.hexatone_note_names &&
-        parsed.hexatone_note_names.some((n) => n);
-      const hasColors =
-        parsed.hexatone_note_colors &&
-        parsed.hexatone_note_colors.some((c) => c);
+      const hasNames = parsed.hexatone_note_names && parsed.hexatone_note_names.some((n) => n);
+      const hasColors = parsed.hexatone_note_colors && parsed.hexatone_note_colors.some((c) => c);
       const hasMetadata = hasNames || hasColors;
 
       let note_names, note_colors;

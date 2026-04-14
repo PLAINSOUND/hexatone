@@ -8,10 +8,7 @@ import {
 
 export const DEFAULT_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23];
 
-export const EXTENDED_MONZO_BASIS = [
-  2, 3, 5, 7, 11, 13, 17, 19, 23,
-  29, 31, 37, 41, 43, 47,
-];
+export const EXTENDED_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
 
 // Canonical exact basis for future HEJI / modulation work.
 export const CANONICAL_MONZO_BASIS = EXTENDED_MONZO_BASIS;
@@ -107,9 +104,7 @@ export function parseExactInterval(sourceText, options = {}) {
   const trimmed = typeof sourceText === "string" ? sourceText.trim() : "";
 
   if (kind === "ratio" || kind === "integer") {
-    const match = kind === "ratio"
-      ? trimmed.match(RATIO_RE)
-      : trimmed.match(INTEGER_RE);
+    const match = kind === "ratio" ? trimmed.match(RATIO_RE) : trimmed.match(INTEGER_RE);
     const numerator = match[1];
     const denominator = kind === "ratio" ? match[2] : "1";
     const ratio = fractionFromRatioParts(numerator, denominator);

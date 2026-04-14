@@ -68,26 +68,68 @@ describe("controller registry", () => {
   });
 
   it("adds TPX top-end bonus notes for 42–45 note scales without renumbering the 41 base slots", () => {
-    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 42 })).toEqual({ channel: 4, note: 42 });
-    expect(normalizeTonalPlexus41InputWithSettings(10, 104, { equivSteps: 43 })).toEqual({ channel: 4, note: 42 });
-    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 43 })).toEqual({ channel: 4, note: 43 });
-    expect(normalizeTonalPlexus41InputWithSettings(10, 103, { equivSteps: 45 })).toEqual({ channel: 4, note: 43 });
-    expect(normalizeTonalPlexus41InputWithSettings(10, 101, { equivSteps: 45 })).toEqual({ channel: 4, note: 41 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 42 })).toEqual({
+      channel: 4,
+      note: 42,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 104, { equivSteps: 43 })).toEqual({
+      channel: 4,
+      note: 42,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 43 })).toEqual({
+      channel: 4,
+      note: 43,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 103, { equivSteps: 45 })).toEqual({
+      channel: 4,
+      note: 43,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 101, { equivSteps: 45 })).toEqual({
+      channel: 4,
+      note: 41,
+    });
   });
 
   it("adds TPX bottom-end bonus notes for 46–49 note scales while keeping the base 41 slots fixed", () => {
-    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 46 })).toEqual({ channel: 4, note: 0 });
-    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 49 })).toEqual({ channel: 4, note: -3 });
-    expect(normalizeTonalPlexus41InputWithSettings(9, 3, { equivSteps: 49 })).toEqual({ channel: 4, note: 0 });
-    expect(normalizeTonalPlexus41InputWithSettings(9, 4, { equivSteps: 49 })).toEqual({ channel: 4, note: 1 });
-    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 49 })).toEqual({ channel: 4, note: 45 });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 46 })).toEqual({
+      channel: 4,
+      note: 0,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 49 })).toEqual({
+      channel: 4,
+      note: -3,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 3, { equivSteps: 49 })).toEqual({
+      channel: 4,
+      note: 0,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 4, { equivSteps: 49 })).toEqual({
+      channel: 4,
+      note: 1,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 49 })).toEqual({
+      channel: 4,
+      note: 45,
+    });
   });
 
   it("fully splits both TPX extreme 5-note groups for 51+ note scales", () => {
-    expect(normalizeTonalPlexus41InputWithSettings(10, 101, { equivSteps: 53 })).toEqual({ channel: 4, note: 42 });
-    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 53 })).toEqual({ channel: 4, note: 46 });
-    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 53 })).toEqual({ channel: 4, note: -4 });
-    expect(normalizeTonalPlexus41InputWithSettings(9, 4, { equivSteps: 53 })).toEqual({ channel: 4, note: 0 });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 101, { equivSteps: 53 })).toEqual({
+      channel: 4,
+      note: 42,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(10, 105, { equivSteps: 53 })).toEqual({
+      channel: 4,
+      note: 46,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 0, { equivSteps: 53 })).toEqual({
+      channel: 4,
+      note: -4,
+    });
+    expect(normalizeTonalPlexus41InputWithSettings(9, 4, { equivSteps: 53 })).toEqual({
+      channel: 4,
+      note: 0,
+    });
   });
 
   it("normalizes TPX raw addresses into one 205edo cycle per block", () => {
@@ -105,12 +147,14 @@ describe("controller registry", () => {
 
   it("anchors TPX 205edo pitch mapping to the current center degree", () => {
     const tonalPlexus = getController("tonalplexus");
-    expect(tonalPlexus.resolveScaleInputPitchCents(9, 7, {
-      tonalplexus_input_mode: "layout_205",
-      center_degree: 5,
-      equivInterval: 1200,
-      scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
-    })).toBe(500);
+    expect(
+      tonalPlexus.resolveScaleInputPitchCents(9, 7, {
+        tonalplexus_input_mode: "layout_205",
+        center_degree: 5,
+        equivInterval: 1200,
+        scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+      }),
+    ).toBe(500);
   });
 
   it("transposes TPX 205edo mode by one equave per block around channels 9-10", () => {

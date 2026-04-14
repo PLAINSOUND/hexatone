@@ -192,9 +192,25 @@ describe("mtsTuningMap — bulk dump mode (sysexType 126)", () => {
 describe("mtsTuningMap — Partch scale integration", () => {
   it("produces 128 real-time messages for the 19-tone Partch scale", () => {
     const rawScale = [
-      "81/80", "33/32", "21/20", "16/15", "12/11", "11/10", "10/9",
-      "9/8", "8/7", "7/6", "32/27", "6/5", "11/9", "5/4", "14/11",
-      "9/7", "21/16", "4/3", "2/1",
+      "81/80",
+      "33/32",
+      "21/20",
+      "16/15",
+      "12/11",
+      "11/10",
+      "10/9",
+      "9/8",
+      "8/7",
+      "7/6",
+      "32/27",
+      "6/5",
+      "11/9",
+      "5/4",
+      "14/11",
+      "9/7",
+      "21/16",
+      "4/3",
+      "2/1",
     ];
     const numericScale = rawScale.map(scalaToCents);
     const equivInterval = numericScale[numericScale.length - 1];

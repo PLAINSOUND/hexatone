@@ -40,12 +40,10 @@ export function centsToMTS(note, bend) {
 
     // total_bend is the full pitch offset in semitones from mts[0],
     // incorporating both the fractional part of note and the cents bend.
-    const total_bend = (bend * 0.01) + note - mts[0];
+    const total_bend = bend * 0.01 + note - mts[0];
 
     // shift absorbs any whole-semitone component of total_bend into mts[0].
-    let shift = total_bend >= 0
-      ? Math.floor(total_bend)
-      : -1 * Math.floor(-1 * total_bend);
+    let shift = total_bend >= 0 ? Math.floor(total_bend) : -1 * Math.floor(-1 * total_bend);
     if (shift > total_bend) shift -= 1;
 
     const remainder = total_bend - shift;
@@ -60,8 +58,8 @@ export function centsToMTS(note, bend) {
     } else {
       let fine = Math.round(16384 * remainder);
       if (fine === 16384) fine = 16383; // avoid overflow at exactly 1 semitone
-      mts[1] = Math.floor(fine / 128);  // MSB (7 bits)
-      mts[2] = Math.round(128 * ((fine / 128) - mts[1]));
+      mts[1] = Math.floor(fine / 128); // MSB (7 bits)
+      mts[2] = Math.round(128 * (fine / 128 - mts[1]));
       if (mts[2] === 128) mts[2] = 127;
     }
   }
@@ -75,7 +73,7 @@ export function centsToMTS(note, bend) {
  * @returns {number}      float MIDI note (e.g. 69.5 = 50 cents above A4)
  */
 export function mtsToMidiFloat(mts) {
-  return mts[0] + (mts[1] / 128) + (mts[2] / 16384);
+  return mts[0] + mts[1] / 128 + mts[2] / 16384;
 }
 
 // ── Name helpers ──────────────────────────────────────────────────────────────
@@ -152,9 +150,7 @@ export function buildRealtimeSingleNoteMessage(deviceId, mapNumber, midiNote, tr
 export function buildBulkDumpMessage(deviceId, mapNumber, name, entries) {
   // Replace silence sentinels — [127,127,127] is not valid in bulk dump format.
   const clampedEntries = entries.map((triplet) =>
-    triplet[0] === 127 && triplet[1] === 127 && triplet[2] === 127
-      ? [127, 127, 126]
-      : triplet
+    triplet[0] === 127 && triplet[1] === 127 && triplet[2] === 127 ? [127, 127, 126] : triplet,
   );
 
   // Build 16-byte ASCII name field, space-padded.

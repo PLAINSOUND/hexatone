@@ -43,11 +43,11 @@ export class MidiCoordResolver {
    *                                       over the matching settings fields.
    */
   constructor(settings, hexCoordsToCents, hexCoordsToScreen, getCenterpoint, inputRuntime = null) {
-    this.settings         = settings;
-    this.inputRuntime     = inputRuntime;
-    this._hexCoordsToCents  = hexCoordsToCents;
+    this.settings = settings;
+    this.inputRuntime = inputRuntime;
+    this._hexCoordsToCents = hexCoordsToCents;
     this._hexCoordsToScreen = hexCoordsToScreen;
-    this._getCenterpoint    = getCenterpoint;
+    this._getCenterpoint = getCenterpoint;
 
     // Populated by buildStepsTable() — Map<steps: number, coords: Point[]>
     this.stepsTable = null;
@@ -82,11 +82,12 @@ export class MidiCoordResolver {
     // Prefer inputRuntime values when available (set at Keys construction time from
     // derived inputRuntime); fall back to raw settings for backwards compatibility.
     const ir = this.inputRuntime;
-    const explicitStepsPerChannel = ir ? ir.stepsPerChannel : this.settings.midiin_steps_per_channel;
+    const explicitStepsPerChannel = ir
+      ? ir.stepsPerChannel
+      : this.settings.midiin_steps_per_channel;
     const defaultStepsPerChannel = ir?.stepsPerChannelDefault ?? this.settings.equivSteps;
     const stepsPerChannel = explicitStepsPerChannel ?? defaultStepsPerChannel;
-    const anchorChannel =
-      (ir ? ir.seqAnchorChannel : this.settings.midiin_anchor_channel) ?? 1;
+    const anchorChannel = (ir ? ir.seqAnchorChannel : this.settings.midiin_anchor_channel) ?? 1;
     const channelGroupSize = Math.max(
       1,
       (ir ? ir.channelGroupSize : this.settings.midiin_channel_group_size) ?? 1,
@@ -96,12 +97,8 @@ export class MidiCoordResolver {
     // identically to channels 1–8 (mod 8).  Default is true for
     // backward compatibility with older presets.
     const legacyMode = ir ? ir.legacyChannelMode : this.settings.midiin_channel_legacy;
-    const effectiveChannel = legacyMode
-      ? ((channel - 1) % 8) + 1
-      : channel;
-    const effectiveAnchorChannel = legacyMode
-      ? ((anchorChannel - 1) % 8) + 1
-      : anchorChannel;
+    const effectiveChannel = legacyMode ? ((channel - 1) % 8) + 1 : channel;
+    const effectiveAnchorChannel = legacyMode ? ((anchorChannel - 1) % 8) + 1 : anchorChannel;
     const groupIndex = Math.floor((effectiveChannel - 1) / channelGroupSize);
     const anchorGroupIndex = Math.floor((effectiveAnchorChannel - 1) / channelGroupSize);
     return (groupIndex - anchorGroupIndex) * stepsPerChannel;
@@ -119,10 +116,10 @@ export class MidiCoordResolver {
    */
   noteToSteps(noteNumber, channel) {
     const ir = this.inputRuntime;
-    const anchorNote =
-      (ir ? ir.seqAnchorNote : this.settings.midiin_central_degree) ?? 60;
+    const anchorNote = (ir ? ir.seqAnchorNote : this.settings.midiin_central_degree) ?? 60;
     return (
-      (noteNumber - anchorNote) +
+      noteNumber -
+      anchorNote +
       (this.settings.center_degree || 0) +
       this.channelToStepsOffset(channel)
     );
@@ -137,9 +134,7 @@ export class MidiCoordResolver {
    */
   buildStepsTable() {
     const centerpoint = this._getCenterpoint();
-    const max = Math.floor(
-      Math.max(centerpoint.x, centerpoint.y) / this.settings.hexSize,
-    );
+    const max = Math.floor(Math.max(centerpoint.x, centerpoint.y) / this.settings.hexSize);
     const ox = this.settings.centerHexOffset.x;
     const oy = this.settings.centerHexOffset.y;
 

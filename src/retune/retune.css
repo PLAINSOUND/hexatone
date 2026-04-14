@@ -5,7 +5,9 @@
   font-style: normal;
 }
 
-html, body, #application {
+html,
+body,
+#application {
   margin: 0;
   height: 100%;
 }

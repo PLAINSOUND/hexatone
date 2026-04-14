@@ -43,16 +43,16 @@ function freqToMidiAndCents(freq, center_degree, channel, scale, mode) {
   const targetMidi = 69 + 12 * Math.log2(freq / 440) - center_cents * 0.01; // MIDIcents
 
   let note, deviation;
-  if (mode === 'Ableton_workaround') {
+  if (mode === "Ableton_workaround") {
     // Start from the nearest MIDI note to the target, then offset by channel index
     // so the note's value mod 16 matches the 0-indexed channel.
     // Channels 0–7  add  0..+7  semitones (offset = c)
     // Channels 8–15 add -8..-1  semitones (offset = c - 16)
     // This keeps the played note within ±8 semitones (half an octave) of the
     // target, with pitch bend correcting the remainder.
-    const c = channel - 1;                                    // 0-indexed
+    const c = channel - 1; // 0-indexed
     const nearestNote = Math.max(0, Math.min(127, Math.round(targetMidi)));
-    const channelOffset = c - 16 * Math.floor(c / 8);        // 0..+7 or -8..-1
+    const channelOffset = c - 16 * Math.floor(c / 8); // 0..+7 or -8..-1
     note = Math.max(0, Math.min(127, nearestNote + channelOffset));
     deviation = (targetMidi - note) * 100.0;
   } else {
@@ -70,20 +70,20 @@ function deviationToBend(cents_offset, bendRange) {
 }
 
 function sendBend(midi_output, channel0, bend) {
-  const lsb = bend & 0x7F;
-  const msb = (bend >> 7) & 0x7F;
-  midi_output.send([0xE0 + channel0, lsb, msb]);
+  const lsb = bend & 0x7f;
+  const msb = (bend >> 7) & 0x7f;
+  midi_output.send([0xe0 + channel0, lsb, msb]);
 }
 
 function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
-  midi_output.send([0xB0 + channel0, 101, msb & 0x7F]);
-  midi_output.send([0xB0 + channel0, 100, lsb & 0x7F]);
-  midi_output.send([0xB0 + channel0, 6, dataMsb & 0x7F]);
-  midi_output.send([0xB0 + channel0, 38, dataLsb & 0x7F]);
+  midi_output.send([0xb0 + channel0, 101, msb & 0x7f]);
+  midi_output.send([0xb0 + channel0, 100, lsb & 0x7f]);
+  midi_output.send([0xb0 + channel0, 6, dataMsb & 0x7f]);
+  midi_output.send([0xb0 + channel0, 38, dataLsb & 0x7f]);
   // Null RPN selection so later Data Entry messages cannot accidentally keep
   // editing the previously selected parameter on stricter hardware synths.
-  midi_output.send([0xB0 + channel0, 101, 127]);
-  midi_output.send([0xB0 + channel0, 100, 127]);
+  midi_output.send([0xb0 + channel0, 101, 127]);
+  midi_output.send([0xb0 + channel0, 100, 127]);
 }
 
 export const create_mpe_synth = async (
@@ -96,25 +96,30 @@ export const create_mpe_synth = async (
   center_degree = 0,
   midiin_central_degree = 60,
   scale,
-  mpe_mode = 'Ableton_workaround',
+  mpe_mode = "Ableton_workaround",
   bendRange = 48,
   bendRangeManager = 2,
   equivSteps = 12,
   equave = 2,
-  releaseGuardMs = RELEASE_GUARD_MS,   // ms — should match your synth's longest release
-  closestPitchSteal = true  // steal closest-pitch SOUNDING voice
+  releaseGuardMs = RELEASE_GUARD_MS, // ms — should match your synth's longest release
+  closestPitchSteal = true, // steal closest-pitch SOUNDING voice
 ) => {
   if (!midi_output) return null;
 
-  const actualBendRange = mpe_mode === 'Ableton_workaround' ? 48 : bendRange || 48;
-  const managerBendRange = mpe_mode === 'Ableton_workaround' ? 2 : bendRangeManager || 2;
+  const actualBendRange = mpe_mode === "Ableton_workaround" ? 48 : bendRange || 48;
+  const managerBendRange = mpe_mode === "Ableton_workaround" ? 2 : bendRangeManager || 2;
   const masterCh = master_ch != "-1" ? parseInt(master_ch) - 1 : -1;
   const voiceIds = [];
   for (let ch = lo_ch; ch <= hi_ch; ch++) voiceIds.push(ch);
 
   const pool = new VoicePool(voiceIds, releaseGuardMs, closestPitchSteal);
 
-  const freqAtCentral = calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale);
+  const freqAtCentral = calculateFreqAtCentralDegree(
+    fundamental,
+    reference_degree,
+    center_degree,
+    scale,
+  );
   const midiNoteForDegree0 = midiin_central_degree;
 
   // MPE configuration RPN message on manager channel
@@ -136,14 +141,14 @@ export const create_mpe_synth = async (
   for (const ch of voiceIds) {
     const c = ch - 1;
     sendRpn(midi_output, c, 0, 0, actualBendRange, 0);
-    midi_output.send([0xE0 + c, 0, 64]); // 8192 = centred
+    midi_output.send([0xe0 + c, 0, 64]); // 8192 = centred
   }
   // PB centre reset — deferred so old release tails finish first
   setTimeout(() => {
     for (const ch of voiceIds) {
       const c = ch - 1;
-      if (pool.getChannelState(ch) === 'IDLE') {
-        midi_output.send([0xE0 + c, 0, 64]); // 8192 = centred
+      if (pool.getChannelState(ch) === "IDLE") {
+        midi_output.send([0xe0 + c, 0, 64]); // 8192 = centred
       }
     }
   }, releaseGuardMs);
@@ -152,14 +157,34 @@ export const create_mpe_synth = async (
 
   return {
     family: "mpe",
-    makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
-      note_played, velocity_played, bend, degree0toRef_ratio) => {
+    makeHex: (
+      coords,
+      cents,
+      steps,
+      equaves,
+      equivSteps,
+      cents_prev,
+      cents_next,
+      note_played,
+      velocity_played,
+      bend,
+      degree0toRef_ratio,
+    ) => {
       const hex = new MpeHex(
-        coords, cents, velocity_played, steps, center_degree,
-        midi_output, pool,
-        freqAtCentral, midiNoteForDegree0,
-        actualBendRange, mpe_mode, scale,
-        note_played, masterCh
+        coords,
+        cents,
+        velocity_played,
+        steps,
+        center_degree,
+        midi_output,
+        pool,
+        freqAtCentral,
+        midiNoteForDegree0,
+        actualBendRange,
+        mpe_mode,
+        scale,
+        note_played,
+        masterCh,
       );
       activeHexes.add(hex);
       const originalNoteOff = hex.noteOff.bind(hex);
@@ -178,19 +203,19 @@ export const create_mpe_synth = async (
     allSoundOff: () => {
       if (!midi_output) return;
       for (const ch of voiceIds) {
-        midi_output.send([0xB0 + (ch - 1), 123, 0]);
+        midi_output.send([0xb0 + (ch - 1), 123, 0]);
       }
-      if (masterCh >= 0) midi_output.send([0xB0 + masterCh, 123, 0]);
+      if (masterCh >= 0) midi_output.send([0xb0 + masterCh, 123, 0]);
     },
 
     applyControllerState: (state = {}) => {
       if (!midi_output || masterCh < 0) return;
       const ccValues = state.ccValues || {};
       for (const [cc, value] of Object.entries(ccValues)) {
-        midi_output.send([0xB0 + masterCh, Number(cc) & 0x7F, Math.max(0, Math.min(127, value))]);
+        midi_output.send([0xb0 + masterCh, Number(cc) & 0x7f, Math.max(0, Math.min(127, value))]);
       }
       if (state.channelPressure != null) {
-        midi_output.send([0xD0 + masterCh, Math.max(0, Math.min(127, state.channelPressure))]);
+        midi_output.send([0xd0 + masterCh, Math.max(0, Math.min(127, state.channelPressure))]);
       }
       if (state.pitchBend14 != null) {
         sendBend(midi_output, masterCh, Math.max(0, Math.min(16383, state.pitchBend14)));
@@ -203,9 +228,22 @@ export const create_mpe_synth = async (
   };
 };
 
-function MpeHex(coords, cents, velocity_played, steps, center_degree,
-  midi_output, pool, freqAtCentral, midiNoteForDegree0,
-  bendRange, mode, scale, note_played, masterCh) {
+function MpeHex(
+  coords,
+  cents,
+  velocity_played,
+  steps,
+  center_degree,
+  midi_output,
+  pool,
+  freqAtCentral,
+  midiNoteForDegree0,
+  bendRange,
+  mode,
+  scale,
+  note_played,
+  masterCh,
+) {
   this.coords = coords;
   this.cents = cents;
   this.steps = steps;
@@ -229,8 +267,10 @@ function MpeHex(coords, cents, velocity_played, steps, center_degree,
   const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
   const bendGuess = deviationToBend((69 + 12 * Math.log2(freq / 440) - noteGuess) * 100, bendRange);
 
-  const { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing, retrigger } =
-    pool.noteOn(coords, bendGuess);
+  const { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing, retrigger } = pool.noteOn(
+    coords,
+    bendGuess,
+  );
 
   this.channel = slot; // 1-based
 
@@ -287,8 +327,8 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   const pool = this.pool;
   const midi_out = this.midi_output;
   setTimeout(() => {
-    if (pool.getChannelState(channel) === 'IDLE') {
-      midi_out.send([0xE0 + c, 0, 64]); // PB centred (8192)
+    if (pool.getChannelState(channel) === "IDLE") {
+      midi_out.send([0xe0 + c, 0, 64]); // PB centred (8192)
     }
   }, pool._releaseGuardMs + 10);
 };
@@ -314,7 +354,13 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
   this.cents = newCents;
 
   const freq = this.freqAtCentral * Math.pow(2, newCents / 1200);
-  const { note, deviation } = freqToMidiAndCents(freq, this.center_degree, this.channel, this.scale, this.mode);
+  const { note, deviation } = freqToMidiAndCents(
+    freq,
+    this.center_degree,
+    this.channel,
+    this.scale,
+    this.mode,
+  );
   const c = this.channel - 1;
 
   if (!bendOnly && note !== this.note) {
@@ -341,9 +387,7 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
     // When bendOnly, recompute deviation against the locked note (this.note) rather
     // than the newly-computed note, preserving center_degree correction by using
     // the already-corrected targetMidi from freqToMidiAndCents.
-    const bendDeviation = bendOnly
-      ? deviation + (note - this.note) * 100
-      : deviation;
+    const bendDeviation = bendOnly ? deviation + (note - this.note) * 100 : deviation;
     const newBend = deviationToBend(bendDeviation, this.bendRange);
     this.bend = newBend;
     this.pool.setLastBend(this.channel, this.bend);
@@ -354,7 +398,7 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
 MpeHex.prototype.aftertouch = function (value) {
   if (this.release) return;
   const c = this.channel - 1;
-  this.midi_output.send([0xD0 + c, Math.max(0, Math.min(127, value))]);
+  this.midi_output.send([0xd0 + c, Math.max(0, Math.min(127, value))]);
 };
 
 // pressure: channel pressure on the voice's own channel (same as aftertouch for MPE).
@@ -366,19 +410,19 @@ MpeHex.prototype.pressure = function (value) {
 MpeHex.prototype.cc74 = function (value) {
   if (this.release) return;
   const c = this.channel - 1;
-  this.midi_output.send([0xB0 + c, 74, Math.max(0, Math.min(127, value))]);
+  this.midi_output.send([0xb0 + c, 74, Math.max(0, Math.min(127, value))]);
 };
 
 // modwheel: CC1 — zone-wide, sent on manager channel.
 MpeHex.prototype.modwheel = function (value) {
   if (this.masterCh < 0) return;
-  this.midi_output.send([0xB0 + this.masterCh, 1, Math.max(0, Math.min(127, value))]);
+  this.midi_output.send([0xb0 + this.masterCh, 1, Math.max(0, Math.min(127, value))]);
 };
 
 // expression: CC11 — zone-wide, sent on manager channel.
 MpeHex.prototype.expression = function (value) {
   if (this.masterCh < 0) return;
-  this.midi_output.send([0xB0 + this.masterCh, 11, Math.max(0, Math.min(127, value))]);
+  this.midi_output.send([0xb0 + this.masterCh, 11, Math.max(0, Math.min(127, value))]);
 };
 
 export default create_mpe_synth;

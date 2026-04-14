@@ -41,7 +41,7 @@ export function sessionFloat(key, fallback) {
  */
 export function sessionBool(key, fallback) {
   const raw = sessionStorage.getItem(key);
-  return raw !== null ? raw === 'true' : fallback;
+  return raw !== null ? raw === "true" : fallback;
 }
 
 /**
@@ -80,7 +80,7 @@ export function localFloat(key, fallback) {
  */
 export function localBool(key, fallback) {
   const raw = localStorage.getItem(key);
-  return raw !== null ? raw === 'true' : fallback;
+  return raw !== null ? raw === "true" : fallback;
 }
 
 /**

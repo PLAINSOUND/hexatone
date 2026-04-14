@@ -1,26 +1,25 @@
-import { h, createRef } from 'preact';
-import PropTypes from 'prop-types';
+import { h, createRef } from "preact";
+import PropTypes from "prop-types";
 import {
   settingsToPlainScala,
   settingsToAbletonScala,
   settingsToHexatonScala,
   settingsToKbm,
   settingsToPresetJson,
-} from './parse-scale';
+} from "./parse-scale";
 
 // Trigger a file download in the browser
-const downloadFile = (content, filename, mimeType = 'text/plain') => {
+const downloadFile = (content, filename, mimeType = "text/plain") => {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 };
 
-const safeName = (settings) =>
-  (settings.name || 'custom').replace(/[^a-zA-Z0-9_\-]/g, '_');
+const safeName = (settings) => (settings.name || "custom").replace(/[^a-zA-Z0-9_\-]/g, "_");
 
 const ScalaImport = (props) => {
   const fileInputRef = createRef();
@@ -30,34 +29,39 @@ const ScalaImport = (props) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      props.onChange('scale_import', ev.target.result);
+      props.onChange("scale_import", ev.target.result);
     };
     reader.readAsText(file);
     // Reset so the same file can be re-opened if needed
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const name = safeName(props.settings);
 
   return (
-    <div style={{ position: 'relative' , marginTop: '0.65em' }}>
+    <div style={{ position: "relative", marginTop: "0.65em" }}>
       {/* ── Import section ─────────────────────────────────────────────── */}
       <fieldset>
-        <legend><b>Scala File</b></legend>
-        <button type="button" onClick={props.onCancel}
+        <legend>
+          <b>Scala File</b>
+        </legend>
+        <button
+          type="button"
+          onClick={props.onCancel}
           title="Close"
           style={{
-            position: 'absolute',
-            top: '-0.2em',
-            right: '-0.6em',
-            padding: '0.3em 0.4em',
-            fontSize: '1em',
+            position: "absolute",
+            top: "-0.2em",
+            right: "-0.6em",
+            padding: "0.3em 0.4em",
+            fontSize: "1em",
             lineHeight: 1,
-            cursor: 'pointer',
-            background: '#faf9f8',
-            border: 'none',
-            color: '#990000',
-          }}>
+            cursor: "pointer",
+            background: "#faf9f8",
+            border: "none",
+            color: "#990000",
+          }}
+        >
           ✕
         </button>
         <p>
@@ -66,16 +70,21 @@ const ScalaImport = (props) => {
           <a href="https://scaleworkshop.plainsound.org">[Scale Workshop]</a>
         </p>
         <p>
-          <b>Name</b> <em>(optional):</em> "!" followed by scala file name, e.g. "! myScale.scl"<br />
-          <b>!</b> precedes a comment or empty line<br />
-          <b>Description</b>: some text about the scale<br />
-          <b>Size</b>: the number of scale degrees<br />
+          <b>Name</b> <em>(optional):</em> "!" followed by scala file name, e.g. "! myScale.scl"
+          <br />
+          <b>!</b> precedes a comment or empty line
+          <br />
+          <b>Description</b>: some text about the scale
+          <br />
+          <b>Size</b>: the number of scale degrees
+          <br />
           <b>Scale</b>: a list of ratios (b/a) or cents (numbers with a decimal point)
         </p>
         <label>
-          <textarea name="scale_import"
-                    onChange={(e) => props.onChange(e.target.name, e.target.value)}
-                    value={props.settings.scale_import}
+          <textarea
+            name="scale_import"
+            onChange={(e) => props.onChange(e.target.name, e.target.value)}
+            value={props.settings.scale_import}
           />
         </label>
         <br />
@@ -84,47 +93,65 @@ const ScalaImport = (props) => {
           ref={fileInputRef}
           type="file"
           accept=".scl,.ascl"
-          style={{ display: 'none' }}
+          style={{ display: "none" }}
           onChange={handleFileOpen}
         />
         <button type="button" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
           Open .scl / .ascl file
         </button>
         &nbsp;&nbsp;
-        <button type="button" onClick={props.onImport}>Build Layout</button>
+        <button type="button" onClick={props.onImport}>
+          Build Layout
+        </button>
       </fieldset>
 
       {/* ── Export section ─────────────────────────────────────────────── */}
       <fieldset>
-        <legend><b>Export</b></legend>
-
-        <p><b>Plain Scala</b> — standard .scl format, compatible with all Scala-aware software</p>
-        <button type="button"
-          onClick={() => downloadFile(settingsToPlainScala(props.settings), `${name}.scl`)}>
+        <legend>
+          <b>Export</b>
+        </legend>
+        <p>
+          <b>Plain Scala</b> — standard .scl format, compatible with all Scala-aware software
+        </p>
+        <button
+          type="button"
+          onClick={() => downloadFile(settingsToPlainScala(props.settings), `${name}.scl`)}
+        >
           Save .scl
         </button>
         &nbsp;&nbsp;
-        <button type="button"
-          onClick={() => downloadFile(settingsToKbm(props.settings), `${name}.kbm`)}>
+        <button
+          type="button"
+          onClick={() => downloadFile(settingsToKbm(props.settings), `${name}.kbm`)}
+        >
           Save .kbm
         </button>
-{/*
+        {/*
         <p><b>Ableton Scala</b> — .ascl format with Ableton reference pitch metadata</p>
         <button type="button"
           onClick={() => downloadFile(settingsToAbletonScala(props.settings), `${name}.ascl`)}>
           Save .ascl
         </button>
 */}
-        <p><b>Ableton / Hexatone Scala</b> — .ascl format with full round-trip metadata
-          (note names, colors, reference pitch) for re-import into Hexatone</p>
-        <button type="button"
-          onClick={() => downloadFile(settingsToHexatonScala(props.settings), `${name}.ascl`)}>
+        <p>
+          <b>Ableton / Hexatone Scala</b> — .ascl format with full round-trip metadata (note names,
+          colors, reference pitch) for re-import into Hexatone
+        </p>
+        <button
+          type="button"
+          onClick={() => downloadFile(settingsToHexatonScala(props.settings), `${name}.ascl`)}
+        >
           Save .ascl
         </button>
-
-        <p><b>User Preset JSON</b> — export current Tuning as a JSON file</p>
-        <button type="button"
-          onClick={() => downloadFile(settingsToPresetJson(props.settings), `${name}.json`, 'application/json')}>
+        <p>
+          <b>User Preset JSON</b> — export current Tuning as a JSON file
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            downloadFile(settingsToPresetJson(props.settings), `${name}.json`, "application/json")
+          }
+        >
           Save .json
         </button>
       </fieldset>

@@ -1,9 +1,20 @@
 import { h } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "./retune.css";
-import { BASE_SYMBOLS, EXTRA_MODIFIERS, glyphStringForSelection, parseHejiGlyphInput } from "./heji-subset.js";
+import {
+  BASE_SYMBOLS,
+  EXTRA_MODIFIERS,
+  glyphStringForSelection,
+  parseHejiGlyphInput,
+} from "./heji-subset.js";
 import { parseMidi } from "./midi-parser.js";
-import { centsFromMonzo, fullMonzoForSelection, guessSpellingFromMidi, ratioFromMonzo, staffStepIndex } from "./pitch-model.js";
+import {
+  centsFromMonzo,
+  fullMonzoForSelection,
+  guessSpellingFromMidi,
+  ratioFromMonzo,
+  staffStepIndex,
+} from "./pitch-model.js";
 
 const SAMPLE_MIDI = "/bach-tuning/MIDI/bwv1001/vs1-1ada.mid";
 const RETUNE_WORKSPACE_STORAGE_KEY = "hexatone_retune_workspace_v1";
@@ -23,11 +34,11 @@ function makeAnnotation(note) {
 function annotationFromCorpusNote(corpusNote) {
   const guess = corpusNote.guess
     ? {
-      letter: corpusNote.guess.staff_note,
-      octave: corpusNote.guess.octave,
-      baseId: corpusNote.guess.base_id,
-      guessSource: corpusNote.guess.source ?? "imported",
-    }
+        letter: corpusNote.guess.staff_note,
+        octave: corpusNote.guess.octave,
+        baseId: corpusNote.guess.base_id,
+        guessSource: corpusNote.guess.source ?? "imported",
+      }
     : guessSpellingFromMidi(corpusNote.midi.note);
 
   return {
@@ -49,9 +60,7 @@ function accidentalTokenFromBaseId(baseId) {
 
 function toggleSelection(currentIds, id, additive) {
   if (!additive) return [id];
-  return currentIds.includes(id)
-    ? currentIds.filter((value) => value !== id)
-    : [...currentIds, id];
+  return currentIds.includes(id) ? currentIds.filter((value) => value !== id) : [...currentIds, id];
 }
 
 function buildCorpusNote(note, annotation) {
@@ -84,7 +93,9 @@ function buildCorpusNote(note, annotation) {
       octave: annotation.octave,
       base_id: annotation.baseId,
       heji_ids: annotation.extraIds,
-      heji_glyphs: annotation.extraIds.map((id) => EXTRA_MODIFIERS.find((item) => item.id === id)?.glyph).filter(Boolean),
+      heji_glyphs: annotation.extraIds
+        .map((id) => EXTRA_MODIFIERS.find((item) => item.id === id)?.glyph)
+        .filter(Boolean),
       heji_text: glyphStringForSelection(annotation.baseId, annotation.extraIds),
     },
     computed: {
@@ -99,18 +110,20 @@ function buildCorpusNote(note, annotation) {
 
 function midiDocFromCorpusJson(data) {
   const corpusNotes = Array.isArray(data?.notes) ? data.notes : [];
-  const notes = corpusNotes.map((item, index) => ({
-    id: item.event_id ?? `imported_${index + 1}`,
-    eventId: item.event_id ?? `n${String(index + 1).padStart(4, "0")}`,
-    track: item.midi?.track ?? 0,
-    channel: item.midi?.channel ?? 1,
-    midiNote: item.midi?.note ?? 60,
-    velocity: item.midi?.velocity ?? 96,
-    onTick: item.midi?.on_tick ?? 0,
-    offTick: item.midi?.off_tick ?? (item.midi?.on_tick ?? 0) + 480,
-    onSeconds: item.midi?.on_seconds ?? 0,
-    offSeconds: item.midi?.off_seconds ?? 0.5,
-  })).sort((a, b) => a.onTick - b.onTick || a.midiNote - b.midiNote);
+  const notes = corpusNotes
+    .map((item, index) => ({
+      id: item.event_id ?? `imported_${index + 1}`,
+      eventId: item.event_id ?? `n${String(index + 1).padStart(4, "0")}`,
+      track: item.midi?.track ?? 0,
+      channel: item.midi?.channel ?? 1,
+      midiNote: item.midi?.note ?? 60,
+      velocity: item.midi?.velocity ?? 96,
+      onTick: item.midi?.on_tick ?? 0,
+      offTick: item.midi?.off_tick ?? (item.midi?.on_tick ?? 0) + 480,
+      onSeconds: item.midi?.on_seconds ?? 0,
+      offSeconds: item.midi?.off_seconds ?? 0.5,
+    }))
+    .sort((a, b) => a.onTick - b.onTick || a.midiNote - b.midiNote);
 
   const annotations = {};
   corpusNotes.forEach((item, index) => {
@@ -173,7 +186,10 @@ function PianoRoll({ notes, annotations, selectedIds, onSelect, pxPerTick, viewp
   const minNote = Math.min(...notes.map((note) => note.midiNote), 55);
   const maxNote = Math.max(...notes.map((note) => note.midiNote), 80);
   const noteHeight = 14;
-  const width = Math.max(viewportWidth ?? 0, Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 60);
+  const width = Math.max(
+    viewportWidth ?? 0,
+    Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 60,
+  );
   const height = (maxNote - minNote + 1) * noteHeight + 20;
 
   return (
@@ -183,7 +199,21 @@ function PianoRoll({ notes, annotations, selectedIds, onSelect, pxPerTick, viewp
         const y = index * noteHeight;
         return (
           <g key={`row-${midi}`}>
-            <rect x="0" y={y} width={width} height={noteHeight} fill={midi % 12 === 1 || midi % 12 === 3 || midi % 12 === 6 || midi % 12 === 8 || midi % 12 === 10 ? "#00000006" : "transparent"} />
+            <rect
+              x="0"
+              y={y}
+              width={width}
+              height={noteHeight}
+              fill={
+                midi % 12 === 1 ||
+                midi % 12 === 3 ||
+                midi % 12 === 6 ||
+                midi % 12 === 8 ||
+                midi % 12 === 10
+                  ? "#00000006"
+                  : "transparent"
+              }
+            />
           </g>
         );
       })}
@@ -211,7 +241,8 @@ function PianoRoll({ notes, annotations, selectedIds, onSelect, pxPerTick, viewp
             />
             {selected ? (
               <text x={x + 4} y={y + 10} fill="#fff" font-size="10">
-                {annotation.letter}{annotation.octave}
+                {annotation.letter}
+                {annotation.octave}
               </text>
             ) : null}
           </g>
@@ -222,7 +253,10 @@ function PianoRoll({ notes, annotations, selectedIds, onSelect, pxPerTick, viewp
 }
 
 function StaffView({ notes, annotations, selectedIds, onSelect, pxPerTick, viewportWidth }) {
-  const width = Math.max(viewportWidth ?? 0, Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 80);
+  const width = Math.max(
+    viewportWidth ?? 0,
+    Math.ceil(Math.max(...notes.map((note) => note.offTick)) * pxPerTick) + 80,
+  );
   const height = 230;
   const staffTop = 68;
   const lineGap = 14;
@@ -249,9 +283,8 @@ function StaffView({ notes, annotations, selectedIds, onSelect, pxPerTick, viewp
       let lastPlacedStep = null;
       let lastColumn = 0;
       bucket.forEach(({ eventId, step }) => {
-        const column = lastPlacedStep != null && Math.abs(step - lastPlacedStep) <= 1
-          ? lastColumn + 1
-          : 0;
+        const column =
+          lastPlacedStep != null && Math.abs(step - lastPlacedStep) <= 1 ? lastColumn + 1 : 0;
         offsets[eventId] = column * 10;
         lastPlacedStep = step;
         lastColumn = column;
@@ -304,9 +337,25 @@ function StaffView({ notes, annotations, selectedIds, onSelect, pxPerTick, viewp
                 stroke-width="1.2"
               />
             ))}
-            <text x={x - 24} y={y + 5} font-size="20" fill="#5e2314">{glyphs}</text>
-            <ellipse cx={x} cy={y} rx="8" ry="5.5" fill={selected ? "#c94922" : "#2a1813"} transform={`rotate(-18 ${x} ${y})`} />
-            <line x1={x + 7} y1={y} x2={x + 7} y2={y - 32} stroke={selected ? "#c94922" : "#2a1813"} stroke-width="1.5" />
+            <text x={x - 24} y={y + 5} font-size="20" fill="#5e2314">
+              {glyphs}
+            </text>
+            <ellipse
+              cx={x}
+              cy={y}
+              rx="8"
+              ry="5.5"
+              fill={selected ? "#c94922" : "#2a1813"}
+              transform={`rotate(-18 ${x} ${y})`}
+            />
+            <line
+              x1={x + 7}
+              y1={y}
+              x2={x + 7}
+              y2={y - 32}
+              stroke={selected ? "#c94922" : "#2a1813"}
+              stroke-width="1.5"
+            />
           </g>
         );
       })}
@@ -327,7 +376,11 @@ function EventList({ notes, annotations, selectedIds, onSelect }) {
           >
             <div className="mono">{note.eventId}</div>
             <div>
-              <div>{ann.letter}{ann.baseId.startsWith("sharp") ? "#" : ann.baseId.startsWith("flat") ? "b" : ""}{ann.octave}</div>
+              <div>
+                {ann.letter}
+                {ann.baseId.startsWith("sharp") ? "#" : ann.baseId.startsWith("flat") ? "b" : ""}
+                {ann.octave}
+              </div>
               <div className="mini">{glyphStringForSelection(ann.baseId, ann.extraIds)}</div>
             </div>
             <div className="mini mono">{note.midiNote}</div>
@@ -340,7 +393,13 @@ function EventList({ notes, annotations, selectedIds, onSelect }) {
 
 function Editor({ note, annotation, selectionCount, onChange }) {
   const computed = useMemo(
-    () => fullMonzoForSelection(annotation.letter, annotation.octave, annotation.baseId, annotation.extraIds),
+    () =>
+      fullMonzoForSelection(
+        annotation.letter,
+        annotation.octave,
+        annotation.baseId,
+        annotation.extraIds,
+      ),
     [annotation],
   );
   const ratio = ratioFromMonzo(computed.fullMonzo);
@@ -352,7 +411,8 @@ function Editor({ note, annotation, selectionCount, onChange }) {
       <div className="editor-section">
         <div className="editor-label">MIDI Event</div>
         <div className="computed-box">
-          MIDI {note.midiNote}, ch {note.channel}, ticks {note.onTick} - {note.offTick}<br />
+          MIDI {note.midiNote}, ch {note.channel}, ticks {note.onTick} - {note.offTick}
+          <br />
           Seconds {note.onSeconds.toFixed(3)} - {note.offSeconds.toFixed(3)}
         </div>
       </div>
@@ -361,7 +421,11 @@ function Editor({ note, annotation, selectionCount, onChange }) {
         <div className="editor-label">Guessed spelling</div>
         <div className="computed-box">
           {annotation.guess.letter}
-          {annotation.guess.baseId.startsWith("sharp") ? "#" : annotation.guess.baseId.startsWith("flat") ? "b" : ""}
+          {annotation.guess.baseId.startsWith("sharp")
+            ? "#"
+            : annotation.guess.baseId.startsWith("flat")
+              ? "b"
+              : ""}
           {annotation.guess.octave}
           <br />
           <span className="mono">{annotation.guess.guessSource}</span>
@@ -372,24 +436,26 @@ function Editor({ note, annotation, selectionCount, onChange }) {
         <div className="editor-label">Final note spelling</div>
         <div className="editor-grid">
           <select value={annotation.letter} onChange={(e) => onChange({ letter: e.target.value })}>
-            {["A", "B", "C", "D", "E", "F", "G"].map((letter) => <option value={letter}>{letter}</option>)}
+            {["A", "B", "C", "D", "E", "F", "G"].map((letter) => (
+              <option value={letter}>{letter}</option>
+            ))}
           </select>
           <input
             defaultValue={accidentalTokenFromBaseId(annotation.baseId)}
             onBlur={(e) => {
               const token = e.target.value.trim();
-              const chromatic = token === "b"
-                ? "flat"
-                : token === "#"
-                  ? "sharp"
-                  : "natural";
+              const chromatic = token === "b" ? "flat" : token === "#" ? "sharp" : "natural";
               const syntonic = (annotation.baseId ?? "natural:0").split(":")[1] ?? "0";
               onChange({ baseId: `${chromatic}:${syntonic}` });
               e.target.value = accidentalTokenFromBaseId(`${chromatic}:${syntonic}`);
             }}
             placeholder="n / b / #"
           />
-          <input type="number" value={annotation.octave} onInput={(e) => onChange({ octave: Number(e.target.value) })} />
+          <input
+            type="number"
+            value={annotation.octave}
+            onInput={(e) => onChange({ octave: Number(e.target.value) })}
+          />
           <input value={glyphStringForSelection(annotation.baseId, annotation.extraIds)} readOnly />
         </div>
       </div>
@@ -457,13 +523,26 @@ function Editor({ note, annotation, selectionCount, onChange }) {
       <div className="editor-section">
         <div className="editor-label">Computed</div>
         <div className="computed-box">
-          Pythagorean monzo:<br />
-          <code>{JSON.stringify(computed.pythagoreanMonzo)}</code><br /><br />
-          HEJI delta monzo:<br />
-          <code>{JSON.stringify(computed.hejiDeltaMonzo)}</code><br /><br />
-          Full monzo:<br />
-          <code>{JSON.stringify(computed.fullMonzo)}</code><br /><br />
-          Ratio: <span className="mono">{ratio[0]}/{ratio[1]}</span><br />
+          Pythagorean monzo:
+          <br />
+          <code>{JSON.stringify(computed.pythagoreanMonzo)}</code>
+          <br />
+          <br />
+          HEJI delta monzo:
+          <br />
+          <code>{JSON.stringify(computed.hejiDeltaMonzo)}</code>
+          <br />
+          <br />
+          Full monzo:
+          <br />
+          <code>{JSON.stringify(computed.fullMonzo)}</code>
+          <br />
+          <br />
+          Ratio:{" "}
+          <span className="mono">
+            {ratio[0]}/{ratio[1]}
+          </span>
+          <br />
           Cents from A4: <span className="mono">{cents.toFixed(5)}</span>
         </div>
       </div>
@@ -528,7 +607,9 @@ export default function RetuneApp() {
       await loadSample();
     };
 
-    restoreWorkspace().catch((error) => console.error("Failed to restore retune workspace:", error));
+    restoreWorkspace().catch((error) =>
+      console.error("Failed to restore retune workspace:", error),
+    );
   }, []);
 
   const notes = midiDoc?.notes ?? [];
@@ -550,7 +631,10 @@ export default function RetuneApp() {
           return notes.map((note) => note.eventId);
         }
         const selectedSet = new Set(currentSelectedIds);
-        const startIndex = Math.max(0, notes.findIndex((note) => selectedSet.has(note.eventId)));
+        const startIndex = Math.max(
+          0,
+          notes.findIndex((note) => selectedSet.has(note.eventId)),
+        );
         const selectedPitchClasses = new Set(
           currentSelectedIds
             .map((id) => annotations[id])
@@ -558,10 +642,11 @@ export default function RetuneApp() {
             .map((annotation) => pitchClassKey(annotation)),
         );
         return notes
-          .filter((note, index) =>
-            index >= startIndex &&
-            selectedPitchClasses.has(pitchClassKey(annotations[note.eventId])) &&
-            annotations[note.eventId],
+          .filter(
+            (note, index) =>
+              index >= startIndex &&
+              selectedPitchClasses.has(pitchClassKey(annotations[note.eventId])) &&
+              annotations[note.eventId],
           )
           .map((note) => note.eventId);
       });
@@ -628,7 +713,10 @@ export default function RetuneApp() {
         const anchorX = scrollLeft + clientWidth * anchorRatio;
         const contentRatio = scrollWidth > 0 ? anchorX / scrollWidth : 0;
         const nextScrollWidth = section.scrollWidth;
-        section.scrollLeft = Math.max(0, contentRatio * nextScrollWidth - clientWidth * anchorRatio);
+        section.scrollLeft = Math.max(
+          0,
+          contentRatio * nextScrollWidth - clientWidth * anchorRatio,
+        );
       });
     });
   };
@@ -684,14 +772,16 @@ export default function RetuneApp() {
   return (
     <div className="retune-shell">
       <div className="retune-toolbar">
-        <button type="button" onClick={() => midiInputRef.current?.click()}>Open MIDI...</button>
-        <button type="button" onClick={() => jsonInputRef.current?.click()}>Open JSON...</button>
-        <button type="button" onClick={exportCorpus} disabled={!midiDoc}>Export JSON</button>
-        <button
-          type="button"
-          onClick={() => setSelectedIds([])}
-          disabled={!selectedIds.length}
-        >
+        <button type="button" onClick={() => midiInputRef.current?.click()}>
+          Open MIDI...
+        </button>
+        <button type="button" onClick={() => jsonInputRef.current?.click()}>
+          Open JSON...
+        </button>
+        <button type="button" onClick={exportCorpus} disabled={!midiDoc}>
+          Export JSON
+        </button>
+        <button type="button" onClick={() => setSelectedIds([])} disabled={!selectedIds.length}>
           Clear Selection
         </button>
         <input
@@ -719,8 +809,7 @@ export default function RetuneApp() {
           }}
         />
         <label className="meta">
-          Zoom
-          {" "}
+          Zoom{" "}
           <input
             type="range"
             min={zoomBounds.min}
@@ -744,7 +833,12 @@ export default function RetuneApp() {
       ) : (
         <div className="retune-main">
           <div className="retune-panel">
-            <EventList notes={notes} annotations={annotations} selectedIds={selectedIds} onSelect={handleSelect} />
+            <EventList
+              notes={notes}
+              annotations={annotations}
+              selectedIds={selectedIds}
+              onSelect={handleSelect}
+            />
           </div>
 
           <div className="viewer">
@@ -752,19 +846,37 @@ export default function RetuneApp() {
               className="viewer-section"
               ref={pianoSectionRef}
               onWheel={handleViewerWheel}
-              onScroll={() => syncHorizontalScroll(pianoSectionRef.current, staffSectionRef.current)}
+              onScroll={() =>
+                syncHorizontalScroll(pianoSectionRef.current, staffSectionRef.current)
+              }
             >
               <div className="viewer-title">Piano Roll</div>
-              <PianoRoll notes={notes} annotations={annotations} selectedIds={selectedIds} onSelect={handleSelect} pxPerTick={pxPerTick} viewportWidth={viewerWidth ? Math.max(0, viewerWidth - 24) : 0} />
+              <PianoRoll
+                notes={notes}
+                annotations={annotations}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                pxPerTick={pxPerTick}
+                viewportWidth={viewerWidth ? Math.max(0, viewerWidth - 24) : 0}
+              />
             </div>
             <div
               className="viewer-section"
               ref={staffSectionRef}
               onWheel={handleViewerWheel}
-              onScroll={() => syncHorizontalScroll(staffSectionRef.current, pianoSectionRef.current)}
+              onScroll={() =>
+                syncHorizontalScroll(staffSectionRef.current, pianoSectionRef.current)
+              }
             >
               <div className="viewer-title">Staff View</div>
-              <StaffView notes={notes} annotations={annotations} selectedIds={selectedIds} onSelect={handleSelect} pxPerTick={pxPerTick} viewportWidth={viewerWidth ? Math.max(0, viewerWidth - 24) : 0} />
+              <StaffView
+                notes={notes}
+                annotations={annotations}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                pxPerTick={pxPerTick}
+                viewportWidth={viewerWidth ? Math.max(0, viewerWidth - 24) : 0}
+              />
             </div>
           </div>
 

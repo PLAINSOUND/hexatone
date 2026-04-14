@@ -34,10 +34,13 @@
  *      automatically. No changes needed here.
  */
 
-import { PER_CONTROLLER_ENTRIES, CROSS_CONTROLLER_ENTRIES } from '../persistence/settings-registry.js';
+import {
+  PER_CONTROLLER_ENTRIES,
+  CROSS_CONTROLLER_ENTRIES,
+} from "../persistence/settings-registry.js";
 
 function isModeAwareController(controller) {
-  return !!controller?.modes && typeof controller?.resolveMode === 'function';
+  return !!controller?.modes && typeof controller?.resolveMode === "function";
 }
 
 function getModeStorageKey(controller) {
@@ -56,8 +59,13 @@ function getModeDefault(controller, modeKey, key) {
   return controller?.modes?.[modeKey]?.defaultPrefs?.[key];
 }
 
-export function getControllerMode(controller, settings = null, overrides = null, { preferStored = true } = {}) {
-  if (!isModeAwareController(controller)) return 'default';
+export function getControllerMode(
+  controller,
+  settings = null,
+  overrides = null,
+  { preferStored = true } = {},
+) {
+  if (!isModeAwareController(controller)) return "default";
 
   const merged = { ...(settings || {}), ...(overrides || {}) };
   if (!preferStored) {
@@ -79,7 +87,7 @@ export function getControllerMode(controller, settings = null, overrides = null,
     return controller.defaultMode;
   }
 
-  return Object.keys(controller.modes)[0] ?? 'default';
+  return Object.keys(controller.modes)[0] ?? "default";
 }
 
 export function saveControllerMode(controller, modeKey) {
@@ -100,10 +108,14 @@ export function saveControllerMode(controller, modeKey) {
 function parseLocalValue(raw, type) {
   if (raw === null || raw === undefined) return undefined;
   switch (type) {
-    case 'bool':    return raw === 'true';
-    case 'int':     return parseInt(raw, 10);
-    case 'float':   return parseFloat(raw);
-    default:        return raw; // string
+    case "bool":
+      return raw === "true";
+    case "int":
+      return parseInt(raw, 10);
+    case "float":
+      return parseFloat(raw);
+    default:
+      return raw; // string
   }
 }
 
@@ -132,8 +144,8 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
 
   for (const entry of PER_CONTROLLER_ENTRIES) {
     const raw = isModeAwareController(controller)
-      ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, entry.key))
-        ?? localStorage.getItem(getLegacyStorageKey(controller, entry.key))
+      ? (localStorage.getItem(getModeScopedStorageKey(controller, modeKey, entry.key)) ??
+        localStorage.getItem(getLegacyStorageKey(controller, entry.key)))
       : localStorage.getItem(getLegacyStorageKey(controller, entry.key));
 
     if (raw !== null) {
@@ -144,9 +156,9 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
       // when nothing has been explicitly saved for this controller yet.
       if (modeDefault !== undefined) {
         update[entry.key] = modeDefault;
-      } else if (entry.key === 'midiin_mpe_input') {
+      } else if (entry.key === "midiin_mpe_input") {
         update[entry.key] = !!controller.mpe;
-      } else if (entry.key === 'midi_passthrough') {
+      } else if (entry.key === "midi_passthrough") {
         update[entry.key] = !!controller.passthroughDefault;
       } else {
         update[entry.key] = entry.default;
@@ -175,9 +187,12 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
  * @param {*}           value       Value to save
  */
 export function saveControllerPref(controller, key, value, settings = null, overrides = null) {
-  const perEntry = PER_CONTROLLER_ENTRIES.find(e => e.key === key);
+  const perEntry = PER_CONTROLLER_ENTRIES.find((e) => e.key === key);
   if (perEntry) {
-    if (!controller) { console.warn(`saveControllerPref: no controller for per-controller key "${key}"`); return; }
+    if (!controller) {
+      console.warn(`saveControllerPref: no controller for per-controller key "${key}"`);
+      return;
+    }
     const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
     if (isModeAwareController(controller)) {
       localStorage.setItem(getModeScopedStorageKey(controller, modeKey, key), String(value));
@@ -187,7 +202,7 @@ export function saveControllerPref(controller, key, value, settings = null, over
     }
     return;
   }
-  const crossEntry = CROSS_CONTROLLER_ENTRIES.find(e => e.key === key);
+  const crossEntry = CROSS_CONTROLLER_ENTRIES.find((e) => e.key === key);
   if (crossEntry) {
     localStorage.setItem(key, String(value));
     return;
@@ -211,11 +226,11 @@ export function saveControllerPref(controller, key, value, settings = null, over
 export function loadSavedAnchor(controller, settings = null, { preferStored = true } = {}) {
   const modeKey = getControllerMode(controller, settings, null, { preferStored });
   const raw = isModeAwareController(controller)
-    ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, 'anchor'))
-      ?? localStorage.getItem(getLegacyStorageKey(controller, 'anchor'))
-    : localStorage.getItem(getLegacyStorageKey(controller, 'anchor'));
+    ? (localStorage.getItem(getModeScopedStorageKey(controller, modeKey, "anchor")) ??
+      localStorage.getItem(getLegacyStorageKey(controller, "anchor")))
+    : localStorage.getItem(getLegacyStorageKey(controller, "anchor"));
   if (raw !== null) return parseInt(raw, 10);
-  return getModeDefault(controller, modeKey, 'anchorNote') ?? controller.anchorDefault;
+  return getModeDefault(controller, modeKey, "anchorNote") ?? controller.anchorDefault;
 }
 
 /**
@@ -233,11 +248,11 @@ export function loadSavedAnchorChannel(controller, settings = null, { preferStor
   if (controller.anchorChannelDefault == null) return null;
   const modeKey = getControllerMode(controller, settings, null, { preferStored });
   const raw = isModeAwareController(controller)
-    ? localStorage.getItem(getModeScopedStorageKey(controller, modeKey, 'anchor_channel'))
-      ?? localStorage.getItem(getLegacyStorageKey(controller, 'anchor_channel'))
-    : localStorage.getItem(getLegacyStorageKey(controller, 'anchor_channel'));
+    ? (localStorage.getItem(getModeScopedStorageKey(controller, modeKey, "anchor_channel")) ??
+      localStorage.getItem(getLegacyStorageKey(controller, "anchor_channel")))
+    : localStorage.getItem(getLegacyStorageKey(controller, "anchor_channel"));
   if (raw !== null) return parseInt(raw, 10);
-  return getModeDefault(controller, modeKey, 'anchorChannel') ?? controller.anchorChannelDefault;
+  return getModeDefault(controller, modeKey, "anchorChannel") ?? controller.anchorChannelDefault;
 }
 
 /**
@@ -249,11 +264,11 @@ export function loadSavedAnchorChannel(controller, settings = null, { preferStor
 export function saveAnchor(controller, note, settings = null, overrides = null) {
   const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
   if (isModeAwareController(controller)) {
-    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, 'anchor'), String(note));
+    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, "anchor"), String(note));
     saveControllerMode(controller, modeKey);
     return;
   }
-  localStorage.setItem(getLegacyStorageKey(controller, 'anchor'), String(note));
+  localStorage.setItem(getLegacyStorageKey(controller, "anchor"), String(note));
 }
 
 /**
@@ -267,11 +282,14 @@ export function saveAnchorChannel(controller, channel, settings = null, override
   if (controller.anchorChannelDefault == null) return;
   const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
   if (isModeAwareController(controller)) {
-    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, 'anchor_channel'), String(channel));
+    localStorage.setItem(
+      getModeScopedStorageKey(controller, modeKey, "anchor_channel"),
+      String(channel),
+    );
     saveControllerMode(controller, modeKey);
     return;
   }
-  localStorage.setItem(getLegacyStorageKey(controller, 'anchor_channel'), String(channel));
+  localStorage.setItem(getLegacyStorageKey(controller, "anchor_channel"), String(channel));
 }
 
 // ── Combined helpers used by call sites ───────────────────────────────────────
@@ -331,15 +349,15 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
   // Skip in bypass mode — the controller is acting as a plain MIDI device and
   // channel-based transposition would produce wrong pitches.
   const activeMode = getControllerMode(controller, settings, null, { preferStored });
-  const isLayout = !isModeAwareController(controller) || activeMode !== 'bypass';
+  const isLayout = !isModeAwareController(controller) || activeMode !== "bypass";
   if (isLayout) {
-    if ('sequentialTransposeDefault' in controller) {
+    if ("sequentialTransposeDefault" in controller) {
       update.midiin_steps_per_channel = controller.sequentialTransposeDefault;
     }
-    if ('sequentialChannelGroupSize' in controller) {
+    if ("sequentialChannelGroupSize" in controller) {
       update.midiin_channel_group_size = controller.sequentialChannelGroupSize;
     }
-    if ('sequentialLegacyDefault' in controller) {
+    if ("sequentialLegacyDefault" in controller) {
       update.midiin_channel_legacy = controller.sequentialLegacyDefault;
     }
   }
@@ -368,7 +386,7 @@ export function saveAnchorFromLearn(controller, note, channel, settings = null, 
   };
   if (controller.anchorChannelDefault != null) {
     update.lumatone_center_channel = channel;
-    update.lumatone_center_note    = note; // 0–55 within the block for Lumatone
+    update.lumatone_center_note = note; // 0–55 within the block for Lumatone
   }
   return update;
 }

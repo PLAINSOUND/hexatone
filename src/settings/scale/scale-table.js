@@ -2,7 +2,7 @@ import { h, createRef } from "preact";
 import { useState, useRef, useCallback, useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "./parse-scale";
-import ScalaInput from './scala-input.js';
+import ScalaInput from "./scala-input.js";
 
 // Normalise a hex string to the form #rrggbb.
 // Accepts:  #rgb  #rrggbb  rgb  rrggbb
@@ -55,10 +55,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     // Adaptive throttle: fast drag (small gap) → longer throttle
     // 0ms gap (very fast) → 100ms throttle
     // 80ms+ gap (slow) → 16ms throttle (60fps)
-    const speedFactor = Math.max(
-      0,
-      Math.min(1, (80 - timeSinceLastEvent) / 80),
-    );
+    const speedFactor = Math.max(0, Math.min(1, (80 - timeSinceLastEvent) / 80));
     const throttle = 16 + speedFactor * 84; // 16-100ms range
 
     if (now - lastFire.current >= throttle) {
@@ -135,7 +132,9 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
         maxLength={7}
         placeholder="#rrggbb"
         onInput={handleTextInput}
-        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.target.blur();
+        }}
         onBlur={handleTextBlur}
         aria-label={`hex colour for ${name}`}
       />
@@ -148,12 +147,19 @@ const formatFrequencyHz = (value) => {
   return value.toFixed(1);
 };
 
-const FrequencyInput = ({ ariaLabel, value, onCommit, disabled = false, deviationCents = null, comparing = false }) => {
+const FrequencyInput = ({
+  ariaLabel,
+  value,
+  onCommit,
+  disabled = false,
+  deviationCents = null,
+  comparing = false,
+}) => {
   const display = formatFrequencyHz(value);
   const isDirty = deviationCents !== null && Math.abs(deviationCents) > 0.001;
   // Match the tune-delta / tune-comparing colour scheme
-  const color = isDirty ? (comparing ? '#660000' : '#990000') : undefined;
-  const fontStyle = comparing ? 'italic' : undefined;
+  const color = isDirty ? (comparing ? "#660000" : "#990000") : undefined;
+  const fontStyle = comparing ? "italic" : undefined;
   return (
     <input
       id="centered"
@@ -165,7 +171,9 @@ const FrequencyInput = ({ ariaLabel, value, onCommit, disabled = false, deviatio
       defaultValue={display}
       aria-label={ariaLabel}
       style={color ? { color, WebkitTextFillColor: color, fontStyle } : undefined}
-      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.target.blur();
+      }}
       onBlur={(e) => {
         const next = parseFloat(e.target.value);
         if (!Number.isFinite(next) || next <= 0 || disabled) {
@@ -181,7 +189,7 @@ const FrequencyInput = ({ ariaLabel, value, onCommit, disabled = false, deviatio
 /**
  * TuneCell — drag-to-tune control for a single scale degree.
  * Drag left/right to retune; A/B compare; save or revert.
- * 
+ *
  * When retuning the reference_degree, behavior depends on retuning_mode:
  * - 'recalculate_reference' (default): Keep current sound, recalculate Reference Frequency
  * - 'transpose_scale': Transpose entire scale, preserve Reference Frequency
@@ -214,7 +222,9 @@ const TuneCell = ({
   // Keep the latest onPreviewChange in a ref so effects don't re-fire when
   // the parent re-renders and creates a new function reference.
   const onPreviewChangeRef = useRef(onPreviewChange);
-  useEffect(() => { onPreviewChangeRef.current = onPreviewChange; }, [onPreviewChange]);
+  useEffect(() => {
+    onPreviewChangeRef.current = onPreviewChange;
+  }, [onPreviewChange]);
   // Keep originalCents in sync when scale string changes from outside
   useEffect(() => {
     if (tunedCents === null) {
@@ -258,49 +268,61 @@ const TuneCell = ({
   const isDirty = tunedCents !== null && Math.abs(tunedCents - originalCents.current) > 0.001;
   const isReferenceDegree = degree === reference_degree;
 
-  const pushToKeys = useCallback((cents) => {
-    if (!keysRef || !keysRef.current) return;
-    if (degree === 0) {
-      // Only retune degree-0 notes; all other notes stay at their pitch.
-      // cents is the absolute offset from 0 (the drag value from originalCents=0).
-      if (keysRef.current.previewDegree0) keysRef.current.previewDegree0(cents);
-    } else if (keysRef.current.updateScaleDegree) {
-      keysRef.current.updateScaleDegree(degree, cents);
-    }
-  }, [keysRef, degree]);
+  const pushToKeys = useCallback(
+    (cents) => {
+      if (!keysRef || !keysRef.current) return;
+      if (degree === 0) {
+        // Only retune degree-0 notes; all other notes stay at their pitch.
+        // cents is the absolute offset from 0 (the drag value from originalCents=0).
+        if (keysRef.current.previewDegree0) keysRef.current.previewDegree0(cents);
+      } else if (keysRef.current.updateScaleDegree) {
+        keysRef.current.updateScaleDegree(degree, cents);
+      }
+    },
+    [keysRef, degree],
+  );
 
-  const glideTo = useCallback((targetCents) => {
-    pushToKeys(targetCents);
-  }, [pushToKeys]);
+  const glideTo = useCallback(
+    (targetCents) => {
+      pushToKeys(targetCents);
+    },
+    [pushToKeys],
+  );
 
-  const onPointerDown = useCallback((e) => {
-    // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
-    // which would drop sustain; the flag guards against that in keys.js.
-    // Also capture the Keys instance for cleanup in case we're unmounted mid-drag.
-    if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
-      keysRef.current.setTuneDragging(true);
-      dragKeysInstance.current = keysRef.current;
-    }
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    dragStart.current = { lastX: e.clientX, accCents: currentCents };
-  }, [currentCents, keysRef]);
+  const onPointerDown = useCallback(
+    (e) => {
+      // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
+      // which would drop sustain; the flag guards against that in keys.js.
+      // Also capture the Keys instance for cleanup in case we're unmounted mid-drag.
+      if (keysRef && keysRef.current && keysRef.current.setTuneDragging) {
+        keysRef.current.setTuneDragging(true);
+        dragKeysInstance.current = keysRef.current;
+      }
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      dragStart.current = { lastX: e.clientX, accCents: currentCents };
+    },
+    [currentCents, keysRef],
+  );
 
-  const onPointerMove = useCallback((e) => {
-    if (!dragStart.current) return;
-    const dx = e.clientX - dragStart.current.lastX;
-    if (dx === 0) return;
-    // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
-    // sensitivity = base * speed^1.5 — superlinear so fast moves cover more ground
-    const speed = Math.abs(dx);
-    const sensitivity = 0.05 * Math.pow(speed, 1.125); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
-    const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
-    dragStart.current.lastX = e.clientX;
-    dragStart.current.accCents = newCents;
-    setTunedCents(newCents);
-    // Use glideTo so fast swipes interpolate smoothly rather than jumping.
-    // While comparing, the original pitch is playing — don't update the preview.
-    if (!comparing) glideTo(newCents);
-  }, [comparing, glideTo]);
+  const onPointerMove = useCallback(
+    (e) => {
+      if (!dragStart.current) return;
+      const dx = e.clientX - dragStart.current.lastX;
+      if (dx === 0) return;
+      // Velocity-sensitive: slow drags (|dx| small) → fine; fast drags → coarser.
+      // sensitivity = base * speed^1.5 — superlinear so fast moves cover more ground
+      const speed = Math.abs(dx);
+      const sensitivity = 0.05 * Math.pow(speed, 1.125); // ~0.05¢ at 1px/event, ~1¢ at 7px/event
+      const newCents = dragStart.current.accCents + Math.sign(dx) * sensitivity;
+      dragStart.current.lastX = e.clientX;
+      dragStart.current.accCents = newCents;
+      setTunedCents(newCents);
+      // Use glideTo so fast swipes interpolate smoothly rather than jumping.
+      // While comparing, the original pitch is playing — don't update the preview.
+      if (!comparing) glideTo(newCents);
+    },
+    [comparing, glideTo],
+  );
 
   const onPointerUp = useCallback(() => {
     dragStart.current = null;
@@ -328,7 +350,7 @@ const TuneCell = ({
       // all notes except degree 0 remain at the same absolute pitch.
       // onDegree0Save receives the delta in cents.
       if (onDegree0Save) onDegree0Save(saveVal); // saveVal === delta (originalCents is 0)
-    } else if (isReferenceDegree && retuning_mode !== 'transpose_scale') {
+    } else if (isReferenceDegree && retuning_mode !== "transpose_scale") {
       const delta = tunedCents - originalCents.current;
       const newFundamental = fundamental * Math.pow(2, delta / 1200.0);
       if (onFundamentalChange) {
@@ -348,8 +370,17 @@ const TuneCell = ({
     setComparing(false);
     // Restore live preview to 0 so held degree-0 notes return to base pitch
     if (degree === 0) pushToKeys(0);
-  }, [tunedCents, degree, isReferenceDegree, retuning_mode, fundamental,
-      onFundamentalChange, onDegree0Save, onChange, pushToKeys]);
+  }, [
+    tunedCents,
+    degree,
+    isReferenceDegree,
+    retuning_mode,
+    fundamental,
+    onFundamentalChange,
+    onDegree0Save,
+    onChange,
+    pushToKeys,
+  ]);
 
   const onRevert = useCallback(() => {
     setTunedCents(null);
@@ -357,30 +388,53 @@ const TuneCell = ({
     glideTo(originalCents.current);
   }, [glideTo]);
 
-  const delta = isDirty ? (tunedCents - originalCents.current) : 0;
+  const delta = isDirty ? tunedCents - originalCents.current : 0;
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
 
   return (
     <div class="tune-cell">
       {isDirty && (
-        <span class={`tune-delta${comparing ? ' tune-comparing' : ''}`}>
-          {comparing ? 'orig' : deltaStr}
+        <span class={`tune-delta${comparing ? " tune-comparing" : ""}`}>
+          {comparing ? "orig" : deltaStr}
         </span>
       )}
-      {isDirty && <button type="button" class={`tune-btn${comparing ? ' tune-btn--active' : ''}`}
-        onClick={onCompare} title="A/B compare with original"><span class="tune-btn-compare" style={{ display: 'block', marginTop: '-4px' }}>↺</span></button>}
-      {isDirty && <button type="button" class="tune-btn tune-btn--save"
-        onClick={onSave} title="Save tuning">✓</button>}
-      {isDirty && <button type="button" class="tune-btn tune-btn--revert"
-        onClick={onRevert} title="Revert to original">✕</button>}
+      {isDirty && (
+        <button
+          type="button"
+          class={`tune-btn${comparing ? " tune-btn--active" : ""}`}
+          onClick={onCompare}
+          title="A/B compare with original"
+        >
+          <span class="tune-btn-compare" style={{ display: "block", marginTop: "-4px" }}>
+            ↺
+          </span>
+        </button>
+      )}
+      {isDirty && (
+        <button type="button" class="tune-btn tune-btn--save" onClick={onSave} title="Save tuning">
+          ✓
+        </button>
+      )}
+      {isDirty && (
+        <button
+          type="button"
+          class="tune-btn tune-btn--revert"
+          onClick={onRevert}
+          title="Revert to original"
+        >
+          ✕
+        </button>
+      )}
       <span
         class="tune-handle"
         title="Drag left/right to tune — slow for fine, fast for coarse"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        style={{ paddingBottom: '6px' }}
-      >⟺</span>
+        style={{ paddingBottom: "6px" }}
+      >
+        ⟺
+      </span>
     </div>
   );
 };
@@ -401,12 +455,7 @@ const ScaleTable = (props) => {
     colors = props.settings.note_colors || [];
   }
 
-  const rows = scale.map((x, i) => [
-    x,
-    degrees[i],
-    note_names[i] || "",
-    colors[i] || "#ffffff",
-  ]);
+  const rows = scale.map((x, i) => [x, degrees[i], note_names[i] || "", colors[i] || "#ffffff"]);
   const referenceDegree = props.settings.reference_degree || 0;
 
   const scaleChangeAt = (i, str) => {
@@ -462,7 +511,7 @@ const ScaleTable = (props) => {
     const committed = scalaToCents(String(scale[degreeIndex] ?? equiv_interval));
     return state.cents - committed;
   };
-  const isComparingAtDegree = (degreeIndex) => !!(previewState[degreeIndex]?.comparing);
+  const isComparingAtDegree = (degreeIndex) => !!previewState[degreeIndex]?.comparing;
   const updatePreviewCents = useCallback((degreeIndex, cents, comparing = false) => {
     setPreviewState((prev) => {
       const cur = prev[degreeIndex];
@@ -524,58 +573,64 @@ const ScaleTable = (props) => {
       <tbody>
         <tr
           key={`0-${props.importCount}`}
-          class={[
-            props.settings.reference_degree === 0 ? "reference-degree-row" : "",
-            props.settings.center_degree === 0 ? "center-degree-row" : "",
-          ].filter(Boolean).join(" ") || undefined}
+          class={
+            [
+              props.settings.reference_degree === 0 ? "reference-degree-row" : "",
+              props.settings.center_degree === 0 ? "center-degree-row" : "",
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
         >
           <td class="scale-data-col">
             <div class="scale-degree-cell">
-              <span class="degree-gutter" aria-label="scale degree gutter 0">{degrees[0]}</span>
+              <span class="degree-gutter" aria-label="scale degree gutter 0">
+                {degrees[0]}
+              </span>
               <div class="freq-cell">
-              <input
-                type="text"
-                disabled
-                value="1/1  |  0.0  |  0\n"
-                aria-label="pitch value root"
-              />
-              <TuneCell
-                key={`tune0-${props.importCount}`}
-                scaleStr="0.0"
-                degree={0}
-                keysRef={props.keysRef}
-                reference_degree={props.settings.reference_degree}
-                fundamental={props.settings.fundamental}
-                retuning_mode={props.settings.retuning_mode}
-                onPreviewChange={updatePreviewCents}
-                onDegree0Save={(delta) => {
-                  // delta: cents degree 0 moved up.
-                  // The equave is never touched — it is a period ratio, not a pitch.
-                  const oldScale = [...(props.settings.scale || [])];
-                  const equave = oldScale[oldScale.length - 1]; // preserve as-is
-                  // Subtract delta from every degree except the equave so all
-                  // other notes stay at the same absolute Hz.
-                  const newScale = oldScale.map((str, idx) => {
-                    if (idx === oldScale.length - 1) return str; // equave unchanged
-                    const cents = scalaToCents(String(str));
-                    return (cents - delta).toFixed(6);
-                  });
-                  const ref = props.settings.reference_degree;
-                  if (ref === 0) {
-                    // Degree 0 is the reference: fundamental shifts up by delta.
-                    // Scale degrees (excl. equave) shift down by delta to keep
-                    // all other notes at the same Hz.
-                    const newFundamental = props.settings.fundamental
-                      * Math.pow(2, delta / 1200.0);
-                    props.onAtomicChange({ scale: newScale, fundamental: newFundamental });
-                  } else {
-                    // Another degree is the reference: fundamental stays.
-                    // Subtracting delta from all non-equave scale degrees keeps
-                    // every other note at the same Hz and shifts degree 0 up.
-                    props.onChange('scale', newScale);
-                  }
-                }}
-              />
+                <input
+                  type="text"
+                  disabled
+                  value="1/1  |  0.0  |  0\n"
+                  aria-label="pitch value root"
+                />
+                <TuneCell
+                  key={`tune0-${props.importCount}`}
+                  scaleStr="0.0"
+                  degree={0}
+                  keysRef={props.keysRef}
+                  reference_degree={props.settings.reference_degree}
+                  fundamental={props.settings.fundamental}
+                  retuning_mode={props.settings.retuning_mode}
+                  onPreviewChange={updatePreviewCents}
+                  onDegree0Save={(delta) => {
+                    // delta: cents degree 0 moved up.
+                    // The equave is never touched — it is a period ratio, not a pitch.
+                    const oldScale = [...(props.settings.scale || [])];
+                    const equave = oldScale[oldScale.length - 1]; // preserve as-is
+                    // Subtract delta from every degree except the equave so all
+                    // other notes stay at the same absolute Hz.
+                    const newScale = oldScale.map((str, idx) => {
+                      if (idx === oldScale.length - 1) return str; // equave unchanged
+                      const cents = scalaToCents(String(str));
+                      return (cents - delta).toFixed(6);
+                    });
+                    const ref = props.settings.reference_degree;
+                    if (ref === 0) {
+                      // Degree 0 is the reference: fundamental shifts up by delta.
+                      // Scale degrees (excl. equave) shift down by delta to keep
+                      // all other notes at the same Hz.
+                      const newFundamental =
+                        props.settings.fundamental * Math.pow(2, delta / 1200.0);
+                      props.onAtomicChange({ scale: newScale, fundamental: newFundamental });
+                    } else {
+                      // Another degree is the reference: fundamental stays.
+                      // Subtracting delta from all non-equave scale degrees keeps
+                      // every other note at the same Hz and shifts degree 0 up.
+                      props.onChange("scale", newScale);
+                    }
+                  }}
+                />
               </div>
             </div>
           </td>
@@ -592,7 +647,6 @@ const ScaleTable = (props) => {
             <input
               id="centered"
               type="text"
-
               name="name0"
               value={note_names[0] || ""}
               onChange={nameChange}
@@ -611,14 +665,20 @@ const ScaleTable = (props) => {
         {rows.slice(1).map(([freq, degree, name, color], i) => (
           <tr
             key={`${i + 1}-${props.importCount}`}
-            class={[
-              props.settings.reference_degree === i + 1 ? "reference-degree-row" : "",
-              props.settings.center_degree === i + 1 ? "center-degree-row" : "",
-            ].filter(Boolean).join(" ") || undefined}
+            class={
+              [
+                props.settings.reference_degree === i + 1 ? "reference-degree-row" : "",
+                props.settings.center_degree === i + 1 ? "center-degree-row" : "",
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
           >
             <td class="scale-data-col">
               <div class="scale-degree-cell">
-                <span class="degree-gutter" aria-label={`scale degree gutter ${i + 1}`}>{degree}</span>
+                <span class="degree-gutter" aria-label={`scale degree gutter ${i + 1}`}>
+                  {degree}
+                </span>
                 <div class="freq-cell">
                   <ScalaInput
                     context="degree"
@@ -642,7 +702,7 @@ const ScaleTable = (props) => {
                     onChange={(newStr) => {
                       const next = [...(props.settings.scale || [])];
                       next[i] = newStr;
-                      props.onChange('scale', next);
+                      props.onChange("scale", next);
                     }}
                     onFundamentalChange={(newFreq, newStr) => {
                       if (newStr !== undefined) {
@@ -650,7 +710,7 @@ const ScaleTable = (props) => {
                         next[i] = newStr;
                         props.onAtomicChange({ fundamental: newFreq, scale: next });
                       } else {
-                        props.onChange('fundamental', newFreq);
+                        props.onChange("fundamental", newFreq);
                       }
                     }}
                   />
@@ -670,7 +730,6 @@ const ScaleTable = (props) => {
               <input
                 id="centered"
                 type="text"
-  
                 name={`name${i + 1}`}
                 value={name}
                 onChange={nameChange}
@@ -690,14 +749,14 @@ const ScaleTable = (props) => {
         <tr
           key={`equiv-${props.importCount}`}
           class={
-            props.settings.reference_degree === scale.length
-              ? "reference-degree-row"
-              : undefined
+            props.settings.reference_degree === scale.length ? "reference-degree-row" : undefined
           }
         >
           <td class="scale-data-col">
             <div class="scale-degree-cell">
-              <span class="degree-gutter" aria-label="scale degree gutter equave">{scale.length}</span>
+              <span class="degree-gutter" aria-label="scale degree gutter equave">
+                {scale.length}
+              </span>
               <div class="freq-cell">
                 <ScalaInput
                   context="interval"

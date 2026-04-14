@@ -54,7 +54,7 @@ describe("computeCenterPitchHz", () => {
   it("computes a non-zero center degree correctly", () => {
     const scale = [0, 100, 200];
     const hz = computeCenterPitchHz(440, 0, scale, 1200, 1);
-    expect(hz).toBeCloseTo(440 * (2 ** (100 / 1200)), 8);
+    expect(hz).toBeCloseTo(440 * 2 ** (100 / 1200), 8);
   });
 
   it("handles a center degree equal to scale length (next octave)", () => {
@@ -73,9 +73,25 @@ describe("computeCenterPitchHz", () => {
 
   it("computes the Partch 4/3 center pitch correctly (integration with scalaToCents)", () => {
     const rawScale = [
-      "81/80", "33/32", "21/20", "16/15", "12/11", "11/10", "10/9",
-      "9/8", "8/7", "7/6", "32/27", "6/5", "11/9", "5/4", "14/11",
-      "9/7", "21/16", "4/3", "2/1",
+      "81/80",
+      "33/32",
+      "21/20",
+      "16/15",
+      "12/11",
+      "11/10",
+      "10/9",
+      "9/8",
+      "8/7",
+      "7/6",
+      "32/27",
+      "6/5",
+      "11/9",
+      "5/4",
+      "14/11",
+      "9/7",
+      "21/16",
+      "4/3",
+      "2/1",
     ];
     const numericScale = rawScale.map(scalaToCents);
     const equivInterval = numericScale[numericScale.length - 1];

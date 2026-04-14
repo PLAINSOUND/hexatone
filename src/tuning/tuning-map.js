@@ -130,7 +130,7 @@ export function mtsTuningMap(
   if (parseInt(sysexType) === 127) {
     // Real-time: one single-note tuning change message per MIDI note.
     return Array.from({ length: 128 }, (_, j) =>
-      buildRealtimeSingleNoteMessage(deviceId, mapNumber, j, mtsData[j])
+      buildRealtimeSingleNoteMessage(deviceId, mapNumber, j, mtsData[j]),
     );
   }
 

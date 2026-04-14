@@ -1,46 +1,47 @@
 @font-face {
-    font-family: 'Plainsound Sans';
-    src: url("./fonts/PlainsoundSans-Regular.otf");
-    font-weight: normal;
-    font-style: normal;
+  font-family: "Plainsound Sans";
+  src: url("./fonts/PlainsoundSans-Regular.otf");
+  font-weight: normal;
+  font-style: normal;
 }
 
 @font-face {
-    font-family: 'Plainsound Sans';
-    src: url("./fonts/PlainsoundSans-Italic.otf");
-    font-weight: normal; 
-    font-style: italic;
+  font-family: "Plainsound Sans";
+  src: url("./fonts/PlainsoundSans-Italic.otf");
+  font-weight: normal;
+  font-style: italic;
 }
 
 @font-face {
-    font-family: 'Plainsound Sans';
-    src: url("./fonts/PlainsoundSans-Bold.otf");
-    font-weight: bold;
-    font-style: normal;
+  font-family: "Plainsound Sans";
+  src: url("./fonts/PlainsoundSans-Bold.otf");
+  font-weight: bold;
+  font-style: normal;
 }
 
 :root {
-    --safe-area-left: env(safe-area-inset-left, 0px);
-    --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
 }
 
-html, body {
-    overflow: hidden;
-    max-width: 100%;
-    height: 100%;
-    position: relative;
-    overscroll-behavior: none;
-    -webkit-overflow-scrolling: auto;
+html,
+body {
+  overflow: hidden;
+  max-width: 100%;
+  height: 100%;
+  position: relative;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
 }
 
 body {
-	-webkit-touch-callout: none;
-	background-image: url("./img/Pattern3D_06.png");
-    transition: transform .3s ease-in-out;
-    background-repeat: repeat;
-    background-position: top left;
-    background-attachment: scroll;
-    font-family: 'Plainsound Sans', sans-serif;
+  -webkit-touch-callout: none;
+  background-image: url("./img/Pattern3D_06.png");
+  transition: transform 0.3s ease-in-out;
+  background-repeat: repeat;
+  background-position: top left;
+  background-attachment: scroll;
+  font-family: "Plainsound Sans", sans-serif;
 }
 
 table {
@@ -51,578 +52,591 @@ table {
 }
 
 #leftaligned {
-    text-align: left;
+  text-align: left;
 }
 
 #centered {
-    text-align: center;
+  text-align: center;
 }
 
 #sidebar-spacer {
-    height: 0.7em;
+  height: 0.7em;
 }
 
 /* Phone portrait: spacer prevents iOS bounce from hiding bottom content */
 @media (max-width: 480px) {
-    #sidebar-spacer {
-        height: 3em;
-    }
+  #sidebar-spacer {
+    height: 3em;
+  }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
-    #sidebar-spacer {
-        top: 75vh;
-        height: 1.5em;
-    }
+  #sidebar-spacer {
+    top: 75vh;
+    height: 1.5em;
+  }
 }
 
 #sidebar {
-    transition: transform 0.3s ease-in-out;
-    z-index: 10;
-    overflow-x: hidden;
-    overflow-y: auto;
-    background-color: #faf9f8;
-    color: #330000;
+  transition: transform 0.3s ease-in-out;
+  z-index: 10;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background-color: #faf9f8;
+  color: #330000;
 }
 
 #sidebar-button {
-    position: fixed;
-    z-index: 11;
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    -webkit-touch-callout: none;
-    user-select: none;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+  position: fixed;
+  z-index: 11;
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 #sidebar-button.latch-active {
-    background-color: #ff3333;
-    border-color: #aa0000;
+  background-color: #ff3333;
+  border-color: #aa0000;
 }
 
 a {
-    color: #990000;
-    text-decoration: none;
+  color: #990000;
+  text-decoration: none;
 }
 a:hover {
-    color: #ff0000;
+  color: #ff0000;
 }
 /* Sidebar is attached to top and fills viewport for small screens */
 @media (max-width: 480px) {
-    #sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100%;
-        width: 100%;
-        box-sizing: border-box;
-        padding-top: 4em;
-        padding-left: 1em;
-        padding-right: 1em;
-        overflow-x: hidden;
-        background-color: #faf9f8;
-        color: #330000;
-    }
+  #sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    padding-top: 4em;
+    padding-left: 1em;
+    padding-right: 1em;
+    overflow-x: hidden;
+    background-color: #faf9f8;
+    color: #330000;
+  }
 
-    #sidebar-button {
-        height: 2.5em;
-        top: 0;
-        left: 50vw;
-        transform: translate(-50%, 0);
-        transition: width 0.3s ease-in-out;
-        border-bottom-left-radius: 10px;
-        border-bottom-right-radius: 10px;
-    }
+  #sidebar-button {
+    height: 2.5em;
+    top: 0;
+    left: 50vw;
+    transform: translate(-50%, 0);
+    transition: width 0.3s ease-in-out;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+  }
 
-    .hide #sidebar {
-        transform: translate(0, -100%);
-    }
+  .hide #sidebar {
+    transform: translate(0, -100%);
+  }
 
-    .show #sidebar {
-        transform: translate(0, 0);
-    }
+  .show #sidebar {
+    transform: translate(0, 0);
+  }
 
-    .hide #sidebar-button {
-        width: 2.5em;
-    }
+  .hide #sidebar-button {
+    width: 2.5em;
+  }
 
-    .show #sidebar-button {
-        width: 50vw;
-    }
+  .show #sidebar-button {
+    width: 50vw;
+  }
 
-    .hide #sidebar-button div {
-        transform: rotate(90deg);
-    }
+  .hide #sidebar-button div {
+    transform: rotate(90deg);
+  }
 
-    .show #sidebar-button div {
-        transform: rotate(270deg);
-    }
+  .show #sidebar-button div {
+    transform: rotate(270deg);
+  }
 }
 
 /* Sidebar is attached to left side for larger screens */
 @media (min-width: 480px) {
-    #sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100vh;
-        max-width: 40em;
-        padding-left: 3.5em;
-        padding-right: 1em;
-        background-color: #faf9f8;
-        color: #330000;
-    }
+  #sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    max-width: 40em;
+    padding-left: 3.5em;
+    padding-right: 1em;
+    background-color: #faf9f8;
+    color: #330000;
+  }
 
-    #sidebar-button {
-        width: 2.5em;
-        top: 50vh;
-        left: 0;
-        transform: translate(0, -50%);
-        transition: height 0.3s ease-in-out;
-        border-top-right-radius: 10px;
-        border-bottom-right-radius: 10px;
-    }
+  #sidebar-button {
+    width: 2.5em;
+    top: 50vh;
+    left: 0;
+    transform: translate(0, -50%);
+    transition: height 0.3s ease-in-out;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+  }
 
-    .hide #sidebar {
-        transform: translate(-100%, 0);
-    }
+  .hide #sidebar {
+    transform: translate(-100%, 0);
+  }
 
-    .show #sidebar {
-        transform: translate(0, 0);
-    }
+  .show #sidebar {
+    transform: translate(0, 0);
+  }
 
-    .hide #sidebar-button {
-        height: 2.5em;
-    }
+  .hide #sidebar-button {
+    height: 2.5em;
+  }
 
-    .show #sidebar-button {
-        height: 35vh;
-    }
+  .show #sidebar-button {
+    height: 35vh;
+  }
 
-    .hide #sidebar-button div {
-        transform: rotate(0deg);
-    }
+  .hide #sidebar-button div {
+    transform: rotate(0deg);
+  }
 
-    .show #sidebar-button div {
-        transform: rotate(180deg);
-    }
+  .show #sidebar-button div {
+    transform: rotate(180deg);
+  }
 }
 /* ── iOS landscape: move sidebar button clear of Dynamic Island ── */
 @media (max-height: 500px) and (orientation: landscape) {
-    #sidebar-button {
-        top: calc(env(safe-area-inset-top, 0px) + 0.5em);
-        transform: none;
-    }
+  #sidebar-button {
+    top: calc(env(safe-area-inset-top, 0px) + 0.5em);
+    transform: none;
+  }
 
-    .hide #sidebar-button,
-    .show #sidebar-button {
-        height: 2.5em;
-    }
+  .hide #sidebar-button,
+  .show #sidebar-button {
+    height: 2.5em;
+  }
 
-    #sidebar-button.landscape-safe-left {
-        left: auto;
-        right: 0;
-        border-top-right-radius: 0;
-    }
+  #sidebar-button.landscape-safe-left {
+    left: auto;
+    right: 0;
+    border-top-right-radius: 0;
+  }
 
-    #sidebar-button.landscape-safe-right {
-        left: 0;
-        right: auto;
-        border-top-left-radius: 0;
-    }
+  #sidebar-button.landscape-safe-right {
+    left: 0;
+    right: auto;
+    border-top-left-radius: 0;
+  }
 
-    #sidebar-button:not(.landscape-safe-left):not(.landscape-safe-right) {
-        left: 0;
-        right: auto;
-        border-top-left-radius: 0;
-    }
+  #sidebar-button:not(.landscape-safe-left):not(.landscape-safe-right) {
+    left: 0;
+    right: auto;
+    border-top-left-radius: 0;
+  }
 }
 
 /* ── Phone portrait: keep OCT / SUSTAIN / PANIC in one evenly-spaced row ── */
 @media (max-width: 600px) and (orientation: portrait) {
-    #main-bottom-controls {
-        position: fixed;
-        bottom: 1.2em;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 11;
-        display: flex;
-        align-items: center;
-        gap: 0.6em;
-    }
+  #main-bottom-controls {
+    position: fixed;
+    bottom: 1.2em;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+  }
 
-    #main-bottom-controls #octave-island,
-    #main-bottom-controls #sustain-island,
-    #main-bottom-controls #panic-button {
-        position: static !important;
-        bottom: auto !important;
-        left: auto !important;
-        right: auto !important;
-        transform: none !important;
-        margin: 0 !important;
-    }
+  #main-bottom-controls #octave-island,
+  #main-bottom-controls #sustain-island,
+  #main-bottom-controls #panic-button {
+    position: static !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+  }
 
-    #main-bottom-controls #sustain-island {
-        padding: 0.38em 1.05em !important;
-        font-size: 0.8em !important;
-    }
+  #main-bottom-controls #sustain-island {
+    padding: 0.38em 1.05em !important;
+    font-size: 0.8em !important;
+  }
 
-    #main-bottom-controls #panic-button {
-        padding: 0.38em 0.9em !important;
-        font-size: 0.8em !important;
-    }
+  #main-bottom-controls #panic-button {
+    padding: 0.38em 0.9em !important;
+    font-size: 0.8em !important;
+  }
 
-    #main-bottom-controls #octave-island {
-        font-size: 0.8em !important;
-    }
+  #main-bottom-controls #octave-island {
+    font-size: 0.8em !important;
+  }
 }
 
 /* ── Phone landscape: adjust bottom buttons to prevent overlap ── */
 @media (max-height: 500px) and (orientation: landscape) {
-    #sustain-island {
-        left: 50%;
-        transform: translateX(-50%);
-    }
-    #panic-button {
-        right: 4.5em;
-        left: auto;
-        transform: none;
-    }
+  #sustain-island {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  #panic-button {
+    right: 4.5em;
+    left: auto;
+    transform: none;
+  }
 }
 
 /* ── Sustain island — floating tap target centred at bottom ── */
 /* ── Bottom controls: SUSTAIN centred, panic left, redraw right ── */
 #bottom-bar {
-    display: contents;
+  display: contents;
 }
 
 #panic-button {
-    position: fixed;
-    bottom: 1.2em;
-    right: 4.5em;
-    z-index: 11;
-    padding: 0.45em 1.6em;
-    border-radius: 999px;
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    color: #990000;
-    font-size: 0.95em;
-    font-family: inherit;
-    letter-spacing: 0.04em;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+  position: fixed;
+  bottom: 1.2em;
+  right: 4.5em;
+  z-index: 11;
+  padding: 0.45em 1.6em;
+  border-radius: 999px;
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  color: #990000;
+  font-size: 0.95em;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 #panic-button:active {
-    background-color: #ddcccc;
+  background-color: #ddcccc;
 }
 
 #sustain-island {
-    position: fixed;
-    bottom: 1.2em;
-    z-index: 11;
+  position: fixed;
+  bottom: 1.2em;
+  z-index: 11;
 
-    padding: 0.45em 1.6em;
-    border-radius: 999px;
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    color: #990000;
-    font-size: 0.95em;
-    font-family: inherit;
-    letter-spacing: 0.04em;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  padding: 0.45em 1.6em;
+  border-radius: 999px;
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  color: #990000;
+  font-size: 0.95em;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 /* ── Snapshot list — glass panel above the snapshot button ── */
 #snapshot-list {
-    position: fixed;
-    bottom: 4.5em;
-    left: 0.5em;
-    z-index: 11;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 10px;
-    border-radius: 14px;
-    background: rgba(240, 228, 228, 0.55);
-    -webkit-backdrop-filter: blur(12px) saturate(0.7);
-    backdrop-filter: blur(12px) saturate(0.7);
-    border: 1px solid rgba(200, 175, 175, 0.45);
-    box-shadow: 0 2px 12px rgba(100, 60, 60, 0.12);
+  position: fixed;
+  bottom: 4.5em;
+  left: 0.5em;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(240, 228, 228, 0.55);
+  -webkit-backdrop-filter: blur(12px) saturate(0.7);
+  backdrop-filter: blur(12px) saturate(0.7);
+  border: 1px solid rgba(200, 175, 175, 0.45);
+  box-shadow: 0 2px 12px rgba(100, 60, 60, 0.12);
 }
 
 .snapshot-row {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    border-radius: 6px;
-    transition: background-color 0.1s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 6px;
+  transition: background-color 0.1s ease;
 }
 
 .snapshot-drag-over {
-    background: rgba(200, 160, 160, 0.35);
-    outline: 1px solid rgba(153, 0, 0, 0.3);
+  background: rgba(200, 160, 160, 0.35);
+  outline: 1px solid rgba(153, 0, 0, 0.3);
 }
 
 .snapshot-drag-handle {
-    cursor: grab;
-    color: rgba(120, 60, 60, 0.5);
-    font-size: 1.1em;
-    padding: 0 2px;
-    -webkit-user-select: none;
-    user-select: none;
-    line-height: 1;
+  cursor: grab;
+  color: rgba(120, 60, 60, 0.5);
+  font-size: 1.1em;
+  padding: 0 2px;
+  -webkit-user-select: none;
+  user-select: none;
+  line-height: 1;
 }
 
 .snapshot-play-btn {
-    padding: 0.2em 0.65em;
-    border-radius: 999px;
-    background-color: rgba(255, 248, 248, 0.75);
-    border: 1px solid rgba(192, 160, 160, 0.6);
-    color: #880000;
-    font-size: 0.82em;
-    font-family: inherit;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.1s ease;
+  padding: 0.2em 0.65em;
+  border-radius: 999px;
+  background-color: rgba(255, 248, 248, 0.75);
+  border: 1px solid rgba(192, 160, 160, 0.6);
+  color: #880000;
+  font-size: 0.82em;
+  font-family: inherit;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
 }
 
 .snapshot-play-btn:active {
-    background-color: rgba(220, 200, 200, 0.85);
+  background-color: rgba(220, 200, 200, 0.85);
 }
 
 .snapshot-playing .snapshot-play-btn {
-    background-color: rgba(220, 200, 200, 0.85);
-    border-color: #aa0000;
-    font-weight: bold;
+  background-color: rgba(220, 200, 200, 0.85);
+  border-color: #aa0000;
+  font-weight: bold;
 }
 
 .snapshot-del-btn {
-    width: 1.5em;
-    height: 1.5em;
-    border-radius: 50%;
-    background: rgba(180, 140, 140, 0.28);
-    border: 1px solid rgba(170, 120, 120, 0.4);
-    color: #770000;
-    font-size: 0.75em;
-    line-height: 1;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.1s ease, color 0.1s ease;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background: rgba(180, 140, 140, 0.28);
+  border: 1px solid rgba(170, 120, 120, 0.4);
+  color: #770000;
+  font-size: 0.75em;
+  line-height: 1;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
 }
 
-.snapshot-del-btn:hover, .snapshot-del-btn:active {
-    background: rgba(180, 100, 100, 0.45);
-    color: #ffffff;
-    border-color: rgba(160, 80, 80, 0.6);
+.snapshot-del-btn:hover,
+.snapshot-del-btn:active {
+  background: rgba(180, 100, 100, 0.45);
+  color: #ffffff;
+  border-color: rgba(160, 80, 80, 0.6);
 }
 
 #snapshot-button {
-    position: fixed;
-    bottom: 1.25em;
-    left: 0.6em;
-    z-index: 11;
-    width: 2.2em;
-    height: 2.2em;
-    border-radius: 50%;
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    color: #990000;
-    font-size: 1.1em;
-    line-height: 1;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+  position: fixed;
+  bottom: 1.25em;
+  left: 0.6em;
+  z-index: 11;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  color: #990000;
+  font-size: 1.1em;
+  line-height: 1;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 #snapshot-button:active {
-    background-color: #ddcccc;
+  background-color: #ddcccc;
 }
 
 #redraw-button {
-    position: fixed;
-    bottom: 1.25em;
-    right: 0.6em;
-    z-index: 11;
-    width: 2.2em;
-    height: 2.2em;
-    border-radius: 50%;
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    color: #990000;
-    font-size: 1.1em;
-    line-height: 1;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+  position: fixed;
+  bottom: 1.25em;
+  right: 0.6em;
+  z-index: 11;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  color: #990000;
+  font-size: 1.1em;
+  line-height: 1;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 #redraw-button:active {
-    background-color: #ddd0d0;
+  background-color: #ddd0d0;
 }
 
 .text-entry-active #bottom-bar,
 .text-entry-active #snapshot-list {
-    display: none !important;
-    pointer-events: none;
+  display: none !important;
+  pointer-events: none;
 }
 
 #sustain-island {
-    padding: 0.45em 1.6em;
-    border-radius: 999px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    color: #990000;
-    font-size: 0.95em;
-    font-family: inherit;
-    letter-spacing: 0.04em;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  padding: 0.45em 1.6em;
+  border-radius: 999px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  color: #990000;
+  font-size: 0.95em;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 #sustain-island.latch-active {
-    background-color: #ff3333;
-    border-color: #aa0000;
-    color: #fff;
+  background-color: #ff3333;
+  border-color: #aa0000;
+  color: #fff;
 }
 
 #octave-island {
-    position: fixed;
-    bottom: 1.2em;
-    left: calc(50% - 13em);
-    z-index: 11;
-    display: flex;
-    align-items: center;
-    gap: 0;
-    border-radius: 999px;
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    overflow: hidden;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
+  position: fixed;
+  bottom: 1.2em;
+  left: calc(50% - 13em);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 999px;
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  overflow: hidden;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .octave-btn {
-    background: none;
-    border: none;
-    color: #990000;
-    font-size: 0.85em;
-    padding: 0.45em 0.75em;
-    cursor: pointer;
-    font-family: inherit;
-    line-height: 1;
-    transition: background-color 0.1s ease;
+  background: none;
+  border: none;
+  color: #990000;
+  font-size: 0.85em;
+  padding: 0.45em 0.75em;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+  transition: background-color 0.1s ease;
 }
 
 .octave-btn:active {
-    background-color: #ddcccc;
+  background-color: #ddcccc;
 }
 
 .octave-defer-active {
-    background-color: #f3cec5;
-    color: #8a2a1f;
-    transition: background-color 0.1s ease, color 0.1s ease;
+  background-color: #f3cec5;
+  color: #8a2a1f;
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
 }
 
 .octave-display {
-    color: #990000;
-    font-size: 0.95em;
-    font-family: inherit;
-    font-weight: bold;
-    letter-spacing: 0.04em;
-    min-width: 2.8em;
-    text-align: center;
-    border-left: 1px solid #c0aaaa;
-    border-right: 1px solid #c0aaaa;
-    padding: 0.45em 0.3em;
-    pointer-events: none;
+  color: #990000;
+  font-size: 0.95em;
+  font-family: inherit;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  min-width: 2.8em;
+  text-align: center;
+  border-left: 1px solid #c0aaaa;
+  border-right: 1px solid #c0aaaa;
+  padding: 0.45em 0.3em;
+  pointer-events: none;
 }
 
 #redraw-button {
-    width: 2.2em;
-    height: 2.2em;
-    border-radius: 50%;
-    background-color: #f0e9e9;
-    border: 1px solid #c0aaaa;
-    color: #990000;
-    font-size: 1.1em;
-    line-height: 1;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+  background-color: #f0e9e9;
+  border: 1px solid #c0aaaa;
+  color: #990000;
+  font-size: 1.1em;
+  line-height: 1;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 #redraw-button:active {
-    background-color: #ddd0d0;
+  background-color: #ddd0d0;
 }
 
 #ios-banner {
-    position: fixed;
-    bottom: 3.5em;
-    left: 0;
-    right: 0;
-    z-index: 20;
-    background: #1a1a2e;
-    color: #e0e0e0;
-    font-size: 0.85em;
-    padding: 0.7em 1em 0.9em 1em;
-    text-align: center;
-    line-height: 1.4;
+  position: fixed;
+  bottom: 3.5em;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 0.85em;
+  padding: 0.7em 1em 0.9em 1em;
+  text-align: center;
+  line-height: 1.4;
 }
 
 #ios-banner a {
-    color: #7cb7ff;
-    text-decoration: underline;
+  color: #7cb7ff;
+  text-decoration: underline;
 }
 
 #ios-banner .ios-banner__message {
-    max-width: 42rem;
-    margin: 0 auto;
+  max-width: 42rem;
+  margin: 0 auto;
 }
 
 #ios-banner .ios-banner__actions {
-    display: flex;
-    justify-content: center;
-    gap: 0.6em;
-    margin-top: 0.75em;
-    flex-wrap: wrap;
+  display: flex;
+  justify-content: center;
+  gap: 0.6em;
+  margin-top: 0.75em;
+  flex-wrap: wrap;
 }
 
 #ios-banner button {
-    position: static;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 999px;
-    color: #e0e0e0;
-    font-size: 0.95em;
-    line-height: 1.2;
-    cursor: pointer;
-    padding: 0.45em 0.9em;
+  position: static;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #e0e0e0;
+  font-size: 0.95em;
+  line-height: 1.2;
+  cursor: pointer;
+  padding: 0.45em 0.9em;
 }
 
 #ios-banner button:hover {
-    background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.14);
 }

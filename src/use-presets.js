@@ -227,9 +227,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
   const onRevertUser = () => {
     onUserInteraction();
     if (activePresetName) {
-      const saved = loadCustomPresets().find(
-        (p) => p.name === activePresetName,
-      );
+      const saved = loadCustomPresets().find((p) => p.name === activePresetName);
       if (saved) {
         const adjustedPreset = {
           ...saved,

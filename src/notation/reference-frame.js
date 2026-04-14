@@ -1,5 +1,11 @@
 import { Fraction, toMonzo } from "xen-dev-utils";
-import { addMonzos, hejiToMonzo, monzoToHeji, parseHejiPitchClassLabel, subtractMonzos } from "./heji.js";
+import {
+  addMonzos,
+  hejiToMonzo,
+  monzoToHeji,
+  parseHejiPitchClassLabel,
+  subtractMonzos,
+} from "./heji.js";
 
 function parseRatioText(text) {
   const value = String(text || "").trim();
@@ -21,11 +27,7 @@ export function normalizeFractionToPitchClass(ratio) {
   return out;
 }
 
-export function createReferenceFrame({
-  anchorLabel,
-  anchorRatio,
-  anchorOctave = 4,
-}) {
+export function createReferenceFrame({ anchorLabel, anchorRatio, anchorOctave = 4 }) {
   const anchor = parseHejiPitchClassLabel(anchorLabel);
   if (!anchor) throw new Error(`Invalid anchor HEJI label: ${anchorLabel}`);
   const absoluteMonzo = hejiToMonzo({

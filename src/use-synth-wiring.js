@@ -20,7 +20,7 @@ import { resolveBulkDumpName } from "./tuning/mts-format.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
-const wait   = (l) => l + 1;
+const wait = (l) => l + 1;
 const signal = (l) => l - 1;
 const midiAccessRank = {
   none: 0,
@@ -83,10 +83,10 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
     });
   }
 
-  const fluidsynthOutputObj = midi && settings.fluidsynth_device
-    ? midi.outputs.get(settings.fluidsynth_device) : null;
-  const mtsPortIsFluidsynth = fluidsynthOutputObj &&
-    settings.midi_device === settings.fluidsynth_device;
+  const fluidsynthOutputObj =
+    midi && settings.fluidsynth_device ? midi.outputs.get(settings.fluidsynth_device) : null;
+  const mtsPortIsFluidsynth =
+    fluidsynthOutputObj && settings.midi_device === settings.fluidsynth_device;
   if (
     settings.output_mts &&
     fluidsynthOutputObj &&
@@ -121,24 +121,24 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
     const isStaticMode = settings.direct_mode === "static";
     const directAnchor = isStaticMode
       ? computeStaticMapDegree0(
-        chooseStaticMapCenterMidi(
-          computeCenterPitchHz(
-            tuningRuntime.fundamental,
-            tuningRuntime.degree0toRefAsArray[0],
-            tuningRuntime.scale,
-            tuningRuntime.equivInterval,
-            settings.center_degree,
+          chooseStaticMapCenterMidi(
+            computeCenterPitchHz(
+              tuningRuntime.fundamental,
+              tuningRuntime.degree0toRefAsArray[0],
+              tuningRuntime.scale,
+              tuningRuntime.equivInterval,
+              settings.center_degree,
+            ),
           ),
-        ),
-        settings.center_degree,
-      )
+          settings.center_degree,
+        )
       : computeNaturalAnchor(
-        tuningRuntime.fundamental,
-        tuningRuntime.degree0toRefAsArray[0],
-        tuningRuntime.scale,
-        tuningRuntime.equivInterval,
-        settings.center_degree,
-      );
+          tuningRuntime.fundamental,
+          tuningRuntime.degree0toRefAsArray[0],
+          tuningRuntime.scale,
+          tuningRuntime.equivInterval,
+          settings.center_degree,
+        );
     outputs.push({
       family: "mts",
       allocationMode: isStaticMode ? "static_map" : "mts1",
@@ -206,26 +206,24 @@ export const resolveOctaveShortcutAction = (event, inputFocused = false) => {
  *             shiftOctave, toggleOctaveDeferred,
  *             onVolumeChange, onAnchorLearn }}
  */
-const useSynthWiring = (
-  settings,
-  setSettings,
-  { ready, userHasInteracted, keysRef, synthRef },
-) => {
+const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysRef, synthRef }) => {
   const settingsRef = useRef(settings);
-  useEffect(() => { settingsRef.current = settings; }, [settings]);
-  const [synth,           setSynth]           = useState(null);
-  const [midi,            setMidi]            = useState(null);
-  const [midiAccess,      setMidiAccess]      = useState("none");
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  const [synth, setSynth] = useState(null);
+  const [midi, setMidi] = useState(null);
+  const [midiAccess, setMidiAccess] = useState("none");
   const [midiAccessError, setMidiAccessError] = useState(null);
   const [midiLearnActive, setMidiLearnActive] = useState(false);
   // Incremented on every MIDI onstatechange so dependent effects re-run when
   // devices connect or disconnect (e.g. FluidSynth starting after page load).
-  const [midiTick,        setMidiTick]        = useState(0);
+  const [midiTick, setMidiTick] = useState(0);
   // Counter so multiple overlapping async operations don't prematurely hide
   // the loading spinner (see wait / signal helpers above).
-  const [loading,         setLoading]         = useState(0);
+  const [loading, setLoading] = useState(0);
   const [octaveTranspose, setOctaveTranspose] = useState(0);
-  const [octaveDeferred,  setOctaveDeferred]  = useState(
+  const [octaveDeferred, setOctaveDeferred] = useState(
     () => sessionStorage.getItem("octave_deferred") !== "false",
   );
   const sampleSynthRef = useRef({ key: null, synth: null });
@@ -236,47 +234,44 @@ const useSynthWiring = (
 
   // ── MIDI access ─────────────────────────────────────────────────────────────
 
-  const ensureMidiAccess = useCallback(async ({ sysex = false } = {}) => {
-    const targetAccess = sysex ? "sysex" : "basic";
-    if (midiAccessRank[midiAccess] >= midiAccessRank[targetAccess]) return true;
-    if (!navigator.requestMIDIAccess) {
-      setMidiAccessError("Web MIDI is not available in this browser.");
-      return false;
-    }
-    if (midiRequestRef.current && midiRequestRef.current.target === targetAccess) {
-      return midiRequestRef.current.promise;
-    }
-
-    const request = (async () => {
-      setMidiAccessError(null);
-      try {
-        await enableMidi({ sysex });
-        const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
-        console.log(
-          sysex
-            ? "Web MIDI API with sysex is ready!"
-            : "Web MIDI API is ready!",
-        );
-        midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
-        setMidi(midiAccessObj);
-        setMidiAccess(targetAccess);
-        return true;
-      } catch (err) {
-        console.warn("Web MIDI could not initialise:", err);
-        setMidiAccessError(
-          sysex
-            ? "MIDI SysEx access was not granted."
-            : "MIDI access was not granted.",
-        );
+  const ensureMidiAccess = useCallback(
+    async ({ sysex = false } = {}) => {
+      const targetAccess = sysex ? "sysex" : "basic";
+      if (midiAccessRank[midiAccess] >= midiAccessRank[targetAccess]) return true;
+      if (!navigator.requestMIDIAccess) {
+        setMidiAccessError("Web MIDI is not available in this browser.");
         return false;
-      } finally {
-        midiRequestRef.current = null;
       }
-    })();
+      if (midiRequestRef.current && midiRequestRef.current.target === targetAccess) {
+        return midiRequestRef.current.promise;
+      }
 
-    midiRequestRef.current = { target: targetAccess, promise: request };
-    return request;
-  }, [midiAccess]);
+      const request = (async () => {
+        setMidiAccessError(null);
+        try {
+          await enableMidi({ sysex });
+          const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
+          console.log(sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
+          midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
+          setMidi(midiAccessObj);
+          setMidiAccess(targetAccess);
+          return true;
+        } catch (err) {
+          console.warn("Web MIDI could not initialise:", err);
+          setMidiAccessError(
+            sysex ? "MIDI SysEx access was not granted." : "MIDI access was not granted.",
+          );
+          return false;
+        } finally {
+          midiRequestRef.current = null;
+        }
+      })();
+
+      midiRequestRef.current = { target: targetAccess, promise: request };
+      return request;
+    },
+    [midiAccess],
+  );
 
   // ── Reconstruction boundary contract ────────────────────────────────────────
   //
@@ -399,8 +394,9 @@ const useSynthWiring = (
     const outputRuntime = deriveOutputRuntime(settings, midi, tuningRuntime);
     const mtsOutputs = outputRuntime.outputs.filter((o) => o.family === "mts");
     const wantMts = mtsOutputs.some((o) => o.transportMode === "single_note_realtime");
-    const wantDirect = mtsOutputs.some((o) =>
-      o.transportMode === "bulk_dynamic_map" || o.transportMode === "bulk_static_map");
+    const wantDirect = mtsOutputs.some(
+      (o) => o.transportMode === "bulk_dynamic_map" || o.transportMode === "bulk_static_map",
+    );
 
     const wantMpe =
       settings.output_mpe &&
@@ -410,9 +406,7 @@ const useSynthWiring = (
       settings.mpe_hi_ch >= settings.mpe_lo_ch;
 
     // OSC → SuperCollider via local WebSocket bridge (node osc-bridge/index.js)
-    const wantOsc =
-      settings.output_osc &&
-      settings.fundamental;
+    const wantOsc = settings.output_osc && settings.fundamental;
 
     // FluidSynth mirror — must be computed before the early-return guard below,
     // otherwise the TDZ reference to wantFluidsynth in that condition would throw
@@ -422,14 +416,21 @@ const useSynthWiring = (
 
     if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe && !wantOsc) {
       setSynth(null);
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }
 
     setLoading(wait);
     const promises = [];
 
     const sampleKey = wantSample
-      ? JSON.stringify([settings.instrument, settings.fundamental, settings.reference_degree, settings.scale])
+      ? JSON.stringify([
+          settings.instrument,
+          settings.fundamental,
+          settings.reference_degree,
+          settings.scale,
+        ])
       : null;
     if (!wantSample && sampleSynthRef.current.synth) {
       sampleSynthRef.current.synth.releaseAll?.();
@@ -479,15 +480,18 @@ const useSynthWiring = (
           promises.push(Promise.resolve(existing));
           continue;
         }
-        const anchorNote = outputMode.transportMode === "bulk_dynamic_map" ||
+        const anchorNote =
+          outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
-          ? outputMode.anchorNote
-          : settings.midiin_central_degree;
+            ? outputMode.anchorNote
+            : settings.midiin_central_degree;
         const midiMapping =
           outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
             ? "DIRECT"
-            : outputMode.allocationMode === "mts2" ? "MTS2" : "MTS1";
+            : outputMode.allocationMode === "mts2"
+              ? "MTS2"
+              : "MTS1";
 
         promises.push(
           create_midi_synth({
@@ -507,17 +511,18 @@ const useSynthWiring = (
               midiin_device: settings.midiin_device,
               midiin_central_degree: anchorNote,
             },
-            getDynamicBulkConfig: outputMode.transportMode === "bulk_dynamic_map"
-              ? () => ({
-                deviceId: settingsRef.current.direct_device_id ?? 127,
-                mapNumber: settingsRef.current.direct_tuning_map_number ?? 0,
-                name: resolveBulkDumpName(
-                  settingsRef.current.direct_tuning_map_name,
-                  settingsRef.current.short_description,
-                  settingsRef.current.name,
-                ),
-              })
-              : null,
+            getDynamicBulkConfig:
+              outputMode.transportMode === "bulk_dynamic_map"
+                ? () => ({
+                    deviceId: settingsRef.current.direct_device_id ?? 127,
+                    mapNumber: settingsRef.current.direct_tuning_map_number ?? 0,
+                    name: resolveBulkDumpName(
+                      settingsRef.current.direct_tuning_map_name,
+                      settingsRef.current.short_description,
+                      settingsRef.current.name,
+                    ),
+                  })
+                : null,
           }).then((s) => {
             if (!cancelled) mtsSynthsRef.current.set(mtsKey, s);
             return s;
@@ -550,7 +555,7 @@ const useSynthWiring = (
           create_osc_synth(
             settings.osc_bridge_url || "ws://localhost:8089",
             settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-            settings.osc_volumes     || [0.5, 0.5, 0.5, 0.5],
+            settings.osc_volumes || [0.5, 0.5, 0.5, 0.5],
             settings.fundamental,
             settings.reference_degree,
             settings.scale,
@@ -611,7 +616,10 @@ const useSynthWiring = (
     }
 
     Promise.all(promises).then(async (synths) => {
-      if (cancelled) { setLoading(signal); return; }
+      if (cancelled) {
+        setLoading(signal);
+        return;
+      }
       // Filter out null/undefined synths (e.g., MIDI device unavailable)
       const validSynths = synths.filter((s) => s != null);
       if (validSynths.length === 0) {
@@ -619,10 +627,7 @@ const useSynthWiring = (
         setLoading(signal);
         return;
       }
-      const s =
-        validSynths.length === 1
-          ? validSynths[0]
-          : create_composite_synth(validSynths);
+      const s = validSynths.length === 1 ? validSynths[0] : create_composite_synth(validSynths);
       // Set the synth and clear the spinner immediately — do NOT await prepare()
       // here. On iOS, prepare() calls AudioContext.resume() + decodeAudioData,
       // both of which require a running AudioContext. The synth effect runs outside
@@ -637,7 +642,10 @@ const useSynthWiring = (
       // Trade-off: on desktop, the first note after a preset change may briefly use the
       // old decoded buffers (a very short "peep") if the new instrument hasn't decoded
       // yet. Acceptable given that the iOS hang is the worse failure.
-      if (cancelled) { setLoading(signal); return; }
+      if (cancelled) {
+        setLoading(signal);
+        return;
+      }
       // Push current controller state into the newly-built synth immediately,
       // without waiting for the next Keyboard render/effect cycle. This closes
       // a timing gap where a freshly swapped sample synth could briefly become
@@ -647,7 +655,9 @@ const useSynthWiring = (
       setLoading(signal);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [
     settings.instrument,
     // MIDI output runtimes derive anchors and tuning context from the current
@@ -697,8 +707,8 @@ const useSynthWiring = (
   useEffect(() => {
     synthRef.current = synth;
     if (synth?.setVolume) {
-      const muted  = localStorage.getItem('synth_muted') === 'true';
-      const volume = parseFloat(localStorage.getItem('synth_volume') ?? '1') || 1.0;
+      const muted = localStorage.getItem("synth_muted") === "true";
+      const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
       synth.setVolume(muted ? 0 : volume);
     }
   }, [synth]);
@@ -713,8 +723,7 @@ const useSynthWiring = (
   // When fundamental changes (sidebar or preset), propagate to live Keys so
   // the canvas redraws note labels without a full reconstruction.
   useEffect(() => {
-    if (keysRef.current?.updateFundamental)
-      keysRef.current.updateFundamental(settings.fundamental);
+    if (keysRef.current?.updateFundamental) keysRef.current.updateFundamental(settings.fundamental);
   }, [settings.fundamental]);
 
   // In DIRECT static mode, turning on auto-send or changing map parameters
@@ -730,7 +739,8 @@ const useSynthWiring = (
       !settings.direct_device ||
       settings.direct_device === "OFF" ||
       !keysRef.current
-    ) return;
+    )
+      return;
 
     const output = WebMidi.getOutputById(settings.direct_device);
     if (!output) return;
@@ -758,41 +768,43 @@ const useSynthWiring = (
 
   const shiftOctave = (dir) => {
     setOctaveTranspose((t) => t + dir);
-    if (keysRef.current?.shiftOctave)
-      keysRef.current.shiftOctave(dir, octaveDeferred);
+    if (keysRef.current?.shiftOctave) keysRef.current.shiftOctave(dir, octaveDeferred);
   };
 
-  const setOctaveDeferredMode = useCallback((next, e = null) => {
-    e?.stopPropagation?.();
-    if (next === octaveDeferred) return;
-    setOctaveDeferred(next);
-    sessionStorage.setItem("octave_deferred", next);
-    if (
-      !next &&
-      ready &&
-      settings.output_direct &&
-      settings.direct_mode === "static" &&
-      settings.direct_device &&
-      settings.direct_device !== "OFF" &&
-      keysRef.current?.mtsSendMap
-    ) {
-      const output = WebMidi.getOutputById(settings.direct_device);
-      if (output) {
-        requestAnimationFrame(() => {
-          if (keysRef.current?.mtsSendMap) {
-            keysRef.current.mtsSendMap(output, false, false);
-          }
-        });
+  const setOctaveDeferredMode = useCallback(
+    (next, e = null) => {
+      e?.stopPropagation?.();
+      if (next === octaveDeferred) return;
+      setOctaveDeferred(next);
+      sessionStorage.setItem("octave_deferred", next);
+      if (
+        !next &&
+        ready &&
+        settings.output_direct &&
+        settings.direct_mode === "static" &&
+        settings.direct_device &&
+        settings.direct_device !== "OFF" &&
+        keysRef.current?.mtsSendMap
+      ) {
+        const output = WebMidi.getOutputById(settings.direct_device);
+        if (output) {
+          requestAnimationFrame(() => {
+            if (keysRef.current?.mtsSendMap) {
+              keysRef.current.mtsSendMap(output, false, false);
+            }
+          });
+        }
       }
-    }
-  }, [
-    octaveDeferred,
-    ready,
-    settings.output_direct,
-    settings.direct_mode,
-    settings.direct_device,
-    keysRef,
-  ]);
+    },
+    [
+      octaveDeferred,
+      ready,
+      settings.output_direct,
+      settings.direct_mode,
+      settings.direct_device,
+      keysRef,
+    ],
+  );
 
   const toggleOctaveDeferred = (e) => {
     setOctaveDeferredMode(!octaveDeferred, e);
@@ -826,13 +838,19 @@ const useSynthWiring = (
   // loadControllerPrefs is idempotent: it reads saved values (or first-connect
   // fallbacks) so re-firing on the same device is safe.
   useEffect(() => {
-    if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return;
-    const input = Array.from(midi.inputs.values()).find(i => i.id === settings.midiin_device);
+    if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return;
+    const input = Array.from(midi.inputs.values()).find((i) => i.id === settings.midiin_device);
     if (!input) return;
     const ctrl = resolveInputController(input, settings.midiin_controller_override);
     if (!ctrl) return;
-    setSettings(s => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settings) }));
-  }, [midi, settings.midiin_device, settings.midiin_controller_override, settings.midiin_mpe_input, settings.midi_passthrough]);
+    setSettings((s) => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settings) }));
+  }, [
+    midi,
+    settings.midiin_device,
+    settings.midiin_controller_override,
+    settings.midiin_mpe_input,
+    settings.midi_passthrough,
+  ]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────
 
@@ -845,51 +863,50 @@ const useSynthWiring = (
   // Called by keys.js when the user presses a key during MIDI-learn mode.
   // Saves the anchor note + channel so the controller map (2D path) and the
   // step-arithmetic path (sequential/unknown) both resolve correctly.
-  const onAnchorLearn = useCallback((noteNum, channel) => {
-    setMidiLearnActive(false);
-    const ch = channel ?? 1;
-    let ctrl = null;
-    if (settings.midiin_device && settings.midiin_device !== "OFF" && midi) {
-      const input = Array.from(midi.inputs.values()).find(
-        (m) => m.id === settings.midiin_device,
-      );
-      if (input) ctrl = resolveInputController(input, settings.midiin_controller_override);
-    }
+  const onAnchorLearn = useCallback(
+    (noteNum, channel) => {
+      setMidiLearnActive(false);
+      const ch = channel ?? 1;
+      let ctrl = null;
+      if (settings.midiin_device && settings.midiin_device !== "OFF" && midi) {
+        const input = Array.from(midi.inputs.values()).find((m) => m.id === settings.midiin_device);
+        if (input) ctrl = resolveInputController(input, settings.midiin_controller_override);
+      }
 
-    // Persist anchor note per controller and build the settings update.
-    // saveAnchorFromLearn handles both single-channel and channel-aware (Lumatone)
-    // controllers in one place; returns the update object to merge into settings.
-    const update = ctrl
-      ? saveAnchorFromLearn(ctrl, noteNum, ch, settings)
-      : { midiin_central_degree: noteNum, midiin_anchor_channel: ch };
+      // Persist anchor note per controller and build the settings update.
+      // saveAnchorFromLearn handles both single-channel and channel-aware (Lumatone)
+      // controllers in one place; returns the update object to merge into settings.
+      const update = ctrl
+        ? saveAnchorFromLearn(ctrl, noteNum, ch, settings)
+        : { midiin_central_degree: noteNum, midiin_anchor_channel: ch };
 
-    // midiin_anchor_channel drives the relative channel-offset formula in
-    // noteToSteps() for all paths (sequential, unknown, passthrough).
-    // For the Lumatone 2D-map path, lumatone_center_channel is also updated.
-    sessionStorage.setItem("midiin_central_degree", String(update.midiin_central_degree));
-    sessionStorage.setItem("midiin_anchor_channel", String(update.midiin_anchor_channel));
-    if (update.lumatone_center_channel != null) {
-      sessionStorage.setItem("lumatone_center_channel", String(update.lumatone_center_channel));
-      sessionStorage.setItem("lumatone_center_note",    String(update.lumatone_center_note));
-    }
-    setSettings((s) => ({ ...s, ...update }));
-  }, [settings.midiin_device, settings.midiin_controller_override, midi]);
+      // midiin_anchor_channel drives the relative channel-offset formula in
+      // noteToSteps() for all paths (sequential, unknown, passthrough).
+      // For the Lumatone 2D-map path, lumatone_center_channel is also updated.
+      sessionStorage.setItem("midiin_central_degree", String(update.midiin_central_degree));
+      sessionStorage.setItem("midiin_anchor_channel", String(update.midiin_anchor_channel));
+      if (update.lumatone_center_channel != null) {
+        sessionStorage.setItem("lumatone_center_channel", String(update.lumatone_center_channel));
+        sessionStorage.setItem("lumatone_center_note", String(update.lumatone_center_note));
+      }
+      setSettings((s) => ({ ...s, ...update }));
+    },
+    [settings.midiin_device, settings.midiin_controller_override, midi],
+  );
 
   // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
   // When the active MIDI input is a Lumatone, resolve the matching raw Web MIDI
   // input (for ACK sysex listening) and output (for LED sysex sends).
   // These are passed to Keys so it can drive the LED feedback engine.
   const lumatoneRawPorts = useMemo(() => {
-    if (midiAccess !== 'sysex') return null;
-    if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
+    if (midiAccess !== "sysex") return null;
+    if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
     const rawIn = midi.inputs.get(settings.midiin_device);
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
-    if (!ctrl || ctrl.id !== 'lumatone') return null;
+    if (!ctrl || ctrl.id !== "lumatone") return null;
     // The Lumatone exposes both input and output ports with the same device name.
-    const rawOut = Array.from(midi.outputs.values()).find(
-      (o) => ctrl.detect(o.name.toLowerCase()),
-    );
+    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
   }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]);
@@ -898,15 +915,13 @@ const useSynthWiring = (
   // Output is needed for SysEx sends (LED colors, dev mode).
   // Input is needed to listen for Refresh (03h) from the device.
   const exquisRawPorts = useMemo(() => {
-    if (midiAccess !== 'sysex') return null;
-    if (!midi || !settings.midiin_device || settings.midiin_device === 'OFF') return null;
+    if (midiAccess !== "sysex") return null;
+    if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
     const rawIn = midi.inputs.get(settings.midiin_device);
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
-    if (!ctrl || ctrl.id !== 'exquis') return null;
-    const rawOut = Array.from(midi.outputs.values()).find(
-      (o) => ctrl.detect(o.name.toLowerCase()),
-    );
+    if (!ctrl || ctrl.id !== "exquis") return null;
+    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
   }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]);

@@ -2,8 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { create_midi_synth } from "./index.js";
 
 const scale12 = [
-  "100.", "200.", "300.", "400.", "500.", "600.",
-  "700.", "800.", "900.", "1000.", "1100.", "1200.",
+  "100.",
+  "200.",
+  "300.",
+  "400.",
+  "500.",
+  "600.",
+  "700.",
+  "800.",
+  "900.",
+  "1000.",
+  "1100.",
+  "1200.",
 ];
 
 beforeEach(() => {
@@ -44,12 +54,12 @@ describe("midi_synth controller-state replay", () => {
       },
     });
 
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 101, 0]);
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 100, 0]);
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 6, 12]);
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 38, 0]);
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 101, 127]);
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 100, 127]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 101, 0]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 100, 0]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 6, 12]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 38, 0]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 101, 127]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 100, 127]);
   });
 
   it("replays saved CC, channel pressure, and pitch bend to the output channel", async () => {
@@ -86,10 +96,10 @@ describe("midi_synth controller-state replay", () => {
       pitchBend14: 10000,
     });
 
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 1, 99]);
-    expect(output.send).toHaveBeenCalledWith([0xB0 + 2, 64, 127]);
-    expect(output.send).toHaveBeenCalledWith([0xD0 + 2, 33]);
-    expect(output.send).toHaveBeenCalledWith([0xE0 + 2, 10000 & 0x7F, (10000 >> 7) & 0x7F]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 1, 99]);
+    expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 64, 127]);
+    expect(output.send).toHaveBeenCalledWith([0xd0 + 2, 33]);
+    expect(output.send).toHaveBeenCalledWith([0xe0 + 2, 10000 & 0x7f, (10000 >> 7) & 0x7f]);
   });
 });
 
@@ -122,19 +132,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
     });
 
-    const hex = synth.makeHex(
-      { x: 0, y: 0 },
-      100,
-      1,
-      0,
-      12,
-      0,
-      200,
-      60,
-      72,
-      0,
-      1,
-    );
+    const hex = synth.makeHex({ x: 0, y: 0 }, 100, 1, 0, 12, 0, 200, 60, 72, 0, 1);
     hex.noteOn();
 
     output.send.mockClear();
@@ -173,37 +171,13 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
     });
 
-    const firstHex = synth.makeHex(
-      { x: 0, y: 0 },
-      100,
-      1,
-      0,
-      12,
-      0,
-      200,
-      60,
-      72,
-      0,
-      1,
-    );
+    const firstHex = synth.makeHex({ x: 0, y: 0 }, 100, 1, 0, 12, 0, 200, 60, 72, 0, 1);
     firstHex.noteOn();
     firstHex.retune(1300);
 
     output.send.mockClear();
 
-    const secondHex = synth.makeHex(
-      { x: 1, y: 0 },
-      400,
-      4,
-      0,
-      12,
-      300,
-      500,
-      61,
-      72,
-      0,
-      1,
-    );
+    const secondHex = synth.makeHex({ x: 1, y: 0 }, 400, 4, 0, 12, 300, 500, 61, 72, 0, 1);
     secondHex.noteOn();
 
     const dump = output.send.mock.calls[0][0];
@@ -242,36 +216,12 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
     });
 
-    const firstHex = synth.makeHex(
-      { x: 0, y: 0 },
-      0,
-      0,
-      0,
-      12,
-      -100,
-      100,
-      60,
-      72,
-      0,
-      1,
-    );
+    const firstHex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, -100, 100, 60, 72, 0, 1);
     firstHex.noteOn();
     const firstCarrier = firstHex.carrier;
     firstHex.noteOff(0);
 
-    const secondHex = synth.makeHex(
-      { x: 1, y: 0 },
-      0,
-      0,
-      0,
-      12,
-      -100,
-      100,
-      61,
-      72,
-      0,
-      1,
-    );
+    const secondHex = synth.makeHex({ x: 1, y: 0 }, 0, 0, 0, 12, -100, 100, 61, 72, 0, 1);
     secondHex.noteOn();
 
     expect(secondHex.carrier).not.toBe(firstCarrier);
@@ -305,38 +255,14 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
     });
 
-    const firstHex = synth.makeHex(
-      { x: 0, y: 0 },
-      100,
-      1,
-      0,
-      12,
-      0,
-      200,
-      60,
-      72,
-      0,
-      1,
-    );
+    const firstHex = synth.makeHex({ x: 0, y: 0 }, 100, 1, 0, 12, 0, 200, 60, 72, 0, 1);
     firstHex.noteOn();
     firstHex.retune(2500);
     const firstMts = [...firstHex.mts];
 
     output.send.mockClear();
 
-    const secondHex = synth.makeHex(
-      { x: 1, y: 0 },
-      400,
-      4,
-      0,
-      12,
-      300,
-      500,
-      61,
-      72,
-      0,
-      1,
-    );
+    const secondHex = synth.makeHex({ x: 1, y: 0 }, 400, 4, 0, 12, 300, 500, 61, 72, 0, 1);
     secondHex.noteOn();
 
     expect(output.send).toHaveBeenCalledTimes(1);

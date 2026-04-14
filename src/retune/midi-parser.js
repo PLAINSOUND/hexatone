@@ -3,7 +3,9 @@ function readAscii(bytes, start, length) {
 }
 
 function readUint32(bytes, offset) {
-  return (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+  return (
+    (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]
+  );
 }
 
 function readUint16(bytes, offset) {

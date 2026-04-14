@@ -1,6 +1,6 @@
-import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
-import { parseScalaInterval } from './parse-scale.js';
+import { h } from "preact";
+import { useState, useEffect } from "preact/hooks";
+import { parseScalaInterval } from "./parse-scale.js";
 
 /**
  * ScalaInput — controlled text input for Scala-style interval strings.
@@ -29,7 +29,7 @@ const ScalaInput = ({
   value,
   onChange,
   onAnyChange,
-  context = 'degree',
+  context = "degree",
   inputMode,
   style,
   wrapperStyle,
@@ -38,22 +38,20 @@ const ScalaInput = ({
   ...rest
 }) => {
   // Local draft while the user is typing.
-  const [draft, setDraft] = useState(value ?? '');
+  const [draft, setDraft] = useState(value ?? "");
 
   // Sync draft when the controlled value changes from outside (e.g. preset load).
   useEffect(() => {
-    setDraft(value ?? '');
+    setDraft(value ?? "");
   }, [value]);
 
   const { cents, valid, error } = parseScalaInterval(draft, context);
 
   const inputStyle = {
     ...style,
-    border: valid || draft === ''
-      ? (style?.border ?? '1px solid #c8b8b8')
-      : '1.5px solid #c0392b',
+    border: valid || draft === "" ? (style?.border ?? "1px solid #c8b8b8") : "1.5px solid #c0392b",
   };
-  const resolvedInputMode = inputMode ?? 'decimal';
+  const resolvedInputMode = inputMode ?? "decimal";
 
   const handleChange = (e) => {
     const s = e.target.value;
@@ -65,9 +63,9 @@ const ScalaInput = ({
     let finalStr = draft.trim();
 
     // Coerce zero-equivalent entries to canonical "0." in degree context.
-    if (context === 'degree') {
-      const { cents: c } = parseScalaInterval(finalStr, 'degree');
-      if (c === 0 && finalStr !== '0.') finalStr = '0.';
+    if (context === "degree") {
+      const { cents: c } = parseScalaInterval(finalStr, "degree");
+      if (c === 0 && finalStr !== "0.") finalStr = "0.";
     }
 
     const result = parseScalaInterval(finalStr, context);
@@ -76,12 +74,15 @@ const ScalaInput = ({
       onChange(finalStr);
     } else {
       // Revert to last known good value.
-      setDraft(value ?? '');
+      setDraft(value ?? "");
     }
   };
 
   return (
-    <span class={wrapperClass} style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', ...wrapperStyle }}>
+    <span
+      class={wrapperClass}
+      style={{ display: "inline-flex", gap: "4px", alignItems: "center", ...wrapperStyle }}
+    >
       <input
         type="text"
         inputMode={resolvedInputMode}
@@ -89,13 +90,17 @@ const ScalaInput = ({
         onInput={handleChange}
         onChange={handleChange}
         onBlur={handleBlur}
-        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.target.blur();
+        }}
         style={inputStyle}
         {...rest}
       />
       {showCents && (
-        <span style={{ color: valid ? '#666' : '#c0392b', fontSize: '0.85em', whiteSpace: 'nowrap' }}>
-          {valid ? `${cents.toFixed(1)} ¢` : error ?? ''}
+        <span
+          style={{ color: valid ? "#666" : "#c0392b", fontSize: "0.85em", whiteSpace: "nowrap" }}
+        >
+          {valid ? `${cents.toFixed(1)} ¢` : (error ?? "")}
         </span>
       )}
     </span>

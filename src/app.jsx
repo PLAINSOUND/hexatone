@@ -1,11 +1,5 @@
 import { h } from "preact";
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-} from "preact/hooks";
+import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
 import { presets } from "./settings/preset_values";
@@ -24,7 +18,11 @@ import {
   ExtractJoinedString,
 } from "./use-query";
 import usePresets, { SCALE_KEYS_TO_CLEAR } from "./use-presets.js";
-import { buildQuerySpec, buildRegistryDefaults, PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
+import {
+  buildQuerySpec,
+  buildRegistryDefaults,
+  PRESET_SKIP_KEYS,
+} from "./persistence/settings-registry.js";
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
@@ -54,8 +52,7 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
       "hexatone_preset_name",
       "direct_sysex_auto",
     ];
-    [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear]
-      .forEach((key) => sessionStorage.removeItem(key));
+    [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear].forEach((key) => sessionStorage.removeItem(key));
   }
 }
 
@@ -67,10 +64,8 @@ const isSafariOnly =
   !/Chrome/.test(ua) &&
   !/Chromium/.test(ua) &&
   !/Firefox/.test(ua) &&
-  !/FxiOS/.test(ua);   // Firefox on iOS uses FxiOS token, not "Firefox"
-const isIOS =
-  /iPad|iPhone|iPod/.test(ua) ||
-  (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS 13+ desktop mode
+  !/FxiOS/.test(ua); // Firefox on iOS uses FxiOS token, not "Firefox"
+const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS 13+ desktop mode
 const isMIDIWeb = /MIDIWeb/.test(ua);
 // Banner messages rendered in JSX (not alert()) so links are clickable.
 // showBanner: null = no banner, "ios" = iOS MIDI warning, "safari" = Safari warning.
@@ -227,9 +222,9 @@ const App = () => {
 
   const [settings, setSettings] = useQuery(
     buildQuerySpec({
-      int:    ExtractInt,
-      float:  ExtractFloat,
-      bool:   ExtractBool,
+      int: ExtractInt,
+      float: ExtractFloat,
+      bool: ExtractBool,
       string: ExtractString,
       joined: ExtractJoinedString,
     }),
@@ -267,14 +262,10 @@ const App = () => {
     onUserInteraction: () => setUserHasInteracted(true),
   });
 
-  const { onImport, importCount, bumpImportCount } = useImport(
-    settings,
-    setSettings,
-    {
-      onReady: () => setReady(true),
-      onUserInteraction: () => setUserHasInteracted(true),
-    },
-  );
+  const { onImport, importCount, bumpImportCount } = useImport(settings, setSettings, {
+    onReady: () => setReady(true),
+    onUserInteraction: () => setUserHasInteracted(true),
+  });
 
   const {
     synth,
@@ -310,7 +301,7 @@ const App = () => {
   // Exquis LED App Mode status — set asynchronously after firmware version check.
   // null = pending / not connected; { ok: true } = active; { ok: false, reason } = failed.
   const [exquisLedStatus, setExquisLedStatus] = useState(null);
-  const exquisLedsRef   = useRef(null);
+  const exquisLedsRef = useRef(null);
   const lumatoneLedsRef = useRef(null);
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
@@ -327,26 +318,32 @@ const App = () => {
     setSnapshots((prev) => [...prev, { id, notes }]);
   }, []);
 
-  const onPlaySnapshot = useCallback((id) => {
-    if (playingSnapshotId === id) {
-      // Toggle off: stop the currently playing snapshot
-      keysRef.current?.stopSnapshot();
-      setPlayingSnapshotId(null);
-    } else {
-      const snap = snapshots.find((s) => s.id === id);
-      if (!snap) return;
-      keysRef.current?.playSnapshot(snap.notes);
-      setPlayingSnapshotId(id);
-    }
-  }, [playingSnapshotId, snapshots]);
+  const onPlaySnapshot = useCallback(
+    (id) => {
+      if (playingSnapshotId === id) {
+        // Toggle off: stop the currently playing snapshot
+        keysRef.current?.stopSnapshot();
+        setPlayingSnapshotId(null);
+      } else {
+        const snap = snapshots.find((s) => s.id === id);
+        if (!snap) return;
+        keysRef.current?.playSnapshot(snap.notes);
+        setPlayingSnapshotId(id);
+      }
+    },
+    [playingSnapshotId, snapshots],
+  );
 
-  const onDeleteSnapshot = useCallback((id) => {
-    if (playingSnapshotId === id) {
-      keysRef.current?.stopSnapshot();
-      setPlayingSnapshotId(null);
-    }
-    setSnapshots((prev) => prev.filter((s) => s.id !== id));
-  }, [playingSnapshotId]);
+  const onDeleteSnapshot = useCallback(
+    (id) => {
+      if (playingSnapshotId === id) {
+        keysRef.current?.stopSnapshot();
+        setPlayingSnapshotId(null);
+      }
+      setSnapshots((prev) => prev.filter((s) => s.id !== id));
+    },
+    [playingSnapshotId],
+  );
 
   const onMoveSnapshot = useCallback((fromId, toId) => {
     setSnapshots((prev) => {
@@ -445,26 +442,19 @@ const App = () => {
 
   // Stable string keys for array deps — memoized so stringify only runs when
   // the array content actually changes, not on every render.
-  const scaleKey = useMemo(
-    () => JSON.stringify(settings.scale),
-    [settings.scale],
-  );
-  const noteNamesKey = useMemo(
-    () => JSON.stringify(settings.note_names),
-    [settings.note_names],
-  );
-  const noteColorsKey = useMemo(
-    () => JSON.stringify(settings.note_colors),
-    [settings.note_colors],
-  );
+  const scaleKey = useMemo(() => JSON.stringify(settings.scale), [settings.scale]);
+  const noteNamesKey = useMemo(() => JSON.stringify(settings.note_names), [settings.note_names]);
+  const noteColorsKey = useMemo(() => JSON.stringify(settings.note_colors), [settings.note_colors]);
 
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
   // rather than from settings directly for any input-related branch.
   const connectedInput = useMemo(
-    () => (midi && settings.midiin_device && settings.midiin_device !== "OFF"
-      ? Array.from(midi.inputs.values()).find((input) => input.id === settings.midiin_device) ?? null
-      : null),
+    () =>
+      midi && settings.midiin_device && settings.midiin_device !== "OFF"
+        ? (Array.from(midi.inputs.values()).find((input) => input.id === settings.midiin_device) ??
+          null)
+        : null,
     [midi, settings.midiin_device],
   );
   const inputController = useMemo(() => {
@@ -472,66 +462,71 @@ const App = () => {
     if (overrideId !== "auto") return getControllerById(overrideId);
     return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
   }, [connectedInput, settings.midiin_controller_override]);
-  const forceScaleTarget = inputController?.id === "tonalplexus" && settings.tonalplexus_input_mode === "layout_205";
+  const forceScaleTarget =
+    inputController?.id === "tonalplexus" && settings.tonalplexus_input_mode === "layout_205";
   const normalizedSeqAnchor = useMemo(
-    () => inputController?.normalizeInput?.(
-      settings.midiin_anchor_channel ?? 1,
-      settings.midiin_central_degree ?? 60,
-      settings,
-    ) ?? {
-      channel: settings.midiin_anchor_channel ?? 1,
-      note: settings.midiin_central_degree ?? 60,
-    },
+    () =>
+      inputController?.normalizeInput?.(
+        settings.midiin_anchor_channel ?? 1,
+        settings.midiin_central_degree ?? 60,
+        settings,
+      ) ?? {
+        channel: settings.midiin_anchor_channel ?? 1,
+        note: settings.midiin_central_degree ?? 60,
+      },
     [inputController, settings],
   );
 
-  const inputRuntime = useMemo(() => ({
-    target:           forceScaleTarget ? 'scale' : (settings.midiin_mapping_target || 'hex_layout'),
-    layoutMode:       settings.midi_passthrough ? 'sequential' : 'controller_geometry',
-    mpeInput:         !!settings.midiin_mpe_input,
-    seqAnchorNote:    normalizedSeqAnchor.note,
-    seqAnchorChannel: normalizedSeqAnchor.channel,
-    stepsPerChannel:  settings.midiin_steps_per_channel,
-    stepsPerChannelDefault: settings.equivSteps,
-    channelGroupSize: settings.midiin_channel_group_size ?? 1,
-    legacyChannelMode: settings.midiin_channel_legacy,
-    scaleTolerance:   settings.midiin_scale_tolerance ?? 25,
-    scaleFallback:    settings.midiin_scale_fallback || 'accept',
-    pitchBendMode:    settings.midiin_pitchbend_mode || 'recency',
-    pressureMode:     settings.midiin_pressure_mode || 'recency',
-    // Wheel settings kept here for Keys to use alongside routing mode.
-    // wheelRange and bendRange both read from midiin_bend_range — the UI
-    // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
-    wheelToRecent:    settings.wheel_to_recent,
-    wheelRange:       settings.midiin_bend_range ?? '64/63',
-    wheelScaleAware:  settings.wheel_scale_aware,
-    wheelSemitones:   settings.midi_wheel_semitones ?? 2,
-    // Pitch bend range for incoming hardware controller bend messages.
-    bendRange:        settings.midiin_bend_range ?? '64/63',
-    bendFlip:         !!settings.midiin_bend_flip,
-    // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
-    scaleBendRange:   settings.midiin_scale_bend_range ?? 48,
-  }), [
-    settings.midiin_mapping_target,
-    settings.midi_passthrough,
-    settings.midiin_mpe_input,
-    settings.midiin_steps_per_channel,
-    settings.midiin_channel_group_size,
-    settings.midiin_channel_legacy,
-    settings.midiin_scale_tolerance,
-    settings.midiin_scale_fallback,
-    settings.midiin_pitchbend_mode,
-    settings.midiin_pressure_mode,
-    settings.wheel_to_recent,
-    settings.wheel_scale_aware,
-    settings.midi_wheel_semitones,
-    settings.midiin_bend_range,
-    settings.midiin_bend_flip,
-    settings.midiin_scale_bend_range,
-    settings,
-    normalizedSeqAnchor,
-    forceScaleTarget,
-  ]);
+  const inputRuntime = useMemo(
+    () => ({
+      target: forceScaleTarget ? "scale" : settings.midiin_mapping_target || "hex_layout",
+      layoutMode: settings.midi_passthrough ? "sequential" : "controller_geometry",
+      mpeInput: !!settings.midiin_mpe_input,
+      seqAnchorNote: normalizedSeqAnchor.note,
+      seqAnchorChannel: normalizedSeqAnchor.channel,
+      stepsPerChannel: settings.midiin_steps_per_channel,
+      stepsPerChannelDefault: settings.equivSteps,
+      channelGroupSize: settings.midiin_channel_group_size ?? 1,
+      legacyChannelMode: settings.midiin_channel_legacy,
+      scaleTolerance: settings.midiin_scale_tolerance ?? 25,
+      scaleFallback: settings.midiin_scale_fallback || "accept",
+      pitchBendMode: settings.midiin_pitchbend_mode || "recency",
+      pressureMode: settings.midiin_pressure_mode || "recency",
+      // Wheel settings kept here for Keys to use alongside routing mode.
+      // wheelRange and bendRange both read from midiin_bend_range — the UI
+      // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
+      wheelToRecent: settings.wheel_to_recent,
+      wheelRange: settings.midiin_bend_range ?? "64/63",
+      wheelScaleAware: settings.wheel_scale_aware,
+      wheelSemitones: settings.midi_wheel_semitones ?? 2,
+      // Pitch bend range for incoming hardware controller bend messages.
+      bendRange: settings.midiin_bend_range ?? "64/63",
+      bendFlip: !!settings.midiin_bend_flip,
+      // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
+      scaleBendRange: settings.midiin_scale_bend_range ?? 48,
+    }),
+    [
+      settings.midiin_mapping_target,
+      settings.midi_passthrough,
+      settings.midiin_mpe_input,
+      settings.midiin_steps_per_channel,
+      settings.midiin_channel_group_size,
+      settings.midiin_channel_legacy,
+      settings.midiin_scale_tolerance,
+      settings.midiin_scale_fallback,
+      settings.midiin_pitchbend_mode,
+      settings.midiin_pressure_mode,
+      settings.wheel_to_recent,
+      settings.wheel_scale_aware,
+      settings.midi_wheel_semitones,
+      settings.midiin_bend_range,
+      settings.midiin_bend_flip,
+      settings.midiin_scale_bend_range,
+      settings,
+      normalizedSeqAnchor,
+      forceScaleTarget,
+    ],
+  );
 
   // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
@@ -570,77 +565,77 @@ const App = () => {
 
   // Output toggles and synth/output routing should update the live Keys instance
   // imperatively, not trigger a full keyboard reconstruction.
-  const liveOutputSettings = useMemo(() => ({
-    instrument: settings.instrument,
-    output_sample: settings.output_sample,
-    output_mts: settings.output_mts,
-    output_mpe: settings.output_mpe,
-    output_direct: settings.output_direct,
-    output_osc: settings.output_osc,
-    midi_device: settings.midi_device,
-    midi_channel: settings.midi_channel,
-    midi_mapping: settings.midi_mapping,
-    midi_velocity: settings.midi_velocity,
-    sysex_auto: settings.sysex_auto,
-    sysex_type: settings.sysex_type,
-    device_id: settings.device_id,
-    tuning_map_number: settings.tuning_map_number,
-    direct_device: settings.direct_device,
-    direct_mode: settings.direct_mode,
-    direct_channel: settings.direct_channel,
-    direct_sysex_auto: settings.direct_sysex_auto,
-    direct_device_id: settings.direct_device_id,
-    direct_tuning_map_number: settings.direct_tuning_map_number,
-    direct_tuning_map_name: settings.direct_tuning_map_name,
-    fluidsynth_device: settings.fluidsynth_device,
-    fluidsynth_channel: settings.fluidsynth_channel,
-    mpe_device: settings.mpe_device,
-    mpe_manager_ch: settings.mpe_manager_ch,
-    mpe_lo_ch: settings.mpe_lo_ch,
-    mpe_hi_ch: settings.mpe_hi_ch,
-    mpe_pitchbend_range: settings.mpe_pitchbend_range,
-    mpe_mode: settings.mpe_mode,
-  }), [
-    settings.instrument,
-    settings.output_sample,
-    settings.output_mts,
-    settings.output_mpe,
-    settings.output_direct,
-    settings.output_osc,
-    settings.midi_device,
-    settings.midi_channel,
-    settings.midi_mapping,
-    settings.midi_velocity,
-    settings.sysex_auto,
-    settings.sysex_type,
-    settings.device_id,
-    settings.tuning_map_number,
-    settings.direct_device,
-    settings.direct_mode,
-    settings.direct_channel,
-    settings.direct_sysex_auto,
-    settings.direct_device_id,
-    settings.direct_tuning_map_number,
-    settings.direct_tuning_map_name,
-    settings.fluidsynth_device,
-    settings.fluidsynth_channel,
-    settings.mpe_device,
-    settings.mpe_manager_ch,
-    settings.mpe_lo_ch,
-    settings.mpe_hi_ch,
-    settings.mpe_pitchbend_range,
-    settings.mpe_mode,
-  ]);
+  const liveOutputSettings = useMemo(
+    () => ({
+      instrument: settings.instrument,
+      output_sample: settings.output_sample,
+      output_mts: settings.output_mts,
+      output_mpe: settings.output_mpe,
+      output_direct: settings.output_direct,
+      output_osc: settings.output_osc,
+      midi_device: settings.midi_device,
+      midi_channel: settings.midi_channel,
+      midi_mapping: settings.midi_mapping,
+      midi_velocity: settings.midi_velocity,
+      sysex_auto: settings.sysex_auto,
+      sysex_type: settings.sysex_type,
+      device_id: settings.device_id,
+      tuning_map_number: settings.tuning_map_number,
+      direct_device: settings.direct_device,
+      direct_mode: settings.direct_mode,
+      direct_channel: settings.direct_channel,
+      direct_sysex_auto: settings.direct_sysex_auto,
+      direct_device_id: settings.direct_device_id,
+      direct_tuning_map_number: settings.direct_tuning_map_number,
+      direct_tuning_map_name: settings.direct_tuning_map_name,
+      fluidsynth_device: settings.fluidsynth_device,
+      fluidsynth_channel: settings.fluidsynth_channel,
+      mpe_device: settings.mpe_device,
+      mpe_manager_ch: settings.mpe_manager_ch,
+      mpe_lo_ch: settings.mpe_lo_ch,
+      mpe_hi_ch: settings.mpe_hi_ch,
+      mpe_pitchbend_range: settings.mpe_pitchbend_range,
+      mpe_mode: settings.mpe_mode,
+    }),
+    [
+      settings.instrument,
+      settings.output_sample,
+      settings.output_mts,
+      settings.output_mpe,
+      settings.output_direct,
+      settings.output_osc,
+      settings.midi_device,
+      settings.midi_channel,
+      settings.midi_mapping,
+      settings.midi_velocity,
+      settings.sysex_auto,
+      settings.sysex_type,
+      settings.device_id,
+      settings.tuning_map_number,
+      settings.direct_device,
+      settings.direct_mode,
+      settings.direct_channel,
+      settings.direct_sysex_auto,
+      settings.direct_device_id,
+      settings.direct_tuning_map_number,
+      settings.direct_tuning_map_name,
+      settings.fluidsynth_device,
+      settings.fluidsynth_channel,
+      settings.mpe_device,
+      settings.mpe_manager_ch,
+      settings.mpe_lo_ch,
+      settings.mpe_hi_ch,
+      settings.mpe_pitchbend_range,
+      settings.mpe_mode,
+    ],
+  );
 
   // Reset latch (sustain UI state) when Keys is reconstructed.
   // The new Keys instance starts with sustain: false, so the UI must match.
   // Using a ref to skip the initial render (no reconstruction on first mount).
   const prevStructuralRef = useRef(null);
   useEffect(() => {
-    if (
-      prevStructuralRef.current !== null &&
-      prevStructuralRef.current !== structuralSettings
-    ) {
+    if (prevStructuralRef.current !== null && prevStructuralRef.current !== structuralSettings) {
       setLatch(false);
     }
     prevStructuralRef.current = structuralSettings;
@@ -655,8 +650,7 @@ const App = () => {
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
   // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
   useEffect(() => {
-    const wantAppMode = !!exquisRawPorts
-      && inputRuntime?.target !== 'scale';
+    const wantAppMode = !!exquisRawPorts && inputRuntime?.target !== "scale";
 
     if (!wantAppMode) {
       if (exquisLedsRef.current) {
@@ -710,7 +704,7 @@ const App = () => {
   // (a new object reference every render), so the effect only recreates the
   // LumatoneLEDs engine when the actual hardware ports change — not on every
   // settings update that happens to re-run the lumatoneRawPorts useMemo.
-  const lumatoneInId  = lumatoneRawPorts?.input?.id  ?? null;
+  const lumatoneInId = lumatoneRawPorts?.input?.id ?? null;
   const lumatoneOutId = lumatoneRawPorts?.output?.id ?? null;
   useEffect(() => {
     if (!lumatoneRawPorts) {
@@ -731,7 +725,7 @@ const App = () => {
       lumatoneLedsRef.current = null;
       if (keysRef.current) keysRef.current.lumatoneLEDs = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lumatoneInId, lumatoneOutId]);
 
   // Color settings: only the color fields. Changes here update the live Keys
@@ -767,8 +761,10 @@ const App = () => {
     <div
       className={[
         active ? "hide" : "show",
-        (textEntryActive || viewportKeyboardOpen) ? "text-entry-active" : "",
-      ].filter(Boolean).join(" ")}
+        textEntryActive || viewportKeyboardOpen ? "text-entry-active" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       onClick={() => setUserHasInteracted(true)}
     >
       {ready && isValid && (
@@ -781,7 +777,7 @@ const App = () => {
           onKeysReady={useCallback((keys) => {
             keysRef.current = keys;
             keys.lumatoneLEDs = lumatoneLedsRef.current;
-            keys.exquisLEDs   = exquisLedsRef.current;
+            keys.exquisLEDs = exquisLedsRef.current;
             // Sync LEDs after reconstruction — geometry may have changed (rSteps,
             // drSteps, etc.) without triggering the color useEffect in keyboard/index.js.
             if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
@@ -812,7 +808,11 @@ const App = () => {
         <div id="ios-banner">
           <div className="ios-banner__message">
             WebMIDI on iOS is an experimental feature. Install the{" "}
-            <a href="https://testflight.apple.com/join/f7YNhJ3j" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://testflight.apple.com/join/f7YNhJ3j"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               MIDIWeb browser
             </a>{" "}
             to use MIDI features in PLAINSOUND HEXATONE.
@@ -826,7 +826,8 @@ const App = () => {
       {banner === "safari" && (
         <div id="ios-banner">
           <div className="ios-banner__message">
-            Safari is not fully supported. For the best experience use Firefox or a Chromium-based browser such as Brave, Edge or Chrome.
+            Safari is not fully supported. For the best experience use Firefox or a Chromium-based
+            browser such as Brave, Edge or Chrome.
           </div>
           <div className="ios-banner__actions">
             <button onClick={() => hideBannerForSession("safari")}>Remind Me Later</button>
@@ -839,7 +840,9 @@ const App = () => {
         className={[
           latch ? "latch-active" : "",
           landscapeSafeSide !== "none" ? `landscape-safe-${landscapeSafeSide}` : "",
-        ].filter(Boolean).join(" ")}
+        ]
+          .filter(Boolean)
+          .join(" ")}
         onClick={() => setActive((s) => !s)}
         onTouchStart={onSidebarTouchStart}
         onTouchEnd={onSidebarTouchEnd}
@@ -851,25 +854,50 @@ const App = () => {
       <div id="bottom-bar">
         <div id="main-bottom-controls">
           <div id="octave-island">
-            <button className="octave-btn" title="Octave down"
-              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              onClick={(e) => { e.stopPropagation(); shiftOctave(-1); }}
+            <button
+              className="octave-btn"
+              title="Octave down"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                shiftOctave(-1);
+              }}
               onContextMenu={(e) => e.preventDefault()}
-            >▼</button>
-            <span
-              className={`octave-display${!octaveDeferred ? ' octave-defer-active' : ''}`}
-              title={octaveDeferred ? 'Transpose on next event' : 'Transpose sounding notes immediately'}
-              onClick={toggleOctaveDeferred}
-              style={{ cursor: 'pointer', pointerEvents: 'auto' }}
             >
-              {octaveTranspose === 0 ? "OCT" : octaveTranspose > 0
-                ? `+${octaveTranspose}` : `${octaveTranspose}`}
+              ▼
+            </button>
+            <span
+              className={`octave-display${!octaveDeferred ? " octave-defer-active" : ""}`}
+              title={
+                octaveDeferred ? "Transpose on next event" : "Transpose sounding notes immediately"
+              }
+              onClick={toggleOctaveDeferred}
+              style={{ cursor: "pointer", pointerEvents: "auto" }}
+            >
+              {octaveTranspose === 0
+                ? "OCT"
+                : octaveTranspose > 0
+                  ? `+${octaveTranspose}`
+                  : `${octaveTranspose}`}
             </span>
-            <button className="octave-btn" title="Octave up"
-              onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              onClick={(e) => { e.stopPropagation(); shiftOctave(+1); }}
+            <button
+              className="octave-btn"
+              title="Octave up"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                shiftOctave(+1);
+              }}
               onContextMenu={(e) => e.preventDefault()}
-            >▲</button>
+            >
+              ▲
+            </button>
           </div>
           <button
             id="sustain-island"
@@ -901,8 +929,14 @@ const App = () => {
         <button
           id="snapshot-button"
           title="Capture current notes as a snapshot"
-          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onClick={(e) => { e.stopPropagation(); onTakeSnapshot(); }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onTakeSnapshot();
+          }}
           onContextMenu={(e) => e.preventDefault()}
         >
           ◉
@@ -936,28 +970,58 @@ const App = () => {
             return (
               <div
                 key={snap.id}
-                class={`snapshot-row${isPlaying ? ' snapshot-playing' : ''}${isDragOver ? ' snapshot-drag-over' : ''}`}
+                class={`snapshot-row${isPlaying ? " snapshot-playing" : ""}${isDragOver ? " snapshot-drag-over" : ""}`}
                 draggable={true}
-                onDragStart={(e) => { dragIdRef.current = snap.id; e.dataTransfer.effectAllowed = 'move'; }}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverId(snap.id); }}
+                onDragStart={(e) => {
+                  dragIdRef.current = snap.id;
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDragOverId(snap.id);
+                }}
                 onDragLeave={() => setDragOverId(null)}
-                onDrop={(e) => { e.preventDefault(); setDragOverId(null); if (dragIdRef.current !== null && dragIdRef.current !== snap.id) onMoveSnapshot(dragIdRef.current, snap.id); dragIdRef.current = null; }}
-                onDragEnd={() => { setDragOverId(null); dragIdRef.current = null; }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverId(null);
+                  if (dragIdRef.current !== null && dragIdRef.current !== snap.id)
+                    onMoveSnapshot(dragIdRef.current, snap.id);
+                  dragIdRef.current = null;
+                }}
+                onDragEnd={() => {
+                  setDragOverId(null);
+                  dragIdRef.current = null;
+                }}
               >
-                <span class="snapshot-drag-handle" title="Drag to reorder">⠿</span>
+                <span class="snapshot-drag-handle" title="Drag to reorder">
+                  ⠿
+                </span>
                 <button
                   class="snapshot-play-btn"
-                  title={isPlaying ? 'Stop' : 'Play snapshot'}
-                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onClick={(e) => { e.stopPropagation(); onPlaySnapshot(snap.id); }}
+                  title={isPlaying ? "Stop" : "Play snapshot"}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPlaySnapshot(snap.id);
+                  }}
                 >
-                  {isPlaying ? '■' : '▶'} {index + 1}
+                  {isPlaying ? "■" : "▶"} {index + 1}
                 </button>
                 <button
                   class="snapshot-del-btn"
                   title="Delete snapshot"
-                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onClick={(e) => { e.stopPropagation(); onDeleteSnapshot(snap.id); }}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteSnapshot(snap.id);
+                  }}
                 >
                   ✕
                 </button>
@@ -971,43 +1035,59 @@ const App = () => {
         <h1>PLAINSOUND HEXATONE</h1>
         <p>
           <em>
-            TO PLAY choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. Use internal sounds or retune MIDI synths. Edit the scale in the table or drag to retune. ESC toggles a hand-free latch sustain. ENTER takes snapshots across tunings.{' '}
+            TO PLAY choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic
+            controller like Lumatone or Exquis. Use internal sounds or retune MIDI synths. Edit the
+            scale in the table or drag to retune. ESC toggles a hand-free latch sustain. ENTER takes
+            snapshots across tunings.{" "}
             {!showManual && (
-              <span style={{ cursor: 'pointer', color: '#990000' }} onClick={() => setShowManual(true)}>… more</span>
+              <span
+                style={{ cursor: "pointer", color: "#990000" }}
+                onClick={() => setShowManual(true)}
+              >
+                … more
+              </span>
             )}
           </em>
         </p>
 
         {showManual && (
-          <fieldset style={{ position: 'relative', marginBottom: '0.5em', background: '#f0e9e9', border: '1px solid #c0aaaa', }}>
-            <legend><b>Manual</b></legend>
-            <button type="button" onClick={() => setShowManual(false)}
+          <fieldset
+            style={{
+              position: "relative",
+              marginBottom: "0.5em",
+              background: "#f0e9e9",
+              border: "1px solid #c0aaaa",
+            }}
+          >
+            <legend>
+              <b>Manual</b>
+            </legend>
+            <button
+              type="button"
+              onClick={() => setShowManual(false)}
               title="Close"
               style={{
-                position: 'absolute',
-                top: '-1.4em',
-                right: '-0.8em',
-                padding: '0.3em 0.4em',
-                fontSize: '1em',
+                position: "absolute",
+                top: "-1.4em",
+                right: "-0.8em",
+                padding: "0.3em 0.4em",
+                fontSize: "1em",
                 lineHeight: 1,
-                cursor: 'pointer',
-                background: 'transparent',
-                border: 'none',
-                color: '#990000',
-              }}>
+                cursor: "pointer",
+                background: "transparent",
+                border: "none",
+                color: "#990000",
+              }}
+            >
               ✕
             </button>
 
-
-
-            <p><em></em></p>
-
-
-
-
+            <p>
+              <em></em>
+            </p>
           </fieldset>
         )}
-        
+
         <Settings
           presetChanged={presetChanged}
           presets={presets}

@@ -41,13 +41,18 @@ export class RecencyStack {
     return [...this._entries];
   }
 
-  get size() { return this._entries.length; }
+  get size() {
+    return this._entries.length;
+  }
 
-  clear() { this._entries = []; }
+  clear() {
+    this._entries = [];
+  }
 
   // ── private ─────────────────────────────────────────────────────────
   _removeByCoords(coords) {
-    const x = coords.x, y = coords.y;
-    this._entries = this._entries.filter(h => h.coords.x !== x || h.coords.y !== y);
+    const x = coords.x,
+      y = coords.y;
+    this._entries = this._entries.filter((h) => h.coords.x !== x || h.coords.y !== y);
   }
 }

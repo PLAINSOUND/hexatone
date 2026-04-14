@@ -37,12 +37,18 @@ describe("notation/heji", () => {
   });
 
   it("renders triple septimal accidentals as single plus double glyphs", () => {
-    expect(glyphStringForSelection("natural:0", ["septimal:-1", "septimal:-1", "septimal:-1"])).toBe("");
-    expect(glyphStringForSelection("natural:0", ["septimal:1", "septimal:1", "septimal:1"])).toBe("");
+    expect(
+      glyphStringForSelection("natural:0", ["septimal:-1", "septimal:-1", "septimal:-1"]),
+    ).toBe("");
+    expect(glyphStringForSelection("natural:0", ["septimal:1", "septimal:1", "septimal:1"])).toBe(
+      "",
+    );
   });
 
   it("orders higher primes farther from the letter name", () => {
-    expect(glyphStringForSelection("sharp:0", ["septimal:-1", "19_limit:1", "47_limit:-1"])).toBe("");
+    expect(glyphStringForSelection("sharp:0", ["septimal:-1", "19_limit:1", "47_limit:-1"])).toBe(
+      "",
+    );
   });
 
   it("builds the A4 1/1 monzo from a natural spelling", () => {
@@ -96,7 +102,9 @@ describe("notation/heji", () => {
     const parsed = parseHejiGlyphInput("");
     expect(parsed.baseId).toBe("natural:1");
     expect(parsed.schismaAmount).toBe(2);
-    expect(glyphStringForSelection(parsed.baseId, parsed.extraIds, parsed.schismaAmount)).toBe("");
+    expect(glyphStringForSelection(parsed.baseId, parsed.extraIds, parsed.schismaAmount)).toBe(
+      "",
+    );
   });
 
   it("combines one schisma lower with one syntonic lower into a Pythagorean comma", () => {

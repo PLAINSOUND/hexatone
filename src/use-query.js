@@ -1,5 +1,5 @@
-import { h } from 'preact';
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { h } from "preact";
+import { useState, useEffect, useRef } from "preact/hooks";
 
 export class Extract {
   constructor(from, to) {
@@ -42,7 +42,7 @@ export class ExtractArray {
     }
   }
   insert(query, key, values) {
-    values.map(this.to).forEach(v => query.append(key, v));
+    values.map(this.to).forEach((v) => query.append(key, v));
   }
 
   restore(key) {
@@ -54,19 +54,46 @@ export class ExtractArray {
   }
 }
 
-export const ExtractString = new Extract(x => x, x => x);
-export const ExtractStringArray = new ExtractArray(x => x, x => x);
-export const ExtractJoinedString = new Extract(x => x.split(","), x => x.join(","));
-export const ExtractFloat = new Extract(x => Number.parseFloat(x), x => x.toString());
-export const ExtractFloatArray = new Extract(x => Number.parseFloat(x), x => x.toString());
-export const ExtractInt = new Extract(x => Number.parseInt(x), x => x.toString());
-export const ExtractIntArray = new Extract(x => Number.parseInt(x), x => x.toString());
-export const ExtractBool = new Extract(x => x === "true", x => x.toString());
-export const ExtractBoolArray = new Extract(x => x === "true", x => x.toString());
+export const ExtractString = new Extract(
+  (x) => x,
+  (x) => x,
+);
+export const ExtractStringArray = new ExtractArray(
+  (x) => x,
+  (x) => x,
+);
+export const ExtractJoinedString = new Extract(
+  (x) => x.split(","),
+  (x) => x.join(","),
+);
+export const ExtractFloat = new Extract(
+  (x) => Number.parseFloat(x),
+  (x) => x.toString(),
+);
+export const ExtractFloatArray = new Extract(
+  (x) => Number.parseFloat(x),
+  (x) => x.toString(),
+);
+export const ExtractInt = new Extract(
+  (x) => Number.parseInt(x),
+  (x) => x.toString(),
+);
+export const ExtractIntArray = new Extract(
+  (x) => Number.parseInt(x),
+  (x) => x.toString(),
+);
+export const ExtractBool = new Extract(
+  (x) => x === "true",
+  (x) => x.toString(),
+);
+export const ExtractBoolArray = new Extract(
+  (x) => x === "true",
+  (x) => x.toString(),
+);
 
 export function useQuery(spec, defaults, skipKeys = []) {
   // Clear any previously persisted values for skipped keys
-  skipKeys.forEach(k => localStorage.removeItem(k));
+  skipKeys.forEach((k) => localStorage.removeItem(k));
 
   const initial = { ...defaults };
   if (document.location.search.length > 0) {
@@ -123,9 +150,9 @@ export function useQuery(spec, defaults, skipKeys = []) {
   }
 
   useEffect(() => {
-    window.addEventListener('popstate', handle);
+    window.addEventListener("popstate", handle);
     return () => {
-      window.removeEventListener('popstate', handle);
+      window.removeEventListener("popstate", handle);
     };
   }, []);
 

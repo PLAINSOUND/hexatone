@@ -56,15 +56,15 @@ export class LumatoneLEDs {
    * @param {MIDIInput}  inputPort   – raw Web MIDI API input port for ACK listening
    */
   constructor(outputPort, inputPort) {
-    this._out     = outputPort;
-    this._in      = inputPort;
-    this._queue   = [];      // Array of { cmd, board:1-5, key:0-55, ... }
-    this._pending = false;   // True while awaiting an ACK for queue[0]
-    this._timer   = null;    // ACK-timeout handle (clearTimeout on ACK)
+    this._out = outputPort;
+    this._in = inputPort;
+    this._queue = []; // Array of { cmd, board:1-5, key:0-55, ... }
+    this._pending = false; // True while awaiting an ACK for queue[0]
+    this._timer = null; // ACK-timeout handle (clearTimeout on ACK)
 
     this._onMessage = this._onMessage.bind(this);
     if (this._in) {
-      this._in.addEventListener('midimessage', this._onMessage);
+      this._in.addEventListener("midimessage", this._onMessage);
     }
   }
 
@@ -147,9 +147,9 @@ export class LumatoneLEDs {
         (q, i) => i >= startIdx && q.board === newEntry.board && q.key === newEntry.key,
       );
       if (idx >= 0) {
-        this._queue[idx] = newEntry;   // replace existing queued entry
+        this._queue[idx] = newEntry; // replace existing queued entry
       } else {
-        this._queue.push(newEntry);    // not yet queued — append
+        this._queue.push(newEntry); // not yet queued — append
       }
     }
 
@@ -170,10 +170,10 @@ export class LumatoneLEDs {
   destroy() {
     this.cancel();
     if (this._in) {
-      this._in.removeEventListener('midimessage', this._onMessage);
+      this._in.removeEventListener("midimessage", this._onMessage);
     }
     this._out = null;
-    this._in  = null;
+    this._in = null;
   }
 
   // ── Internal helpers ────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ export class LumatoneLEDs {
    * Silently returns { r:0, g:0, b:0 } for unrecognised input.
    */
   _parseHex(hex) {
-    const h = hex.replace('#', '').toLowerCase();
+    const h = hex.replace("#", "").toLowerCase();
     if (h.length !== 6) return { r: 0, g: 0, b: 0 };
     return {
       r: parseInt(h.slice(0, 2), 16) || 0,
@@ -211,39 +211,47 @@ export class LumatoneLEDs {
       // CMD 00h: Set key function (note + channel)
       // F0 00 21 50 [board 1-5] 00 [key] [note] [ch 0-indexed] 01 F7
       msg = new Uint8Array([
-        0xF0, ...MFR,
-        board,          // board 1–5
-        0x00,           // CMD 00h
-        key,            // key 0–55
-        entry.note,     // MIDI note 0–127
-        entry.channel,  // MIDI channel 0-indexed (0–15)
-        0x01,           // keyType = 1 (note on/off)
-        0xF7,
+        0xf0,
+        ...MFR,
+        board, // board 1–5
+        0x00, // CMD 00h
+        key, // key 0–55
+        entry.note, // MIDI note 0–127
+        entry.channel, // MIDI channel 0-indexed (0–15)
+        0x01, // keyType = 1 (note on/off)
+        0xf7,
       ]);
-    } else if (cmd === 0x0E) {
+    } else if (cmd === 0x0e) {
       // CMD 0Eh: Global toggle (e.g. aftertouch activation)
       // F0 00 21 50 [section] 0E [value] 00 00 00 F7
       msg = new Uint8Array([
-        0xF0, ...MFR,
-        board,         // section (0 = global)
-        0x0E,
-        entry.value,   // 1 = on, 0 = off
-        0x00, 0x00, 0x00,
-        0xF7,
+        0xf0,
+        ...MFR,
+        board, // section (0 = global)
+        0x0e,
+        entry.value, // 1 = on, 0 = off
+        0x00,
+        0x00,
+        0x00,
+        0xf7,
       ]);
     } else {
       // CMD 01h: Set key LED colour
       // F0 00 21 50 [board 1-5] 01 [key] rHi rLo gHi gLo bHi bLo F7
       const { r, g, b } = entry;
       msg = new Uint8Array([
-        0xF0, ...MFR,
-        board,       // board 1–5
-        0x01,        // CMD 01h
-        key,         // key 0–55
-        r >> 4, r & 0x0F,
-        g >> 4, g & 0x0F,
-        b >> 4, b & 0x0F,
-        0xF7,
+        0xf0,
+        ...MFR,
+        board, // board 1–5
+        0x01, // CMD 01h
+        key, // key 0–55
+        r >> 4,
+        r & 0x0f,
+        g >> 4,
+        g & 0x0f,
+        b >> 4,
+        b & 0x0f,
+        0xf7,
       ]);
     }
 
@@ -251,12 +259,16 @@ export class LumatoneLEDs {
 
     // Guard: if no ACK arrives within the timeout, skip this entry and continue.
     this._timer = setTimeout(() => {
-      this._timer   = null;
+      this._timer = null;
       this._pending = false;
       const skipped = this._queue.shift();
       console.warn(
-        '[LumatoneLEDs] ACK timeout — skipping cmd', skipped?.cmd?.toString(16),
-        'board', skipped?.board, 'key', skipped?.key,
+        "[LumatoneLEDs] ACK timeout — skipping cmd",
+        skipped?.cmd?.toString(16),
+        "board",
+        skipped?.board,
+        "key",
+        skipped?.key,
       );
       this._advance();
     }, ACK_TIMEOUT_MS);
@@ -281,11 +293,15 @@ export class LumatoneLEDs {
     const d = event.data;
     if (
       d.length !== 8 ||
-      d[0] !== 0xF0  || d[1] !== 0x00 || d[2] !== 0x21 || d[3] !== 0x50 ||
+      d[0] !== 0xf0 ||
+      d[1] !== 0x00 ||
+      d[2] !== 0x21 ||
+      d[3] !== 0x50 ||
       /* d[4] = board, d[5] = cmd — checked below */
-      d[6] !== 0x01  || // ACK status
-      d[7] !== 0xF7
-    ) return;
+      d[6] !== 0x01 || // ACK status
+      d[7] !== 0xf7
+    )
+      return;
 
     // Command echo and board byte must both match the in-flight entry.
     const pending = this._queue[0];

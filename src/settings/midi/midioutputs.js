@@ -2,10 +2,7 @@ import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";
-import {
-  resolveBulkDumpName,
-  sanitizeBulkDumpName,
-} from "../../tuning/mts-format.js";
+import { resolveBulkDumpName, sanitizeBulkDumpName } from "../../tuning/mts-format.js";
 
 const voiceChannels = (masterCh) => {
   if (masterCh === "1") return Array.from({ length: 15 }, (_, i) => i + 2);
@@ -39,11 +36,9 @@ const sendMpePitchBendRange = (
 ) => {
   if (!output) return;
 
-  const masterChNum =
-    masterCh != null && masterCh !== "none" ? parseInt(masterCh) - 1 : null;
-  const actualBendRange =
-    mpeMode === "Ableton_workaround" ? 48 : bendRange || 48;
-  const managerBendRange = mpeMode === 'Ableton_workaround' ? 2 : bendRangeManager || 2;
+  const masterChNum = masterCh != null && masterCh !== "none" ? parseInt(masterCh) - 1 : null;
+  const actualBendRange = mpeMode === "Ableton_workaround" ? 48 : bendRange || 48;
+  const managerBendRange = mpeMode === "Ableton_workaround" ? 2 : bendRangeManager || 2;
 
   // Send MPE zone configuration RPN on master channel
   if (masterChNum !== null) {
@@ -64,12 +59,12 @@ const MidiOutputs = (props) => {
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
-  const [fsVolume, setFsVolume] = useState(parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100"));
+  const [fsVolume, setFsVolume] = useState(
+    parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100"),
+  );
   const masterCh = settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
-  const loCh = available.includes(settings.mpe_lo_ch)
-    ? settings.mpe_lo_ch
-    : available[0];
+  const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
   const hiCh = available.includes(settings.mpe_hi_ch)
     ? settings.mpe_hi_ch
     : Math.min(available[available.length - 1], loCh + 6);
@@ -84,8 +79,8 @@ const MidiOutputs = (props) => {
 
   // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
   // macOS FluidSynth creates a new port on each launch; we find it by name.
-  const fluidsynthOutput = outputs.find(m => m.name.toLowerCase().includes("fluid")) ?? null;
-  const fluidsynthFound  = !!fluidsynthOutput;
+  const fluidsynthOutput = outputs.find((m) => m.name.toLowerCase().includes("fluid")) ?? null;
+  const fluidsynthFound = !!fluidsynthOutput;
   // When the FluidSynth port disappears, clear the saved device so the UI
   // reflects the disconnected state. Do NOT auto-reconnect when it reappears —
   // the user explicitly presses Connect to opt in.
@@ -96,8 +91,7 @@ const MidiOutputs = (props) => {
     }
   }, [fluidsynthOutput?.id]);
   // Is the user-selected main MTS port the same as FluidSynth? Warn if so.
-  const mtsPortIsFluidsynth = fluidsynthOutput &&
-    settings.midi_device === fluidsynthOutput.id;
+  const mtsPortIsFluidsynth = fluidsynthOutput && settings.midi_device === fluidsynthOutput.id;
 
   return (
     <fieldset>
@@ -105,8 +99,6 @@ const MidiOutputs = (props) => {
         <b>MIDI Outputs</b>
       </legend>
       {/* ── MTS ────────────────────────────────────────────────────────── */}
-
-      
 
       <label>
         <b>MTS Real-Time Tuning</b>
@@ -121,13 +113,10 @@ const MidiOutputs = (props) => {
 
       <p style={{ marginTop: 0.5 }}>
         <em>
-          The <a href="/midituning.html">MIDI Tuning Standard</a> uses
-          sysex messages to modify the tuning of each MIDI note. The free{" "}
-          <a href="https://oddsound.com/mtsespmini.php">
-            Oddsound MTS-ESP Mini
-          </a>{" "}
-          VST plug-in translates MTS data to retune supported software
-          synths.{" "}
+          The <a href="/midituning.html">MIDI Tuning Standard</a> uses sysex messages to modify the
+          tuning of each MIDI note. The free{" "}
+          <a href="https://oddsound.com/mtsespmini.php">Oddsound MTS-ESP Mini</a> VST plug-in
+          translates MTS data to retune supported software synths.{" "}
         </em>
       </p>
 
@@ -157,12 +146,13 @@ const MidiOutputs = (props) => {
 
           {settings.midi_device && settings.midi_device !== "OFF" && (
             <>
-              {settings.midi_mapping === 'DIRECT' && (
-                <p style={{ fontSize: '0.85em', color: '#996666', margin: '0.25em 0' }}>
-                  <em>Sends plain MIDI notes using the hex layout. Pre-sends a
-                  non-real-time 128-note tuning map so synths like the Prophet&#x2011;5
-                  play microtonally. Enable Auto&#x2011;Send and click Send Map once
-                  after loading a preset.</em>
+              {settings.midi_mapping === "DIRECT" && (
+                <p style={{ fontSize: "0.85em", color: "#996666", margin: "0.25em 0" }}>
+                  <em>
+                    Sends plain MIDI notes using the hex layout. Pre-sends a non-real-time 128-note
+                    tuning map so synths like the Prophet&#x2011;5 play microtonally. Enable
+                    Auto&#x2011;Send and click Send Map once after loading a preset.
+                  </em>
                 </p>
               )}
               <label>
@@ -171,13 +161,9 @@ const MidiOutputs = (props) => {
                   name="midi_channel"
                   class="sidebar-input"
                   value={settings.midi_channel}
-                  onChange={(e) =>
-                    save(e.target.name, parseInt(e.target.value), onChange)
-                  }
+                  onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
                 >
-                  <option value="-1">
-                    ---choose a MIDI output channel---
-                    </option>
+                  <option value="-1">---choose a MIDI output channel---</option>
                   {[...Array(16).keys()].map((i) => (
                     <option key={i} value={i}>
                       {i + 1}
@@ -185,7 +171,7 @@ const MidiOutputs = (props) => {
                   ))}
                 </select>
               </label>
-              
+
               <label>
                 Message Style
                 <select
@@ -195,143 +181,181 @@ const MidiOutputs = (props) => {
                   onChange={(e) => {
                     save(e.target.name, e.target.value, onChange);
                     // DIRECT always uses non-real-time bulk map
-                    if (e.target.value === 'DIRECT') save('sysex_type', 126, onChange);
+                    if (e.target.value === "DIRECT") save("sysex_type", 126, onChange);
                   }}
                 >
                   <option>---choose how notes are sent---</option>
-                  <option value="MTS1">
-                    real-time MTS with full 128 note polyphony
-                  </option>
-                  <option value="MTS2">
-                    real-time MTS with Pianoteq/Arturia range
-                  </option>
+                  <option value="MTS1">real-time MTS with full 128 note polyphony</option>
+                  <option value="MTS2">real-time MTS with Pianoteq/Arturia range</option>
                 </select>
               </label>
-
-
-
             </>
           )}
         </>
       )}
 
       {/* ── FluidSynth mirror — shown only when MTS Real-Time is on ── */}
-      {settings.output_mts && (() => {
-        const fsConnected = !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0);
-        return (
-          <>
-            {/* Use div instead of label — button inside label causes browsers to
+      {settings.output_mts &&
+        (() => {
+          const fsConnected = !!(settings.fluidsynth_device && settings.fluidsynth_channel >= 0);
+          return (
+            <>
+              {/* Use div instead of label — button inside label causes browsers to
                 fire a second synthetic click on the button (via the label's implicit
                 control activation), which arrives after Preact re-renders with
                 fsConnected=true and immediately triggers the Disconnect branch. */}
-            <div style={{
-              display: "flex", justifyContent: "space-between",
-              flexWrap: "wrap", alignItems: "baseline",
-              marginTop: "0.5em", lineHeight: "1.5em",
-            }}>
-              <span style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
-                <span style={{
-                  display: "inline-block", width: "10px", height: "10px",
-                  borderRadius: "50%",
-                  background: fsConnected ? "#22cc44" : fluidsynthFound ? "#558855" : "#1a4422",
-                  boxShadow: fsConnected ? "0 0 5px #22cc44" : "none",
-                  flexShrink: 0,
-                  alignSelf: "top",
-                }} />
-                <span>FluidSynth</span>
-                {fluidsynthFound && (
-                  <span style={{
-                    fontSize: "0.85em",
-                    color: "#669966",
-                  }}>
-                    [ {fluidsynthOutput.name} ]
-                  </span>
-                )}
-              </span>
-              <button
-                type="button"
-                disabled={!fluidsynthFound && !fsConnected}
+              <div
                 style={{
-                  fontSize: "0.85em",
-                  background: fsConnected ? "#22cc44" : undefined,
-                  color: fsConnected ? "#003300" : undefined,
-                  borderColor: fsConnected ? "#22cc44" : undefined,
-                  marginBottom:3, marginTop:10
+                  display: "flex",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
+                  marginTop: "0.5em",
+                  lineHeight: "1.5em",
                 }}
-                onClick={() => {
-                  if (fsConnected) {
-                    save("fluidsynth_device", "", onChange);
-                    save("fluidsynth_channel", -1, onChange);
-                  } else {
-                    if (!fluidsynthOutput) return;
-                    save("fluidsynth_device", fluidsynthOutput.id, onChange);
-                    const saved = parseInt(localStorage.getItem("fluidsynth_channel_pref"));
-                    const ch = !isNaN(saved) && saved >= 0 ? saved
-                      : settings.midi_channel >= 0 ? settings.midi_channel : 0;
-                    save("fluidsynth_channel", ch, onChange);
-                    const vol = parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100");
-                    fluidsynthOutput.send([0xB0 | ch, 7, vol]);
-                  }
-                }}
-                title={fsConnected ? "Disconnect FluidSynth mirror"
-                  : fluidsynthFound ? "Connect MTS mirror to FluidSynth" : "FluidSynth not found"}
               >
-                {fsConnected ? "Disconnect" : fluidsynthFound ? "Connect" : "Not found"}
-              </button>
-            </div>
-            {fsConnected && (
-              <>
-                <label>
-                  FluidSynth Channel
-                  <select name="fluidsynth_channel" class="sidebar-input"
-                    value={settings.fluidsynth_channel ?? -1}
-                    onChange={(e) => {
-                      const ch = parseInt(e.target.value);
-                      localStorage.setItem("fluidsynth_channel_pref", ch);
-                      save(e.target.name, ch, onChange);
+                <span style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      background: fsConnected ? "#22cc44" : fluidsynthFound ? "#558855" : "#1a4422",
+                      boxShadow: fsConnected ? "0 0 5px #22cc44" : "none",
+                      flexShrink: 0,
+                      alignSelf: "top",
                     }}
-                  >
-                    {[...Array(16).keys()].map(i => (
-                      <option key={i} value={i}>{i + 1}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  FluidSynth Volume
-                  <span class="sidebar-input" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                    <input type="range" min="0" max="127" step="1"
-                      style={{ width: '100%' }}
-                      defaultValue={parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100")}
-                      onInput={(e) => {
-                        const v = parseInt(e.target.value);
-                        localStorage.setItem("fluidsynth_volume_pref", v);
-                        setFsVolume(v);
-                        if (fluidsynthOutput && settings.fluidsynth_channel >= 0) {
-                          fluidsynthOutput.send([0xB0 | settings.fluidsynth_channel, 7, v]);
-                        }
+                  />
+                  <span>FluidSynth</span>
+                  {fluidsynthFound && (
+                    <span
+                      style={{
+                        fontSize: "0.85em",
+                        color: "#669966",
                       }}
-                    />
-                    <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: '2.5em', textAlign: 'right', fontSize: '0.85em' }}>
-                      {fsVolume}
+                    >
+                      [ {fluidsynthOutput.name} ]
                     </span>
-                  </span>
-                </label>
-                {mtsPortIsFluidsynth && (
-                  <p style={{ color: "#cc4400", fontSize: "0.85em", margin: "0.2em 0" }}>
-                    ⚠ Main MTS port is FluidSynth — mirror disabled to prevent doubling.
-                  </p>
-                )}
-              </>
-            )}
-          </>
-        );
-      })()}
+                  )}
+                </span>
+                <button
+                  type="button"
+                  disabled={!fluidsynthFound && !fsConnected}
+                  style={{
+                    fontSize: "0.85em",
+                    background: fsConnected ? "#22cc44" : undefined,
+                    color: fsConnected ? "#003300" : undefined,
+                    borderColor: fsConnected ? "#22cc44" : undefined,
+                    marginBottom: 3,
+                    marginTop: 10,
+                  }}
+                  onClick={() => {
+                    if (fsConnected) {
+                      save("fluidsynth_device", "", onChange);
+                      save("fluidsynth_channel", -1, onChange);
+                    } else {
+                      if (!fluidsynthOutput) return;
+                      save("fluidsynth_device", fluidsynthOutput.id, onChange);
+                      const saved = parseInt(localStorage.getItem("fluidsynth_channel_pref"));
+                      const ch =
+                        !isNaN(saved) && saved >= 0
+                          ? saved
+                          : settings.midi_channel >= 0
+                            ? settings.midi_channel
+                            : 0;
+                      save("fluidsynth_channel", ch, onChange);
+                      const vol = parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100");
+                      fluidsynthOutput.send([0xb0 | ch, 7, vol]);
+                    }
+                  }}
+                  title={
+                    fsConnected
+                      ? "Disconnect FluidSynth mirror"
+                      : fluidsynthFound
+                        ? "Connect MTS mirror to FluidSynth"
+                        : "FluidSynth not found"
+                  }
+                >
+                  {fsConnected ? "Disconnect" : fluidsynthFound ? "Connect" : "Not found"}
+                </button>
+              </div>
+              {fsConnected && (
+                <>
+                  <label>
+                    FluidSynth Channel
+                    <select
+                      name="fluidsynth_channel"
+                      class="sidebar-input"
+                      value={settings.fluidsynth_channel ?? -1}
+                      onChange={(e) => {
+                        const ch = parseInt(e.target.value);
+                        localStorage.setItem("fluidsynth_channel_pref", ch);
+                        save(e.target.name, ch, onChange);
+                      }}
+                    >
+                      {[...Array(16).keys()].map((i) => (
+                        <option key={i} value={i}>
+                          {i + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    FluidSynth Volume
+                    <span
+                      class="sidebar-input"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <input
+                        type="range"
+                        min="0"
+                        max="127"
+                        step="1"
+                        style={{ width: "100%" }}
+                        defaultValue={parseInt(
+                          localStorage.getItem("fluidsynth_volume_pref") ?? "100",
+                        )}
+                        onInput={(e) => {
+                          const v = parseInt(e.target.value);
+                          localStorage.setItem("fluidsynth_volume_pref", v);
+                          setFsVolume(v);
+                          if (fluidsynthOutput && settings.fluidsynth_channel >= 0) {
+                            fluidsynthOutput.send([0xb0 | settings.fluidsynth_channel, 7, v]);
+                          }
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontVariantNumeric: "tabular-nums",
+                          minWidth: "2.5em",
+                          textAlign: "right",
+                          fontSize: "0.85em",
+                        }}
+                      >
+                        {fsVolume}
+                      </span>
+                    </span>
+                  </label>
+                  {mtsPortIsFluidsynth && (
+                    <p style={{ color: "#cc4400", fontSize: "0.85em", margin: "0.2em 0" }}>
+                      ⚠ Main MTS port is FluidSynth — mirror disabled to prevent doubling.
+                    </p>
+                  )}
+                </>
+              )}
+            </>
+          );
+        })()}
 
       <br />
 
       {/* ── DIRECT ─────────────────────────────────────────────────────── */}
-
-      
 
       <label>
         <b>MTS Bulk Dump Tuning Maps</b>
@@ -344,9 +368,14 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p style={{ marginTop: 0.5 }}><em>
-        Old-school non-real-time 128 note mapping. Two modes are available: Dynamic emulates real-time MTS by sending a new map before each note on, performance depends on synth. Static is the classic approach: send a map (automatically or manually) and then play on one channel.
-      </em></p>
+      <p style={{ marginTop: 0.5 }}>
+        <em>
+          Old-school non-real-time 128 note mapping. Two modes are available: Dynamic emulates
+          real-time MTS by sending a new map before each note on, performance depends on synth.
+          Static is the classic approach: send a map (automatically or manually) and then play on
+          one channel.
+        </em>
+      </p>
 
       {settings.output_direct && (
         <>
@@ -360,7 +389,9 @@ const MidiOutputs = (props) => {
             >
               <option value="OFF">OFF</option>
               {outputs.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
               ))}
             </select>
           </label>
@@ -398,7 +429,9 @@ const MidiOutputs = (props) => {
                 >
                   <option value="-1">OFF</option>
                   {[...Array(16).keys()].map((i) => (
-                    <option key={i} value={i}>{i + 1}</option>
+                    <option key={i} value={i}>
+                      {i + 1}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -406,8 +439,15 @@ const MidiOutputs = (props) => {
               {settings.direct_mode === "static" && (
                 <label>
                   Auto-Send Static Map
-                  <span style={{ display: "flex", alignItems: "center",
-                                 gap: "8px", marginLeft: "auto", marginTop: "4px" }}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginLeft: "auto",
+                      marginTop: "4px",
+                    }}
+                  >
                     <input
                       name="direct_sysex_auto"
                       type="checkbox"
@@ -415,25 +455,34 @@ const MidiOutputs = (props) => {
                       disabled={!hasSysexMidi}
                       onChange={(e) => save(e.target.name, e.target.checked, onChange)}
                     />
-                    <button type="button" style={{ fontSize: "0.85em" }}
+                    <button
+                      type="button"
+                      style={{ fontSize: "0.85em" }}
                       disabled={!hasSysexMidi}
                       onClick={() => {
                         const output = WebMidi.getOutputById(settings.direct_device);
                         if (output && props.keysRef?.current)
                           props.keysRef.current.mtsSendMap(output);
                       }}
-                    >Send Static Map</button>
+                    >
+                      Send Static Map
+                    </button>
                   </span>
                 </label>
               )}
 
               <label>
                 Device ID (127 = all)
-                <input name="direct_device_id" type="text" inputMode="numeric"
+                <input
+                  name="direct_device_id"
+                  type="text"
+                  inputMode="numeric"
                   class="sidebar-input"
                   key={settings.direct_device_id ?? 127}
                   defaultValue={settings.direct_device_id ?? 127}
-                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.target.blur();
+                  }}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
@@ -445,11 +494,16 @@ const MidiOutputs = (props) => {
 
               <label>
                 Tuning Map Number
-                <input name="direct_tuning_map_number" type="text" inputMode="numeric"
+                <input
+                  name="direct_tuning_map_number"
+                  type="text"
+                  inputMode="numeric"
                   class="sidebar-input"
                   key={settings.direct_tuning_map_number ?? 0}
                   defaultValue={settings.direct_tuning_map_number ?? 0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.target.blur();
+                  }}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
@@ -474,8 +528,6 @@ const MidiOutputs = (props) => {
                   }}
                 />
               </label>
-
-
             </>
           )}
         </>
@@ -495,11 +547,9 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-       <p style={{ marginTop: 0.5 }}>
+      <p style={{ marginTop: 0.5 }}>
         <em>
-          <a href="https://midi.org/mpe-midi-polyphonic-expression">
-            MIDI Polyphonic Expression
-          </a>{" "}
+          <a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a>{" "}
           allows per-note polyphonic bend and modulation with limited polyphony.
         </em>
       </p>
@@ -531,9 +581,7 @@ const MidiOutputs = (props) => {
                   name="mpe_manager_ch"
                   class="sidebar-input"
                   value={masterCh}
-                  onChange={(e) =>
-                    save(e.target.name, e.target.value, onChange)
-                  }
+                  onChange={(e) => save(e.target.name, e.target.value, onChange)}
                 >
                   <option value="1">Channel 1</option>
                   <option value="16">Channel 16</option>
@@ -547,9 +595,7 @@ const MidiOutputs = (props) => {
                   name="mpe_lo_ch"
                   class="sidebar-input"
                   value={loCh}
-                  onChange={(e) =>
-                    save(e.target.name, parseInt(e.target.value), onChange)
-                  }
+                  onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
                 >
                   {available.map((ch) => (
                     <option key={ch} value={ch} disabled={ch > hiCh}>
@@ -565,9 +611,7 @@ const MidiOutputs = (props) => {
                   name="mpe_hi_ch"
                   class="sidebar-input"
                   value={hiCh}
-                  onChange={(e) =>
-                    save(e.target.name, parseInt(e.target.value), onChange)
-                  }
+                  onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
                 >
                   {available.map((ch) => (
                     <option key={ch} value={ch} disabled={ch < loCh}>
@@ -596,9 +640,7 @@ const MidiOutputs = (props) => {
                   name="mpe_mode"
                   class="sidebar-input"
                   value={settings.mpe_mode || "Ableton_workaround"}
-                  onChange={(e) =>
-                    save(e.target.name, e.target.value, onChange)
-                  }
+                  onChange={(e) => save(e.target.name, e.target.value, onChange)}
                 >
                   <option value="Ableton_workaround">
                     Ableton compatible: unique notes & PB 48
@@ -607,30 +649,30 @@ const MidiOutputs = (props) => {
                 </select>
               </label>
 
-              
-
               {settings.mpe_mode === "Full_MPE" && (
                 <>
-                <label>
-                  MPE PB Range (semitones)
-                  <input
-                    name="mpe_pitchbend_range"
-                    type="text"
-                    inputMode="numeric"
-                    class="sidebar-input"
-                    key={settings.mpe_pitchbend_range}
-                    defaultValue={settings.mpe_pitchbend_range ?? 48}
-                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                  onBlur={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (!isNaN(val) && val >= 1 && val <= 96)
-                        save("mpe_pitchbend_range", val, onChange);
-                      else e.target.value = settings.mpe_pitchbend_range ?? 48;
-                    }}
-                  />
-                </label>
+                  <label>
+                    MPE PB Range (semitones)
+                    <input
+                      name="mpe_pitchbend_range"
+                      type="text"
+                      inputMode="numeric"
+                      class="sidebar-input"
+                      key={settings.mpe_pitchbend_range}
+                      defaultValue={settings.mpe_pitchbend_range ?? 48}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.target.blur();
+                      }}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val >= 1 && val <= 96)
+                          save("mpe_pitchbend_range", val, onChange);
+                        else e.target.value = settings.mpe_pitchbend_range ?? 48;
+                      }}
+                    />
+                  </label>
                 </>
-                )}
+              )}
               <label>
                 MPE Configuration (RPN)
                 <span
@@ -643,7 +685,7 @@ const MidiOutputs = (props) => {
                 >
                   <button
                     type="button"
-                    style={{ fontSize: "0.85em" , marginTop: "4px"}}
+                    style={{ fontSize: "0.85em", marginTop: "4px" }}
                     onClick={() => {
                       const output = WebMidi.getOutputById(settings.mpe_device);
                       if (output) {
@@ -681,11 +723,14 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p style={{ marginTop: 0.5 }}><em>
-        Sends notes directly to SuperCollider via a local WebSocket→OSC bridge.{/*/<br />
+      <p style={{ marginTop: 0.5 }}>
+        <em>
+          Sends notes directly to SuperCollider via a local WebSocket→OSC bridge.
+          {/*/<br />
         Run </em> (&nbsp;<code>yarn osc-bridge</code>&nbsp;) <em> locally and load SC patch with
         OSCResponders.scd.*/}
-      </em></p>
+        </em>
+      </p>
 
       {settings.output_osc && (
         <label>
@@ -704,7 +749,6 @@ const MidiOutputs = (props) => {
           />
         </label>
       )}
-
     </fieldset>
   );
 };

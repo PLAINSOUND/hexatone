@@ -22,15 +22,12 @@ export function deriveSpectrumNoteColors(settings, fundamentalColor) {
 // Color fields only — changes here should NOT reconstruct the hex grid.
 export const normalizeColors = (settings) => {
   const fundamental_color = (settings.fundamental_color || "").replace(/#/, "");
-  const note_colors = (settings.note_colors || []).map((c) =>
-    c ? c.replace(/#/, "") : "ffffff",
-  );
+  const note_colors = (settings.note_colors || []).map((c) => (c ? c.replace(/#/, "") : "ffffff"));
 
   return {
     fundamental_color,
-    note_colors: note_colors.length > 0
-      ? note_colors
-      : deriveSpectrumNoteColors(settings, fundamental_color),
+    note_colors:
+      note_colors.length > 0 ? note_colors : deriveSpectrumNoteColors(settings, fundamental_color),
     spectrum_colors: settings.spectrum_colors,
   };
 };

@@ -1,4 +1,10 @@
-import { BASE_BY_ID, CHROMATIC_MONZOS, EXTRA_MONZOS, PRIME_COUNT, SYNTONIC_BY_AMOUNT } from "./heji-subset.js";
+import {
+  BASE_BY_ID,
+  CHROMATIC_MONZOS,
+  EXTRA_MONZOS,
+  PRIME_COUNT,
+  SYNTONIC_BY_AMOUNT,
+} from "./heji-subset.js";
 
 const AUTO_OFFSET_TO_A = [4, -3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const NATURALS_FROM_C_REF = {
@@ -66,10 +72,7 @@ export function naturalBaseMonzo(letter, octave) {
 
 export function pythagoreanMonzoForSpelling(letter, octave, baseId) {
   const base = BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"];
-  return addMonzos(
-    naturalBaseMonzo(letter, octave),
-    CHROMATIC_MONZOS[base.chromatic],
-  );
+  return addMonzos(naturalBaseMonzo(letter, octave), CHROMATIC_MONZOS[base.chromatic]);
 }
 
 export function hejiDeltaMonzoForSelection(baseId, extraIds = []) {
@@ -107,9 +110,7 @@ export function guessSpellingFromMidi(midiNote) {
 
 export function spellingLabel(letter, octave, baseId, extraIds = []) {
   const base = BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"];
-  const accidental =
-    base.chromatic === "flat" ? "b" :
-      base.chromatic === "sharp" ? "#" : "";
+  const accidental = base.chromatic === "flat" ? "b" : base.chromatic === "sharp" ? "#" : "";
   const extras = extraIds.join(",");
   return `${letter}${accidental}${octave}${extras ? ` [${extras}]` : ""}`;
 }

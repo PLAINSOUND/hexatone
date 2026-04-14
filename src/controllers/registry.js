@@ -1,4 +1,9 @@
-import { lumatoneNoteOffset, LUMATONE_BLOCK_OFFSETS, LUMATONE_NOTES_PER_BLOCK, LUMATONE_BLOCKS } from './lumatone.js';
+import {
+  lumatoneNoteOffset,
+  LUMATONE_BLOCK_OFFSETS,
+  LUMATONE_NOTES_PER_BLOCK,
+  LUMATONE_BLOCKS,
+} from "./lumatone.js";
 
 /**
  * controllers/registry.js
@@ -43,7 +48,7 @@ function makeMap(entries) {
   const m = new Map();
   for (const { ch, note, x, y } of entries) {
     m.set(`${ch}.${note}`, { x, y });
-  };
+  }
   console.log("map built with", m.size, "entries");
   return m;
 }
@@ -63,12 +68,12 @@ function makeMap(entries) {
 // correctly mapping all 98 keys into hexatone's axial (r, dr) space where
 // +r = right and +dr = down. rSteps / drSteps are irrelevant — this is geometry.
 
-const AXIS49_ROWS          = 7;
-const AXIS49_COLS          = 14;
+const AXIS49_ROWS = 7;
+const AXIS49_COLS = 14;
 const AXIS49_COLS_PER_BANK = 7;
 
 function axis49HexSpace(col, row) {
-  const bank      = Math.floor(col / AXIS49_COLS_PER_BANK);
+  const bank = Math.floor(col / AXIS49_COLS_PER_BANK);
   const colInBank = col % AXIS49_COLS_PER_BANK;
   return {
     x: col,
@@ -77,7 +82,7 @@ function axis49HexSpace(col, row) {
 }
 
 function buildAxis49Map(anchorNote) {
-  const note1     = Math.max(1, Math.min(98, anchorNote));
+  const note1 = Math.max(1, Math.min(98, anchorNote));
   const anchorCol = Math.floor((note1 - 1) / AXIS49_ROWS);
   const anchorRow = (note1 - 1) % AXIS49_ROWS;
   const { x: axPhys, y: ayPhys } = axis49HexSpace(anchorCol, anchorRow);
@@ -117,8 +122,8 @@ function buildAxis49Map(anchorNote) {
 
 // ── Physical geometry ──────────────────────────────────────────────────────
 
-const TS41_COLUMNS     = 37;
-const TS41_ROWS        = 13;
+const TS41_COLUMNS = 37;
+const TS41_ROWS = 13;
 export const TS41_TOTAL_NOTES = 126;
 
 // note (1-126) → {col, row}
@@ -129,12 +134,15 @@ export const TS41_TOTAL_NOTES = 126;
 // Used to find which column a note-in-block belongs to (findLastIndex where start < posInBlock).
 const TS41_COL_NOTE_START = [3, 7, 10, 13, 17, 20, 24, 27, 31, 34, 37, 41];
 // TS41_COL_ROW_START[col]: the physical row of the topmost key in that column (0-indexed, 37 columns total).
-const TS41_COL_ROW_START = [1,0,1,2,1,2,1,2,1,2,3,2,3,2,3,4,3,4,3,4,3,4,5,4,5,4,5,6,5,6,5,6,5,6,7,6,7];
+const TS41_COL_ROW_START = [
+  1, 0, 1, 2, 1, 2, 1, 2, 1, 2, 3, 2, 3, 2, 3, 4, 3, 4, 3, 4, 3, 4, 5, 4, 5, 4, 5, 6, 5, 6, 5, 6, 5,
+  6, 7, 6, 7,
+];
 
 function noteToPhysical(note) {
   if (note < 1 || note > 126) return null;
   const block = Math.floor((note - 1) / 41);
-  const posInBlock = ((note - 1) % 41) + 1;  // 1..41, avoids mod-41 === 0 edge case
+  const posInBlock = ((note - 1) % 41) + 1; // 1..41, avoids mod-41 === 0 edge case
   // colInBlock: 0-indexed column within the 12-column repeating block.
   // findLastIndex returns the index of the last column whose top-note start < posInBlock.
   const colInBlock = TS41_COL_NOTE_START.findLastIndex((noteStart) => noteStart < posInBlock) + 1;
@@ -200,14 +208,17 @@ function buildTS41Map(anchorNote) {
 // EXQUIS_COL_NOTE_START[c]: first MIDI note number assigned to column c (0-indexed, notes 0–60).
 const EXQUIS_COL_NOTE_START = [0, 6, 11, 17, 22, 28, 33, 39, 44, 50, 55];
 // EXQUIS_COL_SIZES[c]: number of keys in column c (even cols=6, odd cols=5).
-const EXQUIS_COL_SIZES      = [6, 5, 6, 5, 6, 5, 6, 5, 6, 5, 6];
+const EXQUIS_COL_SIZES = [6, 5, 6, 5, 6, 5, 6, 5, 6, 5, 6];
 
 /** Convert Exquis note 0–60 → { col, row } in physical grid. */
 function exquisNoteToColRow(note) {
   // Find which column the note falls in using the precomputed column note-starts.
   let col = 10;
   for (let c = 0; c < 11; c++) {
-    if (note < EXQUIS_COL_NOTE_START[c] + EXQUIS_COL_SIZES[c]) { col = c; break; }
+    if (note < EXQUIS_COL_NOTE_START[c] + EXQUIS_COL_SIZES[c]) {
+      col = c;
+      break;
+    }
   }
   const row = note - EXQUIS_COL_NOTE_START[col];
   return { col, row };
@@ -286,10 +297,10 @@ function buildLumatoneMap(anchorChannel, anchorNote) {
 // adjusting only TPX_COLUMN_LAYOUT / TPX_SEAM_ALIASES / TPX_BLOCK_OFFSETS.
 
 const TPX_CHANNEL_PAIRS = [
-  { odd: 3,  even: 4  },
-  { odd: 5,  even: 6  },
-  { odd: 7,  even: 8  },
-  { odd: 9,  even: 10 },
+  { odd: 3, even: 4 },
+  { odd: 5, even: 6 },
+  { odd: 7, even: 8 },
+  { odd: 9, even: 10 },
   { odd: 11, even: 12 },
   { odd: 13, even: 14 },
 ];
@@ -301,29 +312,29 @@ const TPX_BLOCK_OFFSETS = TPX_CHANNEL_PAIRS.map((_, index) => ({
 }));
 
 const TPX_COLUMN_LAYOUT = [
-  { channelKind: 'odd',  x: 0,  start: 0,  length: 18 },
-  { channelKind: 'odd',  x: 1,  start: 18, length: 18 },
-  { channelKind: 'odd',  x: 2,  start: 36, length: 16 },
-  { channelKind: 'odd',  x: 3,  start: 52, length: 17 },
-  { channelKind: 'odd',  x: 4,  start: 69, length: 19 },
-  { channelKind: 'odd',  x: 5,  start: 88, length: 17 },
-  { channelKind: 'even', x: 6,  start: 0,  length: 18 },
-  { channelKind: 'even', x: 7,  start: 18, length: 18 },
-  { channelKind: 'even', x: 8,  start: 36, length: 16 },
-  { channelKind: 'even', x: 9,  start: 52, length: 18 },
-  { channelKind: 'even', x: 10, start: 70, length: 18 },
-  { channelKind: 'even', x: 11, start: 88, length: 18 },
+  { channelKind: "odd", x: 0, start: 0, length: 18 },
+  { channelKind: "odd", x: 1, start: 18, length: 18 },
+  { channelKind: "odd", x: 2, start: 36, length: 16 },
+  { channelKind: "odd", x: 3, start: 52, length: 17 },
+  { channelKind: "odd", x: 4, start: 69, length: 19 },
+  { channelKind: "odd", x: 5, start: 88, length: 17 },
+  { channelKind: "even", x: 6, start: 0, length: 18 },
+  { channelKind: "even", x: 7, start: 18, length: 18 },
+  { channelKind: "even", x: 8, start: 36, length: 16 },
+  { channelKind: "even", x: 9, start: 52, length: 18 },
+  { channelKind: "even", x: 10, start: 70, length: 18 },
+  { channelKind: "even", x: 11, start: 88, length: 18 },
 ];
 
 // Inferred duplicate-note aliases from the TPX reference image and user notes.
 // The currently confirmed duplicates are the repeated note numbers on the odd
 // channel. These addresses collapse onto the same physical hex.
 const TPX_SEAM_ALIASES = new Map([
-  ['odd.18', 'odd.17'],
-  ['odd.36', 'odd.35'],
-  ['odd.52', 'odd.51'],
-  ['odd.69', 'odd.68'],
-  ['odd.88', 'odd.87'],
+  ["odd.18", "odd.17"],
+  ["odd.36", "odd.35"],
+  ["odd.52", "odd.51"],
+  ["odd.69", "odd.68"],
+  ["odd.88", "odd.87"],
 ]);
 
 function tpxHexSpace(col, row) {
@@ -363,12 +374,14 @@ function buildTonalPlexusMap(anchorChannel, anchorNote) {
     ({ odd, even }) => anchorChannel === odd || anchorChannel === even,
   );
   const safePairIndex = anchorPairIndex >= 0 ? anchorPairIndex : 2;
-  const safeAnchorChannel = anchorPairIndex >= 0 ? anchorChannel : TPX_CHANNEL_PAIRS[safePairIndex].even;
-  const anchorChannelKind = safeAnchorChannel % 2 === 1 ? 'odd' : 'even';
-  const anchorLocal = TPX_BLOCK_ADDRESS_MAP.get(`${anchorChannelKind}.${anchorNote}`)
-    ?? TPX_BLOCK_ADDRESS_MAP.get(`even.${anchorNote}`)
-    ?? TPX_BLOCK_ADDRESS_MAP.get(`odd.${anchorNote}`)
-    ?? TPX_BLOCK_ADDRESS_MAP.get('even.60');
+  const safeAnchorChannel =
+    anchorPairIndex >= 0 ? anchorChannel : TPX_CHANNEL_PAIRS[safePairIndex].even;
+  const anchorChannelKind = safeAnchorChannel % 2 === 1 ? "odd" : "even";
+  const anchorLocal =
+    TPX_BLOCK_ADDRESS_MAP.get(`${anchorChannelKind}.${anchorNote}`) ??
+    TPX_BLOCK_ADDRESS_MAP.get(`even.${anchorNote}`) ??
+    TPX_BLOCK_ADDRESS_MAP.get(`odd.${anchorNote}`) ??
+    TPX_BLOCK_ADDRESS_MAP.get("even.60");
   const anchorBlockOffset = TPX_BLOCK_OFFSETS[safePairIndex];
   const anchorWorldX = anchorLocal.x + anchorBlockOffset.x;
   const anchorWorldY = anchorLocal.y + anchorBlockOffset.y;
@@ -378,9 +391,9 @@ function buildTonalPlexusMap(anchorChannel, anchorNote) {
     const pair = TPX_CHANNEL_PAIRS[pairIndex];
     const blockOffset = TPX_BLOCK_OFFSETS[pairIndex];
     for (const [key, local] of TPX_BLOCK_ADDRESS_MAP.entries()) {
-      const [channelKind, noteString] = key.split('.');
+      const [channelKind, noteString] = key.split(".");
       const note = Number(noteString);
-      const ch = channelKind === 'odd' ? pair.odd : pair.even;
+      const ch = channelKind === "odd" ? pair.odd : pair.even;
       entries.push({
         ch,
         note,
@@ -394,21 +407,53 @@ function buildTonalPlexusMap(anchorChannel, anchorNote) {
 }
 
 const TPX_41_EVEN_GROUPS = [
-  [0, 4], [5, 9], [10, 14], [15, 20], [21, 25],
-  [26, 30], [31, 35], [36, 40], [41, 45], [46, 50],
-  [51, 55], [56, 60], [61, 65], [66, 71], [72, 76],
-  [77, 81], [82, 86], [87, 91], [92, 96], [97, 101],
+  [0, 4],
+  [5, 9],
+  [10, 14],
+  [15, 20],
+  [21, 25],
+  [26, 30],
+  [31, 35],
+  [36, 40],
+  [41, 45],
+  [46, 50],
+  [51, 55],
+  [56, 60],
+  [61, 65],
+  [66, 71],
+  [72, 76],
+  [77, 81],
+  [82, 86],
+  [87, 91],
+  [92, 96],
+  [97, 101],
 ];
 
 const TPX_41_ODD_GROUPS = [
-  [3, 7], [8, 12], [13, 17], [18, 22], [23, 27],
-  [28, 32], [33, 38], [39, 43], [44, 48], [49, 54],
-  [55, 59], [60, 64], [65, 69], [70, 74], [75, 79],
-  [80, 84], [85, 90], [91, 95], [96, 100], [101, 105],
+  [3, 7],
+  [8, 12],
+  [13, 17],
+  [18, 22],
+  [23, 27],
+  [28, 32],
+  [33, 38],
+  [39, 43],
+  [44, 48],
+  [49, 54],
+  [55, 59],
+  [60, 64],
+  [65, 69],
+  [70, 74],
+  [75, 79],
+  [80, 84],
+  [85, 90],
+  [91, 95],
+  [96, 100],
+  [101, 105],
 ];
 
 export function getTonalPlexusInputMode(settings = {}) {
-  return settings.tonalplexus_input_mode || 'blocks_41';
+  return settings.tonalplexus_input_mode || "blocks_41";
 }
 
 function getTonalPlexus41ExtraCounts(settings = {}) {
@@ -514,7 +559,8 @@ export function normalizeTonalPlexus41InputWithSettings(channel, note, settings 
 // colStep = 1, rowStep = 5 (standard 4ths tuning, configurable on device).
 
 function buildLinnstrumentMap(anchorNote, colStep = 1, rowStep = 5) {
-  const COLS = 16, ROWS = 8;
+  const COLS = 16,
+    ROWS = 8;
   // LinnStrument sends note on channel = row+1 (row 0 = ch1)
   // Find anchor row and col from anchorNote (assume anchor is at row 0 col 0)
   const entries = [];
@@ -559,7 +605,7 @@ function buildLaunchpadMap(anchorNote, colStep = 2, rowStep = 5) {
       const physNote = 11 + row * 10 + col;
       // Map to pitch offset from anchor
       const note = physNote; // we store the physical note as-is
-      const x = col * colStep - (col * colStep);  // relative to anchor col=0
+      const x = col * colStep - col * colStep; // relative to anchor col=0
       entries.push({ ch: 1, note: physNote, x: col, y: row });
     }
   }
@@ -568,7 +614,7 @@ function buildLaunchpadMap(anchorNote, colStep = 2, rowStep = 5) {
   const anchorCol = (anchorNote - 11) % 10;
   const result = new Map();
   for (const [key, val] of makeMap(entries)) {
-    const [ch, note] = key.split('.').map(Number);
+    const [ch, note] = key.split(".").map(Number);
     const row = Math.floor((note - 11) / 10);
     const col = (note - 11) % 10;
     result.set(key, { x: col - anchorCol, y: row - anchorRow });
@@ -580,10 +626,11 @@ function buildLaunchpadMap(anchorNote, colStep = 2, rowStep = 5) {
 
 export const CONTROLLER_REGISTRY = [
   {
-    id: 'tonalplexus',
-    name: 'Tonal Plexus',
-    detect: name => name.includes('tonal plexus') || name.includes('tonalplexus') || name.includes('tpx'),
-    description: '6 Bosanquet blocks across channel pairs 3–14.',
+    id: "tonalplexus",
+    name: "Tonal Plexus",
+    detect: (name) =>
+      name.includes("tonal plexus") || name.includes("tonalplexus") || name.includes("tpx"),
+    description: "6 Bosanquet blocks across channel pairs 3–14.",
     multiChannel: true,
     mpe: false,
     anchorDefault: 7,
@@ -592,18 +639,18 @@ export const CONTROLLER_REGISTRY = [
     sequentialChannelGroupSize: 1,
     sequentialLegacyDefault: false,
     learnConstraints: {
-      noteRange:    { min: 0, max: 105 },
+      noteRange: { min: 0, max: 105 },
       channelRange: { min: 3, max: 14 },
       multiChannel: true,
     },
-    defaultMode: 'blocks41',
+    defaultMode: "blocks41",
     modes: {
       blocks41: {
         defaultPrefs: {
           anchorNote: 7,
           anchorChannel: 9,
           midi_passthrough: true,
-          tonalplexus_input_mode: 'blocks_41',
+          tonalplexus_input_mode: "blocks_41",
         },
       },
       layout205: {
@@ -611,18 +658,18 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 7,
           anchorChannel: 9,
           midi_passthrough: false,
-          tonalplexus_input_mode: 'layout_205',
+          tonalplexus_input_mode: "layout_205",
         },
       },
     },
-    resolveMode: (settings = {}) => (getTonalPlexusInputMode(settings) === 'layout_205' ? 'layout205' : 'blocks41'),
-    normalizeInput: (channel, note, settings = {}) => (
-      getTonalPlexusInputMode(settings) === 'blocks_41'
+    resolveMode: (settings = {}) =>
+      getTonalPlexusInputMode(settings) === "layout_205" ? "layout205" : "blocks41",
+    normalizeInput: (channel, note, settings = {}) =>
+      getTonalPlexusInputMode(settings) === "blocks_41"
         ? normalizeTonalPlexus41InputWithSettings(channel, note, settings)
-        : { channel, note }
-    ),
+        : { channel, note },
     resolveScaleInputPitchCents: (channel, note, settings = {}) => {
-      if (getTonalPlexusInputMode(settings) !== 'layout_205') return null;
+      if (getTonalPlexusInputMode(settings) !== "layout_205") return null;
       const normalized = normalizeTonalPlexus205Degree(channel, note);
       if (!normalized) return null;
       const equave = settings.equivInterval ?? 1200;
@@ -633,111 +680,113 @@ export const CONTROLLER_REGISTRY = [
         normalized.degree * (1200 / 205)
       );
     },
-    buildMap: (anchorNote, anchorChannel) => buildTonalPlexusMap(anchorChannel ?? 9, anchorNote ?? 7),
+    buildMap: (anchorNote, anchorChannel) =>
+      buildTonalPlexusMap(anchorChannel ?? 9, anchorNote ?? 7),
   },
 
   {
-    id: 'axis49',
-    name: 'C-Thru AXIS-49 2A',
-    detect: name => name.includes('axis-4') || name.includes('axis 4'),
-    description: 'Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hexes.',
+    id: "axis49",
+    name: "C-Thru AXIS-49 2A",
+    detect: (name) => name.includes("axis-4") || name.includes("axis 4"),
+    description: "Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hexes.",
     multiChannel: false,
     mpe: false,
-    anchorDefault: 53,  // note 53 is the centre key in selfless mode
-    defaultMode: 'layout2d',
+    anchorDefault: 53, // note 53 is the centre key in selfless mode
+    defaultMode: "layout2d",
     modes: {
       layout2d: {
         defaultPrefs: {
-          anchorNote:       53,
+          anchorNote: 53,
           midi_passthrough: false,
         },
       },
       bypass: {
         defaultPrefs: {
-          anchorNote:       50,  // centre of the 0–127 MIDI range
+          anchorNote: 50, // centre of the 0–127 MIDI range
           midi_passthrough: true,
         },
       },
     },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
     buildMap: (anchorNote) => buildAxis49Map(anchorNote ?? 53),
   },
 
   {
-    id: 'ts41',
-    name: 'TS41 MIDI Keyboard',
-    detect: name => name.includes('ts41'),
-    description: '41edo mode (Ch 1, Notes 1–126). Bosanquet Layout.',
+    id: "ts41",
+    name: "TS41 MIDI Keyboard",
+    detect: (name) => name.includes("ts41"),
+    description: "41edo mode (Ch 1, Notes 1–126). Bosanquet Layout.",
     multiChannel: false,
     mpe: false,
     anchorDefault: 36,
-    defaultMode: 'layout2d',
+    defaultMode: "layout2d",
     modes: {
       layout2d: {
         defaultPrefs: {
-          anchorNote:       36,
+          anchorNote: 36,
           midi_passthrough: false,
         },
       },
       bypass: {
         defaultPrefs: {
-          anchorNote:       60,
+          anchorNote: 60,
           midi_passthrough: true,
         },
       },
     },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
     buildMap: (anchorNote) => buildTS41Map(anchorNote ?? 36),
   },
 
   {
-    id: 'lumatone',
-    name: 'Lumatone',
-    detect: name => name.includes('lumatone') || name.includes('midi function'),
-    description: '5 blocks × 56 keys, channels 1–5 encode block position.',
+    id: "lumatone",
+    name: "Lumatone",
+    detect: (name) => name.includes("lumatone") || name.includes("midi function"),
+    description: "5 blocks × 56 keys, channels 1–5 encode block position.",
     multiChannel: true,
-    mpe: false,  // channels encode block geometry, not per-voice MPE expression
-    anchorDefault: 26,  // note 26 in centre block is the default centre key
-    anchorChannelDefault: 3,  // centre block
+    mpe: false, // channels encode block geometry, not per-voice MPE expression
+    anchorDefault: 26, // note 26 in centre block is the default centre key
+    anchorChannelDefault: 3, // centre block
     // In sequential/bypass mode: channels 1–5 map to blocks — transposition by equave
     // and mod-8 wrapping are both needed for correct note mapping.
-    sequentialTransposeDefault: null,  // null = equave (one equave per channel)
-    sequentialLegacyDefault: true,     // wrap channels 9–16 → 1–8
+    sequentialTransposeDefault: null, // null = equave (one equave per channel)
+    sequentialLegacyDefault: true, // wrap channels 9–16 → 1–8
     buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 26),
     learnConstraints: {
-      noteRange:     { min: 0, max: 55 },
-      channelRange:  { min: 1, max: 5 },
-      multiChannel:  true,
+      noteRange: { min: 0, max: 55 },
+      channelRange: { min: 1, max: 5 },
+      multiChannel: true,
     },
     // Mode-aware persistence: separate anchor and prefs for 2D geometry vs bypass.
     // Anchor note (0–55 within block) and channel (1–5) both differ between modes.
-    defaultMode: 'layout2d',
+    defaultMode: "layout2d",
     modes: {
       layout2d: {
         defaultPrefs: {
-          anchorNote:    26,  // note 26 within the centre block
-          anchorChannel: 3,   // block 3 = centre block
+          anchorNote: 26, // note 26 within the centre block
+          anchorChannel: 3, // block 3 = centre block
           midi_passthrough: false,
         },
       },
       bypass: {
         defaultPrefs: {
-          anchorNote:    60,  // MIDI note 60 in sequential mode (full 0–127 range)
+          anchorNote: 60, // MIDI note 60 in sequential mode (full 0–127 range)
           anchorChannel: 4,
           midi_passthrough: true,
         },
       },
     },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
   },
 
   {
-    id: 'linnstrument128',
-    name: 'Roger Linn Design LinnStrument 128',
-    detect: name => name.includes('linnstrument'),
-    description: '16×8 grid, row per channel (ch1–8). Sends MPE: per-voice pitch bend, pressure, and CC74.',
+    id: "linnstrument128",
+    name: "Roger Linn Design LinnStrument 128",
+    detect: (name) => name.includes("linnstrument"),
+    description:
+      "16×8 grid, row per channel (ch1–8). Sends MPE: per-voice pitch bend, pressure, and CC74.",
     multiChannel: true,
-    mpe: true,  // each row's channel carries per-voice expression for that voice
+    mpe: true, // each row's channel carries per-voice expression for that voice
     // LinnStrument uses ch 1–8 (one per row); configurable on device but 1–8 is the default.
     // null here means user-configurable — the MPE channel range picker is shown in the UI.
     mpeVoiceChannels: null,
@@ -746,72 +795,79 @@ export const CONTROLLER_REGISTRY = [
   },
 
   {
-    id: 'push2',
-    name: 'Ableton Push 2 / Push 3',
-    detect: name => name.includes('push 2') || name.includes('push 3') || name.includes('push2') || name.includes('push3'),
-    description: '8×8 isomorphic grid, single channel. Default 4ths tuning.',
+    id: "push2",
+    name: "Ableton Push 2 / Push 3",
+    detect: (name) =>
+      name.includes("push 2") ||
+      name.includes("push 3") ||
+      name.includes("push2") ||
+      name.includes("push3"),
+    description: "8×8 isomorphic grid, single channel. Default 4ths tuning.",
     multiChannel: false,
     mpe: false,
     anchorDefault: 36,
-    defaultMode: 'layout2d',
+    defaultMode: "layout2d",
     modes: {
       layout2d: {
         defaultPrefs: {
-          anchorNote:       36,
+          anchorNote: 36,
           midi_passthrough: false,
         },
       },
       bypass: {
         defaultPrefs: {
-          anchorNote:       60,
+          anchorNote: 60,
           midi_passthrough: true,
         },
       },
     },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
     buildMap: (anchorNote) => buildPushMap(anchorNote ?? 36),
   },
 
   {
-    id: 'launchpad',
-    name: 'Novation Launchpad (Pro / X / Mini mk3)',
-    detect: name => name.includes('launchpad'),
-    description: '8×8 grid in programmer mode. Set device to scale/isomorphic mode for best results.',
+    id: "launchpad",
+    name: "Novation Launchpad (Pro / X / Mini mk3)",
+    detect: (name) => name.includes("launchpad"),
+    description:
+      "8×8 grid in programmer mode. Set device to scale/isomorphic mode for best results.",
     multiChannel: false,
     mpe: false,
     anchorDefault: 36,
-    defaultMode: 'layout2d',
+    defaultMode: "layout2d",
     modes: {
       layout2d: {
         defaultPrefs: {
-          anchorNote:       36,
+          anchorNote: 36,
           midi_passthrough: false,
         },
       },
       bypass: {
         defaultPrefs: {
-          anchorNote:       60,
+          anchorNote: 60,
           midi_passthrough: true,
         },
       },
     },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
     buildMap: (anchorNote) => buildLaunchpadMap(anchorNote ?? 36),
   },
 
   {
-    id: 'exquis',
-    name: 'Exquis (Intuitive Instruments)',
-    detect: name => name.includes('exquis'),
-    description: '61-note hexagonal grid. Hexatone maps layout and colours automatically and toggles MPE mode. In MPE mode set Pitch Bend Range on Exquis to 48 (Settings 2, Encoder 2).',
-    descriptionScale: '61-note hexagonal grid. User may choose Exquis Layout and MPE/Polytouch mode manually on their device. Set Exquis Pitch Bend Range to 48 (Settings 2, Encoder 2).',
+    id: "exquis",
+    name: "Exquis (Intuitive Instruments)",
+    detect: (name) => name.includes("exquis"),
+    description:
+      "61-note hexagonal grid. Hexatone maps layout and colours automatically and toggles MPE mode. In MPE mode set Pitch Bend Range on Exquis to 48 (Settings 2, Encoder 2).",
+    descriptionScale:
+      "61-note hexagonal grid. User may choose Exquis Layout and MPE/Polytouch mode manually on their device. Set Exquis Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     multiChannel: false,
-    mpe: true,  // Exquis sends MPE (per-note pitch bend and pressure on individual channels)
+    mpe: true, // Exquis sends MPE (per-note pitch bend and pressure on individual channels)
     // In Rainbow Layout the Exquis always uses ch 2–15 for MPE voices.
     // This is fixed by the device — the channel range picker is hidden in the UI.
     mpeVoiceChannels: { lo: 2, hi: 15 },
     anchorDefault: 19,
-    defaultMode: 'layout2d',
+    defaultMode: "layout2d",
     modes: {
       layout2d: {
         defaultPrefs: {
@@ -830,16 +886,17 @@ export const CONTROLLER_REGISTRY = [
         },
       },
     },
-    resolveMode: (settings = {}) => (settings.midi_passthrough ? 'bypass' : 'layout2d'),
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
     buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
   },
 
   {
-    id: 'generic',
-    name: 'Generic Single-Channel Keyboard',
+    id: "generic",
+    name: "Generic Single-Channel Keyboard",
     // Never auto-detected — selected manually via the controller override dropdown.
     detect: () => false,
-    description: '1D keyboard input. 2D geometry is bypassed; anchor channel and per-channel offset are user-configurable.',
+    description:
+      "1D keyboard input. 2D geometry is bypassed; anchor channel and per-channel offset are user-configurable.",
     multiChannel: false,
     mpe: false,
     anchorDefault: 60,
@@ -856,7 +913,7 @@ export const CONTROLLER_REGISTRY = [
 export function detectController(deviceName) {
   if (!deviceName) return null;
   const name = deviceName.toLowerCase();
-  return CONTROLLER_REGISTRY.find(c => c.detect(name)) ?? null;
+  return CONTROLLER_REGISTRY.find((c) => c.detect(name)) ?? null;
 }
 
 export function getControllerById(id) {

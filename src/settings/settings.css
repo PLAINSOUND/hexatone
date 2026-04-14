@@ -23,7 +23,7 @@ label {
   line-height: 1.5em;
 }
 
-label>.sidebar-input {
+label > .sidebar-input {
   margin-left: auto;
 }
 
@@ -40,7 +40,7 @@ table {
   box-sizing: border-box;
 }
 
-table td>em {
+table td > em {
   margin-left: 0.25em;
 }
 
@@ -241,7 +241,6 @@ label .color-cell .color-input {
 
 /* Mobile: stack buttons vertically */
 @media (max-width: 550px) {
-
   .divide-octave-btn,
   .edit-scala-btn {
     margin-left: 0 !important;
@@ -321,7 +320,7 @@ td.scale-color-col {
 
 /* Full row highlight (used for degrees 1-n and equave) */
 .reference-degree-row {
-  background-color: #fff8A8;
+  background-color: #fff8a8;
   /* pale lemon yellow */
 }
 
@@ -332,7 +331,7 @@ td.scale-color-col {
 .reference-degree-row input:not(:disabled),
 .reference-degree-row .color-input,
 .reference-degree-row .color-cell:focus-within {
-  background-color: #fff8A8;
+  background-color: #fff8a8;
 }
 
 .center-degree-row {
@@ -352,13 +351,13 @@ td.scale-color-col {
 }
 
 .reference-degree-row.center-degree-row {
-  background-color: #fff8A8;
+  background-color: #fff8a8;
 }
 
 .reference-degree-row.center-degree-row input:not(:disabled),
 .reference-degree-row.center-degree-row .color-input,
 .reference-degree-row.center-degree-row .color-cell:focus-within {
-  background-color: #fff8A8;
+  background-color: #fff8a8;
 }
 
 .reference-degree-row td:first-child {
@@ -371,7 +370,7 @@ td.scale-color-col {
 
 /* Individual cell highlight (used for degree 0 right-side columns only) */
 .reference-degree-cell {
-  background-color: #fff8A8;
+  background-color: #fff8a8;
   /* pale lemon yellow */
 }
 
@@ -659,12 +658,12 @@ td.scale-color-col .color-input {
   display: flex;
   align-items: center;
   gap: 4px;
-  width: 50%;           /* matches .sidebar-input */
-  margin-left: auto;    /* right-aligns like .sidebar-input */
+  width: 50%; /* matches .sidebar-input */
+  margin-left: auto; /* right-aligns like .sidebar-input */
 }
 
 .fundamental-right input {
-  flex: 1;              /* fills space left after tune handle */
+  flex: 1; /* fills space left after tune handle */
   min-width: 0;
   text-align: right;
   height: 1.5em;
@@ -706,7 +705,7 @@ input[type="checkbox"]:checked {
 }
 
 input[type="checkbox"]:checked::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0.2em;
   top: 0.05em;

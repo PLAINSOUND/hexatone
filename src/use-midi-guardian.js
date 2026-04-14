@@ -16,14 +16,14 @@
  * CC120 (All Sound Off) — hard cut, fallback for synths that ignore CC123.
  */
 
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef } from "preact/hooks";
 
 export function useMidiGuardian(midi, settings) {
   // Keep refs so the panic function is stable (never reconstructed) but always
   // reads the latest midi/settings without needing useCallback deps.
-  const midiRef     = useRef(midi);
+  const midiRef = useRef(midi);
   const settingsRef = useRef(settings);
-  midiRef.current     = midi;
+  midiRef.current = midi;
   settingsRef.current = settings;
 
   // Stable function — created once, reads current values via refs.
@@ -36,29 +36,32 @@ export function useMidiGuardian(midi, settings) {
       const port = m.outputs.get(portId);
       if (!port) return;
       for (const c of channels) {
-        port.send([0xB0 + c, 123, 0]);  // All Notes Off
-        port.send([0xB0 + c, 120, 0]);  // All Sound Off
+        port.send([0xb0 + c, 123, 0]); // All Notes Off
+        port.send([0xb0 + c, 120, 0]); // All Sound Off
       }
     };
 
     // MTS / single-note / direct output
-    if (s.midi_device && s.midi_device !== 'OFF') {
+    if (s.midi_device && s.midi_device !== "OFF") {
       send(s.midi_device, [s.midi_channel ?? 0]);
     }
 
     // FluidSynth mirror — skip if same port as midi_device (already covered)
-    if (s.fluidsynth_device && s.fluidsynth_device !== 'OFF'
-        && s.fluidsynth_device !== s.midi_device) {
+    if (
+      s.fluidsynth_device &&
+      s.fluidsynth_device !== "OFF" &&
+      s.fluidsynth_device !== s.midi_device
+    ) {
       send(s.fluidsynth_device, [s.fluidsynth_channel ?? 0]);
     }
 
     // MPE output — all voice channels + manager
-    if (s.output_mpe && s.mpe_device && s.mpe_device !== 'OFF') {
+    if (s.output_mpe && s.mpe_device && s.mpe_device !== "OFF") {
       const channels = [];
-      const manager = parseInt(s.mpe_manager_ch) - 1;  // 0-indexed
+      const manager = parseInt(s.mpe_manager_ch) - 1; // 0-indexed
       if (!isNaN(manager) && manager >= 0) channels.push(manager);
-      for (let ch = (s.mpe_lo_ch ?? 2); ch <= (s.mpe_hi_ch ?? 15); ch++) {
-        channels.push(ch - 1);  // 0-indexed
+      for (let ch = s.mpe_lo_ch ?? 2; ch <= (s.mpe_hi_ch ?? 15); ch++) {
+        channels.push(ch - 1); // 0-indexed
       }
       send(s.mpe_device, channels);
     }
@@ -67,8 +70,8 @@ export function useMidiGuardian(midi, settings) {
   // beforeunload: flush CC123 synchronously before the page tears down.
   useEffect(() => {
     const handler = () => panicRef.current();
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
   }, []); // empty deps — handler is stable via ref
 
   return { panic: () => panicRef.current() };

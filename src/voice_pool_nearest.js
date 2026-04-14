@@ -21,13 +21,13 @@ export class VoicePool {
    */
   constructor(slotIds, releaseGuardMs = 0) {
     this._allSlots = [...slotIds];
-    this._slotSet  = new Set(slotIds);    // O(1) membership — built once
+    this._slotSet = new Set(slotIds); // O(1) membership — built once
     this._releaseGuardMs = Math.max(0, Number(releaseGuardMs) || 0);
 
     // Per-slot state: null = free, otherwise the coords currently playing
-    this._coords   = new Map();           // slot → coords | null
-    this._lastUsed = new Map();           // slot → timestamp (ms)
-    this._releasedAt = new Map();         // slot → release timestamp (ms)
+    this._coords = new Map(); // slot → coords | null
+    this._lastUsed = new Map(); // slot → timestamp (ms)
+    this._releasedAt = new Map(); // slot → release timestamp (ms)
     for (const s of slotIds) {
       this._coords.set(s, null);
       this._lastUsed.set(s, 0);
@@ -71,11 +71,13 @@ export class VoicePool {
     // Uses pre-built Set — no intermediate array, O(1) per probe.
     const allocateFreeSlot = (allowGuarded) => {
       for (let offset = 0; offset <= 127; offset++) {
-        const candidates = offset === 0
-          ? [target]
-          : Math.abs(targetMIDIFloat - (target + offset)) <= Math.abs(targetMIDIFloat - (target - offset))
-            ? [target + offset, target - offset]
-            : [target - offset, target + offset];
+        const candidates =
+          offset === 0
+            ? [target]
+            : Math.abs(targetMIDIFloat - (target + offset)) <=
+                Math.abs(targetMIDIFloat - (target - offset))
+              ? [target + offset, target - offset]
+              : [target - offset, target + offset];
         for (const candidate of candidates) {
           if (candidate < 0 || candidate > 127) continue;
           if (!this._slotSet.has(candidate)) continue;
@@ -105,26 +107,28 @@ export class VoicePool {
     // No free slot — steal the active note nearest to target (smallest retuning)
     // Tiebreak: prefer older notes (lower lastUsed)
     let victimSlot = null;
-    let bestDist   = Infinity;
-    let bestAge    = Infinity;
+    let bestDist = Infinity;
+    let bestAge = Infinity;
 
     for (const slot of this._allSlots) {
       if (this._coords.get(slot) === null) continue; // free (shouldn't happen here)
       const dist = Math.abs(targetMIDIFloat - slot);
-      const age  = this._lastUsed.get(slot);
+      const age = this._lastUsed.get(slot);
       if (dist < bestDist || (dist === bestDist && age < bestAge)) {
-        bestDist = dist; bestAge = age; victimSlot = slot;
+        bestDist = dist;
+        bestAge = age;
+        victimSlot = slot;
       }
     }
 
     if (victimSlot === null) {
       // Should never happen; defensive fallback
-      console.warn('VoicePool: no slots available');
+      console.warn("VoicePool: no slots available");
       return { slot: target, stolenSlot: null, stolen: null, distance: 0, retrigger: false };
     }
 
     const stolenCoords = this._coords.get(victimSlot);
-    const stolenKey    = coordsKey(stolenCoords);
+    const stolenKey = coordsKey(stolenCoords);
 
     this._active.delete(stolenKey);
     this._coords.set(victimSlot, coords);
@@ -133,7 +137,7 @@ export class VoicePool {
 
     return {
       slot: victimSlot,
-      stolenSlot: victimSlot,  // same number — it IS the carrier note for noteOff
+      stolenSlot: victimSlot, // same number — it IS the carrier note for noteOff
       stolen: stolenCoords,
       distance: bestDist,
       retrigger: false,
@@ -142,7 +146,7 @@ export class VoicePool {
 
   /** Release the slot assigned to `coords`. */
   noteOff(coords) {
-    const key  = coordsKey(coords);
+    const key = coordsKey(coords);
     const slot = this._active.get(key);
     if (slot == null) return null;
     this._coords.set(slot, null);
@@ -175,16 +179,20 @@ export class VoicePool {
 
   _isSlotGuarded(slot, now) {
     if (this._releaseGuardMs <= 0) return false;
-    return (now - (this._releasedAt.get(slot) ?? 0)) < this._releaseGuardMs;
+    return now - (this._releasedAt.get(slot) ?? 0) < this._releaseGuardMs;
   }
 
-  get activeCount() { return this._active.size; }
-  get freeCount()   { return this._allSlots.filter(s => this._coords.get(s) === null).length; }
+  get activeCount() {
+    return this._active.size;
+  }
+  get freeCount() {
+    return this._allSlots.filter((s) => this._coords.get(s) === null).length;
+  }
 }
 
 function coordsKey(coords) {
-  if (coords === null || coords === undefined) return 'null';
-  if (Array.isArray(coords)) return coords.join(',');
-  if (typeof coords === 'object' && 'x' in coords) return `${coords.x},${coords.y}`;
+  if (coords === null || coords === undefined) return "null";
+  if (Array.isArray(coords)) return coords.join(",");
+  if (typeof coords === "object" && "x" in coords) return `${coords.x},${coords.y}`;
   return String(coords);
 }

@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { h } from "preact";
 
 /**
  * Snapshots — sidebar panel for capturing and replaying note snapshots.
@@ -18,27 +18,34 @@ const Snapshots = ({ snapshots, playingId, onPlay, onDelete }) => {
 
   return (
     <fieldset>
-      <legend><b>Snapshots</b></legend>
+      <legend>
+        <b>Snapshots</b>
+      </legend>
       {snapshots.map((snap, index) => {
         const isPlaying = snap.id === playingId;
         return (
-          <label key={snap.id} style={{ alignItems: 'center' }}>
-            <span style={{ color: isPlaying ? '#990000' : 'inherit', fontWeight: isPlaying ? 'bold' : 'normal' }}>
-              {index + 1}. {snap.notes.length} note{snap.notes.length !== 1 ? 's' : ''}
+          <label key={snap.id} style={{ alignItems: "center" }}>
+            <span
+              style={{
+                color: isPlaying ? "#990000" : "inherit",
+                fontWeight: isPlaying ? "bold" : "normal",
+              }}
+            >
+              {index + 1}. {snap.notes.length} note{snap.notes.length !== 1 ? "s" : ""}
             </span>
-            <span style={{ display: 'flex', gap: '4px', alignItems: 'center', marginLeft: 'auto' }}>
+            <span style={{ display: "flex", gap: "4px", alignItems: "center", marginLeft: "auto" }}>
               <button
                 type="button"
-                title={isPlaying ? 'Stop' : 'Play'}
-                style={{ fontSize: '0.85em', minWidth: '2em', cursor: 'pointer' }}
+                title={isPlaying ? "Stop" : "Play"}
+                style={{ fontSize: "0.85em", minWidth: "2em", cursor: "pointer" }}
                 onClick={() => onPlay(snap.id)}
               >
-                {isPlaying ? '■' : '▶'}
+                {isPlaying ? "■" : "▶"}
               </button>
               <button
                 type="button"
                 title="Delete snapshot"
-                style={{ fontSize: '0.85em', cursor: 'pointer', color: '#996666' }}
+                style={{ fontSize: "0.85em", cursor: "pointer", color: "#996666" }}
                 onClick={() => onDelete(snap.id)}
               >
                 ✕

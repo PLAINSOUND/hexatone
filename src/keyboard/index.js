@@ -1,11 +1,11 @@
-import { h, render, Fragment } from 'preact';
-import { useRef, useEffect } from 'preact/hooks';
-import Keys from './keys';
+import { h, render, Fragment } from "preact";
+import { useRef, useEffect } from "preact/hooks";
+import Keys from "./keys";
 import "./keyboard.css";
-import PropTypes from 'prop-types';
+import PropTypes from "prop-types";
 
 const Keyboard = (props) => {
-  const canvas  = useRef(null);
+  const canvas = useRef(null);
   const keysRef = useRef(null);
 
   // ── Keys reconstruction ────────────────────────────────────────────────────
@@ -13,17 +13,22 @@ const Keyboard = (props) => {
   // and assigned to keys.exquisLEDs via props.exquisLedsRef after construction.
   useEffect(() => {
     const keys = new Keys(
-      canvas.current, props.settings, props.synth, props.active,
-      props.onLatchChange, props.onTakeSnapshot,
-      props.inputRuntime, props.onFirstInteraction,
+      canvas.current,
+      props.settings,
+      props.synth,
+      props.active,
+      props.onLatchChange,
+      props.onTakeSnapshot,
+      props.inputRuntime,
+      props.onFirstInteraction,
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
-    keys.exquisLEDs   = props.exquisLedsRef?.current ?? null;
+    keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
     keysRef.current = keys;
     if (props.onKeysReady) props.onKeysReady(keys);
     return () => {
       keys.lumatoneLEDs = null;
-      keys.exquisLEDs   = null;
+      keys.exquisLEDs = null;
       keys.deconstruct();
     };
   }, [canvas, props.structuralSettings, props.inputRuntime]);
@@ -43,15 +48,18 @@ const Keyboard = (props) => {
     renderCount.current += 1;
     if (renderCount.current <= 1) return;
     let raf;
-    if (keysRef.current) raf = requestAnimationFrame(() => keysRef.current && keysRef.current.resizeHandler());
-    return () => { if (raf) cancelAnimationFrame(raf); };
+    if (keysRef.current)
+      raf = requestAnimationFrame(() => keysRef.current && keysRef.current.resizeHandler());
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
   });
 
   useEffect(() => {
     if (keysRef.current) {
       keysRef.current.resizeHandler();
       keysRef.current.typing = props.active;
-      if (!props.active && typeof keysRef.current.releaseAllKeyboardNotes === 'function')
+      if (!props.active && typeof keysRef.current.releaseAllKeyboardNotes === "function")
         keysRef.current.releaseAllKeyboardNotes();
     }
   }, [props.active]);
@@ -62,7 +70,9 @@ const Keyboard = (props) => {
     }
   }, [props.midiLearnActive, props.onAnchorLearn]);
 
-  const noteColorsKey = props.settings.note_colors ? JSON.stringify(props.settings.note_colors) : '';
+  const noteColorsKey = props.settings.note_colors
+    ? JSON.stringify(props.settings.note_colors)
+    : "";
   useEffect(() => {
     if (keysRef.current && props.settings) {
       keysRef.current.updateColors({
@@ -75,9 +85,14 @@ const Keyboard = (props) => {
 
   return (
     <Fragment>
-      <canvas ref={canvas} tabindex="1" className="keyboard" onContextMenu={e => e.preventDefault()}
-        width={window.innerWidth} height={window.innerHeight}>
-      </canvas>
+      <canvas
+        ref={canvas}
+        tabindex="1"
+        className="keyboard"
+        onContextMenu={(e) => e.preventDefault()}
+        width={window.innerWidth}
+        height={window.innerHeight}
+      ></canvas>
     </Fragment>
   );
 };

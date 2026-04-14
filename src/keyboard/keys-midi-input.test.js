@@ -116,10 +116,7 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("maps generic keyboard input through step arithmetic", () => {
-    const keys = createKeys(
-      {},
-      { layoutMode: "sequential" },
-    );
+    const keys = createKeys({}, { layoutMode: "sequential" });
     const hexOn = vi.fn((coords) => ({
       coords,
       cents: 100,
@@ -140,10 +137,7 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("uses controller-provided scale pitch cents in nearest-scale mode", () => {
-    const keys = createKeys(
-      {},
-      { target: "scale" },
-    );
+    const keys = createKeys({}, { target: "scale" });
     const hexOn = vi.fn((coords) => ({
       coords,
       cents: 100,
@@ -160,7 +154,12 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.controller.resolveScaleInputPitchCents).toHaveBeenCalledWith(9, 60, keys.settings);
     expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(1);
-    expect(hexOn).toHaveBeenCalledWith(new Point(4, 0), expect.any(Number), expect.any(Number), expect.any(Number));
+    expect(hexOn).toHaveBeenCalledWith(
+      new Point(4, 0),
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 
   it("groups sequential channel transposition by channel pairs when configured", () => {
@@ -220,7 +219,10 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("honors manual controller override even when the MIDI port name is unknown", () => {
-    vi.spyOn(WebMidi, "getInputById").mockReturnValue({ name: "USB MIDI Interface", addListener: vi.fn() });
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "USB MIDI Interface",
+      addListener: vi.fn(),
+    });
     const keys = createKeys({
       midiin_device: "input-1",
       midiin_channel: 0,
@@ -307,10 +309,13 @@ describe("Keys MIDI input integration", () => {
   it("uses the configured standard wheel semitone range when wheel-to-recent is off", () => {
     const standardWheelRetuneA = vi.fn();
     const standardWheelRetuneB = vi.fn();
-    const keys = createKeys({}, {
-      wheelToRecent: false,
-      wheelSemitones: 12,
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: false,
+        wheelSemitones: 12,
+      },
+    );
     const hexA = {
       release: false,
       _baseCents: 1000,
@@ -337,10 +342,13 @@ describe("Keys MIDI input integration", () => {
   it("does not directly retune non-sample hexes in standard wheel mode", () => {
     const standardWheelRetune = vi.fn();
     const retune = vi.fn();
-    const keys = createKeys({}, {
-      wheelToRecent: false,
-      wheelSemitones: 2,
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: false,
+        wheelSemitones: 2,
+      },
+    );
     const sampleLikeHex = {
       release: false,
       _baseCents: 1000,
@@ -365,10 +373,7 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("keeps sustained MIDI notes lit until sustain is released", () => {
-    const keys = createKeys(
-      {},
-      { layoutMode: "sequential" },
-    );
+    const keys = createKeys({}, { layoutMode: "sequential" });
     const hexNoteOff = vi.fn();
     const hexOn = vi.fn((coords) => ({
       coords,

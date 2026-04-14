@@ -16,21 +16,24 @@ import { WebMidi } from "webmidi";
 import { midi_in } from "../settings/midi/midiin";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
-import { detectController, getAnchorNote, getControllerById } from '../controllers/registry.js';
+import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import {
   transferColor,
   LUMATONE_TONIC,
   LUMATONE_TONIC_OTHER,
-} from '../settings/scale/color-transfer.js';
-import { RecencyStack } from '../recency_stack.js';
-import { MidiCoordResolver } from './midi-coord-resolver.js';
-import { findNearestDegree } from '../input/scale-mapper.js';
+} from "../settings/scale/color-transfer.js";
+import { RecencyStack } from "../recency_stack.js";
+import { MidiCoordResolver } from "./midi-coord-resolver.js";
+import { findNearestDegree } from "../input/scale-mapper.js";
 import {
-  degree0ToRef, computeNaturalAnchor,
-  computeCenterPitchHz, chooseStaticMapCenterMidi, computeStaticMapDegree0,
-} from '../tuning/center-anchor.js';
-import { mtsTuningMap } from '../tuning/tuning-map.js';
-import { resolveBulkDumpName } from '../tuning/mts-format.js';
+  degree0ToRef,
+  computeNaturalAnchor,
+  computeCenterPitchHz,
+  chooseStaticMapCenterMidi,
+  computeStaticMapDegree0,
+} from "../tuning/center-anchor.js";
+import { mtsTuningMap } from "../tuning/tuning-map.js";
+import { resolveBulkDumpName } from "../tuning/mts-format.js";
 
 const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
@@ -61,17 +64,23 @@ function isTextEntryElement(el) {
 }
 
 class Keys {
-  constructor(canvas, settings, synth, typing, onLatchChange, onTakeSnapshot = null, inputRuntime = null, onFirstInteraction = null) {
+  constructor(
+    canvas,
+    settings,
+    synth,
+    typing,
+    onLatchChange,
+    onTakeSnapshot = null,
+    inputRuntime = null,
+    onFirstInteraction = null,
+  ) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.settings = {
       hexHeight: settings.hexSize * 2,
       hexVert: (settings.hexSize * 3) / 2,
       hexWidth: Math.sqrt(3) * settings.hexSize,
       gcd, // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
-      degree0toRef_asArray: degree0ToRef(
-        settings.reference_degree,
-        settings.scale,
-      ),
+      degree0toRef_asArray: degree0ToRef(settings.reference_degree, settings.scale),
       centerHexOffset: computeCenterOffset(
         settings.rSteps,
         settings.drSteps,
@@ -84,28 +93,28 @@ class Keys {
     // Falls back to settings-derived values when not provided (backwards compat
     // with any direct Keys construction that doesn't pass it yet).
     this.inputRuntime = inputRuntime || {
-      target:            'hex_layout',
-      layoutMode:        settings.midi_passthrough ? 'sequential' : 'controller_geometry',
-      mpeInput:          false,
-      seqAnchorNote:     settings.midiin_central_degree ?? 60,
-      seqAnchorChannel:  settings.midiin_anchor_channel ?? 1,
-      stepsPerChannel:   settings.midiin_steps_per_channel,
+      target: "hex_layout",
+      layoutMode: settings.midi_passthrough ? "sequential" : "controller_geometry",
+      mpeInput: false,
+      seqAnchorNote: settings.midiin_central_degree ?? 60,
+      seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
+      stepsPerChannel: settings.midiin_steps_per_channel,
       stepsPerChannelDefault: settings.equivSteps,
-      channelGroupSize:  settings.midiin_channel_group_size ?? 1,
+      channelGroupSize: settings.midiin_channel_group_size ?? 1,
       legacyChannelMode: settings.midiin_channel_legacy,
-      scaleTolerance:    50,
-      pitchBendMode:     'recency',
-      pressureMode:      'recency',
-      wheelToRecent:     settings.wheel_to_recent,
+      scaleTolerance: 50,
+      pitchBendMode: "recency",
+      pressureMode: "recency",
+      wheelToRecent: settings.wheel_to_recent,
       // wheelRange and bendRange both use midiin_bend_range — unified with Pitch Bend Interval UI.
-      wheelRange:        settings.midiin_bend_range ?? '64/63',
-      wheelScaleAware:   settings.wheel_scale_aware,
-      wheelSemitones:    settings.midi_wheel_semitones ?? 2,
+      wheelRange: settings.midiin_bend_range ?? "64/63",
+      wheelScaleAware: settings.wheel_scale_aware,
+      wheelSemitones: settings.midi_wheel_semitones ?? 2,
       // Pitch bend range for incoming hardware controller bend messages.
       // Applies to MPE per-note bend and single-channel pitch wheel.
       // Must match the range configured on the hardware device.
-      bendRange:         settings.midiin_bend_range ?? '64/63',
-      bendFlip:          !!settings.midiin_bend_flip,
+      bendRange: settings.midiin_bend_range ?? "64/63",
+      bendFlip: !!settings.midiin_bend_flip,
     };
 
     this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or DIRECT) to an external synth
@@ -133,10 +142,10 @@ class Keys {
       shiftSustainedKeys: new Set(), // keys held with Shift for individual sustain
       // Per-source active hex tracking — each input method owns its own slot(s)
       // so they never interfere with each other's note-on/off lifecycle.
-      activeMouse: null,             // single hex or null (mouse plays one note at a time)
-      activeTouch: new Map(),        // touchId (e.identifier) → hex
-      activeKeyboard: new Map(),     // e.code (string) → hex
-      activeMidi: new Map(),         // note_played (ch*128+note) → hex
+      activeMouse: null, // single hex or null (mouse plays one note at a time)
+      activeTouch: new Map(), // touchId (e.identifier) → hex
+      activeKeyboard: new Map(), // e.code (string) → hex
+      activeMidi: new Map(), // note_played (ch*128+note) → hex
       activeMidiByChannel: new Map(), // MIDI channel (1–16) → hex; populated in MPE input mode only
       isTouchDown: false,
       isMouseDown: false,
@@ -164,7 +173,7 @@ class Keys {
     //                    and mpeInput=true. Captured before note-on arrives so the
     //                    exact intended pitch can be resolved at note-on time.
     // _mpeInputBendByChannel: current per-channel bend state for MPE input mode.
-    this._mtsInputTable    = new Map();
+    this._mtsInputTable = new Map();
     this._scaleModePreBend = new Map();
     this._mpeInputBendByChannel = new Map();
     this._retuneGlides = new Map();
@@ -221,11 +230,7 @@ class Keys {
     // visualViewport fires when browser chrome (toolbars) appear/disappear,
     // which window.resize misses — catches Brave's toolbar toggling.
     if (window.visualViewport) {
-      window.visualViewport.addEventListener(
-        "resize",
-        this.visualViewportResizeHandler,
-        false,
-      );
+      window.visualViewport.addEventListener("resize", this.visualViewportResizeHandler, false);
     }
 
     //... and give it an initial call, which does the initial draw
@@ -238,11 +243,7 @@ class Keys {
     this.state.canvas.addEventListener("touchstart", this.handleTouch, false);
     this.state.canvas.addEventListener("touchend", this.handleTouch, false);
     this.state.canvas.addEventListener("touchmove", this.handleTouch, false);
-    this.state.canvas.addEventListener(
-      "touchcancel",
-      this.handleTouchCancel,
-      false,
-    );
+    this.state.canvas.addEventListener("touchcancel", this.handleTouchCancel, false);
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
     window.addEventListener("mouseup", this.mouseUp, false);
 
@@ -266,10 +267,7 @@ class Keys {
     }
 
     //console.log('[Keys] MIDI init — device:', JSON.stringify(this.settings.midiin_device), 'channel:', this.settings.midiin_channel, 'passthrough:', this.settings.midi_passthrough);
-    if (
-      this.settings.midiin_device !== "OFF" &&
-      this.settings.midiin_channel >= 0
-    ) {
+    if (this.settings.midiin_device !== "OFF" && this.settings.midiin_channel >= 0) {
       // get the MIDI noteons and noteoffs to play the internal sounds
 
       this.midiin_data = WebMidi.getInputById(this.settings.midiin_device);
@@ -299,9 +297,7 @@ class Keys {
         this.midiin_data.addListener("noteoff", (e) => {
           //console.log("(input) note_off", e.message.channel, e.note.number, e.note.rawRelease);
           this.midinoteOff(e);
-          let index = notes.played.lastIndexOf(
-            e.note.number + 128 * (e.message.channel - 1),
-          ); // eliminate note_played from array of played notes when using internal synth
+          let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
           if (index >= 0) {
             let first_half = [];
             first_half = notes.played.slice(0, index);
@@ -323,8 +319,7 @@ class Keys {
         this.midiin_data.addListener("keyaftertouch", (e) => {
           // Polyphonic aftertouch for built-in synth — find the matching active hex
           // by matching note + channel encoding, then ramp its gain smoothly
-          const note_played =
-            e.message.dataBytes[0] + 128 * (e.message.channel - 1);
+          const note_played = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
           const hex = this.state.activeMidi.get(note_played);
           if (hex && hex.aftertouch) {
             hex.aftertouch(e.message.dataBytes[1]);
@@ -339,7 +334,7 @@ class Keys {
         // 5. Routes CC74 (brightness) to the front-of-recency-stack hex (non-MPE mode).
         //    In MPE input mode (Step 3.5) CC74 will be routed per-channel instead.
         this.midiin_data.addListener("controlchange", (e) => {
-          const cc    = e.message.dataBytes[0];
+          const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
 
           if (cc === 121) {
@@ -353,7 +348,8 @@ class Keys {
 
           // ── Passthrough to all active outputs ─────────────────────────────
           // CC74 is not forwarded in MTS mode — no meaningful mapping exists.
-          const isMTSOutput = this.settings.midi_mapping === 'MTS1' || this.settings.midi_mapping === 'MTS2';
+          const isMTSOutput =
+            this.settings.midi_mapping === "MTS1" || this.settings.midi_mapping === "MTS2";
           if (!(cc === 74 && isMTSOutput)) this._passthroughCC(cc, value);
 
           // ── Internal consumption ──────────────────────────────────────────
@@ -422,7 +418,7 @@ class Keys {
           // Non-MPE: passthrough then dispatch by pressureMode.
           this._passthroughChannelPressure(value);
 
-          if (this.inputRuntime.pressureMode === 'all') {
+          if (this.inputRuntime.pressureMode === "all") {
             for (const hex of this._allActiveHexes()) {
               if (hex.pressure) hex.pressure(value);
             }
@@ -456,11 +452,10 @@ class Keys {
             // Multichannel output — currently NOT USED, to be replaced by DIRECT mode.
             this.midiin_data.addListener("keyaftertouch", (e) => {
               let note = e.message.dataBytes[0] + 128 * (e.message.channel - 1); // finds index of stored MTS data
-              this.midiout_data.sendKeyAftertouch(
-                keymap[note][0],
-                e.message.dataBytes[1],
-                { channels: keymap[note][6] + 1, rawValue: true },
-              );
+              this.midiout_data.sendKeyAftertouch(keymap[note][0], e.message.dataBytes[1], {
+                channels: keymap[note][6] + 1,
+                rawValue: true,
+              });
             });
           } else {
             // Single-channel output.
@@ -472,18 +467,16 @@ class Keys {
               this.midiin_data.addListener("keyaftertouch", (e) => {
                 // equaveShift: how many equaves this channel is transposed relative to
                 // the anchor channel (midiin_channel). Range −4…+3, wrapping at 8 channels.
-                let equaveShift =
-                  e.message.channel - 1 - this.settings.midiin_channel;
+                let equaveShift = e.message.channel - 1 - this.settings.midiin_channel;
                 equaveShift = ((equaveShift + 20) % 8) - 4;
                 // scaleStepShift: the same transposition expressed as scale degrees
                 // (equaveShift × equivSteps), used to remap the output note number.
                 const scaleStepShift = equaveShift * this.settings.equivSteps;
                 let note = (e.message.dataBytes[0] + scaleStepShift + 16 * 128) % 128;
-                this.midiout_data.sendKeyAftertouch(
-                  note,
-                  e.message.dataBytes[1],
-                  { channels: this.settings.midi_channel + 1, rawValue: true },
-                );
+                this.midiout_data.sendKeyAftertouch(note, e.message.dataBytes[1], {
+                  channels: this.settings.midi_channel + 1,
+                  rawValue: true,
+                });
               });
             } else if (
               this.settings.midi_mapping == "MTS1" ||
@@ -491,11 +484,10 @@ class Keys {
             ) {
               this.midiin_data.addListener("keyaftertouch", (e) => {
                 let note = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
-                this.midiout_data.sendKeyAftertouch(
-                  keymap[note][0],
-                  e.message.dataBytes[1],
-                  { channels: this.settings.midi_channel + 1, rawValue: true },
-                );
+                this.midiout_data.sendKeyAftertouch(keymap[note][0], e.message.dataBytes[1], {
+                  channels: this.settings.midi_channel + 1,
+                  rawValue: true,
+                });
               });
             }
           }
@@ -507,12 +499,11 @@ class Keys {
         // No best-fit search needed: the anchor key always lands at the screen centre.
         if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
         {
-          const deviceName = this.midiin_data.name?.toLowerCase() ?? '';
-          const overrideId = this.settings.midiin_controller_override || 'auto';
+          const deviceName = this.midiin_data.name?.toLowerCase() ?? "";
+          const overrideId = this.settings.midiin_controller_override || "auto";
           //console.log('[Controller] MIDI input device name:', JSON.stringify(this.midiin_data.name));
-          const entry = overrideId !== 'auto'
-            ? getControllerById(overrideId)
-            : detectController(deviceName);
+          const entry =
+            overrideId !== "auto" ? getControllerById(overrideId) : detectController(deviceName);
           if (entry) {
             this.controller = entry;
             // Multi-channel controllers (e.g. Lumatone) use a per-block note number (0–55),
@@ -521,19 +512,19 @@ class Keys {
             // But we still build the map so LED color sync works for single-channel controllers.
             const isSequential = this.settings.midi_passthrough;
             const useGeometryMap = !isSequential || !entry.multiChannel;
-            
+
             if (useGeometryMap) {
               // For multi-channel controllers (Lumatone): validate anchor within valid ranges
               // For single-channel controllers: always build the map (for LED color sync)
               let anchorNote;
               let anchorChannel;
-              
+
               if (entry.multiChannel) {
                 // Multi-channel: use lumatone_center_note, lumatone_center_channel
                 const constraints = entry.learnConstraints;
                 anchorNote = this.settings.lumatone_center_note;
                 anchorChannel = this.settings.lumatone_center_channel;
-                
+
                 // Defensive validation: ensure anchor values are within controller's valid ranges
                 if (constraints?.noteRange) {
                   const { min, max } = constraints.noteRange;
@@ -552,8 +543,13 @@ class Keys {
                 anchorNote = getAnchorNote(entry, this.settings);
                 anchorChannel = 1;
               }
-              
-              const rawOffsets = entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
+
+              const rawOffsets = entry.buildMap(
+                anchorNote,
+                anchorChannel,
+                this.settings.rSteps,
+                this.settings.drSteps,
+              );
               const ox = this.settings.centerHexOffset.x;
               const oy = this.settings.centerHexOffset.y;
               this.controllerMap = new Map();
@@ -568,12 +564,12 @@ class Keys {
           } else {
             this.controller = null;
             this.controllerMap = null;
-            console.log('[Controller] no geometry found for device — using step arithmetic');
+            console.log("[Controller] no geometry found for device — using step arithmetic");
           }
         }
 
         // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
-        this.midiin_data.addListener('pitchbend', (e) => {
+        this.midiin_data.addListener("pitchbend", (e) => {
           const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
 
           if (this.inputRuntime.mpeInput) {
@@ -584,7 +580,7 @@ class Keys {
             if (entry && !entry.hex.release) {
               let norm = (val14 - 8192) / 8192;
               if (this.inputRuntime.bendFlip) norm = -norm;
-              const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
+              const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
               const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
               entry.baseCents = baseCents;
               entry.hex.retune(baseCents + norm * rangeCents, true);
@@ -593,7 +589,7 @@ class Keys {
             // retune() call handles expression for its own output engine.
             // Scale mode pre-bend capture: record bend per channel so note-on can
             // use it to resolve the exact intended pitch.
-            if (this.inputRuntime.target === 'scale') {
+            if (this.inputRuntime.target === "scale") {
               this._scaleModePreBend.set(e.message.channel, val14);
             }
             return;
@@ -607,11 +603,11 @@ class Keys {
           // Standard mode (!wheelToRecent): raw pitch bend passthrough to ALL outputs,
           // including MTS — the user adjusts the wheel range in their synth.
           // Sample synth voices are also retuned directly so they bend too.
-          const val14f = this.inputRuntime.bendFlip ? (16383 - val14) : val14;
+          const val14f = this.inputRuntime.bendFlip ? 16383 - val14 : val14;
           this._handleWheelBend(val14f);
           if (this.inputRuntime.wheelToRecent) {
             // Recency/all mode: skip MTS passthrough (retune() handles it).
-            if (!(this.settings.midi_mapping === 'MTS1' || this.settings.midi_mapping === 'MTS2')) {
+            if (!(this.settings.midi_mapping === "MTS1" || this.settings.midi_mapping === "MTS2")) {
               this._passthroughPitchBend(val14f);
             }
           } else {
@@ -627,27 +623,26 @@ class Keys {
         // Hz per note: 440 * 2^((note + semiFrac - 69) / 12)
         //   where semiFrac = xx + (yy*128 + zz) / 16384 (xx = semitone, yy:zz = fraction)
         // Reference: MIDI Tuning Standard (MTS), CA-020.
-        this.midiin_data.addListener('sysex', (e) => {
-          if (this.inputRuntime.target !== 'scale' || this.inputRuntime.mpeInput) return;
+        this.midiin_data.addListener("sysex", (e) => {
+          if (this.inputRuntime.target !== "scale" || this.inputRuntime.mpeInput) return;
           const d = e.message.data;
           // Minimum: F0 7F dev 08 02 count note xx yy zz F7 = 11 bytes, count >= 1
           if (d.length < 11) return;
           // d[0]=0xF0, d[1]=0x7F (Universal Real-Time), d[2]=device id, d[3]=0x08, d[4]=0x02
-          if (d[1] !== 0x7F || d[3] !== 0x08 || d[4] !== 0x02) return;
+          if (d[1] !== 0x7f || d[3] !== 0x08 || d[4] !== 0x02) return;
           const count = d[5];
           for (let i = 0; i < count; i++) {
             const offset = 6 + i * 4;
             if (offset + 3 >= d.length) break; // guard against truncated message
-            const noteNum  = d[offset];
-            const semis    = d[offset + 1];          // semitone (0–127)
-            const fracHi   = d[offset + 2];          // MSB of 14-bit fraction
-            const fracLo   = d[offset + 3];          // LSB of 14-bit fraction
+            const noteNum = d[offset];
+            const semis = d[offset + 1]; // semitone (0–127)
+            const fracHi = d[offset + 2]; // MSB of 14-bit fraction
+            const fracLo = d[offset + 3]; // LSB of 14-bit fraction
             const semiFrac = semis + (fracHi * 128 + fracLo) / 16384;
             const hz = 440 * Math.pow(2, (semiFrac - 69) / 12);
             this._mtsInputTable.set(noteNum, hz);
           }
         });
-
       } // end else (midiin_data exists)
     } // end if midiin_data guard
 
@@ -655,7 +650,7 @@ class Keys {
     // construction, via onKeysReady — the same pattern so both LED engines
     // have a stable, long-lived lifecycle independent of Keys reconstruction.
     this.lumatoneLEDs = null;
-    this.exquisLEDs   = null;
+    this.exquisLEDs = null;
   } // end of constructor
 
   /**
@@ -750,9 +745,7 @@ class Keys {
   // (so colours update), and retunes any sounding/sustained notes.
   shiftOctave = (dir, deferred = false) => {
     this.settings.octave_offset = (this.settings.octave_offset || 0) + dir;
-    const isStaticDirect =
-      this.settings.output_direct &&
-      this.settings.direct_mode === "static";
+    const isStaticDirect = this.settings.output_direct && this.settings.direct_mode === "static";
     const isStaticDirectDeferred = deferred && isStaticDirect;
 
     // In deferred mode, sounding notes keep their current pitch — the shift
@@ -764,21 +757,21 @@ class Keys {
       this._deferredBulkMapRefresh = false;
       this._staticDeferredBulkActive = false;
     } else {
-    this._staticDeferredBulkActive = isStaticDirectDeferred && hasSoundingNotes;
-    this._deferredBulkMapRefresh = skipRetune && this._hasDeferredBulkTargets();
+      this._staticDeferredBulkActive = isStaticDirectDeferred && hasSoundingNotes;
+      this._deferredBulkMapRefresh = skipRetune && this._hasDeferredBulkTargets();
     }
 
     if (!skipRetune) {
       // Retune all sounding and sustained notes immediately
       for (const hex of this._allActiveHexes()) {
         const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
-        if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
+        if ("fundamental" in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
         hex._baseCents = newCents;
       }
       for (const [hex] of this.state.sustainedNotes) {
         const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
-        if ('fundamental' in hex) hex.fundamental = this.settings.fundamental;
+        if ("fundamental" in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
         hex._baseCents = newCents;
       }
@@ -822,11 +815,12 @@ class Keys {
     } else if (!skipRetune) {
       this._deferredBulkMapRefresh = false;
       this._staticDeferredBulkActive = false;
-      this._sendBulkDumpOctaveRefresh(
-        hasSoundingNotes || this._hasRecentReleasedBulkTargets(),
-      );
+      this._sendBulkDumpOctaveRefresh(hasSoundingNotes || this._hasRecentReleasedBulkTargets());
     } else {
-      this._sendBulkDumpOctaveRefresh(!this._staticDeferredBulkActive, !this._staticDeferredBulkActive);
+      this._sendBulkDumpOctaveRefresh(
+        !this._staticDeferredBulkActive,
+        !this._staticDeferredBulkActive,
+      );
     }
     this.drawGrid();
   };
@@ -866,22 +860,27 @@ class Keys {
     // Update fundamental on all sounding/sustained hex objects, then retune.
     // Both MidiHex and ActiveHex store this.fundamental at construction;
     // we patch it directly so retune() uses the new value.
-    const allHexes = [
-      ...this._allActiveHexes(),
-      ...[...this.state.sustainedNotes].map(([h]) => h),
-    ];
+    const allHexes = [...this._allActiveHexes(), ...[...this.state.sustainedNotes].map(([h]) => h)];
     for (const hex of allHexes) {
-      if ('fundamental' in hex) hex.fundamental = newFundamental;
-      const key = hex.coords.x + ',' + hex.coords.y;
-      const trueCents = snap ? (snap.get(key) ?? (hex._baseCents ?? hex.cents)) : (hex._baseCents ?? hex.cents);
+      if ("fundamental" in hex) hex.fundamental = newFundamental;
+      const key = hex.coords.x + "," + hex.coords.y;
+      const trueCents = snap
+        ? (snap.get(key) ?? hex._baseCents ?? hex.cents)
+        : (hex._baseCents ?? hex.cents);
       this._queueRetuneGlide(hex, trueCents, bendOnly);
     }
     this._refreshSoundingHexNeighbors();
     this._kickRetuneGlides();
     // Re-send tuning map if auto-send is enabled for the relevant output
-    if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto) this.mtsSendMap();
-    if (this.settings.output_direct && this.settings.direct_mode === "static" && this.settings.direct_sysex_auto &&
-      this.settings.direct_device && this.settings.direct_device !== 'OFF') {
+    if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto)
+      this.mtsSendMap();
+    if (
+      this.settings.output_direct &&
+      this.settings.direct_mode === "static" &&
+      this.settings.direct_sysex_auto &&
+      this.settings.direct_device &&
+      this.settings.direct_device !== "OFF"
+    ) {
       const directOut = WebMidi.getOutputById(this.settings.direct_device);
       if (directOut) this.mtsSendMap(directOut);
     }
@@ -893,9 +892,9 @@ class Keys {
   snapshotForFundamentalPreview = () => {
     this._fundamentalSnapshot = new Map();
     for (const hex of this._allActiveHexes())
-      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex._baseCents ?? hex.cents);
+      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, hex._baseCents ?? hex.cents);
     for (const [hex] of this.state.sustainedNotes)
-      this._fundamentalSnapshot.set(hex.coords.x + ',' + hex.coords.y, hex._baseCents ?? hex.cents);
+      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, hex._baseCents ?? hex.cents);
     this._fundamentalPreviewSnapshot = new Map(this._fundamentalSnapshot);
   };
 
@@ -903,8 +902,10 @@ class Keys {
     const snap = this._fundamentalPreviewSnapshot ?? this._fundamentalSnapshot;
     const bendOnly = !!this.inputRuntime.mpeInput;
     const applyTo = (hex) => {
-      const key = hex.coords.x + ',' + hex.coords.y;
-      const base = snap ? (snap.get(key) ?? (hex._baseCents ?? hex.cents)) : (hex._baseCents ?? hex.cents);
+      const key = hex.coords.x + "," + hex.coords.y;
+      const base = snap
+        ? (snap.get(key) ?? hex._baseCents ?? hex.cents)
+        : (hex._baseCents ?? hex.cents);
       this._queueRetuneGlide(hex, base + deltaCents, bendOnly);
     };
     for (const hex of this._allActiveHexes()) applyTo(hex);
@@ -962,11 +963,12 @@ class Keys {
   updateLiveOutputState = (nextSettings, synth) => {
     if (synth) this.synth = synth;
     if (nextSettings) Object.assign(this.settings, nextSettings);
-    this.midiout_data = (
+    this.midiout_data =
       this.settings.output_mts &&
       this.settings.midi_device !== "OFF" &&
       this.settings.midi_channel >= 0
-    ) ? WebMidi.getOutputById(this.settings.midi_device) : null;
+        ? WebMidi.getOutputById(this.settings.midi_device)
+        : null;
     this._pushControllerStateToSynth();
   };
 
@@ -985,9 +987,10 @@ class Keys {
   getSnapshot() {
     // centsToReference: the scale offset of the reference sample from degree 0.
     // Needed to reconstruct absolute frequency from hex.cents.
-    const centsToRef = (this.settings.reference_degree > 0)
-      ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
-      : 0;
+    const centsToRef =
+      this.settings.reference_degree > 0
+        ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+        : 0;
     const fund = this.settings.fundamental;
 
     const seen = new Map(); // rounded midicents string → entry (dedup)
@@ -1027,9 +1030,10 @@ class Keys {
   playSnapshot(notes) {
     this.stopSnapshot();
 
-    const centsToRef = (this.settings.reference_degree > 0)
-      ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
-      : 0;
+    const centsToRef =
+      this.settings.reference_degree > 0
+        ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+        : 0;
     const fund = this.settings.fundamental;
     const degree0toRef_ratio = this.settings.degree0toRef_asArray?.[1] ?? 1;
 
@@ -1043,14 +1047,14 @@ class Keys {
       const hex = this.synth.makeHex(
         dummyCoords,
         synthCents,
-        0,          // steps (unused for playback)
-        0,          // equaves
+        0, // steps (unused for playback)
+        0, // equaves
         this.settings.equivSteps,
         synthCents, // cents_prev
         synthCents, // cents_next
-        undefined,  // note_played
+        undefined, // note_played
         velocity,
-        0,          // bend
+        0, // bend
         degree0toRef_ratio,
       );
       hex.noteOn();
@@ -1111,17 +1115,17 @@ class Keys {
     for (let b = 1; b <= 5; b++) {
       for (let k = 0; k < 56; k++) {
         entries.push({
-          board:    b,               // sysex board byte 1–5
-          key:      k,               // key index 0–55
-          note:     k,               // note = key index (sequential mapping)
-          channel:  b - 1,           // 0-indexed channel (0–4)
-          hexColor: colorMap.get(`${b}.${k}`) || '#1E1928',
+          board: b, // sysex board byte 1–5
+          key: k, // key index 0–55
+          note: k, // note = key index (sequential mapping)
+          channel: b - 1, // 0-indexed channel (0–4)
+          hexColor: colorMap.get(`${b}.${k}`) || "#1E1928",
         });
       }
     }
 
     // Enable polyphonic aftertouch before the key layout.
-    this.lumatoneLEDs.sendLayout(entries, [{ cmd: 0x0E, board: 0, value: 1 }]);
+    this.lumatoneLEDs.sendLayout(entries, [{ cmd: 0x0e, board: 0, value: 1 }]);
   };
 
   /**
@@ -1150,9 +1154,9 @@ class Keys {
     const entries = [];
     for (const [mapKey, coords] of this.controllerMap) {
       // mapKey format: "ch.note"  (ch = board 1-5, note = key 0-55 within block)
-      const dotIdx = mapKey.indexOf('.');
-      const board  = parseInt(mapKey.slice(0, dotIdx), 10);
-      const key    = parseInt(mapKey.slice(dotIdx + 1), 10);
+      const dotIdx = mapKey.indexOf(".");
+      const board = parseInt(mapKey.slice(0, dotIdx), 10);
+      const key = parseInt(mapKey.slice(dotIdx + 1), 10);
       const hexColor = this._getLumatoneHexColor(coords);
       entries.push({ board, key, hexColor });
     }
@@ -1171,9 +1175,9 @@ class Keys {
    * @returns {string[]}  61 CSS hex colors ('#rrggbb')
    */
   _buildExquisColorArray() {
-    const colors = new Array(61).fill('#000000');
+    const colors = new Array(61).fill("#000000");
 
-    if (this.inputRuntime?.layoutMode === 'sequential') {
+    if (this.inputRuntime?.layoutMode === "sequential") {
       const scale = this.settings.scale || [];
       const len = scale.length;
       if (len === 0) return colors;
@@ -1182,7 +1186,7 @@ class Keys {
       const centerDegree = this.settings.center_degree || 0;
 
       for (let note = 0; note <= 60; note++) {
-        let steps = (note - anchorNote) + centerDegree;
+        let steps = note - anchorNote + centerDegree;
         let octs = Math.trunc(steps / len);
         let reducedSteps = steps % len;
         if (reducedSteps < 0) {
@@ -1200,7 +1204,7 @@ class Keys {
     }
 
     for (const [mapKey, coords] of this.controllerMap) {
-      const note = parseInt(mapKey.slice(mapKey.indexOf('.') + 1), 10);
+      const note = parseInt(mapKey.slice(mapKey.indexOf(".") + 1), 10);
       if (note >= 0 && note <= 60) {
         colors[note] = this._getLumatoneHexColor(coords);
       }
@@ -1242,13 +1246,13 @@ class Keys {
   _getScreenHexColor(cents, reducedSteps) {
     if (!this.settings.spectrum_colors) {
       const colors = this.settings.note_colors;
-      if (!colors || typeof colors[reducedSteps] === 'undefined') return '#edede4';
+      if (!colors || typeof colors[reducedSteps] === "undefined") return "#edede4";
       return nameToHex(colors[reducedSteps]);
     }
 
     // Spectrum mode: derive hue from cents position (same formula as centsToColor).
-    const fcolor = hex2rgb('#' + this.settings.fundamental_color);
-    const hsv    = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
+    const fcolor = hex2rgb("#" + this.settings.fundamental_color);
+    const hsv = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
     let h = hsv.h / 360;
     const s = hsv.s / 100;
     const v = hsv.v / 100;
@@ -1292,7 +1296,12 @@ class Keys {
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
-    this.state.activeMidiByChannel.clear(); this._mpeInputBendByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
+    this.state.activeMidiByChannel.clear();
+    this._mpeInputBendByChannel.clear();
+    this._bendSlew.forEach((s) => {
+      if (s.raf !== null) cancelAnimationFrame(s.raf);
+    });
+    this._bendSlew.clear();
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
@@ -1310,32 +1319,18 @@ class Keys {
     // lumatoneLEDs is owned by app.jsx (same as exquisLEDs) — not destroyed here.
     this.lumatoneLEDs = null;
 
-
-
     window.removeEventListener("resize", this.resizeHandler, false);
     window.removeEventListener("orientationchange", this.resizeHandler, false);
     if (window.visualViewport) {
-      window.visualViewport.removeEventListener(
-        "resize",
-        this.visualViewportResizeHandler,
-        false,
-      );
+      window.visualViewport.removeEventListener("resize", this.visualViewportResizeHandler, false);
     }
 
     window.removeEventListener("keydown", this.onKeyDown, false);
     window.removeEventListener("keyup", this.onKeyUp, false);
-    this.state.canvas.removeEventListener(
-      "touchstart",
-      this.handleTouch,
-      false,
-    );
+    this.state.canvas.removeEventListener("touchstart", this.handleTouch, false);
     this.state.canvas.removeEventListener("touchend", this.handleTouch, false);
     this.state.canvas.removeEventListener("touchmove", this.handleTouch, false);
-    this.state.canvas.removeEventListener(
-      "touchcancel",
-      this.handleTouchCancel,
-      false,
-    );
+    this.state.canvas.removeEventListener("touchcancel", this.handleTouchCancel, false);
     this.state.canvas.removeEventListener("mousedown", this.mouseDown, false);
     window.removeEventListener("mouseup", this.mouseUp, false);
     this.state.canvas.removeEventListener("mousemove", this.mouseActive, false);
@@ -1360,46 +1355,48 @@ class Keys {
     const output = midiOutput || this.midiout_data;
     if (!output) return;
     // When called with a direct output, use 126 (non-RT bulk)
-    const isDirectOutput = this.settings.output_direct &&
-      this.settings.direct_device && this.settings.direct_device !== 'OFF' &&
+    const isDirectOutput =
+      this.settings.output_direct &&
+      this.settings.direct_device &&
+      this.settings.direct_device !== "OFF" &&
       output.id === this.settings.direct_device;
     const sysex_type = isDirectOutput ? 126 : parseInt(this.settings.sysex_type);
     const tuningMap = isDirectOutput
       ? mtsTuningMap(
-        126,
-        this.settings.direct_device_id ?? 127,
-        this.settings.direct_tuning_map_number ?? 0,
-        this.settings.direct_mode === "static"
-          ? computeStaticMapDegree0(
-            chooseStaticMapCenterMidi(
-              computeCenterPitchHz(
+          126,
+          this.settings.direct_device_id ?? 127,
+          this.settings.direct_tuning_map_number ?? 0,
+          this.settings.direct_mode === "static"
+            ? computeStaticMapDegree0(
+                chooseStaticMapCenterMidi(
+                  computeCenterPitchHz(
+                    this.settings.fundamental,
+                    this.settings.degree0toRef_asArray[0],
+                    this.settings.scale,
+                    this.settings.equivInterval,
+                    this.settings.center_degree,
+                  ),
+                ),
+                this.settings.center_degree,
+              )
+            : computeNaturalAnchor(
                 this.settings.fundamental,
                 this.settings.degree0toRef_asArray[0],
                 this.settings.scale,
                 this.settings.equivInterval,
                 this.settings.center_degree,
               ),
-            ),
-            this.settings.center_degree,
-          )
-          : computeNaturalAnchor(
-            this.settings.fundamental,
-            this.settings.degree0toRef_asArray[0],
-            this.settings.scale,
-            this.settings.equivInterval,
-            this.settings.center_degree,
-        ),
-        this.settings.scale,
-        resolveBulkDumpName(
-          this.settings.direct_tuning_map_name,
-          this.settings.short_description,
-          this.settings.name,
-        ),
-        this.settings.equivInterval,
-        this.settings.fundamental,
-        this.settings.degree0toRef_asArray,
-        this.settings.octave_offset || 0,
-      )
+          this.settings.scale,
+          resolveBulkDumpName(
+            this.settings.direct_tuning_map_name,
+            this.settings.short_description,
+            this.settings.name,
+          ),
+          this.settings.equivInterval,
+          this.settings.fundamental,
+          this.settings.degree0toRef_asArray,
+          this.settings.octave_offset || 0,
+        )
       : this.mts_tuning_map;
 
     if (sysex_type === 127) {
@@ -1458,7 +1455,7 @@ class Keys {
         msg[msg.length - 1] = checksum & 0x7f;
       }
 
-      output.send([0xF0, ...msg, 0xF7]);
+      output.send([0xf0, ...msg, 0xf7]);
     }
   };
 
@@ -1508,7 +1505,7 @@ class Keys {
   // Returns true if the note was toggled off (caller should return/continue).
   _midiLatchToggle(coords, releaseVelocity = 0) {
     if (!this.state.latch) return false;
-    const key = coords.x + ',' + coords.y;
+    const key = coords.x + "," + coords.y;
     const sustainedIdx = this.state.sustainedNotes.findIndex(
       ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
     );
@@ -1566,9 +1563,7 @@ class Keys {
 
   _hasDeferredBulkTargets() {
     const hasBulkMts =
-      this.settings.output_mts &&
-      this.midiout_data &&
-      parseInt(this.settings.sysex_type) === 126;
+      this.settings.output_mts && this.midiout_data && parseInt(this.settings.sysex_type) === 126;
     const hasDirectBulk =
       this.settings.output_direct &&
       this.settings.direct_device &&
@@ -1637,7 +1632,11 @@ class Keys {
   }
 
   _resolveScaleInputPitchCents(channel, note, fallbackPitchHz) {
-    const controllerPitchCents = this.controller?.resolveScaleInputPitchCents?.(channel, note, this.settings);
+    const controllerPitchCents = this.controller?.resolveScaleInputPitchCents?.(
+      channel,
+      note,
+      this.settings,
+    );
     if (controllerPitchCents != null) return controllerPitchCents;
 
     const degree0toRefCents = this.settings.degree0toRef_asArray[0];
@@ -1652,7 +1651,7 @@ class Keys {
 
     let coords;
 
-    if (this.inputRuntime.target === 'scale') {
+    if (this.inputRuntime.target === "scale") {
       // Scale target mode: map incoming MIDI pitch to nearest scale degree.
       // Purely musical reference — independent of layout settings
       // (center_degree, midiin_central_degree, rSteps, etc.).
@@ -1668,23 +1667,27 @@ class Keys {
         const norm = (preBend - 8192) / 8192; // −1…+1
         const bendRange = this.inputRuntime.scaleBendRange ?? 48;
         const baseHz = 440 * Math.pow(2, (e.note.number - 69) / 12);
-        pitchHz = baseHz * Math.pow(2, norm * bendRange / 12);
+        pitchHz = baseHz * Math.pow(2, (norm * bendRange) / 12);
       } else {
-        pitchHz = this._mtsInputTable.get(e.note.number)
-          ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
+        pitchHz =
+          this._mtsInputTable.get(e.note.number) ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
       }
-      const pitchCents = this._resolveScaleInputPitchCents(e.message.channel, e.note.number, pitchHz);
+      const pitchCents = this._resolveScaleInputPitchCents(
+        e.message.channel,
+        e.note.number,
+        pitchHz,
+      );
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,
         this.settings.equivInterval,
         this.inputRuntime.scaleTolerance ?? 50,
-        this.inputRuntime.scaleFallback || 'discard',
+        this.inputRuntime.scaleFallback || "discard",
       );
       if (result === null) return; // out of tolerance, discard
       if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
       coords = this.coordResolver.bestVisibleCoord(result.steps);
-    } else if (this.inputRuntime.layoutMode === 'sequential') {
+    } else if (this.inputRuntime.layoutMode === "sequential") {
       const normalized = this._normalizeInputAddress(e.message.channel, e.note.number);
       if (!normalized) return;
       // Sequential mode: ignore controller geometry, use step arithmetic.
@@ -1739,7 +1742,7 @@ class Keys {
   midinoteOff = (e) => {
     let coordsList;
 
-    if (this.inputRuntime.target === 'scale') {
+    if (this.inputRuntime.target === "scale") {
       // Scale mode: re-resolve pitch to steps for visual release.
       // Identical reference as midinoteOn.
       const degree0toRefCents = this.settings.degree0toRef_asArray[0];
@@ -1751,29 +1754,38 @@ class Keys {
         const norm = (preBend - 8192) / 8192;
         const bendRange = this.inputRuntime.scaleBendRange ?? 48;
         const baseHz = 440 * Math.pow(2, (e.note.number - 69) / 12);
-        pitchHz = baseHz * Math.pow(2, norm * bendRange / 12);
+        pitchHz = baseHz * Math.pow(2, (norm * bendRange) / 12);
       } else {
-        pitchHz = this._mtsInputTable.get(e.note.number)
-          ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
+        pitchHz =
+          this._mtsInputTable.get(e.note.number) ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
       }
-      const pitchCents = this._resolveScaleInputPitchCents(e.message.channel, e.note.number, pitchHz);
+      const pitchCents = this._resolveScaleInputPitchCents(
+        e.message.channel,
+        e.note.number,
+        pitchHz,
+      );
       const result = findNearestDegree(
         pitchCents,
         this.settings.scale,
         this.settings.equivInterval,
         this.inputRuntime.scaleTolerance ?? 50,
         // Always accept on note-off — we must release whatever was activated.
-        'accept',
+        "accept",
       );
       if (result === null) {
         coordsList = [];
       } else {
         coordsList = this.coordResolver.stepsToVisibleCoords(result.steps);
       }
-    } else if (this.inputRuntime.layoutMode === 'sequential' || !this.controllerMap) {
+    } else if (this.inputRuntime.layoutMode === "sequential" || !this.controllerMap) {
       const normalized = this._normalizeInputAddress(e.message.channel, e.note.number);
       // Sequential or generic keyboard: step arithmetic (may hit multiple visible coords).
-      if (this.inputRuntime.layoutMode === 'sequential' && !this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
+      if (
+        this.inputRuntime.layoutMode === "sequential" &&
+        !this.settings.output_mts &&
+        this.midiout_data &&
+        this.settings.midi_channel >= 0
+      ) {
         this.midiout_data.sendNoteOff(e.note.number, {
           channels: this.settings.midi_channel + 1,
           rawRelease: e.note.rawRelease,
@@ -1781,8 +1793,8 @@ class Keys {
       }
       coordsList = normalized
         ? this.coordResolver.stepsToVisibleCoords(
-          this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-        )
+            this.coordResolver.noteToSteps(normalized.note, normalized.channel),
+          )
         : [];
     } else {
       // Known controller: direct lookup returns exactly one coord.
@@ -1806,12 +1818,17 @@ class Keys {
       // In MPE input mode, remove the channel→hex mapping. Only remove if this
       // note's hex is still the registered one — a fast retrigger on the same
       // channel could have already registered a newer hex.
-      if (this.inputRuntime.mpeInput &&
-          this.state.activeMidiByChannel.get(e.message.channel)?.hex === hex) {
+      if (
+        this.inputRuntime.mpeInput &&
+        this.state.activeMidiByChannel.get(e.message.channel)?.hex === hex
+      ) {
         this.state.activeMidiByChannel.delete(e.message.channel);
         this._mpeInputBendByChannel.delete(e.message.channel);
         const slew = this._bendSlew.get(e.message.channel);
-        if (slew) { if (slew.raf !== null) cancelAnimationFrame(slew.raf); this._bendSlew.delete(e.message.channel); }
+        if (slew) {
+          if (slew.raf !== null) cancelAnimationFrame(slew.raf);
+          this._bendSlew.delete(e.message.channel);
+        }
       }
     }
     // hexOff is called per coord for visual update (may cover multiple visible coords)
@@ -1833,7 +1850,7 @@ class Keys {
         const channel = Math.floor(note_played / 128) + 1; // 1-indexed
 
         let coordsList;
-        if (this.inputRuntime.layoutMode !== 'sequential' && this.controllerMap) {
+        if (this.inputRuntime.layoutMode !== "sequential" && this.controllerMap) {
           // Known controller: direct lookup.
           const lookupChannel = this.controller.multiChannel ? channel : 1;
           const baseCoords = this.controllerMap.get(`${lookupChannel}.${note}`);
@@ -1863,7 +1880,12 @@ class Keys {
         }
       }
       notes.played = [];
-      this.state.activeMidiByChannel.clear(); this._mpeInputBendByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
+      this.state.activeMidiByChannel.clear();
+      this._mpeInputBendByChannel.clear();
+      this._bendSlew.forEach((s) => {
+        if (s.raf !== null) cancelAnimationFrame(s.raf);
+      });
+      this._bendSlew.clear();
       console.log("All notes released!");
     } else {
       console.log("No held notes to be released.");
@@ -1892,18 +1914,19 @@ class Keys {
       hex.noteOff(0);
       // Redraw hex as unpressed
       const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(
-        cents,
-        false,
-        pressed_interval,
-      );
+      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
       this.drawHex(hex.coords, color, text_color);
     }
     this.state.activeMouse = null;
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
-    this.state.activeMidiByChannel.clear(); this._mpeInputBendByChannel.clear(); this._bendSlew.forEach(s => { if (s.raf !== null) cancelAnimationFrame(s.raf); }); this._bendSlew.clear();
+    this.state.activeMidiByChannel.clear();
+    this._mpeInputBendByChannel.clear();
+    this._bendSlew.forEach((s) => {
+      if (s.raf !== null) cancelAnimationFrame(s.raf);
+    });
+    this._bendSlew.clear();
     // Reset drag-state flags in case panic fires mid-drag
     this.state.isMouseDown = false;
     this.state.isTouchDown = false;
@@ -1915,11 +1938,7 @@ class Keys {
       hex.noteOff(releaseVel);
 
       const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(
-        cents,
-        false,
-        pressed_interval,
-      );
+      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
       this.drawHex(hex.coords, color, text_color);
     }
 
@@ -1988,20 +2007,9 @@ class Keys {
     if (!velocity_played) {
       velocity_played = 72;
     }
-    const [
-      cents,
-      pressed_interval,
-      steps,
-      equaves,
-      equivSteps,
-      cents_prev,
-      cents_next,
-    ] = this.hexCoordsToCents(coords);
-    const [color, text_color] = this.centsToColor(
-      cents,
-      true,
-      pressed_interval,
-    );
+    const [cents, pressed_interval, steps, equaves, equivSteps, cents_prev, cents_next] =
+      this.hexCoordsToCents(coords);
+    const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
     this.drawHex(coords, color, text_color);
     let degree0toRef_ratio = this.settings.degree0toRef_asArray[1]; // array[0] is cents, array[1] is the ratio
     const hex = this.synth.makeHex(
@@ -2059,11 +2067,7 @@ class Keys {
         const key = hex.coords.x + "," + hex.coords.y;
         this.state.sustainedCoords.add(key);
         const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-        const [color, text_color] = this.centsToColor(
-          cents,
-          true,
-          pressed_interval,
-        );
+        const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
         this.drawHex(hex.coords, color, text_color);
       }
     } else {
@@ -2094,17 +2098,17 @@ class Keys {
     const notesToRelease = this.state.sustainedNotes;
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
-    if (this._deferredBulkMapRefresh && !this._staticDeferredBulkActive && notesToRelease.length > 0) {
+    if (
+      this._deferredBulkMapRefresh &&
+      !this._staticDeferredBulkActive &&
+      notesToRelease.length > 0
+    ) {
       this._sendBulkDumpOctaveRefresh(true);
     }
     for (let note = 0; note < notesToRelease.length; note++) {
       const hex = notesToRelease[note][0];
       const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(
-        cents,
-        false,
-        pressed_interval,
-      );
+      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
       this.drawHex(hex.coords, color, text_color);
       hex.noteOff(notesToRelease[note][1]);
       this._trackRecentlyReleasedHex(hex);
@@ -2151,8 +2155,7 @@ class Keys {
   /**************** Event Handlers ****************/
 
   motionScan = () => {
-    const { x1, x2, y1, y2, z1, z2, lastShakeCount, lastShakeCheck } =
-      this.state.shake;
+    const { x1, x2, y1, y2, z1, z2, lastShakeCount, lastShakeCheck } = this.state.shake;
     let change = Math.abs(x1 - x2 + y1 - y2 + z1 - z2);
 
     if (change > this.state.sensitivity) {
@@ -2210,10 +2213,7 @@ class Keys {
     );
 
     // I don't know why these need to be the opposite sign of each other.
-    let m = calculateRotationMatrix(
-      this.settings.rotation,
-      this.state.centerpoint,
-    );
+    let m = calculateRotationMatrix(this.settings.rotation, this.state.centerpoint);
     this.state.context.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
 
     // Redraw Grid
@@ -2222,7 +2222,6 @@ class Keys {
     // Rebuild the steps→coords lookup table now that centerpoint and grid range
     // are up to date. Must come after drawGrid() so centerpoint is already set.
     this.coordResolver.buildStepsTable();
-
   };
 
   inputIsFocused = () => {
@@ -2235,10 +2234,7 @@ class Keys {
     // console.log('Key pressed:', e.code, e.key);
 
     // Delete : Panic - kill all notes
-    if (
-      (e.code === "Delete" && !e.repeat) ||
-      (e.code === "Backspace" && !e.repeat)
-    ) {
+    if ((e.code === "Delete" && !e.repeat) || (e.code === "Backspace" && !e.repeat)) {
       this.panic();
       return;
     }
@@ -2642,9 +2638,15 @@ class Keys {
   // Delegating shims — logic lives in MidiCoordResolver (midi-coord-resolver.js).
   // Kept here so existing call sites inside Keys (midinoteOn/Off, allnotesOff)
   // continue to work without change.
-  channelToStepsOffset(channel) { return this.coordResolver.channelToStepsOffset(channel); }
-  buildStepsTable()              { this.coordResolver.buildStepsTable(); }
-  stepsToVisibleCoords(steps)    { return this.coordResolver.stepsToVisibleCoords(steps); }
+  channelToStepsOffset(channel) {
+    return this.coordResolver.channelToStepsOffset(channel);
+  }
+  buildStepsTable() {
+    this.coordResolver.buildStepsTable();
+  }
+  stepsToVisibleCoords(steps) {
+    return this.coordResolver.stepsToVisibleCoords(steps);
+  }
 
   // ── CC and channel-pressure passthrough ──────────────────────────────────
   //
@@ -2655,10 +2657,14 @@ class Keys {
   // listeners before any internal consumption logic.
 
   _passthroughCC(cc, value) {
-    if (this.midiout_data && this.settings.midi_device !== 'OFF' && this.settings.midi_channel >= 0) {
+    if (
+      this.midiout_data &&
+      this.settings.midi_device !== "OFF" &&
+      this.settings.midi_channel >= 0
+    ) {
       this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
     }
-    if (this.settings.output_mpe && this.settings.mpe_device !== 'OFF') {
+    if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
       const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
       if (mpeOutput) {
         const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
@@ -2668,10 +2674,17 @@ class Keys {
   }
 
   _passthroughChannelPressure(value) {
-    if (this.midiout_data && this.settings.midi_device !== 'OFF' && this.settings.midi_channel >= 0) {
-      this.midiout_data.sendChannelAftertouch(value, { channels: this.settings.midi_channel + 1, rawValue: true });
+    if (
+      this.midiout_data &&
+      this.settings.midi_device !== "OFF" &&
+      this.settings.midi_channel >= 0
+    ) {
+      this.midiout_data.sendChannelAftertouch(value, {
+        channels: this.settings.midi_channel + 1,
+        rawValue: true,
+      });
     }
-    if (this.settings.output_mpe && this.settings.mpe_device !== 'OFF') {
+    if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
       const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
       if (mpeOutput) {
         const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
@@ -2687,13 +2700,21 @@ class Keys {
   // we do not also send on the manager channel when in MPE input mode, since
   // that would double-apply the bend.
   _passthroughPitchBend(val14) {
-    const normalized = (val14 / 8192.0) - 1.0; // 0→−1, 8192→0, 16383→≈+1
-    if (this.midiout_data && this.settings.midi_device !== 'OFF' && this.settings.midi_channel >= 0) {
+    const normalized = val14 / 8192.0 - 1.0; // 0→−1, 8192→0, 16383→≈+1
+    if (
+      this.midiout_data &&
+      this.settings.midi_device !== "OFF" &&
+      this.settings.midi_channel >= 0
+    ) {
       this.midiout_data.sendPitchBend(normalized, { channels: this.settings.midi_channel + 1 });
     }
     // MPE: only send zone-wide PB on manager channel when NOT in MPE input mode.
     // In MPE input mode each voice channel carries its own per-note bend via retune().
-    if (!this.inputRuntime.mpeInput && this.settings.output_mpe && this.settings.mpe_device !== 'OFF') {
+    if (
+      !this.inputRuntime.mpeInput &&
+      this.settings.output_mpe &&
+      this.settings.mpe_device !== "OFF"
+    ) {
       const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
       if (mpeOutput) {
         const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
@@ -2778,12 +2799,12 @@ class Keys {
 
     const norm = (val14 - 8192) / 8192; // −1 … +1
 
-    if (this.inputRuntime.pitchBendMode === 'all') {
+    if (this.inputRuntime.pitchBendMode === "all") {
       // All-notes mode: apply a uniform cent offset to every active hex.
       // We use the symmetric fixed-range calculation only (scale-aware
       // asymmetric bend is inherently single-target).
       // Uses hex._baseCents (frozen at note-on) to avoid accumulation drift.
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '64/63');
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
       const offsetCents = norm * rangeCents;
       this._wheelBend = offsetCents;
       for (const hex of this._allActiveHexes()) {
@@ -2804,7 +2825,11 @@ class Keys {
     }
 
     let bentCents;
-    if (this.inputRuntime.wheelScaleAware && target.cents_prev != null && target.cents_next != null) {
+    if (
+      this.inputRuntime.wheelScaleAware &&
+      target.cents_prev != null &&
+      target.cents_next != null
+    ) {
       // Asymmetric scale-aware bend:
       //   wheel down (norm < 0) → slide toward cents_prev (one scale degree below)
       //   wheel up   (norm > 0) → slide toward cents_next (one scale degree above)
@@ -2815,7 +2840,7 @@ class Keys {
       }
     } else {
       // Symmetric fixed-range bend.
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? '64/63');
+      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
       bentCents = this._wheelBaseCents + norm * rangeCents;
     }
 
@@ -2825,7 +2850,7 @@ class Keys {
 
   _applyCurrentWheelToHex(hex) {
     if (!hex || this._wheelValue14 === 8192) return;
-    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === 'recency') {
+    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
       return;
     }
     const baseCents = hex._baseCents ?? hex.cents;
@@ -2833,7 +2858,7 @@ class Keys {
       hex.retune(baseCents + this._wheelBend, true);
       return;
     }
-    if (this.inputRuntime.pitchBendMode === 'all') {
+    if (this.inputRuntime.pitchBendMode === "all") {
       hex.retune(baseCents + this._wheelBend, true);
     }
   }
@@ -2841,7 +2866,7 @@ class Keys {
   _reapplyCurrentWheelBend() {
     if (this.inputRuntime.mpeInput) return;
     if (this._wheelValue14 === 8192) return;
-    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === 'recency') {
+    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
       this._wheelTarget = null;
       this._wheelBaseCents = null;
     }
@@ -2854,7 +2879,7 @@ class Keys {
     if (this.inputRuntime.mpeInput && hex._inputChannel != null) {
       let norm = ((this._mpeInputBendByChannel.get(hex._inputChannel) ?? 8192) - 8192) / 8192;
       if (this.inputRuntime.bendFlip) norm = -norm;
-      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
+      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
       hex.retune(baseCents + norm * rangeCents, true);
       const entry = this.state.activeMidiByChannel.get(hex._inputChannel);
       if (entry?.hex === hex) entry.baseCents = baseCents;
@@ -2865,7 +2890,7 @@ class Keys {
 
   _queueRetuneGlide(hex, targetBase, bendOnly = false) {
     if (!hex?.retune || hex.release) return;
-    const currentBase = this._retuneGlides.get(hex)?.currentBase ?? (hex._baseCents ?? hex.cents);
+    const currentBase = this._retuneGlides.get(hex)?.currentBase ?? hex._baseCents ?? hex.cents;
     this._retuneGlides.set(hex, { currentBase, targetBase, bendOnly });
   }
 
@@ -2921,11 +2946,11 @@ class Keys {
     } else {
       this._retuneGlideLastTime = 0;
     }
-  }
+  };
 
   _reapplyCurrentInputBends() {
     if (this.inputRuntime.mpeInput) {
-      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? '9/8');
+      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
       for (const [channel, entry] of this.state.activeMidiByChannel) {
         if (!entry || entry.hex.release) continue;
         let norm = ((this._mpeInputBendByChannel.get(channel) ?? 8192) - 8192) / 8192;
@@ -2958,8 +2983,7 @@ class Keys {
     // Reset pitch on the old target only if it's still sounding.
     // If it has been released its channel may have been reallocated,
     // and retuning it would send a spurious PB to the new note.
-    if (this._wheelTarget && !this._wheelTarget.release &&
-      this._wheelBaseCents !== null) {
+    if (this._wheelTarget && !this._wheelTarget.release && this._wheelBaseCents !== null) {
       this._wheelTarget.retune(this._wheelBaseCents);
     }
 
@@ -2980,7 +3004,7 @@ class Keys {
   // Desaturate a CSS hex colour toward grey by the given amount (0=none, 1=full grey).
   _desaturateColor(hex, amount) {
     if (!hex || hex.length < 6) return hex;
-    const h = hex.replace('#', '');
+    const h = hex.replace("#", "");
     if (h.length < 6) return hex;
     const r = parseInt(h.slice(0, 2), 16);
     const g = parseInt(h.slice(2, 4), 16);
@@ -2989,10 +3013,12 @@ class Keys {
     const nr = Math.round(r + (grey - r) * amount);
     const ng = Math.round(g + (grey - g) * amount);
     const nb = Math.round(b + (grey - b) * amount);
-    return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
+    return "#" + [nr, ng, nb].map((v) => v.toString(16).padStart(2, "0")).join("");
   }
 
-  bestVisibleCoord(steps) { return this.coordResolver.bestVisibleCoord(steps); }
+  bestVisibleCoord(steps) {
+    return this.coordResolver.bestVisibleCoord(steps);
+  }
 
   hexCoordsToScreen(hex) {
     /* Point */
@@ -3002,8 +3028,7 @@ class Keys {
       this.state.centerpoint.x +
       (hex.x - ox) * this.settings.hexWidth +
       ((hex.y - oy) * this.settings.hexWidth) / 2;
-    let screenY =
-      this.state.centerpoint.y + (hex.y - oy) * this.settings.hexVert;
+    let screenY = this.state.centerpoint.y + (hex.y - oy) * this.settings.hexVert;
     return new Point(screenX, screenY);
   }
 
@@ -3051,10 +3076,8 @@ class Keys {
     for (let i = 0; i < 6; i++) {
       let angle = ((2 * Math.PI) / 6) * (i + 0.5);
       // TODO hexSize should already be a number
-      x2[i] =
-        hexCenter.x + (parseFloat(this.settings.hexSize) + 3) * Math.cos(angle);
-      y2[i] =
-        hexCenter.y + (parseFloat(this.settings.hexSize) + 3) * Math.sin(angle);
+      x2[i] = hexCenter.x + (parseFloat(this.settings.hexSize) + 3) * Math.cos(angle);
+      y2[i] = hexCenter.y + (parseFloat(this.settings.hexSize) + 3) * Math.sin(angle);
     }
 
     // Draw shadowed stroke outside clip to create pseudo-3d effect
@@ -3124,7 +3147,7 @@ class Keys {
             (this.settings.scale[reducedNote] -
               this.settings.scale[this.settings.reference_degree] +
               1200) %
-            1200,
+              1200,
           ).toString() + ".";
       }
 
@@ -3180,10 +3203,7 @@ class Keys {
         returnColor[2] -= 200;
       }
 
-      return [
-        rgb(returnColor[0], returnColor[1], returnColor[2]),
-        current_text_color,
-      ];
+      return [rgb(returnColor[0], returnColor[1], returnColor[2]), current_text_color];
     }
 
     let fcolor = hex2rgb("#" + this.settings.fundamental_color);
@@ -3215,15 +3235,10 @@ class Keys {
   }
 
   hexCoordsToCents(coords) {
-    let distance =
-      coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
+    let distance = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
     let octs = this.roundTowardZero(distance / this.settings.scale.length);
-    let octs_prev = this.roundTowardZero(
-      (distance - 1) / this.settings.scale.length,
-    );
-    let octs_next = this.roundTowardZero(
-      (distance + 1) / this.settings.scale.length,
-    );
+    let octs_prev = this.roundTowardZero((distance - 1) / this.settings.scale.length);
+    let octs_next = this.roundTowardZero((distance + 1) / this.settings.scale.length);
     let reducedSteps = distance % this.settings.scale.length;
     let reducedSteps_prev = (distance - 1) % this.settings.scale.length;
     let reducedSteps_next = (distance + 1) % this.settings.scale.length;
@@ -3242,14 +3257,11 @@ class Keys {
     }
     // octave_offset shifts all pitches by N equaves without rebuilding
     const octOff = this.settings.octave_offset || 0;
-    let cents =
-      (octs + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps];
+    let cents = (octs + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps];
     let cents_prev =
-      (octs_prev + octOff) * this.settings.equivInterval +
-      this.settings.scale[reducedSteps_prev];
+      (octs_prev + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps_prev];
     let cents_next =
-      (octs_next + octOff) * this.settings.equivInterval +
-      this.settings.scale[reducedSteps_next];
+      (octs_next + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps_next];
     /*  let dataArray = [
       "cents = ", cents,
       "reducedSteps = ", reducedSteps,
@@ -3260,15 +3272,7 @@ class Keys {
       "cents_next = ", cents_next
     ]
     console.log("hexCoordsToCents at coords: ", coords, dataArray); */
-    return [
-      cents,
-      reducedSteps,
-      distance,
-      octs,
-      equivSteps,
-      cents_prev,
-      cents_next,
-    ];
+    return [cents, reducedSteps, distance, octs, equivSteps, cents_prev, cents_next];
   }
 
   getHexCoordsAt(coords) {

@@ -1,4 +1,4 @@
-import Point from './point';
+import Point from "./point";
 
 export function calculateRotationMatrix(rotation, center) {
   var m = [];
@@ -13,9 +13,7 @@ export function calculateRotationMatrix(rotation, center) {
   return m;
 }
 
-export function applyMatrixToPoint(m, p) { /*Array, Point*/
-  return new Point(
-    m[0] * p.x + m[2] * p.y + m[4],
-    m[1] * p.x + m[3] * p.y + m[5]
-  );
+export function applyMatrixToPoint(m, p) {
+  /*Array, Point*/
+  return new Point(m[0] * p.x + m[2] * p.y + m[4], m[1] * p.x + m[3] * p.y + m[5]);
 }

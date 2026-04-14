@@ -97,10 +97,10 @@ describe("mtsToMidiFloat", () => {
 
 describe("centsToMTS / mtsToMidiFloat round-trip", () => {
   const cases = [
-    { note: 60, bend: 0,   label: "middle C, no bend" },
-    { note: 69, bend: 33,  label: "A4, 33-cent bend" },
-    { note: 21, bend: 50,  label: "low note, 50-cent bend" },
-    { note: 108, bend: 0,  label: "high note, no bend" },
+    { note: 60, bend: 0, label: "middle C, no bend" },
+    { note: 69, bend: 33, label: "A4, 33-cent bend" },
+    { note: 21, bend: 50, label: "low note, 50-cent bend" },
+    { note: 108, bend: 0, label: "high note, no bend" },
     { note: 64, bend: -25, label: "negative bend" },
   ];
 
@@ -193,11 +193,11 @@ describe("buildRealtimeSingleNoteMessage", () => {
 
   it("places mapNumber, noteCount=1, midiNote, then triplet", () => {
     const msg = buildRealtimeSingleNoteMessage(127, 5, 60, [62, 32, 16]);
-    expect(msg[4]).toBe(5);   // mapNumber
-    expect(msg[5]).toBe(1);   // noteCount
-    expect(msg[6]).toBe(60);  // midiNote
-    expect(msg[7]).toBe(62);  // tt
-    expect(msg[8]).toBe(32);  // yy — wait, length is 8, so msg[8] doesn't exist
+    expect(msg[4]).toBe(5); // mapNumber
+    expect(msg[5]).toBe(1); // noteCount
+    expect(msg[6]).toBe(60); // midiNote
+    expect(msg[7]).toBe(62); // tt
+    expect(msg[8]).toBe(32); // yy — wait, length is 8, so msg[8] doesn't exist
     // Triplet is spread — message is [127, deviceId, 8, 2, mapNumber, 1, midiNote, tt, yy, zz]
     // That's 10 bytes, not 8. Re-check the spec.
   });
@@ -214,19 +214,18 @@ describe("buildBulkDumpMessage", () => {
   it("places device ID and map number in the expected header positions", () => {
     const entries = Array.from({ length: 128 }, () => [60, 1, 2]);
     const sysex = buildBulkDumpMessage(42, 7, "Test", entries);
-    expect(sysex[0]).toBe(126);  // non-real-time SysEx ID
-    expect(sysex[1]).toBe(42);   // deviceId
-    expect(sysex[2]).toBe(8);    // sub-ID 1 (MIDI tuning standard)
-    expect(sysex[3]).toBe(1);    // sub-ID 2 (bulk dump request)
-    expect(sysex[4]).toBe(7);    // mapNumber
+    expect(sysex[0]).toBe(126); // non-real-time SysEx ID
+    expect(sysex[1]).toBe(42); // deviceId
+    expect(sysex[2]).toBe(8); // sub-ID 1 (MIDI tuning standard)
+    expect(sysex[3]).toBe(1); // sub-ID 2 (bulk dump request)
+    expect(sysex[4]).toBe(7); // mapNumber
   });
 
   it("pads the name to 16 ASCII bytes at positions 5–20", () => {
     const entries = Array.from({ length: 128 }, () => [60, 1, 2]);
     const sysex = buildBulkDumpMessage(42, 7, "AB", entries);
     expect(sysex.slice(5, 21)).toEqual([
-      65, 66, 32, 32, 32, 32, 32, 32,
-      32, 32, 32, 32, 32, 32, 32, 32,
+      65, 66, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
     ]);
   });
 

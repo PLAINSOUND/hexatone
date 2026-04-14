@@ -30,9 +30,9 @@ const nextNodeId = () => _nextNodeId++;
  */
 class OscSocket {
   constructor(url) {
-    this._url      = url;
-    this._ws       = null;
-    this._queue    = [];   // messages buffered while connecting
+    this._url = url;
+    this._ws = null;
+    this._queue = []; // messages buffered while connecting
     this._connect();
   }
 
@@ -91,13 +91,13 @@ function getSocket(url) {
  * @param {number}   targetGroup        - SC node group to add synths to (default 1 = default group)
  */
 export const create_osc_synth = async (
-  wsUrl            = WS_URL_DEFAULT,
-  synthNames       = ["pluck", "string", "formant", "tone"],
-  volumes          = [0.5, 0.5, 0.5, 0.5],
-  fundamental      = 440,
+  wsUrl = WS_URL_DEFAULT,
+  synthNames = ["pluck", "string", "formant", "tone"],
+  volumes = [0.5, 0.5, 0.5, 0.5],
+  fundamental = 440,
   reference_degree = 0,
-  scale            = [0],
-  targetGroup      = 1,
+  scale = [0],
+  targetGroup = 1,
 ) => {
   const socket = getSocket(wsUrl);
   // Mutable volume array — updated by setVolume, read by each new OscHex
@@ -106,11 +106,29 @@ export const create_osc_synth = async (
   const _mod = { value: 0.0 };
 
   return {
-    makeHex: (coords, cents, steps, equaves, equivSteps, cents_prev, cents_next,
-              note_played, velocity_played, bend, degree0toRef_ratio) => {
+    makeHex: (
+      coords,
+      cents,
+      steps,
+      equaves,
+      equivSteps,
+      cents_prev,
+      cents_next,
+      note_played,
+      velocity_played,
+      bend,
+      degree0toRef_ratio,
+    ) => {
       return new OscHex(
-        coords, cents, socket, synthNames, _volumes, targetGroup,
-        fundamental, degree0toRef_ratio ?? 1, _mod,
+        coords,
+        cents,
+        socket,
+        synthNames,
+        _volumes,
+        targetGroup,
+        fundamental,
+        degree0toRef_ratio ?? 1,
+        _mod,
       );
     },
 
@@ -133,18 +151,28 @@ export const create_osc_synth = async (
 /**
  * OscHex — one instance per held note, one SC synth node per active layer.
  */
-function OscHex(coords, cents, socket, synthNames, volumes, targetGroup, fundamental, degree0toRef_ratio, modRef) {
-  this.coords  = coords;
-  this.cents   = cents;
+function OscHex(
+  coords,
+  cents,
+  socket,
+  synthNames,
+  volumes,
+  targetGroup,
+  fundamental,
+  degree0toRef_ratio,
+  modRef,
+) {
+  this.coords = coords;
+  this.cents = cents;
   this.release = false;
 
-  this._socket          = socket;
-  this._synthNames      = synthNames;
-  this._volumes         = volumes;
-  this._targetGroup     = targetGroup;
-  this._fundamental     = fundamental;
-  this._degree0toRef    = degree0toRef_ratio;
-  this._modRef          = modRef; // shared { value } object so noteOn sees current mod level
+  this._socket = socket;
+  this._synthNames = synthNames;
+  this._volumes = volumes;
+  this._targetGroup = targetGroup;
+  this._fundamental = fundamental;
+  this._degree0toRef = degree0toRef_ratio;
+  this._modRef = modRef; // shared { value } object so noteOn sees current mod level
 
   // One node ID per layer; null = layer has vol 0 so no node created
   this._nodeIds = synthNames.map(() => null);
@@ -166,12 +194,16 @@ OscHex.prototype.noteOn = function () {
     this._socket.send("/s_new", [
       { type: "s", value: this._synthNames[i] },
       { type: "i", value: nodeId },
-      { type: "i", value: 1 },          // addAction: addToTail
+      { type: "i", value: 1 }, // addAction: addToTail
       { type: "i", value: this._targetGroup },
-      { type: "s", value: "freq" },  { type: "f", value: this._freq },
-      { type: "s", value: "gate" },  { type: "i", value: 1 },
-      { type: "s", value: "vol" },   { type: "f", value: 1.0 }, // SC faders control vol via /n_set
-      { type: "s", value: "mod" },   { type: "f", value: this._modRef.value },
+      { type: "s", value: "freq" },
+      { type: "f", value: this._freq },
+      { type: "s", value: "gate" },
+      { type: "i", value: 1 },
+      { type: "s", value: "vol" },
+      { type: "f", value: 1.0 }, // SC faders control vol via /n_set
+      { type: "s", value: "mod" },
+      { type: "f", value: this._modRef.value },
     ]);
   }
 };
@@ -185,8 +217,10 @@ OscHex.prototype.noteOff = function (release_velocity) {
     if (id === null) continue;
     this._socket.send("/n_set", [
       { type: "i", value: id },
-      { type: "s", value: "off_vel" }, { type: "f", value: offVel },
-      { type: "s", value: "gate" },    { type: "i", value: 0 },
+      { type: "s", value: "off_vel" },
+      { type: "f", value: offVel },
+      { type: "s", value: "gate" },
+      { type: "i", value: 0 },
     ]);
     this._nodeIds[i] = null;
   }
@@ -201,7 +235,8 @@ OscHex.prototype.retune = function (newCents) {
     if (id === null) continue;
     this._socket.send("/n_set", [
       { type: "i", value: id },
-      { type: "s", value: "freq" }, { type: "f", value: freq },
+      { type: "s", value: "freq" },
+      { type: "f", value: freq },
     ]);
   }
 };
@@ -209,12 +244,13 @@ OscHex.prototype.retune = function (newCents) {
 OscHex.prototype.aftertouch = function (value) {
   if (this.release) return;
   // Map 0–127 to 1–2 (same scale as the SC filter parameter)
-  const filter = 1 + (value / 127);
+  const filter = 1 + value / 127;
   for (const id of this._nodeIds) {
     if (id === null) continue;
     this._socket.send("/n_set", [
       { type: "i", value: id },
-      { type: "s", value: "filter" }, { type: "f", value: filter },
+      { type: "s", value: "filter" },
+      { type: "f", value: filter },
     ]);
   }
 };
@@ -225,9 +261,9 @@ OscHex.prototype.pressure = function (value) {
 };
 
 // cc74, modwheel, expression: no SC mapping yet — no-ops.
-OscHex.prototype.cc74       = function() {};
-OscHex.prototype.modwheel   = function() {};
-OscHex.prototype.expression = function() {};
+OscHex.prototype.cc74 = function () {};
+OscHex.prototype.modwheel = function () {};
+OscHex.prototype.expression = function () {};
 
 /**
  * Convert scale-relative cents to Hz using the same formula as midi_synth.

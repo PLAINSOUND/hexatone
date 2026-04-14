@@ -58,12 +58,12 @@ export function computeCenterPitchHz(
   equivInterval,
   centerDegree,
 ) {
-  const degree0Hz = fundamental / (2 ** (degree0toRefCents / 1200));
+  const degree0Hz = fundamental / 2 ** (degree0toRefCents / 1200);
   const cd = centerDegree || 0;
   const octs = Math.floor(cd / scale.length);
   const red = ((cd % scale.length) + scale.length) % scale.length;
   const centerPitchCents = octs * equivInterval + scale[red];
-  return degree0Hz * (2 ** (centerPitchCents / 1200));
+  return degree0Hz * 2 ** (centerPitchCents / 1200);
 }
 
 // ── Real-time anchor ──────────────────────────────────────────────────────────
@@ -90,16 +90,12 @@ export function computeNaturalAnchor(
   equivInterval,
   centerDegree,
 ) {
-  const degree0Midi =
-    69 + (1200 * Math.log2(fundamental / 440) - degree0toRefCents) / 100;
+  const degree0Midi = 69 + (1200 * Math.log2(fundamental / 440) - degree0toRefCents) / 100;
   const cd = centerDegree || 0;
   const octs = Math.floor(cd / scale.length);
   const red = ((cd % scale.length) + scale.length) % scale.length;
   const centerPitchCents = octs * equivInterval + scale[red];
-  return Math.max(
-    0,
-    Math.min(127, Math.round(degree0Midi + centerPitchCents / 100)),
-  );
+  return Math.max(0, Math.min(127, Math.round(degree0Midi + centerPitchCents / 100)));
 }
 
 // ── Static bulk-map anchor ────────────────────────────────────────────────────
@@ -116,7 +112,7 @@ export function chooseStaticMapCenterMidi(centerPitchHz) {
   let bestMidi = 69;
   let bestError = Infinity;
   for (let midi = 57; midi <= 72; midi++) {
-    const hz = 440 * (2 ** ((midi - 69) / 12));
+    const hz = 440 * 2 ** ((midi - 69) / 12);
     const centsError = Math.abs(1200 * Math.log2(centerPitchHz / hz));
     if (centsError < bestError) {
       bestError = centsError;
