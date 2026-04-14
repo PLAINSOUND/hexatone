@@ -1,4 +1,3 @@
-import { h } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 
 export class Extract {
@@ -45,11 +44,11 @@ export class ExtractArray {
     values.map(this.to).forEach((v) => query.append(key, v));
   }
 
-  restore(key) {
+  restore(_key) {
     return null; // TODO
   }
 
-  store(key, value) {
+  store(_key, _value) {
     return null; // TODO
   }
 }
@@ -117,7 +116,7 @@ export function useQuery(spec, defaults, skipKeys = []) {
   const valuesRef = useRef(values);
   valuesRef.current = values;
 
-  function handle(e) {
+  function handle(_e) {
     const query = new URLSearchParams(document.location.search.substring(1));
     const output = {};
     for (let [key, extract] of Object.entries(spec)) {
@@ -154,7 +153,8 @@ export function useQuery(spec, defaults, skipKeys = []) {
     return () => {
       window.removeEventListener("popstate", handle);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // handle reads from valuesRef to avoid stale closure — intentionally registered once
 
   return [values, setState];
 }

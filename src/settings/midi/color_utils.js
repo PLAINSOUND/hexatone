@@ -1,4 +1,3 @@
-import { h } from "preact";
 import PropTypes from "prop-types";
 
 const MidiOutputs = (props) => (

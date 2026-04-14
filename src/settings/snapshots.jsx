@@ -1,4 +1,3 @@
-import { h } from "preact";
 
 /**
  * Snapshots — sidebar panel for capturing and replaying note snapshots.

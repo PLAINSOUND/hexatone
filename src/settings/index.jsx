@@ -1,4 +1,3 @@
-import { h } from "preact";
 import Presets from "./presets";
 import CustomPresets from "./custom-presets";
 import Info from "./info";
@@ -7,6 +6,7 @@ import Layout from "./layout";
 import SampleSynth from "./sample";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
+// eslint-disable-next-line no-unused-vars
 import Snapshots from "./snapshots.jsx";
 import "./settings.css";
 
@@ -76,10 +76,6 @@ const Settings = ({
   lumatoneRawPorts,
   exquisRawPorts,
   exquisLedStatus,
-  snapshots,
-  playingSnapshotId,
-  onPlaySnapshot,
-  onDeleteSnapshot,
 }) => (
   <div autoComplete="off" role="group" aria-label="Hexatone settings">
     <fieldset style={{ marginTop: "1em" }}>

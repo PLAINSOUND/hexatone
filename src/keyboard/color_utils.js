@@ -264,7 +264,7 @@ export function hex2rgb(col) {
   return [r, g, b];
 }
 
-export function rgb2hsv(r1, g1, b1) {
+export function rgb2hsv(_r1, _g1, _b1) {
   var rr,
     gg,
     bb,

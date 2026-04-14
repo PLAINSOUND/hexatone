@@ -1,4 +1,3 @@
-import { h } from "preact";
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
@@ -6,7 +5,6 @@ import { presets } from "./settings/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 
-import keyCodeToCoords from "./settings/keycodes";
 import useSynthWiring from "./use-synth-wiring.js";
 import { useMidiGuardian } from "./use-midi-guardian.js";
 import {
@@ -32,7 +30,6 @@ import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
 
-import PropTypes from "prop-types";
 
 import "normalize.css";
 import "./hex-style.css";
@@ -361,7 +358,7 @@ const App = () => {
   const longPressTimer = useRef(null);
   const longPressFired = useRef(false);
 
-  const onSidebarTouchStart = useCallback((e) => {
+  const onSidebarTouchStart = useCallback((_e) => {
     longPressFired.current = false;
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
@@ -505,33 +502,14 @@ const App = () => {
       // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
     }),
-    [
-      settings.midiin_mapping_target,
-      settings.midi_passthrough,
-      settings.midiin_mpe_input,
-      settings.midiin_steps_per_channel,
-      settings.midiin_channel_group_size,
-      settings.midiin_channel_legacy,
-      settings.midiin_scale_tolerance,
-      settings.midiin_scale_fallback,
-      settings.midiin_pitchbend_mode,
-      settings.midiin_pressure_mode,
-      settings.wheel_to_recent,
-      settings.wheel_scale_aware,
-      settings.midi_wheel_semitones,
-      settings.midiin_bend_range,
-      settings.midiin_bend_flip,
-      settings.midiin_scale_bend_range,
-      settings,
-      normalizedSeqAnchor,
-      forceScaleTarget,
-    ],
+    [settings, normalizedSeqAnchor, forceScaleTarget],
   );
 
   // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
   const structuralSettings = useMemo(
     () => normalizeStructural(settings),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- explicit field list avoids reconstructing Keys on every color-picker drag
     [
       settings.rSteps,
       settings.drSteps,
@@ -560,6 +538,7 @@ const App = () => {
       settings.midiin_pressure_mode,
       settings.lumatone_center_channel,
       settings.lumatone_center_note,
+      // Intentional: listing explicit fields so color-picker drags (not listed here) don't reconstruct Keys.
     ],
   );
 
@@ -597,6 +576,7 @@ const App = () => {
       mpe_pitchbend_range: settings.mpe_pitchbend_range,
       mpe_mode: settings.mpe_mode,
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- explicit field list avoids retrigger on structural/scale changes
     [
       settings.instrument,
       settings.output_sample,
@@ -627,6 +607,7 @@ const App = () => {
       settings.mpe_hi_ch,
       settings.mpe_pitchbend_range,
       settings.mpe_mode,
+      // Intentional: listing explicit fields so structural/scale changes don't retrigger output routing.
     ],
   );
 
@@ -644,7 +625,8 @@ const App = () => {
   // Reset octave transpose display when structuralSettings change (preset load etc.)
   useEffect(() => {
     setOctaveTranspose(0);
-  }, [structuralSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structuralSettings]); // setOctaveTranspose is a stable React state setter
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
@@ -684,7 +666,8 @@ const App = () => {
       exquisLedsRef.current = null;
       if (keysRef.current) keysRef.current.exquisLEDs = null;
     };
-  }, [exquisRawPorts, inputRuntime?.target]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exquisRawPorts, inputRuntime?.target]); // exquis_led_* are constructor args, intentionally not re-triggering
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.
@@ -757,6 +740,29 @@ const App = () => {
     }),
   };
 
+  // Stable callbacks for Keyboard props — must be declared unconditionally
+  // outside JSX so they don't violate the rules of hooks when the Keyboard
+  // is conditionally rendered.
+  const onKeysReady = useCallback(
+    (keys) => {
+      keysRef.current = keys;
+      keys.lumatoneLEDs = lumatoneLedsRef.current;
+      keys.exquisLEDs = exquisLedsRef.current;
+      if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
+        keys.syncLumatoneLEDs();
+      }
+      if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
+        keys.syncExquisLEDs();
+      }
+    },
+    [],
+  );
+  const onLatchChange = useCallback((v) => setLatch(v), []);
+  const onFirstInteraction = useCallback(() => {
+    setUserHasInteracted(true);
+    if (synthRef.current?.prepare) synthRef.current.prepare();
+  }, []);
+
   return (
     <div
       className={[
@@ -774,32 +780,15 @@ const App = () => {
           liveOutputSettings={liveOutputSettings}
           inputRuntime={inputRuntime}
           structuralSettings={structuralSettings}
-          onKeysReady={useCallback((keys) => {
-            keysRef.current = keys;
-            keys.lumatoneLEDs = lumatoneLedsRef.current;
-            keys.exquisLEDs = exquisLedsRef.current;
-            // Sync LEDs after reconstruction — geometry may have changed (rSteps,
-            // drSteps, etc.) without triggering the color useEffect in keyboard/index.js.
-            if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
-              keys.syncLumatoneLEDs();
-            }
-            if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
-              keys.syncExquisLEDs();
-            }
-          }, [])}
-          onLatchChange={useCallback((v) => setLatch(v), [])}
+          onKeysReady={onKeysReady}
+          onLatchChange={onLatchChange}
           onTakeSnapshot={onTakeSnapshot}
           active={active}
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
           lumatoneLedsRef={lumatoneLedsRef}
           exquisLedsRef={exquisLedsRef}
-          onFirstInteraction={useCallback(() => {
-            setUserHasInteracted(true);
-            // Called from the first touch on the canvas — within the iOS gesture
-            // window — so AudioContext.resume() and decodeAudioData will succeed.
-            if (synthRef.current?.prepare) synthRef.current.prepare();
-          }, [])}
+          onFirstInteraction={onFirstInteraction}
         />
       )}
 

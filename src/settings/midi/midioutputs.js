@@ -1,4 +1,3 @@
-import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";

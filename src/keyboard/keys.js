@@ -13,7 +13,6 @@ import {
   rgbToHex,
 } from "./color_utils";
 import { WebMidi } from "webmidi";
-import { midi_in } from "../settings/midi/midiin";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
@@ -1655,11 +1654,7 @@ class Keys {
       // Scale target mode: map incoming MIDI pitch to nearest scale degree.
       // Purely musical reference — independent of layout settings
       // (center_degree, midiin_central_degree, rSteps, etc.).
-      // degree0Hz: the absolute frequency of scale degree 0 (fundamental anchors
-      // reference_degree; degree0toRefCents is the cents offset from 0 to that anchor).
       // pitchCents: incoming note expressed as cents above degree 0.
-      const degree0toRefCents = this.settings.degree0toRef_asArray[0];
-      const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
       // Resolve exact pitch: MPE pre-bend > MTS table > plain 12-EDO.
       let pitchHz;
       if (this.inputRuntime.mpeInput) {
@@ -1744,9 +1739,6 @@ class Keys {
 
     if (this.inputRuntime.target === "scale") {
       // Scale mode: re-resolve pitch to steps for visual release.
-      // Identical reference as midinoteOn.
-      const degree0toRefCents = this.settings.degree0toRef_asArray[0];
-      const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
       // Mirror the same pitch resolution as midinoteOn so we release the right key.
       let pitchHz;
       if (this.inputRuntime.mpeInput) {
@@ -2056,7 +2048,6 @@ class Keys {
   noteOff(hex, release_velocity) {
     if (this.state.sustain) {
       // Check for duplicate by coords, not object reference
-      const key = hex.coords.x + "," + hex.coords.y;
       const alreadySustained = this.state.sustainedNotes.some(
         ([h]) => h.coords.x === hex.coords.x && h.coords.y === hex.coords.y,
       );
@@ -2404,7 +2395,7 @@ class Keys {
     }
   };
 
-  mouseUp = (e) => {
+  mouseUp = (_e) => {
     // Gate on isMouseDown — only true if this drag started on the canvas.
     // This correctly handles both off-canvas releases (processes activeMouse)
     // and UI button clicks (isMouseDown was never set, so we ignore them).
@@ -2600,7 +2591,7 @@ class Keys {
 
   // Handle touchcancel — when the browser cancels a touch (e.g. gesture, notification).
   // This prevents notes from getting stuck on mobile.
-  handleTouchCancel = (e) => {
+  handleTouchCancel = (_e) => {
     this.state.isTouchDown = false;
 
     // Release all active touch notes. Snapshot the entries first so we can
@@ -3187,7 +3178,7 @@ class Keys {
         returnColor = colors[pressed_interval];
       }
 
-      let oldColor = returnColor;
+      let _oldColor = returnColor;
 
       //convert color name to hex
       returnColor = nameToHex(returnColor);
@@ -3288,7 +3279,7 @@ class Keys {
     q = Math.round(q) + ox;
     r = Math.round(r) + oy;
 
-    let guess = this.hexCoordsToScreen(new Point(q, r));
+    let _guess = this.hexCoordsToScreen(new Point(q, r));
 
     // This gets an approximation; now check neighbours for minimum distance
 

@@ -18,7 +18,6 @@ import {
   sessionBool,
   sessionString,
   localInt,
-  localFloat,
   localBool,
   localString,
 } from "./storage-utils.js";

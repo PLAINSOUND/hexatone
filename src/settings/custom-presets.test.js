@@ -1,4 +1,3 @@
-import { h } from "preact";
 import { render, fireEvent, waitFor, screen } from "@testing-library/preact";
 import CustomPresets, { loadCustomPresets } from "./custom-presets.js";
 

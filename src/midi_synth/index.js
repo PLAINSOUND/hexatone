@@ -1,5 +1,3 @@
-import { scalaToCents } from "../settings/scale/parse-scale";
-import { WebMidi } from "webmidi";
 import { VoicePool } from "../voice_pool_nearest";
 import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";
@@ -287,7 +285,7 @@ function MidiHex(
       }
 
       // Note-number-aware allocation!
-      const { slot, stolen, distance, retrigger } = pool.noteOn(coords, targetMIDIFloat);
+      const { slot, stolen, distance: _distance, retrigger: _retrigger } = pool.noteOn(coords, targetMIDIFloat);
 
       // If voice was stolen, send noteOff on that slot
       if (stolen !== null) {
@@ -544,7 +542,7 @@ function createBulkDynamicTransport({
     release(coords) {
       pool.noteOff(coords);
     },
-    noteOn({ coords, carrier, triplet, velocity: noteVelocity }) {
+    noteOn({ coords: _coords, carrier, triplet, velocity: noteVelocity }) {
       // Cancel any pending coalesced retune — the noteOn dump supersedes it.
       if (_retunePending !== null) {
         cancelAnimationFrame(_retunePending);
@@ -579,8 +577,8 @@ function createBulkDynamicTransport({
 function buildDynamicBulkAllocation({
   coords,
   cents,
-  cents_prev,
-  cents_next,
+  _cents_prev,
+  _cents_next,
   degree0toRef_ratio,
   fundamental,
   transport,

@@ -262,8 +262,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         cents_next,
         note_played,
         velocity_played,
-        bend,
-        degree0toRef_ratio,
+        _bend,
+        _degree0toRef_ratio,
       ) => {
         const hex = new ActiveHex(
           coords,
@@ -500,7 +500,7 @@ ActiveHex.prototype.modwheel = function (value) {
 };
 ActiveHex.prototype.expression = function () {};
 
-ActiveHex.prototype.noteOff = function (release_velocity) {
+ActiveHex.prototype.noteOff = function (_release_velocity) {
   // Guard against double noteOff - prevents clicks from duplicate release calls
   if (this._noteOffCalled) return;
   this._noteOffCalled = true;

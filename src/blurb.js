@@ -1,4 +1,3 @@
-import { h, render } from "preact";
 
 const Blurb = () => (
   <div>

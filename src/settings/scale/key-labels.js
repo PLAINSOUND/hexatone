@@ -1,6 +1,4 @@
-import { h } from "preact";
 import PropTypes from "prop-types";
-import { Fragment } from "preact/compat";
 
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => (

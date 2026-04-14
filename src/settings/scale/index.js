@@ -1,8 +1,6 @@
-import { h } from "preact";
 import { useState, useEffect, useRef, useCallback } from "preact/hooks";
-import { Fragment } from "preact/compat";
 import PropTypes from "prop-types";
-import Colors, { colorProp } from "./colors";
+import Colors from "./colors";
 import KeyLabels from "./key-labels";
 import ScaleTable from "./scale-table";
 import ScalaImport from "./scala-import";
@@ -14,7 +12,7 @@ import ScalaInput from "./scala-input.js";
  * Drag shifts all sounding notes by the delta in cents.
  * On save: newFundamental = fundamental * 2^(delta/1200). Scale unchanged.
  */
-const FundamentalTuneCell = ({ fundamental, keysRef, onChange, setTuneDragging }) => {
+const FundamentalTuneCell = ({ fundamental, keysRef, onChange }) => {
   const [deltaCents, setDeltaCents] = useState(null); // null = no drag in progress
   const [comparing, setComparing] = useState(false);
   const dragStart = useRef(null);

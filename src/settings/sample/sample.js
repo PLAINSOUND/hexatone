@@ -1,6 +1,4 @@
-import { h } from "preact";
 import { useState } from "preact/hooks";
-import { Fragment } from "preact/compat";
 import PropTypes from "prop-types";
 
 const Sample = (props) => {

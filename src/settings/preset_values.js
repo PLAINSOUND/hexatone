@@ -22,10 +22,8 @@ import scale_43_ji_11l_partch from "scales/43-JI-11L-Partch.scl?raw";
 import scale_43_ji_11l_partchG from "scales/43-JI-11L-Partch_on_G.scl?raw";
 import scale_31_ji_7l_fokker from "scales/31-JI-7L-Fokker.scl?raw";
 import scale_17_ji_11l_wilson from "scales/17-JI-11L-Wilson.scl?raw";
-import scale_53_ri_3l from "scales/53-RI-3L.scl?raw";
 import scale_53_ji_13l_ct from "scales/53-JI-13L-CT.scl?raw";
 import scale_41_ji_7l from "scales/41-JI-7L-Sabat-Young.scl?raw";
-import scale_41_ji_13l from "scales/41-JI-13L-GB.scl?raw";
 import scale_55_ji_5l from "scales/55-JI-5L-Sabat-Euler.scl?raw";
 import scale_13_ji_7l_P5 from "scales/13-JI-7L-P5.scl?raw";
 

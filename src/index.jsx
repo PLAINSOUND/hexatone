@@ -1,9 +1,9 @@
-import { h, render } from "preact";
+import { render } from "preact";
 import { options } from "preact";
 import PropTypes from "prop-types";
 import App from "./app.jsx";
 
-if (process.env.NODE_ENV !== "production") {
+if (import.meta.env.DEV) {
   // installs global prop type checking for app preact components
   options.vnode = (vnode) => {
     let Component = vnode.type;
@@ -45,7 +45,7 @@ if (storedVersion && storedVersion !== APP_VERSION) {
 }
 
 // ── Register service worker (production only) ──────────────────────────────
-if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")

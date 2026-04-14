@@ -122,8 +122,6 @@ function buildAxis49Map(anchorNote) {
 
 // ── Physical geometry ──────────────────────────────────────────────────────
 
-const TS41_COLUMNS = 37;
-const TS41_ROWS = 13;
 export const TS41_TOTAL_NOTES = 126;
 
 // note (1-126) → {col, row}
@@ -597,15 +595,12 @@ function buildPushMap(anchorNote, colStep = 1, rowStep = 5) {
 // In "programmer mode" notes are 11 + row*10 + col (row/col 1-indexed).
 // Single channel, isomorphic when set to scale mode (+1 col = +2, +1 row = +5).
 
-function buildLaunchpadMap(anchorNote, colStep = 2, rowStep = 5) {
+function buildLaunchpadMap(anchorNote, _colStep = 2, _rowStep = 5) {
   const entries = [];
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       // Programmer mode: note = 11 + row*10 + col (bottom-left = note 11)
       const physNote = 11 + row * 10 + col;
-      // Map to pitch offset from anchor
-      const note = physNote; // we store the physical note as-is
-      const x = col * colStep - col * colStep; // relative to anchor col=0
       entries.push({ ch: 1, note: physNote, x: col, y: row });
     }
   }
@@ -613,8 +608,8 @@ function buildLaunchpadMap(anchorNote, colStep = 2, rowStep = 5) {
   const anchorRow = Math.floor((anchorNote - 11) / 10);
   const anchorCol = (anchorNote - 11) % 10;
   const result = new Map();
-  for (const [key, val] of makeMap(entries)) {
-    const [ch, note] = key.split(".").map(Number);
+  for (const [key] of makeMap(entries)) {
+    const [_ch, note] = key.split(".").map(Number);
     const row = Math.floor((note - 11) / 10);
     const col = (note - 11) % 10;
     result.set(key, { x: col - anchorCol, y: row - anchorRow });

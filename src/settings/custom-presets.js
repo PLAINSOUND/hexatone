@@ -1,4 +1,4 @@
-import { h, createRef } from "preact";
+import { createRef } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { fileToPreset, settingsToPresetJson } from "./scale/parse-scale";
@@ -62,7 +62,6 @@ const CustomPresets = ({
   isActive,
   activeSource,
   activePresetName,
-  isPresetDirty,
   onRevert,
 }) => {
   const [presets, setPresets] = useState(loadCustomPresets);

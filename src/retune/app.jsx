@@ -1,4 +1,3 @@
-import { h } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "./retune.css";
 import {
@@ -144,6 +143,7 @@ function midiDocFromCorpusJson(data) {
   };
 }
 
+// eslint-disable-next-line no-unused-vars
 function sameArray(a, b) {
   if (a.length !== b.length) return false;
   const aSorted = [...a].sort();
@@ -610,9 +610,10 @@ export default function RetuneApp() {
     restoreWorkspace().catch((error) =>
       console.error("Failed to restore retune workspace:", error),
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: restores persisted workspace on initial load
   }, []);
 
-  const notes = midiDoc?.notes ?? [];
+  const notes = useMemo(() => midiDoc?.notes ?? [], [midiDoc]);
   const selectedNote = notes.find((note) => note.eventId === selectedIds[0]) ?? null;
   const selectedAnnotation = selectedNote ? annotations[selectedNote.eventId] : null;
 
@@ -746,6 +747,7 @@ export default function RetuneApp() {
     downloadJson("bwv1001_adagio.annotated.json", payload);
   };
 
+  // eslint-disable-next-line no-unused-vars
   const selectByPredicate = (predicate) => {
     const ids = notes.filter(predicate).map((note) => note.eventId);
     setSelectedIds(ids);

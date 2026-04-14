@@ -99,8 +99,8 @@ export const create_mpe_synth = async (
   mpe_mode = "Ableton_workaround",
   bendRange = 48,
   bendRangeManager = 2,
-  equivSteps = 12,
-  equave = 2,
+  _equivSteps = 12,
+  _equave = 2,
   releaseGuardMs = RELEASE_GUARD_MS, // ms — should match your synth's longest release
   closestPitchSteal = true, // steal closest-pitch SOUNDING voice
 ) => {
@@ -167,8 +167,8 @@ export const create_mpe_synth = async (
       cents_next,
       note_played,
       velocity_played,
-      bend,
-      degree0toRef_ratio,
+      _bend,
+      _degree0toRef_ratio,
     ) => {
       const hex = new MpeHex(
         coords,
@@ -267,7 +267,7 @@ function MpeHex(
   const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
   const bendGuess = deviationToBend((69 + 12 * Math.log2(freq / 440) - noteGuess) * 100, bendRange);
 
-  const { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing, retrigger } = pool.noteOn(
+  const { slot, stolen: _stolen, stolenSlot, stolenNote, stolenWasReleasing: _stolenWasReleasing, retrigger } = pool.noteOn(
     coords,
     bendGuess,
   );

@@ -1,8 +1,7 @@
-import { h, createRef } from "preact";
+import { createRef } from "preact";
 import PropTypes from "prop-types";
 import {
   settingsToPlainScala,
-  settingsToAbletonScala,
   settingsToHexatonScala,
   settingsToKbm,
   settingsToPresetJson,

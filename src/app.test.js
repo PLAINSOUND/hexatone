@@ -12,7 +12,6 @@
  * require a more complete browser mock and are left as todos for future work.
  */
 
-import { h } from "preact";
 import { render, waitFor, screen } from "@testing-library/preact";
 
 vi.mock("./keyboard", () => ({

@@ -1,4 +1,4 @@
-import { h, createRef } from "preact";
+import { createRef } from "preact";
 import { useState, useRef, useCallback, useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "./parse-scale";
@@ -607,7 +607,6 @@ const ScaleTable = (props) => {
                     // delta: cents degree 0 moved up.
                     // The equave is never touched — it is a period ratio, not a pitch.
                     const oldScale = [...(props.settings.scale || [])];
-                    const equave = oldScale[oldScale.length - 1]; // preserve as-is
                     // Subtract delta from every degree except the equave so all
                     // other notes stay at the same absolute Hz.
                     const newScale = oldScale.map((str, idx) => {

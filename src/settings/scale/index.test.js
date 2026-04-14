@@ -7,7 +7,6 @@
  * The ScalaImport confirm button is labelled "Build Layout".
  */
 
-import { h } from "preact";
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Scale from "./index";
 

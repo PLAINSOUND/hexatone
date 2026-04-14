@@ -251,10 +251,12 @@ const useSettingsChange = (
     }
 
     setSettings((prev) => ({ ...prev, [key]: value }));
-  }, []); // stable — reads live values via settingsRef/midiRef
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Stable by design: reads live values via settingsRef/midiRef; keysRef/setters are stable
 
   const onAtomicChange = useCallback((updates) => {
     setSettings((prev) => ({ ...prev, ...updates }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable React state setter
   }, []);
 
   return { onChange, onAtomicChange };

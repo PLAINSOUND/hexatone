@@ -6,7 +6,6 @@
  * avoiding brittleness from position or implementation details.
  */
 
-import { h } from "preact";
 import { render, screen, fireEvent } from "@testing-library/preact";
 import ScaleTable from "./scale-table";
 

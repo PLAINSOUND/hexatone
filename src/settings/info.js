@@ -1,4 +1,3 @@
-import { h, render } from "preact";
 
 // scale name and description
 const Info = (props) => (

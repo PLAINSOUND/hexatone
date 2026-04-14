@@ -166,7 +166,7 @@ export class VoicePool {
    */
   clear() {
     const victims = [];
-    for (const [key, slot] of this._active) {
+    for (const [_key, slot] of this._active) {
       victims.push({ coords: this._coords.get(slot), slot });
     }
     for (const s of this._allSlots) {

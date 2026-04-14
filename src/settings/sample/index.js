@@ -1,5 +1,3 @@
-import { h } from "preact";
-import { Fragment } from "preact/compat";
 import PropTypes from "prop-types";
 import Sample from "./sample";
 

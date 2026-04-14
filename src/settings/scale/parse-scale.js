@@ -121,7 +121,7 @@ export function parseScalaInterval(str, context = "degree") {
   let cents;
   try {
     cents = scalaToCents(str);
-  } catch (e) {
+  } catch {
     return { cents: null, valid: false, error: "parse error" };
   }
   if (!isFinite(cents) || isNaN(cents)) {

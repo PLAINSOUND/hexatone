@@ -1,6 +1,5 @@
 import { Fraction, toMonzo } from "xen-dev-utils";
 import {
-  addMonzos,
   hejiToMonzo,
   monzoToHeji,
   parseHejiPitchClassLabel,

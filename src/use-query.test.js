@@ -10,7 +10,6 @@ import {
   Extract,
   ExtractArray,
   ExtractString,
-  ExtractStringArray,
   ExtractJoinedString,
   ExtractFloat,
   ExtractInt,

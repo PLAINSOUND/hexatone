@@ -12,7 +12,6 @@
  *            channelOffset, midiStepsToCoords } from './keyboard_math';
  */
 
-import Euclid from "./euclidean";
 import Point from "./point";
 
 // ── Rounding ──────────────────────────────────────────────────────────────────

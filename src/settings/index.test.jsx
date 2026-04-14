@@ -1,4 +1,3 @@
-import { h } from "preact";
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Settings from "./index.jsx";
 

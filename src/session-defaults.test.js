@@ -7,7 +7,7 @@
  * comes back as 0, not the default.
  */
 
-import { beforeEach, describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Keys that must survive a stored value of "0".
 // Format: [sessionStorage key, expected restored value, wrong default if broken]

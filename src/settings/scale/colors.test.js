@@ -8,7 +8,6 @@
  * The ColorCell hex text input commits on blur (not change).
  */
 
-import { h } from "preact";
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Colors from "./colors";
 

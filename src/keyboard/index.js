@@ -1,4 +1,4 @@
-import { h, render, Fragment } from "preact";
+import { Fragment } from "preact";
 import { useRef, useEffect } from "preact/hooks";
 import Keys from "./keys";
 import "./keyboard.css";
@@ -31,6 +31,7 @@ const Keyboard = (props) => {
       keys.exquisLEDs = null;
       keys.deconstruct();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by structuralSettings
   }, [canvas, props.structuralSettings, props.inputRuntime]);
 
   // Output/synth changes should not tear down the live keyboard. Existing notes
@@ -81,6 +82,7 @@ const Keyboard = (props) => {
         fundamental_color: props.settings.fundamental_color,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings.note_colors covered by noteColorsKey
   }, [noteColorsKey, props.settings.spectrum_colors, props.settings.fundamental_color]);
 
   return (

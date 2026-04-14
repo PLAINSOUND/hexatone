@@ -1,5 +1,4 @@
-import { h, createRef } from "preact";
-import { Fragment } from "preact/compat";
+import { createRef } from "preact";
 import { useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { deriveSpectrumNoteColors } from "../../normalize-settings.js";

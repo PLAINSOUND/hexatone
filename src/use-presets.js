@@ -143,7 +143,8 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
         setSettings(() => ({ ...settings, ...adjustedPreset }));
       }
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount-only: restores session preset on initial load; re-running on settings change would override user edits
 
   const presetChanged = async (e) => {
     if (!e.target.value) return;

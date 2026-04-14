@@ -411,7 +411,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     // FluidSynth mirror — must be computed before the early-return guard below,
     // otherwise the TDZ reference to wantFluidsynth in that condition would throw
     // a ReferenceError whenever wantSample is false and no MIDI is configured.
-    const { fluidsynthOutputObj, mtsPortIsFluidsynth } = outputRuntime;
+    const { fluidsynthOutputObj } = outputRuntime;
     const wantFluidsynth = mtsOutputs.some((o) => o.output === fluidsynthOutputObj);
 
     if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe && !wantOsc) {
@@ -658,6 +658,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is stable; settings covered field-by-field below
   }, [
     settings.instrument,
     // MIDI output runtimes derive anchors and tuning context from the current
@@ -696,6 +697,9 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     settings.mpe_mode,
     midi,
     midiTick,
+    ready,
+    // keysRef and settings (whole object) intentionally omitted — keysRef is a stable ref,
+    // and settings is covered field-by-field above.
   ]);
 
   // ── Imperative propagation ──────────────────────────────────────────────────
@@ -711,7 +715,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
       synth.setVolume(muted ? 0 : volume);
     }
-  }, [synth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [synth]); // synthRef is a stable ref, intentionally omitted
 
   // On first user interaction, prepare audio context (iOS/Safari requirement).
   useEffect(() => {
@@ -724,7 +729,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // the canvas redraws note labels without a full reconstruction.
   useEffect(() => {
     if (keysRef.current?.updateFundamental) keysRef.current.updateFundamental(settings.fundamental);
-  }, [settings.fundamental]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.fundamental]); // keysRef is a stable ref, intentionally omitted
 
   // In DIRECT static mode, turning on auto-send or changing map parameters
   // should immediately send the current static snapshot without waiting for
@@ -749,6 +755,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       if (keysRef.current) keysRef.current.mtsSendMap(output);
     });
     return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is a stable ref, intentionally omitted
   }, [
     ready,
     midi,
@@ -766,10 +773,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
 
   // ── Octave shift ────────────────────────────────────────────────────────────
 
-  const shiftOctave = (dir) => {
-    setOctaveTranspose((t) => t + dir);
-    if (keysRef.current?.shiftOctave) keysRef.current.shiftOctave(dir, octaveDeferred);
-  };
+  const shiftOctave = useCallback(
+    (dir) => {
+      setOctaveTranspose((t) => t + dir);
+      if (keysRef.current?.shiftOctave) keysRef.current.shiftOctave(dir, octaveDeferred);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is a stable ref; setOctaveTranspose is a stable state setter
+    [octaveDeferred],
+  );
 
   const setOctaveDeferredMode = useCallback(
     (next, e = null) => {
@@ -843,13 +854,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!input) return;
     const ctrl = resolveInputController(input, settings.midiin_controller_override);
     if (!ctrl) return;
-    setSettings((s) => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settings) }));
+    setSettings((s) => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settingsRef.current) }));
   }, [
     midi,
     settings.midiin_device,
     settings.midiin_controller_override,
     settings.midiin_mpe_input,
     settings.midi_passthrough,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
   ]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────
@@ -858,6 +870,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (synthRef.current && synthRef.current.setVolume) {
       synthRef.current.setVolume(muted ? 0 : volume);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- synthRef is a stable ref
   }, []);
 
   // Called by keys.js when the user presses a key during MIDI-learn mode.
@@ -868,16 +881,17 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       setMidiLearnActive(false);
       const ch = channel ?? 1;
       let ctrl = null;
-      if (settings.midiin_device && settings.midiin_device !== "OFF" && midi) {
-        const input = Array.from(midi.inputs.values()).find((m) => m.id === settings.midiin_device);
-        if (input) ctrl = resolveInputController(input, settings.midiin_controller_override);
+      const s = settingsRef.current;
+      if (s.midiin_device && s.midiin_device !== "OFF" && midi) {
+        const input = Array.from(midi.inputs.values()).find((m) => m.id === s.midiin_device);
+        if (input) ctrl = resolveInputController(input, s.midiin_controller_override);
       }
 
       // Persist anchor note per controller and build the settings update.
       // saveAnchorFromLearn handles both single-channel and channel-aware (Lumatone)
       // controllers in one place; returns the update object to merge into settings.
       const update = ctrl
-        ? saveAnchorFromLearn(ctrl, noteNum, ch, settings)
+        ? saveAnchorFromLearn(ctrl, noteNum, ch, s)
         : { midiin_central_degree: noteNum, midiin_anchor_channel: ch };
 
       // midiin_anchor_channel drives the relative channel-offset formula in
@@ -891,7 +905,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       }
       setSettings((s) => ({ ...s, ...update }));
     },
-    [settings.midiin_device, settings.midiin_controller_override, midi],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- settingsRef is stable; setSettings is a stable state setter
+    [midi],
   );
 
   // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
@@ -909,7 +924,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
 
   // When the active MIDI input is an Exquis, resolve both raw Web MIDI ports.
   // Output is needed for SysEx sends (LED colors, dev mode).
@@ -924,7 +940,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
 
   return {
     synth,
