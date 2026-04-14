@@ -852,6 +852,14 @@ class Keys {
     this.drawGrid();
   };
 
+  // Reset octave offset to 0 without any retune arithmetic.
+  // Called on synth rebuild, PANIC, and structural changes — contexts where
+  // all notes are already dead so retuning held notes is neither needed nor safe.
+  resetOctave = () => {
+    this.settings.octave_offset = 0;
+    this.drawGrid();
+  };
+
   updateFundamental = (newFundamental) => {
     this.settings.fundamental = newFundamental;
     const bendOnly = !!this.inputRuntime.mpeInput;

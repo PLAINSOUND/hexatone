@@ -37,6 +37,22 @@
  *   presetSkip: true  — key is excluded from URL/localStorage persistence
  *                       (matches PRESET_SKIP_KEYS in use-presets.js).
  *                       Only populated by explicit preset load or session storage.
+ *
+ * ## Intentional omissions
+ *
+ *   octave_offset — The OCT button transpose state is intentionally NOT registered.
+ *                   It is reset to 0 on every synth rebuild (output routing change),
+ *                   structural rebuild (preset/scale/layout change), and PANIC.
+ *                   Persisting it would cause pitch mismatches after these events.
+ *                   Implementation: resetOctave() in use-synth-wiring.js, called
+ *                   from useEffect([synth]) and the PANIC button in app.jsx.
+ *                   The structuralSettings reset lives in app.jsx useEffect([structuralSettings]).
+ *
+ *   octave_deferred — Stored directly in sessionStorage by use-synth-wiring.js
+ *                     (key: "octave_deferred"). Not in this registry because it is
+ *                     UI interaction state, not a settings value — it controls whether
+ *                     the next OCT shift defers to the next note-on rather than
+ *                     retuning held notes immediately.
  */
 
 export const SETTINGS_REGISTRY = [

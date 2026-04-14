@@ -796,6 +796,16 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [synth]); // synthRef is a stable ref, intentionally omitted
 
+  // Reset octave to 0 whenever the synth is rebuilt (output routing changed).
+  // A new synth means all notes were killed; keeping a transposed OCT state would
+  // cause the next notes to play at the wrong pitch.
+  const isFirstSynthRef = useRef(true);
+  useEffect(() => {
+    if (isFirstSynthRef.current) { isFirstSynthRef.current = false; return; }
+    resetOctave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resetOctave is stable
+  }, [synth]);
+
   // On first user interaction, prepare audio context (iOS/Safari requirement).
   useEffect(() => {
     if (userHasInteracted && synth && synth.prepare) {
@@ -853,12 +863,28 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
 
   const shiftOctave = useCallback(
     (dir) => {
-      setOctaveTranspose((t) => t + dir);
+      setOctaveTranspose((t) => {
+        const next = t + dir;
+        sessionStorage.setItem("octave_offset", String(next));
+        return next;
+      });
       if (keysRef.current?.shiftOctave) keysRef.current.shiftOctave(dir, octaveDeferred);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is a stable ref; setOctaveTranspose is a stable state setter
     [octaveDeferred],
   );
+
+  // Reset OCT display and keys.settings.octave_offset back to 0.
+  // Calls keys.resetOctave() which zeroes the offset directly — no inverse-shift
+  // arithmetic, no race with pending state batches. Safe to call even if keys is
+  // in the middle of a rebuild because resetOctave on a stale instance is a no-op
+  // (that instance is being torn down and the new one starts at 0).
+  const resetOctave = useCallback(() => {
+    keysRef.current?.resetOctave?.();
+    setOctaveTranspose(0);
+    sessionStorage.setItem("octave_offset", "0");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is a stable ref; setOctaveTranspose is a stable state setter
+  }, []);
 
   const setOctaveDeferredMode = useCallback(
     (next, e = null) => {
@@ -1042,6 +1068,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     setOctaveTranspose,
     octaveDeferred,
     shiftOctave,
+    resetOctave,
     toggleOctaveDeferred,
     onVolumeChange,
     onOscLayerVolumeChange,

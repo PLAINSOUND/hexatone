@@ -278,9 +278,9 @@ const App = () => {
     midiLearnActive,
     setMidiLearnActive,
     octaveTranspose,
-    setOctaveTranspose,
     octaveDeferred,
     shiftOctave,
+    resetOctave,
     toggleOctaveDeferred,
     onVolumeChange,
     onOscLayerVolumeChange,
@@ -618,22 +618,18 @@ const App = () => {
     ],
   );
 
-  // Reset latch (sustain UI state) when Keys is reconstructed.
-  // The new Keys instance starts with sustain: false, so the UI must match.
-  // Using a ref to skip the initial render (no reconstruction on first mount).
+  // Reset latch and octave when Keys is reconstructed (structuralSettings change).
+  // The new Keys instance starts with octave_offset=0 and sustain=false.
+  // Using a ref to skip the initial render (no reset on first mount).
   const prevStructuralRef = useRef(null);
   useEffect(() => {
     if (prevStructuralRef.current !== null && prevStructuralRef.current !== structuralSettings) {
       setLatch(false);
+      resetOctave();
     }
     prevStructuralRef.current = structuralSettings;
-  }, [structuralSettings]);
-
-  // Reset octave transpose display when structuralSettings change (preset load etc.)
-  useEffect(() => {
-    setOctaveTranspose(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [structuralSettings]); // setOctaveTranspose is a stable React state setter
+  }, [structuralSettings]); // resetOctave and setLatch are stable
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
@@ -918,6 +914,7 @@ const App = () => {
               e.stopPropagation();
               guardianPanic();
               if (keysRef.current) keysRef.current.panic();
+              resetOctave();
             }}
             onContextMenu={(e) => e.preventDefault()}
           >
