@@ -102,6 +102,7 @@ const MidiOutputs = (props) => {
   // macOS FluidSynth creates a new port on each launch; we find it by name.
   const fluidsynthOutput = outputs.find((m) => m.name.toLowerCase().includes("fluid")) ?? null;
   const fluidsynthFound = !!fluidsynthOutput;
+  const fluidsynthId = fluidsynthOutput?.id ?? "";
   // When the FluidSynth port disappears, clear the saved device so the UI
   // reflects the disconnected state. Do NOT auto-reconnect when it reappears —
   // the user explicitly presses Connect to opt in.
@@ -114,6 +115,13 @@ const MidiOutputs = (props) => {
   }, [fluidsynthOutput?.id]);
   // Is the user-selected main MTS port the same as FluidSynth? Warn if so.
   const mtsPortIsFluidsynth = fluidsynthOutput && settings.midi_device === fluidsynthOutput.id;
+  const setMtsPort = (value) => {
+    save("midi_device", value, onChange);
+    if (value === fluidsynthId && settings.fluidsynth_device) {
+      save("fluidsynth_device", "", onChange);
+      save("fluidsynth_channel", -1, onChange);
+    }
+  };
 
   return (
     <fieldset>
@@ -155,7 +163,7 @@ const MidiOutputs = (props) => {
               name="midi_device"
               class="sidebar-input"
               value={settings.midi_device || "OFF"}
-              onChange={(e) => save(e.target.name, e.target.value, onChange)}
+              onChange={(e) => setMtsPort(e.target.value)}
             >
               <option value="OFF">OFF</option>
               {outputs.map((m) => (
@@ -263,7 +271,7 @@ const MidiOutputs = (props) => {
                 </span>
                 <button
                   type="button"
-                  disabled={!fluidsynthFound && !fsConnected}
+                  disabled={(!fluidsynthFound && !fsConnected) || (!!fluidsynthFound && mtsPortIsFluidsynth && !fsConnected)}
                   style={{
                     fontSize: "0.85em",
                     background: fsConnected ? "#22cc44" : undefined,
@@ -277,7 +285,7 @@ const MidiOutputs = (props) => {
                       save("fluidsynth_device", "", onChange);
                       save("fluidsynth_channel", -1, onChange);
                     } else {
-                      if (!fluidsynthOutput) return;
+                      if (!fluidsynthOutput || mtsPortIsFluidsynth) return;
                       save("fluidsynth_device", fluidsynthOutput.id, onChange);
                       const saved = parseInt(localStorage.getItem("fluidsynth_channel_pref"));
                       const ch =
@@ -294,12 +302,20 @@ const MidiOutputs = (props) => {
                   title={
                     fsConnected
                       ? "Disconnect FluidSynth mirror"
+                      : mtsPortIsFluidsynth
+                        ? "FluidSynth is already selected as the main MTS port"
                       : fluidsynthFound
                         ? "Connect MTS mirror to FluidSynth"
                         : "FluidSynth not found"
                   }
                 >
-                  {fsConnected ? "Disconnect" : fluidsynthFound ? "Connect" : "Not found"}
+                  {fsConnected
+                    ? "Disconnect"
+                    : mtsPortIsFluidsynth
+                      ? "In use via Port"
+                      : fluidsynthFound
+                        ? "Connect"
+                        : "Not found"}
                 </button>
               </div>
               {fsConnected && (

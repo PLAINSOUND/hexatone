@@ -603,4 +603,28 @@ describe("Keys MIDI input integration", () => {
     expect(oldHex.retune).toHaveBeenCalledWith(3700);
     expect(keys._wheelTarget).toBe(newHex);
   });
+
+  it("keeps the main MTS output on real-time transport even if sysex_type is stale at 126", () => {
+    const output = {
+      id: "mts-out",
+      sendSysex: vi.fn(),
+      send: vi.fn(),
+    };
+    vi.spyOn(WebMidi, "getOutputById").mockReturnValue(output);
+
+    const keys = createKeys({
+      output_mts: true,
+      sysex_auto: false,
+      midi_device: "mts-out",
+      midi_channel: 0,
+      midi_mapping: "MTS1",
+      sysex_type: 126,
+    });
+    keys.midiout_data = output;
+
+    keys.mtsSendMap();
+
+    expect(output.sendSysex).toHaveBeenCalledTimes(128);
+    expect(output.send).not.toHaveBeenCalled();
+  });
 });

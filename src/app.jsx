@@ -770,12 +770,13 @@ const App = () => {
     setUserHasInteracted(true);
     if (synthRef.current?.prepare) synthRef.current.prepare();
   }, []);
+  const controlsHiddenForKeyboard = textEntryActive && viewportKeyboardOpen;
 
   return (
     <div
       className={[
         active ? "hide" : "show",
-        textEntryActive || viewportKeyboardOpen ? "text-entry-active" : "",
+        controlsHiddenForKeyboard ? "text-entry-active" : "",
       ]
         .filter(Boolean)
         .join(" ")}

@@ -219,7 +219,7 @@ class Keys {
       this.settings.center_degree,
     );
     this.mts_tuning_map = mtsTuningMap(
-      this.settings.sysex_type,
+      127,
       this.settings.device_id,
       this.settings.tuning_map_number,
       tuning_map_degree0,
@@ -816,7 +816,7 @@ class Keys {
       this.settings.name,
     );
     this.mts_tuning_map = mtsTuningMap(
-      this.settings.sysex_type,
+      127,
       this.settings.device_id,
       this.settings.tuning_map_number,
       computeNaturalAnchor(
@@ -857,7 +857,7 @@ class Keys {
     const bendOnly = !!this.inputRuntime.mpeInput;
     // Rebuild MTS tuning map with new fundamental
     this.mts_tuning_map = mtsTuningMap(
-      this.settings.sysex_type,
+      127,
       this.settings.device_id,
       this.settings.tuning_map_number,
       computeNaturalAnchor(
@@ -1392,13 +1392,15 @@ class Keys {
     // send the tuning map
     const output = midiOutput || this.midiout_data;
     if (!output) return;
-    // When called with a direct output, use 126 (non-RT bulk)
+    // Direct output uses the non-real-time bulk-dump path.
+    // Main MTS real-time output always uses single-note real-time messages,
+    // regardless of any stale sysex_type setting left over from older UI state.
     const isDirectOutput =
       this.settings.output_direct &&
       this.settings.direct_device &&
       this.settings.direct_device !== "OFF" &&
       output.id === this.settings.direct_device;
-    const sysex_type = isDirectOutput ? 126 : parseInt(this.settings.sysex_type);
+    const sysex_type = isDirectOutput ? 126 : 127;
     const tuningMap = isDirectOutput
       ? mtsTuningMap(
           126,
@@ -1600,24 +1602,14 @@ class Keys {
   }
 
   _hasDeferredBulkTargets() {
-    const hasBulkMts =
-      this.settings.output_mts && this.midiout_data && parseInt(this.settings.sysex_type) === 126;
     const hasDirectBulk =
       this.settings.output_direct &&
       this.settings.direct_device &&
       this.settings.direct_device !== "OFF";
-    return hasBulkMts || hasDirectBulk;
+    return hasDirectBulk;
   }
 
   _sendBulkDumpOctaveRefresh(protectHeld = true, protectRecentReleased = true) {
-    if (
-      this.settings.output_mts &&
-      this.midiout_data &&
-      parseInt(this.settings.sysex_type) === 126
-    ) {
-      this.mtsSendMap(this.midiout_data, protectHeld, protectRecentReleased);
-    }
-
     if (
       this.settings.output_direct &&
       this.settings.direct_device &&
