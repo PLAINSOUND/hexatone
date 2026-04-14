@@ -272,6 +272,7 @@ const App = () => {
     midiAccess,
     midiAccessError,
     ensureMidiAccess,
+    disableWebMidi,
     midiTick,
     loading,
     midiLearnActive,
@@ -541,6 +542,10 @@ const App = () => {
       settings.midiin_pressure_mode,
       settings.lumatone_center_channel,
       settings.lumatone_center_note,
+      // Reconstruct Keys when WebMIDI becomes available or device availability changes.
+      // Keys binds WebMidi input/output handles during construction.
+      midiAccess,
+      midiTick,
       // Intentional: listing explicit fields so color-picker drags (not listed here) don't reconstruct Keys.
     ],
   );
@@ -1103,7 +1108,8 @@ const App = () => {
           midi={midi}
           midiAccess={midiAccess}
           midiAccessError={midiAccessError}
-          ensureMidiAccess={ensureMidiAccess}
+          enableWebMidi={ensureMidiAccess}
+          disableWebMidi={disableWebMidi}
           midiTick={midiTick}
           instruments={instruments}
           keysRef={keysRef}

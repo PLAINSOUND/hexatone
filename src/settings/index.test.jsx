@@ -31,7 +31,8 @@ const baseProps = {
   midi: null,
   midiAccess: "none",
   midiAccessError: null,
-  ensureMidiAccess: () => {},
+  enableWebMidi: () => {},
+  disableWebMidi: () => {},
   midiTick: 0,
   instruments: [],
   keysRef: { current: null },
@@ -55,17 +56,64 @@ describe("Settings WebMIDI fieldset", () => {
   });
 
   it("requests basic MIDI when Enable MIDI is clicked from none state", () => {
-    const ensureMidiAccess = vi.fn();
-    render(<Settings {...baseProps} ensureMidiAccess={ensureMidiAccess} />);
+    const enableWebMidi = vi.fn();
+    render(
+      <Settings
+        {...baseProps}
+        settings={{ webmidi_enabled: false, webmidi_sysex_enabled: false }}
+        enableWebMidi={enableWebMidi}
+      />,
+    );
     fireEvent.click(screen.getByLabelText("Enable MIDI"));
-    expect(ensureMidiAccess).toHaveBeenCalledWith({ sysex: false });
+    expect(enableWebMidi).toHaveBeenCalledWith({ sysex: false });
   });
 
   it("requests sysex MIDI when Enable Sysex is clicked from basic state", () => {
-    const ensureMidiAccess = vi.fn();
-    render(<Settings {...baseProps} midiAccess="basic" ensureMidiAccess={ensureMidiAccess} />);
+    const enableWebMidi = vi.fn();
+    render(
+      <Settings
+        {...baseProps}
+        settings={{ webmidi_enabled: true, webmidi_sysex_enabled: false }}
+        midiAccess="basic"
+        enableWebMidi={enableWebMidi}
+      />,
+    );
     fireEvent.click(screen.getByLabelText("Enable Sysex"));
-    expect(ensureMidiAccess).toHaveBeenCalledWith({ sysex: true });
+    expect(enableWebMidi).toHaveBeenCalledWith({ sysex: true });
+  });
+
+  it("disables WebMIDI and clears intent when Enable MIDI is unchecked", () => {
+    const onChange = vi.fn();
+    const disableWebMidi = vi.fn();
+    render(
+      <Settings
+        {...baseProps}
+        settings={{ webmidi_enabled: true, webmidi_sysex_enabled: true }}
+        onChange={onChange}
+        disableWebMidi={disableWebMidi}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Enable MIDI"));
+    expect(onChange).toHaveBeenCalledWith("webmidi_enabled", false);
+    expect(onChange).toHaveBeenCalledWith("webmidi_sysex_enabled", false);
+    expect(disableWebMidi).toHaveBeenCalled();
+  });
+
+  it("fully disables WebMIDI when Enable Sysex is unchecked", () => {
+    const onChange = vi.fn();
+    const disableWebMidi = vi.fn();
+    render(
+      <Settings
+        {...baseProps}
+        settings={{ webmidi_enabled: true, webmidi_sysex_enabled: true }}
+        onChange={onChange}
+        disableWebMidi={disableWebMidi}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Enable Sysex"));
+    expect(onChange).toHaveBeenCalledWith("webmidi_enabled", false);
+    expect(onChange).toHaveBeenCalledWith("webmidi_sysex_enabled", false);
+    expect(disableWebMidi).toHaveBeenCalled();
   });
 
   it("shows midi access errors inline", () => {

@@ -32,6 +32,15 @@ const midiAccessRank = {
   sysex: 2,
 };
 
+const MIDI_PORT_RESET = {
+  midiin_device: "OFF",
+  midi_device: "OFF",
+  direct_device: "OFF",
+  mpe_device: "OFF",
+  fluidsynth_device: "",
+  fluidsynth_channel: -1,
+};
+
 export const deriveOscVolumes = (settings) => {
   if (Array.isArray(settings.osc_volumes) && settings.osc_volumes.length === 4) {
     return settings.osc_volumes;
@@ -249,6 +258,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   const midiRequestRef = useRef(null);
   const midiRestoreAttemptedRef = useRef(false);
 
+  const clearMidiSelections = useCallback(() => {
+    Object.entries(MIDI_PORT_RESET).forEach(([key, value]) => {
+      sessionStorage.setItem(key, String(value));
+    });
+    setSettings((prev) => ({ ...prev, ...MIDI_PORT_RESET }));
+  }, [setSettings]);
+
   // ── MIDI access ─────────────────────────────────────────────────────────────
 
   const ensureMidiAccess = useCallback(
@@ -296,28 +312,45 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     [midiAccess],
   );
 
+  const disableMidiAccess = useCallback(
+    async ({ reenableBasic = false, clearSelections = true } = {}) => {
+      if (clearSelections) clearMidiSelections();
+      setMidi(null);
+      setMidiAccess("none");
+      setMidiAccessError(null);
+      midiRequestRef.current = null;
+      sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, "none");
+      try {
+        if (typeof WebMidi.disable === "function") {
+          await WebMidi.disable();
+        }
+      } catch (err) {
+        console.warn("Web MIDI disable could not complete cleanly:", err);
+      }
+      if (midi) midi.onstatechange = null;
+      if (reenableBasic) {
+        return ensureMidiAccess({ sysex: false });
+      }
+      return true;
+    },
+    [clearMidiSelections, ensureMidiAccess, midi],
+  );
+
   useEffect(() => {
     if (midiRestoreAttemptedRef.current) return;
-    const savedAccess = sessionStorage.getItem(MIDI_ACCESS_SESSION_KEY);
-    if (!savedAccess || savedAccess === "none") {
+    const wantsMidi = !!settings.webmidi_enabled;
+    const wantsSysex = !!settings.webmidi_sysex_enabled;
+    if (!wantsMidi) {
       midiRestoreAttemptedRef.current = true;
       return;
     }
 
     midiRestoreAttemptedRef.current = true;
-    const wantsSysex = savedAccess === "sysex";
     ensureMidiAccess({ sysex: wantsSysex }).then((ok) => {
       if (ok) return;
-      setSettings((prev) => ({
-        ...prev,
-        midiin_device: "OFF",
-        midi_device: "OFF",
-        direct_device: "OFF",
-        mpe_device: "OFF",
-        fluidsynth_device: "OFF",
-      }));
+      clearMidiSelections();
     });
-  }, [ensureMidiAccess, setSettings]);
+  }, [clearMidiSelections, ensureMidiAccess, settings.webmidi_enabled, settings.webmidi_sysex_enabled]);
 
   // ── Reconstruction boundary contract ────────────────────────────────────────
   //
@@ -999,6 +1032,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     midiAccess,
     midiAccessError,
     ensureMidiAccess,
+    enableWebMidi: ensureMidiAccess,
+    disableWebMidi: disableMidiAccess,
     midiTick,
     loading,
     midiLearnActive,

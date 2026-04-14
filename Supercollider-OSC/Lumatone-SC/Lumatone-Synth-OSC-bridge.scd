@@ -1,20 +1,3 @@
-// some OSC debug commands
-
-"cat /tmp/osc-bridge.log".unixCmdGetStdOut.postln;
-"pkill -f osc-bridge".unixCmd;
-"lsof -i :8089".unixCmdGetStdOut.postln; // view whats going on
-
-And add a temporary OSC monitor to see if /s_new messages are arriving:
-~servers[1].dumpOSC(1);
-~servers[1].queryAllNodes;
-
-OSCFunc({ |msg| msg.postln }, '/s_new');
-OSCFunc({ |msg| msg.postln }, '/n_set');
-
-// terminal cmds
-// lsof -i :8089
-// lsof -ti :8089 | xargs kill -9
-
 ( // Run this first to set up and start five servers
 // ~to_headphones and ~to_speakers assume you are running an aggregate device (macOS) with a 2 channel audio loopback device (Blackhole) on the first 2 channels, followed by Headphones on 3-4 and Built-In on 5-6; otherwise set the audio channels for headphones and speakers accordingly
 

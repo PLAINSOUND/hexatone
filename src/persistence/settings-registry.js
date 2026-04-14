@@ -241,6 +241,8 @@ export const SETTINGS_REGISTRY = [
   // WebMIDI permission/access level restored on refresh so the explicit
   // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
   // This is session-scoped runtime state, not a shareable preset value.
+  { key: "webmidi_enabled", tier: "session", type: "bool", default: false },
+  { key: "webmidi_sysex_enabled", tier: "session", type: "bool", default: false },
   { key: "webmidi_access", tier: "session", type: "string", default: "none" },
 
   // ── Controller geometry (runtime-derived, never stored) ───────────────────────

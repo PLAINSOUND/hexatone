@@ -10,9 +10,20 @@ import MIDIio from "./midi";
 import Snapshots from "./snapshots.jsx";
 import "./settings.css";
 
-const WebMIDISettings = ({ midiAccess, midiAccessError, ensureMidiAccess }) => {
-  const midiEnabled = midiAccess === "basic" || midiAccess === "sysex";
-  const sysexEnabled = midiAccess === "sysex";
+const persistWebMidiIntent = (key, value, onChange) => {
+  onChange?.(key, value);
+  sessionStorage.setItem(key, String(value));
+};
+
+const WebMIDISettings = ({
+  settings,
+  onChange,
+  midiAccessError,
+  enableWebMidi,
+  disableWebMidi,
+}) => {
+  const midiEnabled = !!settings.webmidi_enabled;
+  const sysexEnabled = !!settings.webmidi_sysex_enabled;
 
   return (
     <fieldset>
@@ -24,8 +35,16 @@ const WebMIDISettings = ({ midiAccess, midiAccessError, ensureMidiAccess }) => {
         <input
           type="checkbox"
           checked={midiEnabled}
-          onChange={() => {
-            if (!midiEnabled) ensureMidiAccess?.({ sysex: false });
+          onChange={(e) => {
+            const checked = e.target.checked;
+            if (!checked) {
+              persistWebMidiIntent("webmidi_enabled", false, onChange);
+              persistWebMidiIntent("webmidi_sysex_enabled", false, onChange);
+              disableWebMidi?.();
+              return;
+            }
+            persistWebMidiIntent("webmidi_enabled", true, onChange);
+            enableWebMidi?.({ sysex: false });
           }}
         />
       </label>
@@ -34,8 +53,17 @@ const WebMIDISettings = ({ midiAccess, midiAccessError, ensureMidiAccess }) => {
         <input
           type="checkbox"
           checked={sysexEnabled}
-          onChange={() => {
-            if (!sysexEnabled) ensureMidiAccess?.({ sysex: true });
+          onChange={(e) => {
+            const checked = e.target.checked;
+            if (!checked) {
+              persistWebMidiIntent("webmidi_enabled", false, onChange);
+              persistWebMidiIntent("webmidi_sysex_enabled", false, onChange);
+              disableWebMidi?.();
+              return;
+            }
+            persistWebMidiIntent("webmidi_enabled", true, onChange);
+            persistWebMidiIntent("webmidi_sysex_enabled", true, onChange);
+            enableWebMidi?.({ sysex: true });
           }}
         />
       </label>
@@ -67,7 +95,8 @@ const Settings = ({
   midi,
   midiAccess,
   midiAccessError,
-  ensureMidiAccess,
+  enableWebMidi,
+  disableWebMidi,
   midiTick,
   instruments,
   keysRef,
@@ -132,9 +161,11 @@ const Settings = ({
       onVolumeChange={onVolumeChange}
     />
     <WebMIDISettings
-      midiAccess={midiAccess}
+      settings={settings}
+      onChange={onChange}
       midiAccessError={midiAccessError}
-      ensureMidiAccess={ensureMidiAccess}
+      enableWebMidi={enableWebMidi}
+      disableWebMidi={disableWebMidi}
     />
     <MIDIio
       onChange={onChange}
@@ -142,7 +173,7 @@ const Settings = ({
       midi={midi}
       midiAccess={midiAccess}
       midiAccessError={midiAccessError}
-      ensureMidiAccess={ensureMidiAccess}
+      ensureMidiAccess={enableWebMidi}
       midiTick={midiTick}
       midiLearnActive={midiLearnActive}
       lumatoneRawPorts={lumatoneRawPorts}
@@ -157,7 +188,7 @@ const Settings = ({
       midi={midi}
       midiAccess={midiAccess}
       midiAccessError={midiAccessError}
-      ensureMidiAccess={ensureMidiAccess}
+      ensureMidiAccess={enableWebMidi}
       midiTick={midiTick}
       keysRef={keysRef}
     />

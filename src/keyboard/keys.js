@@ -269,7 +269,11 @@ class Keys {
       this.settings.midi_device !== "OFF" &&
       this.settings.midi_channel >= 0
     ) {
-      this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
+      try {
+        this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
+      } catch {
+        this.midiout_data = null;
+      }
       this.mtsSendMap();
     }
 
@@ -277,7 +281,11 @@ class Keys {
     if (this.settings.midiin_device !== "OFF" && this.settings.midiin_channel >= 0) {
       // get the MIDI noteons and noteoffs to play the internal sounds
 
-      this.midiin_data = WebMidi.getInputById(this.settings.midiin_device);
+      try {
+        this.midiin_data = WebMidi.getInputById(this.settings.midiin_device);
+      } catch {
+        this.midiin_data = null;
+      }
       //console.log('[Keys] midiin_data lookup →', this.midiin_data ? JSON.stringify(this.midiin_data.name) : 'NULL (device not found by WebMidi)');
 
       if (!this.midiin_data) {
@@ -656,6 +664,14 @@ class Keys {
         });
       } // end else (midiin_data exists)
     } // end if midiin_data guard
+
+    if (this.midiin_data == null && this.settings.midiin_device !== "OFF" && this.settings.midiin_channel >= 0) {
+      const overrideId = this.settings.midiin_controller_override || "auto";
+      const entry = overrideId !== "auto" ? getControllerById(overrideId) : null;
+      if (entry) {
+        this.controller = entry;
+      }
+    }
 
     // lumatoneLEDs and exquisLEDs are assigned externally by app.jsx after
     // construction, via onKeysReady — the same pattern so both LED engines
@@ -1347,12 +1363,23 @@ class Keys {
     this.state.canvas.removeEventListener("mousemove", this.mouseActive, false);
 
     if (this.midiin_data) {
-      this.midiin_data.removeListener("noteon");
-      this.midiin_data.removeListener("noteoff");
-      this.midiin_data.removeListener("keyaftertouch");
-      this.midiin_data.removeListener("controlchange");
-      this.midiin_data.removeListener("channelaftertouch");
-      this.midiin_data.removeListener("pitchbend");
+      for (const eventName of [
+        "noteon",
+        "noteoff",
+        "keyaftertouch",
+        "controlchange",
+        "channelaftertouch",
+        "pitchbend",
+        "sysex",
+      ]) {
+        try {
+          this.midiin_data.removeListener(eventName);
+        } catch {
+          // WebMidi.disable() may already have torn down this input's internal
+          // listener tables before Keys deconstructs. Cleanup should remain
+          // best-effort and never block the rebuild / disable path.
+        }
+      }
       this.midiin_data = null;
     }
 

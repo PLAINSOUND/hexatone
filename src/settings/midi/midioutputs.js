@@ -791,12 +791,7 @@ const MidiOutputs = (props) => {
                     const next = clampOscVolume(parseFloat(e.target.value));
                     setOscDraftVolumes((prev) => ({ ...prev, [key]: next }));
                     props.onOscLayerVolumeChange?.(index, next);
-                  }}
-                  onChange={(e) => {
-                    const next = clampOscVolume(parseFloat(e.target.value));
-                    setOscDraftVolumes((prev) => ({ ...prev, [key]: next }));
-                    save(key, next, onChange);
-                  }}
+                  }}                  
                   style={{ flex: 1, width: "100%" }}
                 />
                 <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>

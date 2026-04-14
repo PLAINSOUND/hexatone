@@ -138,6 +138,33 @@ describe("Keys MIDI input integration", () => {
     expect(hexOff).toHaveBeenCalledWith(new Point(1, 0));
   });
 
+  it("does not throw when a MIDI port is selected while WebMidi is temporarily disabled", () => {
+    const enabledDescriptor = Object.getOwnPropertyDescriptor(WebMidi, "enabled");
+    const getInputSpy = vi.spyOn(WebMidi, "getInputById");
+    try {
+      Object.defineProperty(WebMidi, "enabled", {
+        configurable: true,
+        get: () => false,
+      });
+
+      let keys;
+      expect(() => {
+        keys = createKeys({
+          midiin_device: "test-input",
+          midiin_channel: 0,
+        });
+      }).not.toThrow();
+      expect(getInputSpy).toHaveBeenCalledWith("test-input");
+      expect(keys.midiin_data).toBeNull();
+    } finally {
+      if (enabledDescriptor) {
+        Object.defineProperty(WebMidi, "enabled", enabledDescriptor);
+      } else {
+        delete WebMidi.enabled;
+      }
+    }
+  });
+
   it("uses controller-provided scale pitch cents in nearest-scale mode", () => {
     const keys = createKeys({}, { target: "scale" });
     const hexOn = vi.fn((coords) => ({
