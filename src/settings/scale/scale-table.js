@@ -1,8 +1,220 @@
 import { createRef } from "preact";
-import { useState, useRef, useCallback, useEffect } from "preact/hooks";
+import { useState, useRef, useCallback, useEffect, useMemo } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "./parse-scale";
 import ScalaInput from "./scala-input.js";
+import { CANONICAL_MONZO_BASIS, parseExactInterval } from "../../tuning/interval.js";
+import { createScaleWorkspace, getWorkspaceSlot } from "../../tuning/workspace.js";
+import {
+  findRationalCandidates,
+  harmonicRadiusFromMonzo,
+  scoreRationalCandidate,
+  selectRationalisationContext,
+} from "../../tuning/rationalise.js";
+
+const PREVIEW_RATIO_TOLERANCE_CENTS = 0.05;
+// All non-2 primes in the canonical basis — used to build the full prime grid.
+const PRIME_BOUND_KEYS = CANONICAL_MONZO_BASIS.filter((p) => p !== 2);
+const DEFAULT_SEARCH_PREFS = {
+  region: "symmetric",
+  primeLimit: "19",
+  oddLimit: "255",
+  centsTolerance: "6",
+  primeBounds: Object.fromEntries(PRIME_BOUND_KEYS.map((p) => [p, "1"])),
+};
+
+function parseOptionalPositiveInt(value) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function buildPrimeBoundsFromPrefs(searchPrefs, primeLimit = null) {
+  const bounds = {};
+  const effectivePrimeLimit = parseOptionalPositiveInt(primeLimit);
+  for (const prime of CANONICAL_MONZO_BASIS) {
+    if (prime === 2) continue;
+    if (effectivePrimeLimit != null && prime > effectivePrimeLimit) break;
+    const parsed = parseOptionalPositiveInt(searchPrefs?.primeBounds?.[prime]);
+    bounds[prime] = parsed ?? 1;
+  }
+  return Object.keys(bounds).length ? bounds : null;
+}
+
+function getRowRuntime(workspace, degree, tunedCents = null, previewInterval = null) {
+  const slot = getWorkspaceSlot(workspace, degree);
+  const committedInterval = slot?.committedIdentity ?? null;
+  const committedCents = slot?.cents ?? 0;
+  return {
+    slot,
+    committedInterval,
+    committedCents,
+    previewInterval,
+    effectiveCents: tunedCents ?? previewInterval?.cents ?? committedCents,
+    ratioText: committedInterval?.ratio ? committedInterval.ratio.toFraction() : null,
+    exact: !!committedInterval?.exact,
+    harmonicRadius: slot?.analysis?.harmonicRadius ?? null,
+  };
+}
+
+function buildFrequencyContext({ degree, workspace, settings, frequencyAtDegree }) {
+  const maxDegree = workspace?.slots?.length ?? 0;
+  const nearbyDegrees = [degree - 1, degree + 1].filter(
+    (candidateDegree) => candidateDegree >= 0 && candidateDegree < maxDegree,
+  );
+  return {
+    targetDegree: degree,
+    targetHz: typeof frequencyAtDegree === "function" ? frequencyAtDegree(degree) : null,
+    referenceHz: settings?.fundamental ?? null,
+    nearbyHz: nearbyDegrees.map((candidateDegree) => ({
+      degree: candidateDegree,
+      hz: frequencyAtDegree(candidateDegree),
+    })),
+  };
+}
+
+function getRationalisationRequest({
+  degree,
+  tunedCents,
+  workspace,
+  settings,
+  frequencyAtDegree,
+  searchPrefs,
+}) {
+  const primeLimit =
+    parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? settings?.rationalise_prime_limit ?? 19;
+  const primeBounds = buildPrimeBoundsFromPrefs(searchPrefs, primeLimit);
+  return {
+    targetDegree: degree,
+    workspace,
+    primeLimit,
+    primeBounds: primeBounds ?? settings?.rationalise_prime_bounds ?? null,
+    oddLimit: parseOptionalPositiveInt(searchPrefs?.oddLimit) ?? settings?.rationalise_odd_limit ?? 255,
+    centsTolerance:
+      parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? settings?.rationalise_tolerance ?? 6,
+    maxCandidates: 8,
+    region: searchPrefs?.region ?? "symmetric",
+    frequencyContext: buildFrequencyContext({
+      degree,
+      workspace,
+      settings,
+      frequencyAtDegree,
+    }),
+    targetCents: tunedCents,
+  };
+}
+
+function mergeUniqueCandidates(candidateSets, maxCandidates = 8) {
+  const merged = [];
+  const seen = new Set();
+  for (const candidateSet of candidateSets) {
+    for (const candidate of candidateSet) {
+      if (seen.has(candidate.ratioText)) continue;
+      seen.add(candidate.ratioText);
+      merged.push(candidate);
+    }
+  }
+  merged.sort((a, b) => {
+    if (a.harmonicRadius !== b.harmonicRadius) return a.harmonicRadius - b.harmonicRadius;
+    if (Math.abs(a.deviation) !== Math.abs(b.deviation))
+      return Math.abs(a.deviation) - Math.abs(b.deviation);
+    return a.aggregateScore - b.aggregateScore;
+  });
+  return merged.slice(0, maxCandidates);
+}
+
+function buildCommittedRatioCandidate(slot, baseRequest) {
+  const committed = slot?.committedIdentity;
+  if (!committed?.ratio || !Array.isArray(committed?.monzo) || committed?.cents == null) return null;
+  const context =
+    baseRequest.workspace && baseRequest.targetDegree != null
+      ? selectRationalisationContext(baseRequest.workspace, baseRequest.targetDegree, baseRequest)
+      : { committedSlots: [] };
+  return scoreRationalCandidate(
+    {
+      ratio: committed.ratio,
+      ratioText: committed.ratio.toFraction(),
+      monzo: [...committed.monzo],
+      cents: committed.cents,
+      deviation: baseRequest.targetCents - committed.cents,
+      primeLimit: committed.primeLimit ?? null,
+      oddLimit: committed.ratio ? Math.max(committed.ratio.n, committed.ratio.d) : null,
+      harmonicRadius:
+        slot?.analysis?.harmonicRadius ?? harmonicRadiusFromMonzo(committed.monzo),
+      region: baseRequest.region ?? "symmetric",
+      contextualConsonance: 0,
+      overtonalReuse: 0,
+      familyMatches: [],
+      aggregateScore: 0,
+    },
+    context,
+    baseRequest,
+  );
+}
+
+function getHumanTestableRationalCandidates(baseRequest) {
+  const maxCandidates = baseRequest.maxCandidates ?? 8;
+  const committedCandidate = buildCommittedRatioCandidate(
+    getWorkspaceSlot(baseRequest.workspace, baseRequest.targetDegree),
+    baseRequest,
+  );
+  const searchLadder = baseRequest.primeBounds
+    ? [
+        { centsTolerance: baseRequest.centsTolerance ?? 6 },
+        { centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 8) },
+        { centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 10) },
+      ]
+    : [
+        {
+          centsTolerance: baseRequest.centsTolerance ?? 6,
+          primeLimit: baseRequest.primeLimit ?? 19,
+        },
+        {
+          centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 8),
+          primeLimit: Math.max(baseRequest.primeLimit ?? 19, 23),
+        },
+        {
+          centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 10),
+          primeLimit: Math.max(baseRequest.primeLimit ?? 19, 29),
+        },
+        {
+          centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 12),
+          primeLimit: Math.max(baseRequest.primeLimit ?? 19, 37),
+        },
+      ];
+
+  const candidateSets = [];
+  if (committedCandidate) candidateSets.push([committedCandidate]);
+  for (const searchStep of searchLadder) {
+    candidateSets.push(
+      findRationalCandidates(baseRequest.targetCents, {
+        ...baseRequest,
+        ...searchStep,
+        maxCandidates,
+      }),
+    );
+    const merged = mergeUniqueCandidates(candidateSets, maxCandidates);
+    if (merged.length >= 6) return merged;
+  }
+  return mergeUniqueCandidates(candidateSets, maxCandidates);
+}
+
+function getSaveString({ committedInterval, previewInterval, tunedCents, committedCents }) {
+  if (previewInterval && tunedCents !== null) {
+    const previewCents = previewInterval?.cents ?? null;
+    if (previewCents !== null && Math.abs(previewCents - tunedCents) <= PREVIEW_RATIO_TOLERANCE_CENTS) {
+      if (previewInterval?.ratio) return previewInterval.ratio.toFraction();
+    }
+  }
+  const saveVal = tunedCents !== null ? tunedCents : committedCents;
+  if (saveVal === committedCents && committedInterval?.ratio) {
+    return committedInterval.ratio.toFraction();
+  }
+  return saveVal.toFixed(6);
+}
+
+function candidateDisplayScore(candidate) {
+  return candidate.aggregateScore?.toFixed?.(2) ?? candidate.harmonicRadius?.toFixed?.(2) ?? "—";
+}
 
 // Normalise a hex string to the form #rrggbb.
 // Accepts:  #rgb  #rrggbb  rgb  rrggbb
@@ -202,6 +414,12 @@ const FrequencyInput = ({
 const TuneCell = ({
   scaleStr,
   degree,
+  committedInterval,
+  committedCents,
+  workspace,
+  settings,
+  frequencyAtDegree,
+  searchPrefs,
   keysRef,
   onChange,
   onDegree0Save,
@@ -212,10 +430,13 @@ const TuneCell = ({
   onPreviewChange,
   resetVersion,
 }) => {
-  const originalCents = useRef(scalaToCents(scaleStr));
+  const originalCents = useRef(committedCents);
   const [tunedCents, setTunedCents] = useState(null);
   const [comparing, setComparing] = useState(false);
+  const [previewInterval, setPreviewInterval] = useState(null);
+  const [rationaliseCandidates, setRationaliseCandidates] = useState(null);
   const dragStart = useRef(null);
+  const tuneCellRef = useRef(null);
   // Capture the Keys instance when drag starts — keysRef.current may change
   // during reconciliation, so we need the specific instance we set drag on
   const dragKeysInstance = useRef(null);
@@ -228,20 +449,33 @@ const TuneCell = ({
   // Keep originalCents in sync when scale string changes from outside
   useEffect(() => {
     if (tunedCents === null) {
-      originalCents.current = scalaToCents(scaleStr);
+      originalCents.current = committedCents;
+      setPreviewInterval(null);
+      setRationaliseCandidates(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tunedCents guards drag-active state; intentionally not a dep
-  }, [scaleStr]);
+  }, [scaleStr, committedCents]);
 
   // When a direct text edit commits a new scale value, discard any in-flight
   // drag state so the TuneCell resets to the newly committed pitch.
   useEffect(() => {
     if (resetVersion === undefined || resetVersion === 0) return;
-    originalCents.current = scalaToCents(scaleStr);
+    originalCents.current = committedCents;
     setTunedCents(null);
     setComparing(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- scaleStr is the committed value at reset time; setters are stable
-  }, [resetVersion]);
+    setPreviewInterval(null);
+    setRationaliseCandidates(null);
+  }, [resetVersion, committedCents]);
+
+  useEffect(() => {
+    if (!rationaliseCandidates) return;
+    const dismiss = (event) => {
+      if (tuneCellRef.current?.contains(event.target)) return;
+      setRationaliseCandidates(null);
+    };
+    document.addEventListener("pointerdown", dismiss, true);
+    return () => document.removeEventListener("pointerdown", dismiss, true);
+  }, [rationaliseCandidates]);
 
   // Broadcast live preview cents + comparing state to the parent frequency column.
   // Only re-runs when these values change, not when the callback identity changes.
@@ -291,6 +525,22 @@ const TuneCell = ({
     [pushToKeys],
   );
 
+  const openRationaliseCandidates = useCallback(
+    (targetCents) => {
+      const request = getRationalisationRequest({
+        degree,
+        tunedCents: targetCents,
+        workspace,
+        settings,
+        frequencyAtDegree,
+        searchPrefs,
+      });
+      const candidates = getHumanTestableRationalCandidates(request);
+      setRationaliseCandidates(candidates.length ? candidates : null);
+    },
+    [degree, workspace, settings, frequencyAtDegree, searchPrefs],
+  );
+
   const onPointerDown = useCallback(
     (e) => {
       // Set flag BEFORE setPointerCapture — capture triggers a spurious Escape keyup
@@ -302,8 +552,9 @@ const TuneCell = ({
       }
       e.currentTarget.setPointerCapture?.(e.pointerId);
       dragStart.current = { lastX: e.clientX, accCents: currentCents };
+      openRationaliseCandidates(currentCents);
     },
-    [currentCents, keysRef],
+    [currentCents, keysRef, openRationaliseCandidates],
   );
 
   const onPointerMove = useCallback(
@@ -319,6 +570,8 @@ const TuneCell = ({
       dragStart.current.lastX = e.clientX;
       dragStart.current.accCents = newCents;
       setTunedCents(newCents);
+      setPreviewInterval(null);
+      setRationaliseCandidates(null);
       // Use glideTo so fast swipes interpolate smoothly rather than jumping.
       // While comparing, the original pitch is playing — don't update the preview.
       if (!comparing) glideTo(newCents);
@@ -345,7 +598,12 @@ const TuneCell = ({
 
   const onSave = useCallback(() => {
     const saveVal = tunedCents !== null ? tunedCents : originalCents.current;
-    const str = saveVal.toFixed(6);
+    const saveStr = getSaveString({
+      committedInterval,
+      previewInterval,
+      tunedCents,
+      committedCents,
+    });
 
     if (degree === 0) {
       // Degree 0 retuning: shift all other scale degrees by -delta so that
@@ -356,12 +614,12 @@ const TuneCell = ({
       const delta = tunedCents - originalCents.current;
       const newFundamental = fundamental * Math.pow(2, delta / 1200.0);
       if (onFundamentalChange) {
-        onFundamentalChange(newFundamental, str);
+        onFundamentalChange(newFundamental, saveStr);
       } else {
-        onChange(str);
+        onChange(saveStr);
       }
     } else {
-      onChange(str);
+      onChange(saveStr);
     }
 
     // For degree 0 the scale value is always 0 after save — the delta was
@@ -370,6 +628,8 @@ const TuneCell = ({
     originalCents.current = degree === 0 ? 0 : saveVal;
     setTunedCents(null);
     setComparing(false);
+    setPreviewInterval(null);
+    setRationaliseCandidates(null);
     // Restore live preview to 0 so held degree-0 notes return to base pitch
     if (degree === 0) pushToKeys(0);
   }, [
@@ -382,11 +642,16 @@ const TuneCell = ({
     onDegree0Save,
     onChange,
     pushToKeys,
+    committedInterval,
+    previewInterval,
+    committedCents,
   ]);
 
   const onRevert = useCallback(() => {
     setTunedCents(null);
     setComparing(false);
+    setPreviewInterval(null);
+    setRationaliseCandidates(null);
     glideTo(originalCents.current);
   }, [glideTo]);
 
@@ -394,7 +659,7 @@ const TuneCell = ({
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
 
   return (
-    <div class="tune-cell">
+    <div class="tune-cell" ref={tuneCellRef}>
       {isDirty && (
         <span class={`tune-delta${comparing ? " tune-comparing" : ""}`}>
           {comparing ? "orig" : deltaStr}
@@ -427,6 +692,32 @@ const TuneCell = ({
           ✕
         </button>
       )}
+      {isDirty && (
+        <button
+          type="button"
+          class={`tune-btn tune-btn--rationalise${rationaliseCandidates ? " tune-btn--active" : ""}`}
+          onClick={() => {
+            if (rationaliseCandidates) {
+              setRationaliseCandidates(null);
+              return;
+            }
+            const request = getRationalisationRequest({
+              degree,
+              tunedCents,
+              workspace,
+              settings,
+              frequencyAtDegree,
+              searchPrefs,
+            });
+            const candidates = getHumanTestableRationalCandidates(request);
+            setRationaliseCandidates(candidates.length ? candidates : null);
+          }}
+          title="Find rational candidates"
+          aria-label={`find rational candidates for degree ${degree}`}
+        >
+          ≈
+        </button>
+      )}
       <span
         class="tune-handle"
         title="Drag left/right to tune — slow for fine, fast for coarse"
@@ -437,6 +728,37 @@ const TuneCell = ({
       >
         ⟺
       </span>
+      {rationaliseCandidates && (
+        <div class="rationalise-dropdown">
+          {rationaliseCandidates.map((candidate) => (
+            <button
+              key={candidate.ratioText}
+              type="button"
+              class="rationalise-candidate"
+              onClick={() => {
+                const parsed = parseExactInterval(candidate.ratioText);
+                setTunedCents(candidate.cents);
+                setPreviewInterval(parsed);
+                setRationaliseCandidates(null);
+                dragStart.current = null;
+                glideTo(candidate.cents);
+              }}
+              aria-label={`rational candidate ${candidate.ratioText}`}
+            >
+              <span class="rationalise-candidate__ratio">{candidate.ratioText}</span>
+              <span class="rationalise-candidate__meta">
+                {candidate.deviation >= 0 ? "+" : ""}
+                {candidate.deviation.toFixed(2)}c
+              </span>
+              <span class="rationalise-candidate__meta">{candidate.primeLimit}-lim</span>
+              <span class="rationalise-candidate__meta">
+                pc-hr {candidate.harmonicRadius.toFixed(2)}
+              </span>
+              <span class="rationalise-candidate__meta">s {candidateDisplayScore(candidate)}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -446,6 +768,11 @@ const ScaleTable = (props) => {
   const scale = [...(props.settings.scale || [])];
   const equiv_interval = scale.length ? scale.pop() : "2/1";
   scale.unshift("0.");
+  const workspace = useMemo(
+    () => createScaleWorkspace(props.settings),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings is a new object on every render; listing the specific keys that affect workspace output avoids unnecessary recomputation
+    [props.settings.scale, props.settings.reference_degree, props.settings.fundamental],
+  );
 
   const degrees = [...Array(scale.length).keys()];
   const note_names = props.settings.note_names || [];
@@ -485,6 +812,8 @@ const ScaleTable = (props) => {
   };
 
   const editable_colors = props.settings.spectrum_colors;
+  const [showSearchPrefs, setShowSearchPrefs] = useState(false);
+  const [searchPrefs, setSearchPrefs] = useState(DEFAULT_SEARCH_PREFS);
   // previewState: per-degree { cents, comparing } set by TuneCell during drag
   const [previewState, setPreviewState] = useState({});
   // resetVersion: per-degree counter, bumped when a direct text edit commits a new
@@ -561,18 +890,152 @@ const ScaleTable = (props) => {
   };
 
   return (
-    <table>
-      <thead>
-        <tr>
-          <th class="wide scale-data-col" id="leftaligned">
-            Degree&nbsp;:&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
-          </th>
-          <th class="scale-frequency-col">Frequency&nbsp;&nbsp;</th>
-          <th class="scale-name-col">Name</th>
-          <th class="scale-color-col">Colour&nbsp;&nbsp;&nbsp;</th>
-        </tr>
-      </thead>
-      <tbody>
+    <div class="scale-table-workspace">
+      <div class="scale-table-toolbar">
+        {!showSearchPrefs && (
+          <button
+            type="button"
+            class="scale-table-toolbar__toggle"
+            onClick={() => setShowSearchPrefs(true)}
+            aria-expanded={false}
+            aria-controls="scale-search-prefs"
+          >
+            Rationalisation Search Preferences
+          </button>
+        )}
+      </div>
+      {showSearchPrefs && (
+        <fieldset id="scale-search-prefs" class="scale-search-prefs">
+          <legend>Rationalisation Search</legend>
+          {/* Row 1: four controls side by side */}
+          <button
+            type="button"
+            title="Close"
+            onClick={() => setShowSearchPrefs(false)}
+            style={{
+              position: "absolute",
+              top: "-1.3em",
+              right: "-0.8em",
+              padding: "0.3em 0.4em",
+              fontSize: "1em",
+              lineHeight: 1,
+              cursor: "pointer",
+              background: "#faf9f8",
+              border: "none",
+              color: "#990000",
+            }}
+          >
+            ✕
+          </button>
+          <div class="scale-search-prefs__row">
+            <label class="scale-search-prefs__field">
+              Region
+              <select
+                value={searchPrefs.region}
+                onChange={(e) =>
+                  setSearchPrefs((prev) => ({
+                    ...prev,
+                    region: e.target.value,
+                  }))
+                }
+                aria-label="rationalisation region"
+              >
+                <option value="symmetric">Symmetric</option>
+                <option value="overtonal">Overtonal</option>
+              </select>
+            </label>
+            <label class="scale-search-prefs__field">
+              Tolerance (¢)
+              <input
+                type="text"
+                inputMode="numeric"
+                value={searchPrefs.centsTolerance}
+                onInput={(e) =>
+                  setSearchPrefs((prev) => ({
+                    ...prev,
+                    centsTolerance: e.target.value,
+                  }))
+                }
+                aria-label="rationalisation cents tolerance"
+              />
+            </label>
+            <label class="scale-search-prefs__field">
+              Prime limit
+              <input
+                type="text"
+                inputMode="numeric"
+                value={searchPrefs.primeLimit}
+                onInput={(e) =>
+                  setSearchPrefs((prev) => ({
+                    ...prev,
+                    primeLimit: e.target.value,
+                  }))
+                }
+                aria-label="rationalisation prime limit"
+              />
+            </label>
+            <label class="scale-search-prefs__field">
+              Odd limit
+              <input
+                type="text"
+                inputMode="numeric"
+                value={searchPrefs.oddLimit}
+                onInput={(e) =>
+                  setSearchPrefs((prev) => ({
+                    ...prev,
+                    oddLimit: e.target.value,
+                  }))
+                }
+                aria-label="rationalisation odd limit"
+              />
+            </label>
+          </div>
+          {/* Row 2: per-prime step bounds — all primes, dimmed when above prime limit */}
+          <div class="scale-search-prefs__grid" aria-label="prime step bounds">
+            {PRIME_BOUND_KEYS.map((prime) => {
+              const limit = parseOptionalPositiveInt(searchPrefs.primeLimit);
+              const aboveLimit = limit != null && prime > limit;
+              return (
+                <label
+                  key={prime}
+                  class={`scale-search-prefs__prime${aboveLimit ? " scale-search-prefs__prime--inactive" : ""}`}
+                >
+                  {prime}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={aboveLimit ? "0" : (searchPrefs.primeBounds[prime] ?? "1")}
+                    disabled={aboveLimit}
+                    onInput={(e) =>
+                      setSearchPrefs((prev) => ({
+                        ...prev,
+                        primeBounds: {
+                          ...prev.primeBounds,
+                          [prime]: e.target.value,
+                        },
+                      }))
+                    }
+                    aria-label={`rationalisation prime ${prime} steps`}
+                  />
+                </label>
+              );
+            })}
+          </div>
+          
+        </fieldset>
+      )}
+      <table>
+        <thead>
+          <tr>
+            <th class="wide scale-data-col" id="leftaligned">
+              Degree&nbsp;:&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
+            </th>
+            <th class="scale-frequency-col">Frequency&nbsp;&nbsp;</th>
+            <th class="scale-name-col">Name</th>
+            <th class="scale-color-col">Colour&nbsp;&nbsp;&nbsp;</th>
+          </tr>
+        </thead>
+        <tbody>
         <tr
           key={`0-${props.importCount}`}
           class={
@@ -600,6 +1063,12 @@ const ScaleTable = (props) => {
                   key={`tune0-${props.importCount}`}
                   scaleStr="0.0"
                   degree={0}
+                  committedInterval={getRowRuntime(workspace, 0).committedInterval}
+                  committedCents={getRowRuntime(workspace, 0).committedCents}
+                  workspace={workspace}
+                  settings={props.settings}
+                  frequencyAtDegree={frequencyAtDegree}
+                  searchPrefs={searchPrefs}
                   keysRef={props.keysRef}
                   reference_degree={props.settings.reference_degree}
                   fundamental={props.settings.fundamental}
@@ -694,6 +1163,12 @@ const ScaleTable = (props) => {
                     key={`tune${i + 1}-${props.importCount}`}
                     scaleStr={(props.settings.scale || [])[i] || String(freq)}
                     degree={i + 1}
+                    committedInterval={getRowRuntime(workspace, i + 1).committedInterval}
+                    committedCents={getRowRuntime(workspace, i + 1).committedCents}
+                    workspace={workspace}
+                    settings={props.settings}
+                    frequencyAtDegree={frequencyAtDegree}
+                    searchPrefs={searchPrefs}
                     keysRef={props.keysRef}
                     reference_degree={props.settings.reference_degree}
                     fundamental={props.settings.fundamental}
@@ -804,8 +1279,9 @@ const ScaleTable = (props) => {
             </span>
           </td>
         </tr>
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   );
 };
 

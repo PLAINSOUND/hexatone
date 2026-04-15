@@ -466,6 +466,7 @@ table td {
   font-size: 0.78em;
   margin-left: 4px;
   margin-right: 4px;
+  position: relative;
 }
 
 /* Equave row has no TuneCell — this spacer keeps the input the same width */
@@ -580,6 +581,61 @@ table td {
   background: #f5eded;
 }
 
+.tune-btn--rationalise {
+  color: #335577;
+  border-color: #aebfcf;
+}
+
+.tune-btn--rationalise:hover {
+  background: #edf3f7;
+}
+
+.rationalise-dropdown {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  z-index: 20;
+  min-width: 238px;
+  background: #faf9f8;
+  border: 1px solid #d6caca;
+  border-radius: 6px;
+  box-shadow: 0 3px 10px rgba(51, 0, 0, 0.08);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rationalise-candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #330000;
+  text-align: left;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 1em;
+}
+
+.rationalise-candidate:hover {
+  background: #f3ecec;
+}
+
+.rationalise-candidate__ratio {
+  font-weight: 700;
+}
+
+.rationalise-candidate__meta {
+  color: #885f5f;
+  font-size: 0.92em;
+}
+
 .tune-btn-compare {
   font-size: 1.3em;
   line-height: 1;
@@ -613,6 +669,109 @@ td.scale-frequency-col input.frequency-input {
   background-color: #faf9f8;
   opacity: 1;
 }
+
+.scale-table-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.scale-table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.scale-table-toolbar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25em 0.6em;
+  border: 1px solid #c8b8b8;
+  border-radius: 4px;
+  background: #f4efef;
+  color: #330000;
+  cursor: pointer;
+  font-size: 0.88em;
+}
+
+.scale-table-toolbar__toggle:hover {
+  background: #ece2e2;
+}
+
+.scale-search-prefs {
+  position: relative;
+  margin: 0;
+  padding: 0.55em 0.7em 0.7em;
+  border: 1px solid #d8caca;
+  border-radius: 6px;
+  background: #faf7f6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+}
+
+.scale-search-prefs legend {
+  padding: 0 0.25em;
+  color: #774444;
+  font-size: 0.92em;
+}
+
+/* Row 1: four controls side by side */
+.scale-search-prefs__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55em 0.8em;
+}
+
+.scale-search-prefs__field,
+.scale-search-prefs__prime {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  font-size: 0.88em;
+  color: #5e4444;
+}
+
+.scale-search-prefs__field input,
+.scale-search-prefs__field select,
+.scale-search-prefs__prime input {
+  min-width: 0;
+  border: 1px solid #c8b8b8;
+  border-radius: 4px;
+  background: #fffdfc;
+  color: #330000;
+  padding: 0.2em 0.35em;
+}
+
+/* Region select: match body font size so option text is not clipped,
+   and centre the selected value text.
+   text-align/text-align-last alone are unreliable across browsers for <select>;
+   the combination of width:100% + text-align-last on the element itself is the
+   most consistent approach. */
+.scale-search-prefs__field select {
+  font-size: 1em;
+  padding: 0em 0em;
+  min-height: 1.5em;
+  width: 100%;
+}
+
+/* Row 2: per-prime step bounds — all primes in CANONICAL_MONZO_BASIS above 2 */
+.scale-search-prefs__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45em;
+}
+
+/* Primes above the current prime limit are shown dimmed and disabled */
+.scale-search-prefs__prime--inactive {
+  opacity: 0.35;
+}
+
+.scale-search-prefs__prime--inactive input {
+  background: #f0ecec;
+  cursor: not-allowed;
+}
+
 
 /* Freq input fills available width, handle sits flush to its right.
    ScalaInput wraps <input> in a <span> — both the span wrapper and
@@ -688,8 +847,8 @@ a:hover {
 
 /* Checkboxes — custom warm-grey appearance — also when inside sidebar-input span */
 input[type="checkbox"] {
-  appearance: none;
   -webkit-appearance: none;
+  appearance: none;
   width: 1.1em;
   height: 1.1em;
   border: 1px solid #b0adb0;
