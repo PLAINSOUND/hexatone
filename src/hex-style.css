@@ -518,6 +518,10 @@ a:hover {
   color: #fff;
 }
 
+#sustain-island:focus {
+  outline: none;
+}
+
 #octave-island {
   position: fixed;
   bottom: 1.2em;

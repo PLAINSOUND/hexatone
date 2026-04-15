@@ -227,8 +227,10 @@ export const create_osc_synth = async (
       return Promise.resolve();
     },
 
-    setVolume(value) {
-      for (let i = 0; i < _volumes.length; i++) setLayerVolume(i, value);
+    setVolume(_value) {
+      // No-op for the OSC synth — each layer has its own volume controlled by
+      // setLayerVolume. The master synth volume (use-synth-wiring.js setVolume
+      // call after rebuild) must not overwrite the per-layer fader values.
     },
 
     setLayerVolume(index, value) {

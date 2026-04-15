@@ -226,34 +226,15 @@ export const SETTINGS_REGISTRY = [
   { key: "fluidsynth_channel", tier: "session", type: "int", default: -1 },
   { key: "output_osc", tier: "session", type: "bool", default: false },
   { key: "osc_bridge_url", tier: "session", type: "string", default: "ws://localhost:8089" },
-  {
-    key: "osc_volume_pluck",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the pluck synth; persisted across refresh and used at note-on",
-  },
-  {
-    key: "osc_volume_buzz",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the buzz/string synth; persisted across refresh and used at note-on",
-  },
-  {
-    key: "osc_volume_formant",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the formant synth; persisted across refresh and used at note-on",
-  },
-  {
-    key: "osc_volume_saw",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the saw/tone synth; persisted across refresh and used at note-on",
-  },
+  // OSC layer volumes — written by onOscLayerVolumeChange in use-synth-wiring.js
+  // via both setSettings (so deriveOscVolumes reads the live value on every
+  // in-session rebuild) and localStorage (so values survive page reload and
+  // are read back via CROSS_CONTROLLER_ENTRIES in session-defaults.js).
+  // tier: 'local', perController: false — plain key, cross-controller.
+  { key: "osc_volume_pluck",   tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_buzz",    tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_formant", tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_saw",     tier: "local", type: "float", default: 0.5, perController: false },
   // WebMIDI permission/access level restored on refresh so the explicit
   // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
   // This is session-scoped runtime state, not a shareable preset value.

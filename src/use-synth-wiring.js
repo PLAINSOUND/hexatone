@@ -19,13 +19,14 @@ import {
 } from "./tuning/center-anchor.js";
 import { resolveBulkDumpName } from "./tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "./persistence/settings-registry.js";
-import { sessionFloat } from "./persistence/storage-utils.js";
+import { localFloat } from "./persistence/storage-utils.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
 const wait = (l) => l + 1;
 const signal = (l) => l - 1;
 const MIDI_ACCESS_SESSION_KEY = REGISTRY_BY_KEY.webmidi_access.key;
+const OSC_VOLUME_KEYS = ["osc_volume_pluck", "osc_volume_buzz", "osc_volume_formant", "osc_volume_saw"];
 const midiAccessRank = {
   none: 0,
   basic: 1,
@@ -46,10 +47,10 @@ export const deriveOscVolumes = (settings) => {
     return settings.osc_volumes;
   }
   return [
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_pluck.key, settings.osc_volume_pluck ?? 0.5),
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_buzz.key, settings.osc_volume_buzz ?? 0.5),
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_formant.key, settings.osc_volume_formant ?? 0.5),
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_saw.key, settings.osc_volume_saw ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_pluck.key, settings.osc_volume_pluck ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_buzz.key, settings.osc_volume_buzz ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_formant.key, settings.osc_volume_formant ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_saw.key, settings.osc_volume_saw ?? 0.5),
   ];
 };
 
@@ -633,7 +634,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           create_osc_synth(
             settings.osc_bridge_url || "ws://localhost:8089",
             settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-            deriveOscVolumes(settings),
+            deriveOscVolumes(settingsRef.current),
             settings.fundamental,
             settings.reference_degree,
             settings.scale,
@@ -980,7 +981,15 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   const onOscLayerVolumeChange = useCallback((index, value) => {
     const oscSynth = oscSynthRef.current.synth;
     if (oscSynth?.setLayerVolume) oscSynth.setLayerVolume(index, value);
-  }, []);
+    // Write into React settings so deriveOscVolumes() reads the live value on
+    // every rebuild — whether triggered by toggle, port change, or preset load.
+    // localStorage is written so values survive page reload (including fresh tabs).
+    const key = OSC_VOLUME_KEYS[index];
+    if (key != null) {
+      setSettings((prev) => ({ ...prev, [key]: value }));
+      localStorage.setItem(key, String(value));
+    }
+  }, [setSettings]);
 
   // Called by keys.js when the user presses a key during MIDI-learn mode.
   // Saves the anchor note + channel so the controller map (2D path) and the

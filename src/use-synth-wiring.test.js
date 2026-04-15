@@ -100,11 +100,11 @@ describe("use-synth-wiring runtime derivation", () => {
     expect(outputs[0].deviceId).toBe(12);
   });
 
-  it("derives persisted OSC layer volumes from session storage for fresh note-ons after refresh", () => {
-    sessionStorage.setItem("osc_volume_pluck", "0.11");
-    sessionStorage.setItem("osc_volume_buzz", "0.22");
-    sessionStorage.setItem("osc_volume_formant", "0.33");
-    sessionStorage.setItem("osc_volume_saw", "0.44");
+  it("derives persisted OSC layer volumes from local storage for fresh note-ons after refresh", () => {
+    localStorage.setItem("osc_volume_pluck", "0.11");
+    localStorage.setItem("osc_volume_buzz", "0.22");
+    localStorage.setItem("osc_volume_formant", "0.33");
+    localStorage.setItem("osc_volume_saw", "0.44");
 
     expect(
       deriveOscVolumes({
@@ -115,7 +115,10 @@ describe("use-synth-wiring runtime derivation", () => {
       }),
     ).toEqual([0.11, 0.22, 0.33, 0.44]);
 
-    sessionStorage.clear();
+    localStorage.removeItem("osc_volume_pluck");
+    localStorage.removeItem("osc_volume_buzz");
+    localStorage.removeItem("osc_volume_formant");
+    localStorage.removeItem("osc_volume_saw");
   });
 });
 

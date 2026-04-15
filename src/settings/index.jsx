@@ -28,7 +28,7 @@ const WebMIDISettings = ({
   return (
     <fieldset>
       <legend>
-        <b>WebMIDI</b>
+        <b>MIDI Permissions</b>
       </legend>
       <label>
         Enable MIDI
