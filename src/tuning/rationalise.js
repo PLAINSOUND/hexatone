@@ -245,6 +245,133 @@ function* cartesianProductGenerator(ranges) {
   }
 }
 
+// ── Residual table for primes ≥ 7 ────────────────────────────────────────────
+//
+// The search space is split into three layers:
+//   Outer loops : prime-3 (up to ±8 = 17 values) × prime-5 (up to ±3 = 7 values)
+//   Residual    : all primes ≥ 7 combined
+//
+// For each (e3, e5) pair we compute the 3,5-limit pitch class, then look up
+// which primes-≥7 combinations bring the total within `centsTolerance` of the
+// target.  This binary search replaces iterating the full product for every
+// (e3, e5) pair.
+//
+// At 47-limit with bounds {7:2, 11–47:1}: 5 × 3^12 ≈ 885k entries — well
+// within budget and built once per search call.
+//
+// If the table would exceed RESIDUAL_TABLE_MAX we fall back to the flat scan.
+const RESIDUAL_TABLE_MAX = 1_500_000;
+
+// Module-level cache: residual table is keyed on the combination of
+// residualEntries ranges + oddLimit.  Building 885k combinations for 47-limit
+// takes ~100ms; caching means we pay that cost once per unique settings
+// configuration rather than once per scale degree (81 × for an 81-note scale).
+const _residualTableCache = new Map();
+
+function _residualTableCacheKey(residualEntries, oddLimit) {
+  // Key encodes primes + their range bounds + oddLimit.
+  // Using a compact string rather than JSON.stringify(ranges) to avoid
+  // allocating large arrays just for the key.
+  const parts = residualEntries.map((e) => `${e.prime}:${e.range[0]}..${e.range[e.range.length - 1]}`);
+  return `${parts.join(",")}|${oddLimit ?? ""}`;
+}
+
+// Build the residual table for primes ≥ 7.
+// oddLimit (optional): pre-prune combinations whose odd-part contribution from
+// these primes alone already exceeds oddLimit.  This is safe because the outer
+// (e3, e5) layer contributes additional odd-part factors — if the residual
+// already exceeds the limit, no outer combination can make it valid.
+// The pruning is applied in log2 space to avoid overflow.
+function buildResidualTable(residualEntries, oddLimit = null) {
+  // Count total combinations to check against the materialise cap.
+  // When oddLimit is set, the pruning inside the loop will eliminate most
+  // combinations (e.g. at oddLimit=255 only ~128 odd products survive),
+  // so we skip the raw-count guard and trust the pruner to keep the table small.
+  // Without oddLimit we must guard against OOM from an unconstrained product.
+  if (oddLimit == null || oddLimit <= 0) {
+    let rawCount = 1;
+    for (const e of residualEntries) {
+      rawCount *= e.range.length;
+      if (rawCount > RESIDUAL_TABLE_MAX) return null; // caller falls back to flat scan
+    }
+  }
+
+  if (residualEntries.length === 0) {
+    return [{ cents: 0, log2OddPart: 0, exps: [] }];
+  }
+
+  // Pre-compute log2 of each prime for efficiency.
+  const log2Primes = residualEntries.map((e) => Math.log2(e.prime));
+  const log2OddLimit = oddLimit != null && oddLimit > 0 ? Math.log2(oddLimit) : Infinity;
+
+  const table = [];
+
+  for (const combination of cartesianProductGenerator(residualEntries.map((e) => e.range))) {
+    // Compute odd-part contribution and pitch-class cents simultaneously.
+    let centsRaw = 0;
+    let log2Num = 0; // log2 of numerator odd part
+    let log2Den = 0; // log2 of denominator odd part
+
+    for (let i = 0; i < combination.length; i++) {
+      const exp = combination[i];
+      if (exp === 0) continue;
+      centsRaw += exp * log2Primes[i] * 1200;
+      if (exp > 0) log2Num += exp * log2Primes[i];
+      else log2Den -= exp * log2Primes[i]; // exp < 0, so subtract makes it positive
+    }
+
+    // Pre-prune: if the residual odd part already exceeds oddLimit, no outer
+    // (e3, e5) combination can save this entry — skip it entirely.
+    if (Math.max(log2Num, log2Den) > log2OddLimit) continue;
+
+    const cents = ((centsRaw % 1200) + 1200) % 1200;
+    // Store log2OddPart so the outer loop can quickly check the combined total.
+    table.push({ cents, log2Num, log2Den, exps: combination.slice() });
+  }
+
+  // Sort ascending by pitch-class cents for binary search.
+  table.sort((a, b) => a.cents - b.cents);
+  return table;
+}
+
+// Binary search: index of first entry with cents >= lo.
+function lowerBound(table, lo) {
+  let left = 0;
+  let right = table.length;
+  while (left < right) {
+    const mid = (left + right) >>> 1;
+    if (table[mid].cents < lo) left = mid + 1;
+    else right = mid;
+  }
+  return left;
+}
+
+// Collect residual table entries within `tol` of `target` (mod 1200).
+function residualMatches(table, target, tol) {
+  const lo = target - tol;
+  const hi = target + tol;
+  const matches = [];
+
+  if (lo < 0) {
+    // Window wraps below 0: also search [lo+1200, 1200).
+    let i = lowerBound(table, lo + 1200);
+    while (i < table.length) matches.push(table[i++]);
+    i = 0;
+    while (i < table.length && table[i].cents <= hi) matches.push(table[i++]);
+  } else if (hi >= 1200) {
+    // Window wraps above 1200: also search [0, hi-1200].
+    let i = lowerBound(table, lo);
+    while (i < table.length) matches.push(table[i++]);
+    i = 0;
+    while (i < table.length && table[i].cents <= hi - 1200) matches.push(table[i++]);
+  } else {
+    let i = lowerBound(table, lo);
+    while (i < table.length && table[i].cents <= hi) matches.push(table[i++]);
+  }
+
+  return matches;
+}
+
 // Compute prime limit directly from a monzo — highest prime with non-zero exponent.
 // Avoids constructing a Fraction for the limit check.
 function primeLimitFromMonzo(monzo) {
@@ -423,41 +550,143 @@ export function selectRationalisationContext(workspace, targetDegree, options = 
   };
 }
 
+// Shared inner logic: given a fully-assembled monzo (already pitch-class
+// normalised), check all filters and push a candidate if it passes.
+function _tryPushCandidate(monzo, targetCents, tol, merged, candidates) {
+  const cents = monzoToCents(monzo);
+  if (!Number.isFinite(cents)) return;
+  if (Math.abs(targetCents - cents) > tol) return;
+
+  const candidate = buildCandidateRecordFromMonzo({ monzo, cents, targetCents });
+  candidate.region = merged.region;
+
+  if (merged.oddLimit != null && merged.oddLimit > 0 && candidate.oddLimit > merged.oddLimit) return;
+  if (!materializeCandidateRatio(candidate)) return;
+
+  candidates.push(candidate);
+}
+
 export function enumerateCandidatesFromBounds(targetCents, options = {}) {
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
   const primeBounds = merged.primeBounds ?? primeLimitToBounds(merged.primeLimit);
   const rangeEntries = boundsToRanges(primeBounds, merged.region, merged.primeBoundsUt ?? null);
   if (!rangeEntries.length) return [];
 
+  const tol = merged.centsTolerance;
   const candidates = [];
 
-  for (const combination of cartesianProductGenerator(rangeEntries.map((entry) => entry.range))) {
-    if (combination.every((value) => value === 0)) continue;
+  // ── Three-layer pruned search ─────────────────────────────────────────────
+  //
+  // The search space is split into three layers to avoid iterating the full
+  // Cartesian product for every degree:
+  //
+  //   Layer A (outer loop) : prime-3  — up to ±8 = 17 values
+  //   Layer B (middle loop): prime-5  — up to ±3 =  7 values
+  //   Layer C (residual table, binary-searched): primes ≥ 7
+  //
+  // For fixed (e3, e5), the 3,5-limit pitch class is known exactly.  The
+  // primes-≥7 combinations are pre-sorted by pitch class so we binary-search
+  // for the subset within `tol` of the required residual.  This reduces per-
+  // degree work from O(17 × 7 × |C|) iterations to O(17 × 7 × matches),
+  // where `matches` is typically 0–5 even at 47-limit.
+  //
+  // At 47-limit with {7:2, 11–47:1}: |C| = 5 × 3^12 ≈ 885k — built once,
+  // searched 17×7 = 119 times per degree.
+  //
+  // Fallback: if prime-3 or prime-5 are absent, or |C| > RESIDUAL_TABLE_MAX,
+  // fall back to the original flat Cartesian scan.
 
-    const rawMonzo = buildMonzoFromCombination(combination, rangeEntries);
-    const monzo = normalizeMonzoToPitchClass(rawMonzo);
+  const prime3Entry = rangeEntries.find((e) => e.prime === 3) ?? null;
+  const prime5Entry = rangeEntries.find((e) => e.prime === 5) ?? null;
+  const residualEntries = rangeEntries.filter((e) => e.prime !== 3 && e.prime !== 5);
 
-    // Compute cents and deviation from the monzo — no Fraction constructed yet.
-    const cents = monzoToCents(monzo);
-    if (!Number.isFinite(cents)) continue;
-    const deviation = targetCents - cents;
-    if (Math.abs(deviation) > merged.centsTolerance) continue;
+  const oddLimit = merged.oddLimit != null && merged.oddLimit > 0 ? merged.oddLimit : null;
+  const log2OddLimit = oddLimit != null ? Math.log2(oddLimit) : Infinity;
 
-    // Build a monzo-only candidate record (ratio = null at this point).
-    const candidate = buildCandidateRecordFromMonzo({ monzo, cents, targetCents });
-    candidate.region = merged.region;
-
-    // Apply oddLimit pre-filter using the monzo-derived approximation.
-    // Candidates with Infinity oddLimit (overflow) are dropped here.
-    if (merged.oddLimit != null && merged.oddLimit > 0 && candidate.oddLimit > merged.oddLimit) {
-      continue;
+  // Build the residual table with odd-limit pre-pruning: entries whose primes-≥7
+  // odd part already exceeds the limit are dropped before the table is sorted.
+  // The table is cached by (residualEntries ranges, oddLimit) so it is built
+  // only once per unique settings configuration across all scale degrees.
+  let residualTable = null;
+  if (prime3Entry && prime5Entry) {
+    const cacheKey = _residualTableCacheKey(residualEntries, oddLimit);
+    if (_residualTableCache.has(cacheKey)) {
+      residualTable = _residualTableCache.get(cacheKey);
+    } else {
+      residualTable = buildResidualTable(residualEntries, oddLimit);
+      if (residualTable) _residualTableCache.set(cacheKey, residualTable);
     }
+  }
 
-    // Materialise the Fraction now — only for candidates that passed all monzo-level
-    // filters.  Skip silently if the numerator would overflow the safe integer limit.
-    if (!materializeCandidateRatio(candidate)) continue;
+  if (!prime3Entry || !prime5Entry || !residualTable) {
+    // ── Fallback: flat Cartesian scan (original behaviour) ──────────────────
+    for (const combination of cartesianProductGenerator(rangeEntries.map((e) => e.range))) {
+      if (combination.every((v) => v === 0)) continue;
+      const rawMonzo = buildMonzoFromCombination(combination, rangeEntries);
+      _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), targetCents, tol, merged, candidates);
+    }
+    candidates.sort((a, b) => cheapBaseScore(a, merged) - cheapBaseScore(b, merged));
+    return candidates;
+  }
 
-    candidates.push(candidate);
+  // ── Three-layer search with odd-limit early exit ─────────────────────────
+  const log2p3 = Math.log2(3);
+  const log2p5 = Math.log2(5);
+  const p3Cents = log2p3 * 1200;
+  const p5Cents = log2p5 * 1200;
+
+  for (const e3 of prime3Entry.range) {
+    const raw3 = e3 * p3Cents;
+    for (const e5 of prime5Entry.range) {
+      if (e3 === 0 && e5 === 0 && residualEntries.length === 0) continue; // unison
+
+      // Log2 of the combined 3,5-limit odd parts for numerator and denominator.
+      // 3^e3 × 5^e5 contributes to num if exp > 0, den if exp < 0.
+      const log2Odd3num = e3 > 0 ? e3 * log2p3 : 0;
+      const log2Odd3den = e3 < 0 ? -e3 * log2p3 : 0;
+      const log2Odd5num = e5 > 0 ? e5 * log2p5 : 0;
+      const log2Odd5den = e5 < 0 ? -e5 * log2p5 : 0;
+      const log2Odd35num = log2Odd3num + log2Odd5num;
+      const log2Odd35den = log2Odd3den + log2Odd5den;
+
+      // Early exit: if the 3,5 layer alone already exceeds the odd limit on
+      // either the numerator or denominator side, no residual can help.
+      if (Math.max(log2Odd35num, log2Odd35den) > log2OddLimit) continue;
+
+      // Headroom remaining for the residual layer on each side.
+      const log2HeadroomNum = log2OddLimit - log2Odd35num;
+      const log2HeadroomDen = log2OddLimit - log2Odd35den;
+
+      // Pitch-class cents of the 3,5-limit component.
+      const raw35 = raw3 + e5 * p5Cents;
+      const pc35 = ((raw35 % 1200) + 1200) % 1200;
+
+      // Residual the primes-≥7 layer must supply.
+      const residualTarget = ((targetCents - pc35) % 1200 + 1200) % 1200;
+
+      const matches = residualMatches(residualTable, residualTarget, tol);
+      if (matches.length === 0) continue;
+
+      for (const match of matches) {
+        if (e3 === 0 && e5 === 0 && match.exps.every((v) => v === 0)) continue; // unison
+
+        // Combined odd-limit check: residual's log2OddPart + outer layer's must
+        // stay within the limit on both numerator and denominator sides.
+        // match.log2Num / log2Den are the residual's contributions.
+        if (match.log2Num > log2HeadroomNum) continue;
+        if (match.log2Den > log2HeadroomDen) continue;
+
+        // Assemble full monzo.
+        const rawMonzo = new Array(CANONICAL_MONZO_BASIS.length).fill(0);
+        rawMonzo[prime3Entry.index] = e3;
+        rawMonzo[prime5Entry.index] = e5;
+        for (let i = 0; i < residualEntries.length; i++) {
+          rawMonzo[residualEntries[i].index] = match.exps[i];
+        }
+
+        _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), targetCents, tol, merged, candidates);
+      }
+    }
   }
 
   candidates.sort((a, b) => cheapBaseScore(a, merged) - cheapBaseScore(b, merged));

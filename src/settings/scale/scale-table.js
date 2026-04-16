@@ -79,10 +79,18 @@ function buildPrimeBoundsFromPrefs(searchPrefs, primeLimit = null) {
   for (const prime of CANONICAL_MONZO_BASIS) {
     if (prime === 2) continue;
     if (effectivePrimeLimit != null && prime > effectivePrimeLimit) break;
-    const parsedOt = parseOptionalPositiveInt(searchPrefs?.primeBounds?.[prime]);
-    const parsedUt = parseOptionalPositiveInt(searchPrefs?.primeBoundsUt?.[prime]);
-    bounds[prime] = parsedOt ?? 1;
-    boundsUt[prime] = parsedUt ?? 1;
+    // Parse the stored bound value.  parseOptionalPositiveInt returns null for
+    // "0", but 0 is a valid bound meaning "exclude this prime entirely".  We
+    // must distinguish between a missing/unparseable value (default to 1) and
+    // an explicit "0" (honour as 0 so the prime is skipped in boundsToRanges).
+    const rawOt = searchPrefs?.primeBounds?.[prime];
+    const rawUt = searchPrefs?.primeBoundsUt?.[prime];
+    const parsedOt = parseOptionalPositiveInt(rawOt);
+    const parsedUt = parseOptionalPositiveInt(rawUt);
+    const isExplicitZeroOt = String(rawOt ?? "").trim() === "0";
+    const isExplicitZeroUt = String(rawUt ?? "").trim() === "0";
+    bounds[prime] = isExplicitZeroOt ? 0 : (parsedOt ?? 1);
+    boundsUt[prime] = isExplicitZeroUt ? 0 : (parsedUt ?? 1);
   }
   const hasEntries = Object.keys(bounds).length > 0;
   return {
@@ -1205,10 +1213,13 @@ const ScaleTable = (props) => {
                         ot[prime] = "0";
                         ut[prime] = "0";
                       } else if (nowActive && !wasActive) {
-                        // Newly included: restore default if currently "0"
-                        const def = DEFAULT_PRIME_BOUNDS[prime] ?? "1";
-                        if (!ot[prime] || ot[prime] === "0") ot[prime] = def;
-                        if (!ut[prime] || ut[prime] === "0") ut[prime] = def;
+                        // Newly included: use default bound, but at least "1"
+                        // (DEFAULT_PRIME_BOUNDS stores "0" for primes 23+ so we
+                        // clamp to "1" to ensure the prime is actually searched)
+                        const def = DEFAULT_PRIME_BOUNDS[prime];
+                        const restored = (!def || def === "0") ? "1" : def;
+                        if (!ot[prime] || ot[prime] === "0") ot[prime] = restored;
+                        if (!ut[prime] || ut[prime] === "0") ut[prime] = restored;
                       }
                     }
                     next.primeBounds = ot;
