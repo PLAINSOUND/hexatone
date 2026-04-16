@@ -397,16 +397,18 @@ td.scale-color-col {
    4 digits + ¢ symbol fits up to 1200¢; text-align right keeps the ¢ flush. */
 .scala-input__cents {
   display: inline-block;
-  width: 3.2em;
+  width: 2.2em;
   text-align: right;
   color: #666;
   font-size: 0.85em;
+  padding-right: 2px;
   white-space: nowrap;
 }
 
 .scala-input__cents--error {
   color: #c0392b;
 }
+
 
 /* Preset selector rows — select stays at natural width, buttons cluster at left */
 .preset-selector-row {
@@ -484,10 +486,12 @@ table td {
   position: relative;
 }
 
-/* Equave row has no TuneCell — this spacer keeps the input the same width */
+/* Equave row has no TuneCell — spacer matches tune handle (28px) + tune-cell
+   left margin (4px) = 32px. The right margin of the tune-cell is not needed
+   since there is nothing to its right in the equave row. */
 .tune-cell-spacer {
   display: inline-flex;
-  width: 33px;
+  width: 38px;
   flex-shrink: 0;
 }
 

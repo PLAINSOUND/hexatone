@@ -636,7 +636,7 @@ const MIDIio = (props) => {
                     {/* Layout file (.ltn) — TODO: reimplement export using registry geometry */}
                     {!props.settings.midi_passthrough && props.lumatoneRawPorts && (
                       <label>
-                        Send to Lumatone
+                        Send Key Layout to Lumatone
                         <span
                           style={{
                             display: "flex",
