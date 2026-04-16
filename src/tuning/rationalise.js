@@ -1,8 +1,7 @@
-import { Fraction, monzoToCents, primeLimit as xenPrimeLimit } from "xen-dev-utils";
+import { Fraction, monzoToCents, primeLimit as xenPrimeLimit, toMonzo } from "xen-dev-utils";
 import { CANONICAL_MONZO_BASIS, monzoToFractionOnBasis } from "./interval.js";
 import {
   DEFAULT_TUNEABLE_INTERVALS,
-  getNeighborFamilies,
 } from "./tuneable-intervals.js";
 
 // Maximum log2 of numerator or denominator we will try to materialise as a
@@ -41,9 +40,19 @@ export const TUNEABLE_PC = DEFAULT_TUNEABLE_INTERVALS
     const radius = 0.5 * (Math.log2(oddPart(n)) + Math.log2(oddPart(d)));
     const octaveShift = Math.floor(entry.cents / 1200);
     const pc = entry.cents - octaveShift * 1200;
+    // Compute monzo on CANONICAL_MONZO_BASIS from [n, d].
+    // toMonzo(n/d) gives the full monzo; we expand/trim to basis length.
+    let monzo;
+    try {
+      const raw = toMonzo(new Fraction(n, d));
+      monzo = Array.from({ length: CANONICAL_MONZO_BASIS.length }, (_, i) => raw[i] ?? 0);
+    } catch {
+      monzo = null;
+    }
     return {
       ratio: entry.ratio,
       ratioParts: entry.ratioParts,
+      monzo,
       cents: pc,
       octaveShift,
       radius,
@@ -267,8 +276,7 @@ function buildCandidateRecordFromMonzo({ monzo, cents, targetCents }) {
     harmonicRadius: harmonicRadiusFromMonzo(monzo),
     region: "symmetric",
     contextualConsonance: 0,
-    overtonalReuse: 0,
-    familyMatches: [],
+    contextualBestMatch: 0,
     aggregateScore: 0,
   };
 }
@@ -327,23 +335,24 @@ function boundedContextSlots(workspace, targetDegree, options = {}) {
     const unique = [...new Set(options.contextDegrees.filter((d) => d !== targetDegree))];
     return unique
       .map((d) => byDegree.get(d))
-      .filter((slot) => slot?.committedIdentity?.ratio)
+      .filter((slot) => slot?.cents != null)
       .slice(0, max);
   }
 
-  // For each committed rational slot, compute the dyad it would form with the
-  // target cents and find the best-matching tuneable interval (lowest harmonic
-  // radius within ctxTol cents). Slots that form no recognisable consonance
-  // are excluded. The remaining slots are sorted by best-match harmonic radius.
+  // For every slot in the workspace (rational or cents-only), compute the dyad
+  // it would form with the target and find the best-matching tuneable interval
+  // (lowest harmonic radius within ctxTol cents). Slots that form no recognisable
+  // consonance are excluded. The remaining slots are sorted by best-match radius.
   const targetCents = workspace?.lookup?.byDegree?.get(targetDegree)?.cents ?? null;
   if (targetCents == null) return [];
 
   const scored = [];
   for (const [degree, slot] of byDegree) {
     if (degree === targetDegree) continue;
-    if (!slot?.committedIdentity?.ratio) continue;
+    // Any slot with a usable cents value qualifies — no ratio required.
+    if (slot?.cents == null) continue;
 
-    const slotCents = slot.cents ?? 0;
+    const slotCents = slot.cents;
     // Directed dyad in [0, 1200): interval measured from slot UP to target,
     // wrapping within the octave. We do NOT fold to [0, 600] so that 3/2 (702c)
     // and 4/3 (498c) remain distinct — both are counted when present.
@@ -457,43 +466,63 @@ export function scoreCandidateAgainstContext(candidate, contextSlot, options = {
   return { score: 0, matches: [] };
 }
 
-export function scoreEnharmonicReuse(candidate, context, options = {}) {
-  const toleranceTable = options.contextualToleranceTable ?? DEFAULT_CONTEXTUAL_TOLERANCE_TABLE;
-  const tolerance = toleranceTable[candidate.ratioText] ?? null;
-  const familyLibrary = buildConsonantFamilyLibrary(options);
-  const nearbyFamily = familyLibrary.find((family) => family.ratio === candidate.ratioText);
-  const directReuse = nearbyFamily && tolerance != null ? nearbyFamily.weight * (tolerance / 12) : 0;
-  const neighborFamilies = getNeighborFamilies(candidate.ratioText);
-  const neighborReuse = neighborFamilies.reduce((sum, ratioText) => {
-    const family = familyLibrary.find((entry) => entry.ratio === ratioText);
-    return sum + (family ? family.weight * 0.05 : 0);
-  }, 0);
-  return directReuse + neighborReuse;
+// s_tune: is this candidate reachable by tuning from a standard tuneable interval?
+//
+// Tuning model: prime-3 (fifths/fourths) can bridge up to 3 steps — so a ratio
+// that differs from a TUNEABLE_PC entry only in its prime-3 exponent, by at most
+// ±3, is considered tuneable from that entry (4 consecutive exponents containing 0).
+// All other non-2 prime exponents must match exactly: 25/16 is NOT tuneable from
+// 5/4 just because both use prime 5; the extra factor of 5 requires its own step.
+// Prime-2 is ignored entirely (octave equivalence).
+//
+// Returns 1 if a tuneable relative exists in TUNEABLE_PC, 0 otherwise.
+export function scoreEnharmonicReuse(candidate, _context, _options = {}) {
+  const cMonzo = candidate.monzo;
+  if (!Array.isArray(cMonzo)) return 0;
+
+  for (const entry of TUNEABLE_PC) {
+    if (!Array.isArray(entry.monzo)) continue;
+    // Check all non-2, non-3 primes match exactly (indices 2+).
+    let otherPrimesMatch = true;
+    for (let i = 2; i < CANONICAL_MONZO_BASIS.length; i++) {
+      if ((cMonzo[i] ?? 0) !== (entry.monzo[i] ?? 0)) {
+        otherPrimesMatch = false;
+        break;
+      }
+    }
+    if (!otherPrimesMatch) continue;
+    // Prime-3 delta must be within ±3 (window of 4 containing 0).
+    const delta3 = Math.abs((cMonzo[1] ?? 0) - (entry.monzo[1] ?? 0));
+    if (delta3 <= 3) return 1;
+  }
+  return 0;
 }
 
+// Returns { total, best } where:
+//   total — sum of weight/radius×proximity across all context slots (breadth + quality)
+//   best  — single highest per-slot score (best one consonant relationship)
+// Both are on the same scale: larger = better contextual fit.
 export function contextualConsonanceScore(candidate, context, options = {}) {
-  let score = 0;
-  const familyMatches = new Set(candidate.familyMatches ?? []);
+  let total = 0;
+  let best = 0;
   for (const slot of context.committedSlots ?? []) {
     const result = scoreCandidateAgainstContext(candidate, slot, options);
-    score += result.score;
-    result.matches.forEach((match) => familyMatches.add(match));
+    total += result.score;
+    if (result.score > best) best = result.score;
   }
-  candidate.familyMatches = [...familyMatches];
-  return score;
+  return { total, best };
 }
 
 export function scoreRationalCandidate(candidate, context, options = {}) {
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
-  const contextual = contextualConsonanceScore(candidate, context, merged);
-  const overtonalReuse = scoreEnharmonicReuse(candidate, context, merged);
-  candidate.contextualConsonance = contextual;
-  candidate.overtonalReuse = overtonalReuse;
+  const { total, best } = contextualConsonanceScore(candidate, context, merged);
+  candidate.contextualConsonance = total;
+  candidate.contextualBestMatch = best;
   candidate.aggregateScore =
     merged.weightRadius * candidate.harmonicRadius +
     merged.weightDeviation * Math.abs(candidate.deviation) -
-    merged.weightContext * contextual -
-    merged.weightOvertonalReuse * overtonalReuse;
+    merged.weightContext * total -
+    merged.weightOvertonalReuse * best;
   return candidate;
 }
 

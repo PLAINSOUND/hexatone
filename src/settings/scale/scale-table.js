@@ -195,8 +195,7 @@ function buildCommittedRatioCandidate(slot, baseRequest) {
         slot?.analysis?.harmonicRadius ?? harmonicRadiusFromMonzo(committed.monzo),
       region: baseRequest.region ?? "symmetric",
       contextualConsonance: 0,
-      overtonalReuse: 0,
-      familyMatches: [],
+      contextualBestMatch: 0,
       aggregateScore: 0,
     },
     context,
@@ -816,8 +815,7 @@ const TuneCell = ({
               </div>
               <div class="rationalise-candidate__row2">
                 <span class="rationalise-candidate__meta">s_ctx {(candidate.contextualConsonance ?? 0).toFixed(2)}</span>
-                <span class="rationalise-candidate__meta">s_tune {(candidate.overtonalReuse ?? 0).toFixed(2)}</span>
-                <span class="rationalise-candidate__meta">s_over {(candidate.familyMatches?.length ?? 0)}</span>
+                <span class="rationalise-candidate__meta">s_ctx-tune {(candidate.contextualBestMatch ?? 0).toFixed(2)}</span>
               </div>
             </button>
             );

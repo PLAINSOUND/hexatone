@@ -118,8 +118,7 @@ describe("tuning/rationalise", () => {
         harmonicRadius: harmonicRadiusFromMonzo(parseExactInterval("41/32").monzo),
         region: "symmetric",
         contextualConsonance: 0,
-        overtonalReuse: 0,
-        familyMatches: [],
+        contextualBestMatch: 0,
         aggregateScore: 0,
       },
       {
@@ -133,8 +132,7 @@ describe("tuning/rationalise", () => {
         harmonicRadius: harmonicRadiusFromMonzo(parseExactInterval("9/7").monzo),
         region: "symmetric",
         contextualConsonance: 0,
-        overtonalReuse: 0,
-        familyMatches: [],
+        contextualBestMatch: 0,
         aggregateScore: 0,
       },
     ];
@@ -159,7 +157,7 @@ describe("tuning/rationalise", () => {
       targetDegree: 2,
     });
     expect(results[0]).toHaveProperty("contextualConsonance");
-    expect(results[0]).toHaveProperty("overtonalReuse");
+    expect(results[0]).toHaveProperty("contextualBestMatch");
     expect(results[0]).toHaveProperty("aggregateScore");
   });
 });
