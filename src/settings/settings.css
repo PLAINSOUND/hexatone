@@ -607,12 +607,12 @@ table td {
 }
 
 .rationalise-candidate {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  gap: 8px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   width: 100%;
-  padding: 5px 7px;
+  padding: 3px 7px 5px;
+  margin-bottom: 3px;
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -623,8 +623,34 @@ table td {
   font-size: 1em;
 }
 
+.rationalise-candidate__row1 {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.rationalise-candidate__row2 {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.88em;
+}
+
 .rationalise-candidate:hover {
   background: #f3ecec;
+}
+
+.rationalise-candidate--committed .rationalise-candidate__ratio {
+  font-style: italic;
+}
+
+.rationalise-candidate--out-of-bounds .rationalise-candidate__ratio {
+  color: #990000;
+  font-style: italic;
+}
+
+.rationalise-candidate--out-of-bounds .rationalise-candidate__meta {
+  color: #bb6666;
 }
 
 .rationalise-candidate__ratio {
@@ -633,7 +659,6 @@ table td {
 
 .rationalise-candidate__meta {
   color: #885f5f;
-  font-size: 0.92em;
 }
 
 .tune-btn-compare {
@@ -716,10 +741,10 @@ td.scale-frequency-col input.frequency-input {
   font-size: 0.92em;
 }
 
-/* Row 1: four controls side by side */
+/* Row 1: five controls side by side */
 .scale-search-prefs__row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.55em 0.8em;
 }
 
@@ -762,6 +787,11 @@ td.scale-frequency-col input.frequency-input {
   gap: 0.45em;
 }
 
+/* In custom mode the dual inputs are narrower but keep the same 7-column grid */
+.scale-search-prefs__grid--custom {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
 /* Primes above the current prime limit are shown dimmed and disabled */
 .scale-search-prefs__prime--inactive {
   opacity: 0.35;
@@ -770,6 +800,46 @@ td.scale-frequency-col input.frequency-input {
 .scale-search-prefs__prime--inactive input {
   background: #f0ecec;
   cursor: not-allowed;
+}
+
+.scale-search-prefs__prime-label {
+  text-align: center;
+  font-size: 0.88em;
+  color: #5e4444;
+}
+
+/* u [input] [input] ° laid out in a row */
+.scale-search-prefs__prime-pair {
+  display: flex;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.scale-search-prefs__prime-input {
+  min-width: 0;
+  width: 100%;
+  flex: 1 1 0;
+  border: 1px solid #c8b8b8;
+  border-radius: 4px;
+  background: #fffdfc;
+  color: #330000;
+  padding: 0.2em 0.2em;
+  text-align: center;
+}
+
+.scale-search-prefs__prime-badge {
+  font-size: 0.85em;
+  color: #774444;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.scale-search-prefs__prime-badge--ut {
+  color: #555599;
+}
+
+.scale-search-prefs__prime-badge--ot {
+  color: #995555;
 }
 
 

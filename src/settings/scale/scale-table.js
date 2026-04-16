@@ -15,13 +15,56 @@ import {
 const PREVIEW_RATIO_TOLERANCE_CENTS = 0.05;
 // All non-2 primes in the canonical basis — used to build the full prime grid.
 const PRIME_BOUND_KEYS = CANONICAL_MONZO_BASIS.filter((p) => p !== 2);
+// Split into two rows: common primes (3–19) and extended primes (23+).
+const PRIME_BOUND_KEYS_LOW  = PRIME_BOUND_KEYS.filter((p) => p <= 19);
+const PRIME_BOUND_KEYS_HIGH = PRIME_BOUND_KEYS.filter((p) => p > 19);
+const DEFAULT_PRIME_BOUNDS = Object.fromEntries(PRIME_BOUND_KEYS.map((p) => {
+  if (p === 3)  return [p, "8"];
+  if (p === 5)  return [p, "3"];
+  if (p === 7)  return [p, "2"];
+  if (p === 11) return [p, "2"];
+  if (p === 13) return [p, "2"];
+  if (p === 17) return [p, "1"];
+  if (p === 19) return [p, "1"];
+  return [p, "0"];
+}));
+
 const DEFAULT_SEARCH_PREFS = {
   region: "symmetric",
   primeLimit: "19",
   oddLimit: "255",
   centsTolerance: "6",
-  primeBounds: Object.fromEntries(PRIME_BOUND_KEYS.map((p) => [p, "1"])),
+  contextTolerance: "14",
+  // primeBounds: overtonal maxima per prime (always used)
+  primeBounds: { ...DEFAULT_PRIME_BOUNDS },
+  // primeBoundsUt: undertonal maxima per prime (only used in "custom" region mode;
+  // initialised equal to primeBounds so switching to custom starts symmetric)
+  primeBoundsUt: { ...DEFAULT_PRIME_BOUNDS },
 };
+
+// Format the prime-limit of a candidate as an overtonal/undertonal pair.
+// Overtonal limit = highest prime with a positive non-2 exponent, shown with ° suffix.
+// Undertonal limit = highest prime with a negative non-2 exponent, shown with u prefix.
+// Examples: 21/20 → "7°u5",  7/4 → "7°",  8/5 → "u5",  1/1 → "1"
+// Fraction.toFraction() collapses "1/1" to "1". Always show the denominator.
+function formatRatioText(ratioText) {
+  if (ratioText === "1") return "1/1";
+  return ratioText;
+}
+
+function formatPrimeLimits(monzo) {
+  if (!Array.isArray(monzo)) return "?";
+  let otLim = 1;
+  let utLim = 1;
+  for (let i = 1; i < monzo.length; i++) {
+    const exp = monzo[i];
+    if (exp > 0) otLim = CANONICAL_MONZO_BASIS[i];
+    else if (exp < 0) utLim = CANONICAL_MONZO_BASIS[i];
+  }
+  if (utLim === 1) return `lim ${otLim}\u00B0`;
+  if (otLim === 1) return `lim 1\u00B0u${utLim}`;
+  return `lim ${otLim}\u00B0u${utLim}`;
+}
 
 function parseOptionalPositiveInt(value) {
   const parsed = Number.parseInt(String(value ?? "").trim(), 10);
@@ -30,14 +73,21 @@ function parseOptionalPositiveInt(value) {
 
 function buildPrimeBoundsFromPrefs(searchPrefs, primeLimit = null) {
   const bounds = {};
+  const boundsUt = {};
   const effectivePrimeLimit = parseOptionalPositiveInt(primeLimit);
   for (const prime of CANONICAL_MONZO_BASIS) {
     if (prime === 2) continue;
     if (effectivePrimeLimit != null && prime > effectivePrimeLimit) break;
-    const parsed = parseOptionalPositiveInt(searchPrefs?.primeBounds?.[prime]);
-    bounds[prime] = parsed ?? 1;
+    const parsedOt = parseOptionalPositiveInt(searchPrefs?.primeBounds?.[prime]);
+    const parsedUt = parseOptionalPositiveInt(searchPrefs?.primeBoundsUt?.[prime]);
+    bounds[prime] = parsedOt ?? 1;
+    boundsUt[prime] = parsedUt ?? 1;
   }
-  return Object.keys(bounds).length ? bounds : null;
+  const hasEntries = Object.keys(bounds).length > 0;
+  return {
+    primeBounds: hasEntries ? bounds : null,
+    primeBoundsUt: hasEntries ? boundsUt : null,
+  };
 }
 
 function getRowRuntime(workspace, degree, tunedCents = null, previewInterval = null) {
@@ -82,15 +132,18 @@ function getRationalisationRequest({
 }) {
   const primeLimit =
     parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? settings?.rationalise_prime_limit ?? 19;
-  const primeBounds = buildPrimeBoundsFromPrefs(searchPrefs, primeLimit);
+  const { primeBounds, primeBoundsUt } = buildPrimeBoundsFromPrefs(searchPrefs, primeLimit);
   return {
     targetDegree: degree,
     workspace,
     primeLimit,
     primeBounds: primeBounds ?? settings?.rationalise_prime_bounds ?? null,
+    primeBoundsUt: primeBoundsUt ?? null,
     oddLimit: parseOptionalPositiveInt(searchPrefs?.oddLimit) ?? settings?.rationalise_odd_limit ?? 255,
     centsTolerance:
       parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? settings?.rationalise_tolerance ?? 6,
+    contextTolerance:
+      parseOptionalPositiveInt(searchPrefs?.contextTolerance) ?? 14,
     maxCandidates: 8,
     region: searchPrefs?.region ?? "symmetric",
     frequencyContext: buildFrequencyContext({
@@ -157,33 +210,25 @@ function getHumanTestableRationalCandidates(baseRequest) {
     getWorkspaceSlot(baseRequest.workspace, baseRequest.targetDegree),
     baseRequest,
   );
+  // The tolerance is fixed at the user's setting — we never widen it in the
+  // ladder. The ladder is only used to broaden prime coverage when primeBounds
+  // is not set (legacy path); with primeBounds the search is already fully
+  // specified and a single pass suffices.
+  const tol = baseRequest.centsTolerance ?? 6;
   const searchLadder = baseRequest.primeBounds
-    ? [
-        { centsTolerance: baseRequest.centsTolerance ?? 6 },
-        { centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 8) },
-        { centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 10) },
-      ]
+    ? [{ centsTolerance: tol }]
     : [
-        {
-          centsTolerance: baseRequest.centsTolerance ?? 6,
-          primeLimit: baseRequest.primeLimit ?? 19,
-        },
-        {
-          centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 8),
-          primeLimit: Math.max(baseRequest.primeLimit ?? 19, 23),
-        },
-        {
-          centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 10),
-          primeLimit: Math.max(baseRequest.primeLimit ?? 19, 29),
-        },
-        {
-          centsTolerance: Math.max(baseRequest.centsTolerance ?? 6, 12),
-          primeLimit: Math.max(baseRequest.primeLimit ?? 19, 37),
-        },
+        { centsTolerance: tol, primeLimit: baseRequest.primeLimit ?? 19 },
+        { centsTolerance: tol, primeLimit: Math.max(baseRequest.primeLimit ?? 19, 23) },
+        { centsTolerance: tol, primeLimit: Math.max(baseRequest.primeLimit ?? 19, 29) },
+        { centsTolerance: tol, primeLimit: Math.max(baseRequest.primeLimit ?? 19, 37) },
       ];
 
   const candidateSets = [];
-  if (committedCandidate) candidateSets.push([committedCandidate]);
+  if (committedCandidate) {
+    committedCandidate.isCommitted = true;
+    candidateSets.push([committedCandidate]);
+  }
   for (const searchStep of searchLadder) {
     candidateSets.push(
       findRationalCandidates(baseRequest.targetCents, {
@@ -210,10 +255,6 @@ function getSaveString({ committedInterval, previewInterval, tunedCents, committ
     return committedInterval.ratio.toFraction();
   }
   return saveVal.toFixed(6);
-}
-
-function candidateDisplayScore(candidate) {
-  return candidate.aggregateScore?.toFixed?.(2) ?? candidate.harmonicRadius?.toFixed?.(2) ?? "—";
 }
 
 // Normalise a hex string to the form #rrggbb.
@@ -730,11 +771,33 @@ const TuneCell = ({
       </span>
       {rationaliseCandidates && (
         <div class="rationalise-dropdown">
-          {rationaliseCandidates.map((candidate) => (
+          {rationaliseCandidates.map((candidate) => {
+            const tol = parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? 6;
+            const pl = parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? 19;
+            const region = searchPrefs?.region ?? "symmetric";
+            const outsideTolerance = Math.abs(candidate.deviation) > tol;
+            const outsidePrimeLimit = candidate.primeLimit != null && candidate.primeLimit > pl;
+            // For overtonal region: any negative non-2 exponent in the monzo means the
+            // ratio has an undertonal component (e.g. 21/20 = [−2, −1, 1, 1] — has −1 for 5).
+            // For undertonal region: any positive non-2 exponent is out of bounds.
+            const outsideRegion = Array.isArray(candidate.monzo) && (
+              region === "overtonal"
+                ? candidate.monzo.slice(1).some((e) => e < 0)
+                : region === "undertonal"
+                  ? candidate.monzo.slice(1).some((e) => e > 0)
+                  : false
+            );
+            const isOutOfBounds = outsideTolerance || outsidePrimeLimit || outsideRegion;
+            const isCommitted = !!candidate.isCommitted;
+            return (
             <button
               key={candidate.ratioText}
               type="button"
-              class="rationalise-candidate"
+              class={[
+                "rationalise-candidate",
+                isCommitted ? "rationalise-candidate--committed" : "",
+                isOutOfBounds ? "rationalise-candidate--out-of-bounds" : "",
+              ].filter(Boolean).join(" ")}
               onClick={() => {
                 const parsed = parseExactInterval(candidate.ratioText);
                 setTunedCents(candidate.cents);
@@ -745,18 +808,20 @@ const TuneCell = ({
               }}
               aria-label={`rational candidate ${candidate.ratioText}`}
             >
-              <span class="rationalise-candidate__ratio">{candidate.ratioText}</span>
-              <span class="rationalise-candidate__meta">
-                {candidate.deviation >= 0 ? "+" : ""}
-                {candidate.deviation.toFixed(2)}c
-              </span>
-              <span class="rationalise-candidate__meta">{candidate.primeLimit}-lim</span>
-              <span class="rationalise-candidate__meta">
-                pc-hr {candidate.harmonicRadius.toFixed(2)}
-              </span>
-              <span class="rationalise-candidate__meta">s {candidateDisplayScore(candidate)}</span>
+              <div class="rationalise-candidate__row1">
+                <span class="rationalise-candidate__ratio">{formatRatioText(candidate.ratioText)}</span>
+                <span class="rationalise-candidate__meta">{candidate.deviation >= 0 ? "+" : ""}{candidate.deviation.toFixed(2)}c</span>
+                <span class="rationalise-candidate__meta">{formatPrimeLimits(candidate.monzo)}</span>
+                <span class="rationalise-candidate__meta">hr {candidate.harmonicRadius.toFixed(2)}</span>
+              </div>
+              <div class="rationalise-candidate__row2">
+                <span class="rationalise-candidate__meta">s_ctx {(candidate.contextualConsonance ?? 0).toFixed(2)}</span>
+                <span class="rationalise-candidate__meta">s_tune {(candidate.overtonalReuse ?? 0).toFixed(2)}</span>
+                <span class="rationalise-candidate__meta">s_over {(candidate.familyMatches?.length ?? 0)}</span>
+              </div>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -932,20 +997,33 @@ const ScaleTable = (props) => {
               Region
               <select
                 value={searchPrefs.region}
-                onChange={(e) =>
-                  setSearchPrefs((prev) => ({
-                    ...prev,
-                    region: e.target.value,
-                  }))
-                }
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSearchPrefs((prev) => {
+                    if (next === "overtonal") {
+                      // Zero out all undertonal bounds
+                      const utZero = Object.fromEntries(
+                        Object.keys(prev.primeBoundsUt).map((k) => [k, "0"])
+                      );
+                      return { ...prev, region: next, primeBoundsUt: utZero };
+                    }
+                    if (next === "symmetric") {
+                      // Mirror overtonal bounds into undertonal
+                      return { ...prev, region: next, primeBoundsUt: { ...prev.primeBounds } };
+                    }
+                    // custom: keep existing values as-is
+                    return { ...prev, region: next };
+                  });
+                }}
                 aria-label="rationalisation region"
               >
                 <option value="symmetric">Symmetric</option>
                 <option value="overtonal">Overtonal</option>
+                <option value="custom">Custom</option>
               </select>
             </label>
             <label class="scale-search-prefs__field">
-              Tolerance (¢)
+              Search tol. (¢)
               <input
                 type="text"
                 inputMode="numeric"
@@ -957,6 +1035,21 @@ const ScaleTable = (props) => {
                   }))
                 }
                 aria-label="rationalisation cents tolerance"
+              />
+            </label>
+            <label class="scale-search-prefs__field">
+              Context tol. (¢)
+              <input
+                type="text"
+                inputMode="numeric"
+                value={searchPrefs.contextTolerance}
+                onInput={(e) =>
+                  setSearchPrefs((prev) => ({
+                    ...prev,
+                    contextTolerance: e.target.value,
+                  }))
+                }
+                aria-label="rationalisation context consonance tolerance"
               />
             </label>
             <label class="scale-search-prefs__field">
@@ -990,37 +1083,86 @@ const ScaleTable = (props) => {
               />
             </label>
           </div>
-          {/* Row 2: per-prime step bounds — all primes, dimmed when above prime limit */}
-          <div class="scale-search-prefs__grid" aria-label="prime step bounds">
-            {PRIME_BOUND_KEYS.map((prime) => {
-              const limit = parseOptionalPositiveInt(searchPrefs.primeLimit);
-              const aboveLimit = limit != null && prime > limit;
-              return (
-                <label
-                  key={prime}
-                  class={`scale-search-prefs__prime${aboveLimit ? " scale-search-prefs__prime--inactive" : ""}`}
-                >
-                  {prime}
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={aboveLimit ? "0" : (searchPrefs.primeBounds[prime] ?? "1")}
-                    disabled={aboveLimit}
-                    onInput={(e) =>
-                      setSearchPrefs((prev) => ({
-                        ...prev,
-                        primeBounds: {
-                          ...prev.primeBounds,
-                          [prime]: e.target.value,
-                        },
-                      }))
-                    }
-                    aria-label={`rationalisation prime ${prime} steps`}
-                  />
-                </label>
-              );
-            })}
-          </div>
+          {/* Rows 2–3: per-prime step bounds split into 3–19 and 23+ */}
+          {[PRIME_BOUND_KEYS_LOW, PRIME_BOUND_KEYS_HIGH].map((primeRow, rowIdx) => {
+            const isCustom = searchPrefs.region === "custom";
+            return (
+              <div
+                key={rowIdx}
+                class={`scale-search-prefs__grid${isCustom ? " scale-search-prefs__grid--custom" : ""}`}
+                aria-label={rowIdx === 0 ? "prime step bounds 3–19" : "prime step bounds 23+"}
+              >
+                {primeRow.map((prime) => {
+                  const limit = parseOptionalPositiveInt(searchPrefs.primeLimit);
+                  const aboveLimit = limit != null && prime > limit;
+                  return (
+                    <div
+                      key={prime}
+                      class={`scale-search-prefs__prime${aboveLimit ? " scale-search-prefs__prime--inactive" : ""}`}
+                    >
+                      <span class="scale-search-prefs__prime-label">{prime}</span>
+                      {isCustom ? (
+                        <div class="scale-search-prefs__prime-pair">
+                          <span class="scale-search-prefs__prime-badge scale-search-prefs__prime-badge--ut">u</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={aboveLimit ? "0" : (searchPrefs.primeBoundsUt[prime] ?? "1")}
+                            disabled={aboveLimit}
+                            onInput={(e) =>
+                              setSearchPrefs((prev) => ({
+                                ...prev,
+                                primeBoundsUt: { ...prev.primeBoundsUt, [prime]: e.target.value },
+                              }))
+                            }
+                            aria-label={`prime ${prime} undertonal steps`}
+                            class="scale-search-prefs__prime-input"
+                          />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={aboveLimit ? "0" : (searchPrefs.primeBounds[prime] ?? "1")}
+                            disabled={aboveLimit}
+                            onInput={(e) =>
+                              setSearchPrefs((prev) => ({
+                                ...prev,
+                                primeBounds: { ...prev.primeBounds, [prime]: e.target.value },
+                              }))
+                            }
+                            aria-label={`prime ${prime} overtonal steps`}
+                            class="scale-search-prefs__prime-input"
+                          />
+                          <span class="scale-search-prefs__prime-badge scale-search-prefs__prime-badge--ot">°</span>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={aboveLimit ? "0" : (searchPrefs.primeBounds[prime] ?? "1")}
+                          disabled={aboveLimit}
+                          onInput={(e) => {
+                            const val = e.target.value;
+                            setSearchPrefs((prev) => {
+                              const next = {
+                                ...prev,
+                                primeBounds: { ...prev.primeBounds, [prime]: val },
+                              };
+                              // In symmetric mode keep undertonal mirrored
+                              if (prev.region === "symmetric") {
+                                next.primeBoundsUt = { ...prev.primeBoundsUt, [prime]: val };
+                              }
+                              return next;
+                            });
+                          }}
+                          aria-label={`rationalisation prime ${prime} steps`}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
           
         </fieldset>
       )}

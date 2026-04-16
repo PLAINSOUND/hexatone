@@ -2,7 +2,6 @@ import { Fraction, monzoToCents, primeLimit as xenPrimeLimit } from "xen-dev-uti
 import { CANONICAL_MONZO_BASIS, monzoToFractionOnBasis } from "./interval.js";
 import {
   DEFAULT_TUNEABLE_INTERVALS,
-  findTuneableFamilyMatches,
   getNeighborFamilies,
 } from "./tuneable-intervals.js";
 
@@ -10,6 +9,49 @@ import {
 // Fraction.  2^53 is Number.MAX_SAFE_INTEGER; anything beyond that breaks the
 // Fraction library.  We leave a comfortable margin.
 const MAX_LOG2_SAFE = 40;
+
+function oddPart(n) {
+  let x = Math.abs(Number(n));
+  if (!Number.isFinite(x) || x === 0) return 0;
+  while (x % 2 === 0) x /= 2;
+  return x;
+}
+
+// Pitch-class collapse of DEFAULT_TUNEABLE_INTERVALS.
+//
+// Every entry from the 3-octave tuneable list is mapped to [0, 1200) by
+// removing octave factors, preserving enough information to reconstruct
+// the original interval:
+//
+//   cents        — pitch-class cents in [0, 1200)
+//   octaveShift  — integer octaves removed (originalCents = cents + octaveShift * 1200)
+//   ratio        — original ratio text (e.g. "3/1" → pc 1902 - 1200 = 702, shift 1)
+//   ratioParts   — original [n, d]
+//   radius       — harmonic radius computed from odd parts of n and d
+//   weight       — consonance weight from the tuneable list
+//   toleranceCents — matching tolerance (inherited, kept in original-interval scale)
+//
+// Multiple original intervals may share the same pitch class (e.g. 3/2 at 702c
+// and 3/1 at 1902c both collapse to 702c). All are kept as separate entries.
+// Sorted by radius ascending (most consonant first) so the first match found
+// when scanning is always the strongest.
+export const TUNEABLE_PC = DEFAULT_TUNEABLE_INTERVALS
+  .map((entry) => {
+    const [n, d] = entry.ratioParts;
+    const radius = 0.5 * (Math.log2(oddPart(n)) + Math.log2(oddPart(d)));
+    const octaveShift = Math.floor(entry.cents / 1200);
+    const pc = entry.cents - octaveShift * 1200;
+    return {
+      ratio: entry.ratio,
+      ratioParts: entry.ratioParts,
+      cents: pc,
+      octaveShift,
+      radius,
+      weight: entry.weight,
+      toleranceCents: entry.toleranceCents,
+    };
+  })
+  .sort((a, b) => a.radius - b.radius);
 
 export const DEFAULT_RATIONALISE_OPTIONS = {
   primeLimit: 7,
@@ -36,13 +78,6 @@ const DEFAULT_CONTEXTUAL_TOLERANCE_TABLE = {
   "13/8": 12.0,
 };
 
-function oddPart(n) {
-  let x = Math.abs(Number(n));
-  if (!Number.isFinite(x) || x === 0) return 0;
-  while (x % 2 === 0) x /= 2;
-  return x;
-}
-
 function fractionCompare(a, b) {
   return a.s * a.n * b.d - b.s * b.n * a.d;
 }
@@ -54,9 +89,6 @@ function normalizeCandidateRatioToPitchClass(ratio) {
   return out;
 }
 
-function ratioToCents(ratio) {
-  return 1200 * Math.log2((ratio.s * ratio.n) / ratio.d);
-}
 
 export function harmonicRadiusFromMonzo(monzo, basis = CANONICAL_MONZO_BASIS) {
   return (
@@ -96,23 +128,41 @@ export function primeLimitToBounds(primeLimit) {
   return bounds;
 }
 
-function buildRange(max, region) {
+function buildRange(max, region, utMax = null) {
   if (region === "overtonal") return Array.from({ length: max + 1 }, (_, i) => i);
   if (region === "undertonal") return Array.from({ length: max + 1 }, (_, i) => -max + i);
+  if (region === "custom") {
+    // Independent overtonal (otMax = max) and undertonal (utMax) bounds.
+    const ut = utMax ?? max;
+    return Array.from({ length: ut + max + 1 }, (_, i) => i - ut);
+  }
+  // symmetric: range is [-max, ..., max]
   return Array.from({ length: 2 * max + 1 }, (_, i) => i - max);
 }
 
-function boundsToRanges(primeBounds, region) {
+function boundsToRanges(primeBounds, region, primeBoundsUt = null) {
   const entries = [];
   for (let index = 0; index < CANONICAL_MONZO_BASIS.length; index += 1) {
     const prime = CANONICAL_MONZO_BASIS[index];
     if (prime === 2) continue;
-    const max = primeBounds[prime];
-    if (max == null || max === 0) continue;
+    const otMax = primeBounds[prime];
+    if (otMax == null || otMax === 0) {
+      // In custom mode an undertonal-only prime (otMax=0, utMax>0) still needs
+      // an entry; skip only when both sides are zero or absent.
+      if (region !== "custom") continue;
+      const utMax = primeBoundsUt?.[prime] ?? 0;
+      if (utMax === 0) continue;
+      entries.push({
+        index,
+        prime,
+        range: buildRange(0, "custom", utMax),
+      });
+      continue;
+    }
     entries.push({
       index,
       prime,
-      range: buildRange(max, region),
+      range: buildRange(otMax, region, region === "custom" ? (primeBoundsUt?.[prime] ?? otMax) : null),
     });
   }
   return entries;
@@ -136,11 +186,23 @@ function normalizeMonzoToPitchClass(monzo) {
   return out;
 }
 
-function cartesianProduct(ranges) {
-  return ranges.reduce(
-    (acc, range) => acc.flatMap((prefix) => range.map((value) => [...prefix, value])),
-    [[]],
-  );
+// Lazy Cartesian product generator — yields one combination at a time using
+// index arithmetic. O(depth) memory regardless of total product size, so large
+// prime-bound searches don't materialise millions of arrays before filtering.
+function* cartesianProductGenerator(ranges) {
+  if (ranges.length === 0) return;
+  const indices = new Array(ranges.length).fill(0);
+  while (true) {
+    yield indices.map((idx, i) => ranges[i][idx]);
+    let pos = indices.length - 1;
+    while (pos >= 0) {
+      indices[pos]++;
+      if (indices[pos] < ranges[pos].length) break;
+      indices[pos] = 0;
+      pos--;
+    }
+    if (pos < 0) return;
+  }
 }
 
 // Compute prime limit directly from a monzo — highest prime with non-zero exponent.
@@ -247,20 +309,63 @@ export function buildConsonantFamilyLibrary(options = {}) {
   }));
 }
 
+// Default tolerance (in cents) for matching dyads against TUNEABLE_PC entries
+// when evaluating contextual consonance. Can be overridden via options.contextTolerance.
+// Wider than the search centsTolerance to accept near-pure intervals that are
+// slightly mistuned in the committed scale (e.g. a tempered third counts as
+// contextually consonant even when it deviates from just by several cents).
+const DEFAULT_CONTEXT_CONSONANCE_TOLERANCE = 14;
+
 function boundedContextSlots(workspace, targetDegree, options = {}) {
   const byDegree = workspace?.lookup?.byDegree;
   if (!byDegree) return [];
-  const requestedDegrees = options.contextDegrees ?? [
-    0,
-    workspace.baseScale.referenceDegree,
-    targetDegree - 1,
-    targetDegree + 1,
-  ];
-  const unique = [...new Set(requestedDegrees.filter((degree) => degree !== targetDegree))];
-  return unique
-    .map((degree) => byDegree.get(degree))
-    .filter((slot) => slot?.committedIdentity?.ratio)
-    .slice(0, options.maxContextComparisons ?? DEFAULT_RATIONALISE_OPTIONS.maxContextComparisons);
+  const max = options.maxContextComparisons ?? DEFAULT_RATIONALISE_OPTIONS.maxContextComparisons;
+  const ctxTol = options.contextTolerance ?? DEFAULT_CONTEXT_CONSONANCE_TOLERANCE;
+
+  if (options.contextDegrees) {
+    // Explicit degree list provided — use it as-is.
+    const unique = [...new Set(options.contextDegrees.filter((d) => d !== targetDegree))];
+    return unique
+      .map((d) => byDegree.get(d))
+      .filter((slot) => slot?.committedIdentity?.ratio)
+      .slice(0, max);
+  }
+
+  // For each committed rational slot, compute the dyad it would form with the
+  // target cents and find the best-matching tuneable interval (lowest harmonic
+  // radius within ctxTol cents). Slots that form no recognisable consonance
+  // are excluded. The remaining slots are sorted by best-match harmonic radius.
+  const targetCents = workspace?.lookup?.byDegree?.get(targetDegree)?.cents ?? null;
+  if (targetCents == null) return [];
+
+  const scored = [];
+  for (const [degree, slot] of byDegree) {
+    if (degree === targetDegree) continue;
+    if (!slot?.committedIdentity?.ratio) continue;
+
+    const slotCents = slot.cents ?? 0;
+    // Directed dyad in [0, 1200): interval measured from slot UP to target,
+    // wrapping within the octave. We do NOT fold to [0, 600] so that 3/2 (702c)
+    // and 4/3 (498c) remain distinct — both are counted when present.
+    const dyadCents = ((targetCents - slotCents) % 1200 + 1200) % 1200;
+
+    // Find the tuneable pitch class with the lowest harmonic radius that is
+    // within ctxTol of this directed dyad.
+    // TUNEABLE_PC is pre-sorted by radius ascending, so first match is best.
+    let bestRadius = Infinity;
+    for (const tuneable of TUNEABLE_PC) {
+      if (Math.abs(dyadCents - tuneable.cents) <= ctxTol) {
+        bestRadius = tuneable.radius;
+        break;
+      }
+    }
+    if (!Number.isFinite(bestRadius)) continue; // no consonant match — skip
+
+    scored.push({ slot, bestRadius });
+  }
+
+  scored.sort((a, b) => a.bestRadius - b.bestRadius);
+  return scored.slice(0, max).map((entry) => entry.slot);
 }
 
 export function selectRationalisationContext(workspace, targetDegree, options = {}) {
@@ -276,13 +381,12 @@ export function selectRationalisationContext(workspace, targetDegree, options = 
 export function enumerateCandidatesFromBounds(targetCents, options = {}) {
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
   const primeBounds = merged.primeBounds ?? primeLimitToBounds(merged.primeLimit);
-  const rangeEntries = boundsToRanges(primeBounds, merged.region);
+  const rangeEntries = boundsToRanges(primeBounds, merged.region, merged.primeBoundsUt ?? null);
   if (!rangeEntries.length) return [];
 
-  const combinations = cartesianProduct(rangeEntries.map((entry) => entry.range));
   const candidates = [];
 
-  for (const combination of combinations) {
+  for (const combination of cartesianProductGenerator(rangeEntries.map((entry) => entry.range))) {
     if (combination.every((value) => value === 0)) continue;
 
     const rawMonzo = buildMonzoFromCombination(combination, rangeEntries);
@@ -315,28 +419,42 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
   return candidates;
 }
 
-function familyMatchScore(cents, familyLibrary) {
-  const matches = findTuneableFamilyMatches(cents, {
-    intervals: familyLibrary.map((family) => ({
-      ratio: family.ratio,
-      cents: family.cents,
-      toleranceCents: family.tolerance,
-      weight: family.weight,
-    })),
-  });
-  return {
-    score: matches.reduce((sum, match) => sum + match.score, 0),
-    matches: matches.map((match) => match.ratio),
-  };
-}
 
+// Score a single directed dyad (slot → candidate) against TUNEABLE_PC.
+//
+// Contribution = (weight / radius) × proximity_factor
+//
+// proximity_factor = 1 - |deviation| / ctxTol  — linear taper from 1.0 (exact
+// match) to 0.0 (at the edge of the tolerance window). This means:
+//   - an exact 3/2 scores its full weight/radius value
+//   - a slightly tempered 3/2 (e.g. quarter-comma meantone, ~5¢ off) still
+//     contributes meaningfully
+//   - a dyad at the tolerance boundary contributes nearly nothing
+//
+// Using weight/radius means very consonant intervals (low radius, e.g. 3/2)
+// contribute more per match than complex ones (high radius, e.g. 11/9).
+// Multiple distinct consonances accumulate additively, so having both 3/2 AND
+// 4/3 above a note scores better than having just one of them.
 export function scoreCandidateAgainstContext(candidate, contextSlot, options = {}) {
-  const familyLibrary = buildConsonantFamilyLibrary(options);
-  const dyad = normalizeCandidateRatioToPitchClass(
-    candidate.ratio.div(contextSlot.committedIdentity.ratio),
-  );
-  const dyadCents = ratioToCents(dyad);
-  return familyMatchScore(dyadCents, familyLibrary);
+  const ctxTol = options.contextTolerance ?? DEFAULT_CONTEXT_CONSONANCE_TOLERANCE;
+  const slotCents = contextSlot.cents ?? 0;
+  const targetCents = candidate.cents;
+  // Directed dyad: slot → target in [0, 1200), preserving direction so that
+  // 3/2 (702c above) and 4/3 (498c above, or equivalently 702c below) are distinct.
+  const dyadCents = ((targetCents - slotCents) % 1200 + 1200) % 1200;
+
+  // Scan TUNEABLE_PC (sorted by radius ascending) for the best match.
+  for (const tuneable of TUNEABLE_PC) {
+    const diff = Math.abs(dyadCents - tuneable.cents);
+    if (diff <= ctxTol) {
+      // Linear proximity taper: exact = 1.0, edge = 0.0.
+      const proximity = 1 - diff / ctxTol;
+      // radius > 0 always for non-unison intervals in the tuneable list.
+      const baseScore = tuneable.radius > 0 ? tuneable.weight / tuneable.radius : tuneable.weight;
+      return { score: baseScore * proximity, matches: [tuneable.ratio] };
+    }
+  }
+  return { score: 0, matches: [] };
 }
 
 export function scoreEnharmonicReuse(candidate, context, options = {}) {
