@@ -166,12 +166,11 @@ function mergeUniqueCandidates(candidateSets, maxCandidates = 8) {
       merged.push(candidate);
     }
   }
-  merged.sort((a, b) => {
-    if (a.harmonicRadius !== b.harmonicRadius) return a.harmonicRadius - b.harmonicRadius;
-    if (Math.abs(a.deviation) !== Math.abs(b.deviation))
-      return Math.abs(a.deviation) - Math.abs(b.deviation);
-    return a.aggregateScore - b.aggregateScore;
-  });
+  // Sort by aggregateScore ascending (lower cost = better).
+  // aggregateScore incorporates radius, deviation, contextual consonance,
+  // best context match, and overtonal branch extent — so this is the
+  // definitive ranking for display order.
+  merged.sort((a, b) => a.aggregateScore - b.aggregateScore);
   return merged.slice(0, maxCandidates);
 }
 
@@ -196,6 +195,7 @@ function buildCommittedRatioCandidate(slot, baseRequest) {
       region: baseRequest.region ?? "symmetric",
       contextualConsonance: 0,
       contextualBestMatch: 0,
+      contextualBestRatio: null,
       branchExtent: 0,
       aggregateScore: 0,
     },
@@ -813,10 +813,15 @@ const TuneCell = ({
                 <span class="rationalise-candidate__meta">{candidate.deviation >= 0 ? "+" : ""}{candidate.deviation.toFixed(2)}c</span>
                 <span class="rationalise-candidate__meta">{formatPrimeLimits(candidate.monzo)}</span>
                 <span class="rationalise-candidate__meta">hr {candidate.harmonicRadius.toFixed(2)}</span>
+                <span class="rationalise-candidate__meta rationalise-candidate__score">s {(candidate.globalScore ?? 0).toFixed(2)}</span>
               </div>
               <div class="rationalise-candidate__row2">
                 <span class="rationalise-candidate__meta">s_ctx {(candidate.contextualConsonance ?? 0).toFixed(2)}</span>
-                <span class="rationalise-candidate__meta">s_tune {(candidate.contextualBestMatch ?? 0).toFixed(2)}</span>
+                {candidate.contextualBestRatio && (
+                  <span class="rationalise-candidate__meta">
+                    s_tune {candidate.contextualBestRatio}
+                  </span>
+                )}
                 <span class="rationalise-candidate__meta">s_oton {(candidate.branchExtent ?? 0).toFixed(2)}</span>
               </div>
             </button>
@@ -830,9 +835,12 @@ const TuneCell = ({
 
 // sidebar display of the scala file, degrees, note names, colors in an html table format
 const ScaleTable = (props) => {
-  const scale = [...(props.settings.scale || [])];
-  const equiv_interval = scale.length ? scale.pop() : "2/1";
-  scale.unshift("0.");
+  const { scale, equiv_interval } = useMemo(() => {
+    const s = [...(props.settings.scale || [])];
+    const eq = s.length ? s.pop() : "2/1";
+    s.unshift("0.");
+    return { scale: s, equiv_interval: eq };
+  }, [props.settings.scale]);
   const workspace = useMemo(
     () => createScaleWorkspace(props.settings),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings is a new object on every render; listing the specific keys that affect workspace output avoids unnecessary recomputation
@@ -879,6 +887,7 @@ const ScaleTable = (props) => {
   const editable_colors = props.settings.spectrum_colors;
   const [showSearchPrefs, setShowSearchPrefs] = useState(false);
   const [searchPrefs, setSearchPrefs] = useState(DEFAULT_SEARCH_PREFS);
+  const [rationalisingScale, setRationalisingScale] = useState(false);
   // previewState: per-degree { cents, comparing } set by TuneCell during drag
   const [previewState, setPreviewState] = useState({});
   // resetVersion: per-degree counter, bumped when a direct text edit commits a new
@@ -888,16 +897,71 @@ const ScaleTable = (props) => {
     setResetVersion((prev) => ({ ...prev, [degreeIndex]: (prev[degreeIndex] ?? 0) + 1 }));
   }, []);
 
-  const effectiveCentsAtDegree = (degreeIndex) => {
+  const effectiveCentsAtDegree = useCallback((degreeIndex) => {
     const state = previewState[degreeIndex];
     if (state && state.cents !== null) return state.cents;
     return scalaToCents(String(scale[degreeIndex] ?? equiv_interval));
-  };
+  }, [previewState, scale, equiv_interval]);
   const referenceCents = effectiveCentsAtDegree(referenceDegree);
-  const frequencyAtDegree = (degreeIndex) => {
+  const frequencyAtDegree = useCallback((degreeIndex) => {
     const cents = effectiveCentsAtDegree(degreeIndex);
     return props.settings.fundamental * Math.pow(2, (cents - referenceCents) / 1200.0);
-  };
+  }, [effectiveCentsAtDegree, props.settings.fundamental, referenceCents]);
+
+  // Auto-rationalise every non-root, non-equave degree: for each, run the full
+  // candidate search and commit the best-scoring candidate (index 0 after sort).
+  // Degrees with no candidate within tolerance are left unchanged.
+  const rationaliseScale = useCallback(() => {
+    const currentScale = [...(props.settings.scale || [])];
+    const equaveIdx = currentScale.length - 1; // last entry is the equave — never touched
+
+    // Pre-compute scaleCents once for the whole batch. The workspace is static
+    // across all degrees so there's no need to rebuild this inside each degree's
+    // scoring loop. Passed as _scaleCents in the request options so
+    // rerankCandidatesInContext can skip the per-degree derivation (~43x win).
+    const byDegree = workspace?.lookup?.byDegree;
+    const scaleCents = byDegree
+      ? Array.from(byDegree.values()).filter((s) => s?.cents != null).map((s) => s.cents)
+      : null;
+
+    let changed = false;
+    const newScale = currentScale.map((str, i) => {
+      if (i === equaveIdx) return str; // preserve equave
+      const tuneCellDegree = i + 1; // TuneCell / workspace degree index
+      const tunedCents = scalaToCents(String(str));
+      const request = getRationalisationRequest({
+        degree: tuneCellDegree,
+        tunedCents,
+        workspace,
+        settings: props.settings,
+        frequencyAtDegree,
+        searchPrefs,
+      });
+      // Inject pre-computed scaleCents so scoreBranchExtent avoids re-deriving it.
+      request._scaleCents = scaleCents;
+      const candidates = getHumanTestableRationalCandidates(request);
+      // Skip if no candidate found or the best is already committed.
+      if (!candidates.length) return str;
+      const best = candidates[0];
+      if (!best.ratioText) return str;
+      if (best.ratioText === str) return str;
+      changed = true;
+      return best.ratioText;
+    });
+    if (changed) {
+      props.onChange("scale", newScale);
+      // Bump all reset versions so every TuneCell discards in-flight drag state.
+      setResetVersion((prev) => {
+        const next = { ...prev };
+        for (let i = 1; i <= newScale.length; i++) {
+          next[i] = (prev[i] ?? 0) + 1;
+        }
+        return next;
+      });
+    }
+    setRationalisingScale(false);
+  }, [props, workspace, frequencyAtDegree, searchPrefs]);
+
   const centsFromFrequency = (frequency) =>
     referenceCents + 1200 * Math.log2(frequency / props.settings.fundamental);
   // deviationCentsAtDegree: cents delta from committed value (for frequency colour)
@@ -968,6 +1032,20 @@ const ScaleTable = (props) => {
             Rationalisation Search Preferences
           </button>
         )}
+        <button
+          type="button"
+          class="scale-table-toolbar__rationalise"
+          onClick={() => {
+            setRationalisingScale(true);
+            // Defer to next tick so the button can show a loading state before
+            // the synchronous search blocks the main thread.
+            setTimeout(rationaliseScale, 0);
+          }}
+          disabled={rationalisingScale}
+          title="Find best rational candidate for every scale degree and commit all at once"
+        >
+          {rationalisingScale ? "Rationalising…" : "Rationalise Scale"}
+        </button>
       </div>
       {showSearchPrefs && (
         <fieldset id="scale-search-prefs" class="settings-panel scale-search-prefs">
@@ -1046,12 +1124,37 @@ const ScaleTable = (props) => {
                 type="text"
                 inputMode="numeric"
                 value={searchPrefs.primeLimit}
-                onInput={(e) =>
-                  setSearchPrefs((prev) => ({
-                    ...prev,
-                    primeLimit: e.target.value,
-                  }))
-                }
+                onInput={(e) => {
+                  const raw = e.target.value;
+                  const newLimit = parseOptionalPositiveInt(raw);
+                  setSearchPrefs((prev) => {
+                    const next = { ...prev, primeLimit: raw };
+                    if (newLimit == null) return next;
+                    // Sync primeBounds and primeBoundsUt with the new limit:
+                    // — primes above the limit → "0"
+                    // — primes newly within the limit that were "0" → default from DEFAULT_PRIME_BOUNDS
+                    const prevLimit = parseOptionalPositiveInt(prev.primeLimit);
+                    const ot = { ...prev.primeBounds };
+                    const ut = { ...prev.primeBoundsUt };
+                    for (const prime of PRIME_BOUND_KEYS) {
+                      const wasActive = prevLimit == null || prime <= prevLimit;
+                      const nowActive = prime <= newLimit;
+                      if (!nowActive && wasActive) {
+                        // Newly excluded: zero out
+                        ot[prime] = "0";
+                        ut[prime] = "0";
+                      } else if (nowActive && !wasActive) {
+                        // Newly included: restore default if currently "0"
+                        const def = DEFAULT_PRIME_BOUNDS[prime] ?? "1";
+                        if (!ot[prime] || ot[prime] === "0") ot[prime] = def;
+                        if (!ut[prime] || ut[prime] === "0") ut[prime] = def;
+                      }
+                    }
+                    next.primeBounds = ot;
+                    next.primeBoundsUt = ut;
+                    return next;
+                  });
+                }}
                 aria-label="rationalisation prime limit"
               />
             </label>
@@ -1286,7 +1389,7 @@ const ScaleTable = (props) => {
                     value={freq}
                     onAnyChange={(str) => scaleChangeAt(i, str)}
                     onChange={(str) => scaleCommitAt(i, str, i + 1)}
-                    showCents={false}
+                    showCents={!String(freq).includes(".")}
                     aria-label={`pitch value ${i}`}
                   />
                   <TuneCell
@@ -1370,7 +1473,7 @@ const ScaleTable = (props) => {
                   value={equiv_interval}
                   onAnyChange={(str) => scaleChangeAt(scale.length - 1, str)}
                   onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}
-                  showCents={false}
+                  showCents={!String(equiv_interval).includes(".")}
                   aria-label={`pitch ${scale.length - 1}`}
                 />
                 <div class="tune-cell-spacer" aria-hidden="true" />

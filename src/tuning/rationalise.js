@@ -100,10 +100,10 @@ export const DEFAULT_RATIONALISE_OPTIONS = {
   maxCandidates: 8,
   region: "symmetric",
   maxContextComparisons: 8,
-  weightRadius: 1.0,
-  weightDeviation: 1.0,
-  weightContext: 0.6,
-  weightOvertonalReuse: 0.35,
+  weightRadius: 1.0,       // penalises harmonic complexity
+  weightDeviation: 0.5,    // penalises pitch deviation (less critical than radius)
+  weightContext: 0.6,      // rewards contextual consonance breadth
+  weightBranch: 1.0,       // rewards overtonal branch membership (equal weight to radius)
   tuneableIntervals: DEFAULT_TUNEABLE_INTERVALS,
 };
 
@@ -307,8 +307,10 @@ function buildCandidateRecordFromMonzo({ monzo, cents, targetCents }) {
     region: "symmetric",
     contextualConsonance: 0,
     contextualBestMatch: 0,
+    contextualBestRatio: null,
     branchExtent: 0,
     aggregateScore: 0,
+    globalScore: 0,
   };
 }
 
@@ -409,12 +411,13 @@ function boundedContextSlots(workspace, targetDegree, options = {}) {
 }
 
 export function selectRationalisationContext(workspace, targetDegree, options = {}) {
+  const committedSlots = boundedContextSlots(workspace, targetDegree, options);
   return {
     targetDegree,
     workspace,
     activeFrame: options.activeFrame ?? null,
-    nearbyDegrees: boundedContextSlots(workspace, targetDegree, options).map((slot) => slot.degree),
-    committedSlots: boundedContextSlots(workspace, targetDegree, options),
+    nearbyDegrees: committedSlots.map((slot) => slot.degree),
+    committedSlots,
   };
 }
 
@@ -529,122 +532,171 @@ export function scoreEnharmonicReuse(candidate, _context, _options = {}) {
   return 0;
 }
 
-// s_branch: overtonal branch extent score.
+// Helper: compute the prime limit of a series entry from its monzo.
+function seriesMemberPrimeLimit(member) {
+  if (!Array.isArray(member.monzo)) return Infinity;
+  for (let i = member.monzo.length - 1; i >= 1; i--) {
+    if (member.monzo[i] > 0) return CANONICAL_MONZO_BASIS[i];
+  }
+  return 2; // unison
+}
+
+// Score a single branch hypothesis: the candidate occupies the role of
+// `identity` (a member of OVERTONAL_SERIES_PC) and the implied root is at
+// rootCents. Searches scaleCents for the other series members and returns
+// the branch score using the budget-shrinking tolerance model.
+function scoreBranchFromRoot(rootCents, identity, scaleCents, ctxTol, primeLimit) {
+  // The candidate itself is exact (0¢ deviation) as the fixed identity.
+  const identityScore = identity.radius > 0
+    ? identity.weight / identity.radius
+    : identity.weight;
+  let score = identityScore;
+  let maxDeviation = 0;
+
+  for (const member of OVERTONAL_SERIES_PC) {
+    if (member.harmonicNumber === identity.harmonicNumber) continue; // already counted
+    if (seriesMemberPrimeLimit(member) > primeLimit) continue;
+
+    const budget = ctxTol - maxDeviation;
+    if (budget <= 0) break;
+
+    // Ideal pitch class of this member above the implied root.
+    const idealPc = (rootCents + member.cents) % 1200;
+
+    // Find closest scale note.
+    let bestDiff = Infinity;
+    for (const sc of scaleCents) {
+      const raw = ((sc - idealPc) % 1200 + 1200) % 1200;
+      const diff = Math.min(raw, 1200 - raw);
+      if (diff < bestDiff) bestDiff = diff;
+    }
+
+    if (bestDiff > budget) continue;
+
+    const proximity = 1 - bestDiff / budget;
+    const baseScore = member.radius > 0 ? member.weight / member.radius : member.weight;
+    score += baseScore * proximity;
+
+    if (bestDiff > maxDeviation) maxDeviation = bestDiff;
+  }
+
+  // Only count hypotheses where at least one *other* series member matched.
+  return score > identityScore ? score : 0;
+}
+
+// s_oton: overtonal branch extent score.
 //
-// Treats the candidate as the root (harmonic 1) and searches the workspace for
-// scale notes that approximate members of the overtonal series 1:3:5:7:9:11:13...
-// up to the prime limit in options.primeLimit.
+// The candidate is tested as every possible odd identity in the series
+// (harmonic 1, 3, 5, 7, 9, 11, 13, 15...) up to the prime limit. For each
+// identity the implied root is computed and the scale is searched for the
+// remaining series members. The highest-scoring hypothesis is returned.
 //
-// Tolerance budget: starts at contextTolerance. Each matched member's absolute
-// deviation from its ideal pitch is tracked. The remaining budget for subsequent
-// members is (contextTolerance - maxDeviationSoFar), so the worst-case pairwise
-// interval deviation within the branch never exceeds contextTolerance. When the
-// budget runs out the branch terminates — no more members can match.
+// This means e.g. a candidate that is harmonic 15 in a 1:3:5:7:9:11:13:15
+// chord scores well even though it is not itself the root.
 //
-// Score: Σ (weight / max(radius, 0.001)) × (1 - deviation / budget) over all
-// matched members including the root (which always matches at 0¢ deviation).
-// This is on the same scale as s_ctx and s_ctx-tune: larger = better.
+// Tolerance budget: starts at contextTolerance. The worst deviation seen so
+// far among matched members reduces the remaining budget for subsequent ones,
+// so the maximum pairwise interval deviation within the branch never exceeds
+// contextTolerance.
 //
-// Returns the score (0 if no overtonal matches beyond the root).
+// Score: Σ (weight / radius) × (1 - deviation / budget) over matched members.
+// Same scale as s_ctx and s_ctx-tune: larger = better.
 export function scoreBranchExtent(candidate, workspace, options = {}) {
   const ctxTol = options.contextTolerance ?? DEFAULT_CONTEXT_CONSONANCE_TOLERANCE;
   const primeLimit = options.primeLimit ?? DEFAULT_RATIONALISE_OPTIONS.primeLimit;
   const byDegree = workspace?.lookup?.byDegree;
   if (!byDegree) return 0;
 
-  // Collect all scale cents values (excluding the candidate's own degree).
-  const targetDegree = options.targetDegree ?? null;
+  // Collect all scale cents values including the candidate itself.
   const scaleCents = [];
-  for (const [degree, slot] of byDegree) {
-    if (degree === targetDegree) continue;
+  for (const slot of byDegree.values()) {
     if (slot?.cents != null) scaleCents.push(slot.cents);
   }
 
-  // Root always matches at 0¢ deviation — seed the score and budget tracking.
-  const rootEntry = OVERTONAL_SERIES_PC[0]; // unison
-  let score = rootEntry.weight; // radius=0, so full weight; root is free
-  let maxDeviation = 0; // worst deviation seen so far (root is exact)
-
-  // Walk the series in harmonic-number order, skipping the root (index 0).
-  for (const member of OVERTONAL_SERIES_PC.slice(1)) {
-    // Respect prime limit: skip members whose harmonic number exceeds the limit.
-    // harmonicNumber for e.g. 9/1 is 9 — that's fine for primeLimit 7 since 9 = 3².
-    // We filter by the actual prime factors: the prime limit of the member ratio.
-    const memberPrimeLimit = member.monzo
-      ? (() => {
-          let lim = 2;
-          for (let i = member.monzo.length - 1; i >= 1; i--) {
-            if (member.monzo[i] > 0) { lim = CANONICAL_MONZO_BASIS[i]; break; }
-          }
-          return lim;
-        })()
-      : Infinity;
-    if (memberPrimeLimit > primeLimit) continue;
-
-    // Remaining tolerance budget — shrinks as deviations accumulate.
-    const budget = ctxTol - maxDeviation;
-    if (budget <= 0) break;
-
-    // Ideal pitch of this series member above the candidate (mod octave).
-    // member.cents is already the pitch-class of n/1 in [0, 1200).
-    const idealPc = (candidate.cents + member.cents) % 1200;
-
-    // Find the closest scale note to this ideal pitch class.
-    let bestDiff = Infinity;
-    for (const sc of scaleCents) {
-      // Pitch-class distance: minimum of direct and wrapped distance.
-      const raw = ((sc - idealPc) % 1200 + 1200) % 1200;
-      const diff = Math.min(raw, 1200 - raw);
-      if (diff < bestDiff) bestDiff = diff;
-    }
-
-    if (bestDiff > budget) continue; // outside remaining budget — skip this member
-
-    // Proximity taper relative to the current budget (not the full tolerance).
-    const proximity = 1 - bestDiff / budget;
-    const baseScore = member.radius > 0 ? member.weight / member.radius : member.weight;
-    score += baseScore * proximity;
-
-    // Update worst deviation — this shrinks the budget for subsequent members.
-    if (bestDiff > maxDeviation) maxDeviation = bestDiff;
-  }
-
-  // Return 0 if no overtonal members matched (only the free root counts).
-  return score > rootEntry.weight ? score : 0;
+  return scoreBranchExtentFromScaleCents(candidate, scaleCents, ctxTol, primeLimit);
 }
 
-// Returns { total, best } where:
-//   total — sum of weight/radius×proximity across all context slots (breadth + quality)
-//   best  — single highest per-slot score (best one consonant relationship)
-// Both are on the same scale: larger = better contextual fit.
+// Inner hot-path: accepts pre-computed scaleCents and identities to avoid
+// rebuilding them for every candidate when scoring a batch.
+function scoreBranchExtentFromScaleCents(candidate, scaleCents, ctxTol, primeLimit) {
+  // Try each possible identity for the candidate (up to prime limit).
+  let bestScore = 0;
+  for (const identity of OVERTONAL_SERIES_PC) {
+    if (seriesMemberPrimeLimit(identity) > primeLimit) continue;
+
+    // Implied root: where would harmonic 1 be if candidate is harmonic `k`?
+    const rootCents = ((candidate.cents - identity.cents) % 1200 + 1200) % 1200;
+
+    const score = scoreBranchFromRoot(rootCents, identity, scaleCents, ctxTol, primeLimit);
+    if (score > bestScore) bestScore = score;
+  }
+
+  return bestScore;
+}
+
+// Returns { total, best, bestRatio } where:
+//   total     — sum of weight/radius×proximity across all context slots (breadth + quality)
+//   best      — single highest per-slot score (best one consonant relationship)
+//   bestRatio — ratio string of the TUNEABLE_PC entry that produced the best score
+// Both score values are on the same scale: larger = better contextual fit.
 export function contextualConsonanceScore(candidate, context, options = {}) {
   let total = 0;
   let best = 0;
+  let bestRatio = null;
   for (const slot of context.committedSlots ?? []) {
     const result = scoreCandidateAgainstContext(candidate, slot, options);
     total += result.score;
-    if (result.score > best) best = result.score;
+    if (result.score > best) {
+      best = result.score;
+      bestRatio = result.matches[0] ?? null;
+    }
   }
-  return { total, best };
+  return { total, best, bestRatio };
 }
 
-export function scoreRationalCandidate(candidate, context, options = {}) {
+export function scoreRationalCandidate(candidate, context, options = {}, _scaleCents = null) {
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
-  const { total, best } = contextualConsonanceScore(candidate, context, merged);
-  const branch = scoreBranchExtent(candidate, context.workspace, merged);
+  const { total, best, bestRatio } = contextualConsonanceScore(candidate, context, merged);
+  const ctxTol = merged.contextTolerance ?? DEFAULT_CONTEXT_CONSONANCE_TOLERANCE;
+  const primeLimit = merged.primeLimit ?? DEFAULT_RATIONALISE_OPTIONS.primeLimit;
+  // Use pre-computed scaleCents if provided (batch path), otherwise derive from workspace.
+  let branch;
+  if (_scaleCents) {
+    branch = scoreBranchExtentFromScaleCents(candidate, _scaleCents, ctxTol, primeLimit);
+  } else {
+    branch = scoreBranchExtent(candidate, context.workspace, merged);
+  }
   candidate.contextualConsonance = total;
   candidate.contextualBestMatch = best;
+  candidate.contextualBestRatio = bestRatio; // e.g. "3/2" — the strongest single context interval
   candidate.branchExtent = branch;
+  // aggregateScore: cost function — lower = better. Used for sorting.
+  // Penalises harmonic complexity (radius) and pitch deviation; rewards
+  // contextual consonance breadth (total) and overtonal branch membership (branch).
+  // contextualBestMatch (best) is for display only — not included in the cost.
   candidate.aggregateScore =
     merged.weightRadius * candidate.harmonicRadius +
     merged.weightDeviation * Math.abs(candidate.deviation) -
     merged.weightContext * total -
-    merged.weightOvertonalReuse * best;
+    merged.weightBranch * branch;
+  // globalScore: display value — higher = better (negated aggregateScore).
+  // Shown as "s" in the candidate table so the user can see relative quality
+  // at a glance without having to interpret a cost value.
+  candidate.globalScore = -candidate.aggregateScore;
   return candidate;
 }
 
 export function rerankCandidatesInContext(candidates, context, options = {}) {
-  const scored = candidates.map((candidate) => scoreRationalCandidate({ ...candidate }, context, options));
+  // Use caller-provided scaleCents if available (e.g. batch rationalise path where
+  // the workspace is static across all degrees). Otherwise derive once from workspace.
+  // Either way we compute it at most once per batch, not once per candidate.
+  const byDegree = context?.workspace?.lookup?.byDegree;
+  const scaleCents = options._scaleCents ?? (byDegree
+    ? Array.from(byDegree.values()).filter((s) => s?.cents != null).map((s) => s.cents)
+    : null);
+  const scored = candidates.map((candidate) =>
+    scoreRationalCandidate({ ...candidate }, context, options, scaleCents),
+  );
   scored.sort((a, b) => a.aggregateScore - b.aggregateScore);
   return scored;
 }
@@ -664,6 +716,7 @@ export function findRationalCandidates(targetCents, options = {}) {
   if (!merged.workspace || merged.targetDegree == null) {
     return prefiltered.slice(0, merged.maxCandidates).map((candidate) => {
       candidate.aggregateScore = cheapBaseScore(candidate, merged);
+      candidate.globalScore = -candidate.aggregateScore;
       return candidate;
     });
   }

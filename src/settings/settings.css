@@ -661,6 +661,12 @@ table td {
   color: #885f5f;
 }
 
+.rationalise-candidate__score {
+  margin-left: auto;
+  font-weight: 600;
+  color: #336633;
+}
+
 .tune-btn-compare {
   font-size: 1.3em;
   line-height: 1;
@@ -721,6 +727,29 @@ td.scale-frequency-col input.frequency-input {
 
 .scale-table-toolbar__toggle:hover {
   background: #ece2e2;
+}
+
+.scale-table-toolbar__rationalise {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25em 0.6em;
+  border: 1px solid #9aaa9a;
+  border-radius: 4px;
+  background: #eff4ef;
+  color: #223322;
+  cursor: pointer;
+  font-size: 0.88em;
+  margin-left: 0.5em;
+}
+
+.scale-table-toolbar__rationalise:hover {
+  background: #e2ece2;
+}
+
+.scale-table-toolbar__rationalise:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* Shared panel style — used by search prefs, the User Manual, and Scala File fieldsets.
