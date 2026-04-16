@@ -723,16 +723,40 @@ td.scale-frequency-col input.frequency-input {
   background: #ece2e2;
 }
 
-.scale-search-prefs {
+/* Shared panel style — used by search prefs, the User Manual, and Scala File fieldsets.
+   Only adds position:relative for the close button; border/padding/radius come from
+   the global fieldset rule so these panels match all other fieldsets in the sidebar. */
+.settings-panel {
   position: relative;
+}
+
+/* Search prefs gets its own distinct compact styling on top of settings-panel */
+.scale-search-prefs {
   margin: 0;
   padding: 0.55em 0.7em 0.7em;
-  border: 1px solid #d8caca;
+  border-color: #d8caca;
   border-radius: 6px;
   background: #faf7f6;
   display: flex;
   flex-direction: column;
   gap: 0.55em;
+}
+
+.settings-panel__close {
+  position: absolute;
+  top: -1.3em;
+  right: -0.8em;
+  padding: 0.3em 0.4em;
+  font-size: 1em;
+  line-height: 1;
+  cursor: pointer;
+  background: inherit;
+  border: none;
+  color: #990000;
+}
+
+.settings-panel__close:hover {
+  color: #660000;
 }
 
 .scale-search-prefs legend {

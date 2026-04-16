@@ -1046,33 +1046,13 @@ const App = () => {
         </p>
 
         {showManual && (
-          <fieldset
-            style={{
-              position: "relative",
-              marginBottom: "0.5em",
-              background: "#f0e9e9",
-              border: "1px solid #c0aaaa",
-            }}
-          >
-            <legend>
-              <b>Manual</b>
-            </legend>
+          <fieldset class="settings-panel" style={{ marginBottom: "0.5em", background: "#faf7f6" }}>
+            <legend><b>Manual</b></legend>
             <button
               type="button"
+              class="settings-panel__close"
               onClick={() => setShowManual(false)}
               title="Close"
-              style={{
-                position: "absolute",
-                top: "-1.4em",
-                right: "-0.8em",
-                padding: "0.3em 0.4em",
-                fontSize: "1em",
-                lineHeight: 1,
-                cursor: "pointer",
-                background: "transparent",
-                border: "none",
-                color: "#990000",
-              }}
             >
               ✕
             </button>

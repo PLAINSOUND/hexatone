@@ -970,25 +970,13 @@ const ScaleTable = (props) => {
         )}
       </div>
       {showSearchPrefs && (
-        <fieldset id="scale-search-prefs" class="scale-search-prefs">
+        <fieldset id="scale-search-prefs" class="settings-panel scale-search-prefs">
           <legend>Rationalisation Search</legend>
-          {/* Row 1: four controls side by side */}
           <button
             type="button"
             title="Close"
+            class="settings-panel__close"
             onClick={() => setShowSearchPrefs(false)}
-            style={{
-              position: "absolute",
-              top: "-1.3em",
-              right: "-0.8em",
-              padding: "0.3em 0.4em",
-              fontSize: "1em",
-              lineHeight: 1,
-              cursor: "pointer",
-              background: "#faf9f8",
-              border: "none",
-              color: "#990000",
-            }}
           >
             ✕
           </button>
