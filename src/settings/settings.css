@@ -393,6 +393,21 @@ td.scale-color-col {
   justify-content: flex-end;
 }
 
+/* Fixed-width cents badge shown to the right of ratio / EDO entries in the scale table.
+   4 digits + ¢ symbol fits up to 1200¢; text-align right keeps the ¢ flush. */
+.scala-input__cents {
+  display: inline-block;
+  width: 3.2em;
+  text-align: right;
+  color: #666;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.scala-input__cents--error {
+  color: #c0392b;
+}
+
 /* Preset selector rows — select stays at natural width, buttons cluster at left */
 .preset-selector-row {
   justify-content: flex-start;

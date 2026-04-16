@@ -96,10 +96,8 @@ const ScalaInput = ({
         {...rest}
       />
       {showCents && (
-        <span
-          style={{ color: valid ? "#666" : "#c0392b", fontSize: "0.85em", whiteSpace: "nowrap" }}
-        >
-          {valid ? `${cents.toFixed(1)} ¢` : (error ?? "")}
+        <span class={`scala-input__cents${valid ? "" : " scala-input__cents--error"}`}>
+          {valid ? `${Math.round(cents)}¢` : (error ?? "")}
         </span>
       )}
     </span>
