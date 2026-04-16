@@ -104,6 +104,7 @@ export const DEFAULT_RATIONALISE_OPTIONS = {
   weightDeviation: 0.5,    // penalises pitch deviation (less critical than radius)
   weightContext: 0.6,      // rewards contextual consonance breadth
   weightBranch: 1.0,       // rewards overtonal branch membership (equal weight to radius)
+  weightConsistency: 0.8,  // rewards harmonic adjacency to already-committed degrees
   tuneableIntervals: DEFAULT_TUNEABLE_INTERVALS,
 };
 
@@ -309,6 +310,7 @@ function buildCandidateRecordFromMonzo({ monzo, cents, targetCents }) {
     contextualBestMatch: 0,
     contextualBestRatio: null,
     branchExtent: 0,
+    primeConsistency: 0,
     aggregateScore: 0,
     globalScore: 0,
   };
@@ -532,6 +534,81 @@ export function scoreEnharmonicReuse(candidate, _context, _options = {}) {
   return 0;
 }
 
+// Cross-degree prime consistency score.
+//
+// Returns a score in [0, 2] reflecting how well the candidate fits the prime
+// vocabulary already established by committed scale degrees:
+//
+//   2.0 — candidate uses only primes already present in the committed set
+//          AND is harmonically adjacent to at least one committed ratio
+//   1.0 — candidate is adjacent to a committed ratio but introduces a new prime
+//   0.0 — not adjacent to any committed ratio
+//
+// Adjacency (required for any score > 0): the candidate's monzo differs from a
+// committed monzo in exactly one prime dimension, by a simple step:
+//   prime 3 : |Δexp| ≤ 2  (fifth or ninth)
+//   prime 5, 7, 11–19 : |Δexp| = 1
+// All other non-2 exponents must match exactly.
+//
+// "Already present" means at least one committed monzo has a non-zero exponent
+// for that prime. A candidate that uses only such primes scores 2.0 when adjacent,
+// rewarding choices like 121/64 (uses 11²) when 121/96 (also 11²) is committed.
+//
+// Prime-2 is ignored throughout (octave equivalence).
+export function scorePrimeConsistency(candidate, committedMonzos) {
+  const cMonzo = candidate.monzo;
+  if (!Array.isArray(cMonzo) || !committedMonzos?.length) return 0;
+
+  // Collect the set of primes (indices) already used in committed monzos.
+  const committedPrimeIndices = new Set();
+  for (const ref of committedMonzos) {
+    if (!Array.isArray(ref)) continue;
+    for (let i = 1; i < CANONICAL_MONZO_BASIS.length; i++) {
+      if ((ref[i] ?? 0) !== 0) committedPrimeIndices.add(i);
+    }
+  }
+
+  // Check whether this candidate introduces any new prime.
+  let allPrimesKnown = true;
+  for (let i = 1; i < CANONICAL_MONZO_BASIS.length; i++) {
+    if ((cMonzo[i] ?? 0) !== 0 && !committedPrimeIndices.has(i)) {
+      allPrimesKnown = false;
+      break;
+    }
+  }
+
+  // Find the best adjacency match against any committed monzo.
+  for (const ref of committedMonzos) {
+    if (!Array.isArray(ref)) continue;
+
+    let diffCount = 0;
+    let adjacent = true;
+
+    for (let i = 1; i < CANONICAL_MONZO_BASIS.length; i++) {
+      const prime = CANONICAL_MONZO_BASIS[i];
+      const delta = Math.abs((cMonzo[i] ?? 0) - (ref[i] ?? 0));
+      if (delta === 0) continue;
+
+      diffCount++;
+      if (diffCount > 1) { adjacent = false; break; }
+
+      if (prime === 3) {
+        if (delta > 2) { adjacent = false; break; }
+      } else if (prime <= 19) {
+        if (delta !== 1) { adjacent = false; break; }
+      } else {
+        adjacent = false; break;
+      }
+    }
+
+    if (adjacent && diffCount > 0) {
+      // Adjacent: score 2 if all primes known, 1 if a new prime is introduced.
+      return allPrimesKnown ? 2 : 1;
+    }
+  }
+  return 0;
+}
+
 // Helper: compute the prime limit of a series entry from its monzo.
 function seriesMemberPrimeLimit(member) {
   if (!Array.isArray(member.monzo)) return Infinity;
@@ -654,7 +731,7 @@ export function contextualConsonanceScore(candidate, context, options = {}) {
   return { total, best, bestRatio };
 }
 
-export function scoreRationalCandidate(candidate, context, options = {}, _scaleCents = null) {
+export function scoreRationalCandidate(candidate, context, options = {}, _scaleCents = null, _committedMonzos = null) {
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
   const { total, best, bestRatio } = contextualConsonanceScore(candidate, context, merged);
   const ctxTol = merged.contextTolerance ?? DEFAULT_CONTEXT_CONSONANCE_TOLERANCE;
@@ -666,36 +743,57 @@ export function scoreRationalCandidate(candidate, context, options = {}, _scaleC
   } else {
     branch = scoreBranchExtent(candidate, context.workspace, merged);
   }
+  // Collect committed monzos from workspace if not pre-computed.
+  // Excludes the target degree itself so a degree doesn't self-reinforce.
+  const committedMonzos = _committedMonzos ?? (() => {
+    const byDegree = context?.workspace?.lookup?.byDegree;
+    if (!byDegree) return [];
+    const monzos = [];
+    for (const [degree, slot] of byDegree) {
+      if (degree === context.targetDegree) continue;
+      if (Array.isArray(slot?.committedIdentity?.monzo)) monzos.push(slot.committedIdentity.monzo);
+    }
+    return monzos;
+  })();
+  const consistency = scorePrimeConsistency(candidate, committedMonzos);
+
   candidate.contextualConsonance = total;
   candidate.contextualBestMatch = best;
-  candidate.contextualBestRatio = bestRatio; // e.g. "3/2" — the strongest single context interval
+  candidate.contextualBestRatio = bestRatio;
   candidate.branchExtent = branch;
+  candidate.primeConsistency = consistency;
   // aggregateScore: cost function — lower = better. Used for sorting.
   // Penalises harmonic complexity (radius) and pitch deviation; rewards
-  // contextual consonance breadth (total) and overtonal branch membership (branch).
-  // contextualBestMatch (best) is for display only — not included in the cost.
+  // contextual consonance breadth, overtonal branch membership, and
+  // harmonic adjacency to already-committed degrees (consistency).
   candidate.aggregateScore =
     merged.weightRadius * candidate.harmonicRadius +
     merged.weightDeviation * Math.abs(candidate.deviation) -
     merged.weightContext * total -
-    merged.weightBranch * branch;
-  // globalScore: display value — higher = better (negated aggregateScore).
-  // Shown as "s" in the candidate table so the user can see relative quality
-  // at a glance without having to interpret a cost value.
+    merged.weightBranch * branch -
+    merged.weightConsistency * consistency;
   candidate.globalScore = -candidate.aggregateScore;
   return candidate;
 }
 
 export function rerankCandidatesInContext(candidates, context, options = {}) {
-  // Use caller-provided scaleCents if available (e.g. batch rationalise path where
-  // the workspace is static across all degrees). Otherwise derive once from workspace.
-  // Either way we compute it at most once per batch, not once per candidate.
+  // Pre-compute scaleCents and committedMonzos once per degree batch.
+  // Both are static across all candidates for a given target degree.
   const byDegree = context?.workspace?.lookup?.byDegree;
   const scaleCents = options._scaleCents ?? (byDegree
     ? Array.from(byDegree.values()).filter((s) => s?.cents != null).map((s) => s.cents)
     : null);
+  const committedMonzos = options._committedMonzos ?? (() => {
+    if (!byDegree) return [];
+    const monzos = [];
+    for (const [degree, slot] of byDegree) {
+      if (degree === context.targetDegree) continue;
+      if (Array.isArray(slot?.committedIdentity?.monzo)) monzos.push(slot.committedIdentity.monzo);
+    }
+    return monzos;
+  })();
   const scored = candidates.map((candidate) =>
-    scoreRationalCandidate({ ...candidate }, context, options, scaleCents),
+    scoreRationalCandidate({ ...candidate }, context, options, scaleCents, committedMonzos),
   );
   scored.sort((a, b) => a.aggregateScore - b.aggregateScore);
   return scored;

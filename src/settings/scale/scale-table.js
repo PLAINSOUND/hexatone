@@ -9,6 +9,7 @@ import {
   findRationalCandidates,
   harmonicRadiusFromMonzo,
   scoreRationalCandidate,
+  scorePrimeConsistency,
   selectRationalisationContext,
 } from "../../tuning/rationalise.js";
 
@@ -197,6 +198,7 @@ function buildCommittedRatioCandidate(slot, baseRequest) {
       contextualBestMatch: 0,
       contextualBestRatio: null,
       branchExtent: 0,
+      primeConsistency: 0,
       aggregateScore: 0,
     },
     context,
@@ -908,26 +910,47 @@ const ScaleTable = (props) => {
     return props.settings.fundamental * Math.pow(2, (cents - referenceCents) / 1200.0);
   }, [effectiveCentsAtDegree, props.settings.fundamental, referenceCents]);
 
-  // Auto-rationalise every non-root, non-equave degree: for each, run the full
-  // candidate search and commit the best-scoring candidate (index 0 after sort).
-  // Degrees with no candidate within tolerance are left unchanged.
+  // Auto-rationalise every non-root, non-equave degree using a two-pass approach:
+  //
+  // Pass 1 — independent: gather top-N candidates for every degree with no
+  //   cross-degree consistency influence. The naive best (index 0) is collected
+  //   to form the reference set for pass 2.
+  //
+  // Pass 2 — cross-consistent: for each degree, rescore its candidate list
+  //   using scorePrimeConsistency against the full set of pass-1 winners
+  //   (excluding that degree's own entry). The candidate with the best combined
+  //   aggregate + consistency bonus wins.
+  //
+  // This avoids the ordering bias of the old incremental approach, where early
+  // degrees had no cross-degree signal and later degrees were locked into
+  // whatever earlier degrees happened to pick.
   const rationaliseScale = useCallback(() => {
     const currentScale = [...(props.settings.scale || [])];
     const equaveIdx = currentScale.length - 1; // last entry is the equave — never touched
 
-    // Pre-compute scaleCents once for the whole batch. The workspace is static
-    // across all degrees so there's no need to rebuild this inside each degree's
-    // scoring loop. Passed as _scaleCents in the request options so
-    // rerankCandidatesInContext can skip the per-degree derivation (~43x win).
+    // Pre-compute scaleCents once — the pitch set is static across all degrees.
     const byDegree = workspace?.lookup?.byDegree;
     const scaleCents = byDegree
       ? Array.from(byDegree.values()).filter((s) => s?.cents != null).map((s) => s.cents)
       : null;
 
-    let changed = false;
-    const newScale = currentScale.map((str, i) => {
-      if (i === equaveIdx) return str; // preserve equave
-      const tuneCellDegree = i + 1; // TuneCell / workspace degree index
+    // Seed reference monzos from whatever is already hand-committed in the
+    // workspace — these are stable anchors regardless of what this run picks.
+    const preCommittedMonzos = [];
+    if (byDegree) {
+      for (const slot of byDegree.values()) {
+        if (Array.isArray(slot?.committedIdentity?.monzo)) {
+          preCommittedMonzos.push(slot.committedIdentity.monzo);
+        }
+      }
+    }
+
+    // ── Pass 1: independent candidate search for every degree ──────────────
+    // No cross-degree consistency scoring — each degree is evaluated on its
+    // own merits. We keep the full candidate list per degree for pass 2.
+    const perDegree = currentScale.map((str, i) => {
+      if (i === equaveIdx) return null;
+      const tuneCellDegree = i + 1;
       const tunedCents = scalaToCents(String(str));
       const request = getRationalisationRequest({
         degree: tuneCellDegree,
@@ -937,17 +960,55 @@ const ScaleTable = (props) => {
         frequencyAtDegree,
         searchPrefs,
       });
-      // Inject pre-computed scaleCents so scoreBranchExtent avoids re-deriving it.
       request._scaleCents = scaleCents;
+      request._committedMonzos = []; // no cross-degree signal in pass 1
       const candidates = getHumanTestableRationalCandidates(request);
-      // Skip if no candidate found or the best is already committed.
-      if (!candidates.length) return str;
-      const best = candidates[0];
-      if (!best.ratioText) return str;
+      return { str, candidates };
+    });
+
+    // Collect the naive-best monzo from each degree to form the pass-2 reference.
+    const pass1Monzos = perDegree.map((entry) => {
+      if (!entry) return null;
+      const best = entry.candidates[0];
+      return Array.isArray(best?.monzo) ? best.monzo : null;
+    });
+
+    // ── Pass 2: cross-consistent re-ranking ────────────────────────────────
+    // Each degree is rescored using the full pass-1 winner set (minus itself)
+    // as the committed-monzo reference. scorePrimeConsistency produces a graded
+    // bonus [0,2] that is added to aggregateScore to break ties in favour of
+    // harmonically adjacent choices.
+    const CONSISTENCY_BONUS_WEIGHT = 0.8; // matches weightConsistency in rationalise.js
+    let changed = false;
+    const newScale = currentScale.map((str, i) => {
+      if (i === equaveIdx) return str;
+      const entry = perDegree[i];
+      if (!entry || !entry.candidates.length) return str;
+
+      // Reference = pre-committed anchors + pass-1 winners from all OTHER degrees.
+      const refMonzos = [
+        ...preCommittedMonzos,
+        ...pass1Monzos.filter((m, j) => j !== i && m != null),
+      ];
+
+      // Re-rank by (aggregateScore - consistency_bonus) — lower aggregateScore
+      // is better, so a positive consistency bonus lowers the effective cost.
+      const ranked = entry.candidates
+        .filter((c) => c.ratioText)
+        .map((c) => {
+          const consistency = scorePrimeConsistency(c, refMonzos);
+          const effectiveCost = c.aggregateScore - CONSISTENCY_BONUS_WEIGHT * consistency;
+          return { c, effectiveCost };
+        })
+        .sort((a, b) => a.effectiveCost - b.effectiveCost);
+
+      if (!ranked.length) return str;
+      const best = ranked[0].c;
       if (best.ratioText === str) return str;
       changed = true;
       return best.ratioText;
     });
+
     if (changed) {
       props.onChange("scale", newScale);
       // Bump all reset versions so every TuneCell discards in-flight drag state.

@@ -595,9 +595,34 @@ const MIDIio = (props) => {
                               : "Not found (output port unavailable)"}
                           </span>
                         </label>
+                        {/* Layout file (.ltn) — TODO: reimplement export using registry geometry */}
                         {props.lumatoneRawPorts && (
                           <label>
-                            Auto Send Colours
+                            Send Blank Key Layout (Notes 0-55 on Ch 1-5)
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginLeft: "auto",
+                                marginTop: "4px",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                style={{ fontSize: "0.85em" }}
+                                disabled={!hasSysexMidi}
+                                title="Send notes + blank layout to Lumatone via sysex (~10–15 s, one-time setup)"
+                                onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
+                              >
+                                Send Blank Key Layout
+                              </button>
+                            </span>
+                          </label>
+                        )}
+                        {props.lumatoneRawPorts && (
+                          <label>
+                            Automatically Send LED Colours
                             <span
                               style={{
                                 display: "flex",
@@ -626,37 +651,12 @@ const MIDIio = (props) => {
                                 disabled={!hasSysexMidi}
                                 onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
                               >
-                                Send Now
+                                Send Colours Now
                               </button>
                             </span>
                           </label>
                         )}
                       </>
-                    )}
-                    {/* Layout file (.ltn) — TODO: reimplement export using registry geometry */}
-                    {!props.settings.midi_passthrough && props.lumatoneRawPorts && (
-                      <label>
-                        Send Key Layout to Lumatone
-                        <span
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            marginLeft: "auto",
-                            marginTop: "4px",
-                          }}
-                        >
-                          <button
-                            type="button"
-                            style={{ fontSize: "0.85em" }}
-                            disabled={!hasSysexMidi}
-                            title="Send notes + colours to Lumatone via sysex (~10–15 s, one-time setup)"
-                            onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
-                          >
-                            Send Now
-                          </button>
-                        </span>
-                      </label>
                     )}
                   </>
                 )}

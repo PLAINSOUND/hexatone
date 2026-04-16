@@ -1138,23 +1138,18 @@ class Keys {
   sendLumatoneLayout = () => {
     if (!this.lumatoneLEDs) return;
 
-    // Build colour lookup from the live controllerMap (board.key → '#rrggbb').
-    const colorMap = new Map();
-    if (this.controllerMap) {
-      for (const [mapKey, coords] of this.controllerMap) {
-        colorMap.set(mapKey, this._getLumatoneHexColor(coords));
-      }
-    }
-
+    // All keys get colour #000000 so they appear dark/unlit on
+    // the hardware.  Hexatone will sync actual colours via syncLumatoneLEDs()
+    // once the layout is established.
     const entries = [];
     for (let b = 1; b <= 5; b++) {
       for (let k = 0; k < 56; k++) {
         entries.push({
-          board: b, // sysex board byte 1–5
-          key: k, // key index 0–55
-          note: k, // note = key index (sequential mapping)
+          board: b,   // sysex board byte 1–5
+          key: k,     // key index 0–55
+          note: k,    // note = key index (sequential mapping)
           channel: b - 1, // 0-indexed channel (0–4)
-          hexColor: colorMap.get(`${b}.${k}`) || "#1E1928",
+          hexColor: "#000000",
         });
       }
     }
@@ -1182,6 +1177,9 @@ class Keys {
    * Build the full list of { board, key, hexColor } entries for all keys in
    * controllerMap.  Applies screen→Lumatone colour transfer and handles the
    * tonic (degree 0) special colours.
+   *
+   * controllerMap is always built (even in sequential/bypass mode) so this
+   * path works regardless of routing mode.
    *
    * @returns {Array<{ board: number, key: number, hexColor: string }>}
    */
