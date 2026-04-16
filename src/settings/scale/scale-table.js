@@ -196,6 +196,7 @@ function buildCommittedRatioCandidate(slot, baseRequest) {
       region: baseRequest.region ?? "symmetric",
       contextualConsonance: 0,
       contextualBestMatch: 0,
+      branchExtent: 0,
       aggregateScore: 0,
     },
     context,
@@ -815,7 +816,8 @@ const TuneCell = ({
               </div>
               <div class="rationalise-candidate__row2">
                 <span class="rationalise-candidate__meta">s_ctx {(candidate.contextualConsonance ?? 0).toFixed(2)}</span>
-                <span class="rationalise-candidate__meta">s_ctx-tune {(candidate.contextualBestMatch ?? 0).toFixed(2)}</span>
+                <span class="rationalise-candidate__meta">s_tune {(candidate.contextualBestMatch ?? 0).toFixed(2)}</span>
+                <span class="rationalise-candidate__meta">s_oton {(candidate.branchExtent ?? 0).toFixed(2)}</span>
               </div>
             </button>
             );
