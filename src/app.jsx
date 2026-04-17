@@ -428,7 +428,8 @@ const App = () => {
       (labelType === "note_names" &&
         settings.note_names &&
         Array.isArray(settings.note_names) &&
-        settings.note_names.length > 0);
+        settings.note_names.length > 0) ||
+      (labelType === "heji" && hasScale);
 
     const normalizedColors = normalizeColors(settings);
     // Color validation: spectrum mode uses the central hue directly; when
@@ -523,6 +524,8 @@ const App = () => {
       settings.equivSteps,
       noteNamesKey,
       settings.key_labels,
+      settings.heji_anchor_label,
+      settings.heji_anchor_ratio,
       // fundamental handled imperatively via keysRef.current.updateFundamental
       settings.reference_degree,
       settings.center_degree,
@@ -547,6 +550,43 @@ const App = () => {
       midiAccess,
       midiTick,
       // Intentional: listing explicit fields so color-picker drags (not listed here) don't reconstruct Keys.
+    ],
+  );
+
+  // Subset of structuralSettings that actually requires Keys reconstruction.
+  // Label fields (key_labels, note_names, heji_anchor_*) are intentionally
+  // excluded — they are updated imperatively via updateLabels without tearing
+  // down the keyboard or interrupting held notes.
+  const reconstructionSettings = useMemo(
+    () => structuralSettings,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      settings.rSteps,
+      settings.drSteps,
+      settings.hexSize,
+      settings.rotation,
+      scaleKey,
+      settings.equivSteps,
+      settings.reference_degree,
+      settings.center_degree,
+      settings.midiin_device,
+      settings.midiin_channel,
+      settings.midiin_steps_per_channel,
+      settings.midiin_anchor_channel,
+      settings.controller_anchor_note,
+      settings.midiin_channel_legacy,
+      settings.midi_passthrough,
+      settings.midiin_central_degree,
+      settings.axis49_center_note,
+      settings.wheel_to_recent,
+      settings.midiin_mapping_target,
+      settings.midiin_mpe_input,
+      settings.midiin_pitchbend_mode,
+      settings.midiin_pressure_mode,
+      settings.lumatone_center_channel,
+      settings.lumatone_center_note,
+      midiAccess,
+      midiTick,
     ],
   );
 
@@ -623,13 +663,13 @@ const App = () => {
   // Using a ref to skip the initial render (no reset on first mount).
   const prevStructuralRef = useRef(null);
   useEffect(() => {
-    if (prevStructuralRef.current !== null && prevStructuralRef.current !== structuralSettings) {
+    if (prevStructuralRef.current !== null && prevStructuralRef.current !== reconstructionSettings) {
       setLatch(false);
       resetOctave();
     }
-    prevStructuralRef.current = structuralSettings;
+    prevStructuralRef.current = reconstructionSettings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [structuralSettings]); // resetOctave and setLatch are stable
+  }, [reconstructionSettings]); // resetOctave and setLatch are stable
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
@@ -722,6 +762,28 @@ const App = () => {
     [noteColorsKey, settings.spectrum_colors, settings.fundamental_color],
   );
 
+  // Label settings: display-only fields extracted from structuralSettings.
+  // Passed to Keyboard so it can call updateLabels imperatively whenever
+  // structuralSettings recomputes due to label-related changes, without
+  // those changes causing a Keys reconstruction.
+  const labelSettings = useMemo(
+    () => ({
+      key_labels:       structuralSettings.key_labels,
+      degree:           !!structuralSettings.degree,
+      note:             !!structuralSettings.note,
+      scala:            !!structuralSettings.scala,
+      cents:            !!structuralSettings.cents,
+      heji:             !!structuralSettings.heji,
+      no_labels:        !!structuralSettings.no_labels,
+      note_names:       structuralSettings.note_names,
+      scala_names:      structuralSettings.scala_names,
+      heji_names:       structuralSettings.heji_names,
+      scale:            structuralSettings.scale,
+      reference_degree: structuralSettings.reference_degree,
+    }),
+    [structuralSettings],
+  );
+
   const normalizedSettings = useMemo(
     () => ({
       ...structuralSettings,
@@ -784,7 +846,8 @@ const App = () => {
           settings={normalizedSettings}
           liveOutputSettings={liveOutputSettings}
           inputRuntime={inputRuntime}
-          structuralSettings={structuralSettings}
+          structuralSettings={reconstructionSettings}
+          labelSettings={labelSettings}
           onKeysReady={onKeysReady}
           onLatchChange={onLatchChange}
           onTakeSnapshot={onTakeSnapshot}
@@ -1083,6 +1146,7 @@ const App = () => {
           onRevertBuiltin={onRevertBuiltin}
           onRevertUser={onRevertUser}
           settings={settings}
+          heji_names={structuralSettings.heji_names}
           midi={midi}
           midiAccess={midiAccess}
           midiAccessError={midiAccessError}

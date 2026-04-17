@@ -25,6 +25,9 @@ const Keyboard = (props) => {
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
     keysRef.current = keys;
+    // Apply current label settings immediately after construction so the initial
+    // draw has the correct label mode even if labelSettings changed since Keys was last built.
+    if (props.labelSettings) keys.updateLabels(props.labelSettings);
     if (props.onKeysReady) props.onKeysReady(keys);
     return () => {
       keys.lumatoneLEDs = null;
@@ -84,6 +87,13 @@ const Keyboard = (props) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings.note_colors covered by noteColorsKey
   }, [noteColorsKey, props.settings.spectrum_colors, props.settings.fundamental_color]);
+
+  // Label changes are display-only — update imperatively without reconstructing Keys.
+  useEffect(() => {
+    if (keysRef.current && props.labelSettings) {
+      keysRef.current.updateLabels(props.labelSettings);
+    }
+  }, [props.labelSettings]);
 
   return (
     <Fragment>

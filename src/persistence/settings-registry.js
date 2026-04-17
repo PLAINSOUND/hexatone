@@ -71,6 +71,17 @@ export const SETTINGS_REGISTRY = [
   { key: "spectrum_colors", tier: "url", type: "bool", default: true, presetSkip: true },
   { key: "fundamental_color", tier: "url", type: "string", default: "#f2e3e3", presetSkip: true },
   { key: "key_labels", tier: "url", type: "string", default: "no_labels", presetSkip: true },
+  // HEJI notation anchor: defines the rational offset for the entire spelling.
+  // heji_anchor_ratio — the ratio (Scala format, e.g. "3/2" or "702.0") of the
+  //   reference pitch whose deviation is 0¢ on a tuning meter.  This is
+  //   measured from scale degree 0 (1/1).  It does not need to be a scale
+  //   degree; it is a free-form interval that anchors the HEJI frame.
+  //   Default "1/1" means the root is the 0¢ reference.
+  // heji_anchor_label — the HEJI pitch-class spelling for that pitch (e.g. "nA").
+  //   When key_labels === "heji", all degree labels are auto-generated from
+  //   this anchor pair + the committed ratio of each degree.
+  { key: "heji_anchor_ratio", tier: "url", type: "string", default: "1/1", presetSkip: true },
+  { key: "heji_anchor_label", tier: "url", type: "string", default: "", presetSkip: true },
   // Internal-only for now: TuneCell supports an alternate reference-degree save
   // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
   // remains session-scoped and stays out of share URLs.

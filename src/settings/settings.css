@@ -265,6 +265,7 @@ label .color-cell .color-input {
   white-space: normal;
   word-break: normal;
   overflow-wrap: anywhere;
+  font-size: 0.92em;
 }
 
 .preset-action-btn {
@@ -290,17 +291,17 @@ td.scale-data-col {
 
 th.scale-frequency-col,
 td.scale-frequency-col {
-  width: 17%;
+  width: 15%;
 }
 
 th.scale-name-col,
 td.scale-name-col {
-  width: 10%;
+  width: 15%;
 }
 
 th.scale-color-col,
 td.scale-color-col {
-  width: 18%;
+  width: 15%;
 }
 
 .degree-gutter {
@@ -425,10 +426,10 @@ td.scale-color-col {
   align-items: center;
   justify-content: center;
   align-self: center;
-  width: 1.7em;
-  min-width: 1.7em;
-  height: 1.7em;
-  min-height: 1.7em;
+  width: 1.5em;
+  min-width: 1.5em;
+  height: 1.5em;
+  min-height: 1.5em;
   padding: 0;
   line-height: 1;
   box-sizing: border-box;
@@ -741,7 +742,7 @@ td.scale-frequency-col input.frequency-input {
   background: #f4efef;
   color: #330000;
   cursor: pointer;
-  font-size: 0.88em;
+  font-size: 0.92em;
 }
 
 .scale-table-toolbar__toggle:hover {
@@ -758,7 +759,7 @@ td.scale-frequency-col input.frequency-input {
   background: #eff4ef;
   color: #223322;
   cursor: pointer;
-  font-size: 0.88em;
+  font-size: 0.92em;
   margin-left: 0.5em;
 }
 
@@ -776,6 +777,12 @@ td.scale-frequency-col input.frequency-input {
    the global fieldset rule so these panels match all other fieldsets in the sidebar. */
 .settings-panel {
   position: relative;
+}
+
+/* HEJI anchor fieldset: extra breathing room above since it sits immediately
+   below the Key Labels select row. */
+.heji-anchor-fieldset {
+  margin-top: 0.75em;
 }
 
 /* Search prefs gets its own distinct compact styling on top of settings-panel */
@@ -936,6 +943,15 @@ td.scale-name-col input {
 
 td.scale-name-col {
   padding-right: 2px;
+}
+
+.heji-name-cell {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: "Plainsound Sans", serif;
+  font-size: 0.95em;
+  padding: 2px 0;
 }
 
 td.scale-color-col {

@@ -995,6 +995,21 @@ class Keys {
     }
   };
 
+  /**
+   * Imperatively update label display settings without reconstructing Keys.
+   * Replaces the label flags and name arrays in this.settings, then redraws.
+   * Called from Keyboard wrapper when key_labels or related fields change.
+   */
+  updateLabels = (labels) => {
+    // Clear all label flags first so only one is active.
+    for (const flag of ["degree", "note", "scala", "cents", "heji", "no_labels"]) {
+      this.settings[flag] = false;
+    }
+    // Apply new flags and name arrays.
+    Object.assign(this.settings, labels);
+    this.drawGrid();
+  };
+
   updateLiveOutputState = (nextSettings, synth) => {
     if (synth) this.synth = synth;
     if (nextSettings) Object.assign(this.settings, nextSettings);
@@ -3163,6 +3178,9 @@ class Keys {
       } else if (this.settings.note) {
         // Safe access: if note_names is undefined or index out of bounds, show nothing
         name = this.settings.note_names?.[reducedNote] ?? "";
+      } else if (this.settings.heji) {
+        // Auto-generated HEJI names from reference frame + committed ratios.
+        name = this.settings.heji_names?.[reducedNote] ?? "";
       } else if (this.settings.scala) {
         // Safe access: scala_names should always exist if scale exists, but be defensive
         name = this.settings.scala_names?.[reducedNote] ?? "";

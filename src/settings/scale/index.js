@@ -305,6 +305,7 @@ const Scale = (props) => {
       >
         <button
           type="button"
+          style={{ fontSize: "0.92em" }}
           onClick={() => {
             const n = props.settings.equivSteps || 12;
             const equaveStr =
@@ -327,6 +328,7 @@ const Scale = (props) => {
         </button>
         <button
           type="button"
+          style={{ fontSize: "0.92em" }}
           onClick={() => {
             const n = props.settings.equivSteps || 12;
             const step = 1200 / n;

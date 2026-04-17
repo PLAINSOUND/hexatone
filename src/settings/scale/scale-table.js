@@ -859,6 +859,8 @@ const ScaleTable = (props) => {
 
   const degrees = [...Array(scale.length).keys()];
   const note_names = props.settings.note_names || [];
+  const isHeji = props.settings.key_labels === "heji";
+  const heji_names = props.heji_names || [];
 
   let colors;
   if (props.settings.spectrum_colors) {
@@ -893,6 +895,7 @@ const ScaleTable = (props) => {
     next[parseInt(e.target.name.replace(/name/, ""))] = e.target.value;
     props.onChange("note_names", next);
   };
+
 
   const editable_colors = props.settings.spectrum_colors;
   const [showSearchPrefs, setShowSearchPrefs] = useState(false);
@@ -1098,7 +1101,7 @@ const ScaleTable = (props) => {
             aria-expanded={false}
             aria-controls="scale-search-prefs"
           >
-            Rationalisation Search Preferences
+            Rationalisation Settings
           </button>
         )}
         <button
@@ -1419,14 +1422,18 @@ const ScaleTable = (props) => {
             />
           </td>
           <td class="scale-name-col">
-            <input
-              id="centered"
-              type="text"
-              name="name0"
-              value={note_names[0] || ""}
-              onChange={nameChange}
-              aria-label="pitch name 0"
-            />
+            {isHeji ? (
+              <span class="heji-name-cell">{heji_names[0] ?? ""}</span>
+            ) : (
+              <input
+                id="centered"
+                type="text"
+                name="name0"
+                value={note_names[0] || ""}
+                onChange={nameChange}
+                aria-label="pitch name 0"
+              />
+            )}
           </td>
           <td class="scale-color-col">
             <ColorCell
@@ -1508,14 +1515,18 @@ const ScaleTable = (props) => {
               />
             </td>
             <td class="scale-name-col">
-              <input
-                id="centered"
-                type="text"
-                name={`name${i + 1}`}
-                value={name}
-                onChange={nameChange}
-                aria-label={`pitch name ${i + 1}`}
-              />
+              {isHeji ? (
+                <span class="heji-name-cell">{heji_names[i + 1] ?? ""}</span>
+              ) : (
+                <input
+                  id="centered"
+                  type="text"
+                  name={`name${i + 1}`}
+                  value={name}
+                  onChange={nameChange}
+                  aria-label={`pitch name ${i + 1}`}
+                />
+              )}
             </td>
             <td class="scale-color-col">
               <ColorCell
@@ -1562,14 +1573,18 @@ const ScaleTable = (props) => {
             />
           </td>
           <td class="scale-name-col">
-            <input
-              id="centered"
-              type="text"
-              disabled
-              class="equiv-cell"
-              value={note_names[0] || ""}
-              aria-label="pitch name equave"
-            />
+            {isHeji ? (
+              <span class="heji-name-cell">{heji_names[0] ?? ""}</span>
+            ) : (
+              <input
+                id="centered"
+                type="text"
+                disabled
+                class="equiv-cell"
+                value={note_names[0] || ""}
+                aria-label="pitch name equave"
+              />
+            )}
           </td>
           <td class="scale-color-col">
             <span
@@ -1595,6 +1610,7 @@ ScaleTable.propTypes = {
   onChange: PropTypes.func.isRequired,
   onAtomicChange: PropTypes.func,
   importCount: PropTypes.number,
+  heji_names: PropTypes.arrayOf(PropTypes.string),
   settings: PropTypes.shape({
     scale: PropTypes.arrayOf(PropTypes.string),
     key_labels: PropTypes.string,

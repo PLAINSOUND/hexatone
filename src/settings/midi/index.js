@@ -610,7 +610,7 @@ const MIDIio = (props) => {
                             >
                               <button
                                 type="button"
-                                style={{ fontSize: "0.85em" }}
+                                style={{ fontSize: "0.92em" }}
                                 disabled={!hasSysexMidi}
                                 title="Send notes + blank layout to Lumatone via sysex (~10–15 s, one-time setup)"
                                 onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
@@ -647,7 +647,7 @@ const MIDIio = (props) => {
                               />
                               <button
                                 type="button"
-                                style={{ fontSize: "0.85em" }}
+                                style={{ fontSize: "0.92em" }}
                                 disabled={!hasSysexMidi}
                                 onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
                               >
@@ -687,7 +687,7 @@ const MIDIio = (props) => {
                           LED Output
                           <span
                             class="sidebar-input"
-                            style={{ textAlign: "right", fontSize: "0.85em" }}
+                            style={{ textAlign: "right", fontSize: "0.92em" }}
                           >
                             {statusText}
                           </span>
@@ -721,7 +721,7 @@ const MIDIio = (props) => {
                                 />
                                 <button
                                   type="button"
-                                  style={{ fontSize: "0.85em" }}
+                                  style={{ fontSize: "0.92em" }}
                                   disabled={!hasSysexMidi}
                                   onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}
                                 >
@@ -729,7 +729,7 @@ const MIDIio = (props) => {
                                 </button>
                                 <button
                                   type="button"
-                                  style={{ fontSize: "0.85em" }}
+                                  style={{ fontSize: "0.92em" }}
                                   disabled={!hasSysexMidi}
                                   onClick={() =>
                                     props.keysRef?.current?.exquisLEDs?.clearColors?.()
@@ -743,7 +743,7 @@ const MIDIio = (props) => {
                               <p
                                 style={{
                                   color: "#996666",
-                                  fontSize: "0.85em",
+                                  fontSize: "0.92em",
                                   margin: "0.25em 0 0.5em",
                                 }}
                               >

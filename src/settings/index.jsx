@@ -100,6 +100,7 @@ const Settings = ({
   midiTick,
   instruments,
   keysRef,
+  heji_names,
   onVolumeChange,
   onOscLayerVolumeChange,
   midiLearnActive,
@@ -149,6 +150,7 @@ const Settings = ({
       onChange={onChange}
       onAtomicChange={onAtomicChange}
       settings={settings}
+      heji_names={heji_names}
       onImport={onImport}
       importCount={importCount}
       keysRef={keysRef}
