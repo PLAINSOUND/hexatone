@@ -1,5 +1,72 @@
 import PropTypes from "prop-types";
 
+// ASCII → HEJI Unicode glyph replacements.
+// Notation input accepts: bare letter (A-G = natural), then optional accidentals
+// written as ASCII shorthand which auto-expands to HEJI SMuFL glyphs.
+//
+// HEJI chromatic accidentals (SMuFL):
+//   n  → U+E261  (♮ natural sign, but used as HEJI natural prefix — Plainsound Sans renders it correctly)
+//   b  → U+E260  (flat)
+//   #  → U+E262  (sharp)
+//   bb → U+E264  (double-flat)
+//   ## → U+E263  (double-sharp)
+//
+// Syntonic comma accidentals:
+//   +  → U+E282  (syntonic comma up, 1 arrow)
+//   -  → U+E280  (syntonic comma down, 1 arrow)
+//
+// Parsing approach: scan left-to-right, replace ASCII sequences with glyphs,
+// leave anything else (already-Unicode glyphs) untouched.
+const ASCII_HEJI_REPLACEMENTS = [
+  // Two-char sequences first (must precede single-char to avoid partial match)
+  ["##", "\uE263"], // double-sharp
+  ["bb", "\uE264"], // double-flat
+  // Single-char accidentals
+  ["n", "\uE261"],  // natural
+  ["b", "\uE260"],  // flat
+  ["#", "\uE262"],  // sharp
+];
+
+// Expand ASCII shorthand in a notation string to Unicode HEJI glyphs.
+// Bare letter A-G at start is kept as-is (no prefix needed).
+const expandHejiNotation = (raw) => {
+  // Work through the string character by character, replacing ASCII sequences.
+  // We only touch ASCII characters; anything >= U+0100 is left alone.
+  let result = "";
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw[i];
+    // If already a non-ASCII character, pass through unchanged.
+    if (ch.charCodeAt(0) > 127) {
+      result += ch;
+      i++;
+      continue;
+    }
+    // Try two-char replacements first.
+    let matched = false;
+    if (i + 1 < raw.length) {
+      const two = raw.slice(i, i + 2);
+      const rep2 = ASCII_HEJI_REPLACEMENTS.find(([k]) => k.length === 2 && k === two);
+      if (rep2) {
+        result += rep2[1];
+        i += 2;
+        matched = true;
+      }
+    }
+    if (!matched) {
+      // Try single-char replacements.
+      const rep1 = ASCII_HEJI_REPLACEMENTS.find(([k]) => k.length === 1 && k === ch);
+      if (rep1) {
+        result += rep1[1];
+      } else {
+        result += ch;
+      }
+      i++;
+    }
+  }
+  return result;
+};
+
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
   const isHeji = props.settings.key_labels === "heji";
@@ -55,13 +122,21 @@ const KeyLabels = (props) => {
               class="sidebar-input"
               placeholder={`e.g. \uE261A`}
               value={props.settings.heji_anchor_label || ""}
-              onInput={(e) => props.onChange("heji_anchor_label", e.target.value)}
+              onInput={(e) => {
+                const expanded = expandHejiNotation(e.target.value);
+                // If expansion changed the value, update the DOM input to show glyphs
+                if (expanded !== e.target.value) {
+                  const pos = e.target.selectionStart + (expanded.length - e.target.value.length);
+                  e.target.value = expanded;
+                  e.target.setSelectionRange(pos, pos);
+                }
+                props.onChange("heji_anchor_label", expanded);
+              }}
             />
           </label>
           <button
             type="button"
-            class="sidebar-input"
-            style={{ marginTop: "0.5em", textAlign: "center", fontSize: "0.92em"}}
+            style={{ marginTop: "0.5em", fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px", whiteSpace: "nowrap" }}
             disabled={!props.heji_names?.length}
             onClick={copyHejiToNoteNames}
           >

@@ -147,6 +147,7 @@ const Colors = (props) => {
               <button
                 type="button"
                 aria-label="Load Spectrum Colors"
+                style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
                 onClick={handleLoadSpectrumColors}
               >
                 Load Spectrum Colors to Scale Table

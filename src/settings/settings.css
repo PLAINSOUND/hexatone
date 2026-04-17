@@ -175,16 +175,18 @@ input:out-of-range {
 }
 
 .color-input {
+  /* Hidden by default — only shown when the cell is focused for editing */
+  display: none;
   width: calc(100% - 1.8em) !important;
-  height: 1.5em;
-  box-sizing: border-box;
+  padding: 0 0.3em;
+  box-sizing: content-box;
   background-color: #faf9f8;
   border-width: 1px;
   border-radius: 3px;
   border-style: solid;
   border-color: #c8b8b8;
   font-family: monospace;
-  font-size: 1.15em;
+  font-size: 1em;
   text-align: right;
 }
 
@@ -206,11 +208,14 @@ input:out-of-range {
 }
 
 .color-cell:focus-within .color-input {
+  display: block;
   width: calc(10em - 1.8em) !important;
 }
 
 .delete-btn {
   color: #990000;
+  width: 6em;
+  text-align: center;
 }
 
 .preset-error {
@@ -223,7 +228,7 @@ input:out-of-range {
 label .color-cell {
   flex-shrink: 0;
   width: auto;
-  margin-left: 50%;
+  margin-left: 40%;
 }
 
 /* Mobile: reduce margin for narrow screens */
@@ -234,6 +239,7 @@ label .color-cell {
 }
 
 label .color-cell .color-input {
+  display: block;
   width: 6.3em !important;
   flex: none;
   text-align: right;
@@ -265,7 +271,12 @@ label .color-cell .color-input {
   white-space: normal;
   word-break: normal;
   overflow-wrap: anywhere;
-  font-size: 0.92em;
+  font-size: 1em;
+  padding: 0.25em 0.6em;
+  background: #f4efef;
+  border: 1px solid #c8b8b8;
+  color: #330000;
+  border-radius: 4px;
 }
 
 .preset-action-btn {
@@ -286,22 +297,73 @@ label .color-cell .color-input {
 
 th.scale-data-col,
 td.scale-data-col {
-  width: 55%;
+  width: 48%;
 }
 
 th.scale-frequency-col,
 td.scale-frequency-col {
-  width: 15%;
+  width: 18%;
 }
 
 th.scale-name-col,
 td.scale-name-col {
-  width: 15%;
+  width: 18%;
 }
 
 th.scale-color-col,
 td.scale-color-col {
-  width: 15%;
+  width: 16%;
+}
+
+/* Phone portrait: scale degree data gets more room; freq/name/colour tighter */
+@media (max-width: 480px) {
+  .degree-gutter {
+    width: 2ch;
+    min-width: 2ch;
+  }
+
+  .scale-degree-cell {
+    gap: 0.1em;
+  }
+
+  th.scale-data-col,
+  td.scale-data-col {
+    width: 56%;
+  }
+
+  th.scale-frequency-col,
+  td.scale-frequency-col {
+    width: 14%;
+  }
+
+  th.scale-name-col,
+  td.scale-name-col {
+    width: 18%;
+    padding-right: 0;
+  }
+
+  td.scale-name-col input {
+    width: 100%;
+  }
+
+  th.scale-color-col,
+  td.scale-color-col {
+    width: 12%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  td.scale-color-col .color-cell {
+    /* row-reverse: flex-end pushes swatch to the left edge */
+    justify-content: flex-end;
+  }
+}
+
+/* Laptop/desktop: always show the hex colour value in the table */
+@media (min-width: 481px) {
+  td.scale-color-col .color-input {
+    display: block;
+  }
 }
 
 .degree-gutter {
@@ -732,7 +794,8 @@ td.scale-frequency-col input.frequency-input {
   justify-content: flex-end;
 }
 
-.scale-table-toolbar__toggle {
+.scale-table-toolbar__toggle,
+.scale-table-toolbar__rationalise {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -742,29 +805,16 @@ td.scale-frequency-col input.frequency-input {
   background: #f4efef;
   color: #330000;
   cursor: pointer;
-  font-size: 0.92em;
-}
-
-.scale-table-toolbar__toggle:hover {
-  background: #ece2e2;
+  font-size: 1em;
 }
 
 .scale-table-toolbar__rationalise {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25em 0.6em;
-  border: 1px solid #9aaa9a;
-  border-radius: 4px;
-  background: #eff4ef;
-  color: #223322;
-  cursor: pointer;
-  font-size: 0.92em;
   margin-left: 0.5em;
 }
 
+.scale-table-toolbar__toggle:hover,
 .scale-table-toolbar__rationalise:hover {
-  background: #e2ece2;
+  background: #ece2e2;
 }
 
 .scale-table-toolbar__rationalise:disabled {
@@ -820,11 +870,28 @@ td.scale-frequency-col input.frequency-input {
   font-size: 0.92em;
 }
 
-/* Row 1: five controls side by side */
+/* Row 1: five controls side by side — Region gets more space than the others */
 .scale-search-prefs__row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 0.55em 0.8em;
+}
+
+@media (max-width: 480px) {
+  /* Custom mode prime grid: 4 columns, inputs stacked vertically per prime */
+  .scale-search-prefs__grid--custom {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .scale-search-prefs__grid--custom .scale-search-prefs__prime-pair {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15em;
+  }
+
+  .scale-search-prefs__grid--custom .scale-search-prefs__prime-badge {
+    display: none;
+  }
 }
 
 .scale-search-prefs__field,
@@ -955,12 +1022,14 @@ td.scale-name-col {
 }
 
 td.scale-color-col {
-  padding-left: 2px;
+  padding: 0 3px;
+  text-align: right;
 }
 
 td.scale-color-col .color-cell {
   width: 100%;
-  justify-content: stretch;
+  /* row-reverse: flex-start pushes swatch to the right edge */
+  justify-content: flex-start;
 }
 
 td.scale-color-col .color-input {

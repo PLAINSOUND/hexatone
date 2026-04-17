@@ -610,7 +610,7 @@ const MIDIio = (props) => {
                             >
                               <button
                                 type="button"
-                                style={{ fontSize: "0.92em" }}
+                                style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
                                 disabled={!hasSysexMidi}
                                 title="Send notes + blank layout to Lumatone via sysex (~10–15 s, one-time setup)"
                                 onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
@@ -647,11 +647,11 @@ const MIDIio = (props) => {
                               />
                               <button
                                 type="button"
-                                style={{ fontSize: "0.92em" }}
+                                style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
                                 disabled={!hasSysexMidi}
                                 onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
                               >
-                                Send Colours Now
+                                Send Colours
                               </button>
                             </span>
                           </label>
@@ -687,7 +687,7 @@ const MIDIio = (props) => {
                           LED Output
                           <span
                             class="sidebar-input"
-                            style={{ textAlign: "right", fontSize: "0.92em" }}
+                            style={{ textAlign: "right", fontSize: "0.85em" }}
                           >
                             {statusText}
                           </span>
@@ -721,7 +721,7 @@ const MIDIio = (props) => {
                                 />
                                 <button
                                   type="button"
-                                  style={{ fontSize: "0.92em" }}
+                                  style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
                                   disabled={!hasSysexMidi}
                                   onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}
                                 >
@@ -729,7 +729,7 @@ const MIDIio = (props) => {
                                 </button>
                                 <button
                                   type="button"
-                                  style={{ fontSize: "0.92em" }}
+                                  style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
                                   disabled={!hasSysexMidi}
                                   onClick={() =>
                                     props.keysRef?.current?.exquisLEDs?.clearColors?.()
@@ -743,7 +743,7 @@ const MIDIio = (props) => {
                               <p
                                 style={{
                                   color: "#996666",
-                                  fontSize: "0.92em",
+                                  fontSize: "0.85em",
                                   margin: "0.25em 0 0.5em",
                                 }}
                               >

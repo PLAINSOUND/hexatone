@@ -1335,12 +1335,12 @@ const ScaleTable = (props) => {
       <table>
         <thead>
           <tr>
-            <th class="wide scale-data-col" id="leftaligned">
+            <th class="scale-data-col" id="leftaligned">
               Degree&nbsp;:&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
             </th>
-            <th class="scale-frequency-col">Frequency&nbsp;&nbsp;</th>
+            <th class="scale-frequency-col">Freq</th>
             <th class="scale-name-col">Name</th>
-            <th class="scale-color-col">Colour&nbsp;&nbsp;&nbsp;</th>
+            <th class="scale-color-col">Colour</th>
           </tr>
         </thead>
         <tbody>
