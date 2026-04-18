@@ -101,6 +101,8 @@ const Settings = ({
   instruments,
   keysRef,
   heji_names,
+  heji_anchor_label_eff,
+  heji_anchor_ratio_eff,
   onVolumeChange,
   onOscLayerVolumeChange,
   midiLearnActive,
@@ -151,6 +153,8 @@ const Settings = ({
       onAtomicChange={onAtomicChange}
       settings={settings}
       heji_names={heji_names}
+      heji_anchor_label_eff={heji_anchor_label_eff}
+      heji_anchor_ratio_eff={heji_anchor_ratio_eff}
       onImport={onImport}
       importCount={importCount}
       keysRef={keysRef}

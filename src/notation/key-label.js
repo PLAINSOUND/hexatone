@@ -158,6 +158,7 @@ export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "
  * @returns {string}               - HEJI glyph string + deviation, or tempered label.
  */
 export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}) {
+  const { suppressDeviation = false } = options;
   if (ratioText != null) {
     try {
       const spelled = spellPitchClassFromReferenceFrame(frame, ratioText, options);
@@ -175,14 +176,19 @@ export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}
           frame.anchor?.letter ?? "A",
           anchorChromatic,
         );
-        return `${spelled.pitchClassGlyphs}${deviationStr(dev)}`;
+        return `${spelled.pitchClassGlyphs}${suppressDeviation ? "" : deviationStr(dev)}`;
       }
     } catch {
       // Fall through to tempered fallback.
     }
   }
   const anchorChromatic = BASE_BY_ID[frame.anchor?.baseId]?.chromatic ?? "natural";
-  return temperedLabel(centsFromAnchor, frame.anchor?.letter ?? "A", anchorChromatic);
+  const tempered = temperedLabel(centsFromAnchor, frame.anchor?.letter ?? "A", anchorChromatic);
+  if (suppressDeviation) {
+    // Strip trailing deviation suffix (+N or −N) from tempered label.
+    return tempered.replace(/[+\u2212]\d+$/, "");
+  }
+  return tempered;
 }
 
 /**

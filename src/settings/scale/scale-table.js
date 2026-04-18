@@ -36,6 +36,8 @@ const DEFAULT_SEARCH_PREFS = {
   oddLimit: "255",
   centsTolerance: "6",
   contextTolerance: "14",
+  // "keep": leave existing ratio entries unchanged; "search": re-search all degrees
+  existingRatios: "keep",
   // primeBounds: overtonal maxima per prime (always used)
   primeBounds: { ...DEFAULT_PRIME_BOUNDS },
   // primeBoundsUt: undertonal maxima per prime (only used in "custom" region mode;
@@ -235,7 +237,10 @@ function getHumanTestableRationalCandidates(baseRequest) {
       ];
 
   const candidateSets = [];
-  if (committedCandidate) {
+  // skipCommitted: when re-searching all degrees, don't seed the candidate list
+  // with the existing committed ratio — we want the search to find the best
+  // within-limit candidate, not anchor on whatever is already there.
+  if (committedCandidate && !baseRequest.skipCommitted) {
     committedCandidate.isCommitted = true;
     candidateSets.push([committedCandidate]);
   }
@@ -898,9 +903,36 @@ const ScaleTable = (props) => {
 
 
   const editable_colors = props.settings.spectrum_colors;
-  const [showSearchPrefs, setShowSearchPrefs] = useState(false);
-  const [searchPrefs, setSearchPrefs] = useState(DEFAULT_SEARCH_PREFS);
+  const [showSearchPrefs, setShowSearchPrefs] = useState(
+    () => sessionStorage.getItem("hexatone_search_prefs_open") === "true",
+  );
+  const [searchPrefs, setSearchPrefs] = useState(() => {
+    try {
+      const raw = localStorage.getItem("hexatone_search_prefs");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Merge with defaults so new keys added in future versions are present
+        return {
+          ...DEFAULT_SEARCH_PREFS,
+          ...parsed,
+          primeBounds: { ...DEFAULT_SEARCH_PREFS.primeBounds, ...(parsed.primeBounds ?? {}) },
+          primeBoundsUt: { ...DEFAULT_SEARCH_PREFS.primeBoundsUt, ...(parsed.primeBoundsUt ?? {}) },
+        };
+      }
+    } catch {
+      // ignore corrupt storage
+    }
+    return DEFAULT_SEARCH_PREFS;
+  });
   const [rationalisingScale, setRationalisingScale] = useState(false);
+
+  // Persist search panel open/close state and prefs across page reloads.
+  useEffect(() => {
+    sessionStorage.setItem("hexatone_search_prefs_open", String(showSearchPrefs));
+  }, [showSearchPrefs]);
+  useEffect(() => {
+    localStorage.setItem("hexatone_search_prefs", JSON.stringify(searchPrefs));
+  }, [searchPrefs]);
   // previewState: per-degree { cents, comparing } set by TuneCell during drag
   const [previewState, setPreviewState] = useState({});
   // resetVersion: per-degree counter, bumped when a direct text edit commits a new
@@ -956,11 +988,19 @@ const ScaleTable = (props) => {
       }
     }
 
+    // When existingRatios === "keep", degrees that already contain a ratio
+    // string (e.g. "3/2", "5/4") are left untouched — only cents-valued
+    // degrees are rationalised. When "search", all non-equave degrees are
+    // rationalised regardless of their current form.
+    const keepExisting = searchPrefs.existingRatios !== "search";
+    const isRatioStr = (s) => /\//.test(String(s));
+
     // ── Pass 1: independent candidate search for every degree ──────────────
     // No cross-degree consistency scoring — each degree is evaluated on its
     // own merits. We keep the full candidate list per degree for pass 2.
     const perDegree = currentScale.map((str, i) => {
       if (i === equaveIdx) return null;
+      if (keepExisting && isRatioStr(str)) return null; // preserve existing ratio
       const tuneCellDegree = i + 1;
       const tunedCents = scalaToCents(String(str));
       const request = getRationalisationRequest({
@@ -973,6 +1013,9 @@ const ScaleTable = (props) => {
       });
       request._scaleCents = scaleCents;
       request._committedMonzos = []; // no cross-degree signal in pass 1
+      // When re-searching all degrees, don't let the existing committed ratio
+      // anchor the candidate set — search finds the best within-limit candidate.
+      if (!keepExisting) request.skipCommitted = true;
       const candidates = getHumanTestableRationalCandidates(request);
       return { str, candidates };
     });
@@ -1130,6 +1173,28 @@ const ScaleTable = (props) => {
           >
             ✕
           </button>
+          <div class="scale-search-prefs__top-row">
+            <select
+              value={searchPrefs.existingRatios}
+              onChange={(e) =>
+                setSearchPrefs((prev) => ({ ...prev, existingRatios: e.target.value }))
+              }
+              aria-label="how to handle existing ratio entries"
+            >
+              <option value="keep">Keep all existing ratios</option>
+              <option value="search">Find new ratios (re-search all)</option>
+            </select>
+            <button
+              type="button"
+              style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+              onClick={() => {
+                setSearchPrefs(DEFAULT_SEARCH_PREFS);
+                localStorage.removeItem("hexatone_search_prefs");
+              }}
+            >
+              Restore Defaults
+            </button>
+          </div>
           <div class="scale-search-prefs__row">
             <label class="scale-search-prefs__field">
               Region
@@ -1161,7 +1226,7 @@ const ScaleTable = (props) => {
               </select>
             </label>
             <label class="scale-search-prefs__field">
-              Search tol. (¢)
+              Search (¢)
               <input
                 type="text"
                 inputMode="numeric"
@@ -1176,7 +1241,7 @@ const ScaleTable = (props) => {
               />
             </label>
             <label class="scale-search-prefs__field">
-              Context tol. (¢)
+              Context (¢)
               <input
                 type="text"
                 inputMode="numeric"
@@ -1191,7 +1256,7 @@ const ScaleTable = (props) => {
               />
             </label>
             <label class="scale-search-prefs__field">
-              Prime limit
+              Prime Limit
               <input
                 type="text"
                 inputMode="numeric"
@@ -1234,7 +1299,7 @@ const ScaleTable = (props) => {
               />
             </label>
             <label class="scale-search-prefs__field">
-              Odd limit
+              Odd Limit
               <input
                 type="text"
                 inputMode="numeric"

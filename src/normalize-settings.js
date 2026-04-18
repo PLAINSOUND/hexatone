@@ -10,49 +10,145 @@ import { spelledHejiLabel } from "./notation/key-label.js";
 const HEJI_NATURAL = "\uE261";
 
 /**
- * Scan `note_names` for a plain A-natural entry and return the corresponding
- * anchor pair for auto-filling the HEJI anchor fields.
+ * Canonicalise a bare letter A-G to the HEJI natural-prefixed glyph form.
+ * e.g. "A" → "\uE261A", "nA" → "\uE261A" (already prefixed), "♮A" → "♮A" (pass-through).
+ * Returns null if the name is not a parseable HEJI pitch-class label or bare letter.
  *
- * "A-natural" is defined as: letter=A, chromatic=natural (baseId "natural:0"),
- * no schisma, no extra prime-family modifiers.  This matches `nA`, `*nA`,
- * `\uE261A`, and any other encoding that `parseHejiPitchClassLabel` resolves
- * to the same parsed structure.
- *
- * The returned label uses the canonical Unicode glyph (\uE261 + "A") rather
- * than ASCII shortcuts, per the Plainsound font convention.
- *
- * @param {string[]} noteNames   - Raw note_names array from settings (before equave pop).
- * @param {string[]} degreeTexts - Ratio/cents string per degree; index 0 = "1/1".
- * @returns {{ ratio: string, label: string } | null}
+ * @param {string} name - A single note_names entry.
+ * @returns {string|null} Canonical HEJI glyph label, or null if not recognisable.
  */
-export function deriveHejiAnchorFromNoteNames(noteNames, degreeTexts) {
-  if (!noteNames?.length) return null;
-  for (let i = 0; i < noteNames.length; i++) {
-    const name = String(noteNames[i] ?? "").trim();
-    if (!name) continue;
-    // Accept bare "A" or "a" as A-natural (common in non-HEJI presets).
-    const isBareA = /^[Aa]$/.test(name);
-    if (isBareA) {
-      const ratio = degreeTexts[i] ?? "1/1";
-      return { ratio, label: `${HEJI_NATURAL}A` };
-    }
-    // Accept any HEJI-parseable label that resolves to plain A-natural
-    // (letter=A, chromatic=natural, no higher-prime modifiers, no schisma).
-    const parsed = parseHejiPitchClassLabel(name);
-    if (
-      parsed &&
-      parsed.letter === "A" &&
-      parsed.baseId === "natural:0" &&
-      parsed.schismaAmount === 0 &&
-      parsed.extraIds.length === 0
-    ) {
-      const ratio = degreeTexts[i] ?? "1/1";
-      // Store the canonical glyph form, not the ASCII shorthand.
-      return { ratio, label: `${HEJI_NATURAL}A` };
-    }
+// OpenType ligature prefixes used in some preset note_names:
+//   *n → natural (same as bare "n" → U+E261)
+//   *f → flat    (same as "b"  → U+E260)
+//   *s → sharp   (same as "#"  → U+E262)
+// Substitute these so the rest of the parsing logic sees plain ASCII shortcuts.
+function expandOpenTypeLigatures(name) {
+  return name.replace(/\*n/g, "n").replace(/\*f/g, "b").replace(/\*s/g, "#");
+}
+
+function canonicalHejiLabel(name) {
+  if (!name) return null;
+  // Expand OpenType ligature shorthands before any further processing.
+  const expanded = expandOpenTypeLigatures(name);
+  // Bare letter A-G — treat as natural.
+  if (/^[A-Ga-g]$/.test(expanded)) {
+    return `${HEJI_NATURAL}${expanded.toUpperCase()}`;
+  }
+  // Parseable as a HEJI pitch-class label (ASCII shortcuts like "nA", "bA", "#A",
+  // or already-Unicode glyph strings).
+  const parsed = parseHejiPitchClassLabel(expanded);
+  if (parsed) {
+    // Return the expanded form so downstream glyph parsing sees known sequences.
+    return expanded;
   }
   return null;
 }
+
+// HEJI natural glyphs for each letter, used in frequency-based inference.
+const HEJI_NATURAL_LABELS = {
+  C: `${HEJI_NATURAL}C`,
+  D: `${HEJI_NATURAL}D`,
+  E: `${HEJI_NATURAL}E`,
+  F: `${HEJI_NATURAL}F`,
+  G: `${HEJI_NATURAL}G`,
+  A: `${HEJI_NATURAL}A`,
+  B: `${HEJI_NATURAL}B`,
+};
+
+/**
+ * Infer the most likely note letter from a reference frequency (Hz).
+ * Covers the common tuning standards for A (415, 432, 440, 441, 442, 444, 466 Hz)
+ * and C (256, 261, 262, 263 Hz).  Returns null when the frequency is not close
+ * to any recognised pitch — the caller should fall back to a safe default.
+ *
+ * @param {number} hz
+ * @returns {"A"|"C"|null}
+ */
+function inferLetterFromFrequency(hz) {
+  if (!hz || typeof hz !== "number") return null;
+  // A-natural: historical and modern pitch standards cluster around 415–466 Hz.
+  if (hz >= 392 && hz <= 466) return "A";
+  // C-natural: scientific pitch (256 Hz) and modern C4 range (260–263 Hz).
+  if (hz >= 248 && hz <= 270) return "C";
+  return null;
+}
+
+/**
+ * Derive the HEJI anchor (ratio + label) for auto-filling the anchor fields.
+ *
+ * Priority order:
+ *   1. reference_degree with a parseable note name — use that degree's ratio
+ *      and its canonicalised HEJI label.  Most musically direct: the named
+ *      reference pitch becomes the 0¢-deviation anchor.
+ *   2. Scan note_names for the first plain A-natural entry.  Covers presets
+ *      that don't assign a meaningful reference_degree but do have note names.
+ *   3. Infer from fundamental frequency: A-range (392–466 Hz) → anchor is
+ *      the reference_degree at ♮A; C-range (248–270 Hz) → degree 0 at ♮C.
+ *   4. Final fallback: degree 0, label ♮C (1/1 = C natural).
+ *
+ * @param {number|undefined}  referenceDegree - settings.reference_degree (0-based).
+ * @param {string[]}          noteNames       - Raw note_names array from settings.
+ * @param {string[]}          degreeTexts     - Ratio/cents string per degree; index 0 = "1/1".
+ * @param {number|undefined}  fundamental     - Reference frequency in Hz (settings.fundamental).
+ * @returns {{ ratio: string, label: string }}  Always returns a value (never null).
+ */
+export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundamental) {
+  // --- Strategy 1: reference_degree with parseable note name ---
+  if (referenceDegree != null && referenceDegree >= 0 && noteNames?.length) {
+    const name = String(noteNames[referenceDegree] ?? "").trim();
+    const label = canonicalHejiLabel(name);
+    if (label) {
+      const ratio = degreeTexts[referenceDegree] ?? "1/1";
+      return { ratio, label };
+    }
+  }
+
+  // --- Strategy 2: scan note_names for plain A-natural ---
+  if (noteNames?.length) {
+    for (let i = 0; i < noteNames.length; i++) {
+      const raw = String(noteNames[i] ?? "").trim();
+      if (!raw) continue;
+      const name = expandOpenTypeLigatures(raw);
+      // Accept bare "A" or "a" as A-natural.
+      if (/^[Aa]$/.test(name)) {
+        return { ratio: degreeTexts[i] ?? "1/1", label: HEJI_NATURAL_LABELS.A };
+      }
+      // Accept any HEJI label that resolves to plain A-natural
+      // (letter=A, chromatic=natural, no higher-prime modifiers, no schisma).
+      const parsed = parseHejiPitchClassLabel(name);
+      if (
+        parsed &&
+        parsed.letter === "A" &&
+        parsed.baseId === "natural:0" &&
+        parsed.schismaAmount === 0 &&
+        parsed.extraIds.length === 0
+      ) {
+        return { ratio: degreeTexts[i] ?? "1/1", label: HEJI_NATURAL_LABELS.A };
+      }
+    }
+  }
+
+  // --- Strategy 3: infer from reference frequency ---
+  const letter = inferLetterFromFrequency(fundamental);
+  if (letter === "A" && referenceDegree != null && referenceDegree >= 0) {
+    // Reference degree is tuned to an A — use its ratio as the anchor.
+    return {
+      ratio: degreeTexts[referenceDegree] ?? "1/1",
+      label: HEJI_NATURAL_LABELS.A,
+    };
+  }
+  if (letter === "C") {
+    // C is at degree 0 (1/1) by convention.
+    return { ratio: "1/1", label: HEJI_NATURAL_LABELS.C };
+  }
+
+  // --- Strategy 4: safe default — degree 0 = C natural ---
+  return { ratio: "1/1", label: HEJI_NATURAL_LABELS.C };
+}
+
+// Keep the old export name as an alias for backward compatibility with any callers/tests.
+export const deriveHejiAnchorFromNoteNames = (noteNames, degreeTexts) =>
+  deriveHejiAnchor(undefined, noteNames, degreeTexts, undefined);
 
 export function deriveSpectrumNoteColors(settings, fundamentalColor) {
   const count = settings.equivSteps || settings.scale?.length || 0;
@@ -162,17 +258,23 @@ export const normalizeStructural = (settings) => {
       let anchorRatioText = settings.heji_anchor_ratio || "";
 
       if (!anchorLabel || !parseHejiPitchClassLabel(anchorLabel)) {
-        // note_names is still in its raw (pre-normalise) form here — same indexing
-        // as degreeTexts (degree 0 = first entry, equave not present).
-        const derived = deriveHejiAnchorFromNoteNames(settings.note_names, degreeTexts);
-        if (derived) {
-          anchorLabel = derived.label;
-          anchorRatioText = derived.ratio;
-        }
+        // Auto-derive anchor. Priority: reference_degree note name → scan note_names
+        // for A-natural → infer from fundamental frequency → default C natural at 1/1.
+        // note_names is still in raw (pre-normalise) form; same indexing as degreeTexts.
+        const derived = deriveHejiAnchor(
+          settings.reference_degree,
+          settings.note_names,
+          degreeTexts,
+          settings.fundamental,
+        );
+        anchorLabel = derived.label;
+        anchorRatioText = derived.ratio;
       }
 
-      if (!anchorRatioText) anchorRatioText = "1/1";
-
+      // Expose the resolved anchor values so the UI can show what is actually
+      // being used (including auto-derived values from note_names).
+      result["heji_anchor_label_effective"] = anchorLabel;
+      result["heji_anchor_ratio_effective"] = anchorRatioText;
 
       // Only build when we have a valid parseable anchor label.
       if (anchorLabel && parseHejiPitchClassLabel(anchorLabel)) {
@@ -182,6 +284,7 @@ export const normalizeStructural = (settings) => {
 
         try {
           const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });
+          const showCents = settings.heji_show_cents !== false;
           const heji_names = degreeTexts.map((text, i) => {
             // Cents of this degree relative to the anchor pitch.
             const degCents = scale[i] ?? 0;
@@ -192,9 +295,20 @@ export const normalizeStructural = (settings) => {
             return spelledHejiLabel(frame, ratioText, centsFromAnchor);
           });
           result["heji_names"] = heji_names;
+          // heji_names_keys: same labels but without the cents deviation suffix
+          // when heji_show_cents is false. Always generated so keys.js can use it.
+          result["heji_names_keys"] = showCents
+            ? heji_names
+            : degreeTexts.map((text, i) => {
+                const degCents = scale[i] ?? 0;
+                const centsFromAnchor = ((degCents - anchorCents) % 1200 + 1200) % 1200;
+                const ratioText = text.includes("/") ? text : null;
+                return spelledHejiLabel(frame, ratioText, centsFromAnchor, { suppressDeviation: true });
+              });
         } catch {
           // Invalid frame (e.g. unparseable anchor ratio) — leave heji_names empty.
           result["heji_names"] = [];
+          result["heji_names_keys"] = [];
         }
       } else {
         result["heji_names"] = [];

@@ -526,6 +526,7 @@ const App = () => {
       settings.key_labels,
       settings.heji_anchor_label,
       settings.heji_anchor_ratio,
+      settings.heji_show_cents,
       // fundamental handled imperatively via keysRef.current.updateFundamental
       settings.reference_degree,
       settings.center_degree,
@@ -777,7 +778,9 @@ const App = () => {
       no_labels:        !!structuralSettings.no_labels,
       note_names:       structuralSettings.note_names,
       scala_names:      structuralSettings.scala_names,
-      heji_names:       structuralSettings.heji_names,
+      heji_names:             structuralSettings.heji_names_keys ?? structuralSettings.heji_names,
+      heji_anchor_label_eff:  structuralSettings.heji_anchor_label_effective,
+      heji_anchor_ratio_eff:  structuralSettings.heji_anchor_ratio_effective,
       scale:            structuralSettings.scale,
       reference_degree: structuralSettings.reference_degree,
     }),
@@ -1147,6 +1150,8 @@ const App = () => {
           onRevertUser={onRevertUser}
           settings={settings}
           heji_names={structuralSettings.heji_names}
+          heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
+          heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
           midi={midi}
           midiAccess={midiAccess}
           midiAccessError={midiAccessError}

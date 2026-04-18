@@ -294,15 +294,7 @@ const Scale = (props) => {
           wrapperClass="sidebar-input"
         />
       </label>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          paddingTop: "0.5rem",
-          marginBottom: "0.5rem",
-        }}
-      >
+      <div class="divide-btns">
         <button
           type="button"
           style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}

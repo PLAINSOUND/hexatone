@@ -82,6 +82,8 @@ export const SETTINGS_REGISTRY = [
   //   this anchor pair + the committed ratio of each degree.
   { key: "heji_anchor_ratio", tier: "url", type: "string", default: "1/1", presetSkip: true },
   { key: "heji_anchor_label", tier: "url", type: "string", default: "", presetSkip: true },
+  // When false, cents deviation is omitted from key labels (still shown in scale table).
+  { key: "heji_show_cents", tier: "url", type: "bool", default: false, presetSkip: true },
   // Internal-only for now: TuneCell supports an alternate reference-degree save
   // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
   // remains session-scoped and stays out of share URLs.
@@ -301,6 +303,15 @@ export const SETTINGS_REGISTRY = [
   // ── App preferences (localStorage, not session) ───────────────────────────────
   // hexatone_persist_on_reload is handled separately in app.jsx / use-presets.js
   // and is intentionally not part of the settings object.
+
+  // ── Rationalisation search prefs ──────────────────────────────────────────────
+  // Stored outside the settings object — managed directly by scale-table.js.
+  // hexatone_search_prefs       (localStorage)  — JSON blob of searchPrefs state;
+  //                              merged with DEFAULT_SEARCH_PREFS on load so new
+  //                              keys are always present after updates.
+  // hexatone_search_prefs_open  (sessionStorage) — "true"/"false"; keeps the panel
+  //                              open across page refreshes within a session.
+  // Restore Defaults clears hexatone_search_prefs and resets to DEFAULT_SEARCH_PREFS.
 ];
 
 // ── Derived lookup maps ────────────────────────────────────────────────────────

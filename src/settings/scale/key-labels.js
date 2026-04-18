@@ -110,17 +110,17 @@ const KeyLabels = (props) => {
             <input
               type="text"
               class="sidebar-input"
-              placeholder="e.g. 3/2 or 702.0"
+              placeholder={props.heji_anchor_ratio_eff || "e.g. 3/2 or 702.0"}
               value={props.settings.heji_anchor_ratio || ""}
               onInput={(e) => props.onChange("heji_anchor_ratio", e.target.value)}
             />
           </label>
           <label>
-            Notation
+            Notation (Spelling)
             <input
               type="text"
               class="sidebar-input"
-              placeholder={`e.g. \uE261A`}
+              placeholder={props.heji_anchor_label_eff || `\uE261A`}
               value={props.settings.heji_anchor_label || ""}
               onInput={(e) => {
                 const expanded = expandHejiNotation(e.target.value);
@@ -133,6 +133,14 @@ const KeyLabels = (props) => {
                 props.onChange("heji_anchor_label", expanded);
               }}
             />
+          </label>
+          <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.5em" }}>
+            <input
+              type="checkbox"
+              checked={props.settings.heji_show_cents !== false}
+              onChange={(e) => props.onChange("heji_show_cents", e.target.checked)}
+            />
+            Include Cents on Keys
           </label>
           <button
             type="button"
@@ -152,10 +160,13 @@ KeyLabels.propTypes = {
   onChange: PropTypes.func.isRequired,
   onAtomicChange: PropTypes.func.isRequired,
   heji_names: PropTypes.arrayOf(PropTypes.string),
+  heji_anchor_label_eff: PropTypes.string,
+  heji_anchor_ratio_eff: PropTypes.string,
   settings: PropTypes.shape({
     key_labels: PropTypes.string,
     heji_anchor_ratio: PropTypes.string,
     heji_anchor_label: PropTypes.string,
+    heji_show_cents: PropTypes.bool,
   }),
 };
 

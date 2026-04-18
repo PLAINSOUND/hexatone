@@ -104,7 +104,7 @@ const Colors = (props) => {
         <>
           <label>
             Choose Central Hue
-            <div class="color-cell" style={{ marginLeft: "50%" }}>
+            <div class="color-cell color-cell--label-rhs">
               <span
                 ref={swatchRef}
                 class="color-swatch"
