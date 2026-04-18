@@ -110,7 +110,7 @@ const KeyLabels = (props) => {
             <input
               type="text"
               class="sidebar-input"
-              placeholder={props.heji_anchor_ratio_eff || "e.g. 3/2 or 702.0"}
+              placeholder={props.heji_anchor_ratio_eff || "e.g. 1/1  |  0.0¢  |  0\\12"}
               value={props.settings.heji_anchor_ratio || ""}
               onInput={(e) => props.onChange("heji_anchor_ratio", e.target.value)}
             />
@@ -140,7 +140,7 @@ const KeyLabels = (props) => {
               checked={props.settings.heji_show_cents !== false}
               onChange={(e) => props.onChange("heji_show_cents", e.target.checked)}
             />
-            Include Cents on Keys
+            Always Include Cents on Keys
           </label>
           <button
             type="button"

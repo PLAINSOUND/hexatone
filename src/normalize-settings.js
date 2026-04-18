@@ -9,6 +9,11 @@ import { spelledHejiLabel } from "./notation/key-label.js";
 // U+E261 = Plainsound natural, U+E260 = flat, U+E262 = sharp.
 const HEJI_NATURAL = "\uE261";
 
+// Tempered natural glyph (U+E2F2) — visually distinct from the exact HEJI natural.
+// Used when the anchor is inferred from frequency rather than confirmed by a note name,
+// so the user can see at a glance that the spelling is approximate.
+const TEMPERED_NATURAL = "\uE2F2";
+
 /**
  * Canonicalise a bare letter A-G to the HEJI natural-prefixed glyph form.
  * e.g. "A" → "\uE261A", "nA" → "\uE261A" (already prefixed), "♮A" → "♮A" (pass-through).
@@ -44,7 +49,7 @@ function canonicalHejiLabel(name) {
   return null;
 }
 
-// HEJI natural glyphs for each letter, used in frequency-based inference.
+// HEJI exact-natural labels per letter (confirmed JI spelling from note_names).
 const HEJI_NATURAL_LABELS = {
   C: `${HEJI_NATURAL}C`,
   D: `${HEJI_NATURAL}D`,
@@ -55,22 +60,44 @@ const HEJI_NATURAL_LABELS = {
   B: `${HEJI_NATURAL}B`,
 };
 
+// Tempered cautionary-natural labels per letter (frequency-inferred spelling).
+// The tempered glyph signals to the user that this anchor was guessed from Hz,
+// not derived from an explicit note name.
+const TEMPERED_NATURAL_LABELS = {
+  C: `${TEMPERED_NATURAL}C`,
+  D: `${TEMPERED_NATURAL}D`,
+  E: `${TEMPERED_NATURAL}E`,
+  F: `${TEMPERED_NATURAL}F`,
+  G: `${TEMPERED_NATURAL}G`,
+  A: `${TEMPERED_NATURAL}A`,
+  B: `${TEMPERED_NATURAL}B`,
+};
+
+// 12-EDO chromatic scale from C (semitones 0–11), preferred natural-letter spelling.
+// Used to convert a MIDI pitch class to a note letter for frequency inference.
+const SEMITONE_TO_LETTER = ["C", "C", "D", "E", "E", "F", "F", "G", "G", "A", "B", "B"];
+//   semitone:              0    1    2    3    4    5    6    7    8    9   10   11
+// (Semitones 1, 3, 6, 8, 10 are accidentals; we round to the nearest natural neighbour.)
+
 /**
- * Infer the most likely note letter from a reference frequency (Hz).
- * Covers the common tuning standards for A (415, 432, 440, 441, 442, 444, 466 Hz)
- * and C (256, 261, 262, 263 Hz).  Returns null when the frequency is not close
- * to any recognised pitch — the caller should fall back to a safe default.
+ * Infer the nearest natural note letter from a reference frequency (Hz) using
+ * MIDI note number arithmetic.
  *
- * @param {number} hz
- * @returns {"A"|"C"|null}
+ * Converts hz → MIDI float (A4=440 as 0¢ reference: midi = 69 + 12*log2(hz/440)),
+ * takes the pitch class (mod 12, rounded), then maps to the nearest natural letter.
+ * Returns a tempered-natural label string (e.g. "\uE2F2D") rather than a raw letter,
+ * because the spelling is inferred, not confirmed.
+ *
+ * @param {number} hz - Reference frequency in Hz.
+ * @returns {string|null} Tempered-natural label, or null if hz is invalid.
  */
-function inferLetterFromFrequency(hz) {
-  if (!hz || typeof hz !== "number") return null;
-  // A-natural: historical and modern pitch standards cluster around 415–466 Hz.
-  if (hz >= 392 && hz <= 466) return "A";
-  // C-natural: scientific pitch (256 Hz) and modern C4 range (260–263 Hz).
-  if (hz >= 248 && hz <= 270) return "C";
-  return null;
+function inferTemperedLabelFromFrequency(hz) {
+  if (!hz || typeof hz !== "number" || hz <= 0) return null;
+  const midi = 69 + 12 * Math.log2(hz / 440);
+  // Pitch class 0–11 from C, rounded to nearest semitone.
+  const pc = ((Math.round(midi) % 12) + 12) % 12;
+  const letter = SEMITONE_TO_LETTER[pc];
+  return TEMPERED_NATURAL_LABELS[letter] ?? null;
 }
 
 /**
@@ -99,6 +126,18 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     const label = canonicalHejiLabel(name);
     if (label) {
       const ratio = degreeTexts[referenceDegree] ?? "1/1";
+      // If the ratio is not a rational interval (EDO step or decimal cents),
+      // the anchor is a tempered pitch.  Downgrade any exact HEJI natural glyph
+      // to its tempered equivalent so the visual distinction is preserved.
+      const isRational = ratio.includes("/");
+      if (!isRational) {
+        // Replace exact HEJI base glyphs with tempered equivalents in the label.
+        const tempered = label
+          .replace(/\uE261/g, TEMPERED_NATURAL)
+          .replace(/\uE260/g, "\uE2F1")
+          .replace(/\uE262/g, "\uE2F3");
+        return { ratio, label: tempered };
+      }
       return { ratio, label };
     }
   }
@@ -128,22 +167,20 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     }
   }
 
-  // --- Strategy 3: infer from reference frequency ---
-  const letter = inferLetterFromFrequency(fundamental);
-  if (letter === "A" && referenceDegree != null && referenceDegree >= 0) {
-    // Reference degree is tuned to an A — use its ratio as the anchor.
+  // --- Strategy 3: infer from fundamental frequency via MIDI pitch class ---
+  // The inferred label uses the tempered-natural glyph (♮ look-alike but distinct)
+  // to signal that this is a frequency-based guess, not a confirmed JI spelling.
+  // The user can override it in the Notation (Spelling) field.
+  const inferredLabel = inferTemperedLabelFromFrequency(fundamental);
+  if (inferredLabel) {
     return {
-      ratio: degreeTexts[referenceDegree] ?? "1/1",
-      label: HEJI_NATURAL_LABELS.A,
+      ratio: degreeTexts[referenceDegree ?? 0] ?? "1/1",
+      label: inferredLabel,
     };
   }
-  if (letter === "C") {
-    // C is at degree 0 (1/1) by convention.
-    return { ratio: "1/1", label: HEJI_NATURAL_LABELS.C };
-  }
 
-  // --- Strategy 4: safe default — degree 0 = C natural ---
-  return { ratio: "1/1", label: HEJI_NATURAL_LABELS.C };
+  // --- Strategy 4: safe default — degree 0 = tempered C natural ---
+  return { ratio: "1/1", label: TEMPERED_NATURAL_LABELS.C };
 }
 
 // Keep the old export name as an alias for backward compatibility with any callers/tests.

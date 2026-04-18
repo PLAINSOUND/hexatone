@@ -1064,7 +1064,9 @@ const ScaleTable = (props) => {
     });
 
     if (changed) {
-      props.onChange("scale", newScale);
+      // Switch to HEJI auto-generated labels so the rationalised note names
+      // are immediately visible.  Using onAtomicChange keeps it one state update.
+      props.onAtomicChange({ scale: newScale, key_labels: "heji" });
       // Bump all reset versions so every TuneCell discards in-flight drag state.
       setResetVersion((prev) => {
         const next = { ...prev };

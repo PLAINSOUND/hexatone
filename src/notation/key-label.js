@@ -131,9 +131,12 @@ export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "
 
   const { letter, accidental } = CHROMATIC_12[semitoneNearest];
 
-  // Deviation from that 12-EDO position.
+  // Deviation from that 12-EDO position, folded to (−600, 600).
+  // Without the fold, pitches near the top of the octave (e.g. 127/64 ≈ 1186¢)
+  // would produce a raw difference of ~1186 instead of ~−14.
   const expectedCentsFromAnchor = ((semitoneNearest - anchorSemitone) * 100 % 1200 + 1200) % 1200;
-  const deviation = Math.round(pc - expectedCentsFromAnchor);
+  const raw = Math.round(pc - expectedCentsFromAnchor);
+  const deviation = ((raw + 600) % 1200 + 1200) % 1200 - 600;
 
   return `${accidental}${letter}${deviationStr(deviation)}`;
 }
@@ -158,8 +161,14 @@ export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "
  * @returns {string}               - HEJI glyph string + deviation, or tempered label.
  */
 export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}) {
+  // suppressDeviation: omit the cents suffix on resolved HEJI spellings only.
+  // Tempered-fallback labels always retain their cents — they are structurally
+  // necessary to convey the pitch when no exact HEJI spelling is available.
   const { suppressDeviation = false } = options;
-  if (ratioText != null) {
+  // Only attempt JI spelling when both the individual degree and the anchor
+  // itself are rational.  A non-rational anchor (EDO step, decimal cents)
+  // means the globalOffsetMonzo is absent — all degrees must use temperedLabel.
+  if (ratioText != null && frame.rationalAnchor !== false) {
     try {
       const spelled = spellPitchClassFromReferenceFrame(frame, ratioText, options);
       if (spelled.supported && spelled.pitchClassGlyphs != null) {
@@ -182,13 +191,10 @@ export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}
       // Fall through to tempered fallback.
     }
   }
+  // Tempered fallback: cents are always included regardless of suppressDeviation,
+  // because the tempered glyph alone does not uniquely identify the pitch.
   const anchorChromatic = BASE_BY_ID[frame.anchor?.baseId]?.chromatic ?? "natural";
-  const tempered = temperedLabel(centsFromAnchor, frame.anchor?.letter ?? "A", anchorChromatic);
-  if (suppressDeviation) {
-    // Strip trailing deviation suffix (+N or −N) from tempered label.
-    return tempered.replace(/[+\u2212]\d+$/, "");
-  }
-  return tempered;
+  return temperedLabel(centsFromAnchor, frame.anchor?.letter ?? "A", anchorChromatic);
 }
 
 /**

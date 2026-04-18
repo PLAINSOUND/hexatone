@@ -50,9 +50,9 @@ function ratioStepFamily({
 }
 
 export const BASE_SYMBOLS = [
-  { id: "flat:0", chromatic: "flat", syntonic: 0, label: "b", glyph: "", aliases: ["♭"] },
-  { id: "natural:0", chromatic: "natural", syntonic: 0, label: "n", glyph: "", aliases: ["♮"] },
-  { id: "sharp:0", chromatic: "sharp", syntonic: 0, label: "#", glyph: "", aliases: ["♯"] },
+  { id: "flat:0", chromatic: "flat", syntonic: 0, label: "b", glyph: "", aliases: ["♭", ""] },
+  { id: "natural:0", chromatic: "natural", syntonic: 0, label: "n", glyph: "", aliases: ["♮", ""] },
+  { id: "sharp:0", chromatic: "sharp", syntonic: 0, label: "#", glyph: "", aliases: ["♯", ""] },
   { id: "flat:-1", chromatic: "flat", syntonic: -1, label: "b -1 synt", glyph: "" },
   { id: "natural:-1", chromatic: "natural", syntonic: -1, label: "n -1 synt", glyph: "" },
   { id: "sharp:-1", chromatic: "sharp", syntonic: -1, label: "# -1 synt", glyph: "" },
