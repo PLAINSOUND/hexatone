@@ -305,13 +305,20 @@ export const SETTINGS_REGISTRY = [
   // and is intentionally not part of the settings object.
 
   // ── Rationalisation search prefs ──────────────────────────────────────────────
-  // Stored outside the settings object — managed directly by scale-table.js.
-  // hexatone_search_prefs       (localStorage)  — JSON blob of searchPrefs state;
-  //                              merged with DEFAULT_SEARCH_PREFS on load so new
+  // These are stored outside the settings object, managed directly by
+  // scale-table/index.js and scale-table/search-prefs.js.
+  //
+  // hexatone_search_prefs       (localStorage)  — JSON blob of searchPrefs state
+  //                              (primeLimit, oddLimit, centsTolerance, region,
+  //                              primeBounds, primeBoundsUt, existingRatios …).
+  //                              Merged with DEFAULT_SEARCH_PREFS on load so new
   //                              keys are always present after updates.
   // hexatone_search_prefs_open  (sessionStorage) — "true"/"false"; keeps the panel
   //                              open across page refreshes within a session.
   // Restore Defaults clears hexatone_search_prefs and resets to DEFAULT_SEARCH_PREFS.
+  //
+  // There are no rationalise_* keys in the settings object. The search prefs live
+  // entirely in localStorage under hexatone_search_prefs and are not URL-synced.
 ];
 
 // ── Derived lookup maps ────────────────────────────────────────────────────────

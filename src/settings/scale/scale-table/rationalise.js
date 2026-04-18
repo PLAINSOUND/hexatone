@@ -74,18 +74,16 @@ export function getRationalisationRequest({
   frequencyAtDegree,
   searchPrefs,
 }) {
-  const primeLimit =
-    parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? settings?.rationalise_prime_limit ?? 19;
+  const primeLimit = parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? 19;
   const { primeBounds, primeBoundsUt } = buildPrimeBoundsFromPrefs(searchPrefs, primeLimit);
   return {
     targetDegree: degree,
     workspace,
     primeLimit,
-    primeBounds: primeBounds ?? settings?.rationalise_prime_bounds ?? null,
+    primeBounds: primeBounds ?? null,
     primeBoundsUt: primeBoundsUt ?? null,
-    oddLimit: parseOptionalPositiveInt(searchPrefs?.oddLimit) ?? settings?.rationalise_odd_limit ?? 255,
-    centsTolerance:
-      parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? settings?.rationalise_tolerance ?? 6,
+    oddLimit: parseOptionalPositiveInt(searchPrefs?.oddLimit) ?? 255,
+    centsTolerance: parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? 6,
     contextTolerance:
       parseOptionalPositiveInt(searchPrefs?.contextTolerance) ?? 14,
     maxCandidates: 8,
