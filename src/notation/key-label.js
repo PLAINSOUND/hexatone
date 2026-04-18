@@ -55,7 +55,7 @@ const LETTER_TO_SEMITONE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 // Chromatic offset in semitones for flat / natural / sharp (3/5-limit only).
 // Used to determine the 12-EDO reference semitone implied by any HEJI spelling
 // (letter + chromatic accidental), ignoring higher-prime arrows.
-const CHROMATIC_TO_SEMITONE_DELTA = { flat: -1, natural: 0, sharp: 1 };
+const CHROMATIC_TO_SEMITONE_DELTA = { doubleflat: -2, flat: -1, natural: 0, sharp: 1, doublesharp: 2 };
 
 /**
  * Return the 12-EDO semitone (0–11, relative to C) implied by a letter and

@@ -80,7 +80,7 @@ export const SETTINGS_REGISTRY = [
   // heji_anchor_label — the HEJI pitch-class spelling for that pitch (e.g. "nA").
   //   When key_labels === "heji", all degree labels are auto-generated from
   //   this anchor pair + the committed ratio of each degree.
-  { key: "heji_anchor_ratio", tier: "url", type: "string", default: "1/1", presetSkip: true },
+  { key: "heji_anchor_ratio", tier: "url", type: "string", default: "", presetSkip: true },
   { key: "heji_anchor_label", tier: "url", type: "string", default: "", presetSkip: true },
   // When false, cents deviation is omitted from key labels (still shown in scale table).
   { key: "heji_show_cents", tier: "url", type: "bool", default: false, presetSkip: true },

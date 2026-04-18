@@ -305,6 +305,9 @@ export const normalizeStructural = (settings) => {
           settings.fundamental,
         );
         anchorLabel = derived.label;
+        // Always take the derived ratio when auto-deriving the label — the label
+        // and ratio are a pair.  A stale heji_anchor_ratio from a previous preset
+        // (e.g. the registry default "1/1") must not override the derived value.
         anchorRatioText = derived.ratio;
       }
 
