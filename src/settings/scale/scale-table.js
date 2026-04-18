@@ -1188,7 +1188,7 @@ const ScaleTable = (props) => {
             </select>
             <button
               type="button"
-              style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+              class="preset-action-btn"
               onClick={() => {
                 setSearchPrefs(DEFAULT_SEARCH_PREFS);
                 localStorage.removeItem("hexatone_search_prefs");
@@ -1405,7 +1405,7 @@ const ScaleTable = (props) => {
             <th class="scale-data-col" id="leftaligned">
               Degree&nbsp;:&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
             </th>
-            <th class="scale-frequency-col">Freq</th>
+            <th class="scale-frequency-col">Freq&nbsp;&nbsp;</th>
             <th class="scale-name-col">Name</th>
             <th class="scale-color-col">Colour</th>
           </tr>

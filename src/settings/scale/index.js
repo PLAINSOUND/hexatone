@@ -297,7 +297,7 @@ const Scale = (props) => {
       <div class="divide-btns">
         <button
           type="button"
-          style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+          class="preset-action-btn"
           onClick={() => {
             const n = props.settings.equivSteps || 12;
             const equaveStr =
@@ -320,7 +320,7 @@ const Scale = (props) => {
         </button>
         <button
           type="button"
-          style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+          class="preset-action-btn"
           onClick={() => {
             const n = props.settings.equivSteps || 12;
             const step = 1200 / n;
@@ -355,8 +355,9 @@ const Scale = (props) => {
         <>
           <button
             type="button"
+            class="preset-action-btn"
             onClick={startImporting}
-            style={{ marginTop: "0.5rem", marginLeft: "0rem", fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+            style={{ marginTop: "0.5rem" }}
           >
             Edit Scala File
           </button>

@@ -1,3 +1,24 @@
+/* ============================================================
+   hex-style.css
+   Global styles for the main Hexatone application shell.
+
+   Sections (top-to-bottom layout order):
+     1.  Fonts & design tokens
+     2.  HTML / body reset            → index.html
+     3.  Global element defaults       → app.jsx
+     4.  Sidebar                       → app.jsx  src/settings/index.jsx
+     5.  Bottom controls bar           → app.jsx
+         5a. Octave island             → app.jsx
+         5b. Sustain island            → app.jsx
+         5c. Snapshot button + list    → app.jsx
+         5d. Redraw button             → app.jsx
+         5e. Panic button              → app.jsx
+     6.  iOS installation banner       → app.jsx
+   ============================================================ */
+
+
+/* ── 1. Fonts & design tokens ─────────────────────────────── */
+
 @font-face {
   font-family: "Plainsound Sans";
   src: url("./fonts/PlainsoundSans-Regular.otf");
@@ -20,9 +41,30 @@
 }
 
 :root {
-  --safe-area-left: env(safe-area-inset-left, 0px);
+  /* iOS safe-area insets (Dynamic Island, home bar) */
+  --safe-area-left:  env(safe-area-inset-left,  0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
+
+  /* Brand colour palette — used throughout app shell + settings */
+  --color-bg:         #faf9f8;   /* sidebar / input background */
+  --color-bg-btn:     #f0e9e9;   /* floating button background */
+  --color-bg-btn-alt: #f4efef;   /* sidebar action button background */
+  --color-border:     #c0aaaa;   /* floating button border */
+  --color-border-ui:  #c8b8b8;   /* sidebar input / fieldset border */
+  --color-text:       #330000;   /* primary dark text */
+  --color-accent:     #990000;   /* links, active states, destructive */
+  --color-accent-hot: #ff0000;   /* hover on links */
+  --color-latch:      #ff3333;   /* latch-active buttons */
+
+  /* Shared button geometry */
+  --btn-radius-pill:   999px;
+  --btn-radius-square: 4px;
+  --btn-transition:    background-color 0.15s ease;
 }
+
+
+/* ── 2. HTML / body reset ──────────────────────────────────── */
+/* → index.html */
 
 html,
 body {
@@ -37,61 +79,58 @@ body {
 body {
   -webkit-touch-callout: none;
   background-image: url("./img/Pattern3D_06.png");
-  transition: transform 0.3s ease-in-out;
   background-repeat: repeat;
   background-position: top left;
   background-attachment: scroll;
   font-family: "Plainsound Sans", sans-serif;
+  transition: transform 0.3s ease-in-out;
+}
+
+
+/* ── 3. Global element defaults ───────────────────────────── */
+/* → app.jsx (table used in settings panels too) */
+
+button {
+  cursor: pointer;
 }
 
 table {
   width: 100%;
 }
-.wide {
-  width: 50%;
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
 }
 
-#leftaligned {
-  text-align: left;
+a:hover {
+  color: var(--color-accent-hot);
 }
 
-#centered {
-  text-align: center;
-}
+/* One-off alignment helpers used in sidebar header */
+#leftaligned { text-align: left;   }
+#centered    { text-align: center; }
 
-#sidebar-spacer {
-  height: 0.7em;
-}
 
-/* Phone portrait: spacer prevents iOS bounce from hiding bottom content */
-@media (max-width: 480px) {
-  #sidebar-spacer {
-    height: 3em;
-  }
-}
-
-@media (max-height: 500px) and (orientation: landscape) {
-  #sidebar-spacer {
-    top: 75vh;
-    height: 1.5em;
-  }
-}
+/* ── 4. Sidebar ────────────────────────────────────────────── */
+/* → app.jsx  src/settings/index.jsx */
 
 #sidebar {
   transition: transform 0.3s ease-in-out;
   z-index: 10;
   overflow-x: hidden;
   overflow-y: auto;
-  background-color: #faf9f8;
-  color: #330000;
+  background-color: var(--color-bg);
+  color: var(--color-text);
 }
 
 #sidebar-button {
   position: fixed;
   z-index: 11;
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
+  background-color: var(--color-bg-btn);
+  border: 1px solid var(--color-border);
   -webkit-touch-callout: none;
+  -webkit-user-select: none;
   user-select: none;
   transition:
     background-color 0.15s ease,
@@ -99,19 +138,19 @@ table {
 }
 
 #sidebar-button.latch-active {
-  background-color: #ff3333;
+  background-color: var(--color-latch);
   border-color: #aa0000;
 }
 
-a {
-  color: #990000;
-  text-decoration: none;
+/* Spacer at the bottom of sidebar content prevents iOS bounce hiding items */
+#sidebar-spacer {
+  height: 0.7em;
 }
-a:hover {
-  color: #ff0000;
-}
-/* Sidebar is attached to top and fills viewport for small screens */
+
+/* Phone portrait: sidebar slides down from top */
 @media (max-width: 480px) {
+  #sidebar-spacer { height: 3em; }
+
   #sidebar {
     position: fixed;
     top: 0;
@@ -119,12 +158,7 @@ a:hover {
     height: 100%;
     width: 100%;
     box-sizing: border-box;
-    padding-top: 4em;
-    padding-left: 1em;
-    padding-right: 1em;
-    overflow-x: hidden;
-    background-color: #faf9f8;
-    color: #330000;
+    padding: 4em 1em 0;
   }
 
   #sidebar-button {
@@ -133,36 +167,19 @@ a:hover {
     left: 50vw;
     transform: translate(-50%, 0);
     transition: width 0.3s ease-in-out;
-    border-bottom-left-radius: 10px;
+    border-bottom-left-radius:  10px;
     border-bottom-right-radius: 10px;
   }
 
-  .hide #sidebar {
-    transform: translate(0, -100%);
-  }
-
-  .show #sidebar {
-    transform: translate(0, 0);
-  }
-
-  .hide #sidebar-button {
-    width: 2.5em;
-  }
-
-  .show #sidebar-button {
-    width: 50vw;
-  }
-
-  .hide #sidebar-button div {
-    transform: rotate(90deg);
-  }
-
-  .show #sidebar-button div {
-    transform: rotate(270deg);
-  }
+  .hide #sidebar          { transform: translate(0, -100%); }
+  .show #sidebar          { transform: translate(0, 0); }
+  .hide #sidebar-button   { width: 2.5em; }
+  .show #sidebar-button   { width: 50vw; }
+  .hide #sidebar-button div { transform: rotate(90deg); }
+  .show #sidebar-button div { transform: rotate(270deg); }
 }
 
-/* Sidebar is attached to left side for larger screens */
+/* Desktop / tablet: sidebar slides in from left */
 @media (min-width: 480px) {
   #sidebar {
     position: fixed;
@@ -172,8 +189,6 @@ a:hover {
     max-width: 40em;
     padding-left: 3.5em;
     padding-right: 1em;
-    background-color: #faf9f8;
-    color: #330000;
   }
 
   #sidebar-button {
@@ -182,46 +197,31 @@ a:hover {
     left: 0;
     transform: translate(0, -50%);
     transition: height 0.3s ease-in-out;
-    border-top-right-radius: 10px;
+    border-top-right-radius:    10px;
     border-bottom-right-radius: 10px;
   }
 
-  .hide #sidebar {
-    transform: translate(-100%, 0);
-  }
-
-  .show #sidebar {
-    transform: translate(0, 0);
-  }
-
-  .hide #sidebar-button {
-    height: 2.5em;
-  }
-
-  .show #sidebar-button {
-    height: 35vh;
-  }
-
-  .hide #sidebar-button div {
-    transform: rotate(0deg);
-  }
-
-  .show #sidebar-button div {
-    transform: rotate(180deg);
-  }
+  .hide #sidebar          { transform: translate(-100%, 0); }
+  .show #sidebar          { transform: translate(0, 0); }
+  .hide #sidebar-button   { height: 2.5em; }
+  .show #sidebar-button   { height: 35vh; }
+  .hide #sidebar-button div { transform: rotate(0deg); }
+  .show #sidebar-button div { transform: rotate(180deg); }
 }
-/* ── iOS landscape: move sidebar button clear of Dynamic Island ── */
+
+/* iOS landscape: button moves below Dynamic Island, sidebar spacer shrinks */
 @media (max-height: 500px) and (orientation: landscape) {
+  #sidebar-spacer { top: 75vh; height: 1.5em; }
+
   #sidebar-button {
     top: calc(env(safe-area-inset-top, 0px) + 0.5em);
     transform: none;
   }
 
   .hide #sidebar-button,
-  .show #sidebar-button {
-    height: 2.5em;
-  }
+  .show #sidebar-button { height: 2.5em; }
 
+  /* Button moves to the edge opposite any safe-area notch */
   #sidebar-button.landscape-safe-left {
     left: auto;
     right: 0;
@@ -241,7 +241,80 @@ a:hover {
   }
 }
 
-/* ── Phone portrait: keep OCT / SUSTAIN / PANIC in one evenly-spaced row ── */
+
+/* ── 5. Bottom controls bar ───────────────────────────────── */
+/* → app.jsx */
+
+#bottom-bar {
+  display: contents; /* children position themselves independently */
+}
+
+/* Hide all bottom controls when a text input is focused (software keyboard up) */
+.text-entry-active #bottom-bar,
+.text-entry-active #snapshot-list {
+  display: none !important;
+  pointer-events: none;
+}
+
+
+/* ── 5a. Octave island ────────────────────────────────────── */
+/* → app.jsx */
+
+#octave-island {
+  position: fixed;
+  bottom: 1.2em;
+  left: calc(50% - 13em);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: var(--btn-radius-pill);
+  background-color: var(--color-bg-btn);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.octave-btn {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-size: 0.85em;
+  padding: 0.45em 0.75em;
+  font-family: inherit;
+  line-height: 1;
+  transition: var(--btn-transition);
+}
+
+.octave-btn:active {
+  background-color: #ddcccc;
+}
+
+.octave-defer-active {
+  background-color: #f3cec5;
+  color: #8a2a1f;
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
+}
+
+.octave-display {
+  color: var(--color-accent);
+  font-size: 0.95em;
+  font-family: inherit;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  min-width: 2.8em;
+  text-align: center;
+  border-left:  1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  padding: 0.45em 0.3em;
+  pointer-events: none;
+}
+
+/* Phone portrait: all three bottom islands collapse into one centred flex row */
 @media (max-width: 600px) and (orientation: portrait) {
   #main-bottom-controls {
     position: fixed;
@@ -280,12 +353,13 @@ a:hover {
   }
 }
 
-/* ── Phone landscape: adjust bottom buttons to prevent overlap ── */
+/* Phone landscape: keep panic button clear of right edge */
 @media (max-height: 500px) and (orientation: landscape) {
   #sustain-island {
     left: 50%;
     transform: translateX(-50%);
   }
+
   #panic-button {
     right: 4.5em;
     left: auto;
@@ -293,60 +367,71 @@ a:hover {
   }
 }
 
-/* ── Sustain island — floating tap target centred at bottom ── */
-/* ── Bottom controls: SUSTAIN centred, panic left, redraw right ── */
-#bottom-bar {
-  display: contents;
-}
 
-#panic-button {
-  position: fixed;
-  bottom: 1.2em;
-  right: 4.5em;
-  z-index: 11;
-  padding: 0.45em 1.6em;
-  border-radius: 999px;
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
-  color: #990000;
-  font-size: 0.95em;
-  font-family: inherit;
-  letter-spacing: 0.04em;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-#panic-button:active {
-  background-color: #ddcccc;
-}
+/* ── 5b. Sustain island ───────────────────────────────────── */
+/* → app.jsx */
 
 #sustain-island {
+  /* Extends .floating-pill-btn — positioned centred */
   position: fixed;
   bottom: 1.2em;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 11;
-
   padding: 0.45em 1.6em;
-  border-radius: 999px;
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
-  color: #990000;
+  border-radius: var(--btn-radius-pill);
+  background-color: var(--color-bg-btn);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
   font-size: 0.95em;
   font-family: inherit;
   letter-spacing: 0.04em;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  cursor: pointer;
   transition:
     background-color 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
 }
 
-/* ── Snapshot list — glass panel above the snapshot button ── */
+#sustain-island.latch-active {
+  background-color: var(--color-latch);
+  border-color: #aa0000;
+  color: #fff;
+}
+
+#sustain-island:focus {
+  outline: none;
+}
+
+
+/* ── 5c. Snapshot button + list ───────────────────────────── */
+/* → app.jsx */
+
+#snapshot-button {
+  position: fixed;
+  bottom: 1.25em;
+  left: 0.6em;
+  z-index: 11;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+  background-color: var(--color-bg-btn);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-size: 1.1em;
+  line-height: 1;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: var(--btn-transition);
+}
+
+#snapshot-button:active {
+  background-color: #ddcccc;
+}
+
 #snapshot-list {
   position: fixed;
   bottom: 4.5em;
@@ -389,7 +474,7 @@ a:hover {
 
 .snapshot-play-btn {
   padding: 0.2em 0.65em;
-  border-radius: 999px;
+  border-radius: var(--btn-radius-pill);
   background-color: rgba(255, 248, 248, 0.75);
   border: 1px solid rgba(192, 160, 160, 0.6);
   color: #880000;
@@ -398,16 +483,15 @@ a:hover {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  cursor: pointer;
   transition: background-color 0.1s ease;
 }
 
-.snapshot-play-btn:active {
+.snapshot-play-btn:active,
+.snapshot-playing .snapshot-play-btn {
   background-color: rgba(220, 200, 200, 0.85);
 }
 
 .snapshot-playing .snapshot-play-btn {
-  background-color: rgba(220, 200, 200, 0.85);
   border-color: #aa0000;
   font-weight: bold;
 }
@@ -424,7 +508,6 @@ a:hover {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  cursor: pointer;
   transition:
     background-color 0.1s ease,
     color 0.1s ease;
@@ -433,33 +516,13 @@ a:hover {
 .snapshot-del-btn:hover,
 .snapshot-del-btn:active {
   background: rgba(180, 100, 100, 0.45);
-  color: #ffffff;
+  color: #fff;
   border-color: rgba(160, 80, 80, 0.6);
 }
 
-#snapshot-button {
-  position: fixed;
-  bottom: 1.25em;
-  left: 0.6em;
-  z-index: 11;
-  width: 2.2em;
-  height: 2.2em;
-  border-radius: 50%;
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
-  color: #990000;
-  font-size: 1.1em;
-  line-height: 1;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
 
-#snapshot-button:active {
-  background-color: #ddcccc;
-}
+/* ── 5d. Redraw button ────────────────────────────────────── */
+/* → app.jsx */
 
 #redraw-button {
   position: fixed;
@@ -469,133 +532,52 @@ a:hover {
   width: 2.2em;
   height: 2.2em;
   border-radius: 50%;
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
-  color: #990000;
+  background-color: var(--color-bg-btn);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
   font-size: 1.1em;
   line-height: 1;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: var(--btn-transition);
 }
 
 #redraw-button:active {
   background-color: #ddd0d0;
 }
 
-.text-entry-active #bottom-bar,
-.text-entry-active #snapshot-list {
-  display: none !important;
-  pointer-events: none;
-}
 
-#sustain-island {
+/* ── 5e. Panic button ─────────────────────────────────────── */
+/* → app.jsx */
+
+#panic-button {
+  /* Extends .floating-pill-btn — anchored bottom-right of sustain */
+  position: fixed;
+  bottom: 1.2em;
+  right: 4.5em;
+  z-index: 11;
   padding: 0.45em 1.6em;
-  border-radius: 999px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
-  color: #990000;
+  border-radius: var(--btn-radius-pill);
+  background-color: var(--color-bg-btn);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
   font-size: 0.95em;
   font-family: inherit;
   letter-spacing: 0.04em;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+  transition: var(--btn-transition);
 }
 
-#sustain-island.latch-active {
-  background-color: #ff3333;
-  border-color: #aa0000;
-  color: #fff;
-}
-
-#sustain-island:focus {
-  outline: none;
-}
-
-#octave-island {
-  position: fixed;
-  bottom: 1.2em;
-  left: calc(50% - 13em);
-  z-index: 11;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  border-radius: 999px;
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
-  overflow: hidden;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.octave-btn {
-  background: none;
-  border: none;
-  color: #990000;
-  font-size: 0.85em;
-  padding: 0.45em 0.75em;
-  cursor: pointer;
-  font-family: inherit;
-  line-height: 1;
-  transition: background-color 0.1s ease;
-}
-
-.octave-btn:active {
+#panic-button:active {
   background-color: #ddcccc;
 }
 
-.octave-defer-active {
-  background-color: #f3cec5;
-  color: #8a2a1f;
-  transition:
-    background-color 0.1s ease,
-    color 0.1s ease;
-}
 
-.octave-display {
-  color: #990000;
-  font-size: 0.95em;
-  font-family: inherit;
-  font-weight: bold;
-  letter-spacing: 0.04em;
-  min-width: 2.8em;
-  text-align: center;
-  border-left: 1px solid #c0aaaa;
-  border-right: 1px solid #c0aaaa;
-  padding: 0.45em 0.3em;
-  pointer-events: none;
-}
-
-#redraw-button {
-  width: 2.2em;
-  height: 2.2em;
-  border-radius: 50%;
-  background-color: #f0e9e9;
-  border: 1px solid #c0aaaa;
-  color: #990000;
-  font-size: 1.1em;
-  line-height: 1;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-#redraw-button:active {
-  background-color: #ddd0d0;
-}
+/* ── 6. iOS installation banner ──────────────────────────── */
+/* → app.jsx */
 
 #ios-banner {
   position: fixed;
@@ -606,7 +588,7 @@ a:hover {
   background: #1a1a2e;
   color: #e0e0e0;
   font-size: 0.85em;
-  padding: 0.7em 1em 0.9em 1em;
+  padding: 0.7em 1em 0.9em;
   text-align: center;
   line-height: 1.4;
 }
@@ -633,11 +615,10 @@ a:hover {
   position: static;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
+  border-radius: var(--btn-radius-pill);
   color: #e0e0e0;
   font-size: 0.95em;
   line-height: 1.2;
-  cursor: pointer;
   padding: 0.45em 0.9em;
 }
 

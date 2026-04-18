@@ -1,17 +1,52 @@
+/* ============================================================
+   settings.css
+   Styles for the settings sidebar and its panels.
+   Design tokens (colours, etc.) are defined in hex-style.css :root.
+
+   Sections (top-to-bottom layout order):
+     1.  Global element overrides for sidebar context
+         (headings, fieldsets, labels, tables, inputs, links)
+     2.  Colour cell widget          → scale/colors.js  scale/scale-table.js
+     3.  Preset panel                → custom-presets.js
+     4.  Scale table                 → scale/scale-table.js
+         4a. Column widths
+         4b. Row highlights: reference degree (yellow) + center degree (pink)
+         4c. Sidebar input alignment
+         4d. Degree gutter + cents badge
+         4e. Tune cell + drag handle + rationalise dropdown
+         4f. Scale table toolbar
+     5.  Scale panel controls        → scale/index.js
+     6.  Key Labels / HEJI panel     → scale/key-labels.js
+     7.  Search preferences panel    → scale/scale-table.js
+     8.  Reference Frequency row     → scale/index.js
+   ============================================================ */
+
+
+/* ── 1. Global element overrides for sidebar context ──────── */
+/* → settings/index.jsx and all sub-panels                     */
+
 h1 {
   text-align: center;
 }
 
 h1 a {
-  color: #330000;
+  color: var(--color-text);
+}
+
+/* Links inside settings panels — no blue, no underline */
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-accent-hot);
 }
 
 fieldset {
   margin-bottom: 0.5em;
-  border-width: 1px;
+  border: 1px solid var(--color-border-ui);
   border-radius: 3px;
-  border-color: #c8b8b8;
-  border-style: solid;
 }
 
 label {
@@ -44,51 +79,43 @@ table td > em {
   margin-left: 0.25em;
 }
 
+/* Top-align all table cells; the left (data) column drives row height */
+table td {
+  vertical-align: top;
+  padding-top: 0;
+  padding-bottom: 0;
+  position: relative;
+}
+
 textarea {
   width: 100%;
   height: 8.5em;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
-  background-color: #faf9f8;
-  border-width: 1px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border-ui);
   border-radius: 3px;
-  border-style: solid;
-  border-color: #c8b8b8;
 }
 
+/* Text inputs and selects share the same base appearance */
+input[type="text"],
 select {
   width: min(24em, 100%);
   height: 1.5em;
   box-sizing: border-box;
-  background-color: #faf9f8;
-  border-width: 1px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border-ui);
   border-radius: 3px;
-  border-style: solid;
-  border-color: #c8b8b8;
-}
-
-
-input[type="text"] {
-  width: min(24em, 100%);
-  height: 1.5em;
-  box-sizing: border-box;
-  background-color: #faf9f8;
-  border-width: 1px;
-  border-radius: 3px;
-  border-style: solid;
-  border-color: #c8b8b8;
 }
 
 input[type="color"] {
   height: 1.5em;
   width: 2.5em;
   box-sizing: border-box;
-  background-color: #faf9f8;
-  border-width: 1px;
+  background-color: var(--color-bg);
   color: rgb(245, 241, 240);
+  border: 1px solid var(--color-border-ui);
   border-radius: 3px;
-  border-style: solid;
-  border-color: #c8b8b8;
 }
 
 input[type="color"]::-webkit-color-swatch {
@@ -96,40 +123,114 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 3px;
 }
 
+/* Table text inputs only override width — base appearance comes from above */
 table input[type="text"] {
-  height: 1.5em;
   width: 95%;
-  box-sizing: border-box;
-  background-color: #faf9f8;
-  border-width: 1px;
-  border-radius: 3px;
-  border-style: solid;
-  border-color: #c8b8b8;
 }
 
-table input[type="color"] {
-  height: 1.5em;
-  width: 2.5em;
-  box-sizing: border-box;
-  background-color: #faf9f8;
-  border-width: 1px;
-  color: rgb(245, 241, 240);
-  border-radius: 3px;
-  border-style: solid;
-  border-color: #c8b8b8;
-}
-
+/* Out-of-range values shown with a red tint */
 input:out-of-range {
   background-color: #fde8e8;
-  color: #990000;
+  color: var(--color-accent);
 }
 
-/* Color swatch + hidden picker + hex text input used in the scale table */
+/* Custom checkbox — warm-grey, no browser chrome */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.1em;
+  height: 1.1em;
+  border: 1px solid #b0adb0;
+  border-radius: 3px;
+  background: var(--color-bg);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  vertical-align: middle;
+  margin: 0;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.2em;
+  top: 0.05em;
+  width: 0.35em;
+  height: 0.6em;
+  border: 2px solid rgb(243, 241, 240);
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(153, 0, 0, 0.25);
+}
+
+/* Range slider — warm-grey, no browser chrome */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 50%;
+  height: 1.1em;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track,
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  background: var(--color-border-ui);
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: none;
+  margin-top: -0.32em;
+  transition: background 0.1s ease;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: none;
+  transition: background 0.1s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:hover::-moz-range-thumb {
+  background: var(--color-accent-hot);
+}
+
+
+/* ── 2. Colour cell widget ─────────────────────────────────── */
+/* → scale/colors.js  scale/scale-table.js                     */
+
+/* Swatch + hidden picker + hex text input */
 .color-cell {
   display: flex;
   align-items: center;
-  flex-direction: row-reverse;
-  /* swatch on the right */
+  flex-direction: row-reverse; /* swatch on the right */
   justify-content: flex-end;
   gap: 2px;
   height: 1.5em;
@@ -161,6 +262,7 @@ input:out-of-range {
   box-shadow: none;
 }
 
+/* Transparent native picker sits over swatch — iOS needs a real touch target */
 .color-picker-hidden {
   position: absolute;
   right: 0;
@@ -171,21 +273,18 @@ input:out-of-range {
   border: none !important;
   opacity: 0;
   cursor: pointer;
-  /* Sit on top of the swatch so iOS registers a real touch on the picker */
   pointer-events: all;
 }
 
+/* Hex text input — hidden by default, shown on focus */
 .color-input {
-  /* Hidden by default — only shown when the cell is focused for editing */
   display: none;
   width: calc(100% - 1.8em) !important;
   padding: 0 0.3em;
   box-sizing: content-box;
-  background-color: #faf9f8;
-  border-width: 1px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border-ui);
   border-radius: 3px;
-  border-style: solid;
-  border-color: #c8b8b8;
   font-family: monospace;
   font-size: 1em;
   text-align: right;
@@ -196,11 +295,11 @@ input:out-of-range {
   cursor: not-allowed;
 }
 
-/* Expand colour cell on focus so full hex value is visible on narrow screens */
+/* Expand colour cell on focus — full hex value visible on narrow screens */
 .color-cell:focus-within {
   position: absolute;
   z-index: 5;
-  background: #faf9f8;
+  background: var(--color-bg);
   border-radius: 3px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   height: auto;
@@ -213,39 +312,24 @@ input:out-of-range {
   width: calc(10em - 1.8em) !important;
 }
 
-.delete-btn {
-  color: #990000;
-  width: 6em;
-  text-align: center;
-}
-
-.preset-error {
-  width: 100%;
-  margin: 0.25em 0 0;
-  color: #990000;
-  font-size: 0.85em;
-}
-
+/* Colour cell as right-hand side of a label row (not inside a table cell).
+   Fixed percentage margin positions it relative to sidebar width. */
 label .color-cell {
   flex-shrink: 0;
   width: auto;
   margin-left: 40%;
 }
 
-/* Mobile: reduce margin for narrow screens */
 @media (max-width: 550px) {
-  label .color-cell {
-    margin-left: 30%;
-  }
+  label .color-cell { margin-left: 30%; }
 }
 
-/* color-cell used as the right-hand side of a label row (not inside a table cell).
-   Uses margin-left: auto instead of a fixed percentage so it right-aligns correctly
-   on all screen widths including phone portrait. */
+/* Variant used in colors.js top row — margin-left: auto right-aligns on all widths */
 label .color-cell--label-rhs {
   margin-left: auto;
 }
 
+/* Always show the hex input text when the cell is inside a label (colors panel) */
 label .color-cell .color-input {
   display: block;
   width: 6.3em !important;
@@ -253,16 +337,32 @@ label .color-cell .color-input {
   text-align: right;
 }
 
-/* Mobile: stack buttons vertically */
-@media (max-width: 550px) {
-  .divide-octave-btn,
-  .edit-scala-btn {
-    margin-left: 0 !important;
-    margin-top: 0.5rem;
+/* Scale table colour column */
+td.scale-color-col {
+  padding: 0 3px;
+  text-align: right;
+}
+
+td.scale-color-col .color-cell {
+  width: 100%;
+  justify-content: flex-start; /* row-reverse: swatch pushed to right edge */
+}
+
+td.scale-color-col .color-input {
+  width: 100% !important;
+  min-width: 5.5em;
+}
+
+/* Laptop/desktop: always show hex value in the scale table colour column */
+@media (min-width: 481px) {
+  td.scale-color-col .color-input {
     display: block;
-    width: 100%;
   }
 }
+
+
+/* ── 3. Preset panel ──────────────────────────────────────── */
+/* → custom-presets.js                                         */
 
 .preset-actions {
   display: flex;
@@ -273,215 +373,41 @@ label .color-cell .color-input {
   line-height: 1.5em;
 }
 
+/* Shared style for all sidebar action buttons (Open, Save, Export, Copy…) */
 .preset-action-btn,
 .preset-utility-btn {
+  flex: 0 1 auto;
   max-width: 100%;
   white-space: normal;
   word-break: normal;
   overflow-wrap: anywhere;
   font-size: 1em;
-  padding: 0.25em 0.6em;
-  background: #f4efef;
-  border: 1px solid #c8b8b8;
-  color: #330000;
-  border-radius: 4px;
-}
-
-.preset-action-btn {
-  flex: 0 1 auto;
+  padding: 0.1em 0.6em;
+  background: var(--color-bg-btn-alt);
+  border: 1px solid var(--color-border-ui);
+  color: var(--color-text);
+  border-radius: var(--btn-radius-square);
 }
 
 .preset-utility-btn {
-  flex: 0 1 auto;
   min-width: fit-content;
 }
 
-.scale-degree-cell {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.45em;
+/* Delete / Clear All buttons — fixed width so they align as a pair */
+.delete-btn {
+  color: var(--color-accent);
+  width: 6em;
+  text-align: center;
+}
+
+.preset-error {
   width: 100%;
-}
-
-th.scale-data-col,
-td.scale-data-col {
-  width: 48%;
-}
-
-th.scale-frequency-col,
-td.scale-frequency-col {
-  width: 18%;
-}
-
-th.scale-name-col,
-td.scale-name-col {
-  width: 18%;
-}
-
-th.scale-color-col,
-td.scale-color-col {
-  width: 16%;
-}
-
-/* Phone portrait: scale degree data gets more room; freq/name/colour tighter */
-@media (max-width: 480px) {
-  .degree-gutter {
-    width: 2ch;
-    min-width: 2ch;
-  }
-
-  .scale-degree-cell {
-    gap: 0.1em;
-  }
-
-  th.scale-data-col,
-  td.scale-data-col {
-    width: 56%;
-  }
-
-  th.scale-frequency-col,
-  td.scale-frequency-col {
-    width: 14%;
-  }
-
-  th.scale-name-col,
-  td.scale-name-col {
-    width: 18%;
-    padding-right: 0;
-  }
-
-  td.scale-name-col input {
-    width: 100%;
-  }
-
-  th.scale-color-col,
-  td.scale-color-col {
-    width: 12%;
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  td.scale-color-col .color-cell {
-    /* row-reverse: flex-end pushes swatch to the left edge */
-    justify-content: flex-end;
-  }
-}
-
-/* Laptop/desktop: always show the hex colour value in the table */
-@media (min-width: 481px) {
-  td.scale-color-col .color-input {
-    display: block;
-  }
-}
-
-.degree-gutter {
-  width: 4ch;
-  min-width: 4ch;
-  padding-top: 0.1em;
-  text-align: right;
-  color: #7a6666;
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-  flex-shrink: 0;
-}
-
-/* ── Reference Degree row highlight ───────────────────────────────────── */
-/* Highlights the scale table row that corresponds to the reference_degree */
-/* (the degree tuned to the Reference Frequency) */
-
-/* Full row highlight (used for degrees 1-n and equave) */
-.reference-degree-row {
-  background-color: #fff8a8;
-  /* pale lemon yellow */
-}
-
-.reference-degree-label {
-  border-radius: 4px;
-}
-
-.reference-degree-row input:not(:disabled),
-.reference-degree-row .color-input,
-.reference-degree-row .color-cell:focus-within {
-  background-color: #fff8a8;
-}
-
-.center-degree-row {
-  background-color: #ffebed;
-}
-
-.center-degree-label {
-  border-radius: 4px;
-}
-
-.center-degree-row input:not(:disabled),
-.center-degree-row .color-input,
-.center-degree-row .color-cell:focus-within,
-.center-degree-row .sidebar-input,
-.center-degree-row .sidebar-input input {
-  background-color: #ffebed !important;
-}
-
-.reference-degree-row.center-degree-row {
-  background-color: #fff8a8;
-}
-
-.reference-degree-row.center-degree-row input:not(:disabled),
-.reference-degree-row.center-degree-row .color-input,
-.reference-degree-row.center-degree-row .color-cell:focus-within {
-  background-color: #fff8a8;
-}
-
-.reference-degree-row td:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.reference-degree-row td:last-child {
-  border-radius: 0 4px 4px 0;
-}
-
-/* Individual cell highlight (used for degree 0 right-side columns only) */
-.reference-degree-cell {
-  background-color: #fff8a8;
-  /* pale lemon yellow */
-}
-
-.reference-degree-cell:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.reference-degree-cell:last-child {
-  border-radius: 0 4px 4px 0;
-}
-
-/* Inputs and selects in sidebar label rows — width matches the start of the
-   scale table's "Degree" column, which is the right half of the .wide (50%)
-   first column. Using 50% here tracks the sidebar width automatically.
-   When used on a ScalaInput wrapper <span>, justify-content right-aligns
-   the inner input + cents preview. */
-.sidebar-input {
-  width: 50% !important;
-  text-align: right;
-  justify-content: flex-end;
-}
-
-/* Fixed-width cents badge shown to the right of ratio / EDO entries in the scale table.
-   4 digits + ¢ symbol fits up to 1200¢; text-align right keeps the ¢ flush. */
-.scala-input__cents {
-  display: inline-block;
-  width: 2.2em;
-  text-align: right;
-  color: #666;
+  margin: 0.25em 0 0;
+  color: var(--color-accent);
   font-size: 0.85em;
-  padding-right: 2px;
-  white-space: nowrap;
 }
 
-.scala-input__cents--error {
-  color: #c0392b;
-}
-
-
-/* Preset selector rows — select stays at natural width, buttons cluster at left */
+/* Preset selector row — select stays natural width, buttons cluster left */
 .preset-selector-row {
   justify-content: flex-start;
   gap: 6px;
@@ -489,6 +415,18 @@ td.scale-color-col {
 
 .preset-selector-row select {
   flex: none;
+}
+
+@media (max-width: 550px) {
+  .preset-selector-row {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .preset-selector-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }
 
 .preset-refresh-btn {
@@ -512,30 +450,187 @@ td.scale-color-col {
   transform: translateY(-0.02em);
 }
 
-@media (max-width: 550px) {
-  .preset-selector-row {
-    flex-wrap: nowrap;
-    align-items: center;
-  }
 
-  .preset-selector-row select {
-    flex: 1 1 auto;
-    min-width: 0;
+/* ── 4. Scale table ────────────────────────────────────────── */
+/* → scale/scale-table.js                                      */
+
+.scale-table-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+
+/* ── 4a. Column widths ─────────────────────────────────────── */
+
+.scale-degree-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45em;
+  width: 100%;
+}
+
+th.scale-data-col,      td.scale-data-col      { width: 48%; }
+th.scale-frequency-col, td.scale-frequency-col { width: 18%; }
+th.scale-name-col,      td.scale-name-col      { width: 18%; }
+th.scale-color-col,     td.scale-color-col     { width: 16%; }
+
+td.scale-name-col       { padding-right: 2px; }
+td.scale-name-col input { width: 100%; }
+
+/* Phone portrait: more room for degree data, tighter freq/name/colour */
+@media (max-width: 480px) {
+  .degree-gutter     { width: 2ch; min-width: 2ch; }
+  .scale-degree-cell { gap: 0.1em; }
+
+  th.scale-data-col,      td.scale-data-col      { width: 56%; }
+  th.scale-frequency-col, td.scale-frequency-col { width: 14%; }
+  th.scale-name-col,      td.scale-name-col      { width: 18%; padding-right: 0; }
+  th.scale-color-col,     td.scale-color-col     { width: 12%; padding-left: 0; padding-right: 0; }
+
+  td.scale-name-col input { width: 100%; }
+
+  td.scale-color-col .color-cell {
+    /* row-reverse: flex-end pushes swatch to the left edge on small screens */
+    justify-content: flex-end;
   }
 }
 
-/* ── Tune cell — live pitch tuning drag handle ─────────────────────────── */
 
-/* Top-align all cells. Left col drives row height (input + optional tune handle).
-   Right cols align to top of that, matching the input naturally. */
-table td {
-  vertical-align: top;
-  padding-top: 0;
-  padding-bottom: 0;
-  position: relative;
+/* ── 4b. Row highlights: reference degree (yellow) + center degree (pink) ── */
+/* Reference degree = degree tuned to Reference Frequency → pale yellow       */
+/* Center degree    = degree drawn at canvas center       → pale pink         */
+/*                                                                             */
+/* !important is required on input rules because                               */
+/* td.scale-frequency-col input.frequency-input has higher element+class      */
+/* specificity and would otherwise override the row background colour.         */
+
+.reference-degree-row { background-color: #fff8a8; }
+.center-degree-row    { background-color: #ffebed; }
+
+.reference-degree-label,
+.center-degree-label {
+  border-radius: var(--btn-radius-square);
 }
 
-/* freq-cell: input on top, tune handle directly below with a small gap. */
+.reference-degree-row input:not(:disabled),
+.reference-degree-row .color-input,
+.reference-degree-row .color-cell:focus-within {
+  background-color: #fff8a8 !important;
+}
+
+.center-degree-row input:not(:disabled),
+.center-degree-row .color-input,
+.center-degree-row .color-cell:focus-within,
+.center-degree-row .sidebar-input,
+.center-degree-row .sidebar-input input {
+  background-color: #ffebed !important;
+}
+
+/* When both classes apply, yellow (reference) wins across the entire row.
+   Double-class selector has higher specificity than either single-class rule. */
+.reference-degree-row.center-degree-row { background-color: #fff8a8; }
+
+.reference-degree-row.center-degree-row input:not(:disabled),
+.reference-degree-row.center-degree-row .color-input,
+.reference-degree-row.center-degree-row .color-cell:focus-within {
+  background-color: #fff8a8 !important;
+}
+
+.reference-degree-row td:first-child { border-radius: 4px 0 0 4px; }
+.reference-degree-row td:last-child  { border-radius: 0 4px 4px 0; }
+
+/* Individual cell highlight — used for degree-0 right-side columns only */
+.reference-degree-cell { background-color: #fff8a8; }
+
+.reference-degree-cell:first-child { border-radius: 4px 0 0 4px; }
+.reference-degree-cell:last-child  { border-radius: 0 4px 4px 0; }
+
+
+/* ── 4c. Sidebar input alignment ──────────────────────────── */
+
+/* Right-side inputs/selects in label rows align with the scale table data
+   column. 50% tracks sidebar width automatically. When used on a ScalaInput
+   <span> wrapper, justify-content right-aligns the inner input + cents preview. */
+.sidebar-input {
+  width: 50% !important;
+  text-align: right;
+  justify-content: flex-end;
+}
+
+/* Frequency inputs are editable — restore appearance over the disabled equave style */
+td.scale-frequency-col input.frequency-input {
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+  border-color: var(--color-border-ui);
+  background-color: var(--color-bg);
+  opacity: 1;
+}
+
+/* Equave row — auto-generated, read-only appearance */
+input.equiv-cell,
+input.equiv-cell:disabled,
+table input:disabled {
+  color: #bb9999;
+  border-color: #e8d8d8;
+  background: transparent;
+  -webkit-text-fill-color: #bb9999; /* overrides iOS/Safari disabled grey */
+  opacity: 1;                        /* iOS reduces opacity on disabled inputs */
+}
+
+
+/* ── 4d. Degree gutter + cents badge ──────────────────────── */
+
+.degree-gutter {
+  width: 4ch;
+  min-width: 4ch;
+  padding-top: 0.1em;
+  text-align: right;
+  color: #7a6666;
+  font-variant-numeric: tabular-nums;
+  -webkit-user-select: none;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Fixed-width cents badge beside ratio/EDO entries — 4 digits + ¢ fits 1200¢ */
+.scala-input__cents {
+  display: inline-block;
+  width: 2.2em;
+  text-align: right;
+  color: #666;
+  font-size: 0.85em;
+  padding-right: 2px;
+  white-space: nowrap;
+}
+
+.scala-input__cents--error {
+  color: #c0392b;
+}
+
+/* HEJI auto-generated name cell in the Name column */
+.heji-name-cell {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: "Plainsound Sans", serif;
+  font-size: 0.95em;
+  padding: 2px 0;
+}
+
+/* Tonic cue label shown beside degree 0 */
+.tonic-label {
+  line-height: 1.5;
+  color: #996666;
+  font-size: 0.85em;
+}
+
+
+/* ── 4e. Tune cell + drag handle + rationalise dropdown ───── */
+
+/* freq-cell: ScalaInput <span> wrapper + <input> fill available width,
+   tune handle sits flush to the right. Both the span and its inner input
+   need flex/min-width so the cell stretches correctly. */
 .freq-cell {
   display: flex;
   flex-direction: row;
@@ -544,8 +639,15 @@ table td {
   width: 100%;
 }
 
-/* tune-cell sits inline with the input — no vertical margins.
-   When dirty, cents+buttons appear and the row expands naturally. */
+.freq-cell input,
+.freq-cell > span,
+.freq-cell > span input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+/* tune-cell sits inline with the input — expands naturally when dirty */
 .tune-cell {
   display: flex;
   flex-direction: row;
@@ -557,16 +659,14 @@ table td {
   position: relative;
 }
 
-/* Equave row has no TuneCell — spacer matches tune handle (28px) + tune-cell
-   left margin (4px) = 32px. The right margin of the tune-cell is not needed
-   since there is nothing to its right in the equave row. */
+/* Equave row has no TuneCell — spacer reserves equivalent horizontal space */
 .tune-cell-spacer {
   display: inline-flex;
   width: 38px;
   flex-shrink: 0;
 }
 
-/* Scale the inline FundamentalTuneCell to match the scale table tune-cells */
+/* Inline variant used for FundamentalTuneCell in the Reference Frequency row */
 .tune-cell--inline {
   display: inline-flex;
   flex-direction: row;
@@ -577,6 +677,7 @@ table td {
 
 .tune-handle {
   cursor: ew-resize;
+  -webkit-user-select: none;
   user-select: none;
   display: inline-flex;
   align-items: center;
@@ -585,30 +686,22 @@ table td {
   height: 16px;
   border-radius: 3px;
   background: #ede8e8;
-  color: #330000;
+  color: var(--color-text);
   touch-action: none;
-  border: 1px solid #c8b8b8;
+  border: 1px solid var(--color-border-ui);
   font-size: 1.7em;
   margin-left: auto;
-  /* right-align to match input above */
-  margin-right: 0px;
+  margin-right: 0;
 }
 
-.tune-handle:hover {
-  background: #ddd0d0;
-  color: #330000;
-}
-
-.tune-handle:active {
-  background: #ccbbbb;
-  cursor: grabbing;
-}
+.tune-handle:hover  { background: #ddd0d0; }
+.tune-handle:active { background: #ccbbbb; cursor: grabbing; }
 
 .tune-delta {
   font-family: monospace;
   font-size: 1.35em;
   line-height: 1;
-  color: #990000;
+  color: var(--color-accent);
   min-width: 4em;
   text-align: right;
   padding-left: 2px;
@@ -633,60 +726,44 @@ table td {
   width: 26px;
   height: 22px;
   padding: 0;
-  border: 1px solid #c8b8b8;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-ui);
+  border-radius: var(--btn-radius-square);
   background: #ede8e8;
-  color: #330000;
-  cursor: pointer;
+  color: var(--color-text);
   font-size: 1.05em;
   line-height: 1;
 }
 
-.tune-btn:hover {
-  background: #ddd0d0;
-  color: #330000;
-}
+.tune-btn:hover { background: #ddd0d0; }
 
-.tune-btn--active {
-  background: #ede8e8;
-  color: #330000;
-  border-color: #c8b8b8;
-}
-
-.tune-btn--save {
-  color: #330000;
-  border-color: #c8b8b8;
-}
-
-.tune-btn--save:hover {
-  background: #ede8e8;
-}
-
+/* Modifier variants — only differing properties listed */
 .tune-btn--revert {
-  color: #990000;
+  color: var(--color-accent);
   border-color: #cc9999;
 }
 
-.tune-btn--revert:hover {
-  background: #f5eded;
-}
+.tune-btn--revert:hover { background: #f5eded; }
 
 .tune-btn--rationalise {
   color: #335577;
   border-color: #aebfcf;
 }
 
-.tune-btn--rationalise:hover {
-  background: #edf3f7;
+.tune-btn--rationalise:hover { background: #edf3f7; }
+
+.tune-btn-compare {
+  font-size: 1.3em;
+  line-height: 1;
 }
 
+/* Rationalise candidate dropdown */
 .rationalise-dropdown {
   position: absolute;
   top: calc(100% + 3px);
   left: 0;
   z-index: 20;
   min-width: 238px;
-  background: #faf9f8;
+  background: var(--color-bg);
   border: 1px solid #d6caca;
   border-radius: 6px;
   box-shadow: 0 3px 10px rgba(51, 0, 0, 0.08);
@@ -704,11 +781,10 @@ table td {
   padding: 3px 7px 5px;
   margin-bottom: 3px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--btn-radius-square);
   background: transparent;
-  color: #330000;
+  color: var(--color-text);
   text-align: left;
-  cursor: pointer;
   font-family: monospace;
   font-size: 1em;
 }
@@ -726,16 +802,14 @@ table td {
   font-size: 0.88em;
 }
 
-.rationalise-candidate:hover {
-  background: #f3ecec;
-}
+.rationalise-candidate:hover { background: #f3ecec; }
 
 .rationalise-candidate--committed .rationalise-candidate__ratio {
   font-style: italic;
 }
 
 .rationalise-candidate--out-of-bounds .rationalise-candidate__ratio {
-  color: #990000;
+  color: var(--color-accent);
   font-style: italic;
 }
 
@@ -743,13 +817,8 @@ table td {
   color: #bb6666;
 }
 
-.rationalise-candidate__ratio {
-  font-weight: 700;
-}
-
-.rationalise-candidate__meta {
-  color: #885f5f;
-}
+.rationalise-candidate__ratio { font-weight: 700; }
+.rationalise-candidate__meta  { color: #885f5f; }
 
 .rationalise-candidate__score {
   margin-left: auto;
@@ -757,45 +826,8 @@ table td {
   color: #336633;
 }
 
-.tune-btn-compare {
-  font-size: 1.3em;
-  line-height: 1;
-}
 
-/* Tonic cue label */
-.tonic-label {
-  line-height: 1.5;
-  color: #996666;
-  font-size: 0.85em;
-}
-
-/* Equave row — auto-generated, read-only feel */
-input.equiv-cell,
-input.equiv-cell:disabled,
-table input:disabled {
-  color: #bb9999;
-  border-color: #e8d8d8;
-  background: transparent;
-  -webkit-text-fill-color: #bb9999;
-  /* overrides iOS/Safari disabled grey */
-  opacity: 1;
-  /* iOS reduces opacity on disabled inputs */
-}
-
-/* Frequency inputs are editable — do not inherit the read-only equave style */
-td.scale-frequency-col input.frequency-input {
-  color: inherit;
-  -webkit-text-fill-color: currentColor;
-  border-color: #c8b8b8;
-  background-color: #faf9f8;
-  opacity: 1;
-}
-
-.scale-table-workspace {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-}
+/* ── 4f. Scale table toolbar ──────────────────────────────── */
 
 .scale-table-toolbar {
   display: flex;
@@ -807,18 +839,15 @@ td.scale-frequency-col input.frequency-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.25em 0.6em;
-  border: 1px solid #c8b8b8;
-  border-radius: 4px;
-  background: #f4efef;
-  color: #330000;
-  cursor: pointer;
+  padding: 0.1em 0.6em;
+  border: 1px solid var(--color-border-ui);
+  border-radius: var(--btn-radius-square);
+  background: var(--color-bg-btn-alt);
+  color: var(--color-text);
   font-size: 1em;
 }
 
-.scale-table-toolbar__rationalise {
-  margin-left: 0.5em;
-}
+.scale-table-toolbar__rationalise { margin-left: 0.5em; }
 
 .scale-table-toolbar__toggle:hover,
 .scale-table-toolbar__rationalise:hover {
@@ -830,18 +859,9 @@ td.scale-frequency-col input.frequency-input {
   cursor: default;
 }
 
-/* Shared panel style — used by search prefs, the User Manual, and Scala File fieldsets.
-   Only adds position:relative for the close button; border/padding/radius come from
-   the global fieldset rule so these panels match all other fieldsets in the sidebar. */
-.settings-panel {
-  position: relative;
-}
 
-/* HEJI anchor fieldset: extra breathing room above since it sits immediately
-   below the Key Labels select row. */
-.heji-anchor-fieldset {
-  margin-top: 0.75em;
-}
+/* ── 5. Scale panel controls ──────────────────────────────── */
+/* → scale/index.js                                            */
 
 /* Divide Equave / Divide Octave button row */
 .divide-btns {
@@ -860,10 +880,24 @@ td.scale-frequency-col input.frequency-input {
   }
 }
 
-.scale-search-prefs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55em;
+
+/* ── 6. Key Labels / HEJI panel ───────────────────────────── */
+/* → scale/key-labels.js                                       */
+
+/* Extra breathing room above HEJI anchor fieldset, which sits immediately
+   below the Key Labels select row */
+.heji-anchor-fieldset {
+  margin-top: 0.75em;
+}
+
+
+/* ── 7. Search preferences panel ─────────────────────────── */
+/* → scale/scale-table.js                                      */
+
+/* Shared wrapper — adds position:relative for the close button.
+   Border/padding/radius come from the global fieldset rule. */
+.settings-panel {
+  position: relative;
 }
 
 .settings-panel__close {
@@ -873,14 +907,19 @@ td.scale-frequency-col input.frequency-input {
   padding: 0.3em 0.4em;
   font-size: 1em;
   line-height: 1;
-  cursor: pointer;
   background: inherit;
   border: none;
-  color: #990000;
+  color: var(--color-accent);
 }
 
 .settings-panel__close:hover {
   color: #660000;
+}
+
+.scale-search-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
 }
 
 .scale-search-prefs legend {
@@ -897,24 +936,30 @@ td.scale-frequency-col input.frequency-input {
   color: #5e4444;
 }
 
-.scale-search-prefs__top-row select {
-  flex: 1 1 auto;
-  min-width: 0;
-}
+.scale-search-prefs__top-row select { flex: 1 1 auto; min-width: 0; }
+.scale-search-prefs__top-row button { flex-shrink: 0; }
 
-.scale-search-prefs__top-row button {
-  flex-shrink: 0;
-}
-
-/* Row 1: five controls side by side — Region gets more space than the others */
+/* Main row: Region / Type / Range / Odd-limit / Prime-limit controls */
 .scale-search-prefs__row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 0.55em 0.8em;
 }
 
+/* Per-prime step bounds — all primes in CANONICAL_MONZO_BASIS above 2 */
+.scale-search-prefs__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45em;
+}
+
+/* Custom mode: same 7 columns, narrower dual inputs */
+.scale-search-prefs__grid--custom {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+/* Phone portrait: custom mode collapses to 4 columns with stacked inputs */
 @media (max-width: 480px) {
-  /* Custom mode prime grid: 4 columns, inputs stacked vertically per prime */
   .scale-search-prefs__grid--custom {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -945,22 +990,8 @@ td.scale-frequency-col input.frequency-input {
   width: 100%;
 }
 
-/* Row 2: per-prime step bounds — all primes in CANONICAL_MONZO_BASIS above 2 */
-.scale-search-prefs__grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.45em;
-}
-
-/* In custom mode the dual inputs are narrower but keep the same 7-column grid */
-.scale-search-prefs__grid--custom {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-
-/* Primes above the current prime limit are shown dimmed and disabled */
-.scale-search-prefs__prime--inactive {
-  opacity: 0.35;
-}
+/* Primes above the current prime limit — dimmed and non-interactive */
+.scale-search-prefs__prime--inactive { opacity: 0.35; }
 
 .scale-search-prefs__prime--inactive input {
   background: #f0ecec;
@@ -972,7 +1003,7 @@ td.scale-frequency-col input.frequency-input {
   color: #5e4444;
 }
 
-/* u [input] [input] ° laid out in a row */
+/* UT [min input] [max input] OT laid out in a row */
 .scale-search-prefs__prime-pair {
   display: flex;
   align-items: center;
@@ -983,206 +1014,39 @@ td.scale-frequency-col input.frequency-input {
   min-width: 0;
   width: 100%;
   flex: 1 1 0;
-  border: 1px solid #c8b8b8;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-ui);
+  border-radius: var(--btn-radius-square);
   background: #fffdfc;
-  color: #330000;
-  padding: 0.2em 0.2em;
+  color: var(--color-text);
+  padding: 0.2em;
   text-align: center;
 }
 
-.scale-search-prefs__prime-badge {
-  color: #774444;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.scale-search-prefs__prime-badge--ut {
-  color: #555599;
-}
-
-.scale-search-prefs__prime-badge--ot {
-  color: #995555;
-}
+.scale-search-prefs__prime-badge        { color: #774444; flex-shrink: 0; line-height: 1; }
+.scale-search-prefs__prime-badge--ut    { color: #555599; }
+.scale-search-prefs__prime-badge--ot    { color: #995555; }
 
 
-/* Freq input fills available width, handle sits flush to its right.
-   ScalaInput wraps <input> in a <span> — both the span wrapper and
-   the input itself need flex/min-width so the cell stretches correctly. */
-.freq-cell input,
-.freq-cell > span {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-}
-.freq-cell > span input {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-}
+/* ── 8. Reference Frequency row ───────────────────────────── */
+/* → scale/index.js                                            */
 
-td.scale-name-col input {
-  width: 100%;
-}
-
-td.scale-name-col {
-  padding-right: 2px;
-}
-
-.heji-name-cell {
-  display: block;
-  width: 100%;
-  text-align: center;
-  font-family: "Plainsound Sans", serif;
-  font-size: 0.95em;
-  padding: 2px 0;
-}
-
-td.scale-color-col {
-  padding: 0 3px;
-  text-align: right;
-}
-
-td.scale-color-col .color-cell {
-  width: 100%;
-  /* row-reverse: flex-start pushes swatch to the right edge */
-  justify-content: flex-start;
-}
-
-td.scale-color-col .color-input {
-  width: 100% !important;
-  min-width: 5.5em;
-}
-
-/* ── Reference Frequency row ──────────────────────────────────────────
- * The right-side wrapper mirrors the scale table's freq-cell pattern:
- * input fills available space, tune handle fixed at right edge.
- * Width matches .sidebar-input (50%) so it aligns with rows below.
- * Tweak --fundamental-input-width to adjust the input portion.
- * ------------------------------------------------------------------- */
+/* Right-side wrapper mirrors freq-cell pattern: input fills space, tune handle
+   at right. Width matches .sidebar-input (50%) so it aligns with rows below. */
 .fundamental-right {
   display: flex;
   align-items: center;
   gap: 4px;
-  width: 50%; /* matches .sidebar-input */
-  margin-left: auto; /* right-aligns like .sidebar-input */
+  width: 50%;
+  margin-left: auto;
 }
 
 .fundamental-right input {
-  flex: 1; /* fills space left after tune handle */
+  flex: 1;
   min-width: 0;
   text-align: right;
   height: 1.5em;
   box-sizing: border-box;
-  background-color: #faf9f8;
-  border: 1px solid #c8b8b8;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border-ui);
   border-radius: 3px;
-}
-
-/* ── Links — no blue, no underline; inherit sidebar text colour ─────────── */
-a {
-  color: #990000;
-  text-decoration: none;
-}
-
-a:hover {
-  color: #ff0000;
-}
-
-/* Checkboxes — custom warm-grey appearance — also when inside sidebar-input span */
-input[type="checkbox"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 1.1em;
-  height: 1.1em;
-  border: 1px solid #b0adb0;
-  border-radius: 3px;
-  background: #faf9f8;
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-  vertical-align: middle;
-  margin: 0;
-}
-
-input[type="checkbox"]:checked {
-  background: #990000;
-  border-color: #990000;
-}
-
-input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 0.2em;
-  top: 0.05em;
-  width: 0.35em;
-  height: 0.6em;
-  border: 2px solid rgb(243, 241, 240);
-  border-top: none;
-  border-left: none;
-  transform: rotate(45deg);
-}
-
-input[type="checkbox"]:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(153, 0, 0, 0.25);
-}
-
-/* ── Range slider — warm-grey, no browser chrome ───────────────────────── */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 50%;
-  height: 1.1em;
-  background: transparent;
-  cursor: pointer;
-  margin: 0;
-  padding: 0;
-  vertical-align: middle;
-}
-
-input[type="range"]:focus {
-  outline: none;
-}
-
-/* Track */
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 3px;
-  background: #c8b8b8;
-  border-radius: 2px;
-}
-
-input[type="range"]::-moz-range-track {
-  height: 3px;
-  background: #c8b8b8;
-  border-radius: 2px;
-}
-
-/* Thumb */
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 0.85em;
-  height: 0.85em;
-  border-radius: 50%;
-  background: #990000;
-  border: none;
-  margin-top: -0.32em;
-  transition: background 0.1s ease;
-}
-
-input[type="range"]::-moz-range-thumb {
-  width: 0.85em;
-  height: 0.85em;
-  border-radius: 50%;
-  background: #990000;
-  border: none;
-  transition: background 0.1s ease;
-}
-
-input[type="range"]:hover::-webkit-slider-thumb {
-  background: #ff0000;
-}
-
-input[type="range"]:hover::-moz-range-thumb {
-  background: #ff0000;
 }

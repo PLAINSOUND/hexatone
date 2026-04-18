@@ -144,7 +144,8 @@ const KeyLabels = (props) => {
           </label>
           <button
             type="button"
-            style={{ marginTop: "0.5em", fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px", whiteSpace: "nowrap" }}
+            class="preset-action-btn"
+            style={{ marginTop: "0.5em", whiteSpace: "nowrap" }}
             disabled={!props.heji_names?.length}
             onClick={copyHejiToNoteNames}
           >

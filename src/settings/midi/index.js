@@ -379,14 +379,10 @@ const MIDIio = (props) => {
                   >
                     <button
                       type="button"
+                      class="preset-action-btn"
                       onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
                       disabled={tonalPlexus205Mode}
-                      style={{
-                        fontSize: "0.8em",
-                        whiteSpace: "nowrap",
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
+                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                     >
                       {tonalPlexus205Mode
                         ? "Fixed"
@@ -610,7 +606,7 @@ const MIDIio = (props) => {
                             >
                               <button
                                 type="button"
-                                style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+                                class="preset-action-btn"
                                 disabled={!hasSysexMidi}
                                 title="Send notes + blank layout to Lumatone via sysex (~10–15 s, one-time setup)"
                                 onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
@@ -647,7 +643,7 @@ const MIDIio = (props) => {
                               />
                               <button
                                 type="button"
-                                style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+                                class="preset-action-btn"
                                 disabled={!hasSysexMidi}
                                 onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
                               >
@@ -721,7 +717,7 @@ const MIDIio = (props) => {
                                 />
                                 <button
                                   type="button"
-                                  style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+                                  class="preset-action-btn"
                                   disabled={!hasSysexMidi}
                                   onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}
                                 >
@@ -729,7 +725,7 @@ const MIDIio = (props) => {
                                 </button>
                                 <button
                                   type="button"
-                                  style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
+                                  class="preset-action-btn"
                                   disabled={!hasSysexMidi}
                                   onClick={() =>
                                     props.keysRef?.current?.exquisLEDs?.clearColors?.()
@@ -1141,13 +1137,9 @@ const MIDIio = (props) => {
                   >
                     <button
                       type="button"
+                      class="preset-action-btn"
                       onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
-                      style={{
-                        fontSize: "0.8em",
-                        whiteSpace: "nowrap",
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
+                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                     >
                       {props.midiLearnActive ? "● Listening…" : "Learn"}
                     </button>

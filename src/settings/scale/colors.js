@@ -146,8 +146,8 @@ const Colors = (props) => {
             <span class="sidebar-input" style={{ textAlign: "right" }}>
               <button
                 type="button"
+                class="preset-action-btn"
                 aria-label="Load Spectrum Colors"
-                style={{ fontSize: "1em", padding: "0.25em 0.6em", background: "#f4efef", border: "1px solid #c8b8b8", color: "#330000", borderRadius: "4px" }}
                 onClick={handleLoadSpectrumColors}
               >
                 Load Spectrum Colors to Scale Table
