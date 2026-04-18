@@ -6,18 +6,18 @@
    Sections (top-to-bottom layout order):
      1.  Global element overrides for sidebar context
          (headings, fieldsets, labels, tables, inputs, links)
-     2.  Colour cell widget          → scale/colors.js  scale/scale-table.js
+     2.  Colour cell widget          → scale/colors.js  scale/scale-table/color-cell.js
      3.  Preset panel                → custom-presets.js
-     4.  Scale table                 → scale/scale-table.js
+     4.  Scale table                 → scale/scale-table/index.js
          4a. Column widths
          4b. Row highlights: reference degree (yellow) + center degree (pink)
          4c. Sidebar input alignment
          4d. Degree gutter + cents badge
-         4e. Tune cell + drag handle + rationalise dropdown
+         4e. Tune cell + drag handle + rationalise dropdown  (scale/scale-table/tune-cell.js)
          4f. Scale table toolbar
      5.  Scale panel controls        → scale/index.js
      6.  Key Labels / HEJI panel     → scale/key-labels.js
-     7.  Search preferences panel    → scale/scale-table.js
+     7.  Search preferences panel    → scale/scale-table/index.js
      8.  Reference Frequency row     → scale/index.js
    ============================================================ */
 
@@ -224,7 +224,7 @@ input[type="range"]:hover::-moz-range-thumb {
 
 
 /* ── 2. Colour cell widget ─────────────────────────────────── */
-/* → scale/colors.js  scale/scale-table.js                     */
+/* → scale/colors.js  scale/scale-table/color-cell.js          */
 
 /* Swatch + hidden picker + hex text input */
 .color-cell {
@@ -452,7 +452,7 @@ td.scale-color-col .color-input {
 
 
 /* ── 4. Scale table ────────────────────────────────────────── */
-/* → scale/scale-table.js                                      */
+/* → scale/scale-table/index.js                                */
 
 .scale-table-workspace {
   display: flex;
@@ -892,7 +892,7 @@ table input:disabled {
 
 
 /* ── 7. Search preferences panel ─────────────────────────── */
-/* → scale/scale-table.js                                      */
+/* → scale/scale-table/index.js                                */
 
 /* Shared wrapper — adds position:relative for the close button.
    Border/padding/radius come from the global fieldset rule. */
