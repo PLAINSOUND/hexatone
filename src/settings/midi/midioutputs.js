@@ -56,6 +56,59 @@ const sendMpePitchBendRange = (
   }
 };
 
+/**
+ * Inline clickable port-name for FluidSynth output selection.
+ * Renders as a single <span> so it can sit alongside a button in a flex row.
+ * When a port is auto-detected its name is shown in green.
+ * Clicking switches to a <select> listing all available outputs so the
+ * user can pick an alternate port (e.g. on Windows where port names differ).
+ * Choosing "Auto detect" clears the override and reverts to name-based detection.
+ */
+function OutputPortPicker({ label, portName, outputs, overridePortId, onChange }) {
+  const [picking, setPicking] = useState(false);
+  const connected = !!portName;
+  const isOverride = !!overridePortId;
+
+  if (picking) {
+    return (
+      <span style={{ display: "flex", alignItems: "baseline", gap: "4px", flex: 1 }}>
+        <span style={{ whiteSpace: "nowrap" }}>{label}</span>
+        <select
+          style={{ fontSize: "0.85em", flex: 1 }}
+          value={overridePortId ?? "__auto__"}
+          onChange={(e) => {
+            const val = e.target.value === "__auto__" ? null : e.target.value;
+            onChange(val);
+            setPicking(false);
+          }}
+          onBlur={() => setPicking(false)}
+          ref={(el) => el && setTimeout(() => el.focus(), 0)}
+        >
+          <option value="__auto__">Auto detect</option>
+          {outputs && Array.from(outputs.values()).map((o) => (
+            <option key={o.id} value={o.id}>{o.name}</option>
+          ))}
+        </select>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      style={{ display: "flex", alignItems: "baseline", gap: "6px", flex: 1, cursor: "pointer" }}
+      title="Click to choose a different output port"
+      onClick={() => setPicking(true)}
+    >
+      <span>{label}</span>
+      <span style={{ fontSize: "0.85em", fontStyle: "italic", color: connected ? "#669966" : "#996666" }}>
+        {connected
+          ? `${isOverride ? "▸ " : ""}${portName}`
+          : "Not found — click to choose"}
+      </span>
+    </span>
+  );
+}
+
 const MidiOutputs = (props) => {
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
@@ -99,8 +152,11 @@ const MidiOutputs = (props) => {
   ]);
 
   // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
+  // If the user has manually overridden the port, use that instead.
   // macOS FluidSynth creates a new port on each launch; we find it by name.
-  const fluidsynthOutput = outputs.find((m) => m.name.toLowerCase().includes("fluid")) ?? null;
+  const fluidsynthOutput = settings.fluidsynth_out_port
+    ? (outputs.find((m) => m.id === settings.fluidsynth_out_port) ?? null)
+    : (outputs.find((m) => m.name.toLowerCase().includes("fluid")) ?? null);
   const fluidsynthFound = !!fluidsynthOutput;
   const fluidsynthId = fluidsynthOutput?.id ?? "";
   // When the FluidSynth port disappears, clear the saved device so the UI
@@ -234,52 +290,19 @@ const MidiOutputs = (props) => {
                 fire a second synthetic click on the button (via the label's implicit
                 control activation), which arrives after Preact re-renders with
                 fsConnected=true and immediately triggers the Disconnect branch. */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  alignItems: "baseline",
-                  marginTop: "0.5em",
-                  lineHeight: "1.5em",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: "10px",
-                      height: "10px",
-                      borderRadius: "50%",
-                      background: fsConnected ? "#22cc44" : fluidsynthFound ? "#558855" : "#1a4422",
-                      boxShadow: fsConnected ? "0 0 5px #22cc44" : "none",
-                      flexShrink: 0,
-                      alignSelf: "top",
-                    }}
-                  />
-                  <span>FluidSynth</span>
-                  {fluidsynthFound && (
-                    <span
-                      style={{
-                        fontSize: "0.85em",
-                        color: "#669966",
-                      }}
-                    >
-                      [ {fluidsynthOutput.name} ]
-                    </span>
-                  )}
-                </span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.5em", gap: "6px" }}>
+                <OutputPortPicker
+                  label="FluidSynth"
+                  portName={fluidsynthOutput?.name ?? null}
+                  outputs={props.midi?.outputs}
+                  overridePortId={settings.fluidsynth_out_port ?? null}
+                  onChange={(portId) => onChange("fluidsynth_out_port", portId)}
+                />
                 <button
                   type="button"
+                  class="preset-action-btn"
                   disabled={(!fluidsynthFound && !fsConnected) || (!!fluidsynthFound && mtsPortIsFluidsynth && !fsConnected)}
-                  style={{
-                    fontSize: "0.85em",
-                    background: fsConnected ? "#22cc44" : undefined,
-                    color: fsConnected ? "#003300" : undefined,
-                    borderColor: fsConnected ? "#22cc44" : undefined,
-                    marginBottom: 3,
-                    marginTop: 10,
-                  }}
+                  style={fsConnected ? { background: "#22cc44", color: "#003300", borderColor: "#22cc44" } : undefined}
                   onClick={() => {
                     if (fsConnected) {
                       save("fluidsynth_device", "", onChange);
@@ -304,9 +327,9 @@ const MidiOutputs = (props) => {
                       ? "Disconnect FluidSynth mirror"
                       : mtsPortIsFluidsynth
                         ? "FluidSynth is already selected as the main MTS port"
-                      : fluidsynthFound
-                        ? "Connect MTS mirror to FluidSynth"
-                        : "FluidSynth not found"
+                        : fluidsynthFound
+                          ? "Connect MTS mirror to FluidSynth"
+                          : "FluidSynth not found"
                   }
                 >
                   {fsConnected
@@ -713,17 +736,10 @@ const MidiOutputs = (props) => {
               )}
               <label>
                 MPE Configuration (RPN)
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginLeft: "auto",
-                  }}
-                >
+                <span class="sidebar-input" style={{ display: "flex", justifyContent: "flex-end" }}>
                   <button
                     type="button"
-                    style={{ fontSize: "0.85em", marginTop: "4px" }}
+                    class="preset-action-btn"
                     onClick={() => {
                       const output = WebMidi.getOutputById(settings.mpe_device);
                       if (output) {
@@ -835,6 +851,7 @@ MidiOutputs.propTypes = {
     center_degree: PropTypes.number,
     output_mpe: PropTypes.bool,
     output_direct: PropTypes.bool,
+    fluidsynth_out_port: PropTypes.string,
     fluidsynth_device: PropTypes.string,
     fluidsynth_channel: PropTypes.number,
     direct_device: PropTypes.string,

@@ -23,6 +23,7 @@
  * ── NRPN configuration tables ────────────────────────────────────────────────
  *
  * Invariant (both modes):
+ *   NPRN 245 = 1   Turn on User Firmware mode
  *   NRPN 227 = 0   Row offset = No Overlap
  *   NRPN 36  = 3   Octave = −2   (0=−5 … 5=0 … 10=+5)
  *   NRPN 37  = 1   Transpose pitch = −6 st  (0=−7, 1=−6 … 7=0 … 14=+7)
@@ -96,6 +97,7 @@ export function configureLinnStrument(output, mpeEnabled) {
   if (!output) return;
 
   // ── Invariant settings ────────────────────────────────────────────────────
+  sendNrpn(output, 245, 1);  // User Firmware Mode = ON
   sendNrpn(output, 227, 0);  // Row offset = No Overlap
   sendNrpn(output, 36,  3);  // Octave = −2
   sendNrpn(output, 37,  1);  // Transpose = −6 semitones
@@ -135,7 +137,24 @@ export function configureLinnStrument(output, mpeEnabled) {
     sendNrpn(output, 28, 0);  // Z = Poly Aftertouch
   }
 
-  console.log(`[LinnStrument] Configured: ${mpeEnabled ? "MPE (Ch Per Note)" : "single-channel"}`);
+  console.log(`[LinnStrument] Configured: ${mpeEnabled ? "MPE (Ch Per Note)" : "single-channel"}, User Firmware Mode on`);
+}
+
+/**
+ * Restore LinnStrument factory defaults for the settings Hexatone overrides.
+ * Call when the user deselects the LinnStrument or disables MIDI input,
+ * so the device returns to stand-alone playable mode.
+ *
+ * Restores:
+ *   NRPN 245 = 0 
+ *
+ * @param {MIDIOutput} output  Raw Web MIDI output port.
+ */
+export function unconfigureLinnStrument(output) {
+  if (!output) return;
+
+  sendNrpn(output, 245, 0);  // Turn off User Firmware mode
+  console.log("[LinnStrument] Restored factory defaults, User Firmware Mode off");
 }
 
 // ── LED colour sync ────────────────────────────────────────────────────────────
@@ -528,6 +547,10 @@ export class LinnStrumentLEDs {
     // Last-sent palette values per cell, indexed by note (0–127).
     // Initialised to -1 so first sendColors() always paints all cells.
     this._last = new Int8Array(128).fill(-1);
+    // Only send LED data when User Firmware Mode is active (NRPN 245 = 1).
+    // Guards all send methods so colour data is never written while the device
+    // is in normal firmware mode and manages its own display.
+    this.userFirmwareActive = false;
   }
 
   /**
@@ -536,7 +559,7 @@ export class LinnStrumentLEDs {
    *                           Missing entries default to black (Off).
    */
   sendColors(colors) {
-    if (!this._out) return;
+    if (!this._out || !this.userFirmwareActive) return;
     for (let note = 0; note < 128; note++) {
       const pv = hexToLinnsPaletteValue(colors[note] ?? "#000000");
       this._sendCell(note, pv);
@@ -547,7 +570,7 @@ export class LinnStrumentLEDs {
    * Same as sendColors but skips cells whose palette value hasn't changed.
    */
   updateColors(colors) {
-    if (!this._out) return;
+    if (!this._out || !this.userFirmwareActive) return;
     for (let note = 0; note < 128; note++) {
       const pv = hexToLinnsPaletteValue(colors[note] ?? "#000000");
       if (pv !== this._last[note]) {
@@ -563,7 +586,7 @@ export class LinnStrumentLEDs {
    * @param {Uint8Array|number[]} values  128 palette values.
    */
   sendPaletteValues(values) {
-    if (!this._out) return;
+    if (!this._out || !this.userFirmwareActive) return;
     for (let note = 0; note < 128; note++) {
       this._sendCell(note, values[note] ?? LINNS_OFF);
     }
@@ -573,7 +596,7 @@ export class LinnStrumentLEDs {
    * Same as sendPaletteValues but skips unchanged cells.
    */
   updatePaletteValues(values) {
-    if (!this._out) return;
+    if (!this._out || !this.userFirmwareActive) return;
     for (let note = 0; note < 128; note++) {
       const pv = values[note] ?? LINNS_OFF;
       if (pv !== this._last[note]) {
@@ -584,7 +607,7 @@ export class LinnStrumentLEDs {
 
   /** Turn off all 128 pads (Off = 7). */
   clearColors() {
-    if (!this._out) return;
+    if (!this._out || !this.userFirmwareActive) return;
     for (let note = 0; note < 128; note++) {
       this._sendCell(note, LINNS_OFF);
     }

@@ -584,7 +584,7 @@ function buildLinnstrumentMap(anchorNote) {
         ch: 1,
         note,
         x: (col - anchorCol) + dr,
-        y: -dr,
+        y: dr === 0 ? 0 : -dr,
       });
     }
   }
@@ -797,9 +797,11 @@ export const CONTROLLER_REGISTRY = [
     name: "Roger Linn Design LinnStrument 128",
     detect: (name) => name.includes("linnstrument"),
     description:
-      "16×8 grid. Hexatone auto-configures note layout and expression routing via NRPN on connect. " +
-      "MPE mode uses ch 2–15 for voices; single-channel mode uses ch 1 with Smart MIDI pitch bend.",
-    // Note number encodes physical position (note = row*16 + col).
+      "16×8 isomorphic grid. On connect Hexatone auto-configures the device via NRPN burst " +
+      "(row offset, octave/transpose, bend range, MIDI mode) then enables User Firmware Mode " +
+      "(NRPN 245=1) so Hexatone owns the LED display. On disconnect NRPN 245=0 restores the " +
+      "device's own split/colour layout. MPE mode uses ch 2–15 for voices; single-channel uses ch 1.",
+    // Note number encodes physical position: note = rowFromBottom * 16 + col.
     // Channel is per-voice in MPE mode or always 1 in single-channel mode —
     // it does NOT encode layout position, so multiChannel must be false.
     multiChannel: false,

@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
   detectController,
@@ -7,6 +7,134 @@ import {
 } from "../../controllers/registry.js";
 import { saveControllerPref } from "../../input/controller-anchor.js";
 import ScalaInput from "../scale/scala-input.js";
+
+/**
+ * Clickable output-port status indicator.
+ *
+ * When a port is auto-detected its name is shown in green.
+ * Clicking switches to a <select> listing all available outputs so the
+ * user can pick an alternate port (e.g. on Windows where port names differ).
+ * Choosing "Auto" clears the override and reverts to name-based detection.
+ */
+function OutputPortPicker({ label, rawPorts, outputs, overridePortId, onChange }) {
+  const [picking, setPicking] = useState(false);
+  const connected = !!rawPorts;
+  const portName = rawPorts?.output?.name ?? null;
+  const isOverride = !!overridePortId;
+
+  if (picking) {
+    return (
+      <label style={{ fontStyle: "italic", marginTop: "0.5em" }}>
+        {label}
+        <select
+          class="sidebar-input"
+          style={{ fontSize: "0.85em" }}
+          value={overridePortId ?? "__auto__"}
+          onChange={(e) => {
+            const val = e.target.value === "__auto__" ? null : e.target.value;
+            onChange(val);
+            setPicking(false);
+          }}
+          onBlur={() => setPicking(false)}
+          ref={(el) => el && setTimeout(() => el.focus(), 0)}
+        >
+          <option value="__auto__">Auto detect</option>
+          {outputs && Array.from(outputs.values()).map((o) => (
+            <option key={o.id} value={o.id}>{o.name}</option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  return (
+    <label
+      style={{ marginTop: "0.5em", cursor: "pointer" }}
+      title="Click to choose a different output port"
+      onClick={() => setPicking(true)}
+    >
+      {label}
+      <span
+        class="sidebar-input"
+        style={{
+          textAlign: "right",
+          fontSize: "0.85em",
+          fontStyle: "italic",
+          color: connected ? "#669966" : "#996666",
+        }}
+      >
+        {connected
+          ? `${isOverride ? "▸ " : ""}${portName}`
+          : "Not found — click to choose"}
+      </span>
+    </label>
+  );
+}
+
+/**
+ * Debug toggle for LinnStrument User Firmware mode (NRPN 245).
+ * NRPN 245 = 1 hands LED/input control to the host; 0 restores device firmware.
+ * State is local — the device cannot report its current value.
+ */
+function LinnUserFirmwareToggle({ rawPorts, keysRef }) {
+  const out = rawPorts?.output ?? null;
+  // When the port connects, configureLinnStrument has already sent NRPN 245=1
+  // and set userFirmwareActive=true on the instance.  Track that state here.
+  // Reset to false when port disappears.
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!out) {
+      setEnabled(false);
+      return;
+    }
+    // Port just appeared — configureLinnStrument (in app.jsx) has already sent
+    // the full NRPN burst ending with NRPN 245=1. Re-send 245=1 here as a
+    // belt-and-suspenders confirmation after all effects have settled, and set
+    // the flag on the LinnStrumentLEDs instance so colour sends are unblocked.
+    const id = setTimeout(() => {
+      sendNrpn245(out, 1);
+      const keys = keysRef?.current;
+      const leds = keys?.linnstrumentLEDs;
+      if (leds) leds.userFirmwareActive = true;
+      // Do NOT auto-send colours on connect — user must press Send Now or
+      // manually toggle User Firmware off/on with Auto Send enabled.
+      setEnabled(true);
+    }, 50);
+    return () => clearTimeout(id);
+  }, [out]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sendNrpn245 = (output, value) => {
+    const ch = 0xb0;
+    output.send([ch, 99, 1]);    // param MSB (245 >> 7 = 1)
+    output.send([ch, 98, 117]);  // param LSB (245 & 0x7f = 117)
+    output.send([ch, 6,  0]);    // value MSB
+    output.send([ch, 38, value & 0x7f]);
+    output.send([ch, 101, 127]);
+    output.send([ch, 100, 127]);
+  };
+
+  const toggle = (e) => {
+    const on = e.target.checked;
+    if (out) sendNrpn245(out, on ? 1 : 0);
+    const keys = keysRef?.current;
+    const leds = keys?.linnstrumentLEDs;
+    if (leds) leds.userFirmwareActive = on;
+    setEnabled(on);
+  };
+
+  return (
+    <label style={{ marginTop: "0.3em" }}>
+      User Firmware Mode
+      <input
+        type="checkbox"
+        checked={enabled}
+        disabled={!out}
+        onChange={toggle}
+      />
+    </label>
+  );
+}
 
 const MANUAL_CONTROLLER_OPTIONS = [
   { id: "axis49",          label: "AXIS-49" },
@@ -576,23 +704,16 @@ const MIDIio = (props) => {
                     {/* LED sync only makes sense in 2D geometry mode */}
                     {!props.settings.midi_passthrough && (
                       <>
-                        <label
-                          style={{
-                            fontStyle: "italic",
-                            color: props.lumatoneRawPorts ? "#669966" : "#996666",
-                            marginTop: "0.5em",
+                        <OutputPortPicker
+                          label="LED Output"
+                          rawPorts={props.lumatoneRawPorts}
+                          outputs={props.midi?.outputs}
+                          overridePortId={props.settings.lumatone_out_port ?? null}
+                          onChange={(id) => {
+                            props.onChange("lumatone_out_port", id);
+                            sessionStorage.setItem("lumatone_out_port", id ?? "");
                           }}
-                        >
-                          LED Output
-                          <span
-                            class="sidebar-input"
-                            style={{ textAlign: "right", fontSize: "0.85em" }}
-                          >
-                            {props.lumatoneRawPorts
-                              ? `Connected — ${props.lumatoneRawPorts.output.name}`
-                              : "Not found (output port unavailable)"}
-                          </span>
-                        </label>
+                        />
                         {/* Layout file (.ltn) — TODO: reimplement export using registry geometry */}
                         {props.lumatoneRawPorts && (
                           <label>
@@ -671,7 +792,6 @@ const MIDIio = (props) => {
                     //   port, ok      → green, "Connected — <name>"
                     //   port, failed  → red,   "Firmware x found: please update to use key colours"
                     const isFailed = portConnected && ledStatus && !ledStatus.ok;
-                    const labelColor = !portConnected || isFailed ? "#996666" : "#669966";
                     const statusText = !portConnected
                       ? "Not found (output port unavailable)"
                       : isFailed
@@ -679,17 +799,21 @@ const MIDIio = (props) => {
                         : `Connected — ${props.exquisRawPorts.output.name}`;
                     return (
                       <>
-                        <label
-                          style={{ fontStyle: "italic", color: labelColor, marginTop: "0.5em" }}
-                        >
-                          LED Output
-                          <span
-                            class="sidebar-input"
-                            style={{ textAlign: "right", fontSize: "0.85em" }}
-                          >
+                        <OutputPortPicker
+                          label="LED Output"
+                          rawPorts={isFailed ? null : props.exquisRawPorts}
+                          outputs={props.midi?.outputs}
+                          overridePortId={props.settings.exquis_out_port ?? null}
+                          onChange={(id) => {
+                            props.onChange("exquis_out_port", id);
+                            sessionStorage.setItem("exquis_out_port", id ?? "");
+                          }}
+                        />
+                        {isFailed && (
+                          <span style={{ color: "#996666", fontSize: "0.85em", fontStyle: "italic" }}>
                             {statusText}
                           </span>
-                        </label>
+                        )}
                         {portConnected && !isFailed && (
                           <>
                             <label>
@@ -1130,6 +1254,18 @@ const MIDIio = (props) => {
 
                 {/* ── LinnStrument LED colour sync ── */}
                 {ctrl?.id === "linnstrument128" && !scaleMode && (
+                  <>
+                  <OutputPortPicker
+                    label="MIDI Output"
+                    rawPorts={props.linnstrumentRawPorts}
+                    outputs={props.midi?.outputs}
+                    overridePortId={props.settings.linnstrument_out_port ?? null}
+                    onChange={(id) => {
+                      props.onChange("linnstrument_out_port", id);
+                      sessionStorage.setItem("linnstrument_out_port", id ?? "");
+                    }}
+                  />
+                  <LinnUserFirmwareToggle rawPorts={props.linnstrumentRawPorts} keysRef={props.keysRef} />
                   <label style={{ marginTop: "0.3em" }}>
                     Auto Send Colours
                     <span
@@ -1151,7 +1287,6 @@ const MIDIio = (props) => {
                           const keys = props.keysRef?.current;
                           if (keys) keys.settings.linnstrument_led_sync = e.target.checked;
                           if (e.target.checked) keys?.syncLinnstrumentLEDs?.();
-                          else keys?.linnstrumentLEDs?.clearColors?.();
                         }}
                       />
                       <button
@@ -1170,6 +1305,7 @@ const MIDIio = (props) => {
                       </button>
                     </span>
                   </label>
+                  </>
                 )}
               </>
             ) : (
@@ -1432,7 +1568,8 @@ MIDIio.propTypes = {
   midiAccessError: PropTypes.string,
   midiLearnActive: PropTypes.bool,
   lumatoneRawPorts: PropTypes.object,
-  exquisRawOutput: PropTypes.object,
+  exquisRawPorts: PropTypes.object,
+  linnstrumentRawPorts: PropTypes.object,
   keysRef: PropTypes.object,
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,

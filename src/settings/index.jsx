@@ -43,6 +43,7 @@ const Settings = ({
   midiLearnActive,
   lumatoneRawPorts,
   exquisRawPorts,
+  linnstrumentRawPorts,
   exquisLedStatus,
 }) => (
   <div autoComplete="off" role="group" aria-label="Hexatone settings">
@@ -119,6 +120,7 @@ const Settings = ({
       midiLearnActive={midiLearnActive}
       lumatoneRawPorts={lumatoneRawPorts}
       exquisRawPorts={exquisRawPorts}
+      linnstrumentRawPorts={linnstrumentRawPorts}
       exquisLedStatus={exquisLedStatus}
       keysRef={keysRef}
     />

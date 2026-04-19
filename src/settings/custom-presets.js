@@ -377,7 +377,7 @@ const CustomPresets = ({
 
       {/* ── Save / Export — show when a preset is active ── */}
       {activeSource && (
-        <label
+        <div
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -398,7 +398,7 @@ const CustomPresets = ({
               Export .ltn
             </button>*/}
           </span>
-        </label>
+        </div>
       )}
 
       {error && <p class="preset-error">{error}</p>}

@@ -27,7 +27,7 @@ import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
 import { ExquisLEDs } from "./controllers/exquis-leds.js";
 import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
-import { LinnStrumentLEDs, configureLinnStrument } from "./controllers/linnstrument-config.js";
+import { LinnStrumentLEDs, configureLinnStrument, unconfigureLinnStrument } from "./controllers/linnstrument-config.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
@@ -769,6 +769,7 @@ const App = () => {
   useEffect(() => {
     if (!linnstrumentRawPorts) {
       if (linnstrumentLedsRef.current) {
+        // Port is already gone (device unplugged) — just drop the reference.
         linnstrumentLedsRef.current.exit();
         linnstrumentLedsRef.current = null;
         if (keysRef.current) keysRef.current.linnstrumentLEDs = null;
@@ -784,13 +785,17 @@ const App = () => {
     linnstrumentLedsRef.current = leds;
     if (keysRef.current) {
       keysRef.current.linnstrumentLEDs = leds;
-      if (keysRef.current.settings?.linnstrument_led_sync) keysRef.current.syncLinnstrumentLEDs();
     }
 
     return () => {
-      leds.exit();
+      // Gate all further LED sends immediately — must happen before anything
+      // else so that any colour-sync triggered by the cleanup re-render is
+      // blocked before unconfigureLinnStrument sends its NRPN burst.
+      leds.userFirmwareActive = false;
+      unconfigureLinnStrument(linnstrumentRawPorts.output);
       linnstrumentLedsRef.current = null;
       if (keysRef.current) keysRef.current.linnstrumentLEDs = null;
+      leds.exit();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linnstrumentOutId]); // mpe mode re-config handled by separate effect below
@@ -801,9 +806,6 @@ const App = () => {
   useEffect(() => {
     if (linnstrumentRawPorts?.output) {
       configureLinnStrument(linnstrumentRawPorts.output, !!settings.midiin_mpe_input);
-      if (keysRef.current?.settings?.linnstrument_led_sync) {
-        keysRef.current.syncLinnstrumentLEDs();
-      }
     }
   }, [settings.midiin_mpe_input]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -876,9 +878,7 @@ const App = () => {
       if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
         keys.syncExquisLEDs();
       }
-      if (linnstrumentLedsRef.current && keys.settings?.linnstrument_led_sync) {
-        keys.syncLinnstrumentLEDs();
-      }
+      // LinnStrument: never auto-send on connect — user controls via Send Now button.
     },
     [],
   );
@@ -1219,6 +1219,7 @@ const App = () => {
           keysRef={keysRef}
           lumatoneRawPorts={lumatoneRawPorts}
           exquisRawPorts={exquisRawPorts}
+          linnstrumentRawPorts={linnstrumentRawPorts}
           exquisLedStatus={exquisLedStatus}
           snapshots={snapshots}
           playingSnapshotId={playingSnapshotId}

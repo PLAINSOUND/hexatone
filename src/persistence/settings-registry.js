@@ -235,6 +235,14 @@ export const SETTINGS_REGISTRY = [
   { key: "mpe_pitchbend_range_manager", tier: "session", type: "int", default: 2 },
 
   // ── FluidSynth / OSC mirror ───────────────────────────────────────────────────
+  {
+    key: "fluidsynth_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for FluidSynth (null = auto-detect by name)",
+  },
   { key: "fluidsynth_device", tier: "session", type: "string", default: "" },
   { key: "fluidsynth_channel", tier: "session", type: "int", default: -1 },
   { key: "output_osc", tier: "session", type: "bool", default: false },
@@ -268,6 +276,30 @@ export const SETTINGS_REGISTRY = [
 
   // ── LED sync ─────────────────────────────────────────────────────────
   {
+    key: "lumatone_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for Lumatone (null = auto-detect by name)",
+  },
+  {
+    key: "exquis_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for Exquis (null = auto-detect by name)",
+  },
+  {
+    key: "linnstrument_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for LinnStrument (null = auto-detect by name)",
+  },
+  {
     key: "lumatone_led_sync",
     tier: "local",
     type: "bool",
@@ -287,7 +319,7 @@ export const SETTINGS_REGISTRY = [
     key: "linnstrument_led_sync",
     tier: "local",
     type: "bool",
-    default: true,
+    default: false,
     perController: false,
     description: "Auto Send Colours to LinnStrument LEDs when scale changes",
   },

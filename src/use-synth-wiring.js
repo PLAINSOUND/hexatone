@@ -1038,12 +1038,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "lumatone") return null;
-    // The Lumatone exposes both input and output ports with the same device name.
-    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    // Manual override takes precedence; fall back to name-match auto-detect.
+    const rawOut = settings.lumatone_out_port
+      ? midi.outputs.get(settings.lumatone_out_port)
+      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override, settings.lumatone_out_port]); // midiTick forces re-run on device connect/disconnect
 
   // When the active MIDI input is an Exquis, resolve both raw Web MIDI ports.
   // Output is needed for SysEx sends (LED colors, dev mode).
@@ -1055,11 +1057,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "exquis") return null;
-    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    const rawOut = settings.exquis_out_port
+      ? midi.outputs.get(settings.exquis_out_port)
+      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override, settings.exquis_out_port]); // midiTick forces re-run on device connect/disconnect
 
   // When the active MIDI input is a LinnStrument 128, resolve the matching raw
   // Web MIDI output port for NRPN configuration sends and CC LED updates.
@@ -1070,11 +1074,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "linnstrument128") return null;
-    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    const rawOut = settings.linnstrument_out_port
+      ? midi.outputs.get(settings.linnstrument_out_port)
+      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
+  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override, settings.linnstrument_out_port]); // midiTick forces re-run on device connect/disconnect
 
   return {
     synth,
