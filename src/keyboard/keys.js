@@ -678,6 +678,7 @@ class Keys {
     // have a stable, long-lived lifecycle independent of Keys reconstruction.
     this.lumatoneLEDs = null;
     this.exquisLEDs = null;
+    this.linnstrumentLEDs = null;
   } // end of constructor
 
   /**
@@ -993,6 +994,10 @@ class Keys {
     if (this.exquisLEDs && this.settings.exquis_led_sync) {
       this.exquisLEDs.sendColors(this._buildExquisColorArray());
     }
+
+    if (this.linnstrumentLEDs && this.settings.linnstrument_led_sync) {
+      this.linnstrumentLEDs.updateColors(this._buildLinnstrumentColorArray());
+    }
   };
 
   /**
@@ -1137,6 +1142,34 @@ class Keys {
       this.exquisLEDs.sendColors(this._buildExquisColorArray());
     }
   };
+
+  syncLinnstrumentLEDs = () => {
+    if (this.linnstrumentLEDs && this.controllerMap) {
+      this.linnstrumentLEDs.sendColors(this._buildLinnstrumentColorArray());
+    }
+  };
+
+  /**
+   * Build a 128-element color array for the LinnStrument 128, indexed by
+   * MIDI note number (0–127).  note = rowFromBottom * 16 + col.
+   *
+   * Uses _getLumatoneHexColor (Lumatone-space transfer) as the colour
+   * pipeline — same saturation-boosted mapping used for Lumatone and Exquis.
+   * Unmapped notes default to black.
+   *
+   * @returns {string[]}  128 CSS hex colors ('#rrggbb')
+   */
+  _buildLinnstrumentColorArray() {
+    const colors = new Array(128).fill("#000000");
+    for (const [mapKey, coords] of this.controllerMap) {
+      // mapKey format: "ch.note"  ch = rowFromBottom+1, note = rowFromBottom*16+col
+      const note = parseInt(mapKey.slice(mapKey.indexOf(".") + 1), 10);
+      if (note >= 0 && note <= 127) {
+        colors[note] = this._getLumatoneHexColor(coords);
+      }
+    }
+    return colors;
+  }
 
   /**
    * Send the complete Lumatone layout — note/channel (CMD 00h) + colour (CMD 01h)
@@ -1364,8 +1397,9 @@ class Keys {
     // Stop any snapshot that is still playing.
     this.stopSnapshot();
 
-    // lumatoneLEDs is owned by app.jsx (same as exquisLEDs) — not destroyed here.
+    // lumatoneLEDs / exquisLEDs / linnstrumentLEDs are owned by app.jsx — not destroyed here.
     this.lumatoneLEDs = null;
+    this.linnstrumentLEDs = null;
 
     window.removeEventListener("resize", this.resizeHandler, false);
     window.removeEventListener("orientationchange", this.resizeHandler, false);

@@ -266,7 +266,7 @@ export const SETTINGS_REGISTRY = [
   { key: "wheel_scale_aware", tier: "session", type: "bool", default: false },
   { key: "midi_wheel_semitones", tier: "session", type: "int", default: 2 },
 
-  // ── Lumatone LED sync ─────────────────────────────────────────────────────────
+  // ── LED sync ─────────────────────────────────────────────────────────
   {
     key: "lumatone_led_sync",
     tier: "local",
@@ -282,6 +282,14 @@ export const SETTINGS_REGISTRY = [
     default: true,
     perController: false,
     description: "Auto Send Colours to Exquis LEDs when scale changes",
+  },
+  {
+    key: "linnstrument_led_sync",
+    tier: "local",
+    type: "bool",
+    default: true,
+    perController: false,
+    description: "Auto Send Colours to LinnStrument LEDs when scale changes",
   },
   {
     key: "exquis_led_luminosity",

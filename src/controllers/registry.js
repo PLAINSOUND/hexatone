@@ -550,23 +550,42 @@ export function normalizeTonalPlexus41InputWithSettings(channel, note, settings 
 }
 
 // ── LinnStrument 128 ──────────────────────────────────────────────────────────
-// 16 columns × 8 rows, multi-channel (each row = one channel, channels 1–8).
-// Default note layout: each column = +1 semitone, each row = +5 semitones up.
-// note = anchorNote + col * colStep + (row-anchorRow) * rowStep
-// colStep = 1, rowStep = 5 (standard 4ths tuning, configurable on device).
+// 16 columns × 8 rows.  With Hexatone's auto-configuration (No Overlap row
+// offset, Octave −2, Transpose −6), the device sends:
+//   note = rowFromBottom * 16 + col   (rowFromBottom: 0 = bottom row)
+//
+// In single-channel mode all notes arrive on ch 1.
+// In MPE mode each voice arrives on its own channel (2–15), but note number
+// alone still encodes the physical pad position.
+// multiChannel is therefore false — the map uses ch=1 for all entries,
+// and keys.js normalises the lookup to ch=1 in both modes.
+//
+// Hex-grid coordinate mapping:
+//   x = col − anchorCol + (rowFromBottom − anchorRowFromBottom)
+//   y = anchorRowFromBottom − rowFromBottom
+//
+// This gives:
+//   right one col  → (x+1, y+0) → steps = rSteps
+//   up one row     → (x+1, y−1) → steps = rSteps − drSteps  (dR interval)
 
-function buildLinnstrumentMap(anchorNote, colStep = 1, rowStep = 5) {
-  const COLS = 16,
-    ROWS = 8;
-  // LinnStrument sends note on channel = row+1 (row 0 = ch1)
-  // Find anchor row and col from anchorNote (assume anchor is at row 0 col 0)
+function buildLinnstrumentMap(anchorNote) {
+  const COLS = 16;
+  const ROWS = 8;
+  const note1 = Math.max(0, Math.min(127, anchorNote));
+  const anchorRowFromBottom = Math.floor(note1 / COLS);
+  const anchorCol = note1 % COLS;
+
   const entries = [];
-  for (let row = 0; row < ROWS; row++) {
-    const ch = row + 1;
+  for (let rowFromBottom = 0; rowFromBottom < ROWS; rowFromBottom++) {
+    const dr = rowFromBottom - anchorRowFromBottom;
     for (let col = 0; col < COLS; col++) {
-      const note = anchorNote + col * colStep + row * rowStep;
-      if (note < 0 || note > 127) continue;
-      entries.push({ ch, note, x: col, y: -row }); // y inverted: higher row = higher pitch
+      const note = rowFromBottom * COLS + col;
+      entries.push({
+        ch: 1,
+        note,
+        x: (col - anchorCol) + dr,
+        y: -dr,
+      });
     }
   }
   return makeMap(entries);
@@ -778,14 +797,39 @@ export const CONTROLLER_REGISTRY = [
     name: "Roger Linn Design LinnStrument 128",
     detect: (name) => name.includes("linnstrument"),
     description:
-      "16×8 grid, row per channel (ch1–8). Sends MPE: per-voice pitch bend, pressure, and CC74.",
-    multiChannel: true,
-    mpe: true, // each row's channel carries per-voice expression for that voice
-    // LinnStrument uses ch 1–8 (one per row); configurable on device but 1–8 is the default.
-    // null here means user-configurable — the MPE channel range picker is shown in the UI.
-    mpeVoiceChannels: null,
-    anchorDefault: 30,
-    buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 30),
+      "16×8 grid. Hexatone auto-configures note layout and expression routing via NRPN on connect. " +
+      "MPE mode uses ch 2–15 for voices; single-channel mode uses ch 1 with Smart MIDI pitch bend.",
+    // Note number encodes physical position (note = row*16 + col).
+    // Channel is per-voice in MPE mode or always 1 in single-channel mode —
+    // it does NOT encode layout position, so multiChannel must be false.
+    multiChannel: false,
+    mpe: true,
+    // Voice channels are fixed by Hexatone's auto-config: manager=1, voices=2–15.
+    // The range picker is hidden in the UI (mpeVoiceChannels is non-null).
+    mpeVoiceChannels: { lo: 2, hi: 15 },
+    anchorDefault: 0, // note 0 = bottom-left after auto-config
+    learnConstraints: {
+      noteRange: { min: 0, max: 127 },
+    },
+    defaultMode: "mpe",
+    modes: {
+      mpe: {
+        defaultPrefs: {
+          anchorNote: 0,
+          midi_passthrough: false,
+          midiin_mpe_input: true,
+        },
+      },
+      single: {
+        defaultPrefs: {
+          anchorNote: 0,
+          midi_passthrough: false,
+          midiin_mpe_input: false,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midiin_mpe_input ? "mpe" : "single"),
+    buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 0),
   },
 
   {

@@ -39,6 +39,8 @@ const makeMockKeys = () => ({
   exquisLEDs: null,
   syncExquisLEDs: vi.fn(),
   lumatoneLEDs: null,
+  linnstrumentLEDs: null,
+  syncLinnstrumentLEDs: vi.fn(),
   typing: false,
 });
 
@@ -323,6 +325,33 @@ describe("setLumatoneLEDs", () => {
     const leds = { rows: [] };
     setLumatoneLEDs(leds);
     expect(keys.lumatoneLEDs).toBe(leds);
+  });
+});
+
+describe("setLinnstrumentLEDs", () => {
+  it("assigns leds to keysRef.current.linnstrumentLEDs", () => {
+    const keys = makeMockKeys();
+    const {setLinnstrumentLEDs } = useInvoke({ current: keys });
+    const leds = { data: [] };
+    setLinnstrumentLEDs(leds);
+    expect(keys.linnstrumentLEDs).toBe(leds);
+  });
+
+  it("accepts null to detach", () => {
+    const keys = makeMockKeys();
+    keys.linnstrumentLEDs = { data: [] };
+    const {setLinnstrumentLEDs } = useInvoke({ current: keys });
+    setLinnstrumentLEDs(null);
+    expect(keys.linnstrumentLEDs).toBeNull();
+  });
+});
+
+describe("syncLinnstrumentLEDs", () => {
+  it("calls the method on the canvas instance", () => {
+    const keys = makeMockKeys();
+    const {syncLinnstrumentLEDs } = useInvoke({ current: keys });
+    syncLinnstrumentLEDs();
+    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
   });
 });
 

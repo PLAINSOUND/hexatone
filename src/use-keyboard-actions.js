@@ -170,7 +170,7 @@ const useKeyboardActions = (keysRef) => {
     if (keysRef.current) keysRef.current.updateLiveOutputState(liveOutputSettings, synth);
   };
 
-  // ── Hardware LED sync (Exquis / Lumatone) ──────────────────────────────────
+  // ── Hardware LED sync (Exquis / Lumatone / LinnStrument) ──────────────────
 
   /**
    * Set the Exquis LED state object directly on the Keys instance.
@@ -191,6 +191,19 @@ const useKeyboardActions = (keysRef) => {
    */
   const setLumatoneLEDs = (leds) => {
     if (keysRef.current) keysRef.current.lumatoneLEDs = leds;
+  };
+
+  /**
+   * Set the LinnStrument LED driver on the Keys instance.
+   * Pass null to detach.
+   */
+  const setLinnstrumentLEDs = (leds) => {
+    if (keysRef.current) keysRef.current.linnstrumentLEDs = leds;
+  };
+
+  /** Trigger an immediate LinnStrument LED sync. */
+  const syncLinnstrumentLEDs = () => {
+    if (keysRef.current?.syncLinnstrumentLEDs) keysRef.current.syncLinnstrumentLEDs();
   };
 
   // ── Keyboard input flag ──────────────────────────────────────────────────────
@@ -233,6 +246,8 @@ const useKeyboardActions = (keysRef) => {
     setExquisLEDs,
     syncExquisLEDs,
     setLumatoneLEDs,
+    setLinnstrumentLEDs,
+    syncLinnstrumentLEDs,
     // Keyboard input flag
     setTyping,
   };

@@ -190,10 +190,20 @@ input[type="range"]:focus {
   outline: none;
 }
 
-input[type="range"]::-webkit-slider-runnable-track,
+input[type="range"]::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  height: 3px;
+  background: var(--color-border-ui, #c8b8b8);
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-container {
+  -webkit-appearance: none;
+}
+
 input[type="range"]::-moz-range-track {
   height: 3px;
-  background: var(--color-border-ui);
+  background: var(--color-border-ui, #c8b8b8);
   border-radius: 2px;
 }
 
@@ -389,6 +399,11 @@ td.scale-color-col .color-input {
   border-radius: var(--btn-radius-square);
 }
 
+.preset-action-btn:hover,
+.preset-utility-btn:hover {
+  background: var(--color-bg-btn-alt-hover);
+}
+
 .preset-utility-btn {
   min-width: fit-content;
 }
@@ -427,6 +442,10 @@ td.scale-color-col .color-input {
     flex: 1 1 auto;
     min-width: 0;
   }
+}
+
+.preset-refresh-btn:hover {
+  background: var(--color-bg-btn-alt-hover);
 }
 
 .preset-refresh-btn {

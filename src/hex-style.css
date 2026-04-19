@@ -48,7 +48,9 @@
   /* Brand colour palette — used throughout app shell + settings */
   --color-bg:         #faf9f8;   /* sidebar / input background */
   --color-bg-btn:     #f0e9e9;   /* floating button background */
+  --color-bg-btn-hover: #ddd0d0; /* floating button hover */
   --color-bg-btn-alt: #f4efef;   /* sidebar action button background */
+  --color-bg-btn-alt-hover: #e8dede; /* sidebar action button hover */
   --color-border:     #c0aaaa;   /* floating button border */
   --color-border-ui:  #c8b8b8;   /* sidebar input / fieldset border */
   --color-text:       #330000;   /* primary dark text */
@@ -135,6 +137,10 @@ a:hover {
   transition:
     background-color 0.15s ease,
     border-color 0.15s ease;
+}
+
+#sidebar-button:hover {
+  background-color: var(--color-bg-btn-hover);
 }
 
 #sidebar-button.latch-active {
@@ -288,9 +294,8 @@ a:hover {
   transition: var(--btn-transition);
 }
 
-.octave-btn:active {
-  background-color: #ddcccc;
-}
+.octave-btn:hover  { background-color: var(--color-bg-btn-hover); }
+.octave-btn:active { background-color: #ddcccc; }
 
 .octave-defer-active {
   background-color: #f3cec5;
@@ -395,6 +400,10 @@ a:hover {
     color 0.15s ease;
 }
 
+#sustain-island:hover {
+  background-color: var(--color-bg-btn-hover);
+}
+
 #sustain-island.latch-active {
   background-color: var(--color-latch);
   border-color: #aa0000;
@@ -426,6 +435,10 @@ a:hover {
   -webkit-user-select: none;
   user-select: none;
   transition: var(--btn-transition);
+}
+
+#snapshot-button:hover {
+  background-color: var(--color-bg-btn-hover);
 }
 
 #snapshot-button:active {
@@ -486,6 +499,10 @@ a:hover {
   transition: background-color 0.1s ease;
 }
 
+.snapshot-play-btn:hover {
+  background-color: rgba(230, 215, 215, 0.85);
+}
+
 .snapshot-play-btn:active,
 .snapshot-playing .snapshot-play-btn {
   background-color: rgba(220, 200, 200, 0.85);
@@ -543,6 +560,10 @@ a:hover {
   transition: var(--btn-transition);
 }
 
+#redraw-button:hover {
+  background-color: var(--color-bg-btn-hover);
+}
+
 #redraw-button:active {
   background-color: #ddd0d0;
 }
@@ -569,6 +590,10 @@ a:hover {
   -webkit-user-select: none;
   user-select: none;
   transition: var(--btn-transition);
+}
+
+#panic-button:hover {
+  background-color: var(--color-bg-btn-hover);
 }
 
 #panic-button:active {

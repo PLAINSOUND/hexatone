@@ -9,12 +9,13 @@ import { saveControllerPref } from "../../input/controller-anchor.js";
 import ScalaInput from "../scale/scala-input.js";
 
 const MANUAL_CONTROLLER_OPTIONS = [
-  { id: "axis49", label: "AXIS-49" },
-  { id: "exquis", label: "Exquis" },
-  { id: "generic", label: "Generic Keyboard" },
-  { id: "lumatone", label: "Lumatone" },
-  { id: "tonalplexus", label: "Tonal Plexus" },
-  { id: "ts41", label: "TS41" },
+  { id: "axis49",          label: "AXIS-49" },
+  { id: "exquis",          label: "Exquis" },
+  { id: "generic",         label: "Generic Keyboard" },
+  { id: "linnstrument128", label: "LinnStrument 128" },
+  { id: "lumatone",        label: "Lumatone" },
+  { id: "tonalplexus",     label: "Tonal Plexus" },
+  { id: "ts41",            label: "TS41" },
 ];
 
 const MIDIio = (props) => {
@@ -390,10 +391,11 @@ const MIDIio = (props) => {
                           ? "● Listening…"
                           : "Learn"}
                     </button>
-                    {/* Channel field — shown for all known controllers.
+                    {/* Channel field — shown for all known controllers except MPE ones in MPE
+                      mode (channels are per-voice, not layout-encoding in that case).
                       Editable for multi-channel controllers (e.g. Lumatone);
                       greyed-out fixed "1" for single-channel controllers (e.g. AXIS-49). */}
-                    {ctrl &&
+                    {ctrl && !(ctrl.mpe && props.settings.midiin_mpe_input) &&
                       (ctrl.anchorChannelDefault != null ? (
                         <input
                           name="lumatone_center_channel"
@@ -1125,6 +1127,50 @@ const MIDIio = (props) => {
                       })()}
                   </>
                 )}
+
+                {/* ── LinnStrument LED colour sync ── */}
+                {ctrl?.id === "linnstrument128" && !scaleMode && (
+                  <label style={{ marginTop: "0.3em" }}>
+                    Auto Send Colours
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginLeft: "auto",
+                        marginTop: "4px",
+                      }}
+                    >
+                      <input
+                        name="linnstrument_led_sync"
+                        type="checkbox"
+                        checked={!!props.settings.linnstrument_led_sync}
+                        onChange={(e) => {
+                          props.onChange("linnstrument_led_sync", e.target.checked);
+                          localStorage.setItem("linnstrument_led_sync", e.target.checked);
+                          const keys = props.keysRef?.current;
+                          if (keys) keys.settings.linnstrument_led_sync = e.target.checked;
+                          if (e.target.checked) keys?.syncLinnstrumentLEDs?.();
+                          else keys?.linnstrumentLEDs?.clearColors?.();
+                        }}
+                      />
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={() => props.keysRef?.current?.syncLinnstrumentLEDs?.()}
+                      >
+                        Send Now
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={() => props.keysRef?.current?.linnstrumentLEDs?.clearColors?.()}
+                      >
+                        Clear
+                      </button>
+                    </span>
+                  </label>
+                )}
               </>
             ) : (
               /* ── Unknown / sequential controller ── */
@@ -1367,6 +1413,7 @@ MIDIio.propTypes = {
     lumatone_center_channel: PropTypes.number,
     lumatone_center_note: PropTypes.number,
     lumatone_led_sync: PropTypes.bool,
+    linnstrument_led_sync: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
     midi_wheel_range: PropTypes.string,
     midi_wheel_semitones: PropTypes.number,

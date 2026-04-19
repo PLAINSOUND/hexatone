@@ -27,6 +27,7 @@ import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
 import { ExquisLEDs } from "./controllers/exquis-leds.js";
 import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
+import { LinnStrumentLEDs, configureLinnStrument } from "./controllers/linnstrument-config.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
@@ -287,6 +288,7 @@ const App = () => {
     onAnchorLearn,
     lumatoneRawPorts,
     exquisRawPorts,
+    linnstrumentRawPorts,
   } = useSynthWiring(settings, setSettings, {
     ready,
     userHasInteracted,
@@ -304,6 +306,7 @@ const App = () => {
   const [exquisLedStatus, setExquisLedStatus] = useState(null);
   const exquisLedsRef = useRef(null);
   const lumatoneLedsRef = useRef(null);
+  const linnstrumentLedsRef = useRef(null);
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
@@ -755,6 +758,55 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lumatoneInId, lumatoneOutId]);
 
+  // ── LinnStrument 128 lifecycle ────────────────────────────────────────────
+  // Mirrors the Lumatone/Exquis pattern.  LinnStrumentLEDs and the initial
+  // NRPN config burst live here so they survive Keys reconstruction.
+  //
+  // Port ID stability: same technique as Lumatone — we depend on the stable
+  // port ID strings rather than linnstrumentRawPorts (a new object each render)
+  // so the effect only fires when the actual hardware port changes.
+  const linnstrumentOutId = linnstrumentRawPorts?.output?.id ?? null;
+  useEffect(() => {
+    if (!linnstrumentRawPorts) {
+      if (linnstrumentLedsRef.current) {
+        linnstrumentLedsRef.current.exit();
+        linnstrumentLedsRef.current = null;
+        if (keysRef.current) keysRef.current.linnstrumentLEDs = null;
+      }
+      return;
+    }
+
+    // Send NRPN configuration burst.
+    const mpeEnabled = !!settings.midiin_mpe_input;
+    configureLinnStrument(linnstrumentRawPorts.output, mpeEnabled);
+
+    const leds = new LinnStrumentLEDs(linnstrumentRawPorts.output);
+    linnstrumentLedsRef.current = leds;
+    if (keysRef.current) {
+      keysRef.current.linnstrumentLEDs = leds;
+      if (keysRef.current.settings?.linnstrument_led_sync) keysRef.current.syncLinnstrumentLEDs();
+    }
+
+    return () => {
+      leds.exit();
+      linnstrumentLedsRef.current = null;
+      if (keysRef.current) keysRef.current.linnstrumentLEDs = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linnstrumentOutId]); // mpe mode re-config handled by separate effect below
+
+  // Re-send mode-sensitive NRPNs whenever the MPE toggle changes while a
+  // LinnStrument is connected. Re-sync LEDs afterwards because the NRPN burst
+  // resets the device's own overlay colours.
+  useEffect(() => {
+    if (linnstrumentRawPorts?.output) {
+      configureLinnStrument(linnstrumentRawPorts.output, !!settings.midiin_mpe_input);
+      if (keysRef.current?.settings?.linnstrument_led_sync) {
+        keysRef.current.syncLinnstrumentLEDs();
+      }
+    }
+  }, [settings.midiin_mpe_input]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
@@ -817,11 +869,15 @@ const App = () => {
       keysRef.current = keys;
       keys.lumatoneLEDs = lumatoneLedsRef.current;
       keys.exquisLEDs = exquisLedsRef.current;
+      keys.linnstrumentLEDs = linnstrumentLedsRef.current;
       if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
         keys.syncLumatoneLEDs();
       }
       if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
         keys.syncExquisLEDs();
+      }
+      if (linnstrumentLedsRef.current && keys.settings?.linnstrument_led_sync) {
+        keys.syncLinnstrumentLEDs();
       }
     },
     [],
@@ -859,6 +915,7 @@ const App = () => {
           onAnchorLearn={onAnchorLearn}
           lumatoneLedsRef={lumatoneLedsRef}
           exquisLedsRef={exquisLedsRef}
+          linnstrumentLedsRef={linnstrumentLedsRef}
           onFirstInteraction={onFirstInteraction}
         />
       )}

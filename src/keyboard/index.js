@@ -9,8 +9,8 @@ const Keyboard = (props) => {
   const keysRef = useRef(null);
 
   // ── Keys reconstruction ────────────────────────────────────────────────────
-  // Runs when structural settings change. ExquisLEDs is managed in app.jsx
-  // and assigned to keys.exquisLEDs via props.exquisLedsRef after construction.
+  // Runs when structural settings change. LED drivers (Exquis, Lumatone,
+  // LinnStrument) are managed in app.jsx and assigned here after construction.
   useEffect(() => {
     const keys = new Keys(
       canvas.current,
@@ -24,6 +24,7 @@ const Keyboard = (props) => {
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
+    keys.linnstrumentLEDs = props.linnstrumentLedsRef?.current ?? null;
     keysRef.current = keys;
     // Apply current label settings immediately after construction so the initial
     // draw has the correct label mode even if labelSettings changed since Keys was last built.
@@ -32,6 +33,7 @@ const Keyboard = (props) => {
     return () => {
       keys.lumatoneLEDs = null;
       keys.exquisLEDs = null;
+      keys.linnstrumentLEDs = null;
       keys.deconstruct();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by structuralSettings
@@ -114,6 +116,7 @@ Keyboard.propTypes = {
   liveOutputSettings: PropTypes.object,
   lumatoneLedsRef: PropTypes.object,
   exquisLedsRef: PropTypes.object,
+  linnstrumentLedsRef: PropTypes.object,
   settings: PropTypes.shape({
     keyCodeToCoords: PropTypes.object,
     degree: PropTypes.bool,

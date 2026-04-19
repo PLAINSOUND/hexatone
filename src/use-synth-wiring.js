@@ -1061,6 +1061,21 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
 
+  // When the active MIDI input is a LinnStrument 128, resolve the matching raw
+  // Web MIDI output port for NRPN configuration sends and CC LED updates.
+  // No sysex required — regular Web MIDI access is sufficient.
+  const linnstrumentRawPorts = useMemo(() => {
+    if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
+    const rawIn = midi.inputs.get(settings.midiin_device);
+    if (!rawIn) return null;
+    const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
+    if (!ctrl || ctrl.id !== "linnstrument128") return null;
+    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    if (!rawOut) return null;
+    return { input: rawIn, output: rawOut };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
+
   return {
     synth,
     midi,
@@ -1084,6 +1099,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     onAnchorLearn,
     lumatoneRawPorts,
     exquisRawPorts,
+    linnstrumentRawPorts,
   };
 };
 
