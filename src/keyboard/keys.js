@@ -16,6 +16,7 @@ import { WebMidi } from "webmidi";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
+import { buildLinnstrumentDegreeMap, LINNS_OFF } from "../controllers/linnstrument-config.js";
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -996,7 +997,7 @@ class Keys {
     }
 
     if (this.linnstrumentLEDs && this.settings.linnstrument_led_sync) {
-      this.linnstrumentLEDs.updateColors(this._buildLinnstrumentColorArray());
+      this.linnstrumentLEDs.updatePaletteValues(this._buildLinnstrumentColorArray());
     }
   };
 
@@ -1145,30 +1146,45 @@ class Keys {
 
   syncLinnstrumentLEDs = () => {
     if (this.linnstrumentLEDs && this.controllerMap) {
-      this.linnstrumentLEDs.sendColors(this._buildLinnstrumentColorArray());
+      this.linnstrumentLEDs.sendPaletteValues(this._buildLinnstrumentColorArray());
     }
   };
 
   /**
-   * Build a 128-element color array for the LinnStrument 128, indexed by
-   * MIDI note number (0–127).  note = rowFromBottom * 16 + col.
+   * Build a 128-element palette-value array for the LinnStrument 128.
+   * Indexed by MIDI note number (0–127).
    *
-   * Uses _getLumatoneHexColor (Lumatone-space transfer) as the colour
-   * pipeline — same saturation-boosted mapping used for Lumatone and Exquis.
-   * Unmapped notes default to black.
+   * Two-pass approach:
+   *   1. Collect every scale degree that appears in the controller map, with
+   *      its screen hex colour.  buildLinnstrumentDegreeMap() analyses the
+   *      full colour set — clustering low-saturation shades into White/Off
+   *      tiers, reserving Red for degree 0, hue-matching the rest.
+   *   2. Apply the resulting degree→paletteValue map to all 128 note slots.
    *
-   * @returns {string[]}  128 CSS hex colors ('#rrggbb')
+   * @returns {number[]}  128 LinnStrument CC22 palette values
    */
   _buildLinnstrumentColorArray() {
-    const colors = new Array(128).fill("#000000");
-    for (const [mapKey, coords] of this.controllerMap) {
-      // mapKey format: "ch.note"  ch = rowFromBottom+1, note = rowFromBottom*16+col
-      const note = parseInt(mapKey.slice(mapKey.indexOf(".") + 1), 10);
-      if (note >= 0 && note <= 127) {
-        colors[note] = this._getLumatoneHexColor(coords);
+    // Pass 1: gather one colour sample per unique scale degree.
+    const degreeColors = new Map();
+    for (const [, coords] of this.controllerMap) {
+      const [cents, reducedSteps] = this.hexCoordsToCents(coords);
+      if (!degreeColors.has(reducedSteps)) {
+        degreeColors.set(reducedSteps, this._getScreenHexColor(cents, reducedSteps));
       }
     }
-    return colors;
+
+    // Pass 2: analyse the full degree set and get palette assignments.
+    const degreeMap = buildLinnstrumentDegreeMap(degreeColors);
+
+    // Pass 3: fill the 128-slot output array.
+    const values = new Array(128).fill(LINNS_OFF);
+    for (const [mapKey, coords] of this.controllerMap) {
+      const note = parseInt(mapKey.slice(mapKey.indexOf(".") + 1), 10);
+      if (note < 0 || note > 127) continue;
+      const [, reducedSteps] = this.hexCoordsToCents(coords);
+      values[note] = degreeMap.get(reducedSteps) ?? LINNS_OFF;
+    }
+    return values;
   }
 
   /**

@@ -807,7 +807,7 @@ export const CONTROLLER_REGISTRY = [
     // Voice channels are fixed by Hexatone's auto-config: manager=1, voices=2–15.
     // The range picker is hidden in the UI (mpeVoiceChannels is non-null).
     mpeVoiceChannels: { lo: 2, hi: 15 },
-    anchorDefault: 0, // note 0 = bottom-left after auto-config
+    anchorDefault: 56, // note 56 = col 8, row 3 — near centre of 16×8 grid
     learnConstraints: {
       noteRange: { min: 0, max: 127 },
     },
@@ -815,21 +815,21 @@ export const CONTROLLER_REGISTRY = [
     modes: {
       mpe: {
         defaultPrefs: {
-          anchorNote: 0,
+          anchorNote: 56,
           midi_passthrough: false,
           midiin_mpe_input: true,
         },
       },
       single: {
         defaultPrefs: {
-          anchorNote: 0,
+          anchorNote: 56,
           midi_passthrough: false,
           midiin_mpe_input: false,
         },
       },
     },
     resolveMode: (settings = {}) => (settings.midiin_mpe_input ? "mpe" : "single"),
-    buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 0),
+    buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 56),
   },
 
   {
