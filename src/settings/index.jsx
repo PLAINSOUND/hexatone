@@ -6,8 +6,6 @@ import Layout from "./layout";
 import SampleSynth from "./sample";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
-// eslint-disable-next-line no-unused-vars
-import Snapshots from "./snapshots.jsx";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
 import "./settings.css";
 const Settings = ({

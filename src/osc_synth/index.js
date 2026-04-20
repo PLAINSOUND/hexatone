@@ -1,6 +1,6 @@
-/* eslint-disable no-console */
 import { VoicePool } from "../voice_pool_nearest";
 import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
+import { debugLog, warnLog } from "../debug/logging.js";
 
 /**
  * osc_synth — sends note events directly to SuperCollider via WebSocket → OSC bridge.
@@ -73,20 +73,20 @@ class OscSocket {
     const ws = new WebSocket(this._url);
 
     ws.onopen = () => {
-      console.log("[osc_synth] Connected to osc-bridge:", this._url);
+      debugLog("osc", "Connected to osc-bridge:", this._url);
       this._ws = ws;
       for (const msg of this._queue) ws.send(msg);
       this._queue = [];
     };
 
     ws.onclose = () => {
-      console.warn("[osc_synth] osc-bridge disconnected. Reconnecting in 2s...");
+      warnLog("[osc_synth] osc-bridge disconnected. Reconnecting in 2s...");
       this._ws = null;
       setTimeout(() => this._connect(), 2000);
     };
 
     ws.onerror = (e) => {
-      console.warn("[osc_synth] osc-bridge WebSocket error:", e.message ?? e);
+      warnLog("[osc_synth] osc-bridge WebSocket error:", e.message ?? e);
     };
   }
 

@@ -1,8 +1,8 @@
-/* eslint-disable no-console */
 import { render } from "preact";
 import { options } from "preact";
 import PropTypes from "prop-types";
 import App from "./app.jsx";
+import { debugLog, warnLog } from "./debug/logging.js";
 
 if (import.meta.env.DEV) {
   // installs global prop type checking for app preact components
@@ -21,7 +21,7 @@ const APP_VERSION = "3.2.0-alpha.1";
 // Check stored version and force reload if mismatch
 const storedVersion = localStorage.getItem("hexatone_version");
 if (storedVersion && storedVersion !== APP_VERSION) {
-  console.log(`Version changed: ${storedVersion} → ${APP_VERSION}, clearing caches...`);
+  debugLog("lifecycle", `Version changed: ${storedVersion} → ${APP_VERSION}, clearing caches...`);
 
   // Clear all caches
   if ("caches" in window) {
@@ -51,7 +51,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
     navigator.serviceWorker
       .register("/sw.js")
       .then((reg) => {
-        console.log("Service Worker registered:", reg.scope);
+        debugLog("lifecycle", "Service Worker registered:", reg.scope);
 
         // Check for updates on page load
         reg.update();
@@ -66,14 +66,14 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
           const newWorker = reg.installing;
           newWorker.addEventListener("statechange", () => {
             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              console.log("New version available, reloading...");
+              debugLog("lifecycle", "New version available, reloading...");
               newWorker.postMessage({ type: "SKIP_WAITING" });
             }
           });
         });
       })
       .catch((err) => {
-        console.warn("Service Worker registration failed:", err);
+        warnLog("Service Worker registration failed:", err);
       });
 
     // Reload when controller changes (new SW took over)

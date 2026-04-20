@@ -34,6 +34,7 @@ import {
 } from "../tuning/center-anchor.js";
 import { mtsTuningMap } from "../tuning/tuning-map.js";
 import { resolveBulkDumpName } from "../tuning/mts-format.js";
+import { debugLog } from "../debug/logging.js";
 
 const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
@@ -266,13 +267,6 @@ class Keys {
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
     window.addEventListener("mouseup", this.mouseUp, false);
 
-    /* 
-    console.log("midiin_device:", this.settings.midiin_device);
-    console.log("midiin_channel:", this.settings.midiin_channel);
-    console.log("midi_device:", this.settings.midi_device);
-    console.log("midi_channel:", this.settings.midi_channel);
-    console.log("midi_mapping:", this.settings.midi_mapping); */
-
     // sysex_auto comes from settings directly; sessionStorage read was redundant and error-prone
 
     if (
@@ -298,8 +292,6 @@ class Keys {
       } catch {
         this.midiin_data = null;
       }
-      //console.log('[Keys] midiin_data lookup →', this.midiin_data ? JSON.stringify(this.midiin_data.name) : 'NULL (device not found by WebMidi)');
-
       if (!this.midiin_data) {
       } else {
         // this.midiin_data exists
@@ -315,14 +307,21 @@ class Keys {
             this._midiLearnCallback = null;
             return;
           }
-          //console.log("(input) note_on", e.message.channel, e.note.number, e.note.rawAttack);
+          debugLog("MIDImonitoring", "noteon", {
+            channel: e.message.channel,
+            note: e.note.number,
+            velocity: e.note.rawAttack,
+          });
           this.midinoteOn(e);
           notes.played.unshift(e.note.number + 128 * (e.message.channel - 1));
-          // console.log("notes.played after noteon:", notes.played);
         });
 
         this.midiin_data.addListener("noteoff", (e) => {
-          //console.log("(input) note_off", e.message.channel, e.note.number, e.note.rawRelease);
+          debugLog("MIDImonitoring", "noteoff", {
+            channel: e.message.channel,
+            note: e.note.number,
+            velocity: e.note.rawRelease,
+          });
           this.midinoteOff(e);
           let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
           if (index >= 0) {
@@ -334,16 +333,14 @@ class Keys {
             let newarray = [];
             notes.played = newarray.concat(first_half, second_half);
           }
-          /*
-        if (notes.played.length > 0) {
-          console.log("notes.played after noteoff", notes.played);
-        } else {
-          console.log("All notes released!");
-        };
-        */
         });
 
         this.midiin_data.addListener("keyaftertouch", (e) => {
+          debugLog("MIDImonitoring", "keyaftertouch", {
+            channel: e.message.channel,
+            note: e.message.dataBytes[0],
+            value: e.message.dataBytes[1],
+          });
           // Polyphonic aftertouch for built-in synth — find the matching active hex
           // by matching note + channel encoding, then ramp its gain smoothly
           const note_played = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
@@ -370,6 +367,7 @@ class Keys {
         this.midiin_data.addListener("controlchange", (e) => {
           const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
+          debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
 
           // ── LinnStrument User Firmware Mode X data ────────────────────────
           // CC 1-25  = X MSB (col = CC, 1-indexed, ch = row).
@@ -482,6 +480,7 @@ class Keys {
         // Universal channel-pressure (aftertouch) listener.
         this.midiin_data.addListener("channelaftertouch", (e) => {
           const value = e.message.dataBytes[0];
+          debugLog("MIDImonitoring", "channelaftertouch", { channel: e.message.channel, value });
           this._channelPressureValue = value;
 
           if (this.inputRuntime.mpeInput) {
@@ -649,6 +648,10 @@ class Keys {
         // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
         this.midiin_data.addListener("pitchbend", (e) => {
           const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
+          debugLog("MIDImonitoring", "pitchbend", {
+            channel: e.message.channel,
+            value14: val14,
+          });
 
           if (this.inputRuntime.mpeInput) {
             // MPE input mode: pitch bend is per-voice, carried on the note's channel.

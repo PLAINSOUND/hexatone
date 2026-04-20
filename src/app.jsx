@@ -35,6 +35,7 @@ import {
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
+import ManualSidebar from "./manual-sidebar.jsx";
 
 
 import "normalize.css";
@@ -135,6 +136,12 @@ const App = () => {
     sessionStorage.removeItem(getBannerSessionKey(bannerKey));
     setBanner(null);
   }, []);
+
+  useEffect(() => {
+    if (!showManual) return;
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar) sidebar.scrollTop = 0;
+  }, [showManual]);
 
   useEffect(() => {
     const readPxVar = (name) => {
@@ -1174,65 +1181,53 @@ const App = () => {
           </em>
         </p>
 
-        {showManual && (
-          <fieldset class="settings-panel" style={{ marginBottom: "0.5em", background: "#faf7f6" }}>
-            <legend><b>Manual</b></legend>
-            <button
-              type="button"
-              class="settings-panel__close"
-              onClick={() => setShowManual(false)}
-              title="Close"
-            >
-              ✕
-            </button>
-
-            <p>
-              <em></em>
-            </p>
-          </fieldset>
+        {showManual ? (
+          <ManualSidebar onClose={() => setShowManual(false)} />
+        ) : (
+          <>
+            <Settings
+              presetChanged={presetChanged}
+              presets={presets}
+              onChange={onChange}
+              onAtomicChange={onAtomicChange}
+              midiLearnActive={midiLearnActive}
+              onVolumeChange={onVolumeChange}
+              onOscLayerVolumeChange={onOscLayerVolumeChange}
+              onImport={onImport}
+              importCount={importCount}
+              onLoadCustomPreset={onLoadCustomPreset}
+              onClearUserPresets={onClearUserPresets}
+              activeSource={activeSource}
+              activePresetName={activePresetName}
+              isPresetDirty={isPresetDirty}
+              persistOnReload={persistOnReload}
+              setPersistOnReload={setPersistOnReload}
+              onRevertBuiltin={onRevertBuiltin}
+              onRevertUser={onRevertUser}
+              settings={settings}
+              heji_names={structuralSettings.heji_names}
+              heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
+              heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
+              midi={midi}
+              midiAccess={midiAccess}
+              midiAccessError={midiAccessError}
+              enableWebMidi={ensureMidiAccess}
+              disableWebMidi={disableWebMidi}
+              midiTick={midiTick}
+              instruments={instruments}
+              keysRef={keysRef}
+              lumatoneRawPorts={lumatoneRawPorts}
+              exquisRawPorts={exquisRawPorts}
+              linnstrumentRawPorts={linnstrumentRawPorts}
+              exquisLedStatus={exquisLedStatus}
+              snapshots={snapshots}
+              playingSnapshotId={playingSnapshotId}
+              onPlaySnapshot={onPlaySnapshot}
+              onDeleteSnapshot={onDeleteSnapshot}
+            />
+            <Blurb />
+          </>
         )}
-
-        <Settings
-          presetChanged={presetChanged}
-          presets={presets}
-          onChange={onChange}
-          onAtomicChange={onAtomicChange}
-          midiLearnActive={midiLearnActive}
-          onVolumeChange={onVolumeChange}
-          onOscLayerVolumeChange={onOscLayerVolumeChange}
-          onImport={onImport}
-          importCount={importCount}
-          onLoadCustomPreset={onLoadCustomPreset}
-          onClearUserPresets={onClearUserPresets}
-          activeSource={activeSource}
-          activePresetName={activePresetName}
-          isPresetDirty={isPresetDirty}
-          persistOnReload={persistOnReload}
-          setPersistOnReload={setPersistOnReload}
-          onRevertBuiltin={onRevertBuiltin}
-          onRevertUser={onRevertUser}
-          settings={settings}
-          heji_names={structuralSettings.heji_names}
-          heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
-          heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
-          midi={midi}
-          midiAccess={midiAccess}
-          midiAccessError={midiAccessError}
-          enableWebMidi={ensureMidiAccess}
-          disableWebMidi={disableWebMidi}
-          midiTick={midiTick}
-          instruments={instruments}
-          keysRef={keysRef}
-          lumatoneRawPorts={lumatoneRawPorts}
-          exquisRawPorts={exquisRawPorts}
-          linnstrumentRawPorts={linnstrumentRawPorts}
-          exquisLedStatus={exquisLedStatus}
-          snapshots={snapshots}
-          playingSnapshotId={playingSnapshotId}
-          onPlaySnapshot={onPlaySnapshot}
-          onDeleteSnapshot={onDeleteSnapshot}
-        />
-        <Blurb />
         <div id="sidebar-spacer"></div>
       </nav>
     </div>

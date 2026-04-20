@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "./settings/midi/midiin";
 import { create_sample_synth } from "./sample_synth";
@@ -20,6 +19,7 @@ import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/worksp
 import { resolveBulkDumpName } from "./tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "./persistence/settings-registry.js";
 import { localFloat } from "./persistence/storage-utils.js";
+import { debugLog, warnLog } from "./debug/logging.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
@@ -290,14 +290,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         try {
           await enableMidi({ sysex });
           const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
-          console.log(sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
+          debugLog("midi", sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
           midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
           setMidi(midiAccessObj);
           setMidiAccess(targetAccess);
           sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, targetAccess);
           return true;
         } catch (err) {
-          console.warn("Web MIDI could not initialise:", err);
+          warnLog("Web MIDI could not initialise:", err);
           if (midiAccessRank[midiAccess] > midiAccessRank.none) {
             sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, midiAccess);
           } else {
@@ -331,7 +331,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           await WebMidi.disable();
         }
       } catch (err) {
-        console.warn("Web MIDI disable could not complete cleanly:", err);
+        warnLog("Web MIDI disable could not complete cleanly:", err);
       }
       if (midi) midi.onstatechange = null;
       if (reenableBasic) {
