@@ -5,6 +5,7 @@ import {
   normalizeTonalPlexus41Input,
   normalizeTonalPlexus41InputWithSettings,
   normalizeTonalPlexus205Degree,
+  buildLinnstrumentUserFirmwareMap,
 } from "./registry.js";
 
 const getController = (id) => CONTROLLER_REGISTRY.find((controller) => controller.id === id);
@@ -15,7 +16,7 @@ describe("controller registry", () => {
     expect(detectController("Lumatone MIDI Function")?.id).toBe("lumatone");
     expect(detectController("Tonal Plexus")?.id).toBe("tonalplexus");
     expect(detectController("Intuitive Instruments Exquis")?.id).toBe("exquis");
-    expect(detectController("Roger Linn Design LinnStrument 128")?.id).toBe("linnstrument128");
+    expect(detectController("Roger Linn Design LinnStrument 128")?.id).toBe("linnstrument");
     expect(detectController("Unknown Device")).toBeNull();
   });
 
@@ -39,7 +40,7 @@ describe("controller registry", () => {
     expect(getController("push2").buildMap(36).size).toBe(43);
     expect(getController("launchpad").buildMap(36).size).toBe(64);
     expect(getController("exquis").buildMap(19).size).toBe(61);
-    expect(getController("linnstrument128").buildMap(56).size).toBe(128);
+    expect(getController("linnstrument").buildMap(56).size).toBe(128);
     expect(getController("generic").buildMap).toBeUndefined();
   });
 
@@ -146,63 +147,78 @@ describe("controller registry", () => {
     expect(normalizeTonalPlexus205Degree(10, 105)).toEqual({ block: 3, degree: 197 });
   });
 
-  it("places the LinnStrument anchor at (0,0) and maps all 128 pads", () => {
-    const linn = getController("linnstrument128");
-    // Default anchor note 56: col = 56 % 16 = 8, row = 56 / 16 = 3
-    const map = linn.buildMap(56);
-    const anchor = map.get("1.56");
-    expect(anchor.x).toBe(0);
-    expect(anchor.y).toBe(0);
-    // Bottom-left pad: note 0, col=0 row=0. Relative to anchor: col-8=-8, dr=0-3=-3. x=-8+(-3)=-11, y=3
-    expect(map.get("1.0")).toEqual({ x: -11, y: 3 });
-    // Top-right pad: note 127, col=15 row=7. x=(15-8)+(7-3)=7+4=11, y=-4
-    expect(map.get("1.127")).toEqual({ x: 11, y: -4 });
+  // ── LinnStrument User Firmware Mode map ──────────────────────────────────────
+  // Keys: "ch.col" where ch=row(1-8, bottom=1), col=1-indexed pad column (1-16).
+  // Geometry identical to the old standard map but accessed per-channel.
+
+  it("LinnStrument UF map has 128 entries (8 rows × 16 cols)", () => {
+    // buildMap(anchorCol, anchorRow, cols) — native UF coordinates
+    expect(getController("linnstrument").buildMap(9, 4, 16).size).toBe(128);
   });
 
-  it("LinnStrument right-neighbour is always (x+1, y+0)", () => {
-    const map = getController("linnstrument128").buildMap(56);
-    // Notes 56 and 57 are adjacent columns in the same row
-    const anchor = map.get("1.56");
-    const right = map.get("1.57");
+  it("places the LinnStrument UF anchor at (0,0)", () => {
+    // anchorCol=9, anchorRow=4 → key "4.9" = {x:0, y:0}
+    const map = getController("linnstrument").buildMap(9, 4, 16);
+    const anchor = map.get("4.9");
+    expect(anchor.x).toBe(0);
+    expect(anchor.y).toBe(0);
+  });
+
+  it("LinnStrument UF right-neighbour is always (x+1, y+0)", () => {
+    const map = getController("linnstrument").buildMap(9, 4, 16);
+    const anchor = map.get("4.9");
+    const right  = map.get("4.10");  // same row, +1 col
     expect(right.x - anchor.x).toBe(1);
     expect(right.y - anchor.y).toBe(0);
   });
 
-  it("LinnStrument row-up neighbour is always (x+1, y-1)", () => {
-    const map = getController("linnstrument128").buildMap(56);
-    // Note 56 + 16 = 72 is one row above note 56
-    const anchor = map.get("1.56");
-    const above = map.get("1.72");
+  it("LinnStrument UF row-up neighbour is always (x+1, y-1)", () => {
+    const map = getController("linnstrument").buildMap(9, 4, 16);
+    const anchor = map.get("4.9");
+    const above  = map.get("5.9");   // one row up
     expect(above.x - anchor.x).toBe(1);
     expect(above.y - anchor.y).toBe(-1);
   });
 
-  it("LinnStrument uses channel 1 for all entries (multiChannel=false)", () => {
-    const map = getController("linnstrument128").buildMap(56);
-    for (const key of map.keys()) {
-      expect(key.startsWith("1.")).toBe(true);
-    }
+  it("LinnStrument UF map uses channels 1-8 (one per row)", () => {
+    const map = getController("linnstrument").buildMap(9, 4, 16);
+    const channels = new Set(Array.from(map.keys()).map((k) => k.split(".")[0]));
+    expect(channels).toEqual(new Set(["1","2","3","4","5","6","7","8"]));
+  });
+
+  it("LinnStrument UF bottom-left and top-right corners have correct geometry", () => {
+    // anchor col=9, row=4 (anchorRowFromBottom=3)
+    // bottom-left: ch1.col1 → dr=0-3=-3, x=(1-9)+(-3)=-11, y=3
+    // top-right:   ch8.col16 → dr=7-3=4,  x=(16-9)+4=11,   y=-4
+    const map = getController("linnstrument").buildMap(9, 4, 16);
+    expect(map.get("1.1")).toEqual({ x: -11, y: 3 });
+    expect(map.get("8.16")).toEqual({ x: 11, y: -4 });
+  });
+
+  it("LinnStrument UF 200-note variant has 200 entries (8×25)", () => {
+    const map = buildLinnstrumentUserFirmwareMap(13, 4, 25); // centre col ~13 of 25
+    expect(map.size).toBe(200);
+  });
+
+  it("LinnStrument defaults to anchorCol=9 anchorRow=4 when no args given", () => {
+    const linn = getController("linnstrument");
+    const anchor = linn.buildMap().get("4.9");
+    expect(anchor.x).toBe(0);
+    expect(anchor.y).toBe(0);
+    expect(linn.anchorDefault).toBe(9);
+    expect(linn.anchorChannelDefault).toBe(4);
   });
 
   it("LinnStrument detects case-insensitive device names", () => {
-    expect(detectController("LinnStrument 128")?.id).toBe("linnstrument128");
-    expect(detectController("linnstrument 128")?.id).toBe("linnstrument128");
-    expect(detectController("Roger Linn Design LinnStrument 128")?.id).toBe("linnstrument128");
+    expect(detectController("LinnStrument 128")?.id).toBe("linnstrument");
+    expect(detectController("linnstrument 128")?.id).toBe("linnstrument");
+    expect(detectController("Roger Linn Design LinnStrument 128")?.id).toBe("linnstrument");
   });
 
-  it("LinnStrument defaults to anchor note 56 when no anchor given", () => {
-    const linn = getController("linnstrument128");
-    const anchor = linn.buildMap().get("1.56");
-    expect(anchor.x).toBe(0);
-    expect(anchor.y).toBe(0);
-    expect(linn.anchorDefault).toBe(56);
-  });
-
-  it("LinnStrument resolveMode returns mpe when midiin_mpe_input is true", () => {
-    const linn = getController("linnstrument128");
-    expect(linn.resolveMode({ midiin_mpe_input: true })).toBe("mpe");
-    expect(linn.resolveMode({ midiin_mpe_input: false })).toBe("single");
-    expect(linn.resolveMode({})).toBe("single");
+  it("LinnStrument resolveMode always returns userfw", () => {
+    const linn = getController("linnstrument");
+    expect(linn.resolveMode({})).toBe("userfw");
+    expect(linn.resolveMode({ midiin_mpe_input: true })).toBe("userfw");
   });
 
   it("anchors TPX 205edo pitch mapping to the current center degree", () => {

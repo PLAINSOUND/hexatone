@@ -64,6 +64,9 @@ X data is sent over channels 1 to 8, mapped to rows 1 to 8 on the LinnStrument. 
 the columns and contain the 14 bit MSB part. MIDI CC messages 32 to 57 can be used as the LSB counterparts of messages 0
 to 25 to receive more precise X data. The 14-bit range from the left edge to the right edge is 0 to 4265.
 
+Observed in Hexatone testing on current LinnStrument hardware/firmware: the X CC pair arrives in LSB-then-MSB order,
+despite the documentation/examples below implying MSB first. Hexatone's parser follows the observed hardware order.
+
 Y data is sent over channels 1 to 8, corresponding to the rows. The columns correspond to MIDI CC messages 64 to 89. The
 values range from 0 to 127, from the bottom edge to the top edge of a cell. X-axis Slide Mode
 

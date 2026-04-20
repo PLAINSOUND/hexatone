@@ -6,6 +6,11 @@ import {
   getTonalPlexusInputMode,
 } from "../../controllers/registry.js";
 import { saveControllerPref } from "../../input/controller-anchor.js";
+import {
+  activateLinnstrumentUserFirmware,
+  deactivateLinnstrumentUserFirmware,
+  isLinnstrumentUserFirmwareEligible,
+} from "../../controllers/linnstrument-user-firmware.js";
 import ScalaInput from "../scale/scala-input.js";
 
 /**
@@ -72,55 +77,58 @@ function OutputPortPicker({ label, rawPorts, outputs, overridePortId, onChange }
 }
 
 /**
- * Debug toggle for LinnStrument User Firmware mode (NRPN 245).
- * NRPN 245 = 1 hands LED/input control to the host; 0 restores device firmware.
- * State is local — the device cannot report its current value.
+ * LinnStrument User Firmware Mode toggle (NRPN 245).
+ *
+ * This component is the single owner of NRPN 245. It drives the full
+ * connect/disconnect sequence:
+ *
+ *   On port connect (auto):
+ *     1. NRPN 245 = 1  → device keys go blank, user's own settings preserved
+ *     2. configureLinnStrument burst  → layout, octave, switches
+ *     3. If Auto Send Colours is on → sync LEDs
+ *
+ *   On port disconnect / device switched away (auto):
+ *     1. NRPN 245 = 0  → device firmware resumes, user's stored layout restored
+ *        (nothing else needed — the device restores itself)
+ *
+ *   Manual toggle ON:   same as auto-connect sequence
+ *   Manual toggle OFF:  NRPN 245 = 0 only
  */
-function LinnUserFirmwareToggle({ rawPorts, keysRef }) {
+function LinnUserFirmwareToggle({ rawPorts, keysRef, active = true }) {
   const out = rawPorts?.output ?? null;
-  // When the port connects, configureLinnStrument has already sent NRPN 245=1
-  // and set userFirmwareActive=true on the instance.  Track that state here.
-  // Reset to false when port disappears.
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    if (!out) {
+    if (!out || !active) {
       setEnabled(false);
       return;
     }
-    // Port just appeared — configureLinnStrument (in app.jsx) has already sent
-    // the full NRPN burst ending with NRPN 245=1. Re-send 245=1 here as a
-    // belt-and-suspenders confirmation after all effects have settled, and set
-    // the flag on the LinnStrumentLEDs instance so colour sends are unblocked.
+    let activatedKeys = null;
+    // Port appeared. Delay slightly so app.jsx's effect (which creates the
+    // LinnStrumentLEDs instance and assigns it to keysRef) has settled first.
     const id = setTimeout(() => {
-      sendNrpn245(out, 1);
-      const keys = keysRef?.current;
-      const leds = keys?.linnstrumentLEDs;
-      if (leds) leds.userFirmwareActive = true;
-      // Do NOT auto-send colours on connect — user must press Send Now or
-      // manually toggle User Firmware off/on with Auto Send enabled.
+      activatedKeys = keysRef?.current ?? null;
+      activateLinnstrumentUserFirmware(out, activatedKeys);
       setEnabled(true);
     }, 50);
-    return () => clearTimeout(id);
-  }, [out]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const sendNrpn245 = (output, value) => {
-    const ch = 0xb0;
-    output.send([ch, 99, 1]);    // param MSB (245 >> 7 = 1)
-    output.send([ch, 98, 117]);  // param LSB (245 & 0x7f = 117)
-    output.send([ch, 6,  0]);    // value MSB
-    output.send([ch, 38, value & 0x7f]);
-    output.send([ch, 101, 127]);
-    output.send([ch, 100, 127]);
-  };
+    return () => {
+      clearTimeout(id);
+      // Port is about to disappear — send 245=0 while we still have the output.
+      deactivateLinnstrumentUserFirmware(out, activatedKeys);
+      setEnabled(false);
+    };
+  }, [out, active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (e) => {
     const on = e.target.checked;
-    if (out) sendNrpn245(out, on ? 1 : 0);
     const keys = keysRef?.current;
-    const leds = keys?.linnstrumentLEDs;
-    if (leds) leds.userFirmwareActive = on;
-    setEnabled(on);
+    if (on) {
+      activateLinnstrumentUserFirmware(out, keys);
+      setEnabled(true);
+    } else {
+      deactivateLinnstrumentUserFirmware(out, keys);
+      setEnabled(false);
+    }
   };
 
   return (
@@ -129,7 +137,7 @@ function LinnUserFirmwareToggle({ rawPorts, keysRef }) {
       <input
         type="checkbox"
         checked={enabled}
-        disabled={!out}
+        disabled={!out || !active}
         onChange={toggle}
       />
     </label>
@@ -140,7 +148,7 @@ const MANUAL_CONTROLLER_OPTIONS = [
   { id: "axis49",          label: "AXIS-49" },
   { id: "exquis",          label: "Exquis" },
   { id: "generic",         label: "Generic Keyboard" },
-  { id: "linnstrument128", label: "LinnStrument 128" },
+  { id: "linnstrument", label: "LinnStrument" },
   { id: "lumatone",        label: "Lumatone" },
   { id: "tonalplexus",     label: "Tonal Plexus" },
   { id: "ts41",            label: "TS41" },
@@ -224,8 +232,15 @@ const MIDIio = (props) => {
     !ctrl || ctrl.multiChannel || ctrl.supportsSequentialChannelOffset;
   const showChannelTranspose =
     !scaleMode && !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
+  const isLinnstrument = ctrl?.id === "linnstrument";
+  const linnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
+    controllerId: ctrl?.id ?? null,
+    scaleMode,
+    midiPassthrough: !!props.settings.midi_passthrough,
+    midiinDevice: props.settings.midiin_device,
+  });
   const showExquisBendControls = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
-  const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
+  const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input) && !isLinnstrument;
   const genericBypassesGeometry = ctrl?.id === "generic";
 
   // mpeSetupOpen removed — MPE options are shown flat when MPE is enabled.
@@ -238,6 +253,13 @@ const MIDIio = (props) => {
   const [devPadId, setDevPadId] = useState("0"); // pad ID for CMD 04 color test (0–60)
   const hasBasicMidi = !!props.midi;
   const hasSysexMidi = props.midiAccess === "sysex";
+
+  const deactivateLinnstrumentUserFirmwareNow = () => {
+    deactivateLinnstrumentUserFirmware(
+      props.linnstrumentRawPorts?.output ?? null,
+      props.keysRef?.current ?? null,
+    );
+  };
 
   return (
     <fieldset>
@@ -252,6 +274,9 @@ const MIDIio = (props) => {
           class="sidebar-input"
           disabled={!hasBasicMidi}
           onChange={(e) => {
+            if (linnstrumentUserFirmwareEligible && e.target.value !== props.settings.midiin_device) {
+              deactivateLinnstrumentUserFirmwareNow();
+            }
             props.onChange(e.target.name, e.target.value);
             sessionStorage.setItem(e.target.name, e.target.value);
           }}
@@ -270,6 +295,9 @@ const MIDIio = (props) => {
           class="sidebar-input"
           value={props.settings.midiin_mapping_target || "hex_layout"}
           onChange={(e) => {
+            if (linnstrumentUserFirmwareEligible && e.target.value !== "hex_layout") {
+              deactivateLinnstrumentUserFirmwareNow();
+            }
             props.onChange("midiin_mapping_target", e.target.value);
             sessionStorage.setItem("midiin_mapping_target", e.target.value);
           }}
@@ -287,6 +315,9 @@ const MIDIio = (props) => {
               class="sidebar-input"
               value={controllerOverrideId}
               onChange={(e) => {
+                if (linnstrumentUserFirmwareEligible && e.target.value !== "linnstrument") {
+                  deactivateLinnstrumentUserFirmwareNow();
+                }
                 props.onChange("midiin_controller_override", e.target.value);
                 sessionStorage.setItem("midiin_controller_override", e.target.value);
               }}
@@ -542,7 +573,7 @@ const MIDIio = (props) => {
                             color: tonalPlexus205Mode ? "#999" : undefined,
                             cursor: tonalPlexus205Mode ? "default" : undefined,
                           }}
-                          key={anchorChannel}
+                          key={`anchor-channel-${anchorChannel}`}
                           defaultValue={anchorChannel}
                           disabled={tonalPlexus205Mode}
                           onKeyDown={(e) => {
@@ -608,7 +639,7 @@ const MIDIio = (props) => {
                           color: tonalPlexus205Mode ? "#999" : undefined,
                           cursor: tonalPlexus205Mode ? "default" : undefined,
                         }}
-                        key={controllerAnchorNote}
+                        key={`anchor-note-${controllerAnchorNote}`}
                         defaultValue={controllerAnchorNote}
                         disabled={tonalPlexus205Mode}
                         onKeyDown={(e) => {
@@ -644,7 +675,7 @@ const MIDIio = (props) => {
                           border: "1px solid #c8b8b8",
                           borderRadius: "3px",
                         }}
-                        key={props.settings.midiin_central_degree}
+                        key={`central-degree-${props.settings.midiin_central_degree}`}
                         defaultValue={centralNote}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") e.target.blur();
@@ -684,6 +715,9 @@ const MIDIio = (props) => {
                       type="checkbox"
                       checked={!!props.settings.midi_passthrough}
                       onChange={(e) => {
+                        if (linnstrumentUserFirmwareEligible && e.target.checked) {
+                          deactivateLinnstrumentUserFirmwareNow();
+                        }
                         props.onChange("midi_passthrough", e.target.checked);
                         sessionStorage.setItem("midi_passthrough", e.target.checked);
                         saveControllerPref(
@@ -1253,7 +1287,7 @@ const MIDIio = (props) => {
                 )}
 
                 {/* ── LinnStrument LED colour sync ── */}
-                {ctrl?.id === "linnstrument128" && !scaleMode && (
+                {linnstrumentUserFirmwareEligible && (
                   <>
                   <OutputPortPicker
                     label="MIDI Output"
@@ -1265,7 +1299,11 @@ const MIDIio = (props) => {
                       sessionStorage.setItem("linnstrument_out_port", id ?? "");
                     }}
                   />
-                  <LinnUserFirmwareToggle rawPorts={props.linnstrumentRawPorts} keysRef={props.keysRef} />
+                  <LinnUserFirmwareToggle
+                    rawPorts={props.linnstrumentRawPorts}
+                    keysRef={props.keysRef}
+                    active={linnstrumentUserFirmwareEligible}
+                  />
                   <label style={{ marginTop: "0.3em" }}>
                     Auto Send Colours
                     <span
@@ -1342,7 +1380,7 @@ const MIDIio = (props) => {
                         borderRadius: "3px",
                         flexShrink: 0,
                       }}
-                      key={seqAnchorChannel}
+                      key={`seq-anchor-channel-${seqAnchorChannel}`}
                       defaultValue={seqAnchorChannel}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();
@@ -1372,7 +1410,7 @@ const MIDIio = (props) => {
                         border: "1px solid #c8b8b8",
                         borderRadius: "3px",
                       }}
-                      key={props.settings.midiin_central_degree}
+                      key={`seq-central-degree-${props.settings.midiin_central_degree}`}
                       defaultValue={centralNote}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();
@@ -1420,7 +1458,7 @@ const MIDIio = (props) => {
                     type="text"
                     inputMode="numeric"
                     class="sidebar-input"
-                    key={props.settings.midiin_steps_per_channel}
+                    key={`steps-per-channel-${props.settings.midiin_steps_per_channel ?? ""}`}
                     defaultValue={props.settings.midiin_steps_per_channel ?? ""}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.target.blur();
@@ -1471,14 +1509,14 @@ const MIDIio = (props) => {
           )}
 
           {/* ── Pitch Bend Interval ──────────────────────────────────────────────
-              Form A (Scala): MPE on OR wheel-to-recent on.
+              Form A (Scala): LinnStrument, MPE on, or wheel-to-recent on.
                 midiin_bend_range — ±full deflection maps to this interval.
                 Set hardware to max range (e.g. Exquis encoder2=48) for resolution.
-              Form B (12edo semitones): MPE off AND wheel-to-recent off.
+              Form B (12edo semitones): MPE off AND wheel-to-recent off AND not LinnStrument.
                 midi_wheel_semitones — raw PB passthrough; sample synth retuned directly.
               See claude-context/midi-input-ux.md for full spec. */}
           {showExquisBendControls &&
-            (props.settings.midiin_mpe_input || props.settings.wheel_to_recent ? (
+            (isLinnstrument || props.settings.midiin_mpe_input || props.settings.wheel_to_recent ? (
               <label title="Pitch Bend Interval: the musical interval that ±full deflection maps to. Set hardware to max range for best resolution.">
                 Pitch Bend Interval (Scala)
                 <ScalaInput

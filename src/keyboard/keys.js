@@ -349,9 +349,50 @@ class Keys {
         // 4. Routes CC1/CC11 (modwheel/expression) to all active hexes (global broadcast).
         // 5. Routes CC74 (brightness) to the front-of-recency-stack hex (non-MPE mode).
         //    In MPE input mode (Step 3.5) CC74 will be routed per-channel instead.
+        // LinnStrument User Firmware Mode: 14-bit X data buffer.
+        // Key: `ch.col` (same as activeMidi key), value: LSB awaiting MSB.
+        // On current hardware/firmware builds observed in Hexatone testing,
+        // LinnStrument sends the X pair as LSB first, then MSB.
+        this._linnUfXLsb = new Map();
+        this._linnUfXCurrent = new Map(); // latest x14 per "ch.col" — snapshot at note-on for zero-point
+
         this.midiin_data.addListener("controlchange", (e) => {
           const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
+
+          // ── LinnStrument User Firmware Mode X data ────────────────────────
+          // CC 1-25  = X MSB (col = CC, 1-indexed, ch = row).
+          // CC 33-57 = X LSB (col = CC-32, 1-indexed, ch = row).
+          // Combine to 14-bit value (0-4265 across the full pad width).
+          if (this.controller?.id === "linnstrument") {
+            if (cc >= 33 && cc <= 57) {
+              // X — first CC of the pair (LSB)
+              const col = cc - 32;
+              const key = `${e.message.channel}.${col}`;
+              this._linnUfXLsb.set(key, value);
+              return;
+            } else if (cc >= 1 && cc <= 25) {
+              // X — second CC of the pair (MSB)
+              const col = cc;
+              const key = `${e.message.channel}.${col}`;
+              const lsb = this._linnUfXLsb.get(key);
+              if (lsb === undefined) return;
+              this._linnUfXLsb.delete(key);
+              const x14 = (value << 7) | lsb;           // 14-bit: 0 (left edge col 1) to ~2727 (right edge col 16) or ~4265 (col 25)
+              this._linnUfXCurrent.set(key, x14);
+              const note_played = col + 128 * (e.message.channel - 1);
+              const hex = this.state.activeMidi.get(note_played);
+              if (hex && !hex.release && hex.retune) {
+                const COL_WIDTH = 171;                   // measured: 2727 / 16 ≈ 170.4
+                const cellCentre = (col - 1) * COL_WIDTH + COL_WIDTH / 2;
+                const deviation = (x14 - cellCentre) / (COL_WIDTH / 2); // −1…+1
+                const curved = Math.sign(deviation) * Math.pow(Math.abs(deviation), 5); // x^5: wide stable centre, bends only at edges
+                const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
+                hex.retune(hex._baseCents + curved * rangeCents);
+              }
+              return;
+            }
+          }
 
           if (cc === 121) {
             this._controllerCCValues.clear();
@@ -369,7 +410,16 @@ class Keys {
           if (!(cc === 74 && isMTSOutput)) this._passthroughCC(cc, value);
 
           // ── Internal consumption ──────────────────────────────────────────
-          if (cc === 64) {
+          if (cc >= 65 && cc <= 89 && this.controller?.id === "linnstrument") {
+            // LinnStrument User Firmware Mode Y data:
+            // CC 65-89 = per-cell Y position, ch=row(1-8), cc-64=col(1-25).
+            // This range overlaps sostenuto/soft pedal CCs — must be checked
+            // first so those generic handlers don't swallow LinnStrument Y messages.
+            const col = cc - 64;                                   // 1-indexed column
+            const note_played = col + 128 * (e.message.channel - 1);
+            const hex = this.state.activeMidi.get(note_played);
+            if (hex && !hex.release && hex.cc74) hex.cc74(value); // Y → timbre/slide
+          } else if (cc === 64) {
             // Sustain pedal
             if (value > 0) {
               this.sustainOn();
@@ -564,12 +614,9 @@ class Keys {
                 anchorChannel = 1;
               }
 
-              const rawOffsets = entry.buildMap(
-                anchorNote,
-                anchorChannel,
-                this.settings.rSteps,
-                this.settings.drSteps,
-              );
+              const rawOffsets = entry.multiChannel
+                ? entry.buildMap(anchorNote, anchorChannel, entry.defaultCols)
+                : entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
               const ox = this.settings.centerHexOffset.x;
               const oy = this.settings.centerHexOffset.y;
               this.controllerMap = new Map();
@@ -1177,9 +1224,14 @@ class Keys {
     const degreeMap = buildLinnstrumentDegreeMap(degreeColors);
 
     // Pass 3: fill the 128-slot output array.
+    // UF mode keys are "ch.col" (ch=row 1-8, col=1-16/25).
+    // _sendCell expects a flat note index: (row-1)*16 + (col-1).
     const values = new Array(128).fill(LINNS_OFF);
     for (const [mapKey, coords] of this.controllerMap) {
-      const note = parseInt(mapKey.slice(mapKey.indexOf(".") + 1), 10);
+      const dot = mapKey.indexOf(".");
+      const ch   = parseInt(mapKey.slice(0, dot), 10);
+      const col  = parseInt(mapKey.slice(dot + 1), 10);
+      const note = (ch - 1) * 16 + (col - 1);
       if (note < 0 || note > 127) continue;
       const [, reducedSteps] = this.hexCoordsToCents(coords);
       values[note] = degreeMap.get(reducedSteps) ?? LINNS_OFF;

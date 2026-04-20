@@ -1073,7 +1073,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     const rawIn = midi.inputs.get(settings.midiin_device);
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
-    if (!ctrl || ctrl.id !== "linnstrument128") return null;
+    if (!ctrl || ctrl.id !== "linnstrument") return null;
     const rawOut = settings.linnstrument_out_port
       ? midi.outputs.get(settings.linnstrument_out_port)
       : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));

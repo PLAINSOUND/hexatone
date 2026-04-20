@@ -27,7 +27,10 @@ import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
 import { ExquisLEDs } from "./controllers/exquis-leds.js";
 import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
-import { LinnStrumentLEDs, configureLinnStrument, unconfigureLinnStrument } from "./controllers/linnstrument-config.js";
+import {
+  attachLinnstrumentLedDriver,
+  detachLinnstrumentLedDriver,
+} from "./controllers/linnstrument-user-firmware.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
@@ -777,37 +780,20 @@ const App = () => {
       return;
     }
 
-    // Send NRPN configuration burst.
-    const mpeEnabled = !!settings.midiin_mpe_input;
-    configureLinnStrument(linnstrumentRawPorts.output, mpeEnabled);
-
-    const leds = new LinnStrumentLEDs(linnstrumentRawPorts.output);
+    // LED driver attachment lives with the UF module so LinnStrument-specific
+    // lifecycle rules stay centralized.
+    const leds = attachLinnstrumentLedDriver(
+      linnstrumentRawPorts.output,
+      keysRef.current,
+    );
     linnstrumentLedsRef.current = leds;
-    if (keysRef.current) {
-      keysRef.current.linnstrumentLEDs = leds;
-    }
 
     return () => {
-      // Gate all further LED sends immediately — must happen before anything
-      // else so that any colour-sync triggered by the cleanup re-render is
-      // blocked before unconfigureLinnStrument sends its NRPN burst.
-      leds.userFirmwareActive = false;
-      unconfigureLinnStrument(linnstrumentRawPorts.output);
       linnstrumentLedsRef.current = null;
-      if (keysRef.current) keysRef.current.linnstrumentLEDs = null;
-      leds.exit();
+      detachLinnstrumentLedDriver(leds, keysRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linnstrumentOutId]); // mpe mode re-config handled by separate effect below
-
-  // Re-send mode-sensitive NRPNs whenever the MPE toggle changes while a
-  // LinnStrument is connected. Re-sync LEDs afterwards because the NRPN burst
-  // resets the device's own overlay colours.
-  useEffect(() => {
-    if (linnstrumentRawPorts?.output) {
-      configureLinnStrument(linnstrumentRawPorts.output, !!settings.midiin_mpe_input);
-    }
-  }, [settings.midiin_mpe_input]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [linnstrumentOutId]);
 
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
@@ -878,7 +864,9 @@ const App = () => {
       if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
         keys.syncExquisLEDs();
       }
-      // LinnStrument: never auto-send on connect — user controls via Send Now button.
+      if (linnstrumentLedsRef.current && keys.settings?.linnstrument_led_sync) {
+        keys.syncLinnstrumentLEDs();
+      }
     },
     [],
   );

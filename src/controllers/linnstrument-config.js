@@ -1,61 +1,27 @@
-/* eslint-disable no-console */
 /**
  * linnstrument-config.js
  *
- * Plug-and-play NRPN configuration and LED colour sync for the
- * Roger Linn Design LinnStrument 128.
+ * NRPN configuration and LED colour sync for the LinnStrument in
+ * User Firmware Mode (NRPN 245 = 1).
  *
  * ── What this module does ─────────────────────────────────────────────────────
  *
- * configureLinnStrument(output, mpeEnabled)
- *   Sends a one-shot NRPN burst over `output` to set:
+ * configureLinnStrument(output)
+ *   One-shot NRPN burst to set geometry and layout for UF mode:
  *     • Row offset = No Overlap  (NRPN 227 = 0)
  *     • Octave −2, Transpose −6  (NRPNs 36, 37)
- *       → MIDI note 0 lands at bottom-left pad (col 0, row 7)
- *     • Bend range = 1 semitone  (NRPN 19)
- *       → Maximum incoming pitch-bend resolution; Hexatone's own MPE
- *         output uses the separately configured mpe_pitchbend_range.
- *     • Split MIDI mode, channel assignments, X/Y/Z expression routing
- *       according to `mpeEnabled` (see tables below).
  *     • Switch 1 = Sustain, Switch 2 = CC65
- *       (TODO: Hexatone does not yet handle incoming CC65 from controllers)
+ *   X/Y/Z streams are NOT configured here — in UF mode they are enabled
+ *   per-row via CC 10/11/12 (see enableLinnstrumentXData/YZData).
+ *   NRPN 245 is NOT sent here — caller owns it (LinnUserFirmwareToggle).
  *
- * ── NRPN configuration tables ────────────────────────────────────────────────
+ * ── NRPN configuration table ─────────────────────────────────────────────────
  *
- * Invariant (both modes):
- *   NPRN 245 = 1   Turn on User Firmware mode
  *   NRPN 227 = 0   Row offset = No Overlap
  *   NRPN 36  = 3   Octave = −2   (0=−5 … 5=0 … 10=+5)
  *   NRPN 37  = 1   Transpose pitch = −6 st  (0=−7, 1=−6 … 7=0 … 14=+7)
- *   NRPN 19  = 1   Bend range = 1 semitone
- *   NRPN 21  = 0   Pitch Quantize = off
  *   NRPN 228 = 2   Switch 1 = Sustain
- *   NRPN 229 = 3   Switch 2 = CC65  (TODO: handle CC65 in Hexatone)
- *
- * MPE mode (Channel Per Note):
- *   NRPN 0       = 1   MIDI mode = Ch Per Note
- *   NRPN 1       = 1   Main channel = 1 (MPE manager)
- *   NRPN 2       = 0   Per-note ch 1 = off  (manager, not voice)
- *   NRPN 3–16   = 1   Per-note ch 2–15 = on
- *   NRPN 17      = 0   Per-note ch 16 = off
- *   NRPN 18      = 2   Per Row lowest ch = 2 (voice channels start at 2)
- *   NRPN 20      = 1   Send X (pitch bend) = on
- *   NRPN 24      = 1   Send Y = on
- *   NRPN 25      = 74  Y CC = CC74 (MPE Timbre)
- *   NRPN 39      = 2   Y expression = CC (as defined by NRPN 25)
- *   NRPN 27      = 1   Send Z = on
- *   NRPN 28      = 0   Z = Poly Aftertouch
- *
- * Single-channel mode (One Channel):
- *   NRPN 0       = 0   MIDI mode = One Channel
- *   NRPN 1       = 1   Main channel = 1
- *   NRPN 2–17   = 0   Per-note channels all off
- *   NRPN 20      = 1   Send X (pitch bend) = on (Smart MIDI handles mono/poly)
- *   NRPN 24      = 1   Send Y = on
- *   NRPN 25      = 1   Y CC = CC1 (Mod Wheel)
- *   NRPN 39      = 2   Y expression = CC
- *   NRPN 27      = 1   Send Z = on
- *   NRPN 28      = 0   Z = Poly Aftertouch (per-voice pressure on ch 1)
+ *   NRPN 229 = 3   Switch 2 = CC65
  *
  * ── LED colour sync ───────────────────────────────────────────────────────────
  *
@@ -87,57 +53,22 @@ function sendNrpn(output, param, value) {
 }
 
 /**
- * Send all NRPN parameters to configure the LinnStrument 128 for use with
- * Hexatone.  Call once on device connect and again whenever mpeEnabled toggles.
+ * Send geometry NRPNs to configure the LinnStrument for User Firmware Mode.
+ * Call once after NRPN 245=1 has been sent by LinnUserFirmwareToggle.
+ * X/Y/Z streams are enabled separately via enableLinnstrumentYZData/XData.
  *
- * @param {MIDIOutput} output      Raw Web MIDI output port.
- * @param {boolean}    mpeEnabled  true = Channel Per Note, false = One Channel.
+ * @param {MIDIOutput} output  Raw Web MIDI output port.
  */
-export function configureLinnStrument(output, mpeEnabled) {
+export function configureLinnStrument(output) {
   if (!output) return;
 
-  // ── Invariant settings ────────────────────────────────────────────────────
-  sendNrpn(output, 245, 1);  // User Firmware Mode = ON
+  // NRPN 245 (User Firmware Mode) is NOT sent here — LinnUserFirmwareToggle owns it.
   sendNrpn(output, 227, 0);  // Row offset = No Overlap
   sendNrpn(output, 36,  3);  // Octave = −2
   sendNrpn(output, 37,  1);  // Transpose = −6 semitones
-  sendNrpn(output, 19,  0);  // Bend range = 1 semitones
-  sendNrpn(output, 21,  1);  // Pitch Quantize = on
-  sendNrpn(output, 22,  1);  // Pitch Quantize Hold = medium
   sendNrpn(output, 228, 2);  // Switch 1 = Sustain
-  sendNrpn(output, 229, 3);  // Switch 2 = CC65 (TODO: handle CC65 in Hexatone)
+  sendNrpn(output, 229, 3);  // Switch 2 = CC65
 
-  // ── Mode-dependent settings ───────────────────────────────────────────────
-  if (mpeEnabled) {
-    sendNrpn(output, 0,  1);  // MIDI mode = Ch Per Note
-    sendNrpn(output, 1,  1);  // Main channel = 1 (MPE manager)
-    sendNrpn(output, 2,  0);  // Per-note ch 1 = off (manager)
-    for (let ch = 2; ch <= 15; ch++) {
-      sendNrpn(output, ch + 1, 1); // Per-note ch 2–15 = on  (NRPNs 3–16)
-    }
-    sendNrpn(output, 17, 0);  // Per-note ch 16 = off
-    sendNrpn(output, 18, 2);  // Per Row lowest ch = 2
-    sendNrpn(output, 20, 0);  // Send X (pitch bend) = off
-    sendNrpn(output, 24, 1);  // Send Y = on
-    sendNrpn(output, 25, 74); // Y CC = CC74 (MPE Timbre)
-    sendNrpn(output, 39, 2);  // Y expression = CC
-    sendNrpn(output, 27, 1);  // Send Z = on
-    sendNrpn(output, 28, 0);  // Z = Poly Aftertouch
-  } else {
-    sendNrpn(output, 0,  0);  // MIDI mode = One Channel
-    sendNrpn(output, 1,  1);  // Main channel = 1
-    for (let ch = 1; ch <= 16; ch++) {
-      sendNrpn(output, ch + 1, 0); // Per-note ch 1–16 = off (NRPNs 2–17)
-    }
-    sendNrpn(output, 20, 0);  // Send X (pitch bend) = off
-    sendNrpn(output, 24, 1);  // Send Y = on
-    sendNrpn(output, 25, 1);  // Y CC = CC1 (Mod Wheel)
-    sendNrpn(output, 39, 2);  // Y expression = CC
-    sendNrpn(output, 27, 1);  // Send Z = on
-    sendNrpn(output, 28, 0);  // Z = Poly Aftertouch
-  }
-
-  console.log(`[LinnStrument] Configured: ${mpeEnabled ? "MPE (Ch Per Note)" : "single-channel"}, User Firmware Mode on`);
 }
 
 /**
@@ -154,7 +85,44 @@ export function unconfigureLinnStrument(output) {
   if (!output) return;
 
   sendNrpn(output, 245, 0);  // Turn off User Firmware mode
-  console.log("[LinnStrument] Restored factory defaults, User Firmware Mode off");
+}
+
+/**
+ * Enable 3D touch data streams for all 8 rows in User Firmware Mode.
+ *
+ * Must be called AFTER NRPN 245=1 (User Firmware Mode active).
+ * Each time User Firmware Mode activates it starts from a clean slate —
+ * data streams default to off and must be re-enabled every time.
+ *
+ * Y data  (CC 11, per row ch 1-8): per-cell vertical position, CC 64-89.
+ * Z data  (CC 12, per row ch 1-8): per-cell pressure, Polyphonic Aftertouch.
+ * X data is left OFF by default — X requires a separate call to
+ * enableLinnstrumentXData() and significantly increases MIDI bandwidth.
+ *
+ * @param {MIDIOutput} output
+ */
+export function enableLinnstrumentYZData(output) {
+  if (!output) return;
+  for (let row = 1; row <= 8; row++) {
+    const status = 0xb0 | (row - 1); // CC status byte for channel `row`
+    output.send([status, 11, 1]);    // CC 11 = enable Y data for this row
+    output.send([status, 12, 1]);    // CC 12 = enable Z data for this row
+  }
+}
+
+/**
+ * Enable X (slide) data for all 8 rows in User Firmware Mode.
+ * This significantly increases MIDI bandwidth (14-bit per cell per frame).
+ * Call only when pitch-slide expression is needed.
+ *
+ * @param {MIDIOutput} output
+ */
+export function enableLinnstrumentXData(output) {
+  if (!output) return;
+  for (let row = 1; row <= 8; row++) {
+    const status = 0xb0 | (row - 1);
+    output.send([status, 10, 1]);    // CC 10 = enable X data for this row
+  }
 }
 
 // ── LED colour sync ────────────────────────────────────────────────────────────
@@ -623,10 +591,10 @@ export class LinnStrumentLEDs {
   _sendCell(note, paletteValue) {
     // note = row * 16 + col  (row 0 = bottom, col 0 = left)
     const col = note % 16;
-    const row = Math.floor(note / 16);
+    const row = Math.floor(note / 16);      // UF row 0 = bottom, matching ch=1
     // CC20 = col (0-indexed), CC21 = row (0-indexed), CC22 = colour value.
     // All sent on channel 1 (status 0xB0).
-    this._out.send([0xb0, 20, col + 1]);  // it seems this is NOT 0 indexed??? why???
+    this._out.send([0xb0, 20, col + 1]);   // 1-indexed despite docs saying 0
     this._out.send([0xb0, 21, row]);
     this._out.send([0xb0, 22, paletteValue]);
     this._last[note] = paletteValue;
