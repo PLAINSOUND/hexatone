@@ -21,6 +21,7 @@ const Keyboard = (props) => {
       props.onTakeSnapshot,
       props.inputRuntime,
       props.onFirstInteraction,
+      props.tuningRuntime,
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
@@ -153,6 +154,11 @@ Keyboard.propTypes = {
     spectrum_colors: PropTypes.bool,
     fundamental_color: PropTypes.string,
   }).isRequired,
+  tuningRuntime: PropTypes.shape({
+    scale: PropTypes.arrayOf(PropTypes.number),
+    equivInterval: PropTypes.number,
+    equivSteps: PropTypes.number,
+  }),
   synth: PropTypes.object.isRequired,
 };
 

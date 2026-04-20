@@ -4,6 +4,7 @@ import Keyboard from "./keyboard";
 import { presets } from "./settings/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
+import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 
 import useSynthWiring from "./use-synth-wiring.js";
 import { useMidiGuardian } from "./use-midi-guardian.js";
@@ -453,6 +454,21 @@ const App = () => {
   const scaleKey = useMemo(() => JSON.stringify(settings.scale), [settings.scale]);
   const noteNamesKey = useMemo(() => JSON.stringify(settings.note_names), [settings.note_names]);
   const noteColorsKey = useMemo(() => JSON.stringify(settings.note_colors), [settings.note_colors]);
+  const tuningWorkspace = useMemo(
+    () =>
+      settings.scale && Array.isArray(settings.scale) && settings.scale.length > 0
+        ? createScaleWorkspace({
+            scale: settings.scale,
+            reference_degree: settings.reference_degree,
+            fundamental: settings.fundamental,
+          })
+        : null,
+    [settings.scale, settings.reference_degree, settings.fundamental],
+  );
+  const tuningRuntime = useMemo(
+    () => (tuningWorkspace ? normalizeWorkspaceForKeys(tuningWorkspace) : null),
+    [tuningWorkspace],
+  );
 
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
@@ -519,7 +535,7 @@ const App = () => {
   // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
   const structuralSettings = useMemo(
-    () => normalizeStructural(settings),
+    () => normalizeStructural(settings, { tuningRuntime }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- explicit field list avoids reconstructing Keys on every color-picker drag
     [
       settings.rSteps,
@@ -557,6 +573,7 @@ const App = () => {
       midiAccess,
       midiTick,
       // Intentional: listing explicit fields so color-picker drags (not listed here) don't reconstruct Keys.
+      tuningRuntime,
     ],
   );
 
@@ -891,6 +908,7 @@ const App = () => {
         <Keyboard
           synth={synth || nullSynth}
           settings={normalizedSettings}
+          tuningRuntime={tuningRuntime}
           liveOutputSettings={liveOutputSettings}
           inputRuntime={inputRuntime}
           structuralSettings={reconstructionSettings}

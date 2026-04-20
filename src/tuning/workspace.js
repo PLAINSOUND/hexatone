@@ -200,10 +200,15 @@ export function commitWorkspacePreview(workspace, degree) {
 }
 
 export function normalizeWorkspaceForKeys(workspace) {
+  const degreeCents = workspace.slots.map((slot) => slot.cents);
   return {
     degreeIntervals: workspace.slots.map((slot) => cloneInterval(slot.committedIdentity)),
-    degreeCents: workspace.slots.map((slot) => slot.cents),
+    degreeCents,
     equaveInterval: cloneInterval(workspace.baseScale.equaveInterval),
     equaveCents: workspace.baseScale.equaveCents,
+    // Back-compat shape for the current Keys/settings pipeline.
+    scale: [...degreeCents],
+    equivInterval: workspace.baseScale.equaveCents,
+    equivSteps: degreeCents.length,
   };
 }

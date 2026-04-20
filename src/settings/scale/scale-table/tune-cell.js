@@ -22,6 +22,11 @@ import { parseOptionalPositiveInt } from "./search-prefs.js";
  * 'recalculate_reference' behavior. Keep the alternate path in place and
  * documented here in case a dedicated UX control is added later.
  */
+export function getEffectivePreviewCents(tunedCents, comparing, originalCents) {
+  if (tunedCents === null) return null;
+  return comparing ? originalCents : tunedCents;
+}
+
 const TuneCell = ({
   scaleStr,
   degree,
@@ -91,7 +96,13 @@ const TuneCell = ({
   // Broadcast live preview cents + comparing state to the parent frequency column.
   // Only re-runs when these values change, not when the callback identity changes.
   useEffect(() => {
-    if (onPreviewChangeRef.current) onPreviewChangeRef.current(degree, tunedCents, comparing);
+    if (!onPreviewChangeRef.current) return;
+    const effectivePreviewCents = getEffectivePreviewCents(
+      tunedCents,
+      comparing,
+      originalCents.current,
+    );
+    onPreviewChangeRef.current(degree, effectivePreviewCents, comparing);
   }, [degree, tunedCents, comparing]);
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { hex2rgb, rgb2hsv, HSVtoRGB2, rgbToHex } from "./keyboard/color_utils.js
 import { parseHejiPitchClassLabel } from "./notation/heji.js";
 import { createReferenceFrame } from "./notation/reference-frame.js";
 import { spelledHejiLabel } from "./notation/key-label.js";
+import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 export { deriveHejiAnchor, deriveHejiAnchorFromNoteNames } from "./notation/heji-normalization.js";
 import { deriveHejiAnchor } from "./notation/heji-normalization.js";
 
@@ -38,7 +39,7 @@ export const normalizeColors = (settings) => {
 };
 
 // Everything except colors — changes here rebuild the Keys instance.
-export const normalizeStructural = (settings) => {
+export const normalizeStructural = (settings, options = {}) => {
   const rotation = (settings.rotation * Math.PI) / 180.0; // converts degrees to radians
   const result = {
     ...settings,
@@ -76,15 +77,16 @@ export const normalizeStructural = (settings) => {
   // This is required for key_labels === 'scala_names' and for cents calculations.
   if (settings.scale) {
     const scaleAsStrings = settings.scale.map((i) => String(i));
+    const workspaceRuntime =
+      options.tuningRuntime ??
+      normalizeWorkspaceForKeys(createScaleWorkspace(settings));
     const scala_names = scaleAsStrings.map((i) => scalaToLabels(i));
-    const scale = settings.scale.map((i) => scalaToCents(String(i)));
-    const equivInterval = scale.pop();
-    scale.unshift(0);
     scala_names.pop();
     scala_names.unshift("1/1");
     result["scala_names"] = scala_names;
-    result["scale"] = scale;
-    result["equivInterval"] = equivInterval;
+    result["scale"] = workspaceRuntime.scale;
+    result["equivInterval"] = workspaceRuntime.equivInterval;
+    result["equivSteps"] = workspaceRuntime.equivSteps;
 
     // Build heji_names when heji label mode is active.
     //
@@ -141,6 +143,7 @@ export const normalizeStructural = (settings) => {
         // Anchor cents: the pitch value of the anchor ratio from degree 0,
         // taken mod equave so it is comparable to scale[] values.
         const anchorCents = scalaToCents(String(anchorRatioText));
+        const scale = workspaceRuntime.scale;
 
         try {
           const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });

@@ -16,6 +16,7 @@ import {
   parseOptionalPositiveInt,
 } from "./search-prefs.js";
 import {
+  buildBatchRationalisationReferenceMonzos,
   getRowRuntime,
   getRationalisationRequest,
   getHumanTestableRationalCandidates,
@@ -114,11 +115,29 @@ const ScaleTable = (props) => {
     setResetVersion((prev) => ({ ...prev, [degreeIndex]: (prev[degreeIndex] ?? 0) + 1 }));
   }, []);
 
+  const rowRuntimeByDegree = useMemo(
+    () => new Map(workspace.slots.map((slot) => [slot.degree, getRowRuntime(workspace, slot.degree)])),
+    [workspace],
+  );
+  const getRowRuntimeAtDegree = useCallback((degreeIndex) => {
+    if (degreeIndex === scale.length) {
+      return {
+        committedInterval: workspace.baseScale.equaveInterval,
+        committedCents: workspace.baseScale.equaveCents,
+      };
+    }
+    return rowRuntimeByDegree.get(degreeIndex) ?? getRowRuntime(workspace, degreeIndex);
+  }, [rowRuntimeByDegree, scale.length, workspace]);
+
+  const getCommittedCentsAtDegree = useCallback((degreeIndex) => {
+    return getRowRuntimeAtDegree(degreeIndex).committedCents;
+  }, [getRowRuntimeAtDegree]);
+
   const effectiveCentsAtDegree = useCallback((degreeIndex) => {
     const state = previewState[degreeIndex];
     if (state && state.cents !== null) return state.cents;
-    return scalaToCents(String(scale[degreeIndex] ?? equiv_interval));
-  }, [previewState, scale, equiv_interval]);
+    return getCommittedCentsAtDegree(degreeIndex);
+  }, [previewState, getCommittedCentsAtDegree]);
   const referenceCents = effectiveCentsAtDegree(referenceDegree);
   const frequencyAtDegree = useCallback((degreeIndex) => {
     const cents = effectiveCentsAtDegree(degreeIndex);
@@ -149,23 +168,24 @@ const ScaleTable = (props) => {
       ? Array.from(byDegree.values()).filter((s) => s?.cents != null).map((s) => s.cents)
       : null;
 
-    // Seed reference monzos from whatever is already hand-committed in the
-    // workspace — these are stable anchors regardless of what this run picks.
-    const preCommittedMonzos = [];
-    if (byDegree) {
-      for (const slot of byDegree.values()) {
-        if (Array.isArray(slot?.committedIdentity?.monzo)) {
-          preCommittedMonzos.push(slot.committedIdentity.monzo);
-        }
-      }
-    }
-
     // When existingRatios === "keep", degrees that already contain a ratio
     // string (e.g. "3/2", "5/4") are left untouched — only cents-valued
     // degrees are rationalised. When "search", all non-equave degrees are
     // rationalised regardless of their current form.
     const keepExisting = searchPrefs.existingRatios !== "search";
     const isRatioStr = (s) => /\//.test(String(s));
+
+    // Seed reference monzos from whatever is already hand-committed in the
+    // workspace — but only in keep-existing mode, where those committed ratios
+    // are intentional anchors rather than stale bias.
+    const preCommittedMonzos = [];
+    if (keepExisting && byDegree) {
+      for (const slot of byDegree.values()) {
+        if (Array.isArray(slot?.committedIdentity?.monzo)) {
+          preCommittedMonzos.push(slot.committedIdentity.monzo);
+        }
+      }
+    }
 
     // ── Pass 1: independent candidate search for every degree ──────────────
     // No cross-degree consistency scoring — each degree is evaluated on its
@@ -174,7 +194,7 @@ const ScaleTable = (props) => {
       if (i === equaveIdx) return null;
       if (keepExisting && isRatioStr(str)) return null; // preserve existing ratio
       const tuneCellDegree = i + 1;
-      const tunedCents = scalaToCents(String(str));
+      const tunedCents = getCommittedCentsAtDegree(tuneCellDegree);
       const request = getRationalisationRequest({
         degree: tuneCellDegree,
         tunedCents,
@@ -212,10 +232,12 @@ const ScaleTable = (props) => {
       if (!entry || !entry.candidates.length) return str;
 
       // Reference = pre-committed anchors + pass-1 winners from all OTHER degrees.
-      const refMonzos = [
-        ...preCommittedMonzos,
-        ...pass1Monzos.filter((m, j) => j !== i && m != null),
-      ];
+      const refMonzos = buildBatchRationalisationReferenceMonzos({
+        keepExisting,
+        preCommittedMonzos,
+        pass1Monzos,
+        degreeIndex: i,
+      });
 
       // Re-rank by (aggregateScore - consistency_bonus) — lower aggregateScore
       // is better, so a positive consistency bonus lowers the effective cost.
@@ -249,7 +271,7 @@ const ScaleTable = (props) => {
       });
     }
     setRationalisingScale(false);
-  }, [props, workspace, frequencyAtDegree, searchPrefs]);
+  }, [props, workspace, frequencyAtDegree, searchPrefs, getCommittedCentsAtDegree]);
 
   const centsFromFrequency = (frequency) =>
     referenceCents + 1200 * Math.log2(frequency / props.settings.fundamental);
@@ -257,7 +279,7 @@ const ScaleTable = (props) => {
   const deviationCentsAtDegree = (degreeIndex) => {
     const state = previewState[degreeIndex];
     if (!state || state.cents === null) return null;
-    const committed = scalaToCents(String(scale[degreeIndex] ?? equiv_interval));
+    const committed = getCommittedCentsAtDegree(degreeIndex);
     return state.cents - committed;
   };
   const isComparingAtDegree = (degreeIndex) => !!previewState[degreeIndex]?.comparing;
@@ -280,7 +302,7 @@ const ScaleTable = (props) => {
       const oldScale = [...(props.settings.scale || [])];
       const newScale = oldScale.map((str, idx) => {
         if (idx === oldScale.length - 1) return str;
-        const cents = scalaToCents(String(str));
+        const cents = getCommittedCentsAtDegree(idx + 1);
         return (cents - delta).toFixed(6);
       });
       if (referenceDegree === 0) {
@@ -610,8 +632,8 @@ const ScaleTable = (props) => {
                   key={`tune0-${props.importCount}`}
                   scaleStr="0.0"
                   degree={0}
-                  committedInterval={getRowRuntime(workspace, 0).committedInterval}
-                  committedCents={getRowRuntime(workspace, 0).committedCents}
+                  committedInterval={getRowRuntimeAtDegree(0).committedInterval}
+                  committedCents={getRowRuntimeAtDegree(0).committedCents}
                   workspace={workspace}
                   settings={props.settings}
                   frequencyAtDegree={frequencyAtDegree}
@@ -714,8 +736,8 @@ const ScaleTable = (props) => {
                     key={`tune${i + 1}-${props.importCount}`}
                     scaleStr={(props.settings.scale || [])[i] || String(freq)}
                     degree={i + 1}
-                    committedInterval={getRowRuntime(workspace, i + 1).committedInterval}
-                    committedCents={getRowRuntime(workspace, i + 1).committedCents}
+                    committedInterval={getRowRuntimeAtDegree(i + 1).committedInterval}
+                    committedCents={getRowRuntimeAtDegree(i + 1).committedCents}
                     workspace={workspace}
                     settings={props.settings}
                     frequencyAtDegree={frequencyAtDegree}

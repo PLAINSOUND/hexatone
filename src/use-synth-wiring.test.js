@@ -78,6 +78,26 @@ const makeMidi = () => {
 };
 
 describe("use-synth-wiring runtime derivation", () => {
+  it("derives committed cents from the workspace-backed tuning runtime", () => {
+    const tuningRuntime = deriveTuningRuntime({
+      scale: ["9/8", "5/4", "7\\12", "2/1"],
+      reference_degree: 1,
+      fundamental: 440,
+      name: "Mixed interval test",
+    });
+
+    expect(tuningRuntime.scale).toEqual([
+      0,
+      expect.closeTo(203.91000173077484, 10),
+      expect.closeTo(386.3137138648348, 10),
+      700,
+    ]);
+    expect(tuningRuntime.equivInterval).toBeCloseTo(1200, 10);
+    expect(tuningRuntime.degree0toRefAsArray[0]).toBeCloseTo(203.91000173077484, 10);
+    expect(tuningRuntime.name).toBe("Mixed interval test");
+    expect(tuningRuntime.fundamental).toBe(440);
+  });
+
   it("derives the centered static bulk-dump anchor for the Partch preset", () => {
     const settings = makeSettings({ direct_mode: "static" });
     const tuningRuntime = deriveTuningRuntime(settings);

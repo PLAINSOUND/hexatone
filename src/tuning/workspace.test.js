@@ -76,8 +76,12 @@ describe("tuning/workspace", () => {
     const workspace = createScaleWorkspace(settings);
     const runtime = normalizeWorkspaceForKeys(workspace);
     expect(runtime.degreeIntervals).toHaveLength(4);
+    expect(runtime.degreeCents).toHaveLength(4);
     expect(runtime.degreeIntervals[0].ratio.toFraction()).toBe("1");
     expect(runtime.degreeIntervals[2].ratio.toFraction()).toBe("5/4");
     expect(runtime.equaveInterval.ratio.toFraction()).toBe("2");
+    expect(runtime.scale[0]).toBe(0);
+    expect(runtime.equivInterval).toBeCloseTo(1200, 5);
+    expect(runtime.equivSteps).toBe(4);
   });
 });

@@ -795,15 +795,12 @@ export const CONTROLLER_REGISTRY = [
 
   {
     id: "linnstrument",
-    name: "Roger Linn Design LinnStrument 128",
+    name: "Roger Linn Design LinnStrument",
     detect: (name) => name.includes("linnstrument"),
     description:
-      "16×8 isomorphic grid (200-note model uses 25 cols). " +
-      "User Firmware Mode (NRPN 245=1) blanks LEDs and hands pad control to the host. " +
-      "In User Firmware Mode notes arrive as ch=row(1-8), note=col(1-16); " +
-      "Z (pressure) as PolyAT same ch/note; Y as CC 64-89 (CC=col+63); " +
-      "X as CC 0-25 MSB + CC 32-57 LSB (14-bit, range 0-4265). " +
-      "On exit (NRPN 245=0) the device restores its own stored layout — nothing else needed.",
+      "Isomorphic grid with 16 or 25 columns. " +
+      "Hexatone activates User Firmware Mode to colour pads and assign geometry. " +
+      "On exit the device restores its own stored layout.",
     // In User Firmware Mode ch encodes the row, so multiChannel=true.
     // In standard modes ch does not encode position, so the map uses ch=1.
     // Keys.js switches maps when userfw mode is active.

@@ -98,6 +98,18 @@ export function getRationalisationRequest({
   };
 }
 
+export function buildBatchRationalisationReferenceMonzos({
+  keepExisting,
+  preCommittedMonzos = [],
+  pass1Monzos = [],
+  degreeIndex,
+}) {
+  return [
+    ...(keepExisting ? preCommittedMonzos : []),
+    ...pass1Monzos.filter((monzo, index) => index !== degreeIndex && monzo != null),
+  ];
+}
+
 function mergeUniqueCandidates(candidateSets, maxCandidates = 8) {
   const merged = [];
   const seen = new Set();

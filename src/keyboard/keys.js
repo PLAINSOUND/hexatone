@@ -73,14 +73,25 @@ class Keys {
     onTakeSnapshot = null,
     inputRuntime = null,
     onFirstInteraction = null,
+    tuningRuntime = null,
   ) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
+    this.tuning = {
+      scale: tuningRuntime?.scale ? [...tuningRuntime.scale] : [...(settings.scale || [])],
+      equivInterval: tuningRuntime?.equivInterval ?? settings.equivInterval,
+      equivSteps: tuningRuntime?.equivSteps ?? settings.equivSteps ?? settings.scale?.length ?? 0,
+      degree0toRef_asArray:
+        tuningRuntime?.degree0toRefAsArray ??
+        degree0ToRef(
+          settings.reference_degree,
+          tuningRuntime?.scale ?? settings.scale,
+        ),
+    };
     this.settings = {
       hexHeight: settings.hexSize * 2,
       hexVert: (settings.hexSize * 3) / 2,
       hexWidth: Math.sqrt(3) * settings.hexSize,
       gcd, // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
-      degree0toRef_asArray: degree0ToRef(settings.reference_degree, settings.scale),
       centerHexOffset: computeCenterOffset(
         settings.rSteps,
         settings.drSteps,
@@ -214,9 +225,9 @@ class Keys {
     // is built from the grid, and the input anchor maps hardware keys onto the grid.
     const tuning_map_degree0 = computeNaturalAnchor(
       this.settings.fundamental,
-      this.settings.degree0toRef_asArray[0],
-      this.settings.scale,
-      this.settings.equivInterval,
+      this.tuning.degree0toRef_asArray[0],
+      this.tuning.scale,
+      this.tuning.equivInterval,
       this.settings.center_degree,
     );
     this.mts_tuning_map = mtsTuningMap(
@@ -224,11 +235,11 @@ class Keys {
       this.settings.device_id,
       this.settings.tuning_map_number,
       tuning_map_degree0,
-      this.settings.scale,
+      this.tuning.scale,
       this.settings.name,
-      this.settings.equivInterval,
+      this.tuning.equivInterval,
       this.settings.fundamental,
-      this.settings.degree0toRef_asArray,
+      this.tuning.degree0toRef_asArray,
       this.settings.octave_offset || 0,
     );
 
@@ -541,7 +552,7 @@ class Keys {
                 equaveShift = ((equaveShift + 20) % 8) - 4;
                 // scaleStepShift: the same transposition expressed as scale degrees
                 // (equaveShift × equivSteps), used to remap the output note number.
-                const scaleStepShift = equaveShift * this.settings.equivSteps;
+                const scaleStepShift = equaveShift * this.tuning.equivSteps;
                 let note = (e.message.dataBytes[0] + scaleStepShift + 16 * 128) % 128;
                 this.midiout_data.sendKeyAftertouch(note, e.message.dataBytes[1], {
                   channels: this.settings.midi_channel + 1,
@@ -731,7 +742,7 @@ class Keys {
 
   /**
    * Live-retune a single scale degree while notes are held.
-   * Updates this.settings.scale[degree] and redraws that degree's hexes.
+   * Updates this.tuning.scale[degree] and redraws that degree's hexes.
    * Also calls hex.retune(newCents) on any currently-sounding or sustained notes
    * at that degree — including notes held under the Shift sustain pedal.
    * @param {number} degree   - reducedSteps index (1..equivSteps-1; 0 = tonic, fixed)
@@ -739,15 +750,15 @@ class Keys {
    */
 
   updateScaleDegree = (degree, newCents) => {
-    if (!this.settings.scale || degree < 0) return;
+    if (!this.tuning.scale || degree < 0) return;
 
     // The equave is stored as equivInterval, not in the scale array.
     // TuneCell passes degree === scale.length for the equave row.
-    if (degree === this.settings.scale.length) {
-      const oldEquiv = this.settings.equivInterval;
+    if (degree === this.tuning.scale.length) {
+      const oldEquiv = this.tuning.equivInterval;
       const equivDelta = newCents - oldEquiv;
       const bendOnly = !!this.inputRuntime.mpeInput;
-      this.settings.equivInterval = newCents;
+      this.tuning.equivInterval = newCents;
       // Each hex is at octs * equivInterval + scale[reducedSteps],
       // so changing equivInterval by equivDelta shifts it by octs * equivDelta.
       for (const hex of this._allActiveHexes()) {
@@ -766,13 +777,13 @@ class Keys {
       return;
     }
 
-    if (degree >= this.settings.scale.length) return;
+    if (degree >= this.tuning.scale.length) return;
     // Compute delta before mutating scale, so we can shift each hex by the same amount
     // regardless of which octave it was played in.
-    const oldCents = this.settings.scale[degree];
+    const oldCents = this.tuning.scale[degree];
     const delta = newCents - oldCents;
     const bendOnly = !!this.inputRuntime.mpeInput;
-    this.settings.scale[degree] = newCents;
+    this.tuning.scale[degree] = newCents;
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
@@ -798,14 +809,14 @@ class Keys {
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === 0 && hex.retune) {
-        const baseCents = octs * this.settings.equivInterval + newCents;
+        const baseCents = octs * this.tuning.equivInterval + newCents;
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
     for (const [hex] of this.state.sustainedNotes) {
       const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === 0 && hex.retune) {
-        const baseCents = octs * this.settings.equivInterval + newCents;
+        const baseCents = octs * this.tuning.equivInterval + newCents;
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
@@ -840,19 +851,19 @@ class Keys {
     if (!skipRetune) {
       // Retune all sounding and sustained notes immediately
       for (const hex of this._allActiveHexes()) {
-        const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
+        const newCents = (hex._baseCents ?? hex.cents) + dir * this.tuning.equivInterval;
         if ("fundamental" in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
         hex._baseCents = newCents;
       }
       for (const [hex] of this.state.sustainedNotes) {
-        const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
+        const newCents = (hex._baseCents ?? hex.cents) + dir * this.tuning.equivInterval;
         if ("fundamental" in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
         hex._baseCents = newCents;
       }
       if (this._wheelBaseCents !== null) {
-        this._wheelBaseCents += dir * this.settings.equivInterval;
+        this._wheelBaseCents += dir * this.tuning.equivInterval;
       }
     }
 
@@ -870,16 +881,16 @@ class Keys {
       this.settings.tuning_map_number,
       computeNaturalAnchor(
         this.settings.fundamental,
-        this.settings.degree0toRef_asArray[0],
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.degree0toRef_asArray[0],
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.settings.center_degree,
       ),
-      this.settings.scale,
+      this.tuning.scale,
       bulkDumpName,
-      this.settings.equivInterval,
+      this.tuning.equivInterval,
       this.settings.fundamental,
-      this.settings.degree0toRef_asArray,
+      this.tuning.degree0toRef_asArray,
       this.settings.octave_offset || 0,
     );
     if (this._deferredBulkMapTimer != null) {
@@ -919,16 +930,16 @@ class Keys {
       this.settings.tuning_map_number,
       computeNaturalAnchor(
         this.settings.fundamental,
-        this.settings.degree0toRef_asArray[0],
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.degree0toRef_asArray[0],
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.settings.center_degree,
       ),
-      this.settings.scale,
+      this.tuning.scale,
       this.settings.name,
-      this.settings.equivInterval,
+      this.tuning.equivInterval,
       newFundamental,
-      this.settings.degree0toRef_asArray,
+      this.tuning.degree0toRef_asArray,
       this.settings.octave_offset || 0,
     );
     // If a TuneCell drag preview is in progress (or was abandoned without Save/Revert),
@@ -1092,7 +1103,7 @@ class Keys {
     // Needed to reconstruct absolute frequency from hex.cents.
     const centsToRef =
       this.settings.reference_degree > 0
-        ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+        ? (this.tuning.scale[this.settings.reference_degree - 1] ?? 0)
         : 0;
     const fund = this.settings.fundamental;
 
@@ -1135,10 +1146,10 @@ class Keys {
 
     const centsToRef =
       this.settings.reference_degree > 0
-        ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+        ? (this.tuning.scale[this.settings.reference_degree - 1] ?? 0)
         : 0;
     const fund = this.settings.fundamental;
-    const degree0toRef_ratio = this.settings.degree0toRef_asArray?.[1] ?? 1;
+    const degree0toRef_ratio = this.tuning.degree0toRef_asArray?.[1] ?? 1;
 
     this._snapshotHexes = notes.map(({ midicents, velocity }, i) => {
       // Convert absolute pitch back to synth-relative cents.
@@ -1152,7 +1163,7 @@ class Keys {
         synthCents,
         0, // steps (unused for playback)
         0, // equaves
-        this.settings.equivSteps,
+        this.tuning.equivSteps,
         synthCents, // cents_prev
         synthCents, // cents_next
         undefined, // note_played
@@ -1327,7 +1338,7 @@ class Keys {
     const colors = new Array(61).fill("#000000");
 
     if (this.inputRuntime?.layoutMode === "sequential") {
-      const scale = this.settings.scale || [];
+      const scale = this.tuning.scale || [];
       const len = scale.length;
       if (len === 0) return colors;
 
@@ -1342,7 +1353,7 @@ class Keys {
           reducedSteps += len;
           octs -= 1;
         }
-        const cents = octs * this.settings.equivInterval + scale[reducedSteps];
+        const cents = octs * this.tuning.equivInterval + scale[reducedSteps];
         if (reducedSteps === 0) {
           colors[note] = octs === 0 ? LUMATONE_TONIC : LUMATONE_TONIC_OTHER;
         } else {
@@ -1534,9 +1545,9 @@ class Keys {
                 chooseStaticMapCenterMidi(
                   computeCenterPitchHz(
                     this.settings.fundamental,
-                    this.settings.degree0toRef_asArray[0],
-                    this.settings.scale,
-                    this.settings.equivInterval,
+                    this.tuning.degree0toRef_asArray[0],
+                    this.tuning.scale,
+                    this.tuning.equivInterval,
                     this.settings.center_degree,
                   ),
                 ),
@@ -1544,20 +1555,20 @@ class Keys {
               )
             : computeNaturalAnchor(
                 this.settings.fundamental,
-                this.settings.degree0toRef_asArray[0],
-                this.settings.scale,
-                this.settings.equivInterval,
+                this.tuning.degree0toRef_asArray[0],
+                this.tuning.scale,
+                this.tuning.equivInterval,
                 this.settings.center_degree,
               ),
-          this.settings.scale,
+          this.tuning.scale,
           resolveBulkDumpName(
             this.settings.direct_tuning_map_name,
             this.settings.short_description,
             this.settings.name,
           ),
-          this.settings.equivInterval,
+          this.tuning.equivInterval,
           this.settings.fundamental,
-          this.settings.degree0toRef_asArray,
+          this.tuning.degree0toRef_asArray,
           this.settings.octave_offset || 0,
         )
       : this.mts_tuning_map;
@@ -1772,7 +1783,7 @@ class Keys {
   // If stepsPerChannel is effectively zero (single-channel device or
   // stepsPerChannel === 0) returns baseCoords unchanged.
   _applyChannelOffset(baseCoords, channel) {
-    const stepsPerChannel = this.inputRuntime.stepsPerChannel ?? this.settings.equivSteps;
+    const stepsPerChannel = this.inputRuntime.stepsPerChannel ?? this.tuning.equivSteps;
     if (!stepsPerChannel) return baseCoords;
     const channelOffset = this.channelToStepsOffset(channel);
     if (channelOffset === 0) return baseCoords;
@@ -1792,7 +1803,7 @@ class Keys {
     );
     if (controllerPitchCents != null) return controllerPitchCents;
 
-    const degree0toRefCents = this.settings.degree0toRef_asArray[0];
+    const degree0toRefCents = this.tuning.degree0toRef_asArray[0];
     const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
     return 1200 * Math.log2(fallbackPitchHz / degree0Hz);
   }
@@ -1828,8 +1839,8 @@ class Keys {
       );
       const result = findNearestDegree(
         pitchCents,
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.inputRuntime.scaleTolerance ?? 50,
         this.inputRuntime.scaleFallback || "discard",
       );
@@ -1912,8 +1923,8 @@ class Keys {
       );
       const result = findNearestDegree(
         pitchCents,
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.inputRuntime.scaleTolerance ?? 50,
         // Always accept on note-off — we must release whatever was activated.
         "accept",
@@ -2154,7 +2165,7 @@ class Keys {
       this.hexCoordsToCents(coords);
     const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
     this.drawHex(coords, color, text_color);
-    let degree0toRef_ratio = this.settings.degree0toRef_asArray[1]; // array[0] is cents, array[1] is the ratio
+    let degree0toRef_ratio = this.tuning.degree0toRef_asArray[1]; // array[0] is cents, array[1] is the ratio
     const hex = this.synth.makeHex(
       coords,
       cents,
@@ -3266,7 +3277,7 @@ class Keys {
 
     let note = p.x * this.settings.rSteps + p.y * this.settings.drSteps;
     // TO DO !!! this should be parsed already
-    let equivSteps = this.settings.scale.length;
+    let equivSteps = this.tuning.scale.length;
     let equivMultiple = Math.floor(note / equivSteps);
     let reducedNote = note % equivSteps;
     if (reducedNote < 0) {
@@ -3289,8 +3300,8 @@ class Keys {
       } else if (this.settings.cents) {
         name =
           Math.round(
-            (this.settings.scale[reducedNote] -
-              this.settings.scale[this.settings.reference_degree] +
+            (this.tuning.scale[reducedNote] -
+              this.tuning.scale[this.settings.reference_degree] +
               1200) %
               1200,
           ).toString() + ".";
@@ -3381,32 +3392,32 @@ class Keys {
 
   hexCoordsToCents(coords) {
     let distance = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
-    let octs = this.roundTowardZero(distance / this.settings.scale.length);
-    let octs_prev = this.roundTowardZero((distance - 1) / this.settings.scale.length);
-    let octs_next = this.roundTowardZero((distance + 1) / this.settings.scale.length);
-    let reducedSteps = distance % this.settings.scale.length;
-    let reducedSteps_prev = (distance - 1) % this.settings.scale.length;
-    let reducedSteps_next = (distance + 1) % this.settings.scale.length;
-    let equivSteps = this.settings.equivSteps;
+    let octs = this.roundTowardZero(distance / this.tuning.scale.length);
+    let octs_prev = this.roundTowardZero((distance - 1) / this.tuning.scale.length);
+    let octs_next = this.roundTowardZero((distance + 1) / this.tuning.scale.length);
+    let reducedSteps = distance % this.tuning.scale.length;
+    let reducedSteps_prev = (distance - 1) % this.tuning.scale.length;
+    let reducedSteps_next = (distance + 1) % this.tuning.scale.length;
+    let equivSteps = this.tuning.equivSteps;
     if (reducedSteps < 0) {
-      reducedSteps += this.settings.scale.length;
+      reducedSteps += this.tuning.scale.length;
       octs -= 1;
     }
     if (reducedSteps_prev < 0) {
-      reducedSteps_prev += this.settings.scale.length;
+      reducedSteps_prev += this.tuning.scale.length;
       octs_prev -= 1;
     }
     if (reducedSteps_next < 0) {
-      reducedSteps_next += this.settings.scale.length;
+      reducedSteps_next += this.tuning.scale.length;
       octs_next -= 1;
     }
     // octave_offset shifts all pitches by N equaves without rebuilding
     const octOff = this.settings.octave_offset || 0;
-    let cents = (octs + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps];
+    let cents = (octs + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps];
     let cents_prev =
-      (octs_prev + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps_prev];
+      (octs_prev + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps_prev];
     let cents_next =
-      (octs_next + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps_next];
+      (octs_next + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps_next];
     /*  let dataArray = [
       "cents = ", cents,
       "reducedSteps = ", reducedSteps,

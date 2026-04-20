@@ -9,7 +9,6 @@ import { create_osc_synth } from "./osc_synth";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import { saveAnchorFromLearn, loadAnchorSettingsUpdate } from "./input/controller-anchor.js";
 import { WebMidi } from "webmidi";
-import { scalaToCents } from "./settings/scale/parse-scale.js";
 import {
   computeNaturalAnchor,
   computeCenterPitchHz,
@@ -17,6 +16,7 @@ import {
   computeStaticMapDegree0,
   degree0ToRef,
 } from "./tuning/center-anchor.js";
+import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import { resolveBulkDumpName } from "./tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "./persistence/settings-registry.js";
 import { localFloat } from "./persistence/storage-utils.js";
@@ -67,9 +67,14 @@ export const deriveTuningRuntime = (settings) => {
     return null;
   }
 
-  const scaleAsCents = settings.scale.map((value) => scalaToCents(String(value)));
-  const equivInterval = scaleAsCents[scaleAsCents.length - 1];
-  const scale = [0, ...scaleAsCents.slice(0, -1)];
+  const workspaceRuntime = normalizeWorkspaceForKeys(
+    createScaleWorkspace({
+      scale: settings.scale,
+      reference_degree: settings.reference_degree,
+      fundamental: settings.fundamental,
+    }),
+  );
+  const { scale, equivInterval } = workspaceRuntime;
   const degree0toRefAsArray = degree0ToRef(settings.reference_degree, scale);
 
   return {
