@@ -25,20 +25,20 @@ Hexatone 3.2.0-alpha.1 is a live microtonal keyboard and scale workspace built a
 - live retuning of scale degrees and reference frequency
 - Scala import/export and user presets
 - snapshots for comparing chords and tunings
-- mature MIDI input and output support
+- MIDI input and output support
 - controller-aware 2D / isomorphic performance surfaces
 
-At the simplest level, Hexatone can be used entirely in the browser with:
+PLAINSOUND HEXATONE can be used entirely in the browser with:
 
 - mouse
 - touch
 - computer keyboard
 - built-in samples
-- sustain and OCT controls
+- SUSTAIN and OCT controls
 - TuneCell retuning
 - snapshots
 
-At a more advanced level, Hexatone supports:
+Hexatone also supports:
 
 - WebMIDI with optional SysEx
 - MIDI input mapped either to the hex layout or to nearest scale degree
@@ -46,10 +46,11 @@ At a more advanced level, Hexatone supports:
 - controller recognition and geometry-aware mapping
 - LED feedback on supported controllers
 - OSC -> SuperCollider output through a local bridge
+- scale rationalisation to user parameters
 
-Hexatone is conceived as the live performance and composition companion to [Scale Workshop](https://scaleworkshop.plainsound.org): Scale Workshop is ideal for scale design and analysis, while Hexatone is where those tunings become playable, retunable, comparable, and performable in real time.
+Hexatone is conceived as a live performance and composition companion to [Scale Workshop](https://scaleworkshop.plainsound.org).
 
-For more detailed user-facing guidance, see [usermanual.md](./usermanual.md).  
+See also [usermanual.md](./usermanual.md).  
 For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELOPER_QUICKSTART.md).
 
 ## Isomorphic Keyboards
@@ -183,7 +184,7 @@ Major reactivity fixes; MTS & MPE functionality expanded; scale resizing and Div
 ### 3.0.1 *(early 2026)*
 Updated UX; added latch sustain; moveable centre scale degree.
 
-### 3.0.0 *(early 2026)*
+### Version 3.0.0 *(early 2026)*
 Added Scala/JSON IO; user presets; polyphonic aftertouch response with built-in sounds.
 
 ### Version 2 *(2022–2026)*
