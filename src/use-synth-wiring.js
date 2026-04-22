@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "./settings/midi/midiin";
-import { create_sample_synth } from "./sample_synth";
 import { create_midi_synth } from "./midi_synth";
 import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
@@ -31,6 +30,13 @@ const midiAccessRank = {
   none: 0,
   basic: 1,
   sysex: 2,
+};
+
+let sampleSynthModulePromise = null;
+
+const loadSampleSynthModule = async () => {
+  sampleSynthModulePromise ??= import("./sample_synth");
+  return sampleSynthModulePromise;
 };
 
 const MIDI_PORT_RESET = {
@@ -527,15 +533,19 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         promises.push(Promise.resolve(sampleSynthRef.current.synth));
       } else {
         promises.push(
-          create_sample_synth(
-            settings.instrument,
-            settings.fundamental,
-            settings.reference_degree,
-            settings.scale,
-          ).then((s) => {
-            if (!cancelled) sampleSynthRef.current = { key: sampleKey, synth: s };
-            return s;
-          }),
+          loadSampleSynthModule()
+            .then(({ create_sample_synth }) =>
+              create_sample_synth(
+                settings.instrument,
+                settings.fundamental,
+                settings.reference_degree,
+                settings.scale,
+              ),
+            )
+            .then((s) => {
+              if (!cancelled) sampleSynthRef.current = { key: sampleKey, synth: s };
+              return s;
+            }),
         );
       }
     }
