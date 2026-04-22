@@ -750,6 +750,30 @@ const MIDIio = (props) => {
                         />
                         {props.lumatoneRawPorts && (
                           <label>
+                            Send Blank Key Layout (Notes 0-55 on Ch 1-5)
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginLeft: "auto",
+                                marginTop: "4px",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                class="preset-action-btn"
+                                disabled={!hasSysexMidi}
+                                title="Send notes + blank layout to Lumatone via sysex (~10-15 s, one-time setup)"
+                                onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
+                              >
+                                Send Blank Key Layout
+                              </button>
+                            </span>
+                          </label>
+                        )}
+                        {props.lumatoneRawPorts && (
+                          <label>
                             Automatically Send LED Colours
                             <span
                               style={{

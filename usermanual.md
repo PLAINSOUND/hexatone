@@ -229,12 +229,12 @@ Key colouring helps identify prime factors in rational intonation (JI), using th
 
 | Prime / role | Colour |
 | --- | --- |
-| Pythagorean spine (3°), with sharp/flat shading | white / black with tonal shading |
+| Pythagorean spine (3°), sharp / flat shading | white / black & tonal shading |
 | 5° | ivory / yellow |
 | 7° | pink / magenta |
 | 11° | bright green |
 | 13° | bright violet |
-| 17° | white / black family; evenly divides the whole tone |
+| 17° | white / black; evenly divides the whole tone |
 | 19° | cyan |
 | 23° | dark green |
 | 29° | indigo |
