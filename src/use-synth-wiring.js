@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "./settings/midi/midiin";
 import { create_sample_synth } from "./sample_synth";
@@ -9,7 +8,6 @@ import { create_osc_synth } from "./osc_synth";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import { saveAnchorFromLearn, loadAnchorSettingsUpdate } from "./input/controller-anchor.js";
 import { WebMidi } from "webmidi";
-import { scalaToCents } from "./settings/scale/parse-scale.js";
 import {
   computeNaturalAnchor,
   computeCenterPitchHz,
@@ -17,15 +15,18 @@ import {
   computeStaticMapDegree0,
   degree0ToRef,
 } from "./tuning/center-anchor.js";
+import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import { resolveBulkDumpName } from "./tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "./persistence/settings-registry.js";
-import { sessionFloat } from "./persistence/storage-utils.js";
+import { localFloat } from "./persistence/storage-utils.js";
+import { debugLog, warnLog } from "./debug/logging.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
 const wait = (l) => l + 1;
 const signal = (l) => l - 1;
 const MIDI_ACCESS_SESSION_KEY = REGISTRY_BY_KEY.webmidi_access.key;
+const OSC_VOLUME_KEYS = ["osc_volume_pluck", "osc_volume_buzz", "osc_volume_formant", "osc_volume_saw"];
 const midiAccessRank = {
   none: 0,
   basic: 1,
@@ -46,10 +47,10 @@ export const deriveOscVolumes = (settings) => {
     return settings.osc_volumes;
   }
   return [
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_pluck.key, settings.osc_volume_pluck ?? 0.5),
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_buzz.key, settings.osc_volume_buzz ?? 0.5),
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_formant.key, settings.osc_volume_formant ?? 0.5),
-    sessionFloat(REGISTRY_BY_KEY.osc_volume_saw.key, settings.osc_volume_saw ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_pluck.key, settings.osc_volume_pluck ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_buzz.key, settings.osc_volume_buzz ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_formant.key, settings.osc_volume_formant ?? 0.5),
+    localFloat(REGISTRY_BY_KEY.osc_volume_saw.key, settings.osc_volume_saw ?? 0.5),
   ];
 };
 
@@ -66,9 +67,14 @@ export const deriveTuningRuntime = (settings) => {
     return null;
   }
 
-  const scaleAsCents = settings.scale.map((value) => scalaToCents(String(value)));
-  const equivInterval = scaleAsCents[scaleAsCents.length - 1];
-  const scale = [0, ...scaleAsCents.slice(0, -1)];
+  const workspaceRuntime = normalizeWorkspaceForKeys(
+    createScaleWorkspace({
+      scale: settings.scale,
+      reference_degree: settings.reference_degree,
+      fundamental: settings.fundamental,
+    }),
+  );
+  const { scale, equivInterval } = workspaceRuntime;
   const degree0toRefAsArray = degree0ToRef(settings.reference_degree, scale);
 
   return {
@@ -284,14 +290,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         try {
           await enableMidi({ sysex });
           const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
-          console.log(sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
+          debugLog("midi", sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
           midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
           setMidi(midiAccessObj);
           setMidiAccess(targetAccess);
           sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, targetAccess);
           return true;
         } catch (err) {
-          console.warn("Web MIDI could not initialise:", err);
+          warnLog("Web MIDI could not initialise:", err);
           if (midiAccessRank[midiAccess] > midiAccessRank.none) {
             sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, midiAccess);
           } else {
@@ -325,7 +331,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           await WebMidi.disable();
         }
       } catch (err) {
-        console.warn("Web MIDI disable could not complete cleanly:", err);
+        warnLog("Web MIDI disable could not complete cleanly:", err);
       }
       if (midi) midi.onstatechange = null;
       if (reenableBasic) {
@@ -633,7 +639,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           create_osc_synth(
             settings.osc_bridge_url || "ws://localhost:8089",
             settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-            deriveOscVolumes(settings),
+            deriveOscVolumes(settingsRef.current),
             settings.fundamental,
             settings.reference_degree,
             settings.scale,
@@ -980,7 +986,15 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   const onOscLayerVolumeChange = useCallback((index, value) => {
     const oscSynth = oscSynthRef.current.synth;
     if (oscSynth?.setLayerVolume) oscSynth.setLayerVolume(index, value);
-  }, []);
+    // Write into React settings so deriveOscVolumes() reads the live value on
+    // every rebuild — whether triggered by toggle, port change, or preset load.
+    // localStorage is written so values survive page reload (including fresh tabs).
+    const key = OSC_VOLUME_KEYS[index];
+    if (key != null) {
+      setSettings((prev) => ({ ...prev, [key]: value }));
+      localStorage.setItem(key, String(value));
+    }
+  }, [setSettings]);
 
   // Called by keys.js when the user presses a key during MIDI-learn mode.
   // Saves the anchor note + channel so the controller map (2D path) and the
@@ -1029,12 +1043,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "lumatone") return null;
-    // The Lumatone exposes both input and output ports with the same device name.
-    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    // Manual override takes precedence; fall back to name-match auto-detect.
+    const rawOut = settings.lumatone_out_port
+      ? midi.outputs.get(settings.lumatone_out_port)
+      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override, settings.lumatone_out_port]); // midiTick forces re-run on device connect/disconnect
 
   // When the active MIDI input is an Exquis, resolve both raw Web MIDI ports.
   // Output is needed for SysEx sends (LED colors, dev mode).
@@ -1046,11 +1062,30 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "exquis") return null;
-    const rawOut = Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    const rawOut = settings.exquis_out_port
+      ? midi.outputs.get(settings.exquis_out_port)
+      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override]); // midiTick forces re-run on device connect/disconnect
+  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override, settings.exquis_out_port]); // midiTick forces re-run on device connect/disconnect
+
+  // When the active MIDI input is a LinnStrument 128, resolve the matching raw
+  // Web MIDI output port for NRPN configuration sends and CC LED updates.
+  // No sysex required — regular Web MIDI access is sufficient.
+  const linnstrumentRawPorts = useMemo(() => {
+    if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
+    const rawIn = midi.inputs.get(settings.midiin_device);
+    if (!rawIn) return null;
+    const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
+    if (!ctrl || ctrl.id !== "linnstrument") return null;
+    const rawOut = settings.linnstrument_out_port
+      ? midi.outputs.get(settings.linnstrument_out_port)
+      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    if (!rawOut) return null;
+    return { input: rawIn, output: rawOut };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override, settings.linnstrument_out_port]); // midiTick forces re-run on device connect/disconnect
 
   return {
     synth,
@@ -1075,6 +1110,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     onAnchorLearn,
     lumatoneRawPorts,
     exquisRawPorts,
+    linnstrumentRawPorts,
   };
 };
 

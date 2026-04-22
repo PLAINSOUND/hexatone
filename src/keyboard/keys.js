@@ -16,6 +16,7 @@ import { WebMidi } from "webmidi";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
+import { buildLinnstrumentDegreeMap, LINNS_OFF } from "../controllers/linnstrument-config.js";
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -33,6 +34,7 @@ import {
 } from "../tuning/center-anchor.js";
 import { mtsTuningMap } from "../tuning/tuning-map.js";
 import { resolveBulkDumpName } from "../tuning/mts-format.js";
+import { debugLog } from "../debug/logging.js";
 
 const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
@@ -72,14 +74,25 @@ class Keys {
     onTakeSnapshot = null,
     inputRuntime = null,
     onFirstInteraction = null,
+    tuningRuntime = null,
   ) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
+    this.tuning = {
+      scale: tuningRuntime?.scale ? [...tuningRuntime.scale] : [...(settings.scale || [])],
+      equivInterval: tuningRuntime?.equivInterval ?? settings.equivInterval,
+      equivSteps: tuningRuntime?.equivSteps ?? settings.equivSteps ?? settings.scale?.length ?? 0,
+      degree0toRef_asArray:
+        tuningRuntime?.degree0toRefAsArray ??
+        degree0ToRef(
+          settings.reference_degree,
+          tuningRuntime?.scale ?? settings.scale,
+        ),
+    };
     this.settings = {
       hexHeight: settings.hexSize * 2,
       hexVert: (settings.hexSize * 3) / 2,
       hexWidth: Math.sqrt(3) * settings.hexSize,
       gcd, // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
-      degree0toRef_asArray: degree0ToRef(settings.reference_degree, settings.scale),
       centerHexOffset: computeCenterOffset(
         settings.rSteps,
         settings.drSteps,
@@ -213,9 +226,9 @@ class Keys {
     // is built from the grid, and the input anchor maps hardware keys onto the grid.
     const tuning_map_degree0 = computeNaturalAnchor(
       this.settings.fundamental,
-      this.settings.degree0toRef_asArray[0],
-      this.settings.scale,
-      this.settings.equivInterval,
+      this.tuning.degree0toRef_asArray[0],
+      this.tuning.scale,
+      this.tuning.equivInterval,
       this.settings.center_degree,
     );
     this.mts_tuning_map = mtsTuningMap(
@@ -223,11 +236,11 @@ class Keys {
       this.settings.device_id,
       this.settings.tuning_map_number,
       tuning_map_degree0,
-      this.settings.scale,
+      this.tuning.scale,
       this.settings.name,
-      this.settings.equivInterval,
+      this.tuning.equivInterval,
       this.settings.fundamental,
-      this.settings.degree0toRef_asArray,
+      this.tuning.degree0toRef_asArray,
       this.settings.octave_offset || 0,
     );
 
@@ -254,13 +267,6 @@ class Keys {
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
     window.addEventListener("mouseup", this.mouseUp, false);
 
-    /* 
-    console.log("midiin_device:", this.settings.midiin_device);
-    console.log("midiin_channel:", this.settings.midiin_channel);
-    console.log("midi_device:", this.settings.midi_device);
-    console.log("midi_channel:", this.settings.midi_channel);
-    console.log("midi_mapping:", this.settings.midi_mapping); */
-
     // sysex_auto comes from settings directly; sessionStorage read was redundant and error-prone
 
     if (
@@ -286,8 +292,6 @@ class Keys {
       } catch {
         this.midiin_data = null;
       }
-      //console.log('[Keys] midiin_data lookup →', this.midiin_data ? JSON.stringify(this.midiin_data.name) : 'NULL (device not found by WebMidi)');
-
       if (!this.midiin_data) {
       } else {
         // this.midiin_data exists
@@ -303,14 +307,21 @@ class Keys {
             this._midiLearnCallback = null;
             return;
           }
-          //console.log("(input) note_on", e.message.channel, e.note.number, e.note.rawAttack);
+          debugLog("MIDImonitoring", "noteon", {
+            channel: e.message.channel,
+            note: e.note.number,
+            velocity: e.note.rawAttack,
+          });
           this.midinoteOn(e);
           notes.played.unshift(e.note.number + 128 * (e.message.channel - 1));
-          // console.log("notes.played after noteon:", notes.played);
         });
 
         this.midiin_data.addListener("noteoff", (e) => {
-          //console.log("(input) note_off", e.message.channel, e.note.number, e.note.rawRelease);
+          debugLog("MIDImonitoring", "noteoff", {
+            channel: e.message.channel,
+            note: e.note.number,
+            velocity: e.note.rawRelease,
+          });
           this.midinoteOff(e);
           let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
           if (index >= 0) {
@@ -322,16 +333,14 @@ class Keys {
             let newarray = [];
             notes.played = newarray.concat(first_half, second_half);
           }
-          /*
-        if (notes.played.length > 0) {
-          console.log("notes.played after noteoff", notes.played);
-        } else {
-          console.log("All notes released!");
-        };
-        */
         });
 
         this.midiin_data.addListener("keyaftertouch", (e) => {
+          debugLog("MIDImonitoring", "keyaftertouch", {
+            channel: e.message.channel,
+            note: e.message.dataBytes[0],
+            value: e.message.dataBytes[1],
+          });
           // Polyphonic aftertouch for built-in synth — find the matching active hex
           // by matching note + channel encoding, then ramp its gain smoothly
           const note_played = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
@@ -348,9 +357,51 @@ class Keys {
         // 4. Routes CC1/CC11 (modwheel/expression) to all active hexes (global broadcast).
         // 5. Routes CC74 (brightness) to the front-of-recency-stack hex (non-MPE mode).
         //    In MPE input mode (Step 3.5) CC74 will be routed per-channel instead.
+        // LinnStrument User Firmware Mode: 14-bit X data buffer.
+        // Key: `ch.col` (same as activeMidi key), value: LSB awaiting MSB.
+        // On current hardware/firmware builds observed in Hexatone testing,
+        // LinnStrument sends the X pair as LSB first, then MSB.
+        this._linnUfXLsb = new Map();
+        this._linnUfXCurrent = new Map(); // latest x14 per "ch.col" — snapshot at note-on for zero-point
+
         this.midiin_data.addListener("controlchange", (e) => {
           const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
+          debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
+
+          // ── LinnStrument User Firmware Mode X data ────────────────────────
+          // CC 1-25  = X MSB (col = CC, 1-indexed, ch = row).
+          // CC 33-57 = X LSB (col = CC-32, 1-indexed, ch = row).
+          // Combine to 14-bit value (0-4265 across the full pad width).
+          if (this.controller?.id === "linnstrument") {
+            if (cc >= 33 && cc <= 57) {
+              // X — first CC of the pair (LSB)
+              const col = cc - 32;
+              const key = `${e.message.channel}.${col}`;
+              this._linnUfXLsb.set(key, value);
+              return;
+            } else if (cc >= 1 && cc <= 25) {
+              // X — second CC of the pair (MSB)
+              const col = cc;
+              const key = `${e.message.channel}.${col}`;
+              const lsb = this._linnUfXLsb.get(key);
+              if (lsb === undefined) return;
+              this._linnUfXLsb.delete(key);
+              const x14 = (value << 7) | lsb;           // 14-bit: 0 (left edge col 1) to ~2727 (right edge col 16) or ~4265 (col 25)
+              this._linnUfXCurrent.set(key, x14);
+              const note_played = col + 128 * (e.message.channel - 1);
+              const hex = this.state.activeMidi.get(note_played);
+              if (hex && !hex.release && hex.retune) {
+                const COL_WIDTH = 171;                   // measured: 2727 / 16 ≈ 170.4
+                const cellCentre = (col - 1) * COL_WIDTH + COL_WIDTH / 2;
+                const deviation = (x14 - cellCentre) / (COL_WIDTH / 2); // −1…+1
+                const curved = Math.sign(deviation) * Math.pow(Math.abs(deviation), 5); // x^5: wide stable centre, bends only at edges
+                const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
+                hex.retune(hex._baseCents + curved * rangeCents);
+              }
+              return;
+            }
+          }
 
           if (cc === 121) {
             this._controllerCCValues.clear();
@@ -368,7 +419,16 @@ class Keys {
           if (!(cc === 74 && isMTSOutput)) this._passthroughCC(cc, value);
 
           // ── Internal consumption ──────────────────────────────────────────
-          if (cc === 64) {
+          if (cc >= 65 && cc <= 89 && this.controller?.id === "linnstrument") {
+            // LinnStrument User Firmware Mode Y data:
+            // CC 65-89 = per-cell Y position, ch=row(1-8), cc-64=col(1-25).
+            // This range overlaps sostenuto/soft pedal CCs — must be checked
+            // first so those generic handlers don't swallow LinnStrument Y messages.
+            const col = cc - 64;                                   // 1-indexed column
+            const note_played = col + 128 * (e.message.channel - 1);
+            const hex = this.state.activeMidi.get(note_played);
+            if (hex && !hex.release && hex.cc74) hex.cc74(value); // Y → timbre/slide
+          } else if (cc === 64) {
             // Sustain pedal
             if (value > 0) {
               this.sustainOn();
@@ -420,6 +480,7 @@ class Keys {
         // Universal channel-pressure (aftertouch) listener.
         this.midiin_data.addListener("channelaftertouch", (e) => {
           const value = e.message.dataBytes[0];
+          debugLog("MIDImonitoring", "channelaftertouch", { channel: e.message.channel, value });
           this._channelPressureValue = value;
 
           if (this.inputRuntime.mpeInput) {
@@ -490,7 +551,7 @@ class Keys {
                 equaveShift = ((equaveShift + 20) % 8) - 4;
                 // scaleStepShift: the same transposition expressed as scale degrees
                 // (equaveShift × equivSteps), used to remap the output note number.
-                const scaleStepShift = equaveShift * this.settings.equivSteps;
+                const scaleStepShift = equaveShift * this.tuning.equivSteps;
                 let note = (e.message.dataBytes[0] + scaleStepShift + 16 * 128) % 128;
                 this.midiout_data.sendKeyAftertouch(note, e.message.dataBytes[1], {
                   channels: this.settings.midi_channel + 1,
@@ -563,12 +624,9 @@ class Keys {
                 anchorChannel = 1;
               }
 
-              const rawOffsets = entry.buildMap(
-                anchorNote,
-                anchorChannel,
-                this.settings.rSteps,
-                this.settings.drSteps,
-              );
+              const rawOffsets = entry.multiChannel
+                ? entry.buildMap(anchorNote, anchorChannel, entry.defaultCols)
+                : entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
               const ox = this.settings.centerHexOffset.x;
               const oy = this.settings.centerHexOffset.y;
               this.controllerMap = new Map();
@@ -590,6 +648,10 @@ class Keys {
         // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
         this.midiin_data.addListener("pitchbend", (e) => {
           const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
+          debugLog("MIDImonitoring", "pitchbend", {
+            channel: e.message.channel,
+            value14: val14,
+          });
 
           if (this.inputRuntime.mpeInput) {
             // MPE input mode: pitch bend is per-voice, carried on the note's channel.
@@ -678,11 +740,12 @@ class Keys {
     // have a stable, long-lived lifecycle independent of Keys reconstruction.
     this.lumatoneLEDs = null;
     this.exquisLEDs = null;
+    this.linnstrumentLEDs = null;
   } // end of constructor
 
   /**
    * Live-retune a single scale degree while notes are held.
-   * Updates this.settings.scale[degree] and redraws that degree's hexes.
+   * Updates this.tuning.scale[degree] and redraws that degree's hexes.
    * Also calls hex.retune(newCents) on any currently-sounding or sustained notes
    * at that degree — including notes held under the Shift sustain pedal.
    * @param {number} degree   - reducedSteps index (1..equivSteps-1; 0 = tonic, fixed)
@@ -690,15 +753,15 @@ class Keys {
    */
 
   updateScaleDegree = (degree, newCents) => {
-    if (!this.settings.scale || degree < 0) return;
+    if (!this.tuning.scale || degree < 0) return;
 
     // The equave is stored as equivInterval, not in the scale array.
     // TuneCell passes degree === scale.length for the equave row.
-    if (degree === this.settings.scale.length) {
-      const oldEquiv = this.settings.equivInterval;
+    if (degree === this.tuning.scale.length) {
+      const oldEquiv = this.tuning.equivInterval;
       const equivDelta = newCents - oldEquiv;
       const bendOnly = !!this.inputRuntime.mpeInput;
-      this.settings.equivInterval = newCents;
+      this.tuning.equivInterval = newCents;
       // Each hex is at octs * equivInterval + scale[reducedSteps],
       // so changing equivInterval by equivDelta shifts it by octs * equivDelta.
       for (const hex of this._allActiveHexes()) {
@@ -717,13 +780,13 @@ class Keys {
       return;
     }
 
-    if (degree >= this.settings.scale.length) return;
+    if (degree >= this.tuning.scale.length) return;
     // Compute delta before mutating scale, so we can shift each hex by the same amount
     // regardless of which octave it was played in.
-    const oldCents = this.settings.scale[degree];
+    const oldCents = this.tuning.scale[degree];
     const delta = newCents - oldCents;
     const bendOnly = !!this.inputRuntime.mpeInput;
-    this.settings.scale[degree] = newCents;
+    this.tuning.scale[degree] = newCents;
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
@@ -749,14 +812,14 @@ class Keys {
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === 0 && hex.retune) {
-        const baseCents = octs * this.settings.equivInterval + newCents;
+        const baseCents = octs * this.tuning.equivInterval + newCents;
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
     for (const [hex] of this.state.sustainedNotes) {
       const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === 0 && hex.retune) {
-        const baseCents = octs * this.settings.equivInterval + newCents;
+        const baseCents = octs * this.tuning.equivInterval + newCents;
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
@@ -791,19 +854,19 @@ class Keys {
     if (!skipRetune) {
       // Retune all sounding and sustained notes immediately
       for (const hex of this._allActiveHexes()) {
-        const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
+        const newCents = (hex._baseCents ?? hex.cents) + dir * this.tuning.equivInterval;
         if ("fundamental" in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
         hex._baseCents = newCents;
       }
       for (const [hex] of this.state.sustainedNotes) {
-        const newCents = (hex._baseCents ?? hex.cents) + dir * this.settings.equivInterval;
+        const newCents = (hex._baseCents ?? hex.cents) + dir * this.tuning.equivInterval;
         if ("fundamental" in hex) hex.fundamental = this.settings.fundamental;
         if (hex.retune) hex.retune(newCents);
         hex._baseCents = newCents;
       }
       if (this._wheelBaseCents !== null) {
-        this._wheelBaseCents += dir * this.settings.equivInterval;
+        this._wheelBaseCents += dir * this.tuning.equivInterval;
       }
     }
 
@@ -821,16 +884,16 @@ class Keys {
       this.settings.tuning_map_number,
       computeNaturalAnchor(
         this.settings.fundamental,
-        this.settings.degree0toRef_asArray[0],
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.degree0toRef_asArray[0],
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.settings.center_degree,
       ),
-      this.settings.scale,
+      this.tuning.scale,
       bulkDumpName,
-      this.settings.equivInterval,
+      this.tuning.equivInterval,
       this.settings.fundamental,
-      this.settings.degree0toRef_asArray,
+      this.tuning.degree0toRef_asArray,
       this.settings.octave_offset || 0,
     );
     if (this._deferredBulkMapTimer != null) {
@@ -870,16 +933,16 @@ class Keys {
       this.settings.tuning_map_number,
       computeNaturalAnchor(
         this.settings.fundamental,
-        this.settings.degree0toRef_asArray[0],
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.degree0toRef_asArray[0],
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.settings.center_degree,
       ),
-      this.settings.scale,
+      this.tuning.scale,
       this.settings.name,
-      this.settings.equivInterval,
+      this.tuning.equivInterval,
       newFundamental,
-      this.settings.degree0toRef_asArray,
+      this.tuning.degree0toRef_asArray,
       this.settings.octave_offset || 0,
     );
     // If a TuneCell drag preview is in progress (or was abandoned without Save/Revert),
@@ -993,6 +1056,25 @@ class Keys {
     if (this.exquisLEDs && this.settings.exquis_led_sync) {
       this.exquisLEDs.sendColors(this._buildExquisColorArray());
     }
+
+    if (this.linnstrumentLEDs && this.settings.linnstrument_led_sync) {
+      this.linnstrumentLEDs.updatePaletteValues(this._buildLinnstrumentColorArray());
+    }
+  };
+
+  /**
+   * Imperatively update label display settings without reconstructing Keys.
+   * Replaces the label flags and name arrays in this.settings, then redraws.
+   * Called from Keyboard wrapper when key_labels or related fields change.
+   */
+  updateLabels = (labels) => {
+    // Clear all label flags first so only one is active.
+    for (const flag of ["degree", "note", "scala", "cents", "heji", "no_labels"]) {
+      this.settings[flag] = false;
+    }
+    // Apply new flags and name arrays.
+    Object.assign(this.settings, labels);
+    this.drawGrid();
   };
 
   updateLiveOutputState = (nextSettings, synth) => {
@@ -1024,7 +1106,7 @@ class Keys {
     // Needed to reconstruct absolute frequency from hex.cents.
     const centsToRef =
       this.settings.reference_degree > 0
-        ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+        ? (this.tuning.scale[this.settings.reference_degree - 1] ?? 0)
         : 0;
     const fund = this.settings.fundamental;
 
@@ -1067,10 +1149,10 @@ class Keys {
 
     const centsToRef =
       this.settings.reference_degree > 0
-        ? (this.settings.scale[this.settings.reference_degree - 1] ?? 0)
+        ? (this.tuning.scale[this.settings.reference_degree - 1] ?? 0)
         : 0;
     const fund = this.settings.fundamental;
-    const degree0toRef_ratio = this.settings.degree0toRef_asArray?.[1] ?? 1;
+    const degree0toRef_ratio = this.tuning.degree0toRef_asArray?.[1] ?? 1;
 
     this._snapshotHexes = notes.map(({ midicents, velocity }, i) => {
       // Convert absolute pitch back to synth-relative cents.
@@ -1084,7 +1166,7 @@ class Keys {
         synthCents,
         0, // steps (unused for playback)
         0, // equaves
-        this.settings.equivSteps,
+        this.tuning.equivSteps,
         synthCents, // cents_prev
         synthCents, // cents_next
         undefined, // note_played
@@ -1123,6 +1205,54 @@ class Keys {
     }
   };
 
+  syncLinnstrumentLEDs = () => {
+    if (this.linnstrumentLEDs && this.controllerMap) {
+      this.linnstrumentLEDs.sendPaletteValues(this._buildLinnstrumentColorArray());
+    }
+  };
+
+  /**
+   * Build a 128-element palette-value array for the LinnStrument 128.
+   * Indexed by MIDI note number (0–127).
+   *
+   * Two-pass approach:
+   *   1. Collect every scale degree that appears in the controller map, with
+   *      its screen hex colour.  buildLinnstrumentDegreeMap() analyses the
+   *      full colour set — clustering low-saturation shades into White/Off
+   *      tiers, reserving Red for degree 0, hue-matching the rest.
+   *   2. Apply the resulting degree→paletteValue map to all 128 note slots.
+   *
+   * @returns {number[]}  128 LinnStrument CC22 palette values
+   */
+  _buildLinnstrumentColorArray() {
+    // Pass 1: gather one colour sample per unique scale degree.
+    const degreeColors = new Map();
+    for (const [, coords] of this.controllerMap) {
+      const [cents, reducedSteps] = this.hexCoordsToCents(coords);
+      if (!degreeColors.has(reducedSteps)) {
+        degreeColors.set(reducedSteps, this._getScreenHexColor(cents, reducedSteps));
+      }
+    }
+
+    // Pass 2: analyse the full degree set and get palette assignments.
+    const degreeMap = buildLinnstrumentDegreeMap(degreeColors);
+
+    // Pass 3: fill the 128-slot output array.
+    // UF mode keys are "ch.col" (ch=row 1-8, col=1-16/25).
+    // _sendCell expects a flat note index: (row-1)*16 + (col-1).
+    const values = new Array(128).fill(LINNS_OFF);
+    for (const [mapKey, coords] of this.controllerMap) {
+      const dot = mapKey.indexOf(".");
+      const ch   = parseInt(mapKey.slice(0, dot), 10);
+      const col  = parseInt(mapKey.slice(dot + 1), 10);
+      const note = (ch - 1) * 16 + (col - 1);
+      if (note < 0 || note > 127) continue;
+      const [, reducedSteps] = this.hexCoordsToCents(coords);
+      values[note] = degreeMap.get(reducedSteps) ?? LINNS_OFF;
+    }
+    return values;
+  }
+
   /**
    * Send the complete Lumatone layout — note/channel (CMD 00h) + colour (CMD 01h)
    * for all 280 keys — via the ACK-gated sysex queue.
@@ -1138,23 +1268,18 @@ class Keys {
   sendLumatoneLayout = () => {
     if (!this.lumatoneLEDs) return;
 
-    // Build colour lookup from the live controllerMap (board.key → '#rrggbb').
-    const colorMap = new Map();
-    if (this.controllerMap) {
-      for (const [mapKey, coords] of this.controllerMap) {
-        colorMap.set(mapKey, this._getLumatoneHexColor(coords));
-      }
-    }
-
+    // All keys get colour #000000 so they appear dark/unlit on
+    // the hardware.  Hexatone will sync actual colours via syncLumatoneLEDs()
+    // once the layout is established.
     const entries = [];
     for (let b = 1; b <= 5; b++) {
       for (let k = 0; k < 56; k++) {
         entries.push({
-          board: b, // sysex board byte 1–5
-          key: k, // key index 0–55
-          note: k, // note = key index (sequential mapping)
+          board: b,   // sysex board byte 1–5
+          key: k,     // key index 0–55
+          note: k,    // note = key index (sequential mapping)
           channel: b - 1, // 0-indexed channel (0–4)
-          hexColor: colorMap.get(`${b}.${k}`) || "#1E1928",
+          hexColor: "#000000",
         });
       }
     }
@@ -1182,6 +1307,9 @@ class Keys {
    * Build the full list of { board, key, hexColor } entries for all keys in
    * controllerMap.  Applies screen→Lumatone colour transfer and handles the
    * tonic (degree 0) special colours.
+   *
+   * controllerMap is always built (even in sequential/bypass mode) so this
+   * path works regardless of routing mode.
    *
    * @returns {Array<{ board: number, key: number, hexColor: string }>}
    */
@@ -1213,7 +1341,7 @@ class Keys {
     const colors = new Array(61).fill("#000000");
 
     if (this.inputRuntime?.layoutMode === "sequential") {
-      const scale = this.settings.scale || [];
+      const scale = this.tuning.scale || [];
       const len = scale.length;
       if (len === 0) return colors;
 
@@ -1228,7 +1356,7 @@ class Keys {
           reducedSteps += len;
           octs -= 1;
         }
-        const cents = octs * this.settings.equivInterval + scale[reducedSteps];
+        const cents = octs * this.tuning.equivInterval + scale[reducedSteps];
         if (reducedSteps === 0) {
           colors[note] = octs === 0 ? LUMATONE_TONIC : LUMATONE_TONIC_OTHER;
         } else {
@@ -1351,8 +1479,9 @@ class Keys {
     // Stop any snapshot that is still playing.
     this.stopSnapshot();
 
-    // lumatoneLEDs is owned by app.jsx (same as exquisLEDs) — not destroyed here.
+    // lumatoneLEDs / exquisLEDs / linnstrumentLEDs are owned by app.jsx — not destroyed here.
     this.lumatoneLEDs = null;
+    this.linnstrumentLEDs = null;
 
     window.removeEventListener("resize", this.resizeHandler, false);
     window.removeEventListener("orientationchange", this.resizeHandler, false);
@@ -1419,9 +1548,9 @@ class Keys {
                 chooseStaticMapCenterMidi(
                   computeCenterPitchHz(
                     this.settings.fundamental,
-                    this.settings.degree0toRef_asArray[0],
-                    this.settings.scale,
-                    this.settings.equivInterval,
+                    this.tuning.degree0toRef_asArray[0],
+                    this.tuning.scale,
+                    this.tuning.equivInterval,
                     this.settings.center_degree,
                   ),
                 ),
@@ -1429,20 +1558,20 @@ class Keys {
               )
             : computeNaturalAnchor(
                 this.settings.fundamental,
-                this.settings.degree0toRef_asArray[0],
-                this.settings.scale,
-                this.settings.equivInterval,
+                this.tuning.degree0toRef_asArray[0],
+                this.tuning.scale,
+                this.tuning.equivInterval,
                 this.settings.center_degree,
               ),
-          this.settings.scale,
+          this.tuning.scale,
           resolveBulkDumpName(
             this.settings.direct_tuning_map_name,
             this.settings.short_description,
             this.settings.name,
           ),
-          this.settings.equivInterval,
+          this.tuning.equivInterval,
           this.settings.fundamental,
-          this.settings.degree0toRef_asArray,
+          this.tuning.degree0toRef_asArray,
           this.settings.octave_offset || 0,
         )
       : this.mts_tuning_map;
@@ -1657,7 +1786,7 @@ class Keys {
   // If stepsPerChannel is effectively zero (single-channel device or
   // stepsPerChannel === 0) returns baseCoords unchanged.
   _applyChannelOffset(baseCoords, channel) {
-    const stepsPerChannel = this.inputRuntime.stepsPerChannel ?? this.settings.equivSteps;
+    const stepsPerChannel = this.inputRuntime.stepsPerChannel ?? this.tuning.equivSteps;
     if (!stepsPerChannel) return baseCoords;
     const channelOffset = this.channelToStepsOffset(channel);
     if (channelOffset === 0) return baseCoords;
@@ -1677,7 +1806,7 @@ class Keys {
     );
     if (controllerPitchCents != null) return controllerPitchCents;
 
-    const degree0toRefCents = this.settings.degree0toRef_asArray[0];
+    const degree0toRefCents = this.tuning.degree0toRef_asArray[0];
     const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
     return 1200 * Math.log2(fallbackPitchHz / degree0Hz);
   }
@@ -1713,8 +1842,8 @@ class Keys {
       );
       const result = findNearestDegree(
         pitchCents,
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.inputRuntime.scaleTolerance ?? 50,
         this.inputRuntime.scaleFallback || "discard",
       );
@@ -1797,8 +1926,8 @@ class Keys {
       );
       const result = findNearestDegree(
         pitchCents,
-        this.settings.scale,
-        this.settings.equivInterval,
+        this.tuning.scale,
+        this.tuning.equivInterval,
         this.inputRuntime.scaleTolerance ?? 50,
         // Always accept on note-off — we must release whatever was activated.
         "accept",
@@ -2039,7 +2168,7 @@ class Keys {
       this.hexCoordsToCents(coords);
     const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
     this.drawHex(coords, color, text_color);
-    let degree0toRef_ratio = this.settings.degree0toRef_asArray[1]; // array[0] is cents, array[1] is the ratio
+    let degree0toRef_ratio = this.tuning.degree0toRef_asArray[1]; // array[0] is cents, array[1] is the ratio
     const hex = this.synth.makeHex(
       coords,
       cents,
@@ -3151,7 +3280,7 @@ class Keys {
 
     let note = p.x * this.settings.rSteps + p.y * this.settings.drSteps;
     // TO DO !!! this should be parsed already
-    let equivSteps = this.settings.scale.length;
+    let equivSteps = this.tuning.scale.length;
     let equivMultiple = Math.floor(note / equivSteps);
     let reducedNote = note % equivSteps;
     if (reducedNote < 0) {
@@ -3165,14 +3294,17 @@ class Keys {
       } else if (this.settings.note) {
         // Safe access: if note_names is undefined or index out of bounds, show nothing
         name = this.settings.note_names?.[reducedNote] ?? "";
+      } else if (this.settings.heji) {
+        // Auto-generated HEJI names from reference frame + committed ratios.
+        name = this.settings.heji_names?.[reducedNote] ?? "";
       } else if (this.settings.scala) {
         // Safe access: scala_names should always exist if scale exists, but be defensive
         name = this.settings.scala_names?.[reducedNote] ?? "";
       } else if (this.settings.cents) {
         name =
           Math.round(
-            (this.settings.scale[reducedNote] -
-              this.settings.scale[this.settings.reference_degree] +
+            (this.tuning.scale[reducedNote] -
+              this.tuning.scale[this.settings.reference_degree] +
               1200) %
               1200,
           ).toString() + ".";
@@ -3263,32 +3395,32 @@ class Keys {
 
   hexCoordsToCents(coords) {
     let distance = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
-    let octs = this.roundTowardZero(distance / this.settings.scale.length);
-    let octs_prev = this.roundTowardZero((distance - 1) / this.settings.scale.length);
-    let octs_next = this.roundTowardZero((distance + 1) / this.settings.scale.length);
-    let reducedSteps = distance % this.settings.scale.length;
-    let reducedSteps_prev = (distance - 1) % this.settings.scale.length;
-    let reducedSteps_next = (distance + 1) % this.settings.scale.length;
-    let equivSteps = this.settings.equivSteps;
+    let octs = this.roundTowardZero(distance / this.tuning.scale.length);
+    let octs_prev = this.roundTowardZero((distance - 1) / this.tuning.scale.length);
+    let octs_next = this.roundTowardZero((distance + 1) / this.tuning.scale.length);
+    let reducedSteps = distance % this.tuning.scale.length;
+    let reducedSteps_prev = (distance - 1) % this.tuning.scale.length;
+    let reducedSteps_next = (distance + 1) % this.tuning.scale.length;
+    let equivSteps = this.tuning.equivSteps;
     if (reducedSteps < 0) {
-      reducedSteps += this.settings.scale.length;
+      reducedSteps += this.tuning.scale.length;
       octs -= 1;
     }
     if (reducedSteps_prev < 0) {
-      reducedSteps_prev += this.settings.scale.length;
+      reducedSteps_prev += this.tuning.scale.length;
       octs_prev -= 1;
     }
     if (reducedSteps_next < 0) {
-      reducedSteps_next += this.settings.scale.length;
+      reducedSteps_next += this.tuning.scale.length;
       octs_next -= 1;
     }
     // octave_offset shifts all pitches by N equaves without rebuilding
     const octOff = this.settings.octave_offset || 0;
-    let cents = (octs + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps];
+    let cents = (octs + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps];
     let cents_prev =
-      (octs_prev + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps_prev];
+      (octs_prev + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps_prev];
     let cents_next =
-      (octs_next + octOff) * this.settings.equivInterval + this.settings.scale[reducedSteps_next];
+      (octs_next + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps_next];
     /*  let dataArray = [
       "cents = ", cents,
       "reducedSteps = ", reducedSteps,

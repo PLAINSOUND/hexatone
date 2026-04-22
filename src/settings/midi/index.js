@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
   detectController,
@@ -6,15 +6,152 @@ import {
   getTonalPlexusInputMode,
 } from "../../controllers/registry.js";
 import { saveControllerPref } from "../../input/controller-anchor.js";
+import {
+  activateLinnstrumentUserFirmware,
+  deactivateLinnstrumentUserFirmware,
+  isLinnstrumentUserFirmwareEligible,
+} from "../../controllers/linnstrument-user-firmware.js";
 import ScalaInput from "../scale/scala-input.js";
 
+/**
+ * Clickable output-port status indicator.
+ *
+ * When a port is auto-detected its name is shown in green.
+ * Clicking switches to a <select> listing all available outputs so the
+ * user can pick an alternate port (e.g. on Windows where port names differ).
+ * Choosing "Auto" clears the override and reverts to name-based detection.
+ */
+function OutputPortPicker({ label, rawPorts, outputs, overridePortId, onChange }) {
+  const [picking, setPicking] = useState(false);
+  const connected = !!rawPorts;
+  const portName = rawPorts?.output?.name ?? null;
+  const isOverride = !!overridePortId;
+
+  if (picking) {
+    return (
+      <label style={{ fontStyle: "italic", marginTop: "0.5em" }}>
+        {label}
+        <select
+          class="sidebar-input"
+          style={{ fontSize: "0.85em" }}
+          value={overridePortId ?? "__auto__"}
+          onChange={(e) => {
+            const val = e.target.value === "__auto__" ? null : e.target.value;
+            onChange(val);
+            setPicking(false);
+          }}
+          onBlur={() => setPicking(false)}
+          ref={(el) => el && setTimeout(() => el.focus(), 0)}
+        >
+          <option value="__auto__">Auto detect</option>
+          {outputs && Array.from(outputs.values()).map((o) => (
+            <option key={o.id} value={o.id}>{o.name}</option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  return (
+    <label
+      style={{ marginTop: "0.5em", cursor: "pointer" }}
+      title="Click to choose a different output port"
+      onClick={() => setPicking(true)}
+    >
+      {label}
+      <span
+        class="sidebar-input"
+        style={{
+          textAlign: "right",
+          fontSize: "0.85em",
+          fontStyle: "italic",
+          color: connected ? "#669966" : "#996666",
+        }}
+      >
+        {connected
+          ? `${isOverride ? "▸ " : ""}${portName}`
+          : "Not found — click to choose"}
+      </span>
+    </label>
+  );
+}
+
+/**
+ * LinnStrument User Firmware Mode toggle (NRPN 245).
+ *
+ * This component is the single owner of NRPN 245. It drives the full
+ * connect/disconnect sequence:
+ *
+ *   On port connect (auto):
+ *     1. NRPN 245 = 1  → device keys go blank, user's own settings preserved
+ *     2. configureLinnStrument burst  → layout, octave, switches
+ *     3. If Auto Send Colours is on → sync LEDs
+ *
+ *   On port disconnect / device switched away (auto):
+ *     1. NRPN 245 = 0  → device firmware resumes, user's stored layout restored
+ *        (nothing else needed — the device restores itself)
+ *
+ *   Manual toggle ON:   same as auto-connect sequence
+ *   Manual toggle OFF:  NRPN 245 = 0 only
+ */
+function LinnUserFirmwareToggle({ rawPorts, keysRef, active = true }) {
+  const out = rawPorts?.output ?? null;
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!out || !active) {
+      setEnabled(false);
+      return;
+    }
+    let activatedKeys = null;
+    // Port appeared. Delay slightly so app.jsx's effect (which creates the
+    // LinnStrumentLEDs instance and assigns it to keysRef) has settled first.
+    const id = setTimeout(() => {
+      activatedKeys = keysRef?.current ?? null;
+      activateLinnstrumentUserFirmware(out, activatedKeys);
+      setEnabled(true);
+    }, 50);
+    return () => {
+      clearTimeout(id);
+      // Port is about to disappear — send 245=0 while we still have the output.
+      deactivateLinnstrumentUserFirmware(out, activatedKeys);
+      setEnabled(false);
+    };
+  }, [out, active]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggle = (e) => {
+    const on = e.target.checked;
+    const keys = keysRef?.current;
+    if (on) {
+      activateLinnstrumentUserFirmware(out, keys);
+      setEnabled(true);
+    } else {
+      deactivateLinnstrumentUserFirmware(out, keys);
+      setEnabled(false);
+    }
+  };
+
+  return (
+    <label style={{ marginTop: "0.3em" }}>
+      User Firmware Mode
+      <input
+        type="checkbox"
+        checked={enabled}
+        disabled={!out || !active}
+        onChange={toggle}
+      />
+    </label>
+  );
+}
+
 const MANUAL_CONTROLLER_OPTIONS = [
-  { id: "axis49", label: "AXIS-49" },
-  { id: "exquis", label: "Exquis" },
-  { id: "generic", label: "Generic Keyboard" },
-  { id: "lumatone", label: "Lumatone" },
-  { id: "tonalplexus", label: "Tonal Plexus" },
-  { id: "ts41", label: "TS41" },
+  { id: "axis49",          label: "AXIS-49" },
+  { id: "exquis",          label: "Exquis" },
+  { id: "generic",         label: "Generic Keyboard" },
+  { id: "linnstrument", label: "LinnStrument" },
+  { id: "lumatone",        label: "Lumatone" },
+  { id: "tonalplexus",     label: "Tonal Plexus" },
+  { id: "ts41",            label: "TS41" },
 ];
 
 const MIDIio = (props) => {
@@ -95,8 +232,15 @@ const MIDIio = (props) => {
     !ctrl || ctrl.multiChannel || ctrl.supportsSequentialChannelOffset;
   const showChannelTranspose =
     !scaleMode && !using2DMap && !props.settings.midiin_mpe_input && isMultiChannelSequential;
+  const isLinnstrument = ctrl?.id === "linnstrument";
+  const linnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
+    controllerId: ctrl?.id ?? null,
+    scaleMode,
+    midiPassthrough: !!props.settings.midi_passthrough,
+    midiinDevice: props.settings.midiin_device,
+  });
   const showExquisBendControls = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
-  const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
+  const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input) && !isLinnstrument;
   const genericBypassesGeometry = ctrl?.id === "generic";
 
   // mpeSetupOpen removed — MPE options are shown flat when MPE is enabled.
@@ -109,6 +253,13 @@ const MIDIio = (props) => {
   const [devPadId, setDevPadId] = useState("0"); // pad ID for CMD 04 color test (0–60)
   const hasBasicMidi = !!props.midi;
   const hasSysexMidi = props.midiAccess === "sysex";
+
+  const deactivateLinnstrumentUserFirmwareNow = () => {
+    deactivateLinnstrumentUserFirmware(
+      props.linnstrumentRawPorts?.output ?? null,
+      props.keysRef?.current ?? null,
+    );
+  };
 
   return (
     <fieldset>
@@ -123,6 +274,9 @@ const MIDIio = (props) => {
           class="sidebar-input"
           disabled={!hasBasicMidi}
           onChange={(e) => {
+            if (linnstrumentUserFirmwareEligible && e.target.value !== props.settings.midiin_device) {
+              deactivateLinnstrumentUserFirmwareNow();
+            }
             props.onChange(e.target.name, e.target.value);
             sessionStorage.setItem(e.target.name, e.target.value);
           }}
@@ -141,6 +295,9 @@ const MIDIio = (props) => {
           class="sidebar-input"
           value={props.settings.midiin_mapping_target || "hex_layout"}
           onChange={(e) => {
+            if (linnstrumentUserFirmwareEligible && e.target.value !== "hex_layout") {
+              deactivateLinnstrumentUserFirmwareNow();
+            }
             props.onChange("midiin_mapping_target", e.target.value);
             sessionStorage.setItem("midiin_mapping_target", e.target.value);
           }}
@@ -158,6 +315,9 @@ const MIDIio = (props) => {
               class="sidebar-input"
               value={controllerOverrideId}
               onChange={(e) => {
+                if (linnstrumentUserFirmwareEligible && e.target.value !== "linnstrument") {
+                  deactivateLinnstrumentUserFirmwareNow();
+                }
                 props.onChange("midiin_controller_override", e.target.value);
                 sessionStorage.setItem("midiin_controller_override", e.target.value);
               }}
@@ -379,14 +539,10 @@ const MIDIio = (props) => {
                   >
                     <button
                       type="button"
+                      class="preset-action-btn"
                       onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
                       disabled={tonalPlexus205Mode}
-                      style={{
-                        fontSize: "0.8em",
-                        whiteSpace: "nowrap",
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
+                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                     >
                       {tonalPlexus205Mode
                         ? "Fixed"
@@ -394,10 +550,11 @@ const MIDIio = (props) => {
                           ? "● Listening…"
                           : "Learn"}
                     </button>
-                    {/* Channel field — shown for all known controllers.
+                    {/* Channel field — shown for all known controllers except MPE ones in MPE
+                      mode (channels are per-voice, not layout-encoding in that case).
                       Editable for multi-channel controllers (e.g. Lumatone);
                       greyed-out fixed "1" for single-channel controllers (e.g. AXIS-49). */}
-                    {ctrl &&
+                    {ctrl && !(ctrl.mpe && props.settings.midiin_mpe_input) &&
                       (ctrl.anchorChannelDefault != null ? (
                         <input
                           name="lumatone_center_channel"
@@ -416,7 +573,7 @@ const MIDIio = (props) => {
                             color: tonalPlexus205Mode ? "#999" : undefined,
                             cursor: tonalPlexus205Mode ? "default" : undefined,
                           }}
-                          key={anchorChannel}
+                          key={`anchor-channel-${anchorChannel}`}
                           defaultValue={anchorChannel}
                           disabled={tonalPlexus205Mode}
                           onKeyDown={(e) => {
@@ -482,7 +639,7 @@ const MIDIio = (props) => {
                           color: tonalPlexus205Mode ? "#999" : undefined,
                           cursor: tonalPlexus205Mode ? "default" : undefined,
                         }}
-                        key={controllerAnchorNote}
+                        key={`anchor-note-${controllerAnchorNote}`}
                         defaultValue={controllerAnchorNote}
                         disabled={tonalPlexus205Mode}
                         onKeyDown={(e) => {
@@ -518,7 +675,7 @@ const MIDIio = (props) => {
                           border: "1px solid #c8b8b8",
                           borderRadius: "3px",
                         }}
-                        key={props.settings.midiin_central_degree}
+                        key={`central-degree-${props.settings.midiin_central_degree}`}
                         defaultValue={centralNote}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") e.target.blur();
@@ -558,6 +715,9 @@ const MIDIio = (props) => {
                       type="checkbox"
                       checked={!!props.settings.midi_passthrough}
                       onChange={(e) => {
+                        if (linnstrumentUserFirmwareEligible && e.target.checked) {
+                          deactivateLinnstrumentUserFirmwareNow();
+                        }
                         props.onChange("midi_passthrough", e.target.checked);
                         sessionStorage.setItem("midi_passthrough", e.target.checked);
                         saveControllerPref(
@@ -578,26 +738,43 @@ const MIDIio = (props) => {
                     {/* LED sync only makes sense in 2D geometry mode */}
                     {!props.settings.midi_passthrough && (
                       <>
-                        <label
-                          style={{
-                            fontStyle: "italic",
-                            color: props.lumatoneRawPorts ? "#669966" : "#996666",
-                            marginTop: "0.5em",
+                        <OutputPortPicker
+                          label="LED Output"
+                          rawPorts={props.lumatoneRawPorts}
+                          outputs={props.midi?.outputs}
+                          overridePortId={props.settings.lumatone_out_port ?? null}
+                          onChange={(id) => {
+                            props.onChange("lumatone_out_port", id);
+                            sessionStorage.setItem("lumatone_out_port", id ?? "");
                           }}
-                        >
-                          LED Output
-                          <span
-                            class="sidebar-input"
-                            style={{ textAlign: "right", fontSize: "0.85em" }}
-                          >
-                            {props.lumatoneRawPorts
-                              ? `Connected — ${props.lumatoneRawPorts.output.name}`
-                              : "Not found (output port unavailable)"}
-                          </span>
-                        </label>
+                        />
                         {props.lumatoneRawPorts && (
                           <label>
-                            Auto Send Colours
+                            Send Blank Key Layout (Notes 0-55 on Ch 1-5)
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginLeft: "auto",
+                                marginTop: "4px",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                class="preset-action-btn"
+                                disabled={!hasSysexMidi}
+                                title="Send notes + blank layout to Lumatone via sysex (~10-15 s, one-time setup)"
+                                onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
+                              >
+                                Send Blank Key Layout
+                              </button>
+                            </span>
+                          </label>
+                        )}
+                        {props.lumatoneRawPorts && (
+                          <label>
+                            Automatically Send LED Colours
                             <span
                               style={{
                                 display: "flex",
@@ -622,41 +799,16 @@ const MIDIio = (props) => {
                               />
                               <button
                                 type="button"
-                                style={{ fontSize: "0.85em" }}
+                                class="preset-action-btn"
                                 disabled={!hasSysexMidi}
                                 onClick={() => props.keysRef?.current?.syncLumatoneLEDs?.()}
                               >
-                                Send Now
+                                Send Colours
                               </button>
                             </span>
                           </label>
                         )}
                       </>
-                    )}
-                    {/* Layout file (.ltn) — TODO: reimplement export using registry geometry */}
-                    {!props.settings.midi_passthrough && props.lumatoneRawPorts && (
-                      <label>
-                        Send to Lumatone
-                        <span
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            marginLeft: "auto",
-                            marginTop: "4px",
-                          }}
-                        >
-                          <button
-                            type="button"
-                            style={{ fontSize: "0.85em" }}
-                            disabled={!hasSysexMidi}
-                            title="Send notes + colours to Lumatone via sysex (~10–15 s, one-time setup)"
-                            onClick={() => props.keysRef?.current?.sendLumatoneLayout?.()}
-                          >
-                            Send Now
-                          </button>
-                        </span>
-                      </label>
                     )}
                   </>
                 )}
@@ -673,7 +825,6 @@ const MIDIio = (props) => {
                     //   port, ok      → green, "Connected — <name>"
                     //   port, failed  → red,   "Firmware x found: please update to use key colours"
                     const isFailed = portConnected && ledStatus && !ledStatus.ok;
-                    const labelColor = !portConnected || isFailed ? "#996666" : "#669966";
                     const statusText = !portConnected
                       ? "Not found (output port unavailable)"
                       : isFailed
@@ -681,17 +832,21 @@ const MIDIio = (props) => {
                         : `Connected — ${props.exquisRawPorts.output.name}`;
                     return (
                       <>
-                        <label
-                          style={{ fontStyle: "italic", color: labelColor, marginTop: "0.5em" }}
-                        >
-                          LED Output
-                          <span
-                            class="sidebar-input"
-                            style={{ textAlign: "right", fontSize: "0.85em" }}
-                          >
+                        <OutputPortPicker
+                          label="LED Output"
+                          rawPorts={isFailed ? null : props.exquisRawPorts}
+                          outputs={props.midi?.outputs}
+                          overridePortId={props.settings.exquis_out_port ?? null}
+                          onChange={(id) => {
+                            props.onChange("exquis_out_port", id);
+                            sessionStorage.setItem("exquis_out_port", id ?? "");
+                          }}
+                        />
+                        {isFailed && (
+                          <span style={{ color: "#996666", fontSize: "0.85em", fontStyle: "italic" }}>
                             {statusText}
                           </span>
-                        </label>
+                        )}
                         {portConnected && !isFailed && (
                           <>
                             <label>
@@ -721,7 +876,7 @@ const MIDIio = (props) => {
                                 />
                                 <button
                                   type="button"
-                                  style={{ fontSize: "0.85em" }}
+                                  class="preset-action-btn"
                                   disabled={!hasSysexMidi}
                                   onClick={() => props.keysRef?.current?.syncExquisLEDs?.()}
                                 >
@@ -729,7 +884,7 @@ const MIDIio = (props) => {
                                 </button>
                                 <button
                                   type="button"
-                                  style={{ fontSize: "0.85em" }}
+                                  class="preset-action-btn"
                                   disabled={!hasSysexMidi}
                                   onClick={() =>
                                     props.keysRef?.current?.exquisLEDs?.clearColors?.()
@@ -1129,6 +1284,66 @@ const MIDIio = (props) => {
                       })()}
                   </>
                 )}
+
+                {/* ── LinnStrument LED colour sync ── */}
+                {linnstrumentUserFirmwareEligible && (
+                  <>
+                  <OutputPortPicker
+                    label="MIDI Output"
+                    rawPorts={props.linnstrumentRawPorts}
+                    outputs={props.midi?.outputs}
+                    overridePortId={props.settings.linnstrument_out_port ?? null}
+                    onChange={(id) => {
+                      props.onChange("linnstrument_out_port", id);
+                      sessionStorage.setItem("linnstrument_out_port", id ?? "");
+                    }}
+                  />
+                  <LinnUserFirmwareToggle
+                    rawPorts={props.linnstrumentRawPorts}
+                    keysRef={props.keysRef}
+                    active={linnstrumentUserFirmwareEligible}
+                  />
+                  <label style={{ marginTop: "0.3em" }}>
+                    Auto Send Colours
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginLeft: "auto",
+                        marginTop: "4px",
+                      }}
+                    >
+                      <input
+                        name="linnstrument_led_sync"
+                        type="checkbox"
+                        checked={!!props.settings.linnstrument_led_sync}
+                        onChange={(e) => {
+                          props.onChange("linnstrument_led_sync", e.target.checked);
+                          localStorage.setItem("linnstrument_led_sync", e.target.checked);
+                          const keys = props.keysRef?.current;
+                          if (keys) keys.settings.linnstrument_led_sync = e.target.checked;
+                          if (e.target.checked) keys?.syncLinnstrumentLEDs?.();
+                        }}
+                      />
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={() => props.keysRef?.current?.syncLinnstrumentLEDs?.()}
+                      >
+                        Send Now
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={() => props.keysRef?.current?.linnstrumentLEDs?.clearColors?.()}
+                      >
+                        Clear
+                      </button>
+                    </span>
+                  </label>
+                  </>
+                )}
               </>
             ) : (
               /* ── Unknown / sequential controller ── */
@@ -1141,13 +1356,9 @@ const MIDIio = (props) => {
                   >
                     <button
                       type="button"
+                      class="preset-action-btn"
                       onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
-                      style={{
-                        fontSize: "0.8em",
-                        whiteSpace: "nowrap",
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
+                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                     >
                       {props.midiLearnActive ? "● Listening…" : "Learn"}
                     </button>
@@ -1168,7 +1379,7 @@ const MIDIio = (props) => {
                         borderRadius: "3px",
                         flexShrink: 0,
                       }}
-                      key={seqAnchorChannel}
+                      key={`seq-anchor-channel-${seqAnchorChannel}`}
                       defaultValue={seqAnchorChannel}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();
@@ -1198,7 +1409,7 @@ const MIDIio = (props) => {
                         border: "1px solid #c8b8b8",
                         borderRadius: "3px",
                       }}
-                      key={props.settings.midiin_central_degree}
+                      key={`seq-central-degree-${props.settings.midiin_central_degree}`}
                       defaultValue={centralNote}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();
@@ -1246,7 +1457,7 @@ const MIDIio = (props) => {
                     type="text"
                     inputMode="numeric"
                     class="sidebar-input"
-                    key={props.settings.midiin_steps_per_channel}
+                    key={`steps-per-channel-${props.settings.midiin_steps_per_channel ?? ""}`}
                     defaultValue={props.settings.midiin_steps_per_channel ?? ""}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.target.blur();
@@ -1297,14 +1508,14 @@ const MIDIio = (props) => {
           )}
 
           {/* ── Pitch Bend Interval ──────────────────────────────────────────────
-              Form A (Scala): MPE on OR wheel-to-recent on.
+              Form A (Scala): LinnStrument, MPE on, or wheel-to-recent on.
                 midiin_bend_range — ±full deflection maps to this interval.
                 Set hardware to max range (e.g. Exquis encoder2=48) for resolution.
-              Form B (12edo semitones): MPE off AND wheel-to-recent off.
+              Form B (12edo semitones): MPE off AND wheel-to-recent off AND not LinnStrument.
                 midi_wheel_semitones — raw PB passthrough; sample synth retuned directly.
               See claude-context/midi-input-ux.md for full spec. */}
           {showExquisBendControls &&
-            (props.settings.midiin_mpe_input || props.settings.wheel_to_recent ? (
+            (isLinnstrument || props.settings.midiin_mpe_input || props.settings.wheel_to_recent ? (
               <label title="Pitch Bend Interval: the musical interval that ±full deflection maps to. Set hardware to max range for best resolution.">
                 Pitch Bend Interval (Scala)
                 <ScalaInput
@@ -1375,6 +1586,7 @@ MIDIio.propTypes = {
     lumatone_center_channel: PropTypes.number,
     lumatone_center_note: PropTypes.number,
     lumatone_led_sync: PropTypes.bool,
+    linnstrument_led_sync: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
     midi_wheel_range: PropTypes.string,
     midi_wheel_semitones: PropTypes.number,
@@ -1393,7 +1605,8 @@ MIDIio.propTypes = {
   midiAccessError: PropTypes.string,
   midiLearnActive: PropTypes.bool,
   lumatoneRawPorts: PropTypes.object,
-  exquisRawOutput: PropTypes.object,
+  exquisRawPorts: PropTypes.object,
+  linnstrumentRawPorts: PropTypes.object,
   keysRef: PropTypes.object,
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,

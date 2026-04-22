@@ -65,6 +65,7 @@ if (~use_osc) {
 	// Auto-start the osc-bridge using the pre-built self-contained binary.
 	// No Node.js installation required — binary is in osc-bridge/dist/.
 	// Build with: yarn build-bridge
+	// Run: yarn osc-bridge
 	// Log output → /tmp/osc-bridge.log.
 	~repo_path = thisProcess.nowExecutingPath.dirname.dirname.dirname;
 	~bridge_bin = ~repo_path +/+ (

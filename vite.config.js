@@ -52,6 +52,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         retune: path.resolve(__dirname, 'retune.html'),
+        usermanual: path.resolve(__dirname, 'usermanual.html'),
       },
     },
   },

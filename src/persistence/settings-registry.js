@@ -71,6 +71,19 @@ export const SETTINGS_REGISTRY = [
   { key: "spectrum_colors", tier: "url", type: "bool", default: true, presetSkip: true },
   { key: "fundamental_color", tier: "url", type: "string", default: "#f2e3e3", presetSkip: true },
   { key: "key_labels", tier: "url", type: "string", default: "no_labels", presetSkip: true },
+  // HEJI notation anchor: defines the rational offset for the entire spelling.
+  // heji_anchor_ratio — the ratio (Scala format, e.g. "3/2" or "702.0") of the
+  //   reference pitch whose deviation is 0¢ on a tuning meter.  This is
+  //   measured from scale degree 0 (1/1).  It does not need to be a scale
+  //   degree; it is a free-form interval that anchors the HEJI frame.
+  //   Default "1/1" means the root is the 0¢ reference.
+  // heji_anchor_label — the HEJI pitch-class spelling for that pitch (e.g. "nA").
+  //   When key_labels === "heji", all degree labels are auto-generated from
+  //   this anchor pair + the committed ratio of each degree.
+  { key: "heji_anchor_ratio", tier: "url", type: "string", default: "", presetSkip: true },
+  { key: "heji_anchor_label", tier: "url", type: "string", default: "", presetSkip: true },
+  // When false, cents deviation is omitted from key labels (still shown in scale table).
+  { key: "heji_show_cents", tier: "url", type: "bool", default: false, presetSkip: true },
   // Internal-only for now: TuneCell supports an alternate reference-degree save
   // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
   // remains session-scoped and stays out of share URLs.
@@ -97,7 +110,7 @@ export const SETTINGS_REGISTRY = [
     key: "midiin_mpe_input",
     tier: "local",
     type: "bool",
-    default: false,
+    default: true,
     perController: true,
     description: "Enable MPE input for this controller",
   },
@@ -222,38 +235,27 @@ export const SETTINGS_REGISTRY = [
   { key: "mpe_pitchbend_range_manager", tier: "session", type: "int", default: 2 },
 
   // ── FluidSynth / OSC mirror ───────────────────────────────────────────────────
+  {
+    key: "fluidsynth_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for FluidSynth (null = auto-detect by name)",
+  },
   { key: "fluidsynth_device", tier: "session", type: "string", default: "" },
   { key: "fluidsynth_channel", tier: "session", type: "int", default: -1 },
   { key: "output_osc", tier: "session", type: "bool", default: false },
   { key: "osc_bridge_url", tier: "session", type: "string", default: "ws://localhost:8089" },
-  {
-    key: "osc_volume_pluck",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the pluck synth; persisted across refresh and used at note-on",
-  },
-  {
-    key: "osc_volume_buzz",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the buzz/string synth; persisted across refresh and used at note-on",
-  },
-  {
-    key: "osc_volume_formant",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the formant synth; persisted across refresh and used at note-on",
-  },
-  {
-    key: "osc_volume_saw",
-    tier: "session",
-    type: "float",
-    default: 0.5,
-    description: "OSC layer volume for the saw/tone synth; persisted across refresh and used at note-on",
-  },
+  // OSC layer volumes — written by onOscLayerVolumeChange in use-synth-wiring.js
+  // via both setSettings (so deriveOscVolumes reads the live value on every
+  // in-session rebuild) and localStorage (so values survive page reload and
+  // are read back via CROSS_CONTROLLER_ENTRIES in session-defaults.js).
+  // tier: 'local', perController: false — plain key, cross-controller.
+  { key: "osc_volume_pluck",   tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_buzz",    tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_formant", tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_saw",     tier: "local", type: "float", default: 0.5, perController: false },
   // WebMIDI permission/access level restored on refresh so the explicit
   // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
   // This is session-scoped runtime state, not a shareable preset value.
@@ -272,7 +274,31 @@ export const SETTINGS_REGISTRY = [
   { key: "wheel_scale_aware", tier: "session", type: "bool", default: false },
   { key: "midi_wheel_semitones", tier: "session", type: "int", default: 2 },
 
-  // ── Lumatone LED sync ─────────────────────────────────────────────────────────
+  // ── LED sync ─────────────────────────────────────────────────────────
+  {
+    key: "lumatone_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for Lumatone (null = auto-detect by name)",
+  },
+  {
+    key: "exquis_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for Exquis (null = auto-detect by name)",
+  },
+  {
+    key: "linnstrument_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for LinnStrument (null = auto-detect by name)",
+  },
   {
     key: "lumatone_led_sync",
     tier: "local",
@@ -288,6 +314,14 @@ export const SETTINGS_REGISTRY = [
     default: true,
     perController: false,
     description: "Auto Send Colours to Exquis LEDs when scale changes",
+  },
+  {
+    key: "linnstrument_led_sync",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: false,
+    description: "Auto Send Colours to LinnStrument LEDs when scale changes",
   },
   {
     key: "exquis_led_luminosity",
@@ -309,6 +343,22 @@ export const SETTINGS_REGISTRY = [
   // ── App preferences (localStorage, not session) ───────────────────────────────
   // hexatone_persist_on_reload is handled separately in app.jsx / use-presets.js
   // and is intentionally not part of the settings object.
+
+  // ── Rationalisation search prefs ──────────────────────────────────────────────
+  // These are stored outside the settings object, managed directly by
+  // scale-table/index.js and scale-table/search-prefs.js.
+  //
+  // hexatone_search_prefs       (localStorage)  — JSON blob of searchPrefs state
+  //                              (primeLimit, oddLimit, centsTolerance, region,
+  //                              primeBounds, primeBoundsUt, existingRatios …).
+  //                              Merged with DEFAULT_SEARCH_PREFS on load so new
+  //                              keys are always present after updates.
+  // hexatone_search_prefs_open  (sessionStorage) — "true"/"false"; keeps the panel
+  //                              open across page refreshes within a session.
+  // Restore Defaults clears hexatone_search_prefs and resets to DEFAULT_SEARCH_PREFS.
+  //
+  // There are no rationalise_* keys in the settings object. The search prefs live
+  // entirely in localStorage under hexatone_search_prefs and are not URL-synced.
 ];
 
 // ── Derived lookup maps ────────────────────────────────────────────────────────

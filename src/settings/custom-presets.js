@@ -377,7 +377,7 @@ const CustomPresets = ({
 
       {/* ── Save / Export — show when a preset is active ── */}
       {activeSource && (
-        <label
+        <div
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -390,7 +390,7 @@ const CustomPresets = ({
             {saveLabel}
           </button>
           <span style={{ display: "flex", gap: "6px" }}>
-            <button type="button" class="preset-utility-btn" onClick={handleExport}>
+            <button type="button" class="preset-utility-btn" style={{ width: "6em", textAlign: "center" }} onClick={handleExport}>
               Export .json
             </button>{" "}
             {/*
@@ -398,7 +398,7 @@ const CustomPresets = ({
               Export .ltn
             </button>*/}
           </span>
-        </label>
+        </div>
       )}
 
       {error && <p class="preset-error">{error}</p>}

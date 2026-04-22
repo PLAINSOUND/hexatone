@@ -78,6 +78,26 @@ const makeMidi = () => {
 };
 
 describe("use-synth-wiring runtime derivation", () => {
+  it("derives committed cents from the workspace-backed tuning runtime", () => {
+    const tuningRuntime = deriveTuningRuntime({
+      scale: ["9/8", "5/4", "7\\12", "2/1"],
+      reference_degree: 1,
+      fundamental: 440,
+      name: "Mixed interval test",
+    });
+
+    expect(tuningRuntime.scale).toEqual([
+      0,
+      expect.closeTo(203.91000173077484, 10),
+      expect.closeTo(386.3137138648348, 10),
+      700,
+    ]);
+    expect(tuningRuntime.equivInterval).toBeCloseTo(1200, 10);
+    expect(tuningRuntime.degree0toRefAsArray[0]).toBeCloseTo(203.91000173077484, 10);
+    expect(tuningRuntime.name).toBe("Mixed interval test");
+    expect(tuningRuntime.fundamental).toBe(440);
+  });
+
   it("derives the centered static bulk-dump anchor for the Partch preset", () => {
     const settings = makeSettings({ direct_mode: "static" });
     const tuningRuntime = deriveTuningRuntime(settings);
@@ -100,11 +120,11 @@ describe("use-synth-wiring runtime derivation", () => {
     expect(outputs[0].deviceId).toBe(12);
   });
 
-  it("derives persisted OSC layer volumes from session storage for fresh note-ons after refresh", () => {
-    sessionStorage.setItem("osc_volume_pluck", "0.11");
-    sessionStorage.setItem("osc_volume_buzz", "0.22");
-    sessionStorage.setItem("osc_volume_formant", "0.33");
-    sessionStorage.setItem("osc_volume_saw", "0.44");
+  it("derives persisted OSC layer volumes from local storage for fresh note-ons after refresh", () => {
+    localStorage.setItem("osc_volume_pluck", "0.11");
+    localStorage.setItem("osc_volume_buzz", "0.22");
+    localStorage.setItem("osc_volume_formant", "0.33");
+    localStorage.setItem("osc_volume_saw", "0.44");
 
     expect(
       deriveOscVolumes({
@@ -115,7 +135,10 @@ describe("use-synth-wiring runtime derivation", () => {
       }),
     ).toEqual([0.11, 0.22, 0.33, 0.44]);
 
-    sessionStorage.clear();
+    localStorage.removeItem("osc_volume_pluck");
+    localStorage.removeItem("osc_volume_buzz");
+    localStorage.removeItem("osc_volume_formant");
+    localStorage.removeItem("osc_volume_saw");
   });
 });
 

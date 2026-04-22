@@ -9,8 +9,8 @@ const Keyboard = (props) => {
   const keysRef = useRef(null);
 
   // ── Keys reconstruction ────────────────────────────────────────────────────
-  // Runs when structural settings change. ExquisLEDs is managed in app.jsx
-  // and assigned to keys.exquisLEDs via props.exquisLedsRef after construction.
+  // Runs when structural settings change. LED drivers (Exquis, Lumatone,
+  // LinnStrument) are managed in app.jsx and assigned here after construction.
   useEffect(() => {
     const keys = new Keys(
       canvas.current,
@@ -21,14 +21,20 @@ const Keyboard = (props) => {
       props.onTakeSnapshot,
       props.inputRuntime,
       props.onFirstInteraction,
+      props.tuningRuntime,
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
+    keys.linnstrumentLEDs = props.linnstrumentLedsRef?.current ?? null;
     keysRef.current = keys;
+    // Apply current label settings immediately after construction so the initial
+    // draw has the correct label mode even if labelSettings changed since Keys was last built.
+    if (props.labelSettings) keys.updateLabels(props.labelSettings);
     if (props.onKeysReady) props.onKeysReady(keys);
     return () => {
       keys.lumatoneLEDs = null;
       keys.exquisLEDs = null;
+      keys.linnstrumentLEDs = null;
       keys.deconstruct();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by structuralSettings
@@ -85,6 +91,13 @@ const Keyboard = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings.note_colors covered by noteColorsKey
   }, [noteColorsKey, props.settings.spectrum_colors, props.settings.fundamental_color]);
 
+  // Label changes are display-only — update imperatively without reconstructing Keys.
+  useEffect(() => {
+    if (keysRef.current && props.labelSettings) {
+      keysRef.current.updateLabels(props.labelSettings);
+    }
+  }, [props.labelSettings]);
+
   return (
     <Fragment>
       <canvas
@@ -104,6 +117,7 @@ Keyboard.propTypes = {
   liveOutputSettings: PropTypes.object,
   lumatoneLedsRef: PropTypes.object,
   exquisLedsRef: PropTypes.object,
+  linnstrumentLedsRef: PropTypes.object,
   settings: PropTypes.shape({
     keyCodeToCoords: PropTypes.object,
     degree: PropTypes.bool,
@@ -140,6 +154,11 @@ Keyboard.propTypes = {
     spectrum_colors: PropTypes.bool,
     fundamental_color: PropTypes.string,
   }).isRequired,
+  tuningRuntime: PropTypes.shape({
+    scale: PropTypes.arrayOf(PropTypes.number),
+    equivInterval: PropTypes.number,
+    equivSteps: PropTypes.number,
+  }),
   synth: PropTypes.object.isRequired,
 };
 

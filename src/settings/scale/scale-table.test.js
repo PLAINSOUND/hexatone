@@ -1,5 +1,5 @@
 /**
- * Tests for src/settings/scale/scale-table.js
+ * Tests for src/settings/scale/scale-table/index.js
  *
  * The ScaleTable component renders a table of scale degrees, names and colors.
  * Tests use aria-labels (already present in the component) to find inputs,
@@ -7,7 +7,7 @@
  */
 
 import { render, screen, fireEvent } from "@testing-library/preact";
-import ScaleTable from "./scale-table";
+import ScaleTable from "./scale-table/index.js";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 

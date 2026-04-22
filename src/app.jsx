@@ -4,6 +4,7 @@ import Keyboard from "./keyboard";
 import { presets } from "./settings/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
+import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 
 import useSynthWiring from "./use-synth-wiring.js";
 import { useMidiGuardian } from "./use-midi-guardian.js";
@@ -27,9 +28,14 @@ import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
 import { ExquisLEDs } from "./controllers/exquis-leds.js";
 import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
+import {
+  attachLinnstrumentLedDriver,
+  detachLinnstrumentLedDriver,
+} from "./controllers/linnstrument-user-firmware.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
+import ManualSidebar from "./manual-sidebar.jsx";
 
 
 import "normalize.css";
@@ -130,6 +136,12 @@ const App = () => {
     sessionStorage.removeItem(getBannerSessionKey(bannerKey));
     setBanner(null);
   }, []);
+
+  useEffect(() => {
+    if (!showManual) return;
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar) sidebar.scrollTop = 0;
+  }, [showManual]);
 
   useEffect(() => {
     const readPxVar = (name) => {
@@ -287,6 +299,7 @@ const App = () => {
     onAnchorLearn,
     lumatoneRawPorts,
     exquisRawPorts,
+    linnstrumentRawPorts,
   } = useSynthWiring(settings, setSettings, {
     ready,
     userHasInteracted,
@@ -304,6 +317,7 @@ const App = () => {
   const [exquisLedStatus, setExquisLedStatus] = useState(null);
   const exquisLedsRef = useRef(null);
   const lumatoneLedsRef = useRef(null);
+  const linnstrumentLedsRef = useRef(null);
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
@@ -428,7 +442,8 @@ const App = () => {
       (labelType === "note_names" &&
         settings.note_names &&
         Array.isArray(settings.note_names) &&
-        settings.note_names.length > 0);
+        settings.note_names.length > 0) ||
+      (labelType === "heji" && hasScale);
 
     const normalizedColors = normalizeColors(settings);
     // Color validation: spectrum mode uses the central hue directly; when
@@ -446,6 +461,21 @@ const App = () => {
   const scaleKey = useMemo(() => JSON.stringify(settings.scale), [settings.scale]);
   const noteNamesKey = useMemo(() => JSON.stringify(settings.note_names), [settings.note_names]);
   const noteColorsKey = useMemo(() => JSON.stringify(settings.note_colors), [settings.note_colors]);
+  const tuningWorkspace = useMemo(
+    () =>
+      settings.scale && Array.isArray(settings.scale) && settings.scale.length > 0
+        ? createScaleWorkspace({
+            scale: settings.scale,
+            reference_degree: settings.reference_degree,
+            fundamental: settings.fundamental,
+          })
+        : null,
+    [settings.scale, settings.reference_degree, settings.fundamental],
+  );
+  const tuningRuntime = useMemo(
+    () => (tuningWorkspace ? normalizeWorkspaceForKeys(tuningWorkspace) : null),
+    [tuningWorkspace],
+  );
 
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
@@ -512,7 +542,7 @@ const App = () => {
   // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
   const structuralSettings = useMemo(
-    () => normalizeStructural(settings),
+    () => normalizeStructural(settings, { tuningRuntime }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- explicit field list avoids reconstructing Keys on every color-picker drag
     [
       settings.rSteps,
@@ -523,6 +553,9 @@ const App = () => {
       settings.equivSteps,
       noteNamesKey,
       settings.key_labels,
+      settings.heji_anchor_label,
+      settings.heji_anchor_ratio,
+      settings.heji_show_cents,
       // fundamental handled imperatively via keysRef.current.updateFundamental
       settings.reference_degree,
       settings.center_degree,
@@ -547,6 +580,44 @@ const App = () => {
       midiAccess,
       midiTick,
       // Intentional: listing explicit fields so color-picker drags (not listed here) don't reconstruct Keys.
+      tuningRuntime,
+    ],
+  );
+
+  // Subset of structuralSettings that actually requires Keys reconstruction.
+  // Label fields (key_labels, note_names, heji_anchor_*) are intentionally
+  // excluded — they are updated imperatively via updateLabels without tearing
+  // down the keyboard or interrupting held notes.
+  const reconstructionSettings = useMemo(
+    () => structuralSettings,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      settings.rSteps,
+      settings.drSteps,
+      settings.hexSize,
+      settings.rotation,
+      scaleKey,
+      settings.equivSteps,
+      settings.reference_degree,
+      settings.center_degree,
+      settings.midiin_device,
+      settings.midiin_channel,
+      settings.midiin_steps_per_channel,
+      settings.midiin_anchor_channel,
+      settings.controller_anchor_note,
+      settings.midiin_channel_legacy,
+      settings.midi_passthrough,
+      settings.midiin_central_degree,
+      settings.axis49_center_note,
+      settings.wheel_to_recent,
+      settings.midiin_mapping_target,
+      settings.midiin_mpe_input,
+      settings.midiin_pitchbend_mode,
+      settings.midiin_pressure_mode,
+      settings.lumatone_center_channel,
+      settings.lumatone_center_note,
+      midiAccess,
+      midiTick,
     ],
   );
 
@@ -623,13 +694,13 @@ const App = () => {
   // Using a ref to skip the initial render (no reset on first mount).
   const prevStructuralRef = useRef(null);
   useEffect(() => {
-    if (prevStructuralRef.current !== null && prevStructuralRef.current !== structuralSettings) {
+    if (prevStructuralRef.current !== null && prevStructuralRef.current !== reconstructionSettings) {
       setLatch(false);
       resetOctave();
     }
-    prevStructuralRef.current = structuralSettings;
+    prevStructuralRef.current = reconstructionSettings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [structuralSettings]); // resetOctave and setLatch are stable
+  }, [reconstructionSettings]); // resetOctave and setLatch are stable
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
@@ -714,12 +785,70 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lumatoneInId, lumatoneOutId]);
 
+  // ── LinnStrument 128 lifecycle ────────────────────────────────────────────
+  // Mirrors the Lumatone/Exquis pattern.  LinnStrumentLEDs and the initial
+  // NRPN config burst live here so they survive Keys reconstruction.
+  //
+  // Port ID stability: same technique as Lumatone — we depend on the stable
+  // port ID strings rather than linnstrumentRawPorts (a new object each render)
+  // so the effect only fires when the actual hardware port changes.
+  const linnstrumentOutId = linnstrumentRawPorts?.output?.id ?? null;
+  useEffect(() => {
+    if (!linnstrumentRawPorts) {
+      if (linnstrumentLedsRef.current) {
+        // Port is already gone (device unplugged) — just drop the reference.
+        linnstrumentLedsRef.current.exit();
+        linnstrumentLedsRef.current = null;
+        if (keysRef.current) keysRef.current.linnstrumentLEDs = null;
+      }
+      return;
+    }
+
+    // LED driver attachment lives with the UF module so LinnStrument-specific
+    // lifecycle rules stay centralized.
+    const leds = attachLinnstrumentLedDriver(
+      linnstrumentRawPorts.output,
+      keysRef.current,
+    );
+    linnstrumentLedsRef.current = leds;
+
+    return () => {
+      linnstrumentLedsRef.current = null;
+      detachLinnstrumentLedDriver(leds, keysRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linnstrumentOutId]);
+
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
     () => normalizeColors(settings),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only color fields listed; avoids retrigger on every settings change
     [noteColorsKey, settings.spectrum_colors, settings.fundamental_color],
+  );
+
+  // Label settings: display-only fields extracted from structuralSettings.
+  // Passed to Keyboard so it can call updateLabels imperatively whenever
+  // structuralSettings recomputes due to label-related changes, without
+  // those changes causing a Keys reconstruction.
+  const labelSettings = useMemo(
+    () => ({
+      key_labels:       structuralSettings.key_labels,
+      degree:           !!structuralSettings.degree,
+      note:             !!structuralSettings.note,
+      scala:            !!structuralSettings.scala,
+      cents:            !!structuralSettings.cents,
+      heji:             !!structuralSettings.heji,
+      no_labels:        !!structuralSettings.no_labels,
+      note_names:       structuralSettings.note_names,
+      scala_names:      structuralSettings.scala_names,
+      heji_names:             structuralSettings.heji_names_keys ?? structuralSettings.heji_names,
+      heji_anchor_label_eff:  structuralSettings.heji_anchor_label_effective,
+      heji_anchor_ratio_eff:  structuralSettings.heji_anchor_ratio_effective,
+      scale:            structuralSettings.scale,
+      reference_degree: structuralSettings.reference_degree,
+    }),
+    [structuralSettings],
   );
 
   const normalizedSettings = useMemo(
@@ -752,11 +881,15 @@ const App = () => {
       keysRef.current = keys;
       keys.lumatoneLEDs = lumatoneLedsRef.current;
       keys.exquisLEDs = exquisLedsRef.current;
+      keys.linnstrumentLEDs = linnstrumentLedsRef.current;
       if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
         keys.syncLumatoneLEDs();
       }
       if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
         keys.syncExquisLEDs();
+      }
+      if (linnstrumentLedsRef.current && keys.settings?.linnstrument_led_sync) {
+        keys.syncLinnstrumentLEDs();
       }
     },
     [],
@@ -782,9 +915,11 @@ const App = () => {
         <Keyboard
           synth={synth || nullSynth}
           settings={normalizedSettings}
+          tuningRuntime={tuningRuntime}
           liveOutputSettings={liveOutputSettings}
           inputRuntime={inputRuntime}
-          structuralSettings={structuralSettings}
+          structuralSettings={reconstructionSettings}
+          labelSettings={labelSettings}
           onKeysReady={onKeysReady}
           onLatchChange={onLatchChange}
           onTakeSnapshot={onTakeSnapshot}
@@ -793,6 +928,7 @@ const App = () => {
           onAnchorLearn={onAnchorLearn}
           lumatoneLedsRef={lumatoneLedsRef}
           exquisLedsRef={exquisLedsRef}
+          linnstrumentLedsRef={linnstrumentLedsRef}
           onFirstInteraction={onFirstInteraction}
         />
       )}
@@ -1045,81 +1181,53 @@ const App = () => {
           </em>
         </p>
 
-        {showManual && (
-          <fieldset
-            style={{
-              position: "relative",
-              marginBottom: "0.5em",
-              background: "#f0e9e9",
-              border: "1px solid #c0aaaa",
-            }}
-          >
-            <legend>
-              <b>Manual</b>
-            </legend>
-            <button
-              type="button"
-              onClick={() => setShowManual(false)}
-              title="Close"
-              style={{
-                position: "absolute",
-                top: "-1.4em",
-                right: "-0.8em",
-                padding: "0.3em 0.4em",
-                fontSize: "1em",
-                lineHeight: 1,
-                cursor: "pointer",
-                background: "transparent",
-                border: "none",
-                color: "#990000",
-              }}
-            >
-              ✕
-            </button>
-
-            <p>
-              <em></em>
-            </p>
-          </fieldset>
+        {showManual ? (
+          <ManualSidebar onClose={() => setShowManual(false)} />
+        ) : (
+          <>
+            <Settings
+              presetChanged={presetChanged}
+              presets={presets}
+              onChange={onChange}
+              onAtomicChange={onAtomicChange}
+              midiLearnActive={midiLearnActive}
+              onVolumeChange={onVolumeChange}
+              onOscLayerVolumeChange={onOscLayerVolumeChange}
+              onImport={onImport}
+              importCount={importCount}
+              onLoadCustomPreset={onLoadCustomPreset}
+              onClearUserPresets={onClearUserPresets}
+              activeSource={activeSource}
+              activePresetName={activePresetName}
+              isPresetDirty={isPresetDirty}
+              persistOnReload={persistOnReload}
+              setPersistOnReload={setPersistOnReload}
+              onRevertBuiltin={onRevertBuiltin}
+              onRevertUser={onRevertUser}
+              settings={settings}
+              heji_names={structuralSettings.heji_names}
+              heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
+              heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
+              midi={midi}
+              midiAccess={midiAccess}
+              midiAccessError={midiAccessError}
+              enableWebMidi={ensureMidiAccess}
+              disableWebMidi={disableWebMidi}
+              midiTick={midiTick}
+              instruments={instruments}
+              keysRef={keysRef}
+              lumatoneRawPorts={lumatoneRawPorts}
+              exquisRawPorts={exquisRawPorts}
+              linnstrumentRawPorts={linnstrumentRawPorts}
+              exquisLedStatus={exquisLedStatus}
+              snapshots={snapshots}
+              playingSnapshotId={playingSnapshotId}
+              onPlaySnapshot={onPlaySnapshot}
+              onDeleteSnapshot={onDeleteSnapshot}
+            />
+            <Blurb />
+          </>
         )}
-
-        <Settings
-          presetChanged={presetChanged}
-          presets={presets}
-          onChange={onChange}
-          onAtomicChange={onAtomicChange}
-          midiLearnActive={midiLearnActive}
-          onVolumeChange={onVolumeChange}
-          onOscLayerVolumeChange={onOscLayerVolumeChange}
-          onImport={onImport}
-          importCount={importCount}
-          onLoadCustomPreset={onLoadCustomPreset}
-          onClearUserPresets={onClearUserPresets}
-          activeSource={activeSource}
-          activePresetName={activePresetName}
-          isPresetDirty={isPresetDirty}
-          persistOnReload={persistOnReload}
-          setPersistOnReload={setPersistOnReload}
-          onRevertBuiltin={onRevertBuiltin}
-          onRevertUser={onRevertUser}
-          settings={settings}
-          midi={midi}
-          midiAccess={midiAccess}
-          midiAccessError={midiAccessError}
-          enableWebMidi={ensureMidiAccess}
-          disableWebMidi={disableWebMidi}
-          midiTick={midiTick}
-          instruments={instruments}
-          keysRef={keysRef}
-          lumatoneRawPorts={lumatoneRawPorts}
-          exquisRawPorts={exquisRawPorts}
-          exquisLedStatus={exquisLedStatus}
-          snapshots={snapshots}
-          playingSnapshotId={playingSnapshotId}
-          onPlaySnapshot={onPlaySnapshot}
-          onDeleteSnapshot={onDeleteSnapshot}
-        />
-        <Blurb />
         <div id="sidebar-spacer"></div>
       </nav>
     </div>

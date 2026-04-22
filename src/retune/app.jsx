@@ -143,14 +143,6 @@ function midiDocFromCorpusJson(data) {
   };
 }
 
-// eslint-disable-next-line no-unused-vars
-function sameArray(a, b) {
-  if (a.length !== b.length) return false;
-  const aSorted = [...a].sort();
-  const bSorted = [...b].sort();
-  return aSorted.every((value, index) => value === bSorted[index]);
-}
-
 function pitchClassKey(annotation) {
   const chromatic = annotation.baseId.split(":")[0];
   return `${annotation.letter}:${chromatic}`;
@@ -746,12 +738,6 @@ export default function RetuneApp() {
     if (!midiDoc) return;
     const payload = buildCorpusPayload(midiDoc, annotations);
     downloadJson("bwv1001_adagio.annotated.json", payload);
-  };
-
-  // eslint-disable-next-line no-unused-vars
-  const selectByPredicate = (predicate) => {
-    const ids = notes.filter(predicate).map((note) => note.eventId);
-    setSelectedIds(ids);
   };
 
   const updateSelectedAnnotations = (patch) => {

@@ -104,7 +104,7 @@ const Colors = (props) => {
         <>
           <label>
             Choose Central Hue
-            <div class="color-cell" style={{ marginLeft: "50%" }}>
+            <div class="color-cell color-cell--label-rhs">
               <span
                 ref={swatchRef}
                 class="color-swatch"
@@ -146,6 +146,7 @@ const Colors = (props) => {
             <span class="sidebar-input" style={{ textAlign: "right" }}>
               <button
                 type="button"
+                class="preset-action-btn"
                 aria-label="Load Spectrum Colors"
                 onClick={handleLoadSpectrumColors}
               >

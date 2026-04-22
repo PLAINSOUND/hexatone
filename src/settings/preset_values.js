@@ -401,7 +401,7 @@ export const presets = [
         drSteps: 1,
         hexSize: 42,
         rotation: -16.102113751,
-        center_degree: 6,
+        center_degree: 5,
       },
       {
         name: "James Tenney: Critical Band 55 tone layout",

@@ -549,24 +549,44 @@ export function normalizeTonalPlexus41InputWithSettings(channel, note, settings 
   return groupIndex >= 0 ? { channel: blockIndex + 1, note: groupIndex + 22 } : null;
 }
 
-// ── LinnStrument 128 ──────────────────────────────────────────────────────────
-// 16 columns × 8 rows, multi-channel (each row = one channel, channels 1–8).
-// Default note layout: each column = +1 semitone, each row = +5 semitones up.
-// note = anchorNote + col * colStep + (row-anchorRow) * rowStep
-// colStep = 1, rowStep = 5 (standard 4ths tuning, configurable on device).
+/**
+ * Build the controller map for LinnStrument in User Firmware Mode.
+ *
+ * Native User Firmware Mode addressing (from the device docs):
+ *   Note On/Off: ch = row (1-indexed, bottom = 1), note = col (1-indexed, 1-N pads; 0 = switches, ignored)
+ *   Z pressure:  Polyphonic Aftertouch, same ch/note
+ *   Y data:      CC (col+64) on ch=row, range 0-127
+ *   X data:      CC (col-1) MSB + CC (col+31) LSB on ch=row, 14-bit range 0-4265
+ *
+ * Anchor is expressed in the same native coordinates: anchorCol (1-indexed) + anchorRow (1-indexed).
+ *
+ * Supports both LinnStrument models without any special-casing:
+ *   cols = 16  → LinnStrument 128  (8 rows × 16 cols = 128 pads)
+ *   cols = 25  → LinnStrument 200  (8 rows × 25 cols = 200 pads)
+ *
+ * Hex-grid geometry:
+ *   x = (col − anchorCol) + dr     right = +rSteps, up-right = +rSteps−drSteps
+ *   y = −dr                         where dr = rowFromBottom − anchorRowFromBottom
+ *
+ * @param {number} anchorCol   1-indexed column of the anchor pad (default 9 = near centre of 16-col grid)
+ * @param {number} anchorRow   1-indexed row of the anchor pad, bottom = 1 (default 4)
+ * @param {number} cols        number of pad columns (16 or 25, default 16)
+ */
+export function buildLinnstrumentUserFirmwareMap(anchorCol = 9, anchorRow = 4, cols = 16) {
+  const ROWS = 8;
+  const anchorRowFromBottom = anchorRow - 1;  // convert to 0-indexed
 
-function buildLinnstrumentMap(anchorNote, colStep = 1, rowStep = 5) {
-  const COLS = 16,
-    ROWS = 8;
-  // LinnStrument sends note on channel = row+1 (row 0 = ch1)
-  // Find anchor row and col from anchorNote (assume anchor is at row 0 col 0)
   const entries = [];
-  for (let row = 0; row < ROWS; row++) {
-    const ch = row + 1;
-    for (let col = 0; col < COLS; col++) {
-      const note = anchorNote + col * colStep + row * rowStep;
-      if (note < 0 || note > 127) continue;
-      entries.push({ ch, note, x: col, y: -row }); // y inverted: higher row = higher pitch
+  for (let rowFromBottom = 0; rowFromBottom < ROWS; rowFromBottom++) {
+    const ch = rowFromBottom + 1;             // ch 1 = bottom row
+    const dr = rowFromBottom - anchorRowFromBottom;
+    for (let col = 1; col <= cols; col++) {   // col 0 = switches, skip
+      entries.push({
+        ch,
+        note: col,
+        x: (col - anchorCol) + dr,
+        y: dr === 0 ? 0 : -dr,
+      });
     }
   }
   return makeMap(entries);
@@ -774,18 +794,44 @@ export const CONTROLLER_REGISTRY = [
   },
 
   {
-    id: "linnstrument128",
-    name: "Roger Linn Design LinnStrument 128",
+    id: "linnstrument",
+    name: "Roger Linn Design LinnStrument",
     detect: (name) => name.includes("linnstrument"),
     description:
-      "16×8 grid, row per channel (ch1–8). Sends MPE: per-voice pitch bend, pressure, and CC74.",
+      "Isomorphic grid with 16 or 25 columns. " +
+      "Hexatone activates User Firmware Mode to colour pads and assign geometry. " +
+      "On exit the device restores its own stored layout.",
+    // In User Firmware Mode ch encodes the row, so multiChannel=true.
+    // In standard modes ch does not encode position, so the map uses ch=1.
+    // Keys.js switches maps when userfw mode is active.
+    // ch=row(1-8) and note=col(1-25) are the native UF coordinates.
+    // multiChannel=true so keys.js uses the real incoming channel for map lookup.
     multiChannel: true,
-    mpe: true, // each row's channel carries per-voice expression for that voice
-    // LinnStrument uses ch 1–8 (one per row); configurable on device but 1–8 is the default.
-    // null here means user-configurable — the MPE channel range picker is shown in the UI.
-    mpeVoiceChannels: null,
-    anchorDefault: 30,
-    buildMap: (anchorNote) => buildLinnstrumentMap(anchorNote ?? 30),
+    mpe: false,
+    // Anchor in native UF coordinates: col (1-indexed) + channel/row (1-indexed).
+    // Default col 9, row 4 = near centre of the 16-col grid.
+    anchorDefault: 9,           // col (lumatone_center_note)
+    anchorChannelDefault: 4,    // row (lumatone_center_channel)
+    defaultCols: 16,            // LinnStrument 128; set to 25 for LinnStrument 200
+    learnConstraints: {
+      noteRange:   { min: 1, max: 25 },   // col 1-25 (25 for 200-note model)
+      channelRange: { min: 1, max: 8 },   // row 1-8
+    },
+    defaultMode: "userfw",
+    modes: {
+      userfw: {
+        description: "User Firmware Mode — host controls LEDs, device reports raw ch/col data",
+        defaultPrefs: {
+          midi_passthrough: false,
+          midiin_mpe_input: false,
+        },
+      },
+    },
+    resolveMode: () => "userfw",
+    // buildMap(anchorCol, anchorRow, cols) — all native UF coordinates.
+    // cols defaults to 16 (LinnStrument 128); pass 25 for LinnStrument 200.
+    buildMap: (anchorCol, anchorRow, cols) =>
+      buildLinnstrumentUserFirmwareMap(anchorCol ?? 9, anchorRow ?? 4, cols ?? 16),
   },
 
   {

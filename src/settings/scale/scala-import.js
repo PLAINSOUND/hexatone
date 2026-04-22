@@ -38,28 +38,15 @@ const ScalaImport = (props) => {
   const name = safeName(props.settings);
 
   return (
-    <div style={{ position: "relative", marginTop: "0.65em" }}>
+    <div style={{ marginTop: "0.65em", display: "flex", flexDirection: "column", gap: "0.5em" }}>
       {/* ── Import section ─────────────────────────────────────────────── */}
-      <fieldset>
-        <legend>
-          <b>Scala File</b>
-        </legend>
+      <fieldset class="settings-panel">
+        <legend><b>Scala File</b></legend>
         <button
           type="button"
+          class="settings-panel__close"
           onClick={props.onCancel}
           title="Close"
-          style={{
-            position: "absolute",
-            top: "-0.2em",
-            right: "-0.6em",
-            padding: "0.3em 0.4em",
-            fontSize: "1em",
-            lineHeight: 1,
-            cursor: "pointer",
-            background: "#faf9f8",
-            border: "none",
-            color: "#990000",
-          }}
         >
           ✕
         </button>
@@ -105,10 +92,8 @@ const ScalaImport = (props) => {
       </fieldset>
 
       {/* ── Export section ─────────────────────────────────────────────── */}
-      <fieldset>
-        <legend>
-          <b>Export</b>
-        </legend>
+      <fieldset class="settings-panel">
+        <legend><b>Export</b></legend>
         <p>
           <b>Plain Scala</b> — standard .scl format, compatible with all Scala-aware software
         </p>

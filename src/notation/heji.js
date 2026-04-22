@@ -50,24 +50,44 @@ function ratioStepFamily({
 }
 
 export const BASE_SYMBOLS = [
-  { id: "flat:0", chromatic: "flat", syntonic: 0, label: "b", glyph: "", aliases: ["♭"] },
-  { id: "natural:0", chromatic: "natural", syntonic: 0, label: "n", glyph: "", aliases: ["♮"] },
-  { id: "sharp:0", chromatic: "sharp", syntonic: 0, label: "#", glyph: "", aliases: ["♯"] },
-  { id: "flat:-1", chromatic: "flat", syntonic: -1, label: "b -1 synt", glyph: "" },
-  { id: "natural:-1", chromatic: "natural", syntonic: -1, label: "n -1 synt", glyph: "" },
-  { id: "sharp:-1", chromatic: "sharp", syntonic: -1, label: "# -1 synt", glyph: "" },
-  { id: "flat:1", chromatic: "flat", syntonic: 1, label: "b +1 synt", glyph: "" },
-  { id: "natural:1", chromatic: "natural", syntonic: 1, label: "n +1 synt", glyph: "" },
-  { id: "sharp:1", chromatic: "sharp", syntonic: 1, label: "# +1 synt", glyph: "" },
-  { id: "flat:-2", chromatic: "flat", syntonic: -2, label: "b -2 synt", glyph: "" },
-  { id: "natural:-2", chromatic: "natural", syntonic: -2, label: "n -2 synt", glyph: "" },
-  { id: "sharp:-2", chromatic: "sharp", syntonic: -2, label: "# -2 synt", glyph: "" },
-  { id: "flat:2", chromatic: "flat", syntonic: 2, label: "b +2 synt", glyph: "" },
-  { id: "natural:2", chromatic: "natural", syntonic: 2, label: "n +2 synt", glyph: "" },
-  { id: "sharp:2", chromatic: "sharp", syntonic: 2, label: "# +2 synt", glyph: "" },
-  { id: "flat:-3", chromatic: "flat", syntonic: -3, label: "b -3 synt", glyph: "" },
-  { id: "natural:-3", chromatic: "natural", syntonic: -3, label: "n -3 synt", glyph: "" },
-  { id: "sharp:-3", chromatic: "sharp", syntonic: -3, label: "# -3 synt", glyph: "" },
+  // Single chromatic accidentals (flat / natural / sharp) × syntonic −3..+3
+  { id: "flat:0",        chromatic: "flat",        syntonic:  0, label: "b",         glyph: "", aliases: ["♭", ""] },
+  { id: "natural:0",     chromatic: "natural",     syntonic:  0, label: "n",         glyph: "", aliases: ["♮", ""] },
+  { id: "sharp:0",       chromatic: "sharp",       syntonic:  0, label: "#",         glyph: "", aliases: ["♯", ""] },
+  { id: "flat:-1",       chromatic: "flat",        syntonic: -1, label: "b -1 synt", glyph: "" },
+  { id: "natural:-1",    chromatic: "natural",     syntonic: -1, label: "n -1 synt", glyph: "" },
+  { id: "sharp:-1",      chromatic: "sharp",       syntonic: -1, label: "# -1 synt", glyph: "" },
+  { id: "flat:1",        chromatic: "flat",        syntonic:  1, label: "b +1 synt", glyph: "" },
+  { id: "natural:1",     chromatic: "natural",     syntonic:  1, label: "n +1 synt", glyph: "" },
+  { id: "sharp:1",       chromatic: "sharp",       syntonic:  1, label: "# +1 synt", glyph: "" },
+  { id: "flat:-2",       chromatic: "flat",        syntonic: -2, label: "b -2 synt", glyph: "" },
+  { id: "natural:-2",    chromatic: "natural",     syntonic: -2, label: "n -2 synt", glyph: "" },
+  { id: "sharp:-2",      chromatic: "sharp",       syntonic: -2, label: "# -2 synt", glyph: "" },
+  { id: "flat:2",        chromatic: "flat",        syntonic:  2, label: "b +2 synt", glyph: "" },
+  { id: "natural:2",     chromatic: "natural",     syntonic:  2, label: "n +2 synt", glyph: "" },
+  { id: "sharp:2",       chromatic: "sharp",       syntonic:  2, label: "# +2 synt", glyph: "" },
+  { id: "flat:-3",       chromatic: "flat",        syntonic: -3, label: "b -3 synt", glyph: "" },
+  { id: "natural:-3",    chromatic: "natural",     syntonic: -3, label: "n -3 synt", glyph: "" },
+  { id: "sharp:-3",      chromatic: "sharp",       syntonic: -3, label: "# -3 synt", glyph: "" },
+  { id: "flat:3",        chromatic: "flat",        syntonic:  3, label: "b +3 synt", glyph: "" },
+  { id: "natural:3",     chromatic: "natural",     syntonic:  3, label: "n +3 synt", glyph: "" },
+  { id: "sharp:3",       chromatic: "sharp",       syntonic:  3, label: "# +3 synt", glyph: "" },
+  // Double-flat × syntonic −3..+3
+  { id: "doubleflat:-3",  chromatic: "doubleflat",  syntonic: -3, label: "bb -3 synt", glyph: "" },
+  { id: "doubleflat:-2",  chromatic: "doubleflat",  syntonic: -2, label: "bb -2 synt", glyph: "" },
+  { id: "doubleflat:-1",  chromatic: "doubleflat",  syntonic: -1, label: "bb -1 synt", glyph: "" },
+  { id: "doubleflat:0",   chromatic: "doubleflat",  syntonic:  0, label: "bb",          glyph: "", aliases: ["𝄫"] },
+  { id: "doubleflat:1",   chromatic: "doubleflat",  syntonic:  1, label: "bb +1 synt",  glyph: "" },
+  { id: "doubleflat:2",   chromatic: "doubleflat",  syntonic:  2, label: "bb +2 synt",  glyph: "" },
+  { id: "doubleflat:3",   chromatic: "doubleflat",  syntonic:  3, label: "bb +3 synt",  glyph: "" },
+  // Double-sharp × syntonic −3..+3
+  { id: "doublesharp:-3", chromatic: "doublesharp", syntonic: -3, label: "## -3 synt", glyph: "" },
+  { id: "doublesharp:-2", chromatic: "doublesharp", syntonic: -2, label: "## -2 synt", glyph: "" },
+  { id: "doublesharp:-1", chromatic: "doublesharp", syntonic: -1, label: "## -1 synt", glyph: "" },
+  { id: "doublesharp:0",  chromatic: "doublesharp", syntonic:  0, label: "##",          glyph: "", aliases: ["𝄪"] },
+  { id: "doublesharp:1",  chromatic: "doublesharp", syntonic:  1, label: "## +1 synt", glyph: "" },
+  { id: "doublesharp:2",  chromatic: "doublesharp", syntonic:  2, label: "## +2 synt", glyph: "" },
+  { id: "doublesharp:3",  chromatic: "doublesharp", syntonic:  3, label: "## +3 synt", glyph: "" },
 ];
 
 export const BASE_BY_ID = Object.fromEntries(BASE_SYMBOLS.map((item) => [item.id, item]));
@@ -92,18 +112,21 @@ const NATURALS_FROM_C_REF = {
 };
 
 export const CHROMATIC_MONZOS = {
-  flat: [11, -7, ...new Array(PRIME_COUNT - 2).fill(0)],
-  natural: ZERO_MONZO,
-  sharp: [-11, 7, ...new Array(PRIME_COUNT - 2).fill(0)],
+  flat:        [11, -7,  ...new Array(PRIME_COUNT - 2).fill(0)],
+  natural:     ZERO_MONZO,
+  sharp:       [-11, 7,  ...new Array(PRIME_COUNT - 2).fill(0)],
+  doubleflat:  [22, -14, ...new Array(PRIME_COUNT - 2).fill(0)],
+  doublesharp: [-22, 14, ...new Array(PRIME_COUNT - 2).fill(0)],
 };
 
 export const SYNTONIC_BY_AMOUNT = {
-  [-3]: [12, -12, 3, ...new Array(PRIME_COUNT - 3).fill(0)],
-  [-2]: [8, -8, 2, ...new Array(PRIME_COUNT - 3).fill(0)],
-  [-1]: [4, -4, 1, ...new Array(PRIME_COUNT - 3).fill(0)],
-  [0]: ZERO_MONZO,
-  [1]: [-4, 4, -1, ...new Array(PRIME_COUNT - 3).fill(0)],
-  [2]: [-8, 8, -2, ...new Array(PRIME_COUNT - 3).fill(0)],
+  [-3]: [12, -12, 3,  ...new Array(PRIME_COUNT - 3).fill(0)],
+  [-2]: [8,  -8,  2,  ...new Array(PRIME_COUNT - 3).fill(0)],
+  [-1]: [4,  -4,  1,  ...new Array(PRIME_COUNT - 3).fill(0)],
+  [0]:  ZERO_MONZO,
+  [1]:  [-4,  4, -1,  ...new Array(PRIME_COUNT - 3).fill(0)],
+  [2]:  [-8,  8, -2,  ...new Array(PRIME_COUNT - 3).fill(0)],
+  [3]:  [-12, 12, -3, ...new Array(PRIME_COUNT - 3).fill(0)],
 };
 export const SCHISMA_BY_AMOUNT = {
   [-3]: [45, -24, -3, ...new Array(PRIME_COUNT - 3).fill(0)],
@@ -408,7 +431,11 @@ export function formatHejiLabel({
   extraIds = [],
 }) {
   const base = BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"];
-  const chromatic = base.chromatic === "flat" ? "b" : base.chromatic === "sharp" ? "#" : "";
+  const chromatic =
+    base.chromatic === "doubleflat"  ? "bb" :
+    base.chromatic === "flat"        ? "b"  :
+    base.chromatic === "sharp"       ? "#"  :
+    base.chromatic === "doublesharp" ? "##" : "";
   const glyphs = glyphStringForSelection(baseId, extraIds, schismaAmount);
   return {
     ascii: `${letter}${chromatic}${octave}`,

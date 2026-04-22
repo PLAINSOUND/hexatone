@@ -47,10 +47,10 @@ const baseProps = {
   onDeleteSnapshot: () => {},
 };
 
-describe("Settings WebMIDI fieldset", () => {
+describe("Settings MIDI Permissions fieldset", () => {
   it("renders always-visible Enable MIDI and Enable Sysex checkboxes", () => {
     render(<Settings {...baseProps} />);
-    expect(screen.getByText("WebMIDI")).not.toBeNull();
+    expect(screen.getByText("MIDI Permissions")).not.toBeNull();
     expect(screen.getByLabelText("Enable MIDI")).not.toBeNull();
     expect(screen.getByLabelText("Enable Sysex")).not.toBeNull();
   });

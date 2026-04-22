@@ -149,7 +149,7 @@ const TONALPLEXUS_MODES = {
 
 // MPE controller (LinnStrument) — user-configurable voice channel range
 const LINNSTRUMENT = {
-  id: "linnstrument128",
+  id: "linnstrument",
   anchorDefault: 30,
   anchorChannelDefault: undefined,
   mpe: true,

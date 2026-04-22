@@ -206,7 +206,7 @@ export const instruments = [
       {
         fileName: "vibes",
         name: "Vibraphone",
-        gain: 1,
+        gain: 0.8,
         attack: 0,
         release: 4,
         loop: false,

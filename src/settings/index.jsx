@@ -6,75 +6,8 @@ import Layout from "./layout";
 import SampleSynth from "./sample";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
-// eslint-disable-next-line no-unused-vars
-import Snapshots from "./snapshots.jsx";
+import WebMIDISettings from "./midi/webmidi-settings.jsx";
 import "./settings.css";
-
-const persistWebMidiIntent = (key, value, onChange) => {
-  onChange?.(key, value);
-  sessionStorage.setItem(key, String(value));
-};
-
-const WebMIDISettings = ({
-  settings,
-  onChange,
-  midiAccessError,
-  enableWebMidi,
-  disableWebMidi,
-}) => {
-  const midiEnabled = !!settings.webmidi_enabled;
-  const sysexEnabled = !!settings.webmidi_sysex_enabled;
-
-  return (
-    <fieldset>
-      <legend>
-        <b>WebMIDI</b>
-      </legend>
-      <label>
-        Enable MIDI
-        <input
-          type="checkbox"
-          checked={midiEnabled}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            if (!checked) {
-              persistWebMidiIntent("webmidi_enabled", false, onChange);
-              persistWebMidiIntent("webmidi_sysex_enabled", false, onChange);
-              disableWebMidi?.();
-              return;
-            }
-            persistWebMidiIntent("webmidi_enabled", true, onChange);
-            enableWebMidi?.({ sysex: false });
-          }}
-        />
-      </label>
-      <label>
-        Enable Sysex
-        <input
-          type="checkbox"
-          checked={sysexEnabled}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            if (!checked) {
-              persistWebMidiIntent("webmidi_enabled", false, onChange);
-              persistWebMidiIntent("webmidi_sysex_enabled", false, onChange);
-              disableWebMidi?.();
-              return;
-            }
-            persistWebMidiIntent("webmidi_enabled", true, onChange);
-            persistWebMidiIntent("webmidi_sysex_enabled", true, onChange);
-            enableWebMidi?.({ sysex: true });
-          }}
-        />
-      </label>
-      {midiAccessError && (
-        <p style={{ color: "#996666", fontSize: "0.85em", margin: "0.4em 0 0" }}>
-          <em>{midiAccessError}</em>
-        </p>
-      )}
-    </fieldset>
-  );
-};
 const Settings = ({
   presetChanged,
   presets,
@@ -100,11 +33,15 @@ const Settings = ({
   midiTick,
   instruments,
   keysRef,
+  heji_names,
+  heji_anchor_label_eff,
+  heji_anchor_ratio_eff,
   onVolumeChange,
   onOscLayerVolumeChange,
   midiLearnActive,
   lumatoneRawPorts,
   exquisRawPorts,
+  linnstrumentRawPorts,
   exquisLedStatus,
 }) => (
   <div autoComplete="off" role="group" aria-label="Hexatone settings">
@@ -149,6 +86,9 @@ const Settings = ({
       onChange={onChange}
       onAtomicChange={onAtomicChange}
       settings={settings}
+      heji_names={heji_names}
+      heji_anchor_label_eff={heji_anchor_label_eff}
+      heji_anchor_ratio_eff={heji_anchor_ratio_eff}
       onImport={onImport}
       importCount={importCount}
       keysRef={keysRef}
@@ -178,6 +118,7 @@ const Settings = ({
       midiLearnActive={midiLearnActive}
       lumatoneRawPorts={lumatoneRawPorts}
       exquisRawPorts={exquisRawPorts}
+      linnstrumentRawPorts={linnstrumentRawPorts}
       exquisLedStatus={exquisLedStatus}
       keysRef={keysRef}
     />

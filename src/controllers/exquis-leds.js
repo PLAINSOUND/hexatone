@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+import { debugLog, warnLog } from "../debug/logging.js";
 /**
  * exquis-leds.js
  *
@@ -140,7 +140,7 @@ export class ExquisLEDs {
     this._versionTimeout = setTimeout(() => {
       this._versionTimeout = null;
       if (!this._ready) {
-        console.warn("[ExquisLEDs] No version response — App Mode not entered.");
+        warnLog("[ExquisLEDs] No version response — App Mode not entered.");
         if (this._onReady) this._onReady(false, "timeout");
       }
     }, VERSION_TIMEOUT_MS);
@@ -264,14 +264,14 @@ export class ExquisLEDs {
       (major === MIN_FIRMWARE.major && minor === MIN_FIRMWARE.minor && patch >= MIN_FIRMWARE.patch);
 
     if (!ok) {
-      console.warn(
+      warnLog(
         `[ExquisLEDs] Firmware ${major}.${minor}.${patch} < 3.0.0 — App Mode not entered.`,
       );
       if (this._onReady) this._onReady(false, `firmware ${major}.${minor}.${patch}`);
       return;
     }
 
-    console.log(`[ExquisLEDs] Firmware ${major}.${minor}.${patch} — entering App Mode.`);
+    debugLog("controllers", `Exquis firmware ${major}.${minor}.${patch} — entering App Mode.`);
     this._enterAppMode();
   }
 

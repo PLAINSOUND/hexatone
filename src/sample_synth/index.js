@@ -1,6 +1,6 @@
-/* eslint-disable no-console */
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";
+import { debugLog, errorLog, warnLog } from "../debug/logging.js";
 
 // Three concepts:
 // Coordinates -> Scale degree -> Pitch/midi
@@ -53,9 +53,9 @@ const setupIOSAudioHandler = () => {
       if (sharedAudioContext.state === "suspended" || sharedAudioContext.state === "interrupted") {
         try {
           await sharedAudioContext.resume();
-          console.log("iOS: AudioContext resumed on visibility change");
+          debugLog("audio", "iOS: AudioContext resumed on visibility change");
         } catch (e) {
-          console.warn("iOS: Failed to resume AudioContext:", e.message);
+          warnLog("iOS: Failed to resume AudioContext:", e.message);
         }
       }
     }
@@ -76,9 +76,9 @@ const setupIOSAudioHandler = () => {
     ) {
       try {
         await sharedAudioContext.resume();
-        console.log("iOS: AudioContext resumed on pageshow");
+        debugLog("audio", "iOS: AudioContext resumed on pageshow");
       } catch (e) {
-        console.warn("iOS: Failed to resume AudioContext on pageshow:", e.message);
+        warnLog("iOS: Failed to resume AudioContext on pageshow:", e.message);
       }
     }
   };
@@ -95,7 +95,7 @@ const findInstrument = (fileName) => {
       }
     }
   }
-  console.error("Unable to find configured instrument:", fileName);
+  errorLog("Unable to find configured instrument:", fileName);
   return null;
 };
 
@@ -180,12 +180,12 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         ) {
           try {
             await sharedAudioContext.resume();
-            console.log("AudioContext resumed, state:", sharedAudioContext.state);
+            debugLog("audio", "AudioContext resumed, state:", sharedAudioContext.state);
           } catch (e) {
-            console.warn("AudioContext autoplay blocked:", e.message);
+            warnLog("AudioContext autoplay blocked:", e.message);
             // On iOS, we may need user to tap again - signal this somehow
             if (isIOS) {
-              console.warn("iOS: Please tap somewhere to enable audio");
+              warnLog("iOS: Please tap somewhere to enable audio");
             }
           }
         }
@@ -305,7 +305,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       },
     };
   } catch (e) {
-    console.error(e);
+    errorLog(e);
   }
 };
 
@@ -552,10 +552,10 @@ export const forceResumeAudioContext = async () => {
   if (sharedAudioContext && sharedAudioContext.state !== "running") {
     try {
       await sharedAudioContext.resume();
-      console.log("AudioContext force-resumed, state:", sharedAudioContext.state);
+      debugLog("audio", "AudioContext force-resumed, state:", sharedAudioContext.state);
       return true;
     } catch (e) {
-      console.warn("Failed to force-resume AudioContext:", e.message);
+      warnLog("Failed to force-resume AudioContext:", e.message);
       return false;
     }
   }
