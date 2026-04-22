@@ -115,7 +115,7 @@ export const instruments = [
       {
         fileName: "wurli",
         name: "Wurlitzer Electric Piano",
-        gain: 0.5,
+        gain: 0.42,
         attack: 0,
         release: 0.008,
         loop: false,
@@ -127,7 +127,7 @@ export const instruments = [
       {
         fileName: "rhodes",
         name: "Fender Rhodes",
-        gain: 0.65,
+        gain: 0.5,
         attack: 0,
         release: 0.005,
         loop: false,
@@ -139,7 +139,7 @@ export const instruments = [
       {
         fileName: "HvP8_retuned",
         name: "Baroque Organ",
-        gain: 0.7,
+        gain: 0.53,
         attack: 0,
         release: 0.3,
         loop: true,

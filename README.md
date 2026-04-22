@@ -62,7 +62,7 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.2.0-alpha.2 *(currently in dev branch)*
+### 3.2.0-alpha.1 *(currently in dev branch)*
 
 Current 3.2 alpha work includes:
 

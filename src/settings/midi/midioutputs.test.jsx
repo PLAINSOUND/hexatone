@@ -30,6 +30,21 @@ const makeProps = (overrides = {}) => ({
 });
 
 describe("MidiOutputs FluidSynth independence", () => {
+  it("shows 127 as the default FluidSynth volume when no preference is stored", () => {
+    localStorage.removeItem("fluidsynth_volume_pref");
+
+    render(
+      <MidiOutputs
+        {...makeProps({
+          fluidsynth_device: "fluid-1",
+          fluidsynth_channel: 0,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("127")).not.toBeNull();
+  });
+
   it("disconnects the FluidSynth mirror when FluidSynth is selected as the main MTS port", () => {
     const onChange = vi.fn();
     render(

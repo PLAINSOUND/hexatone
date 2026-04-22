@@ -114,7 +114,7 @@ const MidiOutputs = (props) => {
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
   const [fsVolume, setFsVolume] = useState(
-    parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100"),
+    parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "127"),
   );
   const [oscDraftVolumes, setOscDraftVolumes] = useState({
     osc_volume_pluck: settings.osc_volume_pluck ?? 0.5,
@@ -318,7 +318,7 @@ const MidiOutputs = (props) => {
                             ? settings.midi_channel
                             : 0;
                       save("fluidsynth_channel", ch, onChange);
-                      const vol = parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "100");
+                      const vol = parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "127");
                       fluidsynthOutput.send([0xb0 | ch, 7, vol]);
                     }
                   }}
@@ -380,7 +380,7 @@ const MidiOutputs = (props) => {
                         step="1"
                         style={{ width: "100%" }}
                         defaultValue={parseInt(
-                          localStorage.getItem("fluidsynth_volume_pref") ?? "100",
+                          localStorage.getItem("fluidsynth_volume_pref") ?? "127",
                         )}
                         onInput={(e) => {
                           const v = parseInt(e.target.value);
