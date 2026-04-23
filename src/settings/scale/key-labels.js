@@ -1,5 +1,6 @@
 import { useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
+import { parseScalaInterval } from "./parse-scale.js";
 
 // ASCII → HEJI Unicode glyph replacements.
 // Notation input accepts: bare letter (A-G = natural), then optional accidentals
@@ -149,6 +150,13 @@ const KeyLabels = (props) => {
               value={props.settings.heji_anchor_ratio || ""}
               disabled={hejiDisabled}
               onInput={(e) => props.onChange("heji_anchor_ratio", e.target.value)}
+              onBlur={(e) => {
+                const raw = e.target.value.trim();
+                const { cents } = parseScalaInterval(raw, "degree");
+                if (cents === 0 && raw !== "0.") {
+                  props.onChange("heji_anchor_ratio", "0.");
+                }
+              }}
             />
           </label>
           <label>

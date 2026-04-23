@@ -839,6 +839,7 @@ const App = () => {
       scala:            !!structuralSettings.scala,
       cents:            !!structuralSettings.cents,
       heji:             !!structuralSettings.heji,
+      equaves:          !!structuralSettings.equaves,
       no_labels:        !!structuralSettings.no_labels,
       note_names:       structuralSettings.note_names,
       scala_names:      structuralSettings.scala_names,

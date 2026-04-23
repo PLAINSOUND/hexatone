@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/preact";
+import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import KeyLabels from "./key-labels.js";
 
 describe("KeyLabels HEJI anchor auto-fill", () => {
@@ -79,5 +79,28 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
     expect(screen.getByLabelText("Always Include Cents on Keys").disabled).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onAtomicChange).not.toHaveBeenCalled();
+  });
+
+  it('canonicalises a bare "0" HEJI anchor ratio to "0." on blur', () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "0",
+          heji_anchor_label: "",
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.blur(screen.getByLabelText("Ratio/Cents from scale degree 0 (1/1)"));
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "0.");
   });
 });

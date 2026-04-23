@@ -92,6 +92,9 @@ export const scalaToCents = (line) => {
   if (typeof line === "number") {
     return line > 0 ? (1200 * Math.log(line)) / Math.log(2) : 0;
   }
+  if (String(line).trim() === "0") {
+    return 0;
+  }
   if (line.match(/\//)) {
     const nd = line.split("/");
     return (1200 * Math.log(parseInt(nd[0]) / parseInt(nd[1]))) / Math.log(2);
@@ -141,6 +144,7 @@ export function parseScalaInterval(str, context = "degree") {
 // Ratios and cents strings are returned unchanged.
 export const normaliseDegree = (line) => {
   if (!line) return "0.";
+  if (String(line).trim() === "0") return "0.";
   if (line.match(/\//)) return line; // ratio — keep as-is
   if (line.match(/\./)) return line; // cents — keep as-is
   if (line.match(/\\/)) {

@@ -11,6 +11,7 @@ import {
   scalaToLabels,
   parsedScaleToLabels,
   normaliseDegree,
+  parseScalaInterval,
   settingsToHexatonScala,
   fileToPreset,
   settingsToPresetJson,
@@ -37,6 +38,10 @@ describe("scalaToCents", () => {
 
   it("converts 0.0 cents to 0", () => {
     expect(scalaToCents("0.0")).toBe(0);
+  });
+
+  it('converts bare "0" to 0 cents', () => {
+    expect(scalaToCents("0")).toBe(0);
   });
 
   it("converts 7\\12 EDO step to ~700 cents", () => {
@@ -129,6 +134,16 @@ describe("normaliseDegree", () => {
     expect(normaliseDegree(null)).toBe("0.");
     expect(normaliseDegree("")).toBe("0.");
     expect(normaliseDegree(undefined)).toBe("0.");
+  });
+
+  it('canonicalises bare "0" to "0."', () => {
+    expect(normaliseDegree("0")).toBe("0.");
+  });
+});
+
+describe("parseScalaInterval", () => {
+  it('accepts bare "0" as a valid zero-degree entry', () => {
+    expect(parseScalaInterval("0", "degree")).toEqual({ cents: 0, valid: true, error: null });
   });
 });
 
