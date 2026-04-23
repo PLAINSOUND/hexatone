@@ -1069,7 +1069,7 @@ class Keys {
    */
   updateLabels = (labels) => {
     // Clear all label flags first so only one is active.
-    for (const flag of ["degree", "note", "scala", "cents", "heji", "no_labels"]) {
+    for (const flag of ["degree", "note", "scala", "cents", "heji", "equaves", "no_labels"]) {
       this.settings[flag] = false;
     }
     // Apply new flags and name arrays.
@@ -3323,12 +3323,14 @@ class Keys {
 
       let scaleFactor = this.settings.hexSize / 50;
       context.scale(scaleFactor, scaleFactor);
-      context.translate(12, -30);
-      context.fillStyle = getContrastYIQ_2(current_text_color);
-      context.font = "14pt Plainsound Sans";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(equivMultiple, 0, 0);
+      if (this.settings.equaves) {
+        context.translate(12, -30);
+        context.fillStyle = getContrastYIQ_2(current_text_color);
+        context.font = "14pt Plainsound Sans";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(equivMultiple, 0, 0);
+      }
     }
 
     context.restore();

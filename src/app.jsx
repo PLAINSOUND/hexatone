@@ -1208,6 +1208,8 @@ const App = () => {
               heji_names={structuralSettings.heji_names}
               heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
               heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
+              heji_supported={structuralSettings.heji_supported}
+              heji_warning={structuralSettings.heji_warning}
               midi={midi}
               midiAccess={midiAccess}
               midiAccessError={midiAccessError}

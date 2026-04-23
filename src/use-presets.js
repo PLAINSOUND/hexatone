@@ -54,6 +54,16 @@ const scaleHexSizeForScreen = (hexSize) => {
   return size;
 };
 
+// HEJI anchors may be auto-derived from the current preset's tuning/labels.
+// Reset them on preset load so an inferred anchor from the previous preset
+// cannot survive the merge unless the incoming preset explicitly defines one.
+export const mergePresetIntoSettings = (settings, preset) => ({
+  ...settings,
+  heji_anchor_ratio: "",
+  heji_anchor_label: "",
+  ...preset,
+});
+
 // Fields that count as "edits" for dirty detection — same as PRESET_SKIP_KEYS.
 const DIRTY_FIELDS = PRESET_SKIP_KEYS;
 
@@ -125,8 +135,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
           ...presetData,
           hexSize: scaleHexSizeForScreen(presetData.hexSize),
         };
-        setSavedPresetSnapshot(snapshotOf({ ...settings, ...adjustedPreset }));
-        setSettings(() => ({ ...settings, ...adjustedPreset }));
+        const merged = mergePresetIntoSettings(settings, adjustedPreset);
+        setSavedPresetSnapshot(snapshotOf(merged));
+        setSettings(() => merged);
       }
     } else if (savedSource === "user") {
       const customPresets = loadCustomPresets();
@@ -138,8 +149,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
           ...preset,
           hexSize: scaleHexSizeForScreen(preset.hexSize),
         };
-        setSavedPresetSnapshot(snapshotOf({ ...settings, ...adjustedPreset }));
-        setSettings(() => ({ ...settings, ...adjustedPreset }));
+        const merged = mergePresetIntoSettings(settings, adjustedPreset);
+        setSavedPresetSnapshot(snapshotOf(merged));
+        setSettings(() => merged);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,7 +174,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
       ...presetData,
       hexSize: scaleHexSizeForScreen(presetData.hexSize),
     };
-    const merged = { ...settings, ...adjustedPreset };
+    const merged = mergePresetIntoSettings(settings, adjustedPreset);
     setSavedPresetSnapshot(snapshotOf(merged));
     setSettings(() => merged);
   };
@@ -181,7 +193,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
       ...preset,
       hexSize: scaleHexSizeForScreen(preset.hexSize),
     };
-    const merged = { ...settings, ...adjustedPreset };
+    const merged = mergePresetIntoSettings(settings, adjustedPreset);
     setSavedPresetSnapshot(snapshotOf(merged));
     setSettings(() => merged);
   };
@@ -200,7 +212,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
       setActivePresetName(preset.name);
       sessionStorage.setItem("hexatone_preset_source", "user");
       sessionStorage.setItem("hexatone_preset_name", preset.name);
-      const merged = { ...settings, ...preset };
+      const merged = mergePresetIntoSettings(settings, preset);
       setSavedPresetSnapshot(snapshotOf(merged));
       setSettings(() => merged);
     } else {
@@ -218,7 +230,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
         ...presetData,
         hexSize: scaleHexSizeForScreen(presetData.hexSize),
       };
-      const merged = { ...settings, ...adjustedPreset };
+      const merged = mergePresetIntoSettings(settings, adjustedPreset);
       setSavedPresetSnapshot(snapshotOf(merged));
       setSettings(() => merged);
     }
@@ -233,7 +245,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
           ...saved,
           hexSize: scaleHexSizeForScreen(saved.hexSize),
         };
-        const merged = { ...settings, ...adjustedPreset };
+        const merged = mergePresetIntoSettings(settings, adjustedPreset);
         setSavedPresetSnapshot(snapshotOf(merged));
         setSettings(() => merged);
       }

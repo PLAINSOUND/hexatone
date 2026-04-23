@@ -214,6 +214,41 @@ describe("ScaleTable — table structure", () => {
     expect(document.querySelector('input[aria-label="equave frequency"]').value).toBe("523.3");
   });
 
+  it("shows rounded frequency normally but full precision on focus", () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9 }}
+        onChange={() => {}}
+      />,
+    );
+
+    const frequencyInput = screen.getByLabelText("pitch frequency 0");
+    expect(frequencyInput.value).toBe("261.6");
+
+    fireEvent.focus(frequencyInput);
+    expect(frequencyInput.value).toBe("261.625565");
+  });
+
+  it("does not commit when a frequency cell is only focused and blurred", () => {
+    const onChange = vi.fn();
+    const onAtomicChange = vi.fn();
+
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9, scale: ["9/8", ...scale_values.slice(1)] }}
+        onChange={onChange}
+        onAtomicChange={onAtomicChange}
+      />,
+    );
+
+    const frequencyInput = screen.getByLabelText("pitch frequency 0");
+    fireEvent.focus(frequencyInput);
+    fireEvent.blur(frequencyInput);
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onAtomicChange).not.toHaveBeenCalled();
+  });
+
   it("highlights only the degree 0 row when reference_degree is 0", () => {
     render(<ScaleTable settings={{ ...settingsBase, reference_degree: 0 }} onChange={() => {}} />);
     const rows = document.querySelectorAll("tbody tr");

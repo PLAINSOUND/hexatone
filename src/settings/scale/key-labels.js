@@ -1,3 +1,4 @@
+import { useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
 
 // ASCII → HEJI Unicode glyph replacements.
@@ -70,6 +71,34 @@ const expandHejiNotation = (raw) => {
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
   const isHeji = props.settings.key_labels === "heji";
+  const hejiDisabled = isHeji && props.heji_supported === false;
+  const {
+    heji_anchor_label_eff,
+    heji_anchor_ratio_eff,
+    onAtomicChange,
+    settings: { heji_anchor_label, heji_anchor_ratio },
+  } = props;
+
+  useEffect(() => {
+    if (!isHeji) return;
+    if (hejiDisabled) return;
+    const hasExplicitRatio = !!String(heji_anchor_ratio || "").trim();
+    const hasExplicitLabel = !!String(heji_anchor_label || "").trim();
+    if (hasExplicitRatio || hasExplicitLabel) return;
+    if (!heji_anchor_ratio_eff || !heji_anchor_label_eff) return;
+    onAtomicChange({
+      heji_anchor_ratio: heji_anchor_ratio_eff,
+      heji_anchor_label: heji_anchor_label_eff,
+    });
+  }, [
+    hejiDisabled,
+    heji_anchor_label,
+    heji_anchor_label_eff,
+    heji_anchor_ratio,
+    heji_anchor_ratio_eff,
+    isHeji,
+    onAtomicChange,
+  ]);
 
   const copyHejiToNoteNames = () => {
     if (!props.heji_names?.length) return;
@@ -90,9 +119,10 @@ const KeyLabels = (props) => {
           onChange={(e) => props.onChange(e.target.name, e.target.value)}
         >
           <option value="no_labels">Blank Keys</option>
+          <option value="equaves">Equave Numbers</option>
           <option value="enumerate">Scale Degrees</option>
-          <option value="scala_names">Ratios/Cents</option>
-          <option value="cents">Cents from Reference Degree</option>
+          <option value="scala_names">Scala Names</option>
+          <option value="cents">Cents</option>
           <option value="note_names">Note Names</option>
           <option value="heji">HEJI (auto-generated)</option>
         </select>
@@ -105,6 +135,11 @@ const KeyLabels = (props) => {
         // Default: ratio "1/1" labelled "nA" — A natural is the just root.
         <fieldset class="heji-anchor-fieldset">
           <legend>HEJI Spelling with 0¢ Deviation</legend>
+          {hejiDisabled && (
+            <p style={{ color: "#8b3a2e", margin: "0 0 0.75em 0", fontStyle: "italic" }}>
+              {props.heji_warning || "Non-octave equave cannot generate consistent note names."}
+            </p>
+          )}
           <label>
             Ratio/Cents from scale degree 0 (1/1)
             <input
@@ -112,6 +147,7 @@ const KeyLabels = (props) => {
               class="sidebar-input"
               placeholder={props.heji_anchor_ratio_eff || "e.g. 1/1  |  0.0¢  |  0\\12"}
               value={props.settings.heji_anchor_ratio || ""}
+              disabled={hejiDisabled}
               onInput={(e) => props.onChange("heji_anchor_ratio", e.target.value)}
             />
           </label>
@@ -122,6 +158,7 @@ const KeyLabels = (props) => {
               class="sidebar-input"
               placeholder={props.heji_anchor_label_eff || `\uE261A`}
               value={props.settings.heji_anchor_label || ""}
+              disabled={hejiDisabled}
               onInput={(e) => {
                 const expanded = expandHejiNotation(e.target.value);
                 // If expansion changed the value, update the DOM input to show glyphs
@@ -138,6 +175,7 @@ const KeyLabels = (props) => {
             <input
               type="checkbox"
               checked={props.settings.heji_show_cents !== false}
+              disabled={hejiDisabled}
               onChange={(e) => props.onChange("heji_show_cents", e.target.checked)}
             />
             Always Include Cents on Keys
@@ -146,7 +184,7 @@ const KeyLabels = (props) => {
             type="button"
             class="preset-action-btn"
             style={{ marginTop: "0.5em", whiteSpace: "nowrap" }}
-            disabled={!props.heji_names?.length}
+            disabled={hejiDisabled || !props.heji_names?.length}
             onClick={copyHejiToNoteNames}
           >
             Copy HEJI to Note Names
@@ -163,6 +201,8 @@ KeyLabels.propTypes = {
   heji_names: PropTypes.arrayOf(PropTypes.string),
   heji_anchor_label_eff: PropTypes.string,
   heji_anchor_ratio_eff: PropTypes.string,
+  heji_supported: PropTypes.bool,
+  heji_warning: PropTypes.string,
   settings: PropTypes.shape({
     key_labels: PropTypes.string,
     heji_anchor_ratio: PropTypes.string,

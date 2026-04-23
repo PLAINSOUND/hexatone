@@ -36,6 +36,8 @@ const Settings = ({
   heji_names,
   heji_anchor_label_eff,
   heji_anchor_ratio_eff,
+  heji_supported,
+  heji_warning,
   onVolumeChange,
   onOscLayerVolumeChange,
   midiLearnActive,
@@ -89,6 +91,8 @@ const Settings = ({
       heji_names={heji_names}
       heji_anchor_label_eff={heji_anchor_label_eff}
       heji_anchor_ratio_eff={heji_anchor_ratio_eff}
+      heji_supported={heji_supported}
+      heji_warning={heji_warning}
       onImport={onImport}
       importCount={importCount}
       keysRef={keysRef}

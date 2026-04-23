@@ -95,77 +95,142 @@ export function inferTemperedLabelFromFrequency(hz) {
   return TEMPERED_NATURAL_LABELS[letter] ?? null;
 }
 
+const isExactNaturalLabel = (raw, letter) => {
+  if (!raw) return false;
+  const name = expandOpenTypeLigatures(String(raw).trim());
+  if (new RegExp(`^[${letter}${letter.toLowerCase()}]$`).test(name)) return true;
+  if (name === `n${letter}` || name === `n${letter.toLowerCase()}`) return true;
+  if (name === `${HEJI_NATURAL}${letter}`) return true;
+  return false;
+};
+
+const centsDistance = (hz, targetHz) => Math.abs(1200 * Math.log2(hz / targetHz));
+
+const buildDegreeFrequencies = ({ scaleCents, fundamental, referenceDegree = 0 }) => {
+  if (!Array.isArray(scaleCents) || !scaleCents.length || !fundamental || fundamental <= 0) {
+    return [];
+  }
+  const referenceCents = scaleCents[referenceDegree] ?? 0;
+  return scaleCents.map((cents) => fundamental * Math.pow(2, (cents - referenceCents) / 1200));
+};
+
+const findNearestDegreeByFrequency = ({
+  targetHz,
+  degreeFrequencies,
+  degreeTexts,
+  maxDistanceCents = 60,
+}) => {
+  let best = null;
+  for (let i = 0; i < degreeFrequencies.length; i++) {
+    const hz = degreeFrequencies[i];
+    if (!hz || hz <= 0) continue;
+    const distanceCents = centsDistance(hz, targetHz);
+    if (distanceCents > maxDistanceCents) continue;
+    if (!best || distanceCents < best.distanceCents) {
+      best = {
+        degree: i,
+        ratio: degreeTexts[i] ?? "1/1",
+        distanceCents,
+      };
+    }
+  }
+  return best;
+};
+
 /**
  * Derive the HEJI anchor (ratio + label) for auto-filling the anchor fields.
  *
  * Priority order:
- *   1. reference_degree with a parseable note name — use that degree's ratio
- *      and its canonicalised HEJI label.  Most musically direct: the named
- *      reference pitch becomes the 0¢-deviation anchor.
- *   2. Scan note_names for the first plain A-natural entry.  Covers presets
- *      that don't assign a meaningful reference_degree but do have note names.
- *   3. Infer from fundamental frequency: A-range (392–466 Hz) → anchor is
- *      the reference_degree at ♮A; C-range (248–270 Hz) → degree 0 at ♮C.
- *   4. Final fallback: degree 0, label ♮C (1/1 = C natural).
+ *   1. reference_degree explicitly labelled as exact A-natural — use that degree.
+ *   2. Scan note_names for exact A-natural anywhere in the scale.
+ *   3. Computed scale degree nearest 440 Hz — use that degree as tempered A.
+ *   4. Degree 0 explicitly labelled as exact C-natural.
+ *   5. Degree 0 near middle C (JI or 12-EDO) → tempered C.
+ *   6. Frequency-driven fallback: compute the cents from degree 0 to 440 Hz
+ *      and use tempered A, even if that anchor is not itself a scale degree.
+ *   7. Last resort: infer a tempered letter from the fundamental pitch class.
+ *   8. Final fallback: degree 0, label tempered C.
  *
  * @param {number|undefined}  referenceDegree - settings.reference_degree (0-based).
  * @param {string[]}          noteNames       - Raw note_names array from settings.
  * @param {string[]}          degreeTexts     - Ratio/cents string per degree; index 0 = "1/1".
  * @param {number|undefined}  fundamental     - Reference frequency in Hz (settings.fundamental).
+ * @param {number[]}          scaleCents      - Full committed cents list, including degree 0.
  * @returns {{ ratio: string, label: string }}  Always returns a value (never null).
  */
-export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundamental) {
-  // --- Strategy 1: reference_degree with parseable note name ---
+export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundamental, scaleCents = []) {
+  const degreeFrequencies = buildDegreeFrequencies({
+    scaleCents,
+    fundamental,
+    referenceDegree,
+  });
+
+  // --- Strategy 1: reference_degree explicitly labelled as exact A-natural ---
   if (referenceDegree != null && referenceDegree >= 0 && noteNames?.length) {
-    const name = String(noteNames[referenceDegree] ?? "").trim();
-    const label = canonicalHejiLabel(name);
-    if (label) {
+    if (isExactNaturalLabel(noteNames[referenceDegree], "A")) {
       const ratio = degreeTexts[referenceDegree] ?? "1/1";
-      // If the ratio is not a rational interval (EDO step or decimal cents),
-      // the anchor is a tempered pitch.  Downgrade any exact HEJI natural glyph
-      // to its tempered equivalent so the visual distinction is preserved.
       const isRational = ratio.includes("/");
-      if (!isRational) {
-        // Replace exact HEJI base glyphs with tempered equivalents in the label.
-        const tempered = label
-          .replace(/\uE261/g, TEMPERED_NATURAL)
-          .replace(/\uE260/g, "\uE2F1")
-          .replace(/\uE262/g, "\uE2F3");
-        return { ratio, label: tempered };
-      }
-      return { ratio, label };
+      return { ratio, label: isRational ? HEJI_NATURAL_LABELS.A : TEMPERED_NATURAL_LABELS.A };
     }
   }
 
-  // --- Strategy 2: scan note_names for plain A-natural ---
+  // --- Strategy 2: scan note_names for exact A-natural anywhere in the scale ---
   if (noteNames?.length) {
     for (let i = 0; i < noteNames.length; i++) {
-      const raw = String(noteNames[i] ?? "").trim();
-      if (!raw) continue;
-      const name = expandOpenTypeLigatures(raw);
-      // Accept bare "A" or "a" as A-natural.
-      if (/^[Aa]$/.test(name)) {
-        return { ratio: degreeTexts[i] ?? "1/1", label: HEJI_NATURAL_LABELS.A };
-      }
-      // Accept any HEJI label that resolves to plain A-natural
-      // (letter=A, chromatic=natural, no higher-prime modifiers, no schisma).
-      const parsed = parseHejiPitchClassLabel(name);
-      if (
-        parsed &&
-        parsed.letter === "A" &&
-        parsed.baseId === "natural:0" &&
-        parsed.schismaAmount === 0 &&
-        parsed.extraIds.length === 0
-      ) {
+      if (isExactNaturalLabel(noteNames[i], "A")) {
         return { ratio: degreeTexts[i] ?? "1/1", label: HEJI_NATURAL_LABELS.A };
       }
     }
   }
 
-  // --- Strategy 3: infer from fundamental frequency via MIDI pitch class ---
-  // The inferred label uses the tempered-natural glyph (♮ look-alike but distinct)
-  // to signal that this is a frequency-based guess, not a confirmed JI spelling.
-  // The user can override it in the Notation (Spelling) field.
+  // --- Strategy 3: a committed scale degree itself lands at 440 Hz ---
+  const nearestA = findNearestDegreeByFrequency({
+    targetHz: 440,
+    degreeFrequencies,
+    degreeTexts,
+    maxDistanceCents: 20,
+  });
+  if (nearestA) {
+    const nearestName = String(noteNames?.[nearestA.degree] ?? "").trim();
+    const parsedNearestName = nearestName
+      ? parseHejiPitchClassLabel(expandOpenTypeLigatures(nearestName))
+      : null;
+    // Only promote an in-scale 440-Hz degree to A when the preset is not already
+    // providing a concrete HEJI spelling at that degree. Otherwise, keep the
+    // invisible-anchor fallback available for spelled scales like Hamilton.
+    if (!parsedNearestName) {
+      const isRational = String(nearestA.ratio).includes("/");
+      return {
+        ratio: nearestA.ratio,
+        label: isRational ? HEJI_NATURAL_LABELS.A : TEMPERED_NATURAL_LABELS.A,
+      };
+    }
+  }
+
+  // --- Strategy 4: explicit degree-0 C-natural label ---
+  if (isExactNaturalLabel(noteNames?.[0], "C")) {
+    return { ratio: "1/1", label: HEJI_NATURAL_LABELS.C };
+  }
+
+  // --- Strategy 5: degree 0 near middle C (JI or 12-EDO) ---
+  const degree0Hz = degreeFrequencies[0] ?? null;
+  if (degree0Hz) {
+    const nearJiC = centsDistance(degree0Hz, 260.740741) <= 20;
+    const near12EdoC = centsDistance(degree0Hz, 261.625565) <= 20;
+    if (nearJiC || near12EdoC) {
+      return { ratio: "1/1", label: TEMPERED_NATURAL_LABELS.C };
+    }
+  }
+
+  // --- Strategy 6: derive the invisible anchor from degree 0 to 440 Hz and spell it as A ---
+  if (degree0Hz) {
+    return {
+      ratio: (1200 * Math.log2(440 / degree0Hz)).toFixed(6),
+      label: TEMPERED_NATURAL_LABELS.A,
+    };
+  }
+
+  // --- Strategy 7: infer from the fundamental's tempered pitch class ---
   const inferredLabel = inferTemperedLabelFromFrequency(fundamental);
   if (inferredLabel) {
     return {
@@ -174,7 +239,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     };
   }
 
-  // --- Strategy 4: safe default — degree 0 = tempered C natural ---
+  // --- Strategy 8: safe default — degree 0 = tempered C natural ---
   return { ratio: "1/1", label: TEMPERED_NATURAL_LABELS.C };
 }
 

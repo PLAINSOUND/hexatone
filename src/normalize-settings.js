@@ -53,7 +53,7 @@ export const normalizeStructural = (settings, options = {}) => {
   };
 
   // Set label flags based on key_labels selection.
-  // These flags (degree, note, scala, cents, no_labels) are checked in keys.js
+  // These flags (degree, note, scala, cents, heji, equaves, no_labels) are checked in keys.js
   // to decide what text to draw on each hex.
   if (settings.key_labels === "enumerate") {
     result["degree"] = true;
@@ -65,10 +65,12 @@ export const normalizeStructural = (settings, options = {}) => {
     result["cents"] = true;
   } else if (settings.key_labels === "heji") {
     result["heji"] = true;
+  } else if (settings.key_labels === "equaves") {
+    result["equaves"] = true;
   } else if (settings.key_labels === "no_labels") {
     result["no_labels"] = true;
   } else {
-    // Handle 'equaves', undefined, or unknown values:
+    // Handle undefined or unknown values:
     // Default to no_labels (blank keys) which requires no data.
     result["no_labels"] = true;
   }
@@ -87,6 +89,8 @@ export const normalizeStructural = (settings, options = {}) => {
     result["scale"] = workspaceRuntime.scale;
     result["equivInterval"] = workspaceRuntime.equivInterval;
     result["equivSteps"] = workspaceRuntime.equivSteps;
+    const hejiSupported = Math.abs((workspaceRuntime.equivInterval ?? 1200) - 1200) < 0.001;
+    result["heji_supported"] = hejiSupported;
 
     // Build heji_names when heji label mode is active.
     //
@@ -107,6 +111,15 @@ export const normalizeStructural = (settings, options = {}) => {
     //   degree 0  → "1/1"
     //   degrees 1..n-1 → scaleAsStrings[0..n-2]  (equave was last, now popped)
     if (settings.key_labels === "heji") {
+      if (!hejiSupported) {
+        result["heji_anchor_label_effective"] = "";
+        result["heji_anchor_ratio_effective"] = "";
+        result["heji_names"] = [];
+        result["heji_names_keys"] = [];
+        result["heji_warning"] = "Non-octave equave cannot generate consistent note names.";
+        return result;
+      }
+
       // Build the ratio/cents text for each degree (same order as `scale`).
       // degree 0 = "1/1"; degrees 1..n-1 = scaleAsStrings entries minus equave.
       const degreeTexts = ["1/1", ...scaleAsStrings.slice(0, -1)];
@@ -125,6 +138,7 @@ export const normalizeStructural = (settings, options = {}) => {
           settings.note_names,
           degreeTexts,
           settings.fundamental,
+          workspaceRuntime.scale,
         );
         anchorLabel = derived.label;
         // Always take the derived ratio when auto-deriving the label — the label
