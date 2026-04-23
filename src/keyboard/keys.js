@@ -3287,20 +3287,20 @@ class Keys {
       reducedNote = equivSteps + reducedNote;
     }
 
-    if (!this.settings.no_labels) {
+    if (!this.settings.no_labels || this.settings.equaves) {
       let name;
-      if (this.settings.degree) {
+      if (!this.settings.no_labels && this.settings.degree) {
         name = "" + reducedNote;
-      } else if (this.settings.note) {
+      } else if (!this.settings.no_labels && this.settings.note) {
         // Safe access: if note_names is undefined or index out of bounds, show nothing
         name = this.settings.note_names?.[reducedNote] ?? "";
-      } else if (this.settings.heji) {
+      } else if (!this.settings.no_labels && this.settings.heji) {
         // Auto-generated HEJI names from reference frame + committed ratios.
         name = this.settings.heji_names?.[reducedNote] ?? "";
-      } else if (this.settings.scala) {
+      } else if (!this.settings.no_labels && this.settings.scala) {
         // Safe access: scala_names should always exist if scale exists, but be defensive
         name = this.settings.scala_names?.[reducedNote] ?? "";
-      } else if (this.settings.cents) {
+      } else if (!this.settings.no_labels && this.settings.cents) {
         name =
           Math.round(
             (this.tuning.scale[reducedNote] -

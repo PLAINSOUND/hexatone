@@ -428,14 +428,13 @@ const App = () => {
 
     // Label validation: check requirements based on selected key_labels type.
     // Each label type has different data requirements:
-    // - 'no_labels', 'equaves', 'enumerate', 'cents': need only scale
+    // - 'no_labels', 'enumerate', 'cents': need only scale
     // - 'scala_names': needs scale (to generate scala_names)
     // - 'note_names': needs note_names array with elements
     const labelType = settings.key_labels;
     const labelsValid =
       !labelType ||
       labelType === "no_labels" ||
-      labelType === "equaves" ||
       labelType === "enumerate" ||
       labelType === "cents" ||
       (labelType === "scala_names" && hasScale) ||
@@ -553,6 +552,7 @@ const App = () => {
       settings.equivSteps,
       noteNamesKey,
       settings.key_labels,
+      settings.show_equaves,
       settings.heji_anchor_label,
       settings.heji_anchor_ratio,
       settings.heji_show_cents,
@@ -841,6 +841,7 @@ const App = () => {
       heji:             !!structuralSettings.heji,
       equaves:          !!structuralSettings.equaves,
       no_labels:        !!structuralSettings.no_labels,
+      show_equaves:     !!structuralSettings.equaves,
       note_names:       structuralSettings.note_names,
       scala_names:      structuralSettings.scala_names,
       heji_names:             structuralSettings.heji_names_keys ?? structuralSettings.heji_names,

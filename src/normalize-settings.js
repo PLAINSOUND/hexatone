@@ -51,6 +51,8 @@ export const normalizeStructural = (settings, options = {}) => {
     note_names: settings.note_names || [],
     scala_names: [], // Will be populated below if scale exists
   };
+  const legacyEquavesMode = settings.key_labels === "equaves";
+  result["equaves"] = !!settings.show_equaves || legacyEquavesMode;
 
   // Set label flags based on key_labels selection.
   // These flags (degree, note, scala, cents, heji, equaves, no_labels) are checked in keys.js
@@ -65,9 +67,7 @@ export const normalizeStructural = (settings, options = {}) => {
     result["cents"] = true;
   } else if (settings.key_labels === "heji") {
     result["heji"] = true;
-  } else if (settings.key_labels === "equaves") {
-    result["equaves"] = true;
-  } else if (settings.key_labels === "no_labels") {
+  } else if (settings.key_labels === "no_labels" || legacyEquavesMode) {
     result["no_labels"] = true;
   } else {
     // Handle undefined or unknown values:

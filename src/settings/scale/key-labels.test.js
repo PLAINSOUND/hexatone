@@ -103,4 +103,29 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
     fireEvent.blur(screen.getByLabelText("Ratio/Cents from scale degree 0 (1/1)"));
     expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "0.");
   });
+
+  it("shows a separate Show Equave Numbers toggle instead of an Equave Numbers label mode", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "no_labels",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("option", { name: "Equave Numbers" })).toBeNull();
+    fireEvent.click(screen.getByLabelText("Show Equave Numbers"));
+    expect(onChange).toHaveBeenCalledWith("show_equaves", true);
+  });
 });

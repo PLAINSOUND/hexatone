@@ -58,17 +58,18 @@ describe("normalizeStructural", () => {
     expect(normalized.scala_names).toEqual(["1/1", "9/8", "5/4"]);
   });
 
-  it("restores equave numbers as a distinct label mode", () => {
+  it("supports equave numbers as an independent display toggle", () => {
     const normalized = normalizeStructural({
       rotation: 0,
-      key_labels: "equaves",
+      key_labels: "no_labels",
+      show_equaves: true,
       scale: ["9/8", "5/4", "2/1"],
       equivSteps: 3,
       note_names: [],
     });
 
     expect(normalized.equaves).toBe(true);
-    expect(normalized.no_labels).toBeUndefined();
+    expect(normalized.no_labels).toBe(true);
   });
 
   it("prefers an injected tuning runtime for the Keys-facing cents payload", () => {

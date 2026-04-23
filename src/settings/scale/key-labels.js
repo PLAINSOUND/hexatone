@@ -73,6 +73,8 @@ const expandHejiNotation = (raw) => {
 const KeyLabels = (props) => {
   const isHeji = props.settings.key_labels === "heji";
   const hejiDisabled = isHeji && props.heji_supported === false;
+  const selectedKeyLabel = props.settings.key_labels === "equaves" ? "no_labels" : props.settings.key_labels;
+  const showEquaves = props.settings.show_equaves || props.settings.key_labels === "equaves";
   const {
     heji_anchor_label_eff,
     heji_anchor_ratio_eff,
@@ -116,17 +118,24 @@ const KeyLabels = (props) => {
         <select
           name="key_labels"
           class="sidebar-input"
-          value={props.settings.key_labels}
+          value={selectedKeyLabel}
           onChange={(e) => props.onChange(e.target.name, e.target.value)}
         >
           <option value="no_labels">Blank Keys</option>
-          <option value="equaves">Equave Numbers</option>
           <option value="enumerate">Scale Degrees</option>
           <option value="scala_names">Scala Names</option>
           <option value="cents">Cents</option>
           <option value="note_names">Note Names</option>
           <option value="heji">HEJI (auto-generated)</option>
         </select>
+      </label>
+      <label style={{ justifyContent: "flex-start", gap: "0.5em" }}>
+        <input
+          type="checkbox"
+          checked={showEquaves}
+          onChange={(e) => props.onChange("show_equaves", e.target.checked)}
+        />
+        Show Equave Numbers
       </label>
       {isHeji && (
         // The two fields below together define the rational offset for the entire
@@ -213,6 +222,7 @@ KeyLabels.propTypes = {
   heji_warning: PropTypes.string,
   settings: PropTypes.shape({
     key_labels: PropTypes.string,
+    show_equaves: PropTypes.bool,
     heji_anchor_ratio: PropTypes.string,
     heji_anchor_label: PropTypes.string,
     heji_show_cents: PropTypes.bool,
