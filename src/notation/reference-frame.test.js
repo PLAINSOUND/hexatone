@@ -2,12 +2,111 @@ import fs from "fs";
 import { parseScale } from "../settings/scale/parse-scale.js";
 import { createReferenceFrame, spellScaleFromReferenceFrame } from "./reference-frame.js";
 
-function presetNoteNames(presetName) {
+const LEGACY_PRESET_NOTE_NAMES = {
+  // Restored from historical preset_values.js (commit 1dd1d43) after the
+  // dedicated HEJI preset was removed from the live preset catalog.
+  "Sabat: The Tree (HEJI)": [
+    "C",
+    "C",
+    "C",
+    "C",
+    "D",
+    "C",
+    "C",
+    "C",
+    "D",
+    "D",
+    "D",
+    "D",
+    "D",
+    "E",
+    "D",
+    "D",
+    "E",
+    "D",
+    "E",
+    "E",
+    "E",
+    "E",
+    "E",
+    "E",
+    "E",
+    "E",
+    "F",
+    "F",
+    "E",
+    "F",
+    "F",
+    "F",
+    "F",
+    "F",
+    "F",
+    "G",
+    "F",
+    "F",
+    "G",
+    "F",
+    "G",
+    "G",
+    "G",
+    "G",
+    "G",
+    "A",
+    "G",
+    "G",
+    "A",
+    "G",
+    "G",
+    "G",
+    "A",
+    "A",
+    "A",
+    "A",
+    "A",
+    "B",
+    "A",
+    "A",
+    "A",
+    "B",
+    "A",
+    "B",
+    "A",
+    "B",
+    "B",
+    "B",
+    "B",
+    "B",
+    "B",
+    "B",
+    "B",
+    "C",
+    "B",
+    "C",
+    "C",
+    "B",
+    "C",
+    "B",
+    "B",
+  ],
+};
+
+function presetBlock(presetName) {
   const presetText = fs.readFileSync("src/settings/preset_values.js", "utf8");
-  const index = presetText.indexOf(presetName);
-  const block = presetText.slice(index, index + 12000);
+  const escapedName = presetName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const start = presetText.search(new RegExp(`['"]?name['"]?\\s*:\\s*['"]${escapedName}['"]`));
+  if (start < 0) throw new Error(`Preset not found in src/settings/preset_values.js: ${presetName}`);
+  const end = presetText.indexOf("\n      },", start);
+  return presetText.slice(start, end < 0 ? undefined : end);
+}
+
+function presetNoteNames(presetName) {
+  const legacyNoteNames = LEGACY_PRESET_NOTE_NAMES[presetName];
+  if (legacyNoteNames) return legacyNoteNames;
+  const block = presetBlock(presetName);
+  const noteNamesMatch = block.match(/note_names:\s*\[(.*?)\],\s*key_labels/s);
+  if (!noteNamesMatch) throw new Error(`note_names not found for preset: ${presetName}`);
   return [
-    ...block.match(/note_names:\s*\[(.*?)\],\s*key_labels/s)[1].matchAll(/['"]([^'"]+)['"]/g),
+    ...noteNamesMatch[1].matchAll(/['"]([^'"]+)['"]/g),
   ].map((match) => match[1]);
 }
 
@@ -66,9 +165,7 @@ describe("notation/reference-frame", () => {
   });
 
   it("reproduces 53-Tertial (center D) from its centered policy", () => {
-    const presetText = fs.readFileSync("src/settings/preset_values.js", "utf8");
-    const start = presetText.search(/['"]?name['"]?\s*:\s*['"]53-Tertial \(center D\)['"]/);
-    const block = presetText.slice(start, presetText.indexOf("      {", start + 1));
+    const block = presetBlock("53-Tertial (center D)");
     const scala = jsonPresetArray(block, "scale", "equivSteps");
     const expected = jsonPresetArray(block, "note_names", "note_colors");
     const degrees = ["1/1", ...scala.slice(0, -1)];
