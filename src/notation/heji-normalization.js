@@ -101,6 +101,7 @@ const isExactNaturalLabel = (raw, letter) => {
   if (new RegExp(`^[${letter}${letter.toLowerCase()}]$`).test(name)) return true;
   if (name === `n${letter}` || name === `n${letter.toLowerCase()}`) return true;
   if (name === `${HEJI_NATURAL}${letter}`) return true;
+  if (name === `${HEJI_NATURAL}${letter.toLowerCase()}`) return true;
   return false;
 };
 
