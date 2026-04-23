@@ -129,13 +129,13 @@ const KeyLabels = (props) => {
           <option value="heji">HEJI (auto-generated)</option>
         </select>
       </label>
-      <label style={{ justifyContent: "flex-start", gap: "0.5em" }}>
+      <label>
+        Show Equave Numbers
         <input
           type="checkbox"
           checked={showEquaves}
           onChange={(e) => props.onChange("show_equaves", e.target.checked)}
         />
-        Show Equave Numbers
       </label>
       {isHeji && (
         // The two fields below together define the rational offset for the entire

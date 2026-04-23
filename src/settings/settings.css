@@ -62,6 +62,21 @@ label > .sidebar-input {
   margin-left: auto;
 }
 
+/* Checkbox rows keep the existing left/right layout, but only the checkbox
+   itself (and any other explicit controls inside the row) should be clickable. */
+label:has(input[type="checkbox"]) {
+  pointer-events: none;
+}
+
+label:has(input[type="checkbox"]) input,
+label:has(input[type="checkbox"]) button,
+label:has(input[type="checkbox"]) select,
+label:has(input[type="checkbox"]) textarea,
+label:has(input[type="checkbox"]) a,
+label:has(input[type="checkbox"]) [role="button"] {
+  pointer-events: auto;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
