@@ -66,6 +66,8 @@ const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
 const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
+const WHEEL_SLEW_TAU_MS = 8;
+const WHEEL_SLEW_SNAP_14 = 2;
 const BULK_RELEASE_PROTECT_MS = 750;
 
 function isModulationToggleKeyCode(code) {
@@ -219,14 +221,22 @@ class Keys {
 
     // Wheel bend state — controller-agnostic.
     // _wheelValue14:   most recent non-MPE pitch-bend value (0–16383).
+    // _wheelInputValue14: latest raw controller wheel sample before slew.
     // _wheelBend:      current offset in cents applied by the active wheel mode.
     // _wheelTarget:    the hex currently being bent.
     // _wheelBaseCents: that hex's pitch before any bend was applied.
     //                  Snapshot feature will read this + _wheelBend.
     this._wheelValue14 = 8192;
+    this._wheelInputValue14 = 8192;
     this._wheelBend = 0;
     this._wheelTarget = null;
     this._wheelBaseCents = null;
+    this._wheelSlew = {
+      current: 8192,
+      target: 8192,
+      lastTime: 0,
+      raf: null,
+    };
     this._controllerCCValues = new Map();
     if (
       this.settings.midiin_device &&
@@ -700,22 +710,17 @@ class Keys {
             return;
           }
 
-          // Non-MPE: dispatch to wheel bend handler, then passthrough to outputs.
+          // Non-MPE: dispatch to wheel bend handler, then optionally passthrough.
           //
-          // wheelToRecent (recency/all mode): uses hex.retune() for pitch — do NOT
-          // also send raw PB to MTS output (that would double-bend MTS synths).
+          // wheelToRecent (recency/all mode): pitch is realized by hex.retune()
+          // against the active target notes, so raw PB passthrough must stay OFF
+          // for all outputs or the bend is applied twice.
           //
-          // Standard mode (!wheelToRecent): raw pitch bend passthrough to ALL outputs,
-          // including MTS — the user adjusts the wheel range in their synth.
-          // Sample synth voices are also retuned directly so they bend too.
+          // Standard mode (!wheelToRecent): raw PB passes through to all outputs,
+          // including MTS, while the internal sample engine is retuned directly.
           const val14f = this.inputRuntime.bendFlip ? 16383 - val14 : val14;
-          this._handleWheelBend(val14f);
-          if (this.inputRuntime.wheelToRecent) {
-            // Recency/all mode: skip MTS passthrough (retune() handles it).
-            if (!(this.settings.midi_mapping === "MTS1" || this.settings.midi_mapping === "MTS2")) {
-              this._passthroughPitchBend(val14f);
-            }
-          } else {
+          this._handleIncomingWheelBend(val14f);
+          if (!this.inputRuntime.wheelToRecent) {
             // Standard mode: raw PB to all outputs (MTS included).
             this._passthroughPitchBend(val14f);
           }
@@ -1754,6 +1759,7 @@ class Keys {
       clearTimeout(this._retuneGlideTimer);
       this._retuneGlideTimer = null;
     }
+    this._stopWheelSlew(true);
     if (this._deferredBulkMapTimer != null) {
       clearTimeout(this._deferredBulkMapTimer);
       this._deferredBulkMapTimer = null;
@@ -2123,6 +2129,24 @@ class Keys {
     const note_played = e.note.number + 128 * (e.message.channel - 1);
     const velocity_played = e.note.rawAttack;
 
+    // Some controllers can emit a retrigger for the same note/channel before the
+    // matching note-off arrives. Replace the old voice explicitly so a bent tail
+    // cannot survive underneath the new onset.
+    const existingHex = this.state.activeMidi.get(note_played);
+    if (existingHex) {
+      this.state.activeMidi.delete(note_played);
+      if (
+        this.inputRuntime.mpeInput &&
+        this.state.activeMidiByChannel.get(e.message.channel)?.hex === existingHex
+      ) {
+        this.state.activeMidiByChannel.delete(e.message.channel);
+      }
+      this.recencyStack.remove(existingHex);
+      existingHex.noteOff(0);
+      this._trackRecentlyReleasedHex(existingHex);
+      this._updateWheelTarget(false);
+    }
+
     let coords;
 
     if (this.inputRuntime.target === "scale") {
@@ -2194,9 +2218,6 @@ class Keys {
     if (coords === null) return;
     if (this._midiLatchToggle(coords, velocity_played)) return;
     const hex = this.hexOn(coords, note_played, velocity_played, bend);
-    // Freeze base pitch so all-notes wheel bend and standard wheel mode can always
-    // compute offset from the original pitch, not from hex.cents which retune() mutates.
-    hex._baseCents = hex.cents;
     if (this.inputRuntime.mpeInput) hex._inputChannel = e.message.channel;
     this.state.activeMidi.set(note_played, hex);
     // In MPE input mode also track by channel so per-channel expression events
@@ -2204,7 +2225,10 @@ class Keys {
     if (this.inputRuntime.mpeInput) {
       // Store both the hex and its base pitch (cents at note-on, before any bend).
       // The pitch bend handler reads baseCents — not hex.cents, which retune() mutates.
-      this.state.activeMidiByChannel.set(e.message.channel, { hex, baseCents: hex.cents });
+      this.state.activeMidiByChannel.set(e.message.channel, {
+        hex,
+        baseCents: hex._baseCents ?? hex.cents,
+      });
     }
     this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(coords);
   };
@@ -2310,6 +2334,7 @@ class Keys {
       clearTimeout(this._retuneGlideTimer);
       this._retuneGlideTimer = null;
     }
+    this._stopWheelSlew(true);
     this._retuneGlideLastTime = 0;
     if (notes.played.length > 0) {
       for (const note_played of notes.played) {
@@ -2363,6 +2388,7 @@ class Keys {
       clearTimeout(this._retuneGlideTimer);
       this._retuneGlideTimer = null;
     }
+    this._stopWheelSlew(true);
     this._retuneGlideLastTime = 0;
     // Send CC123 (All Notes Off) to all active output engines.
     // allSoundOff() on the composite synth fans out to every child (MPE, MTS,
@@ -2420,6 +2446,10 @@ class Keys {
     this._wheelBend = 0;
     this._wheelTarget = null;
     this._wheelBaseCents = null;
+    this._wheelValue14 = 8192;
+    this._wheelInputValue14 = 8192;
+    this._wheelSlew.current = 8192;
+    this._wheelSlew.target = 8192;
 
     // Reset sustain/latch state
     this.state.sustain = false;
@@ -2528,7 +2558,7 @@ class Keys {
   noteOff(hex, release_velocity) {
     if (shouldSuppressTransferredSourceRelease(hex)) {
       this.recencyStack.remove(hex);
-      this._updateWheelTarget();
+      this._updateWheelTarget(true);
       return;
     }
     if (this.state.sustain) {
@@ -2547,7 +2577,7 @@ class Keys {
       this._trackRecentlyReleasedHex(hex);
       // Note is going silent — remove from recency stack and update wheel target.
       this.recencyStack.remove(hex);
-      this._updateWheelTarget();
+      this._updateWheelTarget(true);
       if (this._staticDeferredBulkActive) {
         this._deferredBulkMapRefresh = this._hasSoundingNotes();
         if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;
@@ -2582,7 +2612,7 @@ class Keys {
       this._trackRecentlyReleasedHex(hex);
       this.recencyStack.remove(hex);
     }
-    this._updateWheelTarget();
+    this._updateWheelTarget(true);
     if (this._staticDeferredBulkActive) {
       this._deferredBulkMapRefresh = this._hasSoundingNotes();
       if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;
@@ -3304,35 +3334,81 @@ class Keys {
     const target = this.recencyStack.front;
     if (!target) return;
 
-    // Ensure we have the right base — handles the case where _updateWheelTarget
-    // set a new target and the wheel moved before the next noteOn/Off.
     if (this._wheelTarget !== target) {
       this._wheelTarget = target;
-      this._wheelBaseCents = target.cents;
     }
+    const { baseCents, bentCents } = this._resolveRecencyWheelTarget(target, val14);
+    this._wheelBaseCents = baseCents;
+    this._wheelBend = bentCents - baseCents;
+    target.retune(bentCents, true);
+  }
+
+  _handleIncomingWheelBend(val14) {
+    this._wheelInputValue14 = val14;
+    if (!this.inputRuntime.wheelToRecent) {
+      this._stopWheelSlew(true);
+      this._handleWheelBend(val14);
+      return;
+    }
+    this._setWheelSlewTarget(val14);
+  }
+
+  _setWheelSlewTarget(val14) {
+    this._wheelSlew.target = val14;
+    if (this._wheelSlew.raf == null) {
+      this._wheelSlew.current = this._wheelValue14;
+      this._wheelSlew.lastTime = 0;
+      this._wheelSlew.raf = requestAnimationFrame(this._tickWheelSlew);
+    }
+  }
+
+  _tickWheelSlew = (timestamp) => {
+    this._wheelSlew.raf = null;
+    const state = this._wheelSlew;
+    const dt = state.lastTime ? Math.min(Math.max(timestamp - state.lastTime, 1), 50) : 16;
+    state.lastTime = timestamp;
+    const factor = 1 - Math.exp(-dt / WHEEL_SLEW_TAU_MS);
+    const next = state.current + (state.target - state.current) * factor;
+    state.current = Math.abs(state.target - next) <= WHEEL_SLEW_SNAP_14 ? state.target : next;
+    this._handleWheelBend(state.current);
+    if (state.current !== state.target) {
+      state.raf = requestAnimationFrame(this._tickWheelSlew);
+    } else {
+      state.lastTime = 0;
+    }
+  };
+
+  _stopWheelSlew(resetToCurrent = false) {
+    if (this._wheelSlew.raf != null) cancelAnimationFrame(this._wheelSlew.raf);
+    this._wheelSlew.raf = null;
+    this._wheelSlew.lastTime = 0;
+    if (resetToCurrent) {
+      this._wheelSlew.current = this._wheelValue14;
+      this._wheelSlew.target = this._wheelValue14;
+    }
+  }
+
+  _resolveRecencyWheelTarget(target, val14 = this._wheelValue14) {
+    const baseCents = target?._baseCents ?? target?.cents ?? 0;
+    const norm = (val14 - 8192) / 8192; // −1 … +1
 
     let bentCents;
     if (
       this.inputRuntime.wheelScaleAware &&
-      target.cents_prev != null &&
-      target.cents_next != null
+      target?.cents_prev != null &&
+      target?.cents_next != null
     ) {
-      // Asymmetric scale-aware bend:
-      //   wheel down (norm < 0) → slide toward cents_prev (one scale degree below)
-      //   wheel up   (norm > 0) → slide toward cents_next (one scale degree above)
       if (norm < 0) {
-        bentCents = this._wheelBaseCents + norm * (this._wheelBaseCents - target.cents_prev);
+        bentCents = baseCents + norm * (baseCents - target.cents_prev);
       } else {
-        bentCents = this._wheelBaseCents + norm * (target.cents_next - this._wheelBaseCents);
+        bentCents = baseCents + norm * (target.cents_next - baseCents);
       }
     } else {
-      // Symmetric fixed-range bend.
       const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
-      bentCents = this._wheelBaseCents + norm * rangeCents;
+      bentCents = baseCents + norm * rangeCents;
     }
 
-    this._wheelBend = bentCents - this._wheelBaseCents;
-    target.retune(bentCents, true);
+    return { baseCents, bentCents };
   }
 
   _applyCurrentWheelToHex(hex) {
@@ -3462,25 +3538,27 @@ class Keys {
   }
 
   // Called whenever the recency stack changes.  If the front note has changed,
-  // resets the old target to its base pitch and redirects bend to the new front.
-  _updateWheelTarget() {
+  // redirects bend to the new front while leaving the old target frozen at its
+  // last sounded pitch.
+  _updateWheelTarget(smoothReturn = false) {
     const newFront = this.recencyStack.front;
     if (newFront === this._wheelTarget) return; // no change
-
-    // Reset pitch on the old target only if it's still sounding.
-    // If it has been released its channel may have been reallocated,
-    // and retuning it would send a spurious PB to the new note.
-    if (this._wheelTarget && !this._wheelTarget.release && this._wheelBaseCents !== null) {
-      this._wheelTarget.retune(this._wheelBaseCents);
-    }
 
     this._wheelTarget = newFront;
 
     if (newFront) {
-      // Capture the new target's unmodified pitch as the bend origin.
-      this._wheelBaseCents = newFront.cents;
-      // Apply the current wheel position immediately if it's non-zero.
-      if (this._wheelBend !== 0) {
+      this._wheelBaseCents = newFront._baseCents ?? newFront.cents;
+      if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
+        const { baseCents, bentCents } = this._resolveRecencyWheelTarget(newFront, this._wheelValue14);
+        this._wheelBaseCents = baseCents;
+        this._wheelBend = bentCents - baseCents;
+        if (smoothReturn && this._wheelValue14 !== 8192 && newFront?.retune) {
+          this._queueRetuneGlide(newFront, baseCents, true);
+          this._kickRetuneGlides();
+        } else {
+          newFront.retune(bentCents, true);
+        }
+      } else if (this._wheelBend !== 0) {
         newFront.retune(this._wheelBaseCents + this._wheelBend);
       }
     } else {

@@ -81,6 +81,15 @@ function makeMidiEvent(note, channel = 1, velocity = 96, release = 64) {
   };
 }
 
+function makePitchBendEvent(val14, channel = 1) {
+  return {
+    message: {
+      channel,
+      dataBytes: [val14 & 0x7f, (val14 >> 7) & 0x7f],
+    },
+  };
+}
+
 function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = {}) {
   const canvas = makeCanvas();
   const keys = new Keys(
@@ -126,6 +135,7 @@ describe("Keys MIDI input integration", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     drawGridSpy.mockRestore();
   });
@@ -149,6 +159,40 @@ describe("Keys MIDI input integration", () => {
     keys.midinoteOff(makeMidiEvent(61));
 
     expect(hexOff).toHaveBeenCalledWith(new Point(1, 0));
+  });
+
+  it("releases an existing MIDI voice before replacing it on same-note retrigger", () => {
+    const keys = createKeys({}, { layoutMode: "sequential" });
+    const firstHex = {
+      coords: new Point(1, 0),
+      cents: 100,
+      _baseCents: 100,
+      release: false,
+      noteOff: vi.fn(function () {
+        this.release = true;
+      }),
+      retune: vi.fn(),
+    };
+    const secondHex = {
+      coords: new Point(1, 0),
+      cents: 100,
+      _baseCents: 100,
+      release: false,
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+    };
+    const hexOn = vi
+      .fn()
+      .mockReturnValueOnce(firstHex)
+      .mockReturnValueOnce(secondHex);
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+
+    keys.midinoteOn(makeMidiEvent(61));
+    keys.midinoteOn(makeMidiEvent(61));
+
+    expect(firstHex.noteOff).toHaveBeenCalledWith(0);
+    expect(keys.state.activeMidi.get(61)).toBe(secondHex);
   });
 
   it("toggles modulation armed state via the Backquote key and reports it", () => {
@@ -885,6 +929,42 @@ describe("Keys MIDI input integration", () => {
     expect(standardWheelRetuneB.mock.calls[0][0]).toBeCloseTo(3400, 0);
   });
 
+  it("applies standard wheel bend immediately without slew when wheel-to-recent is off", () => {
+    const keys = createKeys({}, {
+      wheelToRecent: false,
+    });
+    const handleSpy = vi.spyOn(keys, "_handleWheelBend");
+    const slewSpy = vi.spyOn(keys, "_setWheelSlewTarget");
+
+    keys._handleIncomingWheelBend(12000);
+
+    expect(handleSpy).toHaveBeenCalledWith(12000);
+    expect(slewSpy).not.toHaveBeenCalled();
+  });
+
+  it("slews wheel bend through intermediate values in wheel-to-recent mode", () => {
+    const keys = createKeys({}, {
+      wheelToRecent: true,
+      pitchBendMode: "recency",
+    });
+    const handleSpy = vi.spyOn(keys, "_handleWheelBend");
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    keys._wheelValue14 = 8192;
+    keys._handleIncomingWheelBend(12000);
+
+    expect(handleSpy).not.toHaveBeenCalled();
+    expect(keys._wheelSlew.target).toBe(12000);
+
+    keys._tickWheelSlew(16);
+
+    expect(handleSpy).toHaveBeenCalledTimes(1);
+    const firstValue = handleSpy.mock.calls[0][0];
+    expect(firstValue).toBeGreaterThan(8192);
+    expect(firstValue).toBeLessThan(12000);
+  });
+
   it("does not directly retune non-sample hexes in standard wheel mode", () => {
     const standardWheelRetune = vi.fn();
     const retune = vi.fn();
@@ -916,6 +996,57 @@ describe("Keys MIDI input integration", () => {
     expect(standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(retune).not.toHaveBeenCalled();
     expect(mpeLikeHex.retune).not.toHaveBeenCalled();
+  });
+
+  it("does not passthrough raw pitch bend in wheel-to-recent mode", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Lumatone MIDI Function",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+      rememberControllerState: vi.fn(),
+    };
+
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_channel: 0,
+      },
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+      synth,
+    );
+
+    const passthroughSpy = vi.spyOn(keys, "_passthroughPitchBend");
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    keys.hexOn(new Point(1, 0), 60, 96, 0);
+
+    listeners.pitchbend(makePitchBendEvent(12000));
+    keys._tickWheelSlew(16);
+
+    expect(passthroughSpy).not.toHaveBeenCalled();
+    expect(keys._wheelBend).not.toBe(0);
   });
 
   it("keeps sustained MIDI notes lit until sustain is released", () => {
@@ -1088,8 +1219,181 @@ describe("Keys MIDI input integration", () => {
     keys.recencyStack.push(newHex);
     keys._updateWheelTarget();
 
-    expect(oldHex.retune).toHaveBeenCalledWith(3700);
+    expect(oldHex.retune).not.toHaveBeenCalled();
+    expect(oldHex.cents).toBe(2500);
     expect(keys._wheelTarget).toBe(newHex);
+  });
+
+  it("keeps the previous recency target at its current bent pitch when a new note takes over", () => {
+    const keys = createKeys({}, {
+      wheelToRecent: true,
+      pitchBendMode: "recency",
+    });
+    const oldHex = {
+      coords: new Point(1, 0),
+      cents: 1000,
+      _baseCents: 1000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const newHex = {
+      coords: new Point(2, 0),
+      cents: 2000,
+      _baseCents: 2000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+
+    keys.recencyStack.push(oldHex);
+    keys._updateWheelTarget();
+    keys._handleWheelBend(12000);
+    const frozenBentPitch = oldHex.cents;
+
+    oldHex.retune.mockClear();
+    keys.recencyStack.push(newHex);
+    keys._updateWheelTarget();
+
+    expect(oldHex.retune).not.toHaveBeenCalled();
+    expect(oldHex.cents).toBeCloseTo(frozenBentPitch, 5);
+    expect(newHex.cents).toBeCloseTo(2000 + keys._wheelBend, 5);
+  });
+
+  it("reapplies recency wheel bend from the note base when an older note becomes front again", () => {
+    const keys = createKeys({}, {
+      wheelToRecent: true,
+      pitchBendMode: "recency",
+    });
+    const oldHex = {
+      coords: new Point(1, 0),
+      cents: 1000,
+      _baseCents: 1000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const newHex = {
+      coords: new Point(2, 0),
+      cents: 2000,
+      _baseCents: 2000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+
+    keys.recencyStack.push(oldHex);
+    keys._updateWheelTarget();
+    keys._handleWheelBend(12000);
+    const oldFrozenPitch = oldHex.cents;
+
+    keys.recencyStack.push(newHex);
+    keys._updateWheelTarget();
+    keys._handleWheelBend(14000);
+    const currentWheelBend = keys._wheelBend;
+
+    oldHex.retune.mockClear();
+    keys.recencyStack.remove(newHex);
+    keys._updateWheelTarget();
+
+    expect(oldHex.retune).toHaveBeenCalledTimes(1);
+    expect(oldHex.cents).toBeCloseTo(1000 + currentWheelBend, 5);
+    expect(oldHex.cents).not.toBeCloseTo(oldFrozenPitch + currentWheelBend, 5);
+  });
+
+  it("does not overwrite note base with an already-bent pitch when wheel is moved before note-on", () => {
+    const keys = createKeys({}, {
+      wheelToRecent: true,
+      pitchBendMode: "recency",
+    });
+    const aHex = {
+      coords: new Point(1, 0),
+      cents: 1000,
+      _baseCents: 1000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const bHex = {
+      coords: new Point(2, 0),
+      cents: 2000,
+      _baseCents: 2000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const hexOn = vi
+      .fn()
+      .mockReturnValueOnce(aHex)
+      .mockReturnValueOnce(bHex);
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys._wheelValue14 = 12000;
+    keys._wheelBend = 0;
+
+    keys.midinoteOn(makeMidiEvent(61));
+    const aPitchAfterOnset = aHex.cents;
+    expect(aHex._baseCents).toBe(1000);
+
+    keys.midinoteOn(makeMidiEvent(62));
+    keys.midinoteOff(makeMidiEvent(62));
+
+    expect(aHex._baseCents).toBe(1000);
+    expect(aHex.cents).toBeCloseTo(aPitchAfterOnset, 5);
+  });
+
+  it("glides the previous held note to the current wheel position when recency returns to it", () => {
+    const keys = createKeys({}, {
+      wheelToRecent: true,
+      pitchBendMode: "recency",
+    });
+    const aHex = {
+      coords: new Point(1, 0),
+      cents: 1000,
+      _baseCents: 1000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const bHex = {
+      coords: new Point(2, 0),
+      cents: 2000,
+      _baseCents: 2000,
+      retune: vi.fn(function (newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+
+    keys.recencyStack.push(aHex);
+    keys.recencyStack.push(bHex);
+    keys._wheelTarget = bHex;
+    keys._wheelValue14 = 12000;
+
+    const queueSpy = vi.spyOn(keys, "_queueRetuneGlide");
+    const kickSpy = vi.spyOn(keys, "_kickRetuneGlides");
+
+    keys.recencyStack.remove(bHex);
+    keys._updateWheelTarget(true);
+
+    expect(queueSpy).toHaveBeenCalledWith(aHex, 1000, true);
+    expect(kickSpy).toHaveBeenCalled();
+    expect(aHex.retune).not.toHaveBeenCalled();
   });
 
   it("keeps the main MTS output on real-time transport even if sysex_type is stale at 126", () => {
