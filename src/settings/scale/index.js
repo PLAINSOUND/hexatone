@@ -65,13 +65,13 @@ const Scale = (props) => {
           style={{
             marginLeft: "0.6em",
             padding: "0 0.4em",
-            fontSize: "0.8em",
-            lineHeight: "1.4",
+            fontSize: "0.95em",
+            lineHeight: "1.2",
             verticalAlign: "middle",
             cursor: "pointer",
           }}
         >
-          {collapsed ? "▶" : "▼"}
+          {collapsed ? "▸" : "▾"}
         </button>
       </legend>
       <label>

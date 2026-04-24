@@ -352,6 +352,10 @@ a:hover {
   #main-bottom-controls #modulation-island {
     padding: 0.38em 1.05em !important;
     font-size: 0.8em !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.12em !important;
   }
 
   #main-bottom-controls #panic-button {
@@ -363,9 +367,16 @@ a:hover {
     font-size: 0.8em !important;
   }
 
+  #main-bottom-controls #modulation-island .modulation-route {
+    display: block;
+    line-height: 1.05;
+    text-align: center;
+    white-space: nowrap;
+  }
+
   #snapshot-button,
   #redraw-button {
-    bottom: 2.8em !important;
+    bottom: 3em !important;
   }
 
   #snapshot-list {
@@ -672,11 +683,24 @@ a:hover {
   color: inherit;
   border-radius: 0;
   text-align: right;
+  box-shadow: none;
+  text-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .modulation-palette-step {
   min-width: 2em;
   height: 1.9em;
+  padding: 0;
+  font-size: 1.02em;
+  line-height: 1;
+  font-family: inherit;
+  font-weight: 400;
+  box-shadow: none;
+  text-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .modulation-palette-step:disabled {
@@ -693,6 +717,41 @@ a:hover {
   text-overflow: ellipsis;
 }
 
+.modulation-palette-route-arrow {
+  position: relative;
+  display: inline-block;
+  width: 1.15em;
+  height: 0.7em;
+  margin: 0 0.28em;
+  vertical-align: middle;
+  background: linear-gradient(currentColor, currentColor) center / calc(100% - 0.46em) 1px no-repeat;
+}
+
+.modulation-palette-route-arrow::before,
+.modulation-palette-route-arrow::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+  top: 50%;
+  width: 0.28em;
+  height: 0.28em;
+  transform: translateY(-50%);
+}
+
+.modulation-palette-route-arrow::before {
+  left: 0;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+.modulation-palette-route-arrow::after {
+  right: 0;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.modulation-palette-step--left {
+  transform: scaleX(-1);
+}
+
 .modulation-palette-row-active .modulation-palette-route {
   color: #9a2f2f;
   font-style: italic;
@@ -707,6 +766,54 @@ a:hover {
   text-align: center;
   font-weight: 600;
   color: #006e84;
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  #modulation-palette {
+    min-width: 10.5rem;
+    max-width: min(78vw, 16rem);
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: 12px;
+  }
+
+  .modulation-palette-header,
+  .modulation-palette-row {
+    gap: 6px;
+  }
+
+  .modulation-palette-header {
+    font-size: 0.82em;
+  }
+
+  .modulation-palette-step {
+    min-width: 1.55em;
+    height: 1.55em;
+    padding: 0;
+    font-size: 1.15em;
+    line-height: 1;
+  }
+
+  .modulation-palette-toggle,
+  .modulation-palette-close {
+    width: 1.2em;
+    font-size: 1.15em;
+    line-height: 1;
+  }
+
+  .modulation-palette-route,
+  .modulation-palette-count {
+    font-size: 0.82em;
+  }
+
+  .modulation-palette-route-arrow {
+    width: 0.96em;
+    margin: 0 0.2em;
+  }
+
+  .modulation-palette-count {
+    min-width: 1.7em;
+  }
 }
 
 

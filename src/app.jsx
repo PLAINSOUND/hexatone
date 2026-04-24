@@ -1317,7 +1317,9 @@ const App = () => {
           {!modulationPaletteCollapsed &&
             modulationHistory.map((entry, index) => {
               const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
-              const routeLabel = `${modulationDegreeLabel(entry.sourceDegree)} ↔ ${modulationDegreeLabel(entry.targetDegree)}`;
+              const sourceLabel = modulationDegreeLabel(entry.sourceDegree);
+              const targetLabel = modulationDegreeLabel(entry.targetDegree);
+              const routeLabel = `${sourceLabel} ↔ ${targetLabel}`;
               const canClearRoute = modulationMode === "idle" && count === 0;
               return (
                 <div
@@ -1326,7 +1328,7 @@ const App = () => {
                   title={modulationPaletteTitle[index] || routeLabel}
                 >
                   <button
-                    className="modulation-palette-step"
+                    className="modulation-palette-step modulation-palette-step--left"
                     disabled={modulationMode !== "idle"}
                     title="Step modulation backward"
                     onPointerDown={(e) => {
@@ -1338,14 +1340,18 @@ const App = () => {
                       onStepModulationRoute(index, -1);
                     }}
                   >
-                    ◀
+                    ▸
                   </button>
-                  <span className="modulation-palette-route">{routeLabel}</span>
+                  <span className="modulation-palette-route">
+                    {sourceLabel}
+                    <span className="modulation-palette-route-arrow" aria-hidden="true" />
+                    {targetLabel}
+                  </span>
                   <span className="modulation-palette-count">
                     {count > 0 ? `+${count}` : `${count}`}
                   </span>
                   <button
-                    className="modulation-palette-step"
+                    className="modulation-palette-step modulation-palette-step--right"
                     disabled={modulationMode !== "idle"}
                     title="Step modulation forward"
                     onPointerDown={(e) => {
@@ -1357,7 +1363,7 @@ const App = () => {
                       onStepModulationRoute(index, 1);
                     }}
                   >
-                    ▶
+                    ▸
                   </button>
                   {canClearRoute && (
                     <button
