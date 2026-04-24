@@ -35,12 +35,42 @@ import {
 import { mtsTuningMap } from "../tuning/tuning-map.js";
 import { resolveBulkDumpName } from "../tuning/mts-format.js";
 import { debugLog } from "../debug/logging.js";
+import {
+  addSustainedHex,
+  clearSustainedHexes,
+  collectSoundingHexes,
+  createSoundingNoteState,
+  hasSoundingNotes,
+  isCoordActive,
+  iterActiveHexes,
+  removeSustainedHex,
+} from "./sounding-note-runtime.js";
+import {
+  createTransferredHex,
+  shouldSuppressTransferredSourceRelease,
+} from "./note-transfer-runtime.js";
+import {
+  beginModulation,
+  cancelModulation,
+  clearModulationHistory,
+  clearModulationRoute,
+  commitModulationTarget,
+  createModulationState,
+  frameForNewNotes,
+  setModulationRouteCount,
+  setModulationHistoryIndex,
+  settleModulationIfPossible,
+} from "./modulation-runtime.js";
 
 const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
 const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 const BULK_RELEASE_PROTECT_MS = 750;
+
+function isModulationToggleKeyCode(code) {
+  return code === "Backquote" || code === "IntlBackslash";
+}
 
 function isTextEntryElement(el) {
   if (!(el instanceof HTMLElement)) return false;
@@ -71,10 +101,12 @@ class Keys {
     synth,
     typing,
     onLatchChange,
+    onModulationArmChange,
     onTakeSnapshot = null,
     inputRuntime = null,
     onFirstInteraction = null,
     tuningRuntime = null,
+    onModulationStateChange = null,
   ) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.tuning = {
@@ -132,6 +164,8 @@ class Keys {
     this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or DIRECT) to an external synth
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
+    this.onModulationArmChange = onModulationArmChange || null;
+    this.onModulationStateChange = onModulationStateChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
     this.visualViewportResizeHandler = () => {
       if (isTextEntryElement(document.activeElement)) return;
@@ -144,23 +178,7 @@ class Keys {
     this.state = {
       canvas,
       context: canvas.getContext("2d"),
-      sustain: false,
-      latch: false,
-      sustainedNotes: [],
-      sustainedCoords: new Set(), // coord strings of sustained notes, for redraw
-      escHeld: false,
-      isTuneDragging: false,
-      pressedKeys: new Set(),
-      shiftSustainedKeys: new Set(), // keys held with Shift for individual sustain
-      // Per-source active hex tracking — each input method owns its own slot(s)
-      // so they never interfere with each other's note-on/off lifecycle.
-      activeMouse: null, // single hex or null (mouse plays one note at a time)
-      activeTouch: new Map(), // touchId (e.identifier) → hex
-      activeKeyboard: new Map(), // e.code (string) → hex
-      activeMidi: new Map(), // note_played (ch*128+note) → hex
-      activeMidiByChannel: new Map(), // MIDI channel (1–16) → hex; populated in MPE input mode only
-      isTouchDown: false,
-      isMouseDown: false,
+      ...createSoundingNoteState(),
     };
     // Recency stack — tracks all sounding notes most-recent-first.
     // The front entry receives wheel bend; see _handleWheelBend().
@@ -219,6 +237,12 @@ class Keys {
       this._controllerCCValues.set(1, this.settings.midiin_modwheel_value);
     }
     this._channelPressureValue = 0;
+    this._frameGeneration = 0;
+    this._harmonicFrame = this._makeFrameForDegree(this.settings.reference_degree ?? 0);
+    this._modulationState = createModulationState({
+      homeFrame: this._harmonicFrame,
+      currentFrame: this._harmonicFrame,
+    });
 
     // The tuning map anchor is always derived from the musical content (fundamental,
     // scale, center_degree) — independent of midiin_central_degree, which is a
@@ -805,6 +829,305 @@ class Keys {
     this._kickRetuneGlides();
     this.drawGrid();
   };
+
+  setModulationArmed = (armed) => {
+    if (armed) {
+      this.armModulation();
+    } else if (this._modulationState.mode === "awaiting_target") {
+      this._modulationState = cancelModulation(this._modulationState, "user_cancelled");
+      this._emitModulationState();
+    }
+  };
+
+  toggleModulationArm = () => {
+    if (this._modulationState.mode === "awaiting_target") {
+      this._modulationState = cancelModulation(this._modulationState, "user_cancelled");
+      this._emitModulationState();
+      return;
+    }
+    if (this._modulationState.mode === "idle") {
+      this.armModulation();
+    }
+  };
+
+  getModulationState = () => this._modulationState;
+
+  _sourceCentsForDegree(degree, frame = this._activeFrame()) {
+    if (degree == null) return 0;
+    return (this.tuning.scale?.[degree] ?? 0) + (frame?.transpositionCents ?? 0);
+  }
+
+  _frameForHistory(history = this._modulationState.history ?? []) {
+    const normalized = Array.isArray(history) ? history : [];
+    if (!normalized.length) {
+      return this._makeFrameForDegree(this.settings.reference_degree ?? 0, {
+        strategy: this._modulationState.strategy,
+        sourceDegree: null,
+        targetDegree: null,
+        transpositionSteps: 0,
+        transpositionCents: 0,
+        effectiveFundamental: this.settings.fundamental,
+      });
+    }
+    const transpositionCents = normalized.reduce((sum, route) => {
+      const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
+      const centsDelta =
+        (this.tuning.scale?.[route?.sourceDegree] ?? 0) - (this.tuning.scale?.[route?.targetDegree] ?? 0);
+      return sum + count * centsDelta;
+    }, 0);
+    const effectiveFundamental = this.settings.fundamental * Math.pow(2, transpositionCents / 1200);
+    const route = normalized[normalized.length - 1] ?? null;
+    return this._makeFrameForDegree(route.targetDegree ?? this.settings.reference_degree ?? 0, {
+      strategy: this._modulationState.strategy,
+      sourceDegree: route.sourceDegree ?? null,
+      targetDegree: route.targetDegree ?? null,
+      transpositionSteps: 0,
+      transpositionCents,
+      effectiveFundamental,
+    });
+  }
+
+  _frameForHistoryIndex(historyIndex) {
+    const history = Array.isArray(this._modulationState.history) ? this._modulationState.history.map((entry) => ({ ...entry })) : [];
+    if (history.length > 0) {
+      history[history.length - 1].count = Number.isFinite(historyIndex) ? Math.trunc(historyIndex) : 0;
+    }
+    return this._frameForHistory(history);
+  }
+
+  setModulationHistoryIndex = (historyIndex) => {
+    if (this._modulationState.mode !== "idle") return false;
+    const nextFrame = this._frameForHistoryIndex(historyIndex);
+    this._modulationState = setModulationHistoryIndex(this._modulationState, historyIndex, nextFrame);
+    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this.drawGrid();
+    this._emitModulationState();
+    return true;
+  };
+
+  stepModulationHistory = (delta) => {
+    const currentIndex = this._modulationState.historyIndex ?? 0;
+    return this.setModulationHistoryIndex(currentIndex + delta);
+  };
+
+  setModulationRouteCount = (routeIndex, count) => {
+    if (this._modulationState.mode !== "idle") return false;
+    const history = Array.isArray(this._modulationState.history) ? this._modulationState.history.map((entry) => ({ ...entry })) : [];
+    if (routeIndex < 0 || routeIndex >= history.length) return false;
+    history[routeIndex].count = Number.isFinite(count) ? Math.trunc(count) : 0;
+    const nextFrame = this._frameForHistory(history);
+    this._modulationState = setModulationRouteCount(this._modulationState, routeIndex, count, nextFrame);
+    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this.drawGrid();
+    this._emitModulationState();
+    return true;
+  };
+
+  stepModulationRoute = (routeIndex, delta) => {
+    const route = this._modulationState.history?.[routeIndex];
+    if (!route) return false;
+    const currentCount = Number.isFinite(route.count) ? Math.trunc(route.count) : 0;
+    return this.setModulationRouteCount(routeIndex, currentCount + delta);
+  };
+
+  clearModulationRoute = (routeIndex) => {
+    const route = this._modulationState.history?.[routeIndex];
+    if (!route || (Number.isFinite(route.count) ? Math.trunc(route.count) : 0) !== 0) return false;
+    const history = Array.isArray(this._modulationState.history)
+      ? this._modulationState.history.filter((_, index) => index !== routeIndex).map((entry) => ({ ...entry }))
+      : [];
+    const nextFrame = this._frameForHistory(history);
+    this._modulationState = clearModulationRoute(this._modulationState, routeIndex, nextFrame);
+    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this.drawGrid();
+    this._emitModulationState();
+    return true;
+  };
+
+  clearModulationHistory = () => {
+    if ((this._modulationState.historyIndex ?? 0) !== 0) return false;
+    const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
+    this._modulationState = clearModulationHistory(this._modulationState, homeFrame);
+    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this.drawGrid();
+    this._emitModulationState();
+    return true;
+  };
+
+  armModulation = (strategy = this._modulationState.strategy) => {
+    const sourceHex = this.recencyStack.front ?? null;
+    const sourceDegree = sourceHex ? this._degreeForHex(sourceHex) : 0;
+    this._modulationState = beginModulation(this._modulationState, {
+      currentFrame: this._harmonicFrame,
+      sourceHex,
+      sourceDegree,
+      strategy,
+    });
+    this._emitModulationState();
+    return this._modulationState.mode === "awaiting_target";
+  };
+
+  _emitModulationState() {
+    if (this.onModulationArmChange)
+      this.onModulationArmChange(this._modulationState.mode === "awaiting_target");
+    if (this.onModulationStateChange) this.onModulationStateChange(this._modulationState);
+  }
+
+  _makeFrameForDegree(degree, extra = {}) {
+    this._frameGeneration += 1;
+    return {
+      id: `frame:${this._frameGeneration}:${degree}`,
+      anchorDegree: degree,
+      referenceDegree: this.settings.reference_degree ?? 0,
+      strategy: extra.strategy ?? this._modulationState?.strategy ?? "retune_surface_to_source",
+      sourceDegree: extra.sourceDegree ?? null,
+      targetDegree: extra.targetDegree ?? null,
+      transpositionSteps: extra.transpositionSteps ?? 0,
+      transpositionCents: extra.transpositionCents ?? 0,
+      effectiveFundamental:
+        extra.effectiveFundamental ?? this.settings.fundamental,
+    };
+  }
+
+  _activeFrame() {
+    return frameForNewNotes(this._modulationState) ?? this._harmonicFrame;
+  }
+
+  getEffectiveFundamental = () => {
+    return this._activeFrame()?.effectiveFundamental ?? this.settings.fundamental;
+  };
+
+  _labelDegreeFromFrame(reducedNote, frame = this._activeFrame()) {
+    const geometryMode =
+      this._modulationState?.geometryMode ??
+      (frame?.strategy === "reinterpret_surface_from_target" ? "stable_surface" : "moveable_surface");
+    if (geometryMode === "moveable_surface") return reducedNote;
+    const scaleLength = this.tuning.scale.length || 1;
+    return ((reducedNote + (frame?.transpositionSteps ?? 0)) % scaleLength + scaleLength) % scaleLength;
+  }
+
+  getDisplayLabelAtCoords = (coords) => {
+    const note = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
+    const equivSteps = this.tuning.scale.length || 1;
+    let reducedNote = note % equivSteps;
+    if (reducedNote < 0) reducedNote += equivSteps;
+    const liveReducedNote = this._labelDegreeFromFrame(reducedNote);
+
+    if (this.settings.degree) return String(liveReducedNote);
+    if (this.settings.note) return this.settings.note_names?.[liveReducedNote] ?? "";
+    if (this.settings.heji) return this.settings.heji_names?.[liveReducedNote] ?? "";
+    if (this.settings.scala) return this.settings.scala_names?.[liveReducedNote] ?? "";
+    if (this.settings.cents) {
+      return (
+        Math.round(
+          (this.tuning.scale[liveReducedNote] - this.tuning.scale[this.settings.reference_degree] + 1200) %
+            1200,
+        ).toString() + "."
+      );
+    }
+    return "";
+  };
+
+  _degreeForCoords(coords) {
+    const [, pressed_interval] = this.hexCoordsToCents(coords);
+    return pressed_interval ?? null;
+  }
+
+  _degreeForHex(hex) {
+    if (!hex?.coords) return null;
+    return this._degreeForCoords(hex.coords);
+  }
+
+  _commitPendingModulationTarget(coords) {
+    if (this._modulationState.mode !== "awaiting_target") return;
+    const activeFrame = this._activeFrame();
+    const targetDegree = this._degreeForCoords(coords);
+    if ((this._modulationState.sourceDegree ?? targetDegree) === targetDegree) {
+      this._modulationState = cancelModulation(this._modulationState, "no_op_modulation");
+      this.drawGrid();
+      this._emitModulationState();
+      return;
+    }
+    const targetCents = this.hexCoordsToCents(coords)[0];
+    const sourceCents =
+      this._modulationState.sourceHex?._baseCents ??
+      this._modulationState.sourceHex?.cents ??
+      this._sourceCentsForDegree(this._modulationState.sourceDegree, activeFrame);
+    const transpositionDeltaCents = sourceCents - targetCents;
+    const transpositionCents = (activeFrame?.transpositionCents ?? 0) + transpositionDeltaCents;
+    const transpositionSteps = (this._modulationState.sourceDegree ?? targetDegree) - targetDegree;
+    const effectiveFundamental =
+      (activeFrame?.effectiveFundamental ?? this.settings.fundamental) *
+      Math.pow(2, transpositionDeltaCents / 1200);
+    const pendingFrame = this._makeFrameForDegree(targetDegree, {
+      strategy: this._modulationState.strategy,
+      sourceDegree: this._modulationState.sourceDegree,
+      targetDegree,
+      transpositionSteps,
+      transpositionCents,
+      effectiveFundamental,
+    });
+    this._modulationState = commitModulationTarget(this._modulationState, {
+      targetDegree,
+      pendingFrame,
+      sourceStillSounding: this._isHexStillSounding(this._modulationState.sourceHex),
+    });
+    this.drawGrid();
+    this._emitModulationState();
+  }
+
+  _isHexStillSounding(targetHex) {
+    if (!targetHex?.coords) return false;
+    for (const hex of this._allActiveHexes()) {
+      if (hex.coords.equals(targetHex.coords)) return true;
+    }
+    return this.state.sustainedNotes.some(([hex]) => hex.coords.equals(targetHex.coords));
+  }
+
+  _maybeTakeOverModulationTarget(coords, cents, cents_prev, cents_next) {
+    if (this._modulationState.mode !== "pending_settlement") return null;
+    if (this._modulationState.lastDecision?.articulation !== "takeover") return null;
+    if (this._modulationState.takeoverConsumed) return null;
+    const sourceHex = this._modulationState.sourceHex;
+    if (!sourceHex) return null;
+    if (!this._isHexStillSounding(sourceHex)) return null;
+    const onsetFrameId = frameForNewNotes(this._modulationState)?.id ?? this._harmonicFrame?.id ?? null;
+    const proxy = createTransferredHex(sourceHex, {
+      coords,
+      cents,
+      cents_prev,
+      cents_next,
+      onsetFrameId,
+    });
+    this._modulationState.takeoverConsumed = true;
+    this.recencyStack.remove(sourceHex);
+    this.recencyStack.push(proxy);
+    this._updateWheelTarget();
+    this._applyCurrentWheelToHex(proxy);
+    return proxy;
+  }
+
+  _hasLegacyFrameNotes() {
+    if (this._modulationState.mode !== "pending_settlement" || !this._modulationState.oldFrame) {
+      return false;
+    }
+    const oldFrameId = this._modulationState.oldFrame.id;
+    for (const hex of this._allActiveHexes()) {
+      if (hex._onsetFrameId === oldFrameId) return true;
+    }
+    return this.state.sustainedNotes.some(([hex]) => hex._onsetFrameId === oldFrameId);
+  }
+
+  _maybeSettleModulation() {
+    if (this._modulationState.mode !== "pending_settlement") return;
+    if (this._hasLegacyFrameNotes()) return;
+    this._modulationState = settleModulationIfPossible(this._modulationState, {
+      hasLegacyNotes: false,
+    });
+    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this.drawGrid();
+    this._emitModulationState();
+  }
 
   previewDegree0 = (deltaCents) => {
     const newCents = deltaCents;
@@ -1475,6 +1798,8 @@ class Keys {
     // latch as active while the new Keys has no sustain state, causing the
     // next click to produce a brief non-sustained note instead of latching.
     if (this.onLatchChange) this.onLatchChange(false);
+    this._modulationState = cancelModulation(this._modulationState, "deconstruct");
+    this._emitModulationState();
 
     // Stop any snapshot that is still playing.
     this.stopSnapshot();
@@ -1682,14 +2007,9 @@ class Keys {
   // Returns true if the note was toggled off (caller should return/continue).
   _midiLatchToggle(coords, releaseVelocity = 0) {
     if (!this.state.latch) return false;
-    const key = coords.x + "," + coords.y;
-    const sustainedIdx = this.state.sustainedNotes.findIndex(
-      ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-    );
-    if (sustainedIdx === -1) return false;
-    const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-    this.state.sustainedNotes.splice(sustainedIdx, 1);
-    this.state.sustainedCoords.delete(key);
+    const removed = removeSustainedHex(this.state, coords);
+    if (!removed) return false;
+    const [hex, vel] = removed.entry;
     hex.noteOff(releaseVelocity || vel);
     this._scheduleDeferredBulkRefresh();
     this.hexOff(coords);
@@ -1700,30 +2020,18 @@ class Keys {
   // Use this anywhere that needs to act on all sounding notes regardless of how they
   // were triggered (retune, snapshot, MTS guard, panic, deconstruct, etc.).
   *_allActiveHexes() {
-    if (this.state.activeMouse) yield this.state.activeMouse;
-    yield* this.state.activeTouch.values();
-    yield* this.state.activeKeyboard.values();
-    yield* this.state.activeMidi.values();
+    yield* iterActiveHexes(this.state);
   }
 
   // Returns true if any input source currently has a hex active at these coords.
   // Used by hexOff() to decide whether to draw the hex as unlit: if another source
   // still holds the coord, the hex must remain visually lit.
   _isCoordActive(coords) {
-    for (const hex of this._allActiveHexes()) {
-      if (hex.coords.equals(coords)) return true;
-    }
-    return false;
+    return isCoordActive(this.state, coords);
   }
 
   _hasSoundingNotes() {
-    return (
-      this.state.activeMouse !== null ||
-      this.state.activeTouch.size > 0 ||
-      this.state.activeKeyboard.size > 0 ||
-      this.state.activeMidi.size > 0 ||
-      this.state.sustainedNotes.length > 0
-    );
+    return hasSoundingNotes(this.state);
   }
 
   _hasRecentReleasedBulkTargets() {
@@ -1731,11 +2039,10 @@ class Keys {
   }
 
   _collectProtectedBulkHexes(includeRecentReleased = true) {
-    return [
-      ...this._allActiveHexes(),
-      ...this.state.sustainedNotes.map(([h]) => h),
-      ...(includeRecentReleased ? this._recentlyReleasedHexes.keys() : []),
-    ];
+    return collectSoundingHexes(this.state, {
+      includeRecentReleased,
+      recentReleasedHexes: this._recentlyReleasedHexes,
+    });
   }
 
   _hasDeferredBulkTargets() {
@@ -2118,6 +2425,8 @@ class Keys {
     this.state.sustain = false;
     this.state.latch = false;
     if (this.onLatchChange) this.onLatchChange(false);
+    this._modulationState = cancelModulation(this._modulationState, "panic");
+    this._emitModulationState();
 
     // Stop any snapshot playback
     this.stopSnapshot();
@@ -2148,6 +2457,7 @@ class Keys {
   };
 
   hexOn(coords, note_played, velocity_played, bend) {
+    this._commitPendingModulationTarget(coords);
     if (this._staticDeferredBulkActive && this._deferredBulkMapRefresh) {
       this._sendBulkDumpOctaveRefresh(this._hasSoundingNotes(), false);
       this._deferredBulkMapRefresh = false;
@@ -2168,6 +2478,10 @@ class Keys {
       this.hexCoordsToCents(coords);
     const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
     this.drawHex(coords, color, text_color);
+    const transferredHex = this._maybeTakeOverModulationTarget(coords, cents, cents_prev, cents_next);
+    if (transferredHex) {
+      return transferredHex;
+    }
     let degree0toRef_ratio = this.tuning.degree0toRef_asArray[1]; // array[0] is cents, array[1] is the ratio
     const hex = this.synth.makeHex(
       coords,
@@ -2183,6 +2497,7 @@ class Keys {
       degree0toRef_ratio,
     );
     hex.noteOn();
+    hex._onsetFrameId = frameForNewNotes(this._modulationState)?.id ?? this._harmonicFrame?.id ?? null;
     hex._baseCents = hex.cents;
     // Store neighbour pitches for scale-aware wheel bend.
     hex.cents_prev = cents_prev;
@@ -2211,17 +2526,15 @@ class Keys {
   }
 
   noteOff(hex, release_velocity) {
+    if (shouldSuppressTransferredSourceRelease(hex)) {
+      this.recencyStack.remove(hex);
+      this._updateWheelTarget();
+      return;
+    }
     if (this.state.sustain) {
-      // Check for duplicate by coords, not object reference
-      const alreadySustained = this.state.sustainedNotes.some(
-        ([h]) => h.coords.x === hex.coords.x && h.coords.y === hex.coords.y,
-      );
-
-      if (!alreadySustained) {
-        this.state.sustainedNotes.push([hex, release_velocity]);
+      const result = addSustainedHex(this.state, hex, release_velocity);
+      if (result.added) {
         // Keep the hex visually lit while it's sustained
-        const key = hex.coords.x + "," + hex.coords.y;
-        this.state.sustainedCoords.add(key);
         const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
         const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
         this.drawHex(hex.coords, color, text_color);
@@ -2241,6 +2554,7 @@ class Keys {
       } else {
         this._scheduleDeferredBulkRefresh();
       }
+      this._maybeSettleModulation();
     }
   }
 
@@ -2251,9 +2565,7 @@ class Keys {
       this.state.latch = false;
     }
     this.state.sustain = false;
-    const notesToRelease = this.state.sustainedNotes;
-    this.state.sustainedNotes = [];
-    this.state.sustainedCoords.clear();
+    const notesToRelease = clearSustainedHexes(this.state);
     if (
       this._deferredBulkMapRefresh &&
       !this._staticDeferredBulkActive &&
@@ -2277,6 +2589,7 @@ class Keys {
     } else {
       this._scheduleDeferredBulkRefresh();
     }
+    this._maybeSettleModulation();
     // Fire React callback AFTER all visual/audio cleanup — Preact may flush
     // synchronously and trigger a re-render that redraws hexes mid-cleanup.
     if (this.onLatchChange) this.onLatchChange(false);
@@ -2419,6 +2732,20 @@ class Keys {
       }
     }
 
+    // Modulation arm/disarm should behave like Escape sustain: global, not tied
+    // to whether the sidebar is closed or a text input currently has focus.
+    if (
+      isModulationToggleKeyCode(e.code) &&
+      !e.repeat &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey
+    ) {
+      e.preventDefault();
+      this.toggleModulationArm();
+      return;
+    }
+
     // All other keys: only active when sidebar is closed (typing=false means sidebar closed).
     if (!this.typing) return;
     if (this.inputIsFocused()) return;
@@ -2528,6 +2855,10 @@ class Keys {
     if (e.code === "Escape") {
       this.state.escHeld = false;
       // Escape is now latch (toggle) — no release action on key-up
+      return;
+    }
+
+    if (isModulationToggleKeyCode(e.code)) {
       return;
     }
 
@@ -3286,24 +3617,25 @@ class Keys {
     if (reducedNote < 0) {
       reducedNote = equivSteps + reducedNote;
     }
+    const liveReducedNote = this._labelDegreeFromFrame(reducedNote);
 
     if (!this.settings.no_labels || this.settings.equaves) {
       let name;
       if (!this.settings.no_labels && this.settings.degree) {
-        name = "" + reducedNote;
+        name = "" + liveReducedNote;
       } else if (!this.settings.no_labels && this.settings.note) {
         // Safe access: if note_names is undefined or index out of bounds, show nothing
-        name = this.settings.note_names?.[reducedNote] ?? "";
+        name = this.settings.note_names?.[liveReducedNote] ?? "";
       } else if (!this.settings.no_labels && this.settings.heji) {
         // Auto-generated HEJI names from reference frame + committed ratios.
-        name = this.settings.heji_names?.[reducedNote] ?? "";
+        name = this.settings.heji_names?.[liveReducedNote] ?? "";
       } else if (!this.settings.no_labels && this.settings.scala) {
         // Safe access: scala_names should always exist if scale exists, but be defensive
-        name = this.settings.scala_names?.[reducedNote] ?? "";
+        name = this.settings.scala_names?.[liveReducedNote] ?? "";
       } else if (!this.settings.no_labels && this.settings.cents) {
         name =
           Math.round(
-            (this.tuning.scale[reducedNote] -
+            (this.tuning.scale[liveReducedNote] -
               this.tuning.scale[this.settings.reference_degree] +
               1200) %
               1200,
@@ -3418,11 +3750,31 @@ class Keys {
     }
     // octave_offset shifts all pitches by N equaves without rebuilding
     const octOff = this.settings.octave_offset || 0;
-    let cents = (octs + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps];
+    const liveFrame = this._activeFrame();
+    const transpositionCents = liveFrame?.transpositionCents ?? 0;
+    const geometryMode =
+      this._modulationState?.geometryMode ??
+      (liveFrame?.strategy === "reinterpret_surface_from_target" ? "stable_surface" : "moveable_surface");
+    const centsIndex = geometryMode === "moveable_surface"
+      ? reducedSteps
+      : this._labelDegreeFromFrame(reducedSteps, liveFrame);
+    const centsIndexPrev = geometryMode === "moveable_surface"
+      ? reducedSteps_prev
+      : this._labelDegreeFromFrame(reducedSteps_prev, liveFrame);
+    const centsIndexNext = geometryMode === "moveable_surface"
+      ? reducedSteps_next
+      : this._labelDegreeFromFrame(reducedSteps_next, liveFrame);
+    const liveReducedSteps = this._labelDegreeFromFrame(reducedSteps, liveFrame);
+    let cents =
+      (octs + octOff) * this.tuning.equivInterval + this.tuning.scale[centsIndex] + transpositionCents;
     let cents_prev =
-      (octs_prev + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps_prev];
+      (octs_prev + octOff) * this.tuning.equivInterval +
+      this.tuning.scale[centsIndexPrev] +
+      transpositionCents;
     let cents_next =
-      (octs_next + octOff) * this.tuning.equivInterval + this.tuning.scale[reducedSteps_next];
+      (octs_next + octOff) * this.tuning.equivInterval +
+      this.tuning.scale[centsIndexNext] +
+      transpositionCents;
     /*  let dataArray = [
       "cents = ", cents,
       "reducedSteps = ", reducedSteps,
@@ -3433,7 +3785,7 @@ class Keys {
       "cents_next = ", cents_next
     ]
     console.log("hexCoordsToCents at coords: ", coords, dataArray); */
-    return [cents, reducedSteps, distance, octs, equivSteps, cents_prev, cents_next];
+    return [cents, liveReducedSteps, distance, octs, equivSteps, cents_prev, cents_next];
   }
 
   getHexCoordsAt(coords) {

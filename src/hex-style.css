@@ -334,6 +334,7 @@ a:hover {
 
   #main-bottom-controls #octave-island,
   #main-bottom-controls #sustain-island,
+  #main-bottom-controls #modulation-island,
   #main-bottom-controls #panic-button {
     position: static !important;
     bottom: auto !important;
@@ -344,6 +345,11 @@ a:hover {
   }
 
   #main-bottom-controls #sustain-island {
+    padding: 0.38em 1.05em !important;
+    font-size: 0.8em !important;
+  }
+
+  #main-bottom-controls #modulation-island {
     padding: 0.38em 1.05em !important;
     font-size: 0.8em !important;
   }
@@ -365,6 +371,11 @@ a:hover {
     transform: translateX(-50%);
   }
 
+  #modulation-island {
+    left: calc(50% + 5.8em);
+    transform: none;
+  }
+
   #panic-button {
     right: 4.5em;
     left: auto;
@@ -376,12 +387,11 @@ a:hover {
 /* ── 5b. Sustain island ───────────────────────────────────── */
 /* → app.jsx */
 
-#sustain-island {
+#sustain-island,
+#modulation-island {
   /* Extends .floating-pill-btn — positioned centred */
   position: fixed;
   bottom: 1.2em;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 11;
   padding: 0.45em 1.6em;
   border-radius: var(--btn-radius-pill);
@@ -400,7 +410,30 @@ a:hover {
     color 0.15s ease;
 }
 
+#sustain-island {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#modulation-island {
+  left: calc(50% + 6.2em);
+  transform: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.55em;
+}
+
+.modulation-route {
+  font-size: 0.92em;
+  font-style: italic;
+  letter-spacing: 0;
+}
+
 #sustain-island:hover {
+  background-color: var(--color-bg-btn-hover);
+}
+
+#modulation-island:hover {
   background-color: var(--color-bg-btn-hover);
 }
 
@@ -410,7 +443,20 @@ a:hover {
   color: #fff;
 }
 
-#sustain-island:focus {
+#modulation-island.modulation-active {
+  background-color: #00a8c6;
+  border-color: #007f96;
+  color: #fff;
+}
+
+#modulation-island.modulation-pending {
+  background-color: #0083a5;
+  border-color: #005f79;
+  color: #fff;
+}
+
+#sustain-island:focus,
+#modulation-island:focus {
   outline: none;
 }
 
@@ -535,6 +581,109 @@ a:hover {
   background: rgba(180, 100, 100, 0.45);
   color: #fff;
   border-color: rgba(160, 80, 80, 0.6);
+}
+
+#modulation-palette {
+  position: fixed;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 12.5rem;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(220, 245, 250, 0.78);
+  -webkit-backdrop-filter: blur(12px) saturate(0.9);
+  backdrop-filter: blur(12px) saturate(0.9);
+  border: 1px solid rgba(0, 127, 150, 0.35);
+  box-shadow: 0 2px 14px rgba(0, 90, 110, 0.12);
+}
+
+.modulation-palette-header,
+.modulation-palette-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modulation-palette-index {
+  min-width: 1.4em;
+  color: rgba(0, 90, 110, 0.75);
+  font-variant-numeric: tabular-nums;
+}
+
+.modulation-palette-header {
+  color: #006e84;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  justify-content: flex-start;
+}
+
+.modulation-palette-handle {
+  color: rgba(0, 90, 110, 0.55);
+  line-height: 1;
+}
+
+.modulation-palette-close,
+.modulation-palette-toggle,
+.modulation-palette-step {
+  border-radius: var(--btn-radius-pill);
+  border: 1px solid rgba(0, 127, 150, 0.35);
+  background: rgba(255, 255, 255, 0.72);
+  color: #006e84;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.modulation-palette-close {
+  width: 1.6em;
+  height: 1.6em;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.modulation-palette-toggle {
+  margin-left: auto;
+  min-width: 1.9em;
+  height: 1.8em;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.modulation-palette-step {
+  min-width: 2em;
+  height: 1.9em;
+}
+
+.modulation-palette-step:disabled {
+  opacity: 0.42;
+}
+
+.modulation-palette-route {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #004d5c;
+  font-style: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modulation-palette-row-active .modulation-palette-route {
+  color: #9a2f2f;
+  font-style: italic;
+}
+
+.modulation-palette-row-active .modulation-palette-count {
+  color: #9a2f2f;
+}
+
+.modulation-palette-count {
+  min-width: 2.2em;
+  text-align: center;
+  font-weight: 600;
+  color: #006e84;
 }
 
 

@@ -18,10 +18,12 @@ const Keyboard = (props) => {
       props.synth,
       props.active,
       props.onLatchChange,
+      props.onModulationArmChange,
       props.onTakeSnapshot,
       props.inputRuntime,
       props.onFirstInteraction,
       props.tuningRuntime,
+      props.onModulationStateChange,
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
@@ -159,6 +161,8 @@ Keyboard.propTypes = {
     equivInterval: PropTypes.number,
     equivSteps: PropTypes.number,
   }),
+  onModulationArmChange: PropTypes.func,
+  onModulationStateChange: PropTypes.func,
   synth: PropTypes.object.isRequired,
 };
 

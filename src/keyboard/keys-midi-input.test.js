@@ -10,6 +10,18 @@ function makeCanvas() {
     save: vi.fn(),
     restore: vi.fn(),
     setTransform: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
+    clip: vi.fn(),
+    stroke: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
+    fillText: vi.fn(),
+    scale: vi.fn(),
+    clearRect: vi.fn(),
   };
 
   return {
@@ -78,6 +90,7 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
     null,
     null,
     null,
+    null,
     {
       target: "hex_layout",
       layoutMode: "controller_geometry",
@@ -136,6 +149,481 @@ describe("Keys MIDI input integration", () => {
     keys.midinoteOff(makeMidiEvent(61));
 
     expect(hexOff).toHaveBeenCalledWith(new Point(1, 0));
+  });
+
+  it("toggles modulation armed state via the Backquote key and reports it", () => {
+    const onModulationArmChange = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      true,
+      null,
+      onModulationArmChange,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+
+    keys.recencyStack.push({
+      coords: new Point(2, 0),
+      pressed_interval: 2,
+    });
+    const preventDefault = vi.fn();
+    keys.onKeyDown({ code: "Backquote", repeat: false, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
+    keys.onKeyDown({ code: "Backquote", repeat: false, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
+
+    expect(preventDefault).toHaveBeenCalledTimes(2);
+    expect(onModulationArmChange).toHaveBeenNthCalledWith(1, true);
+    expect(onModulationArmChange).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it("handles Backquote globally even when normal typing input is inactive", () => {
+    const onModulationArmChange = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      false,
+      null,
+      onModulationArmChange,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+
+    keys.recencyStack.push({
+      coords: new Point(2, 0),
+      pressed_interval: 2,
+    });
+
+    const preventDefault = vi.fn();
+    keys.onKeyDown({
+      code: "Backquote",
+      repeat: false,
+      preventDefault,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onModulationArmChange).toHaveBeenCalledWith(true);
+  });
+
+  it("also handles IntlBackslash globally for ISO layouts", () => {
+    const onModulationArmChange = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      false,
+      null,
+      onModulationArmChange,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+
+    keys.recencyStack.push({
+      coords: new Point(2, 0),
+      pressed_interval: 2,
+    });
+
+    const preventDefault = vi.fn();
+    keys.onKeyDown({
+      code: "IntlBackslash",
+      repeat: false,
+      preventDefault,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onModulationArmChange).toHaveBeenCalledWith(true);
+  });
+
+  it("can toggle modulation armed state directly without affecting sustain latch", () => {
+    const onLatchChange = vi.fn();
+    const onModulationArmChange = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      true,
+      onLatchChange,
+      onModulationArmChange,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+
+    keys.recencyStack.push({
+      coords: new Point(2, 0),
+      pressed_interval: 2,
+    });
+    keys.toggleModulationArm();
+
+    expect(onModulationArmChange).toHaveBeenCalledWith(true);
+    expect(onLatchChange).not.toHaveBeenCalled();
+  });
+
+  it("arms modulation from degree zero when no notes have been played yet", () => {
+    const onModulationArmChange = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      true,
+      null,
+      onModulationArmChange,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+
+    expect(keys.armModulation()).toBe(true);
+    expect(keys.getModulationState().mode).toBe("awaiting_target");
+    expect(keys.getModulationState().sourceDegree).toBe(0);
+    expect(onModulationArmChange).toHaveBeenCalledWith(true);
+  });
+
+  it("commits a source-to-target modulation without rebuilding Keys and keeps labels stable in moveable-surface mode", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {},
+      synth,
+    );
+
+    const sourceCoords = new Point(2, 0);
+    const targetCoords = new Point(5, 0);
+    const nextCoords = new Point(6, 0);
+
+    const sourceHex = keys.hexOn(sourceCoords);
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+
+    expect(keys.armModulation()).toBe(true);
+    expect(keys.getModulationState().mode).toBe("awaiting_target");
+
+    const targetHex = keys.hexOn(targetCoords);
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+    expect(targetHex.cents).toBeCloseTo(200, 5);
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440 * Math.pow(2, -300 / 1200), 5);
+    expect(keys.getDisplayLabelAtCoords(targetCoords)).toBe("n5");
+
+    const nextHex = keys.hexOn(nextCoords);
+    expect(nextHex.cents).toBeCloseTo(300, 5);
+    expect(keys.getDisplayLabelAtCoords(nextCoords)).toBe("n6");
+  });
+
+  it("can step modulation history back home and forward again without rebuilding Keys", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {},
+      synth,
+    );
+
+    const sourceCoords = new Point(2, 0);
+    const targetCoords = new Point(5, 0);
+
+    const sourceHex = keys.hexOn(sourceCoords);
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(targetCoords);
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    sourceHex.noteOff(0);
+    targetHex.noteOff(0);
+    keys.state.activeKeyboard.clear();
+    keys._maybeSettleModulation();
+
+    expect(keys.getModulationState().mode).toBe("idle");
+    expect(keys.getModulationState().historyIndex).toBe(1);
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440 * Math.pow(2, -300 / 1200), 5);
+
+    expect(keys.stepModulationHistory(-1)).toBe(true);
+    expect(keys.getModulationState().historyIndex).toBe(0);
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.getModulationState().historyIndex).toBe(1);
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440 * Math.pow(2, -300 / 1200), 5);
+
+    expect(keys.clearModulationHistory()).toBe(false);
+    expect(keys.stepModulationHistory(-1)).toBe(true);
+    expect(keys.clearModulationHistory()).toBe(true);
+    expect(keys.getModulationState().history).toEqual([]);
+    expect(keys.getModulationState().historyIndex).toBe(0);
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
+  });
+
+  it("returns to the starting surface when an inverse modulation pair is applied", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {},
+      synth,
+    );
+
+    const firstSource = keys.hexOn(new Point(4, 0));
+    keys.state.activeKeyboard.set("KeyA", firstSource);
+    expect(keys.armModulation()).toBe(true);
+    const firstTarget = keys.hexOn(new Point(7, 0));
+    keys.state.activeKeyboard.set("KeyB", firstTarget);
+    firstSource.noteOff(0);
+    firstTarget.noteOff(0);
+    keys.state.activeKeyboard.clear();
+    keys._maybeSettleModulation();
+
+    const afterFirst = keys.getEffectiveFundamental();
+    expect(afterFirst).not.toBeCloseTo(440, 5);
+
+    const secondSource = keys.hexOn(new Point(7, 0));
+    keys.state.activeKeyboard.set("KeyC", secondSource);
+    expect(keys.armModulation()).toBe(true);
+    const secondTarget = keys.hexOn(new Point(4, 0));
+    keys.state.activeKeyboard.set("KeyD", secondTarget);
+    secondSource.noteOff(0);
+    secondTarget.noteOff(0);
+    keys.state.activeKeyboard.clear();
+    keys._maybeSettleModulation();
+
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
+    expect(keys.hexCoordsToCents(new Point(0, 0))[0]).toBeCloseTo(0, 5);
+    expect(keys.hexCoordsToCents(new Point(4, 0))[0]).toBeCloseTo(400, 5);
+    expect(keys.hexCoordsToCents(new Point(7, 0))[0]).toBeCloseTo(700, 5);
+  });
+
+  it("takes over the sustaining source voice at the target without rearticulating", () => {
+    const sourceNoteOn = vi.fn();
+    const sourceNoteOff = vi.fn();
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: sourceNoteOn,
+        noteOff: sourceNoteOff,
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {},
+      synth,
+    );
+
+    const sourceHex = keys.hexOn(new Point(2, 0));
+    expect(sourceNoteOn).toHaveBeenCalledTimes(1);
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+
+    expect(keys.armModulation()).toBe(true);
+    const targetHex = keys.hexOn(new Point(5, 0));
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+
+    expect(synth.makeHex).toHaveBeenCalledTimes(1);
+    expect(sourceNoteOn).toHaveBeenCalledTimes(1);
+    expect(targetHex).not.toBe(sourceHex);
+    expect(targetHex.coords).toEqual(new Point(5, 0));
+
+    keys.noteOff(sourceHex, 0);
+    expect(sourceNoteOff).not.toHaveBeenCalled();
+
+    keys.noteOff(targetHex, 0);
+    expect(sourceNoteOff).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats source-to-same-target modulation as a no-op", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {},
+      synth,
+    );
+
+    expect(keys.armModulation()).toBe(true);
+    keys.hexOn(new Point(0, 0));
+
+    expect(keys.getModulationState().mode).toBe("idle");
+    expect(keys.getModulationState().history).toEqual([]);
+    expect(keys.getModulationState().currentRoute).toBeNull();
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
   });
 
   it("does not throw when a MIDI port is selected while WebMidi is temporarily disabled", () => {

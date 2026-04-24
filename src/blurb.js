@@ -26,7 +26,7 @@ const Blurb = () => (
     </p>
     <p>
       Designed and programmed by <a href="https://www.plainsound.org">Marc&nbsp;Sabat</a>. Current
-      dev version 3.2.0-alpha.1 (April 2026), released under{" "}
+      dev version 3.2.0-alpha.2 (April 2026), released under{" "}
       <a href="https://www.gnu.org/licenses/gpl-3.0.en.html">GPL-3.0</a>. Open source code at{" "}
       <a href="https://github.com/PLAINSOUND/hexatone">github.com/PLAINSOUND/hexatone</a>. Join the
       community on <a href="https://discord.gg/NGVTmDFPtf">discord</a>.

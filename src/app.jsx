@@ -311,6 +311,11 @@ const App = () => {
 
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
+  const [modulationArmed, setModulationArmed] = useState(false);
+  const [modulationMode, setModulationMode] = useState("idle");
+  const [modulationState, setModulationState] = useState(null);
+  const [modulationPalettePos, setModulationPalettePos] = useState({ x: 24, y: 104 });
+  const [modulationPaletteCollapsed, setModulationPaletteCollapsed] = useState(false);
 
   // Exquis LED App Mode status — set asynchronously after firmware version check.
   // null = pending / not connected; { ok: true } = active; { ok: false, reason } = failed.
@@ -325,6 +330,7 @@ const App = () => {
   const snapshotIdRef = useRef(0);
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
+  const modulationPaletteDragRef = useRef(null);
 
   const onTakeSnapshot = useCallback(() => {
     const notes = keysRef.current?.getSnapshot();
@@ -370,6 +376,31 @@ const App = () => {
       next.splice(toIdx, 0, moved);
       return next;
     });
+  }, []);
+
+  useEffect(() => {
+    const onPointerMove = (e) => {
+      if (!modulationPaletteDragRef.current) return;
+      const { pointerId, offsetX, offsetY } = modulationPaletteDragRef.current;
+      if (e.pointerId !== pointerId) return;
+      setModulationPalettePos({
+        x: Math.max(8, e.clientX - offsetX),
+        y: Math.max(8, e.clientY - offsetY),
+      });
+    };
+    const onPointerUp = (e) => {
+      if (!modulationPaletteDragRef.current) return;
+      if (e.pointerId !== modulationPaletteDragRef.current.pointerId) return;
+      modulationPaletteDragRef.current = null;
+    };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
   }, []);
 
   // Long-press sidebar button to toggle latch (sustain while playing)
@@ -475,6 +506,46 @@ const App = () => {
     () => (tuningWorkspace ? normalizeWorkspaceForKeys(tuningWorkspace) : null),
     [tuningWorkspace],
   );
+  const modulationDegreeLabel = useCallback(
+    (degree) => {
+      if (degree == null) return "";
+      const slot = tuningWorkspace?.lookup?.byDegree?.get(degree);
+      return slot?.sourceText || slot?.exactRole?.ratioText || String(degree);
+    },
+    [tuningWorkspace],
+  );
+  const modulationSummary = useMemo(() => {
+    if (!modulationState) return "";
+    const route =
+      modulationState.mode === "awaiting_target"
+        ? {
+            sourceDegree: modulationState.sourceDegree ?? 0,
+            targetDegree: null,
+          }
+        : modulationState.currentRoute ?? null;
+    if (!route) return "";
+    const sourceText = modulationDegreeLabel(route.sourceDegree ?? 0);
+    if (route.targetDegree == null) return `${sourceText} →`;
+    if (route.targetDegree != null) {
+      return `${sourceText} → ${modulationDegreeLabel(route.targetDegree)}`;
+    }
+    return "";
+  }, [modulationDegreeLabel, modulationState]);
+  const modulationHistory = useMemo(() => modulationState?.history ?? [], [modulationState]);
+  const modulationPaletteVisible = modulationHistory.length > 0;
+  const modulationPaletteTitle = useMemo(() => {
+    return modulationHistory.map((entry) => {
+      return `${modulationDegreeLabel(entry.sourceDegree)} ↔ ${modulationDegreeLabel(entry.targetDegree)}`;
+    });
+  }, [modulationDegreeLabel, modulationHistory]);
+  const onStepModulationRoute = useCallback((routeIndex, delta) => {
+    if (!keysRef.current?.stepModulationRoute) return;
+    keysRef.current.stepModulationRoute(routeIndex, delta);
+  }, []);
+  const onClearModulationRoute = useCallback((routeIndex) => {
+    if (!keysRef.current?.clearModulationRoute) return;
+    keysRef.current.clearModulationRoute(routeIndex);
+  }, []);
 
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
@@ -696,6 +767,9 @@ const App = () => {
   useEffect(() => {
     if (prevStructuralRef.current !== null && prevStructuralRef.current !== reconstructionSettings) {
       setLatch(false);
+      setModulationArmed(false);
+      setModulationMode("idle");
+      setModulationState(null);
       resetOctave();
     }
     prevStructuralRef.current = reconstructionSettings;
@@ -897,6 +971,12 @@ const App = () => {
     [],
   );
   const onLatchChange = useCallback((v) => setLatch(v), []);
+  const onModulationStateChange = useCallback((state) => {
+    setModulationState(state ?? null);
+    setModulationMode(state?.mode ?? "idle");
+    setModulationArmed(state?.mode === "awaiting_target");
+  }, []);
+  const onModulationArmChange = useCallback((v) => setModulationArmed(v), []);
   const onFirstInteraction = useCallback(() => {
     setUserHasInteracted(true);
     if (synthRef.current?.prepare) synthRef.current.prepare();
@@ -924,6 +1004,8 @@ const App = () => {
           labelSettings={labelSettings}
           onKeysReady={onKeysReady}
           onLatchChange={onLatchChange}
+          onModulationArmChange={onModulationArmChange}
+          onModulationStateChange={onModulationStateChange}
           onTakeSnapshot={onTakeSnapshot}
           active={active}
           midiLearnActive={midiLearnActive}
@@ -1046,6 +1128,33 @@ const App = () => {
             <b>SUSTAIN</b>
           </button>
           <button
+            id="modulation-island"
+            className={[
+              modulationArmed ? "modulation-active" : "",
+              modulationMode === "pending_settlement" ? "modulation-pending" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            title={
+              modulationMode === "pending_settlement"
+                ? `Modulation pending settlement${modulationSummary ? `: ${modulationSummary}` : ""}`
+                : modulationSummary
+                  ? `Arm modulation target selection (Backquote): ${modulationSummary}`
+                  : "Arm modulation target selection (Backquote)"
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              if (keysRef.current?.toggleModulationArm) keysRef.current.toggleModulationArm();
+            }}
+            onPointerDown={(e) => {
+              if (e.pointerType === "touch") e.preventDefault();
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <b>MOD</b>
+            {modulationSummary ? <i className="modulation-route">{modulationSummary}</i> : null}
+          </button>
+          <button
             id="panic-button"
             title="Panic - kill all stuck notes"
             onClick={(e) => {
@@ -1161,6 +1270,115 @@ const App = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {modulationPaletteVisible && (
+        <div
+          id="modulation-palette"
+          style={{
+            left: `${modulationPalettePos.x}px`,
+            top: `${modulationPalettePos.y}px`,
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div
+            className="modulation-palette-header"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+              modulationPaletteDragRef.current = {
+                pointerId: e.pointerId,
+                offsetX: rect ? e.clientX - rect.left : 0,
+                offsetY: rect ? e.clientY - rect.top : 0,
+              };
+            }}
+          >
+            <span className="modulation-palette-handle" title="Drag modulation history">
+              ⠿
+            </span>
+            <strong>MODULATION HISTORY</strong>
+            <button
+              className="modulation-palette-toggle"
+              title={modulationPaletteCollapsed ? "Expand modulation history" : "Collapse modulation history"}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setModulationPaletteCollapsed((value) => !value);
+              }}
+            >
+              {modulationPaletteCollapsed ? "▸" : "▾"}
+            </button>
+          </div>
+          {!modulationPaletteCollapsed &&
+            modulationHistory.map((entry, index) => {
+              const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+              const routeLabel = `${modulationDegreeLabel(entry.sourceDegree)} ↔ ${modulationDegreeLabel(entry.targetDegree)}`;
+              const canClearRoute = modulationMode === "idle" && count === 0;
+              return (
+                <div
+                  key={`${entry.sourceDegree}:${entry.targetDegree}:${index}`}
+                  className={`modulation-palette-row${count !== 0 ? " modulation-palette-row-active" : ""}`}
+                  title={modulationPaletteTitle[index] || routeLabel}
+                >
+                  <span className="modulation-palette-index">{index + 1}.</span>
+                  <button
+                    className="modulation-palette-step"
+                    disabled={modulationMode !== "idle"}
+                    title="Step modulation backward"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStepModulationRoute(index, -1);
+                    }}
+                  >
+                    ◀
+                  </button>
+                  <span className="modulation-palette-route">{routeLabel}</span>
+                  <span className="modulation-palette-count">
+                    {count > 0 ? `+${count}` : `${count}`}
+                  </span>
+                  <button
+                    className="modulation-palette-step"
+                    disabled={modulationMode !== "idle"}
+                    title="Step modulation forward"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStepModulationRoute(index, 1);
+                    }}
+                  >
+                    ▶
+                  </button>
+                  {canClearRoute && (
+                    <button
+                      className="modulation-palette-close"
+                      title="Remove modulation history row"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onClearModulationRoute(index);
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
 

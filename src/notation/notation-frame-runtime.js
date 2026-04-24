@@ -1,0 +1,157 @@
+import { spelledHejiLabel } from "./key-label.js";
+import { createReferenceFrame } from "./reference-frame.js";
+import { getWorkspaceSlot } from "../tuning/workspace.js";
+
+function modulo(value, modulus) {
+  if (!modulus) return value;
+  return ((value % modulus) + modulus) % modulus;
+}
+
+function cloneInterval(interval) {
+  if (!interval) return null;
+  return {
+    ...interval,
+    basis: Array.isArray(interval.basis) ? [...interval.basis] : interval.basis,
+    monzo: Array.isArray(interval.monzo) ? [...interval.monzo] : interval.monzo,
+    residual: interval.residual ?? null,
+    edo: interval.edo ? { ...interval.edo } : null,
+  };
+}
+
+function anchorDataFromWorkspace(workspace, degree) {
+  const slot = getWorkspaceSlot(workspace, degree);
+  return {
+    slot,
+    interval: cloneInterval(slot?.committedIdentity ?? null),
+    ratioText: slot?.sourceText?.includes("/")
+      ? slot.sourceText
+      : slot?.exactRole?.ratioText ?? slot?.sourceText ?? null,
+  };
+}
+
+function buildFrameId(frame) {
+  return [
+    frame.strategy,
+    frame.anchorDegree,
+    frame.anchorRatioText,
+    frame.referenceDegree,
+    frame.notationSystem,
+    frame.notationPolicy ?? "",
+    frame.heji.anchorLabel ?? "",
+    frame.heji.anchorOctave ?? "",
+    frame.generation,
+  ].join("|");
+}
+
+function buildReferenceFrame(frame) {
+  if (frame.notationSystem !== "letter_heji") return null;
+  if (!frame.heji.anchorLabel || !frame.anchorRatioText) return null;
+  try {
+    return createReferenceFrame({
+      anchorLabel: frame.heji.anchorLabel,
+      anchorRatio: frame.anchorRatioText,
+      anchorOctave: frame.heji.anchorOctave ?? 4,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function createHarmonicFrame(workspace, options = {}) {
+  const anchorDegree = options.anchorDegree ?? workspace?.baseScale?.referenceDegree ?? 0;
+  const anchorData = anchorDataFromWorkspace(workspace, anchorDegree);
+  const frame = {
+    id: "",
+    generation: options.generation ?? 0,
+    strategy: options.strategy ?? "anchor_substitution",
+    anchorDegree,
+    anchorRatioText: options.anchorRatioText ?? anchorData.ratioText ?? "1/1",
+    anchorInterval: options.anchorInterval ?? anchorData.interval,
+    referenceDegree: options.referenceDegree ?? workspace?.baseScale?.referenceDegree ?? 0,
+    notationSystem: options.notationSystem ?? "letter_heji",
+    notationPolicy: options.notationPolicy ?? null,
+    equaveCents: options.equaveCents ?? workspace?.baseScale?.equaveCents ?? 1200,
+    heji: {
+      anchorLabel: options.anchorLabel ?? options.hejiAnchorLabel ?? "A",
+      anchorOctave: options.anchorOctave ?? 4,
+    },
+  };
+  frame.referenceFrame = buildReferenceFrame(frame);
+  frame.id = buildFrameId(frame);
+  return frame;
+}
+
+export function mutateHarmonicFrame(frame, mutation = {}) {
+  const workspace = mutation.workspace ?? null;
+  const nextAnchorDegree = mutation.anchorDegree ?? frame.anchorDegree;
+  const anchorData =
+    workspace && (mutation.anchorDegree != null || mutation.rederiveAnchor === true)
+      ? anchorDataFromWorkspace(workspace, nextAnchorDegree)
+      : { interval: frame.anchorInterval, ratioText: frame.anchorRatioText };
+  const next = {
+    ...frame,
+    generation: mutation.generation ?? frame.generation + 1,
+    strategy: mutation.strategy ?? frame.strategy,
+    anchorDegree: nextAnchorDegree,
+    anchorRatioText: mutation.anchorRatioText ?? anchorData.ratioText ?? frame.anchorRatioText,
+    anchorInterval: mutation.anchorInterval ?? anchorData.interval ?? frame.anchorInterval,
+    referenceDegree: mutation.referenceDegree ?? frame.referenceDegree,
+    notationSystem: mutation.notationSystem ?? frame.notationSystem,
+    notationPolicy: mutation.notationPolicy ?? frame.notationPolicy,
+    equaveCents: mutation.equaveCents ?? frame.equaveCents,
+    heji: {
+      anchorLabel: mutation.anchorLabel ?? mutation.hejiAnchorLabel ?? frame.heji.anchorLabel,
+      anchorOctave: mutation.anchorOctave ?? frame.heji.anchorOctave,
+    },
+  };
+  next.referenceFrame = buildReferenceFrame(next);
+  next.id = buildFrameId(next);
+  return next;
+}
+
+export function spellSlotForFrame(slot, frame, options = {}) {
+  const anchorCents = frame.anchorInterval?.cents ?? 0;
+  const centsFromAnchor = modulo((slot?.cents ?? 0) - anchorCents, frame.equaveCents ?? 1200);
+  const ratioText = slot?.sourceText?.includes("/")
+    ? slot.sourceText
+    : slot?.exactRole?.ratioText ?? null;
+  let label = null;
+
+  if (frame.notationSystem === "letter_heji" && frame.referenceFrame) {
+    label = spelledHejiLabel(frame.referenceFrame, ratioText, centsFromAnchor, {
+      notationPolicy: frame.notationPolicy,
+      suppressDeviation: options.suppressDeviation ?? true,
+    });
+  } else if (frame.notationSystem === "none") {
+    label = null;
+  } else {
+    label = slot?.sourceText ?? null;
+  }
+
+  return {
+    degree: slot?.degree ?? null,
+    label,
+    ratioText,
+    exact: !!slot?.exactRole?.exact,
+    centsFromAnchor,
+  };
+}
+
+export function spellWorkspaceForFrame(workspace, frame, options = {}) {
+  const entries = (workspace?.slots ?? []).map((slot) => spellSlotForFrame(slot, frame, options));
+  return {
+    frame,
+    entries,
+    labelsByDegree: entries.map((entry) => entry.label),
+  };
+}
+
+export function deriveDegreeColorsForFrame(workspace, frame, options = {}) {
+  const degreeCount = workspace?.slots?.length ?? 0;
+  const baseColors = Array.isArray(options.baseColors) ? options.baseColors : [];
+  if (!baseColors.length) return Array.from({ length: degreeCount }, () => null);
+  return Array.from({ length: degreeCount }, (_, degree) => {
+    const sourceIndex = modulo(degree - frame.anchorDegree, baseColors.length);
+    return baseColors[sourceIndex] ?? null;
+  });
+}
