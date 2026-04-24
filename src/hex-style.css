@@ -362,6 +362,15 @@ a:hover {
   #main-bottom-controls #octave-island {
     font-size: 0.8em !important;
   }
+
+  #snapshot-button,
+  #redraw-button {
+    bottom: 2.8em !important;
+  }
+
+  #snapshot-list {
+    bottom: 6.05em !important;
+  }
 }
 
 /* Phone landscape: keep panic button clear of right edge */

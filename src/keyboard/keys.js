@@ -2947,6 +2947,9 @@ class Keys {
   };
 
   mouseDown = (e) => {
+    if (this._onFirstInteraction) {
+      this._onFirstInteraction();
+    }
     // Mouse now operates independently — no mutex guard against keyboard/touch.
 
     // Clean up stale activeMouse (e.g. mouseUp fired off-canvas).
@@ -3039,10 +3042,9 @@ class Keys {
 
   handleTouch = (e) => {
     e.preventDefault();
-    // First touch: fire the interaction callback (iOS AudioContext resume).
+    // Gesture-bound audio recovery may be needed again after iOS sleep/background.
     if (this._onFirstInteraction) {
       this._onFirstInteraction();
-      this._onFirstInteraction = null;
     }
     // Touch now operates independently — no mutex guard against mouse/keyboard.
 

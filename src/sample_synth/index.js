@@ -32,10 +32,13 @@ const isIOS =
 // This handler resumes it when the page becomes visible again.
 let iosVisibilityHandler = null;
 let iosPageShowHandler = null;
+let iosPageHideHandler = null;
+let iosForceRecreateOnPrepare = false;
 
 const createSharedAudioContext = () => {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   sharedAudioContext = new AudioContextClass();
+  iosForceRecreateOnPrepare = false;
   setupIOSAudioHandler();
   return sharedAudioContext;
 };
@@ -49,6 +52,10 @@ const setupIOSAudioHandler = () => {
   }
 
   iosVisibilityHandler = async () => {
+    if (document.visibilityState === "hidden") {
+      iosForceRecreateOnPrepare = true;
+      return;
+    }
     if (document.visibilityState === "visible" && sharedAudioContext) {
       if (sharedAudioContext.state === "suspended" || sharedAudioContext.state === "interrupted") {
         try {
@@ -84,6 +91,16 @@ const setupIOSAudioHandler = () => {
   };
 
   window.addEventListener("pageshow", iosPageShowHandler);
+
+  if (iosPageHideHandler) {
+    window.removeEventListener("pagehide", iosPageHideHandler);
+  }
+
+  iosPageHideHandler = () => {
+    iosForceRecreateOnPrepare = true;
+  };
+
+  window.addEventListener("pagehide", iosPageHideHandler);
 };
 
 // ─── Single findInstrument replaces six identical loops ───────────────────────
@@ -168,6 +185,17 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       // Creates/resumes the AudioContext and decodes all samples so that noteOn
       // is fully synchronous and has no latency.
       prepare: async () => {
+        if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
+          try {
+            await sharedAudioContext.close();
+          } catch (e) {
+            warnLog("iOS: Failed to close stale AudioContext:", e.message);
+          }
+          sharedAudioContext = null;
+          masterGain = null;
+          decodedBuffers = null;
+        }
+
         if (!sharedAudioContext || sharedAudioContext.state === "closed") {
           sharedAudioContext = createSharedAudioContext();
           masterGain = null;
@@ -188,6 +216,10 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
               warnLog("iOS: Please tap somewhere to enable audio");
             }
           }
+        }
+
+        if (isIOS && sharedAudioContext.state !== "running") {
+          iosForceRecreateOnPrepare = true;
         }
 
         // Master gain node — all voices connect here before destination.

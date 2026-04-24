@@ -29,6 +29,7 @@ function makeCanvas() {
     height: 0,
     style: {},
     getContext: () => context,
+    getBoundingClientRect: () => ({ left: 0, top: 0 }),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   };
@@ -159,6 +160,34 @@ describe("Keys MIDI input integration", () => {
     keys.midinoteOff(makeMidiEvent(61));
 
     expect(hexOff).toHaveBeenCalledWith(new Point(1, 0));
+  });
+
+  it("keeps calling the gesture audio callback on repeated touches", () => {
+    const onFirstInteraction = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      null,
+      null,
+      null,
+      null,
+      null,
+      onFirstInteraction,
+      null,
+      null,
+    );
+
+    keys.handleTouch({
+      preventDefault: vi.fn(),
+      targetTouches: [],
+    });
+    keys.handleTouch({
+      preventDefault: vi.fn(),
+      targetTouches: [],
+    });
+
+    expect(onFirstInteraction).toHaveBeenCalledTimes(2);
   });
 
   it("releases an existing MIDI voice before replacing it on same-note retrigger", () => {
