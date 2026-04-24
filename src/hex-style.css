@@ -606,12 +606,6 @@ a:hover {
   gap: 8px;
 }
 
-.modulation-palette-index {
-  min-width: 1.4em;
-  color: rgba(0, 90, 110, 0.75);
-  font-variant-numeric: tabular-nums;
-}
-
 .modulation-palette-header {
   color: #006e84;
   cursor: grab;
@@ -638,17 +632,37 @@ a:hover {
 
 .modulation-palette-close {
   width: 1.6em;
-  height: 1.6em;
+  padding: 0.2em 0;
+  font-size: 1.35em;
   line-height: 1;
   flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  border-radius: 0;
+  text-align: right;
+}
+
+.modulation-palette-close:hover {
+  color: #660000;
 }
 
 .modulation-palette-toggle {
   margin-left: auto;
-  min-width: 1.9em;
-  height: 1.8em;
-  line-height: 1;
+  width: 1.6em;
+  padding: 0;
+  font-size: 1.2em;
+  line-height: 1.4;
+  vertical-align: middle;
+  cursor: pointer;
+  min-width: 0;
+  height: auto;
   flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  border-radius: 0;
+  text-align: right;
 }
 
 .modulation-palette-step {

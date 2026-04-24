@@ -1325,7 +1325,6 @@ const App = () => {
                   className={`modulation-palette-row${count !== 0 ? " modulation-palette-row-active" : ""}`}
                   title={modulationPaletteTitle[index] || routeLabel}
                 >
-                  <span className="modulation-palette-index">{index + 1}.</span>
                   <button
                     className="modulation-palette-step"
                     disabled={modulationMode !== "idle"}
