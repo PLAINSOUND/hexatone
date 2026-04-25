@@ -50,7 +50,7 @@ const ScalaInput = ({
     ...style,
     border: valid || draft === "" ? (style?.border ?? "1px solid #c8b8b8") : "1.5px solid #c0392b",
   };
-  const resolvedInputMode = inputMode ?? "decimal";
+  const resolvedInputMode = inputMode ?? "text";
 
   const handleChange = (e) => {
     const s = e.target.value;
@@ -85,6 +85,9 @@ const ScalaInput = ({
       <input
         type="text"
         inputMode={resolvedInputMode}
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={draft}
         onInput={handleChange}
         onChange={handleChange}

@@ -94,28 +94,30 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
   return (
     <div class="color-cell">
       {/* Visible swatch — clicking opens the hidden picker */}
-      <span
-        ref={swatchRef}
-        class={`color-swatch${disabled ? " color-swatch--disabled" : ""}`}
-        style={{ backgroundColor: safe }}
-        onClick={handleSwatchClick}
-        title={disabled ? undefined : "Click to open colour picker"}
-        role={disabled ? undefined : "button"}
-        aria-label={disabled ? undefined : `open colour picker for ${name}`}
-      />
+      <span class="color-swatch-hitbox">
+        <span
+          ref={swatchRef}
+          class={`color-swatch${disabled ? " color-swatch--disabled" : ""}`}
+          style={{ backgroundColor: safe }}
+          onClick={handleSwatchClick}
+          title={disabled ? undefined : "Click to open colour picker"}
+          role={disabled ? undefined : "button"}
+          aria-label={disabled ? undefined : `open colour picker for ${name}`}
+        />
 
-      {/* Hidden native color picker — provides the HSL picker UI */}
-      <input
-        ref={pickerRef}
-        type="color"
-        class="color-picker-hidden"
-        value={safe}
-        disabled={disabled}
-        onInput={handlePickerInput}
-        onChange={handlePickerChange}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
+        {/* Hidden native color picker — provides the HSL picker UI */}
+        <input
+          ref={pickerRef}
+          type="color"
+          class="color-picker-hidden"
+          value={safe}
+          disabled={disabled}
+          onInput={handlePickerInput}
+          onChange={handlePickerChange}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </span>
 
       {/* Editable hex text input */}
       <input

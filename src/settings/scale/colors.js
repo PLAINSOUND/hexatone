@@ -105,25 +105,27 @@ const Colors = (props) => {
           <label>
             Choose Central Hue
             <div class="color-cell color-cell--label-rhs">
-              <span
-                ref={swatchRef}
-                class="color-swatch"
-                style={{ backgroundColor: safe }}
-                onClick={handleSwatchClick}
-                title="Click to open colour picker"
-                role="button"
-                aria-label="open colour picker for central hue"
-              />
-              <input
-                ref={pickerRef}
-                type="color"
-                class="color-picker-hidden"
-                value={safe}
-                onInput={handlePickerInput}
-                onChange={handlePickerChange}
-                tabIndex={-1}
-                aria-hidden="true"
-              />
+              <span class="color-swatch-hitbox">
+                <span
+                  ref={swatchRef}
+                  class="color-swatch"
+                  style={{ backgroundColor: safe }}
+                  onClick={handleSwatchClick}
+                  title="Click to open colour picker"
+                  role="button"
+                  aria-label="open colour picker for central hue"
+                />
+                <input
+                  ref={pickerRef}
+                  type="color"
+                  class="color-picker-hidden"
+                  value={safe}
+                  onInput={handlePickerInput}
+                  onChange={handlePickerChange}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </span>
               <input
                 ref={textRef}
                 type="text"

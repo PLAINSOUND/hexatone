@@ -263,6 +263,14 @@ input[type="range"]:hover::-moz-range-thumb {
   text-align: right;
 }
 
+.color-swatch-hitbox {
+  position: relative;
+  display: inline-block;
+  width: 1.4em;
+  height: 1.4em;
+  flex-shrink: 0;
+}
+
 .color-swatch {
   display: inline-block;
   width: 1.4em;
@@ -290,10 +298,9 @@ input[type="range"]:hover::-moz-range-thumb {
 /* Transparent native picker sits over swatch — iOS needs a real touch target */
 .color-picker-hidden {
   position: absolute;
-  right: 0;
-  top: 0;
-  width: 1.4em !important;
-  height: 1.4em !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
   padding: 0 !important;
   border: none !important;
   opacity: 0;
@@ -369,8 +376,9 @@ td.scale-color-col {
 }
 
 td.scale-color-col .color-cell {
-  width: 100%;
-  justify-content: flex-start; /* row-reverse: swatch pushed to right edge */
+  width: auto;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 td.scale-color-col .color-input {
@@ -523,10 +531,22 @@ td.scale-name-col input { width: 100%; }
   th.scale-color-col,     td.scale-color-col     { width: 12%; padding-left: 0; padding-right: 0; }
 
   td.scale-name-col input { width: 100%; }
+  td.scale-frequency-col { position: relative; }
 
   td.scale-color-col .color-cell {
     /* row-reverse: flex-end pushes swatch to the left edge on small screens */
     justify-content: flex-end;
+  }
+
+  td.scale-frequency-col input.frequency-input:focus {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    z-index: 6;
+    width: max(8.2em, 100%);
+    transform: translateY(-50%);
+    background: var(--color-bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 }
 
