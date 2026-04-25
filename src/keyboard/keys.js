@@ -3347,12 +3347,13 @@ class Keys {
 
   _handleIncomingWheelBend(val14) {
     this._wheelInputValue14 = val14;
-    if (!this.inputRuntime.wheelToRecent) {
-      this._stopWheelSlew(true);
-      this._handleWheelBend(val14);
-      return;
-    }
-    this._setWheelSlewTarget(val14);
+    // Apply controller pitch bend synchronously. The old rAF slew path can
+    // stall when the browser window is not focused, which drops live bend
+    // expression while notes/CC still pass through.
+    this._stopWheelSlew(false);
+    this._wheelSlew.current = val14;
+    this._wheelSlew.target = val14;
+    this._handleWheelBend(val14);
   }
 
   _setWheelSlewTarget(val14) {

@@ -971,27 +971,24 @@ describe("Keys MIDI input integration", () => {
     expect(slewSpy).not.toHaveBeenCalled();
   });
 
-  it("slews wheel bend through intermediate values in wheel-to-recent mode", () => {
+  it("applies wheel-to-recent bend immediately without rAF slew", () => {
     const keys = createKeys({}, {
       wheelToRecent: true,
       pitchBendMode: "recency",
     });
     const handleSpy = vi.spyOn(keys, "_handleWheelBend");
+    const slewSpy = vi.spyOn(keys, "_setWheelSlewTarget");
     vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
 
     keys._wheelValue14 = 8192;
     keys._handleIncomingWheelBend(12000);
 
-    expect(handleSpy).not.toHaveBeenCalled();
+    expect(handleSpy).toHaveBeenCalledWith(12000);
+    expect(slewSpy).not.toHaveBeenCalled();
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+    expect(keys._wheelSlew.current).toBe(12000);
     expect(keys._wheelSlew.target).toBe(12000);
-
-    keys._tickWheelSlew(16);
-
-    expect(handleSpy).toHaveBeenCalledTimes(1);
-    const firstValue = handleSpy.mock.calls[0][0];
-    expect(firstValue).toBeGreaterThan(8192);
-    expect(firstValue).toBeLessThan(12000);
   });
 
   it("does not directly retune non-sample hexes in standard wheel mode", () => {
@@ -1072,9 +1069,9 @@ describe("Keys MIDI input integration", () => {
     keys.hexOn(new Point(1, 0), 60, 96, 0);
 
     listeners.pitchbend(makePitchBendEvent(12000));
-    keys._tickWheelSlew(16);
 
     expect(passthroughSpy).not.toHaveBeenCalled();
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
     expect(keys._wheelBend).not.toBe(0);
   });
 
