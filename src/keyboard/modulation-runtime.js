@@ -1,3 +1,9 @@
+// This module owns the modulation gesture/history state machine only.
+// It does not derive tuning from settings.scale and does not mutate the
+// committed ScaleWorkspace. Callers supply frame objects derived from the
+// current workspace/tuning runtime, keeping modulation as an interpretation
+// layer above committed tuning.
+
 function coordKey(coords) {
   if (!coords) return null;
   return `${coords.x},${coords.y}`;
@@ -10,6 +16,8 @@ function geometryModeForStrategy(strategy) {
 }
 
 function normalizeHistoryEntry(entry = {}) {
+  // A history entry is a reusable modulation operator. count says how many
+  // signed steps of this operator are currently active in the live frame.
   return {
     sourceDegree: entry.sourceDegree ?? null,
     targetDegree: entry.targetDegree ?? null,
@@ -121,6 +129,10 @@ export function commitModulationTarget(state, options = {}) {
 
   const sourceStillSounding = options.sourceStillSounding !== false;
   const decisionType = sourceStillSounding ? "takeover" : "attack";
+  // pendingFrame is already derived by the caller from the committed tuning
+  // substrate plus the selected source/target. This state machine only records
+  // when that frame becomes active and whether the target should attack or
+  // take over an existing source voice.
   const strategy = options.strategy ?? state.strategy;
   const geometryMode =
     options.geometryMode ??
@@ -159,6 +171,8 @@ export function commitModulationTarget(state, options = {}) {
 }
 
 export function frameForNewNotes(state) {
+  // During settlement, newly played notes use the new interpreted frame while
+  // legacy held notes are allowed to finish in their onset frame.
   if (state.mode === "pending_settlement" && state.pendingFrame) return state.pendingFrame;
   return state.currentFrame;
 }
@@ -230,6 +244,8 @@ export function setModulationHistoryIndex(state, historyIndex, currentFrame = st
 }
 
 export function setModulationRouteCount(state, routeIndex, count, currentFrame = state.currentFrame) {
+  // currentFrame is supplied by the caller because deriving a frame from route
+  // counts depends on the active tuning/workspace runtime, not just this state.
   const history = Array.isArray(state.history) ? state.history.map(normalizeHistoryEntry) : [];
   if (routeIndex < 0 || routeIndex >= history.length) return state;
   const nextCount = Number.isFinite(count) ? Math.trunc(count) : 0;

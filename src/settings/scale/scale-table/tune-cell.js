@@ -149,6 +149,9 @@ const TuneCell = ({
 
   const openRationaliseCandidates = useCallback(
     (targetCents) => {
+      // TuneCell owns transient preview state only. Candidate search reads the
+      // committed workspace plus this row's current cents target; committing the
+      // chosen ratio still happens through the normal scale update path.
       const request = getRationalisationRequest({
         degree,
         tunedCents: targetCents,
@@ -192,6 +195,7 @@ const TuneCell = ({
       dragStart.current.lastX = e.clientX;
       dragStart.current.accCents = newCents;
       setTunedCents(newCents);
+      // Free dragging invalidates any previously snapped exact candidate.
       setPreviewInterval(null);
       setRationaliseCandidates(null);
       // Use glideTo so fast swipes interpolate smoothly rather than jumping.
@@ -220,6 +224,8 @@ const TuneCell = ({
 
   const onSave = useCallback(() => {
     const saveVal = tunedCents !== null ? tunedCents : originalCents.current;
+    // getSaveString guards the exact-ratio path: only a still-valid snapped
+    // preview writes ratio text, otherwise the current cents value is saved.
     const saveStr = getSaveString({
       committedInterval,
       previewInterval,

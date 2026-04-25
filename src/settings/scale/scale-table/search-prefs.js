@@ -1,5 +1,9 @@
 import { CANONICAL_MONZO_BASIS } from "../../../tuning/interval.js";
 
+// UI-facing search preferences for scale rationalisation. Values are stored as
+// strings because they are edited directly in text inputs; adapter code parses
+// them before calling the pure tuning search engine.
+
 // All non-2 primes in the canonical basis — used to build the full prime grid.
 export const PRIME_BOUND_KEYS = CANONICAL_MONZO_BASIS.filter((p) => p !== 2);
 // Split into two rows: common primes (3–19) and extended primes (23+).

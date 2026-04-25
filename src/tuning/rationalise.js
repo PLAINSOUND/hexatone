@@ -4,6 +4,10 @@ import {
   DEFAULT_TUNEABLE_INTERVALS,
 } from "./tuneable-intervals.js";
 
+// Pure candidate-search and scoring engine for scale rationalisation.
+// Input is a target cents value plus optional ScaleWorkspace context; output is
+// ranked exact-ratio candidates. UI modules decide whether to preview or commit.
+
 // Maximum log2 of numerator or denominator we will try to materialise as a
 // Fraction.  2^53 is Number.MAX_SAFE_INTEGER; anything beyond that breaks the
 // Fraction library.  We leave a comfortable margin.
@@ -567,6 +571,9 @@ function _tryPushCandidate(monzo, targetCents, tol, merged, candidates) {
 }
 
 export function enumerateCandidatesFromBounds(targetCents, options = {}) {
+  // Enumerates possible monzos inside the user's prime/region/odd-limit bounds.
+  // Most filtering happens before Fraction construction so high-prime searches
+  // stay safe and fast enough for scale-table interaction.
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
   const primeBounds = merged.primeBounds ?? primeLimitToBounds(merged.primeLimit);
   const rangeEntries = boundsToRanges(primeBounds, merged.region, merged.primeBoundsUt ?? null);
@@ -961,6 +968,9 @@ export function contextualConsonanceScore(candidate, context, options = {}) {
 }
 
 export function scoreRationalCandidate(candidate, context, options = {}, _scaleCents = null, _committedMonzos = null) {
+  // Combines local fit (radius/deviation) with scale context. This is the main
+  // ranking boundary that future retuning work can replace or extend without
+  // changing TuneCell's preview/commit mechanics.
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
   const { total, best, bestRatio } = contextualConsonanceScore(candidate, context, merged);
   const ctxTol = merged.contextTolerance ?? DEFAULT_CONTEXT_CONSONANCE_TOLERANCE;
@@ -1037,6 +1047,8 @@ export function chooseBestRationalCandidate(candidates, strategy = "harmonic_rad
 }
 
 export function findRationalCandidates(targetCents, options = {}) {
+  // Public entry point for callers: search a bounded ratio field, then rerank
+  // against workspace context when available.
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
   const candidates = enumerateCandidatesFromBounds(targetCents, merged);
   const prefiltered = candidates.slice(0, Math.max(merged.maxCandidates * 3, 16));

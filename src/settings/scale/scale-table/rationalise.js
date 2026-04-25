@@ -8,6 +8,10 @@ import {
 } from "../../../tuning/rationalise.js";
 import { parseOptionalPositiveInt, buildPrimeBoundsFromPrefs } from "./search-prefs.js";
 
+// Scale-table adapter around the pure rationalisation engine.
+// This file translates UI/workspace state into search requests, formats candidate
+// metadata for display, and decides whether a preview can be saved as a ratio.
+
 const PREVIEW_RATIO_TOLERANCE_CENTS = 0.05;
 
 // Format the prime-limit of a candidate as an overtonal/undertonal pair.
@@ -74,6 +78,8 @@ export function getRationalisationRequest({
   frequencyAtDegree,
   searchPrefs,
 }) {
+  // Package the row-local preview target together with workspace context and
+  // search preferences. The pure engine should not know about TuneCell state.
   const primeLimit = parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? 19;
   const { primeBounds, primeBoundsUt } = buildPrimeBoundsFromPrefs(searchPrefs, primeLimit);
   return {
@@ -157,6 +163,9 @@ function buildCommittedRatioCandidate(slot, baseRequest) {
 }
 
 export function getHumanTestableRationalCandidates(baseRequest) {
+  // Keeps the candidate list inspectable for humans: include the committed ratio
+  // when relevant, search within the selected bounds, and return a small ranked
+  // set with enough scoring metadata for judgement.
   const maxCandidates = baseRequest.maxCandidates ?? 8;
   const committedCandidate = buildCommittedRatioCandidate(
     getWorkspaceSlot(baseRequest.workspace, baseRequest.targetDegree),
@@ -199,6 +208,8 @@ export function getHumanTestableRationalCandidates(baseRequest) {
 }
 
 export function getSaveString({ committedInterval, previewInterval, tunedCents, committedCents }) {
+  // Exact preview identity is only saved when it still matches the audible
+  // preview cents. A later free drag must not accidentally commit a stale ratio.
   if (previewInterval && tunedCents !== null) {
     const previewCents = previewInterval?.cents ?? null;
     if (previewCents !== null && Math.abs(previewCents - tunedCents) <= PREVIEW_RATIO_TOLERANCE_CENTS) {

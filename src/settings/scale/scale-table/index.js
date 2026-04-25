@@ -22,6 +22,10 @@ import {
   getHumanTestableRationalCandidates,
 } from "./rationalise.js";
 
+// ScaleTable is the UI workspace for rationalisation. It derives committed row
+// state from ScaleWorkspace, lets TuneCell create transient previews, then
+// commits chosen ratio/cents strings back into settings.scale.
+
 // sidebar display of the scala file, degrees, note names, colors in an html table format
 const ScaleTable = (props) => {
   const { scale, equiv_interval } = useMemo(() => {
@@ -159,6 +163,8 @@ const ScaleTable = (props) => {
   // degrees had no cross-degree signal and later degrees were locked into
   // whatever earlier degrees happened to pick.
   const rationaliseScale = useCallback(() => {
+    // Batch rationalisation is a scale-editing operation. It writes exact ratio
+    // strings back into settings.scale; it does not affect live modulation state.
     const currentScale = [...(props.settings.scale || [])];
     const equaveIdx = currentScale.length - 1; // last entry is the equave — never touched
 

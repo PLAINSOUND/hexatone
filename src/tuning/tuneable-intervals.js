@@ -1,3 +1,7 @@
+// Curated interval source material for rationalisation scoring.
+// These lists are not the user's scale; they are reference vocabularies used to
+// recognise musically useful dyads, neighbouring families, and overtonal paths.
+
 const RAW_TUNEABLE_INTERVALS = [
   [[1, 1], 0],
   [[9, 8], 203.91000173077484],

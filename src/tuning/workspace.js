@@ -1,5 +1,10 @@
 import { CANONICAL_MONZO_BASIS, intervalResidualToString, parseExactInterval } from "./interval.js";
 
+// ScaleWorkspace is the non-persistent exact-interval view of settings.scale.
+// It is the committed tuning substrate: app/output/Keys may normalize it to
+// cents for playback, while modulation should layer interpreted frame state
+// above it rather than rewriting the committed slots.
+
 function harmonicRadiusFromInterval(interval) {
   if (!Array.isArray(interval?.monzo)) return null;
   return (
@@ -13,6 +18,8 @@ function harmonicRadiusFromInterval(interval) {
 }
 
 function deriveExactRole(interval) {
+  // Exact identity is kept beside cents so later notation/modulation code does
+  // not have to infer ratios back from floating-point pitch.
   return {
     exact: !!interval?.exact,
     ratioText: interval?.ratio ? interval.ratio.toFraction() : null,
@@ -69,6 +76,8 @@ function cloneWorkspaceSlot(slot) {
 }
 
 function buildLookup(slots) {
+  // Hot paths such as scale-table rows and future frame derivation need stable
+  // degree lookup without re-parsing the scale text.
   return {
     byDegree: new Map(slots.map((slot) => [slot.degree, slot])),
     exactDegrees: slots.filter((slot) => slot.exactRole.exact).map((slot) => slot.degree),
@@ -91,6 +100,8 @@ function buildSlotFromScaleText(text, degree) {
     degree,
     sourceText,
     interval,
+    // committedIdentity is what the live instrument should treat as the saved
+    // tuning. previewIdentity is reserved for scale-table/rationalisation trials.
     committedIdentity: cloneInterval(interval),
     previewIdentity: null,
     cents: interval?.cents ?? null,
@@ -120,6 +131,9 @@ export function workspaceSlotFromText(text, degree, options = {}) {
 }
 
 export function createScaleWorkspace(settings, options = {}) {
+  // settings.scale stores degrees 1..n plus the equave as the final entry.
+  // The workspace inserts explicit degree 0 = 1/1 and keeps the equave outside
+  // the playable slot list, matching the shape needed by Keys and frame logic.
   const rawEntries = Array.isArray(settings?.scale) ? settings.scale.map((entry) => String(entry)) : [];
   const equaveText = rawEntries.length ? rawEntries[rawEntries.length - 1] : options.defaultEquave ?? "2/1";
   const scaleEntries = rawEntries.length ? rawEntries.slice(0, -1) : [];
@@ -136,6 +150,8 @@ export function createScaleWorkspace(settings, options = {}) {
     slots,
     lookup: buildLookup(slots),
     notation: {
+      // Placeholder for frame-aware notation caches. Live modulation should
+      // compute interpreted labels/colors from frames, not mutate baseScale.
       defaultFrame: null,
       cachedByFrameId: new Map(),
     },
@@ -159,6 +175,9 @@ export function getPreviewInterval(workspace, degree) {
 }
 
 export function setWorkspacePreview(workspace, degree, previewInterval, previewCents = null) {
+  // Preview state is deliberately separate from committedIdentity: free dragging
+  // can clear exact identity, while snapping a rational candidate can restore it
+  // until the user decides whether to commit.
   const slots = workspace.slots.map((slot) => {
     if (slot.degree !== degree) return cloneWorkspaceSlot(slot);
     const next = cloneWorkspaceSlot(slot);
@@ -181,6 +200,9 @@ export function clearWorkspacePreview(workspace, degree) {
 }
 
 export function commitWorkspacePreview(workspace, degree) {
+  // Committing a preview promotes exact ratio identity and cents together.
+  // This is scale editing, not modulation: live modulation should derive an
+  // interpreted frame above the committed workspace instead of calling this.
   const slots = workspace.slots.map((slot) => {
     const next = cloneWorkspaceSlot(slot);
     if (slot.degree !== degree || !slot.previewIdentity) return next;
@@ -200,6 +222,9 @@ export function commitWorkspacePreview(workspace, degree) {
 }
 
 export function normalizeWorkspaceForKeys(workspace) {
+  // Boundary adapter for the current cents-first playback code. It preserves
+  // exact intervals for future frame/notation work, but also emits the legacy
+  // scale/equivInterval/equivSteps shape consumed by Keys and output routing.
   const degreeCents = workspace.slots.map((slot) => slot.cents);
   return {
     degreeIntervals: workspace.slots.map((slot) => cloneInterval(slot.committedIdentity)),

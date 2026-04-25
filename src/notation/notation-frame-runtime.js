@@ -2,6 +2,10 @@ import { spelledHejiLabel } from "./key-label.js";
 import { createReferenceFrame } from "./reference-frame.js";
 import { getWorkspaceSlot } from "../tuning/workspace.js";
 
+// Bridge layer between ScaleWorkspace and live modulation display state.
+// It reads committed workspace slots, derives a frame-relative interpretation,
+// and returns labels/colors without changing the underlying tuning workspace.
+
 function modulo(value, modulus) {
   if (!modulus) return value;
   return ((value % modulus) + modulus) % modulus;
@@ -19,6 +23,8 @@ function cloneInterval(interval) {
 }
 
 function anchorDataFromWorkspace(workspace, degree) {
+  // Frames are anchored in the same degree-0 coordinate system used by
+  // ScaleWorkspace slots. Avoid mixing this with reference-degree pitch offsets.
   const slot = getWorkspaceSlot(workspace, degree);
   return {
     slot,
@@ -58,6 +64,9 @@ function buildReferenceFrame(frame) {
 }
 
 export function createHarmonicFrame(workspace, options = {}) {
+  // A HarmonicFrame is runtime interpretation state. It can change during
+  // modulation while the committed workspace and sounding-note substrate remain
+  // stable.
   const anchorDegree = options.anchorDegree ?? workspace?.baseScale?.referenceDegree ?? 0;
   const anchorData = anchorDataFromWorkspace(workspace, anchorDegree);
   const frame = {
@@ -82,6 +91,8 @@ export function createHarmonicFrame(workspace, options = {}) {
 }
 
 export function mutateHarmonicFrame(frame, mutation = {}) {
+  // Re-anchor or adjust display policy without editing any scale slot. This is
+  // the operation live modulation should eventually call after deriving a route.
   const workspace = mutation.workspace ?? null;
   const nextAnchorDegree = mutation.anchorDegree ?? frame.anchorDegree;
   const anchorData =
@@ -138,6 +149,8 @@ export function spellSlotForFrame(slot, frame, options = {}) {
 }
 
 export function spellWorkspaceForFrame(workspace, frame, options = {}) {
+  // Derive a complete display snapshot from committed workspace + current frame.
+  // Keys can consume this as interpreted label state without being reconstructed.
   const entries = (workspace?.slots ?? []).map((slot) => spellSlotForFrame(slot, frame, options));
   return {
     frame,

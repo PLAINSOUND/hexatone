@@ -6,6 +6,10 @@ import {
   toMonzo,
 } from "xen-dev-utils";
 
+// Exact interval primitives used by workspace, rationalisation, notation, and
+// future retuning. This module preserves ratio/monzo identity alongside cents
+// so downstream code does not have to recover musical structure from floats.
+
 export const DEFAULT_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23];
 
 export const EXTENDED_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
@@ -99,6 +103,9 @@ export function classifyIntervalText(sourceText) {
 }
 
 export function parseExactInterval(sourceText, options = {}) {
+  // The parser is intentionally permissive about input kinds, but only ratios
+  // and integers produce exact monzos. Cents and EDO values remain usable pitch
+  // targets for rationalisation without pretending to be exact JI identities.
   const basis = options.basis ?? CANONICAL_MONZO_BASIS;
   const kind = classifyIntervalText(sourceText);
   const trimmed = typeof sourceText === "string" ? sourceText.trim() : "";
