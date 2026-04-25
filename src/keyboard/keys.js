@@ -46,7 +46,11 @@ import {
   removeSustainedHex,
 } from "./sounding-note-runtime.js";
 import {
+  applyTransferredCC74,
+  applyTransferredPitchBend,
+  applyTransferredSourceAftertouch,
   createTransferredHex,
+  releaseTransferredSourceExpression,
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
 import {
@@ -379,9 +383,7 @@ class Keys {
           // by matching note + channel encoding, then ramp its gain smoothly
           const note_played = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
           const hex = this.state.activeMidi.get(note_played);
-          if (hex && hex.aftertouch) {
-            hex.aftertouch(e.message.dataBytes[1]);
-          }
+          this._applyPolyAftertouch(hex, e.message.dataBytes[1]);
         });
 
         // Universal CC listener — runs for all output modes.
@@ -461,7 +463,7 @@ class Keys {
             const col = cc - 64;                                   // 1-indexed column
             const note_played = col + 128 * (e.message.channel - 1);
             const hex = this.state.activeMidi.get(note_played);
-            if (hex && !hex.release && hex.cc74) hex.cc74(value); // Y → timbre/slide
+            this._applyTimbreCC74(hex, value); // Y → timbre/slide
           } else if (cc === 64) {
             // Sustain pedal
             if (value > 0) {
@@ -500,7 +502,7 @@ class Keys {
             if (this.inputRuntime.mpeInput) {
               // MPE input mode: CC74 is per-voice, carried on the note's channel.
               const entry = this.state.activeMidiByChannel.get(e.message.channel);
-              if (entry && !entry.hex.release && entry.hex.cc74) entry.hex.cc74(value);
+              if (entry && !entry.hex.release) this._applyTimbreCC74(entry.hex, value);
             } else {
               // Non-MPE: brightness to front of recency stack (global target).
               const front = this.recencyStack.front;
@@ -524,7 +526,7 @@ class Keys {
             // MTS output send 0xAn poly-AT with the correct carrier note number.
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
             if (entry && !entry.hex.release) {
-              if (entry.hex.aftertouch) entry.hex.aftertouch(value);
+              this._applyPolyAftertouch(entry.hex, value);
             }
             return;
           }
@@ -692,14 +694,7 @@ class Keys {
             // Route to the hex registered on this channel, bypassing the recency stack.
             this._mpeInputBendByChannel.set(e.message.channel, val14);
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
-            if (entry && !entry.hex.release) {
-              let norm = (val14 - 8192) / 8192;
-              if (this.inputRuntime.bendFlip) norm = -norm;
-              const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
-              const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
-              entry.baseCents = baseCents;
-              entry.hex.retune(baseCents + norm * rangeCents, true);
-            }
+            if (entry && !entry.hex.release) this._applyMpePitchBend(entry, e.message.channel, val14);
             // In MPE input mode we do NOT pass through to the output — each hex's
             // retune() call handles expression for its own output engine.
             // Scale mode pre-bend capture: record bend per channel so note-on can
@@ -1110,6 +1105,44 @@ class Keys {
     this._updateWheelTarget();
     this._applyCurrentWheelToHex(proxy);
     return proxy;
+  }
+
+  _applyPolyAftertouch(hex, value) {
+    if (!hex || hex.release) return;
+    const aftertouch = Math.max(0, Math.min(127, Number(value) || 0));
+    hex._lastAftertouch = aftertouch;
+    if (applyTransferredSourceAftertouch(hex, aftertouch)) return;
+    hex.aftertouch?.(aftertouch);
+  }
+
+  _applyTimbreCC74(hex, value) {
+    if (!hex || hex.release) return;
+    const cc74 = Math.max(0, Math.min(127, Number(value) || 0));
+    hex._lastCC74 = cc74;
+    if (applyTransferredCC74(hex, cc74)) return;
+    hex.cc74?.(cc74);
+  }
+
+  _normalizePitchBend14(value) {
+    const bend = Number(value);
+    if (!Number.isFinite(bend)) return 8192;
+    return Math.max(0, Math.min(16383, bend));
+  }
+
+  _applyMpePitchBend(entry, channel, value14) {
+    if (!entry?.hex || entry.hex.release) return;
+    const bend14 = this._normalizePitchBend14(value14);
+    this._mpeInputBendByChannel.set(channel, bend14);
+    let norm = (bend14 - 8192) / 8192;
+    if (this.inputRuntime.bendFlip) norm = -norm;
+    const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
+    const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
+    const bentCents = baseCents + norm * rangeCents;
+    entry.baseCents = baseCents;
+    entry.hex._lastPitchBend14 = bend14;
+    entry.hex._lastPitchBendCents = bentCents;
+    if (applyTransferredPitchBend(entry.hex, { value14: bend14, cents: bentCents })) return;
+    entry.hex.retune?.(bentCents, true);
   }
 
   _hasLegacyFrameNotes() {
@@ -2557,6 +2590,7 @@ class Keys {
 
   noteOff(hex, release_velocity) {
     if (shouldSuppressTransferredSourceRelease(hex)) {
+      releaseTransferredSourceExpression(hex);
       this.recencyStack.remove(hex);
       this._updateWheelTarget(true);
       return;
@@ -3443,12 +3477,10 @@ class Keys {
     if (!hex?.retune || hex.release) return;
     hex._baseCents = baseCents;
     if (this.inputRuntime.mpeInput && hex._inputChannel != null) {
-      let norm = ((this._mpeInputBendByChannel.get(hex._inputChannel) ?? 8192) - 8192) / 8192;
-      if (this.inputRuntime.bendFlip) norm = -norm;
-      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
-      hex.retune(baseCents + norm * rangeCents, true);
-      const entry = this.state.activeMidiByChannel.get(hex._inputChannel);
-      if (entry?.hex === hex) entry.baseCents = baseCents;
+      const channel = hex._inputChannel;
+      const entry = this.state.activeMidiByChannel.get(channel) ?? { hex, baseCents };
+      entry.baseCents = baseCents;
+      this._applyMpePitchBend(entry, channel, this._mpeInputBendByChannel.get(channel) ?? 8192);
       return;
     }
     hex.retune(baseCents, bendOnly);
@@ -3516,14 +3548,9 @@ class Keys {
 
   _reapplyCurrentInputBends() {
     if (this.inputRuntime.mpeInput) {
-      const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
       for (const [channel, entry] of this.state.activeMidiByChannel) {
         if (!entry || entry.hex.release) continue;
-        let norm = ((this._mpeInputBendByChannel.get(channel) ?? 8192) - 8192) / 8192;
-        if (this.inputRuntime.bendFlip) norm = -norm;
-        const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
-        entry.baseCents = baseCents;
-        entry.hex.retune(baseCents + norm * rangeCents, true);
+        this._applyMpePitchBend(entry, channel, this._mpeInputBendByChannel.get(channel) ?? 8192);
       }
       return;
     }

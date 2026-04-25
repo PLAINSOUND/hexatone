@@ -42,6 +42,7 @@
 
 :root {
   /* iOS safe-area insets (Dynamic Island, home bar) */
+  --safe-area-top:   env(safe-area-inset-top,   0px);
   --safe-area-left:  env(safe-area-inset-left,  0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
 
@@ -608,22 +609,25 @@ a:hover {
   z-index: 12;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 12.5rem;
-  padding: 8px 10px;
-  border-radius: 14px;
+  gap: 4px;
+  min-width: 11.3rem;
+  padding: 7px 9px;
+  border-radius: 5px;
   background: rgba(220, 245, 250, 0.78);
   -webkit-backdrop-filter: blur(12px) saturate(0.9);
   backdrop-filter: blur(12px) saturate(0.9);
   border: 1px solid rgba(0, 127, 150, 0.35);
   box-shadow: 0 2px 14px rgba(0, 90, 110, 0.12);
+  font-size: 0.9em;
+  line-height: 1;
 }
 
 .modulation-palette-header,
 .modulation-palette-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  line-height: 1;
 }
 
 .modulation-palette-header {
@@ -640,11 +644,8 @@ a:hover {
 }
 
 .modulation-palette-close,
-.modulation-palette-toggle,
-.modulation-palette-step {
-  border-radius: var(--btn-radius-pill);
-  border: 1px solid rgba(0, 127, 150, 0.35);
-  background: rgba(255, 255, 255, 0.72);
+.modulation-palette-toggle
+{
   color: #006e84;
   -webkit-user-select: none;
   user-select: none;
@@ -653,7 +654,7 @@ a:hover {
 .modulation-palette-close {
   width: 1.6em;
   padding: 0.2em 0;
-  font-size: 1.35em;
+  font-size: 1.2rem;
   line-height: 1;
   flex: 0 0 auto;
   border: none;
@@ -671,8 +672,8 @@ a:hover {
   margin-left: auto;
   width: 1.6em;
   padding: 0;
-  font-size: 1.2em;
-  line-height: 1.4;
+  font-size: 1.2rem;
+  line-height: 1;
   vertical-align: middle;
   cursor: pointer;
   min-width: 0;
@@ -684,23 +685,30 @@ a:hover {
   border-radius: 0;
   text-align: right;
   box-shadow: none;
-  text-shadow: none;
-  appearance: none;
+  text-shadow: none;  
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .modulation-palette-step {
-  min-width: 2em;
-  height: 1.9em;
-  padding: 0;
-  font-size: 1.02em;
+  min-width: 0;
+  height: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 0.7rem;
   line-height: 1;
   font-family: inherit;
   font-weight: 400;
-  box-shadow: none;
-  text-shadow: none;
-  appearance: none;
+  box-shadow: transparent;
+  text-shadow: transparent;  
   -webkit-appearance: none;
+  appearance: none;
+}
+
+.modulation-palette-step:hover {
+  background-color: rgba(221, 208, 208, 0.55);
 }
 
 .modulation-palette-step:disabled {
@@ -715,16 +723,17 @@ a:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1;
 }
 
 .modulation-palette-route-arrow {
   position: relative;
   display: inline-block;
-  width: 1.15em;
-  height: 0.7em;
-  margin: 0 0.28em;
-  vertical-align: middle;
-  background: linear-gradient(currentColor, currentColor) center / calc(100% - 0.46em) 1px no-repeat;
+  width: 1.28em;
+  height: 0.66em;
+  margin: 0 0.24em;
+  vertical-align: 0.08em;
+  background: linear-gradient(currentColor, currentColor) center / calc(100% - 0.62em) 1.25px no-repeat;
 }
 
 .modulation-palette-route-arrow::before,
@@ -733,24 +742,14 @@ a:hover {
   position: absolute;
   background: currentColor;
   top: 50%;
-  width: 0.28em;
-  height: 0.28em;
+  width: 0.35em;
+  height: 0.35em;
   transform: translateY(-50%);
 }
 
-.modulation-palette-route-arrow::before {
-  left: 0;
-  clip-path: polygon(100% 0, 0 50%, 100% 100%);
-}
+.modulation-palette-route-arrow::before { left: 0; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
 
-.modulation-palette-route-arrow::after {
-  right: 0;
-  clip-path: polygon(0 0, 100% 50%, 0 100%);
-}
-
-.modulation-palette-step--left {
-  transform: scaleX(-1);
-}
+.modulation-palette-route-arrow::after { right: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }
 
 .modulation-palette-row-active .modulation-palette-route {
   color: #9a2f2f;
@@ -787,10 +786,10 @@ a:hover {
   }
 
   .modulation-palette-step {
-    min-width: 1.55em;
-    height: 1.55em;
-    padding: 0;
-    font-size: 1.15em;
+    min-width: 0;
+    height: auto;
+    padding: 0.32em 0.52em;
+    font-size: 1.05em;
     line-height: 1;
   }
 
@@ -807,12 +806,27 @@ a:hover {
   }
 
   .modulation-palette-route-arrow {
-    width: 0.96em;
-    margin: 0 0.2em;
+    width: 1.16em;
+    margin: 0 0.18em;
   }
 
   .modulation-palette-count {
     min-width: 1.7em;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  #modulation-palette {
+    max-width: min(36vw, 14.5rem);
+    gap: 3px;
+    padding: 5px 7px;
+    border-radius: 12px;
+  }
+
+  .modulation-palette-header,
+  .modulation-palette-row {
+    gap: 5px;
+    line-height: 0.98;
   }
 }
 

@@ -666,6 +666,168 @@ describe("Keys MIDI input integration", () => {
     expect(sourceNoteOff).toHaveBeenCalledTimes(1);
   });
 
+  it("soft-handoffs transferred poly aftertouch from source to target pressure", () => {
+    const sourceAftertouch = vi.fn();
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+        aftertouch: sourceAftertouch,
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {},
+      synth,
+    );
+
+    const sourceHex = keys.hexOn(new Point(2, 0));
+    sourceHex._lastAftertouch = 80;
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(new Point(5, 0));
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    sourceAftertouch.mockClear();
+
+    keys._applyPolyAftertouch(targetHex, 20);
+    expect(sourceAftertouch).not.toHaveBeenCalled();
+
+    keys._applyPolyAftertouch(sourceHex, 90);
+    expect(sourceAftertouch).toHaveBeenLastCalledWith(90);
+
+    keys._applyPolyAftertouch(targetHex, 90);
+    expect(sourceAftertouch).toHaveBeenLastCalledWith(90);
+
+    keys._applyPolyAftertouch(sourceHex, 127);
+    expect(sourceAftertouch).toHaveBeenCalledTimes(2);
+
+    keys._applyPolyAftertouch(targetHex, 60);
+    expect(sourceAftertouch).toHaveBeenLastCalledWith(60);
+  });
+
+  it("soft-handoffs transferred MPE CC74 and pitch bend expression", () => {
+    const sourceCC74 = vi.fn();
+    const sourceRetune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune: sourceRetune,
+        cc74: sourceCC74,
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      { mpeInput: true },
+      synth,
+    );
+
+    const sourceHex = keys.hexOn(new Point(2, 0));
+    sourceHex._lastCC74 = 80;
+    sourceHex._lastPitchBend14 = 12000;
+    sourceHex._lastPitchBendCents = sourceHex.cents + 50;
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(new Point(5, 0));
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    sourceCC74.mockClear();
+    sourceRetune.mockClear();
+
+    keys._applyTimbreCC74(targetHex, 20);
+    expect(sourceCC74).not.toHaveBeenCalled();
+
+    keys._applyTimbreCC74(sourceHex, 90);
+    expect(sourceCC74).toHaveBeenLastCalledWith(90);
+
+    keys._applyTimbreCC74(targetHex, 90);
+    expect(sourceCC74).toHaveBeenLastCalledWith(90);
+
+    keys._applyTimbreCC74(sourceHex, 127);
+    expect(sourceCC74).toHaveBeenCalledTimes(2);
+
+    keys._applyTimbreCC74(targetHex, 60);
+    expect(sourceCC74).toHaveBeenLastCalledWith(60);
+
+    const sourceEntry = { hex: sourceHex, baseCents: sourceHex._baseCents };
+    const targetEntry = { hex: targetHex, baseCents: targetHex._baseCents };
+    keys._applyMpePitchBend(targetEntry, 3, 9000);
+    expect(sourceRetune).not.toHaveBeenCalled();
+
+    keys._applyMpePitchBend(sourceEntry, 2, 11000);
+    expect(sourceRetune).toHaveBeenCalledTimes(1);
+
+    keys._applyMpePitchBend(targetEntry, 3, 4096);
+    expect(sourceRetune).toHaveBeenCalledTimes(2);
+
+    keys._applyMpePitchBend(sourceEntry, 2, 16383);
+    expect(sourceRetune).toHaveBeenCalledTimes(2);
+
+    keys._applyMpePitchBend(targetEntry, 3, 8192);
+    expect(sourceRetune).toHaveBeenCalledTimes(3);
+  });
+
+  it("moves recency pitch-wheel bend onto the transferred target proxy", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+      synth,
+    );
+
+    const sourceHex = keys.hexOn(new Point(2, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    keys._handleWheelBend(12000);
+    expect(keys._wheelTarget).toBe(sourceHex);
+
+    expect(keys.armModulation()).toBe(true);
+    const targetHex = keys.hexOn(new Point(5, 0));
+
+    expect(keys._wheelTarget).toBe(targetHex);
+    expect(targetHex.cents).toBeCloseTo((targetHex._baseCents ?? 0) + keys._wheelBend, 5);
+  });
+
   it("treats source-to-same-target modulation as a no-op", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({

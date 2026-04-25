@@ -63,6 +63,32 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
 
 export const Loading = () => <LoadingIcon />;
 
+function readCssPxVar(name) {
+  if (typeof window === "undefined") return 0;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const parsed = parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getDefaultModulationPalettePos() {
+  if (typeof window === "undefined") return { x: 18, y: 58 };
+  const isLandscape =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia("(orientation: landscape)").matches
+      : window.innerWidth > window.innerHeight;
+  const isPhoneLandscape =
+    window.innerHeight <= 500 && isLandscape;
+  if (isPhoneLandscape) {
+    const rightInset = readCssPxVar("--safe-area-right");
+    const topInset = readCssPxVar("--safe-area-top");
+    return {
+      x: Math.max(16, window.innerWidth - rightInset - 236),
+      y: Math.max(12, topInset + 14),
+    };
+  }
+  return { x: 18, y: 58 };
+}
+
 const ua = navigator.userAgent;
 const isSafariOnly =
   /Safari/.test(ua) &&
@@ -314,7 +340,7 @@ const App = () => {
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");
   const [modulationState, setModulationState] = useState(null);
-  const [modulationPalettePos, setModulationPalettePos] = useState({ x: 24, y: 104 });
+  const [modulationPalettePos, setModulationPalettePos] = useState(getDefaultModulationPalettePos);
   const [modulationPaletteCollapsed, setModulationPaletteCollapsed] = useState(false);
 
   // Exquis LED App Mode status — set asynchronously after firmware version check.
@@ -331,6 +357,7 @@ const App = () => {
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
   const modulationPaletteDragRef = useRef(null);
+  const modulationPaletteUserMovedRef = useRef(false);
 
   const onTakeSnapshot = useCallback(() => {
     const notes = keysRef.current?.getSnapshot();
@@ -383,6 +410,7 @@ const App = () => {
       if (!modulationPaletteDragRef.current) return;
       const { pointerId, offsetX, offsetY } = modulationPaletteDragRef.current;
       if (e.pointerId !== pointerId) return;
+      modulationPaletteUserMovedRef.current = true;
       setModulationPalettePos({
         x: Math.max(8, e.clientX - offsetX),
         y: Math.max(8, e.clientY - offsetY),
@@ -400,6 +428,21 @@ const App = () => {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    const applyDefaultPosition = () => {
+      if (!modulationPaletteUserMovedRef.current) {
+        setModulationPalettePos(getDefaultModulationPalettePos());
+      }
+    };
+    window.addEventListener("resize", applyDefaultPosition);
+    window.addEventListener("orientationchange", applyDefaultPosition);
+    applyDefaultPosition();
+    return () => {
+      window.removeEventListener("resize", applyDefaultPosition);
+      window.removeEventListener("orientationchange", applyDefaultPosition);
     };
   }, []);
 
@@ -1340,7 +1383,7 @@ const App = () => {
                       onStepModulationRoute(index, -1);
                     }}
                   >
-                    ▸
+                    ◀
                   </button>
                   <span className="modulation-palette-route">
                     {sourceLabel}
@@ -1363,7 +1406,7 @@ const App = () => {
                       onStepModulationRoute(index, 1);
                     }}
                   >
-                    ▸
+                    ▶
                   </button>
                   {canClearRoute && (
                     <button
