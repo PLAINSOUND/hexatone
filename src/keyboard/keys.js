@@ -51,6 +51,7 @@ import {
   applyTransferredSourceAftertouch,
   createTransferredHex,
   releaseTransferredSourceExpression,
+  synchronizeTransferredPitchBend,
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
 import {
@@ -1104,6 +1105,7 @@ class Keys {
     this.recencyStack.push(proxy);
     this._updateWheelTarget();
     this._applyCurrentWheelToHex(proxy);
+    this._syncTransferredWheelBend(proxy);
     return proxy;
   }
 
@@ -1143,6 +1145,42 @@ class Keys {
     entry.hex._lastPitchBendCents = bentCents;
     if (applyTransferredPitchBend(entry.hex, { value14: bend14, cents: bentCents })) return;
     entry.hex.retune?.(bentCents, true);
+  }
+
+  _currentWheelPitchStateForHex(hex) {
+    if (!hex || this.inputRuntime.mpeInput || this._wheelValue14 === 8192) return null;
+    if (!this.inputRuntime.wheelToRecent || this.inputRuntime.pitchBendMode === "all") {
+      const baseCents = hex._baseCents ?? hex.cents ?? 0;
+      return {
+        value14: this._wheelValue14,
+        cents: baseCents + this._wheelBend,
+      };
+    }
+    if (this.inputRuntime.pitchBendMode === "recency") {
+      const { bentCents } = this._resolveRecencyWheelTarget(hex, this._wheelValue14);
+      return {
+        value14: this._wheelValue14,
+        cents: bentCents,
+      };
+    }
+    return null;
+  }
+
+  _syncTransferredWheelBend(hex) {
+    const state = this._currentWheelPitchStateForHex(hex);
+    if (!state) return false;
+    return synchronizeTransferredPitchBend(hex, state);
+  }
+
+  _syncTransferredWheelBends() {
+    if (this.inputRuntime.mpeInput || this._wheelValue14 === 8192) return;
+    const syncedSources = new Set();
+    for (const hex of this._allActiveHexes()) {
+      const sourceHex = hex?._transferredSource ?? hex;
+      if (!sourceHex?._transferProxy || syncedSources.has(sourceHex)) continue;
+      syncedSources.add(sourceHex);
+      this._syncTransferredWheelBend(sourceHex);
+    }
   }
 
   _hasLegacyFrameNotes() {
@@ -3347,6 +3385,7 @@ class Keys {
           hex.standardWheelRetune((hex._baseCents ?? hex.cents) + offsetCents);
         }
       }
+      this._syncTransferredWheelBends();
       return;
     }
 
@@ -3363,6 +3402,7 @@ class Keys {
       for (const hex of this._allActiveHexes()) {
         hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
       }
+      this._syncTransferredWheelBends();
       return;
     }
 
@@ -3377,6 +3417,7 @@ class Keys {
     this._wheelBaseCents = baseCents;
     this._wheelBend = bentCents - baseCents;
     target.retune(bentCents, true);
+    this._syncTransferredWheelBend(target);
   }
 
   _handleIncomingWheelBend(val14) {

@@ -828,6 +828,50 @@ describe("Keys MIDI input integration", () => {
     expect(targetHex.cents).toBeCloseTo((targetHex._baseCents ?? 0) + keys._wheelBend, 5);
   });
 
+  it("preserves an in-flight non-MPE wheel bend when a transferred source key releases", () => {
+    const sourceRetune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune: sourceRetune,
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+      synth,
+    );
+
+    const sourceHex = keys.hexOn(new Point(2, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    keys._handleIncomingWheelBend(12000);
+
+    expect(keys.armModulation()).toBe(true);
+    const targetHex = keys.hexOn(new Point(5, 0));
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    const expectedBentCents = targetHex._lastPitchBendCents;
+    sourceRetune.mockClear();
+
+    keys.noteOff(sourceHex, 64);
+
+    expect(sourceRetune).toHaveBeenCalled();
+    expect(sourceRetune).toHaveBeenLastCalledWith(expectedBentCents, true);
+  });
+
   it("treats source-to-same-target modulation as a no-op", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({

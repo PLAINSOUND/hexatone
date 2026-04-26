@@ -34,6 +34,12 @@ function createThresholdHandoff({ sourceValue, targetValue, score, send }) {
       state.sourceValue = value;
       send(maybeTargetTakeover() ? state.targetValue : state.sourceValue);
     },
+    sync(value) {
+      state.sourceValue = value;
+      state.targetValue = value;
+      state.targetOwns = false;
+      send(value);
+    },
   };
 }
 
@@ -124,6 +130,14 @@ export function createTransferredHex(sourceHex, options = {}) {
     _transferSourcePitchBend: (value) => {
       pitchBendHandoff.source(pitchValue(value?.value14, value?.cents));
     },
+    _syncTransferPitchBend: (value) => {
+      const next = pitchValue(value?.value14, value?.cents);
+      sourceHex._lastPitchBend14 = next.value14;
+      sourceHex._lastPitchBendCents = next.cents;
+      proxy._lastPitchBend14 = next.value14;
+      proxy._lastPitchBendCents = next.cents;
+      pitchBendHandoff.sync(next);
+    },
     modwheel: (value) => sourceHex.modwheel?.(value),
     expression: (value) => sourceHex.expression?.(value),
   };
@@ -158,6 +172,18 @@ export function applyTransferredPitchBend(hex, value) {
   }
   if (hex?._transferTargetPitchBend) {
     hex._transferTargetPitchBend(value);
+    return true;
+  }
+  return false;
+}
+
+export function synchronizeTransferredPitchBend(hex, value) {
+  if (hex?._transferProxy?._syncTransferPitchBend) {
+    hex._transferProxy._syncTransferPitchBend(value);
+    return true;
+  }
+  if (hex?._syncTransferPitchBend) {
+    hex._syncTransferPitchBend(value);
     return true;
   }
   return false;

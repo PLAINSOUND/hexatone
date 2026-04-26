@@ -6,6 +6,7 @@ import {
   applyTransferredSourceAftertouch,
   createTransferredHex,
   releaseTransferredSourceExpression,
+  synchronizeTransferredPitchBend,
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
 
@@ -76,11 +77,11 @@ describe("keyboard/note-transfer-runtime", () => {
 
   it("soft-handoffs polyphonic aftertouch from source to target at the pressure threshold", () => {
     const sourceHex = makeSourceHex();
-    sourceHex._lastAftertouch = 80;
     const proxy = createTransferredHex(sourceHex, {
       coords: new Point(5, 0),
       cents: 500,
     });
+    sourceHex._lastAftertouch = 80;
     sourceHex.aftertouch.mockClear();
 
     proxy.aftertouch(20);
@@ -194,5 +195,22 @@ describe("keyboard/note-transfer-runtime", () => {
     expect(sourceHex.aftertouch).toHaveBeenLastCalledWith(24);
     expect(sourceHex.cc74).toHaveBeenLastCalledWith(30);
     expect(sourceHex.retune).toHaveBeenLastCalledWith(230, true);
+  });
+
+  it("keeps a synchronized shared pitch bend through source release", () => {
+    const sourceHex = makeSourceHex();
+    // Create transfer relationship (proxy intentionally unused)
+    createTransferredHex(sourceHex, {
+      coords: new Point(5, 0),
+      cents: 500,
+    });
+    sourceHex.retune.mockClear();
+
+    expect(synchronizeTransferredPitchBend(sourceHex, { value14: 12000, cents: 250 })).toBe(true);
+    sourceHex.retune.mockClear();
+
+    releaseTransferredSourceExpression(sourceHex);
+
+    expect(sourceHex.retune).toHaveBeenLastCalledWith(250, true);
   });
 });
