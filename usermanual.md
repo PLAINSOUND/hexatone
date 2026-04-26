@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-04-20
+Updated: 2026-04-26
 
 ## About
 
@@ -98,7 +98,7 @@ It supports:
 
 - exact ratios such as `5/4`
 - cents values such as `386.3`
-- EDO steps such as `7\\12`
+- EDO steps such as `7\12`
 - per-degree tuning adjustment
 - rationalisation suggestions
 
@@ -155,23 +155,30 @@ The `Rationalisation Settings` include a number of options:
 
 - scales can be displayed in HEJI-based notation (primes > 47 or irrational pitches are given tempered notation + cents deviation)
 
-## Creating Presets
+## Modulation
+
+- `MOD` (Backquote / ^): initiates a modulation by capturing the most recent note played; transfer this source note to a target note by pressing any key
+- a floating palette of MODULATION HISTORY appears, tracking all user-initiated modulations, counting the number of steps taken
+- clicking the arrows takes further steps by the same transposition interval (in either direction)
+- once a modulation pathway returns to zero it may be clicked away or retained for further use
+
+## Presets
 
 Hexatone includes built-in tunings and supports user presets. Users may import a Scala file or a previously saved Hexatone `.json` file including all local settings. Also, it is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
 
 A recommended workflow for new scales is:
 
-1. create, import, or analyze a scale in Scale Workshop
-2. bring that scale into Hexatone
-3. play it
-4. tune it against drones, held chords, or other instruments
+1. create, import, or analyze a scale in Scala, Scale Workshop or Hexatone
+2. bring that scale into Hexatone if needed
+3. play it, experiment with sustain, octave transpositions, modulations
+4. tune scale degrees against drones, held chords, or other instruments
 5. compare alternate rational or reference-frequency readings
-6. preserve useful versions as presets
-7. export .json to easily share or reimport settings and metadata
+6. make snapshots; preserve useful scale variations as presets
+7. export .json files to easily share or reimport settings and metadata
 
 ## WebMIDI
 
-WebMIDI is optional, and SysEx is also optional. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub.Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
+WebMIDI is optional, and allowing SysEx functionality is an additional option. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub. Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
 
 WebMIDI adds:
 
@@ -201,7 +208,7 @@ The app includes support for several recognized controller types, including devi
 - AXIS-style controllers
 - standard keyboards
 
-The exact supported behavior varies by controller, but the input system is designed to preserve each device’s geometry where that is musically useful for microtonal scales. MPE polyphony is preserved and used when chosen by the user.
+The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user.
 
 ### Two broad input styles
 
@@ -211,7 +218,6 @@ Hexatone can treat MIDI input broadly in two ways:
 - as nearest scale degree input
 
 The first treats the controller as a performance surface with position meaning.
-
 The second treats incoming pitch as musical material to be mapped into the current scale.
 
 ## Colours
@@ -254,12 +260,10 @@ Hexatone can send tuning and performance data through:
 - MTS (MIDI Tuning Standard) Real-Time Tuning
 - MTS Bulk Dump Tuning Maps
 - MPE (MIDI Polyphonic Expression)
-- direct tuning map workflows
-- OSC
 
 ## OSC
 
-Hexatone also includes a OSC output path aimed at custom SuperCollider work for users who want:
+Hexatone also includes a OSC output path aimed at users who want:
 
 - a custom synthesis backend
 - direct control of a local SuperCollider setup
@@ -282,7 +286,7 @@ yarn osc-bridge
 3. load the matching SuperCollider patch/responders locally
 4. enable `OSC -> SuperCollider` in Hexatone
 
-This feature also supports a fully local workflow: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site.
+This feature also supports a fully local workflow: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Of course, users can also use this pathway to drive their own SynthDefs and patches, as well as other OSC-compatible apps.
 
 ## Starting
 
@@ -291,11 +295,11 @@ Try
 - loading a built-in tuning
 - playing the on-screen keyboard with mouse or touch
 - using sustain to hold a chord, add and subtract notes
-- use the key labels to find sustaining scale degrees in the table
-- drag a TuneCell to retune and compare
-- change the tuning, try rationalisation
-- change the scale layout, reference frequency, reference degree, central degree
-- take some snapshots and replay them
+- using key labels / note names to find sustaining scale degrees in the table
+- dragging a TuneCell to retune and compare
+- changing the tuning, making rationalisation choices
+- changing the scale layout, reference frequency, reference degree, central degree
+- taking some snapshots and replaying them
 
 ## Roadmap
 

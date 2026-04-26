@@ -1372,6 +1372,7 @@ const App = () => {
                 >
                   <button
                     className="modulation-palette-step modulation-palette-step--left"
+                    aria-label="Step modulation backward"
                     disabled={modulationMode !== "idle"}
                     title="Step modulation backward"
                     onPointerDown={(e) => {
@@ -1382,9 +1383,7 @@ const App = () => {
                       e.stopPropagation();
                       onStepModulationRoute(index, -1);
                     }}
-                  >
-                    ◀
-                  </button>
+                  />
                   <span className="modulation-palette-route">
                     {sourceLabel}
                     <span className="modulation-palette-route-arrow" aria-hidden="true" />
@@ -1395,6 +1394,7 @@ const App = () => {
                   </span>
                   <button
                     className="modulation-palette-step modulation-palette-step--right"
+                    aria-label="Step modulation forward"
                     disabled={modulationMode !== "idle"}
                     title="Step modulation forward"
                     onPointerDown={(e) => {
@@ -1405,9 +1405,7 @@ const App = () => {
                       e.stopPropagation();
                       onStepModulationRoute(index, 1);
                     }}
-                  >
-                    ▶
-                  </button>
+                  />
                   {canClearRoute && (
                     <button
                       className="modulation-palette-close"

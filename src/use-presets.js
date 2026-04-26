@@ -45,10 +45,15 @@ export const findPreset = (preset) => {
   return default_settings;
 };
 
-// Scale hexSize down on phones (max-width 600px), but not below 20
-const scaleHexSizeForScreen = (hexSize) => {
+// Scale preset hexSize down on phone-sized screens, but not below 20.
+// Use the short edge so iPhone landscape matches portrait behaviour.
+export const scaleHexSizeForScreen = (hexSize) => {
   const size = hexSize || 42;
-  if (window.innerWidth <= 600 && size > 31) {
+  const shortEdge =
+    typeof window === "undefined"
+      ? Infinity
+      : Math.min(window.innerWidth || Infinity, window.innerHeight || Infinity);
+  if (shortEdge <= 600 && size > 31) {
     return Math.max(20, Math.floor(size * 0.75));
   }
   return size;
