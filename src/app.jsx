@@ -1370,6 +1370,12 @@ const App = () => {
                   className={`modulation-palette-row${count !== 0 ? " modulation-palette-row-active" : ""}`}
                   title={modulationPaletteTitle[index] || routeLabel}
                 >
+                  
+                  <span className="modulation-palette-route">
+                    {sourceLabel}
+                    <span className="modulation-palette-route-arrow" aria-hidden="true" />
+                    {targetLabel}
+                  </span>
                   <button
                     className="modulation-palette-step modulation-palette-step--left"
                     aria-label="Step modulation backward"
@@ -1384,11 +1390,6 @@ const App = () => {
                       onStepModulationRoute(index, -1);
                     }}
                   />
-                  <span className="modulation-palette-route">
-                    {sourceLabel}
-                    <span className="modulation-palette-route-arrow" aria-hidden="true" />
-                    {targetLabel}
-                  </span>
                   <span className="modulation-palette-count">
                     {count > 0 ? `+${count}` : `${count}`}
                   </span>
@@ -1406,7 +1407,7 @@ const App = () => {
                       onStepModulationRoute(index, 1);
                     }}
                   />
-                  {canClearRoute && (
+                  {canClearRoute ? (
                     <button
                       className="modulation-palette-close"
                       title="Remove modulation history row"
@@ -1421,7 +1422,7 @@ const App = () => {
                     >
                       ×
                     </button>
-                  )}
+                  ) : <button className="modulation-palette-close-placeholder"></button>}
                 </div>
               );
             })}
