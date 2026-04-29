@@ -670,6 +670,7 @@ const App = () => {
       settings.show_equaves,
       settings.heji_anchor_label,
       settings.heji_anchor_ratio,
+      settings.heji_tempered_only,
       settings.heji_show_cents,
       // fundamental handled imperatively via keysRef.current.updateFundamental
       settings.reference_degree,

@@ -123,9 +123,9 @@ const KeyLabels = (props) => {
         >
           <option value="no_labels">Blank Keys</option>
           <option value="enumerate">Scale Degrees</option>
-          <option value="scala_names">Scala Names</option>
-          <option value="cents">Cents</option>
-          <option value="note_names">Note Names</option>
+          <option value="scala_names">Scale Data</option>
+          <option value="cents">Scale Cents</option>
+          <option value="note_names">Name</option>
           <option value="heji">HEJI (auto-generated)</option>
         </select>
       </label>
@@ -191,6 +191,15 @@ const KeyLabels = (props) => {
           <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.5em" }}>
             <input
               type="checkbox"
+              checked={props.settings.heji_tempered_only === true}
+              disabled={hejiDisabled}
+              onChange={(e) => props.onChange("heji_tempered_only", e.target.checked)}
+            />
+            Tempered Accidentals Only
+          </label>
+          <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.5em" }}>
+            <input
+              type="checkbox"
               checked={props.settings.heji_show_cents !== false}
               disabled={hejiDisabled}
               onChange={(e) => props.onChange("heji_show_cents", e.target.checked)}
@@ -225,6 +234,7 @@ KeyLabels.propTypes = {
     show_equaves: PropTypes.bool,
     heji_anchor_ratio: PropTypes.string,
     heji_anchor_label: PropTypes.string,
+    heji_tempered_only: PropTypes.bool,
     heji_show_cents: PropTypes.bool,
   }),
 };

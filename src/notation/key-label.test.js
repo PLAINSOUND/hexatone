@@ -88,6 +88,10 @@ describe("temperedLabel", () => {
       expect(temperedLabel(700, "A")).toBe(`${tn}E`);
     });
 
+    it("can force a +0 suffix when zero-deviation cents must stay visible", () => {
+      expect(temperedLabel(700, "A", "natural", { forceZeroDeviation: true })).toBe(`${tn}E+0`);
+    });
+
     it("rounds deviation to nearest integer cent", () => {
       // 700.7¢ → rounds to tnE+1
       expect(temperedLabel(700.7, "A")).toBe(`${tn}E+1`);
@@ -178,6 +182,19 @@ describe("spelledHejiLabel — tempered fallback", () => {
     // 53/32 ≈ 872¢ → nearest semitone 900¢ → tsF♯, deviation −28
     const label = spelledHejiLabel(frame, "53/32", 872.0);
     expect(label).toBe(`${ts}F\u221228`);
+  });
+
+  it("uses tempered accidentals for rational notes when temperedOnly is enabled", () => {
+    const label = spelledHejiLabel(frame, "3/2", 701.955, { temperedOnly: true });
+    expect(label).toBe(`${tn}E+2`);
+  });
+
+  it("shows +0 in temperedOnly mode when zero-deviation cents are forced visible", () => {
+    const label = spelledHejiLabel(frame, "7\\12", 700, {
+      temperedOnly: true,
+      forceShowZeroDeviation: true,
+    });
+    expect(label).toBe(`${tn}E+0`);
   });
 });
 

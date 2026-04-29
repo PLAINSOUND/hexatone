@@ -83,6 +83,7 @@ export const SETTINGS_REGISTRY = [
   //   this anchor pair + the committed ratio of each degree.
   { key: "heji_anchor_ratio", tier: "url", type: "string", default: "", presetSkip: true },
   { key: "heji_anchor_label", tier: "url", type: "string", default: "", presetSkip: true },
+  { key: "heji_tempered_only", tier: "url", type: "bool", default: false, presetSkip: true },
   // When false, cents deviation is omitted from key labels (still shown in scale table).
   { key: "heji_show_cents", tier: "url", type: "bool", default: false, presetSkip: true },
   // Internal-only for now: TuneCell supports an alternate reference-degree save

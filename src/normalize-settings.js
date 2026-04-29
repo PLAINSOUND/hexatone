@@ -162,6 +162,7 @@ export const normalizeStructural = (settings, options = {}) => {
         try {
           const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });
           const showCents = settings.heji_show_cents !== false;
+          const temperedOnly = settings.heji_tempered_only === true;
           const heji_names = degreeTexts.map((text, i) => {
             // Cents of this degree relative to the anchor pitch.
             const degCents = scale[i] ?? 0;
@@ -169,12 +170,15 @@ export const normalizeStructural = (settings, options = {}) => {
             // Use ratio text only when it looks like a ratio (contains "/").
             // EDO steps and decimal cents fall back to the tempered path.
             const ratioText = text.includes("/") ? text : null;
-            return spelledHejiLabel(frame, ratioText, centsFromAnchor);
+            return spelledHejiLabel(frame, ratioText, centsFromAnchor, {
+              temperedOnly,
+              forceShowZeroDeviation: temperedOnly && showCents,
+            });
           });
           result["heji_names"] = heji_names;
           // heji_names_keys: same labels but without the cents deviation suffix
           // when heji_show_cents is false. Always generated so keys.js can use it.
-          result["heji_names_keys"] = showCents
+          result["heji_names_keys"] = showCents || temperedOnly
             ? heji_names
             : degreeTexts.map((text, i) => {
                 const degCents = scale[i] ?? 0;

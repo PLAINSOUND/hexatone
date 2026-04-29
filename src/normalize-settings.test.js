@@ -376,4 +376,42 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_names).toEqual([]);
     expect(normalized.heji_names_keys).toEqual([]);
   });
+
+  it("supports tempered-only HEJI labels with +0 cents when Always Include Cents is enabled", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: ["7\\12", "2/1"],
+      equivSteps: 2,
+      note_names: [],
+      fundamental: 440,
+      reference_degree: 0,
+      heji_anchor_ratio: "1/1",
+      heji_anchor_label: "nA",
+      heji_tempered_only: true,
+      heji_show_cents: true,
+    });
+
+    expect(normalized.heji_names).toEqual(["\uE2F2A+0", "\uE2F2E+0"]);
+    expect(normalized.heji_names_keys).toEqual(["\uE2F2A+0", "\uE2F2E+0"]);
+  });
+
+  it("suppresses only 0-cent suffixes in tempered-only HEJI mode when Always Include Cents is disabled", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: ["718.", "2/1"],
+      equivSteps: 2,
+      note_names: [],
+      fundamental: 440,
+      reference_degree: 0,
+      heji_anchor_ratio: "1/1",
+      heji_anchor_label: "nA",
+      heji_tempered_only: true,
+      heji_show_cents: false,
+    });
+
+    expect(normalized.heji_names).toEqual(["\uE2F2A", "\uE2F2E+18"]);
+    expect(normalized.heji_names_keys).toEqual(["\uE2F2A", "\uE2F2E+18"]);
+  });
 });

@@ -16,6 +16,7 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
           key_labels: "heji",
           heji_anchor_ratio: "",
           heji_anchor_label: "",
+          heji_tempered_only: false,
           heji_show_cents: true,
         }}
       />,
@@ -43,6 +44,7 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
           key_labels: "heji",
           heji_anchor_ratio: "1/1",
           heji_anchor_label: "nC",
+          heji_tempered_only: false,
           heji_show_cents: true,
         }}
       />,
@@ -68,6 +70,7 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
           key_labels: "heji",
           heji_anchor_ratio: "",
           heji_anchor_label: "",
+          heji_tempered_only: false,
           heji_show_cents: true,
         }}
       />,
@@ -76,6 +79,7 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
     expect(screen.getByText("Non-octave equave cannot generate consistent note names.")).toBeTruthy();
     expect(screen.getByLabelText("Ratio/Cents from scale degree 0 (1/1)").disabled).toBe(true);
     expect(screen.getByLabelText("Notation (Spelling)").disabled).toBe(true);
+    expect(screen.getByLabelText("Tempered Accidentals Only").disabled).toBe(true);
     expect(screen.getByLabelText("Always Include Cents on Keys").disabled).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onAtomicChange).not.toHaveBeenCalled();
@@ -95,6 +99,7 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
           key_labels: "heji",
           heji_anchor_ratio: "0",
           heji_anchor_label: "",
+          heji_tempered_only: false,
           heji_show_cents: true,
         }}
       />,
@@ -119,6 +124,7 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
           show_equaves: false,
           heji_anchor_ratio: "",
           heji_anchor_label: "",
+          heji_tempered_only: false,
           heji_show_cents: true,
         }}
       />,
@@ -127,5 +133,62 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
     expect(screen.queryByRole("option", { name: "Equave Numbers" })).toBeNull();
     fireEvent.click(screen.getByLabelText("Show Equave Numbers"));
     expect(onChange).toHaveBeenCalledWith("show_equaves", true);
+  });
+
+  it('places "Scale Data" directly below "Scale Degrees" in the label-mode menu', () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "no_labels",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    const optionLabels = Array.from(screen.getByLabelText("Key Labels").querySelectorAll("option"))
+      .map((option) => option.textContent);
+
+    expect(optionLabels).toEqual([
+      "Blank Keys",
+      "Scale Degrees",
+      "Scale Data",
+      "Scale Cents",
+      "Name",
+      "HEJI (auto-generated)",
+    ]);
+  });
+
+  it('toggles "Tempered Accidentals Only" through onChange', () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Tempered Accidentals Only"));
+    expect(onChange).toHaveBeenCalledWith("heji_tempered_only", true);
   });
 });

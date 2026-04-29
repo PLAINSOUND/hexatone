@@ -104,8 +104,9 @@ function chromaticDeviation(centsFromAnchor, letter, chromatic, anchorLetter, an
  * Format a signed cents deviation as a compact string suffix.
  * Returns "" for 0, "+N" for positive, "−N" for negative (using Unicode minus).
  */
-function deviationStr(deviation) {
-  if (deviation === 0) return "";
+function deviationStr(deviation, options = {}) {
+  const { forceZero = false } = options;
+  if (deviation === 0) return forceZero ? "+0" : "";
   return deviation > 0 ? `+${deviation}` : `\u2212${Math.abs(deviation)}`;
 }
 
@@ -119,7 +120,8 @@ function deviationStr(deviation) {
  * @param {string} [anchorChromatic] - "flat"|"natural"|"sharp" of anchor (default "natural").
  * @returns {string}               - E.g. "♭E+18", "♮A", "♯G−6"
  */
-export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "natural") {
+export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "natural", options = {}) {
+  const { forceZeroDeviation = false } = options;
   // Normalise to [0, 1200).
   const pc = ((centsFromAnchor % 1200) + 1200) % 1200;
 
@@ -138,7 +140,7 @@ export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "
   const raw = Math.round(pc - expectedCentsFromAnchor);
   const deviation = ((raw + 600) % 1200 + 1200) % 1200 - 600;
 
-  return `${accidental}${letter}${deviationStr(deviation)}`;
+  return `${accidental}${letter}${deviationStr(deviation, { forceZero: forceZeroDeviation })}`;
 }
 
 /**
@@ -164,11 +166,15 @@ export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}
   // suppressDeviation: omit the cents suffix on resolved HEJI spellings only.
   // Tempered-fallback labels always retain their cents — they are structurally
   // necessary to convey the pitch when no exact HEJI spelling is available.
-  const { suppressDeviation = false } = options;
+  const {
+    suppressDeviation = false,
+    temperedOnly = false,
+    forceShowZeroDeviation = false,
+  } = options;
   // Only attempt JI spelling when both the individual degree and the anchor
   // itself are rational.  A non-rational anchor (EDO step, decimal cents)
   // means the globalOffsetMonzo is absent — all degrees must use temperedLabel.
-  if (ratioText != null && frame.rationalAnchor !== false) {
+  if (!temperedOnly && ratioText != null && frame.rationalAnchor !== false) {
     try {
       const spelled = spellPitchClassFromReferenceFrame(frame, ratioText, options);
       if (spelled.supported && spelled.pitchClassGlyphs != null) {
@@ -194,7 +200,9 @@ export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}
   // Tempered fallback: cents are always included regardless of suppressDeviation,
   // because the tempered glyph alone does not uniquely identify the pitch.
   const anchorChromatic = BASE_BY_ID[frame.anchor?.baseId]?.chromatic ?? "natural";
-  return temperedLabel(centsFromAnchor, frame.anchor?.letter ?? "A", anchorChromatic);
+  return temperedLabel(centsFromAnchor, frame.anchor?.letter ?? "A", anchorChromatic, {
+    forceZeroDeviation: forceShowZeroDeviation,
+  });
 }
 
 /**

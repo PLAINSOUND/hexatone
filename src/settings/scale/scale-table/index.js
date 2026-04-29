@@ -606,7 +606,7 @@ const ScaleTable = (props) => {
               Degree&nbsp;:&nbsp;Ratio&nbsp;|&nbsp;Cents&nbsp;|&nbsp;EDO
             </th>
             <th class="scale-frequency-col">Freq&nbsp;&nbsp;</th>
-            <th class="scale-name-col">Name</th>
+            <th class="scale-name-col">{isHeji ? "HEJI" : "Name"}</th>
             <th class="scale-color-col">Colour</th>
           </tr>
         </thead>

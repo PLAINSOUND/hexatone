@@ -95,6 +95,16 @@ describe("ScaleTable — key labels: enumerate", () => {
   });
 });
 
+describe("ScaleTable — key labels: heji", () => {
+  const settings = { ...settingsBase, key_labels: "heji" };
+
+  it('changes the name column heading from "Name" to "HEJI"', () => {
+    render(<ScaleTable settings={settings} onChange={() => {}} heji_names={scale_names} />);
+    expect(screen.getByText("HEJI")).toBeTruthy();
+    expect(screen.queryByText("Name")).toBeNull();
+  });
+});
+
 // ── Scale values ──────────────────────────────────────────────────────────────
 
 describe("ScaleTable — scale value inputs", () => {
