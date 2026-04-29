@@ -1477,6 +1477,11 @@ class Keys {
   };
 
   updateLiveOutputState = (nextSettings, synth) => {
+    // Live output/runtime architecture update only. This is the boundary used
+    // for output-family toggles and routing changes that should not reconstruct
+    // Keys. Fine-grained runtime transport controls such as sustain, OCT,
+    // modulation actions, or imperative volume changes should stay on their own
+    // dedicated live paths instead of being funneled through this method.
     if (synth) this.synth = synth;
     if (nextSettings) Object.assign(this.settings, nextSettings);
     this.midiout_data =

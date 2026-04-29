@@ -30,6 +30,12 @@ const makeProps = (overrides = {}) => ({
 });
 
 describe("MidiOutputs FluidSynth independence", () => {
+  it("labels the section as output routing", () => {
+    render(<MidiOutputs {...makeProps()} />);
+
+    expect(screen.getByText("Output Routing")).not.toBeNull();
+  });
+
   it("shows 127 as the default FluidSynth volume when no preference is stored", () => {
     localStorage.removeItem("fluidsynth_volume_pref");
 
@@ -78,5 +84,33 @@ describe("MidiOutputs FluidSynth independence", () => {
 
     const button = screen.getByRole("button", { name: "In use via Port" });
     expect(button.disabled).toBe(true);
+  });
+
+  it("updates OSC layer volume imperatively during drag and persists locally on commit", () => {
+    const onChange = vi.fn();
+    const onOscLayerVolumeChange = vi.fn();
+
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_osc: true,
+          osc_volume_pluck: 0.5,
+        })}
+        onChange={onChange}
+        onOscLayerVolumeChange={onOscLayerVolumeChange}
+      />,
+    );
+
+    const slider = screen.getAllByRole("slider")[0];
+    fireEvent.input(slider, { target: { value: "0.73" } });
+
+    expect(onOscLayerVolumeChange).toHaveBeenCalledWith(0, 0.73);
+    expect(onChange).not.toHaveBeenCalledWith("osc_volume_pluck", 0.73);
+
+    fireEvent.change(slider, { target: { value: "0.73" } });
+
+    expect(onChange).not.toHaveBeenCalledWith("osc_volume_pluck", 0.73);
+    expect(localStorage.getItem("osc_volume_pluck")).toBe("0.73");
+    expect(sessionStorage.getItem("osc_volume_pluck")).toBe("0.73");
   });
 });

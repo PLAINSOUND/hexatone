@@ -16,6 +16,17 @@ const save = (name, value, onChange) => {
 
 const clampOscVolume = (value) => Math.max(0, Math.min(1, value));
 
+const readOscVolume = (name, fallback = 0.5) => {
+  const local = parseFloat(localStorage.getItem(name) ?? "");
+  if (Number.isFinite(local)) return clampOscVolume(local);
+  return clampOscVolume(fallback);
+};
+
+const saveOscVolume = (name, value) => {
+  localStorage.setItem(name, String(value));
+  sessionStorage.setItem(name, String(value));
+};
+
 const sendRpn = (output, channel0, msb, lsb, dataMsb, dataLsb = 0) => {
   output.send([0xb0 + channel0, 101, msb & 0x7f]);
   output.send([0xb0 + channel0, 100, lsb & 0x7f]);
@@ -117,10 +128,10 @@ const MidiOutputs = (props) => {
     parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "127"),
   );
   const [oscDraftVolumes, setOscDraftVolumes] = useState({
-    osc_volume_pluck: settings.osc_volume_pluck ?? 0.5,
-    osc_volume_buzz: settings.osc_volume_buzz ?? 0.5,
-    osc_volume_formant: settings.osc_volume_formant ?? 0.5,
-    osc_volume_saw: settings.osc_volume_saw ?? 0.5,
+    osc_volume_pluck: readOscVolume("osc_volume_pluck", settings.osc_volume_pluck ?? 0.5),
+    osc_volume_buzz: readOscVolume("osc_volume_buzz", settings.osc_volume_buzz ?? 0.5),
+    osc_volume_formant: readOscVolume("osc_volume_formant", settings.osc_volume_formant ?? 0.5),
+    osc_volume_saw: readOscVolume("osc_volume_saw", settings.osc_volume_saw ?? 0.5),
   });
   const masterCh = settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
@@ -139,10 +150,10 @@ const MidiOutputs = (props) => {
 
   useEffect(() => {
     setOscDraftVolumes({
-      osc_volume_pluck: settings.osc_volume_pluck ?? 0.5,
-      osc_volume_buzz: settings.osc_volume_buzz ?? 0.5,
-      osc_volume_formant: settings.osc_volume_formant ?? 0.5,
-      osc_volume_saw: settings.osc_volume_saw ?? 0.5,
+      osc_volume_pluck: readOscVolume("osc_volume_pluck", settings.osc_volume_pluck ?? 0.5),
+      osc_volume_buzz: readOscVolume("osc_volume_buzz", settings.osc_volume_buzz ?? 0.5),
+      osc_volume_formant: readOscVolume("osc_volume_formant", settings.osc_volume_formant ?? 0.5),
+      osc_volume_saw: readOscVolume("osc_volume_saw", settings.osc_volume_saw ?? 0.5),
     });
   }, [
     settings.osc_volume_pluck,
@@ -182,7 +193,7 @@ const MidiOutputs = (props) => {
   return (
     <fieldset>
       <legend>
-        <b>MIDI Outputs</b>
+        <b>Output Routing</b>
       </legend>
       {/* ── MTS ────────────────────────────────────────────────────────── */}
 
@@ -823,7 +834,11 @@ const MidiOutputs = (props) => {
                     const next = clampOscVolume(parseFloat(e.target.value));
                     setOscDraftVolumes((prev) => ({ ...prev, [key]: next }));
                     props.onOscLayerVolumeChange?.(index, next);
-                  }}                  
+                  }}
+                  onChange={(e) => {
+                    const next = clampOscVolume(parseFloat(e.target.value));
+                    saveOscVolume(key, next);
+                  }}
                   style={{ flex: 1, width: "100%" }}
                 />
                 <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>

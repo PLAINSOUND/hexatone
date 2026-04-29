@@ -25,7 +25,6 @@ import { debugLog, warnLog } from "./debug/logging.js";
 const wait = (l) => l + 1;
 const signal = (l) => l - 1;
 const MIDI_ACCESS_SESSION_KEY = REGISTRY_BY_KEY.webmidi_access.key;
-const OSC_VOLUME_KEYS = ["osc_volume_pluck", "osc_volume_buzz", "osc_volume_formant", "osc_volume_saw"];
 const midiAccessRank = {
   none: 0,
   basic: 1,
@@ -418,6 +417,25 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // │  MIDI state:                                                            │
   // │    midi                — MIDI access object (initial grant or revoke)   │
   // │    midiTick            — incremented on every device connect/disconnect │
+  // └─────────────────────────────────────────────────────────────────────────┘
+  //
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │ LIVE RUNTIME TRANSPORT / PERFORMANCE CONTROLS                          │
+  // │ Imperative actions on the currently running live system.               │
+  // │ These should preserve note continuity and avoid broad app reactivity   │
+  // │ during continuous interaction.                                         │
+  // │                                                                         │
+  // │    sample volume/mute   → synthRef.current.setVolume()                 │
+  // │    OSC layer faders     → oscSynth.setLayerVolume()                    │
+  // │    auto-send map        → keysRef.current.mtsSendMap()                 │
+  // │    OCT / sustain / mod  → handled in Keys live runtime                 │
+  // └─────────────────────────────────────────────────────────────────────────┘
+  //
+  // ┌─────────────────────────────────────────────────────────────────────────┐
+  // │ OUTPUT-RUNTIME ARCHITECTURE CONTROLS                                   │
+  // │ These choose how tuning/output is realized, rather than acting like    │
+  // │ simple transport knobs. Examples: MTS Dynamic vs Static, output family │
+  // │ toggles, output port selection, and direct-map transport parameters.   │
   // └─────────────────────────────────────────────────────────────────────────┘
   //
   // ┌─────────────────────────────────────────────────────────────────────────┐
@@ -995,16 +1013,11 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
 
   const onOscLayerVolumeChange = useCallback((index, value) => {
     const oscSynth = oscSynthRef.current.synth;
+    // Runtime transport control only: do not write app settings here.
+    // The UI persists the chosen value on commit, but live drag must stay on
+    // the imperative OSC path so held notes are not interrupted by reactivity.
     if (oscSynth?.setLayerVolume) oscSynth.setLayerVolume(index, value);
-    // Write into React settings so deriveOscVolumes() reads the live value on
-    // every rebuild — whether triggered by toggle, port change, or preset load.
-    // localStorage is written so values survive page reload (including fresh tabs).
-    const key = OSC_VOLUME_KEYS[index];
-    if (key != null) {
-      setSettings((prev) => ({ ...prev, [key]: value }));
-      localStorage.setItem(key, String(value));
-    }
-  }, [setSettings]);
+  }, []);
 
   // Called by keys.js when the user presses a key during MIDI-learn mode.
   // Saves the anchor note + channel so the controller map (2D path) and the

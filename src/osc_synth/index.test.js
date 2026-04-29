@@ -57,4 +57,54 @@ describe("osc_synth pooled slot allocation", () => {
     expect(nodeIds[3]).toBeGreaterThanOrEqual(700000);
     expect(nodeIds[3]).toBeLessThan(900000);
   });
+
+  it("applies live layer volume changes to active note nodes and node 1 default state", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-live-volume",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    await Promise.resolve();
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    synth.setLayerVolume(0, 0.73);
+
+    const ws = MockWebSocket.instances[0];
+    const sNew = ws.sent.filter((msg) => msg.address === "/s_new" && msg.port === 57101);
+    expect(sNew).toHaveLength(1);
+    const activeNodeId = sNew[0].args[1].value;
+
+    const volSets = ws.sent.filter((msg) => {
+      return (
+        msg.address === "/n_set" &&
+        msg.port === 57101 &&
+        msg.args[1]?.value === "vol"
+      );
+    });
+
+    expect(volSets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          args: [
+            { type: "i", value: activeNodeId },
+            { type: "s", value: "vol" },
+            { type: "f", value: 0.73 },
+          ],
+        }),
+        expect.objectContaining({
+          args: [
+            { type: "i", value: 1 },
+            { type: "s", value: "vol" },
+            { type: "f", value: 0.73 },
+          ],
+        }),
+      ]),
+    );
+  });
 });

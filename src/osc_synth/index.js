@@ -165,7 +165,21 @@ export const create_osc_synth = async (
     if (index < 0 || index >= _volumes.length) return;
     const next = Math.max(0, Math.min(1, value));
     _volumes[index] = next;
-    // /n_set \vol to node 1 (default group) on this layer's scsynth server directly.
+    const layerState = _slotState[index];
+    for (const slot of layerState) {
+      if (!slot?.active || slot.nodeId == null) continue;
+      socket.send(
+        "/n_set",
+        [
+          { type: "i", value: slot.nodeId },
+          { type: "s", value: "vol" },
+          { type: "f", value: next },
+        ],
+        OSC_LAYER_PORTS[index],
+      );
+    }
+    // Keep node 1 in sync as the default for future note-ons / server-side
+    // layer state even when nothing is currently sounding.
     socket.send(
       "/n_set",
       [

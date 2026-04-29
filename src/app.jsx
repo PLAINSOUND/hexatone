@@ -735,8 +735,10 @@ const App = () => {
     ],
   );
 
-  // Output toggles and synth/output routing should update the live Keys instance
-  // imperatively, not trigger a full keyboard reconstruction.
+  // Output-runtime architecture controls should update the live Keys instance
+  // imperatively, not trigger a full keyboard reconstruction. These are
+  // distinct from both structural tuning/workspace settings and fine-grained
+  // runtime transport controls such as volume, sustain, OCT, or modulation.
   const liveOutputSettings = useMemo(
     () => ({
       instrument: settings.instrument,
