@@ -71,7 +71,7 @@ const settings = {
   output_sample: false,
   output_mts: false,
   output_mpe: false,
-  output_direct: false,
+  output_mts_bulk: false,
   output_osc: false,
   midiin_device: "OFF",
   midiin_controller_override: "auto",

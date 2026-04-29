@@ -14,7 +14,7 @@ const makeProps = (overrides = {}) => ({
     midi_wheel_semitones: 2,
     fluidsynth_device: "",
     fluidsynth_channel: -1,
-    output_direct: false,
+    output_mts_bulk: false,
     output_osc: false,
     ...overrides,
   },

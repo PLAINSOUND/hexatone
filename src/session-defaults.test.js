@@ -13,9 +13,9 @@ import { describe, it, expect, vi } from "vitest";
 // Format: [sessionStorage key, expected restored value, wrong default if broken]
 const INT_KEYS = [
   ["fluidsynth_channel", 0, -1],
-  ["direct_channel", 0, -1],
-  ["direct_device_id", 0, 127],
-  ["direct_tuning_map_number", 0, 0], // default is also 0, but test that 0 is explicit
+  ["mts_bulk_channel", 0, -1],
+  ["mts_bulk_device_id", 0, 127],
+  ["mts_bulk_tuning_map_number", 0, 0], // default is also 0, but test that 0 is explicit
   ["mpe_lo_ch", 0, 2],
   ["mpe_hi_ch", 0, 8],
   ["mpe_pitchbend_range", 0, 48],
@@ -47,12 +47,12 @@ describe("session-defaults integer zero round-trip", () => {
 });
 
 describe("session-defaults integer non-zero round-trip", () => {
-  it("restores direct_device_id = 42", async () => {
-    sessionStorage.setItem("direct_device_id", "42");
+  it("restores mts_bulk_device_id = 42", async () => {
+    sessionStorage.setItem("mts_bulk_device_id", "42");
     vi.resetModules();
     const { default: sessionDefaults } = await import("./session-defaults.js");
-    expect(sessionDefaults.direct_device_id).toBe(42);
-    sessionStorage.removeItem("direct_device_id");
+    expect(sessionDefaults.mts_bulk_device_id).toBe(42);
+    sessionStorage.removeItem("mts_bulk_device_id");
   });
 
   it("restores midi_velocity = 100", async () => {
@@ -65,11 +65,11 @@ describe("session-defaults integer non-zero round-trip", () => {
 });
 
 describe("session-defaults fallback when key absent", () => {
-  it("returns default -1 for direct_channel when not stored", async () => {
-    sessionStorage.removeItem("direct_channel");
+  it("returns default -1 for mts_bulk_channel when not stored", async () => {
+    sessionStorage.removeItem("mts_bulk_channel");
     vi.resetModules();
     const { default: sessionDefaults } = await import("./session-defaults.js");
-    expect(sessionDefaults.direct_channel).toBe(-1);
+    expect(sessionDefaults.mts_bulk_channel).toBe(-1);
   });
 
   it("returns default 127 for device_id when not stored", async () => {

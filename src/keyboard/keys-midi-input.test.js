@@ -62,7 +62,7 @@ function makeSettings(overrides = {}) {
     midiin_modwheel_source: "",
     midiin_channel: -1,
     midiin_central_degree: 60,
-    midi_mapping: "DIRECT",
+    midi_mapping: "MTS_BULK",
     midi_passthrough: false,
     ...overrides,
   };
@@ -1315,10 +1315,10 @@ describe("Keys MIDI input integration", () => {
     vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
 
     const keys = createKeys({
-      output_direct: true,
-      direct_mode: "static",
-      direct_device: "direct-out",
-      direct_channel: 0,
+      output_mts_bulk: true,
+      mts_bulk_mode: "static",
+      mts_bulk_device: "direct-out",
+      mts_bulk_channel: 0,
     });
     const hex = {
       coords: new Point(1, 0),
@@ -1344,10 +1344,10 @@ describe("Keys MIDI input integration", () => {
     vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
 
     const keys = createKeys({
-      output_direct: true,
-      direct_mode: "static",
-      direct_device: "direct-out",
-      direct_channel: 0,
+      output_mts_bulk: true,
+      mts_bulk_mode: "static",
+      mts_bulk_device: "direct-out",
+      mts_bulk_channel: 0,
     });
     const hex = {
       coords: new Point(1, 0),
@@ -1372,15 +1372,15 @@ describe("Keys MIDI input integration", () => {
     expect(keys.mtsSendMap).toHaveBeenCalledTimes(1);
   });
 
-  it("also resends the bulk map for dynamic DIRECT octave shifts", () => {
+  it("also resends the bulk map for dynamic MTS bulk octave shifts", () => {
     const directOut = { id: "direct-out" };
     vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
 
     const keys = createKeys({
-      output_direct: true,
-      direct_mode: "dynamic",
-      direct_device: "direct-out",
-      direct_channel: 0,
+      output_mts_bulk: true,
+      mts_bulk_mode: "dynamic",
+      mts_bulk_device: "direct-out",
+      mts_bulk_channel: 0,
     });
     keys.mtsSendMap = vi.fn();
 
@@ -1389,16 +1389,16 @@ describe("Keys MIDI input integration", () => {
     expect(keys.mtsSendMap).toHaveBeenCalledWith(directOut, false, true);
   });
 
-  it("protects recently released dynamic DIRECT notes from OCT bulk-map resends during release tails", () => {
+  it("protects recently released dynamic MTS bulk notes from OCT bulk-map resends during release tails", () => {
     vi.useFakeTimers();
     const directOut = { id: "direct-out" };
     vi.spyOn(WebMidi, "getOutputById").mockReturnValue(directOut);
 
     const keys = createKeys({
-      output_direct: true,
-      direct_mode: "dynamic",
-      direct_device: "direct-out",
-      direct_channel: 0,
+      output_mts_bulk: true,
+      mts_bulk_mode: "dynamic",
+      mts_bulk_device: "direct-out",
+      mts_bulk_channel: 0,
     });
     const hex = {
       coords: new Point(1, 0),

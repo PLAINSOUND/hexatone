@@ -41,7 +41,7 @@ export const create_midi_synth = async ({
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
   // MTS1: all 128 MIDI notes available as carriers
   const pool_mts1 = new VoicePool(Array.from({ length: 128 }, (_, i) => i));
-  const pool_direct_dynamic = new VoicePool(
+  const pool_mts_bulk_dynamic = new VoicePool(
     Array.from({ length: 128 }, (_, i) => i),
     750,
   );
@@ -54,7 +54,7 @@ export const create_midi_synth = async ({
   const sysex_rt = (sysex_type != null ? sysex_type : 127) & 0x7f;
   const sysex_dev_id = (device_id != null ? device_id : 127) & 0x7f;
   const dynamicEntries =
-    midi_mapping === "DIRECT" &&
+    midi_mapping === "MTS_BULK" &&
     transportMode === "bulk_dynamic_map" &&
     scale &&
     degree0toRefAsArray
@@ -67,7 +67,7 @@ export const create_midi_synth = async ({
         )
       : null;
   const dynamicTransport =
-    midi_mapping === "DIRECT" && transportMode === "bulk_dynamic_map" && dynamicEntries
+    midi_mapping === "MTS_BULK" && transportMode === "bulk_dynamic_map" && dynamicEntries
       ? createBulkDynamicTransport({
           midi_output,
           channel,
@@ -76,7 +76,7 @@ export const create_midi_synth = async ({
           map_number: mapNumber ?? 0,
           name: mapName ?? name ?? "",
           entries: dynamicEntries,
-          pool: pool_direct_dynamic,
+          pool: pool_mts_bulk_dynamic,
           fundamental,
           getDynamicBulkConfig,
           getProtectedEntries: () =>
@@ -111,7 +111,7 @@ export const create_midi_synth = async ({
       degree0toRef_ratio,
     ) => {
       let hex;
-      if (midi_mapping === "DIRECT") {
+      if (midi_mapping === "MTS_BULK") {
         if (transportMode === "bulk_dynamic_map") {
           hex = new DynamicBulkHex(
             coords,
@@ -219,7 +219,7 @@ for (let i = 0; i < 2048; i++) {
 // Guard delay between sending a bulk-dump retune and the following noteOn in
 // Dynamic Bulk Dump mode. Leave at 0 for immediate trigger; increase slightly
 // if a target synth needs time to apply the incoming map before sounding.
-const DIRECT_BULK_GUARD_MS = 0;
+const MTS_BULK_GUARD_MS = 0;
 
 function MidiHex(
   coords,
@@ -551,7 +551,7 @@ function createBulkDynamicTransport({
       currentEntries[carrier] = [...triplet];
       sendBulkDump();
       const noteOnVelocity = noteVelocity > 0 ? noteVelocity : velocity;
-      const at = DIRECT_BULK_GUARD_MS > 0 ? performance.now() + DIRECT_BULK_GUARD_MS : undefined;
+      const at = MTS_BULK_GUARD_MS > 0 ? performance.now() + MTS_BULK_GUARD_MS : undefined;
       midi_output.send([0x90 + channel, carrier, noteOnVelocity], at);
     },
     noteOff({ carrier, velocity: noteVelocity }) {
@@ -603,7 +603,7 @@ function buildDynamicBulkAllocation({
 }
 
 /**
- * DynamicBulkHex — current transport behind the DIRECT section.
+ * DynamicBulkHex — current transport behind the MTS bulk dump section.
  * Uses MTS1-like carrier allocation but sends a full bulk dump before noteOn.
  */
 function DynamicBulkHex(

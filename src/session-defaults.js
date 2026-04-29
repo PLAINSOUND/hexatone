@@ -25,17 +25,29 @@ import {
   localString,
 } from "./persistence/storage-utils.js";
 
+const LEGACY_SESSION_KEY_ALIASES = {
+  output_mts_bulk: "output_direct",
+  mts_bulk_device: "direct_device",
+  mts_bulk_mode: "direct_mode",
+  mts_bulk_channel: "direct_channel",
+  mts_bulk_sysex_auto: "direct_sysex_auto",
+  mts_bulk_device_id: "direct_device_id",
+  mts_bulk_tuning_map_number: "direct_tuning_map_number",
+  mts_bulk_tuning_map_name: "direct_tuning_map_name",
+};
+
 // Read one session key using the correct parser for its type.
 function restoreSession(entry) {
+  const legacyKey = LEGACY_SESSION_KEY_ALIASES[entry.key];
   switch (entry.type) {
     case "int":
-      return sessionInt(entry.key, entry.default);
+      return sessionInt(entry.key, legacyKey ? sessionInt(legacyKey, entry.default) : entry.default);
     case "float":
-      return sessionFloat(entry.key, entry.default);
+      return sessionFloat(entry.key, legacyKey ? sessionFloat(legacyKey, entry.default) : entry.default);
     case "bool":
-      return sessionBool(entry.key, entry.default);
+      return sessionBool(entry.key, legacyKey ? sessionBool(legacyKey, entry.default) : entry.default);
     case "string":
-      return sessionString(entry.key, entry.default);
+      return sessionString(entry.key, legacyKey ? sessionString(legacyKey, entry.default) : entry.default);
     // 'joined' arrays are not session-stored (they live in URL/localStorage via useQuery)
     default:
       return entry.default;

@@ -141,8 +141,8 @@ const MidiOutputs = (props) => {
     : Math.min(available[available.length - 1], loCh + 6);
 
   const outputs = midi ? Array.from(midi.outputs.values()) : [];
-  const directTuningMapName = resolveBulkDumpName(
-    settings.direct_tuning_map_name,
+  const bulkTuningMapName = resolveBulkDumpName(
+    settings.mts_bulk_tuning_map_name,
     settings.short_description,
     settings.name,
   );
@@ -243,7 +243,7 @@ const MidiOutputs = (props) => {
 
           {settings.midi_device && settings.midi_device !== "OFF" && (
             <>
-              {settings.midi_mapping === "DIRECT" && (
+              {settings.midi_mapping === "MTS_BULK" && (
                 <p style={{ fontSize: "0.85em", color: "#996666", margin: "0.25em 0" }}>
                   <em>
                     Sends plain MIDI notes using the hex layout. Pre-sends a non-real-time 128-note
@@ -277,8 +277,8 @@ const MidiOutputs = (props) => {
                   value={settings.midi_mapping}
                   onChange={(e) => {
                     save(e.target.name, e.target.value, onChange);
-                    // DIRECT always uses non-real-time bulk map
-                    if (e.target.value === "DIRECT") save("sysex_type", 126, onChange);
+                    // Legacy bulk mapping marker always uses non-real-time bulk map
+                    if (e.target.value === "MTS_BULK") save("sysex_type", 126, onChange);
                   }}
                 >
                   <option>---choose how notes are sent---</option>
@@ -427,14 +427,14 @@ const MidiOutputs = (props) => {
 
       <br />
 
-      {/* ── DIRECT ─────────────────────────────────────────────────────── */}
+      {/* ── MTS BULK DUMP ──────────────────────────────────────────────── */}
 
       <label>
         <b>MTS Bulk Dump Tuning Maps</b>
         <input
-          name="output_direct"
+          name="output_mts_bulk"
           type="checkbox"
-          checked={!!settings.output_direct}
+          checked={!!settings.output_mts_bulk}
           disabled={!hasSysexMidi}
           onChange={(e) => save(e.target.name, e.target.checked, onChange)}
         />
@@ -449,14 +449,14 @@ const MidiOutputs = (props) => {
         </em>
       </p>
 
-      {settings.output_direct && (
+      {settings.output_mts_bulk && (
         <>
           <label>
             Port
             <select
-              name="direct_device"
+              name="mts_bulk_device"
               class="sidebar-input"
-              value={settings.direct_device || "OFF"}
+              value={settings.mts_bulk_device || "OFF"}
               onChange={(e) => save(e.target.name, e.target.value, onChange)}
             >
               <option value="OFF">OFF</option>
@@ -468,21 +468,21 @@ const MidiOutputs = (props) => {
             </select>
           </label>
 
-          {settings.direct_device && settings.direct_device !== "OFF" && (
+          {settings.mts_bulk_device && settings.mts_bulk_device !== "OFF" && (
             <>
               <label>
                 Mode
                 <select
-                  name="direct_mode"
+                  name="mts_bulk_mode"
                   class="sidebar-input"
-                  value={settings.direct_mode || "dynamic"}
+                  value={settings.mts_bulk_mode || "dynamic"}
                   onChange={(e) => {
                     const nextMode = e.target.value;
                     save(e.target.name, nextMode, onChange);
                     // Static bulk dump only initializes after a map push, so
                     // enable auto-send when the user switches into static mode.
-                    if (nextMode === "static" && !settings.direct_sysex_auto) {
-                      save("direct_sysex_auto", true, onChange);
+                    if (nextMode === "static" && !settings.mts_bulk_sysex_auto) {
+                      save("mts_bulk_sysex_auto", true, onChange);
                     }
                   }}
                 >
@@ -494,9 +494,9 @@ const MidiOutputs = (props) => {
               <label>
                 Channel
                 <select
-                  name="direct_channel"
+                  name="mts_bulk_channel"
                   class="sidebar-input"
-                  value={settings.direct_channel ?? -1}
+                  value={settings.mts_bulk_channel ?? -1}
                   onChange={(e) => save(e.target.name, parseInt(e.target.value), onChange)}
                 >
                   <option value="-1">OFF</option>
@@ -508,7 +508,7 @@ const MidiOutputs = (props) => {
                 </select>
               </label>
 
-              {settings.direct_mode === "static" && (
+              {settings.mts_bulk_mode === "static" && (
                 <label>
                   Auto-Send Static Map
                   <span
@@ -521,9 +521,9 @@ const MidiOutputs = (props) => {
                     }}
                   >
                     <input
-                      name="direct_sysex_auto"
+                      name="mts_bulk_sysex_auto"
                       type="checkbox"
-                      checked={!!settings.direct_sysex_auto}
+                      checked={!!settings.mts_bulk_sysex_auto}
                       disabled={!hasSysexMidi}
                       onChange={(e) => save(e.target.name, e.target.checked, onChange)}
                     />
@@ -532,7 +532,7 @@ const MidiOutputs = (props) => {
                       style={{ fontSize: "0.85em" }}
                       disabled={!hasSysexMidi}
                       onClick={() => {
-                        const output = WebMidi.getOutputById(settings.direct_device);
+                        const output = WebMidi.getOutputById(settings.mts_bulk_device);
                         if (output && props.keysRef?.current)
                           props.keysRef.current.mtsSendMap(output);
                       }}
@@ -546,20 +546,20 @@ const MidiOutputs = (props) => {
               <label>
                 Device ID (127 = all)
                 <input
-                  name="direct_device_id"
+                  name="mts_bulk_device_id"
                   type="text"
                   inputMode="numeric"
                   class="sidebar-input"
-                  key={settings.direct_device_id ?? 127}
-                  defaultValue={settings.direct_device_id ?? 127}
+                  key={settings.mts_bulk_device_id ?? 127}
+                  defaultValue={settings.mts_bulk_device_id ?? 127}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.target.blur();
                   }}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
-                      save("direct_device_id", val, onChange);
-                    else e.target.value = settings.direct_device_id ?? 127;
+                      save("mts_bulk_device_id", val, onChange);
+                    else e.target.value = settings.mts_bulk_device_id ?? 127;
                   }}
                 />
               </label>
@@ -567,20 +567,20 @@ const MidiOutputs = (props) => {
               <label>
                 Tuning Map Number
                 <input
-                  name="direct_tuning_map_number"
+                  name="mts_bulk_tuning_map_number"
                   type="text"
                   inputMode="numeric"
                   class="sidebar-input"
-                  key={settings.direct_tuning_map_number ?? 0}
-                  defaultValue={settings.direct_tuning_map_number ?? 0}
+                  key={settings.mts_bulk_tuning_map_number ?? 0}
+                  defaultValue={settings.mts_bulk_tuning_map_number ?? 0}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.target.blur();
                   }}
                   onBlur={(e) => {
                     const val = parseInt(e.target.value);
                     if (!isNaN(val) && val >= 0 && val <= 127)
-                      save("direct_tuning_map_number", val, onChange);
-                    else e.target.value = settings.direct_tuning_map_number ?? 0;
+                      save("mts_bulk_tuning_map_number", val, onChange);
+                    else e.target.value = settings.mts_bulk_tuning_map_number ?? 0;
                   }}
                 />
               </label>
@@ -588,15 +588,15 @@ const MidiOutputs = (props) => {
               <label>
                 Tuning Map Name
                 <input
-                  name="direct_tuning_map_name"
+                  name="mts_bulk_tuning_map_name"
                   type="text"
                   class="sidebar-input"
                   maxLength={16}
-                  value={directTuningMapName}
+                  value={bulkTuningMapName}
                   onInput={(e) => {
                     const next = sanitizeBulkDumpName(e.target.value);
                     if (e.target.value !== next) e.target.value = next;
-                    save("direct_tuning_map_name", next, onChange);
+                    save("mts_bulk_tuning_map_name", next, onChange);
                   }}
                 />
               </label>
@@ -865,17 +865,17 @@ MidiOutputs.propTypes = {
     tuning_map_number: PropTypes.number,
     center_degree: PropTypes.number,
     output_mpe: PropTypes.bool,
-    output_direct: PropTypes.bool,
+    output_mts_bulk: PropTypes.bool,
     fluidsynth_out_port: PropTypes.string,
     fluidsynth_device: PropTypes.string,
     fluidsynth_channel: PropTypes.number,
-    direct_device: PropTypes.string,
-    direct_mode: PropTypes.string,
-    direct_channel: PropTypes.number,
-    direct_sysex_auto: PropTypes.bool,
-    direct_device_id: PropTypes.number,
-    direct_tuning_map_number: PropTypes.number,
-    direct_tuning_map_name: PropTypes.string,
+    mts_bulk_device: PropTypes.string,
+    mts_bulk_mode: PropTypes.string,
+    mts_bulk_channel: PropTypes.number,
+    mts_bulk_sysex_auto: PropTypes.bool,
+    mts_bulk_device_id: PropTypes.number,
+    mts_bulk_tuning_map_number: PropTypes.number,
+    mts_bulk_tuning_map_name: PropTypes.string,
     short_description: PropTypes.string,
     name: PropTypes.string,
     mpe_device: PropTypes.string,

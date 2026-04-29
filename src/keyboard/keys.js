@@ -168,7 +168,7 @@ class Keys {
       bendFlip: !!settings.midiin_bend_flip,
     };
 
-    this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or DIRECT) to an external synth
+    this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or MTS bulk dump) to an external synth
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
     this.onModulationArmChange = onModulationArmChange || null;
@@ -566,7 +566,7 @@ class Keys {
           // Only keyaftertouch listeners with note-remapping logic are kept here.
 
           if (this.settings.midi_mapping == "multichannel") {
-            // Multichannel output — currently NOT USED, to be replaced by DIRECT mode.
+            // Multichannel output — currently NOT USED, to be replaced by MTS bulk dump mode.
             this.midiin_data.addListener("keyaftertouch", (e) => {
               let note = e.message.dataBytes[0] + 128 * (e.message.channel - 1); // finds index of stored MTS data
               this.midiout_data.sendKeyAftertouch(keymap[note][0], e.message.dataBytes[1], {
@@ -577,7 +577,7 @@ class Keys {
           } else {
             // Single-channel output.
             if (this.settings.midi_mapping == "sequential") {
-              // Sequential — inactive, to be replaced by DIRECT mode.
+              // Sequential — inactive, to be replaced by MTS bulk dump mode.
               // Note-remapping: channel offset → equave shift → remapped output note.
               // Note that the channels-to-equave-transposition logic here will need
               // overhaul once static mapping per MIDI control surface is implemented.
@@ -1234,19 +1234,19 @@ class Keys {
   // (so colours update), and retunes any sounding/sustained notes.
   shiftOctave = (dir, deferred = false) => {
     this.settings.octave_offset = (this.settings.octave_offset || 0) + dir;
-    const isStaticDirect = this.settings.output_direct && this.settings.direct_mode === "static";
-    const isStaticDirectDeferred = deferred && isStaticDirect;
+    const isStaticMtsBulk = this.settings.output_mts_bulk && this.settings.mts_bulk_mode === "static";
+    const isStaticMtsBulkDeferred = deferred && isStaticMtsBulk;
 
     // In deferred mode, sounding notes keep their current pitch — the shift
     // only applies to the next new note. If there are no sounding notes,
     // deferred and immediate are equivalent.
     const hasSoundingNotes = this._hasSoundingNotes();
     const skipRetune = deferred && hasSoundingNotes;
-    if (isStaticDirect) {
+    if (isStaticMtsBulk) {
       this._deferredBulkMapRefresh = false;
       this._staticDeferredBulkActive = false;
     } else {
-      this._staticDeferredBulkActive = isStaticDirectDeferred && hasSoundingNotes;
+      this._staticDeferredBulkActive = isStaticMtsBulkDeferred && hasSoundingNotes;
       this._deferredBulkMapRefresh = skipRetune && this._hasDeferredBulkTargets();
     }
 
@@ -1273,7 +1273,7 @@ class Keys {
     // Each MidiHex.noteOn() sends its own single-note real-time sysex, so
     // new notes are individually retuned at trigger time regardless.
     const bulkDumpName = resolveBulkDumpName(
-      this.settings.direct_tuning_map_name,
+      this.settings.mts_bulk_tuning_map_name,
       this.settings.short_description,
       this.settings.name,
     );
@@ -1299,7 +1299,7 @@ class Keys {
       clearTimeout(this._deferredBulkMapTimer);
       this._deferredBulkMapTimer = null;
     }
-    if (isStaticDirect) {
+    if (isStaticMtsBulk) {
       this._sendBulkDumpOctaveRefresh(deferred && hasSoundingNotes, false);
     } else if (!skipRetune) {
       this._deferredBulkMapRefresh = false;
@@ -1372,13 +1372,13 @@ class Keys {
     if (this.settings.output_mts && this.midiout_data && this.settings.sysex_auto)
       this.mtsSendMap();
     if (
-      this.settings.output_direct &&
-      this.settings.direct_mode === "static" &&
-      this.settings.direct_sysex_auto &&
-      this.settings.direct_device &&
-      this.settings.direct_device !== "OFF"
+      this.settings.output_mts_bulk &&
+      this.settings.mts_bulk_mode === "static" &&
+      this.settings.mts_bulk_sysex_auto &&
+      this.settings.mts_bulk_device &&
+      this.settings.mts_bulk_device !== "OFF"
     ) {
-      const directOut = WebMidi.getOutputById(this.settings.direct_device);
+      const directOut = WebMidi.getOutputById(this.settings.mts_bulk_device);
       if (directOut) this.mtsSendMap(directOut);
     }
   };
@@ -1939,18 +1939,18 @@ class Keys {
     // Direct output uses the non-real-time bulk-dump path.
     // Main MTS real-time output always uses single-note real-time messages,
     // regardless of any stale sysex_type setting left over from older UI state.
-    const isDirectOutput =
-      this.settings.output_direct &&
-      this.settings.direct_device &&
-      this.settings.direct_device !== "OFF" &&
-      output.id === this.settings.direct_device;
-    const sysex_type = isDirectOutput ? 126 : 127;
-    const tuningMap = isDirectOutput
+    const isMtsBulkOutput =
+      this.settings.output_mts_bulk &&
+      this.settings.mts_bulk_device &&
+      this.settings.mts_bulk_device !== "OFF" &&
+      output.id === this.settings.mts_bulk_device;
+    const sysex_type = isMtsBulkOutput ? 126 : 127;
+    const tuningMap = isMtsBulkOutput
       ? mtsTuningMap(
           126,
-          this.settings.direct_device_id ?? 127,
-          this.settings.direct_tuning_map_number ?? 0,
-          this.settings.direct_mode === "static"
+          this.settings.mts_bulk_device_id ?? 127,
+          this.settings.mts_bulk_tuning_map_number ?? 0,
+          this.settings.mts_bulk_mode === "static"
             ? computeStaticMapDegree0(
                 chooseStaticMapCenterMidi(
                   computeCenterPitchHz(
@@ -1972,7 +1972,7 @@ class Keys {
               ),
           this.tuning.scale,
           resolveBulkDumpName(
-            this.settings.direct_tuning_map_name,
+            this.settings.mts_bulk_tuning_map_name,
             this.settings.short_description,
             this.settings.name,
           ),
@@ -2129,19 +2129,19 @@ class Keys {
 
   _hasDeferredBulkTargets() {
     const hasDirectBulk =
-      this.settings.output_direct &&
-      this.settings.direct_device &&
-      this.settings.direct_device !== "OFF";
+      this.settings.output_mts_bulk &&
+      this.settings.mts_bulk_device &&
+      this.settings.mts_bulk_device !== "OFF";
     return hasDirectBulk;
   }
 
   _sendBulkDumpOctaveRefresh(protectHeld = true, protectRecentReleased = true) {
     if (
-      this.settings.output_direct &&
-      this.settings.direct_device &&
-      this.settings.direct_device !== "OFF"
+      this.settings.output_mts_bulk &&
+      this.settings.mts_bulk_device &&
+      this.settings.mts_bulk_device !== "OFF"
     ) {
-      const directOut = WebMidi.getOutputById(this.settings.direct_device);
+      const directOut = WebMidi.getOutputById(this.settings.mts_bulk_device);
       if (directOut) this.mtsSendMap(directOut, protectHeld, protectRecentReleased);
     }
   }

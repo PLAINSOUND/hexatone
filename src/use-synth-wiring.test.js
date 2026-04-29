@@ -55,12 +55,12 @@ const partchScale = [
 
 const makeSettings = (overrides = {}) => ({
   output_mts: false,
-  output_direct: true,
-  direct_device: "direct-1",
-  direct_mode: "dynamic",
-  direct_channel: 0,
-  direct_device_id: 12,
-  direct_tuning_map_number: 5,
+  output_mts_bulk: true,
+  mts_bulk_device: "direct-1",
+  mts_bulk_mode: "dynamic",
+  mts_bulk_channel: 0,
+  mts_bulk_device_id: 12,
+  mts_bulk_tuning_map_number: 5,
   midi_velocity: 72,
   fundamental: 220.5,
   reference_degree: 0,
@@ -99,7 +99,7 @@ describe("use-synth-wiring runtime derivation", () => {
   });
 
   it("derives the centered static bulk-dump anchor for the Partch preset", () => {
-    const settings = makeSettings({ direct_mode: "static" });
+    const settings = makeSettings({ mts_bulk_mode: "static" });
     const tuningRuntime = deriveTuningRuntime(settings);
     const { outputs } = deriveOutputRuntime(settings, makeMidi(), tuningRuntime);
     expect(outputs).toHaveLength(1);
@@ -110,7 +110,7 @@ describe("use-synth-wiring runtime derivation", () => {
   });
 
   it("derives dynamic bulk-dump mode separately from static mode", () => {
-    const settings = makeSettings({ direct_mode: "dynamic" });
+    const settings = makeSettings({ mts_bulk_mode: "dynamic" });
     const tuningRuntime = deriveTuningRuntime(settings);
     const { outputs } = deriveOutputRuntime(settings, makeMidi(), tuningRuntime);
     expect(outputs).toHaveLength(1);

@@ -216,14 +216,14 @@ export const SETTINGS_REGISTRY = [
   { key: "tuning_map_number", tier: "session", type: "int", default: 0 },
 
   // ── MTS bulk dump output (dynamic + static) ───────────────────────────────────
-  { key: "output_direct", tier: "session", type: "bool", default: false },
-  { key: "direct_device", tier: "session", type: "string", default: "OFF" },
-  { key: "direct_mode", tier: "session", type: "string", default: "dynamic" },
-  { key: "direct_channel", tier: "session", type: "int", default: -1 },
-  { key: "direct_sysex_auto", tier: "session", type: "bool", default: false },
-  { key: "direct_device_id", tier: "session", type: "int", default: 127 },
-  { key: "direct_tuning_map_number", tier: "session", type: "int", default: 0 },
-  { key: "direct_tuning_map_name", tier: "session", type: "string", default: null },
+  { key: "output_mts_bulk", tier: "session", type: "bool", default: false },
+  { key: "mts_bulk_device", tier: "session", type: "string", default: "OFF" },
+  { key: "mts_bulk_mode", tier: "session", type: "string", default: "dynamic" },
+  { key: "mts_bulk_channel", tier: "session", type: "int", default: -1 },
+  { key: "mts_bulk_sysex_auto", tier: "session", type: "bool", default: false },
+  { key: "mts_bulk_device_id", tier: "session", type: "int", default: 127 },
+  { key: "mts_bulk_tuning_map_number", tier: "session", type: "int", default: 0 },
+  { key: "mts_bulk_tuning_map_name", tier: "session", type: "string", default: null },
 
   // ── MPE output ────────────────────────────────────────────────────────────────
   { key: "output_mpe", tier: "session", type: "bool", default: false },

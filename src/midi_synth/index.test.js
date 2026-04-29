@@ -110,7 +110,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       outputMode: {
         output,
         channel: 0,
-        midiMapping: "DIRECT",
+        midiMapping: "MTS_BULK",
         transportMode: "bulk_dynamic_map",
         velocity: 72,
         sysexType: 126,
@@ -149,7 +149,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       outputMode: {
         output,
         channel: 0,
-        midiMapping: "DIRECT",
+        midiMapping: "MTS_BULK",
         transportMode: "bulk_dynamic_map",
         velocity: 72,
         sysexType: 126,
@@ -194,7 +194,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       outputMode: {
         output,
         channel: 0,
-        midiMapping: "DIRECT",
+        midiMapping: "MTS_BULK",
         transportMode: "bulk_dynamic_map",
         velocity: 72,
         sysexType: 126,
@@ -233,7 +233,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       outputMode: {
         output,
         channel: 0,
-        midiMapping: "DIRECT",
+        midiMapping: "MTS_BULK",
         transportMode: "bulk_static_map",
         velocity: 72,
         sysexType: 126,

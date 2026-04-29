@@ -133,7 +133,7 @@ Keyboard.propTypes = {
     instrument: PropTypes.string,
     fundamental: PropTypes.number,
     reference_degree: PropTypes.number,
-    direct_mode: PropTypes.string,
+    mts_bulk_mode: PropTypes.string,
     midi: PropTypes.string,
     midi_device: PropTypes.string,
     midi_channel: PropTypes.number,

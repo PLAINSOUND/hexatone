@@ -41,7 +41,7 @@ const loadSampleSynthModule = async () => {
 const MIDI_PORT_RESET = {
   midiin_device: "OFF",
   midi_device: "OFF",
-  direct_device: "OFF",
+  mts_bulk_device: "OFF",
   mpe_device: "OFF",
   fluidsynth_device: "",
   fluidsynth_channel: -1,
@@ -101,7 +101,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
     settings.midi_device !== "OFF" &&
     settings.midi_channel >= 0 &&
     settings.midi_mapping &&
-    settings.midi_mapping !== "DIRECT" &&
+    settings.midi_mapping !== "MTS_BULK" &&
     typeof midiVelocity === "number"
   ) {
     outputs.push({
@@ -146,16 +146,16 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
   }
 
   if (
-    settings.output_direct &&
+    settings.output_mts_bulk &&
     midi &&
-    settings.direct_device &&
-    settings.direct_device !== "OFF" &&
-    settings.direct_channel >= 0 &&
+    settings.mts_bulk_device &&
+    settings.mts_bulk_device !== "OFF" &&
+    settings.mts_bulk_channel >= 0 &&
     typeof midiVelocity === "number" &&
     tuningRuntime
   ) {
-    const isStaticMode = settings.direct_mode === "static";
-    const directAnchor = isStaticMode
+    const isStaticMode = settings.mts_bulk_mode === "static";
+    const bulkAnchor = isStaticMode
       ? computeStaticMapDegree0(
           chooseStaticMapCenterMidi(
             computeCenterPitchHz(
@@ -179,17 +179,17 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       family: "mts",
       allocationMode: isStaticMode ? "static_map" : "mts1",
       transportMode: isStaticMode ? "bulk_static_map" : "bulk_dynamic_map",
-      output: midi.outputs.get(settings.direct_device),
-      channel: settings.direct_channel,
+      output: midi.outputs.get(settings.mts_bulk_device),
+      channel: settings.mts_bulk_channel,
       velocity: midiVelocity,
-      deviceId: settings.direct_device_id ?? 127,
-      mapNumber: settings.direct_tuning_map_number ?? 0,
+      deviceId: settings.mts_bulk_device_id ?? 127,
+      mapNumber: settings.mts_bulk_tuning_map_number ?? 0,
       mapName: resolveBulkDumpName(
-        settings.direct_tuning_map_name,
+        settings.mts_bulk_tuning_map_name,
         settings.short_description,
         settings.name,
       ),
-      anchorNote: directAnchor,
+      anchorNote: bulkAnchor,
       sysexType: 126,
       pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
@@ -394,13 +394,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // │    fluidsynth_channel  — FluidSynth mirror channel                      │
   // │                                                                         │
   // │  MTS bulk dump output:                                                  │
-  // │    output_direct       — enable/disable the bulk dump engine            │
-  // │    direct_device       — output port (new port = new synth object)      │
-  // │    direct_mode         — dynamic vs static changes allocation strategy  │
-  // │    direct_channel      — MIDI channel for note-on after bulk dump       │
-  // │    direct_device_id    — device ID in bulk dump sysex header            │
-  // │    direct_tuning_map_number — map slot in bulk dump header              │
-  // │    direct_tuning_map_name   — map name string in bulk dump payload      │
+  // │    output_mts_bulk     — enable/disable the bulk dump engine            │
+  // │    mts_bulk_device     — output port (new port = new synth object)      │
+  // │    mts_bulk_mode       — dynamic vs static changes allocation strategy  │
+  // │    mts_bulk_channel    — MIDI channel for note-on after bulk dump       │
+  // │    mts_bulk_device_id  — device ID in bulk dump sysex header            │
+  // │    mts_bulk_tuning_map_number — map slot in bulk dump header            │
+  // │    mts_bulk_tuning_map_name   — map name string in bulk dump payload    │
   // │                                                                         │
   // │  MPE output:                                                            │
   // │    output_mpe          — enable/disable MPE engine                      │
@@ -452,13 +452,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // ┌─────────────────────────────────────────────────────────────────────────┐
   // │ AUTO-SEND TRIGGER (no synth rebuild, no canvas redraw)                  │
   // │ RAF-debounced call to keysRef.current.mtsSendMap().                     │
-  // │ Only fires when output_direct + direct_mode=static + direct_sysex_auto. │
+  // │ Only fires when output_mts_bulk + mts_bulk_mode=static +                │
+  // │ mts_bulk_sysex_auto.                                                    │
   // │                                                                         │
-  // │    direct_sysex_auto       — turning auto-send on should send now       │
-  // │    direct_device           — port change should resend                  │
-  // │    direct_device_id        — header param change should resend          │
-  // │    direct_tuning_map_number — header param change should resend         │
-  // │    direct_tuning_map_name  — header param change should resend          │
+  // │    mts_bulk_sysex_auto       — turning auto-send on should send now     │
+  // │    mts_bulk_device           — port change should resend                │
+  // │    mts_bulk_device_id        — header param change should resend        │
+  // │    mts_bulk_tuning_map_number — map slot change should resend           │
+  // │    mts_bulk_tuning_map_name  — header param change should resend        │
   // │    center_degree           — map anchor changed, resend                 │
   // │    reference_degree        — pitch context changed, resend              │
   // │    scale                   — pitch content changed, resend              │
@@ -601,7 +602,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         const midiMapping =
           outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
-            ? "DIRECT"
+            ? "MTS_BULK"
             : outputMode.allocationMode === "mts2"
               ? "MTS2"
               : "MTS1";
@@ -627,10 +628,10 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
             getDynamicBulkConfig:
               outputMode.transportMode === "bulk_dynamic_map"
                 ? () => ({
-                    deviceId: settingsRef.current.direct_device_id ?? 127,
-                    mapNumber: settingsRef.current.direct_tuning_map_number ?? 0,
+                    deviceId: settingsRef.current.mts_bulk_device_id ?? 127,
+                    mapNumber: settingsRef.current.mts_bulk_tuning_map_number ?? 0,
                     name: resolveBulkDumpName(
-                      settingsRef.current.direct_tuning_map_name,
+                      settingsRef.current.mts_bulk_tuning_map_name,
                       settingsRef.current.short_description,
                       settingsRef.current.name,
                     ),
@@ -789,14 +790,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     settings.output_sample,
     settings.output_mts,
     settings.output_mpe,
-    settings.output_direct,
+    settings.output_mts_bulk,
     settings.output_osc,
-    settings.direct_device,
-    settings.direct_mode,
-    settings.direct_channel,
-    settings.direct_device_id,
-    settings.direct_tuning_map_number,
-    settings.direct_tuning_map_name,
+    settings.mts_bulk_device,
+    settings.mts_bulk_mode,
+    settings.mts_bulk_channel,
+    settings.mts_bulk_device_id,
+    settings.mts_bulk_tuning_map_number,
+    settings.mts_bulk_tuning_map_name,
     settings.fluidsynth_device,
     settings.fluidsynth_channel,
     settings.sysex_type,
@@ -854,23 +855,23 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.fundamental]); // keysRef is a stable ref, intentionally omitted
 
-  // In DIRECT static mode, turning on auto-send or changing map parameters
+  // In MTS bulk static mode, turning on auto-send or changing map parameters
   // should immediately send the current static snapshot without waiting for
   // another retune action. Defer to the next frame so any Keys reconstruction
   // from structural setting changes has already completed.
   useEffect(() => {
     if (
       !ready ||
-      !settings.output_direct ||
-      settings.direct_mode !== "static" ||
-      !settings.direct_sysex_auto ||
-      !settings.direct_device ||
-      settings.direct_device === "OFF" ||
+      !settings.output_mts_bulk ||
+      settings.mts_bulk_mode !== "static" ||
+      !settings.mts_bulk_sysex_auto ||
+      !settings.mts_bulk_device ||
+      settings.mts_bulk_device === "OFF" ||
       !keysRef.current
     )
       return;
 
-    const output = WebMidi.getOutputById(settings.direct_device);
+    const output = WebMidi.getOutputById(settings.mts_bulk_device);
     if (!output) return;
 
     let raf = requestAnimationFrame(() => {
@@ -881,13 +882,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   }, [
     ready,
     midi,
-    settings.output_direct,
-    settings.direct_mode,
-    settings.direct_sysex_auto,
-    settings.direct_device,
-    settings.direct_device_id,
-    settings.direct_tuning_map_number,
-    settings.direct_tuning_map_name,
+    settings.output_mts_bulk,
+    settings.mts_bulk_mode,
+    settings.mts_bulk_sysex_auto,
+    settings.mts_bulk_device,
+    settings.mts_bulk_device_id,
+    settings.mts_bulk_tuning_map_number,
+    settings.mts_bulk_tuning_map_name,
     settings.center_degree,
     settings.reference_degree,
     settings.scale,
@@ -929,13 +930,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       if (
         !next &&
         ready &&
-        settings.output_direct &&
-        settings.direct_mode === "static" &&
-        settings.direct_device &&
-        settings.direct_device !== "OFF" &&
+        settings.output_mts_bulk &&
+        settings.mts_bulk_mode === "static" &&
+        settings.mts_bulk_device &&
+        settings.mts_bulk_device !== "OFF" &&
         keysRef.current?.mtsSendMap
       ) {
-        const output = WebMidi.getOutputById(settings.direct_device);
+        const output = WebMidi.getOutputById(settings.mts_bulk_device);
         if (output) {
           requestAnimationFrame(() => {
             if (keysRef.current?.mtsSendMap) {
@@ -948,9 +949,9 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     [
       octaveDeferred,
       ready,
-      settings.output_direct,
-      settings.direct_mode,
-      settings.direct_device,
+      settings.output_mts_bulk,
+      settings.mts_bulk_mode,
+      settings.mts_bulk_device,
       keysRef,
     ],
   );

@@ -55,6 +55,7 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
       "hexatone_preset_source",
       "hexatone_preset_name",
       "direct_sysex_auto",
+      "mts_bulk_sysex_auto",
       REGISTRY_BY_KEY.webmidi_access.key,
     ];
     [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear].forEach((key) => sessionStorage.removeItem(key));
@@ -745,7 +746,7 @@ const App = () => {
       output_sample: settings.output_sample,
       output_mts: settings.output_mts,
       output_mpe: settings.output_mpe,
-      output_direct: settings.output_direct,
+      output_mts_bulk: settings.output_mts_bulk,
       output_osc: settings.output_osc,
       midi_device: settings.midi_device,
       midi_channel: settings.midi_channel,
@@ -755,13 +756,13 @@ const App = () => {
       sysex_type: settings.sysex_type,
       device_id: settings.device_id,
       tuning_map_number: settings.tuning_map_number,
-      direct_device: settings.direct_device,
-      direct_mode: settings.direct_mode,
-      direct_channel: settings.direct_channel,
-      direct_sysex_auto: settings.direct_sysex_auto,
-      direct_device_id: settings.direct_device_id,
-      direct_tuning_map_number: settings.direct_tuning_map_number,
-      direct_tuning_map_name: settings.direct_tuning_map_name,
+      mts_bulk_device: settings.mts_bulk_device,
+      mts_bulk_mode: settings.mts_bulk_mode,
+      mts_bulk_channel: settings.mts_bulk_channel,
+      mts_bulk_sysex_auto: settings.mts_bulk_sysex_auto,
+      mts_bulk_device_id: settings.mts_bulk_device_id,
+      mts_bulk_tuning_map_number: settings.mts_bulk_tuning_map_number,
+      mts_bulk_tuning_map_name: settings.mts_bulk_tuning_map_name,
       fluidsynth_device: settings.fluidsynth_device,
       fluidsynth_channel: settings.fluidsynth_channel,
       mpe_device: settings.mpe_device,
@@ -776,7 +777,7 @@ const App = () => {
       settings.output_sample,
       settings.output_mts,
       settings.output_mpe,
-      settings.output_direct,
+      settings.output_mts_bulk,
       settings.output_osc,
       settings.midi_device,
       settings.midi_channel,
@@ -786,13 +787,13 @@ const App = () => {
       settings.sysex_type,
       settings.device_id,
       settings.tuning_map_number,
-      settings.direct_device,
-      settings.direct_mode,
-      settings.direct_channel,
-      settings.direct_sysex_auto,
-      settings.direct_device_id,
-      settings.direct_tuning_map_number,
-      settings.direct_tuning_map_name,
+      settings.mts_bulk_device,
+      settings.mts_bulk_mode,
+      settings.mts_bulk_channel,
+      settings.mts_bulk_sysex_auto,
+      settings.mts_bulk_device_id,
+      settings.mts_bulk_tuning_map_number,
+      settings.mts_bulk_tuning_map_name,
       settings.fluidsynth_device,
       settings.fluidsynth_channel,
       settings.mpe_device,
@@ -1195,9 +1196,9 @@ const App = () => {
               if (e.pointerType === "touch") e.preventDefault();
             }}
             onContextMenu={(e) => e.preventDefault()}
-          >
+            >
             <b>MOD</b>
-            {modulationSummary ? <i className="modulation-route">{modulationSummary}</i> : null}
+            {modulationSummary ? <span className="modulation-route">{modulationSummary}</span> : null}
           </button>
           <button
             id="panic-button"
@@ -1409,22 +1410,31 @@ const App = () => {
                       onStepModulationRoute(index, 1);
                     }}
                   />
-                  {canClearRoute ? (
-                    <button
-                      className="modulation-palette-close"
-                      title="Remove modulation history row"
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onClearModulationRoute(index);
-                      }}
-                    >
-                      ×
-                    </button>
-                  ) : <button className="modulation-palette-close-placeholder"></button>}
+                  <span className="modulation-palette-close-slot">
+                    {canClearRoute ? (
+                      <button
+                        className="modulation-palette-close"
+                        title="Remove modulation history row"
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onClearModulationRoute(index);
+                        }}
+                      >
+                        ×
+                      </button>
+                    ) : (
+                      <span
+                        className="modulation-palette-close modulation-palette-close-placeholder"
+                        aria-hidden="true"
+                      >
+                        ×
+                      </span>
+                    )}
+                  </span>
                 </div>
               );
             })}
