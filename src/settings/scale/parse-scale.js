@@ -304,7 +304,7 @@ const getRawScale = (settings) => {
 };
 
 // Serialise current settings as a compact JSON object for user-preset export.
-export const settingsToPresetJson = (settings) => {
+export const settingsToPresetJson = (settings, extra = {}) => {
   const PRESET_FIELDS = [
     "name",
     "description",
@@ -328,6 +328,11 @@ export const settingsToPresetJson = (settings) => {
   const preset = {};
   for (const key of PRESET_FIELDS) {
     if (settings[key] !== undefined) preset[key] = settings[key];
+  }
+  for (const [key, value] of Object.entries(extra)) {
+    if (value !== undefined && value !== null && (!Array.isArray(value) || value.length > 0)) {
+      preset[key] = value;
+    }
   }
 
   // Pretty-print with 2-space indent, matching preset_values.js style

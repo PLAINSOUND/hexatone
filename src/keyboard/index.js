@@ -24,6 +24,7 @@ const Keyboard = (props) => {
       props.onFirstInteraction,
       props.tuningRuntime,
       props.onModulationStateChange,
+      props.initialModulationLibrary,
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
@@ -32,6 +33,9 @@ const Keyboard = (props) => {
     // Apply current label settings immediately after construction so the initial
     // draw has the correct label mode even if labelSettings changed since Keys was last built.
     if (props.labelSettings) keys.updateLabels(props.labelSettings);
+    if (props.onModulationStateChange && typeof keys.getModulationState === "function") {
+      props.onModulationStateChange(keys.getModulationState());
+    }
     if (props.onKeysReady) props.onKeysReady(keys);
     return () => {
       keys.lumatoneLEDs = null;
@@ -40,7 +44,7 @@ const Keyboard = (props) => {
       keys.deconstruct();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by structuralSettings
-  }, [canvas, props.structuralSettings, props.inputRuntime]);
+  }, [canvas, props.structuralSettings, props.inputRuntime, props.initialModulationLibrary]);
 
   // Output/synth changes should not tear down the live keyboard. Existing notes
   // keep their current hex objects so tails can decay naturally; new notes use

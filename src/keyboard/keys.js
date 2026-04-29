@@ -62,6 +62,7 @@ import {
   commitModulationTarget,
   createModulationState,
   frameForNewNotes,
+  normalizeModulationHistory,
   setModulationRouteCount,
   setModulationHistoryIndex,
   settleModulationIfPossible,
@@ -114,6 +115,7 @@ class Keys {
     onFirstInteraction = null,
     tuningRuntime = null,
     onModulationStateChange = null,
+    initialModulationLibrary = null,
   ) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.tuning = {
@@ -254,11 +256,20 @@ class Keys {
     this._channelPressureValue = 0;
     this._frameGeneration = 0;
     this._lastPlayedDegree = this.settings.reference_degree ?? 0;
-    this._harmonicFrame = this._makeFrameForDegree(this.settings.reference_degree ?? 0);
+    const homeFrame = this._makeFrameForDegree(this.settings.reference_degree ?? 0);
+    this._harmonicFrame = homeFrame;
+    const initialModulationHistory = normalizeModulationHistory(initialModulationLibrary);
     this._modulationState = createModulationState({
-      homeFrame: this._harmonicFrame,
-      currentFrame: this._harmonicFrame,
+      homeFrame,
+      currentFrame: homeFrame,
+      history: initialModulationHistory,
     });
+    if (initialModulationHistory.length > 0) {
+      const currentFrame = this._frameForHistory(initialModulationHistory);
+      this._harmonicFrame = currentFrame;
+      this._modulationState.currentFrame = currentFrame;
+      this._modulationState.historyIndex = this._modulationState.currentRoute?.count ?? 0;
+    }
 
     // The tuning map anchor is always derived from the musical content (fundamental,
     // scale, center_degree) — independent of midiin_central_degree, which is a

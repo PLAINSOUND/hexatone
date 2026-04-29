@@ -368,6 +368,36 @@ describe("settingsToPresetJson", () => {
     expect(parsed.midiin_central_degree).toBeUndefined();
     expect(parsed.mpe_pitchbend_range).toBeUndefined();
   });
+
+  it("can include saved modulation-library metadata alongside settings", () => {
+    const json = settingsToPresetJson(
+      {
+        name: "Export Test",
+        scale: ["100.", "1200."],
+        equivSteps: 2,
+      },
+      {
+        modulation_library: [
+          {
+            sourceDegree: 7,
+            targetDegree: 11,
+            strategy: "retune_surface_to_source",
+            count: 0,
+          },
+        ],
+      },
+    );
+    const parsed = JSON.parse(json);
+
+    expect(parsed.modulation_library).toEqual([
+      {
+        sourceDegree: 7,
+        targetDegree: 11,
+        strategy: "retune_surface_to_source",
+        count: 0,
+      },
+    ]);
+  });
 });
 
 // ── fileToPreset ──────────────────────────────────────────────────────────────

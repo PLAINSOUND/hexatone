@@ -303,6 +303,11 @@ const App = () => {
     PRESET_SKIP_KEYS,
   );
 
+  const [modulationArmed, setModulationArmed] = useState(false);
+  const [modulationMode, setModulationMode] = useState("idle");
+  const [modulationState, setModulationState] = useState(null);
+  const [presetModulationLibrary, setPresetModulationLibrary] = useState([]);
+
   const {
     activeSource,
     activePresetName,
@@ -318,6 +323,8 @@ const App = () => {
   } = usePresets(settings, setSettings, {
     synthRef,
     onUserInteraction: () => setUserHasInteracted(true),
+    currentModulationLibrary: modulationState?.history ?? presetModulationLibrary,
+    setPresetModulationLibrary,
   });
 
   const { onImport, importCount, bumpImportCount } = useImport(settings, setSettings, {
@@ -358,9 +365,6 @@ const App = () => {
 
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
-  const [modulationArmed, setModulationArmed] = useState(false);
-  const [modulationMode, setModulationMode] = useState("idle");
-  const [modulationState, setModulationState] = useState(null);
   const [modulationPalettePos, setModulationPalettePos] = useState(getDefaultModulationPalettePos);
   const [modulationPaletteCollapsed, setModulationPaletteCollapsed] = useState(false);
 
@@ -1183,6 +1187,7 @@ const App = () => {
           inputRuntime={inputRuntime}
           structuralSettings={reconstructionSettings}
           labelSettings={labelSettings}
+          initialModulationLibrary={presetModulationLibrary}
           onKeysReady={onKeysReady}
           onLatchChange={onLatchChange}
           onModulationArmChange={onModulationArmChange}
@@ -1614,6 +1619,7 @@ const App = () => {
               activeSource={activeSource}
               activePresetName={activePresetName}
               isPresetDirty={isPresetDirty}
+              currentModulationLibrary={modulationState?.history ?? presetModulationLibrary}
               persistOnReload={persistOnReload}
               setPersistOnReload={setPersistOnReload}
               onRevertBuiltin={onRevertBuiltin}

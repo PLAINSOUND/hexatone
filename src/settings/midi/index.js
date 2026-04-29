@@ -264,7 +264,7 @@ const MIDIio = (props) => {
   return (
     <fieldset>
       <legend>
-        <b>MIDI In from Controller</b>
+        <b>MIDI Input</b>
       </legend>
       <label>
         Input Port

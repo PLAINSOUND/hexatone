@@ -3,6 +3,7 @@ import { presets, default_settings } from "./settings/preset_values";
 import { settingsToHexatonScala } from "./settings/scale/parse-scale.js";
 import { loadCustomPresets } from "./settings/custom-presets";
 import { PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
+import { normalizeModulationHistory } from "./keyboard/modulation-runtime.js";
 
 export { PRESET_SKIP_KEYS };
 
@@ -72,18 +73,24 @@ export const mergePresetIntoSettings = (settings, preset) => ({
 // Fields that count as "edits" for dirty detection — same as PRESET_SKIP_KEYS.
 const DIRTY_FIELDS = PRESET_SKIP_KEYS;
 
-const snapshotOf = (s) => {
-  const snap = {};
-  for (const k of DIRTY_FIELDS) snap[k] = JSON.stringify(s[k]);
-  return snap;
+const snapshotOf = (s, modulationLibrary = []) => {
+  const settingsSnap = {};
+  for (const k of DIRTY_FIELDS) settingsSnap[k] = JSON.stringify(s[k]);
+  return {
+    settings: settingsSnap,
+    modulationLibrary: JSON.stringify(normalizeModulationHistory(modulationLibrary, { zeroCounts: true })),
+  };
 };
 
-const isDirty = (snap, s) => {
+const isDirty = (snap, s, modulationLibrary = []) => {
   if (!snap) return false;
   for (const k of DIRTY_FIELDS) {
-    if (JSON.stringify(s[k]) !== snap[k]) return true;
+    if (JSON.stringify(s[k]) !== snap.settings[k]) return true;
   }
-  return false;
+  return (
+    JSON.stringify(normalizeModulationHistory(modulationLibrary, { zeroCounts: true })) !==
+    snap.modulationLibrary
+  );
 };
 
 // localStorage key for the "restore on reload" preference
@@ -105,7 +112,11 @@ const PERSIST_ON_RELOAD_KEY = "hexatone_persist_on_reload";
  *             presetChanged, onLoadCustomPreset, onClearUserPresets,
  *             onRevertBuiltin, onRevertUser }}
  */
-const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
+const usePresets = (
+  settings,
+  setSettings,
+  { synthRef, onUserInteraction, currentModulationLibrary, setPresetModulationLibrary },
+) => {
   const [activeSource, setActiveSource] = useState(null);
   const [activePresetName, setActivePresetName] = useState(null);
   // Snapshot stored in state so updating it triggers a re-render and
@@ -141,7 +152,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
           hexSize: scaleHexSizeForScreen(presetData.hexSize),
         };
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
-        setSavedPresetSnapshot(snapshotOf(merged));
+        const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+        setPresetModulationLibrary(savedLibrary);
+        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
         setSettings(() => merged);
       }
     } else if (savedSource === "user") {
@@ -155,7 +168,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
           hexSize: scaleHexSizeForScreen(preset.hexSize),
         };
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
-        setSavedPresetSnapshot(snapshotOf(merged));
+        const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+        setPresetModulationLibrary(savedLibrary);
+        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
         setSettings(() => merged);
       }
     }
@@ -180,7 +195,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
       hexSize: scaleHexSizeForScreen(presetData.hexSize),
     };
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
-    setSavedPresetSnapshot(snapshotOf(merged));
+    const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+    setPresetModulationLibrary(savedLibrary);
+    setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
     setSettings(() => merged);
   };
 
@@ -199,7 +216,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
       hexSize: scaleHexSizeForScreen(preset.hexSize),
     };
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
-    setSavedPresetSnapshot(snapshotOf(merged));
+    const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+    setPresetModulationLibrary(savedLibrary);
+    setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
     setSettings(() => merged);
   };
 
@@ -207,6 +226,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
     const remaining = loadCustomPresets();
     setActiveSource(null);
     setActivePresetName(null);
+    setPresetModulationLibrary([]);
     sessionStorage.removeItem("hexatone_preset_source");
     sessionStorage.removeItem("hexatone_preset_name");
 
@@ -218,7 +238,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
       sessionStorage.setItem("hexatone_preset_source", "user");
       sessionStorage.setItem("hexatone_preset_name", preset.name);
       const merged = mergePresetIntoSettings(settings, preset);
-      setSavedPresetSnapshot(snapshotOf(merged));
+      const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+      setPresetModulationLibrary(savedLibrary);
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
     } else {
       // No user presets remain — clear scale keys and start fresh
@@ -236,7 +258,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
         hexSize: scaleHexSizeForScreen(presetData.hexSize),
       };
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
-      setSavedPresetSnapshot(snapshotOf(merged));
+      const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+      setPresetModulationLibrary(savedLibrary);
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
     }
   };
@@ -251,7 +275,9 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
           hexSize: scaleHexSizeForScreen(saved.hexSize),
         };
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
-        setSavedPresetSnapshot(snapshotOf(merged));
+        const savedLibrary = normalizeModulationHistory(saved.modulation_library, { zeroCounts: true });
+        setPresetModulationLibrary(savedLibrary);
+        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
         setSettings(() => merged);
       }
     }
@@ -274,7 +300,7 @@ const usePresets = (settings, setSettings, { synthRef, onUserInteraction }) => {
   return {
     activeSource,
     activePresetName,
-    isPresetDirty: isDirty(savedPresetSnapshot, settings),
+    isPresetDirty: isDirty(savedPresetSnapshot, settings, currentModulationLibrary),
     persistOnReload,
     setPersistOnReload,
     presetChanged,

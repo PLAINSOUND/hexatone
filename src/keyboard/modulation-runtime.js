@@ -26,6 +26,15 @@ function normalizeHistoryEntry(entry = {}) {
   };
 }
 
+export function normalizeModulationHistory(history = [], options = {}) {
+  const zeroCounts = options.zeroCounts === true;
+  if (!Array.isArray(history)) return [];
+  return history.map((entry) => {
+    const normalized = normalizeHistoryEntry(entry);
+    return zeroCounts ? { ...normalized, count: 0 } : normalized;
+  });
+}
+
 function selectCurrentRoute(history = []) {
   for (let index = history.length - 1; index >= 0; index -= 1) {
     if ((history[index]?.count ?? 0) !== 0) return history[index];
@@ -34,7 +43,7 @@ function selectCurrentRoute(history = []) {
 }
 
 export function createModulationState(options = {}) {
-  const history = Array.isArray(options.history) ? options.history.map(normalizeHistoryEntry) : [];
+  const history = normalizeModulationHistory(options.history);
   const currentRoute = options.currentRoute
     ? normalizeHistoryEntry(options.currentRoute)
     : selectCurrentRoute(history);

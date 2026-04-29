@@ -2,6 +2,7 @@ import { createRef } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { fileToPreset, settingsToPresetJson } from "./scale/parse-scale";
+import { normalizeModulationHistory } from "../keyboard/modulation-runtime.js";
 
 const STORAGE_KEY = "hexatone_custom_presets";
 
@@ -28,6 +29,7 @@ const PRESET_FIELDS = [
   "midiin_central_degree",
   "mpe_mode",
   "mpe_pitchbend_range",
+  "modulation_library",
 ];
 
 export const loadCustomPresets = () => {
@@ -63,6 +65,7 @@ const CustomPresets = ({
   activeSource,
   activePresetName,
   onRevert,
+  currentModulationLibrary,
 }) => {
   const [presets, setPresets] = useState(loadCustomPresets);
   const [selected, setSelected] = useState("");
@@ -119,6 +122,9 @@ const CustomPresets = ({
     for (const key of PRESET_FIELDS) {
       if (settings[key] !== undefined) preset[key] = settings[key];
     }
+    const normalizedLibrary = normalizeModulationHistory(currentModulationLibrary, { zeroCounts: true });
+    if (normalizedLibrary.length > 0) preset.modulation_library = normalizedLibrary;
+    else delete preset.modulation_library;
     const next = isExisting
       ? presets.map((p) => (p.name === tuningName ? preset : p))
       : [...presets, preset];
@@ -135,7 +141,12 @@ const CustomPresets = ({
       setError("Please enter a name in the Name and Description section first.");
       return;
     }
-    downloadFile(settingsToPresetJson(settings), `${safeName(tuningName)}.json`);
+    downloadFile(
+      settingsToPresetJson(settings, {
+        modulation_library: normalizeModulationHistory(currentModulationLibrary, { zeroCounts: true }),
+      }),
+      `${safeName(tuningName)}.json`,
+    );
   };
 
   const handleDelete = () => {
@@ -414,6 +425,7 @@ CustomPresets.propTypes = {
   activePresetName: PropTypes.string,
   isPresetDirty: PropTypes.bool,
   onRevert: PropTypes.func,
+  currentModulationLibrary: PropTypes.arrayOf(PropTypes.object),
 };
 
 export default CustomPresets;

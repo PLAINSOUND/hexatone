@@ -32,6 +32,7 @@ const baseProps = {
   activePresetName: "",
   isPresetDirty: false,
   onRevert: () => {},
+  currentModulationLibrary: [],
 };
 
 describe("CustomPresets import actions", () => {
@@ -151,6 +152,14 @@ describe("CustomPresets save, export and delete", () => {
       <CustomPresets
         {...baseProps}
         activeSource="builtin"
+        currentModulationLibrary={[
+          {
+            sourceDegree: 7,
+            targetDegree: 11,
+            strategy: "retune_surface_to_source",
+            count: 3,
+          },
+        ]}
         settings={{
           name: "Saved Tuning",
           scale: ["100.", "1200."],
@@ -163,8 +172,32 @@ describe("CustomPresets save, export and delete", () => {
 
     fireEvent.click(screen.getByText("Save current settings").closest("button"));
 
-    expect(loadCustomPresets().map((p) => p.name)).toEqual(["Saved Tuning"]);
-    expect(onLoad).toHaveBeenCalledWith(expect.objectContaining({ name: "Saved Tuning" }));
+    expect(loadCustomPresets()).toEqual([
+      expect.objectContaining({
+        name: "Saved Tuning",
+        modulation_library: [
+          {
+            sourceDegree: 7,
+            targetDegree: 11,
+            strategy: "retune_surface_to_source",
+            count: 0,
+          },
+        ],
+      }),
+    ]);
+    expect(onLoad).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Saved Tuning",
+        modulation_library: [
+          {
+            sourceDegree: 7,
+            targetDegree: 11,
+            strategy: "retune_surface_to_source",
+            count: 0,
+          },
+        ],
+      }),
+    );
   });
 
   it("exports the current tuning as json", () => {

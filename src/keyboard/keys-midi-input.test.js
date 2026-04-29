@@ -91,7 +91,7 @@ function makePitchBendEvent(val14, channel = 1) {
   };
 }
 
-function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = {}) {
+function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = {}, initialModulationLibrary = null) {
   const canvas = makeCanvas();
   const keys = new Keys(
     canvas,
@@ -123,6 +123,9 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
       ...inputRuntimeOverrides,
     },
     null,
+    null,
+    null,
+    initialModulationLibrary,
   );
   return keys;
 }
@@ -702,6 +705,40 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().mode).toBe("idle");
     expect(keys.getDisplayLabelAtCoords(new Point(0, 0))).toBe("0.");
     expect(keys.getDisplayLabelAtCoords(new Point(5, 0))).toBe("500.");
+  });
+
+  it("hydrates a saved modulation library with zero-count routes that can be stepped immediately", () => {
+    const keys = createKeys(
+      {
+        key_labels: "note_names",
+        note: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+        note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
+      },
+      {},
+      {},
+      [
+        {
+          sourceDegree: 2,
+          targetDegree: 5,
+          strategy: "retune_surface_to_source",
+          count: 0,
+        },
+      ],
+    );
+
+    expect(keys.getModulationState().history).toEqual([
+      {
+        sourceDegree: 2,
+        targetDegree: 5,
+        strategy: "retune_surface_to_source",
+        count: 0,
+      },
+    ]);
+    expect(keys.getModulationState().mode).toBe("idle");
+    expect(keys.stepModulationRoute(0, 1)).toBe(true);
+    expect(keys.getModulationState().history[0].count).toBe(1);
   });
 
   it("measures scale-cents labels from degree 0 instead of reference_degree", () => {

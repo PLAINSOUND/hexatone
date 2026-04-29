@@ -21,6 +21,7 @@ const Settings = ({
   activeSource,
   activePresetName,
   isPresetDirty,
+  currentModulationLibrary,
   persistOnReload,
   setPersistOnReload,
   onRevertBuiltin,
@@ -82,6 +83,7 @@ const Settings = ({
       activeSource={activeSource}
       activePresetName={activePresetName}
       isPresetDirty={isPresetDirty}
+      currentModulationLibrary={currentModulationLibrary}
       onRevert={onRevertUser}
     />
     <Info onChange={onChange} settings={settings} />
