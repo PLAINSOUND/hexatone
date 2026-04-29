@@ -1,4 +1,3 @@
-import { useEffect } from "preact/hooks";
 import PropTypes from "prop-types";
 import { parseScalaInterval } from "./parse-scale.js";
 
@@ -75,33 +74,6 @@ const KeyLabels = (props) => {
   const hejiDisabled = isHeji && props.heji_supported === false;
   const selectedKeyLabel = props.settings.key_labels === "equaves" ? "no_labels" : props.settings.key_labels;
   const showEquaves = props.settings.show_equaves || props.settings.key_labels === "equaves";
-  const {
-    heji_anchor_label_eff,
-    heji_anchor_ratio_eff,
-    onAtomicChange,
-    settings: { heji_anchor_label, heji_anchor_ratio },
-  } = props;
-
-  useEffect(() => {
-    if (!isHeji) return;
-    if (hejiDisabled) return;
-    const hasExplicitRatio = !!String(heji_anchor_ratio || "").trim();
-    const hasExplicitLabel = !!String(heji_anchor_label || "").trim();
-    if (hasExplicitRatio || hasExplicitLabel) return;
-    if (!heji_anchor_ratio_eff || !heji_anchor_label_eff) return;
-    onAtomicChange({
-      heji_anchor_ratio: heji_anchor_ratio_eff,
-      heji_anchor_label: heji_anchor_label_eff,
-    });
-  }, [
-    hejiDisabled,
-    heji_anchor_label,
-    heji_anchor_label_eff,
-    heji_anchor_ratio,
-    heji_anchor_ratio_eff,
-    isHeji,
-    onAtomicChange,
-  ]);
 
   const copyHejiToNoteNames = () => {
     if (!props.heji_names?.length) return;

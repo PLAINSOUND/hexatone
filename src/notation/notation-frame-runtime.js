@@ -1,6 +1,7 @@
 import { spelledHejiLabel } from "./key-label.js";
 import { createReferenceFrame } from "./reference-frame.js";
 import { getWorkspaceSlot } from "../tuning/workspace.js";
+import { parseExactInterval } from "../tuning/interval.js";
 
 // Bridge layer between ScaleWorkspace and live modulation display state.
 // It reads committed workspace slots, derives a frame-relative interpretation,
@@ -132,6 +133,8 @@ export function spellSlotForFrame(slot, frame, options = {}) {
     label = spelledHejiLabel(frame.referenceFrame, ratioText, centsFromAnchor, {
       notationPolicy: frame.notationPolicy,
       suppressDeviation: options.suppressDeviation ?? true,
+      temperedOnly: options.temperedOnly ?? false,
+      forceShowZeroDeviation: options.forceShowZeroDeviation ?? false,
     });
   } else if (frame.notationSystem === "none") {
     label = null;
@@ -157,6 +160,55 @@ export function spellWorkspaceForFrame(workspace, frame, options = {}) {
     entries,
     labelsByDegree: entries.map((entry) => entry.label),
   };
+}
+
+function trimRenderedLabelToPitchClass(label) {
+  const source = String(label ?? "").trim();
+  if (!source) return null;
+  const match = source.match(/^(.+?[A-Ga-g])(?:[+\-\u2212]\d+)?$/);
+  return match?.[1] ?? source;
+}
+
+function normalizeDegree(value) {
+  return Number.isFinite(value) ? Math.trunc(value) : Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : null;
+}
+
+export function replayModulationHistoryForFrame(workspace, baseFrame, history = [], options = {}) {
+  let frame = baseFrame;
+  const entries = Array.isArray(history) ? history : [];
+
+  for (const entry of entries) {
+    const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+    if (count === 0) continue;
+    const stepCount = Math.abs(count);
+
+    for (let step = 0; step < stepCount; step += 1) {
+      const spelled = spellWorkspaceForFrame(workspace, frame, options);
+      const sourceDegree = normalizeDegree(count > 0 ? entry?.sourceDegree : entry?.targetDegree);
+      const targetDegree = normalizeDegree(count > 0 ? entry?.targetDegree : entry?.sourceDegree);
+      if (sourceDegree == null || targetDegree == null) continue;
+      const targetSlot = getWorkspaceSlot(workspace, targetDegree);
+      const sourceLabel = spelled.entries.find((item) => item.degree === sourceDegree)?.label;
+      const movedLabel =
+        trimRenderedLabelToPitchClass(sourceLabel) ??
+        frame.heji.anchorLabel;
+      const targetRatioText =
+        targetSlot?.sourceText?.includes("/")
+          ? targetSlot.sourceText
+          : targetSlot?.exactRole?.ratioText ?? targetSlot?.sourceText ?? frame.anchorRatioText;
+
+      frame = mutateHarmonicFrame(frame, {
+        workspace,
+        anchorDegree: targetDegree,
+        anchorLabel: movedLabel,
+        anchorRatioText: targetRatioText,
+        anchorInterval: parseExactInterval(String(targetRatioText)),
+        rederiveAnchor: false,
+      });
+    }
+  }
+
+  return frame;
 }
 
 export function deriveDegreeColorsForFrame(workspace, frame, options = {}) {

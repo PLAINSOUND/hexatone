@@ -253,6 +253,7 @@ class Keys {
     }
     this._channelPressureValue = 0;
     this._frameGeneration = 0;
+    this._lastPlayedDegree = this.settings.reference_degree ?? 0;
     this._harmonicFrame = this._makeFrameForDegree(this.settings.reference_degree ?? 0);
     this._modulationState = createModulationState({
       homeFrame: this._harmonicFrame,
@@ -957,7 +958,9 @@ class Keys {
 
   armModulation = (strategy = this._modulationState.strategy) => {
     const sourceHex = this.recencyStack.front ?? null;
-    const sourceDegree = sourceHex ? this._degreeForHex(sourceHex) : 0;
+    const sourceDegree = sourceHex
+      ? this._degreeForHex(sourceHex)
+      : (this._lastPlayedDegree ?? this.settings.reference_degree ?? 0);
     this._modulationState = beginModulation(this._modulationState, {
       currentFrame: this._harmonicFrame,
       sourceHex,
@@ -1007,6 +1010,13 @@ class Keys {
     return ((reducedNote + (frame?.transpositionSteps ?? 0)) % scaleLength + scaleLength) % scaleLength;
   }
 
+  _scaleCentsLabelForDegree(reducedNote) {
+    const scale = this.tuning.scale || [];
+    const degree0Cents = scale[0] ?? 0;
+    const degreeCents = scale[reducedNote] ?? degree0Cents;
+    return `${Math.round(((degreeCents - degree0Cents) + 1200) % 1200)}.`;
+  }
+
   getDisplayLabelAtCoords = (coords) => {
     const note = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
     const equivSteps = this.tuning.scale.length || 1;
@@ -1018,14 +1028,7 @@ class Keys {
     if (this.settings.note) return this.settings.note_names?.[liveReducedNote] ?? "";
     if (this.settings.heji) return this.settings.heji_names?.[liveReducedNote] ?? "";
     if (this.settings.scala) return this.settings.scala_names?.[liveReducedNote] ?? "";
-    if (this.settings.cents) {
-      return (
-        Math.round(
-          (this.tuning.scale[liveReducedNote] - this.tuning.scale[this.settings.reference_degree] + 1200) %
-            1200,
-        ).toString() + "."
-      );
-    }
+    if (this.settings.cents) return this._scaleCentsLabelForDegree(reducedNote);
     return "";
   };
 
@@ -1203,6 +1206,11 @@ class Keys {
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
     this.drawGrid();
     this._emitModulationState();
+  }
+
+  _settleModulationAfterActiveRelease() {
+    if (this._modulationState.mode !== "pending_settlement") return;
+    this._maybeSettleModulation();
   }
 
   previewDegree0 = (deltaCents) => {
@@ -2397,6 +2405,7 @@ class Keys {
           this._bendSlew.delete(e.message.channel);
         }
       }
+      this._settleModulationAfterActiveRelease();
     }
     // hexOff is called per coord for visual update (may cover multiple visible coords)
     for (const coords of coordsList) {
@@ -2442,6 +2451,7 @@ class Keys {
         if (hex) {
           this.noteOff(hex, 64);
           this.state.activeMidi.delete(note_played); // clear BEFORE hexOff
+          this._settleModulationAfterActiveRelease();
         }
         for (const coords of coordsList) {
           if (!this.state.sustain) this.hexOff(coords);
@@ -2549,6 +2559,7 @@ class Keys {
       if (hex) {
         this.noteOff(hex, 0);
         this.state.activeKeyboard.delete(code); // clear BEFORE hexOff
+        this._settleModulationAfterActiveRelease();
       }
       if (!this.state.sustain) this.hexOff(coords);
     }
@@ -2582,6 +2593,7 @@ class Keys {
     }
     const [cents, pressed_interval, steps, equaves, equivSteps, cents_prev, cents_next] =
       this.hexCoordsToCents(coords);
+    this._lastPlayedDegree = pressed_interval ?? this._lastPlayedDegree;
     const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
     this.drawHex(coords, color, text_color);
     const transferredHex = this._maybeTakeOverModulationTarget(coords, cents, cents_prev, cents_next);
@@ -2992,6 +3004,7 @@ class Keys {
         if (hex) {
           this.noteOff(hex, 0);
           this.state.activeKeyboard.delete(e.code); // clear BEFORE hexOff
+          this._settleModulationAfterActiveRelease();
         }
         if (!this.state.sustain) this.hexOff(coords);
       }
@@ -3013,6 +3026,7 @@ class Keys {
       const coords = this.state.activeMouse.coords;
       this.noteOff(this.state.activeMouse, 0);
       this.state.activeMouse = null; // clear BEFORE hexOff so _isCoordActive is honest
+      this._settleModulationAfterActiveRelease();
       if (!this.state.sustain) this.hexOff(coords);
     }
 
@@ -3081,6 +3095,7 @@ class Keys {
             const oldCoords = first.coords;
             this.noteOff(first, 0);
             this.state.activeMouse = null;
+            this._settleModulationAfterActiveRelease();
             this.hexOff(oldCoords);
             // Toggle off the sustained note
             const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
@@ -3097,6 +3112,7 @@ class Keys {
         const oldCoords = first.coords;
         this.noteOff(first, 0);
         this.state.activeMouse = null;
+        this._settleModulationAfterActiveRelease();
         this.hexOff(oldCoords);
         this.state.activeMouse = this.hexOn(coords);
       }
@@ -3140,6 +3156,7 @@ class Keys {
         const coords = hex.coords;
         this.noteOff(hex, 0);
         this.state.activeTouch.delete(id);
+        this._settleModulationAfterActiveRelease();
         if (!this.state.sustain) this.hexOff(coords);
       }
     }
@@ -3161,6 +3178,7 @@ class Keys {
           const oldCoords = existing.coords;
           this.noteOff(existing, 0);
           this.state.activeTouch.delete(id); // clear BEFORE hexOff
+          this._settleModulationAfterActiveRelease();
           if (!this.state.sustain) this.hexOff(oldCoords);
           this._touchStartOnCoords(id, coords);
         }
@@ -3206,6 +3224,7 @@ class Keys {
     for (const [, hex] of entries) {
       const coords = hex.coords;
       this.noteOff(hex, 0);
+      this._settleModulationAfterActiveRelease();
       if (!this.state.sustain) this.hexOff(coords);
     }
   };
@@ -3787,13 +3806,7 @@ class Keys {
         // Safe access: scala_names should always exist if scale exists, but be defensive
         name = this.settings.scala_names?.[liveReducedNote] ?? "";
       } else if (!this.settings.no_labels && this.settings.cents) {
-        name =
-          Math.round(
-            (this.tuning.scale[liveReducedNote] -
-              this.tuning.scale[this.settings.reference_degree] +
-              1200) %
-              1200,
-          ).toString() + ".";
+        name = this._scaleCentsLabelForDegree(reducedNote);
       }
 
       if (name) {

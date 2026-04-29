@@ -1,11 +1,16 @@
+import fs from "fs";
 import { createScaleWorkspace } from "../tuning/workspace.js";
+import { parseScale } from "../settings/scale/parse-scale.js";
+import { deriveHejiAnchor } from "./heji-normalization.js";
 import {
   createHarmonicFrame,
   deriveDegreeColorsForFrame,
   mutateHarmonicFrame,
+  replayModulationHistoryForFrame,
   spellSlotForFrame,
   spellWorkspaceForFrame,
 } from "./notation-frame-runtime.js";
+import { parseExactInterval } from "../tuning/interval.js";
 
 const xn = "\uE261";
 
@@ -67,5 +72,105 @@ describe("notation-frame-runtime", () => {
     });
 
     expect(colors).toEqual(["c2", "c3", "c0", "c1"]);
+  });
+
+  it("replays modulation history by moving the source spelling onto the target degree", () => {
+    const baseFrame = createHarmonicFrame(workspace, {
+      anchorDegree: 0,
+      anchorLabel: "nC",
+      anchorRatioText: "1/1",
+      anchorInterval: workspace.slots[0].committedIdentity,
+    });
+    const mutated = replayModulationHistoryForFrame(workspace, baseFrame, [
+      {
+        sourceDegree: 0,
+        targetDegree: 3,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+    ]);
+    const spelled = spellWorkspaceForFrame(workspace, mutated);
+
+    expect(spelled.labelsByDegree[3]).toBe(`${xn}C`);
+    expect(spelled.labelsByDegree[0]).toBe(`${xn}F`);
+  });
+
+  it("replays later modulation-history steps on top of earlier notation mutations", () => {
+    const baseFrame = createHarmonicFrame(workspace, {
+      anchorDegree: 0,
+      anchorLabel: "nC",
+      anchorRatioText: "1/1",
+      anchorInterval: workspace.slots[0].committedIdentity,
+    });
+    const mutated = replayModulationHistoryForFrame(workspace, baseFrame, [
+      {
+        sourceDegree: 0,
+        targetDegree: 3,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+      {
+        sourceDegree: 3,
+        targetDegree: 1,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+    ]);
+    const spelled = spellWorkspaceForFrame(workspace, mutated);
+
+    expect(spelled.labelsByDegree[1]).toBe(`${xn}C`);
+  });
+
+  it("replays modulation history when degree ids arrive as strings", () => {
+    const baseFrame = createHarmonicFrame(workspace, {
+      anchorDegree: 0,
+      anchorLabel: "nC",
+      anchorRatioText: "1/1",
+      anchorInterval: workspace.slots[0].committedIdentity,
+    });
+    const mutated = replayModulationHistoryForFrame(workspace, baseFrame, [
+      {
+        sourceDegree: "0",
+        targetDegree: "3",
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+    ]);
+    const spelled = spellWorkspaceForFrame(workspace, mutated);
+
+    expect(spelled.labelsByDegree[3]).toBe(`${xn}C`);
+    expect(spelled.labelsByDegree[0]).toBe(`${xn}F`);
+  });
+
+  it("relabels Sabat: The Tree by moving degree 0 onto degree 23", () => {
+    const scala = parseScale(fs.readFileSync("scales/81-HS-odd-47L.scl", "utf8")).scale;
+    const degreeTexts = ["1/1", ...scala.slice(0, -1)];
+    const noteNames = Array.from({ length: degreeTexts.length }, (_, index) => String(index));
+    const workspace = createScaleWorkspace({
+      scale: scala,
+      reference_degree: 56,
+      fundamental: 441,
+    });
+    const anchor = deriveHejiAnchor(56, noteNames, degreeTexts, 441, workspace.slots.map((slot) => slot.cents));
+    const baseFrame = createHarmonicFrame(workspace, {
+      anchorDegree: 56,
+      anchorLabel: anchor.label,
+      anchorRatioText: anchor.ratio,
+      anchorInterval: parseExactInterval(String(anchor.ratio)),
+      referenceDegree: 56,
+      strategy: "anchor_substitution",
+    });
+    const mutated = replayModulationHistoryForFrame(workspace, baseFrame, [
+      {
+        sourceDegree: 0,
+        targetDegree: 23,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+    ]);
+    const spelled = spellWorkspaceForFrame(workspace, mutated, { suppressDeviation: true });
+
+    expect(anchor.label).toBe(`${xn}A`);
+    expect(spelled.labelsByDegree[23]).toBe(`${xn}C`);
   });
 });

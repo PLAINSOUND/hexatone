@@ -462,6 +462,33 @@ describe("Keys MIDI input integration", () => {
     expect(onModulationArmChange).toHaveBeenCalledWith(true);
   });
 
+  it("uses the last played degree as the modulation source when no notes are sounding", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys({}, {}, synth);
+    const sourceCoords = new Point(7, 0);
+
+    const sourceHex = keys.hexOn(sourceCoords);
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    keys.noteOff(sourceHex, 0);
+    keys.state.activeKeyboard.delete("KeyA");
+
+    expect(keys.armModulation()).toBe(true);
+    expect(keys.getModulationState().sourceHex).toBeNull();
+    expect(keys.getModulationState().sourceDegree).toBe(7);
+  });
+
   it("commits a source-to-target modulation without rebuilding Keys and keeps labels stable in moveable-surface mode", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
@@ -507,6 +534,74 @@ describe("Keys MIDI input integration", () => {
     const nextHex = keys.hexOn(nextCoords);
     expect(nextHex.cents).toBeCloseTo(300, 5);
     expect(keys.getDisplayLabelAtCoords(nextCoords)).toBe("n6");
+  });
+
+  it("settles a takeover modulation when the source key is released so stored-route arrows remain usable", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings({
+        keyCodeToCoords: {
+          KeyA: { x: 2, y: 0 },
+          KeyB: { x: 5, y: 0 },
+        },
+      }),
+      synth,
+      true,
+      null,
+      null,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+
+    const sourceHex = keys.hexOn(new Point(2, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    keys.state.pressedKeys.add("KeyA");
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(new Point(5, 0));
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    keys.state.pressedKeys.add("KeyB");
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+
+    keys.onKeyUp({ code: "KeyA" });
+
+    expect(keys.getModulationState().mode).toBe("idle");
+    expect(keys.stepModulationRoute(0, -1)).toBe(true);
+    expect(keys.getModulationState().history[0].count).toBe(0);
   });
 
   it("can step modulation history back home and forward again without rebuilding Keys", () => {
@@ -565,6 +660,62 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().history).toEqual([]);
     expect(keys.getModulationState().historyIndex).toBe(0);
     expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
+  });
+
+  it("keeps scale-cents labels pinned to the committed degree-0 frame under modulation", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        key_labels: "cents",
+        cents: true,
+        no_labels: false,
+        keyCodeToCoords: {},
+      },
+      {},
+      synth,
+    );
+
+    const sourceCoords = new Point(2, 0);
+    const targetCoords = new Point(5, 0);
+
+    const sourceHex = keys.hexOn(sourceCoords);
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(targetCoords);
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    sourceHex.noteOff(0);
+    targetHex.noteOff(0);
+    keys.state.activeKeyboard.clear();
+    keys._maybeSettleModulation();
+
+    expect(keys.getModulationState().mode).toBe("idle");
+    expect(keys.getDisplayLabelAtCoords(new Point(0, 0))).toBe("0.");
+    expect(keys.getDisplayLabelAtCoords(new Point(5, 0))).toBe("500.");
+  });
+
+  it("measures scale-cents labels from degree 0 instead of reference_degree", () => {
+    const keys = createKeys({
+      key_labels: "cents",
+      cents: true,
+      no_labels: false,
+      reference_degree: 9,
+      keyCodeToCoords: {},
+    });
+
+    expect(keys.getDisplayLabelAtCoords(new Point(0, 0))).toBe("0.");
+    expect(keys.getDisplayLabelAtCoords(new Point(5, 0))).toBe("500.");
+    expect(keys.getDisplayLabelAtCoords(new Point(9, 0))).toBe("900.");
   });
 
   it("returns to the starting surface when an inverse modulation pair is applied", () => {

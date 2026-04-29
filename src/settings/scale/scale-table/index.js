@@ -43,7 +43,7 @@ const ScaleTable = (props) => {
   const degrees = [...Array(scale.length).keys()];
   const note_names = props.settings.note_names || [];
   const isHeji = props.settings.key_labels === "heji";
-  const heji_names = props.heji_names || [];
+  const heji_names = props.heji_names_table || props.heji_names || [];
 
   let colors;
   if (props.settings.spectrum_colors) {
@@ -878,6 +878,7 @@ ScaleTable.propTypes = {
   onAtomicChange: PropTypes.func,
   importCount: PropTypes.number,
   heji_names: PropTypes.arrayOf(PropTypes.string),
+  heji_names_table: PropTypes.arrayOf(PropTypes.string),
   settings: PropTypes.shape({
     scale: PropTypes.arrayOf(PropTypes.string),
     key_labels: PropTypes.string,

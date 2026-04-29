@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { fireEvent, render, screen } from "@testing-library/preact";
 import KeyLabels from "./key-labels.js";
 
-describe("KeyLabels HEJI anchor auto-fill", () => {
-  it("populates empty HEJI anchor fields from the effective derived values", async () => {
+describe("KeyLabels HEJI anchor handling", () => {
+  it("does not write derived HEJI anchor values back into settings on mode switch", async () => {
     const onAtomicChange = vi.fn();
 
     render(
@@ -22,12 +22,8 @@ describe("KeyLabels HEJI anchor auto-fill", () => {
       />,
     );
 
-    await waitFor(() => {
-      expect(onAtomicChange).toHaveBeenCalledWith({
-        heji_anchor_ratio: "17/16",
-        heji_anchor_label: "A",
-      });
-    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onAtomicChange).not.toHaveBeenCalled();
   });
 
   it("does not overwrite explicitly entered HEJI anchor values", async () => {

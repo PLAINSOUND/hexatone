@@ -5,6 +5,12 @@ import { presets } from "./settings/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
+import {
+  createHarmonicFrame,
+  replayModulationHistoryForFrame,
+  spellWorkspaceForFrame,
+} from "./notation/notation-frame-runtime.js";
+import { parseExactInterval } from "./tuning/interval.js";
 
 import useSynthWiring from "./use-synth-wiring.js";
 import { useMidiGuardian } from "./use-midi-guardian.js";
@@ -88,6 +94,20 @@ function getDefaultModulationPalettePos() {
     };
   }
   return { x: 18, y: 58 };
+}
+
+function snapshotModulationState(state) {
+  if (!state) return null;
+  return {
+    ...state,
+    history: Array.isArray(state.history) ? state.history.map((entry) => ({ ...entry })) : [],
+    currentRoute: state.currentRoute ? { ...state.currentRoute } : null,
+    homeFrame: state.homeFrame ? { ...state.homeFrame } : null,
+    currentFrame: state.currentFrame ? { ...state.currentFrame } : null,
+    oldFrame: state.oldFrame ? { ...state.oldFrame } : null,
+    pendingFrame: state.pendingFrame ? { ...state.pendingFrame } : null,
+    lastDecision: state.lastDecision ? { ...state.lastDecision } : null,
+  };
 }
 
 const ua = navigator.userAgent;
@@ -609,17 +629,38 @@ const App = () => {
   }, [connectedInput, settings.midiin_controller_override]);
   const forceScaleTarget =
     inputController?.id === "tonalplexus" && settings.tonalplexus_input_mode === "layout_205";
+  const inputNormalizationSettings = useMemo(
+    () => ({
+      tonalplexus_input_mode: settings.tonalplexus_input_mode,
+      equivSteps: settings.equivSteps,
+      scale: settings.scale,
+      equivInterval: settings.equivInterval,
+      center_degree: settings.center_degree,
+    }),
+    [
+      settings.tonalplexus_input_mode,
+      settings.equivSteps,
+      settings.scale,
+      settings.equivInterval,
+      settings.center_degree,
+    ],
+  );
   const normalizedSeqAnchor = useMemo(
     () =>
       inputController?.normalizeInput?.(
         settings.midiin_anchor_channel ?? 1,
         settings.midiin_central_degree ?? 60,
-        settings,
+        inputNormalizationSettings,
       ) ?? {
         channel: settings.midiin_anchor_channel ?? 1,
         note: settings.midiin_central_degree ?? 60,
       },
-    [inputController, settings],
+    [
+      inputController,
+      settings.midiin_anchor_channel,
+      settings.midiin_central_degree,
+      inputNormalizationSettings,
+    ],
   );
 
   const inputRuntime = useMemo(
@@ -650,7 +691,27 @@ const App = () => {
       // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
     }),
-    [settings, normalizedSeqAnchor, forceScaleTarget],
+    [
+      forceScaleTarget,
+      normalizedSeqAnchor,
+      settings.midiin_mapping_target,
+      settings.midi_passthrough,
+      settings.midiin_mpe_input,
+      settings.midiin_steps_per_channel,
+      settings.equivSteps,
+      settings.midiin_channel_group_size,
+      settings.midiin_channel_legacy,
+      settings.midiin_scale_tolerance,
+      settings.midiin_scale_fallback,
+      settings.midiin_pitchbend_mode,
+      settings.midiin_pressure_mode,
+      settings.wheel_to_recent,
+      settings.midiin_bend_range,
+      settings.wheel_scale_aware,
+      settings.midi_wheel_semitones,
+      settings.midiin_bend_flip,
+      settings.midiin_scale_bend_range,
+    ],
   );
 
   // Structural settings: everything except colors. Memoized so Keys is only
@@ -670,8 +731,6 @@ const App = () => {
       settings.show_equaves,
       settings.heji_anchor_label,
       settings.heji_anchor_ratio,
-      settings.heji_tempered_only,
-      settings.heji_show_cents,
       // fundamental handled imperatively via keysRef.current.updateFundamental
       settings.reference_degree,
       settings.center_degree,
@@ -953,26 +1012,100 @@ const App = () => {
   // structuralSettings recomputes due to label-related changes, without
   // those changes causing a Keys reconstruction.
   const labelSettings = useMemo(
-    () => ({
-      key_labels:       structuralSettings.key_labels,
-      degree:           !!structuralSettings.degree,
-      note:             !!structuralSettings.note,
-      scala:            !!structuralSettings.scala,
-      cents:            !!structuralSettings.cents,
-      heji:             !!structuralSettings.heji,
-      equaves:          !!structuralSettings.equaves,
-      no_labels:        !!structuralSettings.no_labels,
-      show_equaves:     !!structuralSettings.equaves,
-      note_names:       structuralSettings.note_names,
-      scala_names:      structuralSettings.scala_names,
-      heji_names:             structuralSettings.heji_names_keys ?? structuralSettings.heji_names,
-      heji_anchor_label_eff:  structuralSettings.heji_anchor_label_effective,
-      heji_anchor_ratio_eff:  structuralSettings.heji_anchor_ratio_effective,
-      scale:            structuralSettings.scale,
-      reference_degree: structuralSettings.reference_degree,
-    }),
-    [structuralSettings],
+    () => {
+      const hejiShowCents = settings.heji_show_cents !== false;
+      const hejiTemperedOnly = settings.heji_tempered_only === true;
+      let liveHejiNames = structuralSettings.heji_names_keys ?? structuralSettings.heji_names;
+      if (
+        structuralSettings.heji &&
+        structuralSettings.heji_supported !== false &&
+        tuningWorkspace &&
+        structuralSettings.heji_anchor_label_effective
+      ) {
+        const baseFrame = createHarmonicFrame(tuningWorkspace, {
+          anchorDegree: structuralSettings.reference_degree ?? 0,
+          anchorLabel: structuralSettings.heji_anchor_label_effective,
+          anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
+          anchorInterval: parseExactInterval(String(structuralSettings.heji_anchor_ratio_effective || "1/1")),
+          referenceDegree: structuralSettings.reference_degree ?? 0,
+          strategy: "anchor_substitution",
+          generation: 0,
+        });
+        const frame = replayModulationHistoryForFrame(
+          tuningWorkspace,
+          baseFrame,
+          modulationState?.history ?? [],
+          {
+            suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
+            temperedOnly: hejiTemperedOnly,
+            forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
+          },
+        );
+        liveHejiNames = spellWorkspaceForFrame(tuningWorkspace, frame, {
+          suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
+          temperedOnly: hejiTemperedOnly,
+          forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
+        }).labelsByDegree;
+      }
+
+      return {
+        key_labels:       structuralSettings.key_labels,
+        degree:           !!structuralSettings.degree,
+        note:             !!structuralSettings.note,
+        scala:            !!structuralSettings.scala,
+        cents:            !!structuralSettings.cents,
+        heji:             !!structuralSettings.heji,
+        equaves:          !!structuralSettings.equaves,
+        no_labels:        !!structuralSettings.no_labels,
+        show_equaves:     !!structuralSettings.equaves,
+        note_names:       structuralSettings.note_names,
+        scala_names:      structuralSettings.scala_names,
+        heji_names:       liveHejiNames,
+        heji_anchor_label_eff:  structuralSettings.heji_anchor_label_effective,
+        heji_anchor_ratio_eff:  structuralSettings.heji_anchor_ratio_effective,
+        scale:            structuralSettings.scale,
+        reference_degree: structuralSettings.reference_degree,
+      };
+    },
+    [structuralSettings, tuningWorkspace, modulationState, settings.heji_show_cents, settings.heji_tempered_only],
   );
+
+  const tableHejiNames = useMemo(() => {
+    if (
+      !structuralSettings.heji ||
+      structuralSettings.heji_supported === false ||
+      !tuningWorkspace ||
+      !structuralSettings.heji_anchor_label_effective
+    ) {
+      return labelSettings.heji_names;
+    }
+
+    const baseFrame = createHarmonicFrame(tuningWorkspace, {
+      anchorDegree: structuralSettings.reference_degree ?? 0,
+      anchorLabel: structuralSettings.heji_anchor_label_effective,
+      anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
+      anchorInterval: parseExactInterval(String(structuralSettings.heji_anchor_ratio_effective || "1/1")),
+      referenceDegree: structuralSettings.reference_degree ?? 0,
+      strategy: "anchor_substitution",
+      generation: 0,
+    });
+    const frame = replayModulationHistoryForFrame(
+      tuningWorkspace,
+      baseFrame,
+      modulationState?.history ?? [],
+      {
+        suppressDeviation: false,
+        temperedOnly: settings.heji_tempered_only === true,
+        forceShowZeroDeviation: settings.heji_tempered_only === true,
+      },
+    );
+
+    return spellWorkspaceForFrame(tuningWorkspace, frame, {
+      suppressDeviation: false,
+      temperedOnly: settings.heji_tempered_only === true,
+      forceShowZeroDeviation: settings.heji_tempered_only === true,
+    }).labelsByDegree;
+  }, [structuralSettings, tuningWorkspace, modulationState, settings.heji_tempered_only, labelSettings.heji_names]);
 
   const normalizedSettings = useMemo(
     () => ({
@@ -1019,9 +1152,10 @@ const App = () => {
   );
   const onLatchChange = useCallback((v) => setLatch(v), []);
   const onModulationStateChange = useCallback((state) => {
-    setModulationState(state ?? null);
-    setModulationMode(state?.mode ?? "idle");
-    setModulationArmed(state?.mode === "awaiting_target");
+    const snapshot = snapshotModulationState(state);
+    setModulationState(snapshot);
+    setModulationMode(snapshot?.mode ?? "idle");
+    setModulationArmed(snapshot?.mode === "awaiting_target");
   }, []);
   const onModulationArmChange = useCallback((v) => setModulationArmed(v), []);
   const onFirstInteraction = useCallback(() => {
@@ -1485,7 +1619,8 @@ const App = () => {
               onRevertBuiltin={onRevertBuiltin}
               onRevertUser={onRevertUser}
               settings={settings}
-              heji_names={structuralSettings.heji_names}
+              heji_names={labelSettings.heji_names}
+              heji_names_table={tableHejiNames}
               heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
               heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
               heji_supported={structuralSettings.heji_supported}
