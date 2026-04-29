@@ -5,6 +5,7 @@
   "repository": "git@github.com:PLAINSOUND/hexatone.git",
   "scripts": {
     "start": "vite",
+    "start:https": "VITE_DEV_HTTPS=true vite",
     "osc-bridge": "node osc-bridge/index.js",
     "build-bridge": "npx pkg osc-bridge/index.js --config osc-bridge/package.json --out-path osc-bridge/dist",
     "build": "vite build && node generate-sw.js",

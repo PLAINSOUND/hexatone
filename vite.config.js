@@ -2,6 +2,31 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import svgr from 'vite-plugin-svgr';
 import path from 'path';
+import fs from 'fs';
+
+const devHttpsEnabled = process.env.VITE_DEV_HTTPS === 'true';
+const devHttpsKeyPath = process.env.VITE_DEV_SSL_KEY || path.resolve(__dirname, '.cert/localhost-key.pem');
+const devHttpsCertPath = process.env.VITE_DEV_SSL_CERT || path.resolve(__dirname, '.cert/localhost.pem');
+
+function resolveDevHttpsConfig() {
+  if (!devHttpsEnabled) return false;
+
+  if (!fs.existsSync(devHttpsKeyPath) || !fs.existsSync(devHttpsCertPath)) {
+    throw new Error(
+      [
+        'HTTPS dev server requested, but certificate files were not found.',
+        `Expected key: ${devHttpsKeyPath}`,
+        `Expected cert: ${devHttpsCertPath}`,
+        'Create local certs first, for example with mkcert, or set VITE_DEV_SSL_KEY and VITE_DEV_SSL_CERT.',
+      ].join('\n'),
+    );
+  }
+
+  return {
+    key: fs.readFileSync(devHttpsKeyPath),
+    cert: fs.readFileSync(devHttpsCertPath),
+  };
+}
 
 export default defineConfig({
 
@@ -60,6 +85,7 @@ export default defineConfig({
 
   server: {
     host: '0.0.0.0',
+    https: resolveDevHttpsConfig(),
   },
 
   // ── Vitest ──────────────────────────────────────────────────────────────────
