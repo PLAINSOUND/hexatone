@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+import {
+  createKeysFrame,
+  deriveFrameForHistory,
+  deriveFrameForHistoryIndex,
+} from "./keys-frame-runtime.js";
+
+describe("keyboard/keys-frame-runtime", () => {
+  function makeFrameFactory() {
+    let frameGeneration = 0;
+    return (degree, extra = {}) => createKeysFrame({
+      id: `frame:${++frameGeneration}:${degree}`,
+      degree,
+      referenceDegree: 9,
+      fundamental: 440,
+      strategy: "retune_surface_to_source",
+      ...extra,
+    });
+  }
+
+  it("builds a home frame when history is empty", () => {
+    const frame = deriveFrameForHistory({
+      history: [],
+      scale: [0, 100, 200, 300],
+      referenceDegree: 9,
+      fundamental: 440,
+      strategy: "retune_surface_to_source",
+      makeFrame: makeFrameFactory(),
+    });
+
+    expect(frame.anchorDegree).toBe(9);
+    expect(frame.transpositionCents).toBe(0);
+    expect(frame.effectiveFundamental).toBe(440);
+    expect(frame.sourceDegree).toBeNull();
+    expect(frame.targetDegree).toBeNull();
+  });
+
+  it("derives compounded transposition and effective fundamental from history", () => {
+    const frame = deriveFrameForHistory({
+      history: [
+        { sourceDegree: 3, targetDegree: 1, count: 1 },
+        { sourceDegree: 2, targetDegree: 0, count: -2 },
+      ],
+      scale: [0, 100, 200, 300],
+      referenceDegree: 9,
+      fundamental: 440,
+      strategy: "retune_surface_to_source",
+      makeFrame: makeFrameFactory(),
+    });
+
+    expect(frame.anchorDegree).toBe(0);
+    expect(frame.transpositionCents).toBe(-200);
+    expect(frame.effectiveFundamental).toBeCloseTo(440 * Math.pow(2, -200 / 1200), 8);
+    expect(frame.sourceDegree).toBe(2);
+    expect(frame.targetDegree).toBe(0);
+  });
+
+  it("replays an explicit history index against the latest route", () => {
+    const frame = deriveFrameForHistoryIndex({
+      history: [
+        { sourceDegree: 3, targetDegree: 1, count: 1 },
+        { sourceDegree: 2, targetDegree: 0, count: 2 },
+      ],
+      historyIndex: -1,
+      scale: [0, 100, 200, 300],
+      referenceDegree: 9,
+      fundamental: 440,
+      strategy: "retune_surface_to_source",
+      makeFrame: makeFrameFactory(),
+    });
+
+    expect(frame.anchorDegree).toBe(0);
+    expect(frame.transpositionCents).toBe(0);
+    expect(frame.effectiveFundamental).toBe(440);
+  });
+});

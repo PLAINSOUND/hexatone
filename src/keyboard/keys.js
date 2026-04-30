@@ -68,6 +68,17 @@ import {
   setModulationHistoryIndex,
   settleModulationIfPossible,
 } from "./modulation-runtime.js";
+import {
+  createKeysFrame,
+  deriveFrameForHistory,
+  deriveFrameForHistoryIndex,
+} from "./keys-frame-runtime.js";
+import {
+  displayLabelForDegree,
+  labelDegreeFromFrame,
+  scaleCentsLabelForDegree,
+} from "./keys-display-runtime.js";
+import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
 
 const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
@@ -872,41 +883,26 @@ class Keys {
   }
 
   _frameForHistory(history = this._modulationState.history ?? []) {
-    const normalized = Array.isArray(history) ? history : [];
-    if (!normalized.length) {
-      return this._makeFrameForDegree(this.settings.reference_degree ?? 0, {
-        strategy: this._modulationState.strategy,
-        sourceDegree: null,
-        targetDegree: null,
-        transpositionSteps: 0,
-        transpositionCents: 0,
-        effectiveFundamental: this.settings.fundamental,
-      });
-    }
-    const transpositionCents = normalized.reduce((sum, route) => {
-      const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
-      const centsDelta =
-        (this.tuning.scale?.[route?.sourceDegree] ?? 0) - (this.tuning.scale?.[route?.targetDegree] ?? 0);
-      return sum + count * centsDelta;
-    }, 0);
-    const effectiveFundamental = this.settings.fundamental * Math.pow(2, transpositionCents / 1200);
-    const route = normalized[normalized.length - 1] ?? null;
-    return this._makeFrameForDegree(route.targetDegree ?? this.settings.reference_degree ?? 0, {
+    return deriveFrameForHistory({
+      history,
+      scale: this.tuning.scale,
+      referenceDegree: this.settings.reference_degree ?? 0,
+      fundamental: this.settings.fundamental,
       strategy: this._modulationState.strategy,
-      sourceDegree: route.sourceDegree ?? null,
-      targetDegree: route.targetDegree ?? null,
-      transpositionSteps: 0,
-      transpositionCents,
-      effectiveFundamental,
+      makeFrame: (degree, extra = {}) => this._makeFrameForDegree(degree, extra),
     });
   }
 
   _frameForHistoryIndex(historyIndex) {
-    const history = Array.isArray(this._modulationState.history) ? this._modulationState.history.map((entry) => ({ ...entry })) : [];
-    if (history.length > 0) {
-      history[history.length - 1].count = Number.isFinite(historyIndex) ? Math.trunc(historyIndex) : 0;
-    }
-    return this._frameForHistory(history);
+    return deriveFrameForHistoryIndex({
+      history: this._modulationState.history,
+      historyIndex,
+      scale: this.tuning.scale,
+      referenceDegree: this.settings.reference_degree ?? 0,
+      fundamental: this.settings.fundamental,
+      strategy: this._modulationState.strategy,
+      makeFrame: (degree, extra = {}) => this._makeFrameForDegree(degree, extra),
+    });
   }
 
   setModulationHistoryIndex = (historyIndex) => {
@@ -1001,10 +997,11 @@ class Keys {
 
   _makeFrameForDegree(degree, extra = {}) {
     this._frameGeneration += 1;
-    return {
+    return createKeysFrame({
       id: `frame:${this._frameGeneration}:${degree}`,
-      anchorDegree: degree,
+      degree,
       referenceDegree: this.settings.reference_degree ?? 0,
+      fundamental: this.settings.fundamental,
       strategy: extra.strategy ?? this._modulationState?.strategy ?? "retune_surface_to_source",
       sourceDegree: extra.sourceDegree ?? null,
       targetDegree: extra.targetDegree ?? null,
@@ -1012,7 +1009,7 @@ class Keys {
       transpositionCents: extra.transpositionCents ?? 0,
       effectiveFundamental:
         extra.effectiveFundamental ?? this.settings.fundamental,
-    };
+    });
   }
 
   _activeFrame() {
@@ -1024,19 +1021,15 @@ class Keys {
   };
 
   _labelDegreeFromFrame(reducedNote, frame = this._activeFrame()) {
-    const geometryMode =
-      this._modulationState?.geometryMode ??
-      (frame?.strategy === "reinterpret_surface_from_target" ? "stable_surface" : "moveable_surface");
-    if (geometryMode === "moveable_surface") return reducedNote;
-    const scaleLength = this.tuning.scale.length || 1;
-    return ((reducedNote + (frame?.transpositionSteps ?? 0)) % scaleLength + scaleLength) % scaleLength;
+    return labelDegreeFromFrame(reducedNote, {
+      frame,
+      geometryMode: this._modulationState?.geometryMode,
+      scaleLength: this.tuning.scale.length || 1,
+    });
   }
 
   _scaleCentsLabelForDegree(reducedNote) {
-    const scale = this.tuning.scale || [];
-    const degree0Cents = scale[0] ?? 0;
-    const degreeCents = scale[reducedNote] ?? degree0Cents;
-    return `${Math.round(((degreeCents - degree0Cents) + 1200) % 1200)}.`;
+    return scaleCentsLabelForDegree(reducedNote, this.tuning.scale || []);
   }
 
   getDisplayLabelAtCoords = (coords) => {
@@ -1044,14 +1037,13 @@ class Keys {
     const equivSteps = this.tuning.scale.length || 1;
     let reducedNote = note % equivSteps;
     if (reducedNote < 0) reducedNote += equivSteps;
-    const liveReducedNote = this._labelDegreeFromFrame(reducedNote);
-
-    if (this.settings.degree) return String(liveReducedNote);
-    if (this.settings.note) return this.settings.note_names?.[liveReducedNote] ?? "";
-    if (this.settings.heji) return this.settings.heji_names?.[liveReducedNote] ?? "";
-    if (this.settings.scala) return this.settings.scala_names?.[liveReducedNote] ?? "";
-    if (this.settings.cents) return this._scaleCentsLabelForDegree(reducedNote);
-    return "";
+    return displayLabelForDegree(reducedNote, {
+      settings: this.settings,
+      frame: this._activeFrame(),
+      geometryMode: this._modulationState?.geometryMode,
+      scaleLength: equivSteps,
+      scale: this.tuning.scale,
+    });
   };
 
   _degreeForCoords(coords) {
@@ -3812,24 +3804,16 @@ class Keys {
     if (reducedNote < 0) {
       reducedNote = equivSteps + reducedNote;
     }
-    const liveReducedNote = this._labelDegreeFromFrame(reducedNote);
-
     if (!this.settings.no_labels || this.settings.equaves) {
-      let name;
-      if (!this.settings.no_labels && this.settings.degree) {
-        name = "" + liveReducedNote;
-      } else if (!this.settings.no_labels && this.settings.note) {
-        // Safe access: if note_names is undefined or index out of bounds, show nothing
-        name = this.settings.note_names?.[liveReducedNote] ?? "";
-      } else if (!this.settings.no_labels && this.settings.heji) {
-        // Auto-generated HEJI names from reference frame + committed ratios.
-        name = this.settings.heji_names?.[liveReducedNote] ?? "";
-      } else if (!this.settings.no_labels && this.settings.scala) {
-        // Safe access: scala_names should always exist if scale exists, but be defensive
-        name = this.settings.scala_names?.[liveReducedNote] ?? "";
-      } else if (!this.settings.no_labels && this.settings.cents) {
-        name = this._scaleCentsLabelForDegree(reducedNote);
-      }
+      const name = this.settings.no_labels
+        ? ""
+        : displayLabelForDegree(reducedNote, {
+          settings: this.settings,
+          frame: this._activeFrame(),
+          geometryMode: this._modulationState?.geometryMode,
+          scaleLength: equivSteps,
+          scale: this.tuning.scale,
+        });
 
       if (name) {
         context.save();
@@ -3924,7 +3908,6 @@ class Keys {
     let reducedSteps = distance % this.tuning.scale.length;
     let reducedSteps_prev = (distance - 1) % this.tuning.scale.length;
     let reducedSteps_next = (distance + 1) % this.tuning.scale.length;
-    let equivSteps = this.tuning.equivSteps;
     if (reducedSteps < 0) {
       reducedSteps += this.tuning.scale.length;
       octs -= 1;
@@ -3937,33 +3920,23 @@ class Keys {
       reducedSteps_next += this.tuning.scale.length;
       octs_next -= 1;
     }
-    // octave_offset shifts all pitches by N equaves without rebuilding
-    const octOff = this.settings.octave_offset || 0;
-    const liveFrame = this._activeFrame();
-    const transpositionCents = liveFrame?.transpositionCents ?? 0;
-    const geometryMode =
-      this._modulationState?.geometryMode ??
-      (liveFrame?.strategy === "reinterpret_surface_from_target" ? "stable_surface" : "moveable_surface");
-    const centsIndex = geometryMode === "moveable_surface"
-      ? reducedSteps
-      : this._labelDegreeFromFrame(reducedSteps, liveFrame);
-    const centsIndexPrev = geometryMode === "moveable_surface"
-      ? reducedSteps_prev
-      : this._labelDegreeFromFrame(reducedSteps_prev, liveFrame);
-    const centsIndexNext = geometryMode === "moveable_surface"
-      ? reducedSteps_next
-      : this._labelDegreeFromFrame(reducedSteps_next, liveFrame);
-    const liveReducedSteps = this._labelDegreeFromFrame(reducedSteps, liveFrame);
-    let cents =
-      (octs + octOff) * this.tuning.equivInterval + this.tuning.scale[centsIndex] + transpositionCents;
-    let cents_prev =
-      (octs_prev + octOff) * this.tuning.equivInterval +
-      this.tuning.scale[centsIndexPrev] +
-      transpositionCents;
-    let cents_next =
-      (octs_next + octOff) * this.tuning.equivInterval +
-      this.tuning.scale[centsIndexNext] +
-      transpositionCents;
+    const live = deriveLiveHexPitch({
+      reducedSteps,
+      reducedStepsPrev: reducedSteps_prev,
+      reducedStepsNext: reducedSteps_next,
+      distance,
+      octs,
+      octsPrev: octs_prev,
+      octsNext: octs_next,
+    }, {
+      scale: this.tuning.scale,
+      scaleLength: this.tuning.scale.length,
+      equivSteps: this.tuning.equivSteps,
+      equivInterval: this.tuning.equivInterval,
+      octaveOffset: this.settings.octave_offset || 0,
+      frame: this._activeFrame(),
+      geometryMode: this._modulationState?.geometryMode,
+    });
     /*  let dataArray = [
       "cents = ", cents,
       "reducedSteps = ", reducedSteps,
@@ -3974,7 +3947,15 @@ class Keys {
       "cents_next = ", cents_next
     ]
     console.log("hexCoordsToCents at coords: ", coords, dataArray); */
-    return [cents, liveReducedSteps, distance, octs, equivSteps, cents_prev, cents_next];
+    return [
+      live.cents,
+      live.liveReducedSteps,
+      live.distance,
+      live.octs,
+      live.equivSteps,
+      live.centsPrev,
+      live.centsNext,
+    ];
   }
 
   getHexCoordsAt(coords) {
