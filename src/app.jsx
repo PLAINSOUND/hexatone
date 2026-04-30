@@ -150,15 +150,32 @@ function getDefaultModulationPalettePos() {
 function snapshotModulationState(state) {
   if (!state) return null;
   return {
-    ...state,
+    mode: state.mode ?? "idle",
+    sourceDegree: state.sourceDegree ?? null,
+    targetDegree: state.targetDegree ?? null,
+    strategy: state.strategy ?? "retune_surface_to_source",
+    geometryMode: state.geometryMode ?? "moveable_surface",
     history: Array.isArray(state.history) ? state.history.map((entry) => ({ ...entry })) : [],
     currentRoute: state.currentRoute ? { ...state.currentRoute } : null,
-    homeFrame: state.homeFrame ? { ...state.homeFrame } : null,
-    currentFrame: state.currentFrame ? { ...state.currentFrame } : null,
-    oldFrame: state.oldFrame ? { ...state.oldFrame } : null,
-    pendingFrame: state.pendingFrame ? { ...state.pendingFrame } : null,
+    historyIndex: state.historyIndex ?? 0,
     lastDecision: state.lastDecision ? { ...state.lastDecision } : null,
   };
+}
+
+function modulationHistoryKey(history = []) {
+  if (!Array.isArray(history) || history.length === 0) return "";
+  return history
+    .map((entry) => [
+      entry?.sourceDegree ?? "",
+      entry?.targetDegree ?? "",
+      entry?.strategy ?? "",
+      Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0,
+      Number.isFinite(Number(entry?.transpositionDeltaCents))
+        ? Number(entry.transpositionDeltaCents)
+        : "",
+      entry?.transpositionRatioText ?? "",
+    ].join(":"))
+    .join("|");
 }
 
 function presetModulationSnapshot(history = []) {
@@ -380,6 +397,7 @@ const App = () => {
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");
   const [modulationState, setModulationState] = useState(null);
+  const [deferredModulationHistory, setDeferredModulationHistory] = useState([]);
   const [presetModulationLibrary, setPresetModulationLibrary] = useState([]);
 
   const {
@@ -684,6 +702,25 @@ const App = () => {
     return "";
   }, [modulationDegreeLabel, modulationState, tuningWorkspace]);
   const modulationHistory = useMemo(() => modulationState?.history ?? [], [modulationState]);
+  const activeModulationHistoryKey = useMemo(
+    () => modulationHistoryKey(modulationHistory),
+    [modulationHistory],
+  );
+  const deferredModulationHistoryRef = useRef(modulationHistory);
+  deferredModulationHistoryRef.current = modulationHistory;
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const nextHistory = deferredModulationHistoryRef.current;
+      setDeferredModulationHistory(
+        Array.isArray(nextHistory) ? nextHistory.map((entry) => ({ ...entry })) : [],
+      );
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [activeModulationHistoryKey]);
+  const deferredModulationHistoryKey = useMemo(
+    () => modulationHistoryKey(deferredModulationHistory),
+    [deferredModulationHistory],
+  );
   const activeModulationLibrary = useMemo(
     () => modulationState?.history ?? presetModulationLibrary,
     [modulationState, presetModulationLibrary],
@@ -1151,7 +1188,7 @@ const App = () => {
         const frame = replayModulationHistoryForFrame(
           tuningWorkspace,
           baseFrame,
-          modulationState?.history ?? [],
+          deferredModulationHistory,
           {
             suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
             temperedOnly: hejiTemperedOnly,
@@ -1184,7 +1221,8 @@ const App = () => {
         reference_degree: structuralSettings.reference_degree,
       };
     },
-    [structuralSettings, tuningWorkspace, modulationState, settings.heji_show_cents, settings.heji_tempered_only],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so MOD commits do not block the handoff event with HEJI spelling.
+    [structuralSettings, tuningWorkspace, deferredModulationHistoryKey, settings.heji_show_cents, settings.heji_tempered_only],
   );
 
   const tableHejiNames = useMemo(() => {
@@ -1209,7 +1247,7 @@ const App = () => {
     const frame = replayModulationHistoryForFrame(
       tuningWorkspace,
       baseFrame,
-      modulationState?.history ?? [],
+      deferredModulationHistory,
       {
         suppressDeviation: false,
         temperedOnly: settings.heji_tempered_only === true,
@@ -1222,7 +1260,8 @@ const App = () => {
       temperedOnly: settings.heji_tempered_only === true,
       forceShowZeroDeviation: settings.heji_tempered_only === true,
     }).labelsByDegree;
-  }, [structuralSettings, tuningWorkspace, modulationState, settings.heji_tempered_only, labelSettings.heji_names]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so MOD commits do not block the handoff event with HEJI spelling.
+  }, [structuralSettings, tuningWorkspace, deferredModulationHistoryKey, settings.heji_tempered_only, labelSettings.heji_names]);
 
   const normalizedSettings = useMemo(
     () => ({
@@ -1444,7 +1483,9 @@ const App = () => {
             }
             onClick={(e) => {
               e.stopPropagation();
-              if (keysRef.current?.toggleModulationArm) keysRef.current.toggleModulationArm();
+              if (!keysRef.current?.toggleModulationArm) return;
+              if (modulationMode === "idle") setModulationArmed(true);
+              keysRef.current.toggleModulationArm();
             }}
             onPointerDown={(e) => {
               if (e.pointerType === "touch") e.preventDefault();
