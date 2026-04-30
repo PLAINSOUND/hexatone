@@ -17,6 +17,9 @@ export const create_composite_synth = (synths) => ({
       cents: hexes[0].cents,
       release: false,
       note_played: hexes[0].note_played,
+      velocity_played: hexes.find((h) => h.velocity_played != null)?.velocity_played,
+      velocity: hexes.find((h) => h.velocity != null)?.velocity,
+      _onVel: hexes.find((h) => h._onVel != null)?._onVel,
       // Expose stolen coords from any child synth that had to evict a voice.
       // Keys.js uses this to redraw the displaced hex.
       _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),

@@ -66,16 +66,15 @@ export const hexCoordsToCents = (coords, settings) => {
 
 /**
  * Compute equave offset from a Lumatone MIDI channel number.
- * The Lumatone sends notes on channels 1–8; the central channel is
- * midiin_channel (0-indexed).  The wrapping arithmetic maps any channel
- * to an offset in the range -4 … +3.
+ * The Lumatone sends notes on channels 1-8. The wrapping arithmetic maps any
+ * channel to an offset in the range -4 ... +3 relative to the anchor channel.
  *
  * @param {number} midiChannel     - 1-indexed MIDI channel from the message
- * @param {number} midiin_channel  - 0-indexed central channel from settings
+ * @param {number} anchorChannel   - 1-indexed anchor channel
  * @returns {number} equave offset (-4 to +3)
  */
-export const channelOffset = (midiChannel, midiin_channel) =>
-  ((midiChannel - 1 - midiin_channel + 20) % 8) - 4;
+export const channelOffset = (midiChannel, anchorChannel = 1) =>
+  ((midiChannel - anchorChannel + 20) % 8) - 4;
 
 // ── MIDI note + channel → hex coords ─────────────────────────────────────────
 
@@ -84,15 +83,15 @@ export const channelOffset = (midiChannel, midiin_channel) =>
  * Returns a Point if the note maps to a valid grid position, or null if
  * the note number doesn't land on a grid intersection (remainder != 0).
  *
- * @param {object} settings - { midiin_central_degree, midiin_channel, equivSteps, rSteps, drSteps, gcd }
+ * @param {object} settings - { midiin_central_degree, midiin_anchor_channel, equivSteps, rSteps, drSteps, gcd }
  * @param {number} noteNumber   - MIDI note number (0-127)
  * @param {number} midiChannel  - 1-indexed MIDI channel
  * @returns {Point|null}
  */
 export const midiNoteToCoords = (settings, noteNumber, midiChannel) => {
-  const { midiin_central_degree, midiin_channel, equivSteps, rSteps, drSteps, gcd } = settings;
+  const { midiin_central_degree, midiin_anchor_channel, equivSteps, rSteps, drSteps, gcd } = settings;
 
-  const offset = channelOffset(midiChannel, midiin_channel);
+  const offset = channelOffset(midiChannel, midiin_anchor_channel ?? 1);
   const steps = noteNumber - midiin_central_degree + offset * equivSteps;
 
   const rSteps_count = Math.round(steps / rSteps);

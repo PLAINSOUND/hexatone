@@ -20,7 +20,6 @@ const INT_KEYS = [
   ["mpe_hi_ch", 0, 8],
   ["mpe_pitchbend_range", 0, 48],
   ["mpe_pitchbend_range_manager", 0, 2],
-  ["midiin_channel", 0, 0], // default is also 0 — still tests no NaN
   ["midi_channel", 0, 0],
   ["midi_velocity", 0, 72],
   ["sysex_type", 0, 126],

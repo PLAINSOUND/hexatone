@@ -160,7 +160,6 @@ export const SETTINGS_REGISTRY = [
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: "midiin_device", tier: "session", type: "string", default: "OFF" },
   { key: "midiin_controller_override", tier: "session", type: "string", default: "auto" },
-  { key: "midiin_channel", tier: "session", type: "int", default: 0 },
   { key: "midiin_steps_per_channel", tier: "session", type: "int", default: 0 },
   { key: "midiin_channel_group_size", tier: "session", type: "int", default: 1 },
   { key: "midiin_anchor_channel", tier: "session", type: "int", default: 1 },
@@ -272,7 +271,6 @@ export const SETTINGS_REGISTRY = [
   { key: "lumatone_center_channel", tier: "runtime", type: "int", default: 3 },
   { key: "lumatone_center_note", tier: "runtime", type: "int", default: 26 },
   { key: "wheel_to_recent", tier: "session", type: "bool", default: true },
-  { key: "midi_wheel_range", tier: "session", type: "string", default: "64/63" },
   { key: "wheel_scale_aware", tier: "session", type: "bool", default: false },
   { key: "midi_wheel_semitones", tier: "session", type: "int", default: 2 },
 

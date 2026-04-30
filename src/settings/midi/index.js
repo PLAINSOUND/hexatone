@@ -418,85 +418,20 @@ const MIDIio = (props) => {
                 />
               </label>
 
-              {/* Voice channel range — shown when MPE is on */}
+              {/* MPE currently listens on all channels; range display is informational. */}
               {props.settings.midiin_mpe_input && !ctrl?.mpeVoiceChannels && (
-                <label title="Voice data channels (ch 1 and 16 are typically MPE manager/global channels)">
-                  Voice channels {props.settings.midiin_mpe_lo_ch ?? 2}–
-                  {props.settings.midiin_mpe_hi_ch ?? 15}
-                  <span
-                    class="sidebar-input"
-                    style={{
-                      display: "flex",
-                      gap: "4px",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      key={props.settings.midiin_mpe_lo_ch ?? 2}
-                      defaultValue={props.settings.midiin_mpe_lo_ch ?? 2}
-                      style={{
-                        width: "2.2em",
-                        textAlign: "center",
-                        height: "1.5em",
-                        boxSizing: "border-box",
-                        background: "#faf9f8",
-                        border: "1px solid #c8b8b8",
-                        borderRadius: "3px",
-                        flexShrink: 0,
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") e.target.blur();
-                      }}
-                      onBlur={(e) => {
-                        const v = parseInt(e.target.value);
-                        if (!isNaN(v) && v >= 1 && v <= 16) {
-                          props.onChange("midiin_mpe_lo_ch", v);
-                          sessionStorage.setItem("midiin_mpe_lo_ch", String(v));
-                        } else {
-                          e.target.value = props.settings.midiin_mpe_lo_ch ?? 2;
-                        }
-                      }}
-                    />
-                    <span>–</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      key={props.settings.midiin_mpe_hi_ch ?? 15}
-                      defaultValue={props.settings.midiin_mpe_hi_ch ?? 15}
-                      style={{
-                        width: "2.2em",
-                        textAlign: "center",
-                        height: "1.5em",
-                        boxSizing: "border-box",
-                        background: "#faf9f8",
-                        border: "1px solid #c8b8b8",
-                        borderRadius: "3px",
-                        flexShrink: 0,
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") e.target.blur();
-                      }}
-                      onBlur={(e) => {
-                        const v = parseInt(e.target.value);
-                        if (!isNaN(v) && v >= 1 && v <= 16) {
-                          props.onChange("midiin_mpe_hi_ch", v);
-                          sessionStorage.setItem("midiin_mpe_hi_ch", String(v));
-                        } else {
-                          e.target.value = props.settings.midiin_mpe_hi_ch ?? 15;
-                        }
-                      }}
-                    />
+                <label title="Hexatone currently accepts MPE voice data on all channels.">
+                  Voice channels
+                  <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+                    all channels
                   </span>
                 </label>
               )}
               {props.settings.midiin_mpe_input && ctrl?.mpeVoiceChannels && (
-                <label title="Voice channel range is fixed by this controller's hardware configuration">
+                <label title="Controller range is informational; Hexatone currently accepts MPE voice data on all channels.">
                   Voice channels
                   <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
-                    {ctrl.mpeVoiceChannels.lo}–{ctrl.mpeVoiceChannels.hi} (fixed)
+                    {ctrl.mpeVoiceChannels.lo}–{ctrl.mpeVoiceChannels.hi} typical; listening on all
                   </span>
                 </label>
               )}
@@ -1588,7 +1523,6 @@ MIDIio.propTypes = {
     lumatone_led_sync: PropTypes.bool,
     linnstrument_led_sync: PropTypes.bool,
     wheel_to_recent: PropTypes.bool,
-    midi_wheel_range: PropTypes.string,
     midi_wheel_semitones: PropTypes.number,
     wheel_scale_aware: PropTypes.bool,
     midiin_mpe_input: PropTypes.bool,

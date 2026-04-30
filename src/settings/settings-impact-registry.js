@@ -28,7 +28,6 @@ export const SETTINGS_IMPACT_FIELDS = {
   ],
   inputBinding: [
     "midiin_device",
-    "midiin_channel",
     "midiin_steps_per_channel",
     "midiin_channel_group_size",
     "midiin_anchor_channel",
@@ -49,7 +48,6 @@ export const SETTINGS_IMPACT_FIELDS = {
   ],
   inputRuntime: [
     "midiin_device",
-    "midiin_channel",
     "midiin_steps_per_channel",
     "midiin_channel_group_size",
     "midiin_anchor_channel",
@@ -131,7 +129,6 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
   inputUiOnly: [
     "midiin_mpe_lo_ch",
     "midiin_mpe_hi_ch",
-    "midi_wheel_range",
   ],
   synthRuntimeOnly: [
     "osc_volume_pluck",

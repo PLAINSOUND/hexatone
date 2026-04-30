@@ -472,10 +472,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // │    key_labels          — canvas label mode (handled in keys.js)         │
   // │    retuning_mode       — transpose vs recalculate (keys.js per-note)    │
   // │    wheel_to_recent     — modwheel routing (keys.js per-event)           │
-  // │    midi_wheel_range    — wheel pitch range (keys.js per-event)          │
   // │    wheel_scale_aware   — wheel snap mode (keys.js per-event)            │
   // │    midiin_central_degree — anchor for incoming MIDI (keys.js)           │
-  // │    midiin_channel      — input filter (keys.js)                         │
   // │    midi_passthrough    — MIDI pass-through flag (keys.js)               │
   // │    lumatone_led_sync   — LED feedback toggle (keys.js)                  │
   // └─────────────────────────────────────────────────────────────────────────┘

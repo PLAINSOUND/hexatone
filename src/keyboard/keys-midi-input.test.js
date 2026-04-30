@@ -60,7 +60,6 @@ function makeSettings(overrides = {}) {
     midiin_device: "OFF",
     midiin_modwheel_value: 0,
     midiin_modwheel_source: "",
-    midiin_channel: -1,
     midiin_central_degree: 60,
     midi_mapping: "MTS_BULK",
     midi_passthrough: false,
@@ -1130,7 +1129,6 @@ describe("Keys MIDI input integration", () => {
       expect(() => {
         keys = createKeys({
           midiin_device: "test-input",
-          midiin_channel: 0,
         });
       }).not.toThrow();
       expect(getInputSpy).toHaveBeenCalledWith("test-input");
@@ -1233,7 +1231,6 @@ describe("Keys MIDI input integration", () => {
     });
     const keys = createKeys({
       midiin_device: "input-1",
-      midiin_channel: 0,
       midiin_controller_override: "tonalplexus",
       lumatone_center_channel: 9,
       lumatone_center_note: 7,
@@ -1472,7 +1469,6 @@ describe("Keys MIDI input integration", () => {
     const keys = createKeys(
       {
         midiin_device: "input-1",
-        midiin_channel: 0,
       },
       {
         wheelToRecent: true,
@@ -1520,6 +1516,64 @@ describe("Keys MIDI input integration", () => {
 
     expect(hexNoteOff).toHaveBeenCalledWith(55);
     expect(keys.state.sustainedNotes).toHaveLength(0);
+  });
+
+  it("captures snapshot attack velocity from active hexes", () => {
+    const keys = createKeys({ midi_velocity: 72 });
+    keys.state.activeMidi.set(60, {
+      coords: new Point(0, 0),
+      cents: 0,
+      velocity: 118,
+      release: false,
+    });
+
+    const snapshot = keys.getSnapshot();
+
+    expect(snapshot).toHaveLength(1);
+    expect(snapshot[0]).toMatchObject({
+      attackVelocity: 118,
+      releaseVelocity: 118,
+      velocity: 118,
+    });
+  });
+
+  it("captures sustained snapshot release velocity separately from attack velocity", () => {
+    const keys = createKeys({ midi_velocity: 72 });
+    const hex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      velocity_played: 104,
+      release: false,
+    };
+    keys.state.sustainedNotes.push([hex, 37]);
+
+    const snapshot = keys.getSnapshot();
+
+    expect(snapshot).toHaveLength(1);
+    expect(snapshot[0]).toMatchObject({
+      attackVelocity: 104,
+      releaseVelocity: 37,
+      velocity: 104,
+    });
+  });
+
+  it("plays snapshots with captured attack velocity and stops with release velocity", () => {
+    const noteOff = vi.fn();
+    const synth = {
+      makeHex: vi.fn(() => ({
+        coords: new Point(9000, 9000),
+        cents: 0,
+        noteOn: vi.fn(),
+        noteOff,
+      })),
+    };
+    const keys = createKeys({}, {}, synth);
+
+    keys.playSnapshot([{ midicents: 69, attackVelocity: 111, releaseVelocity: 39 }]);
+    keys.stopSnapshot();
+
+    expect(synth.makeHex.mock.calls[0][8]).toBe(111);
+    expect(noteOff).toHaveBeenCalledWith(39);
   });
 
   it("keeps sounding static-bulk notes as the heard reference during immediate OCT", () => {

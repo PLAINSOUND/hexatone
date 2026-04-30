@@ -28,7 +28,7 @@ const make12edoSettings = (overrides = {}) => {
     equivInterval: 1200,
     equivSteps: 12,
     midiin_central_degree: 60,
-    midiin_channel: 0,
+    midiin_anchor_channel: 1,
     gcd: Euclid(2, 1), // [1, 1, -1] for rSteps=2, drSteps=1
     ...overrides,
   };
@@ -108,28 +108,26 @@ describe("hexCoordsToCents — 12edo Wicki-Hayden layout (rSteps=2, drSteps=1)",
 // ── channelOffset ─────────────────────────────────────────────────────────────
 
 describe("channelOffset", () => {
-  // Central channel is 1 (0-indexed midiin_channel = 0)
-  it("channel 1 with centre 0 → offset 0 (no transposition)", () => {
-    expect(channelOffset(1, 0)).toBe(0);
+  it("channel 1 with anchor 1 -> offset 0 (no transposition)", () => {
+    expect(channelOffset(1, 1)).toBe(0);
   });
 
-  it("channel 2 with centre 0 → offset 1 (one equave up)", () => {
-    expect(channelOffset(2, 0)).toBe(1);
+  it("channel 2 with anchor 1 -> offset 1 (one equave up)", () => {
+    expect(channelOffset(2, 1)).toBe(1);
   });
 
-  it("channel 8 with centre 0 → offset -1 (wraps below centre)", () => {
-    // (8-1-0+20) % 8 - 4 = 27 % 8 - 4 = 3 - 4 = -1
-    expect(channelOffset(8, 0)).toBe(-1);
+  it("channel 8 with anchor 1 -> offset -1 (wraps below centre)", () => {
+    expect(channelOffset(8, 1)).toBe(-1);
   });
 
-  it("wraps around: channel 5 with centre 1 → offset 3", () => {
-    expect(channelOffset(5, 1)).toBe(3);
+  it("wraps around: channel 5 with anchor 2 -> offset 3", () => {
+    expect(channelOffset(5, 2)).toBe(3);
   });
 
   it("always returns a value in the range -4 to +3", () => {
     for (let ch = 1; ch <= 16; ch++) {
-      for (let centre = 0; centre <= 7; centre++) {
-        const offset = channelOffset(ch, centre);
+      for (let anchor = 1; anchor <= 8; anchor++) {
+        const offset = channelOffset(ch, anchor);
         expect(offset).toBeGreaterThanOrEqual(-4);
         expect(offset).toBeLessThanOrEqual(3);
       }
