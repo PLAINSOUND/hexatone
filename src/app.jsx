@@ -110,6 +110,29 @@ function snapshotModulationState(state) {
   };
 }
 
+function presetModulationSnapshot(history = []) {
+  return snapshotModulationState({
+    mode: "idle",
+    history,
+    currentRoute: null,
+    historyIndex: 0,
+    homeFrame: null,
+    currentFrame: null,
+    oldFrame: null,
+    pendingFrame: null,
+    sourceHex: null,
+    sourceCoordsKey: null,
+    sourceDegree: null,
+    targetDegree: null,
+    strategy: "retune_surface_to_source",
+    geometryMode: "moveable_surface",
+    takeoverConsumed: false,
+    lastDecision: {
+      type: "preset_modulation_library_loaded",
+    },
+  });
+}
+
 const ua = navigator.userAgent;
 const isSafariOnly =
   /Safari/.test(ua) &&
@@ -325,6 +348,12 @@ const App = () => {
     onUserInteraction: () => setUserHasInteracted(true),
     currentModulationLibrary: modulationState?.history ?? presetModulationLibrary,
     setPresetModulationLibrary,
+    onPresetModulationLibraryLoaded: (library) => {
+      setPresetModulationLibrary(library);
+      setModulationState(presetModulationSnapshot(library));
+      setModulationMode("idle");
+      setModulationArmed(false);
+    },
   });
 
   const { onImport, importCount, bumpImportCount } = useImport(settings, setSettings, {
@@ -879,7 +908,11 @@ const App = () => {
       setLatch(false);
       setModulationArmed(false);
       setModulationMode("idle");
-      setModulationState(null);
+      setModulationState(
+        presetModulationLibrary.length > 0
+          ? presetModulationSnapshot(presetModulationLibrary)
+          : null,
+      );
       resetOctave();
     }
     prevStructuralRef.current = reconstructionSettings;
@@ -1157,6 +1190,7 @@ const App = () => {
   const onLatchChange = useCallback((v) => setLatch(v), []);
   const onModulationStateChange = useCallback((state) => {
     const snapshot = snapshotModulationState(state);
+    if (snapshot?.lastDecision?.reason === "deconstruct") return;
     setModulationState(snapshot);
     setModulationMode(snapshot?.mode ?? "idle");
     setModulationArmed(snapshot?.mode === "awaiting_target");

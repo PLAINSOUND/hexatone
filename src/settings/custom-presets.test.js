@@ -231,6 +231,45 @@ describe("CustomPresets save, export and delete", () => {
     createElement.mockRestore();
   });
 
+  it("switches the save button back to plain save text when the name no longer matches an existing user preset", () => {
+    localStorage.setItem(
+      "hexatone_custom_presets",
+      JSON.stringify([{ name: "Existing Name", scale: ["2/1"], equivSteps: 1 }]),
+    );
+
+    const { rerender } = render(
+      <CustomPresets
+        {...baseProps}
+        activeSource="user"
+        activePresetName="Existing Name"
+        settings={{
+          name: "Existing Name",
+          scale: ["100.", "1200."],
+          equivSteps: 2,
+          fundamental: 440,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Save current settings and overwrite user preset")).toBeTruthy();
+
+    rerender(
+      <CustomPresets
+        {...baseProps}
+        activeSource="user"
+        activePresetName="Existing Name"
+        settings={{
+          name: "New Name",
+          scale: ["100.", "1200."],
+          equivSteps: 2,
+          fundamental: 440,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Save current settings")).toBeTruthy();
+  });
+
   it("deletes the selected preset and calls onClear", () => {
     localStorage.setItem(
       "hexatone_custom_presets",

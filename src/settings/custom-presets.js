@@ -88,7 +88,7 @@ const CustomPresets = ({
 
   // Sync selected with activePresetName when restoring a user preset on reload
   useEffect(() => {
-    if (isActive && activePresetName && !selected) {
+    if (isActive && activePresetName && selected !== activePresetName) {
       setSelected(activePresetName);
     }
   }, [isActive, activePresetName, selected]);

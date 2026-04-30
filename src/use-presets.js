@@ -115,7 +115,13 @@ const PERSIST_ON_RELOAD_KEY = "hexatone_persist_on_reload";
 const usePresets = (
   settings,
   setSettings,
-  { synthRef, onUserInteraction, currentModulationLibrary, setPresetModulationLibrary },
+  {
+    synthRef,
+    onUserInteraction,
+    currentModulationLibrary,
+    setPresetModulationLibrary,
+    onPresetModulationLibraryLoaded,
+  },
 ) => {
   const [activeSource, setActiveSource] = useState(null);
   const [activePresetName, setActivePresetName] = useState(null);
@@ -154,6 +160,7 @@ const usePresets = (
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
         const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
         setPresetModulationLibrary(savedLibrary);
+        onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
         setSettings(() => merged);
       }
@@ -170,6 +177,7 @@ const usePresets = (
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
         const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
         setPresetModulationLibrary(savedLibrary);
+        onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
         setSettings(() => merged);
       }
@@ -197,6 +205,7 @@ const usePresets = (
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
     const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
     setPresetModulationLibrary(savedLibrary);
+    onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
     setSettings(() => merged);
   };
@@ -218,6 +227,7 @@ const usePresets = (
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
     const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
     setPresetModulationLibrary(savedLibrary);
+    onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
     setSettings(() => merged);
   };
@@ -227,6 +237,7 @@ const usePresets = (
     setActiveSource(null);
     setActivePresetName(null);
     setPresetModulationLibrary([]);
+    onPresetModulationLibraryLoaded?.([]);
     sessionStorage.removeItem("hexatone_preset_source");
     sessionStorage.removeItem("hexatone_preset_name");
 
@@ -240,6 +251,7 @@ const usePresets = (
       const merged = mergePresetIntoSettings(settings, preset);
       const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
       setPresetModulationLibrary(savedLibrary);
+      onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
     } else {
@@ -260,6 +272,7 @@ const usePresets = (
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
       setPresetModulationLibrary(savedLibrary);
+      onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
     }
@@ -277,6 +290,7 @@ const usePresets = (
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
         const savedLibrary = normalizeModulationHistory(saved.modulation_library, { zeroCounts: true });
         setPresetModulationLibrary(savedLibrary);
+        onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
         setSettings(() => merged);
       }
