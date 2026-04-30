@@ -30,6 +30,10 @@ import {
   PRESET_SKIP_KEYS,
   REGISTRY_BY_KEY,
 } from "./persistence/settings-registry.js";
+import {
+  settingsImpactKey,
+  settingsImpactSnapshot,
+} from "./settings/settings-impact-registry.js";
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
@@ -652,11 +656,19 @@ const App = () => {
     return hasLayout && hasScale && labelsValid && colorsValid;
   }, [settings]);
 
-  // Stable string keys for array deps — memoized so stringify only runs when
-  // the array content actually changes, not on every render.
-  const scaleKey = useMemo(() => JSON.stringify(settings.scale), [settings.scale]);
-  const noteNamesKey = useMemo(() => JSON.stringify(settings.note_names), [settings.note_names]);
-  const noteColorsKey = useMemo(() => JSON.stringify(settings.note_colors), [settings.note_colors]);
+  const tuningImpactKey = useMemo(() => settingsImpactKey(settings, "tuning"), [settings]);
+  const structuralImpactKey = useMemo(() => settingsImpactKey(settings, "structural"), [settings]);
+  const keysReconstructionImpactKey = useMemo(
+    () => settingsImpactKey(settings, "keysReconstruction", { midiAccess, midiTick }),
+    [settings, midiAccess, midiTick],
+  );
+  const musicalSurfaceResetImpactKey = useMemo(
+    () => settingsImpactKey(settings, "musicalSurfaceReset"),
+    [settings],
+  );
+  const colorImpactKey = useMemo(() => settingsImpactKey(settings, "colors"), [settings]);
+  const inputRuntimeImpactKey = useMemo(() => settingsImpactKey(settings, "inputRuntime"), [settings]);
+  const outputRuntimeImpactKey = useMemo(() => settingsImpactKey(settings, "outputRuntime"), [settings]);
   const tuningWorkspace = useMemo(
     () =>
       settings.scale && Array.isArray(settings.scale) && settings.scale.length > 0
@@ -666,7 +678,8 @@ const App = () => {
             fundamental: settings.fundamental,
           })
         : null,
-    [settings.scale, settings.reference_degree, settings.fundamental],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tuningImpactKey is the settings-impact registry key; unrelated settings must not rebuild the tuning workspace.
+    [tuningImpactKey],
   );
   const tuningRuntime = useMemo(
     () => (tuningWorkspace ? normalizeWorkspaceForKeys(tuningWorkspace) : null),
@@ -882,88 +895,27 @@ const App = () => {
     ],
   );
 
+  const liveInputSettings = useMemo(
+    () => settingsImpactSnapshot(settings, "inputRuntime"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inputRuntimeImpactKey is the settings-impact registry key.
+    [inputRuntimeImpactKey],
+  );
+
   // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
   const structuralSettings = useMemo(
     () => normalizeStructural(settings, { tuningRuntime }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- explicit field list avoids reconstructing Keys on every color-picker drag
-    [
-      settings.rSteps,
-      settings.drSteps,
-      settings.hexSize,
-      settings.rotation,
-      scaleKey,
-      settings.equivSteps,
-      noteNamesKey,
-      settings.key_labels,
-      settings.show_equaves,
-      settings.heji_anchor_label,
-      settings.heji_anchor_ratio,
-      settings.heji_show_cents,
-      settings.heji_tempered_only,
-      // fundamental handled imperatively via keysRef.current.updateFundamental
-      settings.reference_degree,
-      settings.center_degree,
-      settings.midiin_device,
-      settings.midiin_channel,
-      settings.midiin_steps_per_channel,
-      settings.midiin_anchor_channel,
-      settings.controller_anchor_note,
-      settings.midiin_channel_legacy,
-      settings.midi_passthrough,
-      settings.midiin_central_degree,
-      settings.axis49_center_note,
-      settings.wheel_to_recent,
-      settings.midiin_mapping_target,
-      settings.midiin_mpe_input,
-      settings.midiin_pitchbend_mode,
-      settings.midiin_pressure_mode,
-      settings.lumatone_center_channel,
-      settings.lumatone_center_note,
-      // Reconstruct Keys when WebMIDI becomes available or device availability changes.
-      // Keys binds WebMidi input/output handles during construction.
-      midiAccess,
-      midiTick,
-      // Intentional: listing explicit fields so color-picker drags (not listed here) don't reconstruct Keys.
-      tuningRuntime,
-    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- structuralImpactKey is the settings-impact registry key; input/output binding fields are intentionally excluded.
+    [structuralImpactKey, tuningRuntime],
   );
 
-  // Subset of structuralSettings that actually requires Keys reconstruction.
-  // Label fields (key_labels, note_names, heji_anchor_*) are intentionally
-  // excluded — they are updated imperatively via updateLabels without tearing
-  // down the keyboard or interrupting held notes.
+  // Signature for changes that require constructing a new Keys instance. This is
+  // intentionally independent of structuralSettings so MIDI device changes do
+  // not rerun scale/HEJI normalization.
   const reconstructionSettings = useMemo(
-    () => structuralSettings,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      settings.rSteps,
-      settings.drSteps,
-      settings.hexSize,
-      settings.rotation,
-      scaleKey,
-      settings.equivSteps,
-      settings.reference_degree,
-      settings.center_degree,
-      settings.midiin_device,
-      settings.midiin_channel,
-      settings.midiin_steps_per_channel,
-      settings.midiin_anchor_channel,
-      settings.controller_anchor_note,
-      settings.midiin_channel_legacy,
-      settings.midi_passthrough,
-      settings.midiin_central_degree,
-      settings.axis49_center_note,
-      settings.wheel_to_recent,
-      settings.midiin_mapping_target,
-      settings.midiin_mpe_input,
-      settings.midiin_pitchbend_mode,
-      settings.midiin_pressure_mode,
-      settings.lumatone_center_channel,
-      settings.lumatone_center_note,
-      midiAccess,
-      midiTick,
-    ],
+    () => settingsImpactSnapshot(settings, "keysReconstruction", { midiAccess, midiTick }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keysReconstructionImpactKey is the settings-impact registry key.
+    [keysReconstructionImpactKey],
   );
 
   // Output-runtime architecture controls should update the live Keys instance
@@ -971,77 +923,21 @@ const App = () => {
   // distinct from both structural tuning/workspace settings and fine-grained
   // runtime transport controls such as volume, sustain, OCT, or modulation.
   const liveOutputSettings = useMemo(
-    () => ({
-      instrument: settings.instrument,
-      output_sample: settings.output_sample,
-      output_mts: settings.output_mts,
-      output_mpe: settings.output_mpe,
-      output_mts_bulk: settings.output_mts_bulk,
-      output_osc: settings.output_osc,
-      midi_device: settings.midi_device,
-      midi_channel: settings.midi_channel,
-      midi_mapping: settings.midi_mapping,
-      midi_velocity: settings.midi_velocity,
-      sysex_auto: settings.sysex_auto,
-      sysex_type: settings.sysex_type,
-      device_id: settings.device_id,
-      tuning_map_number: settings.tuning_map_number,
-      mts_bulk_device: settings.mts_bulk_device,
-      mts_bulk_mode: settings.mts_bulk_mode,
-      mts_bulk_channel: settings.mts_bulk_channel,
-      mts_bulk_sysex_auto: settings.mts_bulk_sysex_auto,
-      mts_bulk_device_id: settings.mts_bulk_device_id,
-      mts_bulk_tuning_map_number: settings.mts_bulk_tuning_map_number,
-      mts_bulk_tuning_map_name: settings.mts_bulk_tuning_map_name,
-      fluidsynth_device: settings.fluidsynth_device,
-      fluidsynth_channel: settings.fluidsynth_channel,
-      mpe_device: settings.mpe_device,
-      mpe_manager_ch: settings.mpe_manager_ch,
-      mpe_lo_ch: settings.mpe_lo_ch,
-      mpe_hi_ch: settings.mpe_hi_ch,
-      mpe_pitchbend_range: settings.mpe_pitchbend_range,
-      mpe_mode: settings.mpe_mode,
-    }),
-    [
-      settings.instrument,
-      settings.output_sample,
-      settings.output_mts,
-      settings.output_mpe,
-      settings.output_mts_bulk,
-      settings.output_osc,
-      settings.midi_device,
-      settings.midi_channel,
-      settings.midi_mapping,
-      settings.midi_velocity,
-      settings.sysex_auto,
-      settings.sysex_type,
-      settings.device_id,
-      settings.tuning_map_number,
-      settings.mts_bulk_device,
-      settings.mts_bulk_mode,
-      settings.mts_bulk_channel,
-      settings.mts_bulk_sysex_auto,
-      settings.mts_bulk_device_id,
-      settings.mts_bulk_tuning_map_number,
-      settings.mts_bulk_tuning_map_name,
-      settings.fluidsynth_device,
-      settings.fluidsynth_channel,
-      settings.mpe_device,
-      settings.mpe_manager_ch,
-      settings.mpe_lo_ch,
-      settings.mpe_hi_ch,
-      settings.mpe_pitchbend_range,
-      settings.mpe_mode,
-      // Intentional: listing explicit fields so structural/scale changes don't retrigger output routing.
-    ],
+    () => settingsImpactSnapshot(settings, "outputRuntime"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- outputRuntimeImpactKey is the settings-impact registry key.
+    [outputRuntimeImpactKey],
   );
 
-  // Reset latch and octave when Keys is reconstructed (structuralSettings change).
-  // The new Keys instance starts with octave_offset=0 and sustain=false.
+  // Reset latch/octave only when the musical surface changes. MIDI/WebMIDI
+  // rebinding can reconstruct Keys, but should not reset transport state or
+  // invalidate cached labels.
   // Using a ref to skip the initial render (no reset on first mount).
-  const prevStructuralRef = useRef(null);
+  const prevMusicalSurfaceRef = useRef(null);
   useEffect(() => {
-    if (prevStructuralRef.current !== null && prevStructuralRef.current !== reconstructionSettings) {
+    if (
+      prevMusicalSurfaceRef.current !== null &&
+      prevMusicalSurfaceRef.current !== musicalSurfaceResetImpactKey
+    ) {
       setLatch(false);
       setModulationArmed(false);
       setModulationMode("idle");
@@ -1050,11 +946,11 @@ const App = () => {
           ? presetModulationSnapshot(activeModulationLibrary)
           : null,
       );
-      resetOctave();
+      if (typeof resetOctave === "function") resetOctave();
     }
-    prevStructuralRef.current = reconstructionSettings;
+    prevMusicalSurfaceRef.current = musicalSurfaceResetImpactKey;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reconstructionSettings, activeModulationLibrary]); // resetOctave and setLatch are stable
+  }, [musicalSurfaceResetImpactKey]); // resetOctave and setLatch are stable
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
@@ -1177,8 +1073,8 @@ const App = () => {
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
     () => normalizeColors(settings),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only color fields listed; avoids retrigger on every settings change
-    [noteColorsKey, settings.spectrum_colors, settings.fundamental_color],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- colorImpactKey is the settings-impact registry key.
+    [colorImpactKey],
   );
 
   const activeHejiFrame = useMemo(() => {
@@ -1282,9 +1178,12 @@ const App = () => {
   const normalizedSettings = useMemo(
     () => ({
       ...structuralSettings,
+      ...liveInputSettings,
+      ...liveOutputSettings,
+      ...labelSettings,
       ...colorSettings,
     }),
-    [structuralSettings, colorSettings],
+    [structuralSettings, liveInputSettings, liveOutputSettings, labelSettings, colorSettings],
   );
 
   // Imperative volume/mute — does not rebuild Keys

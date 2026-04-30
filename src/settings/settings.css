@@ -388,8 +388,25 @@ td.scale-color-col .color-input {
 
 /* Laptop/desktop: always show hex value in the scale table colour column */
 @media (min-width: 481px) {
+  td.scale-color-col .color-cell {
+    width: max-content;
+  }
+
+  td.scale-color-col .color-cell:focus-within {
+    position: relative;
+    z-index: auto;
+    background: transparent;
+    box-shadow: none;
+    height: 1.5em;
+    min-width: 0;
+    right: auto;
+  }
+
   td.scale-color-col .color-input {
     display: block;
+    width: 6.3em !important;
+    min-width: 0;
+    flex: none;
   }
 }
 

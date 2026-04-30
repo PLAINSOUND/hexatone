@@ -1,15 +1,11 @@
-import { calculateRotationMatrix, applyMatrixToPoint } from "./matrix";
+import { calculateRotationMatrix } from "./matrix";
 import Point from "./point";
 import Euclid from "./euclidean";
 import {
-  rgb,
-  HSVtoRGB,
   HSVtoRGB2,
   nameToHex,
   hex2rgb,
   rgb2hsv,
-  getContrastYIQ,
-  getContrastYIQ_2,
   rgbToHex,
 } from "./color_utils";
 import { WebMidi } from "webmidi";
@@ -73,11 +69,9 @@ import {
   deriveFrameForHistory,
   deriveFrameForHistoryIndex,
 } from "./keys-frame-runtime.js";
-import {
-  displayLabelForDegree,
-  labelDegreeFromFrame,
-  scaleCentsLabelForDegree,
-} from "./keys-display-runtime.js";
+import * as KeysLabels from "./keys-labels.js";
+import * as KeysRenderer from "./keys-renderer.js";
+import * as KeysBrowserInput from "./keys-browser-input.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
 import {
   classifyReleaseForSettlement,
@@ -93,10 +87,6 @@ const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 const WHEEL_SLEW_TAU_MS = 8;
 const WHEEL_SLEW_SNAP_14 = 2;
 const BULK_RELEASE_PROTECT_MS = 750;
-
-function isModulationToggleKeyCode(code) {
-  return code === "Backquote" || code === "IntlBackslash";
-}
 
 function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpositionDeltaCents) {
   const sourceRatio = tuning?.degreeIntervals?.[sourceDegree]?.ratio ?? null;
@@ -1058,29 +1048,15 @@ class Keys {
   };
 
   _labelDegreeFromFrame(reducedNote, frame = this._activeFrame()) {
-    return labelDegreeFromFrame(reducedNote, {
-      frame,
-      geometryMode: this._modulationState?.geometryMode,
-      scaleLength: this.tuning.scale.length || 1,
-    });
+    return KeysLabels.labelDegreeFromActiveFrame.call(this, reducedNote, frame);
   }
 
   _scaleCentsLabelForDegree(reducedNote) {
-    return scaleCentsLabelForDegree(reducedNote, this.tuning.scale || []);
+    return KeysLabels.scaleCentsLabelForActiveDegree.call(this, reducedNote);
   }
 
   getDisplayLabelAtCoords = (coords) => {
-    const note = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
-    const equivSteps = this.tuning.scale.length || 1;
-    let reducedNote = note % equivSteps;
-    if (reducedNote < 0) reducedNote += equivSteps;
-    return displayLabelForDegree(reducedNote, {
-      settings: this.settings,
-      frame: this._activeFrame(),
-      geometryMode: this._modulationState?.geometryMode,
-      scaleLength: equivSteps,
-      scale: this.tuning.scale,
-    });
+    return KeysLabels.getDisplayLabelAtCoords.call(this, coords);
   };
 
   _degreeForCoords(coords) {
@@ -1490,11 +1466,7 @@ class Keys {
    * knows a sidebar drag is in progress and won't drop the sustain.
    */
   setTuneDragging = (active) => {
-    this.state.isTuneDragging = active;
-  };
-
-  setTuneDragging = (active) => {
-    this.state.isTuneDragging = active;
+    return KeysBrowserInput.setTuneDragging.call(this, active);
   };
 
   /**
@@ -1530,13 +1502,7 @@ class Keys {
    * Called from Keyboard wrapper when key_labels or related fields change.
    */
   updateLabels = (labels) => {
-    // Clear all label flags first so only one is active.
-    for (const flag of ["degree", "note", "scala", "cents", "heji", "equaves", "no_labels"]) {
-      this.settings[flag] = false;
-    }
-    // Apply new flags and name arrays.
-    Object.assign(this.settings, labels);
-    this.scheduleGridRedraw();
+    return KeysLabels.updateLabels.call(this, labels);
   };
 
   updateLiveOutputState = (nextSettings, synth) => {
@@ -2922,643 +2888,114 @@ class Keys {
   };
 
   inputIsFocused = () => {
-    const tag = document.activeElement && document.activeElement.tagName;
-    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    return KeysBrowserInput.inputIsFocused.call(this);
   };
 
   onKeyDown = (e) => {
-    // DEBUG: check what key code is produced
-    // console.log('Key pressed:', e.code, e.key);
-
-    // Delete : Panic - kill all notes
-    if ((e.code === "Delete" && !e.repeat) || (e.code === "Backspace" && !e.repeat)) {
-      this.panic();
-      return;
-    }
-
-    // Escape: toggle sustain. Track escHeld separately because clicking
-    // the canvas while Escape is held fires a spurious keyup immediately,
-    // which would drop the sustain before mouse-up.
-
-    if (e.code === "Escape" && !e.repeat) {
-      this.state.escHeld = true;
-      this.latchToggle();
-      return;
-    }
-
-    // Enter: take a snapshot of currently-sounding notes (only when notes are active).
-    if (e.code === "Enter" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      const hasNotes =
-        this.state.activeMouse !== null ||
-        this.state.activeTouch.size > 0 ||
-        this.state.activeKeyboard.size > 0 ||
-        this.state.activeMidi.size > 0 ||
-        this.state.sustainedNotes.length > 0;
-      if (hasNotes && this.onTakeSnapshot) {
-        this.onTakeSnapshot();
-        return;
-      }
-    }
-
-    // Modulation arm/disarm should behave like Escape sustain: global, not tied
-    // to whether the sidebar is closed or a text input currently has focus.
-    if (
-      isModulationToggleKeyCode(e.code) &&
-      !e.repeat &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      !e.altKey
-    ) {
-      e.preventDefault();
-      this.toggleModulationArm();
-      return;
-    }
-
-    // All other keys: only active when sidebar is closed (typing=false means sidebar closed).
-    if (!this.typing) return;
-    if (this.inputIsFocused()) return;
-
-    // Block note-on if Command/Ctrl/Alt are held (browser shortcuts)
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-    e.preventDefault();
-    if (e.repeat) {
-      return;
-    } else if (e.code === "Space") {
-      this.sustainOn();
-    } else if (e.code in this.settings.keyCodeToCoords) {
-      // Keyboard now operates independently — no mutex guard against mouse/touch.
-      // Shift+key: individual note sustain (latch for this specific key)
-      // If key is already shift-sustained, release it
-      if (e.shiftKey) {
-        if (this.state.shiftSustainedKeys.has(e.code)) {
-          // Release the shift-sustained note
-          this.state.shiftSustainedKeys.delete(e.code);
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-          // Find and release the sustained hex
-          let hexIndex = this.state.sustainedNotes.findIndex(
-            ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-          );
-          if (hexIndex !== -1) {
-            const [hex, vel] = this.state.sustainedNotes[hexIndex];
-            this.state.sustainedNotes.splice(hexIndex, 1);
-            const key = coords.x + "," + coords.y;
-            this.state.sustainedCoords.delete(key);
-            hex.noteOff(vel);
-            this.hexOff(coords);
-          }
-          // Remove from activeKeyboard
-          this.state.activeKeyboard.delete(e.code);
-        } else {
-          // Play note and shift-sustain it
-          this.state.pressedKeys.add(e.code);
-          this.state.shiftSustainedKeys.add(e.code);
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-          let hex = this.hexOn(coords);
-          this.state.activeKeyboard.set(e.code, hex);
-          // Add to sustained notes immediately
-          this.state.sustainedNotes.push([hex, 0]);
-          const key = coords.x + "," + coords.y;
-          this.state.sustainedCoords.add(key);
-        }
-      } else {
-        // No Shift: check if this key was shift-sustained, if so release it
-        if (this.state.shiftSustainedKeys.has(e.code)) {
-          this.state.shiftSustainedKeys.delete(e.code);
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-          // Find and release the sustained hex
-          let hexIndex = this.state.sustainedNotes.findIndex(
-            ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-          );
-          if (hexIndex !== -1) {
-            const [hex, vel] = this.state.sustainedNotes[hexIndex];
-            this.state.sustainedNotes.splice(hexIndex, 1);
-            const key = coords.x + "," + coords.y;
-            this.state.sustainedCoords.delete(key);
-            hex.noteOff(vel);
-            this.hexOff(coords);
-          }
-          // Remove from activeKeyboard
-          this.state.activeKeyboard.delete(e.code);
-        } else if (!this.state.pressedKeys.has(e.code)) {
-          // Calculate coords for this key
-          const kbOffset = this.settings.centerHexOffset;
-          const kbRaw = this.settings.keyCodeToCoords[e.code];
-          let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-
-          // When latch is active, check if this note is already sustained.
-          // If so, toggle it off (same behavior as mouse/touch).
-          if (this.state.latch) {
-            const key = coords.x + "," + coords.y;
-            const sustainedIdx = this.state.sustainedNotes.findIndex(
-              ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-            );
-            if (sustainedIdx !== -1) {
-              // Toggle off: release the sustained note
-              const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-              this.state.sustainedNotes.splice(sustainedIdx, 1);
-              this.state.sustainedCoords.delete(key);
-              hex.noteOff(vel);
-              this.hexOff(coords);
-              return; // Don't trigger a new note
-            }
-          }
-
-          // Normal note-on (no latch, or note not sustained)
-          this.state.pressedKeys.add(e.code);
-          let hex = this.hexOn(coords);
-          this.state.activeKeyboard.set(e.code, hex);
-        }
-      }
-    }
+    return KeysBrowserInput.onKeyDown.call(this, e);
   };
 
   onKeyUp = (e) => {
-    if (e.code === "Escape") {
-      this.state.escHeld = false;
-      // Escape is now latch (toggle) — no release action on key-up
-      return;
-    }
-
-    if (isModulationToggleKeyCode(e.code)) {
-      return;
-    }
-
-    // Only process other keys when sidebar is closed and no input is focused
-    if (!this.typing) return;
-    if (this.inputIsFocused()) return;
-
-    if (e.code === "Space") {
-      this.sustainOff(true); // force-release overrides latch
-    } else if (e.code in this.settings.keyCodeToCoords) {
-      // Keyboard now operates independently — no mutex guard against mouse/touch.
-      // Skip release for shift-sustained keys — they stay held until re-pressed without Shift.
-      if (this.state.shiftSustainedKeys.has(e.code)) {
-        // Remove from pressedKeys but keep in shiftSustainedKeys and sustainedNotes
-        this.state.pressedKeys.delete(e.code);
-        return;
-      }
-      if (this.state.pressedKeys.has(e.code)) {
-        this.state.pressedKeys.delete(e.code);
-        const kbOffset = this.settings.centerHexOffset;
-        const kbRaw = this.settings.keyCodeToCoords[e.code];
-        let coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-        const hex = this.state.activeKeyboard.get(e.code);
-        if (hex) {
-          this.noteOff(hex, 0);
-          this.state.activeKeyboard.delete(e.code); // clear BEFORE hexOff
-          this._settleModulationAfterActiveRelease();
-        }
-        if (!this.state.sustain) this.hexOff(coords);
-      }
-    }
+    return KeysBrowserInput.onKeyUp.call(this, e);
   };
 
   mouseUp = (_e) => {
-    // Gate on isMouseDown — only true if this drag started on the canvas.
-    // This correctly handles both off-canvas releases (processes activeMouse)
-    // and UI button clicks (isMouseDown was never set, so we ignore them).
-    if (!this.state.isMouseDown) return;
-    this.state.isMouseDown = false;
-    this.state.mouseDownToggledCoord = null;
-
-    // Mouse now operates independently of touch/keyboard — no mutex guard needed.
-    this.state.canvas.removeEventListener("mousemove", this.mouseActive);
-
-    if (this.state.activeMouse) {
-      const coords = this.state.activeMouse.coords;
-      this.noteOff(this.state.activeMouse, 0);
-      this.state.activeMouse = null; // clear BEFORE hexOff so _isCoordActive is honest
-      this._settleModulationAfterActiveRelease();
-      if (!this.state.sustain) this.hexOff(coords);
-    }
-
-    // If Escape keyup fired spuriously while mouse was down,
-    // release sustain now. But not if a tune-handle drag is in progress.
-    if (!this.state.escHeld && this.state.sustain && !this.state.isTuneDragging) {
-      this.sustainOff();
-    }
+    return KeysBrowserInput.mouseUp.call(this, _e);
   };
 
   mouseDown = (e) => {
-    if (this._onFirstInteraction) {
-      this._onFirstInteraction();
-    }
-    // Mouse now operates independently — no mutex guard against keyboard/touch.
-
-    // Clean up stale activeMouse (e.g. mouseUp fired off-canvas).
-    // Call hex.noteOff directly — bypassing noteOff() — so stale notes
-    // are silenced outright rather than being routed into sustainedNotes.
-    if (this.state.activeMouse) {
-      this.state.activeMouse.noteOff(0);
-      this.state.activeMouse = null;
-    }
-
-    this.state.mouseDownToggledCoord = null;
-    this.state.isMouseDown = true;
-    this.state.canvas.addEventListener("mousemove", this.mouseActive, false);
-    this.mouseActive(e);
+    return KeysBrowserInput.mouseDown.call(this, e);
   };
 
   mouseActive = (e) => {
-    let coords = this.getPointerPosition(e);
-    coords = this.getHexCoordsAt(coords);
-
-    if (this.state.activeMouse === null) {
-      // When latch is active, clicking a sustained hex toggles it off.
-      if (this.state.latch) {
-        const key = coords.x + "," + coords.y;
-        const sustainedIdx = this.state.sustainedNotes.findIndex(
-          ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-        );
-        if (sustainedIdx !== -1) {
-          const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-          this.state.sustainedNotes.splice(sustainedIdx, 1);
-          this.state.sustainedCoords.delete(key);
-          hex.noteOff(vel);
-          this.hexOff(coords);
-          this.state.mouseDownToggledCoord = key;
-          return;
-        }
-        // Guard: don't re-play a coord just toggled off this click
-        if (this.state.mouseDownToggledCoord === key) return;
-      }
-      this.state.activeMouse = this.hexOn(coords);
-    } else {
-      const first = this.state.activeMouse;
-      if (!coords.equals(first.coords)) {
-        // When sliding TO a sustained note with latch active, toggle it off.
-        if (this.state.latch) {
-          const key = coords.x + "," + coords.y;
-          const sustainedIdx = this.state.sustainedNotes.findIndex(
-            ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-          );
-          if (sustainedIdx !== -1) {
-            // Release old active hex — clear activeMouse BEFORE hexOff
-            const oldCoords = first.coords;
-            this.noteOff(first, 0);
-            this.state.activeMouse = null;
-            this._settleModulationAfterActiveRelease();
-            this.hexOff(oldCoords);
-            // Toggle off the sustained note
-            const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-            this.state.sustainedNotes.splice(sustainedIdx, 1);
-            this.state.sustainedCoords.delete(key);
-            hex.noteOff(vel);
-            this.hexOff(coords);
-            this.state.mouseDownToggledCoord = key;
-            return;
-          }
-        }
-        // Normal slide to new hex — clear activeMouse BEFORE hexOff so
-        // _isCoordActive correctly sees the old entry as gone.
-        const oldCoords = first.coords;
-        this.noteOff(first, 0);
-        this.state.activeMouse = null;
-        this._settleModulationAfterActiveRelease();
-        this.hexOff(oldCoords);
-        this.state.activeMouse = this.hexOn(coords);
-      }
-    }
+    return KeysBrowserInput.mouseActive.call(this, e);
   };
 
   getPointerPosition(e) {
-    // getBoundingClientRect gives the actual rendered position in viewport
-    // coordinates, consistent with clientX/clientY on all browsers and
-    // correctly accounts for CSS transforms, margins, and safe-area insets.
-    const rect = e.currentTarget.getBoundingClientRect();
-    return new Point(e.clientX - rect.left, e.clientY - rect.top);
+    return KeysBrowserInput.getPointerPosition.call(this, e);
   }
 
   getPosition(element) {
-    // Legacy offsetParent walk — kept for reference but no longer used.
-    const rect = element.getBoundingClientRect();
-    return { x: rect.left, y: rect.top };
+    return KeysBrowserInput.getPosition.call(this, element);
   }
 
   handleTouch = (e) => {
-    e.preventDefault();
-    // Gesture-bound audio recovery may be needed again after iOS sleep/background.
-    if (this._onFirstInteraction) {
-      this._onFirstInteraction();
-    }
-    // Touch now operates independently — no mutex guard against mouse/keyboard.
-
-    this.state.isTouchDown = e.targetTouches.length !== 0;
-
-    // Build the set of touch identifiers currently active in this event.
-    const currentIds = new Set();
-    for (let i = 0; i < e.targetTouches.length; i++) {
-      currentIds.add(e.targetTouches[i].identifier);
-    }
-
-    // Release any stored touches whose identifier is no longer in the live event
-    // (finger lifted). Clear from Map BEFORE calling hexOff so _isCoordActive is honest.
-    for (const [id, hex] of this.state.activeTouch) {
-      if (!currentIds.has(id)) {
-        const coords = hex.coords;
-        this.noteOff(hex, 0);
-        this.state.activeTouch.delete(id);
-        this._settleModulationAfterActiveRelease();
-        if (!this.state.sustain) this.hexOff(coords);
-      }
-    }
-
-    // Process each currently live touch point.
-    const rect = this.state.canvas.getBoundingClientRect();
-    for (let i = 0; i < e.targetTouches.length; i++) {
-      const touch = e.targetTouches[i];
-      const id = touch.identifier;
-      const coords = this.getHexCoordsAt(
-        new Point(touch.clientX - rect.left, touch.clientY - rect.top),
-      );
-
-      const existing = this.state.activeTouch.get(id);
-
-      if (existing) {
-        // Finger already tracked — check if it moved to a different hex.
-        if (!existing.coords.equals(coords)) {
-          const oldCoords = existing.coords;
-          this.noteOff(existing, 0);
-          this.state.activeTouch.delete(id); // clear BEFORE hexOff
-          this._settleModulationAfterActiveRelease();
-          if (!this.state.sustain) this.hexOff(oldCoords);
-          this._touchStartOnCoords(id, coords);
-        }
-        // else: same hex, nothing to do
-      } else {
-        // New finger down.
-        this._touchStartOnCoords(id, coords);
-      }
-    }
+    return KeysBrowserInput.handleTouch.call(this, e);
   };
 
   // Helper: start a touch note at coords for the given touch identifier.
   // Handles latch-toggle (if the coord is already sustained, toggle it off
   // instead of playing a new note). Otherwise plays and stores in activeTouch.
   _touchStartOnCoords(id, coords) {
-    if (this.state.latch) {
-      const key = coords.x + "," + coords.y;
-      const sustainedIdx = this.state.sustainedNotes.findIndex(
-        ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
-      );
-      if (sustainedIdx !== -1) {
-        const [hex, vel] = this.state.sustainedNotes[sustainedIdx];
-        this.state.sustainedNotes.splice(sustainedIdx, 1);
-        this.state.sustainedCoords.delete(key);
-        hex.noteOff(vel);
-        this.hexOff(coords);
-        return; // latch toggle — no new note
-      }
-    }
-    const newHex = this.hexOn(coords);
-    this.state.activeTouch.set(id, newHex);
+    return KeysBrowserInput.touchStartOnCoords.call(this, id, coords);
   }
 
   // Handle touchcancel — when the browser cancels a touch (e.g. gesture, notification).
   // This prevents notes from getting stuck on mobile.
   handleTouchCancel = (_e) => {
-    this.state.isTouchDown = false;
-
-    // Release all active touch notes. Snapshot the entries first so we can
-    // clear the Map before calling hexOff (keeps _isCoordActive honest).
-    const entries = [...this.state.activeTouch.entries()];
-    this.state.activeTouch.clear();
-    for (const [, hex] of entries) {
-      const coords = hex.coords;
-      this.noteOff(hex, 0);
-      this._settleModulationAfterActiveRelease();
-      if (!this.state.sustain) this.hexOff(coords);
-    }
+    return KeysBrowserInput.handleTouchCancel.call(this, _e);
   };
 
   /**************** Rendering ****************/
 
   scheduleGridRedraw() {
-    this._staticGridValid = false;
-    if (this._gridRedrawRaf != null || this._gridRedrawTimer != null) return;
-    const scheduleWhenSafe = () => {
-      this._gridRedrawTimer = null;
-      if (!this._isSoundInteractionIdle()) {
-        this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 25);
-        return;
-      }
-      this._gridRedrawRaf = requestAnimationFrame(() => {
-        this._gridRedrawRaf = null;
-        this.drawGrid();
-      });
-    };
-    this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 0);
+    return KeysRenderer.scheduleGridRedraw.call(this);
   }
 
   scheduleImmediateGridRedraw() {
-    this._staticGridValid = false;
-    if (this._gridRedrawTimer != null) {
-      clearTimeout(this._gridRedrawTimer);
-      this._gridRedrawTimer = null;
-    }
-    if (this._gridRedrawRaf != null) return;
-    this._gridRedrawRaf = requestAnimationFrame(() => {
-      this._gridRedrawRaf = null;
-      this.drawGrid();
-    });
+    return KeysRenderer.scheduleImmediateGridRedraw.call(this);
   }
 
   _coordKey(coords) {
-    return `${coords.x},${coords.y}`;
+    return KeysRenderer.coordKey.call(this, coords);
   }
 
   _buildHexGeometry(hex) {
-    const hexCenter = this.hexCoordsToScreen(hex);
-    const hexSize = Number(this.settings.hexSize) || 0;
-    const shadowSize = hexSize + 3;
-    const x = [];
-    const y = [];
-    const x2 = [];
-    const y2 = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = ((2 * Math.PI) / 6) * (i + 0.5);
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      x[i] = hexCenter.x + hexSize * cos;
-      y[i] = hexCenter.y + hexSize * sin;
-      x2[i] = hexCenter.x + shadowSize * cos;
-      y2[i] = hexCenter.y + shadowSize * sin;
-    }
-    return { center: hexCenter, x, y, x2, y2 };
+    return KeysRenderer.buildHexGeometry.call(this, hex);
   }
 
   _rebuildVisibleGridGeometry() {
-    let max =
-      this.state.centerpoint.x > this.state.centerpoint.y
-        ? this.state.centerpoint.x / this.settings.hexSize
-        : this.state.centerpoint.y / this.settings.hexSize;
-    max = Math.floor(max);
-    const ox = this.settings.centerHexOffset.x;
-    const oy = this.settings.centerHexOffset.y;
-    const coords = [];
-    const geometry = new Map();
-    for (let r = -max + ox; r < max + ox; r++) {
-      for (let dr = -max + oy; dr < max + oy; dr++) {
-        const coord = new Point(r, dr);
-        coords.push(coord);
-        geometry.set(this._coordKey(coord), this._buildHexGeometry(coord));
-      }
-    }
-    this._visibleGridCoords = coords;
-    this._hexGeometryCache = geometry;
-    this._staticGridValid = false;
+    return KeysRenderer.rebuildVisibleGridGeometry.call(this);
   }
 
   _resizeStaticGridCanvas(width, height, transform) {
-    if (typeof this.state.context?.drawImage !== "function") {
-      this._staticGridCanvas = null;
-      this._staticGridContext = null;
-      this._staticGridUsable = false;
-      this._staticGridValid = false;
-      return;
-    }
-    if (!this._staticGridCanvas) {
-      if (typeof OffscreenCanvas !== "undefined") {
-        this._staticGridCanvas = new OffscreenCanvas(width, height);
-      } else {
-        this._staticGridCanvas = document.createElement("canvas");
-      }
-      this._staticGridContext = this._staticGridCanvas.getContext?.("2d") ?? null;
-      this._staticGridUsable = !!this._staticGridContext;
-    }
-    if (!this._staticGridUsable) return;
-    this._staticGridCanvas.width = width;
-    this._staticGridCanvas.height = height;
-    if (this._staticGridContext && transform) {
-      this._staticGridContext.setTransform(
-        transform[0],
-        transform[1],
-        transform[2],
-        transform[3],
-        transform[4],
-        transform[5],
-      );
-    }
-    this._staticGridValid = false;
+    return KeysRenderer.resizeStaticGridCanvas.call(this, width, height, transform);
   }
 
   _drawStaticHex(coords, context = this.state.context) {
-    const [cents, pressed_interval] = this.hexCoordsToCents(coords);
-    const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
-    this.drawHex(coords, color, text_color, context);
+    return KeysRenderer.drawStaticHex.call(this, coords, context);
   }
 
   _ensureStaticGrid() {
-    if (!this._visibleGridCoords.length) this._rebuildVisibleGridGeometry();
-    if (!this._staticGridUsable) return false;
-    if (this._staticGridValid && this._staticGridCanvas) return true;
-    if (!this._staticGridCanvas || !this._staticGridContext) {
-      const width = this.state.canvas.width || window.innerWidth;
-      const height = this.state.canvas.height || window.innerHeight;
-      this._resizeStaticGridCanvas(width, height, this._canvasTransform);
-    }
-    if (!this._staticGridContext) return false;
-    this._staticGridContext.save();
-    this._staticGridContext.setTransform(1, 0, 0, 1, 0, 0);
-    this._staticGridContext.clearRect(0, 0, this._staticGridCanvas.width, this._staticGridCanvas.height);
-    this._staticGridContext.restore();
-    for (const coords of this._visibleGridCoords) {
-      this._drawStaticHex(coords, this._staticGridContext);
-    }
-    this._staticGridValid = true;
-    return true;
+    return KeysRenderer.ensureStaticGrid.call(this);
   }
 
   _withMainIdentityTransform(draw) {
-    const context = this.state.context;
-    context.save();
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    draw(context);
-    context.restore();
+    return KeysRenderer.withMainIdentityTransform.call(this, draw);
   }
 
   _copyStaticGridToMain() {
-    if (!this._staticGridCanvas || typeof this.state.context?.drawImage !== "function") return false;
-    this._withMainIdentityTransform((context) => {
-      context.clearRect(0, 0, this.state.canvas.width, this.state.canvas.height);
-      context.drawImage(this._staticGridCanvas, 0, 0);
-    });
-    return true;
+    return KeysRenderer.copyStaticGridToMain.call(this);
   }
 
   _restoreHexStaticBackground(coords) {
-    if (!this._ensureStaticGrid()) return false;
-    const geometry = this._hexGeometryCache.get(this._coordKey(coords)) ?? this._buildHexGeometry(coords);
-    const bounds = this._hexPixelBounds(geometry, 28);
-    const sx = Math.max(0, Math.floor(bounds.left));
-    const sy = Math.max(0, Math.floor(bounds.top));
-    const ex = Math.min(this.state.canvas.width, Math.ceil(bounds.right));
-    const ey = Math.min(this.state.canvas.height, Math.ceil(bounds.bottom));
-    const sw = Math.max(0, ex - sx);
-    const sh = Math.max(0, ey - sy);
-    if (!this._staticGridCanvas || sw === 0 || sh === 0 || typeof this.state.context?.drawImage !== "function") return false;
-    this._withMainIdentityTransform((context) => {
-      context.clearRect(sx, sy, sw, sh);
-      context.drawImage(this._staticGridCanvas, sx, sy, sw, sh, sx, sy, sw, sh);
-    });
-    return true;
+    return KeysRenderer.restoreHexStaticBackground.call(this, coords);
   }
 
   _transformCanvasPoint(x, y) {
-    const m = this._canvasTransform;
-    if (!m) return { x, y };
-    return {
-      x: m[0] * x + m[2] * y + m[4],
-      y: m[1] * x + m[3] * y + m[5],
-    };
+    return KeysRenderer.transformCanvasPoint.call(this, x, y);
   }
 
   _hexPixelBounds(geometry, pad = 0) {
-    const points = [];
-    for (let i = 0; i < 6; i++) {
-      points.push(this._transformCanvasPoint(geometry.x2[i], geometry.y2[i]));
-    }
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
-    return {
-      left: Math.min(...xs) - pad,
-      right: Math.max(...xs) + pad,
-      top: Math.min(...ys) - pad,
-      bottom: Math.max(...ys) + pad,
-    };
+    return KeysRenderer.hexPixelBounds.call(this, geometry, pad);
   }
 
   _redrawSoundingHexes() {
-    const drawn = new Set();
-    const drawPressed = (hex) => {
-      if (!hex?.coords) return;
-      const key = this._coordKey(hex.coords);
-      if (drawn.has(key)) return;
-      drawn.add(key);
-      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
-      this.drawHex(hex.coords, color, text_color);
-    };
-    for (const hex of this._allActiveHexes()) drawPressed(hex);
-    for (const [hex] of this.state.sustainedNotes) drawPressed(hex);
+    return KeysRenderer.redrawSoundingHexes.call(this);
   }
 
   drawGrid() {
-    if (this._ensureStaticGrid() && this._copyStaticGridToMain()) {
-      this._redrawSoundingHexes();
-      return;
-    }
-    if (!this._visibleGridCoords.length) this._rebuildVisibleGridGeometry();
-    for (const coords of this._visibleGridCoords) {
-      this.hexOff(coords);
-    }
+    return KeysRenderer.drawGrid.call(this);
   }
 
   // Returns the steps offset (in scale degrees) contributed by the MIDI channel.
@@ -3995,182 +3432,15 @@ class Keys {
   }
 
   hexCoordsToScreen(hex) {
-    /* Point */
-    const ox = this.settings.centerHexOffset.x;
-    const oy = this.settings.centerHexOffset.y;
-    let screenX =
-      this.state.centerpoint.x +
-      (hex.x - ox) * this.settings.hexWidth +
-      ((hex.y - oy) * this.settings.hexWidth) / 2;
-    let screenY = this.state.centerpoint.y + (hex.y - oy) * this.settings.hexVert;
-    return new Point(screenX, screenY);
+    return KeysRenderer.hexCoordsToScreen.call(this, hex);
   }
 
   drawHex(p, c, current_text_color, context = this.state.context) {
-    /* Point, color */
-    const geometry = this._hexGeometryCache.get(this._coordKey(p)) ?? this._buildHexGeometry(p);
-    const hexCenter = geometry.center;
-    const { x, y, x2, y2 } = geometry;
-
-    // Draw filled hex  (controller overlay disabled — TODO re-enable after debug)
-
-    context.beginPath();
-    context.moveTo(x[0], y[0]);
-    for (let i = 1; i < 6; i++) {
-      context.lineTo(x[i], y[i]);
-    }
-    context.closePath();
-    context.fillStyle = c;
-    context.fill();
-
-    // Save context and create a hex shaped clip
-
-    context.save();
-    context.beginPath();
-    context.moveTo(x[0], y[0]);
-    for (let i = 1; i < 6; i++) {
-      context.lineTo(x[i], y[i]);
-    }
-    context.closePath();
-    context.clip();
-
-    // Draw shadowed stroke outside clip to create pseudo-3d effect
-
-    context.beginPath();
-    context.moveTo(x2[0], y2[0]);
-    for (let i = 1; i < 6; i++) {
-      context.lineTo(x2[i], y2[i]);
-    }
-    context.closePath();
-    context.strokeStyle = "darkgray";
-    context.lineWidth = 5;
-    context.shadowBlur = 15;
-    context.shadowColor = "black";
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 0;
-    context.stroke();
-    context.restore();
-
-    // Add a clean stroke around hex
-
-    context.beginPath();
-    context.moveTo(x[0], y[0]);
-    for (let i = 1; i < 6; i++) {
-      context.lineTo(x[i], y[i]);
-    }
-    context.closePath();
-    context.lineWidth = 1;
-    context.lineJoin = "round";
-    context.strokeStyle = "slategray";
-    context.stroke();
-
-    // Add note name and equivalence interval multiple
-
-    context.save();
-    context.translate(hexCenter.x, hexCenter.y);
-    context.rotate(-this.settings.rotation);
-    // hexcoords = p and screenCoords = hexCenter
-
-    context.fillStyle = getContrastYIQ(current_text_color);
-    context.font = "29pt Plainsound Sans";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-
-    let note = p.x * this.settings.rSteps + p.y * this.settings.drSteps;
-    // TO DO !!! this should be parsed already
-    let equivSteps = this.tuning.scale.length;
-    let equivMultiple = Math.floor(note / equivSteps);
-    let reducedNote = note % equivSteps;
-    if (reducedNote < 0) {
-      reducedNote = equivSteps + reducedNote;
-    }
-    if (!this.settings.no_labels || this.settings.equaves) {
-      const name = this.settings.no_labels
-        ? ""
-        : displayLabelForDegree(reducedNote, {
-          settings: this.settings,
-          frame: this._activeFrame(),
-          geometryMode: this._modulationState?.geometryMode,
-          scaleLength: equivSteps,
-          scale: this.tuning.scale,
-        });
-
-      if (name) {
-        context.save();
-        let scaleFactor = name.length > 3 ? 3.58 / name.length : 1;
-        scaleFactor *= this.settings.hexSize / 46;
-        context.scale(scaleFactor, scaleFactor);
-        context.fillText(name, 0, 0);
-        context.restore();
-      }
-
-      // TO DO !! make these into CSS settings ? font and colour ?
-
-      let scaleFactor = this.settings.hexSize / 50;
-      context.scale(scaleFactor, scaleFactor);
-      if (this.settings.equaves) {
-        context.translate(12, -30);
-        context.fillStyle = getContrastYIQ_2(current_text_color);
-        context.font = "14pt Plainsound Sans";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.fillText(equivMultiple, 0, 0);
-      }
-    }
-
-    context.restore();
+    return KeysRenderer.drawHex.call(this, p, c, current_text_color, context);
   }
 
   centsToColor(cents, pressed, pressed_interval) {
-    let returnColor;
-
-    if (!this.settings.spectrum_colors) {
-      // Safe access: check note_colors exists before indexing
-      const colors = this.settings.note_colors;
-      if (!colors || typeof colors[pressed_interval] === "undefined") {
-        returnColor = "#EDEDE4";
-      } else {
-        returnColor = colors[pressed_interval];
-      }
-
-      let _oldColor = returnColor;
-
-      //convert color name to hex
-      returnColor = nameToHex(returnColor);
-      const current_text_color = returnColor;
-
-      //convert the hex to rgb
-      returnColor = hex2rgb(returnColor);
-
-      //darken for pressed key
-      if (pressed) {
-        returnColor[0] += 200;
-        returnColor[1] -= 200;
-        returnColor[2] -= 200;
-      }
-
-      return [rgb(returnColor[0], returnColor[1], returnColor[2]), current_text_color];
-    }
-
-    let fcolor = hex2rgb("#" + this.settings.fundamental_color);
-    fcolor = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
-
-    let h = fcolor.h / 360;
-    let s = fcolor.s / 100;
-    let v = fcolor.v / 100;
-
-    let reduced = (cents / 1200) % 1;
-    if (reduced < 0) reduced += 1;
-    h = (reduced + h) % 1;
-
-    v = pressed ? v - v / 2 : v;
-
-    returnColor = HSVtoRGB(h, s, v);
-
-    // setup text color
-    let tcolor = HSVtoRGB2(h, s, v);
-    const current_text_color = rgbToHex(tcolor.red, tcolor.green, tcolor.blue);
-    return [returnColor, current_text_color];
+    return KeysRenderer.centsToColor.call(this, cents, pressed, pressed_interval);
   }
 
   roundTowardZero(val) {
@@ -4239,37 +3509,7 @@ class Keys {
   }
 
   getHexCoordsAt(coords) {
-    coords = applyMatrixToPoint(this.state.rotationMatrix, coords);
-    const ox = this.settings.centerHexOffset.x;
-    const oy = this.settings.centerHexOffset.y;
-    let x = coords.x - this.state.centerpoint.x;
-    let y = coords.y - this.state.centerpoint.y;
-
-    let q = ((x * Math.sqrt(3)) / 3 - y / 3) / this.settings.hexSize;
-    let r = (y * 2) / 3 / this.settings.hexSize;
-
-    q = Math.round(q) + ox;
-    r = Math.round(r) + oy;
-
-    let _guess = this.hexCoordsToScreen(new Point(q, r));
-
-    // This gets an approximation; now check neighbours for minimum distance
-
-    let minimum = 100000;
-    let closestHex = new Point(q, r);
-    for (let qOffset = -1; qOffset < 2; qOffset++) {
-      for (let rOffset = -1; rOffset < 2; rOffset++) {
-        let neighbour = new Point(q + qOffset, r + rOffset);
-        let diff = this.hexCoordsToScreen(neighbour).minus(coords);
-        let distance = diff.x * diff.x + diff.y * diff.y;
-        if (distance < minimum) {
-          minimum = distance;
-          closestHex = neighbour;
-        }
-      }
-    }
-
-    return closestHex;
+    return KeysRenderer.getHexCoordsAt.call(this, coords);
   }
 }
 
