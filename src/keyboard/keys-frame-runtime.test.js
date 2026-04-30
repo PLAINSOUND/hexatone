@@ -73,4 +73,45 @@ describe("keyboard/keys-frame-runtime", () => {
     expect(frame.transpositionCents).toBe(0);
     expect(frame.effectiveFundamental).toBe(440);
   });
+
+  it("treats zero-count history rows as inactive library metadata", () => {
+    const frame = deriveFrameForHistory({
+      history: [
+        { sourceDegree: 3, targetDegree: 1, count: 0 },
+        { sourceDegree: 2, targetDegree: 0, count: 0 },
+      ],
+      scale: [0, 100, 200, 300],
+      referenceDegree: 9,
+      fundamental: 440,
+      strategy: "retune_surface_to_source",
+      makeFrame: makeFrameFactory(),
+    });
+
+    expect(frame.anchorDegree).toBe(9);
+    expect(frame.transpositionCents).toBe(0);
+    expect(frame.effectiveFundamental).toBe(440);
+    expect(frame.sourceDegree).toBeNull();
+    expect(frame.targetDegree).toBeNull();
+  });
+
+  it("replays octave-displaced modulation routes from their stored cents delta", () => {
+    const frame = deriveFrameForHistory({
+      history: [
+        {
+          sourceDegree: 0,
+          targetDegree: 6,
+          count: 2,
+          transpositionDeltaCents: 231.174093530875,
+        },
+      ],
+      scale: [0, 203.91, 386.31, 498.04, 701.96, 884.36, 968.83],
+      referenceDegree: 0,
+      fundamental: 440,
+      strategy: "retune_surface_to_source",
+      makeFrame: makeFrameFactory(),
+    });
+
+    expect(frame.transpositionCents).toBeCloseTo(462.34818706175, 8);
+    expect(frame.effectiveFundamental).toBeCloseTo(440 * Math.pow(2, 462.34818706175 / 1200), 8);
+  });
 });

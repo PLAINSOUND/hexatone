@@ -12,6 +12,12 @@ export function createKeysFrame(options = {}) {
   };
 }
 
+function routeTranspositionDeltaCents(route, scale = []) {
+  const storedDelta = Number(route?.transpositionDeltaCents);
+  if (Number.isFinite(storedDelta)) return storedDelta;
+  return (scale?.[route?.sourceDegree] ?? 0) - (scale?.[route?.targetDegree] ?? 0);
+}
+
 export function deriveFrameForHistory(options = {}) {
   const history = Array.isArray(options.history) ? options.history : [];
   const referenceDegree = options.referenceDegree ?? 0;
@@ -37,13 +43,16 @@ export function deriveFrameForHistory(options = {}) {
     });
   }
 
-  const transpositionCents = history.reduce((sum, route) => {
+  const activeRoutes = history.filter((route) => {
     const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
-    const centsDelta = (scale?.[route?.sourceDegree] ?? 0) - (scale?.[route?.targetDegree] ?? 0);
-    return sum + count * centsDelta;
+    return count !== 0;
+  });
+  const transpositionCents = activeRoutes.reduce((sum, route) => {
+    const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
+    return sum + count * routeTranspositionDeltaCents(route, scale);
   }, 0);
   const effectiveFundamental = fundamental * Math.pow(2, transpositionCents / 1200);
-  const route = history[history.length - 1] ?? null;
+  const route = activeRoutes[activeRoutes.length - 1] ?? null;
 
   return makeFrame(route?.targetDegree ?? referenceDegree, {
     strategy,

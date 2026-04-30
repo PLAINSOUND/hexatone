@@ -98,6 +98,26 @@ function isModulationToggleKeyCode(code) {
   return code === "Backquote" || code === "IntlBackslash";
 }
 
+function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpositionDeltaCents) {
+  const sourceRatio = tuning?.degreeIntervals?.[sourceDegree]?.ratio ?? null;
+  const targetRatio = tuning?.degreeIntervals?.[targetDegree]?.ratio ?? null;
+  const equaveRatio = tuning?.equaveInterval?.ratio ?? null;
+  const equaveCents = tuning?.equivInterval ?? tuning?.equaveCents ?? 1200;
+  if (!sourceRatio || !targetRatio || !equaveRatio || !Number.isFinite(transpositionDeltaCents)) {
+    return null;
+  }
+
+  const reducedDelta = (tuning?.scale?.[sourceDegree] ?? 0) - (tuning?.scale?.[targetDegree] ?? 0);
+  const equavePower = Number.isFinite(equaveCents) && Math.abs(equaveCents) > 0
+    ? Math.round((transpositionDeltaCents - reducedDelta) / equaveCents)
+    : 0;
+  const ratio = sourceRatio.div(targetRatio);
+  const displacedRatio = equavePower >= 0
+    ? ratio.mul(equaveRatio.pow(equavePower))
+    : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
+  return displacedRatio?.toFraction ? displacedRatio.toFraction() : null;
+}
+
 function isTextEntryElement(el) {
   if (!(el instanceof HTMLElement)) return false;
   if (el.tagName === "TEXTAREA") return true;
@@ -1094,6 +1114,13 @@ class Keys {
     this._modulationState = commitModulationTarget(this._modulationState, {
       targetDegree,
       pendingFrame,
+      transpositionDeltaCents,
+      transpositionRatioText: ratioTextForModulationDelta(
+        this.tuning,
+        this._modulationState.sourceDegree,
+        targetDegree,
+        transpositionDeltaCents,
+      ),
       sourceStillSounding: this._isHexStillSounding(this._modulationState.sourceHex),
     });
     this.drawGrid();

@@ -179,6 +179,22 @@ function formatRatioFraction(ratio) {
   return text.includes("/") ? text : `${text}/1`;
 }
 
+function modulationEntryCentsDelta(entry, sourceSlot, targetSlot) {
+  const storedDelta = Number(entry?.transpositionDeltaCents);
+  if (Number.isFinite(storedDelta)) return storedDelta;
+  return (sourceSlot?.cents ?? 0) - (targetSlot?.cents ?? 0);
+}
+
+function modulationEntryRatio(entry, sourceSlot, targetSlot) {
+  if (typeof entry?.transpositionRatioText === "string" && entry.transpositionRatioText.trim()) {
+    const parsed = parseExactInterval(entry.transpositionRatioText.trim());
+    return parsed?.ratio ?? null;
+  }
+  const sourceRatio = sourceSlot?.committedIdentity?.ratio ?? null;
+  const targetRatio = targetSlot?.committedIdentity?.ratio ?? null;
+  return sourceRatio && targetRatio ? sourceRatio.div(targetRatio) : null;
+}
+
 export function deriveCurrentFundamentalForHistory(workspace, history = [], options = {}) {
   const entries = Array.isArray(history) ? history : [];
   let cents = 0;
@@ -193,20 +209,16 @@ export function deriveCurrentFundamentalForHistory(workspace, history = [], opti
     const targetDegree = normalizeDegree(entry?.targetDegree);
     const sourceSlot = getWorkspaceSlot(workspace, sourceDegree);
     const targetSlot = getWorkspaceSlot(workspace, targetDegree);
-    const sourceCents = sourceSlot?.cents ?? 0;
-    const targetCents = targetSlot?.cents ?? 0;
-    cents += count * (sourceCents - targetCents);
+    cents += count * modulationEntryCentsDelta(entry, sourceSlot, targetSlot);
 
     if (!ratioSupported) continue;
-    const sourceRatio = sourceSlot?.committedIdentity?.ratio ?? null;
-    const targetRatio = targetSlot?.committedIdentity?.ratio ?? null;
-    if (!sourceRatio || !targetRatio) {
+    const forward = modulationEntryRatio(entry, sourceSlot, targetSlot);
+    if (!forward) {
       ratioSupported = false;
       ratio = null;
       continue;
     }
 
-    const forward = sourceRatio.div(targetRatio);
     const magnitude = Math.abs(count);
     const factor = forward.pow(magnitude);
     ratio = count > 0 ? ratio.mul(factor) : ratio.div(factor);

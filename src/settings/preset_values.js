@@ -850,37 +850,43 @@ export const presets = [
             "sourceDegree": 0,
             "targetDegree": 43,
             "strategy": "retune_surface_to_source",
-            "count": 0
+            "count": 0,
+            "transpositionDeltaCents": 498.0449991346127
           },
           {
             "sourceDegree": 0,
             "targetDegree": 11,
             "strategy": "retune_surface_to_source",
-            "count": 0
+            "count": 0,
+            "transpositionDeltaCents": -203.91000173077464
           },
           {
             "sourceDegree": 0,
             "targetDegree": 56,
             "strategy": "retune_surface_to_source",
-            "count": 0
+            "count": 0,
+            "transpositionDeltaCents": 294.1349974038385
           },
           {
             "sourceDegree": 0,
             "targetDegree": 21,
             "strategy": "retune_surface_to_source",
-            "count": 0
+            "count": 0,
+            "transpositionDeltaCents": -386.3137138648349
           },
           {
             "sourceDegree": 0,
             "targetDegree": 61,
             "strategy": "retune_surface_to_source",
-            "count": 0
+            "count": 0,
+            "transpositionDeltaCents": 231.17409353087487
           },
           {
             "sourceDegree": 0,
             "targetDegree": 33,
             "strategy": "retune_surface_to_source",
-            "count": 0
+            "count": 0,
+            "transpositionDeltaCents": -551.3179423647571
           }
         ]
       }

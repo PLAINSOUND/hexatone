@@ -13,6 +13,7 @@
  */
 
 import { render, waitFor, screen } from "@testing-library/preact";
+import { parseExactInterval } from "./tuning/interval.js";
 
 vi.mock("./keyboard", () => ({
   default: () => <div data-testid="keyboard">Keyboard Stub</div>,
@@ -161,7 +162,7 @@ vi.mock("./img/hex.svg?react", () => ({
   default: () => <svg data-testid="loading-icon" />,
 }));
 
-import { Loading } from "./app";
+import { Loading, modulationRouteLabelPair } from "./app";
 import App from "./app";
 
 describe("Loading", () => {
@@ -173,6 +174,35 @@ describe("Loading", () => {
   it("renders the loading icon SVG", () => {
     const { getByTestId } = render(<Loading />);
     expect(getByTestId("loading-icon")).not.toBeNull();
+  });
+});
+
+describe("modulationRouteLabelPair", () => {
+  it("renders an equave offset for an octave-displaced target ratio", () => {
+    const pair = modulationRouteLabelPair(
+      {
+        sourceDegree: 0,
+        targetDegree: 6,
+        transpositionRatioText: "8/7",
+      },
+      (degree) => (degree === 0 ? "1/1" : degree === 6 ? "7/4" : String(degree)),
+      {
+        baseScale: {
+          equaveCents: 1200,
+        },
+        lookup: {
+          byDegree: new Map([
+            [0, { cents: parseExactInterval("1/1").cents }],
+            [6, { cents: parseExactInterval("7/4").cents }],
+          ]),
+        },
+      },
+    );
+
+    expect(pair).toEqual({
+      sourceLabel: "1/1",
+      targetLabel: "7/4[-1eq]",
+    });
   });
 });
 

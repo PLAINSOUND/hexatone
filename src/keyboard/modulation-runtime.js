@@ -18,11 +18,18 @@ function geometryModeForStrategy(strategy) {
 function normalizeHistoryEntry(entry = {}) {
   // A history entry is a reusable modulation operator. count says how many
   // signed steps of this operator are currently active in the live frame.
+  const transpositionDeltaCents = Number(entry.transpositionDeltaCents);
+  const transpositionRatioText =
+    typeof entry.transpositionRatioText === "string" && entry.transpositionRatioText.trim()
+      ? entry.transpositionRatioText.trim()
+      : null;
   return {
     sourceDegree: entry.sourceDegree ?? null,
     targetDegree: entry.targetDegree ?? null,
     strategy: entry.strategy ?? "retune_surface_to_source",
     count: Number.isFinite(entry.count) ? Math.trunc(entry.count) : 0,
+    ...(Number.isFinite(transpositionDeltaCents) ? { transpositionDeltaCents } : {}),
+    ...(transpositionRatioText ? { transpositionRatioText } : {}),
   };
 }
 
@@ -151,6 +158,12 @@ export function commitModulationTarget(state, options = {}) {
     targetDegree: options.targetDegree ?? null,
     strategy,
     count: 1,
+    ...(Number.isFinite(options.transpositionDeltaCents)
+      ? { transpositionDeltaCents: options.transpositionDeltaCents }
+      : {}),
+    ...(typeof options.transpositionRatioText === "string" && options.transpositionRatioText.trim()
+      ? { transpositionRatioText: options.transpositionRatioText.trim() }
+      : {}),
   };
   const nextHistoryBase = Array.isArray(state.history) ? state.history.map(normalizeHistoryEntry) : [];
   const nextHistory = [...nextHistoryBase, nextEntry];

@@ -94,6 +94,32 @@ describe("keyboard/modulation-runtime", () => {
     expect(next.historyIndex).toBe(1);
   });
 
+  it("stores the actual octave-aware route interval when supplied by Keys", () => {
+    const state = beginModulation(createModulationState({ currentFrame: oldFrame }), {
+      currentFrame: oldFrame,
+      sourceDegree: 0,
+    });
+    const next = commitModulationTarget(state, {
+      targetDegree: 6,
+      pendingFrame: newFrame,
+      sourceStillSounding: false,
+      transpositionDeltaCents: 231.174093530875,
+      transpositionRatioText: "8/7",
+    });
+
+    expect(next.currentRoute).toMatchObject({
+      sourceDegree: 0,
+      targetDegree: 6,
+      count: 1,
+      transpositionDeltaCents: 231.174093530875,
+      transpositionRatioText: "8/7",
+    });
+    expect(next.history[0]).toMatchObject({
+      transpositionDeltaCents: 231.174093530875,
+      transpositionRatioText: "8/7",
+    });
+  });
+
   it("chooses a fresh attack when the source note is no longer sounding", () => {
     const sourceHex = makeHex("source", 2, 3, 7);
     const state = beginModulation(createModulationState({ currentFrame: oldFrame }), {

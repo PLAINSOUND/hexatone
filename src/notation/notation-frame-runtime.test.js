@@ -166,6 +166,25 @@ describe("notation-frame-runtime", () => {
     expect(derived.fundamentalHz).toBeCloseTo(440 * (4 / 3), 6);
   });
 
+  it("uses stored octave-aware route intervals for the current fundamental", () => {
+    const derived = deriveCurrentFundamentalForHistory(workspace, [
+      {
+        sourceDegree: 0,
+        targetDegree: 3,
+        strategy: "retune_surface_to_source",
+        count: 2,
+        transpositionDeltaCents: 231.174093530875,
+        transpositionRatioText: "8/7",
+      },
+    ], {
+      fundamental: 440,
+    });
+
+    expect(derived.ratioText).toBe("64/49");
+    expect(derived.cents).toBeCloseTo(462.34818706175, 8);
+    expect(derived.fundamentalHz).toBeCloseTo(440 * (64 / 49), 6);
+  });
+
   it("falls back to cents-only current fundamental when a route uses an inexact degree", () => {
     const inexactWorkspace = createScaleWorkspace({
       scale: ["100.", "5/4", "2/1"],

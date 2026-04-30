@@ -78,6 +78,49 @@ function formatSignedCents(value) {
   return `${sign}${Math.abs(rounded).toFixed(2)}¢`;
 }
 
+function routeTranspositionDeltaCents(entry) {
+  const storedDelta = Number(entry?.transpositionDeltaCents);
+  if (Number.isFinite(storedDelta)) return storedDelta;
+  if (typeof entry?.transpositionRatioText !== "string") return null;
+  const parsed = parseExactInterval(entry.transpositionRatioText.trim());
+  return Number.isFinite(parsed?.cents) ? parsed.cents : null;
+}
+
+function formatEquaveOffset(offset) {
+  if (!Number.isFinite(offset) || offset === 0) return "";
+  return `[${offset > 0 ? "+" : ""}${offset}eq]`;
+}
+
+function modulationRouteEquaveOffset(entry, tuningWorkspace) {
+  const transpositionDeltaCents = routeTranspositionDeltaCents(entry);
+  const sourceSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.sourceDegree);
+  const targetSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.targetDegree);
+  const equaveCents = tuningWorkspace?.baseScale?.equaveCents ?? 1200;
+  if (
+    !Number.isFinite(transpositionDeltaCents) ||
+    !Number.isFinite(sourceSlot?.cents) ||
+    !Number.isFinite(targetSlot?.cents) ||
+    !Number.isFinite(equaveCents) ||
+    Math.abs(equaveCents) < 0.000001
+  ) {
+    return 0;
+  }
+
+  const reducedDeltaCents = sourceSlot.cents - targetSlot.cents;
+  return Math.round((reducedDeltaCents - transpositionDeltaCents) / equaveCents);
+}
+
+export function modulationRouteLabelPair(entry, degreeLabel, tuningWorkspace) {
+  const sourceLabel = degreeLabel(entry?.sourceDegree);
+  const fallbackTargetLabel = degreeLabel(entry?.targetDegree);
+  const equaveOffset = modulationRouteEquaveOffset(entry, tuningWorkspace);
+
+  return {
+    sourceLabel,
+    targetLabel: `${fallbackTargetLabel}${formatEquaveOffset(equaveOffset)}`,
+  };
+}
+
 function readCssPxVar(name) {
   if (typeof window === "undefined") return 0;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -629,13 +672,17 @@ const App = () => {
           }
         : modulationState.currentRoute ?? null;
     if (!route) return "";
-    const sourceText = modulationDegreeLabel(route.sourceDegree ?? 0);
+    const { sourceLabel: sourceText, targetLabel } = modulationRouteLabelPair(
+      route,
+      modulationDegreeLabel,
+      tuningWorkspace,
+    );
     if (route.targetDegree == null) return `${sourceText} →`;
     if (route.targetDegree != null) {
-      return `${sourceText} → ${modulationDegreeLabel(route.targetDegree)}`;
+      return `${sourceText} → ${targetLabel}`;
     }
     return "";
-  }, [modulationDegreeLabel, modulationState]);
+  }, [modulationDegreeLabel, modulationState, tuningWorkspace]);
   const modulationHistory = useMemo(() => modulationState?.history ?? [], [modulationState]);
   const activeModulationLibrary = useMemo(
     () => modulationState?.history ?? presetModulationLibrary,
@@ -656,9 +703,14 @@ const App = () => {
   }, [tuningWorkspace, modulationHistory, settings.fundamental]);
   const modulationPaletteTitle = useMemo(() => {
     return modulationHistory.map((entry) => {
-      return `${modulationDegreeLabel(entry.sourceDegree)} ↔ ${modulationDegreeLabel(entry.targetDegree)}`;
+      const { sourceLabel, targetLabel } = modulationRouteLabelPair(
+        entry,
+        modulationDegreeLabel,
+        tuningWorkspace,
+      );
+      return `${sourceLabel} ↔ ${targetLabel}`;
     });
-  }, [modulationDegreeLabel, modulationHistory]);
+  }, [modulationDegreeLabel, modulationHistory, tuningWorkspace]);
   const onStepModulationRoute = useCallback((routeIndex, delta) => {
     if (!keysRef.current?.stepModulationRoute) return;
     keysRef.current.stepModulationRoute(routeIndex, delta);
@@ -1599,8 +1651,11 @@ const App = () => {
           {!modulationPaletteCollapsed &&
             modulationHistory.map((entry, index) => {
               const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
-              const sourceLabel = modulationDegreeLabel(entry.sourceDegree);
-              const targetLabel = modulationDegreeLabel(entry.targetDegree);
+              const { sourceLabel, targetLabel } = modulationRouteLabelPair(
+                entry,
+                modulationDegreeLabel,
+                tuningWorkspace,
+              );
               const routeLabel = `${sourceLabel} ↔ ${targetLabel}`;
               const canClearRoute = modulationMode === "idle" && count === 0;
               return (
