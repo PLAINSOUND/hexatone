@@ -258,6 +258,7 @@ class Keys {
     this._retuneGlideLastTime = 0;
     this._gridRedrawRaf = null;
     this._gridRedrawTimer = null;
+    this._lastSoundActivityTime = 0;
     this._lastResizeSignature = null;
     this._visibleGridCoords = [];
     this._hexGeometryCache = new Map();
@@ -2196,6 +2197,17 @@ class Keys {
 
   hasSoundingNotes = () => this._hasSoundingNotes();
 
+  _markSoundActivity() {
+    this._lastSoundActivityTime = performance.now();
+  }
+
+  _isSoundInteractionIdle(quietMs = 175) {
+    if (this._hasSoundingNotes()) return false;
+    return performance.now() - this._lastSoundActivityTime >= quietMs;
+  }
+
+  isSoundInteractionIdle = () => this._isSoundInteractionIdle();
+
   _hasRecentReleasedBulkTargets() {
     return this._recentlyReleasedHexes.size > 0;
   }
@@ -2646,6 +2658,7 @@ class Keys {
   };
 
   hexOn(coords, note_played, velocity_played, bend) {
+    this._markSoundActivity();
     this._commitPendingModulationTarget(coords);
     if (this._staticDeferredBulkActive && this._deferredBulkMapRefresh) {
       this._sendBulkDumpOctaveRefresh(this._hasSoundingNotes(), false);
@@ -2724,6 +2737,7 @@ class Keys {
   }
 
   noteOff(hex, release_velocity) {
+    this._markSoundActivity();
     if (shouldSuppressTransferredSourceRelease(hex)) {
       releaseTransferredSourceExpression(hex);
       this.recencyStack.remove(hex);
@@ -3331,7 +3345,7 @@ class Keys {
     if (this._gridRedrawRaf != null || this._gridRedrawTimer != null) return;
     const scheduleWhenSafe = () => {
       this._gridRedrawTimer = null;
-      if (this._hasSoundingNotes()) {
+      if (!this._isSoundInteractionIdle()) {
         this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 25);
         return;
       }

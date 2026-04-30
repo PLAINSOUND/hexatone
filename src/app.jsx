@@ -711,7 +711,7 @@ const App = () => {
   useEffect(() => {
     let timeoutId = null;
     const syncWhenNotesAreClear = () => {
-      if (keysRef.current?.hasSoundingNotes?.()) {
+      if (keysRef.current && !keysRef.current.isSoundInteractionIdle?.()) {
         timeoutId = setTimeout(syncWhenNotesAreClear, 25);
         return;
       }
@@ -736,7 +736,7 @@ const App = () => {
   const modulationPaletteVisible = modulationHistory.length > 0;
   const currentFundamentalSummary = useMemo(() => {
     if (!tuningWorkspace) return null;
-    const derived = deriveCurrentFundamentalForHistory(tuningWorkspace, modulationHistory, {
+    const derived = deriveCurrentFundamentalForHistory(tuningWorkspace, deferredModulationHistory, {
       fundamental: settings.fundamental,
     });
     return {
@@ -745,7 +745,8 @@ const App = () => {
         ? `${derived.ratioText} (${formatSignedCents(derived.cents)})`
         : formatSignedCents(derived.cents),
     };
-  }, [tuningWorkspace, modulationHistory, settings.fundamental]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so palette clicks do not synchronously re-render modulation-dependent table displays.
+  }, [tuningWorkspace, deferredModulationHistoryKey, settings.fundamental]);
   const modulationPaletteTitle = useMemo(() => {
     return modulationHistory.map((entry) => {
       const { sourceLabel, targetLabel } = modulationRouteLabelPair(
@@ -1681,10 +1682,11 @@ const App = () => {
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    onResetModulationRoutes();
                   }}
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
-                    onResetModulationRoutes();
                   }}
                 >
                   ⟳
@@ -1727,10 +1729,11 @@ const App = () => {
                     onPointerDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      onStepModulationRoute(index, -1);
                     }}
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
-                      onStepModulationRoute(index, -1);
                     }}
                   />
                   <span className="modulation-palette-count">
@@ -1744,10 +1747,11 @@ const App = () => {
                     onPointerDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      onStepModulationRoute(index, 1);
                     }}
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
-                      onStepModulationRoute(index, 1);
                     }}
                   />
                   <span className="modulation-palette-close-slot">
@@ -1758,10 +1762,11 @@ const App = () => {
                         onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          onClearModulationRoute(index);
                         }}
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
-                          onClearModulationRoute(index);
                         }}
                       >
                         ×
