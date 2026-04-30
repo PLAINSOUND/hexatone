@@ -402,7 +402,8 @@ td.scale-color-col .color-input {
     right: auto;
   }
 
-  td.scale-color-col .color-input {
+  td.scale-color-col .color-input,
+  td.scale-color-col .color-cell:focus-within .color-input {
     display: block;
     width: 6.3em !important;
     min-width: 0;
