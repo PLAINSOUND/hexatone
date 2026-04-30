@@ -306,6 +306,30 @@ export function clearModulationHistory(state, currentFrame = state.homeFrame ?? 
   };
 }
 
+export function resetModulationRouteCounts(state, currentFrame = state.homeFrame ?? state.currentFrame) {
+  const history = Array.isArray(state.history)
+    ? state.history.map((entry) => ({ ...normalizeHistoryEntry(entry), count: 0 }))
+    : [];
+  return {
+    ...state,
+    mode: "idle",
+    oldFrame: null,
+    pendingFrame: null,
+    sourceHex: null,
+    sourceCoordsKey: null,
+    sourceDegree: null,
+    targetDegree: null,
+    takeoverConsumed: false,
+    currentFrame,
+    history,
+    historyIndex: 0,
+    currentRoute: null,
+    lastDecision: {
+      type: "reset_route_counts",
+    },
+  };
+}
+
 export function clearModulationRoute(state, routeIndex, currentFrame = state.currentFrame) {
   const history = Array.isArray(state.history) ? state.history.map(normalizeHistoryEntry) : [];
   if (routeIndex < 0 || routeIndex >= history.length) return state;

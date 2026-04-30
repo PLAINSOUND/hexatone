@@ -28,6 +28,8 @@ import {
 
 // sidebar display of the scala file, degrees, note names, colors in an html table format
 const ScaleTable = (props) => {
+  const modulationTranspositionCents = Number(props.modulation_transposition_cents ?? 0);
+  const modulationDisplayActive = !!props.modulation_display_active;
   const { scale, equiv_interval } = useMemo(() => {
     const s = [...(props.settings.scale || [])];
     const eq = s.length ? s.pop() : "2/1";
@@ -143,10 +145,11 @@ const ScaleTable = (props) => {
     return getCommittedCentsAtDegree(degreeIndex);
   }, [previewState, getCommittedCentsAtDegree]);
   const referenceCents = effectiveCentsAtDegree(referenceDegree);
+  const liveFundamental = props.settings.fundamental * Math.pow(2, modulationTranspositionCents / 1200.0);
   const frequencyAtDegree = useCallback((degreeIndex) => {
     const cents = effectiveCentsAtDegree(degreeIndex);
-    return props.settings.fundamental * Math.pow(2, (cents - referenceCents) / 1200.0);
-  }, [effectiveCentsAtDegree, props.settings.fundamental, referenceCents]);
+    return liveFundamental * Math.pow(2, (cents - referenceCents) / 1200.0);
+  }, [effectiveCentsAtDegree, liveFundamental, referenceCents]);
 
   // Auto-rationalise every non-root, non-equave degree using a two-pass approach:
   //
@@ -280,7 +283,7 @@ const ScaleTable = (props) => {
   }, [props, workspace, frequencyAtDegree, searchPrefs, getCommittedCentsAtDegree]);
 
   const centsFromFrequency = (frequency) =>
-    referenceCents + 1200 * Math.log2(frequency / props.settings.fundamental);
+    referenceCents + 1200 * Math.log2(frequency / liveFundamental);
   // deviationCentsAtDegree: cents delta from committed value (for frequency colour)
   const deviationCentsAtDegree = (degreeIndex) => {
     const state = previewState[degreeIndex];
@@ -686,11 +689,12 @@ const ScaleTable = (props) => {
               onCommit={(frequency) => commitFrequencyAtDegree(0, frequency)}
               deviationCents={deviationCentsAtDegree(0)}
               comparing={isComparingAtDegree(0)}
+              liveModulated={modulationDisplayActive}
             />
           </td>
           <td class="scale-name-col">
             {isHeji ? (
-              <span class="heji-name-cell">{heji_names[0] ?? ""}</span>
+              <span class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}>{heji_names[0] ?? ""}</span>
             ) : (
               <input
                 id="centered"
@@ -779,11 +783,12 @@ const ScaleTable = (props) => {
                 onCommit={(frequency) => commitFrequencyAtDegree(i + 1, frequency)}
                 deviationCents={deviationCentsAtDegree(i + 1)}
                 comparing={isComparingAtDegree(i + 1)}
+                liveModulated={modulationDisplayActive}
               />
             </td>
             <td class="scale-name-col">
               {isHeji ? (
-                <span class="heji-name-cell">{heji_names[i + 1] ?? ""}</span>
+                <span class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}>{heji_names[i + 1] ?? ""}</span>
               ) : (
                 <input
                   id="centered"
@@ -837,11 +842,12 @@ const ScaleTable = (props) => {
               onCommit={(frequency) => commitFrequencyAtDegree(scale.length, frequency)}
               deviationCents={deviationCentsAtDegree(scale.length)}
               comparing={isComparingAtDegree(scale.length)}
+              liveModulated={modulationDisplayActive}
             />
           </td>
           <td class="scale-name-col">
             {isHeji ? (
-              <span class="heji-name-cell">{heji_names[0] ?? ""}</span>
+              <span class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}>{heji_names[0] ?? ""}</span>
             ) : (
               <input
                 id="centered"
@@ -879,6 +885,8 @@ ScaleTable.propTypes = {
   importCount: PropTypes.number,
   heji_names: PropTypes.arrayOf(PropTypes.string),
   heji_names_table: PropTypes.arrayOf(PropTypes.string),
+  modulation_transposition_cents: PropTypes.number,
+  modulation_display_active: PropTypes.bool,
   settings: PropTypes.shape({
     scale: PropTypes.arrayOf(PropTypes.string),
     key_labels: PropTypes.string,

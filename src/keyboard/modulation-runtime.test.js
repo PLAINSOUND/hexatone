@@ -8,6 +8,7 @@ import {
   describeSurfaceStrategy,
   frameForNewNotes,
   noteBelongsToLegacyFrame,
+  resetModulationRouteCounts,
   setModulationHistoryIndex,
   settleModulationIfPossible,
 } from "./modulation-runtime.js";
@@ -238,6 +239,29 @@ describe("keyboard/modulation-runtime", () => {
     expect(cleared.history).toEqual([]);
     expect(cleared.historyIndex).toBe(0);
     expect(cleared.currentRoute).toBeNull();
+  });
+
+  it("can zero all modulation route counts while preserving the library", () => {
+    const state = createModulationState({
+      currentFrame: newFrame,
+      homeFrame: oldFrame,
+      history: [
+        { sourceDegree: 0, targetDegree: 7, strategy: "retune_surface_to_source", count: 1 },
+        { sourceDegree: 7, targetDegree: 11, strategy: "retune_surface_to_source", count: -2 },
+      ],
+      historyIndex: -2,
+      currentRoute: { sourceDegree: 7, targetDegree: 11, strategy: "retune_surface_to_source", count: -2 },
+    });
+
+    const reset = resetModulationRouteCounts(state, oldFrame);
+
+    expect(reset.history).toEqual([
+      { sourceDegree: 0, targetDegree: 7, strategy: "retune_surface_to_source", count: 0 },
+      { sourceDegree: 7, targetDegree: 11, strategy: "retune_surface_to_source", count: 0 },
+    ]);
+    expect(reset.historyIndex).toBe(0);
+    expect(reset.currentRoute).toBeNull();
+    expect(reset.currentFrame).toBe(oldFrame);
   });
 
   it("detects whether a note belongs to the legacy frame during settlement", () => {

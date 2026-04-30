@@ -663,6 +663,10 @@ const App = () => {
     if (!keysRef.current?.clearModulationRoute) return;
     keysRef.current.clearModulationRoute(routeIndex);
   }, []);
+  const onResetModulationRoutes = useCallback(() => {
+    if (!keysRef.current?.resetModulationRouteCounts) return;
+    keysRef.current.resetModulationRouteCounts();
+  }, []);
 
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
@@ -1565,6 +1569,27 @@ const App = () => {
               <span className="modulation-palette-summary-value">
                 {currentFundamentalSummary.display}
               </span>
+              {Math.abs(currentFundamentalSummary.cents ?? 0) > 0.000001 ? (
+                <button
+                  className="modulation-palette-close modulation-palette-summary-reset"
+                  title="Reset all modulation counts to zero"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onResetModulationRoutes();
+                  }}
+                >
+                  ⟳
+                </button>
+              ) : <span
+                        className="modulation-palette-close modulation-palette-summary-placeholder"
+                        aria-hidden="true"
+                      >
+                        ⟳
+                      </span>}
             </div>
           )}
           {!modulationPaletteCollapsed &&
@@ -1694,6 +1719,8 @@ const App = () => {
               settings={settings}
               heji_names={labelSettings.heji_names}
               heji_names_table={tableHejiNames}
+              modulation_transposition_cents={currentFundamentalSummary?.cents ?? 0}
+              modulation_display_active={Math.abs(currentFundamentalSummary?.cents ?? 0) > 0.000001}
               heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
               heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
               heji_supported={structuralSettings.heji_supported}

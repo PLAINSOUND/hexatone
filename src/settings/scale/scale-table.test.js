@@ -239,6 +239,52 @@ describe("ScaleTable — table structure", () => {
     expect(frequencyInput.value).toBe("261.625565");
   });
 
+  it("shows modulated frequencies when a live global modulation transposition is active", () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9 }}
+        modulation_transposition_cents={1200}
+        modulation_display_active={true}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(document.querySelector('input[aria-label="pitch frequency 9"]').value).toBe("880.0");
+    expect(document.querySelector('input[aria-label="pitch frequency 0"]').value).toBe("523.3");
+  });
+
+  it("highlights HEJI names and frequency inputs during non-unison live modulation", () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, key_labels: "heji", fundamental: 440, reference_degree: 9 }}
+        heji_names={scale_names}
+        modulation_transposition_cents={100}
+        modulation_display_active={true}
+        onChange={() => {}}
+      />,
+    );
+
+    const hejiCells = document.querySelectorAll(".heji-name-cell");
+    expect(hejiCells[0].classList.contains("heji-name-cell--modulated")).toBe(true);
+    expect(screen.getByLabelText("pitch frequency 0").style.color).toBe("rgb(154, 47, 47)");
+  });
+
+  it("returns HEJI names and frequency inputs to default styling at global 1/1", () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, key_labels: "heji", fundamental: 440, reference_degree: 9 }}
+        heji_names={scale_names}
+        modulation_transposition_cents={0}
+        modulation_display_active={false}
+        onChange={() => {}}
+      />,
+    );
+
+    const hejiCells = document.querySelectorAll(".heji-name-cell");
+    expect(hejiCells[0].classList.contains("heji-name-cell--modulated")).toBe(false);
+    expect(screen.getByLabelText("pitch frequency 0").style.color).toBe("");
+  });
+
   it("does not commit when a frequency cell is only focused and blurred", () => {
     const onChange = vi.fn();
     const onAtomicChange = vi.fn();

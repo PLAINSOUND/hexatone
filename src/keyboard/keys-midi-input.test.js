@@ -665,6 +665,30 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
   });
 
+  it("can reset all modulation route counts to zero while preserving the history rows", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys({}, {}, synth, [
+      { sourceDegree: 2, targetDegree: 5, strategy: "retune_surface_to_source", count: 1 },
+      { sourceDegree: 5, targetDegree: 9, strategy: "retune_surface_to_source", count: -1 },
+    ]);
+
+    expect(keys.getModulationState().history.map((entry) => entry.count)).toEqual([1, -1]);
+    expect(keys.resetModulationRouteCounts()).toBe(true);
+    expect(keys.getModulationState().history.map((entry) => entry.count)).toEqual([0, 0]);
+    expect(keys.getModulationState().historyIndex).toBe(0);
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
+  });
+
   it("keeps scale-cents labels pinned to the committed degree-0 frame under modulation", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({

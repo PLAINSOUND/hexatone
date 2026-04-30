@@ -686,6 +686,7 @@ a:hover {
 .modulation-palette-close-placeholder {
   visibility: hidden;
   pointer-events: none;
+  line-height: 0.82;
 }
 
 .modulation-palette-close:hover {
@@ -817,6 +818,18 @@ a:hover {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.modulation-palette-summary-reset {
+  margin-left: 2px;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.modulation-palette-summary-placeholder {
+  visibility: hidden;
+  font-size: 1.2em;
+  pointer-events: none;
 }
 
 .modulation-palette-route-arrow {

@@ -237,6 +237,8 @@ const Scale = (props) => {
 Scale.propTypes = {
   onImport: PropTypes.func.isRequired,
   onChange: PropTypes.func.isRequired,
+  modulation_transposition_cents: PropTypes.number,
+  modulation_display_active: PropTypes.bool,
 };
 
 export default Scale;

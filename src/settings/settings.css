@@ -672,6 +672,10 @@ table input:disabled {
   padding: 2px 0;
 }
 
+.heji-name-cell--modulated {
+  color: #9a2f2f;
+}
+
 /* Tonic cue label shown beside degree 0 */
 .tonic-label {
   line-height: 1.5;

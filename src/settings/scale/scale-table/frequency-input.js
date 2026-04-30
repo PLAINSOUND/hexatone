@@ -15,12 +15,15 @@ const FrequencyInput = ({
   disabled = false,
   deviationCents = null,
   comparing = false,
+  liveModulated = false,
 }) => {
   const display = formatFrequencyHz(value);
   const editableDisplay = formatEditableFrequencyHz(value);
   const isDirty = deviationCents !== null && Math.abs(deviationCents) > 0.001;
   // Match the tune-delta / tune-comparing colour scheme
-  const color = isDirty ? (comparing ? "#660000" : "#990000") : undefined;
+  const color = isDirty
+    ? (comparing ? "#660000" : "#990000")
+    : (liveModulated ? "#9a2f2f" : undefined);
   const fontStyle = comparing ? "italic" : undefined;
   return (
     <input

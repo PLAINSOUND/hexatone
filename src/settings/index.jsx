@@ -36,6 +36,8 @@ const Settings = ({
   keysRef,
   heji_names,
   heji_names_table,
+  modulation_transposition_cents,
+  modulation_display_active,
   heji_anchor_label_eff,
   heji_anchor_ratio_eff,
   heji_supported,
@@ -93,6 +95,8 @@ const Settings = ({
       settings={settings}
       heji_names={heji_names}
       heji_names_table={heji_names_table}
+      modulation_transposition_cents={modulation_transposition_cents}
+      modulation_display_active={modulation_display_active}
       heji_anchor_label_eff={heji_anchor_label_eff}
       heji_anchor_ratio_eff={heji_anchor_ratio_eff}
       heji_supported={heji_supported}

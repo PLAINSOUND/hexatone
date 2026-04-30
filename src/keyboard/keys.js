@@ -63,6 +63,7 @@ import {
   createModulationState,
   frameForNewNotes,
   normalizeModulationHistory,
+  resetModulationRouteCounts,
   setModulationRouteCount,
   setModulationHistoryIndex,
   settleModulationIfPossible,
@@ -961,6 +962,16 @@ class Keys {
     if ((this._modulationState.historyIndex ?? 0) !== 0) return false;
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
     this._modulationState = clearModulationHistory(this._modulationState, homeFrame);
+    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this.drawGrid();
+    this._emitModulationState();
+    return true;
+  };
+
+  resetModulationRouteCounts = () => {
+    if (this._modulationState.mode !== "idle") return false;
+    const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
+    this._modulationState = resetModulationRouteCounts(this._modulationState, homeFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
     this.drawGrid();
     this._emitModulationState();
