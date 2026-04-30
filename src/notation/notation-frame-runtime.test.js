@@ -185,6 +185,66 @@ describe("notation-frame-runtime", () => {
     expect(derived.fundamentalHz).toBeCloseTo(440 * (64 / 49), 6);
   });
 
+  it("normalizes legacy route ratios to the stored cents displacement for the current fundamental", () => {
+    const derived = deriveCurrentFundamentalForHistory(workspace, [
+      {
+        sourceDegree: 0,
+        targetDegree: 3,
+        strategy: "retune_surface_to_source",
+        count: 1,
+        transpositionDeltaCents: parseExactInterval("7/8").cents,
+        transpositionRatioText: "7/4",
+      },
+    ], {
+      fundamental: 440,
+    });
+
+    expect(derived.ratioText).toBe("7/8");
+    expect(derived.cents).toBeCloseTo(parseExactInterval("7/8").cents, 8);
+    expect(derived.fundamentalHz).toBeCloseTo(440 * (7 / 8), 6);
+  });
+
+  it("normalizes fallback degree ratios to stored cents displacement when route ratio text is absent", () => {
+    const derived = deriveCurrentFundamentalForHistory(workspace, [
+      {
+        sourceDegree: 0,
+        targetDegree: 3,
+        strategy: "retune_surface_to_source",
+        count: 1,
+        transpositionDeltaCents: parseExactInterval("4/3").cents,
+      },
+    ], {
+      fundamental: 440,
+    });
+
+    expect(derived.ratioText).toBe("4/3");
+    expect(derived.cents).toBeCloseTo(parseExactInterval("4/3").cents, 8);
+    expect(derived.fundamentalHz).toBeCloseTo(440 * (4 / 3), 6);
+  });
+
+  it("normalizes fallback degree ratios across larger negative-to-positive equave wraps", () => {
+    const workspaceWithNinth = createScaleWorkspace({
+      scale: ["27/16", "2/1"],
+      reference_degree: 0,
+      fundamental: 440,
+    });
+    const derived = deriveCurrentFundamentalForHistory(workspaceWithNinth, [
+      {
+        sourceDegree: 0,
+        targetDegree: 1,
+        strategy: "retune_surface_to_source",
+        count: 1,
+        transpositionDeltaCents: parseExactInterval("32/27").cents,
+      },
+    ], {
+      fundamental: 440,
+    });
+
+    expect(derived.ratioText).toBe("32/27");
+    expect(derived.cents).toBeCloseTo(parseExactInterval("32/27").cents, 8);
+    expect(derived.fundamentalHz).toBeCloseTo(440 * (32 / 27), 6);
+  });
+
   it("falls back to cents-only current fundamental when a route uses an inexact degree", () => {
     const inexactWorkspace = createScaleWorkspace({
       scale: ["100.", "5/4", "2/1"],

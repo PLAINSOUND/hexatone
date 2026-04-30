@@ -32,8 +32,8 @@ const Keyboard = (props) => {
   const appliedLabelSettingsRef = useRef(null);
 
   // ── Keys reconstruction ────────────────────────────────────────────────────
-  // Runs when structural settings change. LED drivers (Exquis, Lumatone,
-  // LinnStrument) are managed in app.jsx and assigned here after construction.
+  // Runs only when App's settings-impact registry says the keyboard must be
+  // reconstructed. Live input/output/color/label updates use imperative paths.
   useEffect(() => {
     const keys = new Keys(
       canvas.current,
@@ -69,8 +69,14 @@ const Keyboard = (props) => {
       keys.linnstrumentLEDs = null;
       keys.deconstruct();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by structuralSettings
-  }, [canvas, props.structuralSettings, props.inputRuntime]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by reconstructionKey
+  }, [canvas, props.reconstructionKey]);
+
+  useEffect(() => {
+    if (keysRef.current?.updateInputRuntime) {
+      keysRef.current.updateInputRuntime(props.inputRuntime, props.liveInputSettings);
+    }
+  }, [props.inputRuntime, props.liveInputSettings]);
 
   // Output/synth changes should not tear down the live keyboard. Existing notes
   // keep their current hex objects so tails can decay naturally; new notes use
@@ -96,19 +102,11 @@ const Keyboard = (props) => {
     }
   }, [props.midiLearnActive, props.onAnchorLearn]);
 
-  const noteColorsKey = props.settings.note_colors
-    ? JSON.stringify(props.settings.note_colors)
-    : "";
   useEffect(() => {
-    if (keysRef.current && props.settings) {
-      keysRef.current.updateColors({
-        note_colors: props.settings.note_colors,
-        spectrum_colors: props.settings.spectrum_colors,
-        fundamental_color: props.settings.fundamental_color,
-      });
+    if (keysRef.current && props.colorSettings) {
+      keysRef.current.updateColors(props.colorSettings);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings.note_colors covered by noteColorsKey
-  }, [noteColorsKey, props.settings.spectrum_colors, props.settings.fundamental_color]);
+  }, [props.colorSettings]);
 
   // Label changes are display-only — update imperatively without reconstructing Keys.
   useEffect(() => {
@@ -137,8 +135,10 @@ const Keyboard = (props) => {
 };
 
 Keyboard.propTypes = {
-  structuralSettings: PropTypes.object,
+  reconstructionKey: PropTypes.string,
+  liveInputSettings: PropTypes.object,
   liveOutputSettings: PropTypes.object,
+  colorSettings: PropTypes.object,
   lumatoneLedsRef: PropTypes.object,
   exquisLedsRef: PropTypes.object,
   linnstrumentLedsRef: PropTypes.object,

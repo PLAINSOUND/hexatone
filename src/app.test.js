@@ -162,7 +162,11 @@ vi.mock("./img/hex.svg?react", () => ({
   default: () => <svg data-testid="loading-icon" />,
 }));
 
-import { Loading, modulationRouteLabelPair } from "./app";
+import {
+  Loading,
+  modulationCurrentSummaryDisplay,
+  modulationRouteLabelPair,
+} from "./app";
 import App from "./app";
 
 describe("Loading", () => {
@@ -203,6 +207,30 @@ describe("modulationRouteLabelPair", () => {
       sourceLabel: "1/1",
       targetLabel: "7/4[-1eq]",
     });
+  });
+});
+
+describe("modulationCurrentSummaryDisplay", () => {
+  it("renders the actual current ratio without equave-offset suffixes", () => {
+    expect(
+      modulationCurrentSummaryDisplay(
+        {
+          ratioText: "7/8",
+          cents: parseExactInterval("7/8").cents,
+        },
+      ),
+    ).toBe("7/8 (-231¢)");
+  });
+
+  it("renders cents only when the current ratio is not exact", () => {
+    expect(
+      modulationCurrentSummaryDisplay(
+        {
+          ratioText: null,
+          cents: 12.345,
+        },
+      ),
+    ).toBe("+12¢");
   });
 });
 

@@ -1522,6 +1522,11 @@ class Keys {
     this._pushControllerStateToSynth();
   };
 
+  updateInputRuntime = (nextRuntime, nextSettings = null) => {
+    if (nextRuntime) this.inputRuntime = nextRuntime;
+    if (nextSettings) Object.assign(this.settings, nextSettings);
+  };
+
   // ── Snapshot capture & playback ────────────────────────────────────────────
 
   /**

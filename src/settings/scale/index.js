@@ -60,18 +60,17 @@ const Scale = (props) => {
         <b>Scale Settings</b>
         <button
           type="button"
+          class="section-collapse-toggle"
           onClick={() => handleToggle(!collapsed)}
           title={collapsed ? "Toggle to show scale table" : "Toggle to hide scale table"}
           style={{
-            marginLeft: "0.6em",
-            padding: "0 0.4em",
-            fontSize: "0.95em",
-            lineHeight: "1.2",
-            verticalAlign: "middle",
             cursor: "pointer",
           }}
         >
-          {collapsed ? "▸" : "▾"}
+          <span
+            class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`}
+            aria-hidden="true"
+          />
         </button>
       </legend>
       <label>

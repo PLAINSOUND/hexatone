@@ -49,6 +49,42 @@ fieldset {
   border-radius: 3px;
 }
 
+.section-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65em;
+  min-width: 1.65em;
+  height: 1.42em;
+  margin-left: 0.6em;
+  padding: 0;
+  box-sizing: border-box;
+  font-size: 0.95em;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.disclosure-toggle-glyph {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.disclosure-toggle-glyph--collapsed {
+  border-top: 0.27em solid transparent;
+  border-bottom: 0.27em solid transparent;
+  border-left: 0.41em solid currentColor;
+}
+
+.disclosure-toggle-glyph--expanded {
+  border-left: 0.29em solid transparent;
+  border-right: 0.29em solid transparent;
+  border-top: 0.41em solid currentColor;
+  transform: translateY(0.04em);
+}
+
 label {
   display: flex;
   justify-content: space-between;

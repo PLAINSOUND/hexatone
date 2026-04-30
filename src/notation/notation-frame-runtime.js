@@ -189,14 +189,43 @@ function modulationEntryCentsDelta(entry, sourceSlot, targetSlot) {
   return (sourceSlot?.cents ?? 0) - (targetSlot?.cents ?? 0);
 }
 
-function modulationEntryRatio(entry, sourceSlot, targetSlot) {
+function ratioAdjustedToCents(ratio, ratioCents, deltaCents, workspace) {
+  const equaveRatio = workspace?.baseScale?.equaveInterval?.ratio ?? null;
+  const equaveCents = workspace?.baseScale?.equaveCents ?? 1200;
+  if (
+    !ratio ||
+    !equaveRatio ||
+    !Number.isFinite(ratioCents) ||
+    !Number.isFinite(deltaCents) ||
+    !Number.isFinite(equaveCents) ||
+    Math.abs(equaveCents) < 0.000001
+  ) {
+    return ratio;
+  }
+  const equavePower = Math.round((deltaCents - ratioCents) / equaveCents);
+  if (equavePower === 0) return ratio;
+  return equavePower > 0
+    ? ratio.mul(equaveRatio.pow(equavePower))
+    : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
+}
+
+function modulationEntryRatio(entry, sourceSlot, targetSlot, workspace) {
+  const deltaCents = modulationEntryCentsDelta(entry, sourceSlot, targetSlot);
   if (typeof entry?.transpositionRatioText === "string" && entry.transpositionRatioText.trim()) {
     const parsed = parseExactInterval(entry.transpositionRatioText.trim());
-    return parsed?.ratio ?? null;
+    const ratio = parsed?.ratio ?? null;
+    return ratioAdjustedToCents(ratio, parsed?.cents, deltaCents, workspace);
   }
   const sourceRatio = sourceSlot?.committedIdentity?.ratio ?? null;
   const targetRatio = targetSlot?.committedIdentity?.ratio ?? null;
-  return sourceRatio && targetRatio ? sourceRatio.div(targetRatio) : null;
+  if (!sourceRatio || !targetRatio) return null;
+  const ratio = sourceRatio.div(targetRatio);
+  const ratioCents =
+    Number.isFinite(sourceSlot?.committedIdentity?.cents) &&
+    Number.isFinite(targetSlot?.committedIdentity?.cents)
+      ? sourceSlot.committedIdentity.cents - targetSlot.committedIdentity.cents
+      : (sourceSlot?.cents ?? 0) - (targetSlot?.cents ?? 0);
+  return ratioAdjustedToCents(ratio, ratioCents, deltaCents, workspace);
 }
 
 export function deriveCurrentFundamentalForHistory(workspace, history = [], options = {}) {
@@ -216,7 +245,7 @@ export function deriveCurrentFundamentalForHistory(workspace, history = [], opti
     cents += count * modulationEntryCentsDelta(entry, sourceSlot, targetSlot);
 
     if (!ratioSupported) continue;
-    const forward = modulationEntryRatio(entry, sourceSlot, targetSlot);
+    const forward = modulationEntryRatio(entry, sourceSlot, targetSlot, workspace);
     if (!forward) {
       ratioSupported = false;
       ratio = null;

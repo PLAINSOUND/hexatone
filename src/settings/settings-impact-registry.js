@@ -30,6 +30,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midiin_device",
     "midiin_channel",
     "midiin_steps_per_channel",
+    "midiin_channel_group_size",
     "midiin_anchor_channel",
     "midiin_controller_override",
     "controller_anchor_note",
@@ -37,6 +38,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midi_passthrough",
     "midiin_central_degree",
     "axis49_center_note",
+    "tonalplexus_input_mode",
     "wheel_to_recent",
     "midiin_mapping_target",
     "midiin_mpe_input",
@@ -49,12 +51,18 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midiin_device",
     "midiin_channel",
     "midiin_steps_per_channel",
+    "midiin_channel_group_size",
     "midiin_anchor_channel",
     "midiin_central_degree",
     "midiin_channel_legacy",
     "midiin_controller_override",
     "midiin_mapping_target",
     "midiin_mpe_input",
+    "midiin_bend_flip",
+    "midiin_bend_range",
+    "midiin_scale_bend_range",
+    "midiin_scale_tolerance",
+    "midiin_scale_fallback",
     "midiin_pitchbend_mode",
     "midiin_pressure_mode",
     "midiin_modwheel_source",
@@ -62,7 +70,10 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midi_passthrough",
     "controller_anchor_note",
     "axis49_center_note",
+    "tonalplexus_input_mode",
     "wheel_to_recent",
+    "wheel_scale_aware",
+    "midi_wheel_semitones",
     "lumatone_center_channel",
     "lumatone_center_note",
     "lumatone_led_sync",
@@ -98,7 +109,47 @@ export const SETTINGS_IMPACT_FIELDS = {
     "mpe_lo_ch",
     "mpe_hi_ch",
     "mpe_pitchbend_range",
+    "mpe_pitchbend_range_manager",
     "mpe_mode",
+    "fluidsynth_out_port",
+    "osc_bridge_url",
+  ],
+};
+
+// Settings that are intentionally not part of Keys impact decisions. Keeping
+// this list explicit makes new persistence keys fail registry coverage tests
+// until their rendering/runtime impact is classified.
+export const SETTINGS_IMPACT_IGNORED_FIELDS = {
+  presetMetadata: [
+    "name",
+    "description",
+    "short_description",
+  ],
+  scaleEditorOnly: [
+    "retuning_mode",
+  ],
+  inputUiOnly: [
+    "midiin_mpe_lo_ch",
+    "midiin_mpe_hi_ch",
+    "midi_wheel_range",
+  ],
+  synthRuntimeOnly: [
+    "osc_volume_pluck",
+    "osc_volume_buzz",
+    "osc_volume_formant",
+    "osc_volume_saw",
+  ],
+  permissionState: [
+    "webmidi_enabled",
+    "webmidi_sysex_enabled",
+    "webmidi_access",
+  ],
+  ledDriverLifecycle: [
+    "lumatone_out_port",
+    "exquis_out_port",
+    "linnstrument_out_port",
+    "exquis_led_luminosity",
+    "exquis_led_saturation",
   ],
 };
 

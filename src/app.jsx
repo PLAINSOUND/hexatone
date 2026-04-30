@@ -75,11 +75,11 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
 
 export const Loading = () => <LoadingIcon />;
 
-function formatSignedCents(value) {
-  if (!Number.isFinite(value)) return "0.00¢";
-  const rounded = Math.round(value * 100) / 100;
+function formatSignedWholeCents(value) {
+  if (!Number.isFinite(value)) return "0¢";
+  const rounded = Math.round(value);
   const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
-  return `${sign}${Math.abs(rounded).toFixed(2)}¢`;
+  return `${sign}${Math.abs(rounded)}¢`;
 }
 
 function routeTranspositionDeltaCents(entry) {
@@ -112,6 +112,13 @@ function modulationRouteEquaveOffset(entry, tuningWorkspace) {
 
   const reducedDeltaCents = sourceSlot.cents - targetSlot.cents;
   return Math.round((reducedDeltaCents - transpositionDeltaCents) / equaveCents);
+}
+
+export function modulationCurrentSummaryDisplay(summary) {
+  if (!summary) return "";
+  const centsText = formatSignedWholeCents(summary.cents);
+  if (!summary.ratioText) return centsText;
+  return `${summary.ratioText} (${centsText})`;
 }
 
 export function modulationRouteLabelPair(entry, degreeLabel, tuningWorkspace) {
@@ -763,9 +770,7 @@ const App = () => {
     });
     return {
       ...derived,
-      display: derived.ratioText
-        ? `${derived.ratioText} (${formatSignedCents(derived.cents)})`
-        : formatSignedCents(derived.cents),
+      display: modulationCurrentSummaryDisplay(derived),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so palette clicks do not synchronously re-render modulation-dependent table displays.
   }, [tuningWorkspace, activeDeferredModulationKey, settings.fundamental]);
@@ -907,15 +912,6 @@ const App = () => {
     () => normalizeStructural(settings, { tuningRuntime }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- structuralImpactKey is the settings-impact registry key; input/output binding fields are intentionally excluded.
     [structuralImpactKey, tuningRuntime],
-  );
-
-  // Signature for changes that require constructing a new Keys instance. This is
-  // intentionally independent of structuralSettings so MIDI device changes do
-  // not rerun scale/HEJI normalization.
-  const reconstructionSettings = useMemo(
-    () => settingsImpactSnapshot(settings, "keysReconstruction", { midiAccess, midiTick }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keysReconstructionImpactKey is the settings-impact registry key.
-    [keysReconstructionImpactKey],
   );
 
   // Output-runtime architecture controls should update the live Keys instance
@@ -1251,9 +1247,11 @@ const App = () => {
           synth={synth || nullSynth}
           settings={normalizedSettings}
           tuningRuntime={tuningRuntime}
+          reconstructionKey={keysReconstructionImpactKey}
+          liveInputSettings={liveInputSettings}
           liveOutputSettings={liveOutputSettings}
+          colorSettings={colorSettings}
           inputRuntime={inputRuntime}
-          structuralSettings={reconstructionSettings}
           labelSettings={labelSettings}
           initialModulationLibrary={activeModulationLibrary}
           onKeysReady={onKeysReady}
@@ -1567,7 +1565,10 @@ const App = () => {
                 setModulationPaletteCollapsed((value) => !value);
               }}
             >
-              {modulationPaletteCollapsed ? "▸" : "▾"}
+              <span
+                className={`disclosure-toggle-glyph disclosure-toggle-glyph--${modulationPaletteCollapsed ? "collapsed" : "expanded"}`}
+                aria-hidden="true"
+              />
             </button>
           </div>
           {currentFundamentalSummary && (
