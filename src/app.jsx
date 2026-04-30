@@ -729,6 +729,14 @@ const App = () => {
     () => modulationHistoryKey(deferredModulationHistory),
     [deferredModulationHistory],
   );
+  const hasActiveDeferredModulation = useMemo(
+    () => deferredModulationHistory.some((entry) => {
+      const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+      return count !== 0;
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
+    [deferredModulationHistoryKey],
+  );
   const activeModulationLibrary = useMemo(
     () => modulationState?.history ?? presetModulationLibrary,
     [modulationState, presetModulationLibrary],
@@ -890,6 +898,8 @@ const App = () => {
       settings.show_equaves,
       settings.heji_anchor_label,
       settings.heji_anchor_ratio,
+      settings.heji_show_cents,
+      settings.heji_tempered_only,
       // fundamental handled imperatively via keysRef.current.updateFundamental
       settings.reference_degree,
       settings.center_degree,
@@ -1170,6 +1180,39 @@ const App = () => {
     [noteColorsKey, settings.spectrum_colors, settings.fundamental_color],
   );
 
+  const activeHejiFrame = useMemo(() => {
+    if (
+      !hasActiveDeferredModulation ||
+      !structuralSettings.heji ||
+      structuralSettings.heji_supported === false ||
+      !tuningWorkspace ||
+      !structuralSettings.heji_anchor_label_effective
+    ) {
+      return null;
+    }
+
+    const baseFrame = createHarmonicFrame(tuningWorkspace, {
+      anchorDegree: structuralSettings.reference_degree ?? 0,
+      anchorLabel: structuralSettings.heji_anchor_label_effective,
+      anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
+      anchorInterval: parseExactInterval(String(structuralSettings.heji_anchor_ratio_effective || "1/1")),
+      referenceDegree: structuralSettings.reference_degree ?? 0,
+      strategy: "anchor_substitution",
+      generation: 0,
+    });
+    return replayModulationHistoryForFrame(
+      tuningWorkspace,
+      baseFrame,
+      deferredModulationHistory,
+      {
+        suppressDeviation: true,
+        temperedOnly: settings.heji_tempered_only === true,
+        forceShowZeroDeviation: false,
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
+  }, [hasActiveDeferredModulation, structuralSettings, tuningWorkspace, deferredModulationHistoryKey, settings.heji_tempered_only]);
+
   // Label settings: display-only fields extracted from structuralSettings.
   // Passed to Keyboard so it can call updateLabels imperatively whenever
   // structuralSettings recomputes due to label-related changes, without
@@ -1180,31 +1223,13 @@ const App = () => {
       const hejiTemperedOnly = settings.heji_tempered_only === true;
       let liveHejiNames = structuralSettings.heji_names_keys ?? structuralSettings.heji_names;
       if (
+        hasActiveDeferredModulation &&
         structuralSettings.heji &&
         structuralSettings.heji_supported !== false &&
         tuningWorkspace &&
-        structuralSettings.heji_anchor_label_effective
+        activeHejiFrame
       ) {
-        const baseFrame = createHarmonicFrame(tuningWorkspace, {
-          anchorDegree: structuralSettings.reference_degree ?? 0,
-          anchorLabel: structuralSettings.heji_anchor_label_effective,
-          anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
-          anchorInterval: parseExactInterval(String(structuralSettings.heji_anchor_ratio_effective || "1/1")),
-          referenceDegree: structuralSettings.reference_degree ?? 0,
-          strategy: "anchor_substitution",
-          generation: 0,
-        });
-        const frame = replayModulationHistoryForFrame(
-          tuningWorkspace,
-          baseFrame,
-          deferredModulationHistory,
-          {
-            suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
-            temperedOnly: hejiTemperedOnly,
-            forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
-          },
-        );
-        liveHejiNames = spellWorkspaceForFrame(tuningWorkspace, frame, {
+        liveHejiNames = spellWorkspaceForFrame(tuningWorkspace, activeHejiFrame, {
           suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
           temperedOnly: hejiTemperedOnly,
           forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
@@ -1231,46 +1256,27 @@ const App = () => {
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so MOD commits do not block the handoff event with HEJI spelling.
-    [structuralSettings, tuningWorkspace, deferredModulationHistoryKey, settings.heji_show_cents, settings.heji_tempered_only],
+    [structuralSettings, tuningWorkspace, activeHejiFrame, deferredModulationHistoryKey, hasActiveDeferredModulation, settings.heji_show_cents, settings.heji_tempered_only],
   );
 
   const tableHejiNames = useMemo(() => {
     if (
       !structuralSettings.heji ||
+      !hasActiveDeferredModulation ||
       structuralSettings.heji_supported === false ||
       !tuningWorkspace ||
-      !structuralSettings.heji_anchor_label_effective
+      !activeHejiFrame
     ) {
-      return labelSettings.heji_names;
+      return structuralSettings.heji_names ?? labelSettings.heji_names;
     }
 
-    const baseFrame = createHarmonicFrame(tuningWorkspace, {
-      anchorDegree: structuralSettings.reference_degree ?? 0,
-      anchorLabel: structuralSettings.heji_anchor_label_effective,
-      anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
-      anchorInterval: parseExactInterval(String(structuralSettings.heji_anchor_ratio_effective || "1/1")),
-      referenceDegree: structuralSettings.reference_degree ?? 0,
-      strategy: "anchor_substitution",
-      generation: 0,
-    });
-    const frame = replayModulationHistoryForFrame(
-      tuningWorkspace,
-      baseFrame,
-      deferredModulationHistory,
-      {
-        suppressDeviation: false,
-        temperedOnly: settings.heji_tempered_only === true,
-        forceShowZeroDeviation: settings.heji_tempered_only === true,
-      },
-    );
-
-    return spellWorkspaceForFrame(tuningWorkspace, frame, {
+    return spellWorkspaceForFrame(tuningWorkspace, activeHejiFrame, {
       suppressDeviation: false,
       temperedOnly: settings.heji_tempered_only === true,
       forceShowZeroDeviation: settings.heji_tempered_only === true,
     }).labelsByDegree;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so MOD commits do not block the handoff event with HEJI spelling.
-  }, [structuralSettings, tuningWorkspace, deferredModulationHistoryKey, settings.heji_tempered_only, labelSettings.heji_names]);
+  }, [structuralSettings, tuningWorkspace, activeHejiFrame, deferredModulationHistoryKey, hasActiveDeferredModulation, settings.heji_tempered_only, labelSettings.heji_names]);
 
   const normalizedSettings = useMemo(
     () => ({

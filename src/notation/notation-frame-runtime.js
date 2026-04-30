@@ -162,6 +162,10 @@ export function spellWorkspaceForFrame(workspace, frame, options = {}) {
   };
 }
 
+export function spellDegreeForFrame(workspace, degree, frame, options = {}) {
+  return spellSlotForFrame(getWorkspaceSlot(workspace, degree), frame, options);
+}
+
 function trimRenderedLabelToPitchClass(label) {
   const source = String(label ?? "").trim();
   if (!source) return null;
@@ -248,12 +252,11 @@ export function replayModulationHistoryForFrame(workspace, baseFrame, history = 
     const stepCount = Math.abs(count);
 
     for (let step = 0; step < stepCount; step += 1) {
-      const spelled = spellWorkspaceForFrame(workspace, frame, options);
       const sourceDegree = normalizeDegree(count > 0 ? entry?.sourceDegree : entry?.targetDegree);
       const targetDegree = normalizeDegree(count > 0 ? entry?.targetDegree : entry?.sourceDegree);
       if (sourceDegree == null || targetDegree == null) continue;
       const targetSlot = getWorkspaceSlot(workspace, targetDegree);
-      const sourceLabel = spelled.entries.find((item) => item.degree === sourceDegree)?.label;
+      const sourceLabel = spellDegreeForFrame(workspace, sourceDegree, frame, options).label;
       const movedLabel =
         trimRenderedLabelToPitchClass(sourceLabel) ??
         frame.heji.anchorLabel;
