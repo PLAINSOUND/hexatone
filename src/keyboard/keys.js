@@ -256,6 +256,15 @@ class Keys {
     this._retuneGlides = new Map();
     this._retuneGlideTimer = null;
     this._retuneGlideLastTime = 0;
+    this._gridRedrawRaf = null;
+    this._lastResizeSignature = null;
+    this._visibleGridCoords = [];
+    this._hexGeometryCache = new Map();
+    this._staticGridCanvas = null;
+    this._staticGridContext = null;
+    this._staticGridUsable = false;
+    this._staticGridValid = false;
+    this._canvasTransform = null;
     this._deferredBulkMapRefresh = false;
     this._deferredBulkMapTimer = null;
     this._staticDeferredBulkActive = false;
@@ -851,7 +860,7 @@ class Keys {
       }
       this._refreshSoundingHexNeighbors();
       this._kickRetuneGlides();
-      this.drawGrid();
+      this.scheduleGridRedraw();
       return;
     }
 
@@ -878,7 +887,7 @@ class Keys {
     }
     this._refreshSoundingHexNeighbors();
     this._kickRetuneGlides();
-    this.drawGrid();
+    this.scheduleGridRedraw();
   };
 
   setModulationArmed = (armed) => {
@@ -936,7 +945,7 @@ class Keys {
     const nextFrame = this._frameForHistoryIndex(historyIndex);
     this._modulationState = setModulationHistoryIndex(this._modulationState, historyIndex, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this.drawGrid();
+    this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
   };
@@ -954,7 +963,7 @@ class Keys {
     const nextFrame = this._frameForHistory(history);
     this._modulationState = setModulationRouteCount(this._modulationState, routeIndex, count, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this.drawGrid();
+    this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
   };
@@ -975,7 +984,7 @@ class Keys {
     const nextFrame = this._frameForHistory(history);
     this._modulationState = clearModulationRoute(this._modulationState, routeIndex, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this.drawGrid();
+    this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
   };
@@ -985,7 +994,7 @@ class Keys {
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
     this._modulationState = clearModulationHistory(this._modulationState, homeFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this.drawGrid();
+    this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
   };
@@ -995,7 +1004,7 @@ class Keys {
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
     this._modulationState = resetModulationRouteCounts(this._modulationState, homeFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this.drawGrid();
+    this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
   };
@@ -1088,7 +1097,7 @@ class Keys {
     const targetDegree = this._degreeForCoords(coords);
     if ((this._modulationState.sourceDegree ?? targetDegree) === targetDegree) {
       this._modulationState = cancelModulation(this._modulationState, "no_op_modulation");
-      this.drawGrid();
+      this.scheduleGridRedraw();
       this._emitModulationState();
       return;
     }
@@ -1123,7 +1132,7 @@ class Keys {
       ),
       sourceStillSounding: this._isHexStillSounding(this._modulationState.sourceHex),
     });
-    this.drawGrid();
+    this.scheduleGridRedraw();
     this._emitModulationState();
   }
 
@@ -1251,7 +1260,7 @@ class Keys {
       hasLegacyNotes: settlement.hasLegacyNotes,
     });
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this.drawGrid();
+    this.scheduleGridRedraw();
     this._emitModulationState();
   }
 
@@ -1370,7 +1379,7 @@ class Keys {
         !this._staticDeferredBulkActive,
       );
     }
-    this.drawGrid();
+    this.scheduleGridRedraw();
   };
 
   // Reset octave offset to 0 without any retune arithmetic.
@@ -1378,7 +1387,7 @@ class Keys {
   // all notes are already dead so retuning held notes is neither needed nor safe.
   resetOctave = () => {
     this.settings.octave_offset = 0;
-    this.drawGrid();
+    this.scheduleGridRedraw();
   };
 
   updateFundamental = (newFundamental) => {
@@ -1495,14 +1504,7 @@ class Keys {
     this.settings.spectrum_colors = colors.spectrum_colors;
     this.settings.fundamental_color = colors.fundamental_color;
 
-    // Batch redraws via RAF - at most one per 16ms frame
-    if (!this._colorRafPending) {
-      this._colorRafPending = true;
-      requestAnimationFrame(() => {
-        this._colorRafPending = false;
-        this.drawGrid();
-      });
-    }
+    this.scheduleGridRedraw();
 
     // Propagate color changes to Lumatone LEDs when auto-sync is enabled.
     // sendAll() replaces the entire pending queue so rapid picker drags always
@@ -1532,7 +1534,7 @@ class Keys {
     }
     // Apply new flags and name arrays.
     Object.assign(this.settings, labels);
-    this.drawGrid();
+    this.scheduleGridRedraw();
   };
 
   updateLiveOutputState = (nextSettings, synth) => {
@@ -1894,6 +1896,14 @@ class Keys {
       clearTimeout(this._retuneGlideTimer);
       this._retuneGlideTimer = null;
     }
+    if (this._gridRedrawRaf != null) {
+      cancelAnimationFrame(this._gridRedrawRaf);
+      this._gridRedrawRaf = null;
+    }
+    this._staticGridCanvas = null;
+    this._staticGridContext = null;
+    this._staticGridUsable = false;
+    this._staticGridValid = false;
     this._stopWheelSlew(true);
     if (this._deferredBulkMapTimer != null) {
       clearTimeout(this._deferredBulkMapTimer);
@@ -2691,7 +2701,15 @@ class Keys {
       isSustained || isActiveElsewhere,
       pressed_interval,
     );
-    this.drawHex(coords, color, text_color);
+    if (isSustained || isActiveElsewhere) {
+      this.drawHex(coords, color, text_color);
+    } else {
+      if (this._restoreHexStaticBackground(coords)) {
+        this._redrawSoundingHexes();
+      } else {
+        this.drawHex(coords, color, text_color);
+      }
+    }
   }
 
   noteOff(hex, release_velocity) {
@@ -2822,6 +2840,18 @@ class Keys {
     // to handle any panning the browser may apply.
     const newWidth = window.innerWidth;
     const newHeight = window.innerHeight;
+    const nextSignature = [
+      newWidth,
+      newHeight,
+      this.settings.rotation,
+      this.settings.hexSize,
+      this.settings.hexWidth,
+      this.settings.hexVert,
+      this.settings.centerHexOffset?.x ?? 0,
+      this.settings.centerHexOffset?.y ?? 0,
+    ].join(":");
+    if (nextSignature === this._lastResizeSignature) return;
+    this._lastResizeSignature = nextSignature;
 
     this.state.canvas.style.width = newWidth + "px";
     this.state.canvas.style.height = newHeight + "px";
@@ -2853,7 +2883,10 @@ class Keys {
 
     // I don't know why these need to be the opposite sign of each other.
     let m = calculateRotationMatrix(this.settings.rotation, this.state.centerpoint);
+    this._canvasTransform = m;
     this.state.context.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+    this._rebuildVisibleGridGeometry();
+    this._resizeStaticGridCanvas(newWidth, newHeight, m);
 
     // Redraw Grid
     this.drawGrid();
@@ -3282,7 +3315,40 @@ class Keys {
 
   /**************** Rendering ****************/
 
-  drawGrid() {
+  scheduleGridRedraw() {
+    this._staticGridValid = false;
+    if (this._gridRedrawRaf != null) return;
+    this._gridRedrawRaf = requestAnimationFrame(() => {
+      this._gridRedrawRaf = null;
+      this.drawGrid();
+    });
+  }
+
+  _coordKey(coords) {
+    return `${coords.x},${coords.y}`;
+  }
+
+  _buildHexGeometry(hex) {
+    const hexCenter = this.hexCoordsToScreen(hex);
+    const hexSize = Number(this.settings.hexSize) || 0;
+    const shadowSize = hexSize + 3;
+    const x = [];
+    const y = [];
+    const x2 = [];
+    const y2 = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = ((2 * Math.PI) / 6) * (i + 0.5);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      x[i] = hexCenter.x + hexSize * cos;
+      y[i] = hexCenter.y + hexSize * sin;
+      x2[i] = hexCenter.x + shadowSize * cos;
+      y2[i] = hexCenter.y + shadowSize * sin;
+    }
+    return { center: hexCenter, x, y, x2, y2 };
+  }
+
+  _rebuildVisibleGridGeometry() {
     let max =
       this.state.centerpoint.x > this.state.centerpoint.y
         ? this.state.centerpoint.x / this.settings.hexSize
@@ -3290,11 +3356,162 @@ class Keys {
     max = Math.floor(max);
     const ox = this.settings.centerHexOffset.x;
     const oy = this.settings.centerHexOffset.y;
+    const coords = [];
+    const geometry = new Map();
     for (let r = -max + ox; r < max + ox; r++) {
       for (let dr = -max + oy; dr < max + oy; dr++) {
-        let coords = new Point(r, dr);
-        this.hexOff(coords);
+        const coord = new Point(r, dr);
+        coords.push(coord);
+        geometry.set(this._coordKey(coord), this._buildHexGeometry(coord));
       }
+    }
+    this._visibleGridCoords = coords;
+    this._hexGeometryCache = geometry;
+    this._staticGridValid = false;
+  }
+
+  _resizeStaticGridCanvas(width, height, transform) {
+    if (typeof this.state.context?.drawImage !== "function") {
+      this._staticGridCanvas = null;
+      this._staticGridContext = null;
+      this._staticGridUsable = false;
+      this._staticGridValid = false;
+      return;
+    }
+    if (!this._staticGridCanvas) {
+      if (typeof OffscreenCanvas !== "undefined") {
+        this._staticGridCanvas = new OffscreenCanvas(width, height);
+      } else {
+        this._staticGridCanvas = document.createElement("canvas");
+      }
+      this._staticGridContext = this._staticGridCanvas.getContext?.("2d") ?? null;
+      this._staticGridUsable = !!this._staticGridContext;
+    }
+    if (!this._staticGridUsable) return;
+    this._staticGridCanvas.width = width;
+    this._staticGridCanvas.height = height;
+    if (this._staticGridContext && transform) {
+      this._staticGridContext.setTransform(
+        transform[0],
+        transform[1],
+        transform[2],
+        transform[3],
+        transform[4],
+        transform[5],
+      );
+    }
+    this._staticGridValid = false;
+  }
+
+  _drawStaticHex(coords, context = this.state.context) {
+    const [cents, pressed_interval] = this.hexCoordsToCents(coords);
+    const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
+    this.drawHex(coords, color, text_color, context);
+  }
+
+  _ensureStaticGrid() {
+    if (!this._visibleGridCoords.length) this._rebuildVisibleGridGeometry();
+    if (!this._staticGridUsable) return false;
+    if (this._staticGridValid && this._staticGridCanvas) return true;
+    if (!this._staticGridCanvas || !this._staticGridContext) {
+      const width = this.state.canvas.width || window.innerWidth;
+      const height = this.state.canvas.height || window.innerHeight;
+      this._resizeStaticGridCanvas(width, height, this._canvasTransform);
+    }
+    if (!this._staticGridContext) return false;
+    this._staticGridContext.save();
+    this._staticGridContext.setTransform(1, 0, 0, 1, 0, 0);
+    this._staticGridContext.clearRect(0, 0, this._staticGridCanvas.width, this._staticGridCanvas.height);
+    this._staticGridContext.restore();
+    for (const coords of this._visibleGridCoords) {
+      this._drawStaticHex(coords, this._staticGridContext);
+    }
+    this._staticGridValid = true;
+    return true;
+  }
+
+  _withMainIdentityTransform(draw) {
+    const context = this.state.context;
+    context.save();
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    draw(context);
+    context.restore();
+  }
+
+  _copyStaticGridToMain() {
+    if (!this._staticGridCanvas || typeof this.state.context?.drawImage !== "function") return false;
+    this._withMainIdentityTransform((context) => {
+      context.clearRect(0, 0, this.state.canvas.width, this.state.canvas.height);
+      context.drawImage(this._staticGridCanvas, 0, 0);
+    });
+    return true;
+  }
+
+  _restoreHexStaticBackground(coords) {
+    if (!this._ensureStaticGrid()) return false;
+    const geometry = this._hexGeometryCache.get(this._coordKey(coords)) ?? this._buildHexGeometry(coords);
+    const bounds = this._hexPixelBounds(geometry, 28);
+    const sx = Math.max(0, Math.floor(bounds.left));
+    const sy = Math.max(0, Math.floor(bounds.top));
+    const ex = Math.min(this.state.canvas.width, Math.ceil(bounds.right));
+    const ey = Math.min(this.state.canvas.height, Math.ceil(bounds.bottom));
+    const sw = Math.max(0, ex - sx);
+    const sh = Math.max(0, ey - sy);
+    if (!this._staticGridCanvas || sw === 0 || sh === 0 || typeof this.state.context?.drawImage !== "function") return false;
+    this._withMainIdentityTransform((context) => {
+      context.clearRect(sx, sy, sw, sh);
+      context.drawImage(this._staticGridCanvas, sx, sy, sw, sh, sx, sy, sw, sh);
+    });
+    return true;
+  }
+
+  _transformCanvasPoint(x, y) {
+    const m = this._canvasTransform;
+    if (!m) return { x, y };
+    return {
+      x: m[0] * x + m[2] * y + m[4],
+      y: m[1] * x + m[3] * y + m[5],
+    };
+  }
+
+  _hexPixelBounds(geometry, pad = 0) {
+    const points = [];
+    for (let i = 0; i < 6; i++) {
+      points.push(this._transformCanvasPoint(geometry.x2[i], geometry.y2[i]));
+    }
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    return {
+      left: Math.min(...xs) - pad,
+      right: Math.max(...xs) + pad,
+      top: Math.min(...ys) - pad,
+      bottom: Math.max(...ys) + pad,
+    };
+  }
+
+  _redrawSoundingHexes() {
+    const drawn = new Set();
+    const drawPressed = (hex) => {
+      if (!hex?.coords) return;
+      const key = this._coordKey(hex.coords);
+      if (drawn.has(key)) return;
+      drawn.add(key);
+      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+      const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
+      this.drawHex(hex.coords, color, text_color);
+    };
+    for (const hex of this._allActiveHexes()) drawPressed(hex);
+    for (const [hex] of this.state.sustainedNotes) drawPressed(hex);
+  }
+
+  drawGrid() {
+    if (this._ensureStaticGrid() && this._copyStaticGridToMain()) {
+      this._redrawSoundingHexes();
+      return;
+    }
+    if (!this._visibleGridCoords.length) this._rebuildVisibleGridGeometry();
+    for (const coords of this._visibleGridCoords) {
+      this.hexOff(coords);
     }
   }
 
@@ -3743,20 +3960,11 @@ class Keys {
     return new Point(screenX, screenY);
   }
 
-  drawHex(p, c, current_text_color) {
+  drawHex(p, c, current_text_color, context = this.state.context) {
     /* Point, color */
-    let context = this.state.context;
-    let hexCenter = this.hexCoordsToScreen(p);
-
-    // Calculate hex vertices
-
-    let x = [];
-    let y = [];
-    for (let i = 0; i < 6; i++) {
-      let angle = ((2 * Math.PI) / 6) * (i + 0.5);
-      x[i] = hexCenter.x + this.settings.hexSize * Math.cos(angle);
-      y[i] = hexCenter.y + this.settings.hexSize * Math.sin(angle);
-    }
+    const geometry = this._hexGeometryCache.get(this._coordKey(p)) ?? this._buildHexGeometry(p);
+    const hexCenter = geometry.center;
+    const { x, y, x2, y2 } = geometry;
 
     // Draw filled hex  (controller overlay disabled — TODO re-enable after debug)
 
@@ -3779,17 +3987,6 @@ class Keys {
     }
     context.closePath();
     context.clip();
-
-    // Calculate hex vertices outside clipped path
-
-    let x2 = [];
-    let y2 = [];
-    for (let i = 0; i < 6; i++) {
-      let angle = ((2 * Math.PI) / 6) * (i + 0.5);
-      // TODO hexSize should already be a number
-      x2[i] = hexCenter.x + (parseFloat(this.settings.hexSize) + 3) * Math.cos(angle);
-      y2[i] = hexCenter.y + (parseFloat(this.settings.hexSize) + 3) * Math.sin(angle);
-    }
 
     // Draw shadowed stroke outside clip to create pseudo-3d effect
 

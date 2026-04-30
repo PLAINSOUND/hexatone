@@ -55,19 +55,6 @@ const Keyboard = (props) => {
     }
   }, [props.liveOutputSettings, props.synth]);
 
-  // After every render, schedule a redraw via rAF.
-  const renderCount = useRef(0);
-  useEffect(() => {
-    renderCount.current += 1;
-    if (renderCount.current <= 1) return;
-    let raf;
-    if (keysRef.current)
-      raf = requestAnimationFrame(() => keysRef.current && keysRef.current.resizeHandler());
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-    };
-  });
-
   useEffect(() => {
     if (keysRef.current) {
       keysRef.current.resizeHandler();
