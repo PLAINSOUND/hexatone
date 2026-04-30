@@ -4,6 +4,7 @@ import { parseScale } from "../settings/scale/parse-scale.js";
 import { deriveHejiAnchor } from "./heji-normalization.js";
 import {
   createHarmonicFrame,
+  deriveCurrentFundamentalForHistory,
   deriveDegreeColorsForFrame,
   mutateHarmonicFrame,
   replayModulationHistoryForFrame,
@@ -140,6 +141,49 @@ describe("notation-frame-runtime", () => {
 
     expect(spelled.labelsByDegree[3]).toBe(`${xn}C`);
     expect(spelled.labelsByDegree[0]).toBe(`${xn}F`);
+  });
+
+  it("derives the compounded current fundamental as ratio and cents when routes are exact", () => {
+    const derived = deriveCurrentFundamentalForHistory(workspace, [
+      {
+        sourceDegree: 3,
+        targetDegree: 2,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+      {
+        sourceDegree: 2,
+        targetDegree: 1,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+    ], {
+      fundamental: 440,
+    });
+
+    expect(derived.ratioText).toBe("4/3");
+    expect(derived.cents).toBeCloseTo(workspace.slots[3].cents - workspace.slots[1].cents, 6);
+    expect(derived.fundamentalHz).toBeCloseTo(440 * (4 / 3), 6);
+  });
+
+  it("falls back to cents-only current fundamental when a route uses an inexact degree", () => {
+    const inexactWorkspace = createScaleWorkspace({
+      scale: ["100.", "5/4", "2/1"],
+      reference_degree: 0,
+      fundamental: 440,
+    });
+    const derived = deriveCurrentFundamentalForHistory(inexactWorkspace, [
+      {
+        sourceDegree: 1,
+        targetDegree: 0,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
+    ]);
+
+    expect(derived.ratioText).toBeNull();
+    expect(derived.exact).toBe(false);
+    expect(derived.cents).toBeCloseTo(100, 6);
   });
 
   it("relabels Sabat: The Tree by moving degree 0 onto degree 23", () => {

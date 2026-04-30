@@ -7,6 +7,7 @@ import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import {
   createHarmonicFrame,
+  deriveCurrentFundamentalForHistory,
   replayModulationHistoryForFrame,
   spellWorkspaceForFrame,
 } from "./notation/notation-frame-runtime.js";
@@ -69,6 +70,13 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
 }
 
 export const Loading = () => <LoadingIcon />;
+
+function formatSignedCents(value) {
+  if (!Number.isFinite(value)) return "0.00¢";
+  const rounded = Math.round(value * 100) / 100;
+  const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
+  return `${sign}${Math.abs(rounded).toFixed(2)}¢`;
+}
 
 function readCssPxVar(name) {
   if (typeof window === "undefined") return 0;
@@ -630,6 +638,18 @@ const App = () => {
   }, [modulationDegreeLabel, modulationState]);
   const modulationHistory = useMemo(() => modulationState?.history ?? [], [modulationState]);
   const modulationPaletteVisible = modulationHistory.length > 0;
+  const currentFundamentalSummary = useMemo(() => {
+    if (!tuningWorkspace) return null;
+    const derived = deriveCurrentFundamentalForHistory(tuningWorkspace, modulationHistory, {
+      fundamental: settings.fundamental,
+    });
+    return {
+      ...derived,
+      display: derived.ratioText
+        ? `${derived.ratioText} (${formatSignedCents(derived.cents)})`
+        : formatSignedCents(derived.cents),
+    };
+  }, [tuningWorkspace, modulationHistory, settings.fundamental]);
   const modulationPaletteTitle = useMemo(() => {
     return modulationHistory.map((entry) => {
       return `${modulationDegreeLabel(entry.sourceDegree)} ↔ ${modulationDegreeLabel(entry.targetDegree)}`;
@@ -1534,6 +1554,19 @@ const App = () => {
               {modulationPaletteCollapsed ? "▸" : "▾"}
             </button>
           </div>
+          {currentFundamentalSummary && (
+            <div
+              className="modulation-palette-summary"
+              title="Current degree-0 fundamental after all active modulation steps"
+            >
+              <span className="modulation-palette-summary-label">
+                Current:
+              </span>
+              <span className="modulation-palette-summary-value">
+                {currentFundamentalSummary.display}
+              </span>
+            </div>
+          )}
           {!modulationPaletteCollapsed &&
             modulationHistory.map((entry, index) => {
               const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;

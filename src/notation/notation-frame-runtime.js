@@ -173,6 +173,59 @@ function normalizeDegree(value) {
   return Number.isFinite(value) ? Math.trunc(value) : Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : null;
 }
 
+function formatRatioFraction(ratio) {
+  if (!ratio?.toFraction) return null;
+  const text = ratio.toFraction();
+  return text.includes("/") ? text : `${text}/1`;
+}
+
+export function deriveCurrentFundamentalForHistory(workspace, history = [], options = {}) {
+  const entries = Array.isArray(history) ? history : [];
+  let cents = 0;
+  let ratio = parseExactInterval("1/1").ratio;
+  let ratioSupported = true;
+
+  for (const entry of entries) {
+    const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+    if (count === 0) continue;
+
+    const sourceDegree = normalizeDegree(entry?.sourceDegree);
+    const targetDegree = normalizeDegree(entry?.targetDegree);
+    const sourceSlot = getWorkspaceSlot(workspace, sourceDegree);
+    const targetSlot = getWorkspaceSlot(workspace, targetDegree);
+    const sourceCents = sourceSlot?.cents ?? 0;
+    const targetCents = targetSlot?.cents ?? 0;
+    cents += count * (sourceCents - targetCents);
+
+    if (!ratioSupported) continue;
+    const sourceRatio = sourceSlot?.committedIdentity?.ratio ?? null;
+    const targetRatio = targetSlot?.committedIdentity?.ratio ?? null;
+    if (!sourceRatio || !targetRatio) {
+      ratioSupported = false;
+      ratio = null;
+      continue;
+    }
+
+    const forward = sourceRatio.div(targetRatio);
+    const magnitude = Math.abs(count);
+    const factor = forward.pow(magnitude);
+    ratio = count > 0 ? ratio.mul(factor) : ratio.div(factor);
+  }
+
+  const baseFundamental = Number(options.fundamental ?? workspace?.baseScale?.fundamentalHz ?? 0);
+  const fundamentalHz = Number.isFinite(baseFundamental)
+    ? baseFundamental * Math.pow(2, cents / 1200)
+    : null;
+
+  return {
+    cents,
+    ratio,
+    ratioText: ratioSupported ? formatRatioFraction(ratio) : null,
+    exact: ratioSupported,
+    fundamentalHz,
+  };
+}
+
 export function replayModulationHistoryForFrame(workspace, baseFrame, history = [], options = {}) {
   let frame = baseFrame;
   const entries = Array.isArray(history) ? history : [];
