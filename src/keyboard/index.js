@@ -44,7 +44,7 @@ const Keyboard = (props) => {
       keys.deconstruct();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by structuralSettings
-  }, [canvas, props.structuralSettings, props.inputRuntime, props.initialModulationLibrary]);
+  }, [canvas, props.structuralSettings, props.inputRuntime]);
 
   // Output/synth changes should not tear down the live keyboard. Existing notes
   // keep their current hex objects so tails can decay naturally; new notes use

@@ -305,6 +305,26 @@ describe("ScaleTable — table structure", () => {
     expect(onAtomicChange).not.toHaveBeenCalled();
   });
 
+  it("de-modulates a live reference-degree frequency edit before committing fundamental", () => {
+    const onChange = vi.fn();
+
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9 }}
+        modulation_transposition_cents={1200}
+        modulation_display_active={true}
+        onChange={onChange}
+      />,
+    );
+
+    const frequencyInput = screen.getByLabelText("pitch frequency 9");
+    fireEvent.focus(frequencyInput);
+    fireEvent.input(frequencyInput, { target: { value: "1760" } });
+    fireEvent.blur(frequencyInput);
+
+    expect(onChange).toHaveBeenCalledWith("fundamental", 880);
+  });
+
   it("highlights only the degree 0 row when reference_degree is 0", () => {
     render(<ScaleTable settings={{ ...settingsBase, reference_degree: 0 }} onChange={() => {}} />);
     const rows = document.querySelectorAll("tbody tr");

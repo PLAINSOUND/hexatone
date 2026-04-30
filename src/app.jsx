@@ -637,6 +637,10 @@ const App = () => {
     return "";
   }, [modulationDegreeLabel, modulationState]);
   const modulationHistory = useMemo(() => modulationState?.history ?? [], [modulationState]);
+  const activeModulationLibrary = useMemo(
+    () => modulationState?.history ?? presetModulationLibrary,
+    [modulationState, presetModulationLibrary],
+  );
   const modulationPaletteVisible = modulationHistory.length > 0;
   const currentFundamentalSummary = useMemo(() => {
     if (!tuningWorkspace) return null;
@@ -933,15 +937,15 @@ const App = () => {
       setModulationArmed(false);
       setModulationMode("idle");
       setModulationState(
-        presetModulationLibrary.length > 0
-          ? presetModulationSnapshot(presetModulationLibrary)
+        activeModulationLibrary.length > 0
+          ? presetModulationSnapshot(activeModulationLibrary)
           : null,
       );
       resetOctave();
     }
     prevStructuralRef.current = reconstructionSettings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reconstructionSettings]); // resetOctave and setLatch are stable
+  }, [reconstructionSettings, activeModulationLibrary]); // resetOctave and setLatch are stable
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
@@ -1245,7 +1249,7 @@ const App = () => {
           inputRuntime={inputRuntime}
           structuralSettings={reconstructionSettings}
           labelSettings={labelSettings}
-          initialModulationLibrary={presetModulationLibrary}
+          initialModulationLibrary={activeModulationLibrary}
           onKeysReady={onKeysReady}
           onLatchChange={onLatchChange}
           onModulationArmChange={onModulationArmChange}

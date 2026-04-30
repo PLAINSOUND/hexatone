@@ -326,7 +326,7 @@ const ScaleTable = (props) => {
     }
 
     if (degreeIndex === referenceDegree && props.settings.retuning_mode !== "transpose_scale") {
-      props.onChange("fundamental", frequency);
+      props.onChange("fundamental", frequency / Math.pow(2, modulationTranspositionCents / 1200.0));
       return;
     }
 
