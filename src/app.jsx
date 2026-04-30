@@ -729,14 +729,15 @@ const App = () => {
     () => modulationHistoryKey(deferredModulationHistory),
     [deferredModulationHistory],
   );
-  const hasActiveDeferredModulation = useMemo(
-    () => deferredModulationHistory.some((entry) => {
+  const activeDeferredModulationKey = useMemo(
+    () => modulationHistoryKey(deferredModulationHistory.filter((entry) => {
       const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
       return count !== 0;
-    }),
+    })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
     [deferredModulationHistoryKey],
   );
+  const hasActiveDeferredModulation = activeDeferredModulationKey !== "";
   const activeModulationLibrary = useMemo(
     () => modulationState?.history ?? presetModulationLibrary,
     [modulationState, presetModulationLibrary],
@@ -754,7 +755,7 @@ const App = () => {
         : formatSignedCents(derived.cents),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so palette clicks do not synchronously re-render modulation-dependent table displays.
-  }, [tuningWorkspace, deferredModulationHistoryKey, settings.fundamental]);
+  }, [tuningWorkspace, activeDeferredModulationKey, settings.fundamental]);
   const modulationPaletteTitle = useMemo(() => {
     return modulationHistory.map((entry) => {
       const { sourceLabel, targetLabel } = modulationRouteLabelPair(
@@ -1210,8 +1211,8 @@ const App = () => {
         forceShowZeroDeviation: false,
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
-  }, [hasActiveDeferredModulation, structuralSettings, tuningWorkspace, deferredModulationHistoryKey, settings.heji_tempered_only]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
+  }, [hasActiveDeferredModulation, structuralSettings, tuningWorkspace, activeDeferredModulationKey, settings.heji_tempered_only]);
 
   // Label settings: display-only fields extracted from structuralSettings.
   // Passed to Keyboard so it can call updateLabels imperatively whenever
@@ -1255,8 +1256,8 @@ const App = () => {
         reference_degree: structuralSettings.reference_degree,
       };
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so MOD commits do not block the handoff event with HEJI spelling.
-    [structuralSettings, tuningWorkspace, activeHejiFrame, deferredModulationHistoryKey, hasActiveDeferredModulation, settings.heji_show_cents, settings.heji_tempered_only],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
+    [structuralSettings, tuningWorkspace, activeHejiFrame, activeDeferredModulationKey, hasActiveDeferredModulation, settings.heji_show_cents, settings.heji_tempered_only],
   );
 
   const tableHejiNames = useMemo(() => {
@@ -1275,8 +1276,8 @@ const App = () => {
       temperedOnly: settings.heji_tempered_only === true,
       forceShowZeroDeviation: settings.heji_tempered_only === true,
     }).labelsByDegree;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so MOD commits do not block the handoff event with HEJI spelling.
-  }, [structuralSettings, tuningWorkspace, activeHejiFrame, deferredModulationHistoryKey, hasActiveDeferredModulation, settings.heji_tempered_only, labelSettings.heji_names]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
+  }, [structuralSettings, tuningWorkspace, activeHejiFrame, activeDeferredModulationKey, hasActiveDeferredModulation, settings.heji_tempered_only, labelSettings.heji_names]);
 
   const normalizedSettings = useMemo(
     () => ({

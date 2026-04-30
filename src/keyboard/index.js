@@ -4,9 +4,32 @@ import Keys from "./keys";
 import "./keyboard.css";
 import PropTypes from "prop-types";
 
+const sameArray = (a = [], b = []) => {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+};
+
+const labelsMatchSettings = (labels, settings) => {
+  if (!labels || !settings) return true;
+  for (const flag of ["degree", "note", "scala", "cents", "heji", "equaves", "no_labels"]) {
+    if (!!labels[flag] !== !!settings[flag]) return false;
+  }
+  return (
+    labels.key_labels === settings.key_labels &&
+    sameArray(labels.note_names, settings.note_names) &&
+    sameArray(labels.scala_names, settings.scala_names) &&
+    sameArray(labels.heji_names, settings.heji_names) &&
+    labels.heji_anchor_label_eff === settings.heji_anchor_label_eff &&
+    labels.heji_anchor_ratio_eff === settings.heji_anchor_ratio_eff &&
+    labels.reference_degree === settings.reference_degree
+  );
+};
+
 const Keyboard = (props) => {
   const canvas = useRef(null);
   const keysRef = useRef(null);
+  const appliedLabelSettingsRef = useRef(null);
 
   // ── Keys reconstruction ────────────────────────────────────────────────────
   // Runs when structural settings change. LED drivers (Exquis, Lumatone,
@@ -30,9 +53,12 @@ const Keyboard = (props) => {
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
     keys.linnstrumentLEDs = props.linnstrumentLedsRef?.current ?? null;
     keysRef.current = keys;
-    // Apply current label settings immediately after construction so the initial
-    // draw has the correct label mode even if labelSettings changed since Keys was last built.
-    if (props.labelSettings) keys.updateLabels(props.labelSettings);
+    // Keys already draws once during construction from props.settings. Avoid an
+    // immediate duplicate redraw when labelSettings is the same payload.
+    if (props.labelSettings && !labelsMatchSettings(props.labelSettings, props.settings)) {
+      keys.updateLabels(props.labelSettings);
+    }
+    appliedLabelSettingsRef.current = props.labelSettings ?? null;
     if (props.onModulationStateChange && typeof keys.getModulationState === "function") {
       props.onModulationStateChange(keys.getModulationState());
     }
@@ -86,8 +112,13 @@ const Keyboard = (props) => {
 
   // Label changes are display-only — update imperatively without reconstructing Keys.
   useEffect(() => {
-    if (keysRef.current && props.labelSettings) {
+    if (
+      keysRef.current &&
+      props.labelSettings &&
+      appliedLabelSettingsRef.current !== props.labelSettings
+    ) {
       keysRef.current.updateLabels(props.labelSettings);
+      appliedLabelSettingsRef.current = props.labelSettings;
     }
   }, [props.labelSettings]);
 
