@@ -1,26 +1,12 @@
 import { calculateRotationMatrix } from "./matrix";
 import Point from "./point";
 import Euclid from "./euclidean";
-import {
-  HSVtoRGB2,
-  nameToHex,
-  hex2rgb,
-  rgb2hsv,
-  rgbToHex,
-} from "./color_utils";
 import { WebMidi } from "webmidi";
 import { keymap, notes } from "../midi_synth";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
-import { buildLinnstrumentDegreeMap, LINNS_OFF } from "../controllers/linnstrument-config.js";
-import {
-  transferColor,
-  LUMATONE_TONIC,
-  LUMATONE_TONIC_OTHER,
-} from "../settings/scale/color-transfer.js";
 import { RecencyStack } from "../recency_stack.js";
 import { MidiCoordResolver } from "./midi-coord-resolver.js";
-import { findNearestDegree } from "../input/scale-mapper.js";
 import {
   degree0ToRef,
   computeNaturalAnchor,
@@ -72,6 +58,8 @@ import {
 import * as KeysLabels from "./keys-labels.js";
 import * as KeysRenderer from "./keys-renderer.js";
 import * as KeysBrowserInput from "./keys-browser-input.js";
+import * as KeysControllerLeds from "./keys-controller-leds.js";
+import * as KeysMidiInput from "./keys-midi-input.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
 import {
   classifyReleaseForSettlement,
@@ -84,8 +72,6 @@ const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
 const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
-const WHEEL_SLEW_TAU_MS = 8;
-const WHEEL_SLEW_SNAP_14 = 2;
 const BULK_RELEASE_PROTECT_MS = 750;
 
 function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpositionDeltaCents) {
@@ -261,13 +247,9 @@ class Keys {
     this._deferredBulkMapTimer = null;
     this._staticDeferredBulkActive = false;
     this._recentlyReleasedHexes = new Map();
-    // Per-channel slew state for MPE input pitch bend smoothing.
-    // Map<channel, { current: float, target: float, raf: id|null }>
-    this._bendSlew = new Map();
-
     // Wheel bend state — controller-agnostic.
     // _wheelValue14:   most recent non-MPE pitch-bend value (0–16383).
-    // _wheelInputValue14: latest raw controller wheel sample before slew.
+    // _wheelInputValue14: latest raw controller wheel sample.
     // _wheelBend:      current offset in cents applied by the active wheel mode.
     // _wheelTarget:    the hex currently being bent.
     // _wheelBaseCents: that hex's pitch before any bend was applied.
@@ -277,11 +259,9 @@ class Keys {
     this._wheelBend = 0;
     this._wheelTarget = null;
     this._wheelBaseCents = null;
-    this._wheelSlew = {
+    this._wheelInputState = {
       current: 8192,
       target: 8192,
-      lastTime: 0,
-      raf: null,
     };
     this._controllerCCValues = new Map();
     if (
@@ -1474,26 +1454,7 @@ class Keys {
    * RAF-batched: multiple rapid color changes result in only one redraw per frame.
    */
   updateColors = (colors) => {
-    this.settings.note_colors = colors.note_colors;
-    this.settings.spectrum_colors = colors.spectrum_colors;
-    this.settings.fundamental_color = colors.fundamental_color;
-
-    this.scheduleGridRedraw();
-
-    // Propagate color changes to Lumatone LEDs when auto-sync is enabled.
-    // sendAll() replaces the entire pending queue so rapid picker drags always
-    // converge to the latest color state without unbounded queue growth.
-    if (this.lumatoneLEDs && this.controllerMap && this.settings.lumatone_led_sync) {
-      this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
-    }
-
-    if (this.exquisLEDs && this.settings.exquis_led_sync) {
-      this.exquisLEDs.sendColors(this._buildExquisColorArray());
-    }
-
-    if (this.linnstrumentLEDs && this.settings.linnstrument_led_sync) {
-      this.linnstrumentLEDs.updatePaletteValues(this._buildLinnstrumentColorArray());
-    }
+    return KeysControllerLeds.updateColors.call(this, colors);
   };
 
   /**
@@ -1632,21 +1593,15 @@ class Keys {
    * lumatone_led_sync auto-sync setting.  Called by the "Sync now" button.
    */
   syncLumatoneLEDs = () => {
-    if (this.lumatoneLEDs && this.controllerMap) {
-      this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
-    }
+    return KeysControllerLeds.syncLumatoneLEDs.call(this);
   };
 
   syncExquisLEDs = () => {
-    if (this.exquisLEDs && this.controllerMap) {
-      this.exquisLEDs.sendColors(this._buildExquisColorArray());
-    }
+    return KeysControllerLeds.syncExquisLEDs.call(this);
   };
 
   syncLinnstrumentLEDs = () => {
-    if (this.linnstrumentLEDs && this.controllerMap) {
-      this.linnstrumentLEDs.sendPaletteValues(this._buildLinnstrumentColorArray());
-    }
+    return KeysControllerLeds.syncLinnstrumentLEDs.call(this);
   };
 
   /**
@@ -1663,32 +1618,7 @@ class Keys {
    * @returns {number[]}  128 LinnStrument CC22 palette values
    */
   _buildLinnstrumentColorArray() {
-    // Pass 1: gather one colour sample per unique scale degree.
-    const degreeColors = new Map();
-    for (const [, coords] of this.controllerMap) {
-      const [cents, reducedSteps] = this.hexCoordsToCents(coords);
-      if (!degreeColors.has(reducedSteps)) {
-        degreeColors.set(reducedSteps, this._getScreenHexColor(cents, reducedSteps));
-      }
-    }
-
-    // Pass 2: analyse the full degree set and get palette assignments.
-    const degreeMap = buildLinnstrumentDegreeMap(degreeColors);
-
-    // Pass 3: fill the 128-slot output array.
-    // UF mode keys are "ch.col" (ch=row 1-8, col=1-16/25).
-    // _sendCell expects a flat note index: (row-1)*16 + (col-1).
-    const values = new Array(128).fill(LINNS_OFF);
-    for (const [mapKey, coords] of this.controllerMap) {
-      const dot = mapKey.indexOf(".");
-      const ch   = parseInt(mapKey.slice(0, dot), 10);
-      const col  = parseInt(mapKey.slice(dot + 1), 10);
-      const note = (ch - 1) * 16 + (col - 1);
-      if (note < 0 || note > 127) continue;
-      const [, reducedSteps] = this.hexCoordsToCents(coords);
-      values[note] = degreeMap.get(reducedSteps) ?? LINNS_OFF;
-    }
-    return values;
+    return KeysControllerLeds.buildLinnstrumentColorArray.call(this);
   }
 
   /**
@@ -1704,26 +1634,7 @@ class Keys {
    * for subsequent colour updates.
    */
   sendLumatoneLayout = () => {
-    if (!this.lumatoneLEDs) return;
-
-    // All keys get colour #000000 so they appear dark/unlit on
-    // the hardware.  Hexatone will sync actual colours via syncLumatoneLEDs()
-    // once the layout is established.
-    const entries = [];
-    for (let b = 1; b <= 5; b++) {
-      for (let k = 0; k < 56; k++) {
-        entries.push({
-          board: b,   // sysex board byte 1–5
-          key: k,     // key index 0–55
-          note: k,    // note = key index (sequential mapping)
-          channel: b - 1, // 0-indexed channel (0–4)
-          hexColor: "#000000",
-        });
-      }
-    }
-
-    // Enable polyphonic aftertouch before the key layout.
-    this.lumatoneLEDs.sendLayout(entries, [{ cmd: 0x0e, board: 0, value: 1 }]);
+    return KeysControllerLeds.sendLumatoneLayout.call(this);
   };
 
   /**
@@ -1752,16 +1663,7 @@ class Keys {
    * @returns {Array<{ board: number, key: number, hexColor: string }>}
    */
   _buildLumatoneColorEntries() {
-    const entries = [];
-    for (const [mapKey, coords] of this.controllerMap) {
-      // mapKey format: "ch.note"  (ch = board 1-5, note = key 0-55 within block)
-      const dotIdx = mapKey.indexOf(".");
-      const board = parseInt(mapKey.slice(0, dotIdx), 10);
-      const key = parseInt(mapKey.slice(dotIdx + 1), 10);
-      const hexColor = this._getLumatoneHexColor(coords);
-      entries.push({ board, key, hexColor });
-    }
-    return entries;
+    return KeysControllerLeds.buildLumatoneColorEntries.call(this);
   }
 
   // ── Exquis LED helpers ──────────────────────────────────────────────────────
@@ -1776,41 +1678,7 @@ class Keys {
    * @returns {string[]}  61 CSS hex colors ('#rrggbb')
    */
   _buildExquisColorArray() {
-    const colors = new Array(61).fill("#000000");
-
-    if (this.inputRuntime?.layoutMode === "sequential") {
-      const scale = this.tuning.scale || [];
-      const len = scale.length;
-      if (len === 0) return colors;
-
-      const anchorNote = this.settings.midiin_central_degree ?? 60;
-      const centerDegree = this.settings.center_degree || 0;
-
-      for (let note = 0; note <= 60; note++) {
-        let steps = note - anchorNote + centerDegree;
-        let octs = Math.trunc(steps / len);
-        let reducedSteps = steps % len;
-        if (reducedSteps < 0) {
-          reducedSteps += len;
-          octs -= 1;
-        }
-        const cents = octs * this.tuning.equivInterval + scale[reducedSteps];
-        if (reducedSteps === 0) {
-          colors[note] = octs === 0 ? LUMATONE_TONIC : LUMATONE_TONIC_OTHER;
-        } else {
-          colors[note] = transferColor(this._getScreenHexColor(cents, reducedSteps));
-        }
-      }
-      return colors;
-    }
-
-    for (const [mapKey, coords] of this.controllerMap) {
-      const note = parseInt(mapKey.slice(mapKey.indexOf(".") + 1), 10);
-      if (note >= 0 && note <= 60) {
-        colors[note] = this._getLumatoneHexColor(coords);
-      }
-    }
-    return colors;
+    return KeysControllerLeds.buildExquisColorArray.call(this);
   }
 
   /**
@@ -1824,16 +1692,7 @@ class Keys {
    * @returns {string}      – '#rrggbb'
    */
   _getLumatoneHexColor(coords) {
-    const [cents, reducedSteps, , octs] = this.hexCoordsToCents(coords);
-
-    if (reducedSteps === 0) {
-      // Tonic: use Lumatone-specific constants (not screen-derived).
-      return octs === 0 ? LUMATONE_TONIC : LUMATONE_TONIC_OTHER;
-    }
-
-    // All other degrees: get screen color then map to Lumatone space.
-    const screenHex = this._getScreenHexColor(cents, reducedSteps);
-    return transferColor(screenHex);
+    return KeysControllerLeds.getLumatoneHexColor.call(this, coords);
   }
 
   /**
@@ -1845,23 +1704,7 @@ class Keys {
    * @returns {string}             – '#rrggbb'
    */
   _getScreenHexColor(cents, reducedSteps) {
-    if (!this.settings.spectrum_colors) {
-      const colors = this.settings.note_colors;
-      if (!colors || typeof colors[reducedSteps] === "undefined") return "#edede4";
-      return nameToHex(colors[reducedSteps]);
-    }
-
-    // Spectrum mode: derive hue from cents position (same formula as centsToColor).
-    const fcolor = hex2rgb("#" + this.settings.fundamental_color);
-    const hsv = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
-    let h = hsv.h / 360;
-    const s = hsv.s / 100;
-    const v = hsv.v / 100;
-    let reduced = (cents / 1200) % 1;
-    if (reduced < 0) reduced += 1;
-    h = (reduced + h) % 1;
-    const { red, green, blue } = HSVtoRGB2(h, s, v);
-    return rgbToHex(red, green, blue);
+    return KeysControllerLeds.getScreenHexColor.call(this, cents, reducedSteps);
   }
 
   deconstruct = () => {
@@ -1877,7 +1720,7 @@ class Keys {
     this._staticGridContext = null;
     this._staticGridUsable = false;
     this._staticGridValid = false;
-    this._stopWheelSlew(true);
+    this._resetWheelInputState(true);
     if (this._deferredBulkMapTimer != null) {
       clearTimeout(this._deferredBulkMapTimer);
       this._deferredBulkMapTimer = null;
@@ -1908,10 +1751,6 @@ class Keys {
     this.state.activeMidi.clear();
     this.state.activeMidiByChannel.clear();
     this._mpeInputBendByChannel.clear();
-    this._bendSlew.forEach((s) => {
-      if (s.raf !== null) cancelAnimationFrame(s.raf);
-    });
-    this._bendSlew.clear();
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
@@ -2238,289 +2077,27 @@ class Keys {
   // If stepsPerChannel is effectively zero (single-channel device or
   // stepsPerChannel === 0) returns baseCoords unchanged.
   _applyChannelOffset(baseCoords, channel) {
-    const stepsPerChannel = this.inputRuntime.stepsPerChannel ?? this.tuning.equivSteps;
-    if (!stepsPerChannel) return baseCoords;
-    const channelOffset = this.channelToStepsOffset(channel);
-    if (channelOffset === 0) return baseCoords;
-    const [, , baseSteps] = this.hexCoordsToCents(baseCoords);
-    return this.bestVisibleCoord(baseSteps + channelOffset) ?? baseCoords;
+    return KeysMidiInput.applyChannelOffset.call(this, baseCoords, channel);
   }
 
   _normalizeInputAddress(channel, note) {
-    return this.controller?.normalizeInput?.(channel, note, this.settings) ?? { channel, note };
+    return KeysMidiInput.normalizeInputAddress.call(this, channel, note);
   }
 
   _resolveScaleInputPitchCents(channel, note, fallbackPitchHz) {
-    const controllerPitchCents = this.controller?.resolveScaleInputPitchCents?.(
-      channel,
-      note,
-      this.settings,
-    );
-    if (controllerPitchCents != null) return controllerPitchCents;
-
-    const degree0toRefCents = this.tuning.degree0toRef_asArray[0];
-    const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
-    return 1200 * Math.log2(fallbackPitchHz / degree0Hz);
+    return KeysMidiInput.resolveScaleInputPitchCents.call(this, channel, note, fallbackPitchHz);
   }
 
   midinoteOn = (e) => {
-    const bend = this.bend || 0;
-    const note_played = e.note.number + 128 * (e.message.channel - 1);
-    const velocity_played = e.note.rawAttack;
-
-    // Some controllers can emit a retrigger for the same note/channel before the
-    // matching note-off arrives. Replace the old voice explicitly so a bent tail
-    // cannot survive underneath the new onset.
-    const existingHex = this.state.activeMidi.get(note_played);
-    if (existingHex) {
-      this.state.activeMidi.delete(note_played);
-      if (
-        this.inputRuntime.mpeInput &&
-        this.state.activeMidiByChannel.get(e.message.channel)?.hex === existingHex
-      ) {
-        this.state.activeMidiByChannel.delete(e.message.channel);
-      }
-      this.recencyStack.remove(existingHex);
-      existingHex.noteOff(0);
-      this._trackRecentlyReleasedHex(existingHex);
-      this._updateWheelTarget(false);
-    }
-
-    let coords;
-
-    if (this.inputRuntime.target === "scale") {
-      // Scale target mode: map incoming MIDI pitch to nearest scale degree.
-      // Purely musical reference — independent of layout settings
-      // (center_degree, midiin_central_degree, rSteps, etc.).
-      // pitchCents: incoming note expressed as cents above degree 0.
-      // Resolve exact pitch: MPE pre-bend > MTS table > plain 12-EDO.
-      let pitchHz;
-      if (this.inputRuntime.mpeInput) {
-        const preBend = this._scaleModePreBend.get(e.message.channel) ?? 8192;
-        const norm = (preBend - 8192) / 8192; // −1…+1
-        const bendRange = this.inputRuntime.scaleBendRange ?? 48;
-        const baseHz = 440 * Math.pow(2, (e.note.number - 69) / 12);
-        pitchHz = baseHz * Math.pow(2, (norm * bendRange) / 12);
-      } else {
-        pitchHz =
-          this._mtsInputTable.get(e.note.number) ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
-      }
-      const pitchCents = this._resolveScaleInputPitchCents(
-        e.message.channel,
-        e.note.number,
-        pitchHz,
-      );
-      const result = findNearestDegree(
-        pitchCents,
-        this.tuning.scale,
-        this.tuning.equivInterval,
-        this.inputRuntime.scaleTolerance ?? 50,
-        this.inputRuntime.scaleFallback || "discard",
-      );
-      if (result === null) return; // out of tolerance, discard
-      if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
-      coords = this.coordResolver.bestVisibleCoord(result.steps);
-    } else if (this.inputRuntime.layoutMode === "sequential") {
-      const normalized = this._normalizeInputAddress(e.message.channel, e.note.number);
-      if (!normalized) return;
-      // Sequential mode: ignore controller geometry, use step arithmetic.
-      // Also forward raw notes when MTS output is off (MTS via hexOn would double them).
-      if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
-        this.midiout_data.sendNoteOn(e.note.number, {
-          channels: this.settings.midi_channel + 1,
-          rawAttack: velocity_played,
-        });
-      }
-      coords = this.coordResolver.bestVisibleCoord(
-        this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-      );
-    } else if (this.controllerMap) {
-      // Known controller: direct coordinate lookup from pre-built map.
-      // Single-channel controllers always use ch=1; multi-channel use the real channel.
-      const lookupChannel = this.controller.multiChannel ? e.message.channel : 1;
-      const baseCoords = this.controllerMap.get(`${lookupChannel}.${e.note.number}`) ?? null;
-      if (baseCoords === null) return;
-      const inputChannel = e.message.channel;
-      // The controllerMap already encodes physical position exactly — no channel offset.
-      // Controllers that opt into channel-offset arithmetic on top of their map
-      // (e.g. Generic Keyboard) apply the user's per-channel transposition here.
-      coords = this.controller.applyChannelOffsetOnMap
-        ? this._applyChannelOffset(baseCoords, inputChannel)
-        : baseCoords;
-    } else {
-      // Generic keyboard: step arithmetic with channel-based transposition.
-      coords = this.coordResolver.bestVisibleCoord(
-        this.coordResolver.noteToSteps(e.note.number, e.message.channel),
-      );
-    }
-
-    if (coords === null) return;
-    if (this._midiLatchToggle(coords, velocity_played)) return;
-    const hex = this.hexOn(coords, note_played, velocity_played, bend);
-    if (this.inputRuntime.mpeInput) hex._inputChannel = e.message.channel;
-    this.state.activeMidi.set(note_played, hex);
-    // In MPE input mode also track by channel so per-channel expression events
-    // (pitch bend, pressure, CC74) can look up the correct hex directly.
-    if (this.inputRuntime.mpeInput) {
-      // Store both the hex and its base pitch (cents at note-on, before any bend).
-      // The pitch bend handler reads baseCents — not hex.cents, which retune() mutates.
-      this.state.activeMidiByChannel.set(e.message.channel, {
-        hex,
-        baseCents: hex._baseCents ?? hex.cents,
-      });
-    }
-    this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(coords);
+    return KeysMidiInput.midinoteOn.call(this, e);
   };
 
   midinoteOff = (e) => {
-    let coordsList;
-
-    if (this.inputRuntime.target === "scale") {
-      // Scale mode: re-resolve pitch to steps for visual release.
-      // Mirror the same pitch resolution as midinoteOn so we release the right key.
-      let pitchHz;
-      if (this.inputRuntime.mpeInput) {
-        const preBend = this._scaleModePreBend.get(e.message.channel) ?? 8192;
-        const norm = (preBend - 8192) / 8192;
-        const bendRange = this.inputRuntime.scaleBendRange ?? 48;
-        const baseHz = 440 * Math.pow(2, (e.note.number - 69) / 12);
-        pitchHz = baseHz * Math.pow(2, (norm * bendRange) / 12);
-      } else {
-        pitchHz =
-          this._mtsInputTable.get(e.note.number) ?? 440 * Math.pow(2, (e.note.number - 69) / 12);
-      }
-      const pitchCents = this._resolveScaleInputPitchCents(
-        e.message.channel,
-        e.note.number,
-        pitchHz,
-      );
-      const result = findNearestDegree(
-        pitchCents,
-        this.tuning.scale,
-        this.tuning.equivInterval,
-        this.inputRuntime.scaleTolerance ?? 50,
-        // Always accept on note-off — we must release whatever was activated.
-        "accept",
-      );
-      if (result === null) {
-        coordsList = [];
-      } else {
-        coordsList = this.coordResolver.stepsToVisibleCoords(result.steps);
-      }
-    } else if (this.inputRuntime.layoutMode === "sequential" || !this.controllerMap) {
-      const normalized = this._normalizeInputAddress(e.message.channel, e.note.number);
-      // Sequential or generic keyboard: step arithmetic (may hit multiple visible coords).
-      if (
-        this.inputRuntime.layoutMode === "sequential" &&
-        !this.settings.output_mts &&
-        this.midiout_data &&
-        this.settings.midi_channel >= 0
-      ) {
-        this.midiout_data.sendNoteOff(e.note.number, {
-          channels: this.settings.midi_channel + 1,
-          rawRelease: e.note.rawRelease,
-        });
-      }
-      coordsList = normalized
-        ? this.coordResolver.stepsToVisibleCoords(
-            this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-          )
-        : [];
-    } else {
-      // Known controller: direct lookup returns exactly one coord.
-      const lookupChannel = this.controller.multiChannel ? e.message.channel : 1;
-      const baseCoords = this.controllerMap.get(`${lookupChannel}.${e.note.number}`);
-      if (!baseCoords) {
-        coordsList = [];
-      } else {
-        const coords = this.controller.applyChannelOffsetOnMap
-          ? this._applyChannelOffset(baseCoords, e.message.channel)
-          : baseCoords;
-        coordsList = [coords];
-      }
-    }
-
-    const note_played = e.note.number + 128 * (e.message.channel - 1);
-    const hex = this.state.activeMidi.get(note_played);
-    if (hex) {
-      this.noteOff(hex, e.note.rawRelease);
-      this.state.activeMidi.delete(note_played); // clear BEFORE hexOff
-      // In MPE input mode, remove the channel→hex mapping. Only remove if this
-      // note's hex is still the registered one — a fast retrigger on the same
-      // channel could have already registered a newer hex.
-      if (
-        this.inputRuntime.mpeInput &&
-        this.state.activeMidiByChannel.get(e.message.channel)?.hex === hex
-      ) {
-        this.state.activeMidiByChannel.delete(e.message.channel);
-        this._mpeInputBendByChannel.delete(e.message.channel);
-        const slew = this._bendSlew.get(e.message.channel);
-        if (slew) {
-          if (slew.raf !== null) cancelAnimationFrame(slew.raf);
-          this._bendSlew.delete(e.message.channel);
-        }
-      }
-      this._settleModulationAfterActiveRelease();
-    }
-    // hexOff is called per coord for visual update (may cover multiple visible coords)
-    for (const coords of coordsList) {
-      if (!this.state.sustain) this.hexOff(coords);
-    }
+    return KeysMidiInput.midinoteOff.call(this, e);
   };
 
   allnotesOff = () => {
-    this._retuneGlides.clear();
-    if (this._retuneGlideTimer != null) {
-      clearTimeout(this._retuneGlideTimer);
-      this._retuneGlideTimer = null;
-    }
-    this._stopWheelSlew(true);
-    this._retuneGlideLastTime = 0;
-    if (notes.played.length > 0) {
-      for (const note_played of notes.played) {
-        const note = note_played % 128;
-        const channel = Math.floor(note_played / 128) + 1; // 1-indexed
-
-        let coordsList;
-        if (this.inputRuntime.layoutMode !== "sequential" && this.controllerMap) {
-          // Known controller: direct lookup.
-          const lookupChannel = this.controller.multiChannel ? channel : 1;
-          const baseCoords = this.controllerMap.get(`${lookupChannel}.${note}`);
-          if (!baseCoords) {
-            coordsList = [];
-          } else {
-            const coords = this.controller.applyChannelOffsetOnMap
-              ? this._applyChannelOffset(baseCoords, channel)
-              : baseCoords;
-            coordsList = [coords];
-          }
-        } else {
-          // Sequential or generic keyboard: step arithmetic.
-          const normalized = this._normalizeInputAddress(channel, note);
-          coordsList = this.coordResolver.stepsToVisibleCoords(
-            this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-          );
-        }
-
-        const hex = this.state.activeMidi.get(note_played);
-        if (hex) {
-          this.noteOff(hex, 64);
-          this.state.activeMidi.delete(note_played); // clear BEFORE hexOff
-          this._settleModulationAfterActiveRelease();
-        }
-        for (const coords of coordsList) {
-          if (!this.state.sustain) this.hexOff(coords);
-        }
-      }
-      notes.played = [];
-      this.state.activeMidiByChannel.clear();
-      this._mpeInputBendByChannel.clear();
-      this._bendSlew.forEach((s) => {
-        if (s.raf !== null) cancelAnimationFrame(s.raf);
-      });
-      this._bendSlew.clear();
-    } else {
-    }
+    return KeysMidiInput.allnotesOff.call(this);
   };
 
   panic = () => {
@@ -2529,7 +2106,7 @@ class Keys {
       clearTimeout(this._retuneGlideTimer);
       this._retuneGlideTimer = null;
     }
-    this._stopWheelSlew(true);
+    this._resetWheelInputState(true);
     this._retuneGlideLastTime = 0;
     // Send CC123 (All Notes Off) to all active output engines.
     // allSoundOff() on the composite synth fans out to every child (MPE, MTS,
@@ -2555,10 +2132,6 @@ class Keys {
     this.state.activeMidi.clear();
     this.state.activeMidiByChannel.clear();
     this._mpeInputBendByChannel.clear();
-    this._bendSlew.forEach((s) => {
-      if (s.raf !== null) cancelAnimationFrame(s.raf);
-    });
-    this._bendSlew.clear();
     // Reset drag-state flags in case panic fires mid-drag
     this.state.isMouseDown = false;
     this.state.isTouchDown = false;
@@ -2589,8 +2162,8 @@ class Keys {
     this._wheelBaseCents = null;
     this._wheelValue14 = 8192;
     this._wheelInputValue14 = 8192;
-    this._wheelSlew.current = 8192;
-    this._wheelSlew.target = 8192;
+    this._wheelInputState.current = 8192;
+    this._wheelInputState.target = 8192;
 
     // Reset sustain/latch state
     this.state.sustain = false;
@@ -3202,47 +2775,24 @@ class Keys {
 
   _handleIncomingWheelBend(val14) {
     this._wheelInputValue14 = val14;
-    // Apply controller pitch bend synchronously. The old rAF slew path can
-    // stall when the browser window is not focused, which drops live bend
-    // expression while notes/CC still pass through.
-    this._stopWheelSlew(false);
-    this._wheelSlew.current = val14;
-    this._wheelSlew.target = val14;
+    // Apply controller pitch bend synchronously. Browser main-thread smoothing
+    // is intentionally avoided because timers/rAF are throttled in background.
+    this._resetWheelInputState(false);
+    this._wheelInputState.current = val14;
+    this._wheelInputState.target = val14;
     this._handleWheelBend(val14);
   }
 
-  _setWheelSlewTarget(val14) {
-    this._wheelSlew.target = val14;
-    if (this._wheelSlew.raf == null) {
-      this._wheelSlew.current = this._wheelValue14;
-      this._wheelSlew.lastTime = 0;
-      this._wheelSlew.raf = requestAnimationFrame(this._tickWheelSlew);
-    }
+  _applyWheelInputNow(val14) {
+    this._wheelInputState.current = val14;
+    this._wheelInputState.target = val14;
+    this._handleWheelBend(val14);
   }
 
-  _tickWheelSlew = (timestamp) => {
-    this._wheelSlew.raf = null;
-    const state = this._wheelSlew;
-    const dt = state.lastTime ? Math.min(Math.max(timestamp - state.lastTime, 1), 50) : 16;
-    state.lastTime = timestamp;
-    const factor = 1 - Math.exp(-dt / WHEEL_SLEW_TAU_MS);
-    const next = state.current + (state.target - state.current) * factor;
-    state.current = Math.abs(state.target - next) <= WHEEL_SLEW_SNAP_14 ? state.target : next;
-    this._handleWheelBend(state.current);
-    if (state.current !== state.target) {
-      state.raf = requestAnimationFrame(this._tickWheelSlew);
-    } else {
-      state.lastTime = 0;
-    }
-  };
-
-  _stopWheelSlew(resetToCurrent = false) {
-    if (this._wheelSlew.raf != null) cancelAnimationFrame(this._wheelSlew.raf);
-    this._wheelSlew.raf = null;
-    this._wheelSlew.lastTime = 0;
+  _resetWheelInputState(resetToCurrent = false) {
     if (resetToCurrent) {
-      this._wheelSlew.current = this._wheelValue14;
-      this._wheelSlew.target = this._wheelValue14;
+      this._wheelInputState.current = this._wheelValue14;
+      this._wheelInputState.target = this._wheelValue14;
     }
   }
 

@@ -1376,26 +1376,26 @@ describe("Keys MIDI input integration", () => {
     expect(standardWheelRetuneB.mock.calls[0][0]).toBeCloseTo(3400, 0);
   });
 
-  it("applies standard wheel bend immediately without slew when wheel-to-recent is off", () => {
+  it("applies standard wheel bend immediately when wheel-to-recent is off", () => {
     const keys = createKeys({}, {
       wheelToRecent: false,
     });
     const handleSpy = vi.spyOn(keys, "_handleWheelBend");
-    const slewSpy = vi.spyOn(keys, "_setWheelSlewTarget");
+    const applySpy = vi.spyOn(keys, "_applyWheelInputNow");
 
     keys._handleIncomingWheelBend(12000);
 
     expect(handleSpy).toHaveBeenCalledWith(12000);
-    expect(slewSpy).not.toHaveBeenCalled();
+    expect(applySpy).not.toHaveBeenCalled();
   });
 
-  it("applies wheel-to-recent bend immediately without rAF slew", () => {
+  it("applies wheel-to-recent bend immediately without rAF scheduling", () => {
     const keys = createKeys({}, {
       wheelToRecent: true,
       pitchBendMode: "recency",
     });
     const handleSpy = vi.spyOn(keys, "_handleWheelBend");
-    const slewSpy = vi.spyOn(keys, "_setWheelSlewTarget");
+    const applySpy = vi.spyOn(keys, "_applyWheelInputNow");
     vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
 
@@ -1403,10 +1403,10 @@ describe("Keys MIDI input integration", () => {
     keys._handleIncomingWheelBend(12000);
 
     expect(handleSpy).toHaveBeenCalledWith(12000);
-    expect(slewSpy).not.toHaveBeenCalled();
+    expect(applySpy).not.toHaveBeenCalled();
     expect(requestAnimationFrame).not.toHaveBeenCalled();
-    expect(keys._wheelSlew.current).toBe(12000);
-    expect(keys._wheelSlew.target).toBe(12000);
+    expect(keys._wheelInputState.current).toBe(12000);
+    expect(keys._wheelInputState.target).toBe(12000);
   });
 
   it("does not directly retune non-sample hexes in standard wheel mode", () => {
