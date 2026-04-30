@@ -257,6 +257,7 @@ class Keys {
     this._retuneGlideTimer = null;
     this._retuneGlideLastTime = 0;
     this._gridRedrawRaf = null;
+    this._gridRedrawTimer = null;
     this._lastResizeSignature = null;
     this._visibleGridCoords = [];
     this._hexGeometryCache = new Map();
@@ -1974,6 +1975,14 @@ class Keys {
     this.state.canvas.removeEventListener("mousedown", this.mouseDown, false);
     window.removeEventListener("mouseup", this.mouseUp, false);
     this.state.canvas.removeEventListener("mousemove", this.mouseActive, false);
+    if (this._gridRedrawRaf != null) {
+      cancelAnimationFrame(this._gridRedrawRaf);
+      this._gridRedrawRaf = null;
+    }
+    if (this._gridRedrawTimer != null) {
+      clearTimeout(this._gridRedrawTimer);
+      this._gridRedrawTimer = null;
+    }
 
     if (this.midiin_data) {
       for (const eventName of [
@@ -2184,6 +2193,8 @@ class Keys {
   _hasSoundingNotes() {
     return hasSoundingNotes(this.state);
   }
+
+  hasSoundingNotes = () => this._hasSoundingNotes();
 
   _hasRecentReleasedBulkTargets() {
     return this._recentlyReleasedHexes.size > 0;
@@ -3317,6 +3328,27 @@ class Keys {
 
   scheduleGridRedraw() {
     this._staticGridValid = false;
+    if (this._gridRedrawRaf != null || this._gridRedrawTimer != null) return;
+    const scheduleWhenSafe = () => {
+      this._gridRedrawTimer = null;
+      if (this._hasSoundingNotes()) {
+        this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 25);
+        return;
+      }
+      this._gridRedrawRaf = requestAnimationFrame(() => {
+        this._gridRedrawRaf = null;
+        this.drawGrid();
+      });
+    };
+    this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 0);
+  }
+
+  scheduleImmediateGridRedraw() {
+    this._staticGridValid = false;
+    if (this._gridRedrawTimer != null) {
+      clearTimeout(this._gridRedrawTimer);
+      this._gridRedrawTimer = null;
+    }
     if (this._gridRedrawRaf != null) return;
     this._gridRedrawRaf = requestAnimationFrame(() => {
       this._gridRedrawRaf = null;

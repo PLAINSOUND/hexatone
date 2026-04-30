@@ -709,13 +709,21 @@ const App = () => {
   const deferredModulationHistoryRef = useRef(modulationHistory);
   deferredModulationHistoryRef.current = modulationHistory;
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
+    let timeoutId = null;
+    const syncWhenNotesAreClear = () => {
+      if (keysRef.current?.hasSoundingNotes?.()) {
+        timeoutId = setTimeout(syncWhenNotesAreClear, 25);
+        return;
+      }
       const nextHistory = deferredModulationHistoryRef.current;
       setDeferredModulationHistory(
         Array.isArray(nextHistory) ? nextHistory.map((entry) => ({ ...entry })) : [],
       );
-    }, 0);
-    return () => clearTimeout(timeoutId);
+    };
+    timeoutId = setTimeout(syncWhenNotesAreClear, 0);
+    return () => {
+      if (timeoutId != null) clearTimeout(timeoutId);
+    };
   }, [activeModulationHistoryKey]);
   const deferredModulationHistoryKey = useMemo(
     () => modulationHistoryKey(deferredModulationHistory),
