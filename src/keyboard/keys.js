@@ -79,6 +79,12 @@ import {
   scaleCentsLabelForDegree,
 } from "./keys-display-runtime.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
+import {
+  classifyReleaseForSettlement,
+  evaluateSettlement,
+  hasLegacyFrameNotes,
+  normalizeSettlementNotes,
+} from "./note-context-runtime.js";
 
 const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
@@ -1201,21 +1207,21 @@ class Keys {
   }
 
   _hasLegacyFrameNotes() {
-    if (this._modulationState.mode !== "pending_settlement" || !this._modulationState.oldFrame) {
-      return false;
-    }
-    const oldFrameId = this._modulationState.oldFrame.id;
-    for (const hex of this._allActiveHexes()) {
-      if (hex._onsetFrameId === oldFrameId) return true;
-    }
-    return this.state.sustainedNotes.some(([hex]) => hex._onsetFrameId === oldFrameId);
+    return hasLegacyFrameNotes(this._modulationState, this._settlementNotesSnapshot());
+  }
+
+  _settlementNotesSnapshot() {
+    return normalizeSettlementNotes(
+      [...this._allActiveHexes()],
+      this.state.sustainedNotes,
+    );
   }
 
   _maybeSettleModulation() {
-    if (this._modulationState.mode !== "pending_settlement") return;
-    if (this._hasLegacyFrameNotes()) return;
+    const settlement = evaluateSettlement(this._modulationState, this._settlementNotesSnapshot());
+    if (!settlement.canSettle) return;
     this._modulationState = settleModulationIfPossible(this._modulationState, {
-      hasLegacyNotes: false,
+      hasLegacyNotes: settlement.hasLegacyNotes,
     });
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
     this.drawGrid();
@@ -1223,7 +1229,11 @@ class Keys {
   }
 
   _settleModulationAfterActiveRelease() {
-    if (this._modulationState.mode !== "pending_settlement") return;
+    const release = classifyReleaseForSettlement(this._modulationState, {
+      suppressed: false,
+      notes: this._settlementNotesSnapshot(),
+    });
+    if (!release.shouldRetrySettlement) return;
     this._maybeSettleModulation();
   }
 
@@ -2687,7 +2697,7 @@ class Keys {
       } else {
         this._scheduleDeferredBulkRefresh();
       }
-      this._maybeSettleModulation();
+      this._settleModulationAfterActiveRelease();
     }
   }
 
@@ -2722,7 +2732,7 @@ class Keys {
     } else {
       this._scheduleDeferredBulkRefresh();
     }
-    this._maybeSettleModulation();
+    this._settleModulationAfterActiveRelease();
     // Fire React callback AFTER all visual/audio cleanup — Preact may flush
     // synchronously and trigger a re-render that redraws hexes mid-cleanup.
     if (this.onLatchChange) this.onLatchChange(false);
