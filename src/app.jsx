@@ -539,6 +539,23 @@ const App = () => {
     });
   }, []);
 
+  const suppressTouchClickUntilRef = useRef(0);
+  const runTouchControlAction = useCallback((e, action) => {
+    if (e.pointerType !== "touch") return false;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressTouchClickUntilRef.current = Date.now() + 700;
+    action();
+    return true;
+  }, []);
+  const skipSuppressedTouchClick = useCallback((e) => {
+    if (Date.now() > suppressTouchClickUntilRef.current) return false;
+    suppressTouchClickUntilRef.current = 0;
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }, []);
+
   useEffect(() => {
     const onPointerMove = (e) => {
       if (!modulationPaletteDragRef.current) return;
@@ -1326,8 +1343,10 @@ const App = () => {
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                runTouchControlAction(e, () => shiftOctave(-1));
               }}
               onClick={(e) => {
+                if (skipSuppressedTouchClick(e)) return;
                 e.stopPropagation();
                 shiftOctave(-1);
               }}
@@ -1340,7 +1359,13 @@ const App = () => {
               title={
                 octaveDeferred ? "Transpose on next event" : "Transpose sounding notes immediately"
               }
-              onClick={toggleOctaveDeferred}
+              onClick={(e) => {
+                if (skipSuppressedTouchClick(e)) return;
+                toggleOctaveDeferred();
+              }}
+              onPointerDown={(e) => {
+                runTouchControlAction(e, toggleOctaveDeferred);
+              }}
               style={{ cursor: "pointer", pointerEvents: "auto" }}
             >
               {octaveTranspose === 0
@@ -1355,8 +1380,10 @@ const App = () => {
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                runTouchControlAction(e, () => shiftOctave(+1));
               }}
               onClick={(e) => {
+                if (skipSuppressedTouchClick(e)) return;
                 e.stopPropagation();
                 shiftOctave(+1);
               }}
@@ -1369,11 +1396,14 @@ const App = () => {
             id="sustain-island"
             className={latch ? "latch-active" : ""}
             onClick={(e) => {
+              if (skipSuppressedTouchClick(e)) return;
               e.stopPropagation();
               if (keysRef.current) keysRef.current.latchToggle();
             }}
             onPointerDown={(e) => {
-              if (e.pointerType === "touch") e.preventDefault();
+              runTouchControlAction(e, () => {
+                if (keysRef.current) keysRef.current.latchToggle();
+              });
             }}
             onContextMenu={(e) => e.preventDefault()}
           >
@@ -1395,13 +1425,18 @@ const App = () => {
                   : "Arm modulation target selection (Backquote)"
             }
             onClick={(e) => {
+              if (skipSuppressedTouchClick(e)) return;
               e.stopPropagation();
               if (!keysRef.current?.toggleModulationArm) return;
               if (modulationMode === "idle") setModulationArmed(true);
               keysRef.current.toggleModulationArm();
             }}
             onPointerDown={(e) => {
-              if (e.pointerType === "touch") e.preventDefault();
+              runTouchControlAction(e, () => {
+                if (!keysRef.current?.toggleModulationArm) return;
+                if (modulationMode === "idle") setModulationArmed(true);
+                keysRef.current.toggleModulationArm();
+              });
             }}
             onContextMenu={(e) => e.preventDefault()}
             >
@@ -1412,10 +1447,18 @@ const App = () => {
             id="panic-button"
             title="Panic - kill all stuck notes"
             onClick={(e) => {
+              if (skipSuppressedTouchClick(e)) return;
               e.stopPropagation();
               guardianPanic();
               if (keysRef.current) keysRef.current.panic();
               resetOctave();
+            }}
+            onPointerDown={(e) => {
+              runTouchControlAction(e, () => {
+                guardianPanic();
+                if (keysRef.current) keysRef.current.panic();
+                resetOctave();
+              });
             }}
             onContextMenu={(e) => e.preventDefault()}
           >
@@ -1426,10 +1469,10 @@ const App = () => {
           id="snapshot-button"
           title="Capture current notes as a snapshot"
           onPointerDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            runTouchControlAction(e, onTakeSnapshot);
           }}
           onClick={(e) => {
+            if (skipSuppressedTouchClick(e)) return;
             e.stopPropagation();
             onTakeSnapshot();
           }}
@@ -1441,10 +1484,12 @@ const App = () => {
           id="redraw-button"
           title="Redraw keyboard / Resume audio"
           onPointerDown={(e) => {
-            e.preventDefault();
-            if (keysRef.current) keysRef.current.resizeHandler();
+            runTouchControlAction(e, () => {
+              if (keysRef.current) keysRef.current.resizeHandler();
+            });
           }}
           onClick={async (e) => {
+            if (skipSuppressedTouchClick(e)) return;
             e.stopPropagation();
             if (keysRef.current) keysRef.current.resizeHandler();
             // Re-prepare the active synth within the user gesture so iOS can

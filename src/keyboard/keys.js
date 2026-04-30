@@ -3,7 +3,6 @@ import Point from "./point";
 import Euclid from "./euclidean";
 import { WebMidi } from "webmidi";
 import { notes } from "../midi_synth";
-import { scalaToCents } from "../settings/scale/parse-scale";
 import { RecencyStack } from "../recency_stack.js";
 import { MidiCoordResolver } from "./midi-coord-resolver.js";
 import {
@@ -26,12 +25,8 @@ import {
   removeSustainedHex,
 } from "./sounding-note-runtime.js";
 import {
-  applyTransferredCC74,
-  applyTransferredPitchBend,
-  applyTransferredSourceAftertouch,
   createTransferredHex,
   releaseTransferredSourceExpression,
-  synchronizeTransferredPitchBend,
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
 import {
@@ -59,6 +54,7 @@ import * as KeysBrowserInput from "./keys-browser-input.js";
 import * as KeysControllerLeds from "./keys-controller-leds.js";
 import * as KeysMidiInput from "./keys-midi-input.js";
 import * as InputMidiListeners from "../input/keys-midi-listeners.js";
+import * as InputExpressionRuntime from "../input/keys-expression-runtime.js";
 import * as SequencerSnapshots from "../sequencer/snapshots.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
 import {
@@ -68,10 +64,6 @@ import {
   normalizeSettlementNotes,
 } from "./note-context-runtime.js";
 
-const RETUNE_GLIDE_TICK_MS = 4;
-const RETUNE_GLIDE_TAU_MS = 40;
-const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
-const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 const BULK_RELEASE_PROTECT_MS = 750;
 
 function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpositionDeltaCents) {
@@ -691,77 +683,31 @@ class Keys {
   }
 
   _applyPolyAftertouch(hex, value) {
-    if (!hex || hex.release) return;
-    const aftertouch = Math.max(0, Math.min(127, Number(value) || 0));
-    hex._lastAftertouch = aftertouch;
-    if (applyTransferredSourceAftertouch(hex, aftertouch)) return;
-    hex.aftertouch?.(aftertouch);
+    return InputExpressionRuntime.applyPolyAftertouch.call(this, hex, value);
   }
 
   _applyTimbreCC74(hex, value) {
-    if (!hex || hex.release) return;
-    const cc74 = Math.max(0, Math.min(127, Number(value) || 0));
-    hex._lastCC74 = cc74;
-    if (applyTransferredCC74(hex, cc74)) return;
-    hex.cc74?.(cc74);
+    return InputExpressionRuntime.applyTimbreCC74.call(this, hex, value);
   }
 
   _normalizePitchBend14(value) {
-    const bend = Number(value);
-    if (!Number.isFinite(bend)) return 8192;
-    return Math.max(0, Math.min(16383, bend));
+    return InputExpressionRuntime.normalizePitchBend14.call(this, value);
   }
 
   _applyMpePitchBend(entry, channel, value14) {
-    if (!entry?.hex || entry.hex.release) return;
-    const bend14 = this._normalizePitchBend14(value14);
-    this._mpeInputBendByChannel.set(channel, bend14);
-    let norm = (bend14 - 8192) / 8192;
-    if (this.inputRuntime.bendFlip) norm = -norm;
-    const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
-    const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
-    const bentCents = baseCents + norm * rangeCents;
-    entry.baseCents = baseCents;
-    entry.hex._lastPitchBend14 = bend14;
-    entry.hex._lastPitchBendCents = bentCents;
-    if (applyTransferredPitchBend(entry.hex, { value14: bend14, cents: bentCents })) return;
-    entry.hex.retune?.(bentCents, true);
+    return InputExpressionRuntime.applyMpePitchBend.call(this, entry, channel, value14);
   }
 
   _currentWheelPitchStateForHex(hex) {
-    if (!hex || this.inputRuntime.mpeInput || this._wheelValue14 === 8192) return null;
-    if (!this.inputRuntime.wheelToRecent || this.inputRuntime.pitchBendMode === "all") {
-      const baseCents = hex._baseCents ?? hex.cents ?? 0;
-      return {
-        value14: this._wheelValue14,
-        cents: baseCents + this._wheelBend,
-      };
-    }
-    if (this.inputRuntime.pitchBendMode === "recency") {
-      const { bentCents } = this._resolveRecencyWheelTarget(hex, this._wheelValue14);
-      return {
-        value14: this._wheelValue14,
-        cents: bentCents,
-      };
-    }
-    return null;
+    return InputExpressionRuntime.currentWheelPitchStateForHex.call(this, hex);
   }
 
   _syncTransferredWheelBend(hex) {
-    const state = this._currentWheelPitchStateForHex(hex);
-    if (!state) return false;
-    return synchronizeTransferredPitchBend(hex, state);
+    return InputExpressionRuntime.syncTransferredWheelBend.call(this, hex);
   }
 
   _syncTransferredWheelBends() {
-    if (this.inputRuntime.mpeInput || this._wheelValue14 === 8192) return;
-    const syncedSources = new Set();
-    for (const hex of this._allActiveHexes()) {
-      const sourceHex = hex?._transferredSource ?? hex;
-      if (!sourceHex?._transferProxy || syncedSources.has(sourceHex)) continue;
-      syncedSources.add(sourceHex);
-      this._syncTransferredWheelBend(sourceHex);
-    }
+    return InputExpressionRuntime.syncTransferredWheelBends.call(this);
   }
 
   _hasLegacyFrameNotes() {
@@ -2078,40 +2024,11 @@ class Keys {
   // listeners before any internal consumption logic.
 
   _passthroughCC(cc, value) {
-    if (
-      this.midiout_data &&
-      this.settings.midi_device !== "OFF" &&
-      this.settings.midi_channel >= 0
-    ) {
-      this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
-    }
-    if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
-      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
-      if (mpeOutput) {
-        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
-        mpeOutput.sendControlChange(cc, value, { channels: managerCh });
-      }
-    }
+    return InputExpressionRuntime.passthroughCC.call(this, cc, value);
   }
 
   _passthroughChannelPressure(value) {
-    if (
-      this.midiout_data &&
-      this.settings.midi_device !== "OFF" &&
-      this.settings.midi_channel >= 0
-    ) {
-      this.midiout_data.sendChannelAftertouch(value, {
-        channels: this.settings.midi_channel + 1,
-        rawValue: true,
-      });
-    }
-    if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
-      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
-      if (mpeOutput) {
-        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
-        mpeOutput.sendChannelAftertouch(value, { channels: managerCh, rawValue: true });
-      }
-    }
+    return InputExpressionRuntime.passthroughChannelPressure.call(this, value);
   }
 
   // Send a pitch-bend message to all active outputs.
@@ -2121,50 +2038,19 @@ class Keys {
   // we do not also send on the manager channel when in MPE input mode, since
   // that would double-apply the bend.
   _passthroughPitchBend(val14) {
-    const normalized = val14 / 8192.0 - 1.0; // 0→−1, 8192→0, 16383→≈+1
-    if (
-      this.midiout_data &&
-      this.settings.midi_device !== "OFF" &&
-      this.settings.midi_channel >= 0
-    ) {
-      this.midiout_data.sendPitchBend(normalized, { channels: this.settings.midi_channel + 1 });
-    }
-    // MPE: only send zone-wide PB on manager channel when NOT in MPE input mode.
-    // In MPE input mode each voice channel carries its own per-note bend via retune().
-    if (
-      !this.inputRuntime.mpeInput &&
-      this.settings.output_mpe &&
-      this.settings.mpe_device !== "OFF"
-    ) {
-      const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
-      if (mpeOutput) {
-        const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
-        mpeOutput.sendPitchBend(normalized, { channels: managerCh });
-      }
-    }
+    return InputExpressionRuntime.passthroughPitchBend.call(this, val14);
   }
 
   _getControllerState() {
-    return {
-      ccValues: Object.fromEntries(this._controllerCCValues),
-      channelPressure: this._channelPressureValue,
-      pitchBend14: this._wheelValue14,
-    };
+    return InputExpressionRuntime.getControllerState.call(this);
   }
 
   _pushControllerStateToSynth() {
-    if (this.synth?.rememberControllerState) {
-      this.synth.rememberControllerState(this._getControllerState());
-    }
-    if (this.synth?.applyControllerState) {
-      this.synth.applyControllerState(this._getControllerState());
-    }
+    return InputExpressionRuntime.pushControllerStateToSynth.call(this);
   }
 
   _rememberControllerStateInSynth() {
-    if (this.synth?.rememberControllerState) {
-      this.synth.rememberControllerState(this._getControllerState());
-    }
+    return InputExpressionRuntime.rememberControllerStateInSynth.call(this);
   }
 
   // ── Wheel bend (pitch bend routing) ──────────────────────────────────────
@@ -2201,247 +2087,62 @@ class Keys {
   // the committed pitch for _wheelTarget, then reset _wheelBend to 0.
 
   _handleWheelBend(val14) {
-    this._wheelValue14 = val14;
-    if (!this.inputRuntime.wheelToRecent) {
-      // Standard mode: bend the internal sample engine only. External MIDI/MTS/MPE
-      // outputs receive raw pitch-bend passthrough in the listener above.
-      // Uses hex._baseCents (frozen at note-on) to avoid accumulation drift.
-      const norm = (val14 - 8192) / 8192; // −1 … +1
-      const rangeCents = (this.inputRuntime.wheelSemitones ?? 2) * 100;
-      const offsetCents = norm * rangeCents;
-      this._wheelBend = offsetCents;
-      for (const hex of this._allActiveHexes()) {
-        if (hex.standardWheelRetune) {
-          hex.standardWheelRetune((hex._baseCents ?? hex.cents) + offsetCents);
-        }
-      }
-      this._syncTransferredWheelBends();
-      return;
-    }
-
-    const norm = (val14 - 8192) / 8192; // −1 … +1
-
-    if (this.inputRuntime.pitchBendMode === "all") {
-      // All-notes mode: apply a uniform cent offset to every active hex.
-      // We use the symmetric fixed-range calculation only (scale-aware
-      // asymmetric bend is inherently single-target).
-      // Uses hex._baseCents (frozen at note-on) to avoid accumulation drift.
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
-      const offsetCents = norm * rangeCents;
-      this._wheelBend = offsetCents;
-      for (const hex of this._allActiveHexes()) {
-        hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
-      }
-      this._syncTransferredWheelBends();
-      return;
-    }
-
-    // 'recency' mode (default): target the front of the recency stack.
-    const target = this.recencyStack.front;
-    if (!target) return;
-
-    if (this._wheelTarget !== target) {
-      this._wheelTarget = target;
-    }
-    const { baseCents, bentCents } = this._resolveRecencyWheelTarget(target, val14);
-    this._wheelBaseCents = baseCents;
-    this._wheelBend = bentCents - baseCents;
-    target.retune(bentCents, true);
-    this._syncTransferredWheelBend(target);
+    return InputExpressionRuntime.handleWheelBend.call(this, val14);
   }
 
   _handleIncomingWheelBend(val14) {
-    this._wheelInputValue14 = val14;
-    // Apply controller pitch bend synchronously. Browser main-thread smoothing
-    // is intentionally avoided because timers/rAF are throttled in background.
-    this._resetWheelInputState(false);
-    this._wheelInputState.current = val14;
-    this._wheelInputState.target = val14;
-    this._handleWheelBend(val14);
+    return InputExpressionRuntime.handleIncomingWheelBend.call(this, val14);
   }
 
   _applyWheelInputNow(val14) {
-    this._wheelInputState.current = val14;
-    this._wheelInputState.target = val14;
-    this._handleWheelBend(val14);
+    return InputExpressionRuntime.applyWheelInputNow.call(this, val14);
   }
 
   _resetWheelInputState(resetToCurrent = false) {
-    if (resetToCurrent) {
-      this._wheelInputState.current = this._wheelValue14;
-      this._wheelInputState.target = this._wheelValue14;
-    }
+    return InputExpressionRuntime.resetWheelInputState.call(this, resetToCurrent);
   }
 
   _resolveRecencyWheelTarget(target, val14 = this._wheelValue14) {
-    const baseCents = target?._baseCents ?? target?.cents ?? 0;
-    const norm = (val14 - 8192) / 8192; // −1 … +1
-
-    let bentCents;
-    if (
-      this.inputRuntime.wheelScaleAware &&
-      target?.cents_prev != null &&
-      target?.cents_next != null
-    ) {
-      if (norm < 0) {
-        bentCents = baseCents + norm * (baseCents - target.cents_prev);
-      } else {
-        bentCents = baseCents + norm * (target.cents_next - baseCents);
-      }
-    } else {
-      const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
-      bentCents = baseCents + norm * rangeCents;
-    }
-
-    return { baseCents, bentCents };
+    return InputExpressionRuntime.resolveRecencyWheelTarget.call(this, target, val14);
   }
 
   _applyCurrentWheelToHex(hex) {
-    if (!hex || this._wheelValue14 === 8192) return;
-    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
-      return;
-    }
-    const baseCents = hex._baseCents ?? hex.cents;
-    if (!this.inputRuntime.wheelToRecent) {
-      hex.retune(baseCents + this._wheelBend, true);
-      return;
-    }
-    if (this.inputRuntime.pitchBendMode === "all") {
-      hex.retune(baseCents + this._wheelBend, true);
-    }
+    return InputExpressionRuntime.applyCurrentWheelToHex.call(this, hex);
   }
 
   _reapplyCurrentWheelBend() {
-    if (this.inputRuntime.mpeInput) return;
-    if (this._wheelValue14 === 8192) return;
-    if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
-      this._wheelTarget = null;
-      this._wheelBaseCents = null;
-    }
-    this._handleWheelBend(this._wheelValue14);
+    return InputExpressionRuntime.reapplyCurrentWheelBend.call(this);
   }
 
   _retuneHexFromBase(hex, baseCents, bendOnly = false) {
-    if (!hex?.retune || hex.release) return;
-    hex._baseCents = baseCents;
-    if (this.inputRuntime.mpeInput && hex._inputChannel != null) {
-      const channel = hex._inputChannel;
-      const entry = this.state.activeMidiByChannel.get(channel) ?? { hex, baseCents };
-      entry.baseCents = baseCents;
-      this._applyMpePitchBend(entry, channel, this._mpeInputBendByChannel.get(channel) ?? 8192);
-      return;
-    }
-    hex.retune(baseCents, bendOnly);
+    return InputExpressionRuntime.retuneHexFromBase.call(this, hex, baseCents, bendOnly);
   }
 
   _queueRetuneGlide(hex, targetBase, bendOnly = false) {
-    if (!hex?.retune || hex.release) return;
-    const currentBase = this._retuneGlides.get(hex)?.currentBase ?? hex._baseCents ?? hex.cents;
-    this._retuneGlides.set(hex, { currentBase, targetBase, bendOnly });
+    return InputExpressionRuntime.queueRetuneGlide.call(this, hex, targetBase, bendOnly);
   }
 
   _kickRetuneGlides() {
-    if (this._retuneGlides.size === 0) return;
-    if (this._retuneGlideTimer == null) {
-      this._retuneGlideLastTime = performance.now() - RETUNE_GLIDE_TICK_MS;
-      this._retuneGlideTimer = setTimeout(this._tickRetuneGlides, 0);
-    }
+    return InputExpressionRuntime.kickRetuneGlides.call(this);
   }
 
   _tickRetuneGlides = () => {
-    this._retuneGlideTimer = null;
-    if (this._retuneGlides.size === 0) {
-      this._retuneGlideLastTime = 0;
-      return;
-    }
-
-    const now = performance.now();
-    const dt = this._retuneGlideLastTime
-      ? Math.min(Math.max(now - this._retuneGlideLastTime, 1), 50)
-      : RETUNE_GLIDE_TICK_MS;
-    this._retuneGlideLastTime = now;
-
-    let hasPending = false;
-    for (const [hex, glide] of this._retuneGlides) {
-      if (!hex?.retune || hex.release) {
-        this._retuneGlides.delete(hex);
-        continue;
-      }
-      const factor = 1 - Math.exp(-dt / RETUNE_GLIDE_TAU_MS);
-      const desiredStep = (glide.targetBase - glide.currentBase) * factor;
-      const maxStep = (RETUNE_GLIDE_MAX_CENTS_PER_SEC * dt) / 1000;
-      const step = Math.sign(desiredStep) * Math.min(Math.abs(desiredStep), maxStep);
-      let nextBase = glide.currentBase + step;
-      if (Math.abs(glide.targetBase - nextBase) < RETUNE_GLIDE_SNAP_CENTS) {
-        nextBase = glide.targetBase;
-      } else {
-        hasPending = true;
-      }
-      glide.currentBase = nextBase;
-      this._retuneHexFromBase(hex, nextBase, glide.bendOnly);
-      if (nextBase === glide.targetBase) this._retuneGlides.delete(hex);
-    }
-
-    this._refreshSoundingHexNeighbors();
-    if (!this.inputRuntime.mpeInput && this._wheelValue14 !== 8192) {
-      this._reapplyCurrentWheelBend();
-    }
-
-    if (hasPending || this._retuneGlides.size > 0) {
-      this._retuneGlideTimer = setTimeout(this._tickRetuneGlides, RETUNE_GLIDE_TICK_MS);
-    } else {
-      this._retuneGlideLastTime = 0;
-    }
+    return InputExpressionRuntime.tickRetuneGlides.call(this);
   };
 
   _reapplyCurrentInputBends() {
-    if (this.inputRuntime.mpeInput) {
-      for (const [channel, entry] of this.state.activeMidiByChannel) {
-        if (!entry || entry.hex.release) continue;
-        this._applyMpePitchBend(entry, channel, this._mpeInputBendByChannel.get(channel) ?? 8192);
-      }
-      return;
-    }
-    this._reapplyCurrentWheelBend();
+    return InputExpressionRuntime.reapplyCurrentInputBends.call(this);
   }
 
   _refreshSoundingHexNeighbors() {
-    const refresh = (hex) => {
-      const [, , , , , cents_prev, cents_next] = this.hexCoordsToCents(hex.coords);
-      hex.cents_prev = cents_prev;
-      hex.cents_next = cents_next;
-    };
-    for (const hex of this._allActiveHexes()) refresh(hex);
-    for (const [hex] of this.state.sustainedNotes) refresh(hex);
+    return InputExpressionRuntime.refreshSoundingHexNeighbors.call(this);
   }
 
   // Called whenever the recency stack changes.  If the front note has changed,
   // redirects bend to the new front while leaving the old target frozen at its
   // last sounded pitch.
   _updateWheelTarget(smoothReturn = false) {
-    const newFront = this.recencyStack.front;
-    if (newFront === this._wheelTarget) return; // no change
-
-    this._wheelTarget = newFront;
-
-    if (newFront) {
-      this._wheelBaseCents = newFront._baseCents ?? newFront.cents;
-      if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
-        const { baseCents, bentCents } = this._resolveRecencyWheelTarget(newFront, this._wheelValue14);
-        this._wheelBaseCents = baseCents;
-        this._wheelBend = bentCents - baseCents;
-        if (smoothReturn && this._wheelValue14 !== 8192 && newFront?.retune) {
-          this._queueRetuneGlide(newFront, baseCents, true);
-          this._kickRetuneGlides();
-        } else {
-          newFront.retune(bentCents, true);
-        }
-      } else if (this._wheelBend !== 0) {
-        newFront.retune(this._wheelBaseCents + this._wheelBend);
-      }
-    } else {
-      this._wheelBaseCents = null;
-    }
+    return InputExpressionRuntime.updateWheelTarget.call(this, smoothReturn);
   }
 
   // Desaturate a CSS hex colour toward grey by the given amount (0=none, 1=full grey).
