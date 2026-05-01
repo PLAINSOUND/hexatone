@@ -8,16 +8,12 @@ import { MidiCoordResolver } from "./midi-coord-resolver.js";
 import {
   degree0ToRef,
   computeNaturalAnchor,
-  computeCenterPitchHz,
-  chooseStaticMapCenterMidi,
-  computeStaticMapDegree0,
 } from "../tuning/center-anchor.js";
 import { mtsTuningMap } from "../tuning/tuning-map.js";
 import { resolveBulkDumpName } from "../tuning/mts-format.js";
 import {
   addSustainedHex,
   clearSustainedHexes,
-  collectSoundingHexes,
   createSoundingNoteState,
   hasSoundingNotes,
   isCoordActive,
@@ -56,6 +52,7 @@ import * as KeysMidiInput from "./keys-midi-input.js";
 import * as InputMidiListeners from "../input/keys-midi-listeners.js";
 import * as InputExpressionRuntime from "../input/keys-expression-runtime.js";
 import * as SequencerSnapshots from "../sequencer/snapshots.js";
+import * as MtsOutputRuntime from "../midi_synth/mts-output-runtime.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
 import {
   classifyReleaseForSettlement,
@@ -63,8 +60,6 @@ import {
   hasLegacyFrameNotes,
   normalizeSettlementNotes,
 } from "./note-context-runtime.js";
-
-const BULK_RELEASE_PROTECT_MS = 750;
 
 function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpositionDeltaCents) {
   const sourceRatio = tuning?.degreeIntervals?.[sourceDegree]?.ratio ?? null;
@@ -1245,157 +1240,8 @@ class Keys {
   };
 
   mtsSendMap = (midiOutput, protectHeld = true, protectRecentReleased = true) => {
-    // send the tuning map
-    const output = midiOutput || this.midiout_data;
-    if (!output) return;
-    // Direct output uses the non-real-time bulk-dump path.
-    // Main MTS real-time output always uses single-note real-time messages,
-    // regardless of any stale sysex_type setting left over from older UI state.
-    const isMtsBulkOutput =
-      this.settings.output_mts_bulk &&
-      this.settings.mts_bulk_device &&
-      this.settings.mts_bulk_device !== "OFF" &&
-      output.id === this.settings.mts_bulk_device;
-    const sysex_type = isMtsBulkOutput ? 126 : 127;
-    const tuningMap = isMtsBulkOutput
-      ? mtsTuningMap(
-          126,
-          this.settings.mts_bulk_device_id ?? 127,
-          this.settings.mts_bulk_tuning_map_number ?? 0,
-          this.settings.mts_bulk_mode === "static"
-            ? computeStaticMapDegree0(
-                chooseStaticMapCenterMidi(
-                  computeCenterPitchHz(
-                    this.settings.fundamental,
-                    this.tuning.degree0toRef_asArray[0],
-                    this.tuning.scale,
-                    this.tuning.equivInterval,
-                    this.settings.center_degree,
-                  ),
-                ),
-                this.settings.center_degree,
-              )
-            : computeNaturalAnchor(
-                this.settings.fundamental,
-                this.tuning.degree0toRef_asArray[0],
-                this.tuning.scale,
-                this.tuning.equivInterval,
-                this.settings.center_degree,
-              ),
-          this.tuning.scale,
-          resolveBulkDumpName(
-            this.settings.mts_bulk_tuning_map_name,
-            this.settings.short_description,
-            this.settings.name,
-          ),
-          this.tuning.equivInterval,
-          this.settings.fundamental,
-          this.tuning.degree0toRef_asArray,
-          this.settings.octave_offset || 0,
-        )
-      : this.mts_tuning_map;
-
-    if (sysex_type === 127) {
-      // Real-time single-note tuning change: one message per note.
-      // Each entry is [127, device_id, 8, 2, map#, 1, note, mts0, mts1, mts2].
-      // sendSysex(manufacturer, data) prepends F0+manufacturer and appends F7.
-      // We copy each array to avoid mutating the stored tuning map.
-      for (let i = 0; i < 128; i++) {
-        const msg = [...tuningMap[i]];
-        const manufacturer = msg.shift(); // 127 = universal real-time
-        output.sendSysex([manufacturer], msg);
-      }
-    } else if (sysex_type === 126) {
-      // Non-real-time bulk tuning dump: single message for all 128 notes.
-      // tuningMap is a flat byte array from buildBulkDumpMessage, already starting
-      // with 126 (0x7E universal non-real-time). Send as raw bytes via output.send()
-      // matching the pattern used by createBulkDynamicTransport.sendBulkDump().
-      //
-      // Build a protected copy: any carrier slot currently held by a sustained
-      // or active note keeps its exact current tuning bytes so the synth does
-      // not retune it mid-sustain.
-      const sustainedSlots = new Map(); // carrier slot → [tt, yy, zz]
-      if (protectHeld) {
-        for (const hex of this._collectProtectedBulkHexes(protectRecentReleased)) {
-          if (hex.mts && hex.mts.length >= 4) {
-            if (!sustainedSlots.has(hex.mts[0])) {
-              sustainedSlots.set(hex.mts[0], [hex.mts[1], hex.mts[2], hex.mts[3]]);
-            }
-          }
-        }
-      }
-
-      // Clone and patch protected slots.
-      // Layout of tuningMap (from buildBulkDumpMessage):
-      //   [126, device_id, 8, 1, map#, name(16 bytes)] = 21 header bytes
-      //   then 128 × 3 tuning bytes (note0_tt, note0_yy, note0_zz, ...)
-      //   then 1 checksum byte
-      const msg = [...tuningMap];
-      const HEADER_LEN = 21; // 126 + device_id + 8 + 1 + map# + 16-byte name
-      let patched = false;
-      for (const [slot, tuning] of sustainedSlots) {
-        const skip = HEADER_LEN + slot * 3;
-        if (skip + 2 < msg.length - 1) {
-          // -1 to stay before checksum
-          msg[skip] = tuning[0];
-          msg[skip + 1] = tuning[1];
-          msg[skip + 2] = tuning[2];
-          patched = true;
-        }
-      }
-
-      // Recompute checksum if any entries were patched (XOR bytes 1..end-1)
-      if (patched) {
-        let checksum = 0;
-        for (let i = 1; i < msg.length - 1; i++) checksum ^= msg[i];
-        msg[msg.length - 1] = checksum & 0x7f;
-      }
-
-      output.send([0xf0, ...msg, 0xf7]);
-    }
+    return MtsOutputRuntime.mtsSendMap.call(this, midiOutput, protectHeld, protectRecentReleased);
   };
-
-  /*   TO DO !!! reinstate
-  mtsBend = (e) => { // generates scale specific one scale degree last note played pitch bend
-    let bend = 0;
-    //console.log("Pitchbend: ", e.message.dataBytes[0], e.message.dataBytes[1]);
-    bend = ((e.message.dataBytes[0] + (128 * e.message.dataBytes[1])) - 8192);
-    let last_noteon = notes.played[notes.played.length - 1];
-    if (bend < 0) {
-      bend = bend / 8192; // set bend down between 0 and -1
-    } else {
-      bend = bend / 8191; // set bend up between 0 and 1
-    };
-
-    this.bend = bend;
-    //console.log("MTSbend: ", bend);
-
-    if (last_noteon) {
-      //console.log("last_noteon", last_noteon);
-      let bend_up = keymap[last_noteon][5]; // get data from most recently played note
-      let bend_down = keymap[last_noteon][4];
-      let mts_current = [keymap[last_noteon][0], keymap[last_noteon][1], keymap[last_noteon][2], keymap[last_noteon][3]];
-      //console.log("keymap[current]", keymap[last_noteon]);
-
-      if (bend < 0) {
-        bend = bend_down * bend; // set bend down between 0 and -1
-      } else {
-        bend = bend_up * bend; // set bend up between 0 and 1
-      };
-
-      if ((this.settings.midi_mapping == "MTS1") || (this.settings.midi_mapping == "MTS2")) {
-        //console.log("Keys_MTSBend", bend);
-        let mts_bend = centsToMTS(mtsToMidiFloat([mts_current[1], mts_current[2], mts_current[3]]), bend);
-        //console.log("mtsBend-message", mts_current[0], mts_bend[0], mts_bend[1], mts_bend[2]);
-     
-        if ((this.settings.midi_device !== "OFF") && (this.settings.midi_channel >= 0)) { // forward other MIDI data through to output
-          this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
-          this.midiout_data.sendSysex([127], [127, 8, 2, 0, 1, mts_current[0], mts_bend[0], mts_bend[1], mts_bend[2]]); // generates single note pitchbend
-        };
-      };
-    };
-  };
-  */
 
   // Helper: if latch is active and coords is already sustained, toggle it off.
   // Returns true if the note was toggled off (caller should return/continue).
@@ -1442,56 +1288,31 @@ class Keys {
   isSoundInteractionIdle = () => this._isSoundInteractionIdle();
 
   _hasRecentReleasedBulkTargets() {
-    return this._recentlyReleasedHexes.size > 0;
+    return MtsOutputRuntime.hasRecentReleasedBulkTargets.call(this);
   }
 
   _collectProtectedBulkHexes(includeRecentReleased = true) {
-    return collectSoundingHexes(this.state, {
-      includeRecentReleased,
-      recentReleasedHexes: this._recentlyReleasedHexes,
-    });
+    return MtsOutputRuntime.collectProtectedBulkHexes.call(this, includeRecentReleased);
   }
 
   _hasDeferredBulkTargets() {
-    const hasDirectBulk =
-      this.settings.output_mts_bulk &&
-      this.settings.mts_bulk_device &&
-      this.settings.mts_bulk_device !== "OFF";
-    return hasDirectBulk;
+    return MtsOutputRuntime.hasDeferredBulkTargets.call(this);
   }
 
   _sendBulkDumpOctaveRefresh(protectHeld = true, protectRecentReleased = true) {
-    if (
-      this.settings.output_mts_bulk &&
-      this.settings.mts_bulk_device &&
-      this.settings.mts_bulk_device !== "OFF"
-    ) {
-      const directOut = WebMidi.getOutputById(this.settings.mts_bulk_device);
-      if (directOut) this.mtsSendMap(directOut, protectHeld, protectRecentReleased);
-    }
+    return MtsOutputRuntime.sendBulkDumpOctaveRefresh.call(
+      this,
+      protectHeld,
+      protectRecentReleased,
+    );
   }
 
   _scheduleDeferredBulkRefresh() {
-    if (!this._deferredBulkMapRefresh) return;
-    if (this._deferredBulkMapTimer != null) return;
-    this._deferredBulkMapTimer = setTimeout(() => {
-      this._deferredBulkMapTimer = null;
-      if (!this._deferredBulkMapRefresh) return;
-      this._sendBulkDumpOctaveRefresh(true);
-      if (!this._hasSoundingNotes() && !this._hasRecentReleasedBulkTargets()) {
-        this._deferredBulkMapRefresh = false;
-      }
-    }, 0);
+    return MtsOutputRuntime.scheduleDeferredBulkRefresh.call(this);
   }
 
   _trackRecentlyReleasedHex(hex) {
-    if (!hex?.mts || hex.mts.length < 4 || !this._hasDeferredBulkTargets()) return;
-    const existing = this._recentlyReleasedHexes.get(hex);
-    if (existing != null) clearTimeout(existing);
-    const timeoutId = setTimeout(() => {
-      this._recentlyReleasedHexes.delete(hex);
-    }, BULK_RELEASE_PROTECT_MS);
-    this._recentlyReleasedHexes.set(hex, timeoutId);
+    return MtsOutputRuntime.trackRecentlyReleasedHex.call(this, hex);
   }
 
   // Apply channel step offset to a base coordinate.
