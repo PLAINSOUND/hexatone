@@ -4,8 +4,11 @@ import {
   deriveOscVolumes,
   deriveTuningRuntime,
   resolveOctaveShortcutAction,
+  resolveBidirectionalControllerOutputPort,
   resolveInputController,
+  resolveLumatoneOutputPort,
 } from "./use-synth-wiring.js";
+import { getControllerById } from "./controllers/registry.js";
 
 const partchScale = [
   "81/80",
@@ -198,5 +201,57 @@ describe("use-synth-wiring controller resolution", () => {
   it("falls back override typos to the Generic keyboard controller", () => {
     const ctrl = resolveInputController({ name: "USB MIDI Interface" }, "not-a-controller");
     expect(ctrl?.id).toBe("generic");
+  });
+
+  it("prefers the Lumatone MIDI Function output when resolving raw LED ports", () => {
+    const outputs = new Map([
+      ["lumatone-main", { id: "lumatone-main", name: "Lumatone Port 1" }],
+      ["midi-function", { id: "midi-function", name: "MIDI Function" }],
+    ]);
+
+    expect(
+      resolveLumatoneOutputPort(outputs, { name: "MIDI Function" })?.id,
+    ).toBe("midi-function");
+  });
+
+  it("honors a manual Lumatone output override before MIDI Function preference", () => {
+    const outputs = new Map([
+      ["lumatone-main", { id: "lumatone-main", name: "Lumatone Port 1" }],
+      ["midi-function", { id: "midi-function", name: "MIDI Function" }],
+    ]);
+
+    expect(
+      resolveLumatoneOutputPort(outputs, { name: "MIDI Function" }, "lumatone-main")?.id,
+    ).toBe("lumatone-main");
+  });
+
+  it("prefers the Exquis output with the closest name to the selected input", () => {
+    const outputs = new Map([
+      ["exquis-other", { id: "exquis-other", name: "Intuitive Instruments Exquis Port 2" }],
+      ["exquis-main", { id: "exquis-main", name: "Intuitive Instruments Exquis Port 1" }],
+    ]);
+
+    expect(
+      resolveBidirectionalControllerOutputPort(
+        outputs,
+        { name: "Intuitive Instruments Exquis Port 1" },
+        getControllerById("exquis"),
+      )?.id,
+    ).toBe("exquis-main");
+  });
+
+  it("prefers the LinnStrument output with the closest name to the selected input", () => {
+    const outputs = new Map([
+      ["linn-200", { id: "linn-200", name: "Roger Linn Design LinnStrument 200" }],
+      ["linn-128", { id: "linn-128", name: "Roger Linn Design LinnStrument 128" }],
+    ]);
+
+    expect(
+      resolveBidirectionalControllerOutputPort(
+        outputs,
+        { name: "Roger Linn Design LinnStrument 128" },
+        getControllerById("linnstrument"),
+      )?.id,
+    ).toBe("linn-128");
   });
 });

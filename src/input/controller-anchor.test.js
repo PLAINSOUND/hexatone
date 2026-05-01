@@ -13,6 +13,7 @@ import {
   loadAnchorSettingsUpdate,
   saveAnchorFromLearn,
 } from "./controller-anchor.js";
+import { getControllerById } from "../controllers/registry.js";
 
 // ── Mock controllers ──────────────────────────────────────────────────────────
 
@@ -404,6 +405,17 @@ describe("loadAnchorSettingsUpdate", () => {
   it("defaults midi_passthrough to false for controllers without passthroughDefault", () => {
     const update = loadAnchorSettingsUpdate(AXIS49);
     expect(update.midi_passthrough).toBe(false);
+  });
+
+  it("defaults LinnStrument pitch bend interval to no bend when no shared value is saved", () => {
+    const update = loadAnchorSettingsUpdate(getControllerById("linnstrument"));
+    expect(update.midiin_bend_range).toBe("1/1");
+  });
+
+  it("preserves a saved shared pitch bend interval for LinnStrument", () => {
+    localStorage.setItem("midiin_bend_range", "64/63");
+    const update = loadAnchorSettingsUpdate(getControllerById("linnstrument"));
+    expect(update.midiin_bend_range).toBe("64/63");
   });
 });
 

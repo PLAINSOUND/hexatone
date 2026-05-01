@@ -989,8 +989,41 @@ class Keys {
   };
 
   updateInputRuntime = (nextRuntime, nextSettings = null) => {
-    if (nextRuntime) this.inputRuntime = nextRuntime;
-    if (nextSettings) Object.assign(this.settings, nextSettings);
+    const previousMidiInputDevice = this.settings.midiin_device;
+    const previousRouteKey = JSON.stringify({
+      device: this.settings.midiin_device,
+      override: this.settings.midiin_controller_override,
+      passthrough: !!this.settings.midi_passthrough,
+      tonalplexusMode: this.settings.tonalplexus_input_mode,
+      target: this.inputRuntime?.target,
+      layoutMode: this.inputRuntime?.layoutMode,
+      mpeInput: !!this.inputRuntime?.mpeInput,
+    });
+    const nextRouteKey = JSON.stringify({
+      device: nextSettings?.midiin_device ?? this.settings.midiin_device,
+      override: nextSettings?.midiin_controller_override ?? this.settings.midiin_controller_override,
+      passthrough: !!(nextSettings?.midi_passthrough ?? this.settings.midi_passthrough),
+      tonalplexusMode: nextSettings?.tonalplexus_input_mode ?? this.settings.tonalplexus_input_mode,
+      target: nextRuntime?.target ?? this.inputRuntime?.target,
+      layoutMode: nextRuntime?.layoutMode ?? this.inputRuntime?.layoutMode,
+      mpeInput: !!(nextRuntime?.mpeInput ?? this.inputRuntime?.mpeInput),
+    });
+    if (previousRouteKey !== nextRouteKey) this.allnotesOff();
+    if (nextRuntime) {
+      this.inputRuntime = nextRuntime;
+      if (this.coordResolver) this.coordResolver.inputRuntime = nextRuntime;
+    }
+    if (nextSettings) {
+      Object.assign(this.settings, nextSettings);
+      if (previousMidiInputDevice !== this.settings.midiin_device) {
+        InputMidiListeners.rebindMidiInput.call(this);
+        return;
+      }
+      const controllerMapChanged = InputMidiListeners.rebuildControllerMap.call(this);
+      if (controllerMapChanged) {
+        InputMidiListeners.syncControllerAutoColors.call(this);
+      }
+    }
   };
 
   getSnapshot() {
@@ -1012,6 +1045,22 @@ class Keys {
    */
   syncLumatoneLEDs = () => {
     return KeysControllerLeds.syncLumatoneLEDs.call(this);
+  };
+
+  autoSyncLumatoneLEDs = () => {
+    return KeysControllerLeds.autoSyncLumatoneLEDs.call(this);
+  };
+
+  _canAutoSendLumatoneColors = () => {
+    return KeysControllerLeds.canAutoSendLumatoneColors.call(this);
+  };
+
+  _canAutoSendExquisColors = () => {
+    return KeysControllerLeds.canAutoSendExquisColors.call(this);
+  };
+
+  _canAutoSendLinnstrumentColors = () => {
+    return KeysControllerLeds.canAutoSendLinnstrumentColors.call(this);
   };
 
   syncExquisLEDs = () => {
@@ -1213,26 +1262,7 @@ class Keys {
       this._gridRedrawTimer = null;
     }
 
-    if (this.midiin_data) {
-      for (const eventName of [
-        "noteon",
-        "noteoff",
-        "keyaftertouch",
-        "controlchange",
-        "channelaftertouch",
-        "pitchbend",
-        "sysex",
-      ]) {
-        try {
-          this.midiin_data.removeListener(eventName);
-        } catch {
-          // WebMidi.disable() may already have torn down this input's internal
-          // listener tables before Keys deconstructs. Cleanup should remain
-          // best-effort and never block the rebuild / disable path.
-        }
-      }
-      this.midiin_data = null;
-    }
+    InputMidiListeners.teardownMidiInput.call(this);
 
     if (this.midiout_data) {
       this.midiout_data = null;

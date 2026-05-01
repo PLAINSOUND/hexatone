@@ -729,7 +729,7 @@ const MIDIio = (props) => {
                                   localStorage.setItem("lumatone_led_sync", e.target.checked);
                                   const keys = props.keysRef?.current;
                                   if (keys) keys.settings.lumatone_led_sync = e.target.checked;
-                                  if (e.target.checked) keys?.syncLumatoneLEDs?.();
+                                  if (e.target.checked) keys?.autoSyncLumatoneLEDs?.();
                                 }}
                               />
                               <button

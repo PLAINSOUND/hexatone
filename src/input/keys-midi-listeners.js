@@ -5,6 +5,150 @@ import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
 
+const MIDI_INPUT_EVENT_NAMES = [
+  "noteon",
+  "noteoff",
+  "keyaftertouch",
+  "controlchange",
+  "channelaftertouch",
+  "pitchbend",
+  "sysex",
+];
+
+export function rebuildControllerMap() {
+  if (!this.midiin_data && this.settings.midiin_device === "OFF") {
+    this.controller = null;
+    this.controllerMap = null;
+    this._controllerMapImpactKey = null;
+    return true;
+  }
+
+  const mapKey = JSON.stringify({
+    deviceName: this.midiin_data?.name ?? null,
+    override: this.settings.midiin_controller_override || "auto",
+    passthrough: !!this.settings.midi_passthrough,
+    centralDegree: this.settings.midiin_central_degree,
+    lumatoneChannel: this.settings.lumatone_center_channel,
+    lumatoneNote: this.settings.lumatone_center_note,
+    tonalplexusMode: this.settings.tonalplexus_input_mode,
+    rSteps: this.settings.rSteps,
+    drSteps: this.settings.drSteps,
+    centerHexOffsetX: this.settings.centerHexOffset?.x,
+    centerHexOffsetY: this.settings.centerHexOffset?.y,
+  });
+  if (this._controllerMapImpactKey === mapKey) return false;
+  this._controllerMapImpactKey = mapKey;
+
+  const overrideId = this.settings.midiin_controller_override || "auto";
+  const deviceName = this.midiin_data?.name?.toLowerCase() ?? "";
+  const entry = overrideId !== "auto" ? getControllerById(overrideId) : detectController(deviceName);
+
+  if (!entry) {
+    this.controller = null;
+    this.controllerMap = null;
+    return true;
+  }
+
+  this.controller = entry;
+  if (typeof entry.buildMap !== "function") {
+    this.controllerMap = null;
+    return true;
+  }
+
+  const isSequential = this.settings.midi_passthrough;
+  const useGeometryMap = !isSequential || !entry.multiChannel;
+
+  if (!useGeometryMap) {
+    this.controllerMap = null;
+    return true;
+  }
+
+  let anchorNote;
+  let anchorChannel;
+
+  if (entry.multiChannel) {
+    const constraints = entry.learnConstraints;
+    anchorNote = this.settings.lumatone_center_note;
+    anchorChannel = this.settings.lumatone_center_channel;
+
+    if (constraints?.noteRange) {
+      const { min, max } = constraints.noteRange;
+      if (anchorNote == null || anchorNote < min || anchorNote > max) {
+        anchorNote = entry.anchorDefault ?? 26;
+      }
+    }
+    if (constraints?.channelRange) {
+      const { min, max } = constraints.channelRange;
+      if (anchorChannel == null || anchorChannel < min || anchorChannel > max) {
+        anchorChannel = entry.anchorChannelDefault ?? 3;
+      }
+    }
+  } else {
+    anchorNote = getAnchorNote(entry, this.settings);
+    anchorChannel = 1;
+  }
+
+  const rawOffsets = entry.multiChannel
+    ? entry.buildMap(anchorNote, anchorChannel, entry.defaultCols)
+    : entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
+  const ox = this.settings.centerHexOffset.x;
+  const oy = this.settings.centerHexOffset.y;
+  this.controllerMap = new Map();
+  for (const [key, { x, y }] of rawOffsets) {
+    this.controllerMap.set(key, new Point(x + ox, y + oy));
+  }
+  return true;
+}
+
+export function teardownMidiInput() {
+  if (this.midiin_data) {
+    for (const eventName of MIDI_INPUT_EVENT_NAMES) {
+      try {
+        this.midiin_data.removeListener(eventName);
+      } catch {
+        // WebMidi.disable() may already have torn down this input's internal
+        // listener tables. Cleanup should remain best-effort.
+      }
+    }
+  }
+  this.midiin_data = null;
+  this.controller = null;
+  this.controllerMap = null;
+  this._controllerMapImpactKey = null;
+  this._linnUfXLsb = new Map();
+  this._linnUfXCurrent = new Map();
+}
+
+export function syncControllerAutoColors() {
+  if (
+    this.controller?.id === "lumatone" &&
+    this.settings.lumatone_led_sync &&
+    this._canAutoSendLumatoneColors?.()
+  ) {
+    this.autoSyncLumatoneLEDs?.();
+  }
+  if (
+    this.controller?.id === "exquis" &&
+    this.settings.exquis_led_sync &&
+    this._canAutoSendExquisColors?.()
+  ) {
+    this.syncExquisLEDs();
+  }
+  if (
+    this.controller?.id === "linnstrument" &&
+    this.settings.linnstrument_led_sync &&
+    this._canAutoSendLinnstrumentColors?.()
+  ) {
+    this.syncLinnstrumentLEDs();
+  }
+}
+
+export function rebindMidiInput() {
+  teardownMidiInput.call(this);
+  setupMidiInput.call(this);
+  syncControllerAutoColors.call(this);
+}
+
 export function setupMidiInput() {
     //console.log('[Keys] MIDI init — device:', JSON.stringify(this.settings.midiin_device), 'passthrough:', this.settings.midi_passthrough);
     if (this.settings.midiin_device !== "OFF") {
@@ -294,77 +438,8 @@ export function setupMidiInput() {
           }
         } // end if (output_mts)
         // Detect controller geometry and build a direct coordinate lookup map.
-        // registry.buildMap() returns Map<"ch.note", {x,y}> with the anchor at (0,0).
-        // Adding centerHexOffset converts to absolute hex-grid coords — the same
-        // space that hexOn() / hexOff() / hexCoordsToCents() operate in.
-        // No best-fit search needed: the anchor key always lands at the screen centre.
         if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
-        {
-          const deviceName = this.midiin_data.name?.toLowerCase() ?? "";
-          const overrideId = this.settings.midiin_controller_override || "auto";
-          //console.log('[Controller] MIDI input device name:', JSON.stringify(this.midiin_data.name));
-          const entry =
-            overrideId !== "auto" ? getControllerById(overrideId) : detectController(deviceName);
-          if (entry) {
-            this.controller = entry;
-            // Multi-channel controllers (e.g. Lumatone) use a per-block note number (0–55),
-            // stored in lumatone_center_note. Single-channel controllers use midiin_central_degree (0–127).
-            // In sequential mode, controller geometry is bypassed — only step arithmetic is used.
-            // But we still build the map so LED color sync works for single-channel controllers.
-            const isSequential = this.settings.midi_passthrough;
-            const useGeometryMap = !isSequential || !entry.multiChannel;
-
-            if (useGeometryMap) {
-              // For multi-channel controllers (Lumatone): validate anchor within valid ranges
-              // For single-channel controllers: always build the map (for LED color sync)
-              let anchorNote;
-              let anchorChannel;
-
-              if (entry.multiChannel) {
-                // Multi-channel: use lumatone_center_note, lumatone_center_channel
-                const constraints = entry.learnConstraints;
-                anchorNote = this.settings.lumatone_center_note;
-                anchorChannel = this.settings.lumatone_center_channel;
-
-                // Defensive validation: ensure anchor values are within controller's valid ranges
-                if (constraints?.noteRange) {
-                  const { min, max } = constraints.noteRange;
-                  if (anchorNote == null || anchorNote < min || anchorNote > max) {
-                    anchorNote = entry.anchorDefault ?? 26;
-                  }
-                }
-                if (constraints?.channelRange) {
-                  const { min, max } = constraints.channelRange;
-                  if (anchorChannel == null || anchorChannel < min || anchorChannel > max) {
-                    anchorChannel = entry.anchorChannelDefault ?? 3;
-                  }
-                }
-              } else {
-                // Single-channel: use midiin_central_degree (Exquis, AXIS-49, etc.)
-                anchorNote = getAnchorNote(entry, this.settings);
-                anchorChannel = 1;
-              }
-
-              const rawOffsets = entry.multiChannel
-                ? entry.buildMap(anchorNote, anchorChannel, entry.defaultCols)
-                : entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
-              const ox = this.settings.centerHexOffset.x;
-              const oy = this.settings.centerHexOffset.y;
-              this.controllerMap = new Map();
-              for (const [key, { x, y }] of rawOffsets) {
-                this.controllerMap.set(key, new Point(x + ox, y + oy));
-              }
-              //console.log('[Controller] built map for:', entry.id, 'anchorNote:', anchorNote, 'size:', this.controllerMap.size);
-            } else {
-              this.controllerMap = null;
-              //console.log('[Controller] sequential mode for multi-channel — no geometry map');
-            }
-          } else {
-            this.controller = null;
-            this.controllerMap = null;
-            // No geometry map for this device — step arithmetic will be used instead
-          }
-        }
+        rebuildControllerMap.call(this);
 
         // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
         this.midiin_data.addListener("pitchbend", (e) => {
@@ -437,10 +512,6 @@ export function setupMidiInput() {
     } // end if midiin_data guard
 
     if (this.midiin_data == null && this.settings.midiin_device !== "OFF") {
-      const overrideId = this.settings.midiin_controller_override || "auto";
-      const entry = overrideId !== "auto" ? getControllerById(overrideId) : null;
-      if (entry) {
-        this.controller = entry;
-      }
+      rebuildControllerMap.call(this);
     }
 }

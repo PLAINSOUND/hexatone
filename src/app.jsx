@@ -1223,7 +1223,7 @@ const App = () => {
       keys.exquisLEDs = exquisLedsRef.current;
       keys.linnstrumentLEDs = linnstrumentLedsRef.current;
       if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
-        keys.syncLumatoneLEDs();
+        keys.autoSyncLumatoneLEDs();
       }
       if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
         keys.syncExquisLEDs();

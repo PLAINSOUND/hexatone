@@ -67,6 +67,70 @@ export const resolveInputController = (input, controllerOverrideId = "auto") => 
   return detectController(input.name.toLowerCase()) ?? getControllerById("generic");
 };
 
+const normalizeMidiPortName = (name = "") =>
+  String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const midiPortNameSimilarity = (a = "", b = "") => {
+  const left = normalizeMidiPortName(a);
+  const right = normalizeMidiPortName(b);
+  if (!left || !right) return 0;
+  if (left === right) return 1000;
+  if (left.includes(right) || right.includes(left)) return 900;
+
+  const ignored = new Set(["midi", "port", "input", "output", "usb", "device"]);
+  const leftTokens = new Set(left.split(/\s+/).filter((token) => token && !ignored.has(token)));
+  const rightTokens = right.split(/\s+/).filter((token) => token && !ignored.has(token));
+  return rightTokens.reduce((score, token) => score + (leftTokens.has(token) ? 1 : 0), 0);
+};
+
+const lumatonePortPriority = (port, selectedInput = null) => {
+  const name = port?.name?.toLowerCase() ?? "";
+  const inputName = selectedInput?.name?.toLowerCase() ?? "";
+  const isMidiFunction = name.includes("midi function");
+  const inputIsMidiFunction = inputName.includes("midi function");
+
+  if (inputIsMidiFunction && isMidiFunction) return 0;
+  if (isMidiFunction) return 1;
+  if (name.includes("lumatone")) return 2;
+  return 3;
+};
+
+export const resolveBidirectionalControllerOutputPort = (
+  outputs,
+  selectedInput,
+  controller,
+  overridePortId = null,
+) => {
+  if (!outputs) return null;
+  if (overridePortId) return outputs.get(overridePortId) ?? null;
+  if (!controller) return null;
+
+  return (
+    Array.from(outputs.values())
+      .map((output, index) => ({ output, index }))
+      .filter(({ output }) => controller.detect(output.name?.toLowerCase() ?? ""))
+      .sort(
+        (a, b) =>
+          lumatonePortPriority(a.output, selectedInput) -
+            lumatonePortPriority(b.output, selectedInput) ||
+          midiPortNameSimilarity(b.output.name, selectedInput?.name) -
+            midiPortNameSimilarity(a.output.name, selectedInput?.name) ||
+          a.index - b.index,
+      )[0]?.output ?? null
+  );
+};
+
+export const resolveLumatoneOutputPort = (outputs, selectedInput, overridePortId = null) =>
+  resolveBidirectionalControllerOutputPort(
+    outputs,
+    selectedInput,
+    getControllerById("lumatone"),
+    overridePortId,
+  );
+
 export const deriveTuningRuntime = (settings) => {
   if (!settings.scale || !Array.isArray(settings.scale) || settings.scale.length === 0) {
     return null;
@@ -1066,9 +1130,12 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "lumatone") return null;
     // Manual override takes precedence; fall back to name-match auto-detect.
-    const rawOut = settings.lumatone_out_port
-      ? midi.outputs.get(settings.lumatone_out_port)
-      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    const rawOut = resolveBidirectionalControllerOutputPort(
+      midi.outputs,
+      rawIn,
+      ctrl,
+      settings.lumatone_out_port ?? null,
+    );
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1084,9 +1151,12 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "exquis") return null;
-    const rawOut = settings.exquis_out_port
-      ? midi.outputs.get(settings.exquis_out_port)
-      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    const rawOut = resolveBidirectionalControllerOutputPort(
+      midi.outputs,
+      rawIn,
+      ctrl,
+      settings.exquis_out_port ?? null,
+    );
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1101,9 +1171,12 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!rawIn) return null;
     const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
     if (!ctrl || ctrl.id !== "linnstrument") return null;
-    const rawOut = settings.linnstrument_out_port
-      ? midi.outputs.get(settings.linnstrument_out_port)
-      : Array.from(midi.outputs.values()).find((o) => ctrl.detect(o.name.toLowerCase()));
+    const rawOut = resolveBidirectionalControllerOutputPort(
+      midi.outputs,
+      rawIn,
+      ctrl,
+      settings.linnstrument_out_port ?? null,
+    );
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps

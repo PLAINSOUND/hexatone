@@ -130,7 +130,8 @@ function parseLocalValue(raw, type) {
  *   rather than the registry default (false), so MPE devices default to MPE on.
  *
  * Cross-controller prefs: read from plain `key`.
- *   Falls back to the registry default.
+ *   Falls back to a controller mode default when supplied, then the registry
+ *   default. A saved shared value still wins across all controllers.
  *
  * @param {object} controller  Registry entry (must have .id)
  * @param {object|null} settings
@@ -169,7 +170,12 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
 
   for (const entry of CROSS_CONTROLLER_ENTRIES) {
     const raw = localStorage.getItem(entry.key);
-    update[entry.key] = raw !== null ? parseLocalValue(raw, entry.type) : entry.default;
+    if (raw !== null) {
+      update[entry.key] = parseLocalValue(raw, entry.type);
+    } else {
+      const modeDefault = getModeDefault(controller, modeKey, entry.key);
+      update[entry.key] = modeDefault !== undefined ? modeDefault : entry.default;
+    }
   }
 
   return update;

@@ -824,6 +824,7 @@ export const CONTROLLER_REGISTRY = [
         defaultPrefs: {
           midi_passthrough: false,
           midiin_mpe_input: false,
+          midiin_bend_range: "1/1",
         },
       },
     },

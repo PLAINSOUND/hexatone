@@ -11,6 +11,46 @@ import {
   LUMATONE_TONIC,
   LUMATONE_TONIC_OTHER,
 } from "../settings/scale/color-transfer.js";
+import { detectController } from "../controllers/registry.js";
+
+function selectedInputMatchesController(controllerId) {
+  if ((this.settings.midiin_controller_override || "auto") === "auto") return true;
+  const detected = detectController(this.midiin_data?.name?.toLowerCase() ?? "");
+  return detected?.id === controllerId;
+}
+
+export function canAutoSendLumatoneColors() {
+  return (
+    this.controller?.id === "lumatone" &&
+    selectedInputMatchesController.call(this, "lumatone") &&
+    !this.settings.midi_passthrough &&
+    this.inputRuntime?.target !== "scale" &&
+    this.inputRuntime?.layoutMode !== "sequential" &&
+    !!this.controllerMap
+  );
+}
+
+export function canAutoSendExquisColors() {
+  return (
+    this.controller?.id === "exquis" &&
+    selectedInputMatchesController.call(this, "exquis") &&
+    !this.settings.midi_passthrough &&
+    this.inputRuntime?.target !== "scale" &&
+    this.inputRuntime?.layoutMode !== "sequential" &&
+    !!this.controllerMap
+  );
+}
+
+export function canAutoSendLinnstrumentColors() {
+  return (
+    this.controller?.id === "linnstrument" &&
+    selectedInputMatchesController.call(this, "linnstrument") &&
+    !this.settings.midi_passthrough &&
+    this.inputRuntime?.target !== "scale" &&
+    this.inputRuntime?.layoutMode !== "sequential" &&
+    !!this.controllerMap
+  );
+}
 
 export function updateColors(colors) {
   this.settings.note_colors = colors.note_colors;
@@ -20,33 +60,43 @@ export function updateColors(colors) {
   this.scheduleGridRedraw();
 
   // Controller LED queues collapse rapid color drags to the latest state.
-  if (this.lumatoneLEDs && this.controllerMap && this.settings.lumatone_led_sync) {
+  if (this.lumatoneLEDs && this.settings.lumatone_led_sync && canAutoSendLumatoneColors.call(this)) {
     this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
   }
 
-  if (this.exquisLEDs && this.settings.exquis_led_sync) {
+  if (this.exquisLEDs && this.settings.exquis_led_sync && canAutoSendExquisColors.call(this)) {
     this.exquisLEDs.sendColors(this._buildExquisColorArray());
   }
 
-  if (this.linnstrumentLEDs && this.settings.linnstrument_led_sync) {
+  if (
+    this.linnstrumentLEDs &&
+    this.settings.linnstrument_led_sync &&
+    canAutoSendLinnstrumentColors.call(this)
+  ) {
     this.linnstrumentLEDs.updatePaletteValues(this._buildLinnstrumentColorArray());
   }
 }
 
 export function syncLumatoneLEDs() {
-  if (this.lumatoneLEDs && this.controllerMap) {
+  if (this.lumatoneLEDs && this.controller?.id === "lumatone" && this.controllerMap) {
+    this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
+  }
+}
+
+export function autoSyncLumatoneLEDs() {
+  if (this.lumatoneLEDs && canAutoSendLumatoneColors.call(this)) {
     this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
   }
 }
 
 export function syncExquisLEDs() {
-  if (this.exquisLEDs && this.controllerMap) {
+  if (this.exquisLEDs && canAutoSendExquisColors.call(this)) {
     this.exquisLEDs.sendColors(this._buildExquisColorArray());
   }
 }
 
 export function syncLinnstrumentLEDs() {
-  if (this.linnstrumentLEDs && this.controllerMap) {
+  if (this.linnstrumentLEDs && canAutoSendLinnstrumentColors.call(this)) {
     this.linnstrumentLEDs.sendPaletteValues(this._buildLinnstrumentColorArray());
   }
 }

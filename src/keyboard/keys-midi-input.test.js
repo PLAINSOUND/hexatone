@@ -1188,6 +1188,40 @@ describe("Keys MIDI input integration", () => {
     expect(keys.coordResolver.noteToSteps(60, 8)).toBe(-12);
   });
 
+  it("updates sequential MIDI transposition runtime without rebuilding Keys", () => {
+    const keys = createKeys(
+      { midiin_central_degree: 60, equivSteps: 12 },
+      {
+        layoutMode: "sequential",
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: false,
+      },
+    );
+
+    const nextRuntime = {
+      ...keys.inputRuntime,
+      seqAnchorChannel: 10,
+      stepsPerChannel: null,
+      channelGroupSize: 2,
+      legacyChannelMode: false,
+    };
+    keys.updateInputRuntime(nextRuntime, {
+      midiin_anchor_channel: 10,
+      midiin_steps_per_channel: null,
+      midiin_channel_group_size: 2,
+      midiin_channel_legacy: false,
+    });
+
+    expect(keys.inputRuntime).toBe(nextRuntime);
+    expect(keys.coordResolver.inputRuntime).toBe(nextRuntime);
+    expect(keys.coordResolver.noteToSteps(60, 9)).toBe(0);
+    expect(keys.coordResolver.noteToSteps(60, 10)).toBe(0);
+    expect(keys.coordResolver.noteToSteps(60, 11)).toBe(12);
+    expect(keys.coordResolver.noteToSteps(60, 8)).toBe(-12);
+  });
+
   it("uses controller geometry maps directly for known controller input", () => {
     const keys = createKeys();
     const hexOn = vi.fn((coords) => ({
@@ -1248,6 +1282,504 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.controller?.id).toBe("tonalplexus");
     expect(hexOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebuilds controller maps live when the controller anchor changes", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "USB MIDI Interface",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "axis49",
+      midiin_central_degree: 53,
+    });
+    const initialMap = keys.controllerMap;
+    const initialAnchorCoords = keys.controllerMap.get("1.53");
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, seqAnchorNote: 60 },
+      { midiin_central_degree: 60 },
+    );
+
+    expect(keys.controller?.id).toBe("axis49");
+    expect(keys.controllerMap).not.toBe(initialMap);
+    expect(keys.controllerMap.get("1.60")).toEqual(initialAnchorCoords);
+  });
+
+  it("syncs Lumatone colors after a live anchor-map change in 2D geometry", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "MIDI Function",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midi_passthrough: false,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.autoSyncLumatoneLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, seqAnchorNote: 30, seqAnchorChannel: 4 },
+      {
+        midiin_central_degree: 30,
+        lumatone_center_channel: 4,
+        lumatone_center_note: 30,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-sends Lumatone colors for manual Lumatone 2D geometry override", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "MIDI Function",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "lumatone",
+      midi_passthrough: false,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.autoSyncLumatoneLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, seqAnchorNote: 30, seqAnchorChannel: 4 },
+      {
+        midiin_central_degree: 30,
+        lumatone_center_channel: 4,
+        lumatone_center_note: 30,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-send Lumatone colors for manual geometry on an unrelated input", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "USB MIDI Interface",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "lumatone",
+      midi_passthrough: false,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.autoSyncLumatoneLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, seqAnchorNote: 30, seqAnchorChannel: 4 },
+      {
+        midiin_central_degree: 30,
+        lumatone_center_channel: 4,
+        lumatone_center_note: 30,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
+  });
+
+  it("auto-sends Lumatone colors when returning from Generic Keyboard to Lumatone 2D geometry", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "MIDI Function",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "generic",
+      midi_passthrough: true,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "sequential" });
+    expect(keys.controller?.id).toBe("generic");
+    keys.autoSyncLumatoneLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 26, seqAnchorChannel: 3 },
+      {
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        midiin_central_degree: 26,
+        lumatone_center_channel: 3,
+        lumatone_center_note: 26,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.controllerMap).toBeInstanceOf(Map);
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows manual Lumatone Send Colours for manual 2D geometry override", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "USB MIDI Interface",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "lumatone",
+      midi_passthrough: false,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.lumatoneLEDs = { sendAll: vi.fn() };
+    keys._buildLumatoneColorEntries = vi.fn(() => [{ board: 3, key: 26, hexColor: "#ffffff" }]);
+
+    keys.autoSyncLumatoneLEDs();
+    expect(keys.lumatoneLEDs.sendAll).not.toHaveBeenCalled();
+
+    keys.syncLumatoneLEDs();
+    expect(keys.lumatoneLEDs.sendAll).toHaveBeenCalledWith([
+      { board: 3, key: 26, hexColor: "#ffffff" },
+    ]);
+  });
+
+  it("does not auto-send Lumatone colors when geometry is bypassed", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "MIDI Function",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midi_passthrough: true,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "sequential" });
+    keys.autoSyncLumatoneLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "sequential", seqAnchorNote: 30, seqAnchorChannel: 4 },
+      {
+        midiin_central_degree: 30,
+        lumatone_center_channel: 4,
+        lumatone_center_note: 30,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
+  });
+
+  it("syncs Exquis colors after a live anchor-map change when auto-send is enabled", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Intuitive Instruments Exquis",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midi_passthrough: false,
+      midiin_central_degree: 19,
+      exquis_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.syncExquisLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, seqAnchorNote: 24 },
+      {
+        midiin_central_degree: 24,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("exquis");
+    expect(keys.syncExquisLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-sends Exquis colors for manual 2D geometry override", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Intuitive Instruments Exquis",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "exquis",
+      midi_passthrough: false,
+      midiin_central_degree: 19,
+      exquis_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.syncExquisLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, seqAnchorNote: 24 },
+      {
+        midiin_central_degree: 24,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("exquis");
+    expect(keys.syncExquisLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-sends Exquis colors when returning from Generic Keyboard to Exquis 2D geometry", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Intuitive Instruments Exquis",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "generic",
+      midi_passthrough: true,
+      midiin_central_degree: 60,
+      exquis_led_sync: true,
+    }, { layoutMode: "sequential" });
+    expect(keys.controller?.id).toBe("generic");
+    keys.syncExquisLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 19 },
+      {
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+        midiin_central_degree: 19,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("exquis");
+    expect(keys.controllerMap).toBeInstanceOf(Map);
+    expect(keys.syncExquisLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("syncs LinnStrument colors after a live anchor-map change when auto-send is enabled", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Roger Linn Design LinnStrument 128",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midi_passthrough: false,
+      lumatone_center_channel: 4,
+      lumatone_center_note: 9,
+      linnstrument_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.syncLinnstrumentLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, seqAnchorNote: 12, seqAnchorChannel: 5 },
+      {
+        midiin_central_degree: 12,
+        lumatone_center_channel: 5,
+        lumatone_center_note: 12,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("auto-sends LinnStrument colors when returning from Generic Keyboard to LinnStrument 2D geometry", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Roger Linn Design LinnStrument 128",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "generic",
+      midi_passthrough: true,
+      lumatone_center_channel: 4,
+      lumatone_center_note: 9,
+      linnstrument_led_sync: true,
+    }, { layoutMode: "sequential" });
+    expect(keys.controller?.id).toBe("generic");
+    keys.syncLinnstrumentLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 9, seqAnchorChannel: 4 },
+      {
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: false,
+        midiin_central_degree: 9,
+        lumatone_center_channel: 4,
+        lumatone_center_note: 9,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(keys.controllerMap).toBeInstanceOf(Map);
+    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-send LinnStrument colors when geometry is bypassed", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Roger Linn Design LinnStrument 128",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midi_passthrough: true,
+      lumatone_center_channel: 4,
+      lumatone_center_note: 9,
+      linnstrument_led_sync: true,
+    }, { layoutMode: "sequential" });
+    keys.syncLinnstrumentLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "sequential", seqAnchorNote: 12, seqAnchorChannel: 5 },
+      {
+        midiin_central_degree: 12,
+        lumatone_center_channel: 5,
+        lumatone_center_note: 12,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(keys.syncLinnstrumentLEDs).not.toHaveBeenCalled();
+  });
+
+  it("does not rebuild controller maps for unrelated input runtime changes", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "USB MIDI Interface",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "axis49",
+      midiin_central_degree: 53,
+    });
+    const initialMap = keys.controllerMap;
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, pitchBendMode: "all" },
+      { midiin_pitchbend_mode: "all" },
+    );
+
+    expect(keys.controllerMap).toBe(initialMap);
+  });
+
+  it("clears the geometry map when switching from Lumatone to Generic Keyboard", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "MIDI Function",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "lumatone",
+      midi_passthrough: false,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+    });
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.controllerMap).toBeInstanceOf(Map);
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "sequential", seqAnchorNote: 60 },
+      {
+        midiin_controller_override: "generic",
+        midi_passthrough: true,
+        midiin_central_degree: 60,
+        midiin_anchor_channel: 1,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("generic");
+    expect(keys.controllerMap).toBeNull();
+  });
+
+  it("releases active MIDI notes before switching controller routing", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "MIDI Function",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "lumatone",
+      midi_passthrough: false,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+    });
+    keys.allnotesOff = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "sequential", seqAnchorNote: 60 },
+      {
+        midiin_controller_override: "generic",
+        midi_passthrough: true,
+        midiin_central_degree: 60,
+        midiin_anchor_channel: 1,
+      },
+    );
+
+    expect(keys.allnotesOff).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses step arithmetic for Generic Keyboard even if passthrough is false", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "USB MIDI Interface",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "generic",
+        midi_passthrough: false,
+        midiin_central_degree: 60,
+      },
+      { layoutMode: "controller_geometry", seqAnchorNote: 60 },
+    );
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 100,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys.coordResolver.bestVisibleCoord = vi.fn(() => new Point(0, 0));
+
+    keys.midinoteOn(makeMidiEvent(60));
+
+    expect(keys.controller?.id).toBe("generic");
+    expect(keys.controllerMap).toBeNull();
+    expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(0);
+    expect(hexOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebinds MIDI input listeners live when the selected input device changes", () => {
+    const oldInput = {
+      name: "Old Input",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    const newInput = {
+      name: "C-Thru AXIS-49 2A",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    vi.spyOn(WebMidi, "getInputById").mockImplementation((id) =>
+      id === "input-new" ? newInput : oldInput,
+    );
+    const keys = createKeys({
+      midiin_device: "input-old",
+      midiin_controller_override: "auto",
+    });
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime },
+      { midiin_device: "input-new" },
+    );
+
+    expect(oldInput.removeListener).toHaveBeenCalledWith("noteon");
+    expect(oldInput.removeListener).toHaveBeenCalledWith("pitchbend");
+    expect(newInput.addListener).toHaveBeenCalledWith("noteon", expect.any(Function));
+    expect(newInput.addListener).toHaveBeenCalledWith("pitchbend", expect.any(Function));
+    expect(keys.midiin_data).toBe(newInput);
+    expect(keys.controller?.id).toBe("axis49");
   });
 
   it("applies channel offsets for generic keyboard step arithmetic without a controller map", () => {
