@@ -13,6 +13,11 @@ const MIDI_INPUT_EVENT_NAMES = [
   "pitchbend",
   "sysex",
 ];
+const LINNSTRUMENT_UF_X_OUTLIER_THRESHOLD = 10;
+const LINNSTRUMENT_UF_X_CONFIRM_TOLERANCE = 4;
+const LINNSTRUMENT_UF_LOW_PRESSURE_THRESHOLD = 40;
+const LINNSTRUMENT_UF_MID_PRESSURE_THRESHOLD = 50;
+const LINNSTRUMENT_UF_VERY_LOW_PRESSURE_THRESHOLD = 20;
 
 function isLinnstrumentUfInputActive() {
   return (
@@ -56,21 +61,93 @@ function linnstrumentUfSurfaceWidth(cols) {
   return cols <= 16 ? 2727 : 4265;
 }
 
+function linnstrumentUfXFilterThresholds(pressure = 127) {
+  if (pressure <= LINNSTRUMENT_UF_VERY_LOW_PRESSURE_THRESHOLD) {
+    return {
+      outlierThreshold: 5,
+      confirmTolerance: 0,
+      confirmCount: 3,
+    };
+  }
+  if (pressure <= LINNSTRUMENT_UF_LOW_PRESSURE_THRESHOLD) {
+    return {
+      outlierThreshold: 6,
+      confirmTolerance: 1,
+      confirmCount: 2,
+    };
+  }
+  if (pressure <= LINNSTRUMENT_UF_MID_PRESSURE_THRESHOLD) {
+    return {
+      outlierThreshold: 8,
+      confirmTolerance: 3,
+      confirmCount: 2,
+    };
+  }
+  return {
+    outlierThreshold: LINNSTRUMENT_UF_X_OUTLIER_THRESHOLD,
+    confirmTolerance: LINNSTRUMENT_UF_X_CONFIRM_TOLERANCE,
+    confirmCount: 2,
+  };
+}
+
+function filterLinnstrumentUfX14(key, x14, pressure = 127) {
+  const state = this._linnUfXFilterState.get(key);
+  const { outlierThreshold, confirmTolerance, confirmCount } =
+    linnstrumentUfXFilterThresholds(pressure);
+  if (!state) {
+    this._linnUfXFilterState.set(key, {
+      filtered: x14,
+      pending: null,
+      pendingCount: 0,
+    });
+    return x14;
+  }
+
+  if (Math.abs(x14 - state.filtered) <= outlierThreshold) {
+    state.filtered = x14;
+    state.pending = null;
+    state.pendingCount = 0;
+    return x14;
+  }
+
+  if (
+    state.pending != null &&
+    Math.abs(x14 - state.pending) <= confirmTolerance
+  ) {
+    state.pending = x14;
+    state.pendingCount += 1;
+    if (state.pendingCount >= confirmCount) {
+      state.filtered = x14;
+      state.pending = null;
+      state.pendingCount = 0;
+      return x14;
+    }
+    return null;
+  }
+
+  state.pending = x14;
+  state.pendingCount = 1;
+  return null;
+}
+
 function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
   const key = `${channel}.${col}`;
   const x14 = (msb << 7) | lsb;
   this._linnUfXCurrent.set(key, x14);
+  const note_played = col + 128 * (channel - 1);
+  const hex = this.state.activeMidi.get(note_played);
+  const pressure = Math.max(0, Math.min(127, Number(hex?._lastAftertouch) || 0));
+  const filteredX14 = filterLinnstrumentUfX14.call(this, key, x14, pressure);
+  if (filteredX14 == null) return;
   if ((this.settings.linnstrument_pitch_bend_mode || "off") !== "follow_scale_geometry") {
     return;
   }
-  const note_played = col + 128 * (channel - 1);
-  const hex = this.state.activeMidi.get(note_played);
   if (hex && !hex.release && hex.retune) {
     const cols = this.controller?.defaultCols ?? 16;
     const surfaceWidth = linnstrumentUfSurfaceWidth(cols);
     const colWidth = surfaceWidth / cols;
     const cellCentre = (col - 0.5) * colWidth;
-    const deviation = Math.max(-1, Math.min(1, (x14 - cellCentre) / (colWidth / 2)));
+    const deviation = Math.max(-1, Math.min(1, (filteredX14 - cellCentre) / (colWidth / 2)));
     const curved = linnstrumentUfGlideCurve(
       deviation,
       this.settings.linnstrument_pitch_bend_shape ?? 50,
@@ -208,6 +285,7 @@ export function teardownMidiInput() {
   this._linnUfXLsb = new Map();
   this._linnUfXMsb = new Map();
   this._linnUfXCurrent = new Map();
+  this._linnUfXFilterState = new Map();
   this._linnUfXInitPending = new Set();
 }
 
@@ -276,6 +354,7 @@ export function setupMidiInput() {
             this._linnUfXLsb.delete(key);
             this._linnUfXMsb.delete(key);
             this._linnUfXCurrent.delete(key);
+            this._linnUfXFilterState.delete(key);
             this._linnUfXInitPending.add(key);
           }
           this.midinoteOn(e);
@@ -294,6 +373,7 @@ export function setupMidiInput() {
             this._linnUfXLsb.delete(key);
             this._linnUfXMsb.delete(key);
             this._linnUfXCurrent.delete(key);
+            this._linnUfXFilterState.delete(key);
             this._linnUfXInitPending.delete(key);
           }
           let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
@@ -335,6 +415,7 @@ export function setupMidiInput() {
         this._linnUfXLsb = new Map();
         this._linnUfXMsb = new Map();
         this._linnUfXCurrent = new Map(); // latest x14 per "ch.col" — snapshot at note-on for zero-point
+        this._linnUfXFilterState = new Map(); // outlier-confirmation state per "ch.col"
         this._linnUfXInitPending = new Set();
         this.midiin_data.addListener("controlchange", (e) => {
           const cc = e.message.dataBytes[0];

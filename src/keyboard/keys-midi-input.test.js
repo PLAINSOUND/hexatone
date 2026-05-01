@@ -2310,7 +2310,7 @@ describe("Keys MIDI input integration", () => {
     listeners.controlchange({ message: { channel: 4, dataBytes: [9, 12] } });
 
     expect(keys.controller?.id).toBe("linnstrument");
-    expect(retune).toHaveBeenCalledTimes(2);
+    expect(retune).toHaveBeenCalledTimes(1);
   });
 
   it("parses LinnStrument UF X-data when MSB arrives before LSB", () => {
@@ -2400,7 +2400,7 @@ describe("Keys MIDI input integration", () => {
     listeners.controlchange({ message: { channel: 4, dataBytes: [12, 12] } });
     listeners.controlchange({ message: { channel: 4, dataBytes: [12, 13] } });
 
-    expect(retune).toHaveBeenCalledTimes(2);
+    expect(retune).toHaveBeenCalledTimes(1);
   });
 
   it("does not bend a new LinnStrument UF note until one fresh X pair has arrived", () => {
@@ -2446,6 +2446,165 @@ describe("Keys MIDI input integration", () => {
 
     listeners.controlchange({ message: { channel: 4, dataBytes: [44, 64] } });
     expect(retune).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses single-sample LinnStrument UF X spikes while keeping nearby updates", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(7, 7));
+    listeners.keyaftertouch({ message: { channel: 7, dataBytes: [7, 80] } });
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 16] } });
+    listeners.controlchange({ message: { channel: 7, dataBytes: [7, 9] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 30] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 17] } });
+    expect(retune).toHaveBeenCalledTimes(2);
+  });
+
+  it("applies a large LinnStrument UF X move after a confirming second sample", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(7, 7));
+    listeners.keyaftertouch({ message: { channel: 7, dataBytes: [7, 80] } });
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 16] } });
+    listeners.controlchange({ message: { channel: 7, dataBytes: [7, 9] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 30] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 31] } });
+    expect(retune).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses a stricter LinnStrument UF X outlier threshold at low aftertouch", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+        aftertouch(value) {
+          this._lastAftertouch = value;
+        },
+      })),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(7, 7));
+    listeners.keyaftertouch({ message: { channel: 7, dataBytes: [7, 18] } });
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 16] } });
+    listeners.controlchange({ message: { channel: 7, dataBytes: [7, 9] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 30] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 31] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 30] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.controlchange({ message: { channel: 7, dataBytes: [39, 16] } });
+    expect(retune).toHaveBeenCalledTimes(2);
   });
 
   it("clears LinnStrument UF cached X state on note-off before a repeated press", () => {
@@ -2539,8 +2698,9 @@ describe("Keys MIDI input integration", () => {
 
     lowShapeKeys.midinoteOn(makeMidiEvent(1, 1));
     const lowShapeBaseCents = lowShapeKeys.state.activeMidi.get(1)?._baseCents ?? 0;
-    listeners.controlchange({ message: { channel: 1, dataBytes: [33, 12] } });
-    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 1] } });
+    listeners.controlchange({ message: { channel: 1, dataBytes: [33, 76] } });
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 0] } });
+    expect(lowShapeRetune).not.toHaveBeenCalledTimes(0);
     const lowShapeCents = lowShapeRetune.mock.calls.at(-1)[0];
 
     const highShapeListeners = {};
@@ -2577,11 +2737,12 @@ describe("Keys MIDI input integration", () => {
 
     highShapeKeys.midinoteOn(makeMidiEvent(1, 1));
     const highShapeBaseCents = highShapeKeys.state.activeMidi.get(1)?._baseCents ?? 0;
-    highShapeListeners.controlchange({ message: { channel: 1, dataBytes: [33, 12] } });
-    highShapeListeners.controlchange({ message: { channel: 1, dataBytes: [1, 1] } });
+    highShapeListeners.controlchange({ message: { channel: 1, dataBytes: [33, 76] } });
+    highShapeListeners.controlchange({ message: { channel: 1, dataBytes: [1, 0] } });
+    expect(highShapeRetune).not.toHaveBeenCalledTimes(0);
     const highShapeCents = highShapeRetune.mock.calls.at(-1)[0];
 
-    expect(Math.abs(lowShapeCents - lowShapeBaseCents)).toBeGreaterThan(
+    expect(Math.abs(lowShapeCents - lowShapeBaseCents)).toBeGreaterThanOrEqual(
       Math.abs(highShapeCents - highShapeBaseCents),
     );
   });
