@@ -64,7 +64,23 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ### 3.2.0-beta.1 *(currently in development)*
 
-Current 3.2 alpha work includes:
+Current 3.2 beta work includes:
+
+**Live performance architecture**
+
+- continued architectural separation of `Keys` into smaller runtime modules, moving MIDI input, expression handling, snapshots, MTS output, controller maps, and settings-impact classification out of the monolithic canvas path
+- reduced full `Keys` reconstruction to true tuning/layout changes; most live performance settings now update through targeted runtime paths instead of interrupting the keyboard
+- MIDI input device changes now rebind listeners live without rebuilding the canvas keyboard
+- controller geometry changes now rebuild only the controller map, preserving the active `Keys` runtime
+
+**Controller and LED feedback refinements**
+
+- refined Auto Send Colours for Lumatone, Exquis, and LinnStrument:
+  - active 2D geometry on a matching bidirectional controller enables automatic colour updates
+  - Generic Keyboard, sequential/bypass mode, and Scale input mode suppress automatic colour sends
+  - manual Lumatone Send Colours remains available when a valid Lumatone map exists
+- improved Lumatone, Exquis, and LinnStrument raw output-port matching by preferring outputs whose names match the selected input
+- defaulted LinnStrument User Firmware pitch bend interval to `1/1` pending focused investigation of border-crossing LSB/MSB bend parsing
 
 **Scale workspace and rationalisation**
 
