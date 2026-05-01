@@ -410,12 +410,29 @@ describe("loadAnchorSettingsUpdate", () => {
   it("defaults LinnStrument pitch bend interval to no bend when no shared value is saved", () => {
     const update = loadAnchorSettingsUpdate(getControllerById("linnstrument"));
     expect(update.midiin_bend_range).toBe("1/1");
+    expect(update.linnstrument_channel_allocation).toBe("single_channel");
+    expect(update.midiin_steps_per_channel).toBe(0);
+    expect(update.midiin_channel_legacy).toBe(false);
+    expect(update.linnstrument_pitch_bend_mode).toBe("off");
+    expect(update.linnstrument_pitch_bend_shape).toBe(100);
   });
 
   it("preserves a saved shared pitch bend interval for LinnStrument", () => {
     localStorage.setItem("midiin_bend_range", "64/63");
     const update = loadAnchorSettingsUpdate(getControllerById("linnstrument"));
     expect(update.midiin_bend_range).toBe("64/63");
+  });
+
+  it("preserves a saved LinnStrument UF pitch bend mode", () => {
+    localStorage.setItem("linnstrument_linnstrument_pitch_bend_mode", "follow_scale_geometry");
+    const update = loadAnchorSettingsUpdate(getControllerById("linnstrument"));
+    expect(update.linnstrument_pitch_bend_mode).toBe("follow_scale_geometry");
+  });
+
+  it("preserves a saved LinnStrument UF pitch bend shape", () => {
+    localStorage.setItem("linnstrument_linnstrument_pitch_bend_shape", "73");
+    const update = loadAnchorSettingsUpdate(getControllerById("linnstrument"));
+    expect(update.linnstrument_pitch_bend_shape).toBe(73);
   });
 });
 

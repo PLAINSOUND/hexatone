@@ -115,6 +115,8 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
       pressureMode: "recency",
       wheelToRecent: false,
       wheelRange: "64/63",
+      perChannelExpression: false,
+      wheelUsesInterval: false,
       wheelScaleAware: false,
       wheelSemitones: 2,
       bendRange: "64/63",
@@ -951,7 +953,7 @@ describe("Keys MIDI input integration", () => {
         keyCodeToCoords: {},
         note_names: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11"],
       },
-      { mpeInput: true },
+      { mpeInput: true, bendRange: "2/1" },
       synth,
     );
 
@@ -989,6 +991,10 @@ describe("Keys MIDI input integration", () => {
 
     keys._applyMpePitchBend(sourceEntry, 2, 11000);
     expect(sourceRetune).toHaveBeenCalledTimes(1);
+    expect(sourceRetune.mock.calls[0][0]).toBeCloseTo(
+      (sourceHex._baseCents ?? sourceHex.cents) + ((11000 - 8192) / 8192) * 1200,
+      3,
+    );
 
     keys._applyMpePitchBend(targetEntry, 3, 4096);
     expect(sourceRetune).toHaveBeenCalledTimes(2);
@@ -2083,6 +2089,501 @@ describe("Keys MIDI input integration", () => {
     expect(passthroughSpy).not.toHaveBeenCalled();
     expect(requestAnimationFrame).not.toHaveBeenCalled();
     expect(keys._wheelBend).not.toBe(0);
+  });
+
+  it("routes LinnStrument bypass single-channel CC1, poly aftertouch, and pitch bend as generic input", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const modwheel = vi.fn();
+    const aftertouch = vi.fn();
+    const standardWheelRetune = vi.fn(function standardWheelRetune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        modwheel,
+        aftertouch,
+        standardWheelRetune,
+      })),
+      rememberControllerState: vi.fn(),
+    };
+
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: true,
+      },
+      {
+        layoutMode: "sequential",
+        wheelToRecent: false,
+        wheelRange: "2/1",
+        wheelUsesInterval: true,
+        mpeInput: false,
+      },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(60, 1));
+    const hex = keys.state.activeMidi.get(60);
+    const baseCents = hex._baseCents;
+
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 64] } });
+    listeners.keyaftertouch({ message: { channel: 1, dataBytes: [60, 80] } });
+    listeners.pitchbend(makePitchBendEvent(16383, 1));
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(keys.controllerMap).toBeNull();
+    expect(modwheel).toHaveBeenCalledWith(64);
+    expect(aftertouch).toHaveBeenCalledWith(80);
+    expect(standardWheelRetune).toHaveBeenCalledTimes(1);
+    expect(standardWheelRetune.mock.calls[0][0]).toBeCloseTo(baseCents + 1200, 0);
+  });
+
+  it("routes LinnStrument channel-per-row bend to all active notes on that row channel", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const createdHexes = [];
+    const synth = {
+      makeHex: vi.fn((coords, cents) => {
+        const hex = {
+          coords,
+          cents,
+          _baseCents: cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          release: false,
+          retune: vi.fn(function retune(newCents) {
+            this.cents = newCents;
+          }),
+        };
+        createdHexes.push(hex);
+        return hex;
+      }),
+      rememberControllerState: vi.fn(),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: true,
+      },
+      {
+        layoutMode: "sequential",
+        mpeInput: false,
+        perChannelExpression: true,
+        bendRange: "2/1",
+      },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(60, 2));
+    listeners.noteon(makeMidiEvent(61, 3));
+    const row2First = createdHexes[0];
+    const row3 = createdHexes[1];
+
+    listeners.pitchbend(makePitchBendEvent(16383, 2));
+    expect(row2First.retune).toHaveBeenCalledTimes(1);
+    expect(row3.retune).not.toHaveBeenCalled();
+
+    listeners.noteon(makeMidiEvent(62, 2));
+    const row2Second = createdHexes[2];
+    listeners.pitchbend(makePitchBendEvent(12000, 2));
+    expect(row2Second.retune).toHaveBeenCalledTimes(2);
+    expect(row2First.retune).toHaveBeenCalledTimes(2);
+
+    listeners.noteoff(makeMidiEvent(62, 2));
+    listeners.pitchbend(makePitchBendEvent(4096, 2));
+    expect(row2First.retune).toHaveBeenCalledTimes(3);
+    expect(row2Second.retune).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores LinnStrument UF X-data bend when row glide is off", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "off",
+      },
+      { layoutMode: "controller_geometry" },
+      synth,
+    );
+
+    keys.midinoteOn(makeMidiEvent(9, 4));
+    listeners.controlchange({ message: { channel: 4, dataBytes: [41, 0] } });
+    listeners.controlchange({ message: { channel: 4, dataBytes: [9, 12] } });
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(retune).not.toHaveBeenCalled();
+  });
+
+  it("applies LinnStrument UF X-data bend when row glide follows scale/geometry", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    keys.midinoteOn(makeMidiEvent(9, 4));
+    listeners.controlchange({ message: { channel: 4, dataBytes: [41, 0] } });
+    listeners.controlchange({ message: { channel: 4, dataBytes: [9, 12] } });
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(retune).toHaveBeenCalledTimes(2);
+  });
+
+  it("parses LinnStrument UF X-data when MSB arrives before LSB", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    keys.midinoteOn(makeMidiEvent(12, 4));
+    listeners.controlchange({ message: { channel: 4, dataBytes: [12, 12] } });
+    listeners.controlchange({ message: { channel: 4, dataBytes: [44, 0] } });
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(retune).toHaveBeenCalledTimes(2);
+  });
+
+  it("updates LinnStrument UF bend from MSB changes using the latest known LSB", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(12, 4));
+    listeners.controlchange({ message: { channel: 4, dataBytes: [44, 64] } });
+    listeners.controlchange({ message: { channel: 4, dataBytes: [12, 12] } });
+    listeners.controlchange({ message: { channel: 4, dataBytes: [12, 13] } });
+
+    expect(retune).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not bend a new LinnStrument UF note until one fresh X pair has arrived", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(12, 4));
+    listeners.controlchange({ message: { channel: 4, dataBytes: [12, 12] } });
+    expect(retune).not.toHaveBeenCalled();
+
+    listeners.controlchange({ message: { channel: 4, dataBytes: [44, 64] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears LinnStrument UF cached X state on note-off before a repeated press", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune,
+      })),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+      },
+      { layoutMode: "controller_geometry", wheelRange: "64/63" },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(12, 4));
+    listeners.controlchange({ message: { channel: 4, dataBytes: [44, 64] } });
+    listeners.controlchange({ message: { channel: 4, dataBytes: [12, 12] } });
+    expect(retune).toHaveBeenCalledTimes(1);
+
+    listeners.noteoff(makeMidiEvent(12, 4));
+    listeners.noteon(makeMidiEvent(12, 4));
+    listeners.controlchange({ message: { channel: 4, dataBytes: [12, 12] } });
+
+    expect(retune).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses LinnStrument row glide shape to control the bend curve", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const lowShapeRetune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const highShapeRetune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+
+    const lowShapeKeys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+        linnstrument_pitch_bend_shape: 0,
+      },
+      { layoutMode: "controller_geometry", wheelRange: "2/1" },
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          _baseCents: cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          release: false,
+          retune: lowShapeRetune,
+        })),
+      },
+    );
+
+    lowShapeKeys.midinoteOn(makeMidiEvent(1, 1));
+    const lowShapeBaseCents = lowShapeKeys.state.activeMidi.get(1)?._baseCents ?? 0;
+    listeners.controlchange({ message: { channel: 1, dataBytes: [33, 12] } });
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 1] } });
+    const lowShapeCents = lowShapeRetune.mock.calls.at(-1)[0];
+
+    const highShapeListeners = {};
+    const highShapeInput = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        highShapeListeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(highShapeInput);
+
+    const highShapeKeys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+        linnstrument_pitch_bend_shape: 100,
+      },
+      { layoutMode: "controller_geometry", wheelRange: "2/1" },
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          _baseCents: cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          release: false,
+          retune: highShapeRetune,
+        })),
+      },
+    );
+
+    highShapeKeys.midinoteOn(makeMidiEvent(1, 1));
+    const highShapeBaseCents = highShapeKeys.state.activeMidi.get(1)?._baseCents ?? 0;
+    highShapeListeners.controlchange({ message: { channel: 1, dataBytes: [33, 12] } });
+    highShapeListeners.controlchange({ message: { channel: 1, dataBytes: [1, 1] } });
+    const highShapeCents = highShapeRetune.mock.calls.at(-1)[0];
+
+    expect(Math.abs(lowShapeCents - lowShapeBaseCents)).toBeGreaterThan(
+      Math.abs(highShapeCents - highShapeBaseCents),
+    );
   });
 
   it("keeps sustained MIDI notes lit until sustain is released", () => {

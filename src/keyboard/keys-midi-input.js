@@ -1,6 +1,35 @@
 import { notes } from "../midi_synth";
 import { findNearestDegree } from "../input/scale-mapper.js";
 
+function usesPerChannelExpression(runtime) {
+  return !!(runtime?.mpeInput || runtime?.perChannelExpression);
+}
+
+function ensureActiveMidiChannelEntry(channel) {
+  let entry = this.state.activeMidiByChannel.get(channel);
+  if (!entry) {
+    entry = {
+      hex: null,
+      baseCents: null,
+      hexes: new Set(),
+    };
+    this.state.activeMidiByChannel.set(channel, entry);
+  } else if (!entry.hexes) {
+    entry.hexes = new Set(entry.hex ? [entry.hex] : []);
+  }
+  return entry;
+}
+
+function findLatestActiveHexForChannel(channel) {
+  const activeHexes = new Set(this.state.activeMidi.values());
+  for (const hex of this.recencyStack.all) {
+    if (hex?._inputChannel === channel && !hex.release && activeHexes.has(hex)) {
+      return hex;
+    }
+  }
+  return null;
+}
+
 export function applyChannelOffset(baseCoords, channel) {
   const stepsPerChannel = this.inputRuntime.stepsPerChannel ?? this.tuning.equivSteps;
   if (!stepsPerChannel) return baseCoords;
@@ -59,7 +88,7 @@ export function midinoteOn(event) {
   if (existingHex) {
     this.state.activeMidi.delete(notePlayed);
     if (
-      this.inputRuntime.mpeInput &&
+      usesPerChannelExpression(this.inputRuntime) &&
       this.state.activeMidiByChannel.get(event.message.channel)?.hex === existingHex
     ) {
       this.state.activeMidiByChannel.delete(event.message.channel);
@@ -111,13 +140,17 @@ export function midinoteOn(event) {
   if (coords === null) return;
   if (this._midiLatchToggle(coords, velocityPlayed)) return;
   const hex = this.hexOn(coords, notePlayed, velocityPlayed, bend);
-  if (this.inputRuntime.mpeInput) hex._inputChannel = event.message.channel;
+  if (usesPerChannelExpression(this.inputRuntime)) hex._inputChannel = event.message.channel;
   this.state.activeMidi.set(notePlayed, hex);
-  if (this.inputRuntime.mpeInput) {
-    this.state.activeMidiByChannel.set(event.message.channel, {
-      hex,
-      baseCents: hex._baseCents ?? hex.cents,
-    });
+  if (usesPerChannelExpression(this.inputRuntime)) {
+    const entry = ensureActiveMidiChannelEntry.call(this, event.message.channel);
+    entry.hex = hex;
+    entry.baseCents = hex._baseCents ?? hex.cents;
+    entry.hexes.add(hex);
+    const bend14 = this._mpeInputBendByChannel.get(event.message.channel);
+    if (bend14 != null && bend14 !== 8192) {
+      this._applyMpePitchBend(entry, event.message.channel, bend14);
+    }
   }
   this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(coords);
 }
@@ -167,12 +200,22 @@ export function midinoteOff(event) {
   if (hex) {
     this.noteOff(hex, event.note.rawRelease);
     this.state.activeMidi.delete(notePlayed);
-    if (
-      this.inputRuntime.mpeInput &&
-      this.state.activeMidiByChannel.get(event.message.channel)?.hex === hex
-    ) {
-      this.state.activeMidiByChannel.delete(event.message.channel);
-      this._mpeInputBendByChannel.delete(event.message.channel);
+    if (usesPerChannelExpression(this.inputRuntime)) {
+      const entry = this.state.activeMidiByChannel.get(event.message.channel);
+      if (entry?.hexes) entry.hexes.delete(hex);
+      if (entry?.hex === hex) {
+        const replacementHex = findLatestActiveHexForChannel.call(this, event.message.channel);
+        if (replacementHex) {
+          entry.hex = replacementHex;
+          entry.baseCents = replacementHex._baseCents ?? replacementHex.cents;
+        } else {
+          this.state.activeMidiByChannel.delete(event.message.channel);
+          this._mpeInputBendByChannel.delete(event.message.channel);
+        }
+      } else if (entry && entry.hexes?.size === 0) {
+        this.state.activeMidiByChannel.delete(event.message.channel);
+        this._mpeInputBendByChannel.delete(event.message.channel);
+      }
     }
     this._settleModulationAfterActiveRelease();
   }

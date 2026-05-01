@@ -44,7 +44,6 @@ import {
   activateLinnstrumentUserFirmware,
   deactivateLinnstrumentUserFirmware,
   detachLinnstrumentLedDriver,
-  readLinnstrumentUserFirmwarePreference,
 } from "./controllers/linnstrument-user-firmware.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
@@ -864,6 +863,18 @@ const App = () => {
     !settings.midi_passthrough &&
     !!settings.midiin_device &&
     settings.midiin_device !== "OFF";
+  const linnstrumentBypassNonMpe =
+    inputController?.id === "linnstrument" &&
+    (settings.midiin_mapping_target || "hex_layout") !== "scale" &&
+    !!settings.midi_passthrough &&
+    !settings.midiin_mpe_input &&
+    !!settings.midiin_device &&
+    settings.midiin_device !== "OFF";
+  const linnstrumentBypassChannelPerRow =
+    linnstrumentBypassNonMpe && settings.linnstrument_channel_allocation === "channel_per_row";
+  const linnstrumentBypassSingleChannel =
+    linnstrumentBypassNonMpe &&
+    (settings.linnstrument_channel_allocation || "single_channel") === "single_channel";
   const forceScaleTarget =
     inputController?.id === "tonalplexus" && settings.tonalplexus_input_mode === "layout_205";
   const inputNormalizationSettings = useMemo(
@@ -918,8 +929,10 @@ const App = () => {
       // Wheel settings kept here for Keys to use alongside routing mode.
       // wheelRange and bendRange both read from midiin_bend_range — the UI
       // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
-      wheelToRecent: settings.wheel_to_recent,
+      wheelToRecent: linnstrumentBypassNonMpe ? false : settings.wheel_to_recent,
       wheelRange: settings.midiin_bend_range ?? "64/63",
+      perChannelExpression: linnstrumentBypassChannelPerRow,
+      wheelUsesInterval: linnstrumentBypassSingleChannel,
       wheelScaleAware: settings.wheel_scale_aware,
       wheelSemitones: settings.midi_wheel_semitones ?? 2,
       // Pitch bend range for incoming hardware controller bend messages.
@@ -944,7 +957,10 @@ const App = () => {
       settings.midiin_pressure_mode,
       settings.wheel_to_recent,
       settings.midiin_bend_range,
+      linnstrumentBypassChannelPerRow,
+      linnstrumentBypassSingleChannel,
       settings.wheel_scale_aware,
+      linnstrumentBypassNonMpe,
       settings.midi_wheel_semitones,
       settings.midiin_bend_flip,
       settings.midiin_scale_bend_range,
@@ -1124,10 +1140,7 @@ const App = () => {
     if (!output) return;
 
     let activatedKeys = null;
-    const shouldActivate =
-      linnstrumentUserFirmwareEligible && readLinnstrumentUserFirmwarePreference();
-
-    if (!shouldActivate) {
+    if (!linnstrumentUserFirmwareEligible) {
       deactivateLinnstrumentUserFirmware(output, keysRef.current ?? null);
       return;
     }

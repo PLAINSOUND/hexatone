@@ -808,6 +808,8 @@ export const CONTROLLER_REGISTRY = [
     // multiChannel=true so keys.js uses the real incoming channel for map lookup.
     multiChannel: true,
     mpe: false,
+    sequentialTransposeDefault: 0,
+    sequentialLegacyDefault: false,
     // Anchor in native UF coordinates: col (1-indexed) + channel/row (1-indexed).
     // Default col 9, row 4 = near centre of the 16-col grid.
     anchorDefault: 9,           // col (lumatone_center_note)
@@ -825,6 +827,8 @@ export const CONTROLLER_REGISTRY = [
           midi_passthrough: false,
           midiin_mpe_input: false,
           midiin_bend_range: "1/1",
+          linnstrument_pitch_bend_mode: "off",
+          linnstrument_pitch_bend_shape: 100,
         },
       },
     },

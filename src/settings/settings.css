@@ -98,6 +98,29 @@ label > .sidebar-input {
   margin-left: auto;
 }
 
+.controller-inline-row {
+  min-height: 1.5em;
+  margin-top: 0.25em;
+  line-height: 1.5em;
+}
+
+.controller-output-row,
+.controller-status-row {
+  font-style: italic;
+}
+
+.controller-inline-row > span.sidebar-input {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 1.5em;
+  line-height: 1.5em;
+}
+
+.controller-status-value {
+  text-align: right;
+}
+
 /* Checkbox rows keep the existing left/right layout, but only the checkbox
    itself (and any other explicit controls inside the row) should be clickable. */
 label:has(input[type="checkbox"]) {

@@ -15,8 +15,15 @@
 import { render, waitFor, screen } from "@testing-library/preact";
 import { parseExactInterval } from "./tuning/interval.js";
 
+let lastKeyboardProps = null;
+let mockDetectedController = null;
+let mockControllerById = null;
+
 vi.mock("./keyboard", () => ({
-  default: () => <div data-testid="keyboard">Keyboard Stub</div>,
+  default: (props) => {
+    lastKeyboardProps = props;
+    return <div data-testid="keyboard">Keyboard Stub</div>;
+  },
 }));
 vi.mock("./settings", () => ({
   default: () => <div data-testid="settings">Settings Stub</div>,
@@ -154,11 +161,10 @@ vi.mock("./controllers/linnstrument-user-firmware.js", () => ({
   activateLinnstrumentUserFirmware: vi.fn(),
   deactivateLinnstrumentUserFirmware: vi.fn(),
   detachLinnstrumentLedDriver: vi.fn(),
-  readLinnstrumentUserFirmwarePreference: vi.fn(() => true),
 }));
 vi.mock("./controllers/registry.js", () => ({
-  detectController: () => null,
-  getControllerById: () => null,
+  detectController: () => mockDetectedController,
+  getControllerById: () => mockControllerById,
 }));
 
 // ── Loading spinner ───────────────────────────────────────────────────────────
@@ -187,6 +193,12 @@ describe("Loading", () => {
     const { getByTestId } = render(<Loading />);
     expect(getByTestId("loading-icon")).not.toBeNull();
   });
+});
+
+beforeEach(() => {
+  lastKeyboardProps = null;
+  mockDetectedController = null;
+  mockControllerById = null;
 });
 
 describe("modulationRouteLabelPair", () => {
@@ -301,6 +313,36 @@ describe("bindControllerLedRefs", () => {
     expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
     expect(keys.syncExquisLEDs).not.toHaveBeenCalled();
     expect(keys.syncLinnstrumentLEDs).not.toHaveBeenCalled();
+  });
+});
+
+describe("App input runtime", () => {
+  it("keeps configured wheel semitones and forces standard wheel mode for LinnStrument bypass with MPE input off", async () => {
+    Object.assign(settings, {
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+      midi_passthrough: true,
+      midiin_mpe_input: false,
+      midi_wheel_semitones: 12,
+      wheel_to_recent: true,
+    });
+    synthWiringState.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Roger Linn Design LinnStrument 128" }]]),
+      outputs: new Map(),
+    };
+    mockDetectedController = { id: "linnstrument" };
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+    expect(lastKeyboardProps.inputRuntime.wheelSemitones).toBe(12);
+    expect(lastKeyboardProps.inputRuntime.wheelToRecent).toBe(false);
   });
 });
 

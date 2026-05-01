@@ -109,6 +109,15 @@ export function applyMpePitchBend(entry, channel, value14) {
   entry.hex.retune?.(bentCents, true);
 }
 
+export function activeHexesForInputChannel(channel) {
+  const entry = this.state.activeMidiByChannel.get(channel);
+  if (!entry) return [];
+  if (entry.hexes?.size) {
+    return [...entry.hexes].filter((hex) => hex && !hex.release);
+  }
+  return entry.hex && !entry.hex.release ? [entry.hex] : [];
+}
+
 export function currentWheelPitchStateForHex(hex) {
   if (!hex || this.inputRuntime.mpeInput || this._wheelValue14 === 8192) return null;
   if (!this.inputRuntime.wheelToRecent || this.inputRuntime.pitchBendMode === "all") {
@@ -172,7 +181,9 @@ export function handleWheelBend(val14) {
   this._wheelValue14 = val14;
   if (!this.inputRuntime.wheelToRecent) {
     const norm = (val14 - 8192) / 8192;
-    const rangeCents = (this.inputRuntime.wheelSemitones ?? 2) * 100;
+    const rangeCents = this.inputRuntime.wheelUsesInterval
+      ? scalaToCents(this.inputRuntime.wheelRange ?? "64/63")
+      : (this.inputRuntime.wheelSemitones ?? 2) * 100;
     const offsetCents = norm * rangeCents;
     this._wheelBend = offsetCents;
     for (const hex of this._allActiveHexes()) {
@@ -282,7 +293,7 @@ export function reapplyCurrentWheelBend() {
 export function retuneHexFromBase(hex, baseCents, bendOnly = false) {
   if (!hex?.retune || hex.release) return;
   hex._baseCents = baseCents;
-  if (this.inputRuntime.mpeInput && hex._inputChannel != null) {
+  if ((this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) && hex._inputChannel != null) {
     const channel = hex._inputChannel;
     const entry = this.state.activeMidiByChannel.get(channel) ?? { hex, baseCents };
     entry.baseCents = baseCents;
@@ -357,6 +368,19 @@ export function reapplyCurrentInputBends() {
     for (const [channel, entry] of this.state.activeMidiByChannel) {
       if (!entry || entry.hex.release) continue;
       this._applyMpePitchBend(entry, channel, this._mpeInputBendByChannel.get(channel) ?? 8192);
+    }
+    return;
+  }
+  if (this.inputRuntime.perChannelExpression) {
+    for (const [channel] of this.state.activeMidiByChannel) {
+      const bend14 = this._mpeInputBendByChannel.get(channel) ?? 8192;
+      for (const hex of this._activeHexesForInputChannel(channel)) {
+        this._applyMpePitchBend(
+          { hex, baseCents: hex._baseCents ?? hex.cents },
+          channel,
+          bend14,
+        );
+      }
     }
     return;
   }

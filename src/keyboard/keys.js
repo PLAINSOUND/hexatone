@@ -693,6 +693,10 @@ class Keys {
     return InputExpressionRuntime.applyMpePitchBend.call(this, entry, channel, value14);
   }
 
+  _activeHexesForInputChannel(channel) {
+    return InputExpressionRuntime.activeHexesForInputChannel.call(this, channel);
+  }
+
   _currentWheelPitchStateForHex(hex) {
     return InputExpressionRuntime.currentWheelPitchStateForHex.call(this, hex);
   }

@@ -1,7 +1,6 @@
 import Point from "../keyboard/point.js";
 import { WebMidi } from "webmidi";
 import { keymap, notes } from "../midi_synth";
-import { scalaToCents } from "../settings/scale/parse-scale";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
 
@@ -14,6 +13,97 @@ const MIDI_INPUT_EVENT_NAMES = [
   "pitchbend",
   "sysex",
 ];
+
+function isLinnstrumentUfInputActive() {
+  return (
+    this.controller?.id === "linnstrument" &&
+    this.inputRuntime.target !== "scale" &&
+    this.inputRuntime.layoutMode === "controller_geometry"
+  );
+}
+
+function linnstrumentUfGlideExponent(shapeSetting) {
+  const shape = Math.max(0, Math.min(200, Number(shapeSetting) || 0));
+  // 0 = softer/near-linear, 200 = stronger/discrete.
+  return 1 + (shape / 200) * 8;
+}
+
+function linnstrumentUfGlideCurve(deviation, shapeSetting) {
+  const t = Math.max(0, Math.min(1, Math.abs(deviation)));
+  const exponent = linnstrumentUfGlideExponent(shapeSetting);
+  // Smoothstep gives zero slope at both centre and boundary.
+  const smooth = t * t * (3 - 2 * t);
+  const curved = Math.pow(smooth, exponent);
+  return Math.sign(deviation) * curved;
+}
+
+function linnstrumentUfRowNeighborCents(channel, col, fallbackCents) {
+  const lookupCents = (targetCol) => {
+    const coords = this.controllerMap?.get(`${channel}.${targetCol}`);
+    if (!coords) return fallbackCents;
+    const [cents] = this.hexCoordsToCents(coords);
+    return cents;
+  };
+  return {
+    prev: lookupCents(col - 1),
+    next: lookupCents(col + 1),
+  };
+}
+
+function linnstrumentUfSurfaceWidth(cols) {
+  // Hardware testing on LinnStrument 128 shows the active X span across 16 pads
+  // is about 2727, while the docs' 4265 figure matches the 25-pad surface.
+  return cols <= 16 ? 2727 : 4265;
+}
+
+function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
+  const key = `${channel}.${col}`;
+  const x14 = (msb << 7) | lsb;
+  this._linnUfXCurrent.set(key, x14);
+  if ((this.settings.linnstrument_pitch_bend_mode || "off") !== "follow_scale_geometry") {
+    return;
+  }
+  const note_played = col + 128 * (channel - 1);
+  const hex = this.state.activeMidi.get(note_played);
+  if (hex && !hex.release && hex.retune) {
+    const cols = this.controller?.defaultCols ?? 16;
+    const surfaceWidth = linnstrumentUfSurfaceWidth(cols);
+    const colWidth = surfaceWidth / cols;
+    const cellCentre = (col - 0.5) * colWidth;
+    const deviation = Math.max(-1, Math.min(1, (x14 - cellCentre) / (colWidth / 2)));
+    const curved = linnstrumentUfGlideCurve(
+      deviation,
+      this.settings.linnstrument_pitch_bend_shape ?? 50,
+    );
+    const baseCents = hex._baseCents ?? hex.cents;
+    const neighbors = linnstrumentUfRowNeighborCents.call(this, channel, col, baseCents);
+    let targetCents = baseCents;
+    if (curved < 0) {
+      targetCents = baseCents + curved * (baseCents - neighbors.prev) * 0.5;
+    } else if (curved > 0) {
+      targetCents = baseCents + curved * (neighbors.next - baseCents) * 0.5;
+    }
+    hex.retune(targetCents, true);
+  }
+}
+
+function maybeApplyLinnstrumentUfX(channel, col) {
+  const key = `${channel}.${col}`;
+  const msb = this._linnUfXMsb.get(key);
+  const lsb = this._linnUfXLsb.get(key);
+
+  if (this._linnUfXInitPending.has(key)) {
+    if (msb === undefined || lsb === undefined) return;
+    this._linnUfXInitPending.delete(key);
+    applyLinnstrumentUfXBend.call(this, channel, col, msb, lsb);
+    return;
+  }
+
+  const current = this._linnUfXCurrent.get(key) ?? 0;
+  const effectiveMsb = msb ?? ((current >> 7) & 0x7f);
+  const effectiveLsb = lsb ?? (current & 0x7f);
+  applyLinnstrumentUfXBend.call(this, channel, col, effectiveMsb, effectiveLsb);
+}
 
 export function rebuildControllerMap() {
   if (!this.midiin_data && this.settings.midiin_device === "OFF") {
@@ -116,7 +206,9 @@ export function teardownMidiInput() {
   this.controllerMap = null;
   this._controllerMapImpactKey = null;
   this._linnUfXLsb = new Map();
+  this._linnUfXMsb = new Map();
   this._linnUfXCurrent = new Map();
+  this._linnUfXInitPending = new Set();
 }
 
 export function syncControllerAutoColors() {
@@ -179,6 +271,13 @@ export function setupMidiInput() {
             note: e.note.number,
             velocity: e.note.rawAttack,
           });
+          if (isLinnstrumentUfInputActive.call(this)) {
+            const key = `${e.message.channel}.${e.note.number}`;
+            this._linnUfXLsb.delete(key);
+            this._linnUfXMsb.delete(key);
+            this._linnUfXCurrent.delete(key);
+            this._linnUfXInitPending.add(key);
+          }
           this.midinoteOn(e);
           notes.played.unshift(e.note.number + 128 * (e.message.channel - 1));
         });
@@ -190,6 +289,13 @@ export function setupMidiInput() {
             velocity: e.note.rawRelease,
           });
           this.midinoteOff(e);
+          if (isLinnstrumentUfInputActive.call(this)) {
+            const key = `${e.message.channel}.${e.note.number}`;
+            this._linnUfXLsb.delete(key);
+            this._linnUfXMsb.delete(key);
+            this._linnUfXCurrent.delete(key);
+            this._linnUfXInitPending.delete(key);
+          }
           let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
           if (index >= 0) {
             let first_half = [];
@@ -223,47 +329,39 @@ export function setupMidiInput() {
         // 5. Routes CC74 (brightness) to the front-of-recency-stack hex (non-MPE mode).
         //    In MPE input mode (Step 3.5) CC74 will be routed per-channel instead.
         // LinnStrument User Firmware Mode: 14-bit X data buffer.
-        // Key: `ch.col` (same as activeMidi key), value: LSB awaiting MSB.
-        // On current hardware/firmware builds observed in Hexatone testing,
-        // LinnStrument sends the X pair as LSB first, then MSB.
+        // Key: `ch.col`, value: pending MSB/LSB halves awaiting pairing.
+        // The docs describe CC 0-25 + 32-57, but some observed hardware streams
+        // have arrived as 1-25 + 33-57 and/or LSB-first, so accept both.
         this._linnUfXLsb = new Map();
+        this._linnUfXMsb = new Map();
         this._linnUfXCurrent = new Map(); // latest x14 per "ch.col" — snapshot at note-on for zero-point
-
+        this._linnUfXInitPending = new Set();
         this.midiin_data.addListener("controlchange", (e) => {
           const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
+          const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
           debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
 
           // ── LinnStrument User Firmware Mode X data ────────────────────────
-          // CC 1-25  = X MSB (col = CC, 1-indexed, ch = row).
-          // CC 33-57 = X LSB (col = CC-32, 1-indexed, ch = row).
+          // CC 0-25 / 1-25 = X MSB, CC 32-57 / 33-57 = X LSB.
           // Combine to 14-bit value (0-4265 across the full pad width).
-          if (this.controller?.id === "linnstrument") {
-            if (cc >= 33 && cc <= 57) {
-              // X — first CC of the pair (LSB)
-              const col = cc - 32;
+          if (linnstrumentUfInputActive) {
+            const isDocumentedMsb = cc >= 0 && cc <= 25;
+            const isDocumentedLsb = cc >= 32 && cc <= 57;
+            const isObservedMsb = cc >= 1 && cc <= 25;
+            const isObservedLsb = cc >= 33 && cc <= 57;
+
+            if (isDocumentedLsb || isObservedLsb) {
+              const col = cc >= 32 ? cc - 32 : cc - 32;
               const key = `${e.message.channel}.${col}`;
               this._linnUfXLsb.set(key, value);
+              maybeApplyLinnstrumentUfX.call(this, e.message.channel, col);
               return;
-            } else if (cc >= 1 && cc <= 25) {
-              // X — second CC of the pair (MSB)
+            } else if (isDocumentedMsb || isObservedMsb) {
               const col = cc;
               const key = `${e.message.channel}.${col}`;
-              const lsb = this._linnUfXLsb.get(key);
-              if (lsb === undefined) return;
-              this._linnUfXLsb.delete(key);
-              const x14 = (value << 7) | lsb;           // 14-bit: 0 (left edge col 1) to ~2727 (right edge col 16) or ~4265 (col 25)
-              this._linnUfXCurrent.set(key, x14);
-              const note_played = col + 128 * (e.message.channel - 1);
-              const hex = this.state.activeMidi.get(note_played);
-              if (hex && !hex.release && hex.retune) {
-                const COL_WIDTH = 171;                   // measured: 2727 / 16 ≈ 170.4
-                const cellCentre = (col - 1) * COL_WIDTH + COL_WIDTH / 2;
-                const deviation = (x14 - cellCentre) / (COL_WIDTH / 2); // −1…+1
-                const curved = Math.sign(deviation) * Math.pow(Math.abs(deviation), 5); // x^5: wide stable centre, bends only at edges
-                const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
-                hex.retune(hex._baseCents + curved * rangeCents);
-              }
+              this._linnUfXMsb.set(key, value);
+              maybeApplyLinnstrumentUfX.call(this, e.message.channel, col);
               return;
             }
           }
@@ -284,7 +382,7 @@ export function setupMidiInput() {
           if (!(cc === 74 && isMTSOutput)) this._passthroughCC(cc, value);
 
           // ── Internal consumption ──────────────────────────────────────────
-          if (cc >= 65 && cc <= 89 && this.controller?.id === "linnstrument") {
+          if (cc >= 65 && cc <= 89 && linnstrumentUfInputActive) {
             // LinnStrument User Firmware Mode Y data:
             // CC 65-89 = per-cell Y position, ch=row(1-8), cc-64=col(1-25).
             // This range overlaps sostenuto/soft pedal CCs — must be checked
@@ -329,9 +427,14 @@ export function setupMidiInput() {
             // MPE voice expression, etc.) regardless of output mode.
             // Passthrough to MTS output is suppressed above — no meaningful MTS mapping.
             if (this.inputRuntime.mpeInput) {
-              // MPE input mode: CC74 is per-voice, carried on the note's channel.
+              // Per-channel expression mode: CC74 targets the latest sounding note
+              // on the input channel (MPE voice, or LinnStrument row in channel-per-row mode).
               const entry = this.state.activeMidiByChannel.get(e.message.channel);
               if (entry && !entry.hex.release) this._applyTimbreCC74(entry.hex, value);
+            } else if (this.inputRuntime.perChannelExpression) {
+              for (const hex of this._activeHexesForInputChannel(e.message.channel)) {
+                this._applyTimbreCC74(hex, value);
+              }
             } else {
               // Non-MPE: brightness to front of recency stack (global target).
               const front = this.recencyStack.front;
@@ -349,13 +452,21 @@ export function setupMidiInput() {
           this._channelPressureValue = value;
 
           if (this.inputRuntime.mpeInput) {
-            // MPE input mode: channel pressure is per-voice, carried on the note's channel.
+            // Per-channel expression mode: channel pressure targets the latest sounding
+            // note on the input channel.
             // We've resolved which note it belongs to, so route as polyphonic aftertouch
             // (hex.aftertouch) rather than channel pressure (hex.pressure) — this lets
             // MTS output send 0xAn poly-AT with the correct carrier note number.
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
             if (entry && !entry.hex.release) {
               this._applyPolyAftertouch(entry.hex, value);
+            }
+            return;
+          }
+
+          if (this.inputRuntime.perChannelExpression) {
+            for (const hex of this._activeHexesForInputChannel(e.message.channel)) {
+              this._applyPolyAftertouch(hex, value);
             }
             return;
           }
@@ -450,17 +561,29 @@ export function setupMidiInput() {
           });
 
           if (this.inputRuntime.mpeInput) {
-            // MPE input mode: pitch bend is per-voice, carried on the note's channel.
-            // Route to the hex registered on this channel, bypassing the recency stack.
+            // Per-channel expression mode: pitch bend is carried on the input channel.
+            // Route to the latest sounding note registered on this channel.
             this._mpeInputBendByChannel.set(e.message.channel, val14);
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
             if (entry && !entry.hex.release) this._applyMpePitchBend(entry, e.message.channel, val14);
-            // In MPE input mode we do NOT pass through to the output — each hex's
-            // retune() call handles expression for its own output engine.
+            // In per-channel expression modes we do NOT pass through to the output here —
+            // each hex's retune() call handles expression for its own output engine.
             // Scale mode pre-bend capture: record bend per channel so note-on can
             // use it to resolve the exact intended pitch.
-            if (this.inputRuntime.target === "scale") {
+            if (this.inputRuntime.mpeInput && this.inputRuntime.target === "scale") {
               this._scaleModePreBend.set(e.message.channel, val14);
+            }
+            return;
+          }
+
+          if (this.inputRuntime.perChannelExpression) {
+            this._mpeInputBendByChannel.set(e.message.channel, val14);
+            for (const hex of this._activeHexesForInputChannel(e.message.channel)) {
+              this._applyMpePitchBend(
+                { hex, baseCents: hex._baseCents ?? hex.cents },
+                e.message.channel,
+                val14,
+              );
             }
             return;
           }

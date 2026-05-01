@@ -13,7 +13,7 @@
  *     • Switch 1 = Sustain, Switch 2 = CC65
  *   X/Y/Z streams are NOT configured here — in UF mode they are enabled
  *   per-row via CC 10/11/12 (see enableLinnstrumentXData/YZData).
- *   NRPN 245 is NOT sent here — caller owns it (LinnUserFirmwareToggle).
+ *   NRPN 245 is NOT sent here — the app-level User Firmware lifecycle owns it.
  *
  * ── NRPN configuration table ─────────────────────────────────────────────────
  *
@@ -54,7 +54,7 @@ function sendNrpn(output, param, value) {
 
 /**
  * Send geometry NRPNs to configure the LinnStrument for User Firmware Mode.
- * Call once after NRPN 245=1 has been sent by LinnUserFirmwareToggle.
+ * Call once after the app-level lifecycle has sent NRPN 245=1.
  * X/Y/Z streams are enabled separately via enableLinnstrumentYZData/XData.
  *
  * @param {MIDIOutput} output  Raw Web MIDI output port.
@@ -62,7 +62,7 @@ function sendNrpn(output, param, value) {
 export function configureLinnStrument(output) {
   if (!output) return;
 
-  // NRPN 245 (User Firmware Mode) is NOT sent here — LinnUserFirmwareToggle owns it.
+  // NRPN 245 (User Firmware Mode) is NOT sent here.
   sendNrpn(output, 227, 0);  // Row offset = No Overlap
   sendNrpn(output, 36,  3);  // Octave = −2
   sendNrpn(output, 37,  1);  // Transpose = −6 semitones
@@ -107,6 +107,14 @@ export function enableLinnstrumentYZData(output) {
     const status = 0xb0 | (row - 1); // CC status byte for channel `row`
     output.send([status, 11, 1]);    // CC 11 = enable Y data for this row
     output.send([status, 12, 1]);    // CC 12 = enable Z data for this row
+  }
+}
+
+export function enableLinnstrumentRowSlide(output) {
+  if (!output) return;
+  for (let row = 1; row <= 8; row++) {
+    const status = 0xb0 | (row - 1);
+    output.send([status, 9, 1]);     // CC 9 = enable X-axis row slide mode
   }
 }
 
