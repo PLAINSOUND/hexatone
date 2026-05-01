@@ -5,6 +5,16 @@ import {
   enableLinnstrumentYZData,
 } from "./linnstrument-config.js";
 
+const LINNSTRUMENT_USER_FIRMWARE_STORAGE_KEY = "linnstrument_user_firmware";
+
+export function readLinnstrumentUserFirmwarePreference() {
+  return localStorage.getItem(LINNSTRUMENT_USER_FIRMWARE_STORAGE_KEY) !== "false";
+}
+
+export function writeLinnstrumentUserFirmwarePreference(enabled) {
+  localStorage.setItem(LINNSTRUMENT_USER_FIRMWARE_STORAGE_KEY, String(!!enabled));
+}
+
 export function sendLinnstrumentNrpn245(output, value) {
   if (!output) return;
   const ch = 0xb0;

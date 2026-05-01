@@ -1647,6 +1647,38 @@ describe("Keys MIDI input integration", () => {
     expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
   });
 
+  it("auto-sends LinnStrument colors when returning from Generic Keyboard bypass semantics without passthrough toggled", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Roger Linn Design LinnStrument 128",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "generic",
+      midi_passthrough: false,
+      lumatone_center_channel: 4,
+      lumatone_center_note: 9,
+      linnstrument_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    expect(keys.controller?.id).toBe("generic");
+    keys.syncLinnstrumentLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 9, seqAnchorChannel: 4 },
+      {
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: false,
+        midiin_central_degree: 9,
+        lumatone_center_channel: 4,
+        lumatone_center_note: 9,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(keys.controllerMap).toBeInstanceOf(Map);
+    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
   it("does not auto-send LinnStrument colors when geometry is bypassed", () => {
     vi.spyOn(WebMidi, "getInputById").mockReturnValue({
       name: "Roger Linn Design LinnStrument 128",

@@ -41,7 +41,10 @@ import { ExquisLEDs } from "./controllers/exquis-leds.js";
 import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
 import {
   attachLinnstrumentLedDriver,
+  activateLinnstrumentUserFirmware,
+  deactivateLinnstrumentUserFirmware,
   detachLinnstrumentLedDriver,
+  readLinnstrumentUserFirmwarePreference,
 } from "./controllers/linnstrument-user-firmware.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
@@ -855,6 +858,12 @@ const App = () => {
     if (overrideId !== "auto") return getControllerById(overrideId);
     return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
   }, [connectedInput, settings.midiin_controller_override]);
+  const linnstrumentUserFirmwareEligible =
+    inputController?.id === "linnstrument" &&
+    (settings.midiin_mapping_target || "hex_layout") !== "scale" &&
+    !settings.midi_passthrough &&
+    !!settings.midiin_device &&
+    settings.midiin_device !== "OFF";
   const forceScaleTarget =
     inputController?.id === "tonalplexus" && settings.tonalplexus_input_mode === "layout_205";
   const inputNormalizationSettings = useMemo(
@@ -1081,6 +1090,7 @@ const App = () => {
   // port ID strings rather than linnstrumentRawPorts (a new object each render)
   // so the effect only fires when the actual hardware port changes.
   const linnstrumentOutId = linnstrumentRawPorts?.output?.id ?? null;
+  const linnstrumentOutput = linnstrumentRawPorts?.output ?? null;
   useEffect(() => {
     if (!linnstrumentRawPorts) {
       if (linnstrumentLedsRef.current) {
@@ -1108,6 +1118,30 @@ const App = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linnstrumentOutId]);
+
+  useEffect(() => {
+    const output = linnstrumentOutput;
+    if (!output) return;
+
+    let activatedKeys = null;
+    const shouldActivate =
+      linnstrumentUserFirmwareEligible && readLinnstrumentUserFirmwarePreference();
+
+    if (!shouldActivate) {
+      deactivateLinnstrumentUserFirmware(output, keysRef.current ?? null);
+      return;
+    }
+
+    const id = setTimeout(() => {
+      activatedKeys = keysRef.current ?? null;
+      activateLinnstrumentUserFirmware(output, activatedKeys);
+    }, 50);
+
+    return () => {
+      clearTimeout(id);
+      deactivateLinnstrumentUserFirmware(output, activatedKeys ?? keysRef.current ?? null);
+    };
+  }, [linnstrumentOutput, linnstrumentUserFirmwareEligible]);
 
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.

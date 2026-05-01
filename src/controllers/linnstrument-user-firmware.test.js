@@ -5,10 +5,23 @@ import {
   deactivateLinnstrumentUserFirmware,
   detachLinnstrumentLedDriver,
   isLinnstrumentUserFirmwareEligible,
+  readLinnstrumentUserFirmwarePreference,
   sendLinnstrumentNrpn245,
+  writeLinnstrumentUserFirmwarePreference,
 } from "./linnstrument-user-firmware.js";
 
 describe("linnstrument-user-firmware", () => {
+  it("defaults the User Firmware preference to enabled until explicitly turned off", () => {
+    localStorage.removeItem("linnstrument_user_firmware");
+    expect(readLinnstrumentUserFirmwarePreference()).toBe(true);
+
+    writeLinnstrumentUserFirmwarePreference(false);
+    expect(readLinnstrumentUserFirmwarePreference()).toBe(false);
+
+    writeLinnstrumentUserFirmwarePreference(true);
+    expect(readLinnstrumentUserFirmwarePreference()).toBe(true);
+  });
+
   it("sends NRPN 245 using the LinnStrument six-CC sequence", () => {
     const send = vi.fn();
     sendLinnstrumentNrpn245({ send }, 1);

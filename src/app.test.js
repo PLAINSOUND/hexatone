@@ -149,6 +149,13 @@ vi.mock("./persistence/settings-registry.js", () => ({
 vi.mock("./session-defaults.js", () => ({ default: {} }));
 vi.mock("./controllers/exquis-leds.js", () => ({ ExquisLEDs: class {} }));
 vi.mock("./controllers/lumatone-leds.js", () => ({ LumatoneLEDs: class {} }));
+vi.mock("./controllers/linnstrument-user-firmware.js", () => ({
+  attachLinnstrumentLedDriver: vi.fn(() => ({ userFirmwareActive: false })),
+  activateLinnstrumentUserFirmware: vi.fn(),
+  deactivateLinnstrumentUserFirmware: vi.fn(),
+  detachLinnstrumentLedDriver: vi.fn(),
+  readLinnstrumentUserFirmwarePreference: vi.fn(() => true),
+}));
 vi.mock("./controllers/registry.js", () => ({
   detectController: () => null,
   getControllerById: () => null,

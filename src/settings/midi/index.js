@@ -10,6 +10,8 @@ import {
   activateLinnstrumentUserFirmware,
   deactivateLinnstrumentUserFirmware,
   isLinnstrumentUserFirmwareEligible,
+  readLinnstrumentUserFirmwarePreference,
+  writeLinnstrumentUserFirmwarePreference,
 } from "../../controllers/linnstrument-user-firmware.js";
 import ScalaInput from "../scale/scala-input.js";
 
@@ -96,38 +98,22 @@ function OutputPortPicker({ label, rawPorts, outputs, overridePortId, onChange }
  */
 function LinnUserFirmwareToggle({ rawPorts, keysRef, active = true }) {
   const out = rawPorts?.output ?? null;
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(() => readLinnstrumentUserFirmwarePreference());
 
   useEffect(() => {
-    if (!out || !active) {
-      setEnabled(false);
-      return;
-    }
-    let activatedKeys = null;
-    // Port appeared. Delay slightly so app.jsx's effect (which creates the
-    // LinnStrumentLEDs instance and assigns it to keysRef) has settled first.
-    const id = setTimeout(() => {
-      activatedKeys = keysRef?.current ?? null;
-      activateLinnstrumentUserFirmware(out, activatedKeys);
-      setEnabled(true);
-    }, 50);
-    return () => {
-      clearTimeout(id);
-      // Port is about to disappear — send 245=0 while we still have the output.
-      deactivateLinnstrumentUserFirmware(out, activatedKeys);
-      setEnabled(false);
-    };
-  }, [out, active]); // eslint-disable-line react-hooks/exhaustive-deps
+    setEnabled(readLinnstrumentUserFirmwarePreference());
+  }, [out, active]);
 
   const toggle = (e) => {
     const on = e.target.checked;
     const keys = keysRef?.current;
+    writeLinnstrumentUserFirmwarePreference(on);
+    setEnabled(on);
+    if (!out || !active) return;
     if (on) {
       activateLinnstrumentUserFirmware(out, keys);
-      setEnabled(true);
     } else {
       deactivateLinnstrumentUserFirmware(out, keys);
-      setEnabled(false);
     }
   };
 
