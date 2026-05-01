@@ -1423,6 +1423,38 @@ describe("Keys MIDI input integration", () => {
     expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
   });
 
+  it("auto-sends Lumatone colors when returning from Generic Keyboard bypass semantics without passthrough toggled", () => {
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "MIDI Function",
+      addListener: vi.fn(),
+    });
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "generic",
+      midi_passthrough: false,
+      lumatone_center_channel: 3,
+      lumatone_center_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    expect(keys.controller?.id).toBe("generic");
+    keys.autoSyncLumatoneLEDs = vi.fn();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 26, seqAnchorChannel: 3 },
+      {
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        midiin_central_degree: 26,
+        lumatone_center_channel: 3,
+        lumatone_center_note: 26,
+      },
+    );
+
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.controllerMap).toBeInstanceOf(Map);
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
+  });
+
   it("allows manual Lumatone Send Colours for manual 2D geometry override", () => {
     vi.spyOn(WebMidi, "getInputById").mockReturnValue({
       name: "USB MIDI Interface",

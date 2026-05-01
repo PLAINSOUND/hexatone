@@ -163,6 +163,7 @@ vi.mock("./img/hex.svg?react", () => ({
 }));
 
 import {
+  bindControllerLedRefs,
   Loading,
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
@@ -231,6 +232,68 @@ describe("modulationCurrentSummaryDisplay", () => {
         },
       ),
     ).toBe("+12¢");
+  });
+});
+
+describe("bindControllerLedRefs", () => {
+  it("attaches a Lumatone driver and triggers auto-sync when enabled", () => {
+    const keys = {
+      settings: { lumatone_led_sync: true },
+      autoSyncLumatoneLEDs: vi.fn(),
+    };
+    const leds = { id: "lumatone-leds" };
+
+    bindControllerLedRefs(keys, { lumatone: leds });
+
+    expect(keys.lumatoneLEDs).toBe(leds);
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("attaches a ready Exquis driver and triggers sync when enabled", () => {
+    const keys = {
+      settings: { exquis_led_sync: true },
+      syncExquisLEDs: vi.fn(),
+    };
+    const leds = { ready: true };
+
+    bindControllerLedRefs(keys, { exquis: leds });
+
+    expect(keys.exquisLEDs).toBe(leds);
+    expect(keys.syncExquisLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("attaches a LinnStrument driver and triggers sync when enabled", () => {
+    const keys = {
+      settings: { linnstrument_led_sync: true },
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+    const leds = { id: "linn-leds" };
+
+    bindControllerLedRefs(keys, { linnstrument: leds });
+
+    expect(keys.linnstrumentLEDs).toBe(leds);
+    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears individual bindings without touching the others", () => {
+    const keys = {
+      settings: {},
+      lumatoneLEDs: { id: "l" },
+      exquisLEDs: { id: "e" },
+      linnstrumentLEDs: { id: "n" },
+      autoSyncLumatoneLEDs: vi.fn(),
+      syncExquisLEDs: vi.fn(),
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+
+    bindControllerLedRefs(keys, { lumatone: null });
+
+    expect(keys.lumatoneLEDs).toBeNull();
+    expect(keys.exquisLEDs).toEqual({ id: "e" });
+    expect(keys.linnstrumentLEDs).toEqual({ id: "n" });
+    expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
+    expect(keys.syncExquisLEDs).not.toHaveBeenCalled();
+    expect(keys.syncLinnstrumentLEDs).not.toHaveBeenCalled();
   });
 });
 

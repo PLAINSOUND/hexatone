@@ -132,6 +132,31 @@ export function modulationRouteLabelPair(entry, degreeLabel, tuningWorkspace) {
   };
 }
 
+export function bindControllerLedRefs(keys, bindings = {}) {
+  if (!keys) return;
+
+  if (Object.prototype.hasOwnProperty.call(bindings, "lumatone")) {
+    keys.lumatoneLEDs = bindings.lumatone;
+    if (bindings.lumatone && keys.settings?.lumatone_led_sync) {
+      keys.autoSyncLumatoneLEDs?.();
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(bindings, "exquis")) {
+    keys.exquisLEDs = bindings.exquis;
+    if (bindings.exquis?.ready && keys.settings?.exquis_led_sync) {
+      keys.syncExquisLEDs?.();
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(bindings, "linnstrument")) {
+    keys.linnstrumentLEDs = bindings.linnstrument;
+    if (bindings.linnstrument && keys.settings?.linnstrument_led_sync) {
+      keys.syncLinnstrumentLEDs?.();
+    }
+  }
+}
+
 function readCssPxVar(name) {
   if (typeof window === "undefined") return 0;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -996,12 +1021,12 @@ const App = () => {
       settings.midiin_mpe_input ?? true,
     );
     exquisLedsRef.current = leds;
-    if (keysRef.current) keysRef.current.exquisLEDs = leds;
+    bindControllerLedRefs(keysRef.current, { exquis: leds });
 
     return () => {
       leds.exit();
       exquisLedsRef.current = null;
-      if (keysRef.current) keysRef.current.exquisLEDs = null;
+      bindControllerLedRefs(keysRef.current, { exquis: null });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exquisRawPorts, inputRuntime?.target]); // exquis_led_* are constructor args, intentionally not re-triggering
@@ -1038,12 +1063,12 @@ const App = () => {
 
     const leds = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
     lumatoneLedsRef.current = leds;
-    if (keysRef.current) keysRef.current.lumatoneLEDs = leds;
+    bindControllerLedRefs(keysRef.current, { lumatone: leds });
 
     return () => {
       leds.destroy();
       lumatoneLedsRef.current = null;
-      if (keysRef.current) keysRef.current.lumatoneLEDs = null;
+      bindControllerLedRefs(keysRef.current, { lumatone: null });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lumatoneInId, lumatoneOutId]);
@@ -1074,9 +1099,11 @@ const App = () => {
       keysRef.current,
     );
     linnstrumentLedsRef.current = leds;
+    bindControllerLedRefs(keysRef.current, { linnstrument: leds });
 
     return () => {
       linnstrumentLedsRef.current = null;
+      bindControllerLedRefs(keysRef.current, { linnstrument: null });
       detachLinnstrumentLedDriver(leds, keysRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1219,18 +1246,11 @@ const App = () => {
   const onKeysReady = useCallback(
     (keys) => {
       keysRef.current = keys;
-      keys.lumatoneLEDs = lumatoneLedsRef.current;
-      keys.exquisLEDs = exquisLedsRef.current;
-      keys.linnstrumentLEDs = linnstrumentLedsRef.current;
-      if (lumatoneLedsRef.current && keys.settings?.lumatone_led_sync) {
-        keys.autoSyncLumatoneLEDs();
-      }
-      if (exquisLedsRef.current?.ready && keys.settings?.exquis_led_sync) {
-        keys.syncExquisLEDs();
-      }
-      if (linnstrumentLedsRef.current && keys.settings?.linnstrument_led_sync) {
-        keys.syncLinnstrumentLEDs();
-      }
+      bindControllerLedRefs(keys, {
+        lumatone: lumatoneLedsRef.current,
+        exquis: exquisLedsRef.current,
+        linnstrument: linnstrumentLedsRef.current,
+      });
     },
     [],
   );
