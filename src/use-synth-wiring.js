@@ -1049,6 +1049,9 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // switching midi_passthrough must reapply the correct saved bucket.
   // loadControllerPrefs is idempotent: it reads saved values (or first-connect
   // fallbacks) so re-firing on the same device is safe.
+  // midiTick is included because Web MIDI inputs can finish enumerating after
+  // the first render/effect pass on reload; without a retry here, controller-
+  // scoped settings can stay stale until the user manually toggles something.
   useEffect(() => {
     if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return;
     const input = Array.from(midi.inputs.values()).find((i) => i.id === settings.midiin_device);
@@ -1059,6 +1062,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
   }, [
     midi,
+    midiTick,
     settings.midiin_device,
     settings.midiin_controller_override,
     settings.midiin_mpe_input,

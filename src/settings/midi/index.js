@@ -106,6 +106,13 @@ const MANUAL_CONTROLLER_OPTIONS = [
   { id: "ts41",            label: "TS41" },
 ];
 
+function resolveControllerSelection(overrideId, detectedController) {
+  if (overrideId && overrideId !== "auto") {
+    return getControllerById(overrideId);
+  }
+  return detectedController;
+}
+
 const MIDIio = (props) => {
   // props.midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the inputs list.
@@ -117,10 +124,7 @@ const MIDIio = (props) => {
   const controllerOverrideId = props.settings.midiin_controller_override || "auto";
   // Detect 2D controller (null when device is disconnected or unrecognised).
   const detectedController = detectController(deviceName);
-  const ctrl =
-    controllerOverrideId !== "auto"
-      ? getControllerById(controllerOverrideId)
-      : detectedController;
+  const ctrl = resolveControllerSelection(controllerOverrideId, detectedController);
   const tonalPlexus41Mode =
     ctrl?.id === "tonalplexus" && getTonalPlexusInputMode(props.settings) === "blocks_41";
   const tonalPlexus205Mode =
@@ -387,7 +391,14 @@ const MIDIio = (props) => {
               class="sidebar-input"
               value={controllerOverrideId}
               onChange={(e) => {
-                if (linnstrumentUserFirmwareEligible && e.target.value !== "linnstrument") {
+                const nextCtrl = resolveControllerSelection(e.target.value, detectedController);
+                const nextLinnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
+                  controllerId: nextCtrl?.id ?? null,
+                  scaleMode,
+                  midiPassthrough: !!props.settings.midi_passthrough,
+                  midiinDevice: props.settings.midiin_device,
+                });
+                if (linnstrumentUserFirmwareEligible && !nextLinnstrumentUserFirmwareEligible) {
                   deactivateLinnstrumentUserFirmwareNow();
                 }
                 props.onChange("midiin_controller_override", e.target.value);

@@ -844,14 +844,12 @@ const App = () => {
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
   // rather than from settings directly for any input-related branch.
-  const connectedInput = useMemo(
-    () =>
-      midi && settings.midiin_device && settings.midiin_device !== "OFF"
-        ? (Array.from(midi.inputs.values()).find((input) => input.id === settings.midiin_device) ??
-          null)
-        : null,
-    [midi, settings.midiin_device],
-  );
+  const connectedInput =
+    midi && settings.midiin_device && settings.midiin_device !== "OFF"
+      ? (midi.inputs.get(settings.midiin_device) ??
+        Array.from(midi.inputs.values()).find((input) => input.id === settings.midiin_device) ??
+        null)
+      : null;
   const inputController = useMemo(() => {
     const overrideId = settings.midiin_controller_override || "auto";
     if (overrideId !== "auto") return getControllerById(overrideId);
@@ -1156,6 +1154,23 @@ const App = () => {
     };
   }, [linnstrumentOutput, linnstrumentUserFirmwareEligible]);
 
+  useEffect(() => {
+    const output = linnstrumentOutput;
+    if (!output || !linnstrumentUserFirmwareEligible || typeof window === "undefined") return;
+
+    const deactivateOnUnload = () => {
+      deactivateLinnstrumentUserFirmware(output, keysRef.current ?? null);
+    };
+
+    window.addEventListener("pagehide", deactivateOnUnload);
+    window.addEventListener("beforeunload", deactivateOnUnload);
+
+    return () => {
+      window.removeEventListener("pagehide", deactivateOnUnload);
+      window.removeEventListener("beforeunload", deactivateOnUnload);
+    };
+  }, [linnstrumentOutput, linnstrumentUserFirmwareEligible]);
+
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
@@ -1293,13 +1308,29 @@ const App = () => {
   const onKeysReady = useCallback(
     (keys) => {
       keysRef.current = keys;
+      if (linnstrumentUserFirmwareEligible && linnstrumentLedsRef.current) {
+        linnstrumentLedsRef.current.userFirmwareActive = true;
+      }
       bindControllerLedRefs(keys, {
         lumatone: lumatoneLedsRef.current,
         exquis: exquisLedsRef.current,
         linnstrument: linnstrumentLedsRef.current,
       });
+
+      // LinnStrument UF color sync can race with Keys reconstruction on reload
+      // and preset load: the driver survives, but the new Keys instance may
+      // need one post-construction resend once its controller map is fully live.
+      if (
+        linnstrumentUserFirmwareEligible &&
+        settings.linnstrument_led_sync &&
+        typeof requestAnimationFrame === "function"
+      ) {
+        requestAnimationFrame(() => {
+          if (keysRef.current === keys) keys.syncLinnstrumentLEDs?.();
+        });
+      }
     },
-    [],
+    [linnstrumentUserFirmwareEligible, settings.linnstrument_led_sync],
   );
   const onLatchChange = useCallback((v) => setLatch(v), []);
   const onModulationStateChange = useCallback((state) => {

@@ -1023,6 +1023,10 @@ class Keys {
         InputMidiListeners.rebindMidiInput.call(this);
         return;
       }
+      if (!this.midiin_data && this.settings.midiin_device !== "OFF") {
+        InputMidiListeners.rebindMidiInput.call(this);
+        return;
+      }
       const controllerMapChanged = InputMidiListeners.rebuildControllerMap.call(this);
       if (controllerMapChanged) {
         InputMidiListeners.syncControllerAutoColors.call(this);

@@ -182,6 +182,10 @@ import {
   modulationRouteLabelPair,
 } from "./app";
 import App from "./app";
+import {
+  attachLinnstrumentLedDriver,
+  deactivateLinnstrumentUserFirmware,
+} from "./controllers/linnstrument-user-firmware.js";
 
 describe("Loading", () => {
   it("renders without crashing", () => {
@@ -199,6 +203,8 @@ beforeEach(() => {
   lastKeyboardProps = null;
   mockDetectedController = null;
   mockControllerById = null;
+  synthWiringState.linnstrumentRawPorts = null;
+  vi.clearAllMocks();
 });
 
 describe("modulationRouteLabelPair", () => {
@@ -343,6 +349,170 @@ describe("App input runtime", () => {
     await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
     expect(lastKeyboardProps.inputRuntime.wheelSemitones).toBe(12);
     expect(lastKeyboardProps.inputRuntime.wheelToRecent).toBe(false);
+  });
+
+  it("re-syncs LinnStrument colors after onKeysReady when UF mode is eligible", async () => {
+    Object.assign(settings, {
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+      midi_passthrough: false,
+      midiin_mpe_input: false,
+      linnstrument_led_sync: true,
+    });
+    synthWiringState.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Roger Linn Design LinnStrument 128" }]]),
+      outputs: new Map(),
+    };
+    mockDetectedController = { id: "linnstrument" };
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    const raf = vi.fn((cb) => {
+      cb();
+      return 1;
+    });
+    window.requestAnimationFrame = raf;
+    globalThis.requestAnimationFrame = raf;
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+    const keys = {
+      settings: { linnstrument_led_sync: true },
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+
+    lastKeyboardProps.onKeysReady(keys);
+
+    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the LinnStrument LED driver UF-active when Keys mounts after UF activation", async () => {
+    Object.assign(settings, {
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+      midi_passthrough: false,
+      midiin_mpe_input: false,
+      linnstrument_led_sync: true,
+    });
+    synthWiringState.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Roger Linn Design LinnStrument 128" }]]),
+      outputs: new Map(),
+    };
+    synthWiringState.linnstrumentRawPorts = {
+      output: { id: "out-1" },
+    };
+    mockDetectedController = { id: "linnstrument" };
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+    const keys = {
+      settings: { linnstrument_led_sync: true },
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+
+    lastKeyboardProps.onKeysReady(keys);
+
+    const leds = attachLinnstrumentLedDriver.mock.results[0]?.value;
+    expect(leds?.userFirmwareActive).toBe(true);
+  });
+
+  it("re-evaluates Auto Detect on midiTick when the selected input appears later", async () => {
+    Object.assign(settings, {
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+      midi_passthrough: false,
+      midiin_mpe_input: false,
+      linnstrument_led_sync: true,
+    });
+    const midi = {
+      inputs: new Map(),
+      outputs: new Map(),
+    };
+    synthWiringState.midi = midi;
+    synthWiringState.midiTick = 0;
+    mockDetectedController = null;
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    const raf = vi.fn((cb) => {
+      cb();
+      return 1;
+    });
+    window.requestAnimationFrame = raf;
+    globalThis.requestAnimationFrame = raf;
+
+    const { rerender } = render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+    const staleKeys = {
+      settings: { linnstrument_led_sync: true },
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+    lastKeyboardProps.onKeysReady(staleKeys);
+    expect(staleKeys.syncLinnstrumentLEDs).not.toHaveBeenCalled();
+
+    midi.inputs.set("input-1", { id: "input-1", name: "Roger Linn Design LinnStrument 128" });
+    synthWiringState.midiTick = 1;
+    mockDetectedController = { id: "linnstrument" };
+    rerender(<App />);
+
+    const recoveredKeys = {
+      settings: { linnstrument_led_sync: true },
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+    lastKeyboardProps.onKeysReady(recoveredKeys);
+    expect(recoveredKeys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends LinnStrument UF deactivation on page unload while UF mode is eligible", async () => {
+    Object.assign(settings, {
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+      midi_passthrough: false,
+      midiin_mpe_input: false,
+      linnstrument_led_sync: true,
+    });
+    synthWiringState.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Roger Linn Design LinnStrument 128" }]]),
+      outputs: new Map(),
+    };
+    synthWiringState.linnstrumentRawPorts = {
+      output: { id: "out-1" },
+    };
+    mockDetectedController = { id: "linnstrument" };
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+    const keys = {};
+    lastKeyboardProps.onKeysReady(keys);
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(deactivateLinnstrumentUserFirmware).toHaveBeenCalledWith(
+      synthWiringState.linnstrumentRawPorts.output,
+      keys,
+    );
   });
 });
 

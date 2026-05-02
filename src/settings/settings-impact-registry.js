@@ -41,6 +41,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midiin_bend_range",
     "linnstrument_channel_allocation",
     "linnstrument_pitch_bend_mode",
+    "linnstrument_pitch_bend_shape",
     "midiin_scale_bend_range",
     "midiin_scale_tolerance",
     "midiin_scale_fallback",
@@ -112,7 +113,6 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
   inputUiOnly: [
     "midiin_mpe_lo_ch",
     "midiin_mpe_hi_ch",
-    "linnstrument_pitch_bend_shape",
   ],
   synthRuntimeOnly: [
     "osc_volume_pluck",

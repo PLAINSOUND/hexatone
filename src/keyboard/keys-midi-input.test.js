@@ -1852,6 +1852,43 @@ describe("Keys MIDI input integration", () => {
     expect(keys.controller?.id).toBe("axis49");
   });
 
+  it("rebinds MIDI input listeners when runtime refresh finds a previously missing selected device", () => {
+    const input = {
+      name: "Roger Linn Design LinnStrument 128",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    const getInputById = vi
+      .spyOn(WebMidi, "getInputById")
+      .mockReturnValueOnce(null)
+      .mockReturnValue(input);
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      linnstrument_led_sync: true,
+    });
+    keys.syncLinnstrumentLEDs = vi.fn();
+
+    expect(keys.midiin_data).toBeNull();
+    expect(keys.controllerMap).toBeNull();
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime },
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+      },
+    );
+
+    expect(getInputById).toHaveBeenCalledTimes(2);
+    expect(input.addListener).toHaveBeenCalledWith("noteon", expect.any(Function));
+    expect(input.addListener).toHaveBeenCalledWith("pitchbend", expect.any(Function));
+    expect(keys.midiin_data).toBe(input);
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(keys.controllerMap).toBeInstanceOf(Map);
+    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
   it("applies channel offsets for generic keyboard step arithmetic without a controller map", () => {
     const keys = createKeys(
       {
@@ -2605,6 +2642,65 @@ describe("Keys MIDI input integration", () => {
 
     listeners.controlchange({ message: { channel: 7, dataBytes: [39, 16] } });
     expect(retune).toHaveBeenCalledTimes(2);
+  });
+
+  it("updates LinnStrument UF glide shape at runtime without rebuilding Keys", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const retune = vi.fn(function runtimeShapeRetune(newCents) {
+      this.cents = newCents;
+    });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+        linnstrument_pitch_bend_shape: 0,
+      },
+      { layoutMode: "controller_geometry", wheelRange: "2/1" },
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          _baseCents: cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          release: false,
+          retune,
+        })),
+      },
+    );
+
+    keys.midinoteOn(makeMidiEvent(1, 1));
+    const lowShapeBaseCents = keys.state.activeMidi.get(1)?._baseCents ?? 0;
+    listeners.controlchange({ message: { channel: 1, dataBytes: [33, 76] } });
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 0] } });
+    const lowShapeCents = retune.mock.calls.at(-1)[0];
+
+    keys.updateInputRuntime(keys.inputRuntime, {
+      linnstrument_pitch_bend_shape: 100,
+    });
+    keys.midinoteOff(makeMidiEvent(1, 1));
+    retune.mockClear();
+
+    keys.midinoteOn(makeMidiEvent(1, 1));
+    const highShapeBaseCents = keys.state.activeMidi.get(1)?._baseCents ?? 0;
+    listeners.controlchange({ message: { channel: 1, dataBytes: [33, 76] } });
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 0] } });
+    const highShapeCents = retune.mock.calls.at(-1)[0];
+
+    expect(Math.abs(lowShapeCents - lowShapeBaseCents)).toBeGreaterThanOrEqual(
+      Math.abs(highShapeCents - highShapeBaseCents),
+    );
   });
 
   it("clears LinnStrument UF cached X state on note-off before a repeated press", () => {

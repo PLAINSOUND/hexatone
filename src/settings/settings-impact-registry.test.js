@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { SETTINGS_REGISTRY } from "../persistence/settings-registry.js";
 import {
   SETTINGS_IMPACT_FIELDS,
@@ -9,6 +12,18 @@ import {
 } from "./settings-impact-registry.js";
 
 const flattenValues = (groups) => Object.values(groups).flat();
+const settingsDir = path.dirname(fileURLToPath(import.meta.url));
+const runtimeSourceFiles = [
+  path.join(settingsDir, "../keyboard/keys.js"),
+  path.join(settingsDir, "../keyboard/keys-controller-leds.js"),
+  path.join(settingsDir, "../keyboard/keys-midi-input.js"),
+  path.join(settingsDir, "../input/keys-expression-runtime.js"),
+  path.join(settingsDir, "../input/keys-midi-listeners.js"),
+];
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 describe("settings impact registry", () => {
   it("covers every persisted setting with an impact or an explicit ignore decision", () => {
@@ -70,6 +85,7 @@ describe("settings impact registry", () => {
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_controller_override");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_central_degree");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midi_passthrough");
+    expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("linnstrument_pitch_bend_shape");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_device");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_controller_override");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("controller_anchor_note");
@@ -79,6 +95,29 @@ describe("settings impact registry", () => {
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("tonalplexus_input_mode");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("lumatone_center_channel");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("lumatone_center_note");
+  });
+
+  it("keeps live-runtime-ignored settings out of Keys and live input runtime source files", () => {
+    const ignoredKeys = [
+      ...SETTINGS_IMPACT_IGNORED_FIELDS.scaleEditorOnly,
+      ...SETTINGS_IMPACT_IGNORED_FIELDS.inputUiOnly,
+      ...SETTINGS_IMPACT_IGNORED_FIELDS.permissionState,
+      ...SETTINGS_IMPACT_IGNORED_FIELDS.ledDriverLifecycle,
+    ];
+    const offenders = [];
+
+    for (const file of runtimeSourceFiles) {
+      const source = fs.readFileSync(file, "utf8");
+      for (const key of ignoredKeys) {
+        const propertyAccess = new RegExp(`(?:^|[^\\w])(?:this\\.)?settings(?:\\?|)\\.${escapeRegex(key)}\\b`);
+        const bracketAccess = new RegExp(`(?:^|[^\\w])(?:this\\.)?settings\\[(?:'|")${escapeRegex(key)}(?:'|")\\]`);
+        if (propertyAccess.test(source) || bracketAccess.test(source)) {
+          offenders.push(`${path.basename(file)}:${key}`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
   });
 
   it("snapshots only the requested group fields plus explicit extras", () => {
