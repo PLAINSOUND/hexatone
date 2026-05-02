@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-04-26
+Updated: 2026-05-02
 
 ## About
 
@@ -101,6 +101,12 @@ It supports:
 - EDO steps such as `7\12`
 - per-degree tuning adjustment
 - rationalisation suggestions
+- drag-reordering interior degrees from the left gutter
+- selecting an interior degree from the left gutter, then deleting it with `×`
+- `Sort Degrees Ascending`, preserving degree `0` and the equave
+- scale-size growth by padding new degrees with the current equave, inheriting degree `0` name and colour
+
+Reordering, sorting, and deleting degrees also remap the associated note names, colours, reference degree, and central degree so the scale remains internally consistent.
 
 ### TuneCell
 
@@ -145,15 +151,19 @@ The current rationalisation workflow has two modes:
 - `Keep existing ratios`: preserve ratios you already committed, rationalise around those anchors
 - `Find new ratios (re-search all)`: fresh search with the current rationalisation settings
 
+Rationalisation now works directly from the scale table, so exact interval entries, tempered entries, and committed ratio decisions can be refined in place.
+
 The `Rationalisation Settings` include a number of options:
 
 - symmetric, overtonal, or custom search (user-specified exponent range above and below each prime)
 - prime and odd limit
 - exponent range for the harmonic space region
 
-### HEJI
+### HEJI / notation
 
 - scales can be displayed in HEJI-based notation (primes > 47 or irrational pitches are given tempered notation + cents deviation)
+- notation is responsive to the current rational reading of the scale
+- after tuning edits or modulation, displayed note names may update to reflect the current reference frame or interval interpretation
 
 ## Modulation
 
@@ -161,6 +171,8 @@ The `Rationalisation Settings` include a number of options:
 - a floating palette of MODULATION HISTORY appears, tracking all user-initiated modulations, counting the number of steps taken
 - clicking the arrows takes further steps by the same transposition interval (in either direction)
 - once a modulation pathway returns to zero it may be clicked away or retained for further use
+- modulation updates both sounding relationships and the displayed notation context
+- modulation history can be used as a live record of changing reference-frame decisions during performance or analysis
 
 ## Presets
 
@@ -210,6 +222,8 @@ The app includes support for several recognized controller types, including devi
 
 The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user.
 
+LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
+
 ### Two broad input styles
 
 Hexatone can treat MIDI input broadly in two ways:
@@ -230,6 +244,8 @@ Hexatone supports:
 - device-specific lifecycle handling where required
 
 Supported controllers like Lumatone, Exquis, and LinnStrument function as mirrors of the Hexatone on-screen layout.
+
+On supported controllers, live colour edits and preset reloads can resync LED colours automatically when colour sending is active.
 
 Key colouring helps identify prime factors in rational intonation (JI), using the following shape:
 
