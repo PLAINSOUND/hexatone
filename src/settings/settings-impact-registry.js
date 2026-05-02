@@ -42,6 +42,8 @@ export const SETTINGS_IMPACT_FIELDS = {
     "linnstrument_channel_allocation",
     "linnstrument_pitch_bend_mode",
     "linnstrument_pitch_bend_shape",
+    "linnstrument_x_spike_reduction",
+    "linnstrument_x_input_smoothing",
     "midiin_scale_bend_range",
     "midiin_scale_tolerance",
     "midiin_scale_fallback",

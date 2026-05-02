@@ -86,6 +86,8 @@ describe("settings impact registry", () => {
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_central_degree");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midi_passthrough");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("linnstrument_pitch_bend_shape");
+    expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("linnstrument_x_spike_reduction");
+    expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("linnstrument_x_input_smoothing");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_device");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_controller_override");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("controller_anchor_note");

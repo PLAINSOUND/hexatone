@@ -18,6 +18,13 @@ const LINNSTRUMENT_UF_X_CONFIRM_TOLERANCE = 4;
 const LINNSTRUMENT_UF_LOW_PRESSURE_THRESHOLD = 40;
 const LINNSTRUMENT_UF_MID_PRESSURE_THRESHOLD = 50;
 const LINNSTRUMENT_UF_VERY_LOW_PRESSURE_THRESHOLD = 20;
+const LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT = 25;
+const LINNSTRUMENT_UF_X_INPUT_SMOOTHING_DEFAULT = 50;
+const LINNSTRUMENT_UF_LSB_CENTER = 64;
+const LINNSTRUMENT_UF_RELEASE_HOLD_THRESHOLD = 14;
+const LINNSTRUMENT_UF_RELEASE_HOLD_ARM_THRESHOLD = 20;
+const LINNSTRUMENT_UF_ONSET_RAMP_BASE_MS = 40;
+const LINNSTRUMENT_UF_ONSET_RAMP_MAX_MS = 180;
 
 function isLinnstrumentUfInputActive() {
   return (
@@ -28,17 +35,26 @@ function isLinnstrumentUfInputActive() {
 }
 
 function linnstrumentUfGlideExponent(shapeSetting) {
-  const shape = Math.max(0, Math.min(200, Number(shapeSetting) || 0));
-  // 0 = softer/near-linear, 200 = stronger/discrete.
-  return 1 + (shape / 200) * 8;
+  const shape = Math.max(0, Math.min(100, Number(shapeSetting) || 0));
+  return shape / 100;
 }
 
 function linnstrumentUfGlideCurve(deviation, shapeSetting) {
   const t = Math.max(0, Math.min(1, Math.abs(deviation)));
-  const exponent = linnstrumentUfGlideExponent(shapeSetting);
-  // Smoothstep gives zero slope at both centre and boundary.
-  const smooth = t * t * (3 - 2 * t);
-  const curved = Math.pow(smooth, exponent);
+  const shape = linnstrumentUfGlideExponent(shapeSetting);
+  if (shape <= 0) return deviation;
+
+  // 0 = fully linear across the pad, 1 = long centre hold with a short
+  // boundary transition into the neighboring pad's shared seam pitch.
+  const holdWidth = 0.82 * Math.pow(shape, 1.35);
+  if (t <= holdWidth) return 0;
+
+  const transition = (t - holdWidth) / Math.max(0.001, 1 - holdWidth);
+  const transitionShape = 1 - 0.35 * shape;
+  const curved = Math.pow(
+    Math.max(0, Math.min(1, transition)),
+    Math.max(0.25, transitionShape),
+  );
   return Math.sign(deviation) * curved;
 }
 
@@ -61,39 +77,79 @@ function linnstrumentUfSurfaceWidth(cols) {
   return cols <= 16 ? 2727 : 4265;
 }
 
-function linnstrumentUfXFilterThresholds(pressure = 127) {
+function linnstrumentUfXFilterThresholds(pressure = 127, reductionSetting = LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) {
+  const strength = Math.max(0, Math.min(100, Number(reductionSetting) || 0));
+  if (strength === 0) return null;
+
+  let base;
+  let strict;
+  let permissive;
   if (pressure <= LINNSTRUMENT_UF_VERY_LOW_PRESSURE_THRESHOLD) {
-    return {
-      outlierThreshold: 5,
-      confirmTolerance: 0,
-      confirmCount: 3,
-    };
-  }
-  if (pressure <= LINNSTRUMENT_UF_LOW_PRESSURE_THRESHOLD) {
-    return {
-      outlierThreshold: 6,
-      confirmTolerance: 1,
+    base = { outlierThreshold: 5, confirmTolerance: 0, confirmCount: 3 };
+    strict = { outlierThreshold: 3, confirmTolerance: 0, confirmCount: 4 };
+    permissive = { outlierThreshold: 9, confirmTolerance: 2, confirmCount: 2 };
+  } else if (pressure <= LINNSTRUMENT_UF_LOW_PRESSURE_THRESHOLD) {
+    base = { outlierThreshold: 6, confirmTolerance: 1, confirmCount: 2 };
+    strict = { outlierThreshold: 4, confirmTolerance: 0, confirmCount: 3 };
+    permissive = { outlierThreshold: 10, confirmTolerance: 3, confirmCount: 1 };
+  } else if (pressure <= LINNSTRUMENT_UF_MID_PRESSURE_THRESHOLD) {
+    base = { outlierThreshold: 8, confirmTolerance: 3, confirmCount: 2 };
+    strict = { outlierThreshold: 5, confirmTolerance: 1, confirmCount: 3 };
+    permissive = { outlierThreshold: 13, confirmTolerance: 5, confirmCount: 1 };
+  } else {
+    base = {
+      outlierThreshold: LINNSTRUMENT_UF_X_OUTLIER_THRESHOLD,
+      confirmTolerance: LINNSTRUMENT_UF_X_CONFIRM_TOLERANCE,
       confirmCount: 2,
     };
+    strict = { outlierThreshold: 7, confirmTolerance: 2, confirmCount: 2 };
+    permissive = { outlierThreshold: 15, confirmTolerance: 6, confirmCount: 1 };
   }
-  if (pressure <= LINNSTRUMENT_UF_MID_PRESSURE_THRESHOLD) {
-    return {
-      outlierThreshold: 8,
-      confirmTolerance: 3,
-      confirmCount: 2,
-    };
-  }
+
+  if (strength === LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) return base;
+
+  const blend = strength > LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT
+    ? (strength - LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) / LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT
+    : (LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT - strength) / LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT;
+  const target = strength > LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT ? strict : permissive;
+  const lerp = (start, end) => start + (end - start) * blend;
+
   return {
-    outlierThreshold: LINNSTRUMENT_UF_X_OUTLIER_THRESHOLD,
-    confirmTolerance: LINNSTRUMENT_UF_X_CONFIRM_TOLERANCE,
-    confirmCount: 2,
+    outlierThreshold: Math.max(1, Math.round(lerp(base.outlierThreshold, target.outlierThreshold))),
+    confirmTolerance: Math.max(0, Math.round(lerp(base.confirmTolerance, target.confirmTolerance))),
+    confirmCount: Math.max(1, Math.round(lerp(base.confirmCount, target.confirmCount))),
   };
+}
+
+function linnstrumentUfNormalizeX14(msb, lsb, reductionSetting = LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) {
+  const strength = Math.max(0, Math.min(100, Number(reductionSetting) || 0));
+  if (strength <= LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) return (msb << 7) | lsb;
+
+  const lsbBlend = 1 - (
+    (strength - LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) /
+    LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT
+  );
+  const normalizedLsb = Math.round(
+    LINNSTRUMENT_UF_LSB_CENTER + (lsb - LINNSTRUMENT_UF_LSB_CENTER) * lsbBlend,
+  );
+  return (msb << 7) | Math.max(0, Math.min(127, normalizedLsb));
 }
 
 function filterLinnstrumentUfX14(key, x14, pressure = 127) {
   const state = this._linnUfXFilterState.get(key);
-  const { outlierThreshold, confirmTolerance, confirmCount } =
-    linnstrumentUfXFilterThresholds(pressure);
+  const thresholds = linnstrumentUfXFilterThresholds(
+    pressure,
+    this.settings.linnstrument_x_spike_reduction ?? LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT,
+  );
+  if (!thresholds) {
+    this._linnUfXFilterState.set(key, {
+      filtered: x14,
+      pending: null,
+      pendingCount: 0,
+    });
+    return x14;
+  }
+  const { outlierThreshold, confirmTolerance, confirmCount } = thresholds;
   if (!state) {
     this._linnUfXFilterState.set(key, {
       filtered: x14,
@@ -130,15 +186,99 @@ function filterLinnstrumentUfX14(key, x14, pressure = 127) {
   return null;
 }
 
+function shouldHoldLinnstrumentUfReleasePitch(key, pressure = 127) {
+  let state = this._linnUfXReleaseState.get(key);
+  if (!state) {
+    state = { lastPressure: pressure, peakPressure: pressure };
+    this._linnUfXReleaseState.set(key, state);
+    return false;
+  }
+
+  state.peakPressure = Math.max(state.peakPressure, pressure);
+  const descending = pressure < state.lastPressure;
+  state.lastPressure = pressure;
+
+  return (
+    state.peakPressure >= LINNSTRUMENT_UF_RELEASE_HOLD_ARM_THRESHOLD &&
+    pressure <= LINNSTRUMENT_UF_RELEASE_HOLD_THRESHOLD &&
+    descending
+  );
+}
+
+function smoothLinnstrumentUfX14(key, x14, pressure = 127) {
+  const strength = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(this.settings.linnstrument_x_input_smoothing) || LINNSTRUMENT_UF_X_INPUT_SMOOTHING_DEFAULT,
+    ),
+  );
+  if (strength === 0) {
+    this._linnUfXSmoothingState.set(key, { smoothed: x14 });
+    return x14;
+  }
+
+  const state = this._linnUfXSmoothingState.get(key);
+  if (!state) {
+    this._linnUfXSmoothingState.set(key, { smoothed: x14 });
+    return x14;
+  }
+
+  const pressureNorm = Math.max(0, Math.min(1, pressure / 127));
+  const strengthNorm = strength / 100;
+  const shapedStrength = Math.pow(strengthNorm, 1.8);
+  const baseAlpha = 1 - 0.96 * shapedStrength;
+  const pressureBoost = 0.18 * pressureNorm;
+  const alpha = Math.max(0.04, Math.min(1, baseAlpha + pressureBoost));
+  state.smoothed += (x14 - state.smoothed) * alpha;
+  return Math.round(state.smoothed);
+}
+
+function linnstrumentUfOnsetAssist(key, shapeSetting) {
+  const smoothingStrength = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(this.settings.linnstrument_x_input_smoothing) || LINNSTRUMENT_UF_X_INPUT_SMOOTHING_DEFAULT,
+    ),
+  );
+  if (smoothingStrength <= 0) {
+    return {
+      effectiveShape: shapeSetting,
+      bendBlend: 1,
+    };
+  }
+
+  const state = this._linnUfXOnsetState.get(key);
+  const startedAt = state?.startedAtMs ?? performance.now();
+  if (!state) {
+    this._linnUfXOnsetState.set(key, { startedAtMs: startedAt });
+  }
+
+  const smoothingNorm = smoothingStrength / 100;
+  const rampMs = LINNSTRUMENT_UF_ONSET_RAMP_BASE_MS +
+    smoothingNorm * (LINNSTRUMENT_UF_ONSET_RAMP_MAX_MS - LINNSTRUMENT_UF_ONSET_RAMP_BASE_MS);
+  const elapsedMs = Math.max(0, performance.now() - startedAt);
+  const bendBlend = Math.max(0, Math.min(1, elapsedMs / rampMs));
+  const effectiveShape = Math.min(
+    100,
+    shapeSetting + (100 - shapeSetting) * smoothingNorm * (1 - bendBlend) * 0.45,
+  );
+  return { effectiveShape, bendBlend };
+}
+
 function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
   const key = `${channel}.${col}`;
-  const x14 = (msb << 7) | lsb;
+  const spikeReduction = this.settings.linnstrument_x_spike_reduction ?? LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT;
+  const x14 = linnstrumentUfNormalizeX14(msb, lsb, spikeReduction);
   this._linnUfXCurrent.set(key, x14);
   const note_played = col + 128 * (channel - 1);
   const hex = this.state.activeMidi.get(note_played);
   const pressure = Math.max(0, Math.min(127, Number(hex?._lastAftertouch) || 0));
+  if (shouldHoldLinnstrumentUfReleasePitch.call(this, key, pressure)) return;
   const filteredX14 = filterLinnstrumentUfX14.call(this, key, x14, pressure);
   if (filteredX14 == null) return;
+  const smoothedX14 = smoothLinnstrumentUfX14.call(this, key, filteredX14, pressure);
   if ((this.settings.linnstrument_pitch_bend_mode || "off") !== "follow_scale_geometry") {
     return;
   }
@@ -147,11 +287,10 @@ function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
     const surfaceWidth = linnstrumentUfSurfaceWidth(cols);
     const colWidth = surfaceWidth / cols;
     const cellCentre = (col - 0.5) * colWidth;
-    const deviation = Math.max(-1, Math.min(1, (filteredX14 - cellCentre) / (colWidth / 2)));
-    const curved = linnstrumentUfGlideCurve(
-      deviation,
-      this.settings.linnstrument_pitch_bend_shape ?? 50,
-    );
+    const deviation = Math.max(-1, Math.min(1, (smoothedX14 - cellCentre) / (colWidth / 2)));
+    const baseShape = this.settings.linnstrument_pitch_bend_shape ?? 50;
+    const { effectiveShape, bendBlend } = linnstrumentUfOnsetAssist.call(this, key, baseShape);
+    const curved = linnstrumentUfGlideCurve(deviation, effectiveShape) * bendBlend;
     const baseCents = hex._baseCents ?? hex.cents;
     const neighbors = linnstrumentUfRowNeighborCents.call(this, channel, col, baseCents);
     let targetCents = baseCents;
@@ -355,6 +494,10 @@ export function setupMidiInput() {
             this._linnUfXMsb.delete(key);
             this._linnUfXCurrent.delete(key);
             this._linnUfXFilterState.delete(key);
+            this._linnUfXSmoothingState.delete(key);
+            this._linnUfXOnsetState.delete(key);
+            this._linnUfXReleaseState.delete(key);
+            this._linnUfXOnsetState.set(key, { startedAtMs: performance.now() });
             this._linnUfXInitPending.add(key);
           }
           this.midinoteOn(e);
@@ -374,6 +517,9 @@ export function setupMidiInput() {
             this._linnUfXMsb.delete(key);
             this._linnUfXCurrent.delete(key);
             this._linnUfXFilterState.delete(key);
+            this._linnUfXSmoothingState.delete(key);
+            this._linnUfXOnsetState.delete(key);
+            this._linnUfXReleaseState.delete(key);
             this._linnUfXInitPending.delete(key);
           }
           let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
@@ -416,6 +562,9 @@ export function setupMidiInput() {
         this._linnUfXMsb = new Map();
         this._linnUfXCurrent = new Map(); // latest x14 per "ch.col" — snapshot at note-on for zero-point
         this._linnUfXFilterState = new Map(); // outlier-confirmation state per "ch.col"
+        this._linnUfXSmoothingState = new Map(); // accepted X smoothing state per "ch.col"
+        this._linnUfXOnsetState = new Map(); // note-on timing for smoothing-aware attack quantization
+        this._linnUfXReleaseState = new Map(); // low-pressure release tracking to avoid snap-back before note-off
         this._linnUfXInitPending = new Set();
         this.midiin_data.addListener("controlchange", (e) => {
           const cc = e.message.dataBytes[0];

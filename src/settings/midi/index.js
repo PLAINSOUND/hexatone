@@ -230,7 +230,9 @@ const MIDIio = (props) => {
     linnstrumentChannelAllocation === "channel_per_note";
   const showLegacyChannelWrap = !tonalPlexus41Mode && ctrl?.id !== "linnstrument";
   const linnstrumentPitchBendMode = props.settings.linnstrument_pitch_bend_mode || "off";
-  const linnstrumentPitchBendShape = props.settings.linnstrument_pitch_bend_shape ?? 100;
+  const linnstrumentPitchBendShape = props.settings.linnstrument_pitch_bend_shape ?? 50;
+  const linnstrumentXSpikeReduction = props.settings.linnstrument_x_spike_reduction ?? 25;
+  const linnstrumentXInputSmoothing = props.settings.linnstrument_x_input_smoothing ?? 50;
   const showExquisBendControls = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
   const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input) && !isLinnstrument;
   const genericBypassesGeometry = ctrl?.id === "generic";
@@ -1735,51 +1737,149 @@ const MIDIio = (props) => {
                 </select>
               </label>
 
-              {linnstrumentPitchBendMode === "follow_scale_geometry" && (
-                <label title="Controls the S-curve of LinnStrument row glide. Higher values keep the pad centre and pad boundary flatter, with the transition concentrated further inside the pad.">
-                  Row Glide Shape
+              <label
+                title="Controls how continuous LinnStrument row glide feels. 0 is linear glide across the pad. 100 keeps most of the pad on the current note, with fast near-stepped transitions and a small shared seam pitch near pad boundaries."
+                style={linnstrumentPitchBendMode === "follow_scale_geometry" ? undefined : { opacity: 0.55 }}
+              >
+                Row Glide Shaping
+                <span
+                  class="sidebar-input"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={linnstrumentPitchBendShape}
+                    disabled={linnstrumentPitchBendMode !== "follow_scale_geometry"}
+                    style={{ width: "100%" }}
+                    onInput={(e) => {
+                      const parsed = parseInt(e.target.value, 10);
+                      const v = Math.max(0, Math.min(100, isNaN(parsed) ? 50 : parsed));
+                      props.onChange("linnstrument_pitch_bend_shape", v);
+                      saveControllerPref(
+                        ctrl,
+                        "linnstrument_pitch_bend_shape",
+                        v,
+                        props.settings,
+                        { linnstrument_pitch_bend_shape: v },
+                      );
+                    }}
+                  />
                   <span
-                    class="sidebar-input"
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      justifyContent: "flex-end",
+                      fontVariantNumeric: "tabular-nums",
+                      minWidth: "2.5em",
+                      textAlign: "right",
+                      fontSize: "0.85em",
                     }}
                   >
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      step="1"
-                      value={linnstrumentPitchBendShape}
-                      style={{ width: "100%" }}
-                      onInput={(e) => {
-                        const parsed = parseInt(e.target.value, 10);
-                        const v = Math.max(0, Math.min(200, isNaN(parsed) ? 100 : parsed));
-                        props.onChange("linnstrument_pitch_bend_shape", v);
-                        saveControllerPref(
-                          ctrl,
-                          "linnstrument_pitch_bend_shape",
-                          v,
-                          props.settings,
-                          { linnstrument_pitch_bend_shape: v },
-                        );
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        minWidth: "2.5em",
-                        textAlign: "right",
-                        fontSize: "0.85em",
-                      }}
-                    >
-                      {linnstrumentPitchBendShape}
-                    </span>
+                    {linnstrumentPitchBendShape}
                   </span>
-                </label>
-              )}
+                </span>
+              </label>
+
+              <label
+                title="Rejects noisy LinnStrument User Firmware X-position spikes before they become pitch warble. 0 leaves the raw X data untouched; 100 all but ignores the UF X LSB, effectively holding X to its coarse MSB bucket."
+                style={linnstrumentPitchBendMode === "follow_scale_geometry" ? undefined : { opacity: 0.55 }}
+              >
+                X Spike Reduction
+                <span
+                  class="sidebar-input"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={linnstrumentXSpikeReduction}
+                    disabled={linnstrumentPitchBendMode !== "follow_scale_geometry"}
+                    style={{ width: "100%" }}
+                    onInput={(e) => {
+                      const parsed = parseInt(e.target.value, 10);
+                      const v = Math.max(0, Math.min(100, isNaN(parsed) ? 50 : parsed));
+                      props.onChange("linnstrument_x_spike_reduction", v);
+                      saveControllerPref(
+                        ctrl,
+                        "linnstrument_x_spike_reduction",
+                        v,
+                        props.settings,
+                        { linnstrument_x_spike_reduction: v },
+                      );
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontVariantNumeric: "tabular-nums",
+                      minWidth: "2.5em",
+                      textAlign: "right",
+                      fontSize: "0.85em",
+                    }}
+                  >
+                    {linnstrumentXSpikeReduction}
+                  </span>
+                </span>
+              </label>
+
+              <label
+                title="Applies event-driven smoothing to accepted LinnStrument User Firmware X input after spike rejection. 0 is raw accepted X. Higher values average successive accepted X samples more heavily without relying on timers or animation frames."
+                style={linnstrumentPitchBendMode === "follow_scale_geometry" ? undefined : { opacity: 0.55 }}
+              >
+                X Input Smoothing
+                <span
+                  class="sidebar-input"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={linnstrumentXInputSmoothing}
+                    disabled={linnstrumentPitchBendMode !== "follow_scale_geometry"}
+                    style={{ width: "100%" }}
+                    onInput={(e) => {
+                      const parsed = parseInt(e.target.value, 10);
+                      const v = Math.max(0, Math.min(100, isNaN(parsed) ? 0 : parsed));
+                      props.onChange("linnstrument_x_input_smoothing", v);
+                      saveControllerPref(
+                        ctrl,
+                        "linnstrument_x_input_smoothing",
+                        v,
+                        props.settings,
+                        { linnstrument_x_input_smoothing: v },
+                      );
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontVariantNumeric: "tabular-nums",
+                      minWidth: "2.5em",
+                      textAlign: "right",
+                      fontSize: "0.85em",
+                    }}
+                  >
+                    {linnstrumentXInputSmoothing}
+                  </span>
+                </span>
+              </label>
             </>
           )}
 
@@ -1924,6 +2024,8 @@ MIDIio.propTypes = {
     linnstrument_channel_allocation: PropTypes.string,
     linnstrument_pitch_bend_mode: PropTypes.string,
     linnstrument_pitch_bend_shape: PropTypes.number,
+    linnstrument_x_spike_reduction: PropTypes.number,
+    linnstrument_x_input_smoothing: PropTypes.number,
     wheel_to_recent: PropTypes.bool,
     midi_wheel_semitones: PropTypes.number,
     wheel_scale_aware: PropTypes.bool,
