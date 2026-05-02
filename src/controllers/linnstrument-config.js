@@ -332,6 +332,9 @@ function rgbToOklab(r, g, b) {
   );
 }
 
+/** Palette value for Red. */
+export const LINNS_RED = 1;
+
 /** Palette value for Off — unmapped / dark cells. */
 export { LINNS_OFF };
 

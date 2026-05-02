@@ -5,7 +5,11 @@ import {
   rgb2hsv,
   rgbToHex,
 } from "./color_utils";
-import { buildLinnstrumentDegreeMap, LINNS_OFF } from "../controllers/linnstrument-config.js";
+import {
+  buildLinnstrumentDegreeMap,
+  LINNS_OFF,
+  LINNS_RED,
+} from "../controllers/linnstrument-config.js";
 import {
   transferColor,
   LUMATONE_TONIC,
@@ -119,7 +123,9 @@ export function buildLinnstrumentColorArray() {
     const note = (ch - 1) * 16 + (col - 1);
     if (note < 0 || note > 127) continue;
     const [, reducedSteps] = this.hexCoordsToCents(coords);
-    values[note] = degreeMap.get(reducedSteps) ?? LINNS_OFF;
+    values[note] = reducedSteps === 0
+      ? LINNS_RED
+      : (degreeMap.get(reducedSteps) ?? LINNS_OFF);
   }
   return values;
 }
