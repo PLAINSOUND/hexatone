@@ -115,7 +115,6 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
           onInput={handlePickerInput}
           onChange={handlePickerChange}
           tabIndex={-1}
-          aria-hidden="true"
         />
       </span>
 

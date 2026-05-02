@@ -54,6 +54,10 @@ describe("LinnStrumentLEDs", () => {
     expect([3, 10]).toContain(value);
   });
 
+  it("maps the exact pale silver-blue u19 color to cyan", () => {
+    expect(hexToLinnsPaletteValue("#bedce4")).toBe(4);
+  });
+
   it("maps genuinely dark colors to Off", () => {
     expect(hexToLinnsPaletteValue("#222222")).toBe(7);
   });

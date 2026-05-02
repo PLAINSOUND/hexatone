@@ -252,6 +252,7 @@ export const LINNS_COLOR_PAIRS = [
   // ── 19-limit / Pale blue group ────────────────────────────────────────────
   ["d6f7ff", 4],   // 19° 57° 171° (pale sky) → Cyan
   ["d8f7fd", 4],   // 55-Luma blue → Cyan
+  ["bedce4", 4],   // u19 / pale silver-blue → Cyan
   ["e5fff9", 4],   // 95° (pale cyan-green) → Cyan
   ["f4e6f2", 4],   // 133° (pale mauve) → Cyan
   ["caf7e3", 4],   // 209° (pale mint) → Cyan

@@ -4,6 +4,7 @@ import { scalaToCents } from "../parse-scale";
 import ScalaInput from "../scala-input.js";
 import { createScaleWorkspace } from "../../../tuning/workspace.js";
 import { scorePrimeConsistency } from "../../../tuning/rationalise.js";
+import { sortScaleDegreesAscending } from "../sort-scale.js";
 import ColorCell from "./color-cell.js";
 import FrequencyInput from "./frequency-input.js";
 import TuneCell from "./tune-cell.js";
@@ -21,6 +22,7 @@ import {
   getRationalisationRequest,
   getHumanTestableRationalCandidates,
 } from "./rationalise.js";
+import { deleteScaleDegree, moveScaleDegree } from "../sort-scale.js";
 
 // ScaleTable is the UI workspace for rationalisation. It derives committed row
 // state from ScaleWorkspace, lets TuneCell create transient previews, then
@@ -104,6 +106,10 @@ const ScaleTable = (props) => {
     return DEFAULT_SEARCH_PREFS;
   });
   const [rationalisingScale, setRationalisingScale] = useState(false);
+  const [draggedDegree, setDraggedDegree] = useState(null);
+  const [dropTargetDegree, setDropTargetDegree] = useState(null);
+  const [dropTargetSide, setDropTargetSide] = useState("before");
+  const [selectedDegree, setSelectedDegree] = useState(null);
 
   // Persist search panel open/close state and prefs across page reloads.
   useEffect(() => {
@@ -138,6 +144,54 @@ const ScaleTable = (props) => {
   const getCommittedCentsAtDegree = useCallback((degreeIndex) => {
     return getRowRuntimeAtDegree(degreeIndex).committedCents;
   }, [getRowRuntimeAtDegree]);
+
+  const sortDegreesAscending = useCallback(() => {
+    const updates = sortScaleDegreesAscending(props.settings);
+    if (updates && props.onAtomicChange) props.onAtomicChange(updates);
+  }, [props]);
+
+  const getDropInsertionDegree = useCallback((targetDegree, side) => {
+    if (!draggedDegree || !targetDegree) return targetDegree;
+    if (side === "after") {
+      return draggedDegree < targetDegree ? targetDegree : targetDegree + 1;
+    }
+    return draggedDegree < targetDegree ? targetDegree - 1 : targetDegree;
+  }, [draggedDegree]);
+
+  const commitDraggedDegree = useCallback((targetDegree, side) => {
+    if (!draggedDegree || !targetDegree) return;
+    const insertionDegree = getDropInsertionDegree(targetDegree, side);
+    if (!insertionDegree || insertionDegree === draggedDegree) return;
+    const updates = moveScaleDegree(props.settings, draggedDegree, insertionDegree);
+    if (updates && props.onAtomicChange) props.onAtomicChange(updates);
+  }, [draggedDegree, getDropInsertionDegree, props]);
+
+  const removeDegree = useCallback((degree) => {
+    const updates = deleteScaleDegree(props.settings, degree);
+    if (updates && props.onAtomicChange) props.onAtomicChange(updates);
+    setSelectedDegree(null);
+  }, [props]);
+
+  const getDropSide = useCallback((event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    return event.clientY >= midY ? "after" : "before";
+  }, []);
+
+  const resolveDropTarget = useCallback((event, degree) => {
+    const side = getDropSide(event);
+    if (side === "before" && degree > 1) {
+      return { degree: degree - 1, side: "after" };
+    }
+    return { degree, side };
+  }, [getDropSide]);
+
+  const updateDropTarget = useCallback((event, degree) => {
+    if (!draggedDegree || draggedDegree === degree) return;
+    const target = resolveDropTarget(event, degree);
+    setDropTargetDegree(target.degree);
+    setDropTargetSide(target.side);
+  }, [draggedDegree, resolveDropTarget]);
 
   const effectiveCentsAtDegree = useCallback((degreeIndex) => {
     const state = previewState[degreeIndex];
@@ -341,31 +395,40 @@ const ScaleTable = (props) => {
   return (
     <div class="scale-table-workspace">
       <div class="scale-table-toolbar">
-        {!showSearchPrefs && (
-          <button
-            type="button"
-            class="scale-table-toolbar__toggle"
-            onClick={() => setShowSearchPrefs(true)}
-            aria-expanded={false}
-            aria-controls="scale-search-prefs"
-          >
-            Rationalisation Settings
-          </button>
-        )}
         <button
           type="button"
-          class="scale-table-toolbar__rationalise"
-          onClick={() => {
-            setRationalisingScale(true);
-            // Defer to next tick so the button can show a loading state before
-            // the synchronous search blocks the main thread.
-            setTimeout(rationaliseScale, 0);
-          }}
-          disabled={rationalisingScale}
-          title="Find best rational candidate for every scale degree and commit all at once"
+          class="scale-table-toolbar__sort"
+          onClick={sortDegreesAscending}
         >
-          {rationalisingScale ? "Rationalising…" : "Rationalise Scale"}
+          Sort Degrees Ascending
         </button>
+        <div class="scale-table-toolbar__rationalisation-group">
+          {!showSearchPrefs && (
+            <button
+              type="button"
+              class="scale-table-toolbar__toggle"
+              onClick={() => setShowSearchPrefs(true)}
+              aria-expanded={false}
+              aria-controls="scale-search-prefs"
+            >
+              Rationalisation Settings
+            </button>
+          )}
+          <button
+            type="button"
+            class="scale-table-toolbar__rationalise"
+            onClick={() => {
+              setRationalisingScale(true);
+              // Defer to next tick so the button can show a loading state before
+              // the synchronous search blocks the main thread.
+              setTimeout(rationaliseScale, 0);
+            }}
+            disabled={rationalisingScale}
+            title="Find best rational candidate for every scale degree and commit all at once"
+          >
+            {rationalisingScale ? "Rationalising…" : "Rationalise Scale"}
+          </button>
+        </div>
       </div>
       {showSearchPrefs && (
         <fieldset id="scale-search-prefs" class="settings-panel scale-search-prefs">
@@ -628,7 +691,7 @@ const ScaleTable = (props) => {
           <td class="scale-data-col">
             <div class="scale-degree-cell">
               <span class="degree-gutter" aria-label="scale degree gutter 0">
-                {degrees[0]}
+                <span class="degree-gutter__number">{degrees[0]}</span>
               </span>
               <div class="freq-cell">
                 <input
@@ -722,15 +785,70 @@ const ScaleTable = (props) => {
               [
                 props.settings.reference_degree === i + 1 ? "reference-degree-row" : "",
                 props.settings.center_degree === i + 1 ? "center-degree-row" : "",
+                dropTargetDegree === i + 1 ? "scale-row--drop-target" : "",
+                dropTargetDegree === i + 1 && dropTargetSide === "before" ? "scale-row--drop-target-before" : "",
+                dropTargetDegree === i + 1 && dropTargetSide === "after" ? "scale-row--drop-target-after" : "",
+                selectedDegree === i + 1 ? "scale-row--selected" : "",
               ]
                 .filter(Boolean)
                 .join(" ") || undefined
             }
+            onDragOver={(e) => {
+              e.preventDefault();
+              updateDropTarget(e, i + 1);
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              updateDropTarget(e, i + 1);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const target = resolveDropTarget(e, i + 1);
+              commitDraggedDegree(target.degree, target.side);
+              setDraggedDegree(null);
+              setDropTargetDegree(null);
+              setDropTargetSide("before");
+            }}
           >
             <td class="scale-data-col">
               <div class="scale-degree-cell">
-                <span class="degree-gutter" aria-label={`scale degree gutter ${i + 1}`}>
-                  {degree}
+                <span
+                  class={`degree-gutter degree-gutter--draggable${draggedDegree === i + 1 ? " degree-gutter--dragging" : ""}${selectedDegree === i + 1 ? " degree-gutter--selected" : ""}`}
+                  aria-label={`scale degree gutter ${i + 1}`}
+                  draggable="true"
+                  title="Drag to reorder this scale degree"
+                  onClick={() => {
+                    setSelectedDegree((prev) => (prev === i + 1 ? null : i + 1));
+                  }}
+                  onDragStart={(e) => {
+                    setDraggedDegree(i + 1);
+                    setDropTargetDegree(i + 1);
+                    setDropTargetSide("before");
+                    setSelectedDegree(null);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", String(i + 1));
+                  }}
+                  onDragEnd={() => {
+                    setDraggedDegree(null);
+                    setDropTargetDegree(null);
+                    setDropTargetSide("before");
+                  }}
+                >
+                  {selectedDegree === i + 1 && (
+                    <button
+                      type="button"
+                      class="degree-gutter__delete"
+                      aria-label={`delete scale degree ${i + 1}`}
+                      title={`Delete scale degree ${i + 1}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeDegree(i + 1);
+                      }}
+                    >
+                      <span class="degree-gutter__delete-glyph" aria-hidden="true">×</span>
+                    </button>
+                  )}
+                  <span class="degree-gutter__number">{degree}</span>
                 </span>
                 <div class="freq-cell">
                   <ScalaInput
@@ -819,7 +937,7 @@ const ScaleTable = (props) => {
           <td class="scale-data-col">
             <div class="scale-degree-cell">
               <span class="degree-gutter" aria-label="scale degree gutter equave">
-                {scale.length}
+                <span class="degree-gutter__number">{scale.length}</span>
               </span>
               <div class="freq-cell">
                 <ScalaInput

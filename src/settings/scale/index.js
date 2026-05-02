@@ -236,6 +236,7 @@ const Scale = (props) => {
 Scale.propTypes = {
   onImport: PropTypes.func.isRequired,
   onChange: PropTypes.func.isRequired,
+  onAtomicChange: PropTypes.func,
   modulation_transposition_cents: PropTypes.number,
   modulation_display_active: PropTypes.bool,
 };

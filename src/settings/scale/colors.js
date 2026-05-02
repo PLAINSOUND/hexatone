@@ -123,7 +123,6 @@ const Colors = (props) => {
                   onInput={handlePickerInput}
                   onChange={handlePickerChange}
                   tabIndex={-1}
-                  aria-hidden="true"
                 />
               </span>
               <input

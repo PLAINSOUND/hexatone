@@ -713,8 +713,10 @@ table input:disabled {
 /* ── 4d. Degree gutter + cents badge ──────────────────────── */
 
 .degree-gutter {
+  display: block;
   width: 4ch;
   min-width: 4ch;
+  box-sizing: border-box;
   padding-top: 0.1em;
   text-align: right;
   color: #7a6666;
@@ -966,9 +968,11 @@ table input:disabled {
 
 .scale-table-toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5em;
 }
 
+.scale-table-toolbar__sort,
 .scale-table-toolbar__toggle,
 .scale-table-toolbar__rationalise {
   display: inline-flex;
@@ -982,8 +986,15 @@ table input:disabled {
   font-size: 1em;
 }
 
+.scale-table-toolbar__rationalisation-group {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
 .scale-table-toolbar__rationalise { margin-left: 0.5em; }
 
+.scale-table-toolbar__sort:hover,
 .scale-table-toolbar__toggle:hover,
 .scale-table-toolbar__rationalise:hover {
   background: #ece2e2;
@@ -992,6 +1003,105 @@ table input:disabled {
 .scale-table-toolbar__rationalise:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.degree-gutter--draggable {
+  cursor: grab;
+}
+
+.degree-gutter--selected {
+  background: #e9edf4;
+  border-radius: 3px;
+  min-width: 1.85em;
+  padding-left: 0.32em;
+  position: relative;
+  cursor: default;
+}
+
+.degree-gutter__number {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: right;
+  position: relative;
+  top: 0.08em;
+}
+
+.degree-gutter--selected .degree-gutter__number {
+  color: #8e2020;
+}
+
+.degree-gutter--dragging {
+  cursor: grabbing;
+  opacity: 0.65;
+}
+
+.degree-gutter__delete {
+  all: unset;
+  position: absolute;
+  left: 0.1em;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.8em;
+  height: 0.8em;
+  display: block;
+  cursor: pointer;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.degree-gutter__delete-glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: #6f3535;
+  font-weight: 600;
+  font-family: "Plainsound Sans", serif;
+  line-height: 0.8em;
+  text-align: center;
+  position: relative;
+  top: 0.16em;
+  pointer-events: none;
+}
+
+.degree-gutter__delete:hover {
+  color: inherit;
+}
+
+.degree-gutter__delete:hover .degree-gutter__delete-glyph {
+  color: #8e2020;
+}
+
+.scale-row--drop-target td {
+  background: #e9edf4;
+  box-shadow: inset 0 0 0 1px #cdd8e8;
+  z-index: 2;
+}
+
+.scale-row--drop-target-before td {
+  box-shadow:
+    inset 0 0 0 1px #cdd8e8,
+    0 -2px 0 #d6deea;
+}
+
+.scale-row--drop-target-after td {
+  box-shadow:
+    inset 0 0 0 1px #cdd8e8,
+    0 2px 0 #d6deea;
+}
+
+.scale-row--selected,
+.scale-row--selected td {
+  background: #e8edf5 !important;
+  box-shadow: inset 0 1px 0 #d6deea, inset 0 -1px 0 #d6deea;
+}
+
+.scale-row--selected input:not(:disabled),
+.scale-row--selected .color-input,
+.scale-row--selected .color-cell:focus-within,
+.scale-row--selected .sidebar-input,
+.scale-row--selected .sidebar-input input {
+  background-color: #e8edf5 !important;
 }
 
 

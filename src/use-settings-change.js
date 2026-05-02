@@ -11,6 +11,31 @@ import {
 // setSettings fires, so color-picker drags are smooth without reconstruction.
 const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color"]);
 
+export function resizeScaleWithEquavePadding(settings, newSize) {
+  const currentScale = Array.isArray(settings?.scale) ? settings.scale : [];
+  const equave = currentScale.length ? currentScale[currentScale.length - 1] : "2/1";
+  const degreeZeroName = settings?.note_names?.[0] ?? "";
+  const degreeZeroColor = settings?.note_colors?.[0] ?? "#ffffff";
+
+  let scale;
+  if (newSize > currentScale.length) {
+    scale = [...currentScale, ...Array(newSize - currentScale.length).fill(equave)];
+  } else {
+    scale = currentScale.slice(0, newSize);
+  }
+
+  const note_names = Array.from(
+    { length: newSize },
+    (_, index) => settings?.note_names?.[index] ?? degreeZeroName,
+  );
+  const note_colors = Array.from(
+    { length: newSize },
+    (_, index) => settings?.note_colors?.[index] ?? degreeZeroColor,
+  );
+
+  return { scale, note_names, note_colors };
+}
+
 // Return the detectController entry for the currently connected input device, or null.
 const getConnectedController = (deviceId, midi, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {
@@ -166,29 +191,13 @@ const useSettingsChange = (
       setLatch(false);
       bumpImportCount();
       setSettings((prev) => {
-        const newSize = value;
-        const currentScale = prev.scale || [];
-        let newScale;
-        if (newSize > currentScale.length) {
-          const padding = [];
-          for (let i = currentScale.length; i < newSize - 1; i++) {
-            padding.push(String((i + 1) * 100) + ".0");
-          }
-          padding.push(String(newSize * 100) + ".0");
-          newScale = [...currentScale, ...padding];
-        } else {
-          newScale = currentScale.slice(0, newSize);
-        }
-        const newNoteNames = newScale.map(
-          (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
-        );
+        const { scale, note_names, note_colors } = resizeScaleWithEquavePadding(prev, value);
         return {
           ...prev,
           [key]: value,
-          scale: newScale,
-          note_names: newNoteNames,
-          spectrum_colors: true,
-          fundamental_color: "#f2e3e3",
+          scale,
+          note_names,
+          note_colors,
         };
       });
       return;
