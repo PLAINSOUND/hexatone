@@ -107,4 +107,40 @@ describe("osc_synth pooled slot allocation", () => {
       ]),
     );
   });
+
+  it("routes per-note CC74 to mod rather than filter", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-cc74",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    await Promise.resolve();
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    hex.cc74(64);
+
+    const ws = MockWebSocket.instances[0];
+    const modSets = ws.sent.filter((msg) => {
+      return (
+        msg.address === "/n_set" &&
+        msg.args[1]?.value === "mod"
+      );
+    });
+    const filterSets = ws.sent.filter((msg) => {
+      return (
+        msg.address === "/n_set" &&
+        msg.args[1]?.value === "filter" &&
+        msg.args[0]?.value !== 1
+      );
+    });
+
+    expect(modSets.length).toBeGreaterThan(0);
+    expect(filterSets).toHaveLength(0);
+  });
 });

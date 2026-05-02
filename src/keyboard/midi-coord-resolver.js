@@ -31,6 +31,30 @@
 
 import Point from "./point.js";
 
+function extendedGcd(a, b) {
+  let oldR = Math.trunc(a);
+  let r = Math.trunc(b);
+  let oldS = 1;
+  let s = 0;
+  let oldT = 0;
+  let t = 1;
+
+  while (r !== 0) {
+    const q = Math.trunc(oldR / r);
+    [oldR, r] = [r, oldR - q * r];
+    [oldS, s] = [s, oldS - q * s];
+    [oldT, t] = [t, oldT - q * t];
+  }
+
+  if (oldR < 0) {
+    oldR = -oldR;
+    oldS = -oldS;
+    oldT = -oldT;
+  }
+
+  return { gcd: oldR, x: oldS, y: oldT };
+}
+
 export class MidiCoordResolver {
   /**
    * @param {object}   settings
@@ -162,6 +186,70 @@ export class MidiCoordResolver {
    */
   stepsToVisibleCoords(steps) {
     return this.stepsTable?.get(steps) ?? [];
+  }
+
+  /**
+   * When a step target is outside the currently visible grid, synthesize a
+   * lattice coordinate for the exact step count instead of failing outright.
+   * This is important for dense scales in Nearest Scale Degree mode, where the
+   * visible register can be much smaller than the incoming MIDI range.
+   *
+   * @param {number} steps
+   * @returns {Point|null}
+   */
+  fallbackCoordForSteps(steps) {
+    const rSteps = Math.trunc(this.settings.rSteps);
+    const drSteps = Math.trunc(this.settings.drSteps);
+    const { gcd, x, y } = extendedGcd(rSteps, drSteps);
+    if (!gcd || steps % gcd !== 0) return null;
+
+    const scale = steps / gcd;
+    const baseX = x * scale;
+    const baseY = y * scale;
+    const shiftX = drSteps / gcd;
+    const shiftY = -rSteps / gcd;
+
+    const centerpoint = this._getCenterpoint();
+    const cx = centerpoint.x;
+    const cy = centerpoint.y;
+    const DECAY = 0.15;
+    const last = this.lastMidiCoords;
+    const anchorX = last ? last.x + DECAY * (cx - last.x) : cx;
+    const anchorY = last ? last.y + DECAY * (cy - last.y) : cy;
+
+    const basePoint = new Point(baseX, baseY);
+    const baseScreen = this._hexCoordsToScreen(basePoint);
+    const deltaPoint = new Point(baseX + shiftX, baseY + shiftY);
+    const deltaScreen = this._hexCoordsToScreen(deltaPoint);
+    const stepX = deltaScreen.x - baseScreen.x;
+    const stepY = deltaScreen.y - baseScreen.y;
+    const denom = stepX * stepX + stepY * stepY;
+
+    if (denom === 0) return basePoint;
+
+    const kReal =
+      ((anchorX - baseScreen.x) * stepX + (anchorY - baseScreen.y) * stepY) / denom;
+    const kBase = Math.round(kReal);
+
+    let best = null;
+    let bestDist = Infinity;
+    for (let dk = -1; dk <= 1; dk++) {
+      const k = kBase + dk;
+      const coords = new Point(baseX + shiftX * k, baseY + shiftY * k);
+      const screen = this._hexCoordsToScreen(coords);
+      const dx = screen.x - anchorX;
+      const dy = screen.y - anchorY;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = coords;
+      }
+    }
+    return best;
+  }
+
+  coordForSteps(steps) {
+    return this.bestVisibleCoord(steps) ?? this.fallbackCoordForSteps(steps);
   }
 
   // ── Best-coord selection ─────────────────────────────────────────────────────

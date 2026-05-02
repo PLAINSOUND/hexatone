@@ -240,6 +240,22 @@ describe("use-synth-wiring controller resolution", () => {
     ).toBe("exquis-main");
   });
 
+  it("falls back to auto-detect when a saved controller output override is missing", () => {
+    const outputs = new Map([
+      ["lumatone-main", { id: "lumatone-main", name: "Lumatone" }],
+      ["midi-function", { id: "midi-function", name: "MIDI Function" }],
+    ]);
+
+    expect(
+      resolveBidirectionalControllerOutputPort(
+        outputs,
+        { name: "Lumatone" },
+        getControllerById("lumatone"),
+        "missing-port-id",
+      )?.id,
+    ).toBe("midi-function");
+  });
+
   it("prefers the LinnStrument output with the closest name to the selected input", () => {
     const outputs = new Map([
       ["linn-200", { id: "linn-200", name: "Roger Linn Design LinnStrument 200" }],

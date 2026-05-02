@@ -105,7 +105,10 @@ export const resolveBidirectionalControllerOutputPort = (
   overridePortId = null,
 ) => {
   if (!outputs) return null;
-  if (overridePortId) return outputs.get(overridePortId) ?? null;
+  if (overridePortId) {
+    const overridePort = outputs.get(overridePortId) ?? null;
+    if (overridePort) return overridePort;
+  }
   if (!controller) return null;
 
   return (

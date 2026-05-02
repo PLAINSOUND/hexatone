@@ -1160,14 +1160,39 @@ describe("Keys MIDI input integration", () => {
     keys.controller = {
       resolveScaleInputPitchCents: vi.fn(() => 100),
     };
-    keys.coordResolver.bestVisibleCoord = vi.fn(() => new Point(4, 0));
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(4, 0));
 
     keys.midinoteOn(makeMidiEvent(60, 9));
 
     expect(keys.controller.resolveScaleInputPitchCents).toHaveBeenCalledWith(9, 60, keys.settings);
-    expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(1);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(1);
     expect(hexOn).toHaveBeenCalledWith(
       new Point(4, 0),
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it("falls back to synthesized off-screen coords for high nearest-scale targets", () => {
+    const keys = createKeys({}, { target: "scale" });
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 2400,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys.controller = {
+      resolveScaleInputPitchCents: vi.fn(() => 2400),
+    };
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(24, 0));
+
+    keys.midinoteOn(makeMidiEvent(60, 9));
+
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(24);
+    expect(hexOn).toHaveBeenCalledWith(
+      new Point(24, 0),
       expect.any(Number),
       expect.any(Number),
       expect.any(Number),

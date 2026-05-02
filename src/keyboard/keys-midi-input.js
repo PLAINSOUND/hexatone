@@ -116,7 +116,7 @@ export function midinoteOn(event) {
     );
     if (result === null) return;
     if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
-    coords = this.coordResolver.bestVisibleCoord(result.steps);
+    coords = this.coordResolver.coordForSteps(result.steps);
   } else if (this.inputRuntime.layoutMode === "sequential") {
     const normalized = this._normalizeInputAddress(event.message.channel, event.note.number);
     if (!normalized) return;
@@ -126,13 +126,13 @@ export function midinoteOn(event) {
         rawAttack: velocityPlayed,
       });
     }
-    coords = this.coordResolver.bestVisibleCoord(
+    coords = this.coordResolver.coordForSteps(
       this.coordResolver.noteToSteps(normalized.note, normalized.channel),
     );
   } else if (this.controllerMap) {
     coords = coordsForKnownController.call(this, event);
   } else {
-    coords = this.coordResolver.bestVisibleCoord(
+    coords = this.coordResolver.coordForSteps(
       this.coordResolver.noteToSteps(event.note.number, event.message.channel),
     );
   }

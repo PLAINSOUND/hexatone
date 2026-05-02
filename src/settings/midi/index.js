@@ -194,11 +194,7 @@ const MIDIio = (props) => {
     midiPassthrough: !!props.settings.midi_passthrough,
     midiinDevice: props.settings.midiin_device,
   });
-  const hasLinnstrumentInput =
-    props.settings.midiin_device &&
-    props.settings.midiin_device !== "OFF" &&
-    (detectedController?.id === "linnstrument" || isLinnstrument);
-  const linnstrumentChannelAllocation = hasLinnstrumentInput
+  const linnstrumentChannelAllocation = isLinnstrument
     ? (props.settings.linnstrument_channel_allocation ||
       (props.settings.midiin_mpe_input
         ? "channel_per_note"
@@ -213,26 +209,23 @@ const MIDIio = (props) => {
     isMultiChannelSequential &&
     (!isLinnstrument || showChannelTransposeLinnstrumentOverride || stepsMode !== "none");
   const linnstrumentUserFirmwareActiveUi = linnstrumentUserFirmwareEligible;
-  const showMpeInputControls = !hasLinnstrumentInput && (!ctrl || ctrl.mpe);
-  const mpeInputPrefsController =
-    hasLinnstrumentInput && detectedController?.id === "linnstrument"
-      ? detectedController
-      : ctrl;
+  const showMpeInputControls = !isLinnstrument && (!ctrl || ctrl.mpe);
+  const mpeInputPrefsController = ctrl;
   const linnstrumentBypassNonMpeUi =
-    hasLinnstrumentInput &&
+    isLinnstrument &&
     !scaleMode &&
     !linnstrumentUserFirmwareActiveUi &&
     linnstrumentChannelAllocation !== "channel_per_note";
   const linnstrumentBypassMpeUi =
-    hasLinnstrumentInput &&
+    isLinnstrument &&
     !scaleMode &&
     !linnstrumentUserFirmwareActiveUi &&
     linnstrumentChannelAllocation === "channel_per_note";
   const showLegacyChannelWrap = !tonalPlexus41Mode && ctrl?.id !== "linnstrument";
   const linnstrumentPitchBendMode = props.settings.linnstrument_pitch_bend_mode || "off";
-  const linnstrumentPitchBendShape = props.settings.linnstrument_pitch_bend_shape ?? 50;
+  const linnstrumentPitchBendShape = props.settings.linnstrument_pitch_bend_shape ?? 60;
   const linnstrumentXSpikeReduction = props.settings.linnstrument_x_spike_reduction ?? 25;
-  const linnstrumentXInputSmoothing = props.settings.linnstrument_x_input_smoothing ?? 50;
+  const linnstrumentXInputSmoothing = props.settings.linnstrument_x_input_smoothing ?? 80;
   const showExquisBendControls = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
   const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input) && !isLinnstrument;
   const genericBypassesGeometry = ctrl?.id === "generic";
@@ -608,99 +601,6 @@ const MIDIio = (props) => {
             </>
           )}
 
-          {hasLinnstrumentInput && !scaleMode && !linnstrumentUserFirmwareActiveUi && (
-            <>
-              <label title="How the LinnStrument allocates MIDI channels in bypass mode. Single Channel uses one channel for all notes. Channel Per Row uses one channel per row with Hexatone's sequential channel arithmetic. Channel Per Note uses MPE input.">
-                Channel Allocation
-                <select
-                  class="sidebar-input"
-                  value={linnstrumentChannelAllocation}
-                  onChange={(e) => onLinnstrumentChannelAllocationChange(e.target.value)}
-                >
-                  <option value="single_channel">Single Channel</option>
-                  <option value="channel_per_row">Channel Per Row</option>
-                  <option value="channel_per_note">Channel Per Note (MPE)</option>
-                </select>
-              </label>
-
-              {linnstrumentChannelAllocation === "single_channel" && (
-                <label title="Single Channel mode keeps all notes on one MIDI channel. Pitch bend here is mainly useful for monophonic playing, and the user can configure the device bend behaviour as preferred.">
-                  Pitch Bend
-                  <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
-                    Monophonic response
-                  </span>
-                  </label>
-              )}
-
-              {linnstrumentChannelAllocation === "channel_per_note" && (
-                <>
-                  <label title="MPE zone manager channel on the LinnStrument. Default is channel 1.">
-                    Manager Channel
-                    <select
-                      class="sidebar-input"
-                      value={props.settings.mpe_manager_ch || "1"}
-                      onChange={(e) => {
-                        props.onChange("mpe_manager_ch", e.target.value);
-                        sessionStorage.setItem("mpe_manager_ch", e.target.value);
-                      }}
-                    >
-                      <option value="1">Channel 1</option>
-                      <option value="16">Channel 16</option>
-                    </select>
-                  </label>
-
-                  <label title="Lowest LinnStrument MPE member channel. Default is channel 2.">
-                    Lowest Member Channel
-                    <select
-                      class="sidebar-input"
-                      value={props.settings.midiin_mpe_lo_ch ?? 2}
-                      onChange={(e) => {
-                        const nextLo = parseInt(e.target.value, 10);
-                        const nextHi = Math.max(props.settings.midiin_mpe_hi_ch ?? 8, nextLo);
-                        props.onChange("midiin_mpe_lo_ch", nextLo);
-                        sessionStorage.setItem("midiin_mpe_lo_ch", String(nextLo));
-                        if (nextHi !== (props.settings.midiin_mpe_hi_ch ?? 8)) {
-                          props.onChange("midiin_mpe_hi_ch", nextHi);
-                          sessionStorage.setItem("midiin_mpe_hi_ch", String(nextHi));
-                        }
-                      }}
-                    >
-                      {Array.from({ length: 15 }, (_, i) => i + 2).map((ch) => (
-                        <option key={ch} value={ch} disabled={ch > (props.settings.midiin_mpe_hi_ch ?? 8)}>
-                          {ch}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label title="Highest LinnStrument MPE member channel. Default is channel 8.">
-                    Highest Member Channel
-                    <select
-                      class="sidebar-input"
-                      value={props.settings.midiin_mpe_hi_ch ?? 8}
-                      onChange={(e) => {
-                        const nextHi = parseInt(e.target.value, 10);
-                        const nextLo = Math.min(props.settings.midiin_mpe_lo_ch ?? 2, nextHi);
-                        props.onChange("midiin_mpe_hi_ch", nextHi);
-                        sessionStorage.setItem("midiin_mpe_hi_ch", String(nextHi));
-                        if (nextLo !== (props.settings.midiin_mpe_lo_ch ?? 2)) {
-                          props.onChange("midiin_mpe_lo_ch", nextLo);
-                          sessionStorage.setItem("midiin_mpe_lo_ch", String(nextLo));
-                        }
-                      }}
-                    >
-                      {Array.from({ length: 15 }, (_, i) => i + 2).map((ch) => (
-                        <option key={ch} value={ch} disabled={ch < (props.settings.midiin_mpe_lo_ch ?? 2)}>
-                          {ch}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </>
-              )}
-            </>
-          )}
-
           {/* ── Controller description in scale mode ── */}
           {scaleMode && ctrl?.descriptionScale && (
             <label style={{ fontStyle: "italic", color: "#996666", marginBottom: "0.5em" }}>
@@ -936,7 +836,7 @@ const MIDIio = (props) => {
                   </label>
                 )}
 
-                {hasLinnstrumentInput && !linnstrumentUserFirmwareEligible && (
+                {isLinnstrument && !linnstrumentUserFirmwareEligible && (
                   <LinnUserFirmwareStatus active={false} />
                 )}
 
@@ -1632,6 +1532,107 @@ const MIDIio = (props) => {
                 </label>
               </>
             ))}
+
+          {isLinnstrument && !scaleMode && !linnstrumentUserFirmwareActiveUi && (
+            <>
+              <label title="How the LinnStrument allocates MIDI channels in bypass mode. Single Channel uses one channel for all notes. Channel Per Row uses one channel per row with Hexatone's sequential channel arithmetic. Channel Per Note uses MPE input.">
+                Channel Allocation
+                <select
+                  class="sidebar-input"
+                  value={linnstrumentChannelAllocation}
+                  onChange={(e) => onLinnstrumentChannelAllocationChange(e.target.value)}
+                >
+                  <option value="single_channel">Single Channel</option>
+                  <option value="channel_per_row">Channel Per Row</option>
+                  <option value="channel_per_note">Channel Per Note (MPE)</option>
+                </select>
+              </label>
+
+              {linnstrumentChannelAllocation === "single_channel" && (
+                <label title="Single Channel mode keeps all notes on one MIDI channel. Pitch bend here is mainly useful for monophonic playing, and the user can configure the device bend behaviour as preferred.">
+                  Pitch Bend
+                  <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+                    Monophonic response
+                  </span>
+                </label>
+              )}
+
+              {linnstrumentChannelAllocation === "channel_per_note" && (
+                <>
+                  <label title="MPE zone manager channel on the LinnStrument. Default is channel 1.">
+                    Manager Channel
+                    <select
+                      class="sidebar-input"
+                      value={props.settings.mpe_manager_ch || "1"}
+                      onChange={(e) => {
+                        props.onChange("mpe_manager_ch", e.target.value);
+                        sessionStorage.setItem("mpe_manager_ch", e.target.value);
+                      }}
+                    >
+                      <option value="1">Channel 1</option>
+                      <option value="16">Channel 16</option>
+                    </select>
+                  </label>
+
+                  <label title="Lowest LinnStrument MPE member channel. Default is channel 2.">
+                    Lowest Member Channel
+                    <select
+                      class="sidebar-input"
+                      value={props.settings.midiin_mpe_lo_ch ?? 2}
+                      onChange={(e) => {
+                        const nextLo = parseInt(e.target.value, 10);
+                        const nextHi = Math.max(props.settings.midiin_mpe_hi_ch ?? 8, nextLo);
+                        props.onChange("midiin_mpe_lo_ch", nextLo);
+                        sessionStorage.setItem("midiin_mpe_lo_ch", String(nextLo));
+                        if (nextHi !== (props.settings.midiin_mpe_hi_ch ?? 8)) {
+                          props.onChange("midiin_mpe_hi_ch", nextHi);
+                          sessionStorage.setItem("midiin_mpe_hi_ch", String(nextHi));
+                        }
+                      }}
+                    >
+                      {Array.from({ length: 15 }, (_, i) => i + 2).map((ch) => (
+                        <option
+                          key={ch}
+                          value={ch}
+                          disabled={ch > (props.settings.midiin_mpe_hi_ch ?? 8)}
+                        >
+                          {ch}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label title="Highest LinnStrument MPE member channel. Default is channel 8.">
+                    Highest Member Channel
+                    <select
+                      class="sidebar-input"
+                      value={props.settings.midiin_mpe_hi_ch ?? 8}
+                      onChange={(e) => {
+                        const nextHi = parseInt(e.target.value, 10);
+                        const nextLo = Math.min(props.settings.midiin_mpe_lo_ch ?? 2, nextHi);
+                        props.onChange("midiin_mpe_hi_ch", nextHi);
+                        sessionStorage.setItem("midiin_mpe_hi_ch", String(nextHi));
+                        if (nextLo !== (props.settings.midiin_mpe_lo_ch ?? 2)) {
+                          props.onChange("midiin_mpe_lo_ch", nextLo);
+                          sessionStorage.setItem("midiin_mpe_lo_ch", String(nextLo));
+                        }
+                      }}
+                    >
+                      {Array.from({ length: 15 }, (_, i) => i + 2).map((ch) => (
+                        <option
+                          key={ch}
+                          value={ch}
+                          disabled={ch < (props.settings.midiin_mpe_lo_ch ?? 2)}
+                        >
+                          {ch}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
+            </>
+          )}
 
           {/* ── Channel Transposition — sequential single-channel path only.
               Hidden for active 2D geometry mode AND for multichannel controllers

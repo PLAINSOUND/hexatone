@@ -416,9 +416,24 @@ OscHex.prototype.pitchbend = function (value) {
   }
 };
 
-// CC74 → filter on individual nodes
+// CC74 / timbre → mod on individual nodes
 OscHex.prototype.cc74 = function (value) {
-  this.aftertouch(value);
+  if (this.release) return;
+  const mod = midiCcToScParam(value);
+  for (let i = 0; i < this._synthNames.length; i++) {
+    if (this._slot == null) continue;
+    const slotState = this._slotState[i][this._slot];
+    if (!slotState.active || slotState.token !== this._tokens[i]) continue;
+    this._socket.send(
+      "/n_set",
+      [
+        { type: "i", value: this._nodeIds[i] },
+        { type: "s", value: "mod" },
+        { type: "f", value: mod },
+      ],
+      OSC_LAYER_PORTS[i],
+    );
+  }
 };
 
 // Modwheel → broadcast /n_set \mod to node 1 on all four servers
