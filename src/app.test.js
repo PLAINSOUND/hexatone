@@ -60,7 +60,7 @@ const synthWiringState = {
   exquisRawPorts: null,
 };
 
-const settings = {
+let settings = {
   rSteps: 1,
   drSteps: 5,
   hexSize: 60,
@@ -287,7 +287,7 @@ describe("bindControllerLedRefs", () => {
     expect(keys.syncExquisLEDs).toHaveBeenCalledTimes(1);
   });
 
-  it("attaches a LinnStrument driver and triggers sync when enabled", () => {
+  it("attaches a LinnStrument driver without triggering an eager sync", () => {
     const keys = {
       settings: { linnstrument_led_sync: true },
       syncLinnstrumentLEDs: vi.fn(),
@@ -297,7 +297,7 @@ describe("bindControllerLedRefs", () => {
     bindControllerLedRefs(keys, { linnstrument: leds });
 
     expect(keys.linnstrumentLEDs).toBe(leds);
-    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+    expect(keys.syncLinnstrumentLEDs).not.toHaveBeenCalled();
   });
 
   it("clears individual bindings without touching the others", () => {
@@ -370,13 +370,6 @@ describe("App input runtime", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     });
-    const raf = vi.fn((cb) => {
-      cb();
-      return 1;
-    });
-    window.requestAnimationFrame = raf;
-    globalThis.requestAnimationFrame = raf;
-
     render(<App />);
 
     await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
@@ -387,7 +380,53 @@ describe("App input runtime", () => {
 
     lastKeyboardProps.onKeysReady(keys);
 
-    expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1));
+  });
+
+  it("re-syncs LinnStrument colors only after the rebuilt Keys instance is ready when center_degree changes under UF mode", async () => {
+    Object.assign(settings, {
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+      midi_passthrough: false,
+      midiin_mpe_input: false,
+      linnstrument_led_sync: true,
+      center_degree: 0,
+    });
+    synthWiringState.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Roger Linn Design LinnStrument 128" }]]),
+      outputs: new Map(),
+    };
+    mockDetectedController = { id: "linnstrument" };
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const { rerender } = render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+    const staleKeys = {
+      settings: { linnstrument_led_sync: true },
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+    lastKeyboardProps.onKeysReady(staleKeys);
+    await waitFor(() => expect(staleKeys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1));
+    staleKeys.syncLinnstrumentLEDs.mockClear();
+
+    settings = { ...settings, center_degree: 9 };
+    rerender(<App />);
+
+    expect(staleKeys.syncLinnstrumentLEDs).not.toHaveBeenCalled();
+
+    const rebuiltKeys = {
+      settings: { linnstrument_led_sync: true },
+      syncLinnstrumentLEDs: vi.fn(),
+    };
+    lastKeyboardProps.onKeysReady(rebuiltKeys);
+
+    await waitFor(() => expect(rebuiltKeys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1));
   });
 
   it("marks the LinnStrument LED driver UF-active when Keys mounts after UF activation", async () => {
@@ -475,7 +514,7 @@ describe("App input runtime", () => {
       syncLinnstrumentLEDs: vi.fn(),
     };
     lastKeyboardProps.onKeysReady(recoveredKeys);
-    expect(recoveredKeys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(recoveredKeys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1));
   });
 
   it("sends LinnStrument UF deactivation on page unload while UF mode is eligible", async () => {

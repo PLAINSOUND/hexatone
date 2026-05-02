@@ -153,9 +153,6 @@ export function bindControllerLedRefs(keys, bindings = {}) {
 
   if (Object.prototype.hasOwnProperty.call(bindings, "linnstrument")) {
     keys.linnstrumentLEDs = bindings.linnstrument;
-    if (bindings.linnstrument && keys.settings?.linnstrument_led_sync) {
-      keys.syncLinnstrumentLEDs?.();
-    }
   }
 }
 
@@ -299,6 +296,7 @@ const App = () => {
   const [textEntryActive, setTextEntryActive] = useState(false);
   const [viewportKeyboardOpen, setViewportKeyboardOpen] = useState(false);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
+  const [keysReadyRevision, setKeysReadyRevision] = useState(0);
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
   const viewportBaselineRef = useRef(0);
 
@@ -1171,6 +1169,18 @@ const App = () => {
     };
   }, [linnstrumentOutput, linnstrumentUserFirmwareEligible]);
 
+  useEffect(() => {
+    if (!linnstrumentUserFirmwareEligible || !settings.linnstrument_led_sync) return;
+    const keys = keysRef.current;
+    if (!keys?.syncLinnstrumentLEDs) return;
+    keys.syncLinnstrumentLEDs();
+  }, [
+    linnstrumentUserFirmwareEligible,
+    settings.linnstrument_led_sync,
+    colorImpactKey,
+    keysReadyRevision,
+  ]);
+
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
   const colorSettings = useMemo(
@@ -1308,6 +1318,7 @@ const App = () => {
   const onKeysReady = useCallback(
     (keys) => {
       keysRef.current = keys;
+      setKeysReadyRevision((revision) => revision + 1);
       if (linnstrumentUserFirmwareEligible && linnstrumentLedsRef.current) {
         linnstrumentLedsRef.current.userFirmwareActive = true;
       }
@@ -1316,21 +1327,8 @@ const App = () => {
         exquis: exquisLedsRef.current,
         linnstrument: linnstrumentLedsRef.current,
       });
-
-      // LinnStrument UF color sync can race with Keys reconstruction on reload
-      // and preset load: the driver survives, but the new Keys instance may
-      // need one post-construction resend once its controller map is fully live.
-      if (
-        linnstrumentUserFirmwareEligible &&
-        settings.linnstrument_led_sync &&
-        typeof requestAnimationFrame === "function"
-      ) {
-        requestAnimationFrame(() => {
-          if (keysRef.current === keys) keys.syncLinnstrumentLEDs?.();
-        });
-      }
     },
-    [linnstrumentUserFirmwareEligible, settings.linnstrument_led_sync],
+    [linnstrumentUserFirmwareEligible],
   );
   const onLatchChange = useCallback((v) => setLatch(v), []);
   const onModulationStateChange = useCallback((state) => {

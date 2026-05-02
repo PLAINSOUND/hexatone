@@ -248,6 +248,9 @@ const useSettingsChange = (
             : (s.fundamental_color || "").replace(/#/, ""),
       };
       keysRef.current.updateColors(colorUpdate);
+      if (key === "note_colors" && s.linnstrument_led_sync && keysRef.current.syncLinnstrumentLEDs) {
+        keysRef.current.syncLinnstrumentLEDs();
+      }
     }
 
     setSettings((prev) => ({ ...prev, [key]: value }));

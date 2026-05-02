@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { LinnStrumentLEDs } from "./linnstrument-config.js";
+import {
+  LinnStrumentLEDs,
+  buildLinnstrumentDegreeMap,
+  hexToLinnsPaletteValue,
+} from "./linnstrument-config.js";
 
 describe("LinnStrumentLEDs", () => {
   it("sends bottom-origin row coordinates for UF cell colors", () => {
@@ -29,5 +33,28 @@ describe("LinnStrumentLEDs", () => {
     expect(send.mock.calls[base]?.[0]).toEqual([0xb0, 20, 1]);
     expect(send.mock.calls[base + 1]?.[0]).toEqual([0xb0, 21, 4]);
     expect(send.mock.calls[base + 2]?.[0]).toEqual([0xb0, 22, 3]);
+  });
+
+  it("maps identical tonic and center-degree screen colors to the same palette value", () => {
+    const degreeMap = buildLinnstrumentDegreeMap(new Map([
+      [0, "#ffffff"],
+      [9, "#ffffff"],
+      [7, "#fceec5"],
+    ]));
+
+    expect(degreeMap.get(0)).toBe(8);
+    expect(degreeMap.get(9)).toBe(8);
+    expect(degreeMap.get(0)).toBe(degreeMap.get(9));
+    expect(degreeMap.get(7)).toBe(8);
+  });
+
+  it("maps non-exact greenish colors to a lit green-family palette value", () => {
+    const value = hexToLinnsPaletteValue("#9acd32");
+
+    expect([3, 10]).toContain(value);
+  });
+
+  it("maps genuinely dark colors to Off", () => {
+    expect(hexToLinnsPaletteValue("#222222")).toBe(7);
   });
 });

@@ -138,34 +138,13 @@ export function enableLinnstrumentXData(output) {
 /**
  * LinnStrument palette entries indexed by CC22 value.
  * Value 7 = Off, values 1–6 and 8–11 are the available colours.
- * Represented as [H, S] in HSL degrees/percent for nearest-hue matching.
- * White (8), Pink (11), and Off (7) are handled by lightness thresholds
- * separately — Pink is not a hue bucket but a pastel/high-lightness tier
- * for pink-range hues (see hexToLinnsPaletteValue).
+ * The current fallback mapper uses exact screen-hex overrides first, then
+ * perceptual nearest-neighbour matching in okLab space.
  */
-const LINNS_PALETTE = [
-  { value: 1,  label: "Red",     h: 0   },
-  { value: 9,  label: "Orange",  h: 30  },
-  { value: 2,  label: "Yellow",  h: 45  }, // boundary with Lime at ~63°
-  { value: 10, label: "Lime",    h: 82  }, // boundary with Yellow at ~63°; h=64° → Lime
-  { value: 3,  label: "Green",   h: 120 },
-  { value: 4,  label: "Cyan",    h: 180 },
-  { value: 5,  label: "Blue",    h: 240 },
-  { value: 6,  label: "Magenta", h: 300 },
-  // Pink (11) is intentionally absent here — it is matched by lightness,
-  // not by hue, so that medium-lightness pinks map to Magenta.
-];
-
 const LINNS_OFF   = 7;   // unlit
-const LINNS_WHITE = 8;   // white / near-white
-const LINNS_PINK  = 11;  // pastel pink (high-lightness, pink-hue range)
 
-// Lightness/saturation thresholds (0–1 scale):
-const DARK_THRESHOLD  = 0.18; // below → Off
-const WHITE_THRESHOLD = 0.92; // above this lightness → White (any hue, any saturation)
-const GREY_SAT        = 0.40; // below this saturation → White (if light) or Off (if dark)
-const PINK_HUE_MIN = 310;      // hue range for pastel-pink tier (wraps at 360)
-const PINK_HUE_MAX = 30;       //   310°–360° and 0°–30° = red/pink/rose zone (not yellow)
+// Minimal perceptual lightness gate (okLab L in 0–1 scale).
+const DARK_THRESHOLD  = 0.4; // below → Off
 
 /**
  * Manual screen-hex → LinnStrument CC22 palette value mappings.
@@ -186,9 +165,6 @@ const PINK_HUE_MAX = 30;       //   310°–360° and 0°–30° = red/pink/rose
  *   9  Orange
  *   10 Lime
  *   11 Pink
- *
- * Degree 0 always gets Red (hardcoded in buildLinnstrumentDegreeMap),
- * so tonic colours are not listed here.
  *
  * First match wins for exact lookup; duplicates (same screen hex in
  * different harmonic contexts) are listed for completeness but only
@@ -305,6 +281,13 @@ const _LINNS_EXACT = new Map(
   LINNS_COLOR_PAIRS.map(([hex, val]) => [hex.toLowerCase(), val])
 );
 
+// Nearest-neighbour fallback table in okLab space. All manual colour pairs
+// contribute, so known palette nuances still shape the fallback result.
+const _LINNS_OKLAB_SAMPLES = LINNS_COLOR_PAIRS.map(([hex, value]) => ({
+  value,
+  lab: hexToOklab(`#${hex}`),
+}));
+
 /**
  * Parse a '#rrggbb' hex string to { r, g, b } in 0–1 range.
  * Returns null for missing / invalid input.
@@ -317,95 +300,72 @@ function parseHex(hex) {
   return { r, g, b };
 }
 
-/**
- * Convert linear RGB to HSL.
- * Returns { h: 0–360, s: 0–1, l: 0–1 }.
- */
-function rgbToHsl(r, g, b) {
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return { h: 0, s: 0, l };
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h;
-  if (max === r)      h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else                h = ((r - g) / d + 4) / 6;
-  return { h: h * 360, s, l };
+function srgb_to_linear(x) {
+  return x > 0.04045 ? ((x + 0.055) / 1.055) ** 2.4 : x / 12.92;
 }
 
-/** Palette value for Red — reserved for the 1/1 (degree 0) key. */
-export const LINNS_RED = 1;
+function linear_srgb_to_oklab(r, g, b) {
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+  const l_ = Math.cbrt(l);
+  const m_ = Math.cbrt(m);
+  const s_ = Math.cbrt(s);
+  return [
+    0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_,
+    1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_,
+    0.0259040371 * l_ + 0.7827717662 * m_ - 0.808675766 * s_,
+  ];
+}
+
+function hexToOklab(hex) {
+  const rgb = parseHex(hex);
+  if (!rgb) return null;
+  return rgbToOklab(rgb.r, rgb.g, rgb.b);
+}
+
+function rgbToOklab(r, g, b) {
+  return linear_srgb_to_oklab(
+    srgb_to_linear(r),
+    srgb_to_linear(g),
+    srgb_to_linear(b),
+  );
+}
 
 /** Palette value for Off — unmapped / dark cells. */
 export { LINNS_OFF };
 
-// Palette entries available for non-tonic degrees (Red excluded).
-const LINNS_PALETTE_NO_RED = LINNS_PALETTE.filter((e) => e.value !== LINNS_RED);
-
 /**
  * Map a CSS hex color to the nearest LinnStrument CC22 palette value.
- * Dark colors → Off (7).  Near-white low-saturation → White (8).
- * All others → nearest hue bucket from LINNS_PALETTE.
- *
- * @param {string}  hex        '#rrggbb' color string.
- * @param {boolean} excludeRed When true, Red (1) is excluded from matching so
- *                             it stays reserved for the 1/1 key.
+ * Exact known hexes win first; unknown colors fall back to nearest manual
+ * sample in perceptual okLab space. A minimal okLab lightness gate still
+ * turns genuinely dark colors off.
  */
-export function hexToLinnsPaletteValue(hex, excludeRed = false) {
+export function hexToLinnsPaletteValue(hex) {
   const rgb = parseHex(hex);
   if (!rgb) return LINNS_OFF;
-  const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  if (l < DARK_THRESHOLD) return LINNS_OFF;
+  const lab = rgbToOklab(rgb.r, rgb.g, rgb.b);
+  if (lab[0] < DARK_THRESHOLD) return LINNS_OFF;
 
-  // Very high lightness → White regardless of hue/saturation (catches #ffffff etc.)
-  if (l > WHITE_THRESHOLD) {
-    // Exception: saturated pink-hue colours at this lightness → Pink, not White.
-    const inPinkHue = h >= PINK_HUE_MIN || h <= PINK_HUE_MAX;
-    if (inPinkHue && s >= GREY_SAT) return LINNS_PINK;
-    return LINNS_WHITE;
-  }
-
-  // Low-saturation colours below the white threshold → Off (dark keys, grey etc.)
-  if (s < GREY_SAT) return LINNS_OFF;
-
-  // Find nearest hue in palette, accounting for circular wrap at 360°.
-  // When Red is excluded, hues in the red zone (≥340° or ≤20°) default to
-  // Magenta rather than Orange — perceptually red-family hues read as pink/magenta.
-  const RED_ZONE_MAGENTA = 6; // Magenta palette value
-  const inRedZone = h >= 340 || h <= 20;
-  if (excludeRed && inRedZone) return RED_ZONE_MAGENTA;
-
-  const palette = excludeRed ? LINNS_PALETTE_NO_RED : LINNS_PALETTE;
-  let best = palette[0];
+  let best = _LINNS_OKLAB_SAMPLES[0];
   let bestDist = Infinity;
-  for (const entry of palette) {
-    const diff = Math.abs(h - entry.h);
-    const dist = Math.min(diff, 360 - diff);
+  for (const entry of _LINNS_OKLAB_SAMPLES) {
+    const dL = lab[0] - entry.lab[0];
+    const da = lab[1] - entry.lab[1];
+    const db = lab[2] - entry.lab[2];
+    const dist = dL * dL + da * da + db * db;
     if (dist < bestDist) {
       bestDist = dist;
       best = entry;
     }
   }
-  return best.value;
+  return best?.value ?? LINNS_OFF;
 }
 
 /**
  * Analyse the full set of scale-degree colours and return a Map from
- * reducedSteps → LinnStrument palette value, using a two-pass approach:
- *
- * Pass 1 — classify each degree by its HSL properties:
- *   • degree 0           → Red (reserved tonic)
- *   • high-l / low-s     → "white key" candidate
- *   • low-l / low-s      → "black key" candidate (Off)
- *   • saturated          → hue-bucket candidate
- *
- * Pass 2 — within the white-key candidates, if there are multiple
- * lightness tiers, assign the lightest tier White and darker tiers
- * their nearest hue (which for warm near-whites gives Yellow/Lime).
- * This lets presets like Meantone (three cream shades) produce
- * White / Yellow / Off rather than three Offs.
+ * reducedSteps → LinnStrument palette value. Exact screen-hex overrides win
+ * first; all remaining colors fall back to the perceptual mapper above.
  *
  * @param {Map<number, string>} degreeColors  Map of reducedSteps → '#rrggbb'
  *                                            for every degree in the scale.
@@ -413,95 +373,10 @@ export function hexToLinnsPaletteValue(hex, excludeRed = false) {
  */
 export function buildLinnstrumentDegreeMap(degreeColors) {
   const result = new Map();
-
-  // ── Pass 0: exact lookup from the manual colour table ──────────────────────
-  // Any degree whose screen hex is in LINNS_COLOR_PAIRS gets its value directly.
-  // Remaining degrees fall through to the hue-clustering passes below.
-  const remaining = new Map();
   for (const [degree, hex] of degreeColors) {
-    if (degree === 0) { result.set(degree, LINNS_RED); continue; }
     const normalised = hex.replace("#", "").toLowerCase();
     const exact = _LINNS_EXACT.get(normalised);
-    if (exact !== undefined) {
-      result.set(degree, exact);
-    } else {
-      remaining.set(degree, hex);
-    }
-  }
-
-  // ── Pass 1: classify remaining degrees ─────────────────────────────────────
-  // Low-saturation colours may be "piano-style" white/black keys (genuinely
-  // achromatic) or faintly-tinted colours that still deserve hue assignment.
-  // We defer the decision until we've seen all of them.
-  const greyish = []; // { degree, h, s, l } — below GREY_SAT, above dark
-  const hued    = []; // { degree, h, s, l } — saturated (s ≥ GREY_SAT)
-
-  for (const [degree, hex] of remaining) {
-    const rgb = parseHex(hex);
-    if (!rgb) { result.set(degree, LINNS_OFF); continue; }
-    const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
-
-    if (l < DARK_THRESHOLD) {
-      result.set(degree, LINNS_OFF);
-    } else if (s < GREY_SAT) {
-      greyish.push({ degree, h, s, l });
-    } else {
-      hued.push({ degree, h, s, l });
-    }
-  }
-
-  // ── Pass 2a: decide how to treat the low-saturation cluster ────────────────
-  // If all greyish entries share a narrow hue band (≤60° spread), they are
-  // genuinely achromatic — treat lightest tier as White, rest as Off.
-  // If they span multiple hues (e.g. Partch's tinted pastel set), each gets
-  // its own hue-match instead, so colours remain distinguishable on the device.
-  if (greyish.length > 0) {
-    // Find the circular hue spread of the group.
-    const hues = greyish.map((e) => e.h);
-    let maxSpread = 0;
-    for (let i = 0; i < hues.length; i++) {
-      for (let j = i + 1; j < hues.length; j++) {
-        const diff = Math.abs(hues[i] - hues[j]);
-        maxSpread = Math.max(maxSpread, Math.min(diff, 360 - diff));
-      }
-    }
-
-    if (maxSpread <= 60) {
-      // Genuinely achromatic cluster → White / Off by lightness tier.
-      const sorted = [...greyish].sort((a, b) => b.l - a.l);
-      const whiteL = sorted[0].l - 0.06;
-      for (const { degree, l } of greyish) {
-        result.set(degree, l >= whiteL ? LINNS_WHITE : LINNS_OFF);
-      }
-    } else {
-      // Multi-hue tinted cluster → hue-match each entry individually.
-      for (const entry of greyish) {
-        hued.push(entry); // re-classify as hued for processing below
-      }
-    }
-  }
-
-  // ── Pass 2b: hue-match all saturated / re-classified candidates ────────────
-  for (const { degree, h, l } of hued) {
-    // High-lightness pink-hue saturated colours → Pink (pastel pinks like #ffe5e5).
-    if (l > WHITE_THRESHOLD) {
-      const inPinkHue = h >= PINK_HUE_MIN || h <= PINK_HUE_MAX;
-      if (inPinkHue) { result.set(degree, LINNS_PINK); continue; }
-      // Other saturated high-lightness hues fall through to hue-match below.
-    }
-    // Red zone (hue near 0°) → Magenta when Red is reserved for degree 0.
-    const inRedZone = h >= 340 || h <= 20;
-    if (inRedZone) { result.set(degree, 6 /* Magenta */); continue; }
-
-    // Nearest hue in Red-excluded palette.
-    let best = LINNS_PALETTE_NO_RED[0];
-    let bestDist = Infinity;
-    for (const entry of LINNS_PALETTE_NO_RED) {
-      const diff = Math.abs(h - entry.h);
-      const dist = Math.min(diff, 360 - diff);
-      if (dist < bestDist) { bestDist = dist; best = entry; }
-    }
-    result.set(degree, best.value);
+    result.set(degree, exact !== undefined ? exact : hexToLinnsPaletteValue(hex));
   }
 
   return result;
