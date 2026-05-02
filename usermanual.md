@@ -12,7 +12,7 @@ Features:
 - built-in sampled sounds with polyphonic aftertouch
 - scale table for editing, comparing, and displaying tunings
 - scale creation, comparison, and rationalisation tools
-- JI-focused workspace, featuring automatic HEJI Notation generation
+- JI-focused workspace, featuring modulation and automatic HEJI Notation generation
 - parse MIDI input from MPE or multichannel layout isomorphic and 2D controllers
 - send MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
 - a live-oriented composition, improvisation, and performance companion to [Scale Workshop](https://scaleworkshop.plainsound.org)
@@ -31,6 +31,7 @@ Minimum setup to explore scales, compare tunings, build and recall chords:
   - computer keyboard
   - SUSTAIN / OCT controls
 - edit the scale table, drag to retune
+- try a modulation from most recently played note to next played note with handoff
 - capture snapshots
 
 ## Components
@@ -53,13 +54,14 @@ Minimum setup to explore scales, compare tunings, build and recall chords:
 - Hexatone Layout
 - Built-in Sounds
 - MIDI Permissions
-- MIDI In
-- MIDI Out (MTS / MPE / OSC)
+- MIDI Input
+- Output Routing (MTS / MPE / OSC)
 
 ### Performance Controls
 
 - `SUSTAIN` (ESC): toggle to sustain notes hands-free; click again on a note to remove it
 - `OCT` (arrow keys): click to toggle functionality: retune next note / retune immediately
+- `MOD` (backquote / ^ key): click to capture last played note as source, next played note becomes target, shifting the scale frequency (moveable do logic)
 
 ### Snapshots
 
@@ -89,6 +91,7 @@ You can also:
 - divide the equave equally
 - divide the octave equally
 - import, edit, export a Scala file
+- sort the scale ascending by degree
 
 ### The scale table
 
@@ -101,50 +104,47 @@ It supports:
 - EDO steps such as `7\12`
 - per-degree tuning adjustment
 - rationalisation suggestions
-- drag-reordering interior degrees from the left gutter
-- selecting an interior degree from the left gutter, then deleting it with `×`
+- reorder scale degrees by clicking on the degree number
+- select abd delete a scale degree
 - `Sort Degrees Ascending`, preserving degree `0` and the equave
-- scale-size growth by padding new degrees with the current equave, inheriting degree `0` name and colour
+- increasing scale size adds copies of the current equave
+- decreasing scale size truncates
 
-Reordering, sorting, and deleting degrees also remap the associated note names, colours, reference degree, and central degree so the scale remains internally consistent.
+Reordering, sorting, and deleting degrees also remaps the associated note names, colours, reference degree, and central degree so the scale remains internally consistent.
 
 ### TuneCell
 
-TuneCell is the small retuning control attached to scale entries and the reference frequency.
-
-It lets you:
+The small retuning control attached to scale entries and the reference frequency lets you:
 
 - drag for smooth retuning
 - preview changes while listening
-- compare original and preview values
-- save or revert a tuning decision
+- compare changes against original values
+- save or revert a tuning change
 
-A typical use is:
+Typical workflow:
 
 1. hold notes with sustain
-2. retune one degree or the reference
-3. compare the result live
+2. retune a degree or the reference frequency
+3. compare the result
 4. keep or discard the change
-5. take a snapshot
+5. take a snapshot if desired
 
 ## Rationalisation
 
-PLAINSOUND HEXATONE is oriented toward exploring rational intonation and rational intervals.
+PLAINSOUND HEXATONE is oriented toward exploring intonation with rational intervals.
 
 The app is designed to:
 
-- preserve exact interval identities when possible
-- compare tempered and rational readings
-- search for plausible rational interpretations of tuned pitches
-- work musically with ratios rather than only floating-point cents
+- preserve exact interval identities (ratios / harmonic space exponent vectors) when possible
+- search for small-number rational interpretations of tuned pitches
+- work musically with ratios
 
-Rationalisation examines scale degrees and suggests or assigns rational interval interpretations according to the current search settings.
+Rationalisation examines scale degrees and suggests rational interval interpretations according to the current search settings.
 
-In practical terms, it helps answer questions like:
+It helps answer questions like:
 
 - what simple ratio is closest to this tuned pitch?
-- can this scale be read more coherently as a rational or JI structure?
-- what happens if I preserve existing ratio decisions and rationalise only the unresolved notes?
+- how may this scale be read as a JI structure?
 
 The current rationalisation workflow has two modes:
 
@@ -173,6 +173,7 @@ The `Rationalisation Settings` include a number of options:
 - once a modulation pathway returns to zero it may be clicked away or retained for further use
 - modulation updates both sounding relationships and the displayed notation context
 - modulation history can be used as a live record of changing reference-frame decisions during performance or analysis
+- modulation history may be reset globally, returning to the saved tuning
 
 ## Presets
 
@@ -190,7 +191,7 @@ A recommended workflow for new scales is:
 
 ## WebMIDI
 
-WebMIDI is optional, and allowing SysEx functionality is an additional option. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub. Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
+WebMIDI is optional; allowing SysEx functionality is an additional option. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub. Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
 
 WebMIDI adds:
 
@@ -201,7 +202,7 @@ WebMIDI adds:
 
 If you do not enable WebMIDI, Hexatone still works as a complete on-screen instrument and scale workspace.
 
-## MIDI In
+## MIDI Input
 
 - standard keyboard input on all channels
 - isomorphic and 2D controller geometries, single- or multi-channel layouts
@@ -239,13 +240,8 @@ The second treats incoming pitch as musical material to be mapped into the curre
 Hexatone supports:
 
 - controller geometry recognition
-- live key colouring
-- supported LED synchronization
-- device-specific lifecycle handling where required
-
-Supported controllers like Lumatone, Exquis, and LinnStrument function as mirrors of the Hexatone on-screen layout.
-
-On supported controllers, live colour edits and preset reloads can resync LED colours automatically when colour sending is active.
+- live key colouring / LED synchronization
+- device-specific firmware control (Lumatone, Exquis, LinnStrument) allows devices to mirror Hexatone on-screen layout.
 
 Key colouring helps identify prime factors in rational intonation (JI), using the following shape:
 
@@ -268,7 +264,7 @@ Key colouring helps identify prime factors in rational intonation (JI), using th
 
 Combinations of primes mix and saturate these colours.
 
-## MIDI Out
+## MIDI Output Routing
 
 Hexatone can send tuning and performance data through:
 
@@ -287,9 +283,7 @@ Hexatone also includes a OSC output path aimed at users who want:
 
 ### What it requires
 
-This mode requires a local clone of the repo and a locally running bridge.
-
-The current path is:
+This mode requires a local clone of the repo and a locally running bridge:
 
 1. clone the repository locally
 2. run:
@@ -302,7 +296,7 @@ yarn osc-bridge
 3. load the matching SuperCollider patch/responders locally
 4. enable `OSC -> SuperCollider` in Hexatone
 
-This feature also supports a fully local workflow: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Of course, users can also use this pathway to drive their own SynthDefs and patches, as well as other OSC-compatible apps.
+This feature also supports a fully local workflow: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 
 ## Starting
 
@@ -311,15 +305,16 @@ Try
 - loading a built-in tuning
 - playing the on-screen keyboard with mouse or touch
 - using sustain to hold a chord, add and subtract notes
-- using key labels / note names to find sustaining scale degrees in the table
+- using the key labels to find sustaining scale degrees in the table
 - dragging a TuneCell to retune and compare
 - changing the tuning, making rationalisation choices
 - changing the scale layout, reference frequency, reference degree, central degree
+- making a modulation
 - taking some snapshots and replaying them
 
 ## Roadmap
 
-Hexatone is currently moving towards live modulation and reference-frame reinterpretation, advanced sequencing, and eventually context-aware live retuning.
+Hexatone is currently developing modulation, moving towards sequencing, and eventually integrating context-aware live retuning.
 
 ## Developer
 

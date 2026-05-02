@@ -20,35 +20,35 @@ Current dev version 3.2.0-beta.2 (May 2026), released as Free/Libre and Open Sou
 
 Hexatone 3.2.0-beta.2 is a live microtonal keyboard and scale workspace built around:
 
-- isomorphic hexagonal layout performance
-- rational intonation / just intonation workflows
+- isomorphic hexagonal layout
+- rational / just intonation with automatic HEJI notation
+- built-in tunings, Scala import/export, and user presets
+- scale editing, including note names and colours
 - live retuning of scale degrees and reference frequency
-- Scala import/export and user presets
+- rationalisation and modulation
+- MPE-aware MIDI input with automatic mapping of 2D controller geometries
+- MIDI Output (MTS and MPE)
 - snapshots for comparing chords and tunings
-- MIDI input and output support
-- controller-aware 2D / isomorphic performance surfaces
 
-PLAINSOUND HEXATONE can be used entirely in the browser with:
+PLAINSOUND HEXATONE can be used entirely in the browser:
 
-- mouse
-- touch
-- computer keyboard
-- built-in samples
-- SUSTAIN and OCT controls
-- TuneCell retuning
+- input with mouse / touch / computer keyboard
+- output using built-in samples
+- SUSTAIN, OCT, MOD controls
+- retuning and scale editing using drag and drop
+- scale rationalisation to user chosen parameters
 - snapshots
 
 Hexatone also supports:
 
 - WebMIDI with optional SysEx
-- MIDI input mapped either to the hex layout or to nearest scale degree
-- MTS, MPE, and direct tuning-map output workflows
+- MIDI input mapped either to the chosen hex layout or to nearest scale degree
 - controller recognition and geometry-aware mapping
 - LED feedback on supported controllers
-- OSC -> SuperCollider output through a local bridge
-- scale rationalisation to user parameters
+- MTS and MPE output routings
+- OSC -> SuperCollider output through a local bridge in a cloned repo
 
-Hexatone is conceived as a live performance and composition companion to [Scale Workshop](https://scaleworkshop.plainsound.org).
+Hexatone is a live performance and composition companion to [Scale Workshop](https://scaleworkshop.plainsound.org).
 
 See also [usermanual.md](./usermanual.md).  
 For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELOPER_QUICKSTART.md).
@@ -64,28 +64,21 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ### 3.2.0-beta.2 *(currently in development)*
 
-Current 3.2 beta.2 work includes:
-
 **Live performance architecture**
 
-- continued architectural separation of `Keys` into smaller runtime modules, moving MIDI input, expression handling, snapshots, MTS output, controller maps, and settings-impact classification out of the monolithic canvas path
-- reduced full `Keys` reconstruction to true tuning/layout changes; most live performance settings now update through targeted runtime paths instead of interrupting the keyboard
-- MIDI input device changes now rebind listeners live without rebuilding the canvas keyboard
+- architectural separation of `Keys` into smaller runtime modules, moving MIDI input, expression handling, snapshots, MTS output, controller maps, and settings-impact classification out of the canvas path
+- reduced full `Keys` reconstruction to true tuning/layout changes; most live performance settings, including MIDI input device now update through targeted runtime paths instead of interrupting the keyboard
 - controller geometry changes now rebuild only the controller map, preserving the active `Keys` runtime
 
 **Controller and LED feedback refinements**
 
-- refined Auto Send Colours for Lumatone, Exquis, and LinnStrument:
-  - active 2D geometry on a matching bidirectional controller enables automatic colour updates
-  - Generic Keyboard, sequential/bypass mode, and Scale input mode suppress automatic colour sends
-  - manual Lumatone Send Colours remains available when a valid Lumatone map exists
-- improved Lumatone, Exquis, and LinnStrument raw output-port matching by preferring outputs whose names match the selected input
+- refined Auto Send Colours for Lumatone, Exquis, and LinnStrument
+- improved Lumatone, Exquis, and LinnStrument output-port matching
 - expanded LinnStrument User Firmware response shaping:
   - `X Spike Reduction` for rejecting noisy raw `X` excursions under light pressure
   - `X Input Smoothing` for event-driven per-pad smoothing without `requestAnimationFrame` or timer dependence
   - `Row Glide Shaping` for moving between near-linear glide and more quantised row transitions
   - cleaner note attack and release behavior through temporary note-on quantise assist and low-pressure release hold
-- defaulted LinnStrument User Firmware pitch bend interval to `1/1` pending focused investigation of border-crossing LSB/MSB bend parsing
 
 **Scale workspace and rationalisation**
 
@@ -93,14 +86,13 @@ Current 3.2 beta.2 work includes:
 - rationalisation integrated into the scale-table workflow
 - support for exact ratios, cents, and EDO steps in the scale table
 - clearer distinction between preserving existing ratios and re-searching a scale from pitch targets
-- scale-size growth now pads new degrees by repeating the equave, inheriting degree-0 names and colours
-- `Sort Degrees Ascending` now reorders interior scale degrees while remapping names, colours, reference degree, and central degree
-- interior scale degrees can now be drag-reordered directly from the degree gutter
-- interior scale degrees can now be selected and deleted from the degree gutter without disturbing degree `0` or the equave
+- scale-size growth pads new degrees by repeating the equave, inheriting degree-0 names and colours
+- `Sort Degrees Ascending` reorders interior scale degrees
+- interior scale degrees can now be drag-reordered or deleted directly by clicking the degree
 
 **Live tuning workflow**
 
-- TuneCell-based live retuning of individual degrees and the reference frequency
+- live retuning of individual degrees and reference frequency
 - smooth compare/save/revert tuning workflow
 - snapshots for capturing and replaying absolute-pitch chords across tuning changes
 - sustain/latch and OCT controls for live testing and performance
@@ -109,12 +101,11 @@ Current 3.2 beta.2 work includes:
 
 - HEJI and reference-frame groundwork in the notation layer
 - increasing emphasis on exact interval identity and rational interpretation
-- preparation for future live modulation and reference-frame reinterpretation
+- JI Modulation fronm a source note to a target with handoff, tracked in a Modulation History palette
 
 **MIDI / controller system**
 
-- WebMIDI permissions are user-selectable
-- SysEx is optional
+- WebMIDI permissions are user-selectable; SysEx is optional
 - controller-aware geometry mapping and manual override
 - input modes for:
   - MIDI to hex layout
@@ -125,9 +116,8 @@ Current 3.2 beta.2 work includes:
 **Outputs**
 
 - built-in sample synth
-- standard MIDI
-- MTS Real-Time
-- MTS bulk-dump tuning-map workflows
+- MTS Real-Time MIDI
+- MTS bulk-dump tuning-map
 - MPE
 - OSC -> SuperCollider via local `yarn osc-bridge`
 
@@ -137,7 +127,7 @@ Supported or actively integrated controllers include:
 
 - **Lumatone**
 - **Exquis**
-- **LinnStrument 128**
+- **LinnStrument**
 - **Tonal Plexus**
 - **C-Thru AXIS-49**
 - **TS41 MIDI Keyboard**
@@ -155,11 +145,12 @@ Useful commands:
 
 ```sh
 yarn test
+yarn start
 yarn build
 yarn osc-bridge
 ```
 
-### 3.1.0 *(April 2026)*
+### 3.1 *(April 2026)*
 
 **WebMIDI and Sysex made User-Selectable**
 
@@ -213,7 +204,7 @@ Updated UX; added latch sustain; moveable central scale degree.
 Added Scala/JSON IO; user presets; polyphonic aftertouch response with built-in sounds.
 
 ### Version 2 *(2022–2026)*
-Marc Sabat forked from Ashton Snelgrove's webpack rebuild with rudimentary MIDI. Added full MIDI input and output path; Lumatone plug-and-play compatibility with channels-to-equaves logic; reshaped built-in presets; user-switchable Built-In/MTS/normal MIDI output options. Added and edited samples.
+Marc Sabat forked Ashton Snelgrove's webpack rebuild with rudimentary MIDI and began Hexatone develpment fron the former "Terpstra Keyboard". Renaming to acknowledge Erv Wilson's central contribution to the hexagonal 2D layout. Added full MIDI input and output path; Lumatone plug-and-play compatibility with channels-to-equaves logic; reshaped built-in presets; user-switchable Built-In/MTS/normal MIDI output options. Added and edited samples.
 
 ### Version 1 *(2016)*
-[Terpstra Keyboard](http://terpstrakeyboard.com/) — hexagonal keyboard proof of concept.
+[Terpstra Keyboard](http://terpstrakeyboard.com/) — hexagonal keyboard proof of concept that helped kickstart the Lumatone.
