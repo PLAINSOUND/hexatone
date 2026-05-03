@@ -3197,6 +3197,100 @@ describe("Keys MIDI input integration", () => {
     );
   });
 
+  it("extends LinnStrument UF edge glide toward virtual off-grid columns", () => {
+    const leftListeners = {};
+    const leftInput = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        leftListeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(leftInput);
+
+    const leftRetune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const leftKeys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+        linnstrument_pitch_bend_shape: 0,
+        linnstrument_x_spike_reduction: 0,
+        linnstrument_x_input_smoothing: 0,
+      },
+      { layoutMode: "controller_geometry", wheelRange: "2/1" },
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          _baseCents: cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          release: false,
+          retune: leftRetune,
+        })),
+      },
+    );
+
+    leftListeners.noteon(makeMidiEvent(1, 1));
+    const leftBaseCents = leftKeys.state.activeMidi.get(1)?._baseCents ?? 0;
+    leftListeners.controlchange({ message: { channel: 1, dataBytes: [33, 0] } });
+    leftListeners.controlchange({ message: { channel: 1, dataBytes: [1, 0] } });
+    const leftEdgeCents = leftRetune.mock.calls.at(-1)?.[0];
+
+    expect(leftRetune).toHaveBeenCalledTimes(1);
+    expect(leftEdgeCents).toBeLessThan(leftBaseCents);
+
+    const rightListeners = {};
+    const rightInput = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        rightListeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Roger Linn Design LinnStrument 128",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(rightInput);
+
+    const rightRetune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const rightKeys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "linnstrument",
+        linnstrument_pitch_bend_mode: "follow_scale_geometry",
+        linnstrument_pitch_bend_shape: 0,
+        linnstrument_x_spike_reduction: 0,
+        linnstrument_x_input_smoothing: 0,
+      },
+      { layoutMode: "controller_geometry", wheelRange: "2/1" },
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          _baseCents: cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          release: false,
+          retune: rightRetune,
+        })),
+      },
+    );
+
+    rightListeners.noteon(makeMidiEvent(16, 1));
+    const rightBaseCents = rightKeys.state.activeMidi.get(16)?._baseCents ?? 0;
+    rightListeners.controlchange({ message: { channel: 1, dataBytes: [48, 39] } });
+    rightListeners.controlchange({ message: { channel: 1, dataBytes: [16, 21] } });
+    const rightEdgeCents = rightRetune.mock.calls.at(-1)?.[0];
+
+    expect(rightRetune).toHaveBeenCalledTimes(1);
+    expect(rightEdgeCents).toBeGreaterThan(rightBaseCents);
+  });
+
   it("keeps sustained MIDI notes lit until sustain is released", () => {
     const keys = createKeys({}, { layoutMode: "sequential" });
     const hexNoteOff = vi.fn();

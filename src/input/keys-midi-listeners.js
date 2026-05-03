@@ -59,15 +59,29 @@ function linnstrumentUfGlideCurve(deviation, shapeSetting) {
 }
 
 function linnstrumentUfRowNeighborCents(channel, col, fallbackCents) {
-  const lookupCents = (targetCol) => {
+  const currentCoords = this.controllerMap?.get(`${channel}.${col}`) ?? null;
+  const lookupCents = (targetCol, direction) => {
     const coords = this.controllerMap?.get(`${channel}.${targetCol}`);
-    if (!coords) return fallbackCents;
-    const [cents] = this.hexCoordsToCents(coords);
-    return cents;
+    if (coords) {
+      const [cents] = this.hexCoordsToCents(coords);
+      return cents;
+    }
+
+    // UF edge glide should continue one notional column beyond the hardware
+    // surface so the outer pads can bend toward the adjacent off-grid pitch.
+    if (currentCoords) {
+      const [cents] = this.hexCoordsToCents(new Point(
+        currentCoords.x + direction,
+        currentCoords.y,
+      ));
+      return cents;
+    }
+
+    return fallbackCents;
   };
   return {
-    prev: lookupCents(col - 1),
-    next: lookupCents(col + 1),
+    prev: lookupCents(col - 1, -1),
+    next: lookupCents(col + 1, 1),
   };
 }
 

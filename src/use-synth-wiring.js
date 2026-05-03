@@ -47,6 +47,18 @@ const MIDI_PORT_RESET = {
   fluidsynth_channel: -1,
 };
 
+const snapshotWebMidiPorts = () => {
+  if (!WebMidi?.enabled) return null;
+  const inputs = Array.isArray(WebMidi.inputs) ? WebMidi.inputs : [];
+  const outputs = Array.isArray(WebMidi.outputs) ? WebMidi.outputs : [];
+  if (!inputs.length && !outputs.length) return null;
+  return {
+    inputs: new Map(inputs.map((port) => [port.id, port])),
+    outputs: new Map(outputs.map((port) => [port.id, port])),
+    onstatechange: null,
+  };
+};
+
 export const deriveOscVolumes = (settings) => {
   if (Array.isArray(settings.osc_volumes) && settings.osc_volumes.length === 4) {
     return settings.osc_volumes;
@@ -429,6 +441,17 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       clearMidiSelections();
     });
   }, [clearMidiSelections, ensureMidiAccess, settings.webmidi_enabled, settings.webmidi_sysex_enabled]);
+
+  useEffect(() => {
+    if (midi) return;
+    const recoveredMidi = snapshotWebMidiPorts();
+    if (!recoveredMidi) return;
+    setMidi(recoveredMidi);
+    setMidiAccess((current) => {
+      if (current !== "none") return current;
+      return settings.webmidi_sysex_enabled ? "sysex" : "basic";
+    });
+  }, [midi, settings.webmidi_sysex_enabled]);
 
   // ── Reconstruction boundary contract ────────────────────────────────────────
   //
