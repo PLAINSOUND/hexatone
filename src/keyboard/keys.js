@@ -1525,16 +1525,31 @@ class Keys {
       bend,
       degree0toRef_ratio,
     );
+    hex._baseCents = cents;
+    // In standard wheel mode, some outputs need the bent pitch reflected before
+    // noteOn itself (OSC / MTS), while others rely on raw PB passthrough (MPE).
+    let wheelPrimedBeforeNoteOn = false;
+    if (!this.inputRuntime.wheelToRecent && this._wheelValue14 !== 8192) {
+      const wheelTargetCents = cents + this._wheelBend;
+      if (hex.standardWheelRetune) {
+        hex.standardWheelRetune(wheelTargetCents);
+        wheelPrimedBeforeNoteOn = !hex.standardWheelPassthroughOnly;
+      } else if (hex.retune && !hex.standardWheelPassthroughOnly) {
+        hex.retune(wheelTargetCents, true);
+        wheelPrimedBeforeNoteOn = true;
+      }
+    }
+    if (wheelPrimedBeforeNoteOn) hex._wheelPrimedBeforeNoteOn = true;
     hex.noteOn();
     hex._onsetFrameId = frameForNewNotes(this._modulationState)?.id ?? this._harmonicFrame?.id ?? null;
-    hex._baseCents = hex.cents;
     // Store neighbour pitches for scale-aware wheel bend.
     hex.cents_prev = cents_prev;
     hex.cents_next = cents_next;
     // Track in recency stack so wheel bend and snapshot can find this note.
     this.recencyStack.push(hex);
     this._updateWheelTarget();
-    this._applyCurrentWheelToHex(hex);
+    delete hex._wheelPrimedBeforeNoteOn;
+    if (!wheelPrimedBeforeNoteOn) this._applyCurrentWheelToHex(hex);
     //console.log("hex on at ", [coords.x, coords.y]);
     return hex;
   }

@@ -187,8 +187,11 @@ export function handleWheelBend(val14) {
     const offsetCents = norm * rangeCents;
     this._wheelBend = offsetCents;
     for (const hex of this._allActiveHexes()) {
+      if (hex.standardWheelPassthroughOnly) continue;
       if (hex.standardWheelRetune) {
         hex.standardWheelRetune((hex._baseCents ?? hex.cents) + offsetCents);
+      } else if (hex.retune) {
+        hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
       }
     }
     this._syncTransferredWheelBends();
@@ -267,6 +270,7 @@ export function resolveRecencyWheelTarget(target, val14 = this._wheelValue14) {
 
 export function applyCurrentWheelToHex(hex) {
   if (!hex || this._wheelValue14 === 8192) return;
+  if (hex.standardWheelPassthroughOnly) return;
   if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
     return;
   }
@@ -415,7 +419,11 @@ export function updateWheelTarget(smoothReturn = false) {
       } else {
         newFront.retune(bentCents, true);
       }
-    } else if (this._wheelBend !== 0) {
+    } else if (
+      this._wheelBend !== 0 &&
+      !newFront.standardWheelPassthroughOnly &&
+      !newFront._wheelPrimedBeforeNoteOn
+    ) {
       newFront.retune(this._wheelBaseCents + this._wheelBend);
     }
   } else {

@@ -20,6 +20,7 @@ export const create_composite_synth = (synths) => ({
       velocity_played: hexes.find((h) => h.velocity_played != null)?.velocity_played,
       velocity: hexes.find((h) => h.velocity != null)?.velocity,
       _onVel: hexes.find((h) => h._onVel != null)?._onVel,
+      standardWheelPassthroughOnly: hexes.every((h) => h.standardWheelPassthroughOnly),
       // Expose stolen coords from any child synth that had to evict a voice.
       // Keys.js uses this to redraw the displaced hex.
       _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),
@@ -40,7 +41,14 @@ export const create_composite_synth = (synths) => ({
 
       standardWheelRetune(newCents) {
         this.cents = newCents;
-        hexes.forEach((h) => h.standardWheelRetune && h.standardWheelRetune(newCents));
+        hexes.forEach((h) => {
+          if (h.standardWheelPassthroughOnly) return;
+          if (h.standardWheelRetune) {
+            h.standardWheelRetune(newCents);
+          } else if (h.retune) {
+            h.retune(newCents, true);
+          }
+        });
       },
 
       aftertouch(value) {

@@ -56,4 +56,31 @@ describe("composite_synth controller-state replay", () => {
     expect(a.applyControllerState).toHaveBeenCalledWith(state);
     expect(b.applyControllerState).toHaveBeenCalledWith(state);
   });
+
+  it("falls back to child retune for standard wheel fan-out when a child lacks standardWheelRetune", () => {
+    const sampleHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      release: false,
+      note_played: 60,
+      standardWheelRetune: vi.fn(),
+    };
+    const mtsOrOscHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      release: false,
+      note_played: 60,
+      retune: vi.fn(),
+    };
+    const synth = create_composite_synth([
+      { makeHex: vi.fn(() => sampleHex) },
+      { makeHex: vi.fn(() => mtsOrOscHex) },
+    ]);
+
+    const hex = synth.makeHex();
+    hex.standardWheelRetune(1234);
+
+    expect(sampleHex.standardWheelRetune).toHaveBeenCalledWith(1234);
+    expect(mtsOrOscHex.retune).toHaveBeenCalledWith(1234, true);
+  });
 });

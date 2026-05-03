@@ -2070,7 +2070,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys._wheelInputState.target).toBe(12000);
   });
 
-  it("does not directly retune non-sample hexes in standard wheel mode", () => {
+  it("falls back to direct retune for non-sample hexes in standard wheel mode", () => {
     const standardWheelRetune = vi.fn();
     const retune = vi.fn();
     const keys = createKeys(
@@ -2100,7 +2100,67 @@ describe("Keys MIDI input integration", () => {
 
     expect(standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(retune).not.toHaveBeenCalled();
-    expect(mpeLikeHex.retune).not.toHaveBeenCalled();
+    expect(mpeLikeHex.retune).toHaveBeenCalledTimes(1);
+    expect(mpeLikeHex.retune.mock.calls[0][0]).toBeCloseTo(1700, 0);
+    expect(mpeLikeHex.retune.mock.calls[0][1]).toBe(true);
+  });
+
+  it("primes new standard-wheel notes before note-on for retune-based outputs", () => {
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
+    }));
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: false,
+        wheelSemitones: 2,
+      },
+      { makeHex },
+    );
+
+    keys._handleWheelBend(16383);
+    keys.hexOn(new Point(1, 0), 60, 96, 0);
+
+    expect(makeHex).toHaveBeenCalledTimes(1);
+    const createdHex = makeHex.mock.results[0].value;
+    expect(createdHex.retune).toHaveBeenCalledTimes(1);
+    expect(createdHex.retune.mock.calls[0][0]).toBeCloseTo(300, 0);
+    expect(createdHex.retune.mock.calls[0][1]).toBe(true);
+    expect(createdHex.noteOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not directly retune passthrough-only standard-wheel outputs", () => {
+    const retune = vi.fn();
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: false,
+        wheelSemitones: 2,
+      },
+      {
+        makeHex: vi.fn(() => ({
+          coords: new Point(1, 0),
+          cents: 100,
+          release: false,
+          standardWheelPassthroughOnly: true,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          retune,
+        })),
+      },
+    );
+
+    keys._handleWheelBend(16383);
+    keys.hexOn(new Point(1, 0), 60, 96, 0);
+
+    expect(retune).not.toHaveBeenCalled();
   });
 
   it("does not passthrough raw pitch bend in wheel-to-recent mode", () => {

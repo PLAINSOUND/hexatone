@@ -246,6 +246,7 @@ function MpeHex(
 ) {
   this.coords = coords;
   this.cents = cents;
+  this.standardWheelPassthroughOnly = true;
   this.steps = steps;
   this.center_degree = center_degree;
   this.release = false;
