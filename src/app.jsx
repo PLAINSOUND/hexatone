@@ -1718,7 +1718,7 @@ const App = () => {
               title="Current degree-0 fundamental after all active modulation steps"
             >
               <span className="modulation-palette-summary-label">
-                Current:
+                Degree 0 Transposition:
               </span>
               <span className="modulation-palette-summary-value">
                 {currentFundamentalSummary.display}
