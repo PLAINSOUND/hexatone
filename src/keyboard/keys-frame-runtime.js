@@ -1,3 +1,8 @@
+// This module owns harmonic frame derivation for live keyboard state.
+// It turns modulation history and runtime options into immutable frame objects
+// that describe the current harmonic transposition and any fixed-do geometry
+// shift. It does not interpret controller input or render anything directly.
+
 export function createKeysFrame(options = {}) {
   return {
     id: options.id ?? "",

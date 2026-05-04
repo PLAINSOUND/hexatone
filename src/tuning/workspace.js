@@ -1,3 +1,9 @@
+// This module owns ScaleWorkspace, the exact committed tuning substrate.
+// It parses the persisted scale text into exact/cents interval slots, keeps the
+// committed identities used by playback and notation, and offers stable degree
+// lookup helpers. Modulation and display layers should interpret this workspace
+// at runtime rather than rewriting it directly.
+
 import { CANONICAL_MONZO_BASIS, intervalResidualToString, parseExactInterval } from "./interval.js";
 
 // ScaleWorkspace is the non-persistent exact-interval view of settings.scale.

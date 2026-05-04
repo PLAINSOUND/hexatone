@@ -1,3 +1,8 @@
+// This module owns browser-native keyboard, mouse, and touch input for Keys.
+// It translates DOM events into already-resolved hex coords and calls the live
+// note lifecycle methods on Keys. It does not derive MIDI/controller mappings
+// or harmonic frames.
+
 import Point from "./point";
 
 function isModulationToggleKeyCode(code) {

@@ -1,3 +1,8 @@
+// This module owns raw MIDI output synthesis and tuning-map transport.
+// It exposes the core Hex synth interface for direct MIDI, MTS-ESP/static map,
+// and bulk-dump-based outputs, handling voice allocation plus retune/noteOn
+// sequencing against external MIDI devices. It does not resolve keyboard input.
+
 import { VoicePool } from "../voice_pool_nearest";
 import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";

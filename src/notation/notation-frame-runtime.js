@@ -1,3 +1,9 @@
+// This module owns runtime notation/respelling frames above ScaleWorkspace.
+// It derives display-oriented harmonic frames, HEJI/reference-frame anchoring,
+// and frame-relative slot interpretation without mutating the committed tuning
+// workspace. It answers "how should this committed scale be spelled right now?"
+// under the current live notation frame.
+
 import { spelledHejiLabel } from "./key-label.js";
 import { createReferenceFrame } from "./reference-frame.js";
 import { getWorkspaceSlot } from "../tuning/workspace.js";

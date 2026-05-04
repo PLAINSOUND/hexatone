@@ -1,3 +1,9 @@
+// This hook owns the top-level live wiring between React settings state and the
+// runtime synth/Keys graph. It resolves MIDI/WebMidi access, controller/output
+// devices, tuning workspace normalization, and rebuild/update boundaries for
+// the long-lived instrument runtime. It does not render UI; it provides the
+// configured runtime objects and callbacks used by App.
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "./settings/midi/midiin";
 import { create_midi_synth } from "./midi_synth";

@@ -414,7 +414,7 @@ describe("loadAnchorSettingsUpdate", () => {
     expect(update.midiin_steps_per_channel).toBe(0);
     expect(update.midiin_channel_legacy).toBe(false);
     expect(update.linnstrument_pitch_bend_mode).toBe("off");
-    expect(update.linnstrument_pitch_bend_shape).toBe(100);
+    expect(update.linnstrument_pitch_bend_shape).toBe(60);
   });
 
   it("preserves a saved shared pitch bend interval for LinnStrument", () => {

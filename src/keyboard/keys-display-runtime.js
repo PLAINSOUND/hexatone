@@ -1,3 +1,9 @@
+// This module owns the small display-facing frame transforms for the keyboard.
+// It converts reduced lattice degrees into their live displayed degree under
+// the current modulation frame, and formats simple display labels/cents text
+// from that interpreted degree. It does not resolve input coords or derive
+// pitches; it only answers "what should the user see for this degree?".
+
 function modulo(value, modulus) {
   if (!modulus) return value;
   return ((value % modulus) + modulus) % modulus;

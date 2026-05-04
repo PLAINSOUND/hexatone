@@ -1,3 +1,8 @@
+// This module owns live pitch interpretation for already-resolved hex coords.
+// It combines base lattice pitch data with the active harmonic frame to derive
+// cents, neighboring cents, and live reduced-step labels. It does not decide
+// controller mapping or modulation history updates.
+
 import { labelDegreeFromFrame } from "./keys-display-runtime.js";
 
 export function deriveLiveHexPitch(basePitch, options = {}) {

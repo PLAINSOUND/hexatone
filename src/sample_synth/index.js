@@ -1,3 +1,8 @@
+// This module owns the built-in browser sample synth.
+// It maps Hexatone note events onto decoded sample instruments and retunes them
+// in the browser AudioContext, while exposing the same makeHex/note lifecycle
+// interface as the other synth backends. It does not resolve controller input.
+
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { debugLog, errorLog, warnLog } from "../debug/logging.js";

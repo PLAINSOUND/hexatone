@@ -1,3 +1,8 @@
+// This module owns note snapshots used to decide modulation settlement.
+// It answers whether currently active or sustained notes still belong to the
+// old harmonic frame, and whether a pending modulation can finish settling.
+// It does not release notes or mutate modulation state directly.
+
 export function noteBelongsToFrameId(noteLike, frameId) {
   if (!frameId) return false;
   return noteLike?._onsetFrameId === frameId;

@@ -1,3 +1,8 @@
+// This module owns WebMidi listener binding and low-level incoming MIDI event
+// handling for Keys. It wires controller detection, note/expression listeners,
+// and controller-specific behaviors such as LinnStrument UF X glide. It does
+// not own harmonic frame derivation or canvas rendering directly.
+
 import Point from "../keyboard/point.js";
 import { WebMidi } from "webmidi";
 import { keymap, notes } from "../midi_synth";

@@ -1,3 +1,8 @@
+// This module owns live expression handling after notes already exist.
+// It applies pitch bend, aftertouch, CC74, and retune glides across the active
+// note set and output backends. It does not resolve note addresses or maintain
+// modulation history; callers provide the current Keys runtime state.
+
 import { WebMidi } from "webmidi";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import {

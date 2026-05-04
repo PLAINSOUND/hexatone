@@ -5,6 +5,10 @@
 
 import { notes } from "../midi_synth";
 import { findNearestDegree } from "../input/scale-mapper.js";
+import {
+  resolveNonScaleNoteOffCoords,
+  resolveNonScaleNoteOn,
+} from "./input-address-runtime.js";
 
 function usesPerChannelExpression(runtime) {
   return !!(runtime?.mpeInput || runtime?.perChannelExpression);
@@ -75,16 +79,6 @@ function pitchHzForScaleInput(event) {
   );
 }
 
-function coordsForKnownController(event) {
-  const lookupChannel = this.controller.multiChannel ? event.message.channel : 1;
-  const baseCoords = this.controllerMap.get(`${lookupChannel}.${event.note.number}`) ?? null;
-  if (baseCoords === null) return null;
-  const resolved = this.controller.applyChannelOffsetOnMap
-    ? this._applyChannelOffset(baseCoords, event.message.channel)
-    : baseCoords;
-  return this._modulatedControllerCoords(resolved);
-}
-
 export function midinoteOn(event) {
   const bend = this.bend || 0;
   const notePlayed = event.note.number + 128 * (event.message.channel - 1);
@@ -125,40 +119,21 @@ export function midinoteOn(event) {
     if (result === null) return;
     if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
     coords = this.coordResolver.coordForSteps(result.steps);
-  } else if (this.inputRuntime.layoutMode === "sequential") {
-    const normalized = this._normalizeInputAddress(event.message.channel, event.note.number);
-    if (!normalized) return;
-    liveInputAddress = {
-      channel: normalized.channel,
-      note: normalized.note,
-      rawChannel: event.message.channel,
-    };
-    if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
+  } else {
+    const resolved = resolveNonScaleNoteOn(this, event);
+    if (!resolved) return;
+    ({ coords, liveInputAddress } = resolved);
+    if (
+      this.inputRuntime.layoutMode === "sequential" &&
+      !this.settings.output_mts &&
+      this.midiout_data &&
+      this.settings.midi_channel >= 0
+    ) {
       this.midiout_data.sendNoteOn(event.note.number, {
         channels: this.settings.midi_channel + 1,
         rawAttack: velocityPlayed,
       });
     }
-    coords = this._modulatedControllerCoords(this.coordResolver.coordForSteps(
-      this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-    ));
-  } else if (this.controllerMap) {
-    const lookupChannel = this.controller.multiChannel ? event.message.channel : 1;
-    liveInputAddress = {
-      channel: lookupChannel,
-      note: event.note.number,
-      rawChannel: event.message.channel,
-    };
-    coords = coordsForKnownController.call(this, event);
-  } else {
-    liveInputAddress = {
-      channel: event.message.channel,
-      note: event.note.number,
-      rawChannel: event.message.channel,
-    };
-    coords = this._modulatedControllerCoords(this.coordResolver.coordForSteps(
-      this.coordResolver.noteToSteps(event.note.number, event.message.channel),
-    ));
   }
 
   if (coords === null) return;
@@ -205,8 +180,7 @@ export function midinoteOff(event) {
       "accept",
     );
     coordsList = result === null ? [] : this.coordResolver.stepsToVisibleCoords(result.steps);
-  } else if (this.inputRuntime.layoutMode === "sequential" || !this.controllerMap) {
-    const normalized = this._normalizeInputAddress(event.message.channel, event.note.number);
+  } else {
     if (
       this.inputRuntime.layoutMode === "sequential" &&
       !this.settings.output_mts &&
@@ -218,14 +192,12 @@ export function midinoteOff(event) {
         rawRelease: event.note.rawRelease,
       });
     }
-    coordsList = normalized
-      ? this.coordResolver.stepsToVisibleCoords(
-          this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-        ).map((coords) => this._modulatedControllerCoords(coords))
-      : [];
-  } else {
-    const coords = coordsForKnownController.call(this, event);
-    coordsList = coords ? [coords] : [];
+    coordsList = resolveNonScaleNoteOffCoords(
+      this,
+      event.message.channel,
+      event.note.number,
+      event.message.channel,
+    );
   }
 
   const hex = this.state.activeMidi.get(notePlayed);
@@ -270,25 +242,7 @@ export function allnotesOff() {
     const channel = Math.floor(notePlayed / 128) + 1;
 
     let coordsList;
-    if (this.inputRuntime.layoutMode !== "sequential" && this.controllerMap) {
-      const lookupChannel = this.controller.multiChannel ? channel : 1;
-      const baseCoords = this.controllerMap.get(`${lookupChannel}.${note}`);
-      if (!baseCoords) {
-        coordsList = [];
-      } else {
-        const coords = this.controller.applyChannelOffsetOnMap
-          ? this._applyChannelOffset(baseCoords, channel)
-          : baseCoords;
-        coordsList = [coords];
-      }
-    } else {
-      const normalized = this._normalizeInputAddress(channel, note);
-      coordsList = normalized
-        ? this.coordResolver.stepsToVisibleCoords(
-            this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-          )
-        : [];
-    }
+    coordsList = resolveNonScaleNoteOffCoords(this, channel, note, channel);
 
     const hex = this.state.activeMidi.get(notePlayed);
     if (hex) {

@@ -1,3 +1,9 @@
+// This module owns the shared bookkeeping for sounding-note collections.
+// It creates the note-state containers used by Keys and provides helpers for
+// iterating active notes, tracking sustained notes, and answering simple
+// questions such as "is anything sounding?" or "is this coord still active?".
+// It does not trigger synth note-ons/-offs or redraw the canvas.
+
 function coordKey(coords) {
   return `${coords.x},${coords.y}`;
 }

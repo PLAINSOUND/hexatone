@@ -1,3 +1,8 @@
+// This module owns the browser-local custom preset library.
+// It loads, saves, imports, exports, and edits user preset JSON stored outside
+// the built-in preset set. It does not build the live synth graph; it manages
+// persistence and UI-facing preset records.
+
 import { createRef } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import PropTypes from "prop-types";

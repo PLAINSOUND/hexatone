@@ -9,7 +9,6 @@ import { calculateRotationMatrix } from "./matrix";
 import Point from "./point";
 import Euclid from "./euclidean";
 import { WebMidi } from "webmidi";
-import { notes } from "../midi_synth";
 import { RecencyStack } from "../recency_stack.js";
 import { MidiCoordResolver } from "./midi-coord-resolver.js";
 import {
@@ -19,27 +18,22 @@ import {
 import { mtsTuningMap } from "../tuning/tuning-map.js";
 import { resolveBulkDumpName } from "../tuning/mts-format.js";
 import {
-  addSustainedHex,
-  clearSustainedHexes,
   createSoundingNoteState,
   hasSoundingNotes,
   isCoordActive,
   iterActiveHexes,
-  removeSustainedHex,
 } from "./sounding-note-runtime.js";
-import {
-  createTransferredHex,
-  releaseTransferredSourceExpression,
-  shouldSuppressTransferredSourceRelease,
-} from "./note-transfer-runtime.js";
-import {
-  geometryDeltaFromCoords,
-} from "./modulation-geometry-runtime.js";
 import {
   modulatedControllerCoords,
   refreshRuntimeDisplayOffset,
   syncControllerColorsForModulation,
 } from "./modulation-controller-runtime.js";
+import { coordsForLiveInputAddress } from "./input-address-runtime.js";
+import {
+  derivePendingModulationCommit,
+  setAwaitingModulationSource as deriveSetAwaitingModulationSource,
+  syncAwaitingModulationSource as deriveSyncAwaitingModulationSource,
+} from "./modulation-gesture-runtime.js";
 import {
   beginModulation,
   cancelModulation,
@@ -50,7 +44,6 @@ import {
   frameForNewNotes,
   normalizeModulationHistory,
   resetModulationRouteCounts,
-  setModulationSource,
   setModulationRouteCount,
   setModulationHistoryIndex,
   settleModulationIfPossible,
@@ -65,6 +58,8 @@ import * as KeysRenderer from "./keys-renderer.js";
 import * as KeysBrowserInput from "./keys-browser-input.js";
 import * as KeysControllerLeds from "./keys-controller-leds.js";
 import * as KeysMidiInput from "./keys-midi-input.js";
+import * as LiveHexRuntime from "./live-hex-runtime.js";
+import * as PanicRuntime from "./panic-runtime.js";
 import * as InputMidiListeners from "../input/keys-midi-listeners.js";
 import * as InputExpressionRuntime from "../input/keys-expression-runtime.js";
 import * as SequencerSnapshots from "../sequencer/snapshots.js";
@@ -624,20 +619,18 @@ class Keys {
   }
 
   _setAwaitingModulationSource(sourceHex = null, sourceDegree = null, sourceCoords = null) {
-    if (this._modulationState.mode !== "awaiting_target") return;
-    this._modulationState = setModulationSource(this._modulationState, {
+    this._modulationState = deriveSetAwaitingModulationSource(
+      this,
       sourceHex,
       sourceDegree,
       sourceCoords,
-    });
+    );
     this._emitModulationState();
   }
 
   _syncAwaitingModulationSource() {
-    if (this._modulationState.mode !== "awaiting_target") return;
-    const sourceHex = this.recencyStack.front ?? null;
-    const sourceDegree = sourceHex ? this._degreeForHex(sourceHex) : null;
-    this._setAwaitingModulationSource(sourceHex, sourceDegree, sourceHex?.coords ?? null);
+    this._modulationState = deriveSyncAwaitingModulationSource(this);
+    this._emitModulationState();
   }
 
   _makeFrameForDegree(degree, extra = {}) {
@@ -690,20 +683,7 @@ class Keys {
   }
 
   _coordsForLiveInputAddress(inputAddress) {
-    if (!inputAddress) return null;
-    if (this.inputRuntime.layoutMode !== "sequential" && this.controllerMap) {
-      const baseCoords = this.controllerMap.get(`${inputAddress.channel}.${inputAddress.note}`) ?? null;
-      if (!baseCoords) return null;
-      const resolved = this.controller?.applyChannelOffsetOnMap
-        ? this._applyChannelOffset(baseCoords, inputAddress.rawChannel ?? inputAddress.channel)
-        : baseCoords;
-      return this._modulatedControllerCoords(resolved);
-    }
-
-    const resolved = this.coordResolver.coordForSteps(
-      this.coordResolver.noteToSteps(inputAddress.note, inputAddress.channel),
-    );
-    return this._modulatedControllerCoords(resolved);
+    return coordsForLiveInputAddress(this, inputAddress);
   }
 
   _modulatedControllerCoords(coords, frame = this._activeFrame()) {
@@ -1194,75 +1174,38 @@ class Keys {
   }
 
   _commitPendingModulationTarget(coords) {
-    if (this._modulationState.mode !== "awaiting_target") return { suppressNoteOn: false };
-    const activeFrame = this._activeFrame();
-    const isFixedDo = this._isFixedDoStrategy(this._modulationState.strategy);
-    const sourceCoords = this._modulationState.sourceHex?.coords ?? null;
-    const effectiveTargetCoords = coords;
-    const targetDegree = this._degreeForCoords(effectiveTargetCoords);
-    const sourceStillSounding = this._isHexStillSounding(this._modulationState.sourceHex);
-    if (this._modulationState.sourceDegree == null || !sourceStillSounding) {
-      this._setAwaitingModulationSource(null, targetDegree, coords);
+    const decision = derivePendingModulationCommit(this, coords);
+    if (decision.type === "noop") return { suppressNoteOn: false };
+    if (decision.type === "rearm_source") {
+      this._setAwaitingModulationSource(null, decision.targetDegree, coords);
       return { suppressNoteOn: false };
     }
-    if ((this._modulationState.sourceDegree ?? targetDegree) === targetDegree) {
-      this._modulationState = cancelModulation(this._modulationState, "no_op_modulation");
+    if (decision.type === "cancel") {
+      this._modulationState = decision.nextState;
       this.scheduleGridRedraw();
       this._emitModulationState();
       return { suppressNoteOn: false };
     }
-    const targetCents = this.hexCoordsToCents(effectiveTargetCoords)[0];
-    const sourceCents =
-      this._modulationState.sourceHex?._baseCents ??
-      this._modulationState.sourceHex?.cents ??
-      this._sourceCentsForDegree(this._modulationState.sourceDegree, activeFrame);
-    const transpositionDeltaCents = sourceCents - targetCents;
-    const transpositionCents = (activeFrame?.transpositionCents ?? 0) + transpositionDeltaCents;
-    const transpositionSteps = (this._modulationState.sourceDegree ?? targetDegree) - targetDegree;
-    const geometryDelta = geometryDeltaFromCoords(sourceCoords, effectiveTargetCoords);
-    const effectiveFundamental =
-      (activeFrame?.effectiveFundamental ?? this.settings.fundamental) *
-      Math.pow(2, transpositionDeltaCents / 1200);
-    const pendingFrame = this._makeFrameForDegree(targetDegree, {
-      strategy: this._modulationState.strategy,
-      sourceDegree: this._modulationState.sourceDegree,
-      targetDegree,
-      transpositionSteps,
-      transpositionCents,
-      geometryShiftRSteps:
-        (activeFrame?.geometryShiftRSteps ?? 0) + (isFixedDo ? geometryDelta?.deltaRSteps ?? 0 : 0),
-      geometryShiftDrSteps:
-        (activeFrame?.geometryShiftDrSteps ?? 0) + (isFixedDo ? geometryDelta?.deltaDrSteps ?? 0 : 0),
-      effectiveFundamental,
-    });
-    if (isFixedDo) {
-      if (!geometryDelta) {
-        this._modulationState = cancelModulation(this._modulationState, "fixed_do_requires_overlap");
-        this.scheduleGridRedraw();
-        this._emitModulationState();
-        return { suppressNoteOn: false };
-      }
-    }
     this._modulationState = commitModulationTarget(this._modulationState, {
-      targetDegree,
-      pendingFrame,
-      deltaRSteps: geometryDelta?.deltaRSteps,
-      deltaDrSteps: geometryDelta?.deltaDrSteps,
-      transpositionDeltaCents,
+      targetDegree: decision.targetDegree,
+      pendingFrame: decision.pendingFrame,
+      deltaRSteps: decision.geometryDelta?.deltaRSteps,
+      deltaDrSteps: decision.geometryDelta?.deltaDrSteps,
+      transpositionDeltaCents: decision.transpositionDeltaCents,
       transpositionRatioText: ratioTextForModulationDelta(
         this.tuning,
         this._modulationState.sourceDegree,
-        targetDegree,
-        transpositionDeltaCents,
+        decision.targetDegree,
+        decision.transpositionDeltaCents,
       ),
-      sourceStillSounding,
-      articulation: isFixedDo ? "reanchor_hold_source" : undefined,
+      sourceStillSounding: decision.sourceStillSounding,
+      articulation: decision.isFixedDo ? "reanchor_hold_source" : undefined,
     });
     this._refreshRuntimeDisplayOffset();
     this.scheduleGridRedraw();
     this._syncControllerColorsForModulation();
     this._emitModulationState();
-    return { suppressNoteOn: isFixedDo };
+    return { suppressNoteOn: decision.suppressNoteOn };
   }
 
   _isHexStillSounding(targetHex) {
@@ -1282,27 +1225,13 @@ class Keys {
   }
 
   _maybeTakeOverModulationTarget(coords, cents, cents_prev, cents_next) {
-    if (this._modulationState.mode !== "pending_settlement") return null;
-    if (this._modulationState.lastDecision?.articulation !== "takeover") return null;
-    if (this._modulationState.takeoverConsumed) return null;
-    const sourceHex = this._modulationState.sourceHex;
-    if (!sourceHex) return null;
-    if (!this._isHexStillSounding(sourceHex)) return null;
-    const onsetFrameId = frameForNewNotes(this._modulationState)?.id ?? this._harmonicFrame?.id ?? null;
-    const proxy = createTransferredHex(sourceHex, {
+    return LiveHexRuntime.maybeTakeOverModulationTarget(
+      this,
       coords,
       cents,
       cents_prev,
       cents_next,
-      onsetFrameId,
-    });
-    this._modulationState.takeoverConsumed = true;
-    this.recencyStack.remove(sourceHex);
-    this.recencyStack.push(proxy);
-    this._updateWheelTarget();
-    this._applyCurrentWheelToHex(proxy);
-    this._syncTransferredWheelBend(proxy);
-    return proxy;
+    );
   }
 
   _applyPolyAftertouch(hex, value) {
@@ -1929,14 +1858,7 @@ class Keys {
   // Helper: if latch is active and coords is already sustained, toggle it off.
   // Returns true if the note was toggled off (caller should return/continue).
   _midiLatchToggle(coords, releaseVelocity = 0) {
-    if (!this.state.latch) return false;
-    const removed = removeSustainedHex(this.state, coords);
-    if (!removed) return false;
-    const [hex, vel] = removed.entry;
-    hex.noteOff(releaseVelocity || vel);
-    this._scheduleDeferredBulkRefresh();
-    this.hexOff(coords);
-    return true;
+    return LiveHexRuntime.midiLatchToggle(this, coords, releaseVelocity);
   }
 
   // Yields every active hex object across all four input sources.
@@ -2028,316 +1950,39 @@ class Keys {
   };
 
   panic = () => {
-    this._retuneGlides.clear();
-    if (this._retuneGlideTimer != null) {
-      clearTimeout(this._retuneGlideTimer);
-      this._retuneGlideTimer = null;
-    }
-    this._resetWheelInputState(true);
-    this._retuneGlideLastTime = 0;
-    // Send CC123 (All Notes Off) to all active output engines.
-    // allSoundOff() on the composite synth fans out to every child (MPE, MTS,
-    // static bulk, sample) using their own raw output ports — no WebMidi
-    // dependency, no settings lookup, always reaches the right channels.
-    if (this.synth?.allSoundOff) this.synth.allSoundOff();
-
-    // Work with a copy to avoid iteration issues
-    const activeHexes = [...this._allActiveHexes()];
-    const sustainedHexes = [...this.state.sustainedNotes];
-
-    // Kill all active notes across all input sources
-    for (const hex of activeHexes) {
-      hex.noteOff(0);
-      // Redraw hex as unpressed
-      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
-      this.drawHex(hex.coords, color, text_color);
-    }
-    this.state.activeMouse = null;
-    this.state.activeTouch.clear();
-    this.state.activeKeyboard.clear();
-    this.state.activeMidi.clear();
-    this.state.activeMidiByChannel.clear();
-    this._mpeInputBendByChannel.clear();
-    // Reset drag-state flags in case panic fires mid-drag
-    this.state.isMouseDown = false;
-    this.state.isTouchDown = false;
-    this.state.canvas.removeEventListener("mousemove", this.mouseActive);
-
-    // Kill all sustained notes - process newest first
-    for (let i = sustainedHexes.length - 1; i >= 0; i--) {
-      const [hex, releaseVel] = sustainedHexes[i];
-      hex.noteOff(releaseVel);
-
-      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
-      this.drawHex(hex.coords, color, text_color);
-    }
-
-    this.state.sustainedNotes = [];
-    this.state.sustainedCoords.clear();
-    this.state.shiftSustainedKeys.clear();
-    this.state.pressedKeys.clear();
-
-    // Clear MIDI note tracking
-    notes.played = [];
-
-    // Reset recency stack and wheel bend
-    this.recencyStack.clear();
-    this._wheelBend = 0;
-    this._wheelTarget = null;
-    this._wheelBaseCents = null;
-    this._wheelValue14 = 8192;
-    this._wheelInputValue14 = 8192;
-    this._wheelInputState.current = 8192;
-    this._wheelInputState.target = 8192;
-
-    // Reset sustain/latch state
-    this.state.sustain = false;
-    this.state.latch = false;
-    if (this.onLatchChange) this.onLatchChange(false);
-    this._modulationState = cancelModulation(this._modulationState, "panic");
-    this._emitModulationState();
-
-    // Stop any snapshot playback
-    this.stopSnapshot();
-
+    return PanicRuntime.panic(this);
   };
 
   releaseAllKeyboardNotes = () => {
-    for (const code of this.state.pressedKeys) {
-      const kbRaw = this.settings.keyCodeToCoords[code];
-      if (!kbRaw) continue;
-      const kbOffset = this.settings.centerHexOffset;
-      const coords = new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
-      const hex = this.state.activeKeyboard.get(code);
-      if (hex) {
-        this.noteOff(hex, 0);
-        this.state.activeKeyboard.delete(code); // clear BEFORE hexOff
-        this._settleModulationAfterActiveRelease();
-      }
-      if (!this.state.sustain) this.hexOff(coords);
-    }
-    this.state.pressedKeys.clear();
+    return PanicRuntime.releaseAllKeyboardNotes(this);
   };
 
   resetLatch = () => {
-    // Reset sustain/latch state
-    this.state.sustain = false;
-    this.state.latch = false;
-    if (this.onLatchChange) this.onLatchChange(false);
+    return PanicRuntime.resetLatch(this);
   };
 
   hexOn(coords, note_played, velocity_played, bend, options = null) {
-    this._markSoundActivity();
-    this._lastHexOnSuppressed = false;
-    const modulationCommit = this._commitPendingModulationTarget(coords, options ?? {});
-    if (modulationCommit?.suppressNoteOn) {
-      this._lastHexOnSuppressed = true;
-      return null;
-    }
-    if (this._staticDeferredBulkActive && this._deferredBulkMapRefresh) {
-      this._sendBulkDumpOctaveRefresh(this._hasSoundingNotes(), false);
-      this._deferredBulkMapRefresh = false;
-      if (!this._hasSoundingNotes()) {
-        this._staticDeferredBulkActive = false;
-      }
-    }
-    if (!bend) {
-      bend = 0;
-    }
-    if (!velocity_played) {
-      velocity_played = this.settings.midi_velocity;
-    }
-    if (!velocity_played) {
-      velocity_played = 72;
-    }
-    const [cents, pressed_interval, steps, equaves, equivSteps, cents_prev, cents_next] =
-      this.hexCoordsToCents(coords);
-    this._lastPlayedDegree = pressed_interval ?? this._lastPlayedDegree;
-    const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
-    this.drawHex(coords, color, text_color);
-    const transferredHex = this._maybeTakeOverModulationTarget(coords, cents, cents_prev, cents_next);
-    if (transferredHex) {
-      return transferredHex;
-    }
-    let degree0toRef_ratio = this.tuning.degree0toRef_asArray[1]; // array[0] is cents, array[1] is the ratio
-    const hex = this.synth.makeHex(
-      coords,
-      cents,
-      steps,
-      equaves,
-      equivSteps,
-      cents_prev,
-      cents_next,
-      note_played,
-      velocity_played,
-      bend,
-      degree0toRef_ratio,
-    );
-    hex._baseCents = cents;
-    if (options?.liveInputAddress) hex._liveInputAddress = { ...options.liveInputAddress };
-    // In standard wheel mode, some outputs need the bent pitch reflected before
-    // noteOn itself (OSC / MTS), while others rely on raw PB passthrough (MPE).
-    let wheelPrimedBeforeNoteOn = false;
-    if (!this.inputRuntime.wheelToRecent && this._wheelValue14 !== 8192) {
-      const wheelTargetCents = cents + this._wheelBend;
-      if (hex.standardWheelRetune) {
-        hex.standardWheelRetune(wheelTargetCents);
-        wheelPrimedBeforeNoteOn = !hex.standardWheelPassthroughOnly;
-      } else if (hex.retune && !hex.standardWheelPassthroughOnly) {
-        hex.retune(wheelTargetCents, true);
-        wheelPrimedBeforeNoteOn = true;
-      }
-    }
-    if (wheelPrimedBeforeNoteOn) hex._wheelPrimedBeforeNoteOn = true;
-    hex.noteOn();
-    hex._onsetFrameId = frameForNewNotes(this._modulationState)?.id ?? this._harmonicFrame?.id ?? null;
-    // Store neighbour pitches for scale-aware wheel bend.
-    hex.cents_prev = cents_prev;
-    hex.cents_next = cents_next;
-    // Track in recency stack so wheel bend and snapshot can find this note.
-    this.recencyStack.push(hex);
-    if (
-      this._modulationState.mode === "awaiting_target" &&
-      this._modulationState.sourceCoordsKey === `${coords.x},${coords.y}`
-    ) {
-      this._setAwaitingModulationSource(hex, pressed_interval, coords);
-    }
-    this._updateWheelTarget();
-    delete hex._wheelPrimedBeforeNoteOn;
-    if (!wheelPrimedBeforeNoteOn) this._applyCurrentWheelToHex(hex);
-    //console.log("hex on at ", [coords.x, coords.y]);
-    return hex;
+    return LiveHexRuntime.hexOn(this, coords, note_played, velocity_played, bend, options);
   }
 
   hexOff(coords) {
-    const [cents, pressed_interval] = this.hexCoordsToCents(coords);
-    const key = coords.x + "," + coords.y;
-    const isSustained = this.state.sustainedCoords.has(key);
-    // If another input source still has this coord active, keep it visually lit
-    // (e.g. MIDI holds a note while the computer keyboard releases the same hex).
-    const isActiveElsewhere = this._isCoordActive(coords);
-    const [color, text_color] = this.centsToColor(
-      cents,
-      isSustained || isActiveElsewhere,
-      pressed_interval,
-    );
-    if (isSustained || isActiveElsewhere) {
-      this.drawHex(coords, color, text_color);
-    } else {
-      if (this._restoreHexStaticBackground(coords)) {
-        this._redrawSoundingHexes();
-      } else {
-        this.drawHex(coords, color, text_color);
-      }
-    }
+    return LiveHexRuntime.hexOff(this, coords);
   }
 
   noteOff(hex, release_velocity) {
-    this._markSoundActivity();
-    if (shouldSuppressTransferredSourceRelease(hex)) {
-      releaseTransferredSourceExpression(hex);
-      this.recencyStack.remove(hex);
-      this._updateWheelTarget(true);
-      this._syncAwaitingModulationSource();
-      return;
-    }
-    if (this.state.sustain) {
-      const result = addSustainedHex(this.state, hex, release_velocity);
-      if (result.added) {
-        // Keep the hex visually lit while it's sustained
-        const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-        const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
-        this.drawHex(hex.coords, color, text_color);
-      }
-    } else {
-      if (this._deferredBulkMapRefresh && !this._staticDeferredBulkActive) {
-        this._sendBulkDumpOctaveRefresh(true);
-      }
-      hex.noteOff(release_velocity);
-      this._trackRecentlyReleasedHex(hex);
-      // Note is going silent — remove from recency stack and update wheel target.
-      this.recencyStack.remove(hex);
-      this._updateWheelTarget(true);
-      this._syncAwaitingModulationSource();
-      if (this._staticDeferredBulkActive) {
-        this._deferredBulkMapRefresh = this._hasSoundingNotes();
-        if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;
-      } else {
-        this._scheduleDeferredBulkRefresh();
-      }
-      this._settleModulationAfterActiveRelease();
-    }
+    return LiveHexRuntime.noteOff(this, hex, release_velocity);
   }
 
   sustainOff(force = false) {
-    if (this.state.latch && !force) return; // latch holds unless forced (e.g. Space)
-    if (this.state.latch) {
-      // Force-release also clears latch
-      this.state.latch = false;
-    }
-    this.state.sustain = false;
-    const notesToRelease = clearSustainedHexes(this.state);
-    if (
-      this._deferredBulkMapRefresh &&
-      !this._staticDeferredBulkActive &&
-      notesToRelease.length > 0
-    ) {
-      this._sendBulkDumpOctaveRefresh(true);
-    }
-    for (let note = 0; note < notesToRelease.length; note++) {
-      const hex = notesToRelease[note][0];
-      const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-      if (this._isHexActivelyHeld(hex)) {
-        const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
-        this.drawHex(hex.coords, color, text_color);
-        continue;
-      }
-      const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
-      this.drawHex(hex.coords, color, text_color);
-      hex.noteOff(notesToRelease[note][1]);
-      this._trackRecentlyReleasedHex(hex);
-      this.recencyStack.remove(hex);
-    }
-    this._updateWheelTarget(true);
-    this._syncAwaitingModulationSource();
-    if (this._staticDeferredBulkActive) {
-      this._deferredBulkMapRefresh = this._hasSoundingNotes();
-      if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;
-    } else {
-      this._scheduleDeferredBulkRefresh();
-    }
-    this._settleModulationAfterActiveRelease();
-    // Fire React callback AFTER all visual/audio cleanup — Preact may flush
-    // synchronously and trigger a re-render that redraws hexes mid-cleanup.
-    if (this.onLatchChange) this.onLatchChange(false);
-    // tempAlert('Sustain Off', 900);
+    return LiveHexRuntime.sustainOff(this, force);
   }
 
   sustainOn() {
-    this.state.sustain = true;
-    // tempAlert('Sustain On', 900);
+    return LiveHexRuntime.sustainOn(this);
   }
 
   latchToggle() {
-    if (this.state.latch) {
-      // Second press: release everything and turn latch off
-      this.state.latch = false;
-      this.sustainOff(true); // clears sustainedCoords, redraws, then fires onLatchChange
-    } else {
-      // First press: engage latch — sustain current and all subsequent notes
-      this.state.latch = true;
-      this.state.sustain = true;
-      if (this.onLatchChange) this.onLatchChange(true);
-      // Capture any currently active notes (from all sources) into sustainedNotes
-      for (const hex of this._allActiveHexes()) {
-        if (!this.state.sustainedNotes.find(([h]) => h === hex)) {
-          this.state.sustainedNotes.push([hex, 0]);
-          this.state.sustainedCoords.add(hex.coords.x + "," + hex.coords.y);
-        }
-      }
-    }
+    return LiveHexRuntime.latchToggle(this);
   }
 
   /**************** Event Handlers ****************/

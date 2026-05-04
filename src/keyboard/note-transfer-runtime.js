@@ -1,3 +1,9 @@
+// This module owns note-transfer helpers used during modulation handoff.
+// It builds proxy hexes that let a newly triggered target take over expression
+// and lifecycle duties from an existing source note without immediately
+// destroying that source note's state. It does not decide when a transfer
+// should happen; callers provide the source note and invoke these helpers.
+
 import Point from "./point.js";
 
 function clamp7Bit(value) {

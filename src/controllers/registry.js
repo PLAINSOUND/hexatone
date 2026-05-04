@@ -845,7 +845,7 @@ export const CONTROLLER_REGISTRY = [
           midiin_mpe_input: false,
           midiin_bend_range: "1/1",
           linnstrument_pitch_bend_mode: "off",
-          linnstrument_pitch_bend_shape: 100,
+          linnstrument_pitch_bend_shape: 60,
         },
       },
     },

@@ -1,3 +1,8 @@
+// This hook owns applying user settings changes onto the live app state.
+// It classifies which changes are structural, controller-related, or runtime-
+// only, normalizes dependent values, and coordinates persisted controller
+// anchor/preferences updates before the synth/Keys wiring reacts.
+
 import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import { normalizeColors } from "./normalize-settings.js";

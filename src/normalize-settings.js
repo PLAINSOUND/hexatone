@@ -1,3 +1,8 @@
+// This module owns normalization of persisted/UI settings into a coherent live
+// settings object. It parses scale text, derives colors/key labels/workspace
+// state, and fills structural defaults so the runtime layers can assume a
+// consistent settings shape.
+
 import { scalaToCents, scalaToLabels } from "./settings/scale/parse-scale.js";
 import keyCodeToCoords from "./settings/keycodes";
 import { hex2rgb, rgb2hsv, HSVtoRGB2, rgbToHex } from "./keyboard/color_utils.js";
