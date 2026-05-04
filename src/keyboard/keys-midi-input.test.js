@@ -1166,6 +1166,8 @@ describe("Keys MIDI input integration", () => {
         midiin_device: "test-input",
         midiin_central_degree: 7,
         midiin_anchor_channel: 3,
+        lumatone_center_note: 7,
+        lumatone_center_channel: 3,
       },
       { layoutMode: "controller_geometry" },
       {},
