@@ -7,6 +7,7 @@ import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import {
   createHarmonicFrame,
+  deriveDegreeColorsForFrame,
   deriveCurrentFundamentalForHistory,
   replayModulationHistoryForFrame,
   spellWorkspaceForFrame,
@@ -77,6 +78,128 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
 
 export const Loading = () => <LoadingIcon />;
 
+function modulo(value, modulus) {
+  if (!modulus) return value;
+  return ((value % modulus) + modulus) % modulus;
+}
+
+function formatCommittedCents(cents) {
+  return Number.isFinite(cents) ? Number(cents).toFixed(6) : "";
+}
+
+function formatCommittedRatio(ratio) {
+  if (!ratio?.toFraction) return null;
+  const text = ratio.toFraction();
+  return text.includes("/") ? text : `${text}/1`;
+}
+
+function committedScaleTextForSlot(slot, frame, workspace) {
+  const equaveRatio = workspace?.baseScale?.equaveInterval?.ratio ?? null;
+  const equaveCents = workspace?.baseScale?.equaveCents ?? 1200;
+  const slotRatio = slot?.committedIdentity?.ratio ?? null;
+  const slotCents = slot?.committedIdentity?.cents ?? slot?.cents ?? null;
+  const anchorRatio = frame?.anchorInterval?.ratio ?? null;
+  const anchorCents = frame?.anchorInterval?.cents ?? 0;
+  const normalizedCents = modulo((slot?.cents ?? 0) - anchorCents, equaveCents);
+
+  if (
+    slotRatio &&
+    anchorRatio &&
+    equaveRatio &&
+    Number.isFinite(slotCents) &&
+    Number.isFinite(anchorCents) &&
+    Number.isFinite(equaveCents) &&
+    Math.abs(equaveCents) > 0.000001
+  ) {
+    let ratio = slotRatio.div(anchorRatio);
+    const rawDeltaCents = slotCents - anchorCents;
+    const equavePower = Math.round((normalizedCents - rawDeltaCents) / equaveCents);
+    ratio = equavePower >= 0
+      ? ratio.mul(equaveRatio.pow(equavePower))
+      : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
+    return formatCommittedRatio(ratio);
+  }
+
+  return formatCommittedCents(normalizedCents);
+}
+
+export function commitModulationHistoryToPreset(settings, tuningWorkspace, history = [], options = {}) {
+  const activeHistory = Array.isArray(history)
+    ? history.filter((entry) => {
+        const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+        return count !== 0;
+      })
+    : [];
+  if (!tuningWorkspace || activeHistory.length === 0) return null;
+
+  const baseFrame = createHarmonicFrame(tuningWorkspace, {
+    anchorDegree: settings.reference_degree ?? 0,
+    anchorLabel: options.hejiAnchorLabel ?? "A",
+    anchorRatioText: options.hejiAnchorRatio ?? "1/1",
+    anchorInterval: parseExactInterval(String(options.hejiAnchorRatio || "1/1")),
+    referenceDegree: settings.reference_degree ?? 0,
+    strategy: "anchor_substitution",
+    generation: 0,
+  });
+  const frame = replayModulationHistoryForFrame(tuningWorkspace, baseFrame, activeHistory, {
+    suppressDeviation: true,
+    temperedOnly: options.hejiTemperedOnly === true,
+    forceShowZeroDeviation: false,
+  });
+  const spelled = spellWorkspaceForFrame(tuningWorkspace, frame, {
+    suppressDeviation: true,
+    temperedOnly: options.hejiTemperedOnly === true,
+    forceShowZeroDeviation: false,
+  });
+  const derivedColors = deriveDegreeColorsForFrame(tuningWorkspace, frame, {
+    baseColors: Array.isArray(settings.note_colors) ? settings.note_colors : [],
+  });
+  const currentFundamental = deriveCurrentFundamentalForHistory(tuningWorkspace, activeHistory, {
+    fundamental: settings.fundamental,
+  });
+  const equaveCents = tuningWorkspace.baseScale.equaveCents ?? 1200;
+  const anchorCents =
+    frame?.anchorInterval?.cents ??
+    tuningWorkspace.lookup?.byDegree?.get(frame?.anchorDegree)?.cents ??
+    0;
+
+  const labelsByDegree = settings.key_labels === "heji"
+    ? spelled.labelsByDegree
+    : (Array.isArray(settings.note_names) ? settings.note_names : []);
+
+  const orderedSlots = (tuningWorkspace.slots ?? [])
+    .map((slot) => ({
+      slot,
+      degree: slot.degree,
+      centsFromAnchor: modulo((slot.cents ?? 0) - anchorCents, equaveCents),
+      scaleText: committedScaleTextForSlot(slot, frame, tuningWorkspace),
+      label: labelsByDegree?.[slot.degree] ?? "",
+      color: derivedColors?.[slot.degree] ?? settings.note_colors?.[slot.degree] ?? null,
+    }))
+    .sort((a, b) => {
+      if (a.centsFromAnchor !== b.centsFromAnchor) return a.centsFromAnchor - b.centsFromAnchor;
+      if (a.degree === frame.anchorDegree) return -1;
+      if (b.degree === frame.anchorDegree) return 1;
+      return a.degree - b.degree;
+    });
+
+  return {
+    ...settings,
+    scale: [
+      ...orderedSlots.slice(1).map((entry) => entry.scaleText),
+      tuningWorkspace.baseScale.equaveText,
+    ],
+    equivSteps: orderedSlots.length,
+    equivInterval: tuningWorkspace.baseScale.equaveCents,
+    fundamental: currentFundamental.fundamentalHz ?? settings.fundamental,
+    reference_degree: 0,
+    note_names: orderedSlots.map((entry) => entry.label ?? ""),
+    note_colors: orderedSlots.map((entry) => entry.color ?? ""),
+    heji_anchor_label: frame?.heji?.anchorLabel ?? settings.heji_anchor_label ?? "",
+    heji_anchor_ratio: "1/1",
+  };
+}
+
 function formatSignedWholeCents(value) {
   if (!Number.isFinite(value)) return "0¢";
   const rounded = Math.round(value);
@@ -90,6 +213,65 @@ function routeTranspositionDeltaCents(entry) {
   if (typeof entry?.transpositionRatioText !== "string") return null;
   const parsed = parseExactInterval(entry.transpositionRatioText.trim());
   return Number.isFinite(parsed?.cents) ? parsed.cents : null;
+}
+
+function ratioAdjustedToCentsText(ratio, ratioCents, deltaCents, tuningWorkspace) {
+  const equaveRatio = tuningWorkspace?.baseScale?.equaveInterval?.ratio ?? null;
+  const equaveCents = tuningWorkspace?.baseScale?.equaveCents ?? 1200;
+  if (
+    !ratio ||
+    !equaveRatio ||
+    !Number.isFinite(ratioCents) ||
+    !Number.isFinite(deltaCents) ||
+    !Number.isFinite(equaveCents) ||
+    Math.abs(equaveCents) < 0.000001
+  ) {
+    return ratio?.toFraction ? ratio.toFraction() : null;
+  }
+  const equavePower = Math.round((deltaCents - ratioCents) / equaveCents);
+  const displaced = equavePower > 0
+    ? ratio.mul(equaveRatio.pow(equavePower))
+    : equavePower < 0
+      ? ratio.div(equaveRatio.pow(Math.abs(equavePower)))
+      : ratio;
+  const text = displaced?.toFraction ? displaced.toFraction() : null;
+  return text && !text.includes("/") ? `${text}/1` : text;
+}
+
+function routeTranspositionRatioText(entry, tuningWorkspace) {
+  if (typeof entry?.transpositionRatioText === "string" && entry.transpositionRatioText.trim()) {
+    return entry.transpositionRatioText.trim();
+  }
+  const deltaCents = routeTranspositionDeltaCents(entry);
+  const sourceSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.sourceDegree);
+  const targetSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.targetDegree);
+  const sourceRatio = sourceSlot?.committedIdentity?.ratio ?? null;
+  const targetRatio = targetSlot?.committedIdentity?.ratio ?? null;
+  const sourceCents = sourceSlot?.committedIdentity?.cents ?? sourceSlot?.cents ?? null;
+  const targetCents = targetSlot?.committedIdentity?.cents ?? targetSlot?.cents ?? null;
+  if (!sourceRatio || !targetRatio) return null;
+  const ratio = sourceRatio.div(targetRatio);
+  const ratioCents =
+    Number.isFinite(sourceCents) && Number.isFinite(targetCents)
+      ? sourceCents - targetCents
+      : null;
+  return ratioAdjustedToCentsText(ratio, ratioCents, deltaCents, tuningWorkspace);
+}
+
+function formatMonzoTextFromRatioText(ratioText) {
+  if (typeof ratioText !== "string" || !ratioText.trim()) return null;
+  const parsed = parseExactInterval(ratioText.trim());
+  if (!Array.isArray(parsed?.monzo)) return null;
+  const monzo = [...parsed.monzo];
+  while (monzo.length > 1 && monzo[monzo.length - 1] === 0) monzo.pop();
+  return `[${monzo.join(" ")}>`;
+}
+
+function modulationEntryDisplayText(entry, tuningWorkspace) {
+  return modulationCurrentSummaryDisplay({
+    ratioText: routeTranspositionRatioText(entry, tuningWorkspace),
+    cents: routeTranspositionDeltaCents(entry),
+  });
 }
 
 function formatEquaveOffset(offset) {
@@ -119,8 +301,9 @@ function modulationRouteEquaveOffset(entry, tuningWorkspace) {
 export function modulationCurrentSummaryDisplay(summary) {
   if (!summary) return "";
   const centsText = formatSignedWholeCents(summary.cents);
-  if (!summary.ratioText) return centsText;
-  return `${summary.ratioText} (${centsText})`;
+  const monzoText = formatMonzoTextFromRatioText(summary.ratioText);
+  if (!monzoText) return centsText;
+  return `${monzoText} (${centsText})`;
 }
 
 export function modulationRouteLabelPair(entry, degreeLabel, tuningWorkspace) {
@@ -209,6 +392,8 @@ function modulationHistoryKey(history = []) {
         ? Number(entry.transpositionDeltaCents)
         : "",
       entry?.transpositionRatioText ?? "",
+      Number.isFinite(Number(entry?.surfaceDeltaX)) ? Math.trunc(entry.surfaceDeltaX) : "",
+      Number.isFinite(Number(entry?.surfaceDeltaY)) ? Math.trunc(entry.surfaceDeltaY) : "",
     ].join(":"))
     .join("|");
 }
@@ -485,6 +670,7 @@ const App = () => {
     onVolumeChange,
     onOscLayerVolumeChange,
     onAnchorLearn,
+    onControllerAnchorRewrite,
     lumatoneRawPorts,
     exquisRawPorts,
     linnstrumentRawPorts,
@@ -744,10 +930,14 @@ const App = () => {
   );
   const modulationSummary = useMemo(() => {
     if (!modulationState) return "";
+    if (modulationState.mode === "idle") return "";
+    if (modulationState.mode === "awaiting_target" && modulationState.sourceDegree == null) {
+      return "";
+    }
     const route =
       modulationState.mode === "awaiting_target"
         ? {
-            sourceDegree: modulationState.sourceDegree ?? 0,
+            sourceDegree: modulationState.sourceDegree,
             targetDegree: null,
           }
         : modulationState.currentRoute ?? null;
@@ -804,6 +994,13 @@ const App = () => {
     () => modulationState?.history ?? presetModulationLibrary,
     [modulationState, presetModulationLibrary],
   );
+  const hasCommittableModulation = useMemo(
+    () => activeModulationLibrary.some((entry) => {
+      const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+      return count !== 0;
+    }),
+    [activeModulationLibrary],
+  );
   const modulationPaletteVisible = modulationHistory.length > 0;
   const currentFundamentalSummary = useMemo(() => {
     if (!tuningWorkspace) return null;
@@ -838,7 +1035,6 @@ const App = () => {
     if (!keysRef.current?.resetModulationRouteCounts) return;
     keysRef.current.resetModulationRouteCounts();
   }, []);
-
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
   // rather than from settings directly for any input-related branch.
@@ -986,6 +1182,27 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- outputRuntimeImpactKey is the settings-impact registry key.
     [outputRuntimeImpactKey],
   );
+  const onCommitCurrentModulation = useCallback(() => {
+    if (!hasCommittableModulation || !tuningWorkspace) return null;
+    if (keysRef.current?.panic) keysRef.current.panic();
+    return commitModulationHistoryToPreset(
+      settings,
+      tuningWorkspace,
+      activeModulationLibrary,
+      {
+        hejiAnchorLabel: structuralSettings.heji_anchor_label_effective,
+        hejiAnchorRatio: structuralSettings.heji_anchor_ratio_effective,
+        hejiTemperedOnly: settings.heji_tempered_only === true,
+      },
+    );
+  }, [
+    hasCommittableModulation,
+    tuningWorkspace,
+    settings,
+    activeModulationLibrary,
+    structuralSettings.heji_anchor_label_effective,
+    structuralSettings.heji_anchor_ratio_effective,
+  ]);
 
   // Reset latch/octave only when the musical surface changes. MIDI/WebMIDI
   // rebinding can reconstruct Keys, but should not reset transport state or
@@ -1375,6 +1592,7 @@ const App = () => {
           active={active}
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
+          onControllerAnchorRewrite={onControllerAnchorRewrite}
           lumatoneLedsRef={lumatoneLedsRef}
           exquisLedsRef={exquisLedsRef}
           linnstrumentLedsRef={linnstrumentLedsRef}
@@ -1718,11 +1936,14 @@ const App = () => {
               title="Current degree-0 fundamental after all active modulation steps"
             >
               <span className="modulation-palette-summary-label">
-                Degree 0 Transposition:
+                1/1 Shift:
               </span>
               <span className="modulation-palette-summary-value">
                 {currentFundamentalSummary.display}
               </span>
+              <span className="modulation-palette-summary-placeholder" aria-hidden="true" />
+              <span className="modulation-palette-summary-placeholder" aria-hidden="true" />
+              <span className="modulation-palette-summary-placeholder" aria-hidden="true" />
               {Math.abs(currentFundamentalSummary.cents ?? 0) > 0.000001 ? (
                 <button
                   className="modulation-palette-close modulation-palette-summary-reset"
@@ -1739,12 +1960,7 @@ const App = () => {
                 >
                   ⟳
                 </button>
-              ) : <span
-                        className="modulation-palette-close modulation-palette-summary-placeholder"
-                        aria-hidden="true"
-                      >
-                        ⟳
-                      </span>}
+              ) : null}
             </div>
           )}
           {!modulationPaletteCollapsed &&
@@ -1763,11 +1979,13 @@ const App = () => {
                   className={`modulation-palette-row${count !== 0 ? " modulation-palette-row-active" : ""}`}
                   title={modulationPaletteTitle[index] || routeLabel}
                 >
-                  
                   <span className="modulation-palette-route">
                     {sourceLabel}
                     <span className="modulation-palette-route-arrow" aria-hidden="true" />
                     {targetLabel}
+                  </span>
+                  <span className="modulation-palette-modulation">
+                    {modulationEntryDisplayText(entry, tuningWorkspace)}
                   </span>
                   <button
                     className="modulation-palette-step modulation-palette-step--left"
@@ -1816,17 +2034,10 @@ const App = () => {
                           e.preventDefault();
                           e.stopPropagation();
                         }}
-                      >
-                        ×
-                      </button>
-                    ) : (
-                      <span
-                        className="modulation-palette-close modulation-palette-close-placeholder"
-                        aria-hidden="true"
-                      >
-                        ×
-                      </span>
-                    )}
+                        >
+                          ×
+                        </button>
+                    ) : null}
                   </span>
                 </div>
               );
@@ -1873,6 +2084,8 @@ const App = () => {
               activePresetName={activePresetName}
               isPresetDirty={isPresetDirty}
               currentModulationLibrary={modulationState?.history ?? presetModulationLibrary}
+              canCommitModulation={hasCommittableModulation}
+              onCommitCurrentModulation={onCommitCurrentModulation}
               persistOnReload={persistOnReload}
               setPersistOnReload={setPersistOnReload}
               onRevertBuiltin={onRevertBuiltin}

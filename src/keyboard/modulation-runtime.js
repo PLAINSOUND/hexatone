@@ -28,6 +28,18 @@ function normalizeHistoryEntry(entry = {}) {
     targetDegree: entry.targetDegree ?? null,
     strategy: entry.strategy ?? "retune_surface_to_source",
     count: Number.isFinite(entry.count) ? Math.trunc(entry.count) : 0,
+    ...(Number.isFinite(entry.surfaceDeltaX)
+      ? { surfaceDeltaX: Math.trunc(entry.surfaceDeltaX) }
+      : {}),
+    ...(Number.isFinite(entry.surfaceDeltaY)
+      ? { surfaceDeltaY: Math.trunc(entry.surfaceDeltaY) }
+      : {}),
+    ...(Number.isFinite(entry.anchorDeltaNote)
+      ? { anchorDeltaNote: Math.trunc(entry.anchorDeltaNote) }
+      : {}),
+    ...(Number.isFinite(entry.anchorDeltaChannel)
+      ? { anchorDeltaChannel: Math.trunc(entry.anchorDeltaChannel) }
+      : {}),
     ...(Number.isFinite(transpositionDeltaCents) ? { transpositionDeltaCents } : {}),
     ...(transpositionRatioText ? { transpositionRatioText } : {}),
   };
@@ -78,16 +90,6 @@ export function createModulationState(options = {}) {
 export function beginModulation(state, options = {}) {
   const sourceHex = options.sourceHex ?? null;
   const sourceDegree = options.sourceDegree ?? sourceHex?.pressed_interval ?? null;
-  if (sourceHex == null && sourceDegree == null) {
-    return {
-      ...state,
-      lastDecision: {
-        type: "begin_rejected",
-        reason: "no_source_degree",
-      },
-    };
-  }
-
   return {
     ...state,
     mode: "awaiting_target",
@@ -110,6 +112,24 @@ export function beginModulation(state, options = {}) {
         geometryModeForStrategy(options.strategy ?? state.strategy ?? "retune_surface_to_source"),
       sourceDegree,
       sourceCoordsKey: coordKey(sourceHex?.coords),
+    },
+  };
+}
+
+export function setModulationSource(state, options = {}) {
+  if (state.mode !== "awaiting_target") return state;
+  const sourceHex = options.sourceHex ?? null;
+  const sourceCoords = options.sourceCoords ?? sourceHex?.coords ?? null;
+  const sourceDegree = options.sourceDegree ?? sourceHex?.pressed_interval ?? null;
+  return {
+    ...state,
+    sourceHex,
+    sourceCoordsKey: coordKey(sourceCoords),
+    sourceDegree,
+    lastDecision: {
+      type: "set_source",
+      sourceDegree,
+      sourceCoordsKey: coordKey(sourceCoords),
     },
   };
 }
@@ -144,7 +164,8 @@ export function commitModulationTarget(state, options = {}) {
   }
 
   const sourceStillSounding = options.sourceStillSounding !== false;
-  const decisionType = sourceStillSounding ? "takeover" : "attack";
+  const decisionType =
+    options.articulation ?? (sourceStillSounding ? "takeover" : "attack");
   // pendingFrame is already derived by the caller from the committed tuning
   // substrate plus the selected source/target. This state machine only records
   // when that frame becomes active and whether the target should attack or
@@ -158,6 +179,18 @@ export function commitModulationTarget(state, options = {}) {
     targetDegree: options.targetDegree ?? null,
     strategy,
     count: 1,
+    ...(Number.isFinite(options.surfaceDeltaX)
+      ? { surfaceDeltaX: Math.trunc(options.surfaceDeltaX) }
+      : {}),
+    ...(Number.isFinite(options.surfaceDeltaY)
+      ? { surfaceDeltaY: Math.trunc(options.surfaceDeltaY) }
+      : {}),
+    ...(Number.isFinite(options.anchorDeltaNote)
+      ? { anchorDeltaNote: Math.trunc(options.anchorDeltaNote) }
+      : {}),
+    ...(Number.isFinite(options.anchorDeltaChannel)
+      ? { anchorDeltaChannel: Math.trunc(options.anchorDeltaChannel) }
+      : {}),
     ...(Number.isFinite(options.transpositionDeltaCents)
       ? { transpositionDeltaCents: options.transpositionDeltaCents }
       : {}),

@@ -63,6 +63,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "lumatone_led_sync",
     "exquis_led_sync",
     "linnstrument_led_sync",
+    "modulation_style",
   ],
   outputRuntime: [
     "instrument",

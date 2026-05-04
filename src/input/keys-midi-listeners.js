@@ -350,6 +350,8 @@ export function rebuildControllerMap() {
     centralDegree: this.settings.midiin_central_degree,
     lumatoneChannel: this.settings.lumatone_center_channel,
     lumatoneNote: this.settings.lumatone_center_note,
+    virtualAnchorX: this.settings.controller_virtual_anchor_x ?? null,
+    virtualAnchorY: this.settings.controller_virtual_anchor_y ?? null,
     tonalplexusMode: this.settings.tonalplexus_input_mode,
     rSteps: this.settings.rSteps,
     drSteps: this.settings.drSteps,
@@ -391,13 +393,13 @@ export function rebuildControllerMap() {
     anchorNote = this.settings.lumatone_center_note;
     anchorChannel = this.settings.lumatone_center_channel;
 
-    if (constraints?.noteRange) {
+    if (!entry.supportsVirtualAnchor && constraints?.noteRange) {
       const { min, max } = constraints.noteRange;
       if (anchorNote == null || anchorNote < min || anchorNote > max) {
         anchorNote = entry.anchorDefault ?? 26;
       }
     }
-    if (constraints?.channelRange) {
+    if (!entry.supportsVirtualAnchor && constraints?.channelRange) {
       const { min, max } = constraints.channelRange;
       if (anchorChannel == null || anchorChannel < min || anchorChannel > max) {
         anchorChannel = entry.anchorChannelDefault ?? 3;
@@ -411,11 +413,33 @@ export function rebuildControllerMap() {
   const rawOffsets = entry.multiChannel
     ? entry.buildMap(anchorNote, anchorChannel, entry.defaultCols)
     : entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
+  const anchorAddress = entry.multiChannel
+    ? {
+      channel: anchorChannel ?? entry.anchorChannelDefault ?? 1,
+      note: anchorNote ?? entry.anchorDefault ?? 26,
+    }
+    : {
+      channel: 1,
+      note: anchorNote ?? entry.anchorDefault ?? 60,
+    };
+  const virtualAnchorCoords = (
+    Number.isFinite(this.settings.controller_virtual_anchor_x) &&
+    Number.isFinite(this.settings.controller_virtual_anchor_y)
+  )
+    ? new Point(this.settings.controller_virtual_anchor_x, this.settings.controller_virtual_anchor_y)
+    : null;
+  const actualAnchorCoords = rawOffsets.get(`${anchorAddress.channel}.${anchorAddress.note}`) ?? null;
+  const virtualDx = virtualAnchorCoords && actualAnchorCoords
+    ? virtualAnchorCoords.x - actualAnchorCoords.x
+    : 0;
+  const virtualDy = virtualAnchorCoords && actualAnchorCoords
+    ? virtualAnchorCoords.y - actualAnchorCoords.y
+    : 0;
   const ox = this.settings.centerHexOffset.x;
   const oy = this.settings.centerHexOffset.y;
   this.controllerMap = new Map();
   for (const [key, { x, y }] of rawOffsets) {
-    this.controllerMap.set(key, new Point(x + ox, y + oy));
+    this.controllerMap.set(key, new Point(x + virtualDx + ox, y + virtualDy + oy));
   }
   return true;
 }

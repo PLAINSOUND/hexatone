@@ -60,15 +60,63 @@ export const scaleHexSizeForScreen = (hexSize) => {
   return size;
 };
 
+function sessionIntOrFallback(key, fallback) {
+  if (typeof sessionStorage === "undefined") return fallback;
+  const raw = sessionStorage.getItem(key);
+  if (raw === null) return fallback;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function restorePersistentAnchorFields(fallback = {}) {
+  const restored = {
+    midiin_central_degree: sessionIntOrFallback(
+      "midiin_central_degree",
+      fallback.midiin_central_degree ?? 60,
+    ),
+    midiin_anchor_channel: sessionIntOrFallback(
+      "midiin_anchor_channel",
+      fallback.midiin_anchor_channel ?? 1,
+    ),
+    controller_virtual_anchor_x: null,
+    controller_virtual_anchor_y: null,
+  };
+  const lumatoneNote = sessionIntOrFallback(
+    "lumatone_center_note",
+    fallback.lumatone_center_note,
+  );
+  const lumatoneChannel = sessionIntOrFallback(
+    "lumatone_center_channel",
+    fallback.lumatone_center_channel,
+  );
+  if (Number.isFinite(lumatoneNote)) restored.lumatone_center_note = lumatoneNote;
+  if (Number.isFinite(lumatoneChannel)) restored.lumatone_center_channel = lumatoneChannel;
+  return restored;
+}
+
 // HEJI anchors may be auto-derived from the current preset's tuning/labels.
 // Reset them on preset load so an inferred anchor from the previous preset
 // cannot survive the merge unless the incoming preset explicitly defines one.
-export const mergePresetIntoSettings = (settings, preset) => ({
-  ...settings,
-  heji_anchor_ratio: "",
-  heji_anchor_label: "",
-  ...preset,
-});
+export const mergePresetIntoSettings = (settings, preset) => {
+  const persistentAnchorFallback = {
+    midiin_central_degree:
+      preset.midiin_central_degree ?? default_settings.midiin_central_degree ?? 60,
+    midiin_anchor_channel:
+      preset.midiin_anchor_channel ?? default_settings.midiin_anchor_channel ?? 1,
+    lumatone_center_note:
+      preset.lumatone_center_note ?? default_settings.lumatone_center_note,
+    lumatone_center_channel:
+      preset.lumatone_center_channel ?? default_settings.lumatone_center_channel,
+  };
+
+  return {
+    ...settings,
+    heji_anchor_ratio: "",
+    heji_anchor_label: "",
+    ...preset,
+    ...restorePersistentAnchorFields(persistentAnchorFallback),
+  };
+};
 
 // Fields that count as "edits" for dirty detection — same as PRESET_SKIP_KEYS.
 const DIRTY_FIELDS = PRESET_SKIP_KEYS;

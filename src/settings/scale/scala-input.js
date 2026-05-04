@@ -1,5 +1,5 @@
 import { useState, useEffect } from "preact/hooks";
-import { parseScalaInterval } from "./parse-scale.js";
+import { normaliseDegree, parseScalaInterval } from "./parse-scale.js";
 
 /**
  * ScalaInput — controlled text input for Scala-style interval strings.
@@ -65,6 +65,7 @@ const ScalaInput = ({
     if (context === "degree") {
       const { cents: c } = parseScalaInterval(finalStr, "degree");
       if (c === 0 && finalStr !== "0.") finalStr = "0.";
+      else if (finalStr !== "") finalStr = normaliseDegree(finalStr);
     }
 
     const result = parseScalaInterval(finalStr, context);

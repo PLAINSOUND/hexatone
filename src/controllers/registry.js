@@ -1,6 +1,8 @@
 import {
   lumatoneNoteOffset,
-  LUMATONE_BLOCK_OFFSETS,
+  lumatoneAddressForCoords,
+  lumatoneBlockOffset,
+  lumatoneNoteCoords,
   LUMATONE_NOTES_PER_BLOCK,
   LUMATONE_BLOCKS,
 } from "./lumatone.js";
@@ -253,12 +255,13 @@ function buildExquisMap(anchorNote) {
 // Geometry and block offsets defined in lumatone.js; imported above.
 
 function buildLumatoneMap(anchorChannel, anchorNote) {
-  const anchorBlockOffset = LUMATONE_BLOCK_OFFSETS[anchorChannel - 1];
+  const anchorBlockOffset = lumatoneBlockOffset(anchorChannel);
   const entries = [];
   for (let block = 0; block < LUMATONE_BLOCKS; block++) {
     const ch = block + 1;
-    const bx = LUMATONE_BLOCK_OFFSETS[block].x - anchorBlockOffset.x;
-    const by = LUMATONE_BLOCK_OFFSETS[block].y - anchorBlockOffset.y;
+    const blockOffset = lumatoneBlockOffset(ch);
+    const bx = blockOffset.x - anchorBlockOffset.x;
+    const by = blockOffset.y - anchorBlockOffset.y;
     for (let note = 0; note < LUMATONE_NOTES_PER_BLOCK; note++) {
       const { x, y } = lumatoneNoteOffset(note, anchorNote);
       entries.push({ ch, note, x: x + bx, y: y + by });
@@ -765,7 +768,20 @@ export const CONTROLLER_REGISTRY = [
     // and mod-8 wrapping are both needed for correct note mapping.
     sequentialTransposeDefault: null, // null = equave (one equave per channel)
     sequentialLegacyDefault: true, // wrap channels 9–16 → 1–8
+    supportsVirtualAnchor: true,
     buildMap: (anchorNote, anchorChannel) => buildLumatoneMap(anchorChannel ?? 3, anchorNote ?? 26),
+    translateVirtualAnchor: (anchorNote, anchorChannel, surfaceDelta) => {
+      const blockOffset = lumatoneBlockOffset(anchorChannel ?? 3);
+      const anchorLocal = lumatoneNoteCoords(anchorNote ?? 26);
+      const current = {
+        x: blockOffset.x + anchorLocal.x,
+        y: blockOffset.y + anchorLocal.y,
+      };
+      return lumatoneAddressForCoords(
+        current.x - (surfaceDelta?.x ?? 0),
+        current.y - (surfaceDelta?.y ?? 0),
+      );
+    },
     learnConstraints: {
       noteRange: { min: 0, max: 55 },
       channelRange: { min: 1, max: 5 },
@@ -815,6 +831,7 @@ export const CONTROLLER_REGISTRY = [
     anchorDefault: 9,           // col (lumatone_center_note)
     anchorChannelDefault: 4,    // row (lumatone_center_channel)
     defaultCols: 16,            // LinnStrument 128; set to 25 for LinnStrument 200
+    supportsVirtualAnchor: true,
     learnConstraints: {
       noteRange:   { min: 1, max: 25 },   // col 1-25 (25 for 200-note model)
       channelRange: { min: 1, max: 8 },   // row 1-8
@@ -833,6 +850,10 @@ export const CONTROLLER_REGISTRY = [
       },
     },
     resolveMode: () => "userfw",
+    translateVirtualAnchor: (anchorCol, anchorRow, surfaceDelta) => ({
+      note: anchorCol - surfaceDelta.x - surfaceDelta.y,
+      channel: anchorRow + surfaceDelta.y,
+    }),
     // buildMap(anchorCol, anchorRow, cols) — all native UF coordinates.
     // cols defaults to 16 (LinnStrument 128); pass 25 for LinnStrument 200.
     buildMap: (anchorCol, anchorRow, cols) =>

@@ -45,6 +45,11 @@ export const LUMATONE_BLOCK_OFFSETS = [
   { x: 20, y: 8 }, // channel 5
 ];
 
+const LUMATONE_BLOCK_STRIDE = {
+  x: LUMATONE_BLOCK_OFFSETS[1].x - LUMATONE_BLOCK_OFFSETS[0].x,
+  y: LUMATONE_BLOCK_OFFSETS[1].y - LUMATONE_BLOCK_OFFSETS[0].y,
+};
+
 // [r, dr] position of each note 0–55 within a block.
 // r  = horizontal hex-grid position (0 = centre column), dr = row index (0 = top).
 //
@@ -125,6 +130,34 @@ export function lumatoneNoteOffset(note, anchorNote) {
   return { x: nx - ax, y: ny - ay };
 }
 
+export function lumatoneNoteCoords(note) {
+  const [x, y] = NOTE_XY[note];
+  return { x, y };
+}
+
+export function lumatoneBlockOffset(channel) {
+  const zeroIndexed = (channel ?? 1) - 1;
+  return {
+    x: LUMATONE_BLOCK_STRIDE.x * zeroIndexed,
+    y: LUMATONE_BLOCK_STRIDE.y * zeroIndexed,
+  };
+}
+
+export function lumatoneAddressForCoords(x, y) {
+  for (let note = 0; note < LUMATONE_NOTES_PER_BLOCK; note += 1) {
+    const [nx, ny] = NOTE_XY[note];
+    const kx = (x - nx) / LUMATONE_BLOCK_STRIDE.x;
+    const ky = (y - ny) / LUMATONE_BLOCK_STRIDE.y;
+    if (!Number.isInteger(kx) || !Number.isInteger(ky) || kx !== ky) continue;
+    const channel = kx + 1;
+    return {
+      channel,
+      note,
+    };
+  }
+  return null;
+}
+
 /**
  * Build raw hex coords for all 5 × 56 = 280 Lumatone keys.
  *
@@ -134,11 +167,11 @@ export function lumatoneNoteOffset(note, anchorNote) {
  * Returns a Map keyed by "channel,note" with value { x, y }.
  */
 export function buildLumatoneRawCoords(anchorChannel, anchorNote) {
-  const anchorOff = LUMATONE_BLOCK_OFFSETS[anchorChannel - 1];
+  const anchorOff = lumatoneBlockOffset(anchorChannel);
   const raw = new Map();
 
   for (let ch = 1; ch <= LUMATONE_BLOCKS; ch++) {
-    const blk = LUMATONE_BLOCK_OFFSETS[ch - 1];
+    const blk = lumatoneBlockOffset(ch);
     const bx = blk.x - anchorOff.x;
     const by = blk.y - anchorOff.y;
 

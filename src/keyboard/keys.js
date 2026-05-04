@@ -35,6 +35,7 @@ import {
   frameForNewNotes,
   normalizeModulationHistory,
   resetModulationRouteCounts,
+  setModulationSource,
   setModulationRouteCount,
   setModulationHistoryIndex,
   settleModulationIfPossible,
@@ -117,6 +118,7 @@ class Keys {
     tuningRuntime = null,
     onModulationStateChange = null,
     initialModulationLibrary = null,
+    onControllerAnchorRewrite = null,
   ) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.tuning = {
@@ -177,6 +179,7 @@ class Keys {
     this.onModulationArmChange = onModulationArmChange || null;
     this.onModulationStateChange = onModulationStateChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
+    this.onControllerAnchorRewrite = onControllerAnchorRewrite || null;
     this.visualViewportResizeHandler = () => {
       if (isTextEntryElement(document.activeElement)) return;
       this.resizeHandler();
@@ -251,6 +254,8 @@ class Keys {
       target: 8192,
     };
     this._controllerCCValues = new Map();
+    this._lastHexOnSuppressed = false;
+    this._suppressedMidiNotes = new Set();
     if (
       this.settings.midiin_device &&
       this.settings.midiin_device !== "OFF" &&
@@ -269,12 +274,15 @@ class Keys {
       homeFrame,
       currentFrame: homeFrame,
       history: initialModulationHistory,
+      strategy: this._selectedModulationStrategy(),
     });
+    this._modulationHomeAnchor = this._extractCurrentAnchorSettings();
     if (initialModulationHistory.length > 0) {
       const currentFrame = this._frameForHistory(initialModulationHistory);
       this._harmonicFrame = currentFrame;
       this._modulationState.currentFrame = currentFrame;
       this._modulationState.historyIndex = this._modulationState.currentRoute?.count ?? 0;
+      Object.assign(this.settings, this._anchorSettingsFromHistory(initialModulationHistory));
     }
 
     // The tuning map anchor is always derived from the musical content (fundamental,
@@ -468,6 +476,7 @@ class Keys {
     const nextFrame = this._frameForHistoryIndex(historyIndex);
     this._modulationState = setModulationHistoryIndex(this._modulationState, historyIndex, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this._applyAnchorFromModulationHistory();
     this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
@@ -486,6 +495,7 @@ class Keys {
     const nextFrame = this._frameForHistory(history);
     this._modulationState = setModulationRouteCount(this._modulationState, routeIndex, count, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this._applyAnchorFromModulationHistory(this._modulationState.history);
     this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
@@ -507,6 +517,7 @@ class Keys {
     const nextFrame = this._frameForHistory(history);
     this._modulationState = clearModulationRoute(this._modulationState, routeIndex, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this._applyAnchorFromModulationHistory(this._modulationState.history);
     this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
@@ -517,6 +528,8 @@ class Keys {
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
     this._modulationState = clearModulationHistory(this._modulationState, homeFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this._applyAnchorFromModulationHistory(this._modulationState.history);
+    this._captureModulationHomeAnchor();
     this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
@@ -527,16 +540,39 @@ class Keys {
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
     this._modulationState = resetModulationRouteCounts(this._modulationState, homeFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    this._applyAnchorFromModulationHistory(this._modulationState.history);
     this.scheduleGridRedraw();
     this._emitModulationState();
     return true;
   };
 
-  armModulation = (strategy = this._modulationState.strategy) => {
+  _selectedModulationStrategy() {
+    return this.settings.modulation_style === "fixed_do"
+      ? "retune_surface_in_place"
+      : "retune_surface_to_source";
+  }
+
+  _isFixedDoStrategy(strategy = this._modulationState.strategy) {
+    return strategy === "retune_surface_in_place";
+  }
+
+  _syncModulationStyleFromSettings(options = {}) {
+    const strategy = this._selectedModulationStrategy();
+    this._modulationState.strategy = strategy;
+    this._modulationState.geometryMode = "moveable_surface";
+    if (this._modulationState.mode !== "idle") return;
+    this._harmonicFrame = this._frameForHistory(this._modulationState.history);
+    this._modulationState.currentFrame = this._harmonicFrame;
+    this._applyAnchorFromModulationHistory(this._modulationState.history, { persist: false });
+    if (options.redraw !== false) this.scheduleImmediateGridRedraw();
+    if (options.emit) this._emitModulationState();
+  }
+
+  armModulation = (strategy = this._selectedModulationStrategy()) => {
     const sourceHex = this.recencyStack.front ?? null;
     const sourceDegree = sourceHex
       ? this._degreeForHex(sourceHex)
-      : (this._lastPlayedDegree ?? this.settings.reference_degree ?? 0);
+      : null;
     this._modulationState = beginModulation(this._modulationState, {
       currentFrame: this._harmonicFrame,
       sourceHex,
@@ -551,6 +587,23 @@ class Keys {
     if (this.onModulationArmChange)
       this.onModulationArmChange(this._modulationState.mode === "awaiting_target");
     if (this.onModulationStateChange) this.onModulationStateChange(this._modulationState);
+  }
+
+  _setAwaitingModulationSource(sourceHex = null, sourceDegree = null, sourceCoords = null) {
+    if (this._modulationState.mode !== "awaiting_target") return;
+    this._modulationState = setModulationSource(this._modulationState, {
+      sourceHex,
+      sourceDegree,
+      sourceCoords,
+    });
+    this._emitModulationState();
+  }
+
+  _syncAwaitingModulationSource() {
+    if (this._modulationState.mode !== "awaiting_target") return;
+    const sourceHex = this.recencyStack.front ?? null;
+    const sourceDegree = sourceHex ? this._degreeForHex(sourceHex) : null;
+    this._setAwaitingModulationSource(sourceHex, sourceDegree, sourceHex?.coords ?? null);
   }
 
   _makeFrameForDegree(degree, extra = {}) {
@@ -600,17 +653,521 @@ class Keys {
     return this._degreeForCoords(hex.coords);
   }
 
+  _coordsForLiveInputAddress(inputAddress) {
+    if (!inputAddress) return null;
+    if (this.inputRuntime.layoutMode !== "sequential" && this.controllerMap) {
+      const baseCoords = this.controllerMap.get(`${inputAddress.channel}.${inputAddress.note}`) ?? null;
+      if (!baseCoords) return null;
+      return this.controller?.applyChannelOffsetOnMap
+        ? this._applyChannelOffset(baseCoords, inputAddress.rawChannel ?? inputAddress.channel)
+        : baseCoords;
+    }
+
+    return this.coordResolver.coordForSteps(
+      this.coordResolver.noteToSteps(inputAddress.note, inputAddress.channel),
+    );
+  }
+
+  _currentControllerAnchorAddress() {
+    if (!this.controller) return null;
+    if (this.controller.multiChannel) {
+      return {
+        channel:
+          this.settings.lumatone_center_channel ??
+          this.settings.midiin_anchor_channel ??
+          this.controller.anchorChannelDefault ??
+          1,
+        note:
+          this.settings.lumatone_center_note ??
+          this.settings.midiin_central_degree ??
+          this.controller.anchorDefault ??
+          60,
+      };
+    }
+    return {
+      channel: 1,
+      note: this.settings.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
+    };
+  }
+
+  _extractCurrentAnchorSettings() {
+    return {
+      midiin_central_degree: this.settings.midiin_central_degree ?? 60,
+      midiin_anchor_channel: this.settings.midiin_anchor_channel ?? 1,
+      ...(this.settings.lumatone_center_note != null
+        ? { lumatone_center_note: this.settings.lumatone_center_note }
+        : {}),
+      ...(this.settings.lumatone_center_channel != null
+        ? { lumatone_center_channel: this.settings.lumatone_center_channel }
+        : {}),
+      controller_virtual_anchor_x: Number.isFinite(this.settings.controller_virtual_anchor_x)
+        ? this.settings.controller_virtual_anchor_x
+        : null,
+      controller_virtual_anchor_y: Number.isFinite(this.settings.controller_virtual_anchor_y)
+        ? this.settings.controller_virtual_anchor_y
+        : null,
+    };
+  }
+
+  _captureModulationHomeAnchor() {
+    this._modulationHomeAnchor = this._extractCurrentAnchorSettings();
+  }
+
+  _rawReducedStepsForCoords(coords) {
+    const scaleLength = this.tuning.scale.length || 1;
+    let distance = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
+    let reducedSteps = distance % scaleLength;
+    if (reducedSteps < 0) reducedSteps += scaleLength;
+    return reducedSteps;
+  }
+
+  _rawStepsForCoords(coords) {
+    return coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
+  }
+
+  _surfaceDeltaFromCoords(sourceCoords, targetCoords) {
+    if (!sourceCoords || !targetCoords) return null;
+    return new Point(
+      Math.trunc(targetCoords.x - sourceCoords.x),
+      Math.trunc(targetCoords.y - sourceCoords.y),
+    );
+  }
+
+  _reduceFixedDoStepDelta(rawStepDelta) {
+    const scaleLength = this.tuning.scale.length || 0;
+    if (!scaleLength || !Number.isFinite(rawStepDelta)) return Math.trunc(rawStepDelta || 0);
+    let reduced = Math.trunc(rawStepDelta % scaleLength);
+    if (reduced < 0) reduced += scaleLength;
+    const alternate = reduced - scaleLength;
+    return Math.abs(alternate) < Math.abs(reduced) ? alternate : reduced;
+  }
+
+  _normalizedFixedDoTargetCoords(sourceCoords, targetCoords) {
+    if (
+      this.inputRuntime.layoutMode !== "sequential" ||
+      !sourceCoords ||
+      !targetCoords
+    ) {
+      return targetCoords;
+    }
+    const sourceRaw = this._rawStepsForCoords(sourceCoords);
+    const targetRaw = this._rawStepsForCoords(targetCoords);
+    const reducedDelta = this._reduceFixedDoStepDelta(targetRaw - sourceRaw);
+    if (reducedDelta === targetRaw - sourceRaw) return targetCoords;
+    return this.coordResolver.coordForSteps(sourceRaw + reducedDelta) ?? targetCoords;
+  }
+
+  _routeEquaveOffset(entry) {
+    const transpositionDeltaCents = Number(entry?.transpositionDeltaCents);
+    const equaveCents = this.tuning.equivInterval ?? 1200;
+    if (
+      !Number.isFinite(transpositionDeltaCents) ||
+      !Number.isFinite(equaveCents) ||
+      Math.abs(equaveCents) < 0.000001
+    ) {
+      return 0;
+    }
+    const sourceDegree = entry?.sourceDegree ?? null;
+    const targetDegree = entry?.targetDegree ?? null;
+    if (sourceDegree == null || targetDegree == null) return 0;
+    const reducedDeltaCents =
+      (this.tuning.scale?.[sourceDegree] ?? 0) - (this.tuning.scale?.[targetDegree] ?? 0);
+    return Math.round((reducedDeltaCents - transpositionDeltaCents) / equaveCents);
+  }
+
+  _controllerAnchorAddressForSettings(settingsLike = this.settings) {
+    if (!this.controller) return null;
+    if (this.controller.multiChannel) {
+      return {
+        channel:
+          settingsLike.lumatone_center_channel ??
+          settingsLike.midiin_anchor_channel ??
+          this.controller.anchorChannelDefault ??
+          1,
+        note:
+          settingsLike.lumatone_center_note ??
+          settingsLike.midiin_central_degree ??
+          this.controller.anchorDefault ??
+          60,
+      };
+    }
+    return {
+      channel: 1,
+      note: settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
+    };
+  }
+
+  _buildControllerMapForSettings(settingsLike = this.settings) {
+    if (!this.controller || typeof this.controller.buildMap !== "function") return null;
+
+    const isSequential = !!settingsLike.midi_passthrough;
+    const useGeometryMap = !isSequential || !this.controller.multiChannel;
+    if (!useGeometryMap) return null;
+
+    let anchorNote;
+    let anchorChannel;
+
+    if (this.controller.multiChannel) {
+      const constraints = this.controller.learnConstraints;
+      anchorNote = settingsLike.lumatone_center_note;
+      anchorChannel = settingsLike.lumatone_center_channel;
+
+      if (!this.controller.supportsVirtualAnchor && constraints?.noteRange) {
+        const { min, max } = constraints.noteRange;
+        if (anchorNote == null || anchorNote < min || anchorNote > max) {
+          anchorNote = this.controller.anchorDefault ?? 26;
+        }
+      }
+      if (!this.controller.supportsVirtualAnchor && constraints?.channelRange) {
+        const { min, max } = constraints.channelRange;
+        if (anchorChannel == null || anchorChannel < min || anchorChannel > max) {
+          anchorChannel = this.controller.anchorChannelDefault ?? 3;
+        }
+      }
+    } else {
+      anchorNote = settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60;
+      anchorChannel = 1;
+    }
+
+    const rawOffsets = this.controller.multiChannel
+      ? this.controller.buildMap(anchorNote, anchorChannel, this.controller.defaultCols)
+      : this.controller.buildMap(anchorNote, anchorChannel, settingsLike.rSteps, settingsLike.drSteps);
+    const anchorAddress = this._controllerAnchorAddressForSettings(settingsLike);
+    const virtualAnchorCoords = (
+      Number.isFinite(settingsLike.controller_virtual_anchor_x) &&
+      Number.isFinite(settingsLike.controller_virtual_anchor_y)
+    )
+      ? new Point(settingsLike.controller_virtual_anchor_x, settingsLike.controller_virtual_anchor_y)
+      : null;
+    const actualAnchorCoords = anchorAddress
+      ? rawOffsets.get(`${anchorAddress.channel}.${anchorAddress.note}`) ?? null
+      : null;
+    const virtualDx = virtualAnchorCoords && actualAnchorCoords
+      ? virtualAnchorCoords.x - actualAnchorCoords.x
+      : 0;
+    const virtualDy = virtualAnchorCoords && actualAnchorCoords
+      ? virtualAnchorCoords.y - actualAnchorCoords.y
+      : 0;
+    const ox = settingsLike.centerHexOffset.x;
+    const oy = settingsLike.centerHexOffset.y;
+    const controllerMap = new Map();
+    for (const [key, { x, y }] of rawOffsets) {
+      controllerMap.set(key, new Point(x + virtualDx + ox, y + virtualDy + oy));
+    }
+    return controllerMap;
+  }
+
+  _controllerAnchorCoordsForSettings(controllerMap, settingsLike = this.settings) {
+    if (!controllerMap || !this.controller) return null;
+    if (
+      Number.isFinite(settingsLike.controller_virtual_anchor_x) &&
+      Number.isFinite(settingsLike.controller_virtual_anchor_y)
+    ) {
+      return new Point(settingsLike.controller_virtual_anchor_x, settingsLike.controller_virtual_anchor_y);
+    }
+    const anchorAddress = this._controllerAnchorAddressForSettings(settingsLike);
+    const anchorCoords = controllerMap.get(`${anchorAddress.channel}.${anchorAddress.note}`);
+    if (anchorCoords) return anchorCoords;
+    if (this.controller.supportsVirtualAnchor) {
+      return new Point(settingsLike.centerHexOffset.x, settingsLike.centerHexOffset.y);
+    }
+    return null;
+  }
+
+  _virtualAnchorSettingsForSurfaceDelta(anchorSettings, surfaceDelta) {
+    if (!this.controller || typeof this.controller.translateVirtualAnchor !== "function") return null;
+    const anchorAddress = this._controllerAnchorAddressForSettings({ ...this.settings, ...anchorSettings });
+    if (!anchorAddress) return null;
+    const nextAddress = this.controller.translateVirtualAnchor(
+      anchorAddress.note,
+      anchorAddress.channel,
+      surfaceDelta,
+    );
+    if (!nextAddress) return null;
+    return this._anchorSettingsForControllerAddress(
+      anchorSettings,
+      nextAddress.channel,
+      nextAddress.note,
+    );
+  }
+
+  _findNearestControllerCoordsForDegree(controllerMap, degree, anchorCoords) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const coords of controllerMap.values()) {
+      if (this._rawReducedStepsForCoords(coords) !== degree) continue;
+      const dx = coords.x - anchorCoords.x;
+      const dy = coords.y - anchorCoords.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = coords;
+      }
+    }
+    return best;
+  }
+
+  _findNearestControllerCoordsForRawStep(controllerMap, rawStep, referenceCoords) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const coords of controllerMap.values()) {
+      if (this._rawStepsForCoords(coords) !== rawStep) continue;
+      const dx = coords.x - referenceCoords.x;
+      const dy = coords.y - referenceCoords.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = coords;
+      }
+    }
+    return best;
+  }
+
+  _coordForRawStepNearReference(rawStep, referenceCoords) {
+    const previousLastMidiCoords = this.coordResolver.lastMidiCoords;
+    try {
+      this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(referenceCoords);
+      return this.coordResolver.coordForSteps(rawStep);
+    } finally {
+      this.coordResolver.lastMidiCoords = previousLastMidiCoords;
+    }
+  }
+
+  _anchorSettingsForControllerAddress(anchorSettings, channel, note) {
+    const next = {
+      ...anchorSettings,
+      midiin_central_degree: note,
+      midiin_anchor_channel: channel,
+      controller_virtual_anchor_x: null,
+      controller_virtual_anchor_y: null,
+    };
+    if (this.controller?.multiChannel) {
+      next.lumatone_center_note = note;
+      next.lumatone_center_channel = channel;
+    }
+    return next;
+  }
+
+  _anchorUpdateForSurfaceDelta(surfaceDelta, anchorSettings) {
+    if (!surfaceDelta) return anchorSettings;
+    const dx = Number(surfaceDelta.x);
+    const dy = Number(surfaceDelta.y);
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) {
+      return anchorSettings;
+    }
+
+    if (this.inputRuntime.layoutMode !== "sequential") {
+      const controllerMap = this._buildControllerMapForSettings({ ...this.settings, ...anchorSettings });
+      if (controllerMap && this.controller) {
+        const virtualUpdate = this._virtualAnchorSettingsForSurfaceDelta(anchorSettings, { x: dx, y: dy });
+        if (this.controller.id === "lumatone" && virtualUpdate) return virtualUpdate;
+        const anchorCoords = this._controllerAnchorCoordsForSettings(
+          controllerMap,
+          { ...this.settings, ...anchorSettings },
+        );
+        if (anchorCoords) {
+          const desiredAnchorCoords = new Point(anchorCoords.x - dx, anchorCoords.y - dy);
+          for (const [key, coords] of controllerMap.entries()) {
+            if (!coords.equals(desiredAnchorCoords)) continue;
+            const [channelText, noteText] = key.split(".");
+            return this._anchorSettingsForControllerAddress(
+              anchorSettings,
+              parseInt(channelText, 10),
+              parseInt(noteText, 10),
+            );
+          }
+          if (virtualUpdate) return virtualUpdate;
+          return {
+            ...anchorSettings,
+            controller_virtual_anchor_x: desiredAnchorCoords.x,
+            controller_virtual_anchor_y: desiredAnchorCoords.y,
+          };
+        }
+      }
+    }
+
+    const rawStepDelta = dx * this.settings.rSteps + dy * this.settings.drSteps;
+    return {
+      ...anchorSettings,
+      midiin_central_degree: (anchorSettings.midiin_central_degree ?? 60) - rawStepDelta,
+      midiin_anchor_channel: anchorSettings.midiin_anchor_channel ?? 1,
+      ...(anchorSettings.lumatone_center_note != null
+        ? { lumatone_center_note: anchorSettings.lumatone_center_note - rawStepDelta }
+        : {}),
+      ...(anchorSettings.lumatone_center_channel != null
+        ? { lumatone_center_channel: anchorSettings.lumatone_center_channel }
+        : {}),
+    };
+  }
+
+  _legacyAnchorUpdateForReplayRoute(entry, anchorSettings, direction = 1) {
+    const equaveOffset = this._routeEquaveOffset(entry);
+    const scaleLength = this.tuning.scale.length || 1;
+    const sourceDegree = direction >= 0 ? entry?.sourceDegree : entry?.targetDegree;
+    const targetDegree = direction >= 0
+      ? (entry?.targetDegree ?? 0) + equaveOffset * scaleLength
+      : (entry?.sourceDegree ?? 0) - equaveOffset * scaleLength;
+    if (sourceDegree == null || targetDegree == null) return anchorSettings;
+    const stepDelta = sourceDegree - targetDegree;
+
+    if (this.inputRuntime.layoutMode !== "sequential") {
+      const controllerMap = this._buildControllerMapForSettings({ ...this.settings, ...anchorSettings });
+      if (controllerMap && this.controller) {
+        const anchorCoords = this._controllerAnchorCoordsForSettings(
+          controllerMap,
+          { ...this.settings, ...anchorSettings },
+        );
+        const sourceCoords = anchorCoords
+          ? this._findNearestControllerCoordsForDegree(
+            controllerMap,
+            ((sourceDegree % scaleLength) + scaleLength) % scaleLength,
+            anchorCoords,
+          )
+          : null;
+        if (anchorCoords && sourceCoords) {
+          const sourceRaw = this._rawStepsForCoords(sourceCoords);
+          const targetRaw = sourceRaw + stepDelta;
+          const targetCoords = this._coordForRawStepNearReference(targetRaw, sourceCoords);
+          if (!targetCoords) return anchorSettings;
+          const desiredAnchorCoords = new Point(
+            anchorCoords.x + sourceCoords.x - targetCoords.x,
+            anchorCoords.y + sourceCoords.y - targetCoords.y,
+          );
+          for (const [key, coords] of controllerMap.entries()) {
+            if (!coords.equals(desiredAnchorCoords)) continue;
+            const [channelText, noteText] = key.split(".");
+            return this._anchorSettingsForControllerAddress(
+              anchorSettings,
+              parseInt(channelText, 10),
+              parseInt(noteText, 10),
+            );
+          }
+          const surfaceDelta = new Point(
+            targetCoords.x - sourceCoords.x,
+            targetCoords.y - sourceCoords.y,
+          );
+          const virtualUpdate = this._virtualAnchorSettingsForSurfaceDelta(anchorSettings, surfaceDelta);
+          if (virtualUpdate) return virtualUpdate;
+        }
+      }
+    }
+
+    return {
+      ...anchorSettings,
+      midiin_central_degree: (anchorSettings.midiin_central_degree ?? 60) + stepDelta,
+      midiin_anchor_channel: anchorSettings.midiin_anchor_channel ?? 1,
+      ...(anchorSettings.lumatone_center_note != null
+        ? { lumatone_center_note: anchorSettings.lumatone_center_note + stepDelta }
+        : {}),
+      ...(anchorSettings.lumatone_center_channel != null
+        ? { lumatone_center_channel: anchorSettings.lumatone_center_channel }
+        : {}),
+    };
+  }
+
+  _anchorUpdateForReplayRoute(entry, anchorSettings, direction = 1) {
+    const dx = Number(entry?.surfaceDeltaX);
+    const dy = Number(entry?.surfaceDeltaY);
+    if (Number.isFinite(dx) && Number.isFinite(dy)) {
+      const signedDelta = new Point(
+        direction >= 0 ? Math.trunc(dx) : -Math.trunc(dx),
+        direction >= 0 ? Math.trunc(dy) : -Math.trunc(dy),
+      );
+      return this._anchorUpdateForSurfaceDelta(signedDelta, anchorSettings);
+    }
+    return this._legacyAnchorUpdateForReplayRoute(entry, anchorSettings, direction);
+  }
+
+  _anchorSettingsFromHistory(history = this._modulationState.history ?? []) {
+    const base = { ...(this._modulationHomeAnchor ?? this._extractCurrentAnchorSettings()) };
+    if (this.settings.modulation_style !== "fixed_do") return base;
+
+    let next = { ...base };
+    for (const entry of Array.isArray(history) ? history : []) {
+      const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+      if (count > 0) {
+        for (let index = 0; index < count; index += 1) {
+          next = this._anchorUpdateForReplayRoute(entry, next, 1);
+        }
+      } else if (count < 0) {
+        for (let index = 0; index < Math.abs(count); index += 1) {
+          next = this._anchorUpdateForReplayRoute(entry, next, -1);
+        }
+      }
+    }
+    return next;
+  }
+
+  _applyAnchorSettingsUpdate(update, options = {}) {
+    if (!update) return;
+    Object.assign(this.settings, update);
+    this.updateInputRuntime(this.inputRuntime, update);
+    this._repositionLiveHexesAfterAnchorRewrite();
+    if (this._hasSoundingNotes()) this.scheduleImmediateGridRedraw();
+    if (options.persist !== false && this.onControllerAnchorRewrite) {
+      const emittedUpdate = { ...update };
+      if (emittedUpdate.controller_virtual_anchor_x == null) {
+        delete emittedUpdate.controller_virtual_anchor_x;
+      }
+      if (emittedUpdate.controller_virtual_anchor_y == null) {
+        delete emittedUpdate.controller_virtual_anchor_y;
+      }
+      this.onControllerAnchorRewrite(emittedUpdate, {
+        controller: this.controller ?? null,
+        runtimeOnly: options.runtimeOnly === true,
+      });
+    }
+  }
+
+  _applyAnchorFromModulationHistory(history = this._modulationState.history ?? [], options = {}) {
+    this._applyAnchorSettingsUpdate(this._anchorSettingsFromHistory(history), options);
+  }
+
+  _deriveFixedDoAnchorRewrite(surfaceDelta) {
+    if (!surfaceDelta) return null;
+    const update = this._anchorUpdateForSurfaceDelta(surfaceDelta, this._extractCurrentAnchorSettings());
+    if (!update) return null;
+    return { update, controller: this.controller ?? null };
+  }
+
+  _repositionLiveHexesAfterAnchorRewrite() {
+    const liveHexes = new Set([
+      ...this._allActiveHexes(),
+      ...this.state.sustainedNotes.map(([hex]) => hex),
+    ]);
+    for (const hex of liveHexes) {
+      const nextCoords = this._coordsForLiveInputAddress(hex?._liveInputAddress);
+      if (!nextCoords || !hex?.coords || hex.coords.equals(nextCoords)) continue;
+      hex.coords = nextCoords;
+    }
+  }
+
+  _applyFixedDoAnchorRewrite(anchorRewrite) {
+    if (!anchorRewrite?.update) return;
+    this._applyAnchorSettingsUpdate(anchorRewrite.update, { persist: true, runtimeOnly: true });
+  }
+
   _commitPendingModulationTarget(coords) {
-    if (this._modulationState.mode !== "awaiting_target") return;
+    if (this._modulationState.mode !== "awaiting_target") return { suppressNoteOn: false };
     const activeFrame = this._activeFrame();
-    const targetDegree = this._degreeForCoords(coords);
+    const isFixedDo = this._isFixedDoStrategy(this._modulationState.strategy);
+    const sourceCoords = this._modulationState.sourceHex?.coords ?? null;
+    const effectiveTargetCoords = isFixedDo
+      ? this._normalizedFixedDoTargetCoords(sourceCoords, coords)
+      : coords;
+    const targetDegree = this._degreeForCoords(effectiveTargetCoords);
+    const sourceStillSounding = this._isHexStillSounding(this._modulationState.sourceHex);
+    if (this._modulationState.sourceDegree == null || !sourceStillSounding) {
+      this._setAwaitingModulationSource(null, targetDegree, coords);
+      return { suppressNoteOn: false };
+    }
     if ((this._modulationState.sourceDegree ?? targetDegree) === targetDegree) {
       this._modulationState = cancelModulation(this._modulationState, "no_op_modulation");
       this.scheduleGridRedraw();
       this._emitModulationState();
-      return;
+      return { suppressNoteOn: false };
     }
-    const targetCents = this.hexCoordsToCents(coords)[0];
+    const targetCents = this.hexCoordsToCents(effectiveTargetCoords)[0];
     const sourceCents =
       this._modulationState.sourceHex?._baseCents ??
       this._modulationState.sourceHex?.cents ??
@@ -629,9 +1186,28 @@ class Keys {
       transpositionCents,
       effectiveFundamental,
     });
+    const surfaceDelta = this._surfaceDeltaFromCoords(sourceCoords, effectiveTargetCoords);
+    let anchorRewrite = null;
+    if (isFixedDo) {
+      if (!surfaceDelta) {
+        this._modulationState = cancelModulation(this._modulationState, "fixed_do_requires_overlap");
+        this.scheduleGridRedraw();
+        this._emitModulationState();
+        return { suppressNoteOn: false };
+      }
+      anchorRewrite = this._deriveFixedDoAnchorRewrite(surfaceDelta);
+      if (!anchorRewrite) {
+        this._modulationState = cancelModulation(this._modulationState, "fixed_do_anchor_unresolved");
+        this.scheduleGridRedraw();
+        this._emitModulationState();
+        return { suppressNoteOn: false };
+      }
+    }
     this._modulationState = commitModulationTarget(this._modulationState, {
       targetDegree,
       pendingFrame,
+      surfaceDeltaX: surfaceDelta?.x,
+      surfaceDeltaY: surfaceDelta?.y,
       transpositionDeltaCents,
       transpositionRatioText: ratioTextForModulationDelta(
         this.tuning,
@@ -639,10 +1215,13 @@ class Keys {
         targetDegree,
         transpositionDeltaCents,
       ),
-      sourceStillSounding: this._isHexStillSounding(this._modulationState.sourceHex),
+      sourceStillSounding,
+      articulation: isFixedDo ? "reanchor_hold_source" : undefined,
     });
+    if (anchorRewrite) this._applyFixedDoAnchorRewrite(anchorRewrite);
     this.scheduleGridRedraw();
     this._emitModulationState();
+    return { suppressNoteOn: !!anchorRewrite };
   }
 
   _isHexStillSounding(targetHex) {
@@ -651,6 +1230,14 @@ class Keys {
       if (hex.coords.equals(targetHex.coords)) return true;
     }
     return this.state.sustainedNotes.some(([hex]) => hex.coords.equals(targetHex.coords));
+  }
+
+  _isHexActivelyHeld(targetHex) {
+    if (!targetHex) return false;
+    for (const hex of this._allActiveHexes()) {
+      if (hex === targetHex) return true;
+    }
+    return false;
   }
 
   _maybeTakeOverModulationTarget(coords, cents, cents_prev, cents_next) {
@@ -994,6 +1581,7 @@ class Keys {
 
   updateInputRuntime = (nextRuntime, nextSettings = null) => {
     const previousMidiInputDevice = this.settings.midiin_device;
+    const previousModulationStyle = this.settings.modulation_style;
     const previousRouteKey = JSON.stringify({
       device: this.settings.midiin_device,
       override: this.settings.midiin_controller_override,
@@ -1019,6 +1607,19 @@ class Keys {
     }
     if (nextSettings) {
       Object.assign(this.settings, nextSettings);
+      if (this.inputRuntime) {
+        const anchorRuntimeUpdate = {};
+        if (nextSettings.midiin_central_degree != null) {
+          anchorRuntimeUpdate.seqAnchorNote = nextSettings.midiin_central_degree;
+        }
+        if (nextSettings.midiin_anchor_channel != null) {
+          anchorRuntimeUpdate.seqAnchorChannel = nextSettings.midiin_anchor_channel;
+        }
+        if (Object.keys(anchorRuntimeUpdate).length > 0) {
+          Object.assign(this.inputRuntime, anchorRuntimeUpdate);
+          if (this.coordResolver) this.coordResolver.inputRuntime = this.inputRuntime;
+        }
+      }
       if (previousMidiInputDevice !== this.settings.midiin_device) {
         InputMidiListeners.rebindMidiInput.call(this);
         return;
@@ -1031,6 +1632,15 @@ class Keys {
       if (controllerMapChanged) {
         InputMidiListeners.syncControllerAutoColors.call(this);
       }
+    }
+    if (previousModulationStyle !== this.settings.modulation_style) {
+      this._syncModulationStyleFromSettings({ emit: true });
+    }
+    const hasActiveRoutes = Array.isArray(this._modulationState?.history)
+      ? this._modulationState.history.some((entry) => (Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0) !== 0)
+      : false;
+    if (!hasActiveRoutes && this._modulationState?.mode === "idle") {
+      this._captureModulationHomeAnchor();
     }
   };
 
@@ -1483,9 +2093,14 @@ class Keys {
     if (this.onLatchChange) this.onLatchChange(false);
   };
 
-  hexOn(coords, note_played, velocity_played, bend) {
+  hexOn(coords, note_played, velocity_played, bend, options = null) {
     this._markSoundActivity();
-    this._commitPendingModulationTarget(coords);
+    this._lastHexOnSuppressed = false;
+    const modulationCommit = this._commitPendingModulationTarget(coords, options ?? {});
+    if (modulationCommit?.suppressNoteOn) {
+      this._lastHexOnSuppressed = true;
+      return null;
+    }
     if (this._staticDeferredBulkActive && this._deferredBulkMapRefresh) {
       this._sendBulkDumpOctaveRefresh(this._hasSoundingNotes(), false);
       this._deferredBulkMapRefresh = false;
@@ -1526,6 +2141,7 @@ class Keys {
       degree0toRef_ratio,
     );
     hex._baseCents = cents;
+    if (options?.liveInputAddress) hex._liveInputAddress = { ...options.liveInputAddress };
     // In standard wheel mode, some outputs need the bent pitch reflected before
     // noteOn itself (OSC / MTS), while others rely on raw PB passthrough (MPE).
     let wheelPrimedBeforeNoteOn = false;
@@ -1547,6 +2163,12 @@ class Keys {
     hex.cents_next = cents_next;
     // Track in recency stack so wheel bend and snapshot can find this note.
     this.recencyStack.push(hex);
+    if (
+      this._modulationState.mode === "awaiting_target" &&
+      this._modulationState.sourceCoordsKey === `${coords.x},${coords.y}`
+    ) {
+      this._setAwaitingModulationSource(hex, pressed_interval, coords);
+    }
     this._updateWheelTarget();
     delete hex._wheelPrimedBeforeNoteOn;
     if (!wheelPrimedBeforeNoteOn) this._applyCurrentWheelToHex(hex);
@@ -1583,6 +2205,7 @@ class Keys {
       releaseTransferredSourceExpression(hex);
       this.recencyStack.remove(hex);
       this._updateWheelTarget(true);
+      this._syncAwaitingModulationSource();
       return;
     }
     if (this.state.sustain) {
@@ -1602,6 +2225,7 @@ class Keys {
       // Note is going silent — remove from recency stack and update wheel target.
       this.recencyStack.remove(hex);
       this._updateWheelTarget(true);
+      this._syncAwaitingModulationSource();
       if (this._staticDeferredBulkActive) {
         this._deferredBulkMapRefresh = this._hasSoundingNotes();
         if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;
@@ -1630,6 +2254,11 @@ class Keys {
     for (let note = 0; note < notesToRelease.length; note++) {
       const hex = notesToRelease[note][0];
       const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+      if (this._isHexActivelyHeld(hex)) {
+        const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
+        this.drawHex(hex.coords, color, text_color);
+        continue;
+      }
       const [color, text_color] = this.centsToColor(cents, false, pressed_interval);
       this.drawHex(hex.coords, color, text_color);
       hex.noteOff(notesToRelease[note][1]);
@@ -1637,6 +2266,7 @@ class Keys {
       this.recencyStack.remove(hex);
     }
     this._updateWheelTarget(true);
+    this._syncAwaitingModulationSource();
     if (this._staticDeferredBulkActive) {
       this._deferredBulkMapRefresh = this._hasSoundingNotes();
       if (!this._deferredBulkMapRefresh) this._staticDeferredBulkActive = false;

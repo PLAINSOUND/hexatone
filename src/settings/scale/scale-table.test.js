@@ -125,6 +125,20 @@ describe("ScaleTable — scale value inputs", () => {
     expect(updated[4]).toBe("498.04");
     expect(updated[0]).toBe("100.");
   });
+
+  it("normalizes a committed integer entry to explicit ratio form", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch value 4");
+
+    fireEvent.input(input, { target: { value: "3" } });
+    fireEvent.blur(input);
+
+    const commitCall = onChange.mock.calls.findLast(
+      ([key, updated]) => key === "scale" && Array.isArray(updated) && updated[4] === "3/1",
+    );
+    expect(commitCall).toBeTruthy();
+  });
 });
 
 // ── Colors ────────────────────────────────────────────────────────────────────

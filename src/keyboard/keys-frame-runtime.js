@@ -51,6 +51,14 @@ export function deriveFrameForHistory(options = {}) {
     const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
     return sum + count * routeTranspositionDeltaCents(route, scale);
   }, 0);
+  const transpositionSteps = strategy === "retune_surface_in_place"
+    ? activeRoutes.reduce((sum, route) => {
+      const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
+      const sourceDegree = route?.sourceDegree ?? 0;
+      const targetDegree = route?.targetDegree ?? sourceDegree;
+      return sum + count * (targetDegree - sourceDegree);
+    }, 0)
+    : 0;
   const effectiveFundamental = fundamental * Math.pow(2, transpositionCents / 1200);
   const route = activeRoutes[activeRoutes.length - 1] ?? null;
 
@@ -58,7 +66,7 @@ export function deriveFrameForHistory(options = {}) {
     strategy,
     sourceDegree: route?.sourceDegree ?? null,
     targetDegree: route?.targetDegree ?? null,
-    transpositionSteps: 0,
+    transpositionSteps,
     transpositionCents,
     effectiveFundamental,
   });

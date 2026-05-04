@@ -2,6 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import Keys from "./keys.js";
 import Point from "./point.js";
 import { WebMidi } from "webmidi";
+import { rebuildControllerMap } from "../input/keys-midi-listeners.js";
 
 const edo12 = Array.from({ length: 12 }, (_, i) => i * 100);
 
@@ -462,11 +463,11 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.armModulation()).toBe(true);
     expect(keys.getModulationState().mode).toBe("awaiting_target");
-    expect(keys.getModulationState().sourceDegree).toBe(0);
+    expect(keys.getModulationState().sourceDegree).toBeNull();
     expect(onModulationArmChange).toHaveBeenCalledWith(true);
   });
 
-  it("uses the last played degree as the modulation source when no notes are sounding", () => {
+  it("does not reuse the last played degree as the modulation source when no notes are sounding", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
         coords,
@@ -490,7 +491,53 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.armModulation()).toBe(true);
     expect(keys.getModulationState().sourceHex).toBeNull();
-    expect(keys.getModulationState().sourceDegree).toBe(7);
+    expect(keys.getModulationState().sourceDegree).toBeNull();
+  });
+
+  it("waits for a first note to define the source and requires overlap before moveable-do commits", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys({}, {}, synth);
+
+    expect(keys.armModulation()).toBe(true);
+    expect(keys.getModulationState().sourceDegree).toBeNull();
+
+    const sourceHex = keys.hexOn(new Point(0, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+
+    expect(keys.getModulationState().mode).toBe("awaiting_target");
+    expect(keys.getModulationState().sourceDegree).toBe(0);
+    expect(keys.getModulationState().history).toEqual([]);
+
+    keys.noteOff(sourceHex, 0);
+    keys.state.activeKeyboard.delete("KeyA");
+
+    expect(keys.getModulationState().mode).toBe("awaiting_target");
+    expect(keys.getModulationState().sourceDegree).toBeNull();
+
+    const newSourceHex = keys.hexOn(new Point(2, 0));
+    keys.state.activeKeyboard.set("KeyS", newSourceHex);
+    expect(keys.getModulationState().sourceDegree).toBe(2);
+
+    const targetHex = keys.hexOn(new Point(3, 0));
+    keys.state.activeKeyboard.set("KeyD", targetHex);
+
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+    expect(keys.getModulationState().currentRoute).toMatchObject({
+      sourceDegree: 2,
+      targetDegree: 3,
+    });
   });
 
   it("commits a source-to-target modulation without rebuilding Keys and keeps labels stable in moveable-surface mode", () => {
@@ -538,6 +585,553 @@ describe("Keys MIDI input integration", () => {
     const nextHex = keys.hexOn(nextCoords);
     expect(nextHex.cents).toBeCloseTo(300, 5);
     expect(keys.getDisplayLabelAtCoords(nextCoords)).toBe("n6");
+  });
+
+  it("requires overlap and suppresses the target note for fixed-do sequential modulation", () => {
+    const onControllerAnchorRewrite = vi.fn();
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      synth,
+    );
+    keys.onControllerAnchorRewrite = onControllerAnchorRewrite;
+
+    keys.midinoteOn(makeMidiEvent(60));
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(62));
+
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+    expect(keys.getModulationState().lastDecision?.articulation).toBe("reanchor_hold_source");
+    expect(keys.state.activeMidi.get(62)).toBeUndefined();
+    expect(keys._suppressedMidiNotes.has(62)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(58);
+    expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
+    expect(onControllerAnchorRewrite).toHaveBeenCalledWith(
+      {
+        midiin_central_degree: 58,
+        midiin_anchor_channel: 1,
+      },
+      { controller: null, runtimeOnly: true },
+    );
+
+    keys.midinoteOn(makeMidiEvent(61));
+    expect(keys.state.activeMidi.get(61)?.cents).toBeCloseTo(100, 5);
+
+    keys.midinoteOff(makeMidiEvent(62));
+    expect(keys._suppressedMidiNotes.has(62)).toBe(false);
+    expect(keys.state.activeMidi.get(60)).toBeTruthy();
+  });
+
+  it("keeps fixed-do armed and redefines the source when no overlap is present", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      synth,
+    );
+
+    const sourceHex = keys.hexOn(new Point(0, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    keys.noteOff(sourceHex, 0);
+    keys.state.activeKeyboard.delete("KeyA");
+
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(62));
+
+    expect(keys.getModulationState().mode).toBe("awaiting_target");
+    expect(keys.getModulationState().sourceDegree).toBe(2);
+    expect(keys.state.activeMidi.get(62)).toBeTruthy();
+    expect(keys.settings.midiin_central_degree).toBe(60);
+  });
+
+  it("rewrites the live anchor for fixed-do modulation on a 2D controller map", () => {
+    const onControllerAnchorRewrite = vi.fn();
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "push2",
+        midiin_device: "test-input",
+        midiin_central_degree: 36,
+      },
+      {},
+      synth,
+    );
+    keys.onControllerAnchorRewrite = onControllerAnchorRewrite;
+    keys.midiin_data = {
+      name: "Ableton Push 2",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    rebuildControllerMap.call(keys);
+
+    const sourceCoords = keys.controllerMap.get("1.38");
+    const targetCoords = keys.controllerMap.get("1.37");
+    keys.midinoteOn(makeMidiEvent(38));
+    const sourceHex = keys.state.activeMidi.get(38);
+    expect(sourceHex.coords).toEqual(sourceCoords);
+
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(37));
+
+    expect(keys.settings.midiin_central_degree).toBe(37);
+    expect(keys.state.activeMidi.get(37)).toBeUndefined();
+    expect(sourceHex.coords).toEqual(targetCoords);
+    expect(onControllerAnchorRewrite).toHaveBeenCalledWith(
+      {
+        midiin_central_degree: 37,
+        midiin_anchor_channel: 1,
+      },
+      expect.objectContaining({ controller: expect.objectContaining({ id: "push2" }) }),
+    );
+  });
+
+  it("replays fixed-do anchor changes when stepping modulation history and resetting counts", () => {
+    const onControllerAnchorRewrite = vi.fn();
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      synth,
+    );
+    keys.onControllerAnchorRewrite = onControllerAnchorRewrite;
+
+    keys.midinoteOn(makeMidiEvent(60));
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(62));
+    keys.noteOff(keys.state.activeMidi.get(60), 0);
+    keys.state.activeMidi.delete(60);
+    keys._maybeSettleModulation();
+
+    expect(keys.getModulationState().mode).toBe("idle");
+    expect(keys.settings.midiin_central_degree).toBe(58);
+
+    expect(keys.stepModulationHistory(-1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(60);
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(58);
+
+    expect(keys.resetModulationRouteCounts()).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(onControllerAnchorRewrite).toHaveBeenLastCalledWith(
+      {
+        midiin_central_degree: 60,
+        midiin_anchor_channel: 1,
+      },
+      { controller: null, runtimeOnly: false },
+    );
+  });
+
+  it("replays the same saved modulation route as moveable or fixed depending on current style", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "moveable_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      synth,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 2,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: -200,
+        },
+      ],
+    );
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(60);
+
+    expect(keys.stepModulationHistory(-1)).toBe(true);
+    keys.updateInputRuntime(keys.inputRuntime, { modulation_style: "fixed_do" });
+    expect(keys.settings.midiin_central_degree).toBe(60);
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(58);
+
+    keys.updateInputRuntime(keys.inputRuntime, { modulation_style: "moveable_do" });
+    expect(keys.settings.midiin_central_degree).toBe(60);
+  });
+
+  it("captures the surface delta for reusable fixed-do history replay", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      synth,
+    );
+
+    keys.midinoteOn(makeMidiEvent(60));
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(62));
+
+    expect(keys.getModulationState().history.at(-1)).toMatchObject({
+      sourceDegree: 0,
+      targetDegree: 2,
+      surfaceDeltaX: 2,
+      surfaceDeltaY: 0,
+    });
+  });
+
+  it("reduces large fixed-do sequential intervals before rewriting the anchor", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(function () {
+            this.release = true;
+          }),
+          retune(newCents) {
+            this.cents = newCents;
+          },
+        })),
+      },
+    );
+
+    keys.midinoteOn(makeMidiEvent(60));
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(79));
+
+    expect(keys.settings.midiin_central_degree).toBe(65);
+    expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
+    keys.midinoteOn(makeMidiEvent(61));
+    expect(keys.state.activeMidi.get(61)?.cents).toBeCloseTo(100, 5);
+    expect(keys.getModulationState().history.at(-1)).toMatchObject({
+      sourceDegree: 0,
+      targetDegree: 7,
+      surfaceDeltaX: -5,
+      surfaceDeltaY: 0,
+      transpositionDeltaCents: 500,
+    });
+  });
+
+  it("replays fixed-do history from the stored surface delta, not the reduced degree pair", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+        rSteps: 1,
+        drSteps: 2,
+      },
+      {
+        layoutMode: "sequential",
+      },
+      {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 2,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: -200,
+          surfaceDeltaX: 1,
+          surfaceDeltaY: 1,
+        },
+      ],
+    );
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(57);
+  });
+
+  it("uses the octave-aware route offset when replaying fixed-do history", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 7,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: 500,
+        },
+      ],
+    );
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(65);
+  });
+
+  it("shifts the anchor again on each additional fixed-do replay step", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 7,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: 500,
+        },
+      ],
+    );
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(65);
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(70);
+
+    expect(keys.stepModulationHistory(-2)).toBe(true);
+    expect(keys.settings.midiin_central_degree).toBe(60);
+  });
+
+  it("keeps shifting a LinnStrument fixed-do anchor after it moves off the physical surface", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "linnstrument",
+        midiin_device: "test-input",
+        midiin_central_degree: 2,
+        lumatone_center_note: 2,
+        lumatone_center_channel: 4,
+      },
+      { layoutMode: "controller_geometry" },
+      {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 7,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: 500,
+          surfaceDeltaX: 1,
+          surfaceDeltaY: 0,
+        },
+      ],
+    );
+    keys.midiin_data = {
+      name: "LinnStrument 128",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    rebuildControllerMap.call(keys);
+
+    expect(keys.controller?.id).toBe("linnstrument");
+    expect(keys.controllerMap.get("4.1")).toEqual(new Point(-1, 0));
+
+    expect(keys.stepModulationRoute(0, 1)).toBe(true);
+    expect(keys.settings.lumatone_center_note).toBe(1);
+    expect(keys.controllerMap.get("4.1")).toEqual(new Point(0, 0));
+
+    expect(keys.stepModulationRoute(0, 1)).toBe(true);
+    expect(keys.settings.lumatone_center_note).toBe(0);
+    expect(keys.controllerMap.get("4.1")).toEqual(new Point(1, 0));
+  });
+
+  it("keeps shifting a Lumatone fixed-do anchor after it moves past note zero", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "lumatone",
+        midiin_device: "test-input",
+        midiin_central_degree: 0,
+        lumatone_center_note: 0,
+        lumatone_center_channel: 3,
+      },
+      { layoutMode: "controller_geometry" },
+      {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 7,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: 500,
+          surfaceDeltaX: 0,
+          surfaceDeltaY: 1,
+        },
+      ],
+    );
+    keys.midiin_data = {
+      name: "Lumatone MIDI Function",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    rebuildControllerMap.call(keys);
+
+    expect(keys.controller?.id).toBe("lumatone");
+    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
+
+    expect(keys.stepModulationRoute(0, 1)).toBe(true);
+    expect(keys.settings.lumatone_center_note).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_y).toBe(-1);
+    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, -1));
+
+    expect(keys.stepModulationRoute(0, 1)).toBe(true);
+    expect(keys.settings.lumatone_center_note).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_y).toBe(-2);
+    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, -2));
+
+    expect(keys.stepModulationRoute(0, 4)).toBe(true);
+    expect(keys.settings.lumatone_center_note).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_y).toBe(-6);
+    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, -6));
+  });
+
+
+  it("redraws immediately when fixed-do history replay changes anchor with sounding notes held", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      synth,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 2,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: -200,
+        },
+      ],
+    );
+    const immediateRedraw = vi.spyOn(keys, "scheduleImmediateGridRedraw");
+
+    keys.midinoteOn(makeMidiEvent(60));
+    expect(keys.state.activeMidi.get(60)).toBeTruthy();
+
+    expect(keys.stepModulationHistory(1)).toBe(true);
+
+    expect(immediateRedraw).toHaveBeenCalled();
   });
 
   it("settles a takeover modulation when the source key is released so stored-route arrows remain usable", () => {
@@ -1089,7 +1683,7 @@ describe("Keys MIDI input integration", () => {
     expect(sourceRetune).toHaveBeenLastCalledWith(expectedBentCents, true);
   });
 
-  it("treats source-to-same-target modulation as a no-op", () => {
+  it("uses the first played note as the source when modulation was armed without one", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
         coords,
@@ -1114,9 +1708,11 @@ describe("Keys MIDI input integration", () => {
     );
 
     expect(keys.armModulation()).toBe(true);
-    keys.hexOn(new Point(0, 0));
+    const sourceHex = keys.hexOn(new Point(0, 0));
 
-    expect(keys.getModulationState().mode).toBe("idle");
+    expect(sourceHex).toBeTruthy();
+    expect(keys.getModulationState().mode).toBe("awaiting_target");
+    expect(keys.getModulationState().sourceDegree).toBe(0);
     expect(keys.getModulationState().history).toEqual([]);
     expect(keys.getModulationState().currentRoute).toBeNull();
     expect(keys.getEffectiveFundamental()).toBeCloseTo(440, 5);
@@ -1148,6 +1744,27 @@ describe("Keys MIDI input integration", () => {
     }
   });
 
+  it("does not bootstrap fixed-do history through live MIDI rebuild before geometry is ready", () => {
+    expect(() =>
+      createKeys(
+        {
+          midiin_device: "test-input",
+          midiin_controller_override: "generic",
+        },
+        {},
+        {},
+        [
+          {
+            sourceDegree: 0,
+            targetDegree: 2,
+            strategy: "retune_surface_to_source",
+            count: 1,
+            transpositionDeltaCents: -200,
+          },
+        ],
+      )).not.toThrow();
+  });
+
   it("uses controller-provided scale pitch cents in nearest-scale mode", () => {
     const keys = createKeys({}, { target: "scale" });
     const hexOn = vi.fn((coords) => ({
@@ -1171,6 +1788,7 @@ describe("Keys MIDI input integration", () => {
       expect.any(Number),
       expect.any(Number),
       expect.any(Number),
+      { liveInputAddress: null },
     );
   });
 
@@ -1196,6 +1814,7 @@ describe("Keys MIDI input integration", () => {
       expect.any(Number),
       expect.any(Number),
       expect.any(Number),
+      { liveInputAddress: null },
     );
   });
 
@@ -3378,6 +3997,30 @@ describe("Keys MIDI input integration", () => {
 
     expect(hexNoteOff).toHaveBeenCalledWith(55);
     expect(keys.state.sustainedNotes).toHaveLength(0);
+  });
+
+  it("does not note-off MIDI-held notes when sustain is toggled off", () => {
+    const keys = createKeys({ midi_velocity: 72 });
+    const drawHex = vi.fn();
+    const noteOff = vi.fn();
+    const hex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      noteOff,
+    };
+    keys.drawHex = drawHex;
+    keys.state.activeMidi.set(60, hex);
+    keys.recencyStack.push(hex);
+    keys.state.sustainedNotes.push([hex, 31]);
+    keys.state.sustainedCoords.add("0,0");
+
+    keys.sustainOff();
+
+    expect(noteOff).not.toHaveBeenCalled();
+    expect(keys.state.activeMidi.get(60)).toBe(hex);
+    expect(keys.state.sustainedNotes).toHaveLength(0);
+    expect(keys.recencyStack.front).toBe(hex);
+    expect(drawHex).toHaveBeenCalled();
   });
 
   it("captures snapshot attack velocity from active hexes", () => {

@@ -68,6 +68,36 @@ describe("Scale panel — default state", () => {
     expect(document.querySelector("table")).toBeNull();
     expect(screen.getByText("Equave")).not.toBeNull();
     expect(screen.getByText("Key Labels")).not.toBeNull();
+    expect(screen.getByLabelText("Modulation Style")).not.toBeNull();
+  });
+
+  it("keeps Modulation Style interactive when the table is collapsed", () => {
+    sessionStorage.setItem("hexatone_scale_collapsed", "true");
+    const onChange = vi.fn();
+    render(<Scale settings={minimalSettings} onChange={onChange} onImport={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText("Modulation Style"), {
+      target: { value: "fixed_do" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith("modulation_style", "fixed_do");
+  });
+
+  it("shows the effective scale size from the current scale when equivSteps is stale", () => {
+    render(
+      <Scale
+        settings={{
+          ...minimalSettings,
+          equivSteps: 12,
+          scale: ["2/1"],
+        }}
+        onChange={() => {}}
+        onImport={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("Scale Size").value).toBe("1");
+    expect(screen.getByText("Divide Equave into 1 Equal Divisions")).not.toBeNull();
   });
 });
 

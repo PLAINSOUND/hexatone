@@ -22,6 +22,8 @@ const Settings = ({
   activePresetName,
   isPresetDirty,
   currentModulationLibrary,
+  canCommitModulation,
+  onCommitCurrentModulation,
   persistOnReload,
   setPersistOnReload,
   onRevertBuiltin,
@@ -86,6 +88,8 @@ const Settings = ({
       activePresetName={activePresetName}
       isPresetDirty={isPresetDirty}
       currentModulationLibrary={currentModulationLibrary}
+      canCommitModulation={canCommitModulation}
+      onCommitCurrentModulation={onCommitCurrentModulation}
       onRevert={onRevertUser}
     />
     <Info onChange={onChange} settings={settings} />

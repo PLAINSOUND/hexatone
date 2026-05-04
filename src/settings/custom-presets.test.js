@@ -33,6 +33,8 @@ const baseProps = {
   isPresetDirty: false,
   onRevert: () => {},
   currentModulationLibrary: [],
+  canCommitModulation: false,
+  onCommitCurrentModulation: () => null,
 };
 
 describe("CustomPresets import actions", () => {

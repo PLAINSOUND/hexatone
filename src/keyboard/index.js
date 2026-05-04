@@ -48,6 +48,7 @@ const Keyboard = (props) => {
       props.tuningRuntime,
       props.onModulationStateChange,
       props.initialModulationLibrary,
+      props.onControllerAnchorRewrite,
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;

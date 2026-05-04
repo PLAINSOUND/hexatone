@@ -83,6 +83,7 @@ export function midinoteOn(event) {
   const bend = this.bend || 0;
   const notePlayed = event.note.number + 128 * (event.message.channel - 1);
   const velocityPlayed = event.note.rawAttack;
+  this._suppressedMidiNotes?.delete(notePlayed);
 
   const existingHex = this.state.activeMidi.get(notePlayed);
   if (existingHex) {
@@ -100,6 +101,7 @@ export function midinoteOn(event) {
   }
 
   let coords;
+  let liveInputAddress = null;
 
   if (this.inputRuntime.target === "scale") {
     const pitchCents = this._resolveScaleInputPitchCents(
@@ -120,6 +122,11 @@ export function midinoteOn(event) {
   } else if (this.inputRuntime.layoutMode === "sequential") {
     const normalized = this._normalizeInputAddress(event.message.channel, event.note.number);
     if (!normalized) return;
+    liveInputAddress = {
+      channel: normalized.channel,
+      note: normalized.note,
+      rawChannel: event.message.channel,
+    };
     if (!this.settings.output_mts && this.midiout_data && this.settings.midi_channel >= 0) {
       this.midiout_data.sendNoteOn(event.note.number, {
         channels: this.settings.midi_channel + 1,
@@ -130,8 +137,19 @@ export function midinoteOn(event) {
       this.coordResolver.noteToSteps(normalized.note, normalized.channel),
     );
   } else if (this.controllerMap) {
+    const lookupChannel = this.controller.multiChannel ? event.message.channel : 1;
+    liveInputAddress = {
+      channel: lookupChannel,
+      note: event.note.number,
+      rawChannel: event.message.channel,
+    };
     coords = coordsForKnownController.call(this, event);
   } else {
+    liveInputAddress = {
+      channel: event.message.channel,
+      note: event.note.number,
+      rawChannel: event.message.channel,
+    };
     coords = this.coordResolver.coordForSteps(
       this.coordResolver.noteToSteps(event.note.number, event.message.channel),
     );
@@ -139,7 +157,11 @@ export function midinoteOn(event) {
 
   if (coords === null) return;
   if (this._midiLatchToggle(coords, velocityPlayed)) return;
-  const hex = this.hexOn(coords, notePlayed, velocityPlayed, bend);
+  const hex = this.hexOn(coords, notePlayed, velocityPlayed, bend, { liveInputAddress });
+  if (!hex) {
+    if (this._lastHexOnSuppressed) this._suppressedMidiNotes?.add(notePlayed);
+    return;
+  }
   if (usesPerChannelExpression(this.inputRuntime)) hex._inputChannel = event.message.channel;
   this.state.activeMidi.set(notePlayed, hex);
   if (usesPerChannelExpression(this.inputRuntime)) {
@@ -156,6 +178,11 @@ export function midinoteOn(event) {
 }
 
 export function midinoteOff(event) {
+  const notePlayed = event.note.number + 128 * (event.message.channel - 1);
+  if (this._suppressedMidiNotes?.has(notePlayed)) {
+    this._suppressedMidiNotes.delete(notePlayed);
+    return;
+  }
   let coordsList;
 
   if (this.inputRuntime.target === "scale") {
@@ -195,7 +222,6 @@ export function midinoteOff(event) {
     coordsList = coords ? [coords] : [];
   }
 
-  const notePlayed = event.note.number + 128 * (event.message.channel - 1);
   const hex = this.state.activeMidi.get(notePlayed);
   if (hex) {
     this.noteOff(hex, event.note.rawRelease);
@@ -226,6 +252,7 @@ export function midinoteOff(event) {
 
 export function allnotesOff() {
   this._retuneGlides.clear();
+  this._suppressedMidiNotes?.clear();
   if (this._retuneGlideTimer != null) {
     clearTimeout(this._retuneGlideTimer);
     this._retuneGlideTimer = null;

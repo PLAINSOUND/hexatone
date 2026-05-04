@@ -65,7 +65,7 @@ export const SETTINGS_REGISTRY = [
   { key: "scale", tier: "url", type: "joined", default: null, presetSkip: true },
   { key: "note_names", tier: "url", type: "joined", default: null, presetSkip: true },
   { key: "note_colors", tier: "url", type: "joined", default: null, presetSkip: true },
-  { key: "equivSteps", tier: "url", type: "int", default: 12, presetSkip: true },
+  { key: "equivSteps", tier: "url", type: "int", default: 1, presetSkip: true },
   { key: "reference_degree", tier: "url", type: "int", default: 0, presetSkip: true },
   { key: "fundamental", tier: "url", type: "float", default: 440, presetSkip: true },
   { key: "spectrum_colors", tier: "url", type: "bool", default: true, presetSkip: true },
@@ -90,6 +90,7 @@ export const SETTINGS_REGISTRY = [
   // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
   // remains session-scoped and stays out of share URLs.
   { key: "retuning_mode", tier: "session", type: "string", default: "recalculate_reference" },
+  { key: "modulation_style", tier: "session", type: "string", default: "moveable_do" },
 
   // ── Layout / grid ────────────────────────────────────────────────────────────
   { key: "rSteps", tier: "url", type: "int", default: 2, presetSkip: true },

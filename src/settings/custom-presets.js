@@ -66,6 +66,8 @@ const CustomPresets = ({
   activePresetName,
   onRevert,
   currentModulationLibrary,
+  canCommitModulation,
+  onCommitCurrentModulation,
 }) => {
   const [presets, setPresets] = useState(loadCustomPresets);
   const [selected, setSelected] = useState("");
@@ -147,6 +149,34 @@ const CustomPresets = ({
       }),
       `${safeName(tuningName)}.json`,
     );
+  };
+
+  const handleCommitModulation = () => {
+    if (!tuningName) {
+      setError("Please enter a name in the Name and Description section first.");
+      return;
+    }
+    const committedSettings = onCommitCurrentModulation?.();
+    if (!committedSettings) {
+      setError("No active modulation to commit.");
+      return;
+    }
+
+    const preset = { name: tuningName };
+    for (const key of PRESET_FIELDS) {
+      if (committedSettings[key] !== undefined) preset[key] = committedSettings[key];
+    }
+    delete preset.modulation_library;
+
+    const next = isExisting
+      ? presets.map((p) => (p.name === tuningName ? preset : p))
+      : [...presets, preset];
+    saveCustomPresets(next);
+    setPresets(next);
+    setSelected(tuningName);
+    setExpanded(true);
+    setError("");
+    onLoad(preset);
   };
 
   const handleDelete = () => {
@@ -397,9 +427,16 @@ const CustomPresets = ({
             rowGap: "0.25em",
           }}
         >
-          <button type="button" class="preset-action-btn" onClick={handleSave}>
-            {saveLabel}
-          </button>
+          <span style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <button type="button" class="preset-action-btn" onClick={handleSave}>
+              {saveLabel}
+            </button>
+            {canCommitModulation && (
+              <button type="button" class="preset-action-btn" onClick={handleCommitModulation}>
+                Commit Modulation
+              </button>
+            )}
+          </span>
           <span style={{ display: "flex", gap: "6px" }}>
             <button type="button" class="preset-utility-btn" style={{ width: "6em", textAlign: "center" }} onClick={handleExport}>
               Export .json
@@ -426,6 +463,8 @@ CustomPresets.propTypes = {
   isPresetDirty: PropTypes.bool,
   onRevert: PropTypes.func,
   currentModulationLibrary: PropTypes.arrayOf(PropTypes.object),
+  canCommitModulation: PropTypes.bool,
+  onCommitCurrentModulation: PropTypes.func,
 };
 
 export default CustomPresets;

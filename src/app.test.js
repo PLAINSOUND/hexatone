@@ -13,6 +13,7 @@
  */
 
 import { render, waitFor, screen } from "@testing-library/preact";
+import { act } from "preact/test-utils";
 import { parseExactInterval } from "./tuning/interval.js";
 
 let lastKeyboardProps = null;
@@ -177,6 +178,7 @@ vi.mock("./img/hex.svg?react", () => ({
 
 import {
   bindControllerLedRefs,
+  commitModulationHistoryToPreset,
   Loading,
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
@@ -236,8 +238,51 @@ describe("modulationRouteLabelPair", () => {
   });
 });
 
+describe("commitModulationHistoryToPreset", () => {
+  it("rewrites the current modulation into a new exact scale and clears history", async () => {
+    const { createScaleWorkspace } = await import("./tuning/workspace.js");
+    const workspace = createScaleWorkspace({
+      scale: ["9/8", "5/4", "4/3", "2/1"],
+      fundamental: 440,
+      reference_degree: 0,
+    });
+
+    const committed = commitModulationHistoryToPreset(
+      {
+        scale: ["9/8", "5/4", "4/3", "2/1"],
+        note_names: ["1/1", "9/8", "5/4", "4/3"],
+        note_colors: ["#111111", "#222222", "#333333", "#444444"],
+        key_labels: "note_names",
+        fundamental: 440,
+        reference_degree: 0,
+      },
+      workspace,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 2,
+          count: 1,
+          transpositionDeltaCents: -parseExactInterval("5/4").cents,
+          transpositionRatioText: "4/5",
+        },
+      ],
+      {
+        hejiAnchorLabel: "A",
+        hejiAnchorRatio: "1/1",
+      },
+    );
+
+    expect(committed.scale).toEqual(["16/15", "8/5", "9/5", "2/1"]);
+    expect(committed.note_names).toEqual(["5/4", "4/3", "1/1", "9/8"]);
+    expect(committed.note_colors).toEqual(["#111111", "#222222", "#333333", "#444444"]);
+    expect(committed.fundamental).toBeCloseTo(440 / 1.25, 6);
+    expect(committed.reference_degree).toBe(0);
+    expect(committed.heji_anchor_ratio).toBe("1/1");
+  });
+});
+
 describe("modulationCurrentSummaryDisplay", () => {
-  it("renders the actual current ratio without equave-offset suffixes", () => {
+  it("renders the actual current monzo without equave-offset suffixes", () => {
     expect(
       modulationCurrentSummaryDisplay(
         {
@@ -245,7 +290,7 @@ describe("modulationCurrentSummaryDisplay", () => {
           cents: parseExactInterval("7/8").cents,
         },
       ),
-    ).toBe("7/8 (-231¢)");
+    ).toBe("[-3 0 0 1> (-231¢)");
   });
 
   it("renders cents only when the current ratio is not exact", () => {
@@ -257,6 +302,43 @@ describe("modulationCurrentSummaryDisplay", () => {
         },
       ),
     ).toBe("+12¢");
+  });
+});
+
+describe("legacy modulation row interval fallback", () => {
+  it("can derive an exact row monzo from workspace ratios when ratio text was not stored", async () => {
+    const { createScaleWorkspace } = await import("./tuning/workspace.js");
+    const workspace = createScaleWorkspace({
+      scale: ["9/8", "5/4", "4/3", "2/1"],
+      fundamental: 440,
+      reference_degree: 0,
+    });
+
+    const committed = commitModulationHistoryToPreset(
+      {
+        scale: ["9/8", "5/4", "4/3", "2/1"],
+        note_names: ["1/1", "9/8", "5/4", "4/3"],
+        note_colors: ["#111111", "#222222", "#333333", "#444444"],
+        key_labels: "note_names",
+        fundamental: 440,
+        reference_degree: 0,
+      },
+      workspace,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 2,
+          count: 1,
+          transpositionDeltaCents: -parseExactInterval("5/4").cents,
+        },
+      ],
+      {
+        hejiAnchorLabel: "A",
+        hejiAnchorRatio: "1/1",
+      },
+    );
+
+    expect(committed.scale).toEqual(["16/15", "8/5", "9/5", "2/1"]);
   });
 });
 
@@ -600,5 +682,37 @@ describe("App keyboard lifecycle", () => {
 
     expect(screen.getByTestId("keyboard")).not.toBeNull();
     expect(screen.getByTestId("loading-icon")).not.toBeNull();
+  });
+
+  it("clears the MOD button route summary when modulation is cancelled back to idle", async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+
+    act(() => {
+      lastKeyboardProps.onModulationStateChange?.({
+        mode: "awaiting_target",
+        sourceDegree: 0,
+        currentRoute: null,
+        history: [
+          { sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 },
+        ],
+      });
+    });
+
+    expect(screen.getByText("1/1 →")).toBeTruthy();
+
+    act(() => {
+      lastKeyboardProps.onModulationStateChange?.({
+        mode: "idle",
+        sourceDegree: null,
+        currentRoute: { sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 },
+        history: [
+          { sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 },
+        ],
+      });
+    });
+
+    expect(screen.queryByText("1/1 → 2/1[-1eq]")).toBeNull();
+    expect(screen.queryByText("1/1 →")).toBeNull();
   });
 });

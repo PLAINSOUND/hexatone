@@ -43,6 +43,7 @@ const Scale = (props) => {
 
   // Get current equave value from scale array
   const scale = props.settings.scale || [];
+  const effectiveEquivSteps = scale.length || props.settings.equivSteps || 1;
   const equaveValue = scale.length > 0 ? scale[scale.length - 1] : "2/1";
 
   // Handle equave change - update the last element of scale array
@@ -112,10 +113,10 @@ const Scale = (props) => {
           defaultValue={props.settings.reference_degree}
           step="1"
           min="0"
-          max={props.settings.equivSteps - 1}
+          max={effectiveEquivSteps - 1}
           onBlur={(e) => {
             const val = parseInt(e.target.value);
-            const max = props.settings.equivSteps - 1;
+            const max = effectiveEquivSteps - 1;
             if (!isNaN(val) && val >= 0 && val <= max) {
               props.onChange("reference_degree", val);
             } else {
@@ -131,7 +132,7 @@ const Scale = (props) => {
           type="text"
           inputMode="numeric"
           class="sidebar-input"
-          value={props.settings.equivSteps}
+          value={effectiveEquivSteps}
           step="1"
           min="1"
           max="2048"
@@ -165,7 +166,7 @@ const Scale = (props) => {
           type="button"
           class="preset-action-btn"
           onClick={() => {
-            const n = props.settings.equivSteps || 12;
+            const n = effectiveEquivSteps;
             const equaveStr =
               props.settings.scale && props.settings.scale[n - 1]
                 ? props.settings.scale[n - 1]
@@ -182,13 +183,13 @@ const Scale = (props) => {
             props.onChange("scale_divide", newScale);
           }}
         >
-          Divide Equave into {props.settings.equivSteps} Equal Divisions
+          Divide Equave into {effectiveEquivSteps} Equal Divisions
         </button>
         <button
           type="button"
           class="preset-action-btn"
           onClick={() => {
-            const n = props.settings.equivSteps || 12;
+            const n = effectiveEquivSteps;
             const step = 1200 / n;
             const newScale = [];
             for (let i = 1; i <= n; i++) {
@@ -197,11 +198,22 @@ const Scale = (props) => {
             props.onChange("scale_divide", newScale);
           }}
         >
-          Divide Octave into {props.settings.equivSteps} Equal Divisions
+          Divide Octave into {effectiveEquivSteps} Equal Divisions
         </button>
       </div>
       <Colors {...props} />
       <KeyLabels {...props} />
+      <label>
+        Modulation Style
+        <select
+          class="sidebar-input"
+          value={props.settings.modulation_style ?? "moveable_do"}
+          onChange={(e) => props.onChange("modulation_style", e.target.value)}
+        >
+          <option value="moveable_do">Moveable Do / Fixed Layout</option>
+          <option value="fixed_do">Fixed Do / Moveable Layout</option>
+        </select>
+      </label>
       {!collapsed && (
         <>
           <br />

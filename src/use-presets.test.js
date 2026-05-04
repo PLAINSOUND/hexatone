@@ -30,6 +30,10 @@ describe("scaleHexSizeForScreen", () => {
 });
 
 describe("mergePresetIntoSettings", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it("clears stale HEJI anchor values when loading a preset without an explicit anchor", () => {
     const merged = mergePresetIntoSettings(
       {
@@ -97,6 +101,35 @@ describe("mergePresetIntoSettings", () => {
     expect(merged.linnstrument_channel_allocation).toBe("single_channel");
     expect(merged.output_mts).toBe(true);
     expect(merged.mts_bulk_device).toBe("out-1");
+  });
+
+  it("drops stale runtime anchor rewrites and restores the persisted base anchor", () => {
+    sessionStorage.setItem("midiin_central_degree", "26");
+    sessionStorage.setItem("midiin_anchor_channel", "3");
+    sessionStorage.setItem("lumatone_center_note", "26");
+    sessionStorage.setItem("lumatone_center_channel", "3");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_central_degree: -999,
+        midiin_anchor_channel: -2,
+        lumatone_center_note: -999,
+        lumatone_center_channel: -2,
+        controller_virtual_anchor_x: -18,
+        controller_virtual_anchor_y: 6,
+      },
+      {
+        name: "Harry Partch",
+        scale: ["100.", "200.", "1200."],
+      },
+    );
+
+    expect(merged.midiin_central_degree).toBe(26);
+    expect(merged.midiin_anchor_channel).toBe(3);
+    expect(merged.lumatone_center_note).toBe(26);
+    expect(merged.lumatone_center_channel).toBe(3);
+    expect(merged.controller_virtual_anchor_x).toBeNull();
+    expect(merged.controller_virtual_anchor_y).toBeNull();
   });
 });
 

@@ -7,6 +7,11 @@ import {
   normalizeTonalPlexus205Degree,
   buildLinnstrumentUserFirmwareMap,
 } from "./registry.js";
+import {
+  lumatoneAddressForCoords,
+  lumatoneBlockOffset,
+  lumatoneNoteCoords,
+} from "./lumatone.js";
 
 const getController = (id) => CONTROLLER_REGISTRY.find((controller) => controller.id === id);
 
@@ -30,6 +35,22 @@ describe("controller registry", () => {
     expect(lumatone.buildMap(26, 3).get("3.26")).toEqual({ x: 0, y: 0 });
     expect(tonalPlexus.buildMap(7, 9).get("9.7")).toEqual({ x: 0, y: 0 });
     expect(exquis.buildMap(19).get("1.19")).toEqual({ x: 0, y: 0 });
+  });
+
+  it("resolves imaginary Lumatone off-surface blocks for virtual anchors", () => {
+    const note = 41;
+    const local = lumatoneNoteCoords(note);
+    const block6 = lumatoneBlockOffset(6);
+    const block0 = lumatoneBlockOffset(0);
+
+    expect(lumatoneAddressForCoords(block6.x + local.x, block6.y + local.y)).toEqual({
+      channel: 6,
+      note,
+    });
+    expect(lumatoneAddressForCoords(block0.x + local.x, block0.y + local.y)).toEqual({
+      channel: 0,
+      note,
+    });
   });
 
   it("builds maps with the expected key counts", () => {

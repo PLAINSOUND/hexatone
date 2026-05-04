@@ -120,6 +120,31 @@ describe("keyboard/modulation-runtime", () => {
     });
   });
 
+  it("stores the captured surface relation alongside the musical interval", () => {
+    const state = beginModulation(createModulationState({ currentFrame: oldFrame }), {
+      currentFrame: oldFrame,
+      sourceDegree: 0,
+    });
+    const next = commitModulationTarget(state, {
+      targetDegree: 6,
+      pendingFrame: newFrame,
+      sourceStillSounding: false,
+      transpositionDeltaCents: 231.174093530875,
+      transpositionRatioText: "8/7",
+      surfaceDeltaX: 2,
+      surfaceDeltaY: -1,
+    });
+
+    expect(next.currentRoute).toMatchObject({
+      sourceDegree: 0,
+      targetDegree: 6,
+      surfaceDeltaX: 2,
+      surfaceDeltaY: -1,
+      transpositionDeltaCents: 231.174093530875,
+      transpositionRatioText: "8/7",
+    });
+  });
+
   it("chooses a fresh attack when the source note is no longer sounding", () => {
     const sourceHex = makeHex("source", 2, 3, 7);
     const state = beginModulation(createModulationState({ currentFrame: oldFrame }), {
@@ -134,6 +159,26 @@ describe("keyboard/modulation-runtime", () => {
 
     expect(next.lastDecision.articulation).toBe("attack");
     expect(next.takeoverConsumed).toBe(false);
+  });
+
+  it("accepts an explicit fixed-do articulation override", () => {
+    const sourceHex = makeHex("source", 2, 3, 7);
+    const state = beginModulation(createModulationState({ currentFrame: oldFrame }), {
+      currentFrame: oldFrame,
+      sourceHex,
+      strategy: "retune_surface_in_place",
+    });
+    const next = commitModulationTarget(state, {
+      targetDegree: 11,
+      pendingFrame: newFrame,
+      sourceStillSounding: true,
+      strategy: "retune_surface_in_place",
+      articulation: "reanchor_hold_source",
+    });
+
+    expect(next.lastDecision.articulation).toBe("reanchor_hold_source");
+    expect(next.lastDecision.strategy).toBe("retune_surface_in_place");
+    expect(next.lastDecision.geometryMode).toBe("moveable_surface");
   });
 
   it("supports the stable-surface reinterpretation strategy explicitly", () => {
