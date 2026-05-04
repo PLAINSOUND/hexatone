@@ -108,7 +108,8 @@ export function syncLinnstrumentLEDs() {
 export function buildLinnstrumentColorArray() {
   const degreeColors = new Map();
   for (const [, coords] of this.controllerMap) {
-    const [cents, reducedSteps] = this.hexCoordsToCents(coords);
+    const mappedCoords = this._modulatedControllerCoords(coords);
+    const [cents, reducedSteps] = this.hexCoordsToCents(mappedCoords);
     if (!degreeColors.has(reducedSteps)) {
       degreeColors.set(reducedSteps, this._getScreenHexColor(cents, reducedSteps));
     }
@@ -122,7 +123,7 @@ export function buildLinnstrumentColorArray() {
     const col = parseInt(mapKey.slice(dot + 1), 10);
     const note = (ch - 1) * 16 + (col - 1);
     if (note < 0 || note > 127) continue;
-    const [, reducedSteps] = this.hexCoordsToCents(coords);
+    const [, reducedSteps] = this.hexCoordsToCents(this._modulatedControllerCoords(coords));
     values[note] = reducedSteps === 0
       ? LINNS_RED
       : (degreeMap.get(reducedSteps) ?? LINNS_OFF);
@@ -155,7 +156,7 @@ export function buildLumatoneColorEntries() {
     const dotIdx = mapKey.indexOf(".");
     const board = parseInt(mapKey.slice(0, dotIdx), 10);
     const key = parseInt(mapKey.slice(dotIdx + 1), 10);
-    const hexColor = this._getLumatoneHexColor(coords);
+    const hexColor = this._getLumatoneHexColor(this._modulatedControllerCoords(coords));
     entries.push({ board, key, hexColor });
   }
   return entries;
@@ -193,7 +194,7 @@ export function buildExquisColorArray() {
   for (const [mapKey, coords] of this.controllerMap) {
     const note = parseInt(mapKey.slice(mapKey.indexOf(".") + 1), 10);
     if (note >= 0 && note <= 60) {
-      colors[note] = this._getLumatoneHexColor(coords);
+      colors[note] = this._getLumatoneHexColor(this._modulatedControllerCoords(coords));
     }
   }
   return colors;

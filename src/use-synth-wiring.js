@@ -6,8 +6,6 @@ import { create_composite_synth } from "./composite_synth";
 import { create_osc_synth } from "./osc_synth";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import {
-  saveAnchor,
-  saveAnchorChannel,
   saveAnchorFromLearn,
   loadAnchorSettingsUpdate,
 } from "./input/controller-anchor.js";
@@ -24,7 +22,6 @@ import { resolveBulkDumpName } from "./tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "./persistence/settings-registry.js";
 import { localFloat } from "./persistence/storage-utils.js";
 import { debugLog, warnLog } from "./debug/logging.js";
-import { RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY } from "./use-presets.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
@@ -1154,34 +1151,6 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     [midi],
   );
 
-  const onControllerAnchorRewrite = useCallback((update, meta = {}) => {
-    if (!update) return;
-    const controller = meta.controller ?? null;
-    const runtimeOnly = meta.runtimeOnly === true;
-    const nextAnchorNote = update.midiin_central_degree;
-    const nextAnchorChannel = update.midiin_anchor_channel ?? 1;
-
-    if (!runtimeOnly) {
-      sessionStorage.removeItem(RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY);
-      sessionStorage.setItem("midiin_central_degree", String(nextAnchorNote));
-      sessionStorage.setItem("midiin_anchor_channel", String(nextAnchorChannel));
-      if (update.lumatone_center_channel != null) {
-        sessionStorage.setItem("lumatone_center_channel", String(update.lumatone_center_channel));
-        sessionStorage.setItem("lumatone_center_note", String(update.lumatone_center_note));
-      }
-    } else {
-      sessionStorage.setItem(RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY, "true");
-    }
-
-    const currentSettings = settingsRef.current;
-    if (controller && !runtimeOnly) {
-      saveAnchor(controller, nextAnchorNote, currentSettings, update);
-      saveAnchorChannel(controller, nextAnchorChannel, currentSettings, update);
-    }
-
-    setSettings((s) => ({ ...s, ...update }));
-  }, [setSettings]);
-
   // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
   // When the active MIDI input is a Lumatone, resolve the matching raw Web MIDI
   // input (for ACK sysex listening) and output (for LED sysex sends).
@@ -1267,7 +1236,6 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     onVolumeChange,
     onOscLayerVolumeChange,
     onAnchorLearn,
-    onControllerAnchorRewrite,
     lumatoneRawPorts,
     exquisRawPorts,
     linnstrumentRawPorts,

@@ -31,23 +31,8 @@ export const SCALE_KEYS_TO_CLEAR = [
   "short_description",
 ];
 
-export const RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY = "hexatone_runtime_only_anchor_dirty";
-export const ANCHOR_SESSION_KEYS_TO_CLEAR = [
-  "midiin_central_degree",
-  "midiin_anchor_channel",
-  "lumatone_center_note",
-  "lumatone_center_channel",
-  "controller_virtual_anchor_x",
-  "controller_virtual_anchor_y",
-];
-
 export const clearScaleSettings = () => {
   SCALE_KEYS_TO_CLEAR.forEach((key) => sessionStorage.removeItem(key));
-};
-
-export const clearRuntimeOnlyAnchorSessionState = () => {
-  ANCHOR_SESSION_KEYS_TO_CLEAR.forEach((key) => sessionStorage.removeItem(key));
-  sessionStorage.removeItem(RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY);
 };
 
 export const findPreset = (preset) => {
@@ -93,8 +78,6 @@ function restorePersistentAnchorFields(fallback = {}) {
       "midiin_anchor_channel",
       fallback.midiin_anchor_channel ?? 1,
     ),
-    controller_virtual_anchor_x: null,
-    controller_virtual_anchor_y: null,
   };
   const lumatoneNote = sessionIntOrFallback(
     "lumatone_center_note",
@@ -130,6 +113,8 @@ export const mergePresetIntoSettings = (settings, preset) => {
     heji_anchor_label: "",
     ...preset,
     ...restorePersistentAnchorFields(persistentAnchorFallback),
+    controller_virtual_anchor_x: null,
+    controller_virtual_anchor_y: null,
   };
 };
 

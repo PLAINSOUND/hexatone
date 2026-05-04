@@ -131,15 +131,15 @@ describe("keyboard/modulation-runtime", () => {
       sourceStillSounding: false,
       transpositionDeltaCents: 231.174093530875,
       transpositionRatioText: "8/7",
-      surfaceDeltaX: 2,
-      surfaceDeltaY: -1,
+      deltaRSteps: 2,
+      deltaDrSteps: -1,
     });
 
     expect(next.currentRoute).toMatchObject({
       sourceDegree: 0,
       targetDegree: 6,
-      surfaceDeltaX: 2,
-      surfaceDeltaY: -1,
+      deltaRSteps: 2,
+      deltaDrSteps: -1,
       transpositionDeltaCents: 231.174093530875,
       transpositionRatioText: "8/7",
     });

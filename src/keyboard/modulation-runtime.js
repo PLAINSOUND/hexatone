@@ -28,18 +28,16 @@ function normalizeHistoryEntry(entry = {}) {
     targetDegree: entry.targetDegree ?? null,
     strategy: entry.strategy ?? "retune_surface_to_source",
     count: Number.isFinite(entry.count) ? Math.trunc(entry.count) : 0,
-    ...(Number.isFinite(entry.surfaceDeltaX)
-      ? { surfaceDeltaX: Math.trunc(entry.surfaceDeltaX) }
-      : {}),
-    ...(Number.isFinite(entry.surfaceDeltaY)
-      ? { surfaceDeltaY: Math.trunc(entry.surfaceDeltaY) }
-      : {}),
-    ...(Number.isFinite(entry.anchorDeltaNote)
-      ? { anchorDeltaNote: Math.trunc(entry.anchorDeltaNote) }
-      : {}),
-    ...(Number.isFinite(entry.anchorDeltaChannel)
-      ? { anchorDeltaChannel: Math.trunc(entry.anchorDeltaChannel) }
-      : {}),
+    ...(Number.isFinite(entry.deltaRSteps)
+      ? { deltaRSteps: Math.trunc(entry.deltaRSteps) }
+      : Number.isFinite(entry.surfaceDeltaX)
+        ? { deltaRSteps: Math.trunc(entry.surfaceDeltaX) }
+        : {}),
+    ...(Number.isFinite(entry.deltaDrSteps)
+      ? { deltaDrSteps: Math.trunc(entry.deltaDrSteps) }
+      : Number.isFinite(entry.surfaceDeltaY)
+        ? { deltaDrSteps: Math.trunc(entry.surfaceDeltaY) }
+        : {}),
     ...(Number.isFinite(transpositionDeltaCents) ? { transpositionDeltaCents } : {}),
     ...(transpositionRatioText ? { transpositionRatioText } : {}),
   };
@@ -179,17 +177,15 @@ export function commitModulationTarget(state, options = {}) {
     targetDegree: options.targetDegree ?? null,
     strategy,
     count: 1,
-    ...(Number.isFinite(options.surfaceDeltaX)
-      ? { surfaceDeltaX: Math.trunc(options.surfaceDeltaX) }
-      : {}),
-    ...(Number.isFinite(options.surfaceDeltaY)
-      ? { surfaceDeltaY: Math.trunc(options.surfaceDeltaY) }
-      : {}),
-    ...(Number.isFinite(options.anchorDeltaNote)
-      ? { anchorDeltaNote: Math.trunc(options.anchorDeltaNote) }
-      : {}),
-    ...(Number.isFinite(options.anchorDeltaChannel)
-      ? { anchorDeltaChannel: Math.trunc(options.anchorDeltaChannel) }
+    ...(Number.isFinite(options.deltaRSteps)
+      ? { deltaRSteps: Math.trunc(options.deltaRSteps) }
+      : Number.isFinite(options.surfaceDeltaX)
+        ? { deltaRSteps: Math.trunc(options.surfaceDeltaX) }
+        : {}),
+    ...(Number.isFinite(options.deltaDrSteps)
+      ? { deltaDrSteps: Math.trunc(options.deltaDrSteps) }
+      : Number.isFinite(options.surfaceDeltaY)
+        ? { deltaDrSteps: Math.trunc(options.surfaceDeltaY) }
       : {}),
     ...(Number.isFinite(options.transpositionDeltaCents)
       ? { transpositionDeltaCents: options.transpositionDeltaCents }

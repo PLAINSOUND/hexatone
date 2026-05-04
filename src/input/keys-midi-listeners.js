@@ -59,9 +59,13 @@ function linnstrumentUfGlideCurve(deviation, shapeSetting) {
 }
 
 function linnstrumentUfRowNeighborCents(channel, col, fallbackCents) {
-  const currentCoords = this.controllerMap?.get(`${channel}.${col}`) ?? null;
+  const currentCoords = this._modulatedControllerCoords(
+    this.controllerMap?.get(`${channel}.${col}`) ?? null,
+  );
   const lookupCents = (targetCol, direction) => {
-    const coords = this.controllerMap?.get(`${channel}.${targetCol}`);
+    const coords = this._modulatedControllerCoords(
+      this.controllerMap?.get(`${channel}.${targetCol}`) ?? null,
+    );
     if (coords) {
       const [cents] = this.hexCoordsToCents(coords);
       return cents;

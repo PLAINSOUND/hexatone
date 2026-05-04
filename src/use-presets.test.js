@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   SCALE_KEYS_TO_CLEAR,
-  ANCHOR_SESSION_KEYS_TO_CLEAR,
-  RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY,
-  clearRuntimeOnlyAnchorSessionState,
   clearScaleSettings,
   mergePresetIntoSettings,
   scaleHexSizeForScreen,
@@ -157,27 +154,5 @@ describe("clearScaleSettings", () => {
     expect(sessionStorage.getItem("midiin_controller_override")).toBe("auto");
     expect(sessionStorage.getItem("linnstrument_led_sync")).toBe("true");
     expect(sessionStorage.getItem("mts_bulk_device")).toBe("out-1");
-  });
-});
-
-describe("clearRuntimeOnlyAnchorSessionState", () => {
-  beforeEach(() => {
-    sessionStorage.clear();
-  });
-
-  it("removes only runtime-only anchor reload residue", () => {
-    for (const key of ANCHOR_SESSION_KEYS_TO_CLEAR) sessionStorage.setItem(key, "anchor-value");
-    sessionStorage.setItem(RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY, "true");
-    sessionStorage.setItem("midiin_device", "input-1");
-    sessionStorage.setItem("hexatone_preset_name", "Harry Partch");
-
-    clearRuntimeOnlyAnchorSessionState();
-
-    for (const key of ANCHOR_SESSION_KEYS_TO_CLEAR) {
-      expect(sessionStorage.getItem(key)).toBeNull();
-    }
-    expect(sessionStorage.getItem(RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY)).toBeNull();
-    expect(sessionStorage.getItem("midiin_device")).toBe("input-1");
-    expect(sessionStorage.getItem("hexatone_preset_name")).toBe("Harry Partch");
   });
 });

@@ -588,7 +588,6 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("requires overlap and suppresses the target note for fixed-do sequential modulation", () => {
-    const onControllerAnchorRewrite = vi.fn();
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
         coords,
@@ -612,7 +611,6 @@ describe("Keys MIDI input integration", () => {
       },
       synth,
     );
-    keys.onControllerAnchorRewrite = onControllerAnchorRewrite;
 
     keys.midinoteOn(makeMidiEvent(60));
     expect(keys.armModulation()).toBe(true);
@@ -622,18 +620,16 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().lastDecision?.articulation).toBe("reanchor_hold_source");
     expect(keys.state.activeMidi.get(62)).toBeUndefined();
     expect(keys._suppressedMidiNotes.has(62)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(58);
+    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.getModulationState().pendingFrame.geometryShiftRSteps).toBe(2);
+    expect(keys.getModulationState().pendingFrame.geometryShiftDrSteps).toBe(0);
     expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
-    expect(onControllerAnchorRewrite).toHaveBeenCalledWith(
-      {
-        midiin_central_degree: 58,
-        midiin_anchor_channel: 1,
-      },
-      { controller: null, runtimeOnly: true },
-    );
 
+    const shifted61 = keys.coordResolver.coordForSteps(
+      keys.coordResolver.noteToSteps(63, 1),
+    );
     keys.midinoteOn(makeMidiEvent(61));
-    expect(keys.state.activeMidi.get(61)?.cents).toBeCloseTo(100, 5);
+    expect(keys.state.activeMidi.get(61)?.coords).toEqual(shifted61);
 
     keys.midinoteOff(makeMidiEvent(62));
     expect(keys._suppressedMidiNotes.has(62)).toBe(false);
@@ -679,62 +675,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys.settings.midiin_central_degree).toBe(60);
   });
 
-  it("rewrites the live anchor for fixed-do modulation on a 2D controller map", () => {
-    const onControllerAnchorRewrite = vi.fn();
-    const synth = {
-      makeHex: vi.fn((coords, cents) => ({
-        coords,
-        cents,
-        noteOn: vi.fn(),
-        noteOff: vi.fn(function () {
-          this.release = true;
-        }),
-        retune(newCents) {
-          this.cents = newCents;
-        },
-      })),
-    };
-    const keys = createKeys(
-      {
-        modulation_style: "fixed_do",
-        midiin_controller_override: "push2",
-        midiin_device: "test-input",
-        midiin_central_degree: 36,
-      },
-      {},
-      synth,
-    );
-    keys.onControllerAnchorRewrite = onControllerAnchorRewrite;
-    keys.midiin_data = {
-      name: "Ableton Push 2",
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-    };
-    rebuildControllerMap.call(keys);
-
-    const sourceCoords = keys.controllerMap.get("1.38");
-    const targetCoords = keys.controllerMap.get("1.37");
-    keys.midinoteOn(makeMidiEvent(38));
-    const sourceHex = keys.state.activeMidi.get(38);
-    expect(sourceHex.coords).toEqual(sourceCoords);
-
-    expect(keys.armModulation()).toBe(true);
-    keys.midinoteOn(makeMidiEvent(37));
-
-    expect(keys.settings.midiin_central_degree).toBe(37);
-    expect(keys.state.activeMidi.get(37)).toBeUndefined();
-    expect(sourceHex.coords).toEqual(targetCoords);
-    expect(onControllerAnchorRewrite).toHaveBeenCalledWith(
-      {
-        midiin_central_degree: 37,
-        midiin_anchor_channel: 1,
-      },
-      expect.objectContaining({ controller: expect.objectContaining({ id: "push2" }) }),
-    );
-  });
-
-  it("replays fixed-do anchor changes when stepping modulation history and resetting counts", () => {
-    const onControllerAnchorRewrite = vi.fn();
+  it("replays fixed-do geometry shifts when stepping modulation history and resetting counts", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
         coords,
@@ -758,7 +699,6 @@ describe("Keys MIDI input integration", () => {
       },
       synth,
     );
-    keys.onControllerAnchorRewrite = onControllerAnchorRewrite;
 
     keys.midinoteOn(makeMidiEvent(60));
     expect(keys.armModulation()).toBe(true);
@@ -768,23 +708,17 @@ describe("Keys MIDI input integration", () => {
     keys._maybeSettleModulation();
 
     expect(keys.getModulationState().mode).toBe("idle");
-    expect(keys.settings.midiin_central_degree).toBe(58);
+    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(2);
 
     expect(keys.stepModulationHistory(-1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(0);
 
     expect(keys.stepModulationHistory(1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(58);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(2);
 
     expect(keys.resetModulationRouteCounts()).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(60);
-    expect(onControllerAnchorRewrite).toHaveBeenLastCalledWith(
-      {
-        midiin_central_degree: 60,
-        midiin_anchor_channel: 1,
-      },
-      { controller: null, runtimeOnly: false },
-    );
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(0);
   });
 
   it("replays the same saved modulation route as moveable or fixed depending on current style", () => {
@@ -815,22 +749,24 @@ describe("Keys MIDI input integration", () => {
           strategy: "retune_surface_to_source",
           count: 0,
           transpositionDeltaCents: -200,
+          deltaRSteps: 2,
+          deltaDrSteps: 0,
         },
       ],
     );
 
     expect(keys.stepModulationHistory(1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(0);
 
     expect(keys.stepModulationHistory(-1)).toBe(true);
     keys.updateInputRuntime(keys.inputRuntime, { modulation_style: "fixed_do" });
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(0);
 
     expect(keys.stepModulationHistory(1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(58);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(2);
 
     keys.updateInputRuntime(keys.inputRuntime, { modulation_style: "moveable_do" });
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(0);
   });
 
   it("captures the surface delta for reusable fixed-do history replay", () => {
@@ -865,12 +801,12 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().history.at(-1)).toMatchObject({
       sourceDegree: 0,
       targetDegree: 2,
-      surfaceDeltaX: 2,
-      surfaceDeltaY: 0,
+      deltaRSteps: 2,
+      deltaDrSteps: 0,
     });
   });
 
-  it("reduces large fixed-do sequential intervals before rewriting the anchor", () => {
+  it("stores the exact geometry shift for large fixed-do sequential intervals", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
@@ -898,20 +834,65 @@ describe("Keys MIDI input integration", () => {
     expect(keys.armModulation()).toBe(true);
     keys.midinoteOn(makeMidiEvent(79));
 
-    expect(keys.settings.midiin_central_degree).toBe(65);
+    expect(keys.settings.midiin_central_degree).toBe(60);
     expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
+    const shifted61 = keys.coordResolver.coordForSteps(
+      keys.coordResolver.noteToSteps(80, 1),
+    );
     keys.midinoteOn(makeMidiEvent(61));
-    expect(keys.state.activeMidi.get(61)?.cents).toBeCloseTo(100, 5);
+    expect(keys.state.activeMidi.get(61)?.coords).toEqual(shifted61);
     expect(keys.getModulationState().history.at(-1)).toMatchObject({
       sourceDegree: 0,
       targetDegree: 7,
-      surfaceDeltaX: -5,
-      surfaceDeltaY: 0,
-      transpositionDeltaCents: 500,
+      deltaRSteps: 19,
+      deltaDrSteps: 0,
+      transpositionDeltaCents: -1900,
     });
   });
 
-  it("replays fixed-do history from the stored surface delta, not the reduced degree pair", () => {
+  it("keeps the source sequential controller key on the same frequency after fixed-do modulation", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "generic",
+      },
+      {
+        layoutMode: "sequential",
+      },
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(function () {
+            this.release = true;
+          }),
+          retune(newCents) {
+            this.cents = newCents;
+          },
+        })),
+      },
+    );
+
+    const sourceCoords = keys.coordResolver.coordForSteps(
+      keys.coordResolver.noteToSteps(60, 1),
+    );
+    const targetCoords = keys.coordResolver.coordForSteps(
+      keys.coordResolver.noteToSteps(62, 1),
+    );
+    keys.midinoteOn(makeMidiEvent(60));
+    expect(keys.state.activeMidi.get(60)?.coords).toEqual(sourceCoords);
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(62));
+
+    keys.midinoteOff(makeMidiEvent(60));
+    keys.midinoteOff(makeMidiEvent(62));
+    keys.midinoteOn(makeMidiEvent(60));
+
+    expect(keys.state.activeMidi.get(60)?.coords).toEqual(targetCoords);
+  });
+
+  it("replays fixed-do history from the stored geometry delta", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
@@ -930,17 +911,18 @@ describe("Keys MIDI input integration", () => {
           strategy: "retune_surface_to_source",
           count: 0,
           transpositionDeltaCents: -200,
-          surfaceDeltaX: 1,
-          surfaceDeltaY: 1,
+          deltaRSteps: 1,
+          deltaDrSteps: 1,
         },
       ],
     );
 
     expect(keys.stepModulationHistory(1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(57);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(1);
+    expect(keys.getModulationState().currentFrame.geometryShiftDrSteps).toBe(1);
   });
 
-  it("uses the octave-aware route offset when replaying fixed-do history", () => {
+  it("replays routes without stored geometry delta as moveable-do even in fixed-do mode", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
@@ -962,10 +944,11 @@ describe("Keys MIDI input integration", () => {
     );
 
     expect(keys.stepModulationHistory(1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(65);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(0);
+    expect(keys.getModulationState().currentFrame.transpositionCents).toBe(500);
   });
 
-  it("shifts the anchor again on each additional fixed-do replay step", () => {
+  it("accumulates the stored geometry shift on each additional fixed-do replay step", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
@@ -982,21 +965,23 @@ describe("Keys MIDI input integration", () => {
           strategy: "retune_surface_to_source",
           count: 0,
           transpositionDeltaCents: 500,
+          deltaRSteps: 5,
+          deltaDrSteps: 0,
         },
       ],
     );
 
     expect(keys.stepModulationHistory(1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(65);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(5);
 
     expect(keys.stepModulationHistory(1)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(70);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(10);
 
     expect(keys.stepModulationHistory(-2)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(0);
   });
 
-  it("keeps shifting a LinnStrument fixed-do anchor after it moves off the physical surface", () => {
+  it("keeps the controller map static while fixed-do history shifts the interpreted lattice on LinnStrument", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
@@ -1015,8 +1000,8 @@ describe("Keys MIDI input integration", () => {
           strategy: "retune_surface_to_source",
           count: 0,
           transpositionDeltaCents: 500,
-          surfaceDeltaX: 1,
-          surfaceDeltaY: 0,
+          deltaRSteps: 1,
+          deltaDrSteps: 0,
         },
       ],
     );
@@ -1031,15 +1016,19 @@ describe("Keys MIDI input integration", () => {
     expect(keys.controllerMap.get("4.1")).toEqual(new Point(-1, 0));
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
-    expect(keys.settings.lumatone_center_note).toBe(1);
-    expect(keys.controllerMap.get("4.1")).toEqual(new Point(0, 0));
+    expect(keys.settings.lumatone_center_note).toBe(2);
+    expect(keys.controllerMap.get("4.1")).toEqual(new Point(-1, 0));
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(1);
+    expect(keys.settings.runtime_display_offset_x).toBe(1);
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
-    expect(keys.settings.lumatone_center_note).toBe(0);
-    expect(keys.controllerMap.get("4.1")).toEqual(new Point(1, 0));
+    expect(keys.settings.lumatone_center_note).toBe(2);
+    expect(keys.controllerMap.get("4.1")).toEqual(new Point(-1, 0));
+    expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(2);
+    expect(keys.settings.runtime_display_offset_x).toBe(2);
   });
 
-  it("keeps shifting a Lumatone fixed-do anchor after it moves past note zero", () => {
+  it("keeps the controller map static while fixed-do history shifts the interpreted lattice on Lumatone", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
@@ -1058,8 +1047,8 @@ describe("Keys MIDI input integration", () => {
           strategy: "retune_surface_to_source",
           count: 0,
           transpositionDeltaCents: 500,
-          surfaceDeltaX: 0,
-          surfaceDeltaY: 1,
+          deltaRSteps: 0,
+          deltaDrSteps: 1,
         },
       ],
     );
@@ -1075,128 +1064,138 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
     expect(keys.settings.lumatone_center_note).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_y).toBe(-1);
-    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, -1));
+    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
+    expect(keys.getModulationState().currentFrame.geometryShiftDrSteps).toBe(1);
+    expect(keys.settings.runtime_display_offset_y).toBe(1);
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
     expect(keys.settings.lumatone_center_note).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_y).toBe(-2);
-    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, -2));
+    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
+    expect(keys.getModulationState().currentFrame.geometryShiftDrSteps).toBe(2);
+    expect(keys.settings.runtime_display_offset_y).toBe(2);
 
     expect(keys.stepModulationRoute(0, 4)).toBe(true);
     expect(keys.settings.lumatone_center_note).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_y).toBe(-6);
-    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, -6));
+    expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
+    expect(keys.getModulationState().currentFrame.geometryShiftDrSteps).toBe(6);
   });
 
-  it("allows TS41 offscreen anchors through virtual controller coords", () => {
+  it("keeps the source Lumatone controller key on the same frequency after fixed-do modulation", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
-        midiin_controller_override: "ts41",
+        midiin_controller_override: "lumatone",
         midiin_device: "test-input",
-        midiin_central_degree: 1,
       },
       { layoutMode: "controller_geometry" },
-      {},
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(function () {
+            this.release = true;
+          }),
+          retune(newCents) {
+            this.cents = newCents;
+          },
+        })),
+      },
     );
     keys.midiin_data = {
-      name: "TS41",
+      name: "Lumatone MIDI Function",
       addListener: vi.fn(),
       removeListener: vi.fn(),
     };
     rebuildControllerMap.call(keys);
 
-    expect(keys.controller?.id).toBe("ts41");
-    expect(keys.controllerMap.get("1.1")).toEqual(new Point(0, 0));
+    const sourceCoords = keys.controllerMap.get("3.26");
+    const targetCoords = keys.controllerMap.get("3.27");
+    keys.midinoteOn(makeMidiEvent(26, 3));
+    expect(keys.state.activeMidi.get(26 + 128 * (3 - 1))?.coords).toEqual(sourceCoords);
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(27, 3));
 
-    const update = keys._anchorUpdateForSurfaceDelta(
-      new Point(0, 1),
-      keys._extractCurrentAnchorSettings(),
-    );
-    keys._applyAnchorSettingsUpdate(update, { persist: false });
+    keys.midinoteOff(makeMidiEvent(26, 3));
+    keys.midinoteOff(makeMidiEvent(27, 3));
+    keys.midinoteOn(makeMidiEvent(26, 3));
 
-    expect(keys.settings.midiin_central_degree).toBe(1);
-    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_y).toBe(-1);
-    expect(keys.controllerMap.get("1.1")).toEqual(new Point(0, -1));
+    expect(keys.state.activeMidi.get(26 + 128 * (3 - 1))?.coords).toEqual(targetCoords);
   });
 
-  it("allows Exquis offscreen anchors through virtual controller coords", () => {
+  it("auto-syncs Lumatone controller colors when fixed-do history changes", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
-        midiin_controller_override: "exquis",
+        midiin_controller_override: "lumatone",
         midiin_device: "test-input",
-        midiin_central_degree: 0,
+        lumatone_led_sync: true,
       },
       { layoutMode: "controller_geometry" },
       {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 7,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: 500,
+          deltaRSteps: 0,
+          deltaDrSteps: 1,
+        },
+      ],
     );
     keys.midiin_data = {
-      name: "Exquis",
+      name: "Lumatone MIDI Function",
       addListener: vi.fn(),
       removeListener: vi.fn(),
     };
     rebuildControllerMap.call(keys);
+    keys.autoSyncLumatoneLEDs = vi.fn();
 
-    expect(keys.controller?.id).toBe("exquis");
-    expect(keys.controllerMap.get("1.0")).toEqual(new Point(0, 0));
-
-    const update = keys._anchorUpdateForSurfaceDelta(
-      new Point(0, 1),
-      keys._extractCurrentAnchorSettings(),
-    );
-    keys._applyAnchorSettingsUpdate(update, { persist: false });
-
-    expect(keys.settings.midiin_central_degree).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
-    expect(keys.settings.controller_virtual_anchor_y).toBe(-1);
-    expect(keys.controllerMap.get("1.0")).toEqual(new Point(0, -1));
+    expect(keys.stepModulationRoute(0, 1)).toBe(true);
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
   });
 
-  it("allows Tonal Plexus offscreen anchors through virtual controller coords", () => {
+  it("auto-syncs Lumatone controller colors when a live fixed-do modulation is committed", () => {
     const keys = createKeys(
       {
         modulation_style: "fixed_do",
-        midiin_controller_override: "tonalplexus",
+        midiin_controller_override: "lumatone",
         midiin_device: "test-input",
-        midiin_central_degree: 7,
-        midiin_anchor_channel: 3,
-        lumatone_center_note: 7,
-        lumatone_center_channel: 3,
+        lumatone_led_sync: true,
       },
       { layoutMode: "controller_geometry" },
-      {},
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(function () {
+            this.release = true;
+          }),
+          retune(newCents) {
+            this.cents = newCents;
+          },
+        })),
+      },
     );
     keys.midiin_data = {
-      name: "Tonal Plexus",
+      name: "Lumatone MIDI Function",
       addListener: vi.fn(),
       removeListener: vi.fn(),
     };
     rebuildControllerMap.call(keys);
+    keys.autoSyncLumatoneLEDs = vi.fn();
 
-    expect(keys.controller?.id).toBe("tonalplexus");
-    expect(keys.controllerMap.get("3.7")).toEqual(new Point(0, 0));
+    keys.midinoteOn(makeMidiEvent(38, 3));
+    expect(keys.armModulation()).toBe(true);
+    keys.midinoteOn(makeMidiEvent(39, 3));
 
-    const update = keys._anchorUpdateForSurfaceDelta(
-      new Point(14, 0),
-      keys._extractCurrentAnchorSettings(),
-    );
-    keys._applyAnchorSettingsUpdate(update, { persist: false });
-
-    expect(keys.settings.midiin_central_degree).toBe(7);
-    expect(keys.settings.midiin_anchor_channel).toBe(3);
-    expect(keys.settings.controller_virtual_anchor_x).toBe(-14);
-    expect(keys.settings.controller_virtual_anchor_y).toBe(0);
-    expect(keys.controllerMap.get("3.7")).toEqual(new Point(-14, 0));
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
   });
-
-
-  it("redraws immediately when fixed-do history replay changes anchor with sounding notes held", () => {
+ 
+  it("redraws normally when fixed-do history replay changes geometry with sounding notes held", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
         coords,
@@ -1227,14 +1226,14 @@ describe("Keys MIDI input integration", () => {
         },
       ],
     );
-    const immediateRedraw = vi.spyOn(keys, "scheduleImmediateGridRedraw");
+    const redraw = vi.spyOn(keys, "scheduleGridRedraw");
 
     keys.midinoteOn(makeMidiEvent(60));
     expect(keys.state.activeMidi.get(60)).toBeTruthy();
 
     expect(keys.stepModulationHistory(1)).toBe(true);
 
-    expect(immediateRedraw).toHaveBeenCalled();
+    expect(redraw).toHaveBeenCalled();
   });
 
   it("settles a takeover modulation when the source key is released so stored-route arrows remain usable", () => {

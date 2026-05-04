@@ -26,8 +26,6 @@ import {
 } from "./use-query";
 import usePresets, {
   SCALE_KEYS_TO_CLEAR,
-  RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY,
-  clearRuntimeOnlyAnchorSessionState,
 } from "./use-presets.js";
 import {
   buildQuerySpec,
@@ -64,9 +62,6 @@ import "./loader.css";
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless
 // the user has opted into "Restore last preset on page reload".
 if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
-  if (sessionStorage.getItem(RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY) === "true") {
-    clearRuntimeOnlyAnchorSessionState();
-  }
   const shouldPersist = localStorage.getItem("hexatone_persist_on_reload") === "true";
   if (!shouldPersist) {
     // SCALE_KEYS_TO_CLEAR covers all scale/preset keys.
@@ -399,8 +394,8 @@ function modulationHistoryKey(history = []) {
         ? Number(entry.transpositionDeltaCents)
         : "",
       entry?.transpositionRatioText ?? "",
-      Number.isFinite(Number(entry?.surfaceDeltaX)) ? Math.trunc(entry.surfaceDeltaX) : "",
-      Number.isFinite(Number(entry?.surfaceDeltaY)) ? Math.trunc(entry.surfaceDeltaY) : "",
+      Number.isFinite(Number(entry?.deltaRSteps)) ? Math.trunc(entry.deltaRSteps) : "",
+      Number.isFinite(Number(entry?.deltaDrSteps)) ? Math.trunc(entry.deltaDrSteps) : "",
     ].join(":"))
     .join("|");
 }
@@ -677,7 +672,6 @@ const App = () => {
     onVolumeChange,
     onOscLayerVolumeChange,
     onAnchorLearn,
-    onControllerAnchorRewrite,
     lumatoneRawPorts,
     exquisRawPorts,
     linnstrumentRawPorts,
@@ -1599,7 +1593,6 @@ const App = () => {
           active={active}
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
-          onControllerAnchorRewrite={onControllerAnchorRewrite}
           lumatoneLedsRef={lumatoneLedsRef}
           exquisLedsRef={exquisLedsRef}
           linnstrumentLedsRef={linnstrumentLedsRef}

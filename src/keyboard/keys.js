@@ -26,6 +26,10 @@ import {
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
 import {
+  applyGeometryShiftToCoords,
+  geometryDeltaFromCoords,
+} from "./modulation-geometry-runtime.js";
+import {
   beginModulation,
   cancelModulation,
   clearModulationHistory,
@@ -118,7 +122,6 @@ class Keys {
     tuningRuntime = null,
     onModulationStateChange = null,
     initialModulationLibrary = null,
-    onControllerAnchorRewrite = null,
   ) {
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.tuning = {
@@ -136,6 +139,8 @@ class Keys {
       hexHeight: settings.hexSize * 2,
       hexVert: (settings.hexSize * 3) / 2,
       hexWidth: Math.sqrt(3) * settings.hexSize,
+      runtime_display_offset_x: 0,
+      runtime_display_offset_y: 0,
       gcd, // calculates a array with 3 values: the GCD of the layout tiling (smallest step available); Bézout Coefficients to be applied to rSteps and drSteps to obtain GCD
       centerHexOffset: computeCenterOffset(
         settings.rSteps,
@@ -179,7 +184,6 @@ class Keys {
     this.onModulationArmChange = onModulationArmChange || null;
     this.onModulationStateChange = onModulationStateChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
-    this.onControllerAnchorRewrite = onControllerAnchorRewrite || null;
     this.visualViewportResizeHandler = () => {
       if (isTextEntryElement(document.activeElement)) return;
       this.resizeHandler();
@@ -283,6 +287,10 @@ class Keys {
       this._modulationState.currentFrame = currentFrame;
       this._modulationState.historyIndex = this._modulationState.currentRoute?.count ?? 0;
       Object.assign(this.settings, this._anchorSettingsFromHistory(initialModulationHistory));
+    }
+    if (this.settings.modulation_style === "fixed_do") {
+      this.settings.runtime_display_offset_x = this._modulationState.currentFrame?.geometryShiftRSteps ?? 0;
+      this.settings.runtime_display_offset_y = this._modulationState.currentFrame?.geometryShiftDrSteps ?? 0;
     }
 
     // The tuning map anchor is always derived from the musical content (fundamental,
@@ -455,6 +463,7 @@ class Keys {
       referenceDegree: this.settings.reference_degree ?? 0,
       fundamental: this.settings.fundamental,
       strategy: this._modulationState.strategy,
+      fixedDoEnabled: this.settings.modulation_style === "fixed_do",
       makeFrame: (degree, extra = {}) => this._makeFrameForDegree(degree, extra),
     });
   }
@@ -467,6 +476,7 @@ class Keys {
       referenceDegree: this.settings.reference_degree ?? 0,
       fundamental: this.settings.fundamental,
       strategy: this._modulationState.strategy,
+      fixedDoEnabled: this.settings.modulation_style === "fixed_do",
       makeFrame: (degree, extra = {}) => this._makeFrameForDegree(degree, extra),
     });
   }
@@ -476,8 +486,9 @@ class Keys {
     const nextFrame = this._frameForHistoryIndex(historyIndex);
     this._modulationState = setModulationHistoryIndex(this._modulationState, historyIndex, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._applyAnchorFromModulationHistory();
+    this._refreshRuntimeDisplayOffset();
     this.scheduleGridRedraw();
+    this._syncControllerColorsForModulation();
     this._emitModulationState();
     return true;
   };
@@ -495,8 +506,9 @@ class Keys {
     const nextFrame = this._frameForHistory(history);
     this._modulationState = setModulationRouteCount(this._modulationState, routeIndex, count, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._applyAnchorFromModulationHistory(this._modulationState.history);
+    this._refreshRuntimeDisplayOffset();
     this.scheduleGridRedraw();
+    this._syncControllerColorsForModulation();
     this._emitModulationState();
     return true;
   };
@@ -517,8 +529,9 @@ class Keys {
     const nextFrame = this._frameForHistory(history);
     this._modulationState = clearModulationRoute(this._modulationState, routeIndex, nextFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._applyAnchorFromModulationHistory(this._modulationState.history);
+    this._refreshRuntimeDisplayOffset();
     this.scheduleGridRedraw();
+    this._syncControllerColorsForModulation();
     this._emitModulationState();
     return true;
   };
@@ -528,9 +541,9 @@ class Keys {
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
     this._modulationState = clearModulationHistory(this._modulationState, homeFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._applyAnchorFromModulationHistory(this._modulationState.history);
-    this._captureModulationHomeAnchor();
+    this._refreshRuntimeDisplayOffset();
     this.scheduleGridRedraw();
+    this._syncControllerColorsForModulation();
     this._emitModulationState();
     return true;
   };
@@ -540,8 +553,9 @@ class Keys {
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
     this._modulationState = resetModulationRouteCounts(this._modulationState, homeFrame);
     this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._applyAnchorFromModulationHistory(this._modulationState.history);
+    this._refreshRuntimeDisplayOffset();
     this.scheduleGridRedraw();
+    this._syncControllerColorsForModulation();
     this._emitModulationState();
     return true;
   };
@@ -563,8 +577,9 @@ class Keys {
     if (this._modulationState.mode !== "idle") return;
     this._harmonicFrame = this._frameForHistory(this._modulationState.history);
     this._modulationState.currentFrame = this._harmonicFrame;
-    this._applyAnchorFromModulationHistory(this._modulationState.history, { persist: false });
+    this._refreshRuntimeDisplayOffset();
     if (options.redraw !== false) this.scheduleImmediateGridRedraw();
+    this._syncControllerColorsForModulation();
     if (options.emit) this._emitModulationState();
   }
 
@@ -582,6 +597,10 @@ class Keys {
     this._emitModulationState();
     return this._modulationState.mode === "awaiting_target";
   };
+
+  _syncControllerColorsForModulation() {
+    InputMidiListeners.syncControllerAutoColors.call(this);
+  }
 
   _emitModulationState() {
     if (this.onModulationArmChange)
@@ -618,6 +637,8 @@ class Keys {
       targetDegree: extra.targetDegree ?? null,
       transpositionSteps: extra.transpositionSteps ?? 0,
       transpositionCents: extra.transpositionCents ?? 0,
+      geometryShiftRSteps: extra.geometryShiftRSteps ?? 0,
+      geometryShiftDrSteps: extra.geometryShiftDrSteps ?? 0,
       effectiveFundamental:
         extra.effectiveFundamental ?? this.settings.fundamental,
     });
@@ -658,14 +679,41 @@ class Keys {
     if (this.inputRuntime.layoutMode !== "sequential" && this.controllerMap) {
       const baseCoords = this.controllerMap.get(`${inputAddress.channel}.${inputAddress.note}`) ?? null;
       if (!baseCoords) return null;
-      return this.controller?.applyChannelOffsetOnMap
+      const resolved = this.controller?.applyChannelOffsetOnMap
         ? this._applyChannelOffset(baseCoords, inputAddress.rawChannel ?? inputAddress.channel)
         : baseCoords;
+      return this._modulatedControllerCoords(resolved);
     }
 
-    return this.coordResolver.coordForSteps(
+    const resolved = this.coordResolver.coordForSteps(
       this.coordResolver.noteToSteps(inputAddress.note, inputAddress.channel),
     );
+    return this._modulatedControllerCoords(resolved);
+  }
+
+  _modulatedControllerCoords(coords, frame = this._activeFrame()) {
+    if (!coords) return coords;
+    if (this.settings.modulation_style !== "fixed_do") return coords;
+    return applyGeometryShiftToCoords(coords, frame);
+  }
+
+  _refreshRuntimeDisplayOffset() {
+    const nextX = this.settings.modulation_style === "fixed_do"
+      ? Math.trunc(this._activeFrame()?.geometryShiftRSteps ?? 0)
+      : 0;
+    const nextY = this.settings.modulation_style === "fixed_do"
+      ? Math.trunc(this._activeFrame()?.geometryShiftDrSteps ?? 0)
+      : 0;
+    if (
+      this.settings.runtime_display_offset_x === nextX &&
+      this.settings.runtime_display_offset_y === nextY
+    ) {
+      return;
+    }
+    this.settings.runtime_display_offset_x = nextX;
+    this.settings.runtime_display_offset_y = nextY;
+    this._lastResizeSignature = null;
+    this.resizeHandler();
   }
 
   _currentControllerAnchorAddress() {
@@ -1152,9 +1200,7 @@ class Keys {
     const activeFrame = this._activeFrame();
     const isFixedDo = this._isFixedDoStrategy(this._modulationState.strategy);
     const sourceCoords = this._modulationState.sourceHex?.coords ?? null;
-    const effectiveTargetCoords = isFixedDo
-      ? this._normalizedFixedDoTargetCoords(sourceCoords, coords)
-      : coords;
+    const effectiveTargetCoords = coords;
     const targetDegree = this._degreeForCoords(effectiveTargetCoords);
     const sourceStillSounding = this._isHexStillSounding(this._modulationState.sourceHex);
     if (this._modulationState.sourceDegree == null || !sourceStillSounding) {
@@ -1175,6 +1221,7 @@ class Keys {
     const transpositionDeltaCents = sourceCents - targetCents;
     const transpositionCents = (activeFrame?.transpositionCents ?? 0) + transpositionDeltaCents;
     const transpositionSteps = (this._modulationState.sourceDegree ?? targetDegree) - targetDegree;
+    const geometryDelta = geometryDeltaFromCoords(sourceCoords, effectiveTargetCoords);
     const effectiveFundamental =
       (activeFrame?.effectiveFundamental ?? this.settings.fundamental) *
       Math.pow(2, transpositionDeltaCents / 1200);
@@ -1184,20 +1231,15 @@ class Keys {
       targetDegree,
       transpositionSteps,
       transpositionCents,
+      geometryShiftRSteps:
+        (activeFrame?.geometryShiftRSteps ?? 0) + (isFixedDo ? geometryDelta?.deltaRSteps ?? 0 : 0),
+      geometryShiftDrSteps:
+        (activeFrame?.geometryShiftDrSteps ?? 0) + (isFixedDo ? geometryDelta?.deltaDrSteps ?? 0 : 0),
       effectiveFundamental,
     });
-    const surfaceDelta = this._surfaceDeltaFromCoords(sourceCoords, effectiveTargetCoords);
-    let anchorRewrite = null;
     if (isFixedDo) {
-      if (!surfaceDelta) {
+      if (!geometryDelta) {
         this._modulationState = cancelModulation(this._modulationState, "fixed_do_requires_overlap");
-        this.scheduleGridRedraw();
-        this._emitModulationState();
-        return { suppressNoteOn: false };
-      }
-      anchorRewrite = this._deriveFixedDoAnchorRewrite(surfaceDelta);
-      if (!anchorRewrite) {
-        this._modulationState = cancelModulation(this._modulationState, "fixed_do_anchor_unresolved");
         this.scheduleGridRedraw();
         this._emitModulationState();
         return { suppressNoteOn: false };
@@ -1206,8 +1248,8 @@ class Keys {
     this._modulationState = commitModulationTarget(this._modulationState, {
       targetDegree,
       pendingFrame,
-      surfaceDeltaX: surfaceDelta?.x,
-      surfaceDeltaY: surfaceDelta?.y,
+      deltaRSteps: geometryDelta?.deltaRSteps,
+      deltaDrSteps: geometryDelta?.deltaDrSteps,
       transpositionDeltaCents,
       transpositionRatioText: ratioTextForModulationDelta(
         this.tuning,
@@ -1218,10 +1260,11 @@ class Keys {
       sourceStillSounding,
       articulation: isFixedDo ? "reanchor_hold_source" : undefined,
     });
-    if (anchorRewrite) this._applyFixedDoAnchorRewrite(anchorRewrite);
+    this._refreshRuntimeDisplayOffset();
     this.scheduleGridRedraw();
+    this._syncControllerColorsForModulation();
     this._emitModulationState();
-    return { suppressNoteOn: !!anchorRewrite };
+    return { suppressNoteOn: isFixedDo };
   }
 
   _isHexStillSounding(targetHex) {
@@ -1635,12 +1678,6 @@ class Keys {
     }
     if (previousModulationStyle !== this.settings.modulation_style) {
       this._syncModulationStyleFromSettings({ emit: true });
-    }
-    const hasActiveRoutes = Array.isArray(this._modulationState?.history)
-      ? this._modulationState.history.some((entry) => (Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0) !== 0)
-      : false;
-    if (!hasActiveRoutes && this._modulationState?.mode === "idle") {
-      this._captureModulationHomeAnchor();
     }
   };
 
@@ -2345,6 +2382,8 @@ class Keys {
       this.settings.hexVert,
       this.settings.centerHexOffset?.x ?? 0,
       this.settings.centerHexOffset?.y ?? 0,
+      this.settings.runtime_display_offset_x ?? 0,
+      this.settings.runtime_display_offset_y ?? 0,
     ].join(":");
     if (nextSignature === this._lastResizeSignature) return;
     this._lastResizeSignature = nextSignature;

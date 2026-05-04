@@ -73,8 +73,8 @@ export function rebuildVisibleGridGeometry() {
       ? this.state.centerpoint.x / this.settings.hexSize
       : this.state.centerpoint.y / this.settings.hexSize;
   max = Math.floor(max);
-  const ox = this.settings.centerHexOffset.x;
-  const oy = this.settings.centerHexOffset.y;
+  const ox = this.settings.centerHexOffset.x + (this.settings.runtime_display_offset_x ?? 0);
+  const oy = this.settings.centerHexOffset.y + (this.settings.runtime_display_offset_y ?? 0);
   const coords = [];
   const geometry = new Map();
   for (let r = -max + ox; r < max + ox; r++) {
@@ -235,8 +235,8 @@ export function drawGrid() {
 }
 
 export function hexCoordsToScreen(hex) {
-  const ox = this.settings.centerHexOffset.x;
-  const oy = this.settings.centerHexOffset.y;
+  const ox = this.settings.centerHexOffset.x + (this.settings.runtime_display_offset_x ?? 0);
+  const oy = this.settings.centerHexOffset.y + (this.settings.runtime_display_offset_y ?? 0);
   const screenX =
     this.state.centerpoint.x +
     (hex.x - ox) * this.settings.hexWidth +
@@ -379,8 +379,8 @@ export function centsToColor(cents, pressed, pressed_interval) {
 
 export function getHexCoordsAt(coords) {
   coords = applyMatrixToPoint(this.state.rotationMatrix, coords);
-  const ox = this.settings.centerHexOffset.x;
-  const oy = this.settings.centerHexOffset.y;
+  const ox = this.settings.centerHexOffset.x + (this.settings.runtime_display_offset_x ?? 0);
+  const oy = this.settings.centerHexOffset.y + (this.settings.runtime_display_offset_y ?? 0);
   const x = coords.x - this.state.centerpoint.x;
   const y = coords.y - this.state.centerpoint.y;
 

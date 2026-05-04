@@ -159,8 +159,8 @@ export class MidiCoordResolver {
   buildStepsTable() {
     const centerpoint = this._getCenterpoint();
     const max = Math.floor(Math.max(centerpoint.x, centerpoint.y) / this.settings.hexSize);
-    const ox = this.settings.centerHexOffset.x;
-    const oy = this.settings.centerHexOffset.y;
+    const ox = this.settings.centerHexOffset.x + (this.settings.runtime_display_offset_x ?? 0);
+    const oy = this.settings.centerHexOffset.y + (this.settings.runtime_display_offset_y ?? 0);
 
     this.stepsTable = new Map();
     for (let r = -max + ox; r < max + ox; r++) {

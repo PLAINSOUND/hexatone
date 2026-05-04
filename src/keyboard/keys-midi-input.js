@@ -74,9 +74,10 @@ function coordsForKnownController(event) {
   const lookupChannel = this.controller.multiChannel ? event.message.channel : 1;
   const baseCoords = this.controllerMap.get(`${lookupChannel}.${event.note.number}`) ?? null;
   if (baseCoords === null) return null;
-  return this.controller.applyChannelOffsetOnMap
+  const resolved = this.controller.applyChannelOffsetOnMap
     ? this._applyChannelOffset(baseCoords, event.message.channel)
     : baseCoords;
+  return this._modulatedControllerCoords(resolved);
 }
 
 export function midinoteOn(event) {
@@ -133,9 +134,9 @@ export function midinoteOn(event) {
         rawAttack: velocityPlayed,
       });
     }
-    coords = this.coordResolver.coordForSteps(
+    coords = this._modulatedControllerCoords(this.coordResolver.coordForSteps(
       this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-    );
+    ));
   } else if (this.controllerMap) {
     const lookupChannel = this.controller.multiChannel ? event.message.channel : 1;
     liveInputAddress = {
@@ -150,9 +151,9 @@ export function midinoteOn(event) {
       note: event.note.number,
       rawChannel: event.message.channel,
     };
-    coords = this.coordResolver.coordForSteps(
+    coords = this._modulatedControllerCoords(this.coordResolver.coordForSteps(
       this.coordResolver.noteToSteps(event.note.number, event.message.channel),
-    );
+    ));
   }
 
   if (coords === null) return;
@@ -215,7 +216,7 @@ export function midinoteOff(event) {
     coordsList = normalized
       ? this.coordResolver.stepsToVisibleCoords(
           this.coordResolver.noteToSteps(normalized.note, normalized.channel),
-        )
+        ).map((coords) => this._modulatedControllerCoords(coords))
       : [];
   } else {
     const coords = coordsForKnownController.call(this, event);

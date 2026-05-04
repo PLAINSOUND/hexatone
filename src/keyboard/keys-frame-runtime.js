@@ -8,6 +8,8 @@ export function createKeysFrame(options = {}) {
     targetDegree: options.targetDegree ?? null,
     transpositionSteps: options.transpositionSteps ?? 0,
     transpositionCents: options.transpositionCents ?? 0,
+    geometryShiftRSteps: options.geometryShiftRSteps ?? 0,
+    geometryShiftDrSteps: options.geometryShiftDrSteps ?? 0,
     effectiveFundamental: options.effectiveFundamental ?? options.fundamental ?? 440,
   };
 }
@@ -23,6 +25,7 @@ export function deriveFrameForHistory(options = {}) {
   const referenceDegree = options.referenceDegree ?? 0;
   const strategy = options.strategy ?? "retune_surface_to_source";
   const fundamental = options.fundamental ?? 440;
+  const fixedDoEnabled = options.fixedDoEnabled === true;
   const scale = Array.isArray(options.scale) ? options.scale : [];
   const makeFrame = options.makeFrame ?? ((degree, extra = {}) => createKeysFrame({
     degree,
@@ -39,6 +42,8 @@ export function deriveFrameForHistory(options = {}) {
       targetDegree: null,
       transpositionSteps: 0,
       transpositionCents: 0,
+      geometryShiftRSteps: 0,
+      geometryShiftDrSteps: 0,
       effectiveFundamental: fundamental,
     });
   }
@@ -51,7 +56,7 @@ export function deriveFrameForHistory(options = {}) {
     const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
     return sum + count * routeTranspositionDeltaCents(route, scale);
   }, 0);
-  const transpositionSteps = strategy === "retune_surface_in_place"
+  const transpositionSteps = strategy === "reinterpret_surface_from_target"
     ? activeRoutes.reduce((sum, route) => {
       const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
       const sourceDegree = route?.sourceDegree ?? 0;
@@ -59,6 +64,25 @@ export function deriveFrameForHistory(options = {}) {
       return sum + count * (targetDegree - sourceDegree);
     }, 0)
     : 0;
+  const geometryShift = fixedDoEnabled
+    ? activeRoutes.reduce((sum, route) => {
+      const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
+      const deltaRSteps = Number.isFinite(route?.deltaRSteps)
+        ? Math.trunc(route.deltaRSteps)
+        : Number.isFinite(route?.surfaceDeltaX)
+          ? Math.trunc(route.surfaceDeltaX)
+          : 0;
+      const deltaDrSteps = Number.isFinite(route?.deltaDrSteps)
+        ? Math.trunc(route.deltaDrSteps)
+        : Number.isFinite(route?.surfaceDeltaY)
+          ? Math.trunc(route.surfaceDeltaY)
+          : 0;
+      return {
+        geometryShiftRSteps: sum.geometryShiftRSteps + count * deltaRSteps,
+        geometryShiftDrSteps: sum.geometryShiftDrSteps + count * deltaDrSteps,
+      };
+    }, { geometryShiftRSteps: 0, geometryShiftDrSteps: 0 })
+    : { geometryShiftRSteps: 0, geometryShiftDrSteps: 0 };
   const effectiveFundamental = fundamental * Math.pow(2, transpositionCents / 1200);
   const route = activeRoutes[activeRoutes.length - 1] ?? null;
 
@@ -68,6 +92,8 @@ export function deriveFrameForHistory(options = {}) {
     targetDegree: route?.targetDegree ?? null,
     transpositionSteps,
     transpositionCents,
+    geometryShiftRSteps: geometryShift.geometryShiftRSteps,
+    geometryShiftDrSteps: geometryShift.geometryShiftDrSteps,
     effectiveFundamental,
   });
 }
