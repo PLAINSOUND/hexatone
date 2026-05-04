@@ -1,3 +1,8 @@
+// This module owns user-facing labels for the current keyboard frame.
+// It turns reduced degrees and active frame state into display labels/cents
+// text, and applies label-setting toggles. It does not decide geometry or note
+// triggering; it only formats what the current runtime frame already means.
+
 import {
   displayLabelForDegree,
   labelDegreeFromFrame,

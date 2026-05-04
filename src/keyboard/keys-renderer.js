@@ -1,3 +1,8 @@
+// This module owns canvas projection and drawing for the hex grid.
+// It converts lattice coords into screen geometry, maintains the visible-grid
+// caches, and renders labels/highlights. It does not resolve controller input
+// or harmonic modulation state beyond reading the already-derived live settings.
+
 import { applyMatrixToPoint } from "./matrix";
 import Point from "./point";
 import {

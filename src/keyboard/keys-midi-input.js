@@ -1,3 +1,8 @@
+// This module owns live MIDI note input handling for Keys.
+// It translates incoming note/channel events into canvas coords, applies the
+// current controller/sequential mapping rules, and drives note-on/note-off
+// lifecycle updates. It does not derive tuning or modulation history state.
+
 import { notes } from "../midi_synth";
 import { findNearestDegree } from "../input/scale-mapper.js";
 

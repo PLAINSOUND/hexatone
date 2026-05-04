@@ -1,3 +1,10 @@
+// Keys is the long-lived keyboard runtime coordinator.
+// It owns persistent live state, wires together the smaller keyboard runtimes,
+// and bridges between tuning, rendering, input, synth note lifecycle, and
+// modulation state. It does not try to keep every algorithm inline: geometry,
+// controller remapping, labels, rendering, note transfer, and modulation
+// bookkeeping are delegated to dedicated modules and called from here.
+
 import { calculateRotationMatrix } from "./matrix";
 import Point from "./point";
 import Euclid from "./euclidean";
@@ -26,9 +33,13 @@ import {
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
 import {
-  applyGeometryShiftToCoords,
   geometryDeltaFromCoords,
 } from "./modulation-geometry-runtime.js";
+import {
+  modulatedControllerCoords,
+  refreshRuntimeDisplayOffset,
+  syncControllerColorsForModulation,
+} from "./modulation-controller-runtime.js";
 import {
   beginModulation,
   cancelModulation,
@@ -599,6 +610,10 @@ class Keys {
   };
 
   _syncControllerColorsForModulation() {
+    syncControllerColorsForModulation(this);
+  }
+
+  _syncControllerAutoColors() {
     InputMidiListeners.syncControllerAutoColors.call(this);
   }
 
@@ -692,28 +707,11 @@ class Keys {
   }
 
   _modulatedControllerCoords(coords, frame = this._activeFrame()) {
-    if (!coords) return coords;
-    if (this.settings.modulation_style !== "fixed_do") return coords;
-    return applyGeometryShiftToCoords(coords, frame);
+    return modulatedControllerCoords(this, coords, frame);
   }
 
   _refreshRuntimeDisplayOffset() {
-    const nextX = this.settings.modulation_style === "fixed_do"
-      ? Math.trunc(this._activeFrame()?.geometryShiftRSteps ?? 0)
-      : 0;
-    const nextY = this.settings.modulation_style === "fixed_do"
-      ? Math.trunc(this._activeFrame()?.geometryShiftDrSteps ?? 0)
-      : 0;
-    if (
-      this.settings.runtime_display_offset_x === nextX &&
-      this.settings.runtime_display_offset_y === nextY
-    ) {
-      return;
-    }
-    this.settings.runtime_display_offset_x = nextX;
-    this.settings.runtime_display_offset_y = nextY;
-    this._lastResizeSignature = null;
-    this.resizeHandler();
+    refreshRuntimeDisplayOffset(this);
   }
 
   _currentControllerAnchorAddress() {
@@ -1673,7 +1671,7 @@ class Keys {
       }
       const controllerMapChanged = InputMidiListeners.rebuildControllerMap.call(this);
       if (controllerMapChanged) {
-        InputMidiListeners.syncControllerAutoColors.call(this);
+        this._syncControllerAutoColors();
       }
     }
     if (previousModulationStyle !== this.settings.modulation_style) {

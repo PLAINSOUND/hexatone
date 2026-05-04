@@ -143,10 +143,10 @@ function linnstrumentUfNormalizeX14(msb, lsb, reductionSetting = LINNSTRUMENT_UF
   const strength = Math.max(0, Math.min(100, Number(reductionSetting) || 0));
   if (strength <= LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) return (msb << 7) | lsb;
 
-  const lsbBlend = 1 - (
+  const lsbBlend = Math.max(0, 1 - (
     (strength - LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT) /
     LINNSTRUMENT_UF_SPIKE_REDUCTION_DEFAULT
-  );
+  ));
   const normalizedLsb = Math.round(
     LINNSTRUMENT_UF_LSB_CENTER + (lsb - LINNSTRUMENT_UF_LSB_CENTER) * lsbBlend,
   );
@@ -301,6 +301,12 @@ function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
     return;
   }
   if (hex && !hex.release && hex.retune) {
+    const appliedState = this._linnUfXAppliedState.get(key);
+    if (appliedState?.smoothed === smoothedX14) {
+      hex.retune(appliedState.targetCents, true);
+      return;
+    }
+
     const cols = this.controller?.defaultCols ?? 16;
     const surfaceWidth = linnstrumentUfSurfaceWidth(cols);
     const colWidth = surfaceWidth / cols;
@@ -317,6 +323,10 @@ function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
     } else if (curved > 0) {
       targetCents = baseCents + curved * (neighbors.next - baseCents) * 0.5;
     }
+    this._linnUfXAppliedState.set(key, {
+      smoothed: smoothedX14,
+      targetCents,
+    });
     hex.retune(targetCents, true);
   }
 }
@@ -467,6 +477,7 @@ export function teardownMidiInput() {
   this._linnUfXMsb = new Map();
   this._linnUfXCurrent = new Map();
   this._linnUfXFilterState = new Map();
+  this._linnUfXAppliedState = new Map();
   this._linnUfXInitPending = new Set();
 }
 
@@ -536,6 +547,7 @@ export function setupMidiInput() {
             this._linnUfXMsb.delete(key);
             this._linnUfXCurrent.delete(key);
             this._linnUfXFilterState.delete(key);
+            this._linnUfXAppliedState.delete(key);
             this._linnUfXSmoothingState.delete(key);
             this._linnUfXOnsetState.delete(key);
             this._linnUfXReleaseState.delete(key);
@@ -559,6 +571,7 @@ export function setupMidiInput() {
             this._linnUfXMsb.delete(key);
             this._linnUfXCurrent.delete(key);
             this._linnUfXFilterState.delete(key);
+            this._linnUfXAppliedState.delete(key);
             this._linnUfXSmoothingState.delete(key);
             this._linnUfXOnsetState.delete(key);
             this._linnUfXReleaseState.delete(key);
@@ -604,6 +617,7 @@ export function setupMidiInput() {
         this._linnUfXMsb = new Map();
         this._linnUfXCurrent = new Map(); // latest x14 per "ch.col" — snapshot at note-on for zero-point
         this._linnUfXFilterState = new Map(); // outlier-confirmation state per "ch.col"
+        this._linnUfXAppliedState = new Map(); // last accepted smoothed X and retune target per "ch.col"
         this._linnUfXSmoothingState = new Map(); // accepted X smoothing state per "ch.col"
         this._linnUfXOnsetState = new Map(); // note-on timing for smoothing-aware attack quantization
         this._linnUfXReleaseState = new Map(); // low-pressure release tracking to avoid snap-back before note-off
