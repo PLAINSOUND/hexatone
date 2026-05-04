@@ -24,7 +24,11 @@ import {
   ExtractBool,
   ExtractJoinedString,
 } from "./use-query";
-import usePresets, { SCALE_KEYS_TO_CLEAR } from "./use-presets.js";
+import usePresets, {
+  SCALE_KEYS_TO_CLEAR,
+  RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY,
+  clearRuntimeOnlyAnchorSessionState,
+} from "./use-presets.js";
 import {
   buildQuerySpec,
   buildRegistryDefaults,
@@ -60,6 +64,9 @@ import "./loader.css";
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless
 // the user has opted into "Restore last preset on page reload".
 if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
+  if (sessionStorage.getItem(RUNTIME_ONLY_ANCHOR_DIRTY_SESSION_KEY) === "true") {
+    clearRuntimeOnlyAnchorSessionState();
+  }
   const shouldPersist = localStorage.getItem("hexatone_persist_on_reload") === "true";
   if (!shouldPersist) {
     // SCALE_KEYS_TO_CLEAR covers all scale/preset keys.
