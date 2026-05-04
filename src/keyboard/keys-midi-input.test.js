@@ -1092,6 +1092,107 @@ describe("Keys MIDI input integration", () => {
     expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, -6));
   });
 
+  it("allows TS41 offscreen anchors through virtual controller coords", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "ts41",
+        midiin_device: "test-input",
+        midiin_central_degree: 1,
+      },
+      { layoutMode: "controller_geometry" },
+      {},
+    );
+    keys.midiin_data = {
+      name: "TS41",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    rebuildControllerMap.call(keys);
+
+    expect(keys.controller?.id).toBe("ts41");
+    expect(keys.controllerMap.get("1.1")).toEqual(new Point(0, 0));
+
+    const update = keys._anchorUpdateForSurfaceDelta(
+      new Point(0, 1),
+      keys._extractCurrentAnchorSettings(),
+    );
+    keys._applyAnchorSettingsUpdate(update, { persist: false });
+
+    expect(keys.settings.midiin_central_degree).toBe(1);
+    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_y).toBe(-1);
+    expect(keys.controllerMap.get("1.1")).toEqual(new Point(0, -1));
+  });
+
+  it("allows Exquis offscreen anchors through virtual controller coords", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "exquis",
+        midiin_device: "test-input",
+        midiin_central_degree: 0,
+      },
+      { layoutMode: "controller_geometry" },
+      {},
+    );
+    keys.midiin_data = {
+      name: "Exquis",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    rebuildControllerMap.call(keys);
+
+    expect(keys.controller?.id).toBe("exquis");
+    expect(keys.controllerMap.get("1.0")).toEqual(new Point(0, 0));
+
+    const update = keys._anchorUpdateForSurfaceDelta(
+      new Point(0, 1),
+      keys._extractCurrentAnchorSettings(),
+    );
+    keys._applyAnchorSettingsUpdate(update, { persist: false });
+
+    expect(keys.settings.midiin_central_degree).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_x).toBe(0);
+    expect(keys.settings.controller_virtual_anchor_y).toBe(-1);
+    expect(keys.controllerMap.get("1.0")).toEqual(new Point(0, -1));
+  });
+
+  it("allows Tonal Plexus offscreen anchors through virtual controller coords", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+        midiin_controller_override: "tonalplexus",
+        midiin_device: "test-input",
+        midiin_central_degree: 7,
+        midiin_anchor_channel: 3,
+      },
+      { layoutMode: "controller_geometry" },
+      {},
+    );
+    keys.midiin_data = {
+      name: "Tonal Plexus",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    rebuildControllerMap.call(keys);
+
+    expect(keys.controller?.id).toBe("tonalplexus");
+    expect(keys.controllerMap.get("3.7")).toEqual(new Point(0, 0));
+
+    const update = keys._anchorUpdateForSurfaceDelta(
+      new Point(14, 0),
+      keys._extractCurrentAnchorSettings(),
+    );
+    keys._applyAnchorSettingsUpdate(update, { persist: false });
+
+    expect(keys.settings.midiin_central_degree).toBe(7);
+    expect(keys.settings.midiin_anchor_channel).toBe(3);
+    expect(keys.settings.controller_virtual_anchor_x).toBe(-14);
+    expect(keys.settings.controller_virtual_anchor_y).toBe(0);
+    expect(keys.controllerMap.get("3.7")).toEqual(new Point(-14, 0));
+  });
+
 
   it("redraws immediately when fixed-do history replay changes anchor with sounding notes held", () => {
     const synth = {
