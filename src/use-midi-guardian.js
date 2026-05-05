@@ -58,7 +58,7 @@ export function useMidiGuardian(midi, settings) {
     // MPE output — all voice channels + manager
     if (s.output_mpe && s.mpe_device && s.mpe_device !== "OFF") {
       const channels = [];
-      const manager = parseInt(s.mpe_manager_ch) - 1; // 0-indexed
+      const manager = parseInt(s.midiin_mpe_manager_ch ?? s.mpe_manager_ch) - 1; // 0-indexed
       if (!isNaN(manager) && manager >= 0) channels.push(manager);
       for (let ch = s.mpe_lo_ch ?? 2; ch <= (s.mpe_hi_ch ?? 15); ch++) {
         channels.push(ch - 1); // 0-indexed

@@ -186,7 +186,12 @@ export function restoreHexStaticBackground(coords) {
     context.clearRect(sx, sy, sw, sh);
     context.drawImage(this._staticGridCanvas, sx, sy, sw, sh, sx, sy, sw, sh);
   });
-  return true;
+  return {
+    left: sx,
+    top: sy,
+    right: sx + sw,
+    bottom: sy + sh,
+  };
 }
 
 export function transformCanvasPoint(x, y) {
@@ -217,6 +222,32 @@ export function redrawSoundingHexes() {
   const drawn = new Set();
   const drawPressed = (hex) => {
     if (!hex?.coords) return;
+    const key = this._coordKey(hex.coords);
+    if (drawn.has(key)) return;
+    drawn.add(key);
+    const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
+    const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
+    this.drawHex(hex.coords, color, text_color);
+  };
+  for (const hex of this._allActiveHexes()) drawPressed(hex);
+  for (const [hex] of this.state.sustainedNotes) drawPressed(hex);
+}
+
+export function redrawSoundingHexesInBounds(bounds) {
+  const drawn = new Set();
+  const overlaps = (hex) => {
+    if (!hex?.coords) return false;
+    const geometry = this._hexGeometryCache.get(this._coordKey(hex.coords)) ?? this._buildHexGeometry(hex.coords);
+    const hexBounds = this._hexPixelBounds(geometry, 28);
+    return !(
+      hexBounds.right < bounds.left ||
+      hexBounds.left > bounds.right ||
+      hexBounds.bottom < bounds.top ||
+      hexBounds.top > bounds.bottom
+    );
+  };
+  const drawPressed = (hex) => {
+    if (!overlaps(hex)) return;
     const key = this._coordKey(hex.coords);
     if (drawn.has(key)) return;
     drawn.add(key);

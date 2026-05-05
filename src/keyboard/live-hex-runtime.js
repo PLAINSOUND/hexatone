@@ -16,6 +16,7 @@ import {
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
 import { frameForNewNotes } from "./modulation-runtime.js";
+import { scalaToCents } from "../settings/scale/parse-scale";
 
 export function midiLatchToggle(keys, coords, releaseVelocity = 0) {
   if (!keys.state.latch) return false;
@@ -96,6 +97,31 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   hex._baseCents = cents;
   if (options?.liveInputAddress) hex._liveInputAddress = { ...options.liveInputAddress };
 
+  let mpePrimedBeforeNoteOn = false;
+  const inputChannel = options?.liveInputAddress?.channel;
+  if (
+    inputChannel != null &&
+    (keys.inputRuntime.mpeInput || keys.inputRuntime.perChannelExpression)
+  ) {
+    const bend14 = keys._mpeInputBendByChannel.get(inputChannel);
+    if (
+      keys.inputRuntime.mpeInput &&
+      keys.inputRuntime.target === "scale" &&
+      bend14 != null
+    ) {
+      hex._scaleModeBendAnchor14 = keys._normalizePitchBend14(bend14);
+      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bentCents: cents };
+      mpePrimedBeforeNoteOn = true;
+    } else if (bend14 != null && bend14 !== 8192 && hex.retune) {
+      let norm = (keys._normalizePitchBend14(bend14) - 8192) / 8192;
+      if (keys.inputRuntime.bendFlip) norm = -norm;
+      const bentCents = cents + norm * scalaToCents(keys.inputRuntime.bendRange ?? "9/8");
+      hex.retune(bentCents, true);
+      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bentCents };
+      mpePrimedBeforeNoteOn = true;
+    }
+  }
+
   let wheelPrimedBeforeNoteOn = false;
   if (!keys.inputRuntime.wheelToRecent && keys._wheelValue14 !== 8192) {
     const wheelTargetCents = cents + keys._wheelBend;
@@ -122,6 +148,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   keys._updateWheelTarget();
   delete hex._wheelPrimedBeforeNoteOn;
   if (!wheelPrimedBeforeNoteOn) keys._applyCurrentWheelToHex(hex);
+  if (!mpePrimedBeforeNoteOn) delete hex._mpePrimedBeforeNoteOn;
   return hex;
 }
 
@@ -135,13 +162,10 @@ export function hexOff(keys, coords) {
     isSustained || isActiveElsewhere,
     pressed_interval,
   );
-  if (isSustained || isActiveElsewhere) {
-    keys.drawHex(coords, color, text_color);
-  } else if (keys._restoreHexStaticBackground(coords)) {
-    keys._redrawSoundingHexes();
-  } else {
-    keys.drawHex(coords, color, text_color);
-  }
+  // Release redraw should be immediate and local: repaint the released hex in
+  // its current unpressed/held state rather than restoring a cached rectangle
+  // and then repairing overlapping sounding-note overlays.
+  keys.drawHex(coords, color, text_color);
 }
 
 export function noteOff(keys, hex, release_velocity) {

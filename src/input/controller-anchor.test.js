@@ -157,6 +157,38 @@ const LINNSTRUMENT = {
   mpeVoiceChannels: null,
 };
 
+const HAKEN = {
+  id: "hakenaudio",
+  anchorDefault: 60,
+  anchorChannelDefault: undefined,
+  mpe: true,
+  mpeVoiceChannels: null,
+  mpeMemberChannelBounds: {
+    min: 2,
+    max: 14,
+    defaultLo: 2,
+    defaultHi: 14,
+  },
+  defaultMode: "layout2d",
+  modes: {
+    layout2d: {
+      defaultPrefs: {
+        anchorNote: 60,
+        midi_passthrough: false,
+        midiin_mpe_input: true,
+      },
+    },
+    bypass: {
+      defaultPrefs: {
+        anchorNote: 60,
+        midi_passthrough: true,
+        midiin_mpe_input: true,
+      },
+    },
+  },
+  resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
+};
+
 // MPE controller with fixed hardware voice channel range + passthrough default (Exquis)
 const EXQUIS = {
   id: "exquis",
@@ -316,28 +348,28 @@ describe("saveControllerPref", () => {
 // ── loadAnchorSettingsUpdate ──────────────────────────────────────────────────
 
 describe("loadAnchorSettingsUpdate", () => {
-  it("returns midiin_central_degree and mpe=false from anchorDefault when nothing stored", () => {
+  it("returns midiin_anchor_note and mpe=false from anchorDefault when nothing stored", () => {
     const update = loadAnchorSettingsUpdate(AXIS49);
-    expect(update).toMatchObject({ midiin_central_degree: 53, midiin_mpe_input: false });
+    expect(update).toMatchObject({ midiin_anchor_note: 53, midiin_mpe_input: false });
   });
 
-  it("returns midiin_central_degree from stored value", () => {
+  it("returns midiin_anchor_note from stored value", () => {
     localStorage.setItem("axis49_anchor", "48");
     const update = loadAnchorSettingsUpdate(AXIS49);
-    expect(update.midiin_central_degree).toBe(48);
+    expect(update.midiin_anchor_note).toBe(48);
     expect(update.midiin_mpe_input).toBe(false);
   });
 
   it("sets midiin_mpe_input=true for MPE controllers", () => {
     const update = loadAnchorSettingsUpdate(LINNSTRUMENT);
-    expect(update.midiin_central_degree).toBe(30);
+    expect(update.midiin_anchor_note).toBe(30);
     expect(update.midiin_mpe_input).toBe(true);
   });
 
-  it("includes lumatone_center_channel for channel-aware controllers", () => {
+  it("returns anchor note and channel for channel-aware controllers", () => {
     const update = loadAnchorSettingsUpdate(LUMATONE);
-    expect(update.midiin_central_degree).toBe(26);
-    expect(update.lumatone_center_channel).toBe(3);
+    expect(update.midiin_anchor_note).toBe(26);
+    expect(update.midiin_anchor_channel).toBe(3);
     expect(update.midiin_mpe_input).toBe(false);
   });
 
@@ -345,13 +377,14 @@ describe("loadAnchorSettingsUpdate", () => {
     localStorage.setItem("lumatone_anchor", "10");
     localStorage.setItem("lumatone_anchor_channel", "4");
     const update = loadAnchorSettingsUpdate(LUMATONE);
-    expect(update.midiin_central_degree).toBe(10);
-    expect(update.lumatone_center_channel).toBe(4);
+    expect(update.midiin_anchor_note).toBe(10);
+    expect(update.midiin_anchor_channel).toBe(4);
   });
 
   it("does not include lumatone_center_channel for single-channel controllers", () => {
     const update = loadAnchorSettingsUpdate(AXIS49);
     expect(update).not.toHaveProperty("lumatone_center_channel");
+    expect(update).not.toHaveProperty("lumatone_center_note");
   });
 
   it("resets the sequential anchor channel to 1 for single-channel controllers", () => {
@@ -362,6 +395,22 @@ describe("loadAnchorSettingsUpdate", () => {
 
   it("does not set mpe channel range for controllers with mpeVoiceChannels=null", () => {
     const update = loadAnchorSettingsUpdate(LINNSTRUMENT);
+    expect(update).not.toHaveProperty("midiin_mpe_lo_ch");
+    expect(update).not.toHaveProperty("midiin_mpe_hi_ch");
+  });
+
+  it("applies controller-specific configurable MPE member-channel defaults for Haken Continuum", () => {
+    const update = loadAnchorSettingsUpdate(HAKEN);
+    expect(update.midiin_mpe_input).toBe(true);
+    expect(update.midiin_mpe_lo_ch).toBe(2);
+    expect(update.midiin_mpe_hi_ch).toBe(14);
+  });
+
+  it("preserves in-range user-configured Haken member channels", () => {
+    const update = loadAnchorSettingsUpdate(HAKEN, {
+      midiin_mpe_lo_ch: 3,
+      midiin_mpe_hi_ch: 12,
+    });
     expect(update).not.toHaveProperty("midiin_mpe_lo_ch");
     expect(update).not.toHaveProperty("midiin_mpe_hi_ch");
   });
@@ -390,7 +439,7 @@ describe("loadAnchorSettingsUpdate", () => {
     expect(update.midi_passthrough).toBe(true);
     expect(update.midiin_mpe_input).toBe(false);
     expect(update.midiin_bend_flip).toBe(false);
-    expect(update.midiin_central_degree).toBe(12);
+    expect(update.midiin_anchor_note).toBe(12);
   });
 
   it("keeps the same Exquis 2D anchor when toggling MPE inside 2D geometry", () => {
@@ -399,7 +448,7 @@ describe("loadAnchorSettingsUpdate", () => {
       midi_passthrough: false,
       midiin_mpe_input: false,
     });
-    expect(update.midiin_central_degree).toBe(23);
+    expect(update.midiin_anchor_note).toBe(23);
   });
 
   it("defaults midi_passthrough to false for controllers without passthroughDefault", () => {
@@ -442,19 +491,19 @@ describe("saveAnchorFromLearn", () => {
   it("saves to localStorage and returns the settings update", () => {
     const update = saveAnchorFromLearn(AXIS49, 65, 1);
     expect(localStorage.getItem("axis49_anchor")).toBe("65");
-    expect(update.midiin_central_degree).toBe(65);
+    expect(update.midiin_anchor_note).toBe(65);
     expect(update.midiin_anchor_channel).toBe(1);
     expect(update).not.toHaveProperty("lumatone_center_channel");
   });
 
-  it("includes lumatone keys for channel-aware controllers", () => {
+  it("returns anchor note and channel for channel-aware controllers", () => {
     const update = saveAnchorFromLearn(LUMATONE, 20, 2);
     expect(localStorage.getItem("lumatone_anchor")).toBe("20");
     expect(localStorage.getItem("lumatone_anchor_channel")).toBe("2");
-    expect(update.midiin_central_degree).toBe(20);
+    expect(update.midiin_anchor_note).toBe(20);
     expect(update.midiin_anchor_channel).toBe(2);
-    expect(update.lumatone_center_channel).toBe(2);
-    expect(update.lumatone_center_note).toBe(20);
+    expect(update).not.toHaveProperty("lumatone_center_channel");
+    expect(update).not.toHaveProperty("lumatone_center_note");
   });
 
   it("saves note 0 correctly", () => {
@@ -497,20 +546,16 @@ describe("Lumatone mode-aware controller prefs", () => {
 
   it("loads default layout2d anchor note and channel when nothing stored", () => {
     const update = loadAnchorSettingsUpdate(LUMATONE_MODES);
-    expect(update.midiin_central_degree).toBe(26);
+    expect(update.midiin_anchor_note).toBe(26);
     expect(update.midiin_anchor_channel).toBe(3);
-    expect(update.lumatone_center_channel).toBe(3);
-    expect(update.lumatone_center_note).toBe(26);
     expect(update.midi_passthrough).toBe(false);
   });
 
   it("loads default bypass anchor note and channel when nothing stored", () => {
     localStorage.setItem("lumatone__active_mode", "bypass");
     const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
-    expect(update.midiin_central_degree).toBe(60);
+    expect(update.midiin_anchor_note).toBe(60);
     expect(update.midiin_anchor_channel).toBe(4);
-    expect(update.lumatone_center_channel).toBe(4);
-    expect(update.lumatone_center_note).toBe(60);
     expect(update.midi_passthrough).toBe(true);
   });
 
@@ -518,10 +563,8 @@ describe("Lumatone mode-aware controller prefs", () => {
     saveAnchor(LUMATONE_MODES, 10, { midi_passthrough: false });
     saveAnchorChannel(LUMATONE_MODES, 2, { midi_passthrough: false });
     const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
-    expect(update.midiin_central_degree).toBe(10);
+    expect(update.midiin_anchor_note).toBe(10);
     expect(update.midiin_anchor_channel).toBe(2);
-    expect(update.lumatone_center_channel).toBe(2);
-    expect(update.lumatone_center_note).toBe(10);
   });
 
   it("switches anchor when toggling between layout2d and bypass", () => {
@@ -531,16 +574,12 @@ describe("Lumatone mode-aware controller prefs", () => {
     saveAnchorChannel(LUMATONE_MODES, 5, { midi_passthrough: true });
 
     const update2d = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
-    expect(update2d.midiin_central_degree).toBe(15);
+    expect(update2d.midiin_anchor_note).toBe(15);
     expect(update2d.midiin_anchor_channel).toBe(2);
-    expect(update2d.lumatone_center_channel).toBe(2);
-    expect(update2d.lumatone_center_note).toBe(15);
 
     const updateBypass = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
-    expect(updateBypass.midiin_central_degree).toBe(48);
+    expect(updateBypass.midiin_anchor_note).toBe(48);
     expect(updateBypass.midiin_anchor_channel).toBe(5);
-    expect(updateBypass.lumatone_center_channel).toBe(5);
-    expect(updateBypass.lumatone_center_note).toBe(48);
   });
 
   it("saves mode-scoped prefs and remembers the active mode", () => {
@@ -559,10 +598,8 @@ describe("Lumatone mode-aware controller prefs", () => {
     localStorage.setItem("lumatone_anchor", "33");
     localStorage.setItem("lumatone_anchor_channel", "2");
     const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
-    expect(update.midiin_central_degree).toBe(33);
+    expect(update.midiin_anchor_note).toBe(33);
     expect(update.midiin_anchor_channel).toBe(2);
-    expect(update.lumatone_center_channel).toBe(2);
-    expect(update.lumatone_center_note).toBe(33);
   });
 
   it("applies sequential transposition defaults in layout2d mode", () => {
@@ -595,13 +632,13 @@ describe("AXIS-49 mode-aware controller prefs", () => {
 
   it("loads default layout2d anchor (note 53) on first connect", () => {
     const update = loadAnchorSettingsUpdate(AXIS49_MODES);
-    expect(update.midiin_central_degree).toBe(53);
+    expect(update.midiin_anchor_note).toBe(53);
     expect(update.midi_passthrough).toBe(false);
   });
 
   it("loads default bypass anchor (note 50) when settings say passthrough", () => {
     const update = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: true });
-    expect(update.midiin_central_degree).toBe(50);
+    expect(update.midiin_anchor_note).toBe(50);
     expect(update.midi_passthrough).toBe(true);
   });
 
@@ -610,10 +647,10 @@ describe("AXIS-49 mode-aware controller prefs", () => {
     saveAnchor(AXIS49_MODES, 60, { midi_passthrough: true });
 
     const update2d = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: false });
-    expect(update2d.midiin_central_degree).toBe(40);
+    expect(update2d.midiin_anchor_note).toBe(40);
 
     const updateBypass = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: true });
-    expect(updateBypass.midiin_central_degree).toBe(60);
+    expect(updateBypass.midiin_anchor_note).toBe(60);
   });
 
   it("saves into mode-scoped storage key", () => {
@@ -626,7 +663,7 @@ describe("AXIS-49 mode-aware controller prefs", () => {
   it("falls back to legacy flat anchor if no mode-specific anchor exists", () => {
     localStorage.setItem("axis49_anchor", "30");
     const update = loadAnchorSettingsUpdate(AXIS49_MODES, { midi_passthrough: false });
-    expect(update.midiin_central_degree).toBe(30);
+    expect(update.midiin_anchor_note).toBe(30);
   });
 });
 
@@ -635,10 +672,8 @@ describe("Tonal Plexus mode-aware controller prefs", () => {
     const update = loadAnchorSettingsUpdate(TONALPLEXUS_MODES, {
       tonalplexus_input_mode: "blocks_41",
     });
-    expect(update.midiin_central_degree).toBe(7);
+    expect(update.midiin_anchor_note).toBe(7);
     expect(update.midiin_anchor_channel).toBe(9);
-    expect(update.lumatone_center_channel).toBe(9);
-    expect(update.lumatone_center_note).toBe(7);
     expect(update.midiin_steps_per_channel).toBe(null);
     expect(update.midiin_channel_group_size).toBe(1);
     expect(update.midiin_channel_legacy).toBe(false);
@@ -648,20 +683,16 @@ describe("Tonal Plexus mode-aware controller prefs", () => {
     const update = loadAnchorSettingsUpdate(TONALPLEXUS_MODES, {
       tonalplexus_input_mode: "layout_205",
     });
-    expect(update.midiin_central_degree).toBe(7);
+    expect(update.midiin_anchor_note).toBe(7);
     expect(update.midiin_anchor_channel).toBe(9);
-    expect(update.lumatone_center_channel).toBe(9);
-    expect(update.lumatone_center_note).toBe(7);
   });
 });
 
 describe("Generic keyboard mode-aware controller prefs", () => {
   it("loads the default anchor channel and keeps channel offsets visible", () => {
     const update = loadAnchorSettingsUpdate(GENERIC_MODES, { midi_passthrough: false });
-    expect(update.midiin_central_degree).toBe(60);
+    expect(update.midiin_anchor_note).toBe(60);
     expect(update.midiin_anchor_channel).toBe(1);
-    expect(update.lumatone_center_channel).toBe(1);
-    expect(update.lumatone_center_note).toBe(60);
   });
 });
 
@@ -686,13 +717,13 @@ function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) 
 
     it(`loads default layout2d anchor (note ${layout2dNote}) on first connect`, () => {
       const update = loadAnchorSettingsUpdate(ctrl);
-      expect(update.midiin_central_degree).toBe(layout2dNote);
+      expect(update.midiin_anchor_note).toBe(layout2dNote);
       expect(update.midi_passthrough).toBe(false);
     });
 
     it(`loads default bypass anchor (note ${bypassNote}) when settings say passthrough`, () => {
       const update = loadAnchorSettingsUpdate(ctrl, { midi_passthrough: true });
-      expect(update.midiin_central_degree).toBe(bypassNote);
+      expect(update.midiin_anchor_note).toBe(bypassNote);
       expect(update.midi_passthrough).toBe(true);
     });
 
@@ -701,9 +732,9 @@ function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) 
       saveAnchor(ctrl, bypassNote + 5, { midi_passthrough: true });
 
       expect(
-        loadAnchorSettingsUpdate(ctrl, { midi_passthrough: false }).midiin_central_degree,
+        loadAnchorSettingsUpdate(ctrl, { midi_passthrough: false }).midiin_anchor_note,
       ).toBe(layout2dNote - 5);
-      expect(loadAnchorSettingsUpdate(ctrl, { midi_passthrough: true }).midiin_central_degree).toBe(
+      expect(loadAnchorSettingsUpdate(ctrl, { midi_passthrough: true }).midiin_anchor_note).toBe(
         bypassNote + 5,
       );
     });
@@ -718,7 +749,7 @@ function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) 
     it("falls back to legacy flat anchor if no mode-specific anchor exists", () => {
       localStorage.setItem(`${ctrl.id}_anchor`, "77");
       const update = loadAnchorSettingsUpdate(ctrl, { midi_passthrough: false });
-      expect(update.midiin_central_degree).toBe(77);
+      expect(update.midiin_anchor_note).toBe(77);
     });
   });
 }
@@ -730,20 +761,19 @@ describeSingleChannelModes("Launchpad", LAUNCHPAD_MODES, 36);
 describe("Generic Keyboard controller prefs", () => {
   it("uses the single stored anchor note", () => {
     saveAnchor(GENERIC_MODES, 72);
-    expect(loadAnchorSettingsUpdate(GENERIC_MODES).midiin_central_degree).toBe(72);
+    expect(loadAnchorSettingsUpdate(GENERIC_MODES).midiin_anchor_note).toBe(72);
   });
 
   it("uses the single stored anchor channel", () => {
     saveAnchorChannel(GENERIC_MODES, 4);
     const update = loadAnchorSettingsUpdate(GENERIC_MODES);
     expect(update.midiin_anchor_channel).toBe(4);
-    expect(update.lumatone_center_channel).toBe(4);
-    expect(update.lumatone_center_note).toBe(60);
+    expect(update.midiin_anchor_note).toBe(60);
   });
 
   it("falls back to legacy flat anchor if no anchor has been stored", () => {
     localStorage.setItem("generic_anchor", "77");
     const update = loadAnchorSettingsUpdate(GENERIC_MODES);
-    expect(update.midiin_central_degree).toBe(77);
+    expect(update.midiin_anchor_note).toBe(77);
   });
 });

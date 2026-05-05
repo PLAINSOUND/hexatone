@@ -113,8 +113,6 @@ describe("mergePresetIntoSettings", () => {
       {
         midiin_central_degree: -999,
         midiin_anchor_channel: -2,
-        lumatone_center_note: -999,
-        lumatone_center_channel: -2,
         controller_virtual_anchor_x: -18,
         controller_virtual_anchor_y: 6,
       },
@@ -124,10 +122,10 @@ describe("mergePresetIntoSettings", () => {
       },
     );
 
-    expect(merged.midiin_central_degree).toBe(26);
+    expect(merged.midiin_anchor_note).toBe(26);
     expect(merged.midiin_anchor_channel).toBe(3);
-    expect(merged.lumatone_center_note).toBe(26);
-    expect(merged.lumatone_center_channel).toBe(3);
+    expect(merged.lumatone_center_note).toBeUndefined();
+    expect(merged.lumatone_center_channel).toBeUndefined();
     expect(merged.controller_virtual_anchor_x).toBeNull();
     expect(merged.controller_virtual_anchor_y).toBeNull();
   });

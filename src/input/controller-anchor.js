@@ -312,6 +312,8 @@ export function saveAnchorChannel(controller, channel, settings = null, override
  *     midi_passthrough and midiin_mpe_input use first-connect fallbacks
  *     (controller.passthroughDefault, controller.mpe) when nothing is saved.
  *   - Fixed MPE voice channel range (if controller defines mpeVoiceChannels)
+ *   - Controller-specific configurable MPE defaults/bounds
+ *     (if controller defines mpeMemberChannelBounds)
  *
  * @param {object} controller  Registry entry
  * @returns {object}  Partial settings update
@@ -322,7 +324,7 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
   // reflect a previous session in a different mode.
   const preferStored = settings === null;
   const update = {
-    midiin_central_degree: loadSavedAnchor(controller, settings, { preferStored }),
+    midiin_anchor_note: loadSavedAnchor(controller, settings, { preferStored }),
     // All local-tier prefs — includes midi_passthrough and midiin_mpe_input
     // with their first-connect fallbacks handled inside loadControllerPrefs.
     ...loadControllerPrefs(controller, settings, { preferStored }),
@@ -334,11 +336,6 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
     // for all layouts (sequential, passthrough). Must match the loaded anchor channel
     // so that (incomingChannel - anchorChannel) evaluates to 0 at the anchor position.
     update.midiin_anchor_channel = ch;
-    update.lumatone_center_channel = ch;
-    // lumatone_center_note is the block-local anchor note (0–55), which is the
-    // same value loadSavedAnchor returned above. Populate it here so Keys has
-    // both fields correctly set without relying on session-scoped stale defaults.
-    update.lumatone_center_note = update.midiin_central_degree;
   } else {
     // Single-channel controllers must actively clear any stale anchor-channel
     // state left by a previously connected multichannel controller.
@@ -349,6 +346,22 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
   if (controller.mpeVoiceChannels) {
     update.midiin_mpe_lo_ch = controller.mpeVoiceChannels.lo;
     update.midiin_mpe_hi_ch = controller.mpeVoiceChannels.hi;
+  } else if (controller.mpeMemberChannelBounds) {
+    const {
+      min = 2,
+      max = 16,
+      defaultLo = min,
+      defaultHi = max,
+    } = controller.mpeMemberChannelBounds;
+    const currentLo = settings?.midiin_mpe_lo_ch;
+    const currentHi = settings?.midiin_mpe_hi_ch;
+
+    if (!Number.isFinite(currentLo) || currentLo < min || currentLo > max) {
+      update.midiin_mpe_lo_ch = defaultLo;
+    }
+    if (!Number.isFinite(currentHi) || currentHi < min || currentHi > max) {
+      update.midiin_mpe_hi_ch = defaultHi;
+    }
   }
 
   // Apply controller-specific sequential transposition defaults (e.g. Lumatone:
@@ -387,13 +400,8 @@ export function saveAnchorFromLearn(controller, note, channel, settings = null, 
   saveAnchor(controller, note, settings, overrides);
   saveAnchorChannel(controller, channel, settings, overrides);
 
-  const update = {
-    midiin_central_degree: note,
+  return {
+    midiin_anchor_note: note,
     midiin_anchor_channel: channel,
   };
-  if (controller.anchorChannelDefault != null) {
-    update.lumatone_center_channel = channel;
-    update.lumatone_center_note = note; // 0–55 within the block for Lumatone
-  }
-  return update;
 }

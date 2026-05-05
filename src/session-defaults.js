@@ -5,7 +5,7 @@
  * tab refresh without polluting the URL or localStorage.
  *
  * Generated from SETTINGS_REGISTRY entries where tier === 'session'.
- * Runtime-only keys (axis49_center_note, lumatone_center_channel, etc.) are
+ * Runtime-only keys (axis49_center_note, controller-translation helpers, etc.) are
  * NOT included here — they live as plain defaults in preset_values.js or are
  * set imperatively when a controller is detected.
  *
@@ -34,6 +34,8 @@ const LEGACY_SESSION_KEY_ALIASES = {
   mts_bulk_device_id: "direct_device_id",
   mts_bulk_tuning_map_number: "direct_tuning_map_number",
   mts_bulk_tuning_map_name: "direct_tuning_map_name",
+  midiin_anchor_note: "midiin_central_degree",
+  midiin_mpe_manager_ch: "mpe_manager_ch",
 };
 
 // Read one session key using the correct parser for its type.

@@ -275,8 +275,8 @@ describe("parseScale — HEXATONE metadata", () => {
     expect(result.hexatone_fundamental).toBe(440);
   });
 
-  it("parses HEXATONE_midiin_central_degree", () => {
-    expect(result.hexatone_midiin_central_degree).toBe(60);
+  it("parses HEXATONE_midiin_anchor_note", () => {
+    expect(result.hexatone_midiin_anchor_note).toBe(60);
   });
 
   it("parses HEXATONE_NOTE_NAMES", () => {
@@ -315,7 +315,7 @@ describe("settingsToHexatonScala → parseScale round-trip", () => {
     note_colors: ["#ffffff", "#eeeeee", "#dddddd", "#cccccc"],
     fundamental: 440,
     reference_degree: 0,
-    midiin_central_degree: 60,
+    midiin_anchor_note: 60,
   };
 
   const ascl = settingsToHexatonScala(settings);
@@ -337,8 +337,8 @@ describe("settingsToHexatonScala → parseScale round-trip", () => {
     expect(parsed.hexatone_reference_degree).toBe(0);
   });
 
-  it("round-trips midiin_central_degree", () => {
-    expect(parsed.hexatone_midiin_central_degree).toBe(60);
+  it("round-trips midiin_anchor_note", () => {
+    expect(parsed.hexatone_midiin_anchor_note).toBe(60);
   });
 
   it("produces a valid scala file with correct degree count", () => {

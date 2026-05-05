@@ -163,13 +163,16 @@ class Keys {
       target: "hex_layout",
       layoutMode: settings.midi_passthrough ? "sequential" : "controller_geometry",
       mpeInput: false,
-      seqAnchorNote: settings.midiin_central_degree ?? 60,
+      seqAnchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree ?? 60,
       seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
       stepsPerChannel: settings.midiin_steps_per_channel,
       stepsPerChannelDefault: settings.equivSteps,
       channelGroupSize: settings.midiin_channel_group_size ?? 1,
       legacyChannelMode: settings.midiin_channel_legacy,
       scaleTolerance: 50,
+      scaleBendRange: settings.midiin_scale_bend_range ?? 48,
+      hakenScaleBendFactor: settings.hakenaudio_scale_bend_factor ?? 1,
+      hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 0,
       pitchBendMode: "recency",
       pressureMode: "recency",
       wheelToRecent: settings.wheel_to_recent,
@@ -300,7 +303,7 @@ class Keys {
     }
 
     // The tuning map anchor is always derived from the musical content (fundamental,
-    // scale, center_degree) — independent of midiin_central_degree, which is a
+    // scale, center_degree) — independent of midiin_anchor_note, which is a
     // hardware input setting. The hex grid is the shared reference: the tuning map
     // is built from the grid, and the input anchor maps hardware keys onto the grid.
     const tuning_map_degree0 = computeNaturalAnchor(
@@ -699,12 +702,11 @@ class Keys {
     if (this.controller.multiChannel) {
       return {
         channel:
-          this.settings.lumatone_center_channel ??
           this.settings.midiin_anchor_channel ??
           this.controller.anchorChannelDefault ??
           1,
         note:
-          this.settings.lumatone_center_note ??
+          this.settings.midiin_anchor_note ??
           this.settings.midiin_central_degree ??
           this.controller.anchorDefault ??
           60,
@@ -712,20 +714,14 @@ class Keys {
     }
     return {
       channel: 1,
-      note: this.settings.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
+      note: this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
     };
   }
 
   _extractCurrentAnchorSettings() {
     return {
-      midiin_central_degree: this.settings.midiin_central_degree ?? 60,
+      midiin_anchor_note: this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree ?? 60,
       midiin_anchor_channel: this.settings.midiin_anchor_channel ?? 1,
-      ...(this.settings.lumatone_center_note != null
-        ? { lumatone_center_note: this.settings.lumatone_center_note }
-        : {}),
-      ...(this.settings.lumatone_center_channel != null
-        ? { lumatone_center_channel: this.settings.lumatone_center_channel }
-        : {}),
       controller_virtual_anchor_x: Number.isFinite(this.settings.controller_virtual_anchor_x)
         ? this.settings.controller_virtual_anchor_x
         : null,
@@ -806,12 +802,11 @@ class Keys {
     if (this.controller.multiChannel) {
       return {
         channel:
-          settingsLike.lumatone_center_channel ??
           settingsLike.midiin_anchor_channel ??
           this.controller.anchorChannelDefault ??
           1,
         note:
-          settingsLike.lumatone_center_note ??
+          settingsLike.midiin_anchor_note ??
           settingsLike.midiin_central_degree ??
           this.controller.anchorDefault ??
           60,
@@ -819,7 +814,7 @@ class Keys {
     }
     return {
       channel: 1,
-      note: settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
+      note: settingsLike.midiin_anchor_note ?? settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
     };
   }
 
@@ -835,8 +830,8 @@ class Keys {
 
     if (this.controller.multiChannel) {
       const constraints = this.controller.learnConstraints;
-      anchorNote = settingsLike.lumatone_center_note;
-      anchorChannel = settingsLike.lumatone_center_channel;
+      anchorNote = settingsLike.midiin_anchor_note ?? settingsLike.midiin_central_degree;
+      anchorChannel = settingsLike.midiin_anchor_channel;
 
       if (!this.controller.supportsVirtualAnchor && constraints?.noteRange) {
         const { min, max } = constraints.noteRange;
@@ -851,7 +846,7 @@ class Keys {
         }
       }
     } else {
-      anchorNote = settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60;
+      anchorNote = settingsLike.midiin_anchor_note ?? settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60;
       anchorChannel = 1;
     }
 
@@ -962,15 +957,11 @@ class Keys {
   _anchorSettingsForControllerAddress(anchorSettings, channel, note) {
     const next = {
       ...anchorSettings,
-      midiin_central_degree: note,
+      midiin_anchor_note: note,
       midiin_anchor_channel: channel,
       controller_virtual_anchor_x: null,
       controller_virtual_anchor_y: null,
     };
-    if (this.controller?.multiChannel) {
-      next.lumatone_center_note = note;
-      next.lumatone_center_channel = channel;
-    }
     return next;
   }
 
@@ -1015,14 +1006,8 @@ class Keys {
     const rawStepDelta = dx * this.settings.rSteps + dy * this.settings.drSteps;
     return {
       ...anchorSettings,
-      midiin_central_degree: (anchorSettings.midiin_central_degree ?? 60) - rawStepDelta,
+      midiin_anchor_note: (anchorSettings.midiin_anchor_note ?? anchorSettings.midiin_central_degree ?? 60) - rawStepDelta,
       midiin_anchor_channel: anchorSettings.midiin_anchor_channel ?? 1,
-      ...(anchorSettings.lumatone_center_note != null
-        ? { lumatone_center_note: anchorSettings.lumatone_center_note - rawStepDelta }
-        : {}),
-      ...(anchorSettings.lumatone_center_channel != null
-        ? { lumatone_center_channel: anchorSettings.lumatone_center_channel }
-        : {}),
     };
   }
 
@@ -1080,14 +1065,8 @@ class Keys {
 
     return {
       ...anchorSettings,
-      midiin_central_degree: (anchorSettings.midiin_central_degree ?? 60) + stepDelta,
+      midiin_anchor_note: (anchorSettings.midiin_anchor_note ?? anchorSettings.midiin_central_degree ?? 60) + stepDelta,
       midiin_anchor_channel: anchorSettings.midiin_anchor_channel ?? 1,
-      ...(anchorSettings.lumatone_center_note != null
-        ? { lumatone_center_note: anchorSettings.lumatone_center_note + stepDelta }
-        : {}),
-      ...(anchorSettings.lumatone_center_channel != null
-        ? { lumatone_center_channel: anchorSettings.lumatone_center_channel }
-        : {}),
     };
   }
 
@@ -1579,8 +1558,9 @@ class Keys {
       Object.assign(this.settings, nextSettings);
       if (this.inputRuntime) {
         const anchorRuntimeUpdate = {};
-        if (nextSettings.midiin_central_degree != null) {
-          anchorRuntimeUpdate.seqAnchorNote = nextSettings.midiin_central_degree;
+        if (nextSettings.midiin_anchor_note != null || nextSettings.midiin_central_degree != null) {
+          anchorRuntimeUpdate.seqAnchorNote =
+            nextSettings.midiin_anchor_note ?? nextSettings.midiin_central_degree;
         }
         if (nextSettings.midiin_anchor_channel != null) {
           anchorRuntimeUpdate.seqAnchorChannel = nextSettings.midiin_anchor_channel;
@@ -1929,6 +1909,10 @@ class Keys {
     return KeysMidiInput.applyChannelOffset.call(this, baseCoords, channel);
   }
 
+  _acceptsMpeInputChannel(channel) {
+    return KeysMidiInput.acceptsMpeInputChannel.call(this, channel);
+  }
+
   _normalizeInputAddress(channel, note) {
     return KeysMidiInput.normalizeInputAddress.call(this, channel, note);
   }
@@ -2179,6 +2163,10 @@ class Keys {
 
   _redrawSoundingHexes() {
     return KeysRenderer.redrawSoundingHexes.call(this);
+  }
+
+  _redrawSoundingHexesInBounds(bounds) {
+    return KeysRenderer.redrawSoundingHexesInBounds.call(this, bounds);
   }
 
   drawGrid() {

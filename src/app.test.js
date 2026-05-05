@@ -32,9 +32,9 @@ vi.mock("./settings", () => ({
 vi.mock("./blurb", () => ({
   default: () => <div>Blurb Stub</div>,
 }));
-vi.mock("./settings/preset_values", () => ({ presets: [] }));
+vi.mock("./settings/presets/preset_values", () => ({ presets: [] }));
 vi.mock("./sample_synth/instruments", () => ({ instruments: [] }));
-vi.mock("./settings/keycodes", () => ({ default: {} }));
+vi.mock("./keyboard/keycodes", () => ({ default: {} }));
 vi.mock("./normalize-settings.js", () => ({
   normalizeColors: (s) => s,
   normalizeStructural: (s) => s,

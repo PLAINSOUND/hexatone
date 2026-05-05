@@ -1,15 +1,14 @@
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Settings from "./index.jsx";
 
-vi.mock("./presets", () => ({ default: () => <div>Presets Stub</div> }));
-vi.mock("./custom-presets", () => ({ default: () => <div>User Tunings Stub</div> }));
-vi.mock("./info", () => ({ default: () => <div>Info Stub</div> }));
+vi.mock("./presets/presets", () => ({ default: () => <div>Presets Stub</div> }));
+vi.mock("./presets/custom-presets", () => ({ default: () => <div>User Tunings Stub</div> }));
+vi.mock("./scale/info", () => ({ default: () => <div>Info Stub</div> }));
 vi.mock("./scale", () => ({ default: () => <div>Scale Stub</div> }));
 vi.mock("./layout", () => ({ default: () => <div>Layout Stub</div> }));
 vi.mock("./sample", () => ({ default: () => <div>Sample Stub</div> }));
 vi.mock("./midi", () => ({ default: () => <div>MIDI In Stub</div> }));
 vi.mock("./midi/midioutputs", () => ({ default: () => <div>MIDI Out Stub</div> }));
-vi.mock("./snapshots.jsx", () => ({ default: () => <div>Snapshots Stub</div> }));
 
 const baseProps = {
   presetChanged: () => {},

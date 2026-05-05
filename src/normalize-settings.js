@@ -4,7 +4,7 @@
 // consistent settings shape.
 
 import { scalaToCents, scalaToLabels } from "./settings/scale/parse-scale.js";
-import keyCodeToCoords from "./settings/keycodes";
+import keyCodeToCoords from "./keyboard/keycodes";
 import { hex2rgb, rgb2hsv, HSVtoRGB2, rgbToHex } from "./keyboard/color_utils.js";
 import { parseHejiPitchClassLabel } from "./notation/heji.js";
 import { createReferenceFrame } from "./notation/reference-frame.js";

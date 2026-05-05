@@ -41,7 +41,11 @@ export const create_midi_synth = async ({
     pitchBendRange = 2,
   } = outputMode;
   const { fundamental, degree0toRefAsArray, scale, equivInterval, name } = tuningContext;
-  const { midiin_device, midiin_central_degree } = legacyInput;
+  const {
+    midiin_device,
+    midiin_anchor_note,
+    midiin_central_degree,
+  } = legacyInput;
 
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
   // MTS1: all 128 MIDI notes available as carriers
@@ -64,7 +68,7 @@ export const create_midi_synth = async ({
     scale &&
     degree0toRefAsArray
       ? buildTuningMapEntries(
-          anchorNote ?? midiin_central_degree ?? 60,
+          anchorNote ?? midiin_anchor_note ?? midiin_central_degree ?? 60,
           scale,
           equivInterval,
           fundamental,
@@ -145,7 +149,7 @@ export const create_midi_synth = async ({
             velocity,
             midi_output,
             channel,
-            anchorNote ?? midiin_central_degree,
+            anchorNote ?? midiin_anchor_note ?? midiin_central_degree,
             degree0toRef_ratio,
             fundamental,
           );
@@ -164,7 +168,7 @@ export const create_midi_synth = async ({
           bend,
           degree0toRef_ratio,
           midiin_device,
-          midiin_central_degree,
+          midiin_anchor_note ?? midiin_central_degree,
           midi_output,
           channel,
           midi_mapping,

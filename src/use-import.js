@@ -69,8 +69,11 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
         parsed.hexatone_reference_degree !== undefined
           ? parsed.hexatone_reference_degree
           : s.reference_degree;
-      const midiin_central_degree =
-        parsed.hexatone_midiin_central_degree || s.midiin_central_degree;
+      const midiin_anchor_note =
+        parsed.hexatone_midiin_anchor_note ||
+        parsed.hexatone_midiin_central_degree ||
+        s.midiin_anchor_note ||
+        s.midiin_central_degree;
 
       return {
         ...s,
@@ -83,7 +86,7 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
         note_colors,
         fundamental,
         reference_degree,
-        midiin_central_degree,
+        midiin_anchor_note,
         key_labels: hasMetadata ? "note_names" : "scala_names",
         spectrum_colors: hasMetadata ? false : true,
         fundamental_color: hasMetadata ? s.fundamental_color : "#f2e3e3",

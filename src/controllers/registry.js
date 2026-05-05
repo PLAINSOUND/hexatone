@@ -6,6 +6,7 @@ import {
   LUMATONE_NOTES_PER_BLOCK,
   LUMATONE_BLOCKS,
 } from "./lumatone.js";
+import { detectHakenDeviceName } from "./hakenaudio.js";
 
 /**
  * controllers/registry.js
@@ -27,6 +28,10 @@ import {
  *                   channel range (e.g. Exquis: { lo: 2, hi: 15 }). null means the
  *                   range is user-configurable and the UI picker is shown. Only
  *                   present on entries where mpe is true.
+ *   mpeMemberChannelBounds – optional { min, max, defaultLo, defaultHi } used
+ *                   when the controller exposes a user-configurable MPE member
+ *                   range but its valid zone is narrower than the generic
+ *                   2–16 range.
  *   anchor        – array of setting descriptors for the UI
  *   buildMap(anchorParams) → Map<"ch.note", {x,y}>
  *                   x,y are integer offsets from the anchor key in hex-grid units.
@@ -702,6 +707,44 @@ export const CONTROLLER_REGISTRY = [
   },
 
   {
+    id: "hakenaudio",
+    name: "Haken Audio Continuum",
+    detect: detectHakenDeviceName,
+    description:
+      "Continuum / EaganMatrix expressive surface. First-pass support uses generic MPE handling while dedicated XYZ geometry is implemented.",
+    multiChannel: false,
+    mpe: true,
+    // Continuum voice-channel layouts are hardware/profile dependent, so keep
+    // the channel range user-configurable until a dedicated config layer lands.
+    mpeVoiceChannels: null,
+    mpeMemberChannelBounds: {
+      min: 2,
+      max: 14,
+      defaultLo: 2,
+      defaultHi: 14,
+    },
+    anchorDefault: 60,
+    defaultMode: "layout2d",
+    modes: {
+      layout2d: {
+        defaultPrefs: {
+          anchorNote: 60,
+          midi_passthrough: false,
+          midiin_mpe_input: true,
+        },
+      },
+      bypass: {
+        defaultPrefs: {
+          anchorNote: 60,
+          midi_passthrough: true,
+          midiin_mpe_input: true,
+        },
+      },
+    },
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
+  },
+
+  {
     id: "axis49",
     name: "C-Thru AXIS-49 2A",
     detect: (name) => name.includes("axis-4") || name.includes("axis 4"),
@@ -962,7 +1005,7 @@ export const CONTROLLER_REGISTRY = [
     // Never auto-detected — selected manually via the controller override dropdown.
     detect: () => false,
     description:
-      "1D keyboard input. 2D geometry is bypassed; anchor channel and per-channel offset are user-configurable.",
+      "Scale starts on anchor note + ch (default note 60 ch 1); per-channel scale offset is user-configurable.",
     multiChannel: false,
     mpe: false,
     anchorDefault: 60,
@@ -989,10 +1032,12 @@ export function getControllerById(id) {
 
 /**
  * Get the anchor MIDI note for a controller from settings.
- * Universal: always uses midiin_central_degree (the MIDI note → central screen degree mapping).
+ * Universal: uses the canonical midiin_anchor_note, with legacy fallback to
+ * midiin_central_degree during the rename transition.
  * Falls back to controller's anchorDefault if not set.
  */
 export function getAnchorNote(controller, settings) {
+  if (settings.midiin_anchor_note != null) return settings.midiin_anchor_note;
   if (settings.midiin_central_degree != null) return settings.midiin_central_degree;
   return controller.anchorDefault ?? 60;
 }

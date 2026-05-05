@@ -366,9 +366,8 @@ export function rebuildControllerMap() {
     deviceName: this.midiin_data?.name ?? null,
     override: this.settings.midiin_controller_override || "auto",
     passthrough: !!this.settings.midi_passthrough,
-    centralDegree: this.settings.midiin_central_degree,
-    lumatoneChannel: this.settings.lumatone_center_channel,
-    lumatoneNote: this.settings.lumatone_center_note,
+    anchorNote: this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree,
+    anchorChannel: this.settings.midiin_anchor_channel,
     virtualAnchorX: this.settings.controller_virtual_anchor_x ?? null,
     virtualAnchorY: this.settings.controller_virtual_anchor_y ?? null,
     tonalplexusMode: this.settings.tonalplexus_input_mode,
@@ -409,10 +408,10 @@ export function rebuildControllerMap() {
 
   if (entry.multiChannel) {
     const constraints = entry.learnConstraints;
-    anchorNote = this.settings.lumatone_center_note;
-    anchorChannel = this.settings.lumatone_center_channel;
+    anchorNote = this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree ?? entry.anchorDefault;
+    anchorChannel = this.settings.midiin_anchor_channel ?? entry.anchorChannelDefault;
 
-    if (!entry.supportsVirtualAnchor && constraints?.noteRange) {
+    if (constraints?.noteRange) {
       const { min, max } = constraints.noteRange;
       if (anchorNote == null || anchorNote < min || anchorNote > max) {
         anchorNote = entry.anchorDefault ?? 26;
@@ -631,6 +630,7 @@ export function setupMidiInput() {
           const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
           const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
+          if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
           debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
 
           // ── LinnStrument User Firmware Mode X data ────────────────────────
@@ -739,6 +739,7 @@ export function setupMidiInput() {
         // Universal channel-pressure (aftertouch) listener.
         this.midiin_data.addListener("channelaftertouch", (e) => {
           const value = e.message.dataBytes[0];
+          if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
           debugLog("MIDImonitoring", "channelaftertouch", { channel: e.message.channel, value });
           this._channelPressureValue = value;
 
@@ -846,6 +847,7 @@ export function setupMidiInput() {
         // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
         this.midiin_data.addListener("pitchbend", (e) => {
           const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
+          if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
           debugLog("MIDImonitoring", "pitchbend", {
             channel: e.message.channel,
             value14: val14,

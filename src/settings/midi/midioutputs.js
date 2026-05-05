@@ -133,7 +133,7 @@ const MidiOutputs = (props) => {
     osc_volume_formant: readOscVolume("osc_volume_formant", settings.osc_volume_formant ?? 0.5),
     osc_volume_saw: readOscVolume("osc_volume_saw", settings.osc_volume_saw ?? 0.5),
   });
-  const masterCh = settings.mpe_manager_ch || "1";
+  const masterCh = settings.midiin_mpe_manager_ch || settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
   const hiCh = available.includes(settings.mpe_hi_ch)
@@ -650,7 +650,7 @@ const MidiOutputs = (props) => {
               <label>
                 Manager Channel
                 <select
-                  name="mpe_manager_ch"
+                  name="midiin_mpe_manager_ch"
                   class="sidebar-input"
                   value={masterCh}
                   onChange={(e) => save(e.target.name, e.target.value, onChange)}
@@ -756,7 +756,7 @@ const MidiOutputs = (props) => {
                       if (output) {
                         sendMpePitchBendRange(
                           output,
-                          settings.mpe_manager_ch,
+                          settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
                           settings.mpe_lo_ch,
                           settings.mpe_hi_ch,
                           settings.mpe_pitchbend_range ?? 48,
@@ -879,7 +879,7 @@ MidiOutputs.propTypes = {
     short_description: PropTypes.string,
     name: PropTypes.string,
     mpe_device: PropTypes.string,
-    mpe_manager_ch: PropTypes.string,
+    midiin_mpe_manager_ch: PropTypes.string,
     mpe_lo_ch: PropTypes.number,
     mpe_hi_ch: PropTypes.number,
     mpe_mode: PropTypes.string,

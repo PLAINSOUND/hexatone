@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
-import { presets } from "./settings/preset_values";
+import { presets } from "./settings/presets/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
@@ -1090,15 +1090,16 @@ const App = () => {
     () =>
       inputController?.normalizeInput?.(
         settings.midiin_anchor_channel ?? 1,
-        settings.midiin_central_degree ?? 60,
+        settings.midiin_anchor_note ?? settings.midiin_central_degree ?? 60,
         inputNormalizationSettings,
       ) ?? {
         channel: settings.midiin_anchor_channel ?? 1,
-        note: settings.midiin_central_degree ?? 60,
+        note: settings.midiin_anchor_note ?? settings.midiin_central_degree ?? 60,
       },
     [
       inputController,
       settings.midiin_anchor_channel,
+      settings.midiin_anchor_note,
       settings.midiin_central_degree,
       inputNormalizationSettings,
     ],
@@ -1133,6 +1134,8 @@ const App = () => {
       bendFlip: !!settings.midiin_bend_flip,
       // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
+      hakenScaleBendFactor: settings.hakenaudio_scale_bend_factor ?? 1,
+      hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 0,
     }),
     [
       forceScaleTarget,
@@ -1157,6 +1160,8 @@ const App = () => {
       settings.midi_wheel_semitones,
       settings.midiin_bend_flip,
       settings.midiin_scale_bend_range,
+      settings.hakenaudio_scale_bend_factor,
+      settings.hakenaudio_x_glide_shaping,
     ],
   );
 

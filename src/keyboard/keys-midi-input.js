@@ -14,6 +14,13 @@ function usesPerChannelExpression(runtime) {
   return !!(runtime?.mpeInput || runtime?.perChannelExpression);
 }
 
+export function acceptsMpeInputChannel(channel) {
+  if (!this.inputRuntime.mpeInput) return true;
+  const lo = this.settings.midiin_mpe_lo_ch ?? 2;
+  const hi = this.settings.midiin_mpe_hi_ch ?? 15;
+  return channel >= lo && channel <= hi;
+}
+
 function ensureActiveMidiChannelEntry(channel) {
   let entry = this.state.activeMidiByChannel.get(channel);
   if (!entry) {
@@ -69,9 +76,9 @@ function pitchHzForScaleInput(event) {
   if (this.inputRuntime.mpeInput) {
     const preBend = this._scaleModePreBend.get(event.message.channel) ?? 8192;
     const norm = (preBend - 8192) / 8192;
-    const bendRange = this.inputRuntime.scaleBendRange ?? 48;
+    const bendRangeCents = (this.inputRuntime.scaleBendRange ?? 48) * 100;
     const baseHz = 440 * Math.pow(2, (event.note.number - 69) / 12);
-    return baseHz * Math.pow(2, (norm * bendRange) / 12);
+    return baseHz * Math.pow(2, (norm * bendRangeCents) / 1200);
   }
   return (
     this._mtsInputTable.get(event.note.number) ??
@@ -80,6 +87,7 @@ function pitchHzForScaleInput(event) {
 }
 
 export function midinoteOn(event) {
+  if (!this._acceptsMpeInputChannel(event.message.channel)) return;
   const bend = this.bend || 0;
   const notePlayed = event.note.number + 128 * (event.message.channel - 1);
   const velocityPlayed = event.note.rawAttack;
@@ -119,6 +127,12 @@ export function midinoteOn(event) {
     if (result === null) return;
     if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
     coords = this.coordResolver.coordForSteps(result.steps);
+    if (usesPerChannelExpression(this.inputRuntime)) {
+      liveInputAddress = {
+        channel: event.message.channel,
+        note: event.note.number,
+      };
+    }
   } else {
     const resolved = resolveNonScaleNoteOn(this, event);
     if (!resolved) return;
@@ -152,21 +166,32 @@ export function midinoteOn(event) {
     entry.hexes.add(hex);
     const bend14 = this._mpeInputBendByChannel.get(event.message.channel);
     if (bend14 != null && bend14 !== 8192) {
-      this._applyMpePitchBend(entry, event.message.channel, bend14);
+      const primed = hex._mpePrimedBeforeNoteOn;
+      if (primed?.channel === event.message.channel && primed?.bend14 === bend14) {
+        hex._lastPitchBend14 = bend14;
+        hex._lastPitchBendCents = primed.bentCents;
+        delete hex._mpePrimedBeforeNoteOn;
+      } else {
+        this._applyMpePitchBend(entry, event.message.channel, bend14);
+      }
     }
   }
   this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(coords);
 }
 
 export function midinoteOff(event) {
+  if (!this._acceptsMpeInputChannel(event.message.channel)) return;
   const notePlayed = event.note.number + 128 * (event.message.channel - 1);
   if (this._suppressedMidiNotes?.has(notePlayed)) {
     this._suppressedMidiNotes.delete(notePlayed);
     return;
   }
+  const hex = this.state.activeMidi.get(notePlayed);
   let coordsList;
 
-  if (this.inputRuntime.target === "scale") {
+  if (this.inputRuntime.target === "scale" && hex?.coords) {
+    coordsList = [hex.coords];
+  } else if (this.inputRuntime.target === "scale") {
     const pitchCents = this._resolveScaleInputPitchCents(
       event.message.channel,
       event.note.number,
@@ -200,7 +225,6 @@ export function midinoteOff(event) {
     );
   }
 
-  const hex = this.state.activeMidi.get(notePlayed);
   if (hex) {
     this.noteOff(hex, event.note.rawRelease);
     this.state.activeMidi.delete(notePlayed);
@@ -240,11 +264,15 @@ export function allnotesOff() {
   for (const notePlayed of notes.played) {
     const note = notePlayed % 128;
     const channel = Math.floor(notePlayed / 128) + 1;
+    const hex = this.state.activeMidi.get(notePlayed);
 
     let coordsList;
-    coordsList = resolveNonScaleNoteOffCoords(this, channel, note, channel);
+    if (this.inputRuntime.target === "scale" && hex?.coords) {
+      coordsList = [hex.coords];
+    } else {
+      coordsList = resolveNonScaleNoteOffCoords(this, channel, note, channel);
+    }
 
-    const hex = this.state.activeMidi.get(notePlayed);
     if (hex) {
       this.noteOff(hex, 64);
       this.state.activeMidi.delete(notePlayed);

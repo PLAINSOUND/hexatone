@@ -22,7 +22,7 @@
  * Dependencies injected at construction time (no direct import of Keys):
  *   settings           – layout snapshot (rSteps, drSteps, scale, equivSteps,
  *                        equivInterval, hexSize, centerHexOffset,
- *                        midiin_central_degree, center_degree,
+ *                        midiin_anchor_note, center_degree,
  *                        midiin_steps_per_channel, octave_offset)
  *   hexCoordsToCents   – Keys.hexCoordsToCents bound to the live instance
  *   hexCoordsToScreen  – Keys.hexCoordsToScreen bound to the live instance
@@ -140,7 +140,8 @@ export class MidiCoordResolver {
    */
   noteToSteps(noteNumber, channel) {
     const ir = this.inputRuntime;
-    const anchorNote = (ir ? ir.seqAnchorNote : this.settings.midiin_central_degree) ?? 60;
+    const anchorNote =
+      (ir ? ir.seqAnchorNote : (this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree)) ?? 60;
     return (
       noteNumber -
       anchorNote +

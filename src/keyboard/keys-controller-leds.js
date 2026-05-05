@@ -183,7 +183,7 @@ export function buildExquisColorArray() {
     const len = scale.length;
     if (len === 0) return colors;
 
-    const anchorNote = this.settings.midiin_central_degree ?? 60;
+    const anchorNote = this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree ?? 60;
     const centerDegree = this.settings.center_degree || 0;
 
     for (let note = 0; note <= 60; note++) {

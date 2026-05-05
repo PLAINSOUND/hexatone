@@ -94,7 +94,7 @@ export const create_mpe_synth = async (
   fundamental = 440,
   reference_degree = 0,
   center_degree = 0,
-  midiin_central_degree = 60,
+  midiin_anchor_note = 60,
   scale,
   mpe_mode = "Ableton_workaround",
   bendRange = 48,
@@ -120,7 +120,7 @@ export const create_mpe_synth = async (
     center_degree,
     scale,
   );
-  const midiNoteForDegree0 = midiin_central_degree;
+  const midiNoteForDegree0 = midiin_anchor_note;
 
   // MPE configuration RPN message on manager channel
   if (masterCh !== -1) {

@@ -7,7 +7,7 @@
      1.  Global element overrides for sidebar context
          (headings, fieldsets, labels, tables, inputs, links)
      2.  Colour cell widget          → scale/colors.js  scale/scale-table/color-cell.js
-     3.  Preset panel                → custom-presets.js
+     3.  Preset panel                → presets/custom-presets.js
      4.  Scale table                 → scale/scale-table/index.js
          4a. Column widths
          4b. Row highlights: reference degree (yellow) + center degree (pink)
@@ -472,7 +472,7 @@ td.scale-color-col .color-input {
 
 
 /* ── 3. Preset panel ──────────────────────────────────────── */
-/* → custom-presets.js                                         */
+/* → presets/custom-presets.js                                 */
 
 .preset-actions {
   display: flex;

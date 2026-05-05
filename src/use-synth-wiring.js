@@ -5,7 +5,7 @@
 // configured runtime objects and callbacks used by App.
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
-import { enableMidi } from "./settings/midi/midiin";
+import { enableMidi } from "./midi/enable-webmidi";
 import { create_midi_synth } from "./midi_synth";
 import create_mpe_synth from "./mpe_synth";
 import { create_composite_synth } from "./composite_synth";
@@ -86,6 +86,14 @@ export const resolveInputController = (input, controllerOverrideId = "auto") => 
   }
   if (!input?.name) return getControllerById("generic");
   return detectController(input.name.toLowerCase()) ?? getControllerById("generic");
+};
+
+export const resolveControllerPrefsTarget = (input, controllerOverrideId = "auto") => {
+  if (controllerOverrideId && controllerOverrideId !== "auto") {
+    return getControllerById(controllerOverrideId);
+  }
+  if (!input?.name) return null;
+  return detectController(input.name.toLowerCase());
 };
 
 const normalizeMidiPortName = (name = "") =>
@@ -201,7 +209,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       velocity: midiVelocity,
       deviceId: settings.device_id ?? 127,
       mapNumber: settings.tuning_map_number ?? 0,
-      anchorNote: settings.midiin_central_degree,
+      anchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree,
       sysexType: settings.sysex_type,
       pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
@@ -227,7 +235,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       velocity: midiVelocity,
       deviceId: settings.device_id ?? 127,
       mapNumber: settings.tuning_map_number ?? 0,
-      anchorNote: settings.midiin_central_degree,
+      anchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree,
       sysexType: settings.sysex_type,
       pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
@@ -504,7 +512,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // │  MPE output:                                                            │
   // │    output_mpe          — enable/disable MPE engine                      │
   // │    mpe_device          — output port                                    │
-  // │    mpe_manager_ch      — MPE zone manager channel                       │
+  // │    midiin_mpe_manager_ch — MPE zone manager channel                    │
   // │    mpe_lo_ch           — first member channel                           │
   // │    mpe_hi_ch           — last member channel                            │
   // │    mpe_pitchbend_range — pitch bend range baked at MPE init             │
@@ -572,7 +580,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // │    retuning_mode       — transpose vs recalculate (keys.js per-note)    │
   // │    wheel_to_recent     — modwheel routing (keys.js per-event)           │
   // │    wheel_scale_aware   — wheel snap mode (keys.js per-event)            │
-  // │    midiin_central_degree — anchor for incoming MIDI (keys.js)           │
+  // │    midiin_anchor_note   — anchor note for incoming MIDI (keys.js)       │
   // │    midi_passthrough    — MIDI pass-through flag (keys.js)               │
   // │    lumatone_led_sync   — LED feedback toggle (keys.js)                  │
   // └─────────────────────────────────────────────────────────────────────────┘
@@ -695,7 +703,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
             ? outputMode.anchorNote
-            : settings.midiin_central_degree;
+            : (settings.midiin_anchor_note ?? settings.midiin_central_degree);
         const midiMapping =
           outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
@@ -720,7 +728,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
             },
             legacyInput: {
               midiin_device: settings.midiin_device,
-              midiin_central_degree: anchorNote,
+              midiin_anchor_note: anchorNote,
             },
             getDynamicBulkConfig:
               outputMode.transportMode === "bulk_dynamic_map"
@@ -781,13 +789,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (wantMpe) {
       const mpeKey = JSON.stringify([
         settings.mpe_device,
-        settings.mpe_manager_ch,
+        settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
         settings.mpe_lo_ch,
         settings.mpe_hi_ch,
         settings.fundamental,
         settings.reference_degree,
         settings.center_degree,
-        settings.midiin_central_degree,
+        settings.midiin_anchor_note ?? settings.midiin_central_degree,
         settings.scale,
         settings.mpe_mode,
         settings.mpe_pitchbend_range ?? 48,
@@ -801,13 +809,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         promises.push(
           create_mpe_synth(
             midi.outputs.get(settings.mpe_device),
-            settings.mpe_manager_ch,
+            settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
             settings.mpe_lo_ch,
             settings.mpe_hi_ch,
             settings.fundamental,
             settings.reference_degree,
             settings.center_degree,
-            settings.midiin_central_degree,
+            settings.midiin_anchor_note ?? settings.midiin_central_degree,
             settings.scale,
             settings.mpe_mode,
             settings.mpe_pitchbend_range ?? 48,
@@ -899,7 +907,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     settings.fluidsynth_channel,
     settings.sysex_type,
     settings.mpe_device,
-    settings.mpe_manager_ch,
+    settings.midiin_mpe_manager_ch,
     settings.mpe_lo_ch,
     settings.mpe_hi_ch,
     settings.mpe_pitchbend_range,
@@ -1091,7 +1099,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return;
     const input = Array.from(midi.inputs.values()).find((i) => i.id === settings.midiin_device);
     if (!input) return;
-    const ctrl = resolveInputController(input, settings.midiin_controller_override);
+    const ctrl = resolveControllerPrefsTarget(input, settings.midiin_controller_override);
     if (!ctrl) return;
     setSettings((s) => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settingsRef.current) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
@@ -1140,17 +1148,12 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       // controllers in one place; returns the update object to merge into settings.
       const update = ctrl
         ? saveAnchorFromLearn(ctrl, noteNum, ch, s)
-        : { midiin_central_degree: noteNum, midiin_anchor_channel: ch };
+        : { midiin_anchor_note: noteNum, midiin_anchor_channel: ch };
 
       // midiin_anchor_channel drives the relative channel-offset formula in
       // noteToSteps() for all paths (sequential, unknown, passthrough).
-      // For the Lumatone 2D-map path, lumatone_center_channel is also updated.
-      sessionStorage.setItem("midiin_central_degree", String(update.midiin_central_degree));
+      sessionStorage.setItem("midiin_anchor_note", String(update.midiin_anchor_note));
       sessionStorage.setItem("midiin_anchor_channel", String(update.midiin_anchor_channel));
-      if (update.lumatone_center_channel != null) {
-        sessionStorage.setItem("lumatone_center_channel", String(update.lumatone_center_channel));
-        sessionStorage.setItem("lumatone_center_note", String(update.lumatone_center_note));
-      }
       setSettings((s) => ({ ...s, ...update }));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- settingsRef is stable; setSettings is a stable state setter

@@ -65,6 +65,8 @@ describe("settings impact registry", () => {
 
   it("keeps live MIDI input runtime settings out of Keys reconstruction", () => {
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_steps_per_channel");
+    expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_mpe_lo_ch");
+    expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_mpe_hi_ch");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_pitchbend_mode");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("wheel_to_recent");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("linnstrument_channel_allocation");
@@ -75,6 +77,8 @@ describe("settings impact registry", () => {
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("wheel_to_recent");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_mapping_target");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_mpe_input");
+    expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_mpe_lo_ch");
+    expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_mpe_hi_ch");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_pitchbend_mode");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_pressure_mode");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("linnstrument_channel_allocation");
@@ -83,7 +87,7 @@ describe("settings impact registry", () => {
   it("keeps MIDI controller-map settings out of full Keys reconstruction", () => {
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_device");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_controller_override");
-    expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_central_degree");
+    expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midiin_anchor_note");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("midi_passthrough");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("linnstrument_pitch_bend_shape");
     expect(SETTINGS_IMPACT_GROUPS.inputRuntime).toContain("linnstrument_x_spike_reduction");

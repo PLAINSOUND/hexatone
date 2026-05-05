@@ -160,7 +160,7 @@ const useSettingsChange = (
 
     // When the user manually changes the anchor note for a known controller, save it
     // to localStorage keyed by controller ID so it's restored on next connect.
-    if (key === "midiin_central_degree") {
+    if (key === "midiin_anchor_note" || key === "midiin_central_degree") {
       const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
       // value IS the raw physical MIDI note number — store directly.
       if (ctrl) saveAnchor(ctrl, value, s);
@@ -169,15 +169,9 @@ const useSettingsChange = (
 
     // When the user manually changes the anchor channel for a channel-aware controller
     // (e.g. Lumatone), persist it to localStorage so it's restored on next connect.
-    if (key === "lumatone_center_channel") {
+    if (key === "midiin_anchor_channel") {
       const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
       if (ctrl) saveAnchorChannel(ctrl, value, s);
-      // Fall through to normal setSettings
-    }
-
-    // midiin_anchor_channel drives channel-relative transposition in noteToSteps().
-    // Persist to sessionStorage so it survives page refresh.
-    if (key === "midiin_anchor_channel") {
       sessionStorage.setItem("midiin_anchor_channel", String(value));
       // Fall through to normal setSettings
     }

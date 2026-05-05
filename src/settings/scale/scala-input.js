@@ -66,6 +66,9 @@ const ScalaInput = ({
       const { cents: c } = parseScalaInterval(finalStr, "degree");
       if (c === 0 && finalStr !== "0.") finalStr = "0.";
       else if (finalStr !== "") finalStr = normaliseDegree(finalStr);
+    } else if (finalStr !== "" && !(/[/.\\]/).test(finalStr)) {
+      // In interval context, bare integers should still commit back as ratios.
+      finalStr = normaliseDegree(finalStr);
     }
 
     const result = parseScalaInterval(finalStr, context);

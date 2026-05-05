@@ -10,7 +10,7 @@ const makeProps = (overrides = {}) => ({
     sysex_type: 127,
     device_id: 127,
     tuning_map_number: 0,
-    midiin_central_degree: 60,
+    midiin_anchor_note: 60,
     midi_wheel_semitones: 2,
     fluidsynth_device: "",
     fluidsynth_channel: -1,

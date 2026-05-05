@@ -61,7 +61,7 @@ function makeSettings(overrides = {}) {
     midiin_device: "OFF",
     midiin_modwheel_value: 0,
     midiin_modwheel_source: "",
-    midiin_central_degree: 60,
+    midiin_anchor_note: 60,
     midi_mapping: "MTS_BULK",
     midi_passthrough: false,
     ...overrides,
@@ -117,6 +117,7 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
       wheelToRecent: false,
       wheelRange: "64/63",
       perChannelExpression: false,
+      scaleBendRange: 48,
       wheelUsesInterval: false,
       wheelScaleAware: false,
       wheelSemitones: 2,
@@ -620,7 +621,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().lastDecision?.articulation).toBe("reanchor_hold_source");
     expect(keys.state.activeMidi.get(62)).toBeUndefined();
     expect(keys._suppressedMidiNotes.has(62)).toBe(true);
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.settings.midiin_anchor_note).toBe(60);
     expect(keys.getModulationState().pendingFrame.geometryShiftRSteps).toBe(2);
     expect(keys.getModulationState().pendingFrame.geometryShiftDrSteps).toBe(0);
     expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
@@ -672,7 +673,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().mode).toBe("awaiting_target");
     expect(keys.getModulationState().sourceDegree).toBe(2);
     expect(keys.state.activeMidi.get(62)).toBeTruthy();
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.settings.midiin_anchor_note).toBe(60);
   });
 
   it("replays fixed-do geometry shifts when stepping modulation history and resetting counts", () => {
@@ -708,7 +709,7 @@ describe("Keys MIDI input integration", () => {
     keys._maybeSettleModulation();
 
     expect(keys.getModulationState().mode).toBe("idle");
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.settings.midiin_anchor_note).toBe(60);
     expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(2);
 
     expect(keys.stepModulationHistory(-1)).toBe(true);
@@ -834,7 +835,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys.armModulation()).toBe(true);
     keys.midinoteOn(makeMidiEvent(79));
 
-    expect(keys.settings.midiin_central_degree).toBe(60);
+    expect(keys.settings.midiin_anchor_note).toBe(60);
     expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
     const shifted61 = keys.coordResolver.coordForSteps(
       keys.coordResolver.noteToSteps(80, 1),
@@ -987,9 +988,9 @@ describe("Keys MIDI input integration", () => {
         modulation_style: "fixed_do",
         midiin_controller_override: "linnstrument",
         midiin_device: "test-input",
-        midiin_central_degree: 2,
-        lumatone_center_note: 2,
-        lumatone_center_channel: 4,
+        midiin_anchor_note: 2,
+        midiin_anchor_note: 2,
+        midiin_anchor_channel: 4,
       },
       { layoutMode: "controller_geometry" },
       {},
@@ -1016,13 +1017,13 @@ describe("Keys MIDI input integration", () => {
     expect(keys.controllerMap.get("4.1")).toEqual(new Point(-1, 0));
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
-    expect(keys.settings.lumatone_center_note).toBe(2);
+    expect(keys.settings.midiin_anchor_note).toBe(2);
     expect(keys.controllerMap.get("4.1")).toEqual(new Point(-1, 0));
     expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(1);
     expect(keys.settings.runtime_display_offset_x).toBe(1);
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
-    expect(keys.settings.lumatone_center_note).toBe(2);
+    expect(keys.settings.midiin_anchor_note).toBe(2);
     expect(keys.controllerMap.get("4.1")).toEqual(new Point(-1, 0));
     expect(keys.getModulationState().currentFrame.geometryShiftRSteps).toBe(2);
     expect(keys.settings.runtime_display_offset_x).toBe(2);
@@ -1034,9 +1035,9 @@ describe("Keys MIDI input integration", () => {
         modulation_style: "fixed_do",
         midiin_controller_override: "lumatone",
         midiin_device: "test-input",
-        midiin_central_degree: 0,
-        lumatone_center_note: 0,
-        lumatone_center_channel: 3,
+        midiin_anchor_note: 0,
+        midiin_anchor_note: 0,
+        midiin_anchor_channel: 3,
       },
       { layoutMode: "controller_geometry" },
       {},
@@ -1063,19 +1064,19 @@ describe("Keys MIDI input integration", () => {
     expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
-    expect(keys.settings.lumatone_center_note).toBe(0);
+    expect(keys.settings.midiin_anchor_note).toBe(0);
     expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
     expect(keys.getModulationState().currentFrame.geometryShiftDrSteps).toBe(1);
     expect(keys.settings.runtime_display_offset_y).toBe(1);
 
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
-    expect(keys.settings.lumatone_center_note).toBe(0);
+    expect(keys.settings.midiin_anchor_note).toBe(0);
     expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
     expect(keys.getModulationState().currentFrame.geometryShiftDrSteps).toBe(2);
     expect(keys.settings.runtime_display_offset_y).toBe(2);
 
     expect(keys.stepModulationRoute(0, 4)).toBe(true);
-    expect(keys.settings.lumatone_center_note).toBe(0);
+    expect(keys.settings.midiin_anchor_note).toBe(0);
     expect(keys.controllerMap.get("3.0")).toEqual(new Point(0, 0));
     expect(keys.getModulationState().currentFrame.geometryShiftDrSteps).toBe(6);
   });
@@ -1894,6 +1895,197 @@ describe("Keys MIDI input integration", () => {
     );
   });
 
+  it("uses the dedicated MPE pitch-bend semitone range when resolving pre-bent MPE nearest-scale note-ons", () => {
+    const keys = createKeys({}, {
+      target: "scale",
+      mpeInput: true,
+      scaleBendRange: 12,
+      bendRange: "4/1",
+    });
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 600,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(-3, 0));
+    keys._scaleModePreBend.set(9, 12288);
+
+    keys.midinoteOn(makeMidiEvent(60, 9));
+
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(-3);
+    expect(hexOn).toHaveBeenCalledWith(
+      new Point(-3, 0),
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      {
+        liveInputAddress: {
+          channel: 9,
+          note: 60,
+        },
+      },
+    );
+  });
+
+  it("anchors Continuum nearest-scale bend at the snapped onset note instead of reapplying absolute bend from center", () => {
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
+    }));
+    const keys = createKeys(
+      {},
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "2/1",
+      },
+      { makeHex },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(-3, 0));
+    keys._scaleModePreBend.set(9, 12288);
+    keys._mpeInputBendByChannel.set(9, 12288);
+
+    keys.midinoteOn(makeMidiEvent(60, 9));
+
+    const hex = makeHex.mock.results[0].value;
+    expect(hex.retune).not.toHaveBeenCalled();
+    expect(hex._scaleModeBendAnchor14).toBe(12288);
+
+    const entry = keys.state.activeMidiByChannel.get(9);
+    const baseCents = hex._baseCents ?? hex.cents;
+    keys._applyMpePitchBend(entry, 9, 13312);
+
+    expect(hex.retune).toHaveBeenCalledTimes(1);
+    expect(hex.retune.mock.calls[0][0]).toBeCloseTo(baseCents + 150, 5);
+    expect(hex.retune.mock.calls[0][1]).toBe(true);
+  });
+
+  it("applies Continuum nearest-scale bend factor and X glide shaping after snap", () => {
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
+    }));
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+      },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "2/1",
+        hakenScaleBendFactor: 0.5,
+        hakenXGlideShaping: 100,
+      },
+      { makeHex },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(-3, 0));
+    keys._scaleModePreBend.set(9, 12288);
+    keys._mpeInputBendByChannel.set(9, 12288);
+
+    keys.midinoteOn(makeMidiEvent(60, 9));
+
+    const hex = makeHex.mock.results[0].value;
+    const entry = keys.state.activeMidiByChannel.get(9);
+    keys._applyMpePitchBend(entry, 9, 13312);
+
+    expect(hex.retune).toHaveBeenCalledTimes(1);
+    const bent = hex.retune.mock.calls[0][0];
+    expect(bent).toBeGreaterThan(hex._baseCents ?? hex.cents);
+    expect(bent).toBeLessThan((hex._baseCents ?? hex.cents) + 150);
+  });
+
+  it("releases the originally lit hex in nearest-scale mode even if pitch has changed since note-on", () => {
+    const keys = createKeys({}, { target: "scale", mpeInput: true });
+    const originalCoords = new Point(3, 4);
+    const recomputedCoords = new Point(9, 9);
+    const releaseHex = {
+      coords: originalCoords,
+      cents: 0,
+      noteOff: vi.fn(),
+      release: false,
+    };
+
+    keys.state.activeMidi.set(60 + 128, releaseHex);
+    keys.noteOff = vi.fn();
+    keys.hexOff = vi.fn();
+    keys._resolveScaleInputPitchCents = vi.fn(() => 100);
+    keys.coordResolver.stepsToVisibleCoords = vi.fn(() => [recomputedCoords]);
+
+    keys.midinoteOff(makeMidiEvent(60, 2, 96, 55));
+
+    expect(keys.noteOff).toHaveBeenCalledWith(releaseHex, 55);
+    expect(keys.hexOff).toHaveBeenCalledWith(originalCoords);
+    expect(keys.hexOff).not.toHaveBeenCalledWith(recomputedCoords);
+  });
+
+  it("does not retarget global recency wheel state when releasing one MPE nearest-scale note", () => {
+    const keys = createKeys({}, {
+      target: "scale",
+      mpeInput: true,
+      wheelToRecent: true,
+      pitchBendMode: "recency",
+    });
+    const aHex = {
+      coords: new Point(3, 4),
+      cents: 100,
+      _baseCents: 100,
+      _inputChannel: 2,
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const bHex = {
+      coords: new Point(6, 7),
+      cents: 200,
+      _baseCents: 200,
+      _inputChannel: 3,
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
+      noteOff: vi.fn(),
+      release: false,
+    };
+
+    keys.state.activeMidi.set(60 + 128, aHex);
+    keys.state.activeMidi.set(60 + 256, bHex);
+    keys.state.activeMidiByChannel.set(2, { hex: aHex, baseCents: 100, hexes: new Set([aHex]) });
+    keys.state.activeMidiByChannel.set(3, { hex: bHex, baseCents: 200, hexes: new Set([bHex]) });
+    keys.recencyStack.push(aHex);
+    keys.recencyStack.push(bHex);
+    keys._wheelTarget = bHex;
+    keys._wheelValue14 = 12000;
+    keys._wheelBend = 37;
+    keys.hexOff = vi.fn();
+
+    keys.midinoteOff(makeMidiEvent(60, 3, 96, 55));
+
+    expect(keys._wheelTarget).toBe(null);
+    expect(aHex.retune).not.toHaveBeenCalled();
+    expect(bHex.retune).not.toHaveBeenCalled();
+  });
+
   it("falls back to synthesized off-screen coords for high nearest-scale targets", () => {
     const keys = createKeys({}, { target: "scale" });
     const hexOn = vi.fn((coords) => ({
@@ -1922,7 +2114,7 @@ describe("Keys MIDI input integration", () => {
 
   it("groups sequential channel transposition by channel pairs when configured", () => {
     const keys = createKeys(
-      { midiin_central_degree: 60, equivSteps: 12 },
+      { midiin_anchor_note: 60, equivSteps: 12 },
       {
         layoutMode: "sequential",
         seqAnchorChannel: 10,
@@ -1942,7 +2134,7 @@ describe("Keys MIDI input integration", () => {
 
   it("updates sequential MIDI transposition runtime without rebuilding Keys", () => {
     const keys = createKeys(
-      { midiin_central_degree: 60, equivSteps: 12 },
+      { midiin_anchor_note: 60, equivSteps: 12 },
       {
         layoutMode: "sequential",
         seqAnchorChannel: 1,
@@ -2018,8 +2210,8 @@ describe("Keys MIDI input integration", () => {
     const keys = createKeys({
       midiin_device: "input-1",
       midiin_controller_override: "tonalplexus",
-      lumatone_center_channel: 9,
-      lumatone_center_note: 7,
+      midiin_anchor_channel: 9,
+      midiin_anchor_note: 7,
     });
 
     const hexOn = vi.fn((coords) => ({
@@ -2044,14 +2236,14 @@ describe("Keys MIDI input integration", () => {
     const keys = createKeys({
       midiin_device: "input-1",
       midiin_controller_override: "axis49",
-      midiin_central_degree: 53,
+      midiin_anchor_note: 53,
     });
     const initialMap = keys.controllerMap;
     const initialAnchorCoords = keys.controllerMap.get("1.53");
 
     keys.updateInputRuntime(
       { ...keys.inputRuntime, seqAnchorNote: 60 },
-      { midiin_central_degree: 60 },
+      { midiin_anchor_note: 60 },
     );
 
     expect(keys.controller?.id).toBe("axis49");
@@ -2068,8 +2260,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "auto",
       midi_passthrough: false,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
       lumatone_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     keys.autoSyncLumatoneLEDs = vi.fn();
@@ -2077,9 +2269,9 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, seqAnchorNote: 30, seqAnchorChannel: 4 },
       {
-        midiin_central_degree: 30,
-        lumatone_center_channel: 4,
-        lumatone_center_note: 30,
+        midiin_anchor_note: 30,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 30,
       },
     );
 
@@ -2096,8 +2288,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "lumatone",
       midi_passthrough: false,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
       lumatone_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     keys.autoSyncLumatoneLEDs = vi.fn();
@@ -2105,9 +2297,9 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, seqAnchorNote: 30, seqAnchorChannel: 4 },
       {
-        midiin_central_degree: 30,
-        lumatone_center_channel: 4,
-        lumatone_center_note: 30,
+        midiin_anchor_note: 30,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 30,
       },
     );
 
@@ -2124,8 +2316,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "lumatone",
       midi_passthrough: false,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
       lumatone_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     keys.autoSyncLumatoneLEDs = vi.fn();
@@ -2133,9 +2325,9 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, seqAnchorNote: 30, seqAnchorChannel: 4 },
       {
-        midiin_central_degree: 30,
-        lumatone_center_channel: 4,
-        lumatone_center_note: 30,
+        midiin_anchor_note: 30,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 30,
       },
     );
 
@@ -2152,8 +2344,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "generic",
       midi_passthrough: true,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
       lumatone_led_sync: true,
     }, { layoutMode: "sequential" });
     expect(keys.controller?.id).toBe("generic");
@@ -2164,9 +2356,9 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_controller_override: "lumatone",
         midi_passthrough: false,
-        midiin_central_degree: 26,
-        lumatone_center_channel: 3,
-        lumatone_center_note: 26,
+        midiin_anchor_note: 26,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
       },
     );
 
@@ -2184,8 +2376,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "generic",
       midi_passthrough: false,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
       lumatone_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     expect(keys.controller?.id).toBe("generic");
@@ -2196,9 +2388,9 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_controller_override: "lumatone",
         midi_passthrough: false,
-        midiin_central_degree: 26,
-        lumatone_center_channel: 3,
-        lumatone_center_note: 26,
+        midiin_anchor_note: 26,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
       },
     );
 
@@ -2216,8 +2408,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "lumatone",
       midi_passthrough: false,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
       lumatone_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     keys.lumatoneLEDs = { sendAll: vi.fn() };
@@ -2241,8 +2433,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "auto",
       midi_passthrough: true,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
       lumatone_led_sync: true,
     }, { layoutMode: "sequential" });
     keys.autoSyncLumatoneLEDs = vi.fn();
@@ -2250,9 +2442,9 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, layoutMode: "sequential", seqAnchorNote: 30, seqAnchorChannel: 4 },
       {
-        midiin_central_degree: 30,
-        lumatone_center_channel: 4,
-        lumatone_center_note: 30,
+        midiin_anchor_note: 30,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 30,
       },
     );
 
@@ -2269,7 +2461,7 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "auto",
       midi_passthrough: false,
-      midiin_central_degree: 19,
+      midiin_anchor_note: 19,
       exquis_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     keys.syncExquisLEDs = vi.fn();
@@ -2277,7 +2469,7 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, seqAnchorNote: 24 },
       {
-        midiin_central_degree: 24,
+        midiin_anchor_note: 24,
       },
     );
 
@@ -2294,7 +2486,7 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "exquis",
       midi_passthrough: false,
-      midiin_central_degree: 19,
+      midiin_anchor_note: 19,
       exquis_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     keys.syncExquisLEDs = vi.fn();
@@ -2302,7 +2494,7 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, seqAnchorNote: 24 },
       {
-        midiin_central_degree: 24,
+        midiin_anchor_note: 24,
       },
     );
 
@@ -2319,7 +2511,7 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "generic",
       midi_passthrough: true,
-      midiin_central_degree: 60,
+      midiin_anchor_note: 60,
       exquis_led_sync: true,
     }, { layoutMode: "sequential" });
     expect(keys.controller?.id).toBe("generic");
@@ -2330,7 +2522,7 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_controller_override: "exquis",
         midi_passthrough: false,
-        midiin_central_degree: 19,
+        midiin_anchor_note: 19,
       },
     );
 
@@ -2348,8 +2540,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "auto",
       midi_passthrough: false,
-      lumatone_center_channel: 4,
-      lumatone_center_note: 9,
+      midiin_anchor_channel: 4,
+      midiin_anchor_note: 9,
       linnstrument_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     keys.syncLinnstrumentLEDs = vi.fn();
@@ -2357,9 +2549,9 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, seqAnchorNote: 12, seqAnchorChannel: 5 },
       {
-        midiin_central_degree: 12,
-        lumatone_center_channel: 5,
-        lumatone_center_note: 12,
+        midiin_anchor_note: 12,
+        midiin_anchor_channel: 5,
+        midiin_anchor_note: 12,
       },
     );
 
@@ -2376,8 +2568,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "generic",
       midi_passthrough: true,
-      lumatone_center_channel: 4,
-      lumatone_center_note: 9,
+      midiin_anchor_channel: 4,
+      midiin_anchor_note: 9,
       linnstrument_led_sync: true,
     }, { layoutMode: "sequential" });
     expect(keys.controller?.id).toBe("generic");
@@ -2388,9 +2580,9 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_controller_override: "linnstrument",
         midi_passthrough: false,
-        midiin_central_degree: 9,
-        lumatone_center_channel: 4,
-        lumatone_center_note: 9,
+        midiin_anchor_note: 9,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 9,
       },
     );
 
@@ -2408,8 +2600,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "generic",
       midi_passthrough: false,
-      lumatone_center_channel: 4,
-      lumatone_center_note: 9,
+      midiin_anchor_channel: 4,
+      midiin_anchor_note: 9,
       linnstrument_led_sync: true,
     }, { layoutMode: "controller_geometry" });
     expect(keys.controller?.id).toBe("generic");
@@ -2420,9 +2612,9 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_controller_override: "linnstrument",
         midi_passthrough: false,
-        midiin_central_degree: 9,
-        lumatone_center_channel: 4,
-        lumatone_center_note: 9,
+        midiin_anchor_note: 9,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 9,
       },
     );
 
@@ -2440,8 +2632,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "auto",
       midi_passthrough: true,
-      lumatone_center_channel: 4,
-      lumatone_center_note: 9,
+      midiin_anchor_channel: 4,
+      midiin_anchor_note: 9,
       linnstrument_led_sync: true,
     }, { layoutMode: "sequential" });
     keys.syncLinnstrumentLEDs = vi.fn();
@@ -2449,9 +2641,9 @@ describe("Keys MIDI input integration", () => {
     keys.updateInputRuntime(
       { ...keys.inputRuntime, layoutMode: "sequential", seqAnchorNote: 12, seqAnchorChannel: 5 },
       {
-        midiin_central_degree: 12,
-        lumatone_center_channel: 5,
-        lumatone_center_note: 12,
+        midiin_anchor_note: 12,
+        midiin_anchor_channel: 5,
+        midiin_anchor_note: 12,
       },
     );
 
@@ -2467,7 +2659,7 @@ describe("Keys MIDI input integration", () => {
     const keys = createKeys({
       midiin_device: "input-1",
       midiin_controller_override: "axis49",
-      midiin_central_degree: 53,
+      midiin_anchor_note: 53,
     });
     const initialMap = keys.controllerMap;
 
@@ -2488,8 +2680,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "lumatone",
       midi_passthrough: false,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
     });
     expect(keys.controller?.id).toBe("lumatone");
     expect(keys.controllerMap).toBeInstanceOf(Map);
@@ -2499,7 +2691,7 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_controller_override: "generic",
         midi_passthrough: true,
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
         midiin_anchor_channel: 1,
       },
     );
@@ -2517,8 +2709,8 @@ describe("Keys MIDI input integration", () => {
       midiin_device: "input-1",
       midiin_controller_override: "lumatone",
       midi_passthrough: false,
-      lumatone_center_channel: 3,
-      lumatone_center_note: 26,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
     });
     keys.allnotesOff = vi.fn();
 
@@ -2527,7 +2719,7 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_controller_override: "generic",
         midi_passthrough: true,
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
         midiin_anchor_channel: 1,
       },
     );
@@ -2545,7 +2737,7 @@ describe("Keys MIDI input integration", () => {
         midiin_device: "input-1",
         midiin_controller_override: "generic",
         midi_passthrough: false,
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
       { layoutMode: "controller_geometry", seqAnchorNote: 60 },
     );
@@ -2638,7 +2830,7 @@ describe("Keys MIDI input integration", () => {
   it("applies channel offsets for generic keyboard step arithmetic without a controller map", () => {
     const keys = createKeys(
       {
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
         midiin_anchor_channel: 4,
       },
       {
@@ -2857,6 +3049,38 @@ describe("Keys MIDI input integration", () => {
     expect(createdHex.noteOn).toHaveBeenCalledTimes(1);
   });
 
+  it("primes pre-note-on per-channel bend before note-on for retune-based outputs", () => {
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
+    }));
+    const keys = createKeys(
+      {},
+      {
+        mpeInput: true,
+        bendRange: "9/8",
+      },
+      { makeHex },
+    );
+
+    const bend14 = 12288;
+    keys._mpeInputBendByChannel.set(3, bend14);
+    keys.midinoteOn(makeMidiEvent(60, 3));
+
+    expect(makeHex).toHaveBeenCalledTimes(1);
+    const createdHex = makeHex.mock.results[0].value;
+    expect(createdHex.retune).toHaveBeenCalledTimes(1);
+    expect(createdHex.retune.mock.calls[0][0]).toBeCloseTo(101.955, 3);
+    expect(createdHex.retune.mock.calls[0][1]).toBe(true);
+    expect(createdHex.noteOn).toHaveBeenCalledTimes(1);
+  });
+
   it("does not directly retune passthrough-only standard-wheel outputs", () => {
     const retune = vi.fn();
     const keys = createKeys(
@@ -2996,6 +3220,111 @@ describe("Keys MIDI input integration", () => {
     expect(aftertouch).toHaveBeenCalledWith(80);
     expect(standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(standardWheelRetune.mock.calls[0][0]).toBeCloseTo(baseCents + 1200, 0);
+  });
+
+  it("ignores Continuum note input on reserved non-member channels outside the selected MPE zone", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Haken Audio Continuum",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 0,
+      _baseCents: 0,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      release: false,
+    }));
+
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "hakenaudio",
+        midiin_mpe_lo_ch: 2,
+        midiin_mpe_hi_ch: 14,
+      },
+      {
+        layoutMode: "sequential",
+        mpeInput: true,
+      },
+      { makeHex: hexOn, rememberControllerState: vi.fn() },
+    );
+
+    keys.hexOn = hexOn;
+
+    listeners.noteon(makeMidiEvent(60, 1));
+    listeners.noteon(makeMidiEvent(60, 15));
+    listeners.noteon(makeMidiEvent(60, 2));
+
+    expect(keys.controller?.id).toBe("hakenaudio");
+    expect(hexOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores Continuum per-channel expression outside the selected member-channel range", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Haken Audio Continuum",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const cc74 = vi.fn();
+    const aftertouch = vi.fn();
+    const retune = vi.fn();
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        cc74,
+        aftertouch,
+        retune,
+      })),
+      rememberControllerState: vi.fn(),
+    };
+
+    createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "hakenaudio",
+        midiin_mpe_lo_ch: 2,
+        midiin_mpe_hi_ch: 14,
+      },
+      {
+        layoutMode: "sequential",
+        mpeInput: true,
+        bendRange: "2/1",
+      },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(60, 2));
+    listeners.controlchange({ message: { channel: 1, dataBytes: [74, 80] } });
+    listeners.channelaftertouch({ message: { channel: 1, dataBytes: [70] } });
+    listeners.pitchbend(makePitchBendEvent(16383, 1));
+    listeners.controlchange({ message: { channel: 2, dataBytes: [74, 81] } });
+    listeners.channelaftertouch({ message: { channel: 2, dataBytes: [71] } });
+    listeners.pitchbend(makePitchBendEvent(16383, 2));
+
+    expect(cc74).toHaveBeenCalledTimes(1);
+    expect(cc74).toHaveBeenCalledWith(81);
+    expect(aftertouch).toHaveBeenCalledTimes(1);
+    expect(aftertouch).toHaveBeenCalledWith(71);
+    expect(retune).toHaveBeenCalledTimes(1);
   });
 
   it("routes LinnStrument channel-per-row bend to all active notes on that row channel", () => {

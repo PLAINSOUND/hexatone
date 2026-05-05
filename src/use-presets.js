@@ -1,7 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
-import { presets, default_settings } from "./settings/preset_values";
+import { presets, default_settings } from "./settings/presets/preset_values";
 import { settingsToHexatonScala } from "./settings/scale/parse-scale.js";
-import { loadCustomPresets } from "./settings/custom-presets";
+import { loadCustomPresets } from "./settings/presets/custom-presets";
 import { PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
 import { normalizeModulationHistory } from "./keyboard/modulation-runtime.js";
 
@@ -23,7 +23,7 @@ export const SCALE_KEYS_TO_CLEAR = [
   "hexSize",
   "rotation",
   "center_degree",
-  // "midiin_central_degree" excluded — hardware setting, persists across presets
+  // "midiin_anchor_note" excluded — hardware setting, persists across presets
   "spectrum_colors",
   "fundamental_color",
   "name",
@@ -68,28 +68,25 @@ function sessionIntOrFallback(key, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function sessionIntFromAliases(keys, fallback) {
+  for (const key of keys) {
+    const value = sessionIntOrFallback(key, null);
+    if (Number.isFinite(value)) return value;
+  }
+  return fallback;
+}
+
 function restorePersistentAnchorFields(fallback = {}) {
-  const restored = {
-    midiin_central_degree: sessionIntOrFallback(
-      "midiin_central_degree",
-      fallback.midiin_central_degree ?? 60,
+  return {
+    midiin_anchor_note: sessionIntFromAliases(
+      ["midiin_anchor_note", "midiin_central_degree", "lumatone_center_note"],
+      fallback.midiin_anchor_note ?? fallback.midiin_central_degree ?? 60,
     ),
-    midiin_anchor_channel: sessionIntOrFallback(
-      "midiin_anchor_channel",
+    midiin_anchor_channel: sessionIntFromAliases(
+      ["midiin_anchor_channel", "lumatone_center_channel"],
       fallback.midiin_anchor_channel ?? 1,
     ),
   };
-  const lumatoneNote = sessionIntOrFallback(
-    "lumatone_center_note",
-    fallback.lumatone_center_note,
-  );
-  const lumatoneChannel = sessionIntOrFallback(
-    "lumatone_center_channel",
-    fallback.lumatone_center_channel,
-  );
-  if (Number.isFinite(lumatoneNote)) restored.lumatone_center_note = lumatoneNote;
-  if (Number.isFinite(lumatoneChannel)) restored.lumatone_center_channel = lumatoneChannel;
-  return restored;
 }
 
 // HEJI anchors may be auto-derived from the current preset's tuning/labels.
@@ -97,14 +94,10 @@ function restorePersistentAnchorFields(fallback = {}) {
 // cannot survive the merge unless the incoming preset explicitly defines one.
 export const mergePresetIntoSettings = (settings, preset) => {
   const persistentAnchorFallback = {
-    midiin_central_degree:
-      preset.midiin_central_degree ?? default_settings.midiin_central_degree ?? 60,
+    midiin_anchor_note:
+      preset.midiin_anchor_note ?? preset.midiin_central_degree ?? default_settings.midiin_anchor_note ?? 60,
     midiin_anchor_channel:
       preset.midiin_anchor_channel ?? default_settings.midiin_anchor_channel ?? 1,
-    lumatone_center_note:
-      preset.lumatone_center_note ?? default_settings.lumatone_center_note,
-    lumatone_center_channel:
-      preset.lumatone_center_channel ?? default_settings.lumatone_center_channel,
   };
 
   return {

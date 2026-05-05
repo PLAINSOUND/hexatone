@@ -3,7 +3,7 @@ import { parseScale } from "../settings/scale/parse-scale.js";
 import { createReferenceFrame, spellScaleFromReferenceFrame } from "./reference-frame.js";
 
 const LEGACY_PRESET_NOTE_NAMES = {
-  // Restored from historical preset_values.js (commit 1dd1d43) after the
+  // Restored from historical settings/presets/preset_values.js (commit 1dd1d43) after the
   // dedicated HEJI preset was removed from the live preset catalog.
   "Sabat: The Tree (HEJI)": [
     "C",
@@ -91,10 +91,10 @@ const LEGACY_PRESET_NOTE_NAMES = {
 };
 
 function presetBlock(presetName) {
-  const presetText = fs.readFileSync("src/settings/preset_values.js", "utf8");
+  const presetText = fs.readFileSync("src/settings/presets/preset_values.js", "utf8");
   const escapedName = presetName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const start = presetText.search(new RegExp(`['"]?name['"]?\\s*:\\s*['"]${escapedName}['"]`));
-  if (start < 0) throw new Error(`Preset not found in src/settings/preset_values.js: ${presetName}`);
+  if (start < 0) throw new Error(`Preset not found in src/settings/presets/preset_values.js: ${presetName}`);
   const end = presetText.indexOf("\n      },", start);
   return presetText.slice(start, end < 0 ? undefined : end);
 }

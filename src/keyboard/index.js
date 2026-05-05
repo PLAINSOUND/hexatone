@@ -149,7 +149,7 @@ Keyboard.propTypes = {
     scala: PropTypes.bool,
     no_labels: PropTypes.bool,
     midiin_device: PropTypes.string,
-    midiin_central_degree: PropTypes.number,
+    midiin_anchor_note: PropTypes.number,
     output: PropTypes.string,
     instrument: PropTypes.string,
     fundamental: PropTypes.number,

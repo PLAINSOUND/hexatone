@@ -28,7 +28,7 @@ export function passthroughCC(cc, value) {
   if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
     const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
     if (mpeOutput) {
-      const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
+      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch ?? this.settings.mpe_manager_ch) || 1;
       mpeOutput.sendControlChange(cc, value, { channels: managerCh });
     }
   }
@@ -48,7 +48,7 @@ export function passthroughChannelPressure(value) {
   if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
     const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
     if (mpeOutput) {
-      const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
+      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch ?? this.settings.mpe_manager_ch) || 1;
       mpeOutput.sendChannelAftertouch(value, { channels: managerCh, rawValue: true });
     }
   }
@@ -70,7 +70,7 @@ export function passthroughPitchBend(val14) {
   ) {
     const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
     if (mpeOutput) {
-      const managerCh = parseInt(this.settings.mpe_manager_ch) || 1;
+      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch ?? this.settings.mpe_manager_ch) || 1;
       mpeOutput.sendPitchBend(normalized, { channels: managerCh });
     }
   }
@@ -102,8 +102,32 @@ export function applyMpePitchBend(entry, channel, value14) {
   if (!entry?.hex || entry.hex.release) return;
   const bend14 = this._normalizePitchBend14(value14);
   this._mpeInputBendByChannel.set(channel, bend14);
-  let norm = (bend14 - 8192) / 8192;
-  if (this.inputRuntime.bendFlip) norm = -norm;
+  const continuumScaleMode =
+    this.controller?.id === "hakenaudio" &&
+    this.inputRuntime.mpeInput &&
+    this.inputRuntime.target === "scale";
+  const anchor14 = (
+    continuumScaleMode &&
+    entry.hex._scaleModeBendAnchor14 != null
+  )
+    ? this._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
+    : 8192;
+  let norm = (bend14 - anchor14) / 8192;
+  if (!continuumScaleMode && this.inputRuntime.bendFlip) norm = -norm;
+  if (continuumScaleMode) {
+    const scaleFactor = Math.max(
+      0.25,
+      Math.min(2, Number(this.inputRuntime.hakenScaleBendFactor ?? 1) || 1),
+    );
+    const shapingControl = Math.max(
+      0,
+      Math.min(100, Number(this.inputRuntime.hakenXGlideShaping ?? 0) || 0),
+    );
+    const shaping = (shapingControl / 100) * 8;
+    const exponent = 1 + shaping * 0.06;
+    const absNorm = Math.min(1, Math.abs(norm));
+    norm = Math.sign(norm) * Math.pow(absNorm, exponent) * scaleFactor;
+  }
   const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
   const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
   const bentCents = baseCents + norm * rangeCents;
@@ -407,6 +431,12 @@ export function refreshSoundingHexNeighbors() {
 }
 
 export function updateWheelTarget(smoothReturn = false) {
+  if (this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) {
+    this._wheelTarget = null;
+    this._wheelBaseCents = null;
+    return;
+  }
+
   const newFront = this.recencyStack.front;
   if (newFront === this._wheelTarget) return;
 

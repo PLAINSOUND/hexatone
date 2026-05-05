@@ -27,7 +27,7 @@ const make12edoSettings = (overrides = {}) => {
     scale, // 12 entries, 0-indexed, degree 0 = 0 cents
     equivInterval: 1200,
     equivSteps: 12,
-    midiin_central_degree: 60,
+    midiin_anchor_note: 60,
     midiin_anchor_channel: 1,
     gcd: Euclid(2, 1), // [1, 1, -1] for rSteps=2, drSteps=1
     ...overrides,

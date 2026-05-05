@@ -82,4 +82,242 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(deactivateLinnstrumentUserFirmware).toHaveBeenCalledTimes(1);
     expect(props.onChange).toHaveBeenCalledWith("midiin_controller_override", "generic");
   });
+
+  it("offers Haken Continuum as a manual controller geometry option", () => {
+    const props = makeProps();
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByRole("option", { name: "Haken Continuum" })).toBeTruthy();
+  });
+
+  it("shows auto-detect feedback when a known controller geometry is recognised", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+    });
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("Detected: Roger Linn Design LinnStrument")).toBeTruthy();
+  });
+
+  it("shows auto-detect feedback when no known controller geometry is recognised", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("No known geometry detected")).toBeTruthy();
+  });
+
+  it("constrains Haken Continuum MPE member-channel selectors to 2-14", () => {
+    const props = makeProps({
+      midiin_controller_override: "hakenaudio",
+      midiin_mpe_input: true,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    const selects = screen.getAllByLabelText(/Member Channel/);
+    const option14 = screen.getAllByRole("option", { name: "14" });
+    expect(selects).toHaveLength(2);
+    expect(option14.length).toBeGreaterThan(0);
+    expect(screen.queryByRole("option", { name: "15" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "16" })).toBeNull();
+  });
+
+  it("shows Continuum nearest-scale bend controls and hides generic bend controls", () => {
+    const props = makeProps({
+      midiin_controller_override: "hakenaudio",
+      midiin_mapping_target: "scale",
+      midiin_mpe_input: true,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("Pitch Bending Scale Factor")).toBeTruthy();
+    expect(screen.getByText("X Glide Shaping")).toBeTruthy();
+    expect(screen.queryByLabelText("Pitch Bending Interval (Scala)")).toBeNull();
+    expect(screen.queryByLabelText("Reverse Bend Direction")).toBeNull();
+  });
+
+  it("offers manager and member channel controls for undetected controllers when MPE input is enabled", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+      midiin_mpe_input: true,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByLabelText("Manager Channel")).toBeTruthy();
+    const memberSelects = screen.getAllByLabelText(/Member Channel/);
+    expect(memberSelects).toHaveLength(2);
+    expect(screen.getByDisplayValue("Channel 1")).toBeTruthy();
+    expect(screen.getByDisplayValue("2")).toBeTruthy();
+    expect(screen.getByDisplayValue("8")).toBeTruthy();
+    expect(screen.getByLabelText("MPE Pitch Bend Range")).toBeTruthy();
+    expect(screen.getByDisplayValue("48")).toBeTruthy();
+  });
+
+  it("shows Pitch Wheel → Most Recent Note with the unknown-controller options when MPE input is off", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+      midiin_mpe_input: false,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByRole("checkbox", { name: "Pitch Wheel → Most Recent Note" })).toBeTruthy();
+  });
+
+  it("keeps the unknown-controller anchor row highlighted as the center degree row in MIDI to Hex Layout", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    const { container } = render(<MIDIio {...props} />);
+    const label = Array.from(container.querySelectorAll("label")).find((node) =>
+      node.textContent?.includes("Anchor Note → Central Degree"),
+    );
+
+    expect(label?.classList.contains("center-degree-row")).toBe(true);
+    expect(label?.classList.contains("center-degree-label")).toBe(true);
+  });
+
+  it("hides the unknown-controller anchor channel field when MPE input is enabled in MIDI to Hex Layout", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "hex_layout",
+      midiin_mpe_input: true,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.queryByTitle("MIDI channel of anchor note (other channels shift by stepsPerChannel)")).toBeNull();
+  });
+
+  it("reseeds unknown-controller MPE defaults to member channels 2-8 when enabling from the generic 2-15 session default", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+      midiin_mpe_input: false,
+      midiin_mpe_lo_ch: 2,
+      midiin_mpe_hi_ch: 15,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable MPE Input" }));
+
+    expect(props.onChange).toHaveBeenCalledWith("midiin_mpe_input", true);
+    expect(props.onChange).toHaveBeenCalledWith("midiin_mpe_hi_ch", 8);
+  });
+
+  it("keeps Controller Geometry visible in nearest-scale input mode", () => {
+    const props = makeProps({
+      midiin_mapping_target: "scale",
+    });
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByLabelText("Controller Geometry")).toBeTruthy();
+  });
+
+  it("renders Generic Keyboard from its dedicated controller module", () => {
+    const props = makeProps({
+      midiin_controller_override: "generic",
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("2D geometry is bypassed")).toBeTruthy();
+    expect(screen.getByTitle("Single-channel controller (ch 1)")).toBeTruthy();
+  });
+
+  it("renders Tonal Plexus from its dedicated controller module", () => {
+    const props = makeProps({
+      midiin_controller_override: "tonalplexus",
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Tonal Plexus" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByLabelText("Tonal Plexus Mode")).toBeTruthy();
+    expect(screen.getByRole("option", { name: "41 notes per block" })).toBeTruthy();
+  });
+
+  it("renders Lumatone LED controls from its dedicated controller module", () => {
+    const props = makeProps({
+      midiin_controller_override: "lumatone",
+      midi_passthrough: false,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Lumatone" }]]),
+      outputs: new Map(),
+    };
+    props.lumatoneRawPorts = { output: { id: "lumatone-out", name: "Lumatone MIDI" } };
+    props.midiAccess = "sysex";
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("Send Blank Key Layout")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /Automatically Send LED Colours/ })).toBeTruthy();
+  });
+
+  it("renders Exquis LED controls from its dedicated controller module", () => {
+    const props = makeProps({
+      midiin_controller_override: "exquis",
+      midi_passthrough: false,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Exquis" }]]),
+      outputs: new Map(),
+    };
+    props.exquisRawPorts = { output: { id: "exquis-out", name: "Exquis MIDI" } };
+    props.midiAccess = "sysex";
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("LED Brightness")).toBeTruthy();
+    expect(screen.getByText("LED Saturation")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /Auto Send Colours/ })).toBeTruthy();
+  });
 });

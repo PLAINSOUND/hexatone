@@ -12,12 +12,15 @@ import {
   lumatoneBlockOffset,
   lumatoneNoteCoords,
 } from "./lumatone.js";
+import { detectHakenDeviceName } from "./hakenaudio.js";
 
 const getController = (id) => CONTROLLER_REGISTRY.find((controller) => controller.id === id);
 
 describe("controller registry", () => {
   it("detects known controller device names", () => {
     expect(detectController("C-Thru AXIS-49 2A")?.id).toBe("axis49");
+    expect(detectController("Continuum")?.id).toBe("hakenaudio");
+    expect(detectController("Haken Continuum Fingerboard")?.id).toBe("hakenaudio");
     expect(detectController("Lumatone MIDI Function")?.id).toBe("lumatone");
     expect(detectController("Tonal Plexus")?.id).toBe("tonalplexus");
     expect(detectController("Intuitive Instruments Exquis")?.id).toBe("exquis");
@@ -63,6 +66,14 @@ describe("controller registry", () => {
     expect(getController("exquis").buildMap(19).size).toBe(61);
     expect(getController("linnstrument").buildMap(56).size).toBe(128);
     expect(getController("generic").buildMap).toBeUndefined();
+    expect(getController("hakenaudio").buildMap).toBeUndefined();
+  });
+
+  it("matches plausible Haken Audio device names without claiming unknown MPE devices", () => {
+    expect(detectHakenDeviceName("Continuum")).toBe(true);
+    expect(detectHakenDeviceName("Haken Audio Continuum")).toBe(true);
+    expect(detectHakenDeviceName("EaganMatrix Module")).toBe(true);
+    expect(detectHakenDeviceName("ROLI Seaboard Block")).toBe(false);
   });
 
   it("collapses inferred TPX seam aliases onto shared physical coordinates", () => {

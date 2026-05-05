@@ -5,6 +5,7 @@ import {
   deriveTuningRuntime,
   resolveOctaveShortcutAction,
   resolveBidirectionalControllerOutputPort,
+  resolveControllerPrefsTarget,
   resolveInputController,
   resolveLumatoneOutputPort,
 } from "./use-synth-wiring.js";
@@ -188,9 +189,20 @@ describe("use-synth-wiring controller resolution", () => {
     expect(ctrl?.anchorDefault).toBe(60);
   });
 
+  it("does not treat unknown auto-detected inputs as a known controller prefs target", () => {
+    const ctrl = resolveControllerPrefsTarget({ name: "KORG microKEY-37" });
+    expect(ctrl).toBeNull();
+  });
+
   it("keeps known controllers on their dedicated registry entries", () => {
     const ctrl = resolveInputController({ name: "Lumatone" });
     expect(ctrl?.id).toBe("lumatone");
+  });
+
+  it("detects Haken Continuum inputs as the dedicated Haken controller entry", () => {
+    const ctrl = resolveInputController({ name: "Haken Audio Continuum" });
+    expect(ctrl?.id).toBe("hakenaudio");
+    expect(ctrl?.mpe).toBe(true);
   });
 
   it("honors manual controller override before port-name detection", () => {

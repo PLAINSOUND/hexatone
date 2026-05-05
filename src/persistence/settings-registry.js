@@ -182,6 +182,22 @@ export const SETTINGS_REGISTRY = [
     description: "MPE pitch bend range (semitones) used in Nearest Scale Degree mode",
   },
   {
+    key: "hakenaudio_scale_bend_factor",
+    tier: "local",
+    type: "float",
+    default: 1,
+    perController: true,
+    description: "Haken Continuum Nearest Scale Degree pitch-bend scale factor",
+  },
+  {
+    key: "hakenaudio_x_glide_shaping",
+    tier: "local",
+    type: "int",
+    default: 0,
+    perController: true,
+    description: "Haken Continuum Nearest Scale Degree X-glide shaping (0 linear, 100 near-stable)",
+  },
+  {
     key: "midi_passthrough",
     tier: "local",
     type: "bool",
@@ -204,10 +220,10 @@ export const SETTINGS_REGISTRY = [
   { key: "midiin_steps_per_channel", tier: "session", type: "int", default: 0 },
   { key: "midiin_channel_group_size", tier: "session", type: "int", default: 1 },
   { key: "midiin_anchor_channel", tier: "session", type: "int", default: 1 },
+  { key: "midiin_anchor_note", tier: "session", type: "int", default: 60 },
   { key: "controller_anchor_note", tier: "session", type: "int", default: null },
   { key: "midiin_channel_legacy", tier: "session", type: "bool", default: false },
   // midi_passthrough is tier: 'local', perController: true — see per-controller section above.
-  { key: "midiin_central_degree", tier: "session", type: "int", default: 60 },
   // Input runtime mode keys
   { key: "midiin_mapping_target", tier: "session", type: "string", default: "hex_layout" },
   // midiin_mpe_input, midiin_bend_range, midiin_bend_flip are 'local' tier (see above).
@@ -215,6 +231,9 @@ export const SETTINGS_REGISTRY = [
   // (manager/global channel per MPE spec), so the default voice range is 2–15.
   { key: "midiin_mpe_lo_ch", tier: "session", type: "int", default: 2 },
   { key: "midiin_mpe_hi_ch", tier: "session", type: "int", default: 15 },
+  { key: "midiin_scale_bend_range", tier: "session", type: "int", default: 48 },
+  { key: "hakenaudio_scale_bend_factor", tier: "session", type: "float", default: 1 },
+  { key: "hakenaudio_x_glide_shaping", tier: "session", type: "int", default: 0 },
   { key: "midiin_scale_tolerance", tier: "session", type: "int", default: 25 },
   { key: "midiin_scale_fallback", tier: "session", type: "string", default: "accept" },
   { key: "midiin_pitchbend_mode", tier: "session", type: "string", default: "recency" },
@@ -269,7 +288,7 @@ export const SETTINGS_REGISTRY = [
   // ── MPE output ────────────────────────────────────────────────────────────────
   { key: "output_mpe", tier: "session", type: "bool", default: false },
   { key: "mpe_device", tier: "session", type: "string", default: "OFF" },
-  { key: "mpe_manager_ch", tier: "session", type: "string", default: "1" },
+  { key: "midiin_mpe_manager_ch", tier: "session", type: "string", default: "1" },
   { key: "mpe_lo_ch", tier: "session", type: "int", default: 2 },
   { key: "mpe_hi_ch", tier: "session", type: "int", default: 8 },
   { key: "mpe_mode", tier: "session", type: "string", default: "Ableton_workaround" },
@@ -309,8 +328,6 @@ export const SETTINGS_REGISTRY = [
   // These are computed from the detected controller at startup; persisting them
   // would cause stale values if the user swaps controllers between sessions.
   { key: "axis49_center_note", tier: "runtime", type: "int", default: 53 },
-  { key: "lumatone_center_channel", tier: "runtime", type: "int", default: 3 },
-  { key: "lumatone_center_note", tier: "runtime", type: "int", default: 26 },
   { key: "wheel_to_recent", tier: "session", type: "bool", default: true },
   { key: "wheel_scale_aware", tier: "session", type: "bool", default: false },
   { key: "midi_wheel_semitones", tier: "session", type: "int", default: 2 },

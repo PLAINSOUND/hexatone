@@ -143,4 +143,27 @@ describe("osc_synth pooled slot allocation", () => {
     expect(modSets.length).toBeGreaterThan(0);
     expect(filterSets).toHaveLength(0);
   });
+
+  it("uses a pre-note-on retune for the /s_new onset frequency", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-onset-retune",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    await Promise.resolve();
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.retune(1200, true);
+    hex.noteOn();
+
+    const sent = MockWebSocket.instances[0].sent.filter((msg) => msg.address === "/s_new");
+    expect(sent).toHaveLength(4);
+    const onsetFreq = sent[0].args.find((arg, i, arr) => arr[i - 1]?.value === "freq")?.value;
+    expect(onsetFreq).toBeCloseTo(523.2511306, 3);
+  });
 });
