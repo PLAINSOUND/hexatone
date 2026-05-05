@@ -851,6 +851,8 @@ export const presets = [
             "targetDegree": 43,
             "strategy": "retune_surface_to_source",
             "count": 0,
+            "deltaRSteps": -2,
+            "deltaDrSteps": -4,
             "transpositionDeltaCents": 498.0449991346127
           },
           {
@@ -858,13 +860,17 @@ export const presets = [
             "targetDegree": 11,
             "strategy": "retune_surface_to_source",
             "count": 0,
+            "deltaRSteps": -1,
+            "deltaDrSteps": 4,
             "transpositionDeltaCents": -203.91000173077464
           },
           {
             "sourceDegree": 0,
             "targetDegree": 56,
-            "strategy": "retune_surface_to_source",
+            "strategy": "retune_surface_in_place",
             "count": 0,
+            "deltaRSteps": 0,
+            "deltaDrSteps": -5,
             "transpositionDeltaCents": 294.1349974038385
           },
           {
@@ -872,6 +878,8 @@ export const presets = [
             "targetDegree": 21,
             "strategy": "retune_surface_to_source",
             "count": 0,
+            "deltaRSteps": -1,
+            "deltaDrSteps": 6,
             "transpositionDeltaCents": -386.3137138648349
           },
           {
@@ -879,6 +887,8 @@ export const presets = [
             "targetDegree": 61,
             "strategy": "retune_surface_to_source",
             "count": 0,
+            "deltaRSteps": 0,
+            "deltaDrSteps": -4,
             "transpositionDeltaCents": 231.17409353087487
           },
           {
@@ -886,6 +896,8 @@ export const presets = [
             "targetDegree": 33,
             "strategy": "retune_surface_to_source",
             "count": 0,
+            "deltaRSteps": 2,
+            "deltaDrSteps": 3,
             "transpositionDeltaCents": -551.3179423647571
           }
         ]
