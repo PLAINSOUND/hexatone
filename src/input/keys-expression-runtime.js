@@ -128,7 +128,7 @@ export function applyMpePitchBend(entry, channel, value14) {
     const absNorm = Math.min(1, Math.abs(norm));
     norm = Math.sign(norm) * Math.pow(absNorm, exponent) * scaleFactor;
   }
-  const rangeCents = scalaToCents(this.inputRuntime.bendRange ?? "9/8");
+  const rangeCents = 100 * (this.settings.midiin_scale_bend_range ?? 48);
   const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
   const bentCents = baseCents + norm * rangeCents;
   entry.baseCents = baseCents;

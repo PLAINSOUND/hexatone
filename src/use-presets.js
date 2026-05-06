@@ -93,12 +93,10 @@ function restorePersistentAnchorFields(fallback = {}) {
 // Reset them on preset load so an inferred anchor from the previous preset
 // cannot survive the merge unless the incoming preset explicitly defines one.
 export const mergePresetIntoSettings = (settings, preset) => {
-  const persistentAnchorFallback = {
-    midiin_anchor_note:
-      preset.midiin_anchor_note ?? preset.midiin_central_degree ?? default_settings.midiin_anchor_note ?? 60,
-    midiin_anchor_channel:
-      preset.midiin_anchor_channel ?? default_settings.midiin_anchor_channel ?? 1,
-  };
+ const persistentAnchorFallback = {
+  midiin_anchor_note: settings.midiin_anchor_note ?? 60,
+  midiin_anchor_channel: settings.midiin_anchor_channel ?? 1,
+};
 
   return {
     ...settings,

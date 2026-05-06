@@ -16,13 +16,13 @@ const HakenContinuumSettings = ({
 
   const scaleFactor = Math.max(
     0.25,
-    Math.min(4, Number(settings.hakenaudio_scale_bend_factor ?? 1) || 1),
+    Math.min(2, Number(settings.hakenaudio_scale_bend_factor ?? 1) || 1),
   );
   const xGlideShaping = Math.max(
     0,
     Math.min(100, Number(settings.hakenaudio_x_glide_shaping ?? 0) || 0),
   );
-  const displayedShaping = ((xGlideShaping / 100) * 12).toFixed(1);
+  const displayedShaping = ((xGlideShaping / 100) * 24).toFixed(1);
 
   return (
     <>
@@ -40,13 +40,13 @@ const HakenContinuumSettings = ({
           <input
             type="range"
             min="0.25"
-            max="4"
+            max="2"
             step="0.01"
             value={scaleFactor}
             style={{ width: "100%" }}
             onInput={(e) => {
               const parsed = parseFloat(e.target.value);
-              const v = Math.max(0.25, Math.min(4, Number.isNaN(parsed) ? 1 : parsed));
+              const v = Math.max(0.25, Math.min(2, Number.isNaN(parsed) ? 1 : parsed));
               onChange("hakenaudio_scale_bend_factor", v);
               saveControllerPref(ctrl, "hakenaudio_scale_bend_factor", v, settings, {
                 hakenaudio_scale_bend_factor: v,
@@ -66,7 +66,7 @@ const HakenContinuumSettings = ({
         </span>
       </label>
 
-      <label title="Shapes post-snap Continuum X bending around the selected scale note. 0 is linear. The full slider travel maps to an effective shaping span of 0–12, giving subtler control near the playable range.">
+      <label title="Shapes post-snap Continuum X bending around the selected scale note. 0 is linear. The full slider travel maps to an effective shaping span of 0–24, giving subtler control near the playable range.">
         X Glide Shaping
         <span
           class="sidebar-input"
