@@ -891,8 +891,15 @@ export const CONTROLLER_REGISTRY = [
           linnstrument_pitch_bend_shape: 60,
         },
       },
+      bypass: {
+        defaultPrefs: {
+          anchorNote: 56, // MIDI note 56 in sequential mode (full 0–127 range)
+          anchorChannel: 4,
+          midi_passthrough: true,
+        },
+      },
     },
-    resolveMode: () => "userfw",
+    resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "userfw"),
     translateVirtualAnchor: (anchorCol, anchorRow, surfaceDelta) => ({
       note: anchorCol - surfaceDelta.x - surfaceDelta.y,
       channel: anchorRow + surfaceDelta.y,
