@@ -73,7 +73,7 @@ describe("KeyLabels HEJI anchor handling", () => {
     );
 
     expect(screen.getByText("Non-octave equave cannot generate consistent note names.")).toBeTruthy();
-    expect(screen.getByLabelText("Ratio/Cents from scale degree 0 (1/1)").disabled).toBe(true);
+    expect(screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)").disabled).toBe(true);
     expect(screen.getByLabelText("Notation (Spelling)").disabled).toBe(true);
     expect(screen.getByLabelText("Tempered Accidentals Only").disabled).toBe(true);
     expect(screen.getByLabelText("Always Include Cents on Keys").disabled).toBe(true);
@@ -101,7 +101,7 @@ describe("KeyLabels HEJI anchor handling", () => {
       />,
     );
 
-    fireEvent.blur(screen.getByLabelText("Ratio/Cents from scale degree 0 (1/1)"));
+    fireEvent.blur(screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)"));
     expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "0.");
   });
 

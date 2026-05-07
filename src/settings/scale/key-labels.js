@@ -123,7 +123,7 @@ const KeyLabels = (props) => {
             </p>
           )}
           <label>
-            Ratio/Cents from scale degree 0 (1/1)
+            Ratio/Cents from 1/1 (scale degree 0)
             <input
               type="text"
               class="sidebar-input"
