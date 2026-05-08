@@ -422,14 +422,18 @@ class Keys {
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
-        const baseCents = (hex._baseCents ?? hex.cents) + delta;
+        const existingGlide = this._retuneGlides.get(hex);
+        const reference = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
+        const baseCents = reference + delta;
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
     for (const [hex] of this.state.sustainedNotes) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
-        const baseCents = (hex._baseCents ?? hex.cents) + delta;
+        const existingGlide = this._retuneGlides.get(hex);
+        const reference = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
+        const baseCents = reference + delta;
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
