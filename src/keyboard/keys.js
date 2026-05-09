@@ -1463,10 +1463,16 @@ class Keys {
 
   snapshotForFundamentalPreview = () => {
     this._fundamentalSnapshot = new Map();
-    for (const hex of this._allActiveHexes())
-      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, hex._baseCents ?? hex.cents);
-    for (const [hex] of this.state.sustainedNotes)
-      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, hex._baseCents ?? hex.cents);
+    for (const hex of this._allActiveHexes()) {
+      const existingGlide = this._retuneGlides.get(hex);
+      const baseCents = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
+      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, baseCents);
+    }
+    for (const [hex] of this.state.sustainedNotes) {
+      const existingGlide = this._retuneGlides.get(hex);
+      const baseCents = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
+      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, baseCents);
+    }
     this._fundamentalPreviewSnapshot = new Map(this._fundamentalSnapshot);
   };
 
@@ -1476,7 +1482,7 @@ class Keys {
     const applyTo = (hex) => {
       const key = hex.coords.x + "," + hex.coords.y;
       const base = snap
-        ? (snap.get(key) ?? hex._baseCents ?? hex.cents)
+        ? (snap.get(key) ?? hex.cents)
         : (hex._baseCents ?? hex.cents);
       this._queueRetuneGlide(hex, base + deltaCents, bendOnly);
     };
