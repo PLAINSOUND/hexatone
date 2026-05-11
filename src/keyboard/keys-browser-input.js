@@ -15,6 +15,14 @@ function keyboardCoordsForCode(keys, code) {
   return new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
 }
 
+function canMomentarilyFlipHakenGlide(keys) {
+  if (keys.inputIsFocused()) return false;
+  if (keys.controller?.id !== "hakenaudio") return false;
+  if (!keys.inputRuntime?.mpeInput) return false;
+  const mode = keys.inputRuntime.hakenXGlideMode ?? "pitch_bending_follows_scale";
+  return mode === "raster_to_notes" || mode === "pitch_bending_follows_scale";
+}
+
 function findSustainedIndexAt(state, coords) {
   return state.sustainedNotes.findIndex(
     ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
@@ -42,6 +50,20 @@ export function setTuneDragging(active) {
 }
 
 export function onKeyDown(e) {
+  if (
+    e.code === "Space" &&
+    !e.repeat &&
+    !e.metaKey &&
+    !e.ctrlKey &&
+    !e.altKey &&
+    canMomentarilyFlipHakenGlide(this)
+  ) {
+    e.preventDefault();
+    this.inputRuntime.hakenSpaceGlideFlip = true;
+    this._refreshHakenGlideModeForActiveNotes?.();
+    return;
+  }
+
   if ((e.code === "Delete" && !e.repeat) || (e.code === "Backspace" && !e.repeat)) {
     this.panic();
     return;
@@ -85,11 +107,6 @@ export function onKeyDown(e) {
   e.preventDefault();
   if (e.repeat) return;
 
-  if (e.code === "Space") {
-    this.sustainOn();
-    return;
-  }
-
   if (!(e.code in this.settings.keyCodeToCoords)) return;
 
   if (e.shiftKey) {
@@ -129,6 +146,19 @@ export function onKeyDown(e) {
 }
 
 export function onKeyUp(e) {
+  if (
+    e.code === "Space" &&
+    !e.metaKey &&
+    !e.ctrlKey &&
+    !e.altKey &&
+    canMomentarilyFlipHakenGlide(this)
+  ) {
+    e.preventDefault();
+    this.inputRuntime.hakenSpaceGlideFlip = false;
+    this._refreshHakenGlideModeForActiveNotes?.();
+    return;
+  }
+
   if (e.code === "Escape") {
     this.state.escHeld = false;
     return;
@@ -137,11 +167,6 @@ export function onKeyUp(e) {
   if (isModulationToggleKeyCode(e.code)) return;
   if (!this.typing) return;
   if (this.inputIsFocused()) return;
-
-  if (e.code === "Space") {
-    this.sustainOff(true);
-    return;
-  }
 
   if (!(e.code in this.settings.keyCodeToCoords)) return;
   if (this.state.shiftSustainedKeys.has(e.code)) {

@@ -152,7 +152,7 @@ const MIDIio = (props) => {
   const linnstrumentXInputSmoothing = props.settings.linnstrument_x_input_smoothing ?? 80;
   const showExquisBendControls = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
   const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input) && !isLinnstrument;
-  const showHakenContinuumScaleBendUi = isHakenContinuum && scaleMode;
+  const showHakenContinuumUi = isHakenContinuum;
   const genericBypassesGeometry = ctrl?.id === "generic";
   const mpeMemberChannelBounds = ctrl?.mpeMemberChannelBounds ?? null;
   const configurableMpeMemberChannelBounds = ctrl?.mpeVoiceChannels
@@ -1248,7 +1248,7 @@ const MIDIio = (props) => {
             />
           )}
 
-          {showExquisBendControls && !showHakenContinuumScaleBendUi &&
+          {showExquisBendControls && !showHakenContinuumUi &&
             (isLinnstrument ? (
               <LinnstrumentSettings
                 ctrl={ctrl}
@@ -1310,7 +1310,7 @@ const MIDIio = (props) => {
             )))}
 
           {/* Reverse Bend Direction — hidden for LinnStrument User Firmware row-glide mode */}
-          {showExquisBendControls && !showHakenContinuumScaleBendUi && !linnstrumentUserFirmwareActiveUi && !linnstrumentBypassNonMpeUi && (
+          {showExquisBendControls && !showHakenContinuumUi && !linnstrumentUserFirmwareActiveUi && !linnstrumentBypassNonMpeUi && (
             <label title="Reverse pitch bend direction — useful when the controller surface is oriented so that sliding towards higher pitch sends negative bend values.">
               Reverse Bend Direction
               <input
@@ -1324,11 +1324,12 @@ const MIDIio = (props) => {
             </label>
           )}
 
-          {showHakenContinuumScaleBendUi && (
+          {showHakenContinuumUi && (
             <HakenContinuumSettings
               ctrl={ctrl}
               settings={props.settings}
-              scaleMode={scaleMode}
+              rawPorts={props.hakenRawPorts}
+              midiOutputs={props.midi?.outputs}
               onChange={props.onChange}
               saveControllerPref={saveControllerPref}
             />
@@ -1365,6 +1366,13 @@ MIDIio.propTypes = {
     midiin_bend_flip: PropTypes.bool,
     hakenaudio_scale_bend_factor: PropTypes.number,
     hakenaudio_x_glide_shaping: PropTypes.number,
+    hakenaudio_x_glide_mode: PropTypes.string,
+    hakenaudio_pressure_velocity: PropTypes.number,
+    hakenaudio_note_off_delay: PropTypes.number,
+    hakenaudio_out_port: PropTypes.string,
+    hakenaudio_x_lpf: PropTypes.number,
+    hakenaudio_y_lpf: PropTypes.number,
+    hakenaudio_z_lpf: PropTypes.number,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
     name: PropTypes.string,
@@ -1376,6 +1384,7 @@ MIDIio.propTypes = {
   lumatoneRawPorts: PropTypes.object,
   exquisRawPorts: PropTypes.object,
   linnstrumentRawPorts: PropTypes.object,
+  hakenRawPorts: PropTypes.object,
   keysRef: PropTypes.object,
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,

@@ -675,6 +675,7 @@ const App = () => {
     lumatoneRawPorts,
     exquisRawPorts,
     linnstrumentRawPorts,
+    hakenRawPorts,
   } = useSynthWiring(settings, setSettings, {
     ready,
     userHasInteracted,
@@ -1136,6 +1137,12 @@ const App = () => {
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
       hakenScaleBendFactor: settings.hakenaudio_scale_bend_factor ?? 1,
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 0,
+      hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending_follows_scale",
+      hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 0,
+      hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 0,
+      hakenXLpf: settings.hakenaudio_x_lpf ?? 60,
+      hakenYLpf: settings.hakenaudio_y_lpf ?? 30,
+      hakenZLpf: settings.hakenaudio_z_lpf ?? 125,
     }),
     [
       forceScaleTarget,
@@ -1162,6 +1169,12 @@ const App = () => {
       settings.midiin_scale_bend_range,
       settings.hakenaudio_scale_bend_factor,
       settings.hakenaudio_x_glide_shaping,
+      settings.hakenaudio_x_glide_mode,
+      settings.hakenaudio_pressure_velocity,
+      settings.hakenaudio_note_off_delay,
+      settings.hakenaudio_x_lpf,
+      settings.hakenaudio_y_lpf,
+      settings.hakenaudio_z_lpf,
     ],
   );
 
@@ -2115,6 +2128,7 @@ const App = () => {
               lumatoneRawPorts={lumatoneRawPorts}
               exquisRawPorts={exquisRawPorts}
               linnstrumentRawPorts={linnstrumentRawPorts}
+              hakenRawPorts={hakenRawPorts}
               exquisLedStatus={exquisLedStatus}
               snapshots={snapshots}
               playingSnapshotId={playingSnapshotId}

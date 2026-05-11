@@ -282,4 +282,19 @@ describe("use-synth-wiring controller resolution", () => {
       )?.id,
     ).toBe("linn-128");
   });
+
+  it("falls back to a same-name output when a manually chosen controller is routed through a generic MIDI interface", () => {
+    const outputs = new Map([
+      ["umone-out", { id: "umone-out", name: "UM-ONE" }],
+      ["other-out", { id: "other-out", name: "Different Output" }],
+    ]);
+
+    expect(
+      resolveBidirectionalControllerOutputPort(
+        outputs,
+        { name: "UM-ONE" },
+        getControllerById("hakenaudio"),
+      )?.id,
+    ).toBe("umone-out");
+  });
 });

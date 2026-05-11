@@ -50,6 +50,7 @@ const Settings = ({
   lumatoneRawPorts,
   exquisRawPorts,
   linnstrumentRawPorts,
+  hakenRawPorts,
   exquisLedStatus,
 }) => (
   <div autoComplete="off" role="group" aria-label="Hexatone settings">
@@ -135,6 +136,7 @@ const Settings = ({
       lumatoneRawPorts={lumatoneRawPorts}
       exquisRawPorts={exquisRawPorts}
       linnstrumentRawPorts={linnstrumentRawPorts}
+      hakenRawPorts={hakenRawPorts}
       exquisLedStatus={exquisLedStatus}
       keysRef={keysRef}
     />

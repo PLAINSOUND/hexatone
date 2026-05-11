@@ -41,6 +41,7 @@ export function* iterActiveHexes(state) {
 
 export function isCoordActive(state, coords) {
   for (const hex of iterActiveHexes(state)) {
+    if (hex?.release) continue;
     if (hex.coords.equals(coords)) return true;
   }
   return false;

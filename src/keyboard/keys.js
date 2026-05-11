@@ -173,6 +173,12 @@ class Keys {
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
       hakenScaleBendFactor: settings.hakenaudio_scale_bend_factor ?? 1,
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 0,
+      hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending_follows_scale",
+      hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 0,
+      hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 0,
+      hakenXLpf: settings.hakenaudio_x_lpf ?? 60,
+      hakenYLpf: settings.hakenaudio_y_lpf ?? 30,
+      hakenZLpf: settings.hakenaudio_z_lpf ?? 125,
       pitchBendMode: "recency",
       pressureMode: "recency",
       wheelToRecent: settings.wheel_to_recent,
@@ -231,7 +237,10 @@ class Keys {
     // _mpeInputBendByChannel: current per-channel bend state for MPE input mode.
     this._mtsInputTable = new Map();
     this._scaleModePreBend = new Map();
+    this._scaleModePreBend21 = new Map();
     this._mpeInputBendByChannel = new Map();
+    this._hakenMpeBend21ByChannel = new Map();
+    this._hakenMpePlusLsbByChannel = new Map();
     this._retuneGlides = new Map();
     this._retuneGlideTimer = null;
     this._retuneGlideLastTime = 0;
@@ -1768,6 +1777,14 @@ class Keys {
       clearTimeout(timeoutId);
     }
     this._recentlyReleasedHexes.clear();
+    if (this._pendingRasterAutoReleases) {
+      for (const channelEntries of this._pendingRasterAutoReleases.values()) {
+        for (const entry of channelEntries) {
+          clearTimeout(entry.timeoutId);
+        }
+      }
+      this._pendingRasterAutoReleases.clear();
+    }
     this._retuneGlides.clear();
     this._retuneGlideLastTime = 0;
     this._deferredBulkMapRefresh = false;
@@ -1790,6 +1807,9 @@ class Keys {
     this.state.activeMidi.clear();
     this.state.activeMidiByChannel.clear();
     this._mpeInputBendByChannel.clear();
+    this._hakenMpeBend21ByChannel.clear();
+    this._hakenMpePlusLsbByChannel.clear();
+    this._scaleModePreBend21.clear();
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
@@ -1942,6 +1962,19 @@ class Keys {
   allnotesOff = () => {
     return KeysMidiInput.allnotesOff.call(this);
   };
+
+  _hakenRasterBend(entry, channel, bend14, scaleMode) {
+  return KeysMidiInput.hakenRasterBend.call(this, entry, channel, bend14, scaleMode);
+  };
+
+  _refreshHakenGlideModeForActiveNotes() {
+    if (this.controller?.id !== "hakenaudio" || !this.inputRuntime.mpeInput) return;
+    for (const [channel, entry] of this.state.activeMidiByChannel) {
+      const bend14 = this._mpeInputBendByChannel.get(channel);
+      if (!entry?.hex || entry.hex.release || bend14 == null) continue;
+      this._applyMpePitchBend(entry, channel, bend14);
+    }
+  }
 
   panic = () => {
     return PanicRuntime.panic(this);

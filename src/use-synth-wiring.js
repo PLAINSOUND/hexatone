@@ -140,19 +140,36 @@ export const resolveBidirectionalControllerOutputPort = (
   }
   if (!controller) return null;
 
-  return (
-    Array.from(outputs.values())
-      .map((output, index) => ({ output, index }))
-      .filter(({ output }) => controller.detect(output.name?.toLowerCase() ?? ""))
-      .sort(
-        (a, b) =>
-          lumatonePortPriority(a.output, selectedInput) -
-            lumatonePortPriority(b.output, selectedInput) ||
-          midiPortNameSimilarity(b.output.name, selectedInput?.name) -
-            midiPortNameSimilarity(a.output.name, selectedInput?.name) ||
-          a.index - b.index,
-      )[0]?.output ?? null
-  );
+  const rankedOutputs = Array.from(outputs.values()).map((output, index) => ({ output, index }));
+  const detectedMatch = rankedOutputs
+    .filter(({ output }) => controller.detect(output.name?.toLowerCase() ?? ""))
+    .sort(
+      (a, b) =>
+        lumatonePortPriority(a.output, selectedInput) -
+          lumatonePortPriority(b.output, selectedInput) ||
+        midiPortNameSimilarity(b.output.name, selectedInput?.name) -
+          midiPortNameSimilarity(a.output.name, selectedInput?.name) ||
+        a.index - b.index,
+    )[0]?.output ?? null;
+  if (detectedMatch) return detectedMatch;
+
+  const bestNameMatch = rankedOutputs
+    .map(({ output, index }) => ({
+      output,
+      index,
+      similarity: midiPortNameSimilarity(output.name, selectedInput?.name),
+    }))
+    .sort(
+      (a, b) =>
+        b.similarity - a.similarity ||
+        a.index - b.index,
+    )[0] ?? null;
+
+  // If a manually selected controller geometry is routed through a generic USB
+  // MIDI interface like UM-ONE, the output name may not identify the controller
+  // at all. A strong same-name match to the selected input is a safe fallback.
+  if (bestNameMatch && bestNameMatch.similarity >= 900) return bestNameMatch.output;
+  return null;
 };
 
 export const resolveLumatoneOutputPort = (outputs, selectedInput, overridePortId = null) =>
@@ -1224,6 +1241,23 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override, settings.linnstrument_out_port]); // midiTick forces re-run on device connect/disconnect
 
+  const hakenRawPorts = useMemo(() => {
+    if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
+    const rawIn = midi.inputs.get(settings.midiin_device);
+    if (!rawIn) return null;
+    const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
+    if (!ctrl || ctrl.id !== "hakenaudio") return null;
+    const rawOut = resolveBidirectionalControllerOutputPort(
+      midi.outputs,
+      rawIn,
+      ctrl,
+      settings.hakenaudio_out_port ?? null,
+    );
+    if (!rawOut) return null;
+    return { input: rawIn, output: rawOut };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override, settings.hakenaudio_out_port]);
+
   return {
     synth,
     midi,
@@ -1248,6 +1282,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     lumatoneRawPorts,
     exquisRawPorts,
     linnstrumentRawPorts,
+    hakenRawPorts,
   };
 };
 

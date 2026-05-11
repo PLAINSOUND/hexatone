@@ -198,6 +198,62 @@ export const SETTINGS_REGISTRY = [
     description: "Haken Continuum Nearest Scale Degree X-glide shaping (0 linear, 100 near-stable)",
   },
   {
+    key: "hakenaudio_x_glide_mode",
+    tier: "local",
+    type: "string",
+    default: "pitch_bending_follows_scale",
+    perController: true,
+    description: "Haken Continuum X glide mode: pitch_bending, pitch_bending_follows_scale, or raster_to_notes",
+  },
+  {
+    key: "hakenaudio_pressure_velocity",
+    tier: "local",
+    type: "int",
+    default: 0,
+    perController: true,
+    description: "Haken Continuum Raster to Notes pressure-to-velocity blend (0 keep attack velocity, 127 follow pressure)",
+  },
+  {
+    key: "hakenaudio_note_off_delay",
+    tier: "local",
+    type: "int",
+    default: 0,
+    perController: true,
+    description: "Haken Continuum Raster to Notes auto-generated note-off delay in milliseconds",
+  },
+  {
+    key: "hakenaudio_out_port",
+    tier: "local",
+    type: "string",
+    default: "",
+    perController: true,
+    description: "Haken Continuum output port override for MPE+ configuration",
+  },
+  {
+    key: "hakenaudio_x_lpf",
+    tier: "local",
+    type: "int",
+    default: 60,
+    perController: true,
+    description: "Haken Continuum MPE+ X low-pass cutoff in 2 Hz units",
+  },
+  {
+    key: "hakenaudio_y_lpf",
+    tier: "local",
+    type: "int",
+    default: 30,
+    perController: true,
+    description: "Haken Continuum MPE+ Y low-pass cutoff in 2 Hz units",
+  },
+  {
+    key: "hakenaudio_z_lpf",
+    tier: "local",
+    type: "int",
+    default: 125,
+    perController: true,
+    description: "Haken Continuum MPE+ Z low-pass cutoff in 2 Hz units",
+  },
+  {
     key: "midi_passthrough",
     tier: "local",
     type: "bool",
@@ -310,10 +366,10 @@ export const SETTINGS_REGISTRY = [
   // in-session rebuild) and localStorage (so values survive page reload and
   // are read back via CROSS_CONTROLLER_ENTRIES in session-defaults.js).
   // tier: 'local', perController: false — plain key, cross-controller.
-  { key: "osc_volume_pluck",   tier: "local", type: "float", default: 0.5, perController: false },
-  { key: "osc_volume_buzz",    tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_pluck", tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_buzz", tier: "local", type: "float", default: 0.5, perController: false },
   { key: "osc_volume_formant", tier: "local", type: "float", default: 0.5, perController: false },
-  { key: "osc_volume_saw",     tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_volume_saw", tier: "local", type: "float", default: 0.5, perController: false },
   // WebMIDI permission/access level restored on refresh so the explicit
   // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
   // This is session-scoped runtime state, not a shareable preset value.

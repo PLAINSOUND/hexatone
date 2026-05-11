@@ -98,13 +98,72 @@ export function normalizePitchBend14(value) {
   return Math.max(0, Math.min(16383, bend));
 }
 
+export function resolveHakenXGlideMode(inputRuntime) {
+  const base = inputRuntime?.hakenXGlideMode ?? "pitch_bending_follows_scale";
+  if (!inputRuntime?.hakenSpaceGlideFlip) return base;
+  if (base === "raster_to_notes") return "pitch_bending_follows_scale";
+  if (base === "pitch_bending_follows_scale") return "raster_to_notes";
+  return base;
+}
+
+export function applyContinuumPitchShape(norm, inputRuntime, options = {}) {
+  const useScaleFactor = options.useScaleFactor !== false;
+  const scaleFactor = useScaleFactor
+    ? Math.max(
+      0.25,
+      Math.min(2, Number(inputRuntime.hakenScaleBendFactor ?? 1) || 1),
+    )
+    : 1;
+  const shapingControl = Math.max(
+    0,
+    Math.min(100, Number(inputRuntime.hakenXGlideShaping ?? 0) || 0),
+  );
+  const shaping = (shapingControl / 100) * 8;
+  const exponent = 1 + shaping * 0.06;
+  const absNorm = Math.min(1, Math.abs(norm));
+  return Math.sign(norm) * Math.pow(absNorm, exponent) * scaleFactor;
+}
+
+function centsForIntegerScaleStep(scale, equivInterval, step) {
+  const scaleLength = Math.max(1, scale.length || 1);
+  const octs = Math.floor(step / scaleLength);
+  const reduced = ((step % scaleLength) + scaleLength) % scaleLength;
+  return octs * equivInterval + (scale[reduced] ?? 0);
+}
+
+function centsForFloatingScaleStep(scale, equivInterval, stepFloat) {
+  const lowerStep = Math.floor(stepFloat);
+  const frac = stepFloat - lowerStep;
+  const lowerCents = centsForIntegerScaleStep(scale, equivInterval, lowerStep);
+  if (frac === 0) return lowerCents;
+  const upperCents = centsForIntegerScaleStep(scale, equivInterval, lowerStep + 1);
+  return lowerCents + (upperCents - lowerCents) * frac;
+}
+
 export function applyMpePitchBend(entry, channel, value14) {
   if (!entry?.hex || entry.hex.release) return;
   const bend14 = this._normalizePitchBend14(value14);
   this._mpeInputBendByChannel.set(channel, bend14);
-  const continuumScaleMode =
+  const hakenXGlideMode = resolveHakenXGlideMode(this.inputRuntime);
+  const isContinuumMpe =
     this.controller?.id === "hakenaudio" &&
-    this.inputRuntime.mpeInput &&
+    this.inputRuntime.mpeInput;
+  const continuumRasterMode =
+    isContinuumMpe &&
+    hakenXGlideMode === "raster_to_notes";
+  if (continuumRasterMode) {
+    this._hakenRasterBend(entry, channel, bend14, this.inputRuntime.target === "scale");
+    return;
+  }
+  const continuumPitchBendingMode =
+    isContinuumMpe &&
+    hakenXGlideMode === "pitch_bending";
+  const continuumScaleFollowingMode =
+    isContinuumMpe &&
+    hakenXGlideMode === "pitch_bending_follows_scale" &&
+    this.inputRuntime.target !== "scale";
+  const continuumScaleMode =
+    (continuumPitchBendingMode || (isContinuumMpe && hakenXGlideMode === "pitch_bending_follows_scale")) &&
     this.inputRuntime.target === "scale";
   const anchor14 = (
     continuumScaleMode &&
@@ -114,23 +173,28 @@ export function applyMpePitchBend(entry, channel, value14) {
     : 8192;
   let norm = (bend14 - anchor14) / 8192;
   if (!continuumScaleMode && this.inputRuntime.bendFlip) norm = -norm;
-  if (continuumScaleMode) {
-    const scaleFactor = Math.max(
-      0.25,
-      Math.min(2, Number(this.inputRuntime.hakenScaleBendFactor ?? 1) || 1),
-    );
-    const shapingControl = Math.max(
-      0,
-      Math.min(100, Number(this.inputRuntime.hakenXGlideShaping ?? 0) || 0),
-    );
-    const shaping = (shapingControl / 100) * 8;
-    const exponent = 1 + shaping * 0.06;
-    const absNorm = Math.min(1, Math.abs(norm));
-    norm = Math.sign(norm) * Math.pow(absNorm, exponent) * scaleFactor;
+  if (continuumPitchBendingMode || continuumScaleFollowingMode) {
+    norm = applyContinuumPitchShape(norm, this.inputRuntime, {
+      useScaleFactor: continuumPitchBendingMode,
+    });
   }
-  const rangeCents = 100 * (this.settings.midiin_scale_bend_range ?? 48);
   const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
-  const bentCents = baseCents + norm * rangeCents;
+  let bentCents;
+  if (continuumScaleFollowingMode && entry.hex.coords) {
+    const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
+    const baseSteps = Number.isFinite(entry.hex._rasterOnsetSteps)
+      ? entry.hex._rasterOnsetSteps
+      : currentSteps;
+    const degreeSpan = Math.max(0, Number(this.inputRuntime.scaleBendRange ?? 48) || 0);
+    bentCents = centsForFloatingScaleStep(
+      this.tuning.scale,
+      this.tuning.equivInterval ?? 1200,
+      baseSteps + norm * degreeSpan,
+    );
+  } else {
+    const rangeCents = 100 * (this.settings.midiin_scale_bend_range ?? 48);
+    bentCents = baseCents + norm * rangeCents;
+  }
   entry.baseCents = baseCents;
   entry.hex._lastPitchBend14 = bend14;
   entry.hex._lastPitchBendCents = bentCents;

@@ -1,18 +1,25 @@
 import PropTypes from "prop-types";
+import OutputPortPicker from "../output-port-picker.js";
+import { sendHakenNrpn } from "../../../controllers/hakenaudio.js";
 
 // This module owns the Haken Continuum-specific MIDI Input controls that only
-// make sense in Nearest Scale Degree mode. It does not render generic MPE
-// channel settings; it only exposes post-snap bend shaping for the Continuum's
-// X dimension once a scale note has been selected.
+// make sense for MPE input modes. It renders the Continuum X Glide mode
+// selector unconditionally when the Haken is active, and exposes bend shaping
+// controls for the continuous bend modes. In Raster to Notes mode
+// it exposes pressure-to-velocity response shaping for discrete retriggers.
 
 const HakenContinuumSettings = ({
   ctrl,
   settings,
-  scaleMode,
+  rawPorts,
+  midiOutputs,
   onChange,
   saveControllerPref,
 }) => {
-  if (!scaleMode) return null;
+  const xGlideMode = settings.hakenaudio_x_glide_mode ?? "pitch_bending_follows_scale";
+  const isStandardPitchBending = xGlideMode === "pitch_bending";
+  const isContinuousPitchMode =
+    isStandardPitchBending || xGlideMode === "pitch_bending_follows_scale";
 
   const scaleFactor = Math.max(
     0.25,
@@ -22,89 +29,275 @@ const HakenContinuumSettings = ({
     0,
     Math.min(100, Number(settings.hakenaudio_x_glide_shaping ?? 0) || 0),
   );
-  const displayedShaping = ((xGlideShaping / 100) * 24).toFixed(1);
+  const pressureVelocity = Math.max(
+    0,
+    Math.min(127, Number(settings.hakenaudio_pressure_velocity ?? 0) || 0),
+  );
+  const noteOffDelay = Math.max(
+    0,
+    Math.min(100, Number(settings.hakenaudio_note_off_delay ?? 0) || 0),
+  );
+  const xLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_x_lpf ?? 60) || 0));
+  const yLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_y_lpf ?? 30) || 0));
+  const zLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_z_lpf ?? 125) || 0));
+  const displayedShaping = ((xGlideShaping / 100) * 8).toFixed(1);
+  const managerChannel = Math.max(1, Math.min(
+    16,
+    parseInt(settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch ?? 1, 10) || 1,
+  ));
+  const sendLpfNrpn = (nrpn, value) => {
+    const output = rawPorts?.output ?? null;
+    if (!output) return;
+    sendHakenNrpn(output, managerChannel, nrpn, value);
+  };
+  const sliderValueStyle = {
+    fontVariantNumeric: "tabular-nums",
+    minWidth: "5.2em",
+    textAlign: "right",
+    fontSize: "0.85em",
+  };
+  const updateHakenPref = (key, value, extra = null) => {
+    onChange(key, value);
+    saveControllerPref(ctrl, key, value, settings, extra ?? { [key]: value });
+  };
 
   return (
     <>
-      <label title="Scales post-snap Continuum X bending after the nearest scale note has been chosen. 1 is the default response. Lower values require more finger travel; higher values exaggerate the post-snap bend response.">
-        Pitch Bending Scale Factor
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            justifyContent: "flex-end",
-          }}
-        >
+      <OutputPortPicker
+        label="Continuum Output"
+        rawPorts={rawPorts}
+        outputs={midiOutputs}
+        overridePortId={settings.hakenaudio_out_port ?? null}
+        onChange={(id) => {
+          onChange("hakenaudio_out_port", id);
+          sessionStorage.setItem("hakenaudio_out_port", id ?? "");
+        }}
+      />
+
+      <label title="MPE+ NRPN 100. Controls the Continuum X low-pass cutoff in 2 Hz units. Higher values preserve more detail and increase responsiveness.">
+        X Detail ↔ Speed
+        <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
           <input
             type="range"
-            min="0.25"
-            max="2"
-            step="0.01"
-            value={scaleFactor}
+            min="0"
+            max="127"
+            step="1"
+            value={xLpf}
             style={{ width: "100%" }}
             onInput={(e) => {
-              const parsed = parseFloat(e.target.value);
-              const v = Math.max(0.25, Math.min(2, Number.isNaN(parsed) ? 1 : parsed));
-              onChange("hakenaudio_scale_bend_factor", v);
-              saveControllerPref(ctrl, "hakenaudio_scale_bend_factor", v, settings, {
-                hakenaudio_scale_bend_factor: v,
-              });
+              const parsed = parseInt(e.target.value, 10);
+              const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 60 : parsed));
+              updateHakenPref("hakenaudio_x_lpf", v, { hakenaudio_x_lpf: v });
+              sendLpfNrpn(100, v);
             }}
           />
-          <span
-            style={{
-              fontVariantNumeric: "tabular-nums",
-              minWidth: "2.8em",
-              textAlign: "right",
-              fontSize: "0.85em",
-            }}
-          >
-            {scaleFactor.toFixed(2)}
+          <span style={sliderValueStyle}>
+            {xLpf * 2} Hz
           </span>
         </span>
       </label>
 
-      <label title="Shapes post-snap Continuum X bending around the selected scale note. 0 is linear. The full slider travel maps to an effective shaping span of 0–24, giving subtler control near the playable range.">
-        X Glide Shaping
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            justifyContent: "flex-end",
-          }}
-        >
+      <label title="MPE+ NRPN 101. Controls the Continuum Y low-pass cutoff in 2 Hz units.">
+        Y Detail ↔ Speed
+        <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
           <input
             type="range"
             min="0"
-            max="100"
+            max="127"
             step="1"
-            value={xGlideShaping}
+            value={yLpf}
             style={{ width: "100%" }}
             onInput={(e) => {
               const parsed = parseInt(e.target.value, 10);
-              const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
-              onChange("hakenaudio_x_glide_shaping", v);
-              saveControllerPref(ctrl, "hakenaudio_x_glide_shaping", v, settings, {
-                hakenaudio_x_glide_shaping: v,
-              });
+              const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 30 : parsed));
+              updateHakenPref("hakenaudio_y_lpf", v, { hakenaudio_y_lpf: v });
+              sendLpfNrpn(101, v);
             }}
           />
-          <span
-            style={{
-              fontVariantNumeric: "tabular-nums",
-              minWidth: "2.5em",
-              textAlign: "right",
-              fontSize: "0.85em",
-            }}
-          >
-            {displayedShaping}
+          <span style={sliderValueStyle}>
+            {yLpf * 2} Hz
           </span>
         </span>
       </label>
+
+      <label title="MPE+ NRPN 102. Controls the Continuum Z low-pass cutoff in 2 Hz units.">
+        Z Detail ↔ Speed
+        <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
+          <input
+            type="range"
+            min="0"
+            max="127"
+            step="1"
+            value={zLpf}
+            style={{ width: "100%" }}
+            onInput={(e) => {
+              const parsed = parseInt(e.target.value, 10);
+              const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 125 : parsed));
+              updateHakenPref("hakenaudio_z_lpf", v, { hakenaudio_z_lpf: v });
+              sendLpfNrpn(102, v);
+            }}
+          />
+          <span style={sliderValueStyle}>
+            {zLpf * 2} Hz
+          </span>
+        </span>
+      </label>
+
+      <label title="Controls how Continuum X-axis finger movement is translated. Pitch Bending applies continuous post-snap bend shaping to the sounding note. Raster to Notes turns the glide into a cascade of discrete note retriggering: each time the bend crosses a new note boundary a note-off and a fresh note-on are emitted.">
+        Continuum X Glide
+        <select
+          class="sidebar-input"
+          value={xGlideMode}
+          onChange={(e) => {
+            const v = e.target.value;
+            updateHakenPref("hakenaudio_x_glide_mode", v, {
+              hakenaudio_x_glide_mode: v,
+            });
+          }}
+        >
+          <option value="pitch_bending">Pitch Bending</option>
+          <option value="pitch_bending_follows_scale">Pitch Bending Follows Scale</option>
+          <option value="raster_to_notes">Raster to Notes</option>
+        </select>
+      </label>
+
+      {isContinuousPitchMode && (
+        <>
+          {isStandardPitchBending && (
+            <label title="Scales Continuum X pitch bending. 1 is the default response. Lower values require more finger travel; higher values exaggerate the post-snap bend response.">
+              Pitch Bending Scale Factor
+              <span
+                class="sidebar-input"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <input
+                  type="range"
+                  min="0.25"
+                  max="2"
+                  step="0.01"
+                  value={scaleFactor}
+                  style={{ width: "100%" }}
+                  onInput={(e) => {
+                    const parsed = parseFloat(e.target.value);
+                    const v = Math.max(0.25, Math.min(2, Number.isNaN(parsed) ? 1 : parsed));
+                    updateHakenPref("hakenaudio_scale_bend_factor", v, {
+                      hakenaudio_scale_bend_factor: v,
+                    });
+                  }}
+                />
+                <span style={sliderValueStyle}>
+                  {scaleFactor.toFixed(2)}
+                </span>
+              </span>
+            </label>
+          )}
+
+          <label title="Shapes Continuum X bending around the current note. 0 is linear. The full slider travel maps to an effective shaping span of 0–8 for subtler control near the playable range.">
+            X Glide Shaping
+            <span
+              class="sidebar-input"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={xGlideShaping}
+                style={{ width: "100%" }}
+                onInput={(e) => {
+                  const parsed = parseInt(e.target.value, 10);
+                  const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
+                  updateHakenPref("hakenaudio_x_glide_shaping", v, {
+                    hakenaudio_x_glide_shaping: v,
+                  });
+                }}
+              />
+              <span style={sliderValueStyle}>
+                {displayedShaping}
+              </span>
+            </span>
+          </label>
+        </>
+      )}
+
+      {xGlideMode === "raster_to_notes" && (
+        <>
+          <label title="Blends Continuum Raster to Notes retrigger velocity between the original attack velocity and current Z pressure. 0 keeps the original attack for each retrigger. 127 makes note-on and note-off velocities follow pressure directly.">
+            Pressure → Velocity
+            <span
+              class="sidebar-input"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <input
+                type="range"
+                min="0"
+                max="127"
+                step="1"
+                value={pressureVelocity}
+                style={{ width: "100%" }}
+                onInput={(e) => {
+                  const parsed = parseInt(e.target.value, 10);
+                  const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 0 : parsed));
+                  updateHakenPref("hakenaudio_pressure_velocity", v, {
+                    hakenaudio_pressure_velocity: v,
+                  });
+                }}
+              />
+              <span style={sliderValueStyle}>
+                {pressureVelocity}
+              </span>
+            </span>
+          </label>
+
+          <label title="Delays only the auto-generated Raster to Notes note-offs. Real Continuum note-off messages still release all sounding notes immediately. Uses a timer rather than requestAnimationFrame so it also works while the app is in the background.">
+            Note Off Delay
+            <span
+              class="sidebar-input"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={noteOffDelay}
+                style={{ width: "100%" }}
+                onInput={(e) => {
+                  const parsed = parseInt(e.target.value, 10);
+                  const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
+                  updateHakenPref("hakenaudio_note_off_delay", v, {
+                    hakenaudio_note_off_delay: v,
+                  });
+                }}
+              />
+              <span style={sliderValueStyle}>
+                {noteOffDelay} ms
+              </span>
+            </span>
+          </label>
+        </>
+      )}
     </>
   );
 };
@@ -112,7 +305,8 @@ const HakenContinuumSettings = ({
 HakenContinuumSettings.propTypes = {
   ctrl: PropTypes.object.isRequired,
   settings: PropTypes.object.isRequired,
-  scaleMode: PropTypes.bool.isRequired,
+  rawPorts: PropTypes.object,
+  midiOutputs: PropTypes.object,
   onChange: PropTypes.func.isRequired,
   saveControllerPref: PropTypes.func.isRequired,
 };

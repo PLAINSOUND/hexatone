@@ -6,12 +6,97 @@
 import { notes } from "../midi_synth";
 import { findNearestDegree } from "../input/scale-mapper.js";
 import {
+  applyContinuumPitchShape,
+  resolveHakenXGlideMode,
+} from "../input/keys-expression-runtime.js";
+import {
   resolveNonScaleNoteOffCoords,
   resolveNonScaleNoteOn,
 } from "./input-address-runtime.js";
 
 function usesPerChannelExpression(runtime) {
   return !!(runtime?.mpeInput || runtime?.perChannelExpression);
+}
+
+function continuumRasterVelocity(originalVelocity, pressureValue, controlValue) {
+  const attack = Math.max(1, Math.min(127, Number(originalVelocity) || 1));
+  const pressure = Math.max(1, Math.min(127, Number(pressureValue) || 127));
+  const blend = Math.max(0, Math.min(127, Number(controlValue) || 0)) / 127;
+  return Math.max(1, Math.min(127, Math.round(attack * (1 - blend) + pressure * blend)));
+}
+
+function pendingRasterReleases(keys) {
+  if (!keys._pendingRasterAutoReleases) keys._pendingRasterAutoReleases = new Map();
+  return keys._pendingRasterAutoReleases;
+}
+
+function registerPendingRasterRelease(keys, channel, notePlayed, entry) {
+  const pending = pendingRasterReleases(keys);
+  const channelEntries = pending.get(channel) ?? [];
+  channelEntries.push({ notePlayed, ...entry });
+  pending.set(channel, channelEntries);
+}
+
+function flushPendingRasterReleases(keys, channel, notePlayed = null) {
+  const pending = keys._pendingRasterAutoReleases;
+  if (!pending?.has(channel)) return;
+  const channelEntries = pending.get(channel) ?? [];
+  const keep = [];
+  for (const entry of channelEntries) {
+    if (notePlayed != null && entry.notePlayed !== notePlayed) {
+      keep.push(entry);
+      continue;
+    }
+    clearTimeout(entry.timeoutId);
+    if (!entry.fired) {
+      entry.fired = true;
+      entry.flush();
+    }
+  }
+  if (keep.length > 0) pending.set(channel, keep);
+  else pending.delete(channel);
+}
+
+function flushAllPendingRasterReleases(keys) {
+  const pending = keys._pendingRasterAutoReleases;
+  if (!pending) return;
+  for (const [channel] of pending) {
+    flushPendingRasterReleases(keys, channel);
+  }
+}
+
+function releaseContinuumRasterHex(keys, channel, hex, releaseVelocity, notePlayed) {
+  const delayMs = Math.max(0, Math.min(100, Number(keys.inputRuntime.hakenNoteOffDelay ?? 0) || 0));
+  if (delayMs <= 0) {
+    keys.noteOff(hex, releaseVelocity);
+    return;
+  }
+
+  const originalNoteOff = hex.noteOff;
+  let timeoutEntry = null;
+  const flush = () => {
+    if (!originalNoteOff) return;
+    originalNoteOff.call(hex, releaseVelocity);
+    if (hex?.coords) keys.hexOff(hex.coords);
+  };
+  hex.noteOff = () => {
+    timeoutEntry = {
+      timeoutId: setTimeout(() => {
+        timeoutEntry.fired = true;
+        flush();
+        const pending = keys._pendingRasterAutoReleases;
+        const channelEntries = pending?.get(channel) ?? [];
+        const keep = channelEntries.filter((entry) => entry !== timeoutEntry);
+        if (keep.length > 0) pending.set(channel, keep);
+        else pending?.delete(channel);
+      }, delayMs),
+      flush,
+      fired: false,
+    };
+    registerPendingRasterRelease(keys, channel, notePlayed, timeoutEntry);
+  };
+  keys.noteOff(hex, releaseVelocity);
+  hex.noteOff = originalNoteOff;
 }
 
 export function acceptsMpeInputChannel(channel) {
@@ -86,6 +171,13 @@ function pitchHzForScaleInput(event) {
   );
 }
 
+function continuumScaleTrackingStepOffset(keys, bend14, anchor14 = 8192, useScaleFactor = false) {
+  let norm = (bend14 - anchor14) / 8192;
+  norm = applyContinuumPitchShape(norm, keys.inputRuntime, { useScaleFactor });
+  const degreeSpan = Math.max(0, Number(keys.inputRuntime.scaleBendRange ?? 48) || 0);
+  return norm * degreeSpan;
+}
+
 export function midinoteOn(event) {
   if (!this._acceptsMpeInputChannel(event.message.channel)) return;
   const bend = this.bend || 0;
@@ -158,6 +250,33 @@ export function midinoteOn(event) {
     return;
   }
   if (usesPerChannelExpression(this.inputRuntime)) hex._inputChannel = event.message.channel;
+  hex._notePlayed = notePlayed;
+  // Store the original attack velocity so raster retriggers can scale by Z pressure.
+  hex._velocityPlayed = velocityPlayed;
+  // Raster mode initialisation: store the onset step so hakenRasterBend can
+  // compute offsets from it, and seed _rasterSteps (the last-triggered position)
+  // to semitone offset 0 so the first bend event doesn't cause a spurious retrigger.
+  if (
+    this.controller?.id === "hakenaudio" &&
+    this.inputRuntime.mpeInput
+  ) {
+    if (this.inputRuntime.target === "scale" && coords !== null) {
+      // Scale mode: onset is the distance (full step offset from origin) of the
+      // snapped hex — the same space findNearestDegree.steps uses.
+      const [, , distance] = this.hexCoordsToCents(coords);
+      hex._rasterOnsetSteps = distance ?? 0;
+    } else {
+      // Hex-layout mode: onset step via noteToSteps which includes channel offset.
+      // Subsequent bends add a semitoneOffset to this value directly, avoiding
+      // any double-application of the channel offset.
+      hex._rasterOnsetSteps = this.coordResolver.noteToSteps(
+        notePlayed % 128,
+        event.message.channel,
+      );
+    }
+    // _rasterSteps tracks the last triggered step (semitoneOffset = 0 at onset).
+    hex._rasterSteps = hex._rasterOnsetSteps;
+  }
   this.state.activeMidi.set(notePlayed, hex);
   if (usesPerChannelExpression(this.inputRuntime)) {
     const entry = ensureActiveMidiChannelEntry.call(this, event.message.channel);
@@ -182,6 +301,7 @@ export function midinoteOn(event) {
 export function midinoteOff(event) {
   if (!this._acceptsMpeInputChannel(event.message.channel)) return;
   const notePlayed = event.note.number + 128 * (event.message.channel - 1);
+  flushPendingRasterReleases(this, event.message.channel, notePlayed);
   if (this._suppressedMidiNotes?.has(notePlayed)) {
     this._suppressedMidiNotes.delete(notePlayed);
     return;
@@ -253,6 +373,7 @@ export function midinoteOff(event) {
 }
 
 export function allnotesOff() {
+  flushAllPendingRasterReleases(this);
   this._retuneGlides.clear();
   this._suppressedMidiNotes?.clear();
   if (this._retuneGlideTimer != null) {
@@ -285,4 +406,133 @@ export function allnotesOff() {
   notes.played = [];
   this.state.activeMidiByChannel.clear();
   this._mpeInputBendByChannel.clear();
+}
+
+/**
+ * Haken Continuum "Raster to Notes" bend handler.
+ *
+ * Called from applyMpePitchBend (keys-expression-runtime.js) when the
+ * controller is a Haken Continuum and hakenXGlideMode === "raster_to_notes".
+ *
+ * Translates continuous X-axis pitch bend into discrete note retriggering:
+ * each time the bend crosses into a new MIDI step (hex-layout mode) or new
+ * scale degree (scale mode), a note-off is fired on the outgoing hex and a
+ * note-on on the incoming one. Velocity for the new note equals the original
+ * attack velocity scaled by the current Z (aftertouch/channel pressure), so
+ * lighter touches produce quieter retriggers.
+ *
+ * Lives in keys-midi-input.js so it can use ensureActiveMidiChannelEntry and
+ * share the same state-management logic as midinoteOn / midinoteOff.
+ */
+export function hakenRasterBend(entry, channel, bend14, scaleMode) {
+  const hex = entry.hex;
+  if (!hex || hex.release) return;
+  const effectiveMode = resolveHakenXGlideMode(this.inputRuntime);
+  const useScaleFollowing = effectiveMode === "raster_to_notes";
+  const bendRangeSemitones = this.settings.midiin_scale_bend_range ?? 48;
+  const semitoneFloatOffset = ((bend14 - 8192) * bendRangeSemitones) / 8192;
+
+  let newSteps;
+
+  if (useScaleFollowing) {
+    if (hex._rasterOnsetSteps == null) return;
+    const anchor14 = scaleMode
+      ? this._normalizePitchBend14(hex._scaleModeBendAnchor14 ?? 8192)
+      : 8192;
+    const scaleStepOffset = continuumScaleTrackingStepOffset(
+      this,
+      bend14,
+      anchor14,
+      false,
+    );
+    newSteps = hex._rasterOnsetSteps + Math.round(scaleStepOffset);
+  } else if (scaleMode) {
+    const midiNote = (hex._notePlayed ?? 0) % 128;
+    const baseHz = 440 * Math.pow(2, (midiNote - 69) / 12);
+    const bentHz = baseHz * Math.pow(2, (semitoneFloatOffset * 100) / 1200);
+    const bentCents = this._resolveScaleInputPitchCents(channel, midiNote, bentHz);
+
+    const result = findNearestDegree(
+      bentCents,
+      this.tuning.scale,
+      this.tuning.equivInterval,
+      this.inputRuntime.scaleTolerance ?? 50,
+      "accept",
+    );
+    if (!result) return;
+    newSteps = result.steps;
+  } else {
+    if (hex._rasterOnsetSteps == null) return;
+    newSteps = hex._rasterOnsetSteps + Math.round(semitoneFloatOffset);
+  }
+
+  // No crossing yet — nothing to retrigger.
+  if (hex._rasterSteps === newSteps) return;
+  hex._rasterSteps = newSteps;
+
+  // --- Resolve target coordinates ---
+  const newCoords = this.coordResolver.coordForSteps(newSteps);
+  if (!newCoords) return;
+
+  // --- Velocity: blend original attack with current Z pressure according to
+  // the Continuum-specific pressure→velocity control.
+  const originalVelocity =
+    hex._velocityPlayed ?? hex.velocity_played ?? hex.velocity ?? this.settings.midi_velocity ?? 72;
+  const zPressure = hex._lastAftertouch ?? 127;
+  const pressureVelocity = this.inputRuntime.hakenPressureVelocity ?? 0;
+  const newVelocity = continuumRasterVelocity(originalVelocity, zPressure, pressureVelocity);
+
+  const notePlayed = hex._notePlayed ?? null;
+
+  // --- Note-off on the outgoing hex ---
+  // noteOff() handles sustain pedal logic, recencyStack, and synth MIDI output.
+  releaseContinuumRasterHex(this, channel, hex, newVelocity, notePlayed);
+  // Clean state maps so the channel slot is free for the new hex.
+  if (notePlayed != null) this.state.activeMidi.delete(notePlayed);
+  // Remove old hex from the channel entry but keep the entry object alive —
+  // we will update it in-place below so the outer activeMidiByChannel reference
+  // held by the pitchbend listener remains valid.
+  const channelEntry = this.state.activeMidiByChannel.get(channel);
+  if (channelEntry) {
+    channelEntry.hexes?.delete(hex);
+  }
+
+  // Redraw released hex in its unpressed colour.
+  if (hex.coords) this.hexOff(hex.coords);
+
+  // --- Note-on at new coords ---
+  // Temporarily set the channel's bend to 8192 so hexOn's MPE pre-bend
+  // priming block doesn't apply an extra offset on the new note's centre pitch.
+  this._mpeInputBendByChannel.set(channel, 8192);
+
+  const liveInputAddress = { channel, note: notePlayed ?? 0 };
+  const newHex = this.hexOn(newCoords, notePlayed, newVelocity, 0, { liveInputAddress });
+  if (!newHex) return;
+
+  // Restore the live bend value so subsequent bend events route correctly.
+  this._mpeInputBendByChannel.set(channel, bend14);
+
+  // --- Propagate metadata to the new hex ---
+  newHex._inputChannel = channel;
+  newHex._notePlayed = notePlayed;
+  newHex._velocityPlayed = originalVelocity;
+  newHex._rasterOnsetSteps = hex._rasterOnsetSteps; // fixed onset — never changes during a hold
+  newHex._rasterSteps = newSteps;                   // current triggered position
+  newHex._scaleModeBendAnchor14 = hex._scaleModeBendAnchor14;
+  newHex._lastAftertouch = hex._lastAftertouch;
+  newHex._lastCC74 = hex._lastCC74;
+
+  // --- Update state maps (mirrors midinoteOn post-hexOn block) ---
+  if (notePlayed != null) this.state.activeMidi.set(notePlayed, newHex);
+
+  const updatedEntry = ensureActiveMidiChannelEntry.call(this, channel);
+  updatedEntry.hex = newHex;
+  updatedEntry.baseCents = newHex._baseCents ?? newHex.cents;
+  updatedEntry.hexes.add(newHex);
+
+  // Continuum raster retriggers should inherit the current expressive state
+  // immediately at onset so the rebuilt note does not jump in timbre or
+  // pressure response while waiting for the next incoming Y/Z update.
+  if (hex._lastAftertouch != null) this._applyPolyAftertouch(newHex, hex._lastAftertouch);
+  if (hex._lastCC74 != null) this._applyTimbreCC74(newHex, hex._lastCC74);
 }
