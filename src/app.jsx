@@ -1138,10 +1138,10 @@ const App = () => {
       bendFlip: !!settings.midiin_bend_flip,
       // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
-      hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 0,
+      hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 100,
       hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending",
-      hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 0,
-      hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 0,
+      hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 64,
+      hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 20,
       hakenXLpf: settings.hakenaudio_x_lpf ?? 60,
       hakenYLpf: settings.hakenaudio_y_lpf ?? 30,
       hakenZLpf: settings.hakenaudio_z_lpf ?? 125,

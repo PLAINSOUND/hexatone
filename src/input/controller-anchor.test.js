@@ -7,6 +7,7 @@ import {
   getControllerMode,
   loadSavedAnchor,
   loadSavedAnchorChannel,
+  loadControllerPrefs,
   saveAnchor,
   saveAnchorChannel,
   saveControllerPref,
@@ -401,9 +402,15 @@ describe("loadAnchorSettingsUpdate", () => {
 
   it("applies controller-specific configurable MPE member-channel defaults for Haken Continuum", () => {
     const update = loadAnchorSettingsUpdate(HAKEN);
+    const prefs = loadControllerPrefs(HAKEN);
     expect(update.midiin_mpe_input).toBe(true);
     expect(update.midiin_mpe_lo_ch).toBe(2);
     expect(update.midiin_mpe_hi_ch).toBe(14);
+    expect(update.midiin_mapping_target).toBe("scale");
+    expect(prefs.hakenaudio_x_glide_mode).toBe("pitch_bending");
+    expect(prefs.hakenaudio_x_glide_shaping).toBe(100);
+    expect(prefs.hakenaudio_pressure_velocity).toBe(64);
+    expect(prefs.hakenaudio_note_off_delay).toBe(20);
   });
 
   it("preserves in-range user-configured Haken member channels", () => {

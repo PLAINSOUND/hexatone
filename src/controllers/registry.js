@@ -731,6 +731,7 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 60,
           midi_passthrough: false,
           midiin_mpe_input: true,
+          midiin_mapping_target: "scale",
         },
       },
       bypass: {
@@ -738,6 +739,7 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 60,
           midi_passthrough: true,
           midiin_mpe_input: true,
+          midiin_mapping_target: "scale",
         },
       },
     },

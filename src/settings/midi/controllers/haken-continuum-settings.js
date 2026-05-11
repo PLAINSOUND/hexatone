@@ -19,15 +19,15 @@ const HakenContinuumSettings = ({
   const xGlideMode = settings.hakenaudio_x_glide_mode ?? "pitch_bending";
   const xGlideShaping = Math.max(
     0,
-    Math.min(100, Number(settings.hakenaudio_x_glide_shaping ?? 0) || 0),
+    Math.min(100, Number(settings.hakenaudio_x_glide_shaping ?? 100) || 0),
   );
   const pressureVelocity = Math.max(
     0,
-    Math.min(127, Number(settings.hakenaudio_pressure_velocity ?? 0) || 0),
+    Math.min(127, Number(settings.hakenaudio_pressure_velocity ?? 64) || 0),
   );
   const noteOffDelay = Math.max(
     0,
-    Math.min(100, Number(settings.hakenaudio_note_off_delay ?? 0) || 0),
+    Math.min(100, Number(settings.hakenaudio_note_off_delay ?? 20) || 0),
   );
   const xLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_x_lpf ?? 60) || 0));
   const yLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_y_lpf ?? 30) || 0));

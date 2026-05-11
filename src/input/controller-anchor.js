@@ -334,12 +334,20 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
   // midi_passthrough) rather than from the stored active mode, which may
   // reflect a previous session in a different mode.
   const preferStored = settings === null;
+  const modeKey = getControllerMode(controller, settings, null, { preferStored });
   const update = {
     midiin_anchor_note: loadSavedAnchor(controller, settings, { preferStored }),
     // All local-tier prefs — includes midi_passthrough and midiin_mpe_input
     // with their first-connect fallbacks handled inside loadControllerPrefs.
     ...loadControllerPrefs(controller, settings, { preferStored }),
   };
+
+  const mappingTargetDefault = getModeDefault(controller, modeKey, "midiin_mapping_target");
+  if (mappingTargetDefault !== undefined) {
+    update.midiin_mapping_target = mappingTargetDefault;
+  } else if (controller.id === "hakenaudio") {
+    update.midiin_mapping_target = "scale";
+  }
 
   const ch = loadSavedAnchorChannel(controller, settings, { preferStored });
   if (ch !== null) {

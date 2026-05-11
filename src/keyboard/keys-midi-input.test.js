@@ -2007,7 +2007,6 @@ describe("Keys MIDI input integration", () => {
       release: false,
     };
     keys.hexOn = vi.fn(() => newHex);
-
     const baseHz = 440 * Math.pow(2, (60 - 69) / 12);
     const pitchCentsSpy = vi
       .spyOn(keys, "_resolveScaleInputPitchCents")

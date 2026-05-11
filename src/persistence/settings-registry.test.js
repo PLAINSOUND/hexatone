@@ -76,6 +76,13 @@ describe("SETTINGS_REGISTRY structure", () => {
       expect(ok, `bool key "${entry.key}" has non-boolean default "${entry.default}"`).toBe(true);
     }
   });
+
+  it("uses the updated Haken Continuum performance defaults", () => {
+    expect(REGISTRY_BY_KEY.hakenaudio_x_glide_mode.default).toBe("pitch_bending");
+    expect(REGISTRY_BY_KEY.hakenaudio_x_glide_shaping.default).toBe(100);
+    expect(REGISTRY_BY_KEY.hakenaudio_pressure_velocity.default).toBe(64);
+    expect(REGISTRY_BY_KEY.hakenaudio_note_off_delay.default).toBe(20);
+  });
 });
 
 // ── Derived maps ─────────────────────────────────────────────────────────────
