@@ -159,12 +159,23 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
       if (modeDefault !== undefined) {
         update[entry.key] = modeDefault;
       } else if (entry.key === "midiin_mpe_input") {
-        update[entry.key] = !!controller.mpe;
+        update[entry.key] = controller.id === "hakenaudio" ? true : !!controller.mpe;
+      } else if (entry.key === "midi_passthrough" && controller.id === "hakenaudio") {
+        update[entry.key] = false;
       } else if (entry.key === "midi_passthrough") {
         update[entry.key] = !!controller.passthroughDefault;
       } else {
         update[entry.key] = entry.default;
       }
+      if (entry.key === "midiin_mpe_input" && controller.id === "hakenaudio") {
+        update[entry.key] = true;
+      }
+    }
+    if (entry.key === "midiin_mpe_input" && controller.id === "hakenaudio") {
+      update[entry.key] = true;
+    }
+    if (entry.key === "midi_passthrough" && controller.id === "hakenaudio") {
+      update[entry.key] = false;
     }
   }
 

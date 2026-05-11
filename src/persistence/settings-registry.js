@@ -182,14 +182,6 @@ export const SETTINGS_REGISTRY = [
     description: "MPE pitch bend range (semitones) used in Nearest Scale Degree mode",
   },
   {
-    key: "hakenaudio_scale_bend_factor",
-    tier: "local",
-    type: "float",
-    default: 1,
-    perController: true,
-    description: "Haken Continuum Nearest Scale Degree pitch-bend scale factor",
-  },
-  {
     key: "hakenaudio_x_glide_shaping",
     tier: "local",
     type: "int",
@@ -201,9 +193,9 @@ export const SETTINGS_REGISTRY = [
     key: "hakenaudio_x_glide_mode",
     tier: "local",
     type: "string",
-    default: "pitch_bending_follows_scale",
+    default: "pitch_bending",
     perController: true,
-    description: "Haken Continuum X glide mode: pitch_bending, pitch_bending_follows_scale, or raster_to_notes",
+    description: "Haken Continuum X glide mode: pitch_bending or raster_to_notes",
   },
   {
     key: "hakenaudio_pressure_velocity",

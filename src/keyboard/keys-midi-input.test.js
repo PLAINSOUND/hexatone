@@ -2008,6 +2008,14 @@ describe("Keys MIDI input integration", () => {
     };
     keys.hexOn = vi.fn(() => newHex);
 
+    const baseHz = 440 * Math.pow(2, (60 - 69) / 12);
+    const pitchCentsSpy = vi
+      .spyOn(keys, "_resolveScaleInputPitchCents")
+      .mockImplementation((_channel, _note, fallbackPitchHz) => {
+        expect(fallbackPitchHz).toBeCloseTo(baseHz * 2, 8);
+        return 1200;
+      });
+
     const oldHex = {
       coords: new Point(0, 0),
       cents: 0,
@@ -2015,9 +2023,7 @@ describe("Keys MIDI input integration", () => {
       _notePlayed: 60,
       _velocityPlayed: 96,
       _lastAftertouch: 127,
-      _rasterOnsetSteps: 0,
       _rasterSteps: 0,
-      _scaleModeBendAnchor14: 8192,
       noteOff: vi.fn(),
       release: false,
     };
@@ -2032,12 +2038,13 @@ describe("Keys MIDI input integration", () => {
     // With a 48-semitone MPE bend range, +12 semitones corresponds to val14=10240.
     keys._hakenRasterBend(entry, 5, 10240, true);
 
+    expect(pitchCentsSpy).toHaveBeenCalledTimes(1);
     expect(keys.hexOn).toHaveBeenCalledTimes(1);
     expect(keys.hexOn.mock.calls[0][0]).toEqual(new Point(12, 0));
     expect(keys.state.activeMidi.get(60)).toBe(newHex);
   });
 
-  it("uses shared scale tracking in nearest-scale raster mode so non-12edo degrees can be selected", () => {
+  it("uses continuous Continuum X bend in nearest-scale raster mode so non-12edo degrees can be selected", () => {
     const keys = createKeys(
       {
         midiin_controller_override: "hakenaudio",
@@ -2056,6 +2063,7 @@ describe("Keys MIDI input integration", () => {
     keys.noteOff = vi.fn();
     keys.hexOff = vi.fn();
     keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
+    vi.spyOn(keys, "_resolveScaleInputPitchCents").mockReturnValue(70);
     const newHex = {
       coords: new Point(1, 0),
       cents: 30,
@@ -2071,9 +2079,7 @@ describe("Keys MIDI input integration", () => {
       _notePlayed: 60,
       _velocityPlayed: 96,
       _lastAftertouch: 127,
-      _rasterOnsetSteps: 0,
       _rasterSteps: 0,
-      _scaleModeBendAnchor14: 8192,
       noteOff: vi.fn(),
       release: false,
     };
@@ -2085,7 +2091,9 @@ describe("Keys MIDI input integration", () => {
     keys.state.activeMidi.set(60, oldHex);
     keys.state.activeMidiByChannel.set(5, entry);
 
-    // About +0.7 scale degrees with a 12-degree tracking span.
+    // About +70 cents with a 12-semitone bend range.
+    // Continuous pitch should snap to scale degree 30c (step 1),
+    // whereas semitone rounding would incorrectly jump to 130c (step 2).
     keys._hakenRasterBend(entry, 5, 8670, true);
 
     expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(1);
@@ -2093,13 +2101,13 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.activeMidi.get(60)).toBe(newHex);
   });
 
-  it("momentarily flips Continuum follow-scale and raster modes with the space bar", () => {
+  it("momentarily flips Continuum pitch bending and raster modes with the space bar", () => {
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },
       {
         target: "hex_layout",
         mpeInput: true,
-        hakenXGlideMode: "pitch_bending_follows_scale",
+        hakenXGlideMode: "pitch_bending",
       },
     );
     keys.controller = { id: "hakenaudio" };
@@ -2133,7 +2141,53 @@ describe("Keys MIDI input integration", () => {
     expect(bendSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("resumes Continuum follow-scale from the original onset track after raster note replacement", () => {
+  it("reanchors Continuum nearest-scale glide to the current rastered note when leaving raster mode", () => {
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        scale: [0, 100, 300, 610],
+        equivSteps: 4,
+        equivInterval: 1200,
+      },
+      {
+        target: "scale",
+        mpeInput: true,
+        hakenXGlideMode: "pitch_bending",
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.inputRuntime.hakenSpaceGlideFlip = true;
+    const hex = {
+      coords: new Point(3, 0),
+      cents: 300,
+      _baseCents: 300,
+      _rasterOnsetSteps: 0,
+      _scaleModeBendAnchor14: 8192,
+      release: false,
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    };
+    const entry = { hex, baseCents: 300, hexes: new Set([hex]) };
+    keys.state.activeMidiByChannel.set(5, entry);
+    keys._mpeInputBendByChannel.set(5, 12288);
+    keys.hexCoordsToCents = vi.fn(() => [300, 0, 2]);
+
+    keys.onKeyUp({
+      code: "Space",
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    });
+
+    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(false);
+    expect(hex._scaleModeBendAnchor14).toBe(12288);
+    expect(hex._continuumPitchAnchor14).toBe(12288);
+    expect(hex._continuumPitchAnchorSteps).toBe(2);
+    expect(hex.retune).toHaveBeenCalledTimes(1);
+    expect(hex.retune.mock.calls[0][0]).toBeCloseTo(300, 5);
+  });
+
+  it("reanchors Continuum hex-layout glide to the current rastered note when leaving raster mode", () => {
     const irregularScale = [0, 70, 300, 610];
     const keys = createKeys(
       {
@@ -2146,29 +2200,40 @@ describe("Keys MIDI input integration", () => {
         target: "hex_layout",
         mpeInput: true,
         scaleBendRange: 4,
-        hakenXGlideMode: "pitch_bending_follows_scale",
+        hakenXGlideMode: "pitch_bending",
       },
     );
     keys.controller = { id: "hakenaudio" };
+    keys.inputRuntime.hakenSpaceGlideFlip = true;
     const hex = {
       coords: new Point(1, 0),
-      cents: 70,
-      _baseCents: 70,
+      cents: 300,
+      _baseCents: 300,
       _rasterOnsetSteps: 0,
       release: false,
       retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
     };
-    const entry = { hex, baseCents: 70, hexes: new Set([hex]) };
+    const entry = { hex, baseCents: 300, hexes: new Set([hex]) };
     keys.state.activeMidiByChannel.set(5, entry);
-    keys._mpeInputBendByChannel.set(5, 10240); // +1 scale degree at span 4
+    keys._mpeInputBendByChannel.set(5, 10240); // current rastered note is already offset
+    keys.hexCoordsToCents = vi.fn(() => [300, 0, 2]);
 
-    keys._refreshHakenGlideModeForActiveNotes();
+    keys.onKeyUp({
+      code: "Space",
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    });
 
+    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(false);
+    expect(hex._continuumPitchAnchor14).toBe(10240);
+    expect(hex._continuumPitchAnchorSteps).toBe(2);
     expect(hex.retune).toHaveBeenCalledTimes(1);
-    expect(hex.retune.mock.calls[0][0]).toBeCloseTo(70, 5);
+    expect(hex.retune.mock.calls[0][0]).toBeCloseTo(300, 5);
   });
 
-  it("blends Continuum raster retrigger velocities between onset attack and current pressure", () => {
+  it("varies Continuum raster retrigger velocities around onset attack according to current pressure", () => {
     const makeEntry = () => {
       const oldHex = {
         coords: new Point(0, 0),
@@ -2177,6 +2242,7 @@ describe("Keys MIDI input integration", () => {
         _notePlayed: 60,
         _velocityPlayed: 96,
         _lastAftertouch: 40,
+        _pressureSeenSinceOnset: true,
         _rasterOnsetSteps: 0,
         _rasterSteps: 0,
         noteOff: vi.fn(),
@@ -2244,8 +2310,116 @@ describe("Keys MIDI input integration", () => {
 
     keysPressure._hakenRasterBend(entryPressure, 5, 9045, false);
 
-    expect(keysPressure.noteOff).toHaveBeenCalledWith(oldHexPressure, 40);
-    expect(keysPressure.hexOn.mock.calls[0][2]).toBe(40);
+    expect(keysPressure.noteOff).toHaveBeenCalledWith(oldHexPressure, 72);
+    expect(keysPressure.hexOn.mock.calls[0][2]).toBe(72);
+  });
+
+  it("keeps Continuum raster retrigger velocity at the raw onset attack until this touch has received pressure", () => {
+    const oldHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      _notePlayed: 60,
+      _velocityPlayed: 96,
+      _lastAftertouch: 0,
+      _pressureSeenSinceOnset: false,
+      _rasterOnsetSteps: 0,
+      _rasterSteps: 0,
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        hakenXGlideMode: "raster_to_notes",
+        scaleBendRange: 48,
+        hakenPressureVelocity: 127,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.noteOff = vi.fn();
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(1, 0));
+    const newHex = { coords: new Point(1, 0), cents: 100, _baseCents: 100, release: false };
+    keys.hexOn = vi.fn(() => newHex);
+    const entry = {
+      hex: oldHex,
+      baseCents: oldHex._baseCents,
+      hexes: new Set([oldHex]),
+    };
+    keys.state.activeMidi.set(60, oldHex);
+    keys.state.activeMidiByChannel.set(5, entry);
+
+    keys._hakenRasterBend(entry, 5, 9045, false);
+
+    expect(keys.noteOff).toHaveBeenCalledWith(oldHex, 96);
+    expect(keys.hexOn.mock.calls[0][2]).toBe(96);
+  });
+
+  it("primes fresh per-channel Continuum Y/Z onto a new note onset", () => {
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      { target: "hex_layout", mpeInput: true },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+    const hex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+      aftertouch: vi.fn(),
+      cc74: vi.fn(),
+    };
+    keys.hexOn = vi.fn(() => hex);
+    const applyAftertouchSpy = vi.spyOn(keys, "_applyPolyAftertouch");
+    const applyCc74Spy = vi.spyOn(keys, "_applyTimbreCC74");
+    const now = Date.now();
+    keys._mpeInputAftertouchByChannel.set(5, { value: 88, time: now });
+    keys._mpeInputCC74ByChannel.set(5, { value: 17, time: now });
+
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    expect(applyAftertouchSpy).toHaveBeenCalledWith(hex, 88);
+    expect(applyCc74Spy).toHaveBeenCalledWith(hex, 17);
+    expect(hex._pressureSeenSinceOnset).toBe(true);
+  });
+
+  it("does not prime stale per-channel Continuum Y/Z onto a new note onset", () => {
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      { target: "hex_layout", mpeInput: true },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+    const hex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+      aftertouch: vi.fn(),
+      cc74: vi.fn(),
+    };
+    keys.hexOn = vi.fn(() => hex);
+    const applyAftertouchSpy = vi.spyOn(keys, "_applyPolyAftertouch");
+    const applyCc74Spy = vi.spyOn(keys, "_applyTimbreCC74");
+    const staleTime = Date.now() - 500;
+    keys._mpeInputAftertouchByChannel.set(5, { value: 88, time: staleTime });
+    keys._mpeInputCC74ByChannel.set(5, { value: 17, time: staleTime });
+
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    expect(applyAftertouchSpy).not.toHaveBeenCalledWith(hex, 88);
+    expect(applyCc74Spy).not.toHaveBeenCalledWith(hex, 17);
+    expect(hex._pressureSeenSinceOnset).toBe(false);
   });
 
   it("delays only auto-generated Continuum raster note-offs by the configured timeout", () => {
@@ -2410,7 +2584,7 @@ describe("Keys MIDI input integration", () => {
     expect(newHex._lastCC74).toBe(91);
   });
 
-  it("applies Continuum nearest-scale bend factor and X glide shaping after snap", () => {
+  it("applies Continuum nearest-scale X glide shaping after snap", () => {
     const makeHex = vi.fn((coords, cents) => ({
       coords,
       cents,
@@ -2430,7 +2604,6 @@ describe("Keys MIDI input integration", () => {
         mpeInput: true,
         scaleBendRange: 48,
         bendRange: "2/1",
-        hakenScaleBendFactor: 0.5,
         hakenXGlideShaping: 100,
         hakenXGlideMode: "pitch_bending",
       },
@@ -2451,49 +2624,6 @@ describe("Keys MIDI input integration", () => {
     expect(hex.retune).toHaveBeenCalledTimes(1);
     const bent = hex.retune.mock.calls[0][0];
     expect(bent).toBeGreaterThan(hex._baseCents ?? hex.cents);
-    expect(bent).toBeLessThan((hex._baseCents ?? hex.cents) + 150);
-  });
-
-  it("clamps Continuum scale bend factor to the valid range [0.25, 2]\n", () => {
-    const makeHex = vi.fn((coords, cents) => ({
-      coords,
-      cents,
-      release: false,
-      noteOn: vi.fn(),
-      noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) {
-        this.cents = newCents;
-      }),
-    }));
-    // hakenScaleBendFactor=4 should clamp to 2
-    const keys = createKeys(
-      { midiin_controller_override: "hakenaudio" },
-      {
-        target: "scale",
-        mpeInput: true,
-        scaleBendRange: 48,
-        bendRange: "2/1",
-        hakenScaleBendFactor: 4,
-        hakenXGlideShaping: 0,
-        hakenXGlideMode: "pitch_bending",
-      },
-      { makeHex },
-    );
-    keys.controller = { id: "hakenaudio" };
-    keys.hexOff = vi.fn();
-    keys.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
-    keys._scaleModePreBend.set(5, 12288);
-    keys._mpeInputBendByChannel.set(5, 12288);
-
-    keys.midinoteOn(makeMidiEvent(60, 5));
-    const hex = makeHex.mock.results[0].value;
-    const entry = keys.state.activeMidiByChannel.get(5);
-    const baseCents = hex._baseCents ?? hex.cents;
-
-    // bend14=13312, anchor=12288 → norm=0.125; clampedFactor=2 → bentCents = baseCents + 0.125*2*4800 = baseCents+1200
-    keys._applyMpePitchBend(entry, 5, 13312);
-    expect(hex.retune).toHaveBeenCalledTimes(1);
-    expect(hex.retune.mock.calls[0][0]).toBeCloseTo(baseCents + 1200, 5);
   });
 
   it("Continuum bend is symmetric: equal magnitude up and down from anchor", () => {
@@ -2507,7 +2637,7 @@ describe("Keys MIDI input integration", () => {
     }));
     const keysUp = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenScaleBendFactor: 1, hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
+      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
       { makeHex: makeHexUp },
     );
     keysUp.controller = { id: "hakenaudio" };
@@ -2532,7 +2662,7 @@ describe("Keys MIDI input integration", () => {
     }));
     const keysDown = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenScaleBendFactor: 1, hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
+      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
       { makeHex: makeHexDown },
     );
     keysDown.controller = { id: "hakenaudio" };
@@ -2552,14 +2682,70 @@ describe("Keys MIDI input integration", () => {
     expect(downDelta).toBeLessThan(0);
   });
 
-  it("Continuum X glide shaping compresses bend compared to no shaping at same factor", () => {
+  it("Continuum shaped bend remains symmetric up and down from anchor", () => {
+    const makeHexUp = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    }));
+    const keysUp = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 100, hakenXGlideMode: "pitch_bending" },
+      { makeHex: makeHexUp },
+    );
+    keysUp.controller = { id: "hakenaudio" };
+    keysUp.hexOff = vi.fn();
+    keysUp.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+    keysUp._scaleModePreBend.set(5, 8192);
+    keysUp._mpeInputBendByChannel.set(5, 8192);
+    keysUp.midinoteOn(makeMidiEvent(60, 5));
+    const hexUp = makeHexUp.mock.results[0].value;
+    const entryUp = keysUp.state.activeMidiByChannel.get(5);
+    const baseCentsUp = hexUp._baseCents ?? hexUp.cents;
+    keysUp._applyMpePitchBend(entryUp, 5, 8192 + 1024);
+    const upDelta = hexUp.retune.mock.calls[0][0] - baseCentsUp;
+
+    const makeHexDown = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    }));
+    const keysDown = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 100, hakenXGlideMode: "pitch_bending" },
+      { makeHex: makeHexDown },
+    );
+    keysDown.controller = { id: "hakenaudio" };
+    keysDown.hexOff = vi.fn();
+    keysDown.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+    keysDown._scaleModePreBend.set(5, 8192);
+    keysDown._mpeInputBendByChannel.set(5, 8192);
+    keysDown.midinoteOn(makeMidiEvent(60, 5));
+    const hexDown = makeHexDown.mock.results[0].value;
+    const entryDown = keysDown.state.activeMidiByChannel.get(5);
+    const baseCentsDown = hexDown._baseCents ?? hexDown.cents;
+    keysDown._applyMpePitchBend(entryDown, 5, 8192 - 1024);
+    const downDelta = hexDown.retune.mock.calls[0][0] - baseCentsDown;
+
+    expect(Math.abs(upDelta)).toBeCloseTo(Math.abs(downDelta), 5);
+    expect(upDelta).toBeGreaterThan(0);
+    expect(downDelta).toBeLessThan(0);
+  });
+
+  it("Continuum X glide shaping creates more stability near note centers", () => {
     const makeHexFlat = vi.fn((coords, cents) => ({
       coords, cents, release: false, noteOn: vi.fn(), noteOff: vi.fn(),
       retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
     }));
     const keysFlat = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenScaleBendFactor: 1, hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
+      { target: "scale", mpeInput: true, scaleBendRange: 5, bendRange: "2/1", hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
       { makeHex: makeHexFlat },
     );
     keysFlat.controller = { id: "hakenaudio" };
@@ -2571,7 +2757,7 @@ describe("Keys MIDI input integration", () => {
     const hexFlat = makeHexFlat.mock.results[0].value;
     const entryFlat = keysFlat.state.activeMidiByChannel.get(5);
     const baseCentsFlat = hexFlat._baseCents ?? hexFlat.cents;
-    keysFlat._applyMpePitchBend(entryFlat, 5, 12288);
+    keysFlat._applyMpePitchBend(entryFlat, 5, 10240);
     const flatBend = Math.abs(hexFlat.retune.mock.calls[0][0] - baseCentsFlat);
 
     const makeHexShaped = vi.fn((coords, cents) => ({
@@ -2580,7 +2766,7 @@ describe("Keys MIDI input integration", () => {
     }));
     const keysShaped = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenScaleBendFactor: 1, hakenXGlideShaping: 100, hakenXGlideMode: "pitch_bending" },
+      { target: "scale", mpeInput: true, scaleBendRange: 5, bendRange: "2/1", hakenXGlideShaping: 100, hakenXGlideMode: "pitch_bending" },
       { makeHex: makeHexShaped },
     );
     keysShaped.controller = { id: "hakenaudio" };
@@ -2592,51 +2778,11 @@ describe("Keys MIDI input integration", () => {
     const hexShaped = makeHexShaped.mock.results[0].value;
     const entryShaped = keysShaped.state.activeMidiByChannel.get(5);
     const baseCentsShaped = hexShaped._baseCents ?? hexShaped.cents;
-    keysShaped._applyMpePitchBend(entryShaped, 5, 12288);
+    keysShaped._applyMpePitchBend(entryShaped, 5, 10240);
     const shapedBend = Math.abs(hexShaped.retune.mock.calls[0][0] - baseCentsShaped);
 
-    // High shaping creates a nonlinear response — at 0.5 norm, bend should be smaller
-    expect(shapedBend).toBeLessThan(flatBend);
-  });
-
-  it("applies Continuum pitch-bending scale factor and X glide shaping in MIDI to Hex Layout", () => {
-    const makeFlatHex = vi.fn((coords, cents) => ({
-      coords, cents, release: false, noteOn: vi.fn(), noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
-    }));
-    const keysFlat = createKeys(
-      { midiin_controller_override: "hakenaudio" },
-      { target: "hex_layout", mpeInput: true, scaleBendRange: 48, hakenScaleBendFactor: 1, hakenXGlideShaping: 0, hakenaudio_x_glide_mode: "pitch_bending" },
-      { makeHex: makeFlatHex },
-    );
-    keysFlat.controller = { id: "hakenaudio" };
-    keysFlat.hexOff = vi.fn();
-    keysFlat.midinoteOn(makeMidiEvent(60, 5));
-    const flatHex = makeFlatHex.mock.results[0].value;
-    const flatEntry = keysFlat.state.activeMidiByChannel.get(5);
-    const flatBase = flatHex._baseCents ?? flatHex.cents;
-    keysFlat._applyMpePitchBend(flatEntry, 5, 12288);
-    const flatBend = Math.abs(flatHex.retune.mock.calls[0][0] - flatBase);
-
-    const makeShapedHex = vi.fn((coords, cents) => ({
-      coords, cents, release: false, noteOn: vi.fn(), noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
-    }));
-    const keysShaped = createKeys(
-      { midiin_controller_override: "hakenaudio" },
-      { target: "hex_layout", mpeInput: true, scaleBendRange: 48, hakenScaleBendFactor: 0.5, hakenXGlideShaping: 100, hakenaudio_x_glide_mode: "pitch_bending" },
-      { makeHex: makeShapedHex },
-    );
-    keysShaped.controller = { id: "hakenaudio" };
-    keysShaped.hexOff = vi.fn();
-    keysShaped.midinoteOn(makeMidiEvent(60, 5));
-    const shapedHex = makeShapedHex.mock.results[0].value;
-    const shapedEntry = keysShaped.state.activeMidiByChannel.get(5);
-    const shapedBase = shapedHex._baseCents ?? shapedHex.cents;
-    keysShaped._applyMpePitchBend(shapedEntry, 5, 12288);
-    const shapedBend = Math.abs(shapedHex.retune.mock.calls[0][0] - shapedBase);
-
-    expect(flatBend).toBeGreaterThan(0);
+    // At a quarter of the way to the next note, shaping should hold the pitch
+    // closer to the current note than the linear response does.
     expect(shapedBend).toBeLessThan(flatBend);
   });
 
@@ -2661,9 +2807,8 @@ describe("Keys MIDI input integration", () => {
         target: "hex_layout",
         mpeInput: true,
         scaleBendRange: 4,
-        hakenScaleBendFactor: 1,
         hakenXGlideShaping: 0,
-        hakenXGlideMode: "pitch_bending_follows_scale",
+        hakenXGlideMode: "pitch_bending",
       },
       { makeHex },
     );
@@ -2673,25 +2818,23 @@ describe("Keys MIDI input integration", () => {
     const hex = makeHex.mock.results[0].value;
     const entry = keys.state.activeMidiByChannel.get(5);
     const baseCents = hex._baseCents ?? hex.cents;
-
     keys._applyMpePitchBend(entry, 5, 10240); // norm 0.25 => +1 scale degree
 
     expect(hex.retune).toHaveBeenCalledTimes(1);
     expect(hex.retune.mock.calls[0][0]).toBeCloseTo(baseCents + 70, 5);
   });
 
-  it("Continuum pitch bending follows scale reuses anchored pitch bending in MIDI to Nearest Scale Degree", () => {
+  it("Continuum nearest-scale pitch bending follows incoming bend range while staying scale-aware", () => {
     const irregularScale = [0, 70, 300, 610];
-    const makeHex = () => ({
-      coords: new Point(0, 0),
-      cents: 0,
-      _baseCents: 0,
-      _scaleModeBendAnchor14: 8192,
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
       release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
       retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
-    });
-    const hexPitch = makeHex();
-    const keysPitch = createKeys(
+    }));
+    const keys = createKeys(
       {
         midiin_controller_override: "hakenaudio",
         scale: irregularScale,
@@ -2702,17 +2845,40 @@ describe("Keys MIDI input integration", () => {
         target: "scale",
         mpeInput: true,
         scaleBendRange: 4,
-        hakenScaleBendFactor: 1,
+        bendRange: "2/1",
         hakenXGlideShaping: 0,
         hakenXGlideMode: "pitch_bending",
       },
+      { makeHex },
     );
-    keysPitch.controller = { id: "hakenaudio" };
-    const entryPitch = { hex: hexPitch, baseCents: 0, hexes: new Set([hexPitch]) };
-    keysPitch.state.activeMidiByChannel.set(5, entryPitch);
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(1, 0));
+    keys._scaleModePreBend.set(5, 8192);
+    keys._mpeInputBendByChannel.set(5, 8192);
 
-    const hexFollow = makeHex();
-    const keysFollow = createKeys(
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    const hex = makeHex.mock.results[0].value;
+    const entry = keys.state.activeMidiByChannel.get(5);
+    const baseCents = hex._baseCents ?? hex.cents;
+    keys._applyMpePitchBend(entry, 5, 10240); // norm 0.25 with span 4 => +1 scale degree
+
+    expect(hex.retune).toHaveBeenCalledTimes(1);
+    expect(hex.retune.mock.calls[0][0]).toBeCloseTo(baseCents + 100, 5);
+  });
+
+  it("Continuum nearest-scale X glide shaping holds near the same snapped scale degree as raster mode", () => {
+    const irregularScale = [0, 70, 300, 610];
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    }));
+    const keys = createKeys(
       {
         midiin_controller_override: "hakenaudio",
         scale: irregularScale,
@@ -2723,24 +2889,28 @@ describe("Keys MIDI input integration", () => {
         target: "scale",
         mpeInput: true,
         scaleBendRange: 4,
-        hakenScaleBendFactor: 1,
-        hakenXGlideShaping: 0,
-        hakenXGlideMode: "pitch_bending_follows_scale",
+        bendRange: "2/1",
+        hakenXGlideShaping: 100,
+        hakenXGlideMode: "pitch_bending",
       },
+      { makeHex },
     );
-    keysFollow.controller = { id: "hakenaudio" };
-    const entryFollow = { hex: hexFollow, baseCents: 0, hexes: new Set([hexFollow]) };
-    keysFollow.state.activeMidiByChannel.set(5, entryFollow);
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(1, 0));
+    keys._scaleModePreBend.set(5, 8192);
+    keys._mpeInputBendByChannel.set(5, 8192);
 
-    keysPitch._applyMpePitchBend(entryPitch, 5, 10240);
-    keysFollow._applyMpePitchBend(entryFollow, 5, 10240);
+    keys.midinoteOn(makeMidiEvent(60, 5));
 
-    expect(hexPitch.retune).toHaveBeenCalledTimes(1);
-    expect(hexFollow.retune).toHaveBeenCalledTimes(1);
-    expect(hexFollow.retune.mock.calls[0][0]).toBeCloseTo(
-      hexPitch.retune.mock.calls[0][0],
-      5,
-    );
+    const hex = makeHex.mock.results[0].value;
+    const entry = keys.state.activeMidiByChannel.get(5);
+    keys._applyMpePitchBend(entry, 5, 10240); // quarter bend: still nearer the lower snapped degree
+
+    expect(hex.retune).toHaveBeenCalledTimes(1);
+    const bent = hex.retune.mock.calls[0][0];
+    expect(bent).toBeLessThan(170);
+    expect(Math.abs(bent - 70)).toBeLessThan(Math.abs(bent - 300));
   });
 
   it("Continuum scale mode does not apply retune when bend is exactly at anchor", () => {
@@ -2750,7 +2920,7 @@ describe("Keys MIDI input integration", () => {
     }));
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenScaleBendFactor: 1, hakenXGlideMode: "pitch_bending" },
+      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideMode: "pitch_bending" },
       { makeHex },
     );
     keys.controller = { id: "hakenaudio" };
@@ -2823,6 +2993,33 @@ describe("Keys MIDI input integration", () => {
     keys.hexOff = vi.fn();
     keys._resolveScaleInputPitchCents = vi.fn(() => 100);
     keys.coordResolver.stepsToVisibleCoords = vi.fn(() => [recomputedCoords]);
+
+    keys.midinoteOff(makeMidiEvent(60, 2, 96, 55));
+
+    expect(keys.noteOff).toHaveBeenCalledWith(releaseHex, 55);
+    expect(keys.hexOff).toHaveBeenCalledWith(originalCoords);
+    expect(keys.hexOff).not.toHaveBeenCalledWith(recomputedCoords);
+  });
+
+  it("releases the originally lit hex in hex-layout mode instead of recomputing release coords", () => {
+    const keys = createKeys({}, {
+      target: "hex_layout",
+      mpeInput: true,
+      layoutMode: "controller_geometry",
+    });
+    const originalCoords = new Point(8, -3);
+    const recomputedCoords = new Point(2, 11);
+    const releaseHex = {
+      coords: originalCoords,
+      cents: 0,
+      noteOff: vi.fn(),
+      release: false,
+    };
+
+    keys.state.activeMidi.set(60 + 128, releaseHex);
+    keys.noteOff = vi.fn();
+    keys.hexOff = vi.fn();
+    keys.coordResolver.noteToCoords = vi.fn(() => recomputedCoords);
 
     keys.midinoteOff(makeMidiEvent(60, 2, 96, 55));
 

@@ -19,8 +19,8 @@ function canMomentarilyFlipHakenGlide(keys) {
   if (keys.inputIsFocused()) return false;
   if (keys.controller?.id !== "hakenaudio") return false;
   if (!keys.inputRuntime?.mpeInput) return false;
-  const mode = keys.inputRuntime.hakenXGlideMode ?? "pitch_bending_follows_scale";
-  return mode === "raster_to_notes" || mode === "pitch_bending_follows_scale";
+  const mode = keys.inputRuntime.hakenXGlideMode ?? "pitch_bending";
+  return mode === "raster_to_notes" || mode === "pitch_bending";
 }
 
 function findSustainedIndexAt(state, coords) {
@@ -59,8 +59,7 @@ export function onKeyDown(e) {
     canMomentarilyFlipHakenGlide(this)
   ) {
     e.preventDefault();
-    this.inputRuntime.hakenSpaceGlideFlip = true;
-    this._refreshHakenGlideModeForActiveNotes?.();
+    this._setHakenSpaceGlideFlip?.(true);
     return;
   }
 
@@ -154,8 +153,7 @@ export function onKeyUp(e) {
     canMomentarilyFlipHakenGlide(this)
   ) {
     e.preventDefault();
-    this.inputRuntime.hakenSpaceGlideFlip = false;
-    this._refreshHakenGlideModeForActiveNotes?.();
+    this._setHakenSpaceGlideFlip?.(false);
     return;
   }
 

@@ -415,6 +415,14 @@ describe("loadAnchorSettingsUpdate", () => {
     expect(update).not.toHaveProperty("midiin_mpe_hi_ch");
   });
 
+  it("forces Haken Continuum MPE on even if a saved false value exists", () => {
+    localStorage.setItem("hakenaudio_midiin_mpe_input", "false");
+    const update = loadAnchorSettingsUpdate(HAKEN, {
+      midiin_mpe_input: false,
+    });
+    expect(update.midiin_mpe_input).toBe(true);
+  });
+
   it("auto-applies fixed mpe channel range for controllers with mpeVoiceChannels", () => {
     const update = loadAnchorSettingsUpdate(EXQUIS);
     expect(update.midiin_mpe_input).toBe(true);

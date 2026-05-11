@@ -47,7 +47,6 @@ export const SETTINGS_IMPACT_FIELDS = {
     "linnstrument_x_spike_reduction",
     "linnstrument_x_input_smoothing",
     "midiin_scale_bend_range",
-    "hakenaudio_scale_bend_factor",
     "hakenaudio_x_glide_shaping",
     "hakenaudio_x_glide_mode",
     "hakenaudio_pressure_velocity",

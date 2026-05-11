@@ -80,6 +80,7 @@ export function applyPolyAftertouch(hex, value) {
   if (!hex || hex.release) return;
   const aftertouch = Math.max(0, Math.min(127, Number(value) || 0));
   hex._lastAftertouch = aftertouch;
+  hex._pressureSeenSinceOnset = true;
   if (applyTransferredSourceAftertouch(hex, aftertouch)) return;
   hex.aftertouch?.(aftertouch);
 }
@@ -99,29 +100,29 @@ export function normalizePitchBend14(value) {
 }
 
 export function resolveHakenXGlideMode(inputRuntime) {
-  const base = inputRuntime?.hakenXGlideMode ?? "pitch_bending_follows_scale";
+  const base = inputRuntime?.hakenXGlideMode ?? "pitch_bending";
   if (!inputRuntime?.hakenSpaceGlideFlip) return base;
-  if (base === "raster_to_notes") return "pitch_bending_follows_scale";
-  if (base === "pitch_bending_follows_scale") return "raster_to_notes";
+  if (base === "raster_to_notes") return "pitch_bending";
+  if (base === "pitch_bending") return "raster_to_notes";
   return base;
 }
 
-export function applyContinuumPitchShape(norm, inputRuntime, options = {}) {
-  const useScaleFactor = options.useScaleFactor !== false;
-  const scaleFactor = useScaleFactor
-    ? Math.max(
-      0.25,
-      Math.min(2, Number(inputRuntime.hakenScaleBendFactor ?? 1) || 1),
-    )
-    : 1;
+export function applyContinuumPitchShape(stepOffset, inputRuntime) {
   const shapingControl = Math.max(
     0,
     Math.min(100, Number(inputRuntime.hakenXGlideShaping ?? 0) || 0),
   );
-  const shaping = (shapingControl / 100) * 8;
-  const exponent = 1 + shaping * 0.06;
-  const absNorm = Math.min(1, Math.abs(norm));
-  return Math.sign(norm) * Math.pow(absNorm, exponent) * scaleFactor;
+  if (shapingControl <= 0) return stepOffset;
+  const amount = shapingControl / 100;
+  const exponent = 1 + amount * 11;
+  const absOffset = Math.abs(stepOffset);
+  const wholeSteps = Math.floor(absOffset);
+  const frac = absOffset - wholeSteps;
+  const pocketedFrac =
+    frac <= 0.5
+      ? 0.5 * Math.pow(frac / 0.5, exponent)
+      : 1 - 0.5 * Math.pow((1 - frac) / 0.5, exponent);
+  return Math.sign(stepOffset) * (wholeSteps + pocketedFrac);
 }
 
 function centsForIntegerScaleStep(scale, equivInterval, step) {
@@ -138,6 +139,31 @@ function centsForFloatingScaleStep(scale, equivInterval, stepFloat) {
   if (frac === 0) return lowerCents;
   const upperCents = centsForIntegerScaleStep(scale, equivInterval, lowerStep + 1);
   return lowerCents + (upperCents - lowerCents) * frac;
+}
+
+function floatingScaleStepForCents(scale, equivInterval, pitchCents) {
+  const scaleLength = Math.max(1, scale.length || 1);
+  const octs = Math.floor(pitchCents / equivInterval);
+  let reduced = pitchCents - octs * equivInterval;
+  if (reduced >= equivInterval) reduced -= equivInterval;
+  if (reduced < 0) reduced += equivInterval;
+
+  for (let i = 0; i < scaleLength - 1; i++) {
+    const lower = scale[i];
+    const upper = scale[i + 1];
+    if (reduced >= lower && reduced <= upper) {
+      const span = upper - lower || 1;
+      const frac = (reduced - lower) / span;
+      return octs * scaleLength + i + frac;
+    }
+  }
+
+  const lastIndex = scaleLength - 1;
+  const lower = scale[lastIndex] ?? 0;
+  const upper = equivInterval;
+  const span = upper - lower || 1;
+  const frac = (reduced - lower) / span;
+  return octs * scaleLength + lastIndex + frac;
 }
 
 export function applyMpePitchBend(entry, channel, value14) {
@@ -158,42 +184,56 @@ export function applyMpePitchBend(entry, channel, value14) {
   const continuumPitchBendingMode =
     isContinuumMpe &&
     hakenXGlideMode === "pitch_bending";
-  const continuumScaleFollowingMode =
-    isContinuumMpe &&
-    hakenXGlideMode === "pitch_bending_follows_scale" &&
-    this.inputRuntime.target !== "scale";
-  const continuumScaleMode =
-    (continuumPitchBendingMode || (isContinuumMpe && hakenXGlideMode === "pitch_bending_follows_scale")) &&
-    this.inputRuntime.target === "scale";
-  const anchor14 = (
-    continuumScaleMode &&
-    entry.hex._scaleModeBendAnchor14 != null
-  )
-    ? this._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
-    : 8192;
+  const continuumStepFollowingMode =
+    continuumPitchBendingMode &&
+    this.inputRuntime.layoutMode !== "sequential" &&
+    this.inputRuntime.target === "hex_layout" &&
+    !!entry.hex.coords;
+  const anchor14 = entry.hex._continuumPitchAnchor14 != null
+    ? this._normalizePitchBend14(entry.hex._continuumPitchAnchor14)
+    : (
+      this.inputRuntime.target === "scale" &&
+      entry.hex._scaleModeBendAnchor14 != null
+    )
+      ? this._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
+      : 8192;
   let norm = (bend14 - anchor14) / 8192;
-  if (!continuumScaleMode && this.inputRuntime.bendFlip) norm = -norm;
-  if (continuumPitchBendingMode || continuumScaleFollowingMode) {
-    norm = applyContinuumPitchShape(norm, this.inputRuntime, {
-      useScaleFactor: continuumPitchBendingMode,
-    });
-  }
+  if (this.inputRuntime.target !== "scale") norm = this.inputRuntime.bendFlip ? -norm : norm;
   const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
   let bentCents;
-  if (continuumScaleFollowingMode && entry.hex.coords) {
+  if (continuumStepFollowingMode && entry.hex.coords) {
     const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
-    const baseSteps = Number.isFinite(entry.hex._rasterOnsetSteps)
+    const baseSteps = Number.isFinite(entry.hex._continuumPitchAnchorSteps)
+      ? entry.hex._continuumPitchAnchorSteps
+      : Number.isFinite(entry.hex._rasterOnsetSteps)
       ? entry.hex._rasterOnsetSteps
       : currentSteps;
     const degreeSpan = Math.max(0, Number(this.inputRuntime.scaleBendRange ?? 48) || 0);
+    const shapedStepOffset = applyContinuumPitchShape(norm * degreeSpan, this.inputRuntime);
     bentCents = centsForFloatingScaleStep(
       this.tuning.scale,
       this.tuning.equivInterval ?? 1200,
-      baseSteps + norm * degreeSpan,
+      baseSteps + shapedStepOffset,
+    );
+  } else if (continuumPitchBendingMode && this.inputRuntime.target === "scale") {
+    const rangeCents = 100 * (this.inputRuntime.scaleBendRange ?? 48);
+    const anchorCents = entry.hex._continuumPitchAnchorCents ?? baseCents;
+    const targetCents = anchorCents + norm * rangeCents;
+    const floatSteps = floatingScaleStepForCents(
+      this.tuning.scale,
+      this.tuning.equivInterval ?? 1200,
+      targetCents,
+    );
+    const shapedSteps = applyContinuumPitchShape(floatSteps, this.inputRuntime);
+    bentCents = centsForFloatingScaleStep(
+      this.tuning.scale,
+      this.tuning.equivInterval ?? 1200,
+      shapedSteps,
     );
   } else {
-    const rangeCents = 100 * (this.settings.midiin_scale_bend_range ?? 48);
-    bentCents = baseCents + norm * rangeCents;
+    const rangeCents = 100 * (this.inputRuntime.scaleBendRange ?? 48);
+    const shapedNorm = norm;
+    bentCents = baseCents + shapedNorm * rangeCents;
   }
   entry.baseCents = baseCents;
   entry.hex._lastPitchBend14 = bend14;

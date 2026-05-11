@@ -1109,8 +1109,11 @@ const App = () => {
   const inputRuntime = useMemo(
     () => ({
       target: forceScaleTarget ? "scale" : settings.midiin_mapping_target || "hex_layout",
-      layoutMode: settings.midi_passthrough ? "sequential" : "controller_geometry",
-      mpeInput: !!settings.midiin_mpe_input,
+      layoutMode:
+        inputController?.id === "hakenaudio"
+          ? "controller_geometry"
+          : (settings.midi_passthrough ? "sequential" : "controller_geometry"),
+      mpeInput: inputController?.id === "hakenaudio" ? true : !!settings.midiin_mpe_input,
       seqAnchorNote: normalizedSeqAnchor.note,
       seqAnchorChannel: normalizedSeqAnchor.channel,
       stepsPerChannel: settings.midiin_steps_per_channel,
@@ -1135,9 +1138,8 @@ const App = () => {
       bendFlip: !!settings.midiin_bend_flip,
       // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
-      hakenScaleBendFactor: settings.hakenaudio_scale_bend_factor ?? 1,
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 0,
-      hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending_follows_scale",
+      hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending",
       hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 0,
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 0,
       hakenXLpf: settings.hakenaudio_x_lpf ?? 60,
@@ -1146,6 +1148,7 @@ const App = () => {
     }),
     [
       forceScaleTarget,
+      inputController,
       normalizedSeqAnchor,
       settings.midiin_mapping_target,
       settings.midi_passthrough,
@@ -1167,7 +1170,6 @@ const App = () => {
       settings.midi_wheel_semitones,
       settings.midiin_bend_flip,
       settings.midiin_scale_bend_range,
-      settings.hakenaudio_scale_bend_factor,
       settings.hakenaudio_x_glide_shaping,
       settings.hakenaudio_x_glide_mode,
       settings.hakenaudio_pressure_velocity,

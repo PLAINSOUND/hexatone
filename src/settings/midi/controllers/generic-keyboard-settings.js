@@ -6,8 +6,6 @@ import PropTypes from "prop-types";
 // bypasses 2D controller geometry. It does not render generic unknown-
 // controller fallback UI, MPE controls, or global pitch/channel settings.
 const GenericKeyboardSettings = ({
-  controllerName,
-  controllerDescription,
   centerDegree,
   centralNote,
   centralDegreeSetting,
@@ -15,16 +13,6 @@ const GenericKeyboardSettings = ({
   onChange,
 }) => (
   <>
-    <label style={{ fontStyle: "italic", color: "#996666", marginBottom: "0.5em" }}>
-      {controllerName}
-      <span
-        class="sidebar-input"
-        style={{ textAlign: "right", fontSize: "0.85em", lineHeight: 1 }}
-      >
-        {controllerDescription}
-      </span>
-    </label>
-
     <label class="center-degree-row center-degree-label">
       Anchor Key → Central Degree ({centerDegree})
       <span
@@ -100,8 +88,6 @@ const GenericKeyboardSettings = ({
 );
 
 GenericKeyboardSettings.propTypes = {
-  controllerName: PropTypes.string.isRequired,
-  controllerDescription: PropTypes.string,
   centerDegree: PropTypes.number.isRequired,
   centralNote: PropTypes.number.isRequired,
   centralDegreeSetting: PropTypes.number,

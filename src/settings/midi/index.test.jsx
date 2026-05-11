@@ -116,7 +116,7 @@ describe("MIDIio LinnStrument controller selection", () => {
   it("constrains Haken Continuum MPE member-channel selectors to 2-14", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",
-      midiin_mpe_input: true,
+      midiin_mpe_input: false,
     });
     props.midi = {
       inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
@@ -131,6 +131,22 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(option14.length).toBeGreaterThan(0);
     expect(screen.queryByRole("option", { name: "15" })).toBeNull();
     expect(screen.queryByRole("option", { name: "16" })).toBeNull();
+  });
+
+  it("hides the MPE toggle for Haken Continuum while keeping member-channel controls visible", () => {
+    const props = makeProps({
+      midiin_controller_override: "hakenaudio",
+      midiin_mpe_input: false,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.queryByRole("checkbox", { name: "Enable MPE Input" })).toBeNull();
+    expect(screen.getAllByLabelText(/Member Channel/)).toHaveLength(2);
   });
 
   it("shows Continuum nearest-scale follow-scale controls and hides generic bend controls", () => {
@@ -152,7 +168,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.queryByLabelText("Reverse Bend Direction")).toBeNull();
   });
 
-  it("shows Pressure → Velocity for Continuum Raster to Notes instead of pitch-bending controls", () => {
+  it("keeps the shared Continuum performance controls visible in Raster to Notes mode", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",
       midiin_mapping_target: "scale",
@@ -169,7 +185,48 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByText("Pressure → Velocity")).toBeTruthy();
     expect(screen.getByText("Note Off Delay")).toBeTruthy();
     expect(screen.queryByText("Pitch Bending Scale Factor")).toBeNull();
-    expect(screen.queryByText("X Glide Shaping")).toBeNull();
+    expect(screen.getByText("X Glide Shaping")).toBeTruthy();
+  });
+
+  it("shows Continuum Raster to Notes controls in geometry-aware hex layout as well as scale mode", () => {
+    const props = makeProps({
+      midiin_controller_override: "hakenaudio",
+      midiin_mapping_target: "hex_layout",
+      midiin_mpe_input: true,
+      midi_passthrough: false,
+      hakenaudio_x_glide_mode: "raster_to_notes",
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("Pressure → Velocity")).toBeTruthy();
+    expect(screen.getByText("Note Off Delay")).toBeTruthy();
+  });
+
+  it("keeps Continuum 2D geometry always active", () => {
+    const props = makeProps({
+      midiin_controller_override: "hakenaudio",
+      midiin_mapping_target: "hex_layout",
+      midiin_mpe_input: true,
+      hakenaudio_x_glide_mode: "pitch_bending",
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("always active")).toBeTruthy();
+    expect(screen.queryByLabelText("Sequential mode (bypass 2D geometry)")).toBeNull();
+    expect(screen.queryByText("Pitch Bending Scale Factor")).toBeNull();
+    expect(screen.getByText("X Glide Shaping")).toBeTruthy();
+    expect(screen.getByText("Pressure → Velocity")).toBeTruthy();
+    expect(screen.getByText("Note Off Delay")).toBeTruthy();
   });
 
   it("offers manager and member channel controls for undetected controllers when MPE input is enabled", () => {

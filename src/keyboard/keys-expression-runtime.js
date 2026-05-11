@@ -131,7 +131,7 @@ export function applyMpePitchBend(entry, channel, value14) {
   if (continuumScaleMode) {
     const scaleFactor = Math.max(
       0.25,
-      Math.min(2, Number(this.inputRuntime.hakenScaleBendFactor ?? 1) || 1),
+      1,
     );
     const shapingControl = Math.max(
       0,

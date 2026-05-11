@@ -112,6 +112,7 @@ const MIDIio = (props) => {
     !ctrl || ctrl.multiChannel || ctrl.supportsSequentialChannelOffset;
   const isLinnstrument = ctrl?.id === "linnstrument";
   const isHakenContinuum = ctrl?.id === "hakenaudio";
+  const mpeInputEnabled = isHakenContinuum || !!props.settings.midiin_mpe_input;
   const linnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
     controllerId: ctrl?.id ?? null,
     scaleMode,
@@ -120,7 +121,7 @@ const MIDIio = (props) => {
   });
   const linnstrumentChannelAllocation = isLinnstrument
     ? (props.settings.linnstrument_channel_allocation ||
-      (props.settings.midiin_mpe_input
+      (mpeInputEnabled
         ? "channel_per_note"
         : "single_channel"))
     : null;
@@ -129,7 +130,7 @@ const MIDIio = (props) => {
   const showChannelTranspose =
     !scaleMode &&
     !using2DMap &&
-    !props.settings.midiin_mpe_input &&
+    !mpeInputEnabled &&
     isMultiChannelSequential &&
     (!isLinnstrument || showChannelTransposeLinnstrumentOverride || stepsMode !== "none");
   const linnstrumentUserFirmwareActiveUi = linnstrumentUserFirmwareEligible;
@@ -296,6 +297,13 @@ const MIDIio = (props) => {
   const [devPadId, setDevPadId] = useState("0"); // pad ID for CMD 04 color test (0–60)
   const hasBasicMidi = !!props.midi;
   const hasSysexMidi = props.midiAccess === "sysex";
+  const controllerInfo =
+    ctrl && (scaleMode ? ctrl.descriptionScale : ctrl.description)
+      ? {
+        name: ctrl.name,
+        description: scaleMode ? ctrl.descriptionScale : ctrl.description,
+      }
+      : null;
 
   const deactivateLinnstrumentUserFirmwareNow = () => {
     deactivateLinnstrumentUserFirmware(
@@ -316,6 +324,7 @@ const MIDIio = (props) => {
         controllerOverrideId={controllerOverrideId}
         autoDetectStatus={autoDetectStatus}
         detectedController={detectedController}
+        controllerInfo={controllerInfo}
         manualControllerOptions={MANUAL_CONTROLLER_OPTIONS}
         linnstrumentUserFirmwareEligible={linnstrumentUserFirmwareEligible}
         deactivateLinnstrumentUserFirmwareNow={deactivateLinnstrumentUserFirmwareNow}
@@ -350,45 +359,47 @@ const MIDIio = (props) => {
               See claude-context/midi-input-ux.md for the full visibility spec. */}
           {showMpeInputControls && (
             <>
-              <label>
-                Enable MPE Input
-                <input
-                  name="midiin_mpe_input"
-                  type="checkbox"
-                  checked={!!props.settings.midiin_mpe_input}
-                  onChange={(e) => {
-                    props.onChange("midiin_mpe_input", e.target.checked);
-                    if (
-                      e.target.checked &&
-                      !linnstrumentBypassMpeUi &&
-                      !ctrl?.mpeVoiceChannels
-                    ) {
-                      applyConfigurableMpeDefaults();
-                    }
-                    if (
-                      ctrl?.id === "linnstrument" &&
-                      props.settings.midi_passthrough &&
-                      e.target.checked
-                    ) {
-                      applyLinnstrumentMpeDefaults();
-                    }
-                    if (
-                      ctrl?.id === "linnstrument" &&
-                      props.settings.midi_passthrough &&
-                      !e.target.checked
-                    ) {
-                      applyLinnstrumentBypassNonMpeDefaults();
-                    }
-                    saveControllerPref(
-                      mpeInputPrefsController,
-                      "midiin_mpe_input",
-                      e.target.checked,
-                      props.settings,
-                      { midiin_mpe_input: e.target.checked },
-                    );
-                  }}
-                />
-              </label>
+              {!isHakenContinuum && (
+                <label>
+                  Enable MPE Input
+                  <input
+                    name="midiin_mpe_input"
+                    type="checkbox"
+                    checked={mpeInputEnabled}
+                    onChange={(e) => {
+                      props.onChange("midiin_mpe_input", e.target.checked);
+                      if (
+                        e.target.checked &&
+                        !linnstrumentBypassMpeUi &&
+                        !ctrl?.mpeVoiceChannels
+                      ) {
+                        applyConfigurableMpeDefaults();
+                      }
+                      if (
+                        ctrl?.id === "linnstrument" &&
+                        props.settings.midi_passthrough &&
+                        e.target.checked
+                      ) {
+                        applyLinnstrumentMpeDefaults();
+                      }
+                      if (
+                        ctrl?.id === "linnstrument" &&
+                        props.settings.midi_passthrough &&
+                        !e.target.checked
+                      ) {
+                        applyLinnstrumentBypassNonMpeDefaults();
+                      }
+                      saveControllerPref(
+                        mpeInputPrefsController,
+                        "midiin_mpe_input",
+                        e.target.checked,
+                        props.settings,
+                        { midiin_mpe_input: e.target.checked },
+                      );
+                    }}
+                  />
+                </label>
+              )}
 
               {linnstrumentBypassMpeUi && (
                 <MpeInputSettings
@@ -400,7 +411,7 @@ const MIDIio = (props) => {
                 />
               )}
 
-              {props.settings.midiin_mpe_input &&
+              {mpeInputEnabled &&
                 !linnstrumentBypassMpeUi &&
                 !!configurableMpeMemberChannelBounds && (
                 <MpeInputSettings
@@ -412,7 +423,7 @@ const MIDIio = (props) => {
                 />
               )}
               {/* MPE currently listens on all channels; range display is informational. */}
-              {props.settings.midiin_mpe_input &&
+              {mpeInputEnabled &&
                 !linnstrumentBypassMpeUi &&
                 !ctrl?.mpeVoiceChannels &&
                 !configurableMpeMemberChannelBounds && (
@@ -423,7 +434,7 @@ const MIDIio = (props) => {
                   </span>
                 </label>
               )}
-              {props.settings.midiin_mpe_input && !linnstrumentBypassMpeUi && ctrl?.mpeVoiceChannels && (
+              {mpeInputEnabled && !linnstrumentBypassMpeUi && ctrl?.mpeVoiceChannels && (
                 <label title="Controller range is informational; Hexatone currently accepts MPE voice data on all channels.">
                   Voice channels
                   <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
@@ -434,25 +445,11 @@ const MIDIio = (props) => {
             </>
           )}
 
-          {/* ── Controller description in scale mode ── */}
-          {scaleMode && ctrl?.descriptionScale && (
-            <label style={{ fontStyle: "italic", color: "#996666", marginBottom: "0.5em" }}>
-              {ctrl.name}
-              <span
-                class="sidebar-input"
-                style={{ textAlign: "right", fontSize: "0.85em", lineHeight: 1 }}
-              >
-                {ctrl.descriptionScale}
-              </span>
-            </label>
-          )}
           {/* ── Known 2D controller / sequential anchor ── hidden in scale mode */}
           {!scaleMode &&
             (ctrl ? (
               ctrl?.id === "generic" ? (
                 <GenericKeyboardSettings
-                  controllerName={ctrl.name}
-                  controllerDescription={ctrl.description}
                   centerDegree={center_degree}
                   centralNote={centralNote}
                   centralDegreeSetting={props.settings.midiin_anchor_note ?? props.settings.midiin_central_degree}
@@ -461,15 +458,6 @@ const MIDIio = (props) => {
                 />
               ) : (
                 <>
-                <label style={{ fontStyle: "italic", color: "#996666", marginBottom: "0.5em" }}>
-                  {ctrl.name}
-                  <span
-                    class="sidebar-input"
-                    style={{ textAlign: "right", fontSize: "0.85em", lineHeight: 1 }}
-                  >
-                    {ctrl.description}
-                  </span>
-                </label>
                 {/* Anchor: the physical key whose MIDI note (and channel, for multi-channel
                   controllers like Lumatone) maps to the central screen degree.
                   Used in both 2D-map mode and bypass mode. */}
@@ -632,7 +620,14 @@ const MIDIio = (props) => {
                     )}
                   </span>
                 </label>
-                {genericBypassesGeometry ? (
+                {isHakenContinuum ? (
+                  <label>
+                    2D Geometry
+                    <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+                      always active
+                    </span>
+                  </label>
+                ) : genericBypassesGeometry ? (
                   <label>
                     2D Geometry
                     <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
@@ -1364,7 +1359,6 @@ MIDIio.propTypes = {
     midiin_mpe_manager_ch: PropTypes.string,
     midiin_bend_range: PropTypes.string,
     midiin_bend_flip: PropTypes.bool,
-    hakenaudio_scale_bend_factor: PropTypes.number,
     hakenaudio_x_glide_shaping: PropTypes.number,
     hakenaudio_x_glide_mode: PropTypes.string,
     hakenaudio_pressure_velocity: PropTypes.number,

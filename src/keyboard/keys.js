@@ -161,7 +161,10 @@ class Keys {
     // with any direct Keys construction that doesn't pass it yet).
     this.inputRuntime = inputRuntime || {
       target: "hex_layout",
-      layoutMode: settings.midi_passthrough ? "sequential" : "controller_geometry",
+      layoutMode:
+        settings.midiin_controller_override === "hakenaudio"
+          ? "controller_geometry"
+          : (settings.midi_passthrough ? "sequential" : "controller_geometry"),
       mpeInput: false,
       seqAnchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree ?? 60,
       seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
@@ -171,9 +174,8 @@ class Keys {
       legacyChannelMode: settings.midiin_channel_legacy,
       scaleTolerance: 50,
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
-      hakenScaleBendFactor: settings.hakenaudio_scale_bend_factor ?? 1,
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 0,
-      hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending_follows_scale",
+      hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending",
       hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 0,
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 0,
       hakenXLpf: settings.hakenaudio_x_lpf ?? 60,
@@ -239,6 +241,8 @@ class Keys {
     this._scaleModePreBend = new Map();
     this._scaleModePreBend21 = new Map();
     this._mpeInputBendByChannel = new Map();
+    this._mpeInputAftertouchByChannel = new Map();
+    this._mpeInputCC74ByChannel = new Map();
     this._hakenMpeBend21ByChannel = new Map();
     this._hakenMpePlusLsbByChannel = new Map();
     this._retuneGlides = new Map();
@@ -1974,6 +1978,33 @@ class Keys {
       if (!entry?.hex || entry.hex.release || bend14 == null) continue;
       this._applyMpePitchBend(entry, channel, bend14);
     }
+  }
+
+  _setHakenSpaceGlideFlip(active) {
+    if (this.controller?.id !== "hakenaudio" || !this.inputRuntime.mpeInput) {
+      this.inputRuntime.hakenSpaceGlideFlip = active;
+      return;
+    }
+    const previousMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
+    this.inputRuntime.hakenSpaceGlideFlip = active;
+    const nextMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
+    if (
+      previousMode === "raster_to_notes" &&
+      nextMode !== "raster_to_notes"
+    ) {
+      for (const [channel, entry] of this.state.activeMidiByChannel) {
+        const bend14 = this._mpeInputBendByChannel.get(channel);
+        if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
+        const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
+        entry.hex._continuumPitchAnchor14 = bend14;
+        entry.hex._continuumPitchAnchorSteps = currentSteps;
+        entry.hex._continuumPitchAnchorCents = entry.hex.cents;
+        if (this.inputRuntime.target === "scale") {
+        entry.hex._scaleModeBendAnchor14 = bend14;
+        }
+      }
+    }
+    this._refreshHakenGlideModeForActiveNotes();
   }
 
   panic = () => {

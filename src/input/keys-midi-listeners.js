@@ -718,6 +718,7 @@ export function setupMidiInput() {
             // MPE voice expression, etc.) regardless of output mode.
             // Passthrough to MTS output is suppressed above — no meaningful MTS mapping.
             if (this.inputRuntime.mpeInput) {
+              this._mpeInputCC74ByChannel.set(e.message.channel, { value, time: Date.now() });
               // Per-channel expression mode: CC74 targets the latest sounding note
               // on the input channel (MPE voice, or LinnStrument row in channel-per-row mode).
               const entry = this.state.activeMidiByChannel.get(e.message.channel);
@@ -744,6 +745,7 @@ export function setupMidiInput() {
           this._channelPressureValue = value;
 
           if (this.inputRuntime.mpeInput) {
+            this._mpeInputAftertouchByChannel.set(e.message.channel, { value, time: Date.now() });
             // Per-channel expression mode: channel pressure targets the latest sounding
             // note on the input channel.
             // We've resolved which note it belongs to, so route as polyphonic aftertouch

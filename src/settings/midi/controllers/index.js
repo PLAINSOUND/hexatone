@@ -1363,7 +1363,6 @@ MIDIio.propTypes = {
     midiin_mpe_manager_ch: PropTypes.string,
     midiin_bend_range: PropTypes.string,
     midiin_bend_flip: PropTypes.bool,
-    hakenaudio_scale_bend_factor: PropTypes.number,
     hakenaudio_x_glide_shaping: PropTypes.number,
     hakenaudio_x_glide_mode: PropTypes.string,
     center_degree: PropTypes.number,

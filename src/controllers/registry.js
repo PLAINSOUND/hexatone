@@ -711,7 +711,7 @@ export const CONTROLLER_REGISTRY = [
     name: "Haken Audio Continuum",
     detect: detectHakenDeviceName,
     description:
-      "Continuum / EaganMatrix expressive surface. First-pass support uses generic MPE handling while dedicated XYZ geometry is implemented.",
+      "Haken Audio Continuum MPE+ expressive surface.",
     multiChannel: false,
     mpe: true,
     // Continuum voice-channel layouts are hardware/profile dependent, so keep
