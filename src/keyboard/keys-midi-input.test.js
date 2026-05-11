@@ -2309,8 +2309,8 @@ describe("Keys MIDI input integration", () => {
 
     keysPressure._hakenRasterBend(entryPressure, 5, 9045, false);
 
-    expect(keysPressure.noteOff).toHaveBeenCalledWith(oldHexPressure, 72);
-    expect(keysPressure.hexOn.mock.calls[0][2]).toBe(72);
+    expect(keysPressure.noteOff).toHaveBeenCalledWith(oldHexPressure, 40);
+    expect(keysPressure.hexOn.mock.calls[0][2]).toBe(40);
   });
 
   it("keeps Continuum raster retrigger velocity at the raw onset attack until this touch has received pressure", () => {
@@ -2421,7 +2421,7 @@ describe("Keys MIDI input integration", () => {
     expect(hex._pressureSeenSinceOnset).toBe(false);
   });
 
-  it("delays only auto-generated Continuum raster note-offs by the configured timeout", () => {
+  it("holds auto-generated Continuum raster notes only until the configured minimum duration is reached", () => {
     vi.useFakeTimers();
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },
@@ -2444,6 +2444,7 @@ describe("Keys MIDI input integration", () => {
       _notePlayed: 60 + 128 * 4,
       _velocityPlayed: 96,
       _lastAftertouch: 127,
+      _rasterStartedAt: Date.now(),
       _rasterOnsetSteps: 0,
       _rasterSteps: 0,
       noteOff: vi.fn(),
@@ -2463,6 +2464,49 @@ describe("Keys MIDI input integration", () => {
     vi.advanceTimersByTime(39);
     expect(oldHex.noteOff).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
+    expect(oldHex.noteOff).toHaveBeenCalledWith(96);
+  });
+
+  it("releases an auto-generated Continuum raster note immediately once it has already satisfied the minimum duration", () => {
+    vi.useFakeTimers();
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        hakenXGlideMode: "raster_to_notes",
+        hakenNoteOffDelay: 40,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(1, 0));
+    const newHex = { coords: new Point(1, 0), cents: 100, _baseCents: 100, release: false };
+    keys.hexOn = vi.fn(() => newHex);
+    const oldHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      _notePlayed: 60 + 128 * 4,
+      _velocityPlayed: 96,
+      _lastAftertouch: 127,
+      _rasterStartedAt: Date.now(),
+      _rasterOnsetSteps: 0,
+      _rasterSteps: 0,
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const entry = {
+      hex: oldHex,
+      baseCents: oldHex._baseCents,
+      hexes: new Set([oldHex]),
+    };
+    keys.state.activeMidi.set(60, oldHex);
+    keys.state.activeMidiByChannel.set(5, entry);
+
+    vi.advanceTimersByTime(50);
+    keys._hakenRasterBend(entry, 5, 9045, false);
+
     expect(oldHex.noteOff).toHaveBeenCalledWith(96);
   });
 

@@ -24,6 +24,20 @@
 	\tone,    4,
 ]);
 
+[
+	\osc_s_new,
+	\osc_n_set,
+	\osc_n_free,
+	// Temporary tone debug responders retained for future use.
+	// \tone_on_debug,
+	// \tone_gate_debug,
+	// \tone_env_done_debug,
+	// \tone_silence_debug,
+].do { |name|
+	var responder = currentEnvironment.at(name);
+	if (responder.notNil) { responder.free };
+};
+
 // /s_new  — create a synth node
 // Args: synthName(s) nodeId(i) addAction(i) targetGroup(i) [key(s) val(f) ...]
 // Hexatone sends the current layer volume in the \vol arg, so note-ons reflect
@@ -55,6 +69,10 @@
 	var nodeId, args;
 	nodeId = msg[1].asInteger;
 	args   = msg[2..];
+	// Temporary sclang-side gate-off trace retained for future debugging.
+	// if (args.includesEqual(\gate) and: { args.includesEqual(0) }) {
+	// 	("OSCResponders /n_set gate=0 node " ++ nodeId ++ " args: " ++ args).postln;
+	// };
 	(1..4).do { |i| ~servers[i].sendMsg(\n_set, nodeId, *args) };
 }, '/n_set');
 
@@ -63,7 +81,50 @@
 ~osc_n_free = OSCFunc({ |msg, time, addr|
 	var nodeId;
 	nodeId = msg[1].asInteger;
+	// Temporary sclang-side n_free trace retained for future debugging.
+	// ("OSCResponders /n_free node " ++ nodeId).postln;
 	(1..4).do { |i| ~servers[i].sendMsg(\n_free, nodeId) };
 }, '/n_free');
+
+// Temporary tone SendReply responders retained for future debugging.
+// These post in sclang even though note / gate messages are being sent directly
+// to the layer server ports, because SendReply travels from the synth node back
+// to the language process.
+//
+// ~tone_on_debug = OSCFunc({ |msg|
+// 	var nodeId = msg[3].asInteger;
+// 	var freq = msg[4];
+// 	var onVel = msg[5];
+// 	var offVel = msg[6];
+// 	var releaseTime = msg[7];
+// 	("toneOn node=" ++ nodeId
+// 		++ " freq=" ++ freq
+// 		++ " on_vel=" ++ onVel
+// 		++ " off_vel=" ++ offVel
+// 		++ " release_time=" ++ releaseTime).postln;
+// }, '/toneOn');
+//
+// ~tone_gate_debug = OSCFunc({ |msg|
+// 	var nodeId = msg[3].asInteger;
+// 	var gate = msg[4];
+// 	var offVel = msg[5];
+// 	var releaseTime = msg[6];
+// 	("toneGateOff node=" ++ nodeId
+// 		++ " gate=" ++ gate
+// 		++ " off_vel=" ++ offVel
+// 		++ " release_time=" ++ releaseTime).postln;
+// }, '/toneGateOff');
+//
+// ~tone_env_done_debug = OSCFunc({ |msg|
+// 	var nodeId = msg[3].asInteger;
+// 	var releaseTime = msg[4];
+// 	("toneEnvDone node=" ++ nodeId
+// 		++ " release_time=" ++ releaseTime).postln;
+// }, '/toneEnvDone');
+//
+// ~tone_silence_debug = OSCFunc({ |msg|
+// 	var nodeId = msg[3].asInteger;
+// 	("toneSilence node=" ++ nodeId).postln;
+// }, '/toneSilence');
 
 "OSCResponders loaded — listening for /s_new, /n_set, /n_free".postln;

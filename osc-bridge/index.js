@@ -29,6 +29,8 @@ const { createHash } = require("node:crypto");
 const WS_PORT = 8089;
 const SC_HOST = "127.0.0.1";
 const SC_PORT = 57100; // sclang / dispatcher port in the Hexatone SC setup
+// Temporary OSC trace logging retained for future debugging.
+// let TRACE_SEQ = 0;
 
 // ── UDP socket to sclang ─────────────────────────────────────────────────────
 
@@ -40,6 +42,25 @@ udp.on("error", (err) => console.error("[osc-bridge] UDP error:", err.message));
 
 function sendOsc(address, args, port = SC_PORT) {
   const buf = encodeOsc(address, args);
+  // const seq = ++TRACE_SEQ;
+  // const nodeId =
+  //   address === "/s_new"
+  //     ? (args?.[1]?.type === "i" ? args[1].value : null)
+  //     : (args?.[0]?.type === "i" ? args[0].value : null);
+  // const gateIndex = Array.isArray(args)
+  //   ? args.findIndex((arg) => arg?.type === "s" && arg?.value === "gate")
+  //   : -1;
+  // const gateValue =
+  //   gateIndex >= 0 && gateIndex + 1 < args.length ? args[gateIndex + 1]?.value : undefined;
+  // if (
+  //   address === "/s_new" ||
+  //   address === "/n_free" ||
+  //   (address === "/n_set" && gateValue === 0)
+  // ) {
+  //   console.log(
+  //     `[osc-bridge] #${seq} ${address} port=${port} node=${nodeId ?? "?"} gate=${gateValue ?? "-"} args=${JSON.stringify(args)}`,
+  //   );
+  // }
   udp.send(buf, port, SC_HOST, (err) => {
     if (err) console.error("[osc-bridge] UDP send error:", err.message);
   });

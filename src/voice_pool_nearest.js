@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import { debugLog } from "./debug/logging.js";
 /**
  * VoicePool — note-number-aware allocator for MTS synths.
  *
@@ -63,6 +64,7 @@ export class VoicePool {
     if (this._active.has(key)) {
       const slot = this._active.get(key);
       this._lastUsed.set(slot, now);
+      debugLog("osc", "VoicePoolNearest.noteOn retrigger", { key, slot, coords, targetMIDIFloat });
       return { slot, stolenSlot: null, stolen: null, distance: 0, retrigger: true };
     }
 
@@ -88,6 +90,13 @@ export class VoicePool {
           this._coords.set(candidate, coords);
           this._lastUsed.set(candidate, now);
           this._active.set(key, candidate);
+          debugLog("osc", "VoicePoolNearest.noteOn allocate", {
+            key,
+            slot: candidate,
+            coords,
+            targetMIDIFloat,
+            allowGuarded,
+          });
           return {
             slot: candidate,
             stolenSlot: null,
@@ -135,6 +144,13 @@ export class VoicePool {
     this._coords.set(victimSlot, coords);
     this._lastUsed.set(victimSlot, Date.now());
     this._active.set(key, victimSlot);
+    debugLog("osc", "VoicePoolNearest.noteOn steal", {
+      key,
+      slot: victimSlot,
+      coords,
+      stolenCoords,
+      targetMIDIFloat,
+    });
 
     return {
       slot: victimSlot,
@@ -149,10 +165,18 @@ export class VoicePool {
   noteOff(coords) {
     const key = coordsKey(coords);
     const slot = this._active.get(key);
-    if (slot == null) return null;
+    if (slot == null) {
+      debugLog("osc", "VoicePoolNearest.noteOff miss", {
+        key,
+        coords,
+        activeKeys: [...this._active.keys()],
+      });
+      return null;
+    }
     this._coords.set(slot, null);
     this._releasedAt.set(slot, Date.now());
     this._active.delete(key);
+    debugLog("osc", "VoicePoolNearest.noteOff hit", { key, slot, coords });
     return slot;
   }
 

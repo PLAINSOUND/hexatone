@@ -17,6 +17,7 @@ import {
 } from "./note-transfer-runtime.js";
 import { frameForNewNotes } from "./modulation-runtime.js";
 import { scalaToCents } from "../settings/scale/parse-scale";
+import { debugLog } from "../debug/logging.js";
 
 export function midiLatchToggle(keys, coords, releaseVelocity = 0) {
   if (!keys.state.latch) return false;
@@ -94,6 +95,14 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
     bend,
     degree0toRef_ratio,
   );
+  debugLog("osc", "LiveHex.hexOn", {
+    synthFamily: keys.synth?.family,
+    coords,
+    note_played,
+    velocity_played,
+    bend,
+    liveInputAddress: options?.liveInputAddress ?? null,
+  });
   hex._baseCents = cents;
   if (options?.liveInputAddress) hex._liveInputAddress = { ...options.liveInputAddress };
 
@@ -170,6 +179,12 @@ export function hexOff(keys, coords) {
 
 export function noteOff(keys, hex, release_velocity) {
   keys._markSoundActivity();
+  debugLog("osc", "LiveHex.noteOff", {
+    synthFamily: keys.synth?.family,
+    coords: hex?.coords,
+    releaseVelocity: release_velocity,
+    released: hex?.release,
+  });
   if (shouldSuppressTransferredSourceRelease(hex)) {
     releaseTransferredSourceExpression(hex);
     keys.recencyStack.remove(hex);

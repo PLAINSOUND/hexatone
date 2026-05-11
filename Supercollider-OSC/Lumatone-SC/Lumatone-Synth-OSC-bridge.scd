@@ -24,8 +24,6 @@ Routine({
 	5.do { |i| ~servers[i].makeWindow };
 }).play(AppClock);
 
-5.do{ |i| ~servers[i].makeWindow }; // make server guis and functions to route audio
-
 ~to_headphones = { Out.ar(4, SoundIn.ar([0,1])) }; // route to headphones
 ~to_speakers = { Out.ar(2, SoundIn.ar([0,1])) }; // route to speakers
 

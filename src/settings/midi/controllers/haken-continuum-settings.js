@@ -215,8 +215,8 @@ const HakenContinuumSettings = ({
         </span>
       </label>
 
-      <label title="Delays only the auto-generated Raster to Notes note-offs. Real Continuum note-off messages still release all sounding notes immediately. Uses a timer rather than requestAnimationFrame so it also works while the app is in the background.">
-        Note Off Delay
+      <label title="Enforces a minimum lifetime for auto-generated Raster to Notes notes. Real Continuum note-off messages still release all sounding notes immediately. Uses a timer rather than requestAnimationFrame so it also works while the app is in the background.">
+        Minimum Note Duration
         <span
           class="sidebar-input"
           style={{

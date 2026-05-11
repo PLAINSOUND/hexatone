@@ -5,6 +5,7 @@
 
 import { notes } from "../midi_synth";
 import { findNearestDegree } from "../input/scale-mapper.js";
+import { debugLog } from "../debug/logging.js";
 import {
   applyContinuumPitchShape,
   resolveHakenXGlideMode,
@@ -22,8 +23,7 @@ function continuumRasterVelocity(originalVelocity, pressureValue, controlValue) 
   const attack = Math.max(1, Math.min(127, Number(originalVelocity) || 1));
   const pressure = Math.max(1, Math.min(127, Number(pressureValue) || 127));
   const amount = Math.max(0, Math.min(127, Number(controlValue) || 0)) / 127;
-  const pressureDeviation = pressure - 64;
-  return Math.max(1, Math.min(127, Math.round(attack + pressureDeviation * amount)));
+  return Math.max(1, Math.min(127, Math.round(attack * (1 - amount) + pressure * amount)));
 }
 
 function pendingRasterReleases(keys) {
@@ -67,8 +67,24 @@ function flushAllPendingRasterReleases(keys) {
 }
 
 function releaseContinuumRasterHex(keys, channel, hex, releaseVelocity, notePlayed) {
-  const delayMs = Math.max(0, Math.min(100, Number(keys.inputRuntime.hakenNoteOffDelay ?? 0) || 0));
-  if (delayMs <= 0) {
+  const minDurationMs = Math.max(
+    0,
+    Math.min(100, Number(keys.inputRuntime.hakenNoteOffDelay ?? 0) || 0),
+  );
+  const startedAt = Number(hex?._rasterStartedAt);
+  const elapsedMs = Number.isFinite(startedAt) ? Math.max(0, Date.now() - startedAt) : minDurationMs;
+  const remainingMs = Math.max(0, minDurationMs - elapsedMs);
+  debugLog("osc", "releaseContinuumRasterHex", {
+    channel,
+    coords: hex?.coords,
+    releaseVelocity,
+    notePlayed,
+    minDurationMs,
+    elapsedMs,
+    remainingMs,
+    synthFamily: keys.synth?.family,
+  });
+  if (remainingMs <= 0) {
     keys.noteOff(hex, releaseVelocity);
     return;
   }
@@ -90,7 +106,7 @@ function releaseContinuumRasterHex(keys, channel, hex, releaseVelocity, notePlay
         const keep = channelEntries.filter((entry) => entry !== timeoutEntry);
         if (keep.length > 0) pending.set(channel, keep);
         else pending?.delete(channel);
-      }, delayMs),
+      }, remainingMs),
       flush,
       fired: false,
     };
@@ -283,6 +299,7 @@ export function midinoteOn(event) {
     this.controller?.id === "hakenaudio" &&
     this.inputRuntime.mpeInput
   ) {
+    hex._rasterStartedAt = Date.now();
     if (this.inputRuntime.target === "scale" && coords !== null) {
       // Scale mode: onset is the distance (full step offset from origin) of the
       // snapped hex — the same space findNearestDegree.steps uses.
@@ -511,11 +528,27 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   // the Continuum-specific pressure→velocity control.
   const originalVelocity =
     hex._velocityPlayed ?? hex.velocity_played ?? hex.velocity ?? this.settings.midi_velocity ?? 72;
-  const zPressure = hex._pressureSeenSinceOnset ? (hex._lastAftertouch ?? 64) : 64;
+  const zPressure = hex._pressureSeenSinceOnset
+    ? (hex._lastAftertouch ?? originalVelocity)
+    : originalVelocity;
   const pressureVelocity = this.inputRuntime.hakenPressureVelocity ?? 0;
   const newVelocity = continuumRasterVelocity(originalVelocity, zPressure, pressureVelocity);
 
   const notePlayed = hex._notePlayed ?? null;
+  debugLog("osc", "hakenRasterBend crossing", {
+    channel,
+    scaleMode,
+    oldCoords: hex.coords,
+    oldSteps: hex._rasterSteps,
+    newSteps,
+    newCoords,
+    bend14,
+    notePlayed,
+    newVelocity,
+    pressureSeenSinceOnset: hex._pressureSeenSinceOnset,
+    lastAftertouch: hex._lastAftertouch,
+    synthFamily: this.synth?.family,
+  });
 
   // --- Note-off on the outgoing hex ---
   // noteOff() handles sustain pedal logic, recencyStack, and synth MIDI output.
@@ -549,6 +582,7 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   newHex._inputChannel = channel;
   newHex._notePlayed = notePlayed;
   newHex._velocityPlayed = originalVelocity;
+  newHex._rasterStartedAt = Date.now();
   newHex._rasterOnsetSteps = hex._rasterOnsetSteps; // fixed onset — never changes during a hold
   newHex._rasterSteps = newSteps;                   // current triggered position
   newHex._scaleModeBendAnchor14 = hex._scaleModeBendAnchor14;

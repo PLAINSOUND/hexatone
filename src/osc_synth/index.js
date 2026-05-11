@@ -44,6 +44,7 @@ const normalizeOffVelocity = (value, fallback = 64) => {
 };
 
 const releaseNode = (socket, port, nodeId, offVel) => {
+  debugLog("osc", "releaseNode", { port, nodeId, offVel });
   socket.send(
     "/n_set",
     [
@@ -152,6 +153,7 @@ export const create_osc_synth = async (
   const _volumes = [...volumes];
   const _mod = { value: 1.0 };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
+  const _knownNodeIds = new Set();
   const _slotState = synthNames.map(() =>
     Array.from({ length: MAX_NOTE_SLOTS }, () => ({
       token: 0,
@@ -191,7 +193,24 @@ export const create_osc_synth = async (
     );
   };
 
+  const freeAllKnownNodes = () => {
+    for (const nodeId of _knownNodeIds) {
+      for (const port of OSC_LAYER_PORTS) {
+        socket.send("/n_free", [{ type: "i", value: nodeId }], port);
+      }
+    }
+    _knownNodeIds.clear();
+    for (const layerState of _slotState) {
+      for (const slot of layerState) {
+        slot.active = false;
+        slot.nodeId = null;
+      }
+    }
+    _pool.clear();
+  };
+
   return {
+    family: "osc",
     makeHex: (
       coords,
       cents,
@@ -218,6 +237,7 @@ export const create_osc_synth = async (
         _mod,
         _pool,
         _slotState,
+        _knownNodeIds,
         bend,
         velocity_played,
       );
@@ -250,6 +270,16 @@ export const create_osc_synth = async (
     setLayerVolume(index, value) {
       setLayerVolume(index, value);
     },
+
+    allSoundOff() {
+      debugLog("osc", "osc_synth.allSoundOff", { knownNodeCount: _knownNodeIds.size });
+      freeAllKnownNodes();
+    },
+
+    releaseAll() {
+      debugLog("osc", "osc_synth.releaseAll", { knownNodeCount: _knownNodeIds.size });
+      freeAllKnownNodes();
+    },
   };
 };
 
@@ -272,6 +302,7 @@ function OscHex(
   modRef,
   pool,
   slotState,
+  knownNodeIds,
   bend,
   velocity_played,
 ) {
@@ -288,7 +319,9 @@ function OscHex(
   this._modRef = modRef;
   this._pool = pool;
   this._slotState = slotState;
+  this._knownNodeIds = knownNodeIds;
   this._slot = null;
+  this._notePlayed = notePlayed;
   this._bend = Number.isFinite(bend) && bend > 0 ? bend : 1;
   this._onVel = clampMidiValue(velocity_played, 72);
   this._filter = 1;
@@ -304,6 +337,15 @@ OscHex.prototype.noteOn = function () {
   const { slot } = this._pool.noteOn(this.coords, this._targetMidiFloat());
   this._slot = slot;
   this._nodeIds = this._synthNames.map((_, i) => nextNodeId(i));
+  debugLog("osc", "OscHex.noteOn", {
+    coords: this.coords,
+    notePlayed: this._notePlayed,
+    slot,
+    nodeIds: this._nodeIds,
+    freq: this._freq,
+    onVel: this._onVel,
+    bend: this._bend,
+  });
 
   for (let i = 0; i < this._synthNames.length; i++) {
     const slotState = this._slotState[i][slot];
@@ -314,6 +356,7 @@ OscHex.prototype.noteOn = function () {
     slotState.active = true;
     slotState.onVel = this._onVel;
     slotState.nodeId = this._nodeIds[i];
+    this._knownNodeIds.add(this._nodeIds[i]);
     this._tokens[i] = slotState.token;
 
     this._socket.send(
@@ -337,7 +380,17 @@ OscHex.prototype.noteOn = function () {
 OscHex.prototype.noteOff = function (release_velocity) {
   if (this.release) return;
   this.release = true;
-  const slot = this._pool.noteOff(this.coords);
+  const resolvedSlot = this._pool.noteOff(this.coords);
+  const slot = resolvedSlot ?? this._slot;
+  debugLog("osc", "OscHex.noteOff", {
+    coords: this.coords,
+    notePlayed: this._notePlayed,
+    requestedSlot: this._slot,
+    resolvedSlot,
+    releaseSlot: slot,
+    nodeIds: this._nodeIds,
+    releaseVelocity: release_velocity,
+  });
   if (slot == null) return;
   for (let i = 0; i < this._synthNames.length; i++) {
     const slotState = this._slotState[i][slot];
@@ -350,6 +403,32 @@ OscHex.prototype.noteOff = function (release_velocity) {
     );
     slotState.active = false;
     slotState.nodeId = null;
+    this._knownNodeIds.delete(this._nodeIds[i]);
+  }
+};
+
+OscHex.prototype.forceFree = function () {
+  if (this.release) return;
+  this.release = true;
+  const resolvedSlot = this._pool.noteOff(this.coords);
+  const slot = resolvedSlot ?? this._slot;
+  debugLog("osc", "OscHex.forceFree", {
+    coords: this.coords,
+    requestedSlot: this._slot,
+    resolvedSlot,
+    releaseSlot: slot,
+    nodeIds: this._nodeIds,
+  });
+  for (let i = 0; i < this._synthNames.length; i++) {
+    const nodeId = this._nodeIds[i];
+    if (nodeId == null) continue;
+    this._socket.send("/n_free", [{ type: "i", value: nodeId }], OSC_LAYER_PORTS[i]);
+    this._knownNodeIds.delete(nodeId);
+    if (slot != null) {
+      const slotState = this._slotState[i][slot];
+      slotState.active = false;
+      slotState.nodeId = null;
+    }
   }
 };
 
