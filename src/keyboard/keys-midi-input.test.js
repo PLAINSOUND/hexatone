@@ -1884,6 +1884,83 @@ describe("Keys MIDI input integration", () => {
     );
   });
 
+  it("keeps nearest-scale note identity fixed under modulation when fixed-do is enabled", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+      },
+      { target: "scale" },
+      {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 5,
+          strategy: "retune_surface_in_place",
+          count: 1,
+          transpositionDeltaCents: 500,
+        },
+      ],
+    );
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 0,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys.controller = {
+      resolveScaleInputPitchCents: vi.fn(() => 500),
+    };
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+
+    keys.midinoteOn(makeMidiEvent(60, 9));
+
+    expect(keys.getModulationState().currentFrame.transpositionCents).toBe(500);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(0);
+    expect(hexOn).toHaveBeenCalledWith(
+      new Point(0, 0),
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      { liveInputAddress: null },
+    );
+  });
+
+  it("still follows the modulated nearest degree in scale mode when moveable-do is enabled", () => {
+    const keys = createKeys(
+      {
+        modulation_style: "moveable_do",
+      },
+      { target: "scale" },
+      {},
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 5,
+          strategy: "retune_surface_to_source",
+          count: 1,
+          transpositionDeltaCents: 500,
+        },
+      ],
+    );
+    const hexOn = vi.fn((coords) => ({
+      coords,
+      cents: 500,
+      noteOff: vi.fn(),
+    }));
+    keys.hexOn = hexOn;
+    keys.hexOff = vi.fn();
+    keys.controller = {
+      resolveScaleInputPitchCents: vi.fn(() => 500),
+    };
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(5, 0));
+
+    keys.midinoteOn(makeMidiEvent(60, 9));
+
+    expect(keys.getModulationState().currentFrame.transpositionCents).toBe(500);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(5);
+  });
+
   it("uses the dedicated MPE pitch-bend semitone range when resolving pre-bent MPE nearest-scale note-ons", () => {
     const keys = createKeys({}, {
       target: "scale",

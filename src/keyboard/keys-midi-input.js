@@ -167,11 +167,23 @@ export function resolveScaleInputPitchCents(channel, note, fallbackPitchHz) {
     note,
     this.settings,
   );
-  if (controllerPitchCents != null) return controllerPitchCents;
+  const absolutePitchCents =
+    controllerPitchCents != null
+      ? controllerPitchCents
+      : (() => {
+          const degree0toRefCents = this.tuning.degree0toRef_asArray[0];
+          const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
+          return 1200 * Math.log2(fallbackPitchHz / degree0Hz);
+        })();
 
-  const degree0toRefCents = this.tuning.degree0toRef_asArray[0];
-  const degree0Hz = this.settings.fundamental / Math.pow(2, degree0toRefCents / 1200);
-  return 1200 * Math.log2(fallbackPitchHz / degree0Hz);
+  if (this.settings.modulation_style !== "fixed_do") return absolutePitchCents;
+
+  const transpositionCents = Number(this._activeFrame?.()?.transpositionCents ?? 0);
+  if (!Number.isFinite(transpositionCents) || transpositionCents === 0) {
+    return absolutePitchCents;
+  }
+
+  return absolutePitchCents - transpositionCents;
 }
 
 function pitchHzForScaleInput(event) {
