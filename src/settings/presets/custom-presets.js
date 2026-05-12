@@ -7,7 +7,7 @@ import { createRef } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { fileToPreset, settingsToPresetJson } from "../scale/parse-scale";
-import { normalizeModulationHistory } from "../../keyboard/modulation-runtime.js";
+import { normalizeModulationHistory } from "../../tuning/modulation-runtime.js";
 
 const STORAGE_KEY = "hexatone_custom_presets";
 

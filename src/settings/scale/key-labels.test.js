@@ -81,7 +81,7 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(onAtomicChange).not.toHaveBeenCalled();
   });
 
-  it('canonicalises a bare "0" HEJI anchor ratio to "0." on blur', () => {
+  it('canonicalises a bare "0" HEJI anchor ratio to "1/1" on blur', () => {
     const onChange = vi.fn();
 
     render(
@@ -102,7 +102,107 @@ describe("KeyLabels HEJI anchor handling", () => {
     );
 
     fireEvent.blur(screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)"));
-    expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "0.");
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "1/1");
+  });
+
+  it('commits the HEJI anchor ratio on Enter like blur', () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "0",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    const input = screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)");
+    input.focus();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "1/1");
+  });
+
+  it("canonicalises shorthand HEJI spellings on blur", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "A#",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.blur(screen.getByLabelText("Notation (Spelling)"));
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "\uE262A");
+  });
+
+  it("canonicalises bare note letters to natural-prefixed HEJI spellings on blur", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "B",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.blur(screen.getByLabelText("Notation (Spelling)"));
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "\uE261B");
+  });
+
+  it("commits the HEJI anchor spelling on Enter like blur", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "A#",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    const input = screen.getByLabelText("Notation (Spelling)");
+    input.focus();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "\uE262A");
   });
 
   it("shows a separate Show Equave Numbers toggle instead of an Equave Numbers label mode", () => {

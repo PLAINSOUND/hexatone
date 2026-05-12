@@ -15,7 +15,7 @@ import {
   releaseTransferredSourceExpression,
   shouldSuppressTransferredSourceRelease,
 } from "./note-transfer-runtime.js";
-import { frameForNewNotes } from "./modulation-runtime.js";
+import { frameForNewNotes } from "../tuning/modulation-runtime.js";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { debugLog } from "../debug/logging.js";
 
@@ -72,8 +72,11 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   if (!velocity_played) velocity_played = keys.settings.midi_velocity;
   if (!velocity_played) velocity_played = 72;
 
+  const pitchAtCoords = typeof keys.hexCoordsToLiveCents === "function"
+    ? keys.hexCoordsToLiveCents(coords)
+    : keys.hexCoordsToCents(coords);
   const [cents, pressed_interval, steps, equaves, equivSteps, cents_prev, cents_next] =
-    keys.hexCoordsToCents(coords);
+    pitchAtCoords;
   keys._lastPlayedDegree = pressed_interval ?? keys._lastPlayedDegree;
   const [color, text_color] = keys.centsToColor(cents, true, pressed_interval);
   keys.drawHex(coords, color, text_color);

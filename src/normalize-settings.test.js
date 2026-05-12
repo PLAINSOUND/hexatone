@@ -396,6 +396,79 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_names_keys).toEqual(["\uE2F2A+0", "\uE2F2E+0"]);
   });
 
+  it("uses an explicitly entered HEJI spelling together with the auto-derived ratio when the ratio field is blank", () => {
+    const baseSettings = {
+      rotation: 0,
+      key_labels: "heji",
+      scale: [
+        "12/11",
+        "8/7",
+        "6/5",
+        "5/4",
+        "4/3",
+        "45/32",
+        "3/2",
+        "8/5",
+        "12/7",
+        "24/13",
+        "15/8",
+        "2/1",
+      ],
+      equivSteps: 12,
+      note_names: [
+        "B",
+        "C",
+        "C",
+        "D",
+        "*nD",
+        "E",
+        "*nE",
+        "F",
+        "G",
+        "G",
+        "A",
+        "*nA",
+      ],
+      fundamental: 441,
+      reference_degree: 11,
+      heji_tempered_only: true,
+      heji_show_cents: false,
+    };
+    const defaultNormalized = normalizeStructural({
+      ...baseSettings,
+      heji_anchor_ratio: "",
+      heji_anchor_label: "",
+    });
+    const normalized = normalizeStructural({
+      ...baseSettings,
+      heji_anchor_ratio: "",
+      heji_anchor_label: "B",
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("15/8");
+    expect(normalized.heji_anchor_label_effective).toBe("B");
+    expect(normalized.heji_names).not.toEqual(defaultNormalized.heji_names);
+  });
+
+  it("uses an explicitly entered HEJI ratio together with the auto-derived spelling when the notation field is blank", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: ["7\\12", "2/1"],
+      equivSteps: 2,
+      note_names: [],
+      fundamental: 440,
+      reference_degree: 0,
+      heji_anchor_ratio: "27",
+      heji_anchor_label: "",
+      heji_tempered_only: true,
+      heji_show_cents: false,
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("27/1");
+    expect(normalized.heji_anchor_label_effective).toBe("\uE261A");
+  });
+
   it("suppresses only 0-cent suffixes in tempered-only HEJI mode when Always Include Cents is disabled", () => {
     const normalized = normalizeStructural({
       rotation: 0,

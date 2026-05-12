@@ -8,7 +8,7 @@
 // Callers provide a Keys-like object with the current settings, active frame,
 // resize/redraw hooks, and controller LED sync hooks.
 
-import { applyGeometryShiftToCoords } from "./modulation-geometry-runtime.js";
+import { applyGeometryShiftToCoords } from "../tuning/modulation-geometry-runtime.js";
 
 export function modulatedControllerCoords(keys, coords, frame = null) {
   if (!coords) return coords;

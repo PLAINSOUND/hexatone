@@ -1,4 +1,4 @@
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useMemo, useCallback } from "preact/hooks";
 import PropTypes from "prop-types";
 import Colors from "./colors";
 import KeyLabels from "./key-labels";
@@ -7,6 +7,16 @@ import ScalaImport from "./scala-import";
 import { settingsToHexatonScala, parseScalaInterval } from "./parse-scale";
 import ScalaInput from "./scala-input.js";
 import FundamentalTuneCell from "./fundamental-tune-cell.js";
+import FrequencyInput from "./scale-table/frequency-input.js";
+import {
+  clearAllTuningPreviews,
+  createTuningPreviewState,
+  getEffectiveFundamentalHz,
+  getFundamentalDeviationCents,
+  isFundamentalComparing,
+  setFundamentalComparing,
+  setFundamentalPreview,
+} from "../../tuning/tuning-preview-runtime.js";
 
 const Scale = (props) => {
   const [importing, setImporting] = useState(false);
@@ -14,15 +24,11 @@ const Scale = (props) => {
     () => sessionStorage.getItem("hexatone_scale_collapsed") === "true",
   );
 
-  // Local state for Reference Frequency input - syncs with props when changed from outside (TuneCell)
-  const [fundamentalDisplay, setFundamentalDisplay] = useState(
-    String(props.settings.fundamental ?? ""),
-  );
+  const [previewState, setPreviewState] = useState(() => createTuningPreviewState());
 
-  // Sync display when props change from outside (e.g., TuneCell retuning recalculates fundamental)
   useEffect(() => {
-    setFundamentalDisplay(String(props.settings.fundamental ?? ""));
-  }, [props.settings.fundamental]);
+    setPreviewState((prev) => clearAllTuningPreviews(prev));
+  }, [props.settings.fundamental, props.importCount]);
 
   const doImport = () => {
     props.onImport();
@@ -45,6 +51,15 @@ const Scale = (props) => {
   const scale = props.settings.scale || [];
   const effectiveEquivSteps = scale.length || props.settings.equivSteps || 1;
   const equaveValue = scale.length > 0 ? scale[scale.length - 1] : "2/1";
+  const previewFundamental = useMemo(
+    () => getEffectiveFundamentalHz(props.settings, previewState),
+    [props.settings, previewState],
+  );
+  const handleFundamentalPreviewChange = useCallback((deltaCents, comparing = false) => {
+    setPreviewState((prev) =>
+      setFundamentalComparing(setFundamentalPreview(prev, deltaCents), comparing),
+    );
+  }, []);
 
   // Handle equave change - update the last element of scale array
   const handleEquaveChange = (str) => {
@@ -77,28 +92,24 @@ const Scale = (props) => {
       <label>
         Reference Frequency (Hz)
         <span class="fundamental-right">
-          <input
-            name="fundamental"
-            type="text"
-            inputMode="decimal"
-            value={fundamentalDisplay}
-            onInput={(e) => setFundamentalDisplay(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.target.blur();
-            }}
-            onBlur={(e) => {
-              const val = parseFloat(e.target.value);
-              if (!isNaN(val) && val >= 0.015625 && val <= 16384) {
-                props.onChange("fundamental", val);
-              } else {
-                setFundamentalDisplay(String(props.settings.fundamental ?? ""));
-              }
+          <FrequencyInput
+            ariaLabel="reference frequency"
+            value={previewFundamental}
+            deviationCents={getFundamentalDeviationCents(previewState)}
+            comparing={isFundamentalComparing(previewState)}
+            onCommit={(frequency) => {
+              setPreviewState((prev) => clearAllTuningPreviews(prev));
+              props.onChange("fundamental", frequency);
             }}
           />
           <FundamentalTuneCell
+            key={`fundamental-tune-${props.importCount ?? 0}-${props.settings.fundamental}`}
             fundamental={props.settings.fundamental}
+            previewState={previewState}
             keysRef={props.keysRef}
             onChange={props.onChange}
+            onPreviewChange={handleFundamentalPreviewChange}
+            resetToken={props.importCount ?? 0}
           />
         </span>
       </label>
@@ -220,6 +231,8 @@ const Scale = (props) => {
           <ScaleTable
             key={props.settings.scale?.length}
             {...props}
+            previewState={previewState}
+            onPreviewChange={setPreviewState}
             importCount={props.importCount}
           />
           <br />
@@ -249,6 +262,7 @@ Scale.propTypes = {
   onImport: PropTypes.func.isRequired,
   onChange: PropTypes.func.isRequired,
   onAtomicChange: PropTypes.func,
+  importCount: PropTypes.number,
   modulation_transposition_cents: PropTypes.number,
   modulation_display_active: PropTypes.bool,
 };

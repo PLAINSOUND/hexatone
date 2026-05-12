@@ -11,7 +11,7 @@ import {
   deriveCurrentFundamentalForHistory,
   replayModulationHistoryForFrame,
   spellWorkspaceForFrame,
-} from "./notation/notation-frame-runtime.js";
+} from "./tuning/modulation-frame-runtime.js";
 import { parseExactInterval } from "./tuning/interval.js";
 
 import useSynthWiring from "./use-synth-wiring.js";
@@ -622,6 +622,12 @@ const App = () => {
   const [modulationState, setModulationState] = useState(null);
   const [deferredModulationHistory, setDeferredModulationHistory] = useState([]);
   const [presetModulationLibrary, setPresetModulationLibrary] = useState([]);
+  const [presetRuntimeResetRevision, setPresetRuntimeResetRevision] = useState(0);
+
+  const { onImport, importCount, bumpImportCount } = useImport(settings, setSettings, {
+    onReady: () => setReady(true),
+    onUserInteraction: () => setUserHasInteracted(true),
+  });
 
   const {
     activeSource,
@@ -638,6 +644,9 @@ const App = () => {
   } = usePresets(settings, setSettings, {
     synthRef,
     onUserInteraction: () => setUserHasInteracted(true),
+    bumpImportCount,
+    bumpPresetRuntimeReset: () =>
+      setPresetRuntimeResetRevision((revision) => revision + 1),
     currentModulationLibrary: modulationState?.history ?? presetModulationLibrary,
     setPresetModulationLibrary,
     onPresetModulationLibraryLoaded: (library) => {
@@ -646,11 +655,6 @@ const App = () => {
       setModulationMode("idle");
       setModulationArmed(false);
     },
-  });
-
-  const { onImport, importCount, bumpImportCount } = useImport(settings, setSettings, {
-    onReady: () => setReady(true),
-    onUserInteraction: () => setUserHasInteracted(true),
   });
 
   const {
@@ -896,12 +900,17 @@ const App = () => {
   const tuningImpactKey = useMemo(() => settingsImpactKey(settings, "tuning"), [settings]);
   const structuralImpactKey = useMemo(() => settingsImpactKey(settings, "structural"), [settings]);
   const keysReconstructionImpactKey = useMemo(
-    () => settingsImpactKey(settings, "keysReconstruction", { midiAccess, midiTick }),
-    [settings, midiAccess, midiTick],
+    () =>
+      settingsImpactKey(settings, "keysReconstruction", {
+        midiAccess,
+        midiTick,
+        presetRuntimeResetRevision,
+      }),
+    [settings, midiAccess, midiTick, presetRuntimeResetRevision],
   );
   const musicalSurfaceResetImpactKey = useMemo(
-    () => settingsImpactKey(settings, "musicalSurfaceReset"),
-    [settings],
+    () => settingsImpactKey(settings, "musicalSurfaceReset", { presetRuntimeResetRevision }),
+    [settings, presetRuntimeResetRevision],
   );
   const colorImpactKey = useMemo(() => settingsImpactKey(settings, "colors"), [settings]);
   const inputRuntimeImpactKey = useMemo(() => settingsImpactKey(settings, "inputRuntime"), [settings]);
@@ -963,6 +972,13 @@ const App = () => {
   const deferredModulationHistoryRef = useRef(modulationHistory);
   deferredModulationHistoryRef.current = modulationHistory;
   useEffect(() => {
+    if ((modulationState?.mode ?? "idle") === "idle") {
+      const nextHistory = deferredModulationHistoryRef.current;
+      setDeferredModulationHistory(
+        Array.isArray(nextHistory) ? nextHistory.map((entry) => ({ ...entry })) : [],
+      );
+      return;
+    }
     let timeoutId = null;
     const syncWhenNotesAreClear = () => {
       if (keysRef.current && !keysRef.current.isSoundInteractionIdle?.()) {
@@ -978,7 +994,7 @@ const App = () => {
     return () => {
       if (timeoutId != null) clearTimeout(timeoutId);
     };
-  }, [activeModulationHistoryKey]);
+  }, [activeModulationHistoryKey, modulationState?.mode]);
   const deferredModulationHistoryKey = useMemo(
     () => modulationHistoryKey(deferredModulationHistory),
     [deferredModulationHistory],

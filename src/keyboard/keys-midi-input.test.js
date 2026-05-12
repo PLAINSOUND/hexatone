@@ -589,6 +589,92 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getDisplayLabelAtCoords(nextCoords)).toBe("n6");
   });
 
+  it("keeps already-sounding notes at their onset pitch during pending-settlement modulation", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        keyCodeToCoords: {},
+      },
+      {},
+      synth,
+    );
+
+    const sourceCoords = new Point(2, 0);
+    const targetCoords = new Point(5, 0);
+
+    const sourceHex = keys.hexOn(sourceCoords);
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    const sourceCentsBefore = sourceHex.cents;
+
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(targetCoords);
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+    expect(sourceHex.cents).toBeCloseTo(sourceCentsBefore, 5);
+  });
+
+  it("retunes sustained legacy notes in place when the fundamental changes during pending-settlement modulation", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        fundamental: 440,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        keyCodeToCoords: {},
+      },
+      {},
+      synth,
+    );
+
+    const sourceHex = keys.hexOn(new Point(0, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    keys.sustainOn();
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(new Point(7, 0));
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+
+    keys.state.activeKeyboard.delete("KeyA");
+    keys.state.sustainedNotes.push([sourceHex, 0]);
+    keys.state.sustainedCoords.add("0,0");
+
+    expect(keys.state.sustainedNotes).toHaveLength(1);
+    expect(sourceHex._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
+    const futurePitchBefore = keys.hexCoordsToLiveCents(new Point(0, 0))[0];
+
+    keys.previewFundamental(50);
+    expect(keys._liveCentsForHex(sourceHex)[0]).toBeCloseTo(50, 5);
+    expect(keys.hexCoordsToLiveCents(new Point(0, 0))[0]).toBeCloseTo(futurePitchBefore + 50, 5);
+
+    const newFundamental = 440 * Math.pow(2, 50 / 1200);
+    keys.updateFundamental(newFundamental);
+
+    expect(sourceHex.cents).toBeCloseTo(0, 5);
+    expect(keys.hexCoordsToLiveCents(new Point(0, 0))[0]).toBeCloseTo(futurePitchBefore, 5);
+    expect(sourceHex.fundamental).toBeCloseTo(newFundamental, 8);
+  });
+
   it("requires overlap and suppresses the target note for fixed-do sequential modulation", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
@@ -1462,6 +1548,95 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().mode).toBe("idle");
     expect(keys.stepModulationRoute(0, 1)).toBe(true);
     expect(keys.getModulationState().history[0].count).toBe(1);
+  });
+
+  it("keeps already-sounding notes stable when modulation palette route counts change", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        keyCodeToCoords: {},
+      },
+      {},
+      synth,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 7,
+          strategy: "retune_surface_to_source",
+          count: 0,
+          transpositionDeltaCents: 700,
+        },
+      ],
+    );
+
+    const hex = keys.hexOn(new Point(0, 0));
+    keys.state.activeKeyboard.set("KeyA", hex);
+    const before = hex.cents;
+
+    expect(keys.stepModulationRoute(0, 1)).toBe(true);
+
+    expect(hex.cents).toBe(before);
+
+    const nextHex = keys.hexOn(new Point(1, 0));
+    expect(nextHex.cents).not.toBe(100);
+  });
+
+  it("keeps active modulation applied when the fundamental is previewed and committed", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        fundamental: 440,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        keyCodeToCoords: {},
+      },
+      {},
+      synth,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 7,
+          strategy: "retune_surface_to_source",
+          count: 1,
+          transpositionDeltaCents: 700,
+        },
+      ],
+    );
+
+    const hex = keys.hexOn(new Point(0, 0));
+    keys.state.activeKeyboard.set("KeyA", hex);
+    const modulatedCents = hex.cents;
+
+    keys.previewFundamental(50);
+    expect(keys.hexCoordsToLiveCents(new Point(0, 0))[0]).toBeCloseTo(modulatedCents + 50, 5);
+
+    const newFundamental = 440 * Math.pow(2, 50 / 1200);
+    keys.updateFundamental(newFundamental);
+
+    expect(hex.cents).toBeCloseTo(modulatedCents, 5);
+    expect(hex.fundamental).toBeCloseTo(newFundamental, 8);
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(
+      newFundamental * Math.pow(2, 700 / 1200),
+      8,
+    );
   });
 
   it("measures scale-cents labels from degree 0 instead of reference_degree", () => {

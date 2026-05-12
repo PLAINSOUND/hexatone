@@ -8,6 +8,18 @@
  */
 
 import { render, screen, fireEvent } from "@testing-library/preact";
+vi.mock("./fundamental-tune-cell.js", () => ({
+  default: ({ onPreviewChange }) => (
+    <div class="tune-cell--inline">
+      <button type="button" title="preview reference frequency" onClick={() => onPreviewChange?.(50, false)}>
+        preview
+      </button>
+      <button type="button" title="compare reference frequency" onClick={() => onPreviewChange?.(50, true)}>
+        compare
+      </button>
+    </div>
+  ),
+}));
 import Scale from "./index";
 
 const minimalSettings = {
@@ -98,6 +110,88 @@ describe("Scale panel — default state", () => {
 
     expect(screen.getByLabelText("Scale Size").value).toBe("1");
     expect(screen.getByText("Divide Equave into 1 Equal Divisions")).not.toBeNull();
+  });
+
+  it("shows rounded reference frequency normally but full precision on focus", () => {
+    render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
+
+    const frequencyInput = screen.getByLabelText("reference frequency");
+    expect(frequencyInput.value).toBe("440.0");
+
+    fireEvent.focus(frequencyInput);
+    expect(frequencyInput.value).toBe("440.000000");
+  });
+
+  it("live-updates the reference frequency and scale frequencies during a reference tune drag", () => {
+    render(
+      <Scale
+        settings={minimalSettings}
+        onChange={() => {}}
+        onImport={() => {}}
+      />,
+    );
+
+    let referenceInput = screen.getByLabelText("reference frequency");
+    let degreeZeroFrequency = screen.getByLabelText("pitch frequency 0");
+
+    expect(referenceInput.value).toBe("440.0");
+    expect(degreeZeroFrequency.value).toBe("440.0");
+
+    fireEvent.click(screen.getByTitle("preview reference frequency"));
+
+    referenceInput = screen.getByLabelText("reference frequency");
+    degreeZeroFrequency = screen.getByLabelText("pitch frequency 0");
+    expect(referenceInput.style.color).toBe("rgb(153, 0, 0)");
+    expect(referenceInput.value).not.toBe("440.0");
+    expect(degreeZeroFrequency.value).toBe(referenceInput.value);
+  });
+
+  it("shows the original reference frequency in dark red while comparing a tune preview", () => {
+    render(
+      <Scale
+        settings={minimalSettings}
+        onChange={() => {}}
+        onImport={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("preview reference frequency"));
+    fireEvent.click(screen.getByTitle("compare reference frequency"));
+
+    const referenceInput = screen.getByLabelText("reference frequency");
+    expect(referenceInput.value).toBe("440.0");
+    expect(referenceInput.style.color).toBe("rgb(102, 0, 0)");
+    expect(referenceInput.style.fontStyle).toBe("italic");
+  });
+
+  it("clears the reference tune preview when the scale reset token changes", () => {
+    const { rerender } = render(
+      <Scale
+        settings={minimalSettings}
+        onChange={() => {}}
+        onImport={() => {}}
+        importCount={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("preview reference frequency"));
+
+    let referenceInput = screen.getByLabelText("reference frequency");
+    expect(referenceInput.style.color).toBe("rgb(153, 0, 0)");
+
+    rerender(
+      <Scale
+        settings={minimalSettings}
+        onChange={() => {}}
+        onImport={() => {}}
+        importCount={1}
+      />,
+    );
+
+    referenceInput = screen.getByLabelText("reference frequency");
+    expect(referenceInput.value).toBe("440.0");
+    expect(referenceInput.style.color).toBe("");
+    expect(referenceInput.style.fontStyle).toBe("");
   });
 });
 

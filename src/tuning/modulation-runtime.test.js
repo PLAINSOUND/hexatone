@@ -1,4 +1,4 @@
-import Point from "./point";
+import Point from "../keyboard/point.js";
 import {
   beginModulation,
   cancelModulation,
@@ -21,7 +21,7 @@ function makeHex(id, x, y, degree = null) {
   };
 }
 
-describe("keyboard/modulation-runtime", () => {
+describe("tuning/modulation-runtime", () => {
   const oldFrame = { id: "frame-old" };
   const newFrame = { id: "frame-new" };
 

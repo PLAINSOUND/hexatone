@@ -23,6 +23,13 @@ import {
   getHumanTestableRationalCandidates,
 } from "./rationalise.js";
 import { deleteScaleDegree, moveScaleDegree } from "../sort-scale.js";
+import {
+  createTuningPreviewState,
+  getDegreeDeviationCents,
+  getEffectiveDegreeCents,
+  getEffectiveFrequencyAtDegree,
+  isDegreeComparing,
+} from "../../../tuning/tuning-preview-runtime.js";
 
 // ScaleTable is the UI workspace for rationalisation. It derives committed row
 // state from ScaleWorkspace, lets TuneCell create transient previews, then
@@ -30,6 +37,8 @@ import { deleteScaleDegree, moveScaleDegree } from "../sort-scale.js";
 
 // sidebar display of the scala file, degrees, note names, colors in an html table format
 const ScaleTable = (props) => {
+  const previewState = props.previewState ?? createTuningPreviewState();
+  const onPreviewChange = props.onPreviewChange ?? (() => {});
   const modulationTranspositionCents = Number(props.modulation_transposition_cents ?? 0);
   const modulationDisplayActive = !!props.modulation_display_active;
   const { scale, equiv_interval } = useMemo(() => {
@@ -118,14 +127,20 @@ const ScaleTable = (props) => {
   useEffect(() => {
     localStorage.setItem("hexatone_search_prefs", JSON.stringify(searchPrefs));
   }, [searchPrefs]);
-  // previewState: per-degree { cents, comparing } set by TuneCell during drag
-  const [previewState, setPreviewState] = useState({});
   // resetVersion: per-degree counter, bumped when a direct text edit commits a new
   // scale value so TuneCell can discard its in-flight drag state.
   const [resetVersion, setResetVersion] = useState({});
   const bumpResetVersion = useCallback((degreeIndex) => {
     setResetVersion((prev) => ({ ...prev, [degreeIndex]: (prev[degreeIndex] ?? 0) + 1 }));
   }, []);
+
+  useEffect(() => {
+    setResetVersion({});
+    setDraggedDegree(null);
+    setDropTargetDegree(null);
+    setDropTargetSide("before");
+    setSelectedDegree(null);
+  }, [props.importCount]);
 
   const rowRuntimeByDegree = useMemo(
     () => new Map(workspace.slots.map((slot) => [slot.degree, getRowRuntime(workspace, slot.degree)])),
@@ -193,17 +208,11 @@ const ScaleTable = (props) => {
     setDropTargetSide(target.side);
   }, [draggedDegree, resolveDropTarget]);
 
-  const effectiveCentsAtDegree = useCallback((degreeIndex) => {
-    const state = previewState[degreeIndex];
-    if (state && state.cents !== null) return state.cents;
-    return getCommittedCentsAtDegree(degreeIndex);
-  }, [previewState, getCommittedCentsAtDegree]);
-  const referenceCents = effectiveCentsAtDegree(referenceDegree);
-  const liveFundamental = props.settings.fundamental * Math.pow(2, modulationTranspositionCents / 1200.0);
   const frequencyAtDegree = useCallback((degreeIndex) => {
-    const cents = effectiveCentsAtDegree(degreeIndex);
-    return liveFundamental * Math.pow(2, (cents - referenceCents) / 1200.0);
-  }, [effectiveCentsAtDegree, liveFundamental, referenceCents]);
+    return getEffectiveFrequencyAtDegree(workspace, previewState, degreeIndex, {
+      modulationTranspositionCents,
+    });
+  }, [workspace, previewState, modulationTranspositionCents]);
 
   // Auto-rationalise every non-root, non-equave degree using a two-pass approach:
   //
@@ -337,26 +346,20 @@ const ScaleTable = (props) => {
   }, [props, workspace, frequencyAtDegree, searchPrefs, getCommittedCentsAtDegree]);
 
   const centsFromFrequency = (frequency) =>
-    referenceCents + 1200 * Math.log2(frequency / liveFundamental);
+    getEffectiveDegreeCents(workspace, previewState, referenceDegree) +
+    1200 *
+      Math.log2(
+        frequency /
+          (
+            props.settings.fundamental *
+            Math.pow(2, modulationTranspositionCents / 1200.0)
+          ),
+      );
   // deviationCentsAtDegree: cents delta from committed value (for frequency colour)
   const deviationCentsAtDegree = (degreeIndex) => {
-    const state = previewState[degreeIndex];
-    if (!state || state.cents === null) return null;
-    const committed = getCommittedCentsAtDegree(degreeIndex);
-    return state.cents - committed;
+    return getDegreeDeviationCents(workspace, previewState, degreeIndex);
   };
-  const isComparingAtDegree = (degreeIndex) => !!previewState[degreeIndex]?.comparing;
-  const updatePreviewCents = useCallback((degreeIndex, cents, comparing = false) => {
-    setPreviewState((prev) => {
-      const cur = prev[degreeIndex];
-      if (cur && cur.cents === cents && cur.comparing === comparing) return prev;
-      if (cents === null) {
-        if (!cur || cur.cents === null) return prev;
-        return { ...prev, [degreeIndex]: { cents: null, comparing: false } };
-      }
-      return { ...prev, [degreeIndex]: { cents, comparing } };
-    });
-  }, []);
+  const isComparingAtDegree = (degreeIndex) => isDegreeComparing(previewState, degreeIndex);
   const commitFrequencyAtDegree = (degreeIndex, frequency) => {
     const targetCents = centsFromFrequency(frequency);
 
@@ -714,7 +717,8 @@ const ScaleTable = (props) => {
                   reference_degree={props.settings.reference_degree}
                   fundamental={props.settings.fundamental}
                   retuning_mode={props.settings.retuning_mode}
-                  onPreviewChange={updatePreviewCents}
+                  previewState={previewState}
+                  onPreviewChange={onPreviewChange}
                   onDegree0Save={(delta) => {
                     // delta: cents degree 0 moved up.
                     // The equave is never touched — it is a period ratio, not a pitch.
@@ -865,17 +869,18 @@ const ScaleTable = (props) => {
                     scaleStr={(props.settings.scale || [])[i] || String(freq)}
                     degree={i + 1}
                     committedInterval={getRowRuntimeAtDegree(i + 1).committedInterval}
-                    committedCents={getRowRuntimeAtDegree(i + 1).committedCents}
-                    workspace={workspace}
-                    settings={props.settings}
-                    frequencyAtDegree={frequencyAtDegree}
-                    searchPrefs={searchPrefs}
-                    keysRef={props.keysRef}
-                    reference_degree={props.settings.reference_degree}
-                    fundamental={props.settings.fundamental}
-                    retuning_mode={props.settings.retuning_mode}
-                    onPreviewChange={updatePreviewCents}
-                    resetVersion={resetVersion[i + 1] ?? 0}
+                  committedCents={getRowRuntimeAtDegree(i + 1).committedCents}
+                  workspace={workspace}
+                  settings={props.settings}
+                  frequencyAtDegree={frequencyAtDegree}
+                  searchPrefs={searchPrefs}
+                  keysRef={props.keysRef}
+                  reference_degree={props.settings.reference_degree}
+                  fundamental={props.settings.fundamental}
+                  retuning_mode={props.settings.retuning_mode}
+                  previewState={previewState}
+                  onPreviewChange={onPreviewChange}
+                  resetVersion={resetVersion[i + 1] ?? 0}
                     onChange={(newStr) => {
                       const next = [...(props.settings.scale || [])];
                       next[i] = newStr;
@@ -1000,11 +1005,17 @@ ScaleTable.propTypes = {
   keysRef: PropTypes.object,
   onChange: PropTypes.func.isRequired,
   onAtomicChange: PropTypes.func,
+  onPreviewChange: PropTypes.func,
   importCount: PropTypes.number,
   heji_names: PropTypes.arrayOf(PropTypes.string),
   heji_names_table: PropTypes.arrayOf(PropTypes.string),
   modulation_transposition_cents: PropTypes.number,
   modulation_display_active: PropTypes.bool,
+  previewState: PropTypes.shape({
+    fundamentalDeltaCents: PropTypes.number,
+    fundamentalComparing: PropTypes.bool,
+    degreePreviews: PropTypes.object,
+  }),
   settings: PropTypes.shape({
     scale: PropTypes.arrayOf(PropTypes.string),
     key_labels: PropTypes.string,

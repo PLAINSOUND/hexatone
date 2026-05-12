@@ -3,15 +3,14 @@
 // state, and fills structural defaults so the runtime layers can assume a
 // consistent settings shape.
 
-import { scalaToCents, scalaToLabels } from "./settings/scale/parse-scale.js";
+import { normaliseHejiAnchorRatio, scalaToCents, scalaToLabels } from "./settings/scale/parse-scale.js";
 import keyCodeToCoords from "./keyboard/keycodes";
 import { hex2rgb, rgb2hsv, HSVtoRGB2, rgbToHex } from "./keyboard/color_utils.js";
-import { parseHejiPitchClassLabel } from "./notation/heji.js";
 import { createReferenceFrame } from "./notation/reference-frame.js";
 import { spelledHejiLabel } from "./notation/key-label.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 export { deriveHejiAnchor, deriveHejiAnchorFromNoteNames } from "./notation/heji-normalization.js";
-import { deriveHejiAnchor } from "./notation/heji-normalization.js";
+import { canonicalHejiAnchorLabelInput, deriveHejiAnchor } from "./notation/heji-normalization.js";
 
 export function deriveSpectrumNoteColors(settings, fundamentalColor) {
   const count = settings.equivSteps || settings.scale?.length || 0;
@@ -131,26 +130,21 @@ export const normalizeStructural = (settings, options = {}) => {
 
       // Resolve anchor: use user-supplied values if present, otherwise auto-derive
       // from note_names by searching for a plain A-natural entry.
-      let anchorLabel = settings.heji_anchor_label || "";
-      let anchorRatioText = settings.heji_anchor_ratio || "";
+      // Auto-derive anchor. Priority: reference_degree note name → scan note_names
+      // for A-natural → infer from fundamental frequency → default C natural at 1/1.
+      // note_names is still in raw (pre-normalise) form; same indexing as degreeTexts.
+      const derived = deriveHejiAnchor(
+        settings.reference_degree,
+        settings.note_names,
+        degreeTexts,
+        settings.fundamental,
+        workspaceRuntime.scale,
+      );
+      const explicitAnchorLabel = canonicalHejiAnchorLabelInput(settings.heji_anchor_label || "");
+      const explicitAnchorRatio = normaliseHejiAnchorRatio(settings.heji_anchor_ratio || "");
 
-      if (!anchorLabel || !parseHejiPitchClassLabel(anchorLabel)) {
-        // Auto-derive anchor. Priority: reference_degree note name → scan note_names
-        // for A-natural → infer from fundamental frequency → default C natural at 1/1.
-        // note_names is still in raw (pre-normalise) form; same indexing as degreeTexts.
-        const derived = deriveHejiAnchor(
-          settings.reference_degree,
-          settings.note_names,
-          degreeTexts,
-          settings.fundamental,
-          workspaceRuntime.scale,
-        );
-        anchorLabel = derived.label;
-        // Always take the derived ratio when auto-deriving the label — the label
-        // and ratio are a pair.  A stale heji_anchor_ratio from a previous preset
-        // (e.g. the registry default "1/1") must not override the derived value.
-        anchorRatioText = derived.ratio;
-      }
+      const anchorLabel = explicitAnchorLabel ?? derived.label;
+      const anchorRatioText = explicitAnchorRatio ?? derived.ratio;
 
       // Expose the resolved anchor values so the UI can show what is actually
       // being used (including auto-derived values from note_names).
@@ -158,7 +152,7 @@ export const normalizeStructural = (settings, options = {}) => {
       result["heji_anchor_ratio_effective"] = anchorRatioText;
 
       // Only build when we have a valid parseable anchor label.
-      if (anchorLabel && parseHejiPitchClassLabel(anchorLabel)) {
+      if (anchorLabel) {
         // Anchor cents: the pitch value of the anchor ratio from degree 0,
         // taken mod equave so it is comparable to scale[] values.
         const anchorCents = scalaToCents(String(anchorRatioText));

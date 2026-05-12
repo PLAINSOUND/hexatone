@@ -5,7 +5,7 @@
 
 import Point from "./point.js";
 import { notes } from "../midi_synth";
-import { cancelModulation } from "./modulation-runtime.js";
+import { cancelModulation } from "../tuning/modulation-runtime.js";
 
 export function panic(keys) {
   keys._retuneGlides.clear();

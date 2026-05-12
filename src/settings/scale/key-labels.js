@@ -1,72 +1,6 @@
 import PropTypes from "prop-types";
-import { parseScalaInterval } from "./parse-scale.js";
-
-// ASCII → HEJI Unicode glyph replacements.
-// Notation input accepts: bare letter (A-G = natural), then optional accidentals
-// written as ASCII shorthand which auto-expands to HEJI SMuFL glyphs.
-//
-// HEJI chromatic accidentals (SMuFL):
-//   n  → U+E261  (♮ natural sign, but used as HEJI natural prefix — Plainsound Sans renders it correctly)
-//   b  → U+E260  (flat)
-//   #  → U+E262  (sharp)
-//   bb → U+E264  (double-flat)
-//   ## → U+E263  (double-sharp)
-//
-// Syntonic comma accidentals:
-//   +  → U+E282  (syntonic comma up, 1 arrow)
-//   -  → U+E280  (syntonic comma down, 1 arrow)
-//
-// Parsing approach: scan left-to-right, replace ASCII sequences with glyphs,
-// leave anything else (already-Unicode glyphs) untouched.
-const ASCII_HEJI_REPLACEMENTS = [
-  // Two-char sequences first (must precede single-char to avoid partial match)
-  ["##", "\uE263"], // double-sharp
-  ["bb", "\uE264"], // double-flat
-  // Single-char accidentals
-  ["n", "\uE261"],  // natural
-  ["b", "\uE260"],  // flat
-  ["#", "\uE262"],  // sharp
-];
-
-// Expand ASCII shorthand in a notation string to Unicode HEJI glyphs.
-// Bare letter A-G at start is kept as-is (no prefix needed).
-const expandHejiNotation = (raw) => {
-  // Work through the string character by character, replacing ASCII sequences.
-  // We only touch ASCII characters; anything >= U+0100 is left alone.
-  let result = "";
-  let i = 0;
-  while (i < raw.length) {
-    const ch = raw[i];
-    // If already a non-ASCII character, pass through unchanged.
-    if (ch.charCodeAt(0) > 127) {
-      result += ch;
-      i++;
-      continue;
-    }
-    // Try two-char replacements first.
-    let matched = false;
-    if (i + 1 < raw.length) {
-      const two = raw.slice(i, i + 2);
-      const rep2 = ASCII_HEJI_REPLACEMENTS.find(([k]) => k.length === 2 && k === two);
-      if (rep2) {
-        result += rep2[1];
-        i += 2;
-        matched = true;
-      }
-    }
-    if (!matched) {
-      // Try single-char replacements.
-      const rep1 = ASCII_HEJI_REPLACEMENTS.find(([k]) => k.length === 1 && k === ch);
-      if (rep1) {
-        result += rep1[1];
-      } else {
-        result += ch;
-      }
-      i++;
-    }
-  }
-  return result;
-};
+import { normaliseHejiAnchorRatio } from "./parse-scale.js";
+import { canonicalHejiAnchorLabelInput } from "../../notation/heji-normalization.js";
 
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
@@ -131,12 +65,12 @@ const KeyLabels = (props) => {
               value={props.settings.heji_anchor_ratio || ""}
               disabled={hejiDisabled}
               onInput={(e) => props.onChange("heji_anchor_ratio", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.target.blur();
+              }}
               onBlur={(e) => {
-                const raw = e.target.value.trim();
-                const { cents } = parseScalaInterval(raw, "degree");
-                if (cents === 0 && raw !== "0.") {
-                  props.onChange("heji_anchor_ratio", "0.");
-                }
+                const normalized = normaliseHejiAnchorRatio(e.target.value);
+                if (normalized) props.onChange("heji_anchor_ratio", normalized);
               }}
             />
           </label>
@@ -148,15 +82,13 @@ const KeyLabels = (props) => {
               placeholder={props.heji_anchor_label_eff || `\uE261A`}
               value={props.settings.heji_anchor_label || ""}
               disabled={hejiDisabled}
-              onInput={(e) => {
-                const expanded = expandHejiNotation(e.target.value);
-                // If expansion changed the value, update the DOM input to show glyphs
-                if (expanded !== e.target.value) {
-                  const pos = e.target.selectionStart + (expanded.length - e.target.value.length);
-                  e.target.value = expanded;
-                  e.target.setSelectionRange(pos, pos);
-                }
-                props.onChange("heji_anchor_label", expanded);
+              onInput={(e) => props.onChange("heji_anchor_label", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.target.blur();
+              }}
+              onBlur={(e) => {
+                const normalized = canonicalHejiAnchorLabelInput(e.target.value);
+                if (normalized) props.onChange("heji_anchor_label", normalized);
               }}
             />
           </label>

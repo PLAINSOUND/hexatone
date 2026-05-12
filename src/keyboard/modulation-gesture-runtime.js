@@ -7,8 +7,8 @@
 import {
   cancelModulation,
   setModulationSource,
-} from "./modulation-runtime.js";
-import { geometryDeltaFromCoords } from "./modulation-geometry-runtime.js";
+} from "../tuning/modulation-runtime.js";
+import { geometryDeltaFromCoords } from "../tuning/modulation-geometry-runtime.js";
 
 export function setAwaitingModulationSource(keys, sourceHex = null, sourceDegree = null, sourceCoords = null) {
   if (keys._modulationState.mode !== "awaiting_target") return keys._modulationState;

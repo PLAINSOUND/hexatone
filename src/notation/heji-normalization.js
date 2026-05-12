@@ -3,6 +3,10 @@ import { parseHejiPitchClassLabel } from "./heji.js";
 // HEJI glyph codepoints used for deriving anchor defaults.
 // U+E261 = Plainsound natural, U+E260 = flat, U+E262 = sharp.
 const HEJI_NATURAL = "\uE261";
+const HEJI_FLAT = "\uE260";
+const HEJI_SHARP = "\uE262";
+const HEJI_DOUBLE_SHARP = "\uE263";
+const HEJI_DOUBLE_FLAT = "\uE264";
 
 // Tempered natural glyph (U+E2F2) — visually distinct from the exact HEJI natural.
 // Used when the anchor is inferred from frequency rather than confirmed by a note name,
@@ -48,6 +52,31 @@ export function expandOpenTypeLigatures(name) {
   return name.replace(/\*n/g, "n").replace(/\*f/g, "b").replace(/\*s/g, "#");
 }
 
+function expandAsciiHejiAccidentals(text) {
+  return text
+    .replace(/##/g, HEJI_DOUBLE_SHARP)
+    .replace(/bb/gi, HEJI_DOUBLE_FLAT)
+    .replace(/#/g, HEJI_SHARP)
+    .replace(/b/g, HEJI_FLAT)
+    .replace(/n/g, HEJI_NATURAL);
+}
+
+export function canonicalHejiAnchorLabelInput(name) {
+  if (typeof name !== "string") return null;
+  const compact = expandOpenTypeLigatures(name).replace(/\s+/g, "");
+  if (!compact) return null;
+
+  const letterMatches = compact.match(/[A-Ga-g]/g);
+  if (!letterMatches || letterMatches.length !== 1) return null;
+
+  const letterIndex = compact.search(/[A-Ga-g]/);
+  const letter = compact[letterIndex].toUpperCase();
+  const accidentalText = `${compact.slice(0, letterIndex)}${compact.slice(letterIndex + 1)}`;
+  const prefix = accidentalText === "" ? HEJI_NATURAL : expandAsciiHejiAccidentals(accidentalText);
+  const candidate = `${prefix}${letter}`;
+  return parseHejiPitchClassLabel(candidate) ? candidate : null;
+}
+
 /**
  * Canonicalise a bare letter A-G to the HEJI natural-prefixed glyph form.
  * e.g. "A" → "\uE261A", "nA" → "\uE261A" (already prefixed), "♮A" → "♮A" (pass-through).
@@ -58,20 +87,7 @@ export function expandOpenTypeLigatures(name) {
  */
 export function canonicalHejiLabel(name) {
   if (!name) return null;
-  // Expand OpenType ligature shorthands before any further processing.
-  const expanded = expandOpenTypeLigatures(name);
-  // Bare letter A-G — treat as natural.
-  if (/^[A-Ga-g]$/.test(expanded)) {
-    return `${HEJI_NATURAL}${expanded.toUpperCase()}`;
-  }
-  // Parseable as a HEJI pitch-class label (ASCII shortcuts like "nA", "bA", "#A",
-  // or already-Unicode glyph strings).
-  const parsed = parseHejiPitchClassLabel(expanded);
-  if (parsed) {
-    // Return the expanded form so downstream glyph parsing sees known sequences.
-    return expanded;
-  }
-  return null;
+  return canonicalHejiAnchorLabelInput(name);
 }
 
 /**

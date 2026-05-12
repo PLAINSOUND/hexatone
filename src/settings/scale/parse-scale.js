@@ -158,6 +158,16 @@ export const normaliseDegree = (line) => {
   return `${parseInt(line)}/1`;
 };
 
+// Normalise a HEJI anchor ratio/cents field to a canonical Scala string,
+// preferring a ratio form for unison.
+export const normaliseHejiAnchorRatio = (line) => {
+  if (typeof line !== "string" || line.trim() === "") return null;
+  const parsed = parseScalaInterval(line, "degree");
+  if (!parsed.valid) return null;
+  if (parsed.cents === 0) return "1/1";
+  return normaliseDegree(line.trim());
+};
+
 // Convert scale data from string to label
 export const scalaToLabels = (line) => {
   if (line.match(/\//)) {

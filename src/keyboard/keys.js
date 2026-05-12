@@ -47,7 +47,7 @@ import {
   setModulationRouteCount,
   setModulationHistoryIndex,
   settleModulationIfPossible,
-} from "./modulation-runtime.js";
+} from "../tuning/modulation-runtime.js";
 import {
   createKeysFrame,
   deriveFrameForHistory,
@@ -65,6 +65,15 @@ import * as InputExpressionRuntime from "../input/keys-expression-runtime.js";
 import * as SequencerSnapshots from "../sequencer/snapshots.js";
 import * as MtsOutputRuntime from "../midi_synth/mts-output-runtime.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
+import {
+  clearFundamentalPreview,
+  createTuningPreviewState,
+  getEffectiveScaleRuntime,
+  getFundamentalPreviewDeltaCents,
+  setDegreePreview,
+  clearDegreePreview,
+  setFundamentalPreview,
+} from "../tuning/tuning-preview-runtime.js";
 import {
   classifyReleaseForSettlement,
   evaluateSettlement,
@@ -403,50 +412,27 @@ class Keys {
     // The equave is stored as equivInterval, not in the scale array.
     // TuneCell passes degree === scale.length for the equave row.
     if (degree === this.tuning.scale.length) {
-      const oldEquiv = this.tuning.equivInterval;
-      const equivDelta = newCents - oldEquiv;
-      const bendOnly = !!this.inputRuntime.mpeInput;
-      this.tuning.equivInterval = newCents;
-      // Each hex is at octs * equivInterval + scale[reducedSteps],
-      // so changing equivInterval by equivDelta shifts it by octs * equivDelta.
-      for (const hex of this._allActiveHexes()) {
-        const [, , , octs] = this.hexCoordsToCents(hex.coords);
-        const baseCents = (hex._baseCents ?? hex.cents) + octs * equivDelta;
-        this._queueRetuneGlide(hex, baseCents, bendOnly);
-      }
-      for (const [hex] of this.state.sustainedNotes) {
-        const [, , , octs] = this.hexCoordsToCents(hex.coords);
-        const baseCents = (hex._baseCents ?? hex.cents) + octs * equivDelta;
-        this._queueRetuneGlide(hex, baseCents, bendOnly);
-      }
-      this._refreshSoundingHexNeighbors();
-      this._kickRetuneGlides();
-      this.scheduleGridRedraw();
       return;
     }
 
     if (degree >= this.tuning.scale.length) return;
-    // Compute delta before mutating scale, so we can shift each hex by the same amount
-    // regardless of which octave it was played in.
-    const oldCents = this.tuning.scale[degree];
-    const delta = newCents - oldCents;
+    const committedCents = this.tuning.scale[degree];
     const bendOnly = !!this.inputRuntime.mpeInput;
-    this.tuning.scale[degree] = newCents;
+    this._tuningPreviewState =
+      Math.abs(newCents - committedCents) > 0.000001
+        ? setDegreePreview(this._tuningPreviewState, degree, newCents)
+        : clearDegreePreview(this._tuningPreviewState, degree);
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
-        const existingGlide = this._retuneGlides.get(hex);
-        const reference = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
-        const baseCents = reference + delta;
+        const [baseCents] = this.hexCoordsToLiveCents(hex.coords);
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
     for (const [hex] of this.state.sustainedNotes) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
-        const existingGlide = this._retuneGlides.get(hex);
-        const reference = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
-        const baseCents = reference + delta;
+        const [baseCents] = this.hexCoordsToLiveCents(hex.coords);
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
@@ -507,15 +493,38 @@ class Keys {
     });
   }
 
+  _applyModulationStateTransition(nextState, options = {}) {
+    this._modulationState = nextState;
+    if (options.updateFrame !== false) {
+      this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
+    }
+    if (options.refreshRuntimeDisplayOffset) {
+      this._refreshRuntimeDisplayOffset();
+    }
+    if (options.redraw === "immediate") {
+      this.scheduleImmediateGridRedraw();
+    } else if (options.redraw !== false) {
+      this.scheduleGridRedraw();
+    }
+    if (options.syncControllerColors) {
+      this._syncControllerColorsForModulation();
+    }
+    if (options.emit !== false) {
+      this._emitModulationState();
+    }
+  }
+
   setModulationHistoryIndex = (historyIndex) => {
     if (this._modulationState.mode !== "idle") return false;
     const nextFrame = this._frameForHistoryIndex(historyIndex);
-    this._modulationState = setModulationHistoryIndex(this._modulationState, historyIndex, nextFrame);
-    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._refreshRuntimeDisplayOffset();
-    this.scheduleGridRedraw();
-    this._syncControllerColorsForModulation();
-    this._emitModulationState();
+    this._applyModulationStateTransition(
+      setModulationHistoryIndex(this._modulationState, historyIndex, nextFrame),
+      {
+        refreshRuntimeDisplayOffset: true,
+        redraw: "deferred",
+        syncControllerColors: true,
+      },
+    );
     return true;
   };
 
@@ -530,12 +539,14 @@ class Keys {
     if (routeIndex < 0 || routeIndex >= history.length) return false;
     history[routeIndex].count = Number.isFinite(count) ? Math.trunc(count) : 0;
     const nextFrame = this._frameForHistory(history);
-    this._modulationState = setModulationRouteCount(this._modulationState, routeIndex, count, nextFrame);
-    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._refreshRuntimeDisplayOffset();
-    this.scheduleGridRedraw();
-    this._syncControllerColorsForModulation();
-    this._emitModulationState();
+    this._applyModulationStateTransition(
+      setModulationRouteCount(this._modulationState, routeIndex, count, nextFrame),
+      {
+        refreshRuntimeDisplayOffset: true,
+        redraw: "deferred",
+        syncControllerColors: true,
+      },
+    );
     return true;
   };
 
@@ -553,36 +564,42 @@ class Keys {
       ? this._modulationState.history.filter((_, index) => index !== routeIndex).map((entry) => ({ ...entry }))
       : [];
     const nextFrame = this._frameForHistory(history);
-    this._modulationState = clearModulationRoute(this._modulationState, routeIndex, nextFrame);
-    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._refreshRuntimeDisplayOffset();
-    this.scheduleGridRedraw();
-    this._syncControllerColorsForModulation();
-    this._emitModulationState();
+    this._applyModulationStateTransition(
+      clearModulationRoute(this._modulationState, routeIndex, nextFrame),
+      {
+        refreshRuntimeDisplayOffset: true,
+        redraw: "deferred",
+        syncControllerColors: true,
+      },
+    );
     return true;
   };
 
   clearModulationHistory = () => {
     if ((this._modulationState.historyIndex ?? 0) !== 0) return false;
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
-    this._modulationState = clearModulationHistory(this._modulationState, homeFrame);
-    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._refreshRuntimeDisplayOffset();
-    this.scheduleGridRedraw();
-    this._syncControllerColorsForModulation();
-    this._emitModulationState();
+    this._applyModulationStateTransition(
+      clearModulationHistory(this._modulationState, homeFrame),
+      {
+        refreshRuntimeDisplayOffset: true,
+        redraw: "deferred",
+        syncControllerColors: true,
+      },
+    );
     return true;
   };
 
   resetModulationRouteCounts = () => {
     if (this._modulationState.mode !== "idle") return false;
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
-    this._modulationState = resetModulationRouteCounts(this._modulationState, homeFrame);
-    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this._refreshRuntimeDisplayOffset();
-    this.scheduleGridRedraw();
-    this._syncControllerColorsForModulation();
-    this._emitModulationState();
+    this._applyModulationStateTransition(
+      resetModulationRouteCounts(this._modulationState, homeFrame),
+      {
+        refreshRuntimeDisplayOffset: true,
+        redraw: "deferred",
+        syncControllerColors: true,
+      },
+    );
     return true;
   };
 
@@ -598,15 +615,25 @@ class Keys {
 
   _syncModulationStyleFromSettings(options = {}) {
     const strategy = this._selectedModulationStrategy();
-    this._modulationState.strategy = strategy;
-    this._modulationState.geometryMode = "moveable_surface";
+    const nextState = {
+      ...this._modulationState,
+      strategy,
+      geometryMode: "moveable_surface",
+    };
+    this._modulationState = nextState;
     if (this._modulationState.mode !== "idle") return;
-    this._harmonicFrame = this._frameForHistory(this._modulationState.history);
-    this._modulationState.currentFrame = this._harmonicFrame;
-    this._refreshRuntimeDisplayOffset();
-    if (options.redraw !== false) this.scheduleImmediateGridRedraw();
-    this._syncControllerColorsForModulation();
-    if (options.emit) this._emitModulationState();
+    this._applyModulationStateTransition(
+      {
+        ...this._modulationState,
+        currentFrame: this._frameForHistory(this._modulationState.history),
+      },
+      {
+        refreshRuntimeDisplayOffset: true,
+        redraw: options.redraw === false ? false : "immediate",
+        syncControllerColors: true,
+        emit: options.emit === true,
+      },
+    );
   }
 
   armModulation = (strategy = this._selectedModulationStrategy()) => {
@@ -672,8 +699,49 @@ class Keys {
     });
   }
 
+  _rebaseFrameFundamental(frame, fundamental = this.settings.fundamental) {
+    if (!frame) return frame;
+    const effectiveFundamental =
+      fundamental * Math.pow(2, (frame.transpositionCents ?? 0) / 1200);
+    if (frame.effectiveFundamental === effectiveFundamental) return frame;
+    return {
+      ...frame,
+      effectiveFundamental,
+    };
+  }
+
+  _rebaseModulationFrameFundamentals() {
+    this._harmonicFrame = this._rebaseFrameFundamental(this._harmonicFrame);
+    this._modulationState = {
+      ...this._modulationState,
+      homeFrame: this._rebaseFrameFundamental(this._modulationState.homeFrame),
+      currentFrame: this._rebaseFrameFundamental(this._modulationState.currentFrame),
+      oldFrame: this._rebaseFrameFundamental(this._modulationState.oldFrame),
+      pendingFrame: this._rebaseFrameFundamental(this._modulationState.pendingFrame),
+    };
+  }
+
   _activeFrame() {
     return frameForNewNotes(this._modulationState) ?? this._harmonicFrame;
+  }
+
+  _frameById(frameId) {
+    if (!frameId) return null;
+    const frames = [
+      this._modulationState?.oldFrame,
+      this._modulationState?.pendingFrame,
+      this._modulationState?.currentFrame,
+      this._modulationState?.homeFrame,
+      this._harmonicFrame,
+    ];
+    for (const frame of frames) {
+      if (frame?.id === frameId) return frame;
+    }
+    return null;
+  }
+
+  _frameForSoundingHex(hex) {
+    return this._frameById(hex?._onsetFrameId) ?? this._activeFrame();
   }
 
   getEffectiveFundamental = () => {
@@ -1177,30 +1245,36 @@ class Keys {
       return { suppressNoteOn: false };
     }
     if (decision.type === "cancel") {
-      this._modulationState = decision.nextState;
-      this.scheduleGridRedraw();
-      this._emitModulationState();
+      this._applyModulationStateTransition(decision.nextState, {
+        updateFrame: false,
+        refreshRuntimeDisplayOffset: false,
+        redraw: "deferred",
+        syncControllerColors: false,
+      });
       return { suppressNoteOn: false };
     }
-    this._modulationState = commitModulationTarget(this._modulationState, {
-      targetDegree: decision.targetDegree,
-      pendingFrame: decision.pendingFrame,
-      deltaRSteps: decision.geometryDelta?.deltaRSteps,
-      deltaDrSteps: decision.geometryDelta?.deltaDrSteps,
-      transpositionDeltaCents: decision.transpositionDeltaCents,
-      transpositionRatioText: ratioTextForModulationDelta(
-        this.tuning,
-        this._modulationState.sourceDegree,
-        decision.targetDegree,
-        decision.transpositionDeltaCents,
-      ),
-      sourceStillSounding: decision.sourceStillSounding,
-      articulation: decision.isFixedDo ? "reanchor_hold_source" : undefined,
-    });
-    this._refreshRuntimeDisplayOffset();
-    this.scheduleGridRedraw();
-    this._syncControllerColorsForModulation();
-    this._emitModulationState();
+    this._applyModulationStateTransition(
+      commitModulationTarget(this._modulationState, {
+        targetDegree: decision.targetDegree,
+        pendingFrame: decision.pendingFrame,
+        deltaRSteps: decision.geometryDelta?.deltaRSteps,
+        deltaDrSteps: decision.geometryDelta?.deltaDrSteps,
+        transpositionDeltaCents: decision.transpositionDeltaCents,
+        transpositionRatioText: ratioTextForModulationDelta(
+          this.tuning,
+          this._modulationState.sourceDegree,
+          decision.targetDegree,
+          decision.transpositionDeltaCents,
+        ),
+        sourceStillSounding: decision.sourceStillSounding,
+        articulation: decision.isFixedDo ? "reanchor_hold_source" : undefined,
+      }),
+      {
+        refreshRuntimeDisplayOffset: true,
+        redraw: "deferred",
+        syncControllerColors: true,
+      },
+    );
     return { suppressNoteOn: decision.suppressNoteOn };
   }
 
@@ -1276,12 +1350,16 @@ class Keys {
   _maybeSettleModulation() {
     const settlement = evaluateSettlement(this._modulationState, this._settlementNotesSnapshot());
     if (!settlement.canSettle) return;
-    this._modulationState = settleModulationIfPossible(this._modulationState, {
-      hasLegacyNotes: settlement.hasLegacyNotes,
-    });
-    this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
-    this.scheduleGridRedraw();
-    this._emitModulationState();
+    this._applyModulationStateTransition(
+      settleModulationIfPossible(this._modulationState, {
+        hasLegacyNotes: settlement.hasLegacyNotes,
+      }),
+      {
+        refreshRuntimeDisplayOffset: false,
+        redraw: "deferred",
+        syncControllerColors: false,
+      },
+    );
   }
 
   _settleModulationAfterActiveRelease() {
@@ -1294,24 +1372,7 @@ class Keys {
   }
 
   previewDegree0 = (deltaCents) => {
-    const newCents = deltaCents;
-    const bendOnly = !!this.inputRuntime.mpeInput;
-    for (const hex of this._allActiveHexes()) {
-      const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
-      if (reducedSteps === 0 && hex.retune) {
-        const baseCents = octs * this.tuning.equivInterval + newCents;
-        this._queueRetuneGlide(hex, baseCents, bendOnly);
-      }
-    }
-    for (const [hex] of this.state.sustainedNotes) {
-      const [, reducedSteps, , octs] = this.hexCoordsToCents(hex.coords);
-      if (reducedSteps === 0 && hex.retune) {
-        const baseCents = octs * this.tuning.equivInterval + newCents;
-        this._queueRetuneGlide(hex, baseCents, bendOnly);
-      }
-    }
-    this._refreshSoundingHexNeighbors();
-    this._kickRetuneGlides();
+    this.updateScaleDegree(0, deltaCents);
   };
 
   // Imperatively update the Reference Frequency without rebuilding Keys.
@@ -1412,6 +1473,8 @@ class Keys {
 
   updateFundamental = (newFundamental) => {
     this.settings.fundamental = newFundamental;
+    this._tuningPreviewState = clearFundamentalPreview(this._tuningPreviewState);
+    this._rebaseModulationFrameFundamentals();
     const bendOnly = !!this.inputRuntime.mpeInput;
     // Rebuild MTS tuning map with new fundamental
     this.mts_tuning_map = mtsTuningMap(
@@ -1432,26 +1495,13 @@ class Keys {
       this.tuning.degree0toRef_asArray,
       this.settings.octave_offset || 0,
     );
-    // If a TuneCell drag preview is in progress (or was abandoned without Save/Revert),
-    // _fundamentalSnapshot holds the pre-preview base cents for each hex — the correct
-    // scale-derived pitches before any drag offset was applied.
-    // Using snapshot values here makes updateFundamental order-independent with respect
-    // to previewFundamental(0): it works correctly whether the effect fires before or
-    // after onSave's cleanup call, and also handles abandoned drags where hex.cents
-    // was left at base+delta.
-    const snap = this._fundamentalPreviewSnapshot ?? this._fundamentalSnapshot;
-    this._fundamentalSnapshot = null; // clear — official update supersedes the preview
-    this._fundamentalPreviewSnapshot = null;
     // Update fundamental on all sounding/sustained hex objects, then retune.
     // Both MidiHex and ActiveHex store this.fundamental at construction;
     // we patch it directly so retune() uses the new value.
     const allHexes = [...this._allActiveHexes(), ...[...this.state.sustainedNotes].map(([h]) => h)];
     for (const hex of allHexes) {
       if ("fundamental" in hex) hex.fundamental = newFundamental;
-      const key = hex.coords.x + "," + hex.coords.y;
-      const trueCents = snap
-        ? (snap.get(key) ?? hex._baseCents ?? hex.cents)
-        : (hex._baseCents ?? hex.cents);
+      const [trueCents] = this._liveCentsForHex(hex, false);
       this._queueRetuneGlide(hex, trueCents, bendOnly);
     }
     this._refreshSoundingHexNeighbors();
@@ -1469,35 +1519,26 @@ class Keys {
       const directOut = WebMidi.getOutputById(this.settings.mts_bulk_device);
       if (directOut) this.mtsSendMap(directOut);
     }
+    this._emitModulationState();
   };
 
   _fundamentalSnapshot = null;
   _fundamentalPreviewSnapshot = null;
+  _tuningPreviewState = createTuningPreviewState();
 
   snapshotForFundamentalPreview = () => {
-    this._fundamentalSnapshot = new Map();
-    for (const hex of this._allActiveHexes()) {
-      const existingGlide = this._retuneGlides.get(hex);
-      const baseCents = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
-      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, baseCents);
-    }
-    for (const [hex] of this.state.sustainedNotes) {
-      const existingGlide = this._retuneGlides.get(hex);
-      const baseCents = existingGlide?.targetBase ?? hex._baseCents ?? hex.cents;
-      this._fundamentalSnapshot.set(hex.coords.x + "," + hex.coords.y, baseCents);
-    }
-    this._fundamentalPreviewSnapshot = new Map(this._fundamentalSnapshot);
+    // Fundamental preview now derives from a transient runtime delta rather than
+    // capturing per-hex snapshots. The method remains for API compatibility.
   };
 
   previewFundamental = (deltaCents, clearSnapshot = false) => {
-    const snap = this._fundamentalPreviewSnapshot ?? this._fundamentalSnapshot;
+    this._tuningPreviewState = clearSnapshot
+      ? clearFundamentalPreview(this._tuningPreviewState)
+      : setFundamentalPreview(this._tuningPreviewState, deltaCents);
     const bendOnly = !!this.inputRuntime.mpeInput;
     const applyTo = (hex) => {
-      const key = hex.coords.x + "," + hex.coords.y;
-      const base = snap
-        ? (snap.get(key) ?? hex.cents)
-        : (hex._baseCents ?? hex.cents);
-      this._queueRetuneGlide(hex, base + deltaCents, bendOnly);
+      const [baseCents] = this._liveCentsForHex(hex, true);
+      this._queueRetuneGlide(hex, baseCents, bendOnly);
     };
     for (const hex of this._allActiveHexes()) applyTo(hex);
     for (const [hex] of this.state.sustainedNotes) applyTo(hex);
@@ -2431,24 +2472,44 @@ class Keys {
     return Math.floor(val);
   }
 
-  hexCoordsToCents(coords) {
+  _effectivePreviewScale() {
+    return getEffectiveScaleRuntime(this._previewSource(), this._tuningPreviewState).scale;
+  }
+
+  _effectivePreviewEquivInterval() {
+    return getEffectiveScaleRuntime(this._previewSource(), this._tuningPreviewState).equivInterval;
+  }
+
+  _previewSource(frame = this._activeFrame()) {
+    return {
+      scale: this.tuning.scale,
+      equivInterval: this.tuning.equivInterval,
+      referenceDegree: this.settings.reference_degree ?? 0,
+      fundamental: frame?.effectiveFundamental ?? this.settings.fundamental,
+    };
+  }
+
+  _deriveHexPitch(coords, includeFundamentalPreview = false, frame = this._activeFrame()) {
     let distance = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
-    let octs = this.roundTowardZero(distance / this.tuning.scale.length);
-    let octs_prev = this.roundTowardZero((distance - 1) / this.tuning.scale.length);
-    let octs_next = this.roundTowardZero((distance + 1) / this.tuning.scale.length);
-    let reducedSteps = distance % this.tuning.scale.length;
-    let reducedSteps_prev = (distance - 1) % this.tuning.scale.length;
-    let reducedSteps_next = (distance + 1) % this.tuning.scale.length;
+    const previewRuntime = getEffectiveScaleRuntime(this._previewSource(frame), this._tuningPreviewState);
+    const scale = previewRuntime.scale;
+    const scaleLength = scale.length || 1;
+    let octs = this.roundTowardZero(distance / scaleLength);
+    let octs_prev = this.roundTowardZero((distance - 1) / scaleLength);
+    let octs_next = this.roundTowardZero((distance + 1) / scaleLength);
+    let reducedSteps = distance % scaleLength;
+    let reducedSteps_prev = (distance - 1) % scaleLength;
+    let reducedSteps_next = (distance + 1) % scaleLength;
     if (reducedSteps < 0) {
-      reducedSteps += this.tuning.scale.length;
+      reducedSteps += scaleLength;
       octs -= 1;
     }
     if (reducedSteps_prev < 0) {
-      reducedSteps_prev += this.tuning.scale.length;
+      reducedSteps_prev += scaleLength;
       octs_prev -= 1;
     }
     if (reducedSteps_next < 0) {
-      reducedSteps_next += this.tuning.scale.length;
+      reducedSteps_next += scaleLength;
       octs_next -= 1;
     }
     const live = deriveLiveHexPitch({
@@ -2460,14 +2521,25 @@ class Keys {
       octsPrev: octs_prev,
       octsNext: octs_next,
     }, {
-      scale: this.tuning.scale,
-      scaleLength: this.tuning.scale.length,
+      scale,
+      scaleLength,
       equivSteps: this.tuning.equivSteps,
-      equivInterval: this.tuning.equivInterval,
+      equivInterval: previewRuntime.equivInterval,
       octaveOffset: this.settings.octave_offset || 0,
-      frame: this._activeFrame(),
+      frame,
       geometryMode: this._modulationState?.geometryMode,
     });
+    const previewFundamentalDelta = getFundamentalPreviewDeltaCents(this._tuningPreviewState);
+    if (includeFundamentalPreview && Math.abs(previewFundamentalDelta) > 0.000001) {
+      live.cents += previewFundamentalDelta;
+      live.centsPrev += previewFundamentalDelta;
+      live.centsNext += previewFundamentalDelta;
+    }
+    return live;
+  }
+
+  hexCoordsToCents(coords) {
+    const live = this._deriveHexPitch(coords, false);
     /*  let dataArray = [
       "cents = ", cents,
       "reducedSteps = ", reducedSteps,
@@ -2478,6 +2550,36 @@ class Keys {
       "cents_next = ", cents_next
     ]
     console.log("hexCoordsToCents at coords: ", coords, dataArray); */
+    return [
+      live.cents,
+      live.liveReducedSteps,
+      live.distance,
+      live.octs,
+      live.equivSteps,
+      live.centsPrev,
+      live.centsNext,
+    ];
+  }
+
+  hexCoordsToLiveCents(coords) {
+    const live = this._deriveHexPitch(coords, true);
+    return [
+      live.cents,
+      live.liveReducedSteps,
+      live.distance,
+      live.octs,
+      live.equivSteps,
+      live.centsPrev,
+      live.centsNext,
+    ];
+  }
+
+  _liveCentsForHex(hex, includeFundamentalPreview = true) {
+    const live = this._deriveHexPitch(
+      hex?.coords,
+      includeFundamentalPreview,
+      this._frameForSoundingHex(hex),
+    );
     return [
       live.cents,
       live.liveReducedSteps,

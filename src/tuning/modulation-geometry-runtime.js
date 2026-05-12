@@ -1,10 +1,9 @@
-// This module owns fixed-do geometry deltas on the abstract Hexatone lattice.
-// It normalizes stored route offsets, derives new offsets from source/target
-// coords, accumulates history replay into one live geometry shift, and applies
-// that shift to coords. It does not mutate modulation history or controller
-// anchors; callers supply the route/history data and consume the derived shift.
+// Pure geometry helpers for modulation history/frame derivation.
+//
+// These utilities operate on abstract lattice offsets and stored route
+// metadata. They do not know about live notes, controller state, or UI.
 
-import Point from "./point";
+import Point from "../keyboard/point.js";
 
 function intOrZero(value) {
   return Number.isFinite(value) ? Math.trunc(value) : 0;

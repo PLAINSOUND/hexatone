@@ -526,7 +526,10 @@ export function reapplyCurrentInputBends() {
 
 export function refreshSoundingHexNeighbors() {
   const refresh = (hex) => {
-    const [, , , , , centsPrev, centsNext] = this.hexCoordsToCents(hex.coords);
+    const pitchAtCoords = typeof this.hexCoordsToLiveCents === "function"
+      ? this.hexCoordsToLiveCents(hex.coords)
+      : this.hexCoordsToCents(hex.coords);
+    const [, , , , , centsPrev, centsNext] = pitchAtCoords;
     hex.cents_prev = centsPrev;
     hex.cents_next = centsNext;
   };

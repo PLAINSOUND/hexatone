@@ -3,7 +3,7 @@ import { presets, default_settings } from "./settings/presets/preset_values";
 import { settingsToHexatonScala } from "./settings/scale/parse-scale.js";
 import { loadCustomPresets } from "./settings/presets/custom-presets";
 import { PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
-import { normalizeModulationHistory } from "./keyboard/modulation-runtime.js";
+import { normalizeModulationHistory } from "./tuning/modulation-runtime.js";
 
 export { PRESET_SKIP_KEYS };
 
@@ -145,6 +145,9 @@ const PERSIST_ON_RELOAD_KEY = "hexatone_persist_on_reload";
  * @param {object}   options
  * @param {object}   options.synthRef - Ref to the live synth (for prepare() on preset load)
  * @param {function} options.onUserInteraction - Called to mark the user as having interacted
+ * @param {function} options.bumpImportCount - Bumps the scale reset token so TuneCell preview UI clears
+ * @param {function} options.bumpPresetRuntimeReset - Forces a full musical-surface rebuild/reset
+ *                                                    for sidebar preset refresh actions
  *                                               (required to start AudioContext)
  * @returns {{ activeSource, activePresetName, isPresetDirty,
  *             persistOnReload, setPersistOnReload,
@@ -157,6 +160,8 @@ const usePresets = (
   {
     synthRef,
     onUserInteraction,
+    bumpImportCount,
+    bumpPresetRuntimeReset,
     currentModulationLibrary,
     setPresetModulationLibrary,
     onPresetModulationLibraryLoaded,
@@ -242,6 +247,7 @@ const usePresets = (
       hexSize: scaleHexSizeForScreen(presetData.hexSize),
     };
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
+    bumpImportCount?.();
     const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
@@ -264,6 +270,7 @@ const usePresets = (
       hexSize: scaleHexSizeForScreen(preset.hexSize),
     };
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
+    bumpImportCount?.();
     const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
@@ -303,12 +310,14 @@ const usePresets = (
   const onRevertBuiltin = () => {
     onUserInteraction();
     if (activePresetName) {
+      bumpPresetRuntimeReset?.();
       const presetData = findPreset(activePresetName);
       const adjustedPreset = {
         ...presetData,
         hexSize: scaleHexSizeForScreen(presetData.hexSize),
       };
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
@@ -322,11 +331,13 @@ const usePresets = (
     if (activePresetName) {
       const saved = loadCustomPresets().find((p) => p.name === activePresetName);
       if (saved) {
+        bumpPresetRuntimeReset?.();
         const adjustedPreset = {
           ...saved,
           hexSize: scaleHexSizeForScreen(saved.hexSize),
         };
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
+        bumpImportCount?.();
         const savedLibrary = normalizeModulationHistory(saved.modulation_library, { zeroCounts: true });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);

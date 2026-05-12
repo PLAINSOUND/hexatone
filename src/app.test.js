@@ -17,6 +17,7 @@ import { act } from "preact/test-utils";
 import { parseExactInterval } from "./tuning/interval.js";
 
 let lastKeyboardProps = null;
+let lastUsePresetsOptions = null;
 let mockDetectedController = null;
 let mockControllerById = null;
 
@@ -115,19 +116,22 @@ vi.mock("./use-query", () => ({
   ExtractJoinedString: {},
 }));
 vi.mock("./use-presets.js", () => ({
-  default: () => ({
-    activeSource: "",
-    activePresetName: "",
-    isPresetDirty: false,
-    persistOnReload: false,
-    setPersistOnReload: vi.fn(),
-    presetChanged: vi.fn(),
-    onLoadCustomPreset: vi.fn(),
-    onClearUserPresets: vi.fn(),
-    onRevertBuiltin: vi.fn(),
-    onRevertUser: vi.fn(),
-    onUserScaleEdit: vi.fn(),
-  }),
+  default: (_settings, _setSettings, options) => {
+    lastUsePresetsOptions = options;
+    return {
+      activeSource: "",
+      activePresetName: "",
+      isPresetDirty: false,
+      persistOnReload: false,
+      setPersistOnReload: vi.fn(),
+      presetChanged: vi.fn(),
+      onLoadCustomPreset: vi.fn(),
+      onClearUserPresets: vi.fn(),
+      onRevertBuiltin: vi.fn(),
+      onRevertUser: vi.fn(),
+      onUserScaleEdit: vi.fn(),
+    };
+  },
   SCALE_KEYS_TO_CLEAR: [],
 }));
 vi.mock("./use-import.js", () => ({
@@ -203,10 +207,37 @@ describe("Loading", () => {
 
 beforeEach(() => {
   lastKeyboardProps = null;
+  lastUsePresetsOptions = null;
   mockDetectedController = null;
   mockControllerById = null;
   synthWiringState.linnstrumentRawPorts = null;
   vi.clearAllMocks();
+});
+
+describe("preset runtime reset wiring", () => {
+  it("changes the keyboard reconstruction key only when the sidebar preset refresh path requests it", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    render(<App />);
+
+    await waitFor(() => {
+      expect(lastKeyboardProps).not.toBeNull();
+      expect(lastUsePresetsOptions?.bumpPresetRuntimeReset).toBeTypeOf("function");
+    });
+
+    const initialReconstructionKey = lastKeyboardProps.reconstructionKey;
+
+    await act(async () => {
+      lastUsePresetsOptions.bumpPresetRuntimeReset();
+    });
+
+    await waitFor(() => {
+      expect(lastKeyboardProps.reconstructionKey).not.toBe(initialReconstructionKey);
+    });
+  });
 });
 
 describe("modulationRouteLabelPair", () => {

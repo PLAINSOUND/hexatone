@@ -1,35 +1,67 @@
-import { useState, useEffect, useRef, useCallback } from "preact/hooks";
+import { useEffect, useRef, useCallback } from "preact/hooks";
 import PropTypes from "prop-types";
+import {
+  getFundamentalDeviationCents,
+  isFundamentalComparing,
+} from "../../tuning/tuning-preview-runtime.js";
 
 /**
  * Inline drag-to-tune handle for the Reference Frequency.
  * Drag shifts all sounding notes by the delta in cents.
  * On save: newFundamental = fundamental * 2^(delta/1200). Scale unchanged.
  */
-const FundamentalTuneCell = ({ fundamental, keysRef, onChange }) => {
-  const [deltaCents, setDeltaCents] = useState(null); // null = no drag in progress
-  const [comparing, setComparing] = useState(false);
+const FundamentalTuneCell = ({
+  fundamental,
+  previewState,
+  keysRef,
+  onChange,
+  onPreviewChange,
+  resetToken = 0,
+}) => {
   const dragStart = useRef(null);
   const dragKeysInstance = useRef(null);
+  const previousFundamental = useRef(fundamental);
+  const previousResetToken = useRef(resetToken);
+  const previousDirty = useRef(false);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const currentKeys = keysRef?.current ?? null;
+    return () => {
+      if (currentKeys?.previewFundamental) currentKeys.previewFundamental(0, true);
       if (dragKeysInstance.current?.setTuneDragging)
         dragKeysInstance.current.setTuneDragging(false);
-    },
-    [],
-  );
+    };
+  }, [keysRef]);
 
+  const deltaCents = getFundamentalDeviationCents(previewState);
+  const comparing = isFundamentalComparing(previewState);
   const isDirty = deltaCents !== null && Math.abs(deltaCents) > 0.001;
   const delta = isDirty ? deltaCents : 0;
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}¢` : `${delta.toFixed(1)}¢`;
 
+  useEffect(() => {
+    const fundamentalChanged = previousFundamental.current !== fundamental;
+    const resetTokenChanged = previousResetToken.current !== resetToken;
+    previousFundamental.current = fundamental;
+    previousResetToken.current = resetToken;
+    const previewClearedExternally = previousDirty.current && !isDirty;
+    previousDirty.current = isDirty;
+    if (
+      !fundamentalChanged &&
+      !resetTokenChanged &&
+      !previewClearedExternally
+    ) {
+      return;
+    }
+    if (keysRef?.current?.previewFundamental) keysRef.current.previewFundamental(0, true);
+  }, [fundamental, resetToken, isDirty, keysRef]);
+
   const onCompare = useCallback(() => {
     const next = !comparing;
-    setComparing(next);
+    onPreviewChange?.(deltaCents, next);
     if (keysRef?.current?.previewFundamental)
       keysRef.current.previewFundamental(next ? 0 : deltaCents);
-  }, [comparing, deltaCents, keysRef]);
+  }, [comparing, deltaCents, keysRef, onPreviewChange]);
 
   const onPointerDown = useCallback(
     (e) => {
@@ -56,10 +88,10 @@ const FundamentalTuneCell = ({ fundamental, keysRef, onChange }) => {
       const newDelta = dragStart.current.acc + Math.sign(dx) * sensitivity;
       dragStart.current.lastX = e.clientX;
       dragStart.current.acc = newDelta;
-      setDeltaCents(newDelta);
+      onPreviewChange?.(newDelta, false);
       if (keysRef?.current?.previewFundamental) keysRef.current.previewFundamental(newDelta);
     },
-    [keysRef],
+    [keysRef, onPreviewChange],
   );
 
   const onPointerUp = useCallback(() => {
@@ -75,16 +107,14 @@ const FundamentalTuneCell = ({ fundamental, keysRef, onChange }) => {
     onChange("fundamental", newFundamental);
     // Restore notes to their scale-derived pitch — Keys rebuild will use new fundamental.
     // clearSnapshot=true ends the drag session; updateFundamental in keys.js also clears it.
-    setDeltaCents(null);
-    setComparing(false);
-  }, [deltaCents, fundamental, onChange]);
+    onPreviewChange?.(null, false);
+  }, [deltaCents, fundamental, onChange, onPreviewChange]);
 
   const onRevert = useCallback(() => {
     // clearSnapshot=true ends the drag session so the snapshot is not reused.
     if (keysRef?.current?.previewFundamental) keysRef.current.previewFundamental(0, true);
-    setDeltaCents(null);
-    setComparing(false);
-  }, [keysRef]);
+    onPreviewChange?.(null, false);
+  }, [keysRef, onPreviewChange]);
 
   return (
     <div class="tune-cell--inline">
@@ -136,8 +166,15 @@ const FundamentalTuneCell = ({ fundamental, keysRef, onChange }) => {
 
 FundamentalTuneCell.propTypes = {
   fundamental: PropTypes.number.isRequired,
+  previewState: PropTypes.shape({
+    fundamentalDeltaCents: PropTypes.number,
+    fundamentalComparing: PropTypes.bool,
+    degreePreviews: PropTypes.object,
+  }),
   keysRef: PropTypes.object,
   onChange: PropTypes.func.isRequired,
+  onPreviewChange: PropTypes.func,
+  resetToken: PropTypes.number,
 };
 
 export default FundamentalTuneCell;
