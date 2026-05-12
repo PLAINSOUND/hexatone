@@ -675,6 +675,65 @@ describe("Keys MIDI input integration", () => {
     expect(sourceHex.fundamental).toBeCloseTo(newFundamental, 8);
   });
 
+  it("keeps old sustained notes in the old frame while a new pending-frame note retunes separately", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        fundamental: 440,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        keyCodeToCoords: {},
+      },
+      {},
+      synth,
+    );
+
+    const oldA = keys.hexOn(new Point(0, 0));
+    const oldB = keys.hexOn(new Point(4, 0));
+    keys.state.activeKeyboard.set("KeyA", oldA);
+    keys.state.activeKeyboard.set("KeyB", oldB);
+    keys.sustainOn();
+
+    expect(keys.armModulation()).toBe(true);
+    const targetHex = keys.hexOn(new Point(7, 0));
+    keys.state.activeKeyboard.set("KeyC", targetHex);
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+
+    keys.state.activeKeyboard.delete("KeyA");
+    keys.state.activeKeyboard.delete("KeyB");
+    keys.state.sustainedNotes.push([oldA, 0], [oldB, 0]);
+    keys.state.sustainedCoords.add("0,0");
+    keys.state.sustainedCoords.add("4,0");
+
+    const newHex = keys.hexOn(new Point(1, 0));
+    keys.state.activeKeyboard.set("KeyD", newHex);
+
+    expect(oldA._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
+    expect(oldB._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
+    expect(newHex._onsetFrameId).toBe(keys.getModulationState().pendingFrame?.id);
+
+    keys.previewFundamental(50);
+
+    expect(keys._liveCentsForHex(oldA)[0]).toBeCloseTo(50, 5);
+    expect(keys._liveCentsForHex(oldB)[0]).toBeCloseTo(450, 5);
+    const newHexPreview = keys._liveCentsForHex(newHex)[0];
+
+    const newFundamental = 440 * Math.pow(2, 50 / 1200);
+    keys.updateFundamental(newFundamental);
+
+    expect(oldA.cents).toBeCloseTo(0, 5);
+    expect(oldB.cents).toBeCloseTo(400, 5);
+    expect(newHex.cents).toBeCloseTo(newHexPreview - 50, 5);
+  });
+
   it("requires overlap and suppresses the target note for fixed-do sequential modulation", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({

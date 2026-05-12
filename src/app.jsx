@@ -7,8 +7,16 @@ import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import {
   createHarmonicFrame,
-  deriveDegreeColorsForFrame,
+  deriveActiveHejiFrame,
   deriveCurrentFundamentalForHistory,
+  deriveCurrentFundamentalSummary,
+  deriveDegreeColorsForFrame,
+  deriveHejiLabelsForFrame,
+  getActiveModulationHistory,
+  hasActiveModulationHistory,
+  modulationEntryDisplayText,
+  modulationHistoryKey,
+  modulationRouteLabelPair,
   replayModulationHistoryForFrame,
   spellWorkspaceForFrame,
 } from "./tuning/modulation-frame-runtime.js";
@@ -202,123 +210,6 @@ export function commitModulationHistoryToPreset(settings, tuningWorkspace, histo
   };
 }
 
-function formatSignedWholeCents(value) {
-  if (!Number.isFinite(value)) return "0¢";
-  const rounded = Math.round(value);
-  const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
-  return `${sign}${Math.abs(rounded)}¢`;
-}
-
-function routeTranspositionDeltaCents(entry) {
-  const storedDelta = Number(entry?.transpositionDeltaCents);
-  if (Number.isFinite(storedDelta)) return storedDelta;
-  if (typeof entry?.transpositionRatioText !== "string") return null;
-  const parsed = parseExactInterval(entry.transpositionRatioText.trim());
-  return Number.isFinite(parsed?.cents) ? parsed.cents : null;
-}
-
-function ratioAdjustedToCentsText(ratio, ratioCents, deltaCents, tuningWorkspace) {
-  const equaveRatio = tuningWorkspace?.baseScale?.equaveInterval?.ratio ?? null;
-  const equaveCents = tuningWorkspace?.baseScale?.equaveCents ?? 1200;
-  if (
-    !ratio ||
-    !equaveRatio ||
-    !Number.isFinite(ratioCents) ||
-    !Number.isFinite(deltaCents) ||
-    !Number.isFinite(equaveCents) ||
-    Math.abs(equaveCents) < 0.000001
-  ) {
-    return ratio?.toFraction ? ratio.toFraction() : null;
-  }
-  const equavePower = Math.round((deltaCents - ratioCents) / equaveCents);
-  const displaced = equavePower > 0
-    ? ratio.mul(equaveRatio.pow(equavePower))
-    : equavePower < 0
-      ? ratio.div(equaveRatio.pow(Math.abs(equavePower)))
-      : ratio;
-  const text = displaced?.toFraction ? displaced.toFraction() : null;
-  return text && !text.includes("/") ? `${text}/1` : text;
-}
-
-function routeTranspositionRatioText(entry, tuningWorkspace) {
-  if (typeof entry?.transpositionRatioText === "string" && entry.transpositionRatioText.trim()) {
-    return entry.transpositionRatioText.trim();
-  }
-  const deltaCents = routeTranspositionDeltaCents(entry);
-  const sourceSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.sourceDegree);
-  const targetSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.targetDegree);
-  const sourceRatio = sourceSlot?.committedIdentity?.ratio ?? null;
-  const targetRatio = targetSlot?.committedIdentity?.ratio ?? null;
-  const sourceCents = sourceSlot?.committedIdentity?.cents ?? sourceSlot?.cents ?? null;
-  const targetCents = targetSlot?.committedIdentity?.cents ?? targetSlot?.cents ?? null;
-  if (!sourceRatio || !targetRatio) return null;
-  const ratio = sourceRatio.div(targetRatio);
-  const ratioCents =
-    Number.isFinite(sourceCents) && Number.isFinite(targetCents)
-      ? sourceCents - targetCents
-      : null;
-  return ratioAdjustedToCentsText(ratio, ratioCents, deltaCents, tuningWorkspace);
-}
-
-function formatMonzoTextFromRatioText(ratioText) {
-  if (typeof ratioText !== "string" || !ratioText.trim()) return null;
-  const parsed = parseExactInterval(ratioText.trim());
-  if (!Array.isArray(parsed?.monzo)) return null;
-  const monzo = [...parsed.monzo];
-  while (monzo.length > 1 && monzo[monzo.length - 1] === 0) monzo.pop();
-  return `[${monzo.join(" ")}>`;
-}
-
-function modulationEntryDisplayText(entry, tuningWorkspace) {
-  return modulationCurrentSummaryDisplay({
-    ratioText: routeTranspositionRatioText(entry, tuningWorkspace),
-    cents: routeTranspositionDeltaCents(entry),
-  });
-}
-
-function formatEquaveOffset(offset) {
-  if (!Number.isFinite(offset) || offset === 0) return "";
-  return `[${offset > 0 ? "+" : ""}${offset}eq]`;
-}
-
-function modulationRouteEquaveOffset(entry, tuningWorkspace) {
-  const transpositionDeltaCents = routeTranspositionDeltaCents(entry);
-  const sourceSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.sourceDegree);
-  const targetSlot = tuningWorkspace?.lookup?.byDegree?.get(entry?.targetDegree);
-  const equaveCents = tuningWorkspace?.baseScale?.equaveCents ?? 1200;
-  if (
-    !Number.isFinite(transpositionDeltaCents) ||
-    !Number.isFinite(sourceSlot?.cents) ||
-    !Number.isFinite(targetSlot?.cents) ||
-    !Number.isFinite(equaveCents) ||
-    Math.abs(equaveCents) < 0.000001
-  ) {
-    return 0;
-  }
-
-  const reducedDeltaCents = sourceSlot.cents - targetSlot.cents;
-  return Math.round((reducedDeltaCents - transpositionDeltaCents) / equaveCents);
-}
-
-export function modulationCurrentSummaryDisplay(summary) {
-  if (!summary) return "";
-  const centsText = formatSignedWholeCents(summary.cents);
-  const monzoText = formatMonzoTextFromRatioText(summary.ratioText);
-  if (!monzoText) return centsText;
-  return `${monzoText} (${centsText})`;
-}
-
-export function modulationRouteLabelPair(entry, degreeLabel, tuningWorkspace) {
-  const sourceLabel = degreeLabel(entry?.sourceDegree);
-  const fallbackTargetLabel = degreeLabel(entry?.targetDegree);
-  const equaveOffset = modulationRouteEquaveOffset(entry, tuningWorkspace);
-
-  return {
-    sourceLabel,
-    targetLabel: `${fallbackTargetLabel}${formatEquaveOffset(equaveOffset)}`,
-  };
-}
-
 export function bindControllerLedRefs(keys, bindings = {}) {
   if (!keys) return;
 
@@ -382,24 +273,6 @@ function snapshotModulationState(state) {
   };
 }
 
-function modulationHistoryKey(history = []) {
-  if (!Array.isArray(history) || history.length === 0) return "";
-  return history
-    .map((entry) => [
-      entry?.sourceDegree ?? "",
-      entry?.targetDegree ?? "",
-      entry?.strategy ?? "",
-      Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0,
-      Number.isFinite(Number(entry?.transpositionDeltaCents))
-        ? Number(entry.transpositionDeltaCents)
-        : "",
-      entry?.transpositionRatioText ?? "",
-      Number.isFinite(Number(entry?.deltaRSteps)) ? Math.trunc(entry.deltaRSteps) : "",
-      Number.isFinite(Number(entry?.deltaDrSteps)) ? Math.trunc(entry.deltaDrSteps) : "",
-    ].join(":"))
-    .join("|");
-}
-
 function presetModulationSnapshot(history = []) {
   return snapshotModulationState({
     mode: "idle",
@@ -422,6 +295,11 @@ function presetModulationSnapshot(history = []) {
     },
   });
 }
+
+export {
+  modulationCurrentSummaryDisplay,
+  modulationRouteLabelPair,
+} from "./tuning/modulation-frame-runtime.js";
 
 const ua = navigator.userAgent;
 const isSafariOnly =
@@ -1000,14 +878,15 @@ const App = () => {
     [deferredModulationHistory],
   );
   const activeDeferredModulationKey = useMemo(
-    () => modulationHistoryKey(deferredModulationHistory.filter((entry) => {
-      const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
-      return count !== 0;
-    })),
+    () => modulationHistoryKey(getActiveModulationHistory(deferredModulationHistory)),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
     [deferredModulationHistoryKey],
   );
-  const hasActiveDeferredModulation = activeDeferredModulationKey !== "";
+  const hasActiveDeferredModulation = useMemo(
+    () => hasActiveModulationHistory(deferredModulationHistory),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
+    [deferredModulationHistoryKey],
+  );
   const activeModulationLibrary = useMemo(
     () => modulationState?.history ?? presetModulationLibrary,
     [modulationState, presetModulationLibrary],
@@ -1021,14 +900,9 @@ const App = () => {
   );
   const modulationPaletteVisible = modulationHistory.length > 0;
   const currentFundamentalSummary = useMemo(() => {
-    if (!tuningWorkspace) return null;
-    const derived = deriveCurrentFundamentalForHistory(tuningWorkspace, deferredModulationHistory, {
+    return deriveCurrentFundamentalSummary(tuningWorkspace, deferredModulationHistory, {
       fundamental: settings.fundamental,
     });
-    return {
-      ...derived,
-      display: modulationCurrentSummaryDisplay(derived),
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so palette clicks do not synchronously re-render modulation-dependent table displays.
   }, [tuningWorkspace, activeDeferredModulationKey, settings.fundamental]);
   const modulationPaletteTitle = useMemo(() => {
@@ -1444,33 +1318,16 @@ const App = () => {
   );
 
   const activeHejiFrame = useMemo(() => {
-    if (
-      !hasActiveDeferredModulation ||
-      !structuralSettings.heji ||
-      structuralSettings.heji_supported === false ||
-      !tuningWorkspace ||
-      !structuralSettings.heji_anchor_label_effective
-    ) {
-      return null;
-    }
-
-    const baseFrame = createHarmonicFrame(tuningWorkspace, {
-      anchorDegree: structuralSettings.reference_degree ?? 0,
-      anchorLabel: structuralSettings.heji_anchor_label_effective,
-      anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
-      anchorInterval: parseExactInterval(String(structuralSettings.heji_anchor_ratio_effective || "1/1")),
-      referenceDegree: structuralSettings.reference_degree ?? 0,
-      strategy: "anchor_substitution",
-      generation: 0,
-    });
-    return replayModulationHistoryForFrame(
+    return deriveActiveHejiFrame(
       tuningWorkspace,
-      baseFrame,
       deferredModulationHistory,
       {
-        suppressDeviation: true,
+        hejiEnabled: structuralSettings.heji,
+        hejiSupported: structuralSettings.heji_supported,
+        anchorLabel: structuralSettings.heji_anchor_label_effective,
+        anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
+        referenceDegree: structuralSettings.reference_degree ?? 0,
         temperedOnly: settings.heji_tempered_only === true,
-        forceShowZeroDeviation: false,
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
@@ -1492,11 +1349,11 @@ const App = () => {
         tuningWorkspace &&
         activeHejiFrame
       ) {
-        liveHejiNames = spellWorkspaceForFrame(tuningWorkspace, activeHejiFrame, {
+        liveHejiNames = deriveHejiLabelsForFrame(tuningWorkspace, activeHejiFrame, {
           suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
           temperedOnly: hejiTemperedOnly,
           forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
-        }).labelsByDegree;
+        });
       }
 
       return {
@@ -1533,11 +1390,11 @@ const App = () => {
       return structuralSettings.heji_names ?? labelSettings.heji_names;
     }
 
-    return spellWorkspaceForFrame(tuningWorkspace, activeHejiFrame, {
+    return deriveHejiLabelsForFrame(tuningWorkspace, activeHejiFrame, {
       suppressDeviation: false,
       temperedOnly: settings.heji_tempered_only === true,
       forceShowZeroDeviation: settings.heji_tempered_only === true,
-    }).labelsByDegree;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
   }, [structuralSettings, tuningWorkspace, activeHejiFrame, activeDeferredModulationKey, hasActiveDeferredModulation, settings.heji_tempered_only, labelSettings.heji_names]);
 
