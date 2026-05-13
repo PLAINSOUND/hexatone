@@ -80,7 +80,10 @@ import {
   hasLegacyFrameNotes,
   normalizeSettlementNotes,
 } from "./note-context-runtime.js";
-import { deriveModulationIdentityForHistory } from "../tuning/modulation-frame-runtime.js";
+import {
+  deriveModulationIdentityForHistory,
+  modulationHistoryKey,
+} from "../tuning/modulation-frame-runtime.js";
 
 function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpositionDeltaCents) {
   const sourceRatio = tuning?.degreeIntervals?.[sourceDegree]?.ratio ?? null;
@@ -302,6 +305,15 @@ class Keys {
     }
     this._channelPressureValue = 0;
     this._frameGeneration = 0;
+    this._liveScaleTableVersion = 0;
+    this._liveScaleTableListeners = new Set();
+    this._effectiveScaleRuntimeCache = new Map();
+    this._modulationIdentityKey = "";
+    this._modulationIdentity = {
+      cents: 0,
+      ratioText: null,
+      monzo: null,
+    };
     this._lastPlayedDegree = this.settings.reference_degree ?? 0;
     const homeFrame = this._makeFrameForDegree(this.settings.reference_degree ?? 0);
     this._harmonicFrame = homeFrame;
@@ -320,6 +332,7 @@ class Keys {
       this._modulationState.historyIndex = this._modulationState.currentRoute?.count ?? 0;
       Object.assign(this.settings, this._anchorSettingsFromHistory(initialModulationHistory));
     }
+    this._refreshCachedModulationIdentity();
     if (this.settings.modulation_style === "fixed_do") {
       this.settings.runtime_display_offset_x = this._modulationState.currentFrame?.geometryShiftRSteps ?? 0;
       this.settings.runtime_display_offset_y = this._modulationState.currentFrame?.geometryShiftDrSteps ?? 0;
@@ -426,17 +439,18 @@ class Keys {
     for (const hex of this._allActiveHexes()) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
-        const [baseCents] = this.hexCoordsToLiveCents(hex.coords);
+        const [baseCents] = this._liveCentsForHex(hex);
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
     for (const [hex] of this.state.sustainedNotes) {
       const [, reducedSteps] = this.hexCoordsToCents(hex.coords);
       if (reducedSteps === degree && hex.retune) {
-        const [baseCents] = this.hexCoordsToLiveCents(hex.coords);
+        const [baseCents] = this._liveCentsForHex(hex);
         this._queueRetuneGlide(hex, baseCents, bendOnly);
       }
     }
+    if (this._hasSoundingNotes()) this._bumpLiveScaleTableVersion();
     this._refreshSoundingHexNeighbors();
     this._kickRetuneGlides();
     this.scheduleGridRedraw();
@@ -496,6 +510,7 @@ class Keys {
 
   _applyModulationStateTransition(nextState, options = {}) {
     this._modulationState = nextState;
+    this._refreshCachedModulationIdentity();
     if (options.updateFrame !== false) {
       this._harmonicFrame = this._modulationState.currentFrame ?? this._harmonicFrame;
     }
@@ -726,9 +741,44 @@ class Keys {
     return frameForNewNotes(this._modulationState) ?? this._harmonicFrame;
   }
 
+  _effectiveScaleRuntimeForFrame(frame = this._activeFrame()) {
+    const frameId = frame?.id ?? "__default__";
+    const effectiveFundamental = frame?.effectiveFundamental ?? this.settings.fundamental;
+    const cached = this._effectiveScaleRuntimeCache.get(frameId);
+    if (
+      cached &&
+      cached.previewState === this._tuningPreviewState &&
+      cached.scale === this.tuning.scale &&
+      cached.equivInterval === this.tuning.equivInterval &&
+      cached.referenceDegree === (this.settings.reference_degree ?? 0) &&
+      cached.effectiveFundamental === effectiveFundamental
+    ) {
+      return cached.runtime;
+    }
+    const runtime = getEffectiveScaleRuntime(this._previewSource(frame), this._tuningPreviewState);
+    this._effectiveScaleRuntimeCache.set(frameId, {
+      previewState: this._tuningPreviewState,
+      scale: this.tuning.scale,
+      equivInterval: this.tuning.equivInterval,
+      referenceDegree: this.settings.reference_degree ?? 0,
+      effectiveFundamental,
+      runtime,
+    });
+    return runtime;
+  }
+
+  _refreshCachedModulationIdentity() {
+    const history = this._modulationState?.history ?? [];
+    const nextKey = modulationHistoryKey(history);
+    if (nextKey === this._modulationIdentityKey) return;
+    this._modulationIdentityKey = nextKey;
+    this._modulationIdentity = deriveModulationIdentityForHistory(history);
+  }
+
   _createNoteContext(frame = this._activeFrame(), geometryMode = this._modulationState?.geometryMode) {
     if (!frame) return null;
-    const modulationIdentity = deriveModulationIdentityForHistory(this._modulationState?.history ?? []);
+    this._refreshCachedModulationIdentity();
+    const modulationIdentity = this._modulationIdentity;
     return {
       frameId: frame.id ?? null,
       frame,
@@ -737,7 +787,7 @@ class Keys {
       effectiveFundamental: frame.effectiveFundamental ?? this.settings.fundamental,
       ratioText: modulationIdentity.ratioText,
       monzo: Array.isArray(modulationIdentity.monzo) ? [...modulationIdentity.monzo] : null,
-      hejiNames: Array.isArray(this.settings.heji_names) ? [...this.settings.heji_names] : null,
+      displayLabel: null,
     };
   }
 
@@ -770,18 +820,104 @@ class Keys {
     return hex?._noteContext?.geometryMode ?? this._modulationState?.geometryMode;
   }
 
-  _labelSettingsForNoteContext(noteContext) {
-    if (this.settings.key_labels !== "heji") return this.settings;
-    if (!Array.isArray(noteContext?.hejiNames)) return this.settings;
-    return {
-      ...this.settings,
-      heji_names: noteContext.hejiNames,
-    };
+  _labelSettingsForNoteContext() {
+    return this.settings;
   }
 
   _labelSettingsForSoundingHex(hex) {
     return this._labelSettingsForNoteContext(hex?._noteContext);
   }
+
+  _bumpLiveScaleTableVersion() {
+    if (this._liveScaleTableListeners.size === 0) return;
+    this._liveScaleTableVersion += 1;
+    const snapshot = this.getLiveScaleTableSnapshot();
+    for (const listener of this._liveScaleTableListeners) {
+      listener(snapshot);
+    }
+  }
+
+  getLiveScaleTableVersion = () => this._liveScaleTableVersion;
+
+  subscribeLiveScaleTable(listener) {
+    if (typeof listener !== "function") return () => {};
+    this._liveScaleTableListeners.add(listener);
+    listener(this.getLiveScaleTableSnapshot());
+    return () => {
+      this._liveScaleTableListeners.delete(listener);
+    };
+  }
+
+  _frequencyForHex(hex) {
+    if (!hex) return null;
+    const fundamental = hex.fundamental ?? hex._noteContext?.effectiveFundamental ?? this.settings.fundamental;
+    const degree0ToReferenceCents = this.tuning.degree0toRef_asArray?.[0] ?? 0;
+    if (!Number.isFinite(fundamental) || !Number.isFinite(hex.cents)) return null;
+    return fundamental * Math.pow(2, (hex.cents - degree0ToReferenceCents) / 1200);
+  }
+
+  _liveScaleTableRowForHex(hex) {
+    const degree = this._degreeForHex(hex);
+    if (!Number.isFinite(degree)) return null;
+    const displayLabel = this.getDisplayLabelAtCoords(hex.coords, {
+      frame: this._frameForSoundingHex(hex),
+      geometryMode: this._geometryModeForSoundingHex(hex),
+      settings: this._labelSettingsForSoundingHex(hex),
+    });
+    return {
+      degree,
+      frequencyHz: this._frequencyForHex(hex),
+      displayLabel: hex?._noteContext?.displayLabel ?? displayLabel,
+      ratioText: hex?._noteContext?.ratioText ?? null,
+      monzo: Array.isArray(hex?._noteContext?.monzo) ? [...hex._noteContext.monzo] : null,
+    };
+  }
+
+  getLiveScaleTableSnapshot = () => {
+    const seen = new Set();
+    const rowsByDegree = {};
+    const sameMonzo = (a, b) => {
+      if (a === b) return true;
+      if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+      return a.every((value, index) => value === b[index]);
+    };
+    const pushHex = (hex) => {
+      if (!hex?.coords || seen.has(hex)) return;
+      seen.add(hex);
+      const row = this._liveScaleTableRowForHex(hex);
+      if (!row) return;
+      const key = String(row.degree);
+      const current = rowsByDegree[key];
+      if (!current) {
+        rowsByDegree[key] = {
+          degree: row.degree,
+          frequencyHz: row.frequencyHz,
+          displayLabel: row.displayLabel,
+          ratioText: row.ratioText,
+          monzo: row.monzo,
+          noteCount: 1,
+          mixed: false,
+        };
+        return;
+      }
+      current.noteCount += 1;
+      const sameLabel = current.displayLabel === row.displayLabel;
+      const sameRatio = current.ratioText === row.ratioText;
+      const sameFrequency =
+        Number.isFinite(current.frequencyHz) &&
+        Number.isFinite(row.frequencyHz) &&
+        Math.abs(current.frequencyHz - row.frequencyHz) < 0.0005;
+      if (!sameLabel || !sameRatio || !sameFrequency || !sameMonzo(current.monzo, row.monzo)) {
+        current.mixed = true;
+      }
+    };
+    for (const hex of this._allActiveHexes()) pushHex(hex);
+    for (const [hex] of this.state.sustainedNotes) pushHex(hex);
+    return {
+      version: this._liveScaleTableVersion,
+      rowsByDegree,
+    };
+  };
 
   getEffectiveFundamental = () => {
     return this._activeFrame()?.effectiveFundamental ?? this.settings.fundamental;
@@ -823,7 +959,7 @@ class Keys {
             ratioText: hex._noteContext.ratioText ?? null,
             monzo: Array.isArray(hex._noteContext.monzo) ? [...hex._noteContext.monzo] : null,
             geometryMode: hex._noteContext.geometryMode ?? null,
-            hejiNames: Array.isArray(hex._noteContext.hejiNames) ? [...hex._noteContext.hejiNames] : null,
+            displayLabel: hex._noteContext.displayLabel ?? null,
           }
           : null,
       });
@@ -834,6 +970,7 @@ class Keys {
   };
 
   _emitLiveNoteDisplayState() {
+    this._bumpLiveScaleTableVersion();
     if (!this.onLiveNoteStateChange) return;
     this.onLiveNoteStateChange(this.getLiveNoteDisplayState());
   }
@@ -1582,6 +1719,7 @@ class Keys {
       const [trueCents] = this._liveCentsForHex(hex, false);
       this._queueRetuneGlide(hex, trueCents, bendOnly);
     }
+    if (allHexes.length > 0) this._bumpLiveScaleTableVersion();
     this._refreshSoundingHexNeighbors();
     this._kickRetuneGlides();
     // Re-send tuning map if auto-send is enabled for the relevant output
@@ -1620,6 +1758,7 @@ class Keys {
     };
     for (const hex of this._allActiveHexes()) applyTo(hex);
     for (const [hex] of this.state.sustainedNotes) applyTo(hex);
+    if (this._hasSoundingNotes()) this._bumpLiveScaleTableVersion();
     this._refreshSoundingHexNeighbors();
     this._kickRetuneGlides();
     if (clearSnapshot) {
@@ -2578,7 +2717,7 @@ class Keys {
     geometryMode = this._modulationState?.geometryMode,
   ) {
     let distance = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
-    const previewRuntime = getEffectiveScaleRuntime(this._previewSource(frame), this._tuningPreviewState);
+    const previewRuntime = this._effectiveScaleRuntimeForFrame(frame);
     const scale = previewRuntime.scale;
     const scaleLength = scale.length || 1;
     let octs = this.roundTowardZero(distance / scaleLength);

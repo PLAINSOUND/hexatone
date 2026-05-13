@@ -89,6 +89,12 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
 
   const degree0toRef_ratio = keys.tuning.degree0toRef_asArray[1];
   const noteContext = keys._createNoteContext(frameForNewNotes(keys._modulationState));
+  if (noteContext) {
+    noteContext.displayLabel = keys.getDisplayLabelAtCoords(coords, {
+      frame: noteContext.frame,
+      geometryMode: noteContext.geometryMode,
+    });
+  }
   const hex = keys.synth.makeHex(
     coords,
     cents,

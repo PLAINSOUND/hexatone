@@ -738,6 +738,56 @@ describe("Keys MIDI input integration", () => {
     expect(newHex.cents).toBeCloseTo(newHexPreview - 50, 5);
   });
 
+  it("retunes a sustained old-frame degree-0 note in place during degree-0 preview after modulation", () => {
+    vi.useFakeTimers();
+    try {
+      const synth = {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          retune(newCents) {
+            this.cents = newCents;
+          },
+        })),
+      };
+      const keys = createKeys(
+        {
+          key_labels: "heji",
+        },
+        {},
+        synth,
+      );
+
+      const oldHex = keys.hexOn(new Point(0, 0));
+      keys.state.activeKeyboard.set("KeyA", oldHex);
+      keys.sustainOn();
+
+      expect(keys.armModulation()).toBe(true);
+      const targetHex = keys.hexOn(new Point(7, 0));
+      keys.state.activeKeyboard.set("KeyB", targetHex);
+      expect(keys.getModulationState().mode).toBe("pending_settlement");
+
+      keys.state.activeKeyboard.delete("KeyA");
+      keys.state.sustainedNotes.push([oldHex, 0]);
+      keys.state.sustainedCoords.add("0,0");
+
+      const futurePitchBefore = keys.hexCoordsToLiveCents(new Point(0, 0))[0];
+      expect(oldHex._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
+      expect(futurePitchBefore).not.toBeCloseTo(oldHex.cents, 5);
+
+      keys.previewDegree0(50);
+      vi.advanceTimersByTime(800);
+
+      expect(keys._liveCentsForHex(oldHex)[0]).toBeCloseTo(50, 5);
+      expect(oldHex.cents).toBeCloseTo(50, 0);
+      expect(keys.hexCoordsToLiveCents(new Point(0, 0))[0]).toBeCloseTo(futurePitchBefore + 50, 5);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stores cumulative rational modulation identity in new note contexts when available", () => {
     const keys = createKeys();
     const exactInterval = parseExactInterval("15/8");

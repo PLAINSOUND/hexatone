@@ -27,10 +27,10 @@ export function scheduleGridRedraw() {
       this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 25);
       return;
     }
-    this._gridRedrawRaf = requestAnimationFrame(() => {
-      this._gridRedrawRaf = null;
+    this._gridRedrawTimer = setTimeout(() => {
+      this._gridRedrawTimer = null;
       this.drawGrid();
-    });
+    }, 0);
   };
   this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 0);
 }
@@ -41,11 +41,11 @@ export function scheduleImmediateGridRedraw() {
     clearTimeout(this._gridRedrawTimer);
     this._gridRedrawTimer = null;
   }
-  if (this._gridRedrawRaf != null) return;
-  this._gridRedrawRaf = requestAnimationFrame(() => {
-    this._gridRedrawRaf = null;
+  if (this._gridRedrawTimer != null) return;
+  this._gridRedrawTimer = setTimeout(() => {
+    this._gridRedrawTimer = null;
     this.drawGrid();
-  });
+  }, 0);
 }
 
 export function coordKey(coords) {
@@ -263,6 +263,7 @@ export function drawSoundingHex(hex) {
     frame: this._frameForSoundingHex(hex),
     geometryMode: this._geometryModeForSoundingHex(hex),
     labelSettings: this._labelSettingsForSoundingHex(hex),
+    displayLabel: hex?._noteContext?.displayLabel ?? undefined,
   });
 }
 
@@ -346,13 +347,13 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   if (!labelSettings.no_labels || labelSettings.equaves) {
     const name = labelSettings.no_labels
       ? ""
-      : displayLabelForDegree(reducedNote, {
+      : (options.displayLabel ?? displayLabelForDegree(reducedNote, {
         settings: labelSettings,
         frame: options.frame ?? this._activeFrame(),
         geometryMode: options.geometryMode ?? this._modulationState?.geometryMode,
         scaleLength: equivSteps,
         scale: this.tuning.scale,
-      });
+      }));
 
     if (name) {
       context.save();

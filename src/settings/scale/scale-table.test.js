@@ -300,6 +300,66 @@ describe("ScaleTable — table structure", () => {
     expect(screen.getByLabelText("pitch frequency 0").style.color).toBe("");
   });
 
+  it("overrides a handoff row with live HEJI and frequency data when the live note is unambiguous", () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, key_labels: "heji", fundamental: 440, reference_degree: 9 }}
+        heji_names={["F−8", ...scale_names.slice(1)]}
+        modulation_transposition_cents={1200}
+        modulation_display_active={true}
+        liveScaleTableSnapshot={{
+          version: 1,
+          rowsByDegree: {
+            0: {
+              degree: 0,
+              frequencyHz: 261.625565,
+              displayLabel: "C−6",
+              ratioText: "1/1",
+              monzo: [0, 0, 0],
+              noteCount: 1,
+              mixed: false,
+            },
+          },
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("pitch frequency 0").value).toBe("261.6");
+    expect(document.querySelector(".heji-name-cell").textContent).toBe("C−6");
+    expect(document.querySelector(".heji-name-cell").title).toContain("Live ratio 1/1");
+  });
+
+  it("keeps the global row display when multiple live notes disagree on a handoff row", () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, key_labels: "heji", fundamental: 440, reference_degree: 9 }}
+        heji_names={["F−8", ...scale_names.slice(1)]}
+        modulation_transposition_cents={1200}
+        modulation_display_active={true}
+        liveScaleTableSnapshot={{
+          version: 2,
+          rowsByDegree: {
+            0: {
+              degree: 0,
+              frequencyHz: 261.625565,
+              displayLabel: "C−6",
+              ratioText: "1/1",
+              monzo: [0, 0, 0],
+              noteCount: 2,
+              mixed: true,
+            },
+          },
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("pitch frequency 0").value).toBe("523.3");
+    expect(document.querySelector(".heji-name-cell").textContent).toBe("F−8");
+    expect(document.querySelector(".heji-name-cell").title).toContain("Mixed live notes (2)");
+  });
+
   it("does not commit when a frequency cell is only focused and blurred", () => {
     const onChange = vi.fn();
     const onAtomicChange = vi.fn();

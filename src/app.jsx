@@ -15,6 +15,7 @@ import {
   deriveModulationPaletteTitles,
   deriveModulationSummaryText,
   hasActiveModulationHistory,
+  modulationHistoryKey,
   modulationEntryDisplayText,
   modulationRouteLabelPair,
   presetModulationSnapshot,
@@ -104,6 +105,36 @@ function formatCommittedRatio(ratio) {
   if (!ratio?.toFraction) return null;
   const text = ratio.toFraction();
   return text.includes("/") ? text : `${text}/1`;
+}
+
+function modulationSnapshotKey(snapshot) {
+  if (!snapshot) return "";
+  const currentRoute = snapshot.currentRoute;
+  const lastDecision = snapshot.lastDecision;
+  return [
+    snapshot.mode ?? "",
+    snapshot.sourceDegree ?? "",
+    snapshot.targetDegree ?? "",
+    snapshot.strategy ?? "",
+    snapshot.geometryMode ?? "",
+    snapshot.historyIndex ?? 0,
+    modulationHistoryKey(snapshot.history ?? []),
+    currentRoute
+      ? [
+        currentRoute.sourceDegree ?? "",
+        currentRoute.targetDegree ?? "",
+        currentRoute.count ?? 0,
+        currentRoute.transpositionDeltaCents ?? "",
+      ].join(":")
+      : "",
+    lastDecision
+      ? [
+        lastDecision.type ?? "",
+        lastDecision.reason ?? "",
+        lastDecision.articulation ?? "",
+      ].join(":")
+      : "",
+  ].join("|");
 }
 
 function committedScaleTextForSlot(slot, frame, workspace) {
@@ -1358,9 +1389,13 @@ const App = () => {
     [linnstrumentUserFirmwareEligible],
   );
   const onLatchChange = useCallback((v) => setLatch(v), []);
+  const modulationSnapshotKeyRef = useRef("");
   const onModulationStateChange = useCallback((state) => {
     const snapshot = snapshotModulationState(state);
     if (snapshot?.lastDecision?.reason === "deconstruct") return;
+    const nextKey = modulationSnapshotKey(snapshot);
+    if (nextKey === modulationSnapshotKeyRef.current) return;
+    modulationSnapshotKeyRef.current = nextKey;
     setModulationState(snapshot);
     setModulationMode(snapshot?.mode ?? "idle");
     setModulationArmed(snapshot?.mode === "awaiting_target");

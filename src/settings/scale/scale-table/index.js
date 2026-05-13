@@ -41,6 +41,10 @@ const ScaleTable = (props) => {
   const onPreviewChange = props.onPreviewChange ?? (() => {});
   const modulationTranspositionCents = Number(props.modulation_transposition_cents ?? 0);
   const modulationDisplayActive = !!props.modulation_display_active;
+  const liveRowsByDegree = useMemo(
+    () => props.liveScaleTableSnapshot?.rowsByDegree ?? {},
+    [props.liveScaleTableSnapshot],
+  );
   const { scale, equiv_interval } = useMemo(() => {
     const s = [...(props.settings.scale || [])];
     const eq = s.length ? s.pop() : "2/1";
@@ -56,7 +60,10 @@ const ScaleTable = (props) => {
   const degrees = [...Array(scale.length).keys()];
   const note_names = props.settings.note_names || [];
   const isHeji = props.settings.key_labels === "heji";
-  const heji_names = props.heji_names_table || props.heji_names || [];
+  const heji_names = useMemo(
+    () => props.heji_names_table || props.heji_names || [],
+    [props.heji_names_table, props.heji_names],
+  );
 
   let colors;
   if (props.settings.spectrum_colors) {
@@ -213,6 +220,34 @@ const ScaleTable = (props) => {
       modulationTranspositionCents,
     });
   }, [workspace, previewState, modulationTranspositionCents]);
+
+  const liveRowAtDegree = useCallback(
+    (degreeIndex) => liveRowsByDegree[String(degreeIndex)] ?? null,
+    [liveRowsByDegree],
+  );
+
+  const displayedFrequencyAtDegree = useCallback((degreeIndex) => {
+    const liveRow = liveRowAtDegree(degreeIndex);
+    if (liveRow && !liveRow.mixed && Number.isFinite(liveRow.frequencyHz)) return liveRow.frequencyHz;
+    return frequencyAtDegree(degreeIndex);
+  }, [frequencyAtDegree, liveRowAtDegree]);
+
+  const displayedHejiNameAtDegree = useCallback((degreeIndex) => {
+    const liveRow = liveRowAtDegree(degreeIndex);
+    if (liveRow && !liveRow.mixed && liveRow.displayLabel) return liveRow.displayLabel;
+    return heji_names[degreeIndex] ?? "";
+  }, [heji_names, liveRowAtDegree]);
+
+  const liveHejiTitleAtDegree = useCallback((degreeIndex) => {
+    const liveRow = liveRowAtDegree(degreeIndex);
+    if (!liveRow) return undefined;
+    if (liveRow.mixed) return `Mixed live notes (${liveRow.noteCount}) on this degree`;
+    const parts = [];
+    if (liveRow.ratioText) parts.push(`Live ratio ${liveRow.ratioText}`);
+    if (Array.isArray(liveRow.monzo)) parts.push(`monzo [${liveRow.monzo.join(", ")}]`);
+    if (liveRow.noteCount > 1) parts.push(`${liveRow.noteCount} live notes`);
+    return parts.length ? parts.join(" · ") : undefined;
+  }, [liveRowAtDegree]);
 
   // Auto-rationalise every non-root, non-equave degree using a two-pass approach:
   //
@@ -752,16 +787,21 @@ const ScaleTable = (props) => {
           <td class="scale-frequency-col">
             <FrequencyInput
               ariaLabel="pitch frequency 0"
-              value={frequencyAtDegree(0)}
+              value={displayedFrequencyAtDegree(0)}
               onCommit={(frequency) => commitFrequencyAtDegree(0, frequency)}
               deviationCents={deviationCentsAtDegree(0)}
               comparing={isComparingAtDegree(0)}
-              liveModulated={modulationDisplayActive}
+              liveModulated={modulationDisplayActive || !!liveRowAtDegree(0)}
             />
           </td>
           <td class="scale-name-col">
             {isHeji ? (
-              <span class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}>{heji_names[0] ?? ""}</span>
+              <span
+                class={`heji-name-cell${modulationDisplayActive || liveRowAtDegree(0) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(0)?.mixed ? " heji-name-cell--mixed" : ""}`}
+                title={liveHejiTitleAtDegree(0)}
+              >
+                {displayedHejiNameAtDegree(0)}
+              </span>
             ) : (
               <input
                 id="centered"
@@ -902,16 +942,21 @@ const ScaleTable = (props) => {
             <td class="scale-frequency-col">
               <FrequencyInput
                 ariaLabel={`pitch frequency ${i + 1}`}
-                value={frequencyAtDegree(i + 1)}
+                value={displayedFrequencyAtDegree(i + 1)}
                 onCommit={(frequency) => commitFrequencyAtDegree(i + 1, frequency)}
                 deviationCents={deviationCentsAtDegree(i + 1)}
                 comparing={isComparingAtDegree(i + 1)}
-                liveModulated={modulationDisplayActive}
+                liveModulated={modulationDisplayActive || !!liveRowAtDegree(i + 1)}
               />
             </td>
             <td class="scale-name-col">
               {isHeji ? (
-                <span class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}>{heji_names[i + 1] ?? ""}</span>
+                <span
+                  class={`heji-name-cell${modulationDisplayActive || liveRowAtDegree(i + 1) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(i + 1)?.mixed ? " heji-name-cell--mixed" : ""}`}
+                  title={liveHejiTitleAtDegree(i + 1)}
+                >
+                  {displayedHejiNameAtDegree(i + 1)}
+                </span>
               ) : (
                 <input
                   id="centered"
@@ -1007,6 +1052,10 @@ ScaleTable.propTypes = {
   onAtomicChange: PropTypes.func,
   onPreviewChange: PropTypes.func,
   importCount: PropTypes.number,
+  liveScaleTableSnapshot: PropTypes.shape({
+    version: PropTypes.number,
+    rowsByDegree: PropTypes.object,
+  }),
   heji_names: PropTypes.arrayOf(PropTypes.string),
   heji_names_table: PropTypes.arrayOf(PropTypes.string),
   modulation_transposition_cents: PropTypes.number,
