@@ -147,7 +147,13 @@ const Scale = (props) => {
           step="1"
           min="1"
           max="2048"
-          onChange={(e) => {
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
+          onBlur={(e) => {
             const val = parseInt(e.target.value);
             if (!isNaN(val) && val >= 1 && val <= 2048) {
               props.onChange("equivSteps", val);
