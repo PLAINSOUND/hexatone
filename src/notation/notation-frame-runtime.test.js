@@ -296,4 +296,43 @@ describe("notation-frame-runtime", () => {
     expect(anchor.label).toBe(`${xn}A`);
     expect(spelled.labelsByDegree[23]).toBe(`${xn}C`);
   });
+
+  it("spells the first Sabat: The Tree modulation with the expected retained deviation", () => {
+    const scala = parseScale(fs.readFileSync("scales/81-HS-odd-47L.scl", "utf8")).scale;
+    const degreeTexts = ["1/1", ...scala.slice(0, -1)];
+    const noteNames = Array.from({ length: degreeTexts.length }, (_, index) => String(index));
+    const workspace = createScaleWorkspace({
+      scale: scala,
+      reference_degree: 56,
+      fundamental: 441,
+    });
+    const anchor = deriveHejiAnchor(56, noteNames, degreeTexts, 441, workspace.slots.map((slot) => slot.cents));
+    const baseFrame = createHarmonicFrame(workspace, {
+      anchorDegree: 56,
+      anchorLabel: anchor.label,
+      anchorRatioText: anchor.ratio,
+      anchorInterval: parseExactInterval(String(anchor.ratio)),
+      referenceDegree: 56,
+      strategy: "anchor_substitution",
+    });
+    const mutated = replayModulationHistoryForFrame(workspace, baseFrame, [
+      {
+        sourceDegree: 0,
+        targetDegree: 43,
+        strategy: "retune_surface_to_source",
+        count: 1,
+        transpositionDeltaCents: 498.0449991346127,
+      },
+    ]);
+    const baseSpelled = spellWorkspaceForFrame(workspace, baseFrame, {
+      suppressDeviation: false,
+    });
+    const spelled = spellWorkspaceForFrame(workspace, mutated, {
+      suppressDeviation: false,
+    });
+
+    expect(baseSpelled.labelsByDegree[0]).toBe(`${xn}C−6`);
+    expect(mutated.anchorCentsOffset).toBe(6);
+    expect(spelled.labelsByDegree[0]).toBe(`${xn}F−8`);
+  });
 });

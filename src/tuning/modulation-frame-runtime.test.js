@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createScaleWorkspace } from "./workspace.js";
+import { parseExactInterval } from "./interval.js";
 import {
   applyGeometryShiftToCoords,
   createHarmonicFrame,
@@ -10,6 +11,9 @@ import {
   deriveFrameForHistory,
   deriveGeometryShiftForHistory,
   deriveHejiLabelsForFrame,
+  deriveModulationIdentityForHistory,
+  deriveModulationPaletteTitles,
+  deriveModulationSummaryText,
   geometryDeltaFromCoords,
   getActiveModulationHistory,
   hasActiveModulationHistory,
@@ -18,9 +22,11 @@ import {
   modulationHistoryKey,
   modulationRouteLabelPair,
   normalizeGeometryDelta,
+  presetModulationSnapshot,
   replayModulationHistoryForFrame,
   routeTranspositionDeltaCents,
   routeTranspositionRatioText,
+  snapshotModulationState,
   spellWorkspaceForFrame,
 } from "./modulation-frame-runtime.js";
 import Point from "../keyboard/point.js";
@@ -154,6 +160,17 @@ describe("modulation-frame-runtime", () => {
     expect(modulationCurrentSummaryDisplay({ cents: 17.6, ratioText: null })).toBe("+18¢");
   });
 
+  it("derives cumulative exact modulation identity when the active history is rational", () => {
+    const identity = deriveModulationIdentityForHistory([
+      { sourceDegree: 0, targetDegree: 1, count: 1, transpositionRatioText: "3/2" },
+      { sourceDegree: 1, targetDegree: 2, count: 1, transpositionRatioText: "5/4" },
+    ]);
+
+    expect(identity.ratioText).toBe("15/8");
+    expect(identity.monzo).toEqual([-3, 1, 1]);
+    expect(identity.cents).toBeCloseTo(parseExactInterval("15/8").cents, 8);
+  });
+
   it("derives active-history snapshots and keyed summaries", () => {
     const workspace = createScaleWorkspace({
       scale: ["9/8", "5/4", "3/2", "2/1"],
@@ -205,5 +222,27 @@ describe("modulation-frame-runtime", () => {
     expect(frame?.anchorDegree).toBe(3);
     expect(Array.isArray(labels)).toBe(true);
     expect(labels?.length).toBe(workspace.slots.length);
+  });
+
+  it("snapshots modulation state and derives route summary text", () => {
+    const workspace = createScaleWorkspace({
+      scale: ["9/8", "5/4", "3/2", "2/1"],
+      reference_degree: 0,
+      fundamental: 440,
+    });
+    const degreeLabel = (degree) => `d${degree}`;
+    const snapshot = snapshotModulationState({
+      mode: "awaiting_target",
+      sourceDegree: 1,
+      history: [{ sourceDegree: 1, targetDegree: 3, count: 1 }],
+      currentRoute: null,
+      historyIndex: 0,
+      lastDecision: { type: "begin_modulation" },
+    });
+
+    expect(snapshot?.history).toEqual([{ sourceDegree: 1, targetDegree: 3, count: 1 }]);
+    expect(deriveModulationSummaryText(snapshot, degreeLabel, workspace)).toBe("d1 →");
+    expect(presetModulationSnapshot(snapshot?.history)?.mode).toBe("idle");
+    expect(deriveModulationPaletteTitles(snapshot?.history, degreeLabel, workspace)).toEqual(["d1 ↔ d3"]);
   });
 });

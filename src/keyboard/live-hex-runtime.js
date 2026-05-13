@@ -27,6 +27,7 @@ export function midiLatchToggle(keys, coords, releaseVelocity = 0) {
   hex.noteOff(releaseVelocity || vel);
   keys._scheduleDeferredBulkRefresh();
   hexOff(keys, coords);
+  keys._emitLiveNoteDisplayState();
   return true;
 }
 
@@ -37,12 +38,14 @@ export function maybeTakeOverModulationTarget(keys, coords, cents, cents_prev, c
   const sourceHex = keys._modulationState.sourceHex;
   if (!sourceHex || !keys._isHexStillSounding(sourceHex)) return null;
 
-  const onsetFrameId = frameForNewNotes(keys._modulationState)?.id ?? keys._harmonicFrame?.id ?? null;
+  const noteContext = keys._createNoteContext(frameForNewNotes(keys._modulationState));
+  const onsetFrameId = noteContext?.frameId ?? keys._harmonicFrame?.id ?? null;
   const proxy = createTransferredHex(sourceHex, {
     coords,
     cents,
     cents_prev,
     cents_next,
+    noteContext,
     onsetFrameId,
   });
   keys._modulationState.takeoverConsumed = true;
@@ -85,6 +88,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   if (transferredHex) return transferredHex;
 
   const degree0toRef_ratio = keys.tuning.degree0toRef_asArray[1];
+  const noteContext = keys._createNoteContext(frameForNewNotes(keys._modulationState));
   const hex = keys.synth.makeHex(
     coords,
     cents,
@@ -107,6 +111,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
     liveInputAddress: options?.liveInputAddress ?? null,
   });
   hex._baseCents = cents;
+  hex._noteContext = noteContext;
   if (options?.liveInputAddress) hex._liveInputAddress = { ...options.liveInputAddress };
 
   let mpePrimedBeforeNoteOn = false;
@@ -147,7 +152,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   }
   if (wheelPrimedBeforeNoteOn) hex._wheelPrimedBeforeNoteOn = true;
   hex.noteOn();
-  hex._onsetFrameId = frameForNewNotes(keys._modulationState)?.id ?? keys._harmonicFrame?.id ?? null;
+  hex._onsetFrameId = noteContext?.frameId ?? frameForNewNotes(keys._modulationState)?.id ?? keys._harmonicFrame?.id ?? null;
   hex.cents_prev = cents_prev;
   hex.cents_next = cents_next;
   keys.recencyStack.push(hex);
@@ -161,6 +166,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   delete hex._wheelPrimedBeforeNoteOn;
   if (!wheelPrimedBeforeNoteOn) keys._applyCurrentWheelToHex(hex);
   if (!mpePrimedBeforeNoteOn) delete hex._mpePrimedBeforeNoteOn;
+  keys._emitLiveNoteDisplayState();
   return hex;
 }
 
@@ -193,15 +199,15 @@ export function noteOff(keys, hex, release_velocity) {
     keys.recencyStack.remove(hex);
     keys._updateWheelTarget(true);
     keys._syncAwaitingModulationSource();
+    keys._emitLiveNoteDisplayState();
     return;
   }
   if (keys.state.sustain) {
     const result = addSustainedHex(keys.state, hex, release_velocity);
     if (result.added) {
-      const [cents, pressed_interval] = keys.hexCoordsToCents(hex.coords);
-      const [color, text_color] = keys.centsToColor(cents, true, pressed_interval);
-      keys.drawHex(hex.coords, color, text_color);
+      keys._drawSoundingHex(hex);
     }
+    keys._emitLiveNoteDisplayState();
     return;
   }
 
@@ -220,6 +226,7 @@ export function noteOff(keys, hex, release_velocity) {
     keys._scheduleDeferredBulkRefresh();
   }
   keys._settleModulationAfterActiveRelease();
+  keys._emitLiveNoteDisplayState();
 }
 
 export function sustainOff(keys, force = false) {
@@ -238,8 +245,7 @@ export function sustainOff(keys, force = false) {
     const hex = notesToRelease[note][0];
     const [cents, pressed_interval] = keys.hexCoordsToCents(hex.coords);
     if (keys._isHexActivelyHeld(hex)) {
-      const [color, text_color] = keys.centsToColor(cents, true, pressed_interval);
-      keys.drawHex(hex.coords, color, text_color);
+      keys._drawSoundingHex(hex);
       continue;
     }
     const [color, text_color] = keys.centsToColor(cents, false, pressed_interval);
@@ -258,6 +264,7 @@ export function sustainOff(keys, force = false) {
   }
   keys._settleModulationAfterActiveRelease();
   if (keys.onLatchChange) keys.onLatchChange(false);
+  keys._emitLiveNoteDisplayState();
 }
 
 export function sustainOn(keys) {

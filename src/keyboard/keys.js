@@ -80,6 +80,7 @@ import {
   hasLegacyFrameNotes,
   normalizeSettlementNotes,
 } from "./note-context-runtime.js";
+import { deriveModulationIdentityForHistory } from "../tuning/modulation-frame-runtime.js";
 
 function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpositionDeltaCents) {
   const sourceRatio = tuning?.degreeIntervals?.[sourceDegree]?.ratio ?? null;
@@ -521,7 +522,7 @@ class Keys {
       setModulationHistoryIndex(this._modulationState, historyIndex, nextFrame),
       {
         refreshRuntimeDisplayOffset: true,
-        redraw: "deferred",
+        redraw: "immediate",
         syncControllerColors: true,
       },
     );
@@ -543,7 +544,7 @@ class Keys {
       setModulationRouteCount(this._modulationState, routeIndex, count, nextFrame),
       {
         refreshRuntimeDisplayOffset: true,
-        redraw: "deferred",
+        redraw: "immediate",
         syncControllerColors: true,
       },
     );
@@ -568,7 +569,7 @@ class Keys {
       clearModulationRoute(this._modulationState, routeIndex, nextFrame),
       {
         refreshRuntimeDisplayOffset: true,
-        redraw: "deferred",
+        redraw: "immediate",
         syncControllerColors: true,
       },
     );
@@ -582,7 +583,7 @@ class Keys {
       clearModulationHistory(this._modulationState, homeFrame),
       {
         refreshRuntimeDisplayOffset: true,
-        redraw: "deferred",
+        redraw: "immediate",
         syncControllerColors: true,
       },
     );
@@ -596,7 +597,7 @@ class Keys {
       resetModulationRouteCounts(this._modulationState, homeFrame),
       {
         refreshRuntimeDisplayOffset: true,
-        redraw: "deferred",
+        redraw: "immediate",
         syncControllerColors: true,
       },
     );
@@ -725,6 +726,21 @@ class Keys {
     return frameForNewNotes(this._modulationState) ?? this._harmonicFrame;
   }
 
+  _createNoteContext(frame = this._activeFrame(), geometryMode = this._modulationState?.geometryMode) {
+    if (!frame) return null;
+    const modulationIdentity = deriveModulationIdentityForHistory(this._modulationState?.history ?? []);
+    return {
+      frameId: frame.id ?? null,
+      frame,
+      geometryMode: geometryMode ?? "moveable_surface",
+      transpositionCents: frame.transpositionCents ?? 0,
+      effectiveFundamental: frame.effectiveFundamental ?? this.settings.fundamental,
+      ratioText: modulationIdentity.ratioText,
+      monzo: Array.isArray(modulationIdentity.monzo) ? [...modulationIdentity.monzo] : null,
+      hejiNames: Array.isArray(this.settings.heji_names) ? [...this.settings.heji_names] : null,
+    };
+  }
+
   _frameById(frameId) {
     if (!frameId) return null;
     const frames = [
@@ -740,8 +756,31 @@ class Keys {
     return null;
   }
 
+  _frameForNoteContext(noteContext) {
+    return noteContext?.frame ?? this._frameById(noteContext?.frameId) ?? null;
+  }
+
   _frameForSoundingHex(hex) {
-    return this._frameById(hex?._onsetFrameId) ?? this._activeFrame();
+    return this._frameForNoteContext(hex?._noteContext) ??
+      this._frameById(hex?._onsetFrameId) ??
+      this._activeFrame();
+  }
+
+  _geometryModeForSoundingHex(hex) {
+    return hex?._noteContext?.geometryMode ?? this._modulationState?.geometryMode;
+  }
+
+  _labelSettingsForNoteContext(noteContext) {
+    if (this.settings.key_labels !== "heji") return this.settings;
+    if (!Array.isArray(noteContext?.hejiNames)) return this.settings;
+    return {
+      ...this.settings,
+      heji_names: noteContext.hejiNames,
+    };
+  }
+
+  _labelSettingsForSoundingHex(hex) {
+    return this._labelSettingsForNoteContext(hex?._noteContext);
   }
 
   getEffectiveFundamental = () => {
@@ -756,9 +795,48 @@ class Keys {
     return KeysLabels.scaleCentsLabelForActiveDegree.call(this, reducedNote);
   }
 
-  getDisplayLabelAtCoords = (coords) => {
-    return KeysLabels.getDisplayLabelAtCoords.call(this, coords);
+  getDisplayLabelAtCoords = (coords, options = {}) => {
+    return KeysLabels.getDisplayLabelAtCoords.call(this, coords, options);
   };
+
+  getLiveNoteDisplayState = () => {
+    const seen = new Set();
+    const notes = [];
+    const pushSnapshot = (hex, source) => {
+      if (!hex?.coords || seen.has(hex)) return;
+      seen.add(hex);
+      notes.push({
+        source,
+        coords: { x: hex.coords.x, y: hex.coords.y },
+        degree: this._degreeForHex(hex),
+        displayLabel: this.getDisplayLabelAtCoords(hex.coords, {
+          frame: this._frameForSoundingHex(hex),
+          geometryMode: this._geometryModeForSoundingHex(hex),
+          settings: this._labelSettingsForSoundingHex(hex),
+        }),
+        noteContext: hex._noteContext
+          ? {
+            frameId: hex._noteContext.frameId ?? null,
+            frame: hex._noteContext.frame ?? null,
+            transpositionCents: hex._noteContext.transpositionCents ?? 0,
+            effectiveFundamental: hex._noteContext.effectiveFundamental ?? this.settings.fundamental,
+            ratioText: hex._noteContext.ratioText ?? null,
+            monzo: Array.isArray(hex._noteContext.monzo) ? [...hex._noteContext.monzo] : null,
+            geometryMode: hex._noteContext.geometryMode ?? null,
+            hejiNames: Array.isArray(hex._noteContext.hejiNames) ? [...hex._noteContext.hejiNames] : null,
+          }
+          : null,
+      });
+    };
+    for (const hex of this._allActiveHexes()) pushSnapshot(hex, "active");
+    for (const [hex] of this.state.sustainedNotes) pushSnapshot(hex, "sustained");
+    return notes;
+  };
+
+  _emitLiveNoteDisplayState() {
+    if (!this.onLiveNoteStateChange) return;
+    this.onLiveNoteStateChange(this.getLiveNoteDisplayState());
+  }
 
   _degreeForCoords(coords) {
     const [, pressed_interval] = this.hexCoordsToCents(coords);
@@ -2284,6 +2362,10 @@ class Keys {
     return KeysRenderer.redrawSoundingHexesInBounds.call(this, bounds);
   }
 
+  _drawSoundingHex(hex) {
+    return KeysRenderer.drawSoundingHex.call(this, hex);
+  }
+
   drawGrid() {
     return KeysRenderer.drawGrid.call(this);
   }
@@ -2457,8 +2539,8 @@ class Keys {
     return KeysRenderer.hexCoordsToScreen.call(this, hex);
   }
 
-  drawHex(p, c, current_text_color, context = this.state.context) {
-    return KeysRenderer.drawHex.call(this, p, c, current_text_color, context);
+  drawHex(p, c, current_text_color, context = this.state.context, options = {}) {
+    return KeysRenderer.drawHex.call(this, p, c, current_text_color, context, options);
   }
 
   centsToColor(cents, pressed, pressed_interval) {
@@ -2489,7 +2571,12 @@ class Keys {
     };
   }
 
-  _deriveHexPitch(coords, includeFundamentalPreview = false, frame = this._activeFrame()) {
+  _deriveHexPitch(
+    coords,
+    includeFundamentalPreview = false,
+    frame = this._activeFrame(),
+    geometryMode = this._modulationState?.geometryMode,
+  ) {
     let distance = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
     const previewRuntime = getEffectiveScaleRuntime(this._previewSource(frame), this._tuningPreviewState);
     const scale = previewRuntime.scale;
@@ -2527,7 +2614,7 @@ class Keys {
       equivInterval: previewRuntime.equivInterval,
       octaveOffset: this.settings.octave_offset || 0,
       frame,
-      geometryMode: this._modulationState?.geometryMode,
+      geometryMode,
     });
     const previewFundamentalDelta = getFundamentalPreviewDeltaCents(this._tuningPreviewState);
     if (includeFundamentalPreview && Math.abs(previewFundamentalDelta) > 0.000001) {
@@ -2579,6 +2666,7 @@ class Keys {
       hex?.coords,
       includeFundamentalPreview,
       this._frameForSoundingHex(hex),
+      this._geometryModeForSoundingHex(hex),
     );
     return [
       live.cents,

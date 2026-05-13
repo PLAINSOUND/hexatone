@@ -64,6 +64,7 @@ export function panic(keys) {
   if (keys.onLatchChange) keys.onLatchChange(false);
   keys._modulationState = cancelModulation(keys._modulationState, "panic");
   keys._emitModulationState();
+  keys._emitLiveNoteDisplayState();
   keys.stopSnapshot();
 }
 

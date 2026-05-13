@@ -3,6 +3,7 @@ import Keys from "./keys.js";
 import Point from "./point.js";
 import { WebMidi } from "webmidi";
 import { rebuildControllerMap } from "../input/keys-midi-listeners.js";
+import { parseExactInterval } from "../tuning/interval.js";
 
 const edo12 = Array.from({ length: 12 }, (_, i) => i * 100);
 
@@ -661,6 +662,7 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.state.sustainedNotes).toHaveLength(1);
     expect(sourceHex._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
+    expect(sourceHex._noteContext?.frameId).toBe(keys.getModulationState().oldFrame?.id);
     const futurePitchBefore = keys.hexCoordsToLiveCents(new Point(0, 0))[0];
 
     keys.previewFundamental(50);
@@ -719,6 +721,8 @@ describe("Keys MIDI input integration", () => {
     expect(oldA._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
     expect(oldB._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
     expect(newHex._onsetFrameId).toBe(keys.getModulationState().pendingFrame?.id);
+    expect(newHex._noteContext?.frameId).toBe(keys.getModulationState().pendingFrame?.id);
+    expect(newHex._noteContext?.transpositionCents).toBe(keys.getModulationState().pendingFrame?.transpositionCents);
 
     keys.previewFundamental(50);
 
@@ -732,6 +736,95 @@ describe("Keys MIDI input integration", () => {
     expect(oldA.cents).toBeCloseTo(0, 5);
     expect(oldB.cents).toBeCloseTo(400, 5);
     expect(newHex.cents).toBeCloseTo(newHexPreview - 50, 5);
+  });
+
+  it("stores cumulative rational modulation identity in new note contexts when available", () => {
+    const keys = createKeys();
+    const exactInterval = parseExactInterval("15/8");
+    keys._modulationState.history = [
+      { sourceDegree: 0, targetDegree: 1, count: 1, transpositionRatioText: "3/2" },
+      { sourceDegree: 1, targetDegree: 2, count: 1, transpositionRatioText: "5/4" },
+    ];
+
+    const noteContext = keys._createNoteContext({
+      id: "frame:rational",
+      transpositionCents: exactInterval.cents,
+      effectiveFundamental: 440 * Math.pow(2, exactInterval.cents / 1200),
+    });
+
+    expect(noteContext?.ratioText).toBe("15/8");
+    expect(noteContext?.monzo).toEqual([-3, 1, 1]);
+  });
+
+  it("redraws sustained notes from their stored onset frame during pending settlement", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys(
+      {
+        modulation_style: "fixed_do",
+      },
+      {},
+      synth,
+    );
+    const drawHexSpy = vi.spyOn(keys, "drawHex");
+
+    const sourceHex = keys.hexOn(new Point(0, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    keys.sustainOn();
+    expect(keys.armModulation()).toBe(true);
+
+    const targetHex = keys.hexOn(new Point(7, 0));
+    keys.state.activeKeyboard.set("KeyB", targetHex);
+    expect(keys.getModulationState().mode).toBe("pending_settlement");
+
+    keys.noteOff(sourceHex, 0);
+
+    const lastCall = drawHexSpy.mock.calls.at(-1);
+    expect(lastCall?.[4]?.frame?.id).toBe(keys.getModulationState().oldFrame?.id);
+    expect(lastCall?.[4]?.geometryMode).toBe(sourceHex._noteContext?.geometryMode);
+  });
+
+  it("redraws the non-sounding canvas immediately when modulation history changes under a held note", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function () {
+          this.release = true;
+        }),
+        retune(newCents) {
+          this.cents = newCents;
+        },
+      })),
+    };
+    const keys = createKeys({}, {}, synth, [
+      {
+        sourceDegree: 0,
+        targetDegree: 7,
+        strategy: "retune_surface_to_source",
+        count: 0,
+        transpositionDeltaCents: -700,
+      },
+    ]);
+    const redrawSpy = vi.spyOn(keys, "scheduleImmediateGridRedraw");
+
+    const sourceHex = keys.hexOn(new Point(0, 0));
+    keys.state.activeKeyboard.set("KeyA", sourceHex);
+    expect(keys.getModulationState().mode).toBe("idle");
+
+    redrawSpy.mockClear();
+    expect(keys.setModulationRouteCount(0, 2)).toBe(true);
+    expect(redrawSpy).toHaveBeenCalledTimes(1);
   });
 
   it("requires overlap and suppresses the target note for fixed-do sequential modulation", () => {
@@ -1373,7 +1466,7 @@ describe("Keys MIDI input integration", () => {
         },
       ],
     );
-    const redraw = vi.spyOn(keys, "scheduleGridRedraw");
+    const redraw = vi.spyOn(keys, "scheduleImmediateGridRedraw");
 
     keys.midinoteOn(makeMidiEvent(60));
     expect(keys.state.activeMidi.get(60)).toBeTruthy();
@@ -1802,6 +1895,7 @@ describe("Keys MIDI input integration", () => {
     expect(synth.makeHex).toHaveBeenCalledTimes(1);
     expect(sourceNoteOn).toHaveBeenCalledTimes(1);
     expect(targetHex).not.toBe(sourceHex);
+    expect(targetHex._noteContext?.frameId).toBe(keys.getModulationState().pendingFrame?.id);
     expect(targetHex.coords).toEqual(new Point(5, 0));
 
     keys.noteOff(sourceHex, 0);

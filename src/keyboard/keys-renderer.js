@@ -225,9 +225,7 @@ export function redrawSoundingHexes() {
     const key = this._coordKey(hex.coords);
     if (drawn.has(key)) return;
     drawn.add(key);
-    const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-    const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
-    this.drawHex(hex.coords, color, text_color);
+    this._drawSoundingHex(hex);
   };
   for (const hex of this._allActiveHexes()) drawPressed(hex);
   for (const [hex] of this.state.sustainedNotes) drawPressed(hex);
@@ -251,12 +249,21 @@ export function redrawSoundingHexesInBounds(bounds) {
     const key = this._coordKey(hex.coords);
     if (drawn.has(key)) return;
     drawn.add(key);
-    const [cents, pressed_interval] = this.hexCoordsToCents(hex.coords);
-    const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
-    this.drawHex(hex.coords, color, text_color);
+    this._drawSoundingHex(hex);
   };
   for (const hex of this._allActiveHexes()) drawPressed(hex);
   for (const [hex] of this.state.sustainedNotes) drawPressed(hex);
+}
+
+export function drawSoundingHex(hex) {
+  if (!hex?.coords) return;
+  const [cents, pressed_interval] = this._liveCentsForHex(hex, false);
+  const [color, text_color] = this.centsToColor(cents, true, pressed_interval);
+  this.drawHex(hex.coords, color, text_color, this.state.context, {
+    frame: this._frameForSoundingHex(hex),
+    geometryMode: this._geometryModeForSoundingHex(hex),
+    labelSettings: this._labelSettingsForSoundingHex(hex),
+  });
 }
 
 export function drawGrid() {
@@ -281,7 +288,7 @@ export function hexCoordsToScreen(hex) {
   return new Point(screenX, screenY);
 }
 
-export function drawHex(p, c, current_text_color, context = this.state.context) {
+export function drawHex(p, c, current_text_color, context = this.state.context, options = {}) {
   const geometry = this._hexGeometryCache.get(this._coordKey(p)) ?? this._buildHexGeometry(p);
   const hexCenter = geometry.center;
   const { x, y, x2, y2 } = geometry;
@@ -335,13 +342,14 @@ export function drawHex(p, c, current_text_color, context = this.state.context) 
   const equivMultiple = Math.floor(note / equivSteps);
   let reducedNote = note % equivSteps;
   if (reducedNote < 0) reducedNote = equivSteps + reducedNote;
-  if (!this.settings.no_labels || this.settings.equaves) {
-    const name = this.settings.no_labels
+  const labelSettings = options.labelSettings ?? this.settings;
+  if (!labelSettings.no_labels || labelSettings.equaves) {
+    const name = labelSettings.no_labels
       ? ""
       : displayLabelForDegree(reducedNote, {
-        settings: this.settings,
-        frame: this._activeFrame(),
-        geometryMode: this._modulationState?.geometryMode,
+        settings: labelSettings,
+        frame: options.frame ?? this._activeFrame(),
+        geometryMode: options.geometryMode ?? this._modulationState?.geometryMode,
         scaleLength: equivSteps,
         scale: this.tuning.scale,
       });

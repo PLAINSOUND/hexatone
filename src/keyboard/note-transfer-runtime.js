@@ -95,6 +95,7 @@ export function createTransferredHex(sourceHex, options = {}) {
     release: false,
     _baseCents: baseCents,
     _onsetFrameId: options.onsetFrameId ?? null,
+    _noteContext: options.noteContext ?? sourceHex._noteContext ?? null,
     cents_prev: options.cents_prev ?? null,
     cents_next: options.cents_next ?? null,
     _transferredSource: sourceHex,

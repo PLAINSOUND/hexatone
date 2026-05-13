@@ -21,15 +21,15 @@ export function scaleCentsLabelForActiveDegree(reducedNote) {
   return scaleCentsLabelForDegree(reducedNote, this.tuning.scale || []);
 }
 
-export function getDisplayLabelAtCoords(coords) {
+export function getDisplayLabelAtCoords(coords, options = {}) {
   const note = coords.x * this.settings.rSteps + coords.y * this.settings.drSteps;
   const equivSteps = this.tuning.scale.length || 1;
   let reducedNote = note % equivSteps;
   if (reducedNote < 0) reducedNote += equivSteps;
   return displayLabelForDegree(reducedNote, {
-    settings: this.settings,
-    frame: this._activeFrame(),
-    geometryMode: this._modulationState?.geometryMode,
+    settings: options.settings ?? this.settings,
+    frame: options.frame ?? this._activeFrame(),
+    geometryMode: options.geometryMode ?? this._modulationState?.geometryMode,
     scaleLength: equivSteps,
     scale: this.tuning.scale,
   });
@@ -40,5 +40,5 @@ export function updateLabels(labels) {
     this.settings[flag] = false;
   }
   Object.assign(this.settings, labels);
-  this.scheduleGridRedraw();
+  this.scheduleImmediateGridRedraw();
 }

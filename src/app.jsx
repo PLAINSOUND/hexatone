@@ -12,18 +12,21 @@ import {
   deriveCurrentFundamentalSummary,
   deriveDegreeColorsForFrame,
   deriveHejiLabelsForFrame,
-  getActiveModulationHistory,
+  deriveModulationPaletteTitles,
+  deriveModulationSummaryText,
   hasActiveModulationHistory,
   modulationEntryDisplayText,
-  modulationHistoryKey,
   modulationRouteLabelPair,
+  presetModulationSnapshot,
   replayModulationHistoryForFrame,
+  snapshotModulationState,
   spellWorkspaceForFrame,
 } from "./tuning/modulation-frame-runtime.js";
 import { parseExactInterval } from "./tuning/interval.js";
 
 import useSynthWiring from "./use-synth-wiring.js";
 import { useMidiGuardian } from "./use-midi-guardian.js";
+import useDeferredModulationHistory from "./use-deferred-modulation-history.js";
 import {
   useQuery,
   ExtractInt,
@@ -258,44 +261,6 @@ function getDefaultModulationPalettePos() {
   return { x: 18, y: 58 };
 }
 
-function snapshotModulationState(state) {
-  if (!state) return null;
-  return {
-    mode: state.mode ?? "idle",
-    sourceDegree: state.sourceDegree ?? null,
-    targetDegree: state.targetDegree ?? null,
-    strategy: state.strategy ?? "retune_surface_to_source",
-    geometryMode: state.geometryMode ?? "moveable_surface",
-    history: Array.isArray(state.history) ? state.history.map((entry) => ({ ...entry })) : [],
-    currentRoute: state.currentRoute ? { ...state.currentRoute } : null,
-    historyIndex: state.historyIndex ?? 0,
-    lastDecision: state.lastDecision ? { ...state.lastDecision } : null,
-  };
-}
-
-function presetModulationSnapshot(history = []) {
-  return snapshotModulationState({
-    mode: "idle",
-    history,
-    currentRoute: null,
-    historyIndex: 0,
-    homeFrame: null,
-    currentFrame: null,
-    oldFrame: null,
-    pendingFrame: null,
-    sourceHex: null,
-    sourceCoordsKey: null,
-    sourceDegree: null,
-    targetDegree: null,
-    strategy: "retune_surface_to_source",
-    geometryMode: "moveable_surface",
-    takeoverConsumed: false,
-    lastDecision: {
-      type: "preset_modulation_library_loaded",
-    },
-  });
-}
-
 export {
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
@@ -498,7 +463,6 @@ const App = () => {
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");
   const [modulationState, setModulationState] = useState(null);
-  const [deferredModulationHistory, setDeferredModulationHistory] = useState([]);
   const [presetModulationLibrary, setPresetModulationLibrary] = useState([]);
   const [presetRuntimeResetRevision, setPresetRuntimeResetRevision] = useState(0);
 
@@ -818,84 +782,24 @@ const App = () => {
     [tuningWorkspace],
   );
   const modulationSummary = useMemo(() => {
-    if (!modulationState) return "";
-    if (modulationState.mode === "idle") return "";
-    if (modulationState.mode === "awaiting_target" && modulationState.sourceDegree == null) {
-      return "";
-    }
-    const route =
-      modulationState.mode === "awaiting_target"
-        ? {
-            sourceDegree: modulationState.sourceDegree,
-            targetDegree: null,
-          }
-        : modulationState.currentRoute ?? null;
-    if (!route) return "";
-    const { sourceLabel: sourceText, targetLabel } = modulationRouteLabelPair(
-      route,
+    return deriveModulationSummaryText(
+      modulationState,
       modulationDegreeLabel,
       tuningWorkspace,
     );
-    if (route.targetDegree == null) return `${sourceText} →`;
-    if (route.targetDegree != null) {
-      return `${sourceText} → ${targetLabel}`;
-    }
-    return "";
   }, [modulationDegreeLabel, modulationState, tuningWorkspace]);
-  const modulationHistory = useMemo(() => modulationState?.history ?? [], [modulationState]);
-  const activeModulationHistoryKey = useMemo(
-    () => modulationHistoryKey(modulationHistory),
-    [modulationHistory],
-  );
-  const deferredModulationHistoryRef = useRef(modulationHistory);
-  deferredModulationHistoryRef.current = modulationHistory;
-  useEffect(() => {
-    if ((modulationState?.mode ?? "idle") === "idle") {
-      const nextHistory = deferredModulationHistoryRef.current;
-      setDeferredModulationHistory(
-        Array.isArray(nextHistory) ? nextHistory.map((entry) => ({ ...entry })) : [],
-      );
-      return;
-    }
-    let timeoutId = null;
-    const syncWhenNotesAreClear = () => {
-      if (keysRef.current && !keysRef.current.isSoundInteractionIdle?.()) {
-        timeoutId = setTimeout(syncWhenNotesAreClear, 25);
-        return;
-      }
-      const nextHistory = deferredModulationHistoryRef.current;
-      setDeferredModulationHistory(
-        Array.isArray(nextHistory) ? nextHistory.map((entry) => ({ ...entry })) : [],
-      );
-    };
-    timeoutId = setTimeout(syncWhenNotesAreClear, 0);
-    return () => {
-      if (timeoutId != null) clearTimeout(timeoutId);
-    };
-  }, [activeModulationHistoryKey, modulationState?.mode]);
-  const deferredModulationHistoryKey = useMemo(
-    () => modulationHistoryKey(deferredModulationHistory),
-    [deferredModulationHistory],
-  );
-  const activeDeferredModulationKey = useMemo(
-    () => modulationHistoryKey(getActiveModulationHistory(deferredModulationHistory)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
-    [deferredModulationHistoryKey],
-  );
-  const hasActiveDeferredModulation = useMemo(
-    () => hasActiveModulationHistory(deferredModulationHistory),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey.
-    [deferredModulationHistoryKey],
-  );
+  const {
+    modulationHistory,
+    deferredModulationHistory,
+    activeDeferredModulationKey,
+    hasActiveDeferredModulation,
+  } = useDeferredModulationHistory(modulationState, keysRef);
   const activeModulationLibrary = useMemo(
     () => modulationState?.history ?? presetModulationLibrary,
     [modulationState, presetModulationLibrary],
   );
   const hasCommittableModulation = useMemo(
-    () => activeModulationLibrary.some((entry) => {
-      const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
-      return count !== 0;
-    }),
+    () => hasActiveModulationHistory(activeModulationLibrary),
     [activeModulationLibrary],
   );
   const modulationPaletteVisible = modulationHistory.length > 0;
@@ -906,14 +810,7 @@ const App = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so palette clicks do not synchronously re-render modulation-dependent table displays.
   }, [tuningWorkspace, activeDeferredModulationKey, settings.fundamental]);
   const modulationPaletteTitle = useMemo(() => {
-    return modulationHistory.map((entry) => {
-      const { sourceLabel, targetLabel } = modulationRouteLabelPair(
-        entry,
-        modulationDegreeLabel,
-        tuningWorkspace,
-      );
-      return `${sourceLabel} ↔ ${targetLabel}`;
-    });
+    return deriveModulationPaletteTitles(modulationHistory, modulationDegreeLabel, tuningWorkspace);
   }, [modulationDegreeLabel, modulationHistory, tuningWorkspace]);
   const onStepModulationRoute = useCallback((routeIndex, delta) => {
     if (!keysRef.current?.stepModulationRoute) return;
@@ -1317,6 +1214,26 @@ const App = () => {
     [colorImpactKey],
   );
 
+  const hasActiveKeyboardModulation = useMemo(
+    () => hasActiveModulationHistory(modulationHistory),
+    [modulationHistory],
+  );
+
+  const keyboardHejiFrame = useMemo(() => {
+    return deriveActiveHejiFrame(
+      tuningWorkspace,
+      modulationHistory,
+      {
+        hejiEnabled: structuralSettings.heji,
+        hejiSupported: structuralSettings.heji_supported,
+        anchorLabel: structuralSettings.heji_anchor_label_effective,
+        anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
+        referenceDegree: structuralSettings.reference_degree ?? 0,
+        temperedOnly: settings.heji_tempered_only === true,
+      },
+    );
+  }, [modulationHistory, structuralSettings, tuningWorkspace, settings.heji_tempered_only]);
+
   const activeHejiFrame = useMemo(() => {
     return deriveActiveHejiFrame(
       tuningWorkspace,
@@ -1343,13 +1260,13 @@ const App = () => {
       const hejiTemperedOnly = settings.heji_tempered_only === true;
       let liveHejiNames = structuralSettings.heji_names_keys ?? structuralSettings.heji_names;
       if (
-        hasActiveDeferredModulation &&
+        hasActiveKeyboardModulation &&
         structuralSettings.heji &&
         structuralSettings.heji_supported !== false &&
         tuningWorkspace &&
-        activeHejiFrame
+        keyboardHejiFrame
       ) {
-        liveHejiNames = deriveHejiLabelsForFrame(tuningWorkspace, activeHejiFrame, {
+        liveHejiNames = deriveHejiLabelsForFrame(tuningWorkspace, keyboardHejiFrame, {
           suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
           temperedOnly: hejiTemperedOnly,
           forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
@@ -1375,8 +1292,7 @@ const App = () => {
         reference_degree: structuralSettings.reference_degree,
       };
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
-    [structuralSettings, tuningWorkspace, activeHejiFrame, activeDeferredModulationKey, hasActiveDeferredModulation, settings.heji_show_cents, settings.heji_tempered_only],
+    [structuralSettings, tuningWorkspace, keyboardHejiFrame, hasActiveKeyboardModulation, settings.heji_show_cents, settings.heji_tempered_only],
   );
 
   const tableHejiNames = useMemo(() => {

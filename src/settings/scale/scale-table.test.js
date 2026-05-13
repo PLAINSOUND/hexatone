@@ -103,6 +103,7 @@ describe("ScaleTable — key labels: heji", () => {
     expect(screen.getByText("HEJI")).toBeTruthy();
     expect(screen.queryByText("Name")).toBeNull();
   });
+
 });
 
 // ── Scale values ──────────────────────────────────────────────────────────────

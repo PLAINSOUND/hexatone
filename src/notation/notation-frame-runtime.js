@@ -52,6 +52,7 @@ function buildFrameId(frame) {
     frame.notationPolicy ?? "",
     frame.heji.anchorLabel ?? "",
     frame.heji.anchorOctave ?? "",
+    frame.anchorCentsOffset ?? 0,
     frame.generation,
   ].join("|");
 }
@@ -87,6 +88,7 @@ export function createHarmonicFrame(workspace, options = {}) {
     notationSystem: options.notationSystem ?? "letter_heji",
     notationPolicy: options.notationPolicy ?? null,
     equaveCents: options.equaveCents ?? workspace?.baseScale?.equaveCents ?? 1200,
+    anchorCentsOffset: options.anchorCentsOffset ?? 0,
     heji: {
       anchorLabel: options.anchorLabel ?? options.hejiAnchorLabel ?? "A",
       anchorOctave: options.anchorOctave ?? 4,
@@ -117,6 +119,7 @@ export function mutateHarmonicFrame(frame, mutation = {}) {
     notationSystem: mutation.notationSystem ?? frame.notationSystem,
     notationPolicy: mutation.notationPolicy ?? frame.notationPolicy,
     equaveCents: mutation.equaveCents ?? frame.equaveCents,
+    anchorCentsOffset: mutation.anchorCentsOffset ?? frame.anchorCentsOffset ?? 0,
     heji: {
       anchorLabel: mutation.anchorLabel ?? mutation.hejiAnchorLabel ?? frame.heji.anchorLabel,
       anchorOctave: mutation.anchorOctave ?? frame.heji.anchorOctave,
@@ -128,7 +131,7 @@ export function mutateHarmonicFrame(frame, mutation = {}) {
 }
 
 export function spellSlotForFrame(slot, frame, options = {}) {
-  const anchorCents = frame.anchorInterval?.cents ?? 0;
+  const anchorCents = (frame.anchorInterval?.cents ?? 0) + (frame.anchorCentsOffset ?? 0);
   const centsFromAnchor = modulo((slot?.cents ?? 0) - anchorCents, frame.equaveCents ?? 1200);
   const ratioText = slot?.sourceText?.includes("/")
     ? slot.sourceText
@@ -177,6 +180,14 @@ function trimRenderedLabelToPitchClass(label) {
   if (!source) return null;
   const match = source.match(/^(.+?[A-Ga-g])(?:[+\-\u2212]\d+)?$/);
   return match?.[1] ?? source;
+}
+
+function renderedLabelDeviation(label) {
+  const source = String(label ?? "").trim();
+  if (!source) return 0;
+  const match = source.match(/([+\-\u2212]\d+)$/);
+  if (!match) return 0;
+  return Number.parseInt(match[1].replace(/\u2212/g, "-"), 10) || 0;
 }
 
 function normalizeDegree(value) {
@@ -291,10 +302,14 @@ export function replayModulationHistoryForFrame(workspace, baseFrame, history = 
       const targetDegree = normalizeDegree(count > 0 ? entry?.targetDegree : entry?.sourceDegree);
       if (sourceDegree == null || targetDegree == null) continue;
       const targetSlot = getWorkspaceSlot(workspace, targetDegree);
-      const sourceLabel = spellDegreeForFrame(workspace, sourceDegree, frame, options).label;
+      const sourceLabel = spellDegreeForFrame(workspace, sourceDegree, frame, {
+        ...options,
+        suppressDeviation: false,
+      }).label;
       const movedLabel =
         trimRenderedLabelToPitchClass(sourceLabel) ??
         frame.heji.anchorLabel;
+      const movedDeviation = renderedLabelDeviation(sourceLabel);
       const targetRatioText =
         targetSlot?.sourceText?.includes("/")
           ? targetSlot.sourceText
@@ -306,6 +321,7 @@ export function replayModulationHistoryForFrame(workspace, baseFrame, history = 
         anchorLabel: movedLabel,
         anchorRatioText: targetRatioText,
         anchorInterval: parseExactInterval(String(targetRatioText)),
+        anchorCentsOffset: -movedDeviation,
         rederiveAnchor: false,
       });
     }

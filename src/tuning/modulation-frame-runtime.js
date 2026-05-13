@@ -48,6 +48,13 @@ function formatSignedWholeCents(value) {
   return `${sign}${Math.abs(rounded)}¢`;
 }
 
+function trimMonzo(monzo) {
+  if (!Array.isArray(monzo)) return null;
+  const out = [...monzo];
+  while (out.length > 1 && out[out.length - 1] === 0) out.pop();
+  return out;
+}
+
 export function routeTranspositionDeltaCents(entry) {
   const storedDelta = Number(entry?.transpositionDeltaCents);
   if (Number.isFinite(storedDelta)) return storedDelta;
@@ -147,6 +154,44 @@ export function modulationEntryDisplayText(entry, tuningWorkspace) {
   });
 }
 
+export function snapshotModulationState(state) {
+  if (!state) return null;
+  return {
+    mode: state.mode ?? "idle",
+    sourceDegree: state.sourceDegree ?? null,
+    targetDegree: state.targetDegree ?? null,
+    strategy: state.strategy ?? "retune_surface_to_source",
+    geometryMode: state.geometryMode ?? "moveable_surface",
+    history: Array.isArray(state.history) ? state.history.map((entry) => ({ ...entry })) : [],
+    currentRoute: state.currentRoute ? { ...state.currentRoute } : null,
+    historyIndex: state.historyIndex ?? 0,
+    lastDecision: state.lastDecision ? { ...state.lastDecision } : null,
+  };
+}
+
+export function presetModulationSnapshot(history = []) {
+  return snapshotModulationState({
+    mode: "idle",
+    history,
+    currentRoute: null,
+    historyIndex: 0,
+    homeFrame: null,
+    currentFrame: null,
+    oldFrame: null,
+    pendingFrame: null,
+    sourceHex: null,
+    sourceCoordsKey: null,
+    sourceDegree: null,
+    targetDegree: null,
+    strategy: "retune_surface_to_source",
+    geometryMode: "moveable_surface",
+    takeoverConsumed: false,
+    lastDecision: {
+      type: "preset_modulation_library_loaded",
+    },
+  });
+}
+
 export function getActiveModulationHistory(history = []) {
   if (!Array.isArray(history)) return [];
   return history.filter((entry) => {
@@ -157,6 +202,58 @@ export function getActiveModulationHistory(history = []) {
 
 export function hasActiveModulationHistory(history = []) {
   return getActiveModulationHistory(history).length > 0;
+}
+
+export function deriveModulationIdentityForHistory(history = []) {
+  const activeHistory = getActiveModulationHistory(history);
+  if (activeHistory.length === 0) {
+    return {
+      cents: 0,
+      ratioText: null,
+      monzo: null,
+    };
+  }
+
+  let cents = 0;
+  let ratio = parseExactInterval("1/1").ratio;
+  let monzo = [];
+  let exact = true;
+
+  for (const entry of activeHistory) {
+    const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
+    if (count === 0) continue;
+    const deltaCents = routeTranspositionDeltaCents(entry);
+    if (Number.isFinite(deltaCents)) cents += count * deltaCents;
+
+    const ratioText = routeTranspositionRatioText(entry, null);
+    const parsed = ratioText ? parseExactInterval(ratioText) : null;
+    if (!parsed?.ratio || !Array.isArray(parsed?.monzo)) {
+      exact = false;
+      continue;
+    }
+
+    const power = Math.abs(count);
+    ratio = count > 0 ? ratio.mul(parsed.ratio.pow(power)) : ratio.div(parsed.ratio.pow(power));
+    if (monzo.length < parsed.monzo.length) monzo.length = parsed.monzo.length;
+    for (let index = 0; index < parsed.monzo.length; index += 1) {
+      monzo[index] = (monzo[index] ?? 0) + count * (parsed.monzo[index] ?? 0);
+    }
+  }
+
+  if (!exact) {
+    return {
+      cents,
+      ratioText: null,
+      monzo: null,
+    };
+  }
+
+  const ratioText = ratio?.toFraction ? ratio.toFraction() : null;
+  return {
+    cents,
+    ratioText: ratioText && !ratioText.includes("/") ? `${ratioText}/1` : ratioText,
+    monzo: trimMonzo(monzo),
+  };
 }
 
 export function modulationHistoryKey(history = []) {
@@ -221,6 +318,41 @@ export function deriveHejiLabelsForFrame(workspace, frame, options = {}) {
     temperedOnly: options.temperedOnly === true,
     forceShowZeroDeviation: options.forceShowZeroDeviation === true,
   }).labelsByDegree;
+}
+
+export function deriveModulationSummaryText(modulationState, degreeLabel, tuningWorkspace) {
+  if (!modulationState) return "";
+  if (modulationState.mode === "idle") return "";
+  if (modulationState.mode === "awaiting_target" && modulationState.sourceDegree == null) {
+    return "";
+  }
+  const route =
+    modulationState.mode === "awaiting_target"
+      ? {
+        sourceDegree: modulationState.sourceDegree,
+        targetDegree: null,
+      }
+      : modulationState.currentRoute ?? null;
+  if (!route) return "";
+  const { sourceLabel: sourceText, targetLabel } = modulationRouteLabelPair(
+    route,
+    degreeLabel,
+    tuningWorkspace,
+  );
+  if (route.targetDegree == null) return `${sourceText} →`;
+  return `${sourceText} → ${targetLabel}`;
+}
+
+export function deriveModulationPaletteTitles(history = [], degreeLabel, tuningWorkspace) {
+  if (!Array.isArray(history)) return [];
+  return history.map((entry) => {
+    const { sourceLabel, targetLabel } = modulationRouteLabelPair(
+      entry,
+      degreeLabel,
+      tuningWorkspace,
+    );
+    return `${sourceLabel} ↔ ${targetLabel}`;
+  });
 }
 
 export function modulationRouteLabelPair(entry, degreeLabel, tuningWorkspace) {
