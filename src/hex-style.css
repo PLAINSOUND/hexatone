@@ -922,6 +922,7 @@ a:hover {
     gap: 4px;
     padding: 6px 8px;
     border-radius: 12px;
+    font-size: 0.9em;
   }
 
   .modulation-palette-header {
@@ -931,11 +932,13 @@ a:hover {
   .modulation-palette-row {
     grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
     column-gap: 4px;
+    font-size: 0.9em;
   }
 
   .modulation-palette-summary {
     grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
     column-gap: 4px;
+    font-size: 0.9em;
   }
 
   .modulation-palette-step {

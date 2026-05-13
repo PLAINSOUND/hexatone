@@ -48,8 +48,9 @@ if (storedVersion && storedVersion !== APP_VERSION) {
 // ── Register service worker (production only) ──────────────────────────────
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
+    const serviceWorkerUrl = `${import.meta.env.BASE_URL}sw.js`;
     navigator.serviceWorker
-      .register("/sw.js")
+      .register(serviceWorkerUrl)
       .then((reg) => {
         debugLog("lifecycle", "Service Worker registered:", reg.scope);
 

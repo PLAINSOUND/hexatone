@@ -1643,16 +1643,23 @@ const App = () => {
           title="Redraw keyboard / Resume audio"
           onPointerDown={(e) => {
             runTouchControlAction(e, () => {
-              if (keysRef.current) keysRef.current.resizeHandler();
+              if (keysRef.current) {
+                keysRef.current.resizeHandler();
+                keysRef.current.scheduleImmediateGridRedraw();
+              }
             });
           }}
           onClick={async (e) => {
             if (skipSuppressedTouchClick(e)) return;
             e.stopPropagation();
-            if (keysRef.current) keysRef.current.resizeHandler();
+            if (keysRef.current) {
+              keysRef.current.resizeHandler();
+              keysRef.current.scheduleImmediateGridRedraw();
+            }
             // Re-prepare the active synth within the user gesture so iOS can
             // resume or recreate the AudioContext after background dormancy.
             if (synthRef.current?.prepare) await synthRef.current.prepare();
+            if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
           }}
           onContextMenu={(e) => e.preventDefault()}
         >
