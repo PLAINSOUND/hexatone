@@ -63,6 +63,11 @@ describe("scalaToCents", () => {
   it("converts numeric value directly when passed as number", () => {
     expect(scalaToCents(1.5)).toBeCloseTo(701.955, 2);
   });
+
+  it("returns NaN for missing or empty input instead of throwing", () => {
+    expect(scalaToCents(undefined)).toBeNaN();
+    expect(scalaToCents("")).toBeNaN();
+  });
 });
 
 // ── scalaToLabels ─────────────────────────────────────────────────────────────
@@ -93,6 +98,11 @@ describe("scalaToLabels", () => {
   it("converts plain integers to ratio form", () => {
     expect(scalaToLabels("3")).toBe("3/1");
     expect(scalaToLabels("2")).toBe("2/1");
+  });
+
+  it("returns an empty label for missing input instead of throwing", () => {
+    expect(scalaToLabels(undefined)).toBe("");
+    expect(scalaToLabels("")).toBe("");
   });
 });
 

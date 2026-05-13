@@ -94,19 +94,23 @@ export const scalaToCents = (line) => {
   if (typeof line === "number") {
     return line > 0 ? (1200 * Math.log(line)) / Math.log(2) : 0;
   }
-  if (String(line).trim() === "0") {
+  const text = typeof line === "string" ? line.trim() : "";
+  if (text === "") {
+    return NaN;
+  }
+  if (text === "0") {
     return 0;
   }
-  if (line.match(/\//)) {
-    const nd = line.split("/");
+  if (text.match(/\//)) {
+    const nd = text.split("/");
     return (1200 * Math.log(parseInt(nd[0]) / parseInt(nd[1]))) / Math.log(2);
-  } else if (line.match(/\./)) {
-    return parseFloat(line);
-  } else if (line.match(/\\/)) {
-    const edo = line.split("\\");
+  } else if (text.match(/\./)) {
+    return parseFloat(text);
+  } else if (text.match(/\\/)) {
+    const edo = text.split("\\");
     return (parseFloat(edo[0]) * 1200) / parseFloat(edo[1]);
   } else {
-    return (1200 * Math.log(parseInt(line))) / Math.log(2);
+    return (1200 * Math.log(parseInt(text))) / Math.log(2);
   }
 };
 
@@ -170,23 +174,25 @@ export const normaliseHejiAnchorRatio = (line) => {
 
 // Convert scale data from string to label
 export const scalaToLabels = (line) => {
-  if (line.match(/\//)) {
-    if (line.length > 7) {
-      const nd = line.split("/");
+  const text = typeof line === "string" ? line.trim() : "";
+  if (text === "") return "";
+  if (text.match(/\//)) {
+    if (text.length > 7) {
+      const nd = text.split("/");
       const cents = (1200 * Math.log(parseInt(nd[0]) / parseInt(nd[1]))) / Math.log(2);
       return " " + Math.round(cents).toString() + ".";
     } else {
-      return line;
+      return text;
     }
-  } else if (line.match(/\\/)) {
-    const edo = line.split("\\");
+  } else if (text.match(/\\/)) {
+    const edo = text.split("\\");
     const cents = (parseFloat(edo[0]) * 1200) / parseFloat(edo[1]);
     return " " + Math.round(cents).toString() + ".";
-  } else if (line.match(/\./)) {
-    const cents = parseFloat(line);
+  } else if (text.match(/\./)) {
+    const cents = parseFloat(text);
     return " " + Math.round(cents).toString() + ".";
   } else {
-    return line + "/1";
+    return text + "/1";
   }
 };
 
