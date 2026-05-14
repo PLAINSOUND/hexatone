@@ -68,10 +68,35 @@ function ensureSupportedNode() {
   }
 }
 
+function parseNodeVersion() {
+  const [majorText, minorText] = process.versions.node.split(".");
+  return {
+    major: Number.parseInt(majorText, 10),
+    minor: Number.parseInt(minorText, 10),
+  };
+}
+
+function supportsDirectBuildSea() {
+  const { major, minor } = parseNodeVersion();
+  return major > 25 || (major === 25 && minor >= 5);
+}
+
 function makeSeaConfig(blobPath) {
   return {
     main: entryFile,
     output: blobPath,
+    disableExperimentalSEAWarning: true,
+    useSnapshot: false,
+    useCodeCache: false,
+  };
+}
+
+function makeDirectSeaConfig(outputPath) {
+  return {
+    main: entryFile,
+    output: outputPath,
+    executable: process.execPath,
+    mainFormat: "commonjs",
     disableExperimentalSEAWarning: true,
     useSnapshot: false,
     useCodeCache: false,
@@ -142,12 +167,39 @@ function build() {
   ensureSupportedNode();
   const args = parseArgs(process.argv.slice(2));
   const outputPath = path.resolve(args.output ?? defaultOutputPath());
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "osc-bridge-sea-"));
-  const blobPath = path.join(tempDir, "osc-bridge.blob");
-  const configPath = path.join(tempDir, "sea-config.json");
+  const useDirectBuildSea = supportsDirectBuildSea();
 
   if (!args.dryRun) fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   else console.log(`[osc-bridge:sea] mkdir -p ${path.dirname(outputPath)}`);
+
+  if (useDirectBuildSea) {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "osc-bridge-sea-"));
+    const configPath = path.join(tempDir, "sea-config.json");
+    const config = makeDirectSeaConfig(outputPath);
+    const json = `${JSON.stringify(config, null, 2)}\n`;
+
+    if (args.dryRun) {
+      console.log(`[osc-bridge:sea] write ${configPath}`);
+      console.log(json.trimEnd());
+      console.log(`[osc-bridge:sea] ${process.execPath} --build-sea ${configPath}`);
+      if (process.platform === "darwin") {
+        console.log(`[osc-bridge:sea] codesign --sign - ${outputPath}`);
+      }
+      console.log(`[osc-bridge:sea] Output: ${outputPath}`);
+      return;
+    }
+
+    fs.writeFileSync(configPath, json, "utf8");
+    run(process.execPath, ["--build-sea", configPath]);
+    signIfNeeded(outputPath, false);
+    console.log(`[osc-bridge:sea] Output: ${outputPath}`);
+    console.log("[osc-bridge:sea] Build complete. The binary is host-specific.");
+    return;
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "osc-bridge-sea-"));
+  const blobPath = path.join(tempDir, "osc-bridge.blob");
+  const configPath = path.join(tempDir, "sea-config.json");
 
   writeConfig(configPath, blobPath, args.dryRun);
 
