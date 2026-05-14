@@ -44,7 +44,7 @@
     "vitest": "^2.1.8",
     "workbox-build": "^7.4.0"
   },
-  "packageManager": "yarn@4.13.0",
+  "packageManager": "yarn@4.14.1",
   "lint-staged": {
     "src/**/*.{js,jsx}": "eslint --max-warnings=0"
   }
