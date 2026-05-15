@@ -4901,12 +4901,12 @@ describe("Keys MIDI input integration", () => {
     expect(learned).not.toHaveBeenCalled();
     expect(pedalFlip).not.toHaveBeenCalled();
 
-    listeners.controlchange({ message: { channel: 2, dataBytes: [66, 127] } });
-    expect(learned).toHaveBeenCalledWith(66, 2, 127);
+    listeners.controlchange({ message: { channel: 2, dataBytes: [67, 127] } });
+    expect(learned).toHaveBeenCalledWith(67, 2, 127);
 
     keys.setMidiCcLearnMode(false, null);
-    listeners.controlchange({ message: { channel: 2, dataBytes: [66, 127] } });
-    listeners.controlchange({ message: { channel: 2, dataBytes: [66, 0] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [67, 127] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [67, 0] } });
 
     expect(pedalFlip).toHaveBeenNthCalledWith(1, true);
     expect(pedalFlip).toHaveBeenNthCalledWith(2, false);
