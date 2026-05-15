@@ -35,7 +35,7 @@ const HakenContinuumSettings = ({
   const zLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_z_lpf ?? 125) || 0));
   const glideFlipCc = Number.isFinite(settings.hakenaudio_glide_flip_cc)
     ? Math.trunc(settings.hakenaudio_glide_flip_cc)
-    : 66;
+    : 67;
   const managerChannel = Math.max(1, Math.min(
     16,
     parseInt(settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch ?? 1, 10) || 1,
@@ -156,7 +156,7 @@ const HakenContinuumSettings = ({
       </label>
 
       <label title="Learns a foot pedal or other CC to momentarily flip between Pitch Bending and Raster to Notes, matching the current space-bar behavior. CC value 64 or above engages the flip; lower values release it.">
-        Glide Flip Pedal
+        Raster/Bend Pedal
         <span
           class="sidebar-input"
           style={{
@@ -181,8 +181,8 @@ const HakenContinuumSettings = ({
               type="button"
               class="learn-btn"
               onClick={() => {
-                updateHakenPref("hakenaudio_glide_flip_cc", 66, {
-                  hakenaudio_glide_flip_cc: 66,
+                updateHakenPref("hakenaudio_glide_flip_cc", 67, {
+                  hakenaudio_glide_flip_cc: 67,
                 });
               }}
             >

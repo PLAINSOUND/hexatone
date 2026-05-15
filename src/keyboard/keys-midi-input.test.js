@@ -4881,7 +4881,7 @@ describe("Keys MIDI input integration", () => {
       {
         midiin_device: "input-1",
         midiin_controller_override: "hakenaudio",
-        hakenaudio_glide_flip_cc: 66,
+        hakenaudio_glide_flip_cc: 67,
       },
       {
         layoutMode: "sequential",

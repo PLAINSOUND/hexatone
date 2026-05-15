@@ -1,20 +1,22 @@
 # User Manual
 
-Updated: 2026-05-02
+Updated: 2026-05-15
 
 ## About
 
-PLAINSOUND HEXATONE is a retuneable microtonal keyboard and scale workspace built around isomorphic layouts and rational intonation (JI).
+PLAINSOUND HEXATONE is a retuneable microtonal keyboard and scale workspace.
 
 Features:
 
-- playable on-screen hexagonal keyboard based on Erv Wilson’s designs
+- programmable isomorphic hexagonal keyboard layouts based on Erv Wilson’s designs
+- playable using touch, mouse, computer keyboard, MIDI, and OSC
 - built-in sampled sounds with polyphonic aftertouch
 - scale table for editing, comparing, and displaying tunings
 - scale creation, comparison, and rationalisation tools
+- adjust any pitch to any frequency and automatically update the underlying scala files
 - JI-focused workspace, featuring modulation and automatic HEJI Notation generation
-- parse MIDI input from MPE or multichannel layout isomorphic and 2D controllers
-- send MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
+- parses MIDI input from MPE or multichannel layout isomorphic and 2D controllers like Haken Continuum, LinnStrument, Lumatone, Exquis, and others
+- sends MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
 - a live-oriented composition, improvisation, and performance companion to [Scale Workshop](https://scaleworkshop.plainsound.org)
 
 ## Quick Start
@@ -73,7 +75,7 @@ Minimum setup to explore scales, compare tunings, build and recall chords:
 
 Click or tap the on-screen hexes to play notes.
 
-### Computer keyboard
+### Computer Keyboard
 
 The H key is mapped automatically to the central degree at the center of the canvas.
 
@@ -93,7 +95,7 @@ You can also:
 - import, edit, export a Scala file
 - sort the scale ascending by degree
 
-### The scale table
+### The Scale Table
 
 The scale table is the detailed editing surface for each degree.  
 
@@ -159,7 +161,7 @@ The `Rationalisation Settings` include a number of options:
 - prime and odd limit
 - exponent range for the harmonic space region
 
-### HEJI / notation
+### HEJI Notation
 
 - scales can be displayed in HEJI-based notation (primes > 47 or irrational pitches are given tempered notation + cents deviation)
 - notation is responsive to the current rational reading of the scale
@@ -210,7 +212,7 @@ If you do not enable WebMIDI, Hexatone still works as a complete on-screen instr
 - scale-target mode (tune incoming MIDI to chosen scale)
 - handling of incoming expression data as MPE, pitch bend, aftertouch, pressure, control change
 
-### Controller support
+### Controllers
 
 The app includes support for several recognized controller types, including devices such as:
 
@@ -225,7 +227,7 @@ The exact supported behaviour varies by controller, but the input system is desi
 
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
 
-### Two broad input styles
+### Input Modes
 
 Hexatone can treat MIDI input broadly in two ways:
 
@@ -264,7 +266,7 @@ Key colouring helps identify prime factors in rational intonation (JI), using th
 
 Combinations of primes mix and saturate these colours.
 
-## MIDI Output Routing
+## MIDI Output
 
 Hexatone can send tuning and performance data through:
 
@@ -273,7 +275,7 @@ Hexatone can send tuning and performance data through:
 - MTS Bulk Dump Tuning Maps
 - MPE (MIDI Polyphonic Expression)
 
-## OSC
+## OSC Output
 
 Hexatone also includes a OSC output path aimed at users who want:
 
@@ -286,7 +288,15 @@ Hexatone also includes a OSC output path aimed at users who want:
 This mode requires a local clone of the repo and a locally running bridge:
 
 1. clone the repository locally
-2. run:
+2. build a local osc-bridge app that runs on your architecture (translates incoming websocket data for SuperCollider)
+
+```sh
+yarn build-bridge
+```
+
+--OR--
+
+to edit hexatone code and work with custom osc setups run:
 
 ```sh
 yarn start
@@ -298,9 +308,7 @@ yarn osc-bridge
 
 This feature also supports a fully local workflow: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 
-## Starting
-
-Try
+## Try
 
 - loading a built-in tuning
 - playing the on-screen keyboard with mouse or touch

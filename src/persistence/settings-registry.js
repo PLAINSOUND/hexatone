@@ -201,7 +201,7 @@ export const SETTINGS_REGISTRY = [
     key: "hakenaudio_glide_flip_cc",
     tier: "local",
     type: "int",
-    default: 66,
+    default: 67,
     perController: true,
     description: "Haken Continuum CC number used for momentary X-glide mode flip",
   },

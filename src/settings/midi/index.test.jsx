@@ -230,7 +230,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByText("Minimum Note Duration")).toBeTruthy();
   });
 
-  it("shows CC66 as the default Continuum glide flip pedal and resets to it", () => {
+  it("shows CC67 as the default Continuum glide flip pedal and resets to it", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",
       midiin_mapping_target: "hex_layout",
@@ -248,7 +248,7 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
 
-    expect(props.onChange).toHaveBeenCalledWith("hakenaudio_glide_flip_cc", 66);
+    expect(props.onChange).toHaveBeenCalledWith("hakenaudio_glide_flip_cc", 67);
   });
 
   it("offers manager and member channel controls for undetected controllers when MPE input is enabled", () => {
