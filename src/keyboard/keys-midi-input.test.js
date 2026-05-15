@@ -4,6 +4,7 @@ import Point from "./point.js";
 import { WebMidi } from "webmidi";
 import { rebuildControllerMap } from "../input/keys-midi-listeners.js";
 import { parseExactInterval } from "../tuning/interval.js";
+import { resolveHakenXGlideMode } from "../input/keys-expression-runtime.js";
 
 const edo12 = Array.from({ length: 12 }, (_, i) => i * 100);
 
@@ -2595,6 +2596,38 @@ describe("Keys MIDI input integration", () => {
     expect(bendSpy).toHaveBeenCalledTimes(2);
   });
 
+  it("momentarily flips Continuum glide mode with a learned pedal CC and cancels the flip when pedal and space are both held", () => {
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        hakenXGlideMode: "pitch_bending",
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    const bendSpy = vi.spyOn(keys, "_applyMpePitchBend").mockImplementation(() => {});
+    const hex = { release: false };
+    const entry = { hex, baseCents: 0, hexes: new Set([hex]) };
+    keys.state.activeMidiByChannel.set(5, entry);
+    keys._mpeInputBendByChannel.set(5, 10240);
+
+    keys._setHakenPedalGlideFlip(true);
+    expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(true);
+    expect(bendSpy).toHaveBeenCalledTimes(1);
+
+    keys._setHakenSpaceGlideFlip(true);
+    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(true);
+    expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("pitch_bending");
+
+    keys._setHakenSpaceGlideFlip(false);
+    expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("raster_to_notes");
+
+    keys._setHakenPedalGlideFlip(false);
+    expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(false);
+    expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("pitch_bending");
+  });
+
   it("reanchors Continuum nearest-scale glide to the current rastered note when leaving raster mode", () => {
     const keys = createKeys(
       {
@@ -4829,6 +4862,54 @@ describe("Keys MIDI input integration", () => {
     expect(aftertouch).toHaveBeenCalledTimes(1);
     expect(aftertouch).toHaveBeenCalledWith(71);
     expect(retune).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores Continuum test CCs for both pedal flipping and CC learn while keeping CC66 active", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Haken Audio Continuum",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const learned = vi.fn();
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "hakenaudio",
+        hakenaudio_glide_flip_cc: 66,
+      },
+      {
+        layoutMode: "sequential",
+        mpeInput: true,
+      },
+      { rememberControllerState: vi.fn() },
+    );
+
+    const pedalFlip = vi.spyOn(keys, "_setHakenPedalGlideFlip");
+    keys.setMidiCcLearnMode(true, learned);
+
+    listeners.controlchange({ message: { channel: 2, dataBytes: [111, 127] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [114, 127] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [117, 127] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [118, 127] } });
+
+    expect(learned).not.toHaveBeenCalled();
+    expect(pedalFlip).not.toHaveBeenCalled();
+
+    listeners.controlchange({ message: { channel: 2, dataBytes: [66, 127] } });
+    expect(learned).toHaveBeenCalledWith(66, 2, 127);
+
+    keys.setMidiCcLearnMode(false, null);
+    listeners.controlchange({ message: { channel: 2, dataBytes: [66, 127] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [66, 0] } });
+
+    expect(pedalFlip).toHaveBeenNthCalledWith(1, true);
+    expect(pedalFlip).toHaveBeenNthCalledWith(2, false);
   });
 
   it("routes LinnStrument channel-per-row bend to all active notes on that row channel", () => {

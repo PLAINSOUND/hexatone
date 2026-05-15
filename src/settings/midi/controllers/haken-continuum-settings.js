@@ -15,6 +15,7 @@ const HakenContinuumSettings = ({
   midiOutputs,
   onChange,
   saveControllerPref,
+  hakenPedalLearnActive,
 }) => {
   const xGlideMode = settings.hakenaudio_x_glide_mode ?? "pitch_bending";
   const xGlideShaping = Math.max(
@@ -32,6 +33,9 @@ const HakenContinuumSettings = ({
   const xLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_x_lpf ?? 60) || 0));
   const yLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_y_lpf ?? 30) || 0));
   const zLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_z_lpf ?? 125) || 0));
+  const glideFlipCc = Number.isFinite(settings.hakenaudio_glide_flip_cc)
+    ? Math.trunc(settings.hakenaudio_glide_flip_cc)
+    : 66;
   const managerChannel = Math.max(1, Math.min(
     16,
     parseInt(settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch ?? 1, 10) || 1,
@@ -151,6 +155,43 @@ const HakenContinuumSettings = ({
         </select>
       </label>
 
+      <label title="Learns a foot pedal or other CC to momentarily flip between Pitch Bending and Raster to Notes, matching the current space-bar behavior. CC value 64 or above engages the flip; lower values release it.">
+        Glide Flip Pedal
+        <span
+          class="sidebar-input"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.45em",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ fontVariantNumeric: "tabular-nums", color: "#6b5a5a" }}>
+            {`CC ${glideFlipCc}`}
+          </span>
+          <span style={{ display: "inline-flex", gap: "0.35em" }}>
+            <button
+              type="button"
+              class="learn-btn"
+              onClick={() => onChange("midiLearnHakenPedal", !hakenPedalLearnActive)}
+            >
+              {hakenPedalLearnActive ? "● Listening…" : "Learn"}
+            </button>
+            <button
+              type="button"
+              class="learn-btn"
+              onClick={() => {
+                updateHakenPref("hakenaudio_glide_flip_cc", 66, {
+                  hakenaudio_glide_flip_cc: 66,
+                });
+              }}
+            >
+              Reset
+            </button>
+          </span>
+        </span>
+      </label>
+
       <label title="Shapes Continuum X bending around the current note. 0 is linear. Higher values create stronger pockets of stability around note centers and faster movement between them.">
         X Glide Shaping
         <span
@@ -257,6 +298,7 @@ HakenContinuumSettings.propTypes = {
   midiOutputs: PropTypes.object,
   onChange: PropTypes.func.isRequired,
   saveControllerPref: PropTypes.func.isRequired,
+  hakenPedalLearnActive: PropTypes.bool,
 };
 
 export default HakenContinuumSettings;

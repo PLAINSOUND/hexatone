@@ -198,6 +198,14 @@ export const SETTINGS_REGISTRY = [
     description: "Haken Continuum X glide mode: pitch_bending or raster_to_notes",
   },
   {
+    key: "hakenaudio_glide_flip_cc",
+    tier: "local",
+    type: "int",
+    default: 66,
+    perController: true,
+    description: "Haken Continuum CC number used for momentary X-glide mode flip",
+  },
+  {
     key: "hakenaudio_pressure_velocity",
     tier: "local",
     type: "int",

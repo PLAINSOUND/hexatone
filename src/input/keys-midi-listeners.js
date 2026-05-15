@@ -30,6 +30,7 @@ const LINNSTRUMENT_UF_RELEASE_HOLD_THRESHOLD = 14;
 const LINNSTRUMENT_UF_RELEASE_HOLD_ARM_THRESHOLD = 20;
 const LINNSTRUMENT_UF_ONSET_RAMP_BASE_MS = 40;
 const LINNSTRUMENT_UF_ONSET_RAMP_MAX_MS = 180;
+const HAKEN_IGNORED_TEST_CCS = new Set([111, 114, 117, 118]);
 
 function isLinnstrumentUfInputActive() {
   return (
@@ -530,6 +531,7 @@ export function setupMidiInput() {
         // this.midiin_data exists
 
         this._midiLearnCallback = null; // set by setMidiLearnMode()
+        this._midiLearnCcCallback = null; // set by setMidiCcLearnMode()
 
         this.midiin_data.addListener("noteon", (e) => {
           // MIDI learn: capture the next note-on as the new anchor, don't play it.
@@ -630,6 +632,22 @@ export function setupMidiInput() {
           const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
           const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
+          if (this.controller?.id === "hakenaudio" && HAKEN_IGNORED_TEST_CCS.has(cc)) return;
+          if (this._midiLearnCcCallback) {
+            this._midiLearnCcCallback(cc, e.message.channel, value);
+            this._midiLearnCcCallback = null;
+            return;
+          }
+          if (
+            this.controller?.id === "hakenaudio" &&
+            this.inputRuntime?.mpeInput &&
+            Number.isFinite(this.settings.hakenaudio_glide_flip_cc) &&
+            this.settings.hakenaudio_glide_flip_cc >= 0 &&
+            cc === this.settings.hakenaudio_glide_flip_cc
+          ) {
+            this._setHakenPedalGlideFlip?.(value >= 64);
+            return;
+          }
           if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
           debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
 

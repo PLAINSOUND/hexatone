@@ -103,6 +103,12 @@ const Keyboard = (props) => {
   }, [props.midiLearnActive, props.onAnchorLearn]);
 
   useEffect(() => {
+    if (keysRef.current?.setMidiCcLearnMode) {
+      keysRef.current.setMidiCcLearnMode(!!props.hakenPedalLearnActive, props.onHakenPedalLearn);
+    }
+  }, [props.hakenPedalLearnActive, props.onHakenPedalLearn]);
+
+  useEffect(() => {
     if (keysRef.current && props.colorSettings) {
       keysRef.current.updateColors(props.colorSettings);
     }
@@ -184,6 +190,10 @@ Keyboard.propTypes = {
   }),
   onModulationArmChange: PropTypes.func,
   onModulationStateChange: PropTypes.func,
+  midiLearnActive: PropTypes.bool,
+  onAnchorLearn: PropTypes.func,
+  hakenPedalLearnActive: PropTypes.bool,
+  onHakenPedalLearn: PropTypes.func,
   synth: PropTypes.object.isRequired,
 };
 

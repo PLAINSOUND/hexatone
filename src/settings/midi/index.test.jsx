@@ -49,6 +49,7 @@ const makeProps = (settings = {}) => ({
   onVolumeChange: vi.fn(),
   midiLearnActive: false,
   onAnchorLearn: vi.fn(),
+  hakenPedalLearnActive: false,
   onTakeSnapshot: vi.fn(),
   lumatoneRawPorts: null,
   exquisRawPorts: null,
@@ -227,6 +228,27 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByText("X Glide Shaping")).toBeTruthy();
     expect(screen.getByText("Pressure → Velocity")).toBeTruthy();
     expect(screen.getByText("Minimum Note Duration")).toBeTruthy();
+  });
+
+  it("shows CC66 as the default Continuum glide flip pedal and resets to it", () => {
+    const props = makeProps({
+      midiin_controller_override: "hakenaudio",
+      midiin_mapping_target: "hex_layout",
+      midiin_mpe_input: true,
+      hakenaudio_glide_flip_cc: 74,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("CC 74")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+    expect(props.onChange).toHaveBeenCalledWith("hakenaudio_glide_flip_cc", 66);
   });
 
   it("offers manager and member channel controls for undetected controllers when MPE input is enabled", () => {

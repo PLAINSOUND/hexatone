@@ -101,7 +101,8 @@ export function normalizePitchBend14(value) {
 
 export function resolveHakenXGlideMode(inputRuntime) {
   const base = inputRuntime?.hakenXGlideMode ?? "pitch_bending";
-  if (!inputRuntime?.hakenSpaceGlideFlip) return base;
+  const flipped = !!inputRuntime?.hakenSpaceGlideFlip !== !!inputRuntime?.hakenPedalGlideFlip;
+  if (!flipped) return base;
   if (base === "raster_to_notes") return "pitch_bending";
   if (base === "pitch_bending") return "raster_to_notes";
   return base;

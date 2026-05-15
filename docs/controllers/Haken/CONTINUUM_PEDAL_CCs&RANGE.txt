@@ -1,0 +1,34 @@
+CONTINUUM PEDAL JACK ASSIGNMENTS AND RANGE
+
+free CCs on Ch1: 67, 68 (use these to be safe with Eagan Matrix!)
+
+Channel 16 
+cc 52 Pedal1 Jack
+Midi controller assignment for Pedal 1 Jack.
+See Section 14, 64 is default 
+
+cc 76 Pedal1 Min
+Minimum data value for Pedal 1.
+0-127,
+0 is default 
+
+cc 77 Pedal1 Max
+Maximum data value for Pedal 1.
+0-127,
+127 is default 
+
+cc 53 Pedal2 Jack
+Midi controller assignment for Pedal 2 Jack.
+See Section 14B, 66 is default 
+
+cc 78 Pedal2 Min
+Minimum data value for Pedal 2.
+0-127,
+0 is default 
+
+cc 79 Pedal2 Max
+Maximum data value for Pedal 2.
+0-127,
+127 is default
+
+

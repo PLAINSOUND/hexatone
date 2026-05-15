@@ -49,6 +49,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midiin_scale_bend_range",
     "hakenaudio_x_glide_shaping",
     "hakenaudio_x_glide_mode",
+    "hakenaudio_glide_flip_cc",
     "hakenaudio_pressure_velocity",
     "hakenaudio_note_off_delay",
     "hakenaudio_out_port",

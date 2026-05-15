@@ -541,6 +541,8 @@ const App = () => {
     loading,
     midiLearnActive,
     setMidiLearnActive,
+    hakenPedalLearnActive,
+    setHakenPedalLearnActive,
     octaveTranspose,
     octaveDeferred,
     shiftOctave,
@@ -549,6 +551,7 @@ const App = () => {
     onVolumeChange,
     onOscLayerVolumeChange,
     onAnchorLearn,
+    onHakenPedalLearn,
     lumatoneRawPorts,
     exquisRawPorts,
     linnstrumentRawPorts,
@@ -717,6 +720,7 @@ const App = () => {
   const { onChange, onAtomicChange } = useSettingsChange(settings, setSettings, {
     midi,
     setMidiLearnActive,
+    setHakenPedalLearnActive,
     keysRef,
     setLatch,
     bumpImportCount,
@@ -1437,6 +1441,8 @@ const App = () => {
           active={active}
           midiLearnActive={midiLearnActive}
           onAnchorLearn={onAnchorLearn}
+          hakenPedalLearnActive={hakenPedalLearnActive}
+          onHakenPedalLearn={onHakenPedalLearn}
           lumatoneLedsRef={lumatoneLedsRef}
           exquisLedsRef={exquisLedsRef}
           linnstrumentLedsRef={linnstrumentLedsRef}
@@ -1925,6 +1931,7 @@ const App = () => {
               onChange={onChange}
               onAtomicChange={onAtomicChange}
               midiLearnActive={midiLearnActive}
+              hakenPedalLearnActive={hakenPedalLearnActive}
               onVolumeChange={onVolumeChange}
               onOscLayerVolumeChange={onOscLayerVolumeChange}
               onImport={onImport}

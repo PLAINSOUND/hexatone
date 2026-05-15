@@ -13,6 +13,7 @@ import { create_osc_synth } from "./osc_synth";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import {
   saveAnchorFromLearn,
+  saveControllerPref,
   loadAnchorSettingsUpdate,
 } from "./input/controller-anchor.js";
 import { WebMidi } from "webmidi";
@@ -365,6 +366,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   const [midiAccess, setMidiAccess] = useState("none");
   const [midiAccessError, setMidiAccessError] = useState(null);
   const [midiLearnActive, setMidiLearnActive] = useState(false);
+  const [hakenPedalLearnActive, setHakenPedalLearnActive] = useState(false);
   // Incremented on every MIDI onstatechange so dependent effects re-run when
   // devices connect or disconnect (e.g. FluidSynth starting after page load).
   const [midiTick, setMidiTick] = useState(0);
@@ -1177,6 +1179,26 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     [midi],
   );
 
+  const onHakenPedalLearn = useCallback(
+    (ccNum) => {
+      setHakenPedalLearnActive(false);
+      const cc = Number.isFinite(ccNum) ? Math.max(0, Math.min(127, Math.trunc(ccNum))) : -1;
+      const s = settingsRef.current;
+      let ctrl = null;
+      if (s.midiin_device && s.midiin_device !== "OFF" && midi) {
+        const input = Array.from(midi.inputs.values()).find((m) => m.id === s.midiin_device);
+        if (input) ctrl = resolveInputController(input, s.midiin_controller_override);
+      }
+      if (ctrl) {
+        saveControllerPref(ctrl, "hakenaudio_glide_flip_cc", cc, s, {
+          hakenaudio_glide_flip_cc: cc,
+        });
+      }
+      setSettings((current) => ({ ...current, hakenaudio_glide_flip_cc: cc }));
+    },
+    [midi, setSettings],
+  );
+
   // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
   // When the active MIDI input is a Lumatone, resolve the matching raw Web MIDI
   // input (for ACK sysex listening) and output (for LED sysex sends).
@@ -1270,6 +1292,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     loading,
     midiLearnActive,
     setMidiLearnActive,
+    hakenPedalLearnActive,
+    setHakenPedalLearnActive,
     octaveTranspose,
     setOctaveTranspose,
     octaveDeferred,
@@ -1279,6 +1303,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     onVolumeChange,
     onOscLayerVolumeChange,
     onAnchorLearn,
+    onHakenPedalLearn,
     lumatoneRawPorts,
     exquisRawPorts,
     linnstrumentRawPorts,

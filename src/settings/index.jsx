@@ -47,6 +47,7 @@ const Settings = ({
   onVolumeChange,
   onOscLayerVolumeChange,
   midiLearnActive,
+  hakenPedalLearnActive,
   lumatoneRawPorts,
   exquisRawPorts,
   linnstrumentRawPorts,
@@ -133,6 +134,7 @@ const Settings = ({
       ensureMidiAccess={enableWebMidi}
       midiTick={midiTick}
       midiLearnActive={midiLearnActive}
+      hakenPedalLearnActive={hakenPedalLearnActive}
       lumatoneRawPorts={lumatoneRawPorts}
       exquisRawPorts={exquisRawPorts}
       linnstrumentRawPorts={linnstrumentRawPorts}

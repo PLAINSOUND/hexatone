@@ -1327,6 +1327,7 @@ const MIDIio = (props) => {
               midiOutputs={props.midi?.outputs}
               onChange={props.onChange}
               saveControllerPref={saveControllerPref}
+              hakenPedalLearnActive={props.hakenPedalLearnActive}
             />
           )}
         </>
@@ -1375,6 +1376,7 @@ MIDIio.propTypes = {
   midiAccess: PropTypes.string,
   midiAccessError: PropTypes.string,
   midiLearnActive: PropTypes.bool,
+  hakenPedalLearnActive: PropTypes.bool,
   lumatoneRawPorts: PropTypes.object,
   exquisRawPorts: PropTypes.object,
   linnstrumentRawPorts: PropTypes.object,

@@ -82,7 +82,15 @@ const getConnectedController = (deviceId, midi, controllerOverrideId = "auto") =
 const useSettingsChange = (
   settings,
   setSettings,
-  { midi, setMidiLearnActive, keysRef, setLatch, bumpImportCount, onUserScaleEdit },
+  {
+    midi,
+    setMidiLearnActive,
+    setHakenPedalLearnActive,
+    keysRef,
+    setLatch,
+    bumpImportCount,
+    onUserScaleEdit,
+  },
 ) => {
   // Keep a ref to settings so onChange/onAtomicChange can read current values
   // without being recreated on every render. This is the key optimisation:
@@ -106,6 +114,11 @@ const useSettingsChange = (
     // Toggle MIDI-learn mode — handled outside settings state (no URL sync needed).
     if (key === "midiLearnAnchor") {
       setMidiLearnActive(value);
+      return;
+    }
+
+    if (key === "midiLearnHakenPedal") {
+      setHakenPedalLearnActive(value);
       return;
     }
 

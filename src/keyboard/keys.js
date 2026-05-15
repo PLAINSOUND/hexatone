@@ -1960,6 +1960,10 @@ class Keys {
     this._midiLearnCallback = active ? (callback ?? null) : null;
   };
 
+  setMidiCcLearnMode = (active, callback) => {
+    this._midiLearnCcCallback = active ? (callback ?? null) : null;
+  };
+
   // ── Lumatone LED helpers ────────────────────────────────────────────────────
 
   /**
@@ -2259,6 +2263,33 @@ class Keys {
         entry.hex._continuumPitchAnchorCents = entry.hex.cents;
         if (this.inputRuntime.target === "scale") {
         entry.hex._scaleModeBendAnchor14 = bend14;
+        }
+      }
+    }
+    this._refreshHakenGlideModeForActiveNotes();
+  }
+
+  _setHakenPedalGlideFlip(active) {
+    if (this.controller?.id !== "hakenaudio" || !this.inputRuntime.mpeInput) {
+      this.inputRuntime.hakenPedalGlideFlip = active;
+      return;
+    }
+    const previousMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
+    this.inputRuntime.hakenPedalGlideFlip = active;
+    const nextMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
+    if (
+      previousMode === "raster_to_notes" &&
+      nextMode !== "raster_to_notes"
+    ) {
+      for (const [channel, entry] of this.state.activeMidiByChannel) {
+        const bend14 = this._mpeInputBendByChannel.get(channel);
+        if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
+        const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
+        entry.hex._continuumPitchAnchor14 = bend14;
+        entry.hex._continuumPitchAnchorSteps = currentSteps;
+        entry.hex._continuumPitchAnchorCents = entry.hex.cents;
+        if (this.inputRuntime.target === "scale") {
+          entry.hex._scaleModeBendAnchor14 = bend14;
         }
       }
     }
