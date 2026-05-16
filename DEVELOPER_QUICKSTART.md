@@ -17,6 +17,7 @@ Tooling note:
 - do not install `vite` globally for normal repo work
 - if commands like `yarn start`, `yarn start:https`, or config imports fail with
   missing `vite`, run `yarn install` in the repo first
+- on Windows you may need to run commands using `corepack` as a prefix: syntax `corepack yarn install` etc.
 
 ## Clone
 
