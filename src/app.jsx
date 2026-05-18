@@ -64,12 +64,7 @@ import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
 import ManualSidebar from "./manual-sidebar.jsx";
-
-
-import "normalize.css";
-import "./hex-style.css";
-import LoadingIcon from "./img/hex.svg?react";
-import "./loader.css";
+import LoadingIcon from "./loading-icon.jsx";
 
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless
 // the user has opted into "Restore last preset on page reload".

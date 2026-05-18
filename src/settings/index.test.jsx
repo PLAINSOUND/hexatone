@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Settings from "./index.jsx";
 
+vi.mock("./settings.css", () => ({}));
 vi.mock("./presets/presets", () => ({ default: () => <div>Presets Stub</div> }));
 vi.mock("./presets/custom-presets", () => ({ default: () => <div>User Tunings Stub</div> }));
 vi.mock("./scale/info", () => ({ default: () => <div>Info Stub</div> }));

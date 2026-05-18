@@ -3,6 +3,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import Keyboard from "./index.js";
 import Keys from "./keys.js";
 
+vi.mock("./keyboard.css", () => ({}));
+
 const keysState = vi.hoisted(() => ({
   instances: [],
 }));

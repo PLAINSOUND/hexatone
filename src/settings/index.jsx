@@ -7,7 +7,6 @@ import SampleSynth from "./sample";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
-import "./settings.css";
 const Settings = ({
   presetChanged,
   presets,

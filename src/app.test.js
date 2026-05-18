@@ -21,6 +21,10 @@ let lastUsePresetsOptions = null;
 let mockDetectedController = null;
 let mockControllerById = null;
 
+vi.mock("normalize.css", () => ({}));
+vi.mock("./hex-style.css", () => ({}));
+vi.mock("./loader.css", () => ({}));
+
 vi.mock("./keyboard", () => ({
   default: (props) => {
     lastKeyboardProps = props;
@@ -176,7 +180,7 @@ vi.mock("./controllers/registry.js", () => ({
 // Loading is a trivially simple named export — just verify it renders without
 // throwing. The SVG content is mocked by the asset stub.
 
-vi.mock("./img/hex.svg?react", () => ({
+vi.mock("./loading-icon.jsx", () => ({
   default: () => <svg data-testid="loading-icon" />,
 }));
 

@@ -1,7 +1,6 @@
 import { Fragment } from "preact";
 import { useRef, useEffect } from "preact/hooks";
 import Keys from "./keys";
-import "./keyboard.css";
 import PropTypes from "prop-types";
 
 const sameArray = (a = [], b = []) => {

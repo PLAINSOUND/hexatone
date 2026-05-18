@@ -7,8 +7,6 @@ import fs from 'fs';
 const devHttpsEnabled = process.env.VITE_DEV_HTTPS === 'true';
 const devHttpsKeyPath = process.env.VITE_DEV_SSL_KEY || path.resolve(__dirname, '.cert/localhost-key.pem');
 const devHttpsCertPath = process.env.VITE_DEV_SSL_CERT || path.resolve(__dirname, '.cert/localhost.pem');
-const fileMockPath = path.resolve(__dirname, '__mocks__/fileMock.js');
-const styleMockPath = path.resolve(__dirname, '__mocks__/styleMock.js');
 
 function resolveDevHttpsConfig() {
   if (!devHttpsEnabled) return false;
@@ -30,10 +28,7 @@ function resolveDevHttpsConfig() {
   };
 }
 
-export default defineConfig(({ mode }) => {
-  const testMode = mode === 'test' || process.argv.some((arg) => arg.includes('vitest'));
-
-  return {
+export default defineConfig({
 
   plugins: [
     preact({
@@ -63,19 +58,12 @@ export default defineConfig(({ mode }) => {
   },
 
   resolve: {
-    alias: [
-      ...(testMode
-        ? [
-            { find: /^normalize\.css$/, replacement: styleMockPath },
-            { find: /\.(mp3|wav|ogg|scl|ascl|svg|png|jpg|jpeg|gif|woff|woff2|ttf|eot)(\?.*)?$/, replacement: fileMockPath },
-            { find: /\.(css|less)$/, replacement: styleMockPath },
-          ]
-        : []),
-      { find: /^scales\//, replacement: `${path.resolve(__dirname, 'scales')}/` },
-      { find: 'react', replacement: 'preact/compat' },
-      { find: 'react-dom/test-utils', replacement: 'preact/test-utils' },
-      { find: 'react-dom', replacement: 'preact/compat' },
-    ],
+    alias: {
+      scales:               path.resolve(__dirname, 'scales'),
+      'react':              'preact/compat',
+      'react-dom/test-utils':'preact/test-utils',
+      'react-dom':          'preact/compat',
+    },
   },
 
   // Base path: '/' for production (hexatone.plainsound.org), '/hexatone/' for
@@ -103,6 +91,7 @@ export default defineConfig(({ mode }) => {
   // ── Vitest ──────────────────────────────────────────────────────────────────
   test: {
     environment: 'jsdom',
+    css: false,
     environmentOptions: {
       jsdom: {
         url: 'http://localhost/',
@@ -111,6 +100,17 @@ export default defineConfig(({ mode }) => {
     globals: true,
     setupFiles: ['./vitest.setup.js'],
     include: ['src/**/*.test.{js,jsx}'],
+
+    // Stub static assets imported in tests.
+    alias: [
+      {
+        find: /\.(mp3|wav|ogg|scl|ascl|svg|png|jpg|jpeg|gif|woff|woff2|ttf|eot)(\?.*)?$/,
+        replacement: path.resolve(__dirname, '__mocks__/fileMock.js'),
+      },
+      {
+        find: /\.(css|less)$/,
+        replacement: path.resolve(__dirname, '__mocks__/styleMock.js'),
+      },
+    ],
   },
-};
 });

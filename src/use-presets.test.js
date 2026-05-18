@@ -1,4 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
+
+vi.mock("./settings/presets/preset_values", () => ({
+  presets: [],
+  default_settings: {},
+}));
+
 import {
   SCALE_KEYS_TO_CLEAR,
   clearScaleSettings,
