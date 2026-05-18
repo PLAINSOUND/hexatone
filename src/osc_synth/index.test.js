@@ -33,6 +33,8 @@ describe("osc_synth pooled slot allocation", () => {
       "ws://test-osc-pool",
       ["pluck", "string", "formant", "tone"],
       [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
       261.6255653,
       0,
       [0],
@@ -63,6 +65,8 @@ describe("osc_synth pooled slot allocation", () => {
       "ws://test-osc-live-volume",
       ["pluck", "string", "formant", "tone"],
       [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
       261.6255653,
       0,
       [0],
@@ -113,6 +117,8 @@ describe("osc_synth pooled slot allocation", () => {
       "ws://test-osc-cc74",
       ["pluck", "string", "formant", "tone"],
       [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
       261.6255653,
       0,
       [0],
@@ -149,6 +155,8 @@ describe("osc_synth pooled slot allocation", () => {
       "ws://test-osc-onset-retune",
       ["pluck", "string", "formant", "tone"],
       [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
       261.6255653,
       0,
       [0],
@@ -172,6 +180,8 @@ describe("osc_synth pooled slot allocation", () => {
       "ws://test-osc-force-free",
       ["pluck", "string", "formant", "tone"],
       [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
       261.6255653,
       0,
       [0],
@@ -194,6 +204,8 @@ describe("osc_synth pooled slot allocation", () => {
       "ws://test-osc-noteoff-fallback",
       ["pluck", "string", "formant", "tone"],
       [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
       261.6255653,
       0,
       [0],
@@ -219,5 +231,45 @@ describe("osc_synth pooled slot allocation", () => {
     expect(poolNoteOff).toHaveBeenCalledTimes(1);
     expect(releases).toHaveLength(4);
     expect(releases.map((msg) => msg.port)).toEqual([57101, 57102, 57103, 57104]);
+  });
+
+  it("applies live quick release settings to active nodes and future note-ons", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-quick-release",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    await Promise.resolve();
+
+    const firstHex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    firstHex.noteOn();
+    synth.setQuickRelease(0.75);
+    synth.setQuickReleaseTime(0.08);
+
+    const ws = MockWebSocket.instances[0];
+    const quickReleaseSets = ws.sent.filter((msg) =>
+      msg.address === "/n_set" && msg.args[1]?.value === "quick_release");
+    const quickReleaseTimeSets = ws.sent.filter((msg) =>
+      msg.address === "/n_set" && msg.args[1]?.value === "quick_release_time");
+
+    expect(quickReleaseSets.length).toBeGreaterThan(0);
+    expect(quickReleaseTimeSets.length).toBeGreaterThan(0);
+
+    const secondHex = synth.makeHex({ x: 1, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    secondHex.noteOn();
+
+    const latestSNew = ws.sent.filter((msg) => msg.address === "/s_new").at(-1);
+    const quickReleaseArgIndex = latestSNew.args.findIndex((arg) => arg.value === "quick_release");
+    const quickReleaseTimeArgIndex = latestSNew.args.findIndex((arg) => arg.value === "quick_release_time");
+
+    expect(latestSNew.args[quickReleaseArgIndex + 1].value).toBeCloseTo(0.75, 5);
+    expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(0.08, 5);
   });
 });

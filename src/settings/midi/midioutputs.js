@@ -15,11 +15,25 @@ const save = (name, value, onChange) => {
 };
 
 const clampOscVolume = (value) => Math.max(0, Math.min(1, value));
+const clampOscQuickRelease = (value) => Math.max(0, Math.min(1, value));
+const clampOscQuickReleaseTime = (value) => Math.max(0.001, Math.min(1, value));
 
 const readOscVolume = (name, fallback = 0.5) => {
   const local = parseFloat(localStorage.getItem(name) ?? "");
   if (Number.isFinite(local)) return clampOscVolume(local);
   return clampOscVolume(fallback);
+};
+
+const readOscQuickRelease = (name, fallback = 0) => {
+  const local = parseFloat(localStorage.getItem(name) ?? "");
+  if (Number.isFinite(local)) return clampOscQuickRelease(local);
+  return clampOscQuickRelease(fallback);
+};
+
+const readOscQuickReleaseTime = (name, fallback = 0.1) => {
+  const local = parseFloat(localStorage.getItem(name) ?? "");
+  if (Number.isFinite(local)) return clampOscQuickReleaseTime(local);
+  return clampOscQuickReleaseTime(fallback);
 };
 
 const saveOscVolume = (name, value) => {
@@ -133,6 +147,12 @@ const MidiOutputs = (props) => {
     osc_volume_formant: readOscVolume("osc_volume_formant", settings.osc_volume_formant ?? 0.5),
     osc_volume_saw: readOscVolume("osc_volume_saw", settings.osc_volume_saw ?? 0.5),
   });
+  const [oscQuickRelease, setOscQuickRelease] = useState(
+    readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0),
+  );
+  const [oscQuickReleaseTime, setOscQuickReleaseTime] = useState(
+    readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.1),
+  );
   const masterCh = settings.midiin_mpe_manager_ch || settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
@@ -161,6 +181,16 @@ const MidiOutputs = (props) => {
     settings.osc_volume_formant,
     settings.osc_volume_saw,
   ]);
+
+  useEffect(() => {
+    setOscQuickRelease(readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0));
+  }, [settings.osc_quick_release]);
+
+  useEffect(() => {
+    setOscQuickReleaseTime(
+      readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.1),
+    );
+  }, [settings.osc_quick_release_time]);
 
   // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
   // If the user has manually overridden the port, use that instead.
@@ -877,6 +907,60 @@ const MidiOutputs = (props) => {
               </span>
             </label>
           ))}
+          <label>
+            Quick Release
+            <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={oscQuickRelease}
+                onInput={(e) => {
+                  const next = clampOscQuickRelease(parseFloat(e.target.value));
+                  setOscQuickRelease(next);
+                  props.onOscQuickReleaseChange?.(next);
+                }}
+                onChange={(e) => {
+                  const next = clampOscQuickRelease(parseFloat(e.target.value));
+                  localStorage.setItem("osc_quick_release", String(next));
+                  sessionStorage.setItem("osc_quick_release", String(next));
+                  onChange("osc_quick_release", next);
+                }}
+                style={{ flex: 1, width: "100%" }}
+              />
+              <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                {oscQuickRelease.toFixed(2)}
+              </span>
+            </span>
+          </label>
+          <label>
+            Quick Release Time
+            <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+              <input
+                type="range"
+                min="0.01"
+                max="1"
+                step="0.005"
+                value={oscQuickReleaseTime}
+                onInput={(e) => {
+                  const next = clampOscQuickReleaseTime(parseFloat(e.target.value));
+                  setOscQuickReleaseTime(next);
+                  props.onOscQuickReleaseTimeChange?.(next);
+                }}
+                onChange={(e) => {
+                  const next = clampOscQuickReleaseTime(parseFloat(e.target.value));
+                  localStorage.setItem("osc_quick_release_time", String(next));
+                  sessionStorage.setItem("osc_quick_release_time", String(next));
+                  onChange("osc_quick_release_time", next);
+                }}
+                style={{ flex: 1, width: "100%" }}
+              />
+              <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                {oscQuickReleaseTime.toFixed(2)}
+              </span>
+            </span>
+          </label>
         </>
       )}
     </fieldset>
@@ -921,6 +1005,8 @@ MidiOutputs.propTypes = {
     osc_volume_buzz: PropTypes.number,
     osc_volume_formant: PropTypes.number,
     osc_volume_saw: PropTypes.number,
+    osc_quick_release: PropTypes.number,
+    osc_quick_release_time: PropTypes.number,
   }).isRequired,
   midi: PropTypes.object,
   midiAccess: PropTypes.string,
@@ -928,6 +1014,8 @@ MidiOutputs.propTypes = {
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,
   onOscLayerVolumeChange: PropTypes.func,
+  onOscQuickReleaseChange: PropTypes.func,
+  onOscQuickReleaseTimeChange: PropTypes.func,
   keysRef: PropTypes.object,
 };
 

@@ -108,7 +108,19 @@ function getSocket(url) {
   return _sockets.get(url);
 }
 
-const buildSNewArgs = (synthName, id, targetGroup, freq, bend, onVel, mod, filter, vol) => {
+const buildSNewArgs = (
+  synthName,
+  id,
+  targetGroup,
+  freq,
+  bend,
+  onVel,
+  mod,
+  filter,
+  vol,
+  quickRelease,
+  quickReleaseTime,
+) => {
   const args = [
     { type: "s", value: synthName },
     { type: "i", value: id },
@@ -126,6 +138,10 @@ const buildSNewArgs = (synthName, id, targetGroup, freq, bend, onVel, mod, filte
     { type: "f", value: mod },
     { type: "s", value: "vol" },
     { type: "f", value: vol },
+    { type: "s", value: "quick_release" },
+    { type: "f", value: quickRelease },
+    { type: "s", value: "quick_release_time" },
+    { type: "f", value: quickReleaseTime },
     { type: "s", value: "gate" },
     { type: "i", value: 1 },
   ];
@@ -144,6 +160,8 @@ export const create_osc_synth = async (
   wsUrl = WS_URL_DEFAULT,
   synthNames = ["pluck", "string", "formant", "tone"],
   volumes = [0.5, 0.5, 0.5, 0.5],
+  quickRelease = 0,
+  quickReleaseTime = 0.1,
   fundamental = 440,
   _reference_degree = 0,
   _scale = [0],
@@ -152,6 +170,8 @@ export const create_osc_synth = async (
   const socket = getSocket(wsUrl);
   const _volumes = [...volumes];
   const _mod = { value: 1.0 };
+  const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
+  const _quickReleaseTime = { value: Math.max(0.001, quickReleaseTime) };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
   const _knownNodeIds = new Set();
   const _slotState = synthNames.map(() =>
@@ -191,6 +211,44 @@ export const create_osc_synth = async (
       ],
       OSC_LAYER_PORTS[index],
     );
+  };
+
+  const setQuickRelease = (value) => {
+    const next = Math.max(0, Math.min(1, value));
+    _quickRelease.value = next;
+    for (let i = 0; i < _slotState.length; i++) {
+      for (const slot of _slotState[i]) {
+        if (!slot?.active || slot.nodeId == null) continue;
+        socket.send(
+          "/n_set",
+          [
+            { type: "i", value: slot.nodeId },
+            { type: "s", value: "quick_release" },
+            { type: "f", value: next },
+          ],
+          OSC_LAYER_PORTS[i],
+        );
+      }
+    }
+  };
+
+  const setQuickReleaseTime = (value) => {
+    const next = Math.max(0.001, value);
+    _quickReleaseTime.value = next;
+    for (let i = 0; i < _slotState.length; i++) {
+      for (const slot of _slotState[i]) {
+        if (!slot?.active || slot.nodeId == null) continue;
+        socket.send(
+          "/n_set",
+          [
+            { type: "i", value: slot.nodeId },
+            { type: "s", value: "quick_release_time" },
+            { type: "f", value: next },
+          ],
+          OSC_LAYER_PORTS[i],
+        );
+      }
+    }
   };
 
   const freeAllKnownNodes = () => {
@@ -235,6 +293,8 @@ export const create_osc_synth = async (
         fundamental,
         degree0toRef_ratio ?? 1,
         _mod,
+        _quickRelease,
+        _quickReleaseTime,
         _pool,
         _slotState,
         _knownNodeIds,
@@ -271,6 +331,14 @@ export const create_osc_synth = async (
       setLayerVolume(index, value);
     },
 
+    setQuickRelease(value) {
+      setQuickRelease(value);
+    },
+
+    setQuickReleaseTime(value) {
+      setQuickReleaseTime(value);
+    },
+
     allSoundOff() {
       debugLog("osc", "osc_synth.allSoundOff", { knownNodeCount: _knownNodeIds.size });
       freeAllKnownNodes();
@@ -300,6 +368,8 @@ function OscHex(
   fundamental,
   degree0toRef_ratio,
   modRef,
+  quickReleaseRef,
+  quickReleaseTimeRef,
   pool,
   slotState,
   knownNodeIds,
@@ -317,6 +387,8 @@ function OscHex(
   this._fundamental = fundamental;
   this._degree0toRef = degree0toRef_ratio;
   this._modRef = modRef;
+  this._quickReleaseRef = quickReleaseRef;
+  this._quickReleaseTimeRef = quickReleaseTimeRef;
   this._pool = pool;
   this._slotState = slotState;
   this._knownNodeIds = knownNodeIds;
@@ -371,6 +443,8 @@ OscHex.prototype.noteOn = function () {
         this._modRef.value,
         this._filter,
         this._volumes[i],
+        this._quickReleaseRef.value,
+        this._quickReleaseTimeRef.value,
       ),
       OSC_LAYER_PORTS[i],
     );

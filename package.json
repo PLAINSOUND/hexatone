@@ -8,7 +8,7 @@
     "start:https": "VITE_DEV_HTTPS=true vite",
     "osc-bridge": "node osc-bridge/index.js",
     "build-bridge": "node osc-bridge/build-sea.mjs",
-    "build": "vite build && node generate-sw.js",
+    "build": "vite build && node copy-build-docs.mjs && node generate-sw.js",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

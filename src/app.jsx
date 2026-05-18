@@ -550,6 +550,8 @@ const App = () => {
     toggleOctaveDeferred,
     onVolumeChange,
     onOscLayerVolumeChange,
+    onOscQuickReleaseChange,
+    onOscQuickReleaseTimeChange,
     onAnchorLearn,
     onHakenPedalLearn,
     lumatoneRawPorts,
@@ -1934,6 +1936,8 @@ const App = () => {
               hakenPedalLearnActive={hakenPedalLearnActive}
               onVolumeChange={onVolumeChange}
               onOscLayerVolumeChange={onOscLayerVolumeChange}
+              onOscQuickReleaseChange={onOscQuickReleaseChange}
+              onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
               onImport={onImport}
               importCount={importCount}
               onLoadCustomPreset={onLoadCustomPreset}
