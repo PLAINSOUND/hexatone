@@ -129,6 +129,9 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
     "osc_volume_buzz",
     "osc_volume_formant",
     "osc_volume_saw",
+    "osc_quick_release",
+    "osc_quick_release_time",
+    "osc_quick_release_raster_only",
   ],
   permissionState: [
     "webmidi_enabled",
