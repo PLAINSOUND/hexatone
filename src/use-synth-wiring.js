@@ -81,6 +81,12 @@ export const deriveOscVolumes = (settings) => {
   ];
 };
 
+export const deriveOscQuickRelease = (settings) =>
+  Math.max(0, Math.min(1, localFloat(REGISTRY_BY_KEY.osc_quick_release.key, settings.osc_quick_release ?? 0)));
+
+export const deriveOscQuickReleaseTime = (settings) =>
+  Math.max(0.001, localFloat(REGISTRY_BY_KEY.osc_quick_release_time.key, settings.osc_quick_release_time ?? 0.1));
+
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {
     return getControllerById(controllerOverrideId) ?? getControllerById("generic");
@@ -796,6 +802,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
             settings.osc_bridge_url || "ws://localhost:8089",
             settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
             deriveOscVolumes(settingsRef.current),
+            deriveOscQuickRelease(settingsRef.current),
+            deriveOscQuickReleaseTime(settingsRef.current),
             settings.fundamental,
             settings.reference_degree,
             settings.scale,
@@ -1151,6 +1159,16 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (oscSynth?.setLayerVolume) oscSynth.setLayerVolume(index, value);
   }, []);
 
+  const onOscQuickReleaseChange = useCallback((value) => {
+    const oscSynth = oscSynthRef.current.synth;
+    if (oscSynth?.setQuickRelease) oscSynth.setQuickRelease(value);
+  }, []);
+
+  const onOscQuickReleaseTimeChange = useCallback((value) => {
+    const oscSynth = oscSynthRef.current.synth;
+    if (oscSynth?.setQuickReleaseTime) oscSynth.setQuickReleaseTime(value);
+  }, []);
+
   // Called by keys.js when the user presses a key during MIDI-learn mode.
   // Saves the anchor note + channel so the controller map (2D path) and the
   // step-arithmetic path (sequential/unknown) both resolve correctly.
@@ -1305,6 +1323,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     toggleOctaveDeferred,
     onVolumeChange,
     onOscLayerVolumeChange,
+    onOscQuickReleaseChange,
+    onOscQuickReleaseTimeChange,
     onAnchorLearn,
     onHakenPedalLearn,
     lumatoneRawPorts,

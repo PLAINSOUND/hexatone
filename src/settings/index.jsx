@@ -46,6 +46,8 @@ const Settings = ({
   heji_warning,
   onVolumeChange,
   onOscLayerVolumeChange,
+  onOscQuickReleaseChange,
+  onOscQuickReleaseTimeChange,
   midiLearnActive,
   hakenPedalLearnActive,
   lumatoneRawPorts,
@@ -145,6 +147,8 @@ const Settings = ({
     <MidiOutputs
       onChange={onChange}
       onOscLayerVolumeChange={onOscLayerVolumeChange}
+      onOscQuickReleaseChange={onOscQuickReleaseChange}
+      onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
       settings={settings}
       midi={midi}
       midiAccess={midiAccess}
