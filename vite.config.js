@@ -91,15 +91,25 @@ export default defineConfig({
   // ── Vitest ──────────────────────────────────────────────────────────────────
   test: {
     environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        url: 'http://localhost/',
+      },
+    },
     globals: true,
     setupFiles: ['./vitest.setup.js'],
     include: ['src/**/*.test.{js,jsx}'],
 
-    // Stub static assets — same role as the old Jest moduleNameMapper
-    moduleNameMapper: {
-      '\\.(mp3|wav|ogg|scl|ascl|svg|png|jpg|jpeg|gif|woff|woff2|ttf|eot)(\\?.*)?$':
-        '<rootDir>/__mocks__/fileMock.js',
-      '\\.(css|less)$': '<rootDir>/__mocks__/styleMock.js',
-    },
+    // Stub static assets imported in tests.
+    alias: [
+      {
+        find: /\.(mp3|wav|ogg|scl|ascl|svg|png|jpg|jpeg|gif|woff|woff2|ttf|eot)(\?.*)?$/,
+        replacement: path.resolve(__dirname, '__mocks__/fileMock.js'),
+      },
+      {
+        find: /\.(css|less)$/,
+        replacement: path.resolve(__dirname, '__mocks__/styleMock.js'),
+      },
+    ],
   },
 });

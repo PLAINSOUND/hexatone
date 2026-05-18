@@ -9,7 +9,7 @@ Updated: 2026-05-17
 
 This repo is configured for:
 
-- `yarn@4.13.0`
+- `yarn@4.14.1`
 
 Tooling note:
 
@@ -17,7 +17,11 @@ Tooling note:
 - do not install `vite` globally for normal repo work
 - if commands like `yarn start`, `yarn start:https`, or config imports fail with
   missing `vite`, run `yarn install` in the repo first
-- on Windows you may need to run commands using `corepack` as a prefix: syntax `corepack yarn install` etc.
+- on Windows, if `yarn` is not available as a global shim, use `corepack yarn ...`
+- if Vitest reports missing packages from `.yarn/__virtual__`, rerun `corepack yarn install --immutable`
+- on Windows, open the workspace with the same path casing every time
+  (for example `D:\hexatone`, not `d:\hexatone`) so VS Code and Yarn PnP
+  do not resolve the repo through two different `.pnp.cjs` paths
 
 ## Clone
 
@@ -30,6 +34,12 @@ cd hexatone
 
 ```sh
 yarn install
+```
+
+Windows fallback:
+
+```sh
+corepack yarn install --immutable
 ```
 
 ## Run the app locally
@@ -72,6 +82,12 @@ You can also point Vite at different cert files with:
 
 ```sh
 yarn test
+```
+
+Windows fallback:
+
+```sh
+corepack yarn test
 ```
 
 For watch mode:
