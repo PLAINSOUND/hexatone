@@ -22,6 +22,7 @@ function resolveControllerCoords(keys, channel, note, rawChannel = channel) {
 function resolveGenericCoords(keys, channel, note) {
   return keys._modulatedControllerCoords(keys.coordResolver.coordForSteps(
     keys.coordResolver.noteToSteps(note, channel),
+    { channel, note },
   ));
 }
 

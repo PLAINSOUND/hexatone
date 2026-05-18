@@ -48,6 +48,7 @@ export function panic(keys) {
   keys.state.sustainedCoords.clear();
   keys.state.shiftSustainedKeys.clear();
   keys.state.pressedKeys.clear();
+  keys.coordResolver.clearInputAddressMemory();
   notes.played = [];
 
   keys.recencyStack.clear();

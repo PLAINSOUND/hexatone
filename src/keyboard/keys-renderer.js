@@ -81,15 +81,33 @@ export function rebuildVisibleGridGeometry() {
   const ox = this.settings.centerHexOffset.x + (this.settings.runtime_display_offset_x ?? 0);
   const oy = this.settings.centerHexOffset.y + (this.settings.runtime_display_offset_y ?? 0);
   const coords = [];
+  const fullyVisibleCoords = [];
   const geometry = new Map();
+  const canvasWidth = this.state.canvas.width || this.state.centerpoint.x * 2;
+  const canvasHeight = this.state.canvas.height || this.state.centerpoint.y * 2;
+  const isFullyVisible = (hexGeometry) => {
+    for (let i = 0; i < 6; i++) {
+      const point = this._transformCanvasPoint(hexGeometry.x[i], hexGeometry.y[i]);
+      if (
+        point.x < 0 ||
+        point.x > canvasWidth ||
+        point.y < 0 ||
+        point.y > canvasHeight
+      ) return false;
+    }
+    return true;
+  };
   for (let r = -max + ox; r < max + ox; r++) {
     for (let dr = -max + oy; dr < max + oy; dr++) {
       const coord = new Point(r, dr);
+      const hexGeometry = this._buildHexGeometry(coord);
       coords.push(coord);
-      geometry.set(this._coordKey(coord), this._buildHexGeometry(coord));
+      geometry.set(this._coordKey(coord), hexGeometry);
+      if (isFullyVisible(hexGeometry)) fullyVisibleCoords.push(coord);
     }
   }
   this._visibleGridCoords = coords;
+  this._fullyVisibleGridCoords = fullyVisibleCoords;
   this._hexGeometryCache = geometry;
   this._staticGridValid = false;
 }

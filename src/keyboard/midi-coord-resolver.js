@@ -65,20 +65,46 @@ export class MidiCoordResolver {
    *                                       its stepsPerChannel/channelGroupSize/
    *                                       legacyChannelMode/seqAnchorChannel take precedence
    *                                       over the matching settings fields.
+   * @param {function} [getFullyVisibleCoords] - Optional callback returning the
+   *                                       renderer's cached fully visible hex coords.
+   * @param {function} [hexCoordsToDisplayScreen] - Optional callback returning
+   *                                       the rendered screen position after
+   *                                       canvas transforms/rotation.
    */
-  constructor(settings, hexCoordsToCents, hexCoordsToScreen, getCenterpoint, inputRuntime = null) {
+  constructor(
+    settings,
+    hexCoordsToCents,
+    hexCoordsToScreen,
+    getCenterpoint,
+    inputRuntime = null,
+    getFullyVisibleCoords = null,
+    hexCoordsToDisplayScreen = null,
+  ) {
     this.settings = settings;
     this.inputRuntime = inputRuntime;
     this._hexCoordsToCents = hexCoordsToCents;
     this._hexCoordsToScreen = hexCoordsToScreen;
     this._getCenterpoint = getCenterpoint;
+    this._getFullyVisibleCoords = getFullyVisibleCoords;
+    this._hexCoordsToDisplayScreen = hexCoordsToDisplayScreen ?? hexCoordsToScreen;
 
     // Populated by buildStepsTable() — Map<steps: number, coords: Point[]>
     this.stepsTable = null;
+    this.fullyVisibleStepsTable = null;
+    this.preferredFullyVisibleCoordByStep = null;
 
     // Screen-space Point of the most recently activated MIDI note.
     // Updated by the caller (Keys) after each successful note-on.
     this.lastMidiCoords = null;
+
+    // Sticky placement memory for non-2D inputs. Keys updates this after each
+    // successful note-on so repeated notes from the same live input address can
+    // stay in a stable screen region instead of following the last global note.
+    this.lastCoordsByInputAddress = new Map();
+  }
+
+  _displayScreen(coords) {
+    return this._hexCoordsToDisplayScreen(coords);
   }
 
   // ── Step arithmetic ──────────────────────────────────────────────────────────
@@ -164,6 +190,10 @@ export class MidiCoordResolver {
     const oy = this.settings.centerHexOffset.y + (this.settings.runtime_display_offset_y ?? 0);
 
     this.stepsTable = new Map();
+    this.fullyVisibleStepsTable = new Map();
+    const fullyVisibleKeys = new Set(
+      (this._getFullyVisibleCoords?.() ?? []).map((coords) => `${coords.x},${coords.y}`),
+    );
     for (let r = -max + ox; r < max + ox; r++) {
       for (let dr = -max + oy; dr < max + oy; dr++) {
         const coords = new Point(r, dr);
@@ -174,8 +204,19 @@ export class MidiCoordResolver {
           this.stepsTable.set(steps, []);
         }
         this.stepsTable.get(steps).push(coords);
+        if (
+          fullyVisibleKeys.size > 0
+            ? fullyVisibleKeys.has(`${coords.x},${coords.y}`)
+            : this._isFullyVisibleCoord(coords)
+        ) {
+          if (!this.fullyVisibleStepsTable.has(steps)) {
+            this.fullyVisibleStepsTable.set(steps, []);
+          }
+          this.fullyVisibleStepsTable.get(steps).push(coords);
+        }
       }
     }
+    this._rebuildPreferredFullyVisibleCoords();
   }
 
   /**
@@ -189,6 +230,47 @@ export class MidiCoordResolver {
     return this.stepsTable?.get(steps) ?? [];
   }
 
+  stepsToFullyVisibleCoords(steps) {
+    return this.fullyVisibleStepsTable?.get(steps) ?? [];
+  }
+
+  _rebuildPreferredFullyVisibleCoords() {
+    this.preferredFullyVisibleCoordByStep = new Map();
+    if (!this.fullyVisibleStepsTable || this.fullyVisibleStepsTable.size === 0) return;
+
+    const centerpoint = this._getCenterpoint();
+    const cx = centerpoint.x;
+    const cy = centerpoint.y;
+    const fullyVisibleSteps = [...this.fullyVisibleStepsTable.keys()].sort((a, b) => a - b);
+
+    for (const step of fullyVisibleSteps) {
+      const candidates = this.stepsToFullyVisibleCoords(step);
+      if (candidates.length === 0) continue;
+      if (candidates.length === 1) {
+        this.preferredFullyVisibleCoordByStep.set(step, candidates[0]);
+        continue;
+      }
+
+      let best = candidates[0];
+      let bestVertical = Infinity;
+      let bestHorizontal = Infinity;
+      for (const coords of candidates) {
+        const screen = this._displayScreen(coords);
+        const vertical = Math.abs(screen.y - cy);
+        const horizontal = Math.abs(screen.x - cx);
+        if (
+          vertical < bestVertical ||
+          (vertical === bestVertical && horizontal < bestHorizontal)
+        ) {
+          bestVertical = vertical;
+          bestHorizontal = horizontal;
+          best = coords;
+        }
+      }
+      this.preferredFullyVisibleCoordByStep.set(step, best);
+    }
+  }
+
   /**
    * When a step target is outside the currently visible grid, synthesize a
    * lattice coordinate for the exact step count instead of failing outright.
@@ -198,7 +280,73 @@ export class MidiCoordResolver {
    * @param {number} steps
    * @returns {Point|null}
    */
-  fallbackCoordForSteps(steps) {
+  _inputAddressKey(inputAddress) {
+    if (!inputAddress) return null;
+    const channel = inputAddress.channel ?? "";
+    const note = inputAddress.note ?? "";
+    const rawChannel = inputAddress.rawChannel ?? "";
+    return `${channel}:${note}:${rawChannel}`;
+  }
+
+  _preferredAnchorPoint(inputAddress) {
+    const key = this._inputAddressKey(inputAddress);
+    const sticky = key ? this.lastCoordsByInputAddress.get(key) ?? null : null;
+    return sticky ?? this.lastMidiCoords;
+  }
+
+  _stickyAnchorPoint(inputAddress) {
+    const key = this._inputAddressKey(inputAddress);
+    return key ? this.lastCoordsByInputAddress.get(key) ?? null : null;
+  }
+
+  rememberCoordsForInputAddress(inputAddress, coords) {
+    const key = this._inputAddressKey(inputAddress);
+    if (!key || !coords) return;
+    this.lastCoordsByInputAddress.set(key, this._displayScreen(coords));
+  }
+
+  forgetCoordsForInputAddress(inputAddress) {
+    const key = this._inputAddressKey(inputAddress);
+    if (!key) return;
+    this.lastCoordsByInputAddress.delete(key);
+  }
+
+  clearInputAddressMemory() {
+    this.lastCoordsByInputAddress.clear();
+  }
+
+  _canvasBounds() {
+    const centerpoint = this._getCenterpoint();
+    return {
+      left: 0,
+      top: 0,
+      right: centerpoint.x * 2,
+      bottom: centerpoint.y * 2,
+    };
+  }
+
+  _hexExtents() {
+    const hexSize = Number(this.settings.hexSize) || 0;
+    const hexWidth = Number(this.settings.hexWidth) || Math.sqrt(3) * hexSize;
+    return {
+      halfWidth: hexWidth / 2,
+      halfHeight: hexSize,
+    };
+  }
+
+  _isFullyVisibleCoord(coords) {
+    const screen = this._displayScreen(coords);
+    const bounds = this._canvasBounds();
+    const extents = this._hexExtents();
+    return (
+      screen.x - extents.halfWidth >= bounds.left &&
+      screen.x + extents.halfWidth <= bounds.right &&
+      screen.y - extents.halfHeight >= bounds.top &&
+      screen.y + extents.halfHeight <= bounds.bottom
+    );
+  }
+
+  fallbackCoordForSteps(steps, inputAddress = null) {
     const rSteps = Math.trunc(this.settings.rSteps);
     const drSteps = Math.trunc(this.settings.drSteps);
     const { gcd, x, y } = extendedGcd(rSteps, drSteps);
@@ -214,14 +362,14 @@ export class MidiCoordResolver {
     const cx = centerpoint.x;
     const cy = centerpoint.y;
     const DECAY = 0.15;
-    const last = this.lastMidiCoords;
+    const last = this._preferredAnchorPoint(inputAddress);
     const anchorX = last ? last.x + DECAY * (cx - last.x) : cx;
     const anchorY = last ? last.y + DECAY * (cy - last.y) : cy;
 
     const basePoint = new Point(baseX, baseY);
-    const baseScreen = this._hexCoordsToScreen(basePoint);
+    const baseScreen = this._displayScreen(basePoint);
     const deltaPoint = new Point(baseX + shiftX, baseY + shiftY);
-    const deltaScreen = this._hexCoordsToScreen(deltaPoint);
+    const deltaScreen = this._displayScreen(deltaPoint);
     const stepX = deltaScreen.x - baseScreen.x;
     const stepY = deltaScreen.y - baseScreen.y;
     const denom = stepX * stepX + stepY * stepY;
@@ -237,7 +385,7 @@ export class MidiCoordResolver {
     for (let dk = -1; dk <= 1; dk++) {
       const k = kBase + dk;
       const coords = new Point(baseX + shiftX * k, baseY + shiftY * k);
-      const screen = this._hexCoordsToScreen(coords);
+      const screen = this._displayScreen(coords);
       const dx = screen.x - anchorX;
       const dy = screen.y - anchorY;
       const dist = dx * dx + dy * dy;
@@ -249,8 +397,8 @@ export class MidiCoordResolver {
     return best;
   }
 
-  coordForSteps(steps) {
-    return this.bestVisibleCoord(steps) ?? this.fallbackCoordForSteps(steps);
+  coordForSteps(steps, inputAddress = null) {
+    return this.bestVisibleCoord(steps, inputAddress) ?? this.fallbackCoordForSteps(steps, inputAddress);
   }
 
   // ── Best-coord selection ─────────────────────────────────────────────────────
@@ -272,8 +420,11 @@ export class MidiCoordResolver {
    * @param {number} steps
    * @returns {Point|null}
    */
-  bestVisibleCoord(steps) {
-    const candidates = this.stepsToVisibleCoords(steps);
+  bestVisibleCoord(steps, inputAddress = null) {
+    const fullyVisibleCandidates = this.stepsToFullyVisibleCoords(steps);
+    const candidates = fullyVisibleCandidates.length > 0
+      ? fullyVisibleCandidates
+      : this.stepsToVisibleCoords(steps);
     if (candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
 
@@ -283,35 +434,59 @@ export class MidiCoordResolver {
 
     // Decay anchor 15% back toward centre each note.
     const DECAY = 0.15;
-    const last = this.lastMidiCoords;
+    const last = this._preferredAnchorPoint(inputAddress);
     const anchorX = last ? last.x + DECAY * (cx - last.x) : cx;
     const anchorY = last ? last.y + DECAY * (cy - last.y) : cy;
+    const stickyScreen = this._stickyAnchorPoint(inputAddress);
 
-    // Gate: exclude candidates beyond 75% of the smaller half-dimension.
-    const GATE_FRACTION = 0.75;
-    const gate = GATE_FRACTION * Math.min(cx, cy);
-    const gate2 = gate * gate;
+    if (stickyScreen) {
+      const exactSticky = candidates.find((coords) => {
+        const s = this._displayScreen(coords);
+        return s.x === stickyScreen.x && s.y === stickyScreen.y;
+      });
+      if (exactSticky) return exactSticky;
+    }
 
-    let pool = candidates.filter((coords) => {
-      const s = this._hexCoordsToScreen(coords);
-      const dx = s.x - cx;
-      const dy = s.y - cy;
-      return dx * dx + dy * dy <= gate2;
-    });
+    if (fullyVisibleCandidates.length > 0) {
+      const preferred = this.preferredFullyVisibleCoordByStep?.get(steps) ?? null;
+      if (preferred) {
+        const exactPreferred = fullyVisibleCandidates.find((coords) => coords.equals(preferred));
+        if (exactPreferred) return exactPreferred;
+      }
+    }
 
-    // Safety fallback: if every candidate is outside the gate use them all.
+    // Prefer a stable central band so non-2D controllers tend to stay on-screen
+    // and avoid drifting to edge registers when central choices exist.
+    const centralBandCandidates = (fraction) => {
+      const gate = fraction * Math.min(cx, cy);
+      const gate2 = gate * gate;
+      return candidates.filter((coords) => {
+        const s = this._displayScreen(coords);
+        const dx = s.x - cx;
+        const dy = s.y - cy;
+        return dx * dx + dy * dy <= gate2;
+      });
+    };
+
+    let pool = centralBandCandidates(0.6);
+    if (pool.length === 0) pool = centralBandCandidates(0.8);
     if (pool.length === 0) pool = candidates;
 
-    // Pick the pool member nearest the decayed anchor.
+    // Pick the pool member nearest the preferred sticky anchor, with a light
+    // center bias so the placement stays in the main on-screen register band.
     let best = null;
     let bestDist = Infinity;
     for (const coords of pool) {
-      const s = this._hexCoordsToScreen(coords);
-      const dx = s.x - anchorX;
-      const dy = s.y - anchorY;
-      const dist = dx * dx + dy * dy;
-      if (dist < bestDist) {
-        bestDist = dist;
+      const s = this._displayScreen(coords);
+      const anchorDx = s.x - anchorX;
+      const anchorDy = s.y - anchorY;
+      const centerDx = s.x - cx;
+      const centerDy = s.y - cy;
+      const anchorDist = anchorDx * anchorDx + anchorDy * anchorDy;
+      const centerDist = centerDx * centerDx + centerDy * centerDy;
+      const score = anchorDist + centerDist * 0.08;
+      if (score < bestDist) {
+        bestDist = score;
         best = coords;
       }
     }

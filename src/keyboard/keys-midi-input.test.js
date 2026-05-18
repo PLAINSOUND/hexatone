@@ -2253,7 +2253,10 @@ describe("Keys MIDI input integration", () => {
     keys.midinoteOn(makeMidiEvent(60, 9));
 
     expect(keys.controller.resolveScaleInputPitchCents).toHaveBeenCalledWith(9, 60, keys.settings);
-    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(1);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(1, {
+      channel: 9,
+      note: 60,
+    });
     expect(hexOn).toHaveBeenCalledWith(
       new Point(4, 0),
       expect.any(Number),
@@ -2295,7 +2298,10 @@ describe("Keys MIDI input integration", () => {
     keys.midinoteOn(makeMidiEvent(60, 9));
 
     expect(keys.getModulationState().currentFrame.transpositionCents).toBe(500);
-    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(0);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(0, {
+      channel: 9,
+      note: 60,
+    });
     expect(hexOn).toHaveBeenCalledWith(
       new Point(0, 0),
       expect.any(Number),
@@ -2337,7 +2343,10 @@ describe("Keys MIDI input integration", () => {
     keys.midinoteOn(makeMidiEvent(60, 9));
 
     expect(keys.getModulationState().currentFrame.transpositionCents).toBe(500);
-    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(5);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(5, {
+      channel: 9,
+      note: 60,
+    });
   });
 
   it("uses the dedicated MPE pitch-bend semitone range when resolving pre-bent MPE nearest-scale note-ons", () => {
@@ -2359,7 +2368,10 @@ describe("Keys MIDI input integration", () => {
 
     keys.midinoteOn(makeMidiEvent(60, 9));
 
-    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(-3);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(-3, {
+      channel: 9,
+      note: 60,
+    });
     expect(hexOn).toHaveBeenCalledWith(
       new Point(-3, 0),
       expect.any(Number),
@@ -2551,7 +2563,10 @@ describe("Keys MIDI input integration", () => {
     // whereas semitone rounding would incorrectly jump to 130c (step 2).
     keys._hakenRasterBend(entry, 5, 8670, true);
 
-    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(1);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(1, {
+      channel: 5,
+      note: 60,
+    });
     expect(keys.hexOn.mock.calls[0][0]).toEqual(new Point(1, 0));
     expect(keys.state.activeMidi.get(60)).toBe(newHex);
   });
@@ -3732,7 +3747,10 @@ describe("Keys MIDI input integration", () => {
 
     keys.midinoteOn(makeMidiEvent(60, 9));
 
-    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(24);
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(24, {
+      channel: 9,
+      note: 60,
+    });
     expect(hexOn).toHaveBeenCalledWith(
       new Point(24, 0),
       expect.any(Number),
@@ -4384,7 +4402,10 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.controller?.id).toBe("generic");
     expect(keys.controllerMap).toBeNull();
-    expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(0);
+    expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(0, {
+      channel: 1,
+      note: 60,
+    });
     expect(hexOn).toHaveBeenCalledTimes(1);
   });
 
@@ -4484,7 +4505,10 @@ describe("Keys MIDI input integration", () => {
 
     expect(hexOn).toHaveBeenCalledTimes(1);
     expect(keys.coordResolver.noteToSteps).toHaveBeenCalledWith(60, 5);
-    expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(12);
+    expect(keys.coordResolver.bestVisibleCoord).toHaveBeenCalledWith(12, {
+      channel: 5,
+      note: 60,
+    });
     expect(hexOn.mock.calls[0][0]).toEqual(new Point(12, 0));
   });
 

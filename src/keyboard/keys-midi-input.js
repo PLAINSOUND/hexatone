@@ -271,7 +271,10 @@ export function midinoteOn(event) {
     );
     if (result === null) return;
     if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
-    coords = this.coordResolver.coordForSteps(result.steps);
+    coords = this.coordResolver.coordForSteps(result.steps, {
+      channel: event.message.channel,
+      note: event.note.number,
+    });
     if (usesPerChannelExpression(this.inputRuntime)) {
       liveInputAddress = {
         channel: event.message.channel,
@@ -366,6 +369,7 @@ export function midinoteOn(event) {
     }
   }
   this.coordResolver.lastMidiCoords = this.hexCoordsToScreen(coords);
+  if (liveInputAddress) this.coordResolver.rememberCoordsForInputAddress(liveInputAddress, coords);
 }
 
 export function midinoteOff(event) {
@@ -566,8 +570,11 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   const now = Date.now();
   if (throttleMs > 0 && now - lastTriggerAt < throttleMs) return;
 
+  const notePlayed = hex._notePlayed ?? null;
+
   // --- Resolve target coordinates ---
-  const newCoords = this.coordResolver.coordForSteps(newSteps);
+  const liveInputAddress = { channel, note: notePlayed ?? 0 };
+  const newCoords = this.coordResolver.coordForSteps(newSteps, liveInputAddress);
   if (!newCoords) return;
 
   // --- Velocity: blend original attack with current Z pressure according to
@@ -580,7 +587,6 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   const pressureVelocity = this.inputRuntime.hakenPressureVelocity ?? 0;
   const newVelocity = continuumRasterVelocity(originalVelocity, zPressure, pressureVelocity);
 
-  const notePlayed = hex._notePlayed ?? null;
   debugLog("osc", "hakenRasterBend crossing", {
     channel,
     scaleMode,
@@ -619,7 +625,6 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   // priming block doesn't apply an extra offset on the new note's centre pitch.
   this._mpeInputBendByChannel.set(channel, 8192);
 
-  const liveInputAddress = { channel, note: notePlayed ?? 0 };
   const newHex = this.hexOn(newCoords, notePlayed, newVelocity, 0, {
     liveInputAddress,
     rasterGenerated: true,
@@ -644,6 +649,7 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
 
   // --- Update state maps (mirrors midinoteOn post-hexOn block) ---
   if (notePlayed != null) this.state.activeMidi.set(notePlayed, newHex);
+  this.coordResolver.rememberCoordsForInputAddress(liveInputAddress, newCoords);
 
   const updatedEntry = ensureActiveMidiChannelEntry.call(this, channel);
   updatedEntry.hex = newHex;

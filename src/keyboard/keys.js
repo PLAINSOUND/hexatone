@@ -241,6 +241,12 @@ class Keys {
       this.hexCoordsToScreen.bind(this),
       () => this.state.centerpoint,
       this.inputRuntime,
+      () => this._fullyVisibleGridCoords ?? [],
+      (coords) => {
+        const screen = this.hexCoordsToScreen(coords);
+        const displayed = this._transformCanvasPoint(screen.x, screen.y);
+        return new Point(displayed.x, displayed.y);
+      },
     );
 
     // Scale mode microtuning state.
@@ -1446,6 +1452,7 @@ class Keys {
       const nextCoords = this._coordsForLiveInputAddress(hex?._liveInputAddress);
       if (!nextCoords || !hex?.coords || hex.coords.equals(nextCoords)) continue;
       hex.coords = nextCoords;
+      this.coordResolver.rememberCoordsForInputAddress(hex?._liveInputAddress, nextCoords);
     }
   }
 
@@ -2078,6 +2085,7 @@ class Keys {
     this._hakenMpeBend21ByChannel.clear();
     this._hakenMpePlusLsbByChannel.clear();
     this._scaleModePreBend21.clear();
+    this.coordResolver.clearInputAddressMemory();
     this.state.sustainedNotes = [];
     this.state.sustainedCoords.clear();
     this.recencyStack.clear();
