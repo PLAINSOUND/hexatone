@@ -1,6 +1,6 @@
 # Hexatone Developer Quickstart
 
-Updated: 2026-04-20
+Updated: 2026-05-17
 
 ## Requirements
 

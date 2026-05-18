@@ -179,6 +179,7 @@ export const create_midi_synth = async ({
           pool_mts2_high,
           sysex_rt,
           sysex_dev_id,
+          mapNumber
         );
       }
       activeHexes.add(hex);
@@ -254,6 +255,7 @@ function MidiHex(
   pool_mts2_high,
   sysex_rt,
   sysex_dev_id,
+  mapNumber
 ) {
   if (midiin_central_degree > 127) midiin_central_degree = 127;
   else if (midiin_central_degree < 0) midiin_central_degree = 0;
@@ -344,6 +346,7 @@ function MidiHex(
     this.mts = mts;
     this.sysex_rt = sysex_rt != null ? sysex_rt : 127;
     this.sysex_dev_id = sysex_dev_id != null ? sysex_dev_id : 127;
+    this.mapNumber = mapNumber != null ? mapNumber & 0x7f : 0;
     this.fundamental = fundamental; // needed for retune
     this.degree0toRef_ratio = degree0toRef_ratio; // needed for retune
   } else {
@@ -361,7 +364,7 @@ MidiHex.prototype.noteOn = function () {
       this.sysex_dev_id,
       0x08,
       0x02,
-      0x00,
+      this.mapNumber, // needs to have tuning map number
       0x01,
       this.mts[0],
       this.mts[1],
@@ -483,7 +486,7 @@ MidiHex.prototype._sendMtsTuning = function (cents) {
     this.sysex_dev_id,
     0x08,
     0x02,
-    0x00,
+    this.mapNumber, // needs to have tuning map number
     0x01,
     this.mts[0],
     this.mts[1],

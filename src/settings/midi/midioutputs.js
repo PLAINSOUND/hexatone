@@ -270,6 +270,27 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
+                Tuning Map Number
+                <input
+                  name="tuning_map_number"
+                  type="text"
+                  inputMode="numeric"
+                  class="sidebar-input"
+                  key={settings.tuning_map_number ?? 0}
+                  defaultValue={settings.tuning_map_number ?? 0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.target.blur();
+                  }}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 0 && val <= 127)
+                      save("tuning_map_number", val, onChange);
+                    else e.target.value = settings.tuning_map_number ?? 0;
+                  }}
+                />
+              </label>
+
+              <label>
                 Message Style
                 <select
                   name="midi_mapping"
@@ -529,7 +550,6 @@ const MidiOutputs = (props) => {
                     />
                     <button
                       type="button"
-                      style={{ fontSize: "0.85em" }}
                       disabled={!hasSysexMidi}
                       onClick={() => {
                         const output = WebMidi.getOutputById(settings.mts_bulk_device);

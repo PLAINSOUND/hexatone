@@ -30,7 +30,7 @@ const LEGACY_SESSION_KEY_ALIASES = {
   mts_bulk_device: "direct_device",
   mts_bulk_mode: "direct_mode",
   mts_bulk_channel: "direct_channel",
-  mts_bulk_sysex_auto: "direct_sysex_auto",
+  mts_bulk_sysex_auto: "direct__auto",
   mts_bulk_device_id: "direct_device_id",
   mts_bulk_tuning_map_number: "direct_tuning_map_number",
   mts_bulk_tuning_map_name: "direct_tuning_map_name",

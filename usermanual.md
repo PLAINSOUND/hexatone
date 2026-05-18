@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-05-15
+Updated: 2026-05-17
 
 ## About
 
@@ -337,3 +337,4 @@ The main commands are:
 - `yarn test`
 - `yarn build`
 - `yarn osc-bridge`
+- `yarn build-bridge`

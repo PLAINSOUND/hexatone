@@ -504,14 +504,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // │    instrument          — sample buffers must be reloaded                │
   // │    fundamental         — root pitch changes all MTS calculations        │
   // │    reference_degree    — changes offset between scale degree 0 and ref  │
-  // │    center_degree       — changes static bulk map anchor calculation      │
+  // │    center_degree       — changes static bulk map anchor calculation     │
   // │    scale               — changes all per-note pitch values              │
   // │                                                                         │
   // │  MTS real-time output:                                                  │
   // │    output_mts          — enable/disable the real-time MTS engine        │
   // │    midi_device         — output port changes require new synth object   │
   // │    midi_channel        — channel is baked into the synth at creation    │
-  // │    midi_mapping        — MTS1 vs MTS2 allocation mode                  │
+  // │    midi_mapping        — MTS1 vs MTS2 allocation mode                   │
   // │    midi_velocity       — velocity is baked into the output config       │
   // │    device_id           — MTS sysex device ID (broadcast vs addressed)   │
   // │    tuning_map_number   — MTS map slot to write                          │
@@ -531,7 +531,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // │  MPE output:                                                            │
   // │    output_mpe          — enable/disable MPE engine                      │
   // │    mpe_device          — output port                                    │
-  // │    midiin_mpe_manager_ch — MPE zone manager channel                    │
+  // │    midiin_mpe_manager_ch — MPE zone manager channel                     │
   // │    mpe_lo_ch           — first member channel                           │
   // │    mpe_hi_ch           — last member channel                            │
   // │    mpe_pitchbend_range — pitch bend range baked at MPE init             │
@@ -546,22 +546,22 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   // └─────────────────────────────────────────────────────────────────────────┘
   //
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │ LIVE RUNTIME TRANSPORT / PERFORMANCE CONTROLS                          │
-  // │ Imperative actions on the currently running live system.               │
-  // │ These should preserve note continuity and avoid broad app reactivity   │
-  // │ during continuous interaction.                                         │
+  // │ LIVE RUNTIME TRANSPORT / PERFORMANCE CONTROLS                           │
+  // │ Imperative actions on the currently running live system.                │
+  // │ These should preserve note continuity and avoid broad app reactivity    │
+  // │ during continuous interaction.                                          │
   // │                                                                         │
-  // │    sample volume/mute   → synthRef.current.setVolume()                 │
-  // │    OSC layer faders     → oscSynth.setLayerVolume()                    │
-  // │    auto-send map        → keysRef.current.mtsSendMap()                 │
-  // │    OCT / sustain / mod  → handled in Keys live runtime                 │
+  // │    sample volume/mute   → synthRef.current.setVolume()                  │
+  // │    OSC layer faders     → oscSynth.setLayerVolume()                     │
+  // │    auto-send map        → keysRef.current.mtsSendMap()                  │
+  // │    OCT / sustain / mod  → handled in Keys live runtime                  │
   // └─────────────────────────────────────────────────────────────────────────┘
   //
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │ OUTPUT-RUNTIME ARCHITECTURE CONTROLS                                   │
-  // │ These choose how tuning/output is realized, rather than acting like    │
-  // │ simple transport knobs. Examples: MTS Dynamic vs Static, output family │
-  // │ toggles, output port selection, and direct-map transport parameters.   │
+  // │ OUTPUT-RUNTIME ARCHITECTURE CONTROLS                                    │
+  // │ These choose how tuning/output is realized, rather than acting like     │
+  // │ simple transport knobs. Examples: MTS Dynamic vs Static, output family  │
+  // │ toggles, output port selection, and direct-map transport parameters.    │
   // └─────────────────────────────────────────────────────────────────────────┘
   //
   // ┌─────────────────────────────────────────────────────────────────────────┐
