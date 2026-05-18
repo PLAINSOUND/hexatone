@@ -27,7 +27,7 @@ import {
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import { resolveBulkDumpName } from "./tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "./persistence/settings-registry.js";
-import { localFloat } from "./persistence/storage-utils.js";
+import { localBool, localFloat } from "./persistence/storage-utils.js";
 import { debugLog, warnLog } from "./debug/logging.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
@@ -86,6 +86,9 @@ export const deriveOscQuickRelease = (settings) =>
 
 export const deriveOscQuickReleaseTime = (settings) =>
   Math.max(0.001, localFloat(REGISTRY_BY_KEY.osc_quick_release_time.key, settings.osc_quick_release_time ?? 0.1));
+
+export const deriveOscQuickReleaseRasterOnly = (settings) =>
+  localBool(REGISTRY_BY_KEY.osc_quick_release_raster_only.key, settings.osc_quick_release_raster_only ?? false);
 
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {
@@ -804,6 +807,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
             deriveOscVolumes(settingsRef.current),
             deriveOscQuickRelease(settingsRef.current),
             deriveOscQuickReleaseTime(settingsRef.current),
+            deriveOscQuickReleaseRasterOnly(settingsRef.current),
             settings.fundamental,
             settings.reference_degree,
             settings.scale,
@@ -1169,6 +1173,11 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (oscSynth?.setQuickReleaseTime) oscSynth.setQuickReleaseTime(value);
   }, []);
 
+  const onOscQuickReleaseRasterOnlyChange = useCallback((value) => {
+    const oscSynth = oscSynthRef.current.synth;
+    if (oscSynth?.setQuickReleaseRasterOnly) oscSynth.setQuickReleaseRasterOnly(value);
+  }, []);
+
   // Called by keys.js when the user presses a key during MIDI-learn mode.
   // Saves the anchor note + channel so the controller map (2D path) and the
   // step-arithmetic path (sequential/unknown) both resolve correctly.
@@ -1325,6 +1334,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     onOscLayerVolumeChange,
     onOscQuickReleaseChange,
     onOscQuickReleaseTimeChange,
+    onOscQuickReleaseRasterOnlyChange,
     onAnchorLearn,
     onHakenPedalLearn,
     lumatoneRawPorts,
