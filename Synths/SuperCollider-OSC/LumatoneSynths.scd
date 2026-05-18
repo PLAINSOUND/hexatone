@@ -1,13 +1,16 @@
 SynthDef(\pluck, { |freq, transpose=1, bend=1,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0|
+	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	quick_release=0, quick_release_time=0.1|
 
-	var e, f, o;
+	var e, f, o, normal_release, effective_release;
 
 	freq = freq * transpose;
 	off_vel = off_vel.linlin(0, 127, 0.1, 1);
 	// Envelopes
 	e = EnvGen.ar(Env(levels: [1, 1, 0.75, 0], times: [0.5, 1.5, 3], curve: 'sin'), doneAction: Done.freeSelf);
-	f = EnvGen.ar(Env.asr(attackTime: 0.00001, sustainLevel: 1.0, releaseTime: (0.05 + (off_vel * 3)), curve: 'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
+	normal_release = 0.05 + (off_vel * 3);
+	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
+	f = EnvGen.ar(Env.asr(attackTime: 0.00001, sustainLevel: 1.0, releaseTime: effective_release, curve: 'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
 	// Noise Input
 	o = Mix([
 		WhiteNoise.ar(1) * on_vel.bilin(50, 0, 127, 0.85, 0.5, 1),
@@ -34,16 +37,19 @@ SynthDef(\pluck, { |freq, transpose=1, bend=1,
 
 
 SynthDef(\string, { |freq, transpose=1, bend=1,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0|
+	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	quick_release=0, quick_release_time=0.1|
 
-	var e, f, o, amp;
+	var e, f, o, amp, normal_release, effective_release;
 
 	freq = freq * transpose;
 	amp = on_vel.linexp(0, 127, 0.2, 1);
 	off_vel = off_vel.linlin(0, 127, 1, 0.2);
 
 	e = EnvGen.ar(Env([0, 1, 1, 0], [(on_vel.linexp(0, 127, 2.5, 1)), [1,1.25,1.5,1.75,2].choose, [1,1.5,2,2.5].choose * off_vel], 'sin'), doneAction:Done.freeSelf);
-	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: (0.5 + (off_vel * 3)), curve:'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
+	normal_release = 0.5 + (off_vel * 3);
+	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
+	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
 
 	o = WhiteNoise.ar(1);
 	o = Pluck.ar(
@@ -69,16 +75,19 @@ SynthDef(\formant_array, { |freq, transpose=1, bend=1,
 	formant_freq = #[1, 1, 1, 1, 1],
 	formant_reso = #[1, 1, 1, 1, 1],
 	formant_amp = #[1, 1, 1, 1, 1],
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0|
+	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	quick_release=0, quick_release_time=0.1|
 
-	var e, f, o, amp;
+	var e, f, o, amp, normal_release, effective_release;
 
 	freq = freq * transpose;
 	amp = on_vel.linlin(0, 127, 0, 1);
 	off_vel = off_vel.linlin(0, 127, 2, 1);
 
 	e = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
-	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: (0.02 + off_vel), curve:'sin'), gate, doneAction: Done.freeSelf);
+	normal_release = 0.02 + off_vel;
+	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
+	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate, doneAction: Done.freeSelf);
 	o = Saw.ar((freq * bend).lag(0.3));
 
 	o = Mix.new(BBandPass.ar(o, formant_freq, formant_reso, formant_amp));
@@ -96,16 +105,19 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 	ff0=800, ff1=1150, ff2=2900, ff3=3900, ff4=4950,
 	fr0=0.1, fr1=0.078, fr2=0.041, fr3=0.033, fr4=0.028,
 	fa0=1.0, fa1=0.5,   fa2=0.025, fa3=0.1,  fa4=0.003,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0|
+	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	quick_release=0, quick_release_time=0.1|
 
-	var e, f, o, amp;
+	var e, f, o, amp, normal_release, effective_release;
 
 	freq = freq * transpose;
 	amp = on_vel.linlin(0, 127, 0, 1);
 	off_vel = off_vel.linlin(0, 127, 2, 1);
 
 	e = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
-	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: (0.02 + off_vel), curve:'sin'), gate, doneAction: Done.freeSelf);
+	normal_release = 0.02 + off_vel;
+	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
+	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate, doneAction: Done.freeSelf);
 	o = Saw.ar((freq * bend).lag(0.3));
 
 	o = Mix.new(BBandPass.ar(o, [ff0,ff1,ff2,ff3,ff4], [fr0,fr1,fr2,fr3,fr4], [fa0,fa1,fa2,fa3,fa4]));
@@ -121,16 +133,18 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 
 
 SynthDef(\tone, { |freq, transpose=1, bend=1,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0|
+	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	quick_release=0, quick_release_time=0.1|
 
-	var e, o;
+	var e, o, effective_release;
 	var attack_time = on_vel.bilin(70, 0, 127, 0.00001, 0.08, 0.000001);
 	var rise_time = on_vel.bilin(70, 0, 127, 0.005, 0.7, 0.00005);
 	var release_time = off_vel.bilin(70, 0, 127, 0.012, 0.12, 0.0012);
 	var sustain_level = on_vel.bilin(70, 0, 127, 1.65, 1.25, 2);
 
 	freq = freq * transpose;
-	e = EnvGen.ar(Env.adsr(attackTime: attack_time, decayTime: rise_time, sustainLevel: sustain_level, releaseTime: release_time, peakLevel: 0.5, curve: 0), gate + Impulse.kr(0), doneAction: Done.freeSelf);
+	effective_release = release_time.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
+	e = EnvGen.ar(Env.adsr(attackTime: attack_time, decayTime: rise_time, sustainLevel: sustain_level, releaseTime: effective_release, peakLevel: 0.5, curve: 0), gate + Impulse.kr(0), doneAction: Done.freeSelf);
 	p = FSinOsc.ar([1,2,3] * freq * bend.lag(0.3), mul: [1, 0.25 * mod.expexp(1, 2, 1, 2) * filter.explin(1, 2, 1, 2).lag2(0.04), 0.125 * mod.expexp(1, 2, 1, 4) * filter.explin(1, 2, 1, 4).lag2(0.04)]);
 
 	o = Saw.ar(freq * bend.lag(0.3));

@@ -22,22 +22,22 @@ set synth.default-soundfont "/Users/marcsabat/soundfonts/PlainsoundSrutibox.sf2"
 load "/Users/marcsabat/soundfonts/PlainsoundHarpsichord.sf2"
 load "/Users/marcsabat/soundfonts/PlainsoundOrgan.sf2"
 
-settuning 0 0 0
-settuning 1 0 0
-settuning 2 0 0
-settuning 3 0 0
-settuning 4 0 0
-settuning 5 0 0
-settuning 6 0 0
-settuning 7 0 0
-settuning 8 0 0
-settuning 9 0 0
-settuning 10 0 0
-settuning 11 0 0
-settuning 12 0 0
-settuning 13 0 0
-settuning 14 0 0
-settuning 15 0 0
+settuning 0 0 1
+settuning 1 0 2
+settuning 2 0 3
+settuning 3 0 4
+settuning 4 0 5
+settuning 5 0 6
+settuning 6 0 7
+settuning 7 0 8
+settuning 8 0 9
+settuning 9 0 10
+settuning 10 0 11
+settuning 11 0 12
+settuning 12 0 13
+settuning 13 0 14
+settuning 14 0 15
+settuning 15 0 16
 
 select 0 1 0 0
 select 1 3 0 1
