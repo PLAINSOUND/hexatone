@@ -1,11 +1,21 @@
-set synth.sample-rate 48000
+#set synth.sample-rate 48000
 set audio.sample-format 24bits
 set audio.file.format s24
 set audio.period-size 64
 set audio.periods 8
+
+# macOS audio settings
 set audio.coreaudio.device default
 #set audio.coreaudio.device "BlackHole 2ch"
 #set audio.coreaudio.device "Fireface UCX (23934053)"
+
+# Windows audio settings
+#set audio.driver wasapi
+#set audio.wasapi.exclusive-mode 1
+#set audio.wasapi.device "Line Out 3-4 (RME Fireface UCX)"
+#set audio.wasapi.device "Default"
+
+#set midi.winmidi.device 11
 
 #set synth.verbose "True"
 set synth.gain 1
