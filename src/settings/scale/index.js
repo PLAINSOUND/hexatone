@@ -224,7 +224,7 @@ const Scale = (props) => {
         Modulation Style
         <select
           class="sidebar-input"
-          value={props.settings.modulation_style ?? "moveable_do"}
+          value={props.settings.modulation_style ?? "fixed_do"}
           onChange={(e) => props.onChange("modulation_style", e.target.value)}
         >
           <option value="moveable_do">Moveable Do / Fixed Layout</option>

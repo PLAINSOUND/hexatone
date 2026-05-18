@@ -83,6 +83,14 @@ describe("Scale panel — default state", () => {
     expect(screen.getByLabelText("Modulation Style")).not.toBeNull();
   });
 
+  it("defaults Modulation Style to fixed Do when no setting is present", () => {
+    const settingsWithoutStyle = { ...minimalSettings };
+    delete settingsWithoutStyle.modulation_style;
+    render(<Scale settings={settingsWithoutStyle} onChange={() => {}} onImport={() => {}} />);
+
+    expect(screen.getByLabelText("Modulation Style").value).toBe("fixed_do");
+  });
+
   it("keeps Modulation Style interactive when the table is collapsed", () => {
     sessionStorage.setItem("hexatone_scale_collapsed", "true");
     const onChange = vi.fn();

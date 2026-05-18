@@ -36,6 +36,7 @@ export const create_midi_synth = async ({
     sysexType: sysex_type,
     deviceId: device_id,
     mapNumber,
+    isFluidsynthMirror = false,
     mapName,
     anchorNote,
     pitchBendRange = 2,
@@ -100,6 +101,10 @@ export const create_midi_synth = async ({
 
   if (midi_output && channel != null && channel >= 0) {
     sendRpn(midi_output, channel, 0, 0, pitchBendRange, 0);
+    if (isFluidsynthMirror) {
+      sendRpn(midi_output, channel, 0, 4, 0, 0);
+      sendRpn(midi_output, channel, 0, 3, mapNumber ?? 0, 0);
+    }
   }
 
   const activeHexes = new Set();

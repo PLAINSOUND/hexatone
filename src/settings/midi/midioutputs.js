@@ -391,9 +391,19 @@ const MidiOutputs = (props) => {
                         <option key={i} value={i}>
                           {i + 1}
                         </option>
-                      ))}
+                        ))}
                     </select>
                   </label>
+                  <div
+                    style={{
+                      fontSize: "0.9em",
+                      color: "#6b5a5a",
+                      marginTop: "-0.25em",
+                      marginBottom: "0.35em",
+                    }}
+                  >
+                    {`Tuning Map ID = ${(settings.fluidsynth_channel ?? 0) + 1}`}
+                  </div>
                   <label>
                     FluidSynth Volume
                     <span

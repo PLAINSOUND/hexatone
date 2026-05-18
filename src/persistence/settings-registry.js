@@ -90,7 +90,7 @@ export const SETTINGS_REGISTRY = [
   // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
   // remains session-scoped and stays out of share URLs.
   { key: "retuning_mode", tier: "session", type: "string", default: "recalculate_reference" },
-  { key: "modulation_style", tier: "session", type: "string", default: "moveable_do" },
+  { key: "modulation_style", tier: "session", type: "string", default: "fixed_do" },
 
   // ── Layout / grid ────────────────────────────────────────────────────────────
   { key: "rSteps", tier: "url", type: "int", default: 2, presetSkip: true },

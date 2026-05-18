@@ -227,6 +227,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       velocity: midiVelocity,
       deviceId: settings.device_id ?? 127,
       mapNumber: settings.tuning_map_number ?? 0,
+      isFluidsynthMirror: false,
       anchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree,
       sysexType: settings.sysex_type,
       pitchBendRange: settings.midi_wheel_semitones ?? 2,
@@ -246,13 +247,14 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
   ) {
     outputs.push({
       family: "mts",
-      allocationMode: settings.midi_mapping === "MTS2" ? "mts2" : "mts1",
+      allocationMode: "mts1",
       transportMode: "single_note_realtime",
       output: fluidsynthOutputObj,
       channel: settings.fluidsynth_channel,
       velocity: midiVelocity,
       deviceId: settings.device_id ?? 127,
-      mapNumber: settings.tuning_map_number ?? 0,
+      mapNumber: (settings.fluidsynth_channel + 1) & 0x7f,
+      isFluidsynthMirror: true,
       anchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree,
       sysexType: settings.sysex_type,
       pitchBendRange: settings.midi_wheel_semitones ?? 2,
@@ -703,6 +705,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           outputMode.velocity,
           outputMode.deviceId,
           outputMode.mapNumber,
+          outputMode.allocationMode,
+          outputMode.isFluidsynthMirror,
           outputMode.mapName,
           outputMode.anchorNote,
           outputMode.sysexType,
@@ -710,7 +714,6 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           settings.reference_degree,
           settings.center_degree,
           settings.scale,
-          settings.midi_mapping,
         ]);
         desiredMtsKeys.add(mtsKey);
         const existing = mtsSynthsRef.current.get(mtsKey);

@@ -51,6 +51,19 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByText("127")).not.toBeNull();
   });
 
+  it("shows the channel-derived FluidSynth tuning map ID below the channel selector", () => {
+    render(
+      <MidiOutputs
+        {...makeProps({
+          fluidsynth_device: "fluid-1",
+          fluidsynth_channel: 6,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Tuning Map ID = 7")).not.toBeNull();
+  });
+
   it("disconnects the FluidSynth mirror when FluidSynth is selected as the main MTS port", () => {
     const onChange = vi.fn();
     render(

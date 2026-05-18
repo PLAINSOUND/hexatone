@@ -76,8 +76,12 @@ const makeSettings = (overrides = {}) => ({
 
 const makeMidi = () => {
   const output = { id: "direct-1", name: "Direct Out" };
+  const fluidsynth = { id: "fluid-1", name: "FluidSynth Virtual Port" };
   return {
-    outputs: new Map([[output.id, output]]),
+    outputs: new Map([
+      [output.id, output],
+      [fluidsynth.id, fluidsynth],
+    ]),
   };
 };
 
@@ -122,6 +126,37 @@ describe("use-synth-wiring runtime derivation", () => {
     expect(outputs[0].allocationMode).toBe("mts1");
     expect(outputs[0].mapNumber).toBe(5);
     expect(outputs[0].deviceId).toBe(12);
+  });
+
+  it("keeps the main MTS map number configurable while forcing the FluidSynth mirror to MTS1 with channel-derived map numbers", () => {
+    const settings = makeSettings({
+      output_mts: true,
+      output_mts_bulk: false,
+      midi_device: "direct-1",
+      midi_channel: 2,
+      midi_mapping: "MTS2",
+      tuning_map_number: 11,
+      fluidsynth_device: "fluid-1",
+      fluidsynth_channel: 6,
+    });
+    const { outputs } = deriveOutputRuntime(settings, makeMidi(), deriveTuningRuntime(settings));
+
+    expect(outputs).toHaveLength(2);
+
+    const mainOutput = outputs.find((output) => output.output.id === "direct-1");
+    const fluidsynthOutput = outputs.find((output) => output.output.id === "fluid-1");
+
+    expect(mainOutput).toMatchObject({
+      allocationMode: "mts2",
+      mapNumber: 11,
+      isFluidsynthMirror: false,
+    });
+    expect(fluidsynthOutput).toMatchObject({
+      allocationMode: "mts1",
+      mapNumber: 7,
+      channel: 6,
+      isFluidsynthMirror: true,
+    });
   });
 
   it("derives persisted OSC layer volumes from local storage for fresh note-ons after refresh", () => {
