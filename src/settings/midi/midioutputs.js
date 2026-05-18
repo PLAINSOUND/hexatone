@@ -148,11 +148,17 @@ const MidiOutputs = (props) => {
     osc_volume_saw: readOscVolume("osc_volume_saw", settings.osc_volume_saw ?? 0.5),
   });
   const [oscQuickRelease, setOscQuickRelease] = useState(
-    readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0),
+    readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0.5),
   );
   const [oscQuickReleaseTime, setOscQuickReleaseTime] = useState(
-    readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.1),
+    readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
   );
+  const oscValueStyle = {
+    fontVariantNumeric: "tabular-nums",
+    minWidth: "5.2em",
+    textAlign: "right",
+    fontSize: "0.85em",
+  };
   const masterCh = settings.midiin_mpe_manager_ch || settings.mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
@@ -183,12 +189,12 @@ const MidiOutputs = (props) => {
   ]);
 
   useEffect(() => {
-    setOscQuickRelease(readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0));
+    setOscQuickRelease(readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0.5));
   }, [settings.osc_quick_release]);
 
   useEffect(() => {
     setOscQuickReleaseTime(
-      readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.1),
+      readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
     );
   }, [settings.osc_quick_release_time]);
 
@@ -901,7 +907,7 @@ const MidiOutputs = (props) => {
                   }}
                   style={{ flex: 1, width: "100%" }}
                 />
-                <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                <span style={oscValueStyle}>
                   {(oscDraftVolumes[key] ?? 0.5).toFixed(2)}
                 </span>
               </span>
@@ -929,7 +935,7 @@ const MidiOutputs = (props) => {
                 }}
                 style={{ flex: 1, width: "100%" }}
               />
-              <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+              <span style={oscValueStyle}>
                 {oscQuickRelease.toFixed(2)}
               </span>
             </span>
@@ -969,8 +975,8 @@ const MidiOutputs = (props) => {
                 }}
                 style={{ flex: 1, width: "100%" }}
               />
-              <span style={{ width: "3.2em", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                {oscQuickReleaseTime.toFixed(2)}
+              <span style={oscValueStyle}>
+                {Math.round(oscQuickReleaseTime * 1000)} ms
               </span>
             </span>
           </label>

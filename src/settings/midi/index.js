@@ -1364,6 +1364,8 @@ MIDIio.propTypes = {
     hakenaudio_x_glide_mode: PropTypes.string,
     hakenaudio_pressure_velocity: PropTypes.number,
     hakenaudio_note_off_delay: PropTypes.number,
+    hakenaudio_raster_throttle_ms: PropTypes.number,
+    hakenaudio_raster_stability: PropTypes.number,
     hakenaudio_out_port: PropTypes.string,
     hakenaudio_x_lpf: PropTypes.number,
     hakenaudio_y_lpf: PropTypes.number,

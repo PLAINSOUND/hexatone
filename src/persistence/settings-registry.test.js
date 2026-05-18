@@ -81,7 +81,9 @@ describe("SETTINGS_REGISTRY structure", () => {
     expect(REGISTRY_BY_KEY.hakenaudio_x_glide_mode.default).toBe("pitch_bending");
     expect(REGISTRY_BY_KEY.hakenaudio_x_glide_shaping.default).toBe(100);
     expect(REGISTRY_BY_KEY.hakenaudio_pressure_velocity.default).toBe(64);
-    expect(REGISTRY_BY_KEY.hakenaudio_note_off_delay.default).toBe(20);
+    expect(REGISTRY_BY_KEY.hakenaudio_note_off_delay.default).toBe(45);
+    expect(REGISTRY_BY_KEY.hakenaudio_raster_throttle_ms.default).toBe(35);
+    expect(REGISTRY_BY_KEY.hakenaudio_raster_stability.default).toBe(50);
   });
 });
 

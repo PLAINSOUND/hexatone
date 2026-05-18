@@ -82,13 +82,13 @@ export const deriveOscVolumes = (settings) => {
 };
 
 export const deriveOscQuickRelease = (settings) =>
-  Math.max(0, Math.min(1, localFloat(REGISTRY_BY_KEY.osc_quick_release.key, settings.osc_quick_release ?? 0)));
+  Math.max(0, Math.min(1, localFloat(REGISTRY_BY_KEY.osc_quick_release.key, settings.osc_quick_release ?? 0.5)));
 
 export const deriveOscQuickReleaseTime = (settings) =>
-  Math.max(0.001, localFloat(REGISTRY_BY_KEY.osc_quick_release_time.key, settings.osc_quick_release_time ?? 0.1));
+  Math.max(0.001, localFloat(REGISTRY_BY_KEY.osc_quick_release_time.key, settings.osc_quick_release_time ?? 0.25));
 
 export const deriveOscQuickReleaseRasterOnly = (settings) =>
-  localBool(REGISTRY_BY_KEY.osc_quick_release_raster_only.key, settings.osc_quick_release_raster_only ?? false);
+  localBool(REGISTRY_BY_KEY.osc_quick_release_raster_only.key, settings.osc_quick_release_raster_only ?? true);
 
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {

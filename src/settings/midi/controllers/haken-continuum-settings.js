@@ -28,7 +28,15 @@ const HakenContinuumSettings = ({
   );
   const noteOffDelay = Math.max(
     0,
-    Math.min(100, Number(settings.hakenaudio_note_off_delay ?? 20) || 0),
+    Math.min(100, Number(settings.hakenaudio_note_off_delay ?? 45) || 0),
+  );
+  const rasterThrottleMs = Math.max(
+    0,
+    Math.min(100, Number(settings.hakenaudio_raster_throttle_ms ?? 35) || 0),
+  );
+  const rasterStability = Math.max(
+    0,
+    Math.min(100, Number(settings.hakenaudio_raster_stability ?? 50) || 0),
   );
   const xLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_x_lpf ?? 60) || 0));
   const yLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_y_lpf ?? 30) || 0));
@@ -284,6 +292,70 @@ const HakenContinuumSettings = ({
           />
           <span style={sliderValueStyle}>
             {noteOffDelay} ms
+          </span>
+        </span>
+      </label>
+
+      <label title="Sets a minimum interval between Continuum Raster to Notes retriggers. Higher values reduce event density and output overload at the cost of skipping some very fast crossings.">
+        Minimum Retrigger Interval
+        <span
+          class="sidebar-input"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            justifyContent: "flex-end",
+          }}
+        >
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={rasterThrottleMs}
+            style={{ width: "100%" }}
+            onInput={(e) => {
+              const parsed = parseInt(e.target.value, 10);
+              const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
+              updateHakenPref("hakenaudio_raster_throttle_ms", v, {
+                hakenaudio_raster_throttle_ms: v,
+              });
+            }}
+          />
+          <span style={sliderValueStyle}>
+            {rasterThrottleMs} ms
+          </span>
+        </span>
+      </label>
+
+      <label title="Adds hysteresis around the current Raster to Notes pitch so small back-and-forth movements near note boundaries do not immediately retrigger neighbouring notes.">
+        Raster Stability
+        <span
+          class="sidebar-input"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            justifyContent: "flex-end",
+          }}
+        >
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={rasterStability}
+            style={{ width: "100%" }}
+            onInput={(e) => {
+              const parsed = parseInt(e.target.value, 10);
+              const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
+              updateHakenPref("hakenaudio_raster_stability", v, {
+                hakenaudio_raster_stability: v,
+              });
+            }}
+          />
+          <span style={sliderValueStyle}>
+            {rasterStability}
           </span>
         </span>
       </label>

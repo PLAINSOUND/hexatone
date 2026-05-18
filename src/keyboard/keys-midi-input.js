@@ -26,6 +26,23 @@ function continuumRasterVelocity(originalVelocity, pressureValue, controlValue) 
   return Math.max(1, Math.min(127, Math.round(attack * (1 - amount) + pressure * amount)));
 }
 
+function continuumRasterStabilityMargin(controlValue) {
+  const amount = Math.max(0, Math.min(100, Number(controlValue) || 0)) / 100;
+  return 0.45 * amount;
+}
+
+function continuumRasterTargetSteps(currentSteps, targetFloat, stabilityControl) {
+  const current = Number.isFinite(currentSteps) ? currentSteps : Math.round(targetFloat);
+  const margin = continuumRasterStabilityMargin(stabilityControl);
+  if (targetFloat >= current + 0.5 + margin) {
+    return Math.floor(targetFloat + 0.5 - margin);
+  }
+  if (targetFloat <= current - 0.5 - margin) {
+    return Math.ceil(targetFloat - 0.5 + margin);
+  }
+  return current;
+}
+
 function pendingRasterReleases(keys) {
   if (!keys._pendingRasterAutoReleases) keys._pendingRasterAutoReleases = new Map();
   return keys._pendingRasterAutoReleases;
@@ -312,6 +329,7 @@ export function midinoteOn(event) {
     this.inputRuntime.mpeInput
   ) {
     hex._rasterStartedAt = Date.now();
+    hex._rasterLastTriggerAt = hex._rasterStartedAt;
     if (this.inputRuntime.target === "scale" && coords !== null) {
       // Scale mode: onset is the distance (full step offset from origin) of the
       // snapped hex — the same space findNearestDegree.steps uses.
@@ -492,7 +510,7 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   const bendRangeSemitones = this.settings.midiin_scale_bend_range ?? 48;
   const semitoneFloatOffset = ((bend14 - 8192) * bendRangeSemitones) / 8192;
 
-  let newSteps;
+  let targetStepFloat;
 
   if (scaleMode) {
     // In Nearest Scale Degree mode, rastering should follow the incoming
@@ -513,7 +531,7 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
       "accept",
     );
     if (!result) return;
-    newSteps = result.steps;
+    targetStepFloat = result.steps;
   } else if (useScaleFollowing) {
     if (hex._rasterOnsetSteps == null) return;
     const scaleStepOffset = continuumScaleTrackingStepOffset(
@@ -522,15 +540,31 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
       8192,
       false,
     );
-    newSteps = hex._rasterOnsetSteps + Math.round(scaleStepOffset);
+    targetStepFloat = hex._rasterOnsetSteps + scaleStepOffset;
   } else {
     if (hex._rasterOnsetSteps == null) return;
-    newSteps = hex._rasterOnsetSteps + Math.round(semitoneFloatOffset);
+    targetStepFloat = hex._rasterOnsetSteps + semitoneFloatOffset;
   }
 
+  const currentSteps = Number.isFinite(hex._rasterSteps)
+    ? hex._rasterSteps
+    : Math.round(targetStepFloat);
+  const newSteps = continuumRasterTargetSteps(
+    currentSteps,
+    targetStepFloat,
+    this.inputRuntime.hakenRasterStability ?? 25,
+  );
+
   // No crossing yet — nothing to retrigger.
-  if (hex._rasterSteps === newSteps) return;
-  hex._rasterSteps = newSteps;
+  if (currentSteps === newSteps) return;
+
+  const throttleMs = Math.max(
+    0,
+    Math.min(100, Number(this.inputRuntime.hakenRasterThrottleMs ?? 10) || 0),
+  );
+  const lastTriggerAt = Number(hex._rasterLastTriggerAt ?? hex._rasterStartedAt ?? 0);
+  const now = Date.now();
+  if (throttleMs > 0 && now - lastTriggerAt < throttleMs) return;
 
   // --- Resolve target coordinates ---
   const newCoords = this.coordResolver.coordForSteps(newSteps);
@@ -551,12 +585,14 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
     channel,
     scaleMode,
     oldCoords: hex.coords,
-    oldSteps: hex._rasterSteps,
+    oldSteps: currentSteps,
     newSteps,
+    targetStepFloat,
     newCoords,
     bend14,
     notePlayed,
     newVelocity,
+    throttleMs,
     pressureSeenSinceOnset: hex._pressureSeenSinceOnset,
     lastAftertouch: hex._lastAftertouch,
     synthFamily: this.synth?.family,
@@ -597,9 +633,10 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   newHex._inputChannel = channel;
   newHex._notePlayed = notePlayed;
   newHex._velocityPlayed = originalVelocity;
-  newHex._rasterStartedAt = Date.now();
+  newHex._rasterStartedAt = now;
   newHex._rasterOnsetSteps = hex._rasterOnsetSteps; // fixed onset — never changes during a hold
   newHex._rasterSteps = newSteps;                   // current triggered position
+  newHex._rasterLastTriggerAt = now;
   newHex._scaleModeBendAnchor14 = hex._scaleModeBendAnchor14;
   newHex._lastAftertouch = hex._lastAftertouch;
   newHex._lastCC74 = hex._lastCC74;

@@ -52,6 +52,8 @@ export const SETTINGS_IMPACT_FIELDS = {
     "hakenaudio_glide_flip_cc",
     "hakenaudio_pressure_velocity",
     "hakenaudio_note_off_delay",
+    "hakenaudio_raster_throttle_ms",
+    "hakenaudio_raster_stability",
     "hakenaudio_out_port",
     "hakenaudio_x_lpf",
     "hakenaudio_y_lpf",

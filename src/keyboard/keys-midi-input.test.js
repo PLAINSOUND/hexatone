@@ -2918,6 +2918,7 @@ describe("Keys MIDI input integration", () => {
         mpeInput: true,
         hakenXGlideMode: "raster_to_notes",
         hakenNoteOffDelay: 40,
+        hakenRasterThrottleMs: 0,
       },
     );
     keys.controller = { id: "hakenaudio" };
@@ -2953,6 +2954,98 @@ describe("Keys MIDI input integration", () => {
     expect(oldHex.noteOff).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(oldHex.noteOff).toHaveBeenCalledWith(96);
+  });
+
+  it("suppresses Continuum raster retriggers until the minimum retrigger interval has elapsed", () => {
+    vi.useFakeTimers();
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        hakenXGlideMode: "raster_to_notes",
+        hakenRasterThrottleMs: 50,
+        hakenRasterStability: 0,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(1, 0));
+    const newHex = { coords: new Point(1, 0), cents: 100, _baseCents: 100, release: false };
+    keys.hexOn = vi.fn(() => newHex);
+    const oldHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      _notePlayed: 60,
+      _velocityPlayed: 96,
+      _rasterStartedAt: Date.now(),
+      _rasterLastTriggerAt: Date.now(),
+      _rasterOnsetSteps: 0,
+      _rasterSteps: 0,
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const entry = {
+      hex: oldHex,
+      baseCents: oldHex._baseCents,
+      hexes: new Set([oldHex]),
+    };
+    keys.state.activeMidi.set(60, oldHex);
+    keys.state.activeMidiByChannel.set(5, entry);
+
+    keys._hakenRasterBend(entry, 5, 9045, false);
+
+    expect(keys.hexOn).not.toHaveBeenCalled();
+    expect(oldHex.noteOff).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(51);
+    keys._hakenRasterBend(entry, 5, 9045, false);
+
+    expect(keys.hexOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("adds hysteresis so small Continuum raster boundary flutter does not retrigger adjacent notes", () => {
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        hakenXGlideMode: "raster_to_notes",
+        hakenRasterThrottleMs: 0,
+        hakenRasterStability: 50,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(1, 0));
+    const newHex = { coords: new Point(1, 0), cents: 100, _baseCents: 100, release: false };
+    keys.hexOn = vi.fn(() => newHex);
+    const oldHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      _notePlayed: 60,
+      _velocityPlayed: 96,
+      _rasterStartedAt: Date.now() - 100,
+      _rasterLastTriggerAt: Date.now() - 100,
+      _rasterOnsetSteps: 0,
+      _rasterSteps: 0,
+      noteOff: vi.fn(),
+      release: false,
+    };
+    const entry = {
+      hex: oldHex,
+      baseCents: oldHex._baseCents,
+      hexes: new Set([oldHex]),
+    };
+    keys.state.activeMidi.set(60, oldHex);
+    keys.state.activeMidiByChannel.set(5, entry);
+
+    keys._hakenRasterBend(entry, 5, 8294, false);
+
+    expect(keys.hexOn).not.toHaveBeenCalled();
+    expect(oldHex.noteOff).not.toHaveBeenCalled();
   });
 
   it("releases an auto-generated Continuum raster note immediately once it has already satisfied the minimum duration", () => {

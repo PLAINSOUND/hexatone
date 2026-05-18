@@ -185,6 +185,8 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     expect(screen.getByText("Pressure → Velocity")).toBeTruthy();
     expect(screen.getByText("Minimum Note Duration")).toBeTruthy();
+    expect(screen.getByText("Minimum Retrigger Interval")).toBeTruthy();
+    expect(screen.getByText("Raster Stability")).toBeTruthy();
     expect(screen.queryByText("Pitch Bending Scale Factor")).toBeNull();
     expect(screen.getByText("X Glide Shaping")).toBeTruthy();
   });
@@ -206,6 +208,8 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     expect(screen.getByText("Pressure → Velocity")).toBeTruthy();
     expect(screen.getByText("Minimum Note Duration")).toBeTruthy();
+    expect(screen.getByText("Minimum Retrigger Interval")).toBeTruthy();
+    expect(screen.getByText("Raster Stability")).toBeTruthy();
   });
 
   it("keeps Continuum 2D geometry always active", () => {

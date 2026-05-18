@@ -410,7 +410,9 @@ describe("loadAnchorSettingsUpdate", () => {
     expect(prefs.hakenaudio_x_glide_mode).toBe("pitch_bending");
     expect(prefs.hakenaudio_x_glide_shaping).toBe(100);
     expect(prefs.hakenaudio_pressure_velocity).toBe(64);
-    expect(prefs.hakenaudio_note_off_delay).toBe(20);
+    expect(prefs.hakenaudio_note_off_delay).toBe(45);
+    expect(prefs.hakenaudio_raster_throttle_ms).toBe(35);
+    expect(prefs.hakenaudio_raster_stability).toBe(50);
   });
 
   it("preserves in-range user-configured Haken member channels", () => {

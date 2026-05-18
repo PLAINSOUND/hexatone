@@ -217,9 +217,25 @@ export const SETTINGS_REGISTRY = [
     key: "hakenaudio_note_off_delay",
     tier: "local",
     type: "int",
-    default: 20,
+    default: 45,
     perController: true,
     description: "Haken Continuum Raster to Notes auto-generated note-off delay in milliseconds",
+  },
+  {
+    key: "hakenaudio_raster_throttle_ms",
+    tier: "local",
+    type: "int",
+    default: 35,
+    perController: true,
+    description: "Haken Continuum Raster to Notes minimum retrigger interval in milliseconds",
+  },
+  {
+    key: "hakenaudio_raster_stability",
+    tier: "local",
+    type: "int",
+    default: 50,
+    perController: true,
+    description: "Haken Continuum Raster to Notes hysteresis amount to reduce note flutter near boundaries",
   },
   {
     key: "hakenaudio_out_port",
@@ -370,9 +386,9 @@ export const SETTINGS_REGISTRY = [
   { key: "osc_volume_buzz", tier: "local", type: "float", default: 0.5, perController: false },
   { key: "osc_volume_formant", tier: "local", type: "float", default: 0.5, perController: false },
   { key: "osc_volume_saw", tier: "local", type: "float", default: 0.5, perController: false },
-  { key: "osc_quick_release", tier: "local", type: "float", default: 0, perController: false },
-  { key: "osc_quick_release_time", tier: "local", type: "float", default: 0.1, perController: false },
-  { key: "osc_quick_release_raster_only", tier: "local", type: "bool", default: false, perController: false },
+  { key: "osc_quick_release", tier: "local", type: "float", default: 0.5, perController: false },
+  { key: "osc_quick_release_time", tier: "local", type: "float", default: 0.25, perController: false },
+  { key: "osc_quick_release_raster_only", tier: "local", type: "bool", default: true, perController: false },
   // WebMIDI permission/access level restored on refresh so the explicit
   // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
   // This is session-scoped runtime state, not a shareable preset value.
