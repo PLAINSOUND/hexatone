@@ -934,6 +934,19 @@ const MidiOutputs = (props) => {
               </span>
             </span>
           </label>
+          <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "-0.1em" }}>
+            <input
+              type="checkbox"
+              checked={!!settings.osc_quick_release_raster_only}
+              onChange={(e) => {
+                localStorage.setItem("osc_quick_release_raster_only", String(e.target.checked));
+                sessionStorage.setItem("osc_quick_release_raster_only", String(e.target.checked));
+                props.onOscQuickReleaseRasterOnlyChange?.(e.target.checked);
+                onChange("osc_quick_release_raster_only", e.target.checked);
+              }}
+            />
+            <em style={{ color: "#996666" }}>Quick Release on Rastered Glissando only</em>
+          </label>
           <label>
             Quick Release Time
             <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
@@ -1007,6 +1020,7 @@ MidiOutputs.propTypes = {
     osc_volume_saw: PropTypes.number,
     osc_quick_release: PropTypes.number,
     osc_quick_release_time: PropTypes.number,
+    osc_quick_release_raster_only: PropTypes.bool,
   }).isRequired,
   midi: PropTypes.object,
   midiAccess: PropTypes.string,
@@ -1016,6 +1030,7 @@ MidiOutputs.propTypes = {
   onOscLayerVolumeChange: PropTypes.func,
   onOscQuickReleaseChange: PropTypes.func,
   onOscQuickReleaseTimeChange: PropTypes.func,
+  onOscQuickReleaseRasterOnlyChange: PropTypes.func,
   keysRef: PropTypes.object,
 };
 

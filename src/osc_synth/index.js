@@ -162,6 +162,7 @@ export const create_osc_synth = async (
   volumes = [0.5, 0.5, 0.5, 0.5],
   quickRelease = 0,
   quickReleaseTime = 0.1,
+  quickReleaseRasterOnly = false,
   fundamental = 440,
   _reference_degree = 0,
   _scale = [0],
@@ -172,6 +173,7 @@ export const create_osc_synth = async (
   const _mod = { value: 1.0 };
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
   const _quickReleaseTime = { value: Math.max(0.001, quickReleaseTime) };
+  const _quickReleaseRasterOnly = { value: quickReleaseRasterOnly === true };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
   const _knownNodeIds = new Set();
   const _slotState = synthNames.map(() =>
@@ -180,8 +182,14 @@ export const create_osc_synth = async (
       active: false,
       onVel: 64,
       nodeId: null,
+      quickReleaseEnabled: false,
     })),
   );
+
+  const slotQuickReleaseValue = (slot) =>
+    _quickReleaseRasterOnly.value
+      ? (slot?.quickReleaseEnabled ? _quickRelease.value : 0)
+      : _quickRelease.value;
 
   const setLayerVolume = (index, value) => {
     if (index < 0 || index >= _volumes.length) return;
@@ -224,7 +232,7 @@ export const create_osc_synth = async (
           [
             { type: "i", value: slot.nodeId },
             { type: "s", value: "quick_release" },
-            { type: "f", value: next },
+            { type: "f", value: slotQuickReleaseValue(slot) },
           ],
           OSC_LAYER_PORTS[i],
         );
@@ -244,6 +252,24 @@ export const create_osc_synth = async (
             { type: "i", value: slot.nodeId },
             { type: "s", value: "quick_release_time" },
             { type: "f", value: next },
+          ],
+          OSC_LAYER_PORTS[i],
+        );
+      }
+    }
+  };
+
+  const setQuickReleaseRasterOnly = (value) => {
+    _quickReleaseRasterOnly.value = value === true;
+    for (let i = 0; i < _slotState.length; i++) {
+      for (const slot of _slotState[i]) {
+        if (!slot?.active || slot.nodeId == null) continue;
+        socket.send(
+          "/n_set",
+          [
+            { type: "i", value: slot.nodeId },
+            { type: "s", value: "quick_release" },
+            { type: "f", value: slotQuickReleaseValue(slot) },
           ],
           OSC_LAYER_PORTS[i],
         );
@@ -295,6 +321,7 @@ export const create_osc_synth = async (
         _mod,
         _quickRelease,
         _quickReleaseTime,
+        _quickReleaseRasterOnly,
         _pool,
         _slotState,
         _knownNodeIds,
@@ -339,6 +366,10 @@ export const create_osc_synth = async (
       setQuickReleaseTime(value);
     },
 
+    setQuickReleaseRasterOnly(value) {
+      setQuickReleaseRasterOnly(value);
+    },
+
     allSoundOff() {
       debugLog("osc", "osc_synth.allSoundOff", { knownNodeCount: _knownNodeIds.size });
       freeAllKnownNodes();
@@ -370,6 +401,7 @@ function OscHex(
   modRef,
   quickReleaseRef,
   quickReleaseTimeRef,
+  quickReleaseRasterOnlyRef,
   pool,
   slotState,
   knownNodeIds,
@@ -389,6 +421,7 @@ function OscHex(
   this._modRef = modRef;
   this._quickReleaseRef = quickReleaseRef;
   this._quickReleaseTimeRef = quickReleaseTimeRef;
+  this._quickReleaseRasterOnlyRef = quickReleaseRasterOnlyRef;
   this._pool = pool;
   this._slotState = slotState;
   this._knownNodeIds = knownNodeIds;
@@ -428,6 +461,9 @@ OscHex.prototype.noteOn = function () {
     slotState.active = true;
     slotState.onVel = this._onVel;
     slotState.nodeId = this._nodeIds[i];
+    slotState.quickReleaseEnabled = this._quickReleaseRasterOnlyRef.value
+      ? this._rasterGenerated === true
+      : true;
     this._knownNodeIds.add(this._nodeIds[i]);
     this._tokens[i] = slotState.token;
 
@@ -443,7 +479,7 @@ OscHex.prototype.noteOn = function () {
         this._modRef.value,
         this._filter,
         this._volumes[i],
-        this._quickReleaseRef.value,
+        slotState.quickReleaseEnabled ? this._quickReleaseRef.value : 0,
         this._quickReleaseTimeRef.value,
       ),
       OSC_LAYER_PORTS[i],
@@ -477,6 +513,7 @@ OscHex.prototype.noteOff = function (release_velocity) {
     );
     slotState.active = false;
     slotState.nodeId = null;
+    slotState.quickReleaseEnabled = false;
     this._knownNodeIds.delete(this._nodeIds[i]);
   }
 };
@@ -502,6 +539,7 @@ OscHex.prototype.forceFree = function () {
       const slotState = this._slotState[i][slot];
       slotState.active = false;
       slotState.nodeId = null;
+      slotState.quickReleaseEnabled = false;
     }
   }
 };

@@ -584,7 +584,10 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   this._mpeInputBendByChannel.set(channel, 8192);
 
   const liveInputAddress = { channel, note: notePlayed ?? 0 };
-  const newHex = this.hexOn(newCoords, notePlayed, newVelocity, 0, { liveInputAddress });
+  const newHex = this.hexOn(newCoords, notePlayed, newVelocity, 0, {
+    liveInputAddress,
+    rasterGenerated: true,
+  });
   if (!newHex) return;
 
   // Restore the live bend value so subsequent bend events route correctly.

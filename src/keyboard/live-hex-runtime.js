@@ -115,10 +115,12 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
     velocity_played,
     bend,
     liveInputAddress: options?.liveInputAddress ?? null,
+    rasterGenerated: options?.rasterGenerated === true,
   });
   hex._baseCents = cents;
   hex._noteContext = noteContext;
   if (options?.liveInputAddress) hex._liveInputAddress = { ...options.liveInputAddress };
+  if (options?.rasterGenerated === true) hex._rasterGenerated = true;
 
   let mpePrimedBeforeNoteOn = false;
   const inputChannel = options?.liveInputAddress?.channel;

@@ -552,6 +552,7 @@ const App = () => {
     onOscLayerVolumeChange,
     onOscQuickReleaseChange,
     onOscQuickReleaseTimeChange,
+    onOscQuickReleaseRasterOnlyChange,
     onAnchorLearn,
     onHakenPedalLearn,
     lumatoneRawPorts,
@@ -1938,6 +1939,7 @@ const App = () => {
               onOscLayerVolumeChange={onOscLayerVolumeChange}
               onOscQuickReleaseChange={onOscQuickReleaseChange}
               onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
+              onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
               onImport={onImport}
               importCount={importCount}
               onLoadCustomPreset={onLoadCustomPreset}

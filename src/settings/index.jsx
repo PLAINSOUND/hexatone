@@ -48,6 +48,7 @@ const Settings = ({
   onOscLayerVolumeChange,
   onOscQuickReleaseChange,
   onOscQuickReleaseTimeChange,
+  onOscQuickReleaseRasterOnlyChange,
   midiLearnActive,
   hakenPedalLearnActive,
   lumatoneRawPorts,
@@ -149,6 +150,7 @@ const Settings = ({
       onOscLayerVolumeChange={onOscLayerVolumeChange}
       onOscQuickReleaseChange={onOscQuickReleaseChange}
       onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
+      onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
       settings={settings}
       midi={midi}
       midiAccess={midiAccess}
