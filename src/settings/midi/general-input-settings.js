@@ -8,6 +8,7 @@ const GeneralInputSettings = ({
   hasBasicMidi,
   midi,
   settings,
+  controller,
   controllerOverrideId,
   autoDetectStatus,
   detectedController,
@@ -18,6 +19,7 @@ const GeneralInputSettings = ({
   resolveControllerSelection,
   isLinnstrumentUserFirmwareEligible,
   scaleMode,
+  saveControllerPref,
   onChange,
 }) => (
   <>
@@ -102,6 +104,15 @@ const GeneralInputSettings = ({
             deactivateLinnstrumentUserFirmwareNow();
           }
           onChange("midiin_mapping_target", e.target.value);
+          if (controller) {
+            saveControllerPref(
+              controller,
+              "midiin_mapping_target",
+              e.target.value,
+              settings,
+              { midiin_mapping_target: e.target.value },
+            );
+          }
           sessionStorage.setItem("midiin_mapping_target", e.target.value);
         }}
       >
@@ -116,6 +127,7 @@ GeneralInputSettings.propTypes = {
   hasBasicMidi: PropTypes.bool.isRequired,
   midi: PropTypes.object,
   settings: PropTypes.object.isRequired,
+  controller: PropTypes.object,
   controllerOverrideId: PropTypes.string.isRequired,
   autoDetectStatus: PropTypes.string,
   detectedController: PropTypes.object,
@@ -129,6 +141,7 @@ GeneralInputSettings.propTypes = {
   resolveControllerSelection: PropTypes.func.isRequired,
   isLinnstrumentUserFirmwareEligible: PropTypes.func.isRequired,
   scaleMode: PropTypes.bool.isRequired,
+  saveControllerPref: PropTypes.func.isRequired,
   onChange: PropTypes.func.isRequired,
 };
 

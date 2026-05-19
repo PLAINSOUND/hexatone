@@ -313,6 +313,7 @@ const MIDIio = (props) => {
         hasBasicMidi={hasBasicMidi}
         midi={props.midi}
         settings={props.settings}
+        controller={ctrl}
         controllerOverrideId={controllerOverrideId}
         autoDetectStatus={autoDetectStatus}
         detectedController={detectedController}
@@ -322,6 +323,7 @@ const MIDIio = (props) => {
         resolveControllerSelection={resolveControllerSelection}
         isLinnstrumentUserFirmwareEligible={isLinnstrumentUserFirmwareEligible}
         scaleMode={scaleMode}
+        saveControllerPref={saveControllerPref}
         onChange={props.onChange}
       />
 

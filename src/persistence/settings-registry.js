@@ -182,6 +182,14 @@ export const SETTINGS_REGISTRY = [
     description: "MPE pitch bend range (semitones) used in Nearest Scale Degree mode",
   },
   {
+    key: "midiin_mapping_target",
+    tier: "local",
+    type: "string",
+    default: "hex_layout",
+    perController: true,
+    description: "Input mode per controller: MIDI to Hex Layout or MIDI to Nearest Scale Degree",
+  },
+  {
     key: "hakenaudio_x_glide_shaping",
     tier: "local",
     type: "int",

@@ -285,6 +285,23 @@ function getDefaultModulationPalettePos() {
       y: Math.max(12, topInset + 14),
     };
   }
+  if (window.innerWidth >= 480) {
+    const sidebar = document.getElementById("sidebar");
+    const sidebarRect = sidebar?.getBoundingClientRect();
+    const sidebarVisibleRight =
+      sidebarRect && sidebarRect.right > 80 ? sidebarRect.right : 0;
+    if (sidebarVisibleRight > 0) {
+      const gap = 16;
+      const fallbackX = 18;
+      const estimatedPaletteWidth = 340;
+      const maxX = Math.max(fallbackX, window.innerWidth - estimatedPaletteWidth - gap);
+      const preferredX = Math.round(sidebarVisibleRight + gap);
+      return {
+        x: preferredX <= maxX ? preferredX : fallbackX,
+        y: 58,
+      };
+    }
+  }
   return { x: 18, y: 58 };
 }
 

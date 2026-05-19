@@ -780,17 +780,17 @@ const MidiOutputs = (props) => {
                 <select
                   name="mpe_mode"
                   class="sidebar-input"
-                  value={settings.mpe_mode || "Ableton_workaround"}
+                  value={visibleMpeMode}
                   onChange={(e) => save(e.target.name, e.target.value, onChange)}
                 >
                   <option value="Ableton_workaround">
                     Ableton compatible: unique notes & PB 48
                   </option>
-                  <option value="Full_MPE">MPE standard: nearest notes & user PB</option>
+                  <option value="standard">MPE standard: nearest notes & user PB</option>
                 </select>
               </label>
 
-              {settings.mpe_mode === "Full_MPE" && (
+              {visibleMpeMode === "standard" && (
                 <>
                   <label>
                     MPE PB Range (semitones)

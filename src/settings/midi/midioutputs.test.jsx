@@ -126,4 +126,22 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(localStorage.getItem("osc_volume_pluck")).toBe("0.73");
     expect(sessionStorage.getItem("osc_volume_pluck")).toBe("0.73");
   });
+
+  it("shows Haken Continuum MPE output defaults as standard mode with 96-semitone bend range", () => {
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_mpe: true,
+          mpe_device: "main-1",
+          midiin_controller_override: "hakenaudio",
+          mpe_mode: "standard",
+          mpe_pitchbend_range: 96,
+        })}
+      />,
+    );
+
+    expect(screen.getByLabelText("Message Style").value).toBe("standard");
+    expect(screen.getByLabelText("MPE PB Range (semitones)").value).toBe("96");
+    expect(screen.getByText("MPE standard: nearest notes & user PB")).not.toBeNull();
+  });
 });

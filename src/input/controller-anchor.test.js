@@ -354,6 +354,18 @@ describe("saveControllerPref", () => {
     expect(localStorage.getItem("exquis__bypass__midi_passthrough")).toBe("true");
     expect(localStorage.getItem("exquis__active_mode")).toBe("bypass");
   });
+
+  it("stores input mode per controller in the target mode bucket", () => {
+    saveControllerPref(
+      LUMATONE_MODES,
+      "midiin_mapping_target",
+      "scale",
+      { midi_passthrough: false },
+      { midiin_mapping_target: "scale" },
+    );
+    expect(localStorage.getItem("lumatone__layout2d__midiin_mapping_target")).toBe("scale");
+    expect(localStorage.getItem("lumatone__active_mode")).toBe("layout2d");
+  });
 });
 
 // ── loadAnchorSettingsUpdate ──────────────────────────────────────────────────
@@ -705,6 +717,7 @@ describe("Tonal Plexus mode-aware controller prefs", () => {
     });
     expect(update.midiin_anchor_note).toBe(7);
     expect(update.midiin_anchor_channel).toBe(9);
+    expect(update.midiin_mapping_target).toBe("hex_layout");
     expect(update.midiin_steps_per_channel).toBe(null);
     expect(update.midiin_channel_group_size).toBe(1);
     expect(update.midiin_channel_legacy).toBe(false);
@@ -749,6 +762,7 @@ function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) 
     it(`loads default layout2d anchor (note ${layout2dNote}) on first connect`, () => {
       const update = loadAnchorSettingsUpdate(ctrl);
       expect(update.midiin_anchor_note).toBe(layout2dNote);
+      expect(update.midiin_mapping_target).toBe("hex_layout");
       expect(update.midi_passthrough).toBe(false);
     });
 

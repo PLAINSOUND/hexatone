@@ -672,6 +672,7 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 7,
           anchorChannel: 9,
           midi_passthrough: true,
+          midiin_mapping_target: "hex_layout",
           tonalplexus_input_mode: "blocks_41",
         },
       },
@@ -680,6 +681,7 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 7,
           anchorChannel: 9,
           midi_passthrough: false,
+          midiin_mapping_target: "hex_layout",
           tonalplexus_input_mode: "layout_205",
         },
       },
@@ -768,12 +770,14 @@ export const CONTROLLER_REGISTRY = [
         defaultPrefs: {
           anchorNote: 53,
           midi_passthrough: false,
+          midiin_mapping_target: "hex_layout",
         },
       },
       bypass: {
         defaultPrefs: {
           anchorNote: 50, // centre of the 0–127 MIDI range
           midi_passthrough: true,
+          midiin_mapping_target: "hex_layout",
         },
       },
     },
@@ -795,12 +799,14 @@ export const CONTROLLER_REGISTRY = [
         defaultPrefs: {
           anchorNote: 36,
           midi_passthrough: false,
+          midiin_mapping_target: "hex_layout",
         },
       },
       bypass: {
         defaultPrefs: {
           anchorNote: 60,
           midi_passthrough: true,
+          midiin_mapping_target: "hex_layout",
         },
       },
     },
@@ -849,6 +855,7 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 26, // note 26 within the centre block
           anchorChannel: 3, // block 3 = centre block
           midi_passthrough: false,
+          midiin_mapping_target: "hex_layout",
         },
       },
       bypass: {
@@ -856,6 +863,7 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 60, // MIDI note 60 in sequential mode (full 0–127 range)
           anchorChannel: 4,
           midi_passthrough: true,
+          midiin_mapping_target: "hex_layout",
         },
       },
     },
@@ -895,6 +903,7 @@ export const CONTROLLER_REGISTRY = [
         description: "User Firmware Mode — host controls LEDs, device reports raw ch/col data",
         defaultPrefs: {
           midi_passthrough: false,
+          midiin_mapping_target: "hex_layout",
           midiin_mpe_input: false,
           midiin_bend_range: "1/1",
           linnstrument_pitch_bend_mode: "off",
@@ -906,6 +915,7 @@ export const CONTROLLER_REGISTRY = [
           anchorNote: 56, // MIDI note 56 in sequential mode (full 0–127 range)
           anchorChannel: 4,
           midi_passthrough: true,
+          midiin_mapping_target: "hex_layout",
         },
       },
     },
@@ -999,6 +1009,7 @@ export const CONTROLLER_REGISTRY = [
         defaultPrefs: {
           anchorNote: 19,
           midi_passthrough: false,
+          midiin_mapping_target: "hex_layout",
           midiin_mpe_input: true,
           midiin_bend_flip: true,
         },
@@ -1007,6 +1018,7 @@ export const CONTROLLER_REGISTRY = [
         defaultPrefs: {
           anchorNote: 19,
           midi_passthrough: true,
+          midiin_mapping_target: "hex_layout",
           midiin_mpe_input: false,
           midiin_bend_flip: false,
         },
