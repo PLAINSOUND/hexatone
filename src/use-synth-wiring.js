@@ -90,6 +90,16 @@ export const deriveOscQuickReleaseTime = (settings) =>
 export const deriveOscQuickReleaseRasterOnly = (settings) =>
   localBool(REGISTRY_BY_KEY.osc_quick_release_raster_only.key, settings.osc_quick_release_raster_only ?? true);
 
+export const shouldFlushSoundingNotesForFreshOscActivation = (
+  keys,
+  wantOsc,
+  currentOscSynth,
+) => {
+  if (!wantOsc) return false;
+  if (currentOscSynth) return false;
+  return !!keys?.hasSoundingNotes?.();
+};
+
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {
     return getControllerById(controllerOverrideId) ?? getControllerById("generic");
@@ -825,6 +835,11 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       for (const synth of mtsSynthsRef.current.values()) releaseSynthInstance(synth);
       mtsSynthsRef.current.clear();
     }
+    const flushSoundingNotesForFreshOscActivation = shouldFlushSoundingNotesForFreshOscActivation(
+      keysRef.current,
+      wantOsc,
+      oscSynthRef.current.synth,
+    );
     if (wantOsc) {
       const oscKey = JSON.stringify([
         settings.osc_bridge_url || "ws://localhost:8089",
@@ -947,6 +962,9 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         return;
       }
       const s = validSynths.length === 1 ? validSynths[0] : create_composite_synth(validSynths);
+      if (flushSoundingNotesForFreshOscActivation) {
+        keysRef.current?.allnotesOff?.();
+      }
       // Set the synth and clear the spinner immediately — do NOT await prepare()
       // here. On iOS, prepare() calls AudioContext.resume() + decodeAudioData,
       // both of which require a running AudioContext. The synth effect runs outside

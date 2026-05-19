@@ -58,6 +58,10 @@ const releaseNode = (socket, port, nodeId, offVel) => {
   );
 };
 
+const freeTargetGroup = (socket, port, targetGroup) => {
+  socket.send("/g_freeAll", [{ type: "i", value: targetGroup }], port);
+};
+
 /**
  * Shared WebSocket connection, lazily created and reused across all OscHex instances.
  * Reconnects automatically if the bridge is restarted.
@@ -345,6 +349,9 @@ export const create_osc_synth = async (
       for (const port of OSC_LAYER_PORTS) {
         socket.send("/n_free", [{ type: "i", value: nodeId }], port);
       }
+    }
+    for (const port of OSC_LAYER_PORTS) {
+      freeTargetGroup(socket, port, targetGroup);
     }
     _knownNodeIds.clear();
     for (const layerState of _slotState) {

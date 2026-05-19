@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   deriveOutputRuntime,
   deriveOscVolumes,
+  shouldFlushSoundingNotesForFreshOscActivation,
   deriveTuningRuntime,
   resolveReservedHakenOutputId,
   resolveOctaveShortcutAction,
@@ -215,6 +216,32 @@ describe("use-synth-wiring octave shortcuts", () => {
 
   it("ignores unrelated keys", () => {
     expect(resolveOctaveShortcutAction({ code: "KeyA" }, false)).toBeNull();
+  });
+});
+
+describe("use-synth-wiring live OSC activation", () => {
+  it("flushes sounding notes when OSC is newly enabled mid-phrase", () => {
+    const keys = {
+      hasSoundingNotes() {
+        return true;
+      },
+    };
+    expect(shouldFlushSoundingNotesForFreshOscActivation(keys, true, null)).toBe(true);
+  });
+
+  it("does not flush when no notes are sounding or OSC already exists", () => {
+    const silentKeys = {
+      hasSoundingNotes() {
+        return false;
+      },
+    };
+    expect(shouldFlushSoundingNotesForFreshOscActivation(silentKeys, true, null)).toBe(false);
+    expect(shouldFlushSoundingNotesForFreshOscActivation(silentKeys, false, null)).toBe(false);
+    expect(shouldFlushSoundingNotesForFreshOscActivation(
+      { hasSoundingNotes: () => true },
+      true,
+      { family: "osc" },
+    )).toBe(false);
   });
 });
 

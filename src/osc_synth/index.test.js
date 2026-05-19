@@ -231,6 +231,32 @@ describe("osc_synth pooled slot allocation", () => {
     expect(frees.map((msg) => msg.port)).toEqual([57101, 57102, 57103, 57104]);
   });
 
+  it("allSoundOff also sends /g_freeAll to the target group on every OSC layer", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-panic-group-free",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      7,
+    );
+
+    await Promise.resolve();
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    synth.allSoundOff();
+
+    const groupFrees = MockWebSocket.instances[0].sent.filter((msg) => msg.address === "/g_freeAll");
+    expect(groupFrees).toHaveLength(4);
+    expect(groupFrees.map((msg) => msg.port)).toEqual([57101, 57102, 57103, 57104]);
+    expect(groupFrees.map((msg) => msg.args[0]?.value)).toEqual([7, 7, 7, 7]);
+  });
+
   it("still releases nodes when the voice-pool coord lookup misses", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-noteoff-fallback",
