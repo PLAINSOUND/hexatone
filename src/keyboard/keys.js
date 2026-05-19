@@ -265,6 +265,8 @@ class Keys {
     this._mpeInputAftertouchByChannel = new Map();
     this._mpeInputCC74ByChannel = new Map();
     this._hakenMpeBend21ByChannel = new Map();
+    this._hakenMpeCC7414ByChannel = new Map();
+    this._hakenMpePressure14ByChannel = new Map();
     this._hakenMpePlusLsbByChannel = new Map();
     this._retuneGlides = new Map();
     this._retuneGlideTimer = null;
@@ -1528,20 +1530,20 @@ class Keys {
     );
   }
 
-  _applyPolyAftertouch(hex, value) {
-    return InputExpressionRuntime.applyPolyAftertouch.call(this, hex, value);
+  _applyPolyAftertouch(hex, value, value14 = null) {
+    return InputExpressionRuntime.applyPolyAftertouch.call(this, hex, value, value14);
   }
 
-  _applyTimbreCC74(hex, value) {
-    return InputExpressionRuntime.applyTimbreCC74.call(this, hex, value);
+  _applyTimbreCC74(hex, value, value14 = null) {
+    return InputExpressionRuntime.applyTimbreCC74.call(this, hex, value, value14);
   }
 
   _normalizePitchBend14(value) {
     return InputExpressionRuntime.normalizePitchBend14.call(this, value);
   }
 
-  _applyMpePitchBend(entry, channel, value14) {
-    return InputExpressionRuntime.applyMpePitchBend.call(this, entry, channel, value14);
+  _applyMpePitchBend(entry, channel, value14, value21 = null) {
+    return InputExpressionRuntime.applyMpePitchBend.call(this, entry, channel, value14, value21);
   }
 
   _activeHexesForInputChannel(channel) {
@@ -1821,6 +1823,7 @@ class Keys {
   updateInputRuntime = (nextRuntime, nextSettings = null) => {
     const previousMidiInputDevice = this.settings.midiin_device;
     const previousModulationStyle = this.settings.modulation_style;
+    const previousHakenGlideMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     const previousRouteKey = JSON.stringify({
       device: this.settings.midiin_device,
       override: this.settings.midiin_controller_override,
@@ -1841,6 +1844,8 @@ class Keys {
     });
     if (previousRouteKey !== nextRouteKey) this.allnotesOff();
     if (nextRuntime) {
+      nextRuntime.hakenSpaceGlideFlip = !!this.inputRuntime?.hakenSpaceGlideFlip;
+      nextRuntime.hakenPedalGlideFlip = !!this.inputRuntime?.hakenPedalGlideFlip;
       this.inputRuntime = nextRuntime;
       if (this.coordResolver) this.coordResolver.inputRuntime = nextRuntime;
     }
@@ -1876,6 +1881,9 @@ class Keys {
     if (previousModulationStyle !== this.settings.modulation_style) {
       this._syncModulationStyleFromSettings({ emit: true });
     }
+    const nextHakenGlideMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
+    this._handleHakenGlideModeTransition(previousHakenGlideMode, nextHakenGlideMode);
+    this._refreshHakenGlideModeForActiveNotes();
   };
 
   getSnapshot() {
@@ -2083,6 +2091,8 @@ class Keys {
     this.state.activeMidiByChannel.clear();
     this._mpeInputBendByChannel.clear();
     this._hakenMpeBend21ByChannel.clear();
+    this._hakenMpeCC7414ByChannel.clear();
+    this._hakenMpePressure14ByChannel.clear();
     this._hakenMpePlusLsbByChannel.clear();
     this._scaleModePreBend21.clear();
     this.coordResolver.clearInputAddressMemory();
@@ -2247,8 +2257,35 @@ class Keys {
     if (this.controller?.id !== "hakenaudio" || !this.inputRuntime.mpeInput) return;
     for (const [channel, entry] of this.state.activeMidiByChannel) {
       const bend14 = this._mpeInputBendByChannel.get(channel);
+      const bend21 = this._hakenMpeBend21ByChannel.get(channel) ?? null;
       if (!entry?.hex || entry.hex.release || bend14 == null) continue;
-      this._applyMpePitchBend(entry, channel, bend14);
+      if (bend21 != null) this._applyMpePitchBend(entry, channel, bend14, bend21);
+      else this._applyMpePitchBend(entry, channel, bend14);
+    }
+  }
+
+  _handleHakenGlideModeTransition(previousMode, nextMode) {
+    if (
+      this.controller?.id !== "hakenaudio" ||
+      !this.inputRuntime.mpeInput ||
+      previousMode !== "raster_to_notes" ||
+      nextMode === "raster_to_notes"
+    ) {
+      return;
+    }
+    for (const [channel, entry] of this.state.activeMidiByChannel) {
+      const bend14 = this._mpeInputBendByChannel.get(channel);
+      const bend21 = this._hakenMpeBend21ByChannel.get(channel);
+      if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
+      const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
+      entry.hex._continuumPitchAnchor14 = bend14;
+      entry.hex._continuumPitchAnchor21 = bend21;
+      entry.hex._continuumPitchAnchorSteps = currentSteps;
+      entry.hex._continuumPitchAnchorCents = entry.hex.cents;
+      if (this.inputRuntime.target === "scale") {
+        entry.hex._scaleModeBendAnchor14 = bend14;
+        entry.hex._scaleModeBendAnchor21 = bend21;
+      }
     }
   }
 
@@ -2260,22 +2297,7 @@ class Keys {
     const previousMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     this.inputRuntime.hakenSpaceGlideFlip = active;
     const nextMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
-    if (
-      previousMode === "raster_to_notes" &&
-      nextMode !== "raster_to_notes"
-    ) {
-      for (const [channel, entry] of this.state.activeMidiByChannel) {
-        const bend14 = this._mpeInputBendByChannel.get(channel);
-        if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
-        const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
-        entry.hex._continuumPitchAnchor14 = bend14;
-        entry.hex._continuumPitchAnchorSteps = currentSteps;
-        entry.hex._continuumPitchAnchorCents = entry.hex.cents;
-        if (this.inputRuntime.target === "scale") {
-        entry.hex._scaleModeBendAnchor14 = bend14;
-        }
-      }
-    }
+    this._handleHakenGlideModeTransition(previousMode, nextMode);
     this._refreshHakenGlideModeForActiveNotes();
   }
 
@@ -2287,22 +2309,7 @@ class Keys {
     const previousMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     this.inputRuntime.hakenPedalGlideFlip = active;
     const nextMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
-    if (
-      previousMode === "raster_to_notes" &&
-      nextMode !== "raster_to_notes"
-    ) {
-      for (const [channel, entry] of this.state.activeMidiByChannel) {
-        const bend14 = this._mpeInputBendByChannel.get(channel);
-        if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
-        const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
-        entry.hex._continuumPitchAnchor14 = bend14;
-        entry.hex._continuumPitchAnchorSteps = currentSteps;
-        entry.hex._continuumPitchAnchorCents = entry.hex.cents;
-        if (this.inputRuntime.target === "scale") {
-          entry.hex._scaleModeBendAnchor14 = bend14;
-        }
-      }
-    }
+    this._handleHakenGlideModeTransition(previousMode, nextMode);
     this._refreshHakenGlideModeForActiveNotes();
   }
 

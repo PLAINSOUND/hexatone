@@ -205,8 +205,11 @@ export function resolveScaleInputPitchCents(channel, note, fallbackPitchHz) {
 
 function pitchHzForScaleInput(event) {
   if (this.inputRuntime.mpeInput) {
+    const preBend21 = this._scaleModePreBend21.get(event.message.channel);
     const preBend = this._scaleModePreBend.get(event.message.channel) ?? 8192;
-    const norm = (preBend - 8192) / 8192;
+    const norm = Number.isFinite(preBend21)
+      ? (preBend21 - 1048576) / 1048576
+      : (preBend - 8192) / 8192;
     const bendRangeCents = (this.inputRuntime.scaleBendRange ?? 48) * 100;
     const baseHz = 440 * Math.pow(2, (event.note.number - 69) / 12);
     return baseHz * Math.pow(2, (norm * bendRangeCents) / 1200);
@@ -317,12 +320,23 @@ export function midinoteOn(event) {
       this._mpeInputAftertouchByChannel,
       event.message.channel,
     );
-    if (recentAftertouch != null) this._applyPolyAftertouch(hex, recentAftertouch);
-    const recentCC74 = recentPerChannelExpressionValue(
-      this._mpeInputCC74ByChannel,
-      event.message.channel,
-    );
-    if (recentCC74 != null) this._applyTimbreCC74(hex, recentCC74);
+    const recentAftertouchEntry = this._mpeInputAftertouchByChannel.get(event.message.channel);
+    if (recentAftertouch != null) {
+      if (recentAftertouchEntry?.value14 != null) {
+        this._applyPolyAftertouch(hex, recentAftertouch, recentAftertouchEntry.value14);
+      } else {
+        this._applyPolyAftertouch(hex, recentAftertouch);
+      }
+    }
+    const recentCC74 = recentPerChannelExpressionValue(this._mpeInputCC74ByChannel, event.message.channel);
+    const recentCC74Entry = this._mpeInputCC74ByChannel.get(event.message.channel);
+    if (recentCC74 != null) {
+      if (recentCC74Entry?.value14 != null) {
+        this._applyTimbreCC74(hex, recentCC74, recentCC74Entry.value14);
+      } else {
+        this._applyTimbreCC74(hex, recentCC74);
+      }
+    }
   }
   // Raster mode initialisation: store the onset step so hakenRasterBend can
   // compute offsets from it, and seed _rasterSteps (the last-triggered position)
@@ -361,10 +375,16 @@ export function midinoteOn(event) {
       const primed = hex._mpePrimedBeforeNoteOn;
       if (primed?.channel === event.message.channel && primed?.bend14 === bend14) {
         hex._lastPitchBend14 = bend14;
+        hex._lastPitchBend21 = primed?.bend21 ?? null;
         hex._lastPitchBendCents = primed.bentCents;
         delete hex._mpePrimedBeforeNoteOn;
       } else {
-        this._applyMpePitchBend(entry, event.message.channel, bend14);
+        this._applyMpePitchBend(
+          entry,
+          event.message.channel,
+          bend14,
+          this._hakenMpeBend21ByChannel.get(event.message.channel) ?? null,
+        );
       }
     }
   }
@@ -435,12 +455,22 @@ export function midinoteOff(event) {
           this._mpeInputBendByChannel.delete(event.message.channel);
           this._mpeInputAftertouchByChannel.delete(event.message.channel);
           this._mpeInputCC74ByChannel.delete(event.message.channel);
+          this._hakenMpeBend21ByChannel.delete(event.message.channel);
+          this._hakenMpePressure14ByChannel.delete(event.message.channel);
+          this._hakenMpeCC7414ByChannel.delete(event.message.channel);
+          this._hakenMpePlusLsbByChannel.delete(event.message.channel);
+          this._scaleModePreBend21.delete(event.message.channel);
         }
       } else if (entry && entry.hexes?.size === 0) {
         this.state.activeMidiByChannel.delete(event.message.channel);
         this._mpeInputBendByChannel.delete(event.message.channel);
         this._mpeInputAftertouchByChannel.delete(event.message.channel);
         this._mpeInputCC74ByChannel.delete(event.message.channel);
+        this._hakenMpeBend21ByChannel.delete(event.message.channel);
+        this._hakenMpePressure14ByChannel.delete(event.message.channel);
+        this._hakenMpeCC7414ByChannel.delete(event.message.channel);
+        this._hakenMpePlusLsbByChannel.delete(event.message.channel);
+        this._scaleModePreBend21.delete(event.message.channel);
       }
     }
     this._settleModulationAfterActiveRelease();
@@ -486,6 +516,11 @@ export function allnotesOff() {
   this._mpeInputBendByChannel.clear();
   this._mpeInputAftertouchByChannel.clear();
   this._mpeInputCC74ByChannel.clear();
+  this._hakenMpeBend21ByChannel.clear();
+  this._hakenMpePressure14ByChannel.clear();
+  this._hakenMpeCC7414ByChannel.clear();
+  this._hakenMpePlusLsbByChannel.clear();
+  this._scaleModePreBend21.clear();
 }
 
 /**
@@ -643,8 +678,14 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   newHex._rasterSteps = newSteps;                   // current triggered position
   newHex._rasterLastTriggerAt = now;
   newHex._scaleModeBendAnchor14 = hex._scaleModeBendAnchor14;
+  newHex._scaleModeBendAnchor21 = hex._scaleModeBendAnchor21;
+  newHex._lastPitchBend14 = hex._lastPitchBend14;
+  newHex._lastPitchBend21 = hex._lastPitchBend21;
+  newHex._lastPitchBendCents = hex._lastPitchBendCents;
   newHex._lastAftertouch = hex._lastAftertouch;
+  newHex._lastAftertouch14 = hex._lastAftertouch14;
   newHex._lastCC74 = hex._lastCC74;
+  newHex._lastCC7414 = hex._lastCC7414;
   newHex._pressureSeenSinceOnset = !!hex._pressureSeenSinceOnset;
 
   // --- Update state maps (mirrors midinoteOn post-hexOn block) ---
@@ -659,6 +700,12 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   // Continuum raster retriggers should inherit the current expressive state
   // immediately at onset so the rebuilt note does not jump in timbre or
   // pressure response while waiting for the next incoming Y/Z update.
-  if (hex._lastAftertouch != null) this._applyPolyAftertouch(newHex, hex._lastAftertouch);
-  if (hex._lastCC74 != null) this._applyTimbreCC74(newHex, hex._lastCC74);
+  if (hex._lastAftertouch != null) {
+    if (hex._lastAftertouch14 != null) this._applyPolyAftertouch(newHex, hex._lastAftertouch, hex._lastAftertouch14);
+    else this._applyPolyAftertouch(newHex, hex._lastAftertouch);
+  }
+  if (hex._lastCC74 != null) {
+    if (hex._lastCC7414 != null) this._applyTimbreCC74(newHex, hex._lastCC74, hex._lastCC7414);
+    else this._applyTimbreCC74(newHex, hex._lastCC74);
+  }
 }

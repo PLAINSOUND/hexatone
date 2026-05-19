@@ -64,6 +64,8 @@ const synthWiringState = {
   onAnchorLearn: vi.fn(),
   lumatoneRawPorts: null,
   exquisRawPorts: null,
+  linnstrumentRawPorts: null,
+  hakenRawPorts: null,
 };
 
 let settings = {
@@ -215,7 +217,50 @@ beforeEach(() => {
   mockDetectedController = null;
   mockControllerById = null;
   synthWiringState.linnstrumentRawPorts = null;
+  synthWiringState.hakenRawPorts = null;
+  settings = {
+    ...settings,
+    hakenaudio_x_lpf: undefined,
+    hakenaudio_y_lpf: undefined,
+    hakenaudio_z_lpf: undefined,
+    midiin_mpe_manager_ch: undefined,
+  };
   vi.clearAllMocks();
+});
+
+describe("Haken Continuum config", () => {
+  it("sends the Continuum MPE+ setup burst when a Haken output is available", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    const output = {
+      id: "haken-out-1",
+      sendControlChange: vi.fn(),
+    };
+    synthWiringState.hakenRawPorts = {
+      input: { id: "haken-in-1" },
+      output,
+    };
+    settings = {
+      ...settings,
+      midiin_mpe_manager_ch: 3,
+    };
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(output.sendControlChange).toHaveBeenCalled();
+    });
+
+    expect(output.sendControlChange).toHaveBeenCalledWith(101, 0, { channels: 3 });
+    expect(output.sendControlChange).toHaveBeenCalledWith(100, 0, { channels: 3 });
+    expect(output.sendControlChange).toHaveBeenCalledWith(6, 96, { channels: 3 });
+    expect(output.sendControlChange).toHaveBeenCalledWith(38, 0, { channels: 3 });
+    expect(output.sendControlChange).toHaveBeenCalledWith(101, 127, { channels: 3 });
+    expect(output.sendControlChange).toHaveBeenCalledWith(100, 127, { channels: 3 });
+  });
 });
 
 describe("preset runtime reset wiring", () => {

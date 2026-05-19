@@ -129,20 +129,22 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
     (keys.inputRuntime.mpeInput || keys.inputRuntime.perChannelExpression)
   ) {
     const bend14 = keys._mpeInputBendByChannel.get(inputChannel);
+    const bend21 = keys._hakenMpeBend21ByChannel.get(inputChannel);
     if (
       keys.inputRuntime.mpeInput &&
       keys.inputRuntime.target === "scale" &&
       bend14 != null
     ) {
       hex._scaleModeBendAnchor14 = keys._normalizePitchBend14(bend14);
-      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bentCents: cents };
+      hex._scaleModeBendAnchor21 = bend21 ?? null;
+      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bend21: bend21 ?? null, bentCents: cents };
       mpePrimedBeforeNoteOn = true;
     } else if (bend14 != null && bend14 !== 8192 && hex.retune) {
       let norm = (keys._normalizePitchBend14(bend14) - 8192) / 8192;
       if (keys.inputRuntime.bendFlip) norm = -norm;
       const bentCents = cents + norm * scalaToCents(keys.inputRuntime.bendRange ?? "9/8");
       hex.retune(bentCents, true);
-      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bentCents };
+      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bend21: bend21 ?? null, bentCents };
       mpePrimedBeforeNoteOn = true;
     }
   }

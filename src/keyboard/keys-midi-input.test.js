@@ -2643,6 +2643,50 @@ describe("Keys MIDI input integration", () => {
     expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("pitch_bending");
   });
 
+  it("preserves an active Continuum pedal raster flip across live raster parameter updates", () => {
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      {
+        target: "scale",
+        mpeInput: true,
+        hakenXGlideMode: "pitch_bending",
+        hakenRasterThrottleMs: 35,
+        hakenRasterStability: 50,
+        hakenNoteOffDelay: 45,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    const bendSpy = vi.spyOn(keys, "_applyMpePitchBend").mockImplementation(() => {});
+    const hex = {
+      coords: new Point(2, 0),
+      cents: 200,
+      release: false,
+    };
+    const entry = { hex, baseCents: 200, hexes: new Set([hex]) };
+    keys.state.activeMidiByChannel.set(5, entry);
+    keys._mpeInputBendByChannel.set(5, 10240);
+    keys.midiin_data = { id: "input-1" };
+
+    keys._setHakenPedalGlideFlip(true);
+    bendSpy.mockClear();
+
+    const nextRuntime = {
+      ...keys.inputRuntime,
+      hakenRasterThrottleMs: 60,
+      hakenRasterStability: 75,
+      hakenNoteOffDelay: 55,
+    };
+    keys.updateInputRuntime(nextRuntime, {
+      hakenaudio_raster_throttle_ms: 60,
+      hakenaudio_raster_stability: 75,
+      hakenaudio_note_off_delay: 55,
+    });
+
+    expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(true);
+    expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("raster_to_notes");
+    expect(bendSpy).toHaveBeenCalledWith(entry, 5, 10240);
+  });
+
   it("reanchors Continuum nearest-scale glide to the current rastered note when leaving raster mode", () => {
     const keys = createKeys(
       {
@@ -5027,6 +5071,66 @@ describe("Keys MIDI input integration", () => {
 
     expect(pedalFlip).toHaveBeenNthCalledWith(1, true);
     expect(pedalFlip).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it("consumes Continuum CC87 as hi-res LSBs for Y, Z, and X", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Haken Audio Continuum",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const cc74 = vi.fn();
+    const aftertouch = vi.fn();
+    const retune = vi.fn(function retune(newCents) {
+      this.cents = newCents;
+    });
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        cc74,
+        aftertouch,
+        retune,
+      })),
+      rememberControllerState: vi.fn(),
+    };
+
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "hakenaudio",
+      },
+      {
+        layoutMode: "sequential",
+        mpeInput: true,
+        bendRange: "2/1",
+      },
+      synth,
+    );
+
+    listeners.noteon(makeMidiEvent(60, 2));
+    listeners.controlchange({ message: { channel: 2, dataBytes: [87, 45] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [74, 81] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [87, 23] } });
+    listeners.channelaftertouch({ message: { channel: 2, dataBytes: [71] } });
+    listeners.controlchange({ message: { channel: 2, dataBytes: [87, 11] } });
+    listeners.pitchbend(makePitchBendEvent(12000, 2));
+
+    expect(cc74).toHaveBeenCalledWith(81, (81 << 7) | 45);
+    expect(aftertouch).toHaveBeenCalledWith(71, (71 << 7) | 23);
+    expect(keys._hakenMpeCC7414ByChannel.get(2)).toBe((81 << 7) | 45);
+    expect(keys._hakenMpePressure14ByChannel.get(2)).toBe((71 << 7) | 23);
+    expect(keys._hakenMpeBend21ByChannel.get(2)).toBe((12000 << 7) | 11);
   });
 
   it("routes LinnStrument channel-per-row bend to all active notes on that row channel", () => {

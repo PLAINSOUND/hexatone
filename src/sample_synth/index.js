@@ -506,24 +506,28 @@ ActiveHex.prototype.standardWheelRetune = function (newCents) {
   this.retune(newCents, true);
 };
 
-ActiveHex.prototype.aftertouch = function (value) {
+ActiveHex.prototype.aftertouch = function (value, value14 = null) {
   if (this.release || !this.gainNode) return;
-  const pressure = Math.max(0, Math.min(127, value)) / 127;
+  const pressure = Number.isFinite(value14)
+    ? Math.max(0, Math.min(16256, value14)) / 16256
+    : Math.max(0, Math.min(127, value)) / 127;
   const targetGain = this.sampleGain * this.base_vol * (1 + this.aftertouch_amount * pressure);
   this.gainNode.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.04);
 };
 
 // pressure: same as aftertouch for the sample engine (gain modulation).
-ActiveHex.prototype.pressure = function (value) {
-  this.aftertouch(value);
+ActiveHex.prototype.pressure = function (value, value14 = null) {
+  this.aftertouch(value, value14);
 };
 
 // cc74 (slide / timbre): sweeps the lowpass filter cutoff.
 // norm 0–1 maps logarithmically from filter_freq to filter_freq * 2^filter_amount.
 // When filter_amount is 0 the filter is fully open and this is a no-op.
-ActiveHex.prototype.cc74 = function (value) {
+ActiveHex.prototype.cc74 = function (value, value14 = null) {
   if (this.release || !this.filterNode || !this.filterCoeffs) return;
-  const n = Math.max(0, Math.min(127, value)) / 127;
+  const n = Number.isFinite(value14)
+    ? Math.max(0, Math.min(16256, value14)) / 16256
+    : Math.max(0, Math.min(127, value)) / 127;
   const { A, B, C } = this.filterCoeffs;
   const targetFreq = Math.pow(2, A * n * n + B * n + C);
   this.filterNode.frequency.setTargetAtTime(targetFreq, this.audioContext.currentTime, 0.04);

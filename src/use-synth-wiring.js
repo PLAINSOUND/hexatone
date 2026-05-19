@@ -190,6 +190,22 @@ export const resolveLumatoneOutputPort = (outputs, selectedInput, overridePortId
     overridePortId,
   );
 
+export const resolveReservedHakenOutputId = (midi, settings, activeInputControllerId = null) => {
+  if (!midi || activeInputControllerId !== "hakenaudio") return null;
+  if (!settings.midiin_device || settings.midiin_device === "OFF") return null;
+  const rawIn = midi.inputs.get(settings.midiin_device);
+  if (!rawIn) return null;
+  const ctrl = resolveInputController(rawIn, settings.midiin_controller_override);
+  if (!ctrl || ctrl.id !== "hakenaudio") return null;
+  const rawOut = resolveBidirectionalControllerOutputPort(
+    midi.outputs,
+    rawIn,
+    ctrl,
+    settings.hakenaudio_out_port ?? null,
+  );
+  return rawOut?.id ?? null;
+};
+
 export const deriveTuningRuntime = (settings) => {
   if (!settings.scale || !Array.isArray(settings.scale) || settings.scale.length === 0) {
     return null;
@@ -820,7 +836,26 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     } else {
       oscSynthRef.current = { key: null, synth: null };
     }
-    if (wantMpe) {
+    const activeInputControllerId = (() => {
+      if (settings.midiin_controller_override && settings.midiin_controller_override !== "auto") {
+        return settings.midiin_controller_override;
+      }
+      if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
+      const input = midi.inputs.get(settings.midiin_device);
+      return resolveInputController(input, settings.midiin_controller_override)?.id ?? null;
+    })();
+    const reservedHakenOutputId = resolveReservedHakenOutputId(
+      midi,
+      settings,
+      activeInputControllerId,
+    );
+    const hakenMpeActive = activeInputControllerId === "hakenaudio";
+    const effectiveMpeMode = hakenMpeActive ? "standard" : settings.mpe_mode;
+    const effectiveMpePitchbendRange = hakenMpeActive ? 96 : (settings.mpe_pitchbend_range ?? 48);
+    const effectiveMpePitchbendRangeManager = hakenMpeActive ? 2 : (settings.mpe_pitchbend_range_manager ?? 2);
+    const allowMpePlaybackOnSelectedPort =
+      !(reservedHakenOutputId && settings.mpe_device === reservedHakenOutputId);
+    if (wantMpe && allowMpePlaybackOnSelectedPort) {
       const mpeKey = JSON.stringify([
         settings.mpe_device,
         settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
@@ -831,11 +866,12 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         settings.center_degree,
         settings.midiin_anchor_note ?? settings.midiin_central_degree,
         settings.scale,
-        settings.mpe_mode,
-        settings.mpe_pitchbend_range ?? 48,
-        settings.mpe_pitchbend_range_manager ?? 2,
+        effectiveMpeMode,
+        effectiveMpePitchbendRange,
+        effectiveMpePitchbendRangeManager,
         settings.equivSteps,
         settings.equivInterval,
+        hakenMpeActive,
       ]);
       if (mpeSynthRef.current.key === mpeKey && mpeSynthRef.current.synth) {
         promises.push(Promise.resolve(mpeSynthRef.current.synth));
@@ -851,11 +887,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
             settings.center_degree,
             settings.midiin_anchor_note ?? settings.midiin_central_degree,
             settings.scale,
-            settings.mpe_mode,
-            settings.mpe_pitchbend_range ?? 48,
-            settings.mpe_pitchbend_range_manager ?? 2,
+            effectiveMpeMode,
+            effectiveMpePitchbendRange,
+            effectiveMpePitchbendRangeManager,
             settings.equivSteps,
             settings.equivInterval,
+            undefined,
+            undefined,
+            hakenMpeActive,
           ).then((s) => {
             if (!cancelled) mpeSynthRef.current = { key: mpeKey, synth: s };
             return s;

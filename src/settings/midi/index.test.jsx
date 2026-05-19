@@ -169,6 +169,23 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.queryByLabelText("Reverse Bend Direction")).toBeNull();
   });
 
+  it("shows a default 96-semitone incoming MPE bend range for Haken Continuum", () => {
+    const props = makeProps({
+      midiin_controller_override: "hakenaudio",
+      midiin_mapping_target: "scale",
+      midiin_mpe_input: true,
+      midiin_scale_bend_range: undefined,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByLabelText("MPE Pitch Bend Range").value).toBe("96");
+  });
+
   it("keeps the shared Continuum performance controls visible in Raster to Notes mode", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",

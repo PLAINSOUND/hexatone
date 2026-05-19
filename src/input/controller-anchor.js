@@ -349,6 +349,11 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
     update.midiin_mapping_target = "scale";
   }
 
+  for (const key of ["mpe_mode", "mpe_pitchbend_range", "mpe_pitchbend_range_manager"]) {
+    const modeDefault = getModeDefault(controller, modeKey, key);
+    if (modeDefault !== undefined) update[key] = modeDefault;
+  }
+
   const ch = loadSavedAnchorChannel(controller, settings, { preferStored });
   if (ch !== null) {
     // midiin_anchor_channel drives the channel-offset formula in channelToStepsOffset()

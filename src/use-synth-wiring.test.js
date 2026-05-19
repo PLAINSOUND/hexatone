@@ -3,6 +3,7 @@ import {
   deriveOutputRuntime,
   deriveOscVolumes,
   deriveTuningRuntime,
+  resolveReservedHakenOutputId,
   resolveOctaveShortcutAction,
   resolveBidirectionalControllerOutputPort,
   resolveControllerPrefsTarget,
@@ -240,6 +241,12 @@ describe("use-synth-wiring controller resolution", () => {
     expect(ctrl?.mpe).toBe(true);
   });
 
+  it("treats UM-ONE as a Haken Continuum auto-detect fallback", () => {
+    const ctrl = resolveInputController({ name: "UM-ONE" });
+    expect(ctrl?.id).toBe("hakenaudio");
+    expect(ctrl?.mpe).toBe(true);
+  });
+
   it("honors manual controller override before port-name detection", () => {
     const ctrl = resolveInputController({ name: "USB MIDI Interface" }, "tonalplexus");
     expect(ctrl?.id).toBe("tonalplexus");
@@ -330,6 +337,28 @@ describe("use-synth-wiring controller resolution", () => {
         { name: "UM-ONE" },
         getControllerById("hakenaudio"),
       )?.id,
+    ).toBe("umone-out");
+  });
+
+  it("reserves the resolved Haken raw return port so it can be used for config only", () => {
+    const midi = {
+      inputs: new Map([["umone-in", { id: "umone-in", name: "UM-ONE" }]]),
+      outputs: new Map([
+        ["umone-out", { id: "umone-out", name: "UM-ONE" }],
+        ["other-out", { id: "other-out", name: "Other Port" }],
+      ]),
+    };
+
+    expect(
+      resolveReservedHakenOutputId(
+        midi,
+        {
+          midiin_device: "umone-in",
+          midiin_controller_override: "hakenaudio",
+          hakenaudio_out_port: null,
+        },
+        "hakenaudio",
+      ),
     ).toBe("umone-out");
   });
 });

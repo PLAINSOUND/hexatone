@@ -1,6 +1,5 @@
 import PropTypes from "prop-types";
 import OutputPortPicker from "../output-port-picker.js";
-import { sendHakenNrpn } from "../../../controllers/hakenaudio.js";
 
 // This module owns the Haken Continuum-specific MIDI Input controls that only
 // make sense for MPE input modes. It renders the Continuum X Glide mode
@@ -38,21 +37,9 @@ const HakenContinuumSettings = ({
     0,
     Math.min(100, Number(settings.hakenaudio_raster_stability ?? 50) || 0),
   );
-  const xLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_x_lpf ?? 60) || 0));
-  const yLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_y_lpf ?? 30) || 0));
-  const zLpf = Math.max(0, Math.min(127, Number(settings.hakenaudio_z_lpf ?? 125) || 0));
   const glideFlipCc = Number.isFinite(settings.hakenaudio_glide_flip_cc)
     ? Math.trunc(settings.hakenaudio_glide_flip_cc)
     : 67;
-  const managerChannel = Math.max(1, Math.min(
-    16,
-    parseInt(settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch ?? 1, 10) || 1,
-  ));
-  const sendLpfNrpn = (nrpn, value) => {
-    const output = rawPorts?.output ?? null;
-    if (!output) return;
-    sendHakenNrpn(output, managerChannel, nrpn, value);
-  };
   const sliderValueStyle = {
     fontVariantNumeric: "tabular-nums",
     minWidth: "5.2em",
@@ -76,75 +63,6 @@ const HakenContinuumSettings = ({
           sessionStorage.setItem("hakenaudio_out_port", id ?? "");
         }}
       />
-
-      <label title="MPE+ NRPN 100. Controls the Continuum X low-pass cutoff in 2 Hz units. Higher values preserve more detail and increase responsiveness.">
-        X Detail ↔ Speed
-        <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
-          <input
-            type="range"
-            min="0"
-            max="127"
-            step="1"
-            value={xLpf}
-            style={{ width: "100%" }}
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
-              const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 60 : parsed));
-              updateHakenPref("hakenaudio_x_lpf", v, { hakenaudio_x_lpf: v });
-              sendLpfNrpn(100, v);
-            }}
-          />
-          <span style={sliderValueStyle}>
-            {xLpf * 2} Hz
-          </span>
-        </span>
-      </label>
-
-      <label title="MPE+ NRPN 101. Controls the Continuum Y low-pass cutoff in 2 Hz units.">
-        Y Detail ↔ Speed
-        <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
-          <input
-            type="range"
-            min="0"
-            max="127"
-            step="1"
-            value={yLpf}
-            style={{ width: "100%" }}
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
-              const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 30 : parsed));
-              updateHakenPref("hakenaudio_y_lpf", v, { hakenaudio_y_lpf: v });
-              sendLpfNrpn(101, v);
-            }}
-          />
-          <span style={sliderValueStyle}>
-            {yLpf * 2} Hz
-          </span>
-        </span>
-      </label>
-
-      <label title="MPE+ NRPN 102. Controls the Continuum Z low-pass cutoff in 2 Hz units.">
-        Z Detail ↔ Speed
-        <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
-          <input
-            type="range"
-            min="0"
-            max="127"
-            step="1"
-            value={zLpf}
-            style={{ width: "100%" }}
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
-              const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 125 : parsed));
-              updateHakenPref("hakenaudio_z_lpf", v, { hakenaudio_z_lpf: v });
-              sendLpfNrpn(102, v);
-            }}
-          />
-          <span style={sliderValueStyle}>
-            {zLpf * 2} Hz
-          </span>
-        </span>
-      </label>
 
       <label title="Controls how Continuum X-axis finger movement is translated. Pitch Bending applies continuous bend that follows the Hexatone scale. Raster to Notes turns the glide into a cascade of discrete note retriggering: each time the bend crosses a new note boundary a note-off and a fresh note-on are emitted.">
         Continuum X Glide

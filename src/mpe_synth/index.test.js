@@ -115,6 +115,51 @@ describe("mpe_synth startup state", () => {
     expect(laterCalls).toEqual(expect.arrayContaining([[[0xe0 + 1, 0, 64]], [[0xe0 + 2, 0, 64]]]));
   });
 
+  it("deduplicates repeated identical MPE+ bend, pressure, and CC74 updates", async () => {
+    const midi_output = { send: vi.fn() };
+
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      true,
+    );
+
+    midi_output.send.mockClear();
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+    midi_output.send.mockClear();
+
+    hex.retune(45, true);
+    hex.retune(45, true);
+    hex.aftertouch(90, 90 << 7);
+    hex.aftertouch(90, 90 << 7);
+    hex.cc74(81, 81 << 7);
+    hex.cc74(81, 81 << 7);
+
+    const cc87Pitch = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xb0 + 1 && call[0][1] === 87);
+    const pitchBends = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xe0 + 1);
+    const channelPressure = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xd0 + 1);
+    const cc74 = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xb0 + 1 && call[0][1] === 74);
+
+    expect(cc87Pitch.length).toBe(3);
+    expect(pitchBends.length).toBe(1);
+    expect(channelPressure.length).toBe(1);
+    expect(cc74.length).toBe(1);
+  });
+
   it("does not defer-reset a channel that has become active before the timeout", async () => {
     const midi_output = { send: vi.fn() };
 
@@ -213,5 +258,50 @@ describe("mpe_synth controller-state replay", () => {
     expect(midi_output.send).toHaveBeenCalledWith([0xb0, 64, 127]);
     expect(midi_output.send).toHaveBeenCalledWith([0xd0, 31]);
     expect(midi_output.send).toHaveBeenCalledWith([0xe0, 9000 & 0x7f, (9000 >> 7) & 0x7f]);
+  });
+});
+
+describe("mpe_synth MPE+ emission", () => {
+  it("emits CC87 ahead of hi-res bend, timbre, and pressure when MPE+ is enabled", async () => {
+    const midi_output = { send: vi.fn() };
+
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      true,
+    );
+
+    midi_output.send.mockClear();
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+    midi_output.send.mockClear();
+
+    hex.cc74(64, 9000);
+    hex.aftertouch(55, 7000);
+    hex.retune(52.5, true);
+
+    expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 87, 9000 & 0x7f]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 74, (9000 >> 7) & 0x7f]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 87, 7000 & 0x7f]);
+    expect(midi_output.send).toHaveBeenCalledWith([0xd0 + 1, (7000 >> 7) & 0x7f]);
+    expect(midi_output.send.mock.calls.some(
+      ([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87,
+    )).toBe(true);
+    expect(midi_output.send.mock.calls.some(
+      ([msg]) => (msg[0] & 0xf0) === 0xe0,
+    )).toBe(true);
   });
 });

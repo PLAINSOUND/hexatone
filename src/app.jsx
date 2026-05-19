@@ -60,6 +60,7 @@ import {
   deactivateLinnstrumentUserFirmware,
   detachLinnstrumentLedDriver,
 } from "./controllers/linnstrument-user-firmware.js";
+import { sendHakenMpeConfig } from "./controllers/hakenaudio.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Settings from "./settings";
 import Blurb from "./blurb";
@@ -956,8 +957,11 @@ const App = () => {
       // Pitch bend range for incoming hardware controller bend messages.
       bendRange: settings.midiin_bend_range ?? "64/63",
       bendFlip: !!settings.midiin_bend_flip,
-      // MPE pitch bend range (semitones) for Nearest Scale Degree mode.
-      scaleBendRange: settings.midiin_scale_bend_range ?? 48,
+      // Haken Continuum MPE+ uses a 96-semitone pitch-bend range.
+      scaleBendRange:
+        inputController?.id === "hakenaudio"
+          ? 96
+          : (settings.midiin_scale_bend_range ?? 48),
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 100,
       hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending",
       hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 64,
@@ -1241,6 +1245,24 @@ const App = () => {
     settings.linnstrument_led_sync,
     colorImpactKey,
     keysReadyRevision,
+  ]);
+
+  const hakenOutId = hakenRawPorts?.output?.id ?? null;
+  const hakenOutput = hakenRawPorts?.output ?? null;
+  useEffect(() => {
+    if (!hakenOutput) return;
+    const managerChannel = Math.max(
+      1,
+      Math.min(16, parseInt(settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch ?? 1, 10) || 1),
+    );
+    sendHakenMpeConfig(hakenOutput, managerChannel, {
+      bendRange: 96,
+    });
+  }, [
+    hakenOutId,
+    hakenOutput,
+    settings.midiin_mpe_manager_ch,
+    settings.mpe_manager_ch,
   ]);
 
   // Color settings: only the color fields. Changes here update the live Keys

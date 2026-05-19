@@ -167,6 +167,9 @@ const MidiOutputs = (props) => {
     : Math.min(available[available.length - 1], loCh + 6);
 
   const outputs = midi ? Array.from(midi.outputs.values()) : [];
+  const hakenContinuumActive = settings.midiin_controller_override === "hakenaudio";
+  const visibleMpeMode = settings.mpe_mode ?? (hakenContinuumActive ? "standard" : "Ableton_workaround");
+  const visibleMpePitchbendRange = settings.mpe_pitchbend_range ?? (hakenContinuumActive ? 96 : 48);
   const bulkTuningMapName = resolveBulkDumpName(
     settings.mts_bulk_tuning_map_name,
     settings.short_description,
@@ -797,7 +800,7 @@ const MidiOutputs = (props) => {
                       inputMode="numeric"
                       class="sidebar-input"
                       key={settings.mpe_pitchbend_range}
-                      defaultValue={settings.mpe_pitchbend_range ?? 48}
+                      defaultValue={visibleMpePitchbendRange}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();
                       }}
@@ -805,7 +808,7 @@ const MidiOutputs = (props) => {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val >= 1 && val <= 96)
                           save("mpe_pitchbend_range", val, onChange);
-                        else e.target.value = settings.mpe_pitchbend_range ?? 48;
+                        else e.target.value = visibleMpePitchbendRange;
                       }}
                     />
                   </label>
@@ -825,9 +828,9 @@ const MidiOutputs = (props) => {
                           settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
                           settings.mpe_lo_ch,
                           settings.mpe_hi_ch,
-                          settings.mpe_pitchbend_range ?? 48,
+                          visibleMpePitchbendRange,
                           settings.mpe_pitchbend_range_manager ?? 2,
-                          settings.mpe_mode,
+                          visibleMpeMode,
                         );
                       }
                     }}

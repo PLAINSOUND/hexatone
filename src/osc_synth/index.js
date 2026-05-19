@@ -564,9 +564,13 @@ OscHex.prototype.retune = function (newCents) {
   }
 };
 
-OscHex.prototype.aftertouch = function (value) {
+OscHex.prototype.aftertouch = function (value, value14 = null) {
   if (this.release) return;
-  const filter = 1 + value / 127;
+  const filter = 1 + (
+    Number.isFinite(value14)
+      ? Math.max(0, Math.min(16256, value14)) / 16256
+      : value / 127
+  );
   this._filter = filter;
   for (let i = 0; i < this._synthNames.length; i++) {
     if (this._slot == null) continue;
@@ -584,8 +588,8 @@ OscHex.prototype.aftertouch = function (value) {
   }
 };
 
-OscHex.prototype.pressure = function (value) {
-  this.aftertouch(value);
+OscHex.prototype.pressure = function (value, value14 = null) {
+  this.aftertouch(value, value14);
 };
 
 OscHex.prototype.pitchbend = function (value) {
@@ -608,9 +612,13 @@ OscHex.prototype.pitchbend = function (value) {
 };
 
 // CC74 / timbre → mod on individual nodes
-OscHex.prototype.cc74 = function (value) {
+OscHex.prototype.cc74 = function (value, value14 = null) {
   if (this.release) return;
-  const mod = midiCcToScParam(value);
+  const mod = 1 + (
+    Number.isFinite(value14)
+      ? Math.max(0, Math.min(16256, value14)) / 16256
+      : value / 127
+  );
   for (let i = 0; i < this._synthNames.length; i++) {
     if (this._slot == null) continue;
     const slotState = this._slotState[i][this._slot];

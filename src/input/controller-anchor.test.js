@@ -177,6 +177,11 @@ const HAKEN = {
         anchorNote: 60,
         midi_passthrough: false,
         midiin_mpe_input: true,
+        midiin_mapping_target: "scale",
+        midiin_scale_bend_range: 96,
+        mpe_mode: "standard",
+        mpe_pitchbend_range: 96,
+        mpe_pitchbend_range_manager: 2,
       },
     },
     bypass: {
@@ -184,6 +189,11 @@ const HAKEN = {
         anchorNote: 60,
         midi_passthrough: true,
         midiin_mpe_input: true,
+        midiin_mapping_target: "scale",
+        midiin_scale_bend_range: 96,
+        mpe_mode: "standard",
+        mpe_pitchbend_range: 96,
+        mpe_pitchbend_range_manager: 2,
       },
     },
   },
@@ -407,6 +417,10 @@ describe("loadAnchorSettingsUpdate", () => {
     expect(update.midiin_mpe_lo_ch).toBe(2);
     expect(update.midiin_mpe_hi_ch).toBe(14);
     expect(update.midiin_mapping_target).toBe("scale");
+    expect(update.midiin_scale_bend_range).toBe(96);
+    expect(update.mpe_mode).toBe("standard");
+    expect(update.mpe_pitchbend_range).toBe(96);
+    expect(update.mpe_pitchbend_range_manager).toBe(2);
     expect(prefs.hakenaudio_x_glide_mode).toBe("pitch_bending");
     expect(prefs.hakenaudio_x_glide_shaping).toBe(100);
     expect(prefs.hakenaudio_pressure_velocity).toBe(64);

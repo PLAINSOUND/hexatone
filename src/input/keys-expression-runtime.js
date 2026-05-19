@@ -76,27 +76,43 @@ export function passthroughPitchBend(val14) {
   }
 }
 
-export function applyPolyAftertouch(hex, value) {
+export function applyPolyAftertouch(hex, value, value14 = null) {
   if (!hex || hex.release) return;
   const aftertouch = Math.max(0, Math.min(127, Number(value) || 0));
+  const aftertouch14 = Number.isFinite(value14)
+    ? Math.max(0, Math.min(16256, Number(value14)))
+    : null;
   hex._lastAftertouch = aftertouch;
+  hex._lastAftertouch14 = aftertouch14;
   hex._pressureSeenSinceOnset = true;
   if (applyTransferredSourceAftertouch(hex, aftertouch)) return;
-  hex.aftertouch?.(aftertouch);
+  if (aftertouch14 != null) hex.aftertouch?.(aftertouch, aftertouch14);
+  else hex.aftertouch?.(aftertouch);
 }
 
-export function applyTimbreCC74(hex, value) {
+export function applyTimbreCC74(hex, value, value14 = null) {
   if (!hex || hex.release) return;
   const cc74 = Math.max(0, Math.min(127, Number(value) || 0));
+  const cc7414 = Number.isFinite(value14)
+    ? Math.max(0, Math.min(16256, Number(value14)))
+    : null;
   hex._lastCC74 = cc74;
+  hex._lastCC7414 = cc7414;
   if (applyTransferredCC74(hex, cc74)) return;
-  hex.cc74?.(cc74);
+  if (cc7414 != null) hex.cc74?.(cc74, cc7414);
+  else hex.cc74?.(cc74);
 }
 
 export function normalizePitchBend14(value) {
   const bend = Number(value);
   if (!Number.isFinite(bend)) return 8192;
   return Math.max(0, Math.min(16383, bend));
+}
+
+function normalizePitchBend21(value) {
+  const bend = Number(value);
+  if (!Number.isFinite(bend)) return 1048576;
+  return Math.max(0, Math.min(2097024, bend));
 }
 
 export function resolveHakenXGlideMode(inputRuntime) {
@@ -167,9 +183,14 @@ function floatingScaleStepForCents(scale, equivInterval, pitchCents) {
   return octs * scaleLength + lastIndex + frac;
 }
 
-export function applyMpePitchBend(entry, channel, value14) {
+export function applyMpePitchBend(entry, channel, value14, value21 = null) {
   if (!entry?.hex || entry.hex.release) return;
   const bend14 = this._normalizePitchBend14(value14);
+  const bend21 = Number.isFinite(value21)
+    ? normalizePitchBend21(value21)
+    : Number.isFinite(this._hakenMpeBend21ByChannel?.get(channel))
+      ? normalizePitchBend21(this._hakenMpeBend21ByChannel.get(channel))
+      : null;
   this._mpeInputBendByChannel.set(channel, bend14);
   const hakenXGlideMode = resolveHakenXGlideMode(this.inputRuntime);
   const isContinuumMpe =
@@ -198,7 +219,17 @@ export function applyMpePitchBend(entry, channel, value14) {
     )
       ? this._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
       : 8192;
-  let norm = (bend14 - anchor14) / 8192;
+  const anchor21 = entry.hex._continuumPitchAnchor21 != null
+    ? normalizePitchBend21(entry.hex._continuumPitchAnchor21)
+    : (
+      this.inputRuntime.target === "scale" &&
+      entry.hex._scaleModeBendAnchor21 != null
+    )
+      ? normalizePitchBend21(entry.hex._scaleModeBendAnchor21)
+      : 1048576;
+  let norm = bend21 != null
+    ? (bend21 - anchor21) / 1048576
+    : (bend14 - anchor14) / 8192;
   if (this.inputRuntime.target !== "scale") norm = this.inputRuntime.bendFlip ? -norm : norm;
   const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
   let bentCents;
@@ -238,9 +269,11 @@ export function applyMpePitchBend(entry, channel, value14) {
   }
   entry.baseCents = baseCents;
   entry.hex._lastPitchBend14 = bend14;
+  entry.hex._lastPitchBend21 = bend21;
   entry.hex._lastPitchBendCents = bentCents;
-  if (applyTransferredPitchBend(entry.hex, { value14: bend14, cents: bentCents })) return;
-  entry.hex.retune?.(bentCents, true);
+  if (applyTransferredPitchBend(entry.hex, { value14: bend14, value21: bend21, cents: bentCents })) return;
+  if (bend21 != null) entry.hex.retune?.(bentCents, true, bend21);
+  else entry.hex.retune?.(bentCents, true);
 }
 
 export function activeHexesForInputChannel(channel) {

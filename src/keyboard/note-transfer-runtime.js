@@ -18,6 +18,20 @@ function clampPitchBend14(value) {
   return Math.max(0, Math.min(16383, n));
 }
 
+function clamp14Bit(value) {
+  if (value == null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(16256, n));
+}
+
+function clampPitchBend21(value) {
+  if (value == null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(2097024, n));
+}
+
 function createThresholdHandoff({ sourceValue, targetValue, score, send }) {
   const state = {
     sourceValue,
@@ -54,39 +68,59 @@ export function createTransferredHex(sourceHex, options = {}) {
     ? new Point(options.coords.x, options.coords.y)
     : new Point(options.coords.x, options.coords.y);
   const baseCents = sourceHex._baseCents ?? sourceHex.cents ?? options.cents;
-  const pitchValue = (value14, cents) => ({
+  const pitchValue = (value14, value21, cents) => ({
     value14: clampPitchBend14(value14),
+    value21: clampPitchBend21(value21),
     cents: Number.isFinite(Number(cents)) ? Number(cents) : baseCents,
   });
   const aftertouchHandoff = createThresholdHandoff({
-    sourceValue: clamp7Bit(sourceHex._lastAftertouch ?? 0),
-    targetValue: 0,
-    score: (value) => value,
-    send: (value) => {
-      sourceHex._lastAftertouch = clamp7Bit(value);
-      sourceHex.aftertouch?.(sourceHex._lastAftertouch);
+    sourceValue: {
+      value: clamp7Bit(sourceHex._lastAftertouch ?? 0),
+      value14: clamp14Bit(sourceHex._lastAftertouch14),
+    },
+    targetValue: { value: 0, value14: null },
+    score: (payload) => payload.value14 ?? (payload.value * 128),
+    send: (payload) => {
+      sourceHex._lastAftertouch = clamp7Bit(payload.value);
+      sourceHex._lastAftertouch14 = clamp14Bit(payload.value14);
+      if (sourceHex._lastAftertouch14 != null) {
+        sourceHex.aftertouch?.(sourceHex._lastAftertouch, sourceHex._lastAftertouch14);
+      } else {
+        sourceHex.aftertouch?.(sourceHex._lastAftertouch);
+      }
     },
   });
   const cc74Handoff = createThresholdHandoff({
-    sourceValue: clamp7Bit(sourceHex._lastCC74 ?? 0),
-    targetValue: 0,
-    score: (value) => value,
-    send: (value) => {
-      sourceHex._lastCC74 = clamp7Bit(value);
-      sourceHex.cc74?.(sourceHex._lastCC74);
+    sourceValue: {
+      value: clamp7Bit(sourceHex._lastCC74 ?? 0),
+      value14: clamp14Bit(sourceHex._lastCC7414),
+    },
+    targetValue: { value: 0, value14: null },
+    score: (payload) => payload.value14 ?? (payload.value * 128),
+    send: (payload) => {
+      sourceHex._lastCC74 = clamp7Bit(payload.value);
+      sourceHex._lastCC7414 = clamp14Bit(payload.value14);
+      if (sourceHex._lastCC7414 != null) {
+        sourceHex.cc74?.(sourceHex._lastCC74, sourceHex._lastCC7414);
+      } else {
+        sourceHex.cc74?.(sourceHex._lastCC74);
+      }
     },
   });
   const pitchBendHandoff = createThresholdHandoff({
     sourceValue: pitchValue(
       sourceHex._lastPitchBend14 ?? 8192,
+      sourceHex._lastPitchBend21 ?? null,
       sourceHex._lastPitchBendCents ?? sourceHex.cents,
     ),
-    targetValue: pitchValue(8192, baseCents),
-    score: (value) => Math.abs(value.value14 - 8192),
+    targetValue: pitchValue(8192, null, baseCents),
+    score: (value) => Math.abs((value.value21 ?? (value.value14 * 128)) - 1048576),
     send: (value) => {
       sourceHex._lastPitchBend14 = value.value14;
+      sourceHex._lastPitchBend21 = value.value21;
       sourceHex._lastPitchBendCents = value.cents;
-      sourceHex.retune?.(value.cents, true);
+      if (value.value21 != null) sourceHex.retune?.(value.cents, true, value.value21);
+      else sourceHex.retune?.(value.cents, true);
     },
   });
   const proxy = {
@@ -113,35 +147,55 @@ export function createTransferredHex(sourceHex, options = {}) {
       sourceHex.cents = newCents;
       if (sourceHex.retune) sourceHex.retune(newCents, bendOnly);
     },
-    aftertouch: (value) => {
+    aftertouch: (value, value14 = null) => {
       proxy._lastAftertouch = clamp7Bit(value);
-      aftertouchHandoff.target(proxy._lastAftertouch);
+      proxy._lastAftertouch14 = clamp14Bit(value14);
+      aftertouchHandoff.target({
+        value: proxy._lastAftertouch,
+        value14: proxy._lastAftertouch14,
+      });
     },
     _transferSourceAftertouch: (value) => {
-      aftertouchHandoff.source(clamp7Bit(value));
+      aftertouchHandoff.source({
+        value: clamp7Bit(value),
+        value14: clamp14Bit(sourceHex._lastAftertouch14),
+      });
     },
-    pressure: (value) => sourceHex.pressure?.(value),
-    cc74: (value) => {
+    pressure: (value, value14 = null) => {
+      if (value14 != null) sourceHex.pressure?.(value, value14);
+      else sourceHex.pressure?.(value);
+    },
+    cc74: (value, value14 = null) => {
       proxy._lastCC74 = clamp7Bit(value);
-      cc74Handoff.target(proxy._lastCC74);
+      proxy._lastCC7414 = clamp14Bit(value14);
+      cc74Handoff.target({
+        value: proxy._lastCC74,
+        value14: proxy._lastCC7414,
+      });
     },
     _transferSourceCC74: (value) => {
-      cc74Handoff.source(clamp7Bit(value));
+      cc74Handoff.source({
+        value: clamp7Bit(value),
+        value14: clamp14Bit(sourceHex._lastCC7414),
+      });
     },
     _transferTargetPitchBend: (value) => {
-      const next = pitchValue(value?.value14, value?.cents);
+      const next = pitchValue(value?.value14, value?.value21, value?.cents);
       proxy._lastPitchBend14 = next.value14;
+      proxy._lastPitchBend21 = next.value21;
       proxy._lastPitchBendCents = next.cents;
       pitchBendHandoff.target(next);
     },
     _transferSourcePitchBend: (value) => {
-      pitchBendHandoff.source(pitchValue(value?.value14, value?.cents));
+      pitchBendHandoff.source(pitchValue(value?.value14, value?.value21, value?.cents));
     },
     _syncTransferPitchBend: (value) => {
-      const next = pitchValue(value?.value14, value?.cents);
+      const next = pitchValue(value?.value14, value?.value21, value?.cents);
       sourceHex._lastPitchBend14 = next.value14;
+      sourceHex._lastPitchBend21 = next.value21;
       sourceHex._lastPitchBendCents = next.cents;
       proxy._lastPitchBend14 = next.value14;
+      proxy._lastPitchBend21 = next.value21;
       proxy._lastPitchBendCents = next.cents;
       pitchBendHandoff.sync(next);
     },
@@ -202,6 +256,7 @@ export function releaseTransferredSourceExpression(hex) {
   applyTransferredCC74(hex, 0);
   applyTransferredPitchBend(hex, {
     value14: 8192,
+    value21: 1048576,
     cents: hex._baseCents ?? hex.cents ?? 0,
   });
   return true;

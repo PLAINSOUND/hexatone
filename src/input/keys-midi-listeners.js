@@ -31,6 +31,21 @@ const LINNSTRUMENT_UF_RELEASE_HOLD_ARM_THRESHOLD = 20;
 const LINNSTRUMENT_UF_ONSET_RAMP_BASE_MS = 40;
 const LINNSTRUMENT_UF_ONSET_RAMP_MAX_MS = 180;
 const HAKEN_IGNORED_TEST_CCS = new Set([111, 114, 117, 118]);
+const HAKEN_MPE_PLUS_CENTER_21 = 1048576;
+
+function isHakenMpePlusInputActive() {
+  return (
+    (this.controller?.id === "hakenaudio" || this.settings?.midiin_controller_override === "hakenaudio") &&
+    this.inputRuntime?.mpeInput
+  );
+}
+
+function consumeHakenMpePlusLsb(channel) {
+  const raw = this._hakenMpePlusLsbByChannel.get(channel);
+  this._hakenMpePlusLsbByChannel.delete(channel);
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.min(127, raw));
+}
 
 function isLinnstrumentUfInputActive() {
   return (
@@ -632,6 +647,7 @@ export function setupMidiInput() {
           const cc = e.message.dataBytes[0];
           const value = e.message.dataBytes[1];
           const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
+          const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
           if (this.controller?.id === "hakenaudio" && HAKEN_IGNORED_TEST_CCS.has(cc)) return;
           if (this._midiLearnCcCallback) {
             this._midiLearnCcCallback(cc, e.message.channel, value);
@@ -650,6 +666,11 @@ export function setupMidiInput() {
           }
           if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
           debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
+
+          if (hakenMpePlusInputActive && cc === 87) {
+            this._hakenMpePlusLsbByChannel.set(e.message.channel, value);
+            return;
+          }
 
           // ── LinnStrument User Firmware Mode X data ────────────────────────
           // CC 0-25 / 1-25 = X MSB, CC 32-57 / 33-57 = X LSB.
@@ -736,11 +757,18 @@ export function setupMidiInput() {
             // MPE voice expression, etc.) regardless of output mode.
             // Passthrough to MTS output is suppressed above — no meaningful MTS mapping.
             if (this.inputRuntime.mpeInput) {
-              this._mpeInputCC74ByChannel.set(e.message.channel, { value, time: Date.now() });
+              const hasHakenMpePlusLsb =
+                hakenMpePlusInputActive &&
+                this._hakenMpePlusLsbByChannel.has(e.message.channel);
+              const value14 = hasHakenMpePlusLsb
+                ? ((value & 0x7f) << 7) | consumeHakenMpePlusLsb.call(this, e.message.channel)
+                : null;
+              if (value14 != null) this._hakenMpeCC7414ByChannel.set(e.message.channel, value14);
+              this._mpeInputCC74ByChannel.set(e.message.channel, { value, value14, time: Date.now() });
               // Per-channel expression mode: CC74 targets the latest sounding note
               // on the input channel (MPE voice, or LinnStrument row in channel-per-row mode).
               const entry = this.state.activeMidiByChannel.get(e.message.channel);
-              if (entry && !entry.hex.release) this._applyTimbreCC74(entry.hex, value);
+              if (entry && !entry.hex.release) this._applyTimbreCC74(entry.hex, value, value14);
             } else if (this.inputRuntime.perChannelExpression) {
               for (const hex of this._activeHexesForInputChannel(e.message.channel)) {
                 this._applyTimbreCC74(hex, value);
@@ -761,9 +789,17 @@ export function setupMidiInput() {
           if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
           debugLog("MIDImonitoring", "channelaftertouch", { channel: e.message.channel, value });
           this._channelPressureValue = value;
+          const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
+          const hasHakenMpePlusLsb =
+            hakenMpePlusInputActive &&
+            this._hakenMpePlusLsbByChannel.has(e.message.channel);
+          const value14 = hasHakenMpePlusLsb
+            ? ((value & 0x7f) << 7) | consumeHakenMpePlusLsb.call(this, e.message.channel)
+            : null;
 
           if (this.inputRuntime.mpeInput) {
-            this._mpeInputAftertouchByChannel.set(e.message.channel, { value, time: Date.now() });
+            if (value14 != null) this._hakenMpePressure14ByChannel.set(e.message.channel, value14);
+            this._mpeInputAftertouchByChannel.set(e.message.channel, { value, value14, time: Date.now() });
             // Per-channel expression mode: channel pressure targets the latest sounding
             // note on the input channel.
             // We've resolved which note it belongs to, so route as polyphonic aftertouch
@@ -771,7 +807,7 @@ export function setupMidiInput() {
             // MTS output send 0xAn poly-AT with the correct carrier note number.
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
             if (entry && !entry.hex.release) {
-              this._applyPolyAftertouch(entry.hex, value);
+              this._applyPolyAftertouch(entry.hex, value, value14);
             }
             return;
           }
@@ -868,23 +904,33 @@ export function setupMidiInput() {
         this.midiin_data.addListener("pitchbend", (e) => {
           const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
           if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
+          const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
+          const hasHakenMpePlusLsb =
+            hakenMpePlusInputActive &&
+            this._hakenMpePlusLsbByChannel.has(e.message.channel);
+          const value21 = hasHakenMpePlusLsb
+            ? ((val14 & 0x3fff) << 7) | consumeHakenMpePlusLsb.call(this, e.message.channel)
+            : null;
           debugLog("MIDImonitoring", "pitchbend", {
             channel: e.message.channel,
             value14: val14,
+            value21: value21 ?? HAKEN_MPE_PLUS_CENTER_21,
           });
 
           if (this.inputRuntime.mpeInput) {
             // Per-channel expression mode: pitch bend is carried on the input channel.
             // Route to the latest sounding note registered on this channel.
             this._mpeInputBendByChannel.set(e.message.channel, val14);
+            if (value21 != null) this._hakenMpeBend21ByChannel.set(e.message.channel, value21);
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
-            if (entry && !entry.hex.release) this._applyMpePitchBend(entry, e.message.channel, val14);
+            if (entry && !entry.hex.release) this._applyMpePitchBend(entry, e.message.channel, val14, value21);
             // In per-channel expression modes we do NOT pass through to the output here —
             // each hex's retune() call handles expression for its own output engine.
             // Scale mode pre-bend capture: record bend per channel so note-on can
             // use it to resolve the exact intended pitch.
             if (this.inputRuntime.mpeInput && this.inputRuntime.target === "scale") {
               this._scaleModePreBend.set(e.message.channel, val14);
+              if (value21 != null) this._scaleModePreBend21.set(e.message.channel, value21);
             }
             return;
           }

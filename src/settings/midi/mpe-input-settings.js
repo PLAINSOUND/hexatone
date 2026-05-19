@@ -11,7 +11,11 @@ const MpeInputSettings = ({
   defaultLo,
   defaultHi,
   onChange,
-}) => (
+}) => {
+  const hakenContinuumActive = settings.midiin_controller_override === "hakenaudio";
+  const visibleBendRange = settings.midiin_scale_bend_range ?? (hakenContinuumActive ? 96 : 48);
+
+  return (
   <>
     <label title="MPE zone manager channel. Default is channel 1.">
       Manager Channel
@@ -91,17 +95,18 @@ const MpeInputSettings = ({
         min="1"
         max="96"
         style={{ width: "3.5em" }}
-        value={settings.midiin_scale_bend_range ?? 48}
+        value={visibleBendRange}
         onChange={(e) => {
           const parsed = parseInt(e.target.value, 10);
-          const v = Math.max(1, Math.min(96, Number.isNaN(parsed) ? 48 : parsed));
+          const v = Math.max(1, Math.min(96, Number.isNaN(parsed) ? visibleBendRange : parsed));
           onChange("midiin_scale_bend_range", v);
           sessionStorage.setItem("midiin_scale_bend_range", String(v));
         }}
       />
     </label>
   </>
-);
+  );
+};
 
 MpeInputSettings.propTypes = {
   settings: PropTypes.object.isRequired,

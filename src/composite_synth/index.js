@@ -33,10 +33,10 @@ export const create_composite_synth = (synths) => ({
         hexes.forEach((h) => h.noteOff(release_velocity));
       },
 
-      retune(newCents, bendOnly = false) {
+      retune(newCents, bendOnly = false, bend21 = null) {
         // Update our own cents so keys.js sustain logic stays in sync
         this.cents = newCents;
-        hexes.forEach((h) => h.retune && h.retune(newCents, bendOnly));
+        hexes.forEach((h) => h.retune && h.retune(newCents, bendOnly, bend21));
       },
 
       standardWheelRetune(newCents) {
@@ -51,16 +51,16 @@ export const create_composite_synth = (synths) => ({
         });
       },
 
-      aftertouch(value) {
-        hexes.forEach((h) => h.aftertouch && h.aftertouch(value));
+      aftertouch(value, value14 = null) {
+        hexes.forEach((h) => h.aftertouch && h.aftertouch(value, value14));
       },
 
-      pressure(value) {
-        hexes.forEach((h) => h.pressure && h.pressure(value));
+      pressure(value, value14 = null) {
+        hexes.forEach((h) => h.pressure && h.pressure(value, value14));
       },
 
-      cc74(value) {
-        hexes.forEach((h) => h.cc74 && h.cc74(value));
+      cc74(value, value14 = null) {
+        hexes.forEach((h) => h.cc74 && h.cc74(value, value14));
       },
 
       modwheel(value) {

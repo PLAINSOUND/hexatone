@@ -73,6 +73,7 @@ describe("controller registry", () => {
     expect(detectHakenDeviceName("Continuum")).toBe(true);
     expect(detectHakenDeviceName("Haken Audio Continuum")).toBe(true);
     expect(detectHakenDeviceName("EaganMatrix Module")).toBe(true);
+    expect(detectHakenDeviceName("UM-ONE")).toBe(true);
     expect(detectHakenDeviceName("ROLI Seaboard Block")).toBe(false);
   });
 

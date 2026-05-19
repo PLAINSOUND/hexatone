@@ -69,10 +69,36 @@ function deviationToBend(cents_offset, bendRange) {
   return clamped + 8192; // unsigned 0–16383
 }
 
+function deviationToBend21(cents_offset, bendRange) {
+  const ratio = cents_offset / (bendRange * 100);
+  const raw = Math.round(ratio * 1048576);
+  const clamped = Math.max(-1048576, Math.min(1048448, raw));
+  return clamped + 1048576; // unsigned 0–2097024
+}
+
 function sendBend(midi_output, channel0, bend) {
   const lsb = bend & 0x7f;
   const msb = (bend >> 7) & 0x7f;
   midi_output.send([0xe0 + channel0, lsb, msb]);
+}
+
+function sendMpePlusLsb(midi_output, channel0, value) {
+  midi_output.send([0xb0 + channel0, 87, value & 0x7f]);
+}
+
+function sendBend21(midi_output, channel0, bend21) {
+  sendMpePlusLsb(midi_output, channel0, bend21 & 0x7f);
+  sendBend(midi_output, channel0, (bend21 >> 7) & 0x3fff);
+}
+
+function send14BitCc(midi_output, channel0, cc, value14) {
+  sendMpePlusLsb(midi_output, channel0, value14 & 0x7f);
+  midi_output.send([0xb0 + channel0, cc & 0x7f, (value14 >> 7) & 0x7f]);
+}
+
+function send14BitChannelPressure(midi_output, channel0, value14) {
+  sendMpePlusLsb(midi_output, channel0, value14 & 0x7f);
+  midi_output.send([0xd0 + channel0, (value14 >> 7) & 0x7f]);
 }
 
 function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
@@ -103,6 +129,7 @@ export const create_mpe_synth = async (
   _equave = 2,
   releaseGuardMs = RELEASE_GUARD_MS, // ms — should match your synth's longest release
   closestPitchSteal = true, // steal closest-pitch SOUNDING voice
+  mpePlusEnabled = false,
 ) => {
   if (!midi_output) return null;
 
@@ -185,6 +212,7 @@ export const create_mpe_synth = async (
         scale,
         note_played,
         masterCh,
+        mpePlusEnabled,
       );
       activeHexes.add(hex);
       const originalNoteOff = hex.noteOff.bind(hex);
@@ -243,6 +271,7 @@ function MpeHex(
   scale,
   note_played,
   masterCh,
+  mpePlusEnabled,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -259,6 +288,13 @@ function MpeHex(
   this.scale = scale;
   this.velocity = Math.max(1, Math.min(127, velocity_played || 72));
   this.note_played = note_played;
+  this.mpePlusEnabled = mpePlusEnabled === true;
+  this._lastSentBend = null;
+  this._lastSentBend21 = null;
+  this._lastSentAftertouch = null;
+  this._lastSentAftertouch14 = null;
+  this._lastSentCc74 = null;
+  this._lastSentCc7414 = null;
   // masterCh is 0-indexed (same as c = channel - 1); -1 means no manager channel.
   this.masterCh = masterCh ?? -1;
 
@@ -279,6 +315,7 @@ function MpeHex(
   const { note, deviation } = freqToMidiAndCents(freq, center_degree, this.channel, scale, mode);
   this.note = note;
   this.bend = deviationToBend(deviation, bendRange);
+  this.bend21 = deviationToBend21(deviation, bendRange);
   const c = this.channel - 1;
 
   // For all cases: send noteOff on the outgoing voice (if any), then
@@ -298,7 +335,14 @@ function MpeHex(
   // new PB will briefly affect it but it's already quiet.
 
   // PB then noteOn — FIFO order guarantees PB arrives first
-  sendBend(midi_output, c, this.bend);
+  if (this.mpePlusEnabled) {
+    sendBend21(midi_output, c, this.bend21);
+    this._lastSentBend21 = this.bend21;
+    this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
+  } else {
+    sendBend(midi_output, c, this.bend);
+    this._lastSentBend = this.bend;
+  }
   midi_output.send([0x90 + c, this.note, this.velocity]);
 
   pool.setLastBend(this.channel, this.bend);
@@ -376,12 +420,21 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
     // without a timestamp) can arrive at the driver BEFORE the scheduled noteOn, leaving
     // the rescheduled note stuck. Removing the timestamp eliminates that race entirely.
     const newBend = deviationToBend(deviation, this.bendRange);
+    const newBend21 = deviationToBend21(deviation, this.bendRange);
     this.midi_output.send([0x80 + c, this.note, this.velocity]);
     this.note = note;
     this.bend = newBend;
+    this.bend21 = newBend21;
     this.pool.setLastBend(this.channel, this.bend);
     this.pool.setLastNote(this.channel, this.note);
-    sendBend(this.midi_output, c, this.bend);
+    if (this.mpePlusEnabled) {
+      sendBend21(this.midi_output, c, this.bend21);
+      this._lastSentBend21 = this.bend21;
+      this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
+    } else {
+      sendBend(this.midi_output, c, this.bend);
+      this._lastSentBend = this.bend;
+    }
     this.midi_output.send([0x90 + c, this.note, this.velocity]);
   } else {
     // Same note, or bendOnly: send PB only, clamped to ±8192. No reattack.
@@ -390,28 +443,63 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
     // the already-corrected targetMidi from freqToMidiAndCents.
     const bendDeviation = bendOnly ? deviation + (note - this.note) * 100 : deviation;
     const newBend = deviationToBend(bendDeviation, this.bendRange);
+    const newBend21 = deviationToBend21(bendDeviation, this.bendRange);
     this.bend = newBend;
+    this.bend21 = newBend21;
     this.pool.setLastBend(this.channel, this.bend);
-    sendBend(this.midi_output, c, this.bend);
+    if (this.mpePlusEnabled) {
+      if (this._lastSentBend21 !== this.bend21) {
+        sendBend21(this.midi_output, c, this.bend21);
+        this._lastSentBend21 = this.bend21;
+        this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
+      }
+    } else if (this._lastSentBend !== this.bend) {
+      sendBend(this.midi_output, c, this.bend);
+      this._lastSentBend = this.bend;
+    }
   }
 };
 
-MpeHex.prototype.aftertouch = function (value) {
+MpeHex.prototype.aftertouch = function (value, value14 = null) {
   if (this.release) return;
   const c = this.channel - 1;
-  this.midi_output.send([0xd0 + c, Math.max(0, Math.min(127, value))]);
+  if (this.mpePlusEnabled && Number.isFinite(value14)) {
+    const next = Math.max(0, Math.min(16256, value14));
+    if (this._lastSentAftertouch14 === next) return;
+    send14BitChannelPressure(this.midi_output, c, next);
+    this._lastSentAftertouch14 = next;
+    this._lastSentAftertouch = (next >> 7) & 0x7f;
+    return;
+  }
+  const next = Math.max(0, Math.min(127, value));
+  if (this._lastSentAftertouch === next && this._lastSentAftertouch14 == null) return;
+  this.midi_output.send([0xd0 + c, next]);
+  this._lastSentAftertouch = next;
+  this._lastSentAftertouch14 = null;
 };
 
 // pressure: channel pressure on the voice's own channel (same as aftertouch for MPE).
-MpeHex.prototype.pressure = function (value) {
-  this.aftertouch(value);
+MpeHex.prototype.pressure = function (value, value14 = null) {
+  this.aftertouch(value, value14);
 };
 
 // cc74: brightness / timbre — per-voice CC on the voice channel (MPE dimension 3).
-MpeHex.prototype.cc74 = function (value) {
+MpeHex.prototype.cc74 = function (value, value14 = null) {
   if (this.release) return;
   const c = this.channel - 1;
-  this.midi_output.send([0xb0 + c, 74, Math.max(0, Math.min(127, value))]);
+  if (this.mpePlusEnabled && Number.isFinite(value14)) {
+    const next = Math.max(0, Math.min(16256, value14));
+    if (this._lastSentCc7414 === next) return;
+    send14BitCc(this.midi_output, c, 74, next);
+    this._lastSentCc7414 = next;
+    this._lastSentCc74 = (next >> 7) & 0x7f;
+    return;
+  }
+  const next = Math.max(0, Math.min(127, value));
+  if (this._lastSentCc74 === next && this._lastSentCc7414 == null) return;
+  this.midi_output.send([0xb0 + c, 74, next]);
+  this._lastSentCc74 = next;
+  this._lastSentCc7414 = null;
 };
 
 // modwheel: CC1 — zone-wide, sent on manager channel.
