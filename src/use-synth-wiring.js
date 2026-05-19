@@ -411,6 +411,25 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   const midiRequestRef = useRef(null);
   const midiRestoreAttemptedRef = useRef(false);
 
+  const releaseSynthInstance = useCallback((synth) => {
+    if (!synth) return;
+    if (typeof synth.shutdown === "function") synth.shutdown();
+    else if (typeof synth.releaseAll === "function") synth.releaseAll();
+  }, []);
+
+  const clearAllOutputSynthRefs = useCallback(() => {
+    releaseSynthInstance(sampleSynthRef.current.synth);
+    sampleSynthRef.current = { key: null, synth: null };
+    releaseSynthInstance(oscSynthRef.current.synth);
+    oscSynthRef.current = { key: null, synth: null };
+    releaseSynthInstance(mpeSynthRef.current.synth);
+    mpeSynthRef.current = { key: null, synth: null };
+    for (const synth of mtsSynthsRef.current.values()) {
+      releaseSynthInstance(synth);
+    }
+    mtsSynthsRef.current.clear();
+  }, [releaseSynthInstance]);
+
   const clearMidiSelections = useCallback(() => {
     Object.entries(MIDI_PORT_RESET).forEach(([key, value]) => {
       sessionStorage.setItem(key, String(value));
@@ -676,6 +695,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     const wantFluidsynth = mtsOutputs.some((o) => o.output === fluidsynthOutputObj);
 
     if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe && !wantOsc) {
+      clearAllOutputSynthRefs();
       setSynth(null);
       return () => {
         cancelled = true;
@@ -694,7 +714,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         ])
       : null;
     if (!wantSample && sampleSynthRef.current.synth) {
-      sampleSynthRef.current.synth.releaseAll?.();
+      releaseSynthInstance(sampleSynthRef.current.synth);
       sampleSynthRef.current = { key: null, synth: null };
     }
 
@@ -802,7 +822,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         }
       }
     } else if (mtsSynthsRef.current.size > 0) {
-      for (const synth of mtsSynthsRef.current.values()) synth.releaseAll?.();
+      for (const synth of mtsSynthsRef.current.values()) releaseSynthInstance(synth);
       mtsSynthsRef.current.clear();
     }
     if (wantOsc) {
@@ -834,6 +854,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         );
       }
     } else {
+      releaseSynthInstance(oscSynthRef.current.synth);
       oscSynthRef.current = { key: null, synth: null };
     }
     const activeInputControllerId = (() => {
@@ -902,17 +923,24 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         );
       }
     } else if (mpeSynthRef.current.synth) {
-      mpeSynthRef.current.synth.releaseAll?.();
+      releaseSynthInstance(mpeSynthRef.current.synth);
       mpeSynthRef.current = { key: null, synth: null };
     }
 
-    Promise.all(promises).then(async (synths) => {
+    Promise.allSettled(promises).then(async (results) => {
       if (cancelled) {
         setLoading(signal);
         return;
       }
-      // Filter out null/undefined synths (e.g., MIDI device unavailable)
-      const validSynths = synths.filter((s) => s != null);
+      for (const result of results) {
+        if (result.status === "rejected") {
+          warnLog("Synth build failed:", result.reason);
+        }
+      }
+      const validSynths = results
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => result.value)
+        .filter((s) => s != null);
       if (validSynths.length === 0) {
         setSynth(null);
         setLoading(signal);
@@ -951,6 +979,8 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is stable; settings covered field-by-field below
   }, [
+    clearAllOutputSynthRefs,
+    releaseSynthInstance,
     settings.instrument,
     // MIDI output runtimes derive anchors and tuning context from the current
     // fundamental and center degree, so those changes must rebuild the synth.

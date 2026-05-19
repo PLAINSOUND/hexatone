@@ -42,7 +42,9 @@ let iosForceRecreateOnPrepare = false;
 
 const createSharedAudioContext = () => {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  sharedAudioContext = new AudioContextClass();
+  // Request the lowest practical latency the browser will honor. This helps
+  // Windows shared-mode backends where the default hint can feel sluggish.
+  sharedAudioContext = new AudioContextClass({ latencyHint: "interactive" });
   iosForceRecreateOnPrepare = false;
   setupIOSAudioHandler();
   return sharedAudioContext;

@@ -67,13 +67,57 @@ class OscSocket {
     this._url = url;
     this._ws = null;
     this._queue = []; // messages buffered while connecting
+    this._disposed = false;
+    this._refCount = 0;
+    this._reconnectTimer = null;
     this._connect();
   }
 
+  retain() {
+    if (!this._disposed) this._refCount += 1;
+    return this;
+  }
+
+  release() {
+    if (this._disposed) return;
+    this._refCount = Math.max(0, this._refCount - 1);
+    if (this._refCount === 0) this.shutdown();
+  }
+
+  clearQueue() {
+    this._queue = [];
+  }
+
+  shutdown() {
+    if (this._disposed) return;
+    this._disposed = true;
+    this.clearQueue();
+    if (this._reconnectTimer != null) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    const ws = this._ws;
+    this._ws = null;
+    if (ws && typeof ws.close === "function") {
+      ws.onopen = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.close();
+    }
+    if (_sockets.get(this._url) === this) {
+      _sockets.delete(this._url);
+    }
+  }
+
   _connect() {
+    if (this._disposed) return;
     const ws = new WebSocket(this._url);
 
     ws.onopen = () => {
+      if (this._disposed) {
+        ws.close?.();
+        return;
+      }
       debugLog("osc", "Connected to osc-bridge:", this._url);
       this._ws = ws;
       for (const msg of this._queue) ws.send(msg);
@@ -81,17 +125,31 @@ class OscSocket {
     };
 
     ws.onclose = () => {
-      warnLog("[osc_synth] osc-bridge disconnected. Reconnecting in 2s...");
       this._ws = null;
-      setTimeout(() => this._connect(), 2000);
+      if (this._disposed) return;
+      warnLog("[osc_synth] osc-bridge disconnected. Reconnecting in 2s...");
+      this._reconnectTimer = setTimeout(() => {
+        this._reconnectTimer = null;
+        this._connect();
+      }, 2000);
     };
 
     ws.onerror = (e) => {
+      if (this._disposed) return;
       warnLog("[osc_synth] osc-bridge WebSocket error:", e.message ?? e);
     };
+
+    if (this._disposed) {
+      ws.onopen = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.close?.();
+      return;
+    }
   }
 
   send(address, args, port = OSC_LAYER_PORTS[0]) {
+    if (this._disposed) return;
     const msg = JSON.stringify({ port, address, args });
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
       this._ws.send(msg);
@@ -104,8 +162,12 @@ class OscSocket {
 // One shared socket per wsUrl.
 const _sockets = new Map();
 function getSocket(url) {
-  if (!_sockets.has(url)) _sockets.set(url, new OscSocket(url));
-  return _sockets.get(url);
+  let socket = _sockets.get(url);
+  if (!socket || socket._disposed) {
+    socket = new OscSocket(url);
+    _sockets.set(url, socket);
+  }
+  return socket.retain();
 }
 
 const buildSNewArgs = (
@@ -169,6 +231,7 @@ export const create_osc_synth = async (
   targetGroup = 1,
 ) => {
   const socket = getSocket(wsUrl);
+  let shutdown = false;
   const _volumes = [...volumes];
   const _mod = { value: 1.0 };
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
@@ -378,6 +441,15 @@ export const create_osc_synth = async (
     releaseAll() {
       debugLog("osc", "osc_synth.releaseAll", { knownNodeCount: _knownNodeIds.size });
       freeAllKnownNodes();
+    },
+
+    shutdown() {
+      if (shutdown) return;
+      shutdown = true;
+      debugLog("osc", "osc_synth.shutdown", { knownNodeCount: _knownNodeIds.size });
+      freeAllKnownNodes();
+      socket.clearQueue();
+      socket.release();
     },
   };
 };

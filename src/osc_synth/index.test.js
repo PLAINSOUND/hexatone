@@ -9,8 +9,35 @@ class MockWebSocket {
     this.url = url;
     this.readyState = MockWebSocket.OPEN;
     this.sent = [];
+    this.close = vi.fn(() => {
+      this.readyState = 3;
+    });
     MockWebSocket.instances.push(this);
     queueMicrotask(() => this.onopen?.());
+  }
+
+  send(message) {
+    this.sent.push(JSON.parse(message));
+  }
+}
+
+class DelayedWebSocket {
+  static instances = [];
+  static OPEN = 1;
+
+  constructor(url) {
+    this.url = url;
+    this.readyState = 0;
+    this.sent = [];
+    this.close = vi.fn(() => {
+      this.readyState = 3;
+    });
+    DelayedWebSocket.instances.push(this);
+  }
+
+  open() {
+    this.readyState = DelayedWebSocket.OPEN;
+    this.onopen?.();
   }
 
   send(message) {
@@ -278,5 +305,34 @@ describe("osc_synth pooled slot allocation", () => {
 
     expect(latestSNew.args[quickReleaseArgIndex + 1].value).toBeCloseTo(0.75, 5);
     expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(0.08, 5);
+  });
+
+  it("shutdown clears queued OSC messages and closes the socket so disabled OSC cannot leak on reopen", async () => {
+    DelayedWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", DelayedWebSocket);
+
+    const synth = await create_osc_synth(
+      "ws://test-osc-shutdown",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    const ws = DelayedWebSocket.instances[0];
+    expect(ws.sent).toHaveLength(0);
+
+    synth.shutdown();
+    ws.open();
+
+    expect(ws.sent).toHaveLength(0);
+    expect(ws.close).toHaveBeenCalledTimes(1);
   });
 });
