@@ -14,11 +14,11 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.2.0 (May 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release: 3.1.0. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Current version 3.2.1 (May 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release: 3.1.0. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
 
 ## Current State
 
-Hexatone 3.2.0 is a live microtonal keyboard and scale workspace built around:
+Hexatone 3.2.1 is a live microtonal keyboard and scale workspace featuring:
 
 - isomorphic hexagonal layout
 - rational / just intonation with automatic HEJI notation
@@ -42,7 +42,7 @@ PLAINSOUND HEXATONE can be used entirely in the browser:
 Hexatone also supports:
 
 - WebMIDI with optional SysEx
-- MIDI input mapped either to the chosen hex layout or to nearest scale degree
+- MIDI Input mapped either to the chosen hex layout or to nearest scale degree
 - controller recognition and geometry-aware mapping
 - LED feedback on supported controllers
 - MTS and MPE output routings
@@ -62,10 +62,14 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.2.0 *(currently in development)*
+### 3.2.1 *(currently in development)*
 
 **Live performance architecture**
 
+- added browser request for low(er)-latency AudioContext operation
+- refined on-screen hex guessing to respect angle of rotation and visible canvas
+- added a Raster to Notes mode for Haken Continuum which triggers scale degrees with UX controls for Glide Shaping, Minimum Note Duration, Minimum Retrigger interval, and Raster Stability, as well as a momentary pedal (default CC 67) for switching between Pitch Bending and Raster to Notes
+- added Quick Release for the SuperCollider SynthDefs to reduce tail overlap in Raster to Notes
 - architectural separation of `Keys` into smaller runtime modules, moving MIDI input, expression handling, snapshots, MTS output, controller maps, and settings-impact classification out of the canvas path
 - reduced full `Keys` reconstruction to true tuning/layout changes; most live performance settings, including MIDI input device now update through targeted runtime paths instead of interrupting the keyboard
 - controller geometry changes now rebuild only the controller map, preserving the active `Keys` runtime
@@ -74,6 +78,9 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 - refined Auto Send Colours for Lumatone, Exquis, and LinnStrument
 - improved Lumatone, Exquis, and LinnStrument output-port matching
+- `Input Mode` is now remembered per detected or selected controller
+  - known 2D geometries use `MIDI to Hex Layout`
+  - Haken Continuum uses `MIDI to Nearest Scale Degree`
 - expanded LinnStrument User Firmware response shaping:
   - `X Spike Reduction` for rejecting noisy raw `X` excursions under light pressure
   - `X Input Smoothing` for event-driven per-pad smoothing without `requestAnimationFrame` or timer dependence
@@ -101,13 +108,13 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 - HEJI and reference-frame groundwork in the notation layer
 - increasing emphasis on exact interval identity and rational interpretation
-- JI Modulation fronm a source note to a target with handoff, tracked in a Modulation History palette
+- JI Modulation from a source note to a target with handoff, tracked in a Modulation History palette
 
 **MIDI / controller system**
 
 - WebMIDI permissions are user-selectable; SysEx is optional
 - controller-aware geometry mapping and manual override
-- input modes for:
+- Input Mode settings for:
   - MIDI to hex layout
   - MIDI to nearest scale degree
 - MPE input and expression support
@@ -128,11 +135,12 @@ Supported or actively integrated controllers include:
 - **Lumatone**
 - **Exquis**
 - **LinnStrument**
+- **Haken Continuum**
 - **Tonal Plexus**
 - **C-Thru AXIS-49**
 - **TS41 MIDI Keyboard**
 
-Other controller paths remain exploratory or less tested.
+Other controller paths remain exploratory or less tested. Continuum MPE+ high resolution X/Y/Z data is supported (Pitch Bend Range 96, CC 87 used for one-shot LSB data staging), and this controller can move between Pitch Bending and Raster to Notes.
 
 ### Local development
 
@@ -204,7 +212,7 @@ Updated UX; added latch sustain; moveable central scale degree.
 Added Scala/JSON IO; user presets; polyphonic aftertouch response with built-in sounds.
 
 ### Version 2 *(2022–2026)*
-Marc Sabat forked Ashton Snelgrove's webpack rebuild with rudimentary MIDI and began Hexatone develpment fron the former "Terpstra Keyboard". Renaming to acknowledge Erv Wilson's central contribution to the hexagonal 2D layout. Added full MIDI input and output path; Lumatone plug-and-play compatibility with channels-to-equaves logic; reshaped built-in presets; user-switchable Built-In/MTS/normal MIDI output options. Added and edited samples.
+Marc Sabat forked Ashton Snelgrove's webpack rebuild with rudimentary MIDI and began Hexatone develpment from the former "Terpstra Keyboard". Renaming to acknowledge Erv Wilson's central contribution to the hexagonal 2D layout. Added full MIDI input and output path; Lumatone plug-and-play compatibility with channels-to-equaves logic; reshaped built-in presets; user-switchable Built-In/MTS/normal MIDI output options. Added and edited samples.
 
 ### Version 1 *(2016)*
 [Terpstra Keyboard](http://terpstrakeyboard.com/) — hexagonal keyboard proof of concept that helped kickstart the Lumatone.

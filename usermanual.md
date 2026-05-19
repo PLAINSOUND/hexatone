@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-05-17
+Updated: 2026-05-19
 
 ## About
 
@@ -9,13 +9,13 @@ PLAINSOUND HEXATONE is a retuneable microtonal keyboard and scale workspace.
 Features:
 
 - programmable isomorphic hexagonal keyboard layouts based on Erv Wilson’s designs
-- playable using touch, mouse, computer keyboard, MIDI, and OSC
+- playable using touch, mouse, computer keyboard, and MIDI controllers
 - built-in sampled sounds with polyphonic aftertouch
 - scale table for editing, comparing, and displaying tunings
 - scale creation, comparison, and rationalisation tools
 - adjust any pitch to any frequency and automatically update the underlying scala files
 - JI-focused workspace, featuring modulation and automatic HEJI Notation generation
-- parses MIDI input from MPE or multichannel layout isomorphic and 2D controllers like Haken Continuum, LinnStrument, Lumatone, Exquis, and others
+- parses MIDI input from MPE or multichannel layout isomorphic and 2D controllers like Haken Continuum, LinnStrument, Lumatone, Exquis, and others; correlates known controller geometries with on-screen scale layouts
 - sends MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
 - a live-oriented composition, improvisation, and performance companion to [Scale Workshop](https://scaleworkshop.plainsound.org)
 
@@ -107,7 +107,7 @@ It supports:
 - per-degree tuning adjustment
 - rationalisation suggestions
 - reorder scale degrees by clicking on the degree number
-- select abd delete a scale degree
+- select and delete a scale degree
 - `Sort Degrees Ascending`, preserving degree `0` and the equave
 - increasing scale size adds copies of the current equave
 - decreasing scale size truncates
@@ -210,6 +210,9 @@ If you do not enable WebMIDI, Hexatone still works as a complete on-screen instr
 - isomorphic and 2D controller geometries, single- or multi-channel layouts
 - controller recognition and manual controller geometry override (sequential / bypass behaviour)
 - scale-target mode (tune incoming MIDI to chosen scale)
+- Input Mode persists per detected/selected controller
+- 2D controllers default to MIDI to Hex Layout
+- Haken Continuum (1D pitch glissando) defaults to MIDI to Nearest Scale Degree
 - handling of incoming expression data as MPE, pitch bend, aftertouch, pressure, control change
 
 ### Controllers
@@ -219,6 +222,7 @@ The app includes support for several recognized controller types, including devi
 - Lumatone
 - Exquis
 - LinnStrument
+- Haken Continuum
 - Tonal Plexus
 - AXIS-style controllers
 - standard keyboards
@@ -226,6 +230,8 @@ The app includes support for several recognized controller types, including devi
 The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user.
 
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
+
+Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's space-bar. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data).
 
 ### Input Modes
 
@@ -277,7 +283,7 @@ Hexatone can send tuning and performance data through:
 
 ## OSC Output
 
-Hexatone also includes a OSC output path aimed at users who want:
+Hexatone also includes an OSC output path aimed at users who want:
 
 - a custom synthesis backend
 - direct control of a local SuperCollider setup

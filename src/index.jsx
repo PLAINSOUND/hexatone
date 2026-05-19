@@ -21,7 +21,7 @@ if (import.meta.env.DEV) {
 
 // ── Version tracking for cache busting ─────────────────────────────────────
 // Increment this version for each release to force cache refresh
-const APP_VERSION = "3.2.0";
+const APP_VERSION = "3.2.1";
 
 // Check stored version and force reload if mismatch
 const storedVersion = localStorage.getItem("hexatone_version");
