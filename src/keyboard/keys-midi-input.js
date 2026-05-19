@@ -8,6 +8,7 @@ import { findNearestDegree } from "../input/scale-mapper.js";
 import { debugLog } from "../debug/logging.js";
 import {
   applyContinuumPitchShape,
+  computeContinuumPitchBendCents,
   resolveHakenXGlideMode,
 } from "../input/keys-expression-runtime.js";
 import {
@@ -41,6 +42,62 @@ function continuumRasterTargetSteps(currentSteps, targetFloat, stabilityControl)
     return Math.ceil(targetFloat - 0.5 + margin);
   }
   return current;
+}
+
+function continuumPendingRasterTargetStep(currentSteps, targetFloat) {
+  if (!Number.isFinite(currentSteps) || !Number.isFinite(targetFloat)) return null;
+  if (targetFloat > currentSteps) return Math.max(currentSteps + 1, Math.ceil(targetFloat));
+  if (targetFloat < currentSteps) return Math.min(currentSteps - 1, Math.floor(targetFloat));
+  return null;
+}
+
+function continuumRasterTargetFloat(keys, hex, channel, bend14, scaleMode) {
+  const effectiveMode = resolveHakenXGlideMode(keys.inputRuntime);
+  const useScaleFollowing =
+    effectiveMode === "raster_to_notes" &&
+    keys.inputRuntime.layoutMode !== "sequential";
+  const bendRangeSemitones = keys.settings.midiin_scale_bend_range ?? 48;
+  const semitoneFloatOffset = ((bend14 - 8192) * bendRangeSemitones) / 8192;
+
+  if (scaleMode) {
+    const midiNote = (hex._notePlayed ?? 0) % 128;
+    const baseHz = 440 * Math.pow(2, (midiNote - 69) / 12);
+    const bentHz = baseHz * Math.pow(2, (semitoneFloatOffset * 100) / 1200);
+    const bentCents = keys._resolveScaleInputPitchCents(channel, midiNote, bentHz);
+    const result = findNearestDegree(
+      bentCents,
+      keys.tuning.scale,
+      keys.tuning.equivInterval,
+      keys.inputRuntime.scaleTolerance ?? 50,
+      "accept",
+    );
+    return result?.steps ?? null;
+  }
+  if (useScaleFollowing) {
+    if (hex._rasterOnsetSteps == null) return null;
+    const scaleStepOffset = continuumScaleTrackingStepOffset(keys, bend14, 8192, false);
+    return hex._rasterOnsetSteps + scaleStepOffset;
+  }
+  if (hex._rasterOnsetSteps == null) return null;
+  return hex._rasterOnsetSteps + semitoneFloatOffset;
+}
+
+export function primeHakenRasterModeEntry(entry, channel) {
+  const hex = entry?.hex;
+  if (!hex || hex.release) return;
+  const bend14 = this._mpeInputBendByChannel.get(channel);
+  const bend21 = this._hakenMpeBend21ByChannel.get(channel) ?? null;
+  const currentCenterCents = hex.coords ? this.hexCoordsToCents(hex.coords)?.[0] : null;
+  const currentBentCents = bend14 != null
+    ? computeContinuumPitchBendCents(this, entry, channel, bend14, bend21)
+    : (hex._lastPitchBendCents ?? hex.cents ?? currentCenterCents);
+  const entrySide = Number.isFinite(currentBentCents) && Number.isFinite(currentCenterCents)
+    ? Math.sign(currentBentCents - currentCenterCents)
+    : 0;
+  hex._continuumRasterPendingHandoff = true;
+  hex._continuumRasterPendingTargetSteps = null;
+  hex._continuumRasterEntrySide = entrySide;
+  hex._continuumRasterClampedAtCenter = entrySide === 0;
 }
 
 function pendingRasterReleases(keys) {
@@ -542,57 +599,79 @@ export function allnotesOff() {
 export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   const hex = entry.hex;
   if (!hex || hex.release) return;
-  const effectiveMode = resolveHakenXGlideMode(this.inputRuntime);
-  const useScaleFollowing =
-    effectiveMode === "raster_to_notes" &&
-    this.inputRuntime.layoutMode !== "sequential";
-  const bendRangeSemitones = this.settings.midiin_scale_bend_range ?? 48;
-  const semitoneFloatOffset = ((bend14 - 8192) * bendRangeSemitones) / 8192;
-
-  let targetStepFloat;
-
-  if (scaleMode) {
-    // In Nearest Scale Degree mode, rastering should follow the incoming
-    // absolute Continuum pitch directly: played note + current bend, then snap
-    // that absolute pitch to the nearest scale degree. This keeps raster mode
-    // aligned with the user's performed pitch rather than stepping by the
-    // originally attacked MIDI note.
-    const midiNote = (hex._notePlayed ?? 0) % 128;
-    const baseHz = 440 * Math.pow(2, (midiNote - 69) / 12);
-    const bentHz = baseHz * Math.pow(2, (semitoneFloatOffset * 100) / 1200);
-    const bentCents = this._resolveScaleInputPitchCents(channel, midiNote, bentHz);
-
-    const result = findNearestDegree(
-      bentCents,
-      this.tuning.scale,
-      this.tuning.equivInterval,
-      this.inputRuntime.scaleTolerance ?? 50,
-      "accept",
-    );
-    if (!result) return;
-    targetStepFloat = result.steps;
-  } else if (useScaleFollowing) {
-    if (hex._rasterOnsetSteps == null) return;
-    const scaleStepOffset = continuumScaleTrackingStepOffset(
-      this,
-      bend14,
-      8192,
-      false,
-    );
-    targetStepFloat = hex._rasterOnsetSteps + scaleStepOffset;
-  } else {
-    if (hex._rasterOnsetSteps == null) return;
-    targetStepFloat = hex._rasterOnsetSteps + semitoneFloatOffset;
-  }
+  const targetStepFloat = continuumRasterTargetFloat(this, hex, channel, bend14, scaleMode);
+  if (!Number.isFinite(targetStepFloat)) return;
 
   const currentSteps = Number.isFinite(hex._rasterSteps)
     ? hex._rasterSteps
     : Math.round(targetStepFloat);
-  const newSteps = continuumRasterTargetSteps(
+  let newSteps = continuumRasterTargetSteps(
     currentSteps,
     targetStepFloat,
     this.inputRuntime.hakenRasterStability ?? 25,
   );
+
+  if (hex._continuumRasterPendingHandoff) {
+    let pendingTarget = Number.isFinite(hex._continuumRasterPendingTargetSteps)
+      ? hex._continuumRasterPendingTargetSteps
+      : continuumPendingRasterTargetStep(currentSteps, targetStepFloat);
+    hex._continuumRasterPendingTargetSteps = pendingTarget;
+    const bend21 = this._hakenMpeBend21ByChannel.get(channel) ?? null;
+    const bentCents = computeContinuumPitchBendCents(this, entry, channel, bend14, bend21);
+    const currentCenterCents = hex.coords ? this.hexCoordsToCents(hex.coords)?.[0] : null;
+    const retuneDuringHandoff = () => {
+      if (!Number.isFinite(bentCents)) return;
+      let outputCents = bentCents;
+      if (Number.isFinite(currentCenterCents)) {
+        if (hex._continuumRasterClampedAtCenter) {
+          outputCents = currentCenterCents;
+        } else if (hex._continuumRasterEntrySide < 0 && bentCents >= currentCenterCents) {
+          outputCents = currentCenterCents;
+          hex._continuumRasterClampedAtCenter = true;
+        } else if (hex._continuumRasterEntrySide > 0 && bentCents <= currentCenterCents) {
+          outputCents = currentCenterCents;
+          hex._continuumRasterClampedAtCenter = true;
+        }
+      }
+      hex._lastPitchBend14 = bend14;
+      hex._lastPitchBend21 = bend21;
+      hex._lastPitchBendCents = outputCents;
+      if (bend21 != null) hex.retune?.(outputCents, true, bend21);
+      else hex.retune?.(outputCents, true);
+    };
+    if (!Number.isFinite(pendingTarget) || pendingTarget === currentSteps) {
+      retuneDuringHandoff();
+      return;
+    }
+    const currentDirection = Math.sign(targetStepFloat - currentSteps);
+    const pendingDirection = Math.sign(pendingTarget - currentSteps);
+    if (currentDirection !== 0 && currentDirection !== pendingDirection) {
+      pendingTarget = continuumPendingRasterTargetStep(currentSteps, targetStepFloat);
+      hex._continuumRasterPendingTargetSteps = pendingTarget;
+    }
+    const liveInputAddress = { channel, note: hex._notePlayed ?? 0 };
+    const pendingCoords = Number.isFinite(pendingTarget)
+      ? this.coordResolver.coordForSteps(pendingTarget, liveInputAddress)
+      : null;
+    const pendingCenterCents = pendingCoords ? this.hexCoordsToCents(pendingCoords)?.[0] : null;
+    if (
+      Number.isFinite(pendingTarget) &&
+      Number.isFinite(bentCents) &&
+      Number.isFinite(pendingCenterCents) &&
+      ((pendingTarget > currentSteps && bentCents < pendingCenterCents) ||
+        (pendingTarget < currentSteps && bentCents > pendingCenterCents))
+    ) {
+      retuneDuringHandoff();
+      return;
+    }
+    if (Number.isFinite(pendingTarget)) {
+      newSteps = pendingTarget;
+      hex._continuumRasterPendingHandoff = false;
+      hex._continuumRasterPendingTargetSteps = null;
+      hex._continuumRasterEntrySide = 0;
+      hex._continuumRasterClampedAtCenter = false;
+    }
+  }
 
   // No crossing yet — nothing to retrigger.
   if (currentSteps === newSteps) return;
@@ -677,6 +756,10 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   newHex._rasterOnsetSteps = hex._rasterOnsetSteps; // fixed onset — never changes during a hold
   newHex._rasterSteps = newSteps;                   // current triggered position
   newHex._rasterLastTriggerAt = now;
+  newHex._continuumRasterPendingHandoff = false;
+  newHex._continuumRasterPendingTargetSteps = null;
+  newHex._continuumRasterEntrySide = 0;
+  newHex._continuumRasterClampedAtCenter = false;
   newHex._scaleModeBendAnchor14 = hex._scaleModeBendAnchor14;
   newHex._scaleModeBendAnchor21 = hex._scaleModeBendAnchor21;
   newHex._lastPitchBend14 = hex._lastPitchBend14;

@@ -2243,6 +2243,10 @@ class Keys {
   return KeysMidiInput.hakenRasterBend.call(this, entry, channel, bend14, scaleMode);
   };
 
+  _primeHakenRasterModeEntry(entry, channel) {
+    return KeysMidiInput.primeHakenRasterModeEntry.call(this, entry, channel);
+  }
+
   _refreshHakenGlideModeForActiveNotes() {
     if (this.controller?.id !== "hakenaudio" || !this.inputRuntime.mpeInput) return;
     for (const [channel, entry] of this.state.activeMidiByChannel) {
@@ -2255,18 +2259,20 @@ class Keys {
   }
 
   _handleHakenGlideModeTransition(previousMode, nextMode) {
-    if (
-      this.controller?.id !== "hakenaudio" ||
-      !this.inputRuntime.mpeInput ||
-      previousMode !== "raster_to_notes" ||
-      nextMode === "raster_to_notes"
-    ) {
+    if (this.controller?.id !== "hakenaudio" || !this.inputRuntime.mpeInput) {
       return;
     }
     for (const [channel, entry] of this.state.activeMidiByChannel) {
       const bend14 = this._mpeInputBendByChannel.get(channel);
       const bend21 = this._hakenMpeBend21ByChannel.get(channel);
       if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
+      if (previousMode !== "raster_to_notes" && nextMode === "raster_to_notes") {
+        this._primeHakenRasterModeEntry(entry, channel);
+        continue;
+      }
+      entry.hex._continuumRasterPendingHandoff = false;
+      entry.hex._continuumRasterPendingTargetSteps = null;
+      if (previousMode !== "raster_to_notes" || nextMode === "raster_to_notes") continue;
       const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
       entry.hex._continuumPitchAnchor14 = bend14;
       entry.hex._continuumPitchAnchor21 = bend21;
@@ -2288,7 +2294,9 @@ class Keys {
     this.inputRuntime.hakenSpaceGlideFlip = active;
     const nextMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     this._handleHakenGlideModeTransition(previousMode, nextMode);
-    this._refreshHakenGlideModeForActiveNotes();
+    if (!(previousMode !== "raster_to_notes" && nextMode === "raster_to_notes")) {
+      this._refreshHakenGlideModeForActiveNotes();
+    }
   }
 
   _setHakenPedalGlideFlip(active) {
@@ -2300,7 +2308,9 @@ class Keys {
     this.inputRuntime.hakenPedalGlideFlip = active;
     const nextMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     this._handleHakenGlideModeTransition(previousMode, nextMode);
-    this._refreshHakenGlideModeForActiveNotes();
+    if (!(previousMode !== "raster_to_notes" && nextMode === "raster_to_notes")) {
+      this._refreshHakenGlideModeForActiveNotes();
+    }
   }
 
   panic = () => {

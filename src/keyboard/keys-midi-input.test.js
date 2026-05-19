@@ -4,7 +4,10 @@ import Point from "./point.js";
 import { WebMidi } from "webmidi";
 import { rebuildControllerMap } from "../input/keys-midi-listeners.js";
 import { parseExactInterval } from "../tuning/interval.js";
-import { resolveHakenXGlideMode } from "../input/keys-expression-runtime.js";
+import {
+  computeContinuumPitchBendCents,
+  resolveHakenXGlideMode,
+} from "../input/keys-expression-runtime.js";
 
 const edo12 = Array.from({ length: 12 }, (_, i) => i * 100);
 
@@ -2597,7 +2600,7 @@ describe("Keys MIDI input integration", () => {
     });
 
     expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(true);
-    expect(bendSpy).toHaveBeenCalledWith(entry, 5, 10240);
+    expect(bendSpy).not.toHaveBeenCalled();
 
     keys.onKeyUp({
       code: "Space",
@@ -2608,7 +2611,7 @@ describe("Keys MIDI input integration", () => {
     });
 
     expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(false);
-    expect(bendSpy).toHaveBeenCalledTimes(2);
+    expect(bendSpy).toHaveBeenCalledTimes(1);
   });
 
   it("momentarily flips Continuum glide mode with a learned pedal CC and cancels the flip when pedal and space are both held", () => {
@@ -2629,7 +2632,7 @@ describe("Keys MIDI input integration", () => {
 
     keys._setHakenPedalGlideFlip(true);
     expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(true);
-    expect(bendSpy).toHaveBeenCalledTimes(1);
+    expect(bendSpy).toHaveBeenCalledTimes(0);
 
     keys._setHakenSpaceGlideFlip(true);
     expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(true);
@@ -2777,6 +2780,131 @@ describe("Keys MIDI input integration", () => {
     expect(hex._continuumPitchAnchorSteps).toBe(2);
     expect(hex.retune).toHaveBeenCalledTimes(1);
     expect(hex.retune.mock.calls[0][0]).toBeCloseTo(300, 5);
+  });
+
+  it("hands off Continuum pitch bending into raster mode without snapping before the next raster center", () => {
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        midiin_scale_bend_range: 4,
+      },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        scaleBendRange: 4,
+        hakenXGlideMode: "pitch_bending",
+        hakenRasterStability: 0,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    const oldHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      _notePlayed: 60,
+      _velocityPlayed: 96,
+      _rasterOnsetSteps: 0,
+      _rasterSteps: 0,
+      release: false,
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    };
+    const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
+    keys.state.activeMidi.set(60, oldHex);
+    keys.state.activeMidiByChannel.set(5, entry);
+    keys._mpeInputBendByChannel.set(5, 9000);
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
+    keys.coordResolver.rememberCoordsForInputAddress = vi.fn();
+    const newHex = {
+      coords: new Point(1, 0),
+      cents: 100,
+      _baseCents: 100,
+      release: false,
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    };
+    keys.hexOn = vi.fn(() => newHex);
+
+    keys._setHakenSpaceGlideFlip(true);
+
+    expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("raster_to_notes");
+    expect(oldHex._continuumRasterPendingHandoff).toBe(true);
+    expect(oldHex.noteOff).not.toHaveBeenCalled();
+    expect(keys.hexOn).not.toHaveBeenCalled();
+    expect(oldHex.retune).toHaveBeenCalledTimes(0);
+
+    keys._applyMpePitchBend(entry, 5, 9800);
+
+    expect(oldHex.noteOff).not.toHaveBeenCalled();
+    expect(keys.hexOn).not.toHaveBeenCalled();
+    expect(oldHex.retune).toHaveBeenCalledTimes(1);
+    expect(oldHex.retune.mock.calls[0][0]).toBeCloseTo(
+      computeContinuumPitchBendCents(keys, entry, 5, 9800),
+      5,
+    );
+
+    keys._applyMpePitchBend(entry, 5, 10240);
+
+    expect(oldHex.noteOff).toHaveBeenCalled();
+    expect(keys.hexOn).toHaveBeenCalledTimes(1);
+    expect(newHex._continuumRasterPendingHandoff).toBe(false);
+    expect(newHex._rasterSteps).toBe(1);
+  });
+
+  it("clamps a Continuum handoff at the current raster note center before allowing the next retrigger", () => {
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        midiin_scale_bend_range: 4,
+      },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        scaleBendRange: 4,
+        hakenXGlideMode: "pitch_bending",
+        hakenRasterStability: 0,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    const oldHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      _baseCents: 0,
+      _notePlayed: 60,
+      _velocityPlayed: 96,
+      _rasterOnsetSteps: 0,
+      _rasterSteps: 0,
+      release: false,
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    };
+    const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
+    keys.state.activeMidi.set(60, oldHex);
+    keys.state.activeMidiByChannel.set(5, entry);
+    keys._mpeInputBendByChannel.set(5, 9000);
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
+    keys.coordResolver.rememberCoordsForInputAddress = vi.fn();
+    keys.hexOn = vi.fn();
+
+    keys._setHakenSpaceGlideFlip(true);
+    keys._applyMpePitchBend(entry, 5, 8500);
+
+    expect(oldHex.retune).toHaveBeenCalledTimes(1);
+    expect(oldHex.retune.mock.calls[0][0]).toBeGreaterThan(0);
+
+    keys._applyMpePitchBend(entry, 5, 8192);
+
+    expect(oldHex.retune).toHaveBeenCalledTimes(2);
+    expect(oldHex.retune.mock.calls[1][0]).toBeCloseTo(0, 5);
+
+    keys._applyMpePitchBend(entry, 5, 8100);
+
+    expect(oldHex.retune).toHaveBeenCalledTimes(3);
+    expect(oldHex.retune.mock.calls[2][0]).toBeCloseTo(0, 5);
+    expect(oldHex.noteOff).not.toHaveBeenCalled();
+    expect(keys.hexOn).not.toHaveBeenCalled();
   });
 
   it("varies Continuum raster retrigger velocities around onset attack according to current pressure", () => {
@@ -3505,6 +3633,56 @@ describe("Keys MIDI input integration", () => {
 
     expect(hex.retune).toHaveBeenCalledTimes(1);
     expect(hex.retune.mock.calls[0][0]).toBeCloseTo(baseCents + 70, 5);
+  });
+
+  it("Continuum shaped X Glide centers match rastered note centers in fixed-do transposed scales", () => {
+    const irregularScale = [0, 70, 300, 610];
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+    }));
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        modulation_style: "fixed_do",
+        scale: irregularScale,
+        equivSteps: irregularScale.length,
+        equivInterval: 1200,
+      },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        scaleBendRange: 4,
+        hakenXGlideShaping: 0,
+        hakenXGlideMode: "pitch_bending",
+      },
+      { makeHex },
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 5,
+          strategy: "retune_surface_in_place",
+          count: 1,
+          transpositionDeltaCents: 500,
+        },
+      ],
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.midinoteOn(makeMidiEvent(60, 5));
+    const hex = makeHex.mock.results[0].value;
+    const entry = keys.state.activeMidiByChannel.get(5);
+    const expectedRasterCenterCents = keys.hexCoordsToCents(new Point(1, 0))[0];
+
+    keys._applyMpePitchBend(entry, 5, 10240); // norm 0.25 => +1 scale degree
+
+    expect(hex.retune).toHaveBeenCalledTimes(1);
+    expect(expectedRasterCenterCents).toBeCloseTo(570, 5);
+    expect(hex.retune.mock.calls[0][0]).toBeCloseTo(expectedRasterCenterCents, 5);
   });
 
   it("Continuum nearest-scale pitch bending follows incoming bend range while staying scale-aware", () => {
