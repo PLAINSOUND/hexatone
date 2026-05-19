@@ -159,7 +159,7 @@ const MidiOutputs = (props) => {
     textAlign: "right",
     fontSize: "0.85em",
   };
-  const masterCh = settings.midiin_mpe_manager_ch || settings.mpe_manager_ch || "1";
+  const masterCh = settings.midiin_mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
   const hiCh = available.includes(settings.mpe_hi_ch)
@@ -825,7 +825,7 @@ const MidiOutputs = (props) => {
                       if (output) {
                         sendMpePitchBendRange(
                           output,
-                          settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
+                          settings.midiin_mpe_manager_ch,
                           settings.mpe_lo_ch,
                           settings.mpe_hi_ch,
                           visibleMpePitchbendRange,

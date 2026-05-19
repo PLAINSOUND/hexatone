@@ -50,7 +50,7 @@ describe("midi_synth controller-state replay", () => {
       },
       legacyInput: {
         midiin_device: "input-1",
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
     });
 
@@ -87,7 +87,7 @@ describe("midi_synth controller-state replay", () => {
       },
       legacyInput: {
         midiin_device: "input-1",
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
     });
 
@@ -123,7 +123,7 @@ describe("midi_synth controller-state replay", () => {
       },
       legacyInput: {
         midiin_device: "input-1",
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
     });
 
@@ -165,7 +165,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
       legacyInput: {
         midiin_device: "input-1",
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
     });
 
@@ -204,7 +204,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
       legacyInput: {
         midiin_device: "input-1",
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
     });
 
@@ -249,7 +249,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
       legacyInput: {
         midiin_device: "input-1",
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
     });
 
@@ -288,7 +288,7 @@ describe("midi_synth bulk-dump retune policy", () => {
       },
       legacyInput: {
         midiin_device: "input-1",
-        midiin_central_degree: 60,
+        midiin_anchor_note: 60,
       },
     });
 

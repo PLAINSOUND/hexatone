@@ -45,7 +45,6 @@ export const create_midi_synth = async ({
   const {
     midiin_device,
     midiin_anchor_note,
-    midiin_central_degree,
   } = legacyInput;
 
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
@@ -69,7 +68,7 @@ export const create_midi_synth = async ({
     scale &&
     degree0toRefAsArray
       ? buildTuningMapEntries(
-          anchorNote ?? midiin_anchor_note ?? midiin_central_degree ?? 60,
+          anchorNote ?? midiin_anchor_note ?? 60,
           scale,
           equivInterval,
           fundamental,
@@ -154,7 +153,7 @@ export const create_midi_synth = async ({
             velocity,
             midi_output,
             channel,
-            anchorNote ?? midiin_anchor_note ?? midiin_central_degree,
+            anchorNote ?? midiin_anchor_note,
             degree0toRef_ratio,
             fundamental,
           );
@@ -173,7 +172,7 @@ export const create_midi_synth = async ({
           bend,
           degree0toRef_ratio,
           midiin_device,
-          midiin_anchor_note ?? midiin_central_degree,
+          midiin_anchor_note,
           midi_output,
           channel,
           midi_mapping,
@@ -249,7 +248,7 @@ function MidiHex(
   bend,
   degree0toRef_ratio,
   midiin_device,
-  midiin_central_degree,
+  midiin_anchor_note,
   midi_output,
   channel,
   midi_mapping,
@@ -262,8 +261,9 @@ function MidiHex(
   sysex_dev_id,
   mapNumber
 ) {
-  if (midiin_central_degree > 127) midiin_central_degree = 127;
-  else if (midiin_central_degree < 0) midiin_central_degree = 0;
+  let anchorMidiNote = midiin_anchor_note;
+  if (anchorMidiNote > 127) anchorMidiNote = 127;
+  else if (anchorMidiNote < 0) anchorMidiNote = 0;
 
   let split = channel;
   let steps_cycle;
@@ -344,7 +344,7 @@ function MidiHex(
     this.velocity = velocity_played > 0 ? velocity_played : velocity;
     this.note_played = note_played;
     this.midiin_device = midiin_device;
-    this.midiin_central_degree = midiin_central_degree;
+    this.midiin_anchor_note = anchorMidiNote;
     this.midi_output = midi_output;
     this.channel = split;
     this.steps = steps_cycle;

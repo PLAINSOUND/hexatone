@@ -254,30 +254,6 @@ export const SETTINGS_REGISTRY = [
     description: "Haken Continuum output port override for MPE+ configuration",
   },
   {
-    key: "hakenaudio_x_lpf",
-    tier: "local",
-    type: "int",
-    default: 60,
-    perController: true,
-    description: "Haken Continuum MPE+ X low-pass cutoff in 2 Hz units",
-  },
-  {
-    key: "hakenaudio_y_lpf",
-    tier: "local",
-    type: "int",
-    default: 30,
-    perController: true,
-    description: "Haken Continuum MPE+ Y low-pass cutoff in 2 Hz units",
-  },
-  {
-    key: "hakenaudio_z_lpf",
-    tier: "local",
-    type: "int",
-    default: 125,
-    perController: true,
-    description: "Haken Continuum MPE+ Z low-pass cutoff in 2 Hz units",
-  },
-  {
     key: "midi_passthrough",
     tier: "local",
     type: "bool",
@@ -305,7 +281,6 @@ export const SETTINGS_REGISTRY = [
   { key: "midiin_channel_legacy", tier: "session", type: "bool", default: false },
   // midi_passthrough is tier: 'local', perController: true — see per-controller section above.
   // Input runtime mode keys
-  { key: "midiin_mapping_target", tier: "session", type: "string", default: "hex_layout" },
   // midiin_mpe_input, midiin_bend_range, midiin_bend_flip are 'local' tier (see above).
   // MPE input voice channel range. Channels 1 and 16 are typically reserved
   // (manager/global channel per MPE spec), so the default voice range is 2–15.

@@ -93,7 +93,7 @@ let settings = {
   midiin_controller_override: "auto",
   midiin_mapping_target: "hex_layout",
   midiin_anchor_channel: 1,
-  midiin_central_degree: 60,
+  midiin_anchor_note: 60,
   midiin_channel_group_size: 1,
   midiin_channel_legacy: false,
   midiin_scale_tolerance: 25,
@@ -220,9 +220,6 @@ beforeEach(() => {
   synthWiringState.hakenRawPorts = null;
   settings = {
     ...settings,
-    hakenaudio_x_lpf: undefined,
-    hakenaudio_y_lpf: undefined,
-    hakenaudio_z_lpf: undefined,
     midiin_mpe_manager_ch: undefined,
   };
   vi.clearAllMocks();

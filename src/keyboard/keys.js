@@ -179,7 +179,7 @@ class Keys {
           ? "controller_geometry"
           : (settings.midi_passthrough ? "sequential" : "controller_geometry"),
       mpeInput: false,
-      seqAnchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree ?? 60,
+      seqAnchorNote: settings.midiin_anchor_note ?? 60,
       seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
       stepsPerChannel: settings.midiin_steps_per_channel,
       stepsPerChannelDefault: settings.equivSteps,
@@ -193,9 +193,6 @@ class Keys {
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 20,
       hakenRasterThrottleMs: settings.hakenaudio_raster_throttle_ms ?? 10,
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
-      hakenXLpf: settings.hakenaudio_x_lpf ?? 60,
-      hakenYLpf: settings.hakenaudio_y_lpf ?? 30,
-      hakenZLpf: settings.hakenaudio_z_lpf ?? 125,
       pitchBendMode: "recency",
       pressureMode: "recency",
       wheelToRecent: settings.wheel_to_recent,
@@ -1016,21 +1013,18 @@ class Keys {
           this.controller.anchorChannelDefault ??
           1,
         note:
-          this.settings.midiin_anchor_note ??
-          this.settings.midiin_central_degree ??
-          this.controller.anchorDefault ??
-          60,
+          this.settings.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
       };
     }
     return {
       channel: 1,
-      note: this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
+      note: this.settings.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
     };
   }
 
   _extractCurrentAnchorSettings() {
     return {
-      midiin_anchor_note: this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree ?? 60,
+      midiin_anchor_note: this.settings.midiin_anchor_note ?? 60,
       midiin_anchor_channel: this.settings.midiin_anchor_channel ?? 1,
       controller_virtual_anchor_x: Number.isFinite(this.settings.controller_virtual_anchor_x)
         ? this.settings.controller_virtual_anchor_x
@@ -1116,15 +1110,12 @@ class Keys {
           this.controller.anchorChannelDefault ??
           1,
         note:
-          settingsLike.midiin_anchor_note ??
-          settingsLike.midiin_central_degree ??
-          this.controller.anchorDefault ??
-          60,
+          settingsLike.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
       };
     }
     return {
       channel: 1,
-      note: settingsLike.midiin_anchor_note ?? settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60,
+      note: settingsLike.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
     };
   }
 
@@ -1140,7 +1131,7 @@ class Keys {
 
     if (this.controller.multiChannel) {
       const constraints = this.controller.learnConstraints;
-      anchorNote = settingsLike.midiin_anchor_note ?? settingsLike.midiin_central_degree;
+      anchorNote = settingsLike.midiin_anchor_note;
       anchorChannel = settingsLike.midiin_anchor_channel;
 
       if (!this.controller.supportsVirtualAnchor && constraints?.noteRange) {
@@ -1156,7 +1147,7 @@ class Keys {
         }
       }
     } else {
-      anchorNote = settingsLike.midiin_anchor_note ?? settingsLike.midiin_central_degree ?? this.controller.anchorDefault ?? 60;
+      anchorNote = settingsLike.midiin_anchor_note ?? this.controller.anchorDefault ?? 60;
       anchorChannel = 1;
     }
 
@@ -1316,7 +1307,7 @@ class Keys {
     const rawStepDelta = dx * this.settings.rSteps + dy * this.settings.drSteps;
     return {
       ...anchorSettings,
-      midiin_anchor_note: (anchorSettings.midiin_anchor_note ?? anchorSettings.midiin_central_degree ?? 60) - rawStepDelta,
+      midiin_anchor_note: (anchorSettings.midiin_anchor_note ?? 60) - rawStepDelta,
       midiin_anchor_channel: anchorSettings.midiin_anchor_channel ?? 1,
     };
   }
@@ -1375,7 +1366,7 @@ class Keys {
 
     return {
       ...anchorSettings,
-      midiin_anchor_note: (anchorSettings.midiin_anchor_note ?? anchorSettings.midiin_central_degree ?? 60) + stepDelta,
+      midiin_anchor_note: (anchorSettings.midiin_anchor_note ?? 60) + stepDelta,
       midiin_anchor_channel: anchorSettings.midiin_anchor_channel ?? 1,
     };
   }
@@ -1853,9 +1844,8 @@ class Keys {
       Object.assign(this.settings, nextSettings);
       if (this.inputRuntime) {
         const anchorRuntimeUpdate = {};
-        if (nextSettings.midiin_anchor_note != null || nextSettings.midiin_central_degree != null) {
-          anchorRuntimeUpdate.seqAnchorNote =
-            nextSettings.midiin_anchor_note ?? nextSettings.midiin_central_degree;
+        if (nextSettings.midiin_anchor_note != null) {
+          anchorRuntimeUpdate.seqAnchorNote = nextSettings.midiin_anchor_note;
         }
         if (nextSettings.midiin_anchor_channel != null) {
           anchorRuntimeUpdate.seqAnchorChannel = nextSettings.midiin_anchor_channel;

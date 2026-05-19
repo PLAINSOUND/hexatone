@@ -1061,13 +1061,11 @@ export function getControllerById(id) {
 
 /**
  * Get the anchor MIDI note for a controller from settings.
- * Universal: uses the canonical midiin_anchor_note, with legacy fallback to
- * midiin_central_degree during the rename transition.
+ * Universal: uses the canonical midiin_anchor_note.
  * Falls back to controller's anchorDefault if not set.
  */
 export function getAnchorNote(controller, settings) {
   if (settings.midiin_anchor_note != null) return settings.midiin_anchor_note;
-  if (settings.midiin_central_degree != null) return settings.midiin_central_degree;
   return controller.anchorDefault ?? 60;
 }
 

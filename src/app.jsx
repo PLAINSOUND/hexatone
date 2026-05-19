@@ -929,17 +929,16 @@ const App = () => {
     () =>
       inputController?.normalizeInput?.(
         settings.midiin_anchor_channel ?? 1,
-        settings.midiin_anchor_note ?? settings.midiin_central_degree ?? 60,
+        settings.midiin_anchor_note ?? 60,
         inputNormalizationSettings,
       ) ?? {
         channel: settings.midiin_anchor_channel ?? 1,
-        note: settings.midiin_anchor_note ?? settings.midiin_central_degree ?? 60,
+        note: settings.midiin_anchor_note ?? 60,
       },
     [
       inputController,
       settings.midiin_anchor_channel,
       settings.midiin_anchor_note,
-      settings.midiin_central_degree,
       inputNormalizationSettings,
     ],
   );
@@ -985,9 +984,6 @@ const App = () => {
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 20,
       hakenRasterThrottleMs: settings.hakenaudio_raster_throttle_ms ?? 10,
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
-      hakenXLpf: settings.hakenaudio_x_lpf ?? 60,
-      hakenYLpf: settings.hakenaudio_y_lpf ?? 30,
-      hakenZLpf: settings.hakenaudio_z_lpf ?? 125,
     }),
     [
       forceScaleTarget,
@@ -1019,9 +1015,6 @@ const App = () => {
       settings.hakenaudio_note_off_delay,
       settings.hakenaudio_raster_throttle_ms,
       settings.hakenaudio_raster_stability,
-      settings.hakenaudio_x_lpf,
-      settings.hakenaudio_y_lpf,
-      settings.hakenaudio_z_lpf,
     ],
   );
 
@@ -1270,7 +1263,7 @@ const App = () => {
     if (!hakenOutput) return;
     const managerChannel = Math.max(
       1,
-      Math.min(16, parseInt(settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch ?? 1, 10) || 1),
+      Math.min(16, parseInt(settings.midiin_mpe_manager_ch ?? 1, 10) || 1),
     );
     sendHakenMpeConfig(hakenOutput, managerChannel, {
       bendRange: 96,
@@ -1279,7 +1272,6 @@ const App = () => {
     hakenOutId,
     hakenOutput,
     settings.midiin_mpe_manager_ch,
-    settings.mpe_manager_ch,
   ]);
 
   // Color settings: only the color fields. Changes here update the live Keys

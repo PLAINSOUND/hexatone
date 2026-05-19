@@ -59,7 +59,7 @@ const MIDIio = (props) => {
 
   // midiin_anchor_note is the raw physical MIDI note number at the input anchor.
   const center_degree = props.settings.center_degree || 0;
-  const centralNote = props.settings.midiin_anchor_note ?? props.settings.midiin_central_degree ?? 60;
+  const centralNote = props.settings.midiin_anchor_note ?? 60;
   const anchorNoteRange = ctrl?.learnConstraints?.noteRange ?? { min: 0, max: 127 };
   const anchorChannelRange = ctrl?.learnConstraints?.channelRange ?? { min: 1, max: 16 };
   const anchorChannel =
@@ -200,7 +200,7 @@ const MIDIio = (props) => {
   const applyLinnstrumentMpeDefaults = () => {
     const currentLo = props.settings.midiin_mpe_lo_ch;
     const currentHi = props.settings.midiin_mpe_hi_ch;
-    const currentManager = props.settings.midiin_mpe_manager_ch ?? props.settings.mpe_manager_ch;
+    const currentManager = props.settings.midiin_mpe_manager_ch;
     if (!Number.isFinite(currentLo)) {
       props.onChange("midiin_mpe_lo_ch", 2);
       sessionStorage.setItem("midiin_mpe_lo_ch", "2");
@@ -240,7 +240,7 @@ const MIDIio = (props) => {
   const applyConfigurableMpeDefaults = () => {
     const currentLo = props.settings.midiin_mpe_lo_ch;
     const currentHi = props.settings.midiin_mpe_hi_ch;
-    const currentManager = props.settings.midiin_mpe_manager_ch ?? props.settings.mpe_manager_ch;
+    const currentManager = props.settings.midiin_mpe_manager_ch;
     const shouldSeedGenericHi =
       !mpeMemberChannelBounds &&
       (currentHi === undefined || currentHi === null || currentHi === 15);
@@ -457,7 +457,7 @@ const MIDIio = (props) => {
                   controllerDescription={ctrl.description}
                   centerDegree={center_degree}
                   centralNote={centralNote}
-                  centralDegreeSetting={props.settings.midiin_anchor_note ?? props.settings.midiin_central_degree}
+                  centralDegreeSetting={props.settings.midiin_anchor_note}
                   midiLearnActive={props.midiLearnActive}
                   onChange={props.onChange}
                 />
@@ -616,7 +616,7 @@ const MIDIio = (props) => {
                           border: "1px solid #c8b8b8",
                           borderRadius: "3px",
                         }}
-                        key={`central-degree-${props.settings.midiin_anchor_note ?? props.settings.midiin_central_degree}`}
+                        key={`central-degree-${props.settings.midiin_anchor_note}`}
                         defaultValue={centralNote}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") e.target.blur();
@@ -1087,7 +1087,7 @@ const MIDIio = (props) => {
                         border: "1px solid #c8b8b8",
                         borderRadius: "3px",
                       }}
-                      key={`seq-central-degree-${props.settings.midiin_anchor_note ?? props.settings.midiin_central_degree}`}
+                      key={`seq-central-degree-${props.settings.midiin_anchor_note}`}
                       defaultValue={centralNote}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();

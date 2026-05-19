@@ -382,7 +382,7 @@ export function rebuildControllerMap() {
     deviceName: this.midiin_data?.name ?? null,
     override: this.settings.midiin_controller_override || "auto",
     passthrough: !!this.settings.midi_passthrough,
-    anchorNote: this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree,
+    anchorNote: this.settings.midiin_anchor_note,
     anchorChannel: this.settings.midiin_anchor_channel,
     virtualAnchorX: this.settings.controller_virtual_anchor_x ?? null,
     virtualAnchorY: this.settings.controller_virtual_anchor_y ?? null,
@@ -424,7 +424,7 @@ export function rebuildControllerMap() {
 
   if (entry.multiChannel) {
     const constraints = entry.learnConstraints;
-    anchorNote = this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree ?? entry.anchorDefault;
+    anchorNote = this.settings.midiin_anchor_note ?? entry.anchorDefault;
     anchorChannel = this.settings.midiin_anchor_channel ?? entry.anchorChannelDefault;
 
     if (constraints?.noteRange) {

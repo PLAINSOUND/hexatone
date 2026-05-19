@@ -166,8 +166,7 @@ export class MidiCoordResolver {
    */
   noteToSteps(noteNumber, channel) {
     const ir = this.inputRuntime;
-    const anchorNote =
-      (ir ? ir.seqAnchorNote : (this.settings.midiin_anchor_note ?? this.settings.midiin_central_degree)) ?? 60;
+    const anchorNote = (ir ? ir.seqAnchorNote : this.settings.midiin_anchor_note) ?? 60;
     return (
       noteNumber -
       anchorNote +

@@ -21,7 +21,7 @@ const MpeInputSettings = ({
       Manager Channel
       <select
         class="sidebar-input"
-        value={settings.midiin_mpe_manager_ch || settings.mpe_manager_ch || "1"}
+        value={settings.midiin_mpe_manager_ch || "1"}
         onChange={(e) => {
           onChange("midiin_mpe_manager_ch", e.target.value);
           sessionStorage.setItem("midiin_mpe_manager_ch", e.target.value);

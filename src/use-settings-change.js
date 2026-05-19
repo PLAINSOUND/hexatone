@@ -173,7 +173,7 @@ const useSettingsChange = (
 
     // When the user manually changes the anchor note for a known controller, save it
     // to localStorage keyed by controller ID so it's restored on next connect.
-    if (key === "midiin_anchor_note" || key === "midiin_central_degree") {
+    if (key === "midiin_anchor_note") {
       const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
       // value IS the raw physical MIDI note number — store directly.
       if (ctrl) saveAnchor(ctrl, value, s);

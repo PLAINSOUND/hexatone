@@ -113,7 +113,6 @@ const GeneralInputSettings = ({
               { midiin_mapping_target: e.target.value },
             );
           }
-          sessionStorage.setItem("midiin_mapping_target", e.target.value);
         }}
       >
         <option value="hex_layout">MIDI to Hex Layout</option>

@@ -253,7 +253,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       deviceId: settings.device_id ?? 127,
       mapNumber: settings.tuning_map_number ?? 0,
       isFluidsynthMirror: false,
-      anchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree,
+      anchorNote: settings.midiin_anchor_note,
       sysexType: settings.sysex_type,
       pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
@@ -280,7 +280,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
       deviceId: settings.device_id ?? 127,
       mapNumber: (settings.fluidsynth_channel + 1) & 0x7f,
       isFluidsynthMirror: true,
-      anchorNote: settings.midiin_anchor_note ?? settings.midiin_central_degree,
+      anchorNote: settings.midiin_anchor_note,
       sysexType: settings.sysex_type,
       pitchBendRange: settings.midi_wheel_semitones ?? 2,
     });
@@ -770,7 +770,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
           outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
             ? outputMode.anchorNote
-            : (settings.midiin_anchor_note ?? settings.midiin_central_degree);
+            : settings.midiin_anchor_note;
         const midiMapping =
           outputMode.transportMode === "bulk_dynamic_map" ||
           outputMode.transportMode === "bulk_static_map"
@@ -879,13 +879,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (wantMpe && allowMpePlaybackOnSelectedPort) {
       const mpeKey = JSON.stringify([
         settings.mpe_device,
-        settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
+        settings.midiin_mpe_manager_ch,
         settings.mpe_lo_ch,
         settings.mpe_hi_ch,
         settings.fundamental,
         settings.reference_degree,
         settings.center_degree,
-        settings.midiin_anchor_note ?? settings.midiin_central_degree,
+        settings.midiin_anchor_note,
         settings.scale,
         effectiveMpeMode,
         effectiveMpePitchbendRange,
@@ -900,13 +900,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         promises.push(
           create_mpe_synth(
             midi.outputs.get(settings.mpe_device),
-            settings.midiin_mpe_manager_ch ?? settings.mpe_manager_ch,
+            settings.midiin_mpe_manager_ch,
             settings.mpe_lo_ch,
             settings.mpe_hi_ch,
             settings.fundamental,
             settings.reference_degree,
             settings.center_degree,
-            settings.midiin_anchor_note ?? settings.midiin_central_degree,
+            settings.midiin_anchor_note,
             settings.scale,
             effectiveMpeMode,
             effectiveMpePitchbendRange,

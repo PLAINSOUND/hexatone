@@ -28,7 +28,7 @@ export function passthroughCC(cc, value) {
   if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
     const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
     if (mpeOutput) {
-      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch ?? this.settings.mpe_manager_ch) || 1;
+      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch, 10) || 1;
       mpeOutput.sendControlChange(cc, value, { channels: managerCh });
     }
   }
@@ -48,7 +48,7 @@ export function passthroughChannelPressure(value) {
   if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
     const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
     if (mpeOutput) {
-      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch ?? this.settings.mpe_manager_ch) || 1;
+      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch, 10) || 1;
       mpeOutput.sendChannelAftertouch(value, { channels: managerCh, rawValue: true });
     }
   }
@@ -70,7 +70,7 @@ export function passthroughPitchBend(val14) {
   ) {
     const mpeOutput = WebMidi.getOutputById(this.settings.mpe_device);
     if (mpeOutput) {
-      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch ?? this.settings.mpe_manager_ch) || 1;
+      const managerCh = parseInt(this.settings.midiin_mpe_manager_ch, 10) || 1;
       mpeOutput.sendPitchBend(normalized, { channels: managerCh });
     }
   }
