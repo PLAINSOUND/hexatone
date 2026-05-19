@@ -424,6 +424,10 @@ const MidiOutputs = (props) => {
                         const ch = parseInt(e.target.value);
                         localStorage.setItem("fluidsynth_channel_pref", ch);
                         save(e.target.name, ch, onChange);
+                        const vol = parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "127");
+                        if (fluidsynthOutput && ch >= 0) {
+                          fluidsynthOutput.send([0xb0 | ch, 7, vol]);
+                        }
                       }}
                     >
                       {[...Array(16).keys()].map((i) => (

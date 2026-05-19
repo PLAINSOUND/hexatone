@@ -64,6 +64,35 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByText("Tuning Map ID = 7")).not.toBeNull();
   });
 
+  it("pushes the stored FluidSynth volume to the newly selected FluidSynth channel", () => {
+    localStorage.setItem("fluidsynth_volume_pref", "92");
+    const fluidOutput = {
+      id: "fluid-1",
+      name: "FluidSynth Virtual Port",
+      send: vi.fn(),
+    };
+    render(
+      <MidiOutputs
+        {...makeProps({
+          fluidsynth_device: "fluid-1",
+          fluidsynth_channel: 0,
+        })}
+        midi={{
+          outputs: new Map([
+            ["main-1", { id: "main-1", name: "Main Port" }],
+            ["fluid-1", fluidOutput],
+          ]),
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("FluidSynth Channel"), {
+      target: { value: "3" },
+    });
+
+    expect(fluidOutput.send).toHaveBeenCalledWith([0xb0 | 3, 7, 92]);
+  });
+
   it("disconnects the FluidSynth mirror when FluidSynth is selected as the main MTS port", () => {
     const onChange = vi.fn();
     render(
