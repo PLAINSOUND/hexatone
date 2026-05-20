@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
@@ -62,10 +63,11 @@ import {
 } from "./controllers/linnstrument-user-firmware.js";
 import { sendHakenMpeConfig } from "./controllers/hakenaudio.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
-import Settings from "./settings";
 import Blurb from "./blurb";
-import ManualSidebar from "./manual-sidebar.jsx";
 import LoadingIcon from "./loading-icon.jsx";
+
+const Settings = lazy(() => import("./settings/index.jsx"));
+const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
 
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless
 // the user has opted into "Restore last preset on page reload".
@@ -87,6 +89,14 @@ if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
 }
 
 export const Loading = () => <LoadingIcon />;
+
+function SidebarLoadingFallback() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", padding: "1.25em 0" }}>
+      <LoadingIcon />
+    </div>
+  );
+}
 
 function modulo(value, modulus) {
   if (!modulus) return value;
@@ -1954,66 +1964,68 @@ const App = () => {
           </em>
         </p>
 
-        {showManual ? (
-          <ManualSidebar onClose={() => setShowManual(false)} />
-        ) : (
-          <>
-            <Settings
-              presetChanged={presetChanged}
-              presets={presets}
-              onChange={onChange}
-              onAtomicChange={onAtomicChange}
-              midiLearnActive={midiLearnActive}
-              hakenPedalLearnActive={hakenPedalLearnActive}
-              onVolumeChange={onVolumeChange}
-              onOscLayerVolumeChange={onOscLayerVolumeChange}
-              onOscQuickReleaseChange={onOscQuickReleaseChange}
-              onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
-              onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
-              onImport={onImport}
-              importCount={importCount}
-              onLoadCustomPreset={onLoadCustomPreset}
-              onClearUserPresets={onClearUserPresets}
-              activeSource={activeSource}
-              activePresetName={activePresetName}
-              isPresetDirty={isPresetDirty}
-              currentModulationLibrary={modulationState?.history ?? presetModulationLibrary}
-              canCommitModulation={hasCommittableModulation}
-              onCommitCurrentModulation={onCommitCurrentModulation}
-              persistOnReload={persistOnReload}
-              setPersistOnReload={setPersistOnReload}
-              onRevertBuiltin={onRevertBuiltin}
-              onRevertUser={onRevertUser}
-              settings={settings}
-              heji_names={labelSettings.heji_names}
-              heji_names_table={tableHejiNames}
-              modulation_transposition_cents={currentFundamentalSummary?.cents ?? 0}
-              modulation_display_active={Math.abs(currentFundamentalSummary?.cents ?? 0) > 0.000001}
-              heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
-              heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
-              heji_supported={structuralSettings.heji_supported}
-              heji_warning={structuralSettings.heji_warning}
-              midi={midi}
-              midiAccess={midiAccess}
-              midiAccessError={midiAccessError}
-              enableWebMidi={ensureMidiAccess}
-              disableWebMidi={disableWebMidi}
-              midiTick={midiTick}
-              instruments={instruments}
-              keysRef={keysRef}
-              lumatoneRawPorts={lumatoneRawPorts}
-              exquisRawPorts={exquisRawPorts}
-              linnstrumentRawPorts={linnstrumentRawPorts}
-              hakenRawPorts={hakenRawPorts}
-              exquisLedStatus={exquisLedStatus}
-              snapshots={snapshots}
-              playingSnapshotId={playingSnapshotId}
-              onPlaySnapshot={onPlaySnapshot}
-              onDeleteSnapshot={onDeleteSnapshot}
-            />
-            <Blurb />
-          </>
-        )}
+        <Suspense fallback={<SidebarLoadingFallback />}>
+          {showManual ? (
+            <ManualSidebar onClose={() => setShowManual(false)} />
+          ) : (
+            <>
+              <Settings
+                presetChanged={presetChanged}
+                presets={presets}
+                onChange={onChange}
+                onAtomicChange={onAtomicChange}
+                midiLearnActive={midiLearnActive}
+                hakenPedalLearnActive={hakenPedalLearnActive}
+                onVolumeChange={onVolumeChange}
+                onOscLayerVolumeChange={onOscLayerVolumeChange}
+                onOscQuickReleaseChange={onOscQuickReleaseChange}
+                onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
+                onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
+                onImport={onImport}
+                importCount={importCount}
+                onLoadCustomPreset={onLoadCustomPreset}
+                onClearUserPresets={onClearUserPresets}
+                activeSource={activeSource}
+                activePresetName={activePresetName}
+                isPresetDirty={isPresetDirty}
+                currentModulationLibrary={modulationState?.history ?? presetModulationLibrary}
+                canCommitModulation={hasCommittableModulation}
+                onCommitCurrentModulation={onCommitCurrentModulation}
+                persistOnReload={persistOnReload}
+                setPersistOnReload={setPersistOnReload}
+                onRevertBuiltin={onRevertBuiltin}
+                onRevertUser={onRevertUser}
+                settings={settings}
+                heji_names={labelSettings.heji_names}
+                heji_names_table={tableHejiNames}
+                modulation_transposition_cents={currentFundamentalSummary?.cents ?? 0}
+                modulation_display_active={Math.abs(currentFundamentalSummary?.cents ?? 0) > 0.000001}
+                heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
+                heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
+                heji_supported={structuralSettings.heji_supported}
+                heji_warning={structuralSettings.heji_warning}
+                midi={midi}
+                midiAccess={midiAccess}
+                midiAccessError={midiAccessError}
+                enableWebMidi={ensureMidiAccess}
+                disableWebMidi={disableWebMidi}
+                midiTick={midiTick}
+                instruments={instruments}
+                keysRef={keysRef}
+                lumatoneRawPorts={lumatoneRawPorts}
+                exquisRawPorts={exquisRawPorts}
+                linnstrumentRawPorts={linnstrumentRawPorts}
+                hakenRawPorts={hakenRawPorts}
+                exquisLedStatus={exquisLedStatus}
+                snapshots={snapshots}
+                playingSnapshotId={playingSnapshotId}
+                onPlaySnapshot={onPlaySnapshot}
+                onDeleteSnapshot={onDeleteSnapshot}
+              />
+              <Blurb />
+            </>
+          )}
+        </Suspense>
         <div id="sidebar-spacer"></div>
       </nav>
     </div>
