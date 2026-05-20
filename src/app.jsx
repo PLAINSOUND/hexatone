@@ -53,21 +53,16 @@ import {
 import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
-import { ExquisLEDs } from "./controllers/exquis-leds.js";
-import { LumatoneLEDs } from "./controllers/lumatone-leds.js";
-import {
-  attachLinnstrumentLedDriver,
-  activateLinnstrumentUserFirmware,
-  deactivateLinnstrumentUserFirmware,
-  detachLinnstrumentLedDriver,
-} from "./controllers/linnstrument-user-firmware.js";
-import { sendHakenMpeConfig } from "./controllers/hakenaudio.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Blurb from "./blurb";
 import LoadingIcon from "./loading-icon.jsx";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
+const loadExquisLEDs = () => import("./controllers/exquis-leds.js");
+const loadLumatoneLEDs = () => import("./controllers/lumatone-leds.js");
+const loadLinnstrumentUserFirmware = () => import("./controllers/linnstrument-user-firmware.js");
+const loadHakenController = () => import("./controllers/hakenaudio.js");
 
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless
 // the user has opted into "Restore last preset on page reload".
@@ -1136,24 +1131,35 @@ const App = () => {
 
     if (exquisLedsRef.current) return;
 
-    const leds = new ExquisLEDs(
-      exquisRawPorts.output,
-      exquisRawPorts.input,
-      (ok, reason) => {
-        setExquisLedStatus(ok ? { ok: true } : { ok: false, reason });
-        if (ok && keysRef.current?.settings?.exquis_led_sync) {
-          keysRef.current.syncExquisLEDs();
-        }
-      },
-      settings.exquis_led_luminosity ?? 15,
-      settings.exquis_led_saturation ?? 1.3,
-      settings.midiin_mpe_input ?? true,
-    );
-    exquisLedsRef.current = leds;
-    bindControllerLedRefs(keysRef.current, { exquis: leds });
+    let disposed = false;
+
+    loadExquisLEDs().then(({ ExquisLEDs }) => {
+      if (disposed || exquisLedsRef.current) return;
+      const leds = new ExquisLEDs(
+        exquisRawPorts.output,
+        exquisRawPorts.input,
+        (ok, reason) => {
+          setExquisLedStatus(ok ? { ok: true } : { ok: false, reason });
+          if (ok && keysRef.current?.settings?.exquis_led_sync) {
+            keysRef.current.syncExquisLEDs();
+          }
+        },
+        settings.exquis_led_luminosity ?? 15,
+        settings.exquis_led_saturation ?? 1.3,
+        settings.midiin_mpe_input ?? true,
+      );
+      if (disposed) {
+        leds.exit();
+        return;
+      }
+      exquisLedsRef.current = leds;
+      bindControllerLedRefs(keysRef.current, { exquis: leds });
+    });
 
     return () => {
-      leds.exit();
+      disposed = true;
+      const leds = exquisLedsRef.current;
+      if (leds) leds.exit();
       exquisLedsRef.current = null;
       bindControllerLedRefs(keysRef.current, { exquis: null });
     };
@@ -1190,12 +1196,23 @@ const App = () => {
       return;
     }
 
-    const leds = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
-    lumatoneLedsRef.current = leds;
-    bindControllerLedRefs(keysRef.current, { lumatone: leds });
+    let disposed = false;
+
+    loadLumatoneLEDs().then(({ LumatoneLEDs }) => {
+      if (disposed) return;
+      const leds = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
+      if (disposed) {
+        leds.destroy();
+        return;
+      }
+      lumatoneLedsRef.current = leds;
+      bindControllerLedRefs(keysRef.current, { lumatone: leds });
+    });
 
     return () => {
-      leds.destroy();
+      disposed = true;
+      const leds = lumatoneLedsRef.current;
+      if (leds) leds.destroy();
       lumatoneLedsRef.current = null;
       bindControllerLedRefs(keysRef.current, { lumatone: null });
     };
@@ -1222,19 +1239,31 @@ const App = () => {
       return;
     }
 
+    let disposed = false;
+    let detach = null;
+
     // LED driver attachment lives with the UF module so LinnStrument-specific
     // lifecycle rules stay centralized.
-    const leds = attachLinnstrumentLedDriver(
-      linnstrumentRawPorts.output,
-      keysRef.current,
-    );
-    linnstrumentLedsRef.current = leds;
-    bindControllerLedRefs(keysRef.current, { linnstrument: leds });
+    loadLinnstrumentUserFirmware().then((module) => {
+      if (disposed) return;
+      const leds = module.attachLinnstrumentLedDriver(
+        linnstrumentRawPorts.output,
+        keysRef.current,
+      );
+      if (disposed) {
+        module.detachLinnstrumentLedDriver(leds, keysRef.current);
+        return;
+      }
+      detach = () => module.detachLinnstrumentLedDriver(leds, keysRef.current);
+      linnstrumentLedsRef.current = leds;
+      bindControllerLedRefs(keysRef.current, { linnstrument: leds });
+    });
 
     return () => {
+      disposed = true;
       linnstrumentLedsRef.current = null;
       bindControllerLedRefs(keysRef.current, { linnstrument: null });
-      detachLinnstrumentLedDriver(leds, keysRef.current);
+      if (detach) detach();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linnstrumentOutId]);
@@ -1244,19 +1273,31 @@ const App = () => {
     if (!output) return;
 
     let activatedKeys = null;
+    let deactivate = null;
+    let disposed = false;
     if (!linnstrumentUserFirmwareEligible) {
-      deactivateLinnstrumentUserFirmware(output, keysRef.current ?? null);
+      loadLinnstrumentUserFirmware().then((module) => {
+        if (disposed) return;
+        module.deactivateLinnstrumentUserFirmware(output, keysRef.current ?? null);
+      });
       return;
     }
 
     const id = setTimeout(() => {
-      activatedKeys = keysRef.current ?? null;
-      activateLinnstrumentUserFirmware(output, activatedKeys);
+      loadLinnstrumentUserFirmware().then((module) => {
+        if (disposed) return;
+        activatedKeys = keysRef.current ?? null;
+        deactivate = module.deactivateLinnstrumentUserFirmware;
+        module.activateLinnstrumentUserFirmware(output, activatedKeys);
+      });
     }, 50);
 
     return () => {
+      disposed = true;
       clearTimeout(id);
-      deactivateLinnstrumentUserFirmware(output, activatedKeys ?? keysRef.current ?? null);
+      if (deactivate) {
+        deactivate(output, activatedKeys ?? keysRef.current ?? null);
+      }
     };
   }, [linnstrumentOutput, linnstrumentUserFirmwareEligible]);
 
@@ -1265,7 +1306,9 @@ const App = () => {
     if (!output || !linnstrumentUserFirmwareEligible || typeof window === "undefined") return;
 
     const deactivateOnUnload = () => {
-      deactivateLinnstrumentUserFirmware(output, keysRef.current ?? null);
+      loadLinnstrumentUserFirmware().then((module) => {
+        module.deactivateLinnstrumentUserFirmware(output, keysRef.current ?? null);
+      });
     };
 
     window.addEventListener("pagehide", deactivateOnUnload);
@@ -1297,8 +1340,10 @@ const App = () => {
       1,
       Math.min(16, parseInt(settings.midiin_mpe_manager_ch ?? 1, 10) || 1),
     );
-    sendHakenMpeConfig(hakenOutput, managerChannel, {
-      bendRange: 96,
+    loadHakenController().then(({ sendHakenMpeConfig }) => {
+      sendHakenMpeConfig(hakenOutput, managerChannel, {
+        bendRange: 96,
+      });
     });
   }, [
     hakenOutId,

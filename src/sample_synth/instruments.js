@@ -182,7 +182,7 @@ export const instruments = [
       {
         fileName: "harp",
         name: "Harp",
-        gain: 1,
+        gain: 0.65,
         attack: 0,
         release: 4,
         loop: false,

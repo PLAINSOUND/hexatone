@@ -26,6 +26,8 @@ let sharedAudioContext = null;
 // previous note's decaying release tail — a short "peep").
 let decodedBufferCache = {};
 let decodedBufferCacheContext = null; // the AudioContext the cache was built for
+let rawSampleBufferCache = {};
+let rawSampleBufferPromises = {};
 
 // ─── iOS Detection ─────────────────────────────────────────────────────────────
 const isIOS =
@@ -123,6 +125,24 @@ const findInstrument = (fileName) => {
   return null;
 };
 
+const fetchRawSampleBuffers = async (fileName) => {
+  if (rawSampleBufferCache[fileName]) return rawSampleBufferCache[fileName];
+  if (!rawSampleBufferPromises[fileName]) {
+    rawSampleBufferPromises[fileName] = Promise.all([
+      fetch(`sounds/${fileName}110.mp3`).then((r) => r.arrayBuffer()),
+      fetch(`sounds/${fileName}220.mp3`).then((r) => r.arrayBuffer()),
+      fetch(`sounds/${fileName}440.mp3`).then((r) => r.arrayBuffer()),
+      fetch(`sounds/${fileName}880.mp3`).then((r) => r.arrayBuffer()),
+    ]).then((buffers) => {
+      rawSampleBufferCache[fileName] = buffers;
+      return buffers;
+    }).finally(() => {
+      delete rawSampleBufferPromises[fileName];
+    });
+  }
+  return rawSampleBufferPromises[fileName];
+};
+
 export const create_sample_synth = async (fileName, fundamental, reference_degree, scale) => {
   try {
     const instrument = findInstrument(fileName);
@@ -157,15 +177,6 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           })()
         : null;
     const sampleLoopPoints = instrument.loopPoints || [0, 0, 0, 0, 0, 0, 0, 0];
-
-    // ── Fetch raw ArrayBuffers now — no AudioContext needed, no gesture required
-    const [b110, b220, b440, b880] = await Promise.all([
-      fetch(`sounds/${fileName}110.mp3`).then((r) => r.arrayBuffer()),
-      fetch(`sounds/${fileName}220.mp3`).then((r) => r.arrayBuffer()),
-      fetch(`sounds/${fileName}440.mp3`).then((r) => r.arrayBuffer()),
-      fetch(`sounds/${fileName}880.mp3`).then((r) => r.arrayBuffer()),
-    ]);
-    const rawBuffers = [b110, b220, b440, b880];
 
     let decodedBuffers = null;
     let masterGain = null;
@@ -253,6 +264,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         if (decodedBufferCache[fileName]) {
           decodedBuffers = decodedBufferCache[fileName];
         } else {
+          const rawBuffers = await fetchRawSampleBuffers(fileName);
           // slice(0) copies the buffer — decodeAudioData consumes its argument
           decodedBuffers = await Promise.all(
             rawBuffers.map((buf) => sharedAudioContext.decodeAudioData(buf.slice(0))),
