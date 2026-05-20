@@ -23,6 +23,7 @@
 
 import { VoicePool } from "../voice_pool_oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
+import { traceMidiOutput } from "../debug/midi-jitter.js";
 
 // PB and noteOn are sent in the same synchronous call — the MIDI driver
 // processes them in FIFO order, so PB always arrives before noteOn.
@@ -339,11 +340,29 @@ function MpeHex(
     sendBend21(midi_output, c, this.bend21);
     this._lastSentBend21 = this.bend21;
     this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
+    traceMidiOutput("mpePitchbendOut", {
+      family: "mpe",
+      channel: this.channel,
+      note: this.note,
+      value: this.bend21,
+    });
   } else {
     sendBend(midi_output, c, this.bend);
     this._lastSentBend = this.bend;
+    traceMidiOutput("mpePitchbendOut", {
+      family: "mpe",
+      channel: this.channel,
+      note: this.note,
+      value: this.bend,
+    });
   }
   midi_output.send([0x90 + c, this.note, this.velocity]);
+  traceMidiOutput("mpeNoteOn", {
+    family: "mpe",
+    channel: this.channel,
+    note: this.note,
+    value: this.velocity,
+  });
 
   pool.setLastBend(this.channel, this.bend);
   pool.setLastNote(this.channel, this.note);
@@ -359,6 +378,12 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   const vel = release_velocity != null ? release_velocity : this.velocity;
   // Send noteOff immediately — no PB reset during the release tail
   this.midi_output.send([0x80 + c, this.note, vel]);
+  traceMidiOutput("mpeNoteOff", {
+    family: "mpe",
+    channel: this.channel,
+    note: this.note,
+    value: vel,
+  });
   // Mark RELEASING in pool (starts the guard timer)
   this.pool.noteOff(this.coords);
   // Guard against aftertouch arriving after release
@@ -422,6 +447,12 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
     const newBend = deviationToBend(deviation, this.bendRange);
     const newBend21 = deviationToBend21(deviation, this.bendRange);
     this.midi_output.send([0x80 + c, this.note, this.velocity]);
+    traceMidiOutput("mpeNoteOff", {
+      family: "mpe",
+      channel: this.channel,
+      note: this.note,
+      value: this.velocity,
+    });
     this.note = note;
     this.bend = newBend;
     this.bend21 = newBend21;
@@ -431,11 +462,29 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
       sendBend21(this.midi_output, c, this.bend21);
       this._lastSentBend21 = this.bend21;
       this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
+      traceMidiOutput("mpePitchbendOut", {
+        family: "mpe",
+        channel: this.channel,
+        note: this.note,
+        value: this.bend21,
+      });
     } else {
       sendBend(this.midi_output, c, this.bend);
       this._lastSentBend = this.bend;
+      traceMidiOutput("mpePitchbendOut", {
+        family: "mpe",
+        channel: this.channel,
+        note: this.note,
+        value: this.bend,
+      });
     }
     this.midi_output.send([0x90 + c, this.note, this.velocity]);
+    traceMidiOutput("mpeNoteOn", {
+      family: "mpe",
+      channel: this.channel,
+      note: this.note,
+      value: this.velocity,
+    });
   } else {
     // Same note, or bendOnly: send PB only, clamped to ±8192. No reattack.
     // When bendOnly, recompute deviation against the locked note (this.note) rather
@@ -452,10 +501,22 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
         sendBend21(this.midi_output, c, this.bend21);
         this._lastSentBend21 = this.bend21;
         this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
+        traceMidiOutput("mpePitchbendOut", {
+          family: "mpe",
+          channel: this.channel,
+          note: this.note,
+          value: this.bend21,
+        });
       }
     } else if (this._lastSentBend !== this.bend) {
       sendBend(this.midi_output, c, this.bend);
       this._lastSentBend = this.bend;
+      traceMidiOutput("mpePitchbendOut", {
+        family: "mpe",
+        channel: this.channel,
+        note: this.note,
+        value: this.bend,
+      });
     }
   }
 };
@@ -467,6 +528,12 @@ MpeHex.prototype.aftertouch = function (value, value14 = null) {
     const next = Math.max(0, Math.min(16256, value14));
     if (this._lastSentAftertouch14 === next) return;
     send14BitChannelPressure(this.midi_output, c, next);
+    traceMidiOutput("mpeAftertouchOut", {
+      family: "mpe",
+      channel: this.channel,
+      note: this.note,
+      value: next,
+    });
     this._lastSentAftertouch14 = next;
     this._lastSentAftertouch = (next >> 7) & 0x7f;
     return;
@@ -474,6 +541,12 @@ MpeHex.prototype.aftertouch = function (value, value14 = null) {
   const next = Math.max(0, Math.min(127, value));
   if (this._lastSentAftertouch === next && this._lastSentAftertouch14 == null) return;
   this.midi_output.send([0xd0 + c, next]);
+  traceMidiOutput("mpeAftertouchOut", {
+    family: "mpe",
+    channel: this.channel,
+    note: this.note,
+    value: next,
+  });
   this._lastSentAftertouch = next;
   this._lastSentAftertouch14 = null;
 };
@@ -491,6 +564,12 @@ MpeHex.prototype.cc74 = function (value, value14 = null) {
     const next = Math.max(0, Math.min(16256, value14));
     if (this._lastSentCc7414 === next) return;
     send14BitCc(this.midi_output, c, 74, next);
+    traceMidiOutput("mpeCC74Out", {
+      family: "mpe",
+      channel: this.channel,
+      note: this.note,
+      value: next,
+    });
     this._lastSentCc7414 = next;
     this._lastSentCc74 = (next >> 7) & 0x7f;
     return;
@@ -498,6 +577,12 @@ MpeHex.prototype.cc74 = function (value, value14 = null) {
   const next = Math.max(0, Math.min(127, value));
   if (this._lastSentCc74 === next && this._lastSentCc7414 == null) return;
   this.midi_output.send([0xb0 + c, 74, next]);
+  traceMidiOutput("mpeCC74Out", {
+    family: "mpe",
+    channel: this.channel,
+    note: this.note,
+    value: next,
+  });
   this._lastSentCc74 = next;
   this._lastSentCc7414 = null;
 };

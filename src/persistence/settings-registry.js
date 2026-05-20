@@ -246,14 +246,6 @@ export const SETTINGS_REGISTRY = [
     description: "Haken Continuum Raster to Notes hysteresis amount to reduce note flutter near boundaries",
   },
   {
-    key: "hakenaudio_out_port",
-    tier: "local",
-    type: "string",
-    default: "",
-    perController: true,
-    description: "Haken Continuum output port override for MPE+ configuration",
-  },
-  {
     key: "midi_passthrough",
     tier: "local",
     type: "bool",
@@ -388,6 +380,14 @@ export const SETTINGS_REGISTRY = [
   { key: "midi_wheel_semitones", tier: "session", type: "int", default: 2 },
 
   // ── LED sync ─────────────────────────────────────────────────────────
+  {
+    key: "hakenaudio_out_port",
+    tier: "session",
+    type: "string",
+    default: null,
+    perController: false,
+    description: "Manual output port override for Haken Continuum (null = auto-detect by name)",
+  },
   {
     key: "lumatone_out_port",
     tier: "session",

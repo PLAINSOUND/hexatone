@@ -877,7 +877,7 @@ export const CONTROLLER_REGISTRY = [
     description:
       "Isomorphic grid with 16 or 25 columns. " +
       "Hexatone activates User Firmware Mode to colour pads and assign geometry. " +
-      "On exit the device restores its own stored layout.",
+      "On exit device restores its stored layout.",
     // In User Firmware Mode ch encodes the row, so multiChannel=true.
     // In standard modes ch does not encode position, so the map uses ch=1.
     // Keys.js switches maps when userfw mode is active.
@@ -994,7 +994,7 @@ export const CONTROLLER_REGISTRY = [
     name: "Exquis (Intuitive Instruments)",
     detect: (name) => name.includes("exquis"),
     description:
-      "61-note hexagonal grid. Hexatone maps layout and colours automatically and toggles MPE mode. In MPE mode set Pitch Bend Range on Exquis to 48 (Settings 2, Encoder 2).",
+      "61-note hexagonal grid. Hexatone maps layout, colours, and toggles MPE mode. Set Exquis' MPE Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     descriptionScale:
       "61-note hexagonal grid. User may choose Exquis Layout and MPE/Polytouch mode manually on their device. Set Exquis Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     multiChannel: false,

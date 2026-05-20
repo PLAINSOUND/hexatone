@@ -1,6 +1,6 @@
 import { VoicePool } from "../voice_pool_nearest";
 import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
-import { debugLog, warnLog } from "../debug/logging.js";
+import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
 
 /**
  * osc_synth — sends note events directly to SuperCollider via WebSocket → OSC bridge.
@@ -21,6 +21,7 @@ import { debugLog, warnLog } from "../debug/logging.js";
  */
 
 const WS_URL_DEFAULT = "ws://localhost:8089";
+const SC_DISPATCH_PORT = 57100;
 const OSC_LAYER_PORTS = [57101, 57102, 57103, 57104];
 const NODE_ID_BASES = [100000, 300000, 500000, 700000];
 const MAX_NOTE_SLOTS = 128;
@@ -60,6 +61,31 @@ const releaseNode = (socket, port, nodeId, offVel) => {
 
 const freeTargetGroup = (socket, port, targetGroup) => {
   socket.send("/g_freeAll", [{ type: "i", value: targetGroup }], port);
+};
+
+const createOscJitterTracker = (socket) => {
+  const enabled = debugEnabled("oscjitter");
+  let seq = 0;
+  let lastBrowserPerf = null;
+
+  return (kind, voiceId = -1) => {
+    if (!enabled) return;
+    const now = performance.now();
+    const delta = lastBrowserPerf == null ? 0 : now - lastBrowserPerf;
+    lastBrowserPerf = now;
+    seq += 1;
+    socket.send(
+      "/hex/jitter",
+      [
+        { type: "i", value: seq },
+        { type: "s", value: kind },
+        { type: "f", value: now },
+        { type: "f", value: delta },
+        { type: "i", value: voiceId },
+      ],
+      SC_DISPATCH_PORT,
+    );
+  };
 };
 
 /**
@@ -236,6 +262,7 @@ export const create_osc_synth = async (
 ) => {
   const socket = getSocket(wsUrl);
   let shutdown = false;
+  const sendJitter = createOscJitterTracker(socket);
   const _volumes = [...volumes];
   const _mod = { value: 1.0 };
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
@@ -389,6 +416,7 @@ export const create_osc_synth = async (
         fundamental,
         degree0toRef_ratio ?? 1,
         _mod,
+        sendJitter,
         _quickRelease,
         _quickReleaseTime,
         _quickReleaseRasterOnly,
@@ -478,6 +506,7 @@ function OscHex(
   fundamental,
   degree0toRef_ratio,
   modRef,
+  sendJitter,
   quickReleaseRef,
   quickReleaseTimeRef,
   quickReleaseRasterOnlyRef,
@@ -498,6 +527,7 @@ function OscHex(
   this._fundamental = fundamental;
   this._degree0toRef = degree0toRef_ratio;
   this._modRef = modRef;
+  this._sendJitter = sendJitter;
   this._quickReleaseRef = quickReleaseRef;
   this._quickReleaseTimeRef = quickReleaseTimeRef;
   this._quickReleaseRasterOnlyRef = quickReleaseRasterOnlyRef;
@@ -530,6 +560,7 @@ OscHex.prototype.noteOn = function () {
     onVel: this._onVel,
     bend: this._bend,
   });
+  this._sendJitter?.("noteOn", this._notePlayed ?? this._slot ?? -1);
 
   for (let i = 0; i < this._synthNames.length; i++) {
     const slotState = this._slotState[i][slot];
@@ -580,6 +611,7 @@ OscHex.prototype.noteOff = function (release_velocity) {
     nodeIds: this._nodeIds,
     releaseVelocity: release_velocity,
   });
+  this._sendJitter?.("noteOff", this._notePlayed ?? slot ?? -1);
   if (slot == null) return;
   for (let i = 0; i < this._synthNames.length; i++) {
     const slotState = this._slotState[i][slot];
@@ -627,6 +659,7 @@ OscHex.prototype.retune = function (newCents) {
   if (this.release) return;
   this.cents = newCents;
   this._freq = this._centsToHz(newCents);
+  this._sendJitter?.("retune", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
     if (this._slot == null) continue;
     const slotState = this._slotState[i][this._slot];
@@ -651,6 +684,7 @@ OscHex.prototype.aftertouch = function (value, value14 = null) {
       : value / 127
   );
   this._filter = filter;
+  this._sendJitter?.("aftertouch", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
     if (this._slot == null) continue;
     const slotState = this._slotState[i][this._slot];
@@ -674,6 +708,7 @@ OscHex.prototype.pressure = function (value, value14 = null) {
 OscHex.prototype.pitchbend = function (value) {
   if (this.release) return;
   this._bend = value;
+  this._sendJitter?.("pitchbend", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
     if (this._slot == null) continue;
     const slotState = this._slotState[i][this._slot];
@@ -698,6 +733,7 @@ OscHex.prototype.cc74 = function (value, value14 = null) {
       ? Math.max(0, Math.min(16256, value14)) / 16256
       : value / 127
   );
+  this._sendJitter?.("cc74", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
     if (this._slot == null) continue;
     const slotState = this._slotState[i][this._slot];
@@ -718,6 +754,7 @@ OscHex.prototype.cc74 = function (value, value14 = null) {
 OscHex.prototype.modwheel = function (value) {
   const mod = midiCcToScParam(value);
   this._modRef.value = mod;
+  this._sendJitter?.("modwheel");
   for (const port of OSC_LAYER_PORTS) {
     this._socket.send(
       "/n_set",

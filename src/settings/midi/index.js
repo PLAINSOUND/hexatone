@@ -48,7 +48,6 @@ const MIDIio = (props) => {
       : null;
   const deviceName = connectedDevice?.name?.toLowerCase() ?? "";
   const controllerOverrideId = props.settings.midiin_controller_override || "auto";
-  const autoDetectActive = controllerOverrideId === "auto";
   // Detect 2D controller (null when device is disconnected or unrecognised).
   const detectedController = detectController(deviceName);
   const ctrl = resolveControllerSelection(controllerOverrideId, detectedController);
@@ -175,13 +174,6 @@ const MIDIio = (props) => {
     : [];
   const configurableMpeDefaultLo = configurableMpeMemberChannelBounds?.defaultLo ?? 2;
   const configurableMpeDefaultHi = configurableMpeMemberChannelBounds?.defaultHi ?? 8;
-  const autoDetectStatus = !autoDetectActive
-    ? null
-    : connectedDevice
-      ? detectedController
-        ? `Detected: ${detectedController.name}`
-        : "No known geometry detected"
-      : "Waiting for MIDI input";
   const LINN_BEND_RANGE_SINGLE_DEFAULT = "1/1";
   const LINN_BEND_RANGE_MULTI_DEFAULT = "64/63";
   const seedLinnstrumentBendRange = (target) => {
@@ -298,10 +290,10 @@ const MIDIio = (props) => {
   const hasBasicMidi = !!props.midi;
   const hasSysexMidi = props.midiAccess === "sysex";
   const controllerInfo =
-    ctrl && (scaleMode ? ctrl.descriptionScale : ctrl.description)
+    ctrl && (ctrl.description || ctrl.descriptionScale)
       ? {
         name: ctrl.name,
-        description: scaleMode ? ctrl.descriptionScale : ctrl.description,
+        description: ctrl.description || ctrl.descriptionScale,
       }
       : null;
 
@@ -323,7 +315,6 @@ const MIDIio = (props) => {
         settings={props.settings}
         controller={ctrl}
         controllerOverrideId={controllerOverrideId}
-        autoDetectStatus={autoDetectStatus}
         detectedController={detectedController}
         controllerInfo={controllerInfo}
         manualControllerOptions={MANUAL_CONTROLLER_OPTIONS}
@@ -622,14 +613,7 @@ const MIDIio = (props) => {
                     )}
                   </span>
                 </label>
-                {isHakenContinuum ? (
-                  <label>
-                    2D Geometry
-                    <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
-                      always active
-                    </span>
-                  </label>
-                ) : genericBypassesGeometry ? (
+                {!isHakenContinuum && (genericBypassesGeometry ? (
                   <label>
                     2D Geometry
                     <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
@@ -672,7 +656,7 @@ const MIDIio = (props) => {
                       }}
                     />
                   </label>
-                )}
+                ))}
 
                 {isLinnstrument && (
                   <LinnstrumentSettings

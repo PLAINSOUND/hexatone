@@ -54,7 +54,7 @@ const HakenContinuumSettings = ({
   return (
     <>
       <OutputPortPicker
-        label="Continuum Output"
+        label="Continuum Control Port"
         rawPorts={rawPorts}
         outputs={midiOutputs}
         overridePortId={settings.hakenaudio_out_port ?? null}

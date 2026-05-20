@@ -1,8 +1,8 @@
 import PropTypes from "prop-types";
 
 // This module owns the always-visible, controller-agnostic top section of the
-// MIDI Input settings panel: selected input port, mapping target, controller
-// geometry override, and auto-detect status. It does not render controller-
+// MIDI Input settings panel: selected input port, mapping target, and controller
+// geometry override. It does not render controller-
 // specific controls or scale-mode behavior beyond the input-mode selector.
 const GeneralInputSettings = ({
   hasBasicMidi,
@@ -10,7 +10,6 @@ const GeneralInputSettings = ({
   settings,
   controller,
   controllerOverrideId,
-  autoDetectStatus,
   detectedController,
   controllerInfo,
   manualControllerOptions,
@@ -85,15 +84,6 @@ const GeneralInputSettings = ({
       </label>
     )}
 
-    {autoDetectStatus && (
-      <label title="Shows whether Hexatone recognised a dedicated controller geometry for the selected MIDI input.">
-        Auto Detect
-        <span class="sidebar-input" style={{ color: detectedController ? "#669966" : "#888", fontStyle: "italic" }}>
-          {autoDetectStatus}
-        </span>
-      </label>
-    )}
-
     <label>
       Input Mode
       <select
@@ -128,7 +118,6 @@ GeneralInputSettings.propTypes = {
   settings: PropTypes.object.isRequired,
   controller: PropTypes.object,
   controllerOverrideId: PropTypes.string.isRequired,
-  autoDetectStatus: PropTypes.string,
   detectedController: PropTypes.object,
   controllerInfo: PropTypes.shape({
     name: PropTypes.string,

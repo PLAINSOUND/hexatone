@@ -91,16 +91,18 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByRole("option", { name: "Haken Continuum" })).toBeTruthy();
   });
 
-  it("shows auto-detect feedback when a known controller geometry is recognised", () => {
+  it("shows controller registry text when a known controller geometry is auto-detected", () => {
     const props = makeProps({
       midiin_controller_override: "auto",
     });
     render(<MIDIio {...props} />);
 
-    expect(screen.getByText("Detected: Roger Linn Design LinnStrument")).toBeTruthy();
+    expect(screen.getByText("Roger Linn Design LinnStrument")).toBeTruthy();
+    expect(screen.getByText(/Hexatone activates User Firmware Mode to colour pads and assign geometry/)).toBeTruthy();
+    expect(screen.queryByText("Detected: Roger Linn Design LinnStrument")).toBeNull();
   });
 
-  it("shows auto-detect feedback when no known controller geometry is recognised", () => {
+  it("does not show auto-detect status text when no known controller geometry is recognised", () => {
     const props = makeProps({
       midiin_controller_override: "auto",
     });
@@ -111,7 +113,20 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     render(<MIDIio {...props} />);
 
-    expect(screen.getByText("No known geometry detected")).toBeTruthy();
+    expect(screen.queryByText("No known geometry detected")).toBeNull();
+    expect(screen.queryByText("Waiting for MIDI input")).toBeNull();
+  });
+
+  it("keeps the same controller registry text visible in nearest-scale input mode", () => {
+    const props = makeProps({
+      midiin_controller_override: "auto",
+      midiin_mapping_target: "scale",
+    });
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText("Roger Linn Design LinnStrument")).toBeTruthy();
+    expect(screen.getByText(/Hexatone activates User Firmware Mode to colour pads and assign geometry/)).toBeTruthy();
   });
 
   it("constrains Haken Continuum MPE member-channel selectors to 2-14", () => {
@@ -229,7 +244,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByText("Raster Stability")).toBeTruthy();
   });
 
-  it("keeps Continuum 2D geometry always active", () => {
+  it("hides the generic 2D geometry status line for Haken Continuum", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",
       midiin_mapping_target: "hex_layout",
@@ -243,7 +258,8 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     render(<MIDIio {...props} />);
 
-    expect(screen.getByText("always active")).toBeTruthy();
+    expect(screen.queryByText("always active")).toBeNull();
+    expect(screen.queryByText("2D Geometry")).toBeNull();
     expect(screen.queryByLabelText("Sequential mode (bypass 2D geometry)")).toBeNull();
     expect(screen.queryByText("Pitch Bending Scale Factor")).toBeNull();
     expect(screen.getByText("X Glide Shaping")).toBeTruthy();

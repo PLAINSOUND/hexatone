@@ -15,6 +15,12 @@ import {
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
 const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color"]);
+const CONTROLLER_OUTPUT_OVERRIDE_KEYS = {
+  exquis: "exquis_out_port",
+  hakenaudio: "hakenaudio_out_port",
+  linnstrument: "linnstrument_out_port",
+  lumatone: "lumatone_out_port",
+};
 
 export function resizeScaleWithEquavePadding(settings, newSize) {
   const currentScale = Array.isArray(settings?.scale) ? settings.scale : [];
@@ -148,14 +154,22 @@ const useSettingsChange = (
 
     if (key === "midiin_controller_override") {
       const ctrl = getConnectedController(s.midiin_device, m, value);
+      const outputOverrideKey =
+        value === "auto" ? CONTROLLER_OUTPUT_OVERRIDE_KEYS[ctrl?.id] ?? null : null;
       setSettings((prev) => ({
         ...prev,
         midiin_controller_override: value,
+        ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
         ...(ctrl
-          ? loadAnchorSettingsUpdate(ctrl, { ...prev, midiin_controller_override: value })
+          ? loadAnchorSettingsUpdate(ctrl, {
+              ...prev,
+              midiin_controller_override: value,
+              ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
+            })
           : {}),
       }));
       sessionStorage.setItem("midiin_controller_override", value);
+      if (outputOverrideKey) sessionStorage.removeItem(outputOverrideKey);
       return;
     }
 

@@ -8,6 +8,7 @@ import { WebMidi } from "webmidi";
 import { keymap, notes } from "../midi_synth";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
+import { withMidiJitterInput } from "../debug/midi-jitter.js";
 
 const MIDI_INPUT_EVENT_NAMES = [
   "noteon",
@@ -549,78 +550,100 @@ export function setupMidiInput() {
         this._midiLearnCcCallback = null; // set by setMidiCcLearnMode()
 
         this.midiin_data.addListener("noteon", (e) => {
-          // MIDI learn: capture the next note-on as the new anchor, don't play it.
-          if (this._midiLearnCallback) {
-            // Pass both note number and channel so multi-channel controllers
-            // (e.g. Lumatone) can identify which block/channel the anchor is on.
-            this._midiLearnCallback(e.note.number, e.message.channel);
-            this._midiLearnCallback = null;
-            return;
-          }
-          debugLog("MIDImonitoring", "noteon", {
-            channel: e.message.channel,
-            note: e.note.number,
-            velocity: e.note.rawAttack,
-          });
-          if (isLinnstrumentUfInputActive.call(this)) {
-            const key = `${e.message.channel}.${e.note.number}`;
-            this._linnUfXLsb.delete(key);
-            this._linnUfXMsb.delete(key);
-            this._linnUfXCurrent.delete(key);
-            this._linnUfXFilterState.delete(key);
-            this._linnUfXAppliedState.delete(key);
-            this._linnUfXSmoothingState.delete(key);
-            this._linnUfXOnsetState.delete(key);
-            this._linnUfXReleaseState.delete(key);
-            this._linnUfXOnsetState.set(key, { startedAtMs: performance.now() });
-            this._linnUfXInitPending.add(key);
-          }
-          this.midinoteOn(e);
-          notes.played.unshift(e.note.number + 128 * (e.message.channel - 1));
+          withMidiJitterInput(
+            "noteOnIn",
+            { channel: e.message.channel, note: e.note.number, value: e.note.rawAttack },
+            () => {
+              // MIDI learn: capture the next note-on as the new anchor, don't play it.
+              if (this._midiLearnCallback) {
+                // Pass both note number and channel so multi-channel controllers
+                // (e.g. Lumatone) can identify which block/channel the anchor is on.
+                this._midiLearnCallback(e.note.number, e.message.channel);
+                this._midiLearnCallback = null;
+                return;
+              }
+              debugLog("MIDImonitoring", "noteon", {
+                channel: e.message.channel,
+                note: e.note.number,
+                velocity: e.note.rawAttack,
+              });
+              if (isLinnstrumentUfInputActive.call(this)) {
+                const key = `${e.message.channel}.${e.note.number}`;
+                this._linnUfXLsb.delete(key);
+                this._linnUfXMsb.delete(key);
+                this._linnUfXCurrent.delete(key);
+                this._linnUfXFilterState.delete(key);
+                this._linnUfXAppliedState.delete(key);
+                this._linnUfXSmoothingState.delete(key);
+                this._linnUfXOnsetState.delete(key);
+                this._linnUfXReleaseState.delete(key);
+                this._linnUfXOnsetState.set(key, { startedAtMs: performance.now() });
+                this._linnUfXInitPending.add(key);
+              }
+              this.midinoteOn(e);
+              notes.played.unshift(e.note.number + 128 * (e.message.channel - 1));
+            },
+          );
         });
 
         this.midiin_data.addListener("noteoff", (e) => {
-          debugLog("MIDImonitoring", "noteoff", {
-            channel: e.message.channel,
-            note: e.note.number,
-            velocity: e.note.rawRelease,
-          });
-          this.midinoteOff(e);
-          if (isLinnstrumentUfInputActive.call(this)) {
-            const key = `${e.message.channel}.${e.note.number}`;
-            this._linnUfXLsb.delete(key);
-            this._linnUfXMsb.delete(key);
-            this._linnUfXCurrent.delete(key);
-            this._linnUfXFilterState.delete(key);
-            this._linnUfXAppliedState.delete(key);
-            this._linnUfXSmoothingState.delete(key);
-            this._linnUfXOnsetState.delete(key);
-            this._linnUfXReleaseState.delete(key);
-            this._linnUfXInitPending.delete(key);
-          }
-          let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
-          if (index >= 0) {
-            let first_half = [];
-            first_half = notes.played.slice(0, index);
-            let second_half = [];
-            second_half = notes.played.slice(index);
-            second_half.shift();
-            let newarray = [];
-            notes.played = newarray.concat(first_half, second_half);
-          }
+          withMidiJitterInput(
+            "noteOffIn",
+            { channel: e.message.channel, note: e.note.number, value: e.note.rawRelease },
+            () => {
+              debugLog("MIDImonitoring", "noteoff", {
+                channel: e.message.channel,
+                note: e.note.number,
+                velocity: e.note.rawRelease,
+              });
+              this.midinoteOff(e);
+              if (isLinnstrumentUfInputActive.call(this)) {
+                const key = `${e.message.channel}.${e.note.number}`;
+                this._linnUfXLsb.delete(key);
+                this._linnUfXMsb.delete(key);
+                this._linnUfXCurrent.delete(key);
+                this._linnUfXFilterState.delete(key);
+                this._linnUfXAppliedState.delete(key);
+                this._linnUfXSmoothingState.delete(key);
+                this._linnUfXOnsetState.delete(key);
+                this._linnUfXReleaseState.delete(key);
+                this._linnUfXInitPending.delete(key);
+              }
+              let index = notes.played.lastIndexOf(e.note.number + 128 * (e.message.channel - 1)); // eliminate note_played from array of played notes when using internal synth
+              if (index >= 0) {
+                let first_half = [];
+                first_half = notes.played.slice(0, index);
+                let second_half = [];
+                second_half = notes.played.slice(index);
+                second_half.shift();
+                let newarray = [];
+                notes.played = newarray.concat(first_half, second_half);
+              }
+            },
+          );
         });
 
         this.midiin_data.addListener("keyaftertouch", (e) => {
-          debugLog("MIDImonitoring", "keyaftertouch", {
-            channel: e.message.channel,
-            note: e.message.dataBytes[0],
-            value: e.message.dataBytes[1],
-          });
-          // Polyphonic aftertouch for built-in synth — find the matching active hex
-          // by matching note + channel encoding, then ramp its gain smoothly
-          const note_played = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
-          const hex = this.state.activeMidi.get(note_played);
-          this._applyPolyAftertouch(hex, e.message.dataBytes[1]);
+          withMidiJitterInput(
+            "keyAftertouchIn",
+            {
+              channel: e.message.channel,
+              note: e.message.dataBytes[0],
+              value: e.message.dataBytes[1],
+            },
+            () => {
+              debugLog("MIDImonitoring", "keyaftertouch", {
+                channel: e.message.channel,
+                note: e.message.dataBytes[0],
+                value: e.message.dataBytes[1],
+              });
+              // Polyphonic aftertouch for built-in synth — find the matching active hex
+              // by matching note + channel encoding, then ramp its gain smoothly
+              const note_played = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
+              const hex = this.state.activeMidi.get(note_played);
+              this._applyPolyAftertouch(hex, e.message.dataBytes[1]);
+            },
+          );
         });
 
         // Universal CC listener — runs for all output modes.
@@ -644,28 +667,32 @@ export function setupMidiInput() {
         this._linnUfXReleaseState = new Map(); // low-pressure release tracking to avoid snap-back before note-off
         this._linnUfXInitPending = new Set();
         this.midiin_data.addListener("controlchange", (e) => {
-          const cc = e.message.dataBytes[0];
-          const value = e.message.dataBytes[1];
-          const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
-          const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
-          if (this.controller?.id === "hakenaudio" && HAKEN_IGNORED_TEST_CCS.has(cc)) return;
-          if (this._midiLearnCcCallback) {
-            this._midiLearnCcCallback(cc, e.message.channel, value);
-            this._midiLearnCcCallback = null;
-            return;
-          }
-          if (
-            this.controller?.id === "hakenaudio" &&
-            this.inputRuntime?.mpeInput &&
-            Number.isFinite(this.settings.hakenaudio_glide_flip_cc) &&
-            this.settings.hakenaudio_glide_flip_cc >= 0 &&
-            cc === this.settings.hakenaudio_glide_flip_cc
-          ) {
-            this._setHakenPedalGlideFlip?.(value >= 64);
-            return;
-          }
-          if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
-          debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
+          withMidiJitterInput(
+            "ccIn",
+            { channel: e.message.channel, cc: e.message.dataBytes[0], value: e.message.dataBytes[1] },
+            () => {
+              const cc = e.message.dataBytes[0];
+              const value = e.message.dataBytes[1];
+              const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
+              const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
+              if (this.controller?.id === "hakenaudio" && HAKEN_IGNORED_TEST_CCS.has(cc)) return;
+              if (this._midiLearnCcCallback) {
+                this._midiLearnCcCallback(cc, e.message.channel, value);
+                this._midiLearnCcCallback = null;
+                return;
+              }
+              if (
+                this.controller?.id === "hakenaudio" &&
+                this.inputRuntime?.mpeInput &&
+                Number.isFinite(this.settings.hakenaudio_glide_flip_cc) &&
+                this.settings.hakenaudio_glide_flip_cc >= 0 &&
+                cc === this.settings.hakenaudio_glide_flip_cc
+              ) {
+                this._setHakenPedalGlideFlip?.(value >= 64);
+                return;
+              }
+              if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
+              debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
 
           if (hakenMpePlusInputActive && cc === 87) {
             this._hakenMpePlusLsbByChannel.set(e.message.channel, value);
@@ -780,22 +807,28 @@ export function setupMidiInput() {
             }
           }
 
-          this._rememberControllerStateInSynth();
+              this._rememberControllerStateInSynth();
+            },
+          );
         });
 
         // Universal channel-pressure (aftertouch) listener.
         this.midiin_data.addListener("channelaftertouch", (e) => {
-          const value = e.message.dataBytes[0];
-          if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
-          debugLog("MIDImonitoring", "channelaftertouch", { channel: e.message.channel, value });
-          this._channelPressureValue = value;
-          const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
-          const hasHakenMpePlusLsb =
-            hakenMpePlusInputActive &&
-            this._hakenMpePlusLsbByChannel.has(e.message.channel);
-          const value14 = hasHakenMpePlusLsb
-            ? ((value & 0x7f) << 7) | consumeHakenMpePlusLsb.call(this, e.message.channel)
-            : null;
+          withMidiJitterInput(
+            "channelAftertouchIn",
+            { channel: e.message.channel, value: e.message.dataBytes[0] },
+            () => {
+              const value = e.message.dataBytes[0];
+              if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
+              debugLog("MIDImonitoring", "channelaftertouch", { channel: e.message.channel, value });
+              this._channelPressureValue = value;
+              const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
+              const hasHakenMpePlusLsb =
+                hakenMpePlusInputActive &&
+                this._hakenMpePlusLsbByChannel.has(e.message.channel);
+              const value14 = hasHakenMpePlusLsb
+                ? ((value & 0x7f) << 7) | consumeHakenMpePlusLsb.call(this, e.message.channel)
+                : null;
 
           if (this.inputRuntime.mpeInput) {
             if (value14 != null) this._hakenMpePressure14ByChannel.set(e.message.channel, value14);
@@ -832,7 +865,9 @@ export function setupMidiInput() {
             if (front && front.pressure) front.pressure(value);
           }
 
-          this._rememberControllerStateInSynth();
+              this._rememberControllerStateInSynth();
+            },
+          );
         });
 
         if (
@@ -902,20 +937,27 @@ export function setupMidiInput() {
 
         // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
         this.midiin_data.addListener("pitchbend", (e) => {
-          const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
-          if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
-          const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
-          const hasHakenMpePlusLsb =
-            hakenMpePlusInputActive &&
-            this._hakenMpePlusLsbByChannel.has(e.message.channel);
-          const value21 = hasHakenMpePlusLsb
-            ? ((val14 & 0x3fff) << 7) | consumeHakenMpePlusLsb.call(this, e.message.channel)
-            : null;
-          debugLog("MIDImonitoring", "pitchbend", {
-            channel: e.message.channel,
-            value14: val14,
-            value21: value21 ?? HAKEN_MPE_PLUS_CENTER_21,
-          });
+          withMidiJitterInput(
+            "pitchbendIn",
+            {
+              channel: e.message.channel,
+              value: e.message.dataBytes[0] + e.message.dataBytes[1] * 128,
+            },
+            () => {
+              const val14 = e.message.dataBytes[0] + e.message.dataBytes[1] * 128;
+              if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel)) return;
+              const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
+              const hasHakenMpePlusLsb =
+                hakenMpePlusInputActive &&
+                this._hakenMpePlusLsbByChannel.has(e.message.channel);
+              const value21 = hasHakenMpePlusLsb
+                ? ((val14 & 0x3fff) << 7) | consumeHakenMpePlusLsb.call(this, e.message.channel)
+                : null;
+              debugLog("MIDImonitoring", "pitchbend", {
+                channel: e.message.channel,
+                value14: val14,
+                value21: value21 ?? HAKEN_MPE_PLUS_CENTER_21,
+              });
 
           if (this.inputRuntime.mpeInput) {
             // Per-channel expression mode: pitch bend is carried on the input channel.
@@ -961,7 +1003,9 @@ export function setupMidiInput() {
             // Standard mode: raw PB to all outputs (MTS included).
             this._passthroughPitchBend(val14f);
           }
-          this._rememberControllerStateInSynth();
+              this._rememberControllerStateInSynth();
+            },
+          );
         });
 
         // MTS Single Note Tuning Change sysex listener — non-MPE scale mode only.
