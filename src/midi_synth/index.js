@@ -532,7 +532,7 @@ function createBulkDynamicTransport({
 }) {
   let currentEntries = entries.map((entry) => [...entry]);
 
-  // Pending rAF handle for retune coalescing — null when no dump is scheduled.
+  // Pending timer handle for retune coalescing — null when no dump is scheduled.
   let _retunePending = null;
 
   const sendBulkDump = () => {
@@ -562,7 +562,7 @@ function createBulkDynamicTransport({
     noteOn({ coords: _coords, carrier, triplet, velocity: noteVelocity }) {
       // Cancel any pending coalesced retune — the noteOn dump supersedes it.
       if (_retunePending !== null) {
-        cancelAnimationFrame(_retunePending);
+        clearTimeout(_retunePending);
         _retunePending = null;
       }
       currentEntries[carrier] = [...triplet];
@@ -576,13 +576,13 @@ function createBulkDynamicTransport({
     },
     retune({ carrier, triplet }) {
       // Update the map immediately so the latest pitch is always in currentEntries,
-      // but coalesce the bulk dump to at most one send per animation frame.
+      // but coalesce the bulk dump to at most one send per timer turn.
       currentEntries[carrier] = [...triplet];
       if (_retunePending === null) {
-        _retunePending = requestAnimationFrame(() => {
+        _retunePending = setTimeout(() => {
           _retunePending = null;
           sendBulkDump();
-        });
+        }, 0);
       }
     },
     setEntry({ carrier, triplet }) {

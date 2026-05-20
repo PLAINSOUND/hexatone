@@ -122,7 +122,7 @@ export const instruments = [
         velocity: true,
         velocity_floor: 0.18,
         velocity_exp: 1.5,
-        aftertouch: 1.5,
+        aftertouch: 1.6,
       },
       {
         fileName: "rhodes",
@@ -134,7 +134,7 @@ export const instruments = [
         velocity: true,
         velocity_floor: 0.2,
         velocity_exp: 1.5,
-        aftertouch: 1.5,
+        aftertouch: 1.6,
       },
       {
         fileName: "mkii",
@@ -146,7 +146,7 @@ export const instruments = [
         velocity: true,
         velocity_floor: 0.18,
         velocity_exp: 1.5,
-        aftertouch: 1.5,
+        aftertouch: 1.6,
       },
       {
         fileName: "HvP8_retuned",
@@ -218,13 +218,13 @@ export const instruments = [
       {
         fileName: "cello-viola",
         name: "Pizzicato",
-        gain: 0.36,
+        gain: 0.75,
         attack: 0,
         release: 4,
         loop: false,
         velocity: true,
         velocity_floor: 0.2,
-        velocity_exp: 1.3,
+        velocity_exp: 1.2,
         aftertouch: 0,
       },
       {

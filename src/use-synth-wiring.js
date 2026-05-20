@@ -1100,10 +1100,10 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     const output = WebMidi.getOutputById(settings.mts_bulk_device);
     if (!output) return;
 
-    let raf = requestAnimationFrame(() => {
+    let timer = setTimeout(() => {
       if (keysRef.current) keysRef.current.mtsSendMap(output);
-    });
-    return () => cancelAnimationFrame(raf);
+    }, 0);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is a stable ref, intentionally omitted
   }, [
     ready,
@@ -1164,11 +1164,11 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       ) {
         const output = WebMidi.getOutputById(settings.mts_bulk_device);
         if (output) {
-          requestAnimationFrame(() => {
+          setTimeout(() => {
             if (keysRef.current?.mtsSendMap) {
               keysRef.current.mtsSendMap(output, false, false);
             }
-          });
+          }, 0);
         }
       }
     },
