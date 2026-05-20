@@ -59,10 +59,22 @@ import LoadingIcon from "./loading-icon.jsx";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
-const loadExquisLEDs = () => import("./controllers/exquis-leds.js");
-const loadLumatoneLEDs = () => import("./controllers/lumatone-leds.js");
-const loadLinnstrumentUserFirmware = () => import("./controllers/linnstrument-user-firmware.js");
-const loadHakenController = () => import("./controllers/hakenaudio.js");
+const loadExquisLEDs = (() => {
+  let promise = null;
+  return () => (promise ??= import("./controllers/exquis-leds.js"));
+})();
+const loadLumatoneLEDs = (() => {
+  let promise = null;
+  return () => (promise ??= import("./controllers/lumatone-leds.js"));
+})();
+const loadLinnstrumentUserFirmware = (() => {
+  let promise = null;
+  return () => (promise ??= import("./controllers/linnstrument-user-firmware.js"));
+})();
+const loadHakenController = (() => {
+  let promise = null;
+  return () => (promise ??= import("./controllers/hakenaudio.js"));
+})();
 
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless
 // the user has opted into "Restore last preset on page reload".
@@ -1256,6 +1268,9 @@ const App = () => {
       }
       detach = () => module.detachLinnstrumentLedDriver(leds, keysRef.current);
       linnstrumentLedsRef.current = leds;
+      if (linnstrumentUserFirmwareEligible && keysRef.current) {
+        leds.userFirmwareActive = true;
+      }
       bindControllerLedRefs(keysRef.current, { linnstrument: leds });
     });
 
@@ -1266,7 +1281,7 @@ const App = () => {
       if (detach) detach();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linnstrumentOutId]);
+  }, [linnstrumentOutId, linnstrumentUserFirmwareEligible]);
 
   useEffect(() => {
     const output = linnstrumentOutput;

@@ -621,8 +621,10 @@ describe("App input runtime", () => {
 
     lastKeyboardProps.onKeysReady(keys);
 
-    const leds = attachLinnstrumentLedDriver.mock.results[0]?.value;
-    expect(leds?.userFirmwareActive).toBe(true);
+    await waitFor(() => {
+      const leds = attachLinnstrumentLedDriver.mock.results[0]?.value;
+      expect(leds?.userFirmwareActive).toBe(true);
+    });
   });
 
   it("re-evaluates Auto Detect on midiTick when the selected input appears later", async () => {
@@ -707,10 +709,11 @@ describe("App input runtime", () => {
 
     window.dispatchEvent(new Event("pagehide"));
 
-    expect(deactivateLinnstrumentUserFirmware).toHaveBeenCalledWith(
-      synthWiringState.linnstrumentRawPorts.output,
-      keys,
-    );
+    await waitFor(() =>
+      expect(deactivateLinnstrumentUserFirmware).toHaveBeenCalledWith(
+        synthWiringState.linnstrumentRawPorts.output,
+        keys,
+      ));
   });
 });
 
