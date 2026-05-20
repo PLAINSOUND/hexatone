@@ -328,21 +328,27 @@ export {
 } from "./tuning/modulation-frame-runtime.js";
 
 const ua = navigator.userAgent;
+const isFirefoxIOS = /FxiOS/.test(ua);
+const isChromiumToken = /Chrome|Chromium|CriOS|EdgiOS|EdgA|Edg\/|OPiOS/.test(ua);
 const isSafariOnly =
   /Safari/.test(ua) &&
-  !/Chrome/.test(ua) &&
-  !/Chromium/.test(ua) &&
+  !isChromiumToken &&
   !/Firefox/.test(ua) &&
-  !/FxiOS/.test(ua); // Firefox on iOS uses FxiOS token, not "Firefox"
+  !isFirefoxIOS; // Firefox on iOS uses FxiOS token, not "Firefox"
 const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS 13+ desktop mode
 const isMIDIWeb = /MIDIWeb/.test(ua);
 // Banner messages rendered in JSX (not alert()) so links are clickable.
 // showBanner: null = no banner, "ios" = iOS MIDI warning, "safari" = Safari warning.
 const BANNER_KEY_VERSION = "v1";
+const ROTATION_DEBUG_STORAGE_KEY = "hexatone_rotation_debug";
 const getBannerSessionKey = (bannerKey) =>
   `hexatone_banner_${bannerKey}_${BANNER_KEY_VERSION}_hidden_session`;
 const getBannerDismissKey = (bannerKey) =>
   `hexatone_banner_${bannerKey}_${BANNER_KEY_VERSION}_dismissed`;
+const getRotationDebugDefault = () =>
+  isIOS &&
+  typeof localStorage !== "undefined" &&
+  localStorage.getItem(ROTATION_DEBUG_STORAGE_KEY) === "true";
 
 function getBannerCandidate() {
   return isIOS && !isMIDIWeb ? "ios" : isSafariOnly ? "safari" : null;
@@ -382,6 +388,9 @@ const App = () => {
   const [ready, setReady] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
+  const [showRotationDebug, setShowRotationDebug] = useState(getRotationDebugDefault);
+  const [rotationDebugEvents, setRotationDebugEvents] = useState([]);
+  const [, setRotationSettleRevision] = useState(0);
   const [banner, setBanner] = useState(getInitialBanner);
   const [landscapeSafeSide, setLandscapeSafeSide] = useState("none");
   const [textEntryActive, setTextEntryActive] = useState(false);
@@ -390,6 +399,32 @@ const App = () => {
   const [keysReadyRevision, setKeysReadyRevision] = useState(0);
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
   const viewportBaselineRef = useRef(0);
+  const primeAudioFromUserInteraction = useCallback(() => {
+    if (userHasInteracted) return;
+    setUserHasInteracted(true);
+    if (synthRef.current?.prepare) synthRef.current.prepare();
+  }, [userHasInteracted]);
+
+  const noteRotationEvent = useCallback((source) => {
+    if (!isIOS) return;
+    setRotationSettleRevision((revision) => revision + 1);
+    if (!showRotationDebug) return;
+    const viewport = window.visualViewport;
+    const canvas = keysRef.current?.state?.canvas ?? null;
+    const event = {
+      at: new Date().toLocaleTimeString("en-GB", { hour12: false }) + `.${String(Date.now() % 1000).padStart(3, "0")}`,
+      source,
+      inner: `${window.innerWidth}x${window.innerHeight}`,
+      viewport: viewport
+        ? `${Math.round(viewport.width)}x${Math.round(viewport.height)} @ ${Math.round(viewport.offsetLeft)},${Math.round(viewport.offsetTop)}`
+        : "none",
+      canvas: canvas ? `${canvas.width}x${canvas.height}` : "none",
+      orientation: window.matchMedia("(orientation: landscape)").matches ? "landscape" : "portrait",
+      sidebarMode: window.matchMedia("(max-width: 480px)").matches ? "phone" : "desktop",
+      shortLandscape: window.matchMedia("(max-height: 500px) and (orientation: landscape)").matches ? "short" : "normal",
+    };
+    setRotationDebugEvents((events) => [...events.slice(-11), event]);
+  }, [showRotationDebug]);
 
   const hideBannerForSession = useCallback((bannerKey) => {
     sessionStorage.setItem(getBannerSessionKey(bannerKey), "true");
@@ -496,6 +531,23 @@ const App = () => {
     }
   }, [textEntryActive, viewportKeyboardOpen]);
 
+  useEffect(() => {
+    if (!isIOS) return undefined;
+    const onOrientationChange = () => noteRotationEvent("orientationchange");
+    const onWindowResize = () => noteRotationEvent("window.resize");
+    const onViewportResize = () => noteRotationEvent("visualViewport.resize");
+
+    noteRotationEvent("mount");
+    window.addEventListener("orientationchange", onOrientationChange);
+    window.addEventListener("resize", onWindowResize);
+    window.visualViewport?.addEventListener("resize", onViewportResize);
+    return () => {
+      window.removeEventListener("orientationchange", onOrientationChange);
+      window.removeEventListener("resize", onWindowResize);
+      window.visualViewport?.removeEventListener("resize", onViewportResize);
+    };
+  }, [noteRotationEvent]);
+
   const [settings, setSettings] = useQuery(
     buildQuerySpec({
       int: ExtractInt,
@@ -529,7 +581,7 @@ const App = () => {
 
   const { onImport, importCount, bumpImportCount } = useImport(settings, setSettings, {
     onReady: () => setReady(true),
-    onUserInteraction: () => setUserHasInteracted(true),
+    onUserInteraction: primeAudioFromUserInteraction,
   });
 
   const {
@@ -546,7 +598,7 @@ const App = () => {
     onUserScaleEdit,
   } = usePresets(settings, setSettings, {
     synthRef,
-    onUserInteraction: () => setUserHasInteracted(true),
+    onUserInteraction: primeAudioFromUserInteraction,
     bumpImportCount,
     bumpPresetRuntimeReset: () =>
       setPresetRuntimeResetRevision((revision) => revision + 1),
@@ -728,12 +780,13 @@ const App = () => {
   const longPressFired = useRef(false);
 
   const onSidebarTouchStart = useCallback((_e) => {
+    primeAudioFromUserInteraction();
     longPressFired.current = false;
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
       if (keysRef.current) keysRef.current.latchToggle();
     }, 400);
-  }, []);
+  }, [primeAudioFromUserInteraction]);
 
   const onSidebarTouchEnd = useCallback((e) => {
     clearTimeout(longPressTimer.current);
@@ -1530,10 +1583,7 @@ const App = () => {
     setModulationArmed(snapshot?.mode === "awaiting_target");
   }, []);
   const onModulationArmChange = useCallback((v) => setModulationArmed(v), []);
-  const onFirstInteraction = useCallback(() => {
-    setUserHasInteracted(true);
-    if (synthRef.current?.prepare) synthRef.current.prepare();
-  }, []);
+  const onFirstInteraction = primeAudioFromUserInteraction;
   const controlsHiddenForKeyboard = textEntryActive && viewportKeyboardOpen;
 
   return (
@@ -1544,7 +1594,6 @@ const App = () => {
       ]
         .filter(Boolean)
         .join(" ")}
-      onClick={() => setUserHasInteracted(true)}
     >
       {ready && isValid && (
         <Keyboard
@@ -1607,6 +1656,68 @@ const App = () => {
           </div>
         </div>
       )}
+      {showRotationDebug && (
+        <div
+          style={{
+            position: "fixed",
+            top: "0.5em",
+            right: "0.5em",
+            zIndex: 40,
+            width: "min(22rem, 92vw)",
+            maxHeight: "40vh",
+            overflow: "auto",
+            padding: "0.5em 0.65em",
+            borderRadius: "8px",
+            background: "rgba(250, 249, 248, 0.94)",
+            border: "1px solid rgba(120, 80, 80, 0.35)",
+            boxShadow: "0 2px 12px rgba(70, 40, 40, 0.12)",
+            color: "#330000",
+            fontSize: "11px",
+            lineHeight: 1.25,
+            fontFamily: "monospace",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "0.35em",
+              gap: "0.5em",
+            }}
+          >
+            <strong>Rotation Debug</strong>
+            <div style={{ display: "flex", gap: "0.35em" }}>
+              <button type="button" onClick={() => setRotationDebugEvents([])}>
+                Clear
+              </button>
+              <button type="button" onClick={() => setShowRotationDebug(false)}>
+                Hide
+              </button>
+            </div>
+          </div>
+          {rotationDebugEvents.map((event, index) => (
+            <div
+              key={`${event.at}-${event.source}-${index}`}
+              style={{
+                paddingTop: "0.3em",
+                marginTop: index === 0 ? 0 : "0.3em",
+                borderTop: index === 0 ? "none" : "1px solid rgba(120, 80, 80, 0.18)",
+              }}
+            >
+              <div>
+                {event.at} {event.source}
+              </div>
+              <div>inner {event.inner}</div>
+              <div>viewport {event.viewport}</div>
+              <div>canvas {event.canvas}</div>
+              <div>
+                {event.orientation} / {event.sidebarMode} / {event.shortLandscape}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <button
         id="sidebar-button"
         className={[
@@ -1615,7 +1726,10 @@ const App = () => {
         ]
           .filter(Boolean)
           .join(" ")}
-        onClick={() => setActive((s) => !s)}
+        onClick={() => {
+          primeAudioFromUserInteraction();
+          setActive((s) => !s);
+        }}
         onTouchStart={onSidebarTouchStart}
         onTouchEnd={onSidebarTouchEnd}
         onTouchMove={onSidebarTouchMove}

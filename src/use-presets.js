@@ -230,18 +230,18 @@ const usePresets = (
   }, []); // Mount-only: restores session preset on initial load; re-running on settings change would override user edits
 
   const presetChanged = async (e) => {
-    if (!e.target.value) return;
-    // Mark user interaction immediately — before any await — so that
-    // useSynthWiring sees userHasInteracted=true when it rebuilds the synth
-    // after setSettings, and can call prepare() within the same gesture window.
-    // On iOS, calling resume() outside the direct gesture turn causes a stall.
+    const presetName = e.target.value;
+    if (!presetName) return;
+    // Mark user interaction immediately so sample/audio warmup can begin in the
+    // current gesture turn, but do not await prepare() here — iOS select
+    // controls can lose the first committed value if the handler blocks before
+    // the controlled value/state update lands.
     onUserInteraction();
-    if (synthRef.current?.prepare) await synthRef.current.prepare();
     setActiveSource("builtin");
-    setActivePresetName(e.target.value);
+    setActivePresetName(presetName);
     sessionStorage.setItem("hexatone_preset_source", "builtin");
-    sessionStorage.setItem("hexatone_preset_name", e.target.value);
-    const presetData = findPreset(e.target.value);
+    sessionStorage.setItem("hexatone_preset_name", presetName);
+    const presetData = findPreset(presetName);
     const adjustedPreset = {
       ...presetData,
       hexSize: scaleHexSizeForScreen(presetData.hexSize),
@@ -253,6 +253,7 @@ const usePresets = (
     onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
     setSettings(() => merged);
+    synthRef.current?.prepare?.();
   };
 
   const onLoadCustomPreset = (preset) => {

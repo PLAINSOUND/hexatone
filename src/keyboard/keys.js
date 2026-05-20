@@ -2378,11 +2378,16 @@ class Keys {
     // Canvas is position:fixed top:0 left:0 — we set its size to exactly
     // the visible viewport, and offset by visualViewport.offsetLeft/Top
     // to handle any panning the browser may apply.
-    const newWidth = window.innerWidth;
-    const newHeight = window.innerHeight;
+    const viewport = window.visualViewport;
+    const newWidth = Math.max(1, Math.round(viewport?.width ?? window.innerWidth));
+    const newHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+    const offsetLeft = Math.round(viewport?.offsetLeft ?? 0);
+    const offsetTop = Math.round(viewport?.offsetTop ?? 0);
     const nextSignature = [
       newWidth,
       newHeight,
+      offsetLeft,
+      offsetTop,
       this.settings.rotation,
       this.settings.hexSize,
       this.settings.hexWidth,
@@ -2397,8 +2402,8 @@ class Keys {
 
     this.state.canvas.style.width = newWidth + "px";
     this.state.canvas.style.height = newHeight + "px";
-    this.state.canvas.style.left = "0px";
-    this.state.canvas.style.top = "0px";
+    this.state.canvas.style.left = offsetLeft + "px";
+    this.state.canvas.style.top = offsetTop + "px";
     this.state.canvas.style.marginLeft = "";
     this.state.canvas.style.marginTop = "";
 

@@ -181,6 +181,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     let decodedBuffers = null;
     let masterGain = null;
     let masterVolume = 1.0;
+    let preparePromise = null;
     // Last known mod wheel position (0–127). New notes initialize their filter
     // to this value so the first CC1 message never causes a discontinuous jump.
     let lastModWheel = 0;
@@ -203,73 +204,68 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       // Creates/resumes the AudioContext and decodes all samples so that noteOn
       // is fully synchronous and has no latency.
       prepare: async () => {
-        if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
-          try {
-            await sharedAudioContext.close();
-          } catch (e) {
-            warnLog("iOS: Failed to close stale AudioContext:", e.message);
+        if (preparePromise) return preparePromise;
+        preparePromise = (async () => {
+          if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
+            try {
+              await sharedAudioContext.close();
+            } catch (e) {
+              warnLog("iOS: Failed to close stale AudioContext:", e.message);
+            }
+            sharedAudioContext = null;
+            masterGain = null;
+            decodedBuffers = null;
           }
-          sharedAudioContext = null;
-          masterGain = null;
-          decodedBuffers = null;
-        }
 
-        if (!sharedAudioContext || sharedAudioContext.state === "closed") {
-          sharedAudioContext = createSharedAudioContext();
-          masterGain = null;
-        }
+          if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+            sharedAudioContext = createSharedAudioContext();
+            masterGain = null;
+          }
 
-        // iOS: Always try to resume on prepare (might be suspended after backgrounding)
-        if (
-          sharedAudioContext.state === "suspended" ||
-          sharedAudioContext.state === "interrupted"
-        ) {
-          try {
-            await sharedAudioContext.resume();
-            debugLog("audio", "AudioContext resumed, state:", sharedAudioContext.state);
-          } catch (e) {
-            warnLog("AudioContext autoplay blocked:", e.message);
-            // On iOS, we may need user to tap again - signal this somehow
-            if (isIOS) {
-              warnLog("iOS: Please tap somewhere to enable audio");
+          // iOS: Always try to resume on prepare (might be suspended after backgrounding)
+          if (
+            sharedAudioContext.state === "suspended" ||
+            sharedAudioContext.state === "interrupted"
+          ) {
+            try {
+              await sharedAudioContext.resume();
+              debugLog("audio", "AudioContext resumed, state:", sharedAudioContext.state);
+            } catch (e) {
+              warnLog("AudioContext autoplay blocked:", e.message);
+              if (isIOS) {
+                warnLog("iOS: Please tap somewhere to enable audio");
+              }
             }
           }
-        }
 
-        if (isIOS && sharedAudioContext.state !== "running") {
-          iosForceRecreateOnPrepare = true;
-        }
+          if (isIOS && sharedAudioContext.state !== "running") {
+            iosForceRecreateOnPrepare = true;
+          }
 
-        // Master gain node — all voices connect here before destination.
-        // Start at 0 and ramp to target volume over 15 ms so that any note
-        // scheduled at the exact moment the AudioContext resumes doesn't
-        // produce a click or blip before the graph has settled.
-        if (!masterGain) {
-          masterGain = sharedAudioContext.createGain();
-          masterGain.gain.value = 0;
-          masterGain.connect(sharedAudioContext.destination);
-          masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
-        }
-        // Invalidate the decoded-buffer cache if the AudioContext has been replaced
-        // (e.g. closed and recreated). AudioBuffers are context-bound and cannot
-        // be shared across context instances.
-        if (decodedBufferCacheContext !== sharedAudioContext) {
-          decodedBufferCache = {};
-          decodedBufferCacheContext = sharedAudioContext;
-        }
-        // Use cached buffers if available — avoids the async decode gap that
-        // would leave decodedBuffers = null on the first note after a synth
-        // rebuild (e.g. when a MIDI port is connected), which would otherwise
-        // cause the user to hear only the old note's decaying release tail.
-        if (decodedBufferCache[fileName]) {
-          decodedBuffers = decodedBufferCache[fileName];
-        } else {
-          const rawBuffers = await fetchRawSampleBuffers(fileName);
-          // slice(0) copies the buffer — decodeAudioData consumes its argument
-          decodedBuffers = await Promise.all(
-            rawBuffers.map((buf) => sharedAudioContext.decodeAudioData(buf.slice(0))),
-          );
-          decodedBufferCache[fileName] = decodedBuffers;
+          if (!masterGain) {
+            masterGain = sharedAudioContext.createGain();
+            masterGain.gain.value = 0;
+            masterGain.connect(sharedAudioContext.destination);
+            masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
+          }
+          if (decodedBufferCacheContext !== sharedAudioContext) {
+            decodedBufferCache = {};
+            decodedBufferCacheContext = sharedAudioContext;
+          }
+          if (decodedBufferCache[fileName]) {
+            decodedBuffers = decodedBufferCache[fileName];
+          } else {
+            const rawBuffers = await fetchRawSampleBuffers(fileName);
+            decodedBuffers = await Promise.all(
+              rawBuffers.map((buf) => sharedAudioContext.decodeAudioData(buf.slice(0))),
+            );
+            decodedBufferCache[fileName] = decodedBuffers;
+          }
+        })();
+        try {
+          await preparePromise;
+        } finally {
+          preparePromise = null;
         }
       },
 
