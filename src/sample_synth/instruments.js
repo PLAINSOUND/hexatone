@@ -139,14 +139,14 @@ export const instruments = [
       {
         fileName: "mkii",
         name: "MKII",
-        gain: 0.45,
+        gain: 0.5,
         attack: 0,
-        release: 0.035,
+        release: 0.005,
         loop: false,
         velocity: true,
         velocity_floor: 0.18,
-        velocity_exp: 1.4,
-        aftertouch: 1.4,
+        velocity_exp: 1.5,
+        aftertouch: 1.5,
       },
       {
         fileName: "HvP8_retuned",
@@ -218,7 +218,7 @@ export const instruments = [
       {
         fileName: "cello-viola",
         name: "Pizzicato",
-        gain: 0.34,
+        gain: 0.36,
         attack: 0,
         release: 4,
         loop: false,

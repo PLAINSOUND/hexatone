@@ -21,23 +21,26 @@
 
 @font-face {
   font-family: "Plainsound Sans";
-  src: url("./fonts/PlainsoundSans-Regular.otf");
+  src: url("./fonts/PlainsoundSans-Regular.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
   font-family: "Plainsound Sans";
-  src: url("./fonts/PlainsoundSans-Italic.otf");
+  src: url("./fonts/PlainsoundSans-Italic.woff2") format("woff2");
   font-weight: normal;
   font-style: italic;
+  font-display: swap;
 }
 
 @font-face {
   font-family: "Plainsound Sans";
-  src: url("./fonts/PlainsoundSans-Bold.otf");
+  src: url("./fonts/PlainsoundSans-Bold.woff2") format("woff2");
   font-weight: bold;
   font-style: normal;
+  font-display: swap;
 }
 
 :root {

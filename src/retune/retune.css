@@ -1,8 +1,9 @@
 @font-face {
   font-family: "Plainsound Sans";
-  src: url("../fonts/PlainsoundSans-Regular.otf");
+  src: url("../fonts/PlainsoundSans-Regular.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 
 html,
