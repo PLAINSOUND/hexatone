@@ -738,6 +738,28 @@ const App = () => {
   const onSidebarTouchMove = useCallback(() => {
     clearTimeout(longPressTimer.current);
   }, []);
+
+  useEffect(() => {
+    if (!keysRef.current || textEntryActive || viewportKeyboardOpen) return undefined;
+    let cancelled = false;
+    let raf1 = 0;
+    let raf2 = 0;
+    const refreshCanvas = () => {
+      if (cancelled || !keysRef.current) return;
+      keysRef.current.resizeHandler();
+      keysRef.current.scheduleImmediateGridRedraw?.();
+    };
+    raf1 = requestAnimationFrame(() => {
+      refreshCanvas();
+      raf2 = requestAnimationFrame(refreshCanvas);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [active, showManual, textEntryActive, viewportKeyboardOpen]);
+
   useEffect(() => {
     // Enable the app — triggers synth creation and makes the keyboard visible.
     setReady(true);
