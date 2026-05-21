@@ -51,7 +51,7 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByText("127")).not.toBeNull();
   });
 
-  it("shows the channel-derived FluidSynth tuning map ID below the channel selector", () => {
+  it("shows the channel-derived FluidSynth tuning map number below the channel selector", () => {
     render(
       <MidiOutputs
         {...makeProps({
@@ -61,7 +61,7 @@ describe("MidiOutputs FluidSynth independence", () => {
       />,
     );
 
-    expect(screen.getByText("Tuning Map ID = 7")).not.toBeNull();
+    expect(screen.getByText("Tuning Map Number = 7")).not.toBeNull();
   });
 
   it("pushes the stored FluidSynth volume to the newly selected FluidSynth channel", () => {
