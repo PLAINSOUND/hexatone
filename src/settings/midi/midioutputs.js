@@ -445,7 +445,7 @@ const MidiOutputs = (props) => {
                       marginBottom: "0.35em",
                     }}
                   >
-                    {`Tuning Map ID = ${(settings.fluidsynth_channel ?? 0) + 1}`}
+                    {`Tuning Map Number = ${(settings.fluidsynth_channel ?? 0) + 1}`}
                   </div>
                   <label>
                     FluidSynth Volume

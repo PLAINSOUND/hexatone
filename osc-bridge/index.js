@@ -25,12 +25,15 @@
 const { createServer } = require("node:http");
 const { createSocket } = require("node:dgram");
 const { createHash } = require("node:crypto");
+const { performance } = require("node:perf_hooks");
 
 const WS_PORT = 8089;
 const SC_HOST = "127.0.0.1";
 const SC_PORT = 57100; // sclang / dispatcher port in the Hexatone SC setup
+const SC_LANG_PORT = Number(process.env.SC_LANG_PORT || 57120);
 // Temporary OSC trace logging retained for future debugging.
 // let TRACE_SEQ = 0;
+let JITTER_LAST_BRIDGE_PERF = null;
 
 // ── UDP socket to sclang ─────────────────────────────────────────────────────
 
@@ -64,6 +67,29 @@ function sendOsc(address, args, port = SC_PORT) {
   udp.send(buf, port, SC_HOST, (err) => {
     if (err) console.error("[osc-bridge] UDP send error:", err.message);
   });
+}
+
+function oscArgValue(arg) {
+  if (arg && typeof arg === "object" && "value" in arg) return arg.value;
+  return arg;
+}
+
+function enrichJitterArgs(args) {
+  const bridgePerfNow = performance.now();
+  const bridgeDelta = JITTER_LAST_BRIDGE_PERF == null ? 0 : bridgePerfNow - JITTER_LAST_BRIDGE_PERF;
+  JITTER_LAST_BRIDGE_PERF = bridgePerfNow;
+  const seq = oscArgValue(args[0]);
+  const kind = oscArgValue(args[1]);
+  const browserDelta = oscArgValue(args[3]);
+  const voiceId = oscArgValue(args[4]);
+  console.log(
+    `[osc-bridge:jitter] seq=${seq} kind=${kind} voice=${voiceId} browserΔ=${Number(browserDelta).toFixed?.(3) ?? browserDelta} bridgeΔ=${bridgeDelta.toFixed(3)}`,
+  );
+  return [
+    ...args,
+    { type: "f", value: bridgePerfNow },
+    { type: "f", value: bridgeDelta },
+  ];
 }
 
 // ── WebSocket server (manual HTTP upgrade, no ws package) ────────────────────
@@ -146,8 +172,11 @@ server.on("upgrade", (req, socket, head) => {
         console.warn("[osc-bridge] Invalid message:", msg);
         continue;
       }
-
-      sendOsc(msg.address, msg.args, Number.isFinite(msg.port) ? msg.port : SC_PORT);
+      if (msg.address === "/hex/jitter") {
+        sendOsc(msg.address, enrichJitterArgs(msg.args), SC_LANG_PORT);
+      } else {
+        sendOsc(msg.address, msg.args, Number.isFinite(msg.port) ? msg.port : SC_PORT);
+      }
     }
   });
 

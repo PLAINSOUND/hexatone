@@ -40,7 +40,6 @@ CmdPeriod.doOnce(cleanup);
 // var TODO get rid of unneeded global/environment variables
 
 ~internal_synth = true;
-~ports_in = ["mts"]; ~ports_out = [];
 
 // ── MODE SWITCH ──────────────────────────────────────────────────────────────
 // true  = hexatone sends OSC directly via osc-bridge (no MIDI responders)
@@ -89,31 +88,34 @@ if (~use_osc) {
 	};
 
 	"OSC mode active — hexatone connects on ws://localhost:8089".postln;
-} {
+} { // if ~use_osc is false, activate MIDI on "MTS" labelled port
+	~ports_in = ["mts"]; ~ports_out = [];
+
 	"HelperFunctionsSynth.scd".loadRelative;
 	MIDIIn.addFuncTo(\sysex, ~mts_in); "MTS input activated".postln;
 	"MIDI responder mode active".postln;
+
+	// SYNTHS and TUNINGS MAPS are loaded from file: LumatoneSynths.scd
+	// MTS and MIDI functions are loaded from file: HelperFunctions.scd
+	// incoming real-time MTS, single note change works OK on macOS but
+	// WARNING: on Windows this can crash the interpreter
+	// (due to a currently unknown bug in PortMIDI implementation)
+
+
+	///////////////////////////
+	//	                    //
+	//   MIDI CONNECTIONS  //
+	//                    //
+	///////////////////////
+	// uses a helper Function to search for MIDI EndPoints by keywords
+
+	~findPorts.value;
+	"Active MIDIEndPoints:".postln;
+	"In: ".postln; ~midiin_ports.do ({ |item, index| "~midiin_ports[0][".post; index.post; "]: ".postln; item[0].postln });
+	"Out: ".postln; ~midiout_ports.do ({ |item, index| "~midiout_ports[0][".post; index.post; "]: ".postln; item[0].postln });
+	"".postln;
+
 };
-"".postln;
-
-// SYNTHS and TUNINGS MAPS are loaded from file: LumatoneSynths.scd
-// MTS and MIDI functions are loaded from file: HelperFunctions.scd
-// incoming real-time MTS, single note change works OK on macOS but
-// WARNING: on Windows this can crash the interpreter
-// (due to a currently unknown bug in PortMIDI implementation)
-
-
-///////////////////////////
-//	                    //
-//   MIDI CONNECTIONS  //
-//                    //
-///////////////////////
-// uses a helper Function to search for MIDI EndPoints by keywords
-
-~findPorts.value;
-"Active MIDIEndPoints:".postln;
-"In: ".postln; ~midiin_ports.do ({ |item, index| "~midiin_ports[0][".post; index.post; "]: ".postln; item[0].postln });
-"Out: ".postln; ~midiout_ports.do ({ |item, index| "~midiout_ports[0][".post; index.post; "]: ".postln; item[0].postln });
 "".postln;
 
 

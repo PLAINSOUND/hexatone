@@ -28,6 +28,7 @@
 	\osc_s_new,
 	\osc_n_set,
 	\osc_n_free,
+	\osc_jitter,
 	// Temporary tone debug responders retained for future use.
 	// \tone_on_debug,
 	// \tone_gate_debug,
@@ -86,6 +87,35 @@
 	(1..4).do { |i| ~servers[i].sendMsg(\n_free, nodeId) };
 }, '/n_free');
 
+~osc_jitter_last_ms = nil;
+
+// /hex/jitter — browser/bridge timing probe for OSC jitter measurement
+// Args:
+//   seq(i) kind(s) browserPerfMs(f) browserDeltaMs(f) voiceId(i)
+//   bridgePerfMs(f) bridgeDeltaMs(f)
+~osc_jitter = OSCFunc({ |msg, time, addr|
+	var seq, kind, browserPerf, browserDelta, voiceId, bridgePerf, bridgeDelta, scNowMs, scDelta;
+	seq = msg[1].asInteger;
+	kind = msg[2].asString;
+	browserPerf = msg[3].asFloat;
+	browserDelta = msg[4].asFloat;
+	voiceId = msg[5].asInteger;
+	bridgePerf = msg[6].asFloat;
+	bridgeDelta = msg[7].asFloat;
+	scNowMs = SystemClock.seconds * 1000;
+	scDelta = if(~osc_jitter_last_ms.notNil) { scNowMs - ~osc_jitter_last_ms } { 0 };
+	~osc_jitter_last_ms = scNowMs;
+	(
+		"OSCJIT seq=" ++ seq
+		++ " kind=" ++ kind
+		++ " voice=" ++ voiceId
+		++ " browserΔ=" ++ browserDelta.round(0.001)
+		++ "ms bridgeΔ=" ++ bridgeDelta.round(0.001)
+		++ "ms scΔ=" ++ scDelta.round(0.001)
+		++ "ms"
+	).postln;
+}, '/hex/jitter');
+
 // Temporary tone SendReply responders retained for future debugging.
 // These post in sclang even though note / gate messages are being sent directly
 // to the layer server ports, because SendReply travels from the synth node back
@@ -127,4 +157,4 @@
 // 	("toneSilence node=" ++ nodeId).postln;
 // }, '/toneSilence');
 
-"OSCResponders loaded — listening for /s_new, /n_set, /n_free".postln;
+"OSCResponders loaded — listening for /s_new, /n_set, /n_free, /hex/jitter".postln;
