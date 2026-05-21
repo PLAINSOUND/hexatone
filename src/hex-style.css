@@ -100,10 +100,6 @@ button {
   cursor: pointer;
 }
 
-table {
-  width: 100%;
-}
-
 a {
   color: var(--color-accent);
   text-decoration: none;
@@ -231,20 +227,8 @@ a:hover {
   .hide #sidebar-button,
   .show #sidebar-button { height: 2.5em; }
 
-  /* Button moves to the edge opposite any safe-area notch */
-  #sidebar-button.landscape-safe-left {
-    left: auto;
-    right: 0;
-    border-top-right-radius: 0;
-  }
-
-  #sidebar-button.landscape-safe-right {
-    left: 0;
-    right: auto;
-    border-top-left-radius: 0;
-  }
-
-  #sidebar-button:not(.landscape-safe-left):not(.landscape-safe-right) {
+  /* Keep the button hard against the left edge in compact landscape mode. */
+  #sidebar-button {
     left: 0;
     right: auto;
     border-top-left-radius: 0;
@@ -413,7 +397,6 @@ a:hover {
 
 #sustain-island,
 #modulation-island {
-  /* Extends .floating-pill-btn — positioned centred */
   position: fixed;
   bottom: 1.2em;
   z-index: 11;
@@ -1079,7 +1062,6 @@ a:hover {
 /* → app.jsx */
 
 #panic-button {
-  /* Extends .floating-pill-btn — anchored bottom-right of sustain */
   position: fixed;
   bottom: 1.2em;
   right: 4.5em;

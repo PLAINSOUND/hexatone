@@ -1,5 +1,4 @@
 import "normalize.css";
-import "./settings/settings.css";
 import "./usermanual.css";
 import { parseMarkdown, escapeHtml, manualMarkdown } from "./manual/markdown.js";
 

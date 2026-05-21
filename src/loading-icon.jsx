@@ -1,3 +1,6 @@
-import LoadingIcon from "./img/hex.svg?react";
+import LoadingIconSvg from "./img/hex.svg?react";
 
-export default LoadingIcon;
+export default function LoadingIcon(props) {
+  const className = props.className ? `app-loading-icon ${props.className}` : "app-loading-icon";
+  return <LoadingIconSvg {...props} className={className} />;
+}

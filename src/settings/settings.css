@@ -25,25 +25,20 @@
 /* ── 1. Global element overrides for sidebar context ──────── */
 /* → settings/index.jsx and all sub-panels                     */
 
-h1 {
+#sidebar h1 {
   text-align: center;
 }
 
-h1 a {
+#sidebar h1 a {
   color: var(--color-text);
 }
 
-/* Links inside settings panels — no blue, no underline */
-a {
-  color: var(--color-accent);
-  text-decoration: none;
+#sidebar #donation-link {
+  line-height: 1.3;
+  margin-bottom: 3em;
 }
 
-a:hover {
-  color: var(--color-accent-hot);
-}
-
-fieldset {
+#sidebar fieldset {
   margin-bottom: 0.5em;
   border: 1px solid var(--color-border-ui);
   border-radius: 3px;
@@ -85,7 +80,7 @@ fieldset {
   transform: translateY(0.04em);
 }
 
-label {
+#sidebar label {
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -94,7 +89,7 @@ label {
   line-height: 1.5em;
 }
 
-label > .sidebar-input {
+#sidebar label > .sidebar-input {
   margin-left: auto;
 }
 
@@ -123,45 +118,45 @@ label > .sidebar-input {
 
 /* Checkbox rows keep the existing left/right layout, but only the checkbox
    itself (and any other explicit controls inside the row) should be clickable. */
-label:has(input[type="checkbox"]) {
+#sidebar label:has(input[type="checkbox"]) {
   pointer-events: none;
 }
 
-label:has(input[type="checkbox"]) input,
-label:has(input[type="checkbox"]) button,
-label:has(input[type="checkbox"]) select,
-label:has(input[type="checkbox"]) textarea,
-label:has(input[type="checkbox"]) a,
-label:has(input[type="checkbox"]) [role="button"] {
+#sidebar label:has(input[type="checkbox"]) input,
+#sidebar label:has(input[type="checkbox"]) button,
+#sidebar label:has(input[type="checkbox"]) select,
+#sidebar label:has(input[type="checkbox"]) textarea,
+#sidebar label:has(input[type="checkbox"]) a,
+#sidebar label:has(input[type="checkbox"]) [role="button"] {
   pointer-events: auto;
 }
 
-table {
+#sidebar table {
   width: 100%;
   border-collapse: collapse;
 }
 
-table td,
-table th,
-table {
+#sidebar table td,
+#sidebar table th,
+#sidebar table {
   padding: 0;
   height: 1.7em;
   box-sizing: border-box;
 }
 
-table td > em {
+#sidebar table td > em {
   margin-left: 0.25em;
 }
 
 /* Top-align all table cells; the left (data) column drives row height */
-table td {
+#sidebar table td {
   vertical-align: top;
   padding-top: 0;
   padding-bottom: 0;
   position: relative;
 }
 
-textarea {
+#sidebar textarea {
   width: 100%;
   height: 8.5em;
   box-sizing: border-box;
@@ -172,8 +167,8 @@ textarea {
 }
 
 /* Text inputs and selects share the same base appearance */
-input[type="text"],
-select {
+#sidebar input[type="text"],
+#sidebar select {
   width: min(24em, 100%);
   height: 1.5em;
   box-sizing: border-box;
@@ -182,7 +177,7 @@ select {
   border-radius: 3px;
 }
 
-input[type="color"] {
+#sidebar input[type="color"] {
   height: 1.5em;
   width: 2.5em;
   box-sizing: border-box;
@@ -192,24 +187,24 @@ input[type="color"] {
   border-radius: 3px;
 }
 
-input[type="color"]::-webkit-color-swatch {
+#sidebar input[type="color"]::-webkit-color-swatch {
   border: none;
   border-radius: 3px;
 }
 
 /* Table text inputs only override width — base appearance comes from above */
-table input[type="text"] {
+#sidebar table input[type="text"] {
   width: 95%;
 }
 
 /* Out-of-range values shown with a red tint */
-input:out-of-range {
+#sidebar input:out-of-range {
   background-color: #fde8e8;
   color: var(--color-accent);
 }
 
 /* Custom checkbox — warm-grey, no browser chrome */
-input[type="checkbox"] {
+#sidebar input[type="checkbox"] {
   -webkit-appearance: none;
   appearance: none;
   width: 1.1em;
@@ -224,12 +219,12 @@ input[type="checkbox"] {
   margin: 0;
 }
 
-input[type="checkbox"]:checked {
+#sidebar input[type="checkbox"]:checked {
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
 
-input[type="checkbox"]:checked::after {
+#sidebar input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
   left: 0.2em;
@@ -242,13 +237,13 @@ input[type="checkbox"]:checked::after {
   transform: rotate(45deg);
 }
 
-input[type="checkbox"]:focus {
+#sidebar input[type="checkbox"]:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(153, 0, 0, 0.25);
 }
 
 /* Range slider — warm-grey, no browser chrome */
-input[type="range"] {
+#sidebar input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   width: 50%;
@@ -260,28 +255,28 @@ input[type="range"] {
   vertical-align: middle;
 }
 
-input[type="range"]:focus {
+#sidebar input[type="range"]:focus {
   outline: none;
 }
 
-input[type="range"]::-webkit-slider-runnable-track {
+#sidebar input[type="range"]::-webkit-slider-runnable-track {
   -webkit-appearance: none;
   height: 3px;
   background: var(--color-border-ui, #c8b8b8);
   border-radius: 2px;
 }
 
-input[type="range"]::-webkit-slider-container {
+#sidebar input[type="range"]::-webkit-slider-container {
   -webkit-appearance: none;
 }
 
-input[type="range"]::-moz-range-track {
+#sidebar input[type="range"]::-moz-range-track {
   height: 3px;
   background: var(--color-border-ui, #c8b8b8);
   border-radius: 2px;
 }
 
-input[type="range"]::-webkit-slider-thumb {
+#sidebar input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 0.85em;
   height: 0.85em;
@@ -292,7 +287,7 @@ input[type="range"]::-webkit-slider-thumb {
   transition: background 0.1s ease;
 }
 
-input[type="range"]::-moz-range-thumb {
+#sidebar input[type="range"]::-moz-range-thumb {
   width: 0.85em;
   height: 0.85em;
   border-radius: 50%;
@@ -301,8 +296,8 @@ input[type="range"]::-moz-range-thumb {
   transition: background 0.1s ease;
 }
 
-input[type="range"]:hover::-webkit-slider-thumb,
-input[type="range"]:hover::-moz-range-thumb {
+#sidebar input[type="range"]:hover::-webkit-slider-thumb,
+#sidebar input[type="range"]:hover::-moz-range-thumb {
   background: var(--color-accent-hot);
 }
 
@@ -405,23 +400,23 @@ input[type="range"]:hover::-moz-range-thumb {
 
 /* Colour cell as right-hand side of a label row (not inside a table cell).
    Fixed percentage margin positions it relative to sidebar width. */
-label .color-cell {
+#sidebar label .color-cell {
   flex-shrink: 0;
   width: auto;
   margin-left: 40%;
 }
 
 @media (max-width: 550px) {
-  label .color-cell { margin-left: 30%; }
+  #sidebar label .color-cell { margin-left: 30%; }
 }
 
 /* Variant used in colors.js top row — margin-left: auto right-aligns on all widths */
-label .color-cell--label-rhs {
+#sidebar label .color-cell--label-rhs {
   margin-left: auto;
 }
 
 /* Always show the hex input text when the cell is inside a label (colors panel) */
-label .color-cell .color-input {
+#sidebar label .color-cell .color-input {
   display: block;
   width: 6.3em !important;
   flex: none;
@@ -671,12 +666,6 @@ td.scale-name-col input { width: 100%; }
 .reference-degree-row td:first-child { border-radius: 4px 0 0 4px; }
 .reference-degree-row td:last-child  { border-radius: 0 4px 4px 0; }
 
-/* Individual cell highlight — used for degree-0 right-side columns only */
-.reference-degree-cell { background-color: #fff8a8; }
-
-.reference-degree-cell:first-child { border-radius: 4px 0 0 4px; }
-.reference-degree-cell:last-child  { border-radius: 0 4px 4px 0; }
-
 
 /* ── 4c. Sidebar input alignment ──────────────────────────── */
 
@@ -701,7 +690,7 @@ td.scale-frequency-col input.frequency-input {
 /* Equave row — auto-generated, read-only appearance */
 input.equiv-cell,
 input.equiv-cell:disabled,
-table input:disabled {
+#sidebar table input:disabled {
   color: #bb9999;
   border-color: #e8d8d8;
   background: transparent;
@@ -753,13 +742,6 @@ table input:disabled {
 
 .heji-name-cell--modulated {
   color: #9a2f2f;
-}
-
-/* Tonic cue label shown beside degree 0 */
-.tonic-label {
-  line-height: 1.5;
-  color: #996666;
-  font-size: 0.85em;
 }
 
 
@@ -848,12 +830,6 @@ table input:disabled {
 .tune-delta.tune-comparing {
   color: #660000;
   font-style: italic;
-}
-
-.tune-actions {
-  display: flex;
-  gap: 3px;
-  align-items: center;
 }
 
 .tune-btn {
@@ -1161,12 +1137,12 @@ table input:disabled {
   color: #660000;
 }
 
-.manual-sidebar__updated {
+#sidebar .manual-sidebar__updated {
   margin: 0.25em 0 0;
   color: #774444;
 }
 
-.manual-sidebar__toc {
+#sidebar .manual-sidebar__toc {
   margin: 0;
   padding-left: 1.2em;
   display: grid;
@@ -1176,11 +1152,11 @@ table input:disabled {
   column-gap: 1.2em;
 }
 
-.manual-sidebar__toc li {
+#sidebar .manual-sidebar__toc li {
   margin-bottom: 0.25em;
 }
 
-.manual-sidebar__toc-button {
+#sidebar .manual-sidebar__toc-button {
   width: 100%;
   padding: 0;
   border: none;
@@ -1189,54 +1165,54 @@ table input:disabled {
   text-align: left;
 }
 
-.manual-sidebar__toc-button:hover {
+#sidebar .manual-sidebar__toc-button:hover {
   color: var(--color-accent);
 }
 
-.manual-sidebar__toc-button--active {
+#sidebar .manual-sidebar__toc-button--active {
   color: var(--color-accent);
   font-weight: bold;
 }
 
-.manual-sidebar__section {
+#sidebar .manual-sidebar__section {
   scroll-margin-top: 0.75em;
 }
 
-.manual-sidebar__footer {
+#sidebar .manual-sidebar__footer {
   margin: 0.35em 0 0.8em;
 }
 
-.manual-sidebar__content h3 {
+#sidebar .manual-sidebar__content h3 {
   margin: 1em 0 0.45em;
   font-size: 1em;
 }
 
-.manual-sidebar__content p,
-.manual-sidebar__content ul,
-.manual-sidebar__content ol,
-.manual-sidebar__content table,
-.manual-sidebar__content pre,
-.manual-sidebar__content hr {
+#sidebar .manual-sidebar__content p,
+#sidebar .manual-sidebar__content ul,
+#sidebar .manual-sidebar__content ol,
+#sidebar .manual-sidebar__content table,
+#sidebar .manual-sidebar__content pre,
+#sidebar .manual-sidebar__content hr {
   margin-top: 0;
   margin-bottom: 0.75em;
 }
 
-.manual-sidebar__content ul,
-.manual-sidebar__content ol {
+#sidebar .manual-sidebar__content ul,
+#sidebar .manual-sidebar__content ol {
   padding-left: 1.2em;
 }
 
-.manual-sidebar__content li > ul,
-.manual-sidebar__content li > ol {
+#sidebar .manual-sidebar__content li > ul,
+#sidebar .manual-sidebar__content li > ol {
   margin-top: 0.3em;
   margin-bottom: 0;
 }
 
-.manual-sidebar__content li + li {
+#sidebar .manual-sidebar__content li + li {
   margin-top: 0.2em;
 }
 
-.manual-sidebar__content code {
+#sidebar .manual-sidebar__content code {
   padding: 0.1em 0.3em;
   border-radius: 999px;
   background: rgba(153, 0, 0, 0.07);
@@ -1244,7 +1220,7 @@ table input:disabled {
   font-size: 0.92em;
 }
 
-.manual-sidebar__content pre {
+#sidebar .manual-sidebar__content pre {
   overflow-x: auto;
   padding: 0.65em;
   border: 1px solid var(--color-border-ui);
@@ -1252,12 +1228,12 @@ table input:disabled {
   background: #f4efef;
 }
 
-.manual-sidebar__content pre code {
+#sidebar .manual-sidebar__content pre code {
   padding: 0;
   background: transparent;
 }
 
-.manual-sidebar__content table {
+#sidebar .manual-sidebar__content table {
   display: block;
   width: 100%;
   height: auto;
@@ -1266,9 +1242,9 @@ table input:disabled {
   border-collapse: collapse;
 }
 
-.manual-sidebar__content table,
-.manual-sidebar__content th,
-.manual-sidebar__content td {
+#sidebar .manual-sidebar__content table,
+#sidebar .manual-sidebar__content th,
+#sidebar .manual-sidebar__content td {
   padding: 0.35em 0.5em;
   height: auto;
   border: 1px solid var(--color-border-ui);
@@ -1277,16 +1253,16 @@ table input:disabled {
   vertical-align: top;
 }
 
-.manual-sidebar__content tr {
+#sidebar .manual-sidebar__content tr {
   height: auto;
 }
 
-.manual-sidebar__content th {
+#sidebar .manual-sidebar__content th {
   background: #f4efef;
 }
 
 @media (max-width: 640px) {
-  .manual-sidebar__toc {
+  #sidebar .manual-sidebar__toc {
     grid-template-columns: 1fr;
     grid-template-rows: none;
     grid-auto-flow: row;

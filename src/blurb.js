@@ -44,7 +44,8 @@ const Blurb = () => (
     <p id="donation-link">
       <b>
         Support our open access content with a <a href="https://ko-fi.com/plainsound">donation</a>.
-      </b>
+      </b><br />
+        cc 2026 <a href="https://www.plainsound.org">PLAINSOUND MUSIC EDITION</a>
     </p>
   </div>
 );
