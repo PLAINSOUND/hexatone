@@ -306,7 +306,7 @@ export const SETTINGS_REGISTRY = [
 
   // ── Sample synth ─────────────────────────────────────────────────────────────
   { key: "output_sample", tier: "session", type: "bool", default: true },
-  { key: "instrument", tier: "session", type: "string", default: "wurli" },
+  { key: "instrument", tier: "session", type: "string", default: "WMRIByzantineST" },
 
   // ── MTS real-time output ──────────────────────────────────────────────────────
   { key: "output_mts", tier: "session", type: "bool", default: false },
