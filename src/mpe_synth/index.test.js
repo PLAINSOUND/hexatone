@@ -223,6 +223,7 @@ describe("mpe_synth first-note ordering", () => {
     expect(midi_output.send.mock.calls[0][0][0] & 0xf0).toBe(0xe0);
     expect(midi_output.send.mock.calls[1][0][0] & 0xf0).toBe(0x90);
   });
+
 });
 
 describe("mpe_synth controller-state replay", () => {

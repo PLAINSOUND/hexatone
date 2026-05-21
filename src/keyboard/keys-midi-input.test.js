@@ -2433,6 +2433,42 @@ describe("Keys MIDI input integration", () => {
     expect(hex.retune.mock.calls[0][1]).toBe(true);
   });
 
+  it("chooses an alternate visible coord for a new Continuum pitch-bending touch when the preferred coord is already held by another channel", () => {
+    const makeHex = vi.fn((coords) => ({
+      coords,
+      cents: 0,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+    }));
+    const keys = createKeys(
+      { midiin_controller_override: "hakenaudio" },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        hakenXGlideMode: "pitch_bending",
+      },
+      { makeHex },
+    );
+    keys.controller = { id: "hakenaudio" };
+    const preferred = new Point(0, 0);
+    const alternate = new Point(4, 0);
+    keys.coordResolver.coordForSteps = vi.fn(() => preferred);
+    keys.coordResolver.stepsToFullyVisibleCoords = vi.fn(() => [preferred, alternate]);
+    keys.coordResolver.stepsToVisibleCoords = vi.fn(() => [preferred, alternate]);
+    keys.coordResolver._displayScreen = vi.fn((coords) => ({ x: coords.x, y: coords.y }));
+    keys.state.activeMidi.set(60 + 128 * (6 - 1), {
+      coords: preferred,
+      release: false,
+      _inputChannel: 6,
+    });
+
+    keys.midinoteOn(makeMidiEvent(60, 3));
+
+    expect(makeHex).toHaveBeenCalledTimes(1);
+    expect(makeHex.mock.calls[0][0]).toEqual(alternate);
+  });
+
   it("routes Continuum raster X glide through discrete retrigger handling instead of continuous retune", () => {
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },

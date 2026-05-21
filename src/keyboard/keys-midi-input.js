@@ -212,6 +212,58 @@ function ensureActiveMidiChannelEntry(channel) {
   return entry;
 }
 
+function isHakenPitchBendingCollisionAvoidanceActive(keys) {
+  return (
+    keys.controller?.id === "hakenaudio" &&
+    keys.inputRuntime?.mpeInput &&
+    resolveHakenXGlideMode(keys.inputRuntime) === "pitch_bending"
+  );
+}
+
+function activeHexAtCoords(keys, coords) {
+  for (const hex of keys._allActiveHexes()) {
+    if (!hex || hex.release || !hex.coords) continue;
+    if (hex.coords.equals(coords)) return hex;
+  }
+  return null;
+}
+
+function chooseAlternateCoordsForStep(keys, steps, inputAddress, preferredCoords) {
+  const fullyVisible = keys.coordResolver.stepsToFullyVisibleCoords(steps);
+  const candidates = fullyVisible.length > 0
+    ? fullyVisible
+    : keys.coordResolver.stepsToVisibleCoords(steps);
+  if (candidates.length <= 1) return preferredCoords;
+
+  const available = candidates.filter((coords) => !keys._isCoordActive(coords));
+  if (available.length === 0) return preferredCoords;
+  if (!keys._isCoordActive(preferredCoords)) return preferredCoords;
+
+  const targetScreen = keys.coordResolver._displayScreen(preferredCoords);
+  let best = available[0];
+  let bestDist = Infinity;
+  for (const coords of available) {
+    const screen = keys.coordResolver._displayScreen(coords);
+    const dx = screen.x - targetScreen.x;
+    const dy = screen.y - targetScreen.y;
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = coords;
+    }
+  }
+  return best;
+}
+
+function maybeResolveDistinctHakenCoords(keys, coords, steps, inputAddress) {
+  if (!isHakenPitchBendingCollisionAvoidanceActive(keys)) return coords;
+  if (steps == null || !coords || !inputAddress) return coords;
+  const occupyingHex = activeHexAtCoords(keys, coords);
+  if (!occupyingHex) return coords;
+  if (occupyingHex._inputChannel === inputAddress.channel) return coords;
+  return chooseAlternateCoordsForStep(keys, steps, inputAddress, coords);
+}
+
 function findLatestActiveHexForChannel(channel) {
   const activeHexes = new Set(this.state.activeMidi.values());
   for (const hex of this.recencyStack.all) {
@@ -331,20 +383,27 @@ export function midinoteOn(event) {
     );
     if (result === null) return;
     if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
-    coords = this.coordResolver.coordForSteps(result.steps, {
+    const inputAddress = {
       channel: event.message.channel,
       note: event.note.number,
-    });
+    };
+    coords = this.coordResolver.coordForSteps(result.steps, inputAddress);
+    coords = maybeResolveDistinctHakenCoords(this, coords, result.steps, inputAddress);
     if (usesPerChannelExpression(this.inputRuntime)) {
-      liveInputAddress = {
-        channel: event.message.channel,
-        note: event.note.number,
-      };
+      liveInputAddress = inputAddress;
     }
   } else {
     const resolved = resolveNonScaleNoteOn(this, event);
     if (!resolved) return;
     ({ coords, liveInputAddress } = resolved);
+    if (
+      isHakenPitchBendingCollisionAvoidanceActive(this) &&
+      liveInputAddress &&
+      !this.controllerMap
+    ) {
+      const steps = this.coordResolver.noteToSteps(liveInputAddress.note, liveInputAddress.channel);
+      coords = maybeResolveDistinctHakenCoords(this, coords, steps, liveInputAddress);
+    }
     if (
       this.inputRuntime.layoutMode === "sequential" &&
       !this.settings.output_mts &&
