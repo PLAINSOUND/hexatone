@@ -1011,7 +1011,7 @@ export const CONTROLLER_REGISTRY = [
           midi_passthrough: false,
           midiin_mapping_target: "hex_layout",
           midiin_mpe_input: true,
-          midiin_bend_flip: true,
+          midiin_bend_flip: false,
         },
       },
       bypass: {

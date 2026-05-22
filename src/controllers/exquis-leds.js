@@ -91,13 +91,13 @@ const HEARTBEAT = new Uint8Array([...HDR, 0xf7]);
 const PAD_REMOTE_0 = new Uint8Array([...HDR, 0x1e, 0x00, 0xf7]);
 const QUIT = new Uint8Array([...HDR, 0x03, 0xf7]);
 
-// Layout flags for Rainbow Layout: isomorphic=1, twoPath=1, flipX/Y/XY=0.
+// Layout flags for Rainbow Layout: isomorphic=1, twoPath=1, flipX=0, flipY=0, flipXY=1.
 const LAYOUT_FLAGS = [
   new Uint8Array([...HDR, 0x53, 1, 0xf7]), // isomorphic = 1
   new Uint8Array([...HDR, 0x54, 1, 0xf7]), // twoPath    = 1
   new Uint8Array([...HDR, 0x55, 0, 0xf7]), // flipX      = 0
   new Uint8Array([...HDR, 0x56, 0, 0xf7]), // flipY      = 0
-  new Uint8Array([...HDR, 0x57, 0, 0xf7]), // flipXY     = 0
+  new Uint8Array([...HDR, 0x57, 1, 0xf7]), // flipXY     = 1
 ];
 
 const HEARTBEAT_INTERVAL_MS = 500;

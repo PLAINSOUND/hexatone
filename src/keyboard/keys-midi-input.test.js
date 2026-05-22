@@ -4993,6 +4993,43 @@ describe("Keys MIDI input integration", () => {
     expect(createdHex.noteOn).toHaveBeenCalledTimes(1);
   });
 
+  it("scales generic MPE live bend by Pitch Bend Interval instead of hardware MPE range", () => {
+    const makeHex = vi.fn((coords, cents) => ({
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
+    }));
+    const keys = createKeys(
+      {
+        midiin_controller_override: "exquis",
+      },
+      {
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "9/8",
+      },
+      { makeHex },
+    );
+
+    keys.midinoteOn(makeMidiEvent(60, 3));
+
+    const createdHex = makeHex.mock.results[0].value;
+    createdHex.retune.mockClear();
+    const entry = keys.state.activeMidiByChannel.get(3);
+    const baseCents = createdHex._baseCents ?? createdHex.cents;
+
+    keys._applyMpePitchBend(entry, 3, 12288);
+
+    expect(createdHex.retune).toHaveBeenCalledTimes(1);
+    expect(createdHex.retune.mock.calls[0][0]).toBeCloseTo(baseCents + 101.955, 3);
+    expect(createdHex.retune.mock.calls[0][1]).toBe(true);
+  });
+
   it("does not directly retune passthrough-only standard-wheel outputs", () => {
     const retune = vi.fn();
     const keys = createKeys(
