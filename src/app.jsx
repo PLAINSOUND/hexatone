@@ -1239,6 +1239,23 @@ const App = () => {
     }
   }, [settings.midiin_mpe_input]);
 
+  useEffect(() => {
+    if (!exquisRawPorts || inputRuntime?.target === "scale" || typeof document === "undefined") return;
+
+    const recoverExquisAppMode = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") return;
+      exquisLedsRef.current?.recoverIfHeartbeatStale?.();
+    };
+
+    document.addEventListener("visibilitychange", recoverExquisAppMode);
+    window.addEventListener("pageshow", recoverExquisAppMode);
+
+    return () => {
+      document.removeEventListener("visibilitychange", recoverExquisAppMode);
+      window.removeEventListener("pageshow", recoverExquisAppMode);
+    };
+  }, [exquisRawPorts, inputRuntime?.target]);
+
   // ── Lumatone LED lifecycle ─────────────────────────────────────────────────
   // Mirrors the Exquis pattern: LumatoneLEDs lives here in app.jsx, not inside
   // Keys, so it is constructed as soon as the Lumatone ports are resolved —

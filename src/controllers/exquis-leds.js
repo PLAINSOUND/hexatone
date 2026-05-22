@@ -101,6 +101,7 @@ const LAYOUT_FLAGS = [
 ];
 
 const HEARTBEAT_INTERVAL_MS = 500;
+const HEARTBEAT_STALE_MS = 3000;
 const VERSION_TIMEOUT_MS = 2000;
 const MIN_FIRMWARE = { major: 3, minor: 0, patch: 0 };
 
@@ -130,6 +131,8 @@ export class ExquisLEDs {
     this._mpeEnabled = !!mpeEnabled;
     this._ready = false;
     this._heartbeatTimer = null;
+    this._appModeInitTimer = null;
+    this._lastHeartbeatSentAt = 0;
 
     this._heldPadCount = 0; // raw note-on/off counter from device input
     this._mpeModePending = null; // deferred CMD 0x07 send timer
@@ -151,6 +154,17 @@ export class ExquisLEDs {
   /** True once firmware ≥ 3.0.0 is confirmed and App Mode is active. */
   get ready() {
     return this._ready;
+  }
+
+  /** Re-enter App Mode after a likely background timer lapse. */
+  recoverIfHeartbeatStale() {
+    if (!this._ready || !this._out) return false;
+    const last = this._lastHeartbeatSentAt;
+    const stale = !Number.isFinite(last) || performance.now() - last > HEARTBEAT_STALE_MS;
+    if (!stale) return false;
+    debugLog("controllers", "Exquis App Mode heartbeat stale — re-entering App Mode.");
+    this._enterAppMode();
+    return true;
   }
 
   /** Send 61 pad colors. No-op if not ready. */
@@ -217,12 +231,15 @@ export class ExquisLEDs {
     this._mpeModePending = false;
     clearInterval(this._heartbeatTimer);
     this._heartbeatTimer = null;
+    clearTimeout(this._appModeInitTimer);
+    this._appModeInitTimer = null;
     if (this._in) this._in.removeEventListener("midimessage", this._onMessage);
     const out = this._out;
     const wasReady = this._ready;
     this._out = null;
     this._in = null;
     this._ready = false;
+    this._lastHeartbeatSentAt = 0;
     if (out && wasReady) out.send(QUIT);
   }
 
@@ -278,18 +295,24 @@ export class ExquisLEDs {
   _enterAppMode() {
     if (!this._out) return;
     this._ready = true;
+    clearInterval(this._heartbeatTimer);
+    this._heartbeatTimer = null;
+    clearTimeout(this._appModeInitTimer);
+    this._appModeInitTimer = null;
 
     this._out.send(PAD_REMOTE_0);
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xf7]));
     this._out.send(new Uint8Array([...HDR, 0x07, this._mpeEnabled ? 1 : 0, 0xf7]));
 
+    this._sendHeartbeat();
     this._heartbeatTimer = setInterval(() => {
-      if (this._out) this._out.send(HEARTBEAT);
+      this._sendHeartbeat();
     }, HEARTBEAT_INTERVAL_MS);
 
     // Delay note map + color commands to ensure App Mode is fully active on the
     // device before we send bulk note_number / note_colour frames.
-    setTimeout(() => {
+    this._appModeInitTimer = setTimeout(() => {
+      this._appModeInitTimer = null;
       if (!this._out) return;
 
       // Set layout flags to Rainbow Layout orientation.
@@ -306,5 +329,11 @@ export class ExquisLEDs {
     }, 200);
 
     // onReady is called inside the timeout above, after note map is sent.
+  }
+
+  _sendHeartbeat() {
+    if (!this._out) return;
+    this._out.send(HEARTBEAT);
+    this._lastHeartbeatSentAt = performance.now();
   }
 }
