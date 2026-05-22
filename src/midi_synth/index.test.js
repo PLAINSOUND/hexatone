@@ -225,6 +225,46 @@ describe("midi_synth bulk-dump retune policy", () => {
     expect(dump[offset + 2]).toBe(firstHex.mts[3]);
   });
 
+  it("restarts large real-time MTS retunes synchronously without a delayed timestamped note-on", async () => {
+    const output = { send: vi.fn() };
+    const synth = await create_midi_synth({
+      outputMode: {
+        output,
+        channel: 0,
+        midiMapping: "MTS1",
+        transportMode: "single_note_realtime",
+        velocity: 72,
+        sysexType: 127,
+        deviceId: 127,
+        mapNumber: 0,
+        anchorNote: 60,
+        pitchBendRange: 2,
+      },
+      tuningContext: {
+        fundamental: 440,
+        degree0toRefAsArray: [0, 1],
+        scale: scale12,
+        equivInterval: 1200,
+        name: "test",
+      },
+      legacyInput: {
+        midiin_device: "input-1",
+        midiin_anchor_note: 60,
+      },
+    });
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 100, 1, 0, 60, 0, 200, 60, 72, 0, 1);
+    hex.noteOn();
+    output.send.mockClear();
+
+    hex.retune(700);
+
+    expect(output.send).toHaveBeenCalledTimes(3);
+    expect(output.send.mock.calls[0]).toEqual([[0x80, hex.steps, hex.velocity]]);
+    expect(output.send.mock.calls[1][0][0]).toBe(0xf0);
+    expect(output.send.mock.calls[2]).toEqual([[0x90, hex.steps, hex.velocity]]);
+  });
+
   it("avoids immediately reusing a recently released dynamic bulk carrier", async () => {
     const output = { send: vi.fn() };
     const synth = await create_midi_synth({

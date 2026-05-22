@@ -225,7 +225,7 @@ export function handleWheelBend(val14) {
   if (!this.inputRuntime.wheelToRecent) {
     const norm = (val14 - 8192) / 8192;
     const rangeCents = this.inputRuntime.wheelUsesInterval
-      ? scalaToCents(this.inputRuntime.wheelRange ?? "64/63")
+      ? scalaToCents(this.inputRuntime.wheelRange ?? "28/27")
       : (this.inputRuntime.wheelSemitones ?? 2) * 100;
     const offsetCents = norm * rangeCents;
     this._wheelBend = offsetCents;
@@ -244,7 +244,7 @@ export function handleWheelBend(val14) {
   const norm = (val14 - 8192) / 8192;
 
   if (this.inputRuntime.pitchBendMode === "all") {
-    const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
+    const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "28/27");
     const offsetCents = norm * rangeCents;
     this._wheelBend = offsetCents;
     for (const hex of this._allActiveHexes()) {
@@ -304,7 +304,7 @@ export function resolveRecencyWheelTarget(target, val14 = this._wheelValue14) {
       bentCents = baseCents + norm * (target.cents_next - baseCents);
     }
   } else {
-    const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "64/63");
+    const rangeCents = scalaToCents(this.inputRuntime.wheelRange ?? "28/27");
     bentCents = baseCents + norm * rangeCents;
   }
 

@@ -28,7 +28,7 @@ const makeProps = (settings = {}) => ({
     midiin_scale_fallback: "accept",
     midiin_pitchbend_mode: "recency",
     midiin_pressure_mode: "all",
-    midiin_bend_range: "64/63",
+    midiin_bend_range: "28/27",
     midi_wheel_semitones: 2,
     wheel_to_recent: false,
     wheel_scale_aware: false,

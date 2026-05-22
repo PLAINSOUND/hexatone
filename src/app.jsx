@@ -1057,13 +1057,13 @@ const App = () => {
       // wheelRange and bendRange both read from midiin_bend_range — the UI
       // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
       wheelToRecent: linnstrumentBypassNonMpe ? false : settings.wheel_to_recent,
-      wheelRange: settings.midiin_bend_range ?? "64/63",
+      wheelRange: settings.midiin_bend_range ?? "28/27",
       perChannelExpression: linnstrumentBypassChannelPerRow,
       wheelUsesInterval: linnstrumentBypassSingleChannel,
       wheelScaleAware: settings.wheel_scale_aware,
       wheelSemitones: settings.midi_wheel_semitones ?? 2,
       // Pitch bend range for incoming hardware controller bend messages.
-      bendRange: settings.midiin_bend_range ?? "64/63",
+      bendRange: settings.midiin_bend_range ?? "28/27",
       bendFlip: !!settings.midiin_bend_flip,
       // Haken Continuum MPE+ uses a 96-semitone pitch-bend range.
       scaleBendRange:

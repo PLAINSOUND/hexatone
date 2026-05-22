@@ -569,6 +569,7 @@ export function midinoteOff(event) {
         } else {
           this.state.activeMidiByChannel.delete(event.message.channel);
           this._mpeInputBendByChannel.delete(event.message.channel);
+          this._mpeInputBendSmoothingByChannel.delete(event.message.channel);
           this._mpeInputAftertouchByChannel.delete(event.message.channel);
           this._mpeInputCC74ByChannel.delete(event.message.channel);
           this._hakenMpeBend21ByChannel.delete(event.message.channel);
@@ -580,6 +581,7 @@ export function midinoteOff(event) {
       } else if (entry && entry.hexes?.size === 0) {
         this.state.activeMidiByChannel.delete(event.message.channel);
         this._mpeInputBendByChannel.delete(event.message.channel);
+        this._mpeInputBendSmoothingByChannel.delete(event.message.channel);
         this._mpeInputAftertouchByChannel.delete(event.message.channel);
         this._mpeInputCC74ByChannel.delete(event.message.channel);
         this._hakenMpeBend21ByChannel.delete(event.message.channel);
@@ -630,6 +632,7 @@ export function allnotesOff() {
   notes.played = [];
   this.state.activeMidiByChannel.clear();
   this._mpeInputBendByChannel.clear();
+  this._mpeInputBendSmoothingByChannel.clear();
   this._mpeInputAftertouchByChannel.clear();
   this._mpeInputCC74ByChannel.clear();
   this._hakenMpeBend21ByChannel.clear();

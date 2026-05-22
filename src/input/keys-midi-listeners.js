@@ -33,6 +33,7 @@ const LINNSTRUMENT_UF_ONSET_RAMP_BASE_MS = 40;
 const LINNSTRUMENT_UF_ONSET_RAMP_MAX_MS = 180;
 const HAKEN_IGNORED_TEST_CCS = new Set([111, 114, 117, 118]);
 const HAKEN_MPE_PLUS_CENTER_21 = 1048576;
+const EXQUIS_MTS_BEND_SMOOTHING_TAU_MS = 15;
 
 function isHakenMpePlusInputActive() {
   return (
@@ -54,6 +55,47 @@ function isLinnstrumentUfInputActive() {
     this.inputRuntime.target !== "scale" &&
     this.inputRuntime.layoutMode === "controller_geometry"
   );
+}
+
+function shouldSmoothExquisMtsBend() {
+  const controllerId = this.controller?.id || this.settings?.midiin_controller_override;
+  return (
+    controllerId === "exquis" &&
+    this.inputRuntime?.mpeInput &&
+    this.settings?.output_mts &&
+    (this.settings?.midi_mapping === "MTS1" || this.settings?.midi_mapping === "MTS2")
+  );
+}
+
+function smoothExquisMtsBend(channel, raw14) {
+  const bend = Math.max(0, Math.min(16383, Number(raw14) || 0));
+  if (!shouldSmoothExquisMtsBend.call(this)) return bend;
+
+  const now = performance.now();
+  const state = this._mpeInputBendSmoothingByChannel.get(channel);
+  if (!state) {
+    const seeded = this._mpeInputBendByChannel.get(channel) ?? 8192;
+    const alpha = 1 - Math.exp(-1);
+    const smoothed = seeded + alpha * (bend - seeded);
+    const rounded = Math.max(0, Math.min(16383, Math.round(smoothed)));
+    this._mpeInputBendSmoothingByChannel.set(channel, {
+      raw: bend,
+      smoothed: rounded,
+      time: now,
+    });
+    return rounded;
+  }
+
+  const dt = Math.max(0, now - state.time);
+  const alpha = 1 - Math.exp(-dt / EXQUIS_MTS_BEND_SMOOTHING_TAU_MS);
+  const smoothed = state.smoothed + alpha * (bend - state.smoothed);
+  const rounded = Math.max(0, Math.min(16383, Math.round(smoothed)));
+  this._mpeInputBendSmoothingByChannel.set(channel, {
+    raw: bend,
+    smoothed: rounded,
+    time: now,
+  });
+  return rounded;
 }
 
 function linnstrumentUfGlideExponent(shapeSetting) {
@@ -962,16 +1004,19 @@ export function setupMidiInput() {
           if (this.inputRuntime.mpeInput) {
             // Per-channel expression mode: pitch bend is carried on the input channel.
             // Route to the latest sounding note registered on this channel.
-            this._mpeInputBendByChannel.set(e.message.channel, val14);
+            const bend14 = smoothExquisMtsBend.call(this, e.message.channel, val14);
+            this._mpeInputBendByChannel.set(e.message.channel, bend14);
             if (value21 != null) this._hakenMpeBend21ByChannel.set(e.message.channel, value21);
             const entry = this.state.activeMidiByChannel.get(e.message.channel);
-            if (entry && !entry.hex.release) this._applyMpePitchBend(entry, e.message.channel, val14, value21);
+            if (entry && !entry.hex.release) {
+              this._applyMpePitchBend(entry, e.message.channel, bend14, value21);
+            }
             // In per-channel expression modes we do NOT pass through to the output here —
             // each hex's retune() call handles expression for its own output engine.
             // Scale mode pre-bend capture: record bend per channel so note-on can
             // use it to resolve the exact intended pitch.
             if (this.inputRuntime.mpeInput && this.inputRuntime.target === "scale") {
-              this._scaleModePreBend.set(e.message.channel, val14);
+              this._scaleModePreBend.set(e.message.channel, bend14);
               if (value21 != null) this._scaleModePreBend21.set(e.message.channel, value21);
             }
             return;

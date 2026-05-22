@@ -175,7 +175,7 @@ const MIDIio = (props) => {
   const configurableMpeDefaultLo = configurableMpeMemberChannelBounds?.defaultLo ?? 2;
   const configurableMpeDefaultHi = configurableMpeMemberChannelBounds?.defaultHi ?? 8;
   const LINN_BEND_RANGE_SINGLE_DEFAULT = "1/1";
-  const LINN_BEND_RANGE_MULTI_DEFAULT = "64/63";
+  const LINN_BEND_RANGE_MULTI_DEFAULT = "28/27";
   const seedLinnstrumentBendRange = (target) => {
     const current = props.settings.midiin_bend_range;
     if (target === LINN_BEND_RANGE_SINGLE_DEFAULT) {
@@ -1255,7 +1255,7 @@ const MIDIio = (props) => {
                 Pitch Bending Interval (Scala)
                 <ScalaInput
                   context="interval"
-                  value={props.settings.midiin_bend_range ?? "64/63"}
+                  value={props.settings.midiin_bend_range ?? "28/27"}
                   onChange={(str) => {
                     props.onChange("midiin_bend_range", str);
                     saveControllerPref(null, "midiin_bend_range", str);

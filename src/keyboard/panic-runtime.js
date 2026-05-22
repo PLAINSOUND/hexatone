@@ -32,6 +32,7 @@ export function panic(keys) {
   keys.state.activeMidi.clear();
   keys.state.activeMidiByChannel.clear();
   keys._mpeInputBendByChannel.clear();
+  keys._mpeInputBendSmoothingByChannel.clear();
   keys.state.isMouseDown = false;
   keys.state.isTouchDown = false;
   keys.state.canvas.removeEventListener("mousemove", keys.mouseActive);

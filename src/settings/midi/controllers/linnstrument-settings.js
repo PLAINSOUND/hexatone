@@ -319,7 +319,7 @@ const LinnstrumentSettings = ({
             Pitch Bending Interval (Scala)
             <ScalaInput
               context="interval"
-              value={settings.midiin_bend_range ?? "64/63"}
+              value={settings.midiin_bend_range ?? "28/27"}
               onChange={(str) => {
                 onChange("midiin_bend_range", str);
                 saveControllerPref(null, "midiin_bend_range", str);
@@ -343,7 +343,7 @@ const LinnstrumentSettings = ({
               Pitch Bending Interval (Scala)
               <ScalaInput
                 context="interval"
-                value={settings.midiin_bend_range ?? "64/63"}
+                value={settings.midiin_bend_range ?? "28/27"}
                 onChange={(str) => {
                   onChange("midiin_bend_range", str);
                   saveControllerPref(null, "midiin_bend_range", str);

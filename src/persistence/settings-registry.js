@@ -129,7 +129,7 @@ export const SETTINGS_REGISTRY = [
     key: "midiin_bend_range",
     tier: "local",
     type: "string",
-    default: "64/63",
+    default: "28/27",
     perController: false,
     description: "Pitch bend interval (shared across controllers)",
   },

@@ -121,13 +121,13 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
       pitchBendMode: "recency",
       pressureMode: "recency",
       wheelToRecent: false,
-      wheelRange: "64/63",
+      wheelRange: "28/27",
       perChannelExpression: false,
       scaleBendRange: 48,
       wheelUsesInterval: false,
       wheelScaleAware: false,
       wheelSemitones: 2,
-      bendRange: "64/63",
+      bendRange: "28/27",
       bendFlip: false,
       ...inputRuntimeOverrides,
     },
@@ -5382,6 +5382,84 @@ describe("Keys MIDI input integration", () => {
     expect(keys._hakenMpeCC7414ByChannel.get(2)).toBe((81 << 7) | 45);
     expect(keys._hakenMpePressure14ByChannel.get(2)).toBe((71 << 7) | 23);
     expect(keys._hakenMpeBend21ByChannel.get(2)).toBe((12000 << 7) | 11);
+  });
+
+  it("smooths Exquis MPE bend only for real-time MTS outputs", () => {
+    const listenersMts = {};
+    const listenersRaw = {};
+    const makeInput = (name, listeners) => ({
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name,
+    });
+    const inputs = new Map([
+      ["mts-in", makeInput("Exquis", listenersMts)],
+      ["raw-in", makeInput("Exquis", listenersRaw)],
+    ]);
+    vi.spyOn(WebMidi, "getInputById").mockImplementation((id) => inputs.get(id));
+
+    let now = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+
+    const makeSynth = () => ({
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        retune: vi.fn(function retune(newCents) {
+          this.cents = newCents;
+        }),
+      })),
+      rememberControllerState: vi.fn(),
+    });
+
+    const mtsKeys = createKeys(
+      {
+        midiin_device: "mts-in",
+        midiin_controller_override: "exquis",
+        output_mts: true,
+        midi_mapping: "MTS1",
+      },
+      {
+        mpeInput: true,
+        bendRange: "2/1",
+      },
+      makeSynth(),
+    );
+    const rawKeys = createKeys(
+      {
+        midiin_device: "raw-in",
+        midiin_controller_override: "exquis",
+      },
+      {
+        mpeInput: true,
+        bendRange: "2/1",
+      },
+      makeSynth(),
+    );
+
+    listenersMts.noteon(makeMidiEvent(60, 10));
+    listenersRaw.noteon(makeMidiEvent(60, 10));
+
+    const mtsSpy = vi.spyOn(mtsKeys, "_applyMpePitchBend").mockImplementation(() => {});
+    const rawSpy = vi.spyOn(rawKeys, "_applyMpePitchBend").mockImplementation(() => {});
+
+    now = 1015;
+    listenersMts.pitchbend(makePitchBendEvent(12288, 10));
+    listenersRaw.pitchbend(makePitchBendEvent(12288, 10));
+
+    expect(mtsSpy).toHaveBeenCalledTimes(1);
+    expect(rawSpy).toHaveBeenCalledTimes(1);
+    expect(mtsSpy.mock.calls[0][2]).toBe(10781);
+    expect(rawSpy.mock.calls[0][2]).toBe(12288);
+    expect(mtsKeys._mpeInputBendByChannel.get(10)).toBe(10781);
+    expect(rawKeys._mpeInputBendByChannel.get(10)).toBe(12288);
   });
 
   it("routes LinnStrument channel-per-row bend to all active notes on that row channel", () => {

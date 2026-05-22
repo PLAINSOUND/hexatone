@@ -101,7 +101,7 @@ let settings = {
   midiin_pitchbend_mode: "recency",
   midiin_pressure_mode: "recency",
   wheel_to_recent: false,
-  midiin_bend_range: "64/63",
+  midiin_bend_range: "28/27",
   wheel_scale_aware: false,
   midi_wheel_semitones: 2,
   midiin_bend_flip: false,

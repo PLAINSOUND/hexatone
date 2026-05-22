@@ -197,13 +197,13 @@ class Keys {
       pressureMode: "recency",
       wheelToRecent: settings.wheel_to_recent,
       // wheelRange and bendRange both use midiin_bend_range — unified with Pitch Bend Interval UI.
-      wheelRange: settings.midiin_bend_range ?? "64/63",
+      wheelRange: settings.midiin_bend_range ?? "28/27",
       wheelScaleAware: settings.wheel_scale_aware,
       wheelSemitones: settings.midi_wheel_semitones ?? 2,
       // Pitch bend range for incoming hardware controller bend messages.
       // Applies to MPE per-note bend and single-channel pitch wheel.
       // Must match the range configured on the hardware device.
-      bendRange: settings.midiin_bend_range ?? "64/63",
+      bendRange: settings.midiin_bend_range ?? "28/27",
       bendFlip: !!settings.midiin_bend_flip,
     };
 
@@ -259,6 +259,7 @@ class Keys {
     this._scaleModePreBend = new Map();
     this._scaleModePreBend21 = new Map();
     this._mpeInputBendByChannel = new Map();
+    this._mpeInputBendSmoothingByChannel = new Map();
     this._mpeInputAftertouchByChannel = new Map();
     this._mpeInputCC74ByChannel = new Map();
     this._hakenMpeBend21ByChannel = new Map();
@@ -2080,6 +2081,7 @@ class Keys {
     this.state.activeMidi.clear();
     this.state.activeMidiByChannel.clear();
     this._mpeInputBendByChannel.clear();
+    this._mpeInputBendSmoothingByChannel.clear();
     this._hakenMpeBend21ByChannel.clear();
     this._hakenMpeCC7414ByChannel.clear();
     this._hakenMpePressure14ByChannel.clear();

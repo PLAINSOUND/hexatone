@@ -469,11 +469,6 @@ MidiHex.prototype.noteOff = function (release_velocity) {
 // Smooth TuneCell drags are always well below this; octave shifts (±1200¢) are always above.
 const MTS_JUMP_THRESHOLD_CENTS = 400;
 
-// Gap between MTS retune sysex and the rescheduled noteOn, in milliseconds.
-// Mirrors PB_GUARD_MS in mpe_synth — gives the driver time to process the
-// tuning message before the note-on arrives at the MIDI port.
-const MTS_NOTE_GUARD_MS = 2;
-
 /**
  * Retune a held note to a new cents value.
  *
@@ -482,9 +477,11 @@ const MTS_NOTE_GUARD_MS = 2;
  *   stream itself is the glide. No setTimeout, no overlapping chains.
  *
  * Large jumps (octave shift, ≥ MTS_JUMP_THRESHOLD_CENTS):
- *   noteOff → MTS retune sysex → noteOn, all sequenced with WebMIDI timestamps
- *   so the driver processes them in order with sub-ms precision. Mirrors the
- *   mechanism MpeHex uses for PB_GUARD_MS.
+ *   noteOff → MTS retune sysex → noteOn in one synchronous FIFO burst.
+ *   The MIDI driver preserves message order, so the tuning message still lands
+ *   before the restarted note. Avoiding a timestamped delayed noteOn removes
+ *   the race where a real key release can arrive before the scheduled restart
+ *   and leave the last retuned note stuck.
  */
 MidiHex.prototype.retune = function (newCents) {
   if (this.release) return;
@@ -494,8 +491,7 @@ MidiHex.prototype.retune = function (newCents) {
   if (delta >= MTS_JUMP_THRESHOLD_CENTS) {
     // Large jump: silence the note, retune, restart — avoids audible pitch-
     // glide artefacts when the synth hears the old pitch while ringing.
-    const now = performance.now();
-    this.midi_output.send([0x80 + this.channel, this.steps, this.velocity], now);
+    this.midi_output.send([0x80 + this.channel, this.steps, this.velocity]);
     traceMidiOutput("mtsNoteOff", {
       family: "mts",
       channel: this.channel,
@@ -504,10 +500,7 @@ MidiHex.prototype.retune = function (newCents) {
       value: this.velocity,
     });
     this._sendMtsTuning(newCents);
-    this.midi_output.send(
-      [0x90 + this.channel, this.steps, this.velocity],
-      now + MTS_NOTE_GUARD_MS,
-    );
+    this.midi_output.send([0x90 + this.channel, this.steps, this.velocity]);
     traceMidiOutput("mtsNoteOn", {
       family: "mts",
       channel: this.channel,
