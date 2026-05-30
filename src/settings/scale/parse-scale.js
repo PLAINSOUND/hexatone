@@ -334,6 +334,7 @@ export const settingsToPresetJson = (settings, extra = {}) => {
     "key_labels",
     "spectrum_colors",
     "fundamental_color",
+    "prime_family_colors",
     "fundamental",
     "reference_degree",
     "rSteps",

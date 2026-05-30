@@ -317,6 +317,78 @@
   text-align: right;
 }
 
+.color-suggestion-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--color-border-ui);
+  border-radius: var(--btn-radius-square);
+  background: #f3efef;
+  color: #6b5656;
+  font-size: 0.82em;
+  line-height: 1;
+  position: relative;
+}
+
+.color-suggestion-btn:hover {
+  background: #ece2e2;
+}
+
+.color-suggestion-btn__swatch {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
+}
+
+.color-suggestion-btn__label {
+  font-family: monospace;
+}
+
+.color-suggestion-btn__preview {
+  display: none;
+  position: absolute;
+  right: calc(100% + 0.35em);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.2em;
+  height: 3.2em;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  z-index: 8;
+}
+
+.color-suggestion-btn:hover .color-suggestion-btn__preview,
+.color-suggestion-btn:focus-visible .color-suggestion-btn__preview {
+  display: block;
+}
+
+.color-cell-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45em;
+  height: 1.45em;
+  padding: 0;
+  border: 1px solid var(--color-border-ui);
+  border-radius: var(--btn-radius-square);
+  background: #ede8e8;
+  color: var(--color-text);
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.color-cell-btn:hover {
+  background: #ddd0d0;
+}
+
+.color-cell-btn--active {
+  color: #660000;
+}
+
 .color-swatch-hitbox {
   position: relative;
   display: inline-block;
@@ -913,6 +985,7 @@ input.equiv-cell:disabled,
   gap: 8px;
   align-items: baseline;
   font-size: 0.88em;
+  flex-wrap: wrap;
 }
 
 .rationalise-candidate:hover { background: #f3ecec; }
@@ -937,6 +1010,20 @@ input.equiv-cell:disabled,
   margin-left: auto;
   font-weight: 600;
   color: #336633;
+}
+
+.rationalise-candidate__suggested-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.rationalise-candidate__suggested-swatch {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
 }
 
 
@@ -1109,6 +1196,108 @@ input.equiv-cell:disabled,
    below the Key Labels select row */
 .heji-anchor-fieldset {
   margin-top: 0.75em;
+}
+
+/* Match the HEJI spacing for the Spectrum Colours preference box. */
+.spectrum-colors-fieldset {
+  margin-top: 0.75em;
+}
+
+.scale-colors-group {
+  margin-top: 0.35em;
+  padding-top: 0.15em;
+}
+
+.auto-colors-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+}
+
+.auto-colors-toggle-row__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+}
+
+.auto-colors-toggle-row__checkbox {
+  display: inline-flex;
+  align-items: center;
+}
+
+.auto-prime-colors-fieldset {
+  margin-top: 0.5em;
+}
+
+.auto-prime-colors-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.9em;
+  row-gap: 0.35em;
+}
+
+.auto-prime-colors-grid__item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45em;
+  min-width: 0;
+}
+
+.auto-prime-colors-grid__label {
+  min-width: 2.5em;
+  color: #774444;
+  flex-shrink: 0;
+}
+
+.auto-prime-colors-grid__item .color-cell {
+  margin-left: 0 !important;
+  width: max-content;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.auto-prime-colors-grid__item .color-cell:focus-within {
+  position: relative;
+  z-index: auto;
+  background: transparent;
+  box-shadow: none;
+  height: 1.5em;
+  min-width: 0;
+  right: auto;
+}
+
+.auto-prime-colors-grid__item .color-input,
+.auto-prime-colors-grid__item .color-cell:focus-within .color-input {
+  display: block;
+  width: 6.3em !important;
+  min-width: 0;
+  flex: none;
+}
+
+.auto-prime-colors-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.6em;
+}
+
+.auto-prime-colors-actions__group {
+  display: flex;
+  gap: 0.5em;
+}
+
+@media (max-width: 420px) {
+  .auto-prime-colors-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auto-prime-colors-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 }
 
 

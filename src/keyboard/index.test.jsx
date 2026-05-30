@@ -11,7 +11,8 @@ const keysState = vi.hoisted(() => ({
 
 vi.mock("./keys.js", () => {
   class MockKeys {
-    constructor() {
+    constructor(canvas, settings) {
+      this.initialSettings = settings;
       this.updateInputRuntime = vi.fn();
       this.updateLiveOutputState = vi.fn();
       this.updateColors = vi.fn();
@@ -102,5 +103,23 @@ describe("Keyboard settings-impact boundary", () => {
     rerender(<Keyboard {...baseProps} reconstructionKey="rebuild-b" />);
     expect(first.deconstruct).toHaveBeenCalledTimes(1);
     expect(keysState.instances).toHaveLength(2);
+  });
+
+  it("constructs Keys with normalized color settings on first mount", () => {
+    render(
+      <Keyboard
+        {...baseProps}
+        settings={{ ...baseProps.settings, spectrum_colors: true }}
+        colorSettings={{
+          note_colors: ["#95c69b"],
+          spectrum_colors: false,
+          fundamental_color: "#000000",
+        }}
+      />,
+    );
+
+    expect(keysState.instances[0].initialSettings.spectrum_colors).toBe(false);
+    expect(keysState.instances[0].initialSettings.note_colors).toEqual(["#95c69b"]);
+    expect(keysState.instances[0].initialSettings.fundamental_color).toBe("#000000");
   });
 });

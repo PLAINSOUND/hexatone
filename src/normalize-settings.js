@@ -11,6 +11,7 @@ import { spelledHejiLabel } from "./notation/key-label.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 export { deriveHejiAnchor, deriveHejiAnchorFromNoteNames } from "./notation/heji-normalization.js";
 import { canonicalHejiAnchorLabelInput, deriveHejiAnchor } from "./notation/heji-normalization.js";
+import { deriveAutoNoteColors } from "./settings/scale/auto-colors.js";
 
 export function deriveSpectrumNoteColors(settings, fundamentalColor) {
   const count = settings.equivSteps || settings.scale?.length || 0;
@@ -32,13 +33,24 @@ export function deriveSpectrumNoteColors(settings, fundamentalColor) {
 // Color fields only — changes here should NOT reconstruct the hex grid.
 export const normalizeColors = (settings) => {
   const fundamental_color = (settings.fundamental_color || "").replace(/#/, "");
-  const note_colors = (settings.note_colors || []).map((c) => (c ? c.replace(/#/, "") : "ffffff"));
+  const autoOverridesSpectrum = settings.auto_colors === true;
+  const effectiveSpectrum = autoOverridesSpectrum ? false : settings.spectrum_colors;
+  const sourceNoteColors = settings.auto_colors
+    ? deriveAutoNoteColors(settings, {
+      heji_names: settings.heji_names,
+      heji_names_table: settings.heji_names_table,
+    })
+    : (settings.note_colors || []);
+  const note_colors = sourceNoteColors.map((c) => (c ? c.replace(/#/, "") : "ffffff"));
 
   return {
     fundamental_color,
     note_colors:
-      note_colors.length > 0 ? note_colors : deriveSpectrumNoteColors(settings, fundamental_color),
-    spectrum_colors: settings.spectrum_colors,
+      note_colors.length > 0
+        ? note_colors
+        : (effectiveSpectrum ? deriveSpectrumNoteColors(settings, fundamental_color) : []),
+    spectrum_colors: effectiveSpectrum,
+    auto_colors: settings.auto_colors,
   };
 };
 

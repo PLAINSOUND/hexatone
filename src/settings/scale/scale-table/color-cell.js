@@ -1,5 +1,5 @@
 import { createRef } from "preact";
-import { useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 // Normalise a hex string to the form #rrggbb.
 // Accepts:  #rgb  #rrggbb  rgb  rrggbb
@@ -19,13 +19,67 @@ export const normaliseHex = (raw) => {
 
 // A colour cell: a clickable swatch that opens a colour picker,
 // alongside a hex text input that accepts typed or pasted values.
-const ColorCell = ({ name, value, disabled, onChange }) => {
+const ColorCell = ({
+  name,
+  value,
+  disabled,
+  onChange,
+  suggestedColor = null,
+  suggestedLabel = "",
+  onApplySuggestion = null,
+  onPreviewColor = null,
+}) => {
   const safe = normaliseHex(value || "#ffffff") || "#ffffff";
+  const suggested = normaliseHex(suggestedColor);
+  const [draft, setDraft] = useState(safe);
+  const [comparing, setComparing] = useState(false);
+  const showSuggestion = !!suggested && suggested.toLowerCase() !== safe.toLowerCase() && !disabled;
+  const isDirty = draft.toLowerCase() !== safe.toLowerCase();
+  const visibleColor = comparing ? safe : draft;
   const pickerRef = createRef();
   const textRef = createRef();
   const swatchRef = createRef();
   const lastFire = useRef(0);
   const lastEventTime = useRef(0);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    setDraft(safe);
+    setComparing(false);
+  }, [safe]);
+
+  useEffect(() => {
+    if (textRef.current) textRef.current.value = visibleColor;
+    if (pickerRef.current) pickerRef.current.value = visibleColor;
+    if (swatchRef.current) swatchRef.current.style.backgroundColor = visibleColor;
+  }, [visibleColor, pickerRef, swatchRef, textRef]);
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return undefined;
+    }
+    onPreviewColor?.(visibleColor);
+    return undefined;
+  }, [onPreviewColor, visibleColor]);
+
+  useEffect(() => {
+    return () => {
+      onPreviewColor?.(safe);
+    };
+  }, [onPreviewColor, safe]);
+
+  const applyDraft = (hex) => {
+    const normalized = normaliseHex(hex);
+    if (!normalized) return;
+    setDraft(normalized);
+    setComparing(false);
+  };
+
+  const commitDraft = () => {
+    if (!isDirty) return;
+    onChange({ target: { name, value: visibleColor } });
+  };
 
   // Clicking the swatch triggers the hidden color picker
   const handleSwatchClick = () => {
@@ -42,8 +96,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     const now = Date.now();
 
     // Always update local UI immediately (no perceived lag)
-    if (textRef.current) textRef.current.value = hex;
-    if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
+    applyDraft(hex);
 
     // Measure event frequency as proxy for drag speed
     const timeSinceLastEvent = now - lastEventTime.current;
@@ -55,39 +108,31 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
     const speedFactor = Math.max(0, Math.min(1, (80 - timeSinceLastEvent) / 80));
     const throttle = 16 + speedFactor * 84; // 16-100ms range
 
-    if (now - lastFire.current >= throttle) {
-      lastFire.current = now;
-      onChange({ target: { name, value: hex } });
-    }
+    if (now - lastFire.current >= throttle) lastFire.current = now;
   };
 
-  // onChange: always fires on picker close to commit the final value
+  // onChange: update preview on picker close; explicit save commits
   const handlePickerChange = (e) => {
     const hex = e.target.value;
-    if (textRef.current) textRef.current.value = hex;
-    if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
+    applyDraft(hex);
     lastFire.current = 0; // reset throttle so final value always commits
-    onChange({ target: { name, value: hex } });
   };
 
   // Text input — update swatch live while typing
   const handleTextInput = (e) => {
     const hex = normaliseHex(e.target.value);
     if (hex) {
-      if (swatchRef.current) swatchRef.current.style.backgroundColor = hex;
-      if (pickerRef.current) pickerRef.current.value = hex;
+      applyDraft(hex);
     }
   };
 
-  // Text input blur — validate and commit, or revert
+  // Text input blur — validate locally, explicit save commits
   const handleTextBlur = (e) => {
     const hex = normaliseHex(e.target.value);
     if (hex) {
-      onChange({ target: { name, value: hex } });
+      applyDraft(hex);
     } else {
-      e.target.value = safe;
-      if (swatchRef.current) swatchRef.current.style.backgroundColor = safe;
-      if (pickerRef.current) pickerRef.current.value = safe;
+      e.target.value = visibleColor;
     }
   };
 
@@ -98,7 +143,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
         <span
           ref={swatchRef}
           class={`color-swatch${disabled ? " color-swatch--disabled" : ""}`}
-          style={{ backgroundColor: safe }}
+          style={{ backgroundColor: visibleColor }}
           onClick={handleSwatchClick}
           title={disabled ? undefined : "Click to open colour picker"}
           role={disabled ? undefined : "button"}
@@ -110,7 +155,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
           ref={pickerRef}
           type="color"
           class="color-picker-hidden"
-          value={safe}
+          value={visibleColor}
           disabled={disabled}
           onInput={handlePickerInput}
           onChange={handlePickerChange}
@@ -124,7 +169,7 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
         type="text"
         class="color-input"
         name={name}
-        defaultValue={safe}
+        defaultValue={visibleColor}
         key={safe}
         disabled={disabled}
         maxLength={7}
@@ -136,6 +181,52 @@ const ColorCell = ({ name, value, disabled, onChange }) => {
         onBlur={handleTextBlur}
         aria-label={`hex colour for ${name}`}
       />
+      {isDirty && (
+        <button
+          type="button"
+          class={`color-cell-btn${comparing ? " color-cell-btn--active" : ""}`}
+          onClick={() => setComparing((prev) => !prev)}
+          title="Compare with original colour"
+          aria-label={`compare original colour for ${name}`}
+        >
+          ↺
+        </button>
+      )}
+      {isDirty && (
+        <button
+          type="button"
+          class="color-cell-btn color-cell-btn--save"
+          onClick={commitDraft}
+          title="Commit current colour"
+          aria-label={`save colour for ${name}`}
+        >
+          ✓
+        </button>
+      )}
+      {showSuggestion && (
+        <button
+          type="button"
+          class="color-suggestion-btn"
+          onClick={() => {
+            applyDraft(suggested);
+            onApplySuggestion?.(suggested);
+          }}
+          title={suggestedLabel ? `Apply suggested colour: ${suggestedLabel}` : `Apply suggested colour ${suggested}`}
+          aria-label={`apply suggested colour for ${name}`}
+        >
+          <span
+            class="color-suggestion-btn__swatch"
+            style={{ backgroundColor: suggested }}
+            aria-hidden="true"
+          />
+          <span class="color-suggestion-btn__label">Auto</span>
+          <span
+            class="color-suggestion-btn__preview"
+            style={{ backgroundColor: suggested }}
+            aria-hidden="true"
+          />
+        </button>
+      )}
     </div>
   );
 };

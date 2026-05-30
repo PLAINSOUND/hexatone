@@ -14,7 +14,7 @@ import {
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
-const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color"]);
+const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color", "auto_colors"]);
 const CONTROLLER_OUTPUT_OVERRIDE_KEYS = {
   exquis: "exquis_out_port",
   hakenaudio: "hakenaudio_out_port",
@@ -271,16 +271,11 @@ const useSettingsChange = (
     // For color changes, push to the live Keys instance BEFORE setSettings.
     // Reading current colors from settingsRef avoids stale closure values.
     if (COLOR_KEYS.has(key) && keysRef.current) {
+      const normalizedColors = normalizeColors({ ...s, [key]: value });
       const colorUpdate = {
-        note_colors:
-          key === "note_colors"
-            ? normalizeColors({ ...s, [key]: value }).note_colors
-            : normalizeColors(s).note_colors,
-        spectrum_colors: key === "spectrum_colors" ? value : s.spectrum_colors,
-        fundamental_color:
-          key === "fundamental_color"
-            ? (value || "").replace(/#/, "")
-            : (s.fundamental_color || "").replace(/#/, ""),
+        note_colors: normalizedColors.note_colors,
+        spectrum_colors: normalizedColors.spectrum_colors,
+        fundamental_color: normalizedColors.fundamental_color,
       };
       keysRef.current.updateColors(colorUpdate);
       if (key === "note_colors" && s.linnstrument_led_sync && keysRef.current.syncLinnstrumentLEDs) {

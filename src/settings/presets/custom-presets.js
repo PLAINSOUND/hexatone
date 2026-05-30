@@ -24,6 +24,7 @@ const PRESET_FIELDS = [
   "key_labels",
   "spectrum_colors",
   "fundamental_color",
+  "prime_family_colors",
   "fundamental",
   "reference_degree",
   "center_degree",

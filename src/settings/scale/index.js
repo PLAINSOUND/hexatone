@@ -218,8 +218,6 @@ const Scale = (props) => {
           Divide Octave into {effectiveEquivSteps} Equal Divisions
         </button>
       </div>
-      <Colors {...props} />
-      <KeyLabels {...props} />
       <label>
         Modulation Style
         <select
@@ -231,6 +229,8 @@ const Scale = (props) => {
           <option value="fixed_do">Fixed Do / Moveable Layout</option>
         </select>
       </label>
+      <Colors {...props} rawSettings={props.rawSettings ?? props.settings} />
+      <KeyLabels {...props} />
       {!collapsed && (
         <>
           <br />
@@ -268,6 +268,7 @@ Scale.propTypes = {
   onImport: PropTypes.func.isRequired,
   onChange: PropTypes.func.isRequired,
   onAtomicChange: PropTypes.func,
+  rawSettings: PropTypes.object,
   importCount: PropTypes.number,
   modulation_transposition_cents: PropTypes.number,
   modulation_display_active: PropTypes.bool,

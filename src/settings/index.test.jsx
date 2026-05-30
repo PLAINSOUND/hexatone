@@ -5,7 +5,13 @@ vi.mock("./settings.css", () => ({}));
 vi.mock("./presets/presets", () => ({ default: () => <div>Presets Stub</div> }));
 vi.mock("./presets/custom-presets", () => ({ default: () => <div>User Tunings Stub</div> }));
 vi.mock("./scale/info", () => ({ default: () => <div>Info Stub</div> }));
-vi.mock("./scale", () => ({ default: () => <div>Scale Stub</div> }));
+const scaleMockState = vi.hoisted(() => ({ props: [] }));
+vi.mock("./scale", () => ({
+  default: (props) => {
+    scaleMockState.props.push(props);
+    return <div>Scale Stub</div>;
+  },
+}));
 vi.mock("./layout", () => ({ default: () => <div>Layout Stub</div> }));
 vi.mock("./sample", () => ({ default: () => <div>Sample Stub</div> }));
 vi.mock("./midi", () => ({ default: () => <div>MIDI In Stub</div> }));
@@ -48,6 +54,10 @@ const baseProps = {
 };
 
 describe("Settings MIDI Permissions fieldset", () => {
+  beforeEach(() => {
+    scaleMockState.props.length = 0;
+  });
+
   it("renders always-visible Enable MIDI and Enable Sysex checkboxes", () => {
     render(<Settings {...baseProps} />);
     expect(screen.getByText("MIDI Permissions")).not.toBeNull();
@@ -119,5 +129,28 @@ describe("Settings MIDI Permissions fieldset", () => {
   it("shows midi access errors inline", () => {
     render(<Settings {...baseProps} midiAccessError="MIDI SysEx access was not granted." />);
     expect(screen.getByText("MIDI SysEx access was not granted.")).not.toBeNull();
+  });
+
+  it("passes normalized color precedence into the Scale panel", () => {
+    render(
+      <Settings
+        {...baseProps}
+        settings={{
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          spectrum_colors: true,
+          auto_colors: true,
+          fundamental_color: "#abcdef",
+          note_colors: ["#ffffff", "#ffffff"],
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+      />,
+    );
+
+    const lastProps = scaleMockState.props.at(-1);
+    expect(lastProps.settings.spectrum_colors).toBe(false);
+    expect(lastProps.settings.auto_colors).toBe(true);
+    expect(lastProps.settings.note_colors[1]).toBe("95c69b");
   });
 });

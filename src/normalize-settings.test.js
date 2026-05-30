@@ -1,10 +1,28 @@
 import { describe, it, expect } from "vitest";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
+import {
+  deriveAutoTonicColorFromPalette,
+  AUTO_TONIC_COLOR_SOFT,
+  AUTO_TONIC_COLOR_STRONG,
+  AUTO_TONIC_COLOR_ROSE_HEAVY,
+} from "./settings/scale/auto-colors.js";
 
 describe("normalizeColors", () => {
-  it("auto-generates note colors from the spectrum hue when none are present", () => {
+  it("keeps note colors empty when spectrum mode is off and none are stored", () => {
     const normalized = normalizeColors({
       spectrum_colors: false,
+      fundamental_color: "#f2e3e3",
+      note_colors: [],
+      equivSteps: 205,
+    });
+
+    expect(normalized.fundamental_color).toBe("f2e3e3");
+    expect(normalized.note_colors).toEqual([]);
+  });
+
+  it("auto-generates note colors from the spectrum hue when spectrum mode is on and none are present", () => {
+    const normalized = normalizeColors({
+      spectrum_colors: true,
       fundamental_color: "#f2e3e3",
       note_colors: [],
       equivSteps: 205,
@@ -24,6 +42,93 @@ describe("normalizeColors", () => {
     });
 
     expect(normalized.note_colors).toEqual(["112233", "abcdef"]);
+  });
+
+  it("preserves stored preset colors in auto-colour mode when a degree has no exact auto suggestion", () => {
+    const normalized = normalizeColors({
+      auto_colors: true,
+      spectrum_colors: false,
+      fundamental_color: "#f2e3e3",
+      scale: ["100.", "200.", "2/1"],
+      note_colors: ["#123456", "#abcdef", "#654321"],
+      note_names: ["C", "D", "E"],
+      key_labels: "note_names",
+      equivSteps: 2,
+    });
+
+    expect(normalized.note_colors).toEqual([
+      deriveAutoTonicColorFromPalette(["#abcdef", "#654321"]).replace(/^#/, ""),
+      "abcdef",
+      "654321",
+    ]);
+  });
+
+  it("lets auto colours override spectrum colours during normalization", () => {
+    const normalized = normalizeColors({
+      auto_colors: true,
+      spectrum_colors: true,
+      fundamental_color: "#abcdef",
+      scale: ["23/16", "2/1"],
+      note_colors: ["#ffffff", "#ffffff"],
+      note_names: ["1/1", "23"],
+      key_labels: "note_names",
+      equivSteps: 2,
+    });
+
+    expect(normalized.spectrum_colors).toBe(false);
+    expect(normalized.auto_colors).toBe(true);
+    expect(normalized.note_colors[1]).toBe("95c69b");
+  });
+
+  it("scales the auto tonic highlight with palette intensity", () => {
+    const mild = deriveAutoTonicColorFromPalette([
+      "#ffffff",
+      "#d0d0d7",
+      "#dee2da",
+      "#fffae5",
+      "#ffffff",
+      "#d0d0d7",
+    ]);
+    const vivid = deriveAutoTonicColorFromPalette([
+      "#95c69b",
+      "#8aafff",
+      "#68f3ec",
+      "#f89b87",
+      "#ffb8da",
+      "#dbb3ff",
+      "#69ec79",
+      "#e8c28c",
+    ]);
+    const harmonic = deriveAutoTonicColorFromPalette([
+      "#ffffff",
+      "#dee2da",
+      "#e7e7ca",
+      "#ffffff",
+      "#e2caca",
+      "#ffe5e5",
+      "#dee2da",
+      "#fffae5",
+      "#e2caca",
+      "#ffe5e5",
+      "#ffffff",
+      "#ece6df",
+      "#fffae5",
+    ]);
+    const roseHeavy = deriveAutoTonicColorFromPalette([
+      "#ffe5e5",
+      "#f8c9c9",
+      "#ffcba8",
+      "#e9d7d3",
+      "#ebd0e0",
+      "#f89b87",
+      "#ffb8da",
+    ]);
+
+    expect(mild).not.toBe(AUTO_TONIC_COLOR_STRONG);
+    expect(vivid).toBe(AUTO_TONIC_COLOR_STRONG);
+    expect(mild).not.toBe(AUTO_TONIC_COLOR_SOFT);
+    expect(harmonic).toBe("#ffafaf");
+    expect(roseHeavy).toBe(AUTO_TONIC_COLOR_ROSE_HEAVY);
   });
 });
 

@@ -16,6 +16,7 @@ import {
   setDegreeComparing,
   setDegreePreview,
 } from "../../../tuning/tuning-preview-runtime.js";
+import { monzoToSuggestedColor } from "../monzo-color.js";
 
 /**
  * TuneCell — drag-to-tune control for a single scale degree.
@@ -54,6 +55,7 @@ const TuneCell = ({
   previewState,
   onPreviewChange,
   resetVersion,
+  colorSuggestionOptions,
 }) => {
   const [previewInterval, setPreviewInterval] = useState(null);
   const [rationaliseCandidates, setRationaliseCandidates] = useState(null);
@@ -343,6 +345,9 @@ const TuneCell = ({
       {rationaliseCandidates && (
         <div class="rationalise-dropdown">
           {rationaliseCandidates.map((candidate) => {
+            const suggestedColor = Array.isArray(candidate.monzo)
+              ? monzoToSuggestedColor(candidate.monzo, undefined, colorSuggestionOptions)
+              : null;
             const tol = parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? 6;
             const pl = parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? 19;
             const region = searchPrefs?.region ?? "symmetric";
@@ -400,6 +405,21 @@ const TuneCell = ({
                     </span>
                   )}
                   <span class="rationalise-candidate__meta">s_oton {(candidate.branchExtent ?? 0).toFixed(2)}</span>
+                  {suggestedColor && (
+                    <span
+                      class="rationalise-candidate__suggested-color"
+                      title={suggestedColor.explanation}
+                    >
+                      <span
+                        class="rationalise-candidate__suggested-swatch"
+                        style={{ backgroundColor: suggestedColor.screenHex }}
+                        aria-hidden="true"
+                      />
+                      <span class="rationalise-candidate__meta">
+                        col {suggestedColor.familyPrime}L
+                      </span>
+                    </span>
+                  )}
                 </div>
               </button>
             );

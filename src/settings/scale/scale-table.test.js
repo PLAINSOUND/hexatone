@@ -156,17 +156,512 @@ describe("ScaleTable — explicit colors", () => {
     expect(screen.getByLabelText("hex colour for color1").value).toBe("#7b7b7b");
   });
 
-  it('calls onChange("note_colors", ...) with updated array when a color is changed', () => {
+  it('calls onChange("note_colors", ...) with updated array when a color is saved', () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
     const input = screen.getByLabelText("hex colour for color2");
     fireEvent.change(input, { target: { value: "#ff0000", name: "color2" } });
     fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText("save colour for color2"));
+
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toBe("note_colors");
     const updated = onChange.mock.calls[0][1];
     expect(updated[2]).toBe("#ff0000");
     expect(updated[0]).toBe("#ffffff");
+  });
+
+  it("shows compare and save controls for manual edits without an auto suggestion", () => {
+    const onChange = vi.fn();
+    const keysRef = {
+      current: {
+        updateColors: vi.fn(),
+      },
+    };
+    render(<ScaleTable settings={settingsBase} onChange={onChange} keysRef={keysRef} />);
+
+    const input = screen.getByLabelText("hex colour for color2");
+    fireEvent.input(input, { target: { value: "#ff0000" } });
+
+    expect(screen.getByLabelText("compare original colour for color2")).not.toBeNull();
+    expect(screen.getByLabelText("save colour for color2")).not.toBeNull();
+    expect(screen.queryByLabelText("revert colour for color2")).toBeNull();
+
+    expect(keysRef.current.updateColors).toHaveBeenCalled();
+    let lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
+    expect(lastCall.note_colors[2]).toBe("ff0000");
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText("compare original colour for color2"));
+    lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
+    expect(lastCall.note_colors[2]).toBe("ffffff");
+
+    fireEvent.click(screen.getByLabelText("compare original colour for color2"));
+    lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
+    expect(lastCall.note_colors[2]).toBe("ff0000");
+
+    fireEvent.click(screen.getByLabelText("compare original colour for color2"));
+    fireEvent.click(screen.getByLabelText("save colour for color2"));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toBe("note_colors");
+    const updated = onChange.mock.calls[0][1];
+    expect(updated[2]).toBe("#ffffff");
+  });
+
+  it("offers a suggested colour and commits it only when saved", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          scale: ["23/16", ...scale_values.slice(1)],
+          note_colors: ["#ffffff", "#ffffff", ...scale_colors.slice(2)],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("apply suggested colour for color1"));
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText("save colour for color1"));
+
+    expect(onChange).toHaveBeenCalledWith(
+      "note_colors",
+      expect.arrayContaining(["#ffffff", "#95c69b"]),
+    );
+  });
+
+  it("suppresses auto-colour hints when auto-colour mode is enabled", () => {
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          auto_colors: true,
+          scale: ["23/16", ...scale_values.slice(1)],
+          note_colors: ["#ffffff", "#95c69b", ...scale_colors.slice(2)],
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByLabelText("apply suggested colour for color1")).toBeNull();
+    expect(screen.getByLabelText("hex colour for color1").disabled).toBe(true);
+  });
+
+  it("disables Bosanquet black-key auto colours for odd-partial style tunings", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          name: "14-(3,5) < 256°",
+          short_description: "OddPartials(3,5)",
+          scale: ["135/128", ...scale_values.slice(1)],
+          note_colors: ["#ffffff", "#fffae5", ...scale_colors.slice(2)],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.queryByLabelText("apply suggested colour for color1")).toBeNull();
+  });
+
+  it("disables Bosanquet black-key auto colours for OddPart short descriptions too", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          name: "18-(3,7,11) < 256°",
+          short_description: "OddPart(3,7,11)",
+          scale: ["7/4", ...scale_values.slice(1)],
+          note_colors: ["#ffffff", "#ffe5e5", ...scale_colors.slice(2)],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.queryByLabelText("apply suggested colour for color1")).toBeNull();
+  });
+
+  it("does not disable fifths overlay just because a description mentions harmonic partials", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          name: "22-Sruti (Sambamurthy/Daniélou)",
+          short_description: "22-JI-5L_Srutis",
+          description: "Derived from harmonic partial row intervals up to a prime limit of 5.",
+          scale: ["256/243", "2/1"],
+          note_names: [" Sa ", " ReL- "],
+          note_colors: ["#ffffff", "#ffffff"],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByLabelText("apply suggested colour for color1")).not.toBeNull();
+  });
+
+  it("prefers note-name D-centering over misleading HEJI labels for note-name tunings", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          key_labels: "note_names",
+          scale: ["256/243", "9/8", "2/1"],
+          note_names: [" Sa ", " ReL- ", " Re "],
+          note_colors: ["#ffffff", "#d0d0d7", "#ffffff"],
+        }}
+        heji_names_table={["D", "", ""]}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByLabelText("apply suggested colour for color0")).not.toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color1")).toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color2")).toBeNull();
+  });
+
+  it("keeps 22-Sruti flat-side 3-limit notes matched to the preset palette", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          key_labels: "note_names",
+          scale: [
+            "256/243",
+            "16/15",
+            "10/9",
+            "9/8",
+            "32/27",
+            "6/5",
+            "5/4",
+            "81/64",
+            "4/3",
+            "27/20",
+            "45/32",
+            "64/45",
+            "3/2",
+            "128/81",
+            "8/5",
+            "5/3",
+            "27/16",
+            "16/9",
+            "9/5",
+            "15/8",
+            "243/128",
+            "2/1",
+          ],
+          note_names: [
+            " Sa ",
+            " ReL- ",
+            " ReL+ ",
+            " Re- ",
+            " Re ",
+            " GaL ",
+            " Ga♭ ",
+            " Ga ",
+            " Ga+ ",
+            " Ma ",
+            " Ma+ ",
+            " MaL- ",
+            " MaL+ ",
+            " Pa ",
+            " DhaL ",
+            " Dha♭ ",
+            "Dha",
+            " Dha+ ",
+            " NiL ",
+            " Ni♭ ",
+            " Ni ",
+            " Ni+ ",
+          ],
+          note_colors: [
+            "#ffffff",
+            "#d0d0d7",
+            "#b7b196",
+            "#fffae5",
+            "#ffffff",
+            "#d0d0d7",
+            "#b7b196",
+            "#fffae5",
+            "#ffffff",
+            "#ffffff",
+            "#e9e1b4",
+            "#cdcac1",
+            "#b7b196",
+            "#ffffff",
+            "#d0d0d7",
+            "#b7b196",
+            "#fffae5",
+            "#ffffff",
+            "#d0d0d7",
+            "#b7b196",
+            "#fffae5",
+            "#ffffff",
+          ],
+        }}
+        heji_names_table={["D", "D", "D", "D", "D"]}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.queryByLabelText("apply suggested colour for color1")).toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color5")).toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color14")).toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color18")).toBeNull();
+  });
+
+  it("recognizes Hamilton *nD spelling as the natural D center for relative monzo coloring", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          key_labels: "note_names",
+          name: "12-Subharmonic (Elsie Hamilton) E-A-D 13-limit",
+          short_description: "12-SH-13Hamilton",
+          scale: [
+            "12/11",
+            "8/7",
+            "6/5",
+            "5/4",
+            "4/3",
+            "45/32",
+            "3/2",
+            "8/5",
+            "12/7",
+            "24/13",
+            "15/8",
+            "2/1",
+          ],
+          note_names: ["B", "C", "C", "D", "*nD", "E", "*nE", "F", "G", "G", "A", "*nA"],
+          note_colors: [
+            "#b7b196",
+            "#f4d0f5",
+            "#fdbdbe",
+            "#e5d383",
+            "#ffffff",
+            "#b7b196",
+            "#ffffff",
+            "#b7b196",
+            "#e5d383",
+            "#fdbdbe",
+            "#c8b4db",
+            "#ffffff",
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByLabelText("apply suggested colour for color0")).not.toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color4")).toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color5")).toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color6")).toBeNull();
+  });
+
+  it("shows an auto-colour hint for root degree 0 when the generated colour differs", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          key_labels: "note_names",
+          name: "12-Subharmonic (Elsie Hamilton) E-A-D 13-limit",
+          short_description: "12-SH-13Hamilton",
+          scale: [
+            "12/11",
+            "8/7",
+            "6/5",
+            "5/4",
+            "4/3",
+            "45/32",
+            "3/2",
+            "8/5",
+            "12/7",
+            "24/13",
+            "15/8",
+            "2/1",
+          ],
+          note_names: ["B", "C", "C", "D", "*nD", "E", "*nE", "F", "G", "G", "A", "*nA"],
+          note_colors: [
+            "#d0d0d7",
+            "#ffffff",
+            "#ffffff",
+            "#d0d0d7",
+            "#ffffff",
+            "#d0d0d7",
+            "#ffffff",
+            "#ffffff",
+            "#d0d0d7",
+            "#ffffff",
+            "#d0d0d7",
+            "#ffffff",
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByLabelText("apply suggested colour for color0")).not.toBeNull();
+  });
+
+  it("keeps quintal chromatic shading always on, but enables higher-prime shading only when both signs exist", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          key_labels: "note_names",
+          name: "18-Oliveros Septimal-Quintal",
+          short_description: "18-JI-7L",
+          scale: [
+            "135/128",
+            "16/15",
+            "9/8",
+            "7/6",
+            "6/5",
+            "5/4",
+            "4/3",
+            "45/32",
+            "64/45",
+            "3/2",
+            "14/9",
+            "8/5",
+            "5/3",
+            "27/16",
+            "7/4",
+            "16/9",
+            "15/8",
+            "15/8",
+            "2/1",
+          ],
+          note_names: ["C", "C", "D", "D", "C", "E", "E", "F", "G", "C", "G", "C", "A", "A", "C", "B", "C", "B", "C"],
+          note_colors: [
+            "#ffffff",
+            "#cdcac1",
+            "#b7b196",
+            "#ffffff",
+            "#ffe5e5",
+            "#b7b196",
+            "#fffae5",
+            "#ffffff",
+            "#cdcac1",
+            "#b7b196",
+            "#ffffff",
+            "#ffe5e5",
+            "#b7b196",
+            "#fffae5",
+            "#ffffff",
+            "#ffe5e5",
+            "#d0d0d7",
+            "#fffae5",
+            "#fffae5",
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByLabelText("apply suggested colour for color1")).not.toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color3")).toBeNull();
+  });
+
+
+  it("centers fifths on the plain pure-3 D nearest 9/8", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          key_labels: "note_names",
+          scale: ["10/9", "9/8", "2/1"],
+          note_names: [" Sa ", " Re- ", " Re "],
+          note_colors: ["#ffffff", "#fffae5", "#ffffff"],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.queryByLabelText("apply suggested colour for color1")).toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color2")).toBeNull();
+  });
+
+  it("prefers a pure-3 D center over a higher-prime natural-marked D in Partch-like scales", () => {
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          key_labels: "note_names",
+          name: "Harry Partch: 43 tone Just Intonation scale",
+          short_description: "43-JI-11LPartchA",
+          scale: ["7/6", "32/27", "4/3", "27/20", "2/1"],
+          note_names: ["B", "C", "D", "*nD", "A"],
+          note_colors: ["#ffe5e5", "#ffffff", "#ffffff", "#ffffff", "#ffffff"],
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("apply suggested colour for color1").title).toContain("7-limit overtonal diatonic");
+  });
+
+  it("lets compare plus save restore the original after an auto-colour preview", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          scale: ["23/16", ...scale_values.slice(1)],
+          note_colors: ["#ffffff", "#ffffff", ...scale_colors.slice(2)],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("apply suggested colour for color1"));
+    fireEvent.click(screen.getByLabelText("compare original colour for color1"));
+    fireEvent.click(screen.getByLabelText("save colour for color1"));
+
+    expect(onChange).toHaveBeenCalledWith(
+      "note_colors",
+      expect.arrayContaining(["#ffffff", "#ffffff"]),
+    );
+  });
+
+  it("pushes auto-colour previews to the live keys renderer before save", () => {
+    const onChange = vi.fn();
+    const keysRef = {
+      current: {
+        updateColors: vi.fn(),
+      },
+    };
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          scale: ["23/16", ...scale_values.slice(1)],
+          note_colors: ["#ffffff", "#ffffff", ...scale_colors.slice(2)],
+        }}
+        onChange={onChange}
+        keysRef={keysRef}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("apply suggested colour for color1"));
+
+    expect(keysRef.current.updateColors).toHaveBeenCalled();
+    const lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
+    expect(lastCall.note_colors[1]).toBe("95c69b");
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 
@@ -188,6 +683,22 @@ describe("ScaleTable — spectrum colors", () => {
     for (let i = 0; i < 12; i++) {
       expect(screen.getByLabelText(`hex colour for color${i}`).value).toBe("#abcdef");
     }
+  });
+
+  it("lets auto colours override spectrum colours when both are enabled", () => {
+    render(
+      <ScaleTable
+        settings={{
+          ...settings,
+          auto_colors: true,
+          scale: ["23/16", ...scale_values.slice(1)],
+          note_colors: ["#ffffff", "#ffffff", ...scale_colors.slice(2)],
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("hex colour for color1").value).toBe("#95c69b");
   });
 });
 

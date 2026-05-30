@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "../parse-scale";
+import { normalizeColors } from "../../../normalize-settings.js";
 import ScalaInput from "../scala-input.js";
 import { createScaleWorkspace } from "../../../tuning/workspace.js";
 import { scorePrimeConsistency } from "../../../tuning/rationalise.js";
@@ -30,6 +31,16 @@ import {
   getEffectiveFrequencyAtDegree,
   isDegreeComparing,
 } from "../../../tuning/tuning-preview-runtime.js";
+import { monzoToSuggestedColor } from "../monzo-color.js";
+import {
+  buildResolvedAutoColorOptions,
+  deriveAutoNoteColors,
+  deriveAutoTonicColorFromPaletteWithPrime,
+  inferPrimeChainRole,
+  inferNotationRole,
+  normaliseColorForCompare,
+} from "../auto-colors.js";
+import { getPrimeFamilyColorMap } from "../monzo-color.js";
 
 // ScaleTable is the UI workspace for rationalisation. It derives committed row
 // state from ScaleWorkspace, lets TuneCell create transient previews, then
@@ -56,17 +67,39 @@ const ScaleTable = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings is a new object on every render; listing the specific keys that affect workspace output avoids unnecessary recomputation
     [props.settings.scale, props.settings.reference_degree, props.settings.fundamental],
   );
+  const autoColorOptions = useMemo(() => {
+    return buildResolvedAutoColorOptions(props.settings, workspace, {
+      keyLabels: props.settings.key_labels,
+      noteNames: props.settings.note_names,
+      hejiTableNames: props.heji_names_table,
+      hejiNames: props.heji_names,
+    });
+  }, [props.settings, props.heji_names_table, props.heji_names, workspace]);
 
   const degrees = [...Array(scale.length).keys()];
-  const note_names = props.settings.note_names || [];
+  const note_names = useMemo(
+    () => props.settings.note_names || [],
+    [props.settings.note_names],
+  );
   const isHeji = props.settings.key_labels === "heji";
   const heji_names = useMemo(
     () => props.heji_names_table || props.heji_names || [],
     [props.heji_names_table, props.heji_names],
   );
 
+  const autoColors = useMemo(
+    () => deriveAutoNoteColors(props.settings, {
+      workspace,
+      heji_names: props.heji_names,
+      heji_names_table: props.heji_names_table,
+    }),
+    [props.settings, props.heji_names, props.heji_names_table, workspace],
+  );
+
   let colors;
-  if (props.settings.spectrum_colors) {
+  if (props.settings.auto_colors) {
+    colors = autoColors;
+  } else if (props.settings.spectrum_colors) {
     colors = Array(scale.length).fill(props.settings.fundamental_color);
   } else {
     colors = props.settings.note_colors || [];
@@ -93,13 +126,25 @@ const ScaleTable = (props) => {
     props.onChange("note_colors", next);
   };
 
+  const previewColorAt = useCallback((degreeIndex, colorHex) => {
+    if (!props.keysRef?.current?.updateColors || (props.settings.spectrum_colors && !props.settings.auto_colors)) return;
+    const next = [...(props.settings.note_colors || [])];
+    next[degreeIndex] = colorHex;
+    const normalized = normalizeColors({ ...props.settings, note_colors: next });
+    props.keysRef.current.updateColors({
+      note_colors: normalized.note_colors,
+      spectrum_colors: normalized.spectrum_colors,
+      fundamental_color: (props.settings.fundamental_color || "").replace(/#/, ""),
+    });
+  }, [props.keysRef, props.settings]);
+
   const nameChange = (e) => {
     const next = [...(props.settings.note_names || [])];
     next[parseInt(e.target.name.replace(/name/, ""))] = e.target.value;
     props.onChange("note_names", next);
   };
 
-  const editable_colors = props.settings.spectrum_colors;
+  const editable_colors = props.settings.spectrum_colors || props.settings.auto_colors;
   const [showSearchPrefs, setShowSearchPrefs] = useState(
     () => sessionStorage.getItem("hexatone_search_prefs_open") === "true",
   );
@@ -167,6 +212,31 @@ const ScaleTable = (props) => {
     return getRowRuntimeAtDegree(degreeIndex).committedCents;
   }, [getRowRuntimeAtDegree]);
 
+  const getSuggestedColorAtDegree = useCallback((degreeIndex) => {
+    if (degreeIndex === 0) {
+      return {
+        screenHex: deriveAutoTonicColorFromPaletteWithPrime(
+          autoColors.slice(1),
+          getPrimeFamilyColorMap(props.settings.prime_family_colors)[1],
+        ),
+        familyPrime: null,
+        familyName: "tonic",
+        confidence: 1,
+        explanation: "Auto tonic highlight",
+        fifthsFrame: null,
+      };
+    }
+    const interval = getRowRuntimeAtDegree(degreeIndex).committedInterval;
+    if (!Array.isArray(interval?.monzo)) return null;
+    const label = (isHeji ? heji_names[degreeIndex] : note_names[degreeIndex]) ?? "";
+    return monzoToSuggestedColor(interval.monzo, undefined, {
+      ...autoColorOptions,
+      notationRole: inferNotationRole(label),
+      chainRole: inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
+    });
+  }, [autoColorOptions, autoColors, getRowRuntimeAtDegree, heji_names, isHeji, note_names, props.settings.prime_family_colors, workspace]);
+
+  const rootSuggestedColor = getSuggestedColorAtDegree(0);
   const sortDegreesAscending = useCallback(() => {
     const updates = sortScaleDegreesAscending(props.settings);
     if (updates && props.onAtomicChange) props.onAtomicChange(updates);
@@ -754,6 +824,7 @@ const ScaleTable = (props) => {
                   retuning_mode={props.settings.retuning_mode}
                   previewState={previewState}
                   onPreviewChange={onPreviewChange}
+                  colorSuggestionOptions={autoColorOptions}
                   onDegree0Save={(delta) => {
                     // delta: cents degree 0 moved up.
                     // The equave is never touched — it is a period ratio, not a pitch.
@@ -819,6 +890,10 @@ const ScaleTable = (props) => {
               value={colors[0] || "#ffffff"}
               disabled={editable_colors}
               onChange={colorChange}
+              suggestedColor={rootSuggestedColor?.screenHex ?? null}
+              suggestedLabel={rootSuggestedColor?.explanation ?? ""}
+              onApplySuggestion={(hex) => previewColorAt(0, hex)}
+              onPreviewColor={(hex) => previewColorAt(0, hex)}
             />
           </td>
         </tr>
@@ -921,6 +996,7 @@ const ScaleTable = (props) => {
                   previewState={previewState}
                   onPreviewChange={onPreviewChange}
                   resetVersion={resetVersion[i + 1] ?? 0}
+                  colorSuggestionOptions={autoColorOptions}
                     onChange={(newStr) => {
                       const next = [...(props.settings.scale || [])];
                       next[i] = newStr;
@@ -969,12 +1045,23 @@ const ScaleTable = (props) => {
               )}
             </td>
             <td class="scale-color-col">
+              {(() => {
+                const suggestion = getSuggestedColorAtDegree(i + 1);
+                const showSuggestion =
+                  suggestion &&
+                  normaliseColorForCompare(suggestion.screenHex) !== normaliseColorForCompare(color);
+                return (
               <ColorCell
                 name={`color${i + 1}`}
                 value={color}
                 disabled={editable_colors}
                 onChange={colorChange}
+                suggestedColor={showSuggestion ? suggestion.screenHex : null}
+                suggestedLabel={showSuggestion ? suggestion.explanation ?? "" : ""}
+                onPreviewColor={(previewHex) => previewColorAt(i + 1, previewHex)}
               />
+                );
+              })()}
             </td>
           </tr>
         ))}
@@ -1069,6 +1156,7 @@ ScaleTable.propTypes = {
     scale: PropTypes.arrayOf(PropTypes.string),
     key_labels: PropTypes.string,
     spectrum_colors: PropTypes.bool,
+    auto_colors: PropTypes.bool,
     fundamental_color: PropTypes.string,
     note_colors: PropTypes.arrayOf(PropTypes.string),
     note_names: PropTypes.arrayOf(PropTypes.string),

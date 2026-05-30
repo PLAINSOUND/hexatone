@@ -10,7 +10,7 @@ import {
 describe("tuning/interval", () => {
   it("uses the 23-limit default basis and 47-limit canonical basis", () => {
     expect(DEFAULT_MONZO_BASIS).toEqual([2, 3, 5, 7, 11, 13, 17, 19, 23]);
-    expect(EXTENDED_MONZO_BASIS).toEqual([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]);
+    expect(EXTENDED_MONZO_BASIS).toEqual([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]);
     expect(CANONICAL_MONZO_BASIS).toEqual(EXTENDED_MONZO_BASIS);
   });
 
@@ -21,7 +21,7 @@ describe("tuning/interval", () => {
     expect(interval.ratio.toFraction()).toBe("11/8");
     expect(interval.primeLimit).toBe(11);
     expect(intervalHasExactMonzo(interval)).toBe(true);
-    expect(interval.monzo).toEqual([-3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(interval.monzo).toEqual([-3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(interval.residual).toBeNull();
   });
 
@@ -58,11 +58,11 @@ describe("tuning/interval", () => {
     expect(interval.primeLimit).toBe(29);
   });
 
-  it("keeps residual factors above the canonical 47-limit basis", () => {
-    const interval = parseExactInterval("53/47");
-    expect(interval.primeLimit).toBe(53);
-    expect(interval.monzo).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1]);
-    expect(intervalResidualToString(interval)).toBe("53");
+  it("keeps residual factors above the canonical 59-limit basis", () => {
+    const interval = parseExactInterval("61/47");
+    expect(interval.primeLimit).toBe(61);
+    expect(interval.monzo).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0]);
+    expect(intervalResidualToString(interval)).toBe("61");
   });
 
   it("returns unknown for unsupported text", () => {

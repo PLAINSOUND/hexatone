@@ -24,7 +24,9 @@ export const SETTINGS_IMPACT_FIELDS = {
   colors: [
     "note_colors",
     "spectrum_colors",
+    "auto_colors",
     "fundamental_color",
+    "prime_family_colors",
   ],
   inputBinding: [],
   inputRuntime: [

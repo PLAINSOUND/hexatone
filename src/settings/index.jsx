@@ -7,6 +7,8 @@ import SampleSynth from "./sample";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
+import { normalizeColors } from "../normalize-settings.js";
+
 const Settings = ({
   presetChanged,
   presets,
@@ -55,8 +57,14 @@ const Settings = ({
   linnstrumentRawPorts,
   hakenRawPorts,
   exquisLedStatus,
-}) => (
-  <div autoComplete="off" role="group" aria-label="Hexatone settings">
+}) => {
+  const effectiveScaleSettings = {
+    ...settings,
+    ...normalizeColors(settings),
+  };
+
+  return (
+    <div autoComplete="off" role="group" aria-label="Hexatone settings">
     <fieldset style={{ marginTop: "1em" }}>
       <legend>
         <b>Built-in Tunings</b>
@@ -100,7 +108,8 @@ const Settings = ({
     <Scale
       onChange={onChange}
       onAtomicChange={onAtomicChange}
-      settings={settings}
+      settings={effectiveScaleSettings}
+      rawSettings={settings}
       heji_names={heji_names}
       heji_names_table={heji_names_table}
       modulation_transposition_cents={modulation_transposition_cents}
@@ -158,6 +167,7 @@ const Settings = ({
       midiTick={midiTick}
       keysRef={keysRef}
     />
-  </div>
-);
+    </div>
+  );
+};
 export default Settings;

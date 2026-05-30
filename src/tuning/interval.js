@@ -12,7 +12,7 @@ import {
 
 export const DEFAULT_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23];
 
-export const EXTENDED_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+export const EXTENDED_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59];
 
 // Canonical exact basis for future HEJI / modulation work.
 export const CANONICAL_MONZO_BASIS = EXTENDED_MONZO_BASIS;

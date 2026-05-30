@@ -34,9 +34,12 @@ const Keyboard = (props) => {
   // Runs only when App's settings-impact registry says the keyboard must be
   // reconstructed. Live input/output/color/label updates use imperative paths.
   useEffect(() => {
+    const initialSettings = props.colorSettings
+      ? { ...props.settings, ...props.colorSettings }
+      : props.settings;
     const keys = new Keys(
       canvas.current,
-      props.settings,
+      initialSettings,
       props.synth,
       props.active,
       props.onLatchChange,
