@@ -212,31 +212,6 @@ const ScaleTable = (props) => {
     return getRowRuntimeAtDegree(degreeIndex).committedCents;
   }, [getRowRuntimeAtDegree]);
 
-  const getSuggestedColorAtDegree = useCallback((degreeIndex) => {
-    if (degreeIndex === 0) {
-      return {
-        screenHex: deriveAutoTonicColorFromPaletteWithPrime(
-          autoColors.slice(1),
-          getPrimeFamilyColorMap(props.settings.prime_family_colors)[1],
-        ),
-        familyPrime: null,
-        familyName: "tonic",
-        confidence: 1,
-        explanation: "Auto tonic highlight",
-        fifthsFrame: null,
-      };
-    }
-    const interval = getRowRuntimeAtDegree(degreeIndex).committedInterval;
-    if (!Array.isArray(interval?.monzo)) return null;
-    const label = (isHeji ? heji_names[degreeIndex] : note_names[degreeIndex]) ?? "";
-    return monzoToSuggestedColor(interval.monzo, undefined, {
-      ...autoColorOptions,
-      notationRole: inferNotationRole(label),
-      chainRole: inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
-    });
-  }, [autoColorOptions, autoColors, getRowRuntimeAtDegree, heji_names, isHeji, note_names, props.settings.prime_family_colors, workspace]);
-
-  const rootSuggestedColor = getSuggestedColorAtDegree(0);
   const sortDegreesAscending = useCallback(() => {
     const updates = sortScaleDegreesAscending(props.settings);
     if (updates && props.onAtomicChange) props.onAtomicChange(updates);
@@ -318,6 +293,64 @@ const ScaleTable = (props) => {
     if (liveRow.noteCount > 1) parts.push(`${liveRow.noteCount} live notes`);
     return parts.length ? parts.join(" · ") : undefined;
   }, [liveRowAtDegree]);
+
+  const liveAutoColorLabelAtDegree = useCallback((degreeIndex) => {
+    const liveRow = liveRowAtDegree(degreeIndex);
+    if (!liveRow || liveRow.mixed || !liveRow.displayLabel) return null;
+    return liveRow.displayLabel;
+  }, [liveRowAtDegree]);
+
+  const liveAutoColorMonzoAtDegree = useCallback((degreeIndex) => {
+    const liveRow = liveRowAtDegree(degreeIndex);
+    if (!liveRow || liveRow.mixed || !Array.isArray(liveRow.monzo)) return null;
+    return liveRow.monzo;
+  }, [liveRowAtDegree]);
+
+  const getSuggestedColorAtDegree = useCallback((degreeIndex) => {
+    if (degreeIndex === 0) {
+      return {
+        screenHex: deriveAutoTonicColorFromPaletteWithPrime(
+          autoColors.slice(1),
+          getPrimeFamilyColorMap(props.settings.prime_family_colors)[1],
+        ),
+        familyPrime: null,
+        familyName: "tonic",
+        confidence: 1,
+        explanation: "Auto tonic highlight",
+        fifthsFrame: null,
+      };
+    }
+    const interval = getRowRuntimeAtDegree(degreeIndex).committedInterval;
+    const liveMonzo = liveAutoColorMonzoAtDegree(degreeIndex);
+    const monzo = liveMonzo ?? interval?.monzo;
+    if (!Array.isArray(monzo)) return null;
+    const label = liveAutoColorLabelAtDegree(degreeIndex)
+      ?? ((isHeji ? heji_names[degreeIndex] : note_names[degreeIndex]) ?? "");
+    const usingLiveRow = !!liveMonzo;
+    return monzoToSuggestedColor(monzo, undefined, {
+      ...autoColorOptions,
+      notationRole: inferNotationRole(label),
+      chainRole: usingLiveRow ? null : inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
+    });
+  }, [
+    autoColorOptions,
+    autoColors,
+    getRowRuntimeAtDegree,
+    heji_names,
+    isHeji,
+    liveAutoColorLabelAtDegree,
+    liveAutoColorMonzoAtDegree,
+    note_names,
+    props.settings.prime_family_colors,
+    workspace,
+  ]);
+
+  const getDisplayedColorAtDegree = useCallback((degreeIndex) => {
+    if (!props.settings.auto_colors) return colors[degreeIndex] || "#ffffff";
+    return getSuggestedColorAtDegree(degreeIndex)?.screenHex ?? colors[degreeIndex] ?? "#ffffff";
+  }, [colors, getSuggestedColorAtDegree, props.settings.auto_colors]);
+
+  const rootSuggestedColor = getSuggestedColorAtDegree(0);
 
   // Auto-rationalise every non-root, non-equave degree using a two-pass approach:
   //
@@ -887,7 +920,7 @@ const ScaleTable = (props) => {
           <td class="scale-color-col">
             <ColorCell
               name="color0"
-              value={colors[0] || "#ffffff"}
+              value={getDisplayedColorAtDegree(0)}
               disabled={editable_colors}
               onChange={colorChange}
               suggestedColor={rootSuggestedColor?.screenHex ?? null}
@@ -897,7 +930,7 @@ const ScaleTable = (props) => {
             />
           </td>
         </tr>
-        {rows.slice(1).map(([freq, degree, name, color], i) => (
+        {rows.slice(1).map(([freq, degree, name], i) => (
           <tr
             key={`${i + 1}-${props.importCount}`}
             class={
@@ -1047,13 +1080,14 @@ const ScaleTable = (props) => {
             <td class="scale-color-col">
               {(() => {
                 const suggestion = getSuggestedColorAtDegree(i + 1);
+                const displayedColor = getDisplayedColorAtDegree(i + 1);
                 const showSuggestion =
                   suggestion &&
-                  normaliseColorForCompare(suggestion.screenHex) !== normaliseColorForCompare(color);
+                  normaliseColorForCompare(suggestion.screenHex) !== normaliseColorForCompare(displayedColor);
                 return (
               <ColorCell
                 name={`color${i + 1}`}
-                value={color}
+                value={displayedColor}
                 disabled={editable_colors}
                 onChange={colorChange}
                 suggestedColor={showSuggestion ? suggestion.screenHex : null}

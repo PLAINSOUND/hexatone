@@ -251,6 +251,38 @@ describe("ScaleTable — explicit colors", () => {
     expect(screen.getByLabelText("hex colour for color1").disabled).toBe(true);
   });
 
+  it("uses live modulated spelling and monzo for auto colours when a row is unambiguous", () => {
+    render(
+      <ScaleTable
+        settings={{
+          ...settingsBase,
+          auto_colors: true,
+          key_labels: "heji",
+          scale: ["9/8", "2/1"],
+          note_colors: ["#ffffff", "#ffffff"],
+        }}
+        heji_names={["C", "D"]}
+        liveScaleTableSnapshot={{
+          version: 1,
+          rowsByDegree: {
+            1: {
+              degree: 1,
+              frequencyHz: 293.664768,
+              displayLabel: "D♭",
+              ratioText: "256/243",
+              monzo: [8, -5, 0],
+              noteCount: 1,
+              mixed: false,
+            },
+          },
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("hex colour for color1").value).toBe("#d0d0d7");
+  });
+
   it("disables Bosanquet black-key auto colours for odd-partial style tunings", () => {
     const onChange = vi.fn();
     render(
