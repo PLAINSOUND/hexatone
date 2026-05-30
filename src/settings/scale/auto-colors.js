@@ -205,6 +205,10 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
 
     if (prime === 5 && entries.length <= 7) return null;
     if (prime >= 7 && entries.length <= 7) return "diatonic";
+    if (prime === 5) {
+      if (targetExponent > 0) return chainIndex < 7 ? "diatonic" : "chromatic";
+      return chainIndex < 5 ? "chromatic" : "diatonic";
+    }
     if (targetExponent > 0) return chainIndex < entries.length - 7 ? "chromatic" : "diatonic";
     return chainIndex < 7 ? "diatonic" : "chromatic";
   }

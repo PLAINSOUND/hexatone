@@ -14,7 +14,7 @@ import {
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
-const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color", "auto_colors"]);
+const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color", "auto_colors", "prime_family_colors"]);
 const CONTROLLER_OUTPUT_OVERRIDE_KEYS = {
   exquis: "exquis_out_port",
   hakenaudio: "hakenaudio_out_port",

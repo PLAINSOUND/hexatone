@@ -1,7 +1,7 @@
 import { createRef } from "preact";
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
-import { deriveSpectrumNoteColors } from "../../normalize-settings.js";
+import { deriveSpectrumNoteColors, normalizeColors } from "../../normalize-settings.js";
 import { deriveAutoNoteColors, normaliseColorForCompare } from "./auto-colors.js";
 import ColorCell from "./scale-table/color-cell.js";
 import {
@@ -44,6 +44,8 @@ const Colors = (props) => {
   const pickerRef = createRef();
   const textRef = createRef();
   const swatchRef = createRef();
+  const pendingPrimePreviewRef = useRef(null);
+  const primePreviewFrameRef = useRef(0);
   const autoActive = props.settings.auto_colors === true;
   const primeFamilyColors = normalizePrimeFamilyColors(props.settings.prime_family_colors);
   const derivedAutoColors = deriveAutoNoteColors(props.settings);
@@ -107,6 +109,41 @@ const Colors = (props) => {
     const next = [...primeFamilyColors];
     next[index] = e.target.value;
     props.onChange("prime_family_colors", next);
+  };
+
+  const previewPrimeFamilyColors = (nextPrimeFamilyColors) => {
+    if (!autoActive || !props.keysRef?.current?.updateColors) return;
+    const normalized = normalizeColors({
+      ...rawSettings,
+      ...props.settings,
+      prime_family_colors: nextPrimeFamilyColors,
+    });
+    props.keysRef.current.updateColors({
+      note_colors: normalized.note_colors,
+      spectrum_colors: normalized.spectrum_colors,
+      fundamental_color: normalized.fundamental_color,
+    });
+  };
+
+  useEffect(() => () => {
+    if (primePreviewFrameRef.current) {
+      cancelAnimationFrame(primePreviewFrameRef.current);
+      primePreviewFrameRef.current = 0;
+    }
+  }, []);
+
+  const handlePrimeFamilyPreview = (index) => (hex) => {
+    const next = [...primeFamilyColors];
+    next[index] = hex;
+    pendingPrimePreviewRef.current = next;
+    if (primePreviewFrameRef.current) return;
+    primePreviewFrameRef.current = requestAnimationFrame(() => {
+      primePreviewFrameRef.current = 0;
+      if (pendingPrimePreviewRef.current) {
+        previewPrimeFamilyColors(pendingPrimePreviewRef.current);
+        pendingPrimePreviewRef.current = null;
+      }
+    });
   };
 
   const handleSavePrimePalette = () => {
@@ -181,6 +218,7 @@ const Colors = (props) => {
                 disabled={false}
                 onChange={handlePrimeFamilyColorChange(index)}
                 suggestedColor={null}
+                onPreviewColor={handlePrimeFamilyPreview(index)}
               />
             </label>
           ))}

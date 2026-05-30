@@ -8,7 +8,7 @@
  * The ColorCell hex text input commits on blur (not change).
  */
 
-import { render, screen, fireEvent } from "@testing-library/preact";
+import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import Colors from "./colors";
 
 const baseSettings = { spectrum_colors: false, auto_colors: false, fundamental_color: "#abcdef" };
@@ -219,6 +219,47 @@ describe("Colors — interactions", () => {
     expect(onAtomicChange).toHaveBeenCalledWith({
       note_colors: ["#ff9696", "#95c69b"],
       auto_colors: false,
+    });
+  });
+
+  it("previews prime-family palette edits live on the canvas and compare restores the original preview", async () => {
+    const updateColors = vi.fn();
+    render(
+      <Colors
+        settings={{
+          ...baseSettings,
+          auto_colors: true,
+          note_colors: ["#ffffff", "#ffffff"],
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+        rawSettings={{
+          ...baseSettings,
+          auto_colors: true,
+          note_colors: ["#ffffff", "#ffffff"],
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+        keysRef={{ current: { updateColors } }}
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+      />,
+    );
+
+    const input = screen.getByLabelText("hex colour for prime-family-colour-23");
+    fireEvent.input(input, { target: { value: "#112233" } });
+    await waitFor(() => {
+      expect(updateColors).toHaveBeenCalled();
+    });
+    expect(updateColors.mock.calls.at(-1)[0].note_colors[1]).toBe("112233");
+
+    fireEvent.click(screen.getByLabelText("compare original colour for prime-family-colour-23"));
+    await waitFor(() => {
+      expect(updateColors.mock.calls.at(-1)[0].note_colors[1]).toBe("95c69b");
     });
   });
 });

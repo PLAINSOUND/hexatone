@@ -453,7 +453,12 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
   const fiveIndex = basis.indexOf(5);
   const fiveExp = monzo[fiveIndex] ?? 0;
 
-  const makeUndertonalDark = (base) =>
+  const makeUndertonalDiatonic = (base) =>
+    adjustHexOkhsl(mixHex(base, "#8c8574", 0.14), {
+      sOffset: -0.05,
+      lOffset: -0.04,
+    });
+  const makeUndertonalChromatic = (base) =>
     adjustHexOkhsl(mixHex(base, "#8c8574", 0.28), {
       sOffset: -0.12,
       lOffset: -0.08,
@@ -502,14 +507,16 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
     const chainStart = -2 + 4 * (absFive - 1);
     const base = absFive === 1
       ? (hasPrimeFamilyOverride(5, options)
-        ? makeUndertonalDark(getScreenColorForPrime(5, options))
+        ? makeUndertonalDiatonic(getScreenColorForPrime(5, options))
         : QUINTAL_DIATONIC_COLORS[String(fiveExp)])
       : QUINTAL_DIATONIC_COLORS[String(fiveExp)];
     const isChromatic = roleIsChromatic || (!roleIsDiatonic && isInAscendingChainRun(threeExp, chainStart, 0, 5));
     const isDiatonic = roleIsDiatonic || (!roleIsChromatic && isInAscendingChainRun(threeExp, chainStart, 5, 7));
     if (isChromatic) {
       return {
-        screenHex: makeUndertonalDark(base),
+        screenHex: hasPrimeFamilyOverride(5, options) && absFive === 1
+          ? makeUndertonalChromatic(getScreenColorForPrime(5, options))
+          : makeUndertonalChromatic(base),
         familyPrime: 5,
         familyName: absFive === 1 ? "quintal undertonal flat" : "quintal undertonal two-comma flat",
         confidence: 0.9,
