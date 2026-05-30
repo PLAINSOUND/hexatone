@@ -5,8 +5,11 @@ import {
   monzoToHeji,
   parseHejiGlyphInput,
 } from "./heji.js";
+import { EXTENDED_MONZO_BASIS } from "../tuning/interval.js";
 
 describe("notation/heji", () => {
+  const zeroMonzo = () => new Array(EXTENDED_MONZO_BASIS.length).fill(0);
+
   it("parses base and extra glyphs into a selection", () => {
     const parsed = parseHejiGlyphInput("");
     expect(parsed.baseId).toBe("sharp:0");
@@ -58,7 +61,7 @@ describe("notation/heji", () => {
       baseId: "natural:0",
       extraIds: [],
     });
-    expect(monzo).toEqual(new Array(15).fill(0));
+    expect(monzo).toEqual(zeroMonzo());
   });
 
   it("round-trips a supported spelling through monzoToHeji", () => {
@@ -79,7 +82,11 @@ describe("notation/heji", () => {
 
   it("uses the corrected 47-limit quartertone glyph", () => {
     const delta = hejiDeltaMonzoForSelection("natural:0", ["47_limit:-1"]);
-    expect(delta).toEqual([-4, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+    const expected = zeroMonzo();
+    expected[0] = -4;
+    expected[1] = -1;
+    expected[14] = 1;
+    expect(delta).toEqual(expected);
 
     const source = {
       letter: "G",
@@ -109,7 +116,10 @@ describe("notation/heji", () => {
 
   it("combines one schisma lower with one syntonic lower into a Pythagorean comma", () => {
     const delta = hejiDeltaMonzoForSelection("sharp:-1", [], -1);
-    expect(delta).toEqual([19, -12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const expected = zeroMonzo();
+    expected[0] = 19;
+    expected[1] = -12;
+    expect(delta).toEqual(expected);
     expect(glyphStringForSelection("sharp:-1", [], -1)).toBe("");
   });
 

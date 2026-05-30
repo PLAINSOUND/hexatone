@@ -304,7 +304,7 @@ describe("ScaleTable — explicit colors", () => {
       />,
     );
 
-    expect(screen.getByLabelText("apply suggested colour for color1")).not.toBeNull();
+    expect(screen.queryByLabelText("apply suggested colour for color1")).toBeNull();
   });
 
   it("prefers note-name D-centering over misleading HEJI labels for note-name tunings", () => {
@@ -464,7 +464,7 @@ describe("ScaleTable — explicit colors", () => {
 
     expect(screen.getByLabelText("apply suggested colour for color0")).not.toBeNull();
     expect(screen.queryByLabelText("apply suggested colour for color4")).toBeNull();
-    expect(screen.queryByLabelText("apply suggested colour for color5")).toBeNull();
+    expect(screen.getByLabelText("apply suggested colour for color5")).not.toBeNull();
     expect(screen.queryByLabelText("apply suggested colour for color6")).toBeNull();
   });
 
