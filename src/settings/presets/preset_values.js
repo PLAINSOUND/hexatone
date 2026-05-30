@@ -1991,7 +1991,7 @@ export const presets = [
         center_degree: 0,
       },
       {
-        name: "HS 12°-48° (Odd Partial Pitch Classes)",
+        name: "HS 12°-48° (Odd Partial Notation)",
         description:
           "A two octave cycle comprising the harmonic partial row from 12° to 48°. 12° is mapped to MIDI Note 60 (Middle C), and tuned to 240 Hz, giving 1° = 20 Hz. The entire series may be transposed to any fundamental by changing the Reference Frequency, which (in this case) will set the pitch-class 3°. The first octave of the scale (12° to 24°) has 12 pitch-classes, and the second (24° to 48°) has 24, mapping onto 3 octaves of a conventional keyboard. The tones are notated as Odd Partial Pitch Classes.",
         short_description: "36-HS_12to24",
@@ -2274,14 +2274,14 @@ export const presets = [
         fundamental_color: "#f4fafa",
         rSteps: 5,
         drSteps: 1,
-        hexSize: 32,
+        hexSize: 36,
         rotation: -16.102113751,
         fundamental: 440,
         reference_degree: 15,
         center_degree: 0,
       },
       {
-        name: "19-tone sequence (32°-52°) as Odd Partial Pitch Classes",
+        name: "19-tone partial sequence (32°-52°) (Odd Partial Notation)",
         description:
           "A cycle of harmonic partials (32° 33°) 34° to 51° (52°), repeating at the perfect fifth over changing fundamentals. Partial 48° is reinterpreted as 32° (and 51° = 34°); the fundamental shifts up a perfect fifth. Matching partial numbers produce perfect fifths instead of octaves. Useful for investigating possible chords of higher partials embedded within a perfect fifth, for example 6:7:8:9, 8:9:11:12, 10:12:13:15, and others. The 48° of the central transposition of the scale is set to 440 Hz.",
         short_description: "19-HS_34to52-Odd",

@@ -305,8 +305,8 @@ describe("monzoToSuggestedColor", () => {
       chromaticOverlayPrimes: { 5: true },
     }).screenHex;
 
-    expect(chromaticU5a).toBe("#b7b196");
-    expect(chromaticU5b).toBe("#b7b196");
+    expect(chromaticU5a).toBe("#c7c1a1");
+    expect(chromaticU5b).toBe("#c7c1a1");
     expect(diatonicU5).toBe("#e9e1b4");
   });
 
@@ -317,6 +317,43 @@ describe("monzoToSuggestedColor", () => {
     const { r, g, b } = hexToChannels(color);
     expect(g).toBeGreaterThanOrEqual(r - 8);
     expect(g).toBeGreaterThan(b);
+  });
+
+  it("separates overtonal 11 mixed with undertonal 5 or 7 from plain 11-family green", () => {
+    const pureEleven = hexToChannels(
+      monzoToSuggestedColor([0, 0, 0, 0, 1], undefined, {
+        structuralOverlay: "fifths",
+      }).screenHex,
+    );
+    const elevenUnderFive = hexToChannels(
+      monzoToSuggestedColor([0, 0, -1, 0, 1], undefined, {
+        structuralOverlay: "fifths",
+      }).screenHex,
+    );
+    const elevenUnderSeven = hexToChannels(
+      monzoToSuggestedColor([0, 0, 0, -1, 1], undefined, {
+        structuralOverlay: "fifths",
+      }).screenHex,
+    );
+    expect(elevenUnderFive.r).toBeGreaterThan(pureEleven.r);
+    expect(elevenUnderFive.b).toBeLessThanOrEqual(pureEleven.b);
+    expect(elevenUnderSeven.r).toBeGreaterThanOrEqual(pureEleven.r);
+    expect(elevenUnderSeven.g).toBeLessThan(pureEleven.g);
+  });
+
+  it("lets the 5-component warm mixed septimal-quintal colors away from plain 7-family pink", () => {
+    const pureSeven = hexToChannels(
+      monzoToSuggestedColor([0, 0, 0, 1], undefined, {
+        structuralOverlay: "fifths",
+      }).screenHex,
+    );
+    const sevenOverFive = hexToChannels(
+      monzoToSuggestedColor([0, 0, -1, 1], undefined, {
+        structuralOverlay: "fifths",
+      }).screenHex,
+    );
+    expect(sevenOverFive.b).toBeLessThan(pureSeven.b - 12);
+    expect(sevenOverFive.g).toBeLessThanOrEqual(pureSeven.g);
   });
 
   it("makes undertonal 11-family notes noticeably darker than overtonal 11-family notes", () => {

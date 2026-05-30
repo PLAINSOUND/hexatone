@@ -52,7 +52,7 @@ describe("Colors — spectrum colors off", () => {
       <Colors
         settings={{
           ...baseSettings,
-          note_colors: ["#ff9696", "#95c69b"],
+          note_colors: ["#ffa5a5", "#95c69b"],
           scale: ["23/16", "2/1"],
           equivSteps: 2,
           note_names: ["1/1", "23"],
@@ -217,7 +217,7 @@ describe("Colors — interactions", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /commit/i }));
     expect(onAtomicChange).toHaveBeenCalledWith({
-      note_colors: ["#ff9696", "#95c69b"],
+      note_colors: ["#ffa5a5", "#95c69b"],
       auto_colors: false,
     });
   });

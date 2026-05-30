@@ -139,7 +139,7 @@ const EXACT_ODD_PARTIAL_OVERTONE_COLORS = {
   231: "#e9ecc1",
   235: "#f79cc5",
   243: "#ffffff",
-  245: "#ffa8a8",
+  245: "#ffb59a",
   247: "#dbe6ff",
   253: "#69ec79",
   255: "#eceae4",
@@ -244,7 +244,7 @@ function getUndertonalFamilyColor(family, magnitude = 1) {
   color = mixHex(color, family.dark, familyMix);
   if (family.familyName === "green") {
     color = adjustHexOkhsl(color, {
-      sOffset: -0.17,
+      sOffset: -0.2,
       lOffset: -0.09,
     });
   } else if (family.familyName === "red") {
@@ -459,9 +459,9 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
       lOffset: -0.04,
     });
   const makeUndertonalChromatic = (base) =>
-    adjustHexOkhsl(mixHex(base, "#8c8574", 0.28), {
-      sOffset: -0.12,
-      lOffset: -0.08,
+    adjustHexOkhsl(mixHex(base, "#8c8574", 0.2), {
+      sOffset: -0.1,
+      lOffset: -0.05,
     });
   const threeExp = getChainThreeExponent(frame, options);
   const role = options.chainRole ?? options.notationRole;
@@ -715,22 +715,52 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
   const lowerActive = getActivePrimeEntries(analysisMonzo, basis)
     .filter(({ prime }) => prime < dominant.prime)
     .sort((a, b) => b.prime - a.prime);
+  const hasSeptimalUndertonalQuintalMix = dominant.prime === 7
+    && dominant.exponent > 0
+    && lowerActive.some(({ prime, exponent }) => prime === 5 && exponent < 0);
+  const hasElevenUndertonalLowerPrimeMix = dominant.prime === 11
+    && dominant.exponent > 0
+    && lowerActive.some(({ prime, exponent }) => (prime === 5 || prime === 7) && exponent < 0);
 
   const weights = getLowerPrimeWeights(lowerActive.length);
   lowerActive.forEach((entry, index) => {
     const lowerFamily = getFamilyForPrime(entry.prime, options);
-    const lowerColor =
+    let lowerColor =
       entry.exponent < 0
         ? getUndertonalFamilyColor(lowerFamily, Math.abs(entry.exponent))
         : lowerFamily.screen;
     let weight = weights[index] ?? 0;
+    let maxWeight = 0.28;
     if (dominant.exponent < 0 && entry.exponent > 0) {
       weight *= 1.6;
     } else if (dominant.exponent > 0 && entry.exponent < 0) {
       weight *= 1.15;
     }
-    color = mixHex(color, lowerColor, Math.min(0.28, weight));
+    // Septimal-quintal mixtures need the 5-family to speak more clearly;
+    // otherwise 7/5 stays too close to plain 7 and 10/7 too close to pure u7.
+    if (dominant.prime === 7 && entry.prime === 5) {
+      if (entry.exponent < 0) {
+        lowerColor = mixHex(QUINTAL_DIATONIC_COLORS["-1"], QUINTAL_DIATONIC_COLORS[1], 0.6);
+      } else {
+        lowerColor = QUINTAL_DIATONIC_COLORS[1];
+      }
+      if (dominant.exponent > 0 && entry.exponent < 0) weight *= 2.0;
+      if (dominant.exponent < 0 && entry.exponent > 0) weight *= 1.35;
+      maxWeight = 0.6;
+    }
+    if (dominant.prime === 11 && entry.exponent < 0 && (entry.prime === 5 || entry.prime === 7)) {
+      weight *= entry.prime === 5 ? 1.8 : 1.6;
+      maxWeight = 0.46;
+    }
+    color = mixHex(color, lowerColor, Math.min(maxWeight, weight));
   });
+
+  if (hasSeptimalUndertonalQuintalMix) {
+    color = mixHex(color, "#ffdbbd", 0.34);
+  }
+  if (hasElevenUndertonalLowerPrimeMix) {
+    color = mixHex(color, "#d7e1b2", 0.22);
+  }
 
   return {
     screenHex: color,

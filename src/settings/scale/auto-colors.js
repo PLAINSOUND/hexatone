@@ -63,8 +63,10 @@ export function deriveAutoTonicColorFromPaletteWithPrime(colors = [], intenseTon
         hue: h,
         vividness: s * Math.max(0, 1 - l),
         vivid: s > 0.35 && l < 0.9 ? 1 : 0,
+        neutral: s < 0.18 ? 1 : 0,
         rose: (h < 0.18 || h > 0.9) && s > 0.2 ? 1 : 0,
         paleRose: (h < 0.18 || h > 0.9) && s > 0.2 && l > 0.84 ? 1 : 0,
+        vividRose: (h < 0.18 || h > 0.9) && s > 0.32 && l < 0.84 ? 1 : 0,
       };
     });
 
@@ -72,8 +74,10 @@ export function deriveAutoTonicColorFromPaletteWithPrime(colors = [], intenseTon
 
   const averageVividness = samples.reduce((sum, sample) => sum + sample.vividness, 0) / samples.length;
   const vividRatio = samples.reduce((sum, sample) => sum + sample.vivid, 0) / samples.length;
+  const neutralRatio = samples.reduce((sum, sample) => sum + sample.neutral, 0) / samples.length;
   const roseRatio = samples.reduce((sum, sample) => sum + sample.rose, 0) / samples.length;
   const paleRoseRatio = samples.reduce((sum, sample) => sum + sample.paleRose, 0) / samples.length;
+  const vividRoseRatio = samples.reduce((sum, sample) => sum + sample.vividRose, 0) / samples.length;
   const vividSamples = samples.filter((sample) => sample.vivid);
   const vividHueDiversity = vividSamples.length
     ? new Set(vividSamples.map((sample) => Math.floor(sample.hue * 6) % 6)).size / 6
@@ -82,12 +86,19 @@ export function deriveAutoTonicColorFromPaletteWithPrime(colors = [], intenseTon
     ((averageVividness - 0.03) / 0.12) * 0.45
       + (vividRatio * 0.35)
       + (vividHueDiversity * 0.28),
-  );
+  ) * (1 - neutralRatio * 0.8);
   let base = mixHex(softTonic, strongTonic, intensity);
+  const subduedPalette = clamp01((0.22 - averageVividness) / 0.18)
+    * (1 - clamp01(roseRatio / 0.18))
+    * (1 - vividHueDiversity);
+  base = mixHex(base, softTonic, subduedPalette * 0.45);
   const paleRoseBoost = clamp01((paleRoseRatio - 0.05) / 0.12);
   base = mixHex(base, strongTonic, paleRoseBoost * 0.52);
   const roseBoost = clamp01((roseRatio - 0.3) / 0.45);
-  return mixHex(base, roseHeavyTonic, roseBoost);
+  base = mixHex(base, roseHeavyTonic, roseBoost);
+  const competitiveRoseBoost = clamp01((vividRoseRatio - 0.08) / 0.2)
+    * clamp01((vividHueDiversity - 0.18) / 0.45);
+  return mixHex(base, strongTonic, competitiveRoseBoost * 0.42);
 }
 
 export function getAutoColorOptions(settings) {
@@ -137,8 +148,10 @@ export function extractPitchClassInfo(label) {
 export function inferNotationRole(label) {
   const source = String(label ?? "").trim();
   if (!source) return null;
-  if (/\*n|||/.test(source)) return "diatonic";
-  if (/[]/.test(source)) return "chromatic";
+  const hasDiatonicMarker = /\*n|||/.test(source);
+  const hasChromaticMarker = /[]/.test(source);
+  if (hasChromaticMarker) return "chromatic";
+  if (hasDiatonicMarker) return "diatonic";
   return null;
 }
 
@@ -192,9 +205,16 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
         const candidateMonzo = getAnalysisMonzo(candidate?.committedIdentity?.monzo, candidateBasis, autoColorOptions);
         if (!isPurePrimeLimitMonzo(candidateMonzo, candidateBasis, prime)) return null;
         if ((candidateMonzo[primeIndex] ?? 0) !== targetExponent) return null;
+        const explicitRole = inferNotationRole(
+          autoColorOptions?.noteRoleLabels?.[candidateDegree]
+          ?? candidate?.committedIdentity?.displayName
+          ?? candidate?.exactRole?.displayName
+          ?? candidate?.displayName,
+        );
         return {
           degree: candidateDegree,
           threeExponent: getChainThreeExponent(candidateMonzo, autoColorOptions),
+          explicitRole,
         };
       })
       .filter(Boolean)
@@ -202,6 +222,15 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
 
     const chainIndex = entries.findIndex((entry) => entry.degree === degreeIndex);
     if (chainIndex < 0) return null;
+    const currentEntry = entries[chainIndex];
+    const explicitRoles = entries.map((entry) => entry.explicitRole).filter(Boolean);
+    const allEntriesExplicit = explicitRoles.length === entries.length;
+    const hasExplicitDiatonic = explicitRoles.includes("diatonic");
+    const hasExplicitChromatic = explicitRoles.includes("chromatic");
+
+    if (allEntriesExplicit && hasExplicitDiatonic && hasExplicitChromatic) {
+      return currentEntry.explicitRole;
+    }
 
     if (prime === 5 && entries.length <= 7) return null;
     if (prime >= 7 && entries.length <= 7) return "diatonic";
@@ -241,16 +270,22 @@ export function inferCenterMonzoCandidate(workspace, labels = []) {
       distanceFromDefault: Math.abs(absoluteFifthSteps - 2),
     });
   }
+  if (!candidates.length) return null;
+  const pureThreeCandidates = candidates.filter((candidate) => candidate.pureThreeWeight === 0);
   const naturalCandidates = candidates.filter((candidate) => candidate.plainnessWeight === 0);
-  if (!naturalCandidates.length) return null;
-  naturalCandidates.sort((a, b) =>
+  let pool = candidates;
+  if (!pureThreeCandidates.length && naturalCandidates.length) {
+    pool = naturalCandidates;
+  }
+  const finalPool = pureThreeCandidates.length ? pureThreeCandidates : pool;
+  finalPool.sort((a, b) =>
     a.pureThreeWeight - b.pureThreeWeight
     || a.plainnessWeight - b.plainnessWeight
     || a.distanceFromDefault - b.distanceFromDefault
     || a.nonThreeComplexity - b.nonThreeComplexity
     || a.accidentalWeight - b.accidentalWeight
     || a.absoluteFifthSteps - b.absoluteFifthSteps);
-  return naturalCandidates[0] ?? null;
+  return finalPool[0] ?? null;
 }
 
 export function inferChromaticOverlayPrimes(workspace) {
@@ -276,7 +311,19 @@ export function inferChromaticOverlayPrimes(workspace) {
   return byPrime;
 }
 
-export function inferColorMonzoOffset(workspace) {
+function mergeColorOffsets(primary, secondary) {
+  if (!primary && !secondary) return null;
+  if (!primary) return secondary;
+  if (!secondary) return primary;
+  const length = Math.max(primary.length, secondary.length);
+  const merged = new Array(length).fill(0).map((_, index) => {
+    const first = primary[index] ?? 0;
+    return first !== 0 ? first : (secondary[index] ?? 0);
+  });
+  return merged.some((value) => value !== 0) ? merged : null;
+}
+
+function inferSharedExactMonzoOffset(workspace) {
   const exactMonzos = (workspace?.slots || [])
     .filter((slot) => slot.degree !== 0 && Array.isArray(slot?.exactRole?.monzo))
     .map((slot) => slot.exactRole.monzo);
@@ -293,12 +340,70 @@ export function inferColorMonzoOffset(workspace) {
   return offset.some((value) => value !== 0) ? offset : null;
 }
 
+function bigintGcd(a, b) {
+  let x = a < 0n ? -a : a;
+  let y = b < 0n ? -b : b;
+  while (y !== 0n) {
+    const t = x % y;
+    x = y;
+    y = t;
+  }
+  return x;
+}
+
+function parseRawRatioDenominator(text) {
+  const match = String(text ?? "").trim().match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (!match) return null;
+  try {
+    return BigInt(match[2]);
+  } catch {
+    return null;
+  }
+}
+
+function inferSharedRawDenominatorOffset(workspace, settings) {
+  const scale = Array.isArray(settings?.scale) ? settings.scale : [];
+  const basis = workspace?.slots?.find((slot) => Array.isArray(slot?.committedIdentity?.basis))
+    ?.committedIdentity?.basis;
+  if (!Array.isArray(basis) || basis.length === 0 || scale.length < 2) return null;
+  const denominators = scale
+    .map(parseRawRatioDenominator)
+    .filter((value) => typeof value === "bigint" && value > 1n);
+  if (denominators.length < 2) return null;
+  let common = denominators[0];
+  for (const denominator of denominators.slice(1)) {
+    common = bigintGcd(common, denominator);
+    if (common <= 1n) return null;
+  }
+  if (common <= 1n) return null;
+  const offset = basis.map(() => 0);
+  let remainder = common;
+  for (let index = 0; index < basis.length; index += 1) {
+    const prime = basis[index];
+    if (!Number.isInteger(prime) || prime <= 1) continue;
+    const primeBig = BigInt(prime);
+    while (remainder % primeBig === 0n) {
+      offset[index] -= 1;
+      remainder /= primeBig;
+    }
+  }
+  return offset.some((value) => value !== 0) ? offset : null;
+}
+
+export function inferColorMonzoOffset(workspace, settings) {
+  const exactSharedOffset = inferSharedExactMonzoOffset(workspace);
+  const rawDenominatorOffset = inferSharedRawDenominatorOffset(workspace, settings);
+  return mergeColorOffsets(exactSharedOffset, rawDenominatorOffset);
+}
+
 export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesConfig) {
   const base = getAutoColorOptions(settings);
   const chromaticOverlayPrimes = inferChromaticOverlayPrimes(workspace);
-  const colorMonzoOffset = inferColorMonzoOffset(workspace);
+  const colorMonzoOffset = inferColorMonzoOffset(workspace, settings);
   const primeFamilyColorMap = getPrimeFamilyColorMap(settings?.prime_family_colors);
-  for (const labels of getCenterLabelSources(labelSourcesConfig)) {
+  const centerLabelSources = getCenterLabelSources(labelSourcesConfig);
+  const noteRoleLabels = centerLabelSources.find((labels) => labels?.length) ?? [];
+  for (const labels of centerLabelSources) {
     if (!labels?.length) continue;
     const centerCandidate = inferCenterMonzoCandidate(workspace, labels);
     if (centerCandidate?.monzo) {
@@ -309,10 +414,11 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
         chromaticOverlayPrimes,
         colorMonzoOffset,
         primeFamilyColorMap,
+        noteRoleLabels,
       };
     }
   }
-  return { ...base, chromaticOverlayPrimes, colorMonzoOffset, primeFamilyColorMap };
+  return { ...base, chromaticOverlayPrimes, colorMonzoOffset, primeFamilyColorMap, noteRoleLabels };
 }
 
 export function deriveAutoNoteColors(settings, extra = {}) {

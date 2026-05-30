@@ -4,7 +4,6 @@ import {
   deriveAutoTonicColorFromPalette,
   AUTO_TONIC_COLOR_SOFT,
   AUTO_TONIC_COLOR_STRONG,
-  AUTO_TONIC_COLOR_ROSE_HEAVY,
 } from "./settings/scale/auto-colors.js";
 
 describe("normalizeColors", () => {
@@ -128,7 +127,7 @@ describe("normalizeColors", () => {
     expect(vivid).toBe(AUTO_TONIC_COLOR_STRONG);
     expect(mild).not.toBe(AUTO_TONIC_COLOR_SOFT);
     expect(harmonic).toBe("#ffafaf");
-    expect(roseHeavy).toBe(AUTO_TONIC_COLOR_ROSE_HEAVY);
+    expect(roseHeavy).toBe("#ff9d9d");
   });
 });
 
