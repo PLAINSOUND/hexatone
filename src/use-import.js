@@ -89,7 +89,7 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
         midiin_anchor_note,
         key_labels: hasMetadata ? "note_names" : "scala_names",
         spectrum_colors: hasMetadata ? false : true,
-        fundamental_color: hasMetadata ? s.fundamental_color : "#f2e3e3",
+        fundamental_color: hasMetadata ? s.fundamental_color : "#ffdbe8",
       };
     });
   };

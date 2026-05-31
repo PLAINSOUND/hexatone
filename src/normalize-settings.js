@@ -17,7 +17,7 @@ export function deriveSpectrumNoteColors(settings, fundamentalColor) {
   const count = settings.equivSteps || settings.scale?.length || 0;
   if (!count) return [];
 
-  let fcolor = hex2rgb(`#${fundamentalColor || "f2e3e3"}`);
+  let fcolor = hex2rgb(`#${fundamentalColor || "ffdbe8"}`);
   fcolor = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
   const baseHue = fcolor.h / 360;
   const sat = fcolor.s / 100;
@@ -40,15 +40,12 @@ export const normalizeColors = (settings) => {
       heji_names: settings.heji_names,
       heji_names_table: settings.heji_names_table,
     })
-    : (settings.note_colors || []);
+    : (effectiveSpectrum ? deriveSpectrumNoteColors(settings, fundamental_color) : (settings.note_colors || []));
   const note_colors = sourceNoteColors.map((c) => (c ? c.replace(/#/, "") : "ffffff"));
 
   return {
     fundamental_color,
-    note_colors:
-      note_colors.length > 0
-        ? note_colors
-        : (effectiveSpectrum ? deriveSpectrumNoteColors(settings, fundamental_color) : []),
+    note_colors: note_colors.length > 0 ? note_colors : [],
     spectrum_colors: effectiveSpectrum,
     auto_colors: settings.auto_colors,
   };

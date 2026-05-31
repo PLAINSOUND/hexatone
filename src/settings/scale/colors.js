@@ -14,7 +14,7 @@ const PRIME_FAMILY_PALETTE_STORAGE_KEY = "hexatone_prime_family_palette";
 
 export const colorProp = function (props, propName, componentName) {
   const value = props[propName];
-  if (value !== undefined && !/#[a-zA-Z0-9]{6}/.test(props[propName])) {
+  if (value !== undefined && !/^#?[a-zA-Z0-9]{6}$/.test(props[propName])) {
     return new Error(
       "Invalid hex color for prop `" +
       propName +
@@ -39,6 +39,12 @@ const normaliseHex = (raw) => {
   return null;
 };
 
+const getColorMode = (settings) => {
+  if (settings?.auto_colors) return "auto";
+  if (settings?.spectrum_colors) return "spectrum";
+  return "manual";
+};
+
 const Colors = (props) => {
   const rawSettings = props.rawSettings ?? props.settings;
   const pickerRef = createRef();
@@ -46,11 +52,15 @@ const Colors = (props) => {
   const swatchRef = createRef();
   const pendingPrimePreviewRef = useRef(null);
   const primePreviewFrameRef = useRef(0);
-  const autoActive = props.settings.auto_colors === true;
-  const primeFamilyColors = normalizePrimeFamilyColors(props.settings.prime_family_colors);
-  const derivedAutoColors = deriveAutoNoteColors(props.settings);
+  const primePreviewGenerationRef = useRef(0);
+  const colorMode = getColorMode(rawSettings);
+  const autoActive = colorMode === "auto";
+  const autoActiveRef = useRef(autoActive);
+  const spectrumActive = colorMode === "spectrum";
+  const primeFamilyColors = normalizePrimeFamilyColors(rawSettings.prime_family_colors);
+  const derivedAutoColors = deriveAutoNoteColors(rawSettings);
 
-  const safe = normaliseHex(props.settings.fundamental_color || "#f2e3e3") || "#f2e3e3";
+  const safe = normaliseHex(rawSettings.fundamental_color || "#ffdbe8") || "#ffdbe8";
 
   const handleSwatchClick = () => {
     if (autoActive) return;
@@ -97,12 +107,47 @@ const Colors = (props) => {
     }
   };
 
-  const handleLoadSpectrumColors = () => {
-    const colors = deriveSpectrumNoteColors(props.settings, safe.replace(/^#/, ""));
-    props.onChange(
-      "note_colors",
-      colors.map((color) => `#${color}`),
-    );
+  const handleCommitSpectrumColors = () => {
+    const colors = deriveSpectrumNoteColors(rawSettings, safe.replace(/^#/, ""));
+    const committedColors = colors.map((color) => `#${color}`);
+    if (props.onAtomicChange) {
+      props.onAtomicChange({
+        note_colors: committedColors,
+        spectrum_colors: false,
+      });
+      return;
+    }
+    props.onChange("note_colors", committedColors);
+    props.onChange("spectrum_colors", false);
+  };
+
+  const setColorMode = (nextMode) => {
+    const updates = {
+      auto_colors: nextMode === "auto",
+      spectrum_colors: nextMode === "spectrum",
+    };
+    if (nextMode === "spectrum" && !rawSettings.auto_colors) {
+      props.onChange("spectrum_colors", true);
+      return;
+    }
+    if (nextMode === "auto" && !rawSettings.spectrum_colors) {
+      props.onChange("auto_colors", true);
+      return;
+    }
+    if (nextMode === "manual" && rawSettings.spectrum_colors && !rawSettings.auto_colors) {
+      props.onChange("spectrum_colors", false);
+      return;
+    }
+    if (nextMode === "manual" && rawSettings.auto_colors && !rawSettings.spectrum_colors) {
+      props.onChange("auto_colors", false);
+      return;
+    }
+    if (props.onAtomicChange) {
+      props.onAtomicChange(updates);
+      return;
+    }
+    props.onChange("auto_colors", updates.auto_colors);
+    props.onChange("spectrum_colors", updates.spectrum_colors);
   };
 
   const handlePrimeFamilyColorChange = (index) => (e) => {
@@ -132,18 +177,46 @@ const Colors = (props) => {
     }
   }, []);
 
+  useEffect(() => {
+    autoActiveRef.current = autoActive;
+  }, [autoActive]);
+
+  const cancelPrimePreview = () => {
+    if (primePreviewFrameRef.current) {
+      cancelAnimationFrame(primePreviewFrameRef.current);
+      primePreviewFrameRef.current = 0;
+    }
+    pendingPrimePreviewRef.current = null;
+    primePreviewGenerationRef.current += 1;
+  };
+
+  useEffect(() => {
+    if (!autoActive) cancelPrimePreview();
+  }, [autoActive]);
+
   const handlePrimeFamilyPreview = (index) => (hex) => {
     const next = [...primeFamilyColors];
     next[index] = hex;
     pendingPrimePreviewRef.current = next;
     if (primePreviewFrameRef.current) return;
+    const generation = primePreviewGenerationRef.current;
     primePreviewFrameRef.current = requestAnimationFrame(() => {
       primePreviewFrameRef.current = 0;
-      if (pendingPrimePreviewRef.current) {
+      if (
+        pendingPrimePreviewRef.current &&
+        autoActiveRef.current &&
+        generation === primePreviewGenerationRef.current
+      ) {
         previewPrimeFamilyColors(pendingPrimePreviewRef.current);
         pendingPrimePreviewRef.current = null;
       }
     });
+  };
+
+  const handleColorModeChange = (e) => {
+    const nextMode = e.target.value;
+    if (nextMode !== "auto") cancelPrimePreview();
+    setColorMode(nextMode);
   };
 
   const handleSavePrimePalette = () => {
@@ -170,11 +243,13 @@ const Colors = (props) => {
       props.onAtomicChange({
         note_colors: derivedAutoColors,
         auto_colors: false,
+        spectrum_colors: false,
       });
       return;
     }
     props.onChange("note_colors", derivedAutoColors);
     props.onChange("auto_colors", false);
+    props.onChange("spectrum_colors", false);
   };
 
   const hasSavedPrimePalette = !!localStorage.getItem(PRIME_FAMILY_PALETTE_STORAGE_KEY);
@@ -184,83 +259,82 @@ const Colors = (props) => {
 
   return (
     <div class="scale-colors-group">
-      <div class="auto-colors-toggle-row">
-        <span class="auto-colors-toggle-row__label">Use Auto Colours</span>
-        <span class="auto-colors-toggle-row__controls">
-          <button
-            type="button"
-            class="preset-action-btn"
-            disabled={!hasCommitableAutoColors}
-            onClick={handleCommitAutoColors}
-          >
-            Commit Auto Colours
-          </button>
-          <label class="auto-colors-toggle-row__checkbox">
-            <input
-              aria-label="Use Auto Colours"
-              name="auto_colors"
-              type="checkbox"
-              checked={props.settings.auto_colors === true}
-              onChange={(e) => props.onChange(e.target.name, e.target.checked)}
-            />
-          </label>
-        </span>
-      </div>
-      <fieldset class="auto-prime-colors-fieldset">
-        <legend>Auto Colour Palette</legend>
-        <div class="auto-prime-colors-grid">
-          {PRIME_COLOR_ORDER.map((prime, index) => (
-            <label class="auto-prime-colors-grid__item" key={`prime-family-color-${prime}`}>
-              <span class="auto-prime-colors-grid__label">{prime === 1 ? "1/1" : `${prime}°`}</span>
-              <ColorCell
-                name={`prime-family-colour-${prime}`}
-                value={primeFamilyColors[index]}
-                disabled={false}
-                onChange={handlePrimeFamilyColorChange(index)}
-                suggestedColor={null}
-                onPreviewColor={handlePrimeFamilyPreview(index)}
-              />
-            </label>
-          ))}
-        </div>
-        <div class="auto-prime-colors-actions">
-          <span class="auto-prime-colors-actions__group">
-            <button type="button" class="preset-action-btn" onClick={handleSavePrimePalette}>
-              Save User Palette
-            </button>
+      <label>
+        Key Colours
+        <select
+          class="sidebar-input"
+          aria-label="Key Colours"
+          value={colorMode}
+          onChange={handleColorModeChange}
+        >
+          <option value="manual">Manual</option>
+          <option value="auto">Auto</option>
+          <option value="spectrum">Spectrum</option>
+        </select>
+      </label>
+
+      {autoActive && (
+          <fieldset class="auto-prime-colors-fieldset">
+            <legend>Auto Colour Palette</legend>
+            <div class="scale-colors-fieldset-actions">
+              <button
+                type="button"
+                class="preset-action-btn"
+                disabled={!hasCommitableAutoColors}
+                onClick={handleCommitAutoColors}
+              >
+                Commit Auto Colours
+              </button>
+            </div>
+            <div class="auto-prime-colors-grid">
+              {PRIME_COLOR_ORDER.map((prime, index) => (
+                <label class="auto-prime-colors-grid__item" key={`prime-family-color-${prime}`}>
+                  <span class="auto-prime-colors-grid__label">{prime === 1 ? "1/1" : `${prime}°`}</span>
+                  <ColorCell
+                    name={`prime-family-colour-${prime}`}
+                    value={primeFamilyColors[index]}
+                    disabled={false}
+                    onChange={handlePrimeFamilyColorChange(index)}
+                    suggestedColor={null}
+                    onPreviewColor={handlePrimeFamilyPreview(index)}
+                  />
+                </label>
+              ))}
+            </div>
+            <div class="auto-prime-colors-actions">
+              <span class="auto-prime-colors-actions__group">
+                <button type="button" class="preset-action-btn" onClick={handleSavePrimePalette}>
+                  Save User Palette
+                </button>
+                <button
+                  type="button"
+                  class="preset-action-btn"
+                  disabled={!hasSavedPrimePalette}
+                  onClick={handleLoadPrimePalette}
+                >
+                  Load User Palette
+                </button>
+              </span>
+              <button type="button" class="preset-action-btn" onClick={handleResetPrimePalette}>
+                Reset Defaults
+              </button>
+            </div>
+          </fieldset>
+      )}
+
+      {spectrumActive && (
+        <fieldset class="spectrum-colors-fieldset">
+          <legend>Spectrum Colours</legend>
+          <div class="scale-colors-fieldset-actions">
             <button
               type="button"
               class="preset-action-btn"
-              disabled={!hasSavedPrimePalette}
-              onClick={handleLoadPrimePalette}
+              aria-label="Commit Spectrum Colours"
+              onClick={handleCommitSpectrumColors}
             >
-              Load User Palette
+              Commit Spectrum Colours
             </button>
-          </span>
-          <button type="button" class="preset-action-btn" onClick={handleResetPrimePalette}>
-            Reset Defaults
-          </button>
-        </div>
-      </fieldset>
-      <label>
-        Use Spectrum Colors
-        <input
-          name="spectrum_colors"
-          type="checkbox"
-          checked={props.settings.spectrum_colors}
-          disabled={autoActive}
-          onChange={(e) => props.onChange(e.target.name, e.target.checked)}
-        />
-      </label>
-
-      {props.settings.spectrum_colors && (
-        <fieldset
-          class="spectrum-colors-fieldset"
-          disabled={autoActive}
-          style={{
-            opacity: autoActive ? 0.5 : 1,
-          }}
-        >
+          </div>
           <label>
             Choose Central Hue
             <div class="color-cell color-cell--label-rhs">
@@ -279,7 +353,6 @@ const Colors = (props) => {
                   type="color"
                   class="color-picker-hidden"
                   value={safe}
-                  disabled={autoActive}
                   onInput={handlePickerInput}
                   onChange={handlePickerChange}
                   tabIndex={-1}
@@ -291,7 +364,6 @@ const Colors = (props) => {
                 class="color-input"
                 defaultValue={safe}
                 key={safe}
-                disabled={autoActive}
                 maxLength={7}
                 placeholder="#rrggbb"
                 onInput={handleTextInput}
@@ -302,20 +374,6 @@ const Colors = (props) => {
                 aria-label="hex colour for central hue"
               />
             </div>
-          </label>
-          <label>
-            Table Colors
-            <span class="sidebar-input" style={{ textAlign: "right" }}>
-              <button
-                type="button"
-                class="preset-action-btn"
-                aria-label="Load Spectrum Colors"
-                disabled={autoActive}
-                onClick={handleLoadSpectrumColors}
-              >
-                Load Spectrum Colors to Scale Table
-              </button>
-            </span>
           </label>
         </fieldset>
       )}

@@ -113,6 +113,9 @@ const Keyboard = (props) => {
   useEffect(() => {
     if (keysRef.current && props.colorSettings) {
       keysRef.current.updateColors(props.colorSettings);
+      if (typeof keysRef.current.scheduleImmediateGridRedraw === "function") {
+        keysRef.current.scheduleImmediateGridRedraw();
+      }
     }
   }, [props.colorSettings]);
 

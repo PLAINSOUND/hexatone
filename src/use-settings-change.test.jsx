@@ -2,12 +2,12 @@ import { render } from "@testing-library/preact";
 import { useEffect } from "preact/hooks";
 import useSettingsChange, { resizeScaleWithEquavePadding } from "./use-settings-change.js";
 
-const HookHarness = ({ settings, setSettings, midi, capture }) => {
+const HookHarness = ({ settings, setSettings, midi, capture, keysRef = { current: null } }) => {
   const handlers = useSettingsChange(settings, setSettings, {
     midi,
     setMidiLearnActive: vi.fn(),
     setHakenPedalLearnActive: vi.fn(),
-    keysRef: { current: null },
+    keysRef,
     setLatch: vi.fn(),
     bumpImportCount: vi.fn(),
     onUserScaleEdit: vi.fn(),
@@ -106,5 +106,46 @@ describe("useSettingsChange", () => {
     expect(nextSettings.hakenaudio_out_port).toBeNull();
     expect(sessionStorage.getItem("midiin_controller_override")).toBe("auto");
     expect(sessionStorage.getItem("hakenaudio_out_port")).toBeNull();
+  });
+
+  it("updates the live settings ref during atomic colour commits so a following spectrum toggle uses the committed state", () => {
+    const setSettings = vi.fn();
+    const updateColors = vi.fn();
+    let handlers = null;
+    const capture = (value) => {
+      handlers = value;
+    };
+
+    render(
+      <HookHarness
+        settings={{
+          auto_colors: true,
+          spectrum_colors: true,
+          fundamental_color: "#abcdef",
+          note_colors: ["#ffffff", "#ffffff"],
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+        setSettings={setSettings}
+        midi={null}
+        keysRef={{ current: { updateColors } }}
+        capture={capture}
+      />,
+    );
+
+    handlers.onAtomicChange({
+      note_colors: ["#ffa5a5", "#95c69b"],
+      auto_colors: false,
+      spectrum_colors: false,
+    });
+    handlers.onChange("spectrum_colors", true);
+
+    expect(updateColors.mock.calls.at(-1)[0]).toMatchObject({
+      spectrum_colors: true,
+    });
+    expect(updateColors.mock.calls.at(-1)[0].note_colors).toHaveLength(2);
+    expect(updateColors.mock.calls.at(-1)[0].note_colors).not.toEqual(["ffa5a5", "95c69b"]);
   });
 });

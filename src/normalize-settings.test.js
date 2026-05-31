@@ -10,24 +10,24 @@ describe("normalizeColors", () => {
   it("keeps note colors empty when spectrum mode is off and none are stored", () => {
     const normalized = normalizeColors({
       spectrum_colors: false,
-      fundamental_color: "#f2e3e3",
+      fundamental_color: "#ffdbe8",
       note_colors: [],
       equivSteps: 205,
     });
 
-    expect(normalized.fundamental_color).toBe("f2e3e3");
+    expect(normalized.fundamental_color).toBe("ffdbe8");
     expect(normalized.note_colors).toEqual([]);
   });
 
   it("auto-generates note colors from the spectrum hue when spectrum mode is on and none are present", () => {
     const normalized = normalizeColors({
       spectrum_colors: true,
-      fundamental_color: "#f2e3e3",
+      fundamental_color: "#ffdbe8",
       note_colors: [],
       equivSteps: 205,
     });
 
-    expect(normalized.fundamental_color).toBe("f2e3e3");
+    expect(normalized.fundamental_color).toBe("ffdbe8");
     expect(normalized.note_colors).toHaveLength(205);
     expect(normalized.note_colors.every((color) => /^[0-9a-f]{6}$/i.test(color))).toBe(true);
   });
@@ -35,7 +35,7 @@ describe("normalizeColors", () => {
   it("preserves explicit note colors when they exist", () => {
     const normalized = normalizeColors({
       spectrum_colors: false,
-      fundamental_color: "#f2e3e3",
+      fundamental_color: "#ffdbe8",
       note_colors: ["#112233", "abcdef"],
       equivSteps: 2,
     });
@@ -43,11 +43,26 @@ describe("normalizeColors", () => {
     expect(normalized.note_colors).toEqual(["112233", "abcdef"]);
   });
 
+  it("lets spectrum colours override stored note colors during normalization", () => {
+    const normalized = normalizeColors({
+      spectrum_colors: true,
+      auto_colors: false,
+      fundamental_color: "#ffdbe8",
+      note_colors: ["#112233", "#abcdef", "#654321"],
+      equivSteps: 3,
+    });
+
+    expect(normalized.spectrum_colors).toBe(true);
+    expect(normalized.note_colors).toHaveLength(3);
+    expect(normalized.note_colors).not.toEqual(["112233", "abcdef", "654321"]);
+    expect(normalized.note_colors.every((color) => /^[0-9a-f]{6}$/i.test(color))).toBe(true);
+  });
+
   it("preserves stored preset colors in auto-colour mode when a degree has no exact auto suggestion", () => {
     const normalized = normalizeColors({
       auto_colors: true,
       spectrum_colors: false,
-      fundamental_color: "#f2e3e3",
+      fundamental_color: "#ffdbe8",
       scale: ["100.", "200.", "2/1"],
       note_colors: ["#123456", "#abcdef", "#654321"],
       note_names: ["C", "D", "E"],

@@ -69,7 +69,7 @@ export const SETTINGS_REGISTRY = [
   { key: "reference_degree", tier: "url", type: "int", default: 0, presetSkip: true },
   { key: "fundamental", tier: "url", type: "float", default: 440, presetSkip: true },
   { key: "spectrum_colors", tier: "url", type: "bool", default: true, presetSkip: true },
-  { key: "fundamental_color", tier: "url", type: "string", default: "#f2e3e3", presetSkip: true },
+  { key: "fundamental_color", tier: "url", type: "string", default: "#ffdbe8", presetSkip: true },
   { key: "prime_family_colors", tier: "url", type: "joined", default: null, presetSkip: true },
   { key: "key_labels", tier: "url", type: "string", default: "no_labels", presetSkip: true },
   { key: "show_equaves", tier: "url", type: "bool", default: false, presetSkip: true },

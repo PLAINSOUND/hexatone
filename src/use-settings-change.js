@@ -261,7 +261,7 @@ const useSettingsChange = (
         description: newDescription,
         note_names: newNoteNames,
         spectrum_colors: true,
-        fundamental_color: "#f2e3e3",
+        fundamental_color: "#ffdbe8",
       }));
       // Switch the preset selector to User Tunings showing the generated name.
       if (onUserScaleEdit) onUserScaleEdit(newName);
@@ -270,8 +270,11 @@ const useSettingsChange = (
 
     // For color changes, push to the live Keys instance BEFORE setSettings.
     // Reading current colors from settingsRef avoids stale closure values.
+    const next = { ...s, [key]: value };
+    settingsRef.current = next;
+
     if (COLOR_KEYS.has(key) && keysRef.current) {
-      const normalizedColors = normalizeColors({ ...s, [key]: value });
+      const normalizedColors = normalizeColors(next);
       const colorUpdate = {
         note_colors: normalizedColors.note_colors,
         spectrum_colors: normalizedColors.spectrum_colors,
@@ -283,12 +286,29 @@ const useSettingsChange = (
       }
     }
 
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    setSettings(() => next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Stable by design: reads live values via settingsRef/midiRef; keysRef/setters are stable
 
   const onAtomicChange = useCallback((updates) => {
-    setSettings((prev) => ({ ...prev, ...updates }));
+    const s = settingsRef.current;
+    const next = { ...s, ...updates };
+    settingsRef.current = next;
+
+    if (keysRef.current && Object.keys(updates).some((key) => COLOR_KEYS.has(key))) {
+      const normalizedColors = normalizeColors(next);
+      const colorUpdate = {
+        note_colors: normalizedColors.note_colors,
+        spectrum_colors: normalizedColors.spectrum_colors,
+        fundamental_color: normalizedColors.fundamental_color,
+      };
+      keysRef.current.updateColors(colorUpdate);
+      if ("note_colors" in updates && s.linnstrument_led_sync && keysRef.current.syncLinnstrumentLEDs) {
+        keysRef.current.syncLinnstrumentLEDs();
+      }
+    }
+
+    setSettings(() => next);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable React state setter
   }, []);
 

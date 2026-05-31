@@ -41,7 +41,6 @@ const ColorCell = ({
   const swatchRef = createRef();
   const lastFire = useRef(0);
   const lastEventTime = useRef(0);
-  const mounted = useRef(false);
 
   useEffect(() => {
     setDraft(safe);
@@ -53,21 +52,6 @@ const ColorCell = ({
     if (pickerRef.current) pickerRef.current.value = visibleColor;
     if (swatchRef.current) swatchRef.current.style.backgroundColor = visibleColor;
   }, [visibleColor, pickerRef, swatchRef, textRef]);
-
-  useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      return undefined;
-    }
-    onPreviewColor?.(visibleColor);
-    return undefined;
-  }, [onPreviewColor, visibleColor]);
-
-  useEffect(() => {
-    return () => {
-      onPreviewColor?.(safe);
-    };
-  }, [onPreviewColor, safe]);
 
   const applyDraft = (hex) => {
     const normalized = normaliseHex(hex);
@@ -97,6 +81,7 @@ const ColorCell = ({
 
     // Always update local UI immediately (no perceived lag)
     applyDraft(hex);
+    onPreviewColor?.(hex);
 
     // Measure event frequency as proxy for drag speed
     const timeSinceLastEvent = now - lastEventTime.current;
@@ -115,6 +100,7 @@ const ColorCell = ({
   const handlePickerChange = (e) => {
     const hex = e.target.value;
     applyDraft(hex);
+    onPreviewColor?.(hex);
     lastFire.current = 0; // reset throttle so final value always commits
   };
 
@@ -123,6 +109,7 @@ const ColorCell = ({
     const hex = normaliseHex(e.target.value);
     if (hex) {
       applyDraft(hex);
+      onPreviewColor?.(hex);
     }
   };
 
@@ -131,6 +118,7 @@ const ColorCell = ({
     const hex = normaliseHex(e.target.value);
     if (hex) {
       applyDraft(hex);
+      onPreviewColor?.(hex);
     } else {
       e.target.value = visibleColor;
     }
@@ -185,7 +173,12 @@ const ColorCell = ({
         <button
           type="button"
           class={`color-cell-btn${comparing ? " color-cell-btn--active" : ""}`}
-          onClick={() => setComparing((prev) => !prev)}
+          onClick={() =>
+            setComparing((prev) => {
+              const nextComparing = !prev;
+              onPreviewColor?.(nextComparing ? safe : draft);
+              return nextComparing;
+            })}
           title="Compare with original colour"
           aria-label={`compare original colour for ${name}`}
         >
@@ -209,6 +202,7 @@ const ColorCell = ({
           class="color-suggestion-btn"
           onClick={() => {
             applyDraft(suggested);
+            onPreviewColor?.(suggested);
             onApplySuggestion?.(suggested);
           }}
           title={suggestedLabel ? `Apply suggested colour: ${suggestedLabel}` : `Apply suggested colour ${suggested}`}

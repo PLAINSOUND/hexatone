@@ -397,7 +397,7 @@ export const fileToPreset = (filename, text) => {
       note_colors,
       key_labels: hasMetadata ? "note_names" : "scala_names",
       spectrum_colors: !hasMetadata,
-      fundamental_color: "#f2e3e3",
+      fundamental_color: "#ffdbe8",
       fundamental: parsed.hexatone_fundamental || 440,
       reference_degree: parsed.hexatone_reference_degree || 0,
       midiin_anchor_note: parsed.hexatone_midiin_anchor_note || 60,

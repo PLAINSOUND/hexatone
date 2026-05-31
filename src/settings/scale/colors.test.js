@@ -2,14 +2,16 @@
  * Tests for src/settings/scale/colors.js
  *
  * The Colors component renders:
- *   - a "Use Spectrum Colors" checkbox (always visible)
- *   - a ColorCell for "Choose Central Hue" (only when spectrum_colors is true)
+ *   - a "Key Colours" mode selector with Manual / Auto / Spectrum
+ *   - a ColorCell for "Choose Central Hue" only in Spectrum mode
  *
  * The ColorCell hex text input commits on blur (not change).
  */
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
+import { useState } from "preact/hooks";
 import Colors from "./colors";
+import useSettingsChange from "../../use-settings-change.js";
 
 const baseSettings = { spectrum_colors: false, auto_colors: false, fundamental_color: "#abcdef" };
 
@@ -18,32 +20,30 @@ describe("Colors — spectrum colors off", () => {
     localStorage.clear();
   });
 
-  it("renders the spectrum colors checkbox unchecked", () => {
+  it("defaults Key Colours to Manual", () => {
     render(<Colors settings={baseSettings} onChange={() => {}} onAtomicChange={() => {}} />);
-    const checkbox = screen.getByRole("checkbox", { name: /spectrum colors/i });
-    expect(checkbox.checked).toBe(false);
+    expect(screen.getByLabelText("Key Colours").value).toBe("manual");
   });
 
-  it("does not render the hue picker when spectrum is off", () => {
+  it("does not render the hue picker in Manual mode", () => {
     render(<Colors settings={baseSettings} onChange={() => {}} onAtomicChange={() => {}} />);
     expect(screen.queryByLabelText(/central hue/i)).toBeNull();
   });
 
-  it("renders the auto colours checkbox unchecked", () => {
+  it("does not render the auto palette in Manual mode", () => {
     render(<Colors settings={baseSettings} onChange={() => {}} onAtomicChange={() => {}} />);
-    const checkbox = screen.getByRole("checkbox", { name: /auto colours/i });
-    expect(checkbox.checked).toBe(false);
-  });
-
-  it("renders prime-family colour editors below auto colours", () => {
-    render(<Colors settings={baseSettings} onChange={() => {}} onAtomicChange={() => {}} />);
-    expect(screen.getByText("Auto Colour Palette")).not.toBeNull();
-    expect(screen.getByLabelText("hex colour for prime-family-colour-1")).not.toBeNull();
-    expect(screen.getByLabelText("hex colour for prime-family-colour-47")).not.toBeNull();
+    expect(screen.queryByText("Auto Colour Palette")).toBeNull();
   });
 
   it("disables Load Palette when no palette is saved", () => {
-    render(<Colors settings={baseSettings} onChange={() => {}} onAtomicChange={() => {}} />);
+    render(
+      <Colors
+        settings={{ ...baseSettings, auto_colors: true }}
+        rawSettings={{ ...baseSettings, auto_colors: true }}
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+      />,
+    );
     expect(screen.getByRole("button", { name: /load user palette/i }).disabled).toBe(true);
   });
 
@@ -52,6 +52,16 @@ describe("Colors — spectrum colors off", () => {
       <Colors
         settings={{
           ...baseSettings,
+          auto_colors: true,
+          note_colors: ["#ffa5a5", "#95c69b"],
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+        rawSettings={{
+          ...baseSettings,
+          auto_colors: true,
           note_colors: ["#ffa5a5", "#95c69b"],
           scale: ["23/16", "2/1"],
           equivSteps: 2,
@@ -66,7 +76,7 @@ describe("Colors — spectrum colors off", () => {
   });
 });
 
-describe("Colors — spectrum colors on", () => {
+describe("Colors — spectrum mode", () => {
   const settings = { spectrum_colors: true, auto_colors: false, fundamental_color: "#abcdef", equivSteps: 12 };
 
   it("renders the hue picker when spectrum is on", () => {
@@ -79,17 +89,17 @@ describe("Colors — spectrum colors on", () => {
     expect(screen.getByLabelText("hex colour for central hue").value).toBe("#abcdef");
   });
 
-  it("renders the load spectrum colors action", () => {
+  it("renders the commit spectrum colours action", () => {
     render(<Colors settings={settings} onChange={() => {}} onAtomicChange={() => {}} />);
-    expect(screen.getByRole("button", { name: /load spectrum colors/i })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /commit spectrum colours/i })).not.toBeNull();
   });
 
-  it("keeps the auto colours checkbox enabled when spectrum is on", () => {
+  it("shows spectrum mode in the selector", () => {
     render(<Colors settings={settings} onChange={() => {}} onAtomicChange={() => {}} />);
-    expect(screen.getByRole("checkbox", { name: /auto colours/i }).disabled).toBe(false);
+    expect(screen.getByLabelText("Key Colours").value).toBe("spectrum");
   });
 
-  it("keeps spectrum controls visible when both spectrum and auto colours are enabled", () => {
+  it("shows auto mode in the selector when auto overrides spectrum", () => {
     render(
       <Colors
         settings={{ ...settings, auto_colors: true }}
@@ -98,37 +108,50 @@ describe("Colors — spectrum colors on", () => {
       />,
     );
 
-    expect(screen.getByRole("checkbox", { name: /spectrum colors/i }).disabled).toBe(true);
-    expect(screen.getByRole("button", { name: /open colour picker for central hue/i })).not.toBeNull();
-    expect(screen.getByLabelText(/hex colour for central hue/i).disabled).toBe(true);
-    expect(screen.getByRole("button", { name: /load spectrum colors/i }).disabled).toBe(true);
+    expect(screen.getByLabelText("Key Colours").value).toBe("auto");
+    expect(screen.queryByRole("button", { name: /commit spectrum colours/i })).toBeNull();
+  });
+
+  it("renders spectrum toggle state from raw settings when auto colours normalize spectrum off", () => {
+    render(
+      <Colors
+        settings={{ ...settings, auto_colors: true, spectrum_colors: false }}
+        rawSettings={{ ...settings, auto_colors: true, spectrum_colors: true }}
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("Key Colours").value).toBe("auto");
+    expect(screen.queryByRole("button", { name: /commit spectrum colours/i })).toBeNull();
   });
 });
 
 describe("Colors — interactions", () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.useRealTimers();
   });
 
-  it("calls onChange with spectrum_colors=true when checkbox is ticked", () => {
+  it("activates spectrum mode directly from the Key Colours selector", () => {
+    const onAtomicChange = vi.fn();
     const onChange = vi.fn();
-    render(<Colors settings={baseSettings} onChange={onChange} onAtomicChange={() => {}} />);
-    const checkbox = screen.getByRole("checkbox", { name: /spectrum colors/i });
-    fireEvent.click(checkbox);
+    render(<Colors settings={baseSettings} rawSettings={baseSettings} onChange={onChange} onAtomicChange={onAtomicChange} />);
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "spectrum" } });
+    expect(onAtomicChange).not.toHaveBeenCalled();
     expect(onChange).toHaveBeenCalledWith("spectrum_colors", true);
-  });
-
-  it("calls onChange with auto_colors=true when checkbox is ticked", () => {
-    const onChange = vi.fn();
-    render(<Colors settings={baseSettings} onChange={onChange} onAtomicChange={() => {}} />);
-    const checkbox = screen.getByRole("checkbox", { name: /auto colours/i });
-    fireEvent.click(checkbox);
-    expect(onChange).toHaveBeenCalledWith("auto_colors", true);
   });
 
   it("calls onChange with updated prime family colors when a prime shade is saved", () => {
     const onChange = vi.fn();
-    render(<Colors settings={baseSettings} onChange={onChange} onAtomicChange={() => {}} />);
+    render(
+      <Colors
+        settings={{ ...baseSettings, auto_colors: true }}
+        rawSettings={{ ...baseSettings, auto_colors: true }}
+        onChange={onChange}
+        onAtomicChange={() => {}}
+      />,
+    );
     const input = screen.getByLabelText("hex colour for prime-family-colour-5");
     fireEvent.input(input, { target: { value: "#aaccee" } });
     fireEvent.click(screen.getByLabelText("save colour for prime-family-colour-5"));
@@ -148,19 +171,26 @@ describe("Colors — interactions", () => {
     expect(onChange).toHaveBeenCalledWith("fundamental_color", "#ff0000");
   });
 
-  it("loads the derived spectrum palette into note_colors when requested", () => {
-    const onChange = vi.fn();
-    const settings = { spectrum_colors: true, fundamental_color: "#abcdef", equivSteps: 12 };
-    render(<Colors settings={settings} onChange={onChange} onAtomicChange={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: /load spectrum colors/i }));
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0]).toBe("note_colors");
-    expect(onChange.mock.calls[0][1]).toHaveLength(12);
-    expect(onChange.mock.calls[0][1][0]).toMatch(/^#[0-9a-f]{6}$/i);
+  it("commits the derived spectrum palette and turns spectrum colours off", () => {
+    const onAtomicChange = vi.fn();
+    const settings = { spectrum_colors: true, auto_colors: false, fundamental_color: "#abcdef", equivSteps: 12 };
+    render(<Colors settings={settings} rawSettings={settings} onChange={() => {}} onAtomicChange={onAtomicChange} />);
+    fireEvent.click(screen.getByRole("button", { name: /commit spectrum colours/i }));
+    expect(onAtomicChange).toHaveBeenCalledTimes(1);
+    expect(onAtomicChange.mock.calls[0][0].spectrum_colors).toBe(false);
+    expect(onAtomicChange.mock.calls[0][0].note_colors).toHaveLength(12);
+    expect(onAtomicChange.mock.calls[0][0].note_colors[0]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it("saves the current prime palette to localStorage", () => {
-    render(<Colors settings={baseSettings} onChange={() => {}} onAtomicChange={() => {}} />);
+    render(
+      <Colors
+        settings={{ ...baseSettings, auto_colors: true }}
+        rawSettings={{ ...baseSettings, auto_colors: true }}
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /save user palette/i }));
     expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palette"))).toBeTruthy();
   });
@@ -172,7 +202,14 @@ describe("Colors — interactions", () => {
       "#bbbbbb", "#cccccc", "#dddddd", "#eeeeee", "#fafafa",
     ]));
     const onChange = vi.fn();
-    render(<Colors settings={baseSettings} onChange={onChange} onAtomicChange={() => {}} />);
+    render(
+      <Colors
+        settings={{ ...baseSettings, auto_colors: true }}
+        rawSettings={{ ...baseSettings, auto_colors: true }}
+        onChange={onChange}
+        onAtomicChange={() => {}}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /load user palette/i }));
     expect(onChange).toHaveBeenCalledWith(
       "prime_family_colors",
@@ -186,6 +223,12 @@ describe("Colors — interactions", () => {
       <Colors
         settings={{
           ...baseSettings,
+          auto_colors: true,
+          prime_family_colors: ["#111111"],
+        }}
+        rawSettings={{
+          ...baseSettings,
+          auto_colors: true,
           prime_family_colors: ["#111111"],
         }}
         onChange={onChange}
@@ -199,12 +242,23 @@ describe("Colors — interactions", () => {
     );
   });
 
-  it("commits the current auto-generated colours and turns auto colours off", () => {
+  it("commits the current auto-generated colours and turns auto and spectrum colours off", () => {
     const onAtomicChange = vi.fn();
     render(
       <Colors
         settings={{
           ...baseSettings,
+          spectrum_colors: true,
+          note_colors: ["#ffffff", "#ffffff"],
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+        rawSettings={{
+          ...baseSettings,
+          auto_colors: true,
+          spectrum_colors: true,
           note_colors: ["#ffffff", "#ffffff"],
           scale: ["23/16", "2/1"],
           equivSteps: 2,
@@ -215,10 +269,11 @@ describe("Colors — interactions", () => {
         onAtomicChange={onAtomicChange}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /commit/i }));
+    fireEvent.click(screen.getByRole("button", { name: /commit auto colours/i }));
     expect(onAtomicChange).toHaveBeenCalledWith({
       note_colors: ["#ffa5a5", "#95c69b"],
       auto_colors: false,
+      spectrum_colors: false,
     });
   });
 
@@ -261,5 +316,154 @@ describe("Colors — interactions", () => {
     await waitFor(() => {
       expect(updateColors.mock.calls.at(-1)[0].note_colors[1]).toBe("95c69b");
     });
+  });
+
+  it("cancels a pending auto preview when auto colours is turned off", async () => {
+    vi.useFakeTimers();
+    const updateColors = vi.fn();
+
+    const Wrapper = () => {
+      const [rawSettings, setRawSettings] = useState({
+        ...baseSettings,
+        auto_colors: true,
+        spectrum_colors: false,
+        note_colors: ["#ffffff", "#ffffff"],
+        scale: ["23/16", "2/1"],
+        equivSteps: 2,
+        note_names: ["1/1", "23"],
+        key_labels: "note_names",
+      });
+      const effectiveSettings = {
+        ...rawSettings,
+        auto_colors: rawSettings.auto_colors,
+        spectrum_colors: false,
+      };
+      return (
+        <Colors
+          settings={effectiveSettings}
+          rawSettings={rawSettings}
+          keysRef={{ current: { updateColors } }}
+          onChange={(key, value) => setRawSettings((prev) => ({ ...prev, [key]: value }))}
+          onAtomicChange={() => {}}
+        />
+      );
+    };
+
+    render(<Wrapper />);
+    fireEvent.input(screen.getByLabelText("hex colour for prime-family-colour-23"), {
+      target: { value: "#112233" },
+    });
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "manual" } });
+    const callCountBeforeFrame = updateColors.mock.calls.length;
+
+    vi.advanceTimersByTime(20);
+
+    expect(updateColors.mock.calls.length).toBe(callCountBeforeFrame);
+  });
+
+  it("allows spectrum colours to reactivate after committing auto colours", async () => {
+    const updateColors = vi.fn();
+
+    const Wrapper = () => {
+      const [settings, setSettings] = useState({
+        ...baseSettings,
+        auto_colors: false,
+        spectrum_colors: true,
+        note_colors: ["#ffffff", "#ffffff"],
+        scale: ["23/16", "2/1"],
+        equivSteps: 2,
+        note_names: ["1/1", "23"],
+        key_labels: "note_names",
+      });
+      const keysRef = { current: { updateColors } };
+      const { onChange, onAtomicChange } = useSettingsChange(settings, setSettings, {
+        midi: null,
+        setMidiLearnActive: vi.fn(),
+        setHakenPedalLearnActive: vi.fn(),
+        keysRef,
+        setLatch: vi.fn(),
+        bumpImportCount: vi.fn(),
+        onUserScaleEdit: vi.fn(),
+      });
+      return (
+        <Colors
+          settings={settings}
+          rawSettings={settings}
+          keysRef={keysRef}
+          onChange={onChange}
+          onAtomicChange={onAtomicChange}
+        />
+      );
+    };
+
+    render(<Wrapper />);
+
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "auto" } });
+    fireEvent.click(screen.getByRole("button", { name: /commit auto colours/i }));
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "spectrum" } });
+
+    await waitFor(() => {
+      expect(updateColors.mock.calls.at(-1)[0]).toMatchObject({
+        spectrum_colors: true,
+      });
+    });
+  });
+
+  it("allows spectrum colours to activate after committing auto colours from a non-spectrum state", async () => {
+    const updateColors = vi.fn();
+
+    const Wrapper = () => {
+      const [settings, setSettings] = useState({
+        ...baseSettings,
+        auto_colors: false,
+        spectrum_colors: false,
+        note_colors: ["#ffffff", "#ffffff"],
+        scale: ["23/16", "2/1"],
+        equivSteps: 2,
+        note_names: ["1/1", "23"],
+        key_labels: "note_names",
+      });
+      const keysRef = { current: { updateColors } };
+      const { onChange, onAtomicChange } = useSettingsChange(settings, setSettings, {
+        midi: null,
+        setMidiLearnActive: vi.fn(),
+        setHakenPedalLearnActive: vi.fn(),
+        keysRef,
+        setLatch: vi.fn(),
+        bumpImportCount: vi.fn(),
+        onUserScaleEdit: vi.fn(),
+      });
+      return (
+        <Colors
+          settings={settings}
+          rawSettings={settings}
+          keysRef={keysRef}
+          onChange={onChange}
+          onAtomicChange={onAtomicChange}
+        />
+      );
+    };
+
+    render(<Wrapper />);
+
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "auto" } });
+    fireEvent.click(screen.getByRole("button", { name: /commit auto colours/i }));
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "spectrum" } });
+
+    await waitFor(() => {
+      expect(updateColors.mock.calls.at(-1)[0]).toMatchObject({
+        spectrum_colors: true,
+      });
+    });
+  });
+
+  it("returns to Manual after committing spectrum colours", () => {
+    const onAtomicChange = vi.fn();
+    const settings = { spectrum_colors: true, auto_colors: false, fundamental_color: "#abcdef", equivSteps: 12 };
+    render(<Colors settings={settings} rawSettings={settings} onChange={() => {}} onAtomicChange={onAtomicChange} />);
+    fireEvent.click(screen.getByRole("button", { name: /commit spectrum colours/i }));
+    expect(onAtomicChange).toHaveBeenCalledWith(expect.objectContaining({
+      spectrum_colors: false,
+    }));
   });
 });

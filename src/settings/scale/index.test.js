@@ -8,6 +8,9 @@
  */
 
 import { render, screen, fireEvent } from "@testing-library/preact";
+import { useState } from "preact/hooks";
+import { normalizeColors } from "../../normalize-settings.js";
+import useSettingsChange from "../../use-settings-change.js";
 vi.mock("./fundamental-tune-cell.js", () => ({
   default: ({ onPreviewChange }) => (
     <div class="tune-cell--inline">
@@ -101,6 +104,99 @@ describe("Scale panel — default state", () => {
     });
 
     expect(onChange).toHaveBeenCalledWith("modulation_style", "fixed_do");
+  });
+
+  it("keeps Use Auto Colours togglable when the table is collapsed", () => {
+    sessionStorage.setItem("hexatone_scale_collapsed", "true");
+
+    const Wrapper = () => {
+      const [settings, setSettings] = useState({
+        ...minimalSettings,
+        spectrum_colors: true,
+        auto_colors: false,
+        scale: ["23/16", "2/1"],
+        equivSteps: 2,
+        note_colors: ["#ffffff", "#ffffff"],
+        note_names: ["1/1", "23"],
+        key_labels: "note_names",
+      });
+      return (
+        <Scale
+          settings={{ ...settings, ...normalizeColors(settings) }}
+          rawSettings={settings}
+          onChange={(key, value) => setSettings((prev) => ({ ...prev, [key]: value }))}
+          onImport={() => {}}
+        />
+      );
+    };
+
+    render(<Wrapper />);
+
+    const checkbox = screen.getByRole("checkbox", { name: /use auto colours/i });
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.click(checkbox);
+    expect(screen.getByRole("checkbox", { name: /use auto colours/i }).checked).toBe(true);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /use auto colours/i }));
+    expect(screen.getByRole("checkbox", { name: /use auto colours/i }).checked).toBe(false);
+  });
+
+  it("repaints back to stored colours when auto colours is turned off while collapsed", () => {
+    sessionStorage.setItem("hexatone_scale_collapsed", "true");
+    const updateColors = vi.fn();
+
+    const Wrapper = () => {
+      const [settings, setSettings] = useState({
+        ...minimalSettings,
+        spectrum_colors: false,
+        auto_colors: true,
+        scale: ["23/16", "2/1"],
+        equivSteps: 2,
+        note_colors: ["#112233", "#445566"],
+        note_names: ["1/1", "23"],
+        key_labels: "note_names",
+      });
+      const { onChange, onAtomicChange } = useSettingsChange(settings, setSettings, {
+        midi: null,
+        setMidiLearnActive: vi.fn(),
+        setHakenPedalLearnActive: vi.fn(),
+        keysRef: { current: { updateColors } },
+        setLatch: vi.fn(),
+        bumpImportCount: vi.fn(),
+        onUserScaleEdit: vi.fn(),
+      });
+      const colorSettings = normalizeColors(settings);
+      return (
+        <>
+          <Scale
+            settings={{ ...settings, ...colorSettings }}
+            rawSettings={settings}
+            onChange={onChange}
+            onAtomicChange={onAtomicChange}
+            onImport={() => {}}
+            keysRef={{ current: { updateColors } }}
+          />
+          <button
+            type="button"
+            onClick={() => updateColors(colorSettings)}
+          >
+            sync keyboard colors
+          </button>
+        </>
+      );
+    };
+
+    render(<Wrapper />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /use auto colours/i }));
+    fireEvent.click(screen.getByRole("button", { name: /sync keyboard colors/i }));
+
+    expect(screen.getByRole("checkbox", { name: /use auto colours/i }).checked).toBe(false);
+    expect(updateColors.mock.calls.at(-1)[0]).toMatchObject({
+      note_colors: ["112233", "445566"],
+      spectrum_colors: false,
+    });
   });
 
   it("shows the effective scale size from the current scale when equivSteps is stale", () => {
