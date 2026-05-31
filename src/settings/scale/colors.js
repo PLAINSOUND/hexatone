@@ -275,7 +275,7 @@ const Colors = (props) => {
 
       {autoActive && (
           <fieldset class="auto-prime-colors-fieldset">
-            <legend>Auto Colour Palette</legend>
+            <legend>JI Colour Palette by Primes</legend>
             <div class="scale-colors-fieldset-actions">
               <button
                 type="button"
@@ -289,7 +289,7 @@ const Colors = (props) => {
             <div class="auto-prime-colors-grid">
               {PRIME_COLOR_ORDER.map((prime, index) => (
                 <label class="auto-prime-colors-grid__item" key={`prime-family-color-${prime}`}>
-                  <span class="auto-prime-colors-grid__label">{prime === 1 ? "1/1" : `${prime}°`}</span>
+                  <span class="auto-prime-colors-grid__label">{prime === 1 ? "1°" : `${prime}°`}</span>
                   <ColorCell
                     name={`prime-family-colour-${prime}`}
                     value={primeFamilyColors[index]}
@@ -336,7 +336,7 @@ const Colors = (props) => {
             </button>
           </div>
           <label>
-            Choose Central Hue
+            Central Hue
             <div class="color-cell color-cell--label-rhs">
               <span class="color-swatch-hitbox">
                 <span

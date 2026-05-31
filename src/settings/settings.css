@@ -1221,23 +1221,25 @@ input.equiv-cell:disabled,
 
 .auto-prime-colors-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 0.9em;
-  row-gap: 0.35em;
+  grid-template-columns: repeat(3, max-content);
+  justify-content: space-between;
+  column-gap: 0.35em;
+  row-gap: 0.25em;
 }
 
 .auto-prime-colors-grid__item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.45em;
+  gap: 0.2em;
   min-width: 0;
 }
 
 .auto-prime-colors-grid__label {
-  min-width: 2.5em;
+  min-width: 1.9em;
   color: #774444;
   flex-shrink: 0;
+  text-align: right;
 }
 
 .auto-prime-colors-grid__item .color-cell {
@@ -1261,7 +1263,7 @@ input.equiv-cell:disabled,
 .auto-prime-colors-grid__item .color-input,
 .auto-prime-colors-grid__item .color-cell:focus-within .color-input {
   display: block;
-  width: 6.3em !important;
+  width: 5.2em !important;
   min-width: 0;
   flex: none;
 }
