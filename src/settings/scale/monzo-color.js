@@ -21,10 +21,6 @@ const QUINTAL_DIATONIC_COLORS = {
   "-1": "#e9e1b4",
   "-2": "#dfd39a",
 };
-const QUINTAL_CHROMATIC_COLORS = {
-  1: "#cdcac1",
-  2: "#c8c29d",
-};
 const SEPTIMAL_OVERTONAL_DIATONIC = "#ffe5e5";
 
 export const MONZO_COLOR_FAMILIES = {
@@ -458,6 +454,11 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
       sOffset: -0.05,
       lOffset: -0.04,
     });
+  const makeOvertonalChromatic = (base, magnitude = 1) =>
+    adjustHexOkhsl(mixHex(base, "#8c8574", magnitude === 1 ? 0.16 : 0.19), {
+      sOffset: magnitude === 1 ? -0.06 : -0.07,
+      lOffset: magnitude === 1 ? -0.025 : -0.04,
+    });
   const makeUndertonalChromatic = (base) =>
     adjustHexOkhsl(mixHex(base, "#8c8574", 0.2), {
       sOffset: -0.1,
@@ -488,7 +489,7 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
     if (isChromatic) {
       const overlayEnabled = isChromaticOverlayEnabled(5, options);
       return {
-        screenHex: overlayEnabled ? QUINTAL_CHROMATIC_COLORS[fiveExp] : diatonicColor,
+        screenHex: overlayEnabled ? makeOvertonalChromatic(diatonicColor, fiveExp) : diatonicColor,
         familyPrime: 5,
         familyName: overlayEnabled
           ? (fiveExp === 1 ? "quintal chromatic sharp" : "quintal two-comma sharp")
@@ -721,6 +722,9 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
   const hasElevenUndertonalLowerPrimeMix = dominant.prime === 11
     && dominant.exponent > 0
     && lowerActive.some(({ prime, exponent }) => (prime === 5 || prime === 7) && exponent < 0);
+  const hasUndertonalElevenOvertonalSeptimalMix = dominant.prime === 11
+    && dominant.exponent < 0
+    && lowerActive.some(({ prime, exponent }) => prime === 7 && exponent > 0);
 
   const weights = getLowerPrimeWeights(lowerActive.length);
   lowerActive.forEach((entry, index) => {
@@ -752,6 +756,10 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
       weight *= entry.prime === 5 ? 1.8 : 1.6;
       maxWeight = 0.46;
     }
+    if (dominant.prime === 11 && dominant.exponent < 0 && entry.prime === 7 && entry.exponent > 0) {
+      weight *= 1.9;
+      maxWeight = 0.42;
+    }
     color = mixHex(color, lowerColor, Math.min(maxWeight, weight));
   });
 
@@ -760,6 +768,9 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
   }
   if (hasElevenUndertonalLowerPrimeMix) {
     color = mixHex(color, "#d7e1b2", 0.22);
+  }
+  if (hasUndertonalElevenOvertonalSeptimalMix) {
+    color = mixHex(color, SEPTIMAL_OVERTONAL_DIATONIC, 0.16);
   }
 
   return {

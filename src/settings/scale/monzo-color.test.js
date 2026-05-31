@@ -140,10 +140,10 @@ describe("monzoToSuggestedColor", () => {
 
   it("uses quintal-chain colors for pure 5-limit overtonal diatonics and sharps", () => {
     expect(monzoToSuggestedColor([-2, 0, 1]).screenHex).toBe("#fffae5");
-    expect(monzoToSuggestedColor([-7, 3, 1]).screenHex).toBe("#cdcac1");
+    expect(monzoToSuggestedColor([-7, 3, 1]).screenHex).toBe("#e6e0cb");
     expect(monzoToSuggestedColor([2, -4, 2]).screenHex).toBe("#fef5be");
-    expect(monzoToSuggestedColor([-3, -1, 2]).screenHex).toBe("#c8c29d");
-    expect(monzoToSuggestedColor([-3, -1, 2]).screenHex).toBe("#c8c29d");
+    expect(monzoToSuggestedColor([-3, -1, 2]).screenHex).toBe("#ddd5a4");
+    expect(monzoToSuggestedColor([-3, -1, 2]).screenHex).toBe("#ddd5a4");
   });
 
   it("uses quintal-chain colors for pure 5-limit undertonal diatonics and darker flats", () => {
@@ -238,7 +238,7 @@ describe("monzoToSuggestedColor", () => {
     expect(monzoToSuggestedColor([0, -2]).screenHex).toBe("#d0d0d7");
     expect(monzoToSuggestedColor([0, -2], undefined, { structuralOverlay: "none" }).screenHex).toBe("#ffffff");
 
-    expect(monzoToSuggestedColor([-7, 3, 1]).screenHex).toBe("#cdcac1");
+    expect(monzoToSuggestedColor([-7, 3, 1]).screenHex).toBe("#e6e0cb");
     expect(monzoToSuggestedColor([-7, 3, 1], undefined, { structuralOverlay: "none" }).screenHex).toBe("#fffae5");
   });
 
