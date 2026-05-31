@@ -106,7 +106,7 @@ describe("Scale panel — default state", () => {
     expect(onChange).toHaveBeenCalledWith("modulation_style", "fixed_do");
   });
 
-  it("keeps Use Auto Colours togglable when the table is collapsed", () => {
+  it("keeps Key Colours togglable when the table is collapsed", () => {
     sessionStorage.setItem("hexatone_scale_collapsed", "true");
 
     const Wrapper = () => {
@@ -132,14 +132,14 @@ describe("Scale panel — default state", () => {
 
     render(<Wrapper />);
 
-    const checkbox = screen.getByRole("checkbox", { name: /use auto colours/i });
-    expect(checkbox.checked).toBe(false);
+    const selector = screen.getByLabelText("Key Colours");
+    expect(selector.value).toBe("spectrum");
 
-    fireEvent.click(checkbox);
-    expect(screen.getByRole("checkbox", { name: /use auto colours/i }).checked).toBe(true);
+    fireEvent.change(selector, { target: { value: "auto" } });
+    expect(screen.getByLabelText("Key Colours").value).toBe("auto");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /use auto colours/i }));
-    expect(screen.getByRole("checkbox", { name: /use auto colours/i }).checked).toBe(false);
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "manual" } });
+    expect(screen.getByLabelText("Key Colours").value).toBe("manual");
   });
 
   it("repaints back to stored colours when auto colours is turned off while collapsed", () => {
@@ -189,10 +189,10 @@ describe("Scale panel — default state", () => {
 
     render(<Wrapper />);
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /use auto colours/i }));
+    fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "manual" } });
     fireEvent.click(screen.getByRole("button", { name: /sync keyboard colors/i }));
 
-    expect(screen.getByRole("checkbox", { name: /use auto colours/i }).checked).toBe(false);
+    expect(screen.getByLabelText("Key Colours").value).toBe("manual");
     expect(updateColors.mock.calls.at(-1)[0]).toMatchObject({
       note_colors: ["112233", "445566"],
       spectrum_colors: false,
