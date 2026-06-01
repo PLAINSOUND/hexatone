@@ -50,6 +50,10 @@ const LumatoneSettings = ({
     () => savedFilters.find((entry) => entry.name === selectedSavedName) ?? null,
     [savedFilters, selectedSavedName],
   );
+  const selectedSavedIndex = useMemo(
+    () => savedFilters.findIndex((entry) => entry.name === selectedSavedName),
+    [savedFilters, selectedSavedName],
+  );
 
   const activeFilter = settings.lumatone_degree_filter ?? "";
   const filterActive = settings.lumatone_degree_filter_mode === "filter";
@@ -112,10 +116,6 @@ const LumatoneSettings = ({
     applyFilter(entry.filter, entry.name, true);
   };
 
-  const handleApplyDraft = () => {
-    applyFilter(draftFilter, selectedSavedFilter?.filter === draftFilter ? selectedSavedName : LUMATONE_COLOR_FILTER_CUSTOM, true);
-  };
-
   const handleReloadSaved = () => {
     if (!selectedSavedFilter) return;
     applyFilter(selectedSavedFilter.filter, selectedSavedFilter.name, true);
@@ -139,11 +139,23 @@ const LumatoneSettings = ({
     const nextLibrary = [
       ...savedFilters.filter((entry) => entry.name !== trimmedName),
       { name: trimmedName, filter: normalizedFilter },
-    ].sort((a, b) => a.name.localeCompare(b.name));
+    ];
     writeLumatoneColorFilterLibrary(nextLibrary);
     setSavedFilters(nextLibrary);
     setSelectedSavedName(trimmedName);
     applyFilter(normalizedFilter, trimmedName, false);
+  };
+
+  const moveSelectedFilter = (direction) => {
+    if (!selectedSavedFilter || selectedSavedIndex < 0) return;
+    const targetIndex = selectedSavedIndex + direction;
+    if (targetIndex < 0 || targetIndex >= savedFilters.length) return;
+    const nextLibrary = [...savedFilters];
+    const [moved] = nextLibrary.splice(selectedSavedIndex, 1);
+    nextLibrary.splice(targetIndex, 0, moved);
+    writeLumatoneColorFilterLibrary(nextLibrary);
+    setSavedFilters(nextLibrary);
+    setSelectedSavedName(moved.name);
   };
 
   const handleDeleteFilter = () => {
@@ -285,6 +297,9 @@ const LumatoneSettings = ({
                   >
                     <option value={LUMATONE_COLOR_FILTER_ALL}>All Degrees</option>
                     <option value={LUMATONE_COLOR_FILTER_DARK}>All Keys Dark</option>
+                    {savedFilters.length > 0 && (
+                      <option value="__separator__" disabled>──────── User Filters ────────</option>
+                    )}
                     {filterActive && selectedValue === LUMATONE_COLOR_FILTER_CUSTOM && (
                       <option value={LUMATONE_COLOR_FILTER_CUSTOM}>Current Custom Filter</option>
                     )}
@@ -295,14 +310,28 @@ const LumatoneSettings = ({
                     ))}
                   </select>
                   {selectedSavedFilter && (
-                    <button
-                      type="button"
-                      class="delete-btn preset-utility-btn"
-                      style={{ marginLeft: "auto" }}
-                      onClick={handleDeleteFilter}
-                    >
-                      Delete
-                    </button>
+                    <span class="lumatone-filter-move-group">
+                      <button
+                        type="button"
+                        class="preset-refresh-btn lumatone-filter-move-btn"
+                        title="Move filter up"
+                        aria-label="Move filter up"
+                        disabled={selectedSavedIndex <= 0}
+                        onClick={() => moveSelectedFilter(-1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-refresh-btn lumatone-filter-move-btn"
+                        title="Move filter down"
+                        aria-label="Move filter down"
+                        disabled={selectedSavedIndex < 0 || selectedSavedIndex >= savedFilters.length - 1}
+                        onClick={() => moveSelectedFilter(1)}
+                      >
+                        ↓
+                      </button>
+                    </span>
                   )}
                 </span>
               </label>
@@ -319,7 +348,15 @@ const LumatoneSettings = ({
                     setFilterError("");
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleApplyDraft();
+                    if (e.key === "Enter") {
+                      applyFilter(
+                        e.currentTarget.value,
+                        selectedSavedFilter?.filter === e.currentTarget.value
+                          ? selectedSavedName
+                          : LUMATONE_COLOR_FILTER_CUSTOM,
+                        true,
+                      );
+                    }
                   }}
                   aria-label="Lumatone filter scale degrees"
                 />
@@ -343,6 +380,15 @@ const LumatoneSettings = ({
                     type="button"
                     class="delete-btn preset-utility-btn"
                     style={{ marginLeft: "auto" }}
+                    onClick={handleDeleteFilter}
+                  >
+                    Delete
+                  </button>
+                )}
+                {selectedSavedFilter && (
+                  <button
+                    type="button"
+                    class="delete-btn preset-utility-btn"
                     onClick={handleClearAllFilters}
                   >
                     Clear All

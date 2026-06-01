@@ -28,6 +28,8 @@ let decodedBufferCache = {};
 let decodedBufferCacheContext = null; // the AudioContext the cache was built for
 let rawSampleBufferCache = {};
 let rawSampleBufferPromises = {};
+let keepAliveSource = null;
+let keepAliveGain = null;
 
 // ─── iOS Detection ─────────────────────────────────────────────────────────────
 const isIOS =
@@ -50,6 +52,38 @@ const createSharedAudioContext = () => {
   iosForceRecreateOnPrepare = false;
   setupIOSAudioHandler();
   return sharedAudioContext;
+};
+
+const ensureKeepAliveNode = () => {
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") return;
+  if (keepAliveSource && keepAliveGain) return;
+  keepAliveGain = sharedAudioContext.createGain();
+  keepAliveGain.gain.value = 0;
+  keepAliveGain.connect(sharedAudioContext.destination);
+  keepAliveSource = sharedAudioContext.createConstantSource();
+  keepAliveSource.offset.value = 0;
+  keepAliveSource.connect(keepAliveGain);
+  keepAliveSource.start();
+};
+
+const clearKeepAliveNode = () => {
+  try {
+    keepAliveSource?.stop?.();
+  } catch {
+    // ignore repeated stop on teardown/recreate
+  }
+  try {
+    keepAliveSource?.disconnect?.();
+  } catch {
+    // ignore disconnect errors during teardown
+  }
+  try {
+    keepAliveGain?.disconnect?.();
+  } catch {
+    // ignore disconnect errors during teardown
+  }
+  keepAliveSource = null;
+  keepAliveGain = null;
 };
 
 const setupIOSAudioHandler = () => {
@@ -198,12 +232,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
     const activeHexes = new Set();
 
-    return {
-      family: "sample",
-      // ── Call once after a user gesture (e.g. preset selection) ───────────────
-      // Creates/resumes the AudioContext and decodes all samples so that noteOn
-      // is fully synchronous and has no latency.
-      prepare: async () => {
+    const prepareSynth = async () => {
         if (preparePromise) return preparePromise;
         preparePromise = (async () => {
           if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
@@ -213,6 +242,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
               warnLog("iOS: Failed to close stale AudioContext:", e.message);
             }
             sharedAudioContext = null;
+            clearKeepAliveNode();
             masterGain = null;
             decodedBuffers = null;
           }
@@ -248,6 +278,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
             masterGain.connect(sharedAudioContext.destination);
             masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
           }
+          ensureKeepAliveNode();
           if (decodedBufferCacheContext !== sharedAudioContext) {
             decodedBufferCache = {};
             decodedBufferCacheContext = sharedAudioContext;
@@ -267,12 +298,37 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         } finally {
           preparePromise = null;
         }
-      },
+      };
+
+    return {
+      family: "sample",
+      // ── Call once after a user gesture (e.g. preset selection) ───────────────
+      // Creates/resumes the AudioContext and decodes all samples so that noteOn
+      // is fully synchronous and has no latency.
+      prepare: prepareSynth,
 
       setVolume: (value) => {
         masterVolume = Math.max(0, Math.min(1, value));
         if (masterGain) {
           masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.02);
+        }
+      },
+
+      ensureAwake: async () => {
+        if (!sharedAudioContext || sharedAudioContext.state === "closed" || !decodedBuffers) {
+          await prepareSynth();
+          return;
+        }
+        if (
+          sharedAudioContext.state === "suspended" ||
+          sharedAudioContext.state === "interrupted"
+        ) {
+          try {
+            await sharedAudioContext.resume();
+            ensureKeepAliveNode();
+          } catch (e) {
+            warnLog("AudioContext wake failed:", e.message);
+          }
         }
       },
 

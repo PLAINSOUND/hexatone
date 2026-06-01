@@ -591,24 +591,27 @@ td.scale-color-col .color-input {
 }
 
 /* Preset selector row — select stays natural width, buttons cluster left */
-.preset-selector-row {
+#sidebar .preset-selector-row {
+  display: flex;
   justify-content: flex-start;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 6px;
 }
 
-.preset-selector-row select {
+#sidebar .preset-selector-row select {
   flex: 0 1 22em;
   width: 22em;
   max-width: 100%;
 }
 
 @media (max-width: 550px) {
-  .preset-selector-row {
+  #sidebar .preset-selector-row {
     flex-wrap: nowrap;
     align-items: center;
   }
 
-  .preset-selector-row select {
+  #sidebar .preset-selector-row select {
     flex: 1 1 auto;
     min-width: 0;
   }
@@ -642,13 +645,34 @@ td.scale-color-col .color-input {
 .lumatone-filter-selector {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
+  width: 100%;
 }
 
 .lumatone-filter-selector select {
-  flex: 1 1 auto;
-  width: 100%;
+  flex: 0 1 22em;
+  width: 22em;
   min-width: 0;
+}
+
+.lumatone-filter-move-group {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 0.2em;
+}
+
+.lumatone-filter-move-btn {
+  flex: 0 0 1.5em;
+  width: 1.5em;
+  min-width: 1.5em;
+  height: 1.5em;
+  min-height: 1.5em;
+  padding: 0;
+  line-height: 1;
+  font-size: 1em;
+  color: var(--color-text);
 }
 
 

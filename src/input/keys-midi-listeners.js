@@ -609,6 +609,12 @@ export function setupMidiInput() {
                 note: e.note.number,
                 velocity: e.note.rawAttack,
               });
+              if (this._onFirstInteraction) this._onFirstInteraction();
+              if (typeof this.synth?.ensureAwake === "function") {
+                this.synth.ensureAwake();
+              } else if (typeof this.synth?.prepare === "function") {
+                this.synth.prepare();
+              }
               if (isLinnstrumentUfInputActive.call(this)) {
                 const key = `${e.message.channel}.${e.note.number}`;
                 this._linnUfXLsb.delete(key);

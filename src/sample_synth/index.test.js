@@ -6,9 +6,10 @@ class MockAudioContext {
     this.state = "running";
     this.currentTime = 0;
     this.destination = {};
+    this.resume = vi.fn(async () => {
+      this.state = "running";
+    });
   }
-
-  async resume() {}
 
   async close() {
     this.state = "closed";
@@ -25,6 +26,16 @@ class MockAudioContext {
         setTargetAtTime: vi.fn(),
       },
       connect: vi.fn(),
+    };
+  }
+
+  createConstantSource() {
+    return {
+      offset: { value: 0 },
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      disconnect: vi.fn(),
     };
   }
 
@@ -114,5 +125,21 @@ describe("sample_synth modwheel", () => {
 
     expect(hex.source.playbackRate.setValueAtTime).toHaveBeenCalledTimes(1);
     expect(hex.source.playbackRate.setValueAtTime.mock.calls[0][0]).toBeGreaterThan(1);
+  });
+
+  it("wakes a suspended audio context without rebuilding decoded buffers", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    await synth.prepare();
+
+    const stateBefore = globalThis.window.AudioContext.prototype;
+    void stateBefore;
+
+    const context = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1).audioContext;
+    context.state = "suspended";
+
+    await synth.ensureAwake();
+
+    expect(context.resume).toHaveBeenCalledTimes(1);
+    expect(context.state).toBe("running");
   });
 });
