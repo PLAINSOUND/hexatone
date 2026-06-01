@@ -6,6 +6,8 @@ class MockAudioContext {
     this.state = "running";
     this.currentTime = 0;
     this.destination = {};
+    this.createdGains = [];
+    this.createdConstantSources = [];
     this.resume = vi.fn(async () => {
       this.state = "running";
     });
@@ -20,23 +22,27 @@ class MockAudioContext {
   }
 
   createGain() {
-    return {
+    const node = {
       gain: {
         value: 0,
         setTargetAtTime: vi.fn(),
       },
       connect: vi.fn(),
     };
+    this.createdGains.push(node);
+    return node;
   }
 
   createConstantSource() {
-    return {
+    const node = {
       offset: { value: 0 },
       connect: vi.fn(),
       start: vi.fn(),
       stop: vi.fn(),
       disconnect: vi.fn(),
     };
+    this.createdConstantSources.push(node);
+    return node;
   }
 
   createBufferSource() {
@@ -141,5 +147,14 @@ describe("sample_synth modwheel", () => {
 
     expect(context.resume).toHaveBeenCalledTimes(1);
     expect(context.state).toBe("running");
+  });
+
+  it("creates a non-zero keepalive signal so the context stays active while idle", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    await synth.prepare();
+
+    const context = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1).audioContext;
+    expect(context.createdGains.some((node) => node.gain.value === 0.000001)).toBe(true);
+    expect(context.createdConstantSources.some((node) => node.offset.value === 1)).toBe(true);
   });
 });

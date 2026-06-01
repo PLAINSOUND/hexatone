@@ -592,10 +592,10 @@ export function setupMidiInput() {
         this._midiLearnCcCallback = null; // set by setMidiCcLearnMode()
 
         this.midiin_data.addListener("noteon", (e) => {
-          withMidiJitterInput(
+          void withMidiJitterInput(
             "noteOnIn",
             { channel: e.message.channel, note: e.note.number, value: e.note.rawAttack },
-            () => {
+            async () => {
               // MIDI learn: capture the next note-on as the new anchor, don't play it.
               if (this._midiLearnCallback) {
                 // Pass both note number and channel so multi-channel controllers
@@ -611,9 +611,9 @@ export function setupMidiInput() {
               });
               if (this._onFirstInteraction) this._onFirstInteraction();
               if (typeof this.synth?.ensureAwake === "function") {
-                this.synth.ensureAwake();
+                await this.synth.ensureAwake();
               } else if (typeof this.synth?.prepare === "function") {
-                this.synth.prepare();
+                await this.synth.prepare();
               }
               if (isLinnstrumentUfInputActive.call(this)) {
                 const key = `${e.message.channel}.${e.note.number}`;

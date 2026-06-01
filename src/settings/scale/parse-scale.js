@@ -348,6 +348,18 @@ export const settingsToPresetJson = (settings, extra = {}) => {
   for (const key of PRESET_FIELDS) {
     if (settings[key] !== undefined) preset[key] = settings[key];
   }
+
+  const isLumatone2d =
+    settings.midiin_controller_override === "lumatone" && settings.midi_passthrough !== true;
+  if (isLumatone2d) {
+    if (Number.isFinite(settings.midiin_anchor_note)) {
+      preset.lumatone_anchor_note = settings.midiin_anchor_note;
+    }
+    if (Number.isFinite(settings.midiin_anchor_channel)) {
+      preset.lumatone_anchor_channel = settings.midiin_anchor_channel;
+    }
+  }
+
   for (const [key, value] of Object.entries(extra)) {
     if (value !== undefined && value !== null && (!Array.isArray(value) || value.length > 0)) {
       preset[key] = value;

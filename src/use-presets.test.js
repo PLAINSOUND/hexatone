@@ -38,6 +38,7 @@ describe("scaleHexSizeForScreen", () => {
 describe("mergePresetIntoSettings", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    localStorage.clear();
   });
 
   it("clears stale HEJI anchor values when loading a preset without an explicit anchor", () => {
@@ -134,6 +135,52 @@ describe("mergePresetIntoSettings", () => {
     expect(merged.lumatone_center_channel).toBeUndefined();
     expect(merged.controller_virtual_anchor_x).toBeNull();
     expect(merged.controller_virtual_anchor_y).toBeNull();
+  });
+
+  it("uses preset-specific Lumatone anchor fields when present", () => {
+    sessionStorage.setItem("midiin_anchor_note", "31");
+    sessionStorage.setItem("midiin_anchor_channel", "2");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 31,
+        midiin_anchor_channel: 2,
+      },
+      {
+        name: "Sabat The Tree",
+        lumatone_anchor_note: 26,
+        lumatone_anchor_channel: 3,
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(26);
+    expect(merged.midiin_anchor_channel).toBe(3);
+    expect(merged.lumatone_anchor_note).toBe(26);
+    expect(merged.lumatone_anchor_channel).toBe(3);
+  });
+
+  it("restores the user's saved anchor after leaving a preset-specific Lumatone anchor", () => {
+    localStorage.setItem("lumatone__layout2d__anchor", "31");
+    localStorage.setItem("lumatone__layout2d__anchor_channel", "2");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 26,
+        midiin_anchor_channel: 3,
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        lumatone_anchor_note: 26,
+        lumatone_anchor_channel: 3,
+      },
+      {
+        name: "No Lumatone preset anchor",
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(31);
+    expect(merged.midiin_anchor_channel).toBe(2);
+    expect(merged.lumatone_anchor_note).toBeUndefined();
+    expect(merged.lumatone_anchor_channel).toBeUndefined();
   });
 });
 

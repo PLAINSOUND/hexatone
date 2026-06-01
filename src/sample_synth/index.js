@@ -58,10 +58,13 @@ const ensureKeepAliveNode = () => {
   if (!sharedAudioContext || sharedAudioContext.state === "closed") return;
   if (keepAliveSource && keepAliveGain) return;
   keepAliveGain = sharedAudioContext.createGain();
-  keepAliveGain.gain.value = 0;
+  // A truly zero-value keepalive can be optimized away by some engines,
+  // letting the context fall asleep after a short idle period. Keep an
+  // effectively inaudible floor so the output graph stays active.
+  keepAliveGain.gain.value = 0.000001;
   keepAliveGain.connect(sharedAudioContext.destination);
   keepAliveSource = sharedAudioContext.createConstantSource();
-  keepAliveSource.offset.value = 0;
+  keepAliveSource.offset.value = 1;
   keepAliveSource.connect(keepAliveGain);
   keepAliveSource.start();
 };

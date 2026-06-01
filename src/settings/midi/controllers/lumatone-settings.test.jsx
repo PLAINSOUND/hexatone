@@ -123,6 +123,7 @@ describe("LumatoneSettings", () => {
     expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
       "All Degrees",
       "All Keys Dark",
+      "──────── User Filters ────────",
       "First",
       "Second",
     ]);
@@ -132,6 +133,7 @@ describe("LumatoneSettings", () => {
     expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
       "All Degrees",
       "All Keys Dark",
+      "──────── User Filters ────────",
       "Second",
       "First",
     ]);

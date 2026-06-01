@@ -408,6 +408,40 @@ describe("settingsToPresetJson", () => {
       },
     ]);
   });
+
+  it("exports the current Lumatone 2D anchor as preset metadata", () => {
+    const json = settingsToPresetJson({
+      name: "Lumatone Export",
+      scale: ["100.", "1200."],
+      equivSteps: 2,
+      midiin_controller_override: "lumatone",
+      midi_passthrough: false,
+      midiin_anchor_note: 41,
+      midiin_anchor_channel: 2,
+    });
+    const parsed = JSON.parse(json);
+
+    expect(parsed.lumatone_anchor_note).toBe(41);
+    expect(parsed.lumatone_anchor_channel).toBe(2);
+    expect(parsed.midiin_anchor_note).toBeUndefined();
+    expect(parsed.midiin_anchor_channel).toBeUndefined();
+  });
+
+  it("does not export Lumatone anchor metadata in bypass mode", () => {
+    const json = settingsToPresetJson({
+      name: "Lumatone Bypass Export",
+      scale: ["100.", "1200."],
+      equivSteps: 2,
+      midiin_controller_override: "lumatone",
+      midi_passthrough: true,
+      midiin_anchor_note: 60,
+      midiin_anchor_channel: 4,
+    });
+    const parsed = JSON.parse(json);
+
+    expect(parsed.lumatone_anchor_note).toBeUndefined();
+    expect(parsed.lumatone_anchor_channel).toBeUndefined();
+  });
 });
 
 // ── fileToPreset ──────────────────────────────────────────────────────────────

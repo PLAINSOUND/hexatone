@@ -39,10 +39,20 @@ export function withMidiJitterInput(kind, details, fn) {
   );
   const previous = currentInputContext;
   currentInputContext = context;
+  let pendingAsync = false;
   try {
-    return fn();
+    const result = fn();
+    if (result && typeof result.then === "function") {
+      pendingAsync = true;
+      return result.finally(() => {
+        currentInputContext = previous;
+      });
+    }
+    return result;
   } finally {
-    currentInputContext = previous;
+    if (!pendingAsync) {
+      currentInputContext = previous;
+    }
   }
 }
 
@@ -58,4 +68,3 @@ export function traceMidiOutput(kind, details = {}) {
     `${OUTPUT_PREFIX} kind=${kind} family=${readDetail(details, "family")} channel=${readDetail(details, "channel")} note=${readDetail(details, "note")} carrier=${readDetail(details, "carrier")} value=${readDetail(details, "value")} sourceSeq=${source?.seq ?? "-"} sourceKind=${source?.kind ?? "-"} inputΔ=${formatDelta(inputDelta)} outputΔ=${formatDelta(lastAt == null ? NaN : now - lastAt)}`,
   );
 }
-
