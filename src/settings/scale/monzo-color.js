@@ -236,6 +236,28 @@ function adjustHexOkhsl(hex, { hOffset = 0, sOffset = 0, lOffset = 0 } = {}) {
   return rgbToHex([r, g, b]);
 }
 
+function getHueDistance(a, b) {
+  const raw = Math.abs(a - b);
+  return Math.min(raw, 1 - raw);
+}
+
+function pushSaturationPreservingHue(baseHex, startHex, maxSOffset, hueTolerance = 0.025) {
+  const baseRgb = hexToRgb(baseHex);
+  const startRgb = hexToRgb(startHex);
+  if (!baseRgb || !startRgb || maxSOffset <= 0) return startHex;
+  const [baseH] = srgb_to_okhsl(...baseRgb);
+  let bestHex = startHex;
+  for (let step = 1; step <= 8; step += 1) {
+    const candidate = adjustHexOkhsl(startHex, { sOffset: (maxSOffset * step) / 8 });
+    const candidateRgb = hexToRgb(candidate);
+    if (!candidateRgb) break;
+    const [candidateH] = srgb_to_okhsl(...candidateRgb);
+    if (getHueDistance(candidateH, baseH) > hueTolerance) break;
+    bestHex = candidate;
+  }
+  return bestHex;
+}
+
 function getPurePrimePower(partial) {
   if (!Number.isInteger(partial) || partial <= 1) return null;
   for (const prime of PRIME_COLOR_ORDER) {
@@ -258,9 +280,17 @@ function getRaisedPrimeFamilyColor(prime, exponent, options = {}) {
   if (exponent <= 1) return base;
   if (prime === 3 && hasPrimeFamilyOverride(3, options)) return base;
   if (hasPrimeFamilyOverride(prime, options)) {
+    const family = MONZO_COLOR_FAMILIES[prime];
+    if (family?.dark) {
+      const deepened = mixHex(base, family.dark, Math.min(0.3, 0.12 * (exponent - 1)));
+      const saturated = pushSaturationPreservingHue(base, deepened, Math.min(0.05, 0.02 * (exponent - 1)));
+      return adjustHexOkhsl(saturated, {
+        lOffset: -Math.min(0.1, 0.035 * (exponent - 1)),
+      });
+    }
     return adjustHexOkhsl(base, {
-      sOffset: Math.min(0.09, 0.03 * (exponent - 1)),
-      lOffset: -Math.min(0.12, 0.04 * (exponent - 1)),
+      sOffset: Math.min(0.04, 0.015 * (exponent - 1)),
+      lOffset: -Math.min(0.08, 0.03 * (exponent - 1)),
     });
   }
 

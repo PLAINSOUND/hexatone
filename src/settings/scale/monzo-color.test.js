@@ -519,6 +519,35 @@ describe("monzoToSuggestedColor", () => {
     }).screenHex).toBe("#f8c9c9");
   });
 
+  it("applies the shared pure-prime power lift to custom 7-family colors", () => {
+    const customSeven = "#f4c0df";
+    const over7 = monzoToSuggestedColor([0, 0, 0, 1], undefined, {
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        customSeven,
+      ]),
+      structuralOverlay: "none",
+    }).screenHex;
+    const over49 = monzoToSuggestedColor([0, 0, 0, 2], undefined, {
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        customSeven,
+      ]),
+      structuralOverlay: "none",
+    }).screenHex;
+    const [over7H, over7S, over7L] = srgb_to_okhsl(...hexToRgb(over7));
+    const [over49H, over49S, over49L] = srgb_to_okhsl(...hexToRgb(over49));
+    expect(over7).toBe(customSeven);
+    expect(over49).not.toBe(over7);
+    expect(Math.abs(over49H - over7H)).toBeLessThan(0.03);
+    expect(over49S).toBeGreaterThan(over7S);
+    expect(over49L).toBeLessThan(over7L);
+  });
+
   it("lets custom septimal family colors propagate to odd-partial septimal composites", () => {
     const customSeven = "#ffd0f0";
     const options = {
@@ -630,7 +659,8 @@ describe("monzoToSuggestedColor", () => {
     expect(over25S).toBeGreaterThanOrEqual(over5S - 0.00001);
     expect(over125S).toBeGreaterThanOrEqual(over25S - 0.00001);
     expect(over25L).toBeLessThan(over5L);
-    expect(over125L).toBeLessThan(over25L);
+    expect(over125L).toBeLessThan(over5L);
+    expect(over125).not.toBe(over25);
   });
 
   it("makes all pure 3-powers identical when 3-family is overridden", () => {
