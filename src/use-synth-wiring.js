@@ -116,6 +116,38 @@ export const resolveControllerPrefsTarget = (input, controllerOverrideId = "auto
   return detectController(input.name.toLowerCase());
 };
 
+export const applyPresetControllerAnchor = (settings, controllerId, anchorUpdate = {}) => {
+  if (!controllerId || !settings || settings.midi_passthrough === true) return anchorUpdate;
+
+  if (controllerId === "lumatone") {
+    return {
+      ...anchorUpdate,
+      ...(Number.isFinite(settings.lumatone_anchor_note)
+        ? { midiin_anchor_note: settings.lumatone_anchor_note }
+        : {}),
+      ...(Number.isFinite(settings.lumatone_anchor_channel)
+        ? { midiin_anchor_channel: settings.lumatone_anchor_channel }
+        : {}),
+    };
+  }
+
+  if (controllerId === "exquis" && Number.isFinite(settings.exquis_anchor_note)) {
+    return {
+      ...anchorUpdate,
+      midiin_anchor_note: settings.exquis_anchor_note,
+    };
+  }
+
+  if (controllerId === "linnstrument" && Number.isFinite(settings.linnstrument_anchor_note)) {
+    return {
+      ...anchorUpdate,
+      midiin_anchor_note: settings.linnstrument_anchor_note,
+    };
+  }
+
+  return anchorUpdate;
+};
+
 const normalizeMidiPortName = (name = "") =>
   String(name)
     .toLowerCase()
@@ -1222,7 +1254,14 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     if (!input) return;
     const ctrl = resolveControllerPrefsTarget(input, settings.midiin_controller_override);
     if (!ctrl) return;
-    setSettings((s) => ({ ...s, ...loadAnchorSettingsUpdate(ctrl, settingsRef.current) }));
+    setSettings((s) => ({
+      ...s,
+      ...applyPresetControllerAnchor(
+        settingsRef.current,
+        ctrl.id,
+        loadAnchorSettingsUpdate(ctrl, settingsRef.current),
+      ),
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
   }, [
     midi,
@@ -1231,6 +1270,10 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     settings.midiin_controller_override,
     settings.midiin_mpe_input,
     settings.midi_passthrough,
+    settings.lumatone_anchor_note,
+    settings.lumatone_anchor_channel,
+    settings.exquis_anchor_note,
+    settings.linnstrument_anchor_note,
   ]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────

@@ -145,6 +145,8 @@ describe("mergePresetIntoSettings", () => {
       {
         midiin_anchor_note: 31,
         midiin_anchor_channel: 2,
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
       },
       {
         name: "Sabat The Tree",
@@ -155,6 +157,68 @@ describe("mergePresetIntoSettings", () => {
 
     expect(merged.midiin_anchor_note).toBe(26);
     expect(merged.midiin_anchor_channel).toBe(3);
+    expect(merged.lumatone_anchor_note).toBe(26);
+    expect(merged.lumatone_anchor_channel).toBe(3);
+  });
+
+  it("uses preset-specific Exquis anchor fields when Exquis 2D is active", () => {
+    sessionStorage.setItem("midiin_anchor_note", "23");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 23,
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+      },
+      {
+        name: "Exquis preset anchor",
+        exquis_anchor_note: 19,
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(19);
+    expect(merged.exquis_anchor_note).toBe(19);
+  });
+
+  it("uses preset-specific LinnStrument anchor fields when LinnStrument 2D is active", () => {
+    sessionStorage.setItem("midiin_anchor_note", "12");
+    sessionStorage.setItem("midiin_anchor_channel", "4");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 12,
+        midiin_anchor_channel: 4,
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: false,
+      },
+      {
+        name: "LinnStrument preset anchor",
+        linnstrument_anchor_note: 9,
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(9);
+    expect(merged.midiin_anchor_channel).toBe(4);
+    expect(merged.linnstrument_anchor_note).toBe(9);
+  });
+
+  it("ignores non-matching preset anchor fields when another controller is active", () => {
+    sessionStorage.setItem("midiin_anchor_note", "31");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 31,
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+      },
+      {
+        name: "Sabat The Tree",
+        lumatone_anchor_note: 26,
+        lumatone_anchor_channel: 3,
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(31);
     expect(merged.lumatone_anchor_note).toBe(26);
     expect(merged.lumatone_anchor_channel).toBe(3);
   });
@@ -181,6 +245,47 @@ describe("mergePresetIntoSettings", () => {
     expect(merged.midiin_anchor_channel).toBe(2);
     expect(merged.lumatone_anchor_note).toBeUndefined();
     expect(merged.lumatone_anchor_channel).toBeUndefined();
+  });
+
+  it("restores the user's saved Exquis anchor after leaving a preset-specific Exquis anchor", () => {
+    localStorage.setItem("exquis__layout2d__anchor", "23");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 19,
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+        exquis_anchor_note: 19,
+      },
+      {
+        name: "No Exquis preset anchor",
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(23);
+    expect(merged.exquis_anchor_note).toBeUndefined();
+  });
+
+  it("restores the user's saved LinnStrument anchor after leaving a preset-specific LinnStrument anchor", () => {
+    localStorage.setItem("linnstrument__userfw__anchor", "12");
+    localStorage.setItem("linnstrument__userfw__anchor_channel", "4");
+
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 9,
+        midiin_anchor_channel: 4,
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: false,
+        linnstrument_anchor_note: 9,
+      },
+      {
+        name: "No LinnStrument preset anchor",
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(12);
+    expect(merged.midiin_anchor_channel).toBe(4);
+    expect(merged.linnstrument_anchor_note).toBeUndefined();
   });
 });
 

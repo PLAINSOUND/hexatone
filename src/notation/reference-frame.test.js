@@ -103,7 +103,7 @@ function presetNoteNames(presetName) {
   const legacyNoteNames = LEGACY_PRESET_NOTE_NAMES[presetName];
   if (legacyNoteNames) return legacyNoteNames;
   const block = presetBlock(presetName);
-  const noteNamesMatch = block.match(/note_names:\s*\[(.*?)\],\s*key_labels/s);
+  const noteNamesMatch = block.match(/["']?note_names["']?\s*:\s*\[(.*?)\],\s*["']?key_labels["']?/s);
   if (!noteNamesMatch) throw new Error(`note_names not found for preset: ${presetName}`);
   return [
     ...noteNamesMatch[1].matchAll(/['"]([^'"]+)['"]/g),

@@ -91,14 +91,55 @@ function restorePersistentAnchorFields(fallback = {}) {
   };
 }
 
-const LUMATONE_CONTROLLER = getControllerById("lumatone");
+const PRESET_ANCHOR_CONFIGS = [
+  {
+    controllerId: "lumatone",
+    controller: getControllerById("lumatone"),
+    noteKey: "lumatone_anchor_note",
+    channelKey: "lumatone_anchor_channel",
+    appliesInSettings: (settings) =>
+      settings.midiin_controller_override === "lumatone" && settings.midi_passthrough !== true,
+  },
+  {
+    controllerId: "exquis",
+    controller: getControllerById("exquis"),
+    noteKey: "exquis_anchor_note",
+    appliesInSettings: (settings) =>
+      settings.midiin_controller_override === "exquis" && settings.midi_passthrough !== true,
+  },
+  {
+    controllerId: "linnstrument",
+    controller: getControllerById("linnstrument"),
+    noteKey: "linnstrument_anchor_note",
+    appliesInSettings: (settings) =>
+      settings.midiin_controller_override === "linnstrument" && settings.midi_passthrough !== true,
+  },
+];
 
-function hasPresetLumatoneAnchor(settings = {}) {
-  return Number.isFinite(settings.lumatone_anchor_note) || Number.isFinite(settings.lumatone_anchor_channel);
+function hasPresetAnchor(settings = {}) {
+  return PRESET_ANCHOR_CONFIGS.some(
+    ({ noteKey, channelKey }) =>
+      Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
+  );
+}
+
+function getPresetAnchorConfig(settings = {}) {
+  return PRESET_ANCHOR_CONFIGS.find(
+    ({ noteKey, channelKey }) =>
+      Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
+  );
 }
 
 function getAnchorFallback(settings = {}) {
-  if (!hasPresetLumatoneAnchor(settings)) {
+  if (!hasPresetAnchor(settings)) {
+    return {
+      midiin_anchor_note: settings.midiin_anchor_note ?? 60,
+      midiin_anchor_channel: settings.midiin_anchor_channel ?? 1,
+    };
+  }
+
+  const presetAnchorConfig = getPresetAnchorConfig(settings);
+  if (!presetAnchorConfig?.controller) {
     return {
       midiin_anchor_note: settings.midiin_anchor_note ?? 60,
       midiin_anchor_channel: settings.midiin_anchor_channel ?? 1,
@@ -106,10 +147,10 @@ function getAnchorFallback(settings = {}) {
   }
 
   return {
-    midiin_anchor_note: loadSavedAnchor(LUMATONE_CONTROLLER, settings, { preferStored: false }),
-    midiin_anchor_channel: loadSavedAnchorChannel(LUMATONE_CONTROLLER, settings, {
+    midiin_anchor_note: loadSavedAnchor(presetAnchorConfig.controller, settings, { preferStored: false }),
+    midiin_anchor_channel: loadSavedAnchorChannel(presetAnchorConfig.controller, settings, {
       preferStored: false,
-    }),
+    }) ?? 1,
   };
 }
 
@@ -119,26 +160,48 @@ function getAnchorFallback(settings = {}) {
 export const mergePresetIntoSettings = (settings, preset) => {
   const persistentAnchorFallback = getAnchorFallback(settings);
   const restoredAnchor = restorePersistentAnchorFields(persistentAnchorFallback);
-  const presetAnchorNote = Number.isFinite(preset.lumatone_anchor_note)
-    ? preset.lumatone_anchor_note
-    : restoredAnchor.midiin_anchor_note;
-  const presetAnchorChannel = Number.isFinite(preset.lumatone_anchor_channel)
-    ? preset.lumatone_anchor_channel
-    : restoredAnchor.midiin_anchor_channel;
+  const activePresetAnchorConfig = PRESET_ANCHOR_CONFIGS.find(({ appliesInSettings }) =>
+    appliesInSettings(settings),
+  );
+  const presetAnchorNote =
+    activePresetAnchorConfig && Number.isFinite(preset[activePresetAnchorConfig.noteKey])
+      ? preset[activePresetAnchorConfig.noteKey]
+      : restoredAnchor.midiin_anchor_note;
+  const presetAnchorChannel =
+    activePresetAnchorConfig?.channelKey &&
+    Number.isFinite(preset[activePresetAnchorConfig.channelKey])
+      ? preset[activePresetAnchorConfig.channelKey]
+      : restoredAnchor.midiin_anchor_channel;
+
+  const clearedPresetAnchorFields = Object.fromEntries(
+    PRESET_ANCHOR_CONFIGS.flatMap(({ noteKey, channelKey }) => [
+      [noteKey, undefined],
+      ...(channelKey ? [[channelKey, undefined]] : []),
+    ]),
+  );
+  const presetWithoutControllerAnchors = { ...preset };
+  for (const { noteKey, channelKey } of PRESET_ANCHOR_CONFIGS) {
+    delete presetWithoutControllerAnchors[noteKey];
+    if (channelKey) delete presetWithoutControllerAnchors[channelKey];
+  }
+  const incomingPresetAnchorFields = Object.fromEntries(
+    PRESET_ANCHOR_CONFIGS.flatMap(({ noteKey, channelKey }) => [
+      [noteKey, Number.isFinite(preset[noteKey]) ? preset[noteKey] : undefined],
+      ...(channelKey
+        ? [[channelKey, Number.isFinite(preset[channelKey]) ? preset[channelKey] : undefined]]
+        : []),
+    ]),
+  );
 
   return {
     ...settings,
     heji_anchor_ratio: "",
     heji_anchor_label: "",
-    ...preset,
+    ...clearedPresetAnchorFields,
+    ...presetWithoutControllerAnchors,
     midiin_anchor_note: presetAnchorNote,
     midiin_anchor_channel: presetAnchorChannel,
-    lumatone_anchor_note: Number.isFinite(preset.lumatone_anchor_note)
-      ? preset.lumatone_anchor_note
-      : undefined,
-    lumatone_anchor_channel: Number.isFinite(preset.lumatone_anchor_channel)
-      ? preset.lumatone_anchor_channel
-      : undefined,
+    ...incomingPresetAnchorFields,
     controller_virtual_anchor_x: null,
     controller_virtual_anchor_y: null,
   };

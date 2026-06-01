@@ -226,6 +226,7 @@ export const presets = [
         "hexSize": 38,
         "rotation": -16.102113751,
         "center_degree": 18,
+        "exquis_anchor_note": 18,
       },
       {
         "name": "Pauline Oliveros: Heart of Tones",
@@ -358,6 +359,7 @@ export const presets = [
         "fundamental": 294,
         "reference_degree": 0,
         "center_degree": 0,
+        "exquis_anchor_note": 30,
       },
       {
         "name": "Chromatic Scale of Harmonic Partials over A",
@@ -536,6 +538,7 @@ export const presets = [
         "fundamental": 441,
         "reference_degree": 0,
         "center_degree": 0,
+        "exquis_anchor_note": 20,
       },
       {
         "name": "Elsie Hamilton Subharmonic Modes",
@@ -582,6 +585,8 @@ export const presets = [
         "hexSize": 42,
         "rotation": -16.102113751,
         "center_degree": 6,
+        "lumatone_anchor_channel": 3,
+        "lumatone_anchor_note": 26,
       },
       {
         "name": "Sabat: The Tree + Modulations",
@@ -849,6 +854,7 @@ export const presets = [
         "center_degree": 0,
         "lumatone_anchor_channel": 2,
         "lumatone_anchor_note": 41,
+        "exquis_anchor_note": 0,
         "modulation_library": [
           {
             "sourceDegree": 0,
@@ -956,6 +962,8 @@ export const presets = [
         "fundamental": 440,
         "reference_degree": 9,
         "center_degree": 0,
+        "lumatone_anchor_channel": 3,
+        "lumatone_anchor_note": 26,
       },
       {
         "name": "12-Pythagorean (pure fifths)",
@@ -3634,6 +3642,7 @@ export const presets = [
         "center_degree": 9,
         "lumatone_anchor_channel": 3,
         "lumatone_anchor_note": 27,
+        "exquis_anchor_note": 9,
       },
       {
         "name": "55-Quintal (Sabat Euler Lattice, center D)",
@@ -3768,6 +3777,7 @@ export const presets = [
         "center_degree": 9,
         "lumatone_anchor_channel": 3,
         "lumatone_anchor_note": 27,
+        "exquis_anchor_note": 9,
       },
       {
         "name": "41-Septimal-Tertial",
@@ -3872,6 +3882,9 @@ export const presets = [
         "fundamental": 440,
         "reference_degree": 31,
         "center_degree": 0,
+        "lumatone_anchor_channel": 2,
+        "lumatone_anchor_note": 42,
+        "exquis_anchor_note": 13,
       },
       {
         "name": "41-Septimal-Tertial (Tonnetz Layout)",
@@ -3976,6 +3989,8 @@ export const presets = [
         "fundamental": 440,
         "reference_degree": 31,
         "center_degree": 0,
+        "lumatone_anchor_channel": 3,
+        "lumatone_anchor_note": 27,
       }, {
         "name": "18-Oliveros Septimal-Quintal",
         "description": "JI tuning system for Pauline Oliveros' accordion (May 1987). The left hand is tuned in 5 limit and the right hand is in 7 limit. The tuning was done by Walter Vergini of Oxnard, CA under the supervision of Alfred Shabda Owen. The tuning system was suggested by Loren Rush.",

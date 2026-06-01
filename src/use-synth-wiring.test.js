@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  applyPresetControllerAnchor,
   deriveOutputRuntime,
   deriveOscVolumes,
   shouldFlushSoundingNotesForFreshOscActivation,
@@ -246,6 +247,48 @@ describe("use-synth-wiring live OSC activation", () => {
 });
 
 describe("use-synth-wiring controller resolution", () => {
+  it("reapplies a preset-specific Lumatone 2D anchor over stored controller prefs", () => {
+    expect(
+      applyPresetControllerAnchor(
+        {
+          midi_passthrough: false,
+          lumatone_anchor_note: 18,
+          lumatone_anchor_channel: 2,
+        },
+        "lumatone",
+        { midiin_anchor_note: 26, midiin_anchor_channel: 3 },
+      ),
+    ).toEqual({ midiin_anchor_note: 18, midiin_anchor_channel: 2 });
+  });
+
+  it("reapplies a preset-specific Exquis 2D anchor over stored controller prefs", () => {
+    expect(
+      applyPresetControllerAnchor(
+        {
+          midi_passthrough: false,
+          exquis_anchor_note: 30,
+        },
+        "exquis",
+        { midiin_anchor_note: 19, midiin_anchor_channel: 1 },
+      ),
+    ).toEqual({ midiin_anchor_note: 30, midiin_anchor_channel: 1 });
+  });
+
+  it("does not apply preset controller anchors in bypass mode", () => {
+    expect(
+      applyPresetControllerAnchor(
+        {
+          midi_passthrough: true,
+          exquis_anchor_note: 30,
+          lumatone_anchor_note: 18,
+          lumatone_anchor_channel: 2,
+        },
+        "exquis",
+        { midiin_anchor_note: 19, midiin_anchor_channel: 1 },
+      ),
+    ).toEqual({ midiin_anchor_note: 19, midiin_anchor_channel: 1 });
+  });
+
   it("falls back unknown inputs to the Generic keyboard controller", () => {
     const ctrl = resolveInputController({ name: "KORG microKEY-37" });
     expect(ctrl?.id).toBe("generic");
