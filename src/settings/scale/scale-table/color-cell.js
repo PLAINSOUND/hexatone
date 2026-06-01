@@ -62,6 +62,12 @@ const ColorCell = ({
 
   const commitDraft = () => {
     if (!isDirty) return;
+    if (visibleColor.toLowerCase() === safe.toLowerCase()) {
+      setDraft(safe);
+      setComparing(false);
+      onPreviewColor?.(safe);
+      return;
+    }
     onChange({ target: { name, value: visibleColor } });
   };
 

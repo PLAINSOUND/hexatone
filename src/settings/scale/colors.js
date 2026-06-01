@@ -382,7 +382,7 @@ const Colors = (props) => {
 
       {autoActive && (
           <fieldset class="auto-prime-colors-fieldset">
-            <legend>47-limit JI Colour Palette</legend>
+            <legend>47-Limit JI Colour Palette</legend>
             <div class="scale-colors-fieldset-actions">
               <button
                 type="button"

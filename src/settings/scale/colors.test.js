@@ -439,6 +439,47 @@ describe("Colors — interactions", () => {
     });
   });
 
+  it("lets save on the compared original clear a dirty prime-family edit without changing selection", async () => {
+    const updateColors = vi.fn();
+    const onChange = vi.fn();
+    render(
+      <Colors
+        settings={{
+          ...baseSettings,
+          auto_colors: true,
+          note_colors: ["#ffffff", "#ffffff"],
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+        rawSettings={{
+          ...baseSettings,
+          auto_colors: true,
+          note_colors: ["#ffffff", "#ffffff"],
+          scale: ["23/16", "2/1"],
+          equivSteps: 2,
+          note_names: ["1/1", "23"],
+          key_labels: "note_names",
+        }}
+        keysRef={{ current: { updateColors } }}
+        onChange={onChange}
+        onAtomicChange={() => {}}
+      />,
+    );
+
+    const input = screen.getByLabelText("hex colour for prime-family-colour-23");
+    fireEvent.input(input, { target: { value: "#112233" } });
+    fireEvent.click(screen.getByLabelText("compare original colour for prime-family-colour-23"));
+    fireEvent.click(screen.getByLabelText("save colour for prime-family-colour-23"));
+
+    expect(onChange).not.toHaveBeenCalledWith("prime_family_colors", expect.anything());
+    await waitFor(() => {
+      expect(screen.queryByLabelText("save colour for prime-family-colour-23")).toBeNull();
+    });
+    expect(screen.getByLabelText("hex colour for prime-family-colour-23").value.toLowerCase()).toBe("#95c69b");
+  });
+
   it("cancels a pending auto preview when auto colours is turned off", async () => {
     vi.useFakeTimers();
     const updateColors = vi.fn();
