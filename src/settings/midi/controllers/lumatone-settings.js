@@ -200,20 +200,53 @@ const LumatoneSettings = ({
     URL.revokeObjectURL(href);
   };
 
+  const handleSendBypassLayout = () => {
+    const result = keysRef?.current?.sendLumatoneBypassLayout?.();
+    if (!result) return;
+    const { exactCount, disabledCount, totalCount } = result;
+    window.alert(
+      `Sent Lumatone 2D bypass layout.\n\nExact keys: ${exactCount}/${totalCount}\nDisabled dark keys: ${disabledCount}/${totalCount}`,
+    );
+  };
+
   return (
     <>
+      <OutputPortPicker
+        label="LED Output"
+        rawPorts={rawPorts}
+        outputs={midiOutputs}
+        overridePortId={settings.lumatone_out_port ?? null}
+        onChange={(id) => {
+          onChange("lumatone_out_port", id);
+          sessionStorage.setItem("lumatone_out_port", id ?? "");
+        }}
+      />
+      {rawPorts && settings.midi_passthrough && (
+        <label>
+          Send 2D Bypass Layout (Anchor at Note 60 on Ch {settings.midiin_anchor_channel ?? 4})
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginLeft: "auto",
+              marginTop: "4px",
+            }}
+          >
+            <button
+              type="button"
+              class="preset-action-btn"
+              disabled={!hasSysexMidi}
+              title="Send a best-effort sequential Lumatone layout matching the current 2D geometry"
+              onClick={handleSendBypassLayout}
+            >
+              Send 2D Bypass Layout
+            </button>
+          </span>
+        </label>
+      )}
       {!settings.midi_passthrough && (
         <>
-          <OutputPortPicker
-            label="LED Output"
-            rawPorts={rawPorts}
-            outputs={midiOutputs}
-            overridePortId={settings.lumatone_out_port ?? null}
-            onChange={(id) => {
-              onChange("lumatone_out_port", id);
-              sessionStorage.setItem("lumatone_out_port", id ?? "");
-            }}
-          />
           {rawPorts && (
             <label>
               Send Blank Key Layout (Notes 0-55 on Ch 1-5)

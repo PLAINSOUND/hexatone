@@ -96,7 +96,7 @@ export class LumatoneLEDs {
    * This is a one-time setup operation.  Subsequent colour-only updates should
    * use sendAll() or updateDegree() which only queue CMD 01h messages.
    *
-   * @param {Array<{ board, key, note, channel, hexColor }>} entries
+   * @param {Array<{ board, key, note, channel, hexColor, keyType? }>} entries
    *   board    1–5  (1-indexed, matches sysex board byte)
    *   key      0–55
    *   note     0–127  MIDI note number
@@ -104,15 +104,15 @@ export class LumatoneLEDs {
    *   hexColor '#rrggbb'
    */
   /**
-   * @param {Array<{ board, key, note, channel, hexColor }>} entries
+   * @param {Array<{ board, key, note, channel, hexColor, keyType? }>} entries
    * @param {Array<object>} [preamble]  Raw queue entries to send before the key data
    *   (e.g. [{ cmd: 0x0E, board: 0, value: 1 }] to enable aftertouch first).
    */
   sendLayout(entries, preamble = []) {
     this._queue = [
       ...preamble,
-      ...entries.flatMap(({ board, key, note, channel, hexColor }) => [
-        { cmd: 0x00, board, key, note, channel },
+      ...entries.flatMap(({ board, key, note, channel, hexColor, keyType = 0x01 }) => [
+        { cmd: 0x00, board, key, note, channel, keyType },
         { cmd: 0x01, board, key, ...this._parseHex(hexColor) },
       ]),
     ];
@@ -219,7 +219,7 @@ export class LumatoneLEDs {
         key, // key 0–55
         entry.note, // MIDI note 0–127
         entry.channel, // MIDI channel 0-indexed (0–15)
-        0x01, // keyType = 1 (note on/off)
+        entry.keyType ?? 0x01, // 0x01 = note on/off, 0x10 = disabled
         0xf7,
       ]);
     } else if (cmd === 0x0e) {

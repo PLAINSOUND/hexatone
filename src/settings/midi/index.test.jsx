@@ -420,6 +420,28 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByRole("option", { name: "41 notes per block" })).toBeTruthy();
   });
 
+  it("shows a channel-only central-degree anchor control for Lumatone bypass mode", () => {
+    const props = makeProps({
+      midiin_controller_override: "lumatone",
+      midi_passthrough: true,
+      midiin_anchor_note: 60,
+      midiin_anchor_channel: 4,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Lumatone" }]]),
+      outputs: new Map(),
+    };
+
+    const { container } = render(<MIDIio {...props} />);
+    const label = Array.from(container.querySelectorAll("label")).find((node) =>
+      node.textContent?.includes("Anchor Channel"),
+    );
+
+    expect(label).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Learn" })).toBeNull();
+    expect(screen.getByText("MIDI Note 60 plays Central Degree (0)")).toBeTruthy();
+  });
+
   it("renders Lumatone LED controls from its dedicated controller module", () => {
     const props = makeProps({
       midiin_controller_override: "lumatone",

@@ -138,4 +138,68 @@ describe("LumatoneSettings", () => {
       "First",
     ]);
   });
+
+  it("sends a generated 2D bypass layout and reports coverage", () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const sendLumatoneBypassLayout = vi.fn(() => ({
+      exactCount: 270,
+      disabledCount: 10,
+      totalCount: 280,
+    }));
+
+    render(
+      <LumatoneSettings
+        settings={{
+          midi_passthrough: true,
+          lumatone_out_port: null,
+          lumatone_led_sync: true,
+          lumatone_degree_filter_mode: "all",
+          lumatone_degree_filter: "",
+        }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone MIDI" } }}
+        midiOutputs={new Map()}
+        keysRef={{
+          current: {
+            settings: { lumatone_led_sync: true },
+            sendLumatoneBypassLayout,
+          },
+        }}
+        hasSysexMidi={true}
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Send 2D Bypass Layout").closest("button"));
+
+    expect(sendLumatoneBypassLayout).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Sent Lumatone 2D bypass layout.\n\nExact keys: 270/280\nDisabled dark keys: 10/280",
+    );
+    alertSpy.mockRestore();
+  });
+
+  it("keeps LED Output and Send 2D Bypass Layout visible in bypass mode only", () => {
+    render(
+      <LumatoneSettings
+        settings={{
+          midi_passthrough: true,
+          lumatone_out_port: null,
+          lumatone_led_sync: true,
+          lumatone_degree_filter_mode: "all",
+          lumatone_degree_filter: "",
+        }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone MIDI" } }}
+        midiOutputs={new Map()}
+        keysRef={{ current: { settings: {} } }}
+        hasSysexMidi={true}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("LED Output")).toBeTruthy();
+    expect(screen.getByText("Send 2D Bypass Layout")).toBeTruthy();
+    expect(screen.queryByText("Send Blank Key Layout")).toBeNull();
+    expect(screen.queryByText("Automatically Send LED Colours")).toBeNull();
+    expect(screen.queryByText("Lumatone Colour Filter")).toBeNull();
+  });
 });

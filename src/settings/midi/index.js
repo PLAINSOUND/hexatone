@@ -66,6 +66,8 @@ const MIDIio = (props) => {
   const controllerAnchorNote =
     props.settings.midiin_anchor_note ?? ctrl?.anchorDefault ?? anchorNoteRange.min;
   const seqAnchorChannel = props.settings.midiin_anchor_channel ?? 1;
+  const lumatoneBypassAnchorUi = ctrl?.id === "lumatone" && !!props.settings.midi_passthrough;
+  const lumatoneBypassAnchorChannelRange = { min: 1, max: 16 };
 
   // Channel transposition mode derived from midiin_steps_per_channel:
   //   null  → 'equave'  (one equave per channel, default)
@@ -455,24 +457,28 @@ const MIDIio = (props) => {
                   controllers like Lumatone) maps to the central screen degree.
                   Used in both 2D-map mode and bypass mode. */}
                 <label class="center-degree-row center-degree-label">
-                  Anchor Key → Central Degree ({center_degree})
+                  {lumatoneBypassAnchorUi
+                    ? `Anchor Channel`
+                    : `Anchor Key → Central Degree (${center_degree})`}
                   <span
                     class="sidebar-input"
                     style={{ display: "flex", gap: "4px", alignItems: "center", textAlign: "left" }}
                   >
-                    <button
-                      type="button"
-                      class="preset-action-btn"
-                      onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
-                      disabled={tonalPlexus205Mode}
-                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-                    >
-                      {tonalPlexus205Mode
-                        ? "Fixed"
-                        : props.midiLearnActive
-                          ? "● Listening…"
-                          : "Learn"}
-                    </button>
+                    {!lumatoneBypassAnchorUi && (
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
+                        disabled={tonalPlexus205Mode}
+                        style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                      >
+                        {tonalPlexus205Mode
+                          ? "Fixed"
+                          : props.midiLearnActive
+                            ? "● Listening…"
+                            : "Learn"}
+                      </button>
+                    )}
                     {/* Channel field — shown for all known controllers except MPE ones in MPE
                       mode (channels are per-voice, not layout-encoding in that case).
                       Editable for multi-channel controllers (e.g. Lumatone);
@@ -483,7 +489,9 @@ const MIDIio = (props) => {
                         name="midiin_anchor_channel"
                           type="text"
                           inputMode="numeric"
-                          title={`${tonalPlexus41Mode ? "Block" : "MIDI channel"} of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
+                          title={lumatoneBypassAnchorUi
+                            ? `Untransposed anchor MIDI channel (${lumatoneBypassAnchorChannelRange.min}–${lumatoneBypassAnchorChannelRange.max})`
+                            : `${tonalPlexus41Mode ? "Block" : "MIDI channel"} of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
                           style={{
                             width: "2.2em",
                             textAlign: "center",
@@ -506,11 +514,19 @@ const MIDIio = (props) => {
                             const val = parseInt(e.target.value);
                             if (
                               !isNaN(val) &&
-                              val >= anchorChannelRange.min &&
-                              val <= anchorChannelRange.max
+                              val >= (lumatoneBypassAnchorUi
+                                ? lumatoneBypassAnchorChannelRange.min
+                                : anchorChannelRange.min) &&
+                              val <= (lumatoneBypassAnchorUi
+                                ? lumatoneBypassAnchorChannelRange.max
+                                : anchorChannelRange.max)
                             ) {
                               props.onChange("midiin_anchor_channel", val);
-                              sessionStorage.setItem("midiin_anchor_channel", val);
+                              sessionStorage.setItem("midiin_anchor_channel", String(val));
+                              if (lumatoneBypassAnchorUi) {
+                                props.onChange("midiin_anchor_note", 60);
+                                sessionStorage.setItem("midiin_anchor_note", "60");
+                              }
                             } else {
                               e.target.value = anchorChannel;
                             }
@@ -540,7 +556,20 @@ const MIDIio = (props) => {
                       note within their local note range. Single-channel /
                       sequential path uses the same midiin_anchor_note field
                       across the full 0–127 range. */}
-                    {ctrl?.multiChannel ? (
+                    {lumatoneBypassAnchorUi ? (
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          width: "auto",
+                          textAlign: "right",
+                          color: "#888",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        MIDI Note 60 plays Central Degree ({center_degree})
+                      </span>
+                    ) : ctrl?.multiChannel ? (
                       <input
                         name="midiin_anchor_note"
                         type="text"

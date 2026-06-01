@@ -243,6 +243,7 @@ export function saveControllerPref(controller, key, value, settings = null, over
  */
 export function loadSavedAnchor(controller, settings = null, { preferStored = true } = {}) {
   const modeKey = getControllerMode(controller, settings, null, { preferStored });
+  if (controller?.id === "lumatone" && modeKey === "bypass") return 60;
   const raw = isModeAwareController(controller)
     ? (localStorage.getItem(getModeScopedStorageKey(controller, modeKey, "anchor")) ??
       localStorage.getItem(getLegacyStorageKey(controller, "anchor")))
@@ -281,12 +282,13 @@ export function loadSavedAnchorChannel(controller, settings = null, { preferStor
  */
 export function saveAnchor(controller, note, settings = null, overrides = null) {
   const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
+  const storedNote = controller?.id === "lumatone" && modeKey === "bypass" ? 60 : note;
   if (isModeAwareController(controller)) {
-    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, "anchor"), String(note));
+    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, "anchor"), String(storedNote));
     saveControllerMode(controller, modeKey);
     return;
   }
-  localStorage.setItem(getLegacyStorageKey(controller, "anchor"), String(note));
+  localStorage.setItem(getLegacyStorageKey(controller, "anchor"), String(storedNote));
 }
 
 /**
@@ -423,9 +425,11 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
 export function saveAnchorFromLearn(controller, note, channel, settings = null, overrides = null) {
   saveAnchor(controller, note, settings, overrides);
   saveAnchorChannel(controller, channel, settings, overrides);
+  const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
+  const anchorNote = controller?.id === "lumatone" && modeKey === "bypass" ? 60 : note;
 
   return {
-    midiin_anchor_note: note,
+    midiin_anchor_note: anchorNote,
     midiin_anchor_channel: channel,
   };
 }

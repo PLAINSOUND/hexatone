@@ -566,7 +566,7 @@ describe("saveAnchorFromLearn", () => {
     saveAnchorFromLearn(LUMATONE_MODES, 55, 5, { midi_passthrough: true });
     expect(localStorage.getItem("lumatone__layout2d__anchor")).toBe("30");
     expect(localStorage.getItem("lumatone__layout2d__anchor_channel")).toBe("2");
-    expect(localStorage.getItem("lumatone__bypass__anchor")).toBe("55");
+    expect(localStorage.getItem("lumatone__bypass__anchor")).toBe("60");
     expect(localStorage.getItem("lumatone__bypass__anchor_channel")).toBe("5");
   });
 });
@@ -621,7 +621,7 @@ describe("Lumatone mode-aware controller prefs", () => {
     expect(update2d.midiin_anchor_channel).toBe(2);
 
     const updateBypass = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
-    expect(updateBypass.midiin_anchor_note).toBe(48);
+    expect(updateBypass.midiin_anchor_note).toBe(60);
     expect(updateBypass.midiin_anchor_channel).toBe(5);
   });
 

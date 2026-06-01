@@ -1955,6 +1955,10 @@ class Keys {
     return KeysControllerLeds.sendLumatoneLayout.call(this);
   };
 
+  sendLumatoneBypassLayout = () => {
+    return KeysControllerLeds.sendLumatoneBypassLayout.call(this);
+  };
+
   /**
    * Activate or cancel MIDI-learn mode for the anchor note.
    * While active, the next note-on from the hardware controller is captured as

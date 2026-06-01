@@ -25,7 +25,22 @@ import {
   LUMATONE_COLOR_FILTER_DARK,
 } from "../controllers/lumatone-color-filters.js";
 import { detectController } from "../controllers/registry.js";
+import { loadAnchorSettingsUpdate } from "../input/controller-anchor.js";
 import { modulatedControllerCoords } from "./modulation-controller-runtime.js";
+
+const LUMATONE_BYPASS_ANCHOR_NOTE = 60;
+
+function lumatoneBypassChannelCandidates(anchorChannel = 4) {
+  const normalized = Math.max(1, Math.min(16, Math.trunc(anchorChannel || 4)));
+  const candidates = [{ channel: normalized, offset: 0 }];
+  for (let delta = 1; delta <= 15; delta += 1) {
+    const lower = normalized - delta;
+    const upper = normalized + delta;
+    if (lower >= 1) candidates.push({ channel: lower, offset: -delta });
+    if (upper <= 16) candidates.push({ channel: upper, offset: delta });
+  }
+  return candidates;
+}
 
 function controllerCoordsForDisplay(coords) {
   if (typeof this._modulatedControllerCoords === "function") {
@@ -159,12 +174,105 @@ export function sendLumatoneLayout() {
         key: k,
         note: k,
         channel: b - 1,
+        keyType: 0x01,
         hexColor: "#000000",
       });
     }
   }
 
   this.lumatoneLEDs.sendLayout(entries, [{ cmd: 0x0e, board: 0, value: 1 }]);
+}
+
+function chooseLumatoneBypassAssignment(steps, centerDegree, equivSteps, anchorChannel) {
+  for (const candidate of lumatoneBypassChannelCandidates(anchorChannel)) {
+    const rawNote =
+      LUMATONE_BYPASS_ANCHOR_NOTE + steps - centerDegree - candidate.offset * equivSteps;
+    if (rawNote >= 0 && rawNote <= 127) {
+      return {
+        note: rawNote,
+        channel: candidate.channel,
+        exact: true,
+      };
+    }
+  }
+
+  return null;
+}
+
+export function buildLumatoneBypassLayoutEntries() {
+  const layout2dSettings = this.settings?.midi_passthrough
+    ? {
+        ...this.settings,
+        ...loadAnchorSettingsUpdate(this.controller, {
+          ...this.settings,
+          midi_passthrough: false,
+        }),
+        midi_passthrough: false,
+      }
+    : this.settings;
+  const controllerMap = this.controllerMap ?? this._buildControllerMapForSettings?.(layout2dSettings);
+  if (!controllerMap) return null;
+
+  const entries = [];
+  let exactCount = 0;
+  let disabledCount = 0;
+  const centerDegree = this.settings.center_degree || 0;
+  const equivSteps = this.settings.equivSteps || this.tuning?.scale?.length || 1;
+  const anchorChannel = this.settings.midiin_anchor_channel ?? 4;
+
+  for (const [mapKey, coords] of controllerMap) {
+    const dotIdx = mapKey.indexOf(".");
+    const board = parseInt(mapKey.slice(0, dotIdx), 10);
+    const key = parseInt(mapKey.slice(dotIdx + 1), 10);
+    const mappedCoords = controllerCoordsForDisplay.call(this, coords);
+    const [, , steps] = this.hexCoordsToCents(mappedCoords);
+    const assignment = chooseLumatoneBypassAssignment(
+      steps,
+      centerDegree,
+      equivSteps,
+      anchorChannel,
+    );
+
+    if (assignment) {
+      exactCount += 1;
+      entries.push({
+        board,
+        key,
+        note: assignment.note,
+        channel: assignment.channel - 1,
+        keyType: 0x01,
+        hexColor: this._getLumatoneHexColor(mappedCoords),
+      });
+      continue;
+    }
+
+    disabledCount += 1;
+    entries.push({
+      board,
+      key,
+      note: 0,
+      channel: 0,
+      keyType: 0x10,
+      hexColor: "#000000",
+    });
+  }
+
+  entries.sort((a, b) => a.board - b.board || a.key - b.key);
+
+  return {
+    entries,
+    exactCount,
+    disabledCount,
+    totalCount: entries.length,
+  };
+}
+
+export function sendLumatoneBypassLayout() {
+  if (!this.lumatoneLEDs) return null;
+  const payload = buildLumatoneBypassLayoutEntries.call(this);
+  if (!payload) return null;
+  this.lumatoneLEDs.sendLayout(payload.entries, [{ cmd: 0x0e, board: 0, value: 1 }]);
+  return payload;
 }
 
 export function buildLumatoneColorEntries() {
