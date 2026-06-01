@@ -55,6 +55,16 @@ describe("settings impact registry", () => {
     expect(SETTINGS_IMPACT_GROUPS.structural).not.toContain("note_colors");
   });
 
+  it("treats derived auto-color dependencies as part of the color impact group", () => {
+    expect(SETTINGS_IMPACT_GROUPS.colors).toContain("auto_colors");
+    expect(SETTINGS_IMPACT_GROUPS.colors).toContain("scale");
+    expect(SETTINGS_IMPACT_GROUPS.colors).toContain("equivSteps");
+    expect(SETTINGS_IMPACT_GROUPS.colors).toContain("reference_degree");
+    expect(SETTINGS_IMPACT_GROUPS.colors).toContain("fundamental");
+    expect(SETTINGS_IMPACT_GROUPS.colors).toContain("note_names");
+    expect(SETTINGS_IMPACT_GROUPS.colors).toContain("key_labels");
+  });
+
   it("keeps Keys reconstruction independent from label and output settings", () => {
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).toContain("rSteps");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_device");
@@ -166,6 +176,32 @@ describe("settings impact registry", () => {
     );
     expect(settingsImpactKey(base, "structural")).not.toBe(
       settingsImpactKey(changedTuning, "structural"),
+    );
+  });
+
+  it("changes the color impact key when auto-color derivation inputs change", () => {
+    const base = {
+      scale: ["1/1", "3/2"],
+      equivSteps: 2,
+      reference_degree: 0,
+      fundamental: 440,
+      key_labels: "note_names",
+      note_names: ["A", "E"],
+      note_colors: [],
+      spectrum_colors: false,
+      auto_colors: true,
+      fundamental_color: "#ffdbe8",
+      prime_family_colors: [],
+    };
+
+    expect(settingsImpactKey(base, "colors")).not.toBe(
+      settingsImpactKey({ ...base, scale: ["1/1", "5/4"] }, "colors"),
+    );
+    expect(settingsImpactKey(base, "colors")).not.toBe(
+      settingsImpactKey({ ...base, note_names: ["A", "C#"] }, "colors"),
+    );
+    expect(settingsImpactKey(base, "colors")).not.toBe(
+      settingsImpactKey({ ...base, key_labels: "heji" }, "colors"),
     );
   });
 

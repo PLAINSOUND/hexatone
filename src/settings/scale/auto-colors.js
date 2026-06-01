@@ -407,10 +407,15 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
     if (!labels?.length) continue;
     const centerCandidate = inferCenterMonzoCandidate(workspace, labels);
     if (centerCandidate?.monzo) {
+      const notationCentering = base.structuralOverlay === "none"
+        ? {}
+        : {
+          centerMonzo: centerCandidate.nonThreeComplexity > 0 ? centerCandidate.monzo : undefined,
+          centerAbsoluteFifthSteps: centerCandidate.absoluteFifthSteps,
+        };
       return {
         ...base,
-        centerMonzo: centerCandidate.nonThreeComplexity > 0 ? centerCandidate.monzo : undefined,
-        centerAbsoluteFifthSteps: centerCandidate.absoluteFifthSteps,
+        ...notationCentering,
         chromaticOverlayPrimes,
         colorMonzoOffset,
         primeFamilyColorMap,

@@ -1,4 +1,5 @@
 import {
+  buildResolvedAutoColorOptions,
   inferCenterMonzoCandidate,
   inferColorMonzoOffset,
   inferNotationRole,
@@ -61,6 +62,60 @@ describe("inferCenterMonzoCandidate", () => {
     const labels = ["D", "D"];
 
     expect(inferCenterMonzoCandidate(workspace, labels)?.monzo).toEqual([-3, 2, 0, 0]);
+  });
+});
+
+describe("buildResolvedAutoColorOptions", () => {
+  it("does not re-center harmonic-series and odd-partial color analysis around an inferred D", () => {
+    const workspace = {
+      slots: [
+        { exactRole: { monzo: [0, 0, 0] }, committedIdentity: { basis: [2, 3, 5], monzo: [0, 0, 0] } },
+        { exactRole: { monzo: [-2, 0, 1] }, committedIdentity: { basis: [2, 3, 5], monzo: [-2, 0, 1] } },
+      ],
+    };
+    const settings = {
+      name: "55-Critical Band",
+      short_description: "55-HS_A_TenneyCB",
+      key_labels: "note_names",
+      note_names: ["A", "D"],
+      prime_family_colors: [],
+      scale: ["5/4", "2/1"],
+    };
+
+    const resolved = buildResolvedAutoColorOptions(settings, workspace, {
+      keyLabels: settings.key_labels,
+      noteNames: settings.note_names,
+    });
+
+    expect(resolved.structuralOverlay).toBe("none");
+    expect(resolved.centerMonzo).toBeUndefined();
+    expect(resolved.centerAbsoluteFifthSteps).toBeUndefined();
+  });
+
+  it("still infers a notation-relative center for structural fifths overlays", () => {
+    const workspace = {
+      slots: [
+        { exactRole: { monzo: [0, 0, 0] }, committedIdentity: { basis: [2, 3, 5], monzo: [0, 0, 0] } },
+        { exactRole: { monzo: [-2, 0, 1] }, committedIdentity: { basis: [2, 3, 5], monzo: [-2, 0, 1] } },
+      ],
+    };
+    const settings = {
+      name: "Elsie Hamilton Subharmonic Modes",
+      short_description: "12-HamiltonModes",
+      key_labels: "note_names",
+      note_names: ["A", "D"],
+      prime_family_colors: [],
+      scale: ["5/4", "2/1"],
+    };
+
+    const resolved = buildResolvedAutoColorOptions(settings, workspace, {
+      keyLabels: settings.key_labels,
+      noteNames: settings.note_names,
+    });
+
+    expect(resolved.structuralOverlay).toBe("fifths");
+    expect(resolved.centerMonzo).toEqual([-2, 0, 1]);
+    expect(resolved.centerAbsoluteFifthSteps).toBe(0);
   });
 });
 

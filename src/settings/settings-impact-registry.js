@@ -164,7 +164,11 @@ export const SETTINGS_IMPACT_GROUPS = {
     ...SETTINGS_IMPACT_FIELDS.tuning,
     ...SETTINGS_IMPACT_FIELDS.layout,
   ],
-  colors: SETTINGS_IMPACT_FIELDS.colors,
+  colors: [
+    ...SETTINGS_IMPACT_FIELDS.colors,
+    ...SETTINGS_IMPACT_FIELDS.tuning,
+    ...SETTINGS_IMPACT_FIELDS.labels,
+  ],
   inputRuntime: SETTINGS_IMPACT_FIELDS.inputRuntime,
   outputRuntime: SETTINGS_IMPACT_FIELDS.outputRuntime,
 };
