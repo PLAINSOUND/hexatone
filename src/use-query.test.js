@@ -6,6 +6,9 @@
  * window.location / localStorage / history — tested via jsdom.
  */
 
+import { render } from "@testing-library/preact";
+import { h } from "preact";
+import { useEffect } from "preact/hooks";
 import {
   Extract,
   ExtractArray,
@@ -14,6 +17,7 @@ import {
   ExtractFloat,
   ExtractInt,
   ExtractBool,
+  useQuery,
 } from "./use-query";
 
 // ── Extract class ─────────────────────────────────────────────────────────────
@@ -173,5 +177,59 @@ describe("ExtractBool", () => {
     const q = new URLSearchParams();
     ExtractBool.insert(q, "b", true);
     expect(q.get("b")).toBe("true");
+  });
+});
+
+const UseQueryHarness = ({ capture }) => {
+  const [values, setValues] = useQuery(
+    {
+      boolFlag: ExtractBool,
+      zeroValue: ExtractInt,
+      emptyLabel: ExtractString,
+    },
+    {
+      boolFlag: true,
+      zeroValue: 7,
+      emptyLabel: "filled",
+    },
+  );
+
+  useEffect(() => {
+    capture({ values, setValues });
+  }, [values, setValues, capture]);
+
+  return null;
+};
+
+describe("useQuery", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    history.replaceState({}, "", "http://localhost/");
+  });
+
+  it("keeps false, 0, and empty string in the URL and localStorage", () => {
+    let latest = null;
+    const capture = (value) => {
+      latest = value;
+    };
+
+    const { unmount } = render(h(UseQueryHarness, { capture }));
+
+    latest.setValues((prev) => ({
+      ...prev,
+      boolFlag: false,
+      zeroValue: 0,
+      emptyLabel: "",
+    }));
+
+    const query = new URLSearchParams(window.location.search);
+    expect(query.get("boolFlag")).toBe("false");
+    expect(query.get("zeroValue")).toBe("0");
+    expect(query.get("emptyLabel")).toBe("");
+    expect(localStorage.getItem("boolFlag")).toBe("false");
+    expect(localStorage.getItem("zeroValue")).toBe("0");
+    expect(localStorage.getItem("emptyLabel")).toBe("");
+
+    unmount();
   });
 });

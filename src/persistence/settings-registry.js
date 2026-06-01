@@ -91,7 +91,7 @@ export const SETTINGS_REGISTRY = [
   // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
   // remains session-scoped and stays out of share URLs.
   { key: "retuning_mode", tier: "session", type: "string", default: "recalculate_reference" },
-  { key: "modulation_style", tier: "session", type: "string", default: "fixed_do" },
+  { key: "modulation_style", tier: "url", type: "string", default: "fixed_do" },
 
   // ── Layout / grid ────────────────────────────────────────────────────────────
   { key: "rSteps", tier: "url", type: "int", default: 2, presetSkip: true },
@@ -184,11 +184,10 @@ export const SETTINGS_REGISTRY = [
   },
   {
     key: "midiin_mapping_target",
-    tier: "local",
+    tier: "url",
     type: "string",
     default: "hex_layout",
-    perController: true,
-    description: "Input mode per controller: MIDI to Hex Layout or MIDI to Nearest Scale Degree",
+    description: "Input mode: MIDI to Hex Layout or MIDI to Nearest Scale Degree",
   },
   {
     key: "hakenaudio_x_glide_shaping",
@@ -248,11 +247,10 @@ export const SETTINGS_REGISTRY = [
   },
   {
     key: "midi_passthrough",
-    tier: "local",
+    tier: "url",
     type: "bool",
     default: false,
-    perController: true,
-    description: "Sequential (passthrough) mode for this controller",
+    description: "Sequential (passthrough) mode for the active controller",
   },
   {
     key: "tonalplexus_input_mode",
@@ -265,14 +263,15 @@ export const SETTINGS_REGISTRY = [
 
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: "midiin_device", tier: "session", type: "string", default: "OFF" },
-  { key: "midiin_controller_override", tier: "session", type: "string", default: "auto" },
-  { key: "midiin_steps_per_channel", tier: "session", type: "int", default: 0 },
-  { key: "midiin_channel_group_size", tier: "session", type: "int", default: 1 },
-  { key: "midiin_anchor_channel", tier: "session", type: "int", default: 1, presetSkip: true },
-  { key: "midiin_anchor_note", tier: "session", type: "int", default: 60, presetSkip: true },
+  { key: "midiin_controller_override", tier: "url", type: "string", default: "auto" },
+  { key: "midiin_steps_per_channel", tier: "url", type: "int", default: 0 },
+  { key: "midiin_channel_group_size", tier: "url", type: "int", default: 1 },
+  { key: "midiin_anchor_channel", tier: "url", type: "int", default: 1 },
+  { key: "midiin_anchor_note", tier: "url", type: "int", default: 60 },
   { key: "controller_anchor_note", tier: "session", type: "int", default: null },
-  { key: "midiin_channel_legacy", tier: "session", type: "bool", default: false },
-  // midi_passthrough is tier: 'local', perController: true — see per-controller section above.
+  { key: "midiin_channel_legacy", tier: "url", type: "bool", default: false },
+  // midi_passthrough is URL-scoped so walkthrough links can switch between
+  // geometry and bypass states directly.
   // Input runtime mode keys
   // midiin_mpe_input, midiin_bend_range, midiin_bend_flip are 'local' tier (see above).
   // MPE input voice channel range. Channels 1 and 16 are typically reserved
@@ -306,8 +305,8 @@ export const SETTINGS_REGISTRY = [
   // { key: '${controllerId}_anchor_channel', tier: 'local', type: 'int' },
 
   // ── Sample synth ─────────────────────────────────────────────────────────────
-  { key: "output_sample", tier: "session", type: "bool", default: true },
-  { key: "instrument", tier: "session", type: "string", default: "WMRIByzantineST" },
+  { key: "output_sample", tier: "url", type: "bool", default: true },
+  { key: "instrument", tier: "url", type: "string", default: "WMRIByzantineST" },
 
   // ── MTS real-time output ──────────────────────────────────────────────────────
   { key: "output_mts", tier: "session", type: "bool", default: false },

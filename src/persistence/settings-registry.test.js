@@ -107,6 +107,26 @@ describe("URL_KEYS", () => {
       expect(REGISTRY_BY_KEY[key].tier).toBe("url");
     }
   });
+
+  it("includes the newer shareable demo-state settings", () => {
+    const expected = [
+      "modulation_style",
+      "midiin_mapping_target",
+      "midi_passthrough",
+      "midiin_controller_override",
+      "midiin_steps_per_channel",
+      "midiin_channel_group_size",
+      "midiin_anchor_channel",
+      "midiin_anchor_note",
+      "midiin_channel_legacy",
+      "output_sample",
+      "instrument",
+    ];
+
+    for (const key of expected) {
+      expect(URL_KEYS).toContain(key);
+    }
+  });
 });
 
 describe("SESSION_KEYS", () => {
@@ -119,6 +139,26 @@ describe("SESSION_KEYS", () => {
   it("includes retuning_mode so it is not shared via URL", () => {
     expect(SESSION_KEYS).toContain("retuning_mode");
     expect(URL_KEYS).not.toContain("retuning_mode");
+  });
+
+  it("does not keep the newer shareable demo-state settings in session scope", () => {
+    const expected = [
+      "modulation_style",
+      "midiin_mapping_target",
+      "midi_passthrough",
+      "midiin_controller_override",
+      "midiin_steps_per_channel",
+      "midiin_channel_group_size",
+      "midiin_anchor_channel",
+      "midiin_anchor_note",
+      "midiin_channel_legacy",
+      "output_sample",
+      "instrument",
+    ];
+
+    for (const key of expected) {
+      expect(SESSION_KEYS).not.toContain(key);
+    }
   });
 });
 

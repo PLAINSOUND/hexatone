@@ -40,6 +40,19 @@ import {
   CROSS_CONTROLLER_ENTRIES,
 } from "../persistence/settings-registry.js";
 
+const MODE_SCOPED_URL_PREFS = [
+  {
+    key: "midi_passthrough",
+    type: "bool",
+    default: false,
+  },
+  {
+    key: "midiin_mapping_target",
+    type: "string",
+    default: "hex_layout",
+  },
+];
+
 function isModeAwareController(controller) {
   return !!controller?.modes && typeof controller?.resolveMode === "function";
 }
@@ -144,7 +157,7 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
   const update = {};
   const modeKey = getControllerMode(controller, settings, null, { preferStored });
 
-  for (const entry of PER_CONTROLLER_ENTRIES) {
+  for (const entry of [...PER_CONTROLLER_ENTRIES, ...MODE_SCOPED_URL_PREFS]) {
     const raw = isModeAwareController(controller)
       ? (localStorage.getItem(getModeScopedStorageKey(controller, modeKey, entry.key)) ??
         localStorage.getItem(getLegacyStorageKey(controller, entry.key)))
@@ -205,7 +218,7 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
  * @param {*}           value       Value to save
  */
 export function saveControllerPref(controller, key, value, settings = null, overrides = null) {
-  const perEntry = PER_CONTROLLER_ENTRIES.find((e) => e.key === key);
+  const perEntry = [...PER_CONTROLLER_ENTRIES, ...MODE_SCOPED_URL_PREFS].find((e) => e.key === key);
   if (perEntry) {
     if (!controller) {
       console.warn(`saveControllerPref: no controller for per-controller key "${key}"`);

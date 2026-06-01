@@ -90,6 +90,10 @@ export const ExtractBoolArray = new Extract(
   (x) => x.toString(),
 );
 
+function shouldPersistQueryValue(value) {
+  return value !== null && value !== undefined;
+}
+
 export function useQuery(spec, defaults, skipKeys = []) {
   // Clear any previously persisted values for skipped keys
   skipKeys.forEach((k) => localStorage.removeItem(k));
@@ -136,7 +140,7 @@ export function useQuery(spec, defaults, skipKeys = []) {
     valuesRef.current = next;
     for (let [key, extract] of Object.entries(spec)) {
       if (skipKeys.includes(key)) continue;
-      if (key in next && next[key]) {
+      if (key in next && shouldPersistQueryValue(next[key])) {
         extract.insert(query, key, next[key]);
         extract.store(key, next[key]);
       }
