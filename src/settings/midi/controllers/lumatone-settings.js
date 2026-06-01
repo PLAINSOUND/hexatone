@@ -223,7 +223,7 @@ const LumatoneSettings = ({
       />
       {rawPorts && settings.midi_passthrough && (
         <label>
-          Send 2D Bypass Layout (Anchor at Note 60 on Ch {settings.midiin_anchor_channel ?? 4})
+          2D Bypass Key Layout
           <span
             style={{
               display: "flex",
@@ -240,7 +240,7 @@ const LumatoneSettings = ({
               title="Send a best-effort sequential Lumatone layout matching the current 2D geometry"
               onClick={handleSendBypassLayout}
             >
-              Send 2D Bypass Layout
+              Send Layout and Colours
             </button>
           </span>
         </label>
@@ -249,7 +249,7 @@ const LumatoneSettings = ({
         <>
           {rawPorts && (
             <label>
-              Send Blank Key Layout (Notes 0-55 on Ch 1-5)
+              2D Key Layout (Notes 0-55 on Ch 1-5)
               <span
                 style={{
                   display: "flex",
@@ -266,7 +266,7 @@ const LumatoneSettings = ({
                   title="Send notes + blank layout to Lumatone via sysex (~10-15 s, one-time setup)"
                   onClick={() => keysRef?.current?.sendLumatoneLayout?.()}
                 >
-                  Send Blank Key Layout
+                  Send Blank Layout
                 </button>
               </span>
             </label>
