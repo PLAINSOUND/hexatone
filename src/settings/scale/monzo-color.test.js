@@ -153,6 +153,41 @@ describe("monzoToSuggestedColor", () => {
     expect(monzoToSuggestedColor([2, 2, -2]).screenHex).not.toBe("#dfd39a");
   });
 
+  it("lets custom 5-family colors propagate into 25 and u25 quintal structural colors", () => {
+    const customFive = "#c8ff84";
+    const options = {
+      structuralOverlay: "fifths",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        customFive,
+      ]),
+    };
+
+    const over5 = monzoToSuggestedColor([-2, 0, 1], undefined, options).screenHex;
+    const over25 = monzoToSuggestedColor([2, -4, 2], undefined, options).screenHex;
+    const over25Chromatic = monzoToSuggestedColor([-3, -1, 2], undefined, options).screenHex;
+    const under25 = monzoToSuggestedColor([-6, 7, -2], undefined, options).screenHex;
+    const [over5H, over5S, over5L] = srgb_to_okhsl(...hexToRgb(over5));
+    const [over25H, over25S, over25L] = srgb_to_okhsl(...hexToRgb(over25));
+    const [over25ChromaticH, over25ChromaticS, over25ChromaticL] = srgb_to_okhsl(...hexToRgb(over25Chromatic));
+    const [under25H, under25S, under25L] = srgb_to_okhsl(...hexToRgb(under25));
+
+    expect(over5).toBe(customFive);
+    expect(over25).not.toBe("#fef5be");
+    expect(over25Chromatic).not.toBe("#ddd5a4");
+    expect(under25).not.toBe("#dfd39a");
+    expect(Math.abs(over25H - over5H)).toBeLessThan(0.03);
+    expect(Math.abs(over25ChromaticH - over5H)).toBeLessThan(0.03);
+    expect(Math.abs(under25H - over5H)).toBeLessThan(0.05);
+    expect(over25S).toBeGreaterThanOrEqual(over5S - 0.00001);
+    expect(over25L).toBeLessThan(over5L);
+    expect(over25ChromaticS).toBeLessThan(over25S);
+    expect(over25ChromaticL).toBeLessThan(over25L);
+    expect(under25S).toBeLessThan(over25S);
+    expect(under25L).toBeLessThan(over25L);
+  });
+
   it("uses septimal-chain colors for pure 7-limit overtonal chromatics and diatonics", () => {
     const overtoneChromatic = monzoToSuggestedColor([4, -4, 0, 1]).screenHex;
     const overtoneDiatonic = monzoToSuggestedColor([-4, 1, 0, 1]).screenHex;
@@ -209,6 +244,39 @@ describe("monzoToSuggestedColor", () => {
     expect(Math.abs(undertoneDiatonicL - overtoneChromaticL)).toBeGreaterThan(0.01);
     expect(undertoneChromaticS).toBeLessThan(undertoneDiatonicS);
     expect(undertoneChromaticL).toBeLessThan(undertoneDiatonicL);
+  });
+
+  it("lets custom 7-family colors propagate into both 7 and u7 septimal structural colors", () => {
+    const customSeven = "#b2ff7a";
+    const options = {
+      structuralOverlay: "fifths",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        customSeven,
+      ]),
+    };
+
+    const over7 = monzoToSuggestedColor([-4, 1, 0, 1], undefined, options).screenHex;
+    const over7Chromatic = monzoToSuggestedColor([4, -4, 0, 1], undefined, options).screenHex;
+    const under7 = monzoToSuggestedColor([0, 2, 0, -1], undefined, options).screenHex;
+    const under7Chromatic = monzoToSuggestedColor([-3, 4, 0, -1], undefined, options).screenHex;
+    const [over7H, over7S, over7L] = srgb_to_okhsl(...hexToRgb(over7));
+    const [over7ChromaticH, over7ChromaticS, over7ChromaticL] = srgb_to_okhsl(...hexToRgb(over7Chromatic));
+    const [under7H, under7S, under7L] = srgb_to_okhsl(...hexToRgb(under7));
+    const [under7ChromaticH, under7ChromaticS, under7ChromaticL] = srgb_to_okhsl(...hexToRgb(under7Chromatic));
+
+    expect(over7).toBe(customSeven);
+    expect(Math.abs(under7H - over7H)).toBeLessThan(0.05);
+    expect(Math.abs(over7ChromaticH - over7H)).toBeLessThan(0.05);
+    expect(Math.abs(under7ChromaticH - over7H)).toBeLessThan(0.06);
+    expect(under7S).toBeLessThan(over7S);
+    expect(under7L).toBeLessThan(over7L);
+    expect(over7ChromaticS).toBeLessThan(over7S);
+    expect(over7ChromaticL).toBeLessThan(over7L);
+    expect(under7ChromaticS).toBeLessThan(under7S);
+    expect(under7ChromaticL).toBeLessThan(under7L);
   });
 
   it("distinguishes pure 3-limit rank-0 notes from flat- and sharp-side contrast notes", () => {
@@ -378,5 +446,259 @@ describe("monzoToSuggestedColor", () => {
       ]),
     });
     expect(suggestion.screenHex).toBe(customFive);
+  });
+
+  it("applies the hardcoded prime-power saturation pattern to custom 11-family colors", () => {
+    const customEleven = "#bff3c1";
+    const over11 = monzoToSuggestedColor([0, 0, 0, 0, 1], undefined, {
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        DEFAULT_PRIME_FAMILY_COLORS[7],
+        customEleven,
+      ]),
+      structuralOverlay: "none",
+    }).screenHex;
+    const over121 = monzoToSuggestedColor([0, 0, 0, 0, 2], undefined, {
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        DEFAULT_PRIME_FAMILY_COLORS[7],
+        customEleven,
+      ]),
+      structuralOverlay: "none",
+    }).screenHex;
+    const [over11H, over11S, over11L] = srgb_to_okhsl(...hexToRgb(over11));
+    const [over121H, over121S, over121L] = srgb_to_okhsl(...hexToRgb(over121));
+    expect(over11).toBe(customEleven);
+    expect(over121).not.toBe("#c3ffad");
+    expect(over121).not.toBe(over11);
+    expect(Math.abs(over121H - over11H)).toBeLessThan(0.03);
+    expect(over121S).toBeGreaterThan(over11S);
+    expect(over121L).toBeLessThan(over11L);
+  });
+
+  it("applies the hardcoded prime-power saturation pattern to custom 13-family colors", () => {
+    const customThirteen = "#d8ccff";
+    const over13 = monzoToSuggestedColor([0, 0, 0, 0, 0, 1], undefined, {
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        DEFAULT_PRIME_FAMILY_COLORS[7],
+        DEFAULT_PRIME_FAMILY_COLORS[11],
+        customThirteen,
+      ]),
+      structuralOverlay: "none",
+    }).screenHex;
+    const over169 = monzoToSuggestedColor([0, 0, 0, 0, 0, 2], undefined, {
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        DEFAULT_PRIME_FAMILY_COLORS[7],
+        DEFAULT_PRIME_FAMILY_COLORS[11],
+        customThirteen,
+      ]),
+      structuralOverlay: "none",
+    }).screenHex;
+    const [, over13S, over13L] = srgb_to_okhsl(...hexToRgb(over13));
+    const [, over169S, over169L] = srgb_to_okhsl(...hexToRgb(over169));
+    expect(over13).toBe(customThirteen);
+    expect(over169).not.toBe("#dbb3ff");
+    expect(over169).not.toBe(over13);
+    expect(over169S).toBeGreaterThan(over13S);
+    expect(over169L).toBeLessThan(over13L);
+  });
+
+  it("preserves the curated default 49 color when no custom family override is active", () => {
+    expect(monzoToSuggestedColor([-4, 0, 0, 2], undefined, {
+      structuralOverlay: "none",
+    }).screenHex).toBe("#f8c9c9");
+  });
+
+  it("lets custom septimal family colors propagate to odd-partial septimal composites", () => {
+    const customSeven = "#ffd0f0";
+    const options = {
+      structuralOverlay: "none",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        customSeven,
+      ]),
+    };
+
+    const over7 = monzoToSuggestedColor([0, 0, 0, 1], undefined, options).screenHex;
+    const over21 = monzoToSuggestedColor([0, 1, 0, 1], undefined, options).screenHex;
+    const over77 = monzoToSuggestedColor([0, 0, 0, 1, 1], undefined, options).screenHex;
+    const over91 = monzoToSuggestedColor([0, 0, 0, 1, 0, 1], undefined, options).screenHex;
+
+    expect(over7).toBe(customSeven);
+    expect(over21).not.toBe("#ffe5e5");
+    expect(over21).not.toBe("#ffcba8");
+    expect(over77).not.toBe("#e9ecc1");
+    expect(over91).not.toBe("#ebd0e0");
+  });
+
+  it("balances custom overtonal 5-and-7 composites by exponent weight", () => {
+    const customFive = "#fff0a0";
+    const customSeven = "#ff90d8";
+    const options = {
+      structuralOverlay: "none",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        customFive,
+        customSeven,
+      ]),
+    };
+
+    const over35 = monzoToSuggestedColor([0, 0, 1, 1], undefined, options).screenHex;
+    const over245 = monzoToSuggestedColor([0, 0, 1, 2], undefined, options).screenHex;
+
+    expect(over35).not.toBe(customFive);
+    expect(over35).not.toBe(customSeven);
+    expect(over245).not.toBe(customFive);
+    expect(over245).not.toBe(customSeven);
+  });
+
+  it("lets mixed custom 11-and-17 composites keep 11 in the hue but gray it down", () => {
+    const customEleven = "#abff94";
+    const options = {
+      structuralOverlay: "none",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        DEFAULT_PRIME_FAMILY_COLORS[5],
+        DEFAULT_PRIME_FAMILY_COLORS[7],
+        customEleven,
+      ]),
+    };
+
+    const over11 = monzoToSuggestedColor([0, 0, 0, 0, 1], undefined, options).screenHex;
+    const over187 = monzoToSuggestedColor([0, 0, 0, 0, 1, 0, 1], undefined, options).screenHex;
+    const [over11H, over11S] = srgb_to_okhsl(...hexToRgb(over11));
+    const [over187H, over187S] = srgb_to_okhsl(...hexToRgb(over187));
+
+    expect(Math.abs(over187H - over11H)).toBeLessThan(0.12);
+    expect(over187S).toBeLessThan(over11S);
+  });
+
+  it("keeps custom 3-family colors exact across powers of 3 in odd-partial mode", () => {
+    const customThree = "#ffd8f4";
+    const options = {
+      structuralOverlay: "none",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        customThree,
+      ]),
+    };
+
+    const over3 = monzoToSuggestedColor([0, 1], undefined, options).screenHex;
+    const over9 = monzoToSuggestedColor([0, 2], undefined, options).screenHex;
+    const over27 = monzoToSuggestedColor([0, 3], undefined, options).screenHex;
+
+    expect(over3).toBe(customThree);
+    expect(over9).toBe(customThree);
+    expect(over27).toBe(customThree);
+  });
+
+  it("uses the shared prime-power saturation rule for custom 5-family colors in odd-partial mode", () => {
+    const customFive = "#c8ff84";
+    const options = {
+      structuralOverlay: "none",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        DEFAULT_PRIME_FAMILY_COLORS[3],
+        customFive,
+      ]),
+    };
+
+    const over5 = monzoToSuggestedColor([0, 0, 1], undefined, options).screenHex;
+    const over25 = monzoToSuggestedColor([0, 0, 2], undefined, options).screenHex;
+    const over125 = monzoToSuggestedColor([0, 0, 3], undefined, options).screenHex;
+    const [over5H, over5S, over5L] = srgb_to_okhsl(...hexToRgb(over5));
+    const [over25H, over25S, over25L] = srgb_to_okhsl(...hexToRgb(over25));
+    const [over125H, over125S, over125L] = srgb_to_okhsl(...hexToRgb(over125));
+
+    expect(over5).toBe(customFive);
+    expect(Math.abs(over25H - over5H)).toBeLessThan(0.03);
+    expect(Math.abs(over125H - over5H)).toBeLessThan(0.03);
+    expect(over25S).toBeGreaterThanOrEqual(over5S - 0.00001);
+    expect(over125S).toBeGreaterThanOrEqual(over25S - 0.00001);
+    expect(over25L).toBeLessThan(over5L);
+    expect(over125L).toBeLessThan(over25L);
+  });
+
+  it("makes all pure 3-powers identical when 3-family is overridden", () => {
+    const customThree = "#c39898";
+    const options = {
+      structuralOverlay: "fifths",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        customThree,
+      ]),
+    };
+
+    expect(monzoToSuggestedColor([0, 1], undefined, options).screenHex).toBe(customThree);
+    expect(monzoToSuggestedColor([0, 5], undefined, options).screenHex).toBe(customThree);
+    expect(monzoToSuggestedColor([0, 6], undefined, options).screenHex).not.toBe(customThree);
+    expect(monzoToSuggestedColor([0, -2], undefined, options).screenHex).not.toBe(customThree);
+  });
+
+  it("preserves the established sharp and flat darkening pattern when 3-family is overridden", () => {
+    const customThree = "#c39898";
+    const options = {
+      structuralOverlay: "fifths",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        customThree,
+      ]),
+    };
+
+    const core = monzoToSuggestedColor([0, 1], undefined, options).screenHex;
+    const flatContrast = monzoToSuggestedColor([0, -2], undefined, options).screenHex;
+    const sharpContrast = monzoToSuggestedColor([0, 6], undefined, options).screenHex;
+    const flatFamily = monzoToSuggestedColor([0, -7], undefined, options).screenHex;
+    const sharpFamily = monzoToSuggestedColor([0, 11], undefined, options).screenHex;
+    const [coreH, coreS, coreL] = srgb_to_okhsl(...hexToRgb(core));
+    const [flatContrastH, flatContrastS, flatContrastL] = srgb_to_okhsl(...hexToRgb(flatContrast));
+    const [sharpContrastH, sharpContrastS, sharpContrastL] = srgb_to_okhsl(...hexToRgb(sharpContrast));
+    const [, flatFamilyS, flatFamilyL] = srgb_to_okhsl(...hexToRgb(flatFamily));
+    const [, sharpFamilyS, sharpFamilyL] = srgb_to_okhsl(...hexToRgb(sharpFamily));
+
+    expect(core).toBe(customThree);
+    expect(Math.abs(flatContrastH - coreH)).toBeLessThan(0.08);
+    expect(Math.abs(sharpContrastH - coreH)).toBeLessThan(0.12);
+    expect(flatContrastL).toBeLessThan(coreL);
+    expect(sharpContrastL).toBeGreaterThan(flatContrastL);
+    expect(Math.abs(flatContrastS - coreS)).toBeLessThan(0.18);
+    expect(Math.abs(sharpContrastS - coreS)).toBeLessThan(0.18);
+    expect(flatFamilyL).not.toBe(coreL);
+    expect(sharpFamilyL).not.toBe(coreL);
+    expect(flatFamilyS).toBeGreaterThan(coreS);
+    expect(sharpFamilyS).not.toBe(coreS);
+  });
+
+  it("does not let custom 3-family colors change primes and composites above 3", () => {
+    const customThree = "#ffd8f4";
+    const options = {
+      structuralOverlay: "none",
+      primeFamilyColorMap: getPrimeFamilyColorMap([
+        DEFAULT_PRIME_FAMILY_COLORS[1],
+        customThree,
+      ]),
+    };
+
+    const over23 = monzoToSuggestedColor([0, 0, 0, 0, 0, 0, 0, 0, 1], undefined, options).screenHex;
+    const over69 = monzoToSuggestedColor([0, 1, 0, 0, 0, 0, 0, 0, 1], undefined, options).screenHex;
+    const over207 = monzoToSuggestedColor([0, 2, 0, 0, 0, 0, 0, 0, 1], undefined, options).screenHex;
+
+    expect(over23).toBe("#95c69b");
+    expect(over69).toBe(over23);
+    expect(over207).toBe(over23);
   });
 });

@@ -596,7 +596,9 @@ td.scale-color-col .color-input {
 }
 
 .preset-selector-row select {
-  flex: none;
+  flex: 0 1 22em;
+  width: 22em;
+  max-width: 100%;
 }
 
 @media (max-width: 550px) {
@@ -1210,7 +1212,9 @@ input.equiv-cell:disabled,
 
 .scale-colors-fieldset-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5em;
   margin-top: 0.15em;
   margin-bottom: 0.45em;
 }
@@ -1269,15 +1273,62 @@ input.equiv-cell:disabled,
 }
 
 .auto-prime-colors-actions {
+  display: block;
+  width: 100%;
+  margin-top: 0.6em;
+}
+
+.auto-prime-colors-palette-layout {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  gap: 0.45em;
+}
+
+.auto-prime-colors-palette-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+  flex: 0 0 22em;
+  width: 22em;
+  max-width: 100%;
+  min-width: 0;
+}
+
+#sidebar .auto-prime-colors-palette-selector {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 0.6em;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  width: 100%;
+  gap: 6px;
+}
+
+#sidebar .auto-prime-colors-palette-selector > select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+#sidebar .auto-prime-colors-palette-selector .preset-refresh-btn {
+  margin-left: 0;
+  flex: none;
+  align-self: center;
 }
 
 .auto-prime-colors-actions__group {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5em;
+}
+
+.auto-prime-colors-actions__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35em;
 }
 
 @media (max-width: 420px) {
@@ -1285,9 +1336,12 @@ input.equiv-cell:disabled,
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .auto-prime-colors-actions {
-    flex-wrap: wrap;
-    justify-content: flex-start;
+  .auto-prime-colors-palette-layout {
+    flex-direction: column;
+  }
+
+  .auto-prime-colors-actions__side {
+    align-items: stretch;
   }
 }
 

@@ -409,7 +409,7 @@ const CustomPresets = ({
               style={{ marginLeft: "auto" }}
               onClick={handleClear}
             >
-              Clear all
+              Clear All
             </button>
           ))}
       </div>

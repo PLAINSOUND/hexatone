@@ -32,10 +32,10 @@ describe("Colors — spectrum colors off", () => {
 
   it("does not render the auto palette in Manual mode", () => {
     render(<Colors settings={baseSettings} onChange={() => {}} onAtomicChange={() => {}} />);
-    expect(screen.queryByText("Auto Colour Palette")).toBeNull();
+    expect(screen.queryByText("JI Colour Palette by Primes")).toBeNull();
   });
 
-  it("disables Load Palette when no palette is saved", () => {
+  it("shows Default as the only palette option when no palette is saved", () => {
     render(
       <Colors
         settings={{ ...baseSettings, auto_colors: true }}
@@ -44,7 +44,12 @@ describe("Colors — spectrum colors off", () => {
         onAtomicChange={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /load user palette/i }).disabled).toBe(true);
+    const selector = screen.getByLabelText("JI Colour Palette");
+    expect(selector.value).toBe("default");
+    expect(selector.querySelectorAll("option")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /reload saved palette/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /clear all/i })).toBeNull();
   });
 
   it("disables Commit when auto-generated colours already match stored note colors", () => {
@@ -131,6 +136,7 @@ describe("Colors — interactions", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("activates spectrum mode directly from the Key Colours selector", () => {
@@ -182,7 +188,8 @@ describe("Colors — interactions", () => {
     expect(onAtomicChange.mock.calls[0][0].note_colors[0]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
-  it("saves the current prime palette to localStorage", () => {
+  it("saves the current prime palette as a user palette", () => {
+    vi.stubGlobal("prompt", vi.fn(() => "Warm Palette"));
     render(
       <Colors
         settings={{ ...baseSettings, auto_colors: true }}
@@ -191,15 +198,23 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /save user palette/i }));
-    expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palette"))).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palettes"))).toEqual([
+      expect.objectContaining({ name: "Warm Palette" }),
+    ]);
+    expect(screen.getByLabelText("JI Colour Palette").value).toBe("Warm Palette");
   });
 
-  it("loads a saved prime palette from localStorage", () => {
-    localStorage.setItem("hexatone_prime_family_palette", JSON.stringify([
-      "#111111", "#222222", "#333333", "#444444", "#555555",
-      "#666666", "#777777", "#888888", "#999999", "#aaaaaa",
-      "#bbbbbb", "#cccccc", "#dddddd", "#eeeeee", "#fafafa",
+  it("loads a saved prime palette from the selector", () => {
+    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
+      {
+        name: "Dark Set",
+        colors: [
+          "#111111", "#222222", "#333333", "#444444", "#555555",
+          "#666666", "#777777", "#888888", "#999999", "#aaaaaa",
+          "#bbbbbb", "#cccccc", "#dddddd", "#eeeeee", "#fafafa",
+        ],
+      },
     ]));
     const onChange = vi.fn();
     render(
@@ -210,7 +225,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /load user palette/i }));
+    fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
     expect(onChange).toHaveBeenCalledWith(
       "prime_family_colors",
       expect.arrayContaining(["#111111", "#333333", "#fafafa"]),
@@ -219,6 +234,12 @@ describe("Colors — interactions", () => {
 
   it("restores the default prime palette", () => {
     const onChange = vi.fn();
+    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
+      {
+        name: "Dark Set",
+        colors: Array(15).fill("#111111"),
+      },
+    ]));
     render(
       <Colors
         settings={{
@@ -235,11 +256,111 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /reset defaults/i }));
+    fireEvent.click(screen.getByRole("button", { name: /default colours/i }));
     expect(onChange).toHaveBeenCalledWith(
       "prime_family_colors",
       expect.arrayContaining(["#ff7a7a", "#ffffff", "#fffae5"]),
     );
+  });
+
+  it("reloads the selected saved prime palette", () => {
+    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
+      {
+        name: "Dark Set",
+        colors: Array(15).fill("#111111"),
+      },
+    ]));
+    const onChange = vi.fn();
+    render(
+      <Colors
+        settings={{
+          ...baseSettings,
+          auto_colors: true,
+          prime_family_colors: Array(15).fill("#eeeeee"),
+        }}
+        rawSettings={{
+          ...baseSettings,
+          auto_colors: true,
+          prime_family_colors: Array(15).fill("#eeeeee"),
+        }}
+        onChange={onChange}
+        onAtomicChange={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
+    onChange.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /reload saved palette/i }));
+    expect(onChange).toHaveBeenCalledWith(
+      "prime_family_colors",
+      Array(15).fill("#111111"),
+    );
+  });
+
+  it("shows refresh, delete, and clear all only when a user palette is selected", () => {
+    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
+      {
+        name: "Dark Set",
+        colors: Array(15).fill("#111111"),
+      },
+    ]));
+    render(
+      <Colors
+        settings={{ ...baseSettings, auto_colors: true }}
+        rawSettings={{ ...baseSettings, auto_colors: true }}
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /reload saved palette/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /clear all/i })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
+
+    expect(screen.getByRole("button", { name: /reload saved palette/i })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /delete/i })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /clear all/i })).not.toBeNull();
+  });
+
+  it("deletes the selected user prime palette", () => {
+    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
+      {
+        name: "Dark Set",
+        colors: Array(15).fill("#111111"),
+      },
+    ]));
+    render(
+      <Colors
+        settings={{ ...baseSettings, auto_colors: true }}
+        rawSettings={{ ...baseSettings, auto_colors: true }}
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
+    fireEvent.click(screen.getByRole("button", { name: /delete/i }));
+    expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palettes"))).toEqual([]);
+    expect(screen.getByLabelText("JI Colour Palette").value).toBe("default");
+  });
+
+  it("clears all saved user prime palettes", () => {
+    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
+      { name: "Dark Set", colors: Array(15).fill("#111111") },
+      { name: "Light Set", colors: Array(15).fill("#eeeeee") },
+    ]));
+    render(
+      <Colors
+        settings={{ ...baseSettings, auto_colors: true }}
+        rawSettings={{ ...baseSettings, auto_colors: true }}
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
+    fireEvent.click(screen.getByRole("button", { name: /clear all/i }));
+    expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palettes"))).toEqual([]);
+    expect(screen.getByLabelText("JI Colour Palette").value).toBe("default");
   });
 
   it("commits the current auto-generated colours and turns auto and spectrum colours off", () => {

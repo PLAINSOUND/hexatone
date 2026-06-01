@@ -1,5 +1,5 @@
 import { createRef } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { deriveSpectrumNoteColors, normalizeColors } from "../../normalize-settings.js";
 import { deriveAutoNoteColors, normaliseColorForCompare } from "./auto-colors.js";
@@ -10,7 +10,7 @@ import {
   PRIME_COLOR_ORDER,
 } from "./monzo-color.js";
 
-const PRIME_FAMILY_PALETTE_STORAGE_KEY = "hexatone_prime_family_palette";
+const PRIME_FAMILY_PALETTES_STORAGE_KEY = "hexatone_prime_family_palettes";
 
 export const colorProp = function (props, propName, componentName) {
   const value = props[propName];
@@ -45,6 +45,41 @@ const getColorMode = (settings) => {
   return "manual";
 };
 
+const loadPrimeFamilyPalettes = () => {
+  try {
+    const raw = localStorage.getItem(PRIME_FAMILY_PALETTES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry) => entry && typeof entry.name === "string")
+      .map((entry) => ({
+        name: entry.name,
+        colors: normalizePrimeFamilyColors(entry.colors ?? entry.prime_family_colors),
+      }));
+  } catch {
+    return [];
+  }
+};
+
+const savePrimeFamilyPalettes = (palettes) => {
+  localStorage.setItem(PRIME_FAMILY_PALETTES_STORAGE_KEY, JSON.stringify(palettes));
+};
+
+const defaultPrimePalette = () =>
+  PRIME_COLOR_ORDER.map((prime) => DEFAULT_PRIME_FAMILY_COLORS[prime]);
+
+const safePaletteName = (name) => (name || "palette").replace(/[^a-zA-Z0-9_\-]/g, "_");
+
+const downloadPaletteFile = (palette) => {
+  const blob = new Blob([JSON.stringify(palette, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safePaletteName(palette.name)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const Colors = (props) => {
   const rawSettings = props.rawSettings ?? props.settings;
   const pickerRef = createRef();
@@ -53,14 +88,21 @@ const Colors = (props) => {
   const pendingPrimePreviewRef = useRef(null);
   const primePreviewFrameRef = useRef(0);
   const primePreviewGenerationRef = useRef(0);
+  const paletteFileInputRef = createRef();
   const colorMode = getColorMode(rawSettings);
   const autoActive = colorMode === "auto";
   const autoActiveRef = useRef(autoActive);
   const spectrumActive = colorMode === "spectrum";
   const primeFamilyColors = normalizePrimeFamilyColors(rawSettings.prime_family_colors);
   const derivedAutoColors = deriveAutoNoteColors(rawSettings);
+  const [savedPrimePalettes, setSavedPrimePalettes] = useState(loadPrimeFamilyPalettes);
+  const [selectedPrimePalette, setSelectedPrimePalette] = useState("default");
 
   const safe = normaliseHex(rawSettings.fundamental_color || "#ffdbe8") || "#ffdbe8";
+  const selectedPaletteEntry = useMemo(
+    () => savedPrimePalettes.find((palette) => palette.name === selectedPrimePalette) ?? null,
+    [savedPrimePalettes, selectedPrimePalette],
+  );
 
   const handleSwatchClick = () => {
     if (autoActive) return;
@@ -220,22 +262,88 @@ const Colors = (props) => {
   };
 
   const handleSavePrimePalette = () => {
-    localStorage.setItem(PRIME_FAMILY_PALETTE_STORAGE_KEY, JSON.stringify(primeFamilyColors));
+    const existingName = selectedPaletteEntry?.name ?? "";
+    const nextName = window.prompt("Save JI colour palette as:", existingName || "My Palette");
+    if (!nextName) return;
+    const trimmedName = nextName.trim();
+    if (!trimmedName) return;
+    const nextEntry = { name: trimmedName, colors: normalizePrimeFamilyColors(primeFamilyColors) };
+    const nextPalettes = savedPrimePalettes.some((palette) => palette.name === trimmedName)
+      ? savedPrimePalettes.map((palette) => (palette.name === trimmedName ? nextEntry : palette))
+      : [...savedPrimePalettes, nextEntry];
+    savePrimeFamilyPalettes(nextPalettes);
+    setSavedPrimePalettes(nextPalettes);
+    setSelectedPrimePalette(trimmedName);
   };
 
-  const handleLoadPrimePalette = () => {
-    try {
-      const raw = localStorage.getItem(PRIME_FAMILY_PALETTE_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      props.onChange("prime_family_colors", normalizePrimeFamilyColors(parsed));
-    } catch {
-      // ignore malformed saved palette
+  const handleSelectPrimePalette = (e) => {
+    const nextName = e.target.value;
+    setSelectedPrimePalette(nextName);
+    if (nextName === "default") {
+      props.onChange("prime_family_colors", defaultPrimePalette());
+      return;
+    }
+    const nextPalette = savedPrimePalettes.find((palette) => palette.name === nextName);
+    if (nextPalette) {
+      props.onChange("prime_family_colors", nextPalette.colors);
     }
   };
 
+  const handleOpenPrimePaletteFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const name = typeof parsed.name === "string" && parsed.name.trim()
+        ? parsed.name.trim()
+        : file.name.replace(/\.json$/i, "");
+      const colors = normalizePrimeFamilyColors(parsed.colors ?? parsed.prime_family_colors);
+      const nextEntry = { name, colors };
+      const nextPalettes = savedPrimePalettes.some((palette) => palette.name === name)
+        ? savedPrimePalettes.map((palette) => (palette.name === name ? nextEntry : palette))
+        : [...savedPrimePalettes, nextEntry];
+      savePrimeFamilyPalettes(nextPalettes);
+      setSavedPrimePalettes(nextPalettes);
+      setSelectedPrimePalette(name);
+      props.onChange("prime_family_colors", colors);
+    } catch {
+      // ignore malformed palette files
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleWritePrimePaletteFile = () => {
+    const name = selectedPaletteEntry?.name || "JI-colour-palette";
+    downloadPaletteFile({
+      name,
+      prime_family_colors: normalizePrimeFamilyColors(primeFamilyColors),
+    });
+  };
+
+  const handleDeletePrimePalette = () => {
+    if (!selectedPaletteEntry) return;
+    const nextPalettes = savedPrimePalettes.filter((palette) => palette.name !== selectedPaletteEntry.name);
+    savePrimeFamilyPalettes(nextPalettes);
+    setSavedPrimePalettes(nextPalettes);
+    setSelectedPrimePalette("default");
+  };
+
+  const handleRevertPrimePalette = () => {
+    if (!selectedPaletteEntry) return;
+    props.onChange("prime_family_colors", selectedPaletteEntry.colors);
+  };
+
+  const handleClearAllPrimePalettes = () => {
+    savePrimeFamilyPalettes([]);
+    setSavedPrimePalettes([]);
+    setSelectedPrimePalette("default");
+  };
+
   const handleResetPrimePalette = () => {
-    props.onChange("prime_family_colors", PRIME_COLOR_ORDER.map((prime) => DEFAULT_PRIME_FAMILY_COLORS[prime]));
+    props.onChange("prime_family_colors", defaultPrimePalette());
+    setSelectedPrimePalette("default");
   };
 
   const handleCommitAutoColors = () => {
@@ -252,7 +360,6 @@ const Colors = (props) => {
     props.onChange("spectrum_colors", false);
   };
 
-  const hasSavedPrimePalette = !!localStorage.getItem(PRIME_FAMILY_PALETTE_STORAGE_KEY);
   const hasCommitableAutoColors = derivedAutoColors.length > 0
     && derivedAutoColors.some((color, index) =>
       normaliseColorForCompare(color) !== normaliseColorForCompare(rawSettings.note_colors?.[index]));
@@ -275,8 +382,15 @@ const Colors = (props) => {
 
       {autoActive && (
           <fieldset class="auto-prime-colors-fieldset">
-            <legend>JI Colour Palette by Primes</legend>
+            <legend>47-limit JI Colour Palette</legend>
             <div class="scale-colors-fieldset-actions">
+              <button
+                type="button"
+                class="preset-action-btn"
+                onClick={handleResetPrimePalette}
+              >
+                Default Colours
+              </button>
               <button
                 type="button"
                 class="preset-action-btn"
@@ -302,22 +416,71 @@ const Colors = (props) => {
               ))}
             </div>
             <div class="auto-prime-colors-actions">
-              <span class="auto-prime-colors-actions__group">
-                <button type="button" class="preset-action-btn" onClick={handleSavePrimePalette}>
-                  Save User Palette
-                </button>
-                <button
-                  type="button"
-                  class="preset-action-btn"
-                  disabled={!hasSavedPrimePalette}
-                  onClick={handleLoadPrimePalette}
-                >
-                  Load User Palette
-                </button>
-              </span>
-              <button type="button" class="preset-action-btn" onClick={handleResetPrimePalette}>
-                Reset Defaults
-              </button>
+              <div class="auto-prime-colors-palette-layout">
+                <div class="auto-prime-colors-palette-row">
+                  <div class="preset-selector-row auto-prime-colors-palette-selector">
+                    <select
+                      aria-label="JI Colour Palette"
+                      value={selectedPrimePalette}
+                      onChange={handleSelectPrimePalette}
+                    >
+                      <option value="default">Default</option>
+                      {savedPrimePalettes.map((palette) => (
+                        <option key={palette.name} value={palette.name}>
+                          {palette.name}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedPaletteEntry && (
+                      <button
+                        type="button"
+                        class="preset-refresh-btn"
+                        aria-label="Reload saved palette"
+                        title="Reload saved palette"
+                        onClick={handleRevertPrimePalette}
+                      >
+                        <span class="preset-refresh-glyph">⟳</span>
+                      </button>
+                    )}
+                  </div>
+                  <span class="auto-prime-colors-actions__group">
+                    <button type="button" class="preset-action-btn" onClick={handleSavePrimePalette}>
+                      Save
+                    </button>
+                    <button type="button" class="preset-action-btn" onClick={() => paletteFileInputRef.current?.click()}>
+                      Open
+                    </button>
+                    <button type="button" class="preset-action-btn" onClick={handleWritePrimePaletteFile}>
+                      Write
+                    </button>
+                  </span>
+                </div>
+                {selectedPaletteEntry && (
+                  <span class="auto-prime-colors-actions__side">
+                    <button
+                      type="button"
+                      class="delete-btn preset-utility-btn"
+                      onClick={handleDeletePrimePalette}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      class="delete-btn preset-utility-btn"
+                      onClick={handleClearAllPrimePalettes}
+                    >
+                      Clear All
+                    </button>
+                  </span>
+                )}
+                <input
+                  ref={paletteFileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  style={{ display: "none" }}
+                  onChange={handleOpenPrimePaletteFile}
+                />
+              </div>
             </div>
           </fieldset>
       )}

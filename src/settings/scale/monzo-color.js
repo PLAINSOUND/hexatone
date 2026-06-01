@@ -212,16 +212,138 @@ function mixHex(a, b, t) {
   return rgbToHex(ar.map((channel, index) => channel * (1 - x) + br[index] * x));
 }
 
-function adjustHexOkhsl(hex, { sOffset = 0, lOffset = 0 } = {}) {
+function blendHexesWeighted(entries) {
+  const weighted = entries
+    .map(({ hex, weight }) => ({ rgb: hexToRgb(hex), weight: Math.max(0, weight || 0) }))
+    .filter(({ rgb, weight }) => rgb && weight > 0);
+  if (!weighted.length) return null;
+  const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  if (!totalWeight) return null;
+  const channels = [0, 1, 2].map((index) =>
+    weighted.reduce((sum, entry) => sum + entry.rgb[index] * entry.weight, 0) / totalWeight);
+  return rgbToHex(channels);
+}
+
+function adjustHexOkhsl(hex, { hOffset = 0, sOffset = 0, lOffset = 0 } = {}) {
   const rgb = hexToRgb(hex);
   if (!rgb) return hex;
   const [h, s, l] = srgb_to_okhsl(...rgb);
   const [r, g, b] = okhsl_to_srgb(
-    h,
+    ((h + hOffset) % 1 + 1) % 1,
     clamp01(s + sOffset),
     clamp01(l + lOffset),
   );
   return rgbToHex([r, g, b]);
+}
+
+function getPurePrimePower(partial) {
+  if (!Number.isInteger(partial) || partial <= 1) return null;
+  for (const prime of PRIME_COLOR_ORDER) {
+    if (prime <= 2) continue;
+    let value = partial;
+    let exponent = 0;
+    while (value % prime === 0) {
+      value /= prime;
+      exponent += 1;
+    }
+    if (value === 1 && exponent > 0) {
+      return { prime, exponent };
+    }
+  }
+  return null;
+}
+
+function getRaisedPrimeFamilyColor(prime, exponent, options = {}) {
+  const base = getScreenColorForPrime(prime, options);
+  if (exponent <= 1) return base;
+  if (prime === 3 && hasPrimeFamilyOverride(3, options)) return base;
+  if (hasPrimeFamilyOverride(prime, options)) {
+    return adjustHexOkhsl(base, {
+      sOffset: Math.min(0.09, 0.03 * (exponent - 1)),
+      lOffset: -Math.min(0.12, 0.04 * (exponent - 1)),
+    });
+  }
+
+  const defaultBase = DEFAULT_PRIME_FAMILY_COLORS[prime];
+  const exactTemplate = EXACT_ODD_PARTIAL_OVERTONE_COLORS[prime ** exponent];
+  if (defaultBase && exactTemplate) {
+    const baseRgb = hexToRgb(defaultBase);
+    const templateRgb = hexToRgb(exactTemplate);
+    if (baseRgb && templateRgb) {
+      const [, baseS, baseL] = srgb_to_okhsl(...baseRgb);
+      const [, templateS, templateL] = srgb_to_okhsl(...templateRgb);
+      return adjustHexOkhsl(base, {
+        sOffset: templateS - baseS,
+        lOffset: templateL - baseL,
+      });
+    }
+  }
+
+  return adjustHexOkhsl(base, {
+    sOffset: Math.min(0.2, 0.08 * (exponent - 1)),
+    lOffset: -Math.min(0.1, 0.035 * (exponent - 1)),
+  });
+}
+
+function getOvertonalPrimeComponentColor(prime, exponent, options = {}) {
+  return exponent > 1
+    ? getRaisedPrimeFamilyColor(prime, exponent, options)
+    : getScreenColorForPrime(prime, options);
+}
+
+function hasOvertonalPrimeAboveThree(monzo, basis = EXTENDED_MONZO_BASIS) {
+  return basis.some((prime, index) => prime > 3 && (monzo[index] ?? 0) > 0);
+}
+
+function getActiveOvertonalOddPrimeEntries(monzo, basis = EXTENDED_MONZO_BASIS) {
+  const hasPrimeAboveThree = hasOvertonalPrimeAboveThree(monzo, basis);
+  return basis
+    .map((prime, index) => ({ prime, exponent: monzo[index] ?? 0 }))
+    .filter(({ prime, exponent }) =>
+      exponent > 0
+      && (prime > 3 || (!hasPrimeAboveThree && prime === 3)));
+}
+
+function getExactOvertonalTemplateColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {}) {
+  const exactOddPartial = getExactOvertoneOddPartial(monzo, basis);
+  if (!exactOddPartial) return null;
+  const exactTemplate = EXACT_ODD_PARTIAL_OVERTONE_COLORS[exactOddPartial];
+  if (!exactTemplate) return null;
+  const activeOvertonal = getActiveOvertonalOddPrimeEntries(monzo, basis);
+  if (!activeOvertonal.length) return exactTemplate;
+  if (activeOvertonal.length === 1) {
+    const [{ prime, exponent }] = activeOvertonal;
+    if (hasPrimeFamilyOverride(prime, options)) {
+      return getRaisedPrimeFamilyColor(prime, exponent, options);
+    }
+  }
+
+  const defaultBaseBlend = blendHexesWeighted(
+    activeOvertonal.map(({ prime, exponent }) => ({
+      hex: getOvertonalPrimeComponentColor(prime, exponent, {}),
+      weight: exponent,
+    })),
+  );
+  const currentBaseBlend = blendHexesWeighted(
+    activeOvertonal.map(({ prime, exponent }) => ({
+      hex: getOvertonalPrimeComponentColor(prime, exponent, options),
+      weight: exponent,
+    })),
+  );
+  if (!defaultBaseBlend || !currentBaseBlend) return exactTemplate;
+
+  const defaultBaseRgb = hexToRgb(defaultBaseBlend);
+  const currentBaseRgb = hexToRgb(currentBaseBlend);
+  const templateRgb = hexToRgb(exactTemplate);
+  if (!defaultBaseRgb || !currentBaseRgb || !templateRgb) return exactTemplate;
+
+  const [, baseS, baseL] = srgb_to_okhsl(...defaultBaseRgb);
+  const [, templateS, templateL] = srgb_to_okhsl(...templateRgb);
+
+  return adjustHexOkhsl(currentBaseBlend, {
+    sOffset: Math.min(0, templateS - baseS) - Math.max(0, activeOvertonal.length - 1) * 0.05,
+    lOffset: templateL - baseL,
+  });
 }
 
 function getUndertonalFamilyColor(family, magnitude = 1) {
@@ -273,8 +395,19 @@ function hasPrimeFamilyOverride(prime, options = {}) {
     && options.primeFamilyColorMap[prime].toLowerCase() !== DEFAULT_PRIME_FAMILY_COLORS[prime];
 }
 
+function hasAnyActivePrimeOverride(monzo, basis = EXTENDED_MONZO_BASIS, options = {}) {
+  return getActiveOvertonalOddPrimeEntries(monzo, basis).some(({ prime }) => hasPrimeFamilyOverride(prime, options));
+}
+
 function getExactOddPartialColor(partial, options = {}) {
   if (!EXACT_ODD_PARTIAL_OVERTONE_COLORS[partial]) return null;
+  const primePower = getPurePrimePower(partial);
+  if (primePower && DEFAULT_PRIME_FAMILY_COLORS[primePower.prime]) {
+    if (primePower.exponent === 1) return getScreenColorForPrime(primePower.prime, options);
+    if (hasPrimeFamilyOverride(primePower.prime, options)) {
+      return getRaisedPrimeFamilyColor(primePower.prime, primePower.exponent, options);
+    }
+  }
   if (DEFAULT_PRIME_FAMILY_COLORS[partial]) return getScreenColorForPrime(partial, options);
   return EXACT_ODD_PARTIAL_OVERTONE_COLORS[partial];
 }
@@ -408,6 +541,62 @@ export function getFifthsFrameFromMonzo(monzo, basis = EXTENDED_MONZO_BASIS, opt
 
 function getPythagoreanPitchClassColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {}) {
   if (!isPure3LimitMonzo(monzo, basis)) return null;
+  if (hasPrimeFamilyOverride(3, options)) {
+    const frame = getFifthsFrameFromMonzo(monzo, basis, options);
+    if (!frame) return null;
+    const customBase = getScreenColorForPrime(3, options);
+    if (frame.rank === 0) {
+      return {
+        screenHex: customBase,
+        familyPrime: 3,
+        familyName: "pythagorean custom family",
+        confidence: 1,
+        explanation: "Pure 3-limit custom family override",
+        fifthsFrame: frame,
+      };
+    }
+    const foldedRank = Math.max(-4, Math.min(4, frame.rank));
+    const template = FIFTHS_TIER_COLORS[foldedRank] ?? WHITE;
+    const baseRgb = hexToRgb(customBase);
+    const coreRgb = hexToRgb(WHITE);
+    const templateRgb = hexToRgb(template);
+    if (baseRgb && coreRgb && templateRgb) {
+      const [, coreS, coreL] = srgb_to_okhsl(...coreRgb);
+      const [, templateS, templateL] = srgb_to_okhsl(...templateRgb);
+      const rankMagnitude = Math.abs(foldedRank);
+      const saturationScaleByMagnitude = {
+        1: 0.22,
+        2: 0.3,
+        3: 0.36,
+        4: 0.42,
+      };
+      const lightnessScaleByMagnitude = {
+        1: 0.82,
+        2: 0.88,
+        3: 0.92,
+        4: 0.96,
+      };
+      return {
+        screenHex: adjustHexOkhsl(customBase, {
+          sOffset: (templateS - coreS) * (saturationScaleByMagnitude[rankMagnitude] ?? 0.22),
+          lOffset: (templateL - coreL) * (lightnessScaleByMagnitude[rankMagnitude] ?? 0.82),
+        }),
+        familyPrime: 3,
+        familyName: "pythagorean custom family",
+        confidence: 0.95,
+        explanation: `Pure 3-limit custom family override rank ${frame.rank}`,
+        fifthsFrame: frame,
+      };
+    }
+    return {
+      screenHex: template,
+      familyPrime: 3,
+      familyName: "pythagorean custom family",
+      confidence: 0.95,
+      explanation: `Pure 3-limit custom family override rank ${frame.rank}`,
+      fifthsFrame: frame,
+    };
+  }
   const frame = getFifthsFrameFromMonzo(monzo, basis, options);
   if (!frame) return null;
   const foldedRank = Math.max(-4, Math.min(4, frame.rank));
@@ -471,8 +660,8 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
 
   if (fiveExp > 0 && fiveExp <= 2) {
     const chainStart = -1 - 4 * fiveExp;
-    const diatonicColor = fiveExp === 1
-      ? (hasPrimeFamilyOverride(5, options) ? getScreenColorForPrime(5, options) : QUINTAL_DIATONIC_COLORS[fiveExp])
+    const diatonicColor = hasPrimeFamilyOverride(5, options)
+      ? getRaisedPrimeFamilyColor(5, fiveExp, options)
       : QUINTAL_DIATONIC_COLORS[fiveExp];
     const isDiatonic = roleIsDiatonic || (!roleIsChromatic && isInAscendingChainRun(threeExp, chainStart, 0, 7));
     const isChromatic = roleIsChromatic || (!roleIsDiatonic && isInAscendingChainRun(threeExp, chainStart, 7, 5));
@@ -506,18 +695,14 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
   if (fiveExp < 0 && fiveExp >= -2) {
     const absFive = Math.abs(fiveExp);
     const chainStart = -2 + 4 * (absFive - 1);
-    const base = absFive === 1
-      ? (hasPrimeFamilyOverride(5, options)
-        ? makeUndertonalDiatonic(getScreenColorForPrime(5, options))
-        : QUINTAL_DIATONIC_COLORS[String(fiveExp)])
+    const base = hasPrimeFamilyOverride(5, options)
+      ? makeUndertonalDiatonic(getRaisedPrimeFamilyColor(5, absFive, options))
       : QUINTAL_DIATONIC_COLORS[String(fiveExp)];
     const isChromatic = roleIsChromatic || (!roleIsDiatonic && isInAscendingChainRun(threeExp, chainStart, 0, 5));
     const isDiatonic = roleIsDiatonic || (!roleIsChromatic && isInAscendingChainRun(threeExp, chainStart, 5, 7));
     if (isChromatic) {
       return {
-        screenHex: hasPrimeFamilyOverride(5, options) && absFive === 1
-          ? makeUndertonalChromatic(getScreenColorForPrime(5, options))
-          : makeUndertonalChromatic(base),
+        screenHex: makeUndertonalChromatic(base),
         familyPrime: 5,
         familyName: absFive === 1 ? "quintal undertonal flat" : "quintal undertonal two-comma flat",
         confidence: 0.9,
@@ -552,10 +737,13 @@ function getSeptimalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = 
   const exactOddPartial = getExactOvertoneOddPartial(monzo, basis);
   const branch = getOddBranchProducts(monzo, basis);
   const preferredBranchIdentity = branch?.positive ?? exactOddPartial;
-  const preferredOvertonalColor =
-    preferredBranchIdentity && getExactOddPartialColor(preferredBranchIdentity, options)
-      ? getExactOddPartialColor(preferredBranchIdentity, options)
-      : SEPTIMAL_OVERTONAL_DIATONIC;
+  const preferredOvertonalColor = hasPrimeFamilyOverride(7, options)
+    ? getRaisedPrimeFamilyColor(7, Math.abs(sevenExp), options)
+    : (
+      preferredBranchIdentity && getExactOddPartialColor(preferredBranchIdentity, options)
+        ? getExactOddPartialColor(preferredBranchIdentity, options)
+        : SEPTIMAL_OVERTONAL_DIATONIC
+    );
 
   const threeExp = getChainThreeExponent(frame, options);
   const makeOvertonalChromatic = (base) =>
@@ -609,7 +797,7 @@ function getSeptimalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = 
     const isChromatic = role === "chromatic" || (role == null && isInAscendingChainRun(threeExp, chainStart, 7, 5));
     if (isDiatonic) {
       return {
-        screenHex: makeUndertonalDiatonic(SEPTIMAL_OVERTONAL_DIATONIC),
+        screenHex: makeUndertonalDiatonic(preferredOvertonalColor),
         familyPrime: 7,
         familyName: "septimal undertonal diatonic",
         confidence: 0.95,
@@ -619,7 +807,7 @@ function getSeptimalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = 
     }
     if (isChromatic) {
       return {
-        screenHex: makeUndertonalChromatic(SEPTIMAL_OVERTONAL_DIATONIC),
+        screenHex: makeUndertonalChromatic(preferredOvertonalColor),
         familyPrime: 7,
         familyName: "septimal undertonal chromatic",
         confidence: 0.9,
@@ -649,9 +837,10 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
   if (!Array.isArray(analysisMonzo)) return null;
   const fifthsFrame = getFifthsFrameFromMonzo(monzo, basis, options);
   const structuralOverlay = options.structuralOverlay ?? "fifths";
+  const activePrimeEntries = getActivePrimeEntries(analysisMonzo, basis);
   const branch = getOddBranchProducts(analysisMonzo, basis);
-  const hasUndertonalPrime = getActivePrimeEntries(analysisMonzo, basis)
-    .some(({ exponent }) => exponent < 0);
+  const hasUndertonalPrime = activePrimeEntries.some(({ exponent }) => exponent < 0);
+  const hasActivePrimeOverride = hasAnyActivePrimeOverride(analysisMonzo, basis, options);
 
   if (structuralOverlay !== "none") {
     const pythagorean = getPythagoreanPitchClassColor(analysisMonzo, basis, options);
@@ -664,9 +853,22 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
     if (septimal) return septimal;
   }
 
-  const dominant = dominantPrimeFromMonzo(analysisMonzo, basis);
   const exactOddPartial = getExactOvertoneOddPartial(analysisMonzo, basis);
-  if (exactOddPartial && getExactOddPartialColor(exactOddPartial, options)) {
+  const dominant = dominantPrimeFromMonzo(analysisMonzo, basis);
+  if (hasActivePrimeOverride && exactOddPartial) {
+    const templateColor = getExactOvertonalTemplateColor(analysisMonzo, basis, options);
+    if (templateColor) {
+      return {
+        screenHex: templateColor,
+        familyPrime: dominant?.prime ?? null,
+        familyName: dominant ? getFamilyForPrime(dominant.prime, options)?.familyName ?? "neutral" : "neutral",
+        confidence: 1,
+        explanation: `Exact odd partial ${exactOddPartial}° (template-adjusted)`,
+        fifthsFrame,
+      };
+    }
+  }
+  if (!hasActivePrimeOverride && exactOddPartial && getExactOddPartialColor(exactOddPartial, options)) {
     return {
       screenHex: getExactOddPartialColor(exactOddPartial, options),
       familyPrime: dominant?.prime ?? null,
@@ -677,7 +879,7 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
     };
   }
 
-  if (!hasUndertonalPrime && branch?.positive && getExactOddPartialColor(branch.positive, options)) {
+  if (!hasActivePrimeOverride && !hasUndertonalPrime && branch?.positive && getExactOddPartialColor(branch.positive, options)) {
     return {
       screenHex: getExactOddPartialColor(branch.positive, options),
       familyPrime: dominant?.prime ?? null,
@@ -700,6 +902,32 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
   }
 
   const family = getFamilyForPrime(dominant.prime, options);
+
+  if (
+    hasActivePrimeOverride
+    && !hasUndertonalPrime
+    && activePrimeEntries.length > 1
+    && activePrimeEntries.every(({ exponent }) => exponent > 0)
+  ) {
+    const blendedColor = blendHexesWeighted(
+      activePrimeEntries.map(({ prime, exponent }) => ({
+        hex: exponent > 1
+          ? getRaisedPrimeFamilyColor(prime, exponent, options)
+          : getScreenColorForPrime(prime, options),
+        weight: exponent,
+      })),
+    );
+    if (blendedColor) {
+      return {
+        screenHex: blendedColor,
+        familyPrime: dominant.prime,
+        familyName: `${family.familyName} composite`,
+        confidence: 0.96,
+        explanation: "Overtonal prime-family blend",
+        fifthsFrame,
+      };
+    }
+  }
   let color = family.screen;
 
   if (dominant.exponent < 0) {
