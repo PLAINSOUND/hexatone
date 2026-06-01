@@ -422,6 +422,22 @@ export const SETTINGS_REGISTRY = [
     description: "Auto Send Colours to Lumatone LEDs when scale changes",
   },
   {
+    key: "lumatone_degree_filter_mode",
+    tier: "local",
+    type: "string",
+    default: "all",
+    perController: false,
+    description: "Lumatone LED colour filter mode: all degrees or selected degree subset",
+  },
+  {
+    key: "lumatone_degree_filter",
+    tier: "local",
+    type: "string",
+    default: "",
+    perController: false,
+    description: "Comma-separated scale degrees that remain lit on the Lumatone when degree filtering is active",
+  },
+  {
     key: "exquis_led_sync",
     tier: "local",
     type: "bool",

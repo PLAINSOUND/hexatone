@@ -72,6 +72,8 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midi_wheel_semitones",
     "midiin_mpe_manager_ch",
     "lumatone_led_sync",
+    "lumatone_degree_filter_mode",
+    "lumatone_degree_filter",
     "exquis_led_sync",
     "linnstrument_led_sync",
     "modulation_style",

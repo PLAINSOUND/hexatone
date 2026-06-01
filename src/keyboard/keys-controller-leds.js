@@ -20,6 +20,10 @@ import {
   LUMATONE_TONIC,
   LUMATONE_TONIC_OTHER,
 } from "../settings/scale/color-transfer.js";
+import {
+  degreeFilterSetFromSettings,
+  LUMATONE_COLOR_FILTER_DARK,
+} from "../controllers/lumatone-color-filters.js";
 import { detectController } from "../controllers/registry.js";
 import { modulatedControllerCoords } from "./modulation-controller-runtime.js";
 
@@ -165,11 +169,17 @@ export function sendLumatoneLayout() {
 
 export function buildLumatoneColorEntries() {
   const entries = [];
+  const darkMode = this.settings?.lumatone_degree_filter_mode === LUMATONE_COLOR_FILTER_DARK;
+  const degreeFilter = degreeFilterSetFromSettings(this.settings);
   for (const [mapKey, coords] of this.controllerMap) {
     const dotIdx = mapKey.indexOf(".");
     const board = parseInt(mapKey.slice(0, dotIdx), 10);
     const key = parseInt(mapKey.slice(dotIdx + 1), 10);
-    const hexColor = this._getLumatoneHexColor(controllerCoordsForDisplay.call(this, coords));
+    const mappedCoords = controllerCoordsForDisplay.call(this, coords);
+    const [, reducedSteps] = this.hexCoordsToCents(mappedCoords);
+    const hexColor = darkMode || (degreeFilter && !degreeFilter.has(reducedSteps))
+      ? "#000000"
+      : this._getLumatoneHexColor(mappedCoords);
     entries.push({ board, key, hexColor });
   }
   return entries;

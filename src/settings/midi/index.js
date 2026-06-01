@@ -1331,6 +1331,8 @@ MIDIio.propTypes = {
     midi_passthrough: PropTypes.bool,
     midiin_channel_legacy: PropTypes.bool,
     lumatone_led_sync: PropTypes.bool,
+    lumatone_degree_filter_mode: PropTypes.string,
+    lumatone_degree_filter: PropTypes.string,
     linnstrument_led_sync: PropTypes.bool,
     linnstrument_channel_allocation: PropTypes.string,
     linnstrument_pitch_bend_mode: PropTypes.string,
