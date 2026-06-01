@@ -41,10 +41,16 @@ const ColorCell = ({
   const swatchRef = createRef();
   const lastFire = useRef(0);
   const lastEventTime = useRef(0);
+  const safeRef = useRef(safe);
+  const draftRef = useRef(safe);
+  const comparingRef = useRef(false);
 
   useEffect(() => {
+    safeRef.current = safe;
     setDraft(safe);
     setComparing(false);
+    draftRef.current = safe;
+    comparingRef.current = false;
   }, [safe]);
 
   useEffect(() => {
@@ -56,20 +62,30 @@ const ColorCell = ({
   const applyDraft = (hex) => {
     const normalized = normaliseHex(hex);
     if (!normalized) return;
+    draftRef.current = normalized;
     setDraft(normalized);
     setComparing(false);
+    comparingRef.current = false;
   };
 
   const commitDraft = () => {
-    if (!isDirty) return;
-    if (visibleColor.toLowerCase() === safe.toLowerCase()) {
-      setDraft(safe);
+    const currentSafe = safeRef.current;
+    const currentDraft = draftRef.current;
+    const currentComparing = comparingRef.current;
+    const dirty = currentDraft.toLowerCase() !== currentSafe.toLowerCase();
+    const currentVisible = currentComparing ? currentSafe : currentDraft;
+
+    if (!dirty) return;
+    if (currentVisible.toLowerCase() === currentSafe.toLowerCase()) {
+      draftRef.current = currentSafe;
+      comparingRef.current = false;
+      setDraft(currentSafe);
       setComparing(false);
-      onPreviewColor?.(safe);
-      onChange({ target: { name, value: safe } });
+      onPreviewColor?.(currentSafe);
+      onChange({ target: { name, value: currentSafe } });
       return;
     }
-    onChange({ target: { name, value: visibleColor } });
+    onChange({ target: { name, value: currentVisible } });
   };
 
   // Clicking the swatch triggers the hidden color picker
@@ -183,7 +199,8 @@ const ColorCell = ({
           onClick={() =>
             setComparing((prev) => {
               const nextComparing = !prev;
-              onPreviewColor?.(nextComparing ? safe : draft);
+              comparingRef.current = nextComparing;
+              onPreviewColor?.(nextComparing ? safeRef.current : draftRef.current);
               return nextComparing;
             })}
           title="Compare with original colour"
