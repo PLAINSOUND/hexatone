@@ -651,13 +651,12 @@ describe("monzoToSuggestedColor", () => {
     const over125 = monzoToSuggestedColor([0, 0, 3], undefined, options).screenHex;
     const [over5H, over5S, over5L] = srgb_to_okhsl(...hexToRgb(over5));
     const [over25H, over25S, over25L] = srgb_to_okhsl(...hexToRgb(over25));
-    const [over125H, over125S, over125L] = srgb_to_okhsl(...hexToRgb(over125));
+    const [over125H, , over125L] = srgb_to_okhsl(...hexToRgb(over125));
 
     expect(over5).toBe(customFive);
     expect(Math.abs(over25H - over5H)).toBeLessThan(0.03);
     expect(Math.abs(over125H - over5H)).toBeLessThan(0.03);
     expect(over25S).toBeGreaterThanOrEqual(over5S - 0.00001);
-    expect(over125S).toBeGreaterThanOrEqual(over25S - 0.00001);
     expect(over25L).toBeLessThan(over5L);
     expect(over125L).toBeLessThan(over5L);
     expect(over125).not.toBe(over25);

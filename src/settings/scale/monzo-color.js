@@ -282,10 +282,10 @@ function getRaisedPrimeFamilyColor(prime, exponent, options = {}) {
   if (hasPrimeFamilyOverride(prime, options)) {
     const family = MONZO_COLOR_FAMILIES[prime];
     if (family?.dark) {
-      const deepened = mixHex(base, family.dark, Math.min(0.3, 0.12 * (exponent - 1)));
+      const deepened = mixHex(base, family.dark, Math.min(0.4, 0.18 * (exponent - 1)));
       const saturated = pushSaturationPreservingHue(base, deepened, Math.min(0.05, 0.02 * (exponent - 1)));
       return adjustHexOkhsl(saturated, {
-        lOffset: -Math.min(0.1, 0.035 * (exponent - 1)),
+        lOffset: -Math.min(0.12, 0.04 * (exponent - 1)),
       });
     }
     return adjustHexOkhsl(base, {

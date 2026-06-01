@@ -14,11 +14,11 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.2.1 (May 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release: 3.1.0. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Current version 3.2.2 (June 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release: 3.1.0. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
 
 ## Current State
 
-Hexatone 3.2.1 is a live microtonal keyboard and scale workspace featuring:
+Hexatone 3.2.2 is a live microtonal keyboard and scale workspace featuring:
 
 - isomorphic hexagonal layout
 - rational / just intonation with automatic HEJI notation
@@ -62,7 +62,7 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.2.1 *(currently in development)*
+### 3.2.2 *(currently in development)*
 
 **Live performance architecture**
 

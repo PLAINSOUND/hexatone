@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-05-19
+Updated: 2026-06-01
 
 ## About
 
@@ -14,7 +14,7 @@ Features:
 - scale table for editing, comparing, and displaying tunings
 - scale creation, comparison, and rationalisation tools
 - adjust any pitch to any frequency and automatically update the underlying scala files
-- JI-focused workspace, featuring modulation and automatic HEJI Notation generation
+- JI-focused workspace, featuring modulation and automatic HEJI Notation / Key Colour generation
 - parses MIDI input from MPE or multichannel layout isomorphic and 2D controllers like Haken Continuum, LinnStrument, Lumatone, Exquis, and others; correlates known controller geometries with on-screen scale layouts
 - sends MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
 - a live-oriented composition, improvisation, and performance companion to [Scale Workshop](https://scaleworkshop.plainsound.org)
@@ -79,13 +79,27 @@ Click or tap the on-screen hexes to play notes.
 
 The H key is mapped automatically to the central degree at the center of the canvas.
 
+## Presets
+
+Hexatone includes built-in tunings and supports user presets. Users may import a Scala file or a previously saved Hexatone `.json` file including all local settings. Also, it is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
+
+A possible workflow for new scales is to:
+
+1. create, import, or analyze a scale in Scala, Scale Workshop or Hexatone
+2. bring that scale into Hexatone if needed
+3. play it, experiment with sustain, octave transpositions, modulations
+4. tune scale degrees against drones, held chords, or other instruments
+5. compare alternate rational or reference-frequency readings
+6. make snapshots; preserve useful scale variations as presets
+7. export .json files to easily share or reimport settings and metadata
+
 ## Scale Settings
 
 - reference frequency (Hz)
 - any scale degree may be assigned to this frequency
 - scale size
 - equave (interval of transposition at which the scale pattern repeats)
-- colours
+- key colours
 - key labels
 
 You can also:
@@ -95,7 +109,43 @@ You can also:
 - import, edit, export a Scala file
 - sort the scale ascending by degree
 
-### The Scale Table
+### Key Colours
+
+Use the Key Colours menu to choose how note colours are shown on the keyboard and in the scale table. There are three modes:
+
+- Manual uses the stored note colours and allows individual keys to be manually edited, compared, and committed in the scale table
+- Auto provides algorithmically suggested variants for JI pitches based on component primes, interval structure, and Bosanquet layout of diatonic/chromatic notes; in addition to the default settings users may save custom palettes
+- Spectrum automatically generates a continuous colour spectrum around a chosen central hue and maps it across the scale
+- both automatic modes may be committed and edited further in the Scale Table
+
+### JI Palette by Primes
+
+Key colouring helps identify prime factors in rational intonation (JI), using the following shape:
+
+| Prime / role | Colour |
+| --- | --- |
+| Pythagorean spine (3°), sharp / flat shading | white / black & tonal shading |
+| 5° | ivory / yellow |
+| 7° | pink / magenta |
+| 11° | bright green |
+| 13° | bright violet |
+| 17° | white / black; evenly divides the whole tone |
+| 19° | cyan |
+| 23° | dark green |
+| 29° | indigo |
+| 31° | turquoise |
+| 37° | silver |
+| 41° | dark rose |
+| 43° | amber |
+| 47° | bright magenta |
+
+Combinations of primes mix and saturate these colours.
+
+### Key Labels
+
+Use the Key Labels menu to choose which information (Blank, Degree Numbers, Scala Data, Cents, Names, HEJI Notation) is displayed on the individual keys. The HEJI Notation options are derived based on a user-specified spelling reference which may or may not be in the actual scale. Users may choose tempered accidentals + cents or JI accidental symbols. Primes > 47 or irrational pitches are given tempered notation + cents deviation. Notation is responsive to the current rational reading of the scale; after tuning edits or modulation, displayed note names may update to reflect the current reference frame or interval interpretation.
+
+## The Scale Table
 
 The scale table is the detailed editing surface for each degree.  
 
@@ -161,12 +211,6 @@ The `Rationalisation Settings` include a number of options:
 - prime and odd limit
 - exponent range for the harmonic space region
 
-### HEJI Notation
-
-- scales can be displayed in HEJI-based notation (primes > 47 or irrational pitches are given tempered notation + cents deviation)
-- notation is responsive to the current rational reading of the scale
-- after tuning edits or modulation, displayed note names may update to reflect the current reference frame or interval interpretation
-
 ## Modulation
 
 - `MOD` (Backquote / ^): initiates a modulation by capturing the most recent note played; transfer this source note to a target note by pressing any key
@@ -176,20 +220,6 @@ The `Rationalisation Settings` include a number of options:
 - modulation updates both sounding relationships and the displayed notation context
 - modulation history can be used as a live record of changing reference-frame decisions during performance or analysis
 - modulation history may be reset globally, returning to the saved tuning
-
-## Presets
-
-Hexatone includes built-in tunings and supports user presets. Users may import a Scala file or a previously saved Hexatone `.json` file including all local settings. Also, it is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
-
-A recommended workflow for new scales is:
-
-1. create, import, or analyze a scale in Scala, Scale Workshop or Hexatone
-2. bring that scale into Hexatone if needed
-3. play it, experiment with sustain, octave transpositions, modulations
-4. tune scale degrees against drones, held chords, or other instruments
-5. compare alternate rational or reference-frequency readings
-6. make snapshots; preserve useful scale variations as presets
-7. export .json files to easily share or reimport settings and metadata
 
 ## WebMIDI
 
@@ -242,35 +272,6 @@ Hexatone can treat MIDI input broadly in two ways:
 
 The first treats the controller as a performance surface with position meaning.
 The second treats incoming pitch as musical material to be mapped into the current scale.
-
-## Colours
-
-Hexatone supports:
-
-- controller geometry recognition
-- live key colouring / LED synchronization
-- device-specific firmware control (Lumatone, Exquis, LinnStrument) allows devices to mirror Hexatone on-screen layout.
-
-Key colouring helps identify prime factors in rational intonation (JI), using the following shape:
-
-| Prime / role | Colour |
-| --- | --- |
-| Pythagorean spine (3°), sharp / flat shading | white / black & tonal shading |
-| 5° | ivory / yellow |
-| 7° | pink / magenta |
-| 11° | bright green |
-| 13° | bright violet |
-| 17° | white / black; evenly divides the whole tone |
-| 19° | cyan |
-| 23° | dark green |
-| 29° | indigo |
-| 31° | turquoise |
-| 37° | silver |
-| 41° | dark rose |
-| 43° | amber |
-| 47° | bright magenta |
-
-Combinations of primes mix and saturate these colours.
 
 ## MIDI Output
 
