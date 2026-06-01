@@ -288,6 +288,7 @@ const _db = COLOR_PAIRS.map(([sc, lm]) => {
 
 const SIGMA = 0.1; // RBF bandwidth in okLab units
 const W_FALLBACK = 0.1; // Damps correction toward identity far from all DB entries.
+const ANCHOR_SIGMA = 0.008; // Keeps known calibration points exact while remaining continuous nearby.
 
 /**
  * Apply the screen→Lumatone colour transfer to a CSS hex colour.
@@ -308,19 +309,21 @@ export function transferColor(hex) {
   if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
   if (!/^[0-9a-f]{6}$/.test(hex)) return "#" + hex; // passthrough if unrecognised
 
-  // 1. Exact lookup — first matching entry in the database wins.
-  const exact = _db.find((p) => p.sc === hex);
-  if (exact) return "#" + exact.lm;
-
-  // 2. RBF interpolation in okLab space.
+  // 1. RBF interpolation in okLab space.
   const q = hexToOklab(hex);
   let wSum = 0,
     dL = 0,
     da = 0,
     db = 0;
+  let nearest = null;
+  let nearestDist2 = Infinity;
 
   for (const p of _db) {
     const dist2 = (q[0] - p.li[0]) ** 2 + (q[1] - p.li[1]) ** 2 + (q[2] - p.li[2]) ** 2;
+    if (dist2 < nearestDist2) {
+      nearestDist2 = dist2;
+      nearest = p;
+    }
     const w = Math.exp(-dist2 / (2 * SIGMA * SIGMA));
     wSum += w;
     dL += w * p.delta[0];
@@ -329,5 +332,16 @@ export function transferColor(hex) {
   }
 
   const totalW = wSum + W_FALLBACK;
-  return oklabToHex(q[0] + dL / totalW, q[1] + da / totalW, q[2] + db / totalW);
+  const smooth = [q[0] + dL / totalW, q[1] + da / totalW, q[2] + db / totalW];
+  if (!nearest) return oklabToHex(...smooth);
+
+  // 2. Continuous anchor blend near calibrated database points.
+  // This preserves exact known targets while avoiding abrupt snaps when a
+  // user slightly modifies a nearby screen colour.
+  const anchorWeight = Math.exp(-nearestDist2 / (2 * ANCHOR_SIGMA * ANCHOR_SIGMA));
+  return oklabToHex(
+    smooth[0] * (1 - anchorWeight) + (nearest.li[0] + nearest.delta[0]) * anchorWeight,
+    smooth[1] * (1 - anchorWeight) + (nearest.li[1] + nearest.delta[1]) * anchorWeight,
+    smooth[2] * (1 - anchorWeight) + (nearest.li[2] + nearest.delta[2]) * anchorWeight,
+  );
 }

@@ -473,7 +473,10 @@ describe("Colors — interactions", () => {
     fireEvent.click(screen.getByLabelText("compare original colour for prime-family-colour-23"));
     fireEvent.click(screen.getByLabelText("save colour for prime-family-colour-23"));
 
-    expect(onChange).not.toHaveBeenCalledWith("prime_family_colors", expect.anything());
+    expect(onChange).toHaveBeenCalledWith(
+      "prime_family_colors",
+      expect.arrayContaining(["#95c69b"]),
+    );
     await waitFor(() => {
       expect(screen.queryByLabelText("save colour for prime-family-colour-23")).toBeNull();
     });

@@ -66,6 +66,7 @@ const ColorCell = ({
       setDraft(safe);
       setComparing(false);
       onPreviewColor?.(safe);
+      onChange({ target: { name, value: safe } });
       return;
     }
     onChange({ target: { name, value: visibleColor } });
