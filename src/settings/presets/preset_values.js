@@ -2324,7 +2324,7 @@ export const presets = [
       {
         name: "HS 53°-106°: harmonic partial row from 53° to 106°",
         description:
-          "A one octave cycle comprising the harmonic partial row from 53° to 106°. 53° is mapped to MIDI Note 51 (Middle C) and tuned to  53°/C at A 440 Hz, so the fundamental pitch-class (1°, 2°, 4°, 8°, 16°, etc.) is Pythagorean C. The entire series may be transposed to any fundamental by changing the Reference Frequency, which (in this case) will set the pitch-class 53°.",
+          "A 53-tone one octave cycle comprising the harmonic partial row from 53° to 106°. 54° (Degree 1) is tuned to A 220 Hz, so the fundamental pitch-class (1°, 2°, 4°, 8°, 16°, etc.) is Pythagorean C. The central degree is 11 (1°). The entire series may be transposed to any fundamental by changing the Reference Frequency and Degree.",
         short_description: "53-HS_53to106",
         scale_import: scale_53_hs_53to106,
         scale: parseScale(scale_53_hs_53to106).scale,
@@ -2450,12 +2450,12 @@ export const presets = [
         rotation: -16.102113751,
         fundamental: 220,
         reference_degree: 1,
-        center_degree: 0,
+        center_degree: 11,
       },
       {
         name: "HS 55°-110°: harmonic partial row from 55° to 110°",
         description:
-          "A one octave cycle comprising the harmonic partial row from 55° to 110°. 55° is mapped to MIDI Note 51 and tuned to 55°/C at A 440 Hz, so the fundamental pitch-class (1°, 2°, 4°, 8°, 16°, etc.) is Pythagorean C. The entire series may be transposed to any fundamental by changing the Reference Frequency, which (in this case) will set the pitch-class 55°.",
+          "A 55-tone one octave cycle comprising the harmonic partial row from 55° to 110°. 27° (Degree 53) is tuned to A 440 Hz, so the fundamental pitch-class (1°, 2°, 4°, 8°, 16°, etc.) is Pythagorean C. The Central Degree is 9 (1°). The entire series may be transposed to any fundamental by changing the Reference Frequency and Degree.",
         short_description: "55-HS_55to110",
         scale_import: scale_55_hs_55to110,
         scale: parseScale(scale_55_hs_55to110).scale,
@@ -2585,7 +2585,7 @@ export const presets = [
         rotation: -8.2,
         fundamental: 440,
         reference_degree: 53,
-        center_degree: 0,
+        center_degree: 9,
       },
       {
         name: "55-Critical Band",
