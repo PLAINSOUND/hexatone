@@ -44,7 +44,6 @@ import {
   buildQuerySpec,
   buildRegistryDefaults,
   PRESET_SKIP_KEYS,
-  REGISTRY_BY_KEY,
 } from "./persistence/settings-registry.js";
 import {
   settingsImpactKey,
@@ -76,24 +75,34 @@ const loadHakenController = (() => {
   return () => (promise ??= import("./controllers/hakenaudio.js"));
 })();
 
-// On browser refresh (not initial load), clear scale/preset sessionStorage unless
-// the user has opted into "Restore last preset on page reload".
-if (performance.getEntriesByType("navigation")[0]?.type === "reload") {
-  const shouldPersist = localStorage.getItem("hexatone_persist_on_reload") === "true";
-  if (!shouldPersist) {
-    // SCALE_KEYS_TO_CLEAR covers all scale/preset keys.
-    // Additionally clear these session flags on reload to prevent unexpected
-    // sysex traffic and stale preset-source state on startup.
-    const extraKeysToClear = [
-      "hexatone_preset_source",
-      "hexatone_preset_name",
-      "direct_sysex_auto",
-      "mts_bulk_sysex_auto",
-      REGISTRY_BY_KEY.webmidi_access.key,
-    ];
-    [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear].forEach((key) => sessionStorage.removeItem(key));
+export function applyReloadPersistencePolicy({
+  navigationType = performance.getEntriesByType("navigation")[0]?.type,
+  shouldPersist = localStorage.getItem("hexatone_persist_on_reload") === "true",
+} = {}) {
+  if (navigationType !== "reload" || shouldPersist) return;
+
+  // SCALE_KEYS_TO_CLEAR covers all scale/preset keys.
+  // Additionally clear these session flags on reload to prevent unexpected
+  // sysex traffic and stale preset-source state on startup.
+  const extraKeysToClear = [
+    "hexatone_preset_source",
+    "hexatone_preset_name",
+    "direct_sysex_auto",
+    "mts_bulk_sysex_auto",
+    "webmidi_access",
+  ];
+  [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear].forEach((key) => sessionStorage.removeItem(key));
+
+  if (window.location.search.length > 0) {
+    const url = new URL(window.location.toString());
+    url.search = "";
+    history.replaceState({}, "Hexatone WebApp", url);
   }
 }
+
+// On browser refresh (not initial load), clear scale/preset sessionStorage unless
+// the user has opted into "Restore last preset on page reload".
+applyReloadPersistencePolicy();
 
 export const Loading = () => <LoadingIcon />;
 
@@ -570,6 +579,7 @@ const App = () => {
       note_names: null,
       note_colors: null,
     },
+    [],
     PRESET_SKIP_KEYS,
   );
 

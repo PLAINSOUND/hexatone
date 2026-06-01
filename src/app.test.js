@@ -187,6 +187,7 @@ vi.mock("./loading-icon.jsx", () => ({
 }));
 
 import {
+  applyReloadPersistencePolicy,
   bindControllerLedRefs,
   commitModulationHistoryToPreset,
   Loading,
@@ -208,6 +209,24 @@ describe("Loading", () => {
   it("renders the loading icon SVG", () => {
     const { getByTestId } = render(<Loading />);
     expect(getByTestId("loading-icon")).not.toBeNull();
+  });
+});
+
+describe("applyReloadPersistencePolicy", () => {
+  it("clears the query string on reload when restore-on-reload is disabled", () => {
+    history.replaceState({}, "", "http://localhost/?scale=3/2,2/1&instrument=WMRIByzantineST");
+
+    applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: false });
+
+    expect(window.location.search).toBe("");
+  });
+
+  it("keeps the query string on reload when restore-on-reload is enabled", () => {
+    history.replaceState({}, "", "http://localhost/?scale=3/2,2/1&instrument=WMRIByzantineST");
+
+    applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: true });
+
+    expect(window.location.search).toBe("?scale=3/2,2/1&instrument=WMRIByzantineST");
   });
 });
 

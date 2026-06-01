@@ -304,7 +304,7 @@ const usePresets = (
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
-        setSettings(() => merged);
+        setSettings(() => merged, { updateUrl: false });
       }
     } else if (savedSource === "user") {
       const customPresets = loadCustomPresets();
@@ -321,7 +321,7 @@ const usePresets = (
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
-        setSettings(() => merged);
+        setSettings(() => merged, { updateUrl: false });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

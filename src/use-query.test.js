@@ -232,4 +232,72 @@ describe("useQuery", () => {
 
     unmount();
   });
+
+  it("keeps locally skipped preset fields in the URL while omitting localStorage restore", () => {
+    let latest = null;
+    const capture = (value) => {
+      latest = value;
+    };
+
+    const PresetHarness = ({ capture: onCapture }) => {
+      const [values, setValues] = useQuery(
+        {
+          scale: ExtractJoinedString,
+          fundamental: ExtractFloat,
+        },
+        {
+          scale: null,
+          fundamental: 440,
+        },
+        [],
+        ["scale", "fundamental"],
+      );
+
+      useEffect(() => {
+        onCapture({ values, setValues });
+      }, [values, setValues, onCapture]);
+
+      return null;
+    };
+
+    const { unmount } = render(h(PresetHarness, { capture }));
+
+    latest.setValues((prev) => ({
+      ...prev,
+      scale: ["3/2", "2/1"],
+      fundamental: 432,
+    }));
+
+    const query = new URLSearchParams(window.location.search);
+    expect(query.get("scale")).toBe("3/2,2/1");
+    expect(query.get("fundamental")).toBe("432");
+    expect(localStorage.getItem("scale")).toBeNull();
+    expect(localStorage.getItem("fundamental")).toBeNull();
+
+    unmount();
+  });
+
+  it("can update state without writing to the URL", () => {
+    let latest = null;
+    const capture = (value) => {
+      latest = value;
+    };
+
+    const { unmount } = render(h(UseQueryHarness, { capture }));
+
+    latest.setValues(
+      (prev) => ({
+        ...prev,
+        boolFlag: false,
+        zeroValue: 0,
+      }),
+      { updateUrl: false },
+    );
+
+    expect(window.location.search).toBe("");
+    expect(localStorage.getItem("boolFlag")).toBe("false");
+    expect(localStorage.getItem("zeroValue")).toBe("0");
+
+    unmount();
+  });
 });

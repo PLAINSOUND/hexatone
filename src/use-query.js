@@ -94,9 +94,9 @@ function shouldPersistQueryValue(value) {
   return value !== null && value !== undefined;
 }
 
-export function useQuery(spec, defaults, skipKeys = []) {
-  // Clear any previously persisted values for skipped keys
-  skipKeys.forEach((k) => localStorage.removeItem(k));
+export function useQuery(spec, defaults, skipKeys = [], localStorageSkipKeys = skipKeys) {
+  // Clear any previously persisted values for locally skipped keys
+  localStorageSkipKeys.forEach((k) => localStorage.removeItem(k));
 
   const initial = { ...defaults };
   if (document.location.search.length > 0) {
@@ -109,7 +109,7 @@ export function useQuery(spec, defaults, skipKeys = []) {
     }
   } else {
     for (let [key, extract] of Object.entries(spec)) {
-      if (skipKeys.includes(key)) continue;
+      if (localStorageSkipKeys.includes(key)) continue;
       if (localStorage.getItem(key) !== null) {
         initial[key] = extract.restore(key);
       }
@@ -131,7 +131,8 @@ export function useQuery(spec, defaults, skipKeys = []) {
     setValues(output);
   }
 
-  function setState(next_f) {
+  function setState(next_f, options = {}) {
+    const { updateUrl = true } = options;
     const query = new URLSearchParams();
     const next = next_f(valuesRef.current);
     // Update the ref immediately so that multiple synchronous setState calls
@@ -142,12 +143,16 @@ export function useQuery(spec, defaults, skipKeys = []) {
       if (skipKeys.includes(key)) continue;
       if (key in next && shouldPersistQueryValue(next[key])) {
         extract.insert(query, key, next[key]);
-        extract.store(key, next[key]);
+        if (!localStorageSkipKeys.includes(key)) {
+          extract.store(key, next[key]);
+        }
       }
     }
-    const url = new URL(location.toString());
-    url.search = query.toString();
-    history.replaceState({}, "Hexatone WebApp", url);
+    if (updateUrl) {
+      const url = new URL(location.toString());
+      url.search = query.toString();
+      history.replaceState({}, "Hexatone WebApp", url);
+    }
 
     setValues(next);
   }
