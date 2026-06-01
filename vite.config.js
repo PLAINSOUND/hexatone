@@ -3,6 +3,15 @@ import preact from '@preact/preset-vite';
 import svgr from 'vite-plugin-svgr';
 import path from 'path';
 import fs from 'fs';
+import process from 'process';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const packageJson = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'),
+);
+const appVersion = packageJson.version || '0.0.0';
 
 const devHttpsEnabled = process.env.VITE_DEV_HTTPS === 'true';
 const devHttpsKeyPath = process.env.VITE_DEV_SSL_KEY || path.resolve(__dirname, '.cert/localhost-key.pem');
@@ -69,6 +78,10 @@ export default defineConfig({
   // Base path: '/' for production (hexatone.plainsound.org), '/hexatone/' for
   // GitHub Pages preview (plainsound.github.io/hexatone). Set VITE_BASE_PATH in CI.
   base: process.env.VITE_BASE_PATH || '/',
+
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+  },
 
   build: {
     outDir: 'build',

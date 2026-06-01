@@ -20,8 +20,8 @@ if (import.meta.env.DEV) {
 }
 
 // ── Version tracking for cache busting ─────────────────────────────────────
-// Increment this version for each release to force cache refresh
-const APP_VERSION = "3.2.2";
+// Derived from package.json via Vite so release versioning stays single-source.
+const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 
 // Check stored version and force reload if mismatch
 const storedVersion = localStorage.getItem("hexatone_version");
