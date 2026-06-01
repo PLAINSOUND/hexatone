@@ -169,7 +169,7 @@ describe("LumatoneSettings", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("Send 2D Bypass Layout").closest("button"));
+    fireEvent.click(screen.getByText("Send Layout and Colours").closest("button"));
 
     expect(sendLumatoneBypassLayout).toHaveBeenCalledTimes(1);
     expect(alertSpy).toHaveBeenCalledWith(
@@ -178,7 +178,7 @@ describe("LumatoneSettings", () => {
     alertSpy.mockRestore();
   });
 
-  it("keeps LED Output and Send 2D Bypass Layout visible in bypass mode only", () => {
+  it("keeps LED Output and the bypass layout sender visible in bypass mode only", () => {
     render(
       <LumatoneSettings
         settings={{
@@ -197,8 +197,9 @@ describe("LumatoneSettings", () => {
     );
 
     expect(screen.getByText("LED Output")).toBeTruthy();
-    expect(screen.getByText("Send 2D Bypass Layout")).toBeTruthy();
-    expect(screen.queryByText("Send Blank Key Layout")).toBeNull();
+    expect(screen.getByText("2D Bypass Key Layout")).toBeTruthy();
+    expect(screen.getByText("Send Layout and Colours")).toBeTruthy();
+    expect(screen.queryByText("Send Blank Layout")).toBeNull();
     expect(screen.queryByText("Automatically Send LED Colours")).toBeNull();
     expect(screen.queryByText("Lumatone Colour Filter")).toBeNull();
   });

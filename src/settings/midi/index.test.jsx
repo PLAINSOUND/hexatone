@@ -456,7 +456,7 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     render(<MIDIio {...props} />);
 
-    expect(screen.getByText("Send Blank Key Layout")).toBeTruthy();
+    expect(screen.getByText("Send Blank Layout")).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: /Automatically Send LED Colours/ })).toBeTruthy();
   });
 
