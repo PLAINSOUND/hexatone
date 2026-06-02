@@ -100,6 +100,34 @@ function continuumRasterEntryTargetReached(entryTargetFloat, targetFloat, pendin
     : targetFloat <= pendingTarget;
 }
 
+function nearestContinuumFilteredScaleStep(keys, step, filterSet, equivSteps) {
+  if (!filterSet || !Number.isFinite(step)) return step;
+  const scaleLength = Math.max(1, keys.tuning.scale?.length ?? equivSteps ?? 1);
+  const searchRadius = Math.max(scaleLength, equivSteps, 1);
+  const stepCents = (Math.floor(step / scaleLength) * (keys.tuning.equivInterval ?? 1200)) +
+    (keys.tuning.scale[mod(step, scaleLength)] ?? 0);
+  let bestStep = null;
+  let bestDistance = Infinity;
+  let bestAbsDelta = Infinity;
+  for (let delta = -searchRadius; delta <= searchRadius; delta += 1) {
+    const candidate = step + delta;
+    if (!continuumRasterStepAllowed(candidate, filterSet, equivSteps)) continue;
+    const candidateCents = (Math.floor(candidate / scaleLength) * (keys.tuning.equivInterval ?? 1200)) +
+      (keys.tuning.scale[mod(candidate, scaleLength)] ?? 0);
+    const distance = Math.abs(candidateCents - stepCents);
+    const absDelta = Math.abs(delta);
+    if (
+      distance < bestDistance ||
+      (distance === bestDistance && absDelta < bestAbsDelta)
+    ) {
+      bestStep = candidate;
+      bestDistance = distance;
+      bestAbsDelta = absDelta;
+    }
+  }
+  return Number.isFinite(bestStep) ? bestStep : step;
+}
+
 function clearContinuumRasterExitHandoff(hex) {
   if (!hex) return;
   hex._continuumRasterPendingExitHandoff = false;
@@ -452,6 +480,7 @@ export function midinoteOn(event) {
 
   let coords;
   let liveInputAddress = null;
+  let rasterOnsetStepsOverride = null;
 
   if (this.inputRuntime.target === "scale") {
     const pitchCents = this._resolveScaleInputPitchCents(
@@ -472,8 +501,18 @@ export function midinoteOn(event) {
       channel: event.message.channel,
       note: event.note.number,
     };
-    coords = this.coordResolver.coordForSteps(result.steps, inputAddress);
-    coords = maybeResolveDistinctHakenCoords(this, coords, result.steps, inputAddress);
+    const rasterFilter = (
+      this.controller?.id === "hakenaudio" &&
+      this.inputRuntime.mpeInput &&
+      resolveHakenXGlideMode(this.inputRuntime) === "raster_to_notes"
+    )
+      ? continuumRasterFilterSetFromRuntime(this.inputRuntime)
+      : null;
+    const equivSteps = Math.max(1, Number(this.tuning.equivSteps ?? this.settings.equivSteps ?? 1) || 1);
+    const onsetSteps = nearestContinuumFilteredScaleStep(this, result.steps, rasterFilter, equivSteps);
+    rasterOnsetStepsOverride = onsetSteps;
+    coords = this.coordResolver.coordForSteps(onsetSteps, inputAddress);
+    coords = maybeResolveDistinctHakenCoords(this, coords, onsetSteps, inputAddress);
     if (usesPerChannelExpression(this.inputRuntime)) {
       liveInputAddress = inputAddress;
     }
@@ -552,7 +591,7 @@ export function midinoteOn(event) {
       // Scale mode: onset is the distance (full step offset from origin) of the
       // snapped hex — the same space findNearestDegree.steps uses.
       const [, , distance] = this.hexCoordsToCents(coords);
-      hex._rasterOnsetSteps = distance ?? 0;
+      hex._rasterOnsetSteps = rasterOnsetStepsOverride ?? distance ?? 0;
     } else {
       // Hex-layout mode: onset step via noteToSteps which includes channel offset.
       // Subsequent bends add a semitoneOffset to this value directly, avoiding

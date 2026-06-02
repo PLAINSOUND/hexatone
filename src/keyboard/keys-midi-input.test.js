@@ -2611,6 +2611,87 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.activeMidi.get(60)).toBe(newHex);
   });
 
+  it("snaps Continuum nearest-scale raster onset to the nearest allowed filter degree", () => {
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        scale: [0, 100, 210, 330, 500],
+        equivSteps: 5,
+        equivInterval: 1200,
+      },
+      {
+        target: "scale",
+        mpeInput: true,
+        hakenXGlideMode: "raster_to_notes",
+        hakenRasterFilterMode: "filter",
+        hakenRasterFilter: "0,3",
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
+    vi.spyOn(keys, "_resolveScaleInputPitchCents").mockReturnValue(210);
+    const hex = {
+      coords: new Point(3, 0),
+      cents: 330,
+      _baseCents: 330,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+    };
+    keys.hexOn = vi.fn(() => hex);
+    keys.hexCoordsToCents = vi.fn((coords) => [coords.x * 110, 0, coords.x]);
+
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(3, {
+      channel: 5,
+      note: 60,
+    });
+    expect(hex._rasterOnsetSteps).toBe(3);
+    expect(hex._rasterSteps).toBe(3);
+  });
+
+  it("does not apply the Continuum raster filter to first attack outside raster mode", () => {
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        scale: [0, 100, 210, 330, 500],
+        equivSteps: 5,
+        equivInterval: 1200,
+      },
+      {
+        target: "scale",
+        mpeInput: true,
+        hakenXGlideMode: "pitch_bending",
+        hakenRasterFilterMode: "filter",
+        hakenRasterFilter: "0,3",
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
+    vi.spyOn(keys, "_resolveScaleInputPitchCents").mockReturnValue(210);
+    const hex = {
+      coords: new Point(2, 0),
+      cents: 210,
+      _baseCents: 210,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+    };
+    keys.hexOn = vi.fn(() => hex);
+    keys.hexCoordsToCents = vi.fn((coords) => [coords.x * 105, 0, coords.x]);
+
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(2, {
+      channel: 5,
+      note: 60,
+    });
+    expect(hex._rasterOnsetSteps).toBe(2);
+  });
+
   it("skips disallowed Continuum raster filter degrees without retriggering intermediate notes", () => {
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },
