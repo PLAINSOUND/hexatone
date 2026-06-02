@@ -9,6 +9,7 @@ const persistWebMidiIntent = (key, value, onChange) => {
 
 const WebMIDISettings = ({
   settings,
+  midi,
   onChange,
   midiAccessError,
   enableWebMidi,
@@ -20,7 +21,7 @@ const WebMIDISettings = ({
   return (
     <fieldset>
       <legend>
-        <b>MIDI Permissions</b>
+        <b>MIDI Setup</b>
       </legend>
       <label>
         Enable MIDI
@@ -59,6 +60,25 @@ const WebMIDISettings = ({
           }}
         />
       </label>
+      <label title="Optional MIDI control surface input. Listens for note on/off, control change, and program change on all channels for future Hexatone control assignments.">
+        Hexatone Control Port
+        <select
+          value={settings.midi_control_device ?? "OFF"}
+          name="midi_control_device"
+          class="sidebar-input"
+          disabled={!midiEnabled}
+          onChange={(e) => {
+            onChange?.(e.target.name, e.target.value);
+            sessionStorage.setItem(e.target.name, e.target.value);
+          }}
+        >
+          <option value="OFF">OFF</option>
+          {midi &&
+            Array.from(midi.inputs.values()).map((m) => (
+              <option value={m.id}>{m.name}</option>
+            ))}
+        </select>
+      </label>
       {midiAccessError && (
         <p style={{ color: "#996666", fontSize: "0.85em", margin: "0.4em 0 0" }}>
           <em>{midiAccessError}</em>
@@ -72,7 +92,9 @@ WebMIDISettings.propTypes = {
   settings: PropTypes.shape({
     webmidi_enabled: PropTypes.bool,
     webmidi_sysex_enabled: PropTypes.bool,
+    midi_control_device: PropTypes.string,
   }).isRequired,
+  midi: PropTypes.object,
   onChange: PropTypes.func,
   midiAccessError: PropTypes.string,
   enableWebMidi: PropTypes.func,

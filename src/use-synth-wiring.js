@@ -50,6 +50,7 @@ const loadSampleSynthModule = async () => {
 
 const MIDI_PORT_RESET = {
   midiin_device: "OFF",
+  midi_control_device: "OFF",
   midi_device: "OFF",
   mts_bulk_device: "OFF",
   mpe_device: "OFF",

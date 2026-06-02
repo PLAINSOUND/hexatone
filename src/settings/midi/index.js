@@ -1354,6 +1354,7 @@ const MIDIio = (props) => {
 MIDIio.propTypes = {
   settings: PropTypes.shape({
     midiin_device: PropTypes.string,
+    midi_control_device: PropTypes.string,
     midiin_controller_override: PropTypes.string,
     midiin_anchor_note: PropTypes.number,
     midiin_steps_per_channel: PropTypes.number,

@@ -55,7 +55,7 @@ Minimum setup to explore scales, compare tunings, build and recall chords:
 - Scale Settings
 - Hexatone Layout
 - Built-in Sounds
-- MIDI Permissions
+- MIDI Setup
 - MIDI Input
 - Output Routing (MTS / MPE / OSC)
 
@@ -221,7 +221,7 @@ The `Rationalisation Settings` include a number of options:
 - modulation history can be used as a live record of changing reference-frame decisions during performance or analysis
 - modulation history may be reset globally, returning to the saved tuning
 
-## WebMIDI
+## MIDI Setup
 
 WebMIDI is optional; allowing SysEx functionality is an additional option. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub. Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
 
@@ -233,6 +233,8 @@ WebMIDI adds:
 - MTS and MPE output
 
 If you do not enable WebMIDI, Hexatone still works as a complete on-screen instrument and scale workspace.
+
+Hexatone Control Port exposes a MIDI port which may be used to control features in the Hexatone UX remotely.
 
 ## MIDI Input
 
@@ -259,9 +261,13 @@ The app includes support for several recognized controller types, including devi
 
 The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user.
 
+Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. Alternately, users may prefer a "traditional" multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave tranpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour correlation is not available.
+
+Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing.
+
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
 
-Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's space-bar. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data).
+Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's space-bar. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file.
 
 ### Input Modes
 

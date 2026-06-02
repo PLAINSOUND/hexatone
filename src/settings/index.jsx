@@ -131,6 +131,7 @@ const Settings = ({
     />
     <WebMIDISettings
       settings={settings}
+      midi={midi}
       onChange={onChange}
       midiAccessError={midiAccessError}
       enableWebMidi={enableWebMidi}

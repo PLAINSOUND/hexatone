@@ -53,16 +53,37 @@ const baseProps = {
   onDeleteSnapshot: () => {},
 };
 
-describe("Settings MIDI Permissions fieldset", () => {
+describe("Settings MIDI Setup fieldset", () => {
   beforeEach(() => {
     scaleMockState.props.length = 0;
   });
 
   it("renders always-visible Enable MIDI and Enable Sysex checkboxes", () => {
     render(<Settings {...baseProps} />);
-    expect(screen.getByText("MIDI Permissions")).not.toBeNull();
+    expect(screen.getByText("MIDI Setup")).not.toBeNull();
     expect(screen.getByLabelText("Enable MIDI")).not.toBeNull();
     expect(screen.getByLabelText("Enable Sysex")).not.toBeNull();
+  });
+
+  it("lets the user choose a MIDI Control Port below MIDI permissions", () => {
+    const onChange = vi.fn();
+    render(
+      <Settings
+        {...baseProps}
+        settings={{ webmidi_enabled: true, midi_control_device: "OFF" }}
+        midi={{
+          inputs: new Map([["input-2", { id: "input-2", name: "Control Surface" }]]),
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Hexatone Control Port"), {
+      target: { value: "input-2", name: "midi_control_device" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith("midi_control_device", "input-2");
+    expect(sessionStorage.getItem("midi_control_device")).toBe("input-2");
   });
 
   it("requests basic MIDI when Enable MIDI is clicked from none state", () => {

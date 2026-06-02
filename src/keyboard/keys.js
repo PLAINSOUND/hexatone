@@ -412,6 +412,7 @@ class Keys {
     }
 
     InputMidiListeners.setupMidiInput.call(this);
+    InputMidiListeners.setupMidiControlInput.call(this);
 
     // lumatoneLEDs and exquisLEDs are assigned externally by app.jsx after
     // construction, via onKeysReady — the same pattern so both LED engines
@@ -1816,6 +1817,7 @@ class Keys {
 
   updateInputRuntime = (nextRuntime, nextSettings = null) => {
     const previousMidiInputDevice = this.settings.midiin_device;
+    const previousMidiControlDevice = this.settings.midi_control_device;
     const previousModulationStyle = this.settings.modulation_style;
     const previousHakenGlideMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     const previousRouteKey = JSON.stringify({
@@ -1861,6 +1863,9 @@ class Keys {
       if (previousMidiInputDevice !== this.settings.midiin_device) {
         InputMidiListeners.rebindMidiInput.call(this);
         return;
+      }
+      if (previousMidiControlDevice !== this.settings.midi_control_device) {
+        InputMidiListeners.rebindMidiControlInput.call(this);
       }
       if (!this.midiin_data && this.settings.midiin_device !== "OFF") {
         InputMidiListeners.rebindMidiInput.call(this);
@@ -1977,6 +1982,10 @@ class Keys {
   setMidiCcLearnMode = (active, callback) => {
     this._midiLearnCcCallback = active ? (callback ?? null) : null;
   };
+
+  _handleMidiControlEvent(event) {
+    return InputMidiListeners.handleMidiControlEvent.call(this, event);
+  }
 
   // ── Lumatone LED helpers ────────────────────────────────────────────────────
 
@@ -2139,6 +2148,7 @@ class Keys {
     }
 
     InputMidiListeners.teardownMidiInput.call(this);
+    InputMidiListeners.teardownMidiControlInput.call(this);
 
     if (this.midiout_data) {
       this.midiout_data = null;

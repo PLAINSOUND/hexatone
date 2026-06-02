@@ -5704,6 +5704,74 @@ describe("Keys MIDI input integration", () => {
     expect(pedalFlip).toHaveBeenNthCalledWith(2, false);
   });
 
+  it("binds a separate MIDI Control Port for notes, CCs, and program changes on any channel", () => {
+    const controlListeners = {};
+    const performanceInput = {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      name: "Performance Input",
+    };
+    const controlInput = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        controlListeners[eventName] =
+          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Control Surface",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockImplementation((id) => (
+      id === "control-in" ? controlInput : performanceInput
+    ));
+
+    const keys = createKeys(
+      {
+        midiin_device: "performance-in",
+        midi_control_device: "control-in",
+      },
+      { layoutMode: "sequential" },
+    );
+    const controlSpy = vi.spyOn(keys, "_handleMidiControlEvent");
+
+    controlListeners.noteon({
+      message: { channel: 16 },
+      note: { number: 60, rawAttack: 100 },
+    });
+    controlListeners.noteoff({
+      message: { channel: 16 },
+      note: { number: 60, rawRelease: 64 },
+    });
+    controlListeners.controlchange({
+      message: { channel: 12, dataBytes: [74, 81] },
+    });
+    controlListeners.programchange({
+      message: { channel: 9, dataBytes: [7] },
+    });
+
+    expect(controlSpy).toHaveBeenNthCalledWith(1, {
+      type: "noteon",
+      channel: 16,
+      note: 60,
+      value: 100,
+    });
+    expect(controlSpy).toHaveBeenNthCalledWith(2, {
+      type: "noteoff",
+      channel: 16,
+      note: 60,
+      value: 64,
+    });
+    expect(controlSpy).toHaveBeenNthCalledWith(3, {
+      type: "controlchange",
+      channel: 12,
+      cc: 74,
+      value: 81,
+    });
+    expect(controlSpy).toHaveBeenNthCalledWith(4, {
+      type: "programchange",
+      channel: 9,
+      program: 7,
+    });
+  });
+
   it("consumes Continuum CC87 as hi-res LSBs for Y, Z, and X", () => {
     const listeners = {};
     const input = {
