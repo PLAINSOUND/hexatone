@@ -230,7 +230,6 @@ const LumatoneSettings = ({
               alignItems: "center",
               gap: "8px",
               marginLeft: "auto",
-              marginTop: "4px",
             }}
           >
             <button

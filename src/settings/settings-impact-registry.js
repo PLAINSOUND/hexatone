@@ -56,6 +56,8 @@ export const SETTINGS_IMPACT_FIELDS = {
     "hakenaudio_note_off_delay",
     "hakenaudio_raster_throttle_ms",
     "hakenaudio_raster_stability",
+    "hakenaudio_raster_filter_mode",
+    "hakenaudio_raster_filter",
     "hakenaudio_out_port",
     "midiin_scale_tolerance",
     "midiin_scale_fallback",

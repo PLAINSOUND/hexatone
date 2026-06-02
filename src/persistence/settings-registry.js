@@ -246,6 +246,22 @@ export const SETTINGS_REGISTRY = [
     description: "Haken Continuum Raster to Notes hysteresis amount to reduce note flutter near boundaries",
   },
   {
+    key: "hakenaudio_raster_filter_mode",
+    tier: "local",
+    type: "string",
+    default: "all",
+    perController: true,
+    description: "Haken Continuum Raster to Notes filter mode: all degrees or selected degree subset",
+  },
+  {
+    key: "hakenaudio_raster_filter",
+    tier: "local",
+    type: "string",
+    default: "",
+    perController: true,
+    description: "Comma-separated scale degrees allowed for Continuum Raster to Notes retriggering",
+  },
+  {
     key: "midi_passthrough",
     tier: "url",
     type: "bool",

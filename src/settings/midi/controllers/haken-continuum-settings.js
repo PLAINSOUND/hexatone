@@ -1,5 +1,17 @@
 import PropTypes from "prop-types";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import OutputPortPicker from "../output-port-picker.js";
+import {
+  CONTINUUM_RASTER_FILTER_ALL,
+  CONTINUUM_RASTER_FILTER_CUSTOM,
+  CONTINUUM_RASTER_FILTER_SELECTED_KEY,
+  exportableContinuumRasterFilterLibrary,
+  formatContinuumRasterFilter,
+  importContinuumRasterFilterLibrary,
+  parseContinuumRasterFilter,
+  readContinuumRasterFilterLibrary,
+  writeContinuumRasterFilterLibrary,
+} from "../../../controllers/continuum-raster-filters.js";
 
 // This module owns the Haken Continuum-specific MIDI Input controls that only
 // make sense for MPE input modes. It renders the Continuum X Glide mode
@@ -16,6 +28,13 @@ const HakenContinuumSettings = ({
   saveControllerPref,
   hakenPedalLearnActive,
 }) => {
+  const fileInputRef = useRef(null);
+  const [savedFilters, setSavedFilters] = useState(() => readContinuumRasterFilterLibrary());
+  const [selectedSavedName, setSelectedSavedName] = useState(
+    () => localStorage.getItem(CONTINUUM_RASTER_FILTER_SELECTED_KEY) || CONTINUUM_RASTER_FILTER_ALL,
+  );
+  const [draftFilter, setDraftFilter] = useState(settings.hakenaudio_raster_filter ?? "");
+  const [filterError, setFilterError] = useState("");
   const xGlideMode = settings.hakenaudio_x_glide_mode ?? "pitch_bending";
   const xGlideShaping = Math.max(
     0,
@@ -49,6 +68,153 @@ const HakenContinuumSettings = ({
   const updateHakenPref = (key, value, extra = null) => {
     onChange(key, value);
     saveControllerPref(ctrl, key, value, settings, extra ?? { [key]: value });
+  };
+  useEffect(() => {
+    setDraftFilter(settings.hakenaudio_raster_filter ?? "");
+  }, [settings.hakenaudio_raster_filter]);
+
+  useEffect(() => {
+    localStorage.setItem(CONTINUUM_RASTER_FILTER_SELECTED_KEY, selectedSavedName);
+  }, [selectedSavedName]);
+
+  const selectedSavedFilter = useMemo(
+    () => savedFilters.find((entry) => entry.name === selectedSavedName) ?? null,
+    [savedFilters, selectedSavedName],
+  );
+  const selectedSavedIndex = useMemo(
+    () => savedFilters.findIndex((entry) => entry.name === selectedSavedName),
+    [savedFilters, selectedSavedName],
+  );
+  const activeFilter = settings.hakenaudio_raster_filter ?? "";
+  const filterActive = settings.hakenaudio_raster_filter_mode === "filter";
+  const selectedValue = filterActive
+    ? (selectedSavedFilter && selectedSavedFilter.filter === activeFilter
+      ? selectedSavedFilter.name
+      : CONTINUUM_RASTER_FILTER_CUSTOM)
+    : CONTINUUM_RASTER_FILTER_ALL;
+
+  const applyFilter = (rawFilter, nextSavedName = selectedSavedName) => {
+    const parsed = parseContinuumRasterFilter(rawFilter);
+    if (!parsed) {
+      setFilterError("Scale-degree filter must use non-negative integers separated by commas.");
+      return false;
+    }
+    const normalizedFilter = formatContinuumRasterFilter(parsed);
+    setFilterError("");
+    setDraftFilter(normalizedFilter);
+    updateHakenPref("hakenaudio_raster_filter_mode", "filter", {
+      hakenaudio_raster_filter_mode: "filter",
+    });
+    updateHakenPref("hakenaudio_raster_filter", normalizedFilter, {
+      hakenaudio_raster_filter: normalizedFilter,
+    });
+    setSelectedSavedName(nextSavedName);
+    return true;
+  };
+
+  const selectAllDegrees = () => {
+    setFilterError("");
+    setDraftFilter("");
+    updateHakenPref("hakenaudio_raster_filter_mode", "all", {
+      hakenaudio_raster_filter_mode: "all",
+    });
+    updateHakenPref("hakenaudio_raster_filter", "", {
+      hakenaudio_raster_filter: "",
+    });
+    setSelectedSavedName(CONTINUUM_RASTER_FILTER_ALL);
+  };
+
+  const handleSelectFilter = (e) => {
+    const value = e.target.value;
+    if (value === CONTINUUM_RASTER_FILTER_ALL) {
+      selectAllDegrees();
+      return;
+    }
+    if (value === CONTINUUM_RASTER_FILTER_CUSTOM) return;
+    const entry = savedFilters.find((filter) => filter.name === value);
+    if (!entry) return;
+    setSelectedSavedName(entry.name);
+    applyFilter(entry.filter, entry.name);
+  };
+
+  const handleReloadSaved = () => {
+    if (!selectedSavedFilter) return;
+    applyFilter(selectedSavedFilter.filter, selectedSavedFilter.name);
+  };
+
+  const handleSaveFilter = () => {
+    const parsed = parseContinuumRasterFilter(draftFilter);
+    if (!parsed) {
+      setFilterError("Scale-degree filter must use non-negative integers separated by commas.");
+      return;
+    }
+    const normalizedFilter = formatContinuumRasterFilter(parsed);
+    const nextName = window.prompt("Save Continuum raster filter as:", selectedSavedFilter?.name ?? "");
+    if (nextName == null) return;
+    const trimmedName = nextName.trim();
+    if (!trimmedName) return;
+    const nextLibrary = [
+      ...savedFilters.filter((entry) => entry.name !== trimmedName),
+      { name: trimmedName, filter: normalizedFilter },
+    ];
+    writeContinuumRasterFilterLibrary(nextLibrary);
+    setSavedFilters(nextLibrary);
+    setSelectedSavedName(trimmedName);
+    applyFilter(normalizedFilter, trimmedName);
+  };
+
+  const moveSelectedFilter = (direction) => {
+    if (!selectedSavedFilter || selectedSavedIndex < 0) return;
+    const targetIndex = selectedSavedIndex + direction;
+    if (targetIndex < 0 || targetIndex >= savedFilters.length) return;
+    const nextLibrary = [...savedFilters];
+    const [moved] = nextLibrary.splice(selectedSavedIndex, 1);
+    nextLibrary.splice(targetIndex, 0, moved);
+    writeContinuumRasterFilterLibrary(nextLibrary);
+    setSavedFilters(nextLibrary);
+    setSelectedSavedName(moved.name);
+  };
+
+  const handleDeleteFilter = () => {
+    if (!selectedSavedFilter) return;
+    const nextLibrary = savedFilters.filter((entry) => entry.name !== selectedSavedFilter.name);
+    writeContinuumRasterFilterLibrary(nextLibrary);
+    setSavedFilters(nextLibrary);
+    selectAllDegrees();
+  };
+
+  const handleClearAllFilters = () => {
+    writeContinuumRasterFilterLibrary([]);
+    setSavedFilters([]);
+    selectAllDegrees();
+  };
+
+  const handleOpenFilterFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = importContinuumRasterFilterLibrary(JSON.parse(await file.text()));
+      writeContinuumRasterFilterLibrary(parsed);
+      setSavedFilters(parsed);
+      setFilterError("");
+    } catch {
+      setFilterError("No valid Continuum raster filters found in the chosen file.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleWriteFilterFile = () => {
+    const blob = new Blob(
+      [JSON.stringify(exportableContinuumRasterFilterLibrary(savedFilters), null, 2)],
+      { type: "application/json" },
+    );
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = "continuum-raster-filters.json";
+    link.click();
+    URL.revokeObjectURL(href);
   };
 
   return (
@@ -117,6 +283,132 @@ const HakenContinuumSettings = ({
           </span>
         </span>
       </label>
+
+      <label>
+        Continuum Raster Filter
+        <span class="sidebar-input lumatone-filter-selector">
+          {selectedSavedFilter && (
+            <button
+              type="button"
+              class="preset-refresh-btn"
+              title="Reload saved filter"
+              aria-label="Reload saved raster filter"
+              onClick={handleReloadSaved}
+            >
+              <span class="preset-refresh-glyph">⟳</span>
+            </button>
+          )}
+          <select
+            aria-label="Continuum Raster Filter"
+            value={selectedValue}
+            onChange={handleSelectFilter}
+          >
+            <option value={CONTINUUM_RASTER_FILTER_ALL}>All Degrees</option>
+            {savedFilters.length > 0 && (
+              <option value="__separator__" disabled>──────── User Filters ────────</option>
+            )}
+            {filterActive && selectedValue === CONTINUUM_RASTER_FILTER_CUSTOM && (
+              <option value={CONTINUUM_RASTER_FILTER_CUSTOM}>Current Custom Filter</option>
+            )}
+            {savedFilters.map((entry) => (
+              <option key={entry.name} value={entry.name}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+          {selectedSavedFilter && (
+            <span class="lumatone-filter-move-group">
+              <button
+                type="button"
+                class="preset-refresh-btn lumatone-filter-move-btn"
+                title="Move filter up"
+                aria-label="Move raster filter up"
+                disabled={selectedSavedIndex <= 0}
+                onClick={() => moveSelectedFilter(-1)}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                class="preset-refresh-btn lumatone-filter-move-btn"
+                title="Move filter down"
+                aria-label="Move raster filter down"
+                disabled={selectedSavedIndex < 0 || selectedSavedIndex >= savedFilters.length - 1}
+                onClick={() => moveSelectedFilter(1)}
+              >
+                ↓
+              </button>
+            </span>
+          )}
+        </span>
+      </label>
+      <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.35em" }}>
+        <span style={{ minWidth: "7em" }}>Scale degrees</span>
+        <input
+          type="text"
+          class="sidebar-input"
+          style={{ width: "22em", maxWidth: "100%" }}
+          value={draftFilter}
+          placeholder="e.g. 0, 4, 7, 11"
+          onInput={(e) => {
+            setDraftFilter(e.target.value);
+            setFilterError("");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              applyFilter(
+                e.currentTarget.value,
+                selectedSavedFilter?.filter === e.currentTarget.value
+                  ? selectedSavedName
+                  : CONTINUUM_RASTER_FILTER_CUSTOM,
+              );
+            }
+          }}
+          aria-label="Continuum raster filter scale degrees"
+        />
+      </label>
+      <div class="preset-actions" style={{ marginTop: 4 }}>
+        <button type="button" class="preset-action-btn" onClick={handleSaveFilter}>
+          Save
+        </button>
+        <button
+          type="button"
+          class="preset-action-btn"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Open
+        </button>
+        <button type="button" class="preset-action-btn" onClick={handleWriteFilterFile}>
+          Write
+        </button>
+        {selectedSavedFilter && (
+          <button
+            type="button"
+            class="delete-btn preset-utility-btn"
+            style={{ marginLeft: "auto" }}
+            onClick={handleDeleteFilter}
+          >
+            Delete
+          </button>
+        )}
+        {selectedSavedFilter && (
+          <button
+            type="button"
+            class="delete-btn preset-utility-btn"
+            onClick={handleClearAllFilters}
+          >
+            Clear All
+          </button>
+        )}
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: "none" }}
+        onChange={handleOpenFilterFile}
+      />
+      {filterError && <div class="scale-warning">{filterError}</div>}
 
       <label title="Shapes Continuum X bending around the current note. 0 is linear. Higher values create stronger pockets of stability around note centers and faster movement between them.">
         X Glide Shaping

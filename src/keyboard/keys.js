@@ -193,6 +193,8 @@ class Keys {
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 20,
       hakenRasterThrottleMs: settings.hakenaudio_raster_throttle_ms ?? 10,
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
+      hakenRasterFilterMode: settings.hakenaudio_raster_filter_mode ?? "all",
+      hakenRasterFilter: settings.hakenaudio_raster_filter ?? "",
       pitchBendMode: "recency",
       pressureMode: "recency",
       wheelToRecent: settings.wheel_to_recent,
@@ -2270,24 +2272,27 @@ class Keys {
     }
     for (const [channel, entry] of this.state.activeMidiByChannel) {
       const bend14 = this._mpeInputBendByChannel.get(channel);
-      const bend21 = this._hakenMpeBend21ByChannel.get(channel);
       if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
       if (previousMode !== "raster_to_notes" && nextMode === "raster_to_notes") {
         this._primeHakenRasterModeEntry(entry, channel);
         continue;
       }
+      if (previousMode !== "raster_to_notes" || nextMode === "raster_to_notes") continue;
+      if (entry.hex._continuumRasterPendingHandoff) {
+        entry.hex._continuumRasterPendingHandoff = false;
+        entry.hex._continuumRasterPendingTargetSteps = null;
+        entry.hex._continuumRasterEntryTargetFloat = null;
+        entry.hex._continuumRasterEntrySide = 0;
+        entry.hex._continuumRasterClampedAtCenter = false;
+        entry.hex._continuumRasterPendingExitHandoff = false;
+        entry.hex._continuumRasterExitTargetSteps = null;
+        continue;
+      }
       entry.hex._continuumRasterPendingHandoff = false;
       entry.hex._continuumRasterPendingTargetSteps = null;
-      if (previousMode !== "raster_to_notes" || nextMode === "raster_to_notes") continue;
-      const [, , currentSteps] = this.hexCoordsToCents(entry.hex.coords);
-      entry.hex._continuumPitchAnchor14 = bend14;
-      entry.hex._continuumPitchAnchor21 = bend21;
-      entry.hex._continuumPitchAnchorSteps = currentSteps;
-      entry.hex._continuumPitchAnchorCents = entry.hex.cents;
-      if (this.inputRuntime.target === "scale") {
-        entry.hex._scaleModeBendAnchor14 = bend14;
-        entry.hex._scaleModeBendAnchor21 = bend21;
-      }
+      entry.hex._continuumRasterEntryTargetFloat = null;
+      entry.hex._continuumRasterPendingExitHandoff = true;
+      entry.hex._continuumRasterExitTargetSteps = null;
     }
   }
 

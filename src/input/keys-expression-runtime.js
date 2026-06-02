@@ -306,7 +306,8 @@ export function applyMpePitchBend(entry, channel, value14, value21 = null) {
     this.inputRuntime.mpeInput;
   const continuumRasterMode =
     isContinuumMpe &&
-    hakenXGlideMode === "raster_to_notes";
+    (hakenXGlideMode === "raster_to_notes" ||
+      !!entry.hex._continuumRasterPendingExitHandoff);
   if (continuumRasterMode) {
     this._hakenRasterBend(entry, channel, bend14, this.inputRuntime.target === "scale");
     return;

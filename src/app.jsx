@@ -1086,6 +1086,8 @@ const App = () => {
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 20,
       hakenRasterThrottleMs: settings.hakenaudio_raster_throttle_ms ?? 10,
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
+      hakenRasterFilterMode: settings.hakenaudio_raster_filter_mode ?? "all",
+      hakenRasterFilter: settings.hakenaudio_raster_filter ?? "",
     }),
     [
       forceScaleTarget,
@@ -1117,6 +1119,8 @@ const App = () => {
       settings.hakenaudio_note_off_delay,
       settings.hakenaudio_raster_throttle_ms,
       settings.hakenaudio_raster_stability,
+      settings.hakenaudio_raster_filter_mode,
+      settings.hakenaudio_raster_filter,
     ],
   );
 
