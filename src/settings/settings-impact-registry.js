@@ -111,6 +111,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "mpe_pitchbend_range",
     "mpe_pitchbend_range_manager",
     "mpe_mode",
+    "mpe_plus_output",
     "fluidsynth_out_port",
     "osc_bridge_url",
   ],

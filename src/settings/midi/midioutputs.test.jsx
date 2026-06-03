@@ -171,6 +171,26 @@ describe("MidiOutputs FluidSynth independence", () => {
 
     expect(screen.getByLabelText("Message Style").value).toBe("standard");
     expect(screen.getByLabelText("MPE PB Range (semitones)").value).toBe("96");
+    expect(screen.getByLabelText("MPE+ PB").checked).toBe(false);
     expect(screen.getByText("MPE standard: nearest notes & user PB")).not.toBeNull();
+  });
+
+  it("lets the user enable MPE+ pitch-bend CC87 output explicitly", () => {
+    const onChange = vi.fn();
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_mpe: true,
+          mpe_device: "main-1",
+          mpe_mode: "standard",
+          mpe_plus_output: false,
+        })}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("MPE+ PB"));
+
+    expect(onChange).toHaveBeenCalledWith("mpe_plus_output", true);
   });
 });

@@ -940,9 +940,9 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
         effectiveMpePitchbendRangeManager,
         settings.equivSteps,
         settings.equivInterval,
-        hakenMpeActive,
       ]);
       if (mpeSynthRef.current.key === mpeKey && mpeSynthRef.current.synth) {
+        mpeSynthRef.current.synth.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
         promises.push(Promise.resolve(mpeSynthRef.current.synth));
       } else {
         promises.push(
@@ -963,8 +963,9 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
             settings.equivInterval,
             undefined,
             undefined,
-            hakenMpeActive,
+            !!settings.mpe_plus_output,
           ).then((s) => {
+            s?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
             if (!cancelled) mpeSynthRef.current = { key: mpeKey, synth: s };
             return s;
           }),
@@ -1075,6 +1076,10 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
   ]);
 
   // ── Imperative propagation ──────────────────────────────────────────────────
+
+  useEffect(() => {
+    mpeSynthRef.current.synth?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
+  }, [settings.mpe_plus_output]);
 
   // Keep synthRef in sync so volume control and preset loading can reach the
   // live synth without depending on the React render cycle.

@@ -818,6 +818,15 @@ const MidiOutputs = (props) => {
                   </label>
                 </>
               )}
+              <label title="When enabled, Hexatone adds MPE+ CC87 low-bit messages to outgoing pitch bend, producing 21-bit PB for compatible synths. CC74 and channel pressure retain their high-resolution CC87 data when available.">
+                MPE+ PB
+                <input
+                  name="mpe_plus_output"
+                  type="checkbox"
+                  checked={!!settings.mpe_plus_output}
+                  onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+                />
+              </label>
               <label>
                 MPE Configuration (RPN)
                 <span class="sidebar-input" style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -1025,6 +1034,7 @@ MidiOutputs.propTypes = {
     mpe_mode: PropTypes.string,
     mpe_pitchbend_range: PropTypes.number,
     mpe_pitchbend_range_manager: PropTypes.number,
+    mpe_plus_output: PropTypes.bool,
     output_osc: PropTypes.bool,
     osc_bridge_url: PropTypes.string,
     osc_volume_pluck: PropTypes.number,

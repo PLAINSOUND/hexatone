@@ -355,6 +355,7 @@ export const SETTINGS_REGISTRY = [
   { key: "mpe_mode", tier: "session", type: "string", default: "Ableton_workaround" },
   { key: "mpe_pitchbend_range", tier: "session", type: "int", default: 48 },
   { key: "mpe_pitchbend_range_manager", tier: "session", type: "int", default: 2 },
+  { key: "mpe_plus_output", tier: "session", type: "bool", default: false },
 
   // ── FluidSynth / OSC mirror ───────────────────────────────────────────────────
   {

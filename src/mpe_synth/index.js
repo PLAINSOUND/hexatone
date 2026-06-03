@@ -29,6 +29,8 @@ import { traceMidiOutput } from "../debug/midi-jitter.js";
 // processes them in FIFO order, so PB always arrives before noteOn.
 // noteOff is NEVER delayed — delaying it risks stuck notes.
 const RELEASE_GUARD_MS = 500;
+const MPE_PLUS_PB_SAMPLE_RATE_HZ = 240;
+const MPE_PLUS_PB_MIN_INTERVAL_MS = 1000 / MPE_PLUS_PB_SAMPLE_RATE_HZ;
 
 function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale) {
   let ref_cents = 0;
@@ -92,6 +94,71 @@ function sendBend21(midi_output, channel0, bend21) {
   sendBend(midi_output, channel0, (bend21 >> 7) & 0x3fff);
 }
 
+function traceMpePitchbend(channel, note, value) {
+  traceMidiOutput("mpePitchbendOut", {
+    family: "mpe",
+    channel,
+    note,
+    value,
+  });
+}
+
+function createMpePlusPitchBendScheduler(midi_output) {
+  let lastSentAt = 0;
+  let timer = null;
+  const pending = new Map();
+
+  const flushOne = () => {
+    timer = null;
+    if (pending.size === 0) return;
+    const [hex, value] = pending.entries().next().value;
+    pending.delete(hex);
+    if (!hex.release) {
+      const c = hex.channel - 1;
+      sendBend21(midi_output, c, value);
+      hex._lastSentBend21 = value;
+      hex._lastSentBend = (value >> 7) & 0x3fff;
+      traceMpePitchbend(hex.channel, hex.note, value);
+    }
+    lastSentAt = performance.now();
+    schedule();
+  };
+
+  const schedule = () => {
+    if (pending.size === 0 || timer != null) return;
+    const delay = Math.max(0, MPE_PLUS_PB_MIN_INTERVAL_MS - (performance.now() - lastSentAt));
+    timer = setTimeout(flushOne, delay);
+  };
+
+  return {
+    enqueue(hex, value) {
+      pending.set(hex, value);
+      schedule();
+    },
+    sendImmediate(hex, value) {
+      pending.delete(hex);
+      if (hex.release) return;
+      const c = hex.channel - 1;
+      sendBend21(midi_output, c, value);
+      hex._lastSentBend21 = value;
+      hex._lastSentBend = (value >> 7) & 0x3fff;
+      lastSentAt = performance.now();
+      traceMpePitchbend(hex.channel, hex.note, value);
+      schedule();
+    },
+    cancel(hex) {
+      pending.delete(hex);
+    },
+    clear() {
+      pending.clear();
+      if (timer != null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    },
+  };
+}
+
 function send14BitCc(midi_output, channel0, cc, value14) {
   sendMpePlusLsb(midi_output, channel0, value14 & 0x7f);
   midi_output.send([0xb0 + channel0, cc & 0x7f, (value14 >> 7) & 0x7f]);
@@ -130,7 +197,7 @@ export const create_mpe_synth = async (
   _equave = 2,
   releaseGuardMs = RELEASE_GUARD_MS, // ms — should match your synth's longest release
   closestPitchSteal = true, // steal closest-pitch SOUNDING voice
-  mpePlusEnabled = false,
+  mpePlusPitchBendEnabled = false,
 ) => {
   if (!midi_output) return null;
 
@@ -182,6 +249,7 @@ export const create_mpe_synth = async (
   }, releaseGuardMs);
 
   const activeHexes = new Set();
+  const mpePlusPitchBendScheduler = createMpePlusPitchBendScheduler(midi_output);
 
   return {
     family: "mpe",
@@ -213,7 +281,8 @@ export const create_mpe_synth = async (
         scale,
         note_played,
         masterCh,
-        mpePlusEnabled,
+        mpePlusPitchBendEnabled,
+        mpePlusPitchBendScheduler,
       );
       activeHexes.add(hex);
       const originalNoteOff = hex.noteOff.bind(hex);
@@ -253,6 +322,11 @@ export const create_mpe_synth = async (
 
     releaseAll: () => {
       for (const hex of [...activeHexes]) hex.noteOff(0);
+      mpePlusPitchBendScheduler.clear();
+    },
+
+    setMpePlusPitchBendEnabled: (enabled) => {
+      for (const hex of activeHexes) hex.setMpePlusPitchBendEnabled(enabled);
     },
   };
 };
@@ -272,7 +346,8 @@ function MpeHex(
   scale,
   note_played,
   masterCh,
-  mpePlusEnabled,
+  mpePlusPitchBendEnabled,
+  mpePlusPitchBendScheduler,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -289,7 +364,8 @@ function MpeHex(
   this.scale = scale;
   this.velocity = Math.max(1, Math.min(127, velocity_played || 72));
   this.note_played = note_played;
-  this.mpePlusEnabled = mpePlusEnabled === true;
+  this.mpePlusPitchBendEnabled = mpePlusPitchBendEnabled === true;
+  this.mpePlusPitchBendScheduler = mpePlusPitchBendScheduler;
   this._lastSentBend = null;
   this._lastSentBend21 = null;
   this._lastSentAftertouch = null;
@@ -336,16 +412,8 @@ function MpeHex(
   // new PB will briefly affect it but it's already quiet.
 
   // PB then noteOn — FIFO order guarantees PB arrives first
-  if (this.mpePlusEnabled) {
-    sendBend21(midi_output, c, this.bend21);
-    this._lastSentBend21 = this.bend21;
-    this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
-    traceMidiOutput("mpePitchbendOut", {
-      family: "mpe",
-      channel: this.channel,
-      note: this.note,
-      value: this.bend21,
-    });
+  if (this.mpePlusPitchBendEnabled) {
+    this._sendMpePlusPitchBend(this.bend21, { immediate: true });
   } else {
     sendBend(midi_output, c, this.bend);
     this._lastSentBend = this.bend;
@@ -376,6 +444,7 @@ MpeHex.prototype.noteOn = function () {
 MpeHex.prototype.noteOff = function (release_velocity) {
   const c = this.channel - 1;
   const vel = release_velocity != null ? release_velocity : this.velocity;
+  this.mpePlusPitchBendScheduler?.cancel(this);
   // Send noteOff immediately — no PB reset during the release tail
   this.midi_output.send([0x80 + c, this.note, vel]);
   traceMidiOutput("mpeNoteOff", {
@@ -458,16 +527,8 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
     this.bend21 = newBend21;
     this.pool.setLastBend(this.channel, this.bend);
     this.pool.setLastNote(this.channel, this.note);
-    if (this.mpePlusEnabled) {
-      sendBend21(this.midi_output, c, this.bend21);
-      this._lastSentBend21 = this.bend21;
-      this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
-      traceMidiOutput("mpePitchbendOut", {
-        family: "mpe",
-        channel: this.channel,
-        note: this.note,
-        value: this.bend21,
-      });
+    if (this.mpePlusPitchBendEnabled) {
+      this._sendMpePlusPitchBend(this.bend21, { immediate: true });
     } else {
       sendBend(this.midi_output, c, this.bend);
       this._lastSentBend = this.bend;
@@ -496,17 +557,9 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
     this.bend = newBend;
     this.bend21 = newBend21;
     this.pool.setLastBend(this.channel, this.bend);
-    if (this.mpePlusEnabled) {
+    if (this.mpePlusPitchBendEnabled) {
       if (this._lastSentBend21 !== this.bend21) {
-        sendBend21(this.midi_output, c, this.bend21);
-        this._lastSentBend21 = this.bend21;
-        this._lastSentBend = (this.bend21 >> 7) & 0x3fff;
-        traceMidiOutput("mpePitchbendOut", {
-          family: "mpe",
-          channel: this.channel,
-          note: this.note,
-          value: this.bend21,
-        });
+        this._sendMpePlusPitchBend(this.bend21);
       }
     } else if (this._lastSentBend !== this.bend) {
       sendBend(this.midi_output, c, this.bend);
@@ -521,10 +574,24 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
   }
 };
 
+MpeHex.prototype.setMpePlusPitchBendEnabled = function (enabled) {
+  const next = enabled === true;
+  if (this.mpePlusPitchBendEnabled === next) return;
+  this.mpePlusPitchBendScheduler?.cancel(this);
+  this.mpePlusPitchBendEnabled = next;
+  this._lastSentBend21 = next ? this.bend21 : null;
+};
+
+MpeHex.prototype._sendMpePlusPitchBend = function (bend21, { immediate = false } = {}) {
+  if (this.release) return;
+  if (immediate) this.mpePlusPitchBendScheduler?.sendImmediate(this, bend21);
+  else this.mpePlusPitchBendScheduler?.enqueue(this, bend21);
+};
+
 MpeHex.prototype.aftertouch = function (value, value14 = null) {
   if (this.release) return;
   const c = this.channel - 1;
-  if (this.mpePlusEnabled && Number.isFinite(value14)) {
+  if (Number.isFinite(value14)) {
     const next = Math.max(0, Math.min(16256, value14));
     if (this._lastSentAftertouch14 === next) return;
     send14BitChannelPressure(this.midi_output, c, next);
@@ -560,7 +627,7 @@ MpeHex.prototype.pressure = function (value, value14 = null) {
 MpeHex.prototype.cc74 = function (value, value14 = null) {
   if (this.release) return;
   const c = this.channel - 1;
-  if (this.mpePlusEnabled && Number.isFinite(value14)) {
+  if (Number.isFinite(value14)) {
     const next = Math.max(0, Math.min(16256, value14));
     if (this._lastSentCc7414 === next) return;
     send14BitCc(this.midi_output, c, 74, next);

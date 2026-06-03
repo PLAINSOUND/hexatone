@@ -148,6 +148,7 @@ describe("mpe_synth startup state", () => {
     hex.aftertouch(90, 90 << 7);
     hex.cc74(81, 81 << 7);
     hex.cc74(81, 81 << 7);
+    vi.advanceTimersByTime(5);
 
     const cc87Pitch = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xb0 + 1 && call[0][1] === 87);
     const pitchBends = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xe0 + 1);
@@ -263,7 +264,7 @@ describe("mpe_synth controller-state replay", () => {
 });
 
 describe("mpe_synth MPE+ emission", () => {
-  it("emits CC87 ahead of hi-res bend, timbre, and pressure when MPE+ is enabled", async () => {
+  it("does not emit CC87 before pitch bend when MPE+ PB is disabled", async () => {
     const midi_output = { send: vi.fn() };
 
     const synth = await create_mpe_synth(
@@ -283,7 +284,44 @@ describe("mpe_synth MPE+ emission", () => {
       2,
       500,
       true,
+      false,
+    );
+
+    midi_output.send.mockClear();
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+    midi_output.send.mockClear();
+
+    hex.retune(52.5, true);
+
+    expect(midi_output.send.mock.calls.some(
+      ([msg]) => msg[1] === 87,
+    )).toBe(false);
+    expect(midi_output.send.mock.calls.some(
+      ([msg]) => (msg[0] & 0xf0) === 0xe0,
+    )).toBe(true);
+  });
+
+  it("retains CC87 for hi-res timbre and pressure when MPE+ PB is disabled", async () => {
+    const midi_output = { send: vi.fn() };
+
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
       true,
+      false,
     );
 
     midi_output.send.mockClear();
@@ -292,17 +330,211 @@ describe("mpe_synth MPE+ emission", () => {
 
     hex.cc74(64, 9000);
     hex.aftertouch(55, 7000);
-    hex.retune(52.5, true);
 
     expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 87, 9000 & 0x7f]);
     expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 74, (9000 >> 7) & 0x7f]);
     expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 87, 7000 & 0x7f]);
     expect(midi_output.send).toHaveBeenCalledWith([0xd0 + 1, (7000 >> 7) & 0x7f]);
-    expect(midi_output.send.mock.calls.some(
-      ([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87,
-    )).toBe(true);
-    expect(midi_output.send.mock.calls.some(
-      ([msg]) => (msg[0] & 0xf0) === 0xe0,
-    )).toBe(true);
+  });
+
+  it("emits CC87 ahead of hi-res bend when MPE+ PB is enabled", async () => {
+    vi.useFakeTimers();
+    try {
+      const midi_output = { send: vi.fn() };
+
+      const synth = await create_mpe_synth(
+        midi_output,
+        "1",
+        2,
+        4,
+        440,
+        0,
+        0,
+        60,
+        scale12,
+        "standard",
+        96,
+        2,
+        12,
+        2,
+        500,
+        true,
+        true,
+      );
+
+      midi_output.send.mockClear();
+      const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+      midi_output.send.mockClear();
+
+      hex.cc74(64, 9000);
+      hex.aftertouch(55, 7000);
+      hex.retune(52.5, true);
+      vi.advanceTimersByTime(5);
+
+      expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 87, 9000 & 0x7f]);
+      expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 74, (9000 >> 7) & 0x7f]);
+      expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 87, 7000 & 0x7f]);
+      expect(midi_output.send).toHaveBeenCalledWith([0xd0 + 1, (7000 >> 7) & 0x7f]);
+      expect(midi_output.send.mock.calls.some(
+        ([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87,
+      )).toBe(true);
+      expect(midi_output.send.mock.calls.some(
+        ([msg]) => (msg[0] & 0xf0) === 0xe0,
+      )).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rate-limits MPE+ pitch-bend packets to the Continuum X sample interval", async () => {
+    vi.useFakeTimers();
+    try {
+      const midi_output = { send: vi.fn() };
+
+      const synth = await create_mpe_synth(
+        midi_output,
+        "1",
+        2,
+        4,
+        440,
+        0,
+        0,
+        60,
+        scale12,
+        "standard",
+        96,
+        2,
+        12,
+        2,
+        500,
+        true,
+        true,
+      );
+
+      midi_output.send.mockClear();
+      const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+      midi_output.send.mockClear();
+
+      hex.retune(52.5, true);
+      hex.retune(53.5, true);
+
+      expect(midi_output.send.mock.calls.some(
+        ([msg]) => (msg[0] & 0xf0) === 0xe0,
+      )).toBe(false);
+
+      vi.advanceTimersByTime(5);
+
+      const pitchBends = midi_output.send.mock.calls.filter(([msg]) => (msg[0] & 0xf0) === 0xe0);
+      const cc87 = midi_output.send.mock.calls.filter(([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87);
+      expect(pitchBends).toHaveLength(1);
+      expect(cc87).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shares the MPE+ pitch-bend rate limit across all active voices", async () => {
+    vi.useFakeTimers();
+    try {
+      const midi_output = { send: vi.fn() };
+
+      const synth = await create_mpe_synth(
+        midi_output,
+        "1",
+        2,
+        4,
+        440,
+        0,
+        0,
+        60,
+        scale12,
+        "standard",
+        96,
+        2,
+        12,
+        2,
+        500,
+        true,
+        true,
+      );
+
+      midi_output.send.mockClear();
+      const first = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+      const second = synth.makeHex({ x: 1, y: 0 }, 237.5, 2, 0, 12, 100, 300, 62, 72, 0, 1);
+      midi_output.send.mockClear();
+
+      first.retune(52.5, true);
+      second.retune(252.5, true);
+      expect(midi_output.send).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(5);
+      expect(midi_output.send.mock.calls.filter(([msg]) => (msg[0] & 0xf0) === 0xe0)).toHaveLength(1);
+      expect(midi_output.send.mock.calls.filter(([msg]) => msg[1] === 87)).toHaveLength(1);
+
+      vi.advanceTimersByTime(5);
+      expect(midi_output.send.mock.calls.filter(([msg]) => (msg[0] & 0xf0) === 0xe0)).toHaveLength(2);
+      expect(midi_output.send.mock.calls.filter(([msg]) => msg[1] === 87)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("updates MPE+ PB live without rebuilding or flushing stale pending bend", async () => {
+    vi.useFakeTimers();
+    try {
+      const midi_output = { send: vi.fn() };
+
+      const synth = await create_mpe_synth(
+        midi_output,
+        "1",
+        2,
+        4,
+        440,
+        0,
+        0,
+        60,
+        scale12,
+        "standard",
+        96,
+        2,
+        12,
+        2,
+        500,
+        true,
+        false,
+      );
+
+      midi_output.send.mockClear();
+      const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+      midi_output.send.mockClear();
+
+      synth.setMpePlusPitchBendEnabled(true);
+      expect(midi_output.send).not.toHaveBeenCalled();
+
+      hex.retune(52.5, true);
+      expect(midi_output.send).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(5);
+      expect(midi_output.send.mock.calls.some(
+        ([msg]) => msg[1] === 87,
+      )).toBe(true);
+      midi_output.send.mockClear();
+
+      hex.retune(53.5, true);
+      expect(midi_output.send).not.toHaveBeenCalled();
+
+      synth.setMpePlusPitchBendEnabled(false);
+      vi.advanceTimersByTime(5);
+      expect(midi_output.send).not.toHaveBeenCalled();
+
+      hex.retune(54.5, true);
+      expect(midi_output.send.mock.calls.some(
+        ([msg]) => msg[1] === 87,
+      )).toBe(false);
+      expect(midi_output.send.mock.calls.some(
+        ([msg]) => (msg[0] & 0xf0) === 0xe0,
+      )).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
