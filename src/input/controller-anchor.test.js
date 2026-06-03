@@ -822,3 +822,13 @@ describe("Generic Keyboard controller prefs", () => {
     expect(update.midiin_anchor_note).toBe(77);
   });
 });
+
+describe("Generic MPE controller prefs", () => {
+  it("defaults to nearest-scale MPE input", () => {
+    const update = loadAnchorSettingsUpdate(getControllerById("generic_mpe"));
+    expect(update.midiin_mapping_target).toBe("scale");
+    expect(update.midiin_mpe_input).toBe(true);
+    expect(update.midiin_anchor_note).toBe(60);
+    expect(update.midiin_anchor_channel).toBe(1);
+  });
+});

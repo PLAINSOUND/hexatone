@@ -91,6 +91,13 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByRole("option", { name: "Haken Continuum" })).toBeTruthy();
   });
 
+  it("offers Generic MPE as a manual controller geometry option", () => {
+    const props = makeProps();
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByRole("option", { name: "Generic MPE" })).toBeTruthy();
+  });
+
   it("shows controller registry text when a known controller geometry is auto-detected", () => {
     const props = makeProps({
       midiin_controller_override: "auto",
@@ -308,6 +315,8 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByDisplayValue("8")).toBeTruthy();
     expect(screen.getByLabelText("MPE Pitch Bend Range")).toBeTruthy();
     expect(screen.getByDisplayValue("48")).toBeTruthy();
+    expect(screen.getByText(/Anchor Key → Central Degree/)).toBeTruthy();
+    expect(screen.queryByTitle("Single-channel controller (ch 1)")).toBeNull();
   });
 
   it("shows Pitch Wheel → Most Recent Note with the unknown-controller options when MPE input is off", () => {
@@ -337,7 +346,7 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     const { container } = render(<MIDIio {...props} />);
     const label = Array.from(container.querySelectorAll("label")).find((node) =>
-      node.textContent?.includes("Anchor Note → Central Degree"),
+      node.textContent?.includes("Anchor Key → Central Degree"),
     );
 
     expect(label?.classList.contains("center-degree-row")).toBe(true);
@@ -393,6 +402,7 @@ describe("MIDIio LinnStrument controller selection", () => {
   it("renders Generic Keyboard from its dedicated controller module", () => {
     const props = makeProps({
       midiin_controller_override: "generic",
+      midiin_anchor_channel: 7,
     });
     props.midi = {
       inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
@@ -402,7 +412,33 @@ describe("MIDIio LinnStrument controller selection", () => {
     render(<MIDIio {...props} />);
 
     expect(screen.getByText("2D geometry is bypassed")).toBeTruthy();
-    expect(screen.getByTitle("Single-channel controller (ch 1)")).toBeTruthy();
+    const channelInput = screen.getByTitle("MIDI channel of anchor key (1-16)");
+    expect(channelInput.value).toBe("7");
+
+    fireEvent.input(channelInput, { target: { value: "9" } });
+    fireEvent.blur(channelInput);
+    expect(props.onChange).toHaveBeenCalledWith("midiin_anchor_channel", 9);
+  });
+
+  it("renders Generic MPE from the generic controller module with MPE controls", () => {
+    const props = makeProps({
+      midiin_controller_override: "generic_mpe",
+      midiin_mapping_target: "scale",
+      midiin_mpe_input: true,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "USB MIDI Interface" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText(/Anchor Key → Central Degree/)).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Enable MPE Input" })).toBeTruthy();
+    expect(screen.queryByTitle(/MIDI channel of anchor key/i)).toBeNull();
+    expect(screen.queryByTitle("Single-channel controller (ch 1)")).toBeNull();
+    expect(screen.getByLabelText("Tolerance (cents)")).toBeTruthy();
+    expect(screen.getByLabelText("MPE Pitch Bend Range")).toBeTruthy();
   });
 
   it("renders Tonal Plexus from its dedicated controller module", () => {

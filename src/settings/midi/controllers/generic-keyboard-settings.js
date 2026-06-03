@@ -9,7 +9,9 @@ const GenericKeyboardSettings = ({
   centerDegree,
   centralNote,
   centralDegreeSetting,
+  anchorChannel = 1,
   midiLearnActive,
+  showAnchorChannel = true,
   onChange,
 }) => (
   <>
@@ -27,24 +29,38 @@ const GenericKeyboardSettings = ({
         >
           {midiLearnActive ? "● Listening…" : "Learn"}
         </button>
-        <input
-          type="text"
-          value="1"
-          disabled
-          title="Single-channel controller (ch 1)"
-          style={{
-            width: "2.2em",
-            textAlign: "center",
-            height: "1.5em",
-            boxSizing: "border-box",
-            background: "#f0eded",
-            border: "1px solid #c8b8b8",
-            borderRadius: "3px",
-            flexShrink: 0,
-            color: "#999",
-            cursor: "default",
-          }}
-        />
+        {showAnchorChannel && (
+          <input
+            name="midiin_anchor_channel"
+            type="text"
+            inputMode="numeric"
+            title="MIDI channel of anchor key (1-16)"
+            style={{
+              width: "2.2em",
+              textAlign: "center",
+              height: "1.5em",
+              boxSizing: "border-box",
+              background: "#faf9f8",
+              border: "1px solid #c8b8b8",
+              borderRadius: "3px",
+              flexShrink: 0,
+            }}
+            key={`generic-anchor-channel-${anchorChannel}`}
+            defaultValue={anchorChannel}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.target.blur();
+            }}
+            onBlur={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!Number.isNaN(val) && val >= 1 && val <= 16) {
+                onChange("midiin_anchor_channel", val);
+                sessionStorage.setItem("midiin_anchor_channel", String(val));
+              } else {
+                e.target.value = anchorChannel;
+              }
+            }}
+          />
+        )}
         <input
           name="midiin_anchor_note"
           type="text"
@@ -91,7 +107,9 @@ GenericKeyboardSettings.propTypes = {
   centerDegree: PropTypes.number.isRequired,
   centralNote: PropTypes.number.isRequired,
   centralDegreeSetting: PropTypes.number,
+  anchorChannel: PropTypes.number,
   midiLearnActive: PropTypes.bool.isRequired,
+  showAnchorChannel: PropTypes.bool,
   onChange: PropTypes.func.isRequired,
 };
 

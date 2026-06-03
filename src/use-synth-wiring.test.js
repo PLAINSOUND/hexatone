@@ -295,9 +295,9 @@ describe("use-synth-wiring controller resolution", () => {
     expect(ctrl?.anchorDefault).toBe(60);
   });
 
-  it("does not treat unknown auto-detected inputs as a known controller prefs target", () => {
+  it("uses Generic Keyboard prefs for unknown auto-detected inputs", () => {
     const ctrl = resolveControllerPrefsTarget({ name: "KORG microKEY-37" });
-    expect(ctrl).toBeNull();
+    expect(ctrl?.id).toBe("generic");
   });
 
   it("keeps known controllers on their dedicated registry entries", () => {

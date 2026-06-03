@@ -1040,6 +1040,37 @@ export const CONTROLLER_REGISTRY = [
     anchorDefault: 60,
     anchorChannelDefault: 1,
     supportsSequentialChannelOffset: true,
+    defaultMode: "default",
+    modes: {
+      default: {
+        defaultPrefs: {
+          midiin_mapping_target: "hex_layout",
+          midiin_mpe_input: false,
+        },
+      },
+    },
+  },
+  {
+    id: "generic_mpe",
+    name: "Generic MPE Controller",
+    // Never auto-detected — selected manually via the controller override dropdown.
+    detect: () => false,
+    description:
+      "Generic MPE input: incoming notes are matched to the nearest scale degree and per-channel expression is enabled.",
+    multiChannel: false,
+    mpe: true,
+    anchorDefault: 60,
+    anchorChannelDefault: 1,
+    supportsSequentialChannelOffset: true,
+    defaultMode: "default",
+    modes: {
+      default: {
+        defaultPrefs: {
+          midiin_mapping_target: "scale",
+          midiin_mpe_input: true,
+        },
+      },
+    },
   },
 ];
 

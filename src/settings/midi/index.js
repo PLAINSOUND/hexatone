@@ -25,6 +25,7 @@ const MANUAL_CONTROLLER_OPTIONS = [
   { id: "axis49",          label: "AXIS-49" },
   { id: "exquis",          label: "Exquis" },
   { id: "generic",         label: "Generic Keyboard" },
+  { id: "generic_mpe",     label: "Generic MPE" },
   { id: "hakenaudio",      label: "Haken Continuum" },
   { id: "linnstrument", label: "LinnStrument" },
   { id: "lumatone",        label: "Lumatone" },
@@ -39,6 +40,12 @@ function resolveControllerSelection(overrideId, detectedController) {
   return detectedController;
 }
 
+function resolveControllerDisplay(overrideId, detectedController, connectedDevice) {
+  const selected = resolveControllerSelection(overrideId, detectedController);
+  if (selected) return selected;
+  return overrideId === "auto" && connectedDevice ? getControllerById("generic") : null;
+}
+
 const MIDIio = (props) => {
   // props.midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the inputs list.
@@ -50,7 +57,8 @@ const MIDIio = (props) => {
   const controllerOverrideId = props.settings.midiin_controller_override || "auto";
   // Detect 2D controller (null when device is disconnected or unrecognised).
   const detectedController = detectController(deviceName);
-  const ctrl = resolveControllerSelection(controllerOverrideId, detectedController);
+  const autoUnknownController = controllerOverrideId === "auto" && !!connectedDevice && !detectedController;
+  const ctrl = resolveControllerDisplay(controllerOverrideId, detectedController, connectedDevice);
   const tonalPlexus41Mode =
     ctrl?.id === "tonalplexus" && getTonalPlexusInputMode(props.settings) === "blocks_41";
   const tonalPlexus205Mode =
@@ -135,7 +143,7 @@ const MIDIio = (props) => {
     isMultiChannelSequential &&
     (!isLinnstrument || showChannelTransposeLinnstrumentOverride || stepsMode !== "none");
   const linnstrumentUserFirmwareActiveUi = linnstrumentUserFirmwareEligible;
-  const showMpeInputControls = !isLinnstrument && (!ctrl || ctrl.mpe);
+  const showMpeInputControls = autoUnknownController || (!isLinnstrument && (!ctrl || ctrl.mpe));
   const mpeInputPrefsController = ctrl;
   const linnstrumentBypassNonMpeUi =
     isLinnstrument &&
@@ -155,7 +163,7 @@ const MIDIio = (props) => {
   const showExquisBendControls = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
   const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input) && !isLinnstrument;
   const showHakenContinuumUi = isHakenContinuum;
-  const genericBypassesGeometry = ctrl?.id === "generic";
+  const genericBypassesGeometry = ctrl?.id === "generic" || ctrl?.id === "generic_mpe";
   const mpeMemberChannelBounds = ctrl?.mpeMemberChannelBounds ?? null;
   const configurableMpeMemberChannelBounds = ctrl?.mpeVoiceChannels
     ? null
@@ -440,15 +448,17 @@ const MIDIio = (props) => {
             </>
           )}
 
-          {/* ── Known 2D controller / sequential anchor ── hidden in scale mode */}
-          {!scaleMode &&
+          {/* ── Known 2D controller / sequential anchor ── hidden in scale mode unless generic input still needs its anchor note. */}
+          {(!scaleMode || genericBypassesGeometry) &&
             (ctrl ? (
-              ctrl?.id === "generic" ? (
+              genericBypassesGeometry ? (
                 <GenericKeyboardSettings
                   centerDegree={center_degree}
                   centralNote={centralNote}
                   centralDegreeSetting={props.settings.midiin_anchor_note}
+                  anchorChannel={props.settings.midiin_anchor_channel ?? 1}
                   midiLearnActive={props.midiLearnActive}
+                  showAnchorChannel={!props.settings.midiin_mpe_input}
                   onChange={props.onChange}
                 />
               ) : (
@@ -483,7 +493,7 @@ const MIDIio = (props) => {
                       mode (channels are per-voice, not layout-encoding in that case).
                       Editable for multi-channel controllers (e.g. Lumatone);
                       greyed-out fixed "1" for single-channel controllers (e.g. AXIS-49). */}
-                    {ctrl && !linnstrumentBypassMpeUi && !(ctrl.mpe && props.settings.midiin_mpe_input) &&
+                    {ctrl && !linnstrumentBypassMpeUi && !props.settings.midiin_mpe_input &&
                       (ctrl.anchorChannelDefault != null ? (
                         <input
                         name="midiin_anchor_channel"

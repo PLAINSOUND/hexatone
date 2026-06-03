@@ -113,8 +113,8 @@ export const resolveControllerPrefsTarget = (input, controllerOverrideId = "auto
   if (controllerOverrideId && controllerOverrideId !== "auto") {
     return getControllerById(controllerOverrideId);
   }
-  if (!input?.name) return null;
-  return detectController(input.name.toLowerCase());
+  if (!input?.name) return getControllerById("generic");
+  return detectController(input.name.toLowerCase()) ?? getControllerById("generic");
 };
 
 export const applyPresetControllerAnchor = (settings, controllerId, anchorUpdate = {}) => {
