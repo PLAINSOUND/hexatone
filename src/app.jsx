@@ -1991,7 +1991,11 @@ const App = () => {
                     onPlaySnapshot(snap.id);
                   }}
                 >
-                  {isPlaying ? "■" : "▶"} {index + 1}
+                  <span
+                    className={`snapshot-play-glyph snapshot-play-glyph--${isPlaying ? "stop" : "play"}`}
+                    aria-hidden="true"
+                  />
+                  {index + 1}
                 </button>
                 <button
                   class="snapshot-del-btn"
@@ -2005,7 +2009,7 @@ const App = () => {
                     onDeleteSnapshot(snap.id);
                   }}
                 >
-                  ✕
+                  ×
                 </button>
               </div>
             );
