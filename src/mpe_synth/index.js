@@ -29,8 +29,6 @@ import { traceMidiOutput } from "../debug/midi-jitter.js";
 // processes them in FIFO order, so PB always arrives before noteOn.
 // noteOff is NEVER delayed — delaying it risks stuck notes.
 const RELEASE_GUARD_MS = 500;
-const MPE_PLUS_PB_SAMPLE_RATE_HZ = 240;
-const MPE_PLUS_PB_MIN_INTERVAL_MS = 1000 / MPE_PLUS_PB_SAMPLE_RATE_HZ;
 
 function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale) {
   let ref_cents = 0;
@@ -104,15 +102,7 @@ function traceMpePitchbend(channel, note, value) {
 }
 
 function createMpePlusPitchBendScheduler(midi_output) {
-  let lastSentAt = 0;
-  let timer = null;
-  const pending = new Map();
-
-  const flushOne = () => {
-    timer = null;
-    if (pending.size === 0) return;
-    const [hex, value] = pending.entries().next().value;
-    pending.delete(hex);
+  const send = (hex, value) => {
     if (!hex.release) {
       const c = hex.channel - 1;
       sendBend21(midi_output, c, value);
@@ -120,42 +110,17 @@ function createMpePlusPitchBendScheduler(midi_output) {
       hex._lastSentBend = (value >> 7) & 0x3fff;
       traceMpePitchbend(hex.channel, hex.note, value);
     }
-    lastSentAt = performance.now();
-    schedule();
-  };
-
-  const schedule = () => {
-    if (pending.size === 0 || timer != null) return;
-    const delay = Math.max(0, MPE_PLUS_PB_MIN_INTERVAL_MS - (performance.now() - lastSentAt));
-    timer = setTimeout(flushOne, delay);
   };
 
   return {
     enqueue(hex, value) {
-      pending.set(hex, value);
-      schedule();
+      send(hex, value);
     },
     sendImmediate(hex, value) {
-      pending.delete(hex);
-      if (hex.release) return;
-      const c = hex.channel - 1;
-      sendBend21(midi_output, c, value);
-      hex._lastSentBend21 = value;
-      hex._lastSentBend = (value >> 7) & 0x3fff;
-      lastSentAt = performance.now();
-      traceMpePitchbend(hex.channel, hex.note, value);
-      schedule();
+      send(hex, value);
     },
-    cancel(hex) {
-      pending.delete(hex);
-    },
-    clear() {
-      pending.clear();
-      if (timer != null) {
-        clearTimeout(timer);
-        timer = null;
-      }
-    },
+    cancel() {},
+    clear() {},
   };
 }
 
