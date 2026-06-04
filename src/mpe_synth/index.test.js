@@ -473,4 +473,43 @@ describe("mpe_synth MPE+ emission", () => {
         ([msg]) => (msg[0] & 0xf0) === 0xe0,
       )).toBe(true);
   });
+
+  it("applies live MPE+ PB toggles to notes created after the toggle", async () => {
+      const midi_output = { send: vi.fn() };
+
+      const synth = await create_mpe_synth(
+        midi_output,
+        "1",
+        2,
+        4,
+        440,
+        0,
+        0,
+        60,
+        scale12,
+        "standard",
+        96,
+        2,
+        12,
+        2,
+        500,
+        true,
+        false,
+      );
+
+      synth.setMpePlusPitchBendEnabled(true);
+      midi_output.send.mockClear();
+
+      synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+
+      const cc87Index = midi_output.send.mock.calls.findIndex(
+        ([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87,
+      );
+      const pitchBendIndex = midi_output.send.mock.calls.findIndex(
+        ([msg]) => (msg[0] & 0xf0) === 0xe0,
+      );
+
+      expect(cc87Index).toBeGreaterThanOrEqual(0);
+      expect(pitchBendIndex).toBeGreaterThan(cc87Index);
+  });
 });

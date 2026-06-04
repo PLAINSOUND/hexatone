@@ -215,6 +215,7 @@ export const create_mpe_synth = async (
 
   const activeHexes = new Set();
   const mpePlusPitchBendScheduler = createMpePlusPitchBendScheduler(midi_output);
+  let mpePlusPitchBendDefault = mpePlusPitchBendEnabled === true;
 
   return {
     family: "mpe",
@@ -246,7 +247,7 @@ export const create_mpe_synth = async (
         scale,
         note_played,
         masterCh,
-        mpePlusPitchBendEnabled,
+        mpePlusPitchBendDefault,
         mpePlusPitchBendScheduler,
       );
       activeHexes.add(hex);
@@ -291,6 +292,7 @@ export const create_mpe_synth = async (
     },
 
     setMpePlusPitchBendEnabled: (enabled) => {
+      mpePlusPitchBendDefault = enabled === true;
       for (const hex of activeHexes) hex.setMpePlusPitchBendEnabled(enabled);
     },
   };
