@@ -53,7 +53,7 @@ import useImport from "./use-import.js";
 import useSettingsChange from "./use-settings-change.js";
 import sessionDefaults from "./session-defaults.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
-import Blurb from "./blurb";
+import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
@@ -2253,7 +2253,7 @@ const App = () => {
                 onPlaySnapshot={onPlaySnapshot}
                 onDeleteSnapshot={onDeleteSnapshot}
               />
-              <Blurb />
+              <Credits />
             </>
           )}
         </Suspense>

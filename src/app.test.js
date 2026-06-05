@@ -34,8 +34,8 @@ vi.mock("./keyboard", () => ({
 vi.mock("./settings", () => ({
   default: () => <div data-testid="settings">Settings Stub</div>,
 }));
-vi.mock("./blurb", () => ({
-  default: () => <div>Blurb Stub</div>,
+vi.mock("./credits", () => ({
+  default: () => <div>Credits Stub</div>,
 }));
 vi.mock("./settings/presets/preset_values", () => ({ presets: [] }));
 vi.mock("./sample_synth/instruments", () => ({ instruments: [] }));
