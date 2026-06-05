@@ -2,12 +2,13 @@
 /**
  * Snapshots — sidebar panel for capturing and replaying note snapshots.
  *
- * Each snapshot stores an array of { midicents, attackVelocity, releaseVelocity }
- * — a scale-agnostic frozen chord. Snapshots play back at the correct absolute
+ * Each snapshot stores an array of {
+ *   midicents, attackVelocity, releaseVelocity, pressure?, pressure14?, timbre?, timbre14?
+ * } — a scale-agnostic frozen chord. Snapshots play back at the correct absolute
  * pitches regardless of the current scale or fundamental.
  *
  * Props:
- *   snapshots         – Array<{ id, notes: [{midicents, attackVelocity, releaseVelocity}] }>
+ *   snapshots         – Array<{ id, notes: [{midicents, attackVelocity, releaseVelocity, pressure?, pressure14?, timbre?, timbre14?}] }>
  *   playingId         – id of the currently playing snapshot, or null
  *   onPlay(id)        – start playback of snapshot `id`; stops it if already playing
  *   onDelete(id)      – remove snapshot `id` from the list

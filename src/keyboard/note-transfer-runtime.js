@@ -90,6 +90,34 @@ export function createTransferredHex(sourceHex, options = {}) {
       }
     },
   });
+  let cc74PolyTimbreOnly = false;
+  const sendCc74Payload = (payload) => {
+    sourceHex._lastCC74 = clamp7Bit(payload.value);
+    sourceHex._lastCC7414 = clamp14Bit(payload.value14);
+    const send = (method) => {
+      if (sourceHex._lastCC7414 != null) {
+        method.call(sourceHex, sourceHex._lastCC74, sourceHex._lastCC7414);
+      } else {
+        method.call(sourceHex, sourceHex._lastCC74);
+      }
+    };
+    if (cc74PolyTimbreOnly) {
+      if (sourceHex.polyTimbre) send(sourceHex.polyTimbre);
+      else if (!sourceHex.isMtsOutput && sourceHex.cc74) send(sourceHex.cc74);
+    } else if (sourceHex.cc74) {
+      send(sourceHex.cc74);
+    }
+  };
+  const sendTargetCc74 = (payload, { polyTimbre = false } = {}) => {
+    cc74PolyTimbreOnly = polyTimbre;
+    cc74Handoff.target(payload);
+    cc74PolyTimbreOnly = false;
+  };
+  const sendSourceCc74 = (payload, { polyTimbre = false } = {}) => {
+    cc74PolyTimbreOnly = polyTimbre;
+    cc74Handoff.source(payload);
+    cc74PolyTimbreOnly = false;
+  };
   const cc74Handoff = createThresholdHandoff({
     sourceValue: {
       value: clamp7Bit(sourceHex._lastCC74 ?? 0),
@@ -97,15 +125,7 @@ export function createTransferredHex(sourceHex, options = {}) {
     },
     targetValue: { value: 0, value14: null },
     score: (payload) => payload.value14 ?? (payload.value * 128),
-    send: (payload) => {
-      sourceHex._lastCC74 = clamp7Bit(payload.value);
-      sourceHex._lastCC7414 = clamp14Bit(payload.value14);
-      if (sourceHex._lastCC7414 != null) {
-        sourceHex.cc74?.(sourceHex._lastCC74, sourceHex._lastCC7414);
-      } else {
-        sourceHex.cc74?.(sourceHex._lastCC74);
-      }
-    },
+    send: sendCc74Payload,
   });
   const pitchBendHandoff = createThresholdHandoff({
     sourceValue: pitchValue(
@@ -168,16 +188,24 @@ export function createTransferredHex(sourceHex, options = {}) {
     cc74: (value, value14 = null) => {
       proxy._lastCC74 = clamp7Bit(value);
       proxy._lastCC7414 = clamp14Bit(value14);
-      cc74Handoff.target({
+      sendTargetCc74({
         value: proxy._lastCC74,
         value14: proxy._lastCC7414,
       });
     },
-    _transferSourceCC74: (value) => {
-      cc74Handoff.source({
+    polyTimbre: (value, value14 = null) => {
+      proxy._lastCC74 = clamp7Bit(value);
+      proxy._lastCC7414 = clamp14Bit(value14);
+      sendTargetCc74({
+        value: proxy._lastCC74,
+        value14: proxy._lastCC7414,
+      }, { polyTimbre: true });
+    },
+    _transferSourceCC74: (value, options = {}) => {
+      sendSourceCc74({
         value: clamp7Bit(value),
         value14: clamp14Bit(sourceHex._lastCC7414),
-      });
+      }, options);
     },
     _transferTargetPitchBend: (value) => {
       const next = pitchValue(value?.value14, value?.value21, value?.cents);
@@ -218,9 +246,9 @@ export function applyTransferredSourceAftertouch(hex, value) {
   return true;
 }
 
-export function applyTransferredCC74(hex, value) {
+export function applyTransferredCC74(hex, value, options = {}) {
   if (hex?._transferProxy?._transferSourceCC74) {
-    hex._transferProxy._transferSourceCC74(value);
+    hex._transferProxy._transferSourceCC74(value, options);
     return true;
   }
   return false;

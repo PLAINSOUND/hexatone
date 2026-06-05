@@ -338,6 +338,7 @@ function MidiHex(
 
     this.coords = coords;
     this.cents = cents;
+    this.isMtsOutput = true;
     this.bend_down = bend_down;
     this.bend_up = bend_up;
     this.equaves = equaves;
@@ -712,6 +713,7 @@ function DynamicBulkHex(
 ) {
   this.coords = coords;
   this.cents = cents;
+  this.isMtsOutput = true;
   this.release = false;
   this._noteOffCalled = false;
   this.midi_output = midi_output;
@@ -841,6 +843,7 @@ function StaticBulkHex(
 ) {
   this.coords = coords;
   this.cents = cents;
+  this.isMtsOutput = true;
   this.release = false;
   this._noteOffCalled = false;
   this.midi_output = midi_output;

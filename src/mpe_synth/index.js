@@ -319,6 +319,7 @@ function MpeHex(
   this.coords = coords;
   this.cents = cents;
   this.standardWheelPassthroughOnly = true;
+  this.supportsMpeTimbre = true;
   this.steps = steps;
   this.center_degree = center_degree;
   this.release = false;
@@ -619,6 +620,14 @@ MpeHex.prototype.cc74 = function (value, value14 = null) {
   });
   this._lastSentCc74 = next;
   this._lastSentCc7414 = null;
+};
+
+MpeHex.prototype.mpeTimbre = function (value, value14 = null) {
+  this.cc74(value, value14);
+};
+
+MpeHex.prototype.polyTimbre = function (value, value14 = null) {
+  this.cc74(value, value14);
 };
 
 // modwheel: CC1 — zone-wide, sent on manager channel.

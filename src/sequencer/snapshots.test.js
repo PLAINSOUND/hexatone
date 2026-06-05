@@ -55,6 +55,26 @@ describe("sequencer snapshots", () => {
     });
   });
 
+  it("captures current pressure and timbre expression when present", () => {
+    const runtime = makeRuntime({
+      _allActiveHexes: () => [{
+        cents: 0,
+        velocity: 113,
+        _lastAftertouch: 64,
+        _lastAftertouch14: 8200,
+        _lastCC74: 91,
+        _lastCC7414: 12000,
+      }],
+    });
+
+    expect(captureSnapshot(runtime)[0]).toMatchObject({
+      pressure: 64,
+      pressure14: 8200,
+      timbre: 91,
+      timbre14: 12000,
+    });
+  });
+
   it("plays with attack velocity and stops with release velocity", () => {
     const noteOn = vi.fn();
     const noteOff = vi.fn();
@@ -72,5 +92,39 @@ describe("sequencer snapshots", () => {
     expect(synth.makeHex.mock.calls[0][8]).toBe(120);
     expect(noteOn).toHaveBeenCalledTimes(1);
     expect(noteOff).toHaveBeenCalledWith(44);
+  });
+
+  it("replays pressure as aftertouch and timbre through the MPE-only hook", () => {
+    const noteOn = vi.fn();
+    const aftertouch = vi.fn();
+    const mpeTimbre = vi.fn();
+    const cc74 = vi.fn();
+    const synth = {
+      makeHex: vi.fn(() => ({
+        noteOn,
+        noteOff: vi.fn(),
+        aftertouch,
+        mpeTimbre,
+        cc74,
+      })),
+    };
+    const runtime = makeRuntime({ synth });
+
+    playSnapshot(runtime, [
+      {
+        midicents: 69,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+        pressure: 64,
+        pressure14: 8200,
+        timbre: 91,
+        timbre14: 12000,
+      },
+    ]);
+
+    expect(noteOn).toHaveBeenCalledTimes(1);
+    expect(aftertouch).toHaveBeenCalledWith(64, 8200);
+    expect(mpeTimbre).toHaveBeenCalledWith(91, 12000);
+    expect(cc74).not.toHaveBeenCalled();
   });
 });

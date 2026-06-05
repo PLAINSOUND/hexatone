@@ -57,6 +57,43 @@ describe("composite_synth controller-state replay", () => {
     expect(b.applyControllerState).toHaveBeenCalledWith(state);
   });
 
+  it("routes polyphonic timbre only to non-MTS child outputs", () => {
+    const mpeHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      release: false,
+      note_played: 60,
+      polyTimbre: vi.fn(),
+    };
+    const mtsHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      release: false,
+      note_played: 60,
+      isMtsOutput: true,
+      cc74: vi.fn(),
+    };
+    const sampleHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      release: false,
+      note_played: 60,
+      cc74: vi.fn(),
+    };
+    const synth = create_composite_synth([
+      { makeHex: vi.fn(() => mpeHex) },
+      { makeHex: vi.fn(() => mtsHex) },
+      { makeHex: vi.fn(() => sampleHex) },
+    ]);
+
+    const hex = synth.makeHex();
+    hex.polyTimbre(91, 12000);
+
+    expect(mpeHex.polyTimbre).toHaveBeenCalledWith(91, 12000);
+    expect(mtsHex.cc74).not.toHaveBeenCalled();
+    expect(sampleHex.cc74).toHaveBeenCalledWith(91, 12000);
+  });
+
   it("falls back to child retune for standard wheel fan-out when a child lacks standardWheelRetune", () => {
     const sampleHex = {
       coords: { x: 0, y: 0 },

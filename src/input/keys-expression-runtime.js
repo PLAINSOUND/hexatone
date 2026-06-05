@@ -96,9 +96,15 @@ export function applyTimbreCC74(hex, value, value14 = null) {
   const cc7414 = Number.isFinite(value14)
     ? Math.max(0, Math.min(16256, Number(value14)))
     : null;
+  const polyphonicTimbre = !!this.inputRuntime?.mpeInput;
   hex._lastCC74 = cc74;
   hex._lastCC7414 = cc7414;
-  if (applyTransferredCC74(hex, cc74)) return;
+  if (applyTransferredCC74(hex, cc74, { polyTimbre: polyphonicTimbre })) return;
+  if (polyphonicTimbre) {
+    if (cc7414 != null) hex.polyTimbre?.(cc74, cc7414);
+    else hex.polyTimbre?.(cc74);
+    return;
+  }
   if (cc7414 != null) hex.cc74?.(cc74, cc7414);
   else hex.cc74?.(cc74);
 }

@@ -22,6 +22,7 @@ function makeSourceHex() {
     aftertouch: vi.fn(),
     pressure: vi.fn(),
     cc74: vi.fn(),
+    polyTimbre: vi.fn(),
     modwheel: vi.fn(),
     expression: vi.fn(),
   };
@@ -145,6 +146,38 @@ describe("keyboard/note-transfer-runtime", () => {
 
     proxy.cc74(60);
     expect(sourceHex.cc74).toHaveBeenLastCalledWith(60);
+  });
+
+  it("routes transferred MPE-input timbre through polyTimbre instead of cc74", () => {
+    const sourceHex = makeSourceHex();
+    sourceHex._lastCC74 = 80;
+    const proxy = createTransferredHex(sourceHex, {
+      coords: new Point(5, 0),
+      cents: 500,
+    });
+    sourceHex.cc74.mockClear();
+    sourceHex.polyTimbre.mockClear();
+
+    proxy.polyTimbre(90, 12000);
+
+    expect(sourceHex.polyTimbre).toHaveBeenCalledWith(90, 12000);
+    expect(sourceHex.cc74).not.toHaveBeenCalled();
+  });
+
+  it("does not map transferred MPE-input timbre to an MTS-only source", () => {
+    const sourceHex = makeSourceHex();
+    sourceHex.isMtsOutput = true;
+    delete sourceHex.polyTimbre;
+    sourceHex._lastCC74 = 80;
+    const proxy = createTransferredHex(sourceHex, {
+      coords: new Point(5, 0),
+      cents: 500,
+    });
+    sourceHex.cc74.mockClear();
+
+    proxy.polyTimbre(90, 12000);
+
+    expect(sourceHex.cc74).not.toHaveBeenCalled();
   });
 
   it("soft-handoffs bipolar pitch bend by bend magnitude", () => {

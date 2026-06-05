@@ -21,6 +21,7 @@ export const create_composite_synth = (synths) => ({
       velocity: hexes.find((h) => h.velocity != null)?.velocity,
       _onVel: hexes.find((h) => h._onVel != null)?._onVel,
       standardWheelPassthroughOnly: hexes.every((h) => h.standardWheelPassthroughOnly),
+      supportsMpeTimbre: hexes.some((h) => h.supportsMpeTimbre),
       // Expose stolen coords from any child synth that had to evict a voice.
       // Keys.js uses this to redraw the displaced hex.
       _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),
@@ -61,6 +62,18 @@ export const create_composite_synth = (synths) => ({
 
       cc74(value, value14 = null) {
         hexes.forEach((h) => h.cc74 && h.cc74(value, value14));
+      },
+
+      polyTimbre(value, value14 = null) {
+        hexes.forEach((h) => {
+          if (h.isMtsOutput) return;
+          if (h.polyTimbre) h.polyTimbre(value, value14);
+          else if (h.cc74) h.cc74(value, value14);
+        });
+      },
+
+      mpeTimbre(value, value14 = null) {
+        hexes.forEach((h) => h.mpeTimbre && h.mpeTimbre(value, value14));
       },
 
       modwheel(value) {

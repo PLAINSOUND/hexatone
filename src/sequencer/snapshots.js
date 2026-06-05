@@ -8,6 +8,18 @@ import Point from "../keyboard/point.js";
 const normalizeVelocity = (value, fallback = 72) =>
   Math.max(1, Math.min(127, Math.round(value ?? fallback)));
 
+const normalize7Bit = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(127, Math.round(n)));
+};
+
+const normalize14Bit = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(16256, Math.round(n)));
+};
+
 function centsToReference(settings, tuning) {
   return settings.reference_degree > 0
     ? (tuning.scale[settings.reference_degree - 1] ?? 0)
@@ -28,7 +40,7 @@ function attackVelocityOf(hex, settings) {
  * Capture all currently sounding notes as scale-agnostic snapshot notes.
  *
  * @param {object} runtime Keys-like runtime with settings, tuning, state, and _allActiveHexes().
- * @returns {Array<{ midicents: number, attackVelocity: number, releaseVelocity: number, velocity: number }>}
+ * @returns {Array<{ midicents: number, attackVelocity: number, releaseVelocity: number, velocity: number, pressure?: number, pressure14?: number, timbre?: number, timbre14?: number }>}
  */
 export function captureSnapshot(runtime) {
   const centsToRef = centsToReference(runtime.settings, runtime.tuning);
@@ -43,13 +55,25 @@ export function captureSnapshot(runtime) {
 
     const attack = attackVelocityOf(hex, runtime.settings);
     const release = normalizeVelocity(releaseVelocity, attack);
-    seen.set(key, {
+    const entry = {
       midicents,
       attackVelocity: attack,
       releaseVelocity: release,
       // Backward-compatible alias for older snapshot consumers.
       velocity: attack,
-    });
+    };
+
+    const pressure = normalize7Bit(hex?._lastAftertouch);
+    const pressure14 = normalize14Bit(hex?._lastAftertouch14);
+    if (pressure != null) entry.pressure = pressure;
+    if (pressure14 != null) entry.pressure14 = pressure14;
+
+    const timbre = normalize7Bit(hex?._lastCC74);
+    const timbre14 = normalize14Bit(hex?._lastCC7414);
+    if (timbre != null) entry.timbre = timbre;
+    if (timbre14 != null) entry.timbre14 = timbre14;
+
+    seen.set(key, entry);
   };
 
   for (const hex of runtime._allActiveHexes()) {
@@ -69,7 +93,7 @@ export function captureSnapshot(runtime) {
  * synth-relative cents for the current fundamental/reference context.
  *
  * @param {object} runtime Keys-like runtime with settings, tuning, synth, and stopSnapshot().
- * @param {Array<{ midicents: number, attackVelocity?: number, releaseVelocity?: number, velocity?: number }>} notes
+ * @param {Array<{ midicents: number, attackVelocity?: number, releaseVelocity?: number, velocity?: number, pressure?: number, pressure14?: number, timbre?: number, timbre14?: number }>} notes
  * @returns {Array<object>} active snapshot hexes
  */
 export function playSnapshot(runtime, notes) {
@@ -100,6 +124,23 @@ export function playSnapshot(runtime, notes) {
     );
     hex._snapshotReleaseVelocity = releaseVelocity;
     hex.noteOn();
+
+    const pressure = normalize7Bit(note.pressure);
+    const pressure14 = normalize14Bit(note.pressure14);
+    if (pressure != null || pressure14 != null) {
+      const value = pressure ?? (pressure14 >> 7);
+      if (pressure14 != null) hex.aftertouch?.(value, pressure14);
+      else hex.aftertouch?.(value);
+    }
+
+    const timbre = normalize7Bit(note.timbre);
+    const timbre14 = normalize14Bit(note.timbre14);
+    if (timbre != null || timbre14 != null) {
+      const value = timbre ?? (timbre14 >> 7);
+      if (timbre14 != null) hex.mpeTimbre?.(value, timbre14);
+      else hex.mpeTimbre?.(value);
+    }
+
     return hex;
   });
 }
