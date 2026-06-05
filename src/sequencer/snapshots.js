@@ -39,7 +39,7 @@ function attackVelocityOf(hex, settings) {
 /**
  * Capture all currently sounding notes as scale-agnostic snapshot notes.
  *
- * @param {object} runtime Keys-like runtime with settings, tuning, state, and _allActiveHexes().
+ * @param {object} runtime Keys-like runtime with settings, tuning, state, _snapshotNotes, _snapshotHexes, and _allActiveHexes().
  * @returns {Array<{ midicents: number, attackVelocity: number, releaseVelocity: number, velocity: number, pressure?: number, pressure14?: number, timbre?: number, timbre14?: number }>}
  */
 export function captureSnapshot(runtime) {
@@ -76,11 +76,45 @@ export function captureSnapshot(runtime) {
     seen.set(key, entry);
   };
 
+  const addSnapshotNote = (note) => {
+    const midicents = Number(note?.midicents);
+    if (!Number.isFinite(midicents)) return;
+    const key = midicents.toFixed(3);
+    if (seen.has(key)) return;
+
+    const attack = normalizeVelocity(note.attackVelocity ?? note.velocity);
+    const release = normalizeVelocity(note.releaseVelocity, attack);
+    const entry = {
+      midicents,
+      attackVelocity: attack,
+      releaseVelocity: release,
+      velocity: attack,
+    };
+
+    const pressure = normalize7Bit(note.pressure);
+    const pressure14 = normalize14Bit(note.pressure14);
+    if (pressure != null) entry.pressure = pressure;
+    if (pressure14 != null) entry.pressure14 = pressure14;
+
+    const timbre = normalize7Bit(note.timbre);
+    const timbre14 = normalize14Bit(note.timbre14);
+    if (timbre != null) entry.timbre = timbre;
+    if (timbre14 != null) entry.timbre14 = timbre14;
+
+    seen.set(key, entry);
+  };
+
   for (const hex of runtime._allActiveHexes()) {
     add(hex);
   }
   for (const [hex, releaseVelocity] of runtime.state.sustainedNotes) {
     add(hex, releaseVelocity);
+  }
+  for (const note of runtime._snapshotNotes ?? []) {
+    addSnapshotNote(note);
+  }
+  for (const hex of runtime._snapshotHexes ?? []) {
+    add(hex, hex?._snapshotReleaseVelocity);
   }
 
   return Array.from(seen.values());
@@ -137,8 +171,8 @@ export function playSnapshot(runtime, notes) {
     const timbre14 = normalize14Bit(note.timbre14);
     if (timbre != null || timbre14 != null) {
       const value = timbre ?? (timbre14 >> 7);
-      if (timbre14 != null) hex.mpeTimbre?.(value, timbre14);
-      else hex.mpeTimbre?.(value);
+      if (timbre14 != null) hex.polyTimbre?.(value, timbre14);
+      else hex.polyTimbre?.(value);
     }
 
     return hex;

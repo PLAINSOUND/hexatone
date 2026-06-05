@@ -5,7 +5,9 @@
  * Each snapshot stores an array of {
  *   midicents, attackVelocity, releaseVelocity, pressure?, pressure14?, timbre?, timbre14?
  * } — a scale-agnostic frozen chord. Snapshots play back at the correct absolute
- * pitches regardless of the current scale or fundamental.
+ * pitches regardless of the current scale or fundamental. Capturing while a
+ * snapshot is playing includes that playing snapshot material, so users can
+ * build larger snapshots by layering new notes on top.
  *
  * Props:
  *   snapshots         – Array<{ id, notes: [{midicents, attackVelocity, releaseVelocity, pressure?, pressure14?, timbre?, timbre14?}] }>

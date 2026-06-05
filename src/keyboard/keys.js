@@ -228,6 +228,8 @@ class Keys {
       context: canvas.getContext("2d"),
       ...createSoundingNoteState(),
     };
+    this._snapshotHexes = [];
+    this._snapshotNotes = [];
     // Recency stack — tracks all sounding notes most-recent-first.
     // The front entry receives wheel bend; see _handleWheelBend().
     this.recencyStack = new RecencyStack();
@@ -1889,12 +1891,15 @@ class Keys {
   }
 
   playSnapshot(notes) {
-    this._snapshotHexes = SequencerSnapshots.playSnapshot(this, notes);
+    const snapshotNotes = Array.isArray(notes) ? notes.map((note) => ({ ...note })) : [];
+    this._snapshotHexes = SequencerSnapshots.playSnapshot(this, snapshotNotes);
+    this._snapshotNotes = snapshotNotes;
   }
 
   stopSnapshot() {
     SequencerSnapshots.stopSnapshot(this._snapshotHexes);
     this._snapshotHexes = [];
+    this._snapshotNotes = [];
   }
 
   /**

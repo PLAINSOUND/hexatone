@@ -3853,14 +3853,14 @@ describe("Keys MIDI input integration", () => {
     keys.hexOff = vi.fn();
     keys.coordResolver.coordForSteps = vi.fn(() => new Point(1, 0));
     const aftertouch = vi.fn();
-    const cc74 = vi.fn();
+    const polyTimbre = vi.fn();
     const newHex = {
       coords: new Point(1, 0),
       cents: 100,
       _baseCents: 100,
       release: false,
       aftertouch,
-      cc74,
+      polyTimbre,
     };
     keys.hexOn = vi.fn(() => newHex);
     const oldHex = {
@@ -3887,7 +3887,7 @@ describe("Keys MIDI input integration", () => {
     keys._hakenRasterBend(entry, 5, 9045, false);
 
     expect(aftertouch).toHaveBeenCalledWith(53);
-    expect(cc74).toHaveBeenCalledWith(91);
+    expect(polyTimbre).toHaveBeenCalledWith(91);
     expect(newHex._lastAftertouch).toBe(53);
     expect(newHex._lastCC74).toBe(91);
   });
@@ -5689,7 +5689,7 @@ describe("Keys MIDI input integration", () => {
     };
     vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
 
-    const cc74 = vi.fn();
+    const polyTimbre = vi.fn();
     const aftertouch = vi.fn();
     const retune = vi.fn();
     const synth = {
@@ -5700,7 +5700,7 @@ describe("Keys MIDI input integration", () => {
         noteOn: vi.fn(),
         noteOff: vi.fn(),
         release: false,
-        cc74,
+        polyTimbre,
         aftertouch,
         retune,
       })),
@@ -5730,8 +5730,8 @@ describe("Keys MIDI input integration", () => {
     listeners.channelaftertouch({ message: { channel: 2, dataBytes: [71] } });
     listeners.pitchbend(makePitchBendEvent(16383, 2));
 
-    expect(cc74).toHaveBeenCalledTimes(1);
-    expect(cc74).toHaveBeenCalledWith(81);
+    expect(polyTimbre).toHaveBeenCalledTimes(1);
+    expect(polyTimbre).toHaveBeenCalledWith(81);
     expect(aftertouch).toHaveBeenCalledTimes(1);
     expect(aftertouch).toHaveBeenCalledWith(71);
     expect(retune).toHaveBeenCalledTimes(1);
@@ -5865,7 +5865,7 @@ describe("Keys MIDI input integration", () => {
     };
     vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
 
-    const cc74 = vi.fn();
+    const polyTimbre = vi.fn();
     const aftertouch = vi.fn();
     const retune = vi.fn(function retune(newCents) {
       this.cents = newCents;
@@ -5878,7 +5878,7 @@ describe("Keys MIDI input integration", () => {
         noteOn: vi.fn(),
         noteOff: vi.fn(),
         release: false,
-        cc74,
+        polyTimbre,
         aftertouch,
         retune,
       })),
@@ -5906,7 +5906,7 @@ describe("Keys MIDI input integration", () => {
     listeners.controlchange({ message: { channel: 2, dataBytes: [87, 11] } });
     listeners.pitchbend(makePitchBendEvent(12000, 2));
 
-    expect(cc74).toHaveBeenCalledWith(81, (81 << 7) | 45);
+    expect(polyTimbre).toHaveBeenCalledWith(81, (81 << 7) | 45);
     expect(aftertouch).toHaveBeenCalledWith(71, (71 << 7) | 23);
     expect(keys._hakenMpeCC7414ByChannel.get(2)).toBe((81 << 7) | 45);
     expect(keys._hakenMpePressure14ByChannel.get(2)).toBe((71 << 7) | 23);
@@ -7174,6 +7174,64 @@ describe("Keys MIDI input integration", () => {
 
     expect(synth.makeHex.mock.calls[0][8]).toBe(111);
     expect(noteOff).toHaveBeenCalledWith(39);
+  });
+
+  it("captures playing snapshot material together with active Continuum MPE notes", () => {
+    const aftertouch = vi.fn();
+    const polyTimbre = vi.fn();
+    const synth = {
+      makeHex: vi.fn((coords, cents, _i, _j, _period, _baseCents, _untransposedCents, _label, velocity) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        velocity,
+        release: false,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        aftertouch,
+        polyTimbre,
+      })),
+    };
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        midi_velocity: 72,
+      },
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: true,
+        bendRange: "2/1",
+      },
+      synth,
+    );
+
+    keys.playSnapshot([{
+      midicents: 69,
+      attackVelocity: 111,
+      releaseVelocity: 39,
+      pressure: 66,
+      timbre: 91,
+    }]);
+    keys.midinoteOn(makeMidiEvent(32, 7, 88));
+
+    const snapshot = keys.getSnapshot();
+
+    expect(snapshot).toHaveLength(2);
+    expect(snapshot.map((note) => Math.round(note.midicents * 1000) / 1000)).toContain(69);
+    expect(snapshot.some((note) => note.attackVelocity === 88)).toBe(true);
+    expect(snapshot.some((note) => (
+      note.attackVelocity === 111 &&
+      note.pressure === 66 &&
+      note.timbre === 91
+    ))).toBe(true);
+
+    aftertouch.mockClear();
+    polyTimbre.mockClear();
+    keys.playSnapshot(snapshot);
+
+    expect(aftertouch).toHaveBeenCalledWith(66);
+    expect(polyTimbre).toHaveBeenCalledWith(91);
   });
 
   it("keeps sounding static-bulk notes as the heard reference during immediate OCT", () => {

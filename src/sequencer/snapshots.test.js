@@ -22,6 +22,8 @@ function makeRuntime(overrides = {}) {
     synth: overrides.synth,
     stopSnapshot: overrides.stopSnapshot ?? vi.fn(),
     _allActiveHexes: overrides._allActiveHexes ?? (() => []),
+    _snapshotNotes: overrides._snapshotNotes ?? [],
+    _snapshotHexes: overrides._snapshotHexes ?? [],
   };
 }
 
@@ -75,6 +77,73 @@ describe("sequencer snapshots", () => {
     });
   });
 
+  it("includes currently playing snapshot hexes when capturing a new snapshot", () => {
+    const runtime = makeRuntime({
+      _allActiveHexes: () => [{ cents: 100, velocity: 101 }],
+      _snapshotHexes: [
+        {
+          cents: 0,
+          velocity: 90,
+          _snapshotReleaseVelocity: 44,
+          _lastAftertouch: 55,
+        },
+      ],
+    });
+
+    const snapshot = captureSnapshot(runtime);
+
+    expect(snapshot).toHaveLength(2);
+    expect(snapshot.map((note) => Math.round(note.midicents * 1000) / 1000)).toEqual([70, 69]);
+    expect(snapshot[1]).toMatchObject({
+      attackVelocity: 90,
+      releaseVelocity: 44,
+      pressure: 55,
+    });
+  });
+
+  it("includes currently playing snapshot note data when capturing a new snapshot", () => {
+    const runtime = makeRuntime({
+      _allActiveHexes: () => [{ cents: 100, velocity: 101 }],
+      _snapshotNotes: [
+        {
+          midicents: 69,
+          attackVelocity: 90,
+          releaseVelocity: 44,
+          pressure: 55,
+          timbre: 80,
+        },
+      ],
+    });
+
+    const snapshot = captureSnapshot(runtime);
+
+    expect(snapshot).toHaveLength(2);
+    expect(snapshot.map((note) => Math.round(note.midicents * 1000) / 1000)).toEqual([70, 69]);
+    expect(snapshot[1]).toMatchObject({
+      attackVelocity: 90,
+      releaseVelocity: 44,
+      pressure: 55,
+      timbre: 80,
+    });
+  });
+
+  it("lets newly played material win when it duplicates a playing snapshot pitch", () => {
+    const runtime = makeRuntime({
+      _allActiveHexes: () => [{ cents: 0, velocity: 120 }],
+      _snapshotNotes: [{ midicents: 69, attackVelocity: 70, releaseVelocity: 33 }],
+      _snapshotHexes: [{ cents: 0, velocity: 60, _snapshotReleaseVelocity: 22 }],
+    });
+
+    expect(captureSnapshot(runtime)).toEqual([
+      {
+        midicents: 69,
+        attackVelocity: 120,
+        releaseVelocity: 120,
+        velocity: 120,
+      },
+    ]);
+  });
+
   it("plays with attack velocity and stops with release velocity", () => {
     const noteOn = vi.fn();
     const noteOff = vi.fn();
@@ -94,17 +163,17 @@ describe("sequencer snapshots", () => {
     expect(noteOff).toHaveBeenCalledWith(44);
   });
 
-  it("replays pressure as aftertouch and timbre through the MPE-only hook", () => {
+  it("replays pressure as aftertouch and timbre through the polyphonic timbre hook", () => {
     const noteOn = vi.fn();
     const aftertouch = vi.fn();
-    const mpeTimbre = vi.fn();
+    const polyTimbre = vi.fn();
     const cc74 = vi.fn();
     const synth = {
       makeHex: vi.fn(() => ({
         noteOn,
         noteOff: vi.fn(),
         aftertouch,
-        mpeTimbre,
+        polyTimbre,
         cc74,
       })),
     };
@@ -124,7 +193,7 @@ describe("sequencer snapshots", () => {
 
     expect(noteOn).toHaveBeenCalledTimes(1);
     expect(aftertouch).toHaveBeenCalledWith(64, 8200);
-    expect(mpeTimbre).toHaveBeenCalledWith(91, 12000);
+    expect(polyTimbre).toHaveBeenCalledWith(91, 12000);
     expect(cc74).not.toHaveBeenCalled();
   });
 });
