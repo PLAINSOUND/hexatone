@@ -955,8 +955,8 @@ const ScaleTable = (props) => {
             }}
             onDrop={(e) => {
               e.preventDefault();
-              const target = resolveDropTarget(e, i + 1);
-              commitDraggedDegree(target.degree, target.side);
+              const side = getDropSide(e);
+              commitDraggedDegree(i + 1, side);
               setDraggedDegree(null);
               setDropTargetDegree(null);
               setDropTargetSide("before");

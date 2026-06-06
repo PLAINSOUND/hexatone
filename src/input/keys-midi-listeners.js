@@ -888,13 +888,24 @@ export function setupMidiInput() {
             // Reset All Controllers
             this.sustainOff();
           } else if (cc === 1) {
-            // Mod wheel — broadcast to all active hexes (zone-wide)
+            // CC1 is treated as timbre for non-MPE controllers (for example
+            // Lumatone/generic single-channel input), while MPE input keeps it
+            // as a zone-wide mod-wheel control.
             if (this.settings.midiin_device && this.settings.midiin_device !== "OFF") {
               sessionStorage.setItem("midiin_modwheel_value", String(value));
               sessionStorage.setItem("midiin_modwheel_source", this.settings.midiin_device);
             }
-            for (const hex of this._allActiveHexes()) {
-              if (hex.modwheel) hex.modwheel(value);
+            if (this.inputRuntime.mpeInput) {
+              for (const hex of this._allActiveHexes()) {
+                if (hex.modwheel) hex.modwheel(value);
+              }
+            } else if (this.inputRuntime.perChannelExpression) {
+              for (const hex of this._activeHexesForInputChannel(e.message.channel)) {
+                this._applyTimbreCC74(hex, value);
+              }
+            } else {
+              const front = this.recencyStack.front;
+              this._applyTimbreCC74(front, value);
             }
           } else if (cc === 11) {
             // Expression — broadcast to all active hexes (zone-wide)

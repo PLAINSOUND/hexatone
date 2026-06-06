@@ -452,7 +452,7 @@ describe("Scale panel — sort degrees", () => {
     fireEvent.dragStart(dragSource, { dataTransfer });
     fireEvent.dragEnter(dropTarget, { dataTransfer, clientY: 115 });
     fireEvent.dragOver(dropTarget, { dataTransfer, clientY: 115 });
-    fireEvent.drop(dropTarget, { dataTransfer });
+    fireEvent.drop(dropTarget, { dataTransfer, clientY: 115 });
 
     expect(onAtomicChange).toHaveBeenCalledWith({
       scale: ["100.", "700.", "500.", "2/1"],
@@ -461,6 +461,52 @@ describe("Scale panel — sort degrees", () => {
       reference_degree: 2,
       center_degree: 1,
     });
+  });
+
+  it("does not move a degree when dropped in the upper half of the immediately following row", () => {
+    const onAtomicChange = vi.fn();
+    render(
+      <Scale
+        settings={{
+          ...minimalSettings,
+          scale: ["700.", "100.", "500.", "2/1"],
+          equivSteps: 4,
+          note_names: ["root", "fifth", "second", "fourth"],
+          note_colors: ["#000000", "#555555", "#111111", "#333333"],
+          reference_degree: 1,
+          center_degree: 2,
+        }}
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+        onImport={() => {}}
+      />,
+    );
+
+    const dragSource = screen.getByLabelText("scale degree gutter 1");
+    const dropTarget = screen.getByLabelText("scale degree gutter 2").closest("tr");
+    const dataTransfer = {
+      effectAllowed: "",
+      setData: vi.fn(),
+    };
+
+    vi.spyOn(dropTarget, "getBoundingClientRect").mockReturnValue({
+      top: 100,
+      height: 20,
+      left: 0,
+      right: 0,
+      bottom: 120,
+      width: 0,
+      x: 0,
+      y: 100,
+      toJSON: () => {},
+    });
+
+    fireEvent.dragStart(dragSource, { dataTransfer });
+    fireEvent.dragEnter(dropTarget, { dataTransfer, clientY: 105 });
+    fireEvent.dragOver(dropTarget, { dataTransfer, clientY: 105 });
+    fireEvent.drop(dropTarget, { dataTransfer, clientY: 105 });
+
+    expect(onAtomicChange).not.toHaveBeenCalled();
   });
 
   it("selects a degree gutter and deletes that degree through the gutter action", () => {

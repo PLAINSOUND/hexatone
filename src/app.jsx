@@ -55,6 +55,8 @@ import sessionDefaults from "./session-defaults.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
+import Sequencer from "./sequencer/sequencer.jsx";
+import { buildSnapshotDescription } from "./sequencer/labels.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
@@ -396,6 +398,7 @@ function isTextEntryElement(el) {
 const App = () => {
   const [ready, setReady] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState("hexatone");
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [showRotationDebug, setShowRotationDebug] = useState(getRotationDebugDefault);
   const [rotationDebugEvents, setRotationDebugEvents] = useState([]);
@@ -675,6 +678,9 @@ const App = () => {
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
   const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
+  const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
+  const [snapshotLabelMode, setSnapshotLabelMode] = useState("labels");
   const snapshotIdRef = useRef(0);
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
@@ -685,7 +691,27 @@ const App = () => {
     const notes = keysRef.current?.getSnapshot();
     if (!notes?.length) return;
     const id = ++snapshotIdRef.current;
-    setSnapshots((prev) => [...prev, { id, notes }]);
+    setSnapshots((prev) => [
+      ...prev,
+      {
+        id,
+        length: 1,
+        description: buildSnapshotDescription(notes, snapshotLabelMode),
+        notes,
+      },
+    ]);
+    setSelectedSnapshotId(id);
+    setSelectedSnapshotMarker(null);
+  }, [snapshotLabelMode]);
+
+  const onSelectSequencerSnapshot = useCallback((id) => {
+    setSelectedSnapshotId(id);
+    setSelectedSnapshotMarker((current) => (current?.snapshotId === id ? current : null));
+  }, []);
+
+  const onSelectSequencerMarker = useCallback((snapshotId, time) => {
+    setSelectedSnapshotId(snapshotId);
+    setSelectedSnapshotMarker({ snapshotId, time });
   }, []);
 
   const onPlaySnapshot = useCallback(
@@ -710,21 +736,32 @@ const App = () => {
         keysRef.current?.stopSnapshot();
         setPlayingSnapshotId(null);
       }
-      setSnapshots((prev) => prev.filter((s) => s.id !== id));
+      const nextSnapshots = snapshots.filter((snapshot) => snapshot.id !== id);
+      setSnapshots(nextSnapshots);
+      setSelectedSnapshotId((current) => (current === id ? (nextSnapshots[0]?.id ?? null) : current));
+      setSelectedSnapshotMarker((current) => (current?.snapshotId === id ? null : current));
     },
-    [playingSnapshotId],
+    [playingSnapshotId, snapshots],
   );
 
-  const onMoveSnapshot = useCallback((fromId, toId) => {
+  const onMoveSnapshot = useCallback((fromId, toId, side = "before") => {
     setSnapshots((prev) => {
       const fromIdx = prev.findIndex((s) => s.id === fromId);
       const toIdx = prev.findIndex((s) => s.id === toId);
       if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
       const next = [...prev];
       const [moved] = next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, moved);
+      const adjustedToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
+      const insertIdx = side === "after" ? adjustedToIdx + 1 : adjustedToIdx;
+      next.splice(insertIdx, 0, moved);
       return next;
     });
+  }, []);
+
+  const onUpdateSnapshot = useCallback((id, updates) => {
+    setSnapshots((prev) => prev.map((snapshot) => (
+      snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+    )));
   }, []);
 
   const suppressTouchClickUntilRef = useRef(0);
@@ -1944,7 +1981,7 @@ const App = () => {
       </div>
 
       {/* ── Snapshot list — fixed overlay, visible without opening the sidebar ── */}
-      {snapshots.length > 0 && (
+      {workspaceTab !== "sequencer" && snapshots.length > 0 && (
         <div id="snapshot-list" onContextMenu={(e) => e.preventDefault()}>
           {snapshots.map((snap, index) => {
             const isPlaying = snap.id === playingSnapshotId;
@@ -2177,26 +2214,74 @@ const App = () => {
       )}
 
       <nav id="sidebar">
-        <h1>PLAINSOUND HEXATONE</h1>
-        <p>
-          <em>
-            TO PLAY choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic
-            controller like Lumatone or Exquis. Use internal sounds or retune MIDI synths. Edit the
-            scale in the table or drag to retune. ESC toggles a hand-free latch sustain. ENTER takes
-            snapshots across tunings.{" "}
-            {!showManual && (
-              <span
-                style={{ cursor: "pointer", color: "#990000" }}
-                onClick={() => setShowManual(true)}
-              >
-                … more
-              </span>
-            )}
-          </em>
-        </p>
+        <div class="workspace-tabs" role="tablist" aria-label="Workspace">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={workspaceTab === "hexatone"}
+            class={`workspace-tab${workspaceTab === "hexatone" ? " workspace-tab--active" : ""}`}
+            onClick={() => setWorkspaceTab("hexatone")}
+          >
+            HEXATONE
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={workspaceTab === "sequencer"}
+            class={`workspace-tab${workspaceTab === "sequencer" ? " workspace-tab--active" : ""}`}
+            onClick={() => {
+              setShowManual(false);
+              setWorkspaceTab("sequencer");
+            }}
+          >
+            SEQUENCER
+          </button>
+        </div>
+        <div class="workspace-tabs-deadzone" aria-hidden="true" />
+        <h1>{workspaceTab === "sequencer" ? "PLAINSOUND SEQUENCER" : "PLAINSOUND HEXATONE"}</h1>
+        {workspaceTab === "sequencer" ? (
+          <p class="sidebar-intro">
+            <em>
+              Build sequences from snapshots. Capture chords, layer new notes, edit start and stop times to make a step sequence, specify connections from note to note, chord by chord. Create bars and optional automations.
+            </em>
+          </p>
+        ) : (
+          <p class="sidebar-intro">
+            <em>
+              TO PLAY choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic
+              controller like Lumatone or Exquis. Use internal sounds or retune MIDI synths. Edit the
+              scale in the table or drag to retune. ESC toggles a hand-free latch sustain. ENTER takes
+              snapshots across tunings.{" "}
+              {!showManual && (
+                <span
+                  style={{ cursor: "pointer", color: "#990000" }}
+                  onClick={() => setShowManual(true)}
+                >
+                  … more
+                </span>
+              )}
+            </em>
+          </p>
+        )}
 
         <Suspense fallback={<SidebarLoadingFallback />}>
-          {showManual ? (
+          {workspaceTab === "sequencer" ? (
+            <Sequencer
+              snapshots={snapshots}
+              snapshotLabelMode={snapshotLabelMode}
+              selectedSnapshotId={selectedSnapshotId}
+              selectedMarker={selectedSnapshotMarker}
+              playingSnapshotId={playingSnapshotId}
+              onTakeSnapshot={onTakeSnapshot}
+              onSetSnapshotLabelMode={setSnapshotLabelMode}
+              onSelectSnapshot={onSelectSequencerSnapshot}
+              onSelectMarker={onSelectSequencerMarker}
+              onPlaySnapshot={onPlaySnapshot}
+              onDeleteSnapshot={onDeleteSnapshot}
+              onMoveSnapshot={onMoveSnapshot}
+              onUpdateSnapshot={onUpdateSnapshot}
+            />
+          ) : showManual ? (
             <ManualSidebar onClose={() => setShowManual(false)} />
           ) : (
             <>

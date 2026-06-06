@@ -513,6 +513,10 @@ a:hover {
   backdrop-filter: blur(12px) saturate(0.7);
   border: 1px solid rgba(200, 175, 175, 0.45);
   box-shadow: 0 2px 12px rgba(100, 60, 60, 0.12);
+  max-height: calc(100vh - 6.25em);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .snapshot-row {

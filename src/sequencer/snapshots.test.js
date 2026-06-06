@@ -39,6 +39,8 @@ describe("sequencer snapshots", () => {
         attackVelocity: 113,
         releaseVelocity: 113,
         velocity: 113,
+        pressure: 0,
+        timbre: 0,
       },
     ]);
   });
@@ -54,6 +56,8 @@ describe("sequencer snapshots", () => {
       attackVelocity: 101,
       releaseVelocity: 35,
       velocity: 101,
+      pressure: 0,
+      timbre: 0,
     });
   });
 
@@ -140,6 +144,8 @@ describe("sequencer snapshots", () => {
         attackVelocity: 120,
         releaseVelocity: 120,
         velocity: 120,
+        pressure: 0,
+        timbre: 0,
       },
     ]);
   });

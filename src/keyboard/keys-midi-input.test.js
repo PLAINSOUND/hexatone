@@ -5568,7 +5568,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys._wheelBend).not.toBe(0);
   });
 
-  it("routes LinnStrument bypass single-channel CC1, poly aftertouch, and pitch bend as generic input", () => {
+  it("routes LinnStrument bypass single-channel CC1 as timbre, with poly aftertouch and pitch bend as generic input", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
@@ -5581,6 +5581,7 @@ describe("Keys MIDI input integration", () => {
     vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
 
     const modwheel = vi.fn();
+    const cc74 = vi.fn();
     const aftertouch = vi.fn();
     const standardWheelRetune = vi.fn(function standardWheelRetune(newCents) {
       this.cents = newCents;
@@ -5594,6 +5595,7 @@ describe("Keys MIDI input integration", () => {
         noteOff: vi.fn(),
         release: false,
         modwheel,
+        cc74,
         aftertouch,
         standardWheelRetune,
       })),
@@ -5626,7 +5628,8 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.controller?.id).toBe("linnstrument");
     expect(keys.controllerMap).toBeNull();
-    expect(modwheel).toHaveBeenCalledWith(64);
+    expect(modwheel).not.toHaveBeenCalled();
+    expect(cc74).toHaveBeenCalledWith(64);
     expect(aftertouch).toHaveBeenCalledWith(80);
     expect(standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(standardWheelRetune.mock.calls[0][0]).toBeCloseTo(baseCents + 1200, 0);

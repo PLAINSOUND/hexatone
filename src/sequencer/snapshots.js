@@ -61,7 +61,20 @@ export function captureSnapshot(runtime) {
       releaseVelocity: release,
       // Backward-compatible alias for older snapshot consumers.
       velocity: attack,
+      pressure: 0,
+      timbre: 0,
     };
+
+    const displayLabel = String(
+      hex?._noteContext?.displayLabel ??
+      runtime.getDisplayLabelAtCoords?.(hex?.coords, {
+        frame: runtime._frameForSoundingHex?.(hex),
+        geometryMode: runtime._geometryModeForSoundingHex?.(hex),
+        settings: runtime._labelSettingsForSoundingHex?.(hex),
+      }) ??
+      "",
+    ).trim();
+    if (displayLabel) entry.displayLabel = displayLabel;
 
     const pressure = normalize7Bit(hex?._lastAftertouch);
     const pressure14 = normalize14Bit(hex?._lastAftertouch14);
@@ -89,7 +102,12 @@ export function captureSnapshot(runtime) {
       attackVelocity: attack,
       releaseVelocity: release,
       velocity: attack,
+      pressure: 0,
+      timbre: 0,
     };
+
+    const displayLabel = String(note?.displayLabel ?? "").trim();
+    if (displayLabel) entry.displayLabel = displayLabel;
 
     const pressure = normalize7Bit(note.pressure);
     const pressure14 = normalize14Bit(note.pressure14);

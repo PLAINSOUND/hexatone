@@ -2,7 +2,7 @@
 const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "unknown";
 
 const Credits = () => (
-  <div>
+  <div class="credits-panel">
     <p>
       Designed by <a href="http://siementerpstra.com/">Siemen Terpstra</a> based on{" "}
       <a href="https://www.anaphoria.com/wilsonkeyboard.html">
