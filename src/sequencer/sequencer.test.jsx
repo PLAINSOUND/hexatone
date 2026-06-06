@@ -7,6 +7,7 @@ describe("Sequencer", () => {
     const onSelectSnapshot = vi.fn();
     const onSelectMarker = vi.fn();
     const onUpdateSnapshot = vi.fn();
+    const onResetSnapshotDescription = vi.fn();
 
     const { container } = render(
       <Sequencer
@@ -51,6 +52,7 @@ describe("Sequencer", () => {
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
         onUpdateSnapshot={onUpdateSnapshot}
+        onResetSnapshotDescription={onResetSnapshotDescription}
       />,
     );
 
@@ -59,7 +61,7 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByText("2 notes"));
 
     expect(onSelectSnapshot).toHaveBeenCalledWith(10);
-    const eventTimes = [...container.querySelectorAll(".sequencer-event__time")].map((node) => node.textContent);
+    const eventTimes = [...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value);
     expect(eventTimes).toEqual(["1.000", "1.500", "2.000", "2.000"]);
     expect(screen.getByText("Position")).not.toBeNull();
     expect(screen.getByText("MIDI¢")).not.toBeNull();
@@ -71,10 +73,24 @@ describe("Sequencer", () => {
     fireEvent.click(container.querySelectorAll(".sequencer-event")[1]);
     expect(onSelectMarker).toHaveBeenCalledWith(10, 0.5);
 
+    fireEvent.blur(screen.getAllByLabelText("snapshot 1 attack position")[0], {
+      currentTarget: { value: "1.250" },
+      target: { value: "1.250" },
+    });
+    expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
+      notes: [
+        expect.objectContaining({ id: "a", start: 0.25, end: 1 }),
+        expect.objectContaining({ id: "b", start: 0.5, end: 1 }),
+      ],
+    });
+
     fireEvent.input(screen.getByLabelText("snapshot 1 description"), {
       currentTarget: { value: "Edited" },
       target: { value: "Edited" },
     });
     expect(onUpdateSnapshot).toHaveBeenCalledWith(10, { description: "Edited" });
+
+    fireEvent.click(screen.getByLabelText("reset snapshot 1 description"));
+    expect(onResetSnapshotDescription).toHaveBeenCalledWith(10);
   });
 });

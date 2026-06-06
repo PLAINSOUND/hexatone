@@ -697,6 +697,7 @@ const App = () => {
         id,
         length: 1,
         description: buildSnapshotDescription(notes, snapshotLabelMode),
+        descriptionManual: false,
         notes,
       },
     ]);
@@ -759,10 +760,38 @@ const App = () => {
   }, []);
 
   const onUpdateSnapshot = useCallback((id, updates) => {
-    setSnapshots((prev) => prev.map((snapshot) => (
-      snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-    )));
+    setSnapshots((prev) => prev.map((snapshot) => {
+      if (snapshot.id !== id) return snapshot;
+      return {
+        ...snapshot,
+        ...updates,
+        ...(Object.prototype.hasOwnProperty.call(updates, "description")
+          ? { descriptionManual: true }
+          : {}),
+      };
+    }));
   }, []);
+
+  const onResetSnapshotDescription = useCallback((id) => {
+    setSnapshots((prev) => prev.map((snapshot) => {
+      if (snapshot.id !== id) return snapshot;
+      return {
+        ...snapshot,
+        description: buildSnapshotDescription(snapshot.notes, snapshotLabelMode),
+        descriptionManual: false,
+      };
+    }));
+  }, [snapshotLabelMode]);
+
+  useEffect(() => {
+    setSnapshots((prev) => prev.map((snapshot) => {
+      if (snapshot.descriptionManual) return snapshot;
+      const description = buildSnapshotDescription(snapshot.notes, snapshotLabelMode);
+      return snapshot.description === description
+        ? snapshot
+        : { ...snapshot, description };
+    }));
+  }, [snapshotLabelMode]);
 
   const suppressTouchClickUntilRef = useRef(0);
   const runTouchControlAction = useCallback((e, action) => {
@@ -1976,7 +2005,7 @@ const App = () => {
           }}
           onContextMenu={(e) => e.preventDefault()}
         >
-          ↺
+          <span class="refresh-glyph" aria-hidden="true">⟳</span>
         </button>
       </div>
 
@@ -2126,7 +2155,7 @@ const App = () => {
                     e.stopPropagation();
                   }}
                 >
-                  ⟳
+                  <span class="refresh-glyph" aria-hidden="true">⟳</span>
                 </button>
               ) : null}
             </div>
@@ -2280,6 +2309,7 @@ const App = () => {
               onDeleteSnapshot={onDeleteSnapshot}
               onMoveSnapshot={onMoveSnapshot}
               onUpdateSnapshot={onUpdateSnapshot}
+              onResetSnapshotDescription={onResetSnapshotDescription}
             />
           ) : showManual ? (
             <ManualSidebar onClose={() => setShowManual(false)} />

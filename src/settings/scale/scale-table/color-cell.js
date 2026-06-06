@@ -206,7 +206,7 @@ const ColorCell = ({
           title="Compare with original colour"
           aria-label={`compare original colour for ${name}`}
         >
-          ↺
+          <span class="refresh-glyph" aria-hidden="true">⟳</span>
         </button>
       )}
       {isDirty && (

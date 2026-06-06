@@ -22,7 +22,7 @@ function formatFrequency(value) {
 
 export const SNAPSHOT_LABEL_MODES = [
   { value: "labels", label: "Note Names" },
-  { value: "frequency", label: "Frequency" },
+  { value: "frequency", label: "Frequencies (Hz)" },
   { value: "midicents", label: "MIDIcents" },
 ];
 

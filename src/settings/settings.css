@@ -639,7 +639,7 @@ td.scale-color-col .color-input {
   border: none;
   background: transparent;
   margin-bottom: 0;
-  padding-bottom: 0.15em;
+  padding-bottom: 0.3em;
   border-radius: 4px;
 }
 
@@ -650,9 +650,9 @@ td.scale-color-col .color-input {
 
 .sequencer-row {
   display: grid;
-  grid-template-columns: 2.25em max-content minmax(0, 1fr) max-content;
+  grid-template-columns: 2.25em max-content minmax(0, 1fr) max-content max-content;
   gap: 0.45em;
-  align-items: stretch;
+  align-items: center;
   padding: 0 0.32em 0 0;
   border-radius: 4px;
   cursor: pointer;
@@ -668,7 +668,7 @@ td.scale-color-col .color-input {
   align-items: center;
   justify-content: flex-end;
   min-width: 1.85em;
-  min-height: 1.7em;
+  min-height: 1.5em;
   padding-left: 0.32em;
   position: relative;
   box-sizing: border-box;
@@ -705,7 +705,7 @@ td.scale-color-col .color-input {
 .sequencer-cell {
   display: inline-flex;
   align-items: center;
-  min-height: 1.7em;
+  min-height: 1.5em;
   box-sizing: border-box;
   border: 1px solid var(--color-border-ui);
   border-radius: 3px;
@@ -747,6 +747,7 @@ td.scale-color-col .color-input {
 .sequencer-row__count {
   width: 5.8em;
   min-width: 5.8em;
+  height: 1.5em;
   justify-content: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -757,11 +758,27 @@ td.scale-color-col .color-input {
   width: 100%;
   min-width: 0;
   display: block;
+  height: 1.5em;
+  box-sizing: border-box;
   background: var(--color-bg);
   border: 1px solid var(--color-border-ui);
   border-radius: 3px;
-  padding: 0.12em 0.28em;
+  padding: 0 0.28em;
+  line-height: calc(1.5em - 2px);
   color: inherit;
+}
+
+.sequencer-row__reset {
+  width: 1.5em;
+  min-width: 1.5em;
+  height: 1.5em;
+  min-height: 1.5em;
+  margin-left: 0.22em;
+}
+
+.sequencer-row__reset .refresh-glyph,
+.sequencer-row__reset .preset-refresh-glyph {
+  transform: none;
 }
 
 .sequencer-row--selected .sequencer-row__description {
@@ -779,6 +796,14 @@ td.scale-color-col .color-input {
   align-items: center;
   gap: 0.4em;
   margin-left: auto;
+  height: 1.5em;
+}
+
+#sidebar .sequencer-row .snapshot-play-btn {
+  height: 1.5em;
+  min-height: 1.5em;
+  box-sizing: border-box;
+  padding: 0 0.55em;
 }
 
 .sequencer-item__groups {
@@ -868,6 +893,29 @@ td.scale-color-col .color-input {
   text-align: left;
 }
 
+.sequencer-event__position {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 0;
+  color: #7b6666;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: text;
+  pointer-events: auto;
+}
+
+.sequencer-event__position:focus {
+  outline: none;
+}
+
 .sequencer-event--attack .sequencer-event__cell {
   background: rgba(238, 255, 238, 0.98);
 }
@@ -939,11 +987,18 @@ td.scale-color-col .color-input {
   padding: 0;
   line-height: 1;
   box-sizing: border-box;
+  background: var(--color-bg-btn-alt);
+  border: 1px solid var(--color-border-ui);
+  color: var(--color-text);
+  border-radius: var(--btn-radius-square);
 }
 
-.preset-refresh-glyph {
+.refresh-glyph,
+.preset-refresh-glyph,
+.tune-btn-compare {
   display: block;
   font-size: 1.3rem;
+  font-weight: 400;
   line-height: 1;
   transform: translateY(-0.02em);
 }
@@ -1282,11 +1337,6 @@ input.equiv-cell:disabled,
 }
 
 .tune-btn--rationalise:hover { background: #edf3f7; }
-
-.tune-btn-compare {
-  font-size: 1.3em;
-  line-height: 1;
-}
 
 /* Rationalise candidate dropdown */
 .rationalise-dropdown {

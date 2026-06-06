@@ -130,9 +130,7 @@ const FundamentalTuneCell = ({
           onClick={onCompare}
           title="A/B compare with original"
         >
-          <span class="tune-btn-compare" style={{ display: "block", marginTop: "-4px" }}>
-            ↺
-          </span>
+          <span class="refresh-glyph tune-btn-compare" aria-hidden="true">⟳</span>
         </button>
       )}
       {isDirty && (

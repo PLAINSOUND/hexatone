@@ -23,6 +23,10 @@ function displayValue(value) {
   return value == null ? "--" : String(value);
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 /**
  * Sequencer — early sidebar workspace for building sequencer material from
  * captured snapshots while keeping the existing Hexatone canvas active.
@@ -41,6 +45,7 @@ const Sequencer = ({
   onDeleteSnapshot,
   onMoveSnapshot,
   onUpdateSnapshot,
+  onResetSnapshotDescription,
 }) => {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [dragOverId, setDragOverId] = useState(null);
@@ -71,6 +76,36 @@ const Sequencer = ({
   const resolveDropSide = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
     return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+  };
+
+  const updateEventTime = (snapshot, noteId, kind, absoluteTime) => {
+    const baseIndex = snapshotIndexById.get(snapshot.id) ?? 1;
+    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    const parsedAbsolute = Number(absoluteTime);
+    if (!Number.isFinite(parsedAbsolute)) return;
+    const relativeTime = clamp(parsedAbsolute - baseIndex, 0, length);
+
+    const notes = (snapshot.notes ?? []).map((note) => {
+      if (note.id !== noteId) return note;
+      const currentStart = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
+      const currentEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : length;
+      if (kind === "attack") {
+        const nextStart = clamp(relativeTime, 0, currentEnd);
+        return {
+          ...note,
+          start: nextStart,
+          end: Math.max(nextStart, currentEnd),
+        };
+      }
+      const nextEnd = Math.max(currentStart, relativeTime);
+      return {
+        ...note,
+        start: currentStart,
+        end: clamp(nextEnd, currentStart, length),
+      };
+    });
+
+    onUpdateSnapshot(snapshot.id, { notes });
   };
 
   return (
@@ -207,6 +242,18 @@ const Sequencer = ({
                       }}
                       onInput={(e) => onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })}
                     />
+                    <button
+                      type="button"
+                      class="sequencer-row__reset preset-refresh-btn"
+                      aria-label={`reset snapshot ${index + 1} description`}
+                      title="Reset description to current auto-generated label"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onResetSnapshotDescription(snapshot.id);
+                      }}
+                    >
+                      <span class="refresh-glyph preset-refresh-glyph" aria-hidden="true">⟳</span>
+                    </button>
                     <span class="sequencer-row__actions">
                       <button
                         type="button"
@@ -269,7 +316,26 @@ const Sequencer = ({
                                   onSelectMarker(snapshot.id, group.time);
                                 }}
                               >
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content sequencer-event__time">{sequenceTime}</span></td>
+                                <td class="sequencer-event__cell">
+                                  <input
+                                    type="text"
+                                    class="sequencer-event__position"
+                                    defaultValue={sequenceTime}
+                                    aria-label={`snapshot ${index + 1} ${event.kind} position`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      e.currentTarget.select();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                    }}
+                                    onBlur={(e) => {
+                                      updateEventTime(snapshot, event.noteId, event.kind, e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
                                 <td class="sequencer-event__cell"><span class="sequencer-event__content sequencer-event__kind">
                                   {event.kind === "attack" ? "on" : "off"}
                                 </span></td>
