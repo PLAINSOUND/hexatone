@@ -2271,7 +2271,7 @@ const App = () => {
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
-              Build sequences from snapshots. Capture chords, layer new notes, edit start and stop times to make a step sequence, specify connections from note to note, chord by chord. Create bars and optional automations.
+              Build step sequences from snapshots and trigger them event by event. Capture chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining. Layer new notes over captured sounds. Edit start and stop times within a chord to make a melody or arpeggiation. Specify articulation and connections from note to note, chord by chord. Create bars and optional tempo automations.
             </em>
           </p>
         ) : (

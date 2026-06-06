@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "preact/hooks";
+import { useState, useCallback, useEffect, useMemo, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "../parse-scale";
 import { normalizeColors } from "../../../normalize-settings.js";
@@ -168,8 +168,11 @@ const ScaleTable = (props) => {
   });
   const [rationalisingScale, setRationalisingScale] = useState(false);
   const [draggedDegree, setDraggedDegree] = useState(null);
+  const draggedDegreeRef = useRef(null);
   const [dropTargetDegree, setDropTargetDegree] = useState(null);
+  const dropTargetDegreeRef = useRef(null);
   const [dropTargetSide, setDropTargetSide] = useState("before");
+  const dropTargetSideRef = useRef("before");
   const [selectedDegree, setSelectedDegree] = useState(null);
 
   // Persist search panel open/close state and prefs across page reloads.
@@ -189,8 +192,11 @@ const ScaleTable = (props) => {
   useEffect(() => {
     setResetVersion({});
     setDraggedDegree(null);
+    draggedDegreeRef.current = null;
     setDropTargetDegree(null);
+    dropTargetDegreeRef.current = null;
     setDropTargetSide("before");
+    dropTargetSideRef.current = "before";
     setSelectedDegree(null);
   }, [props.importCount]);
 
@@ -218,18 +224,20 @@ const ScaleTable = (props) => {
   }, [props]);
 
   const getDropInsertionDegree = useCallback((targetDegree, side) => {
-    if (!draggedDegree || !targetDegree) return targetDegree;
+    const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+    if (!sourceDegree || !targetDegree) return targetDegree;
     if (side === "after") {
-      return draggedDegree < targetDegree ? targetDegree : targetDegree + 1;
+      return sourceDegree < targetDegree ? targetDegree : targetDegree + 1;
     }
-    return draggedDegree < targetDegree ? targetDegree - 1 : targetDegree;
+    return sourceDegree < targetDegree ? targetDegree - 1 : targetDegree;
   }, [draggedDegree]);
 
   const commitDraggedDegree = useCallback((targetDegree, side) => {
-    if (!draggedDegree || !targetDegree) return;
+    const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+    if (!sourceDegree || !targetDegree) return;
     const insertionDegree = getDropInsertionDegree(targetDegree, side);
-    if (!insertionDegree || insertionDegree === draggedDegree) return;
-    const updates = moveScaleDegree(props.settings, draggedDegree, insertionDegree);
+    if (!insertionDegree || insertionDegree === sourceDegree) return;
+    const updates = moveScaleDegree(props.settings, sourceDegree, insertionDegree);
     if (updates && props.onAtomicChange) props.onAtomicChange(updates);
   }, [draggedDegree, getDropInsertionDegree, props]);
 
@@ -242,7 +250,8 @@ const ScaleTable = (props) => {
   const getDropSide = useCallback((event) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const midY = rect.top + rect.height / 2;
-    return event.clientY >= midY ? "after" : "before";
+    const clientY = event.clientY ?? event.nativeEvent?.clientY ?? event.pageY;
+    return Number.isFinite(clientY) && clientY >= midY ? "after" : "before";
   }, []);
 
   const resolveDropTarget = useCallback((event, degree) => {
@@ -254,8 +263,11 @@ const ScaleTable = (props) => {
   }, [getDropSide]);
 
   const updateDropTarget = useCallback((event, degree) => {
-    if (!draggedDegree || draggedDegree === degree) return;
+    const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+    if (!sourceDegree || sourceDegree === degree) return;
     const target = resolveDropTarget(event, degree);
+    dropTargetDegreeRef.current = target.degree;
+    dropTargetSideRef.current = target.side;
     setDropTargetDegree(target.degree);
     setDropTargetSide(target.side);
   }, [draggedDegree, resolveDropTarget]);
@@ -955,8 +967,19 @@ const ScaleTable = (props) => {
             }}
             onDrop={(e) => {
               e.preventDefault();
-              const side = getDropSide(e);
-              commitDraggedDegree(i + 1, side);
+              const rowDegree = i + 1;
+              const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+              const cachedTargetDegree = dropTargetDegreeRef.current;
+              const useCachedTarget = cachedTargetDegree != null
+                && !(cachedTargetDegree === sourceDegree && rowDegree !== sourceDegree);
+              const targetDegree = useCachedTarget ? cachedTargetDegree : rowDegree;
+              const side = useCachedTarget && cachedTargetDegree === rowDegree
+                ? dropTargetSideRef.current
+                : getDropSide(e);
+              commitDraggedDegree(targetDegree, side);
+              draggedDegreeRef.current = null;
+              dropTargetDegreeRef.current = null;
+              dropTargetSideRef.current = "before";
               setDraggedDegree(null);
               setDropTargetDegree(null);
               setDropTargetSide("before");
@@ -973,14 +996,20 @@ const ScaleTable = (props) => {
                     setSelectedDegree((prev) => (prev === i + 1 ? null : i + 1));
                   }}
                   onDragStart={(e) => {
+                    draggedDegreeRef.current = i + 1;
+                    dropTargetDegreeRef.current = null;
+                    dropTargetSideRef.current = "before";
                     setDraggedDegree(i + 1);
-                    setDropTargetDegree(i + 1);
+                    setDropTargetDegree(null);
                     setDropTargetSide("before");
                     setSelectedDegree(null);
                     e.dataTransfer.effectAllowed = "move";
                     e.dataTransfer.setData("text/plain", String(i + 1));
                   }}
                   onDragEnd={() => {
+                    draggedDegreeRef.current = null;
+                    dropTargetDegreeRef.current = null;
+                    dropTargetSideRef.current = "before";
                     setDraggedDegree(null);
                     setDropTargetDegree(null);
                     setDropTargetSide("before");

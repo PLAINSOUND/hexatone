@@ -865,10 +865,6 @@ td.scale-color-col .color-input {
     0 2px 0 #d6deea;
 }
 
-.sequencer-group--selected .sequencer-event__time {
-  color: var(--color-accent);
-}
-
 .sequencer-event {
   cursor: pointer;
 }
@@ -888,32 +884,45 @@ td.scale-color-col .color-input {
   font-weight: 400;
 }
 
-.sequencer-event__time {
-  color: #7b6666;
-  text-align: left;
-}
-
-.sequencer-event__position {
+.sequencer-event__input {
+  all: unset;
+  display: block;
   width: 100%;
   min-width: 0;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  appearance: none;
-  -webkit-appearance: none;
-  border-radius: 0;
-  color: #7b6666;
+  color: inherit;
   font: inherit;
   line-height: inherit;
   text-align: left;
   cursor: text;
   pointer-events: auto;
+  box-sizing: border-box;
 }
 
-.sequencer-event__position:focus {
-  outline: none;
+#sidebar .sequencer-events-table input[type="text"].sequencer-event__input {
+  all: unset;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: text;
+  pointer-events: auto;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+#sidebar .sequencer-events-table input[type="text"].sequencer-event__input:focus {
+  outline: 1px solid rgba(160, 140, 140, 0.55);
+  background: #fff;
+  background-color: #fff;
 }
 
 .sequencer-event--attack .sequencer-event__cell {

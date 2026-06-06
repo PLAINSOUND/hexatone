@@ -27,6 +27,12 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function frequencyToMidicents(value) {
+  const frequency = Number(value);
+  if (!Number.isFinite(frequency) || frequency <= 0) return null;
+  return 69 + Math.log2(frequency / 440) * 12;
+}
+
 /**
  * Sequencer — early sidebar workspace for building sequencer material from
  * captured snapshots while keeping the existing Hexatone canvas active.
@@ -73,6 +79,12 @@ const Sequencer = ({
     });
   };
 
+  const toggleExpanded = (id) => {
+    setExpandedIds((prev) => (
+      prev.has(id) ? new Set() : new Set([id])
+    ));
+  };
+
   const resolveDropSide = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
     return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
@@ -103,6 +115,38 @@ const Sequencer = ({
         start: currentStart,
         end: clamp(nextEnd, currentStart, length),
       };
+    });
+
+    onUpdateSnapshot(snapshot.id, { notes });
+  };
+
+  const updateEventField = (snapshot, noteId, field, rawValue) => {
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric)) return;
+
+    const notes = (snapshot.notes ?? []).map((note) => {
+      if (note.id !== noteId) return note;
+
+      if (field === "midicents") {
+        return { ...note, midicents: numeric };
+      }
+      if (field === "frequency") {
+        const midicents = frequencyToMidicents(numeric);
+        return midicents == null ? note : { ...note, midicents };
+      }
+      if (field === "attackVelocity") {
+        return { ...note, attackVelocity: clamp(Math.round(numeric), 0, 127) };
+      }
+      if (field === "releaseVelocity") {
+        return { ...note, releaseVelocity: clamp(Math.round(numeric), 0, 127) };
+      }
+      if (field === "pressure") {
+        return { ...note, pressure: clamp(Math.round(numeric), 0, 127) };
+      }
+      if (field === "timbre") {
+        return { ...note, timbre: clamp(Math.round(numeric), 0, 127) };
+      }
+      return note;
     });
 
     onUpdateSnapshot(snapshot.id, { notes });
@@ -193,7 +237,7 @@ const Sequencer = ({
                     class={`sequencer-row${isSelected ? " sequencer-row--selected" : ""}`}
                     onClick={() => {
                       onSelectSnapshot(snapshot.id);
-                      ensureExpanded(snapshot.id);
+                      toggleExpanded(snapshot.id);
                     }}
                   >
                     <span
@@ -319,7 +363,7 @@ const Sequencer = ({
                                 <td class="sequencer-event__cell">
                                   <input
                                     type="text"
-                                    class="sequencer-event__position"
+                                    class="sequencer-event__input sequencer-event__position"
                                     defaultValue={sequenceTime}
                                     aria-label={`snapshot ${index + 1} ${event.kind} position`}
                                     onPointerDown={(e) => e.stopPropagation()}
@@ -339,12 +383,126 @@ const Sequencer = ({
                                 <td class="sequencer-event__cell"><span class="sequencer-event__content sequencer-event__kind">
                                   {event.kind === "attack" ? "on" : "off"}
                                 </span></td>
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content">{formatMidicents(event.midicents)}</span></td>
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content">{formatFrequency(event.frequency)}</span></td>
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content">{displayValue(event.attackVelocity)}</span></td>
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content">{displayValue(event.releaseVelocity)}</span></td>
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content">{displayValue(event.pressure)}</span></td>
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content">{displayValue(event.timbre)}</span></td>
+                                <td class="sequencer-event__cell">
+                                  <input
+                                    type="text"
+                                    class="sequencer-event__input"
+                                    defaultValue={formatMidicents(event.midicents)}
+                                    aria-label={`snapshot ${index + 1} ${event.kind} midicents`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      e.currentTarget.select();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                    }}
+                                    onBlur={(e) => {
+                                      updateEventField(snapshot, event.noteId, "midicents", e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
+                                <td class="sequencer-event__cell">
+                                  <input
+                                    type="text"
+                                    class="sequencer-event__input"
+                                    defaultValue={formatFrequency(event.frequency)}
+                                    aria-label={`snapshot ${index + 1} ${event.kind} frequency`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      e.currentTarget.select();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                    }}
+                                    onBlur={(e) => {
+                                      updateEventField(snapshot, event.noteId, "frequency", e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
+                                <td class="sequencer-event__cell">
+                                  <input
+                                    type="text"
+                                    class="sequencer-event__input"
+                                    defaultValue={displayValue(event.attackVelocity)}
+                                    aria-label={`snapshot ${index + 1} ${event.kind} on velocity`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      e.currentTarget.select();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                    }}
+                                    onBlur={(e) => {
+                                      updateEventField(snapshot, event.noteId, "attackVelocity", e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
+                                <td class="sequencer-event__cell">
+                                  <input
+                                    type="text"
+                                    class="sequencer-event__input"
+                                    defaultValue={displayValue(event.releaseVelocity)}
+                                    aria-label={`snapshot ${index + 1} ${event.kind} off velocity`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      e.currentTarget.select();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                    }}
+                                    onBlur={(e) => {
+                                      updateEventField(snapshot, event.noteId, "releaseVelocity", e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
+                                <td class="sequencer-event__cell">
+                                  <input
+                                    type="text"
+                                    class="sequencer-event__input"
+                                    defaultValue={displayValue(event.pressure)}
+                                    aria-label={`snapshot ${index + 1} ${event.kind} pressure`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      e.currentTarget.select();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                    }}
+                                    onBlur={(e) => {
+                                      updateEventField(snapshot, event.noteId, "pressure", e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
+                                <td class="sequencer-event__cell">
+                                  <input
+                                    type="text"
+                                    class="sequencer-event__input"
+                                    defaultValue={displayValue(event.timbre)}
+                                    aria-label={`snapshot ${index + 1} ${event.kind} timbre`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onFocus={(e) => {
+                                      e.stopPropagation();
+                                      e.currentTarget.select();
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                    }}
+                                    onBlur={(e) => {
+                                      updateEventField(snapshot, event.noteId, "timbre", e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
                               </tr>
                             ));
                           })}

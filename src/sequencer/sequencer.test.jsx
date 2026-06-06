@@ -65,10 +65,17 @@ describe("Sequencer", () => {
     expect(eventTimes).toEqual(["1.000", "1.500", "2.000", "2.000"]);
     expect(screen.getByText("Position")).not.toBeNull();
     expect(screen.getByText("MIDI¢")).not.toBeNull();
-    expect(screen.getAllByText("81.000")).toHaveLength(2);
-    expect(screen.getAllByText("880.00")).toHaveLength(2);
+    expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("81.000");
+    expect(screen.getAllByLabelText("snapshot 1 release midicents")[0].value).toBe("81.000");
+    expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("880.00");
+    expect(screen.getAllByLabelText("snapshot 1 release frequency")[0].value).toBe("880.00");
     expect(screen.getAllByText("on")).toHaveLength(2);
     expect(screen.getAllByText("off")).toHaveLength(2);
+
+    fireEvent.click(screen.getByText("2 notes"));
+    expect(container.querySelector(".sequencer-events-table")).toBeNull();
+
+    fireEvent.click(screen.getByText("2 notes"));
 
     fireEvent.click(container.querySelectorAll(".sequencer-event")[1]);
     expect(onSelectMarker).toHaveBeenCalledWith(10, 0.5);

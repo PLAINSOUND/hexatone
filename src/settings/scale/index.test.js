@@ -51,6 +51,13 @@ const minimalSettings = {
   center_degree: 0,
 };
 
+const fireDragEventWithClientY = (element, type, { dataTransfer, clientY }) => {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+  Object.defineProperty(event, "clientY", { value: clientY });
+  fireEvent(element, event);
+};
+
 describe("Scale panel — default state", () => {
   beforeEach(() => {
     sessionStorage.clear();
@@ -400,7 +407,7 @@ describe("Scale panel — sort degrees", () => {
     fireEvent.dragStart(dragSource, { dataTransfer });
     fireEvent.dragEnter(dropTarget, { dataTransfer });
     fireEvent.dragOver(dropTarget, { dataTransfer });
-    fireEvent.drop(dropTarget, { dataTransfer, clientY: 115 });
+    fireDragEventWithClientY(dropTarget, "drop", { dataTransfer, clientY: 115 });
 
     expect(onAtomicChange).toHaveBeenCalledWith({
       scale: ["500.", "700.", "100.", "2/1"],
@@ -450,9 +457,9 @@ describe("Scale panel — sort degrees", () => {
     });
 
     fireEvent.dragStart(dragSource, { dataTransfer });
-    fireEvent.dragEnter(dropTarget, { dataTransfer, clientY: 115 });
-    fireEvent.dragOver(dropTarget, { dataTransfer, clientY: 115 });
-    fireEvent.drop(dropTarget, { dataTransfer, clientY: 115 });
+    fireDragEventWithClientY(dropTarget, "dragenter", { dataTransfer, clientY: 115 });
+    fireDragEventWithClientY(dropTarget, "dragover", { dataTransfer, clientY: 115 });
+    fireDragEventWithClientY(dropTarget, "drop", { dataTransfer, clientY: 115 });
 
     expect(onAtomicChange).toHaveBeenCalledWith({
       scale: ["100.", "700.", "500.", "2/1"],
@@ -502,9 +509,9 @@ describe("Scale panel — sort degrees", () => {
     });
 
     fireEvent.dragStart(dragSource, { dataTransfer });
-    fireEvent.dragEnter(dropTarget, { dataTransfer, clientY: 105 });
-    fireEvent.dragOver(dropTarget, { dataTransfer, clientY: 105 });
-    fireEvent.drop(dropTarget, { dataTransfer, clientY: 105 });
+    fireDragEventWithClientY(dropTarget, "dragenter", { dataTransfer, clientY: 105 });
+    fireDragEventWithClientY(dropTarget, "dragover", { dataTransfer, clientY: 105 });
+    fireDragEventWithClientY(dropTarget, "drop", { dataTransfer, clientY: 105 });
 
     expect(onAtomicChange).not.toHaveBeenCalled();
   });
