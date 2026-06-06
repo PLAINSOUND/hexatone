@@ -57,7 +57,10 @@ import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
-import { deriveSnapshotTriggerGroups } from "./sequencer/trigger-groups.js";
+import {
+  deriveSequenceCueGroups,
+  sequenceNotesAtCueTime,
+} from "./sequencer/trigger-groups.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
@@ -684,7 +687,7 @@ const App = () => {
   const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
-    stepIndex: 0,
+    stepIndex: -1,
     markerIndex: null,
     stopped: true,
   });
@@ -712,39 +715,63 @@ const App = () => {
     setSelectedSnapshotMarker(null);
   }, [snapshotLabelMode]);
 
-  const snapshotNotesAtMarker = useCallback((snapshot, markerIndex) => {
-    const groups = deriveSnapshotTriggerGroups(snapshot);
-    const group = groups[markerIndex];
-    if (!group) return [];
-    const time = Number(group.time);
-    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-    return (snapshot?.notes ?? []).filter((note) => {
-      const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
-      const end = Number.isFinite(Number(note?.end)) ? Number(note.end) : length;
-      return start <= time && end > time;
-    });
-  }, []);
+  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots), [snapshots]);
 
   const playSequencePosition = useCallback((stepIndex, markerIndex = null) => {
+    if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
+      keysRef.current?.stopSnapshot();
+      setPlayingSnapshotId(null);
+      setSelectedSnapshotId(null);
+      setSelectedSnapshotMarker(null);
+      setSequencePlayhead({
+        barIndex: 0,
+        stepIndex: -1,
+        markerIndex: null,
+        stopped: true,
+      });
+      return;
+    }
+
+    if (stepIndex >= snapshots.length) {
+      keysRef.current?.stopSnapshot();
+      setPlayingSnapshotId(null);
+      setSelectedSnapshotId(null);
+      setSelectedSnapshotMarker(null);
+      setSequencePlayhead({
+        barIndex: 0,
+        stepIndex: snapshots.length,
+        markerIndex: null,
+        stopped: true,
+      });
+      return;
+    }
+
     const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
     const snapshot = snapshots[safeStepIndex];
     if (!snapshot) return;
-    const markerGroups = deriveSnapshotTriggerGroups(snapshot);
-    const safeMarkerIndex = markerIndex == null || markerGroups.length === 0
+    const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
       ? null
-      : Math.max(0, Math.min(markerGroups.length - 1, markerIndex));
+      : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+    const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
     const notes = safeMarkerIndex == null
       ? snapshot.notes
-      : snapshotNotesAtMarker(snapshot, safeMarkerIndex);
+      : sequenceNotesAtCueTime(snapshots, cueGroup?.time);
 
     keysRef.current?.stopSnapshot();
     if (notes.length > 0) keysRef.current?.playSnapshot(notes);
     setPlayingSnapshotId(notes.length > 0 ? snapshot.id : null);
-    setSelectedSnapshotId(snapshot.id);
+    setSelectedSnapshotId(cueGroup?.snapshotIndex != null
+      ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id)
+      : snapshot.id);
     setSelectedSnapshotMarker(
       safeMarkerIndex == null
         ? null
-        : { snapshotId: snapshot.id, time: markerGroups[safeMarkerIndex]?.time ?? 0 },
+        : cueGroup == null
+          ? null
+          : {
+            snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id,
+            time: cueGroup.time - (cueGroup.snapshotIndex + 1),
+          },
     );
     setSequencePlayhead({
       barIndex: 0,
@@ -752,7 +779,7 @@ const App = () => {
       markerIndex: safeMarkerIndex,
       stopped: notes.length === 0,
     });
-  }, [snapshotNotesAtMarker, snapshots]);
+  }, [sequenceCueGroups, snapshots]);
 
   const onSelectSequencerSnapshot = useCallback((id) => {
     setSelectedSnapshotId(id);
@@ -787,66 +814,88 @@ const App = () => {
   const onSelectSequenceBar = useCallback((barIndex) => {
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
+    setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
     setSequencePlayhead({
       barIndex,
-      stepIndex: 0,
+      stepIndex: -1,
       markerIndex: null,
       stopped: true,
     });
-    setSelectedSnapshotId(snapshots[0]?.id ?? null);
-  }, [snapshots]);
+  }, []);
 
   const onStepSequence = useCallback((direction) => {
     if (!snapshots.length) return;
-    const current = sequencePlayhead.stepIndex ?? 0;
-    const next = Math.max(0, Math.min(snapshots.length - 1, current + direction));
+    const current = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
+    const next = Math.max(-1, Math.min(snapshots.length, current + direction));
     playSequencePosition(next, null);
   }, [playSequencePosition, sequencePlayhead.stepIndex, snapshots.length]);
 
   const onStepSequenceMarker = useCallback((direction) => {
     if (!snapshots.length) return;
-    const currentStep = Math.max(0, Math.min(snapshots.length - 1, sequencePlayhead.stepIndex ?? 0));
-    const currentSnapshot = snapshots[currentStep];
-    const currentGroups = deriveSnapshotTriggerGroups(currentSnapshot);
-    let nextStep = currentStep;
-    let nextMarker = sequencePlayhead.markerIndex;
-
-    if (direction > 0) {
-      if (nextMarker == null) {
-        nextStep = sequencePlayhead.stopped ? currentStep : Math.min(snapshots.length - 1, currentStep + 1);
-        nextMarker = 0;
-      } else if (nextMarker + 1 < currentGroups.length) {
-        nextMarker += 1;
-      } else {
-        nextStep = Math.min(snapshots.length - 1, currentStep + 1);
-        nextMarker = 0;
-      }
-    } else if (nextMarker == null) {
-      nextStep = Math.max(0, currentStep - 1);
-      const previousGroups = deriveSnapshotTriggerGroups(snapshots[nextStep]);
-      nextMarker = Math.max(0, previousGroups.length - 1);
-    } else if (nextMarker > 0) {
-      nextMarker -= 1;
-    } else {
-      nextStep = Math.max(0, currentStep - 1);
-      const previousGroups = deriveSnapshotTriggerGroups(snapshots[nextStep]);
-      nextMarker = nextStep === currentStep ? 0 : Math.max(0, previousGroups.length - 1);
+    const cueCount = sequenceCueGroups.length;
+    if (cueCount === 0) {
+      const currentStep = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
+      const nextStep = Math.max(-1, Math.min(snapshots.length, currentStep + direction));
+      playSequencePosition(nextStep, null);
+      return;
     }
 
-    playSequencePosition(nextStep, nextMarker);
+    const atOff = !Number.isFinite(sequencePlayhead.stepIndex) || sequencePlayhead.stepIndex < 0;
+    const atEnd = Number.isFinite(sequencePlayhead.stepIndex) && sequencePlayhead.stepIndex >= snapshots.length;
+    const currentCue = Number.isFinite(sequencePlayhead.markerIndex) ? sequencePlayhead.markerIndex : null;
+
+    let nextCue = currentCue;
+    if (atOff) {
+      if (direction <= 0) return;
+      nextCue = 0;
+    } else if (atEnd) {
+      if (direction >= 0) return;
+      nextCue = cueCount - 1;
+    } else if (currentCue == null) {
+      const currentTime = Number(sequencePlayhead.stepIndex) + 1;
+      nextCue = direction > 0
+        ? sequenceCueGroups.findIndex((group) => group.time > currentTime)
+        : sequenceCueGroups.findLastIndex((group) => group.time < currentTime);
+      if (nextCue < 0) {
+        playSequencePosition(direction > 0 ? snapshots.length : -1, null);
+        return;
+      }
+    } else {
+      nextCue = Math.max(-1, Math.min(cueCount, currentCue + direction));
+      if (nextCue < 0) {
+        playSequencePosition(-1, null);
+        return;
+      }
+      if (nextCue >= cueCount) {
+        playSequencePosition(snapshots.length, null);
+        return;
+      }
+    }
+
+    const cueGroup = sequenceCueGroups[nextCue];
+    if (!cueGroup) return;
+    playSequencePosition(cueGroup.snapshotIndex, nextCue);
   }, [
     playSequencePosition,
+    sequenceCueGroups,
     sequencePlayhead.markerIndex,
     sequencePlayhead.stepIndex,
-    sequencePlayhead.stopped,
-    snapshots,
+    snapshots.length,
   ]);
 
   const onPlaySequence = useCallback(() => {
     if (!snapshots.length) return;
+    if ((sequencePlayhead.stepIndex ?? -1) < 0 || (sequencePlayhead.stepIndex ?? -1) >= snapshots.length) {
+      playSequencePosition(sequencePlayhead.stepIndex ?? -1, null);
+      return;
+    }
     playSequencePosition(sequencePlayhead.stepIndex ?? 0, sequencePlayhead.markerIndex);
   }, [playSequencePosition, sequencePlayhead.markerIndex, sequencePlayhead.stepIndex, snapshots.length]);
+
+  const onResetSequencePlayhead = useCallback(() => {
+    playSequencePosition(-1, null);
+  }, [playSequencePosition]);
 
   const onDeleteSnapshot = useCallback(
     (id) => {
@@ -913,20 +962,28 @@ const App = () => {
   useEffect(() => {
     setSequencePlayhead((prev) => {
       if (snapshots.length === 0) {
-        return prev.stepIndex === 0 && prev.markerIndex == null && prev.stopped
+        return prev.stepIndex === -1 && prev.markerIndex == null && prev.stopped
           ? prev
-          : { ...prev, stepIndex: 0, markerIndex: null, stopped: true };
+          : { ...prev, stepIndex: -1, markerIndex: null, stopped: true };
       }
-      const stepIndex = Math.max(0, Math.min(snapshots.length - 1, prev.stepIndex ?? 0));
-      const groups = deriveSnapshotTriggerGroups(snapshots[stepIndex]);
-      const markerIndex = prev.markerIndex == null || groups.length === 0
+      const previousStep = Number.isFinite(prev.stepIndex) ? prev.stepIndex : -1;
+      if (previousStep < 0) {
+        return prev.markerIndex == null ? prev : { ...prev, markerIndex: null };
+      }
+      if (previousStep >= snapshots.length) {
+        return prev.markerIndex == null && prev.stepIndex === snapshots.length
+          ? prev
+          : { ...prev, stepIndex: snapshots.length, markerIndex: null };
+      }
+      const stepIndex = Math.max(0, Math.min(snapshots.length - 1, previousStep));
+      const markerIndex = prev.markerIndex == null || sequenceCueGroups.length === 0
         ? null
-        : Math.max(0, Math.min(groups.length - 1, prev.markerIndex));
+        : Math.max(0, Math.min(sequenceCueGroups.length - 1, prev.markerIndex));
       return stepIndex === prev.stepIndex && markerIndex === prev.markerIndex
         ? prev
         : { ...prev, stepIndex, markerIndex };
     });
-  }, [snapshots]);
+  }, [sequenceCueGroups, snapshots]);
 
   const suppressTouchClickUntilRef = useRef(0);
   const runTouchControlAction = useCallback((e, action) => {
@@ -2215,10 +2272,7 @@ const App = () => {
                     onStopSnapshot(snap.id);
                   }}
                 >
-                  <span
-                    className="snapshot-play-glyph snapshot-play-glyph--stop"
-                    aria-hidden="true"
-                  />
+                  <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
                 </button>
                 <button
                   class="snapshot-del-btn"
@@ -2469,6 +2523,7 @@ const App = () => {
               onStepSequence={onStepSequence}
               onStepSequenceMarker={onStepSequenceMarker}
               onPlaySequence={onPlaySequence}
+              onResetSequencePlayhead={onResetSequencePlayhead}
               onDeleteSnapshot={onDeleteSnapshot}
               onMoveSnapshot={onMoveSnapshot}
               onUpdateSnapshot={onUpdateSnapshot}

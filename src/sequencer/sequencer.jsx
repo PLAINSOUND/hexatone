@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
-import { deriveSnapshotTriggerGroups } from "./trigger-groups.js";
+import { deriveSequenceCueGroups, deriveSnapshotTriggerGroups } from "./trigger-groups.js";
 
 function formatSequenceTime(snapshotIndex, relativeTime) {
   const baseIndex = Number(snapshotIndex);
@@ -54,6 +54,7 @@ const Sequencer = ({
   onStepSequence,
   onStepSequenceMarker,
   onPlaySequence,
+  onResetSequencePlayhead,
   onDeleteSnapshot,
   onMoveSnapshot,
   onUpdateSnapshot,
@@ -72,15 +73,24 @@ const Sequencer = ({
     ]);
     return new Map(entries);
   }, [snapshots]);
+  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots), [snapshots]);
 
-  const playheadStepIndex = Math.max(0, Math.min(snapshots.length - 1, playhead?.stepIndex ?? 0));
-  const playheadSnapshot = snapshots[playheadStepIndex] ?? null;
-  const playheadGroups = playheadSnapshot ? (triggerGroupsById.get(playheadSnapshot.id) ?? []) : [];
-  const playheadMarkerIndex = playhead?.markerIndex;
-  const markerLabel = playheadMarkerIndex == null
-    ? "Chord"
-    : `${Math.min(playheadMarkerIndex + 1, playheadGroups.length)}/${playheadGroups.length}`;
-  const stepLabel = snapshots.length ? `${playheadStepIndex + 1}/${snapshots.length}` : "0/0";
+  const rawPlayheadStepIndex = Number.isFinite(playhead?.stepIndex) ? playhead.stepIndex : -1;
+  const playheadIsOff = rawPlayheadStepIndex < 0 || snapshots.length === 0;
+  const playheadIsEnd = !playheadIsOff && rawPlayheadStepIndex >= snapshots.length;
+  const playheadStepIndex = playheadIsOff || playheadIsEnd
+    ? -1
+    : Math.max(0, Math.min(snapshots.length - 1, rawPlayheadStepIndex));
+  const playheadMarkerIndex = Number.isFinite(playhead?.markerIndex) ? playhead.markerIndex : null;
+  const snapshotNumberLabel = playheadIsOff ? "0" : playheadIsEnd ? "end" : String(playheadStepIndex + 1);
+  const markerLabel = useMemo(() => {
+    if (playheadIsOff) return "0";
+    if (playheadIsEnd) return "end";
+    if (playheadMarkerIndex != null) return String(playheadMarkerIndex + 1);
+    const currentTime = playheadStepIndex + 1;
+    const cueIndex = sequenceCueGroups.findIndex((group) => group.time >= currentTime);
+    return cueIndex >= 0 ? String(cueIndex + 1) : "end";
+  }, [playheadIsEnd, playheadIsOff, playheadMarkerIndex, playheadStepIndex, sequenceCueGroups]);
 
   const snapshotIndexById = useMemo(() => {
     const entries = snapshots.map((snapshot, index) => [snapshot.id, index + 1]);
@@ -95,9 +105,7 @@ const Sequencer = ({
   };
 
   const toggleExpanded = (id) => {
-    setExpandedIds((prev) => (
-      prev.has(id) ? new Set() : new Set([id])
-    ));
+    setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
   };
 
   const resolveDropSide = (event) => {
@@ -172,17 +180,16 @@ const Sequencer = ({
       <fieldset style={{ marginTop: "1em" }}>
         <legend>
           <b>Snapshot</b>
-        </legend>             
+        </legend>
         <p>
           <em>
-            Store currently sounding notes, including attack and release velocity if sustained, as well as pressure and timbre data if available. May be layered with notes from a previous snapshot to build up chords in stages. The Sequence panel, below, allows snapshots to be played, ordered, and edited.
+            Store currently sounding notes, including attack and release velocity if sustained, as
+            well as pressure and timbre data if available. May be layered with notes from a previous
+            snapshot to build up chords in stages. The Sequence panel, below, allows snapshots to be
+            played, ordered, and edited.
           </em>
         </p>
-        <button
-          type="button"
-          class="preset-action-btn"
-          onClick={onTakeSnapshot}
-        >
+        <button type="button" class="preset-action-btn" onClick={onTakeSnapshot}>
           Capture
         </button>
       </fieldset>
@@ -192,9 +199,10 @@ const Sequencer = ({
           <b>Sequence</b>
         </legend>
         <div class="sequencer-playback-row" aria-label="Sequence playback">
-          <span class="sequencer-playback-label">Playback</span>
-          <label class="sequencer-playback-control">
-            Bar
+          <span class="sequencer-playback-label">PLAY FROM</span>
+
+          <span class="sequencer-playback-control">
+            <span class="sequencer-playback-key">BAR</span>
             <select
               class="sidebar-input sequencer-playback-select"
               value={playhead?.barIndex ?? 0}
@@ -202,56 +210,75 @@ const Sequencer = ({
             >
               <option value={0}>1</option>
             </select>
-          </label>
+          </span>
+
           <span class="sequencer-playback-control">
-            Step
+            <span class="sequencer-playback-key">SNAPSHOT</span>
             <button
               type="button"
-              class="snapshot-play-btn sequencer-transport-btn"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="previous sequence step"
               title="Previous step"
-              disabled={snapshots.length === 0 || playheadStepIndex === 0}
+              disabled={snapshots.length === 0 || playheadIsOff}
               onClick={() => onStepSequence?.(-1)}
             >
-              <span aria-hidden="true">◀</span>
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
             </button>
-            <span class="sequencer-playback-status">{stepLabel}</span>
+            <span class="sequencer-playback-status">{snapshotNumberLabel}</span>
             <button
               type="button"
-              class="snapshot-play-btn sequencer-transport-btn"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="next sequence step"
               title="Next step"
-              disabled={snapshots.length === 0 || playheadStepIndex >= snapshots.length - 1}
+              disabled={snapshots.length === 0 || playheadIsEnd}
               onClick={() => onStepSequence?.(1)}
             >
-              <span aria-hidden="true">▶</span>
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
             </button>
           </span>
           <span class="sequencer-playback-control">
-            Marker
+            <span class="sequencer-playback-key">CUE</span>
             <button
               type="button"
-              class="snapshot-play-btn sequencer-transport-btn"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="previous sequence marker"
               title="Previous marker"
-              disabled={snapshots.length === 0}
+              disabled={snapshots.length === 0 || playheadIsOff}
               onClick={() => onStepSequenceMarker?.(-1)}
             >
-              <span aria-hidden="true">◂</span>
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
             </button>
             <span class="sequencer-playback-status">{markerLabel}</span>
             <button
               type="button"
-              class="snapshot-play-btn sequencer-transport-btn"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="next sequence marker"
               title="Next marker"
-              disabled={snapshots.length === 0}
+              disabled={snapshots.length === 0 || playheadIsEnd}
               onClick={() => onStepSequenceMarker?.(1)}
             >
-              <span aria-hidden="true">▸</span>
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
             </button>
           </span>
           <span class="sequencer-playback-actions">
+            <button
+              type="button"
+              class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+              title="Move playhead to start"
+              aria-label="move sequence playhead to start"
+              disabled={snapshots.length === 0 && playheadIsOff}
+              onClick={() => onResetSequencePlayhead?.()}
+            >
+              <svg
+                class="snapshot-start-icon"
+                viewBox="0 0 10 10"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+                <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+              </svg>
+            </button>
             <button
               type="button"
               class="snapshot-play-btn"
@@ -270,7 +297,7 @@ const Sequencer = ({
               disabled={!playingSnapshotId}
               onClick={() => onStopSnapshot?.()}
             >
-              <span className="snapshot-play-glyph snapshot-play-glyph--stop" aria-hidden="true" />
+              <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
             </button>
           </span>
         </div>
@@ -282,7 +309,9 @@ const Sequencer = ({
             onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
           >
             {SNAPSHOT_LABEL_MODES.map((mode) => (
-              <option key={mode.value} value={mode.value}>{mode.label}</option>
+              <option key={mode.value} value={mode.value}>
+                {mode.label}
+              </option>
             ))}
           </select>
         </label>
@@ -364,7 +393,9 @@ const Sequencer = ({
                             onDeleteSnapshot(snapshot.id);
                           }}
                         >
-                          <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+                          <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+                            ×
+                          </span>
                         </button>
                       )}
                       <span class="sequencer-gutter__number">{index + 1}</span>
@@ -382,7 +413,9 @@ const Sequencer = ({
                         onSelectSnapshot(snapshot.id);
                         ensureExpanded(snapshot.id);
                       }}
-                      onInput={(e) => onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })}
+                      onInput={(e) =>
+                        onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })
+                      }
                     />
                     <button
                       type="button"
@@ -394,7 +427,9 @@ const Sequencer = ({
                         onResetSnapshotDescription(snapshot.id);
                       }}
                     >
-                      <span class="refresh-glyph preset-refresh-glyph" aria-hidden="true">⟳</span>
+                      <span class="refresh-glyph preset-refresh-glyph" aria-hidden="true">
+                        ⟳
+                      </span>
                     </button>
                     <span class="sequencer-row__actions">
                       <button
@@ -423,10 +458,7 @@ const Sequencer = ({
                           onStopSnapshot?.(snapshot.id);
                         }}
                       >
-                        <span
-                          className="snapshot-play-glyph snapshot-play-glyph--stop"
-                          aria-hidden="true"
-                        />
+                        <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
                       </button>
                     </span>
                   </div>
@@ -446,22 +478,37 @@ const Sequencer = ({
                         </colgroup>
                         <thead>
                           <tr class="sequencer-events-header">
-                            <th scope="col"><span class="sequencer-events-header__content">Position</span></th>
-                            <th scope="col"><span class="sequencer-events-header__content">on/off</span></th>
-                            <th scope="col"><span class="sequencer-events-header__content">MIDI¢</span></th>
-                            <th scope="col"><span class="sequencer-events-header__content">Hz</span></th>
-                            <th scope="col"><span class="sequencer-events-header__content">on-vel</span></th>
-                            <th scope="col"><span class="sequencer-events-header__content">off-vel</span></th>
-                            <th scope="col"><span class="sequencer-events-header__content">pressure</span></th>
-                            <th scope="col"><span class="sequencer-events-header__content">timbre</span></th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">Position</span>
+                            </th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">on/off</span>
+                            </th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">MIDI¢</span>
+                            </th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">Hz</span>
+                            </th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">on-vel</span>
+                            </th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">off-vel</span>
+                            </th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">pressure</span>
+                            </th>
+                            <th scope="col">
+                              <span class="sequencer-events-header__content">timbre</span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {triggerGroups.map((group) => {
-                            const isMarkerSelected = (
+                            const isMarkerSelected =
                               selectedMarker?.snapshotId === snapshot.id &&
-                              selectedMarker?.time === group.time
-                            );
+                              selectedMarker?.time === group.time;
                             const sequenceTime = formatSequenceTime(
                               snapshotIndexById.get(snapshot.id) ?? index + 1,
                               group.time,
@@ -490,13 +537,20 @@ const Sequencer = ({
                                       if (e.key === "Enter") e.currentTarget.blur();
                                     }}
                                     onBlur={(e) => {
-                                      updateEventTime(snapshot, event.noteId, event.kind, e.currentTarget.value);
+                                      updateEventTime(
+                                        snapshot,
+                                        event.noteId,
+                                        event.kind,
+                                        e.currentTarget.value,
+                                      );
                                     }}
                                   />
                                 </td>
-                                <td class="sequencer-event__cell"><span class="sequencer-event__content sequencer-event__kind">
-                                  {event.kind === "attack" ? "on" : "off"}
-                                </span></td>
+                                <td class="sequencer-event__cell">
+                                  <span class="sequencer-event__content sequencer-event__kind">
+                                    {event.kind === "attack" ? "on" : "off"}
+                                  </span>
+                                </td>
                                 <td class="sequencer-event__cell">
                                   <input
                                     type="text"
@@ -513,7 +567,12 @@ const Sequencer = ({
                                       if (e.key === "Enter") e.currentTarget.blur();
                                     }}
                                     onBlur={(e) => {
-                                      updateEventField(snapshot, event.noteId, "midicents", e.currentTarget.value);
+                                      updateEventField(
+                                        snapshot,
+                                        event.noteId,
+                                        "midicents",
+                                        e.currentTarget.value,
+                                      );
                                     }}
                                   />
                                 </td>
@@ -533,7 +592,12 @@ const Sequencer = ({
                                       if (e.key === "Enter") e.currentTarget.blur();
                                     }}
                                     onBlur={(e) => {
-                                      updateEventField(snapshot, event.noteId, "frequency", e.currentTarget.value);
+                                      updateEventField(
+                                        snapshot,
+                                        event.noteId,
+                                        "frequency",
+                                        e.currentTarget.value,
+                                      );
                                     }}
                                   />
                                 </td>
@@ -553,7 +617,12 @@ const Sequencer = ({
                                       if (e.key === "Enter") e.currentTarget.blur();
                                     }}
                                     onBlur={(e) => {
-                                      updateEventField(snapshot, event.noteId, "attackVelocity", e.currentTarget.value);
+                                      updateEventField(
+                                        snapshot,
+                                        event.noteId,
+                                        "attackVelocity",
+                                        e.currentTarget.value,
+                                      );
                                     }}
                                   />
                                 </td>
@@ -573,7 +642,12 @@ const Sequencer = ({
                                       if (e.key === "Enter") e.currentTarget.blur();
                                     }}
                                     onBlur={(e) => {
-                                      updateEventField(snapshot, event.noteId, "releaseVelocity", e.currentTarget.value);
+                                      updateEventField(
+                                        snapshot,
+                                        event.noteId,
+                                        "releaseVelocity",
+                                        e.currentTarget.value,
+                                      );
                                     }}
                                   />
                                 </td>
@@ -593,7 +667,12 @@ const Sequencer = ({
                                       if (e.key === "Enter") e.currentTarget.blur();
                                     }}
                                     onBlur={(e) => {
-                                      updateEventField(snapshot, event.noteId, "pressure", e.currentTarget.value);
+                                      updateEventField(
+                                        snapshot,
+                                        event.noteId,
+                                        "pressure",
+                                        e.currentTarget.value,
+                                      );
                                     }}
                                   />
                                 </td>
@@ -613,7 +692,12 @@ const Sequencer = ({
                                       if (e.key === "Enter") e.currentTarget.blur();
                                     }}
                                     onBlur={(e) => {
-                                      updateEventField(snapshot, event.noteId, "timbre", e.currentTarget.value);
+                                      updateEventField(
+                                        snapshot,
+                                        event.noteId,
+                                        "timbre",
+                                        e.currentTarget.value,
+                                      );
                                     }}
                                   />
                                 </td>
@@ -630,7 +714,6 @@ const Sequencer = ({
           </div>
         )}
       </fieldset>
-
     </div>
   );
 };

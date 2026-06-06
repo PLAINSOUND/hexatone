@@ -75,7 +75,7 @@ export const SNAPSHOT_LABEL_MODES = [
   { value: "labels", label: "Note Names" },
   { value: "frequency", label: "Frequencies (Hz)" },
   { value: "midicents", label: "MIDIcents" },
-  { value: "interval_cents", label: "Chord Intervals (¢)" },
+  { value: "interval_cents", label: "Chord Intervals from Lowest Note (¢)" },
   { value: "proportion", label: "Chord Proportion" },
 ];
 

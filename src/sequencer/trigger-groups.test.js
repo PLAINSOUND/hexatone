@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { deriveSnapshotTriggerGroups } from "./trigger-groups.js";
+import {
+  deriveSequenceCueGroups,
+  deriveSnapshotTriggerGroups,
+  sequenceNotesAtCueTime,
+} from "./trigger-groups.js";
 
 describe("deriveSnapshotTriggerGroups", () => {
   it("groups by time and sorts attacks before releases, then by descending pitch", () => {
@@ -52,5 +56,44 @@ describe("deriveSnapshotTriggerGroups", () => {
     expect(groups).toHaveLength(2);
     expect(groups[0].time).toBe(0);
     expect(groups[1].time).toBe(2);
+  });
+
+  it("merges equal absolute positions across snapshots into shared sequence cues", () => {
+    const groups = deriveSequenceCueGroups([
+      {
+        id: 1,
+        length: 1,
+        notes: [{ id: "first", midicents: 69, start: 0, end: 1 }],
+      },
+      {
+        id: 2,
+        length: 1,
+        notes: [{ id: "second", midicents: 72, start: 0, end: 1 }],
+      },
+    ]);
+
+    expect(groups.map((group) => group.time)).toEqual([1, 2, 3]);
+    expect(groups[1].events.map((event) => `${event.kind}:${event.noteId}`)).toEqual([
+      "attack:second",
+      "release:first",
+    ]);
+    expect(groups[1].snapshotIndex).toBe(1);
+  });
+
+  it("derives the active note set after a shared cue position", () => {
+    const notes = sequenceNotesAtCueTime([
+      {
+        id: 1,
+        length: 1,
+        notes: [{ id: "first", midicents: 69, start: 0, end: 1 }],
+      },
+      {
+        id: 2,
+        length: 1,
+        notes: [{ id: "second", midicents: 72, start: 0, end: 1 }],
+      },
+    ], 2);
+
+    expect(notes.map((note) => note.id)).toEqual(["second"]);
   });
 });

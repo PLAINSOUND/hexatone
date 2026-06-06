@@ -555,16 +555,17 @@ a:hover {
 }
 
 .snapshot-play-btn {
-  width: 1.55em;
-  min-width: 1.55em;
-  height: 1.55em;
-  min-height: 1.55em;
+  width: 1.271rem;
+  min-width: 1.271rem;
+  height: 1.271rem;
+  min-height: 1.271rem;
+  box-sizing: border-box;
   padding: 0;
   border-radius: var(--btn-radius-pill);
   background-color: rgba(255, 248, 248, 0.75);
   border: 1px solid rgba(192, 160, 160, 0.6);
   color: #880000;
-  font-size: 0.82em;
+  font-size: 0.82rem;
   font-family: inherit;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -576,13 +577,20 @@ a:hover {
   gap: 0.38em;
 }
 
+.snapshot-play-btn--plain {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .snapshot-play-glyph {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 0.72em;
-  height: 0.72em;
-  flex: 0 0 0.72em;
+  width: 0.59rem;
+  height: 0.59rem;
+  flex: 0 0 0.59rem;
   line-height: 0;
 }
 
@@ -595,20 +603,38 @@ a:hover {
 .snapshot-play-glyph--play::before {
   width: 0;
   height: 0;
-  border-top: 0.3em solid transparent;
-  border-bottom: 0.3em solid transparent;
-  border-left: 0.46em solid currentColor;
-  transform: translateX(0.04em);
+  border-top: 0.246rem solid transparent;
+  border-bottom: 0.246rem solid transparent;
+  border-left: 0.377rem solid currentColor;
+  transform: translateX(0.033rem);
 }
 
-.snapshot-play-glyph--stop::before {
-  width: 0.52em;
-  height: 0.52em;
-  background: currentColor;
+.snapshot-stop-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  font-size: 0.77rem;
+  line-height: 1;
+  flex: 0 0 auto;
+  transform: translateY(-0.01rem);
+}
+
+.snapshot-start-icon {
+  display: block;
+  width: 0.508rem;
+  height: 0.508rem;
+  fill: currentColor;
+  flex: 0 0 auto;
 }
 
 .snapshot-play-btn:hover {
   background-color: rgba(230, 215, 215, 0.85);
+}
+
+.snapshot-play-btn--plain:hover {
+  background: transparent;
+  color: #660000;
 }
 
 .snapshot-play-btn:active,
@@ -616,9 +642,19 @@ a:hover {
   background-color: rgba(220, 200, 200, 0.85);
 }
 
+.snapshot-play-btn--plain:active,
+.snapshot-playing .snapshot-play-btn--plain {
+  background: transparent;
+}
+
 .snapshot-playing .snapshot-play-btn {
   border-color: #aa0000;
   box-shadow: inset 0 0 0 1px rgba(170, 0, 0, 0.35);
+}
+
+.snapshot-playing .snapshot-play-btn--plain {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .snapshot-play-btn:disabled {

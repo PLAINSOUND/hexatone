@@ -14,6 +14,7 @@ describe("Sequencer", () => {
     const onStepSequence = vi.fn();
     const onStepSequenceMarker = vi.fn();
     const onPlaySequence = vi.fn();
+    const onResetSequencePlayhead = vi.fn();
 
     const { container } = render(
       <Sequencer
@@ -50,7 +51,7 @@ describe("Sequencer", () => {
         selectedSnapshotId={10}
         selectedMarker={null}
         playingSnapshotId={10}
-        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: false }}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
         onTakeSnapshot={vi.fn()}
         onSetSnapshotLabelMode={vi.fn()}
         onSelectSnapshot={onSelectSnapshot}
@@ -61,6 +62,7 @@ describe("Sequencer", () => {
         onStepSequence={onStepSequence}
         onStepSequenceMarker={onStepSequenceMarker}
         onPlaySequence={onPlaySequence}
+        onResetSequencePlayhead={onResetSequencePlayhead}
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
         onUpdateSnapshot={onUpdateSnapshot}
@@ -69,9 +71,11 @@ describe("Sequencer", () => {
     );
 
     expect(screen.getByLabelText("snapshot 1 description").value).toBe("A, F");
-    expect(screen.getByText("Playback")).not.toBeNull();
+    expect(screen.getByText("PLAY FROM")).not.toBeNull();
     fireEvent.click(screen.getByLabelText("next sequence marker"));
     expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
+    fireEvent.click(screen.getByLabelText("move sequence playhead to start"));
+    expect(onResetSequencePlayhead).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText("play current sequence position"));
     expect(onPlaySequence).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText("stop sequence playback"));
@@ -123,5 +127,43 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByLabelText("reset snapshot 1 description"));
     expect(onResetSnapshotDescription).toHaveBeenCalledWith(10);
+  });
+
+  it("renders the terminal end slot in the playback strip", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A, F",
+            notes: [],
+          },
+        ]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("end")).toHaveLength(2);
+    expect(screen.getByLabelText("next sequence step").disabled).toBe(true);
   });
 });
