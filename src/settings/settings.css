@@ -781,6 +781,51 @@ td.scale-color-col .color-input {
   transform: none;
 }
 
+.sequencer-playback-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.34em 0.42em;
+  margin: 0.25em 0 0.6em;
+}
+
+.sequencer-playback-label {
+  font-weight: bold;
+  margin-right: 0.1em;
+}
+
+.sequencer-playback-control,
+.sequencer-playback-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22em;
+  white-space: nowrap;
+}
+
+#sidebar .sequencer-playback-select {
+  width: 3.2em;
+  min-width: 3.2em;
+  height: 1.5em;
+  padding-right: 0.2em;
+}
+
+.sequencer-playback-status {
+  min-width: 2.75em;
+  text-align: center;
+  color: rgba(92, 72, 72, 0.88);
+  font-size: 0.86em;
+  font-variant-numeric: tabular-nums;
+}
+
+#sidebar .sequencer-transport-btn {
+  width: 1.5em;
+  min-width: 1.5em;
+  height: 1.5em;
+  min-height: 1.5em;
+  padding: 0;
+  line-height: 1;
+}
+
 .sequencer-row--selected .sequencer-row__description {
   background: #e8edf5;
   border-color: #d6deea;
@@ -801,9 +846,11 @@ td.scale-color-col .color-input {
 
 #sidebar .sequencer-row .snapshot-play-btn {
   height: 1.5em;
+  width: 1.5em;
+  min-width: 1.5em;
   min-height: 1.5em;
   box-sizing: border-box;
-  padding: 0 0.55em;
+  padding: 0;
 }
 
 .sequencer-item__groups {

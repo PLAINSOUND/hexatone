@@ -19,13 +19,13 @@ function formatMidicents(value) {
 function formatIntervalCents(value) {
   const cents = Number(value);
   if (!Number.isFinite(cents)) return "";
-  return cents.toFixed(3);
+  return `${cents.toFixed(3)}¢`;
 }
 
 function formatFrequency(value) {
   const frequency = noteFrequency(value);
   if (!Number.isFinite(frequency)) return "";
-  return frequency >= 100 ? frequency.toFixed(2) : frequency.toFixed(3);
+  return `${frequency >= 100 ? frequency.toFixed(2) : frequency.toFixed(3)} Hz`;
 }
 
 function parsePositiveRatioText(value) {
@@ -60,6 +60,17 @@ export function buildChordProportion(notes = []) {
     .join(":");
 }
 
+function buildChordIntervals(notes = []) {
+  const sorted = sortSnapshotNotes(notes);
+  const lowest = Number(sorted[0]?.midicents);
+  if (!Number.isFinite(lowest)) return "";
+  return sorted
+    .map((note) => formatIntervalCents((Number(note.midicents) - lowest) * 100))
+    .slice(1)
+    .filter(Boolean)
+    .join(", ");
+}
+
 export const SNAPSHOT_LABEL_MODES = [
   { value: "labels", label: "Note Names" },
   { value: "frequency", label: "Frequencies (Hz)" },
@@ -77,14 +88,7 @@ export function buildSnapshotDescription(notes = [], mode = "labels") {
   }
 
   if (mode === "interval_cents") {
-    const lowest = Number(sorted[0]?.midicents);
-    if (Number.isFinite(lowest)) {
-      return sorted
-        .map((note) => formatIntervalCents((Number(note.midicents) - lowest) * 100))
-        .slice(1)
-        .filter(Boolean)
-        .join(", ");
-    }
+    return buildChordIntervals(sorted);
   }
 
   if (mode === "frequency") {
@@ -94,6 +98,8 @@ export function buildSnapshotDescription(notes = [], mode = "labels") {
   if (mode === "proportion") {
     const proportion = buildChordProportion(sorted);
     if (proportion) return proportion;
+    const intervals = buildChordIntervals(sorted);
+    if (intervals) return intervals;
   }
 
   const labels = sorted.map((note) => String(note?.displayLabel ?? "").trim()).filter(Boolean);

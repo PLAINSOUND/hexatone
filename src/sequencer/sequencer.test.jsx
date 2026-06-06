@@ -8,6 +8,12 @@ describe("Sequencer", () => {
     const onSelectMarker = vi.fn();
     const onUpdateSnapshot = vi.fn();
     const onResetSnapshotDescription = vi.fn();
+    const onPlaySnapshot = vi.fn();
+    const onStopSnapshot = vi.fn();
+    const onSelectSequenceBar = vi.fn();
+    const onStepSequence = vi.fn();
+    const onStepSequenceMarker = vi.fn();
+    const onPlaySequence = vi.fn();
 
     const { container } = render(
       <Sequencer
@@ -43,12 +49,18 @@ describe("Sequencer", () => {
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
-        playingSnapshotId={null}
+        playingSnapshotId={10}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: false }}
         onTakeSnapshot={vi.fn()}
         onSetSnapshotLabelMode={vi.fn()}
         onSelectSnapshot={onSelectSnapshot}
         onSelectMarker={onSelectMarker}
-        onPlaySnapshot={vi.fn()}
+        onPlaySnapshot={onPlaySnapshot}
+        onStopSnapshot={onStopSnapshot}
+        onSelectSequenceBar={onSelectSequenceBar}
+        onStepSequence={onStepSequence}
+        onStepSequenceMarker={onStepSequenceMarker}
+        onPlaySequence={onPlaySequence}
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
         onUpdateSnapshot={onUpdateSnapshot}
@@ -57,10 +69,22 @@ describe("Sequencer", () => {
     );
 
     expect(screen.getByLabelText("snapshot 1 description").value).toBe("A, F");
+    expect(screen.getByText("Playback")).not.toBeNull();
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+    expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
+    fireEvent.click(screen.getByLabelText("play current sequence position"));
+    expect(onPlaySequence).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByLabelText("stop sequence playback"));
+    expect(onStopSnapshot).toHaveBeenCalledWith();
     expect(screen.getByLabelText("Snapshot Labels").value).toBe("labels");
     fireEvent.click(screen.getByText("2 notes"));
 
     expect(onSelectSnapshot).toHaveBeenCalledWith(10);
+    fireEvent.click(screen.getByLabelText("play snapshot 1"));
+    expect(onPlaySnapshot).toHaveBeenCalledWith(10);
+    fireEvent.click(screen.getByLabelText("stop snapshot 1"));
+    expect(onStopSnapshot).toHaveBeenCalledWith(10);
+
     const eventTimes = [...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value);
     expect(eventTimes).toEqual(["1.000", "1.500", "2.000", "2.000"]);
     expect(screen.getByText("Position")).not.toBeNull();

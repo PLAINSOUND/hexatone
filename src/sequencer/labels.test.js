@@ -22,13 +22,20 @@ describe("sequencer snapshot labels", () => {
       { midicents: 76.5 },
       { midicents: 69 },
       { midicents: 81.25 },
-    ], "interval_cents")).toBe("750.000, 1225.000");
+    ], "interval_cents")).toBe("750.000¢, 1225.000¢");
   });
 
-  it("falls back to note labels when chord proportion is unavailable", () => {
+  it("falls back to chord interval cents when chord proportion is unavailable", () => {
     expect(buildSnapshotDescription([
       { midicents: 69, displayLabel: "A" },
       { midicents: 76, displayLabel: "E", ratioText: "3/2" },
-    ], "proportion")).toBe("A, E");
+    ], "proportion")).toBe("700.000¢");
+  });
+
+  it("appends units to frequency labels", () => {
+    expect(buildSnapshotDescription([
+      { midicents: 69 },
+      { midicents: 81 },
+    ], "frequency")).toBe("440.00 Hz, 880.00 Hz");
   });
 });

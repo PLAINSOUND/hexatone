@@ -57,6 +57,7 @@ import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
+import { deriveSnapshotTriggerGroups } from "./sequencer/trigger-groups.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
@@ -680,7 +681,13 @@ const App = () => {
   const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
   const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
-  const [snapshotLabelMode, setSnapshotLabelMode] = useState("labels");
+  const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
+  const [sequencePlayhead, setSequencePlayhead] = useState({
+    barIndex: 0,
+    stepIndex: 0,
+    markerIndex: null,
+    stopped: true,
+  });
   const snapshotIdRef = useRef(0);
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
@@ -705,6 +712,48 @@ const App = () => {
     setSelectedSnapshotMarker(null);
   }, [snapshotLabelMode]);
 
+  const snapshotNotesAtMarker = useCallback((snapshot, markerIndex) => {
+    const groups = deriveSnapshotTriggerGroups(snapshot);
+    const group = groups[markerIndex];
+    if (!group) return [];
+    const time = Number(group.time);
+    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    return (snapshot?.notes ?? []).filter((note) => {
+      const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
+      const end = Number.isFinite(Number(note?.end)) ? Number(note.end) : length;
+      return start <= time && end > time;
+    });
+  }, []);
+
+  const playSequencePosition = useCallback((stepIndex, markerIndex = null) => {
+    const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
+    const snapshot = snapshots[safeStepIndex];
+    if (!snapshot) return;
+    const markerGroups = deriveSnapshotTriggerGroups(snapshot);
+    const safeMarkerIndex = markerIndex == null || markerGroups.length === 0
+      ? null
+      : Math.max(0, Math.min(markerGroups.length - 1, markerIndex));
+    const notes = safeMarkerIndex == null
+      ? snapshot.notes
+      : snapshotNotesAtMarker(snapshot, safeMarkerIndex);
+
+    keysRef.current?.stopSnapshot();
+    if (notes.length > 0) keysRef.current?.playSnapshot(notes);
+    setPlayingSnapshotId(notes.length > 0 ? snapshot.id : null);
+    setSelectedSnapshotId(snapshot.id);
+    setSelectedSnapshotMarker(
+      safeMarkerIndex == null
+        ? null
+        : { snapshotId: snapshot.id, time: markerGroups[safeMarkerIndex]?.time ?? 0 },
+    );
+    setSequencePlayhead({
+      barIndex: 0,
+      stepIndex: safeStepIndex,
+      markerIndex: safeMarkerIndex,
+      stopped: notes.length === 0,
+    });
+  }, [snapshotNotesAtMarker, snapshots]);
+
   const onSelectSequencerSnapshot = useCallback((id) => {
     setSelectedSnapshotId(id);
     setSelectedSnapshotMarker((current) => (current?.snapshotId === id ? current : null));
@@ -717,19 +766,87 @@ const App = () => {
 
   const onPlaySnapshot = useCallback(
     (id) => {
-      if (playingSnapshotId === id) {
-        // Toggle off: stop the currently playing snapshot
-        keysRef.current?.stopSnapshot();
-        setPlayingSnapshotId(null);
-      } else {
-        const snap = snapshots.find((s) => s.id === id);
-        if (!snap) return;
-        keysRef.current?.playSnapshot(snap.notes);
-        setPlayingSnapshotId(id);
-      }
+      const stepIndex = snapshots.findIndex((s) => s.id === id);
+      const snap = snapshots[stepIndex];
+      if (!snap) return;
+      playSequencePosition(stepIndex, null);
     },
-    [playingSnapshotId, snapshots],
+    [playSequencePosition, snapshots],
   );
+
+  const onStopSnapshot = useCallback(
+    (id = null) => {
+      if (id != null && playingSnapshotId !== id) return;
+      keysRef.current?.stopSnapshot();
+      setPlayingSnapshotId(null);
+      setSequencePlayhead((prev) => ({ ...prev, stopped: true }));
+    },
+    [playingSnapshotId],
+  );
+
+  const onSelectSequenceBar = useCallback((barIndex) => {
+    keysRef.current?.stopSnapshot();
+    setPlayingSnapshotId(null);
+    setSelectedSnapshotMarker(null);
+    setSequencePlayhead({
+      barIndex,
+      stepIndex: 0,
+      markerIndex: null,
+      stopped: true,
+    });
+    setSelectedSnapshotId(snapshots[0]?.id ?? null);
+  }, [snapshots]);
+
+  const onStepSequence = useCallback((direction) => {
+    if (!snapshots.length) return;
+    const current = sequencePlayhead.stepIndex ?? 0;
+    const next = Math.max(0, Math.min(snapshots.length - 1, current + direction));
+    playSequencePosition(next, null);
+  }, [playSequencePosition, sequencePlayhead.stepIndex, snapshots.length]);
+
+  const onStepSequenceMarker = useCallback((direction) => {
+    if (!snapshots.length) return;
+    const currentStep = Math.max(0, Math.min(snapshots.length - 1, sequencePlayhead.stepIndex ?? 0));
+    const currentSnapshot = snapshots[currentStep];
+    const currentGroups = deriveSnapshotTriggerGroups(currentSnapshot);
+    let nextStep = currentStep;
+    let nextMarker = sequencePlayhead.markerIndex;
+
+    if (direction > 0) {
+      if (nextMarker == null) {
+        nextStep = sequencePlayhead.stopped ? currentStep : Math.min(snapshots.length - 1, currentStep + 1);
+        nextMarker = 0;
+      } else if (nextMarker + 1 < currentGroups.length) {
+        nextMarker += 1;
+      } else {
+        nextStep = Math.min(snapshots.length - 1, currentStep + 1);
+        nextMarker = 0;
+      }
+    } else if (nextMarker == null) {
+      nextStep = Math.max(0, currentStep - 1);
+      const previousGroups = deriveSnapshotTriggerGroups(snapshots[nextStep]);
+      nextMarker = Math.max(0, previousGroups.length - 1);
+    } else if (nextMarker > 0) {
+      nextMarker -= 1;
+    } else {
+      nextStep = Math.max(0, currentStep - 1);
+      const previousGroups = deriveSnapshotTriggerGroups(snapshots[nextStep]);
+      nextMarker = nextStep === currentStep ? 0 : Math.max(0, previousGroups.length - 1);
+    }
+
+    playSequencePosition(nextStep, nextMarker);
+  }, [
+    playSequencePosition,
+    sequencePlayhead.markerIndex,
+    sequencePlayhead.stepIndex,
+    sequencePlayhead.stopped,
+    snapshots,
+  ]);
+
+  const onPlaySequence = useCallback(() => {
+    if (!snapshots.length) return;
+    playSequencePosition(sequencePlayhead.stepIndex ?? 0, sequencePlayhead.markerIndex);
+  }, [playSequencePosition, sequencePlayhead.markerIndex, sequencePlayhead.stepIndex, snapshots.length]);
 
   const onDeleteSnapshot = useCallback(
     (id) => {
@@ -792,6 +909,24 @@ const App = () => {
         : { ...snapshot, description };
     }));
   }, [snapshotLabelMode]);
+
+  useEffect(() => {
+    setSequencePlayhead((prev) => {
+      if (snapshots.length === 0) {
+        return prev.stepIndex === 0 && prev.markerIndex == null && prev.stopped
+          ? prev
+          : { ...prev, stepIndex: 0, markerIndex: null, stopped: true };
+      }
+      const stepIndex = Math.max(0, Math.min(snapshots.length - 1, prev.stepIndex ?? 0));
+      const groups = deriveSnapshotTriggerGroups(snapshots[stepIndex]);
+      const markerIndex = prev.markerIndex == null || groups.length === 0
+        ? null
+        : Math.max(0, Math.min(groups.length - 1, prev.markerIndex));
+      return stepIndex === prev.stepIndex && markerIndex === prev.markerIndex
+        ? prev
+        : { ...prev, stepIndex, markerIndex };
+    });
+  }, [snapshots]);
 
   const suppressTouchClickUntilRef = useRef(0);
   const runTouchControlAction = useCallback((e, action) => {
@@ -2045,9 +2180,13 @@ const App = () => {
                 <span class="snapshot-drag-handle" title="Drag to reorder">
                   ⠿
                 </span>
+                <span class="snapshot-list-index" title={`Snapshot ${index + 1}`}>
+                  {index + 1}
+                </span>
                 <button
                   class="snapshot-play-btn"
-                  title={isPlaying ? "Stop" : "Play snapshot"}
+                  title="Play snapshot"
+                  aria-label={`Play snapshot ${index + 1}`}
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -2058,10 +2197,28 @@ const App = () => {
                   }}
                 >
                   <span
-                    className={`snapshot-play-glyph snapshot-play-glyph--${isPlaying ? "stop" : "play"}`}
+                    className="snapshot-play-glyph snapshot-play-glyph--play"
                     aria-hidden="true"
                   />
-                  {index + 1}
+                </button>
+                <button
+                  class="snapshot-play-btn snapshot-stop-btn"
+                  title="Stop snapshot"
+                  aria-label={`Stop snapshot ${index + 1}`}
+                  disabled={!isPlaying}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStopSnapshot(snap.id);
+                  }}
+                >
+                  <span
+                    className="snapshot-play-glyph snapshot-play-glyph--stop"
+                    aria-hidden="true"
+                  />
                 </button>
                 <button
                   class="snapshot-del-btn"
@@ -2301,11 +2458,17 @@ const App = () => {
               selectedSnapshotId={selectedSnapshotId}
               selectedMarker={selectedSnapshotMarker}
               playingSnapshotId={playingSnapshotId}
+              playhead={sequencePlayhead}
               onTakeSnapshot={onTakeSnapshot}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
               onSelectSnapshot={onSelectSequencerSnapshot}
               onSelectMarker={onSelectSequencerMarker}
               onPlaySnapshot={onPlaySnapshot}
+              onStopSnapshot={onStopSnapshot}
+              onSelectSequenceBar={onSelectSequenceBar}
+              onStepSequence={onStepSequence}
+              onStepSequenceMarker={onStepSequenceMarker}
+              onPlaySequence={onPlaySequence}
               onDeleteSnapshot={onDeleteSnapshot}
               onMoveSnapshot={onMoveSnapshot}
               onUpdateSnapshot={onUpdateSnapshot}

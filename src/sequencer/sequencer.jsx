@@ -43,11 +43,17 @@ const Sequencer = ({
   selectedSnapshotId,
   selectedMarker,
   playingSnapshotId,
+  playhead,
   onTakeSnapshot,
   onSetSnapshotLabelMode,
   onSelectSnapshot,
   onSelectMarker,
   onPlaySnapshot,
+  onStopSnapshot,
+  onSelectSequenceBar,
+  onStepSequence,
+  onStepSequenceMarker,
+  onPlaySequence,
   onDeleteSnapshot,
   onMoveSnapshot,
   onUpdateSnapshot,
@@ -66,6 +72,15 @@ const Sequencer = ({
     ]);
     return new Map(entries);
   }, [snapshots]);
+
+  const playheadStepIndex = Math.max(0, Math.min(snapshots.length - 1, playhead?.stepIndex ?? 0));
+  const playheadSnapshot = snapshots[playheadStepIndex] ?? null;
+  const playheadGroups = playheadSnapshot ? (triggerGroupsById.get(playheadSnapshot.id) ?? []) : [];
+  const playheadMarkerIndex = playhead?.markerIndex;
+  const markerLabel = playheadMarkerIndex == null
+    ? "Chord"
+    : `${Math.min(playheadMarkerIndex + 1, playheadGroups.length)}/${playheadGroups.length}`;
+  const stepLabel = snapshots.length ? `${playheadStepIndex + 1}/${snapshots.length}` : "0/0";
 
   const snapshotIndexById = useMemo(() => {
     const entries = snapshots.map((snapshot, index) => [snapshot.id, index + 1]);
@@ -176,6 +191,89 @@ const Sequencer = ({
         <legend>
           <b>Sequence</b>
         </legend>
+        <div class="sequencer-playback-row" aria-label="Sequence playback">
+          <span class="sequencer-playback-label">Playback</span>
+          <label class="sequencer-playback-control">
+            Bar
+            <select
+              class="sidebar-input sequencer-playback-select"
+              value={playhead?.barIndex ?? 0}
+              onChange={(e) => onSelectSequenceBar?.(Number(e.currentTarget.value))}
+            >
+              <option value={0}>1</option>
+            </select>
+          </label>
+          <span class="sequencer-playback-control">
+            Step
+            <button
+              type="button"
+              class="snapshot-play-btn sequencer-transport-btn"
+              aria-label="previous sequence step"
+              title="Previous step"
+              disabled={snapshots.length === 0 || playheadStepIndex === 0}
+              onClick={() => onStepSequence?.(-1)}
+            >
+              <span aria-hidden="true">◀</span>
+            </button>
+            <span class="sequencer-playback-status">{stepLabel}</span>
+            <button
+              type="button"
+              class="snapshot-play-btn sequencer-transport-btn"
+              aria-label="next sequence step"
+              title="Next step"
+              disabled={snapshots.length === 0 || playheadStepIndex >= snapshots.length - 1}
+              onClick={() => onStepSequence?.(1)}
+            >
+              <span aria-hidden="true">▶</span>
+            </button>
+          </span>
+          <span class="sequencer-playback-control">
+            Marker
+            <button
+              type="button"
+              class="snapshot-play-btn sequencer-transport-btn"
+              aria-label="previous sequence marker"
+              title="Previous marker"
+              disabled={snapshots.length === 0}
+              onClick={() => onStepSequenceMarker?.(-1)}
+            >
+              <span aria-hidden="true">◂</span>
+            </button>
+            <span class="sequencer-playback-status">{markerLabel}</span>
+            <button
+              type="button"
+              class="snapshot-play-btn sequencer-transport-btn"
+              aria-label="next sequence marker"
+              title="Next marker"
+              disabled={snapshots.length === 0}
+              onClick={() => onStepSequenceMarker?.(1)}
+            >
+              <span aria-hidden="true">▸</span>
+            </button>
+          </span>
+          <span class="sequencer-playback-actions">
+            <button
+              type="button"
+              class="snapshot-play-btn"
+              title="Play current sequence position"
+              aria-label="play current sequence position"
+              disabled={snapshots.length === 0}
+              onClick={() => onPlaySequence?.()}
+            >
+              <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="snapshot-play-btn snapshot-stop-btn"
+              title="Stop sequence playback"
+              aria-label="stop sequence playback"
+              disabled={!playingSnapshotId}
+              onClick={() => onStopSnapshot?.()}
+            >
+              <span className="snapshot-play-glyph snapshot-play-glyph--stop" aria-hidden="true" />
+            </button>
+          </span>
+        </div>
         <label>
           Snapshot Labels
           <select
@@ -302,17 +400,33 @@ const Sequencer = ({
                       <button
                         type="button"
                         class="snapshot-play-btn"
-                        title={isPlaying ? "Stop" : "Play snapshot"}
+                        title="Play snapshot"
+                        aria-label={`play snapshot ${index + 1}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onPlaySnapshot(snapshot.id);
                         }}
                       >
                         <span
-                          className={`snapshot-play-glyph snapshot-play-glyph--${isPlaying ? "stop" : "play"}`}
+                          className="snapshot-play-glyph snapshot-play-glyph--play"
                           aria-hidden="true"
                         />
-                        {isPlaying ? "Stop" : "Play"}
+                      </button>
+                      <button
+                        type="button"
+                        class="snapshot-play-btn snapshot-stop-btn"
+                        title="Stop snapshot"
+                        aria-label={`stop snapshot ${index + 1}`}
+                        disabled={!isPlaying}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onStopSnapshot?.(snapshot.id);
+                        }}
+                      >
+                        <span
+                          className="snapshot-play-glyph snapshot-play-glyph--stop"
+                          aria-hidden="true"
+                        />
                       </button>
                     </span>
                   </div>
