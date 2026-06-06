@@ -91,6 +91,20 @@ const Sequencer = ({
     const cueIndex = sequenceCueGroups.findIndex((group) => group.time >= currentTime);
     return cueIndex >= 0 ? String(cueIndex + 1) : "end";
   }, [playheadIsEnd, playheadIsOff, playheadMarkerIndex, playheadStepIndex, sequenceCueGroups]);
+  const sequenceCueLeadEventKeys = useMemo(() => {
+    const keys = new Set();
+    for (const group of sequenceCueGroups) {
+      const leadEvent = group.events?.[0];
+      if (!leadEvent) continue;
+      keys.add([
+        leadEvent.snapshotId,
+        leadEvent.noteId,
+        leadEvent.kind,
+        leadEvent.relativeTime,
+      ].join(":"));
+    }
+    return keys;
+  }, [sequenceCueGroups]);
 
   const snapshotIndexById = useMemo(() => {
     const entries = snapshots.map((snapshot, index) => [snapshot.id, index + 1]);
@@ -467,6 +481,7 @@ const Sequencer = ({
                     <div class="sequencer-item__groups">
                       <table class="sequencer-events-table">
                         <colgroup>
+                          <col class="sequencer-events-table__cue-col" />
                           <col />
                           <col />
                           <col />
@@ -478,6 +493,7 @@ const Sequencer = ({
                         </colgroup>
                         <thead>
                           <tr class="sequencer-events-header">
+                            <th scope="col" aria-label="Cue" class="sequencer-events-header__cue-col" />
                             <th scope="col">
                               <span class="sequencer-events-header__content">Position</span>
                             </th>
@@ -514,6 +530,15 @@ const Sequencer = ({
                               group.time,
                             );
                             return group.events.map((event) => (
+                              (() => {
+                                const cueLeadKey = [
+                                  snapshot.id,
+                                  event.noteId,
+                                  event.kind,
+                                  event.time,
+                                ].join(":");
+                                const showCueDot = sequenceCueLeadEventKeys.has(cueLeadKey);
+                                return (
                               <tr
                                 key={`${event.noteId}:${event.kind}:${event.time}`}
                                 class={`sequencer-event sequencer-event--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}`}
@@ -521,6 +546,15 @@ const Sequencer = ({
                                   onSelectMarker(snapshot.id, group.time);
                                 }}
                               >
+                                <td class="sequencer-event__cue-cell">
+                                  {showCueDot && (
+                                    <span
+                                      class="sequencer-event__cue-dot"
+                                      aria-hidden="true"
+                                      title={`Cue at ${sequenceTime}`}
+                                    />
+                                  )}
+                                </td>
                                 <td class="sequencer-event__cell">
                                   <input
                                     type="text"
@@ -702,6 +736,8 @@ const Sequencer = ({
                                   />
                                 </td>
                               </tr>
+                                );
+                              })()
                             ));
                           })}
                         </tbody>
