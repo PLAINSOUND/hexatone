@@ -81,6 +81,30 @@ describe("sequencer snapshots", () => {
     });
   });
 
+  it("captures exact JI identity for snapshot proportion labels", () => {
+    const runtime = makeRuntime({
+      _allActiveHexes: () => [{
+        cents: 0,
+        velocity: 113,
+        _noteContext: {
+          displayLabel: "A",
+          scaleRatioText: "5/4",
+          scaleMonzo: [-2, 0, 1],
+          ratioText: "3/2",
+          monzo: [-1, 1, 0],
+        },
+      }],
+    });
+
+    expect(captureSnapshot(runtime)[0]).toMatchObject({
+      displayLabel: "A",
+      ratioText: "5/4",
+      monzo: [-2, 0, 1],
+      modulationRatioText: "3/2",
+      modulationMonzo: [-1, 1, 0],
+    });
+  });
+
   it("includes currently playing snapshot hexes when capturing a new snapshot", () => {
     const runtime = makeRuntime({
       _allActiveHexes: () => [{ cents: 100, velocity: 101 }],

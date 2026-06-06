@@ -19,6 +19,39 @@ import { frameForNewNotes } from "../tuning/modulation-runtime.js";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { debugLog } from "../debug/logging.js";
 
+function cloneMonzo(monzo) {
+  return Array.isArray(monzo) ? [...monzo] : null;
+}
+
+function displacedFraction(ratio, equaveRatio, equavePower) {
+  if (!ratio?.toFraction) return null;
+  if (!equavePower || !equaveRatio?.pow) return ratio;
+  return equavePower > 0
+    ? ratio.mul(equaveRatio.pow(equavePower))
+    : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
+}
+
+function scaleIdentityForDegree(keys, degree) {
+  const scaleLength = keys.tuning.scale?.length ?? 0;
+  if (!scaleLength || !Number.isFinite(degree)) return null;
+  const reducedDegree = ((degree % scaleLength) + scaleLength) % scaleLength;
+  const equavePower = Math.floor(degree / scaleLength);
+  const interval = keys.tuning.degreeIntervals?.[reducedDegree] ?? null;
+  const ratio = displacedFraction(interval?.ratio, keys.tuning.equaveInterval?.ratio, equavePower);
+  if (!ratio?.toFraction) return null;
+
+  const ratioText = ratio.toFraction();
+  const baseMonzo = cloneMonzo(interval?.monzo);
+  const equaveMonzo = cloneMonzo(keys.tuning.equaveInterval?.monzo);
+  const monzo = baseMonzo && equaveMonzo
+    ? baseMonzo.map((value, index) => value + equavePower * (equaveMonzo[index] ?? 0))
+    : baseMonzo;
+  return {
+    ratioText: ratioText.includes("/") ? ratioText : `${ratioText}/1`,
+    monzo,
+  };
+}
+
 export function midiLatchToggle(keys, coords, releaseVelocity = 0) {
   if (!keys.state.latch) return false;
   const removed = removeSustainedHex(keys.state, coords);
@@ -94,6 +127,11 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
       frame: noteContext.frame,
       geometryMode: noteContext.geometryMode,
     });
+    const scaleIdentity = scaleIdentityForDegree(keys, pressed_interval);
+    if (scaleIdentity) {
+      noteContext.scaleRatioText = scaleIdentity.ratioText;
+      noteContext.scaleMonzo = scaleIdentity.monzo;
+    }
   }
   const hex = keys.synth.makeHex(
     coords,

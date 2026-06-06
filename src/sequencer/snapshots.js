@@ -76,6 +76,14 @@ export function captureSnapshot(runtime) {
     ).trim();
     if (displayLabel) entry.displayLabel = displayLabel;
 
+    const ratioText = String(hex?._noteContext?.scaleRatioText ?? hex?._noteContext?.ratioText ?? "").trim();
+    if (ratioText) entry.ratioText = ratioText;
+    if (Array.isArray(hex?._noteContext?.scaleMonzo)) entry.monzo = [...hex._noteContext.scaleMonzo];
+    else if (Array.isArray(hex?._noteContext?.monzo)) entry.monzo = [...hex._noteContext.monzo];
+    const modulationRatioText = String(hex?._noteContext?.ratioText ?? "").trim();
+    if (modulationRatioText) entry.modulationRatioText = modulationRatioText;
+    if (Array.isArray(hex?._noteContext?.monzo)) entry.modulationMonzo = [...hex._noteContext.monzo];
+
     const pressure = normalize7Bit(hex?._lastAftertouch);
     const pressure14 = normalize14Bit(hex?._lastAftertouch14);
     if (pressure != null) entry.pressure = pressure;
@@ -108,6 +116,13 @@ export function captureSnapshot(runtime) {
 
     const displayLabel = String(note?.displayLabel ?? "").trim();
     if (displayLabel) entry.displayLabel = displayLabel;
+
+    const ratioText = String(note?.ratioText ?? "").trim();
+    if (ratioText) entry.ratioText = ratioText;
+    if (Array.isArray(note?.monzo)) entry.monzo = [...note.monzo];
+    const modulationRatioText = String(note?.modulationRatioText ?? "").trim();
+    if (modulationRatioText) entry.modulationRatioText = modulationRatioText;
+    if (Array.isArray(note?.modulationMonzo)) entry.modulationMonzo = [...note.modulationMonzo];
 
     const pressure = normalize7Bit(note.pressure);
     const pressure14 = normalize14Bit(note.pressure14);

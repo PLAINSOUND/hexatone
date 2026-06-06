@@ -147,6 +147,9 @@ class Keys {
       scale: tuningRuntime?.scale ? [...tuningRuntime.scale] : [...(settings.scale || [])],
       equivInterval: tuningRuntime?.equivInterval ?? settings.equivInterval,
       equivSteps: tuningRuntime?.equivSteps ?? settings.equivSteps ?? settings.scale?.length ?? 0,
+      degreeIntervals: tuningRuntime?.degreeIntervals ?? null,
+      equaveInterval: tuningRuntime?.equaveInterval ?? null,
+      equaveCents: tuningRuntime?.equaveCents ?? tuningRuntime?.equivInterval ?? settings.equivInterval,
       degree0toRef_asArray:
         tuningRuntime?.degree0toRefAsArray ??
         degree0ToRef(

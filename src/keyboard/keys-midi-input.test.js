@@ -98,7 +98,13 @@ function makePitchBendEvent(val14, channel = 1) {
   };
 }
 
-function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = {}, initialModulationLibrary = null) {
+function createKeys(
+  settingsOverrides = {},
+  inputRuntimeOverrides = {},
+  synth = {},
+  initialModulationLibrary = null,
+  tuningRuntime = null,
+) {
   const canvas = makeCanvas();
   const keys = new Keys(
     canvas,
@@ -133,7 +139,7 @@ function createKeys(settingsOverrides = {}, inputRuntimeOverrides = {}, synth = 
       ...inputRuntimeOverrides,
     },
     null,
-    null,
+    tuningRuntime,
     null,
     initialModulationLibrary,
   );
@@ -7138,6 +7144,42 @@ describe("Keys MIDI input integration", () => {
       releaseVelocity: 118,
       velocity: 118,
     });
+  });
+
+  it("captures the live scale ratio for chord proportion snapshot labels", () => {
+    const synth = {
+      makeHex: vi.fn((coords, cents, _steps, _equaves, _equivSteps, _prev, _next, _label, velocity) => ({
+        coords,
+        cents,
+        velocity,
+        release: false,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+      })),
+    };
+    const tuningRuntime = {
+      scale: [0, parseExactInterval("5/4").cents, parseExactInterval("3/2").cents],
+      equivInterval: 1200,
+      equivSteps: 3,
+      degreeIntervals: [
+        parseExactInterval("1/1"),
+        parseExactInterval("5/4"),
+        parseExactInterval("3/2"),
+      ],
+      equaveInterval: parseExactInterval("2/1"),
+      equaveCents: 1200,
+    };
+    const keys = createKeys({
+      scale: tuningRuntime.scale,
+      equivSteps: 3,
+      rSteps: 1,
+      drSteps: 1000,
+    }, {}, synth, null, tuningRuntime);
+
+    const hex = keys.hexOn(new Point(1, 0), 60, 96, 0);
+
+    expect(hex._noteContext?.scaleRatioText).toBe("5/4");
+    expect(hex._noteContext?.scaleMonzo?.slice(0, 3)).toEqual([-2, 0, 1]);
   });
 
   it("captures sustained snapshot release velocity separately from attack velocity", () => {
