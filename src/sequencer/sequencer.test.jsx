@@ -81,8 +81,7 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByLabelText("stop sequence playback"));
     expect(onStopSnapshot).toHaveBeenCalledWith();
     expect(screen.getByLabelText("Snapshot Labels").value).toBe("labels");
-    fireEvent.click(screen.getByText("2 notes"));
-
+    fireEvent.click(screen.getByLabelText("snapshot 1 description"));
     expect(onSelectSnapshot).toHaveBeenCalledWith(10);
     fireEvent.click(screen.getByLabelText("play snapshot 1"));
     expect(onPlaySnapshot).toHaveBeenCalledWith(10);
@@ -103,7 +102,7 @@ describe("Sequencer", () => {
     expect(screen.getAllByText("off")).toHaveLength(2);
 
     fireEvent.click(screen.getByText("2 notes"));
-    expect(container.querySelector(".sequencer-events-table")).toBeNull();
+    expect(container.querySelector(".sequencer-events-grid")).toBeNull();
 
     fireEvent.click(screen.getByText("2 notes"));
 
@@ -184,7 +183,7 @@ describe("Sequencer", () => {
     );
 
     expect(screen.getByText("end")).not.toBeNull();
-    expect(screen.getByText("2")).not.toBeNull();
+    expect(screen.getAllByText("2")[0]).not.toBeNull();
     expect(screen.getByLabelText("next sequence step").disabled).toBe(true);
   });
 });

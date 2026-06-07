@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import { deriveSequenceCueGroups, deriveSequenceEvents } from "./trigger-groups.js";
 
@@ -148,6 +148,15 @@ const Sequencer = ({
       return new Set([id]);
     });
   };
+
+  useEffect(() => {
+    if (showAllEvents) return;
+    if (selectedSnapshotId == null) return;
+    setExpandedIds((prev) => {
+      if (prev.size === 1 && prev.has(selectedSnapshotId)) return prev;
+      return new Set([selectedSnapshotId]);
+    });
+  }, [selectedSnapshotId, showAllEvents]);
 
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
