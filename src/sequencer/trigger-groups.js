@@ -82,41 +82,107 @@ export function deriveSnapshotTriggerGroups(snapshot) {
   return groups;
 }
 
-export function deriveSequenceCueGroups(snapshots) {
-  const groups = [];
+export function deriveSequenceEvents(snapshots) {
+  const events = [];
 
   for (const [snapshotIndex, snapshot] of (snapshots ?? []).entries()) {
     const baseTime = snapshotBaseTime(snapshotIndex);
     const snapshotGroups = deriveSnapshotTriggerGroups(snapshot);
 
     for (const group of snapshotGroups) {
-      const absoluteTime = normalizeTimeValue(baseTime + Number(group.time));
-      const previous = groups.at(-1);
-      const events = group.events.map((event) => ({
-        ...event,
-        snapshotId: snapshot?.id ?? null,
-        snapshotIndex,
-        relativeTime: event.time,
-        time: absoluteTime,
-      }));
-
-      if (!previous || previous.time !== absoluteTime) {
-        groups.push({ time: absoluteTime, events });
-        continue;
+      for (const event of group.events) {
+        events.push({
+          ...event,
+          eventId: [
+            snapshot?.id ?? snapshotIndex,
+            event.noteId,
+            event.kind,
+            event.time,
+          ].join(":"),
+          snapshotId: snapshot?.id ?? null,
+          snapshotIndex,
+          relativeTime: event.time,
+          absoluteTime: normalizeTimeValue(baseTime + Number(event.time)),
+          snapshotLength: Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1,
+        });
       }
-      previous.events.push(...events);
     }
   }
 
-  for (const group of groups) {
-    group.events.sort((a, b) => (
-      eventTypePriority(a.kind) - eventTypePriority(b.kind) ||
-      b.midicents - a.midicents
-    ));
-    group.snapshotIndex = group.events.reduce(
-      (maxIndex, event) => Math.max(maxIndex, event.snapshotIndex ?? -1),
-      -1,
-    );
+  events.sort((a, b) => (
+    a.absoluteTime - b.absoluteTime ||
+    eventTypePriority(a.kind) - eventTypePriority(b.kind) ||
+    b.midicents - a.midicents
+  ));
+
+  let cueIndex = 0;
+  let previousTime = null;
+  let cueOrder = 0;
+  for (const event of events) {
+    if (previousTime !== event.absoluteTime) {
+      cueIndex += 1;
+      cueOrder = 0;
+      previousTime = event.absoluteTime;
+    }
+    event.cueIndex = cueIndex;
+    event.cueLead = cueOrder === 0;
+    event.cueDisplayLead = false;
+    event.cueOrder = cueOrder;
+    cueOrder += 1;
+  }
+
+  let currentCueIndex = null;
+  let currentDisplayLead = null;
+  for (const event of events) {
+    if (event.cueIndex !== currentCueIndex) {
+      if (currentDisplayLead) currentDisplayLead.cueDisplayLead = true;
+      currentCueIndex = event.cueIndex;
+      currentDisplayLead = event;
+      continue;
+    }
+
+    const displayLeadShouldAdvance =
+      (event.snapshotIndex ?? Infinity) < (currentDisplayLead?.snapshotIndex ?? Infinity) ||
+      (
+        event.snapshotIndex === currentDisplayLead?.snapshotIndex &&
+        (
+          event.relativeTime < currentDisplayLead.relativeTime ||
+          (
+            event.relativeTime === currentDisplayLead.relativeTime &&
+            (
+              eventTypePriority(event.kind) < eventTypePriority(currentDisplayLead.kind) ||
+              (
+                eventTypePriority(event.kind) === eventTypePriority(currentDisplayLead.kind) &&
+                event.midicents > currentDisplayLead.midicents
+              )
+            )
+          )
+        )
+      );
+
+    if (displayLeadShouldAdvance) currentDisplayLead = event;
+  }
+  if (currentDisplayLead) currentDisplayLead.cueDisplayLead = true;
+
+  return events;
+}
+
+export function deriveSequenceCueGroups(snapshots) {
+  const groups = [];
+  const sequenceEvents = deriveSequenceEvents(snapshots);
+
+  for (const event of sequenceEvents) {
+    const previous = groups.at(-1);
+    if (!previous || previous.time !== event.absoluteTime) {
+      groups.push({
+        time: event.absoluteTime,
+        events: [{ ...event, time: event.absoluteTime }],
+        snapshotIndex: event.snapshotIndex,
+      });
+      continue;
+    }
+    previous.events.push({ ...event, time: event.absoluteTime });
+    previous.snapshotIndex = Math.max(previous.snapshotIndex, event.snapshotIndex ?? -1);
   }
 
   return groups;

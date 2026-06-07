@@ -91,12 +91,14 @@ describe("Sequencer", () => {
 
     const eventTimes = [...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value);
     expect(eventTimes).toEqual(["1.000", "1.500", "2.000", "2.000"]);
+    const cueNumbers = [...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent);
+    expect(cueNumbers).toEqual(["1", "2", "3"]);
     expect(screen.getByText("Position")).not.toBeNull();
     expect(screen.getByText("MIDI¢")).not.toBeNull();
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 release midicents")[0].value).toBe("81.000");
-    expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("880.00");
-    expect(screen.getAllByLabelText("snapshot 1 release frequency")[0].value).toBe("880.00");
+    expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("880.0");
+    expect(screen.getAllByLabelText("snapshot 1 release frequency")[0].value).toBe("880.0");
     expect(screen.getAllByText("on")).toHaveLength(2);
     expect(screen.getAllByText("off")).toHaveLength(2);
 
@@ -105,7 +107,7 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByText("2 notes"));
 
-    fireEvent.click(container.querySelectorAll(".sequencer-event")[1]);
+    fireEvent.click(container.querySelectorAll(".sequencer-event-row")[1]);
     expect(onSelectMarker).toHaveBeenCalledWith(10, 0.5);
 
     fireEvent.blur(screen.getAllByLabelText("snapshot 1 attack position")[0], {
@@ -115,6 +117,17 @@ describe("Sequencer", () => {
     expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
       notes: [
         expect.objectContaining({ id: "a", start: 0.25, end: 1 }),
+        expect.objectContaining({ id: "b", start: 0.5, end: 1 }),
+      ],
+    });
+
+    fireEvent.blur(screen.getAllByLabelText("snapshot 1 release position")[0], {
+      currentTarget: { value: "2.250" },
+      target: { value: "2.250" },
+    });
+    expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
+      notes: [
+        expect.objectContaining({ id: "a", start: 0, end: 1.25 }),
         expect.objectContaining({ id: "b", start: 0.5, end: 1 }),
       ],
     });
@@ -129,22 +142,29 @@ describe("Sequencer", () => {
     expect(onResetSnapshotDescription).toHaveBeenCalledWith(10);
   });
 
-  it("renders the terminal end slot in the playback strip", () => {
+  it("keeps the last cue number visible at the terminal snapshot end slot", () => {
     render(
       <Sequencer
         snapshots={[
           {
             id: 10,
             length: 1,
-            description: "A, F",
-            notes: [],
+            description: "A",
+            notes: [
+              {
+                id: "a",
+                midicents: 69,
+                start: 0,
+                end: 1,
+              },
+            ],
           },
         ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
         playingSnapshotId={null}
-        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: null, stopped: true }}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: 1, stopped: true }}
         onTakeSnapshot={vi.fn()}
         onSetSnapshotLabelMode={vi.fn()}
         onSelectSnapshot={vi.fn()}
@@ -163,7 +183,8 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getAllByText("end")).toHaveLength(2);
+    expect(screen.getByText("end")).not.toBeNull();
+    expect(screen.getByText("2")).not.toBeNull();
     expect(screen.getByLabelText("next sequence step").disabled).toBe(true);
   });
 });

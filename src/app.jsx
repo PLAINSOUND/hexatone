@@ -733,6 +733,9 @@ const App = () => {
     }
 
     if (stepIndex >= snapshots.length) {
+      const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
+        ? null
+        : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
       keysRef.current?.stopSnapshot();
       setPlayingSnapshotId(null);
       setSelectedSnapshotId(null);
@@ -740,7 +743,7 @@ const App = () => {
       setSequencePlayhead({
         barIndex: 0,
         stepIndex: snapshots.length,
-        markerIndex: null,
+        markerIndex: safeMarkerIndex,
         stopped: true,
       });
       return;
@@ -851,7 +854,7 @@ const App = () => {
       nextCue = 0;
     } else if (atEnd) {
       if (direction >= 0) return;
-      nextCue = cueCount - 1;
+      nextCue = currentCue == null ? cueCount - 1 : Math.max(0, currentCue - 1);
     } else if (currentCue == null) {
       const currentTime = Number(sequencePlayhead.stepIndex) + 1;
       nextCue = direction > 0
@@ -868,7 +871,7 @@ const App = () => {
         return;
       }
       if (nextCue >= cueCount) {
-        playSequencePosition(snapshots.length, null);
+        playSequencePosition(snapshots.length, cueCount - 1);
         return;
       }
     }
@@ -971,9 +974,12 @@ const App = () => {
         return prev.markerIndex == null ? prev : { ...prev, markerIndex: null };
       }
       if (previousStep >= snapshots.length) {
-        return prev.markerIndex == null && prev.stepIndex === snapshots.length
+        const markerIndex = prev.markerIndex == null || sequenceCueGroups.length === 0
+          ? null
+          : Math.max(0, Math.min(sequenceCueGroups.length - 1, prev.markerIndex));
+        return prev.stepIndex === snapshots.length && markerIndex === prev.markerIndex
           ? prev
-          : { ...prev, stepIndex: snapshots.length, markerIndex: null };
+          : { ...prev, stepIndex: snapshots.length, markerIndex };
       }
       const stepIndex = Math.max(0, Math.min(snapshots.length - 1, previousStep));
       const markerIndex = prev.markerIndex == null || sequenceCueGroups.length === 0
