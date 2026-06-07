@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveSequenceCueGroups,
+  deriveSequenceEvents,
   deriveSnapshotTriggerGroups,
   sequenceNotesAtCueTime,
 } from "./trigger-groups.js";
@@ -95,5 +96,60 @@ describe("deriveSnapshotTriggerGroups", () => {
     ], 2);
 
     expect(notes.map((note) => note.id)).toEqual(["second"]);
+  });
+
+  it("recomputes cue numbering when edited positions create new shared cues", () => {
+    const events = deriveSequenceEvents([
+      {
+        id: 1,
+        length: 1,
+        notes: [
+          { id: "a", midicents: 69, start: 0, end: 1.25 },
+          { id: "b", midicents: 72, start: 0.5, end: 1 },
+        ],
+      },
+      {
+        id: 2,
+        length: 1,
+        notes: [
+          { id: "c", midicents: 76, start: 0.25, end: 1 },
+        ],
+      },
+    ]);
+
+    expect(events.map((event) => [event.noteId, event.kind, event.absoluteTime, event.cueIndex])).toEqual([
+      ["a", "attack", 1, 1],
+      ["b", "attack", 1.5, 2],
+      ["b", "release", 2, 3],
+      ["c", "attack", 2.25, 4],
+      ["a", "release", 2.25, 4],
+      ["c", "release", 3, 5],
+    ]);
+  });
+
+  it("walks active note sets through cues created by edited positions", () => {
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        notes: [
+          { id: "a", midicents: 69, start: 0, end: 1.25 },
+          { id: "b", midicents: 72, start: 0.5, end: 1 },
+        ],
+      },
+      {
+        id: 2,
+        length: 1,
+        notes: [
+          { id: "c", midicents: 76, start: 0.25, end: 1 },
+        ],
+      },
+    ];
+
+    expect(sequenceNotesAtCueTime(snapshots, 1).map((note) => note.id)).toEqual(["a"]);
+    expect(sequenceNotesAtCueTime(snapshots, 1.5).map((note) => note.id)).toEqual(["a", "b"]);
+    expect(sequenceNotesAtCueTime(snapshots, 2).map((note) => note.id)).toEqual(["a"]);
+    expect(sequenceNotesAtCueTime(snapshots, 2.25).map((note) => note.id)).toEqual(["c"]);
+    expect(sequenceNotesAtCueTime(snapshots, 3).map((note) => note.id)).toEqual([]);
   });
 });

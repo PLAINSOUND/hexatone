@@ -1,3 +1,4 @@
+import { useState } from "preact/hooks";
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import Sequencer from "./sequencer.jsx";
@@ -139,6 +140,254 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByLabelText("reset snapshot 1 description"));
     expect(onResetSnapshotDescription).toHaveBeenCalledWith(10);
+  });
+
+  it("commits a focused position edit before cue stepping", () => {
+    const onUpdateSnapshot = vi.fn();
+    const onStepSequenceMarker = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              {
+                id: "a",
+                midicents: 81,
+                start: 0,
+                end: 1,
+              },
+            ],
+          },
+        ]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={onStepSequenceMarker}
+        onPlaySequence={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const attackPosition = screen.getByLabelText("snapshot 1 attack position");
+    attackPosition.focus();
+    expect(document.activeElement).toBe(attackPosition);
+    attackPosition.value = "1.250";
+
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+
+    expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
+      notes: [expect.objectContaining({ id: "a", start: 0.25, end: 1 })],
+    });
+    expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
+  });
+
+  it("rerenders cue markers when a position edit creates a new cue", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A, F",
+          notes: [
+            { id: "a", midicents: 81, start: 0, end: 1 },
+            { id: "b", midicents: 76, start: 0, end: 1 },
+          ],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    const { container } = render(<Harness />);
+
+    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
+      .toEqual(["1", "2"]);
+
+    const positionInputs = screen.getAllByLabelText("snapshot 1 attack position");
+    fireEvent.focus(positionInputs[1]);
+    fireEvent.input(positionInputs[1], {
+      currentTarget: { value: "1.100" },
+      target: { value: "1.100" },
+    });
+    fireEvent.keyDown(positionInputs[1], { key: "Enter" });
+    fireEvent.blur(positionInputs[1], {
+      currentTarget: { value: "1.100" },
+      target: { value: "1.100" },
+    });
+
+    expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
+      .toEqual(["1.000", "1.100", "2.000", "2.000"]);
+    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
+      .toEqual(["1", "2", "3"]);
+  });
+
+  it("commits a position edit on Enter and regenerates cue numbering", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A, F",
+          notes: [
+            { id: "a", midicents: 81, start: 0, end: 1 },
+            { id: "b", midicents: 76, start: 0, end: 1 },
+          ],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    const { container } = render(<Harness />);
+
+    const positionInputs = screen.getAllByLabelText("snapshot 1 attack position");
+    positionInputs[1].focus();
+    fireEvent.input(positionInputs[1], {
+      currentTarget: { value: "1.100" },
+      target: { value: "1.100" },
+    });
+    fireEvent.keyDown(positionInputs[1], { key: "Enter" });
+
+    expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
+      .toEqual(["1.000", "1.100", "2.000", "2.000"]);
+    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
+      .toEqual(["1", "2", "3"]);
+  });
+
+  it("commits position edits for captured snapshot notes that do not have ids", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "Captured",
+          notes: [
+            { midicents: 81, start: 0, end: 1, attackVelocity: 90, releaseVelocity: 30 },
+            { midicents: 76, start: 0, end: 1, attackVelocity: 80, releaseVelocity: 20 },
+            { midicents: 72, start: 0, end: 1, attackVelocity: 70, releaseVelocity: 10 },
+          ],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    const { container } = render(<Harness />);
+
+    const positionInputs = screen.getAllByLabelText("snapshot 1 attack position");
+    positionInputs[1].focus();
+    fireEvent.input(positionInputs[1], {
+      currentTarget: { value: "1.200" },
+      target: { value: "1.200" },
+    });
+    fireEvent.keyDown(positionInputs[1], { key: "Enter" });
+
+    expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
+      .toEqual(["1.000", "1.000", "1.200", "2.000", "2.000", "2.000"]);
+    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
+      .toEqual(["1", "2", "3"]);
   });
 
   it("keeps the last cue number visible at the terminal snapshot end slot", () => {

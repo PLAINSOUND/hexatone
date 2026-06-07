@@ -23,6 +23,12 @@ function snapshotBaseTime(snapshotIndex) {
   return Number(snapshotIndex) + 1;
 }
 
+function noteIdentity(note, fallbackLength = 1) {
+  const midicents = Number.isFinite(Number(note?.midicents)) ? Number(note.midicents) : "na";
+  const { start, end } = normalizeNoteSpan(note, fallbackLength);
+  return note?.id ?? `${midicents}:${start}:${end}`;
+}
+
 export function deriveSnapshotTriggerGroups(snapshot) {
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
   const events = [];
@@ -32,8 +38,10 @@ export function deriveSnapshotTriggerGroups(snapshot) {
     if (!Number.isFinite(midicents)) continue;
     const { start, end } = normalizeNoteSpan(note, length);
     const frequency = noteFrequency(midicents);
+    const noteKey = noteIdentity(note, length);
 
     events.push({
+      noteKey,
       noteId: note.id ?? `${midicents}:${start}:attack`,
       kind: "attack",
       time: start,
@@ -48,6 +56,7 @@ export function deriveSnapshotTriggerGroups(snapshot) {
     });
 
     events.push({
+      noteKey,
       noteId: note.id ?? `${midicents}:${end}:release`,
       kind: "release",
       time: end,

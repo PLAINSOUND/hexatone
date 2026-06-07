@@ -45,6 +45,22 @@ function frequencyToMidicents(value) {
   return 69 + Math.log2(frequency / 440) * 12;
 }
 
+function noteIdentity(note, fallbackLength = 1) {
+  const midicents = Number.isFinite(Number(note?.midicents)) ? Number(note.midicents) : "na";
+  const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
+  const rawEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : fallbackLength;
+  const end = Math.max(start, rawEnd);
+  return note?.id ?? `${midicents}:${start}:${end}`;
+}
+
+function commitTextInput(target, commit) {
+  if (!(target instanceof HTMLInputElement)) return;
+  const value = target.value;
+  if (target.dataset.lastCommittedValue === value) return;
+  commit(value);
+  target.dataset.lastCommittedValue = value;
+}
+
 /**
  * Sequencer — early sidebar workspace for building sequencer material from
  * captured snapshots while keeping the existing Hexatone canvas active.
@@ -77,7 +93,9 @@ const Sequencer = ({
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
+  const [editCommitTick, setEditCommitTick] = useState(0);
   const dragIdRef = useRef(null);
+  const pendingTransportActionRef = useRef(null);
 
   const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots), [snapshots]);
   const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots), [snapshots]);
@@ -151,12 +169,43 @@ const Sequencer = ({
 
   useEffect(() => {
     if (showAllEvents) return;
-    if (selectedSnapshotId == null) return;
+    if (playheadIsOff || playheadIsEnd || selectedSnapshotId == null) {
+      setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
+      return;
+    }
     setExpandedIds((prev) => {
       if (prev.size === 1 && prev.has(selectedSnapshotId)) return prev;
       return new Set([selectedSnapshotId]);
     });
-  }, [selectedSnapshotId, showAllEvents]);
+  }, [playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
+
+  useEffect(() => {
+    if (!pendingTransportActionRef.current) return;
+    const action = pendingTransportActionRef.current;
+    pendingTransportActionRef.current = null;
+    action();
+  }, [editCommitTick, snapshots]);
+
+  const notifyEditCommitted = () => {
+    setEditCommitTick((value) => value + 1);
+  };
+
+  const runTransportAction = (action) => {
+    if (typeof document === "undefined") {
+      action?.();
+      return;
+    }
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      active.matches?.(".sequencer-event__input")
+    ) {
+      pendingTransportActionRef.current = action;
+      active.blur();
+      return;
+    }
+    action?.();
+  };
 
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
@@ -167,7 +216,7 @@ const Sequencer = ({
     return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
   };
 
-  const updateEventTime = (snapshot, noteId, kind, absoluteTime) => {
+  const updateEventTime = (snapshot, noteKey, kind, absoluteTime) => {
     const baseIndex = snapshotIndexById.get(snapshot.id) ?? 1;
     const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
     const parsedAbsolute = Number(absoluteTime);
@@ -175,7 +224,7 @@ const Sequencer = ({
     const relativeTime = parsedAbsolute - baseIndex;
 
     const notes = (snapshot.notes ?? []).map((note) => {
-      if (note.id !== noteId) return note;
+      if (noteIdentity(note, length) !== noteKey) return note;
       const currentStart = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
       const currentEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : length;
       if (kind === "attack") {
@@ -201,12 +250,13 @@ const Sequencer = ({
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
-  const updateEventField = (snapshot, noteId, field, rawValue) => {
+  const updateEventField = (snapshot, noteKey, field, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
 
     const notes = (snapshot.notes ?? []).map((note) => {
-      if (note.id !== noteId) return note;
+      const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+      if (noteIdentity(note, length) !== noteKey) return note;
 
       if (field === "midicents") {
         return { ...note, midicents: numeric };
@@ -231,6 +281,20 @@ const Sequencer = ({
     });
 
     onUpdateSnapshot(snapshot.id, { notes });
+  };
+
+  const handleEnterCommit = (e, commit) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    commitTextInput(e.currentTarget, commit);
+    notifyEditCommitted();
+    e.currentTarget.blur();
+  };
+
+  const handleBlurCommit = (e, commit, afterCommit = null) => {
+    commitTextInput(e.currentTarget, commit);
+    if (typeof afterCommit === "function") afterCommit();
+    notifyEditCommitted();
   };
 
   const renderCueMarker = (snapshot, event, sequenceTime) => {
@@ -300,14 +364,17 @@ const Sequencer = ({
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
+              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              updateEventTime(snapshot, event.noteId, event.kind, e.currentTarget.value);
-            }}
+            onKeyDown={(e) => handleEnterCommit(
+              e,
+              (value) => updateEventTime(snapshot, event.noteKey, event.kind, value),
+            )}
+            onBlur={(e) => handleBlurCommit(
+              e,
+              (value) => updateEventTime(snapshot, event.noteKey, event.kind, value),
+            )}
           />
         </div>
         <div class="sequencer-event__cell">
@@ -325,14 +392,17 @@ const Sequencer = ({
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
+              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              updateEventField(snapshot, event.noteId, "midicents", e.currentTarget.value);
-            }}
+            onKeyDown={(e) => handleEnterCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "midicents", value),
+            )}
+            onBlur={(e) => handleBlurCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "midicents", value),
+            )}
           />
         </div>
         <div class="sequencer-event__cell">
@@ -345,19 +415,24 @@ const Sequencer = ({
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
+              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.value = formatEditableFrequency(event.frequency);
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              updateEventField(snapshot, event.noteId, "frequency", e.currentTarget.value);
-              const next = Number(e.currentTarget.value);
-              e.currentTarget.value = Number.isFinite(next)
-                ? formatFrequency(next)
-                : formatFrequency(event.frequency);
-            }}
+            onKeyDown={(e) => handleEnterCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "frequency", value),
+            )}
+            onBlur={(e) => handleBlurCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "frequency", value),
+              () => {
+                const next = Number(e.currentTarget.value);
+                e.currentTarget.value = Number.isFinite(next)
+                  ? formatFrequency(next)
+                  : formatFrequency(event.frequency);
+              },
+            )}
           />
         </div>
         <div class="sequencer-event__cell">
@@ -370,14 +445,17 @@ const Sequencer = ({
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
+              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              updateEventField(snapshot, event.noteId, "attackVelocity", e.currentTarget.value);
-            }}
+            onKeyDown={(e) => handleEnterCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "attackVelocity", value),
+            )}
+            onBlur={(e) => handleBlurCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "attackVelocity", value),
+            )}
           />
         </div>
         <div class="sequencer-event__cell">
@@ -390,14 +468,17 @@ const Sequencer = ({
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
+              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              updateEventField(snapshot, event.noteId, "releaseVelocity", e.currentTarget.value);
-            }}
+            onKeyDown={(e) => handleEnterCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
+            )}
+            onBlur={(e) => handleBlurCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
+            )}
           />
         </div>
         <div class="sequencer-event__cell">
@@ -410,14 +491,17 @@ const Sequencer = ({
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
+              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              updateEventField(snapshot, event.noteId, "pressure", e.currentTarget.value);
-            }}
+            onKeyDown={(e) => handleEnterCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "pressure", value),
+            )}
+            onBlur={(e) => handleBlurCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "pressure", value),
+            )}
           />
         </div>
         <div class="sequencer-event__cell">
@@ -430,14 +514,17 @@ const Sequencer = ({
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
+              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              updateEventField(snapshot, event.noteId, "timbre", e.currentTarget.value);
-            }}
+            onKeyDown={(e) => handleEnterCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "timbre", value),
+            )}
+            onBlur={(e) => handleBlurCommit(
+              e,
+              (value) => updateEventField(snapshot, event.noteKey, "timbre", value),
+            )}
           />
         </div>
       </div>
@@ -504,7 +591,9 @@ const Sequencer = ({
               aria-label="previous sequence step"
               title="Previous step"
               disabled={snapshots.length === 0 || playheadIsOff}
-              onClick={() => onStepSequence?.(-1)}
+              onClick={() => {
+                runTransportAction(() => onStepSequence?.(-1));
+              }}
             >
               <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
             </button>
@@ -515,7 +604,9 @@ const Sequencer = ({
               aria-label="next sequence step"
               title="Next step"
               disabled={snapshots.length === 0 || playheadIsEnd}
-              onClick={() => onStepSequence?.(1)}
+              onClick={() => {
+                runTransportAction(() => onStepSequence?.(1));
+              }}
             >
               <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
             </button>
@@ -529,7 +620,9 @@ const Sequencer = ({
               aria-label="previous sequence marker"
               title="Previous marker"
               disabled={snapshots.length === 0 || playheadIsOff}
-              onClick={() => onStepSequenceMarker?.(-1)}
+              onClick={() => {
+                runTransportAction(() => onStepSequenceMarker?.(-1));
+              }}
             >
               <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
             </button>
@@ -540,7 +633,9 @@ const Sequencer = ({
               aria-label="next sequence marker"
               title="Next marker"
               disabled={snapshots.length === 0 || playheadIsEnd}
-              onClick={() => onStepSequenceMarker?.(1)}
+              onClick={() => {
+                runTransportAction(() => onStepSequenceMarker?.(1));
+              }}
             >
               <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
             </button>
@@ -553,7 +648,9 @@ const Sequencer = ({
               title="Move playhead to start"
               aria-label="move sequence playhead to start"
               disabled={snapshots.length === 0 && playheadIsOff}
-              onClick={() => onResetSequencePlayhead?.()}
+              onClick={() => {
+                runTransportAction(() => onResetSequencePlayhead?.());
+              }}
             >
               <svg
                 class="snapshot-start-icon"
@@ -571,7 +668,9 @@ const Sequencer = ({
               title="Play current sequence position"
               aria-label="play current sequence position"
               disabled={snapshots.length === 0}
-              onClick={() => onPlaySequence?.()}
+              onClick={() => {
+                runTransportAction(() => onPlaySequence?.());
+              }}
             >
               <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
             </button>
@@ -581,7 +680,9 @@ const Sequencer = ({
               title="Stop sequence playback"
               aria-label="stop sequence playback"
               disabled={!playingSnapshotId}
-              onClick={() => onStopSnapshot?.()}
+              onClick={() => {
+                runTransportAction(() => onStopSnapshot?.());
+              }}
             >
               <span class="snapshot-stop-glyph" aria-hidden="true">
                 ■
