@@ -685,6 +685,8 @@ const App = () => {
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
   const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
   const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
+  const [activeSequenceName, setActiveSequenceName] = useState("");
+  const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -714,6 +716,26 @@ const App = () => {
     setSelectedSnapshotId(id);
     setSelectedSnapshotMarker(null);
   }, [snapshotLabelMode]);
+
+  const onLoadSequence = useCallback((sequence) => {
+    const nextSnapshots = Array.isArray(sequence?.snapshots)
+      ? JSON.parse(JSON.stringify(sequence.snapshots))
+      : [];
+    keysRef.current?.stopSnapshot();
+    setPlayingSnapshotId(null);
+    setSnapshots(nextSnapshots);
+    setSnapshotLabelMode(String(sequence?.snapshotLabelMode ?? "proportion"));
+    setSelectedSnapshotId(null);
+    setSelectedSnapshotMarker(null);
+    setActiveSequenceName(String(sequence?.name ?? "").trim());
+    setActiveSequenceDescription(String(sequence?.description ?? ""));
+    setSequencePlayhead({
+      barIndex: 0,
+      stepIndex: -1,
+      markerIndex: null,
+      stopped: true,
+    });
+  }, []);
 
   const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots), [snapshots]);
 
@@ -2119,8 +2141,8 @@ const App = () => {
               modulationMode === "pending_settlement"
                 ? `Modulation pending settlement${modulationSummary ? `: ${modulationSummary}` : ""}`
                 : modulationSummary
-                  ? `Arm modulation target selection (Backquote): ${modulationSummary}`
-                  : "Arm modulation target selection (Backquote)"
+                  ? `Arm modulation target selection (Shift+Backquote): ${modulationSummary}`
+                  : "Arm modulation target selection (Shift+Backquote)"
             }
             onClick={(e) => {
               if (skipSuppressedTouchClick(e)) return;
@@ -2515,11 +2537,16 @@ const App = () => {
             <Sequencer
               snapshots={snapshots}
               snapshotLabelMode={snapshotLabelMode}
+              activeSequenceName={activeSequenceName}
+              activeSequenceDescription={activeSequenceDescription}
               selectedSnapshotId={selectedSnapshotId}
               selectedMarker={selectedSnapshotMarker}
               playingSnapshotId={playingSnapshotId}
               playhead={sequencePlayhead}
               onTakeSnapshot={onTakeSnapshot}
+              onLoadSequence={onLoadSequence}
+              onSequenceNameChange={setActiveSequenceName}
+              onSequenceDescriptionChange={setActiveSequenceDescription}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
               onSelectSnapshot={onSelectSequencerSnapshot}
               onSelectMarker={onSelectSequencerMarker}

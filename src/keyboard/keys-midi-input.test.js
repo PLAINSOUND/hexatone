@@ -243,7 +243,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.activeMidi.get(61)).toBe(secondHex);
   });
 
-  it("toggles modulation armed state via the Backquote key and reports it", () => {
+  it("toggles modulation armed state via Shift+Backquote and reports it", () => {
     const onModulationArmChange = vi.fn();
     const keys = new Keys(
       makeCanvas(),
@@ -282,15 +282,61 @@ describe("Keys MIDI input integration", () => {
       pressed_interval: 2,
     });
     const preventDefault = vi.fn();
-    keys.onKeyDown({ code: "Backquote", repeat: false, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
-    keys.onKeyDown({ code: "Backquote", repeat: false, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
+    keys.onKeyDown({ code: "Backquote", repeat: false, shiftKey: true, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
+    keys.onKeyDown({ code: "Backquote", repeat: false, shiftKey: true, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
 
     expect(preventDefault).toHaveBeenCalledTimes(2);
     expect(onModulationArmChange).toHaveBeenNthCalledWith(1, true);
     expect(onModulationArmChange).toHaveBeenNthCalledWith(2, false);
   });
 
-  it("handles Backquote globally even when normal typing input is inactive", () => {
+  it("treats Command-Delete on macOS as Panic", () => {
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      true,
+      null,
+      null,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+    const panic = vi.spyOn(keys, "panic");
+
+    keys.onKeyDown({
+      code: "Backspace",
+      key: "Delete",
+      repeat: false,
+      metaKey: true,
+      ctrlKey: false,
+      altKey: false,
+    });
+
+    expect(panic).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles Shift+Backquote globally even when normal typing input is inactive", () => {
     const onModulationArmChange = vi.fn();
     const keys = new Keys(
       makeCanvas(),
@@ -333,6 +379,7 @@ describe("Keys MIDI input integration", () => {
     keys.onKeyDown({
       code: "Backquote",
       repeat: false,
+      shiftKey: true,
       preventDefault,
       metaKey: false,
       ctrlKey: false,
@@ -343,7 +390,7 @@ describe("Keys MIDI input integration", () => {
     expect(onModulationArmChange).toHaveBeenCalledWith(true);
   });
 
-  it("also handles IntlBackslash globally for ISO layouts", () => {
+  it("also handles Shift+IntlBackslash globally for ISO layouts", () => {
     const onModulationArmChange = vi.fn();
     const keys = new Keys(
       makeCanvas(),
@@ -386,6 +433,7 @@ describe("Keys MIDI input integration", () => {
     keys.onKeyDown({
       code: "IntlBackslash",
       repeat: false,
+      shiftKey: true,
       preventDefault,
       metaKey: false,
       ctrlKey: false,
@@ -394,6 +442,55 @@ describe("Keys MIDI input integration", () => {
 
     expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(onModulationArmChange).toHaveBeenCalledWith(true);
+  });
+
+  it("ignores plain Backquote without Shift for modulation arming", () => {
+    const onModulationArmChange = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings(),
+      {},
+      false,
+      null,
+      onModulationArmChange,
+      null,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "64/63",
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "64/63",
+        bendFlip: false,
+      },
+      null,
+      null,
+    );
+
+    const preventDefault = vi.fn();
+    keys.onKeyDown({
+      code: "Backquote",
+      repeat: false,
+      shiftKey: false,
+      preventDefault,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
+
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(onModulationArmChange).not.toHaveBeenCalled();
   });
 
   it("can toggle modulation armed state directly without affecting sustain latch", () => {

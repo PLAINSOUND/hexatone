@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
+import SequenceInfo from "./sequence-info.jsx";
+import SequenceLibrary from "./sequence-library.jsx";
 import { deriveSequenceCueGroups, deriveSequenceEvents } from "./trigger-groups.js";
 
 function formatSequenceTime(snapshotIndex, relativeTime) {
@@ -68,11 +70,16 @@ function commitTextInput(target, commit) {
 const Sequencer = ({
   snapshots,
   snapshotLabelMode,
+  activeSequenceName,
+  activeSequenceDescription,
   selectedSnapshotId,
   selectedMarker,
   playingSnapshotId,
   playhead,
   onTakeSnapshot,
+  onLoadSequence,
+  onSequenceNameChange,
+  onSequenceDescriptionChange,
   onSetSnapshotLabelMode,
   onSelectSnapshot,
   onSelectMarker,
@@ -533,6 +540,21 @@ const Sequencer = ({
 
   return (
     <div role="group" aria-label="Sequencer workspace">
+      <SequenceLibrary
+        snapshots={snapshots}
+        snapshotLabelMode={snapshotLabelMode}
+        activeSequenceName={activeSequenceName ?? ""}
+        activeSequenceDescription={activeSequenceDescription ?? ""}
+        onLoadSequence={onLoadSequence}
+      />
+
+      <SequenceInfo
+        name={activeSequenceName ?? ""}
+        description={activeSequenceDescription ?? ""}
+        onNameChange={onSequenceNameChange}
+        onDescriptionChange={onSequenceDescriptionChange}
+      />
+
       <fieldset style={{ marginTop: "1em" }}>
         <legend>
           <b>Snapshot</b>

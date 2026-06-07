@@ -9,6 +9,12 @@ function isModulationToggleKeyCode(code) {
   return code === "Backquote" || code === "IntlBackslash";
 }
 
+function isPanicKeyEvent(e) {
+  if (e.repeat) return false;
+  if (e.code === "Delete" || e.code === "Backspace") return true;
+  return e.metaKey && e.key === "Delete";
+}
+
 function keyboardCoordsForCode(keys, code) {
   const kbOffset = keys.settings.centerHexOffset;
   const kbRaw = keys.settings.keyCodeToCoords[code];
@@ -63,7 +69,7 @@ export function onKeyDown(e) {
     return;
   }
 
-  if ((e.code === "Delete" && !e.repeat) || (e.code === "Backspace" && !e.repeat)) {
+  if (isPanicKeyEvent(e)) {
     this.panic();
     return;
   }
@@ -90,6 +96,7 @@ export function onKeyDown(e) {
   if (
     isModulationToggleKeyCode(e.code) &&
     !e.repeat &&
+    e.shiftKey &&
     !e.metaKey &&
     !e.ctrlKey &&
     !e.altKey
