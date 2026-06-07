@@ -1,10 +1,10 @@
 # User Manual
 
-Updated: 2026-06-01
+Updated: 2026-06-07
 
 ## About
 
-PLAINSOUND HEXATONE is a retuneable microtonal keyboard and scale workspace.
+HEXATONE is a retuneable microtonal keyboard and scale workspace. SEQUENCER is a step sequencer allowing users to edit and walk through chords captured in the workspace. 
 
 Features:
 
@@ -13,17 +13,17 @@ Features:
 - built-in sampled sounds with polyphonic aftertouch
 - scale table for editing, comparing, and displaying tunings
 - scale creation, comparison, and rationalisation tools
-- adjust any pitch to any frequency and automatically update the underlying scala files
-- JI-focused workspace, featuring modulation and automatic HEJI Notation / Key Colour generation
-- parses MIDI input from MPE or multichannel layout isomorphic and 2D controllers like Haken Continuum, LinnStrument, Lumatone, Exquis, and others; correlates known controller geometries with on-screen scale layouts
+- adjust any pitch to any frequency, automatically updating the underlying scala file
+- JI-focused workspace with modulation and automatic HEJI Notation and Key Colours
+- parse MIDI input from MPE or multichannel layout isomorphic and 2D controllers (Haken Continuum, Exquis, LinnStrument, Lumatone, and others; correlates known controller geometries with on-screen scale layouts
 - sends MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
+- extremely low latency and low jitter
 - a live-oriented composition, improvisation, and performance companion to [Scale Workshop](https://scaleworkshop.plainsound.org)
+- a dedicated SEQUENCER tab allowing users to edit and step through captured chord snapshots
 
 ## Quick Start
 
-WebMIDI need not be activated.
-
-Minimum setup to explore scales, compare tunings, build and recall chords:
+WebMIDI need not be activated. Minimum setup to explore scales, compare tunings, build and recall chords:
 
 - open Hexatone in the browser
 - use built-in sounds
@@ -31,7 +31,7 @@ Minimum setup to explore scales, compare tunings, build and recall chords:
   - touch
   - mouse
   - computer keyboard
-  - SUSTAIN / OCT controls
+  - SUSTAIN / MOD / OCT controls
 - edit the scale table, drag to retune
 - try a modulation from most recently played note to next played note with handoff
 - capture snapshots
@@ -47,6 +47,7 @@ Minimum setup to explore scales, compare tunings, build and recall chords:
     - hex size
     - rotation
 - key labels may be blank, show scale data, custom names, or generated HEJI spellings
+- JI ratio key colours may be assigned automatically from a user palette
 
 ### Sidebar
 
@@ -61,13 +62,18 @@ Minimum setup to explore scales, compare tunings, build and recall chords:
 
 ### Performance Controls
 
-- `SUSTAIN` (ESC): toggle to sustain notes hands-free; click again on a note to remove it
-- `OCT` (arrow keys): click to toggle functionality: retune next note / retune immediately
-- `MOD` (backquote / ^ key): click to capture last played note as source, next played note becomes target, shifting the scale frequency (moveable do logic)
+Left-to-right along the bottom of the app there are buttons and these are also mapped to key commands:
+
+- a circular `SNAPSHOT` icon (ENTER key) captures currently played and/or sustained notes as a chord snapshot
+- `OCT` (arrow keys, active when canvas is in focus): click the word "OCT" or press <- and -> to toggle functionality between two states: retune next played note or (darker colour) retune immediately; use arrow-up arrow-down to change octaves
+- `SUSTAIN` (ESC key): toggle to sustain notes hands-free; click again on a note to remove it
+- `MOD` (SHIFT+backquote / ^ key): click to capture last played note as source degree, next played note becomes target degree, shifting the scale frequency globally while maintaining layout and appearance (moveable do logic); an alternate fixed do logic keeps the source note "in place" but changes its scale degree to that of the target degree
+- `PANIC` (Backspace / Delete key): kills sounding notes as nicely as possible
 
 ### Snapshots
 
-- capture currently sounding notes (ENTER); click to play, drag to reorder
+- capture currently sounding notes (ENTER key); a list appears bottom left of the app: click to play, drag to reorder, x to delete
+- change to PLAINSOUND SEQUENCER Tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence
 
 ## Playing
 
@@ -77,13 +83,13 @@ Click or tap the on-screen hexes to play notes.
 
 ### Computer Keyboard
 
-The H key is mapped automatically to the central degree at the center of the canvas.
+When Sidebar is collapsed and the canvas fills the screen, the H key is mapped automatically to play the central degree at the center of the canvas, and the normal keyboard become a simple isomorphic controller. Note that pressing SHIFT and a key latches that particular note, allowing selective and dynamic "sustaining sounds".
 
 ## Presets
 
 Hexatone includes built-in tunings and supports user presets. Users may import a Scala file or a previously saved Hexatone `.json` file including all local settings. Also, it is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
 
-A possible workflow for new scales is to:
+One possible workflow:
 
 1. create, import, or analyze a scale in Scala, Scale Workshop or Hexatone
 2. bring that scale into Hexatone if needed

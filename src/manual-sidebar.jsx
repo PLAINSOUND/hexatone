@@ -29,7 +29,7 @@ const ManualSidebar = ({ onClose }) => {
         </button>
 
         <p style={{ marginTop: "0.45em", marginBottom: "0.55em" }}>
-          PLAINSOUND HEXATONE is a webapp designed for musicians interested in exploring rational tuning (JI). A tool for learning, playing, and composing, Hexatone features microtonal isomorphic tuning layouts, a scale workspace with live retuning, modulation, and rationalisation, built-in sounds, MIDI controller workflows, and external synth support.
+          PLAINSOUND HEXATONE is a webapp designed for exploring rational tuning (JI). A tool for learning, playing, and composing, it features microtonal isomorphic tuning layouts, a scale workspace with live retuning, modulation, and rationalisation, built-in sounds, MIDI controller workflows, and external synth support. Sounds may be captured as snapshots and edited into a step sequence in the SEQUENCER tab.
         </p>
         {updated && (
           <p class="manual-sidebar__updated">
