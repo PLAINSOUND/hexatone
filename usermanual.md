@@ -83,7 +83,7 @@ Click or tap the on-screen hexes to play notes.
 
 ### Computer Keyboard
 
-When Sidebar is collapsed and the canvas fills the screen, the H key is mapped automatically to play the central degree at the center of the canvas, and the normal keyboard become a simple isomorphic controller. Note that pressing SHIFT and a key latches that particular note, allowing selective and dynamic "sustaining sounds".
+When the Sidebar is collapsed and the canvas fills the screen, the H key is mapped automatically to play the central degree at the center of the canvas, and the normal keyboard become a simple isomorphic controller. Note that pressing SHIFT and a key alternately latches and releases that particular note, allowing selective and dynamically changing "sustaining sounds".
 
 ## Presets
 
@@ -92,12 +92,12 @@ Hexatone includes built-in tunings and supports user presets. Users may import a
 One possible workflow:
 
 1. create, import, or analyze a scale in Scala, Scale Workshop or Hexatone
-2. bring that scale into Hexatone if needed
+2. bring that scale into Hexatone if needed, edit name and description, Save
 3. play it, experiment with sustain, octave transpositions, modulations
 4. tune scale degrees against drones, held chords, or other instruments
 5. compare alternate rational or reference-frequency readings
 6. make snapshots; preserve useful scale variations as presets
-7. export .json files to easily share or reimport settings and metadata
+7. export as .json file to easily share or reimport settings and metadata
 
 ## Scale Settings
 
@@ -145,7 +145,7 @@ Key colouring helps identify prime factors in rational intonation (JI), using th
 | 43° | amber |
 | 47° | bright magenta |
 
-Combinations of primes mix and saturate these colours.
+Combinations of primes mix and saturate these colours. Auto-generated JI key colours may use a custom palette defined by the user; palettes by be saved and loaded.
 
 ### Key Labels
 
@@ -174,18 +174,10 @@ Reordering, sorting, and deleting degrees also remaps the associated note names,
 
 The small retuning control attached to scale entries and the reference frequency lets you:
 
-- drag for smooth retuning
+- drag for smooth retuning while sustaining
 - preview changes while listening
 - compare changes against original values
 - save or revert a tuning change
-
-Typical workflow:
-
-1. hold notes with sustain
-2. retune a degree or the reference frequency
-3. compare the result
-4. keep or discard the change
-5. take a snapshot if desired
 
 ## Rationalisation
 
@@ -209,7 +201,7 @@ The current rationalisation workflow has two modes:
 - `Keep existing ratios`: preserve ratios you already committed, rationalise around those anchors
 - `Find new ratios (re-search all)`: fresh search with the current rationalisation settings
 
-Rationalisation now works directly from the scale table, so exact interval entries, tempered entries, and committed ratio decisions can be refined in place.
+Rationalisation works directly from the scale table: exact interval entries, tempered entries, and committed ratio decisions can be refined in place.
 
 The `Rationalisation Settings` include a number of options:
 
@@ -219,7 +211,7 @@ The `Rationalisation Settings` include a number of options:
 
 ## Modulation
 
-- `MOD` (Backquote / ^): initiates a modulation by capturing the most recent note played; transfer this source note to a target note by pressing any key
+- `MOD` (SHIFT + Backquote / ^): initiates a modulation by capturing the most recent note played; transfer this source note to a target note by pressing any key
 - a floating palette of MODULATION HISTORY appears, tracking all user-initiated modulations, counting the number of steps taken
 - clicking the arrows takes further steps by the same transposition interval (in either direction)
 - once a modulation pathway returns to zero it may be clicked away or retained for further use
@@ -229,51 +221,55 @@ The `Rationalisation Settings` include a number of options:
 
 ## MIDI Setup
 
-WebMIDI is optional; allowing SysEx functionality is an additional option. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub. Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
-
-WebMIDI adds:
+WebMIDI is optional; allowing SysEx functionality is an additional option. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub. WebMIDI adds:
 
 - external MIDI input
 - controller auto-detection, geometry support, with manual override
 - LED color support on supported devices
 - MTS and MPE output
 
-If you do not enable WebMIDI, Hexatone still works as a complete on-screen instrument and scale workspace.
+Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
 
-Hexatone Control Port exposes a MIDI port which may be used to control features in the Hexatone UX remotely.
+If you do not wish to enable WebMIDI, Hexatone still works as an on-screen instrument and scale workspace.
+
+The Hexatone Control Port exposes a MIDI port selector which will enable users to assign controls to features in the Hexatone UX remotely. This feature is not yet implemented.
 
 ## MIDI Input
 
-- standard keyboard input on all channels
-- isomorphic and 2D controller geometries, single- or multi-channel layouts
-- controller recognition and manual controller geometry override (sequential / bypass behaviour)
-- scale-target mode (tune incoming MIDI to chosen scale)
+HEXATONE
+
+- responds to standard keyboard input on all channels
+- knows about isomorphic and 2D controller geometries, single- or multi-channel layouts
+- recognises controllers automatically, but allows manual controller geometry selection and override (sequential / bypass behaviour)
+- has two Input Modes: MIDI to Hex Layout (triggers successive degrees of a microtonal scale); MIDI to Nearest Scale Degree (incoming notes + MPE X data are mapped to nearest notes of the scale, rather than triggering the scale note-by-note)
 - Input Mode persists per detected/selected controller
 - 2D controllers default to MIDI to Hex Layout
 - Haken Continuum (1D pitch glissando) defaults to MIDI to Nearest Scale Degree
-- handling of incoming expression data as MPE, pitch bend, aftertouch, pressure, control change
+- handling of incoming MPE per-note expression data: pitch bend, aftertouch, pressure, control change
 
 ### Controllers
 
 The app includes support for several recognized controller types, including devices such as:
 
-- Lumatone
+- AXIS-49
+- Haken Continuum
 - Exquis
 - LinnStrument
-- Haken Continuum
+- Lumatone
 - Tonal Plexus
-- AXIS-style controllers
 - standard keyboards
 
-The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user.
+The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user (on appropriate outputs).
 
-Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. Alternately, users may prefer a "traditional" multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave tranpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour correlation is not available.
+Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degree are coloured, which is useful for learning the layout when there are many different notes.
 
-Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing.
+Alternately, some users may prefer to generate a "traditional" multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave tranpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
 
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
 
-Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's space-bar. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file.
+Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing.
+
+Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file.
 
 ### Input Modes
 
@@ -315,7 +311,7 @@ yarn build-bridge
 
 --OR--
 
-to edit hexatone code and work with custom osc setups run:
+to edit hexatone code and work with custom osc setups using localhost run:
 
 ```sh
 yarn start
@@ -341,7 +337,7 @@ This feature also supports a fully local workflow: run Hexatone on `localhost:51
 
 ## Roadmap
 
-Hexatone is currently developing modulation, moving towards sequencing, and eventually integrating context-aware live retuning.
+Hexatone is currently working towards extending the sequencer functionality and integrating context-aware live retuning.
 
 ## Developer
 
