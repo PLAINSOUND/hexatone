@@ -902,6 +902,36 @@ td.scale-color-col .color-input {
   min-height: 1.22em;
 }
 
+#sidebar .sequencer-playback-actions .snapshot-play-btn {
+  width: 1.42rem;
+  min-width: 1.42rem;
+  height: 1.42rem;
+  min-height: 1.42rem;
+  font-size: 0.9rem;
+  transform: translateY(0.06rem);
+}
+
+#sidebar .sequencer-playback-actions .snapshot-play-glyph {
+  width: 0.66rem;
+  height: 0.66rem;
+  flex: 0 0 0.66rem;
+}
+
+#sidebar .sequencer-playback-actions .snapshot-play-glyph--play::before {
+  border-top-width: 0.275rem;
+  border-bottom-width: 0.275rem;
+  border-left-width: 0.42rem;
+}
+
+#sidebar .sequencer-playback-actions .snapshot-stop-glyph {
+  font-size: 1.2rem;
+}
+
+#sidebar .sequencer-playback-actions .snapshot-start-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
 #sidebar .sequencer-arrow-btn:hover {
   color: #660000;
 }
@@ -931,7 +961,7 @@ td.scale-color-col .color-input {
 .sequencer-item__groups {
   display: flex;
   flex-direction: column;
-  margin: 0 0.45em 0 1.85em;
+  margin: 0 0.45em 0 -0.35em;
   padding: 0.24em 0 0;
 }
 
@@ -942,7 +972,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-events-table__cue-col {
-  width: 1.85em;
+  width: 3.1em;
 }
 
 #sidebar .sequencer-events-table th,
@@ -1012,10 +1042,27 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-event__cue-cell {
-  width: 1.85em;
-  min-width: 1.85em;
+  width: 3.1em;
+  min-width: 3.1em;
   vertical-align: middle;
   text-align: right;
+}
+
+.sequencer-event__cue-marker {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: end;
+  column-gap: 0.22em;
+}
+
+.sequencer-event__cue-number {
+  color: rgba(95, 70, 70, 0.86);
+  font-size: 0.82em;
+  font-style: italic;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-0.03rem);
 }
 
 .sequencer-event__cue-dot {
@@ -1075,6 +1122,10 @@ td.scale-color-col .color-input {
   outline: 1px solid rgba(160, 140, 140, 0.55);
   background: #fff;
   background-color: #fff;
+}
+
+#sidebar .sequencer-events-table input[type="text"].sequencer-event__input.sequencer-event__position--out-of-range {
+  color: #9b1f1f;
 }
 
 .sequencer-event--attack .sequencer-event__cell {
