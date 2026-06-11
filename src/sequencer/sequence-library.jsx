@@ -21,19 +21,25 @@ function cloneSnapshots(snapshots) {
   return JSON.parse(JSON.stringify(Array.isArray(snapshots) ? snapshots : []));
 }
 
+function cloneBars(bars) {
+  return JSON.parse(JSON.stringify(Array.isArray(bars) ? bars : []));
+}
+
 function normalizeSequenceRecord(record) {
   if (!record || typeof record !== "object") return null;
   const name = String(record.name ?? "").trim();
   if (!name) return null;
   const snapshots = cloneSnapshots(record.snapshots);
+  const bars = cloneBars(record.bars);
   if (!Array.isArray(snapshots)) return null;
   return {
     type: "hexatone-sequence",
-    version: 1,
+    version: 2,
     name,
     description: String(record.description ?? ""),
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),
     snapshots,
+    bars,
   };
 }
 
@@ -48,6 +54,7 @@ function parseSequenceJson(name, text) {
       description: parsed?.description ?? "",
       snapshotLabelMode: parsed?.snapshotLabelMode,
       snapshots: parsed?.snapshots,
+      bars: parsed?.bars,
     });
     return normalized ? [normalized] : [];
   } catch {
@@ -71,6 +78,7 @@ function safeName(name) {
 
 const SequenceLibrary = ({
   snapshots,
+  bars,
   snapshotLabelMode,
   activeSequenceName,
   activeSequenceDescription,
@@ -119,6 +127,7 @@ const SequenceLibrary = ({
       description: activeSequenceDescription,
       snapshotLabelMode,
       snapshots,
+      bars,
     });
     if (!record) {
       setError("There is no valid sequence to save.");
@@ -142,6 +151,7 @@ const SequenceLibrary = ({
       description: activeSequenceDescription,
       snapshotLabelMode,
       snapshots,
+      bars,
     });
     if (!record) {
       setError("There is no valid sequence to export.");
@@ -321,6 +331,7 @@ const SequenceLibrary = ({
 
 SequenceLibrary.propTypes = {
   snapshots: PropTypes.arrayOf(PropTypes.object).isRequired,
+  bars: PropTypes.arrayOf(PropTypes.object),
   snapshotLabelMode: PropTypes.string.isRequired,
   activeSequenceName: PropTypes.string.isRequired,
   activeSequenceDescription: PropTypes.string.isRequired,

@@ -47,6 +47,14 @@ function frequencyToMidicents(value) {
   return 69 + Math.log2(frequency / 440) * 12;
 }
 
+function barDisplayBucket(position) {
+  const time = Number(position);
+  if (!Number.isFinite(time) || time <= 1 + 1e-9) return -1;
+  const rounded = Math.round(time);
+  const isInteger = Math.abs(time - rounded) < 1e-9;
+  return isInteger ? rounded - 2 : Math.floor(time - 1);
+}
+
 function noteIdentity(note, fallbackLength = 1) {
   const midicents = Number.isFinite(Number(note?.midicents)) ? Number(note.midicents) : "na";
   const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
@@ -69,6 +77,7 @@ function commitTextInput(target, commit) {
  */
 const Sequencer = ({
   snapshots,
+  bars,
   snapshotLabelMode,
   activeSequenceName,
   activeSequenceDescription,
@@ -91,7 +100,12 @@ const Sequencer = ({
   onStepSequence,
   onStepSequenceMarker,
   onPlaySequence,
+  onPlayCue,
   onResetSequencePlayhead,
+  onAddBar,
+  onDeleteBar,
+  onUpdateBar,
+  onMoveBar,
   onDeleteSnapshot,
   onMoveSnapshot,
   onUpdateSnapshot,
@@ -99,15 +113,18 @@ const Sequencer = ({
 }) => {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const [newBarPosition, setNewBarPosition] = useState("1.000");
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
+  const [draggedBarId, setDraggedBarId] = useState(null);
   const [editCommitTick, setEditCommitTick] = useState(0);
   const dragIdRef = useRef(null);
+  const barDragIdRef = useRef(null);
   const pendingTransportActionRef = useRef(null);
 
-  const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots), [snapshots]);
-  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots), [snapshots]);
+  const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots, bars), [bars, snapshots]);
+  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots, bars), [bars, snapshots]);
 
   const rawPlayheadStepIndex = Number.isFinite(playhead?.stepIndex) ? playhead.stepIndex : -1;
   const playheadIsOff = rawPlayheadStepIndex < 0 || snapshots.length === 0;
@@ -141,6 +158,7 @@ const Sequencer = ({
   const snapshotEventsById = useMemo(() => {
     const groups = new Map();
     for (const event of sequenceEvents) {
+      if (event.type !== "note") continue;
       if (!groups.has(event.snapshotId)) groups.set(event.snapshotId, []);
       groups.get(event.snapshotId).push(event);
     }
@@ -150,10 +168,33 @@ const Sequencer = ({
   const firstSnapshotEventIds = useMemo(() => {
     const ids = new Map();
     for (const [snapshotId, events] of snapshotEventsById.entries()) {
-      if (events.length > 0) ids.set(snapshotId, events[0].eventId);
+      const firstNoteEvent = events.find((event) => event.type === "note");
+      if (firstNoteEvent) ids.set(snapshotId, firstNoteEvent.eventId);
     }
     return ids;
   }, [snapshotEventsById]);
+
+  const sortedBars = useMemo(
+    () => [...(Array.isArray(bars) ? bars : [])].sort((a, b) => (
+      Number(a.position) - Number(b.position) || Number(a.id) - Number(b.id)
+    )),
+    [bars],
+  );
+
+  const barNumberById = useMemo(() => {
+    const entries = sortedBars.map((bar, index) => [bar.id, index + 1]);
+    return new Map(entries);
+  }, [sortedBars]);
+
+  const barsByDisplayBucket = useMemo(() => {
+    const groups = new Map();
+    for (const bar of sortedBars) {
+      const bucket = barDisplayBucket(bar.position);
+      if (!groups.has(bucket)) groups.set(bucket, []);
+      groups.get(bucket).push(bar);
+    }
+    return groups;
+  }, [sortedBars]);
 
   const snapshotStartCueIndexes = useMemo(() => {
     const indexes = new Map();
@@ -168,6 +209,17 @@ const Sequencer = ({
   const activeCueIndex = playheadMarkerIndex != null ? playheadMarkerIndex + 1 : null;
   const activeSnapshotId =
     playheadStepIndex >= 0 && !playheadIsEnd ? (snapshots[playheadStepIndex]?.id ?? null) : null;
+  const selectedCueAbsoluteTime = useMemo(() => {
+    if (selectedMarker?.snapshotId != null && Number.isFinite(Number(selectedMarker?.time))) {
+      const snapshotStart = snapshotIndexById.get(selectedMarker.snapshotId);
+      if (snapshotStart != null) return Number((snapshotStart + Number(selectedMarker.time)).toFixed(3));
+    }
+    if (playheadMarkerIndex != null) {
+      const cueGroup = sequenceCueGroups[playheadMarkerIndex];
+      if (cueGroup) return Number(cueGroup.time.toFixed(3));
+    }
+    return null;
+  }, [playheadMarkerIndex, selectedMarker, sequenceCueGroups, snapshotIndexById]);
 
   const ensureExpanded = (id) => {
     setExpandedIds((prev) => {
@@ -194,6 +246,11 @@ const Sequencer = ({
     pendingTransportActionRef.current = null;
     action();
   }, [editCommitTick, snapshots]);
+
+  useEffect(() => {
+    if (selectedCueAbsoluteTime == null) return;
+    setNewBarPosition(selectedCueAbsoluteTime.toFixed(3));
+  }, [selectedCueAbsoluteTime]);
 
   const notifyEditCommitted = () => {
     setEditCommitTick((value) => value + 1);
@@ -292,6 +349,19 @@ const Sequencer = ({
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
+  const updateBarPosition = (barId, rawValue) => {
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric)) return;
+    onUpdateBar?.(barId, { position: Math.round(numeric * 1000) / 1000 });
+  };
+
+  const addBarAtRequestedPosition = () => {
+    const numeric = Number(newBarPosition);
+    if (!Number.isFinite(numeric)) return;
+    onAddBar?.(Math.round(numeric * 1000) / 1000);
+    setNewBarPosition("1.000");
+  };
+
   const handleEnterCommit = (e, commit) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -306,16 +376,48 @@ const Sequencer = ({
     notifyEditCommitted();
   };
 
+  const renderCueTransport = (cueIndex) => (
+    <span class="sequencer-event__cue-actions">
+      <button
+        type="button"
+        class="snapshot-play-btn sequencer-event__cue-play"
+        title={`Play cue ${cueIndex}`}
+        aria-label={`play cue ${cueIndex}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          runTransportAction(() => onPlayCue?.(cueIndex - 1));
+        }}
+      >
+        <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="snapshot-play-btn snapshot-stop-btn sequencer-event__cue-stop"
+        title="Stop cue playback"
+        aria-label={`stop cue ${cueIndex}`}
+        disabled={!playingSnapshotId}
+        onClick={(e) => {
+          e.stopPropagation();
+          runTransportAction(() => onStopSnapshot?.());
+        }}
+      >
+        <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
+      </button>
+    </span>
+  );
+
   const renderCueMarker = (snapshot, event, sequenceTime) => {
     if (event.cueDisplayLead) {
       return (
         <span class="sequencer-event__cue-marker" title={`Cue ${event.cueIndex} at ${sequenceTime}`}>
-          <span class="sequencer-event__cue-number-group" aria-hidden="true">
-            <span class="sequencer-event__cue-number">
-              {event.cueIndex}
+          <span class="sequencer-event__cue-number-wrap">
+            <span class="sequencer-event__cue-number-group" aria-hidden="true">
+              <span class="sequencer-event__cue-number">
+                {event.cueIndex}
+              </span>
             </span>
+            <span class="sequencer-event__cue-dot" aria-hidden="true" />
           </span>
-          <span class="sequencer-event__cue-dot" aria-hidden="true" />
         </span>
       );
     }
@@ -330,15 +432,98 @@ const Sequencer = ({
         class="sequencer-event__cue-marker sequencer-event__cue-marker--courtesy"
         title={`Cue ${event.cueIndex} continues here`}
       >
-        <span class="sequencer-event__cue-number-group" aria-hidden="true">
-          <span class="sequencer-event__cue-bracket">(</span>
-          <span class="sequencer-event__cue-number">
-            {event.cueIndex}
+        <span class="sequencer-event__cue-number-wrap">
+          <span class="sequencer-event__cue-number-group" aria-hidden="true">
+            <span class="sequencer-event__cue-bracket">(</span>
+            <span class="sequencer-event__cue-number">
+              {event.cueIndex}
+            </span>
+            <span class="sequencer-event__cue-bracket">)</span>
           </span>
-          <span class="sequencer-event__cue-bracket">)</span>
+          <span class="sequencer-event__cue-dot" aria-hidden="true" />
         </span>
-        <span class="sequencer-event__cue-dot" aria-hidden="true" />
       </span>
+    );
+  };
+
+  const renderBarRow = (bar) => {
+    const barId = bar.barId ?? bar.id;
+    const barNumber = barNumberById.get(barId) ?? 1;
+    const sequenceTime = Number(bar.position ?? bar.absoluteTime).toFixed(3);
+    const isDraggable = true;
+
+    return (
+      <div
+        key={`bar:${barId}`}
+        class="sequencer-bar-row"
+        onDragOver={(e) => {
+          if (barDragIdRef.current == null) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
+        onDrop={(e) => {
+          if (barDragIdRef.current == null) return;
+          e.preventDefault();
+          onMoveBar?.(barDragIdRef.current, Number(bar.position));
+          setDraggedBarId(null);
+          barDragIdRef.current = null;
+        }}
+      >
+        <div class="sequencer-bar-row__line" aria-hidden="true" />
+        <div class="sequencer-event__delete-cell">
+          <button
+            type="button"
+            class="sequencer-gutter__delete"
+            aria-label={`delete bar ${barNumber}`}
+            title={`Delete bar ${barNumber}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteBar?.(barId);
+            }}
+          >
+            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+          </button>
+        </div>
+        <span
+          class={`sequencer-bar-gutter${draggedBarId === (bar.barId ?? bar.id) ? " sequencer-bar-gutter--dragging" : ""}`}
+          draggable={isDraggable}
+          title={`Drag bar ${barNumber}`}
+          onDragStart={(e) => {
+            barDragIdRef.current = barId;
+            setDraggedBarId(barId);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragEnd={() => {
+            setDraggedBarId(null);
+            barDragIdRef.current = null;
+          }}
+        >
+          <span class="sequencer-bar-gutter__number">{barNumber}</span>
+        </span>
+        <div class="sequencer-event__cell">
+          <input
+            type="text"
+            class="sequencer-event__input sequencer-event__position"
+            defaultValue={sequenceTime}
+            aria-label={`bar ${barNumber} position`}
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onKeyDown={(e) => handleEnterCommit(e, (value) => updateBarPosition(barId, value))}
+            onBlur={(e) => handleBlurCommit(e, (value) => updateBarPosition(barId, value))}
+          />
+        </div>
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__filler" aria-hidden="true" />
+        <div class="sequencer-bar-row__spacer" aria-hidden="true" />
+      </div>
     );
   };
 
@@ -359,6 +544,18 @@ const Sequencer = ({
         class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}`}
         onClick={() => {
           onSelectMarker(snapshot.id, event.relativeTime);
+        }}
+        onDragOver={(e) => {
+          if (barDragIdRef.current == null) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
+        onDrop={(e) => {
+          if (barDragIdRef.current == null) return;
+          e.preventDefault();
+          onMoveBar?.(barDragIdRef.current, event.absoluteTime);
+          setDraggedBarId(null);
+          barDragIdRef.current = null;
         }}
       >
         <div class="sequencer-event__delete-cell" />
@@ -536,6 +733,12 @@ const Sequencer = ({
             )}
           />
         </div>
+        <div class="sequencer-event__actions-cell">
+          {(event.cueDisplayLead || (
+            firstSnapshotEventIds.get(snapshot.id) === event.eventId &&
+            snapshotStartCueIndexes.get(snapshot.id) === event.cueIndex
+          )) ? renderCueTransport(event.cueIndex) : null}
+        </div>
       </div>
     );
   };
@@ -544,6 +747,7 @@ const Sequencer = ({
     <div role="group" aria-label="Sequencer workspace">
       <SequenceLibrary
         snapshots={snapshots}
+        bars={bars}
         snapshotLabelMode={snapshotLabelMode}
         activeSequenceName={activeSequenceName ?? ""}
         activeSequenceDescription={activeSequenceDescription ?? ""}
@@ -603,7 +807,11 @@ const Sequencer = ({
               value={playhead?.barIndex ?? 0}
               onChange={(e) => onSelectSequenceBar?.(Number(e.currentTarget.value))}
             >
-              <option value={0}>1</option>
+              {sortedBars.map((bar, index) => (
+                <option key={bar.id ?? index} value={index}>
+                  {index + 1}
+                </option>
+              ))}
             </select>
           </span>
 
@@ -724,6 +932,27 @@ const Sequencer = ({
           />
         </label>
 
+        <div class="sequencer-option-row">
+          <span>Bars</span>
+          <span class="sequencer-bars-add">
+            <input
+              type="text"
+              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000" ? " sequencer-bars-add__position--hint" : ""}`}
+              aria-label="new bar position"
+              value={newBarPosition}
+              onInput={(e) => setNewBarPosition(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                addBarAtRequestedPosition();
+              }}
+            />
+            <button type="button" class="preset-action-btn" onClick={addBarAtRequestedPosition}>
+              Add Bar
+            </button>
+          </span>
+        </div>
+
         <label>
           Snapshot Labels
           <select
@@ -745,6 +974,11 @@ const Sequencer = ({
           </p>
         ) : (
           <div class="sequencer-list">
+            {(barsByDisplayBucket.get(-1) ?? []).map((bar) => (
+              <div key={`bar:${bar.id}`} class="sequencer-item sequencer-item--bar">
+                {renderBarRow(bar)}
+              </div>
+            ))}
             {snapshots.map((snapshot, index) => {
               const isPlaying = snapshot.id === playingSnapshotId;
               const isSelected = snapshot.id === selectedSnapshotId;
@@ -753,170 +987,189 @@ const Sequencer = ({
               const snapshotEvents = snapshotEventsById.get(snapshot.id) ?? [];
 
               return (
-                <div
-                  key={snapshot.id}
-                  class={`sequencer-item${isSelected ? " sequencer-item--selected" : ""}${isDragOver ? " sequencer-item--drop-target" : ""}${isDragOver && dragOverSide === "before" ? " sequencer-item--drop-target-before" : ""}${isDragOver && dragOverSide === "after" ? " sequencer-item--drop-target-after" : ""}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    setDragOverId(snapshot.id);
-                    setDragOverSide(resolveDropSide(e));
-                  }}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    setDragOverId(snapshot.id);
-                    setDragOverSide(resolveDropSide(e));
-                  }}
-                  onDragLeave={() => setDragOverId(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragOverId(null);
-                    setDraggedId(null);
-                    const side = resolveDropSide(e);
-                    if (dragIdRef.current !== null && dragIdRef.current !== snapshot.id) {
-                      onMoveSnapshot(dragIdRef.current, snapshot.id, side);
-                    }
-                    dragIdRef.current = null;
-                  }}
-                  onDragEnd={() => {
-                    setDragOverId(null);
-                    setDraggedId(null);
-                    dragIdRef.current = null;
-                  }}
-                >
+                <>
                   <div
-                    class={`sequencer-row${isSelected ? " sequencer-row--selected" : ""}`}
-                    onClick={() => {
-                      onSelectSnapshot(snapshot.id);
-                      if (!showAllEvents) toggleExpanded(snapshot.id);
+                    key={snapshot.id}
+                    class={`sequencer-item${isSelected ? " sequencer-item--selected" : ""}${isDragOver ? " sequencer-item--drop-target" : ""}${isDragOver && dragOverSide === "before" ? " sequencer-item--drop-target-before" : ""}${isDragOver && dragOverSide === "after" ? " sequencer-item--drop-target-after" : ""}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (barDragIdRef.current != null) return;
+                      setDragOverId(snapshot.id);
+                      setDragOverSide(resolveDropSide(e));
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      if (barDragIdRef.current != null) return;
+                      setDragOverId(snapshot.id);
+                      setDragOverSide(resolveDropSide(e));
+                    }}
+                    onDragLeave={() => {
+                      if (barDragIdRef.current != null) return;
+                      setDragOverId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (barDragIdRef.current != null) {
+                        onMoveBar?.(barDragIdRef.current, index + 1);
+                        setDraggedBarId(null);
+                        barDragIdRef.current = null;
+                        return;
+                      }
+                      setDragOverId(null);
+                      setDraggedId(null);
+                      const side = resolveDropSide(e);
+                      if (dragIdRef.current !== null && dragIdRef.current !== snapshot.id) {
+                        onMoveSnapshot(dragIdRef.current, snapshot.id, side);
+                      }
+                      dragIdRef.current = null;
+                    }}
+                    onDragEnd={() => {
+                      setDragOverId(null);
+                      setDraggedId(null);
+                      dragIdRef.current = null;
                     }}
                   >
-                    <span class="sequencer-row__delete-cell">
-                      {isSelected && (
-                        <button
-                          type="button"
-                          class="sequencer-gutter__delete"
-                          aria-label={`delete snapshot ${index + 1}`}
-                          title={`Delete snapshot ${index + 1}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteSnapshot(snapshot.id);
-                          }}
-                        >
-                          <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
-                            ×
-                          </span>
-                        </button>
-                      )}
-                    </span>
-                    <span
-                      class={`sequencer-gutter${isSelected ? " sequencer-gutter--selected" : ""}${draggedId === snapshot.id ? " sequencer-gutter--dragging" : ""}`}
-                      draggable="true"
-                      title="Drag to reorder this chord"
-                      onDragStart={(e) => {
-                        dragIdRef.current = snapshot.id;
-                        setDraggedId(snapshot.id);
-                        e.dataTransfer.effectAllowed = "move";
-                      }}
-                      onDragEnd={() => {
-                        setDragOverId(null);
-                        setDraggedId(null);
-                        dragIdRef.current = null;
-                      }}
-                    >
-                      <span class="sequencer-gutter__number">{index + 1}</span>
-                    </span>
-                    <span class="sequencer-row__count sequencer-cell">
-                      {snapshot.notes.length} note{snapshot.notes.length !== 1 ? "s" : ""}
-                    </span>
-                    <input
-                      type="text"
-                      class="sequencer-row__description sequencer-cell"
-                      value={snapshot.description ?? ""}
-                      aria-label={`snapshot ${index + 1} description`}
-                      onClick={(e) => {
-                        e.stopPropagation();
+                    <div
+                      class={`sequencer-row${isSelected ? " sequencer-row--selected" : ""}`}
+                      onClick={() => {
                         onSelectSnapshot(snapshot.id);
-                        ensureExpanded(snapshot.id);
-                      }}
-                      onInput={(e) =>
-                        onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })
-                      }
-                    />
-                    <button
-                      type="button"
-                      class="sequencer-row__reset preset-refresh-btn"
-                      aria-label={`reset snapshot ${index + 1} description`}
-                      title="Reset description to current auto-generated label"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onResetSnapshotDescription(snapshot.id);
+                        if (!showAllEvents) toggleExpanded(snapshot.id);
                       }}
                     >
-                      <span class="refresh-glyph preset-refresh-glyph" aria-hidden="true">
-                        ⟳
+                      <span class="sequencer-row__delete-cell">
+                        {isSelected && (
+                          <button
+                            type="button"
+                            class="sequencer-gutter__delete"
+                            aria-label={`delete snapshot ${index + 1}`}
+                            title={`Delete snapshot ${index + 1}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteSnapshot(snapshot.id);
+                            }}
+                          >
+                            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+                              ×
+                            </span>
+                          </button>
+                        )}
                       </span>
-                    </button>
-                    <span class="sequencer-row__actions">
-                      <button
-                        type="button"
-                        class="snapshot-play-btn"
-                        title="Play snapshot"
-                        aria-label={`play snapshot ${index + 1}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPlaySnapshot(snapshot.id);
+                      <span
+                        class={`sequencer-gutter${isSelected ? " sequencer-gutter--selected" : ""}${draggedId === snapshot.id ? " sequencer-gutter--dragging" : ""}`}
+                        draggable="true"
+                        title="Drag to reorder this chord"
+                        onDragStart={(e) => {
+                          dragIdRef.current = snapshot.id;
+                          setDraggedId(snapshot.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => {
+                          setDragOverId(null);
+                          setDraggedId(null);
+                          dragIdRef.current = null;
                         }}
                       >
-                        <span
-                          className="snapshot-play-glyph snapshot-play-glyph--play"
-                          aria-hidden="true"
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        class="snapshot-play-btn snapshot-stop-btn"
-                        title="Stop snapshot"
-                        aria-label={`stop snapshot ${index + 1}`}
-                        disabled={!isPlaying}
+                        <span class="sequencer-gutter__number">{index + 1}</span>
+                      </span>
+                      <span class="sequencer-row__count sequencer-cell">
+                        {snapshot.notes.length} note{snapshot.notes.length !== 1 ? "s" : ""}
+                      </span>
+                      <input
+                        type="text"
+                        class="sequencer-row__description sequencer-cell"
+                        value={snapshot.description ?? ""}
+                        aria-label={`snapshot ${index + 1} description`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onStopSnapshot?.(snapshot.id);
+                          onSelectSnapshot(snapshot.id);
+                          ensureExpanded(snapshot.id);
+                        }}
+                        onInput={(e) =>
+                          onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })
+                        }
+                      />
+                      <button
+                        type="button"
+                        class="sequencer-row__reset preset-refresh-btn"
+                        aria-label={`reset snapshot ${index + 1} description`}
+                        title="Reset description to current auto-generated label"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onResetSnapshotDescription(snapshot.id);
                         }}
                       >
-                        <span class="snapshot-stop-glyph" aria-hidden="true">
-                          ■
+                        <span class="refresh-glyph preset-refresh-glyph" aria-hidden="true">
+                          ⟳
                         </span>
                       </button>
-                    </span>
-                  </div>
+                      <span class="sequencer-row__actions">
+                        <button
+                          type="button"
+                          class="snapshot-play-btn"
+                          title="Play snapshot"
+                          aria-label={`play snapshot ${index + 1}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPlaySnapshot(snapshot.id);
+                          }}
+                        >
+                          <span
+                            className="snapshot-play-glyph snapshot-play-glyph--play"
+                            aria-hidden="true"
+                          />
+                        </button>
+                        <button
+                          type="button"
+                          class="snapshot-play-btn snapshot-stop-btn"
+                          title="Stop snapshot"
+                          aria-label={`stop snapshot ${index + 1}`}
+                          disabled={!isPlaying}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStopSnapshot?.(snapshot.id);
+                          }}
+                        >
+                          <span class="snapshot-stop-glyph" aria-hidden="true">
+                            ■
+                          </span>
+                        </button>
+                      </span>
+                    </div>
 
-                  {isExpanded && (
-                    <div class="sequencer-item__groups">
-                      <div
-                        class="sequencer-events-grid"
-                        role="table"
-                        aria-label={`snapshot ${index + 1} events`}
-                      >
-                        <div class="sequencer-events-grid__header" role="row">
-                          <div class="sequencer-events-grid__heading sequencer-events-grid__heading--delete" />
-                          <div class="sequencer-events-grid__heading sequencer-events-grid__heading--cue" />
-                          <div class="sequencer-events-grid__heading">Position</div>
-                          <div class="sequencer-events-grid__heading">on/off</div>
-                          <div class="sequencer-events-grid__heading">MIDI¢</div>
-                          <div class="sequencer-events-grid__heading">Hz</div>
-                          <div class="sequencer-events-grid__heading">on-vel</div>
-                          <div class="sequencer-events-grid__heading">off-vel</div>
-                          <div class="sequencer-events-grid__heading">pressure</div>
-                          <div class="sequencer-events-grid__heading">timbre</div>
-                        </div>
-                        <div class="sequencer-events-grid__body">
-                          {snapshotEvents.map((event) => renderEventRow(snapshot, index, event))}
+                    {isExpanded && (
+                      <div class="sequencer-item__groups">
+                        <div
+                          class="sequencer-events-grid"
+                          role="table"
+                          aria-label={`snapshot ${index + 1} events`}
+                        >
+                          <div class="sequencer-events-grid__header" role="row">
+                            <div class="sequencer-events-grid__heading sequencer-events-grid__heading--delete" />
+                            <div class="sequencer-events-grid__heading sequencer-events-grid__heading--cue" />
+                            <div class="sequencer-events-grid__heading">Position</div>
+                            <div class="sequencer-events-grid__heading">on/off</div>
+                            <div class="sequencer-events-grid__heading">MIDI¢</div>
+                            <div class="sequencer-events-grid__heading">Hz</div>
+                            <div class="sequencer-events-grid__heading">on-vel</div>
+                            <div class="sequencer-events-grid__heading">off-vel</div>
+                            <div class="sequencer-events-grid__heading">pressure</div>
+                            <div class="sequencer-events-grid__heading">timbre</div>
+                            <div class="sequencer-events-grid__heading sequencer-events-grid__heading--actions" />
+                          </div>
+                          <div class="sequencer-events-grid__body">
+                            {snapshotEvents.map((event) => renderEventRow(snapshot, index, event))}
+                          </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+                  {(barsByDisplayBucket.get(index) ?? []).map((bar) => (
+                    <div key={`bar:${bar.id}`} class="sequencer-item sequencer-item--bar">
+                      {renderBarRow(bar)}
                     </div>
-                  )}
-                </div>
+                  ))}
+                </>
               );
             })}
           </div>

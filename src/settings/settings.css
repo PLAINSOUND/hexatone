@@ -645,6 +645,10 @@ td.scale-color-col .color-input {
 .sequencer-item {
   --sequencer-delete-col: 1.15em;
   --sequencer-number-col: 1.55em;
+  --sequencer-event-position-col: minmax(0, 1.2fr);
+  --sequencer-event-pitch-col: minmax(0, 1.2fr);
+  --sequencer-event-kind-col: minmax(0, 0.55fr);
+  --sequencer-event-value-col: minmax(0, 1fr);
   --sequencer-snapshot-primary-col: 5.8em;
   --sequencer-snapshot-columns:
     var(--sequencer-delete-col)
@@ -668,6 +672,15 @@ td.scale-color-col .color-input {
 .sequencer-item--selected {
   background: #e8edf5;
   box-shadow: inset 0 1px 0 #d6deea, inset 0 -1px 0 #d6deea;
+}
+
+.sequencer-item--bar {
+  display: grid;
+  grid-template-columns: var(--sequencer-snapshot-columns);
+  padding-bottom: 0.3em;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .sequencer-row {
@@ -891,6 +904,47 @@ td.scale-color-col .color-input {
   margin: 0;
 }
 
+.sequencer-bars-add {
+  display: flex;
+  align-items: center;
+  width: 50%;
+  margin-left: auto;
+  min-width: 0;
+  gap: 0.45em;
+  justify-content: flex-end;
+  box-sizing: border-box;
+}
+
+.sequencer-bars-add .preset-action-btn {
+  margin-left: auto;
+  height: 1.5em;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.5em;
+}
+
+#sidebar .sequencer-bars-add__position {
+  flex: 1;
+  min-width: 0;
+  height: 1.5em;
+  box-sizing: border-box;
+  background-color: var(--color-bg);
+  text-align: right;
+}
+
+#sidebar .sequencer-bars-add__position:focus {
+  background-color: var(--color-bg);
+}
+
+#sidebar .sequencer-bars-add__position--hint {
+  color: #bb9999;
+  -webkit-text-fill-color: #bb9999;
+}
+
 #sidebar .sequencer-arrow-btn {
   width: 1.05em;
   min-width: 1.05em;
@@ -1012,10 +1066,6 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-events-grid {
-  --sequencer-event-position-col: minmax(0, 1.2fr);
-  --sequencer-event-pitch-col: minmax(0, 1.2fr);
-  --sequencer-event-kind-col: minmax(0, 0.55fr);
-  --sequencer-event-value-col: minmax(0, 1fr);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -1038,7 +1088,8 @@ td.scale-color-col .color-input {
     var(--sequencer-event-value-col)
     var(--sequencer-event-value-col)
     var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col);
+    var(--sequencer-event-value-col)
+    max-content;
   column-gap: 0.45em;
   align-items: center;
   min-width: 0;
@@ -1046,9 +1097,41 @@ td.scale-color-col .color-input {
   box-sizing: border-box;
 }
 
+.sequencer-bar-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns:
+    var(--sequencer-delete-col)
+    var(--sequencer-number-col)
+    var(--sequencer-event-position-col)
+    var(--sequencer-event-kind-col)
+    var(--sequencer-event-pitch-col)
+    var(--sequencer-event-pitch-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col)
+    max-content;
+  column-gap: 0.45em;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.1em 0.32em 0.1em 0;
+  position: relative;
+  background: #fff;
+  border-radius: 4px;
+}
+
 .sequencer-events-grid__heading:nth-child(n + 4),
 .sequencer-event-row > :nth-child(n + 4) {
   margin-left: -0.17em;
+}
+
+.sequencer-events-grid__heading--actions,
+.sequencer-event__actions-cell {
+  margin-left: 0;
 }
 
 .sequencer-events-grid__header {
@@ -1068,6 +1151,69 @@ td.scale-color-col .color-input {
 
 .sequencer-event-row {
   padding: 0.06em 0;
+}
+
+.sequencer-bar-gutter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: var(--sequencer-number-col);
+  min-width: var(--sequencer-number-col);
+  cursor: grab;
+  z-index: 1;
+}
+
+.sequencer-bar-gutter--dragging {
+  cursor: grabbing;
+  opacity: 0.65;
+}
+
+.sequencer-bar-gutter__number {
+  width: 1.35em;
+  height: 1.35em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(160, 140, 140, 0.55);
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: #6f3535;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  font-weight: 700;
+  transform: translate(-1em, 0.06em);
+}
+
+.sequencer-bar-row__line {
+  position: absolute;
+  left: -0.45em;
+  right: 0.32em;
+  top: 50%;
+  border-top: 1.5px solid rgba(132, 112, 112, 0.78);
+  z-index: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.sequencer-bar-row .sequencer-event__delete-cell,
+.sequencer-bar-row .sequencer-event__cell {
+  background: #fff;
+  z-index: 1;
+}
+
+.sequencer-bar-row__spacer {
+  min-width: 0;
+  min-height: 1.5em;
+  background: transparent;
+  z-index: 1;
+}
+
+.sequencer-bar-row__filler {
+  min-width: 0;
+  min-height: 1.5em;
+  background: transparent;
+  z-index: 1;
 }
 
 .sequencer-event-row--cue-active {
@@ -1179,10 +1325,18 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-event__cue-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.28em;
+  width: 100%;
+}
+
+.sequencer-event__cue-number-wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 0.42rem;
   align-items: center;
-  width: 100%;
+  min-width: 0;
   column-gap: 0.12em;
 }
 
@@ -1224,6 +1378,26 @@ td.scale-color-col .color-input {
 
 .sequencer-event__cue-marker--courtesy .sequencer-event__cue-number-group {
   gap: 0;
+}
+
+.sequencer-event__cue-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  flex: 0 0 auto;
+}
+
+.sequencer-event__actions-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 1.5em;
+  align-self: center;
+  padding-right: 0.32em;
+}
+
+#sidebar .sequencer-event__cue-actions .snapshot-stop-glyph {
+  font-size: 0.88rem;
 }
 
 .sequencer-event__cue-dot {
@@ -1288,7 +1462,37 @@ td.scale-color-col .color-input {
   -webkit-appearance: none;
 }
 
+#sidebar .sequencer-bar-row input[type="text"].sequencer-event__input {
+  all: unset;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 1.5em;
+  min-width: 0;
+  padding-left: 0.28em;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+  text-align: left;
+  cursor: text;
+  pointer-events: auto;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 #sidebar .sequencer-events-grid input[type="text"].sequencer-event__input:focus {
+  outline: 1px solid rgba(160, 140, 140, 0.55);
+  background: #fff;
+  background-color: #fff;
+}
+
+#sidebar .sequencer-bar-row input[type="text"].sequencer-event__input:focus {
   outline: 1px solid rgba(160, 140, 140, 0.55);
   background: #fff;
   background-color: #fff;

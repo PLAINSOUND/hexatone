@@ -688,6 +688,7 @@ const App = () => {
   const [activeSequenceName, setActiveSequenceName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
   const [sequenceLegato, setSequenceLegato] = useState(true);
+  const [sequenceBars, setSequenceBars] = useState([{ id: 1, position: 1 }]);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -695,6 +696,7 @@ const App = () => {
     stopped: true,
   });
   const snapshotIdRef = useRef(0);
+  const sequenceBarIdRef = useRef(1);
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
   const modulationPaletteDragRef = useRef(null);
@@ -722,9 +724,20 @@ const App = () => {
     const nextSnapshots = Array.isArray(sequence?.snapshots)
       ? JSON.parse(JSON.stringify(sequence.snapshots))
       : [];
+    const loadedBars = Array.isArray(sequence?.bars)
+      ? JSON.parse(JSON.stringify(sequence.bars))
+      : [];
+    const nextBars = loadedBars.some((bar) => Math.abs(Number(bar?.position) - 1) < 1e-9)
+      ? loadedBars
+      : [{ id: 1, position: 1 }, ...loadedBars];
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
     setSnapshots(nextSnapshots);
+    setSequenceBars(nextBars);
+    sequenceBarIdRef.current = nextBars.reduce(
+      (max, bar) => Math.max(max, Number.isFinite(Number(bar?.id)) ? Number(bar.id) : 0),
+      0,
+    );
     setSnapshotLabelMode(String(sequence?.snapshotLabelMode ?? "proportion"));
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
@@ -738,7 +751,25 @@ const App = () => {
     });
   }, []);
 
-  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots), [snapshots]);
+  const sequenceCueGroups = useMemo(
+    () => deriveSequenceCueGroups(snapshots, sequenceBars),
+    [sequenceBars, snapshots],
+  );
+  const sortedSequenceBars = useMemo(
+    () => [...sequenceBars].sort((a, b) => Number(a.position) - Number(b.position) || Number(a.id) - Number(b.id)),
+    [sequenceBars],
+  );
+
+  const barIndexForTime = useCallback((absoluteTime) => {
+    const time = Number(absoluteTime);
+    if (!Number.isFinite(time) || sortedSequenceBars.length === 0) return 0;
+    let index = 0;
+    for (let i = 0; i < sortedSequenceBars.length; i += 1) {
+      if (Number(sortedSequenceBars[i].position) <= time) index = i;
+      else break;
+    }
+    return index;
+  }, [sortedSequenceBars]);
 
   const playSequencePosition = useCallback((stepIndex, markerIndex = null) => {
     if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
@@ -783,6 +814,8 @@ const App = () => {
       ? snapshot.notes
       : sequenceNotesAtCueIndex(snapshots, safeMarkerIndex);
     const useLegato = sequenceLegato && safeMarkerIndex != null;
+    const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
+    const barIndex = barIndexForTime(playheadTime);
 
     if (notes.length > 0) keysRef.current?.playSnapshot(notes, { legato: useLegato });
     else keysRef.current?.stopSnapshot();
@@ -801,12 +834,12 @@ const App = () => {
           },
     );
     setSequencePlayhead({
-      barIndex: 0,
+      barIndex,
       stepIndex: safeStepIndex,
       markerIndex: safeMarkerIndex,
       stopped: notes.length === 0,
     });
-  }, [sequenceCueGroups, sequenceLegato, snapshots]);
+  }, [barIndexForTime, sequenceCueGroups, sequenceLegato, snapshots]);
 
   const onSelectSequencerSnapshot = useCallback((id) => {
     setSelectedSnapshotId(id);
@@ -849,6 +882,37 @@ const App = () => {
       markerIndex: null,
       stopped: true,
     });
+  }, []);
+
+  const onAddSequenceBar = useCallback((position = null) => {
+    const id = ++sequenceBarIdRef.current;
+    setSequenceBars((prev) => {
+      const explicitPosition = Number(position);
+      const nextPosition = Number.isFinite(explicitPosition)
+        ? explicitPosition
+        : prev.length > 0
+          ? Math.max(...prev.map((bar) => Number(bar.position) || 1)) + 1
+          : 1;
+      return [...prev, { id, position: nextPosition }];
+    });
+  }, []);
+
+  const onDeleteSequenceBar = useCallback((id) => {
+    setSequenceBars((prev) => prev.filter((bar) => bar.id !== id));
+  }, []);
+
+  const onUpdateSequenceBar = useCallback((id, updates) => {
+    setSequenceBars((prev) => prev.map((bar) => (
+      bar.id === id ? { ...bar, ...updates } : bar
+    )));
+  }, []);
+
+  const onMoveSequenceBar = useCallback((fromId, position) => {
+    const nextPosition = Number(position);
+    if (!Number.isFinite(nextPosition)) return;
+    setSequenceBars((prev) => prev.map((bar) => (
+      bar.id === fromId ? { ...bar, position: nextPosition } : bar
+    )));
   }, []);
 
   const onStepSequence = useCallback((direction) => {
@@ -923,6 +987,14 @@ const App = () => {
   const onResetSequencePlayhead = useCallback(() => {
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
+
+  const onPlaySequenceCue = useCallback((cueIndex) => {
+    const index = Number(cueIndex);
+    if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
+    const cueGroup = sequenceCueGroups[index];
+    if (!cueGroup) return;
+    playSequencePosition(cueGroup.snapshotIndex, index);
+  }, [playSequencePosition, sequenceCueGroups]);
 
   const onDeleteSnapshot = useCallback(
     (id) => {
@@ -2538,6 +2610,7 @@ const App = () => {
           {workspaceTab === "sequencer" ? (
             <Sequencer
               snapshots={snapshots}
+              bars={sequenceBars}
               snapshotLabelMode={snapshotLabelMode}
               activeSequenceName={activeSequenceName}
               activeSequenceDescription={activeSequenceDescription}
@@ -2560,7 +2633,12 @@ const App = () => {
               onStepSequence={onStepSequence}
               onStepSequenceMarker={onStepSequenceMarker}
               onPlaySequence={onPlaySequence}
+              onPlayCue={onPlaySequenceCue}
               onResetSequencePlayhead={onResetSequencePlayhead}
+              onAddBar={onAddSequenceBar}
+              onDeleteBar={onDeleteSequenceBar}
+              onUpdateBar={onUpdateSequenceBar}
+              onMoveBar={onMoveSequenceBar}
               onDeleteSnapshot={onDeleteSnapshot}
               onMoveSnapshot={onMoveSnapshot}
               onUpdateSnapshot={onUpdateSnapshot}

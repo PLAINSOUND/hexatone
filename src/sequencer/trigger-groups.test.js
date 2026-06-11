@@ -199,4 +199,36 @@ describe("deriveSnapshotTriggerGroups", () => {
       { midicents: 60, pressure: 55, timbre: 66 },
     ]);
   });
+
+  it("attaches integer-position bars to the preceding snapshot and keeps them ahead of the whole shared-time burst", () => {
+    const events = deriveSequenceEvents(
+      [
+        {
+          id: 1,
+          length: 1,
+          notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+        },
+        {
+          id: 2,
+          length: 1,
+          notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+        },
+      ],
+      [{ id: 100, position: 2 }],
+    );
+
+    expect(events.map((event) => [
+      event.type,
+      event.kind,
+      event.absoluteTime,
+      event.snapshotIndex,
+      event.cueIndex,
+    ])).toEqual([
+      ["note", "attack", 1, 0, 1],
+      ["bar", "bar", 2, 0, null],
+      ["note", "attack", 2, 1, 2],
+      ["note", "release", 2, 0, 2],
+      ["note", "release", 3, 1, 3],
+    ]);
+  });
 });

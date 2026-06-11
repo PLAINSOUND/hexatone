@@ -2,6 +2,11 @@ function eventTypePriority(kind) {
   return kind === "attack" ? 0 : 1;
 }
 
+function sequenceRowPriority(type, kind) {
+  if (type === "bar") return 0;
+  return kind === "attack" ? 1 : 2;
+}
+
 function noteFrequency(midicents) {
   const pitch = Number(midicents);
   if (!Number.isFinite(pitch)) return null;
@@ -97,7 +102,16 @@ export function deriveSnapshotTriggerGroups(snapshot) {
   return groups;
 }
 
-export function deriveSequenceEvents(snapshots) {
+function snapshotIndexForAbsoluteTime(time, snapshotCount) {
+  const t = Number(time);
+  if (!Number.isFinite(t) || snapshotCount <= 0) return 0;
+  const rounded = Math.round(t);
+  const isInteger = Math.abs(t - rounded) < 1e-9;
+  const rawIndex = isInteger ? rounded - 2 : Math.floor(t - 1);
+  return Math.max(0, Math.min(snapshotCount - 1, rawIndex));
+}
+
+export function deriveSequenceEvents(snapshots, bars = []) {
   const events = [];
 
   for (const [snapshotIndex, snapshot] of (snapshots ?? []).entries()) {
@@ -108,6 +122,7 @@ export function deriveSequenceEvents(snapshots) {
       for (const event of group.events) {
         events.push({
           ...event,
+          type: "note",
           eventId: [
             snapshot?.id ?? snapshotIndex,
             event.noteId,
@@ -124,16 +139,42 @@ export function deriveSequenceEvents(snapshots) {
     }
   }
 
+  const snapshotCount = snapshots?.length ?? 0;
+  const normalizedBars = Array.isArray(bars) ? bars : [];
+  for (const [barOrder, bar] of normalizedBars.entries()) {
+    const absoluteTime = normalizeTimeValue(Number(bar?.position));
+    if (!Number.isFinite(absoluteTime)) continue;
+    const snapshotIndex = snapshotIndexForAbsoluteTime(absoluteTime, snapshotCount);
+    const relativeTime = normalizeTimeValue(absoluteTime - snapshotBaseTime(snapshotIndex));
+    events.push({
+      type: "bar",
+      kind: "bar",
+      barId: bar?.id ?? `bar:${absoluteTime}:${barOrder}`,
+      barOrder,
+      eventId: `bar:${bar?.id ?? barOrder}:${absoluteTime}`,
+      snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
+      snapshotIndex,
+      relativeTime,
+      absoluteTime,
+      cueIndex: null,
+      cueLead: false,
+      cueDisplayLead: false,
+      cueOrder: null,
+    });
+  }
+
   events.sort((a, b) => (
     a.absoluteTime - b.absoluteTime ||
-    eventTypePriority(a.kind) - eventTypePriority(b.kind) ||
-    b.midicents - a.midicents
+    sequenceRowPriority(a.type, a.kind) - sequenceRowPriority(b.type, b.kind) ||
+    ((b.midicents ?? -Infinity) - (a.midicents ?? -Infinity)) ||
+    ((a.barOrder ?? 0) - (b.barOrder ?? 0))
   ));
 
   let cueIndex = 0;
   let previousTime = null;
   let cueOrder = 0;
   for (const event of events) {
+    if (event.type !== "note") continue;
     if (previousTime !== event.absoluteTime) {
       cueIndex += 1;
       cueOrder = 0;
@@ -149,6 +190,7 @@ export function deriveSequenceEvents(snapshots) {
   let currentCueIndex = null;
   let currentDisplayLead = null;
   for (const event of events) {
+    if (event.type !== "note") continue;
     if (event.cueIndex !== currentCueIndex) {
       if (currentDisplayLead) currentDisplayLead.cueDisplayLead = true;
       currentCueIndex = event.cueIndex;
@@ -182,9 +224,9 @@ export function deriveSequenceEvents(snapshots) {
   return events;
 }
 
-export function deriveSequenceCueGroups(snapshots) {
+export function deriveSequenceCueGroups(snapshots, bars = []) {
   const groups = [];
-  const sequenceEvents = deriveSequenceEvents(snapshots);
+  const sequenceEvents = deriveSequenceEvents(snapshots, bars).filter((event) => event.type === "note");
 
   for (const event of sequenceEvents) {
     const previous = groups.at(-1);

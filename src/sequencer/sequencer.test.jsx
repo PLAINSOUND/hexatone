@@ -15,6 +15,7 @@ describe("Sequencer", () => {
     const onStepSequence = vi.fn();
     const onStepSequenceMarker = vi.fn();
     const onPlaySequence = vi.fn();
+    const onPlayCue = vi.fn();
     const onResetSequencePlayhead = vi.fn();
 
     const { container } = render(
@@ -48,6 +49,7 @@ describe("Sequencer", () => {
             ],
           },
         ]}
+        bars={[{ id: 1, position: 1 }, { id: 99, position: 2 }]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -63,7 +65,12 @@ describe("Sequencer", () => {
         onStepSequence={onStepSequence}
         onStepSequenceMarker={onStepSequenceMarker}
         onPlaySequence={onPlaySequence}
+        onPlayCue={onPlayCue}
         onResetSequencePlayhead={onResetSequencePlayhead}
+        onAddBar={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
         onUpdateSnapshot={onUpdateSnapshot}
@@ -90,10 +97,12 @@ describe("Sequencer", () => {
     expect(onStopSnapshot).toHaveBeenCalledWith(10);
 
     const eventTimes = [...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value);
-    expect(eventTimes).toEqual(["1.000", "1.500", "2.000", "2.000"]);
+    expect(eventTimes).toEqual(["1.000", "1.000", "1.500", "2.000", "2.000", "2.000"]);
     const cueNumbers = [...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent);
     expect(cueNumbers).toEqual(["1", "2", "3"]);
     expect(screen.getByText("Position")).not.toBeNull();
+    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000");
+    expect(screen.getByLabelText("bar 2 position").value).toBe("2.000");
     expect(screen.getByText("MIDI¢")).not.toBeNull();
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 release midicents")[0].value).toBe("81.000");
@@ -101,6 +110,8 @@ describe("Sequencer", () => {
     expect(screen.getAllByLabelText("snapshot 1 release frequency")[0].value).toBe("880.0");
     expect(screen.getAllByText("on")).toHaveLength(2);
     expect(screen.getAllByText("off")).toHaveLength(2);
+    fireEvent.click(screen.getByLabelText("play cue 1"));
+    expect(onPlayCue).toHaveBeenCalledWith(0);
 
     fireEvent.click(screen.getByText("2 notes"));
     expect(container.querySelector(".sequencer-events-grid")).toBeNull();
@@ -163,6 +174,7 @@ describe("Sequencer", () => {
             ],
           },
         ]}
+        bars={[{ id: 1, position: 1 }]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -178,7 +190,12 @@ describe("Sequencer", () => {
         onStepSequence={vi.fn()}
         onStepSequenceMarker={onStepSequenceMarker}
         onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
         onUpdateSnapshot={onUpdateSnapshot}
@@ -216,6 +233,7 @@ describe("Sequencer", () => {
       return (
         <Sequencer
           snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -231,7 +249,12 @@ describe("Sequencer", () => {
           onStepSequence={vi.fn()}
           onStepSequenceMarker={vi.fn()}
           onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
           onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
@@ -262,7 +285,7 @@ describe("Sequencer", () => {
     });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000", "1.100", "2.000", "2.000"]);
+      .toEqual(["1.000", "1.000", "1.100", "2.000", "2.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2", "3"]);
   });
@@ -284,6 +307,7 @@ describe("Sequencer", () => {
       return (
         <Sequencer
           snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -299,7 +323,12 @@ describe("Sequencer", () => {
           onStepSequence={vi.fn()}
           onStepSequenceMarker={vi.fn()}
           onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
           onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
@@ -323,7 +352,7 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000", "1.100", "2.000", "2.000"]);
+      .toEqual(["1.000", "1.000", "1.100", "2.000", "2.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2", "3"]);
   });
@@ -346,6 +375,7 @@ describe("Sequencer", () => {
       return (
         <Sequencer
           snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -361,7 +391,12 @@ describe("Sequencer", () => {
           onStepSequence={vi.fn()}
           onStepSequenceMarker={vi.fn()}
           onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
           onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
@@ -385,7 +420,7 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000", "1.000", "1.200", "2.000", "2.000", "2.000"]);
+      .toEqual(["1.000", "1.000", "1.000", "1.200", "2.000", "2.000", "2.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2", "3"]);
   });
@@ -408,6 +443,7 @@ describe("Sequencer", () => {
             ],
           },
         ]}
+        bars={[{ id: 1, position: 1 }]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -423,7 +459,12 @@ describe("Sequencer", () => {
         onStepSequence={vi.fn()}
         onStepSequenceMarker={vi.fn()}
         onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
         onUpdateSnapshot={vi.fn()}
@@ -434,5 +475,111 @@ describe("Sequencer", () => {
     expect(screen.getByText("end")).not.toBeNull();
     expect(screen.getAllByText("2")[0]).not.toBeNull();
     expect(screen.getByLabelText("next sequence step").disabled).toBe(true);
+  });
+
+  it("adds a bar at the requested position", () => {
+    const onAddBar = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={null}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={onAddBar}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    fireEvent.input(screen.getByLabelText("new bar position"), {
+      currentTarget: { value: "2.5" },
+      target: { value: "2.5" },
+    });
+    fireEvent.click(screen.getByText("Add Bar"));
+    expect(onAddBar).toHaveBeenCalledWith(2.5);
+  });
+
+  it("defaults the new bar position to the selected cue start", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={11}
+        selectedMarker={{ snapshotId: 11, time: 0 }}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: 1, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    expect(screen.getByLabelText("new bar position").value).toBe("2.000");
   });
 });
