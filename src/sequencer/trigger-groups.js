@@ -23,6 +23,12 @@ function snapshotBaseTime(snapshotIndex) {
   return Number(snapshotIndex) + 1;
 }
 
+function pitchKeyFromMidicents(midicents) {
+  const pitch = Number(midicents);
+  if (!Number.isFinite(pitch)) return null;
+  return pitch.toFixed(3);
+}
+
 function noteIdentity(note, fallbackLength = 1) {
   const midicents = Number.isFinite(Number(note?.midicents)) ? Number(note.midicents) : "na";
   const { start, end } = normalizeNoteSpan(note, fallbackLength);
@@ -214,4 +220,48 @@ export function sequenceNotesAtCueTime(snapshots, cueTime) {
       return absoluteStart <= time && absoluteEnd > time;
     });
   });
+}
+
+export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
+  const groups = deriveSequenceCueGroups(snapshots);
+  const index = Number(cueIndex);
+  if (!Number.isFinite(index) || index < 0 || index >= groups.length) return [];
+
+  const activeByPitch = new Map();
+
+  for (let i = 0; i <= index; i += 1) {
+    const group = groups[i];
+    const attackedThisCue = new Map();
+    const releasedThisCue = new Set();
+
+    for (const event of group.events) {
+      const pitchKey = pitchKeyFromMidicents(event.midicents);
+      if (!pitchKey) continue;
+      if (event.kind === "attack") {
+        attackedThisCue.set(pitchKey, {
+          midicents: event.midicents,
+          frequency: event.frequency,
+          attackVelocity: event.attackVelocity,
+          releaseVelocity: event.releaseVelocity,
+          pressure: event.pressure,
+          pressure14: event.pressure14,
+          timbre: event.timbre,
+          timbre14: event.timbre14,
+        });
+      } else if (!attackedThisCue.has(pitchKey)) {
+        releasedThisCue.add(pitchKey);
+      }
+    }
+
+    for (const [pitchKey, note] of attackedThisCue.entries()) {
+      activeByPitch.set(pitchKey, note);
+    }
+    for (const pitchKey of releasedThisCue) {
+      activeByPitch.delete(pitchKey);
+    }
+  }
+
+  return [...activeByPitch.values()].sort((a, b) => (
+    Number(b.midicents) - Number(a.midicents)
+  ));
 }

@@ -879,6 +879,18 @@ td.scale-color-col .color-input {
   line-height: 1;
 }
 
+.sequencer-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  margin: 0 0 0.45em;
+}
+
+.sequencer-option-row input[type="checkbox"] {
+  margin: 0;
+}
+
 #sidebar .sequencer-arrow-btn {
   width: 1.05em;
   min-width: 1.05em;

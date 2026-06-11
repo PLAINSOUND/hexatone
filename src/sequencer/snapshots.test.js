@@ -24,6 +24,7 @@ function makeRuntime(overrides = {}) {
     _allActiveHexes: overrides._allActiveHexes ?? (() => []),
     _snapshotNotes: overrides._snapshotNotes ?? [],
     _snapshotHexes: overrides._snapshotHexes ?? [],
+    _snapshotCoordSeed: overrides._snapshotCoordSeed ?? 0,
   };
 }
 
@@ -225,5 +226,198 @@ describe("sequencer snapshots", () => {
     expect(aftertouch).toHaveBeenCalledWith(64, 8200);
     expect(polyTimbre).toHaveBeenCalledWith(91, 12000);
     expect(cc74).not.toHaveBeenCalled();
+  });
+
+  it("keeps same-pitch notes sustaining in legato mode and updates expression only", () => {
+    const reusedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 30,
+    };
+    const synth = {
+      makeHex: vi.fn(() => ({
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        aftertouch: vi.fn(),
+        polyTimbre: vi.fn(),
+      })),
+    };
+    const runtime = makeRuntime({
+      synth,
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [reusedHex],
+    });
+
+    const nextHexes = playSnapshot(runtime, [
+      {
+        midicents: 69,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+        pressure: 64,
+        timbre: 91,
+      },
+    ], { legato: true });
+
+    expect(runtime.stopSnapshot).not.toHaveBeenCalled();
+    expect(synth.makeHex).not.toHaveBeenCalled();
+    expect(reusedHex.noteOn).not.toHaveBeenCalled();
+    expect(reusedHex.noteOff).not.toHaveBeenCalled();
+    expect(reusedHex.aftertouch).toHaveBeenCalledWith(64);
+    expect(reusedHex.polyTimbre).toHaveBeenCalledWith(91);
+    expect(reusedHex._snapshotReleaseVelocity).toBe(44);
+    expect(nextHexes).toEqual([reusedHex]);
+  });
+
+  it("releases removed notes and creates only genuinely new notes in legato mode", () => {
+    const heldA = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 31,
+    };
+    const heldB = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      _snapshotPitchKey: "71.000",
+      _snapshotMidicents: 71,
+      _snapshotReleaseVelocity: 55,
+    };
+    const newHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+    };
+    const synth = {
+      makeHex: vi.fn(() => newHex),
+    };
+    const runtime = makeRuntime({
+      synth,
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [heldA, heldB],
+    });
+
+    const nextHexes = playSnapshot(runtime, [
+      {
+        midicents: 69,
+        attackVelocity: 100,
+        releaseVelocity: 40,
+      },
+      {
+        midicents: 72,
+        attackVelocity: 88,
+        releaseVelocity: 33,
+      },
+    ], { legato: true });
+
+    expect(heldA.noteOff).not.toHaveBeenCalled();
+    expect(heldB.noteOff).toHaveBeenCalledWith(55);
+    expect(synth.makeHex).toHaveBeenCalledTimes(1);
+    expect(newHex.noteOn).toHaveBeenCalledTimes(1);
+    expect(nextHexes).toEqual([heldA, newHex]);
+  });
+
+  it("transitions deterministically across successive legato cue steps", () => {
+    const makeRuntimeHex = (name) => ({
+      name,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+    });
+
+    const hex60 = makeRuntimeHex("60");
+    const hex64 = makeRuntimeHex("64");
+    const hex67 = makeRuntimeHex("67");
+    const synth = {
+      makeHex: vi.fn()
+        .mockReturnValueOnce(hex60)
+        .mockReturnValueOnce(hex64)
+        .mockReturnValueOnce(hex67),
+    };
+    const runtime = makeRuntime({
+      synth,
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [],
+    });
+
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 10 },
+    ], { legato: true });
+    expect(runtime._snapshotHexes).toEqual([hex60]);
+
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 20 },
+      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 11 },
+    ], { legato: true });
+    expect(hex60.noteOff).not.toHaveBeenCalled();
+    expect(hex60.noteOn).toHaveBeenCalledTimes(1);
+    expect(hex60.aftertouch).toHaveBeenLastCalledWith(11);
+    expect(hex64.noteOn).toHaveBeenCalledTimes(1);
+    expect(runtime._snapshotHexes).toEqual([hex64, hex60]);
+
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 67, attackVelocity: 80, releaseVelocity: 20, pressure: 30 },
+      { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 21 },
+      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 12 },
+    ], { legato: true });
+    expect(hex60.noteOff).not.toHaveBeenCalled();
+    expect(hex64.noteOff).not.toHaveBeenCalled();
+    expect(hex67.noteOn).toHaveBeenCalledTimes(1);
+    expect(runtime._snapshotHexes).toEqual([hex67, hex64, hex60]);
+
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 22 },
+      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 13 },
+    ], { legato: true });
+    expect(hex67.noteOff).toHaveBeenCalledWith(20);
+    expect(hex64.noteOff).not.toHaveBeenCalled();
+    expect(hex60.noteOff).not.toHaveBeenCalled();
+    expect(runtime._snapshotHexes).toEqual([hex64, hex60]);
+  });
+
+  it("allocates unique snapshot coords for new legato notes across cue steps", () => {
+    const coordsSeen = [];
+    const synth = {
+      makeHex: vi.fn((coords) => {
+        coordsSeen.push(`${coords.x},${coords.y}`);
+        return {
+          coords,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          aftertouch: vi.fn(),
+          polyTimbre: vi.fn(),
+        };
+      }),
+    };
+    const runtime = makeRuntime({
+      synth,
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [],
+    });
+
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
+    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 64, attackVelocity: 90, releaseVelocity: 30 },
+      { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
+    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 67, attackVelocity: 80, releaseVelocity: 20 },
+      { midicents: 64, attackVelocity: 90, releaseVelocity: 30 },
+      { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
+    ], { legato: true });
+
+    expect(coordsSeen).toEqual(["9000,9000", "9001,9001", "9002,9002"]);
   });
 });

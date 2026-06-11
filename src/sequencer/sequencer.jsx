@@ -72,6 +72,7 @@ const Sequencer = ({
   snapshotLabelMode,
   activeSequenceName,
   activeSequenceDescription,
+  sequenceLegato,
   selectedSnapshotId,
   selectedMarker,
   playingSnapshotId,
@@ -80,6 +81,7 @@ const Sequencer = ({
   onLoadSequence,
   onSequenceNameChange,
   onSequenceDescriptionChange,
+  onSequenceLegatoChange,
   onSetSnapshotLabelMode,
   onSelectSnapshot,
   onSelectMarker,
@@ -712,6 +714,15 @@ const Sequencer = ({
             </button>
           </span>
         </div>
+
+        <label class="sequencer-option-row">
+          <span>Legato</span>
+          <input
+            type="checkbox"
+            checked={sequenceLegato}
+            onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
+          />
+        </label>
 
         <label>
           Snapshot Labels

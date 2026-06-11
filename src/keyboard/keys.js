@@ -1893,9 +1893,9 @@ class Keys {
     return SequencerSnapshots.captureSnapshot(this);
   }
 
-  playSnapshot(notes) {
+  playSnapshot(notes, options = {}) {
     const snapshotNotes = Array.isArray(notes) ? notes.map((note) => ({ ...note })) : [];
-    this._snapshotHexes = SequencerSnapshots.playSnapshot(this, snapshotNotes);
+    this._snapshotHexes = SequencerSnapshots.playSnapshot(this, snapshotNotes, options);
     this._snapshotNotes = snapshotNotes;
   }
 

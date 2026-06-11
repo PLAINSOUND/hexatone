@@ -88,6 +88,7 @@ export function onKeyDown(e) {
       this.state.activeMidi.size > 0 ||
       this.state.sustainedNotes.length > 0;
     if (hasNotes && this.onTakeSnapshot) {
+      e.preventDefault?.();
       this.onTakeSnapshot();
       return;
     }

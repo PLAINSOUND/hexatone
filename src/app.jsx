@@ -59,7 +59,7 @@ import Sequencer from "./sequencer/sequencer.jsx";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   deriveSequenceCueGroups,
-  sequenceNotesAtCueTime,
+  sequenceNotesAtCueIndex,
 } from "./sequencer/trigger-groups.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
@@ -687,6 +687,7 @@ const App = () => {
   const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
   const [activeSequenceName, setActiveSequenceName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
+  const [sequenceLegato, setSequenceLegato] = useState(true);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -780,10 +781,11 @@ const App = () => {
     const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
     const notes = safeMarkerIndex == null
       ? snapshot.notes
-      : sequenceNotesAtCueTime(snapshots, cueGroup?.time);
+      : sequenceNotesAtCueIndex(snapshots, safeMarkerIndex);
+    const useLegato = sequenceLegato && safeMarkerIndex != null;
 
-    keysRef.current?.stopSnapshot();
-    if (notes.length > 0) keysRef.current?.playSnapshot(notes);
+    if (notes.length > 0) keysRef.current?.playSnapshot(notes, { legato: useLegato });
+    else keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(notes.length > 0 ? snapshot.id : null);
     setSelectedSnapshotId(cueGroup?.snapshotIndex != null
       ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id)
@@ -804,7 +806,7 @@ const App = () => {
       markerIndex: safeMarkerIndex,
       stopped: notes.length === 0,
     });
-  }, [sequenceCueGroups, snapshots]);
+  }, [sequenceCueGroups, sequenceLegato, snapshots]);
 
   const onSelectSequencerSnapshot = useCallback((id) => {
     setSelectedSnapshotId(id);
@@ -2539,6 +2541,7 @@ const App = () => {
               snapshotLabelMode={snapshotLabelMode}
               activeSequenceName={activeSequenceName}
               activeSequenceDescription={activeSequenceDescription}
+              sequenceLegato={sequenceLegato}
               selectedSnapshotId={selectedSnapshotId}
               selectedMarker={selectedSnapshotMarker}
               playingSnapshotId={playingSnapshotId}
@@ -2547,6 +2550,7 @@ const App = () => {
               onLoadSequence={onLoadSequence}
               onSequenceNameChange={setActiveSequenceName}
               onSequenceDescriptionChange={setActiveSequenceDescription}
+              onSequenceLegatoChange={setSequenceLegato}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
               onSelectSnapshot={onSelectSequencerSnapshot}
               onSelectMarker={onSelectSequencerMarker}

@@ -3,6 +3,7 @@ import {
   deriveSequenceCueGroups,
   deriveSequenceEvents,
   deriveSnapshotTriggerGroups,
+  sequenceNotesAtCueIndex,
   sequenceNotesAtCueTime,
 } from "./trigger-groups.js";
 
@@ -151,5 +152,51 @@ describe("deriveSnapshotTriggerGroups", () => {
     expect(sequenceNotesAtCueTime(snapshots, 2).map((note) => note.id)).toEqual(["a"]);
     expect(sequenceNotesAtCueTime(snapshots, 2.25).map((note) => note.id)).toEqual(["c"]);
     expect(sequenceNotesAtCueTime(snapshots, 3).map((note) => note.id)).toEqual([]);
+  });
+
+  it("derives cue playback targets by applying note-on and note-off events cue by cue", () => {
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        notes: [
+          { id: "a", midicents: 60, start: 0, end: 1 },
+          { id: "b", midicents: 64, start: 0.2, end: 1 },
+          { id: "c", midicents: 67, start: 0.3, end: 1 },
+        ],
+      },
+      {
+        id: 2,
+        length: 1,
+        notes: [{ id: "d", midicents: 72, start: 0, end: 1 }],
+      },
+    ];
+
+    expect(sequenceNotesAtCueIndex(snapshots, 0).map((note) => note.midicents)).toEqual([60]);
+    expect(sequenceNotesAtCueIndex(snapshots, 1).map((note) => note.midicents)).toEqual([64, 60]);
+    expect(sequenceNotesAtCueIndex(snapshots, 2).map((note) => note.midicents)).toEqual([67, 64, 60]);
+    expect(sequenceNotesAtCueIndex(snapshots, 3).map((note) => note.midicents)).toEqual([72]);
+  });
+
+  it("preserves same-pitch notes across same-time release and attack cue handoffs", () => {
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        notes: [{ id: "a", midicents: 60, start: 0, end: 1, pressure: 10, timbre: 20 }],
+      },
+      {
+        id: 2,
+        length: 1,
+        notes: [{ id: "b", midicents: 60, start: 0, end: 1, pressure: 55, timbre: 66 }],
+      },
+    ];
+
+    expect(sequenceNotesAtCueIndex(snapshots, 0)).toMatchObject([
+      { midicents: 60, pressure: 10, timbre: 20 },
+    ]);
+    expect(sequenceNotesAtCueIndex(snapshots, 1)).toMatchObject([
+      { midicents: 60, pressure: 55, timbre: 66 },
+    ]);
   });
 });

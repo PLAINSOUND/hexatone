@@ -20,6 +20,12 @@ const normalize14Bit = (value) => {
   return Math.max(0, Math.min(16256, Math.round(n)));
 };
 
+const snapshotPitchKey = (midicents) => {
+  const n = Number(midicents);
+  if (!Number.isFinite(n)) return null;
+  return n.toFixed(3);
+};
+
 function centsToReference(settings, tuning) {
   return settings.reference_degree > 0
     ? (tuning.scale[settings.reference_degree - 1] ?? 0)
@@ -153,6 +159,63 @@ export function captureSnapshot(runtime) {
   return Array.from(seen.values());
 }
 
+function applySnapshotExpression(hex, note) {
+  const pressure = normalize7Bit(note.pressure);
+  const pressure14 = normalize14Bit(note.pressure14);
+  if (pressure != null || pressure14 != null) {
+    const value = pressure ?? (pressure14 >> 7);
+    if (pressure14 != null) hex.aftertouch?.(value, pressure14);
+    else hex.aftertouch?.(value);
+  }
+
+  const timbre = normalize7Bit(note.timbre);
+  const timbre14 = normalize14Bit(note.timbre14);
+  if (timbre != null || timbre14 != null) {
+    const value = timbre ?? (timbre14 >> 7);
+    if (timbre14 != null) hex.polyTimbre?.(value, timbre14);
+    else hex.polyTimbre?.(value);
+  }
+}
+
+function nextSnapshotCoords(runtime) {
+  const nextId = Number.isFinite(Number(runtime?._snapshotCoordSeed))
+    ? Number(runtime._snapshotCoordSeed)
+    : 0;
+  runtime._snapshotCoordSeed = nextId + 1;
+  const base = 9000 + nextId;
+  return new Point(base, base);
+}
+
+function createSnapshotHex(runtime, note) {
+  const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
+  const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
+  const centsToRef = centsToReference(runtime.settings, runtime.tuning);
+  const fund = runtime.settings.fundamental;
+  const degree0toRefRatio = runtime.tuning.degree0toRef_asArray?.[1] ?? 1;
+  const freq = 440 * Math.pow(2, (note.midicents - 69) / 12);
+  const synthCents = centsToRef + Math.log2(freq / fund) * 1200;
+  const dummyCoords = nextSnapshotCoords(runtime);
+  const hex = runtime.synth.makeHex(
+    dummyCoords,
+    synthCents,
+    0,
+    0,
+    runtime.tuning.equivSteps,
+    synthCents,
+    synthCents,
+    undefined,
+    attackVelocity,
+    0,
+    degree0toRefRatio,
+  );
+  hex._snapshotReleaseVelocity = releaseVelocity;
+  hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
+  hex._snapshotMidicents = Number(note.midicents);
+  hex.noteOn();
+  applySnapshotExpression(hex, note);
+  return hex;
+}
+
 /**
  * Play snapshot notes through the current synth.
  *
@@ -163,53 +226,51 @@ export function captureSnapshot(runtime) {
  * @param {Array<{ midicents: number, attackVelocity?: number, releaseVelocity?: number, velocity?: number, pressure?: number, pressure14?: number, timbre?: number, timbre14?: number }>} notes
  * @returns {Array<object>} active snapshot hexes
  */
-export function playSnapshot(runtime, notes) {
-  runtime.stopSnapshot();
+export function playSnapshot(runtime, notes, options = {}) {
+  const legato = !!options.legato;
+  if (!legato) {
+    runtime.stopSnapshot();
+    return notes.map((note, index) => createSnapshotHex(runtime, note, index));
+  }
 
-  const centsToRef = centsToReference(runtime.settings, runtime.tuning);
-  const fund = runtime.settings.fundamental;
-  const degree0toRefRatio = runtime.tuning.degree0toRef_asArray?.[1] ?? 1;
+  const availableHexesByPitch = new Map();
+  for (const hex of runtime._snapshotHexes ?? []) {
+    const key = hex?._snapshotPitchKey ?? snapshotPitchKey(hex?._snapshotMidicents);
+    if (!key) continue;
+    const list = availableHexesByPitch.get(key) ?? [];
+    list.push(hex);
+    availableHexesByPitch.set(key, list);
+  }
 
-  return notes.map((note, index) => {
-    const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
-    const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
-    const freq = 440 * Math.pow(2, (note.midicents - 69) / 12);
-    const synthCents = centsToRef + Math.log2(freq / fund) * 1200;
-    const dummyCoords = new Point(9000 + index, 9000 + index);
-    const hex = runtime.synth.makeHex(
-      dummyCoords,
-      synthCents,
-      0,
-      0,
-      runtime.tuning.equivSteps,
-      synthCents,
-      synthCents,
-      undefined,
-      attackVelocity,
-      0,
-      degree0toRefRatio,
-    );
-    hex._snapshotReleaseVelocity = releaseVelocity;
-    hex.noteOn();
+  const nextHexes = [];
+  for (const note of notes) {
+    const key = snapshotPitchKey(note.midicents);
+    const available = key ? (availableHexesByPitch.get(key) ?? []) : [];
+    const reusedHex = available.shift() ?? null;
+    if (key) availableHexesByPitch.set(key, available);
 
-    const pressure = normalize7Bit(note.pressure);
-    const pressure14 = normalize14Bit(note.pressure14);
-    if (pressure != null || pressure14 != null) {
-      const value = pressure ?? (pressure14 >> 7);
-      if (pressure14 != null) hex.aftertouch?.(value, pressure14);
-      else hex.aftertouch?.(value);
+    if (reusedHex) {
+      const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
+      const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
+      reusedHex._snapshotReleaseVelocity = releaseVelocity;
+      reusedHex._snapshotPitchKey = key;
+      reusedHex._snapshotMidicents = Number(note.midicents);
+      // Future note-transition work can layer timed pressure/timbre ramps here.
+      applySnapshotExpression(reusedHex, note);
+      nextHexes.push(reusedHex);
+      continue;
     }
 
-    const timbre = normalize7Bit(note.timbre);
-    const timbre14 = normalize14Bit(note.timbre14);
-    if (timbre != null || timbre14 != null) {
-      const value = timbre ?? (timbre14 >> 7);
-      if (timbre14 != null) hex.polyTimbre?.(value, timbre14);
-      else hex.polyTimbre?.(value);
-    }
+    nextHexes.push(createSnapshotHex(runtime, note));
+  }
 
-    return hex;
-  });
+  for (const remainingHexes of availableHexesByPitch.values()) {
+    for (const hex of remainingHexes) {
+      hex.noteOff(hex._snapshotReleaseVelocity ?? 0);
+    }
+  }
+
+  return nextHexes;
 }
 
 /**

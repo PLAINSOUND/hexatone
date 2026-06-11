@@ -7279,6 +7279,65 @@ describe("Keys MIDI input integration", () => {
     expect(hex._noteContext?.scaleMonzo?.slice(0, 3)).toEqual([-2, 0, 1]);
   });
 
+  it("prevents the browser default action when Enter captures a snapshot", () => {
+    const onTakeSnapshot = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings({ midi_velocity: 72 }),
+      {},
+      true,
+      null,
+      null,
+      onTakeSnapshot,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "28/27",
+        perChannelExpression: false,
+        scaleBendRange: 48,
+        wheelUsesInterval: false,
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "28/27",
+        bendFlip: false,
+      },
+      null,
+      null,
+      null,
+    );
+    const preventDefault = vi.fn();
+    keys.state.activeMidi.set(60, {
+      coords: new Point(0, 0),
+      cents: 0,
+      velocity: 100,
+      release: false,
+    });
+
+    keys.onKeyDown({
+      code: "Enter",
+      key: "Enter",
+      repeat: false,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault,
+    });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onTakeSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it("captures sustained snapshot release velocity separately from attack velocity", () => {
     const keys = createKeys({ midi_velocity: 72 });
     const hex = {
