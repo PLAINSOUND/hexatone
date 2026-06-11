@@ -933,7 +933,7 @@ const Sequencer = ({
         </label>
 
         <div class="sequencer-option-row">
-          <span>Bars</span>
+          <span>Choose Bar Position</span>
           <span class="sequencer-bars-add">
             <input
               type="text"
