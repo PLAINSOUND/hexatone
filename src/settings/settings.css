@@ -1187,8 +1187,8 @@ td.scale-color-col .color-input {
 
 .sequencer-bar-row__line {
   position: absolute;
-  left: -0.45em;
-  right: 0.32em;
+  left: 0em;
+  right: 0em;
   top: 50%;
   border-top: 1.5px solid rgba(132, 112, 112, 0.78);
   z-index: 0;
