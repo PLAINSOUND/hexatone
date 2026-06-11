@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
-import { deriveSequenceCueGroups, deriveSequenceEvents } from "./trigger-groups.js";
+import { deriveSequenceCueGroups, deriveSequenceEvents, isWholeSequencePosition } from "./trigger-groups.js";
 
 function formatSequenceTime(snapshotIndex, relativeTime) {
   const baseIndex = Number(snapshotIndex);
@@ -103,6 +103,7 @@ const Sequencer = ({
   onPlayCue,
   onResetSequencePlayhead,
   onAddBar,
+  onAddBarsBeforeSnapshots,
   onDeleteBar,
   onUpdateBar,
   onMoveBar,
@@ -134,21 +135,6 @@ const Sequencer = ({
       ? -1
       : Math.max(0, Math.min(snapshots.length - 1, rawPlayheadStepIndex));
   const playheadMarkerIndex = Number.isFinite(playhead?.markerIndex) ? playhead.markerIndex : null;
-  const snapshotNumberLabel = playheadIsOff
-    ? "0"
-    : playheadIsEnd
-      ? "end"
-      : String(playheadStepIndex + 1);
-  const markerLabel = useMemo(() => {
-    if (playheadIsOff) return "0";
-    if (playheadIsEnd) {
-      return sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length) : "0";
-    }
-    if (playheadMarkerIndex != null) return String(playheadMarkerIndex + 1);
-    const currentTime = playheadStepIndex + 1;
-    const cueIndex = sequenceCueGroups.findIndex((group) => group.time >= currentTime);
-    return cueIndex >= 0 ? String(cueIndex + 1) : "end";
-  }, [playheadIsEnd, playheadIsOff, playheadMarkerIndex, playheadStepIndex, sequenceCueGroups]);
 
   const snapshotIndexById = useMemo(() => {
     const entries = snapshots.map((snapshot, index) => [snapshot.id, index + 1]);
@@ -158,7 +144,7 @@ const Sequencer = ({
   const snapshotEventsById = useMemo(() => {
     const groups = new Map();
     for (const event of sequenceEvents) {
-      if (event.type !== "note") continue;
+      if (event.type !== "note" && !(event.type === "bar" && !isWholeSequencePosition(event.absoluteTime))) continue;
       if (!groups.has(event.snapshotId)) groups.set(event.snapshotId, []);
       groups.get(event.snapshotId).push(event);
     }
@@ -181,6 +167,58 @@ const Sequencer = ({
     [bars],
   );
 
+  const selectedBarIndex = sortedBars.length === 0
+    ? 0
+    : Math.max(0, Math.min(sortedBars.length - 1, Number(playhead?.barIndex) || 0));
+  const selectedBarTime = sortedBars.length === 0
+    ? 1
+    : Number(sortedBars[selectedBarIndex]?.position) || 1;
+  const nextCueIndexFromBar = useMemo(
+    () => sequenceCueGroups.findIndex((group) => group.time >= selectedBarTime),
+    [selectedBarTime, sequenceCueGroups],
+  );
+  const prevCueIndexFromBar = useMemo(
+    () => sequenceCueGroups.findLastIndex((group) => group.time < selectedBarTime),
+    [selectedBarTime, sequenceCueGroups],
+  );
+  const nextSnapshotIndexFromBar = useMemo(() => {
+    if (nextCueIndexFromBar >= 0) return sequenceCueGroups[nextCueIndexFromBar]?.snapshotIndex ?? -1;
+    const nextIndex = snapshots.findIndex((_, index) => index + 1 >= selectedBarTime);
+    return nextIndex >= 0 ? nextIndex : snapshots.length;
+  }, [nextCueIndexFromBar, selectedBarTime, sequenceCueGroups, snapshots]);
+  const prevSnapshotIndexFromBar = useMemo(() => {
+    if (prevCueIndexFromBar >= 0) return sequenceCueGroups[prevCueIndexFromBar]?.snapshotIndex ?? -1;
+    return snapshots.findLastIndex((_, index) => index + 1 < selectedBarTime);
+  }, [prevCueIndexFromBar, selectedBarTime, sequenceCueGroups, snapshots]);
+
+  const snapshotNumberLabel = playheadIsOff
+    ? nextSnapshotIndexFromBar >= 0 && nextSnapshotIndexFromBar < snapshots.length
+      ? `(${nextSnapshotIndexFromBar + 1})`
+      : "end"
+    : playheadIsEnd
+      ? "end"
+      : String(playheadStepIndex + 1);
+  const markerLabel = useMemo(() => {
+    if (playheadIsOff) {
+      if (nextCueIndexFromBar >= 0) return `(${nextCueIndexFromBar + 1})`;
+      return "end";
+    }
+    if (playheadIsEnd) {
+      return sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length) : "0";
+    }
+    if (playheadMarkerIndex != null) return String(playheadMarkerIndex + 1);
+    const currentTime = playheadStepIndex + 1;
+    const cueIndex = sequenceCueGroups.findIndex((group) => group.time >= currentTime);
+    return cueIndex >= 0 ? String(cueIndex + 1) : "end";
+  }, [
+    nextCueIndexFromBar,
+    playheadIsEnd,
+    playheadIsOff,
+    playheadMarkerIndex,
+    playheadStepIndex,
+    sequenceCueGroups,
+  ]);
+
   const barNumberById = useMemo(() => {
     const entries = sortedBars.map((bar, index) => [bar.id, index + 1]);
     return new Map(entries);
@@ -189,6 +227,7 @@ const Sequencer = ({
   const barsByDisplayBucket = useMemo(() => {
     const groups = new Map();
     for (const bar of sortedBars) {
+      if (!isWholeSequencePosition(bar.position)) continue;
       const bucket = barDisplayBucket(bar.position);
       if (!groups.has(bucket)) groups.set(bucket, []);
       groups.get(bucket).push(bar);
@@ -470,7 +509,7 @@ const Sequencer = ({
         }}
       >
         <div class="sequencer-bar-row__line" aria-hidden="true" />
-        <div class="sequencer-event__delete-cell">
+        <div class="sequencer-row__delete-cell">
           <button
             type="button"
             class="sequencer-gutter__delete"
@@ -822,7 +861,7 @@ const Sequencer = ({
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="previous sequence step"
               title="Previous step"
-              disabled={snapshots.length === 0 || playheadIsOff}
+              disabled={snapshots.length === 0 || (playheadIsOff ? prevSnapshotIndexFromBar < 0 : false)}
               onClick={() => {
                 runTransportAction(() => onStepSequence?.(-1));
               }}
@@ -835,7 +874,9 @@ const Sequencer = ({
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="next sequence step"
               title="Next step"
-              disabled={snapshots.length === 0 || playheadIsEnd}
+              disabled={snapshots.length === 0 || (playheadIsOff
+                ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
+                : playheadIsEnd)}
               onClick={() => {
                 runTransportAction(() => onStepSequence?.(1));
               }}
@@ -851,7 +892,7 @@ const Sequencer = ({
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="previous sequence marker"
               title="Previous marker"
-              disabled={snapshots.length === 0 || playheadIsOff}
+              disabled={snapshots.length === 0 || (playheadIsOff ? prevCueIndexFromBar < 0 : false)}
               onClick={() => {
                 runTransportAction(() => onStepSequenceMarker?.(-1));
               }}
@@ -864,7 +905,9 @@ const Sequencer = ({
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="next sequence marker"
               title="Next marker"
-              disabled={snapshots.length === 0 || playheadIsEnd}
+              disabled={snapshots.length === 0 || (playheadIsOff
+                ? nextCueIndexFromBar < 0
+                : playheadIsEnd)}
               onClick={() => {
                 runTransportAction(() => onStepSequenceMarker?.(1));
               }}
@@ -951,6 +994,13 @@ const Sequencer = ({
               Add Bar
             </button>
           </span>
+        </div>
+
+        <div class="sequencer-option-row">
+          <span>Create Bars</span>
+          <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
+            Add Bars Before Snapshots
+          </button>
         </div>
 
         <label>
@@ -1158,7 +1208,11 @@ const Sequencer = ({
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--actions" />
                           </div>
                           <div class="sequencer-events-grid__body">
-                            {snapshotEvents.map((event) => renderEventRow(snapshot, index, event))}
+                            {snapshotEvents.map((event) => (
+                              event.type === "bar"
+                                ? renderBarRow(event)
+                                : renderEventRow(snapshot, index, event)
+                            ))}
                           </div>
                         </div>
                       </div>

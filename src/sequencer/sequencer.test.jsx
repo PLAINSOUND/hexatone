@@ -68,6 +68,7 @@ describe("Sequencer", () => {
         onPlayCue={onPlayCue}
         onResetSequencePlayhead={onResetSequencePlayhead}
         onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
         onDeleteBar={vi.fn()}
         onUpdateBar={vi.fn()}
         onMoveBar={vi.fn()}
@@ -193,6 +194,7 @@ describe("Sequencer", () => {
         onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
         onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
         onDeleteBar={vi.fn()}
         onUpdateBar={vi.fn()}
         onMoveBar={vi.fn()}
@@ -252,6 +254,7 @@ describe("Sequencer", () => {
           onPlayCue={vi.fn()}
           onResetSequencePlayhead={vi.fn()}
           onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
           onDeleteBar={vi.fn()}
           onUpdateBar={vi.fn()}
           onMoveBar={vi.fn()}
@@ -326,6 +329,7 @@ describe("Sequencer", () => {
           onPlayCue={vi.fn()}
           onResetSequencePlayhead={vi.fn()}
           onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
           onDeleteBar={vi.fn()}
           onUpdateBar={vi.fn()}
           onMoveBar={vi.fn()}
@@ -394,6 +398,7 @@ describe("Sequencer", () => {
           onPlayCue={vi.fn()}
           onResetSequencePlayhead={vi.fn()}
           onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
           onDeleteBar={vi.fn()}
           onUpdateBar={vi.fn()}
           onMoveBar={vi.fn()}
@@ -462,6 +467,7 @@ describe("Sequencer", () => {
         onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
         onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
         onDeleteBar={vi.fn()}
         onUpdateBar={vi.fn()}
         onMoveBar={vi.fn()}
@@ -477,8 +483,60 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("next sequence step").disabled).toBe(true);
   });
 
+  it("shows the next snapshot and cue in brackets when a bar is selected", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={null}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 1, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const statuses = screen.getAllByText(/\((?:\d+)\)/);
+    expect(statuses.map((node) => node.textContent)).toEqual(["(2)", "(2)"]);
+  });
+
   it("adds a bar at the requested position", () => {
     const onAddBar = vi.fn();
+    const onAddBarsBeforeSnapshots = vi.fn();
 
     render(
       <Sequencer
@@ -506,6 +564,7 @@ describe("Sequencer", () => {
         onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
         onAddBar={onAddBar}
+        onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
         onDeleteBar={vi.fn()}
         onUpdateBar={vi.fn()}
         onMoveBar={vi.fn()}
@@ -525,6 +584,68 @@ describe("Sequencer", () => {
     });
     fireEvent.click(screen.getByText("Add Bar"));
     expect(onAddBar).toHaveBeenCalledWith(2.5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Bars Before Snapshots" }));
+    expect(onAddBarsBeforeSnapshots).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders non-integer bars inside the expanded snapshot event flow", () => {
+    const { container } = render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              { id: "a", midicents: 69, start: 0, end: 1 },
+              { id: "b", midicents: 72, start: 0.75, end: 1 },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 1.5 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000");
+    expect(screen.getByLabelText("bar 2 position").value).toBe("1.500");
+
+    const expandedTimes = [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")]
+      .map((node) => node.value);
+    expect(expandedTimes).toEqual(["1.000", "1.500", "1.750", "2.000", "2.000"]);
   });
 
   it("defaults the new bar position to the selected cue start", () => {
@@ -567,6 +688,7 @@ describe("Sequencer", () => {
         onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
         onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
         onDeleteBar={vi.fn()}
         onUpdateBar={vi.fn()}
         onMoveBar={vi.fn()}

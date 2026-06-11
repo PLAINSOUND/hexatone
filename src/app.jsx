@@ -771,6 +771,32 @@ const App = () => {
     return index;
   }, [sortedSequenceBars]);
 
+  const barTimeForIndex = useCallback((barIndex) => {
+    if (!sortedSequenceBars.length) return 1;
+    const safeIndex = Math.max(0, Math.min(sortedSequenceBars.length - 1, Number(barIndex) || 0));
+    return Number(sortedSequenceBars[safeIndex]?.position) || 1;
+  }, [sortedSequenceBars]);
+
+  const snapshotIndexNearBar = useCallback((barIndex, direction) => {
+    const anchorTime = barTimeForIndex(barIndex);
+    const cueGroup = direction > 0
+      ? sequenceCueGroups.find((group) => group.time >= anchorTime)
+      : sequenceCueGroups.findLast((group) => group.time < anchorTime);
+    if (cueGroup) return cueGroup.snapshotIndex;
+    if (direction > 0) {
+      const nextIndex = snapshots.findIndex((_, index) => index + 1 >= anchorTime);
+      return nextIndex >= 0 ? nextIndex : snapshots.length;
+    }
+    return snapshots.findLastIndex((_, index) => index + 1 < anchorTime);
+  }, [barTimeForIndex, sequenceCueGroups, snapshots]);
+
+  const cueIndexNearBar = useCallback((barIndex, direction) => {
+    const anchorTime = barTimeForIndex(barIndex);
+    return direction > 0
+      ? sequenceCueGroups.findIndex((group) => group.time >= anchorTime)
+      : sequenceCueGroups.findLastIndex((group) => group.time < anchorTime);
+  }, [barTimeForIndex, sequenceCueGroups]);
+
   const playSequencePosition = useCallback((stepIndex, markerIndex = null) => {
     if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
       keysRef.current?.stopSnapshot();
@@ -893,40 +919,124 @@ const App = () => {
         : prev.length > 0
           ? Math.max(...prev.map((bar) => Number(bar.position) || 1)) + 1
           : 1;
+      const existingBar = prev.find((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9);
+      if (existingBar) {
+        const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+        if (!shouldReplace) {
+          sequenceBarIdRef.current -= 1;
+          return prev;
+        }
+        return [...prev.filter((bar) => bar.id !== existingBar.id), { id, position: nextPosition }];
+      }
       return [...prev, { id, position: nextPosition }];
     });
   }, []);
+
+  const onAddBarsBeforeSnapshots = useCallback(() => {
+    setSequenceBars((prev) => {
+      const existingPositions = new Set(
+        prev
+          .map((bar) => Number(bar.position))
+          .filter((position) => Number.isFinite(position))
+          .map((position) => position.toFixed(3)),
+      );
+
+      const additions = [];
+      let nextId = sequenceBarIdRef.current;
+      for (let i = 0; i < snapshots.length; i += 1) {
+        const position = i + 1;
+        const key = position.toFixed(3);
+        if (existingPositions.has(key)) continue;
+        nextId += 1;
+        additions.push({ id: nextId, position });
+        existingPositions.add(key);
+      }
+
+      if (additions.length === 0) return prev;
+      sequenceBarIdRef.current = nextId;
+      return [...prev, ...additions];
+    });
+  }, [snapshots.length]);
 
   const onDeleteSequenceBar = useCallback((id) => {
     setSequenceBars((prev) => prev.filter((bar) => bar.id !== id));
   }, []);
 
   const onUpdateSequenceBar = useCallback((id, updates) => {
-    setSequenceBars((prev) => prev.map((bar) => (
-      bar.id === id ? { ...bar, ...updates } : bar
-    )));
+    setSequenceBars((prev) => {
+      const nextPosition = Number(updates?.position);
+      if (Number.isFinite(nextPosition)) {
+        const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
+        if (existingBar) {
+          const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+          if (!shouldReplace) return prev;
+          return prev
+            .filter((bar) => bar.id !== existingBar.id)
+            .map((bar) => (bar.id === id ? { ...bar, ...updates } : bar));
+        }
+      }
+      return prev.map((bar) => (
+        bar.id === id ? { ...bar, ...updates } : bar
+      ));
+    });
   }, []);
 
   const onMoveSequenceBar = useCallback((fromId, position) => {
     const nextPosition = Number(position);
     if (!Number.isFinite(nextPosition)) return;
-    setSequenceBars((prev) => prev.map((bar) => (
-      bar.id === fromId ? { ...bar, position: nextPosition } : bar
-    )));
+    setSequenceBars((prev) => {
+      const existingBar = prev.find((bar) => bar.id !== fromId && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
+      if (existingBar) {
+        const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+        if (!shouldReplace) return prev;
+        return prev
+          .filter((bar) => bar.id !== existingBar.id)
+          .map((bar) => (bar.id === fromId ? { ...bar, position: nextPosition } : bar));
+      }
+      return prev.map((bar) => (
+        bar.id === fromId ? { ...bar, position: nextPosition } : bar
+      ));
+    });
   }, []);
 
   const onStepSequence = useCallback((direction) => {
     if (!snapshots.length) return;
     const current = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
+    if (current < 0) {
+      const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
+      if (target < 0) {
+        playSequencePosition(-1, null);
+        return;
+      }
+      if (target >= snapshots.length) {
+        playSequencePosition(snapshots.length, null);
+        return;
+      }
+      playSequencePosition(target, null);
+      return;
+    }
     const next = Math.max(-1, Math.min(snapshots.length, current + direction));
     playSequencePosition(next, null);
-  }, [playSequencePosition, sequencePlayhead.stepIndex, snapshots.length]);
+  }, [playSequencePosition, sequencePlayhead.barIndex, sequencePlayhead.stepIndex, snapshotIndexNearBar, snapshots.length]);
 
   const onStepSequenceMarker = useCallback((direction) => {
     if (!snapshots.length) return;
     const cueCount = sequenceCueGroups.length;
     if (cueCount === 0) {
       const currentStep = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
+      if (currentStep < 0) {
+        const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
+        if (target < 0) {
+          playSequencePosition(-1, null);
+          return;
+        }
+        if (target >= snapshots.length) {
+          playSequencePosition(snapshots.length, null);
+          return;
+        }
+        playSequencePosition(target, null);
+        return;
+      }
       const nextStep = Math.max(-1, Math.min(snapshots.length, currentStep + direction));
       playSequencePosition(nextStep, null);
       return;
@@ -938,8 +1048,15 @@ const App = () => {
 
     let nextCue = currentCue;
     if (atOff) {
-      if (direction <= 0) return;
-      nextCue = 0;
+      nextCue = cueIndexNearBar(sequencePlayhead.barIndex, direction);
+      if (nextCue < 0) {
+        if (direction < 0) {
+          playSequencePosition(-1, null);
+          return;
+        }
+        playSequencePosition(snapshots.length, cueCount - 1);
+        return;
+      }
     } else if (atEnd) {
       if (direction >= 0) return;
       nextCue = currentCue == null ? cueCount - 1 : Math.max(0, currentCue - 1);
@@ -968,10 +1085,13 @@ const App = () => {
     if (!cueGroup) return;
     playSequencePosition(cueGroup.snapshotIndex, nextCue);
   }, [
+    cueIndexNearBar,
     playSequencePosition,
     sequenceCueGroups,
+    sequencePlayhead.barIndex,
     sequencePlayhead.markerIndex,
     sequencePlayhead.stepIndex,
+    snapshotIndexNearBar,
     snapshots.length,
   ]);
 
@@ -2636,6 +2756,7 @@ const App = () => {
               onPlayCue={onPlaySequenceCue}
               onResetSequencePlayhead={onResetSequencePlayhead}
               onAddBar={onAddSequenceBar}
+              onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
               onDeleteBar={onDeleteSequenceBar}
               onUpdateBar={onUpdateSequenceBar}
               onMoveBar={onMoveSequenceBar}

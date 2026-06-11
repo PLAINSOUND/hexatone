@@ -1187,33 +1187,41 @@ td.scale-color-col .color-input {
 
 .sequencer-bar-row__line {
   position: absolute;
-  left: 0em;
+  left: 0.95em;
   right: 0em;
   top: 50%;
   border-top: 1.5px solid rgba(132, 112, 112, 0.78);
-  z-index: 0;
+  z-index: 1;
   transform: translateY(-50%);
   pointer-events: none;
 }
 
-.sequencer-bar-row .sequencer-event__delete-cell,
+.sequencer-bar-row .sequencer-row__delete-cell,
 .sequencer-bar-row .sequencer-event__cell {
   background: #fff;
-  z-index: 1;
+  z-index: 2;
+}
+
+.sequencer-bar-row .sequencer-row__delete-cell {
+  align-self: center;
+}
+
+.sequencer-bar-row .sequencer-gutter__delete {
+  align-self: center;
 }
 
 .sequencer-bar-row__spacer {
   min-width: 0;
   min-height: 1.5em;
   background: transparent;
-  z-index: 1;
+  z-index: 2;
 }
 
 .sequencer-bar-row__filler {
   min-width: 0;
   min-height: 1.5em;
   background: transparent;
-  z-index: 1;
+  z-index: 2;
 }
 
 .sequencer-event-row--cue-active {

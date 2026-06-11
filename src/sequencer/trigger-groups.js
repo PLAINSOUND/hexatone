@@ -111,6 +111,12 @@ function snapshotIndexForAbsoluteTime(time, snapshotCount) {
   return Math.max(0, Math.min(snapshotCount - 1, rawIndex));
 }
 
+export function isWholeSequencePosition(time) {
+  const value = Number(time);
+  if (!Number.isFinite(value)) return false;
+  return Math.abs(value - Math.round(value)) < 1e-9;
+}
+
 export function deriveSequenceEvents(snapshots, bars = []) {
   const events = [];
 
