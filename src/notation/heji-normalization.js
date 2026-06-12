@@ -73,14 +73,24 @@ export function canonicalHejiAnchorLabelInput(name) {
   if (typeof name !== "string") return null;
   const compact = expandOpenTypeLigatures(name).replace(/\s+/g, "");
   if (!compact) return null;
-  if (!isExplicitHejiSpelling(compact) && !/^[A-Ga-g]$/.test(compact)) return null;
+  const prefixMatch = compact.match(/^(.*?)([A-Ga-g])$/);
+  const suffixMatch = compact.match(/^([A-Ga-g])(.*)$/);
+  let letter = null;
+  let accidentalText = null;
 
-  const letterMatches = compact.match(/[A-Ga-g]/g);
-  if (!letterMatches || letterMatches.length !== 1) return null;
+  if (prefixMatch && isExplicitHejiSpelling(compact)) {
+    letter = prefixMatch[2].toUpperCase();
+    accidentalText = prefixMatch[1];
+  } else if (suffixMatch && /^[A-Ga-g](?:n|b|#|bb|##)?$/.test(compact)) {
+    letter = suffixMatch[1].toUpperCase();
+    accidentalText = suffixMatch[2];
+  } else if (/^[A-Ga-g]$/.test(compact)) {
+    letter = compact.toUpperCase();
+    accidentalText = "";
+  } else {
+    return null;
+  }
 
-  const letterIndex = compact.search(/[A-Ga-g]/);
-  const letter = compact[letterIndex].toUpperCase();
-  const accidentalText = `${compact.slice(0, letterIndex)}${compact.slice(letterIndex + 1)}`;
   const prefix = accidentalText === "" ? HEJI_NATURAL : expandAsciiHejiAccidentals(accidentalText);
   const candidate = `${prefix}${letter}`;
   return parseHejiPitchClassLabel(candidate) ? candidate : null;
