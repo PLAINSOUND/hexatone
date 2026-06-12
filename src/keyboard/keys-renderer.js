@@ -18,6 +18,19 @@ import {
 } from "./color_utils";
 import { displayLabelForDegree } from "./keys-display-runtime.js";
 
+export function fitHexLabelScale(context, name, hexSize) {
+  const baseScale = (Number(hexSize) || 46) / 46;
+  if (!name) return baseScale;
+  const metrics = context?.measureText?.(name);
+  const measuredWidth = Math.max(
+    metrics?.width ?? 0,
+    Math.abs(metrics?.actualBoundingBoxLeft ?? 0) + Math.abs(metrics?.actualBoundingBoxRight ?? 0),
+  );
+  if (!(measuredWidth > 0)) return baseScale;
+  const maxWidth = Math.max(12, (Number(hexSize) || 46) * 1.12);
+  return Math.min(baseScale, maxWidth / measuredWidth);
+}
+
 export function scheduleGridRedraw() {
   this._staticGridValid = false;
   if (this._gridRedrawRaf != null || this._gridRedrawTimer != null) return;
@@ -355,6 +368,9 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   context.font = "29pt Plainsound Sans";
   context.textAlign = "center";
   context.textBaseline = "middle";
+  const hexSize = Number(this.settings.hexSize) || 46;
+  const labelClipWidth = Math.max(12, hexSize * 1.12);
+  const labelClipHeight = Math.max(12, hexSize * 1.04);
 
   const note = p.x * this.settings.rSteps + p.y * this.settings.drSteps;
   const equivSteps = this.tuning.scale.length;
@@ -375,8 +391,27 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
 
     if (name) {
       context.save();
-      let scaleFactor = name.length > 3 ? 3.58 / name.length : 1;
-      scaleFactor *= this.settings.hexSize / 46;
+      context.beginPath();
+      if (typeof context.rect === "function") {
+        context.rect(
+          -labelClipWidth / 2,
+          -labelClipHeight / 2,
+          labelClipWidth,
+          labelClipHeight,
+        );
+      } else if (typeof context.moveTo === "function" && typeof context.lineTo === "function") {
+        const left = -labelClipWidth / 2;
+        const top = -labelClipHeight / 2;
+        const right = left + labelClipWidth;
+        const bottom = top + labelClipHeight;
+        context.moveTo(left, top);
+        context.lineTo(right, top);
+        context.lineTo(right, bottom);
+        context.lineTo(left, bottom);
+        context.closePath();
+      }
+      if (typeof context.clip === "function") context.clip();
+      const scaleFactor = fitHexLabelScale(context, name, this.settings.hexSize);
       context.scale(scaleFactor, scaleFactor);
       context.fillText(name, 0, 0);
       context.restore();

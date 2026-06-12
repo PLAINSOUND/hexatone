@@ -40,5 +40,17 @@ export function updateLabels(labels) {
     this.settings[flag] = false;
   }
   Object.assign(this.settings, labels);
+  const seen = new Set();
+  const refreshHexLabel = (hex) => {
+    if (!hex?.coords || seen.has(hex) || !hex._noteContext) return;
+    seen.add(hex);
+    hex._noteContext.displayLabel = this.getDisplayLabelAtCoords(hex.coords, {
+      frame: this._frameForSoundingHex(hex),
+      geometryMode: this._geometryModeForSoundingHex(hex),
+      settings: this._labelSettingsForSoundingHex(hex),
+    });
+  };
+  for (const hex of this._allActiveHexes?.() ?? []) refreshHexLabel(hex);
+  for (const [hex] of this.state?.sustainedNotes ?? []) refreshHexLabel(hex);
   this.scheduleImmediateGridRedraw();
 }

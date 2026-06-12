@@ -238,6 +238,25 @@ function getChainThreeExponent(monzo, options = {}) {
   return absoluteThree;
 }
 
+function inferExplicitPrimeChainRole(prime, degreeMetadata, fallbackLabel) {
+  const parsed = degreeMetadata?.parsed ?? null;
+  if (prime === 7 && parsed) {
+    const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
+    if (
+      baseChromatic === "flat"
+      || baseChromatic === "sharp"
+      || baseChromatic === "doubleflat"
+      || baseChromatic === "doublesharp"
+    ) {
+      return "chromatic";
+    }
+    if (baseChromatic === "natural") {
+      return "diatonic";
+    }
+  }
+  return degreeMetadata?.notationRole ?? inferNotationRole(fallbackLabel);
+}
+
 export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {}) {
   const slot = workspace?.slots?.[degreeIndex];
   const basis = slot?.committedIdentity?.basis;
@@ -254,14 +273,16 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
         const candidateMonzo = getAnalysisMonzo(candidate?.committedIdentity?.monzo, candidateBasis, autoColorOptions);
         if (!isPurePrimeLimitMonzo(candidateMonzo, candidateBasis, prime)) return null;
         if ((candidateMonzo[primeIndex] ?? 0) !== targetExponent) return null;
-        const explicitRole =
-          autoColorOptions?.degreeMetadata?.[candidateDegree]?.notationRole
-          ?? inferNotationRole(
-            autoColorOptions?.noteRoleLabels?.[candidateDegree]
-            ?? candidate?.committedIdentity?.displayName
-            ?? candidate?.exactRole?.displayName
-            ?? candidate?.displayName,
-          );
+        const fallbackLabel =
+          autoColorOptions?.noteRoleLabels?.[candidateDegree]
+          ?? candidate?.committedIdentity?.displayName
+          ?? candidate?.exactRole?.displayName
+          ?? candidate?.displayName;
+        const explicitRole = inferExplicitPrimeChainRole(
+          prime,
+          autoColorOptions?.degreeMetadata?.[candidateDegree] ?? null,
+          fallbackLabel,
+        );
         return {
           degree: candidateDegree,
           threeExponent: getChainThreeExponent(candidateMonzo, autoColorOptions),
@@ -353,15 +374,20 @@ export function inferChromaticOverlayPrimes(workspace) {
       const prime = basis[index];
       if (prime < 5) continue;
       const exponent = monzo[index] ?? 0;
-      if (!stats[prime]) stats[prime] = { hasPositive: false, hasNegative: false };
+      if (!stats[prime]) stats[prime] = { hasPositive: false, hasNegative: false, hasPureNegative: false };
       if (exponent > 0) stats[prime].hasPositive = true;
-      if (exponent < 0) stats[prime].hasNegative = true;
+      if (exponent < 0) {
+        stats[prime].hasNegative = true;
+        if (isPurePrimeLimitMonzo(monzo, basis, prime)) {
+          stats[prime].hasPureNegative = true;
+        }
+      }
     }
   }
   const byPrime = {};
   for (const [primeText, primeStats] of Object.entries(stats)) {
     const prime = Number(primeText);
-    byPrime[prime] = prime === 5 ? true : (primeStats.hasPositive && primeStats.hasNegative);
+    byPrime[prime] = prime === 5 ? true : (primeStats.hasPositive && primeStats.hasPureNegative);
   }
   return byPrime;
 }
@@ -453,6 +479,9 @@ export function inferColorMonzoOffset(workspace, settings) {
 
 export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesConfig) {
   const base = getAutoColorOptions(settings);
+  const equaveCents = workspace?.baseScale?.equaveCents;
+  const octaveEquave = Number.isFinite(equaveCents) ? Math.abs(equaveCents - 1200) < 0.001 : true;
+  const resolvedBase = octaveEquave ? base : { ...base, structuralOverlay: "none" };
   const chromaticOverlayPrimes = inferChromaticOverlayPrimes(workspace);
   const fallbackColorMonzoOffset = inferColorMonzoOffset(workspace, settings);
   const primeFamilyColorMap = getPrimeFamilyColorMap(settings?.prime_family_colors);
@@ -498,7 +527,7 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
     if (!labels?.length) continue;
     const centerCandidate = inferCenterMonzoCandidate(workspace, labels);
     if (centerCandidate?.monzo) {
-      const notationCentering = base.structuralOverlay === "none"
+      const notationCentering = resolvedBase.structuralOverlay === "none"
         ? {}
         : {
           centerMonzo: explicitHejiCenter
@@ -509,7 +538,7 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
             : centerCandidate.absoluteFifthSteps,
         };
       return {
-        ...base,
+        ...resolvedBase,
         ...notationCentering,
         chromaticOverlayPrimes,
         colorMonzoOffset,
@@ -520,8 +549,8 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
     }
   }
   return {
-    ...base,
-    ...(base.structuralOverlay === "none"
+    ...resolvedBase,
+    ...(resolvedBase.structuralOverlay === "none"
       ? {}
       : (
         explicitHejiCenter

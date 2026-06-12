@@ -356,11 +356,25 @@ const ScaleTable = (props) => {
     const label = liveAutoColorLabelAtDegree(degreeIndex)
       ?? ((isHeji ? heji_names[degreeIndex] : note_names[degreeIndex]) ?? "");
     const usingLiveRow = !!liveMonzo;
-    const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
+    const rawDegreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
+    const degreeMetadata = isHeji || rawDegreeMetadata?.source === "note_names"
+      ? rawDegreeMetadata
+      : null;
+    const inferredNotationSide = inferNotationSide(label);
+    const inferredNotationRole = inferNotationRole(label);
+    if (
+      !degreeMetadata
+      && !inferredNotationSide
+      && !inferredNotationRole
+      && !isHeji
+      && props.settings.key_labels === "note_names"
+    ) {
+      return null;
+    }
     return monzoToSuggestedColor(monzo, undefined, {
       ...autoColorOptions,
-      notationSide: degreeMetadata?.notationSide ?? inferNotationSide(label),
-      notationRole: degreeMetadata?.notationRole ?? inferNotationRole(label),
+      notationSide: degreeMetadata?.notationSide ?? inferredNotationSide,
+      notationRole: degreeMetadata?.notationRole ?? inferredNotationRole,
       chainRole: usingLiveRow ? null : inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
     });
   }, [
@@ -372,6 +386,7 @@ const ScaleTable = (props) => {
     liveAutoColorLabelAtDegree,
     liveAutoColorMonzoAtDegree,
     note_names,
+    props.settings.key_labels,
     props.settings.prime_family_colors,
     workspace,
   ]);

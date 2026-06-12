@@ -2,6 +2,7 @@ import {
   buildResolvedAutoColorOptions,
   deriveAutoNoteColors,
   inferCenterMonzoCandidate,
+  inferChromaticOverlayPrimes,
   inferColorMonzoOffset,
   inferNotationSide,
   inferNotationRole,
@@ -115,6 +116,71 @@ describe("inferPrimeChainRole", () => {
     expect(deriveAutoNoteColors(settings, { workspace })[8]).toBe("#dad5c1");
     expect(deriveAutoNoteColors(settings, { workspace })[9]).toBe("#e9e1b4");
   });
+
+  it("keeps natural-base septimal notes on the diatonic 7-family in 41-Septimal-Tertial", () => {
+    const settings = {
+      name: "41-Septimal-Tertial",
+      short_description: "41-JI-7L(MS-LMY)",
+      key_labels: "note_names",
+      fundamental: 440,
+      reference_degree: 24,
+      scale: [
+        "64/63", "49/48", "36/35", "28/27", "256/243", "8/7", "7/6", "32/27", "49/40", "6/5",
+        "21/16", "4/3", "7/5", "10/7", "1029/686", "3/2", "32/21", "14/9", "8/5", "49/30",
+        "5/3", "12/7", "7/4", "16/9", "686/384", "15/8", "40/21", "1029/512", "48/25", "2/1",
+      ],
+      note_names: [
+        "C", "C", "D", "D", "C", "C", "D", "D", "D", "E",
+        "E", "D", "D", "E", "E", "E", "F", "F", "F", "G",
+        "G", "F", "F", "G", "G", "G", "A", "A", "G", "G",
+        "A", "A", "A", "B", "B", "A", "A", "B", "B", "B", "C",
+      ],
+    };
+    const workspace = createScaleWorkspace(settings);
+    const autoColorOptions = buildResolvedAutoColorOptions(settings, workspace, {
+      keyLabels: settings.key_labels,
+      noteNames: settings.note_names,
+    });
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(inferPrimeChainRole(workspace, 6, autoColorOptions)).toBe("diatonic");
+    expect(inferPrimeChainRole(workspace, 18, autoColorOptions)).toBe("diatonic");
+    expect(inferPrimeChainRole(workspace, 23, autoColorOptions)).toBe("diatonic");
+    expect(colors[6]).toBe("#e5b9bb");
+    expect(colors[18]).toBe("#ffe5e5");
+    expect(colors[23]).toBe("#ffe5e5");
+  });
+
+  it("keeps undertonal septimal naturals and chromatics coherent in 41-Septimal-Tertial", () => {
+    const settings = {
+      name: "41-Septimal-Tertial",
+      short_description: "41-JI-7L(MS-LMY)",
+      key_labels: "note_names",
+      fundamental: 440,
+      reference_degree: 24,
+      scale: [
+        "64/63", "28/27", "256/243", "2187/2048", "243/224", "567/512", "9/8", "8/7", "7/6", "32/27",
+        "19683/16384", "2187/1792", "5103/4096", "81/64", "9/7", "21/16", "4/3", "256/189", "112/81", "1024/729",
+        "729/512", "81/56", "189/128", "3/2", "32/21", "14/9", "128/81", "6561/4096", "729/448", "1701/1024",
+        "27/16", "12/7", "7/4", "16/9", "59049/32768", "6561/3584", "15309/8192", "243/128", "27/14", "63/32", "2/1",
+      ],
+      note_names: [
+        "C", "C", "D", "D", "C", "C", "D", "D", "D", "E",
+        "E", "D", "D", "E", "E", "E", "F", "F", "F", "G",
+        "G", "F", "F", "G", "G", "G", "A", "A", "G", "G",
+        "A", "A", "A", "B", "B", "A", "A", "B", "B", "B", "C",
+      ],
+    };
+    const workspace = createScaleWorkspace(settings);
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(colors[15]).toBe("#e5b9bb");
+    expect(colors[32]).toBe("#e5b9bb");
+    expect(colors[39]).toBe("#e5b9bb");
+    expect(colors[5]).toBe("#bfaaa9");
+    expect(colors[22]).toBe("#bfaaa9");
+    expect(colors[29]).toBe("#bfaaa9");
+  });
 });
 
 describe("inferCenterMonzoCandidate", () => {
@@ -128,6 +194,25 @@ describe("inferCenterMonzoCandidate", () => {
     const labels = ["D", "D"];
 
     expect(inferCenterMonzoCandidate(workspace, labels)?.monzo).toEqual([-3, 2, 0, 0]);
+  });
+});
+
+describe("inferChromaticOverlayPrimes", () => {
+  it("requires a pure undertonal 7 dimension before enabling septimal chromatic darkening", () => {
+    const basis = [2, 3, 5, 7, 11];
+    const workspace = {
+      slots: [
+        { exactRole: { monzo: [-4, 1, 0, 1, 0] }, committedIdentity: { basis, monzo: [-4, 1, 0, 1, 0] } },
+        { exactRole: { monzo: [-3, 0, 1, -1, 0] }, committedIdentity: { basis, monzo: [-3, 0, 1, -1, 0] } },
+        { exactRole: { monzo: [-2, 0, 0, 0, 1] }, committedIdentity: { basis, monzo: [-2, 0, 0, 0, 1] } },
+      ],
+    };
+
+    expect(inferChromaticOverlayPrimes(workspace)).toMatchObject({
+      5: true,
+      7: false,
+      11: false,
+    });
   });
 });
 
@@ -182,6 +267,26 @@ describe("buildResolvedAutoColorOptions", () => {
     expect(resolved.structuralOverlay).toBe("fifths");
     expect(resolved.centerMonzo).toBeUndefined();
     expect(resolved.centerAbsoluteFifthSteps).toBe(-1);
+  });
+
+  it("disables structural chromatic darkening for non-octave equaves", () => {
+    const settings = {
+      name: "31-Divided Fifth (ratios repeating at the 3/2)",
+      short_description: "31-JI-7L",
+      key_labels: "note_names",
+      note_names: ["C", "D", "E", "F", "G"],
+      prime_family_colors: [],
+      scale: ["8/7", "7/6", "5/4", "35/24", "3/2"],
+    };
+    const workspace = createScaleWorkspace(settings);
+
+    const resolved = buildResolvedAutoColorOptions(settings, workspace, {
+      keyLabels: settings.key_labels,
+      noteNames: settings.note_names,
+    });
+
+    expect(workspace.baseScale.equaveCents).not.toBeCloseTo(1200, 3);
+    expect(resolved.structuralOverlay).toBe("none");
   });
 });
 

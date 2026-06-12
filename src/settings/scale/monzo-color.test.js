@@ -424,6 +424,21 @@ describe("monzoToSuggestedColor", () => {
     expect(sevenOverFive.g).toBeLessThanOrEqual(pureSeven.g);
   });
 
+  it("lets the overtonal 5 component warm undertonal septimal-quintal mixtures", () => {
+    const pureUnderSeven = hexToChannels(
+      monzoToSuggestedColor([0, 0, 0, -1], undefined, {
+        structuralOverlay: "none",
+      }).screenHex,
+    );
+    const fiveOverUnderSeven = hexToChannels(
+      monzoToSuggestedColor([0, 0, 1, -1], undefined, {
+        structuralOverlay: "none",
+      }).screenHex,
+    );
+    expect(fiveOverUnderSeven.b).toBeLessThan(pureUnderSeven.b);
+    expect(fiveOverUnderSeven.g).toBeGreaterThanOrEqual(pureUnderSeven.g - 8);
+  });
+
   it("makes undertonal 11-family notes noticeably darker than overtonal 11-family notes", () => {
     const over = monzoToSuggestedColor([0, 0, 0, 0, 1], undefined, {
       structuralOverlay: "none",
