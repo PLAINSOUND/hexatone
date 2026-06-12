@@ -73,6 +73,7 @@ export function canonicalHejiAnchorLabelInput(name) {
   if (typeof name !== "string") return null;
   const compact = expandOpenTypeLigatures(name).replace(/\s+/g, "");
   if (!compact) return null;
+  if (!isExplicitHejiSpelling(compact) && !/^[A-Ga-g]$/.test(compact)) return null;
 
   const letterMatches = compact.match(/[A-Ga-g]/g);
   if (!letterMatches || letterMatches.length !== 1) return null;

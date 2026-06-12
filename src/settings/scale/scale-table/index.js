@@ -49,6 +49,8 @@ import { resolveTypedHejiLabel } from "../../../notation/heji-frame.js";
 // commits chosen ratio/cents strings back into settings.scale.
 
 // sidebar display of the scala file, degrees, note names, colors in an html table format
+const WESTERN_PITCH_LABEL_RE = /^[A-G](?:##|bb|#|b)?$/i;
+
 const ScaleTable = (props) => {
   const previewState = props.previewState ?? createTuningPreviewState();
   const onPreviewChange = props.onPreviewChange ?? (() => {});
@@ -360,12 +362,17 @@ const ScaleTable = (props) => {
     const degreeMetadata = isHeji || rawDegreeMetadata?.source === "note_names"
       ? rawDegreeMetadata
       : null;
+    const trimmedLabel = String(label ?? "").trim();
+    const hasExplicitLabel = trimmedLabel.length > 0;
+    const hasSimpleWesternPitchLabel = WESTERN_PITCH_LABEL_RE.test(trimmedLabel);
     const inferredNotationSide = inferNotationSide(label);
     const inferredNotationRole = inferNotationRole(label);
     if (
       !degreeMetadata
       && !inferredNotationSide
       && !inferredNotationRole
+      && hasExplicitLabel
+      && !hasSimpleWesternPitchLabel
       && !isHeji
       && props.settings.key_labels === "note_names"
     ) {

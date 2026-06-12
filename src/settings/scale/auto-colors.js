@@ -404,6 +404,34 @@ function mergeColorOffsets(primary, secondary) {
   return merged.some((value) => value !== 0) ? merged : null;
 }
 
+function pickNotationCenter(explicitHejiCenter, centerCandidate) {
+  const explicitNonThreeComplexity = Array.isArray(explicitHejiCenter)
+    ? explicitHejiCenter.reduce((sum, exp, index) => {
+        if (index === 0 || index === 1) return sum;
+        return sum + Math.abs(exp ?? 0);
+      }, 0)
+    : null;
+  const candidateNonThreeComplexity = centerCandidate?.nonThreeComplexity ?? null;
+
+  if (centerCandidate?.monzo && candidateNonThreeComplexity === 0) {
+    return {
+      centerMonzo: undefined,
+      centerAbsoluteFifthSteps: centerCandidate.absoluteFifthSteps,
+    };
+  }
+  if (Array.isArray(explicitHejiCenter)) {
+    return explicitNonThreeComplexity > 0
+      ? { centerMonzo: explicitHejiCenter, centerAbsoluteFifthSteps: undefined }
+      : { centerMonzo: undefined, centerAbsoluteFifthSteps: explicitHejiCenter[1] ?? 2 };
+  }
+  if (centerCandidate?.monzo) {
+    return candidateNonThreeComplexity > 0
+      ? { centerMonzo: centerCandidate.monzo, centerAbsoluteFifthSteps: undefined }
+      : { centerMonzo: undefined, centerAbsoluteFifthSteps: centerCandidate.absoluteFifthSteps };
+  }
+  return {};
+}
+
 function inferSharedExactMonzoOffset(workspace) {
   const exactMonzos = (workspace?.slots || [])
     .filter((slot) => slot.degree !== 0 && Array.isArray(slot?.exactRole?.monzo))
@@ -513,12 +541,6 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
   // supply a structural notation center, not globally rebase every color.
   const colorMonzoOffset = fallbackColorMonzoOffset;
   const explicitHejiCenter = hejiFrame?.dReferenceMonzo;
-  const explicitHejiCenterNonThreeComplexity = Array.isArray(explicitHejiCenter)
-    ? explicitHejiCenter.reduce((sum, exp, index) => {
-        if (index === 0 || index === 1) return sum;
-        return sum + Math.abs(exp ?? 0);
-      }, 0)
-    : null;
   const effectiveNoteRoleLabels =
     Array.isArray(hejiFrame?.hejiNamesKeys) && hejiFrame.hejiNamesKeys.length
       ? hejiFrame.hejiNamesKeys
@@ -529,14 +551,7 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
     if (centerCandidate?.monzo) {
       const notationCentering = resolvedBase.structuralOverlay === "none"
         ? {}
-        : {
-          centerMonzo: explicitHejiCenter
-            ? (explicitHejiCenterNonThreeComplexity > 0 ? explicitHejiCenter : undefined)
-            : (centerCandidate.nonThreeComplexity > 0 ? centerCandidate.monzo : undefined),
-          centerAbsoluteFifthSteps: explicitHejiCenter
-            ? (explicitHejiCenterNonThreeComplexity > 0 ? undefined : (explicitHejiCenter[1] ?? 2))
-            : centerCandidate.absoluteFifthSteps,
-        };
+        : pickNotationCenter(explicitHejiCenter, centerCandidate);
       return {
         ...resolvedBase,
         ...notationCentering,
@@ -552,15 +567,7 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
     ...resolvedBase,
     ...(resolvedBase.structuralOverlay === "none"
       ? {}
-      : (
-        explicitHejiCenter
-          ? (
-            explicitHejiCenterNonThreeComplexity > 0
-              ? { centerMonzo: explicitHejiCenter }
-              : { centerAbsoluteFifthSteps: explicitHejiCenter[1] ?? 2 }
-          )
-          : {}
-      )),
+      : pickNotationCenter(explicitHejiCenter, null)),
     chromaticOverlayPrimes,
     colorMonzoOffset,
     primeFamilyColorMap,
