@@ -534,6 +534,7 @@ describe("Sequencer", () => {
     expect(statuses.map((node) => node.textContent)).toEqual(["(2)", "(2)"]);
   });
 
+
   it("adds a bar at the requested position", () => {
     const onAddBar = vi.fn();
     const onAddBarsBeforeSnapshots = vi.fn();

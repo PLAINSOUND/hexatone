@@ -688,6 +688,7 @@ const App = () => {
   const [activeSequenceName, setActiveSequenceName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
   const [sequenceLegato, setSequenceLegato] = useState(true);
+  const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [sequenceBars, setSequenceBars] = useState([{ id: 1, position: 1 }]);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
@@ -706,19 +707,31 @@ const App = () => {
     const notes = keysRef.current?.getSnapshot();
     if (!notes?.length) return;
     const id = ++snapshotIdRef.current;
-    setSnapshots((prev) => [
-      ...prev,
-      {
-        id,
-        length: 1,
-        description: buildSnapshotDescription(notes, snapshotLabelMode),
-        descriptionManual: false,
-        notes,
-      },
-    ]);
+    setSnapshots((prev) => {
+      const nextSnapshots = [
+        ...prev,
+        {
+          id,
+          length: 1,
+          description: buildSnapshotDescription(notes, snapshotLabelMode),
+          descriptionManual: false,
+          notes,
+        },
+      ];
+      if (sequenceAutoCreateBars) {
+        const nextPosition = nextSnapshots.length;
+        setSequenceBars((prevBars) => {
+          if (prevBars.some((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9)) return prevBars;
+          const nextId = sequenceBarIdRef.current + 1;
+          sequenceBarIdRef.current = nextId;
+          return [...prevBars, { id: nextId, position: nextPosition }];
+        });
+      }
+      return nextSnapshots;
+    });
     setSelectedSnapshotId(id);
     setSelectedSnapshotMarker(null);
-  }, [snapshotLabelMode]);
+  }, [sequenceAutoCreateBars, snapshotLabelMode]);
 
   const onLoadSequence = useCallback((sequence) => {
     const nextSnapshots = Array.isArray(sequence?.snapshots)
@@ -739,6 +752,7 @@ const App = () => {
       0,
     );
     setSnapshotLabelMode(String(sequence?.snapshotLabelMode ?? "proportion"));
+    setSequenceAutoCreateBars(sequence?.autoCreateBars !== false);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
     setActiveSequenceName(String(sequence?.name ?? "").trim());
@@ -1140,6 +1154,24 @@ const App = () => {
       const adjustedToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
       const insertIdx = side === "after" ? adjustedToIdx + 1 : adjustedToIdx;
       next.splice(insertIdx, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const onDuplicateSnapshot = useCallback((fromId, toId, side = "before") => {
+    setSnapshots((prev) => {
+      const fromIdx = prev.findIndex((s) => s.id === fromId);
+      const toIdx = prev.findIndex((s) => s.id === toId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const source = prev[fromIdx];
+      if (!source) return prev;
+      const duplicate = {
+        ...JSON.parse(JSON.stringify(source)),
+        id: ++snapshotIdRef.current,
+      };
+      const next = [...prev];
+      const insertIdx = side === "after" ? toIdx + 1 : toIdx;
+      next.splice(insertIdx, 0, duplicate);
       return next;
     });
   }, []);
@@ -2732,9 +2764,11 @@ const App = () => {
               snapshots={snapshots}
               bars={sequenceBars}
               snapshotLabelMode={snapshotLabelMode}
+              autoCreateBars={sequenceAutoCreateBars}
               activeSequenceName={activeSequenceName}
               activeSequenceDescription={activeSequenceDescription}
               sequenceLegato={sequenceLegato}
+              sequenceAutoCreateBars={sequenceAutoCreateBars}
               selectedSnapshotId={selectedSnapshotId}
               selectedMarker={selectedSnapshotMarker}
               playingSnapshotId={playingSnapshotId}
@@ -2744,6 +2778,7 @@ const App = () => {
               onSequenceNameChange={setActiveSequenceName}
               onSequenceDescriptionChange={setActiveSequenceDescription}
               onSequenceLegatoChange={setSequenceLegato}
+              onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
               onSelectSnapshot={onSelectSequencerSnapshot}
               onSelectMarker={onSelectSequencerMarker}
@@ -2762,6 +2797,7 @@ const App = () => {
               onMoveBar={onMoveSequenceBar}
               onDeleteSnapshot={onDeleteSnapshot}
               onMoveSnapshot={onMoveSnapshot}
+              onDuplicateSnapshot={onDuplicateSnapshot}
               onUpdateSnapshot={onUpdateSnapshot}
               onResetSnapshotDescription={onResetSnapshotDescription}
             />

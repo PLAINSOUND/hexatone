@@ -3,14 +3,12 @@
 // state, and fills structural defaults so the runtime layers can assume a
 // consistent settings shape.
 
-import { normaliseHejiAnchorRatio, scalaToCents, scalaToLabels } from "./settings/scale/parse-scale.js";
+import { normaliseHejiAnchorRatio, scalaToLabels } from "./settings/scale/parse-scale.js";
 import keyCodeToCoords from "./keyboard/keycodes";
 import { hex2rgb, rgb2hsv, HSVtoRGB2, rgbToHex } from "./keyboard/color_utils.js";
-import { createReferenceFrame } from "./notation/reference-frame.js";
-import { spelledHejiLabel } from "./notation/key-label.js";
+import { buildHejiNotationFrame } from "./notation/heji-frame.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 export { deriveHejiAnchor, deriveHejiAnchorFromNoteNames } from "./notation/heji-normalization.js";
-import { canonicalHejiAnchorLabelInput, deriveHejiAnchor } from "./notation/heji-normalization.js";
 import { deriveAutoNoteColors } from "./settings/scale/auto-colors.js";
 
 export function deriveSpectrumNoteColors(settings, fundamentalColor) {
@@ -105,7 +103,7 @@ export const normalizeStructural = (settings, options = {}) => {
     const hejiSupported = Math.abs((workspaceRuntime.equivInterval ?? 1200) - 1200) < 0.001;
     result["heji_supported"] = hejiSupported;
 
-    // Build heji_names when heji label mode is active.
+    // Build HEJI frame and names from the persistent spelling anchor.
     //
     // The reference frame is defined by two user-supplied values:
     //   heji_anchor_ratio — the ratio from scale degree 0 (1/1) of the pitch
@@ -123,85 +121,40 @@ export const normalizeStructural = (settings, options = {}) => {
     // full degree list as ratioText strings from the original scaleAsStrings:
     //   degree 0  → "1/1"
     //   degrees 1..n-1 → scaleAsStrings[0..n-2]  (equave was last, now popped)
-    if (settings.key_labels === "heji") {
-      if (!hejiSupported) {
-        result["heji_anchor_label_effective"] = "";
-        result["heji_anchor_ratio_effective"] = "";
-        result["heji_names"] = [];
-        result["heji_names_keys"] = [];
-        result["heji_warning"] = "Non-octave equave cannot generate consistent note names.";
-        return result;
-      }
+    if (!hejiSupported) {
+      result["heji_anchor_label_effective"] = "";
+      result["heji_anchor_ratio_effective"] = "";
+      result["heji_names"] = [];
+      result["heji_names_keys"] = [];
+      result["heji_frame"] = null;
+      result["heji_warning"] = "Non-octave equave cannot generate consistent note names.";
+      return result;
+    }
 
-      // Build the ratio/cents text for each degree (same order as `scale`).
-      // degree 0 = "1/1"; degrees 1..n-1 = scaleAsStrings entries minus equave.
-      const degreeTexts = ["1/1", ...scaleAsStrings.slice(0, -1)];
-
-      // Resolve anchor: use user-supplied values if present, otherwise auto-derive
-      // from note_names by searching for a plain A-natural entry.
-      // Auto-derive anchor. Priority: reference_degree note name → scan note_names
-      // for A-natural → infer from fundamental frequency → default C natural at 1/1.
-      // note_names is still in raw (pre-normalise) form; same indexing as degreeTexts.
-      const derived = deriveHejiAnchor(
-        settings.reference_degree,
-        settings.note_names,
+    const degreeTexts = ["1/1", ...scaleAsStrings.slice(0, -1)];
+    try {
+      const hejiFrame = buildHejiNotationFrame({
+        referenceDegree: settings.reference_degree,
+        noteNames: settings.note_names,
         degreeTexts,
-        settings.fundamental,
-        workspaceRuntime.scale,
-      );
-      const explicitAnchorLabel = canonicalHejiAnchorLabelInput(settings.heji_anchor_label || "");
-      const explicitAnchorRatio = normaliseHejiAnchorRatio(settings.heji_anchor_ratio || "");
-
-      const anchorLabel = explicitAnchorLabel ?? derived.label;
-      const anchorRatioText = explicitAnchorRatio ?? derived.ratio;
-
-      // Expose the resolved anchor values so the UI can show what is actually
-      // being used (including auto-derived values from note_names).
-      result["heji_anchor_label_effective"] = anchorLabel;
-      result["heji_anchor_ratio_effective"] = anchorRatioText;
-
-      // Only build when we have a valid parseable anchor label.
-      if (anchorLabel) {
-        // Anchor cents: the pitch value of the anchor ratio from degree 0,
-        // taken mod equave so it is comparable to scale[] values.
-        const anchorCents = scalaToCents(String(anchorRatioText));
-        const scale = workspaceRuntime.scale;
-
-        try {
-          const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });
-          const showCents = settings.heji_show_cents !== false;
-          const temperedOnly = settings.heji_tempered_only === true;
-          const heji_names = degreeTexts.map((text, i) => {
-            // Cents of this degree relative to the anchor pitch.
-            const degCents = scale[i] ?? 0;
-            const centsFromAnchor = ((degCents - anchorCents) % 1200 + 1200) % 1200;
-            // Use ratio text only when it looks like a ratio (contains "/").
-            // EDO steps and decimal cents fall back to the tempered path.
-            const ratioText = text.includes("/") ? text : null;
-            return spelledHejiLabel(frame, ratioText, centsFromAnchor, {
-              temperedOnly,
-              forceShowZeroDeviation: temperedOnly && showCents,
-            });
-          });
-          result["heji_names"] = heji_names;
-          // heji_names_keys: same labels but without the cents deviation suffix
-          // when heji_show_cents is false. Always generated so keys.js can use it.
-          result["heji_names_keys"] = showCents || temperedOnly
-            ? heji_names
-            : degreeTexts.map((text, i) => {
-                const degCents = scale[i] ?? 0;
-                const centsFromAnchor = ((degCents - anchorCents) % 1200 + 1200) % 1200;
-                const ratioText = text.includes("/") ? text : null;
-                return spelledHejiLabel(frame, ratioText, centsFromAnchor, { suppressDeviation: true });
-              });
-        } catch {
-          // Invalid frame (e.g. unparseable anchor ratio) — leave heji_names empty.
-          result["heji_names"] = [];
-          result["heji_names_keys"] = [];
-        }
-      } else {
-        result["heji_names"] = [];
-      }
+        fundamental: settings.fundamental,
+        scaleCents: workspaceRuntime.scale,
+        explicitAnchorLabel: settings.heji_anchor_label || "",
+        explicitAnchorRatio: normaliseHejiAnchorRatio(settings.heji_anchor_ratio || ""),
+        temperedOnly: settings.heji_tempered_only === true,
+        showCents: settings.heji_show_cents !== false,
+      });
+      result["heji_anchor_label_effective"] = hejiFrame.anchorLabel;
+      result["heji_anchor_ratio_effective"] = hejiFrame.anchorRatioText;
+      result["heji_names"] = hejiFrame.hejiNames;
+      result["heji_names_keys"] = hejiFrame.hejiNamesKeys;
+      result["heji_frame"] = hejiFrame;
+    } catch {
+      result["heji_anchor_label_effective"] = "";
+      result["heji_anchor_ratio_effective"] = "";
+      result["heji_names"] = [];
+      result["heji_names_keys"] = [];
+      result["heji_frame"] = null;
     }
   }
   return result;

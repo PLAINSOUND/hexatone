@@ -82,6 +82,7 @@ const Sequencer = ({
   activeSequenceName,
   activeSequenceDescription,
   sequenceLegato,
+  sequenceAutoCreateBars,
   selectedSnapshotId,
   selectedMarker,
   playingSnapshotId,
@@ -91,6 +92,7 @@ const Sequencer = ({
   onSequenceNameChange,
   onSequenceDescriptionChange,
   onSequenceLegatoChange,
+  onSequenceAutoCreateBarsChange,
   onSetSnapshotLabelMode,
   onSelectSnapshot,
   onSelectMarker,
@@ -109,6 +111,7 @@ const Sequencer = ({
   onMoveBar,
   onDeleteSnapshot,
   onMoveSnapshot,
+  onDuplicateSnapshot,
   onUpdateSnapshot,
   onResetSnapshotDescription,
 }) => {
@@ -788,6 +791,7 @@ const Sequencer = ({
         snapshots={snapshots}
         bars={bars}
         snapshotLabelMode={snapshotLabelMode}
+        autoCreateBars={sequenceAutoCreateBars}
         activeSequenceName={activeSequenceName ?? ""}
         activeSequenceDescription={activeSequenceDescription ?? ""}
         onLoadSequence={onLoadSequence}
@@ -806,10 +810,10 @@ const Sequencer = ({
         </legend>
         <p>
           <em>
-            Store currently sounding notes, including attack and release velocity if sustained, as
-            well as pressure and timbre data if available. May be layered with notes from a
-            previous snapshot to build up chords in stages. The Sequence panel, below, allows
-            snapshots to be played, ordered, and edited.
+            ENTER stores currently sounding notes, including attack and release velocity, pressure, 
+            and timbre data if available. May be layered with notes from a previous snapshot 
+            to build up chords in stages. The Sequence panel, below, allows snapshots to be 
+            played, ordered, and edited. Use the OPTION key while dragging to duplicate a snapshot.
           </em>
         </p>
         <button type="button" class="preset-action-btn" onClick={onTakeSnapshot}>
@@ -975,6 +979,20 @@ const Sequencer = ({
           />
         </label>
 
+        <label class="sequencer-option-row">
+          <span>Auto-Create Bars</span>
+          <span class="sequencer-option-row__controls">
+            <input
+              type="checkbox"
+              checked={sequenceAutoCreateBars}
+              onChange={(e) => onSequenceAutoCreateBarsChange?.(e.currentTarget.checked)}
+            />
+            <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
+              Add Bars Before Snapshots
+            </button>
+          </span>
+        </label>
+
         <div class="sequencer-option-row">
           <span>Choose Bar Position</span>
           <span class="sequencer-bars-add">
@@ -994,13 +1012,6 @@ const Sequencer = ({
               Add Bar
             </button>
           </span>
-        </div>
-
-        <div class="sequencer-option-row">
-          <span>Create Bars</span>
-          <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
-            Add Bars Before Snapshots
-          </button>
         </div>
 
         <label>
@@ -1043,7 +1054,7 @@ const Sequencer = ({
                     class={`sequencer-item${isSelected ? " sequencer-item--selected" : ""}${isDragOver ? " sequencer-item--drop-target" : ""}${isDragOver && dragOverSide === "before" ? " sequencer-item--drop-target-before" : ""}${isDragOver && dragOverSide === "after" ? " sequencer-item--drop-target-after" : ""}`}
                     onDragOver={(e) => {
                       e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
+                      e.dataTransfer.dropEffect = e.altKey ? "copy" : "move";
                       if (barDragIdRef.current != null) return;
                       setDragOverId(snapshot.id);
                       setDragOverSide(resolveDropSide(e));
@@ -1070,7 +1081,8 @@ const Sequencer = ({
                       setDraggedId(null);
                       const side = resolveDropSide(e);
                       if (dragIdRef.current !== null && dragIdRef.current !== snapshot.id) {
-                        onMoveSnapshot(dragIdRef.current, snapshot.id, side);
+                        if (e.altKey) onDuplicateSnapshot?.(dragIdRef.current, snapshot.id, side);
+                        else onMoveSnapshot(dragIdRef.current, snapshot.id, side);
                       }
                       dragIdRef.current = null;
                     }}
@@ -1112,7 +1124,7 @@ const Sequencer = ({
                         onDragStart={(e) => {
                           dragIdRef.current = snapshot.id;
                           setDraggedId(snapshot.id);
-                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.effectAllowed = "copyMove";
                         }}
                         onDragEnd={() => {
                           setDragOverId(null);

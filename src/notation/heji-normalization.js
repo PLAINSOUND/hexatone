@@ -1,4 +1,6 @@
-import { parseHejiPitchClassLabel } from "./heji.js";
+import { Fraction } from "xen-dev-utils";
+import { monzoToFractionOnBasis } from "../tuning/interval.js";
+import { hejiToMonzo, parseHejiPitchClassLabel, subtractMonzos } from "./heji.js";
 
 // HEJI glyph codepoints used for deriving anchor defaults.
 // U+E261 = Plainsound natural, U+E260 = flat, U+E262 = sharp.
@@ -50,6 +52,12 @@ const SEMITONE_TO_LETTER = ["C", "C", "D", "E", "E", "F", "F", "G", "G", "A", "B
 // Substitute these so the rest of the parsing logic sees plain ASCII shortcuts.
 export function expandOpenTypeLigatures(name) {
   return name.replace(/\*n/g, "n").replace(/\*f/g, "b").replace(/\*s/g, "#");
+}
+
+function isExplicitHejiSpelling(raw) {
+  const source = String(raw ?? "").trim();
+  if (!source) return false;
+  return /[\uE260-\uE2FF\uEE50-\uEE59]|\*[nfs]|^(?:n|b|#|bb|##)[A-Ga-g]$/.test(source);
 }
 
 function expandAsciiHejiAccidentals(text) {
@@ -123,6 +131,39 @@ const isExactNaturalLabel = (raw, letter) => {
 
 const centsDistance = (hz, targetHz) => Math.abs(1200 * Math.log2(hz / targetHz));
 
+function fractionCompare(a, b) {
+  return a.s * a.n * b.d - b.s * b.n * a.d;
+}
+
+function normalizeFractionToPitchClass(ratio) {
+  let out = ratio;
+  while (fractionCompare(out, new Fraction(1, 1)) < 0) out = out.mul(2);
+  while (fractionCompare(out, new Fraction(2, 1)) >= 0) out = out.div(2);
+  return out;
+}
+
+function formatPitchClassRatioFromMonzo(monzo) {
+  const ratio = normalizeFractionToPitchClass(monzoToFractionOnBasis(monzo));
+  const text = ratio.toFraction();
+  return text.includes("/") ? text : `${text}/1`;
+}
+
+function deriveExactAFromDegreeZero(noteNames) {
+  if (!isExplicitHejiSpelling(noteNames?.[0])) return null;
+  const degreeZeroLabel = canonicalHejiLabel(noteNames?.[0]);
+  const parsedDegreeZero = degreeZeroLabel ? parseHejiPitchClassLabel(degreeZeroLabel) : null;
+  if (!parsedDegreeZero) return null;
+  const parsedA = parseHejiPitchClassLabel(HEJI_NATURAL_LABELS.A);
+  if (!parsedA) return null;
+  const degreeZeroMonzo = hejiToMonzo({ ...parsedDegreeZero, octave: 4 });
+  const aNaturalMonzo = hejiToMonzo({ ...parsedA, octave: 4 });
+  const ratioMonzo = subtractMonzos(aNaturalMonzo, degreeZeroMonzo);
+  return {
+    ratio: formatPitchClassRatioFromMonzo(ratioMonzo),
+    label: HEJI_NATURAL_LABELS.A,
+  };
+}
+
 const buildDegreeFrequencies = ({ scaleCents, fundamental, referenceDegree = 0 }) => {
   if (!Array.isArray(scaleCents) || !scaleCents.length || !fundamental || fundamental <= 0) {
     return [];
@@ -160,13 +201,14 @@ const findNearestDegreeByFrequency = ({
  * Priority order:
  *   1. reference_degree explicitly labelled as exact A-natural — use that degree.
  *   2. Scan note_names for exact A-natural anywhere in the scale.
- *   3. Computed scale degree nearest 440 Hz — use that degree as tempered A.
- *   4. Degree 0 explicitly labelled as exact C-natural.
- *   5. Degree 0 near middle C (JI or 12-EDO) → tempered C.
- *   6. Frequency-driven fallback: compute the cents from degree 0 to 440 Hz
+ *   3. Exact degree-0 HEJI spelling → derive exact ratio from 1/1 up to A-natural.
+ *   4. Computed scale degree nearest 440 Hz — use that degree as tempered A.
+ *   5. Degree 0 explicitly labelled as exact C-natural.
+ *   6. Degree 0 near middle C (JI or 12-EDO) → tempered C.
+ *   7. Frequency-driven fallback: compute the cents from degree 0 to 440 Hz
  *      and use tempered A, even if that anchor is not itself a scale degree.
- *   7. Last resort: infer a tempered letter from the fundamental pitch class.
- *   8. Final fallback: degree 0, label tempered C.
+ *   8. Last resort: infer a tempered letter from the fundamental pitch class.
+ *   9. Final fallback: degree 0, label tempered C.
  *
  * @param {number|undefined}  referenceDegree - settings.reference_degree (0-based).
  * @param {string[]}          noteNames       - Raw note_names array from settings.
@@ -200,7 +242,13 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     }
   }
 
-  // --- Strategy 3: a committed scale degree itself lands at 440 Hz ---
+  // --- Strategy 3: exact degree-0 HEJI spelling can determine exact A ---
+  const degreeZeroExactA = deriveExactAFromDegreeZero(noteNames);
+  if (degreeZeroExactA) {
+    return degreeZeroExactA;
+  }
+
+  // --- Strategy 4: a committed scale degree itself lands at 440 Hz ---
   const nearestA = findNearestDegreeByFrequency({
     targetHz: 440,
     degreeFrequencies,
@@ -224,12 +272,12 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     }
   }
 
-  // --- Strategy 4: explicit degree-0 C-natural label ---
+  // --- Strategy 5: explicit degree-0 C-natural label ---
   if (isExactNaturalLabel(noteNames?.[0], "C")) {
     return { ratio: "1/1", label: HEJI_NATURAL_LABELS.C };
   }
 
-  // --- Strategy 5: degree 0 near middle C (JI or 12-EDO) ---
+  // --- Strategy 6: degree 0 near middle C (JI or 12-EDO) ---
   const degree0Hz = degreeFrequencies[0] ?? null;
   if (degree0Hz) {
     const nearJiC = centsDistance(degree0Hz, 260.740741) <= 20;
@@ -239,7 +287,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     }
   }
 
-  // --- Strategy 6: derive the invisible anchor from degree 0 to 440 Hz and spell it as A ---
+  // --- Strategy 7: derive the invisible anchor from degree 0 to 440 Hz and spell it as A ---
   if (degree0Hz) {
     return {
       ratio: (1200 * Math.log2(440 / degree0Hz)).toFixed(6),
@@ -247,7 +295,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     };
   }
 
-  // --- Strategy 7: infer from the fundamental's tempered pitch class ---
+  // --- Strategy 8: infer from the fundamental's tempered pitch class ---
   const inferredLabel = inferTemperedLabelFromFrequency(fundamental);
   if (inferredLabel) {
     return {
@@ -256,7 +304,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     };
   }
 
-  // --- Strategy 8: safe default — degree 0 = tempered C natural ---
+  // --- Strategy 9: safe default — degree 0 = tempered C natural ---
   return { ratio: "1/1", label: TEMPERED_NATURAL_LABELS.C };
 }
 

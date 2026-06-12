@@ -1,10 +1,13 @@
 import {
   buildResolvedAutoColorOptions,
+  deriveAutoNoteColors,
   inferCenterMonzoCandidate,
   inferColorMonzoOffset,
+  inferNotationSide,
   inferNotationRole,
   inferPrimeChainRole,
 } from "./auto-colors.js";
+import { createScaleWorkspace } from "../../tuning/workspace.js";
 
 describe("inferColorMonzoOffset", () => {
   it("factors out a shared raw denominator when reduced monzos no longer share the offset", () => {
@@ -48,6 +51,69 @@ describe("inferPrimeChainRole", () => {
     expect(inferPrimeChainRole(workspace, 6, autoColorOptions)).toBe("chromatic");
     expect(inferPrimeChainRole(workspace, 7, autoColorOptions)).toBe("chromatic");
     expect(inferPrimeChainRole(workspace, 0, autoColorOptions)).toBe("diatonic");
+  });
+
+  it("keeps Oliveros 4/3 F on the white D-centered pythagorean spine", () => {
+    const settings = {
+      name: "18-Oliveros Septimal-Quintal",
+      short_description: "18-JI-7L",
+      key_labels: "note_names",
+      fundamental: 440,
+      reference_degree: 31,
+      scale: [
+        "135/128",
+        "16/15",
+        "9/8",
+        "7/6",
+        "6/5",
+        "5/4",
+        "4/3",
+        "45/32",
+        "64/45",
+        "3/2",
+        "14/9",
+        "8/5",
+        "5/3",
+        "27/16",
+        "7/4",
+        "16/9",
+        "15/8",
+        "15/8",
+        "2/1",
+      ],
+      note_names: [
+        "C",
+        "C",
+        "D",
+        "D",
+        "C",
+        "E",
+        "E",
+        "F",
+        "G",
+        "C",
+        "G",
+        "C",
+        "A",
+        "A",
+        "C",
+        "B",
+        "C",
+        "B",
+        "C",
+      ],
+    };
+    const workspace = createScaleWorkspace(settings);
+    const autoColorOptions = buildResolvedAutoColorOptions(settings, workspace, {
+      keyLabels: settings.key_labels,
+      noteNames: settings.note_names,
+    });
+
+    expect(autoColorOptions.centerAbsoluteFifthSteps).toBe(2);
+    expect(deriveAutoNoteColors(settings, { workspace })[7]).toBe("#ffffff");
+    expect(inferPrimeChainRole(workspace, 8, autoColorOptions)).toBe("chromatic");
+    expect(deriveAutoNoteColors(settings, { workspace })[8]).toBe("#dad5c1");
+    expect(deriveAutoNoteColors(settings, { workspace })[9]).toBe("#e9e1b4");
   });
 });
 
@@ -114,8 +180,8 @@ describe("buildResolvedAutoColorOptions", () => {
     });
 
     expect(resolved.structuralOverlay).toBe("fifths");
-    expect(resolved.centerMonzo).toEqual([-2, 0, 1]);
-    expect(resolved.centerAbsoluteFifthSteps).toBe(0);
+    expect(resolved.centerMonzo).toBeUndefined();
+    expect(resolved.centerAbsoluteFifthSteps).toBe(-1);
   });
 });
 
@@ -124,5 +190,28 @@ describe("inferNotationRole", () => {
     expect(inferNotationRole("F")).toBe("chromatic");
     expect(inferNotationRole("D")).toBe("chromatic");
     expect(inferNotationRole("B")).toBe("chromatic");
+  });
+
+  it("does not classify bare letter names, but does classify explicit naturals", () => {
+    expect(inferNotationRole("D")).toBe(null);
+    expect(inferNotationRole("G")).toBe(null);
+    expect(inferNotationRole("D")).toBe("diatonic");
+    expect(inferNotationRole("*nD")).toBe("diatonic");
+  });
+});
+
+describe("inferNotationSide", () => {
+  it("treats D-flat-family HEJI notes as flat-side rather than core", () => {
+    expect(inferNotationSide("D")).toBe("flat");
+    expect(inferNotationSide("D")).toBe("flat");
+    expect(inferNotationSide("D")).toBe("sharp");
+    expect(inferNotationSide("D")).toBe("core");
+  });
+
+  it("does not classify bare letter names, but can still allow implicit natural when requested", () => {
+    expect(inferNotationSide("D")).toBe(null);
+    expect(inferNotationSide("G")).toBe(null);
+    expect(inferNotationSide("D", { allowImplicitNatural: true })).toBe("core");
+    expect(inferNotationSide("G", { allowImplicitNatural: true })).toBe("flat");
   });
 });

@@ -36,11 +36,13 @@ import {
   buildResolvedAutoColorOptions,
   deriveAutoNoteColors,
   deriveAutoTonicColorFromPaletteWithPrime,
+  inferNotationSide,
   inferPrimeChainRole,
   inferNotationRole,
   normaliseColorForCompare,
 } from "../auto-colors.js";
 import { getPrimeFamilyColorMap } from "../monzo-color.js";
+import { resolveTypedHejiLabel } from "../../../notation/heji-frame.js";
 
 // ScaleTable is the UI workspace for rationalisation. It derives committed row
 // state from ScaleWorkspace, lets TuneCell create transient previews, then
@@ -142,6 +144,21 @@ const ScaleTable = (props) => {
     const next = [...(props.settings.note_names || [])];
     next[parseInt(e.target.name.replace(/name/, ""))] = e.target.value;
     props.onChange("note_names", next);
+  };
+
+  const commitHejiNameAtDegree = (degreeIndex, value) => {
+    if (degreeIndex <= 0) return;
+    const resolved = resolveTypedHejiLabel({
+      text: value,
+      degreeTexts: ["1/1", ...(props.settings.scale || [])],
+      scaleCents: (workspace?.slots ?? []).map((slot) => slot?.cents ?? 0),
+      renderedLabels: heji_names,
+      anchorLabel: props.heji_anchor_label_eff,
+      anchorRatioText: props.heji_anchor_ratio_eff,
+      workspaceMonzos: (workspace?.slots ?? []).map((slot) => slot?.exactRole?.monzo ?? null),
+    });
+    if (!resolved) return;
+    scaleCommitAt(degreeIndex - 1, resolved.scaleText, degreeIndex);
   };
 
   const editable_colors = props.settings.spectrum_colors || props.settings.auto_colors;
@@ -339,9 +356,11 @@ const ScaleTable = (props) => {
     const label = liveAutoColorLabelAtDegree(degreeIndex)
       ?? ((isHeji ? heji_names[degreeIndex] : note_names[degreeIndex]) ?? "");
     const usingLiveRow = !!liveMonzo;
+    const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
     return monzoToSuggestedColor(monzo, undefined, {
       ...autoColorOptions,
-      notationRole: inferNotationRole(label),
+      notationSide: degreeMetadata?.notationSide ?? inferNotationSide(label),
+      notationRole: degreeMetadata?.notationRole ?? inferNotationRole(label),
       chainRole: usingLiveRow ? null : inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
     });
   }, [
@@ -1089,12 +1108,20 @@ const ScaleTable = (props) => {
             </td>
             <td class="scale-name-col">
               {isHeji ? (
-                <span
-                  class={`heji-name-cell${modulationDisplayActive || liveRowAtDegree(i + 1) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(i + 1)?.mixed ? " heji-name-cell--mixed" : ""}`}
+                <input
+                  key={`heji-name-${i + 1}-${displayedHejiNameAtDegree(i + 1)}`}
+                  type="text"
+                  class={`heji-name-cell heji-name-input${modulationDisplayActive || liveRowAtDegree(i + 1) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(i + 1)?.mixed ? " heji-name-cell--mixed" : ""}`}
+                  defaultValue={displayedHejiNameAtDegree(i + 1)}
                   title={liveHejiTitleAtDegree(i + 1)}
-                >
-                  {displayedHejiNameAtDegree(i + 1)}
-                </span>
+                  aria-label={`heji pitch name ${i + 1}`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  onBlur={(e) => {
+                    commitHejiNameAtDegree(i + 1, e.currentTarget.value);
+                  }}
+                />
               ) : (
                 <input
                   id="centered"

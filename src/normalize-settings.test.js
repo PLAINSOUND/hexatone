@@ -388,7 +388,7 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_anchor_label_effective).toBe("A");
   });
 
-  it("falls back to a degree-0-to-440 tempered A anchor for Hamilton 19-limit", () => {
+  it("derives an exact A anchor from the degree-0 HEJI spelling in Hamilton 19-limit", () => {
     const normalized = normalizeStructural({
       rotation: 0,
       key_labels: "heji",
@@ -412,8 +412,8 @@ describe("normalizeStructural", () => {
       reference_degree: 7,
     });
 
-    expect(parseFloat(normalized.heji_anchor_ratio_effective)).toBeCloseTo(1088.268712, 5);
-    expect(normalized.heji_anchor_label_effective).toBe("A");
+    expect(normalized.heji_anchor_ratio_effective).toBe("15/8");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
   });
 
   it("prefers an actual 440 Hz scale degree over the degree-0 C fallback in 22-Sruti", () => {

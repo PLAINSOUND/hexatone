@@ -1,4 +1,6 @@
 import { createScaleWorkspace } from "../../tuning/workspace.js";
+import { buildHejiNotationFrame } from "../../notation/heji-frame.js";
+import { parseHejiPitchClassLabel } from "../../notation/heji.js";
 import {
   DEFAULT_PRIME_FAMILY_COLORS,
   getPrimeFamilyColorMap,
@@ -125,6 +127,14 @@ export function getCenterLabelSources({ keyLabels, noteNames, hejiTableNames, he
     : [normalizedNoteNames, normalizedHejiTableNames, normalizedHejiNames];
 }
 
+function alignLabelsToWorkspaceSlots(labels, workspace) {
+  const normalized = Array.isArray(labels) ? labels : [];
+  const slotCount = workspace?.slots?.length ?? 0;
+  if (!slotCount || !normalized.length) return normalized;
+  if (normalized.length === slotCount - 1) return ["", ...normalized];
+  return normalized;
+}
+
 export function extractPitchClassInfo(label) {
   const source = String(label ?? "").trim();
   if (!source) return { pitchClass: null, modifierWeight: Number.POSITIVE_INFINITY };
@@ -145,13 +155,52 @@ export function extractPitchClassInfo(label) {
   return { pitchClass, modifierWeight: modifierText.length };
 }
 
-export function inferNotationRole(label) {
+function parseExplicitHejiClassificationLabel(label, { allowImplicitNatural = false } = {}) {
   const source = String(label ?? "").trim();
   if (!source) return null;
-  const hasDiatonicMarker = /\*n|||/.test(source);
-  const hasChromaticMarker = /[]/.test(source);
-  if (hasChromaticMarker) return "chromatic";
-  if (hasDiatonicMarker) return "diatonic";
+  const match = source.match(/^(.*?)([A-Ga-g])$/);
+  if (!match) return null;
+  const accidentalText = String(match[1] ?? "").trim();
+  if (!accidentalText && !allowImplicitNatural) return null;
+  if (!accidentalText && allowImplicitNatural) {
+    return {
+      letter: String(match[2] ?? "").toUpperCase(),
+      baseId: "natural:0",
+      schismaAmount: 0,
+      extraIds: [],
+    };
+  }
+  return parseHejiPitchClassLabel(source);
+}
+
+export function inferNotationSide(label, options = {}) {
+  const parsed = parseExplicitHejiClassificationLabel(label, options);
+  if (parsed?.letter) {
+    const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
+    if (baseChromatic === "flat" || baseChromatic === "doubleflat") return "flat";
+    if (baseChromatic === "sharp" || baseChromatic === "doublesharp") return "sharp";
+    if (parsed.letter === "D") return "core";
+    if (parsed.letter === "F" || parsed.letter === "C" || parsed.letter === "G") return "flat";
+    if (parsed.letter === "A" || parsed.letter === "E" || parsed.letter === "B") return "sharp";
+    return null;
+  }
+  return null;
+}
+
+export function inferNotationRole(label, options = {}) {
+  const parsed = parseExplicitHejiClassificationLabel(label, options);
+  if (!parsed) return null;
+  const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
+  if ((parsed.extraIds?.length ?? 0) > 0) return "chromatic";
+  if (
+    baseChromatic === "flat"
+    || baseChromatic === "sharp"
+    || baseChromatic === "doubleflat"
+    || baseChromatic === "doublesharp"
+  ) {
+    return "chromatic";
+  }
+  if (baseChromatic === "natural") return "diatonic";
   return null;
 }
 
@@ -205,12 +254,14 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
         const candidateMonzo = getAnalysisMonzo(candidate?.committedIdentity?.monzo, candidateBasis, autoColorOptions);
         if (!isPurePrimeLimitMonzo(candidateMonzo, candidateBasis, prime)) return null;
         if ((candidateMonzo[primeIndex] ?? 0) !== targetExponent) return null;
-        const explicitRole = inferNotationRole(
-          autoColorOptions?.noteRoleLabels?.[candidateDegree]
-          ?? candidate?.committedIdentity?.displayName
-          ?? candidate?.exactRole?.displayName
-          ?? candidate?.displayName,
-        );
+        const explicitRole =
+          autoColorOptions?.degreeMetadata?.[candidateDegree]?.notationRole
+          ?? inferNotationRole(
+            autoColorOptions?.noteRoleLabels?.[candidateDegree]
+            ?? candidate?.committedIdentity?.displayName
+            ?? candidate?.exactRole?.displayName
+            ?? candidate?.displayName,
+          );
         return {
           degree: candidateDegree,
           threeExponent: getChainThreeExponent(candidateMonzo, autoColorOptions),
@@ -227,6 +278,10 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
     const allEntriesExplicit = explicitRoles.length === entries.length;
     const hasExplicitDiatonic = explicitRoles.includes("diatonic");
     const hasExplicitChromatic = explicitRoles.includes("chromatic");
+
+    if (currentEntry.explicitRole) {
+      return currentEntry.explicitRole;
+    }
 
     if (allEntriesExplicit && hasExplicitDiatonic && hasExplicitChromatic) {
       return currentEntry.explicitRole;
@@ -399,10 +454,46 @@ export function inferColorMonzoOffset(workspace, settings) {
 export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesConfig) {
   const base = getAutoColorOptions(settings);
   const chromaticOverlayPrimes = inferChromaticOverlayPrimes(workspace);
-  const colorMonzoOffset = inferColorMonzoOffset(workspace, settings);
+  const fallbackColorMonzoOffset = inferColorMonzoOffset(workspace, settings);
   const primeFamilyColorMap = getPrimeFamilyColorMap(settings?.prime_family_colors);
-  const centerLabelSources = getCenterLabelSources(labelSourcesConfig);
+  const centerLabelSources = getCenterLabelSources(labelSourcesConfig)
+    .map((labels) => alignLabelsToWorkspaceSlots(labels, workspace));
   const noteRoleLabels = centerLabelSources.find((labels) => labels?.length) ?? [];
+  const degreeTexts = ["1/1", ...(Array.isArray(settings?.scale) ? settings.scale.slice(0, -1) : [])];
+  const workspaceMonzos = (workspace?.slots ?? []).map((slot) => slot?.exactRole?.monzo ?? null);
+  let hejiFrame = null;
+  try {
+    if (Array.isArray(workspace?.slots) && workspace.slots.length) {
+      hejiFrame = buildHejiNotationFrame({
+        referenceDegree: settings?.reference_degree,
+        noteNames: settings?.note_names,
+        degreeTexts,
+        fundamental: settings?.fundamental,
+        scaleCents: (workspace?.slots ?? []).map((slot) => slot?.cents ?? 0),
+        explicitAnchorLabel: settings?.heji_anchor_label || "",
+        explicitAnchorRatio: settings?.heji_anchor_ratio || "",
+        temperedOnly: settings?.heji_tempered_only === true,
+        showCents: settings?.heji_show_cents !== false,
+        workspaceMonzos,
+      });
+    }
+  } catch {
+    hejiFrame = null;
+  }
+  // Keep the historical hue/offset basis stable. The HEJI frame should only
+  // supply a structural notation center, not globally rebase every color.
+  const colorMonzoOffset = fallbackColorMonzoOffset;
+  const explicitHejiCenter = hejiFrame?.dReferenceMonzo;
+  const explicitHejiCenterNonThreeComplexity = Array.isArray(explicitHejiCenter)
+    ? explicitHejiCenter.reduce((sum, exp, index) => {
+        if (index === 0 || index === 1) return sum;
+        return sum + Math.abs(exp ?? 0);
+      }, 0)
+    : null;
+  const effectiveNoteRoleLabels =
+    Array.isArray(hejiFrame?.hejiNamesKeys) && hejiFrame.hejiNamesKeys.length
+      ? hejiFrame.hejiNamesKeys
+      : noteRoleLabels;
   for (const labels of centerLabelSources) {
     if (!labels?.length) continue;
     const centerCandidate = inferCenterMonzoCandidate(workspace, labels);
@@ -410,8 +501,12 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
       const notationCentering = base.structuralOverlay === "none"
         ? {}
         : {
-          centerMonzo: centerCandidate.nonThreeComplexity > 0 ? centerCandidate.monzo : undefined,
-          centerAbsoluteFifthSteps: centerCandidate.absoluteFifthSteps,
+          centerMonzo: explicitHejiCenter
+            ? (explicitHejiCenterNonThreeComplexity > 0 ? explicitHejiCenter : undefined)
+            : (centerCandidate.nonThreeComplexity > 0 ? centerCandidate.monzo : undefined),
+          centerAbsoluteFifthSteps: explicitHejiCenter
+            ? (explicitHejiCenterNonThreeComplexity > 0 ? undefined : (explicitHejiCenter[1] ?? 2))
+            : centerCandidate.absoluteFifthSteps,
         };
       return {
         ...base,
@@ -419,11 +514,30 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
         chromaticOverlayPrimes,
         colorMonzoOffset,
         primeFamilyColorMap,
-        noteRoleLabels,
+        degreeMetadata: hejiFrame?.degreeMetadata ?? null,
+        noteRoleLabels: effectiveNoteRoleLabels,
       };
     }
   }
-  return { ...base, chromaticOverlayPrimes, colorMonzoOffset, primeFamilyColorMap, noteRoleLabels };
+  return {
+    ...base,
+    ...(base.structuralOverlay === "none"
+      ? {}
+      : (
+        explicitHejiCenter
+          ? (
+            explicitHejiCenterNonThreeComplexity > 0
+              ? { centerMonzo: explicitHejiCenter }
+              : { centerAbsoluteFifthSteps: explicitHejiCenter[1] ?? 2 }
+          )
+          : {}
+      )),
+    chromaticOverlayPrimes,
+    colorMonzoOffset,
+    primeFamilyColorMap,
+    degreeMetadata: hejiFrame?.degreeMetadata ?? null,
+    noteRoleLabels: effectiveNoteRoleLabels,
+  };
 }
 
 export function deriveAutoNoteColors(settings, extra = {}) {
@@ -434,10 +548,16 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     hejiTableNames: extra.heji_names_table ?? extra.hejiNamesTable ?? settings?.heji_names_table,
     hejiNames: extra.heji_names ?? extra.hejiNames ?? settings?.heji_names,
   });
-  const noteNames = Array.isArray(settings?.note_names) ? settings.note_names : [];
-  const hejiNames = Array.isArray(extra.heji_names_table ?? extra.heji_names ?? settings?.heji_names_table ?? settings?.heji_names)
-    ? (extra.heji_names_table ?? extra.heji_names ?? settings?.heji_names_table ?? settings?.heji_names)
-    : [];
+  const noteNames = alignLabelsToWorkspaceSlots(
+    Array.isArray(settings?.note_names) ? settings.note_names : [],
+    workspace,
+  );
+  const hejiNames = alignLabelsToWorkspaceSlots(
+    Array.isArray(extra.heji_names_table ?? extra.heji_names ?? settings?.heji_names_table ?? settings?.heji_names)
+      ? (extra.heji_names_table ?? extra.heji_names ?? settings?.heji_names_table ?? settings?.heji_names)
+      : [],
+    workspace,
+  );
   const storedColors = Array.isArray(settings?.note_colors) ? settings.note_colors : [];
   const primeFamilyColorMap = autoColorOptions.primeFamilyColorMap ?? getPrimeFamilyColorMap(settings?.prime_family_colors);
   const useHeji = settings?.key_labels === "heji";
@@ -447,9 +567,11 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     const fallbackColor = storedColors[degreeIndex] ?? "#ffffff";
     if (!Array.isArray(interval?.monzo)) return fallbackColor;
     const label = (useHeji ? hejiNames[degreeIndex] : noteNames[degreeIndex]) ?? "";
+    const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
     return monzoToSuggestedColor(interval.monzo, undefined, {
       ...autoColorOptions,
-      notationRole: inferNotationRole(label),
+      notationSide: degreeMetadata?.notationSide ?? inferNotationSide(label),
+      notationRole: degreeMetadata?.notationRole ?? inferNotationRole(label),
       chainRole: inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
     })?.screenHex ?? fallbackColor;
   });

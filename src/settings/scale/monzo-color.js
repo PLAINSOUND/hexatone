@@ -651,14 +651,12 @@ function getPythagoreanPitchClassColor(monzo, basis = EXTENDED_MONZO_BASIS, opti
 }
 
 function getChainThreeExponent(frame, options = {}) {
-  if (Array.isArray(options.centerMonzo)) return frame.fifthSteps;
-  if (
-    Number.isFinite(options.centerAbsoluteFifthSteps)
-    && options.centerAbsoluteFifthSteps !== D_CENTER_FIFTH_STEPS
-  ) {
-    return frame.fifthSteps;
-  }
-  return frame.absoluteFifthSteps;
+  void options;
+  // Quintal/septimal chain logic should always read the 3-exponent relative to
+  // the chosen notational center. Using absolute fifth steps here shifts the
+  // whole chain by D's own fifth distance and misclassifies notes like F/45:32
+  // as chromatic instead of diatonic.
+  return frame.fifthSteps;
 }
 
 function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {}) {
@@ -687,6 +685,9 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
   const role = options.chainRole ?? options.notationRole;
   const roleIsDiatonic = role === "diatonic";
   const roleIsChromatic = role === "chromatic";
+  const notationSide = options.notationSide;
+  const preferFlatChromatic = notationSide === "flat";
+  const preferSharpChromatic = notationSide === "sharp";
 
   if (fiveExp > 0 && fiveExp <= 2) {
     const chainStart = -1 - 4 * fiveExp;
@@ -707,15 +708,27 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
     }
     if (isChromatic) {
       const overlayEnabled = isChromaticOverlayEnabled(5, options);
+      const useFlatStyle = preferFlatChromatic;
+      const chromaticColor = useFlatStyle
+        ? makeUndertonalChromatic(diatonicColor)
+        : makeOvertonalChromatic(diatonicColor, fiveExp);
       return {
-        screenHex: overlayEnabled ? makeOvertonalChromatic(diatonicColor, fiveExp) : diatonicColor,
+        screenHex: overlayEnabled ? chromaticColor : diatonicColor,
         familyPrime: 5,
         familyName: overlayEnabled
-          ? (fiveExp === 1 ? "quintal chromatic sharp" : "quintal two-comma sharp")
+          ? (
+            useFlatStyle
+              ? (fiveExp === 1 ? "quintal chromatic flat" : "quintal two-comma flat")
+              : (fiveExp === 1 ? "quintal chromatic sharp" : "quintal two-comma sharp")
+          )
           : (fiveExp === 1 ? "quintal diatonic" : "quintal two-comma diatonic"),
         confidence: overlayEnabled ? 0.9 : 0.95,
         explanation: overlayEnabled
-          ? (fiveExp === 1 ? "5-limit overtonal sharp-side chromatic" : "25-limit overtonal sharp-side chromatic")
+          ? (
+            useFlatStyle
+              ? (fiveExp === 1 ? "5-limit overtonal flat-side chromatic" : "25-limit overtonal flat-side chromatic")
+              : (fiveExp === 1 ? "5-limit overtonal sharp-side chromatic" : "25-limit overtonal sharp-side chromatic")
+          )
           : (fiveExp === 1 ? "5-limit overtonal diatonic" : "25-limit overtonal diatonic"),
         fifthsFrame: frame,
       };
@@ -731,12 +744,20 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
     const isChromatic = roleIsChromatic || (!roleIsDiatonic && isInAscendingChainRun(threeExp, chainStart, 0, 5));
     const isDiatonic = roleIsDiatonic || (!roleIsChromatic && isInAscendingChainRun(threeExp, chainStart, 5, 7));
     if (isChromatic) {
+      const useSharpStyle = preferSharpChromatic;
+      const chromaticColor = useSharpStyle
+        ? makeOvertonalChromatic(base, absFive)
+        : makeUndertonalChromatic(base);
       return {
-        screenHex: makeUndertonalChromatic(base),
+        screenHex: chromaticColor,
         familyPrime: 5,
-        familyName: absFive === 1 ? "quintal undertonal flat" : "quintal undertonal two-comma flat",
+        familyName: useSharpStyle
+          ? (absFive === 1 ? "quintal undertonal sharp" : "quintal undertonal two-comma sharp")
+          : (absFive === 1 ? "quintal undertonal flat" : "quintal undertonal two-comma flat"),
         confidence: 0.9,
-        explanation: absFive === 1 ? "u5 flat-side chromatic" : "u25 flat-side chromatic",
+        explanation: useSharpStyle
+          ? (absFive === 1 ? "u5 sharp-side chromatic" : "u25 sharp-side chromatic")
+          : (absFive === 1 ? "u5 flat-side chromatic" : "u25 flat-side chromatic"),
         fifthsFrame: frame,
       };
     }

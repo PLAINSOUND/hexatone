@@ -4,8 +4,7 @@ import { canonicalHejiAnchorLabelInput } from "../../notation/heji-normalization
 
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
-  const isHeji = props.settings.key_labels === "heji";
-  const hejiDisabled = isHeji && props.heji_supported === false;
+  const hejiDisabled = props.heji_supported === false;
   const selectedKeyLabel = props.settings.key_labels === "equaves" ? "no_labels" : props.settings.key_labels;
   const showEquaves = props.settings.show_equaves || props.settings.key_labels === "equaves";
 
@@ -43,7 +42,7 @@ const KeyLabels = (props) => {
           onChange={(e) => props.onChange("show_equaves", e.target.checked)}
         />
       </label>
-      {isHeji && (
+      {
         // The two fields below together define the rational offset for the entire
         // HEJI spelling.  They name a single reference pitch — the one whose
         // deviation reads 0¢ on a tuning meter — by its ratio from degree 0 (1/1)
@@ -120,7 +119,7 @@ const KeyLabels = (props) => {
             Copy HEJI to Note Names
           </button>
         </fieldset>
-      )}
+      }
     </>
   );
 };

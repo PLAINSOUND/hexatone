@@ -28,6 +28,8 @@ const PRESET_FIELDS = [
   "fundamental",
   "reference_degree",
   "center_degree",
+  "heji_anchor_ratio",
+  "heji_anchor_label",
   "rSteps",
   "drSteps",
   "hexSize",

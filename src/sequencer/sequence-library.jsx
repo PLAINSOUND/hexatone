@@ -38,6 +38,7 @@ function normalizeSequenceRecord(record) {
     name,
     description: String(record.description ?? ""),
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),
+    autoCreateBars: record.autoCreateBars !== false,
     snapshots,
     bars,
   };
@@ -53,6 +54,7 @@ function parseSequenceJson(name, text) {
       name: parsed?.name ?? name.replace(/\.json$/i, ""),
       description: parsed?.description ?? "",
       snapshotLabelMode: parsed?.snapshotLabelMode,
+      autoCreateBars: parsed?.autoCreateBars,
       snapshots: parsed?.snapshots,
       bars: parsed?.bars,
     });
@@ -80,6 +82,7 @@ const SequenceLibrary = ({
   snapshots,
   bars,
   snapshotLabelMode,
+  autoCreateBars,
   activeSequenceName,
   activeSequenceDescription,
   onLoadSequence,
@@ -126,6 +129,7 @@ const SequenceLibrary = ({
       name: sequenceName,
       description: activeSequenceDescription,
       snapshotLabelMode,
+      autoCreateBars,
       snapshots,
       bars,
     });
@@ -150,6 +154,7 @@ const SequenceLibrary = ({
       name: sequenceName,
       description: activeSequenceDescription,
       snapshotLabelMode,
+      autoCreateBars,
       snapshots,
       bars,
     });
@@ -333,6 +338,7 @@ SequenceLibrary.propTypes = {
   snapshots: PropTypes.arrayOf(PropTypes.object).isRequired,
   bars: PropTypes.arrayOf(PropTypes.object),
   snapshotLabelMode: PropTypes.string.isRequired,
+  autoCreateBars: PropTypes.bool.isRequired,
   activeSequenceName: PropTypes.string.isRequired,
   activeSequenceDescription: PropTypes.string.isRequired,
   onLoadSequence: PropTypes.func.isRequired,
