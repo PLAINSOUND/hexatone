@@ -71,14 +71,52 @@ const ScaleTable = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings is a new object on every render; listing the specific keys that affect workspace output avoids unnecessary recomputation
     [props.settings.scale, props.settings.reference_degree, props.settings.fundamental],
   );
+  const autoColorSettings = useMemo(() => ({
+    scale: props.settings.scale,
+    note_names: props.settings.note_names,
+    note_colors: props.settings.note_colors,
+    key_labels: props.settings.key_labels,
+    reference_degree: props.settings.reference_degree,
+    fundamental: props.settings.fundamental,
+    name: props.settings.name,
+    short_description: props.settings.short_description,
+    heji_anchor_ratio: props.settings.heji_anchor_ratio,
+    heji_anchor_label: props.settings.heji_anchor_label,
+    heji_tempered_only: props.settings.heji_tempered_only,
+    heji_show_cents: props.settings.heji_show_cents,
+    prime_family_colors: props.settings.prime_family_colors,
+    heji_frame: props.settings.heji_frame,
+  }), [
+    props.settings.scale,
+    props.settings.note_names,
+    props.settings.note_colors,
+    props.settings.key_labels,
+    props.settings.reference_degree,
+    props.settings.fundamental,
+    props.settings.name,
+    props.settings.short_description,
+    props.settings.heji_anchor_ratio,
+    props.settings.heji_anchor_label,
+    props.settings.heji_tempered_only,
+    props.settings.heji_show_cents,
+    props.settings.prime_family_colors,
+    props.settings.heji_frame,
+  ]);
   const autoColorOptions = useMemo(() => {
-    return buildResolvedAutoColorOptions(props.settings, workspace, {
-      keyLabels: props.settings.key_labels,
-      noteNames: props.settings.note_names,
+    return buildResolvedAutoColorOptions(autoColorSettings, workspace, {
+      keyLabels: autoColorSettings.key_labels,
+      noteNames: autoColorSettings.note_names,
       hejiTableNames: props.heji_names_table,
       hejiNames: props.heji_names,
+    }, {
+      hejiFrame: autoColorSettings.heji_frame,
     });
-  }, [props.settings, props.heji_names_table, props.heji_names, workspace]);
+  }, [
+    autoColorSettings,
+    workspace,
+    props.heji_names_table,
+    props.heji_names,
+  ]);
 
   const degrees = [...Array(scale.length).keys()];
   const note_names = useMemo(
@@ -92,12 +130,18 @@ const ScaleTable = (props) => {
   );
 
   const autoColors = useMemo(
-    () => deriveAutoNoteColors(props.settings, {
+    () => deriveAutoNoteColors(autoColorSettings, {
       workspace,
       heji_names: props.heji_names,
       heji_names_table: props.heji_names_table,
+      hejiFrame: autoColorSettings.heji_frame,
     }),
-    [props.settings, props.heji_names, props.heji_names_table, workspace],
+    [
+      autoColorSettings,
+      workspace,
+      props.heji_names,
+      props.heji_names_table,
+    ],
   );
 
   let colors;

@@ -94,7 +94,47 @@ const Colors = (props) => {
   const autoActiveRef = useRef(autoActive);
   const spectrumActive = colorMode === "spectrum";
   const primeFamilyColors = normalizePrimeFamilyColors(rawSettings.prime_family_colors);
-  const derivedAutoColors = deriveAutoNoteColors(rawSettings);
+  const autoColorSettings = useMemo(() => ({
+    scale: rawSettings.scale,
+    note_names: rawSettings.note_names,
+    note_colors: rawSettings.note_colors,
+    key_labels: rawSettings.key_labels,
+    reference_degree: rawSettings.reference_degree,
+    fundamental: rawSettings.fundamental,
+    name: rawSettings.name,
+    short_description: rawSettings.short_description,
+    heji_anchor_ratio: rawSettings.heji_anchor_ratio,
+    heji_anchor_label: rawSettings.heji_anchor_label,
+    heji_tempered_only: rawSettings.heji_tempered_only,
+    heji_show_cents: rawSettings.heji_show_cents,
+    heji_names: rawSettings.heji_names,
+    heji_names_table: rawSettings.heji_names_table,
+    prime_family_colors: rawSettings.prime_family_colors,
+    heji_frame: props.settings?.heji_frame ?? rawSettings?.heji_frame ?? null,
+  }), [
+    rawSettings.scale,
+    rawSettings.note_names,
+    rawSettings.note_colors,
+    rawSettings.key_labels,
+    rawSettings.reference_degree,
+    rawSettings.fundamental,
+    rawSettings.name,
+    rawSettings.short_description,
+    rawSettings.heji_anchor_ratio,
+    rawSettings.heji_anchor_label,
+    rawSettings.heji_tempered_only,
+    rawSettings.heji_show_cents,
+    rawSettings.heji_names,
+    rawSettings.heji_names_table,
+    rawSettings.prime_family_colors,
+    props.settings?.heji_frame,
+    rawSettings?.heji_frame,
+  ]);
+  const derivedAutoColors = useMemo(() => deriveAutoNoteColors(autoColorSettings, {
+    hejiFrame: autoColorSettings.heji_frame,
+  }), [
+    autoColorSettings,
+  ]);
   const [savedPrimePalettes, setSavedPrimePalettes] = useState(loadPrimeFamilyPalettes);
   const [selectedPrimePalette, setSelectedPrimePalette] = useState("default");
 

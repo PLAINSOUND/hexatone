@@ -505,7 +505,7 @@ export function inferColorMonzoOffset(workspace, settings) {
   return mergeColorOffsets(exactSharedOffset, rawDenominatorOffset);
 }
 
-export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesConfig) {
+export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesConfig, extra = {}) {
   const base = getAutoColorOptions(settings);
   const equaveCents = workspace?.baseScale?.equaveCents;
   const octaveEquave = Number.isFinite(equaveCents) ? Math.abs(equaveCents - 1200) < 0.001 : true;
@@ -518,24 +518,26 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
   const noteRoleLabels = centerLabelSources.find((labels) => labels?.length) ?? [];
   const degreeTexts = ["1/1", ...(Array.isArray(settings?.scale) ? settings.scale.slice(0, -1) : [])];
   const workspaceMonzos = (workspace?.slots ?? []).map((slot) => slot?.exactRole?.monzo ?? null);
-  let hejiFrame = null;
-  try {
-    if (Array.isArray(workspace?.slots) && workspace.slots.length) {
-      hejiFrame = buildHejiNotationFrame({
-        referenceDegree: settings?.reference_degree,
-        noteNames: settings?.note_names,
-        degreeTexts,
-        fundamental: settings?.fundamental,
-        scaleCents: (workspace?.slots ?? []).map((slot) => slot?.cents ?? 0),
-        explicitAnchorLabel: settings?.heji_anchor_label || "",
-        explicitAnchorRatio: settings?.heji_anchor_ratio || "",
-        temperedOnly: settings?.heji_tempered_only === true,
-        showCents: settings?.heji_show_cents !== false,
-        workspaceMonzos,
-      });
+  let hejiFrame = extra.hejiFrame ?? settings?.heji_frame ?? null;
+  if (!hejiFrame) {
+    try {
+      if (Array.isArray(workspace?.slots) && workspace.slots.length) {
+        hejiFrame = buildHejiNotationFrame({
+          referenceDegree: settings?.reference_degree,
+          noteNames: settings?.note_names,
+          degreeTexts,
+          fundamental: settings?.fundamental,
+          scaleCents: (workspace?.slots ?? []).map((slot) => slot?.cents ?? 0),
+          explicitAnchorLabel: settings?.heji_anchor_label || "",
+          explicitAnchorRatio: settings?.heji_anchor_ratio || "",
+          temperedOnly: settings?.heji_tempered_only === true,
+          showCents: settings?.heji_show_cents !== false,
+          workspaceMonzos,
+        });
+      }
+    } catch {
+      hejiFrame = null;
     }
-  } catch {
-    hejiFrame = null;
   }
   // Keep the historical hue/offset basis stable. The HEJI frame should only
   // supply a structural notation center, not globally rebase every color.
@@ -583,6 +585,8 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     noteNames: settings?.note_names,
     hejiTableNames: extra.heji_names_table ?? extra.hejiNamesTable ?? settings?.heji_names_table,
     hejiNames: extra.heji_names ?? extra.hejiNames ?? settings?.heji_names,
+  }, {
+    hejiFrame: extra.hejiFrame ?? settings?.heji_frame ?? null,
   });
   const noteNames = alignLabelsToWorkspaceSlots(
     Array.isArray(settings?.note_names) ? settings.note_names : [],

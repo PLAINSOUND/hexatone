@@ -1,5 +1,6 @@
 import Presets from "./presets/presets";
 import CustomPresets from "./presets/custom-presets";
+import { useMemo } from "preact/hooks";
 import Info from "./scale/info";
 import Scale from "./scale";
 import Layout from "./layout";
@@ -58,10 +59,10 @@ const Settings = ({
   hakenRawPorts,
   exquisLedStatus,
 }) => {
-  const effectiveScaleSettings = {
+  const effectiveScaleSettings = useMemo(() => ({
     ...settings,
     ...normalizeColors(settings),
-  };
+  }), [settings]);
 
   return (
     <div autoComplete="off" role="group" aria-label="Hexatone settings">

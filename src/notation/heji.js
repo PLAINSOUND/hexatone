@@ -256,6 +256,7 @@ export const EXTRA_BY_GLYPH = Object.fromEntries(EXTRA_MODIFIERS.map((item) => [
 export const EXTRA_MONZOS = Object.fromEntries(
   EXTRA_MODIFIERS.map((item) => [item.id, item.monzo]),
 );
+const PARSED_PITCH_CLASS_CACHE = new Map();
 export const SPECIAL_GLYPH_SEQUENCES = {
   "": ["septimal:-1", "septimal:-1"],
   "": ["septimal:1", "septimal:1"],
@@ -376,16 +377,25 @@ export function parseHejiGlyphInput(text, fallbackBaseId = "natural:0") {
 
 export function parseHejiPitchClassLabel(text, fallbackBaseId = "natural:0") {
   const source = String(text || "").trim();
+  const cacheKey = `${fallbackBaseId}::${source}`;
+  if (PARSED_PITCH_CLASS_CACHE.has(cacheKey)) {
+    return PARSED_PITCH_CLASS_CACHE.get(cacheKey);
+  }
   const match = source.match(/^(.+?)([A-Ga-g])$/);
-  if (!match) return null;
+  if (!match) {
+    PARSED_PITCH_CLASS_CACHE.set(cacheKey, null);
+    return null;
+  }
   const [, accidentalText, letterText] = match;
   const { baseId, schismaAmount, extraIds } = parseHejiGlyphInput(accidentalText, fallbackBaseId);
-  return {
+  const parsed = {
     letter: letterText.toUpperCase(),
     baseId,
     schismaAmount,
     extraIds,
   };
+  PARSED_PITCH_CLASS_CACHE.set(cacheKey, parsed);
+  return parsed;
 }
 
 function renderFamilyGlyphs(ids = []) {

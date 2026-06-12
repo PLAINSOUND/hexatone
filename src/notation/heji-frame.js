@@ -122,6 +122,11 @@ function samePitchClass(a, b) {
   return extrasA.every((id, index) => id === extrasB[index]);
 }
 
+function sameMonzo(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  return a.every((value, index) => value === (b[index] ?? 0));
+}
+
 export function buildHejiNotationFrame({
   referenceDegree,
   noteNames,
@@ -148,55 +153,68 @@ export function buildHejiNotationFrame({
   const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });
   const anchorCents = scalaToCents(String(anchorRatioText));
 
-  const hejiNames = degreeTexts.map((text, index) => {
-    const degreeCents = scaleCents[index] ?? 0;
+  const rows = degreeTexts.map((text, degree) => {
+    const degreeCents = scaleCents[degree] ?? 0;
     const centsFromAnchor = ((degreeCents - anchorCents) % 1200 + 1200) % 1200;
     const ratioText = String(text).includes("/") ? text : null;
-    return spelledHejiLabel(frame, ratioText, centsFromAnchor, {
+    const renderedLabel = spelledHejiLabel(frame, ratioText, centsFromAnchor, {
       temperedOnly,
       forceShowZeroDeviation: temperedOnly && showCents,
     });
-  });
-
-  const hejiNamesKeys = degreeTexts.map((text, index) => {
-    const degreeCents = scaleCents[index] ?? 0;
-    const centsFromAnchor = ((degreeCents - anchorCents) % 1200 + 1200) % 1200;
-    const ratioText = String(text).includes("/") ? text : null;
-    return spelledHejiLabel(frame, ratioText, centsFromAnchor, {
+    const renderedKeyLabel = spelledHejiLabel(frame, ratioText, centsFromAnchor, {
       temperedOnly,
       suppressDeviation: !showCents || temperedOnly,
       forceShowZeroDeviation: temperedOnly && showCents,
     });
+    const explicitSourceLabel = canonicalHejiLabel(noteNames?.[degree] ?? "");
+    const renderedPitchClassLabel = trimRenderedLabelToPitchClass(renderedKeyLabel);
+    const pitchClassLabel = explicitSourceLabel ?? renderedPitchClassLabel;
+    const parsed = pitchClassLabel ? parseHejiPitchClassLabel(pitchClassLabel) : null;
+    const monzo = Array.isArray(workspaceMonzos[degree]) ? workspaceMonzos[degree] : null;
+    const absoluteFifthSteps = monzo?.[1] ?? null;
+    const nonThreeComplexity = monzo
+      ? monzo.reduce((sum, value, index) => (index <= 1 ? sum : sum + Math.abs(value ?? 0)), 0)
+      : null;
+    const accidentalWeight = parsed
+      ? String(pitchClassLabel ?? "").replace(/[A-Ga-g]/g, "").length
+      : null;
+    return {
+      degree,
+      renderedLabel,
+      renderedKeyLabel,
+      explicitSourceLabel,
+      pitchClassLabel,
+      parsed,
+      monzo,
+      absoluteFifthSteps,
+      nonThreeComplexity,
+      accidentalWeight,
+      notationRole: inferDegreeNotationRole(parsed),
+      notationSide: inferDegreeNotationSide(parsed),
+    };
   });
 
-  const hasExplicitHejiNoteNames = Array.isArray(noteNames)
-    && noteNames.some((value) => canonicalHejiLabel(value ?? ""));
+  const hejiNames = rows.map((row) => row.renderedLabel);
+  const hejiNamesKeys = rows.map((row) => row.renderedKeyLabel);
+  const hasExplicitHejiNoteNames = rows.some((row) => row.explicitSourceLabel);
   const abstractDReference = hasExplicitHejiNoteNames
     ? deriveAbstractDReference(frame)
     : null;
 
-  const dCandidates = hejiNamesKeys
-    .map((label, degree) => {
-      const pitchClassLabel = trimRenderedLabelToPitchClass(label);
-      const parsed = pitchClassLabel ? parseHejiPitchClassLabel(pitchClassLabel) : null;
-      if (!parsed || parsed.letter !== "D") return null;
-      const monzo = workspaceMonzos[degree];
-      if (!Array.isArray(monzo)) return null;
-      const accidentalWeight = String(pitchClassLabel ?? "").replace(/[A-Ga-g]/g, "").length;
-      const nonThreeComplexity = monzo.reduce((sum, value, index) => (
-        index <= 1 ? sum : sum + Math.abs(value ?? 0)
-      ), 0);
+  const dCandidates = rows
+    .map((row) => {
+      if (!row.parsed || row.parsed.letter !== "D" || !row.monzo) return null;
       return {
-        degree,
-        monzo,
-        label: pitchClassLabel,
-        accidentalWeight,
-        nonThreeComplexity,
-        absoluteFifthSteps: monzo[1] ?? 0,
+        degree: row.degree,
+        monzo: row.monzo,
+        label: row.pitchClassLabel,
+        accidentalWeight: row.accidentalWeight ?? 0,
+        nonThreeComplexity: row.nonThreeComplexity ?? 0,
+        absoluteFifthSteps: row.absoluteFifthSteps ?? 0,
         isNatural:
-          parsed.baseId === "natural:0"
-          && (parsed.schismaAmount ?? 0) === 0
-          && (parsed.extraIds?.length ?? 0) === 0,
+          row.parsed.baseId === "natural:0"
+          && (row.parsed.schismaAmount ?? 0) === 0
+          && (row.parsed.extraIds?.length ?? 0) === 0,
       };
     })
     .filter(Boolean)
@@ -208,26 +226,23 @@ export function buildHejiNotationFrame({
     abstractDReference?.absoluteMonzo?.[1]
     ?? colorReferenceMonzo?.[1]
     ?? null;
-  const degreeMetadata = hejiNamesKeys.map((label, degree) => {
-    const explicitSourceLabel = canonicalHejiLabel(noteNames?.[degree] ?? "");
-    const renderedPitchClassLabel = trimRenderedLabelToPitchClass(label);
-    const pitchClassLabel = explicitSourceLabel ?? renderedPitchClassLabel;
-    const parsed = pitchClassLabel ? parseHejiPitchClassLabel(pitchClassLabel) : null;
-    const monzo = Array.isArray(workspaceMonzos[degree]) ? workspaceMonzos[degree] : null;
-    const absoluteFifthSteps = monzo?.[1] ?? null;
+  const dReferenceDegree = colorReferenceMonzo
+    ? (rows.find((row) => sameMonzo(row.monzo, colorReferenceMonzo))?.degree ?? dReference?.degree ?? null)
+    : (dReference?.degree ?? null);
+  const degreeMetadata = rows.map((row) => {
     const relativeFifthSteps =
-      monzo && colorReferenceAbsoluteFifthSteps != null
-        ? (monzo[1] ?? 0) - colorReferenceAbsoluteFifthSteps
+      row.monzo && colorReferenceAbsoluteFifthSteps != null
+        ? (row.monzo[1] ?? 0) - colorReferenceAbsoluteFifthSteps
         : null;
     return {
-      degree,
-      source: explicitSourceLabel ? "note_names" : "derived",
-      renderedLabel: label,
-      pitchClassLabel,
-      parsed,
-      notationRole: inferDegreeNotationRole(parsed),
-      notationSide: inferDegreeNotationSide(parsed),
-      absoluteFifthSteps,
+      degree: row.degree,
+      source: row.explicitSourceLabel ? "note_names" : "derived",
+      renderedLabel: row.renderedKeyLabel,
+      pitchClassLabel: row.pitchClassLabel,
+      parsed: row.parsed,
+      notationRole: row.notationRole,
+      notationSide: row.notationSide,
+      absoluteFifthSteps: row.absoluteFifthSteps,
       relativeFifthSteps,
     };
   });
@@ -240,7 +255,7 @@ export function buildHejiNotationFrame({
     hejiNames,
     hejiNamesKeys,
     degreeMetadata,
-    dReferenceDegree: dReference?.degree ?? null,
+    dReferenceDegree,
     dReferenceMonzo: colorReferenceMonzo,
     dReferenceAbsoluteFifthSteps: colorReferenceAbsoluteFifthSteps,
     colorMonzoOffset: colorReferenceMonzo,

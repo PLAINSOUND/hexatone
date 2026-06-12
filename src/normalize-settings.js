@@ -11,6 +11,46 @@ import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/worksp
 export { deriveHejiAnchor, deriveHejiAnchorFromNoteNames } from "./notation/heji-normalization.js";
 import { deriveAutoNoteColors } from "./settings/scale/auto-colors.js";
 
+const AUTO_COLOR_CACHE_LIMIT = 8;
+const autoColorNormalizationCache = new Map();
+
+function buildAutoColorCacheKey(settings) {
+  return JSON.stringify({
+    scale: settings.scale ?? [],
+    note_names: settings.note_names ?? [],
+    note_colors: settings.note_colors ?? [],
+    key_labels: settings.key_labels ?? "",
+    reference_degree: settings.reference_degree ?? 0,
+    fundamental: settings.fundamental ?? 0,
+    name: settings.name ?? "",
+    short_description: settings.short_description ?? "",
+    heji_anchor_ratio: settings.heji_anchor_ratio ?? "",
+    heji_anchor_label: settings.heji_anchor_label ?? "",
+    heji_tempered_only: settings.heji_tempered_only === true,
+    heji_show_cents: settings.heji_show_cents !== false,
+    heji_names: settings.heji_names ?? [],
+    heji_names_table: settings.heji_names_table ?? [],
+    prime_family_colors: settings.prime_family_colors ?? [],
+    auto_colors: settings.auto_colors === true,
+    spectrum_colors: settings.spectrum_colors === true,
+    fundamental_color: settings.fundamental_color ?? "",
+    equivSteps: settings.equivSteps ?? 0,
+  });
+}
+
+function getCachedAutoNormalizedColors(settings, compute) {
+  const cacheKey = buildAutoColorCacheKey(settings);
+  const cached = autoColorNormalizationCache.get(cacheKey);
+  if (cached) return cached;
+  const result = compute();
+  autoColorNormalizationCache.set(cacheKey, result);
+  if (autoColorNormalizationCache.size > AUTO_COLOR_CACHE_LIMIT) {
+    const oldestKey = autoColorNormalizationCache.keys().next().value;
+    autoColorNormalizationCache.delete(oldestKey);
+  }
+  return result;
+}
+
 export function deriveSpectrumNoteColors(settings, fundamentalColor) {
   const count = settings.equivSteps || settings.scale?.length || 0;
   if (!count) return [];
@@ -34,10 +74,11 @@ export const normalizeColors = (settings) => {
   const autoOverridesSpectrum = settings.auto_colors === true;
   const effectiveSpectrum = autoOverridesSpectrum ? false : settings.spectrum_colors;
   const sourceNoteColors = settings.auto_colors
-    ? deriveAutoNoteColors(settings, {
+    ? getCachedAutoNormalizedColors(settings, () => deriveAutoNoteColors(settings, {
       heji_names: settings.heji_names,
       heji_names_table: settings.heji_names_table,
-    })
+      hejiFrame: settings.heji_frame,
+    }))
     : (effectiveSpectrum ? deriveSpectrumNoteColors(settings, fundamental_color) : (settings.note_colors || []));
   const note_colors = sourceNoteColors.map((c) => (c ? c.replace(/#/, "") : "ffffff"));
 
