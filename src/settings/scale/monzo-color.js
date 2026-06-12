@@ -1124,6 +1124,18 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
       weight *= 1.9;
       maxWeight = 0.42;
     }
+    if (dominant.prime === 13 && entry.prime === 5) {
+      if (entry.exponent < 0) {
+        lowerColor = mixHex(QUINTAL_DIATONIC_COLORS["-1"], "#c9a573", 0.52);
+      } else if (dominant.exponent < 0) {
+        lowerColor = mixHex("#ffcba8", QUINTAL_DIATONIC_COLORS[1], 0.6);
+      } else {
+        lowerColor = mixHex(QUINTAL_DIATONIC_COLORS[1], "#fef5be", 0.38);
+      }
+      if (dominant.exponent > 0 && entry.exponent < 0) weight *= 2.45;
+      if (dominant.exponent < 0 && entry.exponent > 0) weight *= 2.65;
+      maxWeight = 0.72;
+    }
     color = mixHex(color, lowerColor, Math.min(maxWeight, weight));
   });
 

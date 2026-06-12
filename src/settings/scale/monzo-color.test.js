@@ -439,6 +439,34 @@ describe("monzoToSuggestedColor", () => {
     expect(fiveOverUnderSeven.g).toBeGreaterThanOrEqual(pureUnderSeven.g - 8);
   });
 
+  it("lets the 5-component separate opposite-sign 13/5 mixtures more clearly", () => {
+    const underThirteen = hexToChannels(
+      monzoToSuggestedColor([0, 0, 0, 0, 0, -1], undefined, {
+        structuralOverlay: "none",
+      }).screenHex,
+    );
+    const overThirteen = hexToChannels(
+      monzoToSuggestedColor([0, 0, 0, 0, 0, 1], undefined, {
+        structuralOverlay: "none",
+      }).screenHex,
+    );
+    const fiveOverUnderThirteen = hexToChannels(
+      monzoToSuggestedColor([0, 0, 1, 0, 0, -1], undefined, {
+        structuralOverlay: "none",
+      }).screenHex,
+    );
+    const underFiveOverThirteen = hexToChannels(
+      monzoToSuggestedColor([0, 0, -1, 0, 0, 1], undefined, {
+        structuralOverlay: "none",
+      }).screenHex,
+    );
+
+    expect(fiveOverUnderThirteen.r).toBeGreaterThanOrEqual(underThirteen.r);
+    expect(fiveOverUnderThirteen.b).toBeLessThan(underThirteen.b);
+    expect(underFiveOverThirteen.g).toBeLessThan(overThirteen.g);
+    expect(Math.abs(fiveOverUnderThirteen.b - underFiveOverThirteen.b)).toBeGreaterThanOrEqual(12);
+  });
+
   it("makes undertonal 11-family notes noticeably darker than overtonal 11-family notes", () => {
     const over = monzoToSuggestedColor([0, 0, 0, 0, 1], undefined, {
       structuralOverlay: "none",
