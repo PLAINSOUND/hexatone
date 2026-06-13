@@ -99,15 +99,15 @@ const KeyLabels = (props) => {
             </p>
           )}
           <div class="heji-anchor-fieldset-actions">
-          <button
-            type="button"
-            class="preset-action-btn"
-           
-            disabled={hejiDisabled || !props.heji_names?.length}
-            onClick={copyHejiToNoteNames}
-          >
-            Copy HEJI to Note Names
-          </button></div>
+            <button
+              type="button"
+              class="preset-action-btn"
+
+              disabled={hejiDisabled || !props.heji_names?.length}
+              onClick={copyHejiToNoteNames}
+            >
+              Copy HEJI to Note Names
+            </button></div>
           <label>
             Ratio/Cents from 1/1 (scale degree 0)
             <input
@@ -208,6 +208,28 @@ const KeyLabels = (props) => {
               </label>
               <label class="heji-palette-builder__output-row">
                 <span>Output</span>
+                <div class="heji-palette-builder__output-actions">
+                  <button
+                    type="button"
+                    class="preset-action-btn"
+                    disabled={!paletteText}
+                    onClick={handleCopyPalette}
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                  <button
+                    type="button"
+                    class="preset-action-btn"
+                    disabled={!paletteText}
+                    onClick={() => {
+                      setPaletteStructure(clearPitchStructure());
+                      setCopied(false);
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+
                 <input
                   type="text"
                   class="sidebar-input heji-palette-builder__output"
@@ -216,27 +238,7 @@ const KeyLabels = (props) => {
                   aria-label="HEJI palette output"
                 />
               </label>
-              <div class="heji-palette-builder__actions">
-                <button
-                  type="button"
-                  class="preset-action-btn"
-                  disabled={!paletteText}
-                  onClick={handleCopyPalette}
-                >
-                  {copied ? "Copied" : "Copy"}
-                </button>
-                <button
-                  type="button"
-                  class="preset-action-btn"
-                  disabled={!paletteText}
-                  onClick={() => {
-                    setPaletteStructure(clearPitchStructure());
-                    setCopied(false);
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
+
               <div class="heji-palette-builder__group-row">
                 <div class="heji-palette-builder__group-label">Note</div>
                 <div class="heji-palette-builder__symbols" role="group" aria-label="HEJI letters">

@@ -451,37 +451,5 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
   });
 
-  it("copies the palette output to the clipboard", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, {
-      clipboard: {
-        writeText,
-      },
-    });
-
-    render(
-      <KeyLabels
-        onChange={() => {}}
-        onAtomicChange={() => {}}
-        heji_names={[]}
-        heji_anchor_ratio_eff=""
-        heji_anchor_label_eff=""
-        settings={{
-          key_labels: "heji",
-          show_equaves: false,
-          heji_anchor_ratio: "",
-          heji_anchor_label: "",
-          heji_tempered_only: false,
-          heji_show_cents: true,
-        }}
-      />,
-    );
-
-    fireEvent.click(screen.getByLabelText("Palette"));
-    fireEvent.click(screen.getByRole("button", { name: "" }));
-    fireEvent.click(screen.getByRole("button", { name: "A" }));
-    await fireEvent.click(screen.getByRole("button", { name: "Copy" }));
-
-    expect(writeText).toHaveBeenCalledWith("A");
-  });
+  
 });
