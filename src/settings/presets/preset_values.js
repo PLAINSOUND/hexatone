@@ -4259,7 +4259,7 @@ export const presets = [
         "rSteps": 17,
         "drSteps": 8,
         "hexSize": 42,
-        "rotation": -46,
+        "rotation": -20,
         "fundamental": 440,
         "reference_degree": 31,
         "center_degree": 0,
@@ -4342,7 +4342,9 @@ export const presets = [
         "drSteps": 1,
         "hexSize": 42,
         "rotation": -16.102113751,
-        "center_degree": 0
+        "center_degree": 0,
+        "lumatone_anchor_channel": 3,
+        "lumatone_anchor_note": 27,
       },
       {
         "name": "31-(7-Limit) Fokker",

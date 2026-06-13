@@ -137,6 +137,7 @@ const Colors = (props) => {
   ]);
   const [savedPrimePalettes, setSavedPrimePalettes] = useState(loadPrimeFamilyPalettes);
   const [selectedPrimePalette, setSelectedPrimePalette] = useState("default");
+  const [primePaletteResetVersion, setPrimePaletteResetVersion] = useState(0);
 
   const safe = normaliseHex(rawSettings.fundamental_color || "#ffdbe8") || "#ffdbe8";
   const selectedPaletteEntry = useMemo(
@@ -384,6 +385,7 @@ const Colors = (props) => {
   const handleResetPrimePalette = () => {
     props.onChange("prime_family_colors", defaultPrimePalette());
     setSelectedPrimePalette("default");
+    setPrimePaletteResetVersion((version) => version + 1);
   };
 
   const handleCommitAutoColors = () => {
@@ -442,7 +444,10 @@ const Colors = (props) => {
             </div>
             <div class="auto-prime-colors-grid">
               {PRIME_COLOR_ORDER.map((prime, index) => (
-                <label class="auto-prime-colors-grid__item" key={`prime-family-color-${prime}`}>
+                <label
+                  class="auto-prime-colors-grid__item"
+                  key={`prime-family-color-${prime}-${primePaletteResetVersion}`}
+                >
                   <span class="auto-prime-colors-grid__label">{prime === 1 ? "1°" : `${prime}°`}</span>
                   <ColorCell
                     name={`prime-family-colour-${prime}`}

@@ -214,10 +214,10 @@ const ColorCell = ({
           type="button"
           class="color-cell-btn color-cell-btn--save"
           onClick={commitDraft}
-          title="Commit current colour"
+          title={comparing ? "Keep original colour" : "Commit current colour"}
           aria-label={`save colour for ${name}`}
         >
-          ✓
+          {comparing ? "x" : "✓"}
         </button>
       )}
       {showSuggestion && (
