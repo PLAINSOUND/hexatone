@@ -86,11 +86,20 @@ function normalizePitchClassCents(cents) {
   return Math.abs(normalized - 1200) < 1e-9 ? 0 : normalized;
 }
 
-function deriveAbstractDReference(referenceFrame) {
-  if (!referenceFrame?.globalOffsetMonzo) return null;
+function deriveAbstractDReference({ pitchFrame = null, referenceFrame = null } = {}) {
   const naturalD = parseHejiToStructure("D");
   if (!naturalD) return null;
   const absoluteMonzo = pitchStructureToMonzo(naturalD);
+  if (pitchFrame) {
+    const resolvedPitch = resolveStructurePitch(pitchFrame, naturalD);
+    if (Array.isArray(resolvedPitch?.degreeRelativeInterval?.monzo)) {
+      return {
+        absoluteMonzo,
+        ratioMonzo: resolvedPitch.degreeRelativeInterval.monzo,
+      };
+    }
+  }
+  if (!referenceFrame?.globalOffsetMonzo) return null;
   return {
     absoluteMonzo,
     ratioMonzo: addMonzos(absoluteMonzo, referenceFrame.globalOffsetMonzo),
@@ -171,7 +180,9 @@ export function buildHejiNotationFrame({
   const anchorLabel = resolvedAnchor.anchorLabel;
   const anchorRatioText = resolvedAnchor.anchorRatioText;
   const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });
-  const anchorCents = scalaToCents(String(anchorRatioText));
+  const anchorCents = Number.isFinite(pitchFrame?.degree0ToNotationZeroInterval?.cents)
+    ? pitchFrame.degree0ToNotationZeroInterval.cents
+    : scalaToCents(String(anchorRatioText));
 
   const rows = degreeTexts.map((text, degree) => {
     const degreeCents = scaleCents[degree] ?? 0;
@@ -220,7 +231,7 @@ export function buildHejiNotationFrame({
   const hejiNamesKeys = rows.map((row) => row.renderedKeyLabel);
   const hasExplicitHejiNoteNames = rows.some((row) => row.explicitSourceLabel);
   const abstractDReference = hasExplicitHejiNoteNames
-    ? deriveAbstractDReference(frame)
+    ? deriveAbstractDReference({ pitchFrame, referenceFrame: frame })
     : null;
 
   const dCandidates = rows

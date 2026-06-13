@@ -98,6 +98,16 @@ const KeyLabels = (props) => {
               {props.heji_warning || "Non-octave equave cannot generate consistent note names."}
             </p>
           )}
+          <div class="heji-anchor-fieldset-actions">
+          <button
+            type="button"
+            class="preset-action-btn"
+           
+            disabled={hejiDisabled || !props.heji_names?.length}
+            onClick={copyHejiToNoteNames}
+          >
+            Copy HEJI to Note Names
+          </button></div>
           <label>
             Ratio/Cents from 1/1 (scale degree 0)
             <input
@@ -339,15 +349,6 @@ const KeyLabels = (props) => {
               ))}
             </div>
           )}
-          <button
-            type="button"
-            class="preset-action-btn"
-            style={{ marginTop: "0.5em", whiteSpace: "nowrap" }}
-            disabled={hejiDisabled || !props.heji_names?.length}
-            onClick={copyHejiToNoteNames}
-          >
-            Copy HEJI to Note Names
-          </button>
         </fieldset>
       }
     </>

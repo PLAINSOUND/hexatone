@@ -2202,6 +2202,15 @@ input.equiv-cell:disabled,
   margin-top: 0.75em;
 }
 
+.heji-anchor-fieldset-actions {
+  display: flex;
+  justify-content: right;
+  align-items: right;
+  gap: 0.5em;
+  margin-top: 0.15em;
+  margin-bottom: 0.75em;
+}
+
 .heji-palette-builder {
   margin-top: 0.5em;
   display: flex;
