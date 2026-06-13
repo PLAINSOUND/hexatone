@@ -47,7 +47,7 @@ export function createPitchStructure(overrides = {}) {
     accidentalCount: overrides.accidentalCount ?? 0,
     syntonic: overrides.syntonic ?? 0,
     primeExponents: normalizedPrimeExponents(overrides.primeExponents),
-    cautionaryNatural: overrides.cautionaryNatural ?? true,
+    cautionaryNatural: overrides.cautionaryNatural ?? false,
     useDoubles: overrides.useDoubles ?? true,
     useDoubleSeptimals: overrides.useDoubleSeptimals ?? true,
   };
