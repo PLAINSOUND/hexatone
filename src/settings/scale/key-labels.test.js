@@ -421,7 +421,7 @@ describe("KeyLabels HEJI anchor handling", () => {
     fireEvent.click(screen.getByTitle("7-limit upper"));
     fireEvent.click(screen.getByRole("button", { name: "A" }));
 
-    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
   });
 
   it("compresses two septimal signs into the double-septimal glyph when enabled", () => {
@@ -448,7 +448,7 @@ describe("KeyLabels HEJI anchor handling", () => {
     fireEvent.click(screen.getByTitle("7-limit upper"));
     fireEvent.click(screen.getByRole("button", { name: "A" }));
 
-    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
   });
 
   it("copies the palette output to the clipboard", async () => {

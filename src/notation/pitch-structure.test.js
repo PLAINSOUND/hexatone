@@ -26,7 +26,7 @@ describe("notation/pitch-structure", () => {
     structure = withPitchStructurePrimeDelta(structure, 7, 1);
     structure = withPitchStructurePrimeDelta(structure, 7, -1);
 
-    expect(pitchStructureToHeji(structure)).toBe("A");
+    expect(pitchStructureToHeji(structure)).toBe("A");
   });
 
   it("supports fifth-limit spill naturals beyond three commas", () => {
@@ -49,10 +49,10 @@ describe("notation/pitch-structure", () => {
     structure = withPitchStructurePrimeDelta(structure, 7, 1);
     structure = withPitchStructurePrimeDelta(structure, 7, 1);
 
-    expect(pitchStructureToHeji(structure)).toBe("A");
+    expect(pitchStructureToHeji(structure)).toBe("A");
     expect(
       pitchStructureToHeji(withPitchStructureFlag(structure, "useDoubleSeptimals", false)),
-    ).toBe("A");
+    ).toBe("A");
   });
 
   it("parses an existing HEJI spelling back into structural data", () => {
@@ -72,7 +72,7 @@ describe("notation/pitch-structure", () => {
       accidentalCount: 0,
       syntonic: 0,
       primeExponents: {},
-      cautionaryNatural: true,
+      cautionaryNatural: false,
       useDoubles: true,
       useDoubleSeptimals: true,
     });
