@@ -314,6 +314,154 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
   });
 
+  it("shows a separate 12edo accidental row in the palette", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+
+    expect(screen.getByLabelText("12edo accidentals")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("auto-calculates and displays cents for exact HEJI palette input", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    const deviation = screen.getByLabelText("HEJI palette cents deviation");
+    expect(deviation.value).toBe("+0");
+    expect(deviation).toHaveProperty("readOnly", true);
+  });
+
+  it("updates the auto cents field when higher-prime HEJI input changes", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    const deviation = screen.getByLabelText("HEJI palette cents deviation");
+    expect(deviation.value).toBe("+0");
+
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+    expect(deviation.value).not.toBe("+0");
+  });
+
+  it("appends a typed cents deviation and copies the combined palette string", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: {
+        writeText,
+      },
+    });
+
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "+" }));
+    fireEvent.input(screen.getByLabelText("HEJI palette cents deviation"), {
+      target: { value: "+17" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    await fireEvent.click(screen.getByText("Copy"));
+
+    expect(writeText).toHaveBeenCalledWith("A+17");
+  });
+
+  it("auto-prefixes + when typing a bare number into the editable tempered cents field", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    const deviation = screen.getByLabelText("HEJI palette cents deviation");
+    fireEvent.input(deviation, { target: { value: "17" } });
+
+    expect(deviation.value).toBe("+17");
+  });
+
   it("consolidates repeated sharps into a double-sharp when the checkbox is on", () => {
     render(
       <KeyLabels
@@ -482,6 +630,6 @@ describe("KeyLabels HEJI anchor handling", () => {
     fireEvent.click(screen.getByRole("button", { name: "A" }));
     await fireEvent.click(screen.getByText("Copy"));
 
-    expect(writeText).toHaveBeenCalledWith("A");
+    expect(writeText).toHaveBeenCalledWith("A+14");
   });
 });

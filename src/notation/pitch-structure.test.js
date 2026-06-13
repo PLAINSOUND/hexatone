@@ -8,6 +8,7 @@ import {
   withPitchStructureLetter,
   withPitchStructurePrimeDelta,
   withPitchStructureSyntonicDelta,
+  withPitchStructureTemperedAccidentalCount,
 } from "./pitch-structure.js";
 
 describe("notation/pitch-structure", () => {
@@ -66,6 +67,19 @@ describe("notation/pitch-structure", () => {
     });
   });
 
+  it("renders tempered chromatic accidentals when that mode is selected", () => {
+    let structure = createPitchStructure({ letter: "A" });
+    structure = withPitchStructureTemperedAccidentalCount(structure, 1);
+
+    expect(pitchStructureToHeji(structure)).toBe("A");
+    expect(parseHejiToStructure("A")).toMatchObject({
+      letter: "A",
+      accidentalCount: 1,
+      syntonic: 0,
+      useTemperedAccidentals: true,
+    });
+  });
+
   it("resets cleanly to the default empty structure", () => {
     expect(clearPitchStructure()).toEqual({
       letter: "",
@@ -75,6 +89,7 @@ describe("notation/pitch-structure", () => {
       cautionaryNatural: false,
       useDoubles: true,
       useDoubleSeptimals: true,
+      useTemperedAccidentals: false,
     });
   });
 });

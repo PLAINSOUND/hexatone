@@ -2242,18 +2242,30 @@ input.equiv-cell:disabled,
 }
 
 .heji-palette-builder__output {
-  flex: 0 1 50%;
-  width: 50%;
+  flex: 0 1 42%;
+  width: 42%;
   min-width: 0;
   margin-left: auto;
+  font-family: inherit;
+}
+
+.heji-palette-builder__deviation {
+  flex: 0 0 4.2em;
+  width: 4.2em;
+  min-width: 0;
   font-family: inherit;
 }
 
 .heji-palette-builder__output-actions {
   margin-left: 0.65em;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.4em;
+}
+
+.heji-palette-builder__output-actions .preset-action-btn {
+  min-width: 4.5em;
+  text-align: center;
 }
 
 .heji-palette-builder__actions,
@@ -2281,11 +2293,15 @@ input.equiv-cell:disabled,
 }
 
 .heji-palette-builder__group-chunk + .heji-palette-builder__group-chunk {
-  margin-left: 1em;
+  margin-left: 0.6em;
+}
+
+.heji-palette-builder__group-chunk--after-symbols {
+  margin-left: 0.6em;
 }
 
 .heji-palette-builder__group-row > .heji-palette-builder__group-label + .heji-palette-builder__symbols + .heji-palette-builder__group-label {
-  margin-left: 1em;
+  margin-left: 0.6em;
 }
 
 .heji-palette-builder__symbols {

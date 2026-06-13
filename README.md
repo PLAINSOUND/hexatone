@@ -14,7 +14,7 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.3-alpha (June 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release: 3.1.0. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Current version 3.3-alpha (June 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release on `main`: 3.2.3. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
 
 ## Current State
 
@@ -22,13 +22,17 @@ Hexatone 3.3-alpha is a live microtonal keyboard and scale workspace featuring:
 
 - isomorphic hexagonal layout
 - rational / just intonation with automatic HEJI notation
+- HEJI spelling controls with editable anchor ratio / notation in relation to scale
+- a HEJI entry palette for building and copying exact spellings up to 47-limit
 - built-in tunings, Scala import/export, and user presets
+- user sequence save / load / export support
 - scale editing, including note names and colours
 - live retuning of scale degrees and reference frequency
 - rationalisation and modulation
 - MPE-aware MIDI input with automatic mapping of 2D controller geometries
 - MIDI Output (MTS and MPE)
 - snapshots for comparing chords and tunings
+- a Sequencer tab for editing snapshots into cue-based event sequences with bars
 
 PLAINSOUND HEXATONE can be used entirely in the browser:
 
@@ -38,6 +42,7 @@ PLAINSOUND HEXATONE can be used entirely in the browser:
 - retuning and scale editing using drag and drop
 - scale rationalisation to user chosen parameters
 - snapshots
+- cue-by-cue sequence editing and playback
 
 Hexatone also supports:
 
@@ -63,6 +68,56 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 ## Version history
 
 ### 3.3-alpha *(currently in development)*
+
+**Sequencer**
+
+- added a dedicated Sequencer tab for editing captured snapshots as event-based sequences
+- snapshot rows can now be expanded into editable event rows with per-event:
+  - position
+  - on / off triggers
+  - MIDIcents
+  - Hz
+  - on-velocity
+  - off-velocity
+  - pressure
+  - timbre
+- generated `CUE` structure now follows event positions within and across snapshots
+- added `BAR` support, including:
+  - manual bar creation at explicit positions
+  - automatic bar creation before snapshots
+  - inline bars inside snapshots when the bar position is not at an exact snapshot boundary
+- added `PLAY FROM BAR / SNAPSHOT / CUE` navigation and per-cue play / stop controls
+- added `Legato` cue playback mode for sustaining repeated pitches across cues
+- added user sequence save / load / export support with name and description fields
+- added option-drag snapshot duplication and expanded drag / reorder support
+
+**HEJI notation and pitch model**
+
+- HEJI spelling controls are now always exposed in the scale settings workflow
+- added a HEJI entry palette up to 47-limit for building and copying exact spellings
+- typed HEJI input in the scale table now resolves through a central pitch model and prefers exact ratio matches where possible
+- introduced shared `PitchStructure` and `pitch_frame` groundwork to unify:
+  - spelling
+  - monzo structure
+  - ratios
+  - cents
+  - frequency
+- HEJI anchor derivation, typed HEJI resolution, and notation-centred colour logic are now more tightly aligned
+
+**Auto-colours and JI workflow**
+
+- substantial rework of HEJI-aware auto-colour generation
+- improved D-centred interpretation of chromatic / diatonic 5-limit and 7-limit chains
+- preserved stable mixed-prime colours across changing `3` exponents
+- added non-octave-equave handling that bypasses chromatic darkening where that distinction is not musically meaningful
+- expanded user-editable prime-family palette workflow
+
+**Performance and reactivity**
+
+- reduced repeated HEJI parsing by reusing shared notation frame data in more paths
+- improved preset refresh behavior so keyboard canvas redraw stays in sync with refreshed label / colour settings
+
+### 3.2.3 *(current mainline feature set)*
 
 **Live performance architecture**
 

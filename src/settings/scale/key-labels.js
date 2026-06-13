@@ -2,10 +2,12 @@ import { useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { normaliseHejiAnchorRatio } from "./parse-scale.js";
 import { canonicalHejiAnchorLabelInput } from "../../notation/heji-normalization.js";
-import { BASE_SYMBOLS, HEJI_FAMILIES } from "../../notation/heji.js";
+import { BASE_BY_ID, BASE_SYMBOLS, HEJI_FAMILIES } from "../../notation/heji.js";
 import {
   clearPitchStructure,
   createPitchStructure,
+  parseHejiToStructure,
+  pitchStructureToBaseId,
   pitchStructureToHeji,
   withPitchStructureAccidentalCount,
   withPitchStructureAccidentalDelta,
@@ -13,7 +15,9 @@ import {
   withPitchStructureLetter,
   withPitchStructurePrimeDelta,
   withPitchStructureSyntonicDelta,
+  withPitchStructureTemperedAccidentalCount,
 } from "../../notation/pitch-structure.js";
+import { buildPitchFrame, resolveStructurePitch } from "../../notation/pitch-frame.js";
 
 const HEJI_PALETTE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 const HEJI_BASE_SYMBOLS_BY_ID = Object.fromEntries(BASE_SYMBOLS.map((symbol) => [symbol.id, symbol]));
@@ -29,6 +33,62 @@ const HEJI_3_LIMIT_GLYPHS = {
   sharp: HEJI_BASE_SYMBOLS_BY_ID[makeBaseId("sharp", 0)]?.glyph ?? "#",
 };
 
+const TEMPERED_12EDO_GLYPHS = {
+  flat: "",
+  natural: "",
+  sharp: "",
+};
+
+const LETTER_TO_SEMITONE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const CHROMATIC_TO_SEMITONE_DELTA = { doubleflat: -2, flat: -1, natural: 0, sharp: 1, doublesharp: 2 };
+
+function chromaticSemitone(letter, chromatic) {
+  const base = LETTER_TO_SEMITONE[letter?.toUpperCase?.()] ?? 9;
+  const delta = CHROMATIC_TO_SEMITONE_DELTA[chromatic] ?? 0;
+  return ((base + delta) % 12 + 12) % 12;
+}
+
+function derivePaletteAutoDeviation(structure, anchorLabel, anchorRatio) {
+  if (!structure?.letter || !anchorLabel) return "";
+
+  const anchorStructure = parseHejiToStructure(anchorLabel);
+  if (!anchorStructure?.letter) return "";
+
+  const pitchFrame = buildPitchFrame({
+    heji_anchor_label: anchorLabel,
+    heji_anchor_ratio: anchorRatio || "1/1",
+    reference_degree: 0,
+    fundamental: 440,
+  }, null);
+  const resolved = resolveStructurePitch(pitchFrame, structure);
+  const centsFromAnchor = resolved?.notationRelativeInterval?.cents;
+  if (!Number.isFinite(centsFromAnchor)) return "";
+
+  const targetChromatic = BASE_BY_ID[pitchStructureToBaseId(structure)]?.chromatic ?? "natural";
+  const anchorChromatic = BASE_BY_ID[pitchStructureToBaseId(anchorStructure)]?.chromatic ?? "natural";
+  const pc = ((centsFromAnchor % 1200) + 1200) % 1200;
+  const expected =
+    ((chromaticSemitone(structure.letter, targetChromatic) - chromaticSemitone(anchorStructure.letter, anchorChromatic)) * 100 % 1200 + 1200) % 1200;
+  const raw = Math.round(pc - expected);
+  const deviation = ((raw + 600) % 1200 + 1200) % 1200 - 600;
+  if (deviation === 0) return "+0";
+  return deviation > 0 ? `+${deviation}` : `−${Math.abs(deviation)}`;
+}
+
+function normalizeEditableDeviationInput(nextValue, currentValue = "") {
+  const source = String(nextValue ?? "").replace(/\s+/g, "");
+  if (!source) return "";
+  const rest = source.replace(/^[+\u2212-]+/, "");
+  if (!rest) {
+    if (source.startsWith("−") || source.startsWith("-")) return "−";
+    if (source.startsWith("+")) return "+";
+    return String(currentValue ?? "").startsWith("−") ? "−" : "+";
+  }
+  if (source.startsWith("−") || source.startsWith("-")) return `−${rest}`;
+  if (source.startsWith("+")) return `+${rest}`;
+  return String(currentValue ?? "").startsWith("−") ? `−${rest}` : `+${rest}`;
+}
+
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
   const hejiDisabled = props.heji_supported === false;
@@ -36,8 +96,16 @@ const KeyLabels = (props) => {
   const showEquaves = props.settings.show_equaves || props.settings.key_labels === "equaves";
   const [showPalette, setShowPalette] = useState(false);
   const [paletteStructure, setPaletteStructure] = useState(() => createPitchStructure());
+  const [paletteDeviation, setPaletteDeviation] = useState("");
   const [copied, setCopied] = useState(false);
+  const effectiveAnchorLabel = props.settings.heji_anchor_label || props.heji_anchor_label_eff || "A";
+  const effectiveAnchorRatio = props.settings.heji_anchor_ratio || props.heji_anchor_ratio_eff || "1/1";
   const paletteText = useMemo(() => pitchStructureToHeji(paletteStructure), [paletteStructure]);
+  const paletteDeviationDisplay = useMemo(() => {
+    if (paletteStructure.useTemperedAccidentals) return paletteDeviation;
+    return derivePaletteAutoDeviation(paletteStructure, effectiveAnchorLabel, effectiveAnchorRatio);
+  }, [effectiveAnchorLabel, effectiveAnchorRatio, paletteDeviation, paletteStructure]);
+  const combinedPaletteText = `${paletteText}${paletteDeviationDisplay}`.trim();
 
   const copyHejiToNoteNames = () => {
     if (!props.heji_names?.length) return;
@@ -48,15 +116,23 @@ const KeyLabels = (props) => {
   };
 
   const handleCopyPalette = async () => {
-    if (!paletteText) return;
+    if (!combinedPaletteText) return;
     try {
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(paletteText);
+        await navigator.clipboard.writeText(combinedPaletteText);
         setCopied(true);
       }
     } catch {
       setCopied(false);
     }
+  };
+
+  const setDeviationSign = (sign) => {
+    setPaletteDeviation((current) => {
+      const rest = String(current ?? "").replace(/^[+\u2212-]+/, "");
+      return `${sign}${rest}`;
+    });
+    setCopied(false);
   };
 
   return (
@@ -212,7 +288,7 @@ const KeyLabels = (props) => {
                   <button
                     type="button"
                     class="preset-action-btn"
-                    disabled={!paletteText}
+                    disabled={!combinedPaletteText}
                     onClick={handleCopyPalette}
                   >
                     {copied ? "Copied" : "Copy"}
@@ -220,9 +296,10 @@ const KeyLabels = (props) => {
                   <button
                     type="button"
                     class="preset-action-btn"
-                    disabled={!paletteText}
+                    disabled={!combinedPaletteText}
                     onClick={() => {
                       setPaletteStructure(clearPitchStructure());
+                      setPaletteDeviation("");
                       setCopied(false);
                     }}
                   >
@@ -236,6 +313,27 @@ const KeyLabels = (props) => {
                   value={paletteText}
                   readOnly
                   aria-label="HEJI palette output"
+                />
+                <input
+                  type="text"
+                  class="sidebar-input heji-palette-builder__deviation"
+                  value={paletteDeviationDisplay}
+                  placeholder="+0"
+                  aria-label="HEJI palette cents deviation"
+                  readOnly={!paletteStructure.useTemperedAccidentals}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  onInput={(e) => {
+                    if (!paletteStructure.useTemperedAccidentals) return;
+                    setPaletteDeviation(normalizeEditableDeviationInput(e.target.value, paletteDeviation));
+                    setCopied(false);
+                  }}
+                  onBlur={(e) => {
+                    if (!paletteStructure.useTemperedAccidentals) return;
+                    setPaletteDeviation(normalizeEditableDeviationInput(e.target.value, paletteDeviation));
+                    setCopied(false);
+                  }}
                 />
               </label>
 
@@ -255,6 +353,60 @@ const KeyLabels = (props) => {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div class="heji-palette-builder__group-row">
+                <div class="heji-palette-builder__group-label">12edo</div>
+                <div class="heji-palette-builder__symbols" role="group" aria-label="12edo accidentals">
+                  <button
+                    type="button"
+                    class="preset-action-btn heji-palette-builder__symbol-btn"
+                    onClick={() => {
+                      setPaletteStructure((current) => withPitchStructureTemperedAccidentalCount(current, -1));
+                      setCopied(false);
+                    }}
+                  >
+                    {TEMPERED_12EDO_GLYPHS.flat}
+                  </button>
+                  <button
+                    type="button"
+                    class="preset-action-btn heji-palette-builder__symbol-btn"
+                    onClick={() => {
+                      setPaletteStructure((current) => withPitchStructureTemperedAccidentalCount(current, 0));
+                      setCopied(false);
+                    }}
+                  >
+                    {TEMPERED_12EDO_GLYPHS.natural}
+                  </button>
+                  <button
+                    type="button"
+                    class="preset-action-btn heji-palette-builder__symbol-btn"
+                    onClick={() => {
+                      setPaletteStructure((current) => withPitchStructureTemperedAccidentalCount(current, 1));
+                      setCopied(false);
+                    }}
+                  >
+                    {TEMPERED_12EDO_GLYPHS.sharp}
+                  </button>
+                </div>
+                <span class="heji-palette-builder__group-chunk heji-palette-builder__group-chunk--after-symbols">
+                  <div class="heji-palette-builder__group-label">cents</div>
+                  <div class="heji-palette-builder__symbols" role="group" aria-label="cents sign">
+                    <button
+                      type="button"
+                      class="preset-action-btn heji-palette-builder__symbol-btn"
+                      onClick={() => setDeviationSign("+")}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      class="preset-action-btn heji-palette-builder__symbol-btn"
+                      onClick={() => setDeviationSign("−")}
+                    >
+                      −
+                    </button>
+                  </div>
+                </span>
               </div>
               <div class="heji-palette-builder__group-row">
                 <div class="heji-palette-builder__group-label">3-Lim</div>

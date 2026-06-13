@@ -7,6 +7,7 @@ import {
   parseHejiPitchClassLabel,
   PRIME_COUNT,
 } from "./heji.js";
+import { monzoToCents, monzosEqual } from "xen-dev-utils";
 
 const BASE_ID_BY_CHROMATIC_AND_SYNTONIC = Object.fromEntries(
   BASE_SYMBOLS.map((symbol) => [[symbol.chromatic, symbol.syntonic].join(":"), symbol.id]),
@@ -33,6 +34,14 @@ function zeroMonzo() {
   return new Array(PRIME_COUNT).fill(0);
 }
 
+function subtractMonzo(left, right) {
+  return left.map((value, index) => value - (right[index] ?? 0));
+}
+
+function normalizeSignedCents(value) {
+  return ((value + 600) % 1200 + 1200) % 1200 - 600;
+}
+
 function normalizedPrimeExponents(primeExponents = {}) {
   return Object.fromEntries(
     Object.entries(primeExponents)
@@ -50,6 +59,7 @@ export function createPitchStructure(overrides = {}) {
     cautionaryNatural: overrides.cautionaryNatural ?? false,
     useDoubles: overrides.useDoubles ?? true,
     useDoubleSeptimals: overrides.useDoubleSeptimals ?? true,
+    useTemperedAccidentals: overrides.useTemperedAccidentals ?? false,
   };
 }
 
@@ -84,6 +94,28 @@ export function pitchStructureToMonzo(structure, octave = 4) {
   });
 }
 
+export function pitchStructureToAutoDeviation(structure, options = {}) {
+  const { forceZero = false } = options;
+  if (!structure?.letter) return "";
+
+  const baseStructure = createPitchStructure({
+    letter: structure.letter,
+    accidentalCount: structure.accidentalCount ?? 0,
+    syntonic: 0,
+    primeExponents: {},
+    cautionaryNatural: structure.cautionaryNatural ?? false,
+    useDoubles: structure.useDoubles ?? true,
+    useDoubleSeptimals: structure.useDoubleSeptimals ?? true,
+  });
+  const targetMonzo = pitchStructureToMonzo(structure);
+  const baseMonzo = pitchStructureToMonzo(baseStructure);
+  if (monzosEqual(targetMonzo, baseMonzo)) return forceZero ? "+0" : "";
+
+  const cents = normalizeSignedCents(Math.round(monzoToCents(subtractMonzo(targetMonzo, baseMonzo))));
+  if (cents === 0) return forceZero ? "+0" : "";
+  return cents > 0 ? `+${cents}` : `−${Math.abs(cents)}`;
+}
+
 function buildBaseGlyph(structure) {
   const accidentalCount = structure.accidentalCount ?? 0;
   const syntonic = structure.syntonic ?? 0;
@@ -93,6 +125,15 @@ function buildBaseGlyph(structure) {
     ? (BASE_BY_ID[makeBaseId("natural", syntonic < 0 ? -1 : 1)]?.glyph ?? "").repeat(spillCount)
     : "";
   const hasHigherPrimeInflection = Object.values(normalizedPrimeExponents(structure.primeExponents)).some(Boolean);
+  const useTemperedAccidentals = structure.useTemperedAccidentals === true;
+
+  if (useTemperedAccidentals && syntonic === 0) {
+    const temperedGlyph =
+      accidentalCount < 0 ? "" :
+      accidentalCount > 0 ? "" :
+      "";
+    return temperedGlyph;
+  }
 
   if (accidentalCount === 0) {
     if (syntonic === 0 && !structure.cautionaryNatural && hasHigherPrimeInflection) return "";
@@ -146,17 +187,28 @@ export function withPitchStructureAccidentalDelta(structure, delta) {
   return createPitchStructure({
     ...structure,
     accidentalCount: (structure.accidentalCount ?? 0) + delta,
+    useTemperedAccidentals: false,
   });
 }
 
 export function withPitchStructureAccidentalCount(structure, accidentalCount) {
-  return createPitchStructure({ ...structure, accidentalCount });
+  return createPitchStructure({ ...structure, accidentalCount, useTemperedAccidentals: false });
+}
+
+export function withPitchStructureTemperedAccidentalCount(structure, accidentalCount) {
+  return createPitchStructure({
+    ...structure,
+    accidentalCount,
+    syntonic: 0,
+    useTemperedAccidentals: true,
+  });
 }
 
 export function withPitchStructureSyntonicDelta(structure, delta) {
   return createPitchStructure({
     ...structure,
     syntonic: (structure.syntonic ?? 0) + delta,
+    useTemperedAccidentals: false,
   });
 }
 
@@ -167,6 +219,7 @@ export function withPitchStructurePrimeDelta(structure, prime, delta) {
       ...structure.primeExponents,
       [prime]: (structure.primeExponents?.[prime] ?? 0) + delta,
     },
+    useTemperedAccidentals: false,
   });
 }
 
@@ -196,5 +249,6 @@ export function parseHejiToStructure(text) {
     useDoubles: base.chromatic === "doubleflat" || base.chromatic === "doublesharp",
     useDoubleSeptimals:
       Math.abs(primeExponents[7] ?? 0) >= 2,
+    useTemperedAccidentals: /[\uE2F1\uE2F2\uE2F3]/u.test(String(text ?? "")),
   });
 }
