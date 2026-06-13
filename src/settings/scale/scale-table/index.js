@@ -202,6 +202,7 @@ const ScaleTable = (props) => {
       anchorLabel: props.heji_anchor_label_eff,
       anchorRatioText: props.heji_anchor_ratio_eff,
       workspaceMonzos: (workspace?.slots ?? []).map((slot) => slot?.exactRole?.monzo ?? null),
+      pitchFrame: props.settings.pitch_frame,
     });
     if (!resolved) return;
     scaleCommitAt(degreeIndex - 1, resolved.scaleText, degreeIndex);

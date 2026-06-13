@@ -6,7 +6,8 @@
 import { normaliseHejiAnchorRatio, scalaToLabels } from "./settings/scale/parse-scale.js";
 import keyCodeToCoords from "./keyboard/keycodes";
 import { hex2rgb, rgb2hsv, HSVtoRGB2, rgbToHex } from "./keyboard/color_utils.js";
-import { buildHejiNotationFrame } from "./notation/heji-frame.js";
+import { buildHejiNotationFrame, resolveEffectiveHejiAnchor } from "./notation/heji-frame.js";
+import { buildPitchFrame } from "./notation/pitch-frame.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 export { deriveHejiAnchor, deriveHejiAnchorFromNoteNames } from "./notation/heji-normalization.js";
 import { deriveAutoNoteColors } from "./settings/scale/auto-colors.js";
@@ -131,9 +132,10 @@ export const normalizeStructural = (settings, options = {}) => {
   // This is required for key_labels === 'scala_names' and for cents calculations.
   if (settings.scale) {
     const scaleAsStrings = settings.scale.map((i) => String(i));
+    const workspace = options.workspace ?? createScaleWorkspace(settings);
     const workspaceRuntime =
       options.tuningRuntime ??
-      normalizeWorkspaceForKeys(createScaleWorkspace(settings));
+      normalizeWorkspaceForKeys(workspace);
     const scala_names = scaleAsStrings.map((i) => scalaToLabels(i));
     scala_names.pop();
     scala_names.unshift("1/1");
@@ -143,6 +145,7 @@ export const normalizeStructural = (settings, options = {}) => {
     result["equivSteps"] = workspaceRuntime.equivSteps;
     const hejiSupported = Math.abs((workspaceRuntime.equivInterval ?? 1200) - 1200) < 0.001;
     result["heji_supported"] = hejiSupported;
+    result["pitch_frame"] = null;
 
     // Build HEJI frame and names from the persistent spelling anchor.
     //
@@ -174,7 +177,7 @@ export const normalizeStructural = (settings, options = {}) => {
 
     const degreeTexts = ["1/1", ...scaleAsStrings.slice(0, -1)];
     try {
-      const hejiFrame = buildHejiNotationFrame({
+      const effectiveHejiAnchor = resolveEffectiveHejiAnchor({
         referenceDegree: settings.reference_degree,
         noteNames: settings.note_names,
         degreeTexts,
@@ -182,20 +185,37 @@ export const normalizeStructural = (settings, options = {}) => {
         scaleCents: workspaceRuntime.scale,
         explicitAnchorLabel: settings.heji_anchor_label || "",
         explicitAnchorRatio: normaliseHejiAnchorRatio(settings.heji_anchor_ratio || ""),
+      });
+      const pitchFrame = buildPitchFrame({
+        ...settings,
+        heji_anchor_label: effectiveHejiAnchor.anchorLabel,
+        heji_anchor_ratio: effectiveHejiAnchor.anchorRatioText,
+      }, workspace);
+      const hejiFrame = buildHejiNotationFrame({
+        referenceDegree: settings.reference_degree,
+        noteNames: settings.note_names,
+        degreeTexts,
+        fundamental: settings.fundamental,
+        scaleCents: workspaceRuntime.scale,
+        explicitAnchorLabel: effectiveHejiAnchor.anchorLabel,
+        explicitAnchorRatio: effectiveHejiAnchor.anchorRatioText,
         temperedOnly: settings.heji_tempered_only === true,
         showCents: settings.heji_show_cents !== false,
+        pitchFrame,
       });
       result["heji_anchor_label_effective"] = hejiFrame.anchorLabel;
       result["heji_anchor_ratio_effective"] = hejiFrame.anchorRatioText;
       result["heji_names"] = hejiFrame.hejiNames;
       result["heji_names_keys"] = hejiFrame.hejiNamesKeys;
       result["heji_frame"] = hejiFrame;
+      result["pitch_frame"] = pitchFrame;
     } catch {
       result["heji_anchor_label_effective"] = "";
       result["heji_anchor_ratio_effective"] = "";
       result["heji_names"] = [];
       result["heji_names_keys"] = [];
       result["heji_frame"] = null;
+      result["pitch_frame"] = null;
     }
   }
   return result;

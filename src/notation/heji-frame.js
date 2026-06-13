@@ -1,8 +1,10 @@
 import { Fraction, monzoToCents } from "xen-dev-utils";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
-import { addMonzos, hejiToMonzo, parseHejiPitchClassLabel } from "./heji.js";
+import { addMonzos } from "./heji.js";
 import { canonicalHejiAnchorLabelInput, canonicalHejiLabel, deriveHejiAnchor } from "./heji-normalization.js";
 import { spelledHejiLabel } from "./key-label.js";
+import { parseHejiToStructure, pitchStructureToBaseId, pitchStructureToMonzo } from "./pitch-structure.js";
+import { resolveStructurePitch } from "./pitch-frame.js";
 import { createReferenceFrame } from "./reference-frame.js";
 import { monzoToFractionOnBasis } from "../tuning/interval.js";
 
@@ -13,36 +15,50 @@ function trimRenderedLabelToPitchClass(label) {
   return match?.[1] ?? source;
 }
 
-function inferDegreeNotationRole(parsed) {
-  if (!parsed) return null;
-  const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
-  if ((parsed.extraIds?.length ?? 0) > 0) return "chromatic";
-  if (baseChromatic === "natural") return "diatonic";
-  if (
-    baseChromatic === "flat"
-    || baseChromatic === "sharp"
-    || baseChromatic === "doubleflat"
-    || baseChromatic === "doublesharp"
-  ) {
-    return "chromatic";
-  }
-  return null;
+function inferDegreeNotationRole(structure) {
+  if (!structure) return null;
+  const hasHigherPrimeInflection = Object.values(structure.primeExponents ?? {}).some((value) => value !== 0);
+  if (hasHigherPrimeInflection) return "chromatic";
+  return (structure.accidentalCount ?? 0) === 0 ? "diatonic" : "chromatic";
 }
 
-function inferDegreeNotationSide(parsed) {
-  if (!parsed?.letter) return null;
-  const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
-  if (baseChromatic === "flat" || baseChromatic === "doubleflat") return "flat";
-  if (baseChromatic === "sharp" || baseChromatic === "doublesharp") return "sharp";
-  if (parsed.letter === "D") return "core";
-  if (parsed.letter === "F" || parsed.letter === "C" || parsed.letter === "G") return "flat";
-  if (parsed.letter === "A" || parsed.letter === "E" || parsed.letter === "B") return "sharp";
+function inferDegreeNotationSide(structure) {
+  if (!structure?.letter) return null;
+  if ((structure.accidentalCount ?? 0) < 0) return "flat";
+  if ((structure.accidentalCount ?? 0) > 0) return "sharp";
+  if (structure.letter === "D") return "core";
+  if (structure.letter === "F" || structure.letter === "C" || structure.letter === "G") return "flat";
+  if (structure.letter === "A" || structure.letter === "E" || structure.letter === "B") return "sharp";
   return null;
 }
 
 function normalizedAnchorRatio(anchorRatioText) {
   const raw = String(anchorRatioText ?? "").trim();
   return raw || "1/1";
+}
+
+export function resolveEffectiveHejiAnchor({
+  referenceDegree,
+  noteNames,
+  degreeTexts,
+  fundamental,
+  scaleCents,
+  explicitAnchorLabel,
+  explicitAnchorRatio,
+}) {
+  const derived = deriveHejiAnchor(
+    referenceDegree,
+    noteNames,
+    degreeTexts,
+    fundamental,
+    scaleCents,
+  );
+  const trimmedExplicitAnchorLabel = String(explicitAnchorLabel ?? "").trim();
+  const trimmedExplicitAnchorRatio = String(explicitAnchorRatio ?? "").trim();
+  return {
+    anchorLabel: canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derived.label,
+    anchorRatioText: normalizedAnchorRatio(trimmedExplicitAnchorRatio || derived.ratio),
+  };
 }
 
 function scoreDReferenceCandidate(candidate) {
@@ -72,12 +88,9 @@ function normalizePitchClassCents(cents) {
 
 function deriveAbstractDReference(referenceFrame) {
   if (!referenceFrame?.globalOffsetMonzo) return null;
-  const parsedD = parseHejiPitchClassLabel("D");
-  if (!parsedD) return null;
-  const absoluteMonzo = hejiToMonzo({
-    ...parsedD,
-    octave: referenceFrame.anchorOctave ?? 4,
-  });
+  const naturalD = parseHejiToStructure("D");
+  if (!naturalD) return null;
+  const absoluteMonzo = pitchStructureToMonzo(naturalD);
   return {
     absoluteMonzo,
     ratioMonzo: addMonzos(absoluteMonzo, referenceFrame.globalOffsetMonzo),
@@ -111,15 +124,16 @@ function pitchClassDistance(a, b) {
   return Math.min(delta, 1200 - delta);
 }
 
-function samePitchClass(a, b) {
+function samePitchStructure(a, b) {
   if (!a || !b) return false;
   if (a.letter !== b.letter) return false;
-  if (a.baseId !== b.baseId) return false;
-  if ((a.schismaAmount ?? 0) !== (b.schismaAmount ?? 0)) return false;
-  const extrasA = a.extraIds ?? [];
-  const extrasB = b.extraIds ?? [];
-  if (extrasA.length !== extrasB.length) return false;
-  return extrasA.every((id, index) => id === extrasB[index]);
+  if ((a.accidentalCount ?? 0) !== (b.accidentalCount ?? 0)) return false;
+  if ((a.syntonic ?? 0) !== (b.syntonic ?? 0)) return false;
+  const keys = new Set([
+    ...Object.keys(a.primeExponents ?? {}),
+    ...Object.keys(b.primeExponents ?? {}),
+  ]);
+  return [...keys].every((key) => (a.primeExponents?.[key] ?? 0) === (b.primeExponents?.[key] ?? 0));
 }
 
 function sameMonzo(a, b) {
@@ -138,18 +152,24 @@ export function buildHejiNotationFrame({
   temperedOnly = false,
   showCents = true,
   workspaceMonzos = [],
+  pitchFrame = null,
 }) {
-  const derived = deriveHejiAnchor(
-    referenceDegree,
-    noteNames,
-    degreeTexts,
-    fundamental,
-    scaleCents,
-  );
-  const trimmedExplicitAnchorLabel = String(explicitAnchorLabel ?? "").trim();
-  const trimmedExplicitAnchorRatio = String(explicitAnchorRatio ?? "").trim();
-  const anchorLabel = canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derived.label;
-  const anchorRatioText = normalizedAnchorRatio(trimmedExplicitAnchorRatio || derived.ratio);
+  const resolvedAnchor = pitchFrame
+    ? {
+        anchorLabel: pitchFrame.notationZero?.label ?? "",
+        anchorRatioText: pitchFrame.degree0ToNotationZeroInterval?.ratioText ?? "1/1",
+      }
+    : resolveEffectiveHejiAnchor({
+        referenceDegree,
+        noteNames,
+        degreeTexts,
+        fundamental,
+        scaleCents,
+        explicitAnchorLabel,
+        explicitAnchorRatio,
+      });
+  const anchorLabel = resolvedAnchor.anchorLabel;
+  const anchorRatioText = resolvedAnchor.anchorRatioText;
   const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });
   const anchorCents = scalaToCents(String(anchorRatioText));
 
@@ -167,15 +187,17 @@ export function buildHejiNotationFrame({
       forceShowZeroDeviation: temperedOnly && showCents,
     });
     const explicitSourceLabel = canonicalHejiLabel(noteNames?.[degree] ?? "");
+    const explicitSourceStructure = explicitSourceLabel ? parseHejiToStructure(explicitSourceLabel) : null;
     const renderedPitchClassLabel = trimRenderedLabelToPitchClass(renderedKeyLabel);
+    const renderedStructure = renderedPitchClassLabel ? parseHejiToStructure(renderedPitchClassLabel) : null;
     const pitchClassLabel = explicitSourceLabel ?? renderedPitchClassLabel;
-    const parsed = pitchClassLabel ? parseHejiPitchClassLabel(pitchClassLabel) : null;
+    const structure = explicitSourceStructure ?? renderedStructure;
     const monzo = Array.isArray(workspaceMonzos[degree]) ? workspaceMonzos[degree] : null;
     const absoluteFifthSteps = monzo?.[1] ?? null;
     const nonThreeComplexity = monzo
       ? monzo.reduce((sum, value, index) => (index <= 1 ? sum : sum + Math.abs(value ?? 0)), 0)
       : null;
-    const accidentalWeight = parsed
+    const accidentalWeight = structure
       ? String(pitchClassLabel ?? "").replace(/[A-Ga-g]/g, "").length
       : null;
     return {
@@ -184,13 +206,13 @@ export function buildHejiNotationFrame({
       renderedKeyLabel,
       explicitSourceLabel,
       pitchClassLabel,
-      parsed,
+      parsed: structure,
       monzo,
       absoluteFifthSteps,
       nonThreeComplexity,
       accidentalWeight,
-      notationRole: inferDegreeNotationRole(parsed),
-      notationSide: inferDegreeNotationSide(parsed),
+      notationRole: inferDegreeNotationRole(structure),
+      notationSide: inferDegreeNotationSide(structure),
     };
   });
 
@@ -212,9 +234,9 @@ export function buildHejiNotationFrame({
         nonThreeComplexity: row.nonThreeComplexity ?? 0,
         absoluteFifthSteps: row.absoluteFifthSteps ?? 0,
         isNatural:
-          row.parsed.baseId === "natural:0"
-          && (row.parsed.schismaAmount ?? 0) === 0
-          && (row.parsed.extraIds?.length ?? 0) === 0,
+          pitchStructureToBaseId(row.parsed) === "natural:0"
+          && (row.parsed.syntonic ?? 0) === 0
+          && Object.values(row.parsed.primeExponents ?? {}).every((value) => value === 0),
       };
     })
     .filter(Boolean)
@@ -270,6 +292,7 @@ export function resolveTypedHejiLabel({
   anchorLabel,
   anchorRatioText,
   workspaceMonzos = [],
+  pitchFrame = null,
 }) {
   const source = String(text ?? "").trim();
   if (!source) return null;
@@ -281,13 +304,48 @@ export function resolveTypedHejiLabel({
   const normalizedOffset = usesTemperedAccidental && Number.isFinite(centsOffset) ? centsOffset : 0;
   let computedFallback = null;
   let computedExactFallback = null;
+  const targetStructure = parseHejiToStructure(pitchClassLabel);
 
-  const targetPitchClass = parseHejiPitchClassLabel(pitchClassLabel);
-  if (targetPitchClass && anchorLabel && anchorRatioText) {
+  if (targetStructure && pitchFrame) {
+    try {
+      const resolvedPitch = resolveStructurePitch(pitchFrame, targetStructure);
+      const ratioMonzo = resolvedPitch?.degreeRelativeInterval?.monzo ?? null;
+      const matchIndex = workspaceMonzos.findIndex((candidate) => sameMonzo(candidate, ratioMonzo));
+      if (matchIndex >= 0) {
+        const baseText = degreeTexts[matchIndex] ?? "1/1";
+        if (Math.abs(normalizedOffset) < 1e-9) {
+          return { degree: matchIndex, scaleText: baseText, matchedExactly: true };
+        }
+        const targetCents = (scaleCents[matchIndex] ?? 0) + normalizedOffset;
+        return { degree: matchIndex, scaleText: targetCents.toFixed(6), matchedExactly: false };
+      }
+      if (!usesTemperedAccidental && Math.abs(normalizedOffset) < 1e-9) {
+        const exactScaleText = resolvedPitch?.degreeRelativeInterval?.ratioText;
+        if (exactScaleText) {
+          computedExactFallback = {
+            degree: null,
+            scaleText: exactScaleText,
+            matchedExactly: true,
+          };
+        }
+      }
+      if (Number.isFinite(resolvedPitch?.cents)) {
+        computedFallback = {
+          degree: null,
+          scaleText: (resolvedPitch.cents + normalizedOffset).toFixed(6),
+          matchedExactly: false,
+        };
+      }
+    } catch {
+      // Fall through to older compatibility paths.
+    }
+  }
+
+  if (!computedFallback && !computedExactFallback && targetStructure && anchorLabel && anchorRatioText) {
     try {
       const referenceFrame = createReferenceFrame({ anchorLabel, anchorRatio: anchorRatioText });
       if (referenceFrame.globalOffsetMonzo) {
-        const absoluteMonzo = hejiToMonzo({ ...targetPitchClass, octave: referenceFrame.anchorOctave ?? 4 });
+        const absoluteMonzo = pitchStructureToMonzo(targetStructure);
         const ratioMonzo = addMonzos(absoluteMonzo, referenceFrame.globalOffsetMonzo);
         const matchIndex = workspaceMonzos.findIndex((candidate) => (
           Array.isArray(candidate)
@@ -324,8 +382,8 @@ export function resolveTypedHejiLabel({
   const renderedMatches = [];
   for (let degree = 0; degree < renderedLabels.length; degree += 1) {
     const renderedPitchClassText = canonicalHejiAnchorLabelInput(trimRenderedLabelToPitchClass(renderedLabels[degree]));
-    const renderedPitchClass = renderedPitchClassText ? parseHejiPitchClassLabel(renderedPitchClassText) : null;
-    if (!samePitchClass(renderedPitchClass, targetPitchClass)) continue;
+    const renderedPitchClass = renderedPitchClassText ? parseHejiToStructure(renderedPitchClassText) : null;
+    if (!samePitchStructure(renderedPitchClass, targetStructure)) continue;
     const baseText = degreeTexts[degree] ?? "1/1";
     renderedMatches.push({
       degree,

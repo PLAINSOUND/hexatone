@@ -287,4 +287,201 @@ describe("KeyLabels HEJI anchor handling", () => {
     fireEvent.click(screen.getByLabelText("Tempered Accidentals Only"));
     expect(onChange).toHaveBeenCalledWith("heji_tempered_only", true);
   });
+
+  it("shows a HEJI palette builder and appends glyphs into the palette output", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("consolidates repeated sharps into a double-sharp when the checkbox is on", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("adds extra natural-arrow glyphs for 5-limit steps beyond three", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "up" }));
+    fireEvent.click(screen.getByRole("button", { name: "up" }));
+    fireEvent.click(screen.getByRole("button", { name: "up" }));
+    fireEvent.click(screen.getByRole("button", { name: "up" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("treats higher-prime buttons as signed exponents instead of raw appended glyphs", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+    fireEvent.click(screen.getByTitle("7-limit lower"));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("parses away the cautionary natural for higher-prime inflections when unchecked", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByLabelText("Cautionary Natural"));
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("compresses two septimal signs into the double-septimal glyph when enabled", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("copies the palette output to the clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: {
+        writeText,
+      },
+    });
+
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+    expect(writeText).toHaveBeenCalledWith("A");
+  });
 });

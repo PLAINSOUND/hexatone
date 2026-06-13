@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import { createScaleWorkspace } from "../tuning/workspace.js";
 import { buildHejiNotationFrame, resolveTypedHejiLabel } from "./heji-frame.js";
+import { buildPitchFrame } from "./pitch-frame.js";
 import KeyLabels from "../settings/scale/key-labels.js";
 
 describe("buildHejiNotationFrame", () => {
@@ -288,6 +289,32 @@ describe("resolveTypedHejiLabel", () => {
 
     expect(result).toEqual({
       degree: 2,
+      scaleText: "4/3",
+      matchedExactly: true,
+    });
+  });
+
+  it("resolves typed HEJI through pitch_frame before falling back to rendered labels", () => {
+    const settings = {
+      scale: ["171/128", "43/32", "4/3", "2/1"],
+      reference_degree: 0,
+      fundamental: 440,
+      heji_anchor_label: "\uE261A",
+      heji_anchor_ratio: "1/1",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const pitchFrame = buildPitchFrame(settings, workspace);
+    const result = resolveTypedHejiLabel({
+      text: "*nF",
+      degreeTexts: ["1/1", ...settings.scale],
+      scaleCents: (workspace?.slots ?? []).map((slot) => slot?.cents ?? 0),
+      renderedLabels: ["\uE261A", "\uE261D+3", "\uE261E+33", "\uE261F\u22128", "\uE261A"],
+      workspaceMonzos: (workspace?.slots ?? []).map((slot) => slot?.exactRole?.monzo ?? null),
+      pitchFrame,
+    });
+
+    expect(result).toEqual({
+      degree: 3,
       scaleText: "4/3",
       matchedExactly: true,
     });

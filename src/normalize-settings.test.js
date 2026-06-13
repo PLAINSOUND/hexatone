@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
+import { pitchToDisplayRatio, resolveDegreePitch } from "./notation/pitch-frame.js";
 import {
   deriveAutoTonicColorFromPalette,
   AUTO_TONIC_COLOR_SOFT,
@@ -211,6 +212,26 @@ describe("normalizeStructural", () => {
 
     expect(normalized.scale).toEqual([0, 111, 222]);
     expect(normalized.equivInterval).toBe(999);
+  });
+
+  it("exposes a central pitch_frame alongside the existing HEJI frame", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: ["9/8", "5/4", "3/2", "2/1"],
+      equivSteps: 4,
+      note_names: [],
+      heji_anchor_label: "A",
+      heji_anchor_ratio: "3/2",
+      reference_degree: 3,
+      fundamental: 440,
+    });
+
+    expect(normalized.pitch_frame).toBeTruthy();
+    expect(normalized.pitch_frame.notationZero.label).toBe("A");
+    expect(normalized.pitch_frame.degree0ToNotationZeroInterval.ratioText).toBe("3/2");
+    const degreePitch = resolveDegreePitch(normalized.pitch_frame, 3);
+    expect(pitchToDisplayRatio(degreePitch)).toBe("1/1");
   });
 
   it("derives a tempered A anchor from the computed 440 Hz degree when note_names are non-HEJI", () => {

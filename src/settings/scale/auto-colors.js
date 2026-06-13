@@ -1,6 +1,6 @@
 import { createScaleWorkspace } from "../../tuning/workspace.js";
 import { buildHejiNotationFrame } from "../../notation/heji-frame.js";
-import { parseHejiPitchClassLabel } from "../../notation/heji.js";
+import { parseHejiToStructure } from "../../notation/pitch-structure.js";
 import {
   DEFAULT_PRIME_FAMILY_COLORS,
   getPrimeFamilyColorMap,
@@ -158,27 +158,18 @@ export function extractPitchClassInfo(label) {
 function parseExplicitHejiClassificationLabel(label, { allowImplicitNatural = false } = {}) {
   const source = String(label ?? "").trim();
   if (!source) return null;
-  const match = source.match(/^(.*?)([A-Ga-g])$/);
-  if (!match) return null;
-  const accidentalText = String(match[1] ?? "").trim();
-  if (!accidentalText && !allowImplicitNatural) return null;
-  if (!accidentalText && allowImplicitNatural) {
-    return {
-      letter: String(match[2] ?? "").toUpperCase(),
-      baseId: "natural:0",
-      schismaAmount: 0,
-      extraIds: [],
-    };
-  }
-  return parseHejiPitchClassLabel(source);
+  const parsed = parseHejiToStructure(source);
+  if (parsed) return parsed;
+  const bareLetterMatch = source.match(/^[A-Ga-g]$/);
+  if (!bareLetterMatch || !allowImplicitNatural) return null;
+  return parseHejiToStructure(`*n${source.toUpperCase()}`);
 }
 
 export function inferNotationSide(label, options = {}) {
   const parsed = parseExplicitHejiClassificationLabel(label, options);
   if (parsed?.letter) {
-    const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
-    if (baseChromatic === "flat" || baseChromatic === "doubleflat") return "flat";
-    if (baseChromatic === "sharp" || baseChromatic === "doublesharp") return "sharp";
+    if ((parsed.accidentalCount ?? 0) < 0) return "flat";
+    if ((parsed.accidentalCount ?? 0) > 0) return "sharp";
     if (parsed.letter === "D") return "core";
     if (parsed.letter === "F" || parsed.letter === "C" || parsed.letter === "G") return "flat";
     if (parsed.letter === "A" || parsed.letter === "E" || parsed.letter === "B") return "sharp";
@@ -190,17 +181,10 @@ export function inferNotationSide(label, options = {}) {
 export function inferNotationRole(label, options = {}) {
   const parsed = parseExplicitHejiClassificationLabel(label, options);
   if (!parsed) return null;
-  const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
-  if ((parsed.extraIds?.length ?? 0) > 0) return "chromatic";
-  if (
-    baseChromatic === "flat"
-    || baseChromatic === "sharp"
-    || baseChromatic === "doubleflat"
-    || baseChromatic === "doublesharp"
-  ) {
-    return "chromatic";
-  }
-  if (baseChromatic === "natural") return "diatonic";
+  const hasHigherPrimeInflection = Object.values(parsed.primeExponents ?? {}).some((value) => value !== 0);
+  if (hasHigherPrimeInflection) return "chromatic";
+  if ((parsed.accidentalCount ?? 0) !== 0) return "chromatic";
+  if ((parsed.syntonic ?? 0) === 0) return "diatonic";
   return null;
 }
 
@@ -241,16 +225,10 @@ function getChainThreeExponent(monzo, options = {}) {
 function inferExplicitPrimeChainRole(prime, degreeMetadata, fallbackLabel) {
   const parsed = degreeMetadata?.parsed ?? null;
   if (prime === 7 && parsed) {
-    const baseChromatic = parsed.baseId?.split(":")?.[0] ?? "natural";
-    if (
-      baseChromatic === "flat"
-      || baseChromatic === "sharp"
-      || baseChromatic === "doubleflat"
-      || baseChromatic === "doublesharp"
-    ) {
+    if ((parsed.accidentalCount ?? 0) !== 0) {
       return "chromatic";
     }
-    if (baseChromatic === "natural") {
+    if ((parsed.syntonic ?? 0) === 0) {
       return "diatonic";
     }
   }
@@ -321,20 +299,29 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
   return null;
 }
 
-export function inferCenterMonzoCandidate(workspace, labels = []) {
+export function inferCenterMonzoCandidate(workspace, labels = [], degreeMetadata = null) {
   const candidates = [];
   for (let degree = 0; degree < workspace.slots.length; degree += 1) {
-    const pitchInfo = extractPitchClassInfo(labels[degree]);
-    if (pitchInfo.pitchClass !== "D") continue;
     const monzo = workspace.slots[degree]?.exactRole?.monzo;
     if (!Array.isArray(monzo)) continue;
-    const absoluteFifthSteps = monzo[1] ?? 0;
+    const metadata = degreeMetadata?.[degree] ?? null;
+    const parsed = metadata?.parsed ?? null;
+    const pitchInfo = extractPitchClassInfo(labels[degree]);
+    const isStructuralD = parsed?.letter === "D";
+    const isLabelD = pitchInfo.pitchClass === "D";
+    if (!isStructuralD && !isLabelD) continue;
+    const absoluteFifthSteps = metadata?.absoluteFifthSteps ?? (monzo[1] ?? 0);
     const nonThreeComplexity = monzo.reduce((sum, exp, index) => {
       if (index === 0 || index === 1) return sum;
       return sum + Math.abs(exp ?? 0);
     }, 0);
-    const accidentalWeight = pitchInfo.modifierWeight;
-    const plainnessWeight = accidentalWeight === 0 ? 0 : 1;
+    const accidentalWeight = metadata?.pitchClassLabel
+      ? String(metadata.pitchClassLabel).replace(/[A-Ga-g]/g, "").length
+      : pitchInfo.modifierWeight;
+    const plainnessWeight = parsed
+      ? (((parsed.accidentalCount ?? 0) === 0 && (parsed.syntonic ?? 0) === 0
+        && Object.values(parsed.primeExponents ?? {}).every((value) => value === 0)) ? 0 : 1)
+      : (accidentalWeight === 0 ? 0 : 1);
     const pureThreeWeight = nonThreeComplexity === 0 ? 0 : 1;
     candidates.push({
       monzo,
@@ -547,9 +534,26 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
     Array.isArray(hejiFrame?.hejiNamesKeys) && hejiFrame.hejiNamesKeys.length
       ? hejiFrame.hejiNamesKeys
       : noteRoleLabels;
+  const structuralCenterCandidate = hejiFrame?.degreeMetadata?.length
+    ? inferCenterMonzoCandidate(workspace, effectiveNoteRoleLabels, hejiFrame.degreeMetadata)
+    : null;
+  if (structuralCenterCandidate?.monzo) {
+    const notationCentering = resolvedBase.structuralOverlay === "none"
+      ? {}
+      : pickNotationCenter(explicitHejiCenter, structuralCenterCandidate);
+    return {
+      ...resolvedBase,
+      ...notationCentering,
+      chromaticOverlayPrimes,
+      colorMonzoOffset,
+      primeFamilyColorMap,
+      degreeMetadata: hejiFrame?.degreeMetadata ?? null,
+      noteRoleLabels: effectiveNoteRoleLabels,
+    };
+  }
   for (const labels of centerLabelSources) {
     if (!labels?.length) continue;
-    const centerCandidate = inferCenterMonzoCandidate(workspace, labels);
+    const centerCandidate = inferCenterMonzoCandidate(workspace, labels, hejiFrame?.degreeMetadata ?? null);
     if (centerCandidate?.monzo) {
       const notationCentering = resolvedBase.structuralOverlay === "none"
         ? {}

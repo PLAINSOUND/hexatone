@@ -2202,6 +2202,93 @@ input.equiv-cell:disabled,
   margin-top: 0.75em;
 }
 
+.heji-palette-builder {
+  margin-top: 0.5em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+}
+
+#sidebar .heji-palette-builder__toggle-row,
+#sidebar .heji-palette-builder__output-row {
+  display: flex;
+  align-items: center !important;
+  gap: 0.65em;
+}
+
+#sidebar .heji-palette-builder__toggle-row {
+  margin-top: 0rem;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+
+.heji-palette-builder__output-row > span,
+.heji-palette-builder__group-label {
+  color: #774444;
+  font-size: 0.92em;
+}
+
+.heji-palette-builder__output-row > span {
+  flex: 0 0 auto;
+}
+
+.heji-palette-builder__output {
+  flex: 0 1 50%;
+  width: 50%;
+  min-width: 0;
+  margin-left: auto;
+  font-family: inherit;
+}
+
+.heji-palette-builder__actions,
+.heji-palette-builder__symbols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28em;
+}
+
+.heji-palette-builder__group-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+  flex-wrap: wrap;
+}
+
+.heji-palette-builder__group-label {
+  flex: 0 0 3.3em;
+}
+
+.heji-palette-builder__group-chunk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65em;
+}
+
+.heji-palette-builder__group-chunk + .heji-palette-builder__group-chunk {
+  margin-left: 0.58em;
+}
+
+.heji-palette-builder__group-row > .heji-palette-builder__group-label + .heji-palette-builder__symbols + .heji-palette-builder__group-label {
+  margin-left: 0.58em;
+}
+
+.heji-palette-builder__symbols {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.heji-palette-builder__pair {
+  display: inline-flex;
+  gap: 0.28em;
+}
+
+.heji-palette-builder__symbol-btn {
+  min-width: 2.1em;
+  padding-left: 0.35em;
+  padding-right: 0.35em;
+  text-align: center;
+}
+
 /* Match the HEJI spacing for the Spectrum Colours preference box. */
 .spectrum-colors-fieldset {
   margin-top: 0.75em;
