@@ -233,6 +233,15 @@ const isDirty = (snap, s, modulationLibrary = []) => {
 // localStorage key for the "restore on reload" preference
 const PERSIST_ON_RELOAD_KEY = "hexatone_persist_on_reload";
 
+function schedulePresetRuntimeReset(callback) {
+  if (typeof callback !== "function") return;
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(() => callback());
+    return;
+  }
+  setTimeout(() => callback(), 0);
+}
+
 /**
  * Manages preset state: active preset identity, dirty detection, and all
  * load/revert operations. Persists the active preset selection to sessionStorage
@@ -409,7 +418,6 @@ const usePresets = (
   const onRevertBuiltin = () => {
     onUserInteraction();
     if (activePresetName) {
-      bumpPresetRuntimeReset?.();
       const presetData = findPreset(activePresetName);
       const adjustedPreset = {
         ...presetData,
@@ -422,6 +430,7 @@ const usePresets = (
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
+      schedulePresetRuntimeReset(bumpPresetRuntimeReset);
     }
   };
 
@@ -430,7 +439,6 @@ const usePresets = (
     if (activePresetName) {
       const saved = loadCustomPresets().find((p) => p.name === activePresetName);
       if (saved) {
-        bumpPresetRuntimeReset?.();
         const adjustedPreset = {
           ...saved,
           hexSize: scaleHexSizeForScreen(saved.hexSize),
@@ -442,6 +450,7 @@ const usePresets = (
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
         setSettings(() => merged);
+        schedulePresetRuntimeReset(bumpPresetRuntimeReset);
       }
     }
   };

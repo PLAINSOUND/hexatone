@@ -1,8 +1,29 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { render, waitFor } from "@testing-library/preact";
+import { act } from "preact/test-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "preact/hooks";
 
 vi.mock("./settings/presets/preset_values", () => ({
-  presets: [],
+  presets: [
+    {
+      name: "Tests",
+      settings: [
+        {
+          name: "Preset A",
+          scale: ["100.", "1200."],
+          note_names: ["A", "B"],
+          note_colors: ["#ffffff", "#eeeeee"],
+          key_labels: "note_names",
+          fundamental: 440,
+          reference_degree: 0,
+        },
+      ],
+    },
+  ],
   default_settings: {},
+}));
+vi.mock("./settings/presets/custom-presets", () => ({
+  loadCustomPresets: vi.fn(() => []),
 }));
 
 import {
@@ -10,6 +31,7 @@ import {
   clearScaleSettings,
   mergePresetIntoSettings,
   scaleHexSizeForScreen,
+  default as usePresets,
 } from "./use-presets.js";
 
 describe("scaleHexSizeForScreen", () => {
@@ -310,5 +332,92 @@ describe("clearScaleSettings", () => {
     expect(sessionStorage.getItem("midiin_controller_override")).toBe("auto");
     expect(sessionStorage.getItem("linnstrument_led_sync")).toBe("true");
     expect(sessionStorage.getItem("mts_bulk_device")).toBe("out-1");
+  });
+});
+
+describe("usePresets refresh ordering", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it("applies merged preset settings before scheduling the runtime reset on builtin refresh", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem("hexatone_preset_source", "builtin");
+    sessionStorage.setItem("hexatone_preset_name", "Preset A");
+
+    const order = [];
+    let lastHook = null;
+    let scheduledReset = null;
+    const originalRaf = window.requestAnimationFrame;
+    const raf = vi.fn((callback) => {
+      order.push("raf");
+      scheduledReset = callback;
+      return 1;
+    });
+    window.requestAnimationFrame = raf;
+    globalThis.requestAnimationFrame = raf;
+
+    const setSettings = vi.fn(() => {
+      order.push("setSettings");
+    });
+    const bumpPresetRuntimeReset = vi.fn(() => {
+      order.push("bump");
+    });
+
+    const Harness = () => {
+      const hook = usePresets(
+        {
+          key_labels: "no_labels",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          fundamental: 440,
+          reference_degree: 0,
+        },
+        setSettings,
+        {
+          synthRef: { current: null },
+          onUserInteraction: vi.fn(),
+          bumpImportCount: vi.fn(),
+          bumpPresetRuntimeReset,
+          currentModulationLibrary: [],
+          setPresetModulationLibrary: vi.fn(),
+          onPresetModulationLibraryLoaded: vi.fn(),
+        },
+      );
+
+      useEffect(() => {
+        lastHook = hook;
+      }, [hook]);
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(lastHook?.activePresetName).toBe("Preset A");
+    });
+
+    order.length = 0;
+    setSettings.mockClear();
+
+    await act(async () => {
+      lastHook.onRevertBuiltin();
+    });
+
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["setSettings", "raf"]);
+    expect(bumpPresetRuntimeReset).not.toHaveBeenCalled();
+
+    await act(async () => {
+      scheduledReset?.();
+    });
+
+    expect(bumpPresetRuntimeReset).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["setSettings", "raf", "bump"]);
+
+    window.requestAnimationFrame = originalRaf;
+    globalThis.requestAnimationFrame = originalRaf;
   });
 });
