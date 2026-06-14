@@ -133,11 +133,31 @@ function pitchClassDistance(a, b) {
   return Math.min(delta, 1200 - delta);
 }
 
+const TEMPERED_SEMITONES_FROM_C = {
+  C: 0,
+  D: 2,
+  E: 4,
+  F: 5,
+  G: 7,
+  A: 9,
+  B: 11,
+};
+
+function getTemperedPitchClassCents(structure, anchorStructure) {
+  if (!structure?.letter || !anchorStructure?.letter) return null;
+  const targetSemitones =
+    (TEMPERED_SEMITONES_FROM_C[structure.letter] ?? 0) + (structure.accidentalCount ?? 0);
+  const anchorSemitones =
+    (TEMPERED_SEMITONES_FROM_C[anchorStructure.letter] ?? 0) + (anchorStructure.accidentalCount ?? 0);
+  return normalizePitchClassCents((targetSemitones - anchorSemitones) * 100);
+}
+
 function samePitchStructure(a, b) {
   if (!a || !b) return false;
   if (a.letter !== b.letter) return false;
   if ((a.accidentalCount ?? 0) !== (b.accidentalCount ?? 0)) return false;
   if ((a.syntonic ?? 0) !== (b.syntonic ?? 0)) return false;
+  if ((a.useTemperedAccidentals ?? false) !== (b.useTemperedAccidentals ?? false)) return false;
   const keys = new Set([
     ...Object.keys(a.primeExponents ?? {}),
     ...Object.keys(b.primeExponents ?? {}),
@@ -229,10 +249,7 @@ export function buildHejiNotationFrame({
 
   const hejiNames = rows.map((row) => row.renderedLabel);
   const hejiNamesKeys = rows.map((row) => row.renderedKeyLabel);
-  const hasExplicitHejiNoteNames = rows.some((row) => row.explicitSourceLabel);
-  const abstractDReference = hasExplicitHejiNoteNames
-    ? deriveAbstractDReference({ pitchFrame, referenceFrame: frame })
-    : null;
+  const abstractDReference = deriveAbstractDReference({ pitchFrame, referenceFrame: frame });
 
   const dCandidates = rows
     .map((row) => {
@@ -316,6 +333,20 @@ export function resolveTypedHejiLabel({
   let computedFallback = null;
   let computedExactFallback = null;
   const targetStructure = parseHejiToStructure(pitchClassLabel);
+  const anchorStructure = pitchFrame?.notationZero?.structure
+    ?? parseHejiToStructure(anchorLabel || "A")
+    ?? parseHejiToStructure("A");
+
+  if (usesTemperedAccidental && targetStructure) {
+    const temperedTargetCents = getTemperedPitchClassCents(targetStructure, anchorStructure);
+    if (Number.isFinite(temperedTargetCents)) {
+      return {
+        degree: null,
+        scaleText: (temperedTargetCents + normalizedOffset).toFixed(6),
+        matchedExactly: false,
+      };
+    }
+  }
 
   if (targetStructure && pitchFrame) {
     try {

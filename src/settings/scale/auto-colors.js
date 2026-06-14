@@ -1,6 +1,6 @@
 import { createScaleWorkspace } from "../../tuning/workspace.js";
 import { buildHejiNotationFrame } from "../../notation/heji-frame.js";
-import { parseHejiToStructure } from "../../notation/pitch-structure.js";
+import { parseHejiToStructure, pitchStructureToMonzo } from "../../notation/pitch-structure.js";
 import {
   DEFAULT_PRIME_FAMILY_COLORS,
   getPrimeFamilyColorMap,
@@ -11,6 +11,9 @@ import { srgb_to_okhsl } from "./okhsl.js";
 export const AUTO_TONIC_COLOR_SOFT = "#ffdbdb";
 export const AUTO_TONIC_COLOR_STRONG = "#ff7a7a";
 export const AUTO_TONIC_COLOR_ROSE_HEAVY = "#ffa3a3";
+const TEMPERED_DIATONIC_AUTO_COLOR = "#ededf7";
+const TEMPERED_CHROMATIC_AUTO_COLOR = "#c3c3d5";
+const TEMPERED_TONIC_AUTO_COLOR = "#ff9d9d";
 
 export function normaliseColorForCompare(raw) {
   return String(raw ?? "")
@@ -186,6 +189,27 @@ export function inferNotationRole(label, options = {}) {
   if ((parsed.accidentalCount ?? 0) !== 0) return "chromatic";
   if ((parsed.syntonic ?? 0) === 0) return "diatonic";
   return null;
+}
+
+function inferTemperedAutoColor(label) {
+  const source = String(label ?? "").trim();
+  if (!source) return null;
+  const normalized = source.replace(/\s+/g, "");
+  if (/[+\-\u2212]\d/.test(normalized)) return null;
+  if (!/[\uE2F1\uE2F2\uE2F3]/u.test(normalized)) return null;
+  if (/[\uE260-\uE2F0]/u.test(normalized.replace(/[\uE2F1\uE2F2\uE2F3]/gu, ""))) return null;
+  if (/[\uE2F1\uE2F3]/u.test(normalized)) return TEMPERED_CHROMATIC_AUTO_COLOR;
+  if (/[\uE2F2]/u.test(normalized)) return TEMPERED_DIATONIC_AUTO_COLOR;
+  return null;
+}
+
+function inferTemperedAutoColorFromStructure(structure) {
+  if (!structure?.useTemperedAccidentals) return null;
+  if ((structure.syntonic ?? 0) !== 0) return null;
+  if (Object.values(structure.primeExponents ?? {}).some((value) => value !== 0)) return null;
+  return (structure.accidentalCount ?? 0) === 0
+    ? TEMPERED_DIATONIC_AUTO_COLOR
+    : TEMPERED_CHROMATIC_AUTO_COLOR;
 }
 
 function isPurePrimeLimitMonzo(monzo, basis, targetPrime) {
@@ -609,16 +633,34 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     if (degreeIndex === 0) return null;
     const interval = slot?.committedIdentity;
     const fallbackColor = storedColors[degreeIndex] ?? "#ffffff";
-    if (!Array.isArray(interval?.monzo)) return fallbackColor;
     const label = (useHeji ? hejiNames[degreeIndex] : noteNames[degreeIndex]) ?? "";
     const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
-    return monzoToSuggestedColor(interval.monzo, undefined, {
+    const temperedAutoColor =
+      inferTemperedAutoColor(label)
+      ?? inferTemperedAutoColorFromStructure(degreeMetadata?.parsed);
+    if (temperedAutoColor) return temperedAutoColor;
+    const syntheticMonzo = (
+      !Array.isArray(interval?.monzo)
+      && degreeMetadata?.parsed
+      && Object.values(degreeMetadata.parsed.primeExponents ?? {}).every((value) => value === 0)
+    ) ? pitchStructureToMonzo(degreeMetadata.parsed) : null;
+    const analysisMonzo = interval?.monzo ?? syntheticMonzo;
+    if (!Array.isArray(analysisMonzo)) return fallbackColor;
+    return monzoToSuggestedColor(analysisMonzo, undefined, {
       ...autoColorOptions,
       notationSide: degreeMetadata?.notationSide ?? inferNotationSide(label),
       notationRole: degreeMetadata?.notationRole ?? inferNotationRole(label),
       chainRole: inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
     })?.screenHex ?? fallbackColor;
   });
-  derivedColors[0] = deriveAutoTonicColorFromPaletteWithPrime(derivedColors.slice(1), primeFamilyColorMap[1]);
+  const nonTonicColors = derivedColors.slice(1).filter(Boolean);
+  const isPureTemperedPalette = nonTonicColors.length > 0
+    && nonTonicColors.every((color) => (
+      color === TEMPERED_DIATONIC_AUTO_COLOR || color === TEMPERED_CHROMATIC_AUTO_COLOR
+    ))
+    && nonTonicColors.includes(TEMPERED_CHROMATIC_AUTO_COLOR);
+  derivedColors[0] = isPureTemperedPalette
+    ? TEMPERED_TONIC_AUTO_COLOR
+    : deriveAutoTonicColorFromPaletteWithPrime(nonTonicColors, primeFamilyColorMap[1]);
   return derivedColors;
 }

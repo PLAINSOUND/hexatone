@@ -68,10 +68,11 @@ export const SETTINGS_REGISTRY = [
   { key: "equivSteps", tier: "url", type: "int", default: 1, presetSkip: true },
   { key: "reference_degree", tier: "url", type: "int", default: 0, presetSkip: true },
   { key: "fundamental", tier: "url", type: "float", default: 440, presetSkip: true },
-  { key: "spectrum_colors", tier: "url", type: "bool", default: true, presetSkip: true },
+  { key: "spectrum_colors", tier: "url", type: "bool", default: false, presetSkip: true },
+  { key: "auto_colors", tier: "url", type: "bool", default: true, presetSkip: true },
   { key: "fundamental_color", tier: "url", type: "string", default: "#ffdbe8", presetSkip: true },
   { key: "prime_family_colors", tier: "url", type: "joined", default: null, presetSkip: true },
-  { key: "key_labels", tier: "url", type: "string", default: "no_labels", presetSkip: true },
+  { key: "key_labels", tier: "url", type: "string", default: "heji", presetSkip: true },
   { key: "show_equaves", tier: "url", type: "bool", default: false, presetSkip: true },
   // HEJI notation anchor: defines the rational offset for the entire spelling.
   // heji_anchor_ratio — the ratio (Scala format, e.g. "3/2" or "702.0") of the

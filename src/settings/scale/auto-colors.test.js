@@ -217,6 +217,25 @@ describe("inferChromaticOverlayPrimes", () => {
 });
 
 describe("buildResolvedAutoColorOptions", () => {
+  it("keeps the default A-anchored D center when plain note names do not explicitly name D", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: ["A", "C"],
+      scale: ["9/8", "2/1"],
+      reference_degree: 0,
+      fundamental: 440,
+      heji_anchor_label: "A",
+      heji_anchor_ratio: "1/1",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const autoColorOptions = buildResolvedAutoColorOptions(settings, workspace, {
+      keyLabels: settings.key_labels,
+      noteNames: settings.note_names,
+    });
+
+    expect(autoColorOptions.centerAbsoluteFifthSteps).toBe(-1);
+  });
+
   it("does not re-center harmonic-series and odd-partial color analysis around an inferred D", () => {
     const workspace = {
       slots: [
@@ -287,6 +306,77 @@ describe("buildResolvedAutoColorOptions", () => {
 
     expect(workspace.baseScale.equaveCents).not.toBeCloseTo(1200, 3);
     expect(resolved.structuralOverlay).toBe("none");
+  });
+});
+
+describe("deriveAutoNoteColors", () => {
+  it("colors zero-deviation tempered chromatics like the 12edo preset even when the row is cents-only", () => {
+    const settings = {
+      key_labels: "heji",
+      note_names: ["A", "B"],
+      scale: ["100.000000", "2/1"],
+      reference_degree: 0,
+      fundamental: 440,
+      heji_anchor_label: "A",
+      heji_anchor_ratio: "1/1",
+      auto_colors: true,
+    };
+    const workspace = createScaleWorkspace(settings);
+
+    expect(deriveAutoNoteColors(settings, { workspace })[1]).toBe("#c3c3d5");
+  });
+
+  it("matches the built-in 12edo tempered auto-colour palette for note-name labels", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "C",
+        "C D",
+        "D",
+        "D E",
+        "E",
+        "F",
+        "F G",
+        "G",
+        "G A",
+        "A",
+        "A B",
+        "B",
+      ],
+      scale: [
+        "100.000000",
+        "200.000000",
+        "300.000000",
+        "400.000000",
+        "500.000000",
+        "600.000000",
+        "700.000000",
+        "800.000000",
+        "900.000000",
+        "1000.000000",
+        "1100.000000",
+        "2/1",
+      ],
+      reference_degree: 9,
+      fundamental: 440,
+      auto_colors: true,
+    };
+    const workspace = createScaleWorkspace(settings);
+
+    expect(deriveAutoNoteColors(settings, { workspace })).toEqual([
+      "#ff9d9d",
+      "#c3c3d5",
+      "#ededf7",
+      "#c3c3d5",
+      "#ededf7",
+      "#ededf7",
+      "#c3c3d5",
+      "#ededf7",
+      "#c3c3d5",
+      "#ededf7",
+      "#c3c3d5",
+      "#ededf7",
+    ]);
   });
 });
 

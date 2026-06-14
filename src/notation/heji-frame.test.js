@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import { createScaleWorkspace } from "../tuning/workspace.js";
 import { buildHejiNotationFrame, resolveTypedHejiLabel } from "./heji-frame.js";
-import { buildPitchFrame } from "./pitch-frame.js";
+import { buildPitchFrame, resolveStructurePitch } from "./pitch-frame.js";
+import { parseHejiToStructure } from "./pitch-structure.js";
 import KeyLabels from "../settings/scale/key-labels.js";
 
 describe("buildHejiNotationFrame", () => {
@@ -130,6 +131,34 @@ describe("buildHejiNotationFrame", () => {
     expect(frame.dReferenceAbsoluteFifthSteps).toBe(-1);
   });
 
+  it("still derives abstract D from the anchor frame when note names are plain letters", () => {
+    const settings = {
+      scale: ["9/8", "2/1"],
+      note_names: ["A", "C"],
+      reference_degree: 0,
+      fundamental: 440,
+      heji_anchor_label: "A",
+      heji_anchor_ratio: "1/1",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const pitchFrame = buildPitchFrame(settings, workspace);
+    const expectedResolved = resolveStructurePitch(pitchFrame, parseHejiToStructure("D"));
+    const frame = buildHejiNotationFrame({
+      referenceDegree: settings.reference_degree,
+      noteNames: settings.note_names,
+      degreeTexts: ["1/1", ...settings.scale],
+      fundamental: settings.fundamental,
+      scaleCents: (workspace?.slots ?? []).map((slot) => slot?.cents ?? 0),
+      explicitAnchorLabel: settings.heji_anchor_label,
+      explicitAnchorRatio: settings.heji_anchor_ratio,
+      workspaceMonzos: (workspace?.slots ?? []).map((slot) => slot?.exactRole?.monzo ?? null),
+      pitchFrame,
+    });
+
+    expect(frame.anchorLabel).toBe("A");
+    expect(frame.dReferenceMonzo).toEqual(expectedResolved.degreeRelativeInterval.monzo);
+  });
+
   it("emits structural degree metadata for HEJI-based role and side classification", () => {
     const settings = {
       scale: ["9/8", "5/4", "4/3", "45/32", "2/1"],
@@ -172,17 +201,19 @@ describe("resolveTypedHejiLabel", () => {
     });
   });
 
-  it("falls back to cents when a typed tempered label includes a deviation", () => {
+  it("uses a tempered pitch-class target when a typed tempered label includes a deviation", () => {
     const result = resolveTypedHejiLabel({
       text: "\uE2F2D+5",
       degreeTexts: ["1/1", "9/8", "5/4", "2/1"],
       scaleCents: [0, 203.91, 386.31, 1200],
       renderedLabels: ["\uE261C", "\uE261D", "\uE261E", "\uE261C"],
+      anchorLabel: "\uE2F2C",
+      anchorRatioText: "1/1",
     });
 
     expect(result).toEqual({
-      degree: 1,
-      scaleText: "208.910000",
+      degree: null,
+      scaleText: "205.000000",
       matchedExactly: false,
     });
   });
@@ -202,7 +233,7 @@ describe("resolveTypedHejiLabel", () => {
     });
   });
 
-  it("computes a cents target from the notation frame when tempered input has no exact scale match", () => {
+  it("computes a tempered cents target from the notation frame when tempered input has no exact scale match", () => {
     const result = resolveTypedHejiLabel({
       text: "\uE2F2F",
       degreeTexts: ["1/1", "517.517706", "4/3", "2/1"],
@@ -220,7 +251,24 @@ describe("resolveTypedHejiLabel", () => {
 
     expect(result).toEqual({
       degree: null,
-      scaleText: "498.044999",
+      scaleText: "500.000000",
+      matchedExactly: false,
+    });
+  });
+
+  it("treats a tempered accidental with zero deviation as a tempered pitch target, not an exact pythagorean row", () => {
+    const result = resolveTypedHejiLabel({
+      text: "\uE2F1B",
+      degreeTexts: ["1/1", "16/15", "2/1"],
+      scaleCents: [0, 111.731285, 1200],
+      renderedLabels: ["\uE261A", "\uE260B", "\uE261A"],
+      anchorLabel: "\uE2F2A",
+      anchorRatioText: "1/1",
+    });
+
+    expect(result).toEqual({
+      degree: null,
+      scaleText: "100.000000",
       matchedExactly: false,
     });
   });
@@ -243,6 +291,23 @@ describe("resolveTypedHejiLabel", () => {
     expect(result).toEqual({
       degree: null,
       scaleText: "4/3",
+      matchedExactly: true,
+    });
+  });
+
+  it("does not let an exact HEJI natural reuse a tempered rendered-label row", () => {
+    const result = resolveTypedHejiLabel({
+      text: "\uE261B",
+      degreeTexts: ["1/1", "200.000000", "2/1"],
+      scaleCents: [0, 200, 1200],
+      renderedLabels: ["\uE2F2A", "\uE2F2B", "\uE2F2A"],
+      anchorLabel: "\uE2F2A",
+      anchorRatioText: "1/1",
+    });
+
+    expect(result).toEqual({
+      degree: null,
+      scaleText: "9/8",
       matchedExactly: true,
     });
   });

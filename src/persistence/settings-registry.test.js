@@ -10,6 +10,7 @@ import {
   SESSION_KEYS,
   RUNTIME_KEYS,
   PRESET_SKIP_KEYS,
+  buildRegistryDefaults,
 } from "./settings-registry.js";
 
 import {
@@ -98,6 +99,16 @@ describe("REGISTRY_BY_KEY", () => {
 
   it("has the same number of entries as SETTINGS_REGISTRY", () => {
     expect(Object.keys(REGISTRY_BY_KEY).length).toBe(SETTINGS_REGISTRY.length);
+  });
+});
+
+describe("buildRegistryDefaults", () => {
+  it("starts blank Hexatone with auto colours and HEJI key labels", () => {
+    const defaults = buildRegistryDefaults();
+
+    expect(defaults.auto_colors).toBe(true);
+    expect(defaults.spectrum_colors).toBe(false);
+    expect(defaults.key_labels).toBe("heji");
   });
 });
 
