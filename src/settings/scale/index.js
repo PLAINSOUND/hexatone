@@ -250,14 +250,22 @@ const Scale = (props) => {
         </div>
       ) : (
         <>
-          <button
-            type="button"
-            class="preset-action-btn"
-            onClick={startImporting}
-            style={{ marginTop: "0.5rem" }}
-          >
-            Edit Scala File
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+            <button
+              type="button"
+              class="preset-action-btn"
+              onClick={() => props.onChange("equivSteps", effectiveEquivSteps + 1)}
+            >
+              Add Scale Degree
+            </button>
+            <button
+              type="button"
+              class="preset-action-btn"
+              onClick={startImporting}
+            >
+              Edit Scala File
+            </button>
+          </div>
         </>
       )}
     </fieldset>

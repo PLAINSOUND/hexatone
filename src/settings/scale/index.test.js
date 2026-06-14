@@ -73,6 +73,15 @@ describe("Scale panel — default state", () => {
     expect(screen.getByRole("button", { name: /edit scala file/i })).not.toBeNull();
   });
 
+  it('renders the "Add Scale Degree" button and increments scale size on click', () => {
+    const onChange = vi.fn();
+    render(<Scale settings={minimalSettings} onChange={onChange} onImport={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /add scale degree/i }));
+
+    expect(onChange).toHaveBeenCalledWith("equivSteps", 13);
+  });
+
   it("does not show the scala import textarea initially", () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     expect(document.querySelector("textarea")).toBeNull();

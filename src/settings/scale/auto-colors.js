@@ -212,6 +212,12 @@ function inferTemperedAutoColorFromStructure(structure) {
     : TEMPERED_CHROMATIC_AUTO_COLOR;
 }
 
+function hasExplicitHejiOrTemperedSpelling(label) {
+  const source = String(label ?? "").trim();
+  if (!source) return false;
+  return /[\uE260-\uE2FF\uEE50-\uEE59]|\*[nfs]|^(?:n|b|#|bb|##)[A-Ga-g]$|^[A-Ga-g](?:n|b|#|bb|##)$/.test(source);
+}
+
 function isPurePrimeLimitMonzo(monzo, basis, targetPrime) {
   if (!Array.isArray(monzo) || !Array.isArray(basis)) return false;
   const targetIndex = basis.indexOf(targetPrime);
@@ -642,6 +648,7 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     const syntheticMonzo = (
       !Array.isArray(interval?.monzo)
       && degreeMetadata?.parsed
+      && hasExplicitHejiOrTemperedSpelling(label)
       && Object.values(degreeMetadata.parsed.primeExponents ?? {}).every((value) => value === 0)
     ) ? pitchStructureToMonzo(degreeMetadata.parsed) : null;
     const analysisMonzo = interval?.monzo ?? syntheticMonzo;
