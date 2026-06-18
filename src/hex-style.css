@@ -164,7 +164,7 @@ a:hover {
     height: 100%;
     width: 100%;
     box-sizing: border-box;
-    padding: 4em 1em 0;
+    padding: 0 1em 0;
   }
 
   #sidebar-button {
