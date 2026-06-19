@@ -1017,6 +1017,7 @@ a:hover {
   #modulation-palette {
     min-width: 10.5rem;
     max-width: min(78vw, 16rem);
+    transform: translateY(1.5rem);
     gap: 4px;
     padding: 6px 8px;
     border-radius: 12px;
