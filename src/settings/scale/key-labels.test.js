@@ -520,6 +520,38 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(screen.getByLabelText("Spelling Frequency").value).toBe("440.0");
   });
 
+  it("shows 440.0 as the spelling frequency when the reference degree is already spelled A", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="890.322581"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: Array.from({ length: 31 }, (_, index) =>
+            index === 30 ? "2/1" : `${(((index + 1) * 1200) / 31).toFixed(6)}`
+          ),
+          note_names: [
+            "c", "c", "c", "d", "d", "d", "d", "d",
+            "e", "e", "e", "e", "e", "f", "f", "f",
+            "g", "g", "g", "g", "g", "a", "a", "a",
+            "a", "a", "b", "b", "b", "b", "b",
+          ],
+          fundamental: 440,
+          reference_degree: 23,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Spelling Frequency").value).toBe("440.0");
+  });
+
   it('places "Scale Data" directly below "Scale Degrees" in the label-mode menu', () => {
     render(
       <KeyLabels

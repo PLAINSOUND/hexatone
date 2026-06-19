@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
-import { normaliseHejiAnchorRatio } from "./parse-scale.js";
+import { normaliseHejiAnchorRatio, scalaToCents } from "./parse-scale.js";
 import { canonicalHejiAnchorLabelInput } from "../../notation/heji-normalization.js";
 import { BASE_BY_ID, BASE_SYMBOLS, HEJI_FAMILIES } from "../../notation/heji.js";
 import {
@@ -46,6 +46,19 @@ function chromaticSemitone(letter, chromatic) {
   const base = LETTER_TO_SEMITONE[letter?.toUpperCase?.()] ?? 9;
   const delta = CHROMATIC_TO_SEMITONE_DELTA[chromatic] ?? 0;
   return ((base + delta) % 12 + 12) % 12;
+}
+
+function samePitchStructure(a, b) {
+  if (!a || !b) return false;
+  if (a.letter !== b.letter) return false;
+  if ((a.accidentalCount ?? 0) !== (b.accidentalCount ?? 0)) return false;
+  if ((a.syntonic ?? 0) !== (b.syntonic ?? 0)) return false;
+  if ((a.useTemperedAccidentals ?? false) !== (b.useTemperedAccidentals ?? false)) return false;
+  const keys = new Set([
+    ...Object.keys(a.primeExponents ?? {}),
+    ...Object.keys(b.primeExponents ?? {}),
+  ]);
+  return [...keys].every((key) => (a.primeExponents?.[key] ?? 0) === (b.primeExponents?.[key] ?? 0));
 }
 
 function derivePaletteAutoDeviationCents(structure, anchorLabel, anchorRatio) {
@@ -168,6 +181,21 @@ const KeyLabels = (props) => {
     if (!Number.isFinite(referenceFrequency)) return null;
     if (!Number.isFinite(referenceOffsetCents)) {
       const normalizedAnchorRatio = normaliseHejiAnchorRatio(effectiveAnchorRatio) || "1/1";
+      const anchorCents = scalaToCents(normalizedAnchorRatio);
+      const referenceDegree = props.settings.reference_degree ?? 0;
+      const referenceDegreeText =
+        referenceDegree === 0
+          ? "1/1"
+          : String(props.settings.scale?.[referenceDegree - 1] ?? "");
+      const referenceDegreeCents = scalaToCents(referenceDegreeText);
+      if (Number.isFinite(anchorCents) && Number.isFinite(referenceDegreeCents)) {
+        return referenceFrequency / Math.pow(2, (referenceDegreeCents - anchorCents) / 1200);
+      }
+      const anchorStructure = parseHejiToStructure(effectiveAnchorLabel);
+      const referenceStructure = parseHejiToStructure(props.settings.note_names?.[referenceDegree] ?? "");
+      if (samePitchStructure(anchorStructure, referenceStructure)) {
+        return referenceFrequency;
+      }
       if ((props.settings.reference_degree ?? 0) === 0 && normalizedAnchorRatio === "1/1") {
         return referenceFrequency;
       }
@@ -176,8 +204,11 @@ const KeyLabels = (props) => {
     return referenceFrequency / Math.pow(2, referenceOffsetCents / 1200);
   }, [
     effectivePitchFrame,
+    effectiveAnchorLabel,
     props.settings.fundamental,
+    props.settings.note_names,
     props.settings.reference_degree,
+    props.settings.scale,
     effectiveAnchorRatio,
   ]);
   const effectiveAnchorFrequency = useMemo(
