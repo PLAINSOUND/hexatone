@@ -339,7 +339,7 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "B");
   });
 
-  it("shows an auto-derived spelling frequency placeholder", () => {
+  it("shows an auto-derived spelling frequency value", () => {
     render(
       <KeyLabels
         onChange={() => {}}
@@ -362,7 +362,36 @@ describe("KeyLabels HEJI anchor handling", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Spelling Frequency").placeholder).toBe("293.3");
+    expect(screen.getByLabelText("Spelling Frequency").value).toBe("293.3");
+  });
+
+  it("shows full six-decimal spelling frequency while focused", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: ["3/2", "2/1"],
+          reference_degree: 1,
+          fundamental: 440,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_anchor_frequency: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          pitch_frame: pitchFrameFor(),
+        }}
+      />,
+    );
+
+    const input = screen.getByLabelText("Spelling Frequency");
+    expect(input.value).toBe("293.3");
+    fireEvent.focus(input);
+    expect(input.value).toBe("293.333333");
   });
 
   it("commits spelling frequency by retuning the reference frequency", () => {
@@ -390,7 +419,10 @@ describe("KeyLabels HEJI anchor handling", () => {
       />,
     );
 
-    fireEvent.blur(screen.getByLabelText("Spelling Frequency"));
+    const input = screen.getByLabelText("Spelling Frequency");
+    fireEvent.focus(input);
+    fireEvent.input(input, { target: { value: "400" } });
+    fireEvent.blur(input);
     expect(onAtomicChange).toHaveBeenCalledWith({
       heji_anchor_label: "A",
       heji_anchor_ratio: "1/1",
@@ -424,7 +456,10 @@ describe("KeyLabels HEJI anchor handling", () => {
       />,
     );
 
-    fireEvent.blur(screen.getByLabelText("Spelling Frequency"));
+    const input = screen.getByLabelText("Spelling Frequency");
+    fireEvent.focus(input);
+    fireEvent.input(input, { target: { value: "442" } });
+    fireEvent.blur(input);
     expect(onAtomicChange).toHaveBeenCalledWith({
       heji_anchor_label: "A",
       heji_anchor_ratio: "27/16",
@@ -457,6 +492,32 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(screen.queryByRole("option", { name: "Equave Numbers" })).toBeNull();
     fireEvent.click(screen.getByLabelText("Show Equave Numbers"));
     expect(onChange).toHaveBeenCalledWith("show_equaves", true);
+  });
+
+  it("shows 440.0 as the spelling frequency value on blank-start defaults", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: [],
+          reference_degree: 0,
+          fundamental: 440,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_anchor_frequency: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          pitch_frame: null,
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Spelling Frequency").value).toBe("440.0");
   });
 
   it('places "Scale Data" directly below "Scale Degrees" in the label-mode menu', () => {

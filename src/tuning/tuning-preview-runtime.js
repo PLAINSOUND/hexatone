@@ -219,8 +219,24 @@ export function getEffectiveFrequencyAtDegree(
 ) {
   const liveFundamental =
     getEffectiveFundamentalHz(source, state) * Math.pow(2, modulationTranspositionCents / 1200);
-  const cents = getEffectiveDegreeCents(source, state, degree);
-  const referenceCents = getEffectiveReferenceCents(source, state);
+  const degreeCount = getSourceDegreeCount(source);
+  const degree0Preview = getDegreePreview(state, 0);
+  const activeDegree0Preview =
+    degree0Preview && degree0Preview.cents !== null && degree0Preview.cents !== undefined && !degree0Preview.comparing
+      ? degree0Preview.cents
+      : null;
+  let cents = getCommittedDegreeCents(source, degree);
+  if (degree !== degreeCount) {
+    const preview = getDegreePreview(state, degree);
+    if (preview && preview.cents !== null && preview.cents !== undefined && !preview.comparing) {
+      cents = preview.cents;
+    }
+  } else if (activeDegree0Preview !== null) {
+    // The equave is the next transposition of degree 0, so when degree 0 is
+    // preview-retuned we hear the equave move by the same delta.
+    cents += activeDegree0Preview;
+  }
+  const referenceCents = getCommittedDegreeCents(source, getSourceReferenceDegree(source));
   return liveFundamental * Math.pow(2, (cents - referenceCents) / 1200);
 }
 

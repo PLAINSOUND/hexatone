@@ -1255,6 +1255,18 @@ const App = () => {
     e.stopPropagation();
     return true;
   }, []);
+  const refreshKeyboardAndAudio = useCallback(async () => {
+    if (keysRef.current) {
+      keysRef.current.resizeHandler();
+      keysRef.current.scheduleImmediateGridRedraw();
+    }
+    // iPhone/iPad often return from background with a suspended/interrupted
+    // AudioContext. Try the cheap wake path first, then re-run prepare as a
+    // stronger fallback inside the same user gesture.
+    if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
+    if (synthRef.current?.prepare) await synthRef.current.prepare();
+    if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
+  }, []);
 
   useEffect(() => {
     const onPointerMove = (e) => {
@@ -2431,23 +2443,13 @@ const App = () => {
           title="Redraw keyboard / Resume audio"
           onPointerDown={(e) => {
             runTouchControlAction(e, () => {
-              if (keysRef.current) {
-                keysRef.current.resizeHandler();
-                keysRef.current.scheduleImmediateGridRedraw();
-              }
+              void refreshKeyboardAndAudio();
             });
           }}
           onClick={async (e) => {
             if (skipSuppressedTouchClick(e)) return;
             e.stopPropagation();
-            if (keysRef.current) {
-              keysRef.current.resizeHandler();
-              keysRef.current.scheduleImmediateGridRedraw();
-            }
-            // Re-prepare the active synth within the user gesture so iOS can
-            // resume or recreate the AudioContext after background dormancy.
-            if (synthRef.current?.prepare) await synthRef.current.prepare();
-            if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
+            await refreshKeyboardAndAudio();
           }}
           onContextMenu={(e) => e.preventDefault()}
         >

@@ -67,10 +67,40 @@ describe("tuning-preview-runtime", () => {
 
     const referenceFrequency = getEffectiveFrequencyAtDegree(workspace, state, 1);
     const degreeZeroFrequency = getEffectiveFrequencyAtDegree(workspace, state, 0);
+    const untouchedDegreeFrequency = getEffectiveFrequencyAtDegree(workspace, state, 2);
 
-    expect(referenceFrequency).toBeCloseTo(getEffectiveFundamentalHz(workspace, state), 8);
+    expect(referenceFrequency).toBeCloseTo(
+      getEffectiveFundamentalHz(workspace, state) * Math.pow(2, (250 - 100) / 1200),
+      8,
+    );
     expect(degreeZeroFrequency).toBeCloseTo(
-      getEffectiveFundamentalHz(workspace, state) * Math.pow(2, (0 - 250) / 1200),
+      getEffectiveFundamentalHz(workspace, state) * Math.pow(2, (0 - 100) / 1200),
+      8,
+    );
+    expect(untouchedDegreeFrequency).toBeCloseTo(
+      getEffectiveFundamentalHz(workspace, state) * Math.pow(2, (200 - 100) / 1200),
+      8,
+    );
+  });
+
+  it("moves degree 0 and the equave together during a degree-0 preview", () => {
+    let state = createTuningPreviewState();
+    state = setDegreePreview(state, 0, 30);
+
+    const degreeZeroFrequency = getEffectiveFrequencyAtDegree(workspace, state, 0);
+    const equaveFrequency = getEffectiveFrequencyAtDegree(workspace, state, 3);
+    const untouchedDegreeFrequency = getEffectiveFrequencyAtDegree(workspace, state, 2);
+
+    expect(degreeZeroFrequency).toBeCloseTo(
+      440 * Math.pow(2, (30 - 100) / 1200),
+      8,
+    );
+    expect(equaveFrequency).toBeCloseTo(
+      440 * Math.pow(2, (1230 - 100) / 1200),
+      8,
+    );
+    expect(untouchedDegreeFrequency).toBeCloseTo(
+      440 * Math.pow(2, (200 - 100) / 1200),
       8,
     );
   });

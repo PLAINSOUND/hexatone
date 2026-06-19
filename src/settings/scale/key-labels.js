@@ -19,6 +19,7 @@ import {
 } from "../../notation/pitch-structure.js";
 import { buildPitchFrame, resolveStructurePitch } from "../../notation/pitch-frame.js";
 import { createScaleWorkspace } from "../../tuning/workspace.js";
+import { formatEditableFrequencyHz, formatFrequencyHz } from "./scale-table/frequency-input.js";
 
 const HEJI_PALETTE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 const HEJI_BASE_SYMBOLS_BY_ID = Object.fromEntries(BASE_SYMBOLS.map((symbol) => [symbol.id, symbol]));
@@ -127,6 +128,8 @@ const KeyLabels = (props) => {
   const [copied, setCopied] = useState(false);
   const [anchorRatioDraft, setAnchorRatioDraft] = useState(() => props.settings.heji_anchor_ratio || "");
   const [anchorLabelDraft, setAnchorLabelDraft] = useState(() => props.settings.heji_anchor_label || "");
+  const [anchorFrequencyDraft, setAnchorFrequencyDraft] = useState("");
+  const [editingAnchorFrequency, setEditingAnchorFrequency] = useState(false);
   const effectiveAnchorLabel = props.settings.heji_anchor_label || props.heji_anchor_label_eff || "A";
   const effectiveAnchorRatio = props.settings.heji_anchor_ratio || props.heji_anchor_ratio_eff || "1/1";
   useEffect(() => {
@@ -158,16 +161,50 @@ const KeyLabels = (props) => {
     effectiveAnchorLabel,
     effectiveAnchorRatio,
   ]);
-  const effectiveAnchorFrequency = useMemo(() => {
+  const effectiveAnchorFrequencyValue = useMemo(() => {
     const pitchFrame = effectivePitchFrame;
     const referenceFrequency = Number(props.settings.fundamental);
     const referenceOffsetCents = Number(pitchFrame?.notationZeroToReferenceInterval?.cents);
-    if (!Number.isFinite(referenceFrequency) || !Number.isFinite(referenceOffsetCents)) return "";
-    return formatDerivedFrequency(referenceFrequency / Math.pow(2, referenceOffsetCents / 1200));
+    if (!Number.isFinite(referenceFrequency)) return null;
+    if (!Number.isFinite(referenceOffsetCents)) {
+      const normalizedAnchorRatio = normaliseHejiAnchorRatio(effectiveAnchorRatio) || "1/1";
+      if ((props.settings.reference_degree ?? 0) === 0 && normalizedAnchorRatio === "1/1") {
+        return referenceFrequency;
+      }
+      return null;
+    }
+    return referenceFrequency / Math.pow(2, referenceOffsetCents / 1200);
   }, [
     effectivePitchFrame,
     props.settings.fundamental,
+    props.settings.reference_degree,
+    effectiveAnchorRatio,
   ]);
+  const effectiveAnchorFrequency = useMemo(
+    () => formatDerivedFrequency(effectiveAnchorFrequencyValue),
+    [effectiveAnchorFrequencyValue],
+  );
+  const explicitAnchorFrequencyValue = useMemo(() => {
+    const parsed = Number.parseFloat(props.settings.heji_anchor_frequency || "");
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [props.settings.heji_anchor_frequency]);
+  const derivedAnchorFrequencyValue = useMemo(() => {
+    return Number.isFinite(effectiveAnchorFrequencyValue) && effectiveAnchorFrequencyValue > 0
+      ? effectiveAnchorFrequencyValue
+      : null;
+  }, [effectiveAnchorFrequencyValue]);
+  const visibleAnchorFrequencyValue = explicitAnchorFrequencyValue ?? derivedAnchorFrequencyValue;
+  const displayedAnchorFrequency = useMemo(
+    () => formatFrequencyHz(visibleAnchorFrequencyValue),
+    [visibleAnchorFrequencyValue],
+  );
+  const editableAnchorFrequency = useMemo(
+    () => formatEditableFrequencyHz(visibleAnchorFrequencyValue),
+    [visibleAnchorFrequencyValue],
+  );
+  useEffect(() => {
+    if (!editingAnchorFrequency) setAnchorFrequencyDraft(displayedAnchorFrequency);
+  }, [displayedAnchorFrequency, editingAnchorFrequency]);
   const paletteText = useMemo(() => pitchStructureToHeji(paletteStructure), [paletteStructure]);
   const paletteAutoDeviationCents = useMemo(() => {
     if (paletteStructure.useTemperedAccidentals) return null;
@@ -357,57 +394,88 @@ const KeyLabels = (props) => {
           </label>
           <label>
             Spelling Frequency
-            <input
-              type="text"
-              class="sidebar-input"
-              inputMode="decimal"
-              placeholder={effectiveAnchorFrequency}
-              value={props.settings.heji_anchor_frequency || ""}
-              disabled={hejiDisabled}
-              onInput={(e) => props.onChange("heji_anchor_frequency", e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.target.blur();
-              }}
-              onBlur={(e) => {
-                const normalized = normalizeAnchorFrequencyInput(e.target.value);
-                if (normalized === null) {
-                  e.target.value = props.settings.heji_anchor_frequency || "";
-                  return;
-                }
-                if (normalized === "") {
-                  props.onChange("heji_anchor_frequency", "");
-                  return;
-                }
-                const referenceOffsetCents = Number(effectivePitchFrame?.notationZeroToReferenceInterval?.cents);
-                if (!Number.isFinite(referenceOffsetCents)) return;
-                const nextFundamental = Number.parseFloat(normalized) * Math.pow(2, referenceOffsetCents / 1200);
-                if (!Number.isFinite(nextFundamental) || nextFundamental <= 0) return;
-                const preserveDerivedAnchor =
-                  !String(props.settings.heji_anchor_ratio || "").trim()
-                  && !String(props.settings.heji_anchor_label || "").trim()
-                  && effectiveAnchorLabel
-                  && effectiveAnchorRatio;
-                if (props.onAtomicChange) {
-                  props.onAtomicChange({
-                    ...(preserveDerivedAnchor
-                      ? {
-                          heji_anchor_label: effectiveAnchorLabel,
-                          heji_anchor_ratio: effectiveAnchorRatio,
-                        }
-                      : {}),
-                    heji_anchor_frequency: normalized,
-                    fundamental: nextFundamental,
-                  });
-                } else {
-                  if (preserveDerivedAnchor) {
-                    props.onChange("heji_anchor_label", effectiveAnchorLabel);
-                    props.onChange("heji_anchor_ratio", effectiveAnchorRatio);
+            <span class="heji-anchor-frequency-right">
+              <input
+                type="text"
+                class={`sidebar-input frequency-input${!props.settings.heji_anchor_frequency ? " frequency-input--derived" : ""}`}
+                inputMode="decimal"
+                value={anchorFrequencyDraft}
+                disabled={hejiDisabled}
+                onFocus={(e) => {
+                  if (hejiDisabled) return;
+                  setEditingAnchorFrequency(true);
+                  setAnchorFrequencyDraft(editableAnchorFrequency);
+                  e.currentTarget.select?.();
+                }}
+                onInput={(e) => setAnchorFrequencyDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.target.blur();
+                }}
+                onBlur={(e) => {
+                  setEditingAnchorFrequency(false);
+                  const raw = String(e.target.value ?? "").trim();
+                  if (!raw) {
+                    props.onChange("heji_anchor_frequency", "");
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
                   }
-                  props.onChange("heji_anchor_frequency", normalized);
-                  props.onChange("fundamental", nextFundamental);
-                }
-              }}
-            />
+                  const normalized = normalizeAnchorFrequencyInput(e.target.value);
+                  if (normalized === null) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  const normalizedValue = Number.parseFloat(normalized);
+                  if (!Number.isFinite(normalizedValue) || normalizedValue <= 0) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  if (!props.settings.heji_anchor_frequency && Number.isFinite(derivedAnchorFrequencyValue)
+                    && Math.abs(normalizedValue - derivedAnchorFrequencyValue) < 0.0000005) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  if (props.settings.heji_anchor_frequency && Number.isFinite(explicitAnchorFrequencyValue)
+                    && Math.abs(normalizedValue - explicitAnchorFrequencyValue) < 0.0000005) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  const referenceOffsetCents = Number(effectivePitchFrame?.notationZeroToReferenceInterval?.cents);
+                  if (!Number.isFinite(referenceOffsetCents)) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  const nextFundamental = normalizedValue * Math.pow(2, referenceOffsetCents / 1200);
+                  if (!Number.isFinite(nextFundamental) || nextFundamental <= 0) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  const preserveDerivedAnchor =
+                    !String(props.settings.heji_anchor_ratio || "").trim()
+                    && !String(props.settings.heji_anchor_label || "").trim()
+                    && effectiveAnchorLabel
+                    && effectiveAnchorRatio;
+                  if (props.onAtomicChange) {
+                    props.onAtomicChange({
+                      ...(preserveDerivedAnchor
+                        ? {
+                            heji_anchor_label: effectiveAnchorLabel,
+                            heji_anchor_ratio: effectiveAnchorRatio,
+                          }
+                        : {}),
+                      heji_anchor_frequency: normalized,
+                      fundamental: nextFundamental,
+                    });
+                  } else {
+                    if (preserveDerivedAnchor) {
+                      props.onChange("heji_anchor_label", effectiveAnchorLabel);
+                      props.onChange("heji_anchor_ratio", effectiveAnchorRatio);
+                    }
+                    props.onChange("heji_anchor_frequency", normalized);
+                    props.onChange("fundamental", nextFundamental);
+                  }
+                }}
+              />
+            </span>
           </label>
           <label class="heji-anchor-fieldset__toggle-row">
             <input

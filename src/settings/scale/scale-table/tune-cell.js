@@ -20,7 +20,8 @@ import { monzoToSuggestedColor } from "../monzo-color.js";
 
 /**
  * TuneCell — drag-to-tune control for a single scale degree.
- * Drag left/right to retune; A/B compare; save or revert.
+ * Drag left/right to retune; A/B compare; save or revert through one
+ * contextual action button, matching the ColorCell UX.
  *
  * When retuning the reference_degree, behavior depends on retuning_mode:
  * - 'recalculate_reference' (default): Keep current sound, recalculate Reference Frequency
@@ -269,6 +270,14 @@ const TuneCell = ({
     glideTo(originalCents);
   }, [degree, glideTo, originalCents]);
 
+  const onPrimaryAction = useCallback(() => {
+    if (comparing) {
+      onRevert();
+      return;
+    }
+    onSave();
+  }, [comparing, onRevert, onSave]);
+
   const delta = isDirty ? tunedCents - originalCents : 0;
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}c` : `${delta.toFixed(1)}c`;
 
@@ -290,44 +299,13 @@ const TuneCell = ({
         </button>
       )}
       {isDirty && (
-        <button type="button" class="tune-btn tune-btn--save" onClick={onSave} title="Save tuning">
-          ✓
-        </button>
-      )}
-      {isDirty && (
         <button
           type="button"
-          class="tune-btn tune-btn--revert"
-          onClick={onRevert}
-          title="Revert to original"
+          class="tune-btn tune-btn--save"
+          onClick={onPrimaryAction}
+          title={comparing ? "Revert to original" : "Save tuning"}
         >
-          ✕
-        </button>
-      )}
-      {isDirty && (
-        <button
-          type="button"
-          class={`tune-btn tune-btn--rationalise${rationaliseCandidates ? " tune-btn--active" : ""}`}
-          onClick={() => {
-            if (rationaliseCandidates) {
-              setRationaliseCandidates(null);
-              return;
-            }
-            const request = getRationalisationRequest({
-              degree,
-              tunedCents: currentCents,
-              workspace,
-              settings,
-              frequencyAtDegree,
-              searchPrefs,
-            });
-            const candidates = getHumanTestableRationalCandidates(request);
-            setRationaliseCandidates(candidates.length ? candidates : null);
-          }}
-          title="Find rational candidates"
-          aria-label={`find rational candidates for degree ${degree}`}
-        >
-          ≈
+          {comparing ? "x" : "✓"}
         </button>
       )}
       <span

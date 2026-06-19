@@ -1928,17 +1928,28 @@ td.scale-name-col input { width: 100%; }
   .degree-gutter     { width: 2ch; min-width: 2ch; }
   .scale-degree-cell { gap: 0.1em; }
 
-  th.scale-data-col,      td.scale-data-col      { width: 56%; }
-  th.scale-frequency-col, td.scale-frequency-col { width: 14%; }
-  th.scale-name-col,      td.scale-name-col      { width: 18%; padding-right: 0; }
-  th.scale-color-col,     td.scale-color-col     { width: 12%; padding-left: 0; padding-right: 0; }
+  th.scale-data-col,      td.scale-data-col      { width: 58%; }
+  th.scale-frequency-col, td.scale-frequency-col { width: 16%; }
+  th.scale-name-col,      td.scale-name-col      { width: 16%; padding-right: 0; padding-left: 0; }
+  th.scale-color-col,     td.scale-color-col     { width: 10%; padding-left: 0; padding-right: 0; }
 
   td.scale-name-col input { width: 100%; }
-  td.scale-frequency-col { position: relative; }
+  td.scale-frequency-col { position: relative; padding-right: 6px; }
+  td.scale-name-col .heji-name-cell,
+  td.scale-name-col .heji-name-input,
+  td.scale-name-col > input[type="text"] {
+    width: calc(100% - 3px);
+    margin-left: 3px;
+  }
 
   td.scale-color-col .color-cell {
     /* row-reverse: flex-end pushes swatch to the left edge on small screens */
     justify-content: flex-end;
+    width: max-content;
+  }
+
+  td.scale-color-col .color-suggestion-btn__preview {
+    display: none !important;
   }
 
   td.scale-frequency-col input.frequency-input:focus {
@@ -1950,6 +1961,50 @@ td.scale-name-col input { width: 100%; }
     transform: translateY(-50%);
     background: var(--color-bg);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  td.scale-color-col .color-cell {
+    gap: 1px;
+  }
+
+  td.scale-color-col .color-cell:focus-within {
+    min-width: 6.75em !important;
+    width: 6.75em !important;
+    max-width: 6.75em !important;
+    flex-direction: row;
+    justify-content: flex-end;
+    right: 0.18em;
+    overflow: hidden;
+  }
+
+  td.scale-color-col .color-cell:focus-within .color-input {
+    display: block;
+    width: 5.05em !important;
+    min-width: 5.05em !important;
+    max-width: 5.05em !important;
+    order: 1;
+  }
+
+  td.scale-color-col .color-cell:focus-within .color-swatch-hitbox {
+    order: 2;
+    margin-left: 0.4em;
+  }
+
+  td.scale-color-col .color-cell-btn,
+  td.scale-color-col .color-suggestion-btn {
+    display: none;
+  }
+
+  td.scale-color-col .color-swatch-hitbox,
+  td.scale-color-col .color-swatch {
+    width: 1.25em;
+    height: 1.25em;
+  }
+
+  td.scale-color-col .color-suggestion-btn__preview {
+    display: none !important;
   }
 }
 
@@ -2198,20 +2253,6 @@ input.equiv-cell:disabled,
 .tune-btn:hover { background: #ddd0d0; }
 
 /* Modifier variants — only differing properties listed */
-.tune-btn--revert {
-  color: var(--color-accent);
-  border-color: #cc9999;
-}
-
-.tune-btn--revert:hover { background: #f5eded; }
-
-.tune-btn--rationalise {
-  color: #335577;
-  border-color: #aebfcf;
-}
-
-.tune-btn--rationalise:hover { background: #edf3f7; }
-
 /* Rationalise candidate dropdown */
 .rationalise-dropdown {
   position: absolute;
@@ -3266,6 +3307,30 @@ input.equiv-cell:disabled,
   border-radius: 3px;
 }
 
+.heji-anchor-frequency-right {
+  display: inline-flex;
+  align-items: center;
+  width: 50%;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: auto;
+  position: relative;
+}
+
+.heji-anchor-frequency-right input.frequency-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  text-align: right;
+  height: 1.5em;
+  box-sizing: border-box;
+}
+
+.frequency-input--derived {
+  color: #bb9999;
+  -webkit-text-fill-color: #bb9999;
+}
+
 @media (max-width: 480px) {
   #sidebar fieldset {
     margin-left: 0;
@@ -3276,13 +3341,32 @@ input.equiv-cell:disabled,
   #sidebar select,
   #sidebar textarea,
   .sidebar-input,
-  .fundamental-right {
+  .fundamental-right,
+  .heji-anchor-frequency-right {
     width: 100% !important;
   }
 
   #sidebar label > .sidebar-input,
-  .fundamental-right {
+  .fundamental-right,
+  .heji-anchor-frequency-right {
     margin-left: 0;
+  }
+
+  .fundamental-right,
+  .heji-anchor-frequency-right {
+    position: relative;
+  }
+
+  .fundamental-right input.frequency-input:focus,
+  .heji-anchor-frequency-right input.frequency-input:focus {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    z-index: 6;
+    width: max(9.8em, 100%);
+    transform: translateY(-50%);
+    background: var(--color-bg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   #sidebar .preset-selector-row select {

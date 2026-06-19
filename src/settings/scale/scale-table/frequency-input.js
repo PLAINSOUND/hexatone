@@ -1,9 +1,11 @@
-const formatFrequencyHz = (value) => {
+import { useEffect, useMemo, useState } from "preact/hooks";
+
+export const formatFrequencyHz = (value) => {
   if (!Number.isFinite(value)) return "";
   return value.toFixed(1);
 };
 
-const formatEditableFrequencyHz = (value) => {
+export const formatEditableFrequencyHz = (value) => {
   if (!Number.isFinite(value)) return "";
   return value.toFixed(6);
 };
@@ -17,8 +19,15 @@ const FrequencyInput = ({
   comparing = false,
   liveModulated = false,
 }) => {
-  const display = formatFrequencyHz(value);
-  const editableDisplay = formatEditableFrequencyHz(value);
+  const display = useMemo(() => formatFrequencyHz(value), [value]);
+  const editableDisplay = useMemo(() => formatEditableFrequencyHz(value), [value]);
+  const [draft, setDraft] = useState(display);
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(display);
+  }, [display, editing]);
+
   const isDirty = deviationCents !== null && Math.abs(deviationCents) > 0.001;
   // Match the tune-delta / tune-comparing colour scheme
   const color = isDirty
@@ -32,28 +41,34 @@ const FrequencyInput = ({
       inputMode="decimal"
       disabled={disabled}
       class="frequency-input"
-      key={display}
-      defaultValue={display}
+      value={draft}
       aria-label={ariaLabel}
       style={color ? { color, WebkitTextFillColor: color, fontStyle } : undefined}
       onFocus={(e) => {
-        if (!disabled) e.target.value = editableDisplay;
+        if (disabled) return;
+        setEditing(true);
+        setDraft(editableDisplay);
+        e.currentTarget.select?.();
+      }}
+      onInput={(e) => {
+        setDraft(e.currentTarget.value);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.target.blur();
       }}
       onBlur={(e) => {
         const next = parseFloat(e.target.value);
+        setEditing(false);
         if (!Number.isFinite(next) || next <= 0 || disabled) {
-          e.target.value = display;
+          setDraft(display);
           return;
         }
         if (Math.abs(next - value) < 0.0000005) {
-          e.target.value = display;
+          setDraft(display);
           return;
         }
         onCommit(next);
-        e.target.value = formatFrequencyHz(next);
+        setDraft(formatFrequencyHz(next));
       }}
     />
   );
