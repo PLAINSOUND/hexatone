@@ -190,8 +190,12 @@ function parseExactHejiStructure(raw) {
 }
 
 function parseExactDegreeInterval(raw) {
-  const parsed = parseExactInterval(String(raw ?? "1/1"));
-  return parsed?.exact && Array.isArray(parsed?.monzo) ? parsed : null;
+  try {
+    const parsed = parseExactInterval(String(raw ?? "1/1"));
+    return parsed?.exact && Array.isArray(parsed?.monzo) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function deriveExactAFromExplicitHejiDegree(rawName, degreeText) {
@@ -356,33 +360,86 @@ function noteNamesLackSpellingClues(noteNames) {
 
 function deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, fundamental) {
   if (!Number.isFinite(referenceDegree) || referenceDegree < 0 || !fundamental || fundamental <= 0) return null;
+  if (inferNaturalLetterFromReferenceFrequency(fundamental) !== "A") return null;
   const exactDegree = parseExactDegreeInterval(degreeTexts?.[referenceDegree] ?? "1/1");
   if (!exactDegree) return null;
-  const distanceCents = Math.min(
-    ...KNOWN_A_FREQUENCIES.map((target) => centsDistanceToNearestOctave(fundamental, target)),
-  );
-  if (distanceCents > NAMED_A_C_MAX_DISTANCE_CENTS) return null;
   return {
-    ratio: degreeTexts[referenceDegree] ?? "1/1",
+    ratio: formatPitchClassRatioFromMonzo(exactDegree.monzo),
     label: HEJI_NATURAL_LABELS.A,
   };
 }
 
-function deriveExactAFromAnyDegreeFrequency(degreeTexts, degreeFrequencies) {
-  if (!Array.isArray(degreeTexts) || !Array.isArray(degreeFrequencies)) return null;
+function deriveAnchorFromExplicitANaturalDegree(degreeText) {
+  const raw = String(degreeText ?? "1/1");
+  const exactDegree = parseExactDegreeInterval(raw);
+  if (exactDegree) {
+    return {
+      ratio: formatPitchClassRatioFromMonzo(exactDegree.monzo),
+      label: HEJI_NATURAL_LABELS.A,
+    };
+  }
+  const centsValue = scalaToCents(raw);
+  if (Number.isFinite(centsValue)) {
+    return {
+      ratio: raw,
+      label: TEMPERED_NATURAL_LABELS.A,
+      inferredTemperedOnly: true,
+    };
+  }
+  return { ratio: raw || "1/1", label: HEJI_NATURAL_LABELS.A };
+}
+
+function deriveExactAFromAnyDegreeFrequency(
+  degreeTexts,
+  degreeFrequencies,
+  noteNames = [],
+  referenceDegree,
+  fundamental,
+) {
+  if (!Array.isArray(degreeFrequencies) && !fundamental) return null;
+  const referenceInterval = parseExactDegreeInterval(degreeTexts?.[referenceDegree] ?? "1/1");
+  const referenceCents =
+    Number.isFinite(referenceDegree) && degreeFrequencies?.[referenceDegree] != null
+      ? scalaToCents(String(degreeTexts?.[referenceDegree] ?? "1/1"))
+      : null;
   let best = null;
-  for (let degree = 0; degree < degreeTexts.length; degree += 1) {
-    const exactDegree = parseExactDegreeInterval(degreeTexts[degree] ?? "1/1");
-    const hz = degreeFrequencies[degree];
+  const degreeCount = Math.max(degreeTexts?.length ?? 0, degreeFrequencies.length, noteNames?.length ?? 0);
+  for (let degree = 0; degree < degreeCount; degree += 1) {
+    const rawInterval = degreeTexts?.[degree]
+      ?? (String(noteNames?.[degree] ?? "").includes("/") ? String(noteNames?.[degree]) : "1/1");
+    const exactDegree = parseExactDegreeInterval(rawInterval);
+    let hz = degreeFrequencies[degree];
+    if ((!hz || hz <= 0) && exactDegree && referenceInterval && fundamental > 0 && Number.isFinite(referenceCents)) {
+      const degreeCents = scalaToCents(String(rawInterval));
+      if (Number.isFinite(degreeCents)) {
+        hz = fundamental * Math.pow(2, (degreeCents - referenceCents) / 1200);
+      }
+    }
     if (!exactDegree || !hz || hz <= 0) continue;
-    const distanceCents = Math.min(
-      ...KNOWN_A_FREQUENCIES.map((target) => centsDistanceToNearestOctave(hz, target)),
-    );
+    const inferredLetter = inferNaturalLetterFromReferenceFrequency(hz);
+    if (inferredLetter !== "A") continue;
+    let bestTargetIndex = -1;
+    let distanceCents = Infinity;
+    for (let index = 0; index < KNOWN_A_FREQUENCIES.length; index += 1) {
+      const candidateDistance = centsDistanceToNearestOctave(hz, KNOWN_A_FREQUENCIES[index]);
+      if (
+        candidateDistance < distanceCents - 1e-9
+        || (Math.abs(candidateDistance - distanceCents) <= 1e-9 && (bestTargetIndex < 0 || index < bestTargetIndex))
+      ) {
+        distanceCents = candidateDistance;
+        bestTargetIndex = index;
+      }
+    }
     if (distanceCents > NAMED_A_C_MAX_DISTANCE_CENTS) continue;
-    if (!best || distanceCents < best.distanceCents) {
+    if (
+      !best
+      || distanceCents < best.distanceCents - 1e-9
+      || (Math.abs(distanceCents - best.distanceCents) <= 1e-9 && bestTargetIndex < best.targetIndex)
+    ) {
       best = {
         ratio: formatPitchClassRatioFromMonzo(exactDegree.monzo),
         distanceCents,
+        targetIndex: bestTargetIndex,
       };
     }
   }
@@ -422,13 +479,13 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   // --- Strategy 1: explicit exact A-natural already present ---
   if (referenceDegree != null && referenceDegree >= 0 && noteNames?.length) {
     if (isExactNaturalLabel(noteNames[referenceDegree], "A")) {
-      return { ratio: degreeTexts[referenceDegree] ?? "1/1", label: HEJI_NATURAL_LABELS.A };
+      return deriveAnchorFromExplicitANaturalDegree(degreeTexts[referenceDegree] ?? "1/1");
     }
   }
   if (noteNames?.length) {
     for (let i = 0; i < noteNames.length; i++) {
       if (isExactNaturalLabel(noteNames[i], "A")) {
-        return { ratio: degreeTexts[i] ?? "1/1", label: HEJI_NATURAL_LABELS.A };
+        return deriveAnchorFromExplicitANaturalDegree(degreeTexts[i] ?? "1/1");
       }
     }
   }
@@ -467,7 +524,13 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   if (exactReferenceA) return exactReferenceA;
 
   // --- Strategy 4b: any exact degree landing on a known A frequency ---
-  const exactScaleDegreeA = deriveExactAFromAnyDegreeFrequency(degreeTexts, degreeFrequencies);
+  const exactScaleDegreeA = deriveExactAFromAnyDegreeFrequency(
+    degreeTexts,
+    degreeFrequencies,
+    noteNames,
+    referenceDegree,
+    fundamental,
+  );
   if (exactScaleDegreeA) return exactScaleDegreeA;
 
   // --- Strategy 5: infer a natural note directly from the reference frequency ---

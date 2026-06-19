@@ -3,6 +3,7 @@ import { scalaToCents } from "../settings/scale/parse-scale.js";
 import { addMonzos } from "./heji.js";
 import {
   HEJI_NATURAL_LABELS,
+  TEMPERED_NATURAL_LABELS,
   canonicalHejiAnchorLabelInput,
   canonicalHejiLabel,
   deriveHejiAnchor,
@@ -12,6 +13,7 @@ import { parseHejiToStructure, pitchStructureToBaseId, pitchStructureToMonzo } f
 import { resolveStructurePitch } from "./pitch-frame.js";
 import { createReferenceFrame } from "./reference-frame.js";
 import { monzoToFractionOnBasis } from "../tuning/interval.js";
+import { parseExactInterval } from "../tuning/interval.js";
 
 function trimRenderedLabelToPitchClass(label) {
   const source = String(label ?? "").trim();
@@ -60,9 +62,10 @@ export function resolveEffectiveHejiAnchor({
   );
   const trimmedExplicitAnchorLabel = String(explicitAnchorLabel ?? "").trim();
   const trimmedExplicitAnchorRatio = String(explicitAnchorRatio ?? "").trim();
+  const explicitAnchorRatioIsExact = !!parseExactInterval(trimmedExplicitAnchorRatio)?.exact;
   const derivedAnchorLabel =
     !trimmedExplicitAnchorLabel && trimmedExplicitAnchorRatio
-      ? HEJI_NATURAL_LABELS.A
+      ? (explicitAnchorRatioIsExact ? HEJI_NATURAL_LABELS.A : TEMPERED_NATURAL_LABELS.A)
       : derived.label;
   return {
     anchorLabel: canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derivedAnchorLabel,

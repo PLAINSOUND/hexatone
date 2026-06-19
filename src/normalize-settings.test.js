@@ -374,7 +374,28 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_anchor_label_effective).toBe("A");
   });
 
-  it("treats lowercase traditional natural glyph labels as exact naturals for anchor derivation", () => {
+  it("uses tempered A when an explicit A note-name sits at an irrational/meantone interval", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: Array.from({ length: 31 }, (_, index) =>
+        index === 30 ? "2/1" : `${(((index + 1) * 1200) / 31).toFixed(6)}`
+      ),
+      equivSteps: 31,
+      note_names: [
+        "c", "c", "c", "d", "d", "d", "d", "d",
+        "e", "e", "e", "e", "e", "f", "f", "f",
+        "g", "g", "g", "g", "g", "a", "a", "a",
+        "a", "a", "b", "b", "b", "b", "b",
+      ],
+      fundamental: 440,
+      reference_degree: 23,
+    });
+
+    expect(normalized.heji_anchor_label_effective).toBe("\uE2F2A");
+  });
+
+  it("uses tempered A when lowercase traditional natural glyph labels land on a cents-only anchor", () => {
     const normalized = normalizeStructural({
       rotation: 0,
       key_labels: "heji",
@@ -464,7 +485,7 @@ describe("normalizeStructural", () => {
     });
 
     expect(normalized.heji_anchor_ratio_effective).toBe("889.7352854");
-    expect(normalized.heji_anchor_label_effective).toBe("A");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
   });
 
   it("derives an exact A anchor from the degree-0 HEJI spelling in Hamilton 19-limit", () => {
@@ -627,6 +648,109 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_anchor_label_effective).toBe("A");
   });
 
+  it("infers an exact A-at-3/2 anchor from a divided-fifth preset whose equave lands on 440 Hz", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: [
+        "16/15",
+        "15/14",
+        "9/8",
+        "8/7",
+        "7/6",
+        "6/5",
+        "5/4",
+        "9/7",
+        "21/16",
+        "4/3",
+        "7/5",
+        "45/32",
+        "3/2",
+      ],
+      equivSteps: 13,
+      note_names: [
+        "1/1",
+        "16/15",
+        "15/14",
+        "9/8",
+        "8/7",
+        "7/6",
+        "6/5",
+        "5/4",
+        "9/7",
+        "21/16",
+        "4/3",
+        "7/5",
+        "45/32",
+        "3/2",
+      ],
+      fundamental: 293.3333333,
+      reference_degree: 0,
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("3/2");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
+  });
+
+  it("derives 27/16 as A from the actual Partch-on-G scale data when degree 25 is 3/2 at 392 Hz", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: [
+        "81/80",
+        "33/32",
+        "21/20",
+        "15/14",
+        "12/11",
+        "10/9",
+        "9/8",
+        "8/7",
+        "7/6",
+        "33/28",
+        "6/5",
+        "27/22",
+        "5/4",
+        "81/64",
+        "9/7",
+        "21/16",
+        "4/3",
+        "27/20",
+        "15/11",
+        "11/8",
+        "45/32",
+        "10/7",
+        "16/11",
+        "40/27",
+        "3/2",
+        "243/160",
+        "99/64",
+        "63/40",
+        "8/5",
+        "18/11",
+        "33/20",
+        "5/3",
+        "27/16",
+        "12/7",
+        "7/4",
+        "16/9",
+        "9/5",
+        "11/6",
+        "15/8",
+        "21/11",
+        "27/14",
+        "63/32",
+        "2/1",
+      ],
+      equivSteps: 43,
+      note_names: Array.from({ length: 43 }, (_, i) => String(i)),
+      fundamental: 392,
+      reference_degree: 25,
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("27/16");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
+  });
+
   it("uses an explicitly entered HEJI spelling together with the auto-derived ratio when the ratio field is blank", () => {
     const baseSettings = {
       rotation: 0,
@@ -698,6 +822,25 @@ describe("normalizeStructural", () => {
 
     expect(normalized.heji_anchor_ratio_effective).toBe("27/1");
     expect(normalized.heji_anchor_label_effective).toBe("\uE261A");
+  });
+
+  it("uses a tempered A spelling when an explicitly entered anchor interval is cents-only", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: ["7\\12", "2/1"],
+      equivSteps: 2,
+      note_names: [],
+      fundamental: 440,
+      reference_degree: 0,
+      heji_anchor_ratio: "900.",
+      heji_anchor_label: "",
+      heji_tempered_only: true,
+      heji_show_cents: false,
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("900.");
+    expect(normalized.heji_anchor_label_effective).toBe("\uE2F2A");
   });
 
   it("suppresses only 0-cent suffixes in tempered-only HEJI mode when Always Include Cents is disabled", () => {
