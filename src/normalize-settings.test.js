@@ -422,7 +422,7 @@ describe("normalizeStructural", () => {
     });
 
     expect(normalized.heji_anchor_ratio_effective).toBe("889.7352854");
-    expect(normalized.heji_anchor_label_effective).toBe("A");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
   });
 
   it("derives an exact A anchor from the degree-0 HEJI spelling in Hamilton 19-limit", () => {
@@ -510,8 +510,8 @@ describe("normalizeStructural", () => {
       reference_degree: 17,
     });
 
-    expect(normalized.heji_anchor_ratio_effective).toBe("27/16");
-    expect(normalized.heji_anchor_label_effective).toBe("A");
+    expect(normalized.heji_anchor_ratio_effective).toBe("905.865003");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
   });
 
   it("suppresses HEJI generation on non-octave equaves", () => {

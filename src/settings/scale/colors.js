@@ -396,12 +396,14 @@ const Colors = (props) => {
     if (props.onAtomicChange) {
       props.onAtomicChange({
         note_colors: derivedAutoColors,
+        key_colors_mode: "manual",
         auto_colors: false,
         spectrum_colors: false,
       });
       return;
     }
     props.onChange("note_colors", derivedAutoColors);
+    props.onChange("key_colors_mode", "manual");
     props.onChange("auto_colors", false);
     props.onChange("spectrum_colors", false);
   };

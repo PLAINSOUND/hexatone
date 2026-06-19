@@ -144,6 +144,69 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "1/1");
   });
 
+  it("retunes the reference frequency when the HEJI anchor ratio changes, preserving spelling frequency", () => {
+    const onAtomicChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+        heji_names={[]}
+        heji_anchor_ratio_eff="27/16"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: ["3/2", "2/1"],
+          reference_degree: 1,
+          fundamental: 660,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_anchor_frequency: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          pitch_frame: pitchFrameFor({ fundamental: 660, heji_anchor_label: "A", heji_anchor_ratio: "27/16" }),
+        }}
+      />,
+    );
+
+    fireEvent.input(screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)"), {
+      target: { value: "1/1" },
+    });
+    fireEvent.blur(screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)"));
+
+    expect(onAtomicChange).toHaveBeenCalledWith({
+      heji_anchor_label: "A",
+      heji_anchor_ratio: "1/1",
+      fundamental: 440,
+    });
+  });
+
+  it("does not recompute or commit the HEJI anchor ratio while typing", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.input(screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)"), {
+      target: { value: "27/1" },
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("canonicalises shorthand HEJI spellings on blur", () => {
     const onChange = vi.fn();
 
@@ -166,6 +229,32 @@ describe("KeyLabels HEJI anchor handling", () => {
 
     fireEvent.blur(screen.getByLabelText("Notation (Spelling)"));
     expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "\uE262A");
+  });
+
+  it("does not commit the HEJI anchor spelling while typing", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.input(screen.getByLabelText("Notation (Spelling)"), {
+      target: { value: "A#" },
+    });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("canonicalises bare note letters to natural-prefixed HEJI spellings on blur", () => {
@@ -216,6 +305,33 @@ describe("KeyLabels HEJI anchor handling", () => {
     input.focus();
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "\uE262A");
+  });
+
+  it("strips a pasted cents suffix before committing the HEJI anchor spelling", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.input(screen.getByLabelText("Notation (Spelling)"), {
+      target: { value: "B-10" },
+    });
+    fireEvent.blur(screen.getByLabelText("Notation (Spelling)"));
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "B");
   });
 
   it("shows an auto-derived spelling frequency placeholder", () => {
@@ -271,8 +387,44 @@ describe("KeyLabels HEJI anchor handling", () => {
 
     fireEvent.blur(screen.getByLabelText("Spelling Frequency"));
     expect(onAtomicChange).toHaveBeenCalledWith({
+      heji_anchor_label: "A",
+      heji_anchor_ratio: "1/1",
       heji_anchor_frequency: "400",
       fundamental: 600,
+    });
+  });
+
+  it("preserves the currently effective HEJI anchor when retuning spelling frequency from an implicit anchor", () => {
+    const onAtomicChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+        heji_names={[]}
+        heji_anchor_ratio_eff="27/16"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: ["3/2", "2/1"],
+          reference_degree: 1,
+          fundamental: 440,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_anchor_frequency: "442",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          pitch_frame: pitchFrameFor({ heji_anchor_label: "A", heji_anchor_ratio: "27/16" }),
+        }}
+      />,
+    );
+
+    fireEvent.blur(screen.getByLabelText("Spelling Frequency"));
+    expect(onAtomicChange).toHaveBeenCalledWith({
+      heji_anchor_label: "A",
+      heji_anchor_ratio: "27/16",
+      heji_anchor_frequency: "442",
+      fundamental: expect.any(Number),
     });
   });
 

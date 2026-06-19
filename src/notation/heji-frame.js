@@ -1,7 +1,12 @@
 import { Fraction, monzoToCents } from "xen-dev-utils";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
 import { addMonzos } from "./heji.js";
-import { canonicalHejiAnchorLabelInput, canonicalHejiLabel, deriveHejiAnchor } from "./heji-normalization.js";
+import {
+  HEJI_NATURAL_LABELS,
+  canonicalHejiAnchorLabelInput,
+  canonicalHejiLabel,
+  deriveHejiAnchor,
+} from "./heji-normalization.js";
 import { spelledHejiLabel } from "./key-label.js";
 import { parseHejiToStructure, pitchStructureToBaseId, pitchStructureToMonzo } from "./pitch-structure.js";
 import { resolveStructurePitch } from "./pitch-frame.js";
@@ -55,8 +60,12 @@ export function resolveEffectiveHejiAnchor({
   );
   const trimmedExplicitAnchorLabel = String(explicitAnchorLabel ?? "").trim();
   const trimmedExplicitAnchorRatio = String(explicitAnchorRatio ?? "").trim();
+  const derivedAnchorLabel =
+    !trimmedExplicitAnchorLabel && trimmedExplicitAnchorRatio
+      ? HEJI_NATURAL_LABELS.A
+      : derived.label;
   return {
-    anchorLabel: canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derived.label,
+    anchorLabel: canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derivedAnchorLabel,
     anchorRatioText: normalizedAnchorRatio(trimmedExplicitAnchorRatio || derived.ratio),
   };
 }

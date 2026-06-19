@@ -408,6 +408,7 @@ describe("Colors — interactions", () => {
     fireEvent.click(screen.getByRole("button", { name: /commit auto colours/i }));
     expect(onAtomicChange).toHaveBeenCalledWith({
       note_colors: ["#ffa5a5", "#95c69b"],
+      key_colors_mode: "manual",
       auto_colors: false,
       spectrum_colors: false,
     });
