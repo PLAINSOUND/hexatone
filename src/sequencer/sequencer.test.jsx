@@ -104,7 +104,8 @@ describe("Sequencer", () => {
     expect(screen.getByText("Position")).not.toBeNull();
     expect(screen.getByLabelText("bar 1 position").value).toBe("1.000");
     expect(screen.getByLabelText("bar 2 position").value).toBe("2.000");
-    expect(screen.getByText("MIDI¢")).not.toBeNull();
+    expect(screen.getAllByText("MIDI¢").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("show expression controls")).not.toBeNull();
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 release midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("880.0");
@@ -113,6 +114,9 @@ describe("Sequencer", () => {
     expect(screen.getAllByText("off")).toHaveLength(2);
     fireEvent.click(screen.getByLabelText("play cue 1"));
     expect(onPlayCue).toHaveBeenCalledWith(0);
+
+    fireEvent.click(screen.getByLabelText("show expression controls"));
+    expect(screen.getByLabelText("show pitch and timing")).not.toBeNull();
 
     fireEvent.click(screen.getByText("2 notes"));
     expect(container.querySelector(".sequencer-events-grid")).toBeNull();

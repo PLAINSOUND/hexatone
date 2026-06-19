@@ -123,6 +123,7 @@ const Sequencer = ({
   const [draggedId, setDraggedId] = useState(null);
   const [draggedBarId, setDraggedBarId] = useState(null);
   const [editCommitTick, setEditCommitTick] = useState(0);
+  const [mobileEventPane, setMobileEventPane] = useState("main");
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const pendingTransportActionRef = useRef(null);
@@ -417,6 +418,13 @@ const Sequencer = ({
     if (typeof afterCommit === "function") afterCommit();
     notifyEditCommitted();
   };
+
+  const renderResponsiveHeading = (full, short = full) => (
+    <>
+      <span class="sequencer-events-grid__heading-label sequencer-events-grid__heading-label--full">{full}</span>
+      <span class="sequencer-events-grid__heading-label sequencer-events-grid__heading-label--short">{short}</span>
+    </>
+  );
 
   const renderCueTransport = (cueIndex) => (
     <span class="sequencer-event__cue-actions">
@@ -1202,22 +1210,34 @@ const Sequencer = ({
                     {isExpanded && (
                       <div class="sequencer-item__groups">
                         <div
-                          class="sequencer-events-grid"
+                          class={`sequencer-events-grid sequencer-events-grid--pane-${mobileEventPane}`}
                           role="table"
                           aria-label={`snapshot ${index + 1} events`}
                         >
                           <div class="sequencer-events-grid__header" role="row">
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--delete" />
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--cue" />
-                            <div class="sequencer-events-grid__heading">Position</div>
-                            <div class="sequencer-events-grid__heading">on/off</div>
-                            <div class="sequencer-events-grid__heading">MIDI¢</div>
-                            <div class="sequencer-events-grid__heading">Hz</div>
-                            <div class="sequencer-events-grid__heading">on-vel</div>
-                            <div class="sequencer-events-grid__heading">off-vel</div>
-                            <div class="sequencer-events-grid__heading">pressure</div>
-                            <div class="sequencer-events-grid__heading">timbre</div>
-                            <div class="sequencer-events-grid__heading sequencer-events-grid__heading--actions" />
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Position", "Pos")}</div>
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("on/off", "On")}</div>
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("MIDI¢", "MIDI¢")}</div>
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Hz", "Hz")}</div>
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("on-vel", "v-on")}</div>
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("off-vel", "v-off")}</div>
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("pressure", "prs")}</div>
+                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("timbre", "tim")}</div>
+                            <div class="sequencer-events-grid__heading sequencer-events-grid__heading--actions">
+                              <button
+                                type="button"
+                                class="sequencer-events-grid__pane-toggle"
+                                aria-label={mobileEventPane === "main" ? "show expression controls" : "show pitch and timing"}
+                                title={mobileEventPane === "main" ? "Show expression controls" : "Show pitch and timing"}
+                                onClick={() => setMobileEventPane((value) => (value === "main" ? "controls" : "main"))}
+                              >
+                                <span aria-hidden="true">
+                                  {mobileEventPane === "main" ? "→" : "←"}
+                                </span>
+                              </button>
+                            </div>
                           </div>
                           <div class="sequencer-events-grid__body">
                             {snapshotEvents.map((event) => (

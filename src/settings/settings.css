@@ -773,7 +773,8 @@ td.scale-color-col .color-input {
   --sequencer-event-pitch-col: minmax(0, 1.2fr);
   --sequencer-event-kind-col: minmax(0, 0.55fr);
   --sequencer-event-value-col: minmax(0, 1fr);
-  --sequencer-snapshot-primary-col: 5.8em;
+  --sequencer-snapshot-primary-col: 4.1em;
+  --sequencer-event-actions-col: 3.45em;
   --sequencer-snapshot-columns:
     var(--sequencer-delete-col)
     var(--sequencer-number-col)
@@ -955,6 +956,13 @@ td.scale-color-col .color-input {
   flex-wrap: wrap;
   gap: 0.34em 0.55em;
   margin: 0.25em 0 0.6em;
+  padding: 0.35em 0.45em;
+  position: sticky;
+  z-index: 3;
+  background: rgba(250, 249, 248, 0.96);
+  border: 1px solid rgba(200, 184, 184, 0.82);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 rgba(250, 249, 248, 0.98);
   line-height: 1;
 }
 
@@ -1014,6 +1022,18 @@ td.scale-color-col .color-input {
   font-size: 0.86em;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+
+@media (min-width: 481px) {
+  .sequencer-playback-row {
+    top: 2.55em;
+  }
+}
+
+@media (max-width: 480px) {
+  .sequencer-playback-row {
+    top: 4.35em;
+  }
 }
 
 .sequencer-option-row {
@@ -1196,6 +1216,10 @@ td.scale-color-col .color-input {
   box-sizing: border-box;
 }
 
+.sequencer-list {
+  padding-bottom: 5em;
+}
+
 .sequencer-events-grid {
   display: flex;
   flex-direction: column;
@@ -1278,6 +1302,11 @@ td.scale-color-col .color-input {
   white-space: normal;
   text-align: left;
   min-width: 0;
+}
+
+.sequencer-events-grid__heading-label--short,
+.sequencer-events-grid__pane-toggle {
+  display: none;
 }
 
 .sequencer-event-row {
@@ -1524,15 +1553,21 @@ td.scale-color-col .color-input {
   align-items: center;
   gap: 0.4em;
   flex: 0 0 auto;
+  width: var(--sequencer-event-actions-col);
+  min-width: var(--sequencer-event-actions-col);
+  justify-content: flex-end;
 }
 
 .sequencer-event__actions-cell {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
+  width: var(--sequencer-event-actions-col);
+  min-width: var(--sequencer-event-actions-col);
   min-height: 1.5em;
   align-self: center;
   padding-right: 0.32em;
+  box-sizing: border-box;
 }
 
 #sidebar .sequencer-event__cue-actions .snapshot-stop-glyph {
@@ -1652,6 +1687,106 @@ td.scale-color-col .color-input {
 .sequencer-event__kind {
   color: var(--color-accent);
   text-transform: lowercase;
+}
+
+@media (max-width: 480px) and (orientation: portrait) {
+  .sequencer-events-grid__heading-label--full {
+    display: none;
+  }
+
+  .sequencer-events-grid__heading-label--short,
+  .sequencer-events-grid__pane-toggle {
+    display: inline-flex;
+  }
+
+  .sequencer-events-grid__header,
+  .sequencer-event-row {
+    column-gap: 0.22em;
+  }
+
+  .sequencer-events-grid__heading {
+    font-size: 0.68em;
+  }
+
+  .sequencer-events-grid__heading--actions,
+  .sequencer-event__actions-cell {
+    justify-content: flex-end;
+  }
+
+  .sequencer-events-grid__pane-toggle {
+    align-items: center;
+    justify-content: center;
+    width: 1.4em;
+    min-width: 1.4em;
+    height: 1.4em;
+    padding: 0;
+    line-height: 1;
+    background: var(--color-bg-btn-alt);
+    border: 1px solid var(--color-border-ui);
+    color: var(--color-text);
+    border-radius: var(--btn-radius-square);
+  }
+
+  .sequencer-events-grid--pane-main .sequencer-events-grid__header,
+  .sequencer-events-grid--pane-main .sequencer-event-row {
+    grid-template-columns:
+      var(--sequencer-delete-col)
+      var(--sequencer-number-col)
+      minmax(3.15em, 1fr)
+      2em
+      minmax(3.3em, 1fr)
+      minmax(2.9em, 1fr)
+      max-content;
+  }
+
+  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(7),
+  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(8),
+  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(9),
+  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(10),
+  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(7),
+  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(8),
+  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(9),
+  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(10) {
+    display: none;
+  }
+
+  .sequencer-events-grid--pane-controls .sequencer-events-grid__header,
+  .sequencer-events-grid--pane-controls .sequencer-event-row {
+    grid-template-columns:
+      var(--sequencer-delete-col)
+      var(--sequencer-number-col)
+      minmax(2.7em, 1fr)
+      minmax(2.7em, 1fr)
+      minmax(2.8em, 1fr)
+      minmax(2.6em, 1fr)
+      max-content;
+  }
+
+  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(3),
+  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(4),
+  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(5),
+  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(6),
+  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(3),
+  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(4),
+  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(5),
+  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(6) {
+    display: none;
+  }
+
+  .sequencer-bar-row {
+    grid-template-columns:
+      var(--sequencer-delete-col)
+      var(--sequencer-number-col)
+      minmax(3.15em, 1fr)
+      1fr;
+    column-gap: 0.22em;
+    padding-right: 0;
+  }
+
+  .sequencer-bar-row__filler,
+  .sequencer-bar-row__spacer {
+    display: none;
+  }
 }
 
 /* Delete / Clear All buttons — fixed width so they align as a pair */

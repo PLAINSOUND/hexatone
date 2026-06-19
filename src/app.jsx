@@ -2548,7 +2548,7 @@ const App = () => {
         </div>
       )}
 
-      {modulationPaletteVisible && (
+      {modulationPaletteVisible && workspaceTab !== "sequencer" && (
         <div
           id="modulation-palette"
           style={{
