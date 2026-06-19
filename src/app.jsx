@@ -416,9 +416,14 @@ const App = () => {
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
   const viewportBaselineRef = useRef(0);
   const primeAudioFromUserInteraction = useCallback(() => {
-    if (userHasInteracted) return;
-    setUserHasInteracted(true);
-    if (synthRef.current?.prepare) synthRef.current.prepare();
+    if (!userHasInteracted) {
+      setUserHasInteracted(true);
+    }
+    if (typeof synthRef.current?.ensureAwake === "function") {
+      void synthRef.current.ensureAwake();
+    } else if (typeof synthRef.current?.prepare === "function") {
+      void synthRef.current.prepare();
+    }
   }, [userHasInteracted]);
 
   const noteRotationEvent = useCallback((source) => {

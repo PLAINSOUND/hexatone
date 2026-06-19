@@ -36,7 +36,6 @@ const FrequencyInput = ({
   const fontStyle = comparing ? "italic" : undefined;
   return (
     <input
-      id="centered"
       type="text"
       inputMode="decimal"
       disabled={disabled}

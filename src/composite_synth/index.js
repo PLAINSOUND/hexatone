@@ -92,6 +92,15 @@ export const create_composite_synth = (synths) => ({
     return Promise.all(synths.filter((s) => s.prepare).map((s) => s.prepare()));
   },
 
+  ensureAwake() {
+    const wakeables = synths.filter((s) => s.ensureAwake || s.prepare);
+    return Promise.all(
+      wakeables.map((s) => (
+        s.ensureAwake ? s.ensureAwake() : s.prepare()
+      )),
+    );
+  },
+
   setVolume(value) {
     synths.forEach((s) => s.setVolume && s.setVolume(value));
   },
