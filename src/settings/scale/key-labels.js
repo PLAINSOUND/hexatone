@@ -429,16 +429,6 @@ const KeyLabels = (props) => {
                     setAnchorFrequencyDraft(displayedAnchorFrequency);
                     return;
                   }
-                  if (!props.settings.heji_anchor_frequency && Number.isFinite(derivedAnchorFrequencyValue)
-                    && Math.abs(normalizedValue - derivedAnchorFrequencyValue) < 0.0000005) {
-                    setAnchorFrequencyDraft(displayedAnchorFrequency);
-                    return;
-                  }
-                  if (props.settings.heji_anchor_frequency && Number.isFinite(explicitAnchorFrequencyValue)
-                    && Math.abs(normalizedValue - explicitAnchorFrequencyValue) < 0.0000005) {
-                    setAnchorFrequencyDraft(displayedAnchorFrequency);
-                    return;
-                  }
                   const referenceOffsetCents = Number(effectivePitchFrame?.notationZeroToReferenceInterval?.cents);
                   if (!Number.isFinite(referenceOffsetCents)) {
                     setAnchorFrequencyDraft(displayedAnchorFrequency);
@@ -446,6 +436,26 @@ const KeyLabels = (props) => {
                   }
                   const nextFundamental = normalizedValue * Math.pow(2, referenceOffsetCents / 1200);
                   if (!Number.isFinite(nextFundamental) || nextFundamental <= 0) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  const currentFundamental = Number(props.settings.fundamental);
+                  const sameExplicitText =
+                    props.settings.heji_anchor_frequency
+                    && Number.isFinite(explicitAnchorFrequencyValue)
+                    && Math.abs(normalizedValue - explicitAnchorFrequencyValue) < 0.0000005;
+                  const sameDerivedText =
+                    !props.settings.heji_anchor_frequency
+                    && Number.isFinite(derivedAnchorFrequencyValue)
+                    && Math.abs(normalizedValue - derivedAnchorFrequencyValue) < 0.0000005;
+                  const sameFundamental =
+                    Number.isFinite(currentFundamental)
+                    && Math.abs(nextFundamental - currentFundamental) < 0.0000005;
+                  if (sameExplicitText && sameFundamental) {
+                    setAnchorFrequencyDraft(displayedAnchorFrequency);
+                    return;
+                  }
+                  if (sameDerivedText && sameFundamental) {
                     setAnchorFrequencyDraft(displayedAnchorFrequency);
                     return;
                   }

@@ -552,6 +552,24 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_names_keys).toEqual(["\uE2F2A+0", "\uE2F2E+0"]);
   });
 
+  it("infers an A-at-3/2 anchor for Oliveros-style 1-cent scales centered on D", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: [...Array.from({ length: 54 }, (_, index) => `${index + 1}\\1200`), "2/1"],
+      equivSteps: 55,
+      note_names: Array.from({ length: 55 }, (_, index) => String(index)),
+      fundamental: 293.333333,
+      reference_degree: 0,
+      heji_show_cents: true,
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("3/2");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
+    expect(normalized.heji_names[0]).toBe("D");
+    expect(normalized.heji_names[1]).toBe("D+1");
+  });
+
   it("uses an explicitly entered HEJI spelling together with the auto-derived ratio when the ratio field is blank", () => {
     const baseSettings = {
       rotation: 0,

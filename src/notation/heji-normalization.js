@@ -221,6 +221,15 @@ const buildDegreeFrequencies = ({ scaleCents, fundamental, referenceDegree = 0 }
 const KNOWN_A_FREQUENCIES = [440, 441, 442, 443, 444, 415, 392];
 const TEMPERED_C_FREQUENCY = 261.625565;
 const NAMED_A_C_MAX_DISTANCE_CENTS = 20;
+const NATURAL_LETTER_TO_A_SEMITONES = {
+  C: -9,
+  D: -7,
+  E: -5,
+  F: -4,
+  G: -2,
+  A: 0,
+  B: 2,
+};
 
 function isPlainLetterName(raw, letter) {
   return new RegExp(`^${letter}$`, "i").test(String(raw ?? "").trim());
@@ -260,6 +269,38 @@ function deriveTemperedARatioFromC(degreeText) {
   return (((centsValue + 900) % 1200) + 1200).toFixed(6);
 }
 
+function deriveExactAFromNaturalLetter(letter) {
+  if (!letter || !HEJI_NATURAL_LABELS[letter]) return null;
+  const naturalStructure = createPitchStructure({ letter });
+  const aNatural = createPitchStructure({ letter: "A" });
+  const ratioMonzo = subtractMonzos(
+    pitchStructureToMonzo(aNatural),
+    pitchStructureToMonzo(naturalStructure),
+  );
+  return {
+    ratio: formatPitchClassRatioFromMonzo(ratioMonzo),
+    label: HEJI_NATURAL_LABELS.A,
+  };
+}
+
+function inferNaturalLetterFromReferenceFrequency(referenceHz) {
+  if (!referenceHz || referenceHz <= 0) return null;
+  let best = null;
+  for (const targetA of KNOWN_A_FREQUENCIES) {
+    for (const [letter, semitoneOffset] of Object.entries(NATURAL_LETTER_TO_A_SEMITONES)) {
+      const baseHz = targetA * Math.pow(2, semitoneOffset / 12);
+      const octaveShift = Math.round(Math.log2(referenceHz / baseHz));
+      const candidateHz = baseHz * Math.pow(2, octaveShift);
+      const distanceCents = centsDistance(referenceHz, candidateHz);
+      if (!best || distanceCents < best.distanceCents) {
+        best = { letter, distanceCents };
+      }
+    }
+  }
+  if (!best || best.distanceCents > NAMED_A_C_MAX_DISTANCE_CENTS) return null;
+  return best.letter;
+}
+
 function deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, fundamental) {
   if (!Number.isFinite(referenceDegree) || referenceDegree < 0 || !fundamental || fundamental <= 0) return null;
   const exactDegree = parseExactDegreeInterval(degreeTexts?.[referenceDegree] ?? "1/1");
@@ -283,10 +324,12 @@ function deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, 
  *      starting with reference_degree and degree 0 (1/1).
  *   3. Otherwise, if the reference degree itself sits at a known concert-A
  *      frequency and its interval is exact, treat that as exact A.
- *   4. If there are still no exact clues, use plain A/C letter names together
- *      with known concert-frequency heuristics.
- *   5. Otherwise, compute a virtual tempered A from degree 0 to 440 Hz.
- *   6. Final fallback: degree 0, tempered A.
+ *   4. If there are still no exact clues, infer a natural note from the
+ *      reference frequency against known concert-A families and derive exact A.
+ *   5. Otherwise, use plain A/C letter names together with known
+ *      concert-frequency heuristics.
+ *   6. Otherwise, compute a virtual tempered A from degree 0 to 440 Hz.
+ *   7. Final fallback: degree 0, tempered A.
  *
  * @param {number|undefined}  referenceDegree - settings.reference_degree (0-based).
  * @param {string[]}          noteNames       - Raw note_names array from settings.
@@ -336,7 +379,14 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   const exactReferenceA = deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, fundamental);
   if (exactReferenceA) return exactReferenceA;
 
-  // --- Strategy 4: plain letter names + known frequency references ---
+  // --- Strategy 4: infer a natural note directly from the reference frequency ---
+  const inferredReferenceLetter = inferNaturalLetterFromReferenceFrequency(fundamental);
+  if (inferredReferenceLetter) {
+    const inferredExactA = deriveExactAFromNaturalLetter(inferredReferenceLetter);
+    if (inferredExactA) return inferredExactA;
+  }
+
+  // --- Strategy 5: plain letter names + known frequency references ---
   const namedA = findNamedReferenceByFrequency({
     noteNames,
     degreeFrequencies,
@@ -361,7 +411,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     }
   }
 
-  // --- Strategy 5: virtual tempered A from degree 0 to 440 Hz ---
+  // --- Strategy 6: virtual tempered A from degree 0 to 440 Hz ---
   const degree0Hz = degreeFrequencies[0] ?? null;
   if (degree0Hz) {
     return {
@@ -370,7 +420,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     };
   }
 
-  // --- Strategy 6: safe default — degree 0 = tempered A natural ---
+  // --- Strategy 7: safe default — degree 0 = tempered A natural ---
   return { ratio: "1/1", label: TEMPERED_NATURAL_LABELS.A };
 }
 

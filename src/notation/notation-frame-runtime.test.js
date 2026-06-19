@@ -335,4 +335,16 @@ describe("notation-frame-runtime", () => {
     expect(mutated.anchorCentsOffset).toBe(6);
     expect(spelled.labelsByDegree[0]).toBe(`${xn}F−8`);
   });
+
+  it("derives exact A at 3/2 when a 293.333 Hz reference is inferred as D from a concert-A family", () => {
+    const degreeTexts = ["1/1", ...Array.from({ length: 55 }, (_, index) => `${index + 1}\\1200`)];
+    const noteNames = Array.from({ length: 55 }, (_, index) => String(index));
+    const anchor = deriveHejiAnchor(0, noteNames, degreeTexts, 293.333333, [
+      0,
+      ...Array.from({ length: 55 }, (_, index) => index + 1),
+    ]);
+
+    expect(anchor.label).toBe(`${xn}A`);
+    expect(anchor.ratio).toBe("3/2");
+  });
 });

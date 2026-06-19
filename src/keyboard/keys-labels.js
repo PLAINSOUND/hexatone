@@ -52,5 +52,9 @@ export function updateLabels(labels) {
   };
   for (const hex of this._allActiveHexes?.() ?? []) refreshHexLabel(hex);
   for (const [hex] of this.state?.sustainedNotes ?? []) refreshHexLabel(hex);
-  this.scheduleImmediateGridRedraw();
+  if (typeof this.scheduleGridRedraw === "function") {
+    this.scheduleGridRedraw();
+  } else {
+    this.scheduleImmediateGridRedraw?.();
+  }
 }

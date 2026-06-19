@@ -28,6 +28,7 @@ describe("keys-labels updateLabels", () => {
         .fn()
         .mockReturnValueOnce("new-active")
         .mockReturnValueOnce("new-sustained"),
+      scheduleGridRedraw: vi.fn(),
       scheduleImmediateGridRedraw: vi.fn(),
     };
 
@@ -39,6 +40,7 @@ describe("keys-labels updateLabels", () => {
 
     expect(activeHex._noteContext.displayLabel).toBe("new-active");
     expect(sustainedHex._noteContext.displayLabel).toBe("new-sustained");
-    expect(ctx.scheduleImmediateGridRedraw).toHaveBeenCalledTimes(1);
+    expect(ctx.scheduleGridRedraw).toHaveBeenCalledTimes(1);
+    expect(ctx.scheduleImmediateGridRedraw).not.toHaveBeenCalled();
   });
 });
