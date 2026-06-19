@@ -157,14 +157,19 @@ describe("KeyLabels HEJI anchor handling", () => {
         settings={{
           key_labels: "heji",
           scale: ["3/2", "2/1"],
-          reference_degree: 1,
-          fundamental: 660,
+          reference_degree: 0,
+          fundamental: 440 / (27 / 16),
           heji_anchor_ratio: "",
           heji_anchor_label: "",
           heji_anchor_frequency: "",
           heji_tempered_only: false,
           heji_show_cents: true,
-          pitch_frame: pitchFrameFor({ fundamental: 660, heji_anchor_label: "A", heji_anchor_ratio: "27/16" }),
+          pitch_frame: pitchFrameFor({
+            reference_degree: 0,
+            fundamental: 440 / (27 / 16),
+            heji_anchor_label: "A",
+            heji_anchor_ratio: "27/16",
+          }),
         }}
       />,
     );

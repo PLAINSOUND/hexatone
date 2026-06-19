@@ -18,11 +18,13 @@ export const SETTINGS_IMPACT_FIELDS = {
     "show_equaves",
     "heji_anchor_label",
     "heji_anchor_ratio",
+    "heji_anchor_frequency",
     "heji_show_cents",
     "heji_tempered_only",
   ],
   colors: [
     "note_colors",
+    "key_colors_mode",
     "spectrum_colors",
     "auto_colors",
     "fundamental_color",
