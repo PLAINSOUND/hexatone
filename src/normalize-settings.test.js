@@ -291,6 +291,48 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_anchor_label_effective).toBe("\uE2F2A");
   });
 
+  it("prefers explicit tempered HEJI note names over exact A inference in 12edo-style presets", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: [
+        "100.000000",
+        "200.000000",
+        "300.000000",
+        "400.000000",
+        "500.000000",
+        "600.000000",
+        "700.000000",
+        "800.000000",
+        "900.000000",
+        "1000.000000",
+        "1100.000000",
+        "2/1",
+      ],
+      equivSteps: 12,
+      note_names: [
+        "C",
+        "C D",
+        "D",
+        "D E",
+        "E",
+        "F",
+        "F G",
+        "G",
+        "G A",
+        "A",
+        "A B",
+        "B",
+      ],
+      fundamental: 440,
+      reference_degree: 9,
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("900.000000");
+    expect(normalized.heji_anchor_label_effective).toBe("\uE2F2A");
+    expect(normalized.heji_tempered_only_effective).toBe(true);
+  });
+
   it("derives an exact A anchor from Elsie Hamilton's explicit *nA note name", () => {
     const normalized = normalizeStructural({
       rotation: 0,
