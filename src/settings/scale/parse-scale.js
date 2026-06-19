@@ -6,6 +6,8 @@
   Extended HEXATONE_* and ABLETON_* comment lines are read for full round-trip fidelity.
 */
 
+import { resolveKeyColorsMode } from "./key-colors-mode.js";
+
 export const parseScale = (scala) => {
   const out = {
     scale: [],
@@ -332,7 +334,7 @@ export const settingsToPresetJson = (settings, extra = {}) => {
     "note_names",
     "note_colors",
     "key_labels",
-    "spectrum_colors",
+    "key_colors_mode",
     "fundamental_color",
     "prime_family_colors",
     "fundamental",
@@ -346,7 +348,11 @@ export const settingsToPresetJson = (settings, extra = {}) => {
 
   const preset = {};
   for (const key of PRESET_FIELDS) {
-    if (settings[key] !== undefined) preset[key] = settings[key];
+    if (key === "key_colors_mode") {
+      preset[key] = resolveKeyColorsMode(settings);
+    } else if (settings[key] !== undefined) {
+      preset[key] = settings[key];
+    }
   }
 
   const isLumatone2d =
@@ -408,7 +414,7 @@ export const fileToPreset = (filename, text) => {
       note_names,
       note_colors,
       key_labels: hasMetadata ? "note_names" : "scala_names",
-      spectrum_colors: !hasMetadata,
+      key_colors_mode: hasMetadata ? "manual" : "spectrum",
       fundamental_color: "#ffdbe8",
       fundamental: parsed.hexatone_fundamental || 440,
       reference_degree: parsed.hexatone_reference_degree || 0,

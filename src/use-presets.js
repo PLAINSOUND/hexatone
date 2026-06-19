@@ -6,6 +6,7 @@ import { PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
 import { normalizeModulationHistory } from "./tuning/modulation-runtime.js";
 import { getControllerById } from "./controllers/registry.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "./input/controller-anchor.js";
+import { deriveKeyColorFlags } from "./settings/scale/key-colors-mode.js";
 
 export { PRESET_SKIP_KEYS };
 
@@ -26,6 +27,8 @@ export const SCALE_KEYS_TO_CLEAR = [
   "rotation",
   "center_degree",
   // "midiin_anchor_note" excluded — hardware setting, persists across presets
+  "key_colors_mode",
+  "auto_colors",
   "spectrum_colors",
   "fundamental_color",
   "name",
@@ -193,12 +196,18 @@ export const mergePresetIntoSettings = (settings, preset) => {
     ]),
   );
 
+  const keyColorFlags = deriveKeyColorFlags(preset);
+
   return {
     ...settings,
     heji_anchor_ratio: "",
     heji_anchor_label: "",
+    key_colors_mode: undefined,
+    auto_colors: undefined,
+    spectrum_colors: undefined,
     ...clearedPresetAnchorFields,
     ...presetWithoutControllerAnchors,
+    ...keyColorFlags,
     midiin_anchor_note: presetAnchorNote,
     midiin_anchor_channel: presetAnchorChannel,
     ...incomingPresetAnchorFields,

@@ -15,6 +15,11 @@ import useSettingsChange from "../../use-settings-change.js";
 
 const baseSettings = { spectrum_colors: false, auto_colors: false, fundamental_color: "#abcdef" };
 
+const openPalette = () => {
+  const toggle = screen.getByRole("checkbox", { name: "Palette" });
+  if (!toggle.checked) fireEvent.click(toggle);
+};
+
 describe("Colors — spectrum colors off", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -44,6 +49,7 @@ describe("Colors — spectrum colors off", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     const selector = screen.getByLabelText("JI Colour Palette");
     expect(selector.value).toBe("default");
     expect(selector.querySelectorAll("option")).toHaveLength(1);
@@ -145,6 +151,7 @@ describe("Colors — interactions", () => {
     render(<Colors settings={baseSettings} rawSettings={baseSettings} onChange={onChange} onAtomicChange={onAtomicChange} />);
     fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "spectrum" } });
     expect(onAtomicChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith("key_colors_mode", "spectrum");
     expect(onChange).toHaveBeenCalledWith("spectrum_colors", true);
   });
 
@@ -158,6 +165,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     const input = screen.getByLabelText("hex colour for prime-family-colour-5");
     fireEvent.input(input, { target: { value: "#aaccee" } });
     fireEvent.click(screen.getByLabelText("save colour for prime-family-colour-5"));
@@ -198,6 +206,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palettes"))).toEqual([
       expect.objectContaining({ name: "Warm Palette" }),
@@ -225,6 +234,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
     expect(onChange).toHaveBeenCalledWith(
       "prime_family_colors",
@@ -256,6 +266,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     fireEvent.click(screen.getByRole("button", { name: /default colours/i }));
     expect(onChange).toHaveBeenCalledWith(
       "prime_family_colors",
@@ -287,6 +298,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
     onChange.mockClear();
     fireEvent.click(screen.getByRole("button", { name: /reload saved palette/i }));
@@ -311,6 +323,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
 
     expect(screen.queryByRole("button", { name: /reload saved palette/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
@@ -338,6 +351,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
     fireEvent.click(screen.getByRole("button", { name: /delete/i }));
     expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palettes"))).toEqual([]);
@@ -357,6 +371,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
     fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
     fireEvent.click(screen.getByRole("button", { name: /clear all/i }));
     expect(JSON.parse(localStorage.getItem("hexatone_prime_family_palettes"))).toEqual([]);
@@ -425,6 +440,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
 
     const input = screen.getByLabelText("hex colour for prime-family-colour-23");
     fireEvent.input(input, { target: { value: "#112233" } });
@@ -467,6 +483,7 @@ describe("Colors — interactions", () => {
         onAtomicChange={() => {}}
       />,
     );
+    openPalette();
 
     const input = screen.getByLabelText("hex colour for prime-family-colour-23");
     fireEvent.input(input, { target: { value: "#112233" } });
@@ -515,6 +532,7 @@ describe("Colors — interactions", () => {
     };
 
     render(<Wrapper />);
+    openPalette();
     fireEvent.input(screen.getByLabelText("hex colour for prime-family-colour-23"), {
       target: { value: "#112233" },
     });

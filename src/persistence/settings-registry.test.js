@@ -106,6 +106,7 @@ describe("buildRegistryDefaults", () => {
   it("starts blank Hexatone with auto colours and HEJI key labels", () => {
     const defaults = buildRegistryDefaults();
 
+    expect(defaults.key_colors_mode).toBe("auto");
     expect(defaults.auto_colors).toBe(true);
     expect(defaults.spectrum_colors).toBe(false);
     expect(defaults.key_labels).toBe("heji");

@@ -95,6 +95,22 @@ describe("normalizeColors", () => {
     expect(normalized.note_colors[1]).toBe("95c69b");
   });
 
+  it("lets key_colors_mode override stale legacy booleans during normalization", () => {
+    const normalized = normalizeColors({
+      key_colors_mode: "manual",
+      auto_colors: true,
+      spectrum_colors: true,
+      fundamental_color: "#ffdbe8",
+      note_colors: ["#112233", "#abcdef"],
+      equivSteps: 2,
+    });
+
+    expect(normalized.key_colors_mode).toBe("manual");
+    expect(normalized.auto_colors).toBe(false);
+    expect(normalized.spectrum_colors).toBe(false);
+    expect(normalized.note_colors).toEqual(["112233", "abcdef"]);
+  });
+
   it("scales the auto tonic highlight with palette intensity", () => {
     const mild = deriveAutoTonicColorFromPalette([
       "#ffffff",

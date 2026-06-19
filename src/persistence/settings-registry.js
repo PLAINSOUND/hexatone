@@ -68,6 +68,7 @@ export const SETTINGS_REGISTRY = [
   { key: "equivSteps", tier: "url", type: "int", default: 1, presetSkip: true },
   { key: "reference_degree", tier: "url", type: "int", default: 0, presetSkip: true },
   { key: "fundamental", tier: "url", type: "float", default: 440, presetSkip: true },
+  { key: "key_colors_mode", tier: "url", type: "string", default: "auto", presetSkip: true },
   { key: "spectrum_colors", tier: "url", type: "bool", default: false, presetSkip: true },
   { key: "auto_colors", tier: "url", type: "bool", default: true, presetSkip: true },
   { key: "fundamental_color", tier: "url", type: "string", default: "#ffdbe8", presetSkip: true },

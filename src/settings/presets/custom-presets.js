@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { fileToPreset, settingsToPresetJson } from "../scale/parse-scale";
 import { normalizeModulationHistory } from "../../tuning/modulation-runtime.js";
+import { resolveKeyColorsMode } from "../scale/key-colors-mode.js";
 
 const STORAGE_KEY = "hexatone_custom_presets";
 
@@ -22,7 +23,7 @@ const PRESET_FIELDS = [
   "note_names",
   "note_colors",
   "key_labels",
-  "spectrum_colors",
+  "key_colors_mode",
   "fundamental_color",
   "prime_family_colors",
   "fundamental",
@@ -130,7 +131,11 @@ const CustomPresets = ({
     }
     const preset = { name: tuningName };
     for (const key of PRESET_FIELDS) {
-      if (settings[key] !== undefined) preset[key] = settings[key];
+      if (key === "key_colors_mode") {
+        preset[key] = resolveKeyColorsMode(settings);
+      } else if (settings[key] !== undefined) {
+        preset[key] = settings[key];
+      }
     }
     const normalizedLibrary = normalizeModulationHistory(currentModulationLibrary, { zeroCounts: true });
     if (normalizedLibrary.length > 0) preset.modulation_library = normalizedLibrary;
@@ -172,7 +177,11 @@ const CustomPresets = ({
 
     const preset = { name: tuningName };
     for (const key of PRESET_FIELDS) {
-      if (committedSettings[key] !== undefined) preset[key] = committedSettings[key];
+      if (key === "key_colors_mode") {
+        preset[key] = resolveKeyColorsMode(committedSettings);
+      } else if (committedSettings[key] !== undefined) {
+        preset[key] = committedSettings[key];
+      }
     }
     delete preset.modulation_library;
 

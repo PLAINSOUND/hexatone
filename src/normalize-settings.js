@@ -11,6 +11,7 @@ import { buildPitchFrame } from "./notation/pitch-frame.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 export { deriveHejiAnchor, deriveHejiAnchorFromNoteNames } from "./notation/heji-normalization.js";
 import { deriveAutoNoteColors } from "./settings/scale/auto-colors.js";
+import { deriveKeyColorFlags } from "./settings/scale/key-colors-mode.js";
 
 const AUTO_COLOR_CACHE_LIMIT = 8;
 const autoColorNormalizationCache = new Map();
@@ -32,6 +33,7 @@ function buildAutoColorCacheKey(settings) {
     heji_names: settings.heji_names ?? [],
     heji_names_table: settings.heji_names_table ?? [],
     prime_family_colors: settings.prime_family_colors ?? [],
+    key_colors_mode: settings.key_colors_mode ?? "",
     auto_colors: settings.auto_colors === true,
     spectrum_colors: settings.spectrum_colors === true,
     fundamental_color: settings.fundamental_color ?? "",
@@ -72,22 +74,22 @@ export function deriveSpectrumNoteColors(settings, fundamentalColor) {
 // Color fields only — changes here should NOT reconstruct the hex grid.
 export const normalizeColors = (settings) => {
   const fundamental_color = (settings.fundamental_color || "").replace(/#/, "");
-  const autoOverridesSpectrum = settings.auto_colors === true;
-  const effectiveSpectrum = autoOverridesSpectrum ? false : settings.spectrum_colors;
-  const sourceNoteColors = settings.auto_colors
+  const colorFlags = deriveKeyColorFlags(settings);
+  const sourceNoteColors = colorFlags.auto_colors
     ? getCachedAutoNormalizedColors(settings, () => deriveAutoNoteColors(settings, {
       heji_names: settings.heji_names,
       heji_names_table: settings.heji_names_table,
       hejiFrame: settings.heji_frame,
     }))
-    : (effectiveSpectrum ? deriveSpectrumNoteColors(settings, fundamental_color) : (settings.note_colors || []));
+    : (colorFlags.spectrum_colors
+      ? deriveSpectrumNoteColors(settings, fundamental_color)
+      : (settings.note_colors || []));
   const note_colors = sourceNoteColors.map((c) => (c ? c.replace(/#/, "") : "ffffff"));
 
   return {
     fundamental_color,
     note_colors: note_colors.length > 0 ? note_colors : [],
-    spectrum_colors: effectiveSpectrum,
-    auto_colors: settings.auto_colors,
+    ...colorFlags,
   };
 };
 

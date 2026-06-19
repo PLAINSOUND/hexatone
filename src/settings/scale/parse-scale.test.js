@@ -374,9 +374,24 @@ describe("settingsToPresetJson", () => {
     expect(parsed.name).toBe("Export Test");
     expect(parsed.scale).toEqual(["100.", "1200."]);
     expect(parsed.fundamental).toBe(440);
+    expect(parsed.key_colors_mode).toBe("manual");
     expect(parsed.scale_import).toBeUndefined();
     expect(parsed.midiin_central_degree).toBeUndefined();
     expect(parsed.mpe_pitchbend_range).toBeUndefined();
+  });
+
+  it("derives key_colors_mode from legacy color booleans when exporting", () => {
+    const json = settingsToPresetJson({
+      name: "Spectrum Export",
+      scale: ["100.", "1200."],
+      equivSteps: 2,
+      spectrum_colors: true,
+      auto_colors: false,
+    });
+    const parsed = JSON.parse(json);
+
+    expect(parsed.key_colors_mode).toBe("spectrum");
+    expect(parsed.spectrum_colors).toBeUndefined();
   });
 
   it("can include saved modulation-library metadata alongside settings", () => {
@@ -479,7 +494,7 @@ describe("fileToPreset — .scl", () => {
     const preset = fileToPreset("just.scl", SCALE_JUST);
     expect(preset).not.toBeNull();
     expect(preset.scale).toHaveLength(5);
-    expect(preset.spectrum_colors).toBe(true);
+    expect(preset.key_colors_mode).toBe("spectrum");
     expect(preset.key_labels).toBe("scala_names");
   });
 
@@ -496,6 +511,6 @@ describe("fileToPreset — .ascl with HEXATONE metadata", () => {
     expect(preset.note_names).toEqual(["C", "D", "E"]);
     expect(preset.note_colors).toEqual(["#ffffff", "#dddddd", "#bbbbbb"]);
     expect(preset.key_labels).toBe("note_names");
-    expect(preset.spectrum_colors).toBe(false);
+    expect(preset.key_colors_mode).toBe("manual");
   });
 });

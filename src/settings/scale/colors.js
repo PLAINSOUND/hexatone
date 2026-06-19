@@ -9,6 +9,7 @@ import {
   normalizePrimeFamilyColors,
   PRIME_COLOR_ORDER,
 } from "./monzo-color.js";
+import { deriveKeyColorFlags, resolveKeyColorsMode } from "./key-colors-mode.js";
 
 const PRIME_FAMILY_PALETTES_STORAGE_KEY = "hexatone_prime_family_palettes";
 
@@ -39,11 +40,7 @@ const normaliseHex = (raw) => {
   return null;
 };
 
-const getColorMode = (settings) => {
-  if (settings?.auto_colors) return "auto";
-  if (settings?.spectrum_colors) return "spectrum";
-  return "manual";
-};
+const getColorMode = (settings) => resolveKeyColorsMode(settings);
 
 const loadPrimeFamilyPalettes = () => {
   try {
@@ -197,32 +194,37 @@ const Colors = (props) => {
     if (props.onAtomicChange) {
       props.onAtomicChange({
         note_colors: committedColors,
+        key_colors_mode: "manual",
+        auto_colors: false,
         spectrum_colors: false,
       });
       return;
     }
+    props.onChange("key_colors_mode", "manual");
+    props.onChange("auto_colors", false);
     props.onChange("note_colors", committedColors);
     props.onChange("spectrum_colors", false);
   };
 
   const setColorMode = (nextMode) => {
-    const updates = {
-      auto_colors: nextMode === "auto",
-      spectrum_colors: nextMode === "spectrum",
-    };
+    const updates = deriveKeyColorFlags({ key_colors_mode: nextMode });
     if (nextMode === "spectrum" && !rawSettings.auto_colors) {
+      props.onChange("key_colors_mode", nextMode);
       props.onChange("spectrum_colors", true);
       return;
     }
     if (nextMode === "auto" && !rawSettings.spectrum_colors) {
+      props.onChange("key_colors_mode", nextMode);
       props.onChange("auto_colors", true);
       return;
     }
     if (nextMode === "manual" && rawSettings.spectrum_colors && !rawSettings.auto_colors) {
+      props.onChange("key_colors_mode", nextMode);
       props.onChange("spectrum_colors", false);
       return;
     }
     if (nextMode === "manual" && rawSettings.auto_colors && !rawSettings.spectrum_colors) {
+      props.onChange("key_colors_mode", nextMode);
       props.onChange("auto_colors", false);
       return;
     }
@@ -230,6 +232,7 @@ const Colors = (props) => {
       props.onAtomicChange(updates);
       return;
     }
+    props.onChange("key_colors_mode", updates.key_colors_mode);
     props.onChange("auto_colors", updates.auto_colors);
     props.onChange("spectrum_colors", updates.spectrum_colors);
   };
