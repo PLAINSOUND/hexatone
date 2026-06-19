@@ -167,16 +167,6 @@ export const normalizeStructural = (settings, options = {}) => {
     // full degree list as ratioText strings from the original scaleAsStrings:
     //   degree 0  → "1/1"
     //   degrees 1..n-1 → scaleAsStrings[0..n-2]  (equave was last, now popped)
-    if (!hejiSupported) {
-      result["heji_anchor_label_effective"] = "";
-      result["heji_anchor_ratio_effective"] = "";
-      result["heji_names"] = [];
-      result["heji_names_keys"] = [];
-      result["heji_frame"] = null;
-      result["heji_warning"] = "Non-octave equave cannot generate consistent note names.";
-      return result;
-    }
-
     const degreeTexts = ["1/1", ...scaleAsStrings.slice(0, -1)];
     try {
       const effectiveHejiAnchor = resolveEffectiveHejiAnchor({
@@ -193,6 +183,20 @@ export const normalizeStructural = (settings, options = {}) => {
         heji_anchor_label: effectiveHejiAnchor.anchorLabel,
         heji_anchor_ratio: effectiveHejiAnchor.anchorRatioText,
       }, workspace);
+      result["heji_anchor_label_effective"] = effectiveHejiAnchor.anchorLabel;
+      result["heji_anchor_ratio_effective"] = effectiveHejiAnchor.anchorRatioText;
+      result["pitch_frame"] = pitchFrame;
+      result["heji_tempered_only_effective"] =
+        settings.heji_tempered_only === true || effectiveHejiAnchor.inferredTemperedOnly === true;
+
+      if (!hejiSupported) {
+        result["heji_names"] = [];
+        result["heji_names_keys"] = [];
+        result["heji_frame"] = null;
+        result["heji_warning"] = "Non-octave equave cannot generate consistent note names.";
+        return result;
+      }
+
       const hejiFrame = buildHejiNotationFrame({
         referenceDegree: settings.reference_degree,
         noteNames: settings.note_names,
@@ -201,7 +205,8 @@ export const normalizeStructural = (settings, options = {}) => {
         scaleCents: workspaceRuntime.scale,
         explicitAnchorLabel: effectiveHejiAnchor.anchorLabel,
         explicitAnchorRatio: effectiveHejiAnchor.anchorRatioText,
-        temperedOnly: settings.heji_tempered_only === true,
+        temperedOnly:
+          settings.heji_tempered_only === true || effectiveHejiAnchor.inferredTemperedOnly === true,
         showCents: settings.heji_show_cents !== false,
         pitchFrame,
       });
@@ -210,7 +215,6 @@ export const normalizeStructural = (settings, options = {}) => {
       result["heji_names"] = hejiFrame.hejiNames;
       result["heji_names_keys"] = hejiFrame.hejiNamesKeys;
       result["heji_frame"] = hejiFrame;
-      result["pitch_frame"] = pitchFrame;
     } catch {
       result["heji_anchor_label_effective"] = "";
       result["heji_anchor_ratio_effective"] = "";
@@ -218,6 +222,7 @@ export const normalizeStructural = (settings, options = {}) => {
       result["heji_names_keys"] = [];
       result["heji_frame"] = null;
       result["pitch_frame"] = null;
+      result["heji_tempered_only_effective"] = settings.heji_tempered_only === true;
     }
   }
   return result;

@@ -41,6 +41,8 @@ export const TEMPERED_NATURAL_LABELS = {
   B: `${TEMPERED_NATURAL}B`,
 };
 
+const LETTER_TO_SEMITONE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
 // 12-EDO chromatic scale from C (semitones 0–11), preferred natural-letter spelling.
 // Used to convert a MIDI pitch class to a note letter for frequency inference.
 const SEMITONE_TO_LETTER = ["C", "C", "D", "E", "E", "F", "F", "G", "G", "A", "B", "B"];
@@ -269,36 +271,55 @@ function deriveTemperedARatioFromC(degreeText) {
   return (((centsValue + 900) % 1200) + 1200).toFixed(6);
 }
 
+function complementPitchClassRatioText(ratioText) {
+  const exact = parseExactInterval(String(ratioText ?? ""));
+  if (!exact?.ratio) return ratioText;
+  const complemented = new Fraction(2, 1).div(exact.ratio);
+  const text = complemented.toFraction();
+  return text.includes("/") ? text : `${text}/1`;
+}
+
 function deriveExactAFromNaturalLetter(letter) {
   if (!letter || !HEJI_NATURAL_LABELS[letter]) return null;
-  const naturalStructure = createPitchStructure({ letter });
-  const aNatural = createPitchStructure({ letter: "A" });
-  const ratioMonzo = subtractMonzos(
-    pitchStructureToMonzo(aNatural),
-    pitchStructureToMonzo(naturalStructure),
-  );
-  return {
-    ratio: formatPitchClassRatioFromMonzo(ratioMonzo),
-    label: HEJI_NATURAL_LABELS.A,
-  };
+  const exactA = deriveExactAFromExplicitHejiDegree(HEJI_NATURAL_LABELS[letter], "1/1");
+  if (!exactA) return null;
+  const desiredCents = (((9 - (LETTER_TO_SEMITONE[letter] ?? 9)) % 12) + 12) % 12 * 100;
+  const currentCents = scalaToCents(String(exactA.ratio ?? ""));
+  const preferUpperHalf = desiredCents > 600;
+  const currentUpperHalf = Number.isFinite(currentCents) && currentCents > 600;
+  const ratio =
+    Number.isFinite(currentCents) && preferUpperHalf !== currentUpperHalf
+      ? complementPitchClassRatioText(exactA.ratio)
+      : exactA.ratio;
+  return { ...exactA, ratio, inferredTemperedOnly: true };
 }
 
 function inferNaturalLetterFromReferenceFrequency(referenceHz) {
   if (!referenceHz || referenceHz <= 0) return null;
-  let best = null;
   for (const targetA of KNOWN_A_FREQUENCIES) {
+    let bestForTarget = null;
     for (const [letter, semitoneOffset] of Object.entries(NATURAL_LETTER_TO_A_SEMITONES)) {
       const baseHz = targetA * Math.pow(2, semitoneOffset / 12);
       const octaveShift = Math.round(Math.log2(referenceHz / baseHz));
       const candidateHz = baseHz * Math.pow(2, octaveShift);
       const distanceCents = centsDistance(referenceHz, candidateHz);
-      if (!best || distanceCents < best.distanceCents) {
-        best = { letter, distanceCents };
+      if (!bestForTarget || distanceCents < bestForTarget.distanceCents) {
+        bestForTarget = { letter, distanceCents };
       }
     }
+    if (bestForTarget && bestForTarget.distanceCents <= NAMED_A_C_MAX_DISTANCE_CENTS) {
+      return bestForTarget.letter;
+    }
   }
-  if (!best || best.distanceCents > NAMED_A_C_MAX_DISTANCE_CENTS) return null;
-  return best.letter;
+  return null;
+}
+
+function noteNamesLackSpellingClues(noteNames) {
+  if (!Array.isArray(noteNames) || noteNames.length === 0) return true;
+  return noteNames.every((raw) => {
+    const text = String(raw ?? "").trim();
+    return text === "" || /^[+\-]?\d+$/.test(text);
+  });
 }
 
 function deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, fundamental) {
@@ -380,7 +401,10 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   if (exactReferenceA) return exactReferenceA;
 
   // --- Strategy 4: infer a natural note directly from the reference frequency ---
-  const inferredReferenceLetter = inferNaturalLetterFromReferenceFrequency(fundamental);
+  const inferredReferenceLetter =
+    noteNamesLackSpellingClues(noteNames)
+      ? inferNaturalLetterFromReferenceFrequency(fundamental)
+      : null;
   if (inferredReferenceLetter) {
     const inferredExactA = deriveExactAFromNaturalLetter(inferredReferenceLetter);
     if (inferredExactA) return inferredExactA;
@@ -395,7 +419,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     targetFrequencies: KNOWN_A_FREQUENCIES,
   });
   if (namedA) {
-    return { ratio: namedA.ratio, label: TEMPERED_NATURAL_LABELS.A };
+    return { ratio: namedA.ratio, label: TEMPERED_NATURAL_LABELS.A, inferredTemperedOnly: true };
   }
   const namedC = findNamedReferenceByFrequency({
     noteNames,
@@ -407,7 +431,7 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   if (namedC) {
     const derivedRatio = deriveTemperedARatioFromC(namedC.ratio);
     if (derivedRatio) {
-      return { ratio: derivedRatio, label: TEMPERED_NATURAL_LABELS.A };
+      return { ratio: derivedRatio, label: TEMPERED_NATURAL_LABELS.A, inferredTemperedOnly: true };
     }
   }
 
@@ -417,11 +441,12 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
     return {
       ratio: (1200 * Math.log2(440 / degree0Hz)).toFixed(6),
       label: TEMPERED_NATURAL_LABELS.A,
+      inferredTemperedOnly: true,
     };
   }
 
   // --- Strategy 7: safe default — degree 0 = tempered A natural ---
-  return { ratio: "1/1", label: TEMPERED_NATURAL_LABELS.A };
+  return { ratio: "1/1", label: TEMPERED_NATURAL_LABELS.A, inferredTemperedOnly: true };
 }
 
 // Keep the old export name as an alias for backward compatibility with any callers/tests.

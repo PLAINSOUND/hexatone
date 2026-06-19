@@ -527,8 +527,8 @@ describe("normalizeStructural", () => {
 
     expect(normalized.heji_supported).toBe(false);
     expect(normalized.heji_warning).toBe("Non-octave equave cannot generate consistent note names.");
-    expect(normalized.heji_anchor_ratio_effective).toBe("");
-    expect(normalized.heji_anchor_label_effective).toBe("");
+    expect(normalized.heji_anchor_ratio_effective).toBe("3/2");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
     expect(normalized.heji_names).toEqual([]);
     expect(normalized.heji_names_keys).toEqual([]);
   });
@@ -566,8 +566,8 @@ describe("normalizeStructural", () => {
 
     expect(normalized.heji_anchor_ratio_effective).toBe("3/2");
     expect(normalized.heji_anchor_label_effective).toBe("A");
-    expect(normalized.heji_names[0]).toBe("D");
-    expect(normalized.heji_names[1]).toBe("D+1");
+    expect(normalized.heji_names[0]).toBe("D−2");
+    expect(normalized.heji_names[1]).toBe("D−1");
   });
 
   it("uses an explicitly entered HEJI spelling together with the auto-derived ratio when the ratio field is blank", () => {

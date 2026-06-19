@@ -67,6 +67,7 @@ export function resolveEffectiveHejiAnchor({
   return {
     anchorLabel: canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derivedAnchorLabel,
     anchorRatioText: normalizedAnchorRatio(trimmedExplicitAnchorRatio || derived.ratio),
+    inferredTemperedOnly: derived.inferredTemperedOnly === true,
   };
 }
 
