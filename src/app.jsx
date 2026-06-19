@@ -415,9 +415,15 @@ const App = () => {
   const [keysReadyRevision, setKeysReadyRevision] = useState(0);
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
   const viewportBaselineRef = useRef(0);
+  const audioNeedsHardRefreshRef = useRef(false);
   const primeAudioFromUserInteraction = useCallback(() => {
     if (!userHasInteracted) {
       setUserHasInteracted(true);
+    }
+    if (audioNeedsHardRefreshRef.current && typeof synthRef.current?.forceAudioRebuild === "function") {
+      audioNeedsHardRefreshRef.current = false;
+      void synthRef.current.forceAudioRebuild();
+      return;
     }
     if (typeof synthRef.current?.ensureAwake === "function") {
       void synthRef.current.ensureAwake();
@@ -425,6 +431,27 @@ const App = () => {
       void synthRef.current.prepare();
     }
   }, [userHasInteracted]);
+
+  useEffect(() => {
+    if (!isIOS || typeof document === "undefined" || typeof window === "undefined") return undefined;
+
+    const markAudioStale = () => {
+      audioNeedsHardRefreshRef.current = true;
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") markAudioStale();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", markAudioStale);
+    window.addEventListener("pageshow", markAudioStale);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", markAudioStale);
+      window.removeEventListener("pageshow", markAudioStale);
+    };
+  }, []);
 
   const noteRotationEvent = useCallback((source) => {
     if (!isIOS) return;
