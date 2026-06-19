@@ -368,6 +368,27 @@ function deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, 
   };
 }
 
+function deriveExactAFromAnyDegreeFrequency(degreeTexts, degreeFrequencies) {
+  if (!Array.isArray(degreeTexts) || !Array.isArray(degreeFrequencies)) return null;
+  let best = null;
+  for (let degree = 0; degree < degreeTexts.length; degree += 1) {
+    const exactDegree = parseExactDegreeInterval(degreeTexts[degree] ?? "1/1");
+    const hz = degreeFrequencies[degree];
+    if (!exactDegree || !hz || hz <= 0) continue;
+    const distanceCents = Math.min(
+      ...KNOWN_A_FREQUENCIES.map((target) => centsDistanceToNearestOctave(hz, target)),
+    );
+    if (distanceCents > NAMED_A_C_MAX_DISTANCE_CENTS) continue;
+    if (!best || distanceCents < best.distanceCents) {
+      best = {
+        ratio: formatPitchClassRatioFromMonzo(exactDegree.monzo),
+        distanceCents,
+      };
+    }
+  }
+  return best ? { ratio: best.ratio, label: HEJI_NATURAL_LABELS.A } : null;
+}
+
 /**
  * Derive the HEJI anchor (ratio + label) for auto-filling the anchor fields.
  *
@@ -444,6 +465,10 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   // --- Strategy 4: exact rational reference degree at a known A frequency ---
   const exactReferenceA = deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, fundamental);
   if (exactReferenceA) return exactReferenceA;
+
+  // --- Strategy 4b: any exact degree landing on a known A frequency ---
+  const exactScaleDegreeA = deriveExactAFromAnyDegreeFrequency(degreeTexts, degreeFrequencies);
+  if (exactScaleDegreeA) return exactScaleDegreeA;
 
   // --- Strategy 5: infer a natural note directly from the reference frequency ---
   const inferredReferenceLetter =

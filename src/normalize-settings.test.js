@@ -612,6 +612,21 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_names[1]).toBe("D−1");
   });
 
+  it("infers an exact A-at-11/6 anchor from harmonic-series degrees that land on 440 Hz", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: Array.from({ length: 36 }, (_, index) => `${index + 13}/12`).concat("4/1"),
+      equivSteps: 37,
+      note_names: Array.from({ length: 37 }, (_, index) => `${index + 12}`),
+      fundamental: 240,
+      reference_degree: 0,
+    });
+
+    expect(normalized.heji_anchor_ratio_effective).toBe("11/6");
+    expect(normalized.heji_anchor_label_effective).toBe("A");
+  });
+
   it("uses an explicitly entered HEJI spelling together with the auto-derived ratio when the ratio field is blank", () => {
     const baseSettings = {
       rotation: 0,
