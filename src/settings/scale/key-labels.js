@@ -18,6 +18,7 @@ import {
   withPitchStructureTemperedAccidentalCount,
 } from "../../notation/pitch-structure.js";
 import { buildPitchFrame, resolveStructurePitch } from "../../notation/pitch-frame.js";
+import { createScaleWorkspace } from "../../tuning/workspace.js";
 
 const HEJI_PALETTE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 const HEJI_BASE_SYMBOLS_BY_ID = Object.fromEntries(BASE_SYMBOLS.map((symbol) => [symbol.id, symbol]));
@@ -46,11 +47,11 @@ function chromaticSemitone(letter, chromatic) {
   return ((base + delta) % 12 + 12) % 12;
 }
 
-function derivePaletteAutoDeviation(structure, anchorLabel, anchorRatio) {
-  if (!structure?.letter || !anchorLabel) return "";
+function derivePaletteAutoDeviationCents(structure, anchorLabel, anchorRatio) {
+  if (!structure?.letter || !anchorLabel) return null;
 
   const anchorStructure = parseHejiToStructure(anchorLabel);
-  if (!anchorStructure?.letter) return "";
+  if (!anchorStructure?.letter) return null;
 
   const pitchFrame = buildPitchFrame({
     heji_anchor_label: anchorLabel,
@@ -60,17 +61,24 @@ function derivePaletteAutoDeviation(structure, anchorLabel, anchorRatio) {
   }, null);
   const resolved = resolveStructurePitch(pitchFrame, structure);
   const centsFromAnchor = resolved?.notationRelativeInterval?.cents;
-  if (!Number.isFinite(centsFromAnchor)) return "";
+  if (!Number.isFinite(centsFromAnchor)) return null;
 
   const targetChromatic = BASE_BY_ID[pitchStructureToBaseId(structure)]?.chromatic ?? "natural";
   const anchorChromatic = BASE_BY_ID[pitchStructureToBaseId(anchorStructure)]?.chromatic ?? "natural";
   const pc = ((centsFromAnchor % 1200) + 1200) % 1200;
   const expected =
     ((chromaticSemitone(structure.letter, targetChromatic) - chromaticSemitone(anchorStructure.letter, anchorChromatic)) * 100 % 1200 + 1200) % 1200;
-  const raw = Math.round(pc - expected);
-  const deviation = ((raw + 600) % 1200 + 1200) % 1200 - 600;
-  if (deviation === 0) return "+0";
-  return deviation > 0 ? `+${deviation}` : `−${Math.abs(deviation)}`;
+  const raw = pc - expected;
+  return ((raw + 600) % 1200 + 1200) % 1200 - 600;
+}
+
+function formatPaletteAutoDeviation(value, decimals = 0) {
+  if (!Number.isFinite(value)) return "";
+  const places = Math.max(0, Math.min(6, Number(decimals) || 0));
+  const rounded = Number(value.toFixed(places));
+  const prefix = rounded < 0 ? "−" : "+";
+  const magnitude = Math.abs(rounded).toFixed(places);
+  return `${prefix}${magnitude}`;
 }
 
 function normalizeEditableDeviationInput(nextValue, currentValue = "") {
@@ -87,6 +95,19 @@ function normalizeEditableDeviationInput(nextValue, currentValue = "") {
   return String(currentValue ?? "").startsWith("−") ? `−${rest}` : `+${rest}`;
 }
 
+function formatDerivedFrequency(value) {
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return value.toFixed(1);
+}
+
+function normalizeAnchorFrequencyInput(raw) {
+  const next = String(raw ?? "").trim();
+  if (!next) return "";
+  const parsed = Number.parseFloat(next);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed.toFixed(6).replace(/\.?0+$/, "");
+}
+
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
   const hejiDisabled = props.heji_supported === false;
@@ -95,14 +116,52 @@ const KeyLabels = (props) => {
   const [showPalette, setShowPalette] = useState(false);
   const [paletteStructure, setPaletteStructure] = useState(() => createPitchStructure());
   const [paletteDeviation, setPaletteDeviation] = useState("");
+  const [paletteDeviationDecimals, setPaletteDeviationDecimals] = useState(0);
   const [copied, setCopied] = useState(false);
   const effectiveAnchorLabel = props.settings.heji_anchor_label || props.heji_anchor_label_eff || "A";
   const effectiveAnchorRatio = props.settings.heji_anchor_ratio || props.heji_anchor_ratio_eff || "1/1";
+  const effectivePitchFrame = useMemo(() => {
+    if (props.settings.pitch_frame) return props.settings.pitch_frame;
+    if (!Array.isArray(props.settings.scale)) return null;
+    try {
+      const settingsForFrame = {
+        scale: props.settings.scale,
+        reference_degree: props.settings.reference_degree ?? 0,
+        fundamental: props.settings.fundamental ?? 440,
+        heji_anchor_label: effectiveAnchorLabel,
+        heji_anchor_ratio: effectiveAnchorRatio,
+      };
+      return buildPitchFrame(settingsForFrame, createScaleWorkspace(settingsForFrame));
+    } catch {
+      return null;
+    }
+  }, [
+    props.settings.pitch_frame,
+    props.settings.scale,
+    props.settings.reference_degree,
+    props.settings.fundamental,
+    effectiveAnchorLabel,
+    effectiveAnchorRatio,
+  ]);
+  const effectiveAnchorFrequency = useMemo(() => {
+    const pitchFrame = effectivePitchFrame;
+    const referenceFrequency = Number(props.settings.fundamental);
+    const referenceOffsetCents = Number(pitchFrame?.notationZeroToReferenceInterval?.cents);
+    if (!Number.isFinite(referenceFrequency) || !Number.isFinite(referenceOffsetCents)) return "";
+    return formatDerivedFrequency(referenceFrequency / Math.pow(2, referenceOffsetCents / 1200));
+  }, [
+    effectivePitchFrame,
+    props.settings.fundamental,
+  ]);
   const paletteText = useMemo(() => pitchStructureToHeji(paletteStructure), [paletteStructure]);
+  const paletteAutoDeviationCents = useMemo(() => {
+    if (paletteStructure.useTemperedAccidentals) return null;
+    return derivePaletteAutoDeviationCents(paletteStructure, effectiveAnchorLabel, effectiveAnchorRatio);
+  }, [effectiveAnchorLabel, effectiveAnchorRatio, paletteStructure]);
   const paletteDeviationDisplay = useMemo(() => {
     if (paletteStructure.useTemperedAccidentals) return paletteDeviation;
-    return derivePaletteAutoDeviation(paletteStructure, effectiveAnchorLabel, effectiveAnchorRatio);
-  }, [effectiveAnchorLabel, effectiveAnchorRatio, paletteDeviation, paletteStructure]);
+    return formatPaletteAutoDeviation(paletteAutoDeviationCents, paletteDeviationDecimals);
+  }, [paletteAutoDeviationCents, paletteDeviation, paletteDeviationDecimals, paletteStructure.useTemperedAccidentals]);
   const combinedPaletteText = `${paletteText}${paletteDeviationDisplay}`.trim();
 
   const copyHejiToNoteNames = () => {
@@ -119,7 +178,20 @@ const KeyLabels = (props) => {
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(combinedPaletteText);
         setCopied(true);
+        return;
       }
+      const helper = document.createElement("textarea");
+      helper.value = combinedPaletteText;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      helper.style.pointerEvents = "none";
+      document.body.appendChild(helper);
+      helper.focus();
+      helper.select();
+      const copiedOk = document.execCommand?.("copy");
+      document.body.removeChild(helper);
+      setCopied(!!copiedOk);
     } catch {
       setCopied(false);
     }
@@ -148,7 +220,7 @@ const KeyLabels = (props) => {
           <option value="scala_names">Scale Data</option>
           <option value="cents">Scale Cents</option>
           <option value="note_names">Name</option>
-          <option value="heji">HEJI (auto-generated)</option>
+          <option value="heji">HEJI</option>
         </select>
       </label>
       <label>
@@ -218,7 +290,46 @@ const KeyLabels = (props) => {
               }}
             />
           </label>
-          <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.5em" }}>
+          <label>
+            Spelling Frequency
+            <input
+              type="text"
+              class="sidebar-input"
+              inputMode="decimal"
+              placeholder={effectiveAnchorFrequency}
+              value={props.settings.heji_anchor_frequency || ""}
+              disabled={hejiDisabled}
+              onInput={(e) => props.onChange("heji_anchor_frequency", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.target.blur();
+              }}
+              onBlur={(e) => {
+                const normalized = normalizeAnchorFrequencyInput(e.target.value);
+                if (normalized === null) {
+                  e.target.value = props.settings.heji_anchor_frequency || "";
+                  return;
+                }
+                if (normalized === "") {
+                  props.onChange("heji_anchor_frequency", "");
+                  return;
+                }
+                const referenceOffsetCents = Number(effectivePitchFrame?.notationZeroToReferenceInterval?.cents);
+                if (!Number.isFinite(referenceOffsetCents)) return;
+                const nextFundamental = Number.parseFloat(normalized) * Math.pow(2, referenceOffsetCents / 1200);
+                if (!Number.isFinite(nextFundamental) || nextFundamental <= 0) return;
+                if (props.onAtomicChange) {
+                  props.onAtomicChange({
+                    heji_anchor_frequency: normalized,
+                    fundamental: nextFundamental,
+                  });
+                } else {
+                  props.onChange("heji_anchor_frequency", normalized);
+                  props.onChange("fundamental", nextFundamental);
+                }
+              }}
+            />
+          </label>
+          <label class="heji-anchor-fieldset__toggle-row">
             <input
               type="checkbox"
               checked={props.settings.heji_tempered_only === true}
@@ -227,7 +338,7 @@ const KeyLabels = (props) => {
             />
             Tempered Accidentals Only
           </label>
-          <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.5em" }}>
+          <label class="heji-anchor-fieldset__toggle-row">
             <input
               type="checkbox"
               checked={props.settings.heji_show_cents !== false}
@@ -236,7 +347,7 @@ const KeyLabels = (props) => {
             />
             Always Include Cents on Keys
           </label>
-          <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.5em" }}>
+          <label class="heji-anchor-fieldset__toggle-row">
             <input
               type="checkbox"
               checked={showPalette}
@@ -280,7 +391,22 @@ const KeyLabels = (props) => {
                 />
                 Cautionary Natural
               </label>
-              <label class="heji-palette-builder__output-row">
+              <label class="heji-palette-builder__select-row">
+                Decimal Places
+                <select
+                  class="sidebar-input heji-palette-builder__decimals-select"
+                  aria-label="HEJI palette cents decimal places"
+                  value={String(paletteDeviationDecimals)}
+                  onChange={(e) => setPaletteDeviationDecimals(Number.parseInt(e.target.value, 10) || 0)}
+                >
+                  {[0, 1, 2, 3, 4, 5, 6].map((value) => (
+                    <option key={value} value={String(value)}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div class="heji-palette-builder__output-row">
                 <span>Output</span>
                 <div class="heji-palette-builder__output-actions">
                   <button
@@ -333,7 +459,7 @@ const KeyLabels = (props) => {
                     setCopied(false);
                   }}
                 />
-              </label>
+              </div>
 
               <div class="heji-palette-builder__group-row heji-palette-builder__group-row--note">
                 <div class="heji-palette-builder__group-label">Note</div>
@@ -524,8 +650,11 @@ KeyLabels.propTypes = {
     show_equaves: PropTypes.bool,
     heji_anchor_ratio: PropTypes.string,
     heji_anchor_label: PropTypes.string,
+    heji_anchor_frequency: PropTypes.string,
     heji_tempered_only: PropTypes.bool,
     heji_show_cents: PropTypes.bool,
+    pitch_frame: PropTypes.object,
+    fundamental: PropTypes.number,
   }),
 };
 

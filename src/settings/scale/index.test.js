@@ -229,7 +229,8 @@ describe("Scale panel — default state", () => {
     );
 
     expect(screen.getByLabelText("Scale Size").value).toBe("1");
-    expect(screen.getByText("Divide Equave into 1 Equal Divisions")).not.toBeNull();
+    expect(screen.queryByText("Divide Equave into 1 Equal Divisions")).toBeNull();
+    expect(screen.queryByText("Divide Octave into 1 Equal Divisions")).toBeNull();
   });
 
   it("shows rounded reference frequency normally but full precision on focus", () => {
@@ -242,6 +243,37 @@ describe("Scale panel — default state", () => {
     expect(frequencyInput.value).toBe("440.000000");
   });
 
+  it("shows the computed frequency of 1/1 from the assigned reference degree", () => {
+    render(
+      <Scale
+        settings={{ ...minimalSettings, fundamental: 440, reference_degree: 9 }}
+        onChange={() => {}}
+        onImport={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("degree 0 frequency").value).toBe("261.6");
+  });
+
+  it("updates reference frequency when the computed 1/1 frequency is edited", () => {
+    const onChange = vi.fn();
+    render(
+      <Scale
+        settings={{ ...minimalSettings, fundamental: 440, reference_degree: 9 }}
+        onChange={onChange}
+        onImport={() => {}}
+      />,
+    );
+
+    const degreeZeroInput = screen.getByLabelText("degree 0 frequency");
+    fireEvent.focus(degreeZeroInput);
+    fireEvent.input(degreeZeroInput, { target: { value: "220" } });
+    fireEvent.blur(degreeZeroInput);
+
+    expect(onChange).toHaveBeenCalledWith("fundamental", expect.any(Number));
+    expect(onChange.mock.calls.at(-1)[1]).toBeCloseTo(220 * Math.pow(2, 900 / 1200), 6);
+  });
+
   it("live-updates the reference frequency and scale frequencies during a reference tune drag", () => {
     render(
       <Scale
@@ -252,17 +284,21 @@ describe("Scale panel — default state", () => {
     );
 
     let referenceInput = screen.getByLabelText("reference frequency");
+    let degreeZeroComputedInput = screen.getByLabelText("degree 0 frequency");
     let degreeZeroFrequency = screen.getByLabelText("pitch frequency 0");
 
     expect(referenceInput.value).toBe("440.0");
+    expect(degreeZeroComputedInput.value).toBe("440.0");
     expect(degreeZeroFrequency.value).toBe("440.0");
 
     fireEvent.click(screen.getByTitle("preview reference frequency"));
 
     referenceInput = screen.getByLabelText("reference frequency");
+    degreeZeroComputedInput = screen.getByLabelText("degree 0 frequency");
     degreeZeroFrequency = screen.getByLabelText("pitch frequency 0");
     expect(referenceInput.style.color).toBe("rgb(153, 0, 0)");
     expect(referenceInput.value).not.toBe("440.0");
+    expect(degreeZeroComputedInput.value).toBe(referenceInput.value);
     expect(degreeZeroFrequency.value).toBe(referenceInput.value);
   });
 

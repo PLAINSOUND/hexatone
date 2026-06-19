@@ -782,7 +782,7 @@ describe("ScaleTable — table structure", () => {
     expect(document.querySelector('input[aria-label="equave frequency"]').value).toBe("523.3");
   });
 
-  it("shows rounded frequency normally but full precision on focus", () => {
+  it("shows degree 0 frequency as read-only display", () => {
     render(
       <ScaleTable
         settings={{ ...settingsBase, fundamental: 440, reference_degree: 9 }}
@@ -792,9 +792,22 @@ describe("ScaleTable — table structure", () => {
 
     const frequencyInput = screen.getByLabelText("pitch frequency 0");
     expect(frequencyInput.value).toBe("261.6");
+    expect(frequencyInput.disabled).toBe(true);
+  });
+
+  it("shows rounded frequency normally but full precision on focus for editable rows", () => {
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9 }}
+        onChange={() => {}}
+      />,
+    );
+
+    const frequencyInput = screen.getByLabelText("pitch frequency 9");
+    expect(frequencyInput.value).toBe("440.0");
 
     fireEvent.focus(frequencyInput);
-    expect(frequencyInput.value).toBe("261.625565");
+    expect(frequencyInput.value).toBe("440.000000");
   });
 
   it("shows modulated frequencies when a live global modulation transposition is active", () => {
@@ -903,7 +916,7 @@ describe("ScaleTable — table structure", () => {
     expect(document.querySelector(".heji-name-cell").title).toContain("Mixed live notes (2)");
   });
 
-  it("does not commit when a frequency cell is only focused and blurred", () => {
+  it("does not commit when the read-only degree 0 frequency cell is focused and blurred", () => {
     const onChange = vi.fn();
     const onAtomicChange = vi.fn();
 

@@ -10,25 +10,44 @@ import FundamentalTuneCell from "./fundamental-tune-cell.js";
 import FrequencyInput from "./scale-table/frequency-input.js";
 import {
   clearAllTuningPreviews,
+  getEffectiveDegreeCents,
   createTuningPreviewState,
   getEffectiveFundamentalHz,
+  getEffectiveFrequencyAtDegree,
   getFundamentalDeviationCents,
   isFundamentalComparing,
   setFundamentalComparing,
   setFundamentalPreview,
 } from "../../tuning/tuning-preview-runtime.js";
+import { createScaleWorkspace } from "../../tuning/workspace.js";
 
 const Scale = (props) => {
   const [importing, setImporting] = useState(false);
   const [collapsed, setCollapsed] = useState(
     () => sessionStorage.getItem("hexatone_scale_collapsed") === "true",
   );
+  const {
+    scale: settingsScale,
+    equivSteps: settingsEquivSteps,
+    reference_degree: referenceDegree,
+    fundamental,
+  } = props.settings;
+  const { onChange } = props;
 
   const [previewState, setPreviewState] = useState(() => createTuningPreviewState());
+  const workspace = useMemo(() => createScaleWorkspace({
+    scale: settingsScale,
+    reference_degree: referenceDegree,
+    fundamental,
+  }), [
+    settingsScale,
+    referenceDegree,
+    fundamental,
+  ]);
 
   useEffect(() => {
     setPreviewState((prev) => clearAllTuningPreviews(prev));
-  }, [props.settings.fundamental, props.importCount]);
+  }, [fundamental, props.importCount]);
 
   const doImport = () => {
     props.onImport();
@@ -48,18 +67,28 @@ const Scale = (props) => {
   };
 
   // Get current equave value from scale array
-  const scale = props.settings.scale || [];
-  const effectiveEquivSteps = scale.length || props.settings.equivSteps || 1;
+  const scale = settingsScale || [];
+  const effectiveEquivSteps = scale.length || settingsEquivSteps || 1;
   const equaveValue = scale.length > 0 ? scale[scale.length - 1] : "2/1";
   const previewFundamental = useMemo(
-    () => getEffectiveFundamentalHz(props.settings, previewState),
-    [props.settings, previewState],
+    () => getEffectiveFundamentalHz({ fundamental }, previewState),
+    [fundamental, previewState],
+  );
+  const previewDegree0Frequency = useMemo(
+    () => getEffectiveFrequencyAtDegree(workspace, previewState, 0),
+    [workspace, previewState],
   );
   const handleFundamentalPreviewChange = useCallback((deltaCents, comparing = false) => {
     setPreviewState((prev) =>
       setFundamentalComparing(setFundamentalPreview(prev, deltaCents), comparing),
     );
   }, []);
+  const handleDegree0FrequencyCommit = useCallback((degree0Frequency) => {
+    const referenceCents = getEffectiveDegreeCents(workspace, previewState, referenceDegree);
+    const nextFundamental = degree0Frequency * Math.pow(2, referenceCents / 1200);
+    setPreviewState((prev) => clearAllTuningPreviews(prev));
+    onChange("fundamental", nextFundamental);
+  }, [workspace, previewState, referenceDegree, onChange]);
 
   // Handle equave change - update the last element of scale array
   const handleEquaveChange = (str) => {
@@ -137,6 +166,16 @@ const Scale = (props) => {
         />
       </label>
       <label>
+        Frequency of 1/1 (scale degree 0)
+        <span class="fundamental-right">
+          <FrequencyInput
+            ariaLabel="degree 0 frequency"
+            value={previewDegree0Frequency}
+            onCommit={handleDegree0FrequencyCommit}
+          />
+        </span>
+      </label>
+      <label>
         Scale Size
         <input
           name="equivSteps"
@@ -178,46 +217,48 @@ const Scale = (props) => {
           wrapperClass="sidebar-input"
         />
       </label>
-      <div class="divide-btns">
-        <button
-          type="button"
-          class="preset-action-btn"
-          onClick={() => {
-            const n = effectiveEquivSteps;
-            const equaveStr =
-              props.settings.scale && props.settings.scale[n - 1]
-                ? props.settings.scale[n - 1]
-                : "2/1";
+      {effectiveEquivSteps > 1 && (
+        <div class="divide-btns">
+          <button
+            type="button"
+            class="preset-action-btn"
+            onClick={() => {
+              const n = effectiveEquivSteps;
+              const equaveStr =
+                props.settings.scale && props.settings.scale[n - 1]
+                  ? props.settings.scale[n - 1]
+                  : "2/1";
 
-            const { cents: parsed, valid } = parseScalaInterval(equaveStr, "interval");
-            const equaveCents = valid ? parsed : n * 100;
+              const { cents: parsed, valid } = parseScalaInterval(equaveStr, "interval");
+              const equaveCents = valid ? parsed : n * 100;
 
-            const step = equaveCents / n;
-            const newScale = [];
-            for (let i = 1; i <= n; i++) {
-              newScale.push(String((i * step).toFixed(1)));
-            }
-            props.onChange("scale_divide", newScale);
-          }}
-        >
-          Divide Equave into {effectiveEquivSteps} Equal Divisions
-        </button>
-        <button
-          type="button"
-          class="preset-action-btn"
-          onClick={() => {
-            const n = effectiveEquivSteps;
-            const step = 1200 / n;
-            const newScale = [];
-            for (let i = 1; i <= n; i++) {
-              newScale.push(String((i * step).toFixed(1)));
-            }
-            props.onChange("scale_divide", newScale);
-          }}
-        >
-          Divide Octave into {effectiveEquivSteps} Equal Divisions
-        </button>
-      </div>
+              const step = equaveCents / n;
+              const newScale = [];
+              for (let i = 1; i <= n; i++) {
+                newScale.push(String((i * step).toFixed(1)));
+              }
+              props.onChange("scale_divide", newScale);
+            }}
+          >
+            Divide Equave into {effectiveEquivSteps} Equal Divisions
+          </button>
+          <button
+            type="button"
+            class="preset-action-btn"
+            onClick={() => {
+              const n = effectiveEquivSteps;
+              const step = 1200 / n;
+              const newScale = [];
+              for (let i = 1; i <= n; i++) {
+                newScale.push(String((i * step).toFixed(1)));
+              }
+              props.onChange("scale_divide", newScale);
+            }}
+          >
+            Divide Octave into {effectiveEquivSteps} Equal Divisions
+          </button>
+        </div>
+      )}
       <label>
         Modulation Style
         <select

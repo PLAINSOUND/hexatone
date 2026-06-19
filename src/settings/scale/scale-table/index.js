@@ -991,6 +991,7 @@ const ScaleTable = (props) => {
               ariaLabel="pitch frequency 0"
               value={displayedFrequencyAtDegree(0)}
               onCommit={(frequency) => commitFrequencyAtDegree(0, frequency)}
+              disabled
               deviationCents={deviationCentsAtDegree(0)}
               comparing={isComparingAtDegree(0)}
               liveModulated={modulationDisplayActive || !!liveRowAtDegree(0)}

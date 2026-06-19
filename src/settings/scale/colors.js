@@ -138,6 +138,7 @@ const Colors = (props) => {
   const [savedPrimePalettes, setSavedPrimePalettes] = useState(loadPrimeFamilyPalettes);
   const [selectedPrimePalette, setSelectedPrimePalette] = useState("default");
   const [primePaletteResetVersion, setPrimePaletteResetVersion] = useState(0);
+  const [showPrimePalette, setShowPrimePalette] = useState(false);
 
   const safe = normaliseHex(rawSettings.fundamental_color || "#ffdbe8") || "#ffdbe8";
   const selectedPaletteEntry = useMemo(
@@ -424,15 +425,16 @@ const Colors = (props) => {
 
       {autoActive && (
           <fieldset class="auto-prime-colors-fieldset">
-            <legend>47-Limit JI Colour Palette</legend>
-            <div class="scale-colors-fieldset-actions">
-              <button
-                type="button"
-                class="preset-action-btn"
-                onClick={handleResetPrimePalette}
-              >
-                Default Colours
-              </button>
+            <legend>47-Limit JI Colours</legend>
+            <div class={`scale-colors-fieldset-actions${showPrimePalette ? " scale-colors-fieldset-actions--palette-open" : ""}`}>
+              <label class="auto-prime-colors-fieldset__toggle-row">
+                <input
+                  type="checkbox"
+                  checked={showPrimePalette}
+                  onChange={(e) => setShowPrimePalette(e.currentTarget.checked)}
+                />
+                Palette
+              </label>
               <button
                 type="button"
                 class="preset-action-btn"
@@ -442,91 +444,100 @@ const Colors = (props) => {
                 Commit Auto Colours
               </button>
             </div>
-            <div class="auto-prime-colors-grid">
-              {PRIME_COLOR_ORDER.map((prime, index) => (
-                <label
-                  class="auto-prime-colors-grid__item"
-                  key={`prime-family-color-${prime}-${primePaletteResetVersion}`}
-                >
-                  <span class="auto-prime-colors-grid__label">{prime === 1 ? "1°" : `${prime}°`}</span>
-                  <ColorCell
-                    name={`prime-family-colour-${prime}`}
-                    value={primeFamilyColors[index]}
-                    disabled={false}
-                    onChange={handlePrimeFamilyColorChange(index)}
-                    suggestedColor={null}
-                    onPreviewColor={handlePrimeFamilyPreview(index)}
-                  />
-                </label>
-              ))}
-            </div>
-            <div class="auto-prime-colors-actions">
-              <div class="auto-prime-colors-palette-layout">
-                <div class="auto-prime-colors-palette-row">
-                  <div class="preset-selector-row auto-prime-colors-palette-selector">
-                    <select
-                      aria-label="JI Colour Palette"
-                      value={selectedPrimePalette}
-                      onChange={handleSelectPrimePalette}
+            {showPrimePalette && (
+              <div class="auto-prime-colors-palette-panel">
+                <div class="auto-prime-colors-grid">
+                  {PRIME_COLOR_ORDER.map((prime, index) => (
+                    <label
+                      class="auto-prime-colors-grid__item"
+                      key={`prime-family-color-${prime}-${primePaletteResetVersion}`}
                     >
-                      <option value="default">Default</option>
-                      {savedPrimePalettes.map((palette) => (
-                        <option key={palette.name} value={palette.name}>
-                          {palette.name}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedPaletteEntry && (
-                      <button
-                        type="button"
-                        class="preset-refresh-btn"
-                        aria-label="Reload saved palette"
-                        title="Reload saved palette"
-                        onClick={handleRevertPrimePalette}
-                      >
-                        <span class="preset-refresh-glyph">⟳</span>
-                      </button>
-                    )}
-                  </div>
-                  <span class="auto-prime-colors-actions__group">
-                    <button type="button" class="preset-action-btn" onClick={handleSavePrimePalette}>
-                      Save
-                    </button>
-                    <button type="button" class="preset-action-btn" onClick={() => paletteFileInputRef.current?.click()}>
-                      Open
-                    </button>
-                    <button type="button" class="preset-action-btn" onClick={handleWritePrimePaletteFile}>
-                      Write
-                    </button>
-                  </span>
+                      <span class="auto-prime-colors-grid__label">{prime === 1 ? "1°" : `${prime}°`}</span>
+                      <ColorCell
+                        name={`prime-family-colour-${prime}`}
+                        value={primeFamilyColors[index]}
+                        disabled={false}
+                        onChange={handlePrimeFamilyColorChange(index)}
+                        suggestedColor={null}
+                        onPreviewColor={handlePrimeFamilyPreview(index)}
+                      />
+                    </label>
+                  ))}
                 </div>
-                {selectedPaletteEntry && (
-                  <span class="auto-prime-colors-actions__side">
-                    <button
-                      type="button"
-                      class="delete-btn preset-utility-btn"
-                      onClick={handleDeletePrimePalette}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      class="delete-btn preset-utility-btn"
-                      onClick={handleClearAllPrimePalettes}
-                    >
-                      Clear All
-                    </button>
-                  </span>
-                )}
-                <input
-                  ref={paletteFileInputRef}
-                  type="file"
-                  accept=".json,application/json"
-                  style={{ display: "none" }}
-                  onChange={handleOpenPrimePaletteFile}
-                />
+                <div class="auto-prime-colors-actions">
+                  <div class="auto-prime-colors-palette-layout">
+                    <div class="auto-prime-colors-palette-row">
+                      <div class="auto-prime-colors-selector-row">
+                        <button type="button" class="preset-action-btn" onClick={handleResetPrimePalette}>
+                          Default Colours
+                        </button>
+                        <div class="preset-selector-row auto-prime-colors-palette-selector">
+                          <select
+                            aria-label="JI Colour Palette"
+                            value={selectedPrimePalette}
+                            onChange={handleSelectPrimePalette}
+                          >
+                            <option value="default">Default</option>
+                            {savedPrimePalettes.map((palette) => (
+                              <option key={palette.name} value={palette.name}>
+                                {palette.name}
+                              </option>
+                            ))}
+                          </select>
+                          {selectedPaletteEntry && (
+                            <button
+                              type="button"
+                              class="preset-refresh-btn"
+                              aria-label="Reload saved palette"
+                              title="Reload saved palette"
+                              onClick={handleRevertPrimePalette}
+                            >
+                              <span class="preset-refresh-glyph">⟳</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <span class="auto-prime-colors-actions__group">
+                        <button type="button" class="preset-action-btn" onClick={handleSavePrimePalette}>
+                          Save
+                        </button>
+                        <button type="button" class="preset-action-btn" onClick={() => paletteFileInputRef.current?.click()}>
+                          Open
+                        </button>
+                        <button type="button" class="preset-action-btn" onClick={handleWritePrimePaletteFile}>
+                          Write
+                        </button>
+                      </span>
+                    </div>
+                    {selectedPaletteEntry && (
+                      <span class="auto-prime-colors-actions__side">
+                        <button
+                          type="button"
+                          class="delete-btn preset-utility-btn"
+                          onClick={handleDeletePrimePalette}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          class="delete-btn preset-utility-btn"
+                          onClick={handleClearAllPrimePalettes}
+                        >
+                          Clear All
+                        </button>
+                      </span>
+                    )}
+                    <input
+                      ref={paletteFileInputRef}
+                      type="file"
+                      accept=".json,application/json"
+                      style={{ display: "none" }}
+                      onChange={handleOpenPrimePaletteFile}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </fieldset>
       )}
 

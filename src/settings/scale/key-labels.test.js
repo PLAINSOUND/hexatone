@@ -1,7 +1,20 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import KeyLabels from "./key-labels.js";
+import { buildPitchFrame } from "../../notation/pitch-frame.js";
+import { createScaleWorkspace } from "../../tuning/workspace.js";
 
 describe("KeyLabels HEJI anchor handling", () => {
+  const pitchFrameFor = ({ scale = ["3/2", "2/1"], reference_degree = 1, fundamental = 440, heji_anchor_label = "A", heji_anchor_ratio = "1/1" } = {}) => {
+    const settings = {
+      scale,
+      reference_degree,
+      fundamental,
+      heji_anchor_label,
+      heji_anchor_ratio,
+    };
+    return buildPitchFrame(settings, createScaleWorkspace(settings));
+  };
+
   it("does not write derived HEJI anchor values back into settings on mode switch", async () => {
     const onAtomicChange = vi.fn();
 
@@ -205,6 +218,64 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "\uE262A");
   });
 
+  it("shows an auto-derived spelling frequency placeholder", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: ["3/2", "2/1"],
+          reference_degree: 1,
+          fundamental: 440,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_anchor_frequency: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          pitch_frame: pitchFrameFor(),
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Spelling Frequency").placeholder).toBe("293.3");
+  });
+
+  it("commits spelling frequency by retuning the reference frequency", () => {
+    const onAtomicChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: ["3/2", "2/1"],
+          reference_degree: 1,
+          fundamental: 440,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_anchor_frequency: "400",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          pitch_frame: pitchFrameFor(),
+        }}
+      />,
+    );
+
+    fireEvent.blur(screen.getByLabelText("Spelling Frequency"));
+    expect(onAtomicChange).toHaveBeenCalledWith({
+      heji_anchor_frequency: "400",
+      fundamental: 600,
+    });
+  });
+
   it("shows a separate Show Equave Numbers toggle instead of an Equave Numbers label mode", () => {
     const onChange = vi.fn();
 
@@ -259,7 +330,7 @@ describe("KeyLabels HEJI anchor handling", () => {
       "Scale Data",
       "Scale Cents",
       "Name",
-      "HEJI (auto-generated)",
+      "HEJI",
     ]);
   });
 
@@ -395,6 +466,38 @@ describe("KeyLabels HEJI anchor handling", () => {
 
     fireEvent.click(screen.getByTitle("7-limit upper"));
     expect(deviation.value).not.toBe("+0");
+  });
+
+  it("formats exact HEJI palette cents with the selected number of decimal places", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          scale: ["3/2", "2/1"],
+          reference_degree: 0,
+          fundamental: 440,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.change(screen.getByLabelText("HEJI palette cents decimal places"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+
+    expect(screen.getByLabelText("HEJI palette cents deviation").value).toMatch(/^[+−]\d+\.\d{2}$/);
   });
 
   it("appends a typed cents deviation and copies the combined palette string", async () => {
