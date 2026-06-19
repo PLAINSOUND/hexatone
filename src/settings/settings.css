@@ -47,7 +47,7 @@
   align-items: flex-end;
   gap: 0.2em;
   margin: 0 0 0.45em;
-  padding: 0.14em 2px 0.08em;
+  padding: 0.14em 2px 0;
   background: var(--color-bg);
   box-shadow: 0 0 0 0.45em var(--color-bg);
 }
@@ -80,7 +80,7 @@
     top: 0.35em;
     z-index: 5;
     margin: 0 0 0.25em;
-    padding: 0.08em var(--workspace-tabs-desktop-inset) 0.08em;
+    padding: 0.08em var(--workspace-tabs-desktop-inset) 0;
     box-shadow: none;
   }
 
@@ -113,7 +113,7 @@
     z-index: 6;
     margin: 0 -1em 0.45em;
     gap: 0;
-    padding: 3.05em var(--workspace-tabs-phone-inset) 0.08em;
+    padding: 3.05em var(--workspace-tabs-phone-inset) 0;
     box-shadow: none;
   }
 
@@ -133,18 +133,6 @@
 
   #sidebar .workspace-tabs .workspace-tab--active {
     margin-bottom: 0;
-  }
-
-  #sidebar .workspace-tabs .workspace-tab--active::after {
-    content: "";
-    position: absolute;
-    left: -1px;
-    right: -1px;
-    bottom: -1px;
-    height: 2px;
-    background: var(--color-bg);
-    z-index: 3;
-    pointer-events: none;
   }
 
   #sidebar .workspace-tabs .workspace-tab + .workspace-tab {
@@ -194,7 +182,15 @@
 }
 
 #sidebar .workspace-tab--active::after {
-  content: none;
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--color-bg);
+  z-index: 3;
+  pointer-events: none;
 }
 
 #sidebar #donation-link {
