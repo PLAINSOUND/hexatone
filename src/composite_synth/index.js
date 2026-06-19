@@ -101,6 +101,15 @@ export const create_composite_synth = (synths) => ({
     );
   },
 
+  forceAudioRebuild() {
+    const rebuildables = synths.filter((s) => s.forceAudioRebuild || s.prepare);
+    return Promise.all(
+      rebuildables.map((s) => (
+        s.forceAudioRebuild ? s.forceAudioRebuild() : s.prepare()
+      )),
+    );
+  },
+
   setVolume(value) {
     synths.forEach((s) => s.setVolume && s.setVolume(value));
   },

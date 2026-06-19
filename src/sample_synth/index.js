@@ -335,6 +335,11 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         }
       },
 
+      forceAudioRebuild: async () => {
+        if (isIOS) iosForceRecreateOnPrepare = true;
+        await prepareSynth();
+      },
+
       rememberControllerState: (state = {}) => {
         controllerState = {
           ...controllerState,

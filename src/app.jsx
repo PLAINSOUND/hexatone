@@ -1266,11 +1266,15 @@ const App = () => {
       keysRef.current.resizeHandler();
       keysRef.current.scheduleImmediateGridRedraw();
     }
-    // iPhone/iPad often return from background with a suspended/interrupted
-    // AudioContext. Try the cheap wake path first, then re-run prepare as a
-    // stronger fallback inside the same user gesture.
-    if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
-    if (synthRef.current?.prepare) await synthRef.current.prepare();
+    // iPhone/iPad can come back from lockscreen/background with an AudioContext
+    // that looks resumable but is effectively dead. The explicit refresh action
+    // should take the strongest recovery path available.
+    if (synthRef.current?.forceAudioRebuild) {
+      await synthRef.current.forceAudioRebuild();
+    } else {
+      if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
+      if (synthRef.current?.prepare) await synthRef.current.prepare();
+    }
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
   }, []);
 
