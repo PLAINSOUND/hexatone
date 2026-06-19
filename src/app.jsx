@@ -700,6 +700,7 @@ const App = () => {
   const sequenceBarIdRef = useRef(1);
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
+  const modulationPaletteRef = useRef(null);
   const modulationPaletteDragRef = useRef(null);
   const modulationPaletteUserMovedRef = useRef(false);
 
@@ -1268,16 +1269,38 @@ const App = () => {
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
   }, []);
 
+  const clampModulationPalettePos = useCallback((position) => {
+    if (typeof window === "undefined") return position;
+    const paletteEl = modulationPaletteRef.current;
+    const rect = paletteEl?.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const viewportWidth = viewport?.width ?? window.innerWidth;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const width = rect?.width ?? 260;
+    const headerHeight =
+      paletteEl?.querySelector(".modulation-palette-header")?.getBoundingClientRect().height
+      ?? 34;
+    const minVisibleWidth = Math.min(120, Math.max(80, width * 0.45));
+    const minX = Math.round(8 - width + minVisibleWidth);
+    const maxX = Math.round(viewportWidth - minVisibleWidth - 8);
+    const minY = 8;
+    const maxY = Math.round(viewportHeight - headerHeight - 8);
+    return {
+      x: Math.min(Math.max(position.x, minX), Math.max(minX, maxX)),
+      y: Math.min(Math.max(position.y, minY), Math.max(minY, maxY)),
+    };
+  }, []);
+
   useEffect(() => {
     const onPointerMove = (e) => {
       if (!modulationPaletteDragRef.current) return;
       const { pointerId, offsetX, offsetY } = modulationPaletteDragRef.current;
       if (e.pointerId !== pointerId) return;
       modulationPaletteUserMovedRef.current = true;
-      setModulationPalettePos({
+      setModulationPalettePos(clampModulationPalettePos({
         x: Math.max(8, e.clientX - offsetX),
         y: Math.max(8, e.clientY - offsetY),
-      });
+      }));
     };
     const onPointerUp = (e) => {
       if (!modulationPaletteDragRef.current) return;
@@ -1292,22 +1315,26 @@ const App = () => {
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
     };
-  }, []);
+  }, [clampModulationPalettePos]);
 
   useEffect(() => {
     const applyDefaultPosition = () => {
       if (!modulationPaletteUserMovedRef.current) {
-        setModulationPalettePos(getDefaultModulationPalettePos());
+        setModulationPalettePos(clampModulationPalettePos(getDefaultModulationPalettePos()));
+        return;
       }
+      setModulationPalettePos((current) => clampModulationPalettePos(current));
     };
     window.addEventListener("resize", applyDefaultPosition);
     window.addEventListener("orientationchange", applyDefaultPosition);
+    window.visualViewport?.addEventListener("resize", applyDefaultPosition);
     applyDefaultPosition();
     return () => {
       window.removeEventListener("resize", applyDefaultPosition);
       window.removeEventListener("orientationchange", applyDefaultPosition);
+      window.visualViewport?.removeEventListener("resize", applyDefaultPosition);
     };
-  }, []);
+  }, [clampModulationPalettePos]);
 
   // Long-press sidebar button to toggle latch (sustain while playing)
   const longPressTimer = useRef(null);
@@ -2553,6 +2580,7 @@ const App = () => {
       {modulationPaletteVisible && workspaceTab !== "sequencer" && (
         <div
           id="modulation-palette"
+          ref={modulationPaletteRef}
           style={{
             left: `${modulationPalettePos.x}px`,
             top: `${modulationPalettePos.y}px`,

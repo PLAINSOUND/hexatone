@@ -1115,27 +1115,32 @@ a:hover {
 
 @media (max-height: 500px) and (orientation: landscape) {
   #modulation-palette {
-    max-width: min(36vw, 14.5rem);
+    min-width: 10.5rem;
+    max-width: min(52vw, 18rem);
     gap: 3px;
     padding: 5px 7px;
     border-radius: 12px;
+    font-size: 0.9em;
   }
 
   .modulation-palette-header {
     gap: 5px;
     line-height: 0.98;
+    font-size: 0.9em;
   }
 
   .modulation-palette-row {
-    grid-template-columns: minmax(5.8em, 1fr) max-content 1.1em 1.7em 1.1em 1.3em;
+    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
     column-gap: 4px;
     line-height: 0.98;
+    font-size: 0.9em;
   }
 
   .modulation-palette-summary {
-    grid-template-columns: minmax(5.8em, 1fr) max-content 1.1em 1.7em 1.1em 1.3em;
+    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
     column-gap: 4px;
     line-height: 0.98;
+    font-size: 0.9em;
   }
 }
 
