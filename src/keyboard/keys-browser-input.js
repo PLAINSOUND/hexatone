@@ -211,8 +211,8 @@ export function mouseUp(_e) {
   }
 }
 
-export function mouseDown(e) {
-  if (this._onFirstInteraction) this._onFirstInteraction();
+export async function mouseDown(e) {
+  if (this._onFirstInteraction) await this._onFirstInteraction();
 
   if (this.state.activeMouse) {
     this.state.activeMouse.noteOff(0);
@@ -277,9 +277,9 @@ export function getPosition(element) {
   return { x: rect.left, y: rect.top };
 }
 
-export function handleTouch(e) {
+export async function handleTouch(e) {
   e.preventDefault();
-  if (this._onFirstInteraction) this._onFirstInteraction();
+  if (this._onFirstInteraction) await this._onFirstInteraction();
 
   this.state.isTouchDown = e.targetTouches.length !== 0;
 

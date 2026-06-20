@@ -313,7 +313,7 @@ function getDefaultModulationPalettePos() {
     const rightInset = readCssPxVar("--safe-area-right");
     const topInset = readCssPxVar("--safe-area-top");
     return {
-      x: Math.max(16, window.innerWidth - rightInset - 236),
+      x: Math.max(16, window.innerWidth - rightInset - 258),
       y: Math.max(12, topInset + 14),
     };
   }
@@ -416,20 +416,35 @@ const App = () => {
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
   const viewportBaselineRef = useRef(0);
   const audioNeedsHardRefreshRef = useRef(false);
-  const primeAudioFromUserInteraction = useCallback(() => {
+  const audioWakePromiseRef = useRef(null);
+  const primeAudioFromUserInteraction = useCallback(async () => {
+    const needsInitialPrepare = !userHasInteracted;
+    const needsHardRefresh = audioNeedsHardRefreshRef.current;
+    if (!needsInitialPrepare && !needsHardRefresh) return;
+    if (audioWakePromiseRef.current) {
+      await audioWakePromiseRef.current;
+      return;
+    }
     if (!userHasInteracted) {
       setUserHasInteracted(true);
     }
-    if (audioNeedsHardRefreshRef.current && typeof synthRef.current?.forceAudioRebuild === "function") {
+    const wakePromise = (async () => {
+      if (needsHardRefresh && typeof synthRef.current?.forceAudioRebuild === "function") {
+        await synthRef.current.forceAudioRebuild();
+        audioNeedsHardRefreshRef.current = false;
+        return;
+      }
+      if (typeof synthRef.current?.ensureAwake === "function") {
+        await synthRef.current.ensureAwake();
+      } else if (typeof synthRef.current?.prepare === "function") {
+        await synthRef.current.prepare();
+      }
       audioNeedsHardRefreshRef.current = false;
-      void synthRef.current.forceAudioRebuild();
-      return;
-    }
-    if (typeof synthRef.current?.ensureAwake === "function") {
-      void synthRef.current.ensureAwake();
-    } else if (typeof synthRef.current?.prepare === "function") {
-      void synthRef.current.prepare();
-    }
+    })().finally(() => {
+      audioWakePromiseRef.current = null;
+    });
+    audioWakePromiseRef.current = wakePromise;
+    await wakePromise;
   }, [userHasInteracted]);
 
   useEffect(() => {
