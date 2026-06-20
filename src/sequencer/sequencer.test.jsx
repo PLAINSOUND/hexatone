@@ -124,8 +124,8 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByLabelText("show expression controls"));
     expect(screen.getByLabelText("show bar-relative timing")).not.toBeNull();
 
-    fireEvent.click(screen.getByText("2 notes"));
-    expect(container.querySelector(".sequencer-events-grid")).toBeNull();
+    /*fireEvent.click(screen.getByText("2 notes"));
+    expect(container.querySelector(".sequencer-events-grid")).toBeNull();*/
 
     fireEvent.click(screen.getByText("2 notes"));
 

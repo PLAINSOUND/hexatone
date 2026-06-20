@@ -57,7 +57,7 @@ import { detectController, getControllerById } from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
-import { normalizeBarMarker, normalizeBarMarkers } from "./sequencer/transport.js";
+import { normalizeBarMarker, normalizeBarMarkers, normalizeTempoMarkers } from "./sequencer/transport.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   deriveSequenceCueGroups,
@@ -761,6 +761,7 @@ const App = () => {
   const [sequenceLegato, setSequenceLegato] = useState(true);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [sequenceBars, setSequenceBars] = useState(() => normalizeBarMarkers([{ id: 1, position: 1 }]));
+  const [sequenceTempi, setSequenceTempi] = useState(() => normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -812,11 +813,16 @@ const App = () => {
     const loadedBars = Array.isArray(sequence?.bars)
       ? JSON.parse(JSON.stringify(sequence.bars))
       : [];
+    const loadedTempi = Array.isArray(sequence?.tempi)
+      ? JSON.parse(JSON.stringify(sequence.tempi))
+      : [];
     const nextBars = normalizeBarMarkers(loadedBars);
+    const nextTempi = normalizeTempoMarkers(loadedTempi);
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
     setSnapshots(nextSnapshots);
     setSequenceBars(nextBars);
+    setSequenceTempi(nextTempi);
     sequenceBarIdRef.current = nextBars.reduce(
       (max, bar) => Math.max(max, Number.isFinite(Number(bar?.id)) ? Number(bar.id) : 0),
       0,
@@ -836,8 +842,8 @@ const App = () => {
   }, []);
 
   const sequenceCueGroups = useMemo(
-    () => deriveSequenceCueGroups(snapshots, sequenceBars),
-    [sequenceBars, snapshots],
+    () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi),
+    [sequenceBars, sequenceTempi, snapshots],
   );
   const sortedSequenceBars = useMemo(
     () => [...sequenceBars].sort((a, b) => (
@@ -1048,6 +1054,31 @@ const App = () => {
   const onDeleteSequenceBar = useCallback((id) => {
     setSequenceBars((prev) => prev.filter((bar) => bar.id !== id));
   }, []);
+
+  const onAddSequenceTempo = useCallback((position = null, bpm = 60) => {
+    setSequenceTempi((prev) => {
+      const id = prev.reduce((max, tempo) => Math.max(max, Number(tempo?.id) || 0), 0) + 1;
+      return [...prev, { id, position, bpm, beatLength: 1 }];
+    });
+  }, []);
+
+  const onDeleteSequenceTempo = useCallback((id) => {
+    setSequenceTempi((prev) => prev.filter((tempo) => tempo.id !== id));
+  }, []);
+
+  const onUpdateSequenceTempo = useCallback((id, updates) => {
+    setSequenceTempi((prev) => prev.map((tempo) => (
+      tempo.id === id ? { ...tempo, ...updates } : tempo
+    )));
+  }, []);
+
+  /*const onMoveSequenceTempo = useCallback((id, position) => {
+    const nextPosition = Number(position);
+    if (!Number.isFinite(nextPosition)) return;
+    setSequenceTempi((prev) => prev.map((tempo) => (
+      tempo.id === id ? { ...tempo, position: nextPosition } : tempo
+    )));
+  }, []);*/
 
   const onUpdateSequenceBar = useCallback((id, updates) => {
     setSequenceBars((prev) => {
@@ -2874,6 +2905,7 @@ const App = () => {
             <Sequencer
               snapshots={snapshots}
               bars={sequenceBars}
+              tempi={sequenceTempi}
               snapshotLabelMode={snapshotLabelMode}
               autoCreateBars={sequenceAutoCreateBars}
               activeSequenceName={activeSequenceName}
@@ -2902,9 +2934,12 @@ const App = () => {
               onPlayCue={onPlaySequenceCue}
               onResetSequencePlayhead={onResetSequencePlayhead}
               onAddBar={onAddSequenceBar}
+              onAddTempo={onAddSequenceTempo}
               onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
               onDeleteBar={onDeleteSequenceBar}
+              onDeleteTempo={onDeleteSequenceTempo}
               onUpdateBar={onUpdateSequenceBar}
+              onUpdateTempo={onUpdateSequenceTempo}
               onMoveBar={onMoveSequenceBar}
               onDeleteSnapshot={onDeleteSnapshot}
               onMoveSnapshot={onMoveSnapshot}

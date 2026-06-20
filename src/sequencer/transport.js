@@ -19,13 +19,14 @@ function normalizeTempoMarker(marker, index) {
   };
 }
 
-export function normalizeTempoMarkers(markers = []) {
+export function normalizeTempoMarkers(markers = [], options = {}) {
+  const { includeDefault = true } = options;
   const source = Array.isArray(markers) ? markers : [];
   const normalized = source
     .map((marker, index) => normalizeTempoMarker(marker, index))
     .sort((a, b) => a.position - b.position || String(a.id).localeCompare(String(b.id)));
 
-  if (normalized.length === 0 || Math.abs(normalized[0].position - 1) > 1e-9) {
+  if (includeDefault && (normalized.length === 0 || Math.abs(normalized[0].position - 1) > 1e-9)) {
     normalized.unshift({
       id: "tempo:default",
       position: 1,
@@ -191,13 +192,14 @@ export function normalizeBarMarker(bar, index = 0) {
   };
 }
 
-export function normalizeBarMarkers(bars = []) {
+export function normalizeBarMarkers(bars = [], options = {}) {
+  const { includeDefault = true } = options;
   const source = Array.isArray(bars) ? bars : [];
   const normalized = source
     .map((bar, index) => normalizeBarMarker(bar, index))
     .sort((a, b) => a.position - b.position || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
 
-  if (normalized.length === 0 || Math.abs(normalized[0].position - 1) > 1e-9) {
+  if (includeDefault && (normalized.length === 0 || Math.abs(normalized[0].position - 1) > 1e-9)) {
     normalized.unshift({
       id: "bar:default",
       position: 1,

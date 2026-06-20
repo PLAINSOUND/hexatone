@@ -45,7 +45,7 @@ function normalizeSequenceRecord(record) {
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),
     autoCreateBars: record.autoCreateBars !== false,
     transport: normalizeSequenceTransport(record.transport),
-    tempi: normalizeTempoMarkers(record.tempi),
+    tempi: normalizeTempoMarkers(record.tempi, { includeDefault: false }),
     meters: normalizeMeterMarkers(record.meters),
     snapshots,
     bars,
@@ -92,6 +92,7 @@ function safeName(name) {
 const SequenceLibrary = ({
   snapshots,
   bars,
+  tempi,
   snapshotLabelMode,
   autoCreateBars,
   activeSequenceName,
@@ -141,6 +142,7 @@ const SequenceLibrary = ({
       description: activeSequenceDescription,
       snapshotLabelMode,
       autoCreateBars,
+      tempi,
       snapshots,
       bars,
     });
@@ -166,6 +168,7 @@ const SequenceLibrary = ({
       description: activeSequenceDescription,
       snapshotLabelMode,
       autoCreateBars,
+      tempi,
       snapshots,
       bars,
     });
@@ -348,6 +351,7 @@ const SequenceLibrary = ({
 SequenceLibrary.propTypes = {
   snapshots: PropTypes.arrayOf(PropTypes.object).isRequired,
   bars: PropTypes.arrayOf(PropTypes.object),
+  tempi: PropTypes.arrayOf(PropTypes.object),
   snapshotLabelMode: PropTypes.string.isRequired,
   autoCreateBars: PropTypes.bool.isRequired,
   activeSequenceName: PropTypes.string.isRequired,

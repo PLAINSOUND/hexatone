@@ -6,6 +6,7 @@ import {
   absolutePositionToBarBeat,
   barBeatToAbsolutePosition,
   normalizeBarMarkers,
+  normalizeTempoMarkers,
 } from "./transport.js";
 import { deriveSequenceCueGroups, deriveSequenceEvents, isWholeSequencePosition } from "./trigger-groups.js";
 
@@ -90,6 +91,7 @@ function commitTextInput(target, commit) {
 const Sequencer = ({
   snapshots,
   bars,
+  tempi,
   snapshotLabelMode,
   activeSequenceName,
   activeSequenceDescription,
@@ -117,9 +119,12 @@ const Sequencer = ({
   onPlayCue,
   onResetSequencePlayhead,
   onAddBar,
+  onAddTempo,
   onAddBarsBeforeSnapshots,
   onDeleteBar,
+  onDeleteTempo,
   onUpdateBar,
+  onUpdateTempo,
   onMoveBar,
   onDeleteSnapshot,
   onMoveSnapshot,
@@ -128,8 +133,10 @@ const Sequencer = ({
   onResetSnapshotDescription,
 }) => {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
-  const [showAllEvents, setShowAllEvents] = useState(false);
+  const [showAllEvents, setShowAllEvents] = useState(true);
   const [newBarPosition, setNewBarPosition] = useState("1.000000");
+  const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
+  const [newTempoBpm, setNewTempoBpm] = useState("60");
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
@@ -141,8 +148,12 @@ const Sequencer = ({
   const pendingTransportActionRef = useRef(null);
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
-  const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots, sortedBars), [snapshots, sortedBars]);
-  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots, sortedBars), [snapshots, sortedBars]);
+  const sortedTempi = useMemo(
+    () => (Array.isArray(tempi) ? normalizeTempoMarkers(tempi) : []),
+    [tempi],
+  );
+  const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots, sortedBars, sortedTempi), [snapshots, sortedBars, sortedTempi]);
+  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots, sortedBars, sortedTempi), [snapshots, sortedBars, sortedTempi]);
 
   const rawPlayheadStepIndex = Number.isFinite(playhead?.stepIndex) ? playhead.stepIndex : -1;
   const playheadIsOff = rawPlayheadStepIndex < 0 || snapshots.length === 0;
@@ -161,7 +172,10 @@ const Sequencer = ({
   const snapshotEventsById = useMemo(() => {
     const groups = new Map();
     for (const event of sequenceEvents) {
-      if (event.type !== "note" && !(event.type === "bar" && !isWholeSequencePosition(event.absoluteTime))) continue;
+      if (
+        event.type !== "note" &&
+        !((event.type === "bar" || event.type === "tempo") && !isWholeSequencePosition(event.absoluteTime))
+      ) continue;
       if (!groups.has(event.snapshotId)) groups.set(event.snapshotId, []);
       groups.get(event.snapshotId).push(event);
     }
@@ -234,16 +248,25 @@ const Sequencer = ({
     return new Map(entries);
   }, [sortedBars]);
 
-  const barsByDisplayBucket = useMemo(() => {
+  const structuralMarkersByDisplayBucket = useMemo(() => {
     const groups = new Map();
-    for (const bar of sortedBars) {
-      if (!isWholeSequencePosition(bar.position)) continue;
-      const bucket = barDisplayBucket(bar.position);
+    const collect = (marker, type, order) => {
+      if (!isWholeSequencePosition(marker.position)) return;
+      const bucket = barDisplayBucket(marker.position);
       if (!groups.has(bucket)) groups.set(bucket, []);
-      groups.get(bucket).push(bar);
+      groups.get(bucket).push({ ...marker, structuralType: type, structuralOrder: order });
+    };
+    sortedBars.forEach((bar, index) => collect(bar, "bar", index));
+    sortedTempi.forEach((tempo, index) => collect(tempo, "tempo", index));
+    for (const items of groups.values()) {
+      items.sort((a, b) => (
+        Number(a.position) - Number(b.position) ||
+        (a.structuralType === "tempo" ? 0 : 1) - (b.structuralType === "tempo" ? 0 : 1) ||
+        Number(a.structuralOrder) - Number(b.structuralOrder)
+      ));
     }
     return groups;
-  }, [sortedBars]);
+  }, [sortedBars, sortedTempi]);
 
   const snapshotStartCueIndexes = useMemo(() => {
     const indexes = new Map();
@@ -442,6 +465,18 @@ const Sequencer = ({
     onUpdateBar?.(barId, { position: Math.round(numeric * 1000000) / 1000000 });
   };
 
+  const updateTempoPosition = (tempoId, rawValue) => {
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric)) return;
+    onUpdateTempo?.(tempoId, { position: Math.round(numeric * 1000000) / 1000000 });
+  };
+
+  const updateTempoBpm = (tempoId, rawValue) => {
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    onUpdateTempo?.(tempoId, { bpm: numeric });
+  };
+
   const updateBarTimeSignatureField = (barId, field, rawValue) => {
     const numeric = Math.max(1, Math.round(Number(rawValue) || 0));
     if (!Number.isFinite(numeric) || numeric <= 0) return;
@@ -453,6 +488,15 @@ const Sequencer = ({
     if (!Number.isFinite(numeric)) return;
     onAddBar?.(Math.round(numeric * 1000000) / 1000000);
     setNewBarPosition("1.000000");
+  };
+
+  const addTempoAtRequestedPosition = () => {
+    const position = Number(newTempoPosition);
+    const bpm = Number(newTempoBpm);
+    if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
+    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm);
+    setNewTempoPosition("1.000000");
+    setNewTempoBpm("60");
   };
 
   const handleEnterCommit = (e, commit) => {
@@ -614,34 +658,6 @@ const Sequencer = ({
         >
           <span class="sequencer-bar-gutter__number">{barNumber}</span>
         </span>
-        <div class="sequencer-event__cell">
-          <div class="sequencer-bar-row__time-signature" aria-label={`bar ${barNumber} time signature`}>
-            <input
-              type="text"
-              class="sequencer-event__input sequencer-bar-row__signature-input"
-              defaultValue={String(bar.numerator ?? 4)}
-              aria-label={`bar ${barNumber} beats per bar`}
-              onFocus={(e) => {
-                delete e.currentTarget.dataset.lastCommittedValue;
-                e.currentTarget.select();
-              }}
-              onKeyDown={(e) => handleEnterCommit(e, (value) => updateBarTimeSignatureField(barId, "numerator", value))}
-              onBlur={(e) => handleBlurCommit(e, (value) => updateBarTimeSignatureField(barId, "numerator", value))}
-            />
-            <input
-              type="text"
-              class="sequencer-event__input sequencer-bar-row__signature-input"
-              defaultValue={String(bar.denominator ?? 4)}
-              aria-label={`bar ${barNumber} beat unit`}
-              onFocus={(e) => {
-                delete e.currentTarget.dataset.lastCommittedValue;
-                e.currentTarget.select();
-              }}
-              onKeyDown={(e) => handleEnterCommit(e, (value) => updateBarTimeSignatureField(barId, "denominator", value))}
-              onBlur={(e) => handleBlurCommit(e, (value) => updateBarTimeSignatureField(barId, "denominator", value))}
-            />
-          </div>
-        </div>
         <div class="sequencer-event__cell sequencer-bar-row__position-cell">
           <input
             type="text"
@@ -656,15 +672,175 @@ const Sequencer = ({
             onBlur={(e) => handleBlurCommit(e, (value) => updateBarPosition(barId, value))}
           />
         </div>
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__filler" aria-hidden="true" />
-        <div class="sequencer-bar-row__spacer" aria-hidden="true" />
+        <div class="sequencer-bar-row__signature-cell">
+          <div class="sequencer-bar-row__time-signature" aria-label={`bar ${barNumber} time signature`}>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              class="sequencer-event__input sequencer-event__input--stepper sequencer-bar-row__signature-input"
+              defaultValue={String(bar.numerator ?? 4)}
+              aria-label={`bar ${barNumber} beats per bar`}
+              onFocus={(e) => {
+                delete e.currentTarget.dataset.lastCommittedValue;
+                e.currentTarget.select();
+              }}
+              onKeyDown={(e) => handleEnterCommit(e, (value) => updateBarTimeSignatureField(barId, "numerator", value))}
+              onBlur={(e) => handleBlurCommit(e, (value) => updateBarTimeSignatureField(barId, "numerator", value))}
+            />
+            <input
+              type="number"
+              step="1"
+              min="1"
+              class="sequencer-event__input sequencer-event__input--stepper sequencer-bar-row__signature-input"
+              defaultValue={String(bar.denominator ?? 4)}
+              aria-label={`bar ${barNumber} beat unit`}
+              onFocus={(e) => {
+                delete e.currentTarget.dataset.lastCommittedValue;
+                e.currentTarget.select();
+              }}
+              onKeyDown={(e) => handleEnterCommit(e, (value) => updateBarTimeSignatureField(barId, "denominator", value))}
+              onBlur={(e) => handleBlurCommit(e, (value) => updateBarTimeSignatureField(barId, "denominator", value))}
+            />
+          </div>
+        </div>
+        <div class="sequencer-bar-row__tail" aria-hidden="true" />
+      </div>
+    );
+  };
+
+  const renderTempoRow = (tempo) => {
+    const tempoId = tempo.tempoId ?? tempo.id;
+    const barBeat = absolutePositionToBarBeat(Number(tempo.position ?? tempo.absoluteTime), sortedBars);
+    const sequenceTime = Number(tempo.position ?? tempo.absoluteTime).toFixed(6);
+
+    return (
+      <div key={`tempo:${tempoId}`} class="sequencer-tempo-row">
+        <div class="sequencer-tempo-row__line" aria-hidden="true" />
+        <div class="sequencer-row__delete-cell">
+          <button
+            type="button"
+            class="sequencer-gutter__delete"
+            aria-label="delete tempo marker"
+            title="Delete tempo marker"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteTempo?.(tempoId);
+            }}
+          >
+            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div class="sequencer-tempo-row__bpm-cell sequencer-event__cell">
+          <input
+            type="number"
+            step="0.1"
+            min="0.1"
+            class="sequencer-event__input sequencer-event__input--stepper"
+            defaultValue={String(tempo.bpm ?? 60)}
+            aria-label="tempo bpm"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onKeyDown={(e) => handleEnterCommit(e, (value) => updateTempoBpm(tempoId, value))}
+            onBlur={(e) => handleBlurCommit(e, (value) => updateTempoBpm(tempoId, value))}
+          />
+        </div>
+        <div class="sequencer-event__cell sequencer-bar-row__position-cell sequencer-tempo-row__position-cell">
+          <input
+            type="text"
+            class="sequencer-event__input sequencer-event__position"
+            defaultValue={sequenceTime}
+            aria-label="tempo position"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onKeyDown={(e) => handleEnterCommit(e, (value) => updateTempoPosition(tempoId, value))}
+            onBlur={(e) => handleBlurCommit(e, (value) => updateTempoPosition(tempoId, value))}
+          />
+        </div>
+        <div class="sequencer-tempo-row__label">
+          <span class="sequencer-event__content">TEMPO CHANGE</span>
+        </div>
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__bar-cell">
+          <input type="number" step="1" min="1" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__bar" defaultValue={String(barBeat?.barNumber ?? 1)} aria-label="tempo bar" onKeyDown={(e) => handleEnterCommit(e, () => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          })} onBlur={(e) => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          }} />
+        </div>
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__beat-cell">
+          <input type="number" step="1" min="1" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__beat" defaultValue={String(barBeat?.beat ?? 1)} aria-label="tempo beat" onKeyDown={(e) => handleEnterCommit(e, () => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          })} onBlur={(e) => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          }} />
+        </div>
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__num-cell">
+          <input type="number" step="1" min="0" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num" defaultValue={String(barBeat?.numerator ?? 0)} aria-label="tempo beat fraction numerator" onKeyDown={(e) => handleEnterCommit(e, () => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          })} onBlur={(e) => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          }} />
+        </div>
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__den-cell">
+          <input type="number" step="1" min="1" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den" defaultValue={String(barBeat?.denominator ?? 1)} aria-label="tempo beat fraction denominator" onKeyDown={(e) => handleEnterCommit(e, () => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          })} onBlur={(e) => {
+            const row = e.currentTarget.closest(".sequencer-tempo-row");
+            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
+            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
+            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
+            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
+            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
+            if (position != null) onUpdateTempo?.(tempoId, { position });
+          }} />
+        </div>
+        <div class="sequencer-tempo-row__tail" aria-hidden="true" />
       </div>
     );
   };
@@ -994,6 +1170,7 @@ const Sequencer = ({
       <SequenceLibrary
         snapshots={snapshots}
         bars={bars}
+        tempi={tempi}
         snapshotLabelMode={snapshotLabelMode}
         autoCreateBars={sequenceAutoCreateBars}
         activeSequenceName={activeSequenceName ?? ""}
@@ -1218,6 +1395,29 @@ const Sequencer = ({
           </span>
         </div>
 
+        <div class="sequencer-option-row">
+          <span>Choose Tempo Position</span>
+          <span class="sequencer-bars-add">
+            <input
+              type="text"
+              class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+              aria-label="new tempo position"
+              value={newTempoPosition}
+              onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
+            />
+            <input
+              type="text"
+              class="sidebar-input sequencer-bars-add__position"
+              aria-label="new tempo bpm"
+              value={newTempoBpm}
+              onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+            />
+            <button type="button" class="preset-action-btn" onClick={addTempoAtRequestedPosition}>
+              Add Tempo
+            </button>
+          </span>
+        </div>
+
         <label>
           Snapshot Labels
           <select
@@ -1239,9 +1439,9 @@ const Sequencer = ({
           </p>
         ) : (
           <div class="sequencer-list">
-            {(barsByDisplayBucket.get(-1) ?? []).map((bar) => (
-              <div key={`bar:${bar.id}`} class="sequencer-item sequencer-item--bar">
-                {renderBarRow(bar)}
+            {(structuralMarkersByDisplayBucket.get(-1) ?? []).map((marker) => (
+              <div key={`${marker.structuralType}:${marker.id}`} class="sequencer-item sequencer-item--bar">
+                {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
               </div>
             ))}
             {snapshots.map((snapshot, index) => {
@@ -1440,16 +1640,18 @@ const Sequencer = ({
                             {snapshotEvents.map((event) => (
                               event.type === "bar"
                                 ? renderBarRow(event)
-                                : renderEventRow(snapshot, index, event)
+                                : event.type === "tempo"
+                                  ? renderTempoRow(event)
+                                  : renderEventRow(snapshot, index, event)
                             ))}
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
-                  {(barsByDisplayBucket.get(index) ?? []).map((bar) => (
-                    <div key={`bar:${bar.id}`} class="sequencer-item sequencer-item--bar">
-                      {renderBarRow(bar)}
+                  {(structuralMarkersByDisplayBucket.get(index) ?? []).map((marker) => (
+                    <div key={`${marker.structuralType}:${marker.id}`} class="sequencer-item sequencer-item--bar">
+                      {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
                     </div>
                   ))}
                 </>

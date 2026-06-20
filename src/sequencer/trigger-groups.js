@@ -4,7 +4,8 @@ function eventTypePriority(kind) {
 
 function sequenceRowPriority(type, kind) {
   if (type === "bar") return 0;
-  return kind === "attack" ? 1 : 2;
+  if (type === "tempo") return 1;
+  return kind === "attack" ? 2 : 3;
 }
 
 function noteFrequency(midicents) {
@@ -119,7 +120,7 @@ export function isWholeSequencePosition(time) {
   return Math.abs(value - Math.round(value)) < 1e-9;
 }
 
-export function deriveSequenceEvents(snapshots, bars = []) {
+export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
   const events = [];
 
   for (const [snapshotIndex, snapshot] of (snapshots ?? []).entries()) {
@@ -171,11 +172,37 @@ export function deriveSequenceEvents(snapshots, bars = []) {
     });
   }
 
+  const normalizedTempi = Array.isArray(tempi) ? tempi : [];
+  for (const [tempoOrder, tempo] of normalizedTempi.entries()) {
+    const absoluteTime = normalizeTimeValue(Number(tempo?.position));
+    if (!Number.isFinite(absoluteTime)) continue;
+    const snapshotIndex = snapshotIndexForAbsoluteTime(absoluteTime, snapshotCount);
+    const relativeTime = normalizeTimeValue(absoluteTime - snapshotBaseTime(snapshotIndex));
+    events.push({
+      type: "tempo",
+      kind: "tempo",
+      tempoId: tempo?.id ?? `tempo:${absoluteTime}:${tempoOrder}`,
+      tempoOrder,
+      bpm: Number(tempo?.bpm),
+      beatLength: Number(tempo?.beatLength),
+      eventId: `tempo:${tempo?.id ?? tempoOrder}:${absoluteTime}`,
+      snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
+      snapshotIndex,
+      relativeTime,
+      absoluteTime,
+      cueIndex: null,
+      cueLead: false,
+      cueDisplayLead: false,
+      cueOrder: null,
+    });
+  }
+
   events.sort((a, b) => (
     a.absoluteTime - b.absoluteTime ||
     sequenceRowPriority(a.type, a.kind) - sequenceRowPriority(b.type, b.kind) ||
     ((b.midicents ?? -Infinity) - (a.midicents ?? -Infinity)) ||
-    ((a.barOrder ?? 0) - (b.barOrder ?? 0))
+    ((a.barOrder ?? 0) - (b.barOrder ?? 0)) ||
+    ((a.tempoOrder ?? 0) - (b.tempoOrder ?? 0))
   ));
 
   let cueIndex = 0;
@@ -232,9 +259,9 @@ export function deriveSequenceEvents(snapshots, bars = []) {
   return events;
 }
 
-export function deriveSequenceCueGroups(snapshots, bars = []) {
+export function deriveSequenceCueGroups(snapshots, bars = [], tempi = []) {
   const groups = [];
-  const sequenceEvents = deriveSequenceEvents(snapshots, bars).filter((event) => event.type === "note");
+  const sequenceEvents = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
 
   for (const event of sequenceEvents) {
     const previous = groups.at(-1);
