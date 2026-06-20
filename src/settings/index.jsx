@@ -94,24 +94,11 @@ const Settings = ({
         <em style={{ color: "#996666" }}>Restore preset on reload</em>
       </label>
       {pendingRestoredPreset && activatePendingPreset && (
-        <label style={{ justifyContent: "flex-start", marginTop: "0.4em" }}>
-          <button
-            type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void activatePendingPreset();
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void activatePendingPreset();
-            }}
-            onContextMenu={(e) => e.preventDefault()}
-          >
+        <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "0.4em" }}>
+          <button type="button" onClick={() => void activatePendingPreset()}>
             Activate Restored Preset
           </button>
-        </label>
+        </div>
       )}
     </fieldset>
     <CustomPresets

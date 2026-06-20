@@ -7,6 +7,7 @@ import { normalizeModulationHistory } from "./tuning/modulation-runtime.js";
 import { getControllerById } from "./controllers/registry.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "./input/controller-anchor.js";
 import { deriveKeyColorFlags } from "./settings/scale/key-colors-mode.js";
+import { primeSharedSampleAudio } from "./sample_synth";
 
 export { PRESET_SKIP_KEYS };
 const isIOS =
@@ -381,7 +382,10 @@ const usePresets = (
   const activatePendingPreset = async () => {
     if (!pendingRestoredPreset) return false;
     const { source, name } = pendingRestoredPreset;
-    onUserInteraction();
+    if (isIOS) {
+      await primeSharedSampleAudio();
+    }
+    await onUserInteraction?.();
     if (source === "builtin") {
       const presetData = findPreset(name);
       if (!presetData) return false;
@@ -396,7 +400,6 @@ const usePresets = (
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
-      synthRef.current?.prepare?.();
     } else if (source === "user") {
       const preset = loadCustomPresets().find((p) => p.name === name);
       if (!preset) return false;
@@ -411,7 +414,6 @@ const usePresets = (
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
-      synthRef.current?.prepare?.();
     } else {
       return false;
     }
