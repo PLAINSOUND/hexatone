@@ -453,18 +453,31 @@ const App = () => {
     const markAudioStale = () => {
       audioNeedsHardRefreshRef.current = true;
     };
+    const revealSidebarOnReturn = () => {
+      setActive(false);
+    };
     const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") markAudioStale();
+      if (document.visibilityState === "hidden") {
+        markAudioStale();
+        return;
+      }
+      if (document.visibilityState === "visible") {
+        revealSidebarOnReturn();
+      }
+    };
+    const onPageShow = () => {
+      markAudioStale();
+      revealSidebarOnReturn();
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pagehide", markAudioStale);
-    window.addEventListener("pageshow", markAudioStale);
+    window.addEventListener("pageshow", onPageShow);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", markAudioStale);
-      window.removeEventListener("pageshow", markAudioStale);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, []);
 
