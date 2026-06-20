@@ -1,6 +1,11 @@
 import { createRef } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import {
+  normalizeMeterMarkers,
+  normalizeSequenceTransport,
+  normalizeTempoMarkers,
+} from "./transport.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
 
@@ -34,11 +39,14 @@ function normalizeSequenceRecord(record) {
   if (!Array.isArray(snapshots)) return null;
   return {
     type: "hexatone-sequence",
-    version: 2,
+    version: 3,
     name,
     description: String(record.description ?? ""),
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),
     autoCreateBars: record.autoCreateBars !== false,
+    transport: normalizeSequenceTransport(record.transport),
+    tempi: normalizeTempoMarkers(record.tempi),
+    meters: normalizeMeterMarkers(record.meters),
     snapshots,
     bars,
   };
@@ -55,6 +63,9 @@ function parseSequenceJson(name, text) {
       description: parsed?.description ?? "",
       snapshotLabelMode: parsed?.snapshotLabelMode,
       autoCreateBars: parsed?.autoCreateBars,
+      transport: parsed?.transport,
+      tempi: parsed?.tempi,
+      meters: parsed?.meters,
       snapshots: parsed?.snapshots,
       bars: parsed?.bars,
     });

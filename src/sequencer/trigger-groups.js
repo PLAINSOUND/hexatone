@@ -21,7 +21,7 @@ function normalizeNoteSpan(note, fallbackLength = 1) {
 }
 
 function normalizeTimeValue(value) {
-  return Math.round(value * 1000) / 1000;
+  return Math.round(value * 1000000) / 1000000;
 }
 
 function snapshotBaseTime(snapshotIndex) {
@@ -56,6 +56,7 @@ export function deriveSnapshotTriggerGroups(snapshot) {
       noteId: note.id ?? `${midicents}:${start}:attack`,
       kind: "attack",
       time: start,
+      fractionDenominator: note.startFractionDenominator ?? null,
       midicents,
       frequency,
       attackVelocity: note.attackVelocity ?? note.velocity ?? null,
@@ -71,6 +72,7 @@ export function deriveSnapshotTriggerGroups(snapshot) {
       noteId: note.id ?? `${midicents}:${end}:release`,
       kind: "release",
       time: end,
+      fractionDenominator: note.endFractionDenominator ?? null,
       midicents,
       frequency,
       attackVelocity: note.attackVelocity ?? note.velocity ?? null,

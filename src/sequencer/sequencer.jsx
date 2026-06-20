@@ -2,13 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
+import {
+  absolutePositionToBarBeat,
+  barBeatToAbsolutePosition,
+  normalizeBarMarkers,
+} from "./transport.js";
 import { deriveSequenceCueGroups, deriveSequenceEvents, isWholeSequencePosition } from "./trigger-groups.js";
 
 function formatSequenceTime(snapshotIndex, relativeTime) {
   const baseIndex = Number(snapshotIndex);
   const offset = Number(relativeTime);
   if (!Number.isFinite(baseIndex) || !Number.isFinite(offset)) return "--";
-  return (baseIndex + offset).toFixed(3);
+  return (baseIndex + offset).toFixed(6);
 }
 
 function formatFrequency(value) {
@@ -61,6 +66,13 @@ function noteIdentity(note, fallbackLength = 1) {
   const rawEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : fallbackLength;
   const end = Math.max(start, rawEnd);
   return note?.id ?? `${midicents}:${start}:${end}`;
+}
+
+function readNumericInput(container, selector, fallback = null) {
+  const input = container?.querySelector?.(selector);
+  if (!(input instanceof HTMLInputElement)) return fallback;
+  const value = Number(input.value);
+  return Number.isFinite(value) ? value : fallback;
 }
 
 function commitTextInput(target, commit) {
@@ -117,19 +129,20 @@ const Sequencer = ({
 }) => {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(false);
-  const [newBarPosition, setNewBarPosition] = useState("1.000");
+  const [newBarPosition, setNewBarPosition] = useState("1.000000");
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
   const [draggedBarId, setDraggedBarId] = useState(null);
   const [editCommitTick, setEditCommitTick] = useState(0);
-  const [mobileEventPane, setMobileEventPane] = useState("main");
+  const [eventPane, setEventPane] = useState("timing");
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const pendingTransportActionRef = useRef(null);
 
-  const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots, bars), [bars, snapshots]);
-  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots, bars), [bars, snapshots]);
+  const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
+  const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots, sortedBars), [snapshots, sortedBars]);
+  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots, sortedBars), [snapshots, sortedBars]);
 
   const rawPlayheadStepIndex = Number.isFinite(playhead?.stepIndex) ? playhead.stepIndex : -1;
   const playheadIsOff = rawPlayheadStepIndex < 0 || snapshots.length === 0;
@@ -163,13 +176,6 @@ const Sequencer = ({
     }
     return ids;
   }, [snapshotEventsById]);
-
-  const sortedBars = useMemo(
-    () => [...(Array.isArray(bars) ? bars : [])].sort((a, b) => (
-      Number(a.position) - Number(b.position) || Number(a.id) - Number(b.id)
-    )),
-    [bars],
-  );
 
   const selectedBarIndex = sortedBars.length === 0
     ? 0
@@ -255,11 +261,11 @@ const Sequencer = ({
   const selectedCueAbsoluteTime = useMemo(() => {
     if (selectedMarker?.snapshotId != null && Number.isFinite(Number(selectedMarker?.time))) {
       const snapshotStart = snapshotIndexById.get(selectedMarker.snapshotId);
-      if (snapshotStart != null) return Number((snapshotStart + Number(selectedMarker.time)).toFixed(3));
+      if (snapshotStart != null) return Number((snapshotStart + Number(selectedMarker.time)).toFixed(6));
     }
     if (playheadMarkerIndex != null) {
       const cueGroup = sequenceCueGroups[playheadMarkerIndex];
-      if (cueGroup) return Number(cueGroup.time.toFixed(3));
+      if (cueGroup) return Number(cueGroup.time.toFixed(6));
     }
     return null;
   }, [playheadMarkerIndex, selectedMarker, sequenceCueGroups, snapshotIndexById]);
@@ -292,7 +298,7 @@ const Sequencer = ({
 
   useEffect(() => {
     if (selectedCueAbsoluteTime == null) return;
-    setNewBarPosition(selectedCueAbsoluteTime.toFixed(3));
+    setNewBarPosition(selectedCueAbsoluteTime.toFixed(6));
   }, [selectedCueAbsoluteTime]);
 
   const notifyEditCommitted = () => {
@@ -330,7 +336,7 @@ const Sequencer = ({
     const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
     const parsedAbsolute = Number(absoluteTime);
     if (!Number.isFinite(parsedAbsolute)) return;
-    const relativeTime = parsedAbsolute - baseIndex;
+    const relativeTime = Math.round((parsedAbsolute - baseIndex) * 1000000) / 1000000;
 
     const notes = (snapshot.notes ?? []).map((note) => {
       if (noteIdentity(note, length) !== noteKey) return note;
@@ -356,6 +362,44 @@ const Sequencer = ({
       };
     });
 
+    onUpdateSnapshot(snapshot.id, { notes });
+  };
+
+  const updateEventBarRelativeTime = (snapshot, noteKey, kind, rowElement) => {
+    const barNumber = readNumericInput(rowElement, ".sequencer-event__bar", 1);
+    const beat = readNumericInput(rowElement, ".sequencer-event__beat", 1);
+    const numerator = readNumericInput(rowElement, ".sequencer-event__fraction-num", 0);
+    const denominator = readNumericInput(rowElement, ".sequencer-event__fraction-den", 1);
+    const absoluteTime = barBeatToAbsolutePosition({
+      barNumber,
+      beat,
+      numerator,
+      denominator,
+    }, sortedBars);
+    if (absoluteTime == null) return;
+    const notes = (snapshot.notes ?? []).map((note) => {
+      const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+      if (noteIdentity(note, length) !== noteKey) return note;
+      if (kind === "attack") {
+        return {
+          ...note,
+          start: Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000,
+          end: Math.max(
+            Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000,
+            Number.isFinite(Number(note?.end)) ? Number(note.end) : length,
+          ),
+          startFractionDenominator: Math.max(1, Math.round(denominator)),
+        };
+      }
+      return {
+        ...note,
+        end: Math.max(
+          Number.isFinite(Number(note?.start)) ? Number(note.start) : 0,
+          Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000,
+        ),
+        endFractionDenominator: Math.max(1, Math.round(denominator)),
+      };
+    });
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
@@ -395,14 +439,20 @@ const Sequencer = ({
   const updateBarPosition = (barId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
-    onUpdateBar?.(barId, { position: Math.round(numeric * 1000) / 1000 });
+    onUpdateBar?.(barId, { position: Math.round(numeric * 1000000) / 1000000 });
+  };
+
+  const updateBarTimeSignatureField = (barId, field, rawValue) => {
+    const numeric = Math.max(1, Math.round(Number(rawValue) || 0));
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    onUpdateBar?.(barId, { [field]: numeric });
   };
 
   const addBarAtRequestedPosition = () => {
     const numeric = Number(newBarPosition);
     if (!Number.isFinite(numeric)) return;
-    onAddBar?.(Math.round(numeric * 1000) / 1000);
-    setNewBarPosition("1.000");
+    onAddBar?.(Math.round(numeric * 1000000) / 1000000);
+    setNewBarPosition("1.000000");
   };
 
   const handleEnterCommit = (e, commit) => {
@@ -424,6 +474,20 @@ const Sequencer = ({
       <span class="sequencer-events-grid__heading-label sequencer-events-grid__heading-label--full">{full}</span>
       <span class="sequencer-events-grid__heading-label sequencer-events-grid__heading-label--short">{short}</span>
     </>
+  );
+
+  const renderPaneToggle = () => (
+    <button
+      type="button"
+      class="sequencer-events-grid__pane-toggle"
+      aria-label={eventPane === "timing" ? "show expression controls" : "show bar-relative timing"}
+      title={eventPane === "timing" ? "Show expression controls" : "Show bar-relative timing"}
+      onClick={() => setEventPane((value) => (value === "timing" ? "expression" : "timing"))}
+    >
+      <span aria-hidden="true">
+        {eventPane === "timing" ? "→" : "←"}
+      </span>
+    </button>
   );
 
   const renderCueTransport = (cueIndex) => (
@@ -499,7 +563,7 @@ const Sequencer = ({
   const renderBarRow = (bar) => {
     const barId = bar.barId ?? bar.id;
     const barNumber = barNumberById.get(barId) ?? 1;
-    const sequenceTime = Number(bar.position ?? bar.absoluteTime).toFixed(3);
+    const sequenceTime = Number(bar.position ?? bar.absoluteTime).toFixed(6);
     const isDraggable = true;
 
     return (
@@ -551,6 +615,34 @@ const Sequencer = ({
           <span class="sequencer-bar-gutter__number">{barNumber}</span>
         </span>
         <div class="sequencer-event__cell">
+          <div class="sequencer-bar-row__time-signature" aria-label={`bar ${barNumber} time signature`}>
+            <input
+              type="text"
+              class="sequencer-event__input sequencer-bar-row__signature-input"
+              defaultValue={String(bar.numerator ?? 4)}
+              aria-label={`bar ${barNumber} beats per bar`}
+              onFocus={(e) => {
+                delete e.currentTarget.dataset.lastCommittedValue;
+                e.currentTarget.select();
+              }}
+              onKeyDown={(e) => handleEnterCommit(e, (value) => updateBarTimeSignatureField(barId, "numerator", value))}
+              onBlur={(e) => handleBlurCommit(e, (value) => updateBarTimeSignatureField(barId, "numerator", value))}
+            />
+            <input
+              type="text"
+              class="sequencer-event__input sequencer-bar-row__signature-input"
+              defaultValue={String(bar.denominator ?? 4)}
+              aria-label={`bar ${barNumber} beat unit`}
+              onFocus={(e) => {
+                delete e.currentTarget.dataset.lastCommittedValue;
+                e.currentTarget.select();
+              }}
+              onKeyDown={(e) => handleEnterCommit(e, (value) => updateBarTimeSignatureField(barId, "denominator", value))}
+              onBlur={(e) => handleBlurCommit(e, (value) => updateBarTimeSignatureField(barId, "denominator", value))}
+            />
+          </div>
+        </div>
+        <div class="sequencer-event__cell sequencer-bar-row__position-cell">
           <input
             type="text"
             class="sequencer-event__input sequencer-event__position"
@@ -587,6 +679,7 @@ const Sequencer = ({
       snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1,
       event.relativeTime,
     );
+    const barBeat = absolutePositionToBarBeat(event.absoluteTime, sortedBars, event.fractionDenominator, 9);
 
     return (
       <div
@@ -691,98 +784,201 @@ const Sequencer = ({
             )}
           />
         </div>
-        <div class="sequencer-event__cell">
-          <input
-            type="text"
-            class="sequencer-event__input"
-            defaultValue={displayValue(event.attackVelocity)}
-            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} on velocity`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onFocus={(e) => {
-              e.stopPropagation();
-              delete e.currentTarget.dataset.lastCommittedValue;
-              e.currentTarget.select();
-            }}
-            onKeyDown={(e) => handleEnterCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "attackVelocity", value),
-            )}
-            onBlur={(e) => handleBlurCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "attackVelocity", value),
-            )}
-          />
-        </div>
-        <div class="sequencer-event__cell">
-          <input
-            type="text"
-            class="sequencer-event__input"
-            defaultValue={displayValue(event.releaseVelocity)}
-            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} off velocity`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onFocus={(e) => {
-              e.stopPropagation();
-              delete e.currentTarget.dataset.lastCommittedValue;
-              e.currentTarget.select();
-            }}
-            onKeyDown={(e) => handleEnterCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
-            )}
-            onBlur={(e) => handleBlurCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
-            )}
-          />
-        </div>
-        <div class="sequencer-event__cell">
-          <input
-            type="text"
-            class="sequencer-event__input"
-            defaultValue={displayValue(event.pressure)}
-            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} pressure`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onFocus={(e) => {
-              e.stopPropagation();
-              delete e.currentTarget.dataset.lastCommittedValue;
-              e.currentTarget.select();
-            }}
-            onKeyDown={(e) => handleEnterCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "pressure", value),
-            )}
-            onBlur={(e) => handleBlurCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "pressure", value),
-            )}
-          />
-        </div>
-        <div class="sequencer-event__cell">
-          <input
-            type="text"
-            class="sequencer-event__input"
-            defaultValue={displayValue(event.timbre)}
-            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} timbre`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onFocus={(e) => {
-              e.stopPropagation();
-              delete e.currentTarget.dataset.lastCommittedValue;
-              e.currentTarget.select();
-            }}
-            onKeyDown={(e) => handleEnterCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "timbre", value),
-            )}
-            onBlur={(e) => handleBlurCommit(
-              e,
-              (value) => updateEventField(snapshot, event.noteKey, "timbre", value),
-            )}
-          />
-        </div>
+        {eventPane === "timing" ? (
+          <>
+            <div class="sequencer-event__cell">
+              <input
+                type="number"
+                step="1"
+                min="1"
+                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__bar"
+                defaultValue={String(barBeat?.barNumber ?? 1)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} bar`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+              />
+            </div>
+            <div class="sequencer-event__cell">
+              <input
+                type="number"
+                step="1"
+                min={barBeat?.stopped ? "0" : "1"}
+                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__beat"
+                defaultValue={String(barBeat?.beat ?? 1)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+              />
+            </div>
+            <div class="sequencer-event__cell">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num"
+                defaultValue={String(barBeat?.numerator ?? 0)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+              />
+            </div>
+            <div class="sequencer-event__cell">
+              <input
+                type="number"
+                step="1"
+                min="1"
+                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den"
+                defaultValue={String(barBeat?.denominator ?? 1)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
+                )}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div class="sequencer-event__cell">
+              <input
+                type="text"
+                class="sequencer-event__input"
+                defaultValue={displayValue(event.attackVelocity)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} on velocity`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  delete e.currentTarget.dataset.lastCommittedValue;
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "attackVelocity", value),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "attackVelocity", value),
+                )}
+              />
+            </div>
+            <div class="sequencer-event__cell">
+              <input
+                type="text"
+                class="sequencer-event__input"
+                defaultValue={displayValue(event.releaseVelocity)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} off velocity`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  delete e.currentTarget.dataset.lastCommittedValue;
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
+                )}
+              />
+            </div>
+            <div class="sequencer-event__cell">
+              <input
+                type="text"
+                class="sequencer-event__input"
+                defaultValue={displayValue(event.pressure)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} pressure`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  delete e.currentTarget.dataset.lastCommittedValue;
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "pressure", value),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "pressure", value),
+                )}
+              />
+            </div>
+            <div class="sequencer-event__cell">
+              <input
+                type="text"
+                class="sequencer-event__input"
+                defaultValue={displayValue(event.timbre)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} timbre`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  delete e.currentTarget.dataset.lastCommittedValue;
+                  e.currentTarget.select();
+                }}
+                onKeyDown={(e) => handleEnterCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "timbre", value),
+                )}
+                onBlur={(e) => handleBlurCommit(
+                  e,
+                  (value) => updateEventField(snapshot, event.noteKey, "timbre", value),
+                )}
+              />
+            </div>
+          </>
+        )}
         <div class="sequencer-event__actions-cell">
           {(event.cueDisplayLead || (
             firstSnapshotEventIds.get(snapshot.id) === event.eventId &&
@@ -1006,7 +1202,7 @@ const Sequencer = ({
           <span class="sequencer-bars-add">
             <input
               type="text"
-              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000" ? " sequencer-bars-add__position--hint" : ""}`}
+              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
               aria-label="new bar position"
               value={newBarPosition}
               onInput={(e) => setNewBarPosition(e.currentTarget.value)}
@@ -1210,7 +1406,7 @@ const Sequencer = ({
                     {isExpanded && (
                       <div class="sequencer-item__groups">
                         <div
-                          class={`sequencer-events-grid sequencer-events-grid--pane-${mobileEventPane}`}
+                          class={`sequencer-events-grid sequencer-events-grid--pane-${eventPane}`}
                           role="table"
                           aria-label={`snapshot ${index + 1} events`}
                         >
@@ -1221,22 +1417,23 @@ const Sequencer = ({
                             <div class="sequencer-events-grid__heading">{renderResponsiveHeading("on/off", "On")}</div>
                             <div class="sequencer-events-grid__heading">{renderResponsiveHeading("MIDI¢", "MIDI¢")}</div>
                             <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Hz", "Hz")}</div>
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("on-vel", "v-on")}</div>
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("off-vel", "v-off")}</div>
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("pressure", "prs")}</div>
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("timbre", "tim")}</div>
+                            {eventPane === "timing" ? (
+                              <>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Bar", "Bar")}</div>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Beat", "Beat")}</div>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Num", "Num")}</div>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Den", "Den")}</div>
+                              </>
+                            ) : (
+                              <>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("on-vel", "v-on")}</div>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("off-vel", "v-off")}</div>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("pressure", "prs")}</div>
+                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("timbre", "tim")}</div>
+                              </>
+                            )}
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--actions">
-                              <button
-                                type="button"
-                                class="sequencer-events-grid__pane-toggle"
-                                aria-label={mobileEventPane === "main" ? "show expression controls" : "show pitch and timing"}
-                                title={mobileEventPane === "main" ? "Show expression controls" : "Show pitch and timing"}
-                                onClick={() => setMobileEventPane((value) => (value === "main" ? "controls" : "main"))}
-                              >
-                                <span aria-hidden="true">
-                                  {mobileEventPane === "main" ? "→" : "←"}
-                                </span>
-                              </button>
+                              {renderPaneToggle()}
                             </div>
                           </div>
                           <div class="sequencer-events-grid__body">

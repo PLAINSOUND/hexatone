@@ -98,25 +98,31 @@ describe("Sequencer", () => {
     expect(onStopSnapshot).toHaveBeenCalledWith(10);
 
     const eventTimes = [...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value);
-    expect(eventTimes).toEqual(["1.000", "1.000", "1.500", "2.000", "2.000", "2.000"]);
+    expect(eventTimes).toEqual(["1.000000", "1.000000", "1.500000", "2.000000", "2.000000", "2.000000"]);
     const cueNumbers = [...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent);
     expect(cueNumbers).toEqual(["1", "2", "3"]);
     expect(screen.getByText("Position")).not.toBeNull();
-    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000");
-    expect(screen.getByLabelText("bar 2 position").value).toBe("2.000");
+    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000000");
+    expect(screen.getByLabelText("bar 2 position").value).toBe("2.000000");
     expect(screen.getAllByText("MIDI¢").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("show expression controls")).not.toBeNull();
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 release midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("880.0");
     expect(screen.getAllByLabelText("snapshot 1 release frequency")[0].value).toBe("880.0");
+    expect(screen.getAllByLabelText("snapshot 1 attack bar")[0].value).toBe("1");
+    expect(screen.getAllByLabelText("snapshot 1 attack beat")[0].value).toBe("1");
+    expect(screen.getAllByLabelText("snapshot 1 attack beat fraction numerator")[0].value).toBe("0");
+    expect(screen.getAllByLabelText("snapshot 1 attack beat fraction denominator")[0].value).toBe("1");
+    expect(screen.getByLabelText("bar 1 beats per bar").value).toBe("4");
+    expect(screen.getByLabelText("bar 1 beat unit").value).toBe("4");
     expect(screen.getAllByText("on")).toHaveLength(2);
     expect(screen.getAllByText("off")).toHaveLength(2);
     fireEvent.click(screen.getByLabelText("play cue 1"));
     expect(onPlayCue).toHaveBeenCalledWith(0);
 
     fireEvent.click(screen.getByLabelText("show expression controls"));
-    expect(screen.getByLabelText("show pitch and timing")).not.toBeNull();
+    expect(screen.getByLabelText("show bar-relative timing")).not.toBeNull();
 
     fireEvent.click(screen.getByText("2 notes"));
     expect(container.querySelector(".sequencer-events-grid")).toBeNull();
@@ -222,6 +228,69 @@ describe("Sequencer", () => {
     expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
   });
 
+  it("commits bar-relative timing edits back into absolute event positions", () => {
+    const onUpdateSnapshot = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              {
+                id: "a",
+                midicents: 81,
+                start: 0,
+                end: 1,
+              },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const beatInput = screen.getByLabelText("snapshot 1 attack beat");
+    const numInput = screen.getByLabelText("snapshot 1 attack beat fraction numerator");
+    const denInput = screen.getByLabelText("snapshot 1 attack beat fraction denominator");
+    beatInput.value = "2";
+    numInput.value = "1";
+    denInput.value = "4";
+    fireEvent.blur(denInput);
+
+    expect(onUpdateSnapshot).toHaveBeenLastCalledWith(10, {
+      notes: [expect.objectContaining({ id: "a", start: 0.3125, end: 1 })],
+    });
+  });
+
   it("rerenders cue markers when a position edit creates a new cue", () => {
     const Harness = () => {
       const [snapshots, setSnapshots] = useState([
@@ -292,7 +361,7 @@ describe("Sequencer", () => {
     });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000", "1.000", "1.100", "2.000", "2.000"]);
+      .toEqual(["1.000000", "1.000000", "1.100000", "2.000000", "2.000000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2", "3"]);
   });
@@ -360,7 +429,7 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000", "1.000", "1.100", "2.000", "2.000"]);
+      .toEqual(["1.000000", "1.000000", "1.100000", "2.000000", "2.000000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2", "3"]);
   });
@@ -429,7 +498,7 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000", "1.000", "1.000", "1.200", "2.000", "2.000", "2.000"]);
+      .toEqual(["1.000000", "1.000000", "1.000000", "1.200000", "2.000000", "2.000000", "2.000000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2", "3"]);
   });
@@ -645,12 +714,12 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000");
-    expect(screen.getByLabelText("bar 2 position").value).toBe("1.500");
+    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000000");
+    expect(screen.getByLabelText("bar 2 position").value).toBe("1.500000");
 
     const expandedTimes = [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")]
       .map((node) => node.value);
-    expect(expandedTimes).toEqual(["1.000", "1.500", "1.750", "2.000", "2.000"]);
+    expect(expandedTimes).toEqual(["1.000000", "1.500000", "1.750000", "2.000000", "2.000000"]);
   });
 
   it("defaults the new bar position to the selected cue start", () => {
@@ -707,6 +776,6 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getByLabelText("new bar position").value).toBe("2.000");
+    expect(screen.getByLabelText("new bar position").value).toBe("2.000000");
   });
 });

@@ -57,6 +57,7 @@ import { detectController, getControllerById } from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
+import { normalizeBarMarker, normalizeBarMarkers } from "./sequencer/transport.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   deriveSequenceCueGroups,
@@ -759,7 +760,7 @@ const App = () => {
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
   const [sequenceLegato, setSequenceLegato] = useState(true);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
-  const [sequenceBars, setSequenceBars] = useState([{ id: 1, position: 1 }]);
+  const [sequenceBars, setSequenceBars] = useState(() => normalizeBarMarkers([{ id: 1, position: 1 }]));
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -795,7 +796,7 @@ const App = () => {
           if (prevBars.some((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9)) return prevBars;
           const nextId = sequenceBarIdRef.current + 1;
           sequenceBarIdRef.current = nextId;
-          return [...prevBars, { id: nextId, position: nextPosition }];
+          return [...prevBars, normalizeBarMarker({ id: nextId, position: nextPosition })];
         });
       }
       return nextSnapshots;
@@ -811,9 +812,7 @@ const App = () => {
     const loadedBars = Array.isArray(sequence?.bars)
       ? JSON.parse(JSON.stringify(sequence.bars))
       : [];
-    const nextBars = loadedBars.some((bar) => Math.abs(Number(bar?.position) - 1) < 1e-9)
-      ? loadedBars
-      : [{ id: 1, position: 1 }, ...loadedBars];
+    const nextBars = normalizeBarMarkers(loadedBars);
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
     setSnapshots(nextSnapshots);
@@ -841,7 +840,10 @@ const App = () => {
     [sequenceBars, snapshots],
   );
   const sortedSequenceBars = useMemo(
-    () => [...sequenceBars].sort((a, b) => Number(a.position) - Number(b.position) || Number(a.id) - Number(b.id)),
+    () => [...sequenceBars].sort((a, b) => (
+      Number(a.position) - Number(b.position) ||
+      String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
+    )),
     [sequenceBars],
   );
 
@@ -1011,9 +1013,9 @@ const App = () => {
           sequenceBarIdRef.current -= 1;
           return prev;
         }
-        return [...prev.filter((bar) => bar.id !== existingBar.id), { id, position: nextPosition }];
+        return [...prev.filter((bar) => bar.id !== existingBar.id), normalizeBarMarker({ id, position: nextPosition })];
       }
-      return [...prev, { id, position: nextPosition }];
+      return [...prev, normalizeBarMarker({ id, position: nextPosition })];
     });
   }, []);
 
@@ -1033,7 +1035,7 @@ const App = () => {
         const key = position.toFixed(3);
         if (existingPositions.has(key)) continue;
         nextId += 1;
-        additions.push({ id: nextId, position });
+        additions.push(normalizeBarMarker({ id: nextId, position }));
         existingPositions.add(key);
       }
 

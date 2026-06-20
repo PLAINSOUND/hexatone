@@ -178,7 +178,7 @@
   background: var(--color-bg);
   border-color: var(--color-border-ui);
   border-bottom-color: var(--color-bg);
-  margin-bottom: -1px;
+  margin-bottom: 0;
 }
 
 #sidebar .workspace-tab--active::after {
@@ -186,8 +186,8 @@
   position: absolute;
   left: -1px;
   right: -1px;
-  bottom: -1px;
-  height: 2px;
+  bottom: -2px;
+  height: 3px;
   background: var(--color-bg);
   z-index: 3;
   pointer-events: none;
@@ -1269,10 +1269,14 @@ td.scale-color-col .color-input {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-  padding: 0.1em 0.32em 0.1em 0;
+  padding: 0 0.32em 0 0;
   position: relative;
   background: #fff;
   border-radius: 4px;
+}
+
+.sequencer-bar-row__position-cell {
+  grid-column: 4 / span 2;
 }
 
 .sequencer-events-grid__heading:nth-child(n + 4),
@@ -1300,9 +1304,12 @@ td.scale-color-col .color-input {
   min-width: 0;
 }
 
-.sequencer-events-grid__heading-label--short,
-.sequencer-events-grid__pane-toggle {
+.sequencer-events-grid__heading-label--short {
   display: none;
+}
+
+.sequencer-events-grid__pane-toggle {
+  display: inline-flex;
 }
 
 .sequencer-event-row {
@@ -1337,7 +1344,7 @@ td.scale-color-col .color-input {
   font-size: 0.8em;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  font-weight: 700;
+  font-weight: 800;
   transform: translate(-1em, 0.06em);
 }
 
@@ -1345,10 +1352,9 @@ td.scale-color-col .color-input {
   position: absolute;
   left: 0.95em;
   right: 0em;
-  top: 50%;
+  top: 1.3em;
   border-top: 1.5px solid rgba(132, 112, 112, 0.78);
   z-index: 1;
-  transform: translateY(-50%);
   pointer-events: none;
 }
 
@@ -1356,6 +1362,26 @@ td.scale-color-col .color-input {
 .sequencer-bar-row .sequencer-event__cell {
   background: #fff;
   z-index: 2;
+}
+
+.sequencer-bar-row__time-signature {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  min-height: 1.5em;
+  padding: 0.08em 0;
+  width: 2.1em;
+  justify-self: center;
+}
+
+.sequencer-bar-row__signature-input {
+  justify-content: center;
+  text-align: center;
+  padding-left: 0;
+  width: 100%;
+  font-family: "Plainsound Sans", sans-serif;
+  font-weight: 700;
 }
 
 .sequencer-bar-row .sequencer-row__delete-cell {
@@ -1632,6 +1658,33 @@ td.scale-color-col .color-input {
   -webkit-appearance: none;
 }
 
+#sidebar .sequencer-events-grid input[type="number"].sequencer-event__input--stepper {
+  width: 100%;
+  min-height: 1.5em;
+  min-width: 0;
+  padding-left: 0.28em;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+  text-align: left;
+  cursor: text;
+  pointer-events: auto;
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+
+#sidebar .sequencer-events-grid input[type="number"].sequencer-event__input--stepper:focus {
+  outline: 1px solid rgba(160, 140, 140, 0.55);
+  background: #fff;
+  background-color: #fff;
+}
+
 #sidebar .sequencer-bar-row input[type="text"].sequencer-event__input {
   all: unset;
   display: flex;
@@ -1654,6 +1707,11 @@ td.scale-color-col .color-input {
   pointer-events: auto;
   appearance: none;
   -webkit-appearance: none;
+}
+
+#sidebar .sequencer-bar-row input[type="text"].sequencer-event__input.sequencer-bar-row__signature-input {
+  font-family: "Plainsound Sans", sans-serif;
+  font-weight: bold;
 }
 
 #sidebar .sequencer-events-grid input[type="text"].sequencer-event__input:focus {
@@ -1723,65 +1781,41 @@ td.scale-color-col .color-input {
     border-radius: var(--btn-radius-square);
   }
 
-  .sequencer-events-grid--pane-main .sequencer-events-grid__header,
-  .sequencer-events-grid--pane-main .sequencer-event-row {
+  .sequencer-events-grid__header,
+  .sequencer-event-row {
     grid-template-columns:
       var(--sequencer-delete-col)
       var(--sequencer-number-col)
-      minmax(3.15em, 1fr)
+      minmax(2.65em, 1fr)
       2em
-      minmax(3.3em, 1fr)
-      minmax(2.9em, 1fr)
-      max-content;
-  }
-
-  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(7),
-  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(8),
-  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(9),
-  .sequencer-events-grid--pane-main .sequencer-events-grid__header > :nth-child(10),
-  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(7),
-  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(8),
-  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(9),
-  .sequencer-events-grid--pane-main .sequencer-event-row > :nth-child(10) {
-    display: none;
-  }
-
-  .sequencer-events-grid--pane-controls .sequencer-events-grid__header,
-  .sequencer-events-grid--pane-controls .sequencer-event-row {
-    grid-template-columns:
-      var(--sequencer-delete-col)
-      var(--sequencer-number-col)
-      minmax(2.7em, 1fr)
-      minmax(2.7em, 1fr)
-      minmax(2.8em, 1fr)
       minmax(2.6em, 1fr)
+      minmax(2.55em, 1fr)
+      minmax(2.2em, 1fr)
+      minmax(2.1em, 1fr)
+      minmax(2em, 1fr)
+      minmax(2em, 1fr)
       max-content;
-  }
-
-  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(3),
-  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(4),
-  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(5),
-  .sequencer-events-grid--pane-controls .sequencer-events-grid__header > :nth-child(6),
-  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(3),
-  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(4),
-  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(5),
-  .sequencer-events-grid--pane-controls .sequencer-event-row > :nth-child(6) {
-    display: none;
   }
 
   .sequencer-bar-row {
     grid-template-columns:
       var(--sequencer-delete-col)
       var(--sequencer-number-col)
-      minmax(3.15em, 1fr)
-      1fr;
+      minmax(2.2em, 0.85fr)
+      minmax(2.8em, 1fr)
+      minmax(2.2em, 1fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      max-content;
     column-gap: 0.22em;
     padding-right: 0;
   }
 
-  .sequencer-bar-row__filler,
-  .sequencer-bar-row__spacer {
-    display: none;
+  .sequencer-bar-row__position-cell {
+    grid-column: 4 / span 2;
   }
 }
 
