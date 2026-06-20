@@ -734,8 +734,8 @@ const Sequencer = ({
         <div class="sequencer-tempo-row__bpm-cell sequencer-event__cell">
           <input
             type="number"
-            step="0.1"
-            min="0.1"
+            step="1"
+            min="1"
             class="sequencer-event__input sequencer-event__input--stepper"
             defaultValue={String(tempo.bpm ?? 60)}
             aria-label="tempo bpm"
