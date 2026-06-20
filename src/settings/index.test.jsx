@@ -32,6 +32,8 @@ const baseProps = {
   isPresetDirty: false,
   persistOnReload: false,
   setPersistOnReload: () => {},
+  pendingRestoredPreset: null,
+  activatePendingPreset: () => {},
   onRevertBuiltin: () => {},
   onRevertUser: () => {},
   midi: null,
@@ -97,6 +99,20 @@ describe("Settings MIDI Setup fieldset", () => {
     );
     fireEvent.click(screen.getByLabelText("Enable MIDI"));
     expect(enableWebMidi).toHaveBeenCalledWith({ sysex: false });
+  });
+
+  it("shows an activate-restored-preset button when a pending restored preset exists", () => {
+    const activatePendingPreset = vi.fn();
+    render(
+      <Settings
+        {...baseProps}
+        pendingRestoredPreset={{ source: "builtin", name: "Preset A" }}
+        activatePendingPreset={activatePendingPreset}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Activate Restored Preset"));
+    expect(activatePendingPreset).toHaveBeenCalledTimes(1);
   });
 
   it("requests sysex MIDI when Enable Sysex is clicked from basic state", () => {

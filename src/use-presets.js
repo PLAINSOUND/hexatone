@@ -9,6 +9,9 @@ import { loadSavedAnchor, loadSavedAnchorChannel } from "./input/controller-anch
 import { deriveKeyColorFlags } from "./settings/scale/key-colors-mode.js";
 
 export { PRESET_SKIP_KEYS };
+const isIOS =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 // Scale-related keys to clear on reset (keeps output settings)
 export const SCALE_KEYS_TO_CLEAR = [
@@ -286,6 +289,7 @@ const usePresets = (
   const [activeSource, setActiveSource] = useState(null);
   const [activePresetName, setActivePresetName] = useState(null);
   const [restoredOnMount, setRestoredOnMount] = useState(false);
+  const [pendingRestoredPreset, setPendingRestoredPreset] = useState(null);
   // Snapshot stored in state so updating it triggers a re-render and
   // isPresetDirty recalculates correctly.
   const [savedPresetSnapshot, setSavedPresetSnapshot] = useState(null);
@@ -308,6 +312,28 @@ const usePresets = (
     const savedName = sessionStorage.getItem("hexatone_preset_name");
 
     if (!savedSource || !savedName) return;
+
+    if (isIOS) {
+      setActiveSource(savedSource);
+      setActivePresetName(savedName);
+      if (savedSource === "builtin") {
+        const presetData = findPreset(savedName);
+        if (presetData) {
+          const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+          setPresetModulationLibrary(savedLibrary);
+          onPresetModulationLibraryLoaded?.(savedLibrary);
+        }
+      } else if (savedSource === "user") {
+        const preset = loadCustomPresets().find((p) => p.name === savedName);
+        if (preset) {
+          const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+          setPresetModulationLibrary(savedLibrary);
+          onPresetModulationLibraryLoaded?.(savedLibrary);
+        }
+      }
+      setPendingRestoredPreset({ source: savedSource, name: savedName });
+      return;
+    }
 
     if (savedSource === "builtin") {
       setRestoredOnMount(true);
@@ -352,6 +378,48 @@ const usePresets = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Mount-only: restores session preset on initial load; re-running on settings change would override user edits
 
+  const activatePendingPreset = async () => {
+    if (!pendingRestoredPreset) return false;
+    const { source, name } = pendingRestoredPreset;
+    onUserInteraction();
+    if (source === "builtin") {
+      const presetData = findPreset(name);
+      if (!presetData) return false;
+      const adjustedPreset = {
+        ...presetData,
+        hexSize: scaleHexSizeForScreen(presetData.hexSize),
+      };
+      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      bumpImportCount?.();
+      const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+      setPresetModulationLibrary(savedLibrary);
+      onPresetModulationLibraryLoaded?.(savedLibrary);
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSettings(() => merged);
+      synthRef.current?.prepare?.();
+    } else if (source === "user") {
+      const preset = loadCustomPresets().find((p) => p.name === name);
+      if (!preset) return false;
+      const adjustedPreset = {
+        ...preset,
+        hexSize: scaleHexSizeForScreen(preset.hexSize),
+      };
+      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      bumpImportCount?.();
+      const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+      setPresetModulationLibrary(savedLibrary);
+      onPresetModulationLibraryLoaded?.(savedLibrary);
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSettings(() => merged);
+      synthRef.current?.prepare?.();
+    } else {
+      return false;
+    }
+    setPendingRestoredPreset(null);
+    setRestoredOnMount(false);
+    return true;
+  };
+
   const presetChanged = async (e) => {
     const presetName = e.target.value;
     if (!presetName) return;
@@ -361,6 +429,7 @@ const usePresets = (
     // the controlled value/state update lands.
     onUserInteraction();
     setRestoredOnMount(false);
+    setPendingRestoredPreset(null);
     setActiveSource("builtin");
     setActivePresetName(presetName);
     sessionStorage.setItem("hexatone_preset_source", "builtin");
@@ -383,6 +452,7 @@ const usePresets = (
   const onLoadCustomPreset = (preset) => {
     onUserInteraction();
     setRestoredOnMount(false);
+    setPendingRestoredPreset(null);
     setActiveSource("user");
     setActivePresetName(preset.name || null);
     sessionStorage.setItem("hexatone_preset_source", "user");
@@ -408,6 +478,7 @@ const usePresets = (
     const remaining = loadCustomPresets();
     setActiveSource(null);
     setActivePresetName(null);
+    setPendingRestoredPreset(null);
     setPresetModulationLibrary([]);
     onPresetModulationLibraryLoaded?.([]);
     sessionStorage.removeItem("hexatone_preset_source");
@@ -436,6 +507,7 @@ const usePresets = (
   const onRevertBuiltin = () => {
     onUserInteraction();
     setRestoredOnMount(false);
+    setPendingRestoredPreset(null);
     if (activePresetName) {
       const presetData = findPreset(activePresetName);
       const adjustedPreset = {
@@ -456,6 +528,7 @@ const usePresets = (
   const onRevertUser = () => {
     onUserInteraction();
     setRestoredOnMount(false);
+    setPendingRestoredPreset(null);
     if (activePresetName) {
       const saved = loadCustomPresets().find((p) => p.name === activePresetName);
       if (saved) {
@@ -480,6 +553,7 @@ const usePresets = (
   const onUserScaleEdit = (name) => {
     setActiveSource("user");
     setRestoredOnMount(false);
+    setPendingRestoredPreset(null);
     setActivePresetName(name || null);
     sessionStorage.setItem("hexatone_preset_source", "user");
     if (name) {
@@ -494,9 +568,11 @@ const usePresets = (
     activeSource,
     activePresetName,
     restoredOnMount,
+    pendingRestoredPreset,
     isPresetDirty: isDirty(savedPresetSnapshot, settings, currentModulationLibrary),
     persistOnReload,
     setPersistOnReload,
+    activatePendingPreset,
     presetChanged,
     onLoadCustomPreset,
     onClearUserPresets,

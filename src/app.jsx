@@ -670,9 +670,11 @@ const App = () => {
     activeSource,
     activePresetName,
     restoredOnMount,
+    pendingRestoredPreset,
     isPresetDirty,
     persistOnReload,
     setPersistOnReload,
+    activatePendingPreset,
     presetChanged,
     onLoadCustomPreset,
     onClearUserPresets,
@@ -1329,6 +1331,11 @@ const App = () => {
       keysRef.current.resizeHandler();
       keysRef.current.scheduleImmediateGridRedraw();
     }
+    if (pendingRestoredPreset) {
+      await activatePendingPreset();
+      if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
+      return;
+    }
     if (!userHasInteracted) {
       await primeAudioFromUserInteraction();
       if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
@@ -1337,7 +1344,7 @@ const App = () => {
     if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
     if (synthRef.current?.prepare) await synthRef.current.prepare();
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
-  }, [primeAudioFromUserInteraction, userHasInteracted]);
+  }, [activatePendingPreset, pendingRestoredPreset, primeAudioFromUserInteraction, userHasInteracted]);
 
   const clampModulationPalettePos = useCallback((position) => {
     if (typeof window === "undefined") return position;
@@ -2925,12 +2932,14 @@ const App = () => {
                 onClearUserPresets={onClearUserPresets}
                 activeSource={activeSource}
                 activePresetName={activePresetName}
+                pendingRestoredPreset={pendingRestoredPreset}
                 isPresetDirty={isPresetDirty}
                 currentModulationLibrary={modulationState?.history ?? presetModulationLibrary}
                 canCommitModulation={hasCommittableModulation}
                 onCommitCurrentModulation={onCommitCurrentModulation}
                 persistOnReload={persistOnReload}
                 setPersistOnReload={setPersistOnReload}
+                activatePendingPreset={activatePendingPreset}
                 onRevertBuiltin={onRevertBuiltin}
                 onRevertUser={onRevertUser}
                 settings={settings}

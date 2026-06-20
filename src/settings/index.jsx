@@ -22,12 +22,14 @@ const Settings = ({
   onClearUserPresets,
   activeSource,
   activePresetName,
+  pendingRestoredPreset,
   isPresetDirty,
   currentModulationLibrary,
   canCommitModulation,
   onCommitCurrentModulation,
   persistOnReload,
   setPersistOnReload,
+  activatePendingPreset,
   onRevertBuiltin,
   onRevertUser,
   midi,
@@ -91,6 +93,26 @@ const Settings = ({
         />
         <em style={{ color: "#996666" }}>Restore preset on reload</em>
       </label>
+      {pendingRestoredPreset && activatePendingPreset && (
+        <label style={{ justifyContent: "flex-start", marginTop: "0.4em" }}>
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void activatePendingPreset();
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void activatePendingPreset();
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            Activate Restored Preset
+          </button>
+        </label>
+      )}
     </fieldset>
     <CustomPresets
       settings={settings}
