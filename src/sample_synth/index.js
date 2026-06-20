@@ -54,6 +54,24 @@ const createSharedAudioContext = () => {
   return sharedAudioContext;
 };
 
+export const primeSharedSampleAudio = async () => {
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    createSharedAudioContext();
+  }
+  if (
+    sharedAudioContext &&
+    (sharedAudioContext.state === "suspended" || sharedAudioContext.state === "interrupted")
+  ) {
+    try {
+      await sharedAudioContext.resume();
+    } catch (e) {
+      warnLog("AudioContext prime failed:", e.message);
+    }
+  }
+  ensureKeepAliveNode();
+  return sharedAudioContext;
+};
+
 const ensureKeepAliveNode = () => {
   if (!sharedAudioContext || sharedAudioContext.state === "closed") return;
   if (keepAliveSource && keepAliveGain) return;

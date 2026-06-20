@@ -420,4 +420,65 @@ describe("usePresets refresh ordering", () => {
     window.requestAnimationFrame = originalRaf;
     globalThis.requestAnimationFrame = originalRaf;
   });
+
+  it("applies merged preset settings before scheduling the runtime reset on builtin restore", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem("hexatone_preset_source", "builtin");
+    sessionStorage.setItem("hexatone_preset_name", "Preset A");
+
+    const order = [];
+    const originalRaf = window.requestAnimationFrame;
+    const raf = vi.fn((callback) => {
+      order.push("raf");
+      callback();
+      return 1;
+    });
+    window.requestAnimationFrame = raf;
+    globalThis.requestAnimationFrame = raf;
+
+    const setSettings = vi.fn(() => {
+      order.push("setSettings");
+    });
+    const bumpPresetRuntimeReset = vi.fn(() => {
+      order.push("bump");
+    });
+    const bumpImportCount = vi.fn(() => {
+      order.push("import");
+    });
+
+    const Harness = () => {
+      usePresets(
+        {
+          key_labels: "no_labels",
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          fundamental: 440,
+          reference_degree: 0,
+        },
+        setSettings,
+        {
+          synthRef: { current: null },
+          onUserInteraction: vi.fn(),
+          bumpImportCount,
+          bumpPresetRuntimeReset,
+          currentModulationLibrary: [],
+          setPresetModulationLibrary: vi.fn(),
+          onPresetModulationLibraryLoaded: vi.fn(),
+        },
+      );
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(setSettings).toHaveBeenCalledTimes(1);
+    });
+
+    expect(order).toEqual(["import", "setSettings", "raf", "bump"]);
+
+    window.requestAnimationFrame = originalRaf;
+    globalThis.requestAnimationFrame = originalRaf;
+  });
 });

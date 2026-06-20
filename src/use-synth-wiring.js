@@ -40,7 +40,6 @@ const midiAccessRank = {
   basic: 1,
   sysex: 2,
 };
-
 let sampleSynthModulePromise = null;
 
 const loadSampleSynthModule = async () => {
@@ -420,13 +419,19 @@ export const resolveOctaveShortcutAction = (event, inputFocused = false) => {
  * @param {boolean}  options.userHasInteracted - True after the first user gesture
  * @param {object}   options.keysRef           - Ref to the live Keys canvas instance
  * @param {object}   options.synthRef          - Ref kept in sync with the live synth
+ * @param {boolean}  options.deferSampleActivation - Delay browser sample synth construction
+ *                                                   until after first gesture
  *
  * @returns {{ synth, midi, midiTick, loading, midiLearnActive, setMidiLearnActive,
  *             octaveTranspose, octaveDeferred,
  *             shiftOctave, toggleOctaveDeferred,
  *             onVolumeChange, onAnchorLearn }}
  */
-const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysRef, synthRef }) => {
+const useSynthWiring = (
+  settings,
+  setSettings,
+  { ready, userHasInteracted, keysRef, synthRef, deferSampleActivation = false },
+) => {
   const settingsRef = useRef(settings);
   useEffect(() => {
     settingsRef.current = settings;
@@ -708,6 +713,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     let cancelled = false;
 
     const wantSample =
+      !deferSampleActivation &&
       settings.output_sample &&
       settings.instrument &&
       settings.instrument !== "OFF" &&
@@ -1023,6 +1029,13 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
       // active with default wheel/mod state after an instrument change.
       keysRef.current?.updateLiveOutputState?.(null, s);
       setSynth(s);
+      // For iOS restored presets, sample synth construction is intentionally
+      // deferred until after the first real gesture. At this exact point the
+      // synth finally exists and the AudioContext has already been primed by
+      // that gesture, so trigger preparation here rather than making App guess.
+      if (userHasInteracted && deferSampleActivation && s.prepare) {
+        void s.prepare();
+      }
       setLoading(signal);
     });
 
@@ -1071,6 +1084,7 @@ const useSynthWiring = (settings, setSettings, { ready, userHasInteracted, keysR
     midi,
     midiTick,
     ready,
+    deferSampleActivation,
     // keysRef and settings (whole object) intentionally omitted — keysRef is a stable ref,
     // and settings is covered field-by-field above.
   ]);

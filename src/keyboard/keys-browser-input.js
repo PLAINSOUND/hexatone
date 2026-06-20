@@ -212,7 +212,12 @@ export function mouseUp(_e) {
 }
 
 export async function mouseDown(e) {
-  if (this._onFirstInteraction) await this._onFirstInteraction();
+  if (this._onFirstInteraction) {
+    // Do not block visual/touch responsiveness on audio wake/prepare work.
+    // On iOS restore paths that async preparation can stall long enough to
+    // swallow the first gesture entirely if we await it here.
+    void this._onFirstInteraction();
+  }
 
   if (this.state.activeMouse) {
     this.state.activeMouse.noteOff(0);
@@ -279,7 +284,11 @@ export function getPosition(element) {
 
 export async function handleTouch(e) {
   e.preventDefault();
-  if (this._onFirstInteraction) await this._onFirstInteraction();
+  if (this._onFirstInteraction) {
+    // Let the canvas respond immediately even if the audio wake path is still
+    // preparing in the same gesture turn.
+    void this._onFirstInteraction();
+  }
 
   this.state.isTouchDown = e.targetTouches.length !== 0;
 

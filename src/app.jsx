@@ -2,6 +2,7 @@ import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
+import { primeSharedSampleAudio } from "./sample_synth";
 import { presets } from "./settings/presets/preset_values";
 import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
@@ -429,10 +430,8 @@ const App = () => {
       setUserHasInteracted(true);
     }
     const wakePromise = (async () => {
-      if (needsHardRefresh && typeof synthRef.current?.forceAudioRebuild === "function") {
-        await synthRef.current.forceAudioRebuild();
-        audioNeedsHardRefreshRef.current = false;
-        return;
+      if (isIOS) {
+        await primeSharedSampleAudio();
       }
       if (typeof synthRef.current?.ensureAwake === "function") {
         await synthRef.current.ensureAwake();
@@ -465,8 +464,14 @@ const App = () => {
         revealSidebarOnReturn();
       }
     };
-    const onPageShow = () => {
-      markAudioStale();
+    const onPageShow = (event) => {
+      // pageshow also fires on an ordinary initial load / reload. Only treat
+      // it as a stale-audio resume path when the page is being restored from
+      // the back-forward cache. Normal reload startup should not force the
+      // destructive rebuild path on the first manual refresh.
+      if (event?.persisted) {
+        markAudioStale();
+      }
       revealSidebarOnReturn();
     };
 
@@ -664,6 +669,7 @@ const App = () => {
   const {
     activeSource,
     activePresetName,
+    restoredOnMount,
     isPresetDirty,
     persistOnReload,
     setPersistOnReload,
@@ -688,6 +694,7 @@ const App = () => {
       setModulationArmed(false);
     },
   });
+  const deferRestoredSampleActivation = isIOS && restoredOnMount && !userHasInteracted;
 
   const {
     synth,
@@ -723,6 +730,7 @@ const App = () => {
     userHasInteracted,
     keysRef,
     synthRef,
+    deferSampleActivation: deferRestoredSampleActivation,
   });
 
   const { panic: guardianPanic } = useMidiGuardian(midi, settings);
@@ -1321,17 +1329,15 @@ const App = () => {
       keysRef.current.resizeHandler();
       keysRef.current.scheduleImmediateGridRedraw();
     }
-    // iPhone/iPad can come back from lockscreen/background with an AudioContext
-    // that looks resumable but is effectively dead. The explicit refresh action
-    // should take the strongest recovery path available.
-    if (synthRef.current?.forceAudioRebuild) {
-      await synthRef.current.forceAudioRebuild();
-    } else {
-      if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
-      if (synthRef.current?.prepare) await synthRef.current.prepare();
+    if (!userHasInteracted) {
+      await primeAudioFromUserInteraction();
+      if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
+      return;
     }
+    if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
+    if (synthRef.current?.prepare) await synthRef.current.prepare();
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
-  }, []);
+  }, [primeAudioFromUserInteraction, userHasInteracted]);
 
   const clampModulationPalettePos = useCallback((position) => {
     if (typeof window === "undefined") return position;
@@ -2282,7 +2288,9 @@ const App = () => {
             >
               MIDIWeb browser
             </a>{" "}
-            to use MIDI features in PLAINSOUND HEXATONE.
+            to use MIDI features in PLAINSOUND HEXATONE. After returning from the
+            lock screen or another app, use the onscreen refresh button to resume audio
+            if playback is silent.
           </div>
           <div className="ios-banner__actions">
             <button onClick={() => hideBannerForSession("ios")}>Remind Me Later</button>

@@ -285,6 +285,7 @@ const usePresets = (
 ) => {
   const [activeSource, setActiveSource] = useState(null);
   const [activePresetName, setActivePresetName] = useState(null);
+  const [restoredOnMount, setRestoredOnMount] = useState(false);
   // Snapshot stored in state so updating it triggers a re-render and
   // isPresetDirty recalculates correctly.
   const [savedPresetSnapshot, setSavedPresetSnapshot] = useState(null);
@@ -309,6 +310,7 @@ const usePresets = (
     if (!savedSource || !savedName) return;
 
     if (savedSource === "builtin") {
+      setRestoredOnMount(true);
       setActiveSource("builtin");
       setActivePresetName(savedName);
       const presetData = findPreset(savedName);
@@ -322,9 +324,12 @@ const usePresets = (
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+        bumpImportCount?.();
         setSettings(() => merged, { updateUrl: false });
+        schedulePresetRuntimeReset(bumpPresetRuntimeReset);
       }
     } else if (savedSource === "user") {
+      setRestoredOnMount(true);
       const customPresets = loadCustomPresets();
       const preset = customPresets.find((p) => p.name === savedName);
       if (preset) {
@@ -339,7 +344,9 @@ const usePresets = (
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+        bumpImportCount?.();
         setSettings(() => merged, { updateUrl: false });
+        schedulePresetRuntimeReset(bumpPresetRuntimeReset);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -353,6 +360,7 @@ const usePresets = (
     // controls can lose the first committed value if the handler blocks before
     // the controlled value/state update lands.
     onUserInteraction();
+    setRestoredOnMount(false);
     setActiveSource("builtin");
     setActivePresetName(presetName);
     sessionStorage.setItem("hexatone_preset_source", "builtin");
@@ -374,6 +382,7 @@ const usePresets = (
 
   const onLoadCustomPreset = (preset) => {
     onUserInteraction();
+    setRestoredOnMount(false);
     setActiveSource("user");
     setActivePresetName(preset.name || null);
     sessionStorage.setItem("hexatone_preset_source", "user");
@@ -426,6 +435,7 @@ const usePresets = (
 
   const onRevertBuiltin = () => {
     onUserInteraction();
+    setRestoredOnMount(false);
     if (activePresetName) {
       const presetData = findPreset(activePresetName);
       const adjustedPreset = {
@@ -445,6 +455,7 @@ const usePresets = (
 
   const onRevertUser = () => {
     onUserInteraction();
+    setRestoredOnMount(false);
     if (activePresetName) {
       const saved = loadCustomPresets().find((p) => p.name === activePresetName);
       if (saved) {
@@ -468,6 +479,7 @@ const usePresets = (
   // generated a new scale that is no longer tied to any loaded preset.
   const onUserScaleEdit = (name) => {
     setActiveSource("user");
+    setRestoredOnMount(false);
     setActivePresetName(name || null);
     sessionStorage.setItem("hexatone_preset_source", "user");
     if (name) {
@@ -481,6 +493,7 @@ const usePresets = (
   return {
     activeSource,
     activePresetName,
+    restoredOnMount,
     isPresetDirty: isDirty(savedPresetSnapshot, settings, currentModulationLibrary),
     persistOnReload,
     setPersistOnReload,
