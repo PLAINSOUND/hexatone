@@ -1,5 +1,5 @@
 import { Fragment } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
@@ -442,62 +442,7 @@ const Sequencer = ({
     return next;
   };
 
-  const updateEventBarRelativeDraftField = (draftKey, barBeat, field, value) => {
-    const draftField = field === "bar"
-      ? "barNumber"
-      : field === "num"
-        ? "numerator"
-        : field === "den"
-          ? "denominator"
-          : field;
-    setBarRelativeDrafts((prev) => {
-      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
-      return {
-        ...prev,
-        [draftKey]: buildBarRelativeDraft(current, field, { [draftField]: value }),
-      };
-    });
-  };
-
-  const cancelEventBarRelativeDraft = (draftKey) => {
-    setBarRelativeDrafts((prev) => {
-      if (!(draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draftKey];
-      return next;
-    });
-  };
-
-  const tempoBarRelativeDraftKey = (tempoId) => String(tempoId);
-
-  const updateTempoBarRelativeDraftField = (draftKey, barBeat, field, value) => {
-    const draftField = field === "bar"
-      ? "barNumber"
-      : field === "num"
-        ? "numerator"
-        : field === "den"
-          ? "denominator"
-          : field;
-    setTempoBarRelativeDrafts((prev) => {
-      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
-      return {
-        ...prev,
-        [draftKey]: buildBarRelativeDraft(current, field, { [draftField]: value }),
-      };
-    });
-  };
-
-  const cancelTempoBarRelativeDraft = (draftKey) => {
-    setTempoBarRelativeDrafts((prev) => {
-      if (!(draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draftKey];
-      return next;
-    });
-  };
-
-  const commitTempoBarRelativeDraft = (tempoId, draftKey) => {
-    const draft = tempoBarRelativeDrafts[draftKey];
+  const applyTempoBarRelativeDraft = useCallback((draft) => {
     if (!draft) return;
     const position = barBeatToAbsolutePosition({
       barNumber: Number(draft.barNumber),
@@ -506,14 +451,20 @@ const Sequencer = ({
       denominator: Number(draft.denominator),
     }, sortedBars);
     if (position == null) return;
-    onUpdateTempo?.(tempoId, { position });
-    cancelTempoBarRelativeDraft(draftKey);
+    onUpdateTempo?.(draft.tempoId, { position });
+    setTempoBarRelativeDrafts((prev) => {
+      if (!(draft.draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draft.draftKey];
+      return next;
+    });
     notifyEditCommitted();
-  };
+  }, [onUpdateTempo, sortedBars]);
 
-  const commitEventBarRelativeDraft = (snapshot, noteKey, kind, draftKey) => {
-    const draft = barRelativeDrafts[draftKey];
+  const applyEventBarRelativeDraft = useCallback((draft) => {
     if (!draft) return;
+    const snapshot = snapshots.find((entry) => entry.id === draft.snapshotId);
+    if (!snapshot) return;
     const absoluteTime = barBeatToAbsolutePosition({
       barNumber: Number(draft.barNumber),
       beat: Number(draft.beat),
@@ -524,9 +475,9 @@ const Sequencer = ({
     const denominator = Math.max(1, Math.round(Number(draft.denominator) || 1));
     const notes = (snapshot.notes ?? []).map((note) => {
       const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-      if (noteIdentity(note, length) !== noteKey) return note;
+      if (noteIdentity(note, length) !== draft.noteKey) return note;
       const nextRelativeTime = Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000;
-      if (kind === "attack") {
+      if (draft.kind === "attack") {
         return {
           ...note,
           start: nextRelativeTime,
@@ -547,9 +498,120 @@ const Sequencer = ({
       };
     });
     onUpdateSnapshot(snapshot.id, { notes });
-    cancelEventBarRelativeDraft(draftKey);
+    setBarRelativeDrafts((prev) => {
+      if (!(draft.draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draft.draftKey];
+      return next;
+    });
     notifyEditCommitted();
+  }, [onUpdateSnapshot, snapshots, sortedBars, snapshotIndexById]);
+
+  const updateEventBarRelativeDraftField = (draftKey, barBeat, field, value, meta) => {
+    const draftField = field === "bar"
+      ? "barNumber"
+      : field === "num"
+        ? "numerator"
+        : field === "den"
+          ? "denominator"
+          : field;
+    setBarRelativeDrafts((prev) => {
+      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
+      return {
+        ...prev,
+        [draftKey]: {
+          ...buildBarRelativeDraft(current, field, { [draftField]: value }),
+          ...meta,
+          draftKey,
+          scope: `event:${draftKey}`,
+        },
+      };
+    });
   };
+
+  const cancelEventBarRelativeDraft = (draftKey) => {
+    setBarRelativeDrafts((prev) => {
+      if (!(draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draftKey];
+      return next;
+    });
+  };
+
+  const tempoBarRelativeDraftKey = (tempoId) => String(tempoId);
+
+  const updateTempoBarRelativeDraftField = (draftKey, barBeat, field, value, meta) => {
+    const draftField = field === "bar"
+      ? "barNumber"
+      : field === "num"
+        ? "numerator"
+        : field === "den"
+          ? "denominator"
+          : field;
+    setTempoBarRelativeDrafts((prev) => {
+      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
+      return {
+        ...prev,
+        [draftKey]: {
+          ...buildBarRelativeDraft(current, field, { [draftField]: value }),
+          ...meta,
+          draftKey,
+          scope: `tempo:${draftKey}`,
+        },
+      };
+    });
+  };
+
+  const cancelTempoBarRelativeDraft = (draftKey) => {
+    setTempoBarRelativeDrafts((prev) => {
+      if (!(draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draftKey];
+      return next;
+    });
+  };
+
+  const commitTempoBarRelativeDraft = (tempoId, draftKey) => {
+    const draft = tempoBarRelativeDrafts[draftKey];
+    if (!draft) return;
+    applyTempoBarRelativeDraft(draft);
+  };
+
+  const commitEventBarRelativeDraft = (snapshot, noteKey, kind, draftKey) => {
+    const draft = barRelativeDrafts[draftKey];
+    if (!draft) return;
+    applyEventBarRelativeDraft({
+      ...draft,
+      snapshotId: snapshot.id,
+      noteKey,
+      kind,
+    });
+  };
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const targetScope = event.target instanceof Element
+        ? event.target.closest("[data-bar-relative-draft-scope]")?.getAttribute("data-bar-relative-draft-scope")
+        : null;
+
+      Object.values(barRelativeDrafts).forEach((draft) => {
+        if (!draft || draft.scope === targetScope) return;
+        applyEventBarRelativeDraft(draft);
+      });
+
+      Object.values(tempoBarRelativeDrafts).forEach((draft) => {
+        if (!draft || draft.scope === targetScope) return;
+        applyTempoBarRelativeDraft(draft);
+      });
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("mousedown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("mousedown", handlePointerDown, true);
+    };
+  }, [barRelativeDrafts, tempoBarRelativeDrafts, applyEventBarRelativeDraft, applyTempoBarRelativeDraft]);
 
   const updateEventField = (snapshot, noteKey, field, rawValue) => {
     const numeric = Number(rawValue);
@@ -858,7 +920,11 @@ const Sequencer = ({
     const isTempoBarRelativeDraftActive = tempoBarRelativeDraft != null;
 
     return (
-      <div key={`tempo:${tempoId}`} class={`sequencer-tempo-row${isTempoBarRelativeDraftActive ? " sequencer-tempo-row--bar-relative-draft" : ""}`}>
+      <div
+        key={`tempo:${tempoId}`}
+        class={`sequencer-tempo-row${isTempoBarRelativeDraftActive ? " sequencer-tempo-row--bar-relative-draft" : ""}`}
+        data-bar-relative-draft-scope={`tempo:${draftKey}`}
+      >
         <div class="sequencer-tempo-row__line" aria-hidden="true" />
         <div class="sequencer-row__delete-cell">
           {!isAlwaysOnTempo ? (
@@ -977,7 +1043,7 @@ const Sequencer = ({
               delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value)}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, { tempoId })}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
               e.preventDefault();
@@ -997,7 +1063,7 @@ const Sequencer = ({
               delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value)}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, { tempoId })}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
               e.preventDefault();
@@ -1017,7 +1083,7 @@ const Sequencer = ({
               delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value)}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value, { tempoId })}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
               e.preventDefault();
@@ -1037,7 +1103,7 @@ const Sequencer = ({
               delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value)}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value, { tempoId })}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
               e.preventDefault();
@@ -1098,6 +1164,7 @@ const Sequencer = ({
       <div
         key={`${event.eventId}:${keySuffix}`}
         class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}${isBarRelativeDraftActive ? " sequencer-event-row--bar-relative-draft" : ""}`}
+        data-bar-relative-draft-scope={`event:${draftKey}`}
         onClick={() => {
           onSelectMarker(snapshot.id, event.relativeTime);
         }}
@@ -1213,7 +1280,11 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value)}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
                   e.preventDefault();
@@ -1235,7 +1306,11 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value)}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
                   e.preventDefault();
@@ -1257,7 +1332,11 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value)}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
                   e.preventDefault();
@@ -1279,7 +1358,11 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value)}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
                   e.preventDefault();

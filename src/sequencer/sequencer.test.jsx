@@ -801,6 +801,67 @@ describe("Sequencer", () => {
     });
   });
 
+  it("keeps a bar-relative draft open within the same row and auto-commits when the user clicks another row", () => {
+    const onUpdateSnapshot = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              { id: "a", midicents: 81, start: 0, end: 1 },
+              { id: "b", midicents: 76, start: 0.5, end: 1 },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 3, denominator: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.input(screen.getAllByLabelText("snapshot 1 attack bar")[0], { currentTarget: { value: "2" }, target: { value: "2" } });
+    fireEvent.input(screen.getAllByLabelText("snapshot 1 attack beat")[0], { currentTarget: { value: "3" }, target: { value: "3" } });
+
+    fireEvent.mouseDown(screen.getAllByLabelText("snapshot 1 attack frequency")[0]);
+    expect(onUpdateSnapshot).not.toHaveBeenCalled();
+
+    fireEvent.mouseDown(screen.getAllByLabelText("snapshot 1 release frequency")[0]);
+    expect(onUpdateSnapshot).toHaveBeenLastCalledWith(10, {
+      notes: [
+        expect.objectContaining({ id: "a", start: 1.666667, end: 1.666667, startFractionDenominator: 1 }),
+        expect.objectContaining({ id: "b" }),
+      ],
+    });
+  });
+
   it("rerenders cue markers when a position edit creates a new cue", () => {
     const Harness = () => {
       const [snapshots, setSnapshots] = useState([
