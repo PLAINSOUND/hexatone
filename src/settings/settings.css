@@ -813,14 +813,14 @@ td.scale-color-col .color-input {
   display: grid;
   grid-template-columns: var(--sequencer-snapshot-columns);
   padding: 0;
-  margin-bottom: 0.2em;
+  margin: 0.2em 0;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
 }
 
 .sequencer-item--bar + .sequencer-item {
-  padding-top: 0.04em;
+  padding-top: 0;
 }
 
 .sequencer-row {
@@ -1300,7 +1300,7 @@ td.scale-color-col .color-input {
   width: 100%;
   display: flex;
   align-items: center;
-  background: var(--color-bg);
+  background: transparent;
   position: relative;
   z-index: 2;
 }
@@ -1353,7 +1353,7 @@ td.scale-color-col .color-input {
 
 .sequencer-tempo-row__summary-sep,
 .sequencer-tempo-row__summary-unit {
-  font-size: 0.72em;
+  font-size: 0.85em;
   color: rgba(111, 94, 94, 0.82);
 }
 
