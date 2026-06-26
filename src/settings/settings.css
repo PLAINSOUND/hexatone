@@ -765,12 +765,26 @@ td.scale-color-col .color-input {
 .sequencer-item {
   --sequencer-delete-col: 1.15em;
   --sequencer-number-col: 1.55em;
-  --sequencer-event-position-col: minmax(0, 1.2fr);
-  --sequencer-event-pitch-col: minmax(0, 1.2fr);
-  --sequencer-event-kind-col: minmax(0, 0.55fr);
-  --sequencer-event-value-col: minmax(0, 1fr);
+  --sequencer-event-position-col: minmax(0, 1.22fr);
+  --sequencer-event-kind-col: minmax(0, 0.44fr);
+  --sequencer-event-pitch-col: minmax(0, 1fr);
+  --sequencer-event-value-col: minmax(0, 0.82fr);
   --sequencer-snapshot-primary-col: 4.1em;
   --sequencer-event-actions-col: 3.45em;
+  --sequencer-detail-columns:
+    var(--sequencer-delete-col)
+    var(--sequencer-number-col)
+    var(--sequencer-event-position-col)
+    var(--sequencer-event-kind-col)
+    var(--sequencer-event-pitch-col)
+    var(--sequencer-event-pitch-col)
+    var(--sequencer-event-pitch-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col)
+    var(--sequencer-event-actions-col);
+  --sequencer-structural-columns: var(--sequencer-detail-columns);
   --sequencer-snapshot-columns:
     var(--sequencer-delete-col)
     var(--sequencer-number-col)
@@ -1211,7 +1225,7 @@ td.scale-color-col .color-input {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  margin: 0 0.45em 0 0;
+  margin: 0;
   padding: 0.18em 0 0;
   width: 100%;
   box-sizing: border-box;
@@ -1233,19 +1247,7 @@ td.scale-color-col .color-input {
 .sequencer-events-grid__header,
 .sequencer-event-row {
   display: grid;
-  grid-template-columns:
-    var(--sequencer-delete-col)
-    var(--sequencer-number-col)
-    var(--sequencer-event-position-col)
-    var(--sequencer-event-kind-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    max-content;
+  grid-template-columns: var(--sequencer-detail-columns);
   column-gap: 0.45em;
   align-items: center;
   min-width: 0;
@@ -1256,19 +1258,7 @@ td.scale-color-col .color-input {
 .sequencer-bar-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns:
-    var(--sequencer-delete-col)
-    var(--sequencer-number-col)
-    var(--sequencer-event-position-col)
-    var(--sequencer-event-kind-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    max-content;
+  grid-template-columns: var(--sequencer-structural-columns);
   column-gap: 0.45em;
   align-items: center;
   min-width: 0;
@@ -1283,19 +1273,7 @@ td.scale-color-col .color-input {
 .sequencer-tempo-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns:
-    var(--sequencer-delete-col)
-    var(--sequencer-number-col)
-    var(--sequencer-event-position-col)
-    var(--sequencer-event-kind-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    max-content;
+  grid-template-columns: var(--sequencer-structural-columns);
   column-gap: 0.45em;
   align-items: center;
   min-width: 0;
@@ -1310,14 +1288,16 @@ td.scale-color-col .color-input {
 .sequencer-bar-row__position-cell {
   grid-column: 3;
   background: #ffe7eb;
+  width: 100%;
   position: relative;
   z-index: 2;
 }
 
 .sequencer-bar-row__signature-cell {
-  grid-column: 4 / span 2;
+  grid-column: 4 / span 4;
   min-height: 1.5em;
   min-width: 0;
+  width: 100%;
   display: flex;
   align-items: center;
   background: var(--color-bg);
@@ -1344,13 +1324,14 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-tempo-row__summary {
-  grid-column: 4 / span 3;
+  grid-column: 4 / span 4;
   grid-row: 1;
   display: flex;
   align-items: center;
   gap: 0.18em;
   min-height: 1.5em;
   min-width: 0;
+  width: 100%;
   background: #ffe7eb;
   position: relative;
   z-index: 2;
@@ -1407,25 +1388,33 @@ td.scale-color-col .color-input {
 .sequencer-tempo-row__position-cell {
   grid-column: 3;
   grid-row: 1;
+  width: 100%;
+}
+
+.sequencer-tempo-row__gutter-spacer {
+  grid-column: 2;
+  grid-row: 1;
+  width: var(--sequencer-number-col);
+  min-width: var(--sequencer-number-col);
 }
 
 .sequencer-tempo-row__bar-cell {
-  grid-column: 7;
-  grid-row: 1;
-}
-
-.sequencer-tempo-row__beat-cell {
   grid-column: 8;
   grid-row: 1;
 }
 
-.sequencer-tempo-row__num-cell {
+.sequencer-tempo-row__beat-cell {
   grid-column: 9;
   grid-row: 1;
 }
 
-.sequencer-tempo-row__den-cell {
+.sequencer-tempo-row__num-cell {
   grid-column: 10;
+  grid-row: 1;
+}
+
+.sequencer-tempo-row__den-cell {
+  grid-column: 11;
   grid-row: 1;
 }
 
@@ -1434,6 +1423,7 @@ td.scale-color-col .color-input {
   background: #ffe7eb;
   border-color: rgba(212, 160, 168, 0.68);
   align-self: center;
+  width: 100%;
   position: relative;
   z-index: 2;
   pointer-events: auto;
@@ -1470,15 +1460,8 @@ td.scale-color-col .color-input {
   background: var(--color-bg);
 }
 
-.sequencer-events-grid__heading:nth-child(n + 4),
-.sequencer-event-row > :nth-child(n + 4) {
-  margin-left: -0.17em;
-}
-
-.sequencer-tempo-row__summary,
-.sequencer-tempo-row__position-cell,
-.sequencer-tempo-row__time-cell {
-  margin-left: -0.17em;
+.sequencer-grid-offset {
+  margin-left: 0;
 }
 
 .sequencer-events-grid__heading--actions,
@@ -1498,6 +1481,43 @@ td.scale-color-col .color-input {
   line-height: 1.2;
   white-space: normal;
   text-align: left;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.sequencer-events-grid__heading-cell {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  min-height: 1.5em;
+  min-width: 0;
+  width: 100%;
+  padding-left: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sequencer-event__cell.sequencer-events-grid__heading-cell {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sequencer-events-grid__heading-cell--offset {
+  margin-left: 0;
+}
+
+.sequencer-events-grid__heading-cell--kind-spacer {
+  border: 0;
+  background: transparent;
+}
+
+.sequencer-events-grid__heading-label {
+  flex: 0 0 auto;
+  width: auto;
   min-width: 0;
 }
 
@@ -1624,7 +1644,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-bar-row__tail {
-  grid-column: 6 / -1;
+  grid-column: 8 / -1;
   grid-row: 1;
   min-width: 0;
   min-height: 1.5em;
@@ -1633,7 +1653,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-tempo-row__tail {
-  grid-column: 11 / -1;
+  grid-column: 12 / -1;
   grid-row: 1;
   display: inline-flex;
   align-items: center;
@@ -1642,6 +1662,12 @@ td.scale-color-col .color-input {
   min-height: 1.5em;
   position: relative;
   z-index: 2;
+}
+
+.sequencer-event__heji {
+  font-family: "Plainsound Notation", "Plainsound Sans", sans-serif;
+  justify-content: flex-start;
+  white-space: nowrap;
 }
 
 .sequencer-event-row--cue-active {
@@ -1901,6 +1927,10 @@ td.scale-color-col .color-input {
   font-weight: 400;
   box-sizing: border-box;
   padding-left: 0.28em;
+}
+
+.sequencer-events-grid__heading .sequencer-event__content {
+  font-weight: 800;
 }
 
 .sequencer-event__input {
@@ -2170,6 +2200,33 @@ td.scale-color-col .color-input {
 }
 
 @media (max-width: 480px) and (orientation: portrait) {
+  .sequencer-item {
+    --sequencer-detail-columns:
+      var(--sequencer-delete-col)
+      var(--sequencer-number-col)
+      minmax(2.65em, 1fr)
+      2em
+      minmax(2.6em, 1fr)
+      minmax(2.55em, 1fr)
+      minmax(2.2em, 1fr)
+      minmax(2.1em, 1fr)
+      minmax(2em, 1fr)
+      minmax(2em, 1fr)
+      var(--sequencer-event-actions-col);
+    --sequencer-structural-columns:
+      var(--sequencer-delete-col)
+      var(--sequencer-number-col)
+      minmax(2.2em, 0.85fr)
+      minmax(2.8em, 1fr)
+      minmax(2.2em, 1fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      minmax(2em, 0.9fr)
+      var(--sequencer-event-actions-col);
+  }
+
   .sequencer-events-grid__heading-label--full {
     display: none;
   }
@@ -2209,34 +2266,12 @@ td.scale-color-col .color-input {
 
   .sequencer-events-grid__header,
   .sequencer-event-row {
-    grid-template-columns:
-      var(--sequencer-delete-col)
-      var(--sequencer-number-col)
-      minmax(2.65em, 1fr)
-      2em
-      minmax(2.6em, 1fr)
-      minmax(2.55em, 1fr)
-      minmax(2.2em, 1fr)
-      minmax(2.1em, 1fr)
-      minmax(2em, 1fr)
-      minmax(2em, 1fr)
-      max-content;
+    grid-template-columns: var(--sequencer-detail-columns);
   }
 
   .sequencer-bar-row,
   .sequencer-tempo-row {
-    grid-template-columns:
-      var(--sequencer-delete-col)
-      var(--sequencer-number-col)
-      minmax(2.2em, 0.85fr)
-      minmax(2.8em, 1fr)
-      minmax(2.2em, 1fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      max-content;
+    grid-template-columns: var(--sequencer-structural-columns);
     column-gap: 0.22em;
     padding-right: 0;
   }

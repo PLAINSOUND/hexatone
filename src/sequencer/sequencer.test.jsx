@@ -112,6 +112,8 @@ describe("Sequencer", () => {
     expect(screen.getAllByLabelText("snapshot 1 release midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("880.0");
     expect(screen.getAllByLabelText("snapshot 1 release frequency")[0].value).toBe("880.0");
+    expect(screen.getAllByText("A").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("F").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("snapshot 1 attack bar")[0].value).toBe("1");
     expect(screen.getAllByLabelText("snapshot 1 attack beat")[0].value).toBe("1");
     expect(screen.getAllByLabelText("snapshot 1 attack beat fraction numerator")[0].value).toBe("0");

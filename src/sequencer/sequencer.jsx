@@ -868,7 +868,7 @@ const Sequencer = ({
             onBlur={(e) => handleBlurCommit(e, (value) => updateBarPosition(barId, value))}
           />
         </div>
-        <div class="sequencer-bar-row__signature-cell">
+        <div class="sequencer-bar-row__signature-cell sequencer-grid-offset">
           <div class="sequencer-bar-row__time-signature" aria-label={`bar ${barNumber} time signature`}>
             <input
               type="number"
@@ -942,7 +942,8 @@ const Sequencer = ({
             </button>
           ) : null}
         </div>
-        <div class="sequencer-tempo-row__summary">
+        <div class="sequencer-tempo-row__gutter-spacer" aria-hidden="true" />
+        <div class="sequencer-tempo-row__summary sequencer-grid-offset">
           <input
             type="number"
             step="1"
@@ -1031,7 +1032,7 @@ const Sequencer = ({
             onBlur={(e) => handleBlurCommit(e, (value) => updateTempoPosition(tempoId, value))}
           />
         </div>
-        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__bar-cell">
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__bar-cell sequencer-grid-offset">
           <input
             type="number"
             step="1"
@@ -1051,7 +1052,7 @@ const Sequencer = ({
             }}
           />
         </div>
-        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__beat-cell">
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__beat-cell sequencer-grid-offset">
           <input
             type="number"
             step="1"
@@ -1071,7 +1072,7 @@ const Sequencer = ({
             }}
           />
         </div>
-        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__num-cell">
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__num-cell sequencer-grid-offset">
           <input
             type="number"
             step="1"
@@ -1091,7 +1092,7 @@ const Sequencer = ({
             }}
           />
         </div>
-        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__den-cell">
+        <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__den-cell sequencer-grid-offset">
           <input
             type="number"
             step="1"
@@ -1206,12 +1207,12 @@ const Sequencer = ({
             )}
           />
         </div>
-        <div class="sequencer-event__cell">
+        <div class="sequencer-event__cell sequencer-grid-offset">
           <span class="sequencer-event__content sequencer-event__kind">
             {event.kind === "attack" ? "on" : "off"}
           </span>
         </div>
-        <div class="sequencer-event__cell">
+        <div class="sequencer-event__cell sequencer-grid-offset">
           <input
             type="text"
             class="sequencer-event__input"
@@ -1234,7 +1235,7 @@ const Sequencer = ({
             )}
           />
         </div>
-        <div class="sequencer-event__cell">
+        <div class="sequencer-event__cell sequencer-grid-offset">
           <input
             type="text"
             class="sequencer-event__input"
@@ -1264,9 +1265,14 @@ const Sequencer = ({
             )}
           />
         </div>
+        <div class="sequencer-event__cell sequencer-grid-offset">
+          <span class="sequencer-event__content sequencer-event__heji">
+            {event.displayLabel || ""}
+          </span>
+        </div>
         {eventPane === "timing" ? (
           <>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1292,7 +1298,7 @@ const Sequencer = ({
                 }}
               />
             </div>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1318,7 +1324,7 @@ const Sequencer = ({
                 }}
               />
             </div>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1344,7 +1350,7 @@ const Sequencer = ({
                 }}
               />
             </div>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1373,7 +1379,7 @@ const Sequencer = ({
           </>
         ) : (
           <>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"
@@ -1396,7 +1402,7 @@ const Sequencer = ({
                 )}
               />
             </div>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"
@@ -1419,7 +1425,7 @@ const Sequencer = ({
                 )}
               />
             </div>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"
@@ -1442,7 +1448,7 @@ const Sequencer = ({
                 )}
               />
             </div>
-            <div class="sequencer-event__cell">
+            <div class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"
@@ -1956,23 +1962,48 @@ const Sequencer = ({
                           <div class="sequencer-events-grid__header" role="row">
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--delete" />
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--cue" />
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Position", "Pos")}</div>
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("on/off", "On")}</div>
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("MIDI¢", "MIDI¢")}</div>
-                            <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Hz", "Hz")}</div>
+                            <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--position">
+                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Position", "Pos")}</span>
+                            </div>
+                            <div class="sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--kind-spacer" />
+                            <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--midicents">
+                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("MIDI¢", "MIDI¢")}</span>
+                            </div>
+                            <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--hz">
+                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Hz", "Hz")}</span>
+                            </div>
+                            <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--heji">
+                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("HEJI", "HEJI")}</span>
+                            </div>
                             {eventPane === "timing" ? (
                               <>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Bar", "Bar")}</div>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Beat", "Beat")}</div>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Num", "Num")}</div>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("Den", "Den")}</div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--bar">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Bar", "Bar")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--beat">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Beat", "Beat")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--num">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Num", "Num")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--den">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Den", "Den")}</span>
+                                </div>
                               </>
                             ) : (
                               <>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("on-vel", "v-on")}</div>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("off-vel", "v-off")}</div>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("pressure", "prs")}</div>
-                                <div class="sequencer-events-grid__heading">{renderResponsiveHeading("timbre", "tim")}</div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("on-vel", "v-on")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("off-vel", "v-off")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("pressure", "prs")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("timbre", "tim")}</span>
+                                </div>
                               </>
                             )}
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--actions">
