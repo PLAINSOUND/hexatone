@@ -959,7 +959,7 @@ td.scale-color-col .color-input {
   margin: 0.25em 0 0.6em;
   padding: 0.35em 0.45em;
   position: sticky;
-  z-index: 3;
+  z-index: 6;
   background: rgba(250, 249, 248, 0.96);
   border: 1px solid rgba(200, 184, 184, 0.82);
   border-radius: 4px;
@@ -1274,7 +1274,7 @@ td.scale-color-col .color-input {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-  padding: 0.04em 0.32em 0.04em 0;
+  padding: 0.04em 0 0.04em 0;
   position: relative;
   background: var(--color-bg);
   border-radius: 4px;
@@ -1301,7 +1301,7 @@ td.scale-color-col .color-input {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-  padding: 0.04em 0.32em 0.04em 0;
+  padding: 0.04em 0 0.04em 0;
   position: relative;
   background: var(--color-bg);
   border-radius: 4px;
@@ -1343,37 +1343,65 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px var(--color-bg);
 }
 
-.sequencer-tempo-row__bpm-cell {
-  min-width: var(--sequencer-number-col);
-  grid-column: 6;
-  grid-row: 1;
-  background: #ffe7eb;
-  position: relative;
-  z-index: 3;
-  border-color: rgba(212, 160, 168, 0.68);
-  pointer-events: auto;
-}
-
-.sequencer-tempo-row__bpm-cell::before {
-  content: "bpm";
-  position: absolute;
-  left: 0.28em;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.72em;
-  color: rgba(111, 94, 94, 0.82);
-  pointer-events: none;
-  z-index: 5;
-}
-
-.sequencer-tempo-row__label {
-  grid-column: 4 / span 2;
+.sequencer-tempo-row__summary {
+  grid-column: 4 / span 3;
   grid-row: 1;
   display: flex;
   align-items: center;
+  gap: 0.18em;
   min-height: 1.5em;
   min-width: 0;
-  pointer-events: none;
+  background: #ffe7eb;
+  position: relative;
+  z-index: 2;
+  border-color: rgba(212, 160, 168, 0.68);
+  pointer-events: auto;
+  white-space: nowrap;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.sequencer-tempo-row__summary-sep,
+.sequencer-tempo-row__summary-unit {
+  flex: 0 0 auto;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.sequencer-tempo-row__summary-sep,
+.sequencer-tempo-row__summary-unit {
+  font-size: 0.72em;
+  color: rgba(111, 94, 94, 0.82);
+}
+
+.sequencer-tempo-row__summary-input {
+  min-width: 0;
+  padding-left: 0;
+  background: #ffe7eb;
+  background-color: #ffe7eb;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+  font-size: 1em;
+  line-height: 1.2;
+}
+
+.sequencer-tempo-row__summary-input--fraction-num,
+.sequencer-tempo-row__summary-input--fraction-den {
+  width: 2.2em;
+  max-width: 2.2em;
+  text-align: center;
+}
+
+.sequencer-tempo-row__summary-input--fraction-num {
+  text-align: right;
+  padding-right: 0.16em;
+  padding-left: 0;
+}
+
+.sequencer-tempo-row__summary-input--bpm {
+  width: 3.4em;
+  max-width: 3.4em;
 }
 
 .sequencer-tempo-row__position-cell {
@@ -1405,23 +1433,20 @@ td.scale-color-col .color-input {
 .sequencer-tempo-row__time-cell {
   background: #ffe7eb;
   border-color: rgba(212, 160, 168, 0.68);
+  align-self: center;
   position: relative;
-  z-index: 3;
+  z-index: 2;
   pointer-events: auto;
-}
-
-.sequencer-tempo-row__position-cell {
-  border: 0;
 }
 
 .sequencer-tempo-row__position-cell .sequencer-event__input,
 .sequencer-tempo-row__position-cell .sequencer-event__position,
-.sequencer-tempo-row__bpm-cell .sequencer-event__input,
+.sequencer-tempo-row__summary .sequencer-event__input,
 .sequencer-tempo-row__time-cell .sequencer-event__input,
 .sequencer-tempo-row__time-cell .sequencer-event__input--stepper {
   background: #ffe7eb;
   position: relative;
-  z-index: 4;
+  z-index: 2;
   box-shadow: inset 0 0 0 999px #ffe7eb;
   pointer-events: auto;
 }
@@ -1429,24 +1454,6 @@ td.scale-color-col .color-input {
 .sequencer-tempo-row__position-cell .sequencer-event__input,
 .sequencer-tempo-row__position-cell .sequencer-event__position {
   box-shadow: inset 0 0 0 999px #ffe7eb;
-}
-
-.sequencer-tempo-row__bpm-cell .sequencer-event__input,
-.sequencer-tempo-row__bpm-cell .sequencer-event__input--stepper {
-  padding-left: 2.15em;
-}
-
-.sequencer-tempo-row__label .sequencer-event__content {
-  padding-left: 0;
-  font-weight: 700;
-  font-size: 0.8em;
-  pointer-events: none;
-}
-
-.sequencer-tempo-row__label,
-.sequencer-tempo-row__label .sequencer-event__content {
-  border: 0;
-  background: var(--color-bg);
 }
 
 .sequencer-tempo-row .sequencer-row__delete-cell,
@@ -1465,6 +1472,12 @@ td.scale-color-col .color-input {
 
 .sequencer-events-grid__heading:nth-child(n + 4),
 .sequencer-event-row > :nth-child(n + 4) {
+  margin-left: -0.17em;
+}
+
+.sequencer-tempo-row__summary,
+.sequencer-tempo-row__position-cell,
+.sequencer-tempo-row__time-cell {
   margin-left: -0.17em;
 }
 
@@ -1620,7 +1633,15 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-tempo-row__tail {
-  display: none;
+  grid-column: 11 / -1;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: var(--sequencer-event-actions-col);
+  min-height: 1.5em;
+  position: relative;
+  z-index: 2;
 }
 
 .sequencer-event-row--cue-active {
@@ -1639,6 +1660,54 @@ td.scale-color-col .color-input {
 .sequencer-event-row--snapshot-active .sequencer-event__cue-cell,
 .sequencer-event-row--snapshot-active .sequencer-event__delete-cell {
   box-shadow: inset 0 0 0 1px rgba(190, 205, 222, 0.75);
+}
+
+.sequencer-event-row--bar-relative-draft .sequencer-event__bar,
+.sequencer-event-row--bar-relative-draft .sequencer-event__beat,
+.sequencer-event-row--bar-relative-draft .sequencer-event__fraction-num,
+.sequencer-event-row--bar-relative-draft .sequencer-event__fraction-den {
+  background: #fff4b8;
+  background-color: #fff4b8;
+  box-shadow: inset 0 0 0 999px #fff4b8;
+}
+
+.sequencer-tempo-row--bar-relative-draft .sequencer-event__bar,
+.sequencer-tempo-row--bar-relative-draft .sequencer-event__beat,
+.sequencer-tempo-row--bar-relative-draft .sequencer-event__fraction-num,
+.sequencer-tempo-row--bar-relative-draft .sequencer-event__fraction-den {
+  background: #fff4b8;
+  background-color: #fff4b8;
+  box-shadow: inset 0 0 0 999px #fff4b8;
+}
+
+.sequencer-event__draft-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.28em;
+  width: var(--sequencer-event-actions-col);
+  min-width: var(--sequencer-event-actions-col);
+}
+
+.sequencer-event__draft-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55em;
+  min-width: 1.55em;
+  height: 1.55em;
+  border: 1px solid rgba(160, 140, 140, 0.55);
+  border-radius: 0.28em;
+  background: #fff4b8;
+  color: #5a2d2d;
+  font-size: 0.88em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sequencer-event__draft-btn:hover {
+  background: #ffef9b;
 }
 
 .sequencer-events-table {
@@ -1902,6 +1971,31 @@ td.scale-color-col .color-input {
   background-color: #fff;
 }
 
+#sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper,
+#sidebar .sequencer-tempo-row input[type="number"].sequencer-event__input--stepper {
+  all: unset;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 1.5em;
+  min-width: 0;
+  padding-left: 0.28em;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+  text-align: left;
+  cursor: text;
+  pointer-events: auto;
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+
 #sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper.sequencer-bar-row__signature-input {
   font-family: "Plainsound Sans", sans-serif;
   font-weight: bold;
@@ -1967,11 +2061,31 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
+#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-event__input--stepper,
+#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-bar-row__signature-input {
+  background: var(--color-bg);
+  background-color: var(--color-bg);
+  box-shadow: inset 0 0 0 999px var(--color-bg);
+}
+
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input,
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
+#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper,
+#sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
+  background: #ffe7eb;
+  background-color: #ffe7eb;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
+#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-num {
+  text-align: right;
+  padding-left: 0;
+  padding-right: 0.16em;
 }
 
 #sidebar .sequencer-bar-row input[type="text"].sequencer-event__input.sequencer-bar-row__signature-input {
@@ -1986,6 +2100,13 @@ td.scale-color-col .color-input {
 }
 
 #sidebar .sequencer-events-grid input[type="text"].sequencer-event__input:focus {
+  outline: 1px solid rgba(160, 140, 140, 0.55);
+  background: #fff;
+  background-color: #fff;
+}
+
+#sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper:focus,
+#sidebar .sequencer-tempo-row input[type="number"].sequencer-event__input--stepper:focus {
   outline: 1px solid rgba(160, 140, 140, 0.55);
   background: #fff;
   background-color: #fff;
@@ -2012,6 +2133,20 @@ td.scale-color-col .color-input {
 
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input:focus,
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position:focus {
+  background: #ffe7eb;
+  background-color: #ffe7eb;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
+#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-event__input--stepper:focus,
+#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-bar-row__signature-input:focus {
+  background: var(--color-bg);
+  background-color: var(--color-bg);
+  box-shadow: inset 0 0 0 999px var(--color-bg);
+}
+
+#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper:focus,
+#sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;

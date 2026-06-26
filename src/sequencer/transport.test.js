@@ -19,6 +19,8 @@ describe("sequencer transport", () => {
         id: "tempo:default",
         position: 1,
         bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
         beatLength: 1,
       },
     ]);
@@ -30,8 +32,8 @@ describe("sequencer transport", () => {
       { id: "b", position: 1, bpm: 72, beatLength: 0.5 },
       { id: "c", position: 3, bpm: 90, beatLength: 1 },
     ])).toEqual([
-      { id: "b", position: 1, bpm: 72, beatLength: 0.5 },
-      { id: "c", position: 3, bpm: 90, beatLength: 1 },
+      { id: "b", position: 1, bpm: 72, beatNumerator: 1, beatDenominator: 8, beatLength: 0.5 },
+      { id: "c", position: 3, bpm: 90, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
     ]);
   });
 
@@ -80,6 +82,8 @@ describe("sequencer transport", () => {
         id: "t1",
         position: 1,
         bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
         beatLength: 1,
         startPosition: 1,
         endPosition: 3,
@@ -90,6 +94,8 @@ describe("sequencer transport", () => {
         id: "t2",
         position: 3,
         bpm: 120,
+        beatNumerator: 1,
+        beatDenominator: 4,
         beatLength: 1,
         startPosition: 3,
         endPosition: Infinity,
@@ -274,6 +280,32 @@ describe("sequencer transport", () => {
       barLength: 1,
       beatsPerBar: 3,
       beatUnit: 4,
+    });
+  });
+
+  it("snaps rounded whole-beat positions in uneven bars to the next beat instead of 1/1 spillover", () => {
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+      { id: 2, position: 2, numerator: 3, denominator: 2 },
+      { id: 3, position: 3, numerator: 4, denominator: 4 },
+    ];
+
+    expect(barBeatToAbsolutePosition({
+      barNumber: 2,
+      beat: 3,
+      numerator: 0,
+      denominator: 1,
+    }, bars)).toBe(2.666667);
+
+    expect(absolutePositionToBarBeat(2.666667, bars, 1)).toEqual({
+      barNumber: 2,
+      beat: 3,
+      numerator: 0,
+      denominator: 1,
+      barStart: 2,
+      barLength: 1,
+      beatsPerBar: 3,
+      beatUnit: 2,
     });
   });
 

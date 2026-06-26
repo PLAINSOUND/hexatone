@@ -2,25 +2,12 @@ import { createRef } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
-  normalizeMeterMarkers,
+  normalizeBarMarkers,
   normalizeSequenceTransport,
   normalizeTempoMarkers,
 } from "./transport.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
-
-export function loadUserSequences() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveUserSequences(sequences) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sequences));
-}
 
 function cloneSnapshots(snapshots) {
   return JSON.parse(JSON.stringify(Array.isArray(snapshots) ? snapshots : []));
@@ -30,12 +17,15 @@ function cloneBars(bars) {
   return JSON.parse(JSON.stringify(Array.isArray(bars) ? bars : []));
 }
 
-function normalizeSequenceRecord(record) {
+export function normalizeSequenceRecord(record) {
   if (!record || typeof record !== "object") return null;
   const name = String(record.name ?? "").trim();
   if (!name) return null;
   const snapshots = cloneSnapshots(record.snapshots);
-  const bars = cloneBars(record.bars);
+  const rawBars = Array.isArray(record.bars) && record.bars.length > 0
+    ? record.bars
+    : record.meters;
+  const bars = normalizeBarMarkers(cloneBars(rawBars), { includeDefault: false });
   if (!Array.isArray(snapshots)) return null;
   return {
     type: "hexatone-sequence",
@@ -46,10 +36,23 @@ function normalizeSequenceRecord(record) {
     autoCreateBars: record.autoCreateBars !== false,
     transport: normalizeSequenceTransport(record.transport),
     tempi: normalizeTempoMarkers(record.tempi, { includeDefault: false }),
-    meters: normalizeMeterMarkers(record.meters),
     snapshots,
     bars,
   };
+}
+
+export function loadUserSequences() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeSequenceRecord).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUserSequences(sequences) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sequences));
 }
 
 function parseSequenceJson(name, text) {
@@ -65,9 +68,9 @@ function parseSequenceJson(name, text) {
       autoCreateBars: parsed?.autoCreateBars,
       transport: parsed?.transport,
       tempi: parsed?.tempi,
-      meters: parsed?.meters,
       snapshots: parsed?.snapshots,
       bars: parsed?.bars,
+      meters: parsed?.meters,
     });
     return normalized ? [normalized] : [];
   } catch {
@@ -103,6 +106,7 @@ const SequenceLibrary = ({
   const [selectedName, setSelectedName] = useState("");
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [pendingLoadName, setPendingLoadName] = useState("");
   const fileInputRef = createRef();
 
   useEffect(() => {
@@ -122,14 +126,32 @@ const SequenceLibrary = ({
     setSavedSequences(next);
   };
 
-  const handleSelect = (e) => {
-    const name = e.currentTarget.value;
-    setSelectedName(name);
+  const loadSequenceByName = (name) => {
     if (!name) return;
     const sequence = savedSequences.find((entry) => entry.name === name);
     if (!sequence) return;
+    setSelectedName(name);
+    setPendingLoadName("");
     setError("");
     onLoadSequence(sequence);
+  };
+
+  const beginLoadSequence = (name) => {
+    setSelectedName(name);
+    if (!name) {
+      setPendingLoadName("");
+      return;
+    }
+    if (!snapshotsPresent) {
+      loadSequenceByName(name);
+      return;
+    }
+    setPendingLoadName(name);
+    setError("");
+  };
+
+  const handleSelect = (e) => {
+    beginLoadSequence(e.currentTarget.value);
   };
 
   const handleSave = () => {
@@ -156,6 +178,11 @@ const SequenceLibrary = ({
     commitSequences(next);
     setSelectedName(sequenceName);
     setError("");
+  };
+
+  const handleSaveThenLoad = () => {
+    handleSave();
+    if (sequenceName) loadSequenceByName(pendingLoadName);
   };
 
   const handleExport = () => {
@@ -253,10 +280,7 @@ const SequenceLibrary = ({
               type="button"
               class="preset-refresh-btn"
               onClick={() => {
-                const sequence = savedSequences.find((entry) => entry.name === selectedName);
-                if (!sequence) return;
-                setError("");
-                onLoadSequence(sequence);
+                beginLoadSequence(selectedName);
               }}
             >
               <span class="preset-refresh-glyph">⟳</span>
@@ -340,6 +364,32 @@ const SequenceLibrary = ({
               Export .json
             </button>
           </span>
+        </div>
+      )}
+
+      {pendingLoadName && (
+        <div class="preset-load-confirm" style={{ marginTop: 4 }}>
+          <em>Save current sequence?</em>
+          <button type="button" class="preset-action-btn" onClick={handleSaveThenLoad}>
+            {saveLabel}
+          </button>
+          <button
+            type="button"
+            class="preset-utility-btn"
+            onClick={() => loadSequenceByName(pendingLoadName)}
+          >
+            Open without saving
+          </button>
+          <button
+            type="button"
+            class="delete-btn preset-utility-btn"
+            onClick={() => {
+              setPendingLoadName("");
+              setSelectedName(activeSequenceName || "");
+            }}
+          >
+            Cancel
+          </button>
         </div>
       )}
 

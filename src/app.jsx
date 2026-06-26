@@ -823,6 +823,10 @@ const App = () => {
     setSnapshots(nextSnapshots);
     setSequenceBars(nextBars);
     setSequenceTempi(nextTempi);
+    snapshotIdRef.current = nextSnapshots.reduce(
+      (max, snapshot) => Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
+      0,
+    );
     sequenceBarIdRef.current = nextBars.reduce(
       (max, bar) => Math.max(max, Number.isFinite(Number(bar?.id)) ? Number(bar.id) : 0),
       0,
@@ -1058,7 +1062,7 @@ const App = () => {
   const onAddSequenceTempo = useCallback((position = null, bpm = 60) => {
     setSequenceTempi((prev) => {
       const id = prev.reduce((max, tempo) => Math.max(max, Number(tempo?.id) || 0), 0) + 1;
-      return [...prev, { id, position, bpm, beatLength: 1 }];
+      return [...prev, { id, position, bpm, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }];
     });
   }, []);
 
@@ -1072,17 +1076,27 @@ const App = () => {
     )));
   }, []);
 
-  /*const onMoveSequenceTempo = useCallback((id, position) => {
-    const nextPosition = Number(position);
-    if (!Number.isFinite(nextPosition)) return;
-    setSequenceTempi((prev) => prev.map((tempo) => (
-      tempo.id === id ? { ...tempo, position: nextPosition } : tempo
-    )));
-  }, []);*/
-
   const onUpdateSequenceBar = useCallback((id, updates) => {
     setSequenceBars((prev) => {
+      const currentBar = prev.find((bar) => bar.id === id);
+      const isRootBar = currentBar != null && Math.abs(Number(currentBar.position) - 1) < 1e-9;
       const nextPosition = Number(updates?.position);
+      if (Number.isFinite(nextPosition) && isRootBar) {
+        const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
+        if (existingBar) {
+          const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+          if (!shouldReplace) return prev;
+          const nextId = sequenceBarIdRef.current + 1;
+          sequenceBarIdRef.current = nextId;
+          return [
+            ...prev.filter((bar) => bar.id !== existingBar.id),
+            normalizeBarMarker({ ...currentBar, ...updates, id: nextId, position: nextPosition }),
+          ];
+        }
+        const nextId = sequenceBarIdRef.current + 1;
+        sequenceBarIdRef.current = nextId;
+        return [...prev, normalizeBarMarker({ ...currentBar, ...updates, id: nextId, position: nextPosition })];
+      }
       if (Number.isFinite(nextPosition)) {
         const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
         if (existingBar) {
@@ -1103,6 +1117,24 @@ const App = () => {
     const nextPosition = Number(position);
     if (!Number.isFinite(nextPosition)) return;
     setSequenceBars((prev) => {
+      const currentBar = prev.find((bar) => bar.id === fromId);
+      const isRootBar = currentBar != null && Math.abs(Number(currentBar.position) - 1) < 1e-9;
+      if (isRootBar) {
+        const existingBar = prev.find((bar) => bar.id !== fromId && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
+        if (existingBar) {
+          const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+          if (!shouldReplace) return prev;
+          const nextId = sequenceBarIdRef.current + 1;
+          sequenceBarIdRef.current = nextId;
+          return [
+            ...prev.filter((bar) => bar.id !== existingBar.id),
+            normalizeBarMarker({ ...currentBar, id: nextId, position: nextPosition }),
+          ];
+        }
+        const nextId = sequenceBarIdRef.current + 1;
+        sequenceBarIdRef.current = nextId;
+        return [...prev, normalizeBarMarker({ ...currentBar, id: nextId, position: nextPosition })];
+      }
       const existingBar = prev.find((bar) => bar.id !== fromId && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
       if (existingBar) {
         const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");

@@ -3,8 +3,8 @@ function eventTypePriority(kind) {
 }
 
 function sequenceRowPriority(type, kind) {
-  if (type === "bar") return 0;
-  if (type === "tempo") return 1;
+  if (type === "tempo") return 0;
+  if (type === "bar") return 1;
   return kind === "attack" ? 2 : 3;
 }
 
@@ -160,6 +160,8 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
       kind: "bar",
       barId: bar?.id ?? `bar:${absoluteTime}:${barOrder}`,
       barOrder,
+      numerator: Number.isFinite(Number(bar?.numerator)) ? Number(bar.numerator) : 4,
+      denominator: Number.isFinite(Number(bar?.denominator)) ? Number(bar.denominator) : 4,
       eventId: `bar:${bar?.id ?? barOrder}:${absoluteTime}`,
       snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
       snapshotIndex,
@@ -184,6 +186,8 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
       tempoId: tempo?.id ?? `tempo:${absoluteTime}:${tempoOrder}`,
       tempoOrder,
       bpm: Number(tempo?.bpm),
+      beatNumerator: Number.isFinite(Number(tempo?.beatNumerator)) ? Number(tempo.beatNumerator) : 1,
+      beatDenominator: Number.isFinite(Number(tempo?.beatDenominator)) ? Number(tempo.beatDenominator) : 4,
       beatLength: Number(tempo?.beatLength),
       eventId: `tempo:${tempo?.id ?? tempoOrder}:${absoluteTime}`,
       snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
@@ -310,6 +314,9 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
     const group = groups[i];
     const attackedThisCue = new Map();
     const releasedThisCue = new Set();
+    for (const note of activeByPitch.values()) {
+      delete note.reattack;
+    }
 
     for (const event of group.events) {
       const pitchKey = pitchKeyFromMidicents(event.midicents);
@@ -324,6 +331,7 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
           pressure14: event.pressure14,
           timbre: event.timbre,
           timbre14: event.timbre14,
+          reattack: true,
         });
       } else if (!attackedThisCue.has(pitchKey)) {
         releasedThisCue.add(pitchKey);

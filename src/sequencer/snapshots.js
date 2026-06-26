@@ -249,7 +249,7 @@ export function playSnapshot(runtime, notes, options = {}) {
     const reusedHex = available.shift() ?? null;
     if (key) availableHexesByPitch.set(key, available);
 
-    if (reusedHex) {
+    if (reusedHex && !note?.reattack) {
       const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
       const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
       reusedHex._snapshotReleaseVelocity = releaseVelocity;
@@ -259,6 +259,10 @@ export function playSnapshot(runtime, notes, options = {}) {
       applySnapshotExpression(reusedHex, note);
       nextHexes.push(reusedHex);
       continue;
+    }
+
+    if (reusedHex) {
+      reusedHex.noteOff(reusedHex._snapshotReleaseVelocity ?? 0);
     }
 
     nextHexes.push(createSnapshotHex(runtime, note));

@@ -1,3 +1,4 @@
+import { Fragment } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import SequenceInfo from "./sequence-info.jsx";
@@ -76,6 +77,35 @@ function readNumericInput(container, selector, fallback = null) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function normalizeTempoBeatFraction(numerator, denominator) {
+  const beatNumerator = Math.max(1, Math.round(Number(numerator) || 1));
+  const beatDenominator = Math.max(1, Math.round(Number(denominator) || 4));
+  return {
+    beatNumerator,
+    beatDenominator,
+    beatLength: (4 * beatNumerator) / beatDenominator,
+  };
+}
+
+function structuralEventRenderKey(item) {
+  if (!item) return "";
+  if (item.type === "bar" || item.structuralType === "bar") return `bar:${item.barId ?? item.id}`;
+  if (item.type === "tempo" || item.structuralType === "tempo") return `tempo:${item.tempoId ?? item.id}`;
+  return "";
+}
+
+function structuralEventInstanceKey(item) {
+  const base = structuralEventRenderKey(item);
+  if (!base) return "";
+  if (item.type === "bar" || item.structuralType === "bar") {
+    return `${base}:${Number(item.position ?? item.absoluteTime ?? 0).toFixed(6)}:${item.numerator ?? 4}:${item.denominator ?? 4}`;
+  }
+  if (item.type === "tempo" || item.structuralType === "tempo") {
+    return `${base}:${Number(item.position ?? item.absoluteTime ?? 0).toFixed(6)}:${item.bpm ?? 60}:${item.beatNumerator ?? 1}:${item.beatDenominator ?? 4}`;
+  }
+  return base;
+}
+
 function commitTextInput(target, commit) {
   if (!(target instanceof HTMLInputElement)) return;
   const value = target.value;
@@ -141,6 +171,8 @@ const Sequencer = ({
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
   const [draggedBarId, setDraggedBarId] = useState(null);
+  const [barRelativeDrafts, setBarRelativeDrafts] = useState({});
+  const [tempoBarRelativeDrafts, setTempoBarRelativeDrafts] = useState({});
   const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
   const dragIdRef = useRef(null);
@@ -172,10 +204,14 @@ const Sequencer = ({
   const snapshotEventsById = useMemo(() => {
     const groups = new Map();
     for (const event of sequenceEvents) {
+      if (event.type !== "note" && event.type !== "bar" && event.type !== "tempo") continue;
       if (
-        event.type !== "note" &&
-        !((event.type === "bar" || event.type === "tempo") && !isWholeSequencePosition(event.absoluteTime))
-      ) continue;
+        (event.type === "bar" || event.type === "tempo") &&
+        isWholeSequencePosition(event.absoluteTime) &&
+        Math.abs(Number(event.absoluteTime) - (Number(event.snapshotIndex) + 1)) < 1e-9
+      ) {
+        continue;
+      }
       if (!groups.has(event.snapshotId)) groups.set(event.snapshotId, []);
       groups.get(event.snapshotId).push(event);
     }
@@ -388,42 +424,131 @@ const Sequencer = ({
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
-  const updateEventBarRelativeTime = (snapshot, noteKey, kind, rowElement) => {
-    const barNumber = readNumericInput(rowElement, ".sequencer-event__bar", 1);
-    const beat = readNumericInput(rowElement, ".sequencer-event__beat", 1);
-    const numerator = readNumericInput(rowElement, ".sequencer-event__fraction-num", 0);
-    const denominator = readNumericInput(rowElement, ".sequencer-event__fraction-den", 1);
+  const eventBarRelativeDraftKey = (snapshotId, eventId, kind) => `${snapshotId}:${eventId}:${kind}`;
+
+  const buildBarRelativeDraft = (barBeat, changedField = null, override = {}) => {
+    const next = {
+      barNumber: String(override.barNumber ?? barBeat?.barNumber ?? 1),
+      beat: String(override.beat ?? barBeat?.beat ?? 1),
+      numerator: String(override.numerator ?? barBeat?.numerator ?? 0),
+      denominator: String(override.denominator ?? barBeat?.denominator ?? 1),
+    };
+    if (changedField === "bar") {
+      next.beat = "1";
+      next.numerator = "0";
+    } else if (changedField === "beat") {
+      next.numerator = "0";
+    }
+    return next;
+  };
+
+  const updateEventBarRelativeDraftField = (draftKey, barBeat, field, value) => {
+    const draftField = field === "bar"
+      ? "barNumber"
+      : field === "num"
+        ? "numerator"
+        : field === "den"
+          ? "denominator"
+          : field;
+    setBarRelativeDrafts((prev) => {
+      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
+      return {
+        ...prev,
+        [draftKey]: buildBarRelativeDraft(current, field, { [draftField]: value }),
+      };
+    });
+  };
+
+  const cancelEventBarRelativeDraft = (draftKey) => {
+    setBarRelativeDrafts((prev) => {
+      if (!(draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draftKey];
+      return next;
+    });
+  };
+
+  const tempoBarRelativeDraftKey = (tempoId) => String(tempoId);
+
+  const updateTempoBarRelativeDraftField = (draftKey, barBeat, field, value) => {
+    const draftField = field === "bar"
+      ? "barNumber"
+      : field === "num"
+        ? "numerator"
+        : field === "den"
+          ? "denominator"
+          : field;
+    setTempoBarRelativeDrafts((prev) => {
+      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
+      return {
+        ...prev,
+        [draftKey]: buildBarRelativeDraft(current, field, { [draftField]: value }),
+      };
+    });
+  };
+
+  const cancelTempoBarRelativeDraft = (draftKey) => {
+    setTempoBarRelativeDrafts((prev) => {
+      if (!(draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draftKey];
+      return next;
+    });
+  };
+
+  const commitTempoBarRelativeDraft = (tempoId, draftKey) => {
+    const draft = tempoBarRelativeDrafts[draftKey];
+    if (!draft) return;
+    const position = barBeatToAbsolutePosition({
+      barNumber: Number(draft.barNumber),
+      beat: Number(draft.beat),
+      numerator: Number(draft.numerator),
+      denominator: Number(draft.denominator),
+    }, sortedBars);
+    if (position == null) return;
+    onUpdateTempo?.(tempoId, { position });
+    cancelTempoBarRelativeDraft(draftKey);
+    notifyEditCommitted();
+  };
+
+  const commitEventBarRelativeDraft = (snapshot, noteKey, kind, draftKey) => {
+    const draft = barRelativeDrafts[draftKey];
+    if (!draft) return;
     const absoluteTime = barBeatToAbsolutePosition({
-      barNumber,
-      beat,
-      numerator,
-      denominator,
+      barNumber: Number(draft.barNumber),
+      beat: Number(draft.beat),
+      numerator: Number(draft.numerator),
+      denominator: Number(draft.denominator),
     }, sortedBars);
     if (absoluteTime == null) return;
+    const denominator = Math.max(1, Math.round(Number(draft.denominator) || 1));
     const notes = (snapshot.notes ?? []).map((note) => {
       const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
       if (noteIdentity(note, length) !== noteKey) return note;
+      const nextRelativeTime = Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000;
       if (kind === "attack") {
         return {
           ...note,
-          start: Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000,
+          start: nextRelativeTime,
           end: Math.max(
-            Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000,
+            nextRelativeTime,
             Number.isFinite(Number(note?.end)) ? Number(note.end) : length,
           ),
-          startFractionDenominator: Math.max(1, Math.round(denominator)),
+          startFractionDenominator: denominator,
         };
       }
       return {
         ...note,
         end: Math.max(
           Number.isFinite(Number(note?.start)) ? Number(note.start) : 0,
-          Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000,
+          nextRelativeTime,
         ),
-        endFractionDenominator: Math.max(1, Math.round(denominator)),
+        endFractionDenominator: denominator,
       };
     });
     onUpdateSnapshot(snapshot.id, { notes });
+    cancelEventBarRelativeDraft(draftKey);
+    notifyEditCommitted();
   };
 
   const updateEventField = (snapshot, noteKey, field, rawValue) => {
@@ -475,6 +600,10 @@ const Sequencer = ({
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric) || numeric <= 0) return;
     onUpdateTempo?.(tempoId, { bpm: numeric });
+  };
+
+  const updateTempoBeatFraction = (tempoId, numerator, denominator) => {
+    onUpdateTempo?.(tempoId, normalizeTempoBeatFraction(numerator, denominator));
   };
 
   const updateBarTimeSignatureField = (barId, field, rawValue) => {
@@ -607,12 +736,15 @@ const Sequencer = ({
   const renderBarRow = (bar) => {
     const barId = bar.barId ?? bar.id;
     const barNumber = barNumberById.get(barId) ?? 1;
-    const sequenceTime = Number(bar.position ?? bar.absoluteTime).toFixed(6);
+    const barPosition = Number(bar.position ?? bar.absoluteTime);
+    const sequenceTime = barPosition.toFixed(6);
     const isDraggable = true;
+    const isAlwaysOnBar = barNumber === 1 && Math.abs(barPosition - 1) < 1e-9;
+    const rowKey = `bar:${barId}:${sequenceTime}:${bar.numerator ?? 4}:${bar.denominator ?? 4}`;
 
     return (
       <div
-        key={`bar:${barId}`}
+        key={rowKey}
         class="sequencer-bar-row"
         onDragOver={(e) => {
           if (barDragIdRef.current == null) return;
@@ -629,18 +761,20 @@ const Sequencer = ({
       >
         <div class="sequencer-bar-row__line" aria-hidden="true" />
         <div class="sequencer-row__delete-cell">
-          <button
-            type="button"
-            class="sequencer-gutter__delete"
-            aria-label={`delete bar ${barNumber}`}
-            title={`Delete bar ${barNumber}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteBar?.(barId);
-            }}
-          >
-            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
-          </button>
+          {!isAlwaysOnBar ? (
+            <button
+              type="button"
+              class="sequencer-gutter__delete"
+              aria-label={`delete bar ${barNumber}`}
+              title={`Delete bar ${barNumber}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteBar?.(barId);
+              }}
+            >
+              <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+            </button>
+          ) : null}
         </div>
         <span
           class={`sequencer-bar-gutter${draggedBarId === (bar.barId ?? bar.id) ? " sequencer-bar-gutter--dragging" : ""}`}
@@ -681,6 +815,7 @@ const Sequencer = ({
               class="sequencer-event__input sequencer-event__input--stepper sequencer-bar-row__signature-input"
               defaultValue={String(bar.numerator ?? 4)}
               aria-label={`bar ${barNumber} beats per bar`}
+              onInput={(e) => updateBarTimeSignatureField(barId, "numerator", e.currentTarget.value)}
               onFocus={(e) => {
                 delete e.currentTarget.dataset.lastCommittedValue;
                 e.currentTarget.select();
@@ -695,6 +830,7 @@ const Sequencer = ({
               class="sequencer-event__input sequencer-event__input--stepper sequencer-bar-row__signature-input"
               defaultValue={String(bar.denominator ?? 4)}
               aria-label={`bar ${barNumber} beat unit`}
+              onInput={(e) => updateBarTimeSignatureField(barId, "denominator", e.currentTarget.value)}
               onFocus={(e) => {
                 delete e.currentTarget.dataset.lastCommittedValue;
                 e.currentTarget.select();
@@ -711,32 +847,99 @@ const Sequencer = ({
 
   const renderTempoRow = (tempo) => {
     const tempoId = tempo.tempoId ?? tempo.id;
-    const barBeat = absolutePositionToBarBeat(Number(tempo.position ?? tempo.absoluteTime), sortedBars);
-    const sequenceTime = Number(tempo.position ?? tempo.absoluteTime).toFixed(6);
+    const tempoPosition = Number(tempo.position ?? tempo.absoluteTime);
+    const barBeat = absolutePositionToBarBeat(tempoPosition, sortedBars);
+    const sequenceTime = tempoPosition.toFixed(6);
+    const isAlwaysOnTempo = Math.abs(tempoPosition - 1) < 1e-9;
+    const beatNumerator = String(tempo.beatNumerator ?? 1);
+    const beatDenominator = String(tempo.beatDenominator ?? 4);
+    const draftKey = tempoBarRelativeDraftKey(tempoId);
+    const tempoBarRelativeDraft = tempoBarRelativeDrafts[draftKey] ?? null;
+    const isTempoBarRelativeDraftActive = tempoBarRelativeDraft != null;
 
     return (
-      <div key={`tempo:${tempoId}`} class="sequencer-tempo-row">
+      <div key={`tempo:${tempoId}`} class={`sequencer-tempo-row${isTempoBarRelativeDraftActive ? " sequencer-tempo-row--bar-relative-draft" : ""}`}>
         <div class="sequencer-tempo-row__line" aria-hidden="true" />
         <div class="sequencer-row__delete-cell">
-          <button
-            type="button"
-            class="sequencer-gutter__delete"
-            aria-label="delete tempo marker"
-            title="Delete tempo marker"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteTempo?.(tempoId);
-            }}
-          >
-            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
-          </button>
+          {!isAlwaysOnTempo ? (
+            <button
+              type="button"
+              class="sequencer-gutter__delete"
+              aria-label="delete tempo marker"
+              title="Delete tempo marker"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteTempo?.(tempoId);
+              }}
+            >
+              <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+            </button>
+          ) : null}
         </div>
-        <div class="sequencer-tempo-row__bpm-cell sequencer-event__cell">
+        <div class="sequencer-tempo-row__summary">
           <input
             type="number"
             step="1"
             min="1"
-            class="sequencer-event__input sequencer-event__input--stepper"
+            class="sequencer-event__input sequencer-event__input--stepper sequencer-tempo-row__summary-input sequencer-tempo-row__summary-input--fraction-num"
+            defaultValue={beatNumerator}
+            aria-label="tempo beat numerator"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onKeyDown={(e) => handleEnterCommit(e, () => {
+              const row = e.currentTarget.closest(".sequencer-tempo-row");
+              updateTempoBeatFraction(
+                tempoId,
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
+              );
+            })}
+            onBlur={(e) => handleBlurCommit(e, () => {
+              const row = e.currentTarget.closest(".sequencer-tempo-row");
+              updateTempoBeatFraction(
+                tempoId,
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
+              );
+            })}
+          />
+          <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">/</span>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            class="sequencer-event__input sequencer-event__input--stepper sequencer-tempo-row__summary-input sequencer-tempo-row__summary-input--fraction-den"
+            defaultValue={beatDenominator}
+            aria-label="tempo beat denominator"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onKeyDown={(e) => handleEnterCommit(e, () => {
+              const row = e.currentTarget.closest(".sequencer-tempo-row");
+              updateTempoBeatFraction(
+                tempoId,
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
+              );
+            })}
+            onBlur={(e) => handleBlurCommit(e, () => {
+              const row = e.currentTarget.closest(".sequencer-tempo-row");
+              updateTempoBeatFraction(
+                tempoId,
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
+                readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
+              );
+            })}
+          />
+          <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">=</span>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            class="sequencer-event__input sequencer-event__input--stepper sequencer-tempo-row__summary-input sequencer-tempo-row__summary-input--bpm"
             defaultValue={String(tempo.bpm ?? 60)}
             aria-label="tempo bpm"
             onFocus={(e) => {
@@ -746,6 +949,7 @@ const Sequencer = ({
             onKeyDown={(e) => handleEnterCommit(e, (value) => updateTempoBpm(tempoId, value))}
             onBlur={(e) => handleBlurCommit(e, (value) => updateTempoBpm(tempoId, value))}
           />
+          <span class="sequencer-tempo-row__summary-unit">bpm</span>
         </div>
         <div class="sequencer-event__cell sequencer-bar-row__position-cell sequencer-tempo-row__position-cell">
           <input
@@ -761,86 +965,116 @@ const Sequencer = ({
             onBlur={(e) => handleBlurCommit(e, (value) => updateTempoPosition(tempoId, value))}
           />
         </div>
-        <div class="sequencer-tempo-row__label">
-          <span class="sequencer-event__content">TEMPO CHANGE</span>
-        </div>
         <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__bar-cell">
-          <input type="number" step="1" min="1" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__bar" defaultValue={String(barBeat?.barNumber ?? 1)} aria-label="tempo bar" onKeyDown={(e) => handleEnterCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          })} onBlur={(e) => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          }} />
+          <input
+            type="number"
+            step="1"
+            min="1"
+            class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__bar${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+            value={tempoBarRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
+            aria-label="tempo bar"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              commitTempoBarRelativeDraft(tempoId, draftKey);
+            }}
+          />
         </div>
         <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__beat-cell">
-          <input type="number" step="1" min="1" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__beat" defaultValue={String(barBeat?.beat ?? 1)} aria-label="tempo beat" onKeyDown={(e) => handleEnterCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          })} onBlur={(e) => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          }} />
+          <input
+            type="number"
+            step="1"
+            min="1"
+            class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+            value={tempoBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1)}
+            aria-label="tempo beat"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              commitTempoBarRelativeDraft(tempoId, draftKey);
+            }}
+          />
         </div>
         <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__num-cell">
-          <input type="number" step="1" min="0" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num" defaultValue={String(barBeat?.numerator ?? 0)} aria-label="tempo beat fraction numerator" onKeyDown={(e) => handleEnterCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          })} onBlur={(e) => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          }} />
+          <input
+            type="number"
+            step="1"
+            min="0"
+            class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+            value={tempoBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0)}
+            aria-label="tempo beat fraction numerator"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              commitTempoBarRelativeDraft(tempoId, draftKey);
+            }}
+          />
         </div>
         <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__den-cell">
-          <input type="number" step="1" min="1" class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den" defaultValue={String(barBeat?.denominator ?? 1)} aria-label="tempo beat fraction denominator" onKeyDown={(e) => handleEnterCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          })} onBlur={(e) => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            const barNumber = readNumericInput(row, ".sequencer-event__bar", 1);
-            const beat = readNumericInput(row, ".sequencer-event__beat", 1);
-            const numerator = readNumericInput(row, ".sequencer-event__fraction-num", 0);
-            const denominator = readNumericInput(row, ".sequencer-event__fraction-den", 1);
-            const position = barBeatToAbsolutePosition({ barNumber, beat, numerator, denominator }, sortedBars);
-            if (position != null) onUpdateTempo?.(tempoId, { position });
-          }} />
+          <input
+            type="number"
+            step="1"
+            min="1"
+            class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+            value={tempoBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1)}
+            aria-label="tempo beat fraction denominator"
+            onFocus={(e) => {
+              delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.select();
+            }}
+            onInput={(e) => updateTempoBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              commitTempoBarRelativeDraft(tempoId, draftKey);
+            }}
+          />
         </div>
-        <div class="sequencer-tempo-row__tail" aria-hidden="true" />
+        <div class="sequencer-tempo-row__tail">
+          {isTempoBarRelativeDraftActive ? (
+            <span class="sequencer-event__draft-actions">
+              <button
+                type="button"
+                class="sequencer-event__draft-btn"
+                aria-label="commit tempo bar-relative timing"
+                title="Commit timing edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  commitTempoBarRelativeDraft(tempoId, draftKey);
+                }}
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                class="sequencer-event__draft-btn"
+                aria-label="cancel tempo bar-relative timing"
+                title="Cancel timing edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelTempoBarRelativeDraft(draftKey);
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ) : null}
+        </div>
       </div>
     );
   };
@@ -856,11 +1090,14 @@ const Sequencer = ({
       event.relativeTime,
     );
     const barBeat = absolutePositionToBarBeat(event.absoluteTime, sortedBars, event.fractionDenominator, 9);
+    const draftKey = eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
+    const barRelativeDraft = barRelativeDrafts[draftKey] ?? null;
+    const isBarRelativeDraftActive = eventPane === "timing" && barRelativeDraft != null;
 
     return (
       <div
         key={`${event.eventId}:${keySuffix}`}
-        class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}`}
+        class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}${isBarRelativeDraftActive ? " sequencer-event-row--bar-relative-draft" : ""}`}
         onClick={() => {
           onSelectMarker(snapshot.id, event.relativeTime);
         }}
@@ -967,8 +1204,8 @@ const Sequencer = ({
                 type="number"
                 step="1"
                 min="1"
-                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__bar"
-                defaultValue={String(barBeat?.barNumber ?? 1)}
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__bar${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={barRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
                 aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} bar`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
@@ -976,14 +1213,12 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onKeyDown={(e) => handleEnterCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
-                onBlur={(e) => handleBlurCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
               />
             </div>
             <div class="sequencer-event__cell">
@@ -991,8 +1226,8 @@ const Sequencer = ({
                 type="number"
                 step="1"
                 min={barBeat?.stopped ? "0" : "1"}
-                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__beat"
-                defaultValue={String(barBeat?.beat ?? 1)}
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={barRelativeDraft?.beat ?? String(barBeat?.beat ?? 1)}
                 aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
@@ -1000,14 +1235,12 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onKeyDown={(e) => handleEnterCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
-                onBlur={(e) => handleBlurCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
               />
             </div>
             <div class="sequencer-event__cell">
@@ -1015,8 +1248,8 @@ const Sequencer = ({
                 type="number"
                 step="1"
                 min="0"
-                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num"
-                defaultValue={String(barBeat?.numerator ?? 0)}
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={barRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0)}
                 aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
@@ -1024,14 +1257,12 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onKeyDown={(e) => handleEnterCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
-                onBlur={(e) => handleBlurCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
               />
             </div>
             <div class="sequencer-event__cell">
@@ -1039,8 +1270,8 @@ const Sequencer = ({
                 type="number"
                 step="1"
                 min="1"
-                class="sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den"
-                defaultValue={String(barBeat?.denominator ?? 1)}
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={barRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1)}
                 aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
@@ -1048,14 +1279,12 @@ const Sequencer = ({
                   e.stopPropagation();
                   e.currentTarget.select();
                 }}
-                onKeyDown={(e) => handleEnterCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
-                onBlur={(e) => handleBlurCommit(
-                  e,
-                  () => updateEventBarRelativeTime(snapshot, event.noteKey, event.kind, e.currentTarget.closest(".sequencer-event-row")),
-                )}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
               />
             </div>
           </>
@@ -1156,10 +1385,37 @@ const Sequencer = ({
           </>
         )}
         <div class="sequencer-event__actions-cell">
-          {(event.cueDisplayLead || (
+          {isBarRelativeDraftActive ? (
+            <span class="sequencer-event__draft-actions">
+              <button
+                type="button"
+                class="sequencer-event__draft-btn"
+                aria-label={`commit snapshot ${snapshotIndex + 1} ${event.kind} bar-relative timing`}
+                title="Commit timing edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                class="sequencer-event__draft-btn"
+                aria-label={`cancel snapshot ${snapshotIndex + 1} ${event.kind} bar-relative timing`}
+                title="Cancel timing edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelEventBarRelativeDraft(draftKey);
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ) : ((event.cueDisplayLead || (
             firstSnapshotEventIds.get(snapshot.id) === event.eventId &&
             snapshotStartCueIndexes.get(snapshot.id) === event.cueIndex
-          )) ? renderCueTransport(event.cueIndex) : null}
+          )) ? renderCueTransport(event.cueIndex) : null)}
         </div>
       </div>
     );
@@ -1440,7 +1696,7 @@ const Sequencer = ({
         ) : (
           <div class="sequencer-list">
             {(structuralMarkersByDisplayBucket.get(-1) ?? []).map((marker) => (
-              <div key={`${marker.structuralType}:${marker.id}`} class="sequencer-item sequencer-item--bar">
+              <div key={structuralEventInstanceKey(marker)} class="sequencer-item sequencer-item--bar">
                 {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
               </div>
             ))}
@@ -1450,11 +1706,15 @@ const Sequencer = ({
               const isExpanded = showAllEvents || expandedIds.has(snapshot.id);
               const isDragOver = dragOverId === snapshot.id;
               const snapshotEvents = snapshotEventsById.get(snapshot.id) ?? [];
+              const snapshotStructuralKeys = new Set(
+                snapshotEvents
+                  .filter((event) => event.type === "bar" || event.type === "tempo")
+                  .map((event) => structuralEventRenderKey(event)),
+              );
 
               return (
-                <>
+                <Fragment key={snapshot.id}>
                   <div
-                    key={snapshot.id}
                     class={`sequencer-item${isSelected ? " sequencer-item--selected" : ""}${isDragOver ? " sequencer-item--drop-target" : ""}${isDragOver && dragOverSide === "before" ? " sequencer-item--drop-target-before" : ""}${isDragOver && dragOverSide === "after" ? " sequencer-item--drop-target-after" : ""}`}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -1638,23 +1898,30 @@ const Sequencer = ({
                           </div>
                           <div class="sequencer-events-grid__body">
                             {snapshotEvents.map((event) => (
-                              event.type === "bar"
-                                ? renderBarRow(event)
-                                : event.type === "tempo"
-                                  ? renderTempoRow(event)
-                                  : renderEventRow(snapshot, index, event)
+                              event.type === "bar" || event.type === "tempo"
+                                ? (
+                                  <div
+                                    key={structuralEventInstanceKey(event)}
+                                    class="sequencer-item sequencer-item--bar"
+                                  >
+                                    {event.type === "bar" ? renderBarRow(event) : renderTempoRow(event)}
+                                  </div>
+                                )
+                                : renderEventRow(snapshot, index, event)
                             ))}
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
-                  {(structuralMarkersByDisplayBucket.get(index) ?? []).map((marker) => (
-                    <div key={`${marker.structuralType}:${marker.id}`} class="sequencer-item sequencer-item--bar">
+                  {(structuralMarkersByDisplayBucket.get(index) ?? [])
+                    .filter((marker) => !isExpanded || !snapshotStructuralKeys.has(structuralEventRenderKey(marker)))
+                    .map((marker) => (
+                    <div key={structuralEventInstanceKey(marker)} class="sequencer-item sequencer-item--bar">
                       {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
                     </div>
-                  ))}
-                </>
+                    ))}
+                </Fragment>
               );
             })}
           </div>

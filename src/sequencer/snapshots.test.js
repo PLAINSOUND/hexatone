@@ -228,6 +228,47 @@ describe("sequencer snapshots", () => {
     expect(cc74).not.toHaveBeenCalled();
   });
 
+  it("re-triggers a same-pitch legato note when cue playback marks it as a reattack", () => {
+    const oldNoteOff = vi.fn();
+    const oldHex = {
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 33,
+      noteOff: oldNoteOff,
+      polyTimbre: vi.fn(),
+    };
+    const newNoteOn = vi.fn();
+    const newPolyTimbre = vi.fn();
+    const synth = {
+      makeHex: vi.fn(() => ({
+        noteOn: newNoteOn,
+        noteOff: vi.fn(),
+        polyTimbre: newPolyTimbre,
+      })),
+    };
+    const runtime = makeRuntime({
+      synth,
+      _snapshotHexes: [oldHex],
+    });
+
+    const nextHexes = playSnapshot(runtime, [
+      {
+        midicents: 69,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+        timbre: 91,
+        reattack: true,
+      },
+    ], { legato: true });
+
+    expect(oldNoteOff).toHaveBeenCalledWith(33);
+    expect(synth.makeHex).toHaveBeenCalledTimes(1);
+    expect(newNoteOn).toHaveBeenCalledTimes(1);
+    expect(newPolyTimbre).toHaveBeenCalledWith(91);
+    expect(nextHexes).toHaveLength(1);
+    expect(nextHexes[0]).not.toBe(oldHex);
+  });
+
   it("keeps same-pitch notes sustaining in legato mode and updates expression only", () => {
     const reusedHex = {
       noteOn: vi.fn(),

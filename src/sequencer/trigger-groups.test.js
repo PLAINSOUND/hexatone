@@ -200,6 +200,26 @@ describe("deriveSnapshotTriggerGroups", () => {
     ]);
   });
 
+  it("marks same-pitch re-attacks so cue playback can retrigger their onset expression", () => {
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        notes: [
+          { id: "a", midicents: 60, start: 0, end: 0.5, timbre: 20 },
+          { id: "b", midicents: 60, start: 0.5, end: 1, timbre: 66 },
+        ],
+      },
+    ];
+
+    expect(sequenceNotesAtCueIndex(snapshots, 0)).toMatchObject([
+      { midicents: 60, timbre: 20, reattack: true },
+    ]);
+    expect(sequenceNotesAtCueIndex(snapshots, 1)).toMatchObject([
+      { midicents: 60, timbre: 66, reattack: true },
+    ]);
+  });
+
   it("attaches integer-position bars to the preceding snapshot and keeps them ahead of the whole shared-time burst", () => {
     const events = deriveSequenceEvents(
       [
@@ -230,5 +250,46 @@ describe("deriveSnapshotTriggerGroups", () => {
       ["note", "release", 2, 0, 2],
       ["note", "release", 3, 1, 3],
     ]);
+
+    expect(events.find((event) => event.type === "bar")).toEqual(
+      expect.objectContaining({
+        numerator: 4,
+        denominator: 4,
+      }),
+    );
+  });
+
+  it("orders tempo changes before bars before note events at the same mid-snapshot position", () => {
+    const events = deriveSequenceEvents(
+      [
+        {
+          id: 1,
+          length: 1,
+          notes: [{ id: "a", midicents: 69, start: 0.5, end: 1 }],
+        },
+      ],
+      [{ id: 100, position: 1.5 }],
+      [{ id: 200, position: 1.5, bpm: 72, beatLength: 1 }],
+    );
+
+    expect(events.map((event) => [
+      event.type,
+      event.kind,
+      event.absoluteTime,
+      event.snapshotIndex,
+      event.cueIndex,
+    ])).toEqual([
+      ["tempo", "tempo", 1.5, 0, null],
+      ["bar", "bar", 1.5, 0, null],
+      ["note", "attack", 1.5, 0, 1],
+      ["note", "release", 2, 0, 2],
+    ]);
+
+    expect(events.find((event) => event.type === "tempo")).toEqual(
+      expect.objectContaining({
+        beatNumerator: 1,
+        beatDenominator: 4,
+      }),
+    );
   });
 });

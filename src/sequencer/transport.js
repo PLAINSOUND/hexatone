@@ -10,12 +10,33 @@ function normalizePositiveNumber(value, fallback) {
   return n;
 }
 
+function normalizePositiveInteger(value, fallback) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return n;
+}
+
+function tempoFractionToBeatLength(numerator, denominator) {
+  return (4 * numerator) / denominator;
+}
+
 function normalizeTempoMarker(marker, index) {
+  const explicitBeatLength = normalizePositiveNumber(marker?.beatLength, 1);
+  const beatFraction = marker?.beatNumerator != null || marker?.beatDenominator != null
+    ? {
+      numerator: normalizePositiveInteger(marker?.beatNumerator, 1),
+      denominator: normalizePositiveInteger(marker?.beatDenominator, 4),
+    }
+    : approximateFraction(explicitBeatLength / 4, 64, 0.000001, 4);
+  const beatLength = tempoFractionToBeatLength(beatFraction.numerator, beatFraction.denominator);
+
   return {
     id: marker?.id ?? `tempo:${index + 1}`,
     position: normalizePosition(marker?.position, index === 0 ? 1 : 1),
     bpm: normalizePositiveNumber(marker?.bpm, 60),
-    beatLength: normalizePositiveNumber(marker?.beatLength, 1),
+    beatNumerator: beatFraction.numerator,
+    beatDenominator: beatFraction.denominator,
+    beatLength,
   };
 }
 
@@ -31,6 +52,8 @@ export function normalizeTempoMarkers(markers = [], options = {}) {
       id: "tempo:default",
       position: 1,
       bpm: 60,
+      beatNumerator: 1,
+      beatDenominator: 4,
       beatLength: 1,
     });
   }
@@ -349,14 +372,18 @@ export function absolutePositionToBarBeat(
   const beatLength = barLength / numerator;
   const offset = Math.max(0, Number(position) - Number(bar.position));
   const rawBeatOffset = beatLength > 0 ? offset / beatLength : 0;
-  const beatWhole = Math.max(0, Math.floor(rawBeatOffset + 1e-9));
+  const nearestWholeBeatOffset = Math.round(rawBeatOffset);
+  const snappedBeatOffset = Math.abs(rawBeatOffset - nearestWholeBeatOffset) <= 0.00001
+    ? nearestWholeBeatOffset
+    : rawBeatOffset;
+  const beatWhole = Math.max(0, Math.floor(snappedBeatOffset + 1e-9));
   const beat = Math.min(numerator, beatWhole + 1);
   const resolvedMax = Math.max(
     maxDenominator,
     Number.isFinite(Number(preferredDenominator)) ? Math.round(Number(preferredDenominator)) : 0,
   );
   const fraction = approximateFraction(
-    Math.max(0, rawBeatOffset - beatWhole),
+    Math.max(0, snappedBeatOffset - beatWhole),
     resolvedMax,
     0.000001,
     preferredDenominator,
