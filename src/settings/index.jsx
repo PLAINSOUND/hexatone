@@ -68,7 +68,7 @@ const Settings = ({
 
   return (
     <div autoComplete="off" role="group" aria-label="Hexatone settings">
-    <fieldset style={{ marginTop: "1em" }}>
+    <fieldset class="settings-form__section-top">
       <legend>
         <b>Built-in Tunings</b>
       </legend>
@@ -85,16 +85,16 @@ const Settings = ({
           </button>
         )}
       </label>
-      <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.4em" }}>
+      <label class="settings-form__checkbox-row settings-form__checkbox-row--md">
         <input
           type="checkbox"
           checked={persistOnReload}
           onChange={(e) => setPersistOnReload(e.target.checked)}
         />
-        <em style={{ color: "#996666" }}>Restore preset on reload</em>
+        <em class="settings-form__helper-text">Restore preset on reload</em>
       </label>
       {pendingRestoredPreset && activatePendingPreset && (
-        <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "0.4em" }}>
+        <div class="settings-form__activate-row">
           <button type="button" onClick={() => void activatePendingPreset()}>
             Activate Restored Preset
           </button>

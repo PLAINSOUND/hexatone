@@ -361,8 +361,7 @@ const SequenceLibrary = ({
           )}
           <button
             type="button"
-            class="delete-btn preset-utility-btn"
-            style={{ marginLeft: "auto" }}
+            class="delete-btn preset-utility-btn preset-actions__clear-trigger"
             disabled={!selectedName}
             onClick={handleDelete}
           >
@@ -376,11 +375,11 @@ const SequenceLibrary = ({
         type="file"
         multiple
         accept=".json"
-        style={{ display: "none" }}
+        class="settings-form__hidden-file-input"
         onChange={handleOpenFiles}
       />
 
-      <div class="preset-actions preset-actions--sequence-library" style={{ marginTop: 4 }}>
+      <div class="preset-actions preset-actions--library">
         <button
           type="button"
           class="preset-action-btn"
@@ -402,8 +401,7 @@ const SequenceLibrary = ({
           ) : (
             <button
               type="button"
-              class="delete-btn preset-utility-btn"
-              style={{ marginLeft: "auto" }}
+              class="delete-btn preset-utility-btn preset-actions__clear-trigger"
               onClick={() => setConfirmClear(true)}
             >
               Clear All
@@ -412,25 +410,16 @@ const SequenceLibrary = ({
       </div>
 
       {snapshotsPresent && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 4,
-            rowGap: "0.25em",
-          }}
-        >
-          <span style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        <div class="settings-form__action-row">
+          <span class="settings-form__action-group settings-form__action-group--wrap">
             <button type="button" class="preset-action-btn" onClick={handleSave}>
               {saveLabel}
             </button>
           </span>
-          <span style={{ display: "flex", gap: "6px" }}>
+          <span class="settings-form__action-group">
             <button
               type="button"
-              class="preset-utility-btn"
-              style={{ width: "6em", textAlign: "center" }}
+              class="preset-utility-btn settings-form__utility-btn--export"
               onClick={handleExport}
             >
               Export .json

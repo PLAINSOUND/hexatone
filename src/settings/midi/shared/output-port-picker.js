@@ -16,8 +16,7 @@ function OutputPortPicker({ label, rawPorts, outputs, overridePortId, onChange }
       <label class="controller-inline-row controller-output-row">
         {label}
         <select
-          class="sidebar-input"
-          style={{ fontSize: "0.85em" }}
+          class="sidebar-input settings-form__value--compact"
           value={overridePortId ?? "__auto__"}
           onChange={(e) => {
             const val = e.target.value === "__auto__" ? null : e.target.value;
@@ -38,20 +37,17 @@ function OutputPortPicker({ label, rawPorts, outputs, overridePortId, onChange }
 
   return (
     <label
-      class="controller-inline-row controller-output-row"
-      style={{ cursor: "pointer" }}
+      class="controller-inline-row controller-output-row settings-form__picker-row"
       title="Click to choose a different output port"
       onClick={() => setPicking(true)}
     >
       {label}
       <span
-        class="sidebar-input"
-        style={{
-          textAlign: "right",
-          fontSize: "0.85em",
-          fontStyle: "italic",
-          color: connected ? "#669966" : "#996666",
-        }}
+        class={`sidebar-input settings-form__status-value ${
+          connected
+            ? "settings-form__status-value--connected"
+            : "settings-form__status-value--missing"
+        }`}
       >
         {connected
           ? `${isOverride ? "▸ " : ""}${portName}`

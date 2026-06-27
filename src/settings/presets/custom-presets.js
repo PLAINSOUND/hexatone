@@ -357,8 +357,7 @@ const CustomPresets = ({
           )}
           <button
             type="button"
-            class="delete-btn preset-utility-btn"
-            style={{ marginLeft: "auto" }}
+            class="delete-btn preset-utility-btn preset-actions__clear-trigger"
             disabled={!selected}
             onClick={handleDelete}
           >
@@ -373,7 +372,7 @@ const CustomPresets = ({
         type="file"
         multiple
         accept=".scl,.ascl,.json"
-        style={{ display: "none" }}
+        class="settings-form__hidden-file-input"
         onChange={handleFileChange}
       />
       <input
@@ -382,10 +381,10 @@ const CustomPresets = ({
         webkitdirectory="true"
         multiple
         accept=".scl,.ascl,.json"
-        style={{ display: "none" }}
+        class="settings-form__hidden-file-input"
         onChange={handleFolderChange}
       />
-      <div class="preset-actions" style={{ marginTop: 4 }}>
+      <div class="preset-actions preset-actions--library">
         <button
           type="button"
           class="preset-action-btn"
@@ -403,12 +402,11 @@ const CustomPresets = ({
         {expanded &&
           presets.length > 0 &&
           (confirmClear ? (
-            <span>
-              <em>Clear all user tunings?&nbsp;</em>
+            <span class="preset-actions__confirm">
+              <em class="preset-actions__confirm-text">Clear all user tunings?</em>
               <button type="button" class="delete-btn" onClick={handleClearConfirmed}>
                 Yes, clear
               </button>
-              &nbsp;
               <button type="button" onClick={() => setConfirmClear(false)}>
                 Cancel
               </button>
@@ -416,35 +414,26 @@ const CustomPresets = ({
           ) : (
             <button
               type="button"
-              class="delete-btn preset-utility-btn"
-              style={{ marginLeft: "auto" }}
+              class="delete-btn preset-utility-btn preset-actions__clear-trigger"
               onClick={handleClear}
             >
               Clear All
             </button>
           ))}
       </div>
-      <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.35em" }}>
+      <label class="settings-form__checkbox-row settings-form__checkbox-row--sm">
         <input
           type="checkbox"
           checked={includeSubfolders}
           onChange={(e) => setIncludeSubfolders(e.target.checked)}
         />
-        <em style={{ color: "#996666" }}>Include subfolders</em>
+        <em class="settings-form__helper-text">Include subfolders</em>
       </label>
 
       {/* ── Save / Export — show when a preset is active ── */}
       {activeSource && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 4,
-            rowGap: "0.25em",
-          }}
-        >
-          <span style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        <div class="settings-form__action-row">
+          <span class="settings-form__action-group settings-form__action-group--wrap">
             <button type="button" class="preset-action-btn" onClick={handleSave}>
               {saveLabel}
             </button>
@@ -454,8 +443,8 @@ const CustomPresets = ({
               </button>
             )}
           </span>
-          <span style={{ display: "flex", gap: "6px" }}>
-            <button type="button" class="preset-utility-btn" style={{ width: "6em", textAlign: "center" }} onClick={handleExport}>
+          <span class="settings-form__action-group">
+            <button type="button" class="preset-utility-btn settings-form__utility-btn--export" onClick={handleExport}>
               Export .json
             </button>{" "}
             {/*

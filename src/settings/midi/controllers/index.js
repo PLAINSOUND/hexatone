@@ -428,7 +428,7 @@ const MIDIio = (props) => {
                 !configurableMpeMemberChannelBounds && (
                 <label title="Hexatone currently accepts MPE voice data on all channels.">
                   Voice channels
-                  <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+                  <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
                     all channels
                   </span>
                 </label>
@@ -436,7 +436,7 @@ const MIDIio = (props) => {
               {props.settings.midiin_mpe_input && !linnstrumentBypassMpeUi && ctrl?.mpeVoiceChannels && (
                 <label title="Controller range is informational; Hexatone currently accepts MPE voice data on all channels.">
                   Voice channels
-                  <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+                  <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
                     {ctrl.mpeVoiceChannels.lo}–{ctrl.mpeVoiceChannels.hi} typical; listening on all
                   </span>
                 </label>
@@ -446,12 +446,9 @@ const MIDIio = (props) => {
 
           {/* ── Controller description in scale mode ── */}
           {scaleMode && ctrl?.descriptionScale && (
-            <label style={{ fontStyle: "italic", color: "#996666", marginBottom: "0.5em" }}>
+            <label class="settings-form__description-label">
               {ctrl.name}
-              <span
-                class="sidebar-input"
-                style={{ textAlign: "right", fontSize: "0.85em", lineHeight: 1 }}
-              >
+              <span class="sidebar-input settings-form__description-value">
                 {ctrl.descriptionScale}
               </span>
             </label>
@@ -473,12 +470,9 @@ const MIDIio = (props) => {
                 />
               ) : (
                 <>
-                <label style={{ fontStyle: "italic", color: "#996666", marginBottom: "0.5em" }}>
+                <label class="settings-form__description-label">
                   {ctrl.name}
-                  <span
-                    class="sidebar-input"
-                    style={{ textAlign: "right", fontSize: "0.85em", lineHeight: 1 }}
-                  >
+                  <span class="sidebar-input settings-form__description-value">
                     {ctrl.description}
                   </span>
                 </label>
@@ -487,16 +481,12 @@ const MIDIio = (props) => {
                   Used in both 2D-map mode and bypass mode. */}
                 <label class="center-degree-row center-degree-label">
                   Anchor Key → Central Degree ({center_degree})
-                  <span
-                    class="sidebar-input"
-                    style={{ display: "flex", gap: "4px", alignItems: "center", textAlign: "left" }}
-                  >
+                  <span class="sidebar-input settings-form__inline-fields">
                     <button
                       type="button"
-                      class="preset-action-btn"
+                      class="preset-action-btn settings-form__inline-button--nowrap"
                       onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
                       disabled={tonalPlexus205Mode}
-                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                     >
                       {tonalPlexus205Mode
                         ? "Fixed"
@@ -515,18 +505,9 @@ const MIDIio = (props) => {
                           type="text"
                           inputMode="numeric"
                           title={`${tonalPlexus41Mode ? "Block" : "MIDI channel"} of anchor key (${anchorChannelRange.min}–${anchorChannelRange.max})`}
-                          style={{
-                            width: "2.2em",
-                            textAlign: "center",
-                            height: "1.5em",
-                            boxSizing: "border-box",
-                            background: tonalPlexus205Mode ? "#f0eded" : "#faf9f8",
-                            border: "1px solid #c8b8b8",
-                            borderRadius: "3px",
-                            flexShrink: 0,
-                            color: tonalPlexus205Mode ? "#999" : undefined,
-                            cursor: tonalPlexus205Mode ? "default" : undefined,
-                          }}
+                          class={`settings-form__compact-input settings-form__compact-input--channel${
+                            tonalPlexus205Mode ? " settings-form__compact-input--disabled" : ""
+                          }`}
                           key={`anchor-channel-${anchorChannel}`}
                           defaultValue={anchorChannel}
                           disabled={tonalPlexus205Mode}
@@ -553,18 +534,7 @@ const MIDIio = (props) => {
                           value="1"
                           disabled
                           title="Single-channel controller (ch 1)"
-                          style={{
-                            width: "2.2em",
-                            textAlign: "center",
-                            height: "1.5em",
-                            boxSizing: "border-box",
-                            background: "#f0eded",
-                            border: "1px solid #c8b8b8",
-                            borderRadius: "3px",
-                            flexShrink: 0,
-                            color: "#999",
-                            cursor: "default",
-                          }}
+                          class="settings-form__compact-input settings-form__compact-input--channel settings-form__compact-input--disabled"
                         />
                       ))}
                     {/* Multi-channel 2D controllers interpret the shared anchor
@@ -577,19 +547,9 @@ const MIDIio = (props) => {
                         type="text"
                         inputMode="numeric"
                         title={`${tonalPlexus41Mode ? "Slot" : "Note number"} within anchor ${tonalPlexus41Mode ? "block" : "block"} (${anchorNoteRange.min}–${anchorNoteRange.max})`}
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          width: "auto",
-                          textAlign: "right",
-                          height: "1.5em",
-                          boxSizing: "border-box",
-                          background: tonalPlexus205Mode ? "#f0eded" : "#faf9f8",
-                          border: "1px solid #c8b8b8",
-                          borderRadius: "3px",
-                          color: tonalPlexus205Mode ? "#999" : undefined,
-                          cursor: tonalPlexus205Mode ? "default" : undefined,
-                        }}
+                        class={`settings-form__compact-input settings-form__compact-input--grow${
+                          tonalPlexus205Mode ? " settings-form__compact-input--disabled" : ""
+                        }`}
                         key={`anchor-note-${controllerAnchorNote}`}
                         defaultValue={controllerAnchorNote}
                         disabled={tonalPlexus205Mode}
@@ -615,17 +575,7 @@ const MIDIio = (props) => {
                         name="midiin_anchor_note"
                         type="text"
                         inputMode="numeric"
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          width: "auto",
-                          textAlign: "right",
-                          height: "1.5em",
-                          boxSizing: "border-box",
-                          background: "#faf9f8",
-                          border: "1px solid #c8b8b8",
-                          borderRadius: "3px",
-                        }}
+                        class="settings-form__compact-input settings-form__compact-input--grow"
                         key={`central-degree-${props.settings.midiin_anchor_note}`}
                         defaultValue={centralNote}
                         onKeyDown={(e) => {
@@ -647,14 +597,14 @@ const MIDIio = (props) => {
                 {genericBypassesGeometry ? (
                   <label>
                     2D Geometry
-                    <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+                    <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
                       2D geometry is bypassed
                     </span>
                   </label>
                 ) : tonalPlexus41Mode ? (
                   <label>
                     2D Geometry
-                    <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+                    <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
                       41 notes per block mode uses grouped block-slot translation
                     </span>
                   </label>
@@ -1038,15 +988,11 @@ const MIDIio = (props) => {
               <>
                 <label class="center-degree-row center-degree-label">
                   Anchor Note → Central Degree ({center_degree})
-                  <span
-                    class="sidebar-input"
-                    style={{ display: "flex", gap: "4px", alignItems: "center", textAlign: "left" }}
-                  >
+                  <span class="sidebar-input settings-form__inline-fields">
                     <button
                       type="button"
-                      class="preset-action-btn"
+                      class="preset-action-btn settings-form__inline-button--nowrap"
                       onClick={() => props.onChange("midiLearnAnchor", !props.midiLearnActive)}
-                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                     >
                       {props.midiLearnActive ? "● Listening…" : "Learn"}
                     </button>
@@ -1056,16 +1002,7 @@ const MIDIio = (props) => {
                         type="text"
                         inputMode="numeric"
                         title="MIDI channel of anchor note (other channels shift by stepsPerChannel)"
-                        style={{
-                          width: "2.2em",
-                          textAlign: "center",
-                          height: "1.5em",
-                          boxSizing: "border-box",
-                          background: "#faf9f8",
-                          border: "1px solid #c8b8b8",
-                          borderRadius: "3px",
-                          flexShrink: 0,
-                        }}
+                        class="settings-form__compact-input settings-form__compact-input--channel"
                         key={`seq-anchor-channel-${seqAnchorChannel}`}
                         defaultValue={seqAnchorChannel}
                         onKeyDown={(e) => {
@@ -1086,17 +1023,7 @@ const MIDIio = (props) => {
                       name="midiin_anchor_note"
                       type="text"
                       inputMode="numeric"
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        width: "auto",
-                        textAlign: "right",
-                        height: "1.5em",
-                        boxSizing: "border-box",
-                        background: "#faf9f8",
-                        border: "1px solid #c8b8b8",
-                        borderRadius: "3px",
-                      }}
+                      class="settings-form__compact-input settings-form__compact-input--grow"
                       key={`seq-central-degree-${props.settings.midiin_anchor_note}`}
                       defaultValue={centralNote}
                       onKeyDown={(e) => {

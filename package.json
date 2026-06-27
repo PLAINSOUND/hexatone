@@ -2,7 +2,7 @@
   "type": "module",
   "private": true,
   "name": "plainsound-hexatone",
-  "version": "3.3-alpha",
+  "version": "3.3-beta",
   "repository": "git@github.com:PLAINSOUND/hexatone.git",
   "scripts": {
     "start": "vite",

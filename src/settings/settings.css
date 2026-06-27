@@ -729,7 +729,7 @@ td.scale-color-col .color-input {
   line-height: 1.5em;
 }
 
-.preset-actions--sequence-library {
+.preset-actions--library {
   min-height: calc(1.5em + 0.2em + 2px);
 }
 
@@ -744,6 +744,151 @@ td.scale-color-col .color-input {
 
 .preset-actions__confirm-text {
   line-height: 1.2;
+}
+
+.preset-actions__clear-trigger {
+  margin-left: auto;
+}
+
+.settings-form__hidden-file-input {
+  display: none;
+}
+
+#sidebar label.settings-form__checkbox-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.5em;
+}
+
+.settings-form__checkbox-row--sm {
+  margin-top: 0.35em;
+}
+
+.settings-form__checkbox-row--md {
+  margin-top: 0.4em;
+}
+
+.settings-form__helper-text {
+  color: #996666;
+  font-style: italic;
+}
+
+.settings-form__helper-text--muted {
+  color: #888;
+}
+
+.settings-form__activate-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 0.4em;
+}
+
+.settings-form__action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  row-gap: 0.25em;
+}
+
+.settings-form__action-group {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-form__action-group--wrap {
+  flex-wrap: wrap;
+}
+
+.settings-form__utility-btn--export {
+  width: 6em;
+  text-align: center;
+}
+
+.settings-form__section-top {
+  margin-top: 1em;
+}
+
+.settings-form__description-label {
+  font-style: italic;
+  color: #996666;
+  margin-bottom: 0.5em;
+}
+
+.settings-form__description-value {
+  text-align: right;
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.settings-form__inline-fields {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  text-align: left;
+}
+
+.settings-form__inline-button--nowrap {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.settings-form__compact-input {
+  height: 1.5em;
+  box-sizing: border-box;
+  background: #faf9f8;
+  border: 1px solid #c8b8b8;
+  border-radius: 3px;
+}
+
+.settings-form__compact-input--channel {
+  width: 2.2em;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.settings-form__compact-input--grow {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  text-align: right;
+}
+
+.settings-form__compact-input--disabled {
+  background: #f0eded;
+  color: #999;
+  cursor: default;
+}
+
+.settings-form__inline-note-hint {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  text-align: right;
+}
+
+.settings-form__value--compact {
+  font-size: 0.85em;
+}
+
+.settings-form__picker-row {
+  cursor: pointer;
+}
+
+.settings-form__status-value {
+  text-align: right;
+  font-size: 0.85em;
+  font-style: italic;
+}
+
+.settings-form__status-value--connected {
+  color: #669966;
+}
+
+.settings-form__status-value--missing {
+  color: #996666;
 }
 
 /* Shared style for all sidebar action buttons (Open, Save, Export, Copy…) */
@@ -3566,6 +3711,11 @@ input.equiv-cell:disabled,
   position: relative;
 }
 
+.settings-panel--manual {
+  margin-bottom: 0.5em;
+  background: #faf7f6;
+}
+
 .settings-panel__close {
   position: absolute;
   top: -1.3em;
@@ -3585,6 +3735,15 @@ input.equiv-cell:disabled,
 #sidebar .manual-sidebar__updated {
   margin: 0.25em 0 0;
   color: #774444;
+}
+
+#sidebar .manual-sidebar__intro {
+  margin-top: 0.45em;
+  margin-bottom: 0.55em;
+}
+
+#sidebar .manual-sidebar__panel {
+  margin-bottom: 0.5em;
 }
 
 #sidebar .manual-sidebar__toc {
