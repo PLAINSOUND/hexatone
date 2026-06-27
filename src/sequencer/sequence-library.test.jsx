@@ -93,6 +93,51 @@ describe("SequenceLibrary", () => {
     );
   });
 
+  it("loads an imported sequence immediately when the current workspace is empty", async () => {
+    const onLoadSequence = vi.fn();
+
+    render(
+      <SequenceLibrary
+        snapshots={[]}
+        bars={[]}
+        tempi={[]}
+        snapshotLabelMode="labels"
+        autoCreateBars
+        activeSequenceName=""
+        activeSequenceDescription=""
+        onLoadSequence={onLoadSequence}
+      />,
+    );
+
+    const fileInput = document.querySelector('input[type="file"]');
+    const file = new File(
+      [JSON.stringify({
+        type: "hexatone-sequence",
+        version: 3,
+        name: "Imported Empty Load",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 10, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      })],
+      "Imported Empty Load.json",
+      { type: "application/json" },
+    );
+
+    fireEvent.change(fileInput, {
+      currentTarget: { files: [file] },
+      target: { files: [file] },
+    });
+
+    expect(await screen.findByDisplayValue("Imported Empty Load")).toBeTruthy();
+    expect(onLoadSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Imported Empty Load" }),
+    );
+  });
+
   it("prompts before loading when the current workspace already has snapshots", () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       {

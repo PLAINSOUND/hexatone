@@ -5,6 +5,7 @@ import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
 import {
   absolutePositionToBarBeat,
+  barContextForPosition,
   barBeatToAbsolutePosition,
   normalizeBarMarkers,
   normalizeTempoMarkers,
@@ -145,6 +146,8 @@ const Sequencer = ({
   onSelectSequenceBar,
   onStepSequence,
   onStepSequenceMarker,
+  onJumpSequenceSnapshot,
+  onJumpSequenceCue,
   onPlaySequence,
   onPlayCue,
   onResetSequencePlayhead,
@@ -167,6 +170,8 @@ const Sequencer = ({
   const [newBarPosition, setNewBarPosition] = useState("1.000000");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newTempoBpm, setNewTempoBpm] = useState("60");
+  const [pendingSnapshotJumpIndex, setPendingSnapshotJumpIndex] = useState("");
+  const [pendingCueJumpIndex, setPendingCueJumpIndex] = useState("");
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
@@ -178,6 +183,13 @@ const Sequencer = ({
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const pendingTransportActionRef = useRef(null);
+  const playbackRowRef = useRef(null);
+  const scrollPanelRef = useRef(null);
+  const snapshotRowRefs = useRef(new Map());
+  const barRowRefs = useRef(new Map());
+  const lastAutoScrolledSnapshotIdRef = useRef(null);
+  const lastAutoScrolledBarIdRef = useRef(null);
+  const transportScrollTargetRef = useRef("snapshot");
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
   const sortedTempi = useMemo(
@@ -251,33 +263,42 @@ const Sequencer = ({
     return snapshots.findLastIndex((_, index) => index + 1 < selectedBarTime);
   }, [prevCueIndexFromBar, selectedBarTime, sequenceCueGroups, snapshots]);
 
-  const snapshotNumberLabel = playheadIsOff
-    ? nextSnapshotIndexFromBar >= 0 && nextSnapshotIndexFromBar < snapshots.length
-      ? `(${nextSnapshotIndexFromBar + 1})`
-      : "end"
+  const snapshotSelectValue = pendingSnapshotJumpIndex !== ""
+    ? pendingSnapshotJumpIndex
     : playheadIsEnd
-      ? "end"
-      : String(playheadStepIndex + 1);
-  const markerLabel = useMemo(() => {
-    if (playheadIsOff) {
-      if (nextCueIndexFromBar >= 0) return `(${nextCueIndexFromBar + 1})`;
-      return "end";
-    }
-    if (playheadIsEnd) {
-      return sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length) : "0";
-    }
-    if (playheadMarkerIndex != null) return String(playheadMarkerIndex + 1);
-    const currentTime = playheadStepIndex + 1;
-    const cueIndex = sequenceCueGroups.findIndex((group) => group.time >= currentTime);
-    return cueIndex >= 0 ? String(cueIndex + 1) : "end";
-  }, [
-    nextCueIndexFromBar,
-    playheadIsEnd,
-    playheadIsOff,
-    playheadMarkerIndex,
-    playheadStepIndex,
-    sequenceCueGroups,
-  ]);
+      ? snapshots.length > 0 ? String(snapshots.length - 1) : ""
+      : playheadIsOff || playheadStepIndex < 0
+        ? nextSnapshotIndexFromBar >= 0 && nextSnapshotIndexFromBar < snapshots.length
+          ? String(nextSnapshotIndexFromBar)
+          : snapshots.length > 0 ? String(snapshots.length - 1) : ""
+        : String(playheadStepIndex);
+  const cueSelectValue = pendingCueJumpIndex !== ""
+    ? pendingCueJumpIndex
+    : playheadIsEnd
+      ? sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length - 1) : ""
+      : playheadIsOff || (playheadMarkerIndex == null && sequenceCueGroups.length === 0)
+        ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
+          ? String(nextCueIndexFromBar)
+          : sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length - 1) : ""
+        : playheadMarkerIndex != null
+          ? String(playheadMarkerIndex)
+          : nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
+            ? String(nextCueIndexFromBar)
+            : sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length - 1) : "";
+  const impliedPendingSnapshotIndex = pendingSnapshotJumpIndex !== ""
+    ? pendingSnapshotJumpIndex
+    : playheadIsOff || playheadStepIndex < 0
+      ? nextSnapshotIndexFromBar >= 0 && nextSnapshotIndexFromBar < snapshots.length
+        ? String(nextSnapshotIndexFromBar)
+        : ""
+      : "";
+  const impliedPendingCueIndex = pendingCueJumpIndex !== ""
+    ? pendingCueJumpIndex
+    : playheadIsOff
+      ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
+        ? String(nextCueIndexFromBar)
+        : ""
+      : "";
 
   const barNumberById = useMemo(() => {
     const entries = sortedBars.map((bar, index) => [bar.id, index + 1]);
@@ -312,6 +333,20 @@ const Sequencer = ({
     }
     return indexes;
   }, [firstSnapshotEventIds, sequenceEvents]);
+  const firstCueIndexBySnapshotIndex = useMemo(() => {
+    const indexes = new Map();
+    sequenceCueGroups.forEach((group, index) => {
+      if (!indexes.has(group.snapshotIndex)) indexes.set(group.snapshotIndex, index);
+    });
+    return indexes;
+  }, [sequenceCueGroups]);
+  const firstCueTimeBySnapshotIndex = useMemo(() => {
+    const times = new Map();
+    sequenceCueGroups.forEach((group) => {
+      if (!times.has(group.snapshotIndex)) times.set(group.snapshotIndex, group.time);
+    });
+    return times;
+  }, [sequenceCueGroups]);
 
   const activeNavigationMode = playheadMarkerIndex != null ? "cue" : "snapshot";
   const activeCueIndex = playheadMarkerIndex != null ? playheadMarkerIndex + 1 : null;
@@ -328,6 +363,43 @@ const Sequencer = ({
     }
     return null;
   }, [playheadMarkerIndex, selectedMarker, sequenceCueGroups, snapshotIndexById]);
+
+  const selectBarForPosition = (position) => {
+    const barContext = barContextForPosition(position, sortedBars);
+    if (barContext) onSelectSequenceBar?.(barContext.barIndex);
+  };
+
+  const armPendingSnapshot = (snapshotIndex) => {
+    transportScrollTargetRef.current = "snapshot";
+    const nextSnapshotIndex = Number(snapshotIndex);
+    if (!Number.isFinite(nextSnapshotIndex)) {
+      setPendingSnapshotJumpIndex("");
+      setPendingCueJumpIndex("");
+      return;
+    }
+    setPendingSnapshotJumpIndex(String(nextSnapshotIndex));
+    const nextCueIndex = firstCueIndexBySnapshotIndex.get(nextSnapshotIndex);
+    setPendingCueJumpIndex(nextCueIndex == null ? "" : String(nextCueIndex));
+    const snapshotTime = firstCueTimeBySnapshotIndex.get(nextSnapshotIndex) ?? (nextSnapshotIndex + 1);
+    selectBarForPosition(snapshotTime);
+  };
+
+  const armPendingCue = (cueIndex) => {
+    transportScrollTargetRef.current = "cue";
+    const nextCueIndex = Number(cueIndex);
+    if (!Number.isFinite(nextCueIndex)) {
+      setPendingCueJumpIndex("");
+      return;
+    }
+    const cueGroup = sequenceCueGroups[nextCueIndex];
+    if (!cueGroup) {
+      setPendingCueJumpIndex("");
+      return;
+    }
+    setPendingCueJumpIndex(String(nextCueIndex));
+    setPendingSnapshotJumpIndex(String(cueGroup.snapshotIndex));
+    selectBarForPosition(cueGroup.time);
+  };
 
   const ensureExpanded = (id) => {
     setExpandedIds((prev) => {
@@ -359,6 +431,58 @@ const Sequencer = ({
     if (selectedCueAbsoluteTime == null) return;
     setNewBarPosition(selectedCueAbsoluteTime.toFixed(6));
   }, [selectedCueAbsoluteTime]);
+
+  useEffect(() => {
+    const snapshotId = activeSnapshotId ?? null;
+    if (snapshotId == null) {
+      lastAutoScrolledSnapshotIdRef.current = null;
+      return;
+    }
+    if (lastAutoScrolledSnapshotIdRef.current === snapshotId) return;
+    const scrollPanel = scrollPanelRef.current;
+    const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
+    if (!(scrollPanel instanceof HTMLElement) || !(snapshotRow instanceof HTMLElement)) return;
+
+    lastAutoScrolledSnapshotIdRef.current = snapshotId;
+    const frame = window.requestAnimationFrame(() => {
+      const panelRect = scrollPanel.getBoundingClientRect();
+      const snapshotRect = snapshotRow.getBoundingClientRect();
+      const gap = 6;
+      const targetTop = scrollPanel.scrollTop + (snapshotRect.top - panelRect.top) - gap;
+      const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
+      const nextTop = Math.max(0, Math.min(maxTop, targetTop));
+      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
+      scrollPanel.scrollTop = nextTop;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeSnapshotId]);
+
+  useEffect(() => {
+    if (!playheadIsOff || transportScrollTargetRef.current !== "bar") {
+      lastAutoScrolledBarIdRef.current = null;
+      return;
+    }
+    const selectedBar = sortedBars[selectedBarIndex] ?? null;
+    const selectedBarId = selectedBar?.id ?? null;
+    if (selectedBarId == null) return;
+    if (lastAutoScrolledBarIdRef.current === selectedBarId) return;
+    const scrollPanel = scrollPanelRef.current;
+    const barRow = barRowRefs.current.get(selectedBarId) ?? null;
+    if (!(scrollPanel instanceof HTMLElement) || !(barRow instanceof HTMLElement)) return;
+
+    lastAutoScrolledBarIdRef.current = selectedBarId;
+    const frame = window.requestAnimationFrame(() => {
+      const panelRect = scrollPanel.getBoundingClientRect();
+      const barRect = barRow.getBoundingClientRect();
+      const gap = 6;
+      const targetTop = scrollPanel.scrollTop + (barRect.top - panelRect.top) - gap;
+      const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
+      const nextTop = Math.max(0, Math.min(maxTop, targetTop));
+      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
+      scrollPanel.scrollTop = nextTop;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [playheadIsOff, selectedBarIndex, sortedBars]);
 
   const notifyEditCommitted = () => {
     setEditCommitTick((value) => value + 1);
@@ -1566,7 +1690,89 @@ const Sequencer = ({
           </button>
         </legend>
 
-        <div class="sequencer-playback-row" aria-label="Sequence playback">
+        <label class="sequencer-option-row sequencer-option-row--stacked">
+          <span>Snapshot Labels</span>
+          <select
+            class="sidebar-input"
+            value={snapshotLabelMode}
+            onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
+          >
+            {SNAPSHOT_LABEL_MODES.map((mode) => (
+              <option key={mode.value} value={mode.value}>
+                {mode.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div class="sequencer-option-row">
+          <span>Choose Tempo Position</span>
+          <span class="sequencer-bars-add">
+            <input
+              type="text"
+              class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+              aria-label="new tempo position"
+              value={newTempoPosition}
+              onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
+            />
+            <input
+              type="text"
+              class="sidebar-input sequencer-bars-add__position"
+              aria-label="new tempo bpm"
+              value={newTempoBpm}
+              onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+            />
+            <button type="button" class="preset-action-btn" onClick={addTempoAtRequestedPosition}>
+              Add Tempo
+            </button>
+          </span>
+        </div>
+
+        <div class="sequencer-option-row">
+          <span>Choose Bar Position</span>
+          <span class="sequencer-bars-add">
+            <input
+              type="text"
+              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+              aria-label="new bar position"
+              value={newBarPosition}
+              onInput={(e) => setNewBarPosition(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                addBarAtRequestedPosition();
+              }}
+            />
+            <button type="button" class="preset-action-btn" onClick={addBarAtRequestedPosition}>
+              Add Bar
+            </button>
+          </span>
+        </div>
+
+        <label class="sequencer-option-row">
+          <span>Auto-Create Bars</span>
+          <span class="sequencer-option-row__controls">
+            <input
+              type="checkbox"
+              checked={sequenceAutoCreateBars}
+              onChange={(e) => onSequenceAutoCreateBarsChange?.(e.currentTarget.checked)}
+            />
+            <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
+              Add Bars Before Snapshots
+            </button>
+          </span>
+        </label>
+
+        <label class="sequencer-option-row">
+          <span>Legato</span>
+          <input
+            type="checkbox"
+            checked={sequenceLegato}
+            onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
+          />
+        </label>
+
+        <div ref={playbackRowRef} class="sequencer-playback-row" aria-label="Sequence playback">
           <span class="sequencer-playback-label">PLAY FROM</span>
 
           <span class="sequencer-playback-control">
@@ -1574,7 +1780,10 @@ const Sequencer = ({
             <select
               class="sidebar-input sequencer-playback-select"
               value={playhead?.barIndex ?? 0}
-              onChange={(e) => onSelectSequenceBar?.(Number(e.currentTarget.value))}
+              onChange={(e) => {
+                transportScrollTargetRef.current = "bar";
+                onSelectSequenceBar?.(Number(e.currentTarget.value));
+              }}
             >
               {sortedBars.map((bar, index) => (
                 <option key={bar.id ?? index} value={index}>
@@ -1598,7 +1807,29 @@ const Sequencer = ({
             >
               <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
             </button>
-            <span class="sequencer-playback-status">{snapshotNumberLabel}</span>
+            <select
+              class="sidebar-input sequencer-playback-select sequencer-playback-select--pending"
+              aria-label="next snapshot target"
+              value={snapshotSelectValue}
+              onChange={(e) => {
+                const { value } = e.currentTarget;
+                if (value === "") {
+                  setPendingSnapshotJumpIndex("");
+                  setPendingCueJumpIndex("");
+                  return;
+                }
+                armPendingSnapshot(value);
+              }}
+            >
+              {snapshots.map((snapshot, index) => (
+                <option
+                  key={snapshot.id ?? index}
+                  value={String(index)}
+                >
+                  {impliedPendingSnapshotIndex === String(index) ? `(${index + 1})` : String(index + 1)}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
@@ -1608,6 +1839,13 @@ const Sequencer = ({
                 ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
                 : playheadIsEnd)}
               onClick={() => {
+                if (pendingSnapshotJumpIndex !== "") {
+                  const targetIndex = Number(pendingSnapshotJumpIndex);
+                  setPendingSnapshotJumpIndex("");
+                  setPendingCueJumpIndex("");
+                  runTransportAction(() => onJumpSequenceSnapshot?.(targetIndex));
+                  return;
+                }
                 runTransportAction(() => onStepSequence?.(1));
               }}
             >
@@ -1629,7 +1867,29 @@ const Sequencer = ({
             >
               <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
             </button>
-            <span class="sequencer-playback-status">{markerLabel}</span>
+            <select
+              class="sidebar-input sequencer-playback-select sequencer-playback-select--pending"
+              aria-label="next cue target"
+              value={cueSelectValue}
+              onChange={(e) => {
+                const { value } = e.currentTarget;
+                if (value === "") {
+                  setPendingCueJumpIndex("");
+                  setPendingSnapshotJumpIndex("");
+                  return;
+                }
+                armPendingCue(value);
+              }}
+            >
+              {sequenceCueGroups.map((group, index) => (
+                <option
+                  key={`${group.snapshotIndex}:${group.time}:${index}`}
+                  value={String(index)}
+                >
+                  {impliedPendingCueIndex === String(index) ? `(${index + 1})` : String(index + 1)}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
@@ -1639,6 +1899,13 @@ const Sequencer = ({
                 ? nextCueIndexFromBar < 0
                 : playheadIsEnd)}
               onClick={() => {
+                if (pendingCueJumpIndex !== "") {
+                  const targetIndex = Number(pendingCueJumpIndex);
+                  setPendingCueJumpIndex("");
+                  setPendingSnapshotJumpIndex("");
+                  runTransportAction(() => onJumpSequenceCue?.(targetIndex));
+                  return;
+                }
                 runTransportAction(() => onStepSequenceMarker?.(1));
               }}
             >
@@ -1696,100 +1963,27 @@ const Sequencer = ({
           </span>
         </div>
 
-        <label class="sequencer-option-row">
-          <span>Legato</span>
-          <input
-            type="checkbox"
-            checked={sequenceLegato}
-            onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
-          />
-        </label>
-
-        <label class="sequencer-option-row">
-          <span>Auto-Create Bars</span>
-          <span class="sequencer-option-row__controls">
-            <input
-              type="checkbox"
-              checked={sequenceAutoCreateBars}
-              onChange={(e) => onSequenceAutoCreateBarsChange?.(e.currentTarget.checked)}
-            />
-            <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
-              Add Bars Before Snapshots
-            </button>
-          </span>
-        </label>
-
-        <div class="sequencer-option-row">
-          <span>Choose Bar Position</span>
-          <span class="sequencer-bars-add">
-            <input
-              type="text"
-              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
-              aria-label="new bar position"
-              value={newBarPosition}
-              onInput={(e) => setNewBarPosition(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                addBarAtRequestedPosition();
-              }}
-            />
-            <button type="button" class="preset-action-btn" onClick={addBarAtRequestedPosition}>
-              Add Bar
-            </button>
-          </span>
-        </div>
-
-        <div class="sequencer-option-row">
-          <span>Choose Tempo Position</span>
-          <span class="sequencer-bars-add">
-            <input
-              type="text"
-              class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
-              aria-label="new tempo position"
-              value={newTempoPosition}
-              onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
-            />
-            <input
-              type="text"
-              class="sidebar-input sequencer-bars-add__position"
-              aria-label="new tempo bpm"
-              value={newTempoBpm}
-              onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
-            />
-            <button type="button" class="preset-action-btn" onClick={addTempoAtRequestedPosition}>
-              Add Tempo
-            </button>
-          </span>
-        </div>
-
-        <label>
-          Snapshot Labels
-          <select
-            class="sidebar-input"
-            value={snapshotLabelMode}
-            onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
-          >
-            {SNAPSHOT_LABEL_MODES.map((mode) => (
-              <option key={mode.value} value={mode.value}>
-                {mode.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {snapshots.length === 0 ? (
-          <p>
-            <em>No snapshots captured yet.</em>
-          </p>
-        ) : (
-          <div class="sequencer-list">
-            {(structuralMarkersByDisplayBucket.get(-1) ?? []).map((marker) => (
-              <div key={structuralEventInstanceKey(marker)} class="sequencer-item sequencer-item--bar">
-                {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
-              </div>
-            ))}
-            {snapshots.map((snapshot, index) => {
+        <div ref={scrollPanelRef} class="sequencer-scroll-panel">
+          {snapshots.length === 0 ? (
+            <p>
+              <em>No snapshots captured yet.</em>
+            </p>
+          ) : (
+            <div class="sequencer-list">
+              {(structuralMarkersByDisplayBucket.get(-1) ?? []).map((marker) => (
+                <div
+                  key={structuralEventInstanceKey(marker)}
+                  ref={(node) => {
+                    if (marker.structuralType !== "bar") return;
+                    if (node) barRowRefs.current.set(marker.id, node);
+                    else barRowRefs.current.delete(marker.id);
+                  }}
+                  class="sequencer-item sequencer-item--bar"
+                >
+                  {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
+                </div>
+              ))}
+              {snapshots.map((snapshot, index) => {
               const isPlaying = snapshot.id === playingSnapshotId;
               const isSelected = snapshot.id === selectedSnapshotId;
               const isExpanded = showAllEvents || expandedIds.has(snapshot.id);
@@ -1804,6 +1998,10 @@ const Sequencer = ({
               return (
                 <Fragment key={snapshot.id}>
                   <div
+                    ref={(node) => {
+                      if (node) snapshotRowRefs.current.set(snapshot.id, node);
+                      else snapshotRowRefs.current.delete(snapshot.id);
+                    }}
                     class={`sequencer-item${isSelected ? " sequencer-item--selected" : ""}${isDragOver ? " sequencer-item--drop-target" : ""}${isDragOver && dragOverSide === "before" ? " sequencer-item--drop-target-before" : ""}${isDragOver && dragOverSide === "after" ? " sequencer-item--drop-target-after" : ""}`}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -2016,6 +2214,11 @@ const Sequencer = ({
                                 ? (
                                   <div
                                     key={structuralEventInstanceKey(event)}
+                                    ref={(node) => {
+                                      if (event.type !== "bar") return;
+                                      if (node) barRowRefs.current.set(event.barId ?? event.id, node);
+                                      else barRowRefs.current.delete(event.barId ?? event.id);
+                                    }}
                                     class="sequencer-item sequencer-item--bar"
                                   >
                                     {event.type === "bar" ? renderBarRow(event) : renderTempoRow(event)}
@@ -2031,15 +2234,24 @@ const Sequencer = ({
                   {(structuralMarkersByDisplayBucket.get(index) ?? [])
                     .filter((marker) => !isExpanded || !snapshotStructuralKeys.has(structuralEventRenderKey(marker)))
                     .map((marker) => (
-                    <div key={structuralEventInstanceKey(marker)} class="sequencer-item sequencer-item--bar">
+                    <div
+                      key={structuralEventInstanceKey(marker)}
+                      ref={(node) => {
+                        if (marker.structuralType !== "bar") return;
+                        if (node) barRowRefs.current.set(marker.id, node);
+                        else barRowRefs.current.delete(marker.id);
+                      }}
+                      class="sequencer-item sequencer-item--bar"
+                    >
                       {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
                     </div>
                     ))}
                 </Fragment>
               );
-            })}
-          </div>
-        )}
+              })}
+            </div>
+          )}
+        </div>
       </fieldset>
     </div>
   );

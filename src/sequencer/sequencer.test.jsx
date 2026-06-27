@@ -232,6 +232,77 @@ describe("Sequencer", () => {
     expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
   });
 
+  it("updates the bar selector when a snapshot or cue target is chosen", () => {
+    const onSelectSequenceBar = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              { id: "a", midicents: 69, start: 0, end: 1 },
+            ],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [
+              { id: "b", midicents: 71, start: 0.5, end: 1 },
+            ],
+          },
+        ]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 4, denominator: 4 },
+        ]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={null}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={onSelectSequenceBar}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onJumpSequenceSnapshot={vi.fn()}
+        onJumpSequenceCue={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("next snapshot target"), {
+      currentTarget: { value: "1" },
+      target: { value: "1" },
+    });
+    expect(onSelectSequenceBar).toHaveBeenLastCalledWith(1);
+
+    fireEvent.change(screen.getByLabelText("next cue target"), {
+      currentTarget: { value: "1" },
+      target: { value: "1" },
+    });
+    expect(onSelectSequenceBar).toHaveBeenLastCalledWith(1);
+  });
+
   it("commits bar-relative timing edits back into absolute event positions", () => {
     const onUpdateSnapshot = vi.fn();
 
@@ -1124,8 +1195,9 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getByText("end")).not.toBeNull();
-    expect(screen.getAllByText("2")[0]).not.toBeNull();
+    const cueTargetSelect = screen.getByLabelText("next cue target");
+    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "2"]);
+    expect(cueTargetSelect.value).toBe("1");
     expect(screen.getByLabelText("next sequence step").disabled).toBe(true);
   });
 
@@ -1176,8 +1248,12 @@ describe("Sequencer", () => {
       />,
     );
 
-    const statuses = screen.getAllByText(/\((?:\d+)\)/);
-    expect(statuses.map((node) => node.textContent)).toEqual(["(2)", "(2)"]);
+    const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
+    const cueTargetSelect = screen.getByLabelText("next cue target");
+    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
+    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)", "3"]);
+    expect(snapshotTargetSelect.value).toBe("1");
+    expect(cueTargetSelect.value).toBe("1");
   });
 
 

@@ -1245,6 +1245,21 @@ const App = () => {
     snapshots.length,
   ]);
 
+  const onJumpSequenceSnapshot = useCallback((targetIndex) => {
+    const nextIndex = Number(targetIndex);
+    if (!Number.isFinite(nextIndex)) return;
+    playSequencePosition(nextIndex, null);
+  }, [playSequencePosition]);
+
+  const onJumpSequenceCue = useCallback((targetCueIndex) => {
+    const nextCueIndex = Number(targetCueIndex);
+    if (!Number.isFinite(nextCueIndex) || sequenceCueGroups.length === 0) return;
+    const safeCueIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, nextCueIndex));
+    const cueGroup = sequenceCueGroups[safeCueIndex];
+    if (!cueGroup) return;
+    playSequencePosition(cueGroup.snapshotIndex, safeCueIndex);
+  }, [playSequencePosition, sequenceCueGroups]);
+
   const onPlaySequence = useCallback(() => {
     if (!snapshots.length) return;
     if ((sequencePlayhead.stepIndex ?? -1) < 0 || (sequencePlayhead.stepIndex ?? -1) >= snapshots.length) {
@@ -2962,6 +2977,8 @@ const App = () => {
               onSelectSequenceBar={onSelectSequenceBar}
               onStepSequence={onStepSequence}
               onStepSequenceMarker={onStepSequenceMarker}
+              onJumpSequenceSnapshot={onJumpSequenceSnapshot}
+              onJumpSequenceCue={onJumpSequenceCue}
               onPlaySequence={onPlaySequence}
               onPlayCue={onPlaySequenceCue}
               onResetSequencePlayhead={onResetSequencePlayhead}

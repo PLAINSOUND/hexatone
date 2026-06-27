@@ -222,10 +222,11 @@ const SequenceLibrary = ({
   };
 
   const handleOpenFiles = async (e) => {
-    const files = Array.from(e.currentTarget.files ?? []).filter((file) => /\.json$/i.test(file.name));
+    const input = e.currentTarget;
+    const files = Array.from(input?.files ?? []).filter((file) => /\.json$/i.test(file.name));
     if (!files.length) {
       setError("No .json sequence files were selected.");
-      e.currentTarget.value = "";
+      if (input) input.value = "";
       return;
     }
 
@@ -244,7 +245,7 @@ const SequenceLibrary = ({
     const imported = parsedLists.flat();
     if (!imported.length) {
       setError("No valid sequences found in the selected files.");
-      e.currentTarget.value = "";
+      if (input) input.value = "";
       return;
     }
 
@@ -256,7 +257,15 @@ const SequenceLibrary = ({
     }
     commitSequences(next);
     setError("");
-    e.currentTarget.value = "";
+    if (!snapshotsPresent) {
+      const firstImportedName = imported[0]?.name ?? "";
+      if (firstImportedName) {
+        setSelectedName(firstImportedName);
+        setPendingLoadName("");
+        onLoadSequence(imported[0]);
+      }
+    }
+    if (input) input.value = "";
   };
 
   return (
