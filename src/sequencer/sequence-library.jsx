@@ -104,6 +104,12 @@ function sequenceRecordKey(record) {
   return JSON.stringify(record ?? null);
 }
 
+function sequenceRecordContentKey(record) {
+  if (!record || typeof record !== "object") return JSON.stringify(null);
+  const { name: _name, ...content } = record;
+  return JSON.stringify(content);
+}
+
 const SequenceLibrary = ({
   snapshots,
   bars,
@@ -142,16 +148,26 @@ const SequenceLibrary = ({
     () => savedSequences.find((sequence) => sequence.name === sequenceName) ?? null,
     [savedSequences, sequenceName],
   );
+  const matchingSavedSequence = useMemo(() => {
+    if (!workspaceRecord) return null;
+    const workspaceContentKey = sequenceRecordContentKey(workspaceRecord);
+    return savedSequences.find((sequence) => (
+      sequenceRecordContentKey(sequence) === workspaceContentKey
+    )) ?? null;
+  }, [savedSequences, workspaceRecord]);
   const isExisting = useMemo(
     () => savedSequences.some((sequence) => sequence.name === sequenceName),
     [savedSequences, sequenceName],
   );
   const hasUnsavedChanges = useMemo(() => {
     if (!workspaceRecord) return false;
-    if (!activeSavedSequence) return snapshotsPresent;
+    if (!activeSavedSequence) {
+      if (matchingSavedSequence) return false;
+      return snapshotsPresent;
+    }
     return sequenceRecordKey({ ...workspaceRecord, name: activeSavedSequence.name })
       !== sequenceRecordKey(activeSavedSequence);
-  }, [activeSavedSequence, snapshotsPresent, workspaceRecord]);
+  }, [activeSavedSequence, matchingSavedSequence, snapshotsPresent, workspaceRecord]);
   const saveLabel = isExisting && hasUnsavedChanges
     ? "Save current sequence and overwrite"
     : "Save current sequence";
@@ -173,8 +189,10 @@ const SequenceLibrary = ({
 
   const stashCurrentWorkspace = (sequences) => {
     if (!snapshotsPresent || !hasUnsavedChanges) return sequences;
+    if (matchingSavedSequence) return sequences;
     const takenNames = new Set(sequences.map((entry) => entry.name));
-    const stashName = uniqueSequenceName("User Sequence", takenNames);
+    const preferredName = sequenceName || "User Sequence";
+    const stashName = uniqueSequenceName(preferredName, takenNames);
     const record = buildWorkspaceRecord(stashName);
     if (!record) return sequences;
     return [...sequences, record];
@@ -192,6 +210,17 @@ const SequenceLibrary = ({
   const beginLoadSequence = (name) => {
     setSelectedName(name);
     if (!name) return;
+    const targetSequence = savedSequences.find((entry) => entry.name === name) ?? null;
+    if (!targetSequence) return;
+    if (workspaceRecord && sequenceRecordContentKey(workspaceRecord) === sequenceRecordContentKey(targetSequence)) {
+      setError("");
+      onLoadSequence(targetSequence);
+      return;
+    }
+    if (name === sequenceName) {
+      loadSequenceByName(name);
+      return;
+    }
     if (!snapshotsPresent) {
       loadSequenceByName(name);
       return;

@@ -197,9 +197,9 @@ describe("SequenceLibrary", () => {
     );
 
     const stored = loadUserSequences();
-    expect(stored.map((sequence) => sequence.name)).toEqual(["FALL", "User Sequence", "FALL 2"]);
+    expect(stored.map((sequence) => sequence.name)).toEqual(["FALL", "Current Working State", "FALL 2"]);
     expect(stored[1]).toEqual(expect.objectContaining({
-      name: "User Sequence",
+      name: "Current Working State",
       bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
     }));
   });
@@ -309,7 +309,103 @@ describe("SequenceLibrary", () => {
     );
 
     const stored = loadUserSequences();
-    expect(stored.map((sequence) => sequence.name)).toEqual(["Prompt Load", "User Sequence"]);
+    expect(stored.map((sequence) => sequence.name)).toEqual(["Prompt Load", "Current"]);
+  });
+
+  it("does not duplicate the active saved sequence when it is reselected", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      {
+        type: "hexatone-sequence",
+        version: 3,
+        name: "Current",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      },
+    ]));
+
+    const onLoadSequence = vi.fn();
+
+    render(
+      <SequenceLibrary
+        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        tempi={[]}
+        snapshotLabelMode="labels"
+        autoCreateBars
+        activeSequenceName="Current"
+        activeSequenceDescription=""
+        onLoadSequence={onLoadSequence}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), {
+      currentTarget: { value: "Current" },
+      target: { value: "Current" },
+    });
+
+    expect(onLoadSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Current" }),
+    );
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Current"]);
+  });
+
+  it("does not stash a matching saved sequence when the active name state is blank", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      {
+        type: "hexatone-sequence",
+        version: 3,
+        name: "Current",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      },
+      {
+        type: "hexatone-sequence",
+        version: 3,
+        name: "Other",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 10, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
+      },
+    ]));
+
+    const onLoadSequence = vi.fn();
+
+    render(
+      <SequenceLibrary
+        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        tempi={[]}
+        snapshotLabelMode="labels"
+        autoCreateBars
+        activeSequenceName=""
+        activeSequenceDescription=""
+        onLoadSequence={onLoadSequence}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), {
+      currentTarget: { value: "Other" },
+      target: { value: "Other" },
+    });
+
+    expect(onLoadSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Other" }),
+    );
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Current", "Other"]);
   });
 
   it("does not stash an unchanged saved sequence when selecting another stored sequence", () => {
