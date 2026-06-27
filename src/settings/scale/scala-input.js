@@ -19,6 +19,7 @@ import { normaliseDegree, parseScalaInterval } from "./parse-scale.js";
  *  onAnyChange   {(str) => void}      Called on every keystroke (optional).
  *  context       {'degree'|'interval'} Default 'degree'.
  *  style         {object}             Extra style for the <input>.
+ *  inputClass    {string}             CSS class for the <input>.
  *  wrapperStyle  {object}             Extra style for the outer <span> wrapper.
  *  wrapperClass  {string}             CSS class for the outer <span> wrapper.
  *  showCents     {boolean}            Show ¢ preview. Default true.
@@ -31,6 +32,7 @@ const ScalaInput = ({
   context = "degree",
   inputMode,
   style,
+  inputClass,
   wrapperStyle,
   wrapperClass,
   showCents = true,
@@ -88,6 +90,7 @@ const ScalaInput = ({
     >
       <input
         type="text"
+        class={inputClass}
         inputMode={resolvedInputMode}
         autoCapitalize="off"
         autoCorrect="off"

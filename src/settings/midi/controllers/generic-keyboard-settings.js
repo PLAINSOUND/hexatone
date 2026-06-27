@@ -17,15 +17,11 @@ const GenericKeyboardSettings = ({
   <>
     <label class="center-degree-row center-degree-label">
       Anchor Key → Central Degree ({centerDegree})
-      <span
-        class="sidebar-input"
-        style={{ display: "flex", gap: "4px", alignItems: "center", textAlign: "left" }}
-      >
+      <span class="sidebar-input settings-form__inline-fields settings-form__inline-fields--anchor">
         <button
           type="button"
-          class="preset-action-btn"
+          class="preset-action-btn settings-form__inline-button--nowrap"
           onClick={() => onChange("midiLearnAnchor", !midiLearnActive)}
-          style={{ whiteSpace: "nowrap", flexShrink: 0 }}
         >
           {midiLearnActive ? "● Listening…" : "Learn"}
         </button>
@@ -35,16 +31,7 @@ const GenericKeyboardSettings = ({
             type="text"
             inputMode="numeric"
             title="MIDI channel of anchor key (1-16)"
-            style={{
-              width: "2.2em",
-              textAlign: "center",
-              height: "1.5em",
-              boxSizing: "border-box",
-              background: "#faf9f8",
-              border: "1px solid #c8b8b8",
-              borderRadius: "3px",
-              flexShrink: 0,
-            }}
+            class="settings-form__compact-input settings-form__compact-input--channel"
             key={`generic-anchor-channel-${anchorChannel}`}
             defaultValue={anchorChannel}
             onKeyDown={(e) => {
@@ -65,17 +52,7 @@ const GenericKeyboardSettings = ({
           name="midiin_anchor_note"
           type="text"
           inputMode="numeric"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            width: "auto",
-            textAlign: "right",
-            height: "1.5em",
-            boxSizing: "border-box",
-            background: "#faf9f8",
-            border: "1px solid #c8b8b8",
-            borderRadius: "3px",
-          }}
+          class="settings-form__compact-input settings-form__compact-input--grow"
           key={`generic-central-degree-${centralDegreeSetting}`}
           defaultValue={centralNote}
           onKeyDown={(e) => {
@@ -96,7 +73,7 @@ const GenericKeyboardSettings = ({
 
     <label>
       2D Geometry
-      <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+      <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
         2D geometry is bypassed
       </span>
     </label>

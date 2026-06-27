@@ -73,12 +73,9 @@ const GeneralInputSettings = ({
     </label>
 
     {controllerInfo && (
-      <label style={{ fontStyle: "italic", color: "#996666", marginBottom: "0.5em" }}>
+      <label class="settings-form__description-label">
         {controllerInfo.name}
-        <span
-          class="sidebar-input"
-          style={{ textAlign: "right", fontSize: "0.85em", lineHeight: 1 }}
-        >
+        <span class="sidebar-input settings-form__description-value">
           {controllerInfo.description}
         </span>
       </label>

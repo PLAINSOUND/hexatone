@@ -884,6 +884,19 @@ td.scale-color-col .color-input {
   cursor: default;
 }
 
+.settings-form__sidebar-input--short {
+  width: 3.5em !important;
+}
+
+.settings-form__scala-input {
+  width: 5em;
+  text-align: center;
+  height: 1.5em;
+  box-sizing: border-box;
+  background: #faf9f8;
+  border-radius: 3px;
+}
+
 .settings-form__inline-note-hint {
   flex: 1;
   min-width: 0;
@@ -923,6 +936,10 @@ td.scale-color-col .color-input {
 
 .settings-form__status-value--warning-tight {
   margin: 0.2em 0;
+}
+
+.settings-form__status-value--inactive {
+  color: #888;
 }
 
 .settings-form__inline-label {
@@ -965,6 +982,11 @@ td.scale-color-col .color-input {
   gap: 6px;
 }
 
+.settings-form__control-row--compact {
+  margin-top: 0.25em;
+  margin-left: auto;
+}
+
 .settings-form__status-caption {
   font-size: 0.9em;
   color: #6b5a5a;
@@ -992,6 +1014,18 @@ td.scale-color-col .color-input {
 
 .settings-form__range-value--short {
   min-width: 2.5em;
+}
+
+.settings-form__exquis-slider-output {
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-form__section-top--compact {
+  margin-top: 0.3em;
+}
+
+.settings-form__dimmed {
+  opacity: 0.55;
 }
 
 #sidebar label.settings-form__checkbox-row--tight {

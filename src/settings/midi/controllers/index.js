@@ -309,6 +309,8 @@ const MIDIio = (props) => {
   const [devPadId, setDevPadId] = useState("0"); // pad ID for CMD 04 color test (0–60)
   const hasBasicMidi = !!props.midi;
   const hasSysexMidi = props.midiAccess === "sysex";
+  const useAlternateControllerDescription =
+    ctrl?.id === "exquis" && (scaleMode || !!props.settings.midi_passthrough);
 
   const deactivateLinnstrumentUserFirmwareNow = () => {
     deactivateLinnstrumentUserFirmware(
@@ -451,15 +453,6 @@ const MIDIio = (props) => {
             </>
           )}
 
-          {/* ── Controller description in scale mode ── */}
-          {scaleMode && ctrl?.descriptionScale && (
-            <label class="settings-form__description-label">
-              {ctrl.name}
-              <span class="sidebar-input settings-form__description-value">
-                {ctrl.descriptionScale}
-              </span>
-            </label>
-          )}
           {/* ── Known 2D controller / sequential anchor ── hidden in scale mode unless generic input still needs its anchor note. */}
           {(!scaleMode || genericBypassesGeometry) &&
             (ctrl ? (
@@ -480,7 +473,9 @@ const MIDIio = (props) => {
                 <label class="settings-form__description-label">
                   {ctrl.name}
                   <span class="sidebar-input settings-form__description-value">
-                    {ctrl.description}
+                    {(useAlternateControllerDescription ? ctrl.descriptionScale : ctrl.description) ||
+                      ctrl.description ||
+                      ctrl.descriptionScale}
                   </span>
                 </label>
                 {/* Anchor: the physical key whose MIDI note (and channel, for multi-channel
@@ -679,7 +674,7 @@ const MIDIio = (props) => {
                   />
                 )}
 
-                {ctrl?.id === "exquis" && !scaleMode && (
+                {ctrl?.id === "exquis" && (
                   <ExquisSettings
                     settings={props.settings}
                     rawPorts={props.exquisRawPorts}
@@ -687,6 +682,7 @@ const MIDIio = (props) => {
                     midiOutputs={props.midi?.outputs}
                     keysRef={props.keysRef}
                     hasSysexMidi={hasSysexMidi}
+                    appModeEnabled={!scaleMode && !props.settings.midi_passthrough}
                     onChange={props.onChange}
                   />
                 )}

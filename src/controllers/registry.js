@@ -994,7 +994,7 @@ export const CONTROLLER_REGISTRY = [
     name: "Exquis (Intuitive Instruments)",
     detect: (name) => name.includes("exquis"),
     description:
-      "61-note hexagonal grid. Hexatone maps layout, colours, and toggles MPE mode. Set Exquis' MPE Pitch Bend Range to 48 (Settings 2, Encoder 2).",
+      "61-note hexagonal grid. Hexatone maps layout, colours, and toggles MPE mode. Rotate 90° CW and set Exquis' MPE Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     descriptionScale:
       "61-note hexagonal grid. User may choose Exquis Layout and MPE/Polytouch mode manually on their device. Set Exquis Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     multiChannel: false,
@@ -1030,7 +1030,7 @@ export const CONTROLLER_REGISTRY = [
 
   {
     id: "generic",
-    name: "Generic Single-Channel Keyboard",
+    name: "Generic MIDI Keyboard",
     // Never auto-detected — selected manually via the controller override dropdown.
     detect: () => false,
     description:
@@ -1056,7 +1056,7 @@ export const CONTROLLER_REGISTRY = [
     // Never auto-detected — selected manually via the controller override dropdown.
     detect: () => false,
     description:
-      "Generic MPE input: incoming notes are matched to the nearest scale degree and per-channel expression is enabled.",
+      "Incoming notes are matched to the nearest scale degree and per-channel polyphonic expression is enabled.",
     multiChannel: false,
     mpe: true,
     anchorDefault: 60,

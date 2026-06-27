@@ -1905,7 +1905,10 @@ const App = () => {
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
   // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
   useEffect(() => {
-    const wantAppMode = !!exquisRawPorts && inputRuntime?.target !== "scale";
+    const wantAppMode =
+      !!exquisRawPorts &&
+      inputRuntime?.target !== "scale" &&
+      !settings.midi_passthrough;
 
     if (!wantAppMode) {
       if (exquisLedsRef.current) {
@@ -1951,7 +1954,7 @@ const App = () => {
       bindControllerLedRefs(keysRef.current, { exquis: null });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exquisRawPorts, inputRuntime?.target]); // exquis_led_* are constructor args, intentionally not re-triggering
+  }, [exquisRawPorts, inputRuntime?.target, settings.midi_passthrough]); // exquis_led_* are constructor args, intentionally not re-triggering
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.
@@ -1962,7 +1965,12 @@ const App = () => {
   }, [settings.midiin_mpe_input]);
 
   useEffect(() => {
-    if (!exquisRawPorts || inputRuntime?.target === "scale" || typeof document === "undefined") return;
+    if (
+      !exquisRawPorts ||
+      inputRuntime?.target === "scale" ||
+      settings.midi_passthrough ||
+      typeof document === "undefined"
+    ) return;
 
     const recoverExquisAppMode = () => {
       if (document.visibilityState && document.visibilityState !== "visible") return;
@@ -1976,7 +1984,7 @@ const App = () => {
       document.removeEventListener("visibilitychange", recoverExquisAppMode);
       window.removeEventListener("pageshow", recoverExquisAppMode);
     };
-  }, [exquisRawPorts, inputRuntime?.target]);
+  }, [exquisRawPorts, inputRuntime?.target, settings.midi_passthrough]);
 
   // ── Lumatone LED lifecycle ─────────────────────────────────────────────────
   // Mirrors the Exquis pattern: LumatoneLEDs lives here in app.jsx, not inside

@@ -1,6 +1,17 @@
 import PropTypes from "prop-types";
 import OutputPortPicker from "../output-port-picker.js";
 
+function ExquisAppModeStatus() {
+  return (
+    <label class="controller-inline-row controller-status-row">
+      App Mode
+      <span class="sidebar-input controller-status-value settings-form__status-value settings-form__status-value--inactive">
+        disabled
+      </span>
+    </label>
+  );
+}
+
 // This module owns the active Exquis controller-output UI in MIDI Input:
 // output-port status, auto-send controls, and LED brightness/saturation. It
 // does not own the dormant dev-mode test panel, which remains in index.js
@@ -12,21 +23,27 @@ const ExquisSettings = ({
   midiOutputs,
   keysRef,
   hasSysexMidi,
+  appModeEnabled,
   onChange,
 }) => {
+  if (!appModeEnabled) {
+    return <ExquisAppModeStatus />;
+  }
+
   const portConnected = !!rawPorts;
-  const isFailed = portConnected && ledStatus && !ledStatus.ok;
-  const statusText = !portConnected
-    ? "Not found (output port unavailable)"
-    : isFailed
-      ? `Firmware ${ledStatus.reason} found: please update to use key colours`
-      : `Connected — ${rawPorts.output.name}`;
+  const versionResponseTooOld =
+    portConnected &&
+    ledStatus &&
+    !ledStatus.ok &&
+    typeof ledStatus.reason === "string" &&
+    /^firmware /i.test(ledStatus.reason);
+  const appModeUnavailable = portConnected && ledStatus && !ledStatus.ok;
 
   return (
     <>
       <OutputPortPicker
-        label="LED Output"
-        rawPorts={isFailed ? null : rawPorts}
+        label="LED Output (App Mode)"
+        rawPorts={rawPorts}
         outputs={midiOutputs}
         overridePortId={settings.exquis_out_port ?? null}
         onChange={(id) => {
@@ -34,24 +51,16 @@ const ExquisSettings = ({
           sessionStorage.setItem("exquis_out_port", id ?? "");
         }}
       />
-      {isFailed && (
-        <span style={{ color: "#996666", fontSize: "0.85em", fontStyle: "italic" }}>
-          {statusText}
+      {versionResponseTooOld && (
+        <span class="settings-form__status-value settings-form__status-value--missing settings-form__status-value--warning-tight">
+          Please update the firmware on your Exquis
         </span>
       )}
-      {portConnected && !isFailed && (
+      {portConnected && !appModeUnavailable && (
         <>
           <label>
             Auto Send Colours
-            <span
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginLeft: "auto",
-                marginTop: "4px",
-              }}
-            >
+            <span class="settings-form__control-row settings-form__control-row--compact">
               <input
                 name="exquis_led_sync"
                 type="checkbox"
@@ -85,34 +94,20 @@ const ExquisSettings = ({
             </span>
           </label>
           {!hasSysexMidi && (
-            <p
-              style={{
-                color: "#996666",
-                fontSize: "0.85em",
-                margin: "0.25em 0 0.5em",
-              }}
-            >
+            <p class="settings-form__stacked-helper">
               <em>Allow SysEx to sync Exquis key colours.</em>
             </p>
           )}
           <label>
             LED Brightness
-            <span
-              class="sidebar-input"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                justifyContent: "flex-end",
-              }}
-            >
+            <span class="sidebar-input settings-form__range-row">
               <input
                 type="range"
                 min="0"
                 max="100"
                 step="1"
                 value={settings.exquis_led_luminosity ?? 15}
-                style={{ width: "100%" }}
+                class="settings-form__range-input"
                 onInput={(e) => {
                   const v = parseInt(e.target.value, 10);
                   onChange("exquis_led_luminosity", v);
@@ -120,36 +115,21 @@ const ExquisSettings = ({
                   keysRef?.current?.exquisLEDs?.setLuminosity(v);
                 }}
               />
-              <span
-                style={{
-                  fontVariantNumeric: "tabular-nums",
-                  minWidth: "2.5em",
-                  textAlign: "right",
-                  fontSize: "0.85em",
-                }}
-              >
+              <span class="settings-form__range-value settings-form__range-value--short settings-form__exquis-slider-output">
                 {settings.exquis_led_luminosity ?? 15}
               </span>
             </span>
           </label>
           <label>
             LED Saturation
-            <span
-              class="sidebar-input"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                justifyContent: "flex-end",
-              }}
-            >
+            <span class="sidebar-input settings-form__range-row">
               <input
                 type="range"
                 min="0.75"
                 max="2.5"
                 step="0.01"
                 value={settings.exquis_led_saturation ?? 1.3}
-                style={{ width: "100%" }}
+                class="settings-form__range-input"
                 onInput={(e) => {
                   const v = parseFloat(e.target.value);
                   onChange("exquis_led_saturation", v);
@@ -157,14 +137,7 @@ const ExquisSettings = ({
                   keysRef?.current?.exquisLEDs?.setSaturation(v);
                 }}
               />
-              <span
-                style={{
-                  fontVariantNumeric: "tabular-nums",
-                  minWidth: "2.5em",
-                  textAlign: "right",
-                  fontSize: "0.85em",
-                }}
-              >
+              <span class="settings-form__range-value settings-form__range-value--short settings-form__exquis-slider-output">
                 {(() => {
                   const v = settings.exquis_led_saturation ?? 1.3;
                   return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(2);
@@ -185,6 +158,7 @@ ExquisSettings.propTypes = {
   midiOutputs: PropTypes.object,
   keysRef: PropTypes.object,
   hasSysexMidi: PropTypes.bool.isRequired,
+  appModeEnabled: PropTypes.bool.isRequired,
   onChange: PropTypes.func.isRequired,
 };
 

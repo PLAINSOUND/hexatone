@@ -8,10 +8,11 @@ function LinnUserFirmwareStatus({ active }) {
     <label class="controller-inline-row controller-status-row">
       User Firmware Mode
       <span
-        class="sidebar-input controller-status-value"
-        style={{
-          color: active ? "#669966" : "#888",
-        }}
+        class={`sidebar-input controller-status-value settings-form__status-value${
+          active
+            ? " settings-form__status-value--connected"
+            : " settings-form__status-value--inactive"
+        }`}
       >
         {active ? "active" : "disabled"}
       </span>
@@ -74,7 +75,7 @@ const LinnstrumentSettings = ({
         {channelAllocation === "single_channel" && (
           <label title="Single Channel mode keeps all notes on one MIDI channel. Pitch bend here is mainly useful for monophonic playing, and the user can configure the device bend behaviour as preferred.">
             Pitch Bend
-            <span class="sidebar-input" style={{ color: "#888", fontStyle: "italic" }}>
+            <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
               Monophonic response
             </span>
           </label>
@@ -94,9 +95,8 @@ const LinnstrumentSettings = ({
 
     {showStatusBlock && userFirmwareEligible && (
       <>
-        <LinnUserFirmwareStatus active={true} />
         <OutputPortPicker
-          label="MIDI Output"
+          label="LED Output (User Firmware Mode)"
           rawPorts={rawPorts}
           outputs={midiOutputs}
           overridePortId={settings.linnstrument_out_port ?? null}
@@ -105,17 +105,9 @@ const LinnstrumentSettings = ({
             sessionStorage.setItem("linnstrument_out_port", id ?? "");
           }}
         />
-        <label style={{ marginTop: "0.3em" }}>
+        <label class="settings-form__section-top--compact">
           Auto Send Colours
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginLeft: "auto",
-              marginTop: "4px",
-            }}
-          >
+          <span class="settings-form__control-row settings-form__control-row--compact">
             <input
               name="linnstrument_led_sync"
               type="checkbox"
@@ -168,18 +160,10 @@ const LinnstrumentSettings = ({
 
         <label
           title="Controls how continuous LinnStrument row glide feels. 0 is linear glide across the pad. 100 keeps most of the pad on the current note, with fast near-stepped transitions and a small shared seam pitch near pad boundaries."
-          style={pitchBendMode === "follow_scale_geometry" ? undefined : { opacity: 0.55 }}
+          class={pitchBendMode === "follow_scale_geometry" ? "" : "settings-form__dimmed"}
         >
           Row Glide Shaping
-          <span
-            class="sidebar-input"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              justifyContent: "flex-end",
-            }}
-          >
+          <span class="sidebar-input settings-form__range-row">
             <input
               type="range"
               min="0"
@@ -187,7 +171,7 @@ const LinnstrumentSettings = ({
               step="1"
               value={pitchBendShape}
               disabled={pitchBendMode !== "follow_scale_geometry"}
-              style={{ width: "100%" }}
+              class="settings-form__range-input"
               onInput={(e) => {
                 const parsed = parseInt(e.target.value, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 50 : parsed));
@@ -201,14 +185,7 @@ const LinnstrumentSettings = ({
                 );
               }}
             />
-            <span
-              style={{
-                fontVariantNumeric: "tabular-nums",
-                minWidth: "2.5em",
-                textAlign: "right",
-                fontSize: "0.85em",
-              }}
-            >
+            <span class="settings-form__range-value settings-form__range-value--short">
               {pitchBendShape}
             </span>
           </span>
@@ -216,18 +193,10 @@ const LinnstrumentSettings = ({
 
         <label
           title="Rejects noisy LinnStrument User Firmware X-position spikes before they become pitch warble. 0 leaves the raw X data untouched; 100 all but ignores the UF X LSB, effectively holding X to its coarse MSB bucket."
-          style={pitchBendMode === "follow_scale_geometry" ? undefined : { opacity: 0.55 }}
+          class={pitchBendMode === "follow_scale_geometry" ? "" : "settings-form__dimmed"}
         >
           X Spike Reduction
-          <span
-            class="sidebar-input"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              justifyContent: "flex-end",
-            }}
-          >
+          <span class="sidebar-input settings-form__range-row">
             <input
               type="range"
               min="0"
@@ -235,7 +204,7 @@ const LinnstrumentSettings = ({
               step="1"
               value={xSpikeReduction}
               disabled={pitchBendMode !== "follow_scale_geometry"}
-              style={{ width: "100%" }}
+              class="settings-form__range-input"
               onInput={(e) => {
                 const parsed = parseInt(e.target.value, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 50 : parsed));
@@ -249,14 +218,7 @@ const LinnstrumentSettings = ({
                 );
               }}
             />
-            <span
-              style={{
-                fontVariantNumeric: "tabular-nums",
-                minWidth: "2.5em",
-                textAlign: "right",
-                fontSize: "0.85em",
-              }}
-            >
+            <span class="settings-form__range-value settings-form__range-value--short">
               {xSpikeReduction}
             </span>
           </span>
@@ -264,18 +226,10 @@ const LinnstrumentSettings = ({
 
         <label
           title="Applies event-driven smoothing to accepted LinnStrument User Firmware X input after spike rejection. 0 is raw accepted X. Higher values average successive accepted X samples more heavily without relying on timers or animation frames."
-          style={pitchBendMode === "follow_scale_geometry" ? undefined : { opacity: 0.55 }}
+          class={pitchBendMode === "follow_scale_geometry" ? "" : "settings-form__dimmed"}
         >
           X Input Smoothing
-          <span
-            class="sidebar-input"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              justifyContent: "flex-end",
-            }}
-          >
+          <span class="sidebar-input settings-form__range-row">
             <input
               type="range"
               min="0"
@@ -283,7 +237,7 @@ const LinnstrumentSettings = ({
               step="1"
               value={xInputSmoothing}
               disabled={pitchBendMode !== "follow_scale_geometry"}
-              style={{ width: "100%" }}
+              class="settings-form__range-input"
               onInput={(e) => {
                 const parsed = parseInt(e.target.value, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
@@ -297,14 +251,7 @@ const LinnstrumentSettings = ({
                 );
               }}
             />
-            <span
-              style={{
-                fontVariantNumeric: "tabular-nums",
-                minWidth: "2.5em",
-                textAlign: "right",
-                fontSize: "0.85em",
-              }}
-            >
+            <span class="settings-form__range-value settings-form__range-value--short">
               {xInputSmoothing}
             </span>
           </span>
@@ -325,14 +272,7 @@ const LinnstrumentSettings = ({
                 saveControllerPref(null, "midiin_bend_range", str);
               }}
               wrapperClass="sidebar-input"
-              style={{
-                width: "5em",
-                textAlign: "center",
-                height: "1.5em",
-                boxSizing: "border-box",
-                background: "#faf9f8",
-                borderRadius: "3px",
-              }}
+              inputClass="settings-form__scala-input"
             />
           </label>
         ) : (
@@ -349,14 +289,7 @@ const LinnstrumentSettings = ({
                   saveControllerPref(null, "midiin_bend_range", str);
                 }}
                 wrapperClass="sidebar-input"
-                style={{
-                  width: "5em",
-                  textAlign: "center",
-                  height: "1.5em",
-                  boxSizing: "border-box",
-                  background: "#faf9f8",
-                  borderRadius: "3px",
-                }}
+                inputClass="settings-form__scala-input"
               />
             </label>
           ) : (
@@ -366,7 +299,7 @@ const LinnstrumentSettings = ({
                 type="number"
                 min="0"
                 max="48"
-                style={{ width: "3.5em" }}
+                class="settings-form__sidebar-input--short"
                 value={settings.midi_wheel_semitones ?? 2}
                 onChange={(e) => {
                   const parsed = parseInt(e.target.value, 10);

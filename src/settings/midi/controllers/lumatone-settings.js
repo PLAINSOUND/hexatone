@@ -212,7 +212,7 @@ const LumatoneSettings = ({
   return (
     <>
       <OutputPortPicker
-        label="LED Output"
+        label="LED Output (SysEx)"
         rawPorts={rawPorts}
         outputs={midiOutputs}
         overridePortId={settings.lumatone_out_port ?? null}

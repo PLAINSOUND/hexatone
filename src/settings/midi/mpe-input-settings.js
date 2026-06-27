@@ -93,8 +93,7 @@ const MpeInputSettings = ({
       <input
         type="text"
         inputMode="numeric"
-        class="sidebar-input"
-        style={{ width: "3.5em" }}
+        class="sidebar-input settings-form__sidebar-input--short"
         key={visibleBendRange}
         defaultValue={visibleBendRange}
         onKeyDown={(e) => {

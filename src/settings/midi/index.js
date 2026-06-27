@@ -303,11 +303,16 @@ const MIDIio = (props) => {
   const [devPadId, setDevPadId] = useState("0"); // pad ID for CMD 04 color test (0–60)
   const hasBasicMidi = !!props.midi;
   const hasSysexMidi = props.midiAccess === "sysex";
+  const useAlternateControllerDescription =
+    ctrl?.id === "exquis" && (scaleMode || !!props.settings.midi_passthrough);
   const controllerInfo =
     ctrl && (ctrl.description || ctrl.descriptionScale)
       ? {
         name: ctrl.name,
-        description: ctrl.description || ctrl.descriptionScale,
+        description:
+          (useAlternateControllerDescription ? ctrl.descriptionScale : ctrl.description) ||
+          ctrl.description ||
+          ctrl.descriptionScale,
       }
       : null;
 
@@ -685,7 +690,7 @@ const MIDIio = (props) => {
                   />
                 )}
 
-                {ctrl?.id === "exquis" && !scaleMode && (
+                {ctrl?.id === "exquis" && (
                   <ExquisSettings
                     settings={props.settings}
                     rawPorts={props.exquisRawPorts}
@@ -693,6 +698,7 @@ const MIDIio = (props) => {
                     midiOutputs={props.midi?.outputs}
                     keysRef={props.keysRef}
                     hasSysexMidi={hasSysexMidi}
+                    appModeEnabled={!scaleMode && !props.settings.midi_passthrough}
                     onChange={props.onChange}
                   />
                 )}

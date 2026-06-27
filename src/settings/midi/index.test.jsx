@@ -514,4 +514,39 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByText("LED Saturation")).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: /Auto Send Colours/ })).toBeTruthy();
   });
+
+  it("shows the alternate Exquis description in nearest-scale mode", () => {
+    const props = makeProps({
+      midiin_controller_override: "exquis",
+      midiin_mapping_target: "scale",
+      midiin_mpe_input: true,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Exquis" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText(/User may choose Exquis Layout and MPE\/Polytouch mode manually/)).toBeTruthy();
+    expect(screen.queryByText(/Hexatone maps layout, colours, and toggles MPE mode/)).toBeNull();
+  });
+
+  it("shows the alternate Exquis description in sequential mode", () => {
+    const props = makeProps({
+      midiin_controller_override: "exquis",
+      midiin_mapping_target: "hex_layout",
+      midi_passthrough: true,
+      midiin_mpe_input: true,
+    });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Exquis" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByText(/User may choose Exquis Layout and MPE\/Polytouch mode manually/)).toBeTruthy();
+    expect(screen.queryByText(/Hexatone maps layout, colours, and toggles MPE mode/)).toBeNull();
+  });
 });

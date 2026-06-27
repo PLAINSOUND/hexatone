@@ -196,7 +196,7 @@ describe("LumatoneSettings", () => {
       />,
     );
 
-    expect(screen.getByText("LED Output")).toBeTruthy();
+    expect(screen.getByText("LED Output (SysEx)")).toBeTruthy();
     expect(screen.getByText("2D Bypass Key Layout")).toBeTruthy();
     expect(screen.getByText("Send Layout and Colours")).toBeTruthy();
     expect(screen.queryByText("Send Blank Layout")).toBeNull();
