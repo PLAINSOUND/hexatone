@@ -380,7 +380,7 @@ const SequenceLibrary = ({
         onChange={handleOpenFiles}
       />
 
-      <div class="preset-actions" style={{ marginTop: 4 }}>
+      <div class="preset-actions preset-actions--sequence-library" style={{ marginTop: 4 }}>
         <button
           type="button"
           class="preset-action-btn"
@@ -390,12 +390,11 @@ const SequenceLibrary = ({
         </button>
         {savedSequences.length > 0 &&
           (confirmClear ? (
-            <span>
-              <em>Clear all user sequences?&nbsp;</em>
+            <span class="preset-actions__confirm">
+              <em class="preset-actions__confirm-text">Clear all user sequences?</em>
               <button type="button" class="delete-btn" onClick={handleClearConfirmed}>
                 Yes, clear
               </button>
-              &nbsp;
               <button type="button" onClick={() => setConfirmClear(false)}>
                 Cancel
               </button>

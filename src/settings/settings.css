@@ -723,9 +723,27 @@ td.scale-color-col .color-input {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
+  align-items: center;
   gap: 0.4rem;
   margin-top: 0.125em;
   line-height: 1.5em;
+}
+
+.preset-actions--sequence-library {
+  min-height: calc(1.5em + 0.2em + 2px);
+}
+
+.preset-actions__confirm {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-left: auto;
+  min-height: calc(1.5em + 0.2em + 2px);
+}
+
+.preset-actions__confirm-text {
+  line-height: 1.2;
 }
 
 /* Shared style for all sidebar action buttons (Open, Save, Export, Copy…) */
