@@ -34,6 +34,11 @@ function formatMidicents(value) {
   return value.toFixed(3);
 }
 
+function formatEditableMidicents(value) {
+  if (!Number.isFinite(value)) return "--";
+  return value.toFixed(6);
+}
+
 function displayValue(value) {
   return value == null ? "--" : String(value);
 }
@@ -1351,6 +1356,7 @@ const Sequencer = ({
             onFocus={(e) => {
               e.stopPropagation();
               delete e.currentTarget.dataset.lastCommittedValue;
+              e.currentTarget.value = formatEditableMidicents(event.midicents);
               e.currentTarget.select();
             }}
             onKeyDown={(e) => handleEnterCommit(
@@ -1360,6 +1366,12 @@ const Sequencer = ({
             onBlur={(e) => handleBlurCommit(
               e,
               (value) => updateEventField(snapshot, event.noteKey, "midicents", value),
+              () => {
+                const next = Number(e.currentTarget.value);
+                e.currentTarget.value = Number.isFinite(next)
+                  ? formatMidicents(next)
+                  : formatMidicents(event.midicents);
+              },
             )}
           />
         </div>
@@ -1400,7 +1412,7 @@ const Sequencer = ({
         </div>
         {eventPane === "timing" ? (
           <>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-timing-bar`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1426,7 +1438,7 @@ const Sequencer = ({
                 }}
               />
             </div>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-timing-beat`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1452,7 +1464,7 @@ const Sequencer = ({
                 }}
               />
             </div>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-timing-num`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1478,7 +1490,7 @@ const Sequencer = ({
                 }}
               />
             </div>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-timing-den`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="number"
                 step="1"
@@ -1507,7 +1519,7 @@ const Sequencer = ({
           </>
         ) : (
           <>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-expression-onvel`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"
@@ -1530,7 +1542,7 @@ const Sequencer = ({
                 )}
               />
             </div>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-expression-offvel`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"
@@ -1553,7 +1565,7 @@ const Sequencer = ({
                 )}
               />
             </div>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-expression-pressure`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"
@@ -1576,7 +1588,7 @@ const Sequencer = ({
                 )}
               />
             </div>
-            <div class="sequencer-event__cell sequencer-grid-offset">
+            <div key={`${event.eventId}-expression-timbre`} class="sequencer-event__cell sequencer-grid-offset">
               <input
                 type="text"
                 class="sequencer-event__input"

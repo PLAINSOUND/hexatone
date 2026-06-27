@@ -120,6 +120,7 @@ const MIDIio = (props) => {
     !ctrl || ctrl.multiChannel || ctrl.supportsSequentialChannelOffset;
   const isLinnstrument = ctrl?.id === "linnstrument";
   const isHakenContinuum = ctrl?.id === "hakenaudio";
+  const isGenericMpeController = ctrl?.id === "generic_mpe";
   const linnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
     controllerId: ctrl?.id ?? null,
     scaleMode,
@@ -132,16 +133,20 @@ const MIDIio = (props) => {
         ? "channel_per_note"
         : "single_channel"))
     : null;
+  const showMpeInputControls = autoUnknownController || (!isLinnstrument && (!ctrl || ctrl.mpe));
+  const mpeInputEnabled =
+    isHakenContinuum ||
+    isGenericMpeController ||
+    (showMpeInputControls && !!props.settings.midiin_mpe_input);
   const showChannelTransposeLinnstrumentOverride =
     isLinnstrument && linnstrumentChannelAllocation === "channel_per_row";
   const showChannelTranspose =
     !scaleMode &&
     !using2DMap &&
-    !props.settings.midiin_mpe_input &&
+    !mpeInputEnabled &&
     isMultiChannelSequential &&
     (!isLinnstrument || showChannelTransposeLinnstrumentOverride || stepsMode !== "none");
   const linnstrumentUserFirmwareActiveUi = linnstrumentUserFirmwareEligible;
-  const showMpeInputControls = autoUnknownController || (!isLinnstrument && (!ctrl || ctrl.mpe));
   const mpeInputPrefsController = ctrl;
   const linnstrumentBypassNonMpeUi =
     isLinnstrument &&
@@ -360,45 +365,47 @@ const MIDIio = (props) => {
               See claude-context/midi-input-ux.md for the full visibility spec. */}
           {showMpeInputControls && (
             <>
-              <label>
-                Enable MPE Input
-                <input
-                  name="midiin_mpe_input"
-                  type="checkbox"
-                  checked={!!props.settings.midiin_mpe_input}
-                  onChange={(e) => {
-                    props.onChange("midiin_mpe_input", e.target.checked);
-                    if (
-                      e.target.checked &&
-                      !linnstrumentBypassMpeUi &&
-                      !ctrl?.mpeVoiceChannels
-                    ) {
-                      applyConfigurableMpeDefaults();
-                    }
-                    if (
-                      ctrl?.id === "linnstrument" &&
-                      props.settings.midi_passthrough &&
-                      e.target.checked
-                    ) {
-                      applyLinnstrumentMpeDefaults();
-                    }
-                    if (
-                      ctrl?.id === "linnstrument" &&
-                      props.settings.midi_passthrough &&
-                      !e.target.checked
-                    ) {
-                      applyLinnstrumentBypassNonMpeDefaults();
-                    }
-                    saveControllerPref(
-                      mpeInputPrefsController,
-                      "midiin_mpe_input",
-                      e.target.checked,
-                      props.settings,
-                      { midiin_mpe_input: e.target.checked },
-                    );
-                  }}
-                />
-              </label>
+              {!isGenericMpeController && (
+                <label>
+                  Enable MPE Input
+                  <input
+                    name="midiin_mpe_input"
+                    type="checkbox"
+                    checked={mpeInputEnabled}
+                    onChange={(e) => {
+                      props.onChange("midiin_mpe_input", e.target.checked);
+                      if (
+                        e.target.checked &&
+                        !linnstrumentBypassMpeUi &&
+                        !ctrl?.mpeVoiceChannels
+                      ) {
+                        applyConfigurableMpeDefaults();
+                      }
+                      if (
+                        ctrl?.id === "linnstrument" &&
+                        props.settings.midi_passthrough &&
+                        e.target.checked
+                      ) {
+                        applyLinnstrumentMpeDefaults();
+                      }
+                      if (
+                        ctrl?.id === "linnstrument" &&
+                        props.settings.midi_passthrough &&
+                        !e.target.checked
+                      ) {
+                        applyLinnstrumentBypassNonMpeDefaults();
+                      }
+                      saveControllerPref(
+                        mpeInputPrefsController,
+                        "midiin_mpe_input",
+                        e.target.checked,
+                        props.settings,
+                        { midiin_mpe_input: e.target.checked },
+                      );
+                    }}
+                  />
+                </label>
+              )}
 
               {linnstrumentBypassMpeUi && (
                 <MpeInputSettings
@@ -410,7 +417,7 @@ const MIDIio = (props) => {
                 />
               )}
 
-              {props.settings.midiin_mpe_input &&
+              {mpeInputEnabled &&
                 !linnstrumentBypassMpeUi &&
                 !!configurableMpeMemberChannelBounds && (
                 <MpeInputSettings
@@ -422,7 +429,7 @@ const MIDIio = (props) => {
                 />
               )}
               {/* MPE currently listens on all channels; range display is informational. */}
-              {props.settings.midiin_mpe_input &&
+              {mpeInputEnabled &&
                 !linnstrumentBypassMpeUi &&
                 !ctrl?.mpeVoiceChannels &&
                 !configurableMpeMemberChannelBounds && (
@@ -433,7 +440,7 @@ const MIDIio = (props) => {
                   </span>
                 </label>
               )}
-              {props.settings.midiin_mpe_input && !linnstrumentBypassMpeUi && ctrl?.mpeVoiceChannels && (
+              {mpeInputEnabled && !linnstrumentBypassMpeUi && ctrl?.mpeVoiceChannels && (
                 <label title="Controller range is informational; Hexatone currently accepts MPE voice data on all channels.">
                   Voice channels
                   <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
@@ -465,7 +472,7 @@ const MIDIio = (props) => {
                   centralDegreeSetting={props.settings.midiin_anchor_note}
                   anchorChannel={props.settings.midiin_anchor_channel ?? 1}
                   midiLearnActive={props.midiLearnActive}
-                  showAnchorChannel={!props.settings.midiin_mpe_input}
+                  showAnchorChannel={!mpeInputEnabled}
                   onChange={props.onChange}
                 />
               ) : (
@@ -481,7 +488,7 @@ const MIDIio = (props) => {
                   Used in both 2D-map mode and bypass mode. */}
                 <label class="center-degree-row center-degree-label">
                   Anchor Key → Central Degree ({center_degree})
-                  <span class="sidebar-input settings-form__inline-fields">
+                  <span class="sidebar-input settings-form__inline-fields settings-form__inline-fields--anchor">
                     <button
                       type="button"
                       class="preset-action-btn settings-form__inline-button--nowrap"
@@ -498,7 +505,7 @@ const MIDIio = (props) => {
                       mode (channels are per-voice, not layout-encoding in that case).
                       Editable for multi-channel controllers (e.g. Lumatone);
                       greyed-out fixed "1" for single-channel controllers (e.g. AXIS-49). */}
-                    {ctrl && !linnstrumentBypassMpeUi && !props.settings.midiin_mpe_input &&
+                    {ctrl && !linnstrumentBypassMpeUi && !mpeInputEnabled &&
                       (ctrl.anchorChannelDefault != null ? (
                         <input
                         name="midiin_anchor_channel"
@@ -988,7 +995,7 @@ const MIDIio = (props) => {
               <>
                 <label class="center-degree-row center-degree-label">
                   Anchor Note → Central Degree ({center_degree})
-                  <span class="sidebar-input settings-form__inline-fields">
+                  <span class="sidebar-input settings-form__inline-fields settings-form__inline-fields--anchor">
                     <button
                       type="button"
                       class="preset-action-btn settings-form__inline-button--nowrap"
@@ -996,7 +1003,7 @@ const MIDIio = (props) => {
                     >
                       {props.midiLearnActive ? "● Listening…" : "Learn"}
                     </button>
-                    {!props.settings.midiin_mpe_input && !linnstrumentBypassMpeUi && (
+                    {!mpeInputEnabled && !linnstrumentBypassMpeUi && (
                       <input
                         name="midiin_anchor_channel"
                         type="text"

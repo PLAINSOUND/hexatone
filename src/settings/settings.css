@@ -830,9 +830,20 @@ td.scale-color-col .color-input {
   text-align: left;
 }
 
+.settings-form__inline-fields--anchor {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
 .settings-form__inline-button--nowrap {
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+#sidebar .preset-action-btn.settings-form__inline-button--nowrap,
+#sidebar .preset-utility-btn.settings-form__inline-button--nowrap {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .settings-form__compact-input {
@@ -845,6 +856,7 @@ td.scale-color-col .color-input {
 
 .settings-form__compact-input--channel {
   width: 2.2em;
+  min-width: 2.2em;
   text-align: center;
   flex-shrink: 0;
 }
@@ -854,6 +866,16 @@ td.scale-color-col .color-input {
   min-width: 0;
   width: auto;
   text-align: right;
+}
+
+#sidebar input[type="text"].settings-form__compact-input--channel {
+  width: 2.2em;
+  min-width: 2.2em;
+}
+
+#sidebar input[type="text"].settings-form__compact-input--grow {
+  width: auto;
+  flex: 1 1 auto;
 }
 
 .settings-form__compact-input--disabled {
@@ -873,6 +895,10 @@ td.scale-color-col .color-input {
   font-size: 0.85em;
 }
 
+.settings-form__value--grow {
+  flex: 1;
+}
+
 .settings-form__picker-row {
   cursor: pointer;
 }
@@ -889,6 +915,93 @@ td.scale-color-col .color-input {
 
 .settings-form__status-value--missing {
   color: #996666;
+}
+
+.settings-form__status-value--warning {
+  color: #cc4400;
+}
+
+.settings-form__status-value--warning-tight {
+  margin: 0.2em 0;
+}
+
+.settings-form__inline-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: 1;
+}
+
+.settings-form__label-nowrap {
+  white-space: nowrap;
+}
+
+.settings-form__picker-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+}
+
+.settings-form__stacked-helper {
+  margin: 0.25em 0 0.5em;
+  color: #996666;
+  font-size: 0.85em;
+}
+
+.settings-form__stacked-helper--tight {
+  margin: 0.25em 0;
+}
+
+.settings-form__intro-copy {
+  margin-top: 0.5em;
+}
+
+.settings-form__control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5em;
+  gap: 6px;
+}
+
+.settings-form__status-caption {
+  font-size: 0.9em;
+  color: #6b5a5a;
+  margin-top: -0.25em;
+  margin-bottom: 0.35em;
+}
+
+.settings-form__range-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.settings-form__range-input {
+  flex: 1;
+  width: 100%;
+}
+
+.settings-form__range-value {
+  font-variant-numeric: tabular-nums;
+  min-width: 5.2em;
+  text-align: right;
+  font-size: 0.85em;
+}
+
+.settings-form__range-value--short {
+  min-width: 2.5em;
+}
+
+#sidebar label.settings-form__checkbox-row--tight {
+  margin-top: -0.1em;
+}
+
+.settings-form__state-btn--connected {
+  background: #22cc44;
+  color: #003300;
+  border-color: #22cc44;
 }
 
 /* Shared style for all sidebar action buttons (Open, Save, Export, Copy…) */
@@ -2563,6 +2676,8 @@ td.scale-color-col .color-input {
   flex: 0 1 22em;
   width: 22em;
   min-width: 0;
+  text-align: right;
+  text-align-last: right;
 }
 
 .lumatone-filter-move-group {
@@ -2712,6 +2827,13 @@ td.scale-name-col input { width: 100%; }
 .reference-degree-label,
 .center-degree-label {
   border-radius: var(--btn-radius-square);
+  align-items: center;
+  flex-wrap: nowrap;
+  column-gap: 0.5em;
+}
+
+.center-degree-label > .sidebar-input.settings-form__inline-fields--anchor {
+  margin-left: auto;
 }
 
 .reference-degree-row input:not(:disabled),

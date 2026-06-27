@@ -96,10 +96,10 @@ function OutputPortPicker({ label, portName, outputs, overridePortId, onChange }
 
   if (picking) {
     return (
-      <span style={{ display: "flex", alignItems: "baseline", gap: "4px", flex: 1 }}>
-        <span style={{ whiteSpace: "nowrap" }}>{label}</span>
+        <span class="settings-form__inline-label">
+        <span class="settings-form__label-nowrap">{label}</span>
         <select
-          style={{ fontSize: "0.85em", flex: 1 }}
+          class="settings-form__value--compact settings-form__value--grow"
           value={overridePortId ?? "__auto__"}
           onChange={(e) => {
             const val = e.target.value === "__auto__" ? null : e.target.value;
@@ -120,12 +120,18 @@ function OutputPortPicker({ label, portName, outputs, overridePortId, onChange }
 
   return (
     <span
-      style={{ display: "flex", alignItems: "baseline", gap: "6px", flex: 1, cursor: "pointer" }}
+      class="settings-form__picker-inline settings-form__picker-row"
       title="Click to choose a different output port"
       onClick={() => setPicking(true)}
     >
       <span>{label}</span>
-      <span style={{ fontSize: "0.85em", fontStyle: "italic", color: connected ? "#669966" : "#996666" }}>
+      <span
+        class={`settings-form__status-value ${
+          connected
+            ? "settings-form__status-value--connected"
+            : "settings-form__status-value--missing"
+        }`}
+      >
         {connected
           ? `${isOverride ? "▸ " : ""}${portName}`
           : "Not found — click to choose"}
@@ -153,12 +159,6 @@ const MidiOutputs = (props) => {
   const [oscQuickReleaseTime, setOscQuickReleaseTime] = useState(
     readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
   );
-  const oscValueStyle = {
-    fontVariantNumeric: "tabular-nums",
-    minWidth: "5.2em",
-    textAlign: "right",
-    fontSize: "0.85em",
-  };
   const masterCh = settings.midiin_mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
@@ -247,7 +247,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p style={{ marginTop: 0.5 }}>
+      <p class="settings-form__intro-copy">
         <em>
           The <a href="/midituning.html">MIDI Tuning Standard</a> uses sysex messages to modify the
           tuning of each MIDI note. The free{" "}
@@ -259,7 +259,7 @@ const MidiOutputs = (props) => {
       {settings.output_mts && (
         <>
           {!hasSysexMidi && (
-            <p style={{ color: "#996666", fontSize: "0.85em", margin: "0.25em 0 0.5em" }}>
+            <p class="settings-form__stacked-helper">
               <em>Choose “Allow” for SysEx to use MTS tuning messages.</em>
             </p>
           )}
@@ -283,7 +283,7 @@ const MidiOutputs = (props) => {
           {settings.midi_device && settings.midi_device !== "OFF" && (
             <>
               {settings.midi_mapping === "MTS_BULK" && (
-                <p style={{ fontSize: "0.85em", color: "#996666", margin: "0.25em 0" }}>
+                <p class="settings-form__stacked-helper settings-form__stacked-helper--tight">
                   <em>
                     Sends plain MIDI notes using the hex layout. Pre-sends a non-real-time 128-note
                     tuning map so synths like the Prophet&#x2011;5 play microtonally. Enable
@@ -361,7 +361,7 @@ const MidiOutputs = (props) => {
                 fire a second synthetic click on the button (via the label's implicit
                 control activation), which arrives after Preact re-renders with
                 fsConnected=true and immediately triggers the Disconnect branch. */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.5em", gap: "6px" }}>
+              <div class="settings-form__control-row">
                 <OutputPortPicker
                   label="FluidSynth"
                   portName={fluidsynthOutput?.name ?? null}
@@ -371,9 +371,8 @@ const MidiOutputs = (props) => {
                 />
                 <button
                   type="button"
-                  class="preset-action-btn"
+                  class={fsConnected ? "preset-action-btn settings-form__state-btn--connected" : "preset-action-btn"}
                   disabled={(!fluidsynthFound && !fsConnected) || (!!fluidsynthFound && mtsPortIsFluidsynth && !fsConnected)}
-                  style={fsConnected ? { background: "#22cc44", color: "#003300", borderColor: "#22cc44" } : undefined}
                   onClick={() => {
                     if (fsConnected) {
                       save("fluidsynth_device", "", onChange);
@@ -437,33 +436,18 @@ const MidiOutputs = (props) => {
                         ))}
                     </select>
                   </label>
-                  <div
-                    style={{
-                      fontSize: "0.9em",
-                      color: "#6b5a5a",
-                      marginTop: "-0.25em",
-                      marginBottom: "0.35em",
-                    }}
-                  >
+                  <div class="settings-form__status-caption">
                     {`Tuning Map Number = ${(settings.fluidsynth_channel ?? 0) + 1}`}
                   </div>
                   <label>
                     FluidSynth Volume
-                    <span
-                      class="sidebar-input"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        justifyContent: "flex-end",
-                      }}
-                    >
+                    <span class="sidebar-input settings-form__range-row">
                       <input
                         type="range"
                         min="0"
                         max="127"
                         step="1"
-                        style={{ width: "100%" }}
+                        class="settings-form__range-input"
                         defaultValue={parseInt(
                           localStorage.getItem("fluidsynth_volume_pref") ?? "127",
                         )}
@@ -476,20 +460,13 @@ const MidiOutputs = (props) => {
                           }
                         }}
                       />
-                      <span
-                        style={{
-                          fontVariantNumeric: "tabular-nums",
-                          minWidth: "2.5em",
-                          textAlign: "right",
-                          fontSize: "0.85em",
-                        }}
-                      >
+                      <span class="settings-form__range-value settings-form__range-value--short">
                         {fsVolume}
                       </span>
                     </span>
                   </label>
                   {mtsPortIsFluidsynth && (
-                    <p style={{ color: "#cc4400", fontSize: "0.85em", margin: "0.2em 0" }}>
+                    <p class="settings-form__status-value settings-form__status-value--warning settings-form__status-value--warning-tight">
                       ⚠ Main MTS port is FluidSynth — mirror disabled to prevent doubling.
                     </p>
                   )}
@@ -514,7 +491,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p style={{ marginTop: 0.5 }}>
+      <p class="settings-form__intro-copy">
         <em>
           Old-school non-real-time 128 note mapping. Two modes are available: Dynamic emulates
           real-time MTS by sending a new map before each note on, performance depends on synth.
@@ -585,15 +562,7 @@ const MidiOutputs = (props) => {
               {settings.mts_bulk_mode === "static" && (
                 <label>
                   Auto-Send Static Map
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      marginLeft: "auto",
-                      marginTop: "4px",
-                    }}
-                  >
+                  <span class="settings-form__checkbox-row settings-form__checkbox-row--md">
                     <input
                       name="mts_bulk_sysex_auto"
                       type="checkbox"
@@ -692,7 +661,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p style={{ marginTop: 0.5 }}>
+      <p class="settings-form__intro-copy">
         <em>
           <a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a>{" "}
           allows per-note polyphonic bend and modulation with limited polyphony.
@@ -767,14 +736,7 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
-                <span
-                  class="sidebar-input"
-                  style={{
-                    textAlign: "right",
-                    color: "#996666",
-                    fontSize: "0.85em",
-                  }}
-                >
+                <span class="sidebar-input settings-form__helper-text settings-form__description-value">
                   {loCh}–{hiCh} ({hiCh - loCh + 1} voices)
                 </span>
               </label>
@@ -829,7 +791,7 @@ const MidiOutputs = (props) => {
               </label>
               <label>
                 MPE Configuration (RPN)
-                <span class="sidebar-input" style={{ display: "flex", justifyContent: "flex-end" }}>
+                <span class="sidebar-input settings-form__activate-row">
                   <button
                     type="button"
                     class="preset-action-btn"
@@ -870,7 +832,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p style={{ marginTop: 0.5 }}>
+      <p class="settings-form__intro-copy">
         <em>
           Sends notes directly to SuperCollider via a local WebSocket→OSC bridge. Run "yarn osc-bridge" in a locally cloned repo and use the Synths/SuperCollider-OSC folder to initialise the synths and servers.
           {/*/<br />
@@ -905,7 +867,7 @@ const MidiOutputs = (props) => {
           ].map(([key, label], index) => (
             <label key={key}>
               {label}
-              <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+              <span class="sidebar-input settings-form__range-row">
                 <input
                   type="range"
                   min="0"
@@ -921,9 +883,9 @@ const MidiOutputs = (props) => {
                     const next = clampOscVolume(parseFloat(e.target.value));
                     saveOscVolume(key, next);
                   }}
-                  style={{ flex: 1, width: "100%" }}
+                  class="settings-form__range-input"
                 />
-                <span style={oscValueStyle}>
+                <span class="settings-form__range-value">
                   {(oscDraftVolumes[key] ?? 0.5).toFixed(2)}
                 </span>
               </span>
@@ -931,7 +893,7 @@ const MidiOutputs = (props) => {
           ))}
           <label>
             Quick Release
-            <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+            <span class="sidebar-input settings-form__range-row">
               <input
                 type="range"
                 min="0"
@@ -949,14 +911,14 @@ const MidiOutputs = (props) => {
                   sessionStorage.setItem("osc_quick_release", String(next));
                   onChange("osc_quick_release", next);
                 }}
-                style={{ flex: 1, width: "100%" }}
+                class="settings-form__range-input"
               />
-              <span style={oscValueStyle}>
+              <span class="settings-form__range-value">
                 {oscQuickRelease.toFixed(2)}
               </span>
             </span>
           </label>
-          <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "-0.1em" }}>
+          <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
             <input
               type="checkbox"
               checked={!!settings.osc_quick_release_raster_only}
@@ -967,11 +929,11 @@ const MidiOutputs = (props) => {
                 onChange("osc_quick_release_raster_only", e.target.checked);
               }}
             />
-            <em style={{ color: "#996666" }}>Quick Release on Rastered Glissando only</em>
+            <em class="settings-form__helper-text">Quick Release on Rastered Glissando only</em>
           </label>
           <label>
             Quick Release Time
-            <span class="sidebar-input" style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+            <span class="sidebar-input settings-form__range-row">
               <input
                 type="range"
                 min="0.01"
@@ -989,9 +951,9 @@ const MidiOutputs = (props) => {
                   sessionStorage.setItem("osc_quick_release_time", String(next));
                   onChange("osc_quick_release_time", next);
                 }}
-                style={{ flex: 1, width: "100%" }}
+                class="settings-form__range-input"
               />
-              <span style={oscValueStyle}>
+              <span class="settings-form__range-value">
                 {Math.round(oscQuickReleaseTime * 1000)} ms
               </span>
             </span>

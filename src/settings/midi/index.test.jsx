@@ -434,7 +434,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     render(<MIDIio {...props} />);
 
     expect(screen.getByText(/Anchor Key → Central Degree/)).toBeTruthy();
-    expect(screen.getByRole("checkbox", { name: "Enable MPE Input" })).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: "Enable MPE Input" })).toBeNull();
     expect(screen.queryByTitle(/MIDI channel of anchor key/i)).toBeNull();
     expect(screen.queryByTitle("Single-channel controller (ch 1)")).toBeNull();
     expect(screen.getByLabelText("Tolerance (cents)")).toBeTruthy();

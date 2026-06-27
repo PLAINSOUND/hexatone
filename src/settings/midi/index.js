@@ -121,7 +121,12 @@ const MIDIio = (props) => {
     !ctrl || ctrl.multiChannel || ctrl.supportsSequentialChannelOffset;
   const isLinnstrument = ctrl?.id === "linnstrument";
   const isHakenContinuum = ctrl?.id === "hakenaudio";
-  const mpeInputEnabled = isHakenContinuum || !!props.settings.midiin_mpe_input;
+  const isGenericMpeController = ctrl?.id === "generic_mpe";
+  const showMpeInputControls = autoUnknownController || (!isLinnstrument && (!ctrl || ctrl.mpe));
+  const mpeInputEnabled =
+    isHakenContinuum ||
+    isGenericMpeController ||
+    (showMpeInputControls && !!props.settings.midiin_mpe_input);
   const linnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
     controllerId: ctrl?.id ?? null,
     scaleMode,
@@ -143,7 +148,6 @@ const MIDIio = (props) => {
     isMultiChannelSequential &&
     (!isLinnstrument || showChannelTransposeLinnstrumentOverride || stepsMode !== "none");
   const linnstrumentUserFirmwareActiveUi = linnstrumentUserFirmwareEligible;
-  const showMpeInputControls = autoUnknownController || (!isLinnstrument && (!ctrl || ctrl.mpe));
   const mpeInputPrefsController = ctrl;
   const linnstrumentBypassNonMpeUi =
     isLinnstrument &&
@@ -362,7 +366,7 @@ const MIDIio = (props) => {
               See claude-context/midi-input-ux.md for the full visibility spec. */}
           {showMpeInputControls && (
             <>
-              {!isHakenContinuum && (
+              {!isHakenContinuum && !isGenericMpeController && (
                 <label>
                   Enable MPE Input
                   <input
@@ -458,7 +462,7 @@ const MIDIio = (props) => {
                   centralDegreeSetting={props.settings.midiin_anchor_note}
                   anchorChannel={props.settings.midiin_anchor_channel ?? 1}
                   midiLearnActive={props.midiLearnActive}
-                  showAnchorChannel={!props.settings.midiin_mpe_input}
+                  showAnchorChannel={!mpeInputEnabled}
                   onChange={props.onChange}
                 />
               ) : (
@@ -471,7 +475,7 @@ const MIDIio = (props) => {
                     ? `Anchor Channel`
                     : `Anchor Key → Central Degree (${center_degree})`}
                   <span
-                    class="sidebar-input settings-form__inline-fields"
+                    class="sidebar-input settings-form__inline-fields settings-form__inline-fields--anchor"
                   >
                     {!lumatoneBypassAnchorUi && (
                       <button
@@ -491,7 +495,7 @@ const MIDIio = (props) => {
                       mode (channels are per-voice, not layout-encoding in that case).
                       Editable for multi-channel controllers (e.g. Lumatone);
                       greyed-out fixed "1" for single-channel controllers (e.g. AXIS-49). */}
-                    {ctrl && !linnstrumentBypassMpeUi && !props.settings.midiin_mpe_input &&
+                    {ctrl && !linnstrumentBypassMpeUi && !mpeInputEnabled &&
                       (ctrl.anchorChannelDefault != null ? (
                         <input
                         name="midiin_anchor_channel"
@@ -997,7 +1001,7 @@ const MIDIio = (props) => {
               <>
                 <label class="center-degree-row center-degree-label">
                   Anchor Note → Central Degree ({center_degree})
-                  <span class="sidebar-input settings-form__inline-fields">
+                  <span class="sidebar-input settings-form__inline-fields settings-form__inline-fields--anchor">
                     <button
                       type="button"
                       class="preset-action-btn settings-form__inline-button--nowrap"
@@ -1005,7 +1009,7 @@ const MIDIio = (props) => {
                     >
                       {props.midiLearnActive ? "● Listening…" : "Learn"}
                     </button>
-                    {!props.settings.midiin_mpe_input && !linnstrumentBypassMpeUi && (
+                    {!mpeInputEnabled && !linnstrumentBypassMpeUi && (
                       <input
                         name="midiin_anchor_channel"
                         type="text"

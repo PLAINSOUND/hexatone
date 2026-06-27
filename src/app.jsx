@@ -1018,7 +1018,7 @@ const App = () => {
           : 1;
       const existingBar = prev.find((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9);
       if (existingBar) {
-        const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+        const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
         if (!shouldReplace) {
           sequenceBarIdRef.current -= 1;
           return prev;
@@ -1084,7 +1084,7 @@ const App = () => {
       if (Number.isFinite(nextPosition) && isRootBar) {
         const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
         if (existingBar) {
-          const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+          const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
           if (!shouldReplace) return prev;
           const nextId = sequenceBarIdRef.current + 1;
           sequenceBarIdRef.current = nextId;
@@ -1100,7 +1100,7 @@ const App = () => {
       if (Number.isFinite(nextPosition)) {
         const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
         if (existingBar) {
-          const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+          const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
           if (!shouldReplace) return prev;
           return prev
             .filter((bar) => bar.id !== existingBar.id)
@@ -1122,7 +1122,7 @@ const App = () => {
       if (isRootBar) {
         const existingBar = prev.find((bar) => bar.id !== fromId && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
         if (existingBar) {
-          const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+          const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
           if (!shouldReplace) return prev;
           const nextId = sequenceBarIdRef.current + 1;
           sequenceBarIdRef.current = nextId;
@@ -1137,7 +1137,7 @@ const App = () => {
       }
       const existingBar = prev.find((bar) => bar.id !== fromId && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
       if (existingBar) {
-        const shouldReplace = window.confirm("There already is a bar at the specified position. Delete?");
+        const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
         if (!shouldReplace) return prev;
         return prev
           .filter((bar) => bar.id !== existingBar.id)
