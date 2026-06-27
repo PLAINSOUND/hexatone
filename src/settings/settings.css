@@ -976,7 +976,7 @@ td.scale-color-col .color-input {
   padding: 0.35em 0.45em;
   position: sticky;
   z-index: 6;
-  background: rgba(250, 249, 248, 0.96);
+  background: color-mix(in srgb, var(--color-bg-btn) 52%, transparent);
   border: 1px solid rgba(200, 184, 184, 0.82);
   border-radius: 4px;
   box-shadow: 0 1px 0 rgba(250, 249, 248, 0.98);

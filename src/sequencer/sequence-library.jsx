@@ -92,6 +92,18 @@ function safeName(name) {
   return (name || "sequence").replace(/[^a-zA-Z0-9_\-]/g, "_");
 }
 
+function uniqueSequenceName(baseName, takenNames) {
+  const base = String(baseName ?? "").trim() || "User Sequence";
+  if (!takenNames.has(base)) return base;
+  let suffix = 2;
+  while (takenNames.has(`${base} ${suffix}`)) suffix += 1;
+  return `${base} ${suffix}`;
+}
+
+function sequenceRecordKey(record) {
+  return JSON.stringify(record ?? null);
+}
+
 const SequenceLibrary = ({
   snapshots,
   bars,
@@ -106,7 +118,6 @@ const SequenceLibrary = ({
   const [selectedName, setSelectedName] = useState("");
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
-  const [pendingLoadName, setPendingLoadName] = useState("");
   const fileInputRef = createRef();
 
   useEffect(() => {
@@ -115,15 +126,58 @@ const SequenceLibrary = ({
 
   const sequenceName = String(activeSequenceName ?? "").trim();
   const snapshotsPresent = (snapshots?.length ?? 0) > 0;
+  const workspaceRecord = useMemo(
+    () => normalizeSequenceRecord({
+      name: sequenceName || "User Sequence",
+      description: activeSequenceDescription,
+      snapshotLabelMode,
+      autoCreateBars,
+      tempi,
+      snapshots,
+      bars,
+    }),
+    [activeSequenceDescription, autoCreateBars, bars, sequenceName, snapshotLabelMode, snapshots, tempi],
+  );
+  const activeSavedSequence = useMemo(
+    () => savedSequences.find((sequence) => sequence.name === sequenceName) ?? null,
+    [savedSequences, sequenceName],
+  );
   const isExisting = useMemo(
     () => savedSequences.some((sequence) => sequence.name === sequenceName),
     [savedSequences, sequenceName],
   );
-  const saveLabel = isExisting ? "Save current sequence and overwrite" : "Save current sequence";
+  const hasUnsavedChanges = useMemo(() => {
+    if (!workspaceRecord) return false;
+    if (!activeSavedSequence) return snapshotsPresent;
+    return sequenceRecordKey({ ...workspaceRecord, name: activeSavedSequence.name })
+      !== sequenceRecordKey(activeSavedSequence);
+  }, [activeSavedSequence, snapshotsPresent, workspaceRecord]);
+  const saveLabel = isExisting && hasUnsavedChanges
+    ? "Save current sequence and overwrite"
+    : "Save current sequence";
 
   const commitSequences = (next) => {
     saveUserSequences(next);
     setSavedSequences(next);
+  };
+
+  const buildWorkspaceRecord = (name) => normalizeSequenceRecord({
+    name,
+    description: activeSequenceDescription,
+    snapshotLabelMode,
+    autoCreateBars,
+    tempi,
+    snapshots,
+    bars,
+  });
+
+  const stashCurrentWorkspace = (sequences) => {
+    if (!snapshotsPresent || !hasUnsavedChanges) return sequences;
+    const takenNames = new Set(sequences.map((entry) => entry.name));
+    const stashName = uniqueSequenceName("User Sequence", takenNames);
+    const record = buildWorkspaceRecord(stashName);
+    if (!record) return sequences;
+    return [...sequences, record];
   };
 
   const loadSequenceByName = (name) => {
@@ -131,23 +185,23 @@ const SequenceLibrary = ({
     const sequence = savedSequences.find((entry) => entry.name === name);
     if (!sequence) return;
     setSelectedName(name);
-    setPendingLoadName("");
     setError("");
     onLoadSequence(sequence);
   };
 
   const beginLoadSequence = (name) => {
     setSelectedName(name);
-    if (!name) {
-      setPendingLoadName("");
-      return;
-    }
+    if (!name) return;
     if (!snapshotsPresent) {
       loadSequenceByName(name);
       return;
     }
-    setPendingLoadName(name);
+    const next = stashCurrentWorkspace([...savedSequences]);
+    commitSequences(next);
+    const sequence = next.find((entry) => entry.name === name);
+    if (!sequence) return;
     setError("");
+    onLoadSequence(sequence);
   };
 
   const handleSelect = (e) => {
@@ -159,15 +213,7 @@ const SequenceLibrary = ({
       setError("Please enter a Sequence Name first.");
       return;
     }
-    const record = normalizeSequenceRecord({
-      name: sequenceName,
-      description: activeSequenceDescription,
-      snapshotLabelMode,
-      autoCreateBars,
-      tempi,
-      snapshots,
-      bars,
-    });
+    const record = buildWorkspaceRecord(sequenceName);
     if (!record) {
       setError("There is no valid sequence to save.");
       return;
@@ -180,25 +226,12 @@ const SequenceLibrary = ({
     setError("");
   };
 
-  const handleSaveThenLoad = () => {
-    handleSave();
-    if (sequenceName) loadSequenceByName(pendingLoadName);
-  };
-
   const handleExport = () => {
     if (!sequenceName) {
       setError("Please enter a Sequence Name first.");
       return;
     }
-    const record = normalizeSequenceRecord({
-      name: sequenceName,
-      description: activeSequenceDescription,
-      snapshotLabelMode,
-      autoCreateBars,
-      tempi,
-      snapshots,
-      bars,
-    });
+    const record = buildWorkspaceRecord(sequenceName);
     if (!record) {
       setError("There is no valid sequence to export.");
       return;
@@ -249,21 +282,23 @@ const SequenceLibrary = ({
       return;
     }
 
-    const next = [...savedSequences];
-    for (const sequence of imported) {
-      const index = next.findIndex((entry) => entry.name === sequence.name);
-      if (index >= 0) next[index] = sequence;
-      else next.push(sequence);
+    let next = snapshotsPresent ? stashCurrentWorkspace([...savedSequences]) : [...savedSequences];
+    const takenNames = new Set(next.map((entry) => entry.name));
+    const importedWithUniqueNames = imported.map((sequence) => {
+      const uniqueName = uniqueSequenceName(sequence.name, takenNames);
+      takenNames.add(uniqueName);
+      return { ...sequence, name: uniqueName };
+    });
+
+    for (const sequence of importedWithUniqueNames) {
+      next.push(sequence);
     }
     commitSequences(next);
     setError("");
-    if (!snapshotsPresent) {
-      const firstImportedName = imported[0]?.name ?? "";
-      if (firstImportedName) {
-        setSelectedName(firstImportedName);
-        setPendingLoadName("");
-        onLoadSequence(imported[0]);
-      }
+    const firstImported = importedWithUniqueNames[0] ?? null;
+    if (firstImported) {
+      setSelectedName(firstImported.name);
+      onLoadSequence(firstImported);
     }
     if (input) input.value = "";
   };
@@ -373,32 +408,6 @@ const SequenceLibrary = ({
               Export .json
             </button>
           </span>
-        </div>
-      )}
-
-      {pendingLoadName && (
-        <div class="preset-load-confirm" style={{ marginTop: 4 }}>
-          <em>Save current sequence?</em>
-          <button type="button" class="preset-action-btn" onClick={handleSaveThenLoad}>
-            {saveLabel}
-          </button>
-          <button
-            type="button"
-            class="preset-utility-btn"
-            onClick={() => loadSequenceByName(pendingLoadName)}
-          >
-            Open without saving
-          </button>
-          <button
-            type="button"
-            class="delete-btn preset-utility-btn"
-            onClick={() => {
-              setPendingLoadName("");
-              setSelectedName(activeSequenceName || "");
-            }}
-          >
-            Cancel
-          </button>
         </div>
       )}
 

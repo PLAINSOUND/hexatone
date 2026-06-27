@@ -39,8 +39,6 @@ describe("SequenceLibrary", () => {
       currentTarget: { value: "Meter Test" },
       target: { value: "Meter Test" },
     });
-    fireEvent.click(screen.getByText("Open without saving"));
-
     expect(onLoadSequence).toHaveBeenCalledWith(
       expect.objectContaining({
         bars: [
@@ -138,7 +136,139 @@ describe("SequenceLibrary", () => {
     );
   });
 
-  it("prompts before loading when the current workspace already has snapshots", () => {
+  it("stashes the current workspace and renames imported duplicates on open", async () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      {
+        type: "hexatone-sequence",
+        version: 3,
+        name: "FALL",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      },
+    ]));
+
+    const onLoadSequence = vi.fn();
+
+    render(
+      <SequenceLibrary
+        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        bars={[{ id: 1, position: 1, numerator: 3, denominator: 2 }]}
+        tempi={[]}
+        snapshotLabelMode="labels"
+        autoCreateBars
+        activeSequenceName="Current Working State"
+        activeSequenceDescription=""
+        onLoadSequence={onLoadSequence}
+      />,
+    );
+
+    const fileInput = document.querySelector('input[type="file"]');
+    const file = new File(
+      [JSON.stringify({
+        type: "hexatone-sequence",
+        version: 3,
+        name: "FALL",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 10, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 5, denominator: 4 }],
+      })],
+      "FALL.json",
+      { type: "application/json" },
+    );
+
+    fireEvent.change(fileInput, {
+      currentTarget: { files: [file] },
+      target: { files: [file] },
+    });
+
+    expect(await screen.findByDisplayValue("FALL 2")).toBeTruthy();
+    expect(screen.queryByText("Save current sequence?")).toBeNull();
+    expect(onLoadSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "FALL 2" }),
+    );
+
+    const stored = loadUserSequences();
+    expect(stored.map((sequence) => sequence.name)).toEqual(["FALL", "User Sequence", "FALL 2"]);
+    expect(stored[1]).toEqual(expect.objectContaining({
+      name: "User Sequence",
+      bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
+    }));
+  });
+
+  it("does not stash an unchanged saved sequence before importing another file", async () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      {
+        type: "hexatone-sequence",
+        version: 3,
+        name: "FALL",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      },
+    ]));
+
+    const onLoadSequence = vi.fn();
+
+    render(
+      <SequenceLibrary
+        snapshots={[{ id: 1, notes: [] }]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        tempi={[]}
+        snapshotLabelMode="labels"
+        autoCreateBars
+        activeSequenceName="FALL"
+        activeSequenceDescription=""
+        onLoadSequence={onLoadSequence}
+      />,
+    );
+
+    expect(screen.getByText("Save current sequence")).toBeTruthy();
+    expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
+
+    const fileInput = document.querySelector('input[type="file"]');
+    const file = new File(
+      [JSON.stringify({
+        type: "hexatone-sequence",
+        version: 3,
+        name: "SPRING",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 10, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 5, denominator: 4 }],
+      })],
+      "SPRING.json",
+      { type: "application/json" },
+    );
+
+    fireEvent.change(fileInput, {
+      currentTarget: { files: [file] },
+      target: { files: [file] },
+    });
+
+    expect(await screen.findByDisplayValue("SPRING")).toBeTruthy();
+    expect(onLoadSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "SPRING" }),
+    );
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["FALL", "SPRING"]);
+  });
+
+  it("stashes the current workspace and loads immediately when selecting a stored sequence", () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       {
         type: "hexatone-sequence",
@@ -174,15 +304,69 @@ describe("SequenceLibrary", () => {
       target: { value: "Prompt Load" },
     });
 
-    expect(screen.getByText("Save current sequence?")).toBeTruthy();
-    expect(onLoadSequence).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByText("Open without saving"));
-
-    expect(screen.queryByText("Save current sequence?")).toBeNull();
     expect(onLoadSequence).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Prompt Load" }),
     );
+
+    const stored = loadUserSequences();
+    expect(stored.map((sequence) => sequence.name)).toEqual(["Prompt Load", "User Sequence"]);
+  });
+
+  it("does not stash an unchanged saved sequence when selecting another stored sequence", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      {
+        type: "hexatone-sequence",
+        version: 3,
+        name: "Current",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      },
+      {
+        type: "hexatone-sequence",
+        version: 3,
+        name: "Prompt Load",
+        description: "",
+        snapshotLabelMode: "labels",
+        autoCreateBars: true,
+        transport: { unit: "sequence", anchorSeconds: 0 },
+        tempi: [],
+        snapshots: [{ id: 10, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      },
+    ]));
+
+    const onLoadSequence = vi.fn();
+
+    render(
+      <SequenceLibrary
+        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        tempi={[]}
+        snapshotLabelMode="labels"
+        autoCreateBars
+        activeSequenceName="Current"
+        activeSequenceDescription=""
+        onLoadSequence={onLoadSequence}
+      />,
+    );
+
+    expect(screen.getByText("Save current sequence")).toBeTruthy();
+    expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
+
+    fireEvent.change(screen.getByRole("combobox"), {
+      currentTarget: { value: "Prompt Load" },
+      target: { value: "Prompt Load" },
+    });
+
+    expect(onLoadSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Prompt Load" }),
+    );
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Current", "Prompt Load"]);
   });
 
   it("prefers bars over legacy meters when both are present in imported records", () => {

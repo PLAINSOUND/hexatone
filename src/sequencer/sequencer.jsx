@@ -266,7 +266,7 @@ const Sequencer = ({
   const snapshotSelectValue = pendingSnapshotJumpIndex !== ""
     ? pendingSnapshotJumpIndex
     : playheadIsEnd
-      ? snapshots.length > 0 ? String(snapshots.length - 1) : ""
+      ? snapshots.length > 0 ? "0" : ""
       : playheadIsOff || playheadStepIndex < 0
         ? nextSnapshotIndexFromBar >= 0 && nextSnapshotIndexFromBar < snapshots.length
           ? String(nextSnapshotIndexFromBar)
@@ -275,7 +275,7 @@ const Sequencer = ({
   const cueSelectValue = pendingCueJumpIndex !== ""
     ? pendingCueJumpIndex
     : playheadIsEnd
-      ? sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length - 1) : ""
+      ? sequenceCueGroups.length > 0 ? "0" : ""
       : playheadIsOff || (playheadMarkerIndex == null && sequenceCueGroups.length === 0)
         ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
           ? String(nextCueIndexFromBar)
@@ -287,14 +287,18 @@ const Sequencer = ({
             : sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length - 1) : "";
   const impliedPendingSnapshotIndex = pendingSnapshotJumpIndex !== ""
     ? pendingSnapshotJumpIndex
-    : playheadIsOff || playheadStepIndex < 0
+    : playheadIsEnd
+      ? snapshots.length > 0 ? "0" : ""
+      : playheadIsOff || playheadStepIndex < 0
       ? nextSnapshotIndexFromBar >= 0 && nextSnapshotIndexFromBar < snapshots.length
         ? String(nextSnapshotIndexFromBar)
         : ""
       : "";
   const impliedPendingCueIndex = pendingCueJumpIndex !== ""
     ? pendingCueJumpIndex
-    : playheadIsOff
+    : playheadIsEnd
+      ? sequenceCueGroups.length > 0 ? "0" : ""
+      : playheadIsOff
       ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
         ? String(nextCueIndexFromBar)
         : ""
@@ -1690,7 +1694,7 @@ const Sequencer = ({
           </button>
         </legend>
 
-        <label class="sequencer-option-row sequencer-option-row--stacked">
+        <label class="sequencer-option-row">
           <span>Snapshot Labels</span>
           <select
             class="sidebar-input"
@@ -1837,13 +1841,17 @@ const Sequencer = ({
               title="Next step"
               disabled={snapshots.length === 0 || (playheadIsOff
                 ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
-                : playheadIsEnd)}
+                : false)}
               onClick={() => {
                 if (pendingSnapshotJumpIndex !== "") {
                   const targetIndex = Number(pendingSnapshotJumpIndex);
                   setPendingSnapshotJumpIndex("");
                   setPendingCueJumpIndex("");
                   runTransportAction(() => onJumpSequenceSnapshot?.(targetIndex));
+                  return;
+                }
+                if (playheadIsEnd) {
+                  runTransportAction(() => onJumpSequenceSnapshot?.(0));
                   return;
                 }
                 runTransportAction(() => onStepSequence?.(1));
@@ -1897,13 +1905,17 @@ const Sequencer = ({
               title="Next marker"
               disabled={snapshots.length === 0 || (playheadIsOff
                 ? nextCueIndexFromBar < 0
-                : playheadIsEnd)}
+                : false)}
               onClick={() => {
                 if (pendingCueJumpIndex !== "") {
                   const targetIndex = Number(pendingCueJumpIndex);
                   setPendingCueJumpIndex("");
                   setPendingSnapshotJumpIndex("");
                   runTransportAction(() => onJumpSequenceCue?.(targetIndex));
+                  return;
+                }
+                if (playheadIsEnd) {
+                  runTransportAction(() => onJumpSequenceCue?.(0));
                   return;
                 }
                 runTransportAction(() => onStepSequenceMarker?.(1));

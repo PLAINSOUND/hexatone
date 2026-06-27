@@ -1147,7 +1147,10 @@ describe("Sequencer", () => {
       .toEqual(["1", "2", "3"]);
   });
 
-  it("keeps the last cue number visible at the terminal snapshot end slot", () => {
+  it("queues the first snapshot and cue again at the terminal sequence end slot", () => {
+    const onJumpSequenceSnapshot = vi.fn();
+    const onJumpSequenceCue = vi.fn();
+
     render(
       <Sequencer
         snapshots={[
@@ -1180,6 +1183,8 @@ describe("Sequencer", () => {
         onSelectSequenceBar={vi.fn()}
         onStepSequence={vi.fn()}
         onStepSequenceMarker={vi.fn()}
+        onJumpSequenceSnapshot={onJumpSequenceSnapshot}
+        onJumpSequenceCue={onJumpSequenceCue}
         onPlaySequence={vi.fn()}
         onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
@@ -1195,10 +1200,20 @@ describe("Sequencer", () => {
       />,
     );
 
+    const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
     const cueTargetSelect = screen.getByLabelText("next cue target");
-    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "2"]);
-    expect(cueTargetSelect.value).toBe("1");
-    expect(screen.getByLabelText("next sequence step").disabled).toBe(true);
+    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["(1)"]);
+    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["(1)", "2"]);
+    expect(snapshotTargetSelect.value).toBe("0");
+    expect(cueTargetSelect.value).toBe("0");
+    expect(screen.getByLabelText("next sequence step").disabled).toBe(false);
+    expect(screen.getByLabelText("next sequence marker").disabled).toBe(false);
+
+    fireEvent.click(screen.getByLabelText("next sequence step"));
+    expect(onJumpSequenceSnapshot).toHaveBeenCalledWith(0);
+
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+    expect(onJumpSequenceCue).toHaveBeenCalledWith(0);
   });
 
   it("shows the next snapshot and cue in brackets when a bar is selected", () => {
