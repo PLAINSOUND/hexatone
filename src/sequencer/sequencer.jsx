@@ -1670,7 +1670,7 @@ const Sequencer = ({
         onDescriptionChange={onSequenceDescriptionChange}
       />
 
-      <fieldset style={{ marginTop: "1em" }}>
+      <fieldset class="sequencer-capture-fieldset">
         <legend>
           <b>Snapshot</b>
         </legend>

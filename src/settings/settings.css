@@ -830,6 +830,12 @@ td.scale-color-col .color-input {
   text-align: left;
 }
 
+.settings-form__inline-fields--spread {
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.45em;
+}
+
 .settings-form__inline-fields--anchor {
   justify-content: flex-end;
   flex-wrap: nowrap;
@@ -942,11 +948,29 @@ td.scale-color-col .color-input {
   color: #888;
 }
 
+.settings-form__tabular-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-form__tabular-value--muted {
+  color: #6b5a5a;
+}
+
 .settings-form__inline-label {
   display: flex;
   align-items: baseline;
   gap: 4px;
   flex: 1;
+}
+
+.settings-form__fixed-label {
+  min-width: 7em;
+}
+
+#sidebar label.settings-form__inline-label-row {
+  justify-content: flex-start;
+  gap: 0.5em;
+  margin-top: 0.35em;
 }
 
 .settings-form__label-nowrap {
@@ -970,6 +994,22 @@ td.scale-color-col .color-input {
   margin: 0.25em 0;
 }
 
+.settings-form__warning-copy {
+  color: #8b3a2e;
+  margin: 0 0 0.75em 0;
+  font-style: italic;
+}
+
+.settings-form__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.settings-form__stack--import {
+  margin-top: 0.65em;
+}
+
 .settings-form__intro-copy {
   margin-top: 0.5em;
 }
@@ -985,6 +1025,10 @@ td.scale-color-col .color-input {
 .settings-form__control-row--compact {
   margin-top: 0.25em;
   margin-left: auto;
+}
+
+.settings-form__control-row--inline {
+  margin-top: 0;
 }
 
 .settings-form__status-caption {
@@ -1022,6 +1066,11 @@ td.scale-color-col .color-input {
 
 .settings-form__section-top--compact {
   margin-top: 0.3em;
+}
+
+.settings-form__text-input--wide {
+  width: 22em;
+  max-width: 100%;
 }
 
 .settings-form__dimmed {
@@ -1114,6 +1163,10 @@ td.scale-color-col .color-input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+
+.sequencer-capture-fieldset {
+  margin-top: 1em;
 }
 
 .sequencer-item--selected {
@@ -1262,6 +1315,35 @@ td.scale-color-col .color-input {
   padding: 0 0.28em;
   line-height: calc(1.5em - 2px);
   color: inherit;
+}
+
+.sequencer-snapshots__row {
+  align-items: center;
+}
+
+.sequencer-snapshots__row--playing .sequencer-snapshots__label {
+  color: #990000;
+  font-weight: 700;
+}
+
+.sequencer-snapshots__actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.sequencer-snapshots__action-btn {
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.sequencer-snapshots__action-btn--play {
+  min-width: 2em;
+}
+
+.sequencer-snapshots__action-btn--delete {
+  color: #996666;
 }
 
 .sequencer-row__reset {
@@ -2984,6 +3066,13 @@ input.equiv-cell:disabled,
 
 .heji-name-cell--modulated {
   color: #9a2f2f;
+}
+
+.scale-table__equave-label {
+  font-weight: 700;
+  display: block;
+  text-align: center;
+  margin-top: 0.25em;
 }
 
 .heji-name-input {

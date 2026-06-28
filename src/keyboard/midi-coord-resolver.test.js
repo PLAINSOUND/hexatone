@@ -103,4 +103,20 @@ describe("MidiCoordResolver", () => {
     expect(lowScreen.y).toBeGreaterThan(midScreen.y);
     expect(midScreen.y).toBeGreaterThan(highScreen.y);
   });
+
+  it("suppresses channel transposition when input is MPE, even if steps-per-channel is set", () => {
+    const resolver = createResolver();
+    resolver.inputRuntime = {
+      mpeInput: true,
+      seqAnchorChannel: 1,
+      stepsPerChannel: 12,
+      stepsPerChannelDefault: 12,
+      channelGroupSize: 1,
+      legacyChannelMode: false,
+    };
+
+    expect(resolver.channelToStepsOffset(1)).toBe(0);
+    expect(resolver.channelToStepsOffset(5)).toBe(0);
+    expect(resolver.channelToStepsOffset(16)).toBe(0);
+  });
 });

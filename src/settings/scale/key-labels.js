@@ -323,7 +323,7 @@ const KeyLabels = (props) => {
         <fieldset class="heji-anchor-fieldset">
           <legend>HEJI Spelling with 0¢ Deviation</legend>
           {hejiDisabled && (
-            <p style={{ color: "#8b3a2e", margin: "0 0 0.75em 0", fontStyle: "italic" }}>
+            <p class="settings-form__warning-copy">
               {props.heji_warning || "Non-octave equave cannot generate consistent note names."}
             </p>
           )}

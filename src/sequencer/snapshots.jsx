@@ -26,20 +26,18 @@ const Snapshots = ({ snapshots, playingId, onPlay, onDelete }) => {
       {snapshots.map((snap, index) => {
         const isPlaying = snap.id === playingId;
         return (
-          <label key={snap.id} style={{ alignItems: "center" }}>
-            <span
-              style={{
-                color: isPlaying ? "#990000" : "inherit",
-                fontWeight: isPlaying ? "bold" : "normal",
-              }}
-            >
+          <label
+            key={snap.id}
+            class={`sequencer-snapshots__row${isPlaying ? " sequencer-snapshots__row--playing" : ""}`}
+          >
+            <span class="sequencer-snapshots__label">
               {index + 1}. {snap.notes.length} note{snap.notes.length !== 1 ? "s" : ""}
             </span>
-            <span style={{ display: "flex", gap: "4px", alignItems: "center", marginLeft: "auto" }}>
+            <span class="sequencer-snapshots__actions">
               <button
                 type="button"
                 title={isPlaying ? "Stop" : "Play"}
-                style={{ fontSize: "0.85em", minWidth: "2em", cursor: "pointer" }}
+                class="sequencer-snapshots__action-btn sequencer-snapshots__action-btn--play"
                 onClick={() => onPlay(snap.id)}
               >
                 {isPlaying ? "■" : "▶"}
@@ -47,7 +45,7 @@ const Snapshots = ({ snapshots, playingId, onPlay, onDelete }) => {
               <button
                 type="button"
                 title="Delete snapshot"
-                style={{ fontSize: "0.85em", cursor: "pointer", color: "#996666" }}
+                class="sequencer-snapshots__action-btn sequencer-snapshots__action-btn--delete"
                 onClick={() => onDelete(snap.id)}
               >
                 ✕

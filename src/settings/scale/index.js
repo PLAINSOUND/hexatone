@@ -108,9 +108,6 @@ const Scale = (props) => {
           class="section-collapse-toggle"
           onClick={() => handleToggle(!collapsed)}
           title={collapsed ? "Toggle to show scale table" : "Toggle to hide scale table"}
-          style={{
-            cursor: "pointer",
-          }}
         >
           <span
             class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`}
@@ -206,14 +203,7 @@ const Scale = (props) => {
           context="interval"
           value={equaveValue}
           onChange={handleEquaveChange}
-          style={{
-            width: "4em",
-            textAlign: "center",
-            height: "1.5em",
-            boxSizing: "border-box",
-            background: "#faf9f8",
-            borderRadius: "3px",
-          }}
+          inputClass="settings-form__scala-input"
           wrapperClass="sidebar-input"
         />
       </label>
@@ -291,7 +281,7 @@ const Scale = (props) => {
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+          <div class="settings-form__action-group settings-form__section-top">
             <button
               type="button"
               class="preset-action-btn"

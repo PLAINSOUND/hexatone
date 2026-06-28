@@ -79,11 +79,7 @@ const WebMIDISettings = ({
             ))}
         </select>
       </label>
-      {midiAccessError && (
-        <p style={{ color: "#996666", fontSize: "0.85em", margin: "0.4em 0 0" }}>
-          <em>{midiAccessError}</em>
-        </p>
-      )}
+      {midiAccessError && <p class="settings-form__stacked-helper"><em>{midiAccessError}</em></p>}
     </fieldset>
   );
 };

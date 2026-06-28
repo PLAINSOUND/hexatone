@@ -38,7 +38,7 @@ const ScalaImport = (props) => {
   const name = safeName(props.settings);
 
   return (
-    <div style={{ marginTop: "0.65em", display: "flex", flexDirection: "column", gap: "0.5em" }}>
+    <div class="settings-form__stack settings-form__stack--import">
       {/* ── Import section ─────────────────────────────────────────────── */}
       <fieldset class="settings-panel">
         <legend><b>Scala File</b></legend>
@@ -79,7 +79,7 @@ const ScalaImport = (props) => {
           ref={fileInputRef}
           type="file"
           accept=".scl,.ascl"
-          style={{ display: "none" }}
+          class="settings-form__hidden-file-input"
           onChange={handleFileOpen}
         />
         <button type="button" onClick={() => fileInputRef.current && fileInputRef.current.click()}>

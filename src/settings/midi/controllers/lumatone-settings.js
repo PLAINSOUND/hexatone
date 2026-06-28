@@ -224,14 +224,7 @@ const LumatoneSettings = ({
       {rawPorts && settings.midi_passthrough && (
         <label>
           2D Bypass Key Layout
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginLeft: "auto",
-            }}
-          >
+          <span class="settings-form__control-row settings-form__control-row--inline">
             <button
               type="button"
               class="preset-action-btn"
@@ -249,14 +242,7 @@ const LumatoneSettings = ({
           {rawPorts && (
             <label>
               2D Key Layout (Notes 0-55 on Ch 1-5)
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginLeft: "auto",
-                }}
-              >
+              <span class="settings-form__control-row settings-form__control-row--inline">
                 <button
                   type="button"
                   class="preset-action-btn"
@@ -272,14 +258,7 @@ const LumatoneSettings = ({
           {rawPorts && (
             <label>
               Automatically Send LED Colours
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginLeft: "auto",
-                }}
-              >
+              <span class="settings-form__control-row settings-form__control-row--inline">
                 <input
                   name="lumatone_led_sync"
                   type="checkbox"
@@ -365,12 +344,11 @@ const LumatoneSettings = ({
                   )}
                 </span>
               </label>
-              <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.35em" }}>
-                <span style={{ minWidth: "7em" }}>Scale degrees</span>
+              <label class="settings-form__inline-label-row">
+                <span class="settings-form__inline-label settings-form__label-nowrap">Scale degrees</span>
                 <input
                   type="text"
-                  class="sidebar-input"
-                  style={{ width: "22em", maxWidth: "100%" }}
+                  class="sidebar-input settings-form__text-input--wide"
                   value={draftFilter}
                   placeholder="e.g. 0, 4, 7, 11"
                   onInput={(e) => {
@@ -391,7 +369,7 @@ const LumatoneSettings = ({
                   aria-label="Lumatone filter scale degrees"
                 />
               </label>
-              <div class="preset-actions" style={{ marginTop: 4 }}>
+              <div class="preset-actions settings-form__section-top--compact">
                 <button type="button" class="preset-action-btn" onClick={handleSaveFilter}>
                   Save
                 </button>
@@ -408,8 +386,7 @@ const LumatoneSettings = ({
                 {selectedSavedFilter && (
                   <button
                     type="button"
-                    class="delete-btn preset-utility-btn"
-                    style={{ marginLeft: "auto" }}
+                    class="delete-btn preset-utility-btn preset-actions__clear-trigger"
                     onClick={handleDeleteFilter}
                   >
                     Delete
@@ -429,7 +406,7 @@ const LumatoneSettings = ({
                 ref={fileInputRef}
                 type="file"
                 accept=".json,application/json"
-                style={{ display: "none" }}
+                class="settings-form__hidden-file-input"
                 onChange={handleOpenFilterFile}
               />
               {filterError && <p class="preset-error">{filterError}</p>}

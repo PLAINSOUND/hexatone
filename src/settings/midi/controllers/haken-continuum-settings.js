@@ -59,12 +59,6 @@ const HakenContinuumSettings = ({
   const glideFlipCc = Number.isFinite(settings.hakenaudio_glide_flip_cc)
     ? Math.trunc(settings.hakenaudio_glide_flip_cc)
     : 67;
-  const sliderValueStyle = {
-    fontVariantNumeric: "tabular-nums",
-    minWidth: "5.2em",
-    textAlign: "right",
-    fontSize: "0.85em",
-  };
   const updateHakenPref = (key, value, extra = null) => {
     onChange(key, value);
     saveControllerPref(ctrl, key, value, settings, extra ?? { [key]: value });
@@ -249,19 +243,11 @@ const HakenContinuumSettings = ({
 
       <label title="Learns a foot pedal or other CC to momentarily flip between Pitch Bending and Raster to Notes, matching the current space-bar behavior. CC value 64 or above engages the flip; lower values release it.">
         Raster/Bend Pedal
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.45em",
-            justifyContent: "space-between",
-          }}
-        >
-          <span style={{ fontVariantNumeric: "tabular-nums", color: "#6b5a5a" }}>
+        <span class="sidebar-input settings-form__inline-fields settings-form__inline-fields--spread">
+          <span class="settings-form__tabular-value settings-form__tabular-value--muted">
             {`CC ${glideFlipCc}`}
           </span>
-          <span style={{ display: "inline-flex", gap: "0.35em" }}>
+          <span class="settings-form__action-group">
             <button
               type="button"
               class="learn-btn"
@@ -342,12 +328,11 @@ const HakenContinuumSettings = ({
           )}
         </span>
       </label>
-      <label style={{ justifyContent: "flex-start", gap: "0.5em", marginTop: "0.35em" }}>
-        <span style={{ minWidth: "7em" }}>Scale degrees</span>
+      <label class="settings-form__inline-label-row">
+        <span class="settings-form__fixed-label">Scale degrees</span>
         <input
           type="text"
-          class="sidebar-input"
-          style={{ width: "22em", maxWidth: "100%" }}
+          class="sidebar-input settings-form__text-input--wide"
           value={draftFilter}
           placeholder="e.g. 0, 4, 7, 11"
           onInput={(e) => {
@@ -367,7 +352,7 @@ const HakenContinuumSettings = ({
           aria-label="Continuum raster filter scale degrees"
         />
       </label>
-      <div class="preset-actions" style={{ marginTop: 4 }}>
+      <div class="preset-actions settings-form__section-top--compact">
         <button type="button" class="preset-action-btn" onClick={handleSaveFilter}>
           Save
         </button>
@@ -384,8 +369,7 @@ const HakenContinuumSettings = ({
         {selectedSavedFilter && (
           <button
             type="button"
-            class="delete-btn preset-utility-btn"
-            style={{ marginLeft: "auto" }}
+            class="delete-btn preset-utility-btn preset-actions__clear-trigger"
             onClick={handleDeleteFilter}
           >
             Delete
@@ -405,29 +389,21 @@ const HakenContinuumSettings = ({
         ref={fileInputRef}
         type="file"
         accept="application/json,.json"
-        style={{ display: "none" }}
+        class="settings-form__hidden-file-input"
         onChange={handleOpenFilterFile}
       />
       {filterError && <div class="scale-warning">{filterError}</div>}
 
       <label title="Shapes Continuum X bending around the current note. 0 is linear. Higher values create stronger pockets of stability around note centers and faster movement between them.">
         X Glide Shaping
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            justifyContent: "flex-end",
-          }}
-        >
+        <span class="sidebar-input settings-form__range-row">
           <input
             type="range"
             min="0"
             max="100"
             step="1"
             value={xGlideShaping}
-            style={{ width: "100%" }}
+            class="settings-form__range-input"
             onInput={(e) => {
               const parsed = parseInt(e.target.value, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
@@ -436,7 +412,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span style={sliderValueStyle}>
+          <span class="settings-form__range-value">
             {xGlideShaping}
           </span>
         </span>
@@ -444,22 +420,14 @@ const HakenContinuumSettings = ({
 
       <label title="Varies Continuum Raster to Notes retrigger velocity around the original attack using current Z pressure. 0 keeps the original attack for each retrigger. 127 applies the full pressure-based deviation range to both note-on and auto-generated note-off velocities.">
         Pressure → Velocity
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            justifyContent: "flex-end",
-          }}
-        >
+        <span class="sidebar-input settings-form__range-row">
           <input
             type="range"
             min="0"
             max="127"
             step="1"
             value={pressureVelocity}
-            style={{ width: "100%" }}
+            class="settings-form__range-input"
             onInput={(e) => {
               const parsed = parseInt(e.target.value, 10);
               const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 0 : parsed));
@@ -468,7 +436,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span style={sliderValueStyle}>
+          <span class="settings-form__range-value">
             {pressureVelocity}
           </span>
         </span>
@@ -476,22 +444,14 @@ const HakenContinuumSettings = ({
 
       <label title="Enforces a minimum lifetime for auto-generated Raster to Notes notes. Real Continuum note-off messages still release all sounding notes immediately. Uses a timer rather than requestAnimationFrame so it also works while the app is in the background.">
         Minimum Note Duration
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            justifyContent: "flex-end",
-          }}
-        >
+        <span class="sidebar-input settings-form__range-row">
           <input
             type="range"
             min="0"
             max="100"
             step="1"
             value={noteOffDelay}
-            style={{ width: "100%" }}
+            class="settings-form__range-input"
             onInput={(e) => {
               const parsed = parseInt(e.target.value, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
@@ -500,7 +460,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span style={sliderValueStyle}>
+          <span class="settings-form__range-value">
             {noteOffDelay} ms
           </span>
         </span>
@@ -508,22 +468,14 @@ const HakenContinuumSettings = ({
 
       <label title="Sets a minimum interval between Continuum Raster to Notes retriggers. Higher values reduce event density and output overload at the cost of skipping some very fast crossings.">
         Minimum Retrigger Interval
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            justifyContent: "flex-end",
-          }}
-        >
+        <span class="sidebar-input settings-form__range-row">
           <input
             type="range"
             min="0"
             max="100"
             step="1"
             value={rasterThrottleMs}
-            style={{ width: "100%" }}
+            class="settings-form__range-input"
             onInput={(e) => {
               const parsed = parseInt(e.target.value, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
@@ -532,7 +484,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span style={sliderValueStyle}>
+          <span class="settings-form__range-value">
             {rasterThrottleMs} ms
           </span>
         </span>
@@ -540,22 +492,14 @@ const HakenContinuumSettings = ({
 
       <label title="Adds hysteresis around the current Raster to Notes pitch so small back-and-forth movements near note boundaries do not immediately retrigger neighbouring notes.">
         Raster Stability
-        <span
-          class="sidebar-input"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            justifyContent: "flex-end",
-          }}
-        >
+        <span class="sidebar-input settings-form__range-row">
           <input
             type="range"
             min="0"
             max="100"
             step="1"
             value={rasterStability}
-            style={{ width: "100%" }}
+            class="settings-form__range-input"
             onInput={(e) => {
               const parsed = parseInt(e.target.value, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
@@ -564,7 +508,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span style={sliderValueStyle}>
+          <span class="settings-form__range-value">
             {rasterStability}
           </span>
         </span>

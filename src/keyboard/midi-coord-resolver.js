@@ -132,6 +132,7 @@ export class MidiCoordResolver {
     // Prefer inputRuntime values when available (set at Keys construction time from
     // derived inputRuntime); fall back to raw settings for backwards compatibility.
     const ir = this.inputRuntime;
+    if (ir?.mpeInput) return 0;
     const explicitStepsPerChannel = ir
       ? ir.stepsPerChannel
       : this.settings.midiin_steps_per_channel;

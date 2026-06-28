@@ -25,9 +25,6 @@ const Layout = (props) => {
               ? "Toggle to show Hexatone Layout settings"
               : "Toggle to hide Hexatone Layout settings"
           }
-          style={{
-            cursor: "pointer",
-          }}
         >
           <span
             class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`}

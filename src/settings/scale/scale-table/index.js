@@ -1273,14 +1273,7 @@ const ScaleTable = (props) => {
             )}
           </td>
           <td class="scale-color-col">
-            <span
-              style={{
-                fontWeight: "bold",
-                display: "block",
-                textAlign: "center",
-                marginTop: "0.25em",
-              }}
-            >
+            <span class="scale-table__equave-label">
               Equave
             </span>
           </td>
