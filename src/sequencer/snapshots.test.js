@@ -21,6 +21,7 @@ function makeRuntime(overrides = {}) {
     },
     synth: overrides.synth,
     stopSnapshot: overrides.stopSnapshot ?? vi.fn(),
+    _frequencyForHex: overrides._frequencyForHex,
     _allActiveHexes: overrides._allActiveHexes ?? (() => []),
     _snapshotNotes: overrides._snapshotNotes ?? [],
     _snapshotHexes: overrides._snapshotHexes ?? [],
@@ -103,6 +104,23 @@ describe("sequencer snapshots", () => {
       monzo: [-2, 0, 1],
       modulationRatioText: "3/2",
       modulationMonzo: [-1, 1, 0],
+    });
+  });
+
+  it("captures sounded pitch from the live hex frequency helper when present", () => {
+    const runtime = makeRuntime({
+      _frequencyForHex: () => 441,
+      _allActiveHexes: () => [{
+        cents: 12,
+        velocity: 113,
+      }],
+    });
+
+    expect(captureSnapshot(runtime)[0]).toMatchObject({
+      midicents: expect.closeTo(69 + Math.log2(441 / 440) * 12, 8),
+      attackVelocity: 113,
+      releaseVelocity: 113,
+      velocity: 113,
     });
   });
 

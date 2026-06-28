@@ -1295,6 +1295,30 @@ const App = () => {
     [playingSnapshotId, snapshots],
   );
 
+  const onDeleteAllSnapshots = useCallback(() => {
+    keysRef.current?.stopSnapshot();
+    setPlayingSnapshotId(null);
+    setSnapshots([]);
+    setSelectedSnapshotId(null);
+    setSelectedSnapshotMarker(null);
+    playSequencePosition(-1, null);
+  }, [playSequencePosition]);
+
+  const onClearSequence = useCallback(() => {
+    keysRef.current?.stopSnapshot();
+    setPlayingSnapshotId(null);
+    setSnapshots([]);
+    setSelectedSnapshotId(null);
+    setSelectedSnapshotMarker(null);
+    setSequenceBars(normalizeBarMarkers([{ id: 1, position: 1 }]));
+    setSequenceTempi(normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
+    snapshotIdRef.current = 0;
+    sequenceBarIdRef.current = 1;
+    setActiveSequenceName("");
+    setActiveSequenceDescription("");
+    playSequencePosition(-1, null);
+  }, [playSequencePosition]);
+
   const onMoveSnapshot = useCallback((fromId, toId, side = "before") => {
     setSnapshots((prev) => {
       const fromIdx = prev.findIndex((s) => s.id === fromId);
@@ -2999,6 +3023,8 @@ const App = () => {
               onUpdateTempo={onUpdateSequenceTempo}
               onMoveBar={onMoveSequenceBar}
               onDeleteSnapshot={onDeleteSnapshot}
+              onDeleteAllSnapshots={onDeleteAllSnapshots}
+              onClearSequence={onClearSequence}
               onMoveSnapshot={onMoveSnapshot}
               onDuplicateSnapshot={onDuplicateSnapshot}
               onUpdateSnapshot={onUpdateSnapshot}

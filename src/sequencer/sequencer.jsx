@@ -165,6 +165,8 @@ const Sequencer = ({
   onUpdateTempo,
   onMoveBar,
   onDeleteSnapshot,
+  onDeleteAllSnapshots,
+  onClearSequence,
   onMoveSnapshot,
   onDuplicateSnapshot,
   onUpdateSnapshot,
@@ -175,6 +177,8 @@ const Sequencer = ({
   const [newBarPosition, setNewBarPosition] = useState("1.000000");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newTempoBpm, setNewTempoBpm] = useState("60");
+  const [confirmClearSnapshots, setConfirmClearSnapshots] = useState(false);
+  const [confirmClearSequence, setConfirmClearSequence] = useState(false);
   const [pendingSnapshotJumpIndex, setPendingSnapshotJumpIndex] = useState("");
   const [pendingCueJumpIndex, setPendingCueJumpIndex] = useState("");
   const [dragOverId, setDragOverId] = useState(null);
@@ -754,12 +758,31 @@ const Sequencer = ({
       const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
       if (noteIdentity(note, length) !== noteKey) return note;
 
+      const originalMidicents = Number.isFinite(Number(note.originalMidicents))
+        ? Number(note.originalMidicents)
+        : Number(note.midicents);
+      const originalDisplayLabel = note.originalDisplayLabel ?? note.displayLabel ?? "";
+
       if (field === "midicents") {
-        return { ...note, midicents: numeric };
+        return {
+          ...note,
+          midicents: numeric,
+          originalMidicents,
+          originalDisplayLabel,
+          displayLabel: "edited",
+          displayLabelEdited: true,
+        };
       }
       if (field === "frequency") {
         const midicents = frequencyToMidicents(numeric);
-        return midicents == null ? note : { ...note, midicents };
+        return midicents == null ? note : {
+          ...note,
+          midicents,
+          originalMidicents,
+          originalDisplayLabel,
+          displayLabel: "edited",
+          displayLabelEdited: true,
+        };
       }
       if (field === "attackVelocity") {
         return { ...note, attackVelocity: clamp(Math.round(numeric), 0, 127) };
@@ -776,6 +799,27 @@ const Sequencer = ({
       return note;
     });
 
+    onUpdateSnapshot(snapshot.id, { notes });
+  };
+
+  const restoreEventPitchLabel = (snapshot, noteKey) => {
+    const notes = (snapshot.notes ?? []).map((note) => {
+      const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+      if (noteIdentity(note, length) !== noteKey) return note;
+      const originalMidicents = Number(note.originalMidicents);
+      if (!Number.isFinite(originalMidicents)) return note;
+      const {
+        originalMidicents: _originalMidicents,
+        originalDisplayLabel,
+        displayLabelEdited: _displayLabelEdited,
+        ...rest
+      } = note;
+      return {
+        ...rest,
+        midicents: originalMidicents,
+        displayLabel: originalDisplayLabel ?? "",
+      };
+    });
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
@@ -1347,6 +1391,7 @@ const Sequencer = ({
         </div>
         <div class="sequencer-event__cell sequencer-grid-offset">
           <input
+            key={`${event.eventId}-midicents-${event.midicents}`}
             type="text"
             class="sequencer-event__input"
             defaultValue={formatMidicents(event.midicents)}
@@ -1377,6 +1422,7 @@ const Sequencer = ({
         </div>
         <div class="sequencer-event__cell sequencer-grid-offset">
           <input
+            key={`${event.eventId}-frequency-${event.frequency}`}
             type="text"
             class="sequencer-event__input"
             defaultValue={formatFrequency(event.frequency)}
@@ -1406,8 +1452,25 @@ const Sequencer = ({
           />
         </div>
         <div class="sequencer-event__cell sequencer-grid-offset">
-          <span class="sequencer-event__content sequencer-event__heji">
-            {event.displayLabel || ""}
+          <span class="sequencer-event__content sequencer-event__heji-wrap">
+            <span class={`sequencer-event__heji${event.displayLabelEdited ? " sequencer-event__heji--edited" : ""}`}>
+              {event.displayLabel || ""}
+            </span>
+            {event.canRestoreDisplayLabel ? (
+              <button
+                type="button"
+                class="sequencer-event__restore-btn"
+                aria-label={`restore snapshot ${snapshotIndex + 1} ${event.kind} captured pitch and name`}
+                title="Restore captured pitch and name"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  restoreEventPitchLabel(snapshot, event.noteKey);
+                }}
+              >
+                <span class="preset-refresh-glyph" aria-hidden="true">⟳</span>
+              </button>
+            ) : null}
           </span>
         </div>
         {eventPane === "timing" ? (
@@ -1682,9 +1745,46 @@ const Sequencer = ({
             played, ordered, and edited. Use the OPTION key while dragging to duplicate a snapshot.
           </em>
         </p>
-        <button type="button" class="preset-action-btn" onClick={onTakeSnapshot}>
-          Capture
-        </button>
+        <div class="preset-actions preset-actions--library">
+          <button type="button" class="preset-action-btn" onClick={onTakeSnapshot}>
+            Capture
+          </button>
+          {snapshots.length > 0 &&
+            (
+              <span class="preset-actions__clear-slot">
+                {confirmClearSnapshots ? (
+                  <span class="preset-actions__confirm">
+                    <em class="preset-actions__confirm-text">Clear all snapshots?</em>
+                    <button
+                      type="button"
+                      class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
+                      onClick={() => {
+                        onDeleteAllSnapshots?.();
+                        setConfirmClearSnapshots(false);
+                      }}
+                    >
+                      Yes, clear
+                    </button>
+                    <button
+                      type="button"
+                      class="preset-utility-btn settings-form__inline-button--nowrap"
+                      onClick={() => setConfirmClearSnapshots(false)}
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+                    onClick={() => setConfirmClearSnapshots(true)}
+                  >
+                    Clear All
+                  </button>
+                )}
+              </span>
+            )}
+        </div>
       </fieldset>
 
       <fieldset>
@@ -1787,6 +1887,43 @@ const Sequencer = ({
             onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
           />
         </label>
+
+        <div class="preset-actions preset-actions--library">
+          {snapshots.length > 0 || (bars?.length ?? 0) > 1 || (tempi?.length ?? 0) > 1 ? (
+            <span class="preset-actions__clear-slot">
+              {confirmClearSequence ? (
+                <span class="preset-actions__confirm">
+                  <em class="preset-actions__confirm-text">Clear sequence?</em>
+                  <button
+                    type="button"
+                    class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={() => {
+                      onClearSequence?.();
+                      setConfirmClearSequence(false);
+                    }}
+                  >
+                    Yes, clear
+                  </button>
+                  <button
+                    type="button"
+                    class="preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={() => setConfirmClearSequence(false)}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  class="delete-btn preset-utility-btn preset-actions__clear-trigger settings-form__inline-button--nowrap sequencer-clear-sequence-btn"
+                  onClick={() => setConfirmClearSequence(true)}
+                >
+                  Clear Sequence
+                </button>
+              )}
+            </span>
+          ) : null}
+        </div>
 
         <div ref={playbackRowRef} class="sequencer-playback-row" aria-label="Sequence playback">
           <span class="sequencer-playback-label">PLAY FROM</span>
@@ -2195,7 +2332,7 @@ const Sequencer = ({
                               <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Hz", "Hz")}</span>
                             </div>
                             <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--heji">
-                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("HEJI", "HEJI")}</span>
+                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Name", "Name")}</span>
                             </div>
                             {eventPane === "timing" ? (
                               <>

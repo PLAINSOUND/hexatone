@@ -32,6 +32,16 @@ function centsToReference(settings, tuning) {
     : 0;
 }
 
+function frequencyForSnapshotHex(runtime, hex) {
+  const direct = runtime?._frequencyForHex?.(hex);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  const centsToRef = centsToReference(runtime.settings, runtime.tuning);
+  const fund = runtime.settings.fundamental;
+  if (!Number.isFinite(fund) || !Number.isFinite(Number(hex?.cents))) return null;
+  return fund * Math.pow(2, (Number(hex.cents) - centsToRef) / 1200);
+}
+
 function attackVelocityOf(hex, settings) {
   return normalizeVelocity(
     hex?.velocity_played ??
@@ -49,12 +59,11 @@ function attackVelocityOf(hex, settings) {
  * @returns {Array<{ midicents: number, attackVelocity: number, releaseVelocity: number, velocity: number, pressure?: number, pressure14?: number, timbre?: number, timbre14?: number }>}
  */
 export function captureSnapshot(runtime) {
-  const centsToRef = centsToReference(runtime.settings, runtime.tuning);
-  const fund = runtime.settings.fundamental;
   const seen = new Map(); // rounded midicents string -> entry (dedup)
 
   const add = (hex, releaseVelocity = null) => {
-    const freq = fund * Math.pow(2, (hex.cents - centsToRef) / 1200);
+    const freq = frequencyForSnapshotHex(runtime, hex);
+    if (!Number.isFinite(freq) || freq <= 0) return;
     const midicents = 69 + Math.log2(freq / 440) * 12;
     const key = midicents.toFixed(3);
     if (seen.has(key)) return;

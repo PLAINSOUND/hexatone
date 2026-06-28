@@ -232,6 +232,118 @@ describe("Sequencer", () => {
     expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
   });
 
+  it("clears all snapshots from the snapshot section after confirmation", () => {
+    const onDeleteAllSnapshots = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onDeleteAllSnapshots={onDeleteAllSnapshots}
+        onMoveSnapshot={vi.fn()}
+        onDuplicateSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Clear All"));
+    expect(screen.getByText("Clear all snapshots?")).not.toBeNull();
+
+    fireEvent.click(screen.getByText("Yes, clear"));
+    expect(onDeleteAllSnapshots).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the whole sequence after confirmation", () => {
+    const onClearSequence = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        tempi={[{ id: 1, position: 1, bpm: 60, beatLength: 1 }, { id: 2, position: 2, bpm: 72, beatLength: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onDeleteAllSnapshots={vi.fn()}
+        onClearSequence={onClearSequence}
+        onMoveSnapshot={vi.fn()}
+        onDuplicateSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Clear Sequence"));
+    expect(screen.getByText("Clear sequence?")).not.toBeNull();
+
+    fireEvent.click(screen.getByText("Yes, clear"));
+    expect(onClearSequence).toHaveBeenCalledTimes(1);
+  });
+
   it("updates the bar selector when a snapshot or cue target is chosen", () => {
     const onSelectSequenceBar = vi.fn();
 
@@ -1695,5 +1807,84 @@ describe("Sequencer", () => {
     expect(screen.queryByLabelText("delete bar 1")).toBeNull();
     expect(screen.getByLabelText("delete bar 2")).not.toBeNull();
     expect(screen.queryAllByLabelText("delete tempo marker")).toHaveLength(1);
+  });
+
+  it("shows edited in the Name field after pitch edits and can restore the captured pitch and name", () => {
+    function Harness() {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1 }],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, patch) => {
+            setSnapshots((current) => current.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...patch } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+          activeSequenceName=""
+          activeSequenceDescription=""
+          sequenceLegato
+        />
+      );
+    }
+
+    render(<Harness />);
+
+    fireEvent.blur(screen.getAllByLabelText("snapshot 1 attack midicents")[0], {
+      currentTarget: { value: "70.500000" },
+      target: { value: "70.500000" },
+    });
+
+    expect(screen.getAllByText("edited").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("restore snapshot 1 attack captured pitch and name")).not.toBeNull();
+    expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("70.500");
+    expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).not.toBe("440.0");
+
+    fireEvent.click(screen.getByLabelText("restore snapshot 1 attack captured pitch and name"));
+
+    expect(screen.queryByText("edited")).toBeNull();
+    expect(screen.getAllByText("A").length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("69.000");
+    expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("440.0");
   });
 });

@@ -733,21 +733,35 @@ td.scale-color-col .color-input {
   min-height: calc(1.5em + 0.2em + 2px);
 }
 
+.preset-actions__clear-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+  min-height: calc(1.5em + 0.2em + 2px);
+  flex: 0 0 auto;
+}
+
 .preset-actions__confirm {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.4rem;
-  margin-left: auto;
+  flex: 0 0 auto;
   min-height: calc(1.5em + 0.2em + 2px);
 }
 
 .preset-actions__confirm-text {
-  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  min-height: calc(1.5em + 0.2em + 2px);
+  line-height: 1.5em;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .preset-actions__clear-trigger {
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .settings-form__hidden-file-input {
@@ -2084,6 +2098,39 @@ td.scale-color-col .color-input {
   white-space: nowrap;
 }
 
+.sequencer-event__heji-wrap {
+  justify-content: space-between;
+  gap: 0.22em;
+  width: 100%;
+  padding-right: 0.16em;
+}
+
+.sequencer-event__heji--edited {
+  color: #b00000;
+  font-style: italic;
+}
+
+.sequencer-event__restore-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  min-width: 1.15em;
+  height: 1.15em;
+  border: 0.06rem solid var(--pane);
+  border-radius: 0.22rem;
+  color: var(--maroon);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.72);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.sequencer-event__restore-btn:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
 .sequencer-event-row--cue-active {
   background: rgba(198, 225, 205, 0.55);
 }
@@ -2709,6 +2756,11 @@ td.scale-color-col .color-input {
   width: 5em;
   min-width: 5em;
   text-align: center;
+}
+
+.sequencer-clear-sequence-btn {
+  width: auto;
+  min-width: fit-content;
 }
 
 .preset-error {

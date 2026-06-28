@@ -388,25 +388,29 @@ const SequenceLibrary = ({
           Open File(s)…
         </button>
         {savedSequences.length > 0 &&
-          (confirmClear ? (
-            <span class="preset-actions__confirm">
-              <em class="preset-actions__confirm-text">Clear all user sequences?</em>
-              <button type="button" class="delete-btn" onClick={handleClearConfirmed}>
-                Yes, clear
-              </button>
-              <button type="button" onClick={() => setConfirmClear(false)}>
-                Cancel
-              </button>
+          (
+            <span class="preset-actions__clear-slot">
+              {confirmClear ? (
+                <span class="preset-actions__confirm">
+                  <em class="preset-actions__confirm-text">Clear all user sequences?</em>
+                  <button type="button" class="delete-btn preset-utility-btn settings-form__inline-button--nowrap" onClick={handleClearConfirmed}>
+                    Yes, clear
+                  </button>
+                  <button type="button" class="preset-utility-btn settings-form__inline-button--nowrap" onClick={() => setConfirmClear(false)}>
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+                  onClick={() => setConfirmClear(true)}
+                >
+                  Clear All
+                </button>
+              )}
             </span>
-          ) : (
-            <button
-              type="button"
-              class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-              onClick={() => setConfirmClear(true)}
-            >
-              Clear All
-            </button>
-          ))}
+          )}
       </div>
 
       {snapshotsPresent && (
