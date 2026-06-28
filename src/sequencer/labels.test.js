@@ -17,6 +17,15 @@ describe("sequencer snapshot labels", () => {
     ])).toBe("4:5");
   });
 
+  it("keeps octave-displaced notes distinct when ratioText repeats a pitch-class identity", () => {
+    expect(buildChordProportion([
+      { midicents: 69, ratioText: "1/1" },
+      { midicents: 72.863137, ratioText: "5/4" },
+      { midicents: 76.01955, ratioText: "3/2" },
+      { midicents: 84.863137, ratioText: "5/4" },
+    ])).toBe("4:5:6:10");
+  });
+
   it("derives chord interval cents from the lowest MIDIcents value", () => {
     expect(buildSnapshotDescription([
       { midicents: 76.5 },

@@ -417,7 +417,6 @@ class Keys {
     }
 
     InputMidiListeners.setupMidiInput.call(this);
-    InputMidiListeners.setupMidiControlInput.call(this);
 
     // lumatoneLEDs and exquisLEDs are assigned externally by app.jsx after
     // construction, via onKeysReady — the same pattern so both LED engines
@@ -1822,7 +1821,6 @@ class Keys {
 
   updateInputRuntime = (nextRuntime, nextSettings = null) => {
     const previousMidiInputDevice = this.settings.midiin_device;
-    const previousMidiControlDevice = this.settings.midi_control_device;
     const previousModulationStyle = this.settings.modulation_style;
     const previousHakenGlideMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     const previousRouteKey = JSON.stringify({
@@ -1869,9 +1867,6 @@ class Keys {
         InputMidiListeners.rebindMidiInput.call(this);
         return;
       }
-      if (previousMidiControlDevice !== this.settings.midi_control_device) {
-        InputMidiListeners.rebindMidiControlInput.call(this);
-      }
       if (!this.midiin_data && this.settings.midiin_device !== "OFF") {
         InputMidiListeners.rebindMidiInput.call(this);
         return;
@@ -1887,6 +1882,10 @@ class Keys {
     const nextHakenGlideMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     this._handleHakenGlideModeTransition(previousHakenGlideMode, nextHakenGlideMode);
     this._refreshHakenGlideModeForActiveNotes();
+  };
+
+  refreshMidiInputBinding = () => {
+    InputMidiListeners.rebindMidiInput.call(this);
   };
 
   getSnapshot() {
@@ -1990,10 +1989,6 @@ class Keys {
   setMidiCcLearnMode = (active, callback) => {
     this._midiLearnCcCallback = active ? (callback ?? null) : null;
   };
-
-  _handleMidiControlEvent(event) {
-    return InputMidiListeners.handleMidiControlEvent.call(this, event);
-  }
 
   // ── Lumatone LED helpers ────────────────────────────────────────────────────
 

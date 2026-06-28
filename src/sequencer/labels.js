@@ -42,16 +42,45 @@ function parsePositiveRatioText(value) {
   };
 }
 
+function ratioToFloat(ratio) {
+  if (!ratio) return null;
+  return Number(ratio.numerator) / Number(ratio.denominator);
+}
+
+function applyOctaveShift(ratio, shift) {
+  if (!ratio || !Number.isFinite(shift)) return ratio;
+  if (shift === 0) return ratio;
+  const power = 2n ** BigInt(Math.abs(shift));
+  return shift > 0
+    ? { numerator: ratio.numerator * power, denominator: ratio.denominator }
+    : { numerator: ratio.numerator, denominator: ratio.denominator * power };
+}
+
 export function buildChordProportion(notes = []) {
   if (!Array.isArray(notes) || notes.length === 0) return "";
-  const ratios = sortSnapshotNotes(notes).map((note) => parsePositiveRatioText(note?.ratioText));
+  const sortedNotes = sortSnapshotNotes(notes);
+  const ratios = sortedNotes.map((note) => parsePositiveRatioText(note?.ratioText));
   if (ratios.some((ratio) => ratio == null)) return "";
 
-  const commonDenominator = ratios.reduce(
+  const baseFrequency = noteFrequency(sortedNotes[0]?.midicents);
+  const baseRatio = ratioToFloat(ratios[0]);
+  if (!Number.isFinite(baseFrequency) || !Number.isFinite(baseRatio) || baseRatio <= 0) return "";
+  const referenceScale = baseFrequency / baseRatio;
+
+  const octaveAwareRatios = ratios.map((ratio, index) => {
+    const frequency = noteFrequency(sortedNotes[index]?.midicents);
+    const ratioValue = ratioToFloat(ratio);
+    if (!Number.isFinite(frequency) || !Number.isFinite(ratioValue) || ratioValue <= 0) return ratio;
+    const expectedFrequency = referenceScale * ratioValue;
+    const octaveShift = Math.round(Math.log2(frequency / expectedFrequency));
+    return applyOctaveShift(ratio, octaveShift);
+  });
+
+  const commonDenominator = octaveAwareRatios.reduce(
     (current, ratio) => lcm(current, ratio.denominator),
     1n,
   );
-  const integers = ratios.map((ratio) => ratio.numerator * (commonDenominator / ratio.denominator));
+  const integers = octaveAwareRatios.map((ratio) => ratio.numerator * (commonDenominator / ratio.denominator));
   const commonFactor = integers.reduce((current, value) => gcd(current, value));
   return integers
     .map((value) => value / commonFactor)

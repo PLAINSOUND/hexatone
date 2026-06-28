@@ -282,7 +282,6 @@ export const SETTINGS_REGISTRY = [
 
   // ── MIDI input ───────────────────────────────────────────────────────────────
   { key: "midiin_device", tier: "session", type: "string", default: "OFF" },
-  { key: "midi_control_device", tier: "session", type: "string", default: "OFF" },
   { key: "midiin_controller_override", tier: "url", type: "string", default: "auto" },
   { key: "midiin_steps_per_channel", tier: "url", type: "int", default: 0 },
   { key: "midiin_channel_group_size", tier: "url", type: "int", default: 1 },
