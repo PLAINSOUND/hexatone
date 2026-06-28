@@ -1290,6 +1290,7 @@ const useSynthWiring = (
     midiTick,
     settings.midiin_device,
     settings.midiin_controller_override,
+    settings.midiin_mpe_input,
     settings.midi_passthrough,
     settings.lumatone_anchor_note,
     settings.lumatone_anchor_channel,

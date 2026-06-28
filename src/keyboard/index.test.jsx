@@ -18,7 +18,6 @@ vi.mock("./keys.js", () => {
     constructor(canvas, settings) {
       this.initialSettings = settings;
       this.updateInputRuntime = vi.fn();
-      this.refreshMidiInputBinding = vi.fn();
       this.updateLiveOutputState = vi.fn();
       this.updateColors = vi.fn();
       this.scheduleImmediateGridRedraw = vi.fn();
@@ -92,25 +91,6 @@ describe("Keyboard settings-impact boundary", () => {
       { bendRange: "9/8", wheelSemitones: 12 },
       { midiin_device: "OFF", midiin_bend_range: "9/8" },
     );
-  });
-
-  it("rebinds MIDI input when the live MIDI object refreshes without changing the selected device", () => {
-    const midiA = { inputs: new Map(), outputs: new Map() };
-    const midiB = { inputs: new Map(), outputs: new Map() };
-    const props = {
-      ...baseProps,
-      liveInputSettings: { midiin_device: "lumatone-1", midiin_bend_range: "28/27" },
-      midiBindingToken: midiA,
-    };
-    const { rerender } = render(<Keyboard {...props} />);
-    const keys = keysState.instances[0];
-
-    expect(keys.refreshMidiInputBinding).toHaveBeenCalledTimes(1);
-
-    rerender(<Keyboard {...props} midiBindingToken={midiB} />);
-
-    expect(keysState.instances).toHaveLength(1);
-    expect(keys.refreshMidiInputBinding).toHaveBeenCalledTimes(2);
   });
 
   it("reconstructs Keys only when reconstructionKey changes", () => {

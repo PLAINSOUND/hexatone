@@ -88,11 +88,11 @@ function sessionIntFromAliases(keys, fallback) {
 function restorePersistentAnchorFields(fallback = {}) {
   return {
     midiin_anchor_note: sessionIntFromAliases(
-      ["midiin_anchor_note"],
-      fallback.midiin_anchor_note ?? 60,
+      ["midiin_anchor_note", "midiin_central_degree", "lumatone_center_note"],
+      fallback.midiin_anchor_note ?? fallback.midiin_central_degree ?? 60,
     ),
     midiin_anchor_channel: sessionIntFromAliases(
-      ["midiin_anchor_channel"],
+      ["midiin_anchor_channel", "lumatone_center_channel"],
       fallback.midiin_anchor_channel ?? 1,
     ),
   };

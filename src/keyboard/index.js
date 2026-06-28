@@ -80,17 +80,6 @@ const Keyboard = (props) => {
     }
   }, [props.inputRuntime, props.liveInputSettings]);
 
-  useEffect(() => {
-    if (
-      keysRef.current?.refreshMidiInputBinding &&
-      props.midiBindingToken &&
-      props.liveInputSettings?.midiin_device &&
-      props.liveInputSettings.midiin_device !== "OFF"
-    ) {
-      keysRef.current.refreshMidiInputBinding();
-    }
-  }, [props.midiBindingToken, props.liveInputSettings]);
-
   // Output/synth changes should not tear down the live keyboard. Existing notes
   // keep their current hex objects so tails can decay naturally; new notes use
   // the latest synth/output configuration.
@@ -159,7 +148,6 @@ const Keyboard = (props) => {
 Keyboard.propTypes = {
   reconstructionKey: PropTypes.string,
   liveInputSettings: PropTypes.object,
-  midiBindingToken: PropTypes.object,
   liveOutputSettings: PropTypes.object,
   colorSettings: PropTypes.object,
   lumatoneLedsRef: PropTypes.object,

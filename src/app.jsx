@@ -2373,7 +2373,6 @@ const App = () => {
           tuningRuntime={tuningRuntime}
           reconstructionKey={keysReconstructionImpactKey}
           liveInputSettings={liveInputSettings}
-          midiBindingToken={midi}
           liveOutputSettings={liveOutputSettings}
           colorSettings={colorSettings}
           inputRuntime={inputRuntime}
