@@ -1310,10 +1310,10 @@ const App = () => {
     setSnapshots([]);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
-    setSequenceBars(normalizeBarMarkers([{ id: 1, position: 1 }]));
-    setSequenceTempi(normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
+    setSequenceBars([]);
+    setSequenceTempi([]);
     snapshotIdRef.current = 0;
-    sequenceBarIdRef.current = 1;
+    sequenceBarIdRef.current = 0;
     setActiveSequenceName("");
     setActiveSequenceDescription("");
     playSequencePosition(-1, null);

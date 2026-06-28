@@ -434,6 +434,13 @@ const Sequencer = ({
   }, [playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
 
   useEffect(() => {
+    if (snapshots.length > 0 || sortedBars.length > 0 || sortedTempi.length > 0) return;
+    setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
+    setPendingSnapshotJumpIndex("");
+    setPendingCueJumpIndex("");
+  }, [snapshots.length, sortedBars.length, sortedTempi.length]);
+
+  useEffect(() => {
     if (!pendingTransportActionRef.current) return;
     const action = pendingTransportActionRef.current;
     pendingTransportActionRef.current = null;
