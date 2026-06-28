@@ -30,8 +30,6 @@ export const parseScale = (scala) => {
       out.hexatone_fundamental = parseFloat(match[2]);
     } else if ((match = line.match(/^\s*!\s*HEXATONE_midiin_anchor_note\s+(\d+)$/))) {
       out.hexatone_midiin_anchor_note = parseInt(match[1]);
-    } else if ((match = line.match(/^\s*!\s*HEXATONE_midiin_central_degree\s+(\d+)$/))) {
-      out.hexatone_midiin_anchor_note = parseInt(match[1]);
     } else if ((match = line.match(/^\s*!\s*ABLETON_REFERENCE_PITCH\s+(\d+)\s+([\d.]+)$/))) {
       out.ableton_reference_note = parseInt(match[1]);
       out.ableton_reference_freq = parseFloat(match[2]);
@@ -231,8 +229,9 @@ export const settingsToAbletonScala = (settings) => {
   const name = settings.name || "custom";
   const description = settings.description || name;
   const rawScale = getRawScale(settings);
-  const refNote = (settings.midiin_anchor_note || settings.midiin_central_degree || 60) + (settings.reference_degree || 0);
-  const rootNote = (settings.midiin_anchor_note || settings.midiin_central_degree || 60) % 12;
+  const anchorNote = settings.midiin_anchor_note || 60;
+  const refNote = anchorNote + (settings.reference_degree || 0);
+  const rootNote = anchorNote % 12;
   const lines = [
     `! ${name}.ascl`,
     `!`,
@@ -252,8 +251,9 @@ export const settingsToHexatonScala = (settings) => {
   const name = settings.name || "custom";
   const description = settings.description || name;
   const rawScale = getRawScale(settings);
-  const refNote = (settings.midiin_anchor_note || settings.midiin_central_degree || 60) + (settings.reference_degree || 0);
-  const rootNote = (settings.midiin_anchor_note || settings.midiin_central_degree || 60) % 12;
+  const anchorNote = settings.midiin_anchor_note || 60;
+  const refNote = anchorNote + (settings.reference_degree || 0);
+  const rootNote = anchorNote % 12;
   const noteNames = (settings.note_names || []).join(", ");
   const noteColors = (settings.note_colors || []).join(", ");
   const lines = [
@@ -263,7 +263,7 @@ export const settingsToHexatonScala = (settings) => {
     `! ABLETON_ROOT_NOTE ${rootNote}`,
     `!`,
     `! HEXATONE_REFERENCE_PITCH ${settings.reference_degree || 0} ${settings.fundamental || 440}`,
-    `! HEXATONE_midiin_anchor_note ${settings.midiin_anchor_note || settings.midiin_central_degree || 60}`,
+    `! HEXATONE_midiin_anchor_note ${anchorNote}`,
     noteNames ? `! HEXATONE_NOTE_NAMES ${noteNames}` : null,
     noteColors ? `! HEXATONE_NOTE_COLORS ${noteColors}` : null,
     `!`,
@@ -278,7 +278,7 @@ export const settingsToHexatonScala = (settings) => {
 // Build a .kbm keyboard mapping file string from current settings.
 export const settingsToKbm = (settings) => {
   const equivSteps = settings.equivSteps || 12;
-  const midiin_anchor_note = settings.midiin_anchor_note || settings.midiin_central_degree || 60;
+  const midiin_anchor_note = settings.midiin_anchor_note || 60;
   const reference_degree = settings.reference_degree || 0;
   const refNote = midiin_anchor_note + reference_degree;
   const fundamental = settings.fundamental || 440;

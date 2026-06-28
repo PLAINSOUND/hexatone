@@ -70,7 +70,7 @@ export function computeCenterPitchHz(
 
 /**
  * Default tuning-map anchor for real-time mode when no MIDI controller has
- * overridden midiin_central_degree.
+ * overridden midiin_anchor_note.
  *
  * Returns the nearest integer MIDI note (0–127) to the on-screen centre hex's
  * pitch. Typically lands in the A3–A4 range for normal tunings, giving good

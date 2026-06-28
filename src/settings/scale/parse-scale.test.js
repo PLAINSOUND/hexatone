@@ -201,7 +201,7 @@ Scale with names and colors
 const SCALE_HEXATONE = `! mytuning.ascl
 !
 ! HEXATONE_REFERENCE_PITCH 9 440
-! HEXATONE_midiin_central_degree 60
+! HEXATONE_midiin_anchor_note 60
 ! HEXATONE_NOTE_NAMES C, D, E
 ! HEXATONE_NOTE_COLORS #ffffff, #dddddd, #bbbbbb
 !
@@ -365,7 +365,7 @@ describe("settingsToPresetJson", () => {
       scale: ["100.", "1200."],
       equivSteps: 2,
       scale_import: "! inline scala",
-      midiin_central_degree: 64,
+      midiin_anchor_note: 64,
       mpe_pitchbend_range: 48,
       fundamental: 440,
     });
@@ -376,7 +376,6 @@ describe("settingsToPresetJson", () => {
     expect(parsed.fundamental).toBe(440);
     expect(parsed.key_colors_mode).toBe("manual");
     expect(parsed.scale_import).toBeUndefined();
-    expect(parsed.midiin_central_degree).toBeUndefined();
     expect(parsed.mpe_pitchbend_range).toBeUndefined();
   });
 

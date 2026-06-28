@@ -109,8 +109,6 @@ let settings = {
   midi_passthrough: false,
   midiin_mpe_input: false,
   midiin_steps_per_channel: 0,
-  lumatone_center_channel: 1,
-  lumatone_center_note: 60,
 };
 
 vi.mock("./use-query", () => ({

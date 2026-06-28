@@ -34,8 +34,6 @@ const LEGACY_SESSION_KEY_ALIASES = {
   mts_bulk_device_id: "direct_device_id",
   mts_bulk_tuning_map_number: "direct_tuning_map_number",
   mts_bulk_tuning_map_name: "direct_tuning_map_name",
-  midiin_anchor_note: "midiin_central_degree",
-  midiin_mpe_manager_ch: "mpe_manager_ch",
 };
 
 // Read one session key using the correct parser for its type.

@@ -889,8 +889,8 @@ export const CONTROLLER_REGISTRY = [
     sequentialLegacyDefault: false,
     // Anchor in native UF coordinates: col (1-indexed) + channel/row (1-indexed).
     // Default col 9, row 4 = near centre of the 16-col grid.
-    anchorDefault: 9,           // col (lumatone_center_note)
-    anchorChannelDefault: 4,    // row (lumatone_center_channel)
+    anchorDefault: 9,           // default anchor column
+    anchorChannelDefault: 4,    // default anchor row/channel
     defaultCols: 16,            // LinnStrument 128; set to 25 for LinnStrument 200
     supportsVirtualAnchor: true,
     learnConstraints: {

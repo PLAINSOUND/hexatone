@@ -133,14 +133,12 @@ describe("mergePresetIntoSettings", () => {
   });
 
   it("drops stale runtime anchor rewrites and restores the persisted base anchor", () => {
-    sessionStorage.setItem("midiin_central_degree", "26");
+    sessionStorage.setItem("midiin_anchor_note", "26");
     sessionStorage.setItem("midiin_anchor_channel", "3");
-    sessionStorage.setItem("lumatone_center_note", "26");
-    sessionStorage.setItem("lumatone_center_channel", "3");
 
     const merged = mergePresetIntoSettings(
       {
-        midiin_central_degree: -999,
+        midiin_anchor_note: -999,
         midiin_anchor_channel: -2,
         controller_virtual_anchor_x: -18,
         controller_virtual_anchor_y: 6,
@@ -153,8 +151,6 @@ describe("mergePresetIntoSettings", () => {
 
     expect(merged.midiin_anchor_note).toBe(26);
     expect(merged.midiin_anchor_channel).toBe(3);
-    expect(merged.lumatone_center_note).toBeUndefined();
-    expect(merged.lumatone_center_channel).toBeUndefined();
     expect(merged.controller_virtual_anchor_x).toBeNull();
     expect(merged.controller_virtual_anchor_y).toBeNull();
   });

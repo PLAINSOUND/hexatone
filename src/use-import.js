@@ -71,9 +71,7 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
           : s.reference_degree;
       const midiin_anchor_note =
         parsed.hexatone_midiin_anchor_note ||
-        parsed.hexatone_midiin_central_degree ||
-        s.midiin_anchor_note ||
-        s.midiin_central_degree;
+        s.midiin_anchor_note;
 
       return {
         ...s,
