@@ -586,6 +586,24 @@ const Sequencer = ({
     return next;
   };
 
+  const stoppedBarStateForBarNumber = useCallback((barNumber) => {
+    const index = Math.max(0, Math.round(Number(barNumber) || 1) - 1);
+    const bar = sortedBars[index] ?? null;
+    const beatsPerBar = Math.max(0, Math.round(Number(bar?.numerator) || 0));
+    return beatsPerBar === 0;
+  }, [sortedBars]);
+
+  const normalizeDraftForStoppedBar = useCallback((draft) => {
+    if (!draft) return draft;
+    if (!stoppedBarStateForBarNumber(draft.barNumber)) return draft;
+    return {
+      ...draft,
+      beat: "0",
+      numerator: "0",
+      denominator: "1",
+    };
+  }, [stoppedBarStateForBarNumber]);
+
   const applyTempoBarRelativeDraft = useCallback((draft) => {
     if (!draft) return;
     const position = barBeatToAbsolutePosition({
@@ -661,14 +679,15 @@ const Sequencer = ({
           : field;
     setBarRelativeDrafts((prev) => {
       const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
+      const nextDraft = {
+        ...buildBarRelativeDraft(current, field, { [draftField]: value }),
+        ...meta,
+        draftKey,
+        scope: `event:${draftKey}`,
+      };
       return {
         ...prev,
-        [draftKey]: {
-          ...buildBarRelativeDraft(current, field, { [draftField]: value }),
-          ...meta,
-          draftKey,
-          scope: `event:${draftKey}`,
-        },
+        [draftKey]: normalizeDraftForStoppedBar(nextDraft),
       };
     });
   };
@@ -694,14 +713,15 @@ const Sequencer = ({
           : field;
     setTempoBarRelativeDrafts((prev) => {
       const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
+      const nextDraft = {
+        ...buildBarRelativeDraft(current, field, { [draftField]: value }),
+        ...meta,
+        draftKey,
+        scope: `tempo:${draftKey}`,
+      };
       return {
         ...prev,
-        [draftKey]: {
-          ...buildBarRelativeDraft(current, field, { [draftField]: value }),
-          ...meta,
-          draftKey,
-          scope: `tempo:${draftKey}`,
-        },
+        [draftKey]: normalizeDraftForStoppedBar(nextDraft),
       };
     });
   };
@@ -760,6 +780,7 @@ const Sequencer = ({
   const updateEventField = (snapshot, noteKey, field, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
+    const pitchUnchanged = (a, b) => Math.abs(Number(a) - Number(b)) < 0.000000001;
 
     const notes = (snapshot.notes ?? []).map((note) => {
       const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
@@ -771,6 +792,7 @@ const Sequencer = ({
       const originalDisplayLabel = note.originalDisplayLabel ?? note.displayLabel ?? "";
 
       if (field === "midicents") {
+        if (pitchUnchanged(numeric, note.midicents)) return note;
         return {
           ...note,
           midicents: numeric,
@@ -782,6 +804,7 @@ const Sequencer = ({
       }
       if (field === "frequency") {
         const midicents = frequencyToMidicents(numeric);
+        if (midicents == null || pitchUnchanged(midicents, note.midicents)) return note;
         return midicents == null ? note : {
           ...note,
           midicents,
@@ -853,8 +876,12 @@ const Sequencer = ({
   };
 
   const updateBarTimeSignatureField = (barId, field, rawValue) => {
-    const numeric = Math.max(1, Math.round(Number(rawValue) || 0));
-    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    const parsed = Math.round(Number(rawValue) || 0);
+    const numeric = field === "numerator"
+      ? Math.max(0, parsed)
+      : Math.max(1, parsed);
+    if (!Number.isFinite(numeric)) return;
+    if (field !== "numerator" && numeric <= 0) return;
     onUpdateBar?.(barId, { [field]: numeric });
   };
 
@@ -1102,6 +1129,10 @@ const Sequencer = ({
     const draftKey = tempoBarRelativeDraftKey(tempoId);
     const tempoBarRelativeDraft = tempoBarRelativeDrafts[draftKey] ?? null;
     const isTempoBarRelativeDraftActive = tempoBarRelativeDraft != null;
+    const isTempoStoppedBar = stoppedBarStateForBarNumber(tempoBarRelativeDraft?.barNumber ?? barBeat?.barNumber ?? 1);
+    const tempoBeatValue = isTempoStoppedBar ? "0" : (tempoBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1));
+    const tempoNumValue = isTempoStoppedBar ? "0" : (tempoBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0));
+    const tempoDenValue = isTempoStoppedBar ? "1" : (tempoBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1));
 
     return (
       <div
@@ -1240,10 +1271,11 @@ const Sequencer = ({
           <input
             type="number"
             step="1"
-            min="1"
+            min={isTempoStoppedBar ? "0" : "1"}
             class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-            value={tempoBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1)}
+            value={tempoBeatValue}
             aria-label="tempo beat"
+            disabled={isTempoStoppedBar}
             onFocus={(e) => {
               delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
@@ -1262,8 +1294,9 @@ const Sequencer = ({
             step="1"
             min="0"
             class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-            value={tempoBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0)}
+            value={tempoNumValue}
             aria-label="tempo beat fraction numerator"
+            disabled={isTempoStoppedBar}
             onFocus={(e) => {
               delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
@@ -1282,8 +1315,9 @@ const Sequencer = ({
             step="1"
             min="1"
             class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-            value={tempoBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1)}
+            value={tempoDenValue}
             aria-label="tempo beat fraction denominator"
+            disabled={isTempoStoppedBar}
             onFocus={(e) => {
               delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
@@ -1344,6 +1378,10 @@ const Sequencer = ({
     const draftKey = eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
     const barRelativeDraft = barRelativeDrafts[draftKey] ?? null;
     const isBarRelativeDraftActive = eventPane === "timing" && barRelativeDraft != null;
+    const isStoppedBar = stoppedBarStateForBarNumber(barRelativeDraft?.barNumber ?? barBeat?.barNumber ?? 1);
+    const beatValue = isStoppedBar ? "0" : (barRelativeDraft?.beat ?? String(barBeat?.beat ?? 1));
+    const numeratorValue = isStoppedBar ? "0" : (barRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0));
+    const denominatorValue = isStoppedBar ? "1" : (barRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1));
 
     return (
       <div
@@ -1512,10 +1550,11 @@ const Sequencer = ({
               <input
                 type="number"
                 step="1"
-                min={barBeat?.stopped ? "0" : "1"}
+                min={isStoppedBar ? "0" : "1"}
                 class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-                value={barRelativeDraft?.beat ?? String(barBeat?.beat ?? 1)}
+                value={beatValue}
                 aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
+                disabled={isStoppedBar}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
                 onFocus={(e) => {
@@ -1540,8 +1579,9 @@ const Sequencer = ({
                 step="1"
                 min="0"
                 class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-                value={barRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0)}
+                value={numeratorValue}
                 aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
+                disabled={isStoppedBar}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
                 onFocus={(e) => {
@@ -1566,8 +1606,9 @@ const Sequencer = ({
                 step="1"
                 min="1"
                 class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-                value={barRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1)}
+                value={denominatorValue}
                 aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
+                disabled={isStoppedBar}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
                 onFocus={(e) => {

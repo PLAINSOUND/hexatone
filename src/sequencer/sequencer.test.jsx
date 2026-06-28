@@ -533,6 +533,61 @@ describe("Sequencer", () => {
     expect(onUpdateBar).toHaveBeenCalledWith(1, { denominator: 8 });
   });
 
+  it("allows bar 1 to commit a stopped 0/n time signature", () => {
+    const onUpdateBar = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 81, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={onUpdateBar}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const numeratorInput = screen.getByLabelText("bar 1 beats per bar");
+    const denominatorInput = screen.getByLabelText("bar 1 beat unit");
+
+    numeratorInput.value = "0";
+    fireEvent.blur(numeratorInput);
+    denominatorInput.value = "4";
+    fireEvent.blur(denominatorInput);
+
+    expect(onUpdateBar).toHaveBeenCalledWith(1, { numerator: 0 });
+    expect(onUpdateBar).toHaveBeenCalledWith(1, { denominator: 4 });
+  });
+
   it("rerenders bar time signatures when a loaded sequence reuses the same bar ids", () => {
     const props = {
       snapshots: [
@@ -1632,6 +1687,72 @@ describe("Sequencer", () => {
     expect(onUpdateTempo).toHaveBeenLastCalledWith(1, { position: 2.666667 });
   });
 
+  it("shows stopped 0/1 bars as beat 0 with non-editable beat, num, and den fields", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1, numerator: 0, denominator: 1 }]}
+        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    expect(screen.getByLabelText("snapshot 1 attack beat").value).toBe("0");
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").value).toBe("0");
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").value).toBe("1");
+    expect(screen.getByLabelText("snapshot 1 attack beat").disabled).toBe(true);
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").disabled).toBe(true);
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").disabled).toBe(true);
+    expect(screen.getByLabelText("tempo beat").value).toBe("0");
+    expect(screen.getByLabelText("tempo beat fraction numerator").value).toBe("0");
+    expect(screen.getByLabelText("tempo beat fraction denominator").value).toBe("1");
+    expect(screen.getByLabelText("tempo beat").disabled).toBe(true);
+    expect(screen.getByLabelText("tempo beat fraction numerator").disabled).toBe(true);
+    expect(screen.getByLabelText("tempo beat fraction denominator").disabled).toBe(true);
+  });
+
   it("renders a whole-position bar inside the expanded snapshot flow ahead of the coincident note event", () => {
     const { container } = render(
       <Sequencer
@@ -1886,5 +2007,83 @@ describe("Sequencer", () => {
     expect(screen.getAllByText("A").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("69.000");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("440.0");
+  });
+
+  it("does not mark the Name field as edited when MIDI¢ or Hz blur without a real pitch change", () => {
+    function Harness() {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1 }],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, patch) => {
+            setSnapshots((current) => current.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...patch } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+          activeSequenceName=""
+          activeSequenceDescription=""
+          sequenceLegato
+        />
+      );
+    }
+
+    render(<Harness />);
+
+    fireEvent.blur(screen.getAllByLabelText("snapshot 1 attack midicents")[0], {
+      currentTarget: { value: "69.000000" },
+      target: { value: "69.000000" },
+    });
+
+    expect(screen.queryByText("edited")).toBeNull();
+    expect(screen.getAllByText("A").length).toBeGreaterThan(0);
+
+    fireEvent.blur(screen.getAllByLabelText("snapshot 1 attack frequency")[0], {
+      currentTarget: { value: "440.000000" },
+      target: { value: "440.000000" },
+    });
+
+    expect(screen.queryByText("edited")).toBeNull();
+    expect(screen.getAllByText("A").length).toBeGreaterThan(0);
   });
 });

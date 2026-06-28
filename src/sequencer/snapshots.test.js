@@ -212,6 +212,32 @@ describe("sequencer snapshots", () => {
     expect(noteOff).toHaveBeenCalledWith(44);
   });
 
+  it("reconstructs snapshot playback cents from the normalized degree-0 reference offset", () => {
+    const synth = {
+      makeHex: vi.fn(() => ({ noteOn: vi.fn(), noteOff: vi.fn() })),
+    };
+    const runtime = makeRuntime({
+      settings: {
+        reference_degree: 2,
+        fundamental: 441,
+      },
+      tuning: {
+        scale: [0, 100, 203.91],
+        degree0toRef_asArray: [203.91, 2 ** (203.91 / 1200)],
+      },
+      synth,
+    });
+
+    const targetFrequency = 441;
+    const targetMidicents = 69 + Math.log2(targetFrequency / 440) * 12;
+    playSnapshot(runtime, [
+      { midicents: targetMidicents, attackVelocity: 120, releaseVelocity: 44 },
+    ]);
+
+    expect(synth.makeHex).toHaveBeenCalledTimes(1);
+    expect(synth.makeHex.mock.calls[0][1]).toBeCloseTo(203.91, 6);
+  });
+
   it("replays pressure as aftertouch and timbre through the polyphonic timbre hook", () => {
     const noteOn = vi.fn();
     const aftertouch = vi.fn();

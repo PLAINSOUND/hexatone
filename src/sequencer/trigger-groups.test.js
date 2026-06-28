@@ -8,7 +8,7 @@ import {
 } from "./trigger-groups.js";
 
 describe("deriveSnapshotTriggerGroups", () => {
-  it("groups by time and sorts attacks before releases, then by descending pitch", () => {
+  it("groups by time and sorts old releases before new attacks, then by descending pitch", () => {
     const groups = deriveSnapshotTriggerGroups({
       id: 1,
       length: 1,
@@ -42,9 +42,36 @@ describe("deriveSnapshotTriggerGroups", () => {
 
     expect(groups.map((group) => group.time)).toEqual([0, 0.5, 1]);
     expect(groups[1].events.map((event) => `${event.kind}:${event.noteId}`)).toEqual([
+      "release:high",
       "attack:mid",
       "attack:low",
-      "release:high",
+    ]);
+  });
+
+  it("keeps a same-time note-on before its own note-off", () => {
+    const groups = deriveSnapshotTriggerGroups({
+      id: 1,
+      length: 1,
+      notes: [
+        {
+          id: "held",
+          midicents: 69,
+          start: 0,
+          end: 0.5,
+        },
+        {
+          id: "stacc",
+          midicents: 72,
+          start: 0.5,
+          end: 0.5,
+        },
+      ],
+    });
+
+    expect(groups[1].events.map((event) => `${event.kind}:${event.noteId}`)).toEqual([
+      "release:held",
+      "attack:stacc",
+      "release:stacc",
     ]);
   });
 
@@ -76,8 +103,8 @@ describe("deriveSnapshotTriggerGroups", () => {
 
     expect(groups.map((group) => group.time)).toEqual([1, 2, 3]);
     expect(groups[1].events.map((event) => `${event.kind}:${event.noteId}`)).toEqual([
-      "attack:second",
       "release:first",
+      "attack:second",
     ]);
     expect(groups[1].snapshotIndex).toBe(1);
   });
@@ -122,8 +149,8 @@ describe("deriveSnapshotTriggerGroups", () => {
       ["a", "attack", 1, 1],
       ["b", "attack", 1.5, 2],
       ["b", "release", 2, 3],
-      ["c", "attack", 2.25, 4],
       ["a", "release", 2.25, 4],
+      ["c", "attack", 2.25, 4],
       ["c", "release", 3, 5],
     ]);
   });
@@ -246,8 +273,8 @@ describe("deriveSnapshotTriggerGroups", () => {
     ])).toEqual([
       ["note", "attack", 1, 0, 1],
       ["bar", "bar", 2, 0, null],
-      ["note", "attack", 2, 1, 2],
       ["note", "release", 2, 0, 2],
+      ["note", "attack", 2, 1, 2],
       ["note", "release", 3, 1, 3],
     ]);
 

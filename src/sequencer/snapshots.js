@@ -26,10 +26,8 @@ const snapshotPitchKey = (midicents) => {
   return n.toFixed(3);
 };
 
-function centsToReference(settings, tuning) {
-  return settings.reference_degree > 0
-    ? (tuning.scale[settings.reference_degree - 1] ?? 0)
-    : 0;
+function centsToReference(_settings, tuning) {
+  return tuning?.degree0toRef_asArray?.[0] ?? 0;
 }
 
 function frequencyForSnapshotHex(runtime, hex) {

@@ -1,11 +1,17 @@
-function eventTypePriority(kind) {
-  return kind === "attack" ? 0 : 1;
+function noteEventPhase(event) {
+  if (event?.kind === "release") {
+    const start = Number(event?.spanStart);
+    const time = Number(event?.time ?? event?.absoluteTime);
+    if (Number.isFinite(start) && Number.isFinite(time) && start < time) return 0;
+    return 2;
+  }
+  return 1;
 }
 
-function sequenceRowPriority(type, kind) {
-  if (type === "tempo") return 0;
-  if (type === "bar") return 1;
-  return kind === "attack" ? 2 : 3;
+function sequenceRowPriority(event) {
+  if (event?.type === "tempo") return 0;
+  if (event?.type === "bar") return 1;
+  return 2 + noteEventPhase(event);
 }
 
 function noteFrequency(midicents) {
@@ -57,6 +63,8 @@ export function deriveSnapshotTriggerGroups(snapshot) {
       noteId: note.id ?? `${midicents}:${start}:attack`,
       kind: "attack",
       time: start,
+      spanStart: start,
+      spanEnd: end,
       fractionDenominator: note.startFractionDenominator ?? null,
       midicents,
       frequency,
@@ -76,6 +84,8 @@ export function deriveSnapshotTriggerGroups(snapshot) {
       noteId: note.id ?? `${midicents}:${end}:release`,
       kind: "release",
       time: end,
+      spanStart: start,
+      spanEnd: end,
       fractionDenominator: note.endFractionDenominator ?? null,
       midicents,
       frequency,
@@ -93,7 +103,7 @@ export function deriveSnapshotTriggerGroups(snapshot) {
 
   events.sort((a, b) => (
     a.time - b.time ||
-    eventTypePriority(a.kind) - eventTypePriority(b.kind) ||
+    noteEventPhase(a) - noteEventPhase(b) ||
     b.midicents - a.midicents
   ));
 
@@ -209,7 +219,7 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
 
   events.sort((a, b) => (
     a.absoluteTime - b.absoluteTime ||
-    sequenceRowPriority(a.type, a.kind) - sequenceRowPriority(b.type, b.kind) ||
+    sequenceRowPriority(a) - sequenceRowPriority(b) ||
     ((b.midicents ?? -Infinity) - (a.midicents ?? -Infinity)) ||
     ((a.barOrder ?? 0) - (b.barOrder ?? 0)) ||
     ((a.tempoOrder ?? 0) - (b.tempoOrder ?? 0))
@@ -252,9 +262,9 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
           (
             event.relativeTime === currentDisplayLead.relativeTime &&
             (
-              eventTypePriority(event.kind) < eventTypePriority(currentDisplayLead.kind) ||
+              noteEventPhase(event) < noteEventPhase(currentDisplayLead) ||
               (
-                eventTypePriority(event.kind) === eventTypePriority(currentDisplayLead.kind) &&
+                noteEventPhase(event) === noteEventPhase(currentDisplayLead) &&
                 event.midicents > currentDisplayLead.midicents
               )
             )
@@ -318,8 +328,6 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
 
   for (let i = 0; i <= index; i += 1) {
     const group = groups[i];
-    const attackedThisCue = new Map();
-    const releasedThisCue = new Set();
     for (const note of activeByPitch.values()) {
       delete note.reattack;
     }
@@ -328,7 +336,7 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
       const pitchKey = pitchKeyFromMidicents(event.midicents);
       if (!pitchKey) continue;
       if (event.kind === "attack") {
-        attackedThisCue.set(pitchKey, {
+        activeByPitch.set(pitchKey, {
           midicents: event.midicents,
           frequency: event.frequency,
           attackVelocity: event.attackVelocity,
@@ -339,16 +347,9 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
           timbre14: event.timbre14,
           reattack: true,
         });
-      } else if (!attackedThisCue.has(pitchKey)) {
-        releasedThisCue.add(pitchKey);
+      } else {
+        activeByPitch.delete(pitchKey);
       }
-    }
-
-    for (const [pitchKey, note] of attackedThisCue.entries()) {
-      activeByPitch.set(pitchKey, note);
-    }
-    for (const pitchKey of releasedThisCue) {
-      activeByPitch.delete(pitchKey);
     }
   }
 
