@@ -36,6 +36,12 @@ const HAKEN_IGNORED_TEST_CCS = new Set([111, 114, 117, 118]);
 const HAKEN_MPE_PLUS_CENTER_21 = 1048576;
 const EXQUIS_MTS_BEND_SMOOTHING_TAU_MS = 15;
 
+function hasTransientUserActivation() {
+  const userActivation = globalThis.navigator?.userActivation;
+  // Older browsers do not expose the API; keep the previous behavior there.
+  return !userActivation || userActivation.isActive;
+}
+
 function isHakenMpePlusInputActive() {
   return (
     (this.controller?.id === "hakenaudio" || this.settings?.midiin_controller_override === "hakenaudio") &&
@@ -683,11 +689,14 @@ export function setupMidiInput() {
                 note: e.note.number,
                 velocity: e.note.rawAttack,
               });
-              if (this._onFirstInteraction) this._onFirstInteraction();
-              if (typeof this.synth?.ensureAwake === "function") {
-                await this.synth.ensureAwake();
-              } else if (typeof this.synth?.prepare === "function") {
-                await this.synth.prepare();
+              const canWakeAudio = hasTransientUserActivation();
+              if (canWakeAudio && this._onFirstInteraction) this._onFirstInteraction();
+              if (canWakeAudio) {
+                if (typeof this.synth?.ensureAwake === "function") {
+                  await this.synth.ensureAwake();
+                } else if (typeof this.synth?.prepare === "function") {
+                  await this.synth.prepare();
+                }
               }
               if (isLinnstrumentUfInputActive.call(this)) {
                 const key = `${e.message.channel}.${e.note.number}`;

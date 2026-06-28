@@ -778,6 +778,8 @@ td.scale-color-col .color-input {
 
 .settings-form__checkbox-row--sm {
   margin-top: 0.35em;
+  margin-bottom: 0.25em;
+  height: 2em;
 }
 
 .settings-form__checkbox-row--md {
@@ -791,6 +793,21 @@ td.scale-color-col .color-input {
 
 .settings-form__helper-text--muted {
   color: #888;
+}
+
+.settings-form__reload-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5em 0.75em;
+}
+
+.settings-form__reload-checkbox {
+  margin-top: 0;
+}
+
+.settings-form__activate-audio-btn {
+  flex: 0 0 auto;
 }
 
 .settings-form__activate-row {
@@ -1110,6 +1127,8 @@ td.scale-color-col .color-input {
   word-break: normal;
   overflow-wrap: anywhere;
   font-size: 1em;
+  line-height: 1.5em;
+  min-height: calc(1.5em + 0.2em + 2px);
   padding: 0.1em 0.6em;
   background: var(--color-bg-btn-alt);
   border: 1px solid var(--color-border-ui);

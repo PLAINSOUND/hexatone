@@ -32,6 +32,8 @@ const baseProps = {
   isPresetDirty: false,
   persistOnReload: false,
   setPersistOnReload: () => {},
+  showActivateAudioContext: false,
+  activateAudioContext: null,
   pendingRestoredPreset: null,
   activatePendingPreset: () => {},
   onRevertBuiltin: () => {},
@@ -101,18 +103,30 @@ describe("Settings MIDI Setup fieldset", () => {
     expect(enableWebMidi).toHaveBeenCalledWith({ sysex: false });
   });
 
-  it("shows an activate-restored-preset button when a pending restored preset exists", () => {
+  it("hides the activate-audio-context button by default", () => {
+    render(<Settings {...baseProps} />);
+    expect(screen.queryByRole("button", { name: "Activate Audio Context" })).toBeNull();
+  });
+
+  it("shows an activate-audio-context button when restored audio needs activation", () => {
+    const activateAudioContext = vi.fn();
     const activatePendingPreset = vi.fn();
+    const setPersistOnReload = vi.fn();
     render(
       <Settings
         {...baseProps}
-        pendingRestoredPreset={{ source: "builtin", name: "Preset A" }}
+        showActivateAudioContext={true}
+        activateAudioContext={activateAudioContext}
         activatePendingPreset={activatePendingPreset}
+        setPersistOnReload={setPersistOnReload}
       />,
     );
 
-    fireEvent.click(screen.getByText("Activate Restored Preset"));
-    expect(activatePendingPreset).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Activate Audio Context" }));
+    expect(activateAudioContext).toHaveBeenCalledTimes(1);
+    expect(activatePendingPreset).not.toHaveBeenCalled();
+    expect(setPersistOnReload).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Restore preset on reload")).toBeNull();
   });
 
   it("requests sysex MIDI when Enable Sysex is clicked from basic state", () => {

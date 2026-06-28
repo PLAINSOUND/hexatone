@@ -22,13 +22,14 @@ const Settings = ({
   onClearUserPresets,
   activeSource,
   activePresetName,
-  pendingRestoredPreset,
   isPresetDirty,
   currentModulationLibrary,
   canCommitModulation,
   onCommitCurrentModulation,
   persistOnReload,
   setPersistOnReload,
+  showActivateAudioContext,
+  activateAudioContext,
   activatePendingPreset,
   onRevertBuiltin,
   onRevertUser,
@@ -85,21 +86,26 @@ const Settings = ({
           </button>
         )}
       </label>
-      <label class="settings-form__checkbox-row settings-form__checkbox-row--md">
-        <input
-          type="checkbox"
-          checked={persistOnReload}
-          onChange={(e) => setPersistOnReload(e.target.checked)}
-        />
-        <em class="settings-form__helper-text">Restore preset on reload</em>
-      </label>
-      {pendingRestoredPreset && activatePendingPreset && (
-        <div class="settings-form__activate-row">
-          <button type="button" onClick={() => void activatePendingPreset()}>
-            Activate Restored Preset
+      <div class="settings-form__reload-row settings-form__checkbox-row--sm">
+        {showActivateAudioContext && (activateAudioContext || activatePendingPreset) ? (
+          <button
+            type="button"
+            class="preset-action-btn settings-form__activate-audio-btn"
+            onClick={() => void (activateAudioContext || activatePendingPreset)()}
+          >
+            Activate Audio Context
           </button>
-        </div>
-      )}
+        ) : (
+          <label class="settings-form__checkbox-row settings-form__reload-checkbox">
+            <input
+              type="checkbox"
+              checked={persistOnReload}
+              onChange={(e) => setPersistOnReload(e.target.checked)}
+            />
+            <em class="settings-form__helper-text">Restore preset on reload</em>
+          </label>
+        )}
+      </div>
     </fieldset>
     <CustomPresets
       settings={settings}

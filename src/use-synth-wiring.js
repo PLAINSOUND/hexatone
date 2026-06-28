@@ -1263,9 +1263,6 @@ const useSynthWiring = (
   // Fires whenever the resolved controller identity or controller mode changes.
   // For Exquis, controller mode is geometry-scoped (layout2d vs bypass), so
   // switching midi_passthrough must reapply the correct saved bucket.
-  // Do not re-fire on plain MPE toggle changes: those are handled locally by
-  // the MIDI settings UI, and reloading mode defaults here would clobber user-
-  // chosen input-mode state such as Exquis nearest-scale mode.
   // loadControllerPrefs is idempotent: it reads saved values (or first-connect
   // fallbacks) so re-firing on the same device is safe.
   // midiTick is included because Web MIDI inputs can finish enumerating after
@@ -1291,6 +1288,7 @@ const useSynthWiring = (
     midiTick,
     settings.midiin_device,
     settings.midiin_controller_override,
+    settings.midiin_mpe_input,
     settings.midi_passthrough,
     settings.lumatone_anchor_note,
     settings.lumatone_anchor_channel,

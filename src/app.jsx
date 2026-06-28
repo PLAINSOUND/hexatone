@@ -3059,6 +3059,8 @@ const App = () => {
                 onCommitCurrentModulation={onCommitCurrentModulation}
                 persistOnReload={persistOnReload}
                 setPersistOnReload={setPersistOnReload}
+                showActivateAudioContext={!!pendingRestoredPreset || (restoredOnMount && !userHasInteracted)}
+                activateAudioContext={refreshKeyboardAndAudio}
                 activatePendingPreset={activatePendingPreset}
                 onRevertBuiltin={onRevertBuiltin}
                 onRevertUser={onRevertUser}
