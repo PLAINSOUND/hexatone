@@ -5393,6 +5393,23 @@ describe("Keys MIDI input integration", () => {
     });
   });
 
+  it("does not throw while refreshing live output state before WebMidi is enabled", () => {
+    const keys = createKeys({
+      output_mts: true,
+      midi_device: "output-1",
+      midi_channel: 1,
+    });
+    const getOutputSpy = vi
+      .spyOn(WebMidi, "getOutputById")
+      .mockImplementation(() => {
+        throw new Error("WebMidi is not enabled.");
+      });
+
+    expect(() => keys.updateLiveOutputState(null, {})).not.toThrow();
+    expect(getOutputSpy).toHaveBeenCalledWith("output-1");
+    expect(keys.midiout_data).toBeNull();
+  });
+
   it("uses the configured standard wheel semitone range when wheel-to-recent is off", () => {
     const standardWheelRetuneA = vi.fn();
     const standardWheelRetuneB = vi.fn();

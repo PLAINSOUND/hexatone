@@ -47,6 +47,7 @@
  */
 
 const ACK_TIMEOUT_MS = 300;
+const INITIAL_SEND_DELAY_MS = 600;
 
 // Lumatone manufacturer ID (3 bytes after F0)
 const MFR = [0x00, 0x21, 0x50];
@@ -62,6 +63,8 @@ export class LumatoneLEDs {
     this._queue = []; // Array of { cmd, board:1-5, key:0-55, ... }
     this._pending = false; // True while awaiting an ACK for queue[0]
     this._timer = null; // ACK-timeout handle (clearTimeout on ACK)
+    this._readyTimer = null; // Initial reconnect delay before first send.
+    this._readyAt = Date.now() + INITIAL_SEND_DELAY_MS;
 
     this._onMessage = this._onMessage.bind(this);
     if (this._in) {
@@ -164,6 +167,10 @@ export class LumatoneLEDs {
       clearTimeout(this._timer);
       this._timer = null;
     }
+    if (this._readyTimer !== null) {
+      clearTimeout(this._readyTimer);
+      this._readyTimer = null;
+    }
     this._pending = false;
   }
 
@@ -198,8 +205,19 @@ export class LumatoneLEDs {
    * No-op if the queue is empty or a send is already in flight.
    */
   _advance() {
+    if (this._out === null) return;
     if (this._queue.length === 0) {
       this._pending = false;
+      return;
+    }
+    const waitMs = this._readyAt - Date.now();
+    if (waitMs > 0) {
+      if (this._readyTimer === null) {
+        this._readyTimer = setTimeout(() => {
+          this._readyTimer = null;
+          this._advance();
+        }, waitMs);
+      }
       return;
     }
 

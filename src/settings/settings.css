@@ -1127,8 +1127,6 @@ td.scale-color-col .color-input {
   word-break: normal;
   overflow-wrap: anywhere;
   font-size: 1em;
-  line-height: 1.5em;
-  min-height: calc(1.5em + 0.2em + 2px);
   padding: 0.1em 0.6em;
   background: var(--color-bg-btn-alt);
   border: 1px solid var(--color-border-ui);
