@@ -82,12 +82,13 @@ export class LumatoneLEDs {
    * @param {Array<{ board: number, key: number, hexColor: string }>} entries
    */
   sendAll(entries) {
-    this._queue = entries.map(({ board, key, hexColor }) => ({
+    const nextQueue = entries.map(({ board, key, hexColor }) => ({
       cmd: 0x01,
       board,
       key,
       ...this._parseHex(hexColor),
     }));
+    this._queue = this._pending ? [this._queue[0], ...nextQueue] : nextQueue;
     if (!this._pending) this._advance();
   }
 
@@ -112,13 +113,14 @@ export class LumatoneLEDs {
    *   (e.g. [{ cmd: 0x0E, board: 0, value: 1 }] to enable aftertouch first).
    */
   sendLayout(entries, preamble = []) {
-    this._queue = [
+    const nextQueue = [
       ...preamble,
       ...entries.flatMap(({ board, key, note, channel, hexColor, keyType = 0x01 }) => [
         { cmd: 0x00, board, key, note, channel, keyType },
         { cmd: 0x01, board, key, ...this._parseHex(hexColor) },
       ]),
     ];
+    this._queue = this._pending ? [this._queue[0], ...nextQueue] : nextQueue;
     if (!this._pending) this._advance();
   }
 

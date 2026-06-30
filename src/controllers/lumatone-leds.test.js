@@ -44,4 +44,5 @@ describe("LumatoneLEDs", () => {
     expect(output.send).not.toHaveBeenCalled();
     expect(input.removeEventListener).toHaveBeenCalledWith("midimessage", expect.any(Function));
   });
-});
+  
+})
