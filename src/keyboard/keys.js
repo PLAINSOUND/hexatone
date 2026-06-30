@@ -1811,12 +1811,19 @@ class Keys {
     // dedicated live paths instead of being funneled through this method.
     if (synth) this.synth = synth;
     if (nextSettings) Object.assign(this.settings, nextSettings);
-    this.midiout_data =
+    if (
       this.settings.output_mts &&
       this.settings.midi_device !== "OFF" &&
       this.settings.midi_channel >= 0
-        ? WebMidi.getOutputById(this.settings.midi_device)
-        : null;
+    ) {
+      try {
+        this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
+      } catch {
+        this.midiout_data = null;
+      }
+    } else {
+      this.midiout_data = null;
+    }
     this._pushControllerStateToSynth();
   };
 
