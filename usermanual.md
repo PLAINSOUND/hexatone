@@ -107,7 +107,7 @@ Hexatone includes built-in tunings and supports user presets. Users may import a
 
 ### Scale Settings
 
-- assign a reference frequency (Hz) to any scale degree
+- assign a reference frequency (Hz) to any scale degree, directly to 1/1 (scale degree 0), or to the HEJI Spelling Note with 0¢ deviation; all of these three fields interact and update each other accordingly
 - change scale size
 - equave (interval of transposition at which the scale pattern repeats)
 - key colours
@@ -154,7 +154,15 @@ Combinations of primes saturate and blend these colours accordingly. Auto-genera
 
 ### Key Labels
 
-Choose which information (`Blank Keys`, `Scale Degree`, `Scala Data`, `Scale Cents`, `Name`, `HEJI`) is displayed on the keys. The HEJI Notation options are derived based on a user-specified spelling reference which may or may not be in the actual scale. Users may choose tempered accidentals + cents or JI accidental symbols. Primes > 47 or irrational pitches are given tempered notation + cents deviation. Notation is responsive to the current rational reading of the scale; after tuning edits or modulation, displayed note names update. When automatically generated HEJI labels are edited the scale updates accordingly.
+Choose which information (`Blank Keys`, `Scale Degree`, `Scala Data`, `Scale Cents`, `Name`, `HEJI`) is displayed on the keys. Equave Numbers may be toggled on or off for each label style. The HEJI Notation options are derived based on a user-specified spelling reference which may or may not be in the actual scale. Users may choose tempered accidentals + cents or JI accidental symbols. Primes > 47 or irrational pitches are given tempered notation + cents deviation. Notation is responsive to the current rational reading of the scale; after tuning edits or modulation, displayed note names update. When automatically generated HEJI labels are edited the scale updates accordingly. Note that HEJI names for non-octave equaves are currently not implemented.
+
+### HEJI Spelling 
+
+User may specify a spelling (note name and accidental) with 0¢ deviation. This need not be part of the scale, but it must be expressed as a ratio or cents interval from the scale degree 0 (1/1). If the spelling note interval is expressed in cents, the notation will use tempered accidentals and cents deviations, if it is a ratio, all rational scale degrees will obtain HEJI accidentals, unless the user specifies "Tempered Accidentals Only". 
+
+## HEJI Palette
+
+A HEJI Notation Palette is provided to generate strings of accidentals that may be copied and pasted into the scale table. Cents are calculated automatically from the chosen accidentals; to change the number of accidentals, click the buttons as many times as needed. The first button lowers by a comma and the second raises by a comma.
 
 ## The Scale Table
 

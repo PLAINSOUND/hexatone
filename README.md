@@ -69,6 +69,31 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ### 3.3-beta *(current beta branch)*
 
+Hexatone 3.3-beta introduces a substantial expansion of the Sequencer and HEJI
+notation workspace.
+
+The Sequencer now supports editable snapshots, cues, bars, and tempo changes in
+one unified event list. Captured snapshots can be expanded into individual note
+events whose position, MIDI¢, frequency, HEJI spelling, and expression data can
+be edited directly. Sequence structure is no longer limited to chord-to-chord
+playback: bars and time signatures may occur between snapshots or inside them,
+tempo changes can be placed anywhere in the timeline, and the `PLAY FROM`
+transport can step by bar, snapshot, or cue.
+
+User sequences can be named, saved, reopened, exported, and continued later,
+with snapshot labels, bars, tempo markers, and event edits preserved. The event
+list also now supports a more compact paging model on small screens so that
+timing fields and expression fields remain usable on mobile devices.
+
+The HEJI workspace has also been expanded significantly. Spelling is now tied
+to an explicit reference model based on `Notation (Spelling)`, `Ratio/Cents from
+1/1`, `Spelling Frequency`, and the frequency of scale degree `0`. The HEJI
+palette can construct tempered or exact spellings, calculate cents deviations
+automatically for exact HEJI accidentals, and copy combined notation-plus-cents
+strings for reuse in the scale table. Auto-colours and key labels are now more
+tightly aligned with exact interval identity, giving a more coherent rational
+pitch workspace across notation, colour, and tuning.
+
 **Sequencer**
 
 - added a dedicated Sequencer tab for editing captured snapshots as event-based sequences
