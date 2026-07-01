@@ -19,7 +19,6 @@ const MIDI_INPUT_EVENT_NAMES = [
   "pitchbend",
   "sysex",
 ];
-const MIDI_CONTROL_EVENT_NAMES = ["noteon", "noteoff", "controlchange", "programchange"];
 const LINNSTRUMENT_UF_X_OUTLIER_THRESHOLD = 10;
 const LINNSTRUMENT_UF_X_CONFIRM_TOLERANCE = 4;
 const LINNSTRUMENT_UF_LOW_PRESSURE_THRESHOLD = 40;
@@ -551,78 +550,6 @@ export function teardownMidiInput() {
   this._linnUfXInitPending = new Set();
 }
 
-export function teardownMidiControlInput() {
-  if (this.midiControlInData) {
-    for (const eventName of MIDI_CONTROL_EVENT_NAMES) {
-      try {
-        this.midiControlInData.removeListener(eventName);
-      } catch {
-        // WebMidi.disable() may already have torn down this input.
-      }
-    }
-  }
-  this.midiControlInData = null;
-}
-
-export function handleMidiControlEvent(event) {
-  this._lastMidiControlEvent = event;
-  debugLog("MIDImonitoring", "control-port", event);
-}
-
-function normalizeProgramNumber(e) {
-  return e?.value ?? e?.program?.number ?? e?.message?.dataBytes?.[0] ?? null;
-}
-
-export function setupMidiControlInput() {
-  if (!this.settings.midi_control_device || this.settings.midi_control_device === "OFF") {
-    this.midiControlInData = null;
-    return;
-  }
-  try {
-    this.midiControlInData = WebMidi.getInputById(this.settings.midi_control_device);
-  } catch {
-    this.midiControlInData = null;
-  }
-  if (!this.midiControlInData) return;
-
-  this.midiControlInData.addListener("noteon", (e) => {
-    this._handleMidiControlEvent?.({
-      type: "noteon",
-      channel: e.message.channel,
-      note: e.note.number,
-      value: e.note.rawAttack,
-    });
-  });
-  this.midiControlInData.addListener("noteoff", (e) => {
-    this._handleMidiControlEvent?.({
-      type: "noteoff",
-      channel: e.message.channel,
-      note: e.note.number,
-      value: e.note.rawRelease,
-    });
-  });
-  this.midiControlInData.addListener("controlchange", (e) => {
-    this._handleMidiControlEvent?.({
-      type: "controlchange",
-      channel: e.message.channel,
-      cc: e.message.dataBytes[0],
-      value: e.message.dataBytes[1],
-    });
-  });
-  this.midiControlInData.addListener("programchange", (e) => {
-    this._handleMidiControlEvent?.({
-      type: "programchange",
-      channel: e.message.channel,
-      program: normalizeProgramNumber(e),
-    });
-  });
-}
-
-export function rebindMidiControlInput() {
-  teardownMidiControlInput.call(this);
-  setupMidiControlInput.call(this);
-}
-
 export function syncControllerAutoColors() {
   if (
     this.controller?.id === "lumatone" &&
@@ -650,7 +577,6 @@ export function syncControllerAutoColors() {
 export function rebindMidiInput() {
   teardownMidiInput.call(this);
   setupMidiInput.call(this);
-  rebindMidiControlInput.call(this);
   syncControllerAutoColors.call(this);
 }
 

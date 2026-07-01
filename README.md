@@ -22,7 +22,7 @@ Hexatone 3.3-beta is a live microtonal keyboard and scale workspace featuring:
 
 - isomorphic hexagonal layout
 - rational / just intonation with automatic HEJI notation
-- HEJI spelling controls with editable anchor ratio / notation in relation to scale
+- HEJI spelling controls with editable notation reference, ratio / cents offset, spelling frequency, and scale-degree-0 frequency
 - a HEJI entry palette for building and copying exact spellings up to 47-limit
 - built-in tunings, Scala import/export, and user presets
 - user sequence save / load / export support
@@ -32,7 +32,7 @@ Hexatone 3.3-beta is a live microtonal keyboard and scale workspace featuring:
 - MPE-aware MIDI input with automatic mapping of 2D controller geometries
 - MIDI Output (MTS and MPE)
 - snapshots for comparing chords and tunings
-- a Sequencer tab for editing snapshots into cue-based event sequences with bars
+- a Sequencer tab for editing snapshots into cue-based event sequences with bars, tempo markers, and `PLAY FROM` transport
 
 PLAINSOUND HEXATONE can be used entirely in the browser:
 
@@ -42,7 +42,7 @@ PLAINSOUND HEXATONE can be used entirely in the browser:
 - retuning and scale editing using drag and drop
 - scale rationalisation to user chosen parameters
 - snapshots
-- cue-by-cue sequence editing and playback
+- bar-, snapshot-, and cue-based sequence editing and playback
 
 Hexatone also supports:
 
@@ -74,11 +74,11 @@ notation workspace.
 
 The Sequencer now supports editable snapshots, cues, bars, and tempo changes in
 one unified event list. Captured snapshots can be expanded into individual note
-events whose position, MIDI¢, frequency, HEJI spelling, and expression data can
-be edited directly. Sequence structure is no longer limited to chord-to-chord
-playback: bars and time signatures may occur between snapshots or inside them,
-tempo changes can be placed anywhere in the timeline, and the `PLAY FROM`
-transport can step by bar, snapshot, or cue.
+events whose position, MIDI¢, frequency, displayed name, bar-relative position,
+and expression data can be edited directly. Sequence structure is no longer
+limited to chord-to-chord playback: bars and time signatures may occur between
+snapshots or inside them, tempo changes can be placed anywhere in the timeline,
+and the `PLAY FROM` transport can step by bar, snapshot, or cue.
 
 User sequences can be named, saved, reopened, exported, and continued later,
 with snapshot labels, bars, tempo markers, and event edits preserved. The event
@@ -100,8 +100,10 @@ pitch workspace across notation, colour, and tuning.
 - snapshot rows can now be expanded into editable event rows with per-event:
   - position
   - on / off triggers
-  - MIDIcents
+  - MIDI¢
   - Hz
+  - displayed name
+  - bar / beat / numerator / denominator timing
   - on-velocity
   - off-velocity
   - pressure
@@ -112,6 +114,9 @@ pitch workspace across notation, colour, and tuning.
   - automatic bar creation before snapshots
   - inline bars inside snapshots when the bar position is not at an exact snapshot boundary
 - added `PLAY FROM BAR / SNAPSHOT / CUE` navigation and per-cue play / stop controls
+- selecting a bar, snapshot, or cue queues the destination in brackets until the next transport step
+- end-of-sequence stepping queues the transport back to the start for loop-oriented workflows
+- added tempo-change markers with editable beat fraction and bpm
 - added `Legato` cue playback mode for sustaining repeated pitches across cues
 - added user sequence save / load / export support with name and description fields
 - added option-drag snapshot duplication and expanded drag / reorder support

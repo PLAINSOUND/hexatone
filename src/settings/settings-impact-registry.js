@@ -33,7 +33,6 @@ export const SETTINGS_IMPACT_FIELDS = {
   inputBinding: [],
   inputRuntime: [
     "midiin_device",
-    "midi_control_device",
     "midiin_steps_per_channel",
     "midiin_channel_group_size",
     "midiin_anchor_channel",

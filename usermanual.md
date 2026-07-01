@@ -69,11 +69,11 @@ Left-to-right along the bottom of the app there are buttons and these are also m
 - Sequence is a collection of snapshots, ordered and numbered, along with the relative position of individual events (cues), bars with time signatures, and tempo markers; multiple sequences may be saved and loaded as `.json` files; sequences are kept in local browser storage and may be swiftly reloaded from the menu to play different sections or pieces
 - Snapshot is a captured chord or note collection including momentary expression data; it can be replayed as a full vertical sonority (stepping by snapshots); snapshots may be ordered and are automatically numbered
 - Cues are generated automatically when the relative start and end positions of individual notes comprising a snapshot are edited, creating derived event steps; the global position of events is relative to the snapshot in which they occur; stepping by cues follows the global order of events, so cues may combine events from multiple snapshots
-- Bars have a user-defined time signature that scales global time: is is expressed as a fraction of one whole note: the denominator expresses "what fraction of the bar is considered to be a beat" and the numerator expresses "how many" beats comprise this particular bar; thus, in a time signature 5/6, 6 means the beat length is 1/6 of a whole note = one 1/4 note triplet, and 5 means this bar is made up of 5 quarter-note triplets
+- Bars have a user-defined time signature expressed as a fraction of one whole note: the denominator expresses "what fraction of the bar is considered to be a beat" and the numerator expresses "how many" beats comprise this particular bar; thus, in a time signature 5/6, 6 means the beat length is 1/6 of a whole note = one 1/4 note triplet, and 5 means this bar is made up of 5 quarter-note triplets
   - a bar allows the global positioning of events to be expressed in rational time units (beats, fractions of beats)
   - bars may occupy any global position: i.e. barlines may occur between snapshots or inside a snapshot
   - for most applications, bars are automatically generated at snapshot boundaries, and any extra bars that are not needed may be deleted
-- a user-defined Tempo marker can occur anywhere in sequence position space; it is expressed as a fraction indicating beat grouping and a tempo in bpm
+- a user-defined Tempo marker can occur anywhere in sequence position space; it is expressed as a beat fraction and a tempo in bpm, for example `1 / 4 = 60 bpm`
 - multiple events at the same global position follow an order of precedence rule: `Tempo Change -> Bar -> note-offs for previously sounding notes -> new note-ons -> new note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
 - the sequence uses one exact global position space, defined by the ordered snapshots: bars and tempi are overlays on that space rather than containers for the notes; this approach allows a very flexible triggered-step or tempo driven realisation of the sequenced data
 
@@ -158,11 +158,22 @@ Choose which information (`Blank Keys`, `Scale Degree`, `Scala Data`, `Scale Cen
 
 ### HEJI Spelling 
 
-User may specify a spelling (note name and accidental) with 0¢ deviation. This need not be part of the scale, but it must be expressed as a ratio or cents interval from the scale degree 0 (1/1). If the spelling note interval is expressed in cents, the notation will use tempered accidentals and cents deviations, if it is a ratio, all rational scale degrees will obtain HEJI accidentals, unless the user specifies "Tempered Accidentals Only". 
+Users may specify a spelling reference with 0¢ deviation. This need not be part of the scale, but it must be expressed relative to scale degree 0 (1/1).
+
+The spelling reference is defined by four linked fields:
+
+- `Notation (Spelling)`: the note name and accidental used as the 0¢ spelling reference
+- `Ratio/Cents from 1/1`: the interval from scale degree 0 to the spelling reference
+- `Spelling Frequency`: the frequency of the spelled reference pitch
+- `Frequency of 1/1`: the frequency of scale degree 0
+
+Editing one linked reference field updates the others where possible. If the spelling interval is expressed in cents, notation uses tempered accidentals and cents deviations. If it is expressed as a ratio, rational scale degrees obtain HEJI accidentals unless the user specifies `Tempered Accidentals Only`.
 
 ## HEJI Palette
 
-A HEJI Notation Palette is provided to generate strings of accidentals that may be copied and pasted into the scale table. Cents are calculated automatically from the chosen accidentals; to change the number of accidentals, click the buttons as many times as needed. The first button lowers by a comma and the second raises by a comma.
+A HEJI Notation Palette is provided to generate strings of accidentals that may be copied and pasted into the scale table. The `12edo` row emits tempered accidental glyphs; the higher-prime rows emit exact HEJI accidentals up to 47-limit. Exact HEJI cents are calculated automatically from the chosen accidentals and current spelling reference; tempered accidentals allow manual cents entry.
+
+Use `Decimal Places` to choose the display precision of the calculated cents value. `Copy` copies the combined notation-plus-cents output, and `Clear` resets the palette output.
 
 ## The Scale Table
 
@@ -263,13 +274,13 @@ The exact supported behaviour varies by controller, but the input system is desi
 
 Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes.
 
-Alternately, some users may prefer to generate a "traditional" multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave tranpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
+Alternately, some users may prefer to generate a "traditional" multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave transpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
 
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
 
 Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using App Mode.
 
-Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file. MPE+ PB output is optional, because the many generated CC87 LSB messages may overload older MIDI connections.
+Haken `Continuum X Glide` offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file. MPE+ PB output is optional, because the many generated CC87 LSB messages may overload older MIDI connections.
 
 ### Input Modes
 
@@ -333,7 +344,7 @@ This feature also supports a fully local workflow: run Hexatone on `localhost:51
 
 ### User Sequences
 
-Sequences may be exported, loaded from disc and stored in the User Sequences menu. Add a `Name`and `Description`
+Sequences may be exported, loaded from disc, and stored in the User Sequences menu. Add a `Name` and `Description` to keep user sequences identifiable. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, snapshot label mode, name, description, and the auto-create-bars preference.
 
 ### Sequence Settings
 
@@ -349,7 +360,8 @@ Sequences may be exported, loaded from disc and stored in the User Sequences men
   - transport row for `BAR`, `SNAPSHOT`, and `CUE`
   - choosing a destination cues it in brackets until stepped
   - the selected target is queued rather than played immediately
-- step arrows can walk by snapshot or cue; at end of sequence transport loops back to the start
+- step arrows can walk by bar, snapshot, or cue
+- at the end of the sequence, the transport cues back to `(1)` for loop-oriented workflows
 - controls for each snapshot or cue
   - play/retrigger
   - stop
@@ -363,7 +375,7 @@ Use the arrow to move between pages of parameters. Current event fields are:
 - `Position`
 - `MIDI¢`
 - `Hz`
-- `HEJI` (display-only)
+- `Name` (display-only)
 - `Bar`
 - `Beat`
 - `Num`
@@ -374,6 +386,8 @@ Use the arrow to move between pages of parameters. Current event fields are:
 - `timbre`
 
 Note that `Bar / Beat / Num / Den` are an alternate bar-relative position that automatically recalculate the event's global position value.
+
+The `Name` field is a captured display label, not a parsable HEJI spelling field. If `MIDI¢` or `Hz` is edited and the stored label no longer describes the event, the name is shown as `edited` until the captured event values are restored.
 
 ### Bar Markers
 
@@ -391,6 +405,7 @@ A tempo row shows:
 - tempo value in `bpm`
 - bar-relative position fields `Bar / Beat / Num / Den`
 - the beat fraction is written in the form `3 / 8 = 80 bpm`
+- if a tempo marker, bar marker, and note event share the same position, the tempo marker is ordered first
 
 ## Roadmap
 

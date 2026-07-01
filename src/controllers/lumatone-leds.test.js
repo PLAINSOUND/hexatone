@@ -44,5 +44,26 @@ describe("LumatoneLEDs", () => {
     expect(output.send).not.toHaveBeenCalled();
     expect(input.removeEventListener).toHaveBeenCalledWith("midimessage", expect.any(Function));
   });
-  
+
+  it("preserves the in-flight command when Send Colours is clicked again", () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+
+    leds.sendAll([
+      { board: 1, key: 2, hexColor: "#111111" },
+      { board: 1, key: 3, hexColor: "#222222" },
+    ]);
+    vi.advanceTimersByTime(600);
+    expect(output.send).toHaveBeenCalledTimes(1);
+
+    leds.sendAll([{ board: 1, key: 4, hexColor: "#333333" }]);
+
+    input.addEventListener.mock.calls[0][1]({
+      data: new Uint8Array([0xf0, 0x00, 0x21, 0x50, 1, 0x01, 0x01, 0xf7]),
+    });
+
+    expect(output.send).toHaveBeenCalledTimes(2);
+    expect(output.send.mock.calls[1][0][6]).toBe(4);
+  });
+
 })
