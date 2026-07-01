@@ -83,6 +83,7 @@ describe("Sequencer", () => {
 
     expect(screen.getByLabelText("snapshot 1 description").value).toBe("A, F");
     expect(screen.getByText("PLAY FROM")).not.toBeNull();
+    fireEvent.mouseDown(screen.getByLabelText("next sequence marker"));
     fireEvent.click(screen.getByLabelText("next sequence marker"));
     expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getByLabelText("move sequence playhead to start"));
@@ -99,11 +100,12 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByLabelText("stop snapshot 1"));
     expect(onStopSnapshot).toHaveBeenCalledWith(10);
 
-    const eventTimes = [...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value);
-    expect(eventTimes).toEqual(["1.000000", "1.000000", "1.500000", "2.000000", "2.000000", "2.000000"]);
+    expect(screen.getAllByLabelText("snapshot 1 attack snapshot")[0].value).toBe("1");
+    expect(screen.getAllByLabelText("snapshot 1 attack offset")[0].value).toBe("0.000");
+    expect(screen.getAllByLabelText("snapshot 1 release offset")[0].value).toBe("1.000");
     const cueNumbers = [...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent);
     expect(cueNumbers).toEqual(["1", "2", "3"]);
-    expect(screen.getByText("Position")).not.toBeNull();
+    expect(screen.getByText("Offset")).not.toBeNull();
     expect(screen.getByLabelText("bar 1 position").value).toBe("1.000000");
     expect(screen.getByLabelText("bar 2 position").value).toBe("2.000000");
     expect(screen.getAllByText("MIDI¢").length).toBeGreaterThan(0);
@@ -136,10 +138,11 @@ describe("Sequencer", () => {
     fireEvent.click(container.querySelectorAll(".sequencer-event-row")[1]);
     expect(onSelectMarker).toHaveBeenCalledWith(10, 0.5);
 
-    fireEvent.blur(screen.getAllByLabelText("snapshot 1 attack position")[0], {
-      currentTarget: { value: "1.250" },
-      target: { value: "1.250" },
+    fireEvent.input(screen.getAllByLabelText("snapshot 1 attack offset")[0], {
+      currentTarget: { value: "0.250000" },
+      target: { value: "0.250000" },
     });
+    fireEvent.click(screen.getAllByLabelText("commit snapshot 1 attack sequence placement")[0]);
     expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
       notes: [
         expect.objectContaining({ id: "a", start: 0.25, end: 1 }),
@@ -147,10 +150,11 @@ describe("Sequencer", () => {
       ],
     });
 
-    fireEvent.blur(screen.getAllByLabelText("snapshot 1 release position")[0], {
-      currentTarget: { value: "2.250" },
-      target: { value: "2.250" },
+    fireEvent.input(screen.getAllByLabelText("snapshot 1 release offset")[0], {
+      currentTarget: { value: "1.250000" },
+      target: { value: "1.250000" },
     });
+    fireEvent.click(screen.getAllByLabelText("commit snapshot 1 release sequence placement")[0]);
     expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
       notes: [
         expect.objectContaining({ id: "a", start: 0, end: 1.25 }),
@@ -232,7 +236,81 @@ describe("Sequencer", () => {
     expect(kindCells).toEqual([true, true, false, false]);
   });
 
-  it("commits a focused position edit before cue stepping", () => {
+  it("does not mark the name as edited when MIDI¢ is focused and blurred unchanged", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [
+            {
+              id: "a",
+              midicents: 69.1234567,
+              displayLabel: "A",
+              start: 0,
+              end: 1,
+            },
+          ],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onDuplicateSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    const midicentsInput = screen.getAllByLabelText("snapshot 1 attack midicents")[0];
+    fireEvent.focus(midicentsInput);
+    fireEvent.blur(midicentsInput, {
+      currentTarget: { value: "69.123457" },
+      target: { value: "69.123457" },
+    });
+
+    expect(screen.queryByText("edited")).toBeNull();
+    expect(screen.getAllByText("A").length).toBeGreaterThan(0);
+  });
+
+  it("commits a focused position edit before cue stepping", async () => {
     const onUpdateSnapshot = vi.fn();
     const onStepSequenceMarker = vi.fn();
 
@@ -283,17 +361,20 @@ describe("Sequencer", () => {
       />,
     );
 
-    const attackPosition = screen.getByLabelText("snapshot 1 attack position");
+    const attackPosition = screen.getByLabelText("snapshot 1 attack offset");
     attackPosition.focus();
     expect(document.activeElement).toBe(attackPosition);
-    attackPosition.value = "1.250";
+    fireEvent.input(attackPosition, {
+      currentTarget: { value: "0.250000" },
+      target: { value: "0.250000" },
+    });
 
+    fireEvent.click(await screen.findByLabelText("commit snapshot 1 attack sequence placement"));
     fireEvent.click(screen.getByLabelText("next sequence marker"));
 
     expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
       notes: [expect.objectContaining({ id: "a", start: 0.25, end: 1 })],
     });
-    expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
   });
 
   it("clears all snapshots from the snapshot section after confirmation", () => {
@@ -1223,22 +1304,18 @@ describe("Sequencer", () => {
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2"]);
 
-    const positionInputs = screen.getAllByLabelText("snapshot 1 attack position");
+    const positionInputs = screen.getAllByLabelText("snapshot 1 attack offset");
     fireEvent.focus(positionInputs[1]);
     fireEvent.input(positionInputs[1], {
-      currentTarget: { value: "1.100" },
-      target: { value: "1.100" },
+      currentTarget: { value: "0.100000" },
+      target: { value: "0.100000" },
     });
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
-    fireEvent.blur(positionInputs[1], {
-      currentTarget: { value: "1.100" },
-      target: { value: "1.100" },
-    });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000000", "1.000000", "1.100000", "2.000000", "2.000000"]);
+      .toEqual(["1.000000", "0.000", "0.100", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2", "3"]);
+      .toEqual(["1", "2"]);
   });
 
   it("commits a position edit on Enter and regenerates cue numbering", () => {
@@ -1295,18 +1372,18 @@ describe("Sequencer", () => {
 
     const { container } = render(<Harness />);
 
-    const positionInputs = screen.getAllByLabelText("snapshot 1 attack position");
+    const positionInputs = screen.getAllByLabelText("snapshot 1 attack offset");
     positionInputs[1].focus();
     fireEvent.input(positionInputs[1], {
-      currentTarget: { value: "1.100" },
-      target: { value: "1.100" },
+      currentTarget: { value: "0.100000" },
+      target: { value: "0.100000" },
     });
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000000", "1.000000", "1.100000", "2.000000", "2.000000"]);
+      .toEqual(["1.000000", "0.000", "0.100", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2", "3"]);
+      .toEqual(["1", "2"]);
   });
 
   it("commits position edits for captured snapshot notes that do not have ids", () => {
@@ -1364,18 +1441,221 @@ describe("Sequencer", () => {
 
     const { container } = render(<Harness />);
 
-    const positionInputs = screen.getAllByLabelText("snapshot 1 attack position");
+    const positionInputs = screen.getAllByLabelText("snapshot 1 attack offset");
     positionInputs[1].focus();
     fireEvent.input(positionInputs[1], {
-      currentTarget: { value: "1.200" },
-      target: { value: "1.200" },
+      currentTarget: { value: "0.200000" },
+      target: { value: "0.200000" },
     });
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000000", "1.000000", "1.000000", "1.200000", "2.000000", "2.000000", "2.000000"]);
+      .toEqual(["1.000000", "0.000", "0.200", "0.000", "1.000", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2", "3"]);
+      .toEqual(["1", "2"]);
+  });
+
+  it("deletes an event by removing its owning note", () => {
+    const onUpdateSnapshot = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A, F",
+            notes: [
+              { id: "a", midicents: 81, start: 0, end: 1 },
+              { id: "b", midicents: 76, start: 0, end: 1 },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByLabelText("delete snapshot 1 attack event")[0]);
+
+    expect(onUpdateSnapshot).toHaveBeenCalledWith(10, {
+      notes: [expect.objectContaining({ id: "b" })],
+    });
+  });
+
+  it("moves an event note into another snapshot by dragging", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 81, start: 0.25, end: 1 }],
+        },
+        {
+          id: 20,
+          length: 1,
+          description: "B",
+          notes: [{ id: "b", midicents: 76, start: 0, end: 1 }],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    const dataTransfer = {
+      effectAllowed: "",
+      dropEffect: "",
+      setData: vi.fn(),
+      getData: vi.fn(),
+    };
+    const dragHandle = screen.getAllByLabelText("drag snapshot 1 attack event")[0];
+    const dropTarget = screen.getByLabelText("snapshot 2 description").closest(".sequencer-item");
+
+    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragEnter(dropTarget, { dataTransfer });
+    fireEvent.dragOver(dropTarget, { dataTransfer });
+    fireEvent.drop(dropTarget, { dataTransfer });
+
+    expect(screen.getAllByLabelText("snapshot 2 attack snapshot").map((node) => node.value)).toContain("2");
+    expect(screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value)).toContain("-0.750");
+  });
+
+  it("duplicates an event note into another snapshot on option-drag", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 81, start: 0.25, end: 1 }],
+        },
+        {
+          id: 20,
+          length: 1,
+          description: "B",
+          notes: [{ id: "b", midicents: 76, start: 0, end: 1 }],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    const dataTransfer = {
+      effectAllowed: "",
+      dropEffect: "",
+      setData: vi.fn(),
+      getData: vi.fn(),
+    };
+    const dragHandle = screen.getAllByLabelText("drag snapshot 1 attack event")[0];
+    const dropTarget = screen.getByLabelText("snapshot 2 description").closest(".sequencer-item");
+
+    fireEvent.dragStart(dragHandle, { dataTransfer, altKey: true });
+    fireEvent.dragEnter(dropTarget, { dataTransfer, altKey: true });
+    fireEvent.dragOver(dropTarget, { dataTransfer, altKey: true });
+    fireEvent.drop(dropTarget, { dataTransfer, altKey: true });
+
+    expect(screen.getAllByLabelText("snapshot 2 attack snapshot")).toHaveLength(2);
+    expect(screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value)).toContain("-0.750");
   });
 
   it("queues the first snapshot and cue again at the terminal sequence end slot", () => {
@@ -1614,7 +1894,7 @@ describe("Sequencer", () => {
 
     const expandedTimes = [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")]
       .map((node) => node.value);
-    expect(expandedTimes).toEqual(["1.000000", "1.500000", "1.750000", "2.000000", "2.000000"]);
+    expect(expandedTimes).toEqual(["0.000", "1.500000", "0.750", "1.000", "1.000"]);
   });
 
   it("wraps mid-snapshot tempo rows in the structural bar wrapper inside the expanded event flow", () => {

@@ -1157,7 +1157,8 @@ td.scale-color-col .color-input {
 .sequencer-item {
   --sequencer-delete-col: 1.15em;
   --sequencer-number-col: 1.55em;
-  --sequencer-event-position-col: minmax(0, 1.22fr);
+  --sequencer-event-snapshot-col: minmax(2.8em, 0.62fr);
+  --sequencer-event-position-col: minmax(0, 1.18fr);
   --sequencer-event-kind-col: minmax(0, 0.44fr);
   --sequencer-event-pitch-col: minmax(0, 1fr);
   --sequencer-event-value-col: minmax(0, 0.82fr);
@@ -1166,6 +1167,7 @@ td.scale-color-col .color-input {
   --sequencer-detail-columns:
     var(--sequencer-delete-col)
     var(--sequencer-number-col)
+    var(--sequencer-event-snapshot-col)
     var(--sequencer-event-position-col)
     var(--sequencer-event-kind-col)
     var(--sequencer-event-pitch-col)
@@ -1731,7 +1733,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-bar-row__position-cell {
-  grid-column: 3;
+  grid-column: 3 / span 2;
   background: #ffe7eb;
   width: 100%;
   position: relative;
@@ -1739,7 +1741,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-bar-row__signature-cell {
-  grid-column: 4 / span 4;
+  grid-column: 5 / span 4;
   min-height: 1.5em;
   min-width: 0;
   width: 100%;
@@ -1769,7 +1771,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-tempo-row__summary {
-  grid-column: 4 / span 4;
+  grid-column: 5 / span 4;
   grid-row: 1;
   display: flex;
   align-items: center;
@@ -1828,10 +1830,12 @@ td.scale-color-col .color-input {
 .sequencer-tempo-row__summary-input--bpm {
   width: 3.4em;
   max-width: 3.4em;
+  text-align: right;
+  padding-right: 0.2em;
 }
 
 .sequencer-tempo-row__position-cell {
-  grid-column: 3;
+  grid-column: 3 / span 2;
   grid-row: 1;
   width: 100%;
 }
@@ -1844,22 +1848,22 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-tempo-row__bar-cell {
-  grid-column: 8;
-  grid-row: 1;
-}
-
-.sequencer-tempo-row__beat-cell {
   grid-column: 9;
   grid-row: 1;
 }
 
-.sequencer-tempo-row__num-cell {
+.sequencer-tempo-row__beat-cell {
   grid-column: 10;
   grid-row: 1;
 }
 
-.sequencer-tempo-row__den-cell {
+.sequencer-tempo-row__num-cell {
   grid-column: 11;
+  grid-row: 1;
+}
+
+.sequencer-tempo-row__den-cell {
+  grid-column: 12;
   grid-row: 1;
 }
 
@@ -2089,7 +2093,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-bar-row__tail {
-  grid-column: 8 / -1;
+  grid-column: 9 / -1;
   grid-row: 1;
   min-width: 0;
   min-height: 1.5em;
@@ -2098,7 +2102,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-tempo-row__tail {
-  grid-column: 12 / -1;
+  grid-column: 13 / -1;
   grid-row: 1;
   display: inline-flex;
   align-items: center;
@@ -2175,6 +2179,13 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #fff4b8;
 }
 
+.sequencer-event-row--sequence-draft .sequencer-event__snapshot-number,
+.sequencer-event-row--sequence-draft .sequencer-event__position {
+  background: #fff4b8;
+  background-color: #fff4b8;
+  box-shadow: inset 0 0 0 999px #fff4b8;
+}
+
 .sequencer-tempo-row--bar-relative-draft .sequencer-event__bar,
 .sequencer-tempo-row--bar-relative-draft .sequencer-event__beat,
 .sequencer-tempo-row--bar-relative-draft .sequencer-event__fraction-num,
@@ -2191,6 +2202,18 @@ td.scale-color-col .color-input {
   gap: 0.28em;
   width: var(--sequencer-event-actions-col);
   min-width: var(--sequencer-event-actions-col);
+}
+
+.sequencer-event__cue-cell--draggable {
+  cursor: grab;
+}
+
+.sequencer-event__cue-cell--draggable:active {
+  cursor: grabbing;
+}
+
+.sequencer-event-row--dragging {
+  opacity: 0.68;
 }
 
 .sequencer-event__draft-btn {
@@ -2794,15 +2817,15 @@ td.scale-color-col .color-input {
   }
 
   .sequencer-bar-row__position-cell {
-    grid-column: 3;
+    grid-column: 3 / span 2;
   }
 
   .sequencer-bar-row__signature-cell {
-    grid-column: 4 / span 2;
+    grid-column: 5 / span 2;
   }
 
   .sequencer-bar-row__tail {
-    grid-column: 6 / -1;
+    grid-column: 7 / -1;
   }
 }
 

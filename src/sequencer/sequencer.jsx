@@ -24,6 +24,18 @@ function formatSequenceTime(snapshotIndex, relativeTime) {
   return (baseIndex + offset).toFixed(6);
 }
 
+function formatSequenceOffset(relativeTime) {
+  const offset = Number(relativeTime);
+  if (!Number.isFinite(offset)) return "--";
+  return offset.toFixed(6);
+}
+
+function formatDisplaySequenceOffset(relativeTime) {
+  const offset = Number(relativeTime);
+  if (!Number.isFinite(offset)) return "--";
+  return offset.toFixed(3);
+}
+
 function formatFrequency(value) {
   if (!Number.isFinite(value)) return "--";
   return value.toFixed(1);
@@ -65,6 +77,10 @@ function frequencyToMidicents(value) {
   return 69 + Math.log2(frequency / 440) * 12;
 }
 
+function normalizeSequenceNumber(value) {
+  return Math.round(Number(value) * 1000000) / 1000000;
+}
+
 function barDisplayBucket(position) {
   const time = Number(position);
   if (!Number.isFinite(time) || time <= 1 + 1e-9) return -1;
@@ -79,6 +95,20 @@ function noteIdentity(note, fallbackLength = 1) {
   const rawEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : fallbackLength;
   const end = Math.max(start, rawEnd);
   return note?.id ?? `${midicents}:${start}:${end}`;
+}
+
+function sortSnapshotNotes(notes = [], fallbackLength = 1) {
+  return [...notes].sort((a, b) => {
+    const aStart = Number.isFinite(Number(a?.start)) ? Number(a.start) : 0;
+    const bStart = Number.isFinite(Number(b?.start)) ? Number(b.start) : 0;
+    if (aStart !== bStart) return aStart - bStart;
+    const aEnd = Math.max(aStart, Number.isFinite(Number(a?.end)) ? Number(a.end) : fallbackLength);
+    const bEnd = Math.max(bStart, Number.isFinite(Number(b?.end)) ? Number(b.end) : fallbackLength);
+    if (aEnd !== bEnd) return aEnd - bEnd;
+    const aPitch = Number.isFinite(Number(a?.midicents)) ? Number(a.midicents) : -Infinity;
+    const bPitch = Number.isFinite(Number(b?.midicents)) ? Number(b.midicents) : -Infinity;
+    return bPitch - aPitch;
+  });
 }
 
 function readNumericInput(container, selector, fallback = null) {
@@ -198,12 +228,16 @@ const Sequencer = ({
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
   const [draggedBarId, setDraggedBarId] = useState(null);
+  const [draggedEventId, setDraggedEventId] = useState(null);
   const [barRelativeDrafts, setBarRelativeDrafts] = useState({});
+  const [eventSequenceDrafts, setEventSequenceDrafts] = useState({});
   const [tempoBarRelativeDrafts, setTempoBarRelativeDrafts] = useState({});
   const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
+  const eventDragRef = useRef(null);
+  const duplicateNoteIdRef = useRef(0);
   const pendingTransportActionRef = useRef(null);
   const playbackRowRef = useRef(null);
   const scrollPanelRef = useRef(null);
@@ -234,6 +268,22 @@ const Sequencer = ({
     const entries = snapshots.map((snapshot, index) => [snapshot.id, index + 1]);
     return new Map(entries);
   }, [snapshots]);
+
+  const findSnapshotById = useCallback((snapshotId) => (
+    snapshots.find((snapshot) => snapshot.id === snapshotId) ?? null
+  ), [snapshots]);
+
+  const findNoteInSnapshot = useCallback((snapshot, noteKey) => {
+    if (!snapshot) return null;
+    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    const note = (snapshot.notes ?? []).find((entry) => noteIdentity(entry, length) === noteKey) ?? null;
+    return note ? { note, length } : null;
+  }, []);
+
+  const nextDuplicateNoteId = useCallback((baseId = "note") => {
+    duplicateNoteIdRef.current += 1;
+    return `${String(baseId)}:copy:${duplicateNoteIdRef.current}`;
+  }, []);
 
   const snapshotEventsById = useMemo(() => {
     const groups = new Map();
@@ -468,6 +518,7 @@ const Sequencer = ({
     setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
     setPendingSnapshotJumpIndex("");
     setPendingCueJumpIndex("");
+    setEventSequenceDrafts({});
   }, [snapshots.length, sortedBars.length, sortedTempi.length]);
 
   useEffect(() => {
@@ -564,39 +615,188 @@ const Sequencer = ({
     return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
   };
 
-  const updateEventTime = (snapshot, noteKey, kind, absoluteTime) => {
-    const baseIndex = snapshotIndexById.get(snapshot.id) ?? 1;
-    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-    const parsedAbsolute = Number(absoluteTime);
-    if (!Number.isFinite(parsedAbsolute)) return;
-    const relativeTime = Math.round((parsedAbsolute - baseIndex) * 1000000) / 1000000;
+  const eventSequenceDraftKey = (snapshotId, eventId, kind) => `${snapshotId}:${eventId}:${kind}`;
 
-    const notes = (snapshot.notes ?? []).map((note) => {
-      if (noteIdentity(note, length) !== noteKey) return note;
-      const currentStart = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
-      const currentEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : length;
-      if (kind === "attack") {
-        // For now, out-of-range positions remain attached to this snapshot so
-        // overlaps and temporary bitonality can be authored without implicitly
-        // relocating notes between snapshots. A later mode may optionally
-        // reinterpret such positions as reassignment to neighbouring snapshots.
-        const nextStart = relativeTime;
+  const buildEventSequenceDraft = (snapshotNumber, relativeTime, meta = {}) => ({
+    snapshotNumber: String(snapshotNumber),
+    offset: formatSequenceOffset(relativeTime),
+    ...meta,
+  });
+
+  const updateEventSequenceDraftField = (draftKey, field, value, meta) => {
+    setEventSequenceDrafts((prev) => {
+      const current = prev[draftKey] ?? buildEventSequenceDraft(meta.snapshotNumber, meta.relativeTime);
+      if (field === "snapshotNumber") {
+        const currentSnapshotNumber = Number(current.snapshotNumber);
+        const currentOffset = Number(current.offset);
+        const currentAbsoluteTime = Number.isFinite(currentSnapshotNumber) && Number.isFinite(currentOffset)
+          ? normalizeSequenceNumber(currentSnapshotNumber + currentOffset)
+          : normalizeSequenceNumber(Number(meta.snapshotNumber) + Number(meta.relativeTime));
+        const nextSnapshotNumber = Math.max(1, Math.min(snapshots.length, Math.round(Number(value) || 1)));
         return {
-          ...note,
-          start: nextStart,
-          end: Math.max(nextStart, currentEnd),
+          ...prev,
+          [draftKey]: {
+            ...current,
+            ...meta,
+            draftKey,
+            scope: `event-sequence:${draftKey}`,
+            snapshotNumber: String(nextSnapshotNumber),
+            offset: formatSequenceOffset(currentAbsoluteTime - nextSnapshotNumber),
+          },
         };
       }
-      const nextEnd = Math.max(currentStart, relativeTime);
       return {
-        ...note,
-        start: currentStart,
-        end: nextEnd,
+        ...prev,
+        [draftKey]: {
+          ...current,
+          ...meta,
+          draftKey,
+          scope: `event-sequence:${draftKey}`,
+          [field]: value,
+        },
       };
     });
-
-    onUpdateSnapshot(snapshot.id, { notes });
   };
+
+  const cancelEventSequenceDraft = (draftKey) => {
+    setEventSequenceDrafts((prev) => {
+      if (!(draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draftKey];
+      return next;
+    });
+  };
+
+  const applyNoteIntoSnapshot = useCallback((targetSnapshotId, buildNotes) => {
+    const targetSnapshot = findSnapshotById(targetSnapshotId);
+    if (!targetSnapshot) return;
+    const length = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
+    const nextNotes = sortSnapshotNotes(buildNotes(targetSnapshot, length), length);
+    onUpdateSnapshot(targetSnapshotId, { notes: nextNotes });
+  }, [findSnapshotById, onUpdateSnapshot]);
+
+  const commitNoteTransfer = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, mutateNote, options = {}) => {
+    const sourceSnapshot = findSnapshotById(sourceSnapshotId);
+    const targetSnapshot = findSnapshotById(targetSnapshotId);
+    if (!sourceSnapshot || !targetSnapshot) return;
+
+    const sourceFound = findNoteInSnapshot(sourceSnapshot, noteKey);
+    if (!sourceFound) return;
+    const { note, length: sourceLength } = sourceFound;
+    const sourceSnapshotNumber = snapshotIndexById.get(sourceSnapshot.id) ?? 1;
+    const targetSnapshotNumber = snapshotIndexById.get(targetSnapshot.id) ?? 1;
+    const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
+    const rawEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : sourceLength;
+    const end = Math.max(start, rawEnd);
+    const absoluteStart = normalizeSequenceNumber(sourceSnapshotNumber + start);
+    const absoluteEnd = normalizeSequenceNumber(sourceSnapshotNumber + end);
+
+    const targetLength = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
+    const baseMovedNote = {
+      ...JSON.parse(JSON.stringify(note)),
+      start: normalizeSequenceNumber(absoluteStart - targetSnapshotNumber),
+      end: normalizeSequenceNumber(absoluteEnd - targetSnapshotNumber),
+    };
+    const movedNote = mutateNote(baseMovedNote, {
+      sourceSnapshot,
+      targetSnapshot,
+      sourceSnapshotNumber,
+      targetSnapshotNumber,
+      absoluteStart,
+      absoluteEnd,
+      sourceLength,
+      targetLength,
+    });
+    if (!movedNote) return;
+
+    if (options.duplicate) {
+      const duplicateBaseId = note.id ?? noteKey;
+      movedNote.id = nextDuplicateNoteId(duplicateBaseId);
+      applyNoteIntoSnapshot(targetSnapshot.id, (snapshot) => [...(snapshot.notes ?? []), movedNote]);
+    } else if (sourceSnapshot.id === targetSnapshot.id) {
+      applyNoteIntoSnapshot(sourceSnapshot.id, (snapshot, length) => (
+        (snapshot.notes ?? []).map((entry) => (
+          noteIdentity(entry, length) === noteKey ? movedNote : entry
+        ))
+      ));
+    } else {
+      applyNoteIntoSnapshot(sourceSnapshot.id, (snapshot, length) => (
+        (snapshot.notes ?? []).filter((entry) => noteIdentity(entry, length) !== noteKey)
+      ));
+      applyNoteIntoSnapshot(targetSnapshot.id, (snapshot) => [...(snapshot.notes ?? []), movedNote]);
+    }
+
+    const nextSelectedSnapshot = targetSnapshot.id;
+    const nextSelectedTime = options.selectKind === "release"
+      ? movedNote.end
+      : movedNote.start;
+    onSelectSnapshot?.(nextSelectedSnapshot);
+    onSelectMarker?.(nextSelectedSnapshot, nextSelectedTime);
+    notifyEditCommitted();
+  }, [
+    applyNoteIntoSnapshot,
+    findNoteInSnapshot,
+    findSnapshotById,
+    nextDuplicateNoteId,
+    onSelectMarker,
+    onSelectSnapshot,
+    snapshotIndexById,
+  ]);
+
+  const deleteEventNote = useCallback((snapshotId, noteKey) => {
+    const snapshot = findSnapshotById(snapshotId);
+    if (!snapshot) return;
+    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    const nextNotes = (snapshot.notes ?? []).filter((note) => noteIdentity(note, length) !== noteKey);
+    onUpdateSnapshot(snapshot.id, { notes: sortSnapshotNotes(nextNotes, length) });
+    notifyEditCommitted();
+  }, [findSnapshotById, onUpdateSnapshot]);
+
+  const moveEventNoteToSnapshot = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, selectKind = "attack") => {
+    if (sourceSnapshotId === targetSnapshotId) return;
+    commitNoteTransfer(sourceSnapshotId, noteKey, targetSnapshotId, (note) => note, { selectKind });
+  }, [commitNoteTransfer]);
+
+  const duplicateEventNoteToSnapshot = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, selectKind = "attack") => {
+    commitNoteTransfer(sourceSnapshotId, noteKey, targetSnapshotId, (note) => note, {
+      duplicate: true,
+      selectKind,
+    });
+  }, [commitNoteTransfer]);
+
+  const applyEventSequenceDraft = useCallback((draft) => {
+    if (!draft) return;
+    const snapshotNumber = Math.max(1, Math.min(snapshots.length, Math.round(Number(draft.snapshotNumber) || 1)));
+    const targetSnapshot = snapshots[snapshotNumber - 1];
+    const nextOffset = Number(draft.offset);
+    if (!targetSnapshot || !Number.isFinite(nextOffset)) return;
+    const nextAbsoluteTime = normalizeSequenceNumber(snapshotNumber + nextOffset);
+
+    commitNoteTransfer(
+      draft.snapshotId,
+      draft.noteKey,
+      targetSnapshot.id,
+      (note, context) => {
+        const nextStartAbsolute = draft.kind === "attack" ? nextAbsoluteTime : context.absoluteStart;
+        const nextEndAbsolute = draft.kind === "release"
+          ? Math.max(nextAbsoluteTime, nextStartAbsolute)
+          : Math.max(context.absoluteEnd, nextStartAbsolute);
+        return {
+          ...note,
+          start: normalizeSequenceNumber(nextStartAbsolute - context.targetSnapshotNumber),
+          end: normalizeSequenceNumber(nextEndAbsolute - context.targetSnapshotNumber),
+        };
+      },
+      { selectKind: draft.kind },
+    );
+
+    setEventSequenceDrafts((prev) => {
+      if (!(draft.draftKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[draft.draftKey];
+      return next;
+    });
+  }, [commitNoteTransfer, snapshots]);
 
   const eventBarRelativeDraftKey = (snapshotId, eventId, kind) => `${snapshotId}:${eventId}:${kind}`;
 
@@ -785,6 +985,26 @@ const Sequencer = ({
   useEffect(() => {
     const handlePointerDown = (event) => {
       const targetScope = event.target instanceof Element
+        ? event.target.closest("[data-event-sequence-draft-scope]")?.getAttribute("data-event-sequence-draft-scope")
+        : null;
+
+      Object.values(eventSequenceDrafts).forEach((draft) => {
+        if (!draft || draft.scope === targetScope) return;
+        applyEventSequenceDraft(draft);
+      });
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("mousedown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("mousedown", handlePointerDown, true);
+    };
+  }, [applyEventSequenceDraft, eventSequenceDrafts]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const targetScope = event.target instanceof Element
         ? event.target.closest("[data-bar-relative-draft-scope]")?.getAttribute("data-bar-relative-draft-scope")
         : null;
 
@@ -810,7 +1030,7 @@ const Sequencer = ({
   const updateEventField = (snapshot, noteKey, field, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
-    const pitchUnchanged = (a, b) => Math.abs(Number(a) - Number(b)) < 0.000000001;
+    const pitchUnchanged = (a, b) => Math.abs(Number(a) - Number(b)) < 0.0000005;
 
     const notes = (snapshot.notes ?? []).map((note) => {
       const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
@@ -1409,9 +1629,13 @@ const Sequencer = ({
       snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1,
       event.relativeTime,
     );
+    const eventSnapshotNumber = snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1;
     const barBeat = absolutePositionToBarBeat(event.absoluteTime, sortedBars, event.fractionDenominator, 9);
     const draftKey = eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
     const barRelativeDraft = barRelativeDrafts[draftKey] ?? null;
+    const eventSequenceKey = eventSequenceDraftKey(snapshot.id, event.eventId, event.kind);
+    const eventSequenceDraft = eventSequenceDrafts[eventSequenceKey] ?? null;
+    const isEventSequenceDraftActive = eventSequenceDraft != null;
     const isBarRelativeDraftActive = eventPane === "timing" && barRelativeDraft != null;
     const isStoppedBar = stoppedBarStateForBarNumber(barRelativeDraft?.barNumber ?? barBeat?.barNumber ?? 1);
     const beatValue = isStoppedBar ? "0" : (barRelativeDraft?.beat ?? String(barBeat?.beat ?? 1));
@@ -1421,8 +1645,9 @@ const Sequencer = ({
     return (
       <div
         key={`${event.eventId}:${keySuffix}`}
-        class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}${isBarRelativeDraftActive ? " sequencer-event-row--bar-relative-draft" : ""}`}
+        class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}${isBarRelativeDraftActive ? " sequencer-event-row--bar-relative-draft" : ""}${isEventSequenceDraftActive ? " sequencer-event-row--sequence-draft" : ""}${draggedEventId === event.eventId ? " sequencer-event-row--dragging" : ""}`}
         data-bar-relative-draft-scope={`event:${draftKey}`}
+        data-event-sequence-draft-scope={`event-sequence:${eventSequenceKey}`}
         onClick={() => {
           onSelectMarker(snapshot.id, event.relativeTime);
         }}
@@ -1439,29 +1664,105 @@ const Sequencer = ({
           barDragIdRef.current = null;
         }}
       >
-        <div class="sequencer-event__delete-cell" />
-        <div class="sequencer-event__cue-cell">{renderCueMarker(snapshot, event, sequenceTime)}</div>
+        <div class="sequencer-event__delete-cell">
+          <button
+            type="button"
+            class="sequencer-gutter__delete"
+            aria-label={`delete snapshot ${snapshotIndex + 1} ${event.kind} event`}
+            title={`Delete snapshot ${snapshotIndex + 1} ${event.kind} event`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteEventNote(snapshot.id, event.noteKey);
+            }}
+          >
+            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div
+          class="sequencer-event__cue-cell sequencer-event__cue-cell--draggable"
+          draggable="true"
+          aria-label={`drag snapshot ${snapshotIndex + 1} ${event.kind} event`}
+          title="Drag to move this event; Option-drag to duplicate"
+          onDragStart={(e) => {
+            eventDragRef.current = {
+              snapshotId: snapshot.id,
+              noteKey: event.noteKey,
+              kind: event.kind,
+              eventId: event.eventId,
+            };
+            setDraggedEventId(event.eventId);
+            e.dataTransfer.effectAllowed = "copyMove";
+          }}
+          onDragEnd={() => {
+            eventDragRef.current = null;
+            setDraggedEventId(null);
+            setDragOverId(null);
+          }}
+        >
+          {renderCueMarker(snapshot, event, sequenceTime)}
+        </div>
         <div class="sequencer-event__cell">
           <input
-            type="text"
-            class={`sequencer-event__input sequencer-event__position${isOutOfSnapshotRange(snapshot, event.relativeTime) ? " sequencer-event__position--out-of-range" : ""}`}
-            defaultValue={sequenceTime}
-            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} position`}
+            type="number"
+            step="1"
+            min="1"
+            max={String(snapshots.length)}
+            class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__snapshot-number${isEventSequenceDraftActive ? " sequencer-event__input--draft" : ""}`}
+            value={eventSequenceDraft?.snapshotNumber ?? String(eventSnapshotNumber)}
+            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} snapshot`}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               e.stopPropagation();
-              delete e.currentTarget.dataset.lastCommittedValue;
               e.currentTarget.select();
             }}
-            onKeyDown={(e) => handleEnterCommit(
-              e,
-              (value) => updateEventTime(snapshot, event.noteKey, event.kind, value),
-            )}
-            onBlur={(e) => handleBlurCommit(
-              e,
-              (value) => updateEventTime(snapshot, event.noteKey, event.kind, value),
-            )}
+            onInput={(e) => updateEventSequenceDraftField(eventSequenceKey, "snapshotNumber", e.currentTarget.value, {
+              snapshotId: snapshot.id,
+              noteKey: event.noteKey,
+              kind: event.kind,
+              snapshotNumber: eventSnapshotNumber,
+              relativeTime: event.relativeTime,
+            })}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              applyEventSequenceDraft(eventSequenceDrafts[eventSequenceKey]);
+            }}
+          />
+        </div>
+        <div class="sequencer-event__cell sequencer-grid-offset">
+          <input
+            key={`${event.eventId}-offset-${eventSequenceDraft?.offset ?? event.relativeTime}`}
+            type="text"
+            class={`sequencer-event__input sequencer-event__position${isOutOfSnapshotRange(snapshot, event.relativeTime) ? " sequencer-event__position--out-of-range" : ""}${isEventSequenceDraftActive ? " sequencer-event__input--draft" : ""}`}
+            defaultValue={formatDisplaySequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime)}
+            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} offset`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onFocus={(e) => {
+              e.stopPropagation();
+              e.currentTarget.value = formatSequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime);
+              e.currentTarget.select();
+            }}
+            onInput={(e) => updateEventSequenceDraftField(eventSequenceKey, "offset", e.currentTarget.value, {
+              snapshotId: snapshot.id,
+              noteKey: event.noteKey,
+              kind: event.kind,
+              snapshotNumber: eventSnapshotNumber,
+              relativeTime: event.relativeTime,
+            })}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              applyEventSequenceDraft(eventSequenceDrafts[eventSequenceKey]);
+            }}
+            onBlur={(e) => {
+              const value = Number(e.currentTarget.value);
+              e.currentTarget.value = formatDisplaySequenceOffset(
+                Number.isFinite(value) ? value : (eventSequenceDraft?.offset ?? event.relativeTime),
+              );
+            }}
           />
         </div>
           <div
@@ -1765,7 +2066,34 @@ const Sequencer = ({
           </>
         )}
         <div class="sequencer-event__actions-cell">
-          {isBarRelativeDraftActive ? (
+          {isEventSequenceDraftActive ? (
+            <span class="sequencer-event__draft-actions">
+              <button
+                type="button"
+                class="sequencer-event__draft-btn"
+                aria-label={`commit snapshot ${snapshotIndex + 1} ${event.kind} sequence placement`}
+                title="Commit snapshot and offset edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  applyEventSequenceDraft(eventSequenceDrafts[eventSequenceKey]);
+                }}
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                class="sequencer-event__draft-btn"
+                aria-label={`cancel snapshot ${snapshotIndex + 1} ${event.kind} sequence placement`}
+                title="Cancel snapshot and offset edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelEventSequenceDraft(eventSequenceKey);
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ) : isBarRelativeDraftActive ? (
             <span class="sequencer-event__draft-actions">
               <button
                 type="button"
@@ -2255,12 +2583,20 @@ const Sequencer = ({
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = e.altKey ? "copy" : "move";
+                      if (eventDragRef.current != null) {
+                        setDragOverId(snapshot.id);
+                        return;
+                      }
                       if (barDragIdRef.current != null) return;
                       setDragOverId(snapshot.id);
                       setDragOverSide(resolveDropSide(e));
                     }}
                     onDragEnter={(e) => {
                       e.preventDefault();
+                      if (eventDragRef.current != null) {
+                        setDragOverId(snapshot.id);
+                        return;
+                      }
                       if (barDragIdRef.current != null) return;
                       setDragOverId(snapshot.id);
                       setDragOverSide(resolveDropSide(e));
@@ -2271,6 +2607,25 @@ const Sequencer = ({
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
+                      if (eventDragRef.current != null) {
+                        const draggedEvent = eventDragRef.current;
+                        if (e.altKey) duplicateEventNoteToSnapshot(
+                          draggedEvent.snapshotId,
+                          draggedEvent.noteKey,
+                          snapshot.id,
+                          draggedEvent.kind,
+                        );
+                        else moveEventNoteToSnapshot(
+                          draggedEvent.snapshotId,
+                          draggedEvent.noteKey,
+                          snapshot.id,
+                          draggedEvent.kind,
+                        );
+                        setDragOverId(null);
+                        setDraggedEventId(null);
+                        eventDragRef.current = null;
+                        return;
+                      }
                       if (barDragIdRef.current != null) {
                         onMoveBar?.(barDragIdRef.current, index + 1);
                         setDraggedBarId(null);
@@ -2289,7 +2644,9 @@ const Sequencer = ({
                     onDragEnd={() => {
                       setDragOverId(null);
                       setDraggedId(null);
+                      setDraggedEventId(null);
                       dragIdRef.current = null;
+                      eventDragRef.current = null;
                     }}
                   >
                     <div
@@ -2409,8 +2766,11 @@ const Sequencer = ({
                           <div class="sequencer-events-grid__header" role="row">
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--delete" />
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading--cue" />
-                            <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--position">
-                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Position", "Pos")}</span>
+                            <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--snapshot">
+                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Snap", "Snap")}</span>
+                            </div>
+                            <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset-position">
+                              <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Offset", "Offs")}</span>
                             </div>
                             <div class="sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--kind-spacer" />
                             <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--midicents">
