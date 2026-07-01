@@ -1,55 +1,47 @@
 # User Manual
 
-Updated: 2026-06-07
+Updated: 2026-06-30
 
 ## About
 
-HEXATONE is a retuneable microtonal keyboard and scale workspace. SEQUENCER is a step sequencer allowing users to edit and walk through chords captured in the workspace. 
+Choose a tab: HEXATONE is a microtonal workspace based on an hexagonal 2D pitch layout invented by Erv Wilson; SEQUENCER is a step sequencer allowing users to edit and walk through chords captured in the workspace. 
 
 Features:
 
-- programmable isomorphic hexagonal keyboard layouts based on Erv Wilson’s designs
-- playable using touch, mouse, computer keyboard, and MIDI controllers
-- built-in sampled sounds with polyphonic aftertouch
-- scale table for editing, comparing, and displaying tunings
-- scale creation, comparison, and rationalisation tools
-- adjust any pitch to any frequency, automatically updating the underlying scala file
-- JI-focused workspace with modulation and automatic HEJI Notation and Key Colours
-- parse MIDI input from MPE or multichannel layout isomorphic and 2D controllers (Haken Continuum, Exquis, LinnStrument, Lumatone, and others; correlates known controller geometries with on-screen scale layouts
+- user-programmable keyboard layouts and tunings
+- playable using touch, mouse, computer keyboard, and MIDI
+- built-in sampled sounds with polyphonic expression
+- scale table for displaying, comparing, and editing tunings: use any degree as a reference note, adjust any pitch to any frequency
+- JI tools include rationalisation of cents-based intervals, modulation, automatic HEJI Notation and key colours derived from a ratio's prime exponents
+- MIDI input from standard keyboards, MPE devices, or multichannel controllers like Haken Continuum, Exquis, LinnStrument, Lumatone; known controller geometries are correlated with on-screen scale layouts
 - sends MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
-- extremely low latency and low jitter
-- a live-oriented composition, improvisation, and performance companion to [Scale Workshop](https://scaleworkshop.plainsound.org)
-- a dedicated SEQUENCER tab allowing users to edit and step through captured chord snapshots
+- compatible with the free MTS-ESP Mini Master plug-in for retuning VST instruments
+- suitable for live use: extremely low latency and jitter
+- a dedicated SEQUENCER tab allows users to edit and step through captured chord snapshots
 
 ## Quick Start
 
-WebMIDI need not be activated. Minimum setup to explore scales, compare tunings, build and recall chords:
+WebMIDI is optional. To explore scales, compare tunings, build and recall chords:
 
 - open Hexatone in the browser
-- use built-in sounds
-- play with:
-  - touch
-  - mouse
-  - computer keyboard
-  - SUSTAIN / MOD / OCT controls
-- edit the scale table, drag to retune
-- try a modulation from most recently played note to next played note with handoff
-- capture snapshots
+- use built-in sounds to play with touch, mouse, computer keyboard
+- use on-screen `OCT` / `SUSTAIN` / `MOD` controls or keyboard shortcuts 
+- edit the scale table, drag to retune individual scale degrees
+- capture snapshots, trigger them in the sequencer tab
 
 ## Components
 
 ### Keyboard Canvas
 
-- draws the current scale in a 2D layout, defined by:
+- draws the current scale in an hexagonal 2D layout, defined by:
     - central scale degree
     - scale steps to the right
     - scale steps to the right and down
-    - hex size
-    - rotation
+    - hex size and rotation
 - key labels may be blank, show scale data, custom names, or generated HEJI spellings
-- JI ratio key colours may be assigned automatically from a user palette
+- key colours may be edited manually or generated
 
-### Sidebar
+### Sidebar Settings
 
 - Built-in Tunings
 - User Tunings
@@ -64,51 +56,64 @@ WebMIDI need not be activated. Minimum setup to explore scales, compare tunings,
 
 Left-to-right along the bottom of the app there are buttons and these are also mapped to key commands:
 
-- a circular `SNAPSHOT` icon (ENTER key) captures currently played and/or sustained notes as a chord snapshot
+- a round `SNAPSHOT` button (ENTER key) captures currently played and/or sustained notes
 - `OCT` (arrow keys, active when canvas is in focus): click the word "OCT" or press <- and -> to toggle functionality between two states: retune next played note or (darker colour) retune immediately; use arrow-up arrow-down to change octaves
 - `SUSTAIN` (ESC key): toggle to sustain notes hands-free; click again on a note to remove it
-- `MOD` (SHIFT+backquote / ^ key): click to capture last played note as source degree, next played note becomes target degree, shifting the scale frequency globally while maintaining layout and appearance (moveable do logic); an alternate fixed do logic keeps the source note "in place" but changes its scale degree to that of the target degree
-- `PANIC` (Backspace / Delete key): kills sounding notes as nicely as possible
+- `MOD` (SHIFT+BACKQUOTE / ^ key): click to capture last played note as source degree, next played note becomes target degree, shifting the scale frequency globally while maintaining layout and appearance (moveable do logic); an alternate fixed do logic keeps the source note "in place" but changes its scale degree to that of the target degree
+- `PANIC` (BACKSPACE / DELETE key): kills sounding notes as nicely as possible
 
-### Snapshots
+### Sequencing Snapshots
 
 - capture currently sounding notes (ENTER key); a list appears bottom left of the app: click to play, drag to reorder, x to delete
-- change to PLAINSOUND SEQUENCER Tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence
+- change to PLAINSOUND SEQUENCER Tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence of cues
+- Sequence is a collection of snapshots, ordered and numbered, along with the relative position of individual events (cues), bars with time signatures, and tempo markers; multiple sequences may be saved and loaded as `.json` files; sequences are kept in local browser storage and may be swiftly reloaded from the menu to play different sections or pieces
+- Snapshot is a captured chord or note collection including momentary expression data; it can be replayed as a full vertical sonority (stepping by snapshots); snapshots may be ordered and are automatically numbered
+- Cues are generated automatically when the relative start and end positions of individual notes comprising a snapshot are edited, creating derived event steps; the global position of events is relative to the snapshot in which they occur; stepping by cues follows the global order of events, so cues may combine events from multiple snapshots
+- Bars have a user-defined time signature that scales global time: is is expressed as a fraction of one whole note: the denominator expresses "what fraction of the bar is considered to be a beat" and the numerator expresses "how many" beats comprise this particular bar; thus, in a time signature 5/6, 6 means the beat length is 1/6 of a whole note = one 1/4 note triplet, and 5 means this bar is made up of 5 quarter-note triplets
+  - a bar allows the global positioning of events to be expressed in rational time units (beats, fractions of beats)
+  - bars may occupy any global position: i.e. barlines may occur between snapshots or inside a snapshot
+  - for most applications, bars are automatically generated at snapshot boundaries, and any extra bars that are not needed may be deleted
+- a user-defined Tempo marker can occur anywhere in sequence position space; it is expressed as a fraction indicating beat grouping and a tempo in bpm
+- multiple events at the same global position follow an order of precedence rule: `Tempo Change -> Bar -> note-offs for previously sounding notes -> new note-ons -> new note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
+- the sequence uses one exact global position space, defined by the ordered snapshots: bars and tempi are overlays on that space rather than containers for the notes; this approach allows a very flexible triggered-step or tempo driven realisation of the sequenced data
 
-## Playing
+## Hexatone Tab
 
-### Mouse, Touch
+- load a built-in tuning
+- play the on-screen keyboard with mouse or touch
+- use sustain to hold a chord, add and subtract notes
+- use the key labels to find sustaining scale degrees in the table
+- drag a TuneCell to retune and compare
+- change the tuning, make rationalisation choices
+- change the scale layout, reference frequency, reference degree, central degree
+- make a modulation with a non-isomorphic JI tuning
+- take some snapshots and replay them, change their order
 
-Click or tap the on-screen hexes to play notes.
+### Mouse, Touch, Computer Keyboard
 
-### Computer Keyboard
+Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard become a simple isomorphic controller. The H key is mapped automatically to play the central degree at the center of the canvas. Pressing SHIFT and a key alternately latches and releases that particular note, allowing note-by-note sustains.
 
-When the Sidebar is collapsed and the canvas fills the screen, the H key is mapped automatically to play the central degree at the center of the canvas, and the normal keyboard become a simple isomorphic controller. Note that pressing SHIFT and a key alternately latches and releases that particular note, allowing selective and dynamically changing "sustaining sounds".
+### Presets
 
-## Presets
+Hexatone includes built-in tunings and supports user presets. Users may import a scala file or a previously saved Hexatone `.json` file. It is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
 
-Hexatone includes built-in tunings and supports user presets. Users may import a Scala file or a previously saved Hexatone `.json` file including all local settings. Also, it is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
+- create a scale in Scala or Scale Workshop and import it into Hexatone
+- edit name and description, save as a user tuning, try different layouts
+- play, experiment with sustain, octave transpositions, modulations
+- tune scale degrees against drones, held chords, or other instruments
+- try different rationalisation settings and compare how the scale changes
+- make snapshots; preserve useful scale variations as presets
+- export as `.json` file to easily share or reimport settings and metadata
 
-One possible workflow:
+### Scale Settings
 
-1. create, import, or analyze a scale in Scala, Scale Workshop or Hexatone
-2. bring that scale into Hexatone if needed, edit name and description, Save
-3. play it, experiment with sustain, octave transpositions, modulations
-4. tune scale degrees against drones, held chords, or other instruments
-5. compare alternate rational or reference-frequency readings
-6. make snapshots; preserve useful scale variations as presets
-7. export as .json file to easily share or reimport settings and metadata
-
-## Scale Settings
-
-- reference frequency (Hz)
-- any scale degree may be assigned to this frequency
-- scale size
+- assign a reference frequency (Hz) to any scale degree
+- change scale size
 - equave (interval of transposition at which the scale pattern repeats)
 - key colours
 - key labels
 
-You can also:
+### Scale Tools
 
 - divide the equave equally
 - divide the octave equally
@@ -119,23 +124,23 @@ You can also:
 
 Use the Key Colours menu to choose how note colours are shown on the keyboard and in the scale table. There are three modes:
 
-- Manual uses the stored note colours and allows individual keys to be manually edited, compared, and committed in the scale table
-- Auto provides algorithmically suggested variants for JI pitches based on component primes, interval structure, and Bosanquet layout of diatonic/chromatic notes; in addition to the default settings users may save custom palettes
-- Spectrum automatically generates a continuous colour spectrum around a chosen central hue and maps it across the scale
-- both automatic modes may be committed and edited further in the Scale Table
+- `Manual` uses stored note colours; individual keys may be manually edited, compared, and committed in the scale table
+- `Auto` provides algorithmically suggested variants for JI pitches based on component primes, interval structure, and Bosanquet layout of diatonic/chromatic notes; in addition to the default settings users may save custom palettes
+- `Spectrum` automatically generates a continuous colour spectrum around a chosen central hue and maps it across the scale
+- both automatic modes may be committed and edited further manually
 
 ### JI Palette by Primes
 
 Key colouring helps identify prime factors in rational intonation (JI), using the following shape:
 
-| Prime / role | Colour |
+| Prime | Colour |
 | --- | --- |
-| Pythagorean spine (3°), sharp / flat shading | white / black & tonal shading |
-| 5° | ivory / yellow |
-| 7° | pink / magenta |
+| 3° | white / black & tonal shadings based on higher primes |
+| 5° | ivory |
+| 7° | pink |
 | 11° | bright green |
 | 13° | bright violet |
-| 17° | white / black; evenly divides the whole tone |
+| 17° | grey |
 | 19° | cyan |
 | 23° | dark green |
 | 29° | indigo |
@@ -143,32 +148,31 @@ Key colouring helps identify prime factors in rational intonation (JI), using th
 | 37° | silver |
 | 41° | dark rose |
 | 43° | amber |
-| 47° | bright magenta |
+| 47° | magenta |
 
-Combinations of primes mix and saturate these colours. Auto-generated JI key colours may use a custom palette defined by the user; palettes by be saved and loaded.
+Combinations of primes saturate and blend these colours accordingly. Auto-generated JI key colours may use custom palettes defined by the user.
 
 ### Key Labels
 
-Use the Key Labels menu to choose which information (Blank, Degree Numbers, Scala Data, Cents, Names, HEJI Notation) is displayed on the individual keys. The HEJI Notation options are derived based on a user-specified spelling reference which may or may not be in the actual scale. Users may choose tempered accidentals + cents or JI accidental symbols. Primes > 47 or irrational pitches are given tempered notation + cents deviation. Notation is responsive to the current rational reading of the scale; after tuning edits or modulation, displayed note names may update to reflect the current reference frame or interval interpretation.
+Choose which information (`Blank Keys`, `Scale Degree`, `Scala Data`, `Scale Cents`, `Name`, `HEJI`) is displayed on the keys. The HEJI Notation options are derived based on a user-specified spelling reference which may or may not be in the actual scale. Users may choose tempered accidentals + cents or JI accidental symbols. Primes > 47 or irrational pitches are given tempered notation + cents deviation. Notation is responsive to the current rational reading of the scale; after tuning edits or modulation, displayed note names update. When automatically generated HEJI labels are edited the scale updates accordingly.
 
 ## The Scale Table
 
-The scale table is the detailed editing surface for each degree.  
-
-It supports:
+The scale table supports:
 
 - exact ratios such as `5/4`
 - cents values such as `386.3`
 - EDO steps such as `7\12`
 - per-degree tuning adjustment
 - rationalisation suggestions
+
+You may:
+
 - reorder scale degrees by clicking on the degree number
 - select and delete a scale degree
 - `Sort Degrees Ascending`, preserving degree `0` and the equave
-- increasing scale size adds copies of the current equave
-- decreasing scale size truncates
-
-Reordering, sorting, and deleting degrees also remaps the associated note names, colours, reference degree, and central degree so the scale remains internally consistent.
+- increase scale size (adds copies of the current equave as editable place-holders)
+- decrease scale size (truncates)
 
 ### TuneCell
 
@@ -179,17 +183,9 @@ The small retuning control attached to scale entries and the reference frequency
 - compare changes against original values
 - save or revert a tuning change
 
-## Rationalisation
+### Rationalisation
 
-PLAINSOUND HEXATONE is oriented toward exploring intonation with rational intervals.
-
-The app is designed to:
-
-- preserve exact interval identities (ratios / harmonic space exponent vectors) when possible
-- search for small-number rational interpretations of tuned pitches
-- work musically with ratios
-
-Rationalisation examines scale degrees and suggests rational interval interpretations according to the current search settings.
+PLAINSOUND HEXATONE is oriented toward exploring intonation with rational intervals. Rationalisation examines scale degrees and suggests rational interval interpretations according to the current search settings.
 
 It helps answer questions like:
 
@@ -199,17 +195,14 @@ It helps answer questions like:
 The current rationalisation workflow has two modes:
 
 - `Keep existing ratios`: preserve ratios you already committed, rationalise around those anchors
-- `Find new ratios (re-search all)`: fresh search with the current rationalisation settings
+- `Find new ratios`: fresh search based upon the current settings
 
-Rationalisation works directly from the scale table: exact interval entries, tempered entries, and committed ratio decisions can be refined in place.
-
-The `Rationalisation Settings` include a number of options:
+`Rationalisation Settings` include:
 
 - symmetric, overtonal, or custom search (user-specified exponent range above and below each prime)
-- prime and odd limit
-- exponent range for the harmonic space region
+- prime and odd limit, tolerance range in cents
 
-## Modulation
+### Modulation
 
 - `MOD` (SHIFT + Backquote / ^): initiates a modulation by capturing the most recent note played; transfer this source note to a target note by pressing any key
 - a floating palette of MODULATION HISTORY appears, tracking all user-initiated modulations, counting the number of steps taken
@@ -218,10 +211,13 @@ The `Rationalisation Settings` include a number of options:
 - modulation updates both sounding relationships and the displayed notation context
 - modulation history can be used as a live record of changing reference-frame decisions during performance or analysis
 - modulation history may be reset globally, returning to the saved tuning
+- there are two layout options: "moveable do" (fixed layout) or "fixed do" (moveable layout)
 
-## MIDI Setup
+## MIDI
 
-WebMIDI is optional; allowing SysEx functionality is an additional option. If you enable it, Hexatone becomes a much broader live instrument and MIDI hub. WebMIDI adds:
+### MIDI Setup
+
+WebMIDI is optional; allowing SysEx functionality is an additional option. WebMIDI adds:
 
 - external MIDI input
 - controller auto-detection, geometry support, with manual override
@@ -232,20 +228,16 @@ Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and
 
 If you do not wish to enable WebMIDI, Hexatone still works as an on-screen instrument and scale workspace.
 
-The Hexatone Control Port exposes a MIDI port selector which will enable users to assign controls to features in the Hexatone UX remotely. This feature is not yet implemented.
+### MIDI Input
 
-## MIDI Input
-
-HEXATONE
+The HEXATONE app
 
 - responds to standard keyboard input on all channels
+- handles MPE per-note expression data: pitch bend, aftertouch, pressure, control change
 - knows about isomorphic and 2D controller geometries, single- or multi-channel layouts
 - recognises controllers automatically, but allows manual controller geometry selection and override (sequential / bypass behaviour)
-- has two Input Modes: MIDI to Hex Layout (triggers successive degrees of a microtonal scale); MIDI to Nearest Scale Degree (incoming notes + MPE X data are mapped to nearest notes of the scale, rather than triggering the scale note-by-note)
-- Input Mode persists per detected/selected controller
-- 2D controllers default to MIDI to Hex Layout
-- Haken Continuum (1D pitch glissando) defaults to MIDI to Nearest Scale Degree
-- handling of incoming MPE per-note expression data: pitch bend, aftertouch, pressure, control change
+- has two Input Modes: MIDI to Hex Layout (consecutive MIDI notes trigger successive degrees of a microtonal scale); MIDI to Nearest Scale Degree (incoming notes + MPE X data are mapped to nearest notes of the scale, rather than triggering the scale note-by-note)
+- Input Mode persists per detected/selected controller; 2D controllers default to MIDI to Hex Layout; Haken Continuum (1D pitch glissando) defaults to MIDI to Nearest Scale Degree
 
 ### Controllers
 
@@ -261,15 +253,15 @@ The app includes support for several recognized controller types, including devi
 
 The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user (on appropriate outputs).
 
-Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degree are coloured, which is useful for learning the layout when there are many different notes.
+Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes.
 
 Alternately, some users may prefer to generate a "traditional" multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave tranpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
 
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
 
-Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing.
+Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using App Mode.
 
-Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file.
+Haken `Continuum X Glide`offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file. MPE+ PB output is optional, because the many generated CC87 LSB messages may overload older MIDI connections.
 
 ### Input Modes
 
@@ -281,7 +273,7 @@ Hexatone can treat MIDI input broadly in two ways:
 The first treats the controller as a performance surface with position meaning.
 The second treats incoming pitch as musical material to be mapped into the current scale.
 
-## MIDI Output
+### MIDI Output
 
 Hexatone can send tuning and performance data through:
 
@@ -290,13 +282,12 @@ Hexatone can send tuning and performance data through:
 - MTS Bulk Dump Tuning Maps
 - MPE (MIDI Polyphonic Expression)
 
-## OSC Output
+## OSC
 
-Hexatone also includes an OSC output path aimed at users who want:
+Hexatone also includes an OSC output path for users who want:
 
 - a custom synthesis backend
 - direct control of a local SuperCollider setup
-- Hexatone as the performance and tuning front end
 
 ### What it requires
 
@@ -323,17 +314,75 @@ yarn osc-bridge
 
 This feature also supports a fully local workflow: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 
-## Try
+## Sequencer Tab
 
-- loading a built-in tuning
-- playing the on-screen keyboard with mouse or touch
-- using sustain to hold a chord, add and subtract notes
-- using the key labels to find sustaining scale degrees in the table
-- dragging a TuneCell to retune and compare
-- changing the tuning, making rationalisation choices
-- changing the scale layout, reference frequency, reference degree, central degree
-- making a modulation
-- taking some snapshots and replaying them
+- open the `Sequencer` tab
+- click on the toggle beside "Sequence" to collapse/expand all snapshots
+- work with one snapshot: edit note timing, pitch, and expression values
+- add bars and tempo changes
+- choose a `BAR`, `SNAPSHOT`, or `CUE` and step through events
+- save, reopen, export, and continue editing user sequences
+
+### User Sequences
+
+Sequences may be exported, loaded from disc and stored in the User Sequences menu. Add a `Name`and `Description`
+
+### Sequence Settings
+
+`Snapshot Labels` may be `Note Names`, `Frequencies`, `MIDIcents`, `Chord Intervals from Lowest Note (cents)`, or `Chord Proportion`. The summary text for each snapshot can be changed independently of the underlying note data and that these labels are saved with the user sequence. The reset button reloads the automatically generated label.
+
+`Auto-Create Bars` places a new bar at each snapshot. Bars can be deleted or additional bars created at any point.
+
+`Legato` prevents rearticulation of previously held notes while stepping or retriggering.
+
+### Transport Bar
+
+- `PLAY FROM`
+  - transport row for `BAR`, `SNAPSHOT`, and `CUE`
+  - choosing a destination cues it in brackets until stepped
+  - the selected target is queued rather than played immediately
+- step arrows can walk by snapshot or cue; at end of sequence transport loops back to the start
+- controls for each snapshot or cue
+  - play/retrigger
+  - stop
+  - expand/collapse snapshot event list
+  - drag to re-order; option-drag to duplicate
+
+### Event Row Editing
+
+Use the arrow to move between pages of parameters. Current event fields are:
+
+- `Position`
+- `MIDI¢`
+- `Hz`
+- `HEJI` (display-only)
+- `Bar`
+- `Beat`
+- `Num`
+- `Den`
+- `on-vel`
+- `off-vel`
+- `pressure`
+- `timbre`
+
+Note that `Bar / Beat / Num / Den` are an alternate bar-relative position that automatically recalculate the event's global position value.
+
+### Bar Markers
+
+A bar rows shows:
+- exact global `Position`
+- bar number
+- time signature fraction (number of beats / beat unit - for example, a 5/4 bar has 5 units, each 1/4 of a whole note)
+- a bar may be moved or inserted at any valid position; the Bar/Beat values for events are recalculated automatically
+
+### Tempo Markers
+
+A tempo row shows:
+- exact global `Position`
+- fraction of a bar used as "beat" unit for tempo (i.e., tempo measured in dotted quarter notes: specify a beat unit 3/8)
+- tempo value in `bpm`
+- bar-relative position fields `Bar / Beat / Num / Den`
+- the beat fraction is written in the form `3 / 8 = 80 bpm`
 
 ## Roadmap
 
