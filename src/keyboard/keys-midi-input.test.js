@@ -153,6 +153,36 @@ describe("Keys MIDI input integration", () => {
     drawGridSpy = vi.spyOn(Keys.prototype, "drawGrid").mockImplementation(() => {});
   });
 
+  it("publishes live scale table activity after MIDI note state mutates", async () => {
+    const keys = createKeys({}, {}, {
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        release: false,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(function noteOff() {
+          this.release = true;
+        }),
+        retune: vi.fn(function retune(newCents) {
+          this.cents = newCents;
+        }),
+      })),
+    });
+    const snapshots = [];
+    keys.subscribeLiveScaleTable((snapshot) => snapshots.push(snapshot));
+    snapshots.length = 0;
+
+    keys.midinoteOn(makeMidiEvent(60));
+    await Promise.resolve();
+
+    expect(Object.keys(snapshots.at(-1)?.rowsByDegree ?? {})).not.toHaveLength(0);
+
+    keys.midinoteOff(makeMidiEvent(60));
+    await Promise.resolve();
+
+    expect(Object.keys(snapshots.at(-1)?.rowsByDegree ?? {})).toHaveLength(0);
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();

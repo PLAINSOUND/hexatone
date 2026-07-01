@@ -41,6 +41,7 @@ const Settings = ({
   midiTick,
   instruments,
   keysRef,
+  keysReadyRevision,
   heji_names,
   heji_names_table,
   modulation_transposition_cents,
@@ -137,6 +138,7 @@ const Settings = ({
       onImport={onImport}
       importCount={importCount}
       keysRef={keysRef}
+      keysReadyRevision={keysReadyRevision}
     />
     <Layout onChange={onChange} settings={settings} />
     <SampleSynth

@@ -3,6 +3,7 @@ import {
   deriveSequenceCueGroups,
   deriveSequenceEvents,
   deriveSnapshotTriggerGroups,
+  sequenceNoteKeysAtCueIndex,
   sequenceNotesAtCueIndex,
   sequenceNotesAtCueTime,
 } from "./trigger-groups.js";
@@ -245,6 +246,32 @@ describe("deriveSnapshotTriggerGroups", () => {
     expect(sequenceNotesAtCueIndex(snapshots, 1)).toMatchObject([
       { midicents: 60, timbre: 66, reattack: true },
     ]);
+  });
+
+  it("tracks currently sounding note identities cue by cue", () => {
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        notes: [
+          { id: "a", midicents: 60, start: 0, end: 1.25 },
+          { id: "b", midicents: 64, start: 0.5, end: 1 },
+        ],
+      },
+      {
+        id: 2,
+        length: 1,
+        notes: [
+          { id: "c", midicents: 67, start: 0.25, end: 1 },
+        ],
+      },
+    ];
+
+    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 0)).toEqual(["a"]);
+    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 1)).toEqual(expect.arrayContaining(["a", "b"]));
+    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 1)).toHaveLength(2);
+    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 2)).toEqual(["a"]);
+    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 3)).toEqual(["c"]);
   });
 
   it("attaches integer-position bars to the preceding snapshot and keeps them ahead of the whole shared-time burst", () => {

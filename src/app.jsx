@@ -2287,7 +2287,7 @@ const App = () => {
       !tuningWorkspace ||
       !activeHejiFrame
     ) {
-      return structuralSettings.heji_names ?? labelSettings.heji_names;
+      return structuralSettings.heji_names ?? [];
     }
 
     return deriveHejiLabelsForFrame(tuningWorkspace, activeHejiFrame, {
@@ -3081,6 +3081,7 @@ const App = () => {
                 midiTick={midiTick}
                 instruments={instruments}
                 keysRef={keysRef}
+                keysReadyRevision={keysReadyRevision}
                 lumatoneRawPorts={lumatoneRawPorts}
                 exquisRawPorts={exquisRawPorts}
                 linnstrumentRawPorts={linnstrumentRawPorts}

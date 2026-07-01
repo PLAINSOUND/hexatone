@@ -770,6 +770,34 @@ describe("ScaleTable — table structure", () => {
     expect(screen.getByLabelText("scale degree gutter equave").textContent).toBe("12");
   });
 
+  it("highlights degree numbers for live played notes", () => {
+    render(
+      <ScaleTable
+        settings={settingsBase}
+        liveScaleTableActivityOnly
+        liveScaleTableSnapshot={{
+          version: 1,
+          rowsByDegree: {
+            4: {
+              degree: 4,
+              frequencyHz: 329.627557,
+              displayLabel: "E",
+              noteCount: 1,
+              mixed: false,
+            },
+          },
+        }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText("scale degree gutter 4").classList.contains("degree-gutter--active")).toBe(true);
+    expect(screen.getByLabelText("scale degree gutter 4").querySelector(".degree-gutter__live-led")).not.toBeNull();
+    expect(screen.getByLabelText("scale degree gutter 3").classList.contains("degree-gutter--active")).toBe(false);
+    expect(screen.getByLabelText("scale degree gutter 3").querySelector(".degree-gutter__live-led")).toBeNull();
+    expect(screen.getByLabelText("pitch name 4").value).toBe(settingsBase.note_names[4]);
+  });
+
   it("shows computed frequencies based on reference degree and reference frequency", () => {
     render(
       <ScaleTable

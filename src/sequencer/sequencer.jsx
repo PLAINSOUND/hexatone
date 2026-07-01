@@ -10,7 +10,12 @@ import {
   normalizeBarMarkers,
   normalizeTempoMarkers,
 } from "./transport.js";
-import { deriveSequenceCueGroups, deriveSequenceEvents, isWholeSequencePosition } from "./trigger-groups.js";
+import {
+  deriveSequenceCueGroups,
+  deriveSequenceEvents,
+  isWholeSequencePosition,
+  sequenceNoteKeysAtCueIndex,
+} from "./trigger-groups.js";
 
 function formatSequenceTime(snapshotIndex, relativeTime) {
   const baseIndex = Number(snapshotIndex);
@@ -90,6 +95,14 @@ function normalizeTempoBeatFraction(numerator, denominator) {
     beatNumerator,
     beatDenominator,
     beatLength: (4 * beatNumerator) / beatDenominator,
+  };
+}
+
+function soundingOnTextStyle(active) {
+  if (!active) return undefined;
+  return {
+    fontWeight: 600,
+    color: "#15530f",
   };
 }
 
@@ -365,6 +378,23 @@ const Sequencer = ({
   const activeCueIndex = playheadMarkerIndex != null ? playheadMarkerIndex + 1 : null;
   const activeSnapshotId =
     playheadStepIndex >= 0 && !playheadIsEnd ? (snapshots[playheadStepIndex]?.id ?? null) : null;
+  const sequencePlaybackActive = !!playingSnapshotId && playhead?.stopped !== true;
+  const soundingAttackNoteKeys = useMemo(() => {
+    if (!sequencePlaybackActive) return new Set();
+    if (playheadMarkerIndex != null) {
+      return new Set(sequenceNoteKeysAtCueIndex(snapshots, sortedBars, sortedTempi, playheadMarkerIndex));
+    }
+    const activeSnapshot = activeSnapshotId != null
+      ? snapshots.find((snapshot) => snapshot.id === activeSnapshotId)
+      : snapshots.find((snapshot) => snapshot.id === playingSnapshotId);
+    if (!activeSnapshot) return new Set();
+    const snapshotLength = Number.isFinite(Number(activeSnapshot.length)) ? Number(activeSnapshot.length) : 1;
+    return new Set(
+      (activeSnapshot.notes ?? [])
+        .filter((note) => Number.isFinite(Number(note?.midicents)))
+        .map((note) => noteIdentity(note, snapshotLength)),
+    );
+  }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, sequencePlaybackActive, snapshots, sortedBars, sortedTempi]);
   const selectedCueAbsoluteTime = useMemo(() => {
     if (selectedMarker?.snapshotId != null && Number.isFinite(Number(selectedMarker?.time))) {
       const snapshotStart = snapshotIndexById.get(selectedMarker.snapshotId);
@@ -1370,6 +1400,11 @@ const Sequencer = ({
       selectedMarker?.time === event.relativeTime;
     const isCueActive = activeNavigationMode === "cue" && activeCueIndex === event.cueIndex;
     const isSnapshotActive = activeNavigationMode === "snapshot" && activeSnapshotId === snapshot.id;
+    const isSoundingAttack = sequencePlaybackActive && event.kind === "attack" && (
+      soundingAttackNoteKeys.has(event.noteKey) ||
+      isCueActive ||
+      isSnapshotActive
+    );
     const sequenceTime = formatSequenceTime(
       snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1,
       event.relativeTime,
@@ -1429,11 +1464,16 @@ const Sequencer = ({
             )}
           />
         </div>
-        <div class="sequencer-event__cell sequencer-grid-offset">
-          <span class="sequencer-event__content sequencer-event__kind">
-            {event.kind === "attack" ? "on" : "off"}
-          </span>
-        </div>
+          <div
+            class={`sequencer-event__cell sequencer-event__kind-cell sequencer-grid-offset${isSoundingAttack ? " sequencer-event__kind-cell--active" : ""}`}
+          >
+            <span
+              class={`sequencer-event__content sequencer-event__kind${isSoundingAttack ? " sequencer-event__kind--active" : ""}`}
+              style={soundingOnTextStyle(isSoundingAttack)}
+            >
+              {event.kind === "attack" ? "on" : "off"}
+            </span>
+          </div>
         <div class="sequencer-event__cell sequencer-grid-offset">
           <input
             key={`${event.eventId}-midicents-${event.midicents}`}

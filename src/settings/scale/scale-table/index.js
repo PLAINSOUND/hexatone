@@ -56,9 +56,20 @@ const ScaleTable = (props) => {
   const onPreviewChange = props.onPreviewChange ?? (() => {});
   const modulationTranspositionCents = Number(props.modulation_transposition_cents ?? 0);
   const modulationDisplayActive = !!props.modulation_display_active;
-  const liveRowsByDegree = useMemo(
+  const liveActivityRowsByDegree = useMemo(
     () => props.liveScaleTableSnapshot?.rowsByDegree ?? {},
     [props.liveScaleTableSnapshot],
+  );
+  const liveRowsByDegree = useMemo(
+    () => (props.liveScaleTableActivityOnly ? {} : liveActivityRowsByDegree),
+    [props.liveScaleTableActivityOnly, liveActivityRowsByDegree],
+  );
+  const liveActiveDegreeSet = useMemo(
+    () => new Set([
+      ...Object.keys(liveActivityRowsByDegree),
+      ...(props.liveActiveDegrees ?? []).map((degree) => String(degree)),
+    ]),
+    [liveActivityRowsByDegree, props.liveActiveDegrees],
   );
   const { scale, equiv_interval } = useMemo(() => {
     const s = [...(props.settings.scale || [])];
@@ -346,6 +357,28 @@ const ScaleTable = (props) => {
     (degreeIndex) => liveRowsByDegree[String(degreeIndex)] ?? null,
     [liveRowsByDegree],
   );
+
+  const isDegreeActive = useCallback(
+    (degreeIndex) => liveActiveDegreeSet.has(String(degreeIndex)),
+    [liveActiveDegreeSet],
+  );
+
+  const degreeGutterClass = useCallback(
+    (degreeIndex, extraClass = "") => [
+      "degree-gutter",
+      extraClass,
+      isDegreeActive(degreeIndex)
+        ? "degree-gutter--active"
+        : "",
+    ].filter(Boolean).join(" "),
+    [isDegreeActive],
+  );
+
+  const liveDegreeLed = useCallback((degreeIndex) => (
+    isDegreeActive(degreeIndex)
+      ? <span class="degree-gutter__live-led" aria-hidden="true" />
+      : null
+  ), [isDegreeActive]);
 
   const displayedFrequencyAtDegree = useCallback((degreeIndex) => {
     const liveRow = liveRowAtDegree(degreeIndex);
@@ -929,7 +962,8 @@ const ScaleTable = (props) => {
         >
           <td class="scale-data-col">
             <div class="scale-degree-cell">
-              <span class="degree-gutter" aria-label="scale degree gutter 0">
+              <span class={degreeGutterClass(0)} aria-label="scale degree gutter 0">
+                {liveDegreeLed(0)}
                 <span class="degree-gutter__number">{degrees[0]}</span>
               </span>
               <div class="freq-cell">
@@ -1075,7 +1109,7 @@ const ScaleTable = (props) => {
             <td class="scale-data-col">
               <div class="scale-degree-cell">
                 <span
-                  class={`degree-gutter degree-gutter--draggable${draggedDegree === i + 1 ? " degree-gutter--dragging" : ""}${selectedDegree === i + 1 ? " degree-gutter--selected" : ""}`}
+                  class={degreeGutterClass(i + 1, `degree-gutter--draggable${draggedDegree === i + 1 ? " degree-gutter--dragging" : ""}${selectedDegree === i + 1 ? " degree-gutter--selected" : ""}`)}
                   aria-label={`scale degree gutter ${i + 1}`}
                   draggable="true"
                   title="Drag to reorder this scale degree"
@@ -1102,6 +1136,7 @@ const ScaleTable = (props) => {
                     setDropTargetSide("before");
                   }}
                 >
+                  {liveDegreeLed(i + 1)}
                   {selectedDegree === i + 1 && (
                     <button
                       type="button"
@@ -1231,7 +1266,8 @@ const ScaleTable = (props) => {
         >
           <td class="scale-data-col">
             <div class="scale-degree-cell">
-              <span class="degree-gutter" aria-label="scale degree gutter equave">
+              <span class={degreeGutterClass(scale.length)} aria-label="scale degree gutter equave">
+                {liveDegreeLed(scale.length)}
                 <span class="degree-gutter__number">{scale.length}</span>
               </span>
               <div class="freq-cell">
@@ -1294,6 +1330,8 @@ ScaleTable.propTypes = {
     version: PropTypes.number,
     rowsByDegree: PropTypes.object,
   }),
+  liveScaleTableActivityOnly: PropTypes.bool,
+  liveActiveDegrees: PropTypes.arrayOf(PropTypes.string),
   heji_names: PropTypes.arrayOf(PropTypes.string),
   heji_names_table: PropTypes.arrayOf(PropTypes.string),
   modulation_transposition_cents: PropTypes.number,

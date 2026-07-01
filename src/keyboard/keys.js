@@ -322,6 +322,7 @@ class Keys {
     this._frameGeneration = 0;
     this._liveScaleTableVersion = 0;
     this._liveScaleTableListeners = new Set();
+    this._liveScaleTableNotifyQueued = false;
     this._effectiveScaleRuntimeCache = new Map();
     this._modulationIdentityKey = "";
     this._modulationIdentity = {
@@ -846,10 +847,19 @@ class Keys {
   _bumpLiveScaleTableVersion() {
     if (this._liveScaleTableListeners.size === 0) return;
     this._liveScaleTableVersion += 1;
-    const snapshot = this.getLiveScaleTableSnapshot();
-    for (const listener of this._liveScaleTableListeners) {
-      listener(snapshot);
-    }
+    if (this._liveScaleTableNotifyQueued) return;
+    this._liveScaleTableNotifyQueued = true;
+    const schedule = typeof queueMicrotask === "function"
+      ? queueMicrotask
+      : (callback) => Promise.resolve().then(callback);
+    schedule(() => {
+      this._liveScaleTableNotifyQueued = false;
+      if (this._liveScaleTableListeners.size === 0) return;
+      const snapshot = this.getLiveScaleTableSnapshot();
+      for (const listener of this._liveScaleTableListeners) {
+        listener(snapshot);
+      }
+    });
   }
 
   getLiveScaleTableVersion = () => this._liveScaleTableVersion;

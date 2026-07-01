@@ -357,3 +357,18 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
     Number(b.midicents) - Number(a.midicents)
   ));
 }
+
+export function sequenceNoteKeysAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
+  const events = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
+  const index = Number(cueIndex);
+  if (!Number.isFinite(index) || index < 0) return [];
+
+  const activeNoteKeys = new Set();
+  for (const event of events) {
+    if (!Number.isFinite(event.cueIndex) || event.cueIndex - 1 > index) break;
+    if (event.kind === "attack") activeNoteKeys.add(event.noteKey);
+    else activeNoteKeys.delete(event.noteKey);
+  }
+
+  return [...activeNoteKeys];
+}

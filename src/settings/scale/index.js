@@ -35,6 +35,7 @@ const Scale = (props) => {
   const { onChange } = props;
 
   const [previewState, setPreviewState] = useState(() => createTuningPreviewState());
+  const [liveScaleTableSnapshot, setLiveScaleTableSnapshot] = useState(null);
   const workspace = useMemo(() => createScaleWorkspace({
     scale: settingsScale,
     reference_degree: referenceDegree,
@@ -48,6 +49,19 @@ const Scale = (props) => {
   useEffect(() => {
     setPreviewState((prev) => clearAllTuningPreviews(prev));
   }, [fundamental, props.importCount]);
+
+  useEffect(() => {
+    if (collapsed) {
+      setLiveScaleTableSnapshot(null);
+      return undefined;
+    }
+    const keys = props.keysRef?.current;
+    if (!keys?.subscribeLiveScaleTable) {
+      setLiveScaleTableSnapshot(null);
+      return undefined;
+    }
+    return keys.subscribeLiveScaleTable(setLiveScaleTableSnapshot);
+  }, [collapsed, props.keysRef, props.keysReadyRevision]);
 
   const doImport = () => {
     props.onImport();
@@ -271,6 +285,8 @@ const Scale = (props) => {
             previewState={previewState}
             onPreviewChange={setPreviewState}
             importCount={props.importCount}
+            liveScaleTableSnapshot={liveScaleTableSnapshot}
+            liveScaleTableActivityOnly
           />
           <br />
         </>
@@ -309,6 +325,8 @@ Scale.propTypes = {
   onAtomicChange: PropTypes.func,
   rawSettings: PropTypes.object,
   importCount: PropTypes.number,
+  keysRef: PropTypes.object,
+  keysReadyRevision: PropTypes.number,
   modulation_transposition_cents: PropTypes.number,
   modulation_display_active: PropTypes.bool,
 };

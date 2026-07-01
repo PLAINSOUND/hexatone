@@ -168,6 +168,70 @@ describe("Sequencer", () => {
     expect(onResetSnapshotDescription).toHaveBeenCalledWith(10);
   });
 
+  it("lights only currently sounding attack rows during cue playback", () => {
+    const { container } = render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A, F",
+            notes: [
+              {
+                id: "a",
+                midicents: 81,
+                displayLabel: "A",
+                start: 0,
+                end: 1.25,
+              },
+              {
+                id: "b",
+                midicents: 76,
+                displayLabel: "F",
+                start: 0.5,
+                end: 1,
+              },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        tempi={[]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={10}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 1, stopped: false }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const kindCells = [...container.querySelectorAll(".sequencer-event__kind")].map((node) => node.classList.contains("sequencer-event__kind--active"));
+    expect(kindCells).toEqual([true, true, false, false]);
+  });
+
   it("commits a focused position edit before cue stepping", () => {
     const onUpdateSnapshot = vi.fn();
     const onStepSequenceMarker = vi.fn();
