@@ -1227,7 +1227,7 @@ td.scale-color-col .color-input {
   grid-template-columns: var(--sequencer-snapshot-columns);
   gap: 0.45em;
   align-items: center;
-  padding: 0 0.32em 0 0;
+  padding: 0;
   border-radius: 4px;
   cursor: pointer;
   width: 100%;
@@ -1425,6 +1425,8 @@ td.scale-color-col .color-input {
 @media (max-width: 480px) {
   .sequencer-scroll-panel {
     max-height: calc(100vh - 15.5rem);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -1672,6 +1674,12 @@ td.scale-color-col .color-input {
   align-items: center;
   gap: 0.4em;
   margin-left: auto;
+}
+
+#sidebar .sequencer-row__actions .snapshot-stop-glyph,
+#sidebar .sequencer-event__actions-cell .snapshot-stop-glyph {
+  font-size: 0.77rem;
+  line-height: 1;
 }
 
 .sequencer-item__groups {
@@ -2403,6 +2411,8 @@ td.scale-color-col .color-input {
   width: var(--sequencer-event-actions-col);
   min-width: var(--sequencer-event-actions-col);
   justify-content: flex-end;
+  box-sizing: border-box;
+  padding-right: 0;
 }
 
 .sequencer-event__actions-cell {
@@ -2413,7 +2423,7 @@ td.scale-color-col .color-input {
   min-width: var(--sequencer-event-actions-col);
   min-height: 1.5em;
   align-self: center;
-  padding-right: 0.32em;
+  padding-right: 0;
   box-sizing: border-box;
 }
 
@@ -2746,18 +2756,88 @@ td.scale-color-col .color-input {
 }
 
 @media (max-width: 480px) and (orientation: portrait) {
-  .sequencer-item__groups {
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 0.15em;
+  .sequencer-item {
+    --sequencer-number-col: 1.35em;
+    --sequencer-event-snapshot-col: 2.15em;
+    --sequencer-event-position-col: 3.45em;
+    --sequencer-event-kind-col: 1.55em;
+    --sequencer-event-pitch-col: 3.1em;
+    --sequencer-event-value-col: 2.2em;
+    --sequencer-event-actions-col: 2.85em;
+    --sequencer-snapshot-columns:
+      var(--sequencer-delete-col)
+      var(--sequencer-number-col)
+      var(--sequencer-snapshot-primary-col)
+      minmax(11.1em, 1fr)
+      max-content
+      max-content;
   }
 
+  .sequencer-list {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .sequencer-item,
+  .sequencer-item--bar,
+  .sequencer-row,
+  .sequencer-item__groups,
   .sequencer-events-grid,
   .sequencer-bar-row,
   .sequencer-tempo-row {
     width: max-content;
     min-width: 100%;
+  }
+
+  .sequencer-events-grid__header,
+  .sequencer-event-row,
+  .sequencer-bar-row,
+  .sequencer-tempo-row {
+    column-gap: 0.3em;
+  }
+
+  .sequencer-events-grid__heading {
+    font-size: 0.72em;
+  }
+
+  .sequencer-row {
+    gap: 0.34em;
+  }
+
+  .sequencer-row__actions {
+    gap: 0.34em;
+  }
+
+  .sequencer-bar-row__time-signature {
+    width: 2.3em;
+  }
+
+  .sequencer-tempo-row__summary {
+    gap: 0.12em;
+  }
+
+  .sequencer-tempo-row__summary-input--fraction-num,
+  .sequencer-tempo-row__summary-input--fraction-den {
+    width: 1.75em;
+    max-width: 1.75em;
+  }
+
+  .sequencer-tempo-row__summary-input--bpm {
+    width: 2.9em;
+    max-width: 2.9em;
+  }
+
+  #sidebar .sequencer-row__actions .snapshot-stop-glyph,
+  #sidebar .sequencer-event__actions-cell .snapshot-stop-glyph,
+  #sidebar .sequencer-event__cue-actions .snapshot-stop-glyph,
+  #sidebar .sequencer-playback-actions .snapshot-stop-glyph {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    font-size: 0.5rem;
+    line-height: 1;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 
