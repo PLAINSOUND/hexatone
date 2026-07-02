@@ -245,7 +245,7 @@ a:hover {
 
 /* Hide all bottom controls when a text input is focused (software keyboard up) */
 .text-entry-active #bottom-bar,
-.text-entry-active #snapshot-list {
+.text-entry-active #snapshot-palette {
   display: none !important;
   pointer-events: none;
 }
@@ -367,9 +367,6 @@ a:hover {
     bottom: 3em !important;
   }
 
-  #snapshot-list {
-    bottom: 6.05em !important;
-  }
 }
 
 /* Phone landscape: keep panic button clear of right edge */
@@ -498,25 +495,53 @@ a:hover {
   background-color: #ddcccc;
 }
 
-#snapshot-list {
+#snapshot-palette {
   position: fixed;
-  bottom: 4.5em;
-  left: 0.5em;
-  z-index: 11;
+  z-index: 12;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px 10px;
-  border-radius: 14px;
+  min-width: 9.8rem;
+  max-width: min(15.75rem, calc(100vw - 1rem));
+  max-height: calc(100vh - 4.5rem);
+  padding: 7px 9px;
+  border-radius: 5px;
   background: rgba(240, 228, 228, 0.55);
-  -webkit-backdrop-filter: blur(12px) saturate(0.7);
-  backdrop-filter: blur(12px) saturate(0.7);
+  -webkit-backdrop-filter: blur(12px) saturate(0.78);
+  backdrop-filter: blur(12px) saturate(0.78);
   border: 1px solid rgba(200, 175, 175, 0.45);
   box-shadow: 0 2px 12px rgba(100, 60, 60, 0.12);
-  max-height: calc(100vh - 6.25em);
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+.snapshot-palette-header {
+  color: #7f2525;
+}
+
+.snapshot-palette-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: calc(100vh - 8rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  min-width: 0;
+  scrollbar-width: none;
+}
+
+.snapshot-palette-body:hover,
+.snapshot-palette-body:focus-within {
+  scrollbar-width: thin;
+}
+
+.snapshot-palette-body::-webkit-scrollbar {
+  width: 0;
+}
+
+.snapshot-palette-body:hover::-webkit-scrollbar,
+.snapshot-palette-body:focus-within::-webkit-scrollbar {
+  width: 0.42rem;
 }
 
 .snapshot-row {

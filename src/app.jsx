@@ -339,6 +339,23 @@ function getDefaultModulationPalettePos() {
   return { x: 18, y: 58 };
 }
 
+function getDefaultSnapshotPalettePos() {
+  if (typeof window === "undefined") return { x: 18, y: 220 };
+  const modulationPalette = document.getElementById("modulation-palette");
+  const modulationRect = modulationPalette?.getBoundingClientRect();
+  if (modulationRect && modulationRect.width > 0 && modulationRect.height > 0) {
+    return {
+      x: Math.round(modulationRect.left),
+      y: Math.round(modulationRect.bottom + 22),
+    };
+  }
+  const modulationDefault = getDefaultModulationPalettePos();
+  return {
+    x: modulationDefault.x,
+    y: modulationDefault.y + 176,
+  };
+}
+
 export {
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
@@ -742,6 +759,8 @@ const App = () => {
   const [latch, setLatch] = useState(false);
   const [modulationPalettePos, setModulationPalettePos] = useState(getDefaultModulationPalettePos);
   const [modulationPaletteCollapsed, setModulationPaletteCollapsed] = useState(false);
+  const [snapshotPalettePos, setSnapshotPalettePos] = useState(getDefaultSnapshotPalettePos);
+  const [snapshotPaletteCollapsed, setSnapshotPaletteCollapsed] = useState(false);
 
   // Exquis LED App Mode status — set asynchronously after firmware version check.
   // null = pending / not connected; { ok: true } = active; { ok: false, reason } = failed.
@@ -775,6 +794,9 @@ const App = () => {
   const modulationPaletteRef = useRef(null);
   const modulationPaletteDragRef = useRef(null);
   const modulationPaletteUserMovedRef = useRef(false);
+  const snapshotPaletteRef = useRef(null);
+  const snapshotPaletteDragRef = useRef(null);
+  const snapshotPaletteUserMovedRef = useRef(false);
 
   const onTakeSnapshot = useCallback(() => {
     const notes = keysRef.current?.getSnapshot();
@@ -1472,6 +1494,28 @@ const App = () => {
     };
   }, []);
 
+  const clampSnapshotPalettePos = useCallback((position) => {
+    if (typeof window === "undefined") return position;
+    const paletteEl = snapshotPaletteRef.current;
+    const rect = paletteEl?.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const viewportWidth = viewport?.width ?? window.innerWidth;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const width = rect?.width ?? 220;
+    const headerHeight =
+      paletteEl?.querySelector(".snapshot-palette-header")?.getBoundingClientRect().height
+      ?? 34;
+    const minVisibleWidth = Math.min(120, Math.max(84, width * 0.5));
+    const minX = Math.round(8 - width + minVisibleWidth);
+    const maxX = Math.round(viewportWidth - minVisibleWidth - 8);
+    const minY = 8;
+    const maxY = Math.round(viewportHeight - headerHeight - 8);
+    return {
+      x: Math.min(Math.max(position.x, minX), Math.max(minX, maxX)),
+      y: Math.min(Math.max(position.y, minY), Math.max(minY, maxY)),
+    };
+  }, []);
+
   useEffect(() => {
     const onPointerMove = (e) => {
       if (!modulationPaletteDragRef.current) return;
@@ -1499,6 +1543,32 @@ const App = () => {
   }, [clampModulationPalettePos]);
 
   useEffect(() => {
+    const onPointerMove = (e) => {
+      if (!snapshotPaletteDragRef.current) return;
+      const { pointerId, offsetX, offsetY } = snapshotPaletteDragRef.current;
+      if (e.pointerId !== pointerId) return;
+      snapshotPaletteUserMovedRef.current = true;
+      setSnapshotPalettePos(clampSnapshotPalettePos({
+        x: Math.max(8, e.clientX - offsetX),
+        y: Math.max(8, e.clientY - offsetY),
+      }));
+    };
+    const onPointerUp = (e) => {
+      if (!snapshotPaletteDragRef.current) return;
+      if (e.pointerId !== snapshotPaletteDragRef.current.pointerId) return;
+      snapshotPaletteDragRef.current = null;
+    };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [clampSnapshotPalettePos]);
+
+  useEffect(() => {
     const applyDefaultPosition = () => {
       if (!modulationPaletteUserMovedRef.current) {
         setModulationPalettePos(clampModulationPalettePos(getDefaultModulationPalettePos()));
@@ -1516,6 +1586,31 @@ const App = () => {
       window.visualViewport?.removeEventListener("resize", applyDefaultPosition);
     };
   }, [clampModulationPalettePos]);
+
+  useEffect(() => {
+    const applyDefaultPosition = () => {
+      if (!snapshotPaletteUserMovedRef.current) {
+        setSnapshotPalettePos(clampSnapshotPalettePos(getDefaultSnapshotPalettePos()));
+        return;
+      }
+      setSnapshotPalettePos((current) => clampSnapshotPalettePos(current));
+    };
+    window.addEventListener("resize", applyDefaultPosition);
+    window.addEventListener("orientationchange", applyDefaultPosition);
+    window.visualViewport?.addEventListener("resize", applyDefaultPosition);
+    applyDefaultPosition();
+    return () => {
+      window.removeEventListener("resize", applyDefaultPosition);
+      window.removeEventListener("orientationchange", applyDefaultPosition);
+      window.visualViewport?.removeEventListener("resize", applyDefaultPosition);
+    };
+  }, [
+    clampSnapshotPalettePos,
+    modulationPaletteCollapsed,
+    modulationState?.history?.length,
+    snapshots.length,
+    workspaceTab,
+  ]);
 
   // Long-press sidebar button to toggle latch (sustain while playing)
   const longPressTimer = useRef(null);
@@ -2675,96 +2770,144 @@ const App = () => {
         </button>
       </div>
 
-      {/* ── Snapshot list — fixed overlay, visible without opening the sidebar ── */}
+      {/* ── Snapshot palette — floating overlay, visible without opening the sidebar ── */}
       {workspaceTab !== "sequencer" && snapshots.length > 0 && (
-        <div id="snapshot-list" onContextMenu={(e) => e.preventDefault()}>
-          {snapshots.map((snap, index) => {
-            const isPlaying = snap.id === playingSnapshotId;
-            const isDragOver = dragOverId === snap.id;
-            return (
-              <div
-                key={snap.id}
-                class={`snapshot-row${isPlaying ? " snapshot-playing" : ""}${isDragOver ? " snapshot-drag-over" : ""}`}
-                draggable={true}
-                onDragStart={(e) => {
-                  dragIdRef.current = snap.id;
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  setDragOverId(snap.id);
-                }}
-                onDragLeave={() => setDragOverId(null)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOverId(null);
-                  if (dragIdRef.current !== null && dragIdRef.current !== snap.id)
-                    onMoveSnapshot(dragIdRef.current, snap.id);
-                  dragIdRef.current = null;
-                }}
-                onDragEnd={() => {
-                  setDragOverId(null);
-                  dragIdRef.current = null;
-                }}
-              >
-                <span class="snapshot-drag-handle" title="Drag to reorder">
-                  ⠿
-                </span>
-                <span class="snapshot-list-index" title={`Snapshot ${index + 1}`}>
-                  {index + 1}
-                </span>
-                <button
-                  class="snapshot-play-btn"
-                  title="Play snapshot"
-                  aria-label={`Play snapshot ${index + 1}`}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPlaySnapshot(snap.id);
-                  }}
-                >
-                  <span
-                    className="snapshot-play-glyph snapshot-play-glyph--play"
-                    aria-hidden="true"
-                  />
-                </button>
-                <button
-                  class="snapshot-play-btn snapshot-stop-btn"
-                  title="Stop snapshot"
-                  aria-label={`Stop snapshot ${index + 1}`}
-                  disabled={!isPlaying}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onStopSnapshot(snap.id);
-                  }}
-                >
-                  <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
-                </button>
-                <button
-                  class="snapshot-del-btn"
-                  title="Delete snapshot"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteSnapshot(snap.id);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            );
-          })}
+        <div
+          id="snapshot-palette"
+          ref={snapshotPaletteRef}
+          style={{
+            left: `${snapshotPalettePos.x}px`,
+            top: `${snapshotPalettePos.y}px`,
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div
+            className="modulation-palette-header snapshot-palette-header"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+              snapshotPaletteDragRef.current = {
+                pointerId: e.pointerId,
+                offsetX: rect ? e.clientX - rect.left : 0,
+                offsetY: rect ? e.clientY - rect.top : 0,
+              };
+            }}
+          >
+            <span className="modulation-palette-handle" title="Drag snapshots">
+              ⠿
+            </span>
+            <strong>SNAPSHOTS</strong>
+            <button
+              className="modulation-palette-toggle"
+              title={snapshotPaletteCollapsed ? "Expand snapshots" : "Collapse snapshots"}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSnapshotPaletteCollapsed((value) => !value);
+              }}
+            >
+              <span
+                className={`disclosure-toggle-glyph disclosure-toggle-glyph--${snapshotPaletteCollapsed ? "collapsed" : "expanded"}`}
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+          {!snapshotPaletteCollapsed && (
+            <div className="snapshot-palette-body">
+              {snapshots.map((snap, index) => {
+                const isPlaying = snap.id === playingSnapshotId;
+                const isDragOver = dragOverId === snap.id;
+                return (
+                  <div
+                    key={snap.id}
+                    class={`snapshot-row${isPlaying ? " snapshot-playing" : ""}${isDragOver ? " snapshot-drag-over" : ""}`}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      dragIdRef.current = snap.id;
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setDragOverId(snap.id);
+                    }}
+                    onDragLeave={() => setDragOverId(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverId(null);
+                      if (dragIdRef.current !== null && dragIdRef.current !== snap.id) {
+                        onMoveSnapshot(dragIdRef.current, snap.id);
+                      }
+                      dragIdRef.current = null;
+                    }}
+                    onDragEnd={() => {
+                      setDragOverId(null);
+                      dragIdRef.current = null;
+                    }}
+                  >
+                    <span class="snapshot-drag-handle" title="Drag to reorder">
+                      ⠿
+                    </span>
+                    <span class="snapshot-list-index" title={`Snapshot ${index + 1}`}>
+                      {index + 1}
+                    </span>
+                    <button
+                      class="snapshot-play-btn"
+                      title="Play snapshot"
+                      aria-label={`Play snapshot ${index + 1}`}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPlaySnapshot(snap.id);
+                      }}
+                    >
+                      <span
+                        className="snapshot-play-glyph snapshot-play-glyph--play"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <button
+                      class="snapshot-play-btn snapshot-stop-btn"
+                      title="Stop snapshot"
+                      aria-label={`Stop snapshot ${index + 1}`}
+                      disabled={!isPlaying}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStopSnapshot(snap.id);
+                      }}
+                    >
+                      <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
+                    </button>
+                    <button
+                      class="snapshot-del-btn"
+                      title="Delete snapshot"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSnapshot(snap.id);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
