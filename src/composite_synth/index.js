@@ -8,6 +8,12 @@
  */
 
 export const create_composite_synth = (synths) => ({
+  family: "composite",
+  families: synths.map((s) => s?.family).filter(Boolean),
+  containsFamily(name) {
+    return synths.some((s) => s?.family === name);
+  },
+
   makeHex: (...args) => {
     const hexes = synths.map((s) => s.makeHex(...args));
     return {
@@ -112,6 +118,10 @@ export const create_composite_synth = (synths) => ({
 
   setVolume(value) {
     synths.forEach((s) => s.setVolume && s.setVolume(value));
+  },
+
+  setMod(value) {
+    synths.forEach((s) => s.setMod && s.setMod(value));
   },
 
   rememberControllerState(state) {

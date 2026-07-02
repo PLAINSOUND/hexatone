@@ -20,6 +20,12 @@ const normalize14Bit = (value) => {
   return Math.max(0, Math.min(16256, Math.round(n)));
 };
 
+const timbreToOnsetMod = (value, value14 = null) => 1 + (
+  Number.isFinite(value14)
+    ? Math.max(0, Math.min(16256, Number(value14))) / 16256
+    : Math.max(0, Math.min(127, Number(value) || 0)) / 127
+);
+
 const snapshotPitchKey = (midicents) => {
   const n = Number(midicents);
   if (!Number.isFinite(n)) return null;
@@ -166,7 +172,7 @@ export function captureSnapshot(runtime) {
   return Array.from(seen.values());
 }
 
-function applySnapshotExpression(hex, note) {
+function applySnapshotExpression(runtime, hex, note) {
   const pressure = normalize7Bit(note.pressure);
   const pressure14 = normalize14Bit(note.pressure14);
   if (pressure != null || pressure14 != null) {
@@ -179,8 +185,20 @@ function applySnapshotExpression(hex, note) {
   const timbre14 = normalize14Bit(note.timbre14);
   if (timbre != null || timbre14 != null) {
     const value = timbre ?? (timbre14 >> 7);
-    if (timbre14 != null) hex.polyTimbre?.(value, timbre14);
-    else hex.polyTimbre?.(value);
+    const synthRoutesOscModwheel =
+      runtime?.synth?.family === "osc" ||
+      runtime?.synth?.containsFamily?.("osc") === true;
+    if (synthRoutesOscModwheel && hex.modwheel) {
+      hex.modwheel(value);
+      return;
+    }
+    if (hex.polyTimbre) {
+      if (timbre14 != null) hex.polyTimbre(value, timbre14);
+      else hex.polyTimbre(value);
+    } else if (hex.cc74) {
+      if (timbre14 != null) hex.cc74(value, timbre14);
+      else hex.cc74(value);
+    }
   }
 }
 
@@ -218,8 +236,13 @@ function createSnapshotHex(runtime, note) {
   hex._snapshotReleaseVelocity = releaseVelocity;
   hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
   hex._snapshotMidicents = Number(note.midicents);
+  const timbre = normalize7Bit(note.timbre);
+  const timbre14 = normalize14Bit(note.timbre14);
+  if ((timbre != null || timbre14 != null) && typeof runtime?.synth?.setMod === "function") {
+    runtime.synth.setMod(timbreToOnsetMod(timbre, timbre14));
+  }
   hex.noteOn();
-  applySnapshotExpression(hex, note);
+  applySnapshotExpression(runtime, hex, note);
   return hex;
 }
 
@@ -263,7 +286,7 @@ export function playSnapshot(runtime, notes, options = {}) {
       reusedHex._snapshotPitchKey = key;
       reusedHex._snapshotMidicents = Number(note.midicents);
       // Future note-transition work can layer timed pressure/timbre ramps here.
-      applySnapshotExpression(reusedHex, note);
+      applySnapshotExpression(runtime, reusedHex, note);
       nextHexes.push(reusedHex);
       continue;
     }

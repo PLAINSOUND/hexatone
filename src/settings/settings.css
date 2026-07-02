@@ -1643,6 +1643,7 @@ td.scale-color-col .color-input {
 
 #sidebar .sequencer-playback-actions .snapshot-stop-glyph {
   font-size: 1.2rem;
+  line-height: 1;
 }
 
 #sidebar .sequencer-playback-actions .snapshot-start-icon {
@@ -2429,6 +2430,7 @@ td.scale-color-col .color-input {
 
 #sidebar .sequencer-event__cue-actions .snapshot-stop-glyph {
   font-size: 0.88rem;
+  line-height: 1;
 }
 
 .sequencer-event__cue-dot {
@@ -2827,6 +2829,9 @@ td.scale-color-col .color-input {
     max-width: 2.9em;
   }
 
+}
+
+@media (max-width: 932px) and (pointer: coarse) {
   #sidebar .sequencer-row__actions .snapshot-stop-glyph,
   #sidebar .sequencer-event__actions-cell .snapshot-stop-glyph,
   #sidebar .sequencer-event__cue-actions .snapshot-stop-glyph,

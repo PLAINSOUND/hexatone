@@ -94,6 +94,24 @@ describe("composite_synth controller-state replay", () => {
     expect(sampleHex.cc74).toHaveBeenCalledWith(91, 12000);
   });
 
+  it("exposes child families and forwards onset mod state", () => {
+    const oscSetMod = vi.fn();
+    const sampleSetMod = vi.fn();
+    const synth = create_composite_synth([
+      { family: "osc", makeHex: vi.fn(() => ({ coords: { x: 0, y: 0 }, cents: 0, noteOn: vi.fn(), noteOff: vi.fn() })), setMod: oscSetMod },
+      { family: "sample", makeHex: vi.fn(() => ({ coords: { x: 0, y: 0 }, cents: 0, noteOn: vi.fn(), noteOff: vi.fn() })), setMod: sampleSetMod },
+    ]);
+
+    expect(synth.family).toBe("composite");
+    expect(synth.families).toEqual(["osc", "sample"]);
+    expect(synth.containsFamily("osc")).toBe(true);
+    expect(synth.containsFamily("mpe")).toBe(false);
+
+    synth.setMod(1.75);
+    expect(oscSetMod).toHaveBeenCalledWith(1.75);
+    expect(sampleSetMod).toHaveBeenCalledWith(1.75);
+  });
+
   it("falls back to child retune for standard wheel fan-out when a child lacks standardWheelRetune", () => {
     const sampleHex = {
       coords: { x: 0, y: 0 },

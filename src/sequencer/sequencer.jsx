@@ -1290,7 +1290,7 @@ const Sequencer = ({
       onClick={() => setEventPane(eventPaneToggleMeta[currentEventPane].next)}
     >
       <span aria-hidden="true">
-        →
+        {currentEventPane === "expression" ? "←" : "→"}
       </span>
     </button>
   );

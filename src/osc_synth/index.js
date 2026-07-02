@@ -733,6 +733,7 @@ OscHex.prototype.cc74 = function (value, value14 = null) {
       ? Math.max(0, Math.min(16256, value14)) / 16256
       : value / 127
   );
+  this._modRef.value = mod;
   this._sendJitter?.("cc74", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
     if (this._slot == null) continue;

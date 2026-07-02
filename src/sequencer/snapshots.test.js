@@ -272,6 +272,67 @@ describe("sequencer snapshots", () => {
     expect(cc74).not.toHaveBeenCalled();
   });
 
+  it("falls back to cc74 when replaying timbre on synths without polyphonic timbre", () => {
+    const noteOn = vi.fn();
+    const aftertouch = vi.fn();
+    const cc74 = vi.fn();
+    const setMod = vi.fn();
+    const synth = {
+      setMod,
+      makeHex: vi.fn(() => ({
+        noteOn,
+        noteOff: vi.fn(),
+        aftertouch,
+        cc74,
+      })),
+    };
+    const runtime = makeRuntime({ synth });
+
+    playSnapshot(runtime, [
+      {
+        midicents: 69,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+        pressure: 64,
+        pressure14: 8200,
+        timbre: 91,
+        timbre14: 12000,
+      },
+    ]);
+
+    expect(noteOn).toHaveBeenCalledTimes(1);
+    expect(aftertouch).toHaveBeenCalledWith(64, 8200);
+    expect(setMod).toHaveBeenCalledWith(1 + (12000 / 16256));
+    expect(cc74).toHaveBeenCalledWith(91, 12000);
+  });
+
+  it("does not pre-seed onset modulation when no timbre is stored", () => {
+    const noteOn = vi.fn();
+    const setMod = vi.fn();
+    const synth = {
+      setMod,
+      makeHex: vi.fn(() => ({
+        noteOn,
+        noteOff: vi.fn(),
+        aftertouch: vi.fn(),
+        cc74: vi.fn(),
+      })),
+    };
+    const runtime = makeRuntime({ synth });
+
+    playSnapshot(runtime, [
+      {
+        midicents: 69,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+        pressure: 64,
+      },
+    ]);
+
+    expect(noteOn).toHaveBeenCalledTimes(1);
+    expect(setMod).not.toHaveBeenCalled();
+  });
+
   it("re-triggers a same-pitch legato note when cue playback marks it as a reattack", () => {
     const oldNoteOff = vi.fn();
     const oldHex = {

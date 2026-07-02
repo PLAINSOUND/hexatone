@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { create_osc_synth } from "./index.js";
+import { playSnapshot } from "../sequencer/snapshots.js";
 
 class MockWebSocket {
   static instances = [];
@@ -43,6 +44,30 @@ class DelayedWebSocket {
   send(message) {
     this.sent.push(JSON.parse(message));
   }
+}
+
+function makeSnapshotRuntime(synth, overrides = {}) {
+  return {
+    settings: {
+      fundamental: 440,
+      midi_velocity: 72,
+      ...overrides.settings,
+    },
+    tuning: {
+      equivSteps: 12,
+      degree0toRef_asArray: [0, 1],
+      ...overrides.tuning,
+    },
+    synth,
+    stopSnapshot() {
+      this._snapshotHexes.forEach((hex) => hex.noteOff(hex._snapshotReleaseVelocity ?? 0));
+      this._snapshotHexes = [];
+      this._snapshotNotes = [];
+    },
+    _snapshotHexes: overrides._snapshotHexes ?? [],
+    _snapshotNotes: overrides._snapshotNotes ?? [],
+    _snapshotCoordSeed: overrides._snapshotCoordSeed ?? 0,
+  };
 }
 
 describe("osc_synth pooled slot allocation", () => {
@@ -178,6 +203,71 @@ describe("osc_synth pooled slot allocation", () => {
 
     expect(modSets.length).toBeGreaterThan(0);
     expect(filterSets).toHaveLength(0);
+  });
+
+  it("carries CC74 timbre forward into later note onsets", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-cc74-onset-state",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    await Promise.resolve();
+
+    const first = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    first.noteOn();
+    first.cc74(100);
+
+    const second = synth.makeHex({ x: 1, y: 0 }, 100, 1, 0, 1, 100, 100, undefined, 72, 1, 1);
+    second.noteOn();
+
+    const ws = MockWebSocket.instances.at(-1);
+    const sNews = ws.sent.filter((msg) => msg.address === "/s_new");
+    expect(sNews.length).toBeGreaterThanOrEqual(8);
+    const lastLayerStart = sNews.at(-1);
+    const modIndex = lastLayerStart.args.findIndex((arg) => arg?.value === "mod");
+    expect(modIndex).toBeGreaterThan(-1);
+    expect(lastLayerStart.args[modIndex + 1]?.value).toBeCloseTo(1 + (100 / 127), 6);
+  });
+
+  it("applies stored timbre when cue playback reuses a sustaining note", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-cue-legato-timbre",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    await Promise.resolve();
+
+    const runtime = makeSnapshotRuntime(synth);
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 69, attackVelocity: 100, releaseVelocity: 30, timbre: 20 },
+    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(runtime, [
+      { midicents: 69, attackVelocity: 100, releaseVelocity: 30, timbre: 100 },
+    ], { legato: true });
+
+    const ws = MockWebSocket.instances.at(-1);
+    const modSets = ws.sent.filter((msg) => (
+      msg.address === "/n_set" &&
+      msg.args[1]?.value === "mod"
+    ));
+    expect(modSets.length).toBeGreaterThan(0);
+    expect(modSets.at(-1)?.args[2]?.value).toBeCloseTo(1 + (100 / 127), 6);
   });
 
   it("uses a pre-note-on retune for the /s_new onset frequency", async () => {

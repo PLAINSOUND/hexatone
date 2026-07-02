@@ -248,6 +248,38 @@ describe("deriveSnapshotTriggerGroups", () => {
     ]);
   });
 
+  it("preserves timbre and pressure together in the cue note-set used for playback", () => {
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        notes: [
+          {
+            id: "a",
+            midicents: 69,
+            start: 0,
+            end: 1,
+            pressure: 81,
+            pressure14: 10300,
+            timbre: 100,
+            timbre14: 12800,
+          },
+        ],
+      },
+    ];
+
+    expect(sequenceNotesAtCueIndex(snapshots, 0)).toMatchObject([
+      {
+        midicents: 69,
+        pressure: 81,
+        pressure14: 10300,
+        timbre: 100,
+        timbre14: 12800,
+        reattack: true,
+      },
+    ]);
+  });
+
   it("tracks currently sounding note identities cue by cue", () => {
     const snapshots = [
       {
