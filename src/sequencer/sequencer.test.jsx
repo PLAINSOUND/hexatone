@@ -870,6 +870,7 @@ describe("Sequencer", () => {
   });
 
   it("renders imported bar signatures correctly after selecting a stored sequence from a fresh state", () => {
+    window.confirm = vi.fn(() => true);
     localStorage.clear();
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       {
@@ -906,6 +907,7 @@ describe("Sequencer", () => {
       const [tempi, setTempi] = useState(normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
       const [snapshotLabelMode, setSnapshotLabelMode] = useState("labels");
       const [activeSequenceName, setActiveSequenceName] = useState("");
+      const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
       const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
 
       return (
@@ -915,6 +917,7 @@ describe("Sequencer", () => {
           tempi={tempi}
           snapshotLabelMode={snapshotLabelMode}
           activeSequenceName={activeSequenceName}
+          activeSequenceSavedName={activeSequenceSavedName}
           activeSequenceDescription={activeSequenceDescription}
           sequenceLegato
           sequenceAutoCreateBars
@@ -929,10 +932,21 @@ describe("Sequencer", () => {
             setTempi(normalizeTempoMarkers(sequence.tempi ?? []));
             setSnapshotLabelMode(String(sequence?.snapshotLabelMode ?? "proportion"));
             setActiveSequenceName(String(sequence?.name ?? ""));
+            setActiveSequenceSavedName(String(sequence?.name ?? ""));
             setActiveSequenceDescription(String(sequence?.description ?? ""));
           }}
-          onSequenceNameChange={setActiveSequenceName}
+          onSequenceNameChange={(value) => {
+            const nextName = String(value ?? "");
+            const trimmed = nextName.trim();
+            setActiveSequenceName(nextName);
+            setActiveSequenceSavedName((current) => (current && current === trimmed ? current : ""));
+          }}
           onSequenceDescriptionChange={setActiveSequenceDescription}
+          onSequenceSaved={(name) => {
+            const nextName = String(name ?? "").trim();
+            setActiveSequenceName(nextName);
+            setActiveSequenceSavedName(nextName);
+          }}
           onSequenceLegatoChange={vi.fn()}
           onSequenceAutoCreateBarsChange={vi.fn()}
           onSetSnapshotLabelMode={setSnapshotLabelMode}

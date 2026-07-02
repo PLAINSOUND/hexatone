@@ -173,6 +173,7 @@ const Sequencer = ({
   tempi,
   snapshotLabelMode,
   activeSequenceName,
+  activeSequenceSavedName,
   activeSequenceDescription,
   sequenceLegato,
   sequenceAutoCreateBars,
@@ -184,6 +185,7 @@ const Sequencer = ({
   onLoadSequence,
   onSequenceNameChange,
   onSequenceDescriptionChange,
+  onSequenceSaved,
   onSequenceLegatoChange,
   onSequenceAutoCreateBarsChange,
   onSetSnapshotLabelMode,
@@ -2138,8 +2140,11 @@ const Sequencer = ({
         snapshotLabelMode={snapshotLabelMode}
         autoCreateBars={sequenceAutoCreateBars}
         activeSequenceName={activeSequenceName ?? ""}
+        activeSequenceSavedName={activeSequenceSavedName ?? ""}
         activeSequenceDescription={activeSequenceDescription ?? ""}
         onLoadSequence={onLoadSequence}
+        onClearSequence={onClearSequence}
+        onSequenceSaved={onSequenceSaved}
       />
 
       <SequenceInfo

@@ -233,7 +233,7 @@ describe("CustomPresets save, export and delete", () => {
     createElement.mockRestore();
   });
 
-  it("switches the save button back to plain save text when the name no longer matches an existing user preset", () => {
+  it("keeps the plain save label for a freshly loaded user preset, then shows overwrite once it becomes dirty", () => {
     localStorage.setItem(
       "hexatone_custom_presets",
       JSON.stringify([{ name: "Existing Name", scale: ["2/1"], equivSteps: 1 }]),
@@ -242,6 +242,7 @@ describe("CustomPresets save, export and delete", () => {
     const { rerender } = render(
       <CustomPresets
         {...baseProps}
+        isActive
         activeSource="user"
         activePresetName="Existing Name"
         settings={{
@@ -253,15 +254,17 @@ describe("CustomPresets save, export and delete", () => {
       />,
     );
 
-    expect(screen.getByText("Save current settings and overwrite user preset")).toBeTruthy();
+    expect(screen.getByText("Save current settings")).toBeTruthy();
 
     rerender(
       <CustomPresets
         {...baseProps}
+        isActive
         activeSource="user"
         activePresetName="Existing Name"
+        isPresetDirty
         settings={{
-          name: "New Name",
+          name: "Existing Name",
           scale: ["100.", "1200."],
           equivSteps: 2,
           fundamental: 440,
@@ -269,7 +272,34 @@ describe("CustomPresets save, export and delete", () => {
       />,
     );
 
-    expect(screen.getByText("Save current settings")).toBeTruthy();
+    expect(screen.getByText("Save current settings and overwrite user preset")).toBeTruthy();
+  });
+
+  it("appends a dirty marker to the active user tuning in the menu", () => {
+    localStorage.setItem(
+      "hexatone_custom_presets",
+      JSON.stringify([{ name: "Dirty Tuning", scale: ["2/1"], equivSteps: 1 }]),
+    );
+
+    const { container } = render(
+      <CustomPresets
+        {...baseProps}
+        isActive
+        activeSource="user"
+        activePresetName="Dirty Tuning"
+        isPresetDirty
+        settings={{
+          name: "Dirty Tuning",
+          scale: ["100.", "1200."],
+          equivSteps: 2,
+          fundamental: 440,
+        }}
+      />,
+    );
+
+    const select = container.querySelector("select");
+    const option = Array.from(select.options).find((entry) => entry.value === "Dirty Tuning");
+    expect(option.textContent).toBe("Dirty Tuning *");
   });
 
   it("deletes the selected preset and calls onClear", () => {

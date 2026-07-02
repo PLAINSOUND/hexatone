@@ -2,7 +2,7 @@ import { useState, useEffect } from "preact/hooks";
 import { presets, default_settings } from "./settings/presets/preset_values";
 import { settingsToHexatonScala } from "./settings/scale/parse-scale.js";
 import { loadCustomPresets } from "./settings/presets/custom-presets";
-import { PRESET_SKIP_KEYS } from "./persistence/settings-registry.js";
+import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "./persistence/settings-registry.js";
 import { normalizeModulationHistory } from "./tuning/modulation-runtime.js";
 import { getControllerById } from "./controllers/registry.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "./input/controller-anchor.js";
@@ -43,6 +43,19 @@ export const SCALE_KEYS_TO_CLEAR = [
 export const clearScaleSettings = () => {
   SCALE_KEYS_TO_CLEAR.forEach((key) => sessionStorage.removeItem(key));
 };
+
+function buildBlankPresetSettings() {
+  return {
+    ...buildRegistryDefaults(),
+    name: "",
+    description: "",
+    short_description: "",
+    scale_import: null,
+    scale: null,
+    note_names: null,
+    note_colors: null,
+  };
+}
 
 export const findPreset = (preset) => {
   for (let g of presets) {
@@ -500,9 +513,15 @@ const usePresets = (
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
     } else {
-      // No user presets remain — clear scale keys and start fresh
+      // No user presets remain — return to the blank Hexatone state while
+      // preserving runtime/device settings from the current session.
       clearScaleSettings();
-      window.location.reload();
+      const merged = mergePresetIntoSettings(settings, buildBlankPresetSettings());
+      setSavedPresetSnapshot(null);
+      bumpImportCount?.();
+      setSettings(() => merged);
+      schedulePresetRuntimeReset(bumpPresetRuntimeReset);
+      synthRef.current?.prepare?.();
     }
   };
 

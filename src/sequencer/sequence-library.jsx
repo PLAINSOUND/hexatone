@@ -1,5 +1,5 @@
 import { createRef } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
   normalizeBarMarkers,
@@ -110,6 +110,8 @@ function sequenceRecordContentKey(record) {
   return JSON.stringify(content);
 }
 
+const DRAFT_SEQUENCE_VALUE = "__draft__";
+
 const SequenceLibrary = ({
   snapshots,
   bars,
@@ -117,20 +119,19 @@ const SequenceLibrary = ({
   snapshotLabelMode,
   autoCreateBars,
   activeSequenceName,
+  activeSequenceSavedName,
   activeSequenceDescription,
   onLoadSequence,
+  onClearSequence,
+  onSequenceSaved,
 }) => {
   const [savedSequences, setSavedSequences] = useState(loadUserSequences);
-  const [selectedName, setSelectedName] = useState("");
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const fileInputRef = createRef();
 
-  useEffect(() => {
-    if (activeSequenceName) setSelectedName(activeSequenceName);
-  }, [activeSequenceName]);
-
   const sequenceName = String(activeSequenceName ?? "").trim();
+  const savedSequenceName = String(activeSequenceSavedName ?? "").trim();
   const snapshotsPresent = (snapshots?.length ?? 0) > 0;
   const workspaceRecord = useMemo(
     () => normalizeSequenceRecord({
@@ -144,31 +145,36 @@ const SequenceLibrary = ({
     }),
     [activeSequenceDescription, autoCreateBars, bars, sequenceName, snapshotLabelMode, snapshots, tempi],
   );
+  const workspaceHasContent = useMemo(() => {
+    return snapshotsPresent;
+  }, [snapshotsPresent]);
   const activeSavedSequence = useMemo(
-    () => savedSequences.find((sequence) => sequence.name === sequenceName) ?? null,
-    [savedSequences, sequenceName],
-  );
-  const matchingSavedSequence = useMemo(() => {
-    if (!workspaceRecord) return null;
-    const workspaceContentKey = sequenceRecordContentKey(workspaceRecord);
-    return savedSequences.find((sequence) => (
-      sequenceRecordContentKey(sequence) === workspaceContentKey
-    )) ?? null;
-  }, [savedSequences, workspaceRecord]);
-  const isExisting = useMemo(
-    () => savedSequences.some((sequence) => sequence.name === sequenceName),
-    [savedSequences, sequenceName],
+    () => savedSequences.find((sequence) => sequence.name === savedSequenceName) ?? null,
+    [savedSequences, savedSequenceName],
   );
   const hasUnsavedChanges = useMemo(() => {
-    if (!workspaceRecord) return false;
-    if (!activeSavedSequence) {
-      if (matchingSavedSequence) return false;
-      return snapshotsPresent;
-    }
+    if (!workspaceRecord || !workspaceHasContent) return false;
+    if (!activeSavedSequence) return true;
     return sequenceRecordKey({ ...workspaceRecord, name: activeSavedSequence.name })
       !== sequenceRecordKey(activeSavedSequence);
-  }, [activeSavedSequence, matchingSavedSequence, snapshotsPresent, workspaceRecord]);
-  const saveLabel = isExisting && hasUnsavedChanges
+  }, [activeSavedSequence, workspaceHasContent, workspaceRecord]);
+  const nameCollision = useMemo(
+    () => !!sequenceName && savedSequences.some((sequence) => sequence.name === sequenceName) && sequenceName !== savedSequenceName,
+    [savedSequences, savedSequenceName, sequenceName],
+  );
+  const workspaceStatus = !workspaceHasContent
+    ? "empty"
+    : !activeSavedSequence
+      ? "draft"
+      : hasUnsavedChanges
+        ? "saved-dirty"
+        : "saved-clean";
+  const menuValue = activeSavedSequence
+    ? savedSequenceName
+    : workspaceHasContent
+      ? DRAFT_SEQUENCE_VALUE
+      : "";
+  const saveLabel = (activeSavedSequence && hasUnsavedChanges) || nameCollision
     ? "Save current sequence and overwrite"
     : "Save current sequence";
 
@@ -187,50 +193,37 @@ const SequenceLibrary = ({
     bars,
   });
 
-  const stashCurrentWorkspace = (sequences) => {
-    if (!snapshotsPresent || !hasUnsavedChanges) return sequences;
-    if (matchingSavedSequence) return sequences;
-    const takenNames = new Set(sequences.map((entry) => entry.name));
-    const preferredName = sequenceName || "User Sequence";
-    const stashName = uniqueSequenceName(preferredName, takenNames);
-    const record = buildWorkspaceRecord(stashName);
-    if (!record) return sequences;
-    return [...sequences, record];
-  };
-
   const loadSequenceByName = (name) => {
     if (!name) return;
     const sequence = savedSequences.find((entry) => entry.name === name);
     if (!sequence) return;
-    setSelectedName(name);
     setError("");
     onLoadSequence(sequence);
   };
 
   const beginLoadSequence = (name) => {
-    setSelectedName(name);
-    if (!name) return;
+    if (!name || name === DRAFT_SEQUENCE_VALUE) return;
     const targetSequence = savedSequences.find((entry) => entry.name === name) ?? null;
     if (!targetSequence) return;
+    if (
+      workspaceStatus !== "empty" &&
+      (workspaceStatus === "draft" || hasUnsavedChanges) &&
+      name !== savedSequenceName &&
+      typeof window !== "undefined" &&
+      !window.confirm("Discard current unsaved sequence?")
+    ) {
+      return;
+    }
     if (workspaceRecord && sequenceRecordContentKey(workspaceRecord) === sequenceRecordContentKey(targetSequence)) {
       setError("");
       onLoadSequence(targetSequence);
       return;
     }
-    if (name === sequenceName) {
+    if (name === savedSequenceName || workspaceStatus === "empty") {
       loadSequenceByName(name);
       return;
     }
-    if (!snapshotsPresent) {
-      loadSequenceByName(name);
-      return;
-    }
-    const next = stashCurrentWorkspace([...savedSequences]);
-    commitSequences(next);
-    const sequence = next.find((entry) => entry.name === name);
-    if (!sequence) return;
-    setError("");
-    onLoadSequence(sequence);
+    loadSequenceByName(name);
   };
 
   const handleSelect = (e) => {
@@ -247,12 +240,12 @@ const SequenceLibrary = ({
       setError("There is no valid sequence to save.");
       return;
     }
-    const next = isExisting
+    const next = savedSequences.some((entry) => entry.name === sequenceName)
       ? savedSequences.map((entry) => (entry.name === sequenceName ? record : entry))
       : [...savedSequences, record];
     commitSequences(next);
-    setSelectedName(sequenceName);
     setError("");
+    onSequenceSaved?.(sequenceName);
   };
 
   const handleExport = () => {
@@ -269,16 +262,15 @@ const SequenceLibrary = ({
   };
 
   const handleDelete = () => {
-    if (!selectedName) return;
-    const next = savedSequences.filter((entry) => entry.name !== selectedName);
+    if (!savedSequenceName) return;
+    const next = savedSequences.filter((entry) => entry.name !== savedSequenceName);
     commitSequences(next);
-    setSelectedName("");
     setError("");
+    onClearSequence?.();
   };
 
   const handleClearConfirmed = () => {
     commitSequences([]);
-    setSelectedName("");
     setError("");
     setConfirmClear(false);
   };
@@ -311,7 +303,7 @@ const SequenceLibrary = ({
       return;
     }
 
-    let next = snapshotsPresent ? stashCurrentWorkspace([...savedSequences]) : [...savedSequences];
+    let next = [...savedSequences];
     const takenNames = new Set(next.map((entry) => entry.name));
     const importedWithUniqueNames = imported.map((sequence) => {
       const uniqueName = uniqueSequenceName(sequence.name, takenNames);
@@ -326,7 +318,6 @@ const SequenceLibrary = ({
     setError("");
     const firstImported = importedWithUniqueNames[0] ?? null;
     if (firstImported) {
-      setSelectedName(firstImported.name);
       onLoadSequence(firstImported);
     }
     if (input) input.value = "";
@@ -338,22 +329,25 @@ const SequenceLibrary = ({
         <b>User Sequences</b>
       </legend>
 
-      {savedSequences.length > 0 && (
+      {(savedSequences.length > 0 || workspaceStatus === "draft") && (
         <label class="preset-selector-row">
-          <select value={selectedName} onChange={handleSelect}>
+          <select value={menuValue} onChange={handleSelect}>
             <option value="">Choose a user sequence:</option>
+            {workspaceStatus === "draft" && (
+              <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>
+            )}
             {savedSequences.map((sequence) => (
               <option key={sequence.name} value={sequence.name}>
-                {sequence.name}
+                {sequence.name === savedSequenceName && hasUnsavedChanges ? `${sequence.name}*` : sequence.name}
               </option>
             ))}
           </select>
-          {selectedName && (
+          {savedSequenceName && (
             <button
               type="button"
               class="preset-refresh-btn"
               onClick={() => {
-                beginLoadSequence(selectedName);
+                beginLoadSequence(savedSequenceName);
               }}
             >
               <span class="preset-refresh-glyph">⟳</span>
@@ -362,7 +356,7 @@ const SequenceLibrary = ({
           <button
             type="button"
             class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-            disabled={!selectedName}
+            disabled={!savedSequenceName}
             onClick={handleDelete}
           >
             Delete
@@ -413,7 +407,7 @@ const SequenceLibrary = ({
           )}
       </div>
 
-      {snapshotsPresent && (
+      {workspaceHasContent && (
         <div class="settings-form__action-row">
           <span class="settings-form__action-group settings-form__action-group--wrap">
             <button type="button" class="preset-action-btn" onClick={handleSave}>
@@ -444,8 +438,11 @@ SequenceLibrary.propTypes = {
   snapshotLabelMode: PropTypes.string.isRequired,
   autoCreateBars: PropTypes.bool.isRequired,
   activeSequenceName: PropTypes.string.isRequired,
+  activeSequenceSavedName: PropTypes.string.isRequired,
   activeSequenceDescription: PropTypes.string.isRequired,
   onLoadSequence: PropTypes.func.isRequired,
+  onClearSequence: PropTypes.func,
+  onSequenceSaved: PropTypes.func,
 };
 
 export default SequenceLibrary;

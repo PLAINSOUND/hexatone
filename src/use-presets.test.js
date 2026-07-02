@@ -477,4 +477,65 @@ describe("usePresets refresh ordering", () => {
     window.requestAnimationFrame = originalRaf;
     globalThis.requestAnimationFrame = originalRaf;
   });
+
+  it("returns to blank settings instead of reloading when the last user preset is deleted", async () => {
+    const { loadCustomPresets } = await import("./settings/presets/custom-presets");
+    loadCustomPresets.mockReturnValue([]);
+
+    const setSettings = vi.fn();
+    const bumpPresetRuntimeReset = vi.fn();
+    const onPresetModulationLibraryLoaded = vi.fn();
+    const setPresetModulationLibrary = vi.fn();
+    const prepare = vi.fn();
+    let lastHook = null;
+
+    const Harness = () => {
+      const hook = usePresets(
+        {
+          name: "Loaded User Tuning",
+          scale: ["100.", "1200."],
+          note_names: ["A", "B"],
+          note_colors: ["#ffffff", "#eeeeee"],
+          fundamental: 440,
+          reference_degree: 0,
+          key_labels: "note_names",
+          midiin_device: "input-1",
+        },
+        setSettings,
+        {
+          synthRef: { current: { prepare } },
+          onUserInteraction: vi.fn(),
+          bumpImportCount: vi.fn(),
+          bumpPresetRuntimeReset,
+          currentModulationLibrary: [],
+          setPresetModulationLibrary,
+          onPresetModulationLibraryLoaded,
+        },
+      );
+
+      useEffect(() => {
+        lastHook = hook;
+      }, [hook]);
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await act(async () => {
+      lastHook.onClearUserPresets();
+    });
+
+    expect(setPresetModulationLibrary).toHaveBeenCalledWith([]);
+    expect(onPresetModulationLibraryLoaded).toHaveBeenCalledWith([]);
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    const nextSettings = setSettings.mock.calls[0][0]();
+    expect(nextSettings.name).toBe("");
+    expect(nextSettings.scale).toBeNull();
+    expect(nextSettings.note_names).toBeNull();
+    expect(nextSettings.note_colors).toBeNull();
+    expect(nextSettings.midiin_device).toBe("input-1");
+    expect(bumpPresetRuntimeReset).not.toHaveBeenCalled();
+    expect(prepare).toHaveBeenCalledTimes(1);
+  });
 });

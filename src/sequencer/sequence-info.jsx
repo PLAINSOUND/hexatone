@@ -12,6 +12,7 @@ const SequenceInfo = ({
       <input
         name="name"
         type="text"
+        placeholder="User Sequence"
         width="100%"
         autoComplete="off"
         autoCorrect="off"

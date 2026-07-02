@@ -73,6 +73,7 @@ const CustomPresets = ({
   isActive,
   activeSource,
   activePresetName,
+  isPresetDirty,
   onRevert,
   currentModulationLibrary,
   canCommitModulation,
@@ -119,8 +120,10 @@ const CustomPresets = ({
 
   const tuningName = (settings.name || "").trim();
   const isExisting = presets.some((p) => p.name === tuningName);
+  const isLoadedUserPreset =
+    isActive && activeSource === "user" && activePresetName && activePresetName === tuningName;
 
-  const saveLabel = isExisting
+  const saveLabel = isExisting && (!isLoadedUserPreset || isPresetDirty)
     ? "Save current settings and overwrite user preset"
     : "Save current settings";
 
@@ -344,11 +347,14 @@ const CustomPresets = ({
         <label class="preset-selector-row">
           <select value={selected} onChange={handleSelect}>
             <option value="">Choose a user tuning:</option>
-            {presets.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
+            {presets.map((p) => {
+              const isDirtyActivePreset = isActive && isPresetDirty && p.name === activePresetName;
+              return (
+                <option key={p.name} value={p.name}>
+                  {isDirtyActivePreset ? `${p.name} *` : p.name}
+                </option>
+              );
+            })}
           </select>
           {isActive && onRevert && (
             <button type="button" class="preset-refresh-btn" onClick={onRevert}>

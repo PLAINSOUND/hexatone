@@ -1,28 +1,81 @@
-import { fireEvent, render, screen } from "@testing-library/preact";
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
+import { useState } from "preact/hooks";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import SequenceLibrary, { loadUserSequences, normalizeSequenceRecord } from "./sequence-library.jsx";
+
+function SequenceLibraryHarness({
+  initialSnapshots = [],
+  initialBars = [],
+  initialTempi = [],
+  initialName = "",
+  initialSavedName = "",
+  initialDescription = "",
+  snapshotLabelMode = "labels",
+  autoCreateBars = true,
+  onLoadSpy = vi.fn(),
+}) {
+  const [snapshots, setSnapshots] = useState(initialSnapshots);
+  const [bars, setBars] = useState(initialBars);
+  const [tempi, setTempi] = useState(initialTempi);
+  const [name, setName] = useState(initialName);
+  const [savedName, setSavedName] = useState(initialSavedName);
+  const [description, setDescription] = useState(initialDescription);
+
+  return (
+    <SequenceLibrary
+      snapshots={snapshots}
+      bars={bars}
+      tempi={tempi}
+      snapshotLabelMode={snapshotLabelMode}
+      autoCreateBars={autoCreateBars}
+      activeSequenceName={name}
+      activeSequenceSavedName={savedName}
+      activeSequenceDescription={description}
+      onLoadSequence={(sequence) => {
+        onLoadSpy(sequence);
+        setSnapshots(sequence.snapshots ?? []);
+        setBars(sequence.bars ?? []);
+        setTempi(sequence.tempi ?? []);
+        setName(sequence.name ?? "");
+        setSavedName(sequence.name ?? "");
+        setDescription(sequence.description ?? "");
+      }}
+      onClearSequence={() => {
+        setSnapshots([]);
+        setBars([]);
+        setTempi([]);
+        setName("");
+        setSavedName("");
+        setDescription("");
+      }}
+      onSequenceSaved={(nextName) => {
+        const trimmed = String(nextName ?? "").trim();
+        setName(trimmed);
+        setSavedName(trimmed);
+      }}
+    />
+  );
+}
 
 describe("SequenceLibrary", () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.restoreAllMocks();
+    window.confirm = vi.fn(() => true);
   });
 
   it("persists and reloads bar time signatures through saved sequences", () => {
-    const onLoadSequence = vi.fn();
+    const onLoadSpy = vi.fn();
 
     render(
-      <SequenceLibrary
-        snapshots={[{ id: 10, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
-        bars={[
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 10, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        initialBars={[
           { id: 1, position: 1, numerator: 3, denominator: 8 },
           { id: 2, position: 2, numerator: 5, denominator: 4 },
         ]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName="Meter Test"
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
+        initialName="Meter Test"
+        onLoadSpy={onLoadSpy}
       />,
     );
 
@@ -35,11 +88,8 @@ describe("SequenceLibrary", () => {
       { id: 2, position: 2, numerator: 5, denominator: 4 },
     ]);
 
-    fireEvent.change(screen.getByRole("combobox"), {
-      currentTarget: { value: "Meter Test" },
-      target: { value: "Meter Test" },
-    });
-    expect(onLoadSequence).toHaveBeenCalledWith(
+    fireEvent.click(document.querySelector(".preset-refresh-btn"));
+    expect(onLoadSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         bars: [
           { id: 1, position: 1, numerator: 3, denominator: 8 },
@@ -49,121 +99,80 @@ describe("SequenceLibrary", () => {
     );
   });
 
-  it("loads a selected sequence immediately when the current workspace is empty", () => {
+  it("shows an unsaved draft in the menu and prompts overwrite on name collision", () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Empty Load",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 10, notes: [] }],
+      normalizeSequenceRecord({
+        name: "FALL",
+        snapshots: [{ id: 1, notes: [] }],
         bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
+      }),
     ]));
 
-    const onLoadSequence = vi.fn();
-
     render(
-      <SequenceLibrary
-        snapshots={[]}
-        bars={[]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName=""
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        initialBars={[{ id: 1, position: 1, numerator: 3, denominator: 2 }]}
+        initialName="FALL"
       />,
     );
+
+    expect(screen.getByRole("combobox").value).toBe("__draft__");
+    expect(screen.getByRole("option", { name: "Unsaved sequence" })).toBeTruthy();
+    expect(screen.getByText("Save current sequence and overwrite")).toBeTruthy();
+  });
+
+  it("loads a selected saved sequence immediately when the workspace is empty", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "Empty Load",
+        snapshots: [{ id: 10, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    const onLoadSpy = vi.fn();
+
+    render(<SequenceLibraryHarness onLoadSpy={onLoadSpy} />);
 
     fireEvent.change(screen.getByRole("combobox"), {
       currentTarget: { value: "Empty Load" },
       target: { value: "Empty Load" },
     });
 
-    expect(screen.queryByText("Save current sequence?")).toBeNull();
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Empty Load" }),
-    );
+    expect(onLoadSpy).toHaveBeenCalledWith(expect.objectContaining({ name: "Empty Load" }));
+    expect(screen.getByRole("combobox").value).toBe("Empty Load");
   });
 
-  it("loads an imported sequence immediately when the current workspace is empty", async () => {
-    const onLoadSequence = vi.fn();
-
+  it("does not show an unsaved draft when only default transport scaffolding is present", () => {
     render(
-      <SequenceLibrary
-        snapshots={[]}
-        bars={[]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName=""
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
+      <SequenceLibraryHarness
+        initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        initialTempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
       />,
     );
 
-    const fileInput = document.querySelector('input[type="file"]');
-    const file = new File(
-      [JSON.stringify({
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Imported Empty Load",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      })],
-      "Imported Empty Load.json",
-      { type: "application/json" },
-    );
-
-    fireEvent.change(fileInput, {
-      currentTarget: { files: [file] },
-      target: { files: [file] },
-    });
-
-    expect(await screen.findByDisplayValue("Imported Empty Load")).toBeTruthy();
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Imported Empty Load" }),
-    );
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("option", { name: "Unsaved sequence" })).toBeNull();
+    expect(screen.queryByText("Save current sequence")).toBeNull();
   });
 
-  it("stashes the current workspace and renames imported duplicates on open", async () => {
+  it("imports duplicate names with a numeric suffix without stashing the current draft", async () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
+      normalizeSequenceRecord({
         name: "FALL",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
         snapshots: [{ id: 1, notes: [] }],
         bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
+      }),
     ]));
 
-    const onLoadSequence = vi.fn();
+    const onLoadSpy = vi.fn();
 
     render(
-      <SequenceLibrary
-        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
-        bars={[{ id: 1, position: 1, numerator: 3, denominator: 2 }]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName="Current Working State"
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        initialBars={[{ id: 1, position: 1, numerator: 3, denominator: 2 }]}
+        initialName="Current Working State"
+        onLoadSpy={onLoadSpy}
       />,
     );
 
@@ -190,386 +199,66 @@ describe("SequenceLibrary", () => {
       target: { files: [file] },
     });
 
-    expect(await screen.findByDisplayValue("FALL 2")).toBeTruthy();
-    expect(screen.queryByText("Save current sequence?")).toBeNull();
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "FALL 2" }),
-    );
-
-    const stored = loadUserSequences();
-    expect(stored.map((sequence) => sequence.name)).toEqual(["FALL", "Current Working State", "FALL 2"]);
-    expect(stored[1]).toEqual(expect.objectContaining({
-      name: "Current Working State",
-      bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
-    }));
+    await waitFor(() => {
+      expect(onLoadSpy).toHaveBeenCalledWith(expect.objectContaining({ name: "FALL 2" }));
+    });
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["FALL", "FALL 2"]);
   });
 
-  it("does not stash an unchanged saved sequence before importing another file", async () => {
+  it("uses a single discard confirmation when loading another saved sequence from a dirty workspace", () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
+      normalizeSequenceRecord({
+        name: "Prompt Load",
+        snapshots: [{ id: 10, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    const confirmSpy = vi.fn(() => true);
+    window.confirm = confirmSpy;
+    const onLoadSpy = vi.fn();
+
+    render(
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        initialName="Current"
+        onLoadSpy={onLoadSpy}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), {
+      currentTarget: { value: "Prompt Load" },
+      target: { value: "Prompt Load" },
+    });
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(onLoadSpy).toHaveBeenCalledWith(expect.objectContaining({ name: "Prompt Load" }));
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Prompt Load"]);
+  });
+
+  it("deletes the active saved sequence and clears the workspace", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
         name: "FALL",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
         snapshots: [{ id: 1, notes: [] }],
         bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
-    ]));
-
-    const onLoadSequence = vi.fn();
-
-    render(
-      <SequenceLibrary
-        snapshots={[{ id: 1, notes: [] }]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName="FALL"
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
-      />,
-    );
-
-    expect(screen.getByText("Save current sequence")).toBeTruthy();
-    expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
-
-    const fileInput = document.querySelector('input[type="file"]');
-    const file = new File(
-      [JSON.stringify({
-        type: "hexatone-sequence",
-        version: 3,
-        name: "SPRING",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 5, denominator: 4 }],
-      })],
-      "SPRING.json",
-      { type: "application/json" },
-    );
-
-    fireEvent.change(fileInput, {
-      currentTarget: { files: [file] },
-      target: { files: [file] },
-    });
-
-    expect(await screen.findByDisplayValue("SPRING")).toBeTruthy();
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "SPRING" }),
-    );
-    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["FALL", "SPRING"]);
-  });
-
-  it("stashes the current workspace and loads immediately when selecting a stored sequence", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Prompt Load",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
-    ]));
-
-    const onLoadSequence = vi.fn();
-
-    render(
-      <SequenceLibrary
-        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
-        bars={[]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName="Current"
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
-      />,
-    );
-
-    fireEvent.change(screen.getByRole("combobox"), {
-      currentTarget: { value: "Prompt Load" },
-      target: { value: "Prompt Load" },
-    });
-
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Prompt Load" }),
-    );
-
-    const stored = loadUserSequences();
-    expect(stored.map((sequence) => sequence.name)).toEqual(["Prompt Load", "Current"]);
-  });
-
-  it("does not duplicate the active saved sequence when it is reselected", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Current",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
-    ]));
-
-    const onLoadSequence = vi.fn();
-
-    render(
-      <SequenceLibrary
-        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName="Current"
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
-      />,
-    );
-
-    fireEvent.change(screen.getByRole("combobox"), {
-      currentTarget: { value: "Current" },
-      target: { value: "Current" },
-    });
-
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Current" }),
-    );
-    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Current"]);
-  });
-
-  it("does not stash a matching saved sequence when the active name state is blank", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Current",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Other",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
-      },
-    ]));
-
-    const onLoadSequence = vi.fn();
-
-    render(
-      <SequenceLibrary
-        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName=""
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
-      />,
-    );
-
-    fireEvent.change(screen.getByRole("combobox"), {
-      currentTarget: { value: "Other" },
-      target: { value: "Other" },
-    });
-
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Other" }),
-    );
-    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Current", "Other"]);
-  });
-
-  it("does not stash an unchanged saved sequence when selecting another stored sequence", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Current",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Prompt Load",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      },
-    ]));
-
-    const onLoadSequence = vi.fn();
-
-    render(
-      <SequenceLibrary
-        snapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName="Current"
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
-      />,
-    );
-
-    expect(screen.getByText("Save current sequence")).toBeTruthy();
-    expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
-
-    fireEvent.change(screen.getByRole("combobox"), {
-      currentTarget: { value: "Prompt Load" },
-      target: { value: "Prompt Load" },
-    });
-
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Prompt Load" }),
-    );
-    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Current", "Prompt Load"]);
-  });
-
-  it("prefers bars over legacy meters when both are present in imported records", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Legacy Clash",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        snapshots: [{ id: 10, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
-        bars: [
-          { id: 1, position: 1, numerator: 4, denominator: 4 },
-          { id: 2, position: 2, numerator: 3, denominator: 2 },
-        ],
-        meters: [
-          { id: "meter:default", position: 1, numerator: 4, denominator: 4, beatLength: 1, barLength: 4 },
-          { id: "meter:2", position: 2, numerator: 4, denominator: 4, beatLength: 1, barLength: 4 },
-        ],
-      },
-    ]));
-
-    const onLoadSequence = vi.fn();
-
-    render(
-      <SequenceLibrary
-        snapshots={[]}
-        bars={[]}
-        tempi={[]}
-        snapshotLabelMode="labels"
-        autoCreateBars
-        activeSequenceName=""
-        activeSequenceDescription=""
-        onLoadSequence={onLoadSequence}
-      />,
-    );
-
-    fireEvent.change(screen.getByRole("combobox"), {
-      currentTarget: { value: "Legacy Clash" },
-      target: { value: "Legacy Clash" },
-    });
-
-    expect(onLoadSequence).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bars: [
-          { id: 1, position: 1, numerator: 4, denominator: 4 },
-          { id: 2, position: 2, numerator: 3, denominator: 2 },
-        ],
       }),
-    );
-  });
-
-  it("normalizes raw localStorage sequence records on reload before selection", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Reload Test",
-        description: "",
-        snapshotLabelMode: "proportion",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [
-          { id: 1, position: 1, bpm: 58, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
-        ],
-        snapshots: [
-          { id: 1, length: 1, description: "x", notes: [] },
-          { id: 2, length: 1, description: "y", notes: [] },
-        ],
-        bars: [
-          { id: 1, position: 1, numerator: 1, denominator: 1 },
-          { id: 2, position: 2, numerator: 3, denominator: 2 },
-        ],
-        meters: [
-          { id: "meter:default", position: 1, numerator: 4, denominator: 4, beatLength: 1, barLength: 4 },
-          { id: "meter:2", position: 2, numerator: 4, denominator: 4, beatLength: 1, barLength: 4 },
-        ],
-      },
     ]));
 
-    expect(loadUserSequences()).toEqual([
-      normalizeSequenceRecord({
-        type: "hexatone-sequence",
-        version: 3,
-        name: "Reload Test",
-        description: "",
-        snapshotLabelMode: "proportion",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [
-          { id: 1, position: 1, bpm: 58, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
-        ],
-        snapshots: [
-          { id: 1, length: 1, description: "x", notes: [] },
-          { id: 2, length: 1, description: "y", notes: [] },
-        ],
-        bars: [
-          { id: 1, position: 1, numerator: 1, denominator: 1 },
-          { id: 2, position: 2, numerator: 3, denominator: 2 },
-        ],
-        meters: [
-          { id: "meter:default", position: 1, numerator: 4, denominator: 4, beatLength: 1, barLength: 4 },
-          { id: "meter:2", position: 2, numerator: 4, denominator: 4, beatLength: 1, barLength: 4 },
-        ],
-      }),
-    ]);
+    render(
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 1, notes: [] }]}
+        initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        initialName="FALL"
+        initialSavedName="FALL"
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Delete"));
+
+    expect(loadUserSequences()).toEqual([]);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByText("Save current sequence")).toBeNull();
+    expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
   });
 });

@@ -776,6 +776,7 @@ const App = () => {
   const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
   const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
   const [activeSequenceName, setActiveSequenceName] = useState("");
+  const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
   const [sequenceLegato, setSequenceLegato] = useState(true);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
@@ -858,6 +859,7 @@ const App = () => {
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
     setActiveSequenceName(String(sequence?.name ?? "").trim());
+    setActiveSequenceSavedName(String(sequence?.name ?? "").trim());
     setActiveSequenceDescription(String(sequence?.description ?? ""));
     setSequencePlayhead({
       barIndex: 0,
@@ -1337,9 +1339,23 @@ const App = () => {
     snapshotIdRef.current = 0;
     sequenceBarIdRef.current = 0;
     setActiveSequenceName("");
+    setActiveSequenceSavedName("");
     setActiveSequenceDescription("");
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
+
+  const onSequenceNameChange = useCallback((value) => {
+    const nextName = String(value ?? "");
+    const trimmed = nextName.trim();
+    setActiveSequenceName(nextName);
+    setActiveSequenceSavedName((current) => (current && current === trimmed ? current : ""));
+  }, []);
+
+  const onSequenceSaved = useCallback((name) => {
+    const nextName = String(name ?? "").trim();
+    setActiveSequenceName(nextName);
+    setActiveSequenceSavedName(nextName);
+  }, []);
 
   const onMoveSnapshot = useCallback((fromId, toId, side = "before") => {
     setSnapshots((prev) => {
@@ -3131,6 +3147,7 @@ const App = () => {
               snapshotLabelMode={snapshotLabelMode}
               autoCreateBars={sequenceAutoCreateBars}
               activeSequenceName={activeSequenceName}
+              activeSequenceSavedName={activeSequenceSavedName}
               activeSequenceDescription={activeSequenceDescription}
               sequenceLegato={sequenceLegato}
               sequenceAutoCreateBars={sequenceAutoCreateBars}
@@ -3140,8 +3157,9 @@ const App = () => {
               playhead={sequencePlayhead}
               onTakeSnapshot={onTakeSnapshot}
               onLoadSequence={onLoadSequence}
-              onSequenceNameChange={setActiveSequenceName}
+              onSequenceNameChange={onSequenceNameChange}
               onSequenceDescriptionChange={setActiveSequenceDescription}
+              onSequenceSaved={onSequenceSaved}
               onSequenceLegatoChange={setSequenceLegato}
               onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
