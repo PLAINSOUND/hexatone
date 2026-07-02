@@ -17,8 +17,6 @@ import {
   sequenceNoteKeysAtCueIndex,
 } from "./trigger-groups.js";
 
-const PHONE_PORTRAIT_MEDIA_QUERY = "(max-width: 480px) and (orientation: portrait)";
-
 function formatSequenceTime(snapshotIndex, relativeTime) {
   const baseIndex = Number(snapshotIndex);
   const offset = Number(relativeTime);
@@ -157,14 +155,6 @@ function structuralEventInstanceKey(item) {
   return base;
 }
 
-function detectPhonePortrait() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia(PHONE_PORTRAIT_MEDIA_QUERY).matches
-  );
-}
-
 function commitTextInput(target, commit) {
   if (!(target instanceof HTMLInputElement)) return;
   const value = target.value;
@@ -246,7 +236,6 @@ const Sequencer = ({
   const [tempoBarRelativeDrafts, setTempoBarRelativeDrafts] = useState({});
   const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
-  const [isPhonePortrait, setIsPhonePortrait] = useState(detectPhonePortrait);
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
@@ -261,32 +250,6 @@ const Sequencer = ({
   const lastAutoScrolledBarIdRef = useRef(null);
   const lastAutoScrolledCueIndexRef = useRef(null);
   const transportScrollTargetRef = useRef("snapshot");
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const mediaQuery = window.matchMedia(PHONE_PORTRAIT_MEDIA_QUERY);
-    const update = (event) => setIsPhonePortrait(event.matches);
-    setIsPhonePortrait(mediaQuery.matches);
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", update);
-      return () => mediaQuery.removeEventListener("change", update);
-    }
-    mediaQuery.addListener(update);
-    return () => mediaQuery.removeListener(update);
-  }, []);
-
-  useEffect(() => {
-    setEventPane((current) => {
-      if (isPhonePortrait) {
-        if (current === "timing") return "timingPrimary";
-        if (current === "timingPrimary" || current === "timingSecondary" || current === "expression") return current;
-        return "timingPrimary";
-      }
-      if (current === "timingPrimary" || current === "timingSecondary") return "timing";
-      if (current === "timing" || current === "expression") return current;
-      return "timing";
-    });
-  }, [isPhonePortrait]);
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
   const sortedTempi = useMemo(
@@ -1303,11 +1266,7 @@ const Sequencer = ({
     </>
   );
 
-  const currentEventPane = isPhonePortrait
-    ? (eventPane === "timingPrimary" || eventPane === "timingSecondary" || eventPane === "expression"
-      ? eventPane
-      : "timingPrimary")
-    : (eventPane === "expression" ? "expression" : "timing");
+  const currentEventPane = eventPane === "expression" ? "expression" : "timing";
 
   const eventPaneToggleMeta = {
     timing: {
@@ -1315,30 +1274,12 @@ const Sequencer = ({
       label: "show expression controls",
       title: "Show expression controls",
     },
-    timingPrimary: {
-      next: "timingSecondary",
-      label: "show beat fraction controls",
-      title: "Show beat fraction controls",
-    },
-    timingSecondary: {
-      next: "expression",
-      label: "show expression controls",
-      title: "Show expression controls",
-    },
     expression: {
-      next: isPhonePortrait ? "timingPrimary" : "timing",
-      label: isPhonePortrait ? "show bar and beat controls" : "show bar-relative timing",
-      title: isPhonePortrait ? "Show bar and beat controls" : "Show bar-relative timing",
+      next: "timing",
+      label: "show bar-relative timing",
+      title: "Show bar-relative timing",
     },
   };
-
-  const renderGridSpacer = (key, className = "") => (
-    <div
-      key={key}
-      class={className}
-      aria-hidden="true"
-    />
-  );
 
   const renderPaneToggle = () => (
     <button
@@ -2140,123 +2081,6 @@ const Sequencer = ({
                 }}
               />
             </div>
-          </>
-        ) : currentEventPane === "timingPrimary" ? (
-          <>
-            <div key={`${event.eventId}-timing-bar`} class="sequencer-event__cell sequencer-grid-offset">
-              <input
-                type="number"
-                step="1"
-                min="1"
-                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__bar${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-                value={barRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
-                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} bar`}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                onFocus={(e) => {
-                  e.stopPropagation();
-                  e.currentTarget.select();
-                }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, {
-                  snapshotId: snapshot.id,
-                  noteKey: event.noteKey,
-                  kind: event.kind,
-                })}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-                }}
-              />
-            </div>
-            <div key={`${event.eventId}-timing-beat`} class="sequencer-event__cell sequencer-grid-offset">
-              <input
-                type="number"
-                step="1"
-                min={isStoppedBar ? "0" : "1"}
-                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-                value={beatValue}
-                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
-                disabled={isStoppedBar}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                onFocus={(e) => {
-                  e.stopPropagation();
-                  e.currentTarget.select();
-                }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, {
-                  snapshotId: snapshot.id,
-                  noteKey: event.noteKey,
-                  kind: event.kind,
-                })}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-                }}
-              />
-            </div>
-            {renderGridSpacer(`${event.eventId}-timing-spacer-a`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
-            {renderGridSpacer(`${event.eventId}-timing-spacer-b`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
-          </>
-        ) : currentEventPane === "timingSecondary" ? (
-          <>
-            <div key={`${event.eventId}-timing-num`} class="sequencer-event__cell sequencer-grid-offset">
-              <input
-                type="number"
-                step="1"
-                min="0"
-                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-                value={numeratorValue}
-                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
-                disabled={isStoppedBar}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                onFocus={(e) => {
-                  e.stopPropagation();
-                  e.currentTarget.select();
-                }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value, {
-                  snapshotId: snapshot.id,
-                  noteKey: event.noteKey,
-                  kind: event.kind,
-                })}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-                }}
-              />
-            </div>
-            <div key={`${event.eventId}-timing-den`} class="sequencer-event__cell sequencer-grid-offset">
-              <input
-                type="number"
-                step="1"
-                min="1"
-                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
-                value={denominatorValue}
-                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
-                disabled={isStoppedBar}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                onFocus={(e) => {
-                  e.stopPropagation();
-                  e.currentTarget.select();
-                }}
-                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value, {
-                  snapshotId: snapshot.id,
-                  noteKey: event.noteKey,
-                  kind: event.kind,
-                })}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-                }}
-              />
-            </div>
-            {renderGridSpacer(`${event.eventId}-timing-spacer-c`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
-            {renderGridSpacer(`${event.eventId}-timing-spacer-d`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
           </>
         ) : (
           <>
@@ -3096,28 +2920,6 @@ const Sequencer = ({
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--den">
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Den", "Den")}</span>
                                 </div>
-                              </>
-                            ) : currentEventPane === "timingPrimary" ? (
-                              <>
-                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--bar">
-                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Bar", "Bar")}</span>
-                                </div>
-                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--beat">
-                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Beat", "Beat")}</span>
-                                </div>
-                                {renderGridSpacer("heading-timing-primary-spacer-a", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
-                                {renderGridSpacer("heading-timing-primary-spacer-b", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
-                              </>
-                            ) : currentEventPane === "timingSecondary" ? (
-                              <>
-                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--num">
-                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Num", "Num")}</span>
-                                </div>
-                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--den">
-                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Den", "Den")}</span>
-                                </div>
-                                {renderGridSpacer("heading-timing-secondary-spacer-a", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
-                                {renderGridSpacer("heading-timing-secondary-spacer-b", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
                               </>
                             ) : (
                               <>

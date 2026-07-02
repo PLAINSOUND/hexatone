@@ -2746,92 +2746,18 @@ td.scale-color-col .color-input {
 }
 
 @media (max-width: 480px) and (orientation: portrait) {
-  .sequencer-item {
-    --sequencer-detail-columns:
-      var(--sequencer-delete-col)
-      var(--sequencer-number-col)
-      minmax(2em, 0.9fr)
-      minmax(2.65em, 1.15fr)
-      minmax(2.6em, 1fr)
-      minmax(2.55em, 1fr)
-      minmax(2.2em, 1fr)
-      minmax(2.1em, 1fr)
-      minmax(2em, 1fr)
-      minmax(2em, 1fr)
-      var(--sequencer-event-actions-col);
-    --sequencer-structural-columns:
-      var(--sequencer-delete-col)
-      var(--sequencer-number-col)
-      minmax(2.2em, 0.85fr)
-      minmax(2.8em, 1fr)
-      minmax(2.2em, 1fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      minmax(2em, 0.9fr)
-      var(--sequencer-event-actions-col);
+  .sequencer-item__groups {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.15em;
   }
 
-  .sequencer-events-grid__heading-label--full {
-    display: none;
-  }
-
-  .sequencer-events-grid__heading-label--short,
-  .sequencer-events-grid__pane-toggle {
-    display: inline-flex;
-  }
-
-  .sequencer-events-grid__header,
-  .sequencer-event-row {
-    column-gap: 0.22em;
-  }
-
-  .sequencer-events-grid__heading {
-    font-size: 0.68em;
-  }
-
-  .sequencer-events-grid__heading--actions,
-  .sequencer-event__actions-cell {
-    justify-content: flex-end;
-  }
-
-  .sequencer-events-grid__pane-toggle {
-    align-items: center;
-    justify-content: center;
-    width: 1.4em;
-    min-width: 1.4em;
-    height: 1.4em;
-    padding: 0;
-    line-height: 1;
-    background: var(--color-bg-btn-alt);
-    border: 1px solid var(--color-border-ui);
-    color: var(--color-text);
-    border-radius: var(--btn-radius-square);
-  }
-
-  .sequencer-events-grid__header,
-  .sequencer-event-row {
-    grid-template-columns: var(--sequencer-detail-columns);
-  }
-
+  .sequencer-events-grid,
   .sequencer-bar-row,
   .sequencer-tempo-row {
-    grid-template-columns: var(--sequencer-structural-columns);
-    column-gap: 0.22em;
-    padding-right: 0;
-  }
-
-  .sequencer-bar-row__position-cell {
-    grid-column: 3 / span 2;
-  }
-
-  .sequencer-bar-row__signature-cell {
-    grid-column: 5 / span 2;
-  }
-
-  .sequencer-bar-row__tail {
-    grid-column: 7 / -1;
+    width: max-content;
+    min-width: 100%;
   }
 }
 

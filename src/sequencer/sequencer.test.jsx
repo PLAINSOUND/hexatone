@@ -424,7 +424,7 @@ describe("Sequencer", () => {
     expect(screen.queryByText("Clear Sequence")).toBeNull();
   });
 
-  it("cycles through three event panes in phone portrait mode", () => {
+  it("keeps the standard two event panes in phone portrait mode", () => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = vi.fn().mockImplementation((query) => ({
       matches: query === "(max-width: 480px) and (orientation: portrait)",
@@ -487,17 +487,12 @@ describe("Sequencer", () => {
       );
 
       expect(screen.getAllByText("Bar").length).toBeGreaterThan(0);
-      expect(screen.queryByText("Num")).toBeNull();
-      expect(screen.getByLabelText("show beat fraction controls")).toBeTruthy();
-
-      fireEvent.click(screen.getByLabelText("show beat fraction controls"));
       expect(screen.getAllByText("Num").length).toBeGreaterThan(0);
-      expect(screen.queryByText("Bar")).toBeNull();
       expect(screen.getByLabelText("show expression controls")).toBeTruthy();
 
       fireEvent.click(screen.getByLabelText("show expression controls"));
       expect(screen.getAllByText("v-on").length).toBeGreaterThan(0);
-      expect(screen.getByLabelText("show bar and beat controls")).toBeTruthy();
+      expect(screen.getByLabelText("show bar-relative timing")).toBeTruthy();
     } finally {
       window.matchMedia = originalMatchMedia;
     }
