@@ -63,6 +63,7 @@ import {
   deriveSequenceCueGroups,
   sequenceNotesAtCueIndex,
 } from "./sequencer/trigger-groups.js";
+import { remapSequenceSnapshotsToRuntime } from "./sequencer/runtime-pitch-map.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
@@ -779,6 +780,7 @@ const App = () => {
   const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
   const [sequenceLegato, setSequenceLegato] = useState(true);
+  const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [sequenceBars, setSequenceBars] = useState(() => normalizeBarMarkers([{ id: 1, position: 1 }]));
   const [sequenceTempi, setSequenceTempi] = useState(() => normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
@@ -788,6 +790,7 @@ const App = () => {
     markerIndex: null,
     stopped: true,
   });
+  const previousSnapSequenceToCurrentTuningRef = useRef(false);
   const snapshotIdRef = useRef(0);
   const sequenceBarIdRef = useRef(1);
   const dragIdRef = useRef(null);
@@ -873,6 +876,22 @@ const App = () => {
     () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi),
     [sequenceBars, sequenceTempi, snapshots],
   );
+  const currentSequenceSnapRuntime = (() => {
+    const keys = keysRef.current;
+    const frame = keys?._activeFrame?.();
+    const liveRuntime = keys?._effectiveScaleRuntimeForFrame?.(frame);
+    return Array.isArray(liveRuntime?.scale) && liveRuntime.scale.length > 0
+      ? liveRuntime
+      : null;
+  })();
+  const sequenceDisplaySnapshots = useMemo(() => {
+    if (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) return snapshots;
+    const keys = keysRef.current;
+    return remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
+      noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
+      hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
+    });
+  }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshots]);
   const sortedSequenceBars = useMemo(
     () => [...sequenceBars].sort((a, b) => (
       Number(a.position) - Number(b.position) ||
@@ -952,14 +971,15 @@ const App = () => {
 
     const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
     const snapshot = snapshots[safeStepIndex];
+    const displaySnapshot = sequenceDisplaySnapshots[safeStepIndex] ?? snapshot;
     if (!snapshot) return;
     const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
       ? null
       : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
     const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
     const notes = safeMarkerIndex == null
-      ? snapshot.notes
-      : sequenceNotesAtCueIndex(snapshots, safeMarkerIndex);
+      ? (displaySnapshot?.notes ?? [])
+      : sequenceNotesAtCueIndex(sequenceDisplaySnapshots, safeMarkerIndex);
     const useLegato = sequenceLegato && safeMarkerIndex != null;
     const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
     const barIndex = barIndexForTime(playheadTime);
@@ -986,7 +1006,16 @@ const App = () => {
       markerIndex: safeMarkerIndex,
       stopped: notes.length === 0,
     });
-  }, [barIndexForTime, sequenceCueGroups, sequenceLegato, snapshots]);
+  }, [barIndexForTime, sequenceCueGroups, sequenceDisplaySnapshots, sequenceLegato, snapshots]);
+
+  useEffect(() => {
+    const previous = previousSnapSequenceToCurrentTuningRef.current;
+    previousSnapSequenceToCurrentTuningRef.current = snapSequenceToCurrentTuning;
+    if (previous === snapSequenceToCurrentTuning) return;
+    if (sequencePlayhead?.stopped) return;
+    if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
+    playSequencePosition(sequencePlayhead.stepIndex, sequencePlayhead.markerIndex);
+  }, [playSequencePosition, sequencePlayhead, snapSequenceToCurrentTuning]);
 
   const onSelectSequencerSnapshot = useCallback((id) => {
     setSelectedSnapshotId(id);
@@ -1031,7 +1060,7 @@ const App = () => {
     });
   }, []);
 
-  const onAddSequenceBar = useCallback((position = null) => {
+  const onAddSequenceBar = useCallback((position = null, numerator = 4, denominator = 4) => {
     const id = ++sequenceBarIdRef.current;
     setSequenceBars((prev) => {
       const explicitPosition = Number(position);
@@ -1040,6 +1069,8 @@ const App = () => {
         : prev.length > 0
           ? Math.max(...prev.map((bar) => Number(bar.position) || 1)) + 1
           : 1;
+      const nextNumerator = Math.max(0, Math.round(Number(numerator) || 0));
+      const nextDenominator = Math.max(1, Math.round(Number(denominator) || 1));
       const existingBar = prev.find((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9);
       if (existingBar) {
         const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
@@ -1047,9 +1078,19 @@ const App = () => {
           sequenceBarIdRef.current -= 1;
           return prev;
         }
-        return [...prev.filter((bar) => bar.id !== existingBar.id), normalizeBarMarker({ id, position: nextPosition })];
+        return [...prev.filter((bar) => bar.id !== existingBar.id), normalizeBarMarker({
+          id,
+          position: nextPosition,
+          numerator: nextNumerator,
+          denominator: nextDenominator,
+        })];
       }
-      return [...prev, normalizeBarMarker({ id, position: nextPosition })];
+      return [...prev, normalizeBarMarker({
+        id,
+        position: nextPosition,
+        numerator: nextNumerator,
+        denominator: nextDenominator,
+      })];
     });
   }, []);
 
@@ -1325,6 +1366,13 @@ const App = () => {
     setSnapshots([]);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
+    setSequenceBars([]);
+    setSequenceTempi([]);
+    snapshotIdRef.current = 0;
+    sequenceBarIdRef.current = 0;
+    setActiveSequenceName("");
+    setActiveSequenceSavedName("");
+    setActiveSequenceDescription("");
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
@@ -3142,6 +3190,7 @@ const App = () => {
           {workspaceTab === "sequencer" ? (
             <Sequencer
               snapshots={snapshots}
+              displaySnapshots={sequenceDisplaySnapshots}
               bars={sequenceBars}
               tempi={sequenceTempi}
               snapshotLabelMode={snapshotLabelMode}
@@ -3150,6 +3199,7 @@ const App = () => {
               activeSequenceSavedName={activeSequenceSavedName}
               activeSequenceDescription={activeSequenceDescription}
               sequenceLegato={sequenceLegato}
+              snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
               sequenceAutoCreateBars={sequenceAutoCreateBars}
               selectedSnapshotId={selectedSnapshotId}
               selectedMarker={selectedSnapshotMarker}
@@ -3161,6 +3211,7 @@ const App = () => {
               onSequenceDescriptionChange={setActiveSequenceDescription}
               onSequenceSaved={onSequenceSaved}
               onSequenceLegatoChange={setSequenceLegato}
+              onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
               onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
               onSelectSnapshot={onSelectSequencerSnapshot}

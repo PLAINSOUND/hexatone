@@ -504,6 +504,7 @@ a:hover {
   min-width: 9.8rem;
   max-width: min(15.75rem, calc(100vw - 1rem));
   max-height: calc(100vh - 4.5rem);
+  overflow: hidden;
   padding: 7px 9px;
   border-radius: 5px;
   background: rgba(240, 228, 228, 0.55);
@@ -522,26 +523,42 @@ a:hover {
 .snapshot-palette-body {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 4px;
-  max-height: calc(100vh - 8rem);
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
   overscroll-behavior: contain;
   min-width: 0;
-  scrollbar-width: none;
+  box-sizing: border-box;
+  padding-bottom: 0.35rem;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
 .snapshot-palette-body:hover,
 .snapshot-palette-body:focus-within {
-  scrollbar-width: thin;
+  scrollbar-color: rgba(143, 108, 108, 0.7) transparent;
 }
 
 .snapshot-palette-body::-webkit-scrollbar {
-  width: 0;
+  width: 0.42rem;
 }
 
 .snapshot-palette-body:hover::-webkit-scrollbar,
 .snapshot-palette-body:focus-within::-webkit-scrollbar {
   width: 0.42rem;
+}
+
+.snapshot-palette-body::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.snapshot-palette-body:hover::-webkit-scrollbar-thumb,
+.snapshot-palette-body:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(143, 108, 108, 0.7);
 }
 
 .snapshot-row {

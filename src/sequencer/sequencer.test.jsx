@@ -924,63 +924,6 @@ describe("Sequencer", () => {
     expect(onDeleteAllSnapshots).toHaveBeenCalledTimes(1);
   });
 
-  it("clears the whole sequence after confirmation", () => {
-    const onClearSequence = vi.fn();
-
-    render(
-      <Sequencer
-        snapshots={[
-          {
-            id: 10,
-            length: 1,
-            description: "A",
-            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
-          },
-        ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatLength: 1 }, { id: 2, position: 2, bpm: 72, beatLength: 1 }]}
-        snapshotLabelMode="labels"
-        selectedSnapshotId={10}
-        selectedMarker={null}
-        playingSnapshotId={null}
-        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
-        onTakeSnapshot={vi.fn()}
-        onSetSnapshotLabelMode={vi.fn()}
-        onSelectSnapshot={vi.fn()}
-        onSelectMarker={vi.fn()}
-        onPlaySnapshot={vi.fn()}
-        onStopSnapshot={vi.fn()}
-        onSelectSequenceBar={vi.fn()}
-        onStepSequence={vi.fn()}
-        onStepSequenceMarker={vi.fn()}
-        onPlaySequence={vi.fn()}
-        onPlayCue={vi.fn()}
-        onResetSequencePlayhead={vi.fn()}
-        onAddBar={vi.fn()}
-        onAddTempo={vi.fn()}
-        onAddBarsBeforeSnapshots={vi.fn()}
-        onDeleteBar={vi.fn()}
-        onDeleteTempo={vi.fn()}
-        onUpdateBar={vi.fn()}
-        onUpdateTempo={vi.fn()}
-        onMoveBar={vi.fn()}
-        onDeleteSnapshot={vi.fn()}
-        onDeleteAllSnapshots={vi.fn()}
-        onClearSequence={onClearSequence}
-        onMoveSnapshot={vi.fn()}
-        onDuplicateSnapshot={vi.fn()}
-        onUpdateSnapshot={vi.fn()}
-        onResetSnapshotDescription={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByText("Clear Sequence"));
-    expect(screen.getByText("Clear sequence?")).not.toBeNull();
-
-    fireEvent.click(screen.getByText("Yes, clear"));
-    expect(onClearSequence).toHaveBeenCalledTimes(1);
-  });
-
   it("updates the bar selector when a snapshot or cue target is chosen", () => {
     const onSelectSequenceBar = vi.fn();
 
@@ -2337,8 +2280,16 @@ describe("Sequencer", () => {
       currentTarget: { value: "2.5" },
       target: { value: "2.5" },
     });
+    fireEvent.input(screen.getByLabelText("new bar numerator"), {
+      currentTarget: { value: "3" },
+      target: { value: "3" },
+    });
+    fireEvent.input(screen.getByLabelText("new bar denominator"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
     fireEvent.click(screen.getByText("Add Bar"));
-    expect(onAddBar).toHaveBeenCalledWith(2.5);
+    expect(onAddBar).toHaveBeenCalledWith(2.5, 3, 2);
 
     fireEvent.click(screen.getByRole("button", { name: "Add Bars Before Snapshots" }));
     expect(onAddBarsBeforeSnapshots).toHaveBeenCalledTimes(1);

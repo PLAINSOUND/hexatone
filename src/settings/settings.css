@@ -1503,7 +1503,6 @@ td.scale-color-col .color-input {
 .sequencer-option-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.8em;
   margin: 0 0 0.45em;
 }
@@ -1518,52 +1517,200 @@ td.scale-color-col .color-input {
   margin: 0;
 }
 
-.sequencer-option-row__controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55em;
+.sequencer-option-row > span:first-child {
+  flex: 0 0 auto;
+}
+
+.sequencer-option-row > .sidebar-input,
+.sequencer-option-row > .sequencer-bars-add,
+.sequencer-option-row > .sequencer-option-row__controls {
+  width: 50%;
+  max-width: 100%;
+  min-width: 0;
   margin-left: auto;
+}
+
+.sequencer-option-row > input[type="checkbox"] {
+  margin-left: auto;
+}
+
+.sequencer-option-row__controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55em;
 }
 
 .sequencer-bars-add {
-  display: flex;
+  display: grid;
   align-items: center;
-  width: 50%;
-  margin-left: auto;
+  width: 100%;
   min-width: 0;
   gap: 0.45em;
-  justify-content: flex-end;
   box-sizing: border-box;
+  white-space: nowrap;
 }
 
-.sequencer-bars-add .preset-action-btn {
-  margin-left: auto;
-  height: 1.5em;
+.sequencer-bars-add--tempo {
+  grid-template-columns: 9.8em minmax(0, 1fr) max-content;
+}
+
+.sequencer-bars-add--bar {
+  grid-template-columns: 9.8em minmax(0, 1fr) max-content;
+}
+
+.sequencer-bars-add .preset-action-btn,
+.sequencer-bars-add__button {
   box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 0;
-  padding-bottom: 0;
-  line-height: 1.5em;
+  justify-self: end;
+}
+
+.sequencer-bars-add__button {
+  justify-self: end;
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 #sidebar .sequencer-bars-add__position {
-  flex: 1;
   min-width: 0;
-  height: 1.5em;
+  height: 1.65em;
   box-sizing: border-box;
   background-color: var(--color-bg);
   text-align: right;
+  width: 100%;
+}
+
+#sidebar .sequencer-bars-add__aux {
+  width: 100%;
+  min-width: 0;
+  height: 1.65em;
+  box-sizing: border-box;
+  background-color: var(--color-bg);
+  text-align: right;
+}
+
+.sequencer-bars-add__tempo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  width: auto;
+  justify-self: end;
+}
+
+#sidebar .sequencer-bars-add__bpm {
+  width: 5.4em !important;
+  min-width: 5.4em;
+  flex: 0 0 5.4em;
+  text-align: center;
 }
 
 #sidebar .sequencer-bars-add__position:focus {
   background-color: var(--color-bg);
 }
 
+#sidebar .sequencer-bars-add__aux:focus {
+  background-color: var(--color-bg);
+}
+
 #sidebar .sequencer-bars-add__position--hint {
   color: #bb9999;
   -webkit-text-fill-color: #bb9999;
+}
+
+.sequencer-bars-add__meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22em;
+  width: 8.55em;
+  justify-self: end;
+}
+
+#sidebar .sequencer-bars-add__meter-input {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 3.6em !important;
+  min-width: 3.6em;
+  flex: 0 0 3.6em;
+  border-color: transparent;
+  text-align: center;
+}
+
+.sequencer-bars-add__meter-separator {
+  color: #6f5f5f;
+  line-height: 1;
+}
+
+.sequencer-bars-add__suffix {
+  position: static;
+  font-size: 0.9em;
+  color: #8f7c7c;
+  line-height: 1;
+  white-space: nowrap;
+  padding-right: 0.35em;
+}
+
+@media (max-width: 700px) {
+  .sequencer-option-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sequencer-option-row.sequencer-option-row--mobile-inline {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .sequencer-option-row > .sidebar-input,
+  .sequencer-option-row > .sequencer-bars-add,
+  .sequencer-option-row > .sequencer-option-row__controls,
+  .sequencer-option-row > input[type="checkbox"] {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .sequencer-option-row__controls {
+    justify-content: space-between;
+  }
+
+  .sequencer-option-row.sequencer-option-row--mobile-inline > .sequencer-option-row__controls,
+  .sequencer-option-row.sequencer-option-row--mobile-inline > input[type="checkbox"] {
+    width: 50%;
+    margin-left: auto;
+  }
+
+  .sequencer-option-row.sequencer-option-row--mobile-inline > .sequencer-option-row__controls {
+    width: auto;
+    gap: 0.4em;
+    justify-content: flex-start;
+  }
+
+  .sequencer-option-row.sequencer-option-row--mobile-inline > .sequencer-option-row__controls .preset-action-btn {
+    width: auto;
+    max-width: none;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+
+  .sequencer-bars-add {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .sequencer-bars-add--tempo {
+    grid-template-columns: minmax(7.6em, 1fr) minmax(0, 1fr) max-content;
+  }
+
+  .sequencer-bars-add--bar {
+    grid-template-columns: minmax(7.6em, 1fr) minmax(0, 1fr) max-content;
+  }
+
 }
 
 #sidebar .sequencer-arrow-btn {

@@ -169,6 +169,7 @@ function commitTextInput(target, commit) {
  */
 const Sequencer = ({
   snapshots,
+  displaySnapshots,
   bars,
   tempi,
   snapshotLabelMode,
@@ -176,6 +177,7 @@ const Sequencer = ({
   activeSequenceSavedName,
   activeSequenceDescription,
   sequenceLegato,
+  snapSequenceToCurrentTuning,
   sequenceAutoCreateBars,
   selectedSnapshotId,
   selectedMarker,
@@ -187,6 +189,7 @@ const Sequencer = ({
   onSequenceDescriptionChange,
   onSequenceSaved,
   onSequenceLegatoChange,
+  onSnapSequenceToCurrentTuningChange,
   onSequenceAutoCreateBarsChange,
   onSetSnapshotLabelMode,
   onSelectSnapshot,
@@ -217,13 +220,15 @@ const Sequencer = ({
   onUpdateSnapshot,
   onResetSnapshotDescription,
 }) => {
+  const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(true);
   const [newBarPosition, setNewBarPosition] = useState("1.000000");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newTempoBpm, setNewTempoBpm] = useState("60");
+  const [newBarNumerator, setNewBarNumerator] = useState("4");
+  const [newBarDenominator, setNewBarDenominator] = useState("4");
   const [confirmClearSnapshots, setConfirmClearSnapshots] = useState(false);
-  const [confirmClearSequence, setConfirmClearSequence] = useState(false);
   const [pendingSnapshotJumpIndex, setPendingSnapshotJumpIndex] = useState("");
   const [pendingCueJumpIndex, setPendingCueJumpIndex] = useState("");
   const [dragOverId, setDragOverId] = useState(null);
@@ -256,22 +261,28 @@ const Sequencer = ({
     () => (Array.isArray(tempi) ? normalizeTempoMarkers(tempi) : []),
     [tempi],
   );
-  const sequenceEvents = useMemo(() => deriveSequenceEvents(snapshots, sortedBars, sortedTempi), [snapshots, sortedBars, sortedTempi]);
-  const sequenceCueGroups = useMemo(() => deriveSequenceCueGroups(snapshots, sortedBars, sortedTempi), [snapshots, sortedBars, sortedTempi]);
+  const sequenceEvents = useMemo(
+    () => deriveSequenceEvents(renderedSnapshots, sortedBars, sortedTempi),
+    [renderedSnapshots, sortedBars, sortedTempi],
+  );
+  const sequenceCueGroups = useMemo(
+    () => deriveSequenceCueGroups(renderedSnapshots, sortedBars, sortedTempi),
+    [renderedSnapshots, sortedBars, sortedTempi],
+  );
 
   const rawPlayheadStepIndex = Number.isFinite(playhead?.stepIndex) ? playhead.stepIndex : -1;
-  const playheadIsOff = rawPlayheadStepIndex < 0 || snapshots.length === 0;
-  const playheadIsEnd = !playheadIsOff && rawPlayheadStepIndex >= snapshots.length;
+  const playheadIsOff = rawPlayheadStepIndex < 0 || renderedSnapshots.length === 0;
+  const playheadIsEnd = !playheadIsOff && rawPlayheadStepIndex >= renderedSnapshots.length;
   const playheadStepIndex =
     playheadIsOff || playheadIsEnd
       ? -1
-      : Math.max(0, Math.min(snapshots.length - 1, rawPlayheadStepIndex));
+      : Math.max(0, Math.min(renderedSnapshots.length - 1, rawPlayheadStepIndex));
   const playheadMarkerIndex = Number.isFinite(playhead?.markerIndex) ? playhead.markerIndex : null;
 
   const snapshotIndexById = useMemo(() => {
-    const entries = snapshots.map((snapshot, index) => [snapshot.id, index + 1]);
+    const entries = renderedSnapshots.map((snapshot, index) => [snapshot.id, index + 1]);
     return new Map(entries);
-  }, [snapshots]);
+  }, [renderedSnapshots]);
 
   const findSnapshotById = useCallback((snapshotId) => (
     snapshots.find((snapshot) => snapshot.id === snapshotId) ?? null
@@ -1231,9 +1242,13 @@ const Sequencer = ({
 
   const addBarAtRequestedPosition = () => {
     const numeric = Number(newBarPosition);
+    const numerator = Math.max(0, Math.round(Number(newBarNumerator) || 0));
+    const denominator = Math.max(1, Math.round(Number(newBarDenominator) || 1));
     if (!Number.isFinite(numeric)) return;
-    onAddBar?.(Math.round(numeric * 1000000) / 1000000);
+    onAddBar?.(Math.round(numeric * 1000000) / 1000000, numerator, denominator);
     setNewBarPosition("1.000000");
+    setNewBarNumerator("4");
+    setNewBarDenominator("4");
   };
 
   const addTempoAtRequestedPosition = () => {
@@ -1243,6 +1258,21 @@ const Sequencer = ({
     onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm);
     setNewTempoPosition("1.000000");
     setNewTempoBpm("60");
+  };
+
+  const updateNewBarMeterField = (field, rawValue) => {
+    const digitsOnly = String(rawValue ?? "").replace(/[^\d]/g, "");
+    if (digitsOnly === "") {
+      if (field === "numerator") setNewBarNumerator("");
+      else setNewBarDenominator("");
+      return;
+    }
+    const parsed = Math.round(Number(digitsOnly) || 0);
+    if (field === "numerator") {
+      setNewBarNumerator(String(Math.max(0, parsed)));
+      return;
+    }
+    setNewBarDenominator(String(Math.max(1, parsed)));
   };
 
   const handleEnterCommit = (e, commit) => {
@@ -1724,6 +1754,7 @@ const Sequencer = ({
   };
 
   const renderEventRow = (snapshot, snapshotIndex, event, keySuffix = "row") => {
+    const sourceSnapshot = findSnapshotById(snapshot.id) ?? snapshot;
     const isMarkerSelected =
       selectedMarker?.snapshotId === snapshot.id &&
       selectedMarker?.time === event.relativeTime;
@@ -1903,13 +1934,14 @@ const Sequencer = ({
               e.currentTarget.value = formatEditableMidicents(event.midicents);
               e.currentTarget.select();
             }}
+            disabled={snapSequenceToCurrentTuning}
             onKeyDown={(e) => handleEnterCommit(
               e,
-              (value) => updateEventField(snapshot, event.noteKey, "midicents", value),
+              (value) => updateEventField(sourceSnapshot, event.noteKey, "midicents", value),
             )}
             onBlur={(e) => handleBlurCommit(
               e,
-              (value) => updateEventField(snapshot, event.noteKey, "midicents", value),
+              (value) => updateEventField(sourceSnapshot, event.noteKey, "midicents", value),
               () => {
                 const next = Number(e.currentTarget.value);
                 e.currentTarget.value = Number.isFinite(next)
@@ -1934,13 +1966,14 @@ const Sequencer = ({
               e.currentTarget.value = formatEditableFrequency(event.frequency);
               e.currentTarget.select();
             }}
+            disabled={snapSequenceToCurrentTuning}
             onKeyDown={(e) => handleEnterCommit(
               e,
-              (value) => updateEventField(snapshot, event.noteKey, "frequency", value),
+              (value) => updateEventField(sourceSnapshot, event.noteKey, "frequency", value),
             )}
             onBlur={(e) => handleBlurCommit(
               e,
-              (value) => updateEventField(snapshot, event.noteKey, "frequency", value),
+              (value) => updateEventField(sourceSnapshot, event.noteKey, "frequency", value),
               () => {
                 const next = Number(e.currentTarget.value);
                 e.currentTarget.value = Number.isFinite(next)
@@ -1964,7 +1997,7 @@ const Sequencer = ({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
-                  restoreEventPitchLabel(snapshot, event.noteKey);
+                  restoreEventPitchLabel(sourceSnapshot, event.noteKey);
                 }}
               >
                 <span class="preset-refresh-glyph" aria-hidden="true">⟳</span>
@@ -2357,7 +2390,7 @@ const Sequencer = ({
 
             <div class="sequencer-option-row">
               <span>Choose Tempo Position</span>
-              <span class="sequencer-bars-add">
+              <span class="sequencer-bars-add sequencer-bars-add--tempo">
                 <input
                   type="text"
                   class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
@@ -2365,14 +2398,17 @@ const Sequencer = ({
                   value={newTempoPosition}
                   onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
                 />
-                <input
-                  type="text"
-                  class="sidebar-input sequencer-bars-add__position"
-                  aria-label="new tempo bpm"
-                  value={newTempoBpm}
-                  onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
-                />
-                <button type="button" class="preset-action-btn" onClick={addTempoAtRequestedPosition}>
+                <span class="sequencer-bars-add__tempo">
+                  <input
+                    type="text"
+                    class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpm === "60" ? " sequencer-bars-add__position--hint" : ""}`}
+                    aria-label="new tempo bpm"
+                    value={newTempoBpm}
+                    onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+                  />
+                  <span class="sequencer-bars-add__suffix">bpm</span>
+                </span>
+                <button type="button" class="preset-action-btn sequencer-bars-add__button" onClick={addTempoAtRequestedPosition}>
                   Add Tempo
                 </button>
               </span>
@@ -2380,7 +2416,7 @@ const Sequencer = ({
 
             <div class="sequencer-option-row">
               <span>Choose Bar Position</span>
-              <span class="sequencer-bars-add">
+              <span class="sequencer-bars-add sequencer-bars-add--bar">
                 <input
                   type="text"
                   class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
@@ -2393,13 +2429,34 @@ const Sequencer = ({
                     addBarAtRequestedPosition();
                   }}
                 />
-                <button type="button" class="preset-action-btn" onClick={addBarAtRequestedPosition}>
+                <span class="sequencer-bars-add__meter">
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarNumerator === "4" ? " sequencer-bars-add__position--hint" : ""}`}
+                    aria-label="new bar numerator"
+                    value={newBarNumerator}
+                    onInput={(e) => updateNewBarMeterField("numerator", e.currentTarget.value)}
+                  />
+                  <span class="sequencer-bars-add__meter-separator">/</span>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarDenominator === "4" ? " sequencer-bars-add__position--hint" : ""}`}
+                    aria-label="new bar denominator"
+                    value={newBarDenominator}
+                    onInput={(e) => updateNewBarMeterField("denominator", e.currentTarget.value)}
+                  />
+                </span>
+                <button type="button" class="preset-action-btn sequencer-bars-add__button" onClick={addBarAtRequestedPosition}>
                   Add Bar
                 </button>
               </span>
             </div>
 
-            <label class="sequencer-option-row">
+            <label class="sequencer-option-row sequencer-option-row--mobile-inline">
               <span>Auto-Create Bars</span>
               <span class="sequencer-option-row__controls">
                 <input
@@ -2417,7 +2474,16 @@ const Sequencer = ({
 
         {showAllEvents ? (
           <>
-            <label class="sequencer-option-row">
+            <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+              <span>Snap Sequence to Current Tuning</span>
+              <input
+                type="checkbox"
+                checked={snapSequenceToCurrentTuning}
+                onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
+              />
+            </label>
+
+            <label class="sequencer-option-row sequencer-option-row--mobile-inline">
               <span>Legato</span>
               <input
                 type="checkbox"
@@ -2425,43 +2491,6 @@ const Sequencer = ({
                 onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
               />
             </label>
-
-            <div class="preset-actions preset-actions--library">
-              {snapshots.length > 0 || (bars?.length ?? 0) > 1 || (tempi?.length ?? 0) > 1 ? (
-                <span class="preset-actions__clear-slot">
-                  {confirmClearSequence ? (
-                    <span class="preset-actions__confirm">
-                      <em class="preset-actions__confirm-text">Clear sequence?</em>
-                      <button
-                        type="button"
-                        class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
-                        onClick={() => {
-                          onClearSequence?.();
-                          setConfirmClearSequence(false);
-                        }}
-                      >
-                        Yes, clear
-                      </button>
-                      <button
-                        type="button"
-                        class="preset-utility-btn settings-form__inline-button--nowrap"
-                        onClick={() => setConfirmClearSequence(false)}
-                      >
-                        Cancel
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      class="delete-btn preset-utility-btn preset-actions__clear-trigger settings-form__inline-button--nowrap sequencer-clear-sequence-btn"
-                      onClick={() => setConfirmClearSequence(true)}
-                    >
-                      Clear Sequence
-                    </button>
-                  )}
-                </span>
-              ) : null}
-            </div>
           </>
         ) : null}
 
@@ -2514,7 +2543,7 @@ const Sequencer = ({
                 armPendingSnapshot(value);
               }}
             >
-              {snapshots.map((snapshot, index) => (
+              {renderedSnapshots.map((snapshot, index) => (
                 <option
                   key={snapshot.id ?? index}
                   value={String(index)}
@@ -2684,7 +2713,7 @@ const Sequencer = ({
                   {marker.structuralType === "bar" ? renderBarRow(marker) : renderTempoRow(marker)}
                 </div>
               ))}
-              {snapshots.map((snapshot, index) => {
+              {renderedSnapshots.map((snapshot, index) => {
               const isPlaying = snapshot.id === playingSnapshotId;
               const isSelected = snapshot.id === selectedSnapshotId;
               const isExpanded = showAllEvents || expandedIds.has(snapshot.id);
