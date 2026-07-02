@@ -662,6 +662,18 @@ a:hover {
   transform: translateY(-0.01rem);
 }
 
+@media (max-width: 932px) and (pointer: coarse) {
+  .snapshot-stop-glyph {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    font-size: 0.5rem;
+    line-height: 1;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
 .snapshot-start-icon {
   display: block;
   width: 0.508rem;
