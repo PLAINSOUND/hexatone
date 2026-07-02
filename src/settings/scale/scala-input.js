@@ -83,10 +83,12 @@ const ScalaInput = ({
     }
   };
 
+  const resolvedWrapperClass = ["scala-input__wrapper", wrapperClass].filter(Boolean).join(" ");
+
   return (
     <span
-      class={wrapperClass}
-      style={{ display: "inline-flex", gap: "4px", alignItems: "center", ...wrapperStyle }}
+      class={resolvedWrapperClass}
+      style={wrapperStyle}
     >
       <input
         type="text"

@@ -117,7 +117,7 @@ export const Loading = () => <LoadingIcon />;
 
 function SidebarLoadingFallback() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "1.25em 0" }}>
+    <div className="app-shell__sidebar-loading">
       <LoadingIcon />
     </div>
   );
@@ -2589,37 +2589,10 @@ const App = () => {
         </div>
       )}
       {showRotationDebug && (
-        <div
-          style={{
-            position: "fixed",
-            top: "0.5em",
-            right: "0.5em",
-            zIndex: 40,
-            width: "min(22rem, 92vw)",
-            maxHeight: "40vh",
-            overflow: "auto",
-            padding: "0.5em 0.65em",
-            borderRadius: "8px",
-            background: "rgba(250, 249, 248, 0.94)",
-            border: "1px solid rgba(120, 80, 80, 0.35)",
-            boxShadow: "0 2px 12px rgba(70, 40, 40, 0.12)",
-            color: "#330000",
-            fontSize: "11px",
-            lineHeight: 1.25,
-            fontFamily: "monospace",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "0.35em",
-              gap: "0.5em",
-            }}
-          >
+        <div className="app-shell__rotation-debug">
+          <div className="app-shell__rotation-debug-header">
             <strong>Rotation Debug</strong>
-            <div style={{ display: "flex", gap: "0.35em" }}>
+            <div className="app-shell__rotation-debug-actions">
               <button type="button" onClick={() => setRotationDebugEvents([])}>
                 Clear
               </button>
@@ -2631,11 +2604,7 @@ const App = () => {
           {rotationDebugEvents.map((event, index) => (
             <div
               key={`${event.at}-${event.source}-${index}`}
-              style={{
-                paddingTop: "0.3em",
-                marginTop: index === 0 ? 0 : "0.3em",
-                borderTop: index === 0 ? "none" : "1px solid rgba(120, 80, 80, 0.18)",
-              }}
+              className={`app-shell__rotation-debug-entry${index === 0 ? " app-shell__rotation-debug-entry--first" : ""}`}
             >
               <div>
                 {event.at} {event.source}
@@ -2701,7 +2670,7 @@ const App = () => {
               onPointerDown={(e) => {
                 runTouchControlAction(e, toggleOctaveDeferred);
               }}
-              style={{ cursor: "pointer", pointerEvents: "auto" }}
+              className="app-shell__octave-toggle"
             >
               {octaveTranspose === 0
                 ? "OCT"
@@ -3175,10 +3144,7 @@ const App = () => {
               scale in the table or drag to retune. ESC toggles a hand-free latch sustain. ENTER takes
               snapshots across tunings.{" "}
               {!showManual && (
-                <span
-                  style={{ cursor: "pointer", color: "#990000" }}
-                  onClick={() => setShowManual(true)}
-                >
+                <span className="app-shell__intro-more" onClick={() => setShowManual(true)}>
                   … more
                 </span>
               )}

@@ -1299,3 +1299,67 @@ a:hover {
 #ios-banner button:hover {
   background: rgba(255, 255, 255, 0.14);
 }
+
+
+/* ── 7. App shell helpers ────────────────────────────────── */
+/* → app.jsx */
+
+.app-shell__sidebar-loading {
+  display: flex;
+  justify-content: center;
+  padding: 1.25em 0;
+}
+
+.app-shell__rotation-debug {
+  position: fixed;
+  top: 0.5em;
+  right: 0.5em;
+  z-index: 40;
+  width: min(22rem, 92vw);
+  max-height: 40vh;
+  overflow: auto;
+  padding: 0.5em 0.65em;
+  border-radius: 8px;
+  background: rgba(250, 249, 248, 0.94);
+  border: 1px solid rgba(120, 80, 80, 0.35);
+  box-shadow: 0 2px 12px rgba(70, 40, 40, 0.12);
+  color: #330000;
+  font-size: 11px;
+  line-height: 1.25;
+  font-family: monospace;
+}
+
+.app-shell__rotation-debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35em;
+  gap: 0.5em;
+}
+
+.app-shell__rotation-debug-actions {
+  display: flex;
+  gap: 0.35em;
+}
+
+.app-shell__rotation-debug-entry {
+  padding-top: 0.3em;
+  margin-top: 0.3em;
+  border-top: 1px solid rgba(120, 80, 80, 0.18);
+}
+
+.app-shell__rotation-debug-entry--first {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
+
+.app-shell__octave-toggle,
+.app-shell__intro-more {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.app-shell__intro-more {
+  color: #990000;
+}

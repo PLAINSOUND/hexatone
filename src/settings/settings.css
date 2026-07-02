@@ -3329,6 +3329,12 @@ input.equiv-cell:disabled,
 }
 
 /* Fixed-width cents badge beside ratio/EDO entries — 4 digits + ¢ fits 1200¢ */
+.scala-input__wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .scala-input__cents {
   display: inline-block;
   width: 2.2em;
@@ -3447,6 +3453,10 @@ input.equiv-cell:disabled,
 
 .tune-handle:hover  { background: #ddd0d0; }
 .tune-handle:active { background: #ccbbbb; cursor: grabbing; }
+
+.tune-handle--padded {
+  padding-bottom: 6px;
+}
 
 .tune-delta {
   font-family: monospace;

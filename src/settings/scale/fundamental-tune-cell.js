@@ -149,12 +149,11 @@ const FundamentalTuneCell = ({
         </button>
       )}
       <span
-        class="tune-handle"
+        class="tune-handle tune-handle--padded"
         title="Drag to adjust Reference Frequency — slow for fine, fast for coarse"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        style={{ paddingBottom: "6px" }}
       >
         ⟺
       </span>

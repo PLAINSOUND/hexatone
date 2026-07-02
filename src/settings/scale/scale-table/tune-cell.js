@@ -309,12 +309,11 @@ const TuneCell = ({
         </button>
       )}
       <span
-        class="tune-handle"
+        class="tune-handle tune-handle--padded"
         title="Drag left/right to tune — slow for fine, fast for coarse"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        style={{ paddingBottom: "6px" }}
       >
         ⟺
       </span>
