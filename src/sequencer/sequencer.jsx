@@ -2780,6 +2780,24 @@ const Sequencer = ({
                         if (!showAllEvents) toggleExpanded(snapshot.id);
                       }}
                     >
+                      <span class="sequencer-row__delete-cell">
+                        {isSelected && (
+                          <button
+                            type="button"
+                            class="sequencer-gutter__delete"
+                            aria-label={`delete snapshot ${index + 1}`}
+                            title={`Delete snapshot ${index + 1}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteSnapshot(snapshot.id);
+                            }}
+                          >
+                            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+                              ×
+                            </span>
+                          </button>
+                        )}
+                      </span>
                       <span
                         class={`sequencer-gutter${isSelected ? " sequencer-gutter--selected" : ""}${draggedId === snapshot.id ? " sequencer-gutter--dragging" : ""}`}
                         draggable="true"
@@ -2860,24 +2878,6 @@ const Sequencer = ({
                           </span>
                         </button>
                       </span>
-                      <span class="sequencer-row__delete-cell sequencer-row__delete-cell--trailing">
-                        {isSelected && (
-                          <button
-                            type="button"
-                            class="sequencer-gutter__delete"
-                            aria-label={`delete snapshot ${index + 1}`}
-                            title={`Delete snapshot ${index + 1}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteSnapshot(snapshot.id);
-                            }}
-                          >
-                            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
-                              ×
-                            </span>
-                          </button>
-                        )}
-                      </span>
                     </div>
 
                     {isExpanded && (
@@ -2906,7 +2906,7 @@ const Sequencer = ({
                             <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--heji">
                               <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Name", "Name")}</span>
                             </div>
-                            {currentEventPane === "timing" ? (
+                            {eventPane === "timing" ? (
                               <>
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--bar">
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Bar", "Bar")}</span>
@@ -2930,7 +2930,7 @@ const Sequencer = ({
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("off-vel", "v-off")}</span>
                                 </div>
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
-                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("press", "prs")}</span>
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("pressure", "prs")}</span>
                                 </div>
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("timbre", "tim")}</span>
