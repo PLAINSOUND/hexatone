@@ -2300,14 +2300,19 @@ const Sequencer = ({
 
       <fieldset class="sequencer-capture-fieldset">
         <legend>
-          <b>Snapshot</b>
+          <b>Snapshots</b>
         </legend>
         <p>
           <em>
             ENTER stores currently sounding notes, including attack and release velocity, pressure, 
             and timbre data if available. May be layered with notes from a previous snapshot 
             to build up chords in stages. The Sequence panel, below, allows snapshots to be 
-            played, ordered, and edited. Use the OPTION key while dragging to duplicate a snapshot.
+            played, ordered, and edited. Use the OPTION key while dragging to duplicate a snapshot. 
+            By changing the start and end times of note events, cues are automatically generated. 
+            Global position values are relative to snapshots, which are automatically numbered. By 
+            creating bars and time signatures, those snapshot-relative positions may be generated from 
+            a score expressed in bars, beats and fractions of beats. The flow of time can be specified 
+            by assigning a tempo in bpm to any fraction of a bar.
           </em>
         </p>
         <div class="preset-actions preset-actions--library">
@@ -2373,21 +2378,6 @@ const Sequencer = ({
 
         {showAllEvents ? (
           <>
-            <label class="sequencer-option-row">
-              <span>Snapshot Labels</span>
-              <select
-                class="sidebar-input"
-                value={snapshotLabelMode}
-                onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
-              >
-                {SNAPSHOT_LABEL_MODES.map((mode) => (
-                  <option key={mode.value} value={mode.value}>
-                    {mode.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
             <div class="sequencer-option-row">
               <span>Choose Tempo Position</span>
               <span class="sequencer-bars-add sequencer-bars-add--tempo">
@@ -2474,15 +2464,21 @@ const Sequencer = ({
 
         {showAllEvents ? (
           <>
-            <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-              <span>Snap Sequence to Current Tuning</span>
-              <input
-                type="checkbox"
-                checked={snapSequenceToCurrentTuning}
-                onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
-              />
+            <label class="sequencer-option-row">
+              <span>Snapshot Labels</span>
+              <select
+                class="sidebar-input"
+                value={snapshotLabelMode}
+                onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
+              >
+                {SNAPSHOT_LABEL_MODES.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
             </label>
-
+            
             <label class="sequencer-option-row sequencer-option-row--mobile-inline">
               <span>Legato</span>
               <input
@@ -2491,6 +2487,16 @@ const Sequencer = ({
                 onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
               />
             </label>
+            
+            <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+              <span>Snap Sequence to Current Tuning</span>
+              <input
+                type="checkbox"
+                checked={snapSequenceToCurrentTuning}
+                onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
+              />
+            </label>
+            
           </>
         ) : null}
 
