@@ -1157,8 +1157,8 @@ td.scale-color-col .color-input {
 .sequencer-item {
   --sequencer-delete-col: 1.15em;
   --sequencer-number-col: 1.55em;
-  --sequencer-event-snapshot-col: minmax(2.8em, 0.62fr);
-  --sequencer-event-position-col: minmax(0, 1.18fr);
+  --sequencer-event-snapshot-col: var(--sequencer-event-value-col);
+  --sequencer-event-position-col: minmax(0, 1.36fr);
   --sequencer-event-kind-col: minmax(0, 0.44fr);
   --sequencer-event-pitch-col: minmax(0, 1fr);
   --sequencer-event-value-col: minmax(0, 0.82fr);
@@ -1246,6 +1246,12 @@ td.scale-color-col .color-input {
   align-items: center;
   justify-content: center;
   min-height: 1.5em;
+}
+
+.sequencer-row__delete-cell--trailing {
+  flex: 0 0 auto;
+  min-width: 1em;
+  margin-left: 0.5em;
 }
 
 .sequencer-gutter {
@@ -2744,8 +2750,8 @@ td.scale-color-col .color-input {
     --sequencer-detail-columns:
       var(--sequencer-delete-col)
       var(--sequencer-number-col)
-      minmax(2.65em, 1fr)
-      2em
+      minmax(2em, 0.9fr)
+      minmax(2.65em, 1.15fr)
       minmax(2.6em, 1fr)
       minmax(2.55em, 1fr)
       minmax(2.2em, 1fr)

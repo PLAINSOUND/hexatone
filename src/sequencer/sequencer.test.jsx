@@ -6,6 +6,503 @@ import { loadUserSequences } from "./sequence-library.jsx";
 import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
 
 describe("Sequencer", () => {
+  it("auto-scrolls cue stepping to the first event row in the active cue, including earlier-snapshot note-offs", () => {
+    const originalRaf = window.requestAnimationFrame;
+    const originalCancelRaf = window.cancelAnimationFrame;
+    const raf = vi.fn((callback) => {
+      callback();
+      return 1;
+    });
+    const cancelRaf = vi.fn();
+    window.requestAnimationFrame = raf;
+    window.cancelAnimationFrame = cancelRaf;
+    globalThis.requestAnimationFrame = raf;
+    globalThis.cancelAnimationFrame = cancelRaf;
+
+    const baseProps = {
+      bars: [{ id: 1, position: 1 }],
+      snapshotLabelMode: "labels",
+      selectedSnapshotId: 11,
+      selectedMarker: null,
+      playingSnapshotId: 11,
+      onTakeSnapshot: vi.fn(),
+      onLoadSequence: vi.fn(),
+      onSequenceNameChange: vi.fn(),
+      onSequenceDescriptionChange: vi.fn(),
+      onSequenceLegatoChange: vi.fn(),
+      onSetSnapshotLabelMode: vi.fn(),
+      onSelectSnapshot: vi.fn(),
+      onSelectMarker: vi.fn(),
+      onPlaySnapshot: vi.fn(),
+      onStopSnapshot: vi.fn(),
+      onSelectSequenceBar: vi.fn(),
+      onStepSequence: vi.fn(),
+      onStepSequenceMarker: vi.fn(),
+      onPlaySequence: vi.fn(),
+      onPlayCue: vi.fn(),
+      onResetSequencePlayhead: vi.fn(),
+      onAddBar: vi.fn(),
+      onAddTempo: vi.fn(),
+      onAddBarsBeforeSnapshots: vi.fn(),
+      onDeleteBar: vi.fn(),
+      onDeleteTempo: vi.fn(),
+      onUpdateBar: vi.fn(),
+      onUpdateTempo: vi.fn(),
+      onMoveBar: vi.fn(),
+      onDeleteSnapshot: vi.fn(),
+      onMoveSnapshot: vi.fn(),
+      onUpdateSnapshot: vi.fn(),
+      onResetSnapshotDescription: vi.fn(),
+      activeSequenceName: "",
+      activeSequenceDescription: "",
+      sequenceLegato: true,
+      snapshots: [
+        {
+          id: 10,
+          length: 2,
+          description: "carry",
+          notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1.25 }],
+        },
+        {
+          id: 11,
+          length: 1,
+          description: "arrival",
+          notes: [{ id: "b", midicents: 72, displayLabel: "C", start: 0.25, end: 1 }],
+        },
+      ],
+    };
+
+    const { container, rerender } = render(
+      <Sequencer
+        {...baseProps}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: false }}
+      />,
+    );
+
+    const scrollPanel = container.querySelector(".sequencer-scroll-panel");
+    Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 1000 });
+    let scrollTopValue = 0;
+    Object.defineProperty(scrollPanel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTopValue,
+      set: (value) => {
+        scrollTopValue = value;
+      },
+    });
+    scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
+
+    const eventRows = container.querySelectorAll(".sequencer-event-row");
+    eventRows[0].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[1].getBoundingClientRect = () => ({ top: 320, bottom: 350, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[2].getBoundingClientRect = () => ({ top: 680, bottom: 710, left: 0, right: 0, width: 0, height: 30 });
+
+    rerender(
+      <Sequencer
+        {...baseProps}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: 1, stopped: false }}
+      />,
+    );
+
+    expect(scrollTopValue).toBe(314);
+
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCancelRaf;
+    globalThis.requestAnimationFrame = originalRaf;
+    globalThis.cancelAnimationFrame = originalCancelRaf;
+  });
+
+  it("auto-scrolls to the selected snapshot row when a pending snapshot target is chosen", () => {
+    const originalRaf = window.requestAnimationFrame;
+    const originalCancelRaf = window.cancelAnimationFrame;
+    const raf = vi.fn((callback) => {
+      callback();
+      return 1;
+    });
+    window.requestAnimationFrame = raf;
+    window.cancelAnimationFrame = vi.fn();
+    globalThis.requestAnimationFrame = raf;
+    globalThis.cancelAnimationFrame = window.cancelAnimationFrame;
+
+    const { container } = render(
+      <Sequencer
+        snapshots={[
+          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
+          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    const scrollPanel = container.querySelector(".sequencer-scroll-panel");
+    Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 1000 });
+    let scrollTopValue = 0;
+    Object.defineProperty(scrollPanel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTopValue,
+      set: (value) => {
+        scrollTopValue = value;
+      },
+    });
+    scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
+
+    const snapshotRows = container.querySelectorAll(".sequencer-item:not(.sequencer-item--bar)");
+    snapshotRows[0].getBoundingClientRect = () => ({ top: 60, bottom: 90, left: 0, right: 0, width: 0, height: 30 });
+    snapshotRows[1].getBoundingClientRect = () => ({ top: 240, bottom: 270, left: 0, right: 0, width: 0, height: 30 });
+
+    fireEvent.change(screen.getByLabelText("next snapshot target"), { target: { value: "1" } });
+
+    expect(scrollTopValue).toBe(234);
+
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCancelRaf;
+    globalThis.requestAnimationFrame = originalRaf;
+    globalThis.cancelAnimationFrame = originalCancelRaf;
+  });
+
+  it("auto-scrolls to the selected cue row when a pending cue target is chosen", () => {
+    const originalRaf = window.requestAnimationFrame;
+    const originalCancelRaf = window.cancelAnimationFrame;
+    const raf = vi.fn((callback) => {
+      callback();
+      return 1;
+    });
+    window.requestAnimationFrame = raf;
+    window.cancelAnimationFrame = vi.fn();
+    globalThis.requestAnimationFrame = raf;
+    globalThis.cancelAnimationFrame = window.cancelAnimationFrame;
+
+    const { container } = render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 2,
+            description: "carry",
+            notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1.25 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "arrival",
+            notes: [{ id: "b", midicents: 72, displayLabel: "C", start: 0.25, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    const scrollPanel = container.querySelector(".sequencer-scroll-panel");
+    Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 1000 });
+    let scrollTopValue = 0;
+    Object.defineProperty(scrollPanel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTopValue,
+      set: (value) => {
+        scrollTopValue = value;
+      },
+    });
+    scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
+
+    const eventRows = container.querySelectorAll(".sequencer-event-row");
+    eventRows[0].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[1].getBoundingClientRect = () => ({ top: 320, bottom: 350, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[2].getBoundingClientRect = () => ({ top: 680, bottom: 710, left: 0, right: 0, width: 0, height: 30 });
+
+    fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
+
+    expect(scrollTopValue).toBe(314);
+
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCancelRaf;
+    globalThis.requestAnimationFrame = originalRaf;
+    globalThis.cancelAnimationFrame = originalCancelRaf;
+  });
+
+  it("keeps all relevant snapshots expanded in closed view while cue playback spans multiple snapshots", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 2,
+            description: "carry",
+            notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1.25 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "arrival",
+            notes: [{ id: "b", midicents: 72, displayLabel: "C", start: 0.25, end: 1 }],
+          },
+          {
+            id: 12,
+            length: 1,
+            description: "later",
+            notes: [{ id: "c", midicents: 76, displayLabel: "E", start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={11}
+        selectedMarker={null}
+        playingSnapshotId={11}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: 1, stopped: false }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+
+    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
+    expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
+    expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
+  });
+
+  it("hides sequence setup and edit controls in collapsed playback view", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+
+    expect(screen.queryByText("Snapshot Labels")).toBeNull();
+    expect(screen.queryByText("Choose Tempo Position")).toBeNull();
+    expect(screen.queryByText("Choose Bar Position")).toBeNull();
+    expect(screen.queryByText("Auto-Create Bars")).toBeNull();
+    expect(screen.queryByText("Legato")).toBeNull();
+    expect(screen.queryByText("Clear Sequence")).toBeNull();
+  });
+
+  it("cycles through three event panes in phone portrait mode", () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+      matches: query === "(max-width: 480px) and (orientation: portrait)",
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    }));
+
+    try {
+      render(
+        <Sequencer
+          snapshots={[
+            {
+              id: 10,
+              length: 1,
+              description: "A",
+              notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1 }],
+            },
+          ]}
+          bars={[{ id: 1, position: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+          activeSequenceName=""
+          activeSequenceDescription=""
+          sequenceLegato
+        />,
+      );
+
+      expect(screen.getAllByText("Bar").length).toBeGreaterThan(0);
+      expect(screen.queryByText("Num")).toBeNull();
+      expect(screen.getByLabelText("show beat fraction controls")).toBeTruthy();
+
+      fireEvent.click(screen.getByLabelText("show beat fraction controls"));
+      expect(screen.getAllByText("Num").length).toBeGreaterThan(0);
+      expect(screen.queryByText("Bar")).toBeNull();
+      expect(screen.getByLabelText("show expression controls")).toBeTruthy();
+
+      fireEvent.click(screen.getByLabelText("show expression controls"));
+      expect(screen.getAllByText("v-on").length).toBeGreaterThan(0);
+      expect(screen.getByLabelText("show bar and beat controls")).toBeTruthy();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it("renders snapshots as auto-numbered rows and expands derived event groups", () => {
     const onSelectSnapshot = vi.fn();
     const onSelectMarker = vi.fn();

@@ -17,6 +17,8 @@ import {
   sequenceNoteKeysAtCueIndex,
 } from "./trigger-groups.js";
 
+const PHONE_PORTRAIT_MEDIA_QUERY = "(max-width: 480px) and (orientation: portrait)";
+
 function formatSequenceTime(snapshotIndex, relativeTime) {
   const baseIndex = Number(snapshotIndex);
   const offset = Number(relativeTime);
@@ -155,6 +157,14 @@ function structuralEventInstanceKey(item) {
   return base;
 }
 
+function detectPhonePortrait() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(PHONE_PORTRAIT_MEDIA_QUERY).matches
+  );
+}
+
 function commitTextInput(target, commit) {
   if (!(target instanceof HTMLInputElement)) return;
   const value = target.value;
@@ -236,6 +246,7 @@ const Sequencer = ({
   const [tempoBarRelativeDrafts, setTempoBarRelativeDrafts] = useState({});
   const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
+  const [isPhonePortrait, setIsPhonePortrait] = useState(detectPhonePortrait);
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
@@ -245,9 +256,37 @@ const Sequencer = ({
   const scrollPanelRef = useRef(null);
   const snapshotRowRefs = useRef(new Map());
   const barRowRefs = useRef(new Map());
+  const eventRowRefs = useRef(new Map());
   const lastAutoScrolledSnapshotIdRef = useRef(null);
   const lastAutoScrolledBarIdRef = useRef(null);
+  const lastAutoScrolledCueIndexRef = useRef(null);
   const transportScrollTargetRef = useRef("snapshot");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mediaQuery = window.matchMedia(PHONE_PORTRAIT_MEDIA_QUERY);
+    const update = (event) => setIsPhonePortrait(event.matches);
+    setIsPhonePortrait(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", update);
+      return () => mediaQuery.removeEventListener("change", update);
+    }
+    mediaQuery.addListener(update);
+    return () => mediaQuery.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    setEventPane((current) => {
+      if (isPhonePortrait) {
+        if (current === "timing") return "timingPrimary";
+        if (current === "timingPrimary" || current === "timingSecondary" || current === "expression") return current;
+        return "timingPrimary";
+      }
+      if (current === "timingPrimary" || current === "timingSecondary") return "timing";
+      if (current === "timing" || current === "expression") return current;
+      return "timing";
+    });
+  }, [isPhonePortrait]);
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
   const sortedTempi = useMemo(
@@ -411,6 +450,15 @@ const Sequencer = ({
     }
     return indexes;
   }, [firstSnapshotEventIds, sequenceEvents]);
+  const firstEventIdByCueIndex = useMemo(() => {
+    const ids = new Map();
+    for (const event of sequenceEvents) {
+      if (event.type !== "note") continue;
+      if (!Number.isFinite(event.cueIndex)) continue;
+      if (!ids.has(event.cueIndex)) ids.set(event.cueIndex, event.eventId);
+    }
+    return ids;
+  }, [sequenceEvents]);
   const firstCueIndexBySnapshotIndex = useMemo(() => {
     const indexes = new Map();
     sequenceCueGroups.forEach((group, index) => {
@@ -447,6 +495,20 @@ const Sequencer = ({
         .map((note) => noteIdentity(note, snapshotLength)),
     );
   }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, sequencePlaybackActive, snapshots, sortedBars, sortedTempi]);
+  const cueExpandedSnapshotIds = useMemo(() => {
+    if (activeCueIndex == null) return new Set();
+    const ids = new Set();
+    for (const event of sequenceEvents) {
+      if (event.type !== "note") continue;
+      if (
+        event.cueIndex === activeCueIndex ||
+        (event.kind === "attack" && soundingAttackNoteKeys.has(event.noteKey))
+      ) {
+        if (event.snapshotId != null) ids.add(event.snapshotId);
+      }
+    }
+    return ids;
+  }, [activeCueIndex, sequenceEvents, soundingAttackNoteKeys]);
   const selectedCueAbsoluteTime = useMemo(() => {
     if (selectedMarker?.snapshotId != null && Number.isFinite(Number(selectedMarker?.time))) {
       const snapshotStart = snapshotIndexById.get(selectedMarker.snapshotId);
@@ -464,6 +526,22 @@ const Sequencer = ({
     if (barContext) onSelectSequenceBar?.(barContext.barIndex);
   };
 
+  const scrollNodeIntoPanel = useCallback((targetNode) => {
+    const scrollPanel = scrollPanelRef.current;
+    if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
+
+    window.requestAnimationFrame(() => {
+      const panelRect = scrollPanel.getBoundingClientRect();
+      const targetRect = targetNode.getBoundingClientRect();
+      const gap = 6;
+      const targetTop = scrollPanel.scrollTop + (targetRect.top - panelRect.top) - gap;
+      const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
+      const nextTop = Math.max(0, Math.min(maxTop, targetTop));
+      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
+      scrollPanel.scrollTop = nextTop;
+    });
+  }, []);
+
   const armPendingSnapshot = (snapshotIndex) => {
     transportScrollTargetRef.current = "snapshot";
     const nextSnapshotIndex = Number(snapshotIndex);
@@ -475,6 +553,11 @@ const Sequencer = ({
     setPendingSnapshotJumpIndex(String(nextSnapshotIndex));
     const nextCueIndex = firstCueIndexBySnapshotIndex.get(nextSnapshotIndex);
     setPendingCueJumpIndex(nextCueIndex == null ? "" : String(nextCueIndex));
+    const snapshotId = snapshots[nextSnapshotIndex]?.id ?? null;
+    if (snapshotId != null) {
+      const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
+      scrollNodeIntoPanel(snapshotRow);
+    }
     const snapshotTime = firstCueTimeBySnapshotIndex.get(nextSnapshotIndex) ?? (nextSnapshotIndex + 1);
     selectBarForPosition(snapshotTime);
   };
@@ -493,6 +576,11 @@ const Sequencer = ({
     }
     setPendingCueJumpIndex(String(nextCueIndex));
     setPendingSnapshotJumpIndex(String(cueGroup.snapshotIndex));
+    const eventId = firstEventIdByCueIndex.get(nextCueIndex + 1) ?? null;
+    if (eventId != null) {
+      const eventRow = eventRowRefs.current.get(eventId) ?? null;
+      scrollNodeIntoPanel(eventRow);
+    }
     selectBarForPosition(cueGroup.time);
   };
 
@@ -509,11 +597,23 @@ const Sequencer = ({
       setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
       return;
     }
+    if (activeCueIndex != null) {
+      setExpandedIds((prev) => {
+        if (
+          prev.size === cueExpandedSnapshotIds.size &&
+          [...cueExpandedSnapshotIds].every((id) => prev.has(id))
+        ) {
+          return prev;
+        }
+        return cueExpandedSnapshotIds.size > 0 ? new Set(cueExpandedSnapshotIds) : new Set([selectedSnapshotId]);
+      });
+      return;
+    }
     setExpandedIds((prev) => {
       if (prev.size === 1 && prev.has(selectedSnapshotId)) return prev;
       return new Set([selectedSnapshotId]);
     });
-  }, [playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
+  }, [activeCueIndex, cueExpandedSnapshotIds, playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
 
   useEffect(() => {
     if (snapshots.length > 0 || sortedBars.length > 0 || sortedTempi.length > 0) return;
@@ -536,6 +636,35 @@ const Sequencer = ({
   }, [selectedCueAbsoluteTime]);
 
   useEffect(() => {
+    if (Number.isFinite(activeCueIndex)) {
+      const cueIndex = activeCueIndex;
+      if (lastAutoScrolledCueIndexRef.current === cueIndex) return;
+      const scrollPanel = scrollPanelRef.current;
+      const eventId = firstEventIdByCueIndex.get(cueIndex) ?? null;
+      const eventRow = eventId != null ? eventRowRefs.current.get(eventId) ?? null : null;
+      if (!(scrollPanel instanceof HTMLElement) || !(eventRow instanceof HTMLElement)) return;
+
+      lastAutoScrolledCueIndexRef.current = cueIndex;
+      const frame = window.requestAnimationFrame(() => {
+        const panelRect = scrollPanel.getBoundingClientRect();
+        const eventRect = eventRow.getBoundingClientRect();
+        const gap = 6;
+        const targetTop = scrollPanel.scrollTop + (eventRect.top - panelRect.top) - gap;
+        const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
+        const nextTop = Math.max(0, Math.min(maxTop, targetTop));
+        if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
+        scrollPanel.scrollTop = nextTop;
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    lastAutoScrolledCueIndexRef.current = null;
+  }, [activeCueIndex, firstEventIdByCueIndex]);
+
+  useEffect(() => {
+    if (Number.isFinite(activeCueIndex)) {
+      lastAutoScrolledSnapshotIdRef.current = null;
+      return;
+    }
     const snapshotId = activeSnapshotId ?? null;
     if (snapshotId == null) {
       lastAutoScrolledSnapshotIdRef.current = null;
@@ -558,7 +687,7 @@ const Sequencer = ({
       scrollPanel.scrollTop = nextTop;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeSnapshotId]);
+  }, [activeCueIndex, activeSnapshotId]);
 
   useEffect(() => {
     if (!playheadIsOff || transportScrollTargetRef.current !== "bar") {
@@ -1174,16 +1303,53 @@ const Sequencer = ({
     </>
   );
 
+  const currentEventPane = isPhonePortrait
+    ? (eventPane === "timingPrimary" || eventPane === "timingSecondary" || eventPane === "expression"
+      ? eventPane
+      : "timingPrimary")
+    : (eventPane === "expression" ? "expression" : "timing");
+
+  const eventPaneToggleMeta = {
+    timing: {
+      next: "expression",
+      label: "show expression controls",
+      title: "Show expression controls",
+    },
+    timingPrimary: {
+      next: "timingSecondary",
+      label: "show beat fraction controls",
+      title: "Show beat fraction controls",
+    },
+    timingSecondary: {
+      next: "expression",
+      label: "show expression controls",
+      title: "Show expression controls",
+    },
+    expression: {
+      next: isPhonePortrait ? "timingPrimary" : "timing",
+      label: isPhonePortrait ? "show bar and beat controls" : "show bar-relative timing",
+      title: isPhonePortrait ? "Show bar and beat controls" : "Show bar-relative timing",
+    },
+  };
+
+  const renderGridSpacer = (key, className = "") => (
+    <div
+      key={key}
+      class={className}
+      aria-hidden="true"
+    />
+  );
+
   const renderPaneToggle = () => (
     <button
       type="button"
       class="sequencer-events-grid__pane-toggle"
-      aria-label={eventPane === "timing" ? "show expression controls" : "show bar-relative timing"}
-      title={eventPane === "timing" ? "Show expression controls" : "Show bar-relative timing"}
-      onClick={() => setEventPane((value) => (value === "timing" ? "expression" : "timing"))}
+      aria-label={eventPaneToggleMeta[currentEventPane].label}
+      title={eventPaneToggleMeta[currentEventPane].title}
+      onClick={() => setEventPane(eventPaneToggleMeta[currentEventPane].next)}
     >
       <span aria-hidden="true">
-        {eventPane === "timing" ? "→" : "←"}
+        →
       </span>
     </button>
   );
@@ -1647,6 +1813,10 @@ const Sequencer = ({
     return (
       <div
         key={`${event.eventId}:${keySuffix}`}
+        ref={(node) => {
+          if (node) eventRowRefs.current.set(event.eventId, node);
+          else eventRowRefs.current.delete(event.eventId);
+        }}
         class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}${isBarRelativeDraftActive ? " sequencer-event-row--bar-relative-draft" : ""}${isEventSequenceDraftActive ? " sequencer-event-row--sequence-draft" : ""}${draggedEventId === event.eventId ? " sequencer-event-row--dragging" : ""}`}
         data-bar-relative-draft-scope={`event:${draftKey}`}
         data-event-sequence-draft-scope={`event-sequence:${eventSequenceKey}`}
@@ -1861,7 +2031,7 @@ const Sequencer = ({
             ) : null}
           </span>
         </div>
-        {eventPane === "timing" ? (
+        {currentEventPane === "timing" ? (
           <>
             <div key={`${event.eventId}-timing-bar`} class="sequencer-event__cell sequencer-grid-offset">
               <input
@@ -1970,6 +2140,123 @@ const Sequencer = ({
                 }}
               />
             </div>
+          </>
+        ) : currentEventPane === "timingPrimary" ? (
+          <>
+            <div key={`${event.eventId}-timing-bar`} class="sequencer-event__cell sequencer-grid-offset">
+              <input
+                type="number"
+                step="1"
+                min="1"
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__bar${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={barRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} bar`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
+              />
+            </div>
+            <div key={`${event.eventId}-timing-beat`} class="sequencer-event__cell sequencer-grid-offset">
+              <input
+                type="number"
+                step="1"
+                min={isStoppedBar ? "0" : "1"}
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={beatValue}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
+                disabled={isStoppedBar}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
+              />
+            </div>
+            {renderGridSpacer(`${event.eventId}-timing-spacer-a`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
+            {renderGridSpacer(`${event.eventId}-timing-spacer-b`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
+          </>
+        ) : currentEventPane === "timingSecondary" ? (
+          <>
+            <div key={`${event.eventId}-timing-num`} class="sequencer-event__cell sequencer-grid-offset">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={numeratorValue}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
+                disabled={isStoppedBar}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
+              />
+            </div>
+            <div key={`${event.eventId}-timing-den`} class="sequencer-event__cell sequencer-grid-offset">
+              <input
+                type="number"
+                step="1"
+                min="1"
+                class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
+                value={denominatorValue}
+                aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
+                disabled={isStoppedBar}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.select();
+                }}
+                onInput={(e) => updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value, {
+                  snapshotId: snapshot.id,
+                  noteKey: event.noteKey,
+                  kind: event.kind,
+                })}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
+                }}
+              />
+            </div>
+            {renderGridSpacer(`${event.eventId}-timing-spacer-c`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
+            {renderGridSpacer(`${event.eventId}-timing-spacer-d`, "sequencer-event__cell sequencer-grid-offset sequencer-event__cell--spacer")}
           </>
         ) : (
           <>
@@ -2227,124 +2514,132 @@ const Sequencer = ({
           </button>
         </legend>
 
-        <label class="sequencer-option-row">
-          <span>Snapshot Labels</span>
-          <select
-            class="sidebar-input"
-            value={snapshotLabelMode}
-            onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
-          >
-            {SNAPSHOT_LABEL_MODES.map((mode) => (
-              <option key={mode.value} value={mode.value}>
-                {mode.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {showAllEvents ? (
+          <>
+            <label class="sequencer-option-row">
+              <span>Snapshot Labels</span>
+              <select
+                class="sidebar-input"
+                value={snapshotLabelMode}
+                onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
+              >
+                {SNAPSHOT_LABEL_MODES.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <div class="sequencer-option-row">
-          <span>Choose Tempo Position</span>
-          <span class="sequencer-bars-add">
-            <input
-              type="text"
-              class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
-              aria-label="new tempo position"
-              value={newTempoPosition}
-              onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
-            />
-            <input
-              type="text"
-              class="sidebar-input sequencer-bars-add__position"
-              aria-label="new tempo bpm"
-              value={newTempoBpm}
-              onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
-            />
-            <button type="button" class="preset-action-btn" onClick={addTempoAtRequestedPosition}>
-              Add Tempo
-            </button>
-          </span>
-        </div>
-
-        <div class="sequencer-option-row">
-          <span>Choose Bar Position</span>
-          <span class="sequencer-bars-add">
-            <input
-              type="text"
-              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
-              aria-label="new bar position"
-              value={newBarPosition}
-              onInput={(e) => setNewBarPosition(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                addBarAtRequestedPosition();
-              }}
-            />
-            <button type="button" class="preset-action-btn" onClick={addBarAtRequestedPosition}>
-              Add Bar
-            </button>
-          </span>
-        </div>
-
-        <label class="sequencer-option-row">
-          <span>Auto-Create Bars</span>
-          <span class="sequencer-option-row__controls">
-            <input
-              type="checkbox"
-              checked={sequenceAutoCreateBars}
-              onChange={(e) => onSequenceAutoCreateBarsChange?.(e.currentTarget.checked)}
-            />
-            <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
-              Add Bars Before Snapshots
-            </button>
-          </span>
-        </label>
-
-        <label class="sequencer-option-row">
-          <span>Legato</span>
-          <input
-            type="checkbox"
-            checked={sequenceLegato}
-            onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
-          />
-        </label>
-
-        <div class="preset-actions preset-actions--library">
-          {snapshots.length > 0 || (bars?.length ?? 0) > 1 || (tempi?.length ?? 0) > 1 ? (
-            <span class="preset-actions__clear-slot">
-              {confirmClearSequence ? (
-                <span class="preset-actions__confirm">
-                  <em class="preset-actions__confirm-text">Clear sequence?</em>
-                  <button
-                    type="button"
-                    class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
-                    onClick={() => {
-                      onClearSequence?.();
-                      setConfirmClearSequence(false);
-                    }}
-                  >
-                    Yes, clear
-                  </button>
-                  <button
-                    type="button"
-                    class="preset-utility-btn settings-form__inline-button--nowrap"
-                    onClick={() => setConfirmClearSequence(false)}
-                  >
-                    Cancel
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  class="delete-btn preset-utility-btn preset-actions__clear-trigger settings-form__inline-button--nowrap sequencer-clear-sequence-btn"
-                  onClick={() => setConfirmClearSequence(true)}
-                >
-                  Clear Sequence
+            <div class="sequencer-option-row">
+              <span>Choose Tempo Position</span>
+              <span class="sequencer-bars-add">
+                <input
+                  type="text"
+                  class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+                  aria-label="new tempo position"
+                  value={newTempoPosition}
+                  onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
+                />
+                <input
+                  type="text"
+                  class="sidebar-input sequencer-bars-add__position"
+                  aria-label="new tempo bpm"
+                  value={newTempoBpm}
+                  onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+                />
+                <button type="button" class="preset-action-btn" onClick={addTempoAtRequestedPosition}>
+                  Add Tempo
                 </button>
-              )}
-            </span>
-          ) : null}
-        </div>
+              </span>
+            </div>
+
+            <div class="sequencer-option-row">
+              <span>Choose Bar Position</span>
+              <span class="sequencer-bars-add">
+                <input
+                  type="text"
+                  class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+                  aria-label="new bar position"
+                  value={newBarPosition}
+                  onInput={(e) => setNewBarPosition(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    addBarAtRequestedPosition();
+                  }}
+                />
+                <button type="button" class="preset-action-btn" onClick={addBarAtRequestedPosition}>
+                  Add Bar
+                </button>
+              </span>
+            </div>
+
+            <label class="sequencer-option-row">
+              <span>Auto-Create Bars</span>
+              <span class="sequencer-option-row__controls">
+                <input
+                  type="checkbox"
+                  checked={sequenceAutoCreateBars}
+                  onChange={(e) => onSequenceAutoCreateBarsChange?.(e.currentTarget.checked)}
+                />
+                <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
+                  Add Bars Before Snapshots
+                </button>
+              </span>
+            </label>
+          </>
+        ) : null}
+
+        {showAllEvents ? (
+          <>
+            <label class="sequencer-option-row">
+              <span>Legato</span>
+              <input
+                type="checkbox"
+                checked={sequenceLegato}
+                onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
+              />
+            </label>
+
+            <div class="preset-actions preset-actions--library">
+              {snapshots.length > 0 || (bars?.length ?? 0) > 1 || (tempi?.length ?? 0) > 1 ? (
+                <span class="preset-actions__clear-slot">
+                  {confirmClearSequence ? (
+                    <span class="preset-actions__confirm">
+                      <em class="preset-actions__confirm-text">Clear sequence?</em>
+                      <button
+                        type="button"
+                        class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
+                        onClick={() => {
+                          onClearSequence?.();
+                          setConfirmClearSequence(false);
+                        }}
+                      >
+                        Yes, clear
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-utility-btn settings-form__inline-button--nowrap"
+                        onClick={() => setConfirmClearSequence(false)}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      class="delete-btn preset-utility-btn preset-actions__clear-trigger settings-form__inline-button--nowrap sequencer-clear-sequence-btn"
+                      onClick={() => setConfirmClearSequence(true)}
+                    >
+                      Clear Sequence
+                    </button>
+                  )}
+                </span>
+              ) : null}
+            </div>
+          </>
+        ) : null}
 
         <div ref={playbackRowRef} class="sequencer-playback-row" aria-label="Sequence playback">
           <span class="sequencer-playback-label">PLAY FROM</span>
@@ -2661,24 +2956,6 @@ const Sequencer = ({
                         if (!showAllEvents) toggleExpanded(snapshot.id);
                       }}
                     >
-                      <span class="sequencer-row__delete-cell">
-                        {isSelected && (
-                          <button
-                            type="button"
-                            class="sequencer-gutter__delete"
-                            aria-label={`delete snapshot ${index + 1}`}
-                            title={`Delete snapshot ${index + 1}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteSnapshot(snapshot.id);
-                            }}
-                          >
-                            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
-                              ×
-                            </span>
-                          </button>
-                        )}
-                      </span>
                       <span
                         class={`sequencer-gutter${isSelected ? " sequencer-gutter--selected" : ""}${draggedId === snapshot.id ? " sequencer-gutter--dragging" : ""}`}
                         draggable="true"
@@ -2759,6 +3036,24 @@ const Sequencer = ({
                           </span>
                         </button>
                       </span>
+                      <span class="sequencer-row__delete-cell sequencer-row__delete-cell--trailing">
+                        {isSelected && (
+                          <button
+                            type="button"
+                            class="sequencer-gutter__delete"
+                            aria-label={`delete snapshot ${index + 1}`}
+                            title={`Delete snapshot ${index + 1}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteSnapshot(snapshot.id);
+                            }}
+                          >
+                            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+                              ×
+                            </span>
+                          </button>
+                        )}
+                      </span>
                     </div>
 
                     {isExpanded && (
@@ -2787,7 +3082,7 @@ const Sequencer = ({
                             <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--heji">
                               <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Name", "Name")}</span>
                             </div>
-                            {eventPane === "timing" ? (
+                            {currentEventPane === "timing" ? (
                               <>
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--bar">
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Bar", "Bar")}</span>
@@ -2802,6 +3097,28 @@ const Sequencer = ({
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Den", "Den")}</span>
                                 </div>
                               </>
+                            ) : currentEventPane === "timingPrimary" ? (
+                              <>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--bar">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Bar", "Bar")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--beat">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Beat", "Beat")}</span>
+                                </div>
+                                {renderGridSpacer("heading-timing-primary-spacer-a", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
+                                {renderGridSpacer("heading-timing-primary-spacer-b", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
+                              </>
+                            ) : currentEventPane === "timingSecondary" ? (
+                              <>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--num">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Num", "Num")}</span>
+                                </div>
+                                <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--den">
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("Den", "Den")}</span>
+                                </div>
+                                {renderGridSpacer("heading-timing-secondary-spacer-a", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
+                                {renderGridSpacer("heading-timing-secondary-spacer-b", "sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--spacer")}
+                              </>
                             ) : (
                               <>
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
@@ -2811,7 +3128,7 @@ const Sequencer = ({
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("off-vel", "v-off")}</span>
                                 </div>
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
-                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("pressure", "prs")}</span>
+                                  <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("press", "prs")}</span>
                                 </div>
                                 <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
                                   <span class="sequencer-event__content sequencer-events-grid__heading-content">{renderResponsiveHeading("timbre", "tim")}</span>
