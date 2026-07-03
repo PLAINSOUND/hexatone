@@ -6,7 +6,7 @@ import { loadUserSequences } from "./sequence-library.jsx";
 import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
 
 describe("Sequencer", () => {
-  it("auto-scrolls cue stepping to the first event row in the active cue, including earlier-snapshot note-offs", () => {
+  it("keeps cue stepping anchored to the earliest sounding snapshot in full-list view", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -104,7 +104,7 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(scrollTopValue).toBe(314);
+    expect(scrollTopValue).toBe(0);
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;
@@ -197,7 +197,7 @@ describe("Sequencer", () => {
     globalThis.cancelAnimationFrame = originalCancelRaf;
   });
 
-  it("auto-scrolls to the selected cue row when a pending cue target is chosen", () => {
+  it("keeps pending cue selection anchored to the earliest sounding snapshot in full-list view", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -285,7 +285,7 @@ describe("Sequencer", () => {
 
     fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
 
-    expect(scrollTopValue).toBe(314);
+    expect(scrollTopValue).toBe(0);
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;
@@ -357,6 +357,77 @@ describe("Sequencer", () => {
     );
 
     fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+
+    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
+    expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
+    expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
+  });
+
+  it("previews all relevant snapshots in closed view when a cue is lined up", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 2,
+            description: "carry",
+            notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1.25 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "arrival",
+            notes: [{ id: "b", midicents: 72, displayLabel: "C", start: 0.25, end: 1 }],
+          },
+          {
+            id: 12,
+            length: 1,
+            description: "later",
+            notes: [{ id: "c", midicents: 76, displayLabel: "E", start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={11}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+        sequenceLegato
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+    fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
 
     expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
     expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();

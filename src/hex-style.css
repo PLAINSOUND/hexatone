@@ -222,17 +222,13 @@ a:hover {
   #sidebar-button {
     top: calc(env(safe-area-inset-top, 0px) + 0.5em);
     transform: none;
-  }
-
-  .hide #sidebar-button,
-  .show #sidebar-button { height: 2.5em; }
-
-  /* Keep the button hard against the left edge in compact landscape mode. */
-  #sidebar-button {
     left: 0;
     right: auto;
     border-top-left-radius: 0;
   }
+
+  .hide #sidebar-button,
+  .show #sidebar-button { height: 2.5em; }
 }
 
 
@@ -774,6 +770,11 @@ a:hover {
   gap: 6px;
   line-height: 1;
   min-height: 1.3em;
+  color: #006e84;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  justify-content: flex-start;
 }
 
 .modulation-palette-row {
@@ -783,18 +784,7 @@ a:hover {
   column-gap: 5px;
   line-height: 1;
   min-height: 1.3em;
-}
-
-.modulation-palette-row {
   height: 1.3em;
-}
-
-.modulation-palette-header {
-  color: #006e84;
-  cursor: grab;
-  -webkit-user-select: none;
-  user-select: none;
-  justify-content: flex-start;
 }
 
 .modulation-palette-handle {
@@ -1137,9 +1127,6 @@ a:hover {
     height: 1.45em;
     font-size: 1.56em;
     line-height: 0.82;
-  }
-
-  .modulation-palette-toggle {
     transform: translateY(-0.08em);
   }
 

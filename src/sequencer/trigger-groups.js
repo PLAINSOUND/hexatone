@@ -372,3 +372,35 @@ export function sequenceNoteKeysAtCueIndex(snapshots, bars = [], tempi = [], cue
 
   return [...activeNoteKeys];
 }
+
+export function sequenceNoteInstanceKeysAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
+  const events = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
+  const index = Number(cueIndex);
+  if (!Number.isFinite(index) || index < 0) return [];
+
+  const activeNoteKeys = new Set();
+  for (const event of events) {
+    if (!Number.isFinite(event.cueIndex) || event.cueIndex - 1 > index) break;
+    const instanceKey = `${event.snapshotId}:${event.noteKey}`;
+    if (event.kind === "attack") activeNoteKeys.add(instanceKey);
+    else activeNoteKeys.delete(instanceKey);
+  }
+
+  return [...activeNoteKeys];
+}
+
+export function sequenceAttackEventIdsAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
+  const events = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
+  const index = Number(cueIndex);
+  if (!Number.isFinite(index) || index < 0) return [];
+
+  const activeAttackIds = new Map();
+  for (const event of events) {
+    if (!Number.isFinite(event.cueIndex) || event.cueIndex - 1 > index) break;
+    const instanceKey = `${event.snapshotId}:${event.noteKey}`;
+    if (event.kind === "attack") activeAttackIds.set(instanceKey, event.eventId);
+    else activeAttackIds.delete(instanceKey);
+  }
+
+  return [...activeAttackIds.values()];
+}

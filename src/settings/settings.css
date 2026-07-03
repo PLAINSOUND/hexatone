@@ -1152,6 +1152,7 @@ td.scale-color-col .color-input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  padding-bottom: max(8rem, 35vh);
 }
 
 .sequencer-item {
@@ -1840,10 +1841,6 @@ td.scale-color-col .color-input {
   box-sizing: border-box;
 }
 
-.sequencer-list {
-  padding-bottom: max(8rem, 35vh);
-}
-
 .sequencer-events-grid {
   display: flex;
   flex-direction: column;
@@ -1958,10 +1955,6 @@ td.scale-color-col .color-input {
   line-height: 1;
   position: relative;
   z-index: 2;
-}
-
-.sequencer-tempo-row__summary-sep,
-.sequencer-tempo-row__summary-unit {
   font-size: 0.85em;
   color: rgba(111, 94, 94, 0.82);
 }
@@ -2188,15 +2181,10 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-bar-row__label,
-.sequencer-bar-row__position-cell,
 .sequencer-bar-row__time-cell {
   background: var(--color-bg);
   position: relative;
   z-index: 2;
-}
-
-.sequencer-bar-row__position-cell {
-  background: #ffe7eb;
 }
 
 .sequencer-tempo-row__line {
@@ -2698,40 +2686,7 @@ td.scale-color-col .color-input {
   -webkit-appearance: auto;
 }
 
-#sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper.sequencer-bar-row__signature-input {
-  font-family: "Plainsound Sans", sans-serif;
-  font-weight: bold;
-  min-height: 1.18em;
-  height: 1.18em;
-  line-height: 1;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-#sidebar .sequencer-bar-row input[type="text"].sequencer-event__input {
-  all: unset;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 1.5em;
-  min-width: 0;
-  padding-left: 0.28em;
-  box-sizing: border-box;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  background-color: transparent;
-  box-shadow: none;
-  color: inherit;
-  font: inherit;
-  line-height: 1.2;
-  text-align: left;
-  cursor: text;
-  pointer-events: auto;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
+#sidebar .sequencer-bar-row input[type="text"].sequencer-event__input,
 #sidebar .sequencer-tempo-row input[type="text"].sequencer-event__input {
   all: unset;
   display: flex;
@@ -2796,6 +2751,13 @@ td.scale-color-col .color-input {
 }
 
 #sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper.sequencer-bar-row__signature-input {
+  font-family: "Plainsound Sans", sans-serif;
+  font-weight: bold;
+  min-height: 1.18em;
+  height: 1.18em;
+  line-height: 1;
+  padding-top: 0;
+  padding-bottom: 0;
   text-align: center;
   padding-left: 0;
   justify-content: center;
@@ -3227,7 +3189,6 @@ td.scale-name-col input { width: 100%; }
 /* ── 4b. Row highlights: reference degree (yellow) + center degree (pink) ── */
 /* Reference degree = degree tuned to Reference Frequency → pale yellow       */
 /* Center degree    = degree drawn at canvas center       → pale pink         */
-/*                                                                             */
 /* !important is required on input rules because                               */
 /* td.scale-frequency-col input.frequency-input has higher element+class      */
 /* specificity and would otherwise override the row background colour.         */
@@ -3768,7 +3729,7 @@ input.equiv-cell:disabled,
 .heji-anchor-fieldset-actions {
   display: flex;
   justify-content: right;
-  align-items: right;
+  align-items: center;
   gap: 0.5em;
   margin-top: 0.15em;
   margin-bottom: 0.75em;
@@ -4038,10 +3999,6 @@ input.equiv-cell:disabled,
   }
 
   .heji-palette-builder__group-row--chunks .heji-palette-builder__pair {
-    gap: 0.22em;
-  }
-
-  .heji-palette-builder__group-row--note .heji-palette-builder__symbols {
     gap: 0.22em;
   }
 
