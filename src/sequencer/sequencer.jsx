@@ -7,7 +7,6 @@ import BarRow from "./bar-row.jsx";
 import TempoRow from "./tempo-row.jsx";
 import {
   barContextForPosition,
-  barBeatToAbsolutePosition,
   normalizeBarMarkers,
   normalizeTempoMarkers,
 } from "./transport.js";
@@ -18,7 +17,6 @@ import {
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
 import {
-  sequenceAttackEventIdsAtCueIndex,
   deriveSequenceCueGroups,
   deriveSequenceEvents,
 } from "./trigger-groups.js";
@@ -34,15 +32,41 @@ import {
 } from "./timeline-runtime.js";
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
 import {
-  clamp,
+  buildCueExpandedSnapshotIdsAt,
+  deriveCueScrollAnchorSnapshotId,
+  deriveExpandedSnapshotIds,
+  deriveSoundingAttackEventIds,
+  firstSnapshotIdInSet,
+  sameSnapshotSet,
+} from "./view-runtime.js";
+import {
   commitTextInput,
-  formatSequenceOffset,
-  frequencyToMidicents,
   normalizeSequenceNumber,
   noteIdentity,
-  sortSnapshotNotes,
   structuralEventInstanceKey,
 } from "./value-runtime.js";
+import {
+  eventBarRelativeDraftKey,
+  eventSequenceDraftKey,
+  commitForeignDrafts,
+  removeDraftEntry,
+  resolveBarRelativeDraftPosition,
+  resolveDraftScopeTarget,
+  resolveEventSequenceDraftTarget,
+  tempoBarRelativeDraftKey,
+  updateBarRelativeDrafts,
+  updateEventSequenceDrafts,
+} from "./sequence-drafts.js";
+import {
+  applyEventBarRelativeDraftToSnapshot,
+  deleteEventNoteFromSnapshot,
+  restoreEventPitchLabelInSnapshot,
+  updateEventFieldInSnapshot,
+} from "./sequence-mutations.js";
+import {
+  applyTransferredNote,
+  buildTransferredNote,
+} from "./sequence-operations.js";
 
 /**
  * Sequencer — early sidebar workspace for building sequencer material from
@@ -239,45 +263,29 @@ const Sequencer = ({
     playheadStepIndex >= 0 && !playheadIsEnd ? (snapshots[playheadStepIndex]?.id ?? null) : null;
   const sequencePlaybackActive = !!playingSnapshotId && playhead?.stopped !== true;
   const soundingAttackEventIds = useMemo(() => {
-    if (!sequencePlaybackActive) return new Set();
-    if (playheadMarkerIndex != null) {
-      return new Set(sequenceAttackEventIdsAtCueIndex(snapshots, sortedBars, sortedTempi, playheadMarkerIndex));
-    }
-    const activeSnapshot = activeSnapshotId != null
-      ? snapshots.find((snapshot) => snapshot.id === activeSnapshotId)
-      : snapshots.find((snapshot) => snapshot.id === playingSnapshotId);
-    if (!activeSnapshot) return new Set();
-    return new Set(
-      (activeSnapshot.notes ?? [])
-        .filter((note) => Number.isFinite(Number(note?.midicents)))
-        .map((note) => {
-          const noteStart = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
-          return [
-            activeSnapshot.id,
-            note.id ?? `${Number(note.midicents)}:${noteStart}:attack`,
-            "attack",
-            noteStart,
-          ].join(":");
-        }),
-    );
-  }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, sequencePlaybackActive, snapshots, sortedBars, sortedTempi]);
+    return deriveSoundingAttackEventIds({
+      sequencePlaybackActive,
+      playheadMarkerIndex,
+      renderedSnapshots,
+      sortedBars,
+      sortedTempi,
+      activeSnapshotId,
+      playingSnapshotId,
+    });
+  }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, renderedSnapshots, sequencePlaybackActive, sortedBars, sortedTempi]);
   const cueExpandedSnapshotIds = useMemo(
     () => buildCueExpandedSnapshotIds(activeCueIndex, sequenceEvents, soundingAttackEventIds),
     [activeCueIndex, sequenceEvents, soundingAttackEventIds],
   );
   const cueExpandedSnapshotIdsAt = useCallback((cueIndexZeroBased) => {
-    const cueIndexOneBased = Number(cueIndexZeroBased) + 1;
-    if (!Number.isFinite(cueIndexOneBased) || cueIndexOneBased <= 0) return new Set();
-    const attackIds = new Set(
-      sequenceAttackEventIdsAtCueIndex(snapshots, sortedBars, sortedTempi, cueIndexZeroBased),
+    return buildCueExpandedSnapshotIdsAt(
+      cueIndexZeroBased,
+      renderedSnapshots,
+      sortedBars,
+      sortedTempi,
+      sequenceEvents,
     );
-    return buildCueExpandedSnapshotIds(cueIndexOneBased, sequenceEvents, attackIds);
-  }, [sequenceEvents, snapshots, sortedBars, sortedTempi]);
-  const firstSnapshotIdInSet = useCallback((snapshotIds) => {
-    if (!(snapshotIds instanceof Set) || snapshotIds.size === 0) return null;
-    const firstSnapshot = snapshots.find((snapshot) => snapshotIds.has(snapshot.id));
-    return firstSnapshot?.id ?? null;
-  }, [snapshots]);
+  }, [renderedSnapshots, sequenceEvents, sortedBars, sortedTempi]);
   const selectedCueAbsoluteTime = useMemo(
     () => deriveSelectedCueAbsoluteTime(selectedMarker, playheadMarkerIndex, sequenceCueGroups, snapshotIndexById),
     [playheadMarkerIndex, selectedMarker, sequenceCueGroups, snapshotIndexById],
@@ -348,7 +356,7 @@ const Sequencer = ({
       const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
       if (previewExpandedIds.size > 0) {
         setExpandedIds(previewExpandedIds);
-        const anchorSnapshotId = firstSnapshotIdInSet(previewExpandedIds);
+        const anchorSnapshotId = firstSnapshotIdInSet(previewExpandedIds, snapshots);
         if (anchorSnapshotId != null) {
           const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
           scrollNodeIntoPanel(snapshotRow);
@@ -372,42 +380,18 @@ const Sequencer = ({
   };
 
   useEffect(() => {
-    if (showAllEvents) return;
-    if (pendingCueJumpIndex !== "") {
-      const previewCueIndex = Number(pendingCueJumpIndex);
-      if (Number.isFinite(previewCueIndex)) {
-        const previewIds = cueExpandedSnapshotIdsAt(previewCueIndex);
-        if (previewIds.size > 0) {
-          setExpandedIds((prev) => {
-            if (prev.size === previewIds.size && [...previewIds].every((id) => prev.has(id))) {
-              return prev;
-            }
-            return new Set(previewIds);
-          });
-          return;
-        }
-      }
-    }
-    if (playheadIsOff || playheadIsEnd || selectedSnapshotId == null) {
-      setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
-      return;
-    }
-    if (activeCueIndex != null) {
-      setExpandedIds((prev) => {
-        if (
-          prev.size === cueExpandedSnapshotIds.size &&
-          [...cueExpandedSnapshotIds].every((id) => prev.has(id))
-        ) {
-          return prev;
-        }
-        return cueExpandedSnapshotIds.size > 0 ? new Set(cueExpandedSnapshotIds) : new Set([selectedSnapshotId]);
-      });
-      return;
-    }
-    setExpandedIds((prev) => {
-      if (prev.size === 1 && prev.has(selectedSnapshotId)) return prev;
-      return new Set([selectedSnapshotId]);
+    const nextExpandedIds = deriveExpandedSnapshotIds({
+      showAllEvents,
+      pendingCueJumpIndex,
+      cueExpandedSnapshotIdsAt,
+      playheadIsOff,
+      playheadIsEnd,
+      selectedSnapshotId,
+      activeCueIndex,
+      cueExpandedSnapshotIds,
     });
+    if (nextExpandedIds == null) return;
+    setExpandedIds((prev) => (sameSnapshotSet(prev, nextExpandedIds) ? prev : nextExpandedIds));
   }, [activeCueIndex, cueExpandedSnapshotIds, cueExpandedSnapshotIdsAt, pendingCueJumpIndex, playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
 
   useEffect(() => {
@@ -432,19 +416,13 @@ const Sequencer = ({
 
   useEffect(() => {
     if (Number.isFinite(activeCueIndex)) {
-      if (showAllEvents) {
-        const cueGroup = sequenceCueGroups[activeCueIndex - 1] ?? null;
-        const anchorSnapshotId = cueGroup != null ? (snapshots[cueGroup.snapshotIndex]?.id ?? null) : null;
-        if (anchorSnapshotId == null) return;
-        if (lastAutoScrolledCueTargetRef.current === `snapshot:${anchorSnapshotId}`) return;
-        const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
-        if (!(snapshotRow instanceof HTMLElement)) return;
-        lastAutoScrolledCueTargetRef.current = `snapshot:${anchorSnapshotId}`;
-        scrollNodeIntoPanel(snapshotRow);
-        return;
-      }
-
-      const anchorSnapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds);
+      const anchorSnapshotId = deriveCueScrollAnchorSnapshotId({
+        showAllEvents,
+        activeCueIndex,
+        sequenceCueGroups,
+        snapshots,
+        cueExpandedSnapshotIds,
+      });
       if (anchorSnapshotId == null) return;
       if (lastAutoScrolledCueTargetRef.current === `snapshot:${anchorSnapshotId}`) return;
       const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
@@ -455,7 +433,7 @@ const Sequencer = ({
       return;
     }
     lastAutoScrolledCueTargetRef.current = null;
-  }, [activeCueIndex, cueExpandedSnapshotIds, firstSnapshotIdInSet, scrollNodeIntoPanel, sequenceCueGroups, showAllEvents, snapshots]);
+  }, [activeCueIndex, cueExpandedSnapshotIds, scrollNodeIntoPanel, sequenceCueGroups, showAllEvents, snapshots]);
 
   useEffect(() => {
     if (Number.isFinite(activeCueIndex)) {
@@ -543,65 +521,19 @@ const Sequencer = ({
     return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
   };
 
-  const eventSequenceDraftKey = (snapshotId, eventId, kind) => `${snapshotId}:${eventId}:${kind}`;
-
-  const buildEventSequenceDraft = (snapshotNumber, relativeTime, meta = {}) => ({
-    snapshotNumber: String(snapshotNumber),
-    offset: formatSequenceOffset(relativeTime),
-    ...meta,
-  });
-
   const updateEventSequenceDraftField = (draftKey, field, value, meta) => {
-    setEventSequenceDrafts((prev) => {
-      const current = prev[draftKey] ?? buildEventSequenceDraft(meta.snapshotNumber, meta.relativeTime);
-      if (field === "snapshotNumber") {
-        const currentSnapshotNumber = Number(current.snapshotNumber);
-        const currentOffset = Number(current.offset);
-        const currentAbsoluteTime = Number.isFinite(currentSnapshotNumber) && Number.isFinite(currentOffset)
-          ? normalizeSequenceNumber(currentSnapshotNumber + currentOffset)
-          : normalizeSequenceNumber(Number(meta.snapshotNumber) + Number(meta.relativeTime));
-        const nextSnapshotNumber = Math.max(1, Math.min(snapshots.length, Math.round(Number(value) || 1)));
-        return {
-          ...prev,
-          [draftKey]: {
-            ...current,
-            ...meta,
-            draftKey,
-            scope: `event-sequence:${draftKey}`,
-            snapshotNumber: String(nextSnapshotNumber),
-            offset: formatSequenceOffset(currentAbsoluteTime - nextSnapshotNumber),
-          },
-        };
-      }
-      return {
-        ...prev,
-        [draftKey]: {
-          ...current,
-          ...meta,
-          draftKey,
-          scope: `event-sequence:${draftKey}`,
-          [field]: value,
-        },
-      };
-    });
+    setEventSequenceDrafts((prev) => updateEventSequenceDrafts(prev, {
+      draftKey,
+      field,
+      value,
+      meta,
+      snapshotCount: snapshots.length,
+    }));
   };
 
   const cancelEventSequenceDraft = (draftKey) => {
-    setEventSequenceDrafts((prev) => {
-      if (!(draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draftKey];
-      return next;
-    });
+    setEventSequenceDrafts((prev) => removeDraftEntry(prev, draftKey));
   };
-
-  const applyNoteIntoSnapshot = useCallback((targetSnapshotId, buildNotes) => {
-    const targetSnapshot = findSnapshotById(targetSnapshotId);
-    if (!targetSnapshot) return;
-    const length = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
-    const nextNotes = sortSnapshotNotes(buildNotes(targetSnapshot, length), length);
-    onUpdateSnapshot(targetSnapshotId, { notes: nextNotes });
-  }, [findSnapshotById, onUpdateSnapshot]);
 
   const commitNoteTransfer = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, mutateNote, options = {}) => {
     const sourceSnapshot = findSnapshotById(sourceSnapshotId);
@@ -610,62 +542,45 @@ const Sequencer = ({
 
     const sourceFound = findNoteInSnapshot(sourceSnapshot, noteKey);
     if (!sourceFound) return;
-    const { note, length: sourceLength } = sourceFound;
-    const sourceSnapshotNumber = snapshotIndexById.get(sourceSnapshot.id) ?? 1;
-    const targetSnapshotNumber = snapshotIndexById.get(targetSnapshot.id) ?? 1;
-    const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
-    const rawEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : sourceLength;
-    const end = Math.max(start, rawEnd);
-    const absoluteStart = normalizeSequenceNumber(sourceSnapshotNumber + start);
-    const absoluteEnd = normalizeSequenceNumber(sourceSnapshotNumber + end);
-
-    const targetLength = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
-    const baseMovedNote = {
-      ...JSON.parse(JSON.stringify(note)),
-      start: normalizeSequenceNumber(absoluteStart - targetSnapshotNumber),
-      end: normalizeSequenceNumber(absoluteEnd - targetSnapshotNumber),
-    };
-    const movedNote = mutateNote(baseMovedNote, {
+    const { note } = sourceFound;
+    const transferred = buildTransferredNote({
       sourceSnapshot,
       targetSnapshot,
-      sourceSnapshotNumber,
-      targetSnapshotNumber,
-      absoluteStart,
-      absoluteEnd,
-      sourceLength,
-      targetLength,
+      note,
+      noteKey,
+      snapshotIndexById,
+      mutateNote,
     });
-    if (!movedNote) return;
+    if (!transferred) return;
 
-    if (options.duplicate) {
-      const duplicateBaseId = note.id ?? noteKey;
-      movedNote.id = nextDuplicateNoteId(duplicateBaseId);
-      applyNoteIntoSnapshot(targetSnapshot.id, (snapshot) => [...(snapshot.notes ?? []), movedNote]);
-    } else if (sourceSnapshot.id === targetSnapshot.id) {
-      applyNoteIntoSnapshot(sourceSnapshot.id, (snapshot, length) => (
-        (snapshot.notes ?? []).map((entry) => (
-          noteIdentity(entry, length) === noteKey ? movedNote : entry
-        ))
-      ));
-    } else {
-      applyNoteIntoSnapshot(sourceSnapshot.id, (snapshot, length) => (
-        (snapshot.notes ?? []).filter((entry) => noteIdentity(entry, length) !== noteKey)
-      ));
-      applyNoteIntoSnapshot(targetSnapshot.id, (snapshot) => [...(snapshot.notes ?? []), movedNote]);
+    const movedNote = options.selectKind === "release"
+      ? { ...transferred.movedNote, __selectedTime: transferred.movedNote.end }
+      : transferred.movedNote;
+    const applied = applyTransferredNote({
+      sourceSnapshot,
+      targetSnapshot,
+      noteKey,
+      movedNote,
+      duplicate: options.duplicate === true,
+      duplicateId: options.duplicate ? nextDuplicateNoteId(note.id ?? noteKey) : null,
+    });
+    if (!applied) return;
+
+    if (applied.sourceNotes != null) {
+      onUpdateSnapshot(sourceSnapshot.id, { notes: applied.sourceNotes });
+    }
+    if (applied.targetNotes != null) {
+      onUpdateSnapshot(targetSnapshot.id, { notes: applied.targetNotes });
     }
 
-    const nextSelectedSnapshot = targetSnapshot.id;
-    const nextSelectedTime = options.selectKind === "release"
-      ? movedNote.end
-      : movedNote.start;
-    onSelectSnapshot?.(nextSelectedSnapshot);
-    onSelectMarker?.(nextSelectedSnapshot, nextSelectedTime);
+    onSelectSnapshot?.(applied.selectedSnapshotId);
+    onSelectMarker?.(applied.selectedSnapshotId, options.selectKind === "release" ? movedNote.end : movedNote.start);
     notifyEditCommitted();
   }, [
-    applyNoteIntoSnapshot,
     findNoteInSnapshot,
     findSnapshotById,
     nextDuplicateNoteId,
+    onUpdateSnapshot,
     onSelectMarker,
     onSelectSnapshot,
     snapshotIndexById,
@@ -674,9 +589,8 @@ const Sequencer = ({
   const deleteEventNote = useCallback((snapshotId, noteKey) => {
     const snapshot = findSnapshotById(snapshotId);
     if (!snapshot) return;
-    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-    const nextNotes = (snapshot.notes ?? []).filter((note) => noteIdentity(note, length) !== noteKey);
-    onUpdateSnapshot(snapshot.id, { notes: sortSnapshotNotes(nextNotes, length) });
+    const notes = deleteEventNoteFromSnapshot(snapshot, noteKey);
+    onUpdateSnapshot(snapshot.id, { notes });
     notifyEditCommitted();
   }, [findSnapshotById, onUpdateSnapshot]);
 
@@ -693,12 +607,9 @@ const Sequencer = ({
   }, [commitNoteTransfer]);
 
   const applyEventSequenceDraft = useCallback((draft) => {
-    if (!draft) return;
-    const snapshotNumber = Math.max(1, Math.min(snapshots.length, Math.round(Number(draft.snapshotNumber) || 1)));
-    const targetSnapshot = snapshots[snapshotNumber - 1];
-    const nextOffset = Number(draft.offset);
-    if (!targetSnapshot || !Number.isFinite(nextOffset)) return;
-    const nextAbsoluteTime = normalizeSequenceNumber(snapshotNumber + nextOffset);
+    const resolved = resolveEventSequenceDraftTarget(draft, snapshots);
+    if (!resolved) return;
+    const { targetSnapshot, nextAbsoluteTime } = resolved;
 
     commitNoteTransfer(
       draft.snapshotId,
@@ -718,64 +629,19 @@ const Sequencer = ({
       { selectKind: draft.kind },
     );
 
-    setEventSequenceDrafts((prev) => {
-      if (!(draft.draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draft.draftKey];
-      return next;
-    });
+    setEventSequenceDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
   }, [commitNoteTransfer, snapshots]);
-
-  const eventBarRelativeDraftKey = (snapshotId, eventId, kind) => `${snapshotId}:${eventId}:${kind}`;
-
-  const buildBarRelativeDraft = (barBeat, changedField = null, override = {}) => {
-    const next = {
-      barNumber: String(override.barNumber ?? barBeat?.barNumber ?? 1),
-      beat: String(override.beat ?? barBeat?.beat ?? 1),
-      numerator: String(override.numerator ?? barBeat?.numerator ?? 0),
-      denominator: String(override.denominator ?? barBeat?.denominator ?? 1),
-    };
-    if (changedField === "bar") {
-      next.beat = "1";
-      next.numerator = "0";
-    } else if (changedField === "beat") {
-      next.numerator = "0";
-    }
-    return next;
-  };
 
   const stoppedBarStateForBarNumber = useCallback(
     (barNumber) => isStoppedBarNumber(barNumber, sortedBars),
     [sortedBars],
   );
 
-  const normalizeDraftForStoppedBar = useCallback((draft) => {
-    if (!draft) return draft;
-    if (!stoppedBarStateForBarNumber(draft.barNumber)) return draft;
-    return {
-      ...draft,
-      beat: "0",
-      numerator: "0",
-      denominator: "1",
-    };
-  }, [stoppedBarStateForBarNumber]);
-
   const applyTempoBarRelativeDraft = useCallback((draft) => {
-    if (!draft) return;
-    const position = barBeatToAbsolutePosition({
-      barNumber: Number(draft.barNumber),
-      beat: Number(draft.beat),
-      numerator: Number(draft.numerator),
-      denominator: Number(draft.denominator),
-    }, sortedBars);
+    const position = resolveBarRelativeDraftPosition(draft, sortedBars);
     if (position == null) return;
     onUpdateTempo?.(draft.tempoId, { position });
-    setTempoBarRelativeDrafts((prev) => {
-      if (!(draft.draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draft.draftKey];
-      return next;
-    });
+    setTempoBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted();
   }, [onUpdateTempo, sortedBars]);
 
@@ -783,112 +649,49 @@ const Sequencer = ({
     if (!draft) return;
     const snapshot = snapshots.find((entry) => entry.id === draft.snapshotId);
     if (!snapshot) return;
-    const absoluteTime = barBeatToAbsolutePosition({
-      barNumber: Number(draft.barNumber),
-      beat: Number(draft.beat),
-      numerator: Number(draft.numerator),
-      denominator: Number(draft.denominator),
-    }, sortedBars);
+    const absoluteTime = resolveBarRelativeDraftPosition(draft, sortedBars);
     if (absoluteTime == null) return;
-    const denominator = Math.max(1, Math.round(Number(draft.denominator) || 1));
-    const notes = (snapshot.notes ?? []).map((note) => {
-      const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-      if (noteIdentity(note, length) !== draft.noteKey) return note;
-      const nextRelativeTime = Math.round((absoluteTime - (snapshotIndexById.get(snapshot.id) ?? 1)) * 1000000) / 1000000;
-      if (draft.kind === "attack") {
-        return {
-          ...note,
-          start: nextRelativeTime,
-          end: Math.max(
-            nextRelativeTime,
-            Number.isFinite(Number(note?.end)) ? Number(note.end) : length,
-          ),
-          startFractionDenominator: denominator,
-        };
-      }
-      return {
-        ...note,
-        end: Math.max(
-          Number.isFinite(Number(note?.start)) ? Number(note.start) : 0,
-          nextRelativeTime,
-        ),
-        endFractionDenominator: denominator,
-      };
-    });
+    const notes = applyEventBarRelativeDraftToSnapshot(
+      snapshot,
+      draft,
+      absoluteTime,
+      snapshotIndexById.get(snapshot.id) ?? 1,
+    );
     onUpdateSnapshot(snapshot.id, { notes });
-    setBarRelativeDrafts((prev) => {
-      if (!(draft.draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draft.draftKey];
-      return next;
-    });
+    setBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted();
   }, [onUpdateSnapshot, snapshots, sortedBars, snapshotIndexById]);
 
   const updateEventBarRelativeDraftField = (draftKey, barBeat, field, value, meta) => {
-    const draftField = field === "bar"
-      ? "barNumber"
-      : field === "num"
-        ? "numerator"
-        : field === "den"
-          ? "denominator"
-          : field;
-    setBarRelativeDrafts((prev) => {
-      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
-      const nextDraft = {
-        ...buildBarRelativeDraft(current, field, { [draftField]: value }),
-        ...meta,
-        draftKey,
-        scope: `event:${draftKey}`,
-      };
-      return {
-        ...prev,
-        [draftKey]: normalizeDraftForStoppedBar(nextDraft),
-      };
-    });
+    setBarRelativeDrafts((prev) => updateBarRelativeDrafts(prev, {
+      draftKey,
+      barBeat,
+      field,
+      value,
+      meta,
+      scopePrefix: "event",
+      isStoppedBar: stoppedBarStateForBarNumber,
+    }));
   };
 
   const cancelEventBarRelativeDraft = (draftKey) => {
-    setBarRelativeDrafts((prev) => {
-      if (!(draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draftKey];
-      return next;
-    });
+    setBarRelativeDrafts((prev) => removeDraftEntry(prev, draftKey));
   };
 
-  const tempoBarRelativeDraftKey = (tempoId) => String(tempoId);
-
   const updateTempoBarRelativeDraftField = (draftKey, barBeat, field, value, meta) => {
-    const draftField = field === "bar"
-      ? "barNumber"
-      : field === "num"
-        ? "numerator"
-        : field === "den"
-          ? "denominator"
-          : field;
-    setTempoBarRelativeDrafts((prev) => {
-      const current = prev[draftKey] ?? buildBarRelativeDraft(barBeat);
-      const nextDraft = {
-        ...buildBarRelativeDraft(current, field, { [draftField]: value }),
-        ...meta,
-        draftKey,
-        scope: `tempo:${draftKey}`,
-      };
-      return {
-        ...prev,
-        [draftKey]: normalizeDraftForStoppedBar(nextDraft),
-      };
-    });
+    setTempoBarRelativeDrafts((prev) => updateBarRelativeDrafts(prev, {
+      draftKey,
+      barBeat,
+      field,
+      value,
+      meta,
+      scopePrefix: "tempo",
+      isStoppedBar: stoppedBarStateForBarNumber,
+    }));
   };
 
   const cancelTempoBarRelativeDraft = (draftKey) => {
-    setTempoBarRelativeDrafts((prev) => {
-      if (!(draftKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[draftKey];
-      return next;
-    });
+    setTempoBarRelativeDrafts((prev) => removeDraftEntry(prev, draftKey));
   };
 
   const commitTempoBarRelativeDraft = (tempoId, draftKey) => {
@@ -910,14 +713,8 @@ const Sequencer = ({
 
   useEffect(() => {
     const handlePointerDown = (event) => {
-      const targetScope = event.target instanceof Element
-        ? event.target.closest("[data-event-sequence-draft-scope]")?.getAttribute("data-event-sequence-draft-scope")
-        : null;
-
-      Object.values(eventSequenceDrafts).forEach((draft) => {
-        if (!draft || draft.scope === targetScope) return;
-        applyEventSequenceDraft(draft);
-      });
+      const targetScope = resolveDraftScopeTarget(event, "data-event-sequence-draft-scope");
+      commitForeignDrafts(eventSequenceDrafts, targetScope, applyEventSequenceDraft);
     };
 
     document.addEventListener("pointerdown", handlePointerDown, true);
@@ -930,19 +727,9 @@ const Sequencer = ({
 
   useEffect(() => {
     const handlePointerDown = (event) => {
-      const targetScope = event.target instanceof Element
-        ? event.target.closest("[data-bar-relative-draft-scope]")?.getAttribute("data-bar-relative-draft-scope")
-        : null;
-
-      Object.values(barRelativeDrafts).forEach((draft) => {
-        if (!draft || draft.scope === targetScope) return;
-        applyEventBarRelativeDraft(draft);
-      });
-
-      Object.values(tempoBarRelativeDrafts).forEach((draft) => {
-        if (!draft || draft.scope === targetScope) return;
-        applyTempoBarRelativeDraft(draft);
-      });
+      const targetScope = resolveDraftScopeTarget(event, "data-bar-relative-draft-scope");
+      commitForeignDrafts(barRelativeDrafts, targetScope, applyEventBarRelativeDraft);
+      commitForeignDrafts(tempoBarRelativeDrafts, targetScope, applyTempoBarRelativeDraft);
     };
 
     document.addEventListener("pointerdown", handlePointerDown, true);
@@ -954,78 +741,13 @@ const Sequencer = ({
   }, [barRelativeDrafts, tempoBarRelativeDrafts, applyEventBarRelativeDraft, applyTempoBarRelativeDraft]);
 
   const updateEventField = (snapshot, noteKey, field, rawValue) => {
-    const numeric = Number(rawValue);
-    if (!Number.isFinite(numeric)) return;
-    const pitchUnchanged = (a, b) => Math.abs(Number(a) - Number(b)) < 0.0000005;
-
-    const notes = (snapshot.notes ?? []).map((note) => {
-      const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-      if (noteIdentity(note, length) !== noteKey) return note;
-
-      const originalMidicents = Number.isFinite(Number(note.originalMidicents))
-        ? Number(note.originalMidicents)
-        : Number(note.midicents);
-      const originalDisplayLabel = note.originalDisplayLabel ?? note.displayLabel ?? "";
-
-      if (field === "midicents") {
-        if (pitchUnchanged(numeric, note.midicents)) return note;
-        return {
-          ...note,
-          midicents: numeric,
-          originalMidicents,
-          originalDisplayLabel,
-          displayLabel: "edited",
-          displayLabelEdited: true,
-        };
-      }
-      if (field === "frequency") {
-        const midicents = frequencyToMidicents(numeric);
-        if (midicents == null || pitchUnchanged(midicents, note.midicents)) return note;
-        return midicents == null ? note : {
-          ...note,
-          midicents,
-          originalMidicents,
-          originalDisplayLabel,
-          displayLabel: "edited",
-          displayLabelEdited: true,
-        };
-      }
-      if (field === "attackVelocity") {
-        return { ...note, attackVelocity: clamp(Math.round(numeric), 0, 127) };
-      }
-      if (field === "releaseVelocity") {
-        return { ...note, releaseVelocity: clamp(Math.round(numeric), 0, 127) };
-      }
-      if (field === "pressure") {
-        return { ...note, pressure: clamp(Math.round(numeric), 0, 127) };
-      }
-      if (field === "timbre") {
-        return { ...note, timbre: clamp(Math.round(numeric), 0, 127) };
-      }
-      return note;
-    });
-
+    const notes = updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue);
+    if (!notes) return;
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
   const restoreEventPitchLabel = (snapshot, noteKey) => {
-    const notes = (snapshot.notes ?? []).map((note) => {
-      const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-      if (noteIdentity(note, length) !== noteKey) return note;
-      const originalMidicents = Number(note.originalMidicents);
-      if (!Number.isFinite(originalMidicents)) return note;
-      const {
-        originalMidicents: _originalMidicents,
-        originalDisplayLabel,
-        displayLabelEdited: _displayLabelEdited,
-        ...rest
-      } = note;
-      return {
-        ...rest,
-        midicents: originalMidicents,
-        displayLabel: originalDisplayLabel ?? "",
-      };
-    });
+    const notes = restoreEventPitchLabelInSnapshot(snapshot, noteKey);
     onUpdateSnapshot(snapshot.id, { notes });
   };
 

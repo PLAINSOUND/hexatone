@@ -1,3 +1,9 @@
+import {
+  buildBlurCommit,
+  buildEnterCommit,
+  buildSelectOnFocus,
+} from "./field-props.js";
+
 const BarRow = ({
   bar,
   barNumberById,
@@ -68,12 +74,9 @@ const BarRow = ({
           class="sequencer-event__input sequencer-event__position"
           defaultValue={sequenceTime}
           aria-label={`bar ${barNumber} position`}
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
-          onKeyDown={(e) => editing.handleEnterCommit(e, (value) => editing.updateBarPosition(barId, value))}
-          onBlur={(e) => editing.handleBlurCommit(e, (value) => editing.updateBarPosition(barId, value))}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
+          onKeyDown={buildEnterCommit(editing, (value) => editing.updateBarPosition(barId, value))}
+          onBlur={buildBlurCommit(editing, (value) => editing.updateBarPosition(barId, value))}
         />
       </div>
       <div class="sequencer-bar-row__signature-cell sequencer-grid-offset">
@@ -86,12 +89,9 @@ const BarRow = ({
             defaultValue={String(bar.numerator ?? 4)}
             aria-label={`bar ${barNumber} beats per bar`}
             onInput={(e) => editing.updateBarTimeSignatureField(barId, "numerator", e.currentTarget.value)}
-            onFocus={(e) => {
-              delete e.currentTarget.dataset.lastCommittedValue;
-              e.currentTarget.select();
-            }}
-            onKeyDown={(e) => editing.handleEnterCommit(e, (value) => editing.updateBarTimeSignatureField(barId, "numerator", value))}
-            onBlur={(e) => editing.handleBlurCommit(e, (value) => editing.updateBarTimeSignatureField(barId, "numerator", value))}
+            onFocus={buildSelectOnFocus({ clearCommitted: true })}
+            onKeyDown={buildEnterCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "numerator", value))}
+            onBlur={buildBlurCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "numerator", value))}
           />
           <input
             type="number"
@@ -101,12 +101,9 @@ const BarRow = ({
             defaultValue={String(bar.denominator ?? 4)}
             aria-label={`bar ${barNumber} beat unit`}
             onInput={(e) => editing.updateBarTimeSignatureField(barId, "denominator", e.currentTarget.value)}
-            onFocus={(e) => {
-              delete e.currentTarget.dataset.lastCommittedValue;
-              e.currentTarget.select();
-            }}
-            onKeyDown={(e) => editing.handleEnterCommit(e, (value) => editing.updateBarTimeSignatureField(barId, "denominator", value))}
-            onBlur={(e) => editing.handleBlurCommit(e, (value) => editing.updateBarTimeSignatureField(barId, "denominator", value))}
+            onFocus={buildSelectOnFocus({ clearCommitted: true })}
+            onKeyDown={buildEnterCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "denominator", value))}
+            onBlur={buildBlurCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "denominator", value))}
           />
         </div>
       </div>

@@ -2659,7 +2659,7 @@ const App = () => {
               ▼
             </button>
             <span
-              className={`octave-display${!octaveDeferred ? " octave-defer-active" : ""}`}
+              className={`octave-display app-shell__octave-toggle${!octaveDeferred ? " octave-defer-active" : ""}`}
               title={
                 octaveDeferred ? "Transpose on next event" : "Transpose sounding notes immediately"
               }
@@ -2670,7 +2670,6 @@ const App = () => {
               onPointerDown={(e) => {
                 runTouchControlAction(e, toggleOctaveDeferred);
               }}
-              className="app-shell__octave-toggle"
             >
               {octaveTranspose === 0
                 ? "OCT"

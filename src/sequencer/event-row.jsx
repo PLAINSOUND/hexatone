@@ -2,6 +2,13 @@ import {
   absolutePositionToBarBeat,
 } from "./transport.js";
 import {
+  buildBlurCommit,
+  buildDraftEnterCommit,
+  buildEnterCommit,
+  buildSelectOnFocus,
+  buildStopPropagationProps,
+} from "./field-props.js";
+import {
   displayValue,
   formatDisplaySequenceOffset,
   formatEditableFrequency,
@@ -107,6 +114,7 @@ const EventRow = ({
   editing,
   transport,
 }) => {
+  const stopProps = buildStopPropagationProps();
   const sourceSnapshot = view.findSnapshotById(snapshot.id) ?? snapshot;
   const isMarkerSelected =
     view.selectedMarker?.snapshotId === snapshot.id &&
@@ -214,12 +222,8 @@ const EventRow = ({
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__snapshot-number${isEventSequenceDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={eventSequenceDraft?.snapshotNumber ?? String(eventSnapshotNumber)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} snapshot`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onFocus={(e) => {
-            e.stopPropagation();
-            e.currentTarget.select();
-          }}
+          {...stopProps}
+          onFocus={buildSelectOnFocus({ stop: true })}
           onInput={(e) => editing.updateEventSequenceDraftField(eventSequenceKey, "snapshotNumber", e.currentTarget.value, {
             snapshotId: snapshot.id,
             noteKey: event.noteKey,
@@ -227,11 +231,7 @@ const EventRow = ({
             snapshotNumber: eventSnapshotNumber,
             relativeTime: event.relativeTime,
           })}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]);
-          }}
+          onKeyDown={buildDraftEnterCommit(() => editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]))}
         />
       </div>
       <div class="sequencer-event__cell sequencer-grid-offset">
@@ -241,13 +241,11 @@ const EventRow = ({
           class={`sequencer-event__input sequencer-event__position${isOutOfSnapshotRange(snapshot, event.relativeTime) ? " sequencer-event__position--out-of-range" : ""}${isEventSequenceDraftActive ? " sequencer-event__input--draft" : ""}`}
           defaultValue={formatDisplaySequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} offset`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onFocus={(e) => {
-            e.stopPropagation();
-            e.currentTarget.value = formatSequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime);
-            e.currentTarget.select();
-          }}
+          {...stopProps}
+          onFocus={buildSelectOnFocus({
+            stop: true,
+            setValue: () => formatSequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime),
+          })}
           onInput={(e) => editing.updateEventSequenceDraftField(eventSequenceKey, "offset", e.currentTarget.value, {
             snapshotId: snapshot.id,
             noteKey: event.noteKey,
@@ -255,11 +253,7 @@ const EventRow = ({
             snapshotNumber: eventSnapshotNumber,
             relativeTime: event.relativeTime,
           })}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]);
-          }}
+          onKeyDown={buildDraftEnterCommit(() => editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]))}
           onBlur={(e) => {
             const value = Number(e.currentTarget.value);
             e.currentTarget.value = formatDisplaySequenceOffset(
@@ -285,25 +279,20 @@ const EventRow = ({
           class="sequencer-event__input"
           defaultValue={formatMidicents(event.midicents)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} midicents`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onFocus={(e) => {
-            e.stopPropagation();
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.value = formatEditableMidicents(event.midicents);
-            e.currentTarget.select();
-          }}
+          {...stopProps}
+          onFocus={buildSelectOnFocus({
+            stop: true,
+            clearCommitted: true,
+            setValue: () => formatEditableMidicents(event.midicents),
+          })}
           disabled={editing.snapSequenceToCurrentTuning}
-          onKeyDown={(e) => editing.handleEnterCommit(
-            e,
+          onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "midicents", value))}
+          onBlur={buildBlurCommit(
+            editing,
             (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "midicents", value),
-          )}
-          onBlur={(e) => editing.handleBlurCommit(
-            e,
-            (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "midicents", value),
-            () => {
-              const next = Number(e.currentTarget.value);
-              e.currentTarget.value = Number.isFinite(next)
+            (eventArg) => {
+              const next = Number(eventArg.currentTarget.value);
+              eventArg.currentTarget.value = Number.isFinite(next)
                 ? formatMidicents(next)
                 : formatMidicents(event.midicents);
             },
@@ -317,25 +306,20 @@ const EventRow = ({
           class="sequencer-event__input"
           defaultValue={formatFrequency(event.frequency)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} frequency`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onFocus={(e) => {
-            e.stopPropagation();
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.value = formatEditableFrequency(event.frequency);
-            e.currentTarget.select();
-          }}
+          {...stopProps}
+          onFocus={buildSelectOnFocus({
+            stop: true,
+            clearCommitted: true,
+            setValue: () => formatEditableFrequency(event.frequency),
+          })}
           disabled={editing.snapSequenceToCurrentTuning}
-          onKeyDown={(e) => editing.handleEnterCommit(
-            e,
+          onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "frequency", value))}
+          onBlur={buildBlurCommit(
+            editing,
             (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "frequency", value),
-          )}
-          onBlur={(e) => editing.handleBlurCommit(
-            e,
-            (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "frequency", value),
-            () => {
-              const next = Number(e.currentTarget.value);
-              e.currentTarget.value = Number.isFinite(next)
+            (eventArg) => {
+              const next = Number(eventArg.currentTarget.value);
+              eventArg.currentTarget.value = Number.isFinite(next)
                 ? formatFrequency(next)
                 : formatFrequency(event.frequency);
             },
@@ -374,22 +358,14 @@ const EventRow = ({
               class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__bar${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
               value={barRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} bar`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                e.currentTarget.select();
-              }}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true })}
               onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, {
                 snapshotId: snapshot.id,
                 noteKey: event.noteKey,
                 kind: event.kind,
               })}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-              }}
+              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey))}
             />
           </div>
           <div key={`${event.eventId}-timing-beat`} class="sequencer-event__cell sequencer-grid-offset">
@@ -401,22 +377,14 @@ const EventRow = ({
               value={beatValue}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
               disabled={isStoppedBar}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                e.currentTarget.select();
-              }}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true })}
               onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, {
                 snapshotId: snapshot.id,
                 noteKey: event.noteKey,
                 kind: event.kind,
               })}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-              }}
+              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey))}
             />
           </div>
           <div key={`${event.eventId}-timing-num`} class="sequencer-event__cell sequencer-grid-offset">
@@ -428,22 +396,14 @@ const EventRow = ({
               value={numeratorValue}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
               disabled={isStoppedBar}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                e.currentTarget.select();
-              }}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true })}
               onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value, {
                 snapshotId: snapshot.id,
                 noteKey: event.noteKey,
                 kind: event.kind,
               })}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-              }}
+              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey))}
             />
           </div>
           <div key={`${event.eventId}-timing-den`} class="sequencer-event__cell sequencer-grid-offset">
@@ -455,22 +415,14 @@ const EventRow = ({
               value={denominatorValue}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
               disabled={isStoppedBar}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                e.currentTarget.select();
-              }}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true })}
               onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value, {
                 snapshotId: snapshot.id,
                 noteKey: event.noteKey,
                 kind: event.kind,
               })}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey);
-              }}
+              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, event.noteKey, event.kind, draftKey))}
             />
           </div>
         </>
@@ -482,21 +434,10 @@ const EventRow = ({
               class="sequencer-event__input"
               defaultValue={displayValue(event.attackVelocity)}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} on velocity`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                delete e.currentTarget.dataset.lastCommittedValue;
-                e.currentTarget.select();
-              }}
-              onKeyDown={(e) => editing.handleEnterCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "attackVelocity", value),
-              )}
-              onBlur={(e) => editing.handleBlurCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "attackVelocity", value),
-              )}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "attackVelocity", value))}
+              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "attackVelocity", value))}
             />
           </div>
           <div key={`${event.eventId}-expression-offvel`} class="sequencer-event__cell sequencer-grid-offset">
@@ -505,21 +446,10 @@ const EventRow = ({
               class="sequencer-event__input"
               defaultValue={displayValue(event.releaseVelocity)}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} off velocity`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                delete e.currentTarget.dataset.lastCommittedValue;
-                e.currentTarget.select();
-              }}
-              onKeyDown={(e) => editing.handleEnterCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
-              )}
-              onBlur={(e) => editing.handleBlurCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "releaseVelocity", value),
-              )}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "releaseVelocity", value))}
+              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "releaseVelocity", value))}
             />
           </div>
           <div key={`${event.eventId}-expression-pressure`} class="sequencer-event__cell sequencer-grid-offset">
@@ -528,21 +458,10 @@ const EventRow = ({
               class="sequencer-event__input"
               defaultValue={displayValue(event.pressure)}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} pressure`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                delete e.currentTarget.dataset.lastCommittedValue;
-                e.currentTarget.select();
-              }}
-              onKeyDown={(e) => editing.handleEnterCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "pressure", value),
-              )}
-              onBlur={(e) => editing.handleBlurCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "pressure", value),
-              )}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "pressure", value))}
+              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "pressure", value))}
             />
           </div>
           <div key={`${event.eventId}-expression-timbre`} class="sequencer-event__cell sequencer-grid-offset">
@@ -551,21 +470,10 @@ const EventRow = ({
               class="sequencer-event__input"
               defaultValue={displayValue(event.timbre)}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} timbre`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onFocus={(e) => {
-                e.stopPropagation();
-                delete e.currentTarget.dataset.lastCommittedValue;
-                e.currentTarget.select();
-              }}
-              onKeyDown={(e) => editing.handleEnterCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "timbre", value),
-              )}
-              onBlur={(e) => editing.handleBlurCommit(
-                e,
-                (value) => editing.updateEventField(snapshot, event.noteKey, "timbre", value),
-              )}
+              {...stopProps}
+              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "timbre", value))}
+              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, event.noteKey, "timbre", value))}
             />
           </div>
         </>

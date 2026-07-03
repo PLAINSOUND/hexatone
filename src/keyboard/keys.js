@@ -229,6 +229,9 @@ class Keys {
     this.state = {
       canvas,
       context: canvas.getContext("2d"),
+      pixelRatio: 1,
+      viewportWidth: 0,
+      viewportHeight: 0,
       ...createSoundingNoteState(),
     };
     this._snapshotHexes = [];
@@ -2443,8 +2446,13 @@ class Keys {
     this.state.canvas.style.marginLeft = "";
     this.state.canvas.style.marginTop = "";
 
-    this.state.canvas.width = newWidth;
-    this.state.canvas.height = newHeight;
+    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    this.state.pixelRatio = pixelRatio;
+    this.state.viewportWidth = newWidth;
+    this.state.viewportHeight = newHeight;
+
+    this.state.canvas.width = Math.max(1, Math.round(newWidth * pixelRatio));
+    this.state.canvas.height = Math.max(1, Math.round(newHeight * pixelRatio));
 
     // Find new centerpoint
 
@@ -2467,7 +2475,14 @@ class Keys {
     // I don't know why these need to be the opposite sign of each other.
     let m = calculateRotationMatrix(this.settings.rotation, this.state.centerpoint);
     this._canvasTransform = m;
-    this.state.context.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+    this.state.context.setTransform(
+      pixelRatio * m[0],
+      pixelRatio * m[1],
+      pixelRatio * m[2],
+      pixelRatio * m[3],
+      pixelRatio * m[4],
+      pixelRatio * m[5],
+    );
     this._rebuildVisibleGridGeometry();
     this._resizeStaticGridCanvas(newWidth, newHeight, m);
 

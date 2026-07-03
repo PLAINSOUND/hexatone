@@ -77,10 +77,8 @@ export function buildCueExpandedSnapshotIds(activeCueIndex, sequenceEvents = [],
   const ids = new Set();
   for (const event of sequenceEvents) {
     if (event.type !== "note") continue;
-    if (
-      event.cueIndex === activeCueIndex ||
-      (event.kind === "attack" && soundingAttackEventIds.has(event.eventId))
-    ) {
+    if (event.kind !== "attack") continue;
+    if (event.cueIndex === activeCueIndex || soundingAttackEventIds.has(event.eventId)) {
       if (event.snapshotId != null) ids.add(event.snapshotId);
     }
   }

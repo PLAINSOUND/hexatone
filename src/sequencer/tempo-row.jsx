@@ -1,5 +1,11 @@
 import { absolutePositionToBarBeat } from "./transport.js";
 import { readNumericInput } from "./value-runtime.js";
+import {
+  buildBlurCommit,
+  buildDraftEnterCommit,
+  buildEnterCommit,
+  buildSelectOnFocus,
+} from "./field-props.js";
 
 const TempoRow = ({
   tempo,
@@ -20,6 +26,14 @@ const TempoRow = ({
   const tempoBeatValue = isTempoStoppedBar ? "0" : (tempoBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1));
   const tempoNumValue = isTempoStoppedBar ? "0" : (tempoBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0));
   const tempoDenValue = isTempoStoppedBar ? "1" : (tempoBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1));
+  const commitTempoBeatFraction = (event) => {
+    const row = event.currentTarget.closest(".sequencer-tempo-row");
+    editing.updateTempoBeatFraction(
+      tempoId,
+      readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
+      readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
+    );
+  };
 
   return (
     <div
@@ -53,26 +67,9 @@ const TempoRow = ({
           class="sequencer-event__input sequencer-event__input--stepper sequencer-tempo-row__summary-input sequencer-tempo-row__summary-input--fraction-num"
           defaultValue={beatNumerator}
           aria-label="tempo beat numerator"
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
-          onKeyDown={(e) => editing.handleEnterCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            editing.updateTempoBeatFraction(
-              tempoId,
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
-            );
-          })}
-          onBlur={(e) => editing.handleBlurCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            editing.updateTempoBeatFraction(
-              tempoId,
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
-            );
-          })}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
+          onKeyDown={(e) => editing.handleEnterCommit(e, () => commitTempoBeatFraction(e))}
+          onBlur={(e) => editing.handleBlurCommit(e, () => commitTempoBeatFraction(e))}
         />
         <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">/</span>
         <input
@@ -82,26 +79,9 @@ const TempoRow = ({
           class="sequencer-event__input sequencer-event__input--stepper sequencer-tempo-row__summary-input sequencer-tempo-row__summary-input--fraction-den"
           defaultValue={beatDenominator}
           aria-label="tempo beat denominator"
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
-          onKeyDown={(e) => editing.handleEnterCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            editing.updateTempoBeatFraction(
-              tempoId,
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
-            );
-          })}
-          onBlur={(e) => editing.handleBlurCommit(e, () => {
-            const row = e.currentTarget.closest(".sequencer-tempo-row");
-            editing.updateTempoBeatFraction(
-              tempoId,
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-num", 1),
-              readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
-            );
-          })}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
+          onKeyDown={(e) => editing.handleEnterCommit(e, () => commitTempoBeatFraction(e))}
+          onBlur={(e) => editing.handleBlurCommit(e, () => commitTempoBeatFraction(e))}
         />
         <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">=</span>
         <input
@@ -111,12 +91,9 @@ const TempoRow = ({
           class="sequencer-event__input sequencer-event__input--stepper sequencer-tempo-row__summary-input sequencer-tempo-row__summary-input--bpm"
           defaultValue={String(tempo.bpm ?? 60)}
           aria-label="tempo bpm"
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
-          onKeyDown={(e) => editing.handleEnterCommit(e, (value) => editing.updateTempoBpm(tempoId, value))}
-          onBlur={(e) => editing.handleBlurCommit(e, (value) => editing.updateTempoBpm(tempoId, value))}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
+          onKeyDown={buildEnterCommit(editing, (value) => editing.updateTempoBpm(tempoId, value))}
+          onBlur={buildBlurCommit(editing, (value) => editing.updateTempoBpm(tempoId, value))}
         />
         <span class="sequencer-tempo-row__summary-unit">bpm</span>
       </div>
@@ -126,12 +103,9 @@ const TempoRow = ({
           class="sequencer-event__input sequencer-event__position"
           defaultValue={sequenceTime}
           aria-label="tempo position"
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
-          onKeyDown={(e) => editing.handleEnterCommit(e, (value) => editing.updateTempoPosition(tempoId, value))}
-          onBlur={(e) => editing.handleBlurCommit(e, (value) => editing.updateTempoPosition(tempoId, value))}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
+          onKeyDown={buildEnterCommit(editing, (value) => editing.updateTempoPosition(tempoId, value))}
+          onBlur={buildBlurCommit(editing, (value) => editing.updateTempoPosition(tempoId, value))}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__bar-cell sequencer-grid-offset">
@@ -142,16 +116,9 @@ const TempoRow = ({
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__bar${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={tempoBarRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
           aria-label="tempo bar"
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, { tempoId })}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            editing.commitTempoBarRelativeDraft(tempoId, draftKey);
-          }}
+          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__beat-cell sequencer-grid-offset">
@@ -163,16 +130,9 @@ const TempoRow = ({
           value={tempoBeatValue}
           aria-label="tempo beat"
           disabled={isTempoStoppedBar}
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, { tempoId })}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            editing.commitTempoBarRelativeDraft(tempoId, draftKey);
-          }}
+          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__num-cell sequencer-grid-offset">
@@ -184,16 +144,9 @@ const TempoRow = ({
           value={tempoNumValue}
           aria-label="tempo beat fraction numerator"
           disabled={isTempoStoppedBar}
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value, { tempoId })}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            editing.commitTempoBarRelativeDraft(tempoId, draftKey);
-          }}
+          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__den-cell sequencer-grid-offset">
@@ -205,16 +158,9 @@ const TempoRow = ({
           value={tempoDenValue}
           aria-label="tempo beat fraction denominator"
           disabled={isTempoStoppedBar}
-          onFocus={(e) => {
-            delete e.currentTarget.dataset.lastCommittedValue;
-            e.currentTarget.select();
-          }}
+          onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value, { tempoId })}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            editing.commitTempoBarRelativeDraft(tempoId, draftKey);
-          }}
+          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
         />
       </div>
       <div class="sequencer-tempo-row__tail">

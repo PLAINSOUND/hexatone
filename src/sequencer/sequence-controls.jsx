@@ -166,7 +166,7 @@ const SequenceControls = ({
         </label>
 
         <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-          <span>Snap Sequence to Hexatone Tuning</span>
+          <span>Snap Sequence to Current Hexatone Tuning</span>
           <input
             type="checkbox"
             checked={snapSequenceToCurrentTuning}

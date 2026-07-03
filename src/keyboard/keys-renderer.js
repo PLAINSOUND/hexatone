@@ -26,9 +26,14 @@ export function fitHexLabelScale(context, name, hexSize) {
     metrics?.width ?? 0,
     Math.abs(metrics?.actualBoundingBoxLeft ?? 0) + Math.abs(metrics?.actualBoundingBoxRight ?? 0),
   );
-  if (!(measuredWidth > 0)) return baseScale;
+  const measuredHeight =
+    Math.abs(metrics?.actualBoundingBoxAscent ?? 0) + Math.abs(metrics?.actualBoundingBoxDescent ?? 0);
+  if (!(measuredWidth > 0) && !(measuredHeight > 0)) return baseScale;
   const maxWidth = Math.max(12, (Number(hexSize) || 46) * 1.12);
-  return Math.min(baseScale, maxWidth / measuredWidth);
+  const maxHeight = Math.max(12, (Number(hexSize) || 46) * 1.18);
+  const widthScale = measuredWidth > 0 ? maxWidth / measuredWidth : baseScale;
+  const heightScale = measuredHeight > 0 ? maxHeight / measuredHeight : baseScale;
+  return Math.min(baseScale, widthScale, heightScale);
 }
 
 export function scheduleGridRedraw() {
@@ -85,6 +90,13 @@ export function buildHexGeometry(hex) {
   return { center: hexCenter, x, y, x2, y2 };
 }
 
+function cssViewportSize(keys) {
+  return {
+    width: keys.state.viewportWidth || keys.state.canvas.clientWidth || window.innerWidth,
+    height: keys.state.viewportHeight || keys.state.canvas.clientHeight || window.innerHeight,
+  };
+}
+
 export function rebuildVisibleGridGeometry() {
   let max =
     this.state.centerpoint.x > this.state.centerpoint.y
@@ -96,8 +108,7 @@ export function rebuildVisibleGridGeometry() {
   const coords = [];
   const fullyVisibleCoords = [];
   const geometry = new Map();
-  const canvasWidth = this.state.canvas.width || this.state.centerpoint.x * 2;
-  const canvasHeight = this.state.canvas.height || this.state.centerpoint.y * 2;
+  const { width: canvasWidth, height: canvasHeight } = cssViewportSize(this);
   const isFullyVisible = (hexGeometry) => {
     for (let i = 0; i < 6; i++) {
       const point = this._transformCanvasPoint(hexGeometry.x[i], hexGeometry.y[i]);
@@ -143,16 +154,18 @@ export function resizeStaticGridCanvas(width, height, transform) {
     this._staticGridUsable = !!this._staticGridContext;
   }
   if (!this._staticGridUsable) return;
-  this._staticGridCanvas.width = width;
-  this._staticGridCanvas.height = height;
+  const pixelRatio = Math.max(1, Number(this.state.pixelRatio) || 1);
+  this._staticGridCanvas.width = Math.max(1, Math.round(width * pixelRatio));
+  this._staticGridCanvas.height = Math.max(1, Math.round(height * pixelRatio));
   if (this._staticGridContext && transform) {
+    this._staticGridContext.setTransform(1, 0, 0, 1, 0, 0);
     this._staticGridContext.setTransform(
-      transform[0],
-      transform[1],
-      transform[2],
-      transform[3],
-      transform[4],
-      transform[5],
+      pixelRatio * transform[0],
+      pixelRatio * transform[1],
+      pixelRatio * transform[2],
+      pixelRatio * transform[3],
+      pixelRatio * transform[4],
+      pixelRatio * transform[5],
     );
   }
   this._staticGridValid = false;
@@ -169,8 +182,7 @@ export function ensureStaticGrid() {
   if (!this._staticGridUsable) return false;
   if (this._staticGridValid && this._staticGridCanvas) return true;
   if (!this._staticGridCanvas || !this._staticGridContext) {
-    const width = this.state.canvas.width || window.innerWidth;
-    const height = this.state.canvas.height || window.innerHeight;
+    const { width, height } = cssViewportSize(this);
     this._resizeStaticGridCanvas(width, height, this._canvasTransform);
   }
   if (!this._staticGridContext) return false;
@@ -187,35 +199,59 @@ export function ensureStaticGrid() {
 
 export function withMainIdentityTransform(draw) {
   const context = this.state.context;
+  const pixelRatio = Math.max(1, Number(this.state.pixelRatio) || 1);
   context.save();
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   draw(context);
   context.restore();
 }
 
 export function copyStaticGridToMain() {
   if (!this._staticGridCanvas || typeof this.state.context?.drawImage !== "function") return false;
+  const { width, height } = cssViewportSize(this);
   this._withMainIdentityTransform((context) => {
-    context.clearRect(0, 0, this.state.canvas.width, this.state.canvas.height);
-    context.drawImage(this._staticGridCanvas, 0, 0);
+    context.clearRect(0, 0, width, height);
+    context.drawImage(
+      this._staticGridCanvas,
+      0,
+      0,
+      this._staticGridCanvas.width,
+      this._staticGridCanvas.height,
+      0,
+      0,
+      width,
+      height,
+    );
   });
   return true;
 }
 
 export function restoreHexStaticBackground(coords) {
   if (!this._ensureStaticGrid()) return false;
+  const pixelRatio = Math.max(1, Number(this.state.pixelRatio) || 1);
+  const { width, height } = cssViewportSize(this);
   const geometry = this._hexGeometryCache.get(this._coordKey(coords)) ?? this._buildHexGeometry(coords);
   const bounds = this._hexPixelBounds(geometry, 28);
   const sx = Math.max(0, Math.floor(bounds.left));
   const sy = Math.max(0, Math.floor(bounds.top));
-  const ex = Math.min(this.state.canvas.width, Math.ceil(bounds.right));
-  const ey = Math.min(this.state.canvas.height, Math.ceil(bounds.bottom));
+  const ex = Math.min(width, Math.ceil(bounds.right));
+  const ey = Math.min(height, Math.ceil(bounds.bottom));
   const sw = Math.max(0, ex - sx);
   const sh = Math.max(0, ey - sy);
   if (!this._staticGridCanvas || sw === 0 || sh === 0 || typeof this.state.context?.drawImage !== "function") return false;
   this._withMainIdentityTransform((context) => {
     context.clearRect(sx, sy, sw, sh);
-    context.drawImage(this._staticGridCanvas, sx, sy, sw, sh, sx, sy, sw, sh);
+    context.drawImage(
+      this._staticGridCanvas,
+      Math.floor(sx * pixelRatio),
+      Math.floor(sy * pixelRatio),
+      Math.max(1, Math.ceil(sw * pixelRatio)),
+      Math.max(1, Math.ceil(sh * pixelRatio)),
+      sx,
+      sy,
+      sw,
+      sh,
+    );
   });
   return {
     left: sx,
@@ -365,12 +401,12 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   context.translate(hexCenter.x, hexCenter.y);
   context.rotate(-this.settings.rotation);
   context.fillStyle = getContrastYIQ(current_text_color);
-  context.font = "29pt Plainsound Sans";
+  context.font = "28pt Plainsound Sans";
   context.textAlign = "center";
   context.textBaseline = "middle";
   const hexSize = Number(this.settings.hexSize) || 46;
   const labelClipWidth = Math.max(12, hexSize * 1.12);
-  const labelClipHeight = Math.max(12, hexSize * 1.04);
+  const labelClipHeight = Math.max(12, hexSize * 1.18);
 
   const note = p.x * this.settings.rSteps + p.y * this.settings.drSteps;
   const equivSteps = this.tuning.scale.length;

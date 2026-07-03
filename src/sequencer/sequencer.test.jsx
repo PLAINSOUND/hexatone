@@ -358,7 +358,7 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
 
-    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
+    expect(screen.queryByLabelText("snapshot 1 events")).toBeNull();
     expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
     expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
   });
@@ -429,7 +429,7 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
     fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
 
-    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
+    expect(screen.queryByLabelText("snapshot 1 events")).toBeNull();
     expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
     expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
   });
