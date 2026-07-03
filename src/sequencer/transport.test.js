@@ -3,7 +3,9 @@ import {
   absolutePositionToBarBeat,
   barBeatToAbsolutePosition,
   buildTempoSegments,
+  deriveTerminalBarlinePosition,
   normalizeBarMarkers,
+  normalizeRepeatMarkers,
   normalizeMeterMarkers,
   normalizeSequenceTransport,
   normalizeTempoMarkers,
@@ -157,6 +159,16 @@ describe("sequencer transport", () => {
     ]);
   });
 
+  it("forces bar positions to positive integers", () => {
+    expect(normalizeBarMarkers([
+      { id: "a", position: 0.4, numerator: 4, denominator: 4 },
+      { id: "b", position: 2.7, numerator: 3, denominator: 2 },
+    ], { includeDefault: false })).toEqual([
+      { id: "a", position: 1, numerator: 4, denominator: 4 },
+      { id: "b", position: 3, numerator: 3, denominator: 2 },
+    ]);
+  });
+
   it("derives bar-relative timing from explicit bar markers", () => {
     const bars = [
       { id: 1, position: 1, numerator: 4, denominator: 4 },
@@ -307,6 +319,55 @@ describe("sequencer transport", () => {
       beatsPerBar: 3,
       beatUnit: 2,
     });
+  });
+
+  it("inherits the last explicit bar signature into later integer bars", () => {
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+      { id: 2, position: 2, numerator: 3, denominator: 2 },
+    ];
+
+    expect(absolutePositionToBarBeat(3.666667, bars, 1)).toEqual({
+      barNumber: 3,
+      beat: 3,
+      numerator: 0,
+      denominator: 1,
+      barStart: 3,
+      barLength: 1,
+      beatsPerBar: 3,
+      beatUnit: 2,
+    });
+
+    expect(barBeatToAbsolutePosition({
+      barNumber: 3,
+      beat: 2,
+      numerator: 0,
+      denominator: 1,
+    }, bars)).toBe(3.333333);
+  });
+
+  it("derives a terminal barline position from snapshots and explicit bars", () => {
+    expect(deriveTerminalBarlinePosition([
+      {
+        length: 1,
+        notes: [{ start: 0, end: 0.875 }],
+      },
+      {
+        length: 1.4,
+        notes: [{ start: 0.2, end: 1.4 }],
+      },
+    ], [{ id: 1, position: 1 }, { id: 2, position: 2 }])).toBe(4);
+  });
+
+  it("normalizes repeat markers while preserving floating positions", () => {
+    expect(normalizeRepeatMarkers([
+      { id: "end-a", position: 3, kind: "end" },
+      { id: "start-a", position: 1.5, kind: "start" },
+      { id: "start-b", position: 1.5, kind: "start" },
+    ])).toEqual([
+      { id: "start-b", position: 1.5, kind: "start" },
+      { id: "end-a", position: 3, kind: "end" },
+    ]);
   });
 
   it("clamps denominator to at least 1", () => {

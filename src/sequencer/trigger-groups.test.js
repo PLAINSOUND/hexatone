@@ -345,16 +345,16 @@ describe("deriveSnapshotTriggerGroups", () => {
     );
   });
 
-  it("orders tempo changes before bars before note events at the same mid-snapshot position", () => {
+  it("orders tempo changes before bars before note events at the same shared whole-sequence position", () => {
     const events = deriveSequenceEvents(
       [
         {
           id: 1,
           length: 1,
-          notes: [{ id: "a", midicents: 69, start: 0.5, end: 1 }],
+          notes: [{ id: "a", midicents: 69, start: 1, end: 1 }],
         },
       ],
-      [{ id: 100, position: 1.5 }],
+      [{ id: 100, position: 2 }],
       [{ id: 200, position: 1.5, bpm: 72, beatLength: 1 }],
     );
 
@@ -366,9 +366,10 @@ describe("deriveSnapshotTriggerGroups", () => {
       event.cueIndex,
     ])).toEqual([
       ["tempo", "tempo", 1.5, 0, null],
-      ["bar", "bar", 1.5, 0, null],
-      ["note", "attack", 1.5, 0, 1],
+      ["bar", "bar", 2, 0, null],
+      ["note", "attack", 2, 0, 1],
       ["note", "release", 2, 0, 2],
+      ["barline", "barline", 3, 0, null],
     ]);
 
     expect(events.find((event) => event.type === "tempo")).toEqual(

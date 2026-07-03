@@ -13,7 +13,7 @@ const BarRow = ({
   const barId = bar.barId ?? bar.id;
   const barNumber = barNumberById.get(barId) ?? 1;
   const barPosition = Number(bar.position ?? bar.absoluteTime);
-  const sequenceTime = barPosition.toFixed(6);
+  const sequenceTime = String(Math.max(1, Math.round(barPosition)));
   const isDraggable = true;
   const isAlwaysOnBar = barNumber === 1 && Math.abs(barPosition - 1) < 1e-9;
   const rowKey = `bar:${barId}:${sequenceTime}:${bar.numerator ?? 4}:${bar.denominator ?? 4}`;

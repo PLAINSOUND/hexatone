@@ -3,6 +3,7 @@ import { useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
   normalizeBarMarkers,
+  normalizeRepeatMarkers,
   normalizeSequenceTransport,
   normalizeTempoMarkers,
 } from "./transport.js";
@@ -26,6 +27,7 @@ export function normalizeSequenceRecord(record) {
     ? record.bars
     : record.meters;
   const bars = normalizeBarMarkers(cloneBars(rawBars), { includeDefault: false });
+  const repeats = normalizeRepeatMarkers(record.repeats);
   if (!Array.isArray(snapshots)) return null;
   return {
     type: "hexatone-sequence",
@@ -38,6 +40,7 @@ export function normalizeSequenceRecord(record) {
     tempi: normalizeTempoMarkers(record.tempi, { includeDefault: false }),
     snapshots,
     bars,
+    repeats,
   };
 }
 
@@ -70,6 +73,7 @@ function parseSequenceJson(name, text) {
       tempi: parsed?.tempi,
       snapshots: parsed?.snapshots,
       bars: parsed?.bars,
+      repeats: parsed?.repeats,
       meters: parsed?.meters,
     });
     return normalized ? [normalized] : [];
@@ -115,6 +119,7 @@ const DRAFT_SEQUENCE_VALUE = "__draft__";
 const SequenceLibrary = ({
   snapshots,
   bars,
+  repeats,
   tempi,
   snapshotLabelMode,
   autoCreateBars,
@@ -142,8 +147,9 @@ const SequenceLibrary = ({
       tempi,
       snapshots,
       bars,
+      repeats,
     }),
-    [activeSequenceDescription, autoCreateBars, bars, sequenceName, snapshotLabelMode, snapshots, tempi],
+    [activeSequenceDescription, autoCreateBars, bars, repeats, sequenceName, snapshotLabelMode, snapshots, tempi],
   );
   const workspaceHasContent = useMemo(() => {
     return snapshotsPresent;
@@ -191,6 +197,7 @@ const SequenceLibrary = ({
     tempi,
     snapshots,
     bars,
+    repeats,
   });
 
   const loadSequenceByName = (name) => {
@@ -434,6 +441,7 @@ const SequenceLibrary = ({
 SequenceLibrary.propTypes = {
   snapshots: PropTypes.arrayOf(PropTypes.object).isRequired,
   bars: PropTypes.arrayOf(PropTypes.object),
+  repeats: PropTypes.arrayOf(PropTypes.object),
   tempi: PropTypes.arrayOf(PropTypes.object),
   snapshotLabelMode: PropTypes.string.isRequired,
   autoCreateBars: PropTypes.bool.isRequired,

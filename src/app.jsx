@@ -784,6 +784,7 @@ const App = () => {
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [sequenceBars, setSequenceBars] = useState(() => normalizeBarMarkers([{ id: 1, position: 1 }]));
   const [sequenceTempi, setSequenceTempi] = useState(() => normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
+  const [sequenceRepeats, setSequenceRepeats] = useState([]);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -842,6 +843,9 @@ const App = () => {
     const loadedTempi = Array.isArray(sequence?.tempi)
       ? JSON.parse(JSON.stringify(sequence.tempi))
       : [];
+    const loadedRepeats = Array.isArray(sequence?.repeats)
+      ? JSON.parse(JSON.stringify(sequence.repeats))
+      : [];
     const nextBars = normalizeBarMarkers(loadedBars);
     const nextTempi = normalizeTempoMarkers(loadedTempi);
     keysRef.current?.stopSnapshot();
@@ -849,6 +853,7 @@ const App = () => {
     setSnapshots(nextSnapshots);
     setSequenceBars(nextBars);
     setSequenceTempi(nextTempi);
+    setSequenceRepeats(loadedRepeats);
     snapshotIdRef.current = nextSnapshots.reduce(
       (max, snapshot) => Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
       0,
@@ -873,8 +878,8 @@ const App = () => {
   }, []);
 
   const sequenceCueGroups = useMemo(
-    () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi),
-    [sequenceBars, sequenceTempi, snapshots],
+    () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi, sequenceRepeats),
+    [sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
   );
   const currentSequenceSnapRuntime = (() => {
     const keys = keysRef.current;
@@ -1065,7 +1070,7 @@ const App = () => {
     setSequenceBars((prev) => {
       const explicitPosition = Number(position);
       const nextPosition = Number.isFinite(explicitPosition)
-        ? explicitPosition
+        ? Math.max(1, Math.round(explicitPosition))
         : prev.length > 0
           ? Math.max(...prev.map((bar) => Number(bar.position) || 1)) + 1
           : 1;
@@ -1135,6 +1140,29 @@ const App = () => {
     setSequenceTempi((prev) => prev.filter((tempo) => tempo.id !== id));
   }, []);
 
+  const onAddSequenceRepeat = useCallback((position = null, kind = "start") => {
+    setSequenceRepeats((prev) => {
+      const id = prev.reduce((max, marker) => Math.max(max, Number(marker?.id) || 0), 0) + 1;
+      const normalizedKind = kind === "end" ? "end" : "start";
+      return [...prev, {
+        id,
+        position,
+        kind: normalizedKind,
+        repeatCount: normalizedKind === "end" ? 2 : null,
+      }];
+    });
+  }, []);
+
+  const onDeleteSequenceRepeat = useCallback((id) => {
+    setSequenceRepeats((prev) => prev.filter((marker) => marker.id !== id));
+  }, []);
+
+  const onUpdateSequenceRepeat = useCallback((id, updates) => {
+    setSequenceRepeats((prev) => prev.map((marker) => (
+      marker.id === id ? { ...marker, ...updates } : marker
+    )));
+  }, []);
+
   const onUpdateSequenceTempo = useCallback((id, updates) => {
     setSequenceTempi((prev) => prev.map((tempo) => (
       tempo.id === id ? { ...tempo, ...updates } : tempo
@@ -1145,7 +1173,13 @@ const App = () => {
     setSequenceBars((prev) => {
       const currentBar = prev.find((bar) => bar.id === id);
       const isRootBar = currentBar != null && Math.abs(Number(currentBar.position) - 1) < 1e-9;
-      const nextPosition = Number(updates?.position);
+      const rawNextPosition = Number(updates?.position);
+      const nextPosition = Number.isFinite(rawNextPosition)
+        ? Math.max(1, Math.round(rawNextPosition))
+        : NaN;
+      const normalizedUpdates = Number.isFinite(nextPosition)
+        ? { ...updates, position: nextPosition }
+        : updates;
       if (Number.isFinite(nextPosition) && isRootBar) {
         const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
         if (existingBar) {
@@ -1155,12 +1189,12 @@ const App = () => {
           sequenceBarIdRef.current = nextId;
           return [
             ...prev.filter((bar) => bar.id !== existingBar.id),
-            normalizeBarMarker({ ...currentBar, ...updates, id: nextId, position: nextPosition }),
+            normalizeBarMarker({ ...currentBar, ...normalizedUpdates, id: nextId, position: nextPosition }),
           ];
         }
         const nextId = sequenceBarIdRef.current + 1;
         sequenceBarIdRef.current = nextId;
-        return [...prev, normalizeBarMarker({ ...currentBar, ...updates, id: nextId, position: nextPosition })];
+        return [...prev, normalizeBarMarker({ ...currentBar, ...normalizedUpdates, id: nextId, position: nextPosition })];
       }
       if (Number.isFinite(nextPosition)) {
         const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
@@ -1169,17 +1203,20 @@ const App = () => {
           if (!shouldReplace) return prev;
           return prev
             .filter((bar) => bar.id !== existingBar.id)
-            .map((bar) => (bar.id === id ? { ...bar, ...updates } : bar));
+            .map((bar) => (bar.id === id ? { ...bar, ...normalizedUpdates } : bar));
         }
       }
       return prev.map((bar) => (
-        bar.id === id ? { ...bar, ...updates } : bar
+        bar.id === id ? { ...bar, ...normalizedUpdates } : bar
       ));
     });
   }, []);
 
   const onMoveSequenceBar = useCallback((fromId, position) => {
-    const nextPosition = Number(position);
+    const rawPosition = Number(position);
+    const nextPosition = Number.isFinite(rawPosition)
+      ? Math.max(1, Math.round(rawPosition))
+      : NaN;
     if (!Number.isFinite(nextPosition)) return;
     setSequenceBars((prev) => {
       const currentBar = prev.find((bar) => bar.id === fromId);
@@ -1368,6 +1405,7 @@ const App = () => {
     setSelectedSnapshotMarker(null);
     setSequenceBars([]);
     setSequenceTempi([]);
+    setSequenceRepeats([]);
     snapshotIdRef.current = 0;
     sequenceBarIdRef.current = 0;
     setActiveSequenceName("");
@@ -1384,6 +1422,7 @@ const App = () => {
     setSelectedSnapshotMarker(null);
     setSequenceBars([]);
     setSequenceTempi([]);
+    setSequenceRepeats([]);
     snapshotIdRef.current = 0;
     sequenceBarIdRef.current = 0;
     setActiveSequenceName("");
@@ -3157,6 +3196,7 @@ const App = () => {
               snapshots={snapshots}
               displaySnapshots={sequenceDisplaySnapshots}
               bars={sequenceBars}
+              repeats={sequenceRepeats}
               tempi={sequenceTempi}
               snapshotLabelMode={snapshotLabelMode}
               autoCreateBars={sequenceAutoCreateBars}
@@ -3193,11 +3233,14 @@ const App = () => {
               onResetSequencePlayhead={onResetSequencePlayhead}
               onAddBar={onAddSequenceBar}
               onAddTempo={onAddSequenceTempo}
+              onAddRepeat={onAddSequenceRepeat}
               onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
               onDeleteBar={onDeleteSequenceBar}
               onDeleteTempo={onDeleteSequenceTempo}
+              onDeleteRepeat={onDeleteSequenceRepeat}
               onUpdateBar={onUpdateSequenceBar}
               onUpdateTempo={onUpdateSequenceTempo}
+              onUpdateRepeat={onUpdateSequenceRepeat}
               onMoveBar={onMoveSequenceBar}
               onDeleteSnapshot={onDeleteSnapshot}
               onDeleteAllSnapshots={onDeleteAllSnapshots}

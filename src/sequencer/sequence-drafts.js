@@ -61,6 +61,10 @@ export function tempoBarRelativeDraftKey(tempoId) {
   return String(tempoId);
 }
 
+export function repeatBarRelativeDraftKey(repeatId) {
+  return String(repeatId);
+}
+
 export function buildBarRelativeDraft(barBeat, changedField = null, override = {}) {
   const next = {
     barNumber: String(override.barNumber ?? barBeat?.barNumber ?? 1),

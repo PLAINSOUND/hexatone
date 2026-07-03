@@ -1582,7 +1582,7 @@ td.scale-color-col .color-input {
   height: 1.65em;
   box-sizing: border-box;
   background-color: var(--color-bg);
-  text-align: right;
+  text-align: left;
   width: 100%;
 }
 
@@ -1593,6 +1593,11 @@ td.scale-color-col .color-input {
   box-sizing: border-box;
   background-color: var(--color-bg);
   text-align: right;
+}
+
+#sidebar .sequencer-bars-add__meter-input--numerator {
+  text-align: right;
+  padding-right: 0.18em;
 }
 
 .sequencer-bars-add__tempo {
@@ -1639,6 +1644,11 @@ td.scale-color-col .color-input {
   flex: 0 0 3.6em;
   border-color: transparent;
   text-align: center;
+}
+
+#sidebar .sequencer-bars-add__meter-input.sequencer-bars-add__meter-input--numerator {
+  text-align: right;
+  padding-right: 0.18em;
 }
 
 .sequencer-bars-add__meter-separator {
@@ -1891,6 +1901,29 @@ td.scale-color-col .color-input {
   border-radius: 4px;
 }
 
+.sequencer-repeat-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: var(--sequencer-structural-columns);
+  column-gap: 0.45em;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.04em 0 0.04em 0;
+  position: relative;
+  background: var(--color-bg);
+  border-radius: 4px;
+}
+
+.sequencer-barline-row {
+  grid-column: 1 / -1;
+  position: relative;
+  min-height: 1.4em;
+  width: 100%;
+  background: var(--color-bg);
+}
+
 .sequencer-bar-row__position-cell {
   grid-column: 3 / span 2;
   background: #ffe7eb;
@@ -1947,6 +1980,75 @@ td.scale-color-col .color-input {
   font-size: 0.8em;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+}
+
+.sequencer-repeat-row__summary {
+  grid-column: 5 / span 4;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  align-items: center;
+  min-height: 1.5em;
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  position: relative;
+  z-index: 2;
+}
+
+.sequencer-repeat-row__summary--end {
+  justify-content: stretch;
+}
+
+.sequencer-repeat-row__stroke,
+.sequencer-repeat-row__dot {
+  display: block;
+  position: absolute;
+  z-index: 2;
+}
+
+.sequencer-repeat-row__stroke {
+  left: 0;
+  right: 0;
+}
+
+.sequencer-repeat-row__stroke--thick {
+  height: 0.18em;
+  background: rgba(112, 92, 92, 0.9);
+  top: calc(50% - 0.34em);
+}
+
+.sequencer-repeat-row__stroke--thin {
+  height: 1.5px;
+  background: rgba(132, 112, 112, 0.82);
+  top: calc(50% + 0.08em);
+  transform: translateY(-50%);
+}
+
+.sequencer-repeat-row__dots {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: 0.24em 0.24em;
+  column-gap: 0.34em;
+}
+
+.sequencer-repeat-row__summary--start .sequencer-repeat-row__dots {
+  top: calc(50% + 0.22em);
+}
+
+.sequencer-repeat-row__summary--end .sequencer-repeat-row__dots {
+  top: calc(50% - 0.48em);
+}
+
+.sequencer-repeat-row__dot {
+  position: relative;
+  width: 0.24em;
+  height: 0.24em;
+  border-radius: 50%;
+  background: rgba(112, 92, 92, 0.9);
 }
 
 .sequencer-tempo-row__summary-sep,
@@ -2033,6 +2135,17 @@ td.scale-color-col .color-input {
   pointer-events: auto;
 }
 
+.sequencer-repeat-row .sequencer-tempo-row__position-cell,
+.sequencer-repeat-row .sequencer-tempo-row__time-cell {
+  background: #ffe7eb;
+  border-color: rgba(212, 160, 168, 0.68);
+  align-self: center;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
 .sequencer-tempo-row__position-cell .sequencer-event__input,
 .sequencer-tempo-row__position-cell .sequencer-event__position,
 .sequencer-tempo-row__summary .sequencer-event__input,
@@ -2045,8 +2158,24 @@ td.scale-color-col .color-input {
   pointer-events: auto;
 }
 
+.sequencer-repeat-row .sequencer-tempo-row__position-cell .sequencer-event__input,
+.sequencer-repeat-row .sequencer-tempo-row__position-cell .sequencer-event__position,
+.sequencer-repeat-row .sequencer-tempo-row__time-cell .sequencer-event__input,
+.sequencer-repeat-row .sequencer-tempo-row__time-cell .sequencer-event__input--stepper {
+  background: #ffe7eb;
+  position: relative;
+  z-index: 2;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+  pointer-events: auto;
+}
+
 .sequencer-tempo-row__position-cell .sequencer-event__input,
 .sequencer-tempo-row__position-cell .sequencer-event__position {
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
+.sequencer-repeat-row .sequencer-tempo-row__position-cell .sequencer-event__input,
+.sequencer-repeat-row .sequencer-tempo-row__position-cell .sequencer-event__position {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
@@ -2198,6 +2327,21 @@ td.scale-color-col .color-input {
   pointer-events: none;
 }
 
+.sequencer-repeat-row__line-thick {
+  position: absolute;
+  left: 0.95em;
+  right: 0;
+  top: calc(0.44em);
+  height: 0.18em;
+  background: rgba(112, 92, 92, 0.9);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.sequencer-repeat-row--end .sequencer-repeat-row__line-thick {
+  top: calc(0.98em);
+}
+
 .sequencer-tempo-row__label,
 .sequencer-tempo-row__position-cell,
 .sequencer-tempo-row__time-cell {
@@ -2205,7 +2349,18 @@ td.scale-color-col .color-input {
   z-index: 2;
 }
 
+.sequencer-repeat-row__position-cell,
+.sequencer-repeat-row__time-cell {
+  position: relative;
+  z-index: 2;
+}
+
 .sequencer-tempo-row .sequencer-row__delete-cell {
+  background: var(--color-bg);
+  z-index: 2;
+}
+
+.sequencer-repeat-row .sequencer-row__delete-cell {
   background: var(--color-bg);
   z-index: 2;
 }
@@ -2261,6 +2416,99 @@ td.scale-color-col .color-input {
   min-height: 1.5em;
   position: relative;
   z-index: 2;
+}
+
+.sequencer-repeat-row__tail {
+  grid-column: 13 / -1;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-width: var(--sequencer-event-actions-col);
+  min-height: 1.5em;
+  position: relative;
+  z-index: 2;
+}
+
+.sequencer-repeat-row__count {
+  position: absolute;
+  right: 0;
+  top: -0.26em;
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 0.02em;
+  width: max-content;
+  font-size: 0.72em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sequencer-repeat-row__count-input {
+  width: 1.2em;
+  max-width: 1.2em;
+  min-width: 0;
+  height: 1.05em;
+  min-height: 1.05em;
+  padding: 0;
+  text-align: right;
+  font-size: 1em;
+  line-height: 1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+#sidebar .sequencer-repeat-row .sequencer-repeat-row__count-input.sequencer-event__input,
+#sidebar .sequencer-repeat-row input[type="text"].sequencer-repeat-row__count-input.sequencer-event__input {
+  width: 1.2em;
+  max-width: 1.2em;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: right;
+  justify-content: flex-end;
+  color: inherit;
+}
+
+.sequencer-repeat-row__count-suffix {
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+  margin-left: -0.02em;
+  color: inherit;
+}
+
+.sequencer-repeat-row__count-input--hint,
+.sequencer-repeat-row__count-suffix--hint {
+  color: rgba(111, 94, 94, 0.6);
+}
+
+#sidebar .sequencer-repeat-row .sequencer-repeat-row__count-input--hint.sequencer-event__input,
+#sidebar .sequencer-repeat-row input[type="text"].sequencer-repeat-row__count-input--hint.sequencer-event__input,
+#sidebar .sequencer-repeat-row .sequencer-repeat-row__count-suffix--hint {
+  color: rgba(111, 94, 94, 0.6);
+}
+
+.sequencer-barline-row__line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.sequencer-barline-row__line--upper {
+  top: calc(50% - 0.12em);
+  border-top: 1.5px solid rgba(132, 112, 112, 0.78);
+}
+
+.sequencer-barline-row__line--lower {
+  top: calc(50% + 0.12em);
+  border-top: 3px solid rgba(112, 92, 92, 0.88);
 }
 
 .sequencer-event__heji {
@@ -2340,6 +2588,15 @@ td.scale-color-col .color-input {
 .sequencer-tempo-row--bar-relative-draft .sequencer-event__beat,
 .sequencer-tempo-row--bar-relative-draft .sequencer-event__fraction-num,
 .sequencer-tempo-row--bar-relative-draft .sequencer-event__fraction-den {
+  background: #fff4b8;
+  background-color: #fff4b8;
+  box-shadow: inset 0 0 0 999px #fff4b8;
+}
+
+.sequencer-repeat-row--bar-relative-draft .sequencer-event__bar,
+.sequencer-repeat-row--bar-relative-draft .sequencer-event__beat,
+.sequencer-repeat-row--bar-relative-draft .sequencer-event__fraction-num,
+.sequencer-repeat-row--bar-relative-draft .sequencer-event__fraction-den {
   background: #fff4b8;
   background-color: #fff4b8;
   box-shadow: inset 0 0 0 999px #fff4b8;
@@ -2732,8 +2989,21 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
+#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input,
+#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position {
+  background: #ffe7eb;
+  background-color: #ffe7eb;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper,
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
+  background: #ffe7eb;
+  background-color: #ffe7eb;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
+#sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
@@ -2802,6 +3072,13 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
+#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input:focus,
+#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position:focus {
+  background: #ffe7eb;
+  background-color: #ffe7eb;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
 #sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-event__input--stepper:focus,
 #sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-bar-row__signature-input:focus {
   background: var(--color-bg);
@@ -2811,6 +3088,12 @@ td.scale-color-col .color-input {
 
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper:focus,
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
+  background: #ffe7eb;
+  background-color: #ffe7eb;
+  box-shadow: inset 0 0 0 999px #ffe7eb;
+}
+
+#sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;

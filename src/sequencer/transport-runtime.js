@@ -1,3 +1,5 @@
+import { timingBarAtNumber } from "./transport.js";
+
 function isWholeSequencePosition(time) {
   const value = Number(time);
   if (!Number.isFinite(value)) return false;
@@ -27,7 +29,15 @@ export function buildBarNumberById(bars = []) {
   return new Map(entries);
 }
 
-export function buildStructuralMarkersByDisplayBucket(bars = [], tempi = []) {
+function structuralTypePriority(type) {
+  if (type === "repeat-start") return 0;
+  if (type === "repeat-end") return 1;
+  if (type === "tempo") return 2;
+  if (type === "bar") return 3;
+  return 4;
+}
+
+export function buildStructuralMarkersByDisplayBucket(bars = [], tempi = [], repeats = []) {
   const groups = new Map();
 
   const collect = (marker, type, order) => {
@@ -39,11 +49,12 @@ export function buildStructuralMarkersByDisplayBucket(bars = [], tempi = []) {
 
   bars.forEach((bar, index) => collect(bar, "bar", index));
   tempi.forEach((tempo, index) => collect(tempo, "tempo", index));
+  repeats.forEach((repeat, index) => collect(repeat, repeat?.kind === "end" ? "repeat-end" : "repeat-start", index));
 
   for (const items of groups.values()) {
     items.sort((a, b) => (
       Number(a.position) - Number(b.position) ||
-      (a.structuralType === "tempo" ? 0 : 1) - (b.structuralType === "tempo" ? 0 : 1) ||
+      structuralTypePriority(a.structuralType) - structuralTypePriority(b.structuralType) ||
       Number(a.structuralOrder) - Number(b.structuralOrder)
     ));
   }
@@ -52,8 +63,7 @@ export function buildStructuralMarkersByDisplayBucket(bars = [], tempi = []) {
 }
 
 export function isStoppedBarNumber(barNumber, bars = []) {
-  const index = Math.max(0, Math.round(Number(barNumber) || 1) - 1);
-  const bar = bars[index] ?? null;
+  const bar = timingBarAtNumber(barNumber, bars);
   const beatsPerBar = Math.max(0, Math.round(Number(bar?.numerator) || 0));
   return beatsPerBar === 0;
 }

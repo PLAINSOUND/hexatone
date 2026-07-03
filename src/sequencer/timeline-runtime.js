@@ -2,9 +2,22 @@ export function buildSnapshotEventsById(sequenceEvents = []) {
   const groups = new Map();
 
   for (const event of sequenceEvents) {
-    if (event.type !== "note" && event.type !== "bar" && event.type !== "tempo") continue;
     if (
-      (event.type === "bar" || event.type === "tempo") &&
+      event.type !== "note" &&
+      event.type !== "bar" &&
+      event.type !== "tempo" &&
+      event.type !== "barline" &&
+      event.type !== "repeat-start" &&
+      event.type !== "repeat-end"
+    ) continue;
+    if (
+      (
+        event.type === "bar" ||
+        event.type === "tempo" ||
+        event.type === "barline" ||
+        event.type === "repeat-start" ||
+        event.type === "repeat-end"
+      ) &&
       isWholeSequencePosition(event.absoluteTime) &&
       Math.abs(Number(event.absoluteTime) - (Number(event.snapshotIndex) + 1)) < 1e-9
     ) {

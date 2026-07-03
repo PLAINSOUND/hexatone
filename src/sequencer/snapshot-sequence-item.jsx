@@ -1,7 +1,9 @@
 import { Fragment } from "preact";
 import EventsGridHeader from "./events-grid-header.jsx";
 import BarRow from "./bar-row.jsx";
+import BarlineRow from "./barline-row.jsx";
 import TempoRow from "./tempo-row.jsx";
+import RepeatRow from "./repeat-row.jsx";
 import EventRow from "./event-row.jsx";
 import {
   structuralEventInstanceKey,
@@ -27,7 +29,7 @@ const SnapshotSequenceItem = ({
   const snapshotEvents = structure.snapshotEventsById.get(snapshot.id) ?? [];
   const snapshotStructuralKeys = new Set(
     snapshotEvents
-      .filter((event) => event.type === "bar" || event.type === "tempo")
+      .filter((event) => event.type === "bar" || event.type === "tempo" || event.type === "repeat-start" || event.type === "repeat-end")
       .map((event) => structuralEventRenderKey(event)),
   );
 
@@ -227,10 +229,10 @@ const SnapshotSequenceItem = ({
               <EventsGridHeader eventPane={rows.eventPane} onTogglePane={rows.setEventPane} />
               <div class="sequencer-events-grid__body">
                 {snapshotEvents.map((event) => (
-                  event.type === "bar" || event.type === "tempo"
+                  event.type === "bar" || event.type === "tempo" || event.type === "barline" || event.type === "repeat-start" || event.type === "repeat-end"
                     ? (
                       <div
-                        key={structuralEventInstanceKey(event)}
+                        key={event.type === "barline" ? event.eventId : structuralEventInstanceKey(event)}
                         ref={(node) => {
                           if (event.type !== "bar") return;
                           if (node) structure.barRowRefs.current.set(event.barId ?? event.id, node);
@@ -240,6 +242,10 @@ const SnapshotSequenceItem = ({
                       >
                         {event.type === "bar" ? (
                           <BarRow bar={event} barNumberById={structure.barNumberById} dnd={rows.barRowDnd} editing={rows.barRowEditing} />
+                        ) : event.type === "repeat-start" || event.type === "repeat-end" ? (
+                          <RepeatRow repeat={event} timing={rows.repeatRowTiming} editing={rows.repeatRowEditing} />
+                        ) : event.type === "barline" ? (
+                          <BarlineRow />
                         ) : (
                           <TempoRow tempo={event} timing={rows.tempoRowTiming} editing={rows.tempoRowEditing} />
                         )}
@@ -277,6 +283,8 @@ const SnapshotSequenceItem = ({
           >
             {marker.structuralType === "bar" ? (
               <BarRow bar={marker} barNumberById={structure.barNumberById} dnd={rows.barRowDnd} editing={rows.barRowEditing} />
+            ) : marker.structuralType === "repeat-start" || marker.structuralType === "repeat-end" ? (
+              <RepeatRow repeat={marker} timing={rows.repeatRowTiming} editing={rows.repeatRowEditing} />
             ) : (
               <TempoRow tempo={marker} timing={rows.tempoRowTiming} editing={rows.tempoRowEditing} />
             )}

@@ -5,6 +5,7 @@ import SequenceControls from "./sequence-controls.jsx";
 import SnapshotSequenceItem from "./snapshot-sequence-item.jsx";
 import BarRow from "./bar-row.jsx";
 import TempoRow from "./tempo-row.jsx";
+import RepeatRow from "./repeat-row.jsx";
 import {
   barContextForPosition,
   normalizeBarMarkers,
@@ -53,6 +54,7 @@ import {
   resolveBarRelativeDraftPosition,
   resolveDraftScopeTarget,
   resolveEventSequenceDraftTarget,
+  repeatBarRelativeDraftKey,
   tempoBarRelativeDraftKey,
   updateBarRelativeDrafts,
   updateEventSequenceDrafts,
@@ -76,6 +78,7 @@ const Sequencer = ({
   snapshots,
   displaySnapshots,
   bars,
+  repeats,
   tempi,
   snapshotLabelMode,
   activeSequenceName,
@@ -111,11 +114,14 @@ const Sequencer = ({
   onResetSequencePlayhead,
   onAddBar,
   onAddTempo,
+  onAddRepeat,
   onAddBarsBeforeSnapshots,
   onDeleteBar,
   onDeleteTempo,
+  onDeleteRepeat,
   onUpdateBar,
   onUpdateTempo,
+  onUpdateRepeat,
   onMoveBar,
   onDeleteSnapshot,
   onDeleteAllSnapshots,
@@ -128,8 +134,9 @@ const Sequencer = ({
   const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(true);
-  const [newBarPosition, setNewBarPosition] = useState("1.000000");
+  const [newBarPosition, setNewBarPosition] = useState("1");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
+  const [newRepeatPosition, setNewRepeatPosition] = useState("1.000000");
   const [newTempoBpm, setNewTempoBpm] = useState("60");
   const [newBarNumerator, setNewBarNumerator] = useState("4");
   const [newBarDenominator, setNewBarDenominator] = useState("4");
@@ -144,6 +151,7 @@ const Sequencer = ({
   const [barRelativeDrafts, setBarRelativeDrafts] = useState({});
   const [eventSequenceDrafts, setEventSequenceDrafts] = useState({});
   const [tempoBarRelativeDrafts, setTempoBarRelativeDrafts] = useState({});
+  const [repeatBarRelativeDrafts, setRepeatBarRelativeDrafts] = useState({});
   const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
   const dragIdRef = useRef(null);
@@ -167,12 +175,12 @@ const Sequencer = ({
     [tempi],
   );
   const sequenceEvents = useMemo(
-    () => deriveSequenceEvents(renderedSnapshots, sortedBars, sortedTempi),
-    [renderedSnapshots, sortedBars, sortedTempi],
+    () => deriveSequenceEvents(renderedSnapshots, sortedBars, sortedTempi, repeats),
+    [renderedSnapshots, repeats, sortedBars, sortedTempi],
   );
   const sequenceCueGroups = useMemo(
-    () => deriveSequenceCueGroups(renderedSnapshots, sortedBars, sortedTempi),
-    [renderedSnapshots, sortedBars, sortedTempi],
+    () => deriveSequenceCueGroups(renderedSnapshots, sortedBars, sortedTempi, repeats),
+    [renderedSnapshots, repeats, sortedBars, sortedTempi],
   );
 
   const {
@@ -236,8 +244,8 @@ const Sequencer = ({
   const barNumberById = useMemo(() => buildBarNumberById(sortedBars), [sortedBars]);
 
   const structuralMarkersByDisplayBucket = useMemo(
-    () => buildStructuralMarkersByDisplayBucket(sortedBars, sortedTempi),
-    [sortedBars, sortedTempi],
+    () => buildStructuralMarkersByDisplayBucket(sortedBars, sortedTempi, repeats),
+    [repeats, sortedBars, sortedTempi],
   );
 
   const snapshotStartCueIndexes = useMemo(
@@ -645,6 +653,14 @@ const Sequencer = ({
     notifyEditCommitted();
   }, [onUpdateTempo, sortedBars]);
 
+  const applyRepeatBarRelativeDraft = useCallback((draft) => {
+    const position = resolveBarRelativeDraftPosition(draft, sortedBars);
+    if (position == null) return;
+    onUpdateRepeat?.(draft.repeatId, { position });
+    setRepeatBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
+    notifyEditCommitted();
+  }, [onUpdateRepeat, sortedBars]);
+
   const applyEventBarRelativeDraft = useCallback((draft) => {
     if (!draft) return;
     const snapshot = snapshots.find((entry) => entry.id === draft.snapshotId);
@@ -694,10 +710,32 @@ const Sequencer = ({
     setTempoBarRelativeDrafts((prev) => removeDraftEntry(prev, draftKey));
   };
 
+  const updateRepeatBarRelativeDraftField = (draftKey, barBeat, field, value, meta) => {
+    setRepeatBarRelativeDrafts((prev) => updateBarRelativeDrafts(prev, {
+      draftKey,
+      barBeat,
+      field,
+      value,
+      meta,
+      scopePrefix: "repeat",
+      isStoppedBar: stoppedBarStateForBarNumber,
+    }));
+  };
+
+  const cancelRepeatBarRelativeDraft = (draftKey) => {
+    setRepeatBarRelativeDrafts((prev) => removeDraftEntry(prev, draftKey));
+  };
+
   const commitTempoBarRelativeDraft = (tempoId, draftKey) => {
     const draft = tempoBarRelativeDrafts[draftKey];
     if (!draft) return;
     applyTempoBarRelativeDraft(draft);
+  };
+
+  const commitRepeatBarRelativeDraft = (repeatId, draftKey) => {
+    const draft = repeatBarRelativeDrafts[draftKey];
+    if (!draft) return;
+    applyRepeatBarRelativeDraft(draft);
   };
 
   const commitEventBarRelativeDraft = (snapshot, noteKey, kind, draftKey) => {
@@ -730,6 +768,7 @@ const Sequencer = ({
       const targetScope = resolveDraftScopeTarget(event, "data-bar-relative-draft-scope");
       commitForeignDrafts(barRelativeDrafts, targetScope, applyEventBarRelativeDraft);
       commitForeignDrafts(tempoBarRelativeDrafts, targetScope, applyTempoBarRelativeDraft);
+      commitForeignDrafts(repeatBarRelativeDrafts, targetScope, applyRepeatBarRelativeDraft);
     };
 
     document.addEventListener("pointerdown", handlePointerDown, true);
@@ -738,7 +777,7 @@ const Sequencer = ({
       document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("mousedown", handlePointerDown, true);
     };
-  }, [barRelativeDrafts, tempoBarRelativeDrafts, applyEventBarRelativeDraft, applyTempoBarRelativeDraft]);
+  }, [barRelativeDrafts, tempoBarRelativeDrafts, repeatBarRelativeDrafts, applyEventBarRelativeDraft, applyTempoBarRelativeDraft, applyRepeatBarRelativeDraft]);
 
   const updateEventField = (snapshot, noteKey, field, rawValue) => {
     const notes = updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue);
@@ -754,13 +793,25 @@ const Sequencer = ({
   const updateBarPosition = (barId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
-    onUpdateBar?.(barId, { position: Math.round(numeric * 1000000) / 1000000 });
+    onUpdateBar?.(barId, { position: Math.max(1, Math.round(numeric)) });
   };
 
   const updateTempoPosition = (tempoId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
     onUpdateTempo?.(tempoId, { position: Math.round(numeric * 1000000) / 1000000 });
+  };
+
+  const updateRepeatPosition = (repeatId, rawValue) => {
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric)) return;
+    onUpdateRepeat?.(repeatId, { position: Math.round(numeric * 1000000) / 1000000 });
+  };
+
+  const updateRepeatCount = (repeatId, rawValue) => {
+    const numeric = Math.max(2, Math.round(Number(rawValue) || 2));
+    if (!Number.isFinite(numeric)) return;
+    onUpdateRepeat?.(repeatId, { repeatCount: numeric });
   };
 
   const updateTempoBpm = (tempoId, rawValue) => {
@@ -788,8 +839,8 @@ const Sequencer = ({
     const numerator = Math.max(0, Math.round(Number(newBarNumerator) || 0));
     const denominator = Math.max(1, Math.round(Number(newBarDenominator) || 1));
     if (!Number.isFinite(numeric)) return;
-    onAddBar?.(Math.round(numeric * 1000000) / 1000000, numerator, denominator);
-    setNewBarPosition("1.000000");
+    onAddBar?.(Math.max(1, Math.round(numeric)), numerator, denominator);
+    setNewBarPosition("1");
     setNewBarNumerator("4");
     setNewBarDenominator("4");
   };
@@ -801,6 +852,13 @@ const Sequencer = ({
     onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm);
     setNewTempoPosition("1.000000");
     setNewTempoBpm("60");
+  };
+
+  const addRepeatAtRequestedPosition = (kind) => {
+    const position = Number(newRepeatPosition);
+    if (!Number.isFinite(position)) return;
+    onAddRepeat?.(Math.round(position * 1000000) / 1000000, kind);
+    setNewRepeatPosition("1.000000");
   };
 
   const updateNewBarMeterField = (field, rawValue) => {
@@ -856,6 +914,13 @@ const Sequencer = ({
     stoppedBarStateForBarNumber,
   };
 
+  const repeatRowTiming = {
+    sortedBars,
+    repeatBarRelativeDraftKey,
+    repeatBarRelativeDrafts,
+    stoppedBarStateForBarNumber,
+  };
+
   const tempoRowEditing = {
     handleEnterCommit,
     handleBlurCommit,
@@ -866,6 +931,17 @@ const Sequencer = ({
     commitTempoBarRelativeDraft,
     cancelTempoBarRelativeDraft,
     onDeleteTempo,
+  };
+
+  const repeatRowEditing = {
+    handleEnterCommit,
+    handleBlurCommit,
+    updateRepeatPosition,
+    updateRepeatCount,
+    updateRepeatBarRelativeDraftField,
+    commitRepeatBarRelativeDraft,
+    cancelRepeatBarRelativeDraft,
+    onDeleteRepeat,
   };
 
   const eventRowView = {
@@ -930,6 +1006,7 @@ const Sequencer = ({
       <SequenceLibrary
         snapshots={snapshots}
         bars={bars}
+        repeats={repeats}
         tempi={tempi}
         snapshotLabelMode={snapshotLabelMode}
         autoCreateBars={sequenceAutoCreateBars}
@@ -1042,6 +1119,9 @@ const Sequencer = ({
           sequenceAutoCreateBars={sequenceAutoCreateBars}
           onSequenceAutoCreateBarsChange={onSequenceAutoCreateBarsChange}
           onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
+          newRepeatPosition={newRepeatPosition}
+          setNewRepeatPosition={setNewRepeatPosition}
+          onAddRepeatMarker={addRepeatAtRequestedPosition}
           snapshotLabelMode={snapshotLabelMode}
           onSetSnapshotLabelMode={onSetSnapshotLabelMode}
           sequenceLegato={sequenceLegato}
@@ -1102,6 +1182,8 @@ const Sequencer = ({
                 >
                   {marker.structuralType === "bar" ? (
                     <BarRow bar={marker} barNumberById={barNumberById} dnd={barRowDnd} editing={barRowEditing} />
+                  ) : marker.structuralType === "repeat-start" || marker.structuralType === "repeat-end" ? (
+                    <RepeatRow repeat={marker} timing={repeatRowTiming} editing={repeatRowEditing} />
                   ) : (
                     <TempoRow
                       tempo={marker}
@@ -1149,6 +1231,8 @@ const Sequencer = ({
                     barRowEditing,
                     tempoRowTiming,
                     tempoRowEditing,
+                    repeatRowTiming,
+                    repeatRowEditing,
                     eventRowView,
                     eventRowDrafts,
                     eventRowDrag,

@@ -16,6 +16,10 @@ function normalizePositiveInteger(value, fallback) {
   return n;
 }
 
+function normalizeStructuralBarPosition(value, fallback = 1) {
+  return normalizePositiveInteger(value, fallback);
+}
+
 function tempoFractionToBeatLength(numerator, denominator) {
   return (4 * numerator) / denominator;
 }
@@ -209,7 +213,7 @@ function normalizeBeatUnit(value) {
 export function normalizeBarMarker(bar, index = 0) {
   return {
     id: bar?.id ?? `bar:${index + 1}`,
-    position: normalizePosition(bar?.position, index + 1),
+    position: normalizeStructuralBarPosition(bar?.position, index + 1),
     numerator: normalizeBeatsPerBar(bar?.numerator),
     denominator: normalizeBeatUnit(bar?.denominator),
   };
@@ -244,10 +248,47 @@ export function normalizeBarMarkers(bars = [], options = {}) {
   return deduped;
 }
 
-function safeBarLength(currentBar, nextBar, fallback = 1) {
-  const explicit = Number(nextBar?.position) - Number(currentBar?.position);
-  if (Number.isFinite(explicit) && explicit > 1e-9) return explicit;
-  return fallback;
+export function timingBarAtNumber(barNumber, bars = []) {
+  const normalizedBars = normalizeBarMarkers(bars);
+  const resolvedBarNumber = Math.max(1, Math.round(Number(barNumber) || 1));
+  let inherited = normalizedBars[0] ?? {
+    id: "bar:default",
+    position: 1,
+    numerator: 4,
+    denominator: 4,
+  };
+  for (let index = 0; index < normalizedBars.length; index += 1) {
+    if (Number(normalizedBars[index].position) <= resolvedBarNumber) inherited = normalizedBars[index];
+    else break;
+  }
+  return {
+    ...inherited,
+    position: resolvedBarNumber,
+    inherited: Number(inherited.position) !== resolvedBarNumber,
+  };
+}
+
+export function deriveTerminalBarlinePosition(snapshots = [], bars = []) {
+  const explicitBars = normalizeBarMarkers(bars);
+  const explicitTerminal = (explicitBars.at(-1)?.position ?? 1) + 1;
+  let lastSnapshotEdge = 1;
+  for (const [snapshotIndex, snapshot] of (snapshots ?? []).entries()) {
+    const baseTime = snapshotIndex + 1;
+    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    const noteEnds = (snapshot?.notes ?? [])
+      .map((note) => Number(note?.end))
+      .filter((value) => Number.isFinite(value));
+    const localEnd = Math.max(length, ...noteEnds);
+    const absoluteEnd = baseTime + localEnd;
+    const rounded = Math.round(absoluteEnd);
+    const nextBarline = Math.abs(absoluteEnd - rounded) < 1e-9 ? rounded + 1 : Math.ceil(absoluteEnd);
+    lastSnapshotEdge = Math.max(lastSnapshotEdge, nextBarline);
+  }
+  return Math.max(explicitTerminal, lastSnapshotEdge);
+}
+
+function safeBarLength() {
+  return 1;
 }
 
 const AUTO_DENOMINATOR_PREFERENCE = [2, 4, 8, 3, 6, 9, 5, 7];
@@ -325,21 +366,15 @@ export function barContextForPosition(position, bars = []) {
   const absolutePosition = Number(position);
   if (!Number.isFinite(absolutePosition)) return null;
 
-  const normalizedBars = normalizeBarMarkers(bars);
-  let barIndex = 0;
-  for (let i = 0; i < normalizedBars.length; i += 1) {
-    if (normalizedBars[i].position <= absolutePosition + 1e-9) barIndex = i;
-    else break;
-  }
-
-  const bar = normalizedBars[barIndex];
-  const nextBar = normalizedBars[barIndex + 1] ?? null;
+  const barNumber = Math.max(1, Math.floor(absolutePosition + 1e-9));
+  const bar = timingBarAtNumber(barNumber, bars);
+  const nextBar = timingBarAtNumber(barNumber + 1, bars);
   const barLength = safeBarLength(bar, nextBar);
 
   return {
     bar,
-    barIndex,
-    barNumber: barIndex + 1,
+    barIndex: barNumber - 1,
+    barNumber,
     nextBar,
     barLength,
   };
@@ -402,13 +437,12 @@ export function absolutePositionToBarBeat(
 }
 
 export function barBeatToAbsolutePosition(barBeat, bars = []) {
-  const normalizedBars = normalizeBarMarkers(bars);
   const rawBarNumber = Math.round(Number(barBeat?.barNumber));
   if (!Number.isFinite(rawBarNumber) || rawBarNumber <= 0) return null;
 
-  let barIndex = Math.max(0, Math.min(normalizedBars.length - 1, rawBarNumber - 1));
-  let bar = normalizedBars[barIndex];
-  let nextBar = normalizedBars[barIndex + 1] ?? null;
+  let currentBarNumber = Math.max(1, rawBarNumber);
+  let bar = timingBarAtNumber(currentBarNumber, bars);
+  let nextBar = timingBarAtNumber(currentBarNumber + 1, bars);
   let beatsPerBar = normalizeBeatsPerBar(bar?.numerator);
   if (beatsPerBar === 0) {
     return normalizePosition(Number(bar.position), Number(bar.position));
@@ -419,11 +453,11 @@ export function barBeatToAbsolutePosition(barBeat, bars = []) {
   const rawNumerator = Math.max(0, Math.round(Number(barBeat?.numerator) || 0));
   let totalBeatOffset = (rawBeat - 1) + rawNumerator / denominator;
 
-  while (beatsPerBar > 0 && totalBeatOffset >= beatsPerBar - 1e-9 && nextBar) {
+  while (beatsPerBar > 0 && totalBeatOffset >= beatsPerBar - 1e-9) {
     totalBeatOffset -= beatsPerBar;
-    barIndex += 1;
-    bar = normalizedBars[barIndex];
-    nextBar = normalizedBars[barIndex + 1] ?? null;
+    currentBarNumber += 1;
+    bar = timingBarAtNumber(currentBarNumber, bars);
+    nextBar = timingBarAtNumber(currentBarNumber + 1, bars);
     beatsPerBar = normalizeBeatsPerBar(bar?.numerator);
     if (beatsPerBar === 0) {
       return normalizePosition(Number(bar.position), Number(bar.position));
@@ -437,4 +471,44 @@ export function barBeatToAbsolutePosition(barBeat, bars = []) {
     Number(bar.position) + totalBeatOffset * beatLength,
     Number(bar.position),
   );
+}
+
+export function normalizeRepeatMarker(marker, index = 0) {
+  const kind = marker?.kind === "end" ? "end" : "start";
+  const repeatCount = kind === "end"
+    ? Math.max(2, Math.round(Number(marker?.repeatCount) || 2))
+    : null;
+  return {
+    id: marker?.id ?? `repeat:${index + 1}`,
+    position: normalizePosition(marker?.position, 1),
+    kind,
+    repeatCount,
+  };
+}
+
+export function normalizeRepeatMarkers(markers = []) {
+  const source = Array.isArray(markers) ? markers : [];
+  const normalized = source
+    .map((marker, index) => normalizeRepeatMarker(marker, index))
+    .sort((a, b) => (
+      a.position - b.position
+      || (a.kind === "start" ? 0 : 1) - (b.kind === "start" ? 0 : 1)
+      || String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
+    ));
+
+  const deduped = [];
+  for (const marker of normalized) {
+    const previous = deduped.at(-1);
+    if (
+      previous
+      && previous.kind === marker.kind
+      && Math.abs(Number(previous.position) - Number(marker.position)) < 1e-9
+    ) {
+      deduped[deduped.length - 1] = marker;
+      continue;
+    }
+    deduped.push(marker);
+  }
+
+  return deduped;
 }

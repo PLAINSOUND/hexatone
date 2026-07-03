@@ -1,5 +1,9 @@
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 
+function selectControlValue(event) {
+  event.currentTarget.select?.();
+}
+
 const SequenceControls = ({
   showAllEvents,
   newTempoPosition,
@@ -16,6 +20,9 @@ const SequenceControls = ({
   sequenceAutoCreateBars,
   onSequenceAutoCreateBarsChange,
   onAddBarsBeforeSnapshots,
+  newRepeatPosition,
+  setNewRepeatPosition,
+  onAddRepeatMarker,
   snapshotLabelMode,
   onSetSnapshotLabelMode,
   sequenceLegato,
@@ -67,6 +74,7 @@ const SequenceControls = ({
               class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
               aria-label="new tempo position"
               value={newTempoPosition}
+              onFocus={selectControlValue}
               onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
             />
             <span class="sequencer-bars-add__tempo">
@@ -75,6 +83,7 @@ const SequenceControls = ({
                 class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpm === "60" ? " sequencer-bars-add__position--hint" : ""}`}
                 aria-label="new tempo bpm"
                 value={newTempoBpm}
+                onFocus={selectControlValue}
                 onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
               />
               <span class="sequencer-bars-add__suffix">bpm</span>
@@ -90,14 +99,14 @@ const SequenceControls = ({
           <span class="sequencer-bars-add sequencer-bars-add--bar">
             <input
               type="text"
-              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1" ? " sequencer-bars-add__position--hint" : ""}`}
               aria-label="new bar position"
               value={newBarPosition}
-              onInput={(e) => setNewBarPosition(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                addBarAtRequestedPosition();
+              onFocus={selectControlValue}
+              onInput={(e) => {
+                const rawValue = String(e.currentTarget.value ?? "").trim();
+                const integerPortion = rawValue.split(/[.,]/, 1)[0]?.replace(/[^\d]/g, "") ?? "";
+                setNewBarPosition(integerPortion);
               }}
             />
             <span class="sequencer-bars-add__meter">
@@ -105,9 +114,10 @@ const SequenceControls = ({
                 type="number"
                 step="1"
                 min="0"
-                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarNumerator === "4" ? " sequencer-bars-add__position--hint" : ""}`}
+                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input sequencer-bars-add__meter-input--numerator${newBarNumerator === "4" ? " sequencer-bars-add__position--hint" : ""}`}
                 aria-label="new bar numerator"
                 value={newBarNumerator}
+                onFocus={selectControlValue}
                 onInput={(e) => updateNewBarMeterField("numerator", e.currentTarget.value)}
               />
               <span class="sequencer-bars-add__meter-separator">/</span>
@@ -118,6 +128,7 @@ const SequenceControls = ({
                 class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarDenominator === "4" ? " sequencer-bars-add__position--hint" : ""}`}
                 aria-label="new bar denominator"
                 value={newBarDenominator}
+                onFocus={selectControlValue}
                 onInput={(e) => updateNewBarMeterField("denominator", e.currentTarget.value)}
               />
             </span>
@@ -140,6 +151,34 @@ const SequenceControls = ({
             </button>
           </span>
         </label>
+
+        <div class="sequencer-option-row">
+          <span>Choose Repeat Position</span>
+          <span class="sequencer-bars-add sequencer-bars-add--tempo">
+            <input
+              type="text"
+              class={`sidebar-input sequencer-bars-add__position${newRepeatPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+              aria-label="new repeat position"
+              value={newRepeatPosition}
+              onFocus={selectControlValue}
+              onInput={(e) => setNewRepeatPosition?.(e.currentTarget.value)}
+            />
+            <button
+              type="button"
+              class="preset-action-btn sequencer-bars-add__button"
+              onClick={() => onAddRepeatMarker?.("start")}
+            >
+              Start Marker
+            </button>
+            <button
+              type="button"
+              class="preset-action-btn sequencer-bars-add__button"
+              onClick={() => onAddRepeatMarker?.("end")}
+            >
+              End Marker
+            </button>
+          </span>
+        </div>
 
         <label class="sequencer-option-row">
           <span>Snapshot Labels</span>

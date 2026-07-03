@@ -2360,7 +2360,7 @@ describe("Sequencer", () => {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByText("Add Bar"));
-    expect(onAddBar).toHaveBeenCalledWith(2.5, 3, 2);
+    expect(onAddBar).toHaveBeenCalledWith(2, 3, 2);
 
     fireEvent.click(screen.getByRole("button", { name: "Add Bars Before Snapshots" }));
     expect(onAddBarsBeforeSnapshots).toHaveBeenCalledTimes(1);
@@ -2742,7 +2742,7 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getByLabelText("new bar position").value).toBe("2.000000");
+    expect(screen.getByLabelText("new bar position").value).toBe("2");
   });
 
   it("hides delete buttons for the always-on anchor bar and tempo marker", () => {

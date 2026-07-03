@@ -1,3 +1,5 @@
+import { deriveTerminalBarlinePosition, normalizeBarMarkers, normalizeRepeatMarkers } from "./transport.js";
+
 function noteEventPhase(event) {
   if (event?.kind === "release") {
     const start = Number(event?.spanStart);
@@ -9,9 +11,12 @@ function noteEventPhase(event) {
 }
 
 function sequenceRowPriority(event) {
-  if (event?.type === "tempo") return 0;
-  if (event?.type === "bar") return 1;
-  return 2 + noteEventPhase(event);
+  if (event?.type === "repeat-start") return 0;
+  if (event?.type === "repeat-end") return 1;
+  if (event?.type === "tempo") return 2;
+  if (event?.type === "bar") return 3;
+  if (event?.type === "barline") return 4;
+  return 5 + noteEventPhase(event);
 }
 
 function noteFrequency(midicents) {
@@ -136,7 +141,7 @@ export function isWholeSequencePosition(time) {
   return Math.abs(value - Math.round(value)) < 1e-9;
 }
 
-export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
+export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats = []) {
   const events = [];
 
   for (const [snapshotIndex, snapshot] of (snapshots ?? []).entries()) {
@@ -165,7 +170,7 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
   }
 
   const snapshotCount = snapshots?.length ?? 0;
-  const normalizedBars = Array.isArray(bars) ? bars : [];
+  const normalizedBars = normalizeBarMarkers(bars);
   for (const [barOrder, bar] of normalizedBars.entries()) {
     const absoluteTime = normalizeTimeValue(Number(bar?.position));
     if (!Number.isFinite(absoluteTime)) continue;
@@ -206,6 +211,52 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
       beatDenominator: Number.isFinite(Number(tempo?.beatDenominator)) ? Number(tempo.beatDenominator) : 4,
       beatLength: Number(tempo?.beatLength),
       eventId: `tempo:${tempo?.id ?? tempoOrder}:${absoluteTime}`,
+      snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
+      snapshotIndex,
+      relativeTime,
+      absoluteTime,
+      cueIndex: null,
+      cueLead: false,
+      cueDisplayLead: false,
+      cueOrder: null,
+    });
+  }
+
+  const normalizedRepeats = normalizeRepeatMarkers(repeats);
+  for (const [repeatOrder, repeat] of normalizedRepeats.entries()) {
+    const absoluteTime = normalizeTimeValue(Number(repeat?.position));
+    if (!Number.isFinite(absoluteTime)) continue;
+    const snapshotIndex = snapshotIndexForAbsoluteTime(absoluteTime, snapshotCount);
+    const relativeTime = normalizeTimeValue(absoluteTime - snapshotBaseTime(snapshotIndex));
+    const repeatType = repeat.kind === "end" ? "repeat-end" : "repeat-start";
+    events.push({
+      type: repeatType,
+      kind: repeatType,
+      repeatId: repeat?.id ?? `${repeatType}:${absoluteTime}:${repeatOrder}`,
+      repeatOrder,
+      eventId: `${repeatType}:${repeat?.id ?? repeatOrder}:${absoluteTime}`,
+      snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
+      snapshotIndex,
+      relativeTime,
+      absoluteTime,
+      cueIndex: null,
+      cueLead: false,
+      cueDisplayLead: false,
+      cueOrder: null,
+    });
+  }
+
+  const terminalBarlinePosition = deriveTerminalBarlinePosition(snapshots, normalizedBars);
+  if (Number.isFinite(Number(terminalBarlinePosition))) {
+    const absoluteTime = normalizeTimeValue(Number(terminalBarlinePosition));
+    const snapshotIndex = snapshotIndexForAbsoluteTime(absoluteTime, snapshotCount);
+    const relativeTime = normalizeTimeValue(absoluteTime - snapshotBaseTime(snapshotIndex));
+    events.push({
+      type: "barline",
+      kind: "barline",
+      barlineId: "barline:eof",
+      implicit: true,
+      eventId: `barline:eof:${absoluteTime}`,
       snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
       snapshotIndex,
       relativeTime,
@@ -279,9 +330,9 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = []) {
   return events;
 }
 
-export function deriveSequenceCueGroups(snapshots, bars = [], tempi = []) {
+export function deriveSequenceCueGroups(snapshots, bars = [], tempi = [], repeats = []) {
   const groups = [];
-  const sequenceEvents = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
+  const sequenceEvents = deriveSequenceEvents(snapshots, bars, tempi, repeats).filter((event) => event.type === "note");
 
   for (const event of sequenceEvents) {
     const previous = groups.at(-1);

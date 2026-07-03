@@ -103,6 +103,9 @@ export function structuralEventRenderKey(item) {
   if (!item) return "";
   if (item.type === "bar" || item.structuralType === "bar") return `bar:${item.barId ?? item.id}`;
   if (item.type === "tempo" || item.structuralType === "tempo") return `tempo:${item.tempoId ?? item.id}`;
+  if (item.type === "repeat-start" || item.structuralType === "repeat-start") return `repeat-start:${item.repeatId ?? item.id}`;
+  if (item.type === "repeat-end" || item.structuralType === "repeat-end") return `repeat-end:${item.repeatId ?? item.id}`;
+  if (item.type === "barline") return `barline:${item.barlineId ?? item.id ?? item.eventId}`;
   return "";
 }
 
@@ -114,6 +117,12 @@ export function structuralEventInstanceKey(item) {
   }
   if (item.type === "tempo" || item.structuralType === "tempo") {
     return `${base}:${Number(item.position ?? item.absoluteTime ?? 0).toFixed(6)}:${item.bpm ?? 60}:${item.beatNumerator ?? 1}:${item.beatDenominator ?? 4}`;
+  }
+  if (item.type === "repeat-start" || item.structuralType === "repeat-start" || item.type === "repeat-end" || item.structuralType === "repeat-end") {
+    return `${base}:${Number(item.position ?? item.absoluteTime ?? 0).toFixed(6)}`;
+  }
+  if (item.type === "barline") {
+    return `${base}:${Number(item.position ?? item.absoluteTime ?? 0).toFixed(6)}`;
   }
   return base;
 }
