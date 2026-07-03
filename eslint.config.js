@@ -17,8 +17,8 @@ export default [
         ecmaFeatures: { jsx: true },
       },
       globals: {
-        ...globals.browser,
-        ...globals.es2021,
+        ...(globals.browser ?? {}),
+        ...(globals.es2021 ?? {}),
         // Preact's h and Fragment are used as JSX pragma — not imported in every file
         h: 'readonly',
         Fragment: 'readonly',
@@ -46,8 +46,8 @@ export default [
     files: ['src/**/*.test.{js,jsx}'],
     languageOptions: {
       globals: {
-        ...globals.browser,
-        ...globals.es2021,
+        ...(globals.browser ?? {}),
+        ...(globals.es2021 ?? {}),
         describe: 'readonly',
         it: 'readonly',
         expect: 'readonly',
