@@ -1,6 +1,5 @@
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
-import prettierConfig from 'eslint-config-prettier';
 
 export default [
   // ── Files to ignore ───────────────────────────────────────────────────────
@@ -39,8 +38,6 @@ export default [
       'no-undef': 'error',
       'no-console': 'warn',
 
-      // ── Prettier owns all formatting — these must stay off ────────────────
-      ...prettierConfig.rules,
     },
   },
 
