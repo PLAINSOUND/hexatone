@@ -17,6 +17,7 @@ const TEMPERED_TONIC_AUTO_COLOR = "#ff9d9d";
 const TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR = "#ffffff";
 const TRADITIONAL_TEMPERED_SHARP_TINT = "#cfe7d2";
 const TRADITIONAL_TEMPERED_FLAT_TINT = "#d6d0e6";
+const EDO_HEJI_SYNTONIC_NATURAL_AUTO_COLOR = "#fffae5";
 
 export function normaliseColorForCompare(raw) {
   return String(raw ?? "")
@@ -206,7 +207,39 @@ function parseTraditionalNotationTokens(label) {
     .filter(Boolean);
 }
 
+function parseExplicitHejiClassificationTokens(label, options = {}) {
+  return String(label ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((token) => parseExplicitHejiClassificationLabel(token, options))
+    .filter(Boolean);
+}
+
+function inferEnharmonicHejiSide(tokens) {
+  if (!tokens.length) return null;
+  const accidentalCounts = tokens.map((token) => token.accidentalCount ?? 0);
+  const hasFlat = accidentalCounts.some((count) => count < 0);
+  const hasSharp = accidentalCounts.some((count) => count > 0);
+  if (hasFlat && hasSharp) return "mixed";
+  if (tokens.length >= 2) {
+    const [first, second] = tokens;
+    const firstAccidental = first?.accidentalCount ?? 0;
+    const secondAccidental = second?.accidentalCount ?? 0;
+    if (firstAccidental === 0 && secondAccidental < 0) return "sharp";
+    if (firstAccidental > 0 && secondAccidental === 0) return "flat";
+    if (firstAccidental === 0 && secondAccidental === 0) return "mixed";
+  }
+  if (hasFlat) return "flat";
+  if (hasSharp) return "sharp";
+  return null;
+}
+
 export function inferNotationSide(label, options = {}) {
+  const parsedTokens = parseExplicitHejiClassificationTokens(label, options);
+  if (parsedTokens.length > 1) {
+    const enharmonicSide = inferEnharmonicHejiSide(parsedTokens);
+    if (enharmonicSide) return enharmonicSide;
+  }
   const parsed = parseExplicitHejiClassificationLabel(label, options);
   if (parsed?.letter) {
     if ((parsed.accidentalCount ?? 0) < 0) return "flat";
@@ -228,6 +261,10 @@ export function inferNotationSide(label, options = {}) {
 }
 
 export function inferNotationRole(label, options = {}) {
+  const parsedTokens = parseExplicitHejiClassificationTokens(label, options);
+  if (parsedTokens.length > 1) {
+    return "chromatic";
+  }
   const parsed = parseExplicitHejiClassificationLabel(label, options);
   if (parsed) {
     const hasHigherPrimeInflection = Object.values(parsed.primeExponents ?? {}).some((value) => value !== 0);
@@ -267,6 +304,55 @@ function inferTraditionalTemperedAutoColor(label) {
   if (chromaticSides.has("flat")) return palette.flat;
   if (chromaticSides.has("sharp")) return palette.sharp;
   return null;
+}
+
+function inferEnharmonicHejiTemperedAutoColor(label, options = {}) {
+  const tokens = parseExplicitHejiClassificationTokens(label, options);
+  if (tokens.length <= 1) return null;
+  const allTemperedEnharmonicTokens = tokens.every((token) => {
+    const primeEntries = Object.entries(token.primeExponents ?? {});
+    return primeEntries.every(([primeText, value]) => Number(primeText) === 7 && Number(value) !== 0);
+  });
+  if (!allTemperedEnharmonicTokens) return null;
+  const palette = deriveTraditionalTemperedChromaticPalette();
+  const side = inferEnharmonicHejiSide(tokens);
+  if (side === "mixed") return palette.mixed;
+  if (side === "flat") return palette.flat;
+  if (side === "sharp") return palette.sharp;
+  return null;
+}
+
+function inferEqualDivisionHejiTemperedAutoColor(label, { isEqualDivision = false } = {}) {
+  if (!isEqualDivision) return null;
+  const tokens = parseExplicitHejiClassificationTokens(label);
+  if (tokens.length !== 1) return null;
+  const [token] = tokens;
+  const hasHigherPrimeInflection = Object.values(token.primeExponents ?? {}).some((value) => value !== 0);
+  if (hasHigherPrimeInflection) return null;
+  if ((token.accidentalCount ?? 0) === 0 && (token.syntonic ?? 0) < 0) {
+    return EDO_HEJI_SYNTONIC_NATURAL_AUTO_COLOR;
+  }
+  return null;
+}
+
+function inferEqualDivisionHejiHybridAutoColor(label, { isEqualDivision = false } = {}) {
+  if (!isEqualDivision) return null;
+  const tokens = parseExplicitHejiClassificationTokens(label);
+  if (tokens.length <= 1) return null;
+  const hasHigherPrimeInflection = tokens.some((token) =>
+    Object.values(token.primeExponents ?? {}).some((value) => value !== 0)
+  );
+  if (hasHigherPrimeInflection) return null;
+  const accidentalToken = tokens.find(
+    (token) => (token.accidentalCount ?? 0) !== 0 && (token.syntonic ?? 0) === 0,
+  );
+  const syntonicNaturalToken = tokens.find(
+    (token) => (token.accidentalCount ?? 0) === 0 && (token.syntonic ?? 0) < 0,
+  );
+  if (!accidentalToken || !syntonicNaturalToken) return null;
+  const palette = deriveTraditionalTemperedChromaticPalette();
+  const accidentalColor = (accidentalToken.accidentalCount ?? 0) > 0 ? palette.sharp : palette.flat;
+  return mixHex(accidentalColor, EDO_HEJI_SYNTONIC_NATURAL_AUTO_COLOR, 0.5);
 }
 
 function inferTemperedAutoColorFromStructure(structure) {
@@ -398,10 +484,11 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
 export function inferCenterMonzoCandidate(workspace, labels = [], degreeMetadata = null) {
   const candidates = [];
   for (let degree = 0; degree < workspace.slots.length; degree += 1) {
-    const monzo = workspace.slots[degree]?.exactRole?.monzo;
-    if (!Array.isArray(monzo)) continue;
     const metadata = degreeMetadata?.[degree] ?? null;
     const parsed = metadata?.parsed ?? null;
+    const monzo = workspace.slots[degree]?.exactRole?.monzo
+      ?? (parsed ? pitchStructureToMonzo(parsed) : null);
+    if (!Array.isArray(monzo)) continue;
     const pitchInfo = extractPitchClassInfo(labels[degree]);
     const isStructuralD = parsed?.letter === "D";
     const isLabelD = pitchInfo.pitchClass === "D";
@@ -701,15 +788,23 @@ export function deriveAutoNoteColors(settings, extra = {}) {
   const storedColors = Array.isArray(settings?.note_colors) ? settings.note_colors : [];
   const primeFamilyColorMap = autoColorOptions.primeFamilyColorMap ?? getPrimeFamilyColorMap(settings?.prime_family_colors);
   const useHeji = settings?.key_labels === "heji";
+  const isEqualDivision = Number.isFinite(settings?.equivSteps)
+    && Array.isArray(settings?.scale)
+    && settings.scale.length === settings.equivSteps;
   const derivedColors = workspace.slots.map((slot, degreeIndex) => {
     if (degreeIndex === 0) return null;
     const interval = slot?.committedIdentity;
     const fallbackColor = storedColors[degreeIndex] ?? "#ffffff";
     const label = (useHeji ? hejiNames[degreeIndex] : noteNames[degreeIndex]) ?? "";
     const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
+    const equalDivisionHejiAutoColor = inferEqualDivisionHejiTemperedAutoColor(label, { isEqualDivision });
+    const equalDivisionHejiHybridAutoColor = inferEqualDivisionHejiHybridAutoColor(label, { isEqualDivision });
     const temperedAutoColor =
-      inferTemperedAutoColor(label)
+      equalDivisionHejiAutoColor
+      ?? equalDivisionHejiHybridAutoColor
+      ?? inferTemperedAutoColor(label)
       ?? inferTraditionalTemperedAutoColor(label)
+      ?? inferEnharmonicHejiTemperedAutoColor(label)
       ?? inferTemperedAutoColorFromStructure(degreeMetadata?.parsed);
     if (temperedAutoColor) return temperedAutoColor;
     const syntheticMonzo = (
@@ -720,10 +815,17 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     ) ? pitchStructureToMonzo(degreeMetadata.parsed) : null;
     const analysisMonzo = interval?.monzo ?? syntheticMonzo;
     if (!Array.isArray(analysisMonzo)) return fallbackColor;
+    const notationRoleOverride = (
+      !Array.isArray(interval?.monzo)
+      && isEqualDivision
+      && degreeMetadata?.parsed
+      && (degreeMetadata.parsed.syntonic ?? 0) !== 0
+      && Object.values(degreeMetadata.parsed.primeExponents ?? {}).every((value) => value === 0)
+    ) ? "chromatic" : undefined;
     return monzoToSuggestedColor(analysisMonzo, undefined, {
       ...autoColorOptions,
       notationSide: degreeMetadata?.notationSide ?? inferNotationSide(label),
-      notationRole: degreeMetadata?.notationRole ?? inferNotationRole(label),
+      notationRole: notationRoleOverride ?? degreeMetadata?.notationRole ?? inferNotationRole(label),
       chainRole: inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
     })?.screenHex ?? fallbackColor;
   });

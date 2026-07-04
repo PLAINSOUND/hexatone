@@ -437,6 +437,117 @@ describe("deriveAutoNoteColors", () => {
       "#d1d5dd",
     ]);
   });
+
+  it("matches Salinas-style auto colors for 19edo enharmonic septimal notation", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c",
+        "c d",
+        "c d",
+        "d",
+        "d e",
+        "d e",
+        "e",
+        "e f",
+        "f",
+        "f g",
+        "f g",
+        "g",
+        "g a",
+        "g a",
+        "a",
+        "a b",
+        "a b",
+        "b",
+        "b c",
+      ],
+      scale: Array.from({ length: 19 }, (_, index) =>
+        index === 18 ? "2/1" : `${(((index + 1) * 1200) / 19).toFixed(6)}`
+      ),
+      equivSteps: 19,
+      reference_degree: 14,
+      fundamental: 440,
+      auto_colors: true,
+      name: "19edo (enharmonic Septimal notation)",
+      short_description: "19edo (Salinas)",
+    };
+    const workspace = createScaleWorkspace(settings);
+
+    expect(deriveAutoNoteColors(settings, { workspace })).toEqual([
+      "#ff9d9d",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#d1d5dd",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#d1d5dd",
+    ]);
+  });
+
+  it("keeps 22edo HEJI naturals white while darkening altered D/F/G-region spellings", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "C",
+        "D",
+        "C D",
+        "D",
+        "D",
+        "E",
+        "E",
+        "E",
+        "E",
+        "F",
+        "F G",
+        "F G",
+        "F G",
+        "G",
+        "A",
+        "A",
+        "A",
+        "A",
+        "B",
+        "B",
+        "B",
+        "B",
+      ],
+      scale: Array.from({ length: 22 }, (_, index) =>
+        index === 21 ? "2/1" : `${(((index + 1) * 1200) / 22).toFixed(6)}`
+      ),
+      equivSteps: 22,
+      reference_degree: 17,
+      fundamental: 440,
+      auto_colors: true,
+      name: "22edo (HEJI)",
+      short_description: "22edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(colors[4]).toBe("#ffffff");
+    expect(colors[9]).toBe("#ffffff");
+    expect(colors[13]).toBe("#ffffff");
+    expect(colors[1]).toBe("#d0d0d7");
+    expect(colors[3]).toBe("#fffae5");
+    expect(colors[7]).toBe("#fffae5");
+    expect(colors[16]).toBe("#fffae5");
+    expect(colors[20]).toBe("#fffae5");
+    expect(colors[11]).toBe("#d1d5dd");
+    expect(colors[12]).toBe("#e7eadf");
+  });
 });
 
 describe("inferNotationRole", () => {
