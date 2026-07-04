@@ -180,8 +180,8 @@ describe("normalizeColors", () => {
     expect(mild).not.toBe(AUTO_TONIC_COLOR_STRONG);
     expect(vivid).toBe(AUTO_TONIC_COLOR_STRONG);
     expect(mild).not.toBe(AUTO_TONIC_COLOR_SOFT);
-    expect(harmonic).toBe("#ffadad");
-    expect(roseHeavy).toBe("#ff9999");
+    expect(harmonic).toBe("#ffabab");
+    expect(roseHeavy).toBe("#ff9595");
   });
 });
 

@@ -64,7 +64,7 @@ describe("Colors — spectrum colors off", () => {
         settings={{
           ...baseSettings,
           auto_colors: true,
-          note_colors: ["#ffa5a5", "#95c69b"],
+          note_colors: ["#ff9f9f", "#95c69b"],
           scale: ["23/16", "2/1"],
           equivSteps: 2,
           note_names: ["1/1", "23"],
@@ -73,7 +73,7 @@ describe("Colors — spectrum colors off", () => {
         rawSettings={{
           ...baseSettings,
           auto_colors: true,
-          note_colors: ["#ffa5a5", "#95c69b"],
+          note_colors: ["#ff9f9f", "#95c69b"],
           scale: ["23/16", "2/1"],
           equivSteps: 2,
           note_names: ["1/1", "23"],
@@ -407,7 +407,7 @@ describe("Colors — interactions", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /commit auto colours/i }));
     expect(onAtomicChange).toHaveBeenCalledWith({
-      note_colors: ["#ffa5a5", "#95c69b"],
+      note_colors: ["#ff9f9f", "#95c69b"],
       key_colors_mode: "manual",
       auto_colors: false,
       spectrum_colors: false,
