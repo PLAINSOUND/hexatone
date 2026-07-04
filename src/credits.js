@@ -28,7 +28,7 @@ const Credits = () => (
     </p>
     <p>
       Designed and programmed by <a href="https://www.plainsound.org">Marc&nbsp;Sabat</a>. Current
-      version {APP_VERSION} (June 2026), released under{" "}
+      version {APP_VERSION} (July 2026), released under{" "}
       <a href="https://www.gnu.org/licenses/gpl-3.0.en.html">GPL-3.0</a>. Open source code at{" "}
       <a href="https://github.com/PLAINSOUND/hexatone">github.com/PLAINSOUND/hexatone</a>. Join the
       community on <a href="https://discord.gg/NGVTmDFPtf">discord</a>.
