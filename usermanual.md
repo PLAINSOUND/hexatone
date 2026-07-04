@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-06-30
+Updated: 2026-07-04
 
 ## About
 
@@ -65,16 +65,18 @@ Left-to-right along the bottom of the app there are buttons and these are also m
 ### Sequencing Snapshots
 
 - capture currently sounding notes (ENTER key); a list appears bottom left of the app: click to play, drag to reorder, x to delete
-- change to PLAINSOUND SEQUENCER Tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence of cues
-- Sequence is a collection of snapshots, ordered and numbered, along with the relative position of individual events (cues), bars with time signatures, and tempo markers; multiple sequences may be saved and loaded as `.json` files; sequences are kept in local browser storage and may be swiftly reloaded from the menu to play different sections or pieces
+- switch to PLAINSOUND SEQUENCER Tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence of cues
+- Sequence is a collection of snapshots, ordered and numbered, along with the relative position of individual events (cues), bars with time signatures, tempo markers, and repeat markers; multiple sequences may be saved and loaded as `.json` files; sequences are kept in local browser storage and may be swiftly reloaded from the menu to play different sections or pieces
 - Snapshot is a captured chord or note collection including momentary expression data; it can be replayed as a full vertical sonority (stepping by snapshots); snapshots may be ordered and are automatically numbered
 - Cues are generated automatically when the relative start and end positions of individual notes comprising a snapshot are edited, creating derived event steps; the global position of events is relative to the snapshot in which they occur; stepping by cues follows the global order of events, so cues may combine events from multiple snapshots
-- Bars have a user-defined time signature expressed as a fraction of one whole note: the denominator expresses "what fraction of the bar is considered to be a beat" and the numerator expresses "how many" beats comprise this particular bar; thus, in a time signature 5/6, 6 means the beat length is 1/6 of a whole note = one 1/4 note triplet, and 5 means this bar is made up of 5 quarter-note triplets
+- Bars have a user-defined time signature expressed as a fraction of one whole note: the denominator expresses "what fraction of the bar is considered to be a beat" and the numerator expresses "how many" beats comprise this particular bar
+- example: in a time signature like 6/7, 7 means the beat length is 1/7 of a whole note = one septuplet subdivision of a whole note, and 6 means this bar is made up of 6 septuplets
   - a bar allows the global positioning of events to be expressed in rational time units (beats, fractions of beats)
   - bars may occupy any global position: i.e. barlines may occur between snapshots or inside a snapshot
   - for most applications, bars are automatically generated at snapshot boundaries, and any extra bars that are not needed may be deleted
-- a user-defined Tempo marker can occur anywhere in sequence position space; it is expressed as a beat fraction and a tempo in bpm, for example `1 / 4 = 60 bpm`
-- multiple events at the same global position follow an order of precedence rule: `Tempo Change -> Bar -> note-offs for previously sounding notes -> new note-ons -> new note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
+- a user-defined tempo marker can occur anywhere in sequence position space; it is expressed as a beat fraction and a tempo in bpm, for example `1 / 4 = 60 bpm`
+- repeat start and repeat end markers can occur anywhere in sequence position space; the start marker defines the return point and the end marker carries a repeat count (default `2x`)
+- multiple events at the same global position follow an order of precedence rule: `note-offs` of previously triggered notes -> `repeat end` -> `repeat start` -> `tempo` -> `bar` -> new `note-ons` -> new `note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
 - the sequence uses one exact global position space, defined by the ordered snapshots: bars and tempi are overlays on that space rather than containers for the notes; this approach allows a very flexible triggered-step or tempo driven realisation of the sequenced data
 
 ## Hexatone Tab
@@ -91,7 +93,7 @@ Left-to-right along the bottom of the app there are buttons and these are also m
 
 ### Mouse, Touch, Computer Keyboard
 
-Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard become a simple isomorphic controller. The H key is mapped automatically to play the central degree at the center of the canvas. Pressing SHIFT and a key alternately latches and releases that particular note, allowing note-by-note sustains.
+Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard becomes a simple isomorphic controller. The H key is mapped automatically to play the central degree at the center of the canvas. Pressing SHIFT and a key alternately latches and releases that particular note, allowing note-by-note sustains.
 
 ### Presets
 
@@ -107,7 +109,7 @@ Hexatone includes built-in tunings and supports user presets. Users may import a
 
 ### Scale Settings
 
-- assign a reference frequency (Hz) to any scale degree, directly to 1/1 (scale degree 0), or to the HEJI Spelling Note with 0¢ deviation; all of these three fields interact and update each other accordingly
+- assign a reference frequency (Hz) to any scale degree, directly to 1/1 (scale degree 0), or to the HEJI Spelling Note with 0¢ deviation; all three frequency assignment options interact and update each other accordingly
 - change scale size
 - equave (interval of transposition at which the scale pattern repeats)
 - key colours
@@ -171,7 +173,7 @@ Editing one linked reference field updates the others where possible. If the spe
 
 ## HEJI Palette
 
-A HEJI Notation Palette is provided to generate strings of accidentals that may be copied and pasted into the scale table. The `12edo` row emits tempered accidental glyphs; the higher-prime rows emit exact HEJI accidentals up to 47-limit. Exact HEJI cents are calculated automatically from the chosen accidentals and current spelling reference; tempered accidentals allow manual cents entry.
+A HEJI Notation Palette is provided to generate strings of accidentals that may be copied and pasted into the scale table. The `12edo` row emits tempered accidental glyphs and allows manual cents entry for non-JI notation; the higher-prime rows emit exact HEJI accidentals up to 47-limit. Exact HEJI cents are calculated automatically from the chosen accidentals and current spelling reference; tempered accidentals allow manual cents entry.
 
 Use `Decimal Places` to choose the display precision of the calculated cents value. `Copy` copies the combined notation-plus-cents output, and `Clear` resets the palette output.
 
@@ -344,7 +346,15 @@ This feature also supports a fully local workflow: run Hexatone on `localhost:51
 
 ### User Sequences
 
-Sequences may be exported, loaded from disc, and stored in the User Sequences menu. Add a `Name` and `Description` to keep user sequences identifiable. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, snapshot label mode, name, description, and the auto-create-bars preference.
+Sequences may be exported, loaded from disc, and stored in local browser storage, accessed through the User Sequences menu. Add a `Name` and `Description` to keep user sequences identifiable. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, repeat markers, snapshot label mode, name, description, and the auto-create-bars preference.
+
+The User Sequences menu distinguishes three states:
+
+- empty workspace: the menu shows `Choose a user sequence`
+- unsaved draft: the current working sequence appears as an unsaved draft
+- saved sequence: a stored user sequence may be clean or dirty depending on whether there are unsaved changes
+
+If the workspace is dirty and a different saved sequence is chosen, Hexatone asks once whether to discard the unsaved sequence before loading the chosen one.
 
 ### Sequence Settings
 
@@ -352,12 +362,16 @@ Sequences may be exported, loaded from disc, and stored in the User Sequences me
 
 `Auto-Create Bars` places a new bar at each snapshot. Bars can be deleted or additional bars created at any point.
 
+`Choose Repeat Position` inserts repeat-start or repeat-end markers at any global position. New end-repeat markers auto-create a start marker (at the beginning of the sequence or at the previous end repeat). If a start marker is later deleted, Hexatone will use an earlier marker automatically.
+
 `Legato` prevents rearticulation of previously held notes while stepping or retriggering.
+
+`Snap Sequence to Current Hexatone Tuning` remaps saved sequence pitches through the currently active Hexatone tuning so that the same sequence may be auditioned in another scale without rewriting the stored event data.
 
 ### Transport Bar
 
 - `PLAY FROM`
-  - transport row for `BAR`, `SNAPSHOT`, and `CUE`
+  - transport row for selecting a starting point by `BAR`, `SNAPSHOT`, and `CUE`
   - choosing a destination cues it in brackets until stepped
   - the selected target is queued rather than played immediately
 - step arrows can walk by bar, snapshot, or cue
@@ -372,7 +386,8 @@ Sequences may be exported, loaded from disc, and stored in the User Sequences me
 
 Use the arrow to move between pages of parameters. Current event fields are:
 
-- `Position`
+- `Snap`
+- `Offset`
 - `MIDI¢`
 - `Hz`
 - `Name` (display-only)
@@ -385,13 +400,13 @@ Use the arrow to move between pages of parameters. Current event fields are:
 - `pressure`
 - `timbre`
 
-Note that `Bar / Beat / Num / Den` are an alternate bar-relative position that automatically recalculate the event's global position value.
+`Snap` changes which snapshot an event belongs to. `Offset` is the event's relative position within that snapshot. `Bar / Beat / Num / Den` are an alternate bar-relative position that automatically recalculate the event's global position value.
 
 The `Name` field is a captured display label, not a parsable HEJI spelling field. If `MIDI¢` or `Hz` is edited and the stored label no longer describes the event, the name is shown as `edited` until the captured event values are restored.
 
 ### Bar Markers
 
-A bar rows shows:
+A bar row shows:
 - exact global `Position`
 - bar number
 - time signature fraction (number of beats / beat unit - for example, a 5/4 bar has 5 units, each 1/4 of a whole note)
@@ -405,7 +420,18 @@ A tempo row shows:
 - tempo value in `bpm`
 - bar-relative position fields `Bar / Beat / Num / Den`
 - the beat fraction is written in the form `3 / 8 = 80 bpm`
-- if a tempo marker, bar marker, and note event share the same position, the tempo marker is ordered first
+- if a tempo marker, bar marker, repeat marker, and note event share the same position, ordering still follows the global precedence rule described above
+
+### Repeat Markers
+
+A repeat row shows:
+
+- exact global `Position`
+- bar-relative timing fields `Bar / Beat / Num / Den`
+- either a start-repeat sign or an end-repeat sign
+- for end repeats, a repeat count such as `2x`, `3x`, or `7x`
+
+Repeat markers participate directly in cue playback. When cue stepping crosses an end-repeat boundary, Hexatone jumps back to the associated start-repeat position and restarts the cue range as many times as the repeat count requires. Any carried note-offs that need to occur before the repeat bounce are preserved by the event-ordering rules.
 
 ## Roadmap
 

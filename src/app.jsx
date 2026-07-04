@@ -3274,7 +3274,12 @@ const App = () => {
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
-              Build step sequences from snapshots and trigger them event by event. Capture chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining. Layer new notes over captured sounds. Edit start and stop times within a chord to make a melody or arpeggiation. Specify articulation and connections from note to note, chord by chord. Create bars and optional tempo automations.
+              BUILD step sequences from snapshots and trigger them event by event. CAPTURE chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining. Layer new notes over captured sounds. EDIT start and stop times within a chord to make a melody or arpeggiation. Specify articulation and connections from note to note, chord by chord. Create bars and optional tempo automations.{" "}
+              {!showManual && (
+                <span className="app-shell__intro-more" onClick={() => setShowManual(true)}>
+                  … more
+                </span>
+              )}
             </em>
           </p>
         ) : (
@@ -3294,7 +3299,9 @@ const App = () => {
         )}
 
         <Suspense fallback={<SidebarLoadingFallback />}>
-          {workspaceTab === "sequencer" ? (
+          {showManual ? (
+            <ManualSidebar onClose={() => setShowManual(false)} />
+          ) : workspaceTab === "sequencer" ? (
             <Sequencer
               snapshots={snapshots}
               displaySnapshots={sequenceDisplaySnapshots}
@@ -3353,8 +3360,6 @@ const App = () => {
               onUpdateSnapshot={onUpdateSnapshot}
               onResetSnapshotDescription={onResetSnapshotDescription}
             />
-          ) : showManual ? (
-            <ManualSidebar onClose={() => setShowManual(false)} />
           ) : (
             <>
               <Settings
