@@ -83,6 +83,20 @@ describe("sequencer snapshots", () => {
     });
   });
 
+  it("captures current CC1 controller state as timbre when a non-MPE hex has no local CC74 history", () => {
+    const runtime = makeRuntime({
+      _allActiveHexes: () => [{
+        cents: 0,
+        velocity: 113,
+      }],
+    });
+    runtime._controllerCCValues = new Map([[1, 87]]);
+
+    expect(captureSnapshot(runtime)[0]).toMatchObject({
+      timbre: 87,
+    });
+  });
+
   it("captures exact JI identity for snapshot proportion labels", () => {
     const runtime = makeRuntime({
       _allActiveHexes: () => [{

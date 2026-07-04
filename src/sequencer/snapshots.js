@@ -32,6 +32,12 @@ const snapshotPitchKey = (midicents) => {
   return n.toFixed(3);
 };
 
+function currentControllerTimbre(runtime) {
+  const liveCc1 = runtime?._controllerCCValues?.get?.(1);
+  const persistedCc1 = runtime?.settings?.midiin_modwheel_value;
+  return normalize7Bit(liveCc1 ?? persistedCc1);
+}
+
 function centsToReference(_settings, tuning) {
   return tuning?.degree0toRef_asArray?.[0] ?? 0;
 }
@@ -108,7 +114,7 @@ export function captureSnapshot(runtime) {
     if (pressure != null) entry.pressure = pressure;
     if (pressure14 != null) entry.pressure14 = pressure14;
 
-    const timbre = normalize7Bit(hex?._lastCC74);
+    const timbre = normalize7Bit(hex?._lastCC74) ?? currentControllerTimbre(runtime);
     const timbre14 = normalize14Bit(hex?._lastCC7414);
     if (timbre != null) entry.timbre = timbre;
     if (timbre14 != null) entry.timbre14 = timbre14;

@@ -554,9 +554,34 @@ export function barBeatToAbsolutePosition(barBeat, bars = [], terminalPosition =
     : null;
   const explicitBars = normalizeBarMarkers(bars);
 
+  const resolveBarAndNextBar = (barNumber) => {
+    const currentBar = timingBarAtNumber(barNumber, bars);
+    const nextExplicitBar = explicitBars[barNumber];
+    if (
+      currentBar?.inherited !== true &&
+      !nextExplicitBar &&
+      Number.isFinite(normalizedTerminalPosition) &&
+      normalizedTerminalPosition > Number(currentBar?.position) + 1e-9
+    ) {
+      return {
+        bar: currentBar,
+        nextBar: {
+          id: "barline:eof",
+          position: normalizedTerminalPosition,
+          implicitTerminal: true,
+          numerator: currentBar.numerator,
+          denominator: currentBar.denominator,
+        },
+      };
+    }
+    return {
+      bar: currentBar,
+      nextBar: timingBarAtNumber(barNumber + 1, bars),
+    };
+  };
+
   let currentBarNumber = Math.max(1, rawBarNumber);
-  let bar = timingBarAtNumber(currentBarNumber, bars);
-  let nextBar = timingBarAtNumber(currentBarNumber + 1, bars);
+  let { bar, nextBar } = resolveBarAndNextBar(currentBarNumber);
   let beatsPerBar = normalizeBeatsPerBar(bar?.numerator);
   if (beatsPerBar === 0) {
     return normalizePosition(Number(bar.position), Number(bar.position));
@@ -579,8 +604,7 @@ export function barBeatToAbsolutePosition(barBeat, bars = [], terminalPosition =
   while (beatsPerBar > 0 && totalBeatOffset >= beatsPerBar - 1e-9) {
     totalBeatOffset -= beatsPerBar;
     currentBarNumber += 1;
-    bar = timingBarAtNumber(currentBarNumber, bars);
-    nextBar = timingBarAtNumber(currentBarNumber + 1, bars);
+    ({ bar, nextBar } = resolveBarAndNextBar(currentBarNumber));
     beatsPerBar = normalizeBeatsPerBar(bar?.numerator);
     if (beatsPerBar === 0) {
       return normalizePosition(Number(bar.position), Number(bar.position));

@@ -482,6 +482,38 @@ describe("sequencer transport", () => {
     });
   });
 
+  it("round-trips user-entered fractions against the full terminal-spanning bar length", () => {
+    const bars = [
+      ...Array.from({ length: 13 }, (_, index) => ({
+        id: index + 1,
+        position: index + 1,
+        numerator: 1,
+        denominator: 1,
+      })),
+      { id: 14, position: 17, numerator: 1, denominator: 1 },
+    ];
+    const terminalPosition = 19;
+
+    const quarterPosition = barBeatToAbsolutePosition({
+      barNumber: 14,
+      beat: 1,
+      numerator: 1,
+      denominator: 4,
+    }, bars, terminalPosition);
+
+    expect(quarterPosition).toBe(17.5);
+    expect(absolutePositionToBarBeat(quarterPosition, bars, 4, 9, terminalPosition)).toEqual({
+      barNumber: 14,
+      beat: 1,
+      numerator: 1,
+      denominator: 4,
+      barStart: 17,
+      barLength: 2,
+      beatsPerBar: 1,
+      beatUnit: 1,
+    });
+  });
+
   it("normalizes repeat markers while preserving floating positions", () => {
     expect(normalizeRepeatMarkers([
       { id: "end-a", position: 3, kind: "end" },
