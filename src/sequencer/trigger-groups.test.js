@@ -154,7 +154,7 @@ describe("deriveSnapshotTriggerGroups", () => {
       ["a", "release", 2.25, 4],
       ["c", "attack", 2.25, 4],
       ["c", "release", 3, 5],
-      [undefined, "barline", 4, null],
+      [undefined, "barline", 3, null],
     ]);
   });
 
@@ -338,7 +338,7 @@ describe("deriveSnapshotTriggerGroups", () => {
       ["bar", "bar", 2, 0, null],
       ["note", "attack", 2, 1, 2],
       ["note", "release", 3, 1, 3],
-      ["barline", "barline", 4, 1, null],
+      ["barline", "barline", 3, 1, null],
     ]);
 
     expect(events.find((event) => event.type === "bar")).toEqual(

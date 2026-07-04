@@ -8,6 +8,7 @@ import TempoRow from "./tempo-row.jsx";
 import RepeatRow from "./repeat-row.jsx";
 import {
   barContextForPosition,
+  deriveTerminalBarlinePosition,
   normalizeBarMarkers,
   normalizeTempoMarkers,
   timingBarAtNumber,
@@ -186,6 +187,10 @@ const Sequencer = ({
   const sequenceCueGroups = useMemo(
     () => deriveSequenceCueGroups(renderedSnapshots, sortedBars, sortedTempi, repeats),
     [renderedSnapshots, repeats, sortedBars, sortedTempi],
+  );
+  const terminalBarlinePosition = useMemo(
+    () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
+    [renderedSnapshots, sortedBars],
   );
   const sequenceRepeatSections = useMemo(
     () => deriveRepeatSections(sequenceCueGroups, repeats),
@@ -781,26 +786,26 @@ const Sequencer = ({
   );
 
   const applyTempoBarRelativeDraft = useCallback((draft) => {
-    const position = resolveBarRelativeDraftPosition(draft, sortedBars);
+    const position = resolveBarRelativeDraftPosition(draft, sortedBars, terminalBarlinePosition);
     if (position == null) return;
     onUpdateTempo?.(draft.tempoId, { position });
     setTempoBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted();
-  }, [onUpdateTempo, sortedBars]);
+  }, [onUpdateTempo, sortedBars, terminalBarlinePosition]);
 
   const applyRepeatBarRelativeDraft = useCallback((draft) => {
-    const position = resolveBarRelativeDraftPosition(draft, sortedBars);
+    const position = resolveBarRelativeDraftPosition(draft, sortedBars, terminalBarlinePosition);
     if (position == null) return;
     onUpdateRepeat?.(draft.repeatId, { position });
     setRepeatBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted();
-  }, [onUpdateRepeat, sortedBars]);
+  }, [onUpdateRepeat, sortedBars, terminalBarlinePosition]);
 
   const applyEventBarRelativeDraft = useCallback((draft) => {
     if (!draft) return;
     const snapshot = snapshots.find((entry) => entry.id === draft.snapshotId);
     if (!snapshot) return;
-    const absoluteTime = resolveBarRelativeDraftPosition(draft, sortedBars);
+    const absoluteTime = resolveBarRelativeDraftPosition(draft, sortedBars, terminalBarlinePosition);
     if (absoluteTime == null) return;
     const notes = applyEventBarRelativeDraftToSnapshot(
       snapshot,
@@ -811,7 +816,7 @@ const Sequencer = ({
     onUpdateSnapshot(snapshot.id, { notes });
     setBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted();
-  }, [onUpdateSnapshot, snapshots, sortedBars, snapshotIndexById]);
+  }, [onUpdateSnapshot, snapshots, sortedBars, snapshotIndexById, terminalBarlinePosition]);
 
   const updateEventBarRelativeDraftField = (draftKey, barBeat, field, value, meta) => {
     setBarRelativeDrafts((prev) => updateBarRelativeDrafts(prev, {
@@ -1047,6 +1052,7 @@ const Sequencer = ({
 
   const tempoRowTiming = {
     sortedBars,
+    terminalBarlinePosition,
     tempoBarRelativeDraftKey,
     tempoBarRelativeDrafts,
     stoppedBarStateForBarNumber,
@@ -1054,6 +1060,7 @@ const Sequencer = ({
 
   const repeatRowTiming = {
     sortedBars,
+    terminalBarlinePosition,
     repeatBarRelativeDraftKey,
     repeatBarRelativeDrafts,
     stoppedBarStateForBarNumber,
@@ -1098,6 +1105,7 @@ const Sequencer = ({
 
   const eventRowDrafts = {
     sortedBars,
+    terminalBarlinePosition,
     eventBarRelativeDraftKey,
     barRelativeDrafts,
     eventSequenceDraftKey,

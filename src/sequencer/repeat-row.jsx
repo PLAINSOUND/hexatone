@@ -15,7 +15,13 @@ const RepeatRow = ({
 }) => {
   const repeatId = repeat.repeatId ?? repeat.id;
   const repeatPosition = Number(repeat.position ?? repeat.absoluteTime);
-  const barBeat = absolutePositionToBarBeat(repeatPosition, timing.sortedBars);
+  const barBeat = absolutePositionToBarBeat(
+    repeatPosition,
+    timing.sortedBars,
+    null,
+    9,
+    timing.terminalBarlinePosition,
+  );
   const sequenceTime = repeatPosition.toFixed(6);
   const draftKey = timing.repeatBarRelativeDraftKey(repeatId);
   const repeatBarRelativeDraft = timing.repeatBarRelativeDrafts[draftKey] ?? null;

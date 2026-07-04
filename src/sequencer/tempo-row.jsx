@@ -14,7 +14,13 @@ const TempoRow = ({
 }) => {
   const tempoId = tempo.tempoId ?? tempo.id;
   const tempoPosition = Number(tempo.position ?? tempo.absoluteTime);
-  const barBeat = absolutePositionToBarBeat(tempoPosition, timing.sortedBars);
+  const barBeat = absolutePositionToBarBeat(
+    tempoPosition,
+    timing.sortedBars,
+    null,
+    9,
+    timing.terminalBarlinePosition,
+  );
   const sequenceTime = tempoPosition.toFixed(6);
   const isAlwaysOnTempo = Math.abs(tempoPosition - 1) < 1e-9;
   const beatNumerator = String(tempo.beatNumerator ?? 1);

@@ -144,14 +144,14 @@ export function resolveEventSequenceDraftTarget(draft, snapshots) {
   };
 }
 
-export function resolveBarRelativeDraftPosition(draft, bars) {
+export function resolveBarRelativeDraftPosition(draft, bars, terminalBarlinePosition = null) {
   if (!draft) return null;
   return barBeatToAbsolutePosition({
     barNumber: Number(draft.barNumber),
     beat: Number(draft.beat),
     numerator: Number(draft.numerator),
     denominator: Number(draft.denominator),
-  }, bars);
+  }, bars, terminalBarlinePosition);
 }
 
 export function resolveDraftScopeTarget(event, scopeAttribute) {

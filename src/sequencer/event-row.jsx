@@ -131,7 +131,13 @@ const EventRow = ({
     event.relativeTime,
   );
   const eventSnapshotNumber = view.snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1;
-  const barBeat = absolutePositionToBarBeat(event.absoluteTime, drafts.sortedBars, event.fractionDenominator, 9);
+  const barBeat = absolutePositionToBarBeat(
+    event.absoluteTime,
+    drafts.sortedBars,
+    event.fractionDenominator,
+    9,
+    drafts.terminalBarlinePosition,
+  );
   const draftKey = drafts.eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
   const barRelativeDraft = drafts.barRelativeDrafts[draftKey] ?? null;
   const eventSequenceKey = drafts.eventSequenceDraftKey(snapshot.id, event.eventId, event.kind);

@@ -387,6 +387,101 @@ describe("sequencer transport", () => {
     ], [{ id: 1, position: 1 }, { id: 2, position: 2 }])).toBe(4);
   });
 
+  it("keeps an exact integer snapshot ending on that same terminal barline", () => {
+    expect(deriveTerminalBarlinePosition([
+      {
+        length: 1,
+        notes: [{ start: 0, end: 1 }],
+      },
+      {
+        length: 1,
+        notes: [{ start: 0, end: 1 }],
+      },
+    ], [{ id: 1, position: 1 }, { id: 2, position: 2 }])).toBe(3);
+  });
+
+  it("spans the last explicit bar to the implicit terminal barline", () => {
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+      { id: 14, position: 17, numerator: 1, denominator: 1 },
+    ];
+    const terminalPosition = 19;
+
+    expect(absolutePositionToBarBeat(18, bars, 9, 9, terminalPosition)).toEqual({
+      barNumber: 2,
+      beat: 1,
+      numerator: 1,
+      denominator: 2,
+      barStart: 17,
+      barLength: 2,
+      beatsPerBar: 1,
+      beatUnit: 1,
+    });
+
+    expect(absolutePositionToBarBeat(19, bars, 9, 9, terminalPosition)).toEqual({
+      barNumber: 2,
+      beat: 1,
+      numerator: 1,
+      denominator: 1,
+      barStart: 17,
+      barLength: 2,
+      beatsPerBar: 1,
+      beatUnit: 1,
+    });
+
+    expect(barBeatToAbsolutePosition({
+      barNumber: 2,
+      beat: 1,
+      numerator: 1,
+      denominator: 1,
+    }, bars, terminalPosition)).toBe(19);
+  });
+
+  it("treats n snapshots inside one bar as a bar whose global length is n", () => {
+    const snapshots = Array.from({ length: 18 }, (_, index) => ({
+      id: index + 1,
+      length: 1,
+      notes: [],
+    }));
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+      { id: 14, position: 17, numerator: 1, denominator: 1 },
+    ];
+    const terminalPosition = deriveTerminalBarlinePosition(snapshots, bars);
+
+    expect(terminalPosition).toBe(19);
+    expect(absolutePositionToBarBeat(17, bars, 9, 9, terminalPosition)).toEqual({
+      barNumber: 2,
+      beat: 1,
+      numerator: 0,
+      denominator: 1,
+      barStart: 17,
+      barLength: 2,
+      beatsPerBar: 1,
+      beatUnit: 1,
+    });
+    expect(absolutePositionToBarBeat(18, bars, 9, 9, terminalPosition)).toEqual({
+      barNumber: 2,
+      beat: 1,
+      numerator: 1,
+      denominator: 2,
+      barStart: 17,
+      barLength: 2,
+      beatsPerBar: 1,
+      beatUnit: 1,
+    });
+    expect(absolutePositionToBarBeat(19, bars, 9, 9, terminalPosition)).toEqual({
+      barNumber: 2,
+      beat: 1,
+      numerator: 1,
+      denominator: 1,
+      barStart: 17,
+      barLength: 2,
+      beatsPerBar: 1,
+      beatUnit: 1,
+    });
+  });
+
   it("normalizes repeat markers while preserving floating positions", () => {
     expect(normalizeRepeatMarkers([
       { id: "end-a", position: 3, kind: "end" },

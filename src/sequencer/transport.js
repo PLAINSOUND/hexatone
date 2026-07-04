@@ -290,7 +290,7 @@ export function deriveTerminalBarlinePosition(snapshots = [], bars = []) {
     const localEnd = Math.max(length, ...noteEnds);
     const absoluteEnd = baseTime + localEnd;
     const rounded = Math.round(absoluteEnd);
-    const nextBarline = Math.abs(absoluteEnd - rounded) < 1e-9 ? rounded + 1 : Math.ceil(absoluteEnd);
+    const nextBarline = Math.abs(absoluteEnd - rounded) < 1e-9 ? rounded : Math.ceil(absoluteEnd);
     lastSnapshotEdge = Math.max(lastSnapshotEdge, nextBarline);
   }
   return Math.max(explicitTerminal, lastSnapshotEdge);
@@ -376,10 +376,13 @@ function gcd(a, b) {
   return x || 1;
 }
 
-export function barContextForPosition(position, bars = []) {
+export function barContextForPosition(position, bars = [], terminalPosition = null) {
   const absolutePosition = Number(position);
   if (!Number.isFinite(absolutePosition)) return null;
   const normalizedBars = normalizeBarMarkers(bars);
+  const normalizedTerminalPosition = Number.isFinite(Number(terminalPosition))
+    ? Number(terminalPosition)
+    : null;
 
   for (let index = 0; index < normalizedBars.length; index += 1) {
     const bar = {
@@ -396,12 +399,26 @@ export function barContextForPosition(position, bars = []) {
       : null;
     const nextPosition = Number(nextExplicit?.position);
     if (!Number.isFinite(nextPosition) || absolutePosition < nextPosition - 1e-9) {
+      const terminalNextBar = (
+        !Number.isFinite(nextPosition)
+        && Number.isFinite(normalizedTerminalPosition)
+        && normalizedTerminalPosition > Number(bar.position) + 1e-9
+      )
+        ? {
+          id: "barline:eof",
+          position: normalizedTerminalPosition,
+          implicitTerminal: true,
+          numerator: bar.numerator,
+          denominator: bar.denominator,
+        }
+        : null;
+      const resolvedNextBar = terminalNextBar ?? (nextExplicit ?? timingBarAtNumber(index + 2, bars));
       return {
         bar,
         barIndex: index,
         barNumber: index + 1,
-        nextBar: nextExplicit ?? timingBarAtNumber(index + 2, bars),
-        barLength: safeBarLength(bar, nextExplicit ?? timingBarAtNumber(index + 2, bars)),
+        nextBar: resolvedNextBar,
+        barLength: safeBarLength(bar, resolvedNextBar),
       };
     }
   }
@@ -412,6 +429,32 @@ export function barContextForPosition(position, bars = []) {
     numerator: 4,
     denominator: 4,
   };
+  if (
+    Number.isFinite(normalizedTerminalPosition)
+    && normalizedTerminalPosition > Number(lastExplicit.position) + 1e-9
+    && absolutePosition <= normalizedTerminalPosition + 1e-9
+  ) {
+    const barNumber = normalizedBars.length || 1;
+    const bar = {
+      ...lastExplicit,
+      position: Number(lastExplicit.position),
+      inherited: false,
+    };
+    const nextBar = {
+      id: "barline:eof",
+      position: normalizedTerminalPosition,
+      implicitTerminal: true,
+      numerator: bar.numerator,
+      denominator: bar.denominator,
+    };
+    return {
+      bar,
+      barIndex: barNumber - 1,
+      barNumber,
+      nextBar,
+      barLength: safeBarLength(bar, nextBar),
+    };
+  }
   const tailOffset = Math.max(0, Math.floor(absolutePosition - Number(lastExplicit.position) + 1e-9));
   const barNumber = normalizedBars.length + tailOffset;
   const bar = timingBarAtNumber(barNumber, bars);
@@ -432,8 +475,9 @@ export function absolutePositionToBarBeat(
   bars = [],
   preferredDenominator = null,
   maxDenominator = 9,
+  terminalPosition = null,
 ) {
-  const context = barContextForPosition(position, bars);
+  const context = barContextForPosition(position, bars, terminalPosition);
   if (!context) return null;
 
   const { bar, barNumber, barLength } = context;
@@ -449,6 +493,25 @@ export function absolutePositionToBarBeat(
       beatsPerBar: 0,
       beatUnit: normalizeBeatUnit(bar?.denominator),
       stopped: true,
+    };
+  }
+  const normalizedTerminalPosition = Number.isFinite(Number(terminalPosition))
+    ? Number(terminalPosition)
+    : null;
+  if (
+    Number.isFinite(normalizedTerminalPosition)
+    && context.nextBar?.implicitTerminal === true
+    && Math.abs(Number(position) - normalizedTerminalPosition) < 1e-9
+  ) {
+    return {
+      barNumber,
+      beat: numerator,
+      numerator: 1,
+      denominator: 1,
+      barStart: bar.position,
+      barLength,
+      beatsPerBar: numerator,
+      beatUnit: normalizeBeatUnit(bar?.denominator),
     };
   }
   const beatLength = barLength / numerator;
@@ -483,9 +546,13 @@ export function absolutePositionToBarBeat(
   };
 }
 
-export function barBeatToAbsolutePosition(barBeat, bars = []) {
+export function barBeatToAbsolutePosition(barBeat, bars = [], terminalPosition = null) {
   const rawBarNumber = Math.round(Number(barBeat?.barNumber));
   if (!Number.isFinite(rawBarNumber) || rawBarNumber <= 0) return null;
+  const normalizedTerminalPosition = Number.isFinite(Number(terminalPosition))
+    ? Number(terminalPosition)
+    : null;
+  const explicitBars = normalizeBarMarkers(bars);
 
   let currentBarNumber = Math.max(1, rawBarNumber);
   let bar = timingBarAtNumber(currentBarNumber, bars);
@@ -499,6 +566,15 @@ export function barBeatToAbsolutePosition(barBeat, bars = []) {
   const rawBeat = Math.max(1, Math.round(Number(barBeat?.beat) || 1));
   const rawNumerator = Math.max(0, Math.round(Number(barBeat?.numerator) || 0));
   let totalBeatOffset = (rawBeat - 1) + rawNumerator / denominator;
+
+  if (
+    Number.isFinite(normalizedTerminalPosition)
+    && currentBarNumber >= explicitBars.length
+    && normalizedTerminalPosition > Number(bar.position) + 1e-9
+    && totalBeatOffset >= beatsPerBar - 1e-9
+  ) {
+    return normalizePosition(normalizedTerminalPosition, Number(bar.position));
+  }
 
   while (beatsPerBar > 0 && totalBeatOffset >= beatsPerBar - 1e-9) {
     totalBeatOffset -= beatsPerBar;
