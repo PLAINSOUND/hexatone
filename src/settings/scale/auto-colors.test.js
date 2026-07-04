@@ -378,6 +378,65 @@ describe("deriveAutoNoteColors", () => {
       "#ededf7",
     ]);
   });
+
+  it("splits flats and sharps for 19edo-style traditional tempered note names", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c",
+        "♯c",
+        "♭d",
+        "d",
+        "♯d",
+        "♭e",
+        "e",
+        "♯e ♭f",
+        "f",
+        "♯f",
+        "♭g",
+        "g",
+        "♯g",
+        "♭a",
+        "a",
+        "♯a",
+        "♭b",
+        "b",
+        "♯b ♭c",
+      ],
+      scale: Array.from({ length: 19 }, (_, index) =>
+        index === 18 ? "2/1" : `${(((index + 1) * 1200) / 19).toFixed(6)}`
+      ),
+      equivSteps: 19,
+      reference_degree: 14,
+      fundamental: 440,
+      auto_colors: true,
+      name: "19edo (Salinas 1577)",
+      short_description: "19edo (Salinas)",
+    };
+    const workspace = createScaleWorkspace(settings);
+
+    expect(deriveAutoNoteColors(settings, { workspace })).toEqual([
+      "#ff9d9d",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#d1d5dd",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#cfdad8",
+      "#d2cfe1",
+      "#ffffff",
+      "#d1d5dd",
+    ]);
+  });
 });
 
 describe("inferNotationRole", () => {
@@ -392,6 +451,13 @@ describe("inferNotationRole", () => {
     expect(inferNotationRole("G")).toBe(null);
     expect(inferNotationRole("D")).toBe("diatonic");
     expect(inferNotationRole("*nD")).toBe("diatonic");
+  });
+
+  it("treats lowercase traditional natural note names as diatonic and accidental forms as chromatic", () => {
+    expect(inferNotationRole("d")).toBe("diatonic");
+    expect(inferNotationRole("a")).toBe("diatonic");
+    expect(inferNotationRole("♯c")).toBe("chromatic");
+    expect(inferNotationRole("♭e")).toBe("chromatic");
   });
 });
 
@@ -408,5 +474,13 @@ describe("inferNotationSide", () => {
     expect(inferNotationSide("G")).toBe(null);
     expect(inferNotationSide("D", { allowImplicitNatural: true })).toBe("core");
     expect(inferNotationSide("G", { allowImplicitNatural: true })).toBe("flat");
+  });
+
+  it("classifies lowercase traditional note names by side", () => {
+    expect(inferNotationSide("d")).toBe("core");
+    expect(inferNotationSide("g")).toBe("flat");
+    expect(inferNotationSide("a")).toBe("sharp");
+    expect(inferNotationSide("♭e")).toBe("flat");
+    expect(inferNotationSide("♯c")).toBe("sharp");
   });
 });

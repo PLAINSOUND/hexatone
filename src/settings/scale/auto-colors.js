@@ -14,6 +14,9 @@ export const AUTO_TONIC_COLOR_ROSE_HEAVY = "#ffa3a3";
 const TEMPERED_DIATONIC_AUTO_COLOR = "#ededf7";
 const TEMPERED_CHROMATIC_AUTO_COLOR = "#c3c3d5";
 const TEMPERED_TONIC_AUTO_COLOR = "#ff9d9d";
+const TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR = "#ffffff";
+const TRADITIONAL_TEMPERED_SHARP_TINT = "#cfe7d2";
+const TRADITIONAL_TEMPERED_FLAT_TINT = "#d6d0e6";
 
 export function normaliseColorForCompare(raw) {
   return String(raw ?? "")
@@ -48,6 +51,14 @@ function mixHex(a, b, t) {
   if (!ar || !br) return a;
   const x = clamp01(t);
   return rgbToHex(ar.map((channel, index) => channel * (1 - x) + br[index] * x));
+}
+
+function deriveTraditionalTemperedChromaticPalette() {
+  const baseChromatic = mixHex(TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR, TEMPERED_CHROMATIC_AUTO_COLOR, 0.8);
+  const sharp = mixHex(baseChromatic, TRADITIONAL_TEMPERED_SHARP_TINT, 0.45);
+  const flat = mixHex(baseChromatic, TRADITIONAL_TEMPERED_FLAT_TINT, 0.45);
+  const mixed = mixHex(sharp, flat, 0.5);
+  return { sharp, flat, mixed };
 }
 
 export function deriveAutoTonicColorFromPalette(colors = []) {
@@ -168,6 +179,33 @@ function parseExplicitHejiClassificationLabel(label, { allowImplicitNatural = fa
   return parseHejiToStructure(`*n${source.toUpperCase()}`);
 }
 
+function parseTraditionalNotationLabel(label) {
+  const source = String(label ?? "").trim().replace(/\s+/g, "");
+  if (!source) return null;
+  const match = source.match(/^([♭b#♯]*)([A-Ga-g])([♭b#♯]*)$/u);
+  if (!match) return null;
+  const [, leftMods, letterText, rightMods] = match;
+  const modifiers = `${leftMods}${rightMods}`;
+  const isLowercaseNatural = letterText === letterText.toLowerCase() && modifiers.length === 0;
+  if (!isLowercaseNatural && modifiers.length === 0) return null;
+  const flatCount = (modifiers.match(/[♭b]/gu) ?? []).length;
+  const sharpCount = (modifiers.match(/[♯#]/gu) ?? []).length;
+  const accidentalCount = sharpCount - flatCount;
+  return {
+    letter: letterText.toUpperCase(),
+    accidentalCount,
+    isNatural: accidentalCount === 0,
+  };
+}
+
+function parseTraditionalNotationTokens(label) {
+  return String(label ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((token) => parseTraditionalNotationLabel(token))
+    .filter(Boolean);
+}
+
 export function inferNotationSide(label, options = {}) {
   const parsed = parseExplicitHejiClassificationLabel(label, options);
   if (parsed?.letter) {
@@ -178,17 +216,29 @@ export function inferNotationSide(label, options = {}) {
     if (parsed.letter === "A" || parsed.letter === "E" || parsed.letter === "B") return "sharp";
     return null;
   }
+  const traditional = parseTraditionalNotationLabel(label);
+  if (traditional?.letter) {
+    if (traditional.accidentalCount < 0) return "flat";
+    if (traditional.accidentalCount > 0) return "sharp";
+    if (traditional.letter === "D") return "core";
+    if (traditional.letter === "F" || traditional.letter === "C" || traditional.letter === "G") return "flat";
+    if (traditional.letter === "A" || traditional.letter === "E" || traditional.letter === "B") return "sharp";
+  }
   return null;
 }
 
 export function inferNotationRole(label, options = {}) {
   const parsed = parseExplicitHejiClassificationLabel(label, options);
-  if (!parsed) return null;
-  const hasHigherPrimeInflection = Object.values(parsed.primeExponents ?? {}).some((value) => value !== 0);
-  if (hasHigherPrimeInflection) return "chromatic";
-  if ((parsed.accidentalCount ?? 0) !== 0) return "chromatic";
-  if ((parsed.syntonic ?? 0) === 0) return "diatonic";
-  return null;
+  if (parsed) {
+    const hasHigherPrimeInflection = Object.values(parsed.primeExponents ?? {}).some((value) => value !== 0);
+    if (hasHigherPrimeInflection) return "chromatic";
+    if ((parsed.accidentalCount ?? 0) !== 0) return "chromatic";
+    if ((parsed.syntonic ?? 0) === 0) return "diatonic";
+    return null;
+  }
+  const traditional = parseTraditionalNotationLabel(label);
+  if (!traditional) return null;
+  return traditional.isNatural ? "diatonic" : "chromatic";
 }
 
 function inferTemperedAutoColor(label) {
@@ -200,6 +250,22 @@ function inferTemperedAutoColor(label) {
   if (/[\uE260-\uE2F0]/u.test(normalized.replace(/[\uE2F1\uE2F2\uE2F3]/gu, ""))) return null;
   if (/[\uE2F1\uE2F3]/u.test(normalized)) return TEMPERED_CHROMATIC_AUTO_COLOR;
   if (/[\uE2F2]/u.test(normalized)) return TEMPERED_DIATONIC_AUTO_COLOR;
+  return null;
+}
+
+function inferTraditionalTemperedAutoColor(label) {
+  const tokens = parseTraditionalNotationTokens(label);
+  if (!tokens.length) return null;
+  if (tokens.every((token) => token.isNatural)) return TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR;
+  const palette = deriveTraditionalTemperedChromaticPalette();
+  const chromaticSides = new Set(
+    tokens
+      .filter((token) => !token.isNatural)
+      .map((token) => (token.accidentalCount < 0 ? "flat" : "sharp")),
+  );
+  if (chromaticSides.size > 1) return palette.mixed;
+  if (chromaticSides.has("flat")) return palette.flat;
+  if (chromaticSides.has("sharp")) return palette.sharp;
   return null;
 }
 
@@ -643,6 +709,7 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
     const temperedAutoColor =
       inferTemperedAutoColor(label)
+      ?? inferTraditionalTemperedAutoColor(label)
       ?? inferTemperedAutoColorFromStructure(degreeMetadata?.parsed);
     if (temperedAutoColor) return temperedAutoColor;
     const syntheticMonzo = (
@@ -663,9 +730,19 @@ export function deriveAutoNoteColors(settings, extra = {}) {
   const nonTonicColors = derivedColors.slice(1).filter(Boolean);
   const isPureTemperedPalette = nonTonicColors.length > 0
     && nonTonicColors.every((color) => (
-      color === TEMPERED_DIATONIC_AUTO_COLOR || color === TEMPERED_CHROMATIC_AUTO_COLOR
+      color === TEMPERED_DIATONIC_AUTO_COLOR
+      || color === TEMPERED_CHROMATIC_AUTO_COLOR
+      || color === TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR
+      || color === deriveTraditionalTemperedChromaticPalette().sharp
+      || color === deriveTraditionalTemperedChromaticPalette().flat
+      || color === deriveTraditionalTemperedChromaticPalette().mixed
     ))
-    && nonTonicColors.includes(TEMPERED_CHROMATIC_AUTO_COLOR);
+    && nonTonicColors.some((color) => (
+      color === TEMPERED_CHROMATIC_AUTO_COLOR
+      || color === deriveTraditionalTemperedChromaticPalette().sharp
+      || color === deriveTraditionalTemperedChromaticPalette().flat
+      || color === deriveTraditionalTemperedChromaticPalette().mixed
+    ));
   derivedColors[0] = isPureTemperedPalette
     ? TEMPERED_TONIC_AUTO_COLOR
     : deriveAutoTonicColorFromPaletteWithPrime(nonTonicColors, primeFamilyColorMap[1]);
