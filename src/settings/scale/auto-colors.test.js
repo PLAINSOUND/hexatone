@@ -548,6 +548,199 @@ describe("deriveAutoNoteColors", () => {
     expect(colors[11]).toBe("#d1d5dd");
     expect(colors[12]).toBe("#e7eadf");
   });
+
+  it("copies the curated Tonal Plexus palette for 205ed2 in auto mode", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: ["0", "1"],
+      note_colors: ["#112233", "#445566"],
+      scale: ["100.000000", "2/1"],
+      equivSteps: 2,
+      reference_degree: 0,
+      fundamental: 440,
+      auto_colors: true,
+      name: "205ed2 (TonalPlexus)",
+      short_description: "205ed2",
+    };
+    const workspace = createScaleWorkspace(settings);
+
+    expect(deriveAutoNoteColors(settings, { workspace })).toEqual(["#112233", "#445566"]);
+  });
+
+  it("inherits manual accidental-rank families for 31edo traditional notation", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c", "♭♭d", "♯c", "♭d", "♯♯c", "d", "♭♭e", "♯d", "♭e", "♯♯d",
+        "e", "♭f", "♯e", "f", "♭♭g", "♯f", "♭g", "♯♯f", "g", "♭♭a",
+        "♯g", "♭a", "♯♯g", "a", "♭♭b", "♯a", "♭b", "♯♯a", "b", "♭c", "♯b",
+      ],
+      note_colors: [
+        "#f9f7eb", "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3",
+        "#e2dfcf", "#dddae2", "#f9f7eb", "#e2dfcf", "#eee9d3", "#f9f7eb", "#eff4e7", "#eee9d3",
+        "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb",
+        "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb", "#e2dfcf", "#eee9d3",
+      ],
+      scale: Array.from({ length: 31 }, (_, index) =>
+        index === 30 ? "2/1" : `${(((index + 1) * 1200) / 31).toFixed(6)}`
+      ),
+      equivSteps: 31,
+      reference_degree: 23,
+      fundamental: 440,
+      auto_colors: true,
+      name: "31edo (gbb-a##)",
+      short_description: "31edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(colors[1]).toBe("#eff4e7");
+    expect(colors[3]).toBe("#e2dfcf");
+    expect(colors[4]).toBe("#dddae2");
+    expect(colors[30]).toBe("#eee9d3");
+  });
+
+  it("inherits quartertone accidental families and hybrids for 31edo quartertone notation", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c", "c", "♯c", "♭d", "d", "d", "d", "♯d", "♭e", "e",
+        "e", "e ♭f", "♯e f", "f", "f", "♯f", "♭g", "g", "g", "g",
+        "♯g", "♭a", "a", "a", "a", "♯a", "♭b", "b", "b", "b ♭c", "♯b c",
+      ],
+      note_colors: [
+        "#f9f7eb", "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3",
+        "#e2dfcf", "#dddae2", "#f9f7eb", "#e7e9d7", "#e5e2db", "#f9f7eb", "#eff4e7", "#eee9d3",
+        "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb",
+        "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb", "#e7e9d7", "#e5e2db",
+      ],
+      scale: Array.from({ length: 31 }, (_, index) =>
+        index === 30 ? "2/1" : `${(((index + 1) * 1200) / 31).toFixed(6)}`
+      ),
+      equivSteps: 31,
+      reference_degree: 23,
+      fundamental: 440,
+      auto_colors: true,
+      name: "31edo (quartertone notation)",
+      short_description: "31edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(colors[1]).toBe("#eff4e7");
+    expect(colors[4]).toBe("#dddae2");
+    expect(colors[11]).toBe("#e7e9d7");
+    expect(colors[30]).toBe("#e5e2db");
+  });
+
+  it("inherits Vicentino accidental families for 31edo Vicentino notation", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c", "c", "c", "d", "d", "d", "d", "d", "e", "e",
+        "e", "e", "e", "f", "f", "f", "g", "g", "g", "g",
+        "g", "a", "a", "a", "a", "a", "b", "b", "b", "b", "b",
+      ],
+      note_colors: [
+        "#f9f7eb", "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3",
+        "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3", "#f9f7eb", "#eff4e7", "#eee9d3",
+        "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb",
+        "#eff4e7", "#eee9d3", "#e2dfcf", "#dddae2", "#f9f7eb", "#eff4e7", "#eee9d3",
+      ],
+      scale: Array.from({ length: 31 }, (_, index) =>
+        index === 30 ? "2/1" : `${(((index + 1) * 1200) / 31).toFixed(6)}`
+      ),
+      equivSteps: 31,
+      reference_degree: 23,
+      fundamental: 440,
+      auto_colors: true,
+      name: "31edo (in Vicentino Notation, 1555)",
+      short_description: "31edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(colors[1]).toBe("#eff4e7");
+    expect(colors[3]).toBe("#e2dfcf");
+    expect(colors[4]).toBe("#dddae2");
+    expect(colors[30]).toBe("#eee9d3");
+  });
+
+  it("inherits triple-rank traditional accidental families for 43edo notation", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c", "♭♭d", "♯♯b", "♯c", "♭d", "♭♭♭e", "♯♯c", "d", "♭♭e", "♯♯♯c",
+        "♯d", "♭e", "♭♭f", "♯♯d", "e", "♭f", "♯♯♯d", "♯e", "f", "♭♭g",
+        "♯♯e", "♯f", "♭g", "♭♭♭a", "♯♯f", "g", "♭♭a", "♯♯♯f", "♯g", "♭a",
+        "♭♭♭b", "♯♯g", "a", "♭♭b", "♯♯♯g", "♯a", "♭b", "♭♭c", "♯♯a", "b",
+        "♭c", "♭♭♭d", "♯b",
+      ],
+      note_colors: [
+        "#ffffff", "#ffe5e5", "#fffae5", "#dee2da", "#d0d0d7", "#cee3e2", "#fffae5", "#ffffff",
+        "#ffe5e5", "#e4fbe6", "#dee2da", "#d0d0d7", "#ffe5e5", "#fffae5", "#ffffff", "#d0d0d7",
+        "#e4fbe6", "#dee2da", "#ffffff", "#ffe5e5", "#fffae5", "#dee2da", "#d0d0d7", "#cee3e2",
+        "#fffae5", "#ffffff", "#ffe5e5", "#e4fbe6", "#dee2da", "#d0d0d7", "#cee3e2", "#fffae5",
+        "#ffffff", "#ffe5e5", "#e4fbe6", "#dee2da", "#d0d0d7", "#ffe5e5", "#fffae5", "#ffffff",
+        "#d0d0d7", "#cee3e2", "#dee2da",
+      ],
+      scale: Array.from({ length: 43 }, (_, index) =>
+        index === 42 ? "2/1" : `${(((index + 1) * 1200) / 43).toFixed(6)}`
+      ),
+      equivSteps: 43,
+      reference_degree: 32,
+      fundamental: 440,
+      auto_colors: true,
+      name: "43edo (Sauveur 1696, dbbb-d###)",
+      short_description: "43edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(colors[1]).toBe("#ffe5e5");
+    expect(colors[5]).toBe("#cee3e2");
+    expect(colors[9]).toBe("#e4fbe6");
+    expect(colors[10]).toBe("#dee2da");
+  });
+
+  it("inherits four-rank traditional accidental families for 55edo Telemann notation", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c", "♭♭d", "♭♭♭♭e", "♯♯b", "♯c", "♭d", "♭♭♭e", "♯♯♯b", "♯♯c", "d",
+        "♭♭e", "♭♭♭f", "♯♯♯c", "♯d", "♭e", "♭♭f", "♯♯♯♯c", "♯♯d", "e", "♭f",
+        "♭♭♭g", "♯♯♯d", "♯e", "f", "♭♭g", "♭♭♭♭a", "♯♯e", "♯f", "♭g", "♭♭♭a",
+        "♯♯♯e", "♯♯f", "g", "♭♭a", "♭♭♭♭b", "♯♯♯f", "♯g", "♭a", "♭♭♭b", "♯♯♯♯f",
+        "♯♯g", "a", "♭♭b", "♭♭♭c", "♯♯♯g", "♯a", "♭b", "♭♭c", "♯♯♯♯g", "♯♯a",
+        "b", "♭c", "♭♭♭d", "♯♯♯a", "♯b",
+      ],
+      note_colors: [
+        "#ffffff", "#ffe5e5", "#e4fbe6", "#fffae5", "#dee2da", "#d0d0d7", "#dce1d0", "#f8ffeb",
+        "#fffae5", "#ffffff", "#ffe5e5", "#dce1d0", "#f8ffeb", "#dee2da", "#d0d0d7", "#ffe5e5",
+        "#cee3e2", "#fffae5", "#ffffff", "#d0d0d7", "#dce1d0", "#f8ffeb", "#dee2da", "#ffffff",
+        "#ffe5e5", "#e4fbe6", "#fffae5", "#dee2da", "#d0d0d7", "#dce1d0", "#f8ffeb", "#fffae5",
+        "#ffffff", "#ffe5e5", "#e4fbe6", "#f8ffeb", "#dee2da", "#d0d0d7", "#dce1d0", "#cee3e2",
+        "#fffae5", "#ffffff", "#ffe5e5", "#dce1d0", "#f8ffeb", "#dee2da", "#d0d0d7", "#ffe5e5",
+        "#cee3e2", "#fffae5", "#ffffff", "#d0d0d7", "#dce1d0", "#f8ffeb", "#dee2da",
+      ],
+      scale: Array.from({ length: 55 }, (_, index) =>
+        index === 54 ? "2/1" : `${(((index + 1) * 1200) / 55).toFixed(6)}`
+      ),
+      equivSteps: 55,
+      reference_degree: 41,
+      fundamental: 440,
+      auto_colors: true,
+      name: "55edo (Telemann 1767, abbbb-g####)",
+      short_description: "55edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const colors = deriveAutoNoteColors(settings, { workspace });
+
+    expect(colors[2]).toBe("#e4fbe6");
+    expect(colors[7]).toBe("#f8ffeb");
+    expect(colors[16]).toBe("#cee3e2");
+    expect(colors[48]).toBe("#cee3e2");
+  });
 });
 
 describe("inferNotationRole", () => {

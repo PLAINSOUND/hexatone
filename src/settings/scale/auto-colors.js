@@ -54,6 +54,18 @@ function mixHex(a, b, t) {
   return rgbToHex(ar.map((channel, index) => channel * (1 - x) + br[index] * x));
 }
 
+function averageHexColors(colors = []) {
+  const samples = colors
+    .map((color) => hexToRgb(color))
+    .filter(Boolean);
+  if (!samples.length) return null;
+  const totals = samples.reduce(
+    (sum, sample) => sum.map((value, index) => value + sample[index]),
+    [0, 0, 0],
+  );
+  return rgbToHex(totals.map((value) => value / samples.length));
+}
+
 function deriveTraditionalTemperedChromaticPalette() {
   const baseChromatic = mixHex(TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR, TEMPERED_CHROMATIC_AUTO_COLOR, 0.8);
   const sharp = mixHex(baseChromatic, TRADITIONAL_TEMPERED_SHARP_TINT, 0.45);
@@ -205,6 +217,97 @@ function parseTraditionalNotationTokens(label) {
     .split(/\s+/)
     .map((token) => parseTraditionalNotationLabel(token))
     .filter(Boolean);
+}
+
+function classifyTraditionalNotationFamilyToken(token) {
+  if (!token) return null;
+  if (token.isNatural) return "traditional:natural";
+  if (token.accidentalCount < 0) return `traditional:flat:${Math.abs(token.accidentalCount)}`;
+  if (token.accidentalCount > 0) return `traditional:sharp:${Math.abs(token.accidentalCount)}`;
+  return null;
+}
+
+function classifyVicentinoNotationToken(token) {
+  const source = String(token ?? "").trim();
+  if (!source) return null;
+  if (source.includes("")) return "vicentino:dotted-flat";
+  if (source.includes("")) return "vicentino:dotted-natural";
+  if (source.includes("")) return "vicentino:flat";
+  if (source.includes("")) return "vicentino:sharp";
+  if (source.includes("")) return "vicentino:natural";
+  return null;
+}
+
+function classifyQuartertoneNotationToken(token) {
+  const source = String(token ?? "").trim();
+  if (!source) return null;
+  if (source.includes("")) return "quartertone:flat-quarter";
+  if (source.includes("")) return "quartertone:sharp-quarter";
+  const traditional = parseTraditionalNotationLabel(source);
+  if (!traditional) return null;
+  return classifyTraditionalNotationFamilyToken(traditional);
+}
+
+function buildFamilyKey(tokens = []) {
+  if (!tokens.length) return null;
+  const normalized = [...tokens].sort();
+  return normalized.length === 1 ? normalized[0] : `hybrid:${normalized.join("+")}`;
+}
+
+function inferNotationFamilyKey(label) {
+  const source = String(label ?? "").trim();
+  if (!source) return null;
+
+  const vicentinoTokens = source
+    .split(/\s+/)
+    .map((token) => classifyVicentinoNotationToken(token))
+    .filter(Boolean);
+  if (vicentinoTokens.length) return buildFamilyKey(vicentinoTokens);
+
+  const quartertoneTokens = source
+    .split(/\s+/)
+    .map((token) => classifyQuartertoneNotationToken(token))
+    .filter(Boolean);
+  if (quartertoneTokens.length) return buildFamilyKey(quartertoneTokens);
+
+  const traditionalTokens = parseTraditionalNotationTokens(source)
+    .map((token) => classifyTraditionalNotationFamilyToken(token))
+    .filter(Boolean);
+  if (traditionalTokens.length) return buildFamilyKey(traditionalTokens);
+
+  return null;
+}
+
+function buildInheritedNotationPaletteMap(noteNames = [], storedColors = []) {
+  const families = new Map();
+  noteNames.forEach((label, index) => {
+    const familyKey = inferNotationFamilyKey(label);
+    const color = storedColors[index];
+    if (!familyKey || !color) return;
+    if (!families.has(familyKey)) families.set(familyKey, []);
+    families.get(familyKey).push(color);
+  });
+  const paletteMap = new Map();
+  for (const [familyKey, colors] of families.entries()) {
+    const average = averageHexColors(colors);
+    if (average) paletteMap.set(familyKey, average);
+  }
+  return paletteMap;
+}
+
+function inferInheritedNotationPaletteColor(label, paletteMap) {
+  if (!(paletteMap instanceof Map) || paletteMap.size === 0) return null;
+  const familyKey = inferNotationFamilyKey(label);
+  if (!familyKey) return null;
+  const direct = paletteMap.get(familyKey);
+  if (direct) return direct;
+  if (!familyKey.startsWith("hybrid:")) return null;
+  const components = familyKey
+    .slice("hybrid:".length)
+    .split("+")
+    .map((part) => paletteMap.get(part))
+    .filter(Boolean);
+  return components.length >= 2 ? averageHexColors(components) : null;
 }
 
 function parseExplicitHejiClassificationTokens(label, options = {}) {
@@ -791,15 +894,26 @@ export function deriveAutoNoteColors(settings, extra = {}) {
   const isEqualDivision = Number.isFinite(settings?.equivSteps)
     && Array.isArray(settings?.scale)
     && settings.scale.length === settings.equivSteps;
+  const isTonalPlexus205 = /205ed2/i.test(String(settings?.name ?? ""))
+    || /205ed2/i.test(String(settings?.short_description ?? ""));
+  if (isTonalPlexus205 && storedColors.length === workspace.slots.length) {
+    return storedColors.slice();
+  }
+  const inheritedNotationPaletteMap = isEqualDivision
+    ? buildInheritedNotationPaletteMap(noteNames, storedColors)
+    : new Map();
   const derivedColors = workspace.slots.map((slot, degreeIndex) => {
     if (degreeIndex === 0) return null;
     const interval = slot?.committedIdentity;
     const fallbackColor = storedColors[degreeIndex] ?? "#ffffff";
     const label = (useHeji ? hejiNames[degreeIndex] : noteNames[degreeIndex]) ?? "";
     const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
+    const inheritedNotationColor = inferInheritedNotationPaletteColor(label, inheritedNotationPaletteMap);
     const equalDivisionHejiAutoColor = inferEqualDivisionHejiTemperedAutoColor(label, { isEqualDivision });
     const equalDivisionHejiHybridAutoColor = inferEqualDivisionHejiHybridAutoColor(label, { isEqualDivision });
     const temperedAutoColor =
+      inheritedNotationColor
+      ??
       equalDivisionHejiAutoColor
       ?? equalDivisionHejiHybridAutoColor
       ?? inferTemperedAutoColor(label)

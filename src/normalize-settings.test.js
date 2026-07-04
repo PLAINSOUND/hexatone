@@ -111,6 +111,28 @@ describe("normalizeColors", () => {
     expect(normalized.note_colors).toEqual(["112233", "abcdef"]);
   });
 
+  it("falls back from empty manual colours to spectrum when no manual palette exists", () => {
+    const normalized = normalizeColors({
+      key_colors_mode: "manual",
+      auto_colors: false,
+      spectrum_colors: false,
+      fundamental_color: "#ffdbe8",
+      note_colors: [],
+      scale: ["2/1"],
+      equivSteps: 1,
+      note_names: ["-"],
+      key_labels: "no_labels",
+      name: "By Approximate Syntonic Comma (22 cents)",
+      short_description: "22cents",
+    });
+
+    expect(normalized.key_colors_mode).toBe("spectrum");
+    expect(normalized.auto_colors).toBe(false);
+    expect(normalized.spectrum_colors).toBe(true);
+    expect(normalized.note_colors).toHaveLength(1);
+    expect(normalized.note_colors[0]).toMatch(/^[0-9a-f]{6}$/i);
+  });
+
   it("scales the auto tonic highlight with palette intensity", () => {
     const mild = deriveAutoTonicColorFromPalette([
       "#ffffff",

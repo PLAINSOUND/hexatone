@@ -71,10 +71,34 @@ export function deriveSpectrumNoteColors(settings, fundamentalColor) {
   });
 }
 
+function deriveFallbackKeyColorMode(settings, requestedMode) {
+  const explicitlyRequestedManual = Object.prototype.hasOwnProperty.call(settings ?? {}, "key_colors_mode")
+    && settings?.key_colors_mode === "manual";
+  if (requestedMode !== "manual" || !explicitlyRequestedManual) return requestedMode;
+  const storedNoteColors = Array.isArray(settings?.note_colors) ? settings.note_colors : [];
+  if (storedNoteColors.length > 0) return requestedMode;
+
+  const count = settings?.equivSteps || settings?.scale?.length || 0;
+  if (count > 0) return "spectrum";
+
+  const autoCandidate = getCachedAutoNormalizedColors(settings, () => deriveAutoNoteColors(settings, {
+    heji_names: settings.heji_names,
+    heji_names_table: settings.heji_names_table,
+    hejiFrame: settings.heji_frame,
+  }));
+  if (Array.isArray(autoCandidate) && autoCandidate.length > 0) return "auto";
+  return requestedMode;
+}
+
 // Color fields only — changes here should NOT reconstruct the hex grid.
 export const normalizeColors = (settings) => {
   const fundamental_color = (settings.fundamental_color || "").replace(/#/, "");
-  const colorFlags = deriveKeyColorFlags(settings);
+  const requestedFlags = deriveKeyColorFlags(settings);
+  const key_colors_mode = deriveFallbackKeyColorMode(settings, requestedFlags.key_colors_mode);
+  const colorFlags = deriveKeyColorFlags({
+    ...settings,
+    key_colors_mode,
+  });
   const sourceNoteColors = colorFlags.auto_colors
     ? getCachedAutoNormalizedColors(settings, () => deriveAutoNoteColors(settings, {
       heji_names: settings.heji_names,
