@@ -41,7 +41,7 @@ export const MONZO_COLOR_FAMILIES = {
 };
 
 export const DEFAULT_PRIME_FAMILY_COLORS = {
-  1: "#ff7a7a",
+  1: "#ff7070",
   3: "#ffffff",
   5: "#fffae5",
   7: "#ffe5e5",

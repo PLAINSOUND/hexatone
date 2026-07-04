@@ -270,7 +270,7 @@ describe("Colors — interactions", () => {
     fireEvent.click(screen.getByRole("button", { name: /default colours/i }));
     expect(onChange).toHaveBeenCalledWith(
       "prime_family_colors",
-      expect.arrayContaining(["#ff7a7a", "#ffffff", "#fffae5"]),
+      expect.arrayContaining(["#ff7070", "#ffffff", "#fffae5"]),
     );
   });
 
