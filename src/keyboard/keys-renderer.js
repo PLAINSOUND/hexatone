@@ -381,7 +381,7 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   context.closePath();
   context.strokeStyle = "darkgray";
   context.lineWidth = 6;
-  context.shadowBlur = 24;
+  context.shadowBlur = 22;
   context.shadowColor = "black";
   context.shadowOffsetX = 0;
   context.shadowOffsetY = 0;
