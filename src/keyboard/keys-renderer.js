@@ -380,8 +380,8 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   for (let i = 1; i < 6; i++) context.lineTo(x2[i], y2[i]);
   context.closePath();
   context.strokeStyle = "darkgray";
-  context.lineWidth = 5;
-  context.shadowBlur = 15;
+  context.lineWidth = 6;
+  context.shadowBlur = 24;
   context.shadowColor = "black";
   context.shadowOffsetX = 0;
   context.shadowOffsetY = 0;
