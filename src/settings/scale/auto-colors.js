@@ -9,8 +9,8 @@ import {
 import { srgb_to_okhsl } from "./okhsl.js";
 
 export const AUTO_TONIC_COLOR_SOFT = "#ffdbdb";
-export const AUTO_TONIC_COLOR_STRONG = "#ff7a7a";
-export const AUTO_TONIC_COLOR_ROSE_HEAVY = "#ffa3a3";
+export const AUTO_TONIC_COLOR_STRONG = "#ff7070";
+export const AUTO_TONIC_COLOR_ROSE_HEAVY = "#ff9b9b";
 const TEMPERED_DIATONIC_AUTO_COLOR = "#ededf7";
 const TEMPERED_CHROMATIC_AUTO_COLOR = "#c3c3d5";
 const TEMPERED_TONIC_AUTO_COLOR = "#ff9d9d";

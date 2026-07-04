@@ -934,6 +934,10 @@ td.scale-color-col .color-input {
   border-radius: 3px;
 }
 
+.settings-form__scala-input--right {
+  text-align: right;
+}
+
 .settings-form__inline-note-hint {
   flex: 1;
   min-width: 0;

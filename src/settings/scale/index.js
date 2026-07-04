@@ -217,7 +217,7 @@ const Scale = (props) => {
           context="interval"
           value={equaveValue}
           onChange={handleEquaveChange}
-          inputClass="settings-form__scala-input"
+          inputClass="settings-form__scala-input settings-form__scala-input--right"
           wrapperClass="sidebar-input"
         />
       </label>

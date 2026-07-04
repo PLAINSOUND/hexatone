@@ -379,9 +379,12 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   context.moveTo(x2[0], y2[0]);
   for (let i = 1; i < 6; i++) context.lineTo(x2[i], y2[i]);
   context.closePath();
+  const pixelRatio = Math.max(1, Number(this.state.pixelRatio) || 1);
+  const hexSize = Number(this.settings.hexSize) || 46;
   context.strokeStyle = "darkgray";
-  context.lineWidth = 6;
-  context.shadowBlur = 22;
+  context.lineWidth = hexSize * 0.15;
+  context.shadowBlur = hexSize * 0.46 * pixelRatio;
+  ;
   context.shadowColor = "black";
   context.shadowOffsetX = 0;
   context.shadowOffsetY = 0;
@@ -392,7 +395,7 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   context.moveTo(x[0], y[0]);
   for (let i = 1; i < 6; i++) context.lineTo(x[i], y[i]);
   context.closePath();
-  context.lineWidth = 1;
+  context.lineWidth = hexSize * 0.015;
   context.lineJoin = "round";
   context.strokeStyle = "slategray";
   context.stroke();
@@ -404,7 +407,6 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   context.font = "28pt Plainsound Sans";
   context.textAlign = "center";
   context.textBaseline = "middle";
-  const hexSize = Number(this.settings.hexSize) || 46;
   const labelClipWidth = Math.max(12, hexSize * 1.12);
   const labelClipHeight = Math.max(12, hexSize * 1.18);
 
@@ -484,10 +486,10 @@ export function centsToColor(cents, pressed, pressed_interval) {
     returnColor = hex2rgb(returnColor);
 
     if (pressed) {
-      returnColor[0] += 200;
-      returnColor[1] -= 200;
-      returnColor[2] -= 200;
-    }
+    returnColor[0] = 255;
+    returnColor[1] = 0;
+    returnColor[2] = 0;
+  }
 
     return [rgb(returnColor[0], returnColor[1], returnColor[2]), current_text_color];
   }

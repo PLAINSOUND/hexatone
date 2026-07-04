@@ -760,7 +760,7 @@ export const presets = [
           "255"
         ],
         "note_colors": [
-          "#ff9191",
+          "#ff7070",
           "#c9a573",
           "#e9d7d3",
           "#dfffd6",
@@ -2398,7 +2398,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9090",
+          "#ff7070",
           "#e6d7fe",
           "#ffcba8",
           "#ffffff",
@@ -2459,7 +2459,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9090",
+          "#ff7070",
           "#e6d7fe",
           "#ffcba8",
           "#ffffff",
@@ -3441,7 +3441,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9191",
+          "#ff7070",
           "#c9a573",
           "#e9d7d3",
           "#dfffd6",
@@ -3568,7 +3568,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9090",
+          "#ff7070",
           "#c9a573",
           "#ffb8da",
           "#ffffff",
