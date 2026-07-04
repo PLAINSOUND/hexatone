@@ -251,20 +251,29 @@ export function normalizeBarMarkers(bars = [], options = {}) {
 export function timingBarAtNumber(barNumber, bars = []) {
   const normalizedBars = normalizeBarMarkers(bars);
   const resolvedBarNumber = Math.max(1, Math.round(Number(barNumber) || 1));
-  let inherited = normalizedBars[0] ?? {
+  const fallback = normalizedBars[0] ?? {
     id: "bar:default",
     position: 1,
     numerator: 4,
     denominator: 4,
   };
-  for (let index = 0; index < normalizedBars.length; index += 1) {
-    if (Number(normalizedBars[index].position) <= resolvedBarNumber) inherited = normalizedBars[index];
-    else break;
+
+  const explicitIndex = resolvedBarNumber - 1;
+  if (explicitIndex < normalizedBars.length) {
+    const explicitBar = normalizedBars[explicitIndex];
+    return {
+      ...explicitBar,
+      position: Number(explicitBar.position),
+      inherited: false,
+    };
   }
+
+  const inherited = normalizedBars.at(-1) ?? fallback;
+  const inheritedOffset = resolvedBarNumber - normalizedBars.length;
   return {
     ...inherited,
-    position: resolvedBarNumber,
-    inherited: Number(inherited.position) !== resolvedBarNumber,
+    position: Number(inherited.position) + inheritedOffset,
+    inherited: true,
   };
 }
 
@@ -287,7 +296,12 @@ export function deriveTerminalBarlinePosition(snapshots = [], bars = []) {
   return Math.max(explicitTerminal, lastSnapshotEdge);
 }
 
-function safeBarLength() {
+function safeBarLength(bar, nextBar) {
+  const start = Number(bar?.position);
+  const end = Number(nextBar?.position);
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start + 1e-9) {
+    return end - start;
+  }
   return 1;
 }
 
@@ -365,8 +379,41 @@ function gcd(a, b) {
 export function barContextForPosition(position, bars = []) {
   const absolutePosition = Number(position);
   if (!Number.isFinite(absolutePosition)) return null;
+  const normalizedBars = normalizeBarMarkers(bars);
 
-  const barNumber = Math.max(1, Math.floor(absolutePosition + 1e-9));
+  for (let index = 0; index < normalizedBars.length; index += 1) {
+    const bar = {
+      ...normalizedBars[index],
+      position: Number(normalizedBars[index].position),
+      inherited: false,
+    };
+    const nextExplicit = normalizedBars[index + 1]
+      ? {
+        ...normalizedBars[index + 1],
+        position: Number(normalizedBars[index + 1].position),
+        inherited: false,
+      }
+      : null;
+    const nextPosition = Number(nextExplicit?.position);
+    if (!Number.isFinite(nextPosition) || absolutePosition < nextPosition - 1e-9) {
+      return {
+        bar,
+        barIndex: index,
+        barNumber: index + 1,
+        nextBar: nextExplicit ?? timingBarAtNumber(index + 2, bars),
+        barLength: safeBarLength(bar, nextExplicit ?? timingBarAtNumber(index + 2, bars)),
+      };
+    }
+  }
+
+  const lastExplicit = normalizedBars.at(-1) ?? {
+    id: "bar:default",
+    position: 1,
+    numerator: 4,
+    denominator: 4,
+  };
+  const tailOffset = Math.max(0, Math.floor(absolutePosition - Number(lastExplicit.position) + 1e-9));
+  const barNumber = normalizedBars.length + tailOffset;
   const bar = timingBarAtNumber(barNumber, bars);
   const nextBar = timingBarAtNumber(barNumber + 1, bars);
   const barLength = safeBarLength(bar, nextBar);
@@ -486,13 +533,79 @@ export function normalizeRepeatMarker(marker, index = 0) {
   };
 }
 
+export function deriveImplicitRepeatStartPosition(markers = [], endPosition) {
+  const normalizedEndPosition = normalizePosition(endPosition, 1);
+  if (normalizedEndPosition <= 1) return null;
+
+  const source = Array.isArray(markers) ? markers : [];
+  const normalized = source
+    .map((marker, index) => normalizeRepeatMarker(marker, index))
+    .sort((a, b) => (
+      a.position - b.position
+      || (a.kind === "end" ? 0 : 1) - (b.kind === "end" ? 0 : 1)
+      || String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
+    ));
+
+  if (normalized.some((marker) => Math.abs(marker.position - normalizedEndPosition) < 1e-9)) {
+    return null;
+  }
+
+  let previousMarker = null;
+
+  for (const marker of normalized) {
+    if (marker.position >= normalizedEndPosition - 1e-9) break;
+    previousMarker = marker;
+  }
+
+  if (previousMarker == null) return 1;
+  if (previousMarker.kind === "start") return null;
+  return normalizePosition(previousMarker.position, 1);
+}
+
+export function deriveImplicitRepeatStartPositionsForDanglingEnds(markers = []) {
+  const normalized = normalizeRepeatMarkers(markers);
+  const processed = [];
+  const openStarts = [];
+  const additions = [];
+
+  normalized.forEach((marker) => {
+    if (marker.kind === "start") {
+      processed.push(marker);
+      openStarts.push(marker);
+      return;
+    }
+
+    if (openStarts.length > 0) {
+      openStarts.pop();
+      processed.push(marker);
+      return;
+    }
+
+    const implicitStartPosition = deriveImplicitRepeatStartPosition(processed, marker.position);
+    if (implicitStartPosition != null) {
+      const implicitStart = normalizeRepeatMarker({
+        id: `implicit-start:${additions.length + 1}`,
+        position: implicitStartPosition,
+        kind: "start",
+        repeatCount: null,
+      }, additions.length);
+      additions.push(implicitStartPosition);
+      processed.push(implicitStart);
+    }
+
+    processed.push(marker);
+  });
+
+  return additions;
+}
+
 export function normalizeRepeatMarkers(markers = []) {
   const source = Array.isArray(markers) ? markers : [];
   const normalized = source
     .map((marker, index) => normalizeRepeatMarker(marker, index))
     .sort((a, b) => (
       a.position - b.position
-      || (a.kind === "start" ? 0 : 1) - (b.kind === "start" ? 0 : 1)
+      || (a.kind === "end" ? 0 : 1) - (b.kind === "end" ? 0 : 1)
       || String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
     ));
 
@@ -510,5 +623,5 @@ export function normalizeRepeatMarkers(markers = []) {
     deduped.push(marker);
   }
 
-  return deduped;
+  return deduped.filter((marker) => marker.kind === "start" || marker.position > 1);
 }

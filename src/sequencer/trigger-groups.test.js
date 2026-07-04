@@ -147,12 +147,14 @@ describe("deriveSnapshotTriggerGroups", () => {
     ]);
 
     expect(events.map((event) => [event.noteId, event.kind, event.absoluteTime, event.cueIndex])).toEqual([
+      [undefined, "bar", 1, null],
       ["a", "attack", 1, 1],
       ["b", "attack", 1.5, 2],
       ["b", "release", 2, 3],
       ["a", "release", 2.25, 4],
       ["c", "attack", 2.25, 4],
       ["c", "release", 3, 5],
+      [undefined, "barline", 4, null],
     ]);
   });
 
@@ -306,7 +308,7 @@ describe("deriveSnapshotTriggerGroups", () => {
     expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 3)).toEqual(["c"]);
   });
 
-  it("attaches integer-position bars to the preceding snapshot and keeps them ahead of the whole shared-time burst", () => {
+  it("attaches integer-position bars to the preceding snapshot and places them after carried releases but before new attacks", () => {
     const events = deriveSequenceEvents(
       [
         {
@@ -330,11 +332,13 @@ describe("deriveSnapshotTriggerGroups", () => {
       event.snapshotIndex,
       event.cueIndex,
     ])).toEqual([
+      ["bar", "bar", 1, 0, null],
       ["note", "attack", 1, 0, 1],
-      ["bar", "bar", 2, 0, null],
       ["note", "release", 2, 0, 2],
+      ["bar", "bar", 2, 0, null],
       ["note", "attack", 2, 1, 2],
       ["note", "release", 3, 1, 3],
+      ["barline", "barline", 4, 1, null],
     ]);
 
     expect(events.find((event) => event.type === "bar")).toEqual(
@@ -345,17 +349,24 @@ describe("deriveSnapshotTriggerGroups", () => {
     );
   });
 
-  it("orders tempo changes before bars before note events at the same shared whole-sequence position", () => {
+  it("orders carried note-offs before repeat and structural markers, then new attacks and same-cue note-offs", () => {
     const events = deriveSequenceEvents(
       [
         {
           id: 1,
           length: 1,
-          notes: [{ id: "a", midicents: 69, start: 1, end: 1 }],
+          notes: [
+            { id: "held", midicents: 72, start: 0, end: 1 },
+            { id: "new", midicents: 69, start: 1, end: 1 },
+          ],
         },
       ],
       [{ id: 100, position: 2 }],
-      [{ id: 200, position: 1.5, bpm: 72, beatLength: 1 }],
+      [{ id: 200, position: 2, bpm: 72, beatLength: 1 }],
+      [
+        { id: 300, position: 2, kind: "end", repeatCount: 2 },
+        { id: 301, position: 2, kind: "start" },
+      ],
     );
 
     expect(events.map((event) => [
@@ -365,9 +376,14 @@ describe("deriveSnapshotTriggerGroups", () => {
       event.snapshotIndex,
       event.cueIndex,
     ])).toEqual([
-      ["tempo", "tempo", 1.5, 0, null],
+      ["bar", "bar", 1, 0, null],
+      ["note", "attack", 1, 0, 1],
+      ["note", "release", 2, 0, 2],
+      ["repeat-end", "repeat-end", 2, 0, null],
+      ["repeat-start", "repeat-start", 2, 0, null],
+      ["tempo", "tempo", 2, 0, null],
       ["bar", "bar", 2, 0, null],
-      ["note", "attack", 2, 0, 1],
+      ["note", "attack", 2, 0, 2],
       ["note", "release", 2, 0, 2],
       ["barline", "barline", 3, 0, null],
     ]);

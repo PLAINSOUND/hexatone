@@ -1,22 +1,25 @@
 import { deriveTerminalBarlinePosition, normalizeBarMarkers, normalizeRepeatMarkers } from "./transport.js";
 
+// Distinguish releases that belong to already-sounding notes from note-offs
+// that are paired with a same-time note-on inside the current cue burst.
 function noteEventPhase(event) {
   if (event?.kind === "release") {
     const start = Number(event?.spanStart);
     const time = Number(event?.time ?? event?.absoluteTime);
-    if (Number.isFinite(start) && Number.isFinite(time) && start < time) return 0;
-    return 2;
+    if (Number.isFinite(start) && Number.isFinite(time) && start < time) return 0; // old note off
+    return 7; // new note off
   }
-  return 1;
+  return 6; // new note on
 }
 
 function sequenceRowPriority(event) {
-  if (event?.type === "repeat-start") return 0;
+  if (event?.type === "note") return noteEventPhase(event);
   if (event?.type === "repeat-end") return 1;
-  if (event?.type === "tempo") return 2;
-  if (event?.type === "bar") return 3;
-  if (event?.type === "barline") return 4;
-  return 5 + noteEventPhase(event);
+  if (event?.type === "repeat-start") return 2;
+  if (event?.type === "tempo") return 3;
+  if (event?.type === "bar") return 4;
+  if (event?.type === "barline") return 5;
+  return 6;
 }
 
 function noteFrequency(midicents) {

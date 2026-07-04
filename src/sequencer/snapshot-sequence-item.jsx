@@ -234,9 +234,15 @@ const SnapshotSequenceItem = ({
                       <div
                         key={event.type === "barline" ? event.eventId : structuralEventInstanceKey(event)}
                         ref={(node) => {
-                          if (event.type !== "bar") return;
-                          if (node) structure.barRowRefs.current.set(event.barId ?? event.id, node);
-                          else structure.barRowRefs.current.delete(event.barId ?? event.id);
+                          const structuralKey = structuralEventRenderKey(event);
+                          if (event.type === "bar") {
+                            if (node) structure.barRowRefs.current.set(event.barId ?? event.id, node);
+                            else structure.barRowRefs.current.delete(event.barId ?? event.id);
+                          }
+                          if (structuralKey != null) {
+                            if (node) structure.barRowRefs.current.set(structuralKey, node);
+                            else structure.barRowRefs.current.delete(structuralKey);
+                          }
                         }}
                         class="sequencer-item sequencer-item--bar"
                       >
@@ -275,9 +281,15 @@ const SnapshotSequenceItem = ({
           <div
             key={structuralEventInstanceKey(marker)}
             ref={(node) => {
-              if (marker.structuralType !== "bar") return;
-              if (node) structure.barRowRefs.current.set(marker.id, node);
-              else structure.barRowRefs.current.delete(marker.id);
+              const structuralKey = structuralEventRenderKey(marker);
+              if (marker.structuralType === "bar") {
+                if (node) structure.barRowRefs.current.set(marker.id, node);
+                else structure.barRowRefs.current.delete(marker.id);
+              }
+              if (structuralKey != null) {
+                if (node) structure.barRowRefs.current.set(structuralKey, node);
+                else structure.barRowRefs.current.delete(structuralKey);
+              }
             }}
             class="sequencer-item sequencer-item--bar"
           >

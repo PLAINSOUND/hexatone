@@ -1,3 +1,5 @@
+import { useEffect, useState } from "preact/hooks";
+
 import { absolutePositionToBarBeat } from "./transport.js";
 import {
   buildBlurCommit,
@@ -24,6 +26,20 @@ const RepeatRow = ({
   const repeatDenValue = isRepeatStoppedBar ? "1" : (repeatBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1));
   const isStart = (repeat.kind ?? repeat.structuralType) !== "end" && repeat.type !== "repeat-end";
   const repeatCount = Math.max(2, Math.round(Number(repeat.repeatCount) || 2));
+  const [repeatCountDraft, setRepeatCountDraft] = useState(String(repeatCount));
+
+  useEffect(() => {
+    setRepeatCountDraft(String(repeatCount));
+  }, [repeatCount]);
+
+  const parsedRepeatCountDraft = Math.max(2, Math.round(Number(repeatCountDraft) || 2));
+  const isRepeatCountHint = parsedRepeatCountDraft === 2;
+
+  const commitRepeatCount = (value) => {
+    const normalizedValue = String(Math.max(2, Math.round(Number(value) || 2)));
+    setRepeatCountDraft(normalizedValue);
+    editing.updateRepeatCount(repeatId, normalizedValue);
+  };
 
   return (
     <div
@@ -126,14 +142,24 @@ const RepeatRow = ({
             <input
               type="text"
               inputMode="numeric"
-              class={`sequencer-event__input sequencer-repeat-row__count-input${repeatCount === 2 ? " sequencer-repeat-row__count-input--hint" : ""}`}
-              defaultValue={String(repeatCount)}
+              class={`sequencer-event__input sequencer-repeat-row__count-input${isRepeatCountHint ? " sequencer-repeat-row__count-input--hint" : ""}`}
+              value={repeatCountDraft}
               aria-label="repeat count"
               onFocus={buildSelectOnFocus({ clearCommitted: true })}
-              onKeyDown={buildEnterCommit(editing, (value) => editing.updateRepeatCount(repeatId, value))}
-              onBlur={buildBlurCommit(editing, (value) => editing.updateRepeatCount(repeatId, value))}
+              onInput={(e) => setRepeatCountDraft(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                e.stopPropagation();
+                commitRepeatCount(e.currentTarget.value);
+                e.currentTarget.blur();
+              }}
+              onBlur={(e) => {
+                e.stopPropagation();
+                commitRepeatCount(e.currentTarget.value);
+              }}
             />
-            <span class={`sequencer-repeat-row__count-suffix${repeatCount === 2 ? " sequencer-repeat-row__count-suffix--hint" : ""}`}>x</span>
+            <span class={`sequencer-repeat-row__count-suffix${isRepeatCountHint ? " sequencer-repeat-row__count-suffix--hint" : ""}`}>x</span>
           </span>
         ) : null}
         {isRepeatBarRelativeDraftActive ? (

@@ -1,5 +1,6 @@
 import { sequenceAttackEventIdsAtCueIndex } from "./trigger-groups.js";
 import { buildCueExpandedSnapshotIds } from "./timeline-runtime.js";
+import { structuralEventRenderKey } from "./value-runtime.js";
 
 export function firstSnapshotIdInSet(snapshotIds, snapshots) {
   if (!(snapshotIds instanceof Set) || snapshotIds.size === 0) return null;
@@ -75,19 +76,38 @@ export function deriveExpandedSnapshotIds({
   return new Set([selectedSnapshotId]);
 }
 
-export function deriveCueScrollAnchorSnapshotId({
+export function deriveCueScrollAnchorTarget({
   showAllEvents,
   activeCueIndex,
   sequenceCueGroups,
   snapshots,
   cueExpandedSnapshotIds,
+  repeatSections = [],
 }) {
   if (!Number.isFinite(activeCueIndex)) return null;
+  const activeCueZeroBased = activeCueIndex - 1;
+  const activeRepeatSection = repeatSections.find((section) => (
+    activeCueZeroBased >= Number(section.startCueIndex) &&
+    activeCueZeroBased <= Number(section.endCueIndex)
+  ));
+  if (activeRepeatSection && activeCueZeroBased === Number(activeRepeatSection.startCueIndex)) {
+    if (activeRepeatSection.startRepeatId != null) {
+      return {
+        kind: "structural",
+        targetKey: structuralEventRenderKey({
+          type: "repeat-start",
+          repeatId: activeRepeatSection.startRepeatId,
+        }),
+      };
+    }
+  }
   if (showAllEvents) {
     const cueGroup = sequenceCueGroups[activeCueIndex - 1] ?? null;
-    return cueGroup != null ? (snapshots[cueGroup.snapshotIndex]?.id ?? null) : null;
+    const snapshotId = cueGroup != null ? (snapshots[cueGroup.snapshotIndex]?.id ?? null) : null;
+    return snapshotId == null ? null : { kind: "snapshot", targetKey: snapshotId };
   }
-  return firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
+  const snapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
+  return snapshotId == null ? null : { kind: "snapshot", targetKey: snapshotId };
 }
 
 export function sameSnapshotSet(left, right) {

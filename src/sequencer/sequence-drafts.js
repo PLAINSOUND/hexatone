@@ -75,8 +75,6 @@ export function buildBarRelativeDraft(barBeat, changedField = null, override = {
   if (changedField === "bar") {
     next.beat = "1";
     next.numerator = "0";
-  } else if (changedField === "beat") {
-    next.numerator = "0";
   }
   return next;
 }
@@ -99,7 +97,16 @@ function draftFieldName(field) {
   return field;
 }
 
-export function updateBarRelativeDrafts(drafts, { draftKey, barBeat, field, value, meta, scopePrefix, isStoppedBar }) {
+export function updateBarRelativeDrafts(drafts, {
+  draftKey,
+  barBeat,
+  field,
+  value,
+  meta,
+  scopePrefix,
+  isStoppedBar,
+  beatsPerBarForBarNumber,
+}) {
   const draftField = draftFieldName(field);
   const current = drafts[draftKey] ?? buildBarRelativeDraft(barBeat);
   const nextDraft = {
@@ -108,9 +115,18 @@ export function updateBarRelativeDrafts(drafts, { draftKey, barBeat, field, valu
     draftKey,
     scope: `${scopePrefix}:${draftKey}`,
   };
+  const resolvedDraft = { ...nextDraft };
+  const draftBarNumber = Math.round(Number(resolvedDraft.barNumber) || Number(barBeat?.barNumber) || 1);
+  const beatsPerBar = typeof beatsPerBarForBarNumber === "function"
+    ? Math.max(0, Math.round(Number(beatsPerBarForBarNumber(draftBarNumber)) || 0))
+    : Math.max(0, Math.round(Number(barBeat?.beatsPerBar) || 0));
+  if (draftField === "beat" && beatsPerBar > 0) {
+    const parsedBeat = Math.round(Number(resolvedDraft.beat) || 1);
+    resolvedDraft.beat = String(Math.max(1, Math.min(beatsPerBar, parsedBeat)));
+  }
   return {
     ...drafts,
-    [draftKey]: normalizeDraftForStoppedBar(nextDraft, isStoppedBar),
+    [draftKey]: normalizeDraftForStoppedBar(resolvedDraft, isStoppedBar),
   };
 }
 

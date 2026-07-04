@@ -30,8 +30,8 @@ export function buildBarNumberById(bars = []) {
 }
 
 function structuralTypePriority(type) {
-  if (type === "repeat-start") return 0;
-  if (type === "repeat-end") return 1;
+  if (type === "repeat-end") return 0;
+  if (type === "repeat-start") return 1;
   if (type === "tempo") return 2;
   if (type === "bar") return 3;
   return 4;

@@ -197,6 +197,82 @@ describe("Sequencer", () => {
     globalThis.cancelAnimationFrame = originalCancelRaf;
   });
 
+  it("scrolls back to the top when the transport is reset to the beginning", () => {
+    const onResetSequencePlayhead = vi.fn();
+
+    const { container } = render(
+      <Sequencer
+        snapshots={[
+          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
+          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={11}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 1, stepIndex: 1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onJumpSequenceSnapshot={vi.fn()}
+        onJumpSequenceCue={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={onResetSequencePlayhead}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddRepeat={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onDeleteRepeat={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onUpdateRepeat={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onDeleteAllSnapshots={vi.fn()}
+        onClearSequence={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onDuplicateSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceSavedName=""
+        activeSequenceDescription=""
+        sequenceLegato
+        snapSequenceToCurrentTuning={false}
+        sequenceAutoCreateBars
+      />,
+    );
+
+    const scrollPanel = container.querySelector(".sequencer-scroll-panel");
+    let scrollTopValue = 240;
+    Object.defineProperty(scrollPanel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTopValue,
+      set: (value) => {
+        scrollTopValue = value;
+      },
+    });
+
+    fireEvent.click(screen.getByLabelText("move sequence playhead to start"));
+
+    expect(scrollTopValue).toBe(0);
+    expect(onResetSequencePlayhead).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps pending cue selection anchored to the earliest sounding snapshot in full-list view", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
@@ -669,8 +745,8 @@ describe("Sequencer", () => {
     const cueNumbers = [...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent);
     expect(cueNumbers).toEqual(["1", "2", "3"]);
     expect(screen.getByText("Offset")).not.toBeNull();
-    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000000");
-    expect(screen.getByLabelText("bar 2 position").value).toBe("2.000000");
+    expect(screen.getByLabelText("bar 1 position").value).toBe("1");
+    expect(screen.getByLabelText("bar 2 position").value).toBe("2");
     expect(screen.getAllByText("MIDI¢").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("show expression controls")).not.toBeNull();
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("81.000");
@@ -1496,7 +1572,7 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("bar 2 beat unit").value).toBe("2");
   });
 
-  it("resets the fractional offset when the user changes beat", () => {
+  it("preserves the fractional offset when the user changes beat", () => {
     const onUpdateSnapshot = vi.fn();
 
     render(
@@ -1556,7 +1632,7 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByLabelText("commit snapshot 1 attack bar-relative timing"));
 
     expect(onUpdateSnapshot).toHaveBeenLastCalledWith(10, {
-      notes: [expect.objectContaining({ id: "a", start: 0.25, end: 1 })],
+      notes: [expect.objectContaining({ id: "a", start: 0.5, end: 1 })],
     });
   });
 
@@ -1833,7 +1909,7 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000000", "0.000", "0.100", "1.000", "1.000"]);
+      .toEqual(["1", "0.000", "0.100", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2"]);
   });
@@ -1901,7 +1977,7 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000000", "0.000", "0.100", "1.000", "1.000"]);
+      .toEqual(["1", "0.000", "0.100", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2"]);
   });
@@ -1970,7 +2046,7 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-event__position")].map((node) => node.value))
-      .toEqual(["1.000000", "0.000", "0.200", "0.000", "1.000", "1.000", "1.000"]);
+      .toEqual(["1", "0.000", "0.200", "0.000", "1.000", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
       .toEqual(["1", "2"]);
   });
@@ -2417,12 +2493,12 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getByLabelText("bar 1 position").value).toBe("1.000000");
-    expect(screen.getByLabelText("bar 2 position").value).toBe("1.500000");
+    expect(screen.getByLabelText("bar 1 position").value).toBe("1");
+    expect(screen.getByLabelText("bar 2 position").value).toBe("2");
 
     const expandedTimes = [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")]
       .map((node) => node.value);
-    expect(expandedTimes).toEqual(["0.000", "1.500000", "0.750", "1.000", "1.000"]);
+    expect(expandedTimes).toEqual(["0.000", "0.750", "1.000", "1.000", "2"]);
   });
 
   it("wraps mid-snapshot tempo rows in the structural bar wrapper inside the expanded event flow", () => {
@@ -2742,7 +2818,7 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getByLabelText("new bar position").value).toBe("2");
+    expect(screen.getByLabelText("new bar position").value).toBe("2.000000");
   });
 
   it("hides delete buttons for the always-on anchor bar and tempo marker", () => {

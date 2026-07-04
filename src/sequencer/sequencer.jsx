@@ -10,6 +10,7 @@ import {
   barContextForPosition,
   normalizeBarMarkers,
   normalizeTempoMarkers,
+  timingBarAtNumber,
 } from "./transport.js";
 import {
   buildBarNumberById,
@@ -34,17 +35,19 @@ import {
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
 import {
   buildCueExpandedSnapshotIdsAt,
-  deriveCueScrollAnchorSnapshotId,
+  deriveCueScrollAnchorTarget,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
   firstSnapshotIdInSet,
   sameSnapshotSet,
 } from "./view-runtime.js";
+import { deriveRepeatSections } from "./repeat-playback-runtime.js";
 import {
   commitTextInput,
   normalizeSequenceNumber,
   noteIdentity,
   structuralEventInstanceKey,
+  structuralEventRenderKey,
 } from "./value-runtime.js";
 import {
   eventBarRelativeDraftKey,
@@ -167,6 +170,8 @@ const Sequencer = ({
   const lastAutoScrolledSnapshotIdRef = useRef(null);
   const lastAutoScrolledBarIdRef = useRef(null);
   const lastAutoScrolledCueTargetRef = useRef(null);
+  const pendingResetScrollTargetRef = useRef(null);
+  const suppressNextBarAutoScrollRef = useRef(false);
   const transportScrollTargetRef = useRef("snapshot");
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
@@ -181,6 +186,10 @@ const Sequencer = ({
   const sequenceCueGroups = useMemo(
     () => deriveSequenceCueGroups(renderedSnapshots, sortedBars, sortedTempi, repeats),
     [renderedSnapshots, repeats, sortedBars, sortedTempi],
+  );
+  const sequenceRepeatSections = useMemo(
+    () => deriveRepeatSections(sequenceCueGroups, repeats),
+    [sequenceCueGroups, repeats],
   );
 
   const {
@@ -247,6 +256,40 @@ const Sequencer = ({
     () => buildStructuralMarkersByDisplayBucket(sortedBars, sortedTempi, repeats),
     [repeats, sortedBars, sortedTempi],
   );
+  const firstRepeatStartMarker = useMemo(() => (
+    [...(Array.isArray(repeats) ? repeats : [])]
+      .filter((repeat) => repeat?.kind === "start")
+      .sort((left, right) => Number(left?.position) - Number(right?.position))[0] ?? null
+  ), [repeats]);
+  const repeatStartBySnapshotId = useMemo(() => {
+    const mapping = new Map();
+    sequenceRepeatSections.forEach((section) => {
+      const cueGroup = sequenceCueGroups[section.startCueIndex] ?? null;
+      const snapshotId = cueGroup?.snapshotIndex != null
+        ? (snapshots[cueGroup.snapshotIndex]?.id ?? null)
+        : null;
+      if (snapshotId == null || section.startRepeatId == null || mapping.has(snapshotId)) return;
+      mapping.set(snapshotId, structuralEventRenderKey({
+        type: "repeat-start",
+        repeatId: section.startRepeatId,
+      }));
+    });
+    return mapping;
+  }, [sequenceCueGroups, sequenceRepeatSections, snapshots]);
+  const repeatStartKeyAtPosition = useCallback((position) => {
+    const time = Number(position);
+    if (!Number.isFinite(time)) return null;
+    const repeat = (Array.isArray(repeats) ? repeats : []).find((entry) => (
+      entry?.kind === "start" &&
+      Math.abs(Number(entry?.position) - time) < 1e-9
+    ));
+    return repeat == null
+      ? null
+      : structuralEventRenderKey({
+        type: "repeat-start",
+        repeatId: repeat.id,
+      });
+  }, [repeats]);
 
   const snapshotStartCueIndexes = useMemo(
     () => buildSnapshotStartCueIndexes(firstSnapshotEventIds, sequenceEvents),
@@ -331,12 +374,18 @@ const Sequencer = ({
     setPendingSnapshotJumpIndex(String(nextSnapshotIndex));
     const nextCueIndex = firstCueIndexBySnapshotIndex.get(nextSnapshotIndex);
     setPendingCueJumpIndex(nextCueIndex == null ? "" : String(nextCueIndex));
-    const snapshotId = snapshots[nextSnapshotIndex]?.id ?? null;
-    if (snapshotId != null) {
-      const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
-      scrollNodeIntoPanel(snapshotRow);
-    }
     const snapshotTime = firstCueTimeBySnapshotIndex.get(nextSnapshotIndex) ?? (nextSnapshotIndex + 1);
+    const repeatStartKey = repeatStartKeyAtPosition(snapshotTime);
+    if (repeatStartKey != null) {
+      const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
+      scrollNodeIntoPanel(repeatRow);
+    } else {
+      const snapshotId = snapshots[nextSnapshotIndex]?.id ?? null;
+      if (snapshotId != null) {
+        const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
+        scrollNodeIntoPanel(snapshotRow);
+      }
+    }
     selectBarForPosition(snapshotTime);
   };
 
@@ -354,6 +403,13 @@ const Sequencer = ({
     }
     setPendingCueJumpIndex(String(nextCueIndex));
     setPendingSnapshotJumpIndex(String(cueGroup.snapshotIndex));
+    const repeatStartKey = repeatStartKeyAtPosition(cueGroup.time);
+    if (repeatStartKey != null) {
+      const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
+      scrollNodeIntoPanel(repeatRow);
+      selectBarForPosition(cueGroup.time);
+      return;
+    }
     if (showAllEvents) {
       const anchorSnapshotId = snapshots[cueGroup.snapshotIndex]?.id ?? null;
       if (anchorSnapshotId != null) {
@@ -424,28 +480,57 @@ const Sequencer = ({
 
   useEffect(() => {
     if (Number.isFinite(activeCueIndex)) {
-      const anchorSnapshotId = deriveCueScrollAnchorSnapshotId({
+      const anchorTarget = deriveCueScrollAnchorTarget({
         showAllEvents,
         activeCueIndex,
         sequenceCueGroups,
         snapshots,
         cueExpandedSnapshotIds,
+        repeatSections: sequenceRepeatSections,
       });
-      if (anchorSnapshotId == null) return;
-      if (lastAutoScrolledCueTargetRef.current === `snapshot:${anchorSnapshotId}`) return;
-      const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
-      if (!(snapshotRow instanceof HTMLElement)) return;
+      if (anchorTarget == null) return;
+      const targetRefKey = `${anchorTarget.kind}:${anchorTarget.targetKey}`;
+      if (lastAutoScrolledCueTargetRef.current === targetRefKey) return;
+      const targetNode = anchorTarget.kind === "structural"
+        ? (barRowRefs.current.get(anchorTarget.targetKey) ?? null)
+        : (snapshotRowRefs.current.get(anchorTarget.targetKey) ?? null);
+      if (!(targetNode instanceof HTMLElement)) return;
 
-      lastAutoScrolledCueTargetRef.current = `snapshot:${anchorSnapshotId}`;
-      scrollNodeIntoPanel(snapshotRow);
+      lastAutoScrolledCueTargetRef.current = targetRefKey;
+      scrollNodeIntoPanel(targetNode);
       return;
     }
     lastAutoScrolledCueTargetRef.current = null;
-  }, [activeCueIndex, cueExpandedSnapshotIds, scrollNodeIntoPanel, sequenceCueGroups, showAllEvents, snapshots]);
+  }, [activeCueIndex, cueExpandedSnapshotIds, scrollNodeIntoPanel, sequenceCueGroups, sequenceRepeatSections, showAllEvents, snapshots]);
 
   useEffect(() => {
     if (Number.isFinite(activeCueIndex)) {
       lastAutoScrolledSnapshotIdRef.current = null;
+      return;
+    }
+    const repeatStartKey = activeSnapshotId != null
+      ? (repeatStartBySnapshotId.get(activeSnapshotId) ?? (
+        playheadStepIndex === 0 && firstRepeatStartMarker != null
+          ? structuralEventRenderKey({
+            type: "repeat-start",
+            repeatId: firstRepeatStartMarker.id,
+          })
+          : null
+      ))
+      : (
+        playheadStepIndex === 0 && firstRepeatStartMarker != null
+          ? structuralEventRenderKey({
+            type: "repeat-start",
+            repeatId: firstRepeatStartMarker.id,
+          })
+          : null
+      );
+    if (repeatStartKey != null) {
+      if (lastAutoScrolledSnapshotIdRef.current === repeatStartKey) return;
+      const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
+      if (!(repeatRow instanceof HTMLElement)) return;
+      lastAutoScrolledSnapshotIdRef.current = repeatStartKey;
+      scrollNodeIntoPanel(repeatRow);
       return;
     }
     const snapshotId = activeSnapshotId ?? null;
@@ -470,22 +555,47 @@ const Sequencer = ({
       scrollPanel.scrollTop = nextTop;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeCueIndex, activeSnapshotId]);
+  }, [activeCueIndex, activeSnapshotId, firstRepeatStartMarker, playheadStepIndex, repeatStartBySnapshotId, scrollNodeIntoPanel]);
+
+  useEffect(() => {
+    const pendingTarget = pendingResetScrollTargetRef.current;
+    if (!playheadIsOff || pendingTarget == null) return;
+    pendingResetScrollTargetRef.current = null;
+    if (pendingTarget === "__top__") {
+      const scrollPanel = scrollPanelRef.current;
+      if (scrollPanel instanceof HTMLElement) {
+        scrollPanel.scrollTop = 0;
+      }
+      return;
+    }
+    const repeatRow = barRowRefs.current.get(pendingTarget) ?? null;
+    if (!(repeatRow instanceof HTMLElement)) return;
+    suppressNextBarAutoScrollRef.current = true;
+    lastAutoScrolledSnapshotIdRef.current = pendingTarget;
+    scrollNodeIntoPanel(repeatRow);
+  }, [playheadIsOff, scrollNodeIntoPanel]);
 
   useEffect(() => {
     if (!playheadIsOff || transportScrollTargetRef.current !== "bar") {
       lastAutoScrolledBarIdRef.current = null;
       return;
     }
+    if (pendingResetScrollTargetRef.current != null) return;
+    if (suppressNextBarAutoScrollRef.current) {
+      suppressNextBarAutoScrollRef.current = false;
+      return;
+    }
     const selectedBar = sortedBars[selectedBarIndex] ?? null;
     const selectedBarId = selectedBar?.id ?? null;
     if (selectedBarId == null) return;
-    if (lastAutoScrolledBarIdRef.current === selectedBarId) return;
+    const repeatStartKey = repeatStartKeyAtPosition(selectedBar.position);
+    const targetKey = repeatStartKey ?? selectedBarId;
+    if (lastAutoScrolledBarIdRef.current === targetKey) return;
     const scrollPanel = scrollPanelRef.current;
-    const barRow = barRowRefs.current.get(selectedBarId) ?? null;
+    const barRow = barRowRefs.current.get(targetKey) ?? null;
     if (!(scrollPanel instanceof HTMLElement) || !(barRow instanceof HTMLElement)) return;
 
-    lastAutoScrolledBarIdRef.current = selectedBarId;
+    lastAutoScrolledBarIdRef.current = targetKey;
     const frame = window.requestAnimationFrame(() => {
       const panelRect = scrollPanel.getBoundingClientRect();
       const barRect = barRow.getBoundingClientRect();
@@ -497,7 +607,7 @@ const Sequencer = ({
       scrollPanel.scrollTop = nextTop;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [playheadIsOff, selectedBarIndex, sortedBars]);
+  }, [playheadIsOff, repeatStartKeyAtPosition, selectedBarIndex, sortedBars]);
 
   const notifyEditCommitted = () => {
     setEditCommitTick((value) => value + 1);
@@ -519,6 +629,27 @@ const Sequencer = ({
     }
     action?.();
   };
+
+  const resetSequencePlayheadAndScrollTop = useCallback(() => {
+    transportScrollTargetRef.current = "bar";
+    lastAutoScrolledBarIdRef.current = null;
+    const repeatStartKey = firstRepeatStartMarker != null
+      ? structuralEventRenderKey({
+        type: "repeat-start",
+        repeatId: firstRepeatStartMarker.id,
+      })
+      : null;
+    if (repeatStartKey != null) {
+      pendingResetScrollTargetRef.current = repeatStartKey;
+    } else {
+      pendingResetScrollTargetRef.current = null;
+      const scrollPanel = scrollPanelRef.current;
+      if (scrollPanel instanceof HTMLElement) {
+        scrollPanel.scrollTop = 0;
+      }
+    }
+    onResetSequencePlayhead?.();
+  }, [firstRepeatStartMarker, onResetSequencePlayhead]);
 
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
@@ -644,6 +775,10 @@ const Sequencer = ({
     (barNumber) => isStoppedBarNumber(barNumber, sortedBars),
     [sortedBars],
   );
+  const beatsPerBarForBarNumber = useCallback(
+    (barNumber) => Math.max(0, Math.round(Number(timingBarAtNumber(barNumber, sortedBars)?.numerator) || 0)),
+    [sortedBars],
+  );
 
   const applyTempoBarRelativeDraft = useCallback((draft) => {
     const position = resolveBarRelativeDraftPosition(draft, sortedBars);
@@ -687,6 +822,7 @@ const Sequencer = ({
       meta,
       scopePrefix: "event",
       isStoppedBar: stoppedBarStateForBarNumber,
+      beatsPerBarForBarNumber,
     }));
   };
 
@@ -703,6 +839,7 @@ const Sequencer = ({
       meta,
       scopePrefix: "tempo",
       isStoppedBar: stoppedBarStateForBarNumber,
+      beatsPerBarForBarNumber,
     }));
   };
 
@@ -719,6 +856,7 @@ const Sequencer = ({
       meta,
       scopePrefix: "repeat",
       isStoppedBar: stoppedBarStateForBarNumber,
+      beatsPerBarForBarNumber,
     }));
   };
 
@@ -1157,7 +1295,7 @@ const Sequencer = ({
           pendingCueJumpIndex={pendingCueJumpIndex}
           onJumpSequenceCue={onJumpSequenceCue}
           onStepSequenceMarker={onStepSequenceMarker}
-          onResetSequencePlayhead={onResetSequencePlayhead}
+          onResetSequencePlayhead={resetSequencePlayheadAndScrollTop}
           onPlaySequence={onPlaySequence}
           playingSnapshotId={playingSnapshotId}
           onStopSnapshot={onStopSnapshot}
@@ -1174,9 +1312,15 @@ const Sequencer = ({
                 <div
                   key={structuralEventInstanceKey(marker)}
                   ref={(node) => {
-                    if (marker.structuralType !== "bar") return;
-                    if (node) barRowRefs.current.set(marker.id, node);
-                    else barRowRefs.current.delete(marker.id);
+                    const structuralKey = structuralEventRenderKey(marker);
+                    if (marker.structuralType === "bar") {
+                      if (node) barRowRefs.current.set(marker.id, node);
+                      else barRowRefs.current.delete(marker.id);
+                    }
+                    if (structuralKey != null) {
+                      if (node) barRowRefs.current.set(structuralKey, node);
+                      else barRowRefs.current.delete(structuralKey);
+                    }
                   }}
                   class="sequencer-item sequencer-item--bar"
                 >

@@ -57,13 +57,23 @@ import { detectController, getControllerById } from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
-import { normalizeBarMarker, normalizeBarMarkers, normalizeTempoMarkers } from "./sequencer/transport.js";
+import {
+  deriveImplicitRepeatStartPosition,
+  deriveImplicitRepeatStartPositionsForDanglingEnds,
+  normalizeBarMarker,
+  normalizeBarMarkers,
+  normalizeTempoMarkers,
+} from "./sequencer/transport.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   deriveSequenceCueGroups,
   sequenceNotesAtCueIndex,
 } from "./sequencer/trigger-groups.js";
 import { remapSequenceSnapshotsToRuntime } from "./sequencer/runtime-pitch-map.js";
+import {
+  advanceCueIndexWithRepeats,
+  deriveRepeatSections,
+} from "./sequencer/repeat-playback-runtime.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
@@ -791,6 +801,7 @@ const App = () => {
     markerIndex: null,
     stopped: true,
   });
+  const sequenceRepeatPlaybackStateRef = useRef({});
   const previousSnapSequenceToCurrentTuningRef = useRef(false);
   const snapshotIdRef = useRef(0);
   const sequenceBarIdRef = useRef(1);
@@ -881,6 +892,10 @@ const App = () => {
     () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi, sequenceRepeats),
     [sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
   );
+  const sequenceRepeatSections = useMemo(
+    () => deriveRepeatSections(sequenceCueGroups, sequenceRepeats),
+    [sequenceCueGroups, sequenceRepeats],
+  );
   const currentSequenceSnapRuntime = (() => {
     const keys = keysRef.current;
     const frame = keys?._activeFrame?.();
@@ -942,9 +957,11 @@ const App = () => {
       : sequenceCueGroups.findLastIndex((group) => group.time < anchorTime);
   }, [barTimeForIndex, sequenceCueGroups]);
 
-  const playSequencePosition = useCallback((stepIndex, markerIndex = null) => {
+  const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
+    const hardRestart = options?.hardRestart === true;
     if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
       keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
       setPlayingSnapshotId(null);
       setSelectedSnapshotId(null);
       setSelectedSnapshotMarker(null);
@@ -962,6 +979,7 @@ const App = () => {
         ? null
         : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
       keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
       setPlayingSnapshotId(null);
       setSelectedSnapshotId(null);
       setSelectedSnapshotMarker(null);
@@ -989,7 +1007,8 @@ const App = () => {
     const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
     const barIndex = barIndexForTime(playheadTime);
 
-    if (notes.length > 0) keysRef.current?.playSnapshot(notes, { legato: useLegato });
+    if (hardRestart) keysRef.current?.stopSnapshot();
+    if (notes.length > 0) keysRef.current?.playSnapshot(notes, { legato: hardRestart ? false : useLegato });
     else keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(notes.length > 0 ? snapshot.id : null);
     setSelectedSnapshotId(cueGroup?.snapshotIndex != null
@@ -1023,17 +1042,20 @@ const App = () => {
   }, [playSequencePosition, sequencePlayhead, snapSequenceToCurrentTuning]);
 
   const onSelectSequencerSnapshot = useCallback((id) => {
+    sequenceRepeatPlaybackStateRef.current = {};
     setSelectedSnapshotId(id);
     setSelectedSnapshotMarker((current) => (current?.snapshotId === id ? current : null));
   }, []);
 
   const onSelectSequencerMarker = useCallback((snapshotId, time) => {
+    sequenceRepeatPlaybackStateRef.current = {};
     setSelectedSnapshotId(snapshotId);
     setSelectedSnapshotMarker({ snapshotId, time });
   }, []);
 
   const onPlaySnapshot = useCallback(
     (id) => {
+      sequenceRepeatPlaybackStateRef.current = {};
       const stepIndex = snapshots.findIndex((s) => s.id === id);
       const snap = snapshots[stepIndex];
       if (!snap) return;
@@ -1046,6 +1068,7 @@ const App = () => {
     (id = null) => {
       if (id != null && playingSnapshotId !== id) return;
       keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
       setPlayingSnapshotId(null);
       setSequencePlayhead((prev) => ({ ...prev, stopped: true }));
     },
@@ -1054,6 +1077,7 @@ const App = () => {
 
   const onSelectSequenceBar = useCallback((barIndex) => {
     keysRef.current?.stopSnapshot();
+    sequenceRepeatPlaybackStateRef.current = {};
     setPlayingSnapshotId(null);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
@@ -1142,14 +1166,58 @@ const App = () => {
 
   const onAddSequenceRepeat = useCallback((position = null, kind = "start") => {
     setSequenceRepeats((prev) => {
-      const id = prev.reduce((max, marker) => Math.max(max, Number(marker?.id) || 0), 0) + 1;
+      let nextId = prev.reduce((max, marker) => Math.max(max, Number(marker?.id) || 0), 0) + 1;
       const normalizedKind = kind === "end" ? "end" : "start";
-      return [...prev, {
-        id,
-        position,
+      const normalizedPosition = Number.isFinite(Number(position))
+        ? Math.round(Number(position) * 1000000) / 1000000
+        : 1;
+
+      if (normalizedKind === "end" && normalizedPosition <= 1) {
+        return prev;
+      }
+
+      const additions = [];
+      if (normalizedKind === "end") {
+        const implicitStartPosition = deriveImplicitRepeatStartPosition(prev, normalizedPosition);
+        if (implicitStartPosition != null) {
+          additions.push({
+            id: nextId,
+            position: implicitStartPosition,
+            kind: "start",
+            repeatCount: null,
+          });
+          nextId += 1;
+        }
+      }
+
+      additions.push({
+        id: nextId,
+        position: normalizedPosition,
         kind: normalizedKind,
         repeatCount: normalizedKind === "end" ? 2 : null,
-      }];
+      });
+      nextId += 1;
+
+      if (normalizedKind === "end") {
+        const completed = [...prev, ...additions];
+        const supplementalStartPositions = deriveImplicitRepeatStartPositionsForDanglingEnds(completed);
+        supplementalStartPositions.forEach((startPosition) => {
+          if (
+            additions.some((marker) => marker.kind === "start" && Math.abs(Number(marker.position) - Number(startPosition)) < 1e-9)
+          ) {
+            return;
+          }
+          additions.push({
+            id: nextId,
+            position: startPosition,
+            kind: "start",
+            repeatCount: null,
+          });
+          nextId += 1;
+        });
+      }
+
+      return [...prev, ...additions];
     });
   }, []);
 
@@ -1158,9 +1226,19 @@ const App = () => {
   }, []);
 
   const onUpdateSequenceRepeat = useCallback((id, updates) => {
-    setSequenceRepeats((prev) => prev.map((marker) => (
-      marker.id === id ? { ...marker, ...updates } : marker
-    )));
+    setSequenceRepeats((prev) => prev.map((marker) => {
+      if (marker.id !== id) return marker;
+      const nextMarker = { ...marker, ...updates };
+      if (
+        nextMarker.kind === "end"
+        && updates != null
+        && Object.hasOwn(updates, "position")
+        && Number(nextMarker.position) <= 1
+      ) {
+        return marker;
+      }
+      return nextMarker;
+    }));
   }, []);
 
   const onUpdateSequenceTempo = useCallback((id, updates) => {
@@ -1252,6 +1330,7 @@ const App = () => {
   }, []);
 
   const onStepSequence = useCallback((direction) => {
+    sequenceRepeatPlaybackStateRef.current = {};
     if (!snapshots.length) return;
     const current = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
     if (current < 0) {
@@ -1322,13 +1401,31 @@ const App = () => {
         return;
       }
     } else {
+      if (direction > 0) {
+        const repeatAdvance = advanceCueIndexWithRepeats({
+          currentCueIndex: currentCue,
+          cueCount,
+          cueGroups: sequenceCueGroups,
+          repeatSections: sequenceRepeatSections,
+          repeatPlaybackState: sequenceRepeatPlaybackStateRef.current,
+        });
+        sequenceRepeatPlaybackStateRef.current = repeatAdvance.nextRepeatPlaybackState;
+        nextCue = repeatAdvance.nextCueIndex;
+        if (nextCue >= cueCount) {
+          playSequencePosition(snapshots.length, cueCount - 1);
+          return;
+        }
+        const nextCueGroup = sequenceCueGroups[nextCue];
+        if (!nextCueGroup) return;
+        playSequencePosition(nextCueGroup.snapshotIndex, nextCue, {
+          hardRestart: repeatAdvance.didLoop,
+        });
+        return;
+      }
+      sequenceRepeatPlaybackStateRef.current = {};
       nextCue = Math.max(-1, Math.min(cueCount, currentCue + direction));
       if (nextCue < 0) {
         playSequencePosition(-1, null);
-        return;
-      }
-      if (nextCue >= cueCount) {
-        playSequencePosition(snapshots.length, cueCount - 1);
         return;
       }
     }
@@ -1337,6 +1434,7 @@ const App = () => {
     if (!cueGroup) return;
     playSequencePosition(cueGroup.snapshotIndex, nextCue);
   }, [
+    sequenceRepeatSections,
     cueIndexNearBar,
     playSequencePosition,
     sequenceCueGroups,
@@ -1348,12 +1446,14 @@ const App = () => {
   ]);
 
   const onJumpSequenceSnapshot = useCallback((targetIndex) => {
+    sequenceRepeatPlaybackStateRef.current = {};
     const nextIndex = Number(targetIndex);
     if (!Number.isFinite(nextIndex)) return;
     playSequencePosition(nextIndex, null);
   }, [playSequencePosition]);
 
   const onJumpSequenceCue = useCallback((targetCueIndex) => {
+    sequenceRepeatPlaybackStateRef.current = {};
     const nextCueIndex = Number(targetCueIndex);
     if (!Number.isFinite(nextCueIndex) || sequenceCueGroups.length === 0) return;
     const safeCueIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, nextCueIndex));
@@ -1365,6 +1465,7 @@ const App = () => {
   const onPlaySequence = useCallback(() => {
     if (!snapshots.length) return;
     if ((sequencePlayhead.stepIndex ?? -1) < 0 || (sequencePlayhead.stepIndex ?? -1) >= snapshots.length) {
+      sequenceRepeatPlaybackStateRef.current = {};
       playSequencePosition(sequencePlayhead.stepIndex ?? -1, null);
       return;
     }
@@ -1372,10 +1473,12 @@ const App = () => {
   }, [playSequencePosition, sequencePlayhead.markerIndex, sequencePlayhead.stepIndex, snapshots.length]);
 
   const onResetSequencePlayhead = useCallback(() => {
+    sequenceRepeatPlaybackStateRef.current = {};
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
   const onPlaySequenceCue = useCallback((cueIndex) => {
+    sequenceRepeatPlaybackStateRef.current = {};
     const index = Number(cueIndex);
     if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
     const cueGroup = sequenceCueGroups[index];

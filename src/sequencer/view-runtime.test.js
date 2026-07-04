@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCueExpandedSnapshotIdsAt,
-  deriveCueScrollAnchorSnapshotId,
+  deriveCueScrollAnchorTarget,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
   firstSnapshotIdInSet,
@@ -59,21 +59,51 @@ describe("sequencer view runtime", () => {
   });
 
   it("derives cue scroll anchors for expanded and compact views", () => {
-    expect(deriveCueScrollAnchorSnapshotId({
+    expect(deriveCueScrollAnchorTarget({
       showAllEvents: true,
       activeCueIndex: 2,
       sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }],
       snapshots: [{ id: "s1" }, { id: "s2" }],
       cueExpandedSnapshotIds: new Set(["s1"]),
-    })).toBe("s2");
+    })).toEqual({ kind: "snapshot", targetKey: "s2" });
 
-    expect(deriveCueScrollAnchorSnapshotId({
+    expect(deriveCueScrollAnchorTarget({
       showAllEvents: false,
       activeCueIndex: 2,
       sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }],
       snapshots: [{ id: "s1" }, { id: "s2" }],
       cueExpandedSnapshotIds: new Set(["s1"]),
-    })).toBe("s1");
+    })).toEqual({ kind: "snapshot", targetKey: "s1" });
+  });
+
+  it("prefers the repeat-start marker as the cue scroll anchor at the repeat entry cue", () => {
+    expect(deriveCueScrollAnchorTarget({
+      showAllEvents: true,
+      activeCueIndex: 1,
+      sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }, { snapshotIndex: 2 }],
+      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      cueExpandedSnapshotIds: new Set(["s2"]),
+      repeatSections: [{
+        startRepeatId: 77,
+        startCueIndex: 0,
+        endCueIndex: 1,
+      }],
+    })).toEqual({ kind: "structural", targetKey: "repeat-start:77" });
+  });
+
+  it("keeps later cues inside a repeat span anchored to sounding snapshots", () => {
+    expect(deriveCueScrollAnchorTarget({
+      showAllEvents: true,
+      activeCueIndex: 2,
+      sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }, { snapshotIndex: 2 }],
+      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      cueExpandedSnapshotIds: new Set(["s2"]),
+      repeatSections: [{
+        startRepeatId: 77,
+        startCueIndex: 0,
+        endCueIndex: 1,
+      }],
+    })).toEqual({ kind: "snapshot", targetKey: "s2" });
   });
 
   it("compares snapshot sets by membership", () => {

@@ -3,6 +3,8 @@ import {
   absolutePositionToBarBeat,
   barBeatToAbsolutePosition,
   buildTempoSegments,
+  deriveImplicitRepeatStartPosition,
+  deriveImplicitRepeatStartPositionsForDanglingEnds,
   deriveTerminalBarlinePosition,
   normalizeBarMarkers,
   normalizeRepeatMarkers,
@@ -321,26 +323,52 @@ describe("sequencer transport", () => {
     });
   });
 
-  it("inherits the last explicit bar signature into later integer bars", () => {
+  it("keeps the last explicit bar active until another explicit bar marker appears", () => {
     const bars = [
       { id: 1, position: 1, numerator: 4, denominator: 4 },
       { id: 2, position: 2, numerator: 3, denominator: 2 },
     ];
 
     expect(absolutePositionToBarBeat(3.666667, bars, 1)).toEqual({
-      barNumber: 3,
+      barNumber: 2,
       beat: 3,
       numerator: 0,
       denominator: 1,
-      barStart: 3,
+      barStart: 2,
       barLength: 1,
       beatsPerBar: 3,
       beatUnit: 2,
     });
 
     expect(barBeatToAbsolutePosition({
-      barNumber: 3,
+      barNumber: 2,
       beat: 2,
+      numerator: 0,
+      denominator: 1,
+    }, bars)).toBe(2.333333);
+  });
+
+  it("spreads a bar signature across the full distance to the next explicit bar marker", () => {
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+      { id: 2, position: 2, numerator: 3, denominator: 2 },
+      { id: 3, position: 4, numerator: 4, denominator: 4 },
+    ];
+
+    expect(absolutePositionToBarBeat(3, bars, 1)).toEqual({
+      barNumber: 2,
+      beat: 2,
+      numerator: 1,
+      denominator: 2,
+      barStart: 2,
+      barLength: 2,
+      beatsPerBar: 3,
+      beatUnit: 2,
+    });
+
+    expect(barBeatToAbsolutePosition({
+      barNumber: 2,
+      beat: 3,
       numerator: 0,
       denominator: 1,
     }, bars)).toBe(3.333333);
@@ -365,9 +393,68 @@ describe("sequencer transport", () => {
       { id: "start-a", position: 1.5, kind: "start" },
       { id: "start-b", position: 1.5, kind: "start" },
     ])).toEqual([
-      { id: "start-b", position: 1.5, kind: "start" },
-      { id: "end-a", position: 3, kind: "end" },
+      { id: "start-b", position: 1.5, kind: "start", repeatCount: null },
+      { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
     ]);
+  });
+
+  it("orders an end repeat before a start repeat at the same position", () => {
+    expect(normalizeRepeatMarkers([
+      { id: "start-a", position: 3, kind: "start" },
+      { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
+    ])).toEqual([
+      { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
+      { id: "start-a", position: 3, kind: "start", repeatCount: null },
+    ]);
+  });
+
+  it("keeps dangling end repeats visible instead of synthesizing undeletable start markers", () => {
+    expect(normalizeRepeatMarkers([
+      { id: "end-a", position: 3, kind: "end" },
+    ])).toEqual([
+      { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
+    ]);
+  });
+
+  it("derives an implicit start position at the beginning when adding the first end repeat", () => {
+    expect(deriveImplicitRepeatStartPosition([], 3)).toBe(1);
+  });
+
+  it("derives an implicit start position exactly at the previous end marker for a later dangling end repeat", () => {
+    expect(deriveImplicitRepeatStartPosition([
+      { id: "start-a", position: 1, kind: "start" },
+      { id: "end-a", position: 3, kind: "end" },
+    ], 5)).toBe(3);
+  });
+
+  it("does not derive an implicit start position when the preceding repeat marker is already a start", () => {
+    expect(deriveImplicitRepeatStartPosition([
+      { id: "end-a", position: 3, kind: "end" },
+      { id: "start-a", position: 1, kind: "start" },
+    ], 5)).toBe(3);
+    expect(deriveImplicitRepeatStartPosition([
+      { id: "start-b", position: 4, kind: "start" },
+    ], 5)).toBeNull();
+  });
+
+  it("does not derive an implicit start position from a marker at the same position as the new end", () => {
+    expect(deriveImplicitRepeatStartPosition([
+      { id: "end-a", position: 2, kind: "end" },
+    ], 2)).toBeNull();
+  });
+
+  it("derives extra implicit starts for later dangling end markers", () => {
+    expect(deriveImplicitRepeatStartPositionsForDanglingEnds([
+      { id: "start-a", position: 1, kind: "start" },
+      { id: "end-a", position: 3, kind: "end" },
+      { id: "end-b", position: 5, kind: "end" },
+    ])).toEqual([3]);
+  });
+
+  it("drops invalid end repeat markers at position 1", () => {
+    expect(normalizeRepeatMarkers([
+      { id: "end-a", position: 1, kind: "end" },
+    ])).toEqual([]);
   });
 
   it("clamps denominator to at least 1", () => {

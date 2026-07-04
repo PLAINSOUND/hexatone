@@ -2443,6 +2443,7 @@ td.scale-color-col .color-input {
   font-size: 0.72em;
   line-height: 1;
   white-space: nowrap;
+  color: #4a1414;
 }
 
 .sequencer-repeat-row__count-input {
@@ -2461,6 +2462,7 @@ td.scale-color-col .color-input {
   box-shadow: none;
   display: inline-block;
   flex: 0 0 auto;
+  color: #4a1414;
 }
 
 #sidebar .sequencer-repeat-row .sequencer-repeat-row__count-input.sequencer-event__input,
@@ -2480,7 +2482,7 @@ td.scale-color-col .color-input {
   align-items: baseline;
   line-height: 1;
   margin-left: -0.02em;
-  color: inherit;
+  color: #4a1414;
 }
 
 .sequencer-repeat-row__count-input--hint,

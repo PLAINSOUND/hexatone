@@ -38,11 +38,11 @@ describe("sequencer sequence drafts", () => {
     });
   });
 
-  it("normalizes bar-relative drafts when bar or beat changes", () => {
+  it("normalizes bar-relative drafts when bar changes and preserves numerator when beat changes", () => {
     expect(buildBarRelativeDraft({ barNumber: 2, beat: 3, numerator: 5, denominator: 8 }, "bar"))
       .toEqual({ barNumber: "2", beat: "1", numerator: "0", denominator: "8" });
     expect(buildBarRelativeDraft({ barNumber: 2, beat: 3, numerator: 5, denominator: 8 }, "beat"))
-      .toEqual({ barNumber: "2", beat: "3", numerator: "0", denominator: "8" });
+      .toEqual({ barNumber: "2", beat: "3", numerator: "5", denominator: "8" });
   });
 
   it("forces stopped bars to 0/1 position semantics", () => {
@@ -66,6 +66,7 @@ describe("sequencer sequence drafts", () => {
       meta: { snapshotId: "s1" },
       scopePrefix: "event",
       isStoppedBar: () => false,
+      beatsPerBarForBarNumber: () => 4,
     });
 
     expect(drafts.a).toMatchObject({
@@ -74,6 +75,24 @@ describe("sequencer sequence drafts", () => {
       draftKey: "a",
     });
     expect(removeDraftEntry(drafts, "a")).toEqual({});
+  });
+
+  it("clamps beat drafts to the current bar numerator without clearing the numerator draft", () => {
+    const drafts = updateBarRelativeDrafts({}, {
+      draftKey: "b",
+      barBeat: { barNumber: 2, beat: 1, numerator: 3, denominator: 8, beatsPerBar: 3 },
+      field: "beat",
+      value: "9",
+      meta: { snapshotId: "s1" },
+      scopePrefix: "event",
+      isStoppedBar: () => false,
+      beatsPerBarForBarNumber: (barNumber) => (Number(barNumber) === 2 ? 3 : 4),
+    });
+
+    expect(drafts.b).toMatchObject({
+      beat: "3",
+      numerator: "3",
+    });
   });
 
   it("builds initial event sequence drafts from snapshot and offset", () => {
