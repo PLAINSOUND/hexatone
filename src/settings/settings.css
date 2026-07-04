@@ -120,7 +120,7 @@
   #sidebar .workspace-tabs::after {
     left: var(--workspace-tabs-phone-inset);
     right: var(--workspace-tabs-phone-inset);
-    bottom: 0px;
+    bottom: 0;
   }
 
   #sidebar .workspace-tabs-deadzone {
@@ -792,7 +792,7 @@ td.scale-color-col .color-input {
 }
 
 .settings-form__helper-text--muted {
-  color: #888;
+  color: #888888;
 }
 
 .settings-form__reload-row {
@@ -917,7 +917,7 @@ td.scale-color-col .color-input {
 
 .settings-form__compact-input--disabled {
   background: #f0eded;
-  color: #999;
+  color: #999999;
   cursor: default;
 }
 
@@ -976,7 +976,7 @@ td.scale-color-col .color-input {
 }
 
 .settings-form__status-value--inactive {
-  color: #888;
+  color: #888888;
 }
 
 .settings-form__tabular-value {
@@ -2306,7 +2306,7 @@ td.scale-color-col .color-input {
 .sequencer-bar-row__line {
   position: absolute;
   left: 0.95em;
-  right: 0em;
+  right: 0;
   top: 50%;
   border-top: 1.5px solid rgba(132, 112, 112, 0.78);
   z-index: 1;
@@ -2324,7 +2324,7 @@ td.scale-color-col .color-input {
 .sequencer-tempo-row__line {
   position: absolute;
   left: 0.95em;
-  right: 0em;
+  right: 0;
   top: calc(0.8em);
   border-top: 1.5px solid rgba(132, 112, 112, 0.78);
   z-index: 1;
@@ -2921,8 +2921,8 @@ td.scale-color-col .color-input {
 
 #sidebar .sequencer-events-grid input[type="number"].sequencer-event__input--stepper:focus {
   outline: 1px solid rgba(160, 140, 140, 0.55);
-  background: #fff;
-  background-color: #fff;
+  background: #ffffff;
+  background-color: #ffffff;
 }
 
 #sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper,
@@ -3042,27 +3042,27 @@ td.scale-color-col .color-input {
 
 #sidebar .sequencer-events-grid input[type="text"].sequencer-event__input:focus {
   outline: 1px solid rgba(160, 140, 140, 0.55);
-  background: #fff;
-  background-color: #fff;
+  background: #ffffff;
+  background-color: #ffffff;
 }
 
 #sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper:focus,
 #sidebar .sequencer-tempo-row input[type="number"].sequencer-event__input--stepper:focus {
   outline: 1px solid rgba(160, 140, 140, 0.55);
-  background: #fff;
-  background-color: #fff;
+  background: #ffffff;
+  background-color: #ffffff;
 }
 
 #sidebar .sequencer-bar-row input[type="text"].sequencer-event__input:focus {
   outline: 1px solid rgba(160, 140, 140, 0.55);
-  background: #fff;
-  background-color: #fff;
+  background: #ffffff;
+  background-color: #ffffff;
 }
 
 #sidebar .sequencer-tempo-row input[type="text"].sequencer-event__input:focus {
   outline: 1px solid rgba(160, 140, 140, 0.55);
-  background: #fff;
-  background-color: #fff;
+  background: #ffffff;
+  background-color: #ffffff;
 }
 
 #sidebar .sequencer-bar-row .sequencer-bar-row__position-cell input[type="text"].sequencer-event__input:focus,
@@ -3630,7 +3630,7 @@ input.equiv-cell:disabled,
 .heji-name-input {
   box-sizing: border-box;
   border: 1px solid #ccb7b7;
-  background: #fff;
+  background: #ffffff;
 }
 
 
@@ -4057,7 +4057,7 @@ input.equiv-cell:disabled,
 }
 
 #sidebar .heji-palette-builder__toggle-row {
-  margin-top: 0rem;
+  margin-top: 0;
   justify-content: flex-start;
   flex-wrap: nowrap;
 }

@@ -45,9 +45,9 @@
 
 :root {
   /* iOS safe-area insets (Dynamic Island, home bar) */
-  --safe-area-top:   env(safe-area-inset-top,   0px);
-  --safe-area-left:  env(safe-area-inset-left,  0px);
-  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-top:   env(safe-area-inset-top,   0);
+  --safe-area-left:  env(safe-area-inset-left,  0);
+  --safe-area-right: env(safe-area-inset-right, 0);
 
   /* Brand colour palette — used throughout app shell + settings */
   --color-bg:         #faf9f8;   /* sidebar / input background */
@@ -220,7 +220,7 @@ a:hover {
   #sidebar-spacer { top: 75vh; height: 1.5em; }
 
   #sidebar-button {
-    top: calc(env(safe-area-inset-top, 0px) + 0.5em);
+    top: calc(env(safe-area-inset-top, 0) + 0.5em);
     transform: none;
     left: 0;
     right: auto;
@@ -440,19 +440,19 @@ a:hover {
 #sustain-island.latch-active {
   background-color: var(--color-latch);
   border-color: #aa0000;
-  color: #fff;
+  color: #ffffff;
 }
 
 #modulation-island.modulation-active {
   background-color: #00a8c6;
   border-color: #007f96;
-  color: #fff;
+  color: #ffffff;
 }
 
 #modulation-island.modulation-pending {
   background-color: #0083a5;
   border-color: #005f79;
-  color: #fff;
+  color: #ffffff;
 }
 
 #sustain-island:focus,

@@ -536,7 +536,7 @@ const Colors = (props) => {
                       ref={paletteFileInputRef}
                       type="file"
                       accept=".json,application/json"
-                      style={{ display: "none" }}
+                      class="settings-form__hidden-file-input"
                       onChange={handleOpenPrimePaletteFile}
                     />
                   </div>
