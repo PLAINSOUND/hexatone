@@ -4,11 +4,12 @@ Updated: 2026-05-17
 
 ## Requirements
 
-- Node.js
+- Node.js 24
 - Yarn
 
 This repo is configured for:
 
+- `node@24`
 - `yarn@4.14.1`
 
 Tooling note:
@@ -33,6 +34,7 @@ cd hexatone
 ## Install
 
 ```sh
+nvm use || nvm install
 yarn install
 ```
 
@@ -137,6 +139,7 @@ This is intended for local development and custom SuperCollider setups. It is no
 ## Typical development loop
 
 ```sh
+nvm use
 yarn install
 yarn start
 ```

@@ -3,6 +3,9 @@
   "private": true,
   "name": "plainsound-hexatone",
   "version": "3.3-beta",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "repository": "git@github.com:PLAINSOUND/hexatone.git",
   "scripts": {
     "start": "vite",
@@ -33,7 +36,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/preact": "^3.2.4",
     "@testing-library/user-event": "^14.5.2",
-    "eslint": "^10.2.0",
+    "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.5.0",

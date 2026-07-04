@@ -1,11 +1,12 @@
+import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettierConfig from 'eslint-config-prettier';
 
-export default [
+export default defineConfig([
   // ── Files to ignore ───────────────────────────────────────────────────────
   {
-    ignores: ['build/**', 'node_modules/**', 'osc-bridge/dist/**'],
+    ignores: ['build/**', 'node_modules/**', 'osc-bridge/dist/**', '**/.DS_Store'],
   },
 
   // ── Base rules for all JS/JSX source files ────────────────────────────────
@@ -63,4 +64,4 @@ export default [
       'no-console': 'off',
     },
   },
-];
+]);
