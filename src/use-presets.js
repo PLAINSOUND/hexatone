@@ -325,7 +325,14 @@ const usePresets = (
     const savedSource = sessionStorage.getItem("hexatone_preset_source");
     const savedName = sessionStorage.getItem("hexatone_preset_name");
 
-    if (!savedSource || !savedName) return;
+    if (!savedSource) return;
+    if (savedSource === "user" && !savedName) {
+      setActiveSource("user");
+      setActivePresetName(null);
+      setSavedPresetSnapshot(null);
+      return;
+    }
+    if (!savedName) return;
 
     if (isIOS) {
       setActiveSource(savedSource);
