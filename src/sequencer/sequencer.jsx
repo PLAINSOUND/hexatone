@@ -129,6 +129,7 @@ const Sequencer = ({
   onJumpSequenceCue,
   onPlaySequence,
   onPlayCue,
+  onPlayTimedCue,
   onResetSequencePlayhead,
   getTimedTransportClockSeconds,
   onAddBar,
@@ -245,6 +246,15 @@ const Sequencer = ({
     () => deriveTimedCueTriggers(playbackTimeline, { legato: sequenceLegato }),
     [playbackTimeline, sequenceLegato],
   );
+  const timedCueTriggerBySourceIndex = useMemo(() => {
+    const mapping = new Map();
+    timedCueTriggers.forEach((trigger) => {
+      const sourceCueIndex = Number(trigger?.cueIndex);
+      if (!Number.isFinite(sourceCueIndex)) return;
+      mapping.set(sourceCueIndex, trigger);
+    });
+    return mapping;
+  }, [timedCueTriggers]);
 
   const {
     playheadIsOff,
@@ -448,15 +458,21 @@ const Sequencer = ({
         timedTransportTimeoutsRef.current.delete(timeoutId);
         if (timedTransportSchedulerTokenRef.current !== schedulerToken) return;
         if (timedTransportStateRef.current.status !== "running") return;
-        const barContext = barContextForPosition(burst.sequenceTime, sortedBars, terminalBarlinePosition);
-        if (barContext) onSelectSequenceBar?.(barContext.barIndex);
         if (Number.isFinite(burst.sourceCueIndex)) {
-          onPlayCue?.(Number(burst.sourceCueIndex) - 1);
+          const cueIndex = Number(burst.sourceCueIndex) - 1;
+          const trigger = timedCueTriggerBySourceIndex.get(Number(burst.sourceCueIndex)) ?? null;
+          if (onPlayTimedCue) {
+            onPlayTimedCue(cueIndex, trigger, {
+              hardRestart: burst.repeatJump != null,
+            });
+          } else {
+            onPlayCue?.(cueIndex);
+          }
         }
       }, delayMs);
       timedTransportTimeoutsRef.current.add(timeoutId);
     });
-  }, [onPlayCue, onSelectSequenceBar, sortedBars, terminalBarlinePosition]);
+  }, [onPlayCue, onPlayTimedCue, timedCueTriggerBySourceIndex]);
 
   const runTimedCueLookahead = useCallback((nowSeconds) => {
     const currentElapsed = currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds);
@@ -473,12 +489,13 @@ const Sequencer = ({
   useEffect(() => {
     if (timedTransportState.status !== "running") return undefined;
     let cancelled = false;
-    let frameId = 0;
     const schedulerIntervalMs = 25;
+    const displayIntervalMs = 125;
     scheduledTimedPlaybackIndexRef.current = Math.max(0, timedTransportStateRef.current.nextPlaybackIndex);
     clearScheduledTimedCueCallbacks();
 
     const initialNowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
+    setTimedTransportClockSeconds(initialNowSeconds);
     runTimedCueLookahead(initialNowSeconds);
 
     const schedulerId = window.setInterval(() => {
@@ -487,31 +504,44 @@ const Sequencer = ({
       runTimedCueLookahead(nowSeconds);
     }, schedulerIntervalMs);
 
-    const tick = () => {
+    const monitorId = window.setInterval(() => {
+      if (cancelled) return;
+      const nowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
+      const previous = timedTransportStateRef.current;
+      const result = advanceTimedTransport(previous, timedPlaybackBursts, nowSeconds);
+      timedTransportStateRef.current = result.state;
+
+      const stateChanged = (
+        result.state.status !== previous.status ||
+        result.state.nextPlaybackIndex !== previous.nextPlaybackIndex ||
+        result.state.lastDispatchedPlaybackIndex !== previous.lastDispatchedPlaybackIndex
+      );
+
+      if (result.state.status === "finished") {
+        clearScheduledTimedCueCallbacks();
+        onStopSnapshot?.();
+        setTimedTransportState(result.state);
+        window.clearInterval(monitorId);
+        return;
+      }
+
+      if (stateChanged) {
+        setTimedTransportState(result.state);
+      }
+    }, schedulerIntervalMs);
+
+    const displayId = window.setInterval(() => {
       if (cancelled) return;
       const nowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
       setTimedTransportClockSeconds(nowSeconds);
-      let keepRunning = true;
-      setTimedTransportState((previous) => {
-        const result = advanceTimedTransport(previous, timedPlaybackBursts, nowSeconds);
-        if (result.state.status === "finished") {
-          clearScheduledTimedCueCallbacks();
-          onStopSnapshot?.();
-          keepRunning = false;
-        } else {
-          keepRunning = result.state.status === "running";
-        }
-        timedTransportStateRef.current = result.state;
-        return result.state;
-      });
-      if (!cancelled && keepRunning) frameId = window.requestAnimationFrame(tick);
-    };
-    frameId = window.requestAnimationFrame(tick);
+    }, displayIntervalMs);
+
     return () => {
       cancelled = true;
       clearScheduledTimedCueCallbacks();
       window.clearInterval(schedulerId);
-      window.cancelAnimationFrame(frameId);
+      window.clearInterval(monitorId);
+      window.clearInterval(displayId);
     };
   }, [
     clearScheduledTimedCueCallbacks,

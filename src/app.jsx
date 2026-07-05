@@ -1056,6 +1056,48 @@ const App = () => {
       : sequenceCueGroups.findLastIndex((group) => group.time < anchorTime);
   }, [barTimeForIndex, sequenceCueGroups]);
 
+  const applySequencePlayback = useCallback((stepIndex, markerIndex = null, notes = [], options = {}) => {
+    const hardRestart = options?.hardRestart === true;
+    const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
+    const snapshot = snapshots[safeStepIndex];
+    if (!snapshot) return;
+    const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
+      ? null
+      : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+    const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
+    const normalizedNotes = Array.isArray(notes) ? notes : [];
+    const useLegato = sequenceLegato && safeMarkerIndex != null;
+    const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
+    const barIndex = barIndexForTime(playheadTime);
+
+    if (hardRestart) keysRef.current?.stopSnapshot();
+    if (normalizedNotes.length > 0) {
+      keysRef.current?.playSnapshot(normalizedNotes, { legato: hardRestart ? false : useLegato });
+    } else {
+      keysRef.current?.stopSnapshot();
+    }
+    setPlayingSnapshotId(normalizedNotes.length > 0 ? snapshot.id : null);
+    setSelectedSnapshotId(cueGroup?.snapshotIndex != null
+      ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id)
+      : snapshot.id);
+    setSelectedSnapshotMarker(
+      safeMarkerIndex == null
+        ? null
+        : cueGroup == null
+          ? null
+          : {
+            snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id,
+            time: cueGroup.time - (cueGroup.snapshotIndex + 1),
+          },
+    );
+    setSequencePlayhead({
+      barIndex,
+      stepIndex: safeStepIndex,
+      markerIndex: safeMarkerIndex,
+      stopped: normalizedNotes.length === 0,
+    });
+  }, [barIndexForTime, sequenceCueGroups, sequenceLegato, snapshots]);
+
   const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     const hardRestart = options?.hardRestart === true;
     if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
@@ -1098,38 +1140,11 @@ const App = () => {
     const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
       ? null
       : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-    const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
     const notes = safeMarkerIndex == null
       ? (displaySnapshot?.notes ?? [])
       : sequenceNotesAtCueIndex(sequenceDisplaySnapshots, safeMarkerIndex);
-    const useLegato = sequenceLegato && safeMarkerIndex != null;
-    const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
-    const barIndex = barIndexForTime(playheadTime);
-
-    if (hardRestart) keysRef.current?.stopSnapshot();
-    if (notes.length > 0) keysRef.current?.playSnapshot(notes, { legato: hardRestart ? false : useLegato });
-    else keysRef.current?.stopSnapshot();
-    setPlayingSnapshotId(notes.length > 0 ? snapshot.id : null);
-    setSelectedSnapshotId(cueGroup?.snapshotIndex != null
-      ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id)
-      : snapshot.id);
-    setSelectedSnapshotMarker(
-      safeMarkerIndex == null
-        ? null
-        : cueGroup == null
-          ? null
-          : {
-            snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id,
-            time: cueGroup.time - (cueGroup.snapshotIndex + 1),
-          },
-    );
-    setSequencePlayhead({
-      barIndex,
-      stepIndex: safeStepIndex,
-      markerIndex: safeMarkerIndex,
-      stopped: notes.length === 0,
-    });
-  }, [barIndexForTime, sequenceCueGroups, sequenceDisplaySnapshots, sequenceLegato, snapshots]);
+    applySequencePlayback(safeStepIndex, safeMarkerIndex, notes, { hardRestart });
+  }, [applySequencePlayback, sequenceCueGroups, sequenceDisplaySnapshots, snapshots]);
 
   useEffect(() => {
     const previous = previousSnapSequenceToCurrentTuningRef.current;
@@ -1590,6 +1605,19 @@ const App = () => {
     if (!cueGroup) return;
     playSequencePosition(cueGroup.snapshotIndex, index);
   }, [playSequencePosition, sequenceCueGroups]);
+
+  const onPlayTimedSequenceCue = useCallback((cueIndex, timedCueTrigger, options = {}) => {
+    const index = Number(cueIndex);
+    if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
+    const cueGroup = sequenceCueGroups[index];
+    if (!cueGroup) return;
+    const notes = Array.isArray(timedCueTrigger?.notes)
+      ? timedCueTrigger.notes
+      : sequenceNotesAtCueIndex(sequenceDisplaySnapshots, index);
+    applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
+      hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
+    });
+  }, [applySequencePlayback, sequenceCueGroups, sequenceDisplaySnapshots]);
 
   const onDeleteSnapshot = useCallback(
     (id) => {
@@ -3510,6 +3538,7 @@ const App = () => {
               onJumpSequenceCue={onJumpSequenceCue}
               onPlaySequence={onPlaySequence}
               onPlayCue={onPlaySequenceCue}
+              onPlayTimedCue={onPlayTimedSequenceCue}
               onResetSequencePlayhead={onResetSequencePlayhead}
               getTimedTransportClockSeconds={getTimedTransportClockSeconds}
               onAddBar={onAddSequenceBar}
