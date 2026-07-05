@@ -15,6 +15,7 @@
 import { render, waitFor, screen } from "@testing-library/preact";
 import { act } from "preact/test-utils";
 import { parseExactInterval } from "./tuning/interval.js";
+import { SEQUENCE_WORKSPACE_STORAGE_KEY } from "./sequencer/session-persistence.js";
 
 let lastKeyboardProps = null;
 let lastUsePresetsOptions = null;
@@ -213,10 +214,12 @@ describe("Loading", () => {
 describe("applyReloadPersistencePolicy", () => {
   it("clears the query string on reload when restore-on-reload is disabled", () => {
     history.replaceState({}, "", "http://localhost/?scale=3/2,2/1&instrument=WMRIByzantineST");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({ snapshots: [{ id: 1 }] }));
 
     applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: false });
 
     expect(window.location.search).toBe("");
+    expect(sessionStorage.getItem(SEQUENCE_WORKSPACE_STORAGE_KEY)).toBeNull();
   });
 
   it("keeps the query string on reload when restore-on-reload is enabled", () => {

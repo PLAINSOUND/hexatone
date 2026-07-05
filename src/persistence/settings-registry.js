@@ -265,6 +265,14 @@ export const SETTINGS_REGISTRY = [
     description: "Comma-separated scale degrees allowed for Continuum Raster to Notes retriggering",
   },
   {
+    key: "hakenaudio_raster_filter_snapshots",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: true,
+    description: "Show auto-generated Continuum raster filters derived from captured snapshots",
+  },
+  {
     key: "midi_passthrough",
     tier: "url",
     type: "bool",
@@ -455,6 +463,14 @@ export const SETTINGS_REGISTRY = [
     default: "",
     perController: false,
     description: "Comma-separated scale degrees that remain lit on the Lumatone when degree filtering is active",
+  },
+  {
+    key: "lumatone_degree_filter_snapshots",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: false,
+    description: "Show auto-generated Lumatone colour filters derived from captured snapshots",
   },
   {
     key: "exquis_led_sync",

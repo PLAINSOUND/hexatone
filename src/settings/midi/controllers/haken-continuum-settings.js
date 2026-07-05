@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import OutputPortPicker from "../output-port-picker.js";
 import {
   CONTINUUM_RASTER_FILTER_ALL,
@@ -12,6 +12,7 @@ import {
   readContinuumRasterFilterLibrary,
   writeContinuumRasterFilterLibrary,
 } from "../../../controllers/continuum-raster-filters.js";
+import { deriveSnapshotFilterEntries } from "../../../sequencer/snapshot-filter-library.js";
 
 // This module owns the Haken Continuum-specific MIDI Input controls that only
 // make sense for MPE input modes. It renders the Continuum X Glide mode
@@ -22,6 +23,7 @@ import {
 const HakenContinuumSettings = ({
   ctrl,
   settings,
+  snapshots,
   rawPorts,
   midiOutputs,
   onChange,
@@ -34,6 +36,9 @@ const HakenContinuumSettings = ({
     () => localStorage.getItem(CONTINUUM_RASTER_FILTER_SELECTED_KEY) || CONTINUUM_RASTER_FILTER_ALL,
   );
   const [draftFilter, setDraftFilter] = useState(settings.hakenaudio_raster_filter ?? "");
+  const [snapshotFilterEnabled, setSnapshotFilterEnabled] = useState(
+    () => !!settings.hakenaudio_raster_filter_snapshots,
+  );
   const [filterError, setFilterError] = useState("");
   const xGlideMode = settings.hakenaudio_x_glide_mode ?? "pitch_bending";
   const xGlideShaping = Math.max(
@@ -59,13 +64,17 @@ const HakenContinuumSettings = ({
   const glideFlipCc = Number.isFinite(settings.hakenaudio_glide_flip_cc)
     ? Math.trunc(settings.hakenaudio_glide_flip_cc)
     : 67;
-  const updateHakenPref = (key, value, extra = null) => {
+  const updateHakenPref = useCallback((key, value, extra = null) => {
     onChange(key, value);
     saveControllerPref(ctrl, key, value, settings, extra ?? { [key]: value });
-  };
+  }, [ctrl, onChange, saveControllerPref, settings]);
   useEffect(() => {
     setDraftFilter(settings.hakenaudio_raster_filter ?? "");
   }, [settings.hakenaudio_raster_filter]);
+
+  useEffect(() => {
+    setSnapshotFilterEnabled(!!settings.hakenaudio_raster_filter_snapshots);
+  }, [settings.hakenaudio_raster_filter_snapshots]);
 
   useEffect(() => {
     localStorage.setItem(CONTINUUM_RASTER_FILTER_SELECTED_KEY, selectedSavedName);
@@ -81,10 +90,40 @@ const HakenContinuumSettings = ({
   );
   const activeFilter = settings.hakenaudio_raster_filter ?? "";
   const filterActive = settings.hakenaudio_raster_filter_mode === "filter";
+  const showSnapshotFilters = snapshotFilterEnabled;
+  const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
+    snapshots,
+    {
+      scale: settings.scale,
+      equivInterval: settings.equivInterval,
+      referenceDegree: settings.reference_degree,
+      fundamental: settings.fundamental,
+    },
+  ).map((entry) => ({
+    ...entry,
+    filter: formatContinuumRasterFilter(entry.degrees),
+  })), [
+    settings.equivInterval,
+    settings.fundamental,
+    settings.reference_degree,
+    settings.scale,
+    showSnapshotFilters,
+    snapshots,
+  ]);
+  const matchingGeneratedFilter = useMemo(
+    () => snapshotFilters.find((entry) => entry.filter === activeFilter) ?? null,
+    [activeFilter, snapshotFilters],
+  );
+  const matchingSavedFilter = useMemo(
+    () => savedFilters.find((entry) => entry.filter === activeFilter) ?? null,
+    [activeFilter, savedFilters],
+  );
+  const selectedGeneratedFilter = useMemo(
+    () => snapshotFilters.find((entry) => entry.name === selectedSavedName) ?? null,
+    [selectedSavedName, snapshotFilters],
+  );
   const selectedValue = filterActive
-    ? (selectedSavedFilter && selectedSavedFilter.filter === activeFilter
-      ? selectedSavedFilter.name
-      : CONTINUUM_RASTER_FILTER_CUSTOM)
+    ? (matchingGeneratedFilter?.id ?? matchingSavedFilter?.name ?? CONTINUUM_RASTER_FILTER_CUSTOM)
     : CONTINUUM_RASTER_FILTER_ALL;
 
   const applyFilter = (rawFilter, nextSavedName = selectedSavedName) => {
@@ -106,6 +145,18 @@ const HakenContinuumSettings = ({
     return true;
   };
 
+  useEffect(() => {
+    if (!filterActive || !selectedGeneratedFilter) return;
+    if (selectedGeneratedFilter.filter === activeFilter) return;
+    setDraftFilter(selectedGeneratedFilter.filter);
+    updateHakenPref("hakenaudio_raster_filter_mode", "filter", {
+      hakenaudio_raster_filter_mode: "filter",
+    });
+    updateHakenPref("hakenaudio_raster_filter", selectedGeneratedFilter.filter, {
+      hakenaudio_raster_filter: selectedGeneratedFilter.filter,
+    });
+  }, [activeFilter, filterActive, selectedGeneratedFilter, updateHakenPref]);
+
   const selectAllDegrees = () => {
     setFilterError("");
     setDraftFilter("");
@@ -125,7 +176,8 @@ const HakenContinuumSettings = ({
       return;
     }
     if (value === CONTINUUM_RASTER_FILTER_CUSTOM) return;
-    const entry = savedFilters.find((filter) => filter.name === value);
+    const entry = snapshotFilters.find((filter) => filter.id === value)
+      ?? savedFilters.find((filter) => filter.name === value);
     if (!entry) return;
     setSelectedSavedName(entry.name);
     applyFilter(entry.filter, entry.name);
@@ -199,8 +251,12 @@ const HakenContinuumSettings = ({
   };
 
   const handleWriteFilterFile = () => {
+    const exportFilters = [
+      ...savedFilters,
+      ...snapshotFilters.map((entry) => ({ name: entry.name, filter: entry.filter })),
+    ];
     const blob = new Blob(
-      [JSON.stringify(exportableContinuumRasterFilterLibrary(savedFilters), null, 2)],
+      [JSON.stringify(exportableContinuumRasterFilterLibrary(exportFilters), null, 2)],
       { type: "application/json" },
     );
     const href = URL.createObjectURL(blob);
@@ -290,6 +346,14 @@ const HakenContinuumSettings = ({
             onChange={handleSelectFilter}
           >
             <option value={CONTINUUM_RASTER_FILTER_ALL}>All Degrees</option>
+            {snapshotFilters.length > 0 && (
+              <option value="__snapshot_separator__" disabled>──────── Snapshots ────────</option>
+            )}
+            {snapshotFilters.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.name}
+              </option>
+            ))}
             {savedFilters.length > 0 && (
               <option value="__separator__" disabled>──────── User Filters ────────</option>
             )}
@@ -327,6 +391,19 @@ const HakenContinuumSettings = ({
             </span>
           )}
         </span>
+      </label>
+      <label class="settings-form__checkbox-row settings-form__checkbox-row--sm">
+        <input
+          type="checkbox"
+          checked={showSnapshotFilters}
+          onChange={(e) => {
+            setSnapshotFilterEnabled(e.target.checked);
+            updateHakenPref("hakenaudio_raster_filter_snapshots", e.target.checked, {
+              hakenaudio_raster_filter_snapshots: e.target.checked,
+            });
+          }}
+        />
+        <em class="settings-form__helper-text">Auto-Generate from Snapshots</em>
       </label>
       <label class="settings-form__inline-label-row">
         <span class="settings-form__fixed-label">Scale degrees</span>
@@ -520,6 +597,7 @@ const HakenContinuumSettings = ({
 HakenContinuumSettings.propTypes = {
   ctrl: PropTypes.object.isRequired,
   settings: PropTypes.object.isRequired,
+  snapshots: PropTypes.arrayOf(PropTypes.object),
   rawPorts: PropTypes.object,
   midiOutputs: PropTypes.object,
   onChange: PropTypes.func.isRequired,

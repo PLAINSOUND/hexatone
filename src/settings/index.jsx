@@ -62,6 +62,7 @@ const Settings = ({
   linnstrumentRawPorts,
   hakenRawPorts,
   exquisLedStatus,
+  snapshots,
 }) => {
   const effectiveScaleSettings = useMemo(() => ({
     ...settings,
@@ -158,6 +159,7 @@ const Settings = ({
     <MIDIio
       onChange={onChange}
       settings={settings}
+      snapshots={snapshots}
       midi={midi}
       midiAccess={midiAccess}
       midiAccessError={midiAccessError}
@@ -170,7 +172,7 @@ const Settings = ({
       linnstrumentRawPorts={linnstrumentRawPorts}
       hakenRawPorts={hakenRawPorts}
       exquisLedStatus={exquisLedStatus}
-      keysRef={keysRef}
+    keysRef={keysRef}
     />
     <MidiOutputs
       onChange={onChange}

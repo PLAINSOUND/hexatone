@@ -64,6 +64,11 @@ import {
   normalizeBarMarkers,
   normalizeTempoMarkers,
 } from "./sequencer/transport.js";
+import {
+  SEQUENCE_WORKSPACE_STORAGE_KEY,
+  loadSequenceWorkspaceFromSession,
+  saveSequenceWorkspaceToSession,
+} from "./sequencer/session-persistence.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   deriveSequenceCueGroups,
@@ -106,6 +111,7 @@ export function applyReloadPersistencePolicy({
   const extraKeysToClear = [
     "hexatone_preset_source",
     "hexatone_preset_name",
+    SEQUENCE_WORKSPACE_STORAGE_KEY,
     "direct_sysex_auto",
     "mts_bulk_sysex_auto",
     "webmidi_access",
@@ -887,6 +893,75 @@ const App = () => {
       stopped: true,
     });
   }, []);
+
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    if (localStorage.getItem("hexatone_persist_on_reload") !== "true") return;
+    const restoredSequence = loadSequenceWorkspaceFromSession();
+    if (!restoredSequence) return;
+
+    const nextSnapshots = restoredSequence.snapshots;
+    const nextBars = restoredSequence.bars;
+    const nextTempi = restoredSequence.tempi;
+    const nextRepeats = restoredSequence.repeats;
+
+    setSnapshots(nextSnapshots);
+    setSequenceBars(nextBars);
+    setSequenceTempi(nextTempi);
+    setSequenceRepeats(nextRepeats);
+    setSnapshotLabelMode(restoredSequence.snapshotLabelMode);
+    setActiveSequenceName(restoredSequence.activeSequenceName);
+    setActiveSequenceSavedName(restoredSequence.activeSequenceSavedName);
+    setActiveSequenceDescription(restoredSequence.activeSequenceDescription);
+    setSequenceLegato(restoredSequence.sequenceLegato);
+    setSnapSequenceToCurrentTuning(restoredSequence.snapSequenceToCurrentTuning);
+    setSequenceAutoCreateBars(restoredSequence.sequenceAutoCreateBars);
+    setSelectedSnapshotId(null);
+    setSelectedSnapshotMarker(null);
+    setPlayingSnapshotId(null);
+    setSequencePlayhead({
+      barIndex: 0,
+      stepIndex: -1,
+      markerIndex: null,
+      stopped: true,
+    });
+    snapshotIdRef.current = nextSnapshots.reduce(
+      (max, snapshot) => Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
+      0,
+    );
+    sequenceBarIdRef.current = nextBars.reduce(
+      (max, bar) => Math.max(max, Number.isFinite(Number(bar?.id)) ? Number(bar.id) : 0),
+      0,
+    );
+  }, []);
+
+  useEffect(() => {
+    saveSequenceWorkspaceToSession({
+      snapshots,
+      bars: sequenceBars,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      snapshotLabelMode,
+      activeSequenceName,
+      activeSequenceSavedName,
+      activeSequenceDescription,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      sequenceAutoCreateBars,
+    });
+  }, [
+    activeSequenceDescription,
+    activeSequenceName,
+    activeSequenceSavedName,
+    sequenceAutoCreateBars,
+    sequenceBars,
+    sequenceLegato,
+    sequenceRepeats,
+    sequenceTempi,
+    snapSequenceToCurrentTuning,
+    snapshotLabelMode,
+    snapshots,
+  ]);
 
   const sequenceCueGroups = useMemo(
     () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi, sequenceRepeats),

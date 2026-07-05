@@ -102,9 +102,108 @@ describe("HakenContinuumSettings", () => {
     expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
       "All Degrees",
       "──────── User Filters ────────",
-      "Current Custom Filter",
       "Second",
       "First",
     ]);
+  });
+
+  it("offers live snapshot-derived raster filters only when auto-generation is enabled", () => {
+    const onChange = vi.fn();
+    const saveControllerPref = vi.fn();
+
+    render(
+      <HakenContinuumSettings
+        ctrl={{ id: "hakenaudio" }}
+        settings={{
+          hakenaudio_out_port: null,
+          hakenaudio_x_glide_mode: "pitch_bending",
+          hakenaudio_glide_flip_cc: 67,
+          hakenaudio_raster_filter_mode: "all",
+          hakenaudio_raster_filter: "",
+          hakenaudio_raster_filter_snapshots: false,
+          scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+          equivInterval: 1200,
+          reference_degree: 9,
+          fundamental: 440,
+        }}
+        snapshots={[{
+          id: 1,
+          notes: [
+            { midicents: 69 },
+            { midicents: 64 },
+            { midicents: 60 },
+          ],
+        }]}
+        rawPorts={{ output: { id: "umone-out", name: "UM-ONE" } }}
+        midiOutputs={new Map()}
+        onChange={onChange}
+        saveControllerPref={saveControllerPref}
+        hakenPedalLearnActive={false}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Continuum Raster Filter" });
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "All Degrees",
+    ]);
+
+    fireEvent.click(screen.getByLabelText("Auto-Generate from Snapshots"));
+
+    expect(onChange).toHaveBeenCalledWith("hakenaudio_raster_filter_snapshots", true);
+    expect(saveControllerPref).toHaveBeenCalledWith(
+      { id: "hakenaudio" },
+      "hakenaudio_raster_filter_snapshots",
+      true,
+      expect.any(Object),
+      { hakenaudio_raster_filter_snapshots: true },
+    );
+  });
+
+  it("applies an enabled snapshot-derived raster filter against the current tuning", () => {
+    const onChange = vi.fn();
+    const saveControllerPref = vi.fn();
+
+    render(
+      <HakenContinuumSettings
+        ctrl={{ id: "hakenaudio" }}
+        settings={{
+          hakenaudio_out_port: null,
+          hakenaudio_x_glide_mode: "pitch_bending",
+          hakenaudio_glide_flip_cc: 67,
+          hakenaudio_raster_filter_mode: "all",
+          hakenaudio_raster_filter: "",
+          hakenaudio_raster_filter_snapshots: true,
+          scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+          equivInterval: 1200,
+          reference_degree: 9,
+          fundamental: 440,
+        }}
+        snapshots={[{
+          id: 1,
+          notes: [
+            { midicents: 69 },
+            { midicents: 64 },
+            { midicents: 60 },
+          ],
+        }]}
+        rawPorts={{ output: { id: "umone-out", name: "UM-ONE" } }}
+        midiOutputs={new Map()}
+        onChange={onChange}
+        saveControllerPref={saveControllerPref}
+        hakenPedalLearnActive={false}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Continuum Raster Filter" });
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "All Degrees",
+      "──────── Snapshots ────────",
+      "Snapshot 1",
+    ]);
+
+    fireEvent.change(select, { target: { value: "__snapshot__:1" } });
+
+    expect(onChange).toHaveBeenCalledWith("hakenaudio_raster_filter_mode", "filter");
+    expect(onChange).toHaveBeenCalledWith("hakenaudio_raster_filter", "0,4,9");
   });
 });

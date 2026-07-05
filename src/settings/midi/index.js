@@ -675,6 +675,7 @@ const MIDIio = (props) => {
                 {ctrl?.id === "lumatone" && (
                   <LumatoneSettings
                     settings={props.settings}
+                    snapshots={props.snapshots}
                     rawPorts={props.lumatoneRawPorts}
                     midiOutputs={props.midi?.outputs}
                     keysRef={props.keysRef}
@@ -975,6 +976,7 @@ const MIDIio = (props) => {
             <HakenContinuumSettings
               ctrl={ctrl}
               settings={props.settings}
+              snapshots={props.snapshots}
               rawPorts={props.hakenRawPorts}
               midiOutputs={props.midi?.outputs}
               onChange={props.onChange}
@@ -999,6 +1001,7 @@ MIDIio.propTypes = {
     lumatone_led_sync: PropTypes.bool,
     lumatone_degree_filter_mode: PropTypes.string,
     lumatone_degree_filter: PropTypes.string,
+    lumatone_degree_filter_snapshots: PropTypes.bool,
     linnstrument_led_sync: PropTypes.bool,
     linnstrument_channel_allocation: PropTypes.string,
     linnstrument_pitch_bend_mode: PropTypes.string,
@@ -1020,6 +1023,9 @@ MIDIio.propTypes = {
     hakenaudio_note_off_delay: PropTypes.number,
     hakenaudio_raster_throttle_ms: PropTypes.number,
     hakenaudio_raster_stability: PropTypes.number,
+    hakenaudio_raster_filter_mode: PropTypes.string,
+    hakenaudio_raster_filter: PropTypes.string,
+    hakenaudio_raster_filter_snapshots: PropTypes.bool,
     hakenaudio_out_port: PropTypes.string,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
@@ -1030,6 +1036,7 @@ MIDIio.propTypes = {
   midiAccessError: PropTypes.string,
   midiLearnActive: PropTypes.bool,
   hakenPedalLearnActive: PropTypes.bool,
+  snapshots: PropTypes.arrayOf(PropTypes.object),
   lumatoneRawPorts: PropTypes.object,
   exquisRawPorts: PropTypes.object,
   linnstrumentRawPorts: PropTypes.object,

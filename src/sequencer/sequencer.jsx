@@ -1180,12 +1180,7 @@ const Sequencer = ({
             ENTER stores currently sounding notes, including attack and release velocity, pressure, 
             and timbre data if available. May be layered with notes from a previous snapshot 
             to build up chords in stages. The Sequence panel, below, allows snapshots to be 
-            played, ordered, and edited. Use the OPTION key while dragging to duplicate a snapshot. 
-            By changing the start and end times of note events, cues are automatically generated. 
-            Global position values are relative to snapshots, which are automatically numbered. By 
-            creating bars and time signatures, those snapshot-relative positions may be generated from 
-            a score expressed in bars, beats and fractions of beats. The flow of time can be specified 
-            by assigning a tempo in bpm to any fraction of a bar.
+            played, ordered, and edited.
           </em>
         </p>
         <div class="preset-actions preset-actions--library">
