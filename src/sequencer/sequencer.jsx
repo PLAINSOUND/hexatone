@@ -32,7 +32,6 @@ import {
   buildFirstSnapshotEventIds,
   buildSnapshotEventsById,
   buildSnapshotStartCueIndexes,
-  deriveSelectedCueAbsoluteTime,
 } from "./timeline-runtime.js";
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
 import { buildPlaybackTimeline } from "./playback-timeline.js";
@@ -401,10 +400,6 @@ const Sequencer = ({
       sequenceEvents,
     );
   }, [renderedSnapshots, sequenceEvents, sortedBars, sortedTempi]);
-  const selectedCueAbsoluteTime = useMemo(
-    () => deriveSelectedCueAbsoluteTime(selectedMarker, playheadMarkerIndex, sequenceCueGroups, snapshotIndexById),
-    [playheadMarkerIndex, selectedMarker, sequenceCueGroups, snapshotIndexById],
-  );
 
   useEffect(() => {
     timedTransportStateRef.current = timedTransportState;
@@ -742,12 +737,7 @@ const Sequencer = ({
     action();
   }, [editCommitTick, snapshots]);
 
-  useEffect(() => {
-    if (selectedCueAbsoluteTime == null) return;
-    setNewBarPosition(selectedCueAbsoluteTime.toFixed(6));
-  }, [selectedCueAbsoluteTime]);
-
-  useEffect(() => {
+ useEffect(() => {
     if (Number.isFinite(activeCueIndex)) {
       const anchorTarget = deriveCueScrollAnchorTarget({
         showAllEvents,

@@ -2916,63 +2916,6 @@ describe("Sequencer", () => {
     expect(body.children[1].classList.contains("sequencer-event-row")).toBe(true);
   });
 
-  it("defaults the new bar position to the selected cue start", () => {
-    render(
-      <Sequencer
-        snapshots={[
-          {
-            id: 10,
-            length: 1,
-            description: "A",
-            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
-          },
-          {
-            id: 11,
-            length: 1,
-            description: "B",
-            notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
-          },
-        ]}
-        bars={[{ id: 1, position: 1 }]}
-        snapshotLabelMode="labels"
-        selectedSnapshotId={11}
-        selectedMarker={{ snapshotId: 11, time: 0 }}
-        playingSnapshotId={null}
-        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: 1, stopped: true }}
-        onTakeSnapshot={vi.fn()}
-        onLoadSequence={vi.fn()}
-        onSequenceNameChange={vi.fn()}
-        onSequenceDescriptionChange={vi.fn()}
-        onSequenceLegatoChange={vi.fn()}
-        onSetSnapshotLabelMode={vi.fn()}
-        onSelectSnapshot={vi.fn()}
-        onSelectMarker={vi.fn()}
-        onPlaySnapshot={vi.fn()}
-        onStopSnapshot={vi.fn()}
-        onSelectSequenceBar={vi.fn()}
-        onStepSequence={vi.fn()}
-        onStepSequenceMarker={vi.fn()}
-        onPlaySequence={vi.fn()}
-        onPlayCue={vi.fn()}
-        onResetSequencePlayhead={vi.fn()}
-        onAddBar={vi.fn()}
-        onAddBarsBeforeSnapshots={vi.fn()}
-        onDeleteBar={vi.fn()}
-        onUpdateBar={vi.fn()}
-        onMoveBar={vi.fn()}
-        onDeleteSnapshot={vi.fn()}
-        onMoveSnapshot={vi.fn()}
-        onUpdateSnapshot={vi.fn()}
-        onResetSnapshotDescription={vi.fn()}
-        activeSequenceName=""
-        activeSequenceDescription=""
-        sequenceLegato
-      />,
-    );
-
-    expect(screen.getByLabelText("new bar position").value).toBe("2.000000");
-  });
-
   it("hides delete buttons for the always-on anchor bar and tempo marker", () => {
     render(
       <Sequencer
