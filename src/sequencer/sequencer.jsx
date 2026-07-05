@@ -7,6 +7,7 @@ import BarRow from "./bar-row.jsx";
 import TempoRow from "./tempo-row.jsx";
 import RepeatRow from "./repeat-row.jsx";
 import {
+  absolutePositionToBarBeat,
   barContextForPosition,
   deriveTerminalBarlinePosition,
   normalizeBarMarkers,
@@ -34,6 +35,19 @@ import {
   deriveSelectedCueAbsoluteTime,
 } from "./timeline-runtime.js";
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
+import { buildPlaybackTimeline } from "./playback-timeline.js";
+import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
+import { collectTimedCueBurstsWithinLookahead } from "./timed-cue-scheduler.js";
+import {
+  advanceTimedTransport,
+  createTimedTransportState,
+  currentTimedTransportElapsedSeconds,
+  findPlaybackStartIndex,
+  pauseTimedTransport,
+  resumeTimedTransport,
+  startTimedTransport,
+  stopTimedTransport,
+} from "./timed-transport-runtime.js";
 import {
   buildCueExpandedSnapshotIdsAt,
   deriveCueScrollAnchorTarget,
@@ -116,6 +130,7 @@ const Sequencer = ({
   onPlaySequence,
   onPlayCue,
   onResetSequencePlayhead,
+  getTimedTransportClockSeconds,
   onAddBar,
   onAddTempo,
   onAddRepeat,
@@ -135,6 +150,14 @@ const Sequencer = ({
   onUpdateSnapshot,
   onResetSnapshotDescription,
 }) => {
+  const formatTransportClock = useCallback((seconds) => {
+    const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const secs = String(totalSeconds % 60).padStart(2, "0");
+    return `${hours}:${minutes}:${secs}`;
+  }, []);
+
   const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(true);
@@ -174,6 +197,12 @@ const Sequencer = ({
   const pendingResetScrollTargetRef = useRef(null);
   const suppressNextBarAutoScrollRef = useRef(false);
   const transportScrollTargetRef = useRef("snapshot");
+  const timedTransportStateRef = useRef(createTimedTransportState([]));
+  const scheduledTimedPlaybackIndexRef = useRef(0);
+  const timedTransportSchedulerTokenRef = useRef(0);
+  const timedTransportTimeoutsRef = useRef(new Set());
+  const [timedTransportState, setTimedTransportState] = useState(() => createTimedTransportState([]));
+  const [timedTransportClockSeconds, setTimedTransportClockSeconds] = useState(0);
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
   const sortedTempi = useMemo(
@@ -192,9 +221,29 @@ const Sequencer = ({
     () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
     [renderedSnapshots, sortedBars],
   );
+  const formatTransportBarBeat = useCallback((position) => {
+    const resolved = absolutePositionToBarBeat(position, sortedBars, 1, 9, terminalBarlinePosition);
+    if (!resolved) return "1:1";
+    const fraction = resolved.numerator > 0 ? ` ${resolved.numerator}/${resolved.denominator}` : "";
+    return `${resolved.barNumber}:${resolved.beat}${fraction}`;
+  }, [sortedBars, terminalBarlinePosition]);
   const sequenceRepeatSections = useMemo(
     () => deriveRepeatSections(sequenceCueGroups, repeats),
     [sequenceCueGroups, repeats],
+  );
+  const playbackTimeline = useMemo(
+    () => buildPlaybackTimeline({
+      snapshots: renderedSnapshots,
+      bars: sortedBars,
+      tempi: sortedTempi,
+      repeats,
+    }),
+    [renderedSnapshots, repeats, sortedBars, sortedTempi],
+  );
+  const timedPlaybackBursts = playbackTimeline.playbackBursts;
+  const timedCueTriggers = useMemo(
+    () => deriveTimedCueTriggers(playbackTimeline, { legato: sequenceLegato }),
+    [playbackTimeline, sequenceLegato],
   );
 
   const {
@@ -346,6 +395,191 @@ const Sequencer = ({
     () => deriveSelectedCueAbsoluteTime(selectedMarker, playheadMarkerIndex, sequenceCueGroups, snapshotIndexById),
     [playheadMarkerIndex, selectedMarker, sequenceCueGroups, snapshotIndexById],
   );
+
+  useEffect(() => {
+    timedTransportStateRef.current = timedTransportState;
+  }, [timedTransportState]);
+
+  useEffect(() => {
+    setTimedTransportState(createTimedTransportState(timedPlaybackBursts));
+    scheduledTimedPlaybackIndexRef.current = 0;
+  }, [timedPlaybackBursts]);
+
+  const clearScheduledTimedCueCallbacks = useCallback(() => {
+    timedTransportSchedulerTokenRef.current += 1;
+    timedTransportTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    timedTransportTimeoutsRef.current.clear();
+  }, []);
+
+  const resolveTimedTransportStartIndex = useCallback(() => {
+    if (pendingCueJumpIndex !== "") {
+      return findPlaybackStartIndex(timedPlaybackBursts, { cueIndex: Number(pendingCueJumpIndex) });
+    }
+    if (Number.isFinite(playheadMarkerIndex)) {
+      return findPlaybackStartIndex(timedPlaybackBursts, { cueIndex: Number(playheadMarkerIndex) });
+    }
+    if (pendingSnapshotJumpIndex !== "") {
+      return findPlaybackStartIndex(timedPlaybackBursts, { snapshotIndex: Number(pendingSnapshotJumpIndex) });
+    }
+    if (Number.isFinite(playheadStepIndex) && playheadStepIndex >= 0 && !playheadIsEnd) {
+      return findPlaybackStartIndex(timedPlaybackBursts, { snapshotIndex: Number(playheadStepIndex) });
+    }
+    const selectedBarPosition = Number(sortedBars[selectedBarIndex]?.position ?? 1);
+    return findPlaybackStartIndex(timedPlaybackBursts, { sequenceTime: selectedBarPosition });
+  }, [
+    pendingCueJumpIndex,
+    pendingSnapshotJumpIndex,
+    playheadIsEnd,
+    playheadMarkerIndex,
+    playheadStepIndex,
+    selectedBarIndex,
+    sortedBars,
+    timedPlaybackBursts,
+  ]);
+
+  const scheduleTimedCueBursts = useCallback((cueBursts, nowSeconds) => {
+    if (!Array.isArray(cueBursts) || cueBursts.length === 0) return;
+    const schedulerToken = timedTransportSchedulerTokenRef.current;
+    const currentElapsed = currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds);
+
+    cueBursts.forEach((burst) => {
+      const delayMs = Math.max(0, (Number(burst.elapsedSeconds) - currentElapsed) * 1000);
+      const timeoutId = window.setTimeout(() => {
+        timedTransportTimeoutsRef.current.delete(timeoutId);
+        if (timedTransportSchedulerTokenRef.current !== schedulerToken) return;
+        if (timedTransportStateRef.current.status !== "running") return;
+        const barContext = barContextForPosition(burst.sequenceTime, sortedBars, terminalBarlinePosition);
+        if (barContext) onSelectSequenceBar?.(barContext.barIndex);
+        if (Number.isFinite(burst.sourceCueIndex)) {
+          onPlayCue?.(Number(burst.sourceCueIndex) - 1);
+        }
+      }, delayMs);
+      timedTransportTimeoutsRef.current.add(timeoutId);
+    });
+  }, [onPlayCue, onSelectSequenceBar, sortedBars, terminalBarlinePosition]);
+
+  const runTimedCueLookahead = useCallback((nowSeconds) => {
+    const currentElapsed = currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds);
+    const { cueBursts, nextPlaybackIndex } = collectTimedCueBurstsWithinLookahead(
+      timedPlaybackBursts,
+      scheduledTimedPlaybackIndexRef.current,
+      currentElapsed,
+      0.15,
+    );
+    scheduledTimedPlaybackIndexRef.current = nextPlaybackIndex;
+    if (cueBursts.length > 0) scheduleTimedCueBursts(cueBursts, nowSeconds);
+  }, [scheduleTimedCueBursts, timedPlaybackBursts]);
+
+  useEffect(() => {
+    if (timedTransportState.status !== "running") return undefined;
+    let cancelled = false;
+    let frameId = 0;
+    const schedulerIntervalMs = 25;
+    scheduledTimedPlaybackIndexRef.current = Math.max(0, timedTransportStateRef.current.nextPlaybackIndex);
+    clearScheduledTimedCueCallbacks();
+
+    const initialNowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
+    runTimedCueLookahead(initialNowSeconds);
+
+    const schedulerId = window.setInterval(() => {
+      if (cancelled) return;
+      const nowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
+      runTimedCueLookahead(nowSeconds);
+    }, schedulerIntervalMs);
+
+    const tick = () => {
+      if (cancelled) return;
+      const nowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
+      setTimedTransportClockSeconds(nowSeconds);
+      let keepRunning = true;
+      setTimedTransportState((previous) => {
+        const result = advanceTimedTransport(previous, timedPlaybackBursts, nowSeconds);
+        if (result.state.status === "finished") {
+          clearScheduledTimedCueCallbacks();
+          onStopSnapshot?.();
+          keepRunning = false;
+        } else {
+          keepRunning = result.state.status === "running";
+        }
+        timedTransportStateRef.current = result.state;
+        return result.state;
+      });
+      if (!cancelled && keepRunning) frameId = window.requestAnimationFrame(tick);
+    };
+    frameId = window.requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      clearScheduledTimedCueCallbacks();
+      window.clearInterval(schedulerId);
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [
+    clearScheduledTimedCueCallbacks,
+    getTimedTransportClockSeconds,
+    onStopSnapshot,
+    runTimedCueLookahead,
+    timedPlaybackBursts,
+    timedTransportState.status,
+  ]);
+
+  const handleTimedTransportPlayPause = useCallback(() => {
+    if (!timedPlaybackBursts.length) return;
+    const nowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
+    setTimedTransportClockSeconds(nowSeconds);
+    setTimedTransportState((previous) => {
+      if (previous.status === "running") return pauseTimedTransport(previous, nowSeconds);
+      if (previous.status === "paused") return resumeTimedTransport(previous, nowSeconds);
+      const startIndex = resolveTimedTransportStartIndex();
+      return startTimedTransport(previous, timedPlaybackBursts, {
+        playbackIndex: startIndex < 0 ? 0 : startIndex,
+        clockSeconds: nowSeconds,
+      });
+    });
+  }, [getTimedTransportClockSeconds, resolveTimedTransportStartIndex, timedPlaybackBursts]);
+
+  const handleTimedTransportStop = useCallback(() => {
+    clearScheduledTimedCueCallbacks();
+    onStopSnapshot?.();
+    scheduledTimedPlaybackIndexRef.current = 0;
+    setTimedTransportState(stopTimedTransport(timedPlaybackBursts));
+  }, [clearScheduledTimedCueCallbacks, onStopSnapshot, timedPlaybackBursts]);
+
+  const timedTransportDisplay = useMemo(() => {
+    const runningElapsed = currentTimedTransportElapsedSeconds(timedTransportState, timedTransportClockSeconds);
+    const queuedPlaybackIndex = timedTransportState.status === "stopped" || timedTransportState.status === "empty"
+      ? resolveTimedTransportStartIndex()
+      : timedTransportState.nextPlaybackIndex >= 0
+        ? Math.max(0, timedTransportState.nextPlaybackIndex)
+        : Math.max(0, timedPlaybackBursts.length - 1);
+    const queuedBurst = queuedPlaybackIndex >= 0 ? timedPlaybackBursts[queuedPlaybackIndex] ?? null : null;
+    const lastDispatchedBurst = timedTransportState.lastDispatchedPlaybackIndex >= 0
+      ? (timedPlaybackBursts[timedTransportState.lastDispatchedPlaybackIndex] ?? null)
+      : null;
+    const displaySequenceTime = (
+      lastDispatchedBurst?.sequenceTime
+      ?? queuedBurst?.sequenceTime
+      ?? (Number(sortedBars[selectedBarIndex]?.position) || 1)
+    );
+
+    return {
+      clock: formatTransportClock(runningElapsed),
+      barBeat: formatTransportBarBeat(displaySequenceTime),
+      running: timedTransportState.status === "running",
+      paused: timedTransportState.status === "paused",
+      canPlay: timedCueTriggers.length > 0,
+      canStop: timedTransportState.status === "running" || timedTransportState.status === "paused",
+    };
+  }, [
+    formatTransportBarBeat,
+    formatTransportClock,
+    resolveTimedTransportStartIndex,
+    selectedBarIndex,
+    sortedBars,
+    timedPlaybackBursts,
+    timedCueTriggers.length,
+    timedTransportClockSeconds,
+    timedTransportState,
+  ]);
 
   const selectBarForPosition = (position) => {
     const barContext = barContextForPosition(position, sortedBars);
@@ -1302,6 +1536,9 @@ const Sequencer = ({
           onPlaySequence={onPlaySequence}
           playingSnapshotId={playingSnapshotId}
           onStopSnapshot={onStopSnapshot}
+          timedTransportDisplay={timedTransportDisplay}
+          onTimedTransportPlayPause={handleTimedTransportPlayPause}
+          onTimedTransportStop={handleTimedTransportStop}
         />
 
         <div ref={scrollPanelRef} class="sequencer-scroll-panel">

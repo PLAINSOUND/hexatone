@@ -358,6 +358,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         await prepareSynth();
       },
 
+      currentTime: () => sharedAudioContext?.currentTime ?? null,
+
       rememberControllerState: (state = {}) => {
         controllerState = {
           ...controllerState,

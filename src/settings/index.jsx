@@ -63,6 +63,7 @@ const Settings = ({
   hakenRawPorts,
   exquisLedStatus,
   snapshots,
+  onEnableLumatoneAutoSync,
 }) => {
   const effectiveScaleSettings = useMemo(() => ({
     ...settings,
@@ -172,7 +173,8 @@ const Settings = ({
       linnstrumentRawPorts={linnstrumentRawPorts}
       hakenRawPorts={hakenRawPorts}
       exquisLedStatus={exquisLedStatus}
-    keysRef={keysRef}
+      keysRef={keysRef}
+      onEnableLumatoneAutoSync={onEnableLumatoneAutoSync}
     />
     <MidiOutputs
       onChange={onChange}

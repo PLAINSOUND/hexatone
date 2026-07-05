@@ -282,6 +282,40 @@ describe("LumatoneSettings", () => {
     alertSpy.mockRestore();
   });
 
+  it("enables auto-send without triggering an immediate duplicate colour sync from the checkbox handler", () => {
+    const onChange = vi.fn();
+    const onEnableLumatoneAutoSync = vi.fn();
+    const keysRef = {
+      current: {
+        settings: { lumatone_led_sync: false },
+      },
+    };
+
+    render(
+      <LumatoneSettings
+        settings={{
+          midi_passthrough: false,
+          lumatone_out_port: null,
+          lumatone_led_sync: false,
+          lumatone_degree_filter_mode: "all",
+          lumatone_degree_filter: "",
+        }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone MIDI" } }}
+        midiOutputs={new Map()}
+        keysRef={keysRef}
+        hasSysexMidi={true}
+        onChange={onChange}
+        onEnableLumatoneAutoSync={onEnableLumatoneAutoSync}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Automatically Send LED Colours/i }));
+
+    expect(onChange).toHaveBeenCalledWith("lumatone_led_sync", true);
+    expect(keysRef.current.settings.lumatone_led_sync).toBe(true);
+    expect(onEnableLumatoneAutoSync).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps LED Output and the bypass layout sender visible in bypass mode only", () => {
     render(
       <LumatoneSettings

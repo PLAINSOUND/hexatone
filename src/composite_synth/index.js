@@ -116,6 +116,14 @@ export const create_composite_synth = (synths) => ({
     );
   },
 
+  currentTime() {
+    for (const synth of synths) {
+      const time = synth?.currentTime?.();
+      if (Number.isFinite(time)) return time;
+    }
+    return null;
+  },
+
   setVolume(value) {
     synths.forEach((s) => s.setVolume && s.setVolume(value));
   },

@@ -1419,6 +1419,11 @@ td.scale-color-col .color-input {
   line-height: 1;
 }
 
+.sequencer-playback-row--timed {
+  margin-top: 0;
+  padding-top: 0.25em;
+}
+
 .sequencer-scroll-panel {
   max-height: calc(100vh - 12.5rem);
   overflow-y: auto;
@@ -1496,6 +1501,15 @@ td.scale-color-col .color-input {
   font-size: 0.86em;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+
+.sequencer-playback-control--timed {
+  min-width: 0;
+}
+
+.sequencer-playback-status--timed {
+  min-width: 5.6em;
+  text-align: left;
 }
 
 @media (min-width: 481px) {
@@ -1806,6 +1820,32 @@ td.scale-color-col .color-input {
   border-top-width: 0.275rem;
   border-bottom-width: 0.275rem;
   border-left-width: 0.42rem;
+}
+
+#sidebar .sequencer-pause-glyph {
+  position: relative;
+  width: 0.66rem;
+  height: 0.66rem;
+  flex: 0 0 0.66rem;
+  display: inline-block;
+}
+
+#sidebar .sequencer-pause-glyph::before,
+#sidebar .sequencer-pause-glyph::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 0.18rem;
+  height: 0.66rem;
+  background: currentColor;
+}
+
+#sidebar .sequencer-pause-glyph::before {
+  left: 0.1rem;
+}
+
+#sidebar .sequencer-pause-glyph::after {
+  right: 0.1rem;
 }
 
 #sidebar .sequencer-playback-actions .snapshot-stop-glyph {

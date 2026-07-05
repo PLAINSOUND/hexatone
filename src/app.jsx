@@ -139,6 +139,28 @@ function SidebarLoadingFallback() {
   );
 }
 
+function buildLumatoneAutoSyncKey({
+  lumatoneInId,
+  lumatoneOutId,
+  keysReadyRevision,
+  name,
+  referenceDegree,
+  fundamental,
+  keyColors,
+  keyLabels,
+}) {
+  return [
+    lumatoneInId ?? "no-in",
+    lumatoneOutId ?? "no-out",
+    keysReadyRevision,
+    name ?? "",
+    referenceDegree ?? "",
+    fundamental ?? "",
+    keyColors ?? "",
+    keyLabels ?? "",
+  ].join("|");
+}
+
 function modulo(value, modulus) {
   if (!modulus) return value;
   return ((value % modulus) + modulus) % modulus;
@@ -291,19 +313,20 @@ export function commitModulationHistoryToPreset(settings, tuningWorkspace, histo
   };
 }
 
-export function bindControllerLedRefs(keys, bindings = {}) {
+export function bindControllerLedRefs(keys, bindings = {}, options = {}) {
   if (!keys) return;
+  const { eagerSync = true } = options;
 
   if (Object.prototype.hasOwnProperty.call(bindings, "lumatone")) {
     keys.lumatoneLEDs = bindings.lumatone;
-    if (bindings.lumatone && keys.settings?.lumatone_led_sync) {
+    if (eagerSync && bindings.lumatone && keys.settings?.lumatone_led_sync) {
       keys.autoSyncLumatoneLEDs?.();
     }
   }
 
   if (Object.prototype.hasOwnProperty.call(bindings, "exquis")) {
     keys.exquisLEDs = bindings.exquis;
-    if (bindings.exquis?.ready && keys.settings?.exquis_led_sync) {
+    if (eagerSync && bindings.exquis?.ready && keys.settings?.exquis_led_sync) {
       keys.syncExquisLEDs?.();
     }
   }
@@ -784,6 +807,7 @@ const App = () => {
   const [exquisLedStatus, setExquisLedStatus] = useState(null);
   const exquisLedsRef = useRef(null);
   const lumatoneLedsRef = useRef(null);
+  const lumatoneAutoSyncKeyRef = useRef("");
   const linnstrumentLedsRef = useRef(null);
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
@@ -1551,6 +1575,12 @@ const App = () => {
     sequenceRepeatPlaybackStateRef.current = {};
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
+
+  const getTimedTransportClockSeconds = useCallback(() => {
+    const synthClock = keysRef.current?.synth?.currentTime?.();
+    if (Number.isFinite(synthClock)) return synthClock;
+    return performance.now() / 1000;
+  }, []);
 
   const onPlaySequenceCue = useCallback((cueIndex) => {
     sequenceRepeatPlaybackStateRef.current = {};
@@ -2418,7 +2448,7 @@ const App = () => {
         return;
       }
       lumatoneLedsRef.current = leds;
-      bindControllerLedRefs(keysRef.current, { lumatone: leds });
+      bindControllerLedRefs(keysRef.current, { lumatone: leds }, { eagerSync: false });
     });
 
     return () => {
@@ -2426,7 +2456,7 @@ const App = () => {
       const leds = lumatoneLedsRef.current;
       if (leds) leds.destroy();
       lumatoneLedsRef.current = null;
-      bindControllerLedRefs(keysRef.current, { lumatone: null });
+      bindControllerLedRefs(keysRef.current, { lumatone: null }, { eagerSync: false });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lumatoneInId, lumatoneOutId]);
@@ -2713,7 +2743,7 @@ const App = () => {
         lumatone: lumatoneLedsRef.current,
         exquis: exquisLedsRef.current,
         linnstrument: linnstrumentLedsRef.current,
-      });
+      }, { eagerSync: false });
     },
     [linnstrumentUserFirmwareEligible],
   );
@@ -2732,6 +2762,71 @@ const App = () => {
   const onModulationArmChange = useCallback((v) => setModulationArmed(v), []);
   const onFirstInteraction = primeAudioFromUserInteraction;
   const controlsHiddenForKeyboard = textEntryActive && viewportKeyboardOpen;
+  const enableLumatoneAutoSyncNow = useCallback(() => {
+    const keys = keysRef.current;
+    const leds = lumatoneLedsRef.current;
+    if (!keys || !leds) return;
+    lumatoneAutoSyncKeyRef.current = buildLumatoneAutoSyncKey({
+      lumatoneInId,
+      lumatoneOutId,
+      keysReadyRevision,
+      name: settings.name,
+      referenceDegree: settings.reference_degree,
+      fundamental: settings.fundamental,
+      keyColors: settings.key_colors,
+      keyLabels: settings.key_labels,
+    });
+    keys.autoSyncLumatoneLEDs?.();
+  }, [
+    keysReadyRevision,
+    lumatoneInId,
+    lumatoneOutId,
+    settings.fundamental,
+    settings.key_colors,
+    settings.key_labels,
+    settings.name,
+    settings.reference_degree,
+  ]);
+
+  useEffect(() => {
+    if (pendingRestoredPreset) return;
+    const keys = keysRef.current;
+    const leds = lumatoneLedsRef.current;
+    if (!settings.lumatone_led_sync) {
+      lumatoneAutoSyncKeyRef.current = "";
+      return;
+    }
+    if (!keys || !leds) return;
+    const syncKey = buildLumatoneAutoSyncKey({
+      lumatoneInId,
+      lumatoneOutId,
+      keysReadyRevision,
+      name: settings.name,
+      referenceDegree: settings.reference_degree,
+      fundamental: settings.fundamental,
+      keyColors: settings.key_colors,
+      keyLabels: settings.key_labels,
+    });
+    if (syncKey === lumatoneAutoSyncKeyRef.current) return;
+    lumatoneAutoSyncKeyRef.current = syncKey;
+    const timer = setTimeout(() => {
+      if (keysRef.current !== keys) return;
+      if (lumatoneLedsRef.current !== leds) return;
+      keys.autoSyncLumatoneLEDs?.();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [
+    keysReadyRevision,
+    lumatoneInId,
+    lumatoneOutId,
+    pendingRestoredPreset,
+    settings.fundamental,
+    settings.key_colors,
+    settings.key_labels,
+    settings.lumatone_led_sync,
+    settings.name,
+    settings.reference_degree,
+  ]);
 
   return (
     <div
@@ -3416,6 +3511,7 @@ const App = () => {
               onPlaySequence={onPlaySequence}
               onPlayCue={onPlaySequenceCue}
               onResetSequencePlayhead={onResetSequencePlayhead}
+              getTimedTransportClockSeconds={getTimedTransportClockSeconds}
               onAddBar={onAddSequenceBar}
               onAddTempo={onAddSequenceTempo}
               onAddRepeat={onAddSequenceRepeat}
@@ -3494,6 +3590,7 @@ const App = () => {
                 playingSnapshotId={playingSnapshotId}
                 onPlaySnapshot={onPlaySnapshot}
                 onDeleteSnapshot={onDeleteSnapshot}
+                onEnableLumatoneAutoSync={enableLumatoneAutoSyncNow}
               />
               <Credits />
             </>

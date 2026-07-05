@@ -681,6 +681,7 @@ const MIDIio = (props) => {
                     keysRef={props.keysRef}
                     hasSysexMidi={hasSysexMidi}
                     onChange={props.onChange}
+                    onEnableLumatoneAutoSync={props.onEnableLumatoneAutoSync}
                   />
                 )}
 
@@ -1044,6 +1045,7 @@ MIDIio.propTypes = {
   keysRef: PropTypes.object,
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,
+  onEnableLumatoneAutoSync: PropTypes.func,
 };
 
 export default MIDIio;

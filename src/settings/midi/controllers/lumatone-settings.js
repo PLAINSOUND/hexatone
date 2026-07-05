@@ -31,6 +31,7 @@ const LumatoneSettings = ({
   keysRef,
   hasSysexMidi,
   onChange,
+  onEnableLumatoneAutoSync,
 }) => {
   const fileInputRef = useRef(null);
   const [savedFilters, setSavedFilters] = useState(() => readLumatoneColorFilterLibrary());
@@ -321,7 +322,7 @@ const LumatoneSettings = ({
                     localStorage.setItem("lumatone_led_sync", e.target.checked);
                     const keys = keysRef?.current;
                     if (keys) keys.settings.lumatone_led_sync = e.target.checked;
-                    if (e.target.checked) keys?.autoSyncLumatoneLEDs?.();
+                    if (e.target.checked) onEnableLumatoneAutoSync?.();
                   }}
                 />
                 <button
@@ -497,6 +498,7 @@ LumatoneSettings.propTypes = {
   keysRef: PropTypes.object,
   hasSysexMidi: PropTypes.bool.isRequired,
   onChange: PropTypes.func.isRequired,
+  onEnableLumatoneAutoSync: PropTypes.func,
 };
 
 export default LumatoneSettings;

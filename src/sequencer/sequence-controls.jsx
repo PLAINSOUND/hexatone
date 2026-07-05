@@ -62,6 +62,9 @@ const SequenceControls = ({
   onPlaySequence,
   playingSnapshotId,
   onStopSnapshot,
+  timedTransportDisplay,
+  onTimedTransportPlayPause,
+  onTimedTransportStop,
 }) => (
   <>
     {showAllEvents ? (
@@ -406,6 +409,53 @@ const SequenceControls = ({
           onClick={() => {
             runTransportAction(() => onStopSnapshot?.());
           }}
+        >
+          <span class="snapshot-stop-glyph" aria-hidden="true">
+            ■
+          </span>
+        </button>
+      </span>
+    </div>
+
+    <div class="sequencer-playback-row sequencer-playback-row--timed" aria-label="Timed sequence playback">
+      <span class="sequencer-playback-label">TIMED PLAYBACK</span>
+
+      <span class="sequencer-playback-control sequencer-playback-control--timed">
+        <span class="sequencer-playback-key">CLOCK</span>
+        <span class="sequencer-playback-status sequencer-playback-status--timed">
+          {timedTransportDisplay?.clock ?? "00:00:00"}
+        </span>
+      </span>
+
+      <span class="sequencer-playback-control sequencer-playback-control--timed">
+        <span class="sequencer-playback-key">BAR:BEAT</span>
+        <span class="sequencer-playback-status sequencer-playback-status--timed">
+          {timedTransportDisplay?.barBeat ?? "1:1"}
+        </span>
+      </span>
+
+      <span class="sequencer-playback-actions">
+        <button
+          type="button"
+          class="snapshot-play-btn"
+          title={timedTransportDisplay?.running ? "Pause timed transport" : "Play timed transport"}
+          aria-label={timedTransportDisplay?.running ? "pause timed transport" : "play timed transport"}
+          disabled={!timedTransportDisplay?.canPlay}
+          onClick={() => onTimedTransportPlayPause?.()}
+        >
+          {timedTransportDisplay?.running ? (
+            <span class="sequencer-pause-glyph" aria-hidden="true" />
+          ) : (
+            <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
+          )}
+        </button>
+        <button
+          type="button"
+          class="snapshot-play-btn snapshot-stop-btn"
+          title="Stop timed transport"
+          aria-label="stop timed transport"
+          disabled={!timedTransportDisplay?.canStop}
+          onClick={() => onTimedTransportStop?.()}
         >
           <span class="snapshot-stop-glyph" aria-hidden="true">
             ■

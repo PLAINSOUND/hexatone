@@ -47,6 +47,7 @@
  */
 
 const ACK_TIMEOUT_MS = 300;
+const INITIAL_ACK_TIMEOUT_MS = 1200;
 const INITIAL_SEND_DELAY_MS = 600;
 
 // Lumatone manufacturer ID (3 bytes after F0)
@@ -65,11 +66,12 @@ export class LumatoneLEDs {
     this._timer = null; // ACK-timeout handle (clearTimeout on ACK)
     this._readyTimer = null; // Initial reconnect delay before first send.
     this._readyAt = Date.now() + INITIAL_SEND_DELAY_MS;
+    this._sentSinceConnect = false;
+    this._hasReceivedAck = false;
+    this._restoreOnMidiMessage = null;
 
     this._onMessage = this._onMessage.bind(this);
-    if (this._in) {
-      this._in.addEventListener("midimessage", this._onMessage);
-    }
+    this._attachInputListener();
   }
 
   // ── Public API ──────────────────────────────────────────────────────────────
@@ -86,9 +88,12 @@ export class LumatoneLEDs {
       cmd: 0x01,
       board,
       key,
+      retries: 0,
       ...this._parseHex(hexColor),
     }));
+    if (this._isDuplicateFullColorQueue(nextQueue)) return;
     this._queue = this._pending ? [this._queue[0], ...nextQueue] : nextQueue;
+    this._refreshInitialSendDelay();
     if (!this._pending) this._advance();
   }
 
@@ -116,11 +121,12 @@ export class LumatoneLEDs {
     const nextQueue = [
       ...preamble,
       ...entries.flatMap(({ board, key, note, channel, hexColor, keyType = 0x01 }) => [
-        { cmd: 0x00, board, key, note, channel, keyType },
-        { cmd: 0x01, board, key, ...this._parseHex(hexColor) },
+        { cmd: 0x00, board, key, note, channel, keyType, retries: 0 },
+        { cmd: 0x01, board, key, retries: 0, ...this._parseHex(hexColor) },
       ]),
     ];
     this._queue = this._pending ? [this._queue[0], ...nextQueue] : nextQueue;
+    this._refreshInitialSendDelay();
     if (!this._pending) this._advance();
   }
 
@@ -142,6 +148,7 @@ export class LumatoneLEDs {
       cmd: 0x01,
       board,
       key,
+      retries: 0,
       ...this._parseHex(hexColor),
     }));
 
@@ -159,6 +166,7 @@ export class LumatoneLEDs {
       }
     }
 
+    this._refreshInitialSendDelay();
     if (!this._pending) this._advance();
   }
 
@@ -179,9 +187,7 @@ export class LumatoneLEDs {
   /** Remove the ACK listener and release all resources. */
   destroy() {
     this.cancel();
-    if (this._in) {
-      this._in.removeEventListener("midimessage", this._onMessage);
-    }
+    this._detachInputListener();
     this._out = null;
     this._in = null;
   }
@@ -224,6 +230,7 @@ export class LumatoneLEDs {
     }
 
     this._pending = true;
+    this._sentSinceConnect = true;
     const entry = this._queue[0]; // peek — shifted on ACK/timeout
     const { cmd, board, key } = entry;
 
@@ -282,7 +289,25 @@ export class LumatoneLEDs {
     this._timer = setTimeout(() => {
       this._timer = null;
       this._pending = false;
-      const skipped = this._queue.shift();
+      if (!this._hasReceivedAck && (entry.retries ?? 0) < 1) {
+        entry.retries = (entry.retries ?? 0) + 1;
+        this._advance();
+        return;
+      }
+      let skipped = entry;
+      if (this._queue[0] === entry) {
+        this._queue.shift();
+      } else {
+        const fallbackIndex = this._queue.findIndex(
+          (queued) =>
+            queued?.cmd === entry?.cmd &&
+            queued?.board === entry?.board &&
+            queued?.key === entry?.key,
+        );
+        if (fallbackIndex >= 0) {
+          skipped = this._queue.splice(fallbackIndex, 1)[0];
+        }
+      }
       console.warn(
         "[LumatoneLEDs] ACK timeout — skipping cmd",
         skipped?.cmd?.toString(16),
@@ -292,7 +317,7 @@ export class LumatoneLEDs {
         skipped?.key,
       );
       this._advance();
-    }, ACK_TIMEOUT_MS);
+    }, this._currentAckTimeoutMs());
   }
 
   /**
@@ -333,8 +358,73 @@ export class LumatoneLEDs {
       clearTimeout(this._timer);
       this._timer = null;
     }
+    this._hasReceivedAck = true;
     this._queue.shift();
     this._pending = false;
     this._advance();
+  }
+
+  _colorEntryKey(entry) {
+    if (!entry || entry.cmd !== 0x01) return null;
+    return `${entry.board}:${entry.key}:${entry.r}:${entry.g}:${entry.b}`;
+  }
+
+  _colorQueueSignature(queue) {
+    if (!Array.isArray(queue) || queue.length === 0) return "";
+    return queue
+      .map((entry) => this._colorEntryKey(entry))
+      .filter(Boolean)
+      .join("|");
+  }
+
+  _isDuplicateFullColorQueue(nextQueue) {
+    if (!Array.isArray(nextQueue) || nextQueue.length === 0) return false;
+    const nextSignature = this._colorQueueSignature(nextQueue);
+    if (!nextSignature) return false;
+    const queuedSignature = this._pending
+      ? this._colorQueueSignature(this._queue.slice(1))
+      : this._colorQueueSignature(this._queue);
+    return queuedSignature === nextSignature;
+  }
+
+  _refreshInitialSendDelay() {
+    if (this._sentSinceConnect || this._pending) return;
+    this._readyAt = Date.now() + INITIAL_SEND_DELAY_MS;
+    if (this._readyTimer !== null) {
+      clearTimeout(this._readyTimer);
+      this._readyTimer = null;
+    }
+  }
+
+  _currentAckTimeoutMs() {
+    return this._hasReceivedAck ? ACK_TIMEOUT_MS : INITIAL_ACK_TIMEOUT_MS;
+  }
+
+  _attachInputListener() {
+    if (!this._in) return;
+    if (typeof this._in.addEventListener === "function") {
+      this._in.addEventListener("midimessage", this._onMessage);
+      return;
+    }
+    if ("onmidimessage" in this._in) {
+      const previous = this._in.onmidimessage;
+      this._restoreOnMidiMessage = previous;
+      this._in.onmidimessage = (event) => {
+        if (typeof previous === "function") previous.call(this._in, event);
+        this._onMessage(event);
+      };
+    }
+  }
+
+  _detachInputListener() {
+    if (!this._in) return;
+    if (typeof this._in.removeEventListener === "function") {
+      this._in.removeEventListener("midimessage", this._onMessage);
+      return;
+    }
+    if ("onmidimessage" in this._in) {
+      this._in.onmidimessage = this._restoreOnMidiMessage;
+      this._restoreOnMidiMessage = null;
+    }
   }
 }
