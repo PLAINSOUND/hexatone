@@ -1,6 +1,7 @@
 import { CANONICAL_MONZO_BASIS } from "../../../tuning/interval.js";
 import { getWorkspaceSlot } from "../../../tuning/workspace.js";
 import {
+  compareRationalCandidatesBy,
   findRationalCandidates,
   harmonicRadiusFromMonzo,
   scoreRationalCandidate,
@@ -126,9 +127,17 @@ function mergeUniqueCandidates(candidateSets, maxCandidates = 8) {
       merged.push(candidate);
     }
   }
-  // Sort by aggregateScore ascending (lower cost = better).
-  merged.sort((a, b) => a.aggregateScore - b.aggregateScore);
-  return merged.slice(0, maxCandidates);
+  // Sort by aggregateScore with the same tie-break logic used by the core
+  // rationaliser, so popup ordering matches the winning candidate logic.
+  merged.sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => candidate.aggregateScore));
+  if (merged.length <= maxCandidates) return merged;
+  const cutoffScore = merged[maxCandidates - 1].aggregateScore;
+  let end = maxCandidates;
+  while (end < merged.length) {
+    if (Math.abs(merged[end].aggregateScore - cutoffScore) > 1e-9) break;
+    end += 1;
+  }
+  return merged.slice(0, end);
 }
 
 function buildCommittedRatioCandidate(slot, baseRequest) {

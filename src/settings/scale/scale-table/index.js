@@ -989,6 +989,8 @@ const ScaleTable = (props) => {
                   retuning_mode={props.settings.retuning_mode}
                   previewState={previewState}
                   onPreviewChange={onPreviewChange}
+                  hejiAnchorLabelEff={props.heji_anchor_label_eff}
+                  hejiAnchorRatioEff={props.heji_anchor_ratio_eff}
                   colorSuggestionOptions={autoColorOptions}
                   onDegree0Save={(delta) => {
                     // delta: cents degree 0 moved up.
@@ -1180,6 +1182,8 @@ const ScaleTable = (props) => {
                   previewState={previewState}
                   onPreviewChange={onPreviewChange}
                   resetVersion={resetVersion[i + 1] ?? 0}
+                  hejiAnchorLabelEff={props.heji_anchor_label_eff}
+                  hejiAnchorRatioEff={props.heji_anchor_ratio_eff}
                   colorSuggestionOptions={autoColorOptions}
                     onChange={(newStr) => {
                       const next = [...(props.settings.scale || [])];

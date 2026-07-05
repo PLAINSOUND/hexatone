@@ -1,9 +1,11 @@
 import { parseExactInterval } from "./interval.js";
 import {
   buildConsonantFamilyLibrary,
+  chooseBestRationalCandidate,
   enumerateCandidatesFromBounds,
   findRationalCandidates,
   harmonicRadiusFromMonzo,
+  pureHarmonicRadiusFromMonzo,
   primeLimitToBounds,
   rerankCandidatesInContext,
   selectRationalisationContext,
@@ -21,6 +23,11 @@ describe("tuning/rationalise", () => {
   it("computes harmonic radius for 3/2", () => {
     const interval = parseExactInterval("3/2");
     expect(harmonicRadiusFromMonzo(interval.monzo)).toBeCloseTo(0.5 * Math.log2(3), 6);
+  });
+
+  it("computes pure harmonic radius including octave factors", () => {
+    const interval = parseExactInterval("3/2");
+    expect(pureHarmonicRadiusFromMonzo(interval.monzo)).toBeCloseTo(0.5 * (Math.log2(3) + 1), 6);
   });
 
   it("builds sane prime-limit bounds", () => {
@@ -62,6 +69,54 @@ describe("tuning/rationalise", () => {
     });
     expect(results.some((candidate) => candidate.ratioText === "3/2")).toBe(true);
     expect(results.some((candidate) => candidate.ratioText === "4/3")).toBe(false);
+  });
+
+  it("prefers overtonal candidates over undertonal ones when local scores tie", () => {
+    const results = findRationalCandidates(600, {
+      primeBounds: { 3: 7 },
+      centsTolerance: 12,
+      maxCandidates: 4,
+    });
+    expect(results[0].ratioText).toBe("729/512");
+    expect(results.some((candidate) => candidate.ratioText === "1024/729")).toBe(true);
+  });
+
+  it("keeps equal-score enharmonic ties visible past the candidate limit", () => {
+    const results = findRationalCandidates(600, {
+      primeBounds: { 3: 7 },
+      centsTolerance: 12,
+      maxCandidates: 1,
+    });
+    expect(results.map((candidate) => candidate.ratioText)).toEqual([
+      "729/512",
+      "1024/729",
+    ]);
+  });
+
+  it("prefers the smaller unreduced ratio when otonality also ties", () => {
+    const threeOverOne = parseExactInterval("3/1");
+    const threeOverFour = parseExactInterval("3/4");
+    const best = chooseBestRationalCandidate([
+      {
+        ratio: threeOverFour.ratio,
+        ratioText: "3/4",
+        monzo: threeOverFour.monzo,
+        harmonicRadius: harmonicRadiusFromMonzo(threeOverFour.monzo),
+        aggregateScore: 0,
+        primeLimit: 3,
+        oddLimit: 3,
+      },
+      {
+        ratio: threeOverOne.ratio,
+        ratioText: "3/1",
+        monzo: threeOverOne.monzo,
+        harmonicRadius: harmonicRadiusFromMonzo(threeOverOne.monzo),
+        aggregateScore: 0,
+        primeLimit: 3,
+        oddLimit: 3,
+      },
+    ]);
+    expect(best?.ratioText).toBe("3/1");
   });
 
   it("builds a consonant family library including 41/32", () => {

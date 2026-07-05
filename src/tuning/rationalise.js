@@ -145,6 +145,77 @@ export function harmonicRadiusFromMonzo(monzo, basis = CANONICAL_MONZO_BASIS) {
   );
 }
 
+export function pureHarmonicRadiusFromMonzo(monzo, basis = CANONICAL_MONZO_BASIS) {
+  return (
+    0.5 *
+    monzo.reduce((sum, exp, index) => {
+      const prime = basis[index] ?? 2;
+      return sum + Math.abs(exp) * Math.log2(prime);
+    }, 0)
+  );
+}
+
+function monzoOtonalityRank(monzo, basis = CANONICAL_MONZO_BASIS) {
+  let hasPositive = false;
+  let hasNegative = false;
+  for (let index = 1; index < monzo.length; index += 1) {
+    if ((basis[index] ?? 2) === 2) continue;
+    const exp = monzo[index] ?? 0;
+    if (exp > 0) hasPositive = true;
+    else if (exp < 0) hasNegative = true;
+    if (hasPositive && hasNegative) return 1; // mixed
+  }
+  if (hasPositive) return 0; // overtonal
+  if (hasNegative) return 2; // undertonal
+  return 1;
+}
+
+function compareCandidateTuple(aTuple, bTuple) {
+  for (let index = 0; index < aTuple.length; index += 1) {
+    const delta = aTuple[index] - bTuple[index];
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
+function candidateTieBreakTuple(candidate) {
+  const monzo = candidate?.monzo ?? [];
+  const ratio = candidate?.ratio ?? null;
+  const ratioMax = ratio ? Math.max(ratio.n, ratio.d) : Infinity;
+  const ratioSum = ratio ? ratio.n + ratio.d : Infinity;
+  return [
+    monzoOtonalityRank(monzo),
+    ratioMax,
+    ratioSum,
+    pureHarmonicRadiusFromMonzo(monzo),
+    candidate?.harmonicRadius ?? Infinity,
+    candidate?.primeLimit ?? Infinity,
+    candidate?.oddLimit ?? Infinity,
+  ];
+}
+
+export function compareRationalCandidatesBy(candidateA, candidateB, primaryGetter) {
+  const primaryDelta = primaryGetter(candidateA) - primaryGetter(candidateB);
+  if (primaryDelta !== 0) return primaryDelta;
+  const tieDelta = compareCandidateTuple(
+    candidateTieBreakTuple(candidateA),
+    candidateTieBreakTuple(candidateB),
+  );
+  if (tieDelta !== 0) return tieDelta;
+  return String(candidateA?.ratioText ?? "").localeCompare(String(candidateB?.ratioText ?? ""));
+}
+
+function sliceCandidatesWithPrimaryTies(sortedCandidates, limit, primaryGetter, epsilon = 1e-9) {
+  if (sortedCandidates.length <= limit) return sortedCandidates;
+  const cutoffScore = primaryGetter(sortedCandidates[limit - 1]);
+  let end = limit;
+  while (end < sortedCandidates.length) {
+    if (Math.abs(primaryGetter(sortedCandidates[end]) - cutoffScore) > epsilon) break;
+    end += 1;
+  }
+  return sortedCandidates.slice(0, end);
+}
+
 export function primeLimitToBounds(primeLimit) {
   const bounds = {};
   for (const prime of CANONICAL_MONZO_BASIS) {
@@ -436,6 +507,7 @@ function buildCandidateRecordFromMonzo({ monzo, cents, targetCents }) {
     primeLimit: primeLimitFromMonzo(monzo),
     oddLimit: oddLimitFromMonzo(monzo),
     harmonicRadius: harmonicRadiusFromMonzo(monzo),
+    pureHarmonicRadius: pureHarmonicRadiusFromMonzo(monzo),
     region: "symmetric",
     contextualConsonance: 0,
     contextualBestMatch: 0,
@@ -632,7 +704,7 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
       const rawMonzo = buildMonzoFromCombination(combination, rangeEntries);
       _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), targetCents, tol, merged, candidates);
     }
-    candidates.sort((a, b) => cheapBaseScore(a, merged) - cheapBaseScore(b, merged));
+    candidates.sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => cheapBaseScore(candidate, merged)));
     return candidates;
   }
 
@@ -696,7 +768,7 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
     }
   }
 
-  candidates.sort((a, b) => cheapBaseScore(a, merged) - cheapBaseScore(b, merged));
+  candidates.sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => cheapBaseScore(candidate, merged)));
   return candidates;
 }
 
@@ -1034,16 +1106,16 @@ export function rerankCandidatesInContext(candidates, context, options = {}) {
   const scored = candidates.map((candidate) =>
     scoreRationalCandidate({ ...candidate }, context, options, scaleCents, committedMonzos),
   );
-  scored.sort((a, b) => a.aggregateScore - b.aggregateScore);
+  scored.sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => candidate.aggregateScore));
   return scored;
 }
 
 export function chooseBestRationalCandidate(candidates, strategy = "harmonic_radius") {
   if (!candidates.length) return null;
   if (strategy === "aggregate_score") {
-    return [...candidates].sort((a, b) => a.aggregateScore - b.aggregateScore)[0];
+    return [...candidates].sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => candidate.aggregateScore))[0];
   }
-  return [...candidates].sort((a, b) => a.harmonicRadius - b.harmonicRadius)[0];
+  return [...candidates].sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => candidate.harmonicRadius))[0];
 }
 
 export function findRationalCandidates(targetCents, options = {}) {
@@ -1051,14 +1123,26 @@ export function findRationalCandidates(targetCents, options = {}) {
   // against workspace context when available.
   const merged = { ...DEFAULT_RATIONALISE_OPTIONS, ...options };
   const candidates = enumerateCandidatesFromBounds(targetCents, merged);
-  const prefiltered = candidates.slice(0, Math.max(merged.maxCandidates * 3, 16));
+  const prefiltered = sliceCandidatesWithPrimaryTies(
+    candidates,
+    Math.max(merged.maxCandidates * 3, 16),
+    (candidate) => cheapBaseScore(candidate, merged),
+  );
   if (!merged.workspace || merged.targetDegree == null) {
-    return prefiltered.slice(0, merged.maxCandidates).map((candidate) => {
+    return sliceCandidatesWithPrimaryTies(
+      prefiltered,
+      merged.maxCandidates,
+      (candidate) => cheapBaseScore(candidate, merged),
+    ).map((candidate) => {
       candidate.aggregateScore = cheapBaseScore(candidate, merged);
       candidate.globalScore = -candidate.aggregateScore;
       return candidate;
     });
   }
   const context = selectRationalisationContext(merged.workspace, merged.targetDegree, merged);
-  return rerankCandidatesInContext(prefiltered, context, merged).slice(0, merged.maxCandidates);
+  return sliceCandidatesWithPrimaryTies(
+    rerankCandidatesInContext(prefiltered, context, merged),
+    merged.maxCandidates,
+    (candidate) => candidate.aggregateScore,
+  );
 }

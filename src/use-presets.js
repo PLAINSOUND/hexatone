@@ -68,6 +68,17 @@ export const findPreset = (preset) => {
   return default_settings;
 };
 
+function isBuiltinPresetName(name) {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return false;
+  for (const group of presets) {
+    for (const preset of group.settings) {
+      if (preset.name === trimmed) return true;
+    }
+  }
+  return false;
+}
+
 // Scale preset hexSize down on phone-sized screens, but not below 20.
 // Use the short edge so iPhone landscape matches portrait behaviour.
 export const scaleHexSizeForScreen = (hexSize) => {
@@ -325,7 +336,16 @@ const usePresets = (
     const savedSource = sessionStorage.getItem("hexatone_preset_source");
     const savedName = sessionStorage.getItem("hexatone_preset_name");
 
-    if (!savedSource) return;
+    if (!savedSource) {
+      const currentScale = settings?.scale;
+      const currentName = String(settings?.name ?? "").trim();
+      if (Array.isArray(currentScale) && currentScale.length && !isBuiltinPresetName(currentName)) {
+        setActiveSource("user");
+        setActivePresetName(null);
+        setSavedPresetSnapshot(null);
+      }
+      return;
+    }
     if (savedSource === "user" && !savedName) {
       setActiveSource("user");
       setActivePresetName(null);

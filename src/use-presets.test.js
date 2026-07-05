@@ -581,4 +581,45 @@ describe("usePresets refresh ordering", () => {
     expect(lastHook?.activePresetName).toBeNull();
     expect(lastHook?.pendingRestoredPreset).toBeNull();
   });
+
+  it("treats a restored non-built-in scale as an active user workspace when the preset source key is missing", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+
+    let lastHook = null;
+
+    const Harness = () => {
+      const hook = usePresets(
+        {
+          name: "36ed2",
+          scale: ["33.333333", "66.666667", "1200."],
+          fundamental: 440,
+          reference_degree: 0,
+        },
+        vi.fn(),
+        {
+          synthRef: { current: null },
+          onUserInteraction: vi.fn(),
+          bumpImportCount: vi.fn(),
+          bumpPresetRuntimeReset: vi.fn(),
+          currentModulationLibrary: [],
+          setPresetModulationLibrary: vi.fn(),
+          onPresetModulationLibraryLoaded: vi.fn(),
+        },
+      );
+
+      useEffect(() => {
+        lastHook = hook;
+      }, [hook]);
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(lastHook?.activeSource).toBe("user");
+    });
+
+    expect(lastHook?.activePresetName).toBeNull();
+  });
 });

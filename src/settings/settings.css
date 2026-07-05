@@ -3782,13 +3782,14 @@ input.equiv-cell:disabled,
 
 .rationalise-candidate__row1 {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: baseline;
+  flex-wrap: wrap;
 }
 
 .rationalise-candidate__row2 {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: baseline;
   font-size: 0.88em;
   flex-wrap: wrap;
@@ -3811,6 +3812,13 @@ input.equiv-cell:disabled,
 
 .rationalise-candidate__ratio { font-weight: 700; }
 .rationalise-candidate__meta  { color: #885f5f; }
+.rationalise-candidate__heji {
+  display: inline-block;
+  font-family: "Plainsound Sans", serif;
+  font-size: 0.95em;
+  line-height: 1;
+  white-space: nowrap;
+}
 
 .rationalise-candidate__score {
   margin-left: auto;

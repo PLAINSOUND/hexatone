@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "preact/hooks";
 import { parseExactInterval } from "../../../tuning/interval.js";
+import { spelledHejiLabel } from "../../../notation/key-label.js";
+import { createReferenceFrame } from "../../../notation/reference-frame.js";
 import {
   getRationalisationRequest,
   getHumanTestableRationalCandidates,
@@ -16,7 +18,29 @@ import {
   setDegreeComparing,
   setDegreePreview,
 } from "../../../tuning/tuning-preview-runtime.js";
-import { monzoToSuggestedColor } from "../monzo-color.js";
+
+function modulo(value, modulus) {
+  return ((value % modulus) + modulus) % modulus;
+}
+
+function candidateHejiLabel(candidate, settings, hejiAnchorLabelEff, hejiAnchorRatioEff) {
+  const anchorLabel = hejiAnchorLabelEff ?? settings?.heji_anchor_label ?? "A";
+  const anchorRatioText = hejiAnchorRatioEff ?? settings?.heji_anchor_ratio ?? "1/1";
+  try {
+    const frame = createReferenceFrame({
+      anchorLabel,
+      anchorRatio: anchorRatioText,
+      anchorOctave: 4,
+    });
+    const anchorCents = parseExactInterval(anchorRatioText)?.cents ?? 0;
+    const centsFromAnchor = modulo((candidate?.cents ?? 0) - anchorCents, 1200);
+    return spelledHejiLabel(frame, candidate?.ratioText ?? null, centsFromAnchor, {
+      forceShowZeroDeviation: true,
+    });
+  } catch {
+    return null;
+  }
+}
 
 /**
  * TuneCell — drag-to-tune control for a single scale degree.
@@ -56,7 +80,8 @@ const TuneCell = ({
   previewState,
   onPreviewChange,
   resetVersion,
-  colorSuggestionOptions,
+  hejiAnchorLabelEff,
+  hejiAnchorRatioEff,
 }) => {
   const [previewInterval, setPreviewInterval] = useState(null);
   const [rationaliseCandidates, setRationaliseCandidates] = useState(null);
@@ -320,9 +345,12 @@ const TuneCell = ({
       {rationaliseCandidates && (
         <div class="rationalise-dropdown">
           {rationaliseCandidates.map((candidate) => {
-            const suggestedColor = Array.isArray(candidate.monzo)
-              ? monzoToSuggestedColor(candidate.monzo, undefined, colorSuggestionOptions)
-              : null;
+            const hejiLabel = candidateHejiLabel(
+              candidate,
+              settings,
+              hejiAnchorLabelEff,
+              hejiAnchorRatioEff,
+            );
             const tol = parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? 6;
             const pl = parseOptionalPositiveInt(searchPrefs?.primeLimit) ?? 19;
             const region = searchPrefs?.region ?? "symmetric";
@@ -368,33 +396,16 @@ const TuneCell = ({
                 <div class="rationalise-candidate__row1">
                   <span class="rationalise-candidate__ratio">{formatRatioText(candidate.ratioText)}</span>
                   <span class="rationalise-candidate__meta">{candidate.deviation >= 0 ? "+" : ""}{candidate.deviation.toFixed(2)}c</span>
-                  <span class="rationalise-candidate__meta">{formatPrimeLimits(candidate.monzo)}</span>
-                  <span class="rationalise-candidate__meta">hr {candidate.harmonicRadius.toFixed(2)}</span>
-                  <span class="rationalise-candidate__meta rationalise-candidate__score">s {(candidate.globalScore ?? 0).toFixed(2)}</span>
+                  {hejiLabel && (
+                    <span class="rationalise-candidate__meta rationalise-candidate__heji">
+                      {hejiLabel}
+                    </span>
+                  )}
                 </div>
                 <div class="rationalise-candidate__row2">
+                  <span class="rationalise-candidate__meta">{formatPrimeLimits(candidate.monzo)}</span>
+                  <span class="rationalise-candidate__meta">hr {candidate.harmonicRadius.toFixed(2)}</span>
                   <span class="rationalise-candidate__meta">s_ctx {(candidate.contextualConsonance ?? 0).toFixed(2)}</span>
-                  {candidate.contextualBestRatio && (
-                    <span class="rationalise-candidate__meta">
-                      s_tune {candidate.contextualBestRatio}
-                    </span>
-                  )}
-                  <span class="rationalise-candidate__meta">s_oton {(candidate.branchExtent ?? 0).toFixed(2)}</span>
-                  {suggestedColor && (
-                    <span
-                      class="rationalise-candidate__suggested-color"
-                      title={suggestedColor.explanation}
-                    >
-                      <span
-                        class="rationalise-candidate__suggested-swatch"
-                        style={{ backgroundColor: suggestedColor.screenHex }}
-                        aria-hidden="true"
-                      />
-                      <span class="rationalise-candidate__meta">
-                        col {suggestedColor.familyPrime}L
-                      </span>
-                    </span>
-                  )}
                 </div>
               </button>
             );

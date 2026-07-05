@@ -1,4 +1,18 @@
 import { render, fireEvent, waitFor, screen } from "@testing-library/preact";
+import { vi } from "vitest";
+
+vi.mock("./preset_values", () => ({
+  presets: [
+    {
+      name: "Tests",
+      settings: [
+        { name: "Preset A" },
+        { name: "Preset B" },
+      ],
+    },
+  ],
+}));
+
 import CustomPresets, { loadCustomPresets } from "./custom-presets.js";
 
 const realFileReader = globalThis.FileReader;
@@ -200,6 +214,22 @@ describe("CustomPresets save, export and delete", () => {
         ],
       }),
     );
+  });
+
+  it("shows Save current settings for a restored non-built-in workspace even when activeSource is empty", () => {
+    render(
+      <CustomPresets
+        {...baseProps}
+        settings={{
+          name: "36ed2",
+          scale: ["33.333333", "66.666667", "1200."],
+          equivSteps: 36,
+          fundamental: 440,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Save current settings")).toBeTruthy();
   });
 
   it("exports the current tuning as json", () => {

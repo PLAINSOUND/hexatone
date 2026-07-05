@@ -9,6 +9,7 @@ import PropTypes from "prop-types";
 import { fileToPreset, settingsToPresetJson } from "../scale/parse-scale";
 import { normalizeModulationHistory } from "../../tuning/modulation-runtime.js";
 import { resolveKeyColorsMode } from "../scale/key-colors-mode.js";
+import { presets as builtinPresetGroups } from "./preset_values";
 
 const STORAGE_KEY = "hexatone_custom_presets";
 
@@ -66,6 +67,12 @@ const downloadFile = (content, filename, mimeType = "application/json") => {
 
 const safeName = (name) => (name || "preset").replace(/[^a-zA-Z0-9_\-]/g, "_");
 
+const isBuiltinPresetName = (name) => {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return false;
+  return builtinPresetGroups.some((group) => group.settings.some((preset) => preset.name === trimmed));
+};
+
 const CustomPresets = ({
   settings,
   onLoad,
@@ -119,6 +126,12 @@ const CustomPresets = ({
   };
 
   const tuningName = (settings.name || "").trim();
+  const hasNonBuiltinWorkspace =
+    Array.isArray(settings.scale) &&
+    settings.scale.length > 0 &&
+    !!tuningName &&
+    !isBuiltinPresetName(tuningName);
+  const showWorkspaceActions = !!activeSource || hasNonBuiltinWorkspace;
   const isExisting = presets.some((p) => p.name === tuningName);
   const isLoadedUserPreset =
     isActive && activeSource === "user" && activePresetName && activePresetName === tuningName;
@@ -441,7 +454,7 @@ const CustomPresets = ({
       </label>
 
       {/* ── Save / Export — show when a preset is active ── */}
-      {activeSource && (
+      {showWorkspaceActions && (
         <div class="settings-form__action-row">
           <span class="settings-form__action-group settings-form__action-group--wrap">
             <button type="button" class="preset-action-btn" onClick={handleSave}>
