@@ -239,6 +239,24 @@ describe("sequencer transport", () => {
     }, bars)).toBe(1.3125);
   });
 
+  it("can represent an exact explicit barline as the end of the preceding bar", () => {
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+      { id: 2, position: 2, numerator: 4, denominator: 4 },
+    ];
+
+    expect(absolutePositionToBarBeat(2, bars, 1, 9, null, true)).toEqual({
+      barNumber: 1,
+      beat: 4,
+      numerator: 1,
+      denominator: 1,
+      barStart: 1,
+      barLength: 1,
+      beatsPerBar: 4,
+      beatUnit: 4,
+    });
+  });
+
   it("preserves an explicitly chosen denominator on reverse conversion", () => {
     const bars = [
       { id: 1, position: 1, numerator: 4, denominator: 4 },

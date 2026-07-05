@@ -137,6 +137,7 @@ const EventRow = ({
     event.fractionDenominator,
     9,
     drafts.terminalBarlinePosition,
+    event.kind === "release",
   );
   const draftKey = drafts.eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
   const barRelativeDraft = drafts.barRelativeDrafts[draftKey] ?? null;

@@ -476,7 +476,34 @@ export function absolutePositionToBarBeat(
   preferredDenominator = null,
   maxDenominator = 9,
   terminalPosition = null,
+  preferBarEnd = false,
 ) {
+  const numericPosition = Number(position);
+  if (preferBarEnd && Number.isFinite(numericPosition)) {
+    const currentContext = barContextForPosition(numericPosition, bars, terminalPosition);
+    const previousContext = barContextForPosition(numericPosition - 0.000001, bars, terminalPosition);
+    if (
+      currentContext
+      && previousContext
+      && currentContext.barNumber !== previousContext.barNumber
+      && Math.abs(numericPosition - Number(currentContext.bar?.position)) < 1e-9
+    ) {
+      const previousBar = previousContext.bar;
+      const previousBeatsPerBar = normalizeBeatsPerBar(previousBar?.numerator);
+      if (previousBeatsPerBar > 0) {
+        return {
+          barNumber: previousContext.barNumber,
+          beat: previousBeatsPerBar,
+          numerator: 1,
+          denominator: 1,
+          barStart: previousBar.position,
+          barLength: previousContext.barLength,
+          beatsPerBar: previousBeatsPerBar,
+          beatUnit: normalizeBeatUnit(previousBar?.denominator),
+        };
+      }
+    }
+  }
   const context = barContextForPosition(position, bars, terminalPosition);
   if (!context) return null;
 
