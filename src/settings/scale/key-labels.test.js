@@ -94,6 +94,46 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(onAtomicChange).not.toHaveBeenCalled();
   });
 
+  it("shows Copy HEJI to Note Names only when Key Labels is set to HEJI", () => {
+    const { rerender } = render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={["A"]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          heji_anchor_ratio: "1/1",
+          heji_anchor_label: "A",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Copy HEJI to Note Names" })).toBeTruthy();
+
+    rerender(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={["A"]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "note_names",
+          heji_anchor_ratio: "1/1",
+          heji_anchor_label: "A",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Copy HEJI to Note Names" })).toBeNull();
+  });
+
   it('canonicalises a bare "0" HEJI anchor ratio to "1/1" on blur', () => {
     const onChange = vi.fn();
 

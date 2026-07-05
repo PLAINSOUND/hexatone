@@ -622,4 +622,48 @@ describe("usePresets refresh ordering", () => {
 
     expect(lastHook?.activePresetName).toBeNull();
   });
+
+  it("restores an unsaved generated workspace as a user source even when its name collides with a built-in preset", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem("hexatone_preset_source", "user");
+    sessionStorage.setItem("hexatone_preset_name", "36ed2");
+
+    let lastHook = null;
+
+    const Harness = () => {
+      const hook = usePresets(
+        {
+          name: "36ed2",
+          scale: ["33.333333", "66.666667", "1200."],
+          fundamental: 440,
+          reference_degree: 0,
+        },
+        vi.fn(),
+        {
+          synthRef: { current: null },
+          onUserInteraction: vi.fn(),
+          bumpImportCount: vi.fn(),
+          bumpPresetRuntimeReset: vi.fn(),
+          currentModulationLibrary: [],
+          setPresetModulationLibrary: vi.fn(),
+          onPresetModulationLibraryLoaded: vi.fn(),
+        },
+      );
+
+      useEffect(() => {
+        lastHook = hook;
+      }, [hook]);
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await waitFor(() => {
+      expect(lastHook?.activeSource).toBe("user");
+    });
+
+    expect(lastHook?.activePresetName).toBeNull();
+    expect(lastHook?.pendingRestoredPreset).toBeNull();
+  });
 });

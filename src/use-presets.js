@@ -79,6 +79,10 @@ function isBuiltinPresetName(name) {
   return false;
 }
 
+function hasRestorableWorkspace(settings = {}) {
+  return Array.isArray(settings?.scale) && settings.scale.length > 0;
+}
+
 // Scale preset hexSize down on phone-sized screens, but not below 20.
 // Use the short edge so iPhone landscape matches portrait behaviour.
 export const scaleHexSizeForScreen = (hexSize) => {
@@ -370,6 +374,11 @@ const usePresets = (
           const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
           setPresetModulationLibrary(savedLibrary);
           onPresetModulationLibraryLoaded?.(savedLibrary);
+        } else if (hasRestorableWorkspace(settings)) {
+          setActiveSource("user");
+          setActivePresetName(null);
+          setSavedPresetSnapshot(null);
+          return;
         }
       }
       setPendingRestoredPreset({ source: savedSource, name: savedName });
@@ -414,6 +423,11 @@ const usePresets = (
         bumpImportCount?.();
         setSettings(() => merged, { updateUrl: false });
         schedulePresetRuntimeReset(bumpPresetRuntimeReset);
+      } else if (hasRestorableWorkspace(settings)) {
+        setActiveSource("user");
+        setActivePresetName(null);
+        setSavedPresetSnapshot(null);
+        setRestoredOnMount(false);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
