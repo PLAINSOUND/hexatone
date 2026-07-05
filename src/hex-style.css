@@ -755,7 +755,7 @@ a:hover {
   min-width: 11.3rem;
   padding: 7px 9px;
   border-radius: 5px;
-  background: rgba(220, 245, 250, 0.78);
+  background: rgba(220, 245, 250, 0.68);
   -webkit-backdrop-filter: blur(12px) saturate(0.9);
   backdrop-filter: blur(12px) saturate(0.9);
   border: 1px solid rgba(0, 127, 150, 0.35);
