@@ -1825,19 +1825,24 @@ td.scale-color-col .color-input {
 #sidebar .sequencer-pause-glyph {
   position: relative;
   width: 0.66rem;
-  height: 0.66rem;
+  height: 0.58rem;
   flex: 0 0 0.66rem;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  vertical-align: middle;
 }
 
 #sidebar .sequencer-pause-glyph::before,
 #sidebar .sequencer-pause-glyph::after {
   content: "";
   position: absolute;
-  top: 0;
+  top: 50%;
   width: 0.18rem;
-  height: 0.66rem;
+  height: 0.58rem;
   background: currentColor;
+  transform: translateY(-50%);
 }
 
 #sidebar .sequencer-pause-glyph::before {
