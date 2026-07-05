@@ -35,7 +35,7 @@ function candidateHejiLabel(candidate, settings, hejiAnchorLabelEff, hejiAnchorR
     const anchorCents = parseExactInterval(anchorRatioText)?.cents ?? 0;
     const centsFromAnchor = modulo((candidate?.cents ?? 0) - anchorCents, 1200);
     return spelledHejiLabel(frame, candidate?.ratioText ?? null, centsFromAnchor, {
-      forceShowZeroDeviation: true,
+      suppressDeviation: true
     });
   } catch {
     return null;
