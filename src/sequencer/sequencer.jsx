@@ -1485,10 +1485,7 @@ const Sequencer = ({
         </legend>
         <p>
           <em>
-            ENTER stores currently sounding notes, including attack and release velocity, pressure, 
-            and timbre data if available. May be layered with notes from a previous snapshot 
-            to build up chords in stages. The Sequence panel, below, allows snapshots to be 
-            played, ordered, and edited.
+            ENTER stores currently sounding notes, including attack / release velocity, pressure, and timbre data if available. The Sequence panel, below, allows snapshots to be played, re-ordered, and edited. Changing the global or bar-relative position of events automatically creates cues that may be triggered one-by-one. By adding bars with time signatures, tempo markers, repeats, and empty snapshots where needed, users can generate a musical score and automate timed playback.           
           </em>
         </p>
         <div class="preset-actions preset-actions--library">
