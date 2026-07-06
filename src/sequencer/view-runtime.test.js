@@ -65,7 +65,7 @@ describe("sequencer view runtime", () => {
       sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }],
       snapshots: [{ id: "s1" }, { id: "s2" }],
       cueExpandedSnapshotIds: new Set(["s1"]),
-    })).toEqual({ kind: "snapshot", targetKey: "s2" });
+    })).toEqual({ kind: "snapshot", targetKey: "s1" });
 
     expect(deriveCueScrollAnchorTarget({
       showAllEvents: false,

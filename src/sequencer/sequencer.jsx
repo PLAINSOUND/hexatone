@@ -728,14 +728,15 @@ const Sequencer = ({
       selectBarForPosition(cueGroup.time);
       return;
     }
+    const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
     if (showAllEvents) {
-      const anchorSnapshotId = snapshots[cueGroup.snapshotIndex]?.id ?? null;
+      const anchorSnapshotId = firstSnapshotIdInSet(previewExpandedIds, snapshots)
+        ?? (snapshots[cueGroup.snapshotIndex]?.id ?? null);
       if (anchorSnapshotId != null) {
         const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
         scrollNodeIntoPanel(snapshotRow);
       }
     } else {
-      const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
       if (previewExpandedIds.size > 0) {
         setExpandedIds(previewExpandedIds);
         const anchorSnapshotId = firstSnapshotIdInSet(previewExpandedIds, snapshots);

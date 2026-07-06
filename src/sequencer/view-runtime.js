@@ -101,13 +101,16 @@ export function deriveCueScrollAnchorTarget({
       };
     }
   }
+  const snapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
+  if (snapshotId != null) {
+    return { kind: "snapshot", targetKey: snapshotId };
+  }
   if (showAllEvents) {
     const cueGroup = sequenceCueGroups[activeCueIndex - 1] ?? null;
-    const snapshotId = cueGroup != null ? (snapshots[cueGroup.snapshotIndex]?.id ?? null) : null;
-    return snapshotId == null ? null : { kind: "snapshot", targetKey: snapshotId };
+    const fallbackSnapshotId = cueGroup != null ? (snapshots[cueGroup.snapshotIndex]?.id ?? null) : null;
+    return fallbackSnapshotId == null ? null : { kind: "snapshot", targetKey: fallbackSnapshotId };
   }
-  const snapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
-  return snapshotId == null ? null : { kind: "snapshot", targetKey: snapshotId };
+  return null;
 }
 
 export function sameSnapshotSet(left, right) {
