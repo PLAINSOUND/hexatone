@@ -58,6 +58,10 @@ import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
 import {
+  shiftStructuralMarkersAfterSnapshotDeletion,
+  shiftStructuralMarkersAfterSnapshotInsertion,
+} from "./sequencer/structure-editing.js";
+import {
   deriveImplicitRepeatStartPosition,
   deriveImplicitRepeatStartPositionsForDanglingEnds,
   normalizeBarMarker,
@@ -844,19 +848,18 @@ const App = () => {
   const snapshotPaletteDragRef = useRef(null);
   const snapshotPaletteUserMovedRef = useRef(false);
 
-  const onTakeSnapshot = useCallback(() => {
-    const notes = keysRef.current?.getSnapshot();
-    if (!notes?.length) return;
+  const appendSequenceSnapshot = useCallback((notes = []) => {
     const id = ++snapshotIdRef.current;
+    const snapshotNotes = Array.isArray(notes) ? notes : [];
     setSnapshots((prev) => {
       const nextSnapshots = [
         ...prev,
         {
           id,
           length: 1,
-          description: buildSnapshotDescription(notes, snapshotLabelMode),
+          description: buildSnapshotDescription(snapshotNotes, snapshotLabelMode),
           descriptionManual: false,
-          notes,
+          notes: snapshotNotes,
         },
       ];
       if (sequenceAutoCreateBars) {
@@ -873,6 +876,16 @@ const App = () => {
     setSelectedSnapshotId(id);
     setSelectedSnapshotMarker(null);
   }, [sequenceAutoCreateBars, snapshotLabelMode]);
+
+  const onTakeSnapshot = useCallback(() => {
+    const notes = keysRef.current?.getSnapshot();
+    if (!notes?.length) return;
+    appendSequenceSnapshot(notes);
+  }, [appendSequenceSnapshot]);
+
+  const onAddEmptySnapshot = useCallback(() => {
+    appendSequenceSnapshot([]);
+  }, [appendSequenceSnapshot]);
 
   const onLoadSequence = useCallback((sequence) => {
     const nextSnapshots = Array.isArray(sequence?.snapshots)
@@ -1625,12 +1638,25 @@ const App = () => {
         keysRef.current?.stopSnapshot();
         setPlayingSnapshotId(null);
       }
+      const deletedSnapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === id);
       const nextSnapshots = snapshots.filter((snapshot) => snapshot.id !== id);
+      if (deletedSnapshotIndex >= 0) {
+        const deletionPosition = deletedSnapshotIndex + 1;
+        const shifted = shiftStructuralMarkersAfterSnapshotDeletion({
+          bars: sequenceBars,
+          tempi: sequenceTempi,
+          repeats: sequenceRepeats,
+          deletionPosition,
+        });
+        setSequenceBars(shifted.bars);
+        setSequenceTempi(shifted.tempi);
+        setSequenceRepeats(shifted.repeats);
+      }
       setSnapshots(nextSnapshots);
       setSelectedSnapshotId((current) => (current === id ? (nextSnapshots[0]?.id ?? null) : current));
       setSelectedSnapshotMarker((current) => (current?.snapshotId === id ? null : current));
     },
-    [playingSnapshotId, snapshots],
+    [playingSnapshotId, sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
   );
 
   const onDeleteAllSnapshots = useCallback(() => {
@@ -1708,9 +1734,19 @@ const App = () => {
       const next = [...prev];
       const insertIdx = side === "after" ? toIdx + 1 : toIdx;
       next.splice(insertIdx, 0, duplicate);
+      const insertionPosition = insertIdx + 1;
+      const shifted = shiftStructuralMarkersAfterSnapshotInsertion({
+        bars: sequenceBars,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        insertionPosition,
+      });
+      setSequenceBars(shifted.bars);
+      setSequenceTempi(shifted.tempi);
+      setSequenceRepeats(shifted.repeats);
       return next;
     });
-  }, []);
+  }, [sequenceBars, sequenceRepeats, sequenceTempi]);
 
   const onUpdateSnapshot = useCallback((id, updates) => {
     setSnapshots((prev) => prev.map((snapshot) => {
@@ -3519,6 +3555,7 @@ const App = () => {
               playingSnapshotId={playingSnapshotId}
               playhead={sequencePlayhead}
               onTakeSnapshot={onTakeSnapshot}
+              onAddEmptySnapshot={onAddEmptySnapshot}
               onLoadSequence={onLoadSequence}
               onSequenceNameChange={onSequenceNameChange}
               onSequenceDescriptionChange={setActiveSequenceDescription}

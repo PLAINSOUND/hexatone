@@ -333,13 +333,13 @@ const SequenceLibrary = ({
   return (
     <fieldset>
       <legend>
-        <b>User Sequences</b>
+        <b>Sequences</b>
       </legend>
 
       {(savedSequences.length > 0 || workspaceStatus === "draft") && (
         <label class="preset-selector-row">
           <select value={menuValue} onChange={handleSelect}>
-            <option value="">Choose a user sequence:</option>
+            <option value="">Choose a sequence:</option>
             {workspaceStatus === "draft" && (
               <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>
             )}

@@ -109,6 +109,7 @@ const Sequencer = ({
   playingSnapshotId,
   playhead,
   onTakeSnapshot,
+  onAddEmptySnapshot,
   onLoadSequence,
   onSequenceNameChange,
   onSequenceDescriptionChange,
@@ -1493,6 +1494,9 @@ const Sequencer = ({
         <div class="preset-actions preset-actions--library">
           <button type="button" class="preset-action-btn" onClick={onTakeSnapshot}>
             Capture
+          </button>
+          <button type="button" class="preset-action-btn" onClick={onAddEmptySnapshot}>
+            Empty
           </button>
           {snapshots.length > 0 &&
             (
