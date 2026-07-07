@@ -1536,7 +1536,7 @@ const Sequencer = ({
 
       <fieldset>
         <legend>
-          <b>Sequence</b>
+          <b>Edit & Play</b>
           <button
             type="button"
             class="section-collapse-toggle"
