@@ -61,7 +61,6 @@ import scale_55_edo from "scales/55edo.scl?raw";
 import scale_72_edo from "scales/72edo.scl?raw";
 
 import scale_1cent from "scales/1cent.scl?raw";
-import scale_harp from "scales/harp.scl?raw";
 import scale_55cents from "scales/55cents.scl?raw";
 
 //import the Scala file parser, which can output scale: [], colors: [], labels: [], errors: [],
@@ -383,7 +382,7 @@ export const presets = [
         "equivSteps": 12,
         "note_names": ["E", "E", "F", "G", "G", "A", "A", "B", "C", "C", "D", "D"],
         "note_colors": [
-          "#ffffff",
+          "#ffa0a0",
           "#fef5be",
           "#e6d7fe",
           "#ffe5e5",
@@ -760,7 +759,7 @@ export const presets = [
           "255"
         ],
         "note_colors": [
-          "#ff7070",
+          "#ff8989",
           "#c9a573",
           "#e9d7d3",
           "#dfffd6",
@@ -941,7 +940,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9d9d",
+          "#ffb2b2",
           "#c3c3d5",
           "#ededf7",
           "#c3c3d5",
@@ -976,7 +975,7 @@ export const presets = [
         "note_names": ["C", "D", "D", "E", "E", "F", "F", "G", "A", "A", "B", "B"],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffcccc",
+          "#ffcbcb",
           "#d0d0d7",
           "#ffffff",
           "#d0d0d7",
@@ -1207,7 +1206,7 @@ export const presets = [
         "note_names": ["E", "E", "F", "G", "G", "A", "A", "B", "C", "C", "D", "D"],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffa5a5",
+          "#ffa0a0",
           "#fef5be",
           "#e6d7fe",
           "#ffe5e5",
@@ -1240,7 +1239,7 @@ export const presets = [
         "note_names": ["B", "C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "B"],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9393",
+          "#ff8f8f",
           "#b6e8a1",
           "#eecbc9",
           "#beb58f",
@@ -1250,7 +1249,7 @@ export const presets = [
           "#e9e1b4",
           "#beb58f",
           "#eecbc9",
-          "#e2d3f1",
+          "#ddcce6",
           "#e7e1c8"
         ],
         "key_colors_mode": "manual",
@@ -1284,7 +1283,7 @@ export const presets = [
         "equivSteps": 12,
         "note_names": ["B", "C", "C", "D", "*nD", "E", "*nE", "F", "G", "G", "A", "*nA"],
         "note_colors": [
-          "#ff9494",
+          "#ff9191",
           "#b6e8a1",
           "#eecbc9",
           "#beb58f",
@@ -1294,7 +1293,7 @@ export const presets = [
           "#e9e1b4",
           "#beb58f",
           "#eecbc9",
-          "#e2d3f1",
+          "#ddcce6",
           "#ffffff"
         ],
         "key_labels": "note_names",
@@ -1352,7 +1351,7 @@ export const presets = [
         "note_names": ["C", "D", "D", "E", "E", "F", "G", "G", "A", "A", "B", "B"],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffa2a2",
+          "#ff9b9b",
           "#f8c9c9",
           "#ffffff",
           "#ffe5e5",
@@ -1385,7 +1384,7 @@ export const presets = [
         "note_names": ["C", "C", "D", "E", "F", "F", "F", "G", "A", "A", "B", "B"],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffa8a8",
+          "#ffa3a3",
           "#dfffd6",
           "#ffffff",
           "#ffe5e5",
@@ -1418,7 +1417,7 @@ export const presets = [
         "note_names": ["C", "D", "D", "E", "E", "F", "F", "G", "A", "A", "B", "B"],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffd0d0",
+          "#ffcfcf",
           "#e6d7fe",
           "#ffffff",
           "#e6d7fe",
@@ -1451,7 +1450,7 @@ export const presets = [
         "note_names": ["C", "C", "D", "E", "E", "F", "F", "G", "G A", "A", "B", "B"],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffdbdb",
+          "#ffd7d7",
           "#cfcfcf",
           "#ffffff",
           "#c6c6c6",
@@ -1672,8 +1671,8 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffa3a3",
-          "#ead9fa",
+          "#ff8e8e",
+          "#ebd0e0",
           "#e6d7fe",
           "#ffffff",
           "#d0d0d7",
@@ -1728,7 +1727,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffcdcd",
+          "#ffcbcb",
           "#d0d0d7",
           "#fffae5",
           "#ffffff",
@@ -1736,7 +1735,7 @@ export const presets = [
           "#fffae5",
           "#ffffff",
           "#ffffff",
-          "#dee2da",
+          "#d0d0d7",
           "#fffae5",
           "#ffffff",
           "#d0d0d7",
@@ -1794,7 +1793,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffc8c8",
           "#d0d0d7",
           "#dee2da",
           "#fffae5",
@@ -1880,7 +1879,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9898",
+          "#ff9191",
           "#e6d7fe",
           "#ffe5e5",
           "#fffae5",
@@ -1978,7 +1977,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
          "note_colors": [
-          "#ff9898",
+          "#ff9191",
           "#e6d7fe",
           "#ffe5e5",
           "#fffae5",
@@ -2112,7 +2111,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9f9f",
+          "#ff9898",
           "#e6d7fe",
           "#ffe5e5",
           "#fffae5",
@@ -2282,7 +2281,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9f9f",
+          "#ff9898",
           "#f4b0d1",
           "#8fbd94",
           "#f6f2db",
@@ -2398,7 +2397,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff7070",
+          "#ff8989",
           "#e6d7fe",
           "#ffcba8",
           "#ffffff",
@@ -2429,7 +2428,7 @@ export const presets = [
         "center_degree": 0,
       },
       {
-        "name": "19-tone partial sequence (32°-52°) (Odd Partial Notation)",
+        "name": "19-tone partial sequence (32°-52°) (Odd Partials)",
         "description":
           "A cycle of harmonic partials (32° 33°) 34° to 51° (52°), repeating at the perfect fifth over changing fundamentals. Partial 48° is reinterpreted as 32° (and 51° = 34°); the fundamental shifts up a perfect fifth. Matching partial numbers produce perfect fifths instead of octaves. Useful for investigating possible chords of higher partials embedded within a perfect fifth, for example 6:7:8:9, 8:9:11:12, 10:12:13:15, and others. The 48° of the central transposition of the scale is set to 440 Hz.",
         "short_description": "19-HS_34to52-Odd",
@@ -2459,7 +2458,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff7070",
+          "#ff8989",
           "#e6d7fe",
           "#ffcba8",
           "#ffffff",
@@ -2559,7 +2558,7 @@ export const presets = [
         "note_colors": [],
         "key_colors_mode": "manual",
         "note_colors": [
-          "#ededed",
+          "#ff8b8b",
           "#ffffff",
           "#ddfe95",
           "#ffe5e5",
@@ -2694,7 +2693,7 @@ export const presets = [
         "note_colors": [],
         "key_colors_mode": "manual",
         "note_colors": [
-          "#ddfe95",
+          "#ff8d8d",
           "#ffe5e5",
           "#d6f7ff",
           "#b6ece3",
@@ -2972,7 +2971,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffa2a2",
+          "#ff9b9b",
           "#ffffff",
           "#f8c9c9",
           "#ffffff",
@@ -3024,7 +3023,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffa2a2",
+          "#ff9c9c",
           "#dfffd6",
           "#ffffff",
           "#f8c9c9",
@@ -3084,7 +3083,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffbcbc",
+          "#ffb9b9",
           "#e9d7d3",
           "#fffae5",
           "#ffffff",
@@ -3166,7 +3165,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9696",
+          "#ff8f8f",
           "#e9d7d3",
           "#dfffd6",
           "#fffae5",
@@ -3283,7 +3282,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9a9a",
+          "#ff9393",
           "#e9d7d3",
           "#dfffd6",
           "#f4e6f2",
@@ -3441,7 +3440,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff7070",
+          "#ff8989",
           "#c9a573",
           "#e9d7d3",
           "#dfffd6",
@@ -3568,7 +3567,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff7070",
+          "#ff8888",
           "#c9a573",
           "#ffb8da",
           "#ffffff",
@@ -3665,7 +3664,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9898",
+          "#ff8e8e",
           "#e9d7d3",
           "#dfffd6",
           "#f4e6f2",
@@ -3850,7 +3849,7 @@ export const presets = [
           "C",
         ],
         "note_colors": [
-          "#ffb8b8",
+          "#ffb5b5",
           "#e2caca",
           "#dfffd6",
           "#ffe5e5",
@@ -3985,7 +3984,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffcbcb",
+          "#ffcaca",
           "#e9e1b4",
           "#dfd39a",
           "#ddd5a4",
@@ -4106,7 +4105,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9c9c",
+          "#ff9696",
           "#e5b9bb",
           "#d3c6c5",
           "#d0d0d7",
@@ -4213,7 +4212,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9c9c",
+          "#ff9696",
           "#e5b9bb",
           "#d3c6c5",
           "#d0d0d7",
@@ -4389,7 +4388,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ff9898",
+          "#ff9090",
           "#e5b9bb",
           "#e6e0cb",
           "#f4cdc1",
@@ -4456,7 +4455,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ff9a9a",
           "#dee2da",
           "#e7e7ca",
           "#ffffff",
@@ -4535,7 +4534,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ff9595",
           "#dee2da",
           "#dfffd6",
           "#ece6df",
@@ -4727,7 +4726,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffbbbb",
+          "#ffb8b8",
           "#e0eccb",
           "#e3f5d0",
           "#ffffff",
@@ -5078,7 +5077,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#f9f7eb",
+          "#ffcfcf",
           "#eff4e7",
           "#eee9d3",
           "#e2dfcf",
@@ -5169,7 +5168,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffbdbd",
           "#ffe5e5",
           "#dee2da",
           "#fffae5",
@@ -5265,7 +5264,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffc2c2",
           "#dee2da",
           "#fceec5",
           "#fffae5",
@@ -5366,7 +5365,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffdbdb",
           "#ffe5e5",
           "#fffae5",
           "#dee2da",
@@ -5486,7 +5485,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffdbdb",
           "#ffe5e5",
           "#e4fbe6",
           "#fffae5",
@@ -5587,7 +5586,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffd7d7",
           "#dee2da",
           "#d0d0d7",
           "#ffffff",
@@ -5647,7 +5646,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffd7d7",
           "#dee2da",
           "#d0d0d7",
           "#ffffff",
@@ -5710,7 +5709,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffcbcb",
           "#d0d0d7",
           "#dee2da",
           "#fffae5",
@@ -5785,7 +5784,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#f9f7eb",
+          "#ffdbdb",
           "#eff4e7",
           "#eee9d3",
           "#e2dfcf",
@@ -5869,7 +5868,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#f9f7eb",
+          "#ffdbdb",
           "#eff4e7",
           "#eee9d3",
           "#e2dfcf",
@@ -5953,7 +5952,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#f9f7eb",
+          "#ffcccc",
           "#eff4e7",
           "#eee9d3",
           "#e2dfcf",
@@ -6075,7 +6074,7 @@ export const presets = [
           "C−33"
         ],
         "note_colors": [
-          "#ff9e9e",
+          "#ffb4b4",
           "#e5b9bb",
           "#d3c6c5",
           "#d0d0d7",
@@ -6307,7 +6306,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffa9a9",
           "#e2caca",
           "#ffe5e5",
           "#d0d0d7",
@@ -6413,7 +6412,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ff9d9d",
           "#ffe5e5",
           "#fffae5",
           "#dee2da",
@@ -6790,7 +6789,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ff9d9d",
           "#ffe5e5",
           "#e4fbe6",
           "#fffae5",
@@ -6939,7 +6938,7 @@ export const presets = [
         ],
         "key_labels": "note_names",
         "note_colors": [
-          "#ffffff",
+          "#ffc1c1",
           "#dee2da",
           "#e2caca",
           "#e4fbe6",
@@ -7841,69 +7840,93 @@ export const presets = [
         "center_degree": 0,
       },
       {
-        "name": "Harp Layout",
+        "name": "Harp Layout 12edo",
         "description": "22-tone layout for testing harp pedal combinations.",
-        "scale_import": scale_harp,
         "short_description": "HarpLayout",
-        "scale": parseScale(scale_harp).scale,
+        "scale": [
+          "1\\12",
+          "0\\12",
+          "1\\12",
+          "2\\12",
+          "3\\12",
+          "4\\12",
+          "3\\12",
+          "4\\12",
+          "5\\12",
+          "6\\12",
+          "5\\12",
+          "6\\12",
+          "7\\12",
+          "8\\12",
+          "8\\12",
+          "8\\12",
+          "9\\12",
+          "10\\12",
+          "11\\12",
+          "10\\12",
+          "11\\12",
+          "2/1"
+        ],
         "equivSteps": 22,
         "note_names": [
-          "C",
-          "D",
-          "B",
-          "C",
-          "D",
-          "E",
-          "F",
-          "D",
-          "E",
-          "F",
-          "G",
-          "E",
-          "F",
-          "G",
-          "A",
-          "-",
-          "G",
-          "A",
-          "B",
-          "C",
-          "A",
-          "B",
+          "C",
+          "C",
+          "C",
+          "C",
+          "D",
+          "E",
+          "E",
+          "E",
+          "E",
+          "F",
+          "F",
+          "F",
+          "F",
+          "G",
+          "G",
+          "G",
+          "G",
+          "A",
+          "B",
+          "B",
+          "B",
+          "B"
+        ],
+        "note_colors": [
+          "#ffadad",
+          "d0d0d7",
+          "dee2da",
+          "dee2da",
+          "ffffff",
+          "d0d0d7",
+          "d0d0d7",
+          "dee2da",
+          "ffffff",
+          "ffffff",
+          "d0d0d7",
+          "dee2da",
+          "dee2da",
+          "ffffff",
+          "d0d0d7",
+          "999999",
+          "dee2da",
+          "ffffff",
+          "d0d0d7",
+          "d0d0d7",
+          "dee2da",
+          "ffffff"
         ],
         "key_labels": "note_names",
-        "note_colors": [
-          "#ffffff",
-          "#d0d0d7",
-          "#dee2da",
-          "#dee2da",
-          "#ffffff",
-          "#d0d0d7",
-          "#d0d0d7",
-          "#dee2da",
-          "#ffffff",
-          "#ffffff",
-          "#d0d0d7",
-          "#dee2da",
-          "#dee2da",
-          "#ffffff",
-          "#d0d0d7",
-          "#999999",
-          "#dee2da",
-          "#ffffff",
-          "#d0d0d7",
-          "#d0d0d7",
-          "#dee2da",
-          "#ffffff",
-        ],
         "key_colors_mode": "manual",
+        "fundamental_color": "#ffdbe8",
+        "prime_family_colors": null,
+        "fundamental": 440,
+        "reference_degree": 17,
         "rSteps": 4,
         "drSteps": 1,
         "hexSize": 42,
         "rotation": -16.102113751,
-        "fundamental": 440,
-        "reference_degree": 17,
-        "center_degree": 0,
+        "center_degree": 0
       },
     ],
   },
