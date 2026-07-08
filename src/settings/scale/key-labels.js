@@ -542,7 +542,6 @@ const KeyLabels = (props) => {
             <input
               type="checkbox"
               checked={showPalette}
-              disabled={hejiDisabled}
               onChange={(e) => setShowPalette(e.target.checked)}
             />
             Palette
