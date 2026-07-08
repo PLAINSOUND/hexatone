@@ -169,7 +169,7 @@ export const normalizeStructural = (settings, options = {}) => {
     result["scale"] = workspaceRuntime.scale;
     result["equivInterval"] = workspaceRuntime.equivInterval;
     result["equivSteps"] = workspaceRuntime.equivSteps;
-    const hejiSupported = Math.abs((workspaceRuntime.equivInterval ?? 1200) - 1200) < 0.001;
+    const hejiSupported = Math.abs(workspaceRuntime.equivInterval % 1200 ?? 0) < 0.001;
     result["heji_supported"] = hejiSupported;
     result["pitch_frame"] = null;
 
