@@ -117,6 +117,7 @@ export function onKeyDown(e) {
 
   e.preventDefault();
   if (e.repeat) return;
+  if (!this.settings?.keyCodeToCoords) return;
 
   if (!(e.code in this.settings.keyCodeToCoords)) return;
 
