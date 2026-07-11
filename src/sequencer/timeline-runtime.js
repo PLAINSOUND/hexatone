@@ -41,6 +41,21 @@ export function buildFirstSnapshotEventIds(snapshotEventsById) {
   return ids;
 }
 
+export function buildFirstSnapshotCueEventIds(snapshotEventsById) {
+  const ids = new Map();
+
+  for (const [snapshotId, events] of snapshotEventsById.entries()) {
+    for (const event of events) {
+      if (event?.type !== "note") continue;
+      if (!Number.isFinite(event?.cueIndex)) continue;
+      const key = `${snapshotId}:${event.cueIndex}`;
+      if (!ids.has(key)) ids.set(key, event.eventId);
+    }
+  }
+
+  return ids;
+}
+
 export function buildSnapshotStartCueIndexes(firstSnapshotEventIds, sequenceEvents = []) {
   const indexes = new Map();
 

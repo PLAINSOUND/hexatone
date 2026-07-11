@@ -23,6 +23,11 @@ function pushFilterSettingsToKeys(keysRef, nextMode, nextFilter, shouldSync = tr
   if (shouldSync && keys.settings.lumatone_led_sync) keys.syncLumatoneLEDs?.();
 }
 
+function persistLumatoneFilterSettings(saveControllerPref, mode, filter) {
+  saveControllerPref?.(null, "lumatone_degree_filter_mode", mode);
+  saveControllerPref?.(null, "lumatone_degree_filter", filter);
+}
+
 const LumatoneSettings = ({
   settings,
   snapshots,
@@ -32,6 +37,7 @@ const LumatoneSettings = ({
   hasSysexMidi,
   onChange,
   onEnableLumatoneAutoSync,
+  saveControllerPref,
 }) => {
   const fileInputRef = useRef(null);
   const [savedFilters, setSavedFilters] = useState(() => readLumatoneColorFilterLibrary());
@@ -39,18 +45,11 @@ const LumatoneSettings = ({
     () => localStorage.getItem(LUMATONE_COLOR_FILTER_SELECTED_KEY) || LUMATONE_COLOR_FILTER_ALL,
   );
   const [draftFilter, setDraftFilter] = useState(settings.lumatone_degree_filter ?? "");
-  const [snapshotFilterEnabled, setSnapshotFilterEnabled] = useState(
-    () => !!settings.lumatone_degree_filter_snapshots,
-  );
   const [filterError, setFilterError] = useState("");
 
   useEffect(() => {
     setDraftFilter(settings.lumatone_degree_filter ?? "");
   }, [settings.lumatone_degree_filter]);
-
-  useEffect(() => {
-    setSnapshotFilterEnabled(!!settings.lumatone_degree_filter_snapshots);
-  }, [settings.lumatone_degree_filter_snapshots]);
 
   useEffect(() => {
     localStorage.setItem(LUMATONE_COLOR_FILTER_SELECTED_KEY, selectedSavedName);
@@ -66,7 +65,7 @@ const LumatoneSettings = ({
   );
   const activeFilter = settings.lumatone_degree_filter ?? "";
   const filterActive = settings.lumatone_degree_filter_mode === "filter";
-  const showSnapshotFilters = snapshotFilterEnabled;
+  const showSnapshotFilters = !!settings.lumatone_degree_filter_snapshots;
   const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
     snapshots,
     {
@@ -115,6 +114,7 @@ const LumatoneSettings = ({
     setDraftFilter(normalizedFilter);
     onChange("lumatone_degree_filter_mode", "filter");
     onChange("lumatone_degree_filter", normalizedFilter);
+    persistLumatoneFilterSettings(saveControllerPref, "filter", normalizedFilter);
     pushFilterSettingsToKeys(keysRef, "filter", normalizedFilter, shouldSync);
     setSelectedSavedName(nextSavedName);
     return true;
@@ -126,14 +126,16 @@ const LumatoneSettings = ({
     setDraftFilter(selectedGeneratedFilter.filter);
     onChange("lumatone_degree_filter_mode", "filter");
     onChange("lumatone_degree_filter", selectedGeneratedFilter.filter);
+    persistLumatoneFilterSettings(saveControllerPref, "filter", selectedGeneratedFilter.filter);
     pushFilterSettingsToKeys(keysRef, "filter", selectedGeneratedFilter.filter, true);
-  }, [activeFilter, filterActive, keysRef, onChange, selectedGeneratedFilter]);
+  }, [activeFilter, filterActive, keysRef, onChange, saveControllerPref, selectedGeneratedFilter]);
 
   const selectAllDegrees = () => {
     setFilterError("");
     setDraftFilter("");
     onChange("lumatone_degree_filter_mode", "all");
     onChange("lumatone_degree_filter", "");
+    persistLumatoneFilterSettings(saveControllerPref, "all", "");
     pushFilterSettingsToKeys(keysRef, "all", "", true);
     setSelectedSavedName(LUMATONE_COLOR_FILTER_ALL);
   };
@@ -143,6 +145,7 @@ const LumatoneSettings = ({
     setDraftFilter("");
     onChange("lumatone_degree_filter_mode", LUMATONE_COLOR_FILTER_DARK);
     onChange("lumatone_degree_filter", "");
+    persistLumatoneFilterSettings(saveControllerPref, LUMATONE_COLOR_FILTER_DARK, "");
     pushFilterSettingsToKeys(keysRef, LUMATONE_COLOR_FILTER_DARK, "", true);
     setSelectedSavedName(LUMATONE_COLOR_FILTER_DARK);
   };
@@ -410,8 +413,8 @@ const LumatoneSettings = ({
                   type="checkbox"
                   checked={showSnapshotFilters}
                   onChange={(e) => {
-                    setSnapshotFilterEnabled(e.target.checked);
                     onChange("lumatone_degree_filter_snapshots", e.target.checked);
+                    saveControllerPref?.(null, "lumatone_degree_filter_snapshots", e.target.checked);
                   }}
                 />
                 <em class="settings-form__helper-text">Auto-Generate from Snapshots</em>
@@ -499,6 +502,7 @@ LumatoneSettings.propTypes = {
   hasSysexMidi: PropTypes.bool.isRequired,
   onChange: PropTypes.func.isRequired,
   onEnableLumatoneAutoSync: PropTypes.func,
+  saveControllerPref: PropTypes.func,
 };
 
 export default LumatoneSettings;

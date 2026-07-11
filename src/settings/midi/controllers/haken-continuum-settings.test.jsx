@@ -206,4 +206,62 @@ describe("HakenContinuumSettings", () => {
     expect(onChange).toHaveBeenCalledWith("hakenaudio_raster_filter_mode", "filter");
     expect(onChange).toHaveBeenCalledWith("hakenaudio_raster_filter", "0,4,9");
   });
+
+  it("shows generated snapshot raster filters when the setting is already enabled and snapshots load later", () => {
+    const onChange = vi.fn();
+    const saveControllerPref = vi.fn();
+    const props = {
+      ctrl: { id: "hakenaudio" },
+      settings: {
+        hakenaudio_out_port: null,
+        hakenaudio_x_glide_mode: "pitch_bending",
+        hakenaudio_glide_flip_cc: 67,
+        hakenaudio_raster_filter_mode: "all",
+        hakenaudio_raster_filter: "",
+        hakenaudio_raster_filter_snapshots: true,
+        scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+        equivInterval: 1200,
+        reference_degree: 9,
+        fundamental: 440,
+      },
+      rawPorts: { output: { id: "umone-out", name: "UM-ONE" } },
+      midiOutputs: new Map(),
+      onChange,
+      saveControllerPref,
+      hakenPedalLearnActive: false,
+    };
+
+    const { rerender } = render(
+      <HakenContinuumSettings
+        {...props}
+        snapshots={[]}
+      />,
+    );
+
+    let select = screen.getByRole("combobox", { name: "Continuum Raster Filter" });
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "All Degrees",
+    ]);
+
+    rerender(
+      <HakenContinuumSettings
+        {...props}
+        snapshots={[{
+          id: 1,
+          notes: [
+            { midicents: 69 },
+            { midicents: 64 },
+            { midicents: 60 },
+          ],
+        }]}
+      />,
+    );
+
+    select = screen.getByRole("combobox", { name: "Continuum Raster Filter" });
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "All Degrees",
+      "──────── Snapshots ────────",
+      "Snapshot 1",
+    ]);
+  });
 });

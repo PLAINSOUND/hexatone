@@ -1432,6 +1432,12 @@ td.scale-color-col .color-input {
   background: var(--color-bg);
 }
 
+.sequencer-scroll-panel__save-row {
+  margin-top: 0.3em;
+  margin-bottom: 0.15em;
+  padding-bottom: 0.1em;
+}
+
 @media (max-width: 480px) {
   .sequencer-scroll-panel {
     max-height: calc(100vh - 15.5rem);
@@ -1464,7 +1470,7 @@ td.scale-color-col .color-input {
 .sequencer-playback-actions {
   align-items: center;
   gap: 0.4em;
-  margin-left: 0;
+  margin-left: auto;
 }
 
 .sequencer-playback-key,
@@ -1494,6 +1500,11 @@ td.scale-color-col .color-input {
   padding-right: 0.2em;
 }
 
+#sidebar .sequencer-playback-select--pending {
+  width: 3.75em;
+  min-width: 3.75em;
+}
+
 .sequencer-playback-status {
   min-width: 1.8em;
   text-align: center;
@@ -1515,6 +1526,7 @@ td.scale-color-col .color-input {
 @media (min-width: 481px) {
   .sequencer-playback-row {
     top: 2.55em;
+    flex-wrap: nowrap;
   }
 }
 
@@ -1861,6 +1873,10 @@ td.scale-color-col .color-input {
 #sidebar .sequencer-playback-actions .snapshot-start-icon {
   width: 0.75rem;
   height: 0.75rem;
+}
+
+#sidebar .sequencer-playback-actions .snapshot-start-icon--end {
+  transform: scaleX(-1);
 }
 
 #sidebar .sequencer-arrow-btn:hover {

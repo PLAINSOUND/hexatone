@@ -1616,6 +1616,22 @@ const App = () => {
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
+  const onJumpSequenceEnd = useCallback(() => {
+    const lastCueIndex = sequenceCueGroups.length > 0 ? sequenceCueGroups.length - 1 : null;
+    const lastBarIndex = sortedSequenceBars.length > 0 ? sortedSequenceBars.length - 1 : 0;
+    keysRef.current?.stopSnapshot();
+    sequenceRepeatPlaybackStateRef.current = {};
+    setPlayingSnapshotId(null);
+    setSelectedSnapshotId(null);
+    setSelectedSnapshotMarker(null);
+    setSequencePlayhead({
+      barIndex: lastBarIndex,
+      stepIndex: snapshots.length,
+      markerIndex: lastCueIndex,
+      stopped: true,
+    });
+  }, [sequenceCueGroups.length, snapshots.length, sortedSequenceBars.length]);
+
   const getTimedTransportClockSeconds = useCallback(() => {
     const synthClock = keysRef.current?.synth?.currentTime?.();
     if (Number.isFinite(synthClock)) return synthClock;
@@ -3644,6 +3660,7 @@ const App = () => {
               onPlayCue={onPlaySequenceCue}
               onPlayTimedCue={onPlayTimedSequenceCue}
               onResetSequencePlayhead={onResetSequencePlayhead}
+              onJumpSequenceEnd={onJumpSequenceEnd}
               getTimedTransportClockSeconds={getTimedTransportClockSeconds}
               onAddBar={onAddSequenceBar}
               onAddTempo={onAddSequenceTempo}

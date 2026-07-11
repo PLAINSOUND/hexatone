@@ -4,6 +4,7 @@ import {
   buildFirstCueIndexBySnapshotIndex,
   buildFirstCueTimeBySnapshotIndex,
   buildFirstEventIdByCueIndex,
+  buildFirstSnapshotCueEventIds,
   buildFirstSnapshotEventIds,
   buildSnapshotEventsById,
   buildSnapshotStartCueIndexes,
@@ -80,6 +81,26 @@ describe("sequencer timeline runtime", () => {
     expect(buildFirstCueTimeBySnapshotIndex(cueGroups)).toEqual(new Map([
       [0, 1.125],
       [2, 3.25],
+    ]));
+  });
+
+  it("tracks the first event per snapshot per cue for courtesy markers", () => {
+    const snapshotEventsById = new Map([
+      ["s1", [
+        { type: "note", cueIndex: 1, eventId: "s1:e1" },
+        { type: "note", cueIndex: 1, eventId: "s1:e2" },
+        { type: "note", cueIndex: 2, eventId: "s1:e3" },
+      ]],
+      ["s2", [
+        { type: "note", cueIndex: 2, eventId: "s2:e1" },
+        { type: "note", cueIndex: 2, eventId: "s2:e2" },
+      ]],
+    ]);
+
+    expect(buildFirstSnapshotCueEventIds(snapshotEventsById)).toEqual(new Map([
+      ["s1:1", "s1:e1"],
+      ["s1:2", "s1:e3"],
+      ["s2:2", "s2:e1"],
     ]));
   });
 

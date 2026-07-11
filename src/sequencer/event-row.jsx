@@ -61,8 +61,7 @@ const renderCueMarker = ({
   snapshot,
   event,
   sequenceTime,
-  firstSnapshotEventIds,
-  snapshotStartCueIndexes,
+  firstSnapshotCueEventIds,
 }) => {
   if (event.cueDisplayLead) {
     return (
@@ -79,9 +78,7 @@ const renderCueMarker = ({
     );
   }
 
-  const isCourtesyStart =
-    firstSnapshotEventIds.get(snapshot.id) === event.eventId &&
-    snapshotStartCueIndexes.get(snapshot.id) === event.cueIndex;
+  const isCourtesyStart = firstSnapshotCueEventIds.get(`${snapshot.id}:${event.cueIndex}`) === event.eventId;
   if (!isCourtesyStart) return null;
 
   return (
@@ -216,8 +213,7 @@ const EventRow = ({
           snapshot,
           event,
           sequenceTime,
-          firstSnapshotEventIds: view.firstSnapshotEventIds,
-          snapshotStartCueIndexes: view.snapshotStartCueIndexes,
+          firstSnapshotCueEventIds: view.firstSnapshotCueEventIds,
         })}
       </div>
       <div class="sequencer-event__cell">
@@ -541,8 +537,7 @@ const EventRow = ({
             </button>
           </span>
         ) : ((event.cueDisplayLead || (
-          view.firstSnapshotEventIds.get(snapshot.id) === event.eventId &&
-          view.snapshotStartCueIndexes.get(snapshot.id) === event.cueIndex
+          view.firstSnapshotCueEventIds.get(`${snapshot.id}:${event.cueIndex}`) === event.eventId
         )) ? renderCueTransport({
           cueIndex: event.cueIndex,
           playingSnapshotId: transport.playingSnapshotId,

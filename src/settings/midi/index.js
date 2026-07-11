@@ -682,6 +682,7 @@ const MIDIio = (props) => {
                     hasSysexMidi={hasSysexMidi}
                     onChange={props.onChange}
                     onEnableLumatoneAutoSync={props.onEnableLumatoneAutoSync}
+                    saveControllerPref={saveControllerPref}
                   />
                 )}
 

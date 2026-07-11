@@ -19,6 +19,7 @@ describe("LumatoneSettings", () => {
     );
 
     const onChange = vi.fn();
+    const saveControllerPref = vi.fn();
     const keysRef = {
       current: {
         settings: { lumatone_led_sync: true },
@@ -40,6 +41,7 @@ describe("LumatoneSettings", () => {
         keysRef={keysRef}
         hasSysexMidi={true}
         onChange={onChange}
+        saveControllerPref={saveControllerPref}
       />,
     );
 
@@ -49,11 +51,14 @@ describe("LumatoneSettings", () => {
 
     expect(onChange).toHaveBeenCalledWith("lumatone_degree_filter_mode", "filter");
     expect(onChange).toHaveBeenCalledWith("lumatone_degree_filter", "0,4,7");
+    expect(saveControllerPref).toHaveBeenCalledWith(null, "lumatone_degree_filter_mode", "filter");
+    expect(saveControllerPref).toHaveBeenCalledWith(null, "lumatone_degree_filter", "0,4,7");
     expect(keysRef.current.syncLumatoneLEDs).toHaveBeenCalledTimes(1);
   });
 
   it("applies the All Keys Dark built-in option", () => {
     const onChange = vi.fn();
+    const saveControllerPref = vi.fn();
     const keysRef = {
       current: {
         settings: { lumatone_led_sync: true },
@@ -75,6 +80,7 @@ describe("LumatoneSettings", () => {
         keysRef={keysRef}
         hasSysexMidi={true}
         onChange={onChange}
+        saveControllerPref={saveControllerPref}
       />,
     );
 
@@ -84,11 +90,14 @@ describe("LumatoneSettings", () => {
 
     expect(onChange).toHaveBeenCalledWith("lumatone_degree_filter_mode", "dark");
     expect(onChange).toHaveBeenCalledWith("lumatone_degree_filter", "");
+    expect(saveControllerPref).toHaveBeenCalledWith(null, "lumatone_degree_filter_mode", "dark");
+    expect(saveControllerPref).toHaveBeenCalledWith(null, "lumatone_degree_filter", "");
     expect(keysRef.current.syncLumatoneLEDs).toHaveBeenCalledTimes(1);
   });
 
   it("offers live snapshot-derived filter entries only when auto-generation is enabled", () => {
     const onChange = vi.fn();
+    const saveControllerPref = vi.fn();
     const keysRef = {
       current: {
         settings: { lumatone_led_sync: true },
@@ -123,6 +132,7 @@ describe("LumatoneSettings", () => {
         keysRef={keysRef}
         hasSysexMidi={true}
         onChange={onChange}
+        saveControllerPref={saveControllerPref}
       />,
     );
 
@@ -135,6 +145,7 @@ describe("LumatoneSettings", () => {
     fireEvent.click(screen.getByLabelText("Auto-Generate from Snapshots"));
 
     expect(onChange).toHaveBeenCalledWith("lumatone_degree_filter_snapshots", true);
+    expect(saveControllerPref).toHaveBeenCalledWith(null, "lumatone_degree_filter_snapshots", true);
   });
 
   it("applies an enabled snapshot-derived filter against the current tuning", () => {
@@ -189,6 +200,71 @@ describe("LumatoneSettings", () => {
     expect(onChange).toHaveBeenCalledWith("lumatone_degree_filter_mode", "filter");
     expect(onChange).toHaveBeenCalledWith("lumatone_degree_filter", "0,4,9");
     expect(keysRef.current.syncLumatoneLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows generated snapshot filters when the setting is already enabled and snapshots load later", () => {
+    const onChange = vi.fn();
+    const keysRef = {
+      current: {
+        settings: { lumatone_led_sync: true },
+        syncLumatoneLEDs: vi.fn(),
+      },
+    };
+
+    const props = {
+      settings: {
+        midi_passthrough: false,
+        lumatone_out_port: null,
+        lumatone_led_sync: true,
+        lumatone_degree_filter_mode: "all",
+        lumatone_degree_filter: "",
+        lumatone_degree_filter_snapshots: true,
+        scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+        equivInterval: 1200,
+        reference_degree: 9,
+        fundamental: 440,
+      },
+      rawPorts: { output: { id: "lumatone", name: "Lumatone MIDI" } },
+      midiOutputs: new Map(),
+      keysRef,
+      hasSysexMidi: true,
+      onChange,
+    };
+
+    const { rerender } = render(
+      <LumatoneSettings
+        {...props}
+        snapshots={[]}
+      />,
+    );
+
+    let select = screen.getByRole("combobox", { name: "Lumatone Colour Filter" });
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "All Degrees",
+      "All Keys Dark",
+    ]);
+
+    rerender(
+      <LumatoneSettings
+        {...props}
+        snapshots={[{
+          id: 1,
+          notes: [
+            { midicents: 69 },
+            { midicents: 64 },
+            { midicents: 60 },
+          ],
+        }]}
+      />,
+    );
+
+    select = screen.getByRole("combobox", { name: "Lumatone Colour Filter" });
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "All Degrees",
+      "All Keys Dark",
+      "──────── Snapshots ────────",
+      "Snapshot 1",
+    ]);
   });
 
   it("lets the user reorder saved filters in the menu", () => {

@@ -43,7 +43,106 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-ExtraLight.woff2") format("woff2");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-ExtraLightItalic.woff2") format("woff2");
+  font-weight: 200;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-LightItalic.woff2") format("woff2");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-MediumItalic.woff2") format("woff2");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-SemiBoldItalic.woff2") format("woff2");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plainsound";
+  src: url("./fonts/Plainsound-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
+  --font-plainsound: "Plainsound", serif;
+  --font-plainsound-sans: "Plainsound Sans", sans-serif;
+
   /* iOS safe-area insets (Dynamic Island, home bar) */
   --safe-area-top:   env(safe-area-inset-top,   0);
   --safe-area-left:  env(safe-area-inset-left,  0);

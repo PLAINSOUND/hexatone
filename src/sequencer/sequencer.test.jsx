@@ -133,6 +133,63 @@ describe("Sequencer", () => {
     expect(onAddEmptySnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it("duplicates the save current sequence action at the bottom of Edit & Play", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              { id: "a", midicents: 69, start: 0, end: 1 },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName="Test Sequence"
+        activeSequenceDescription=""
+        sequenceLegato
+        sequenceAutoCreateBars
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "Save current sequence" })).toHaveLength(2);
+  });
+
   it("prefers the dedicated timed cue callback when timed transport dispatches a cue", () => {
     vi.useFakeTimers();
 
@@ -625,6 +682,85 @@ describe("Sequencer", () => {
 
     expect(scrollTopValue).toBe(0);
     expect(onResetSequencePlayhead).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrolls to the bottom when the transport jumps to the end", () => {
+    const onJumpSequenceEnd = vi.fn();
+
+    const { container } = render(
+      <Sequencer
+        snapshots={[
+          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
+          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onJumpSequenceSnapshot={vi.fn()}
+        onJumpSequenceCue={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onJumpSequenceEnd={onJumpSequenceEnd}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddRepeat={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onDeleteRepeat={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onUpdateRepeat={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onDeleteAllSnapshots={vi.fn()}
+        onClearSequence={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onDuplicateSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceSavedName=""
+        activeSequenceDescription=""
+        sequenceLegato
+        snapSequenceToCurrentTuning={false}
+        sequenceAutoCreateBars
+      />,
+    );
+
+    const scrollPanel = container.querySelector(".sequencer-scroll-panel");
+    Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 1000 });
+    Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 320 });
+    let scrollTopValue = 24;
+    Object.defineProperty(scrollPanel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTopValue,
+      set: (value) => {
+        scrollTopValue = value;
+      },
+    });
+
+    fireEvent.click(screen.getByLabelText("move sequence playhead to end"));
+
+    expect(scrollTopValue).toBe(680);
+    expect(onJumpSequenceEnd).toHaveBeenCalledTimes(1);
   });
 
   it("keeps pending cue selection anchored to the earliest sounding snapshot in full-list view", () => {
@@ -1851,7 +1987,7 @@ describe("Sequencer", () => {
     fireEvent.input(bar2Numerator, { currentTarget: { value: "3" }, target: { value: "3" } });
     fireEvent.input(bar2Denominator, { currentTarget: { value: "2" }, target: { value: "2" } });
 
-    fireEvent.click(screen.getByText("Save current sequence"));
+    fireEvent.click(screen.getAllByText("Save current sequence")[0]);
 
     expect(loadUserSequences()[0].bars).toEqual([
       { id: 1, position: 1, numerator: 4, denominator: 4 },
@@ -2717,10 +2853,10 @@ describe("Sequencer", () => {
 
     const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
     const cueTargetSelect = screen.getByLabelText("next cue target");
-    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["(1)"]);
-    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["(1)", "2"]);
-    expect(snapshotTargetSelect.value).toBe("0");
-    expect(cueTargetSelect.value).toBe("0");
+    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(end)"]);
+    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "2", "(end)"]);
+    expect(snapshotTargetSelect.value).toBe("__end__");
+    expect(cueTargetSelect.value).toBe("__end__");
     expect(screen.getByLabelText("next sequence step").disabled).toBe(false);
     expect(screen.getByLabelText("next sequence marker").disabled).toBe(false);
 

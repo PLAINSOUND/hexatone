@@ -6,6 +6,7 @@ export function derivePlayheadNavigationState({
   pendingSnapshotJumpIndex = "",
   pendingCueJumpIndex = "",
 }) {
+  const TERMINAL_SEQUENCE_TARGET = "__end__";
   const rawPlayheadStepIndex = Number.isFinite(playhead?.stepIndex) ? playhead.stepIndex : -1;
   const playheadIsOff = rawPlayheadStepIndex < 0 || snapshots.length === 0;
   const playheadIsEnd = !playheadIsOff && rawPlayheadStepIndex >= snapshots.length;
@@ -36,7 +37,7 @@ export function derivePlayheadNavigationState({
   const snapshotSelectValue = pendingSnapshotJumpIndex !== ""
     ? pendingSnapshotJumpIndex
     : playheadIsEnd
-      ? snapshots.length > 0 ? "0" : ""
+      ? snapshots.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
       : playheadIsOff || playheadStepIndex < 0
         ? normalizedNextSnapshotIndexFromBar >= 0 && normalizedNextSnapshotIndexFromBar < snapshots.length
           ? String(normalizedNextSnapshotIndexFromBar)
@@ -45,7 +46,7 @@ export function derivePlayheadNavigationState({
   const cueSelectValue = pendingCueJumpIndex !== ""
     ? pendingCueJumpIndex
     : playheadIsEnd
-      ? sequenceCueGroups.length > 0 ? "0" : ""
+      ? sequenceCueGroups.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
       : playheadIsOff || (playheadMarkerIndex == null && sequenceCueGroups.length === 0)
         ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
           ? String(nextCueIndexFromBar)
@@ -58,7 +59,7 @@ export function derivePlayheadNavigationState({
   const impliedPendingSnapshotIndex = pendingSnapshotJumpIndex !== ""
     ? pendingSnapshotJumpIndex
     : playheadIsEnd
-      ? snapshots.length > 0 ? "0" : ""
+      ? snapshots.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
       : playheadIsOff || playheadStepIndex < 0
         ? normalizedNextSnapshotIndexFromBar >= 0 && normalizedNextSnapshotIndexFromBar < snapshots.length
           ? String(normalizedNextSnapshotIndexFromBar)
@@ -67,7 +68,7 @@ export function derivePlayheadNavigationState({
   const impliedPendingCueIndex = pendingCueJumpIndex !== ""
     ? pendingCueJumpIndex
     : playheadIsEnd
-      ? sequenceCueGroups.length > 0 ? "0" : ""
+      ? sequenceCueGroups.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
       : playheadIsOff
         ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
           ? String(nextCueIndexFromBar)
@@ -89,5 +90,6 @@ export function derivePlayheadNavigationState({
     cueSelectValue,
     impliedPendingSnapshotIndex,
     impliedPendingCueIndex,
+    terminalSequenceTarget: TERMINAL_SEQUENCE_TARGET,
   };
 }

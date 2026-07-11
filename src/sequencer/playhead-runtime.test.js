@@ -41,7 +41,7 @@ describe("sequencer playhead runtime", () => {
     expect(state.impliedPendingCueIndex).toBe("7");
   });
 
-  it("normalizes end-of-sequence playhead state back to the first selectable item", () => {
+  it("exposes an explicit terminal selection when the playhead is at sequence end", () => {
     const state = derivePlayheadNavigationState({
       playhead: { stepIndex: 5, markerIndex: null, barIndex: 0 },
       sortedBars: [{ id: "bar-1", position: 1 }],
@@ -50,9 +50,9 @@ describe("sequencer playhead runtime", () => {
     });
 
     expect(state.playheadIsEnd).toBe(true);
-    expect(state.snapshotSelectValue).toBe("0");
-    expect(state.cueSelectValue).toBe("0");
-    expect(state.impliedPendingSnapshotIndex).toBe("0");
-    expect(state.impliedPendingCueIndex).toBe("0");
+    expect(state.snapshotSelectValue).toBe("__end__");
+    expect(state.cueSelectValue).toBe("__end__");
+    expect(state.impliedPendingSnapshotIndex).toBe("__end__");
+    expect(state.impliedPendingCueIndex).toBe("__end__");
   });
 });

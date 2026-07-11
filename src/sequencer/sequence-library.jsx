@@ -1,5 +1,5 @@
 import { createRef } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
   normalizeBarMarkers,
@@ -129,6 +129,7 @@ const SequenceLibrary = ({
   onLoadSequence,
   onClearSequence,
   onSequenceSaved,
+  onSaveActionStateChange,
 }) => {
   const [savedSequences, setSavedSequences] = useState(loadUserSequences);
   const [error, setError] = useState("");
@@ -184,12 +185,12 @@ const SequenceLibrary = ({
     ? "Save current sequence and overwrite"
     : "Save current sequence";
 
-  const commitSequences = (next) => {
+  const commitSequences = useCallback((next) => {
     saveUserSequences(next);
     setSavedSequences(next);
-  };
+  }, []);
 
-  const buildWorkspaceRecord = (name) => normalizeSequenceRecord({
+  const buildWorkspaceRecord = useCallback((name) => normalizeSequenceRecord({
     name,
     description: activeSequenceDescription,
     snapshotLabelMode,
@@ -198,7 +199,15 @@ const SequenceLibrary = ({
     snapshots,
     bars,
     repeats,
-  });
+  }), [
+    activeSequenceDescription,
+    autoCreateBars,
+    bars,
+    repeats,
+    snapshotLabelMode,
+    snapshots,
+    tempi,
+  ]);
 
   const loadSequenceByName = (name) => {
     if (!name) return;
@@ -237,7 +246,7 @@ const SequenceLibrary = ({
     beginLoadSequence(e.currentTarget.value);
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!sequenceName) {
       setError("Please enter a Sequence Name first.");
       return;
@@ -253,7 +262,13 @@ const SequenceLibrary = ({
     commitSequences(next);
     setError("");
     onSequenceSaved?.(sequenceName);
-  };
+  }, [
+    buildWorkspaceRecord,
+    commitSequences,
+    onSequenceSaved,
+    savedSequences,
+    sequenceName,
+  ]);
 
   const handleExport = () => {
     if (!sequenceName) {
@@ -267,6 +282,30 @@ const SequenceLibrary = ({
     }
     downloadFile(JSON.stringify(record, null, 2), `${safeName(sequenceName)}.json`);
   };
+
+  useEffect(() => {
+    onSaveActionStateChange?.(
+      workspaceHasContent
+        ? {
+          visible: true,
+          label: saveLabel,
+          action: handleSave,
+        }
+        : {
+          visible: false,
+          label: "",
+          action: null,
+        },
+    );
+  }, [handleSave, onSaveActionStateChange, saveLabel, workspaceHasContent]);
+
+  useEffect(() => () => {
+    onSaveActionStateChange?.({
+      visible: false,
+      label: "",
+      action: null,
+    });
+  }, [onSaveActionStateChange]);
 
   const handleDelete = () => {
     if (!savedSequenceName) return;
@@ -451,6 +490,7 @@ SequenceLibrary.propTypes = {
   onLoadSequence: PropTypes.func.isRequired,
   onClearSequence: PropTypes.func,
   onSequenceSaved: PropTypes.func,
+  onSaveActionStateChange: PropTypes.func,
 };
 
 export default SequenceLibrary;

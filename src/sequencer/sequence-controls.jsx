@@ -59,12 +59,14 @@ const SequenceControls = ({
   onJumpSequenceCue,
   onStepSequenceMarker,
   onResetSequencePlayhead,
+  onJumpSequenceEnd,
   onPlaySequence,
   playingSnapshotId,
   onStopSnapshot,
   timedTransportDisplay,
   onTimedTransportPlayPause,
   onTimedTransportStop,
+  terminalSequenceTarget,
 }) => (
   <>
     {showAllEvents ? (
@@ -264,6 +266,11 @@ const SequenceControls = ({
               setPendingCueJumpIndex("");
               return;
             }
+            if (value === terminalSequenceTarget) {
+              setPendingSnapshotJumpIndex("");
+              setPendingCueJumpIndex("");
+              return;
+            }
             armPendingSnapshot(value);
           }}
         >
@@ -275,6 +282,11 @@ const SequenceControls = ({
               {impliedPendingSnapshotIndex === String(index) ? `(${index + 1})` : String(index + 1)}
             </option>
           ))}
+          {playheadIsEnd && snapshots.length > 0 && (
+            <option value={terminalSequenceTarget}>
+              {impliedPendingSnapshotIndex === terminalSequenceTarget ? "(end)" : "end"}
+            </option>
+          )}
         </select>
         <button
           type="button"
@@ -328,6 +340,11 @@ const SequenceControls = ({
               setPendingSnapshotJumpIndex("");
               return;
             }
+            if (value === terminalSequenceTarget) {
+              setPendingCueJumpIndex("");
+              setPendingSnapshotJumpIndex("");
+              return;
+            }
             armPendingCue(value);
           }}
         >
@@ -339,6 +356,11 @@ const SequenceControls = ({
               {impliedPendingCueIndex === String(index) ? `(${index + 1})` : String(index + 1)}
             </option>
           ))}
+          {playheadIsEnd && sequenceCueGroups.length > 0 && (
+            <option value={terminalSequenceTarget}>
+              {impliedPendingCueIndex === terminalSequenceTarget ? "(end)" : "end"}
+            </option>
+          )}
         </select>
         <button
           type="button"
@@ -414,6 +436,26 @@ const SequenceControls = ({
             ■
           </span>
         </button>
+        <button
+          type="button"
+          class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+          title="Move playhead to end"
+          aria-label="move sequence playhead to end"
+          disabled={snapshots.length === 0 && playheadIsEnd}
+          onClick={() => {
+            runTransportAction(() => onJumpSequenceEnd?.());
+          }}
+        >
+          <svg
+            class="snapshot-start-icon snapshot-start-icon--end"
+            viewBox="0 0 10 10"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+            <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+          </svg>
+        </button>
       </span>
     </div>
 
@@ -435,6 +477,26 @@ const SequenceControls = ({
       </span>
 
       <span class="sequencer-playback-actions">
+        <button
+          type="button"
+          class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+          title="Move playhead to start"
+          aria-label="move timed transport to start"
+          disabled={snapshots.length === 0 && playheadIsOff}
+          onClick={() => {
+            runTransportAction(() => onResetSequencePlayhead?.());
+          }}
+        >
+          <svg
+            class="snapshot-start-icon"
+            viewBox="0 0 10 10"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+            <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+          </svg>
+        </button>
         <button
           type="button"
           class="snapshot-play-btn"
@@ -460,6 +522,26 @@ const SequenceControls = ({
           <span class="snapshot-stop-glyph" aria-hidden="true">
             ■
           </span>
+        </button>
+        <button
+          type="button"
+          class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+          title="Move playhead to end"
+          aria-label="move timed transport to end"
+          disabled={snapshots.length === 0 && playheadIsEnd}
+          onClick={() => {
+            runTransportAction(() => onJumpSequenceEnd?.());
+          }}
+        >
+          <svg
+            class="snapshot-start-icon snapshot-start-icon--end"
+            viewBox="0 0 10 10"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+            <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+          </svg>
         </button>
       </span>
     </div>

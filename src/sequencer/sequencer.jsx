@@ -29,9 +29,8 @@ import {
   buildFirstCueIndexBySnapshotIndex,
   buildFirstCueTimeBySnapshotIndex,
   buildFirstEventIdByCueIndex,
-  buildFirstSnapshotEventIds,
+  buildFirstSnapshotCueEventIds,
   buildSnapshotEventsById,
-  buildSnapshotStartCueIndexes,
 } from "./timeline-runtime.js";
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
 import { buildPlaybackTimeline } from "./playback-timeline.js";
@@ -131,6 +130,7 @@ const Sequencer = ({
   onPlayCue,
   onPlayTimedCue,
   onResetSequencePlayhead,
+  onJumpSequenceEnd,
   getTimedTransportClockSeconds,
   onAddBar,
   onAddTempo,
@@ -162,6 +162,11 @@ const Sequencer = ({
   const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(true);
+  const [sequenceSaveActionState, setSequenceSaveActionState] = useState({
+    visible: false,
+    label: "",
+    action: null,
+  });
   const [newBarPosition, setNewBarPosition] = useState("1");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newRepeatPosition, setNewRepeatPosition] = useState("1.000000");
@@ -276,6 +281,7 @@ const Sequencer = ({
     cueSelectValue,
     impliedPendingSnapshotIndex,
     impliedPendingCueIndex,
+    terminalSequenceTarget,
   } = useMemo(() => derivePlayheadNavigationState({
     playhead,
     sortedBars,
@@ -315,8 +321,8 @@ const Sequencer = ({
 
   const snapshotEventsById = useMemo(() => buildSnapshotEventsById(sequenceEvents), [sequenceEvents]);
 
-  const firstSnapshotEventIds = useMemo(
-    () => buildFirstSnapshotEventIds(snapshotEventsById),
+  const firstSnapshotCueEventIds = useMemo(
+    () => buildFirstSnapshotCueEventIds(snapshotEventsById),
     [snapshotEventsById],
   );
 
@@ -361,10 +367,6 @@ const Sequencer = ({
       });
   }, [repeats]);
 
-  const snapshotStartCueIndexes = useMemo(
-    () => buildSnapshotStartCueIndexes(firstSnapshotEventIds, sequenceEvents),
-    [firstSnapshotEventIds, sequenceEvents],
-  );
   const firstEventIdByCueIndex = useMemo(
     () => buildFirstEventIdByCueIndex(sequenceEvents),
     [sequenceEvents],
@@ -965,6 +967,17 @@ const Sequencer = ({
     onResetSequencePlayhead?.();
   }, [firstRepeatStartMarker, onResetSequencePlayhead]);
 
+  const jumpSequencePlayheadToEndAndScrollBottom = useCallback(() => {
+    transportScrollTargetRef.current = "bar";
+    lastAutoScrolledBarIdRef.current = null;
+    pendingResetScrollTargetRef.current = null;
+    const scrollPanel = scrollPanelRef.current;
+    if (scrollPanel instanceof HTMLElement) {
+      scrollPanel.scrollTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
+    }
+    onJumpSequenceEnd?.();
+  }, [onJumpSequenceEnd]);
+
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
   };
@@ -1407,8 +1420,7 @@ const Sequencer = ({
     sequencePlaybackActive,
     soundingAttackEventIds,
     snapshotIndexById,
-    firstSnapshotEventIds,
-    snapshotStartCueIndexes,
+    firstSnapshotCueEventIds,
     currentEventPane,
   };
 
@@ -1471,6 +1483,7 @@ const Sequencer = ({
         onLoadSequence={onLoadSequence}
         onClearSequence={onClearSequence}
         onSequenceSaved={onSequenceSaved}
+        onSaveActionStateChange={setSequenceSaveActionState}
       />
 
       <SequenceInfo
@@ -1608,12 +1621,14 @@ const Sequencer = ({
           onJumpSequenceCue={onJumpSequenceCue}
           onStepSequenceMarker={onStepSequenceMarker}
           onResetSequencePlayhead={resetSequencePlayheadAndScrollTop}
+          onJumpSequenceEnd={jumpSequencePlayheadToEndAndScrollBottom}
           onPlaySequence={onPlaySequence}
           playingSnapshotId={playingSnapshotId}
           onStopSnapshot={onStopSnapshot}
           timedTransportDisplay={timedTransportDisplay}
           onTimedTransportPlayPause={handleTimedTransportPlayPause}
           onTimedTransportStop={handleTimedTransportStop}
+          terminalSequenceTarget={terminalSequenceTarget}
         />
 
         <div ref={scrollPanelRef} class="sequencer-scroll-panel">
@@ -1716,6 +1731,20 @@ const Sequencer = ({
                 />
               );
               })}
+            </div>
+          )}
+
+          {sequenceSaveActionState.visible && typeof sequenceSaveActionState.action === "function" && (
+            <div class="settings-form__action-row sequencer-scroll-panel__save-row">
+              <span class="settings-form__action-group settings-form__action-group--wrap">
+                <button
+                  type="button"
+                  class="preset-action-btn"
+                  onClick={sequenceSaveActionState.action}
+                >
+                  {sequenceSaveActionState.label}
+                </button>
+              </span>
             </div>
           )}
         </div>

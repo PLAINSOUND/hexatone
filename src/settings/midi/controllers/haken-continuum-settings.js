@@ -36,9 +36,6 @@ const HakenContinuumSettings = ({
     () => localStorage.getItem(CONTINUUM_RASTER_FILTER_SELECTED_KEY) || CONTINUUM_RASTER_FILTER_ALL,
   );
   const [draftFilter, setDraftFilter] = useState(settings.hakenaudio_raster_filter ?? "");
-  const [snapshotFilterEnabled, setSnapshotFilterEnabled] = useState(
-    () => !!settings.hakenaudio_raster_filter_snapshots,
-  );
   const [filterError, setFilterError] = useState("");
   const xGlideMode = settings.hakenaudio_x_glide_mode ?? "pitch_bending";
   const xGlideShaping = Math.max(
@@ -73,10 +70,6 @@ const HakenContinuumSettings = ({
   }, [settings.hakenaudio_raster_filter]);
 
   useEffect(() => {
-    setSnapshotFilterEnabled(!!settings.hakenaudio_raster_filter_snapshots);
-  }, [settings.hakenaudio_raster_filter_snapshots]);
-
-  useEffect(() => {
     localStorage.setItem(CONTINUUM_RASTER_FILTER_SELECTED_KEY, selectedSavedName);
   }, [selectedSavedName]);
 
@@ -90,7 +83,7 @@ const HakenContinuumSettings = ({
   );
   const activeFilter = settings.hakenaudio_raster_filter ?? "";
   const filterActive = settings.hakenaudio_raster_filter_mode === "filter";
-  const showSnapshotFilters = snapshotFilterEnabled;
+  const showSnapshotFilters = !!settings.hakenaudio_raster_filter_snapshots;
   const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
     snapshots,
     {
@@ -397,7 +390,6 @@ const HakenContinuumSettings = ({
           type="checkbox"
           checked={showSnapshotFilters}
           onChange={(e) => {
-            setSnapshotFilterEnabled(e.target.checked);
             updateHakenPref("hakenaudio_raster_filter_snapshots", e.target.checked, {
               hakenaudio_raster_filter_snapshots: e.target.checked,
             });

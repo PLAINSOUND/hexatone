@@ -664,6 +664,7 @@ const MIDIio = (props) => {
                     keysRef={props.keysRef}
                     hasSysexMidi={hasSysexMidi}
                     onChange={props.onChange}
+                    saveControllerPref={saveControllerPref}
                   />
                 )}
 

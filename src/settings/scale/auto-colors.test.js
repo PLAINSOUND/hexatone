@@ -741,6 +741,78 @@ describe("deriveAutoNoteColors", () => {
     expect(colors[16]).toBe("#cee3e2");
     expect(colors[48]).toBe("#cee3e2");
   });
+
+  it("keeps committed auto colours stable when 43edo accidental families are re-derived", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c", "♭♭d", "♯♯b", "♯c", "♭d", "♭♭♭e", "♯♯c", "d", "♭♭e", "♯♯♯c",
+        "♯d", "♭e", "♭♭f", "♯♯d", "e", "♭f", "♯♯♯d", "♯e", "f", "♭♭g",
+        "♯♯e", "♯f", "♭g", "♭♭♭a", "♯♯f", "g", "♭♭a", "♯♯♯f", "♯g", "♭a",
+        "♭♭♭b", "♯♯g", "a", "♭♭b", "♯♯♯g", "♯a", "♭b", "♭♭c", "♯♯a", "b",
+        "♭c", "♭♭♭d", "♯b",
+      ],
+      note_colors: [
+        "#ffffff", "#ffe5e5", "#fffae5", "#dee2da", "#d0d0d7", "#cee3e2", "#fffae5", "#ffffff",
+        "#ffe5e5", "#e4fbe6", "#dee2da", "#d0d0d7", "#ffe5e5", "#fffae5", "#ffffff", "#d0d0d7",
+        "#e4fbe6", "#dee2da", "#ffffff", "#ffe5e5", "#fffae5", "#dee2da", "#d0d0d7", "#cee3e2",
+        "#fffae5", "#ffffff", "#ffe5e5", "#e4fbe6", "#dee2da", "#d0d0d7", "#cee3e2", "#fffae5",
+        "#ffffff", "#ffe5e5", "#e4fbe6", "#dee2da", "#d0d0d7", "#ffe5e5", "#fffae5", "#ffffff",
+        "#d0d0d7", "#cee3e2", "#dee2da",
+      ],
+      scale: Array.from({ length: 43 }, (_, index) =>
+        index === 42 ? "2/1" : `${(((index + 1) * 1200) / 43).toFixed(6)}`
+      ),
+      equivSteps: 43,
+      reference_degree: 32,
+      fundamental: 440,
+      auto_colors: true,
+      name: "43edo (Sauveur 1696, dbbb-d###)",
+      short_description: "43edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const first = deriveAutoNoteColors(settings, { workspace });
+    const second = deriveAutoNoteColors({ ...settings, note_colors: first }, { workspace });
+
+    expect(second).toEqual(first);
+  });
+
+  it("keeps committed auto colours stable when 55edo accidental families are re-derived", () => {
+    const settings = {
+      key_labels: "note_names",
+      note_names: [
+        "c", "♭♭d", "♭♭♭♭e", "♯♯b", "♯c", "♭d", "♭♭♭e", "♯♯♯b", "♯♯c", "d",
+        "♭♭e", "♭♭♭f", "♯♯♯c", "♯d", "♭e", "♭♭f", "♯♯♯♯c", "♯♯d", "e", "♭f",
+        "♭♭♭g", "♯♯♯d", "♯e", "f", "♭♭g", "♭♭♭♭a", "♯♯e", "♯f", "♭g", "♭♭♭a",
+        "♯♯♯e", "♯♯f", "g", "♭♭a", "♭♭♭♭b", "♯♯♯f", "♯g", "♭a", "♭♭♭b", "♯♯♯♯f",
+        "♯♯g", "a", "♭♭b", "♭♭♭c", "♯♯♯g", "♯a", "♭b", "♭♭c", "♯♯♯♯g", "♯♯a",
+        "b", "♭c", "♭♭♭d", "♯♯♯a", "♯b",
+      ],
+      note_colors: [
+        "#ffffff", "#ffe5e5", "#e4fbe6", "#fffae5", "#dee2da", "#d0d0d7", "#dce1d0", "#f8ffeb",
+        "#fffae5", "#ffffff", "#ffe5e5", "#dce1d0", "#f8ffeb", "#dee2da", "#d0d0d7", "#ffe5e5",
+        "#cee3e2", "#fffae5", "#ffffff", "#d0d0d7", "#dce1d0", "#f8ffeb", "#dee2da", "#ffffff",
+        "#ffe5e5", "#e4fbe6", "#fffae5", "#dee2da", "#d0d0d7", "#dce1d0", "#f8ffeb", "#fffae5",
+        "#ffffff", "#ffe5e5", "#e4fbe6", "#f8ffeb", "#dee2da", "#d0d0d7", "#dce1d0", "#cee3e2",
+        "#fffae5", "#ffffff", "#ffe5e5", "#dce1d0", "#f8ffeb", "#dee2da", "#d0d0d7", "#ffe5e5",
+        "#cee3e2", "#fffae5", "#ffffff", "#d0d0d7", "#dce1d0", "#f8ffeb", "#dee2da",
+      ],
+      scale: Array.from({ length: 55 }, (_, index) =>
+        index === 54 ? "2/1" : `${(((index + 1) * 1200) / 55).toFixed(6)}`
+      ),
+      equivSteps: 55,
+      reference_degree: 41,
+      fundamental: 440,
+      auto_colors: true,
+      name: "55edo (Telemann 1767, abbbb-g####)",
+      short_description: "55edo",
+    };
+    const workspace = createScaleWorkspace(settings);
+    const first = deriveAutoNoteColors(settings, { workspace });
+    const second = deriveAutoNoteColors({ ...settings, note_colors: first }, { workspace });
+
+    expect(second).toEqual(first);
+  });
 });
 
 describe("inferNotationRole", () => {
