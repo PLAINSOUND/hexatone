@@ -147,6 +147,10 @@ function convertPaletteStructureToJiBase(structure) {
   });
 }
 
+function convertTemperedAccidentalToJi(structure, accidentalCount) {
+  return withPitchStructureAccidentalCount(convertPaletteStructureToJiBase(structure), accidentalCount);
+}
+
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
   const hejiDisabled = props.heji_supported === false;
@@ -759,10 +763,9 @@ const KeyLabels = (props) => {
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
                         setPaletteStructure((current) =>
-                          withPitchStructureAccidentalDelta(
-                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
-                            -1,
-                          ));
+                          current.useTemperedAccidentals
+                            ? convertTemperedAccidentalToJi(current, -1)
+                            : withPitchStructureAccidentalDelta(current, -1));
                         setPaletteDeviation("");
                         setCopied(false);
                       }}
@@ -774,10 +777,9 @@ const KeyLabels = (props) => {
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
                         setPaletteStructure((current) =>
-                          withPitchStructureAccidentalCount(
-                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
-                            0,
-                          ));
+                          current.useTemperedAccidentals
+                            ? convertTemperedAccidentalToJi(current, 0)
+                            : withPitchStructureAccidentalCount(current, 0));
                         setPaletteDeviation("");
                         setCopied(false);
                       }}
@@ -789,10 +791,9 @@ const KeyLabels = (props) => {
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
                         setPaletteStructure((current) =>
-                          withPitchStructureAccidentalDelta(
-                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
-                            1,
-                          ));
+                          current.useTemperedAccidentals
+                            ? convertTemperedAccidentalToJi(current, 1)
+                            : withPitchStructureAccidentalDelta(current, 1));
                         setPaletteDeviation("");
                         setCopied(false);
                       }}

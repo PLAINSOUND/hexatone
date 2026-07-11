@@ -777,6 +777,35 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(screen.getByLabelText("HEJI palette cents deviation").value).not.toBe("+17");
   });
 
+  it("switching from tempered flat to HEJI flat does not increment to double-flat on the first click", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff=""
+        heji_anchor_label_eff=""
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
   it("auto-calculates and displays cents for exact HEJI palette input", () => {
     render(
       <KeyLabels
