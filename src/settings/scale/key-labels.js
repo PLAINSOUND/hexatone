@@ -15,7 +15,6 @@ import {
   withPitchStructureLetter,
   withPitchStructurePrimeDelta,
   withPitchStructureSyntonicDelta,
-  withPitchStructureTemperedAccidentalCount,
 } from "../../notation/pitch-structure.js";
 import { buildPitchFrame, resolveStructurePitch } from "../../notation/pitch-frame.js";
 import { createScaleWorkspace } from "../../tuning/workspace.js";
@@ -127,6 +126,25 @@ function normalizeAnchorLabelInput(raw) {
   if (!source) return null;
   const withoutCents = source.replace(/[+\-\u2212]\d+(?:\.\d+)?\s*$/u, "");
   return canonicalHejiAnchorLabelInput(withoutCents.trim());
+}
+
+function convertPaletteStructureToTempered(structure, accidentalCount) {
+  return createPitchStructure({
+    ...structure,
+    accidentalCount,
+    syntonic: 0,
+    primeExponents: {},
+    useTemperedAccidentals: true,
+  });
+}
+
+function convertPaletteStructureToJiBase(structure) {
+  return createPitchStructure({
+    ...structure,
+    syntonic: 0,
+    primeExponents: {},
+    useTemperedAccidentals: false,
+  });
 }
 
 // choose options for the displayed text on the keys
@@ -286,6 +304,11 @@ const KeyLabels = (props) => {
       return `${sign}${rest}`;
     });
     setCopied(false);
+  };
+
+  const commitPaletteAutoDeviationToEditable = () => {
+    if (!Number.isFinite(paletteAutoDeviationCents)) return;
+    setPaletteDeviation(formatPaletteAutoDeviation(paletteAutoDeviationCents, paletteDeviationDecimals));
   };
 
   return (
@@ -676,7 +699,8 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureTemperedAccidentalCount(current, -1));
+                        commitPaletteAutoDeviationToEditable();
+                        setPaletteStructure((current) => convertPaletteStructureToTempered(current, -1));
                         setCopied(false);
                       }}
                     >
@@ -686,7 +710,8 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureTemperedAccidentalCount(current, 0));
+                        commitPaletteAutoDeviationToEditable();
+                        setPaletteStructure((current) => convertPaletteStructureToTempered(current, 0));
                         setCopied(false);
                       }}
                     >
@@ -696,7 +721,8 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureTemperedAccidentalCount(current, 1));
+                        commitPaletteAutoDeviationToEditable();
+                        setPaletteStructure((current) => convertPaletteStructureToTempered(current, 1));
                         setCopied(false);
                       }}
                     >
@@ -732,7 +758,12 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureAccidentalDelta(current, -1));
+                        setPaletteStructure((current) =>
+                          withPitchStructureAccidentalDelta(
+                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
+                            -1,
+                          ));
+                        setPaletteDeviation("");
                         setCopied(false);
                       }}
                     >
@@ -742,7 +773,12 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureAccidentalCount(current, 0));
+                        setPaletteStructure((current) =>
+                          withPitchStructureAccidentalCount(
+                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
+                            0,
+                          ));
+                        setPaletteDeviation("");
                         setCopied(false);
                       }}
                     >
@@ -752,7 +788,12 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureAccidentalDelta(current, 1));
+                        setPaletteStructure((current) =>
+                          withPitchStructureAccidentalDelta(
+                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
+                            1,
+                          ));
+                        setPaletteDeviation("");
                         setCopied(false);
                       }}
                     >
@@ -767,7 +808,12 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureSyntonicDelta(current, -1));
+                        setPaletteStructure((current) =>
+                          withPitchStructureSyntonicDelta(
+                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
+                            -1,
+                          ));
+                        setPaletteDeviation("");
                         setCopied(false);
                       }}
                     >
@@ -777,7 +823,12 @@ const KeyLabels = (props) => {
                       type="button"
                       class="preset-action-btn heji-palette-builder__symbol-btn"
                       onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureSyntonicDelta(current, 1));
+                        setPaletteStructure((current) =>
+                          withPitchStructureSyntonicDelta(
+                            current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
+                            1,
+                          ));
+                        setPaletteDeviation("");
                         setCopied(false);
                       }}
                     >
@@ -797,7 +848,13 @@ const KeyLabels = (props) => {
                           class="preset-action-btn heji-palette-builder__symbol-btn"
                           title={`${family.prime}-limit lower`}
                           onClick={() => {
-                            setPaletteStructure((current) => withPitchStructurePrimeDelta(current, family.prime, -1));
+                            setPaletteStructure((current) =>
+                              withPitchStructurePrimeDelta(
+                                current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
+                                family.prime,
+                                -1,
+                              ));
+                            setPaletteDeviation("");
                             setCopied(false);
                           }}
                         >
@@ -808,7 +865,13 @@ const KeyLabels = (props) => {
                           class="preset-action-btn heji-palette-builder__symbol-btn"
                           title={`${family.prime}-limit upper`}
                           onClick={() => {
-                            setPaletteStructure((current) => withPitchStructurePrimeDelta(current, family.prime, 1));
+                            setPaletteStructure((current) =>
+                              withPitchStructurePrimeDelta(
+                                current.useTemperedAccidentals ? convertPaletteStructureToJiBase(current) : current,
+                                family.prime,
+                                1,
+                              ));
+                            setPaletteDeviation("");
                             setCopied(false);
                           }}
                         >

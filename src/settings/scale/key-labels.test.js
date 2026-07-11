@@ -703,6 +703,80 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
   });
 
+  it("switching to a 12edo accidental clears HEJI inflections and commits the auto cents to editable text", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          scale: ["3/2", "2/1"],
+          reference_degree: 0,
+          fundamental: 440,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+    const autoDeviation = screen.getByLabelText("HEJI palette cents deviation").value;
+    expect(autoDeviation).not.toBe("+0");
+
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+    expect(screen.getByLabelText("HEJI palette cents deviation").value).toBe(autoDeviation);
+    expect(screen.getByLabelText("HEJI palette cents deviation").readOnly).toBe(false);
+  });
+
+  it("switching back to HEJI clears the tempered sign to its 3-limit cousin and recalculates cents automatically", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          scale: ["3/2", "2/1"],
+          reference_degree: 0,
+          fundamental: 440,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    fireEvent.input(screen.getByLabelText("HEJI palette cents deviation"), {
+      target: { value: "+17" },
+    });
+    expect(screen.getByLabelText("HEJI palette cents deviation").readOnly).toBe(false);
+
+    fireEvent.click(screen.getByTitle("7-limit upper"));
+
+    const nextOutput = screen.getByLabelText("HEJI palette output").value;
+    expect(nextOutput.endsWith("A")).toBe(true);
+    expect(nextOutput.startsWith("")).toBe(false);
+    expect(screen.getByLabelText("HEJI palette cents deviation").readOnly).toBe(true);
+    expect(screen.getByLabelText("HEJI palette cents deviation").value).not.toBe("+17");
+  });
+
   it("auto-calculates and displays cents for exact HEJI palette input", () => {
     render(
       <KeyLabels
