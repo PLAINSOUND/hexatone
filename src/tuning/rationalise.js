@@ -133,6 +133,11 @@ function normalizeCandidateRatioToPitchClass(ratio) {
   return out;
 }
 
+function normalizeCentsToOctavePitchClass(cents) {
+  if (!Number.isFinite(cents)) return cents;
+  return ((cents % 1200) + 1200) % 1200;
+}
+
 
 export function harmonicRadiusFromMonzo(monzo, basis = CANONICAL_MONZO_BASIS) {
   return (
@@ -652,6 +657,7 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
   if (!rangeEntries.length) return [];
 
   const tol = merged.centsTolerance;
+  const normalizedTargetCents = normalizeCentsToOctavePitchClass(targetCents);
   const candidates = [];
 
   // ── Three-layer pruned search ─────────────────────────────────────────────
@@ -702,7 +708,7 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
     for (const combination of cartesianProductGenerator(rangeEntries.map((e) => e.range))) {
       if (combination.every((v) => v === 0)) continue;
       const rawMonzo = buildMonzoFromCombination(combination, rangeEntries);
-      _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), targetCents, tol, merged, candidates);
+      _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), normalizedTargetCents, tol, merged, candidates);
     }
     candidates.sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => cheapBaseScore(candidate, merged)));
     return candidates;
@@ -741,7 +747,7 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
       const pc35 = ((raw35 % 1200) + 1200) % 1200;
 
       // Residual the primes-≥7 layer must supply.
-      const residualTarget = ((targetCents - pc35) % 1200 + 1200) % 1200;
+      const residualTarget = ((normalizedTargetCents - pc35) % 1200 + 1200) % 1200;
 
       const matches = residualMatches(residualTable, residualTarget, tol);
       if (matches.length === 0) continue;
@@ -763,7 +769,7 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
           rawMonzo[residualEntries[i].index] = match.exps[i];
         }
 
-        _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), targetCents, tol, merged, candidates);
+        _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), normalizedTargetCents, tol, merged, candidates);
       }
     }
   }

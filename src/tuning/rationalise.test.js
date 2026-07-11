@@ -39,6 +39,11 @@ describe("tuning/rationalise", () => {
     expect(results.some((candidate) => candidate.ratioText === "3/2")).toBe(true);
   });
 
+  it("finds the same pitch-class candidate above the first octave", () => {
+    const results = findRationalCandidates(1900, { primeLimit: 3, centsTolerance: 5 });
+    expect(results.some((candidate) => candidate.ratioText === "3/2")).toBe(true);
+  });
+
   it("finds 11/8 near 551 cents", () => {
     const results = findRationalCandidates(551.32, { primeLimit: 11, centsTolerance: 5 });
     expect(results.some((candidate) => candidate.ratioText === "11/8")).toBe(true);
