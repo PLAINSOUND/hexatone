@@ -67,13 +67,26 @@ describe("ScaleTable — key labels: note_names", () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
     const input = screen.getByLabelText("pitch name 3");
-    fireEvent.change(input, { target: { value: "Eb", name: "name3" } });
+    fireEvent.input(input, { target: { value: "Eb", name: "name3" } });
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toBe("note_names");
     const updated = onChange.mock.calls[0][1];
     expect(updated[3]).toBe("Eb");
     expect(updated[0]).toBe("C");
     expect(updated[4]).toBe("E");
+  });
+
+  it("allows deleting characters from note names without rewriting the field", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch name 3");
+
+    fireEvent.input(input, { target: { value: "D", name: "name3" } });
+
+    expect(onChange).toHaveBeenCalledWith(
+      "note_names",
+      expect.arrayContaining(["C", "C#", "D", "D"]),
+    );
   });
 });
 
@@ -119,7 +132,9 @@ describe("ScaleTable — scale value inputs", () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
     const input = screen.getByLabelText("pitch value 4");
-    fireEvent.change(input, { target: { value: "498.04", name: "scale4" } });
+    fireEvent.input(input, { target: { value: "498.04", name: "scale4" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toBe("scale");
     const updated = onChange.mock.calls[0][1];
@@ -139,6 +154,82 @@ describe("ScaleTable — scale value inputs", () => {
       ([key, updated]) => key === "scale" && Array.isArray(updated) && updated[4] === "3/1",
     );
     expect(commitCall).toBeTruthy();
+  });
+
+  it("preserves a typed tempered step in the field after committing its parsed Scala value", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch value 4");
+
+    fireEvent.input(input, { target: { value: "3\\7" } });
+    fireEvent.blur(input);
+
+    expect(input.value).toBe("3\\7");
+    expect(onChange).toHaveBeenCalledWith(
+      "scale",
+      expect.arrayContaining([
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.stringMatching(/^514\.285714/),
+      ]),
+    );
+  });
+
+  it("preserves a typed ratio form such as 1/1 after commit", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch value 4");
+
+    fireEvent.input(input, { target: { value: "1/1" } });
+    fireEvent.blur(input);
+
+    expect(input.value).toBe("1/1");
+    expect(onChange).toHaveBeenCalledWith(
+      "scale",
+      expect.arrayContaining([
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        "1/1",
+      ]),
+    );
+  });
+
+  it("adds a single trailing zero to typed decimal cents ending with a point", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch value 4");
+
+    fireEvent.input(input, { target: { value: "2300." } });
+    fireEvent.blur(input);
+
+    expect(input.value).toBe("2300.0");
+    expect(onChange).toHaveBeenCalledWith(
+      "scale",
+      expect.arrayContaining([
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        "2300.0",
+      ]),
+    );
+  });
+
+  it("keeps invalid negative Scala values visible with a warning preview instead of reverting", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch value 4");
+
+    fireEvent.input(input, { target: { value: "-1\\7" } });
+    fireEvent.blur(input);
+
+    expect(input.value).toBe("-1\\7");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(document.querySelector(".scala-input__cents--error")?.textContent).toBe("-171¢");
   });
 });
 

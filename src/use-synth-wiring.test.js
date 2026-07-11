@@ -185,34 +185,35 @@ describe("use-synth-wiring runtime derivation", () => {
 });
 
 describe("use-synth-wiring octave shortcuts", () => {
-  it("maps up/down arrows to octave shifts", () => {
-    expect(resolveOctaveShortcutAction({ code: "ArrowUp" }, false)).toEqual({
+  it("maps Shift+up/down arrows to octave shifts", () => {
+    expect(resolveOctaveShortcutAction({ code: "ArrowUp", shiftKey: true }, false)).toEqual({
       type: "shift",
       dir: 1,
     });
-    expect(resolveOctaveShortcutAction({ code: "ArrowDown" }, false)).toEqual({
+    expect(resolveOctaveShortcutAction({ code: "ArrowDown", shiftKey: true }, false)).toEqual({
       type: "shift",
       dir: -1,
     });
   });
 
-  it("maps left/right arrows to deferred/immediate OCT mode", () => {
-    expect(resolveOctaveShortcutAction({ code: "ArrowLeft" }, false)).toEqual({
+  it("maps Shift+left/right arrows to deferred/immediate OCT mode", () => {
+    expect(resolveOctaveShortcutAction({ code: "ArrowLeft", shiftKey: true }, false)).toEqual({
       type: "mode",
       deferred: true,
     });
-    expect(resolveOctaveShortcutAction({ code: "ArrowRight" }, false)).toEqual({
+    expect(resolveOctaveShortcutAction({ code: "ArrowRight", shiftKey: true }, false)).toEqual({
       type: "mode",
       deferred: false,
     });
   });
 
   it("ignores octave shortcuts while typing or using modified/browser shortcuts", () => {
-    expect(resolveOctaveShortcutAction({ code: "ArrowUp" }, true)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowUp", ctrlKey: true }, false)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowRight", metaKey: true }, false)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowLeft", altKey: true }, false)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowDown", repeat: true }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowUp", shiftKey: true }, true)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowUp" }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowUp", shiftKey: true, ctrlKey: true }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowRight", shiftKey: true, metaKey: true }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowLeft", shiftKey: true, altKey: true }, false)).toBeNull();
+    expect(resolveOctaveShortcutAction({ code: "ArrowDown", shiftKey: true, repeat: true }, false)).toBeNull();
   });
 
   it("ignores unrelated keys", () => {

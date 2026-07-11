@@ -11,8 +11,12 @@ function isModulationToggleKeyCode(code) {
 
 function isPanicKeyEvent(e) {
   if (e.repeat) return false;
-  if (e.code === "Delete" || e.code === "Backspace") return true;
+  if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.code === "Backspace") return true;
   return e.metaKey && e.key === "Delete";
+}
+
+function isShiftOnlyShortcut(e) {
+  return e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey;
 }
 
 function keyboardCoordsForCode(keys, code) {
@@ -69,18 +73,22 @@ export function onKeyDown(e) {
     return;
   }
 
+  if (this.inputIsFocused()) return;
+
   if (isPanicKeyEvent(e)) {
+    e.preventDefault?.();
     this.panic();
     return;
   }
 
-  if (e.code === "Escape" && !e.repeat) {
+  if (e.code === "Escape" && !e.repeat && isShiftOnlyShortcut(e)) {
+    e.preventDefault?.();
     this.state.escHeld = true;
     this.latchToggle();
     return;
   }
 
-  if (e.code === "Enter" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+  if (e.code === "Enter" && !e.repeat && isShiftOnlyShortcut(e)) {
     const hasNotes =
       this.state.activeMouse !== null ||
       this.state.activeTouch.size > 0 ||
@@ -97,10 +105,7 @@ export function onKeyDown(e) {
   if (
     isModulationToggleKeyCode(e.code) &&
     !e.repeat &&
-    e.shiftKey &&
-    !e.metaKey &&
-    !e.ctrlKey &&
-    !e.altKey
+    isShiftOnlyShortcut(e)
   ) {
     e.preventDefault();
     this.toggleModulationArm();
@@ -108,7 +113,6 @@ export function onKeyDown(e) {
   }
 
   if (!this.typing) return;
-  if (this.inputIsFocused()) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
   e.preventDefault();
@@ -165,7 +169,7 @@ export function onKeyUp(e) {
     return;
   }
 
-  if (e.code === "Escape") {
+  if (e.code === "Escape" && isShiftOnlyShortcut(e)) {
     this.state.escHeld = false;
     return;
   }

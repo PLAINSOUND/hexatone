@@ -15,7 +15,7 @@ const Info = (props) => (
         autoCapitalize="off"
         spellCheck={false}
         value={props.settings.name}
-        onChange={(e) => props.onChange(e.target.name, e.target.value)}
+        onInput={(e) => props.onChange(e.currentTarget.name, e.currentTarget.value)}
       />
     </label>
     <label>
@@ -26,7 +26,7 @@ const Info = (props) => (
         autoCapitalize="off"
         spellCheck={false}
         value={props.settings.description}
-        onChange={(e) => props.onChange(e.target.name, e.target.value)}
+        onInput={(e) => props.onChange(e.currentTarget.name, e.currentTarget.value)}
       />
     </label>
   </fieldset>

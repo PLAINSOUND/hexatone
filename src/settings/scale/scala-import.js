@@ -2,9 +2,10 @@ import { createRef } from "preact";
 import PropTypes from "prop-types";
 import {
   settingsToPlainScala,
-  settingsToHexatonScala,
+  settingsToAbletonScala,
   settingsToKbm,
   settingsToPresetJson,
+  hasNegativeScalaExportValues,
 } from "./parse-scale";
 
 // Trigger a file download in the browser
@@ -22,6 +23,7 @@ const safeName = (settings) => (settings.name || "custom").replace(/[^a-zA-Z0-9_
 
 const ScalaImport = (props) => {
   const fileInputRef = createRef();
+  const hasNegativeExportValues = hasNegativeScalaExportValues(props.settings);
 
   const handleFileOpen = (e) => {
     const file = e.target.files[0];
@@ -69,7 +71,7 @@ const ScalaImport = (props) => {
         <label>
           <textarea
             name="scale_import"
-            onChange={(e) => props.onChange(e.target.name, e.target.value)}
+            onInput={(e) => props.onChange(e.currentTarget.name, e.currentTarget.value)}
             value={props.settings.scale_import}
           />
         </label>
@@ -94,11 +96,18 @@ const ScalaImport = (props) => {
       {/* ── Export section ─────────────────────────────────────────────── */}
       <fieldset class="settings-panel">
         <legend><b>Export</b></legend>
+        {hasNegativeExportValues ? (
+          <p class="settings-form__warning-copy">
+            Negative scale values are not supported in Scala export. Plain Scala and Ableton Scala
+            export are disabled until those values are removed.
+          </p>
+        ) : null}
         <p>
           <b>Plain Scala</b> — standard .scl format, compatible with all Scala-aware software
         </p>
         <button
           type="button"
+          disabled={hasNegativeExportValues}
           onClick={() => downloadFile(settingsToPlainScala(props.settings), `${name}.scl`)}
         >
           Save .scl
@@ -110,20 +119,13 @@ const ScalaImport = (props) => {
         >
           Save .kbm
         </button>
-        {/*
-        <p><b>Ableton Scala</b> — .ascl format with Ableton reference pitch metadata</p>
-        <button type="button"
-          onClick={() => downloadFile(settingsToAbletonScala(props.settings), `${name}.ascl`)}>
-          Save .ascl
-        </button>
-*/}
         <p>
-          <b>Ableton / Hexatone Scala</b> — .ascl format with full round-trip metadata (note names,
-          colors, reference pitch) for re-import into Hexatone
+          <b>Ableton Scala</b> — .ascl format, embeds the .kbm data in comments
         </p>
         <button
           type="button"
-          onClick={() => downloadFile(settingsToHexatonScala(props.settings), `${name}.ascl`)}
+          disabled={hasNegativeExportValues}
+          onClick={() => downloadFile(settingsToAbletonScala(props.settings), `${name}.ascl`)}
         >
           Save .ascl
         </button>

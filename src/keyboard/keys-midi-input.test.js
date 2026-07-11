@@ -366,6 +366,70 @@ describe("Keys MIDI input integration", () => {
     expect(panic).toHaveBeenCalledTimes(1);
   });
 
+  it("treats Shift+Backspace as Panic", () => {
+    const keys = createKeys();
+    const panic = vi.spyOn(keys, "panic");
+    const preventDefault = vi.fn();
+
+    keys.onKeyDown({
+      code: "Backspace",
+      key: "Backspace",
+      repeat: false,
+      shiftKey: true,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault,
+    });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(panic).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles sustain only on Shift+Escape", () => {
+    const keys = createKeys();
+    const latchToggle = vi.spyOn(keys, "latchToggle");
+    const preventDefault = vi.fn();
+
+    keys.onKeyDown({
+      code: "Escape",
+      key: "Escape",
+      repeat: false,
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault,
+    });
+    expect(latchToggle).not.toHaveBeenCalled();
+
+    keys.onKeyDown({
+      code: "Escape",
+      key: "Escape",
+      repeat: false,
+      shiftKey: true,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault,
+    });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(latchToggle).toHaveBeenCalledTimes(1);
+    expect(keys.state.escHeld).toBe(true);
+
+    keys.onKeyUp({
+      code: "Escape",
+      key: "Escape",
+      shiftKey: true,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
+
+    expect(keys.state.escHeld).toBe(false);
+  });
+
   it("handles Shift+Backquote globally even when normal typing input is inactive", () => {
     const onModulationArmChange = vi.fn();
     const keys = new Keys(
@@ -7258,7 +7322,7 @@ describe("Keys MIDI input integration", () => {
     expect(hex._noteContext?.scaleMonzo?.slice(0, 3)).toEqual([-2, 0, 1]);
   });
 
-  it("prevents the browser default action when Enter captures a snapshot", () => {
+  it("prevents the browser default action when Shift+Enter captures a snapshot", () => {
     const onTakeSnapshot = vi.fn();
     const keys = new Keys(
       makeCanvas(),
@@ -7302,11 +7366,14 @@ describe("Keys MIDI input integration", () => {
       velocity: 100,
       release: false,
     });
+    keys.typing = false;
+    keys.settings.keyCodeToCoords = {};
 
     keys.onKeyDown({
       code: "Enter",
       key: "Enter",
       repeat: false,
+      shiftKey: true,
       metaKey: false,
       ctrlKey: false,
       altKey: false,
@@ -7315,6 +7382,64 @@ describe("Keys MIDI input integration", () => {
 
     expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(onTakeSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not capture a snapshot on plain Enter", () => {
+    const onTakeSnapshot = vi.fn();
+    const keys = new Keys(
+      makeCanvas(),
+      makeSettings({ midi_velocity: 72 }),
+      {},
+      true,
+      null,
+      null,
+      onTakeSnapshot,
+      {
+        target: "hex_layout",
+        layoutMode: "controller_geometry",
+        mpeInput: false,
+        seqAnchorNote: 60,
+        seqAnchorChannel: 1,
+        stepsPerChannel: 0,
+        channelGroupSize: 1,
+        legacyChannelMode: true,
+        scaleTolerance: 50,
+        scaleFallback: "discard",
+        pitchBendMode: "recency",
+        pressureMode: "recency",
+        wheelToRecent: false,
+        wheelRange: "28/27",
+        perChannelExpression: false,
+        scaleBendRange: 48,
+        wheelUsesInterval: false,
+        wheelScaleAware: false,
+        wheelSemitones: 2,
+        bendRange: "28/27",
+        bendFlip: false,
+      },
+      null,
+      null,
+      null,
+    );
+    keys.state.activeMidi.set(60, {
+      coords: new Point(0, 0),
+      cents: 0,
+      velocity: 100,
+      release: false,
+    });
+
+    keys.onKeyDown({
+      code: "Enter",
+      key: "Enter",
+      repeat: false,
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    });
+
+    expect(onTakeSnapshot).not.toHaveBeenCalled();
   });
 
   it("captures sustained snapshot release velocity separately from attack velocity", () => {

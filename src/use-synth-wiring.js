@@ -386,6 +386,7 @@ export const deriveOutputRuntime = (settings, midi, tuningRuntime) => {
 
 export const resolveOctaveShortcutAction = (event, inputFocused = false) => {
   if (inputFocused) return null;
+  if (!event.shiftKey) return null;
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
   if (event.repeat) return null;
 

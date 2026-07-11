@@ -4,7 +4,7 @@ import Colors from "./colors";
 import KeyLabels from "./key-labels";
 import ScaleTable from "./scale-table/index.js";
 import ScalaImport from "./scala-import";
-import { settingsToHexatonScala, parseScalaInterval } from "./parse-scale";
+import { settingsToAbletonScala, parseScalaInterval } from "./parse-scale";
 import ScalaInput from "./scala-input.js";
 import FundamentalTuneCell from "./fundamental-tune-cell.js";
 import FrequencyInput from "./scale-table/frequency-input.js";
@@ -70,7 +70,7 @@ const Scale = (props) => {
   const cancelImport = () => setImporting(false);
   const startImporting = () => {
     // Generate Scala content from current scale table settings
-    const scalaContent = settingsToHexatonScala(props.settings);
+    const scalaContent = settingsToAbletonScala(props.settings);
     props.onChange("scale_import", scalaContent);
     setImporting(true);
   };

@@ -358,6 +358,30 @@ describe("Scale panel — clicking import", () => {
     // ScalaImport renders alongside the table, not instead of it
     expect(document.querySelector("textarea")).not.toBeNull();
   });
+
+  it("warns and disables Scala exports when the scale contains negative values", () => {
+    render(
+      <Scale
+        settings={{
+          ...minimalSettings,
+          scale: ["-100.", "2/1"],
+          equivSteps: 2,
+        }}
+        onChange={() => {}}
+        onImport={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /edit scala file/i }));
+
+    expect(
+      screen.getByText(/negative scale values are not supported in scala export/i),
+    ).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Save .scl" }).disabled).toBe(true);
+    expect(screen.getAllByRole("button", { name: "Save .ascl" })[0].disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Save .kbm" }).disabled).toBe(false);
+    expect(screen.getByRole("button", { name: "Save .json" }).disabled).toBe(false);
+  });
 });
 
 describe("Scale panel — cancelling import", () => {

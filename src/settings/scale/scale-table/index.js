@@ -1047,7 +1047,7 @@ const ScaleTable = (props) => {
                 type="text"
                 name="name0"
                 value={note_names[0] || ""}
-                onChange={nameChange}
+                onInput={nameChange}
                 aria-label="pitch name 0"
               />
             )}
@@ -1160,7 +1160,6 @@ const ScaleTable = (props) => {
                     context="degree"
                     name={`scale${i}`}
                     value={freq}
-                    onAnyChange={(str) => scaleChangeAt(i, str)}
                     onChange={(str) => scaleCommitAt(i, str, i + 1)}
                     showCents={!String(freq).includes(".")}
                     aria-label={`pitch value ${i}`}
@@ -1235,7 +1234,7 @@ const ScaleTable = (props) => {
                   type="text"
                   name={`name${i + 1}`}
                   value={name}
-                  onChange={nameChange}
+                  onInput={nameChange}
                   aria-label={`pitch name ${i + 1}`}
                 />
               )}
@@ -1279,7 +1278,6 @@ const ScaleTable = (props) => {
                   context="interval"
                   name={`scale${scale.length - 1}`}
                   value={equiv_interval}
-                  onAnyChange={(str) => scaleChangeAt(scale.length - 1, str)}
                   onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}
                   showCents={!String(equiv_interval).includes(".")}
                   aria-label={`pitch ${scale.length - 1}`}

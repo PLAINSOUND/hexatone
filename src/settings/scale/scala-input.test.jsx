@@ -18,6 +18,28 @@ describe("ScalaInput", () => {
     fireEvent.blur(input);
 
     expect(onChange).toHaveBeenCalledWith("4/1");
-    expect(input.value).toBe("4/1");
+    expect(input.value).toBe("4");
+  });
+
+  it("does not fight deletion while editing before commit", () => {
+    const onChange = vi.fn();
+    render(
+      <ScalaInput
+        value="500."
+        context="degree"
+        onChange={onChange}
+        aria-label="Scale Degree"
+      />,
+    );
+
+    const input = screen.getByLabelText("Scale Degree");
+    fireEvent.input(input, { target: { value: "50" } });
+
+    expect(input.value).toBe("50");
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.blur(input);
+
+    expect(onChange).toHaveBeenCalledWith("50/1");
   });
 });

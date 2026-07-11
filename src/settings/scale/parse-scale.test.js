@@ -2,7 +2,7 @@
  * Tests for src/settings/scale/parse-scale.js
  *
  * Covers: parseScale, scalaToCents, scalaToLabels, parsedScaleToLabels,
- *         normaliseDegree, settingsToHexatonScala, fileToPreset
+ *         normaliseDegree, settingsToAbletonScala, fileToPreset
  */
 
 import {
@@ -12,7 +12,8 @@ import {
   parsedScaleToLabels,
   normaliseDegree,
   parseScalaInterval,
-  settingsToHexatonScala,
+  settingsToAbletonScala,
+  hasNegativeScalaExportValues,
   fileToPreset,
   settingsToPresetJson,
 } from "./parse-scale";
@@ -132,6 +133,11 @@ describe("normaliseDegree", () => {
     expect(normaliseDegree("701.955")).toBe("701.955");
   });
 
+  it("adds one trailing zero to decimal cents ending with a point", () => {
+    expect(normaliseDegree("2300.")).toBe("2300.0");
+    expect(normaliseDegree("0.")).toBe("0.0");
+  });
+
   it("converts EDO step to cents string", () => {
     expect(normaliseDegree("7\\12")).toMatch(/^700\.0*/);
   });
@@ -154,6 +160,26 @@ describe("normaliseDegree", () => {
 describe("parseScalaInterval", () => {
   it('accepts bare "0" as a valid zero-degree entry', () => {
     expect(parseScalaInterval("0", "degree")).toEqual({ cents: 0, valid: true, error: null });
+  });
+});
+
+describe("hasNegativeScalaExportValues", () => {
+  it("returns true when the raw scale contains a negative export degree", () => {
+    expect(
+      hasNegativeScalaExportValues({
+        scale: ["0.0", "-100.", "2/1"],
+        equivInterval: 2,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false for non-negative export degrees", () => {
+    expect(
+      hasNegativeScalaExportValues({
+        scale: ["0.0", "3\\7", "2/1"],
+        equivInterval: 2,
+      }),
+    ).toBe(false);
   });
 });
 
@@ -313,9 +339,9 @@ describe("parseScale — error handling", () => {
   });
 });
 
-// ── settingsToHexatonScala round-trip ─────────────────────────────────────────
+// ── settingsToAbletonScala output ─────────────────────────────────────────────
 
-describe("settingsToHexatonScala → parseScale round-trip", () => {
+describe("settingsToAbletonScala → parseScale", () => {
   const settings = {
     name: "Test Scale",
     description: "A simple test scale",
@@ -328,27 +354,19 @@ describe("settingsToHexatonScala → parseScale round-trip", () => {
     midiin_anchor_note: 60,
   };
 
-  const ascl = settingsToHexatonScala(settings);
+  const ascl = settingsToAbletonScala(settings);
   const parsed = parseScale(ascl);
 
-  it("round-trips note names", () => {
-    expect(parsed.hexatone_note_names).toEqual(settings.note_names);
+  it("writes Ableton reference pitch metadata", () => {
+    expect(ascl).toContain("! ABLETON_REFERENCE_PITCH 60 440");
+    expect(ascl).toContain("! ABLETON_ROOT_NOTE 0");
   });
 
-  it("round-trips note colors", () => {
-    expect(parsed.hexatone_note_colors).toEqual(settings.note_colors);
-  });
-
-  it("round-trips fundamental", () => {
-    expect(parsed.hexatone_fundamental).toBe(440);
-  });
-
-  it("round-trips reference degree", () => {
-    expect(parsed.hexatone_reference_degree).toBe(0);
-  });
-
-  it("round-trips midiin_anchor_note", () => {
-    expect(parsed.hexatone_midiin_anchor_note).toBe(60);
+  it("embeds .kbm reference data in comments", () => {
+    expect(ascl).toContain("! KBM_MAP_SIZE 4");
+    expect(ascl).toContain("! KBM_MIDDLE_NOTE 60");
+    expect(ascl).toContain("! KBM_REFERENCE_NOTE 60");
+    expect(ascl).toContain("! KBM_REFERENCE_FREQUENCY 440");
   });
 
   it("produces a valid scala file with correct degree count", () => {

@@ -3521,8 +3521,8 @@ const App = () => {
             <em>
               TO PLAY choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic
               controller like Lumatone or Exquis. Use internal sounds or retune MIDI synths. Edit the
-              scale in the table or drag to retune. ESC toggles a hand-free latch sustain. ENTER takes
-              snapshots across tunings.{" "}
+              scale in the table or drag to retune. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes
+              snapshots across tunings.<br />{" "}
               {!showManual && (
                 <span className="app-shell__intro-more" onClick={() => setShowManual(true)}>
                   … more

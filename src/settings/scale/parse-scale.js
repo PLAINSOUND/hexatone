@@ -3,7 +3,8 @@
   http://www.huygens-fokker.org/scala/scl_format.html
 
   This parser also allows encoding of key labels and key colors (hex format, i.e. #ffffff)
-  Extended HEXATONE_* and ABLETON_* comment lines are read for full round-trip fidelity.
+  Extended ABLETON_* comment lines are read, and legacy HEXATONE_* comments remain supported
+  for backward compatibility when importing older files.
 */
 
 import { resolveKeyColorsMode } from "./key-colors-mode.js";
@@ -150,16 +151,19 @@ export function parseScalaInterval(str, context = "degree") {
 // Ratios and cents strings are returned unchanged.
 export const normaliseDegree = (line) => {
   if (!line) return "0.";
-  if (String(line).trim() === "0") return "0.";
-  if (line.match(/\//)) return line; // ratio — keep as-is
-  if (line.match(/\./)) return line; // cents — keep as-is
-  if (line.match(/\\/)) {
+  const text = String(line).trim();
+  if (text === "0") return "0.";
+  if (text.match(/\//)) return text; // ratio — keep as-is
+  if (text.match(/\./)) {
+    return text.endsWith(".") ? `${text}0` : text; // cents — keep as-is, but normalise trailing dot
+  }
+  if (text.match(/\\/)) {
     // EDO step — convert to cents
-    const cents = scalaToCents(line);
+    const cents = scalaToCents(text);
     return cents.toFixed(6);
   }
   // plain integer — treat as ratio n/1
-  return `${parseInt(line)}/1`;
+  return `${parseInt(text)}/1`;
 };
 
 // Normalise a HEJI anchor ratio/cents field to a canonical Scala string,
@@ -224,11 +228,12 @@ export const settingsToPlainScala = (settings) => {
   return lines.join("\n") + "\n";
 };
 
-// Build an Ableton .ascl file string.
+// Build an Ableton .ascl file string with embedded .kbm reference data in comments.
 export const settingsToAbletonScala = (settings) => {
   const name = settings.name || "custom";
   const description = settings.description || name;
   const rawScale = getRawScale(settings);
+  const equivSteps = settings.equivSteps || rawScale.length || 12;
   const anchorNote = settings.midiin_anchor_note || 60;
   const refNote = anchorNote + (settings.reference_degree || 0);
   const rootNote = anchorNote % 12;
@@ -237,6 +242,13 @@ export const settingsToAbletonScala = (settings) => {
     `!`,
     `! ABLETON_REFERENCE_PITCH ${refNote} ${settings.fundamental || 440}`,
     `! ABLETON_ROOT_NOTE ${rootNote}`,
+    `! KBM_MAP_SIZE ${equivSteps}`,
+    `! KBM_FIRST_MIDI_NOTE 0`,
+    `! KBM_LAST_MIDI_NOTE 127`,
+    `! KBM_MIDDLE_NOTE ${anchorNote}`,
+    `! KBM_REFERENCE_NOTE ${refNote}`,
+    `! KBM_REFERENCE_FREQUENCY ${settings.fundamental || 440}`,
+    `! KBM_REFERENCE_SCALE_DEGREE 0`,
     `!`,
     description,
     rawScale.length.toString(),
@@ -246,34 +258,8 @@ export const settingsToAbletonScala = (settings) => {
   return lines.join("\n") + "\n";
 };
 
-// Build an Ableton/Hexatone .ascl file string with full round-trip metadata.
-export const settingsToHexatonScala = (settings) => {
-  const name = settings.name || "custom";
-  const description = settings.description || name;
-  const rawScale = getRawScale(settings);
-  const anchorNote = settings.midiin_anchor_note || 60;
-  const refNote = anchorNote + (settings.reference_degree || 0);
-  const rootNote = anchorNote % 12;
-  const noteNames = (settings.note_names || []).join(", ");
-  const noteColors = (settings.note_colors || []).join(", ");
-  const lines = [
-    `! ${name}.ascl`,
-    `!`,
-    `! ABLETON_REFERENCE_PITCH ${refNote} ${settings.fundamental || 440}`,
-    `! ABLETON_ROOT_NOTE ${rootNote}`,
-    `!`,
-    `! HEXATONE_REFERENCE_PITCH ${settings.reference_degree || 0} ${settings.fundamental || 440}`,
-    `! HEXATONE_midiin_anchor_note ${anchorNote}`,
-    noteNames ? `! HEXATONE_NOTE_NAMES ${noteNames}` : null,
-    noteColors ? `! HEXATONE_NOTE_COLORS ${noteColors}` : null,
-    `!`,
-    description,
-    rawScale.length.toString(),
-    `!`,
-    ...rawScale.map((d) => ` ${normaliseDegree(d)}`),
-  ].filter((l) => l !== null);
-  return lines.join("\n") + "\n";
-};
+// Legacy alias kept so existing internal call sites continue to work during migration.
+export const settingsToHexatonScala = (settings) => settingsToAbletonScala(settings);
 
 // Build a .kbm keyboard mapping file string from current settings.
 export const settingsToKbm = (settings) => {
@@ -321,6 +307,11 @@ const getRawScale = (settings) => {
   }
   // Pre-normalize form — use as-is
   return s;
+};
+
+export const hasNegativeScalaExportValues = (settings) => {
+  const rawScale = getRawScale(settings);
+  return rawScale.some((degree) => parseScalaInterval(String(degree ?? ""), "degree").cents < 0);
 };
 
 // Serialise current settings as a compact JSON object for user-preset export.

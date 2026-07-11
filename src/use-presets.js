@@ -1,6 +1,6 @@
 import { useState, useEffect } from "preact/hooks";
 import { presets, default_settings } from "./settings/presets/preset_values";
-import { settingsToHexatonScala } from "./settings/scale/parse-scale.js";
+import { settingsToAbletonScala } from "./settings/scale/parse-scale.js";
 import { loadCustomPresets } from "./settings/presets/custom-presets";
 import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "./persistence/settings-registry.js";
 import { normalizeModulationHistory } from "./tuning/modulation-runtime.js";
@@ -61,7 +61,7 @@ export const findPreset = (preset) => {
   for (let g of presets) {
     for (let p of g.settings) {
       if (p.name === preset) {
-        return { ...p, scale_import: settingsToHexatonScala(p) };
+        return { ...p, scale_import: settingsToAbletonScala(p) };
       }
     }
   }

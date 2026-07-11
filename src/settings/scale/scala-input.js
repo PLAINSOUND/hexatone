@@ -1,4 +1,4 @@
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useRef } from "preact/hooks";
 import { normaliseDegree, parseScalaInterval } from "./parse-scale.js";
 
 /**
@@ -40,19 +40,30 @@ const ScalaInput = ({
 }) => {
   // Local draft while the user is typing.
   const [draft, setDraft] = useState(value ?? "");
+  const lastCommittedRef = useRef({ canonical: null, display: null });
 
   // Sync draft when the controlled value changes from outside (e.g. preset load).
   useEffect(() => {
-    setDraft(value ?? "");
+    const nextValue = value ?? "";
+    if (lastCommittedRef.current.canonical != null && nextValue === lastCommittedRef.current.canonical) {
+      setDraft(lastCommittedRef.current.display ?? nextValue);
+      return;
+    }
+    setDraft(nextValue);
   }, [value]);
 
   const { cents, valid, error } = parseScalaInterval(draft, context);
+
+  const previewText = Number.isFinite(cents)
+    ? `${Math.round(cents)}¢`
+    : (error ?? "");
 
   const inputStyle = {
     ...style,
     border: valid || draft === "" ? (style?.border ?? "1px solid #c8b8b8") : "1.5px solid #c0392b",
   };
   const resolvedInputMode = inputMode ?? "text";
+  const shouldShowCents = showCents || !String(draft).includes(".") || !valid;
 
   const handleChange = (e) => {
     const s = e.target.value;
@@ -61,25 +72,33 @@ const ScalaInput = ({
   };
 
   const handleBlur = () => {
-    let finalStr = draft.trim();
+    let displayStr = draft.trim();
+    if (displayStr.endsWith(".")) displayStr = `${displayStr}0`;
 
-    // Coerce zero-equivalent entries to canonical "0." in degree context.
+    // Coerce bare zero entries to canonical "0." in degree context, but preserve
+    // explicit Scala forms such as 1/1 or 0\12 in the display layer.
+    let finalStr = displayStr;
     if (context === "degree") {
-      const { cents: c } = parseScalaInterval(finalStr, "degree");
-      if (c === 0 && finalStr !== "0.") finalStr = "0.";
-      else if (finalStr !== "") finalStr = normaliseDegree(finalStr);
-    } else if (finalStr !== "" && !(/[/.\\]/).test(finalStr)) {
+      const { cents: c } = parseScalaInterval(displayStr, "degree");
+      if (c === 0 && /^0(?:\.0+)?$/.test(displayStr)) {
+        finalStr = "0.";
+        displayStr = "0.0";
+      } else if (displayStr !== "") {
+        finalStr = normaliseDegree(displayStr);
+      }
+    } else if (displayStr !== "" && !(/[/.\\]/).test(displayStr)) {
       // In interval context, bare integers should still commit back as ratios.
-      finalStr = normaliseDegree(finalStr);
+      finalStr = normaliseDegree(displayStr);
     }
 
-    const result = parseScalaInterval(finalStr, context);
+    const result = parseScalaInterval(displayStr, context);
     if (result.valid) {
-      setDraft(finalStr);
+      setDraft(displayStr);
+      lastCommittedRef.current = { canonical: finalStr, display: displayStr };
       onChange(finalStr);
     } else {
-      // Revert to last known good value.
-      setDraft(value ?? "");
+      // Keep invalid but parseable entries visible so the user can correct them.
+      setDraft(displayStr);
     }
   };
 
@@ -99,7 +118,6 @@ const ScalaInput = ({
         spellCheck={false}
         value={draft}
         onInput={handleChange}
-        onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.target.blur();
@@ -107,9 +125,9 @@ const ScalaInput = ({
         style={inputStyle}
         {...rest}
       />
-      {showCents && (
+      {shouldShowCents && (
         <span class={`scala-input__cents${valid ? "" : " scala-input__cents--error"}`}>
-          {valid ? `${Math.round(cents)}¢` : (error ?? "")}
+          {previewText}
         </span>
       )}
     </span>
