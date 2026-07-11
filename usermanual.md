@@ -56,11 +56,11 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
 
 Left-to-right along the bottom of the app there are buttons and these are also mapped to key commands:
 
-- a round `SNAPSHOT` button (ENTER key) captures currently played and/or sustained notes
-- `OCT` (arrow keys, active when canvas is in focus): click the word "OCT" or press <- and -> to toggle functionality between two states: retune next played note or (darker colour) retune immediately; use arrow-up arrow-down to change octaves
-- `SUSTAIN` (ESC key): toggle to sustain notes hands-free; click again on a note to remove it
+- a round `SNAPSHOT` button (SHIFT+ENTER key) captures currently played and/or sustained notes
+- `OCT` (SHIFT+arrow keys, active when canvas is in focus): click the word "OCT" or press SHIFT and the <- and -> to toggle functionality between two states: retune next played note or (darker colour) retune immediately; use SHIFT + arrow-up arrow-down to change octaves
+- `SUSTAIN` (SHIFT+ESC key): toggle to sustain notes hands-free; click again on a note to remove it
 - `MOD` (SHIFT+BACKQUOTE / ^ key): click to capture last played note as source degree, next played note becomes target degree, shifting the scale frequency globally while maintaining layout and appearance (moveable do logic); an alternate fixed do logic keeps the source note "in place" but changes its scale degree to that of the target degree
-- `PANIC` (BACKSPACE / DELETE key): kills sounding notes as nicely as possible
+- `PANIC` (SHIFT+BACKSPACE / DELETE key): kills sounding notes as nicely as possible
 
 ### Sequencing Snapshots
 
@@ -93,7 +93,7 @@ Left-to-right along the bottom of the app there are buttons and these are also m
 
 ### Mouse, Touch, Computer Keyboard
 
-Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard becomes a simple isomorphic controller. The H key is mapped automatically to play the central degree at the center of the canvas. Pressing SHIFT and a key alternately latches and releases that particular note, allowing note-by-note sustains.
+Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard becomes a simple isomorphic controller. The H key is mapped automatically to play the central degree at the center of the canvas. Pressing SHIFT and a note-triggering key alternately latches and releases that particular note, allowing note-by-note sustains.
 
 ### Presets
 
