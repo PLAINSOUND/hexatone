@@ -220,12 +220,14 @@ describe("mergePresetIntoSettings", () => {
     expect(merged.linnstrument_anchor_note).toBe(9);
   });
 
-  it("ignores non-matching preset anchor fields when another controller is active", () => {
+  it("lets an incoming preset anchor win even if the previous live controller differed", () => {
     sessionStorage.setItem("midiin_anchor_note", "31");
+    sessionStorage.setItem("midiin_anchor_channel", "2");
 
     const merged = mergePresetIntoSettings(
       {
         midiin_anchor_note: 31,
+        midiin_anchor_channel: 2,
         midiin_controller_override: "exquis",
         midi_passthrough: false,
       },
@@ -236,7 +238,8 @@ describe("mergePresetIntoSettings", () => {
       },
     );
 
-    expect(merged.midiin_anchor_note).toBe(31);
+    expect(merged.midiin_anchor_note).toBe(26);
+    expect(merged.midiin_anchor_channel).toBe(3);
     expect(merged.lumatone_anchor_note).toBe(26);
     expect(merged.lumatone_anchor_channel).toBe(3);
   });
@@ -263,6 +266,33 @@ describe("mergePresetIntoSettings", () => {
     expect(merged.midiin_anchor_channel).toBe(2);
     expect(merged.lumatone_anchor_note).toBeUndefined();
     expect(merged.lumatone_anchor_channel).toBeUndefined();
+  });
+
+  it("overwrites one preset-specific Lumatone anchor with the next preset-specific Lumatone anchor", () => {
+    const firstPreset = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 60,
+        midiin_anchor_channel: 1,
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+      },
+      {
+        name: "Pedal Harp Scordatura 145-note layout",
+        lumatone_anchor_note: 27,
+        lumatone_anchor_channel: 3,
+      },
+    );
+
+    const secondPreset = mergePresetIntoSettings(firstPreset, {
+      name: "Pedal Harp 81-Odd 145-note layout",
+      lumatone_anchor_note: 8,
+      lumatone_anchor_channel: 2,
+    });
+
+    expect(secondPreset.midiin_anchor_note).toBe(8);
+    expect(secondPreset.midiin_anchor_channel).toBe(2);
+    expect(secondPreset.lumatone_anchor_note).toBe(8);
+    expect(secondPreset.lumatone_anchor_channel).toBe(2);
   });
 
   it("restores the user's saved Exquis anchor after leaving a preset-specific Exquis anchor", () => {

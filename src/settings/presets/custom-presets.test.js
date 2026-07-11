@@ -85,6 +85,53 @@ describe("CustomPresets import actions", () => {
     });
   });
 
+  it("activates the first imported tuning after opening a file", async () => {
+    const onLoad = vi.fn();
+    const { container } = render(<CustomPresets {...baseProps} onLoad={onLoad} />);
+    const [fileInput] = container.querySelectorAll('input[type="file"]');
+
+    fireEvent.change(fileInput, {
+      target: {
+        files: [makeFile("alpha.json", presetJson("Alpha tuning"))],
+      },
+    });
+
+    await waitFor(() => {
+      expect(onLoad).toHaveBeenCalledWith(expect.objectContaining({ name: "Alpha tuning" }));
+    });
+  });
+
+  it("warns before replacing an unsaved working tuning during file open", async () => {
+    const onLoad = vi.fn();
+    const { container } = render(
+      <CustomPresets
+        {...baseProps}
+        activeSource="builtin"
+        settings={{
+          name: "Unsaved 36edo",
+          scale: ["33.333333", "66.666667", "1200."],
+          equivSteps: 36,
+          fundamental: 440,
+        }}
+        onLoad={onLoad}
+      />,
+    );
+    const [fileInput] = container.querySelectorAll('input[type="file"]');
+    window.confirm.mockReturnValueOnce(false);
+
+    fireEvent.change(fileInput, {
+      target: {
+        files: [makeFile("alpha.json", presetJson("Alpha tuning"))],
+      },
+    });
+
+    await waitFor(() => {
+      expect(window.confirm).toHaveBeenCalledWith("Discard current unsaved tuning?");
+    });
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(loadCustomPresets()).toEqual([]);
+  });
+
   it("ignores subfolder files during folder import unless Include subfolders is checked", async () => {
     const { container, rerender } = render(<CustomPresets {...baseProps} />);
     const [, folderInput] = container.querySelectorAll('input[type="file"]');

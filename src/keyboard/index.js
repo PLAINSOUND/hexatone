@@ -91,7 +91,6 @@ const Keyboard = (props) => {
 
   useEffect(() => {
     if (keysRef.current) {
-      keysRef.current.resizeHandler();
       keysRef.current.typing = props.active;
       if (!props.active && typeof keysRef.current.releaseAllKeyboardNotes === "function")
         keysRef.current.releaseAllKeyboardNotes();

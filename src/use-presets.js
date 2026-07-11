@@ -195,9 +195,7 @@ function getAnchorFallback(settings = {}) {
 export const mergePresetIntoSettings = (settings, preset) => {
   const persistentAnchorFallback = getAnchorFallback(settings);
   const restoredAnchor = restorePersistentAnchorFields(persistentAnchorFallback);
-  const activePresetAnchorConfig = PRESET_ANCHOR_CONFIGS.find(({ appliesInSettings }) =>
-    appliesInSettings(settings),
-  );
+  const activePresetAnchorConfig = getPresetAnchorConfig(preset);
   const presetAnchorNote =
     activePresetAnchorConfig && Number.isFinite(preset[activePresetAnchorConfig.noteKey])
       ? preset[activePresetAnchorConfig.noteKey]
@@ -502,6 +500,7 @@ const usePresets = (
     onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
     setSettings(() => merged);
+    schedulePresetRuntimeReset(bumpPresetRuntimeReset);
     synthRef.current?.prepare?.();
   };
 
@@ -528,6 +527,7 @@ const usePresets = (
     onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
     setSettings(() => merged);
+    schedulePresetRuntimeReset(bumpPresetRuntimeReset);
   };
 
   const onClearUserPresets = () => {

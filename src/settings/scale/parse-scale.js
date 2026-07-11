@@ -314,6 +314,39 @@ export const hasNegativeScalaExportValues = (settings) => {
   return rawScale.some((degree) => parseScalaInterval(String(degree ?? ""), "degree").cents < 0);
 };
 
+export const derivePresetControllerAnchorFields = (settings = {}) => {
+  if (settings.midi_passthrough === true) return {};
+
+  if (settings.midiin_controller_override === "lumatone") {
+    const anchor = {};
+    const note = Number.isFinite(settings.lumatone_anchor_note)
+      ? settings.lumatone_anchor_note
+      : settings.midiin_anchor_note;
+    const channel = Number.isFinite(settings.lumatone_anchor_channel)
+      ? settings.lumatone_anchor_channel
+      : settings.midiin_anchor_channel;
+    if (Number.isFinite(note)) anchor.lumatone_anchor_note = note;
+    if (Number.isFinite(channel)) anchor.lumatone_anchor_channel = channel;
+    return anchor;
+  }
+
+  if (settings.midiin_controller_override === "exquis") {
+    const note = Number.isFinite(settings.exquis_anchor_note)
+      ? settings.exquis_anchor_note
+      : settings.midiin_anchor_note;
+    return Number.isFinite(note) ? { exquis_anchor_note: note } : {};
+  }
+
+  if (settings.midiin_controller_override === "linnstrument") {
+    const note = Number.isFinite(settings.linnstrument_anchor_note)
+      ? settings.linnstrument_anchor_note
+      : settings.midiin_anchor_note;
+    return Number.isFinite(note) ? { linnstrument_anchor_note: note } : {};
+  }
+
+  return {};
+};
+
 // Serialise current settings as a compact JSON object for user-preset export.
 export const settingsToPresetJson = (settings, extra = {}) => {
   const PRESET_FIELDS = [
@@ -346,16 +379,7 @@ export const settingsToPresetJson = (settings, extra = {}) => {
     }
   }
 
-  const isLumatone2d =
-    settings.midiin_controller_override === "lumatone" && settings.midi_passthrough !== true;
-  if (isLumatone2d) {
-    if (Number.isFinite(settings.midiin_anchor_note)) {
-      preset.lumatone_anchor_note = settings.midiin_anchor_note;
-    }
-    if (Number.isFinite(settings.midiin_anchor_channel)) {
-      preset.lumatone_anchor_channel = settings.midiin_anchor_channel;
-    }
-  }
+  Object.assign(preset, derivePresetControllerAnchorFields(settings));
 
   for (const [key, value] of Object.entries(extra)) {
     if (value !== undefined && value !== null && (!Array.isArray(value) || value.length > 0)) {

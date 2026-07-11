@@ -3,6 +3,7 @@ import {
   applyPresetControllerAnchor,
   deriveOutputRuntime,
   deriveOscVolumes,
+  hasExplicitPresetControllerAnchor,
   shouldFlushSoundingNotesForFreshOscActivation,
   deriveTuningRuntime,
   resolveReservedHakenOutputId,
@@ -288,6 +289,27 @@ describe("use-synth-wiring controller resolution", () => {
         { midiin_anchor_note: 19, midiin_anchor_channel: 1 },
       ),
     ).toEqual({ midiin_anchor_note: 19, midiin_anchor_channel: 1 });
+  });
+
+  it("detects when a Lumatone preset carries an explicit anchor", () => {
+    expect(
+      hasExplicitPresetControllerAnchor(
+        {
+          midi_passthrough: false,
+          lumatone_anchor_note: 18,
+          lumatone_anchor_channel: 2,
+        },
+        "lumatone",
+      ),
+    ).toBe(true);
+    expect(
+      hasExplicitPresetControllerAnchor(
+        {
+          midi_passthrough: false,
+        },
+        "lumatone",
+      ),
+    ).toBe(false);
   });
 
   it("falls back unknown inputs to the Generic keyboard controller", () => {

@@ -182,7 +182,6 @@ describe("Keyboard settings-impact boundary", () => {
       spectrum_colors: true,
       fundamental_color: "ffdbe8",
     });
-    expect(keysState.instances[0].resizeHandler).toHaveBeenCalled();
     expect(keysState.instances[0].scheduleImmediateGridRedraw).toHaveBeenCalled();
   });
 });

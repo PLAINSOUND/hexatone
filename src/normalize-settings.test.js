@@ -861,7 +861,7 @@ describe("normalizeStructural", () => {
       heji_show_cents: false,
     });
 
-    expect(normalized.heji_anchor_ratio_effective).toBe("900.");
+    expect(normalized.heji_anchor_ratio_effective).toBe("900.0");
     expect(normalized.heji_anchor_label_effective).toBe("\uE2F2A");
   });
 

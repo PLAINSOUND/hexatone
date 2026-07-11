@@ -618,7 +618,7 @@ describe("KeyLabels HEJI anchor handling", () => {
       "Blank Keys",
       "Scale Degrees",
       "Scale Data",
-      "Scale Cents",
+      "Octave-Reduced Scale Cents",
       "Name",
       "HEJI",
     ]);

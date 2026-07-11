@@ -147,6 +147,50 @@ export const applyPresetControllerAnchor = (settings, controllerId, anchorUpdate
   return anchorUpdate;
 };
 
+export const hasExplicitPresetControllerAnchor = (settings, controllerId) => {
+  if (!controllerId || !settings || settings.midi_passthrough === true) return false;
+
+  if (controllerId === "lumatone") {
+    return (
+      Number.isFinite(settings.lumatone_anchor_note) ||
+      Number.isFinite(settings.lumatone_anchor_channel)
+    );
+  }
+
+  if (controllerId === "exquis") {
+    return Number.isFinite(settings.exquis_anchor_note);
+  }
+
+  if (controllerId === "linnstrument") {
+    return Number.isFinite(settings.linnstrument_anchor_note);
+  }
+
+  return false;
+};
+
+export const buildPresetControllerAnchorUpdate = (controllerId, note, channel = 1) => {
+  if (controllerId === "lumatone") {
+    return {
+      lumatone_anchor_note: note,
+      lumatone_anchor_channel: channel,
+    };
+  }
+
+  if (controllerId === "exquis") {
+    return {
+      exquis_anchor_note: note,
+    };
+  }
+
+  if (controllerId === "linnstrument") {
+    return {
+      linnstrument_anchor_note: note,
+    };
+  }
+
+  return {};
+};
+
 const normalizeMidiPortName = (name = "") =>
   String(name)
     .toLowerCase()
@@ -1274,14 +1318,14 @@ const useSynthWiring = (
     if (!input) return;
     const ctrl = resolveControllerPrefsTarget(input, settings.midiin_controller_override);
     if (!ctrl) return;
-    setSettings((s) => ({
-      ...s,
-      ...applyPresetControllerAnchor(
-        settingsRef.current,
-        ctrl.id,
-        loadAnchorSettingsUpdate(ctrl, settingsRef.current),
-      ),
-    }));
+    setSettings((s) => {
+      const anchorSeed = hasExplicitPresetControllerAnchor(s, ctrl.id)
+        ? {}
+        : loadAnchorSettingsUpdate(ctrl, s);
+      const nextAnchorSettings = applyPresetControllerAnchor(s, ctrl.id, anchorSeed);
+      const changed = Object.entries(nextAnchorSettings).some(([key, value]) => s[key] !== value);
+      return changed ? { ...s, ...nextAnchorSettings } : s;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
   }, [
     midi,
@@ -1346,7 +1390,10 @@ const useSynthWiring = (
       // saveAnchorFromLearn handles both single-channel and channel-aware (Lumatone)
       // controllers in one place; returns the update object to merge into settings.
       const update = ctrl
-        ? saveAnchorFromLearn(ctrl, noteNum, ch, s)
+        ? {
+            ...saveAnchorFromLearn(ctrl, noteNum, ch, s),
+            ...buildPresetControllerAnchorUpdate(ctrl.id, noteNum, ch),
+          }
         : { midiin_anchor_note: noteNum, midiin_anchor_channel: ch };
 
       // midiin_anchor_channel drives the relative channel-offset formula in

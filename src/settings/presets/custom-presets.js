@@ -6,7 +6,11 @@
 import { createRef } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
-import { fileToPreset, settingsToPresetJson } from "../scale/parse-scale";
+import {
+  derivePresetControllerAnchorFields,
+  fileToPreset,
+  settingsToPresetJson,
+} from "../scale/parse-scale";
 import { normalizeModulationHistory } from "../../tuning/modulation-runtime.js";
 import { resolveKeyColorsMode } from "../scale/key-colors-mode.js";
 import { presets as builtinPresetGroups } from "./preset_values";
@@ -37,6 +41,11 @@ const PRESET_FIELDS = [
   "hexSize",
   "rotation",
   "midiin_anchor_note",
+  "midiin_anchor_channel",
+  "lumatone_anchor_note",
+  "lumatone_anchor_channel",
+  "exquis_anchor_note",
+  "linnstrument_anchor_note",
   "mpe_mode",
   "mpe_pitchbend_range",
   "modulation_library",
@@ -139,6 +148,14 @@ const CustomPresets = ({
   const saveLabel = isExisting && (!isLoadedUserPreset || isPresetDirty)
     ? "Save current settings and overwrite user preset"
     : "Save current settings";
+  const hasUnsavedWorkspace =
+    !!tuningName &&
+    (
+      activeSource !== "user" ||
+      isPresetDirty ||
+      !activePresetName ||
+      activePresetName !== tuningName
+    );
 
   const handleSave = () => {
     if (!tuningName) {
@@ -153,6 +170,7 @@ const CustomPresets = ({
         preset[key] = settings[key];
       }
     }
+    Object.assign(preset, derivePresetControllerAnchorFields(settings));
     const normalizedLibrary = normalizeModulationHistory(currentModulationLibrary, { zeroCounts: true });
     if (normalizedLibrary.length > 0) preset.modulation_library = normalizedLibrary;
     else delete preset.modulation_library;
@@ -199,6 +217,7 @@ const CustomPresets = ({
         preset[key] = committedSettings[key];
       }
     }
+    Object.assign(preset, derivePresetControllerAnchorFields(committedSettings));
     delete preset.modulation_library;
 
     const next = isExisting
@@ -233,11 +252,11 @@ const CustomPresets = ({
     if (onClear) onClear();
   };
 
-  const mergeImportedPresets = (parsed, emptyMessage, inputEl) => {
+  const mergeImportedPresets = (parsed, emptyMessage, inputEl, { activateImported = false } = {}) => {
     if (!parsed.length) {
       setError(emptyMessage);
       if (inputEl) inputEl.value = "";
-      return;
+      return null;
     }
 
     const seenNames = new Set();
@@ -258,15 +277,19 @@ const CustomPresets = ({
 
     if (clashes.length > 0) {
       const names = clashes.map((p) => p.name).join(", ");
+      const message =
+        clashes.length === 1
+          ? `A user tuning with the same name exists:\n\n${names}\n\nOverwrite?`
+          : `${clashes.length} user tunings with the same name already exist:\n\n${names}\n\nOverwrite?`;
       const overwrite = window.confirm(
-        `${clashes.length} tuning${clashes.length > 1 ? "s" : ""} already exist with the same name:\n\n${names}\n\nOverwrite?`,
+        message,
       );
       if (!overwrite) {
         const newOnly = uniqueParsed.filter((p) => !existing.some((e) => e.name === p.name));
         if (!newOnly.length) {
           setError("No new tunings to import.");
           if (inputEl) inputEl.value = "";
-          return;
+          return null;
         }
         const next = [...existing, ...newOnly];
         saveCustomPresets(next);
@@ -274,7 +297,15 @@ const CustomPresets = ({
         setExpanded(true);
         setError("");
         if (inputEl) inputEl.value = "";
-        return;
+        if (activateImported) {
+          const activated = next.find((preset) => preset.name === newOnly[0]?.name) ?? null;
+          if (activated) {
+            setSelected(activated.name);
+            onLoad(activated);
+          }
+          return activated;
+        }
+        return null;
       }
     }
 
@@ -290,6 +321,15 @@ const CustomPresets = ({
     setExpanded(true);
     setError("");
     if (inputEl) inputEl.value = "";
+    if (activateImported) {
+      const activated = next.find((preset) => preset.name === uniqueParsed[0]?.name) ?? null;
+      if (activated) {
+        setSelected(activated.name);
+        onLoad(activated);
+      }
+      return activated;
+    }
+    return null;
   };
 
   const readPresetFiles = async (files) => {
@@ -319,8 +359,19 @@ const CustomPresets = ({
       return;
     }
 
+    if (
+      hasUnsavedWorkspace &&
+      typeof window !== "undefined" &&
+      !window.confirm("Discard current unsaved tuning?")
+    ) {
+      e.target.value = "";
+      return;
+    }
+
     const parsed = await readPresetFiles(files);
-    mergeImportedPresets(parsed, "No valid tunings found in the selected files.", e.target);
+    mergeImportedPresets(parsed, "No valid tunings found in the selected files.", e.target, {
+      activateImported: true,
+    });
   };
 
   // Folder import — reads all .scl, .ascl, .json files in the chosen folder

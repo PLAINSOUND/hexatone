@@ -474,6 +474,21 @@ describe("settingsToPresetJson", () => {
     expect(parsed.lumatone_anchor_note).toBeUndefined();
     expect(parsed.lumatone_anchor_channel).toBeUndefined();
   });
+
+  it("exports the current Exquis 2D anchor as preset metadata", () => {
+    const json = settingsToPresetJson({
+      name: "Exquis Export",
+      scale: ["100.", "1200."],
+      equivSteps: 2,
+      midiin_controller_override: "exquis",
+      midi_passthrough: false,
+      midiin_anchor_note: 18,
+    });
+    const parsed = JSON.parse(json);
+
+    expect(parsed.exquis_anchor_note).toBe(18);
+    expect(parsed.midiin_anchor_note).toBeUndefined();
+  });
 });
 
 // ── fileToPreset ──────────────────────────────────────────────────────────────

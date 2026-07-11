@@ -328,7 +328,7 @@ const KeyLabels = (props) => {
           <option value="no_labels">Blank Keys</option>
           <option value="enumerate">Scale Degrees</option>
           <option value="scala_names">Scale Data</option>
-          <option value="cents">Scale Cents</option>
+          <option value="cents">Octave-Reduced Scale Cents</option>
           <option value="note_names">Name</option>
           <option value="heji">HEJI</option>
         </select>

@@ -146,22 +146,34 @@ function SidebarLoadingFallback() {
 function buildLumatoneAutoSyncKey({
   lumatoneInId,
   lumatoneOutId,
-  keysReadyRevision,
   name,
   referenceDegree,
   fundamental,
-  keyColors,
+  noteColors,
   keyLabels,
+  scale,
+  equivInterval,
+  centerDegree,
+  rSteps,
+  drSteps,
+  anchorNote,
+  anchorChannel,
 }) {
   return [
     lumatoneInId ?? "no-in",
     lumatoneOutId ?? "no-out",
-    keysReadyRevision,
     name ?? "",
     referenceDegree ?? "",
     fundamental ?? "",
-    keyColors ?? "",
+    noteColors ?? "",
     keyLabels ?? "",
+    scale ?? "",
+    equivInterval ?? "",
+    centerDegree ?? "",
+    rSteps ?? "",
+    drSteps ?? "",
+    anchorNote ?? "",
+    anchorChannel ?? "",
   ].join("|");
 }
 
@@ -2013,22 +2025,11 @@ const App = () => {
 
   useEffect(() => {
     if (!keysRef.current || textEntryActive || viewportKeyboardOpen) return undefined;
-    let cancelled = false;
-    let raf1 = 0;
-    let raf2 = 0;
-    const refreshCanvas = () => {
-      if (cancelled || !keysRef.current) return;
-      keysRef.current.resizeHandler();
-      keysRef.current.scheduleImmediateGridRedraw?.();
-    };
-    raf1 = requestAnimationFrame(() => {
-      refreshCanvas();
-      raf2 = requestAnimationFrame(refreshCanvas);
-    });
+    const timer = setTimeout(() => {
+      keysRef.current?.scheduleImmediateGridRedraw?.();
+    }, 320);
     return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
+      clearTimeout(timer);
     };
   }, [active, showManual, textEntryActive, viewportKeyboardOpen]);
 
@@ -2808,8 +2809,49 @@ const App = () => {
         exquis: exquisLedsRef.current,
         linnstrument: linnstrumentLedsRef.current,
       }, { eagerSync: false });
+      if (settings.lumatone_led_sync && lumatoneLedsRef.current) {
+        const syncKey = buildLumatoneAutoSyncKey({
+          lumatoneInId,
+          lumatoneOutId,
+          name: settings.name,
+          referenceDegree: settings.reference_degree,
+          fundamental: settings.fundamental,
+          noteColors: settings.note_colors,
+          keyLabels: settings.key_labels,
+          scale: settings.scale,
+          equivInterval: settings.equivInterval,
+          centerDegree: settings.center_degree,
+          rSteps: settings.rSteps,
+          drSteps: settings.drSteps,
+          anchorNote: settings.midiin_anchor_note,
+          anchorChannel: settings.midiin_anchor_channel,
+        });
+        lumatoneAutoSyncKeyRef.current = syncKey;
+        setTimeout(() => {
+          if (keysRef.current !== keys) return;
+          if (lumatoneLedsRef.current == null) return;
+          keys.autoSyncLumatoneLEDs?.();
+        }, 0);
+      }
     },
-    [linnstrumentUserFirmwareEligible],
+    [
+      linnstrumentUserFirmwareEligible,
+      lumatoneInId,
+      lumatoneOutId,
+      settings.lumatone_led_sync,
+      settings.name,
+      settings.reference_degree,
+      settings.fundamental,
+      settings.note_colors,
+      settings.key_labels,
+      settings.scale,
+      settings.equivInterval,
+      settings.center_degree,
+      settings.rSteps,
+      settings.drSteps,
+      settings.midiin_anchor_note,
+      settings.midiin_anchor_channel,
+    ],
   );
   const onLatchChange = useCallback((v) => setLatch(v), []);
   const modulationSnapshotKeyRef = useRef("");
@@ -2833,23 +2875,35 @@ const App = () => {
     lumatoneAutoSyncKeyRef.current = buildLumatoneAutoSyncKey({
       lumatoneInId,
       lumatoneOutId,
-      keysReadyRevision,
       name: settings.name,
       referenceDegree: settings.reference_degree,
       fundamental: settings.fundamental,
-      keyColors: settings.key_colors,
+      noteColors: settings.note_colors,
       keyLabels: settings.key_labels,
+      scale: settings.scale,
+      equivInterval: settings.equivInterval,
+      centerDegree: settings.center_degree,
+      rSteps: settings.rSteps,
+      drSteps: settings.drSteps,
+      anchorNote: settings.midiin_anchor_note,
+      anchorChannel: settings.midiin_anchor_channel,
     });
     keys.autoSyncLumatoneLEDs?.();
   }, [
-    keysReadyRevision,
     lumatoneInId,
     lumatoneOutId,
     settings.fundamental,
-    settings.key_colors,
+    settings.note_colors,
     settings.key_labels,
     settings.name,
     settings.reference_degree,
+    settings.scale,
+    settings.equivInterval,
+    settings.center_degree,
+    settings.rSteps,
+    settings.drSteps,
+    settings.midiin_anchor_note,
+    settings.midiin_anchor_channel,
   ]);
 
   useEffect(() => {
@@ -2864,12 +2918,18 @@ const App = () => {
     const syncKey = buildLumatoneAutoSyncKey({
       lumatoneInId,
       lumatoneOutId,
-      keysReadyRevision,
       name: settings.name,
       referenceDegree: settings.reference_degree,
       fundamental: settings.fundamental,
-      keyColors: settings.key_colors,
+      noteColors: settings.note_colors,
       keyLabels: settings.key_labels,
+      scale: settings.scale,
+      equivInterval: settings.equivInterval,
+      centerDegree: settings.center_degree,
+      rSteps: settings.rSteps,
+      drSteps: settings.drSteps,
+      anchorNote: settings.midiin_anchor_note,
+      anchorChannel: settings.midiin_anchor_channel,
     });
     if (syncKey === lumatoneAutoSyncKeyRef.current) return;
     lumatoneAutoSyncKeyRef.current = syncKey;
@@ -2885,11 +2945,18 @@ const App = () => {
     lumatoneOutId,
     pendingRestoredPreset,
     settings.fundamental,
-    settings.key_colors,
+    settings.note_colors,
     settings.key_labels,
     settings.lumatone_led_sync,
     settings.name,
     settings.reference_degree,
+    settings.scale,
+    settings.equivInterval,
+    settings.center_degree,
+    settings.rSteps,
+    settings.drSteps,
+    settings.midiin_anchor_note,
+    settings.midiin_anchor_channel,
   ]);
 
   return (
