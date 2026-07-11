@@ -63,11 +63,13 @@ describe("ScaleTable — key labels: note_names", () => {
     expect(screen.getByLabelText("pitch name 3").value).toBe("D#");
   });
 
-  it('calls onChange("note_names", ...) with updated array when a name is changed', () => {
+  it('calls onChange("note_names", ...) with updated array when a name is committed', () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
     const input = screen.getByLabelText("pitch name 3");
     fireEvent.input(input, { target: { value: "Eb", name: "name3" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toBe("note_names");
     const updated = onChange.mock.calls[0][1];
@@ -76,16 +78,32 @@ describe("ScaleTable — key labels: note_names", () => {
     expect(updated[4]).toBe("E");
   });
 
-  it("allows deleting characters from note names without rewriting the field", () => {
+  it("allows deleting characters from note names without rewriting the field until commit", () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
     const input = screen.getByLabelText("pitch name 3");
 
     fireEvent.input(input, { target: { value: "D", name: "name3" } });
+    expect(input.value).toBe("D");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(input);
 
     expect(onChange).toHaveBeenCalledWith(
       "note_names",
       expect.arrayContaining(["C", "C#", "D", "D"]),
+    );
+  });
+
+  it("commits a note name on Enter", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch name 3");
+    fireEvent.input(input, { target: { value: "Eb", name: "name3" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onChange).toHaveBeenCalledWith(
+      "note_names",
+      expect.arrayContaining(["C", "C#", "D", "Eb"]),
     );
   });
 });

@@ -28,6 +28,7 @@
 #sidebar {
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior-x: none;
 }
 

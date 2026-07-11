@@ -63,6 +63,7 @@ const Settings = ({
   hakenRawPorts,
   exquisLedStatus,
   snapshots,
+  tuningRuntime,
   onEnableLumatoneAutoSync,
 }) => {
   const effectiveScaleSettings = useMemo(() => ({
@@ -161,6 +162,7 @@ const Settings = ({
       onChange={onChange}
       settings={settings}
       snapshots={snapshots}
+      tuningRuntime={tuningRuntime}
       midi={midi}
       midiAccess={midiAccess}
       midiAccessError={midiAccessError}

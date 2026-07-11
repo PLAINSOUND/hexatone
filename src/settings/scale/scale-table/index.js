@@ -134,6 +134,7 @@ const ScaleTable = (props) => {
     () => props.settings.note_names || [],
     [props.settings.note_names],
   );
+  const [draftNoteNames, setDraftNoteNames] = useState({});
   const isHeji = props.settings.key_labels === "heji";
   const heji_names = useMemo(
     () => props.heji_names_table || props.heji_names || [],
@@ -198,10 +199,23 @@ const ScaleTable = (props) => {
   }, [props.keysRef, props.settings]);
 
   const nameChange = (e) => {
-    const next = [...(props.settings.note_names || [])];
-    next[parseInt(e.target.name.replace(/name/, ""))] = e.target.value;
-    props.onChange("note_names", next);
+    setDraftNoteNames((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
+
+  const commitNameChange = useCallback((inputName, value) => {
+    const next = [...(props.settings.note_names || [])];
+    next[parseInt(inputName.replace(/name/, ""))] = value;
+    props.onChange("note_names", next);
+    setDraftNoteNames((prev) => {
+      if (!(inputName in prev)) return prev;
+      const nextDrafts = { ...prev };
+      delete nextDrafts[inputName];
+      return nextDrafts;
+    });
+  }, [props]);
 
   const commitHejiNameAtDegree = (degreeIndex, value) => {
     if (degreeIndex <= 0) return;
@@ -266,6 +280,7 @@ const ScaleTable = (props) => {
 
   useEffect(() => {
     setResetVersion({});
+    setDraftNoteNames({});
     setDraggedDegree(null);
     draggedDegreeRef.current = null;
     setDropTargetDegree(null);
@@ -274,6 +289,10 @@ const ScaleTable = (props) => {
     dropTargetSideRef.current = "before";
     setSelectedDegree(null);
   }, [props.importCount]);
+
+  useEffect(() => {
+    setDraftNoteNames({});
+  }, [props.settings.note_names]);
 
   const rowRuntimeByDegree = useMemo(
     () => new Map(workspace.slots.map((slot) => [slot.degree, getRowRuntime(workspace, slot.degree)])),
@@ -1041,16 +1060,26 @@ const ScaleTable = (props) => {
               >
                 {displayedHejiNameAtDegree(0)}
               </span>
-            ) : (
-              <input
-                id="centered"
-                type="text"
-                name="name0"
-                value={note_names[0] || ""}
-                onInput={nameChange}
-                aria-label="pitch name 0"
-              />
-            )}
+              ) : (
+                <input
+                  id="centered"
+                  type="text"
+                  name="name0"
+                  value={draftNoteNames.name0 ?? note_names[0] ?? ""}
+                  onInput={nameChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitNameChange("name0", e.currentTarget.value);
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    commitNameChange("name0", e.currentTarget.value);
+                  }}
+                  aria-label="pitch name 0"
+                />
+              )}
           </td>
           <td class="scale-color-col">
             <ColorCell
@@ -1233,8 +1262,18 @@ const ScaleTable = (props) => {
                   id="centered"
                   type="text"
                   name={`name${i + 1}`}
-                  value={name}
+                  value={draftNoteNames[`name${i + 1}`] ?? name}
                   onInput={nameChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitNameChange(`name${i + 1}`, e.currentTarget.value);
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    commitNameChange(`name${i + 1}`, e.currentTarget.value);
+                  }}
                   aria-label={`pitch name ${i + 1}`}
                 />
               )}

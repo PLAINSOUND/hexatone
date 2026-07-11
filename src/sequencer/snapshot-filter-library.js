@@ -1,4 +1,5 @@
 import { findNearestDegree } from "../input/scale-mapper.js";
+import { createScaleWorkspace, normalizeWorkspaceForKeys } from "../tuning/workspace.js";
 
 function mod(value, modulus) {
   if (!modulus) return value;
@@ -39,19 +40,51 @@ function uniqueSorted(values) {
   return [...new Set(values)].sort((a, b) => a - b);
 }
 
-export function deriveSnapshotDegreeList(notes, runtime) {
+function normalizeSnapshotRuntime(runtime) {
   const scale = Array.isArray(runtime?.scale) ? runtime.scale : [];
+  if (scale.length > 0 && scale.every((entry) => Number.isFinite(Number(entry)))) {
+    return {
+      scale: scale.map((entry) => Number(entry)),
+      equivInterval: Number(runtime?.equivInterval ?? 1200),
+      referenceDegree: Number.isFinite(Number(runtime?.referenceDegree))
+        ? Number(runtime.referenceDegree)
+        : 0,
+      fundamental: Number(runtime?.fundamental ?? 440),
+    };
+  }
+  if (!scale.length) return null;
+  const workspace = createScaleWorkspace({
+    scale,
+    reference_degree: runtime?.referenceDegree ?? runtime?.reference_degree ?? 0,
+    fundamental: runtime?.fundamental ?? 440,
+  });
+  const normalized = normalizeWorkspaceForKeys(workspace);
+  return {
+    scale: normalized.scale,
+    equivInterval: normalized.equivInterval,
+    referenceDegree: Number.isFinite(Number(runtime?.referenceDegree))
+      ? Number(runtime.referenceDegree)
+      : Number.isFinite(Number(runtime?.reference_degree))
+        ? Number(runtime.reference_degree)
+        : 0,
+    fundamental: Number(runtime?.fundamental ?? 440),
+  };
+}
+
+export function deriveSnapshotDegreeList(notes, runtime) {
+  const normalizedRuntime = normalizeSnapshotRuntime(runtime);
+  const scale = Array.isArray(normalizedRuntime?.scale) ? normalizedRuntime.scale : [];
   const scaleLength = scale.length;
   if (!scaleLength || !Array.isArray(notes)) return [];
   const degrees = [];
   for (const note of notes) {
     const frequency = noteFrequency(note);
-    const pitchCents = absoluteCentsForFrequency(frequency, runtime);
+    const pitchCents = absoluteCentsForFrequency(frequency, normalizedRuntime);
     if (!Number.isFinite(pitchCents)) continue;
     const nearest = findNearestDegree(
       pitchCents,
       scale,
-      Number(runtime?.equivInterval ?? 1200),
+      Number(normalizedRuntime?.equivInterval ?? 1200),
       Number.POSITIVE_INFINITY,
       "accept",
     );

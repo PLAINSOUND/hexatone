@@ -7,6 +7,7 @@ import {
   normalizeSequenceTransport,
   normalizeTempoMarkers,
 } from "./transport.js";
+import { findPresetSequenceByName, presetSequenceGroups } from "./preset-sequences/index.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
 
@@ -123,6 +124,8 @@ const SequenceLibrary = ({
   tempi,
   snapshotLabelMode,
   autoCreateBars,
+  activeSequenceSource,
+  activeSequenceBuiltInName,
   activeSequenceName,
   activeSequenceSavedName,
   activeSequenceDescription,
@@ -137,6 +140,8 @@ const SequenceLibrary = ({
   const fileInputRef = createRef();
 
   const sequenceName = String(activeSequenceName ?? "").trim();
+  const activeSource = String(activeSequenceSource ?? "").trim();
+  const activeBuiltInName = String(activeSequenceBuiltInName ?? "").trim();
   const savedSequenceName = String(activeSequenceSavedName ?? "").trim();
   const snapshotsPresent = (snapshots?.length ?? 0) > 0;
   const workspaceRecord = useMemo(
@@ -166,8 +171,13 @@ const SequenceLibrary = ({
       !== sequenceRecordKey(activeSavedSequence);
   }, [activeSavedSequence, workspaceHasContent, workspaceRecord]);
   const nameCollision = useMemo(
-    () => !!sequenceName && savedSequences.some((sequence) => sequence.name === sequenceName) && sequenceName !== savedSequenceName,
-    [savedSequences, savedSequenceName, sequenceName],
+    () => (
+      activeSource !== "builtin" &&
+      !!sequenceName &&
+      savedSequences.some((sequence) => sequence.name === sequenceName) &&
+      sequenceName !== savedSequenceName
+    ),
+    [activeSource, savedSequences, savedSequenceName, sequenceName],
   );
   const workspaceStatus = !workspaceHasContent
     ? "empty"
@@ -176,11 +186,15 @@ const SequenceLibrary = ({
       : hasUnsavedChanges
         ? "saved-dirty"
         : "saved-clean";
-  const menuValue = activeSavedSequence
+  const showDraftOption = activeSource !== "builtin" && workspaceStatus === "draft";
+  const menuValue = activeSource === "builtin"
+    ? ""
+    : activeSavedSequence
     ? savedSequenceName
     : workspaceHasContent
       ? DRAFT_SEQUENCE_VALUE
       : "";
+  const builtInMenuValue = activeSource === "builtin" ? activeBuiltInName : "";
   const saveLabel = (activeSavedSequence && hasUnsavedChanges) || nameCollision
     ? "Save current sequence and overwrite"
     : "Save current sequence";
@@ -214,7 +228,7 @@ const SequenceLibrary = ({
     const sequence = savedSequences.find((entry) => entry.name === name);
     if (!sequence) return;
     setError("");
-    onLoadSequence(sequence);
+    onLoadSequence(sequence, { source: "user" });
   };
 
   const beginLoadSequence = (name) => {
@@ -232,7 +246,7 @@ const SequenceLibrary = ({
     }
     if (workspaceRecord && sequenceRecordContentKey(workspaceRecord) === sequenceRecordContentKey(targetSequence)) {
       setError("");
-      onLoadSequence(targetSequence);
+      onLoadSequence(targetSequence, { source: "user" });
       return;
     }
     if (name === savedSequenceName || workspaceStatus === "empty") {
@@ -364,22 +378,61 @@ const SequenceLibrary = ({
     setError("");
     const firstImported = importedWithUniqueNames[0] ?? null;
     if (firstImported) {
-      onLoadSequence(firstImported);
+      onLoadSequence(firstImported, { source: "user" });
     }
     if (input) input.value = "";
   };
 
-  return (
-    <fieldset>
-      <legend>
-        <b>Sequences</b>
-      </legend>
+  const handleBuiltInSelect = (e) => {
+    const nextName = e.currentTarget.value;
+    if (!nextName) return;
+    const targetSequence = findPresetSequenceByName(nextName);
+    if (!targetSequence) return;
+    if (
+      workspaceStatus !== "empty" &&
+      (workspaceStatus === "draft" || hasUnsavedChanges) &&
+      !(activeSource === "builtin" && nextName === activeBuiltInName) &&
+      typeof window !== "undefined" &&
+      !window.confirm("Discard current unsaved sequence?")
+    ) {
+      return;
+    }
+    setError("");
+    onLoadSequence(targetSequence, { source: "builtin" });
+  };
 
-      {(savedSequences.length > 0 || workspaceStatus === "draft") && (
+  return (
+    <>
+      <fieldset>
+        <legend>
+          <b>Built-in Sequences</b>
+        </legend>
         <label class="preset-selector-row">
-          <select value={menuValue} onChange={handleSelect}>
-            <option value="">Choose a sequence:</option>
-            {workspaceStatus === "draft" && (
+          <select aria-label="Built-in sequences" value={builtInMenuValue} onChange={handleBuiltInSelect}>
+            <option value="">Choose a built-in sequence:</option>
+            {presetSequenceGroups.map((group) => (
+              <optgroup key={group.name} label={group.name}>
+                {group.sequences.map((sequence) => (
+                  <option key={sequence.name} value={sequence.name}>
+                    {sequence.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>
+          <b>User Sequences</b>
+        </legend>
+
+        {(savedSequences.length > 0 || showDraftOption) && (
+        <label class="preset-selector-row">
+          <select aria-label="User sequences" value={menuValue} onChange={handleSelect}>
+            <option value="">Choose a user sequence:</option>
+            {showDraftOption && (
               <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>
             )}
             {savedSequences.map((sequence) => (
@@ -408,72 +461,73 @@ const SequenceLibrary = ({
             Delete
           </button>
         </label>
-      )}
+        )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept=".json"
-        class="settings-form__hidden-file-input"
-        onChange={handleOpenFiles}
-      />
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".json"
+          class="settings-form__hidden-file-input"
+          onChange={handleOpenFiles}
+        />
 
-      <div class="preset-actions preset-actions--library">
-        <button
-          type="button"
-          class="preset-action-btn"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Open File(s)…
-        </button>
-        {savedSequences.length > 0 &&
-          (
-            <span class="preset-actions__clear-slot">
-              {confirmClear ? (
-                <span class="preset-actions__confirm">
-                  <em class="preset-actions__confirm-text">Clear all user sequences?</em>
-                  <button type="button" class="delete-btn preset-utility-btn settings-form__inline-button--nowrap" onClick={handleClearConfirmed}>
-                    Yes, clear
+        <div class="preset-actions preset-actions--library">
+          <button
+            type="button"
+            class="preset-action-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Open File(s)…
+          </button>
+          {savedSequences.length > 0 &&
+            (
+              <span class="preset-actions__clear-slot">
+                {confirmClear ? (
+                  <span class="preset-actions__confirm">
+                    <em class="preset-actions__confirm-text">Clear all user sequences?</em>
+                    <button type="button" class="delete-btn preset-utility-btn settings-form__inline-button--nowrap" onClick={handleClearConfirmed}>
+                      Yes, clear
+                    </button>
+                    <button type="button" class="preset-utility-btn settings-form__inline-button--nowrap" onClick={() => setConfirmClear(false)}>
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+                    onClick={() => setConfirmClear(true)}
+                  >
+                    Clear All
                   </button>
-                  <button type="button" class="preset-utility-btn settings-form__inline-button--nowrap" onClick={() => setConfirmClear(false)}>
-                    Cancel
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-                  onClick={() => setConfirmClear(true)}
-                >
-                  Clear All
-                </button>
-              )}
-            </span>
-          )}
-      </div>
-
-      {workspaceHasContent && (
-        <div class="settings-form__action-row">
-          <span class="settings-form__action-group settings-form__action-group--wrap">
-            <button type="button" class="preset-action-btn" onClick={handleSave}>
-              {saveLabel}
-            </button>
-          </span>
-          <span class="settings-form__action-group">
-            <button
-              type="button"
-              class="preset-utility-btn settings-form__utility-btn--export"
-              onClick={handleExport}
-            >
-              Export .json
-            </button>
-          </span>
+                )}
+              </span>
+            )}
         </div>
-      )}
 
-      {error && <p class="preset-error">{error}</p>}
-    </fieldset>
+        {workspaceHasContent && (
+          <div class="settings-form__action-row">
+            <span class="settings-form__action-group settings-form__action-group--wrap">
+              <button type="button" class="preset-action-btn" onClick={handleSave}>
+                {saveLabel}
+              </button>
+            </span>
+            <span class="settings-form__action-group">
+              <button
+                type="button"
+                class="preset-utility-btn settings-form__utility-btn--export"
+                onClick={handleExport}
+              >
+                Export .json
+              </button>
+            </span>
+          </div>
+        )}
+
+        {error && <p class="preset-error">{error}</p>}
+      </fieldset>
+    </>
   );
 };
 
@@ -484,6 +538,8 @@ SequenceLibrary.propTypes = {
   tempi: PropTypes.arrayOf(PropTypes.object),
   snapshotLabelMode: PropTypes.string.isRequired,
   autoCreateBars: PropTypes.bool.isRequired,
+  activeSequenceSource: PropTypes.string,
+  activeSequenceBuiltInName: PropTypes.string,
   activeSequenceName: PropTypes.string.isRequired,
   activeSequenceSavedName: PropTypes.string.isRequired,
   activeSequenceDescription: PropTypes.string.isRequired,

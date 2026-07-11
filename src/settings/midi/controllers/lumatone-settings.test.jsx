@@ -267,6 +267,60 @@ describe("LumatoneSettings", () => {
     ]);
   });
 
+  it("builds generated snapshot filters from restored raw Scala settings when a normalized tuning runtime is available", () => {
+    const onChange = vi.fn();
+    const keysRef = {
+      current: {
+        settings: { lumatone_led_sync: true },
+        syncLumatoneLEDs: vi.fn(),
+      },
+    };
+
+    render(
+      <LumatoneSettings
+        settings={{
+          midi_passthrough: false,
+          lumatone_out_port: null,
+          lumatone_led_sync: true,
+          lumatone_degree_filter_mode: "all",
+          lumatone_degree_filter: "",
+          lumatone_degree_filter_snapshots: true,
+          scale: ["100.0", "200.0", "300.0", "400.0", "500.0", "600.0", "700.0", "800.0", "900.0", "1000.0", "1100.0", "2/1"],
+          equivInterval: 1200,
+          reference_degree: 9,
+          fundamental: 440,
+        }}
+        tuningRuntime={{
+          scale: [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+          equivInterval: 1200,
+          referenceDegree: 9,
+          fundamental: 440,
+        }}
+        snapshots={[{
+          id: 1,
+          notes: [
+            { midicents: 69 },
+            { midicents: 64 },
+            { midicents: 60 },
+          ],
+        }]}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone MIDI" } }}
+        midiOutputs={new Map()}
+        keysRef={keysRef}
+        hasSysexMidi={true}
+        onChange={onChange}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Lumatone Colour Filter" });
+    expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
+      "All Degrees",
+      "All Keys Dark",
+      "──────── Snapshots ────────",
+      "Snapshot 1",
+    ]);
+  });
+
   it("lets the user reorder saved filters in the menu", () => {
     localStorage.setItem(
       LUMATONE_COLOR_FILTER_LIBRARY_KEY,

@@ -7,6 +7,8 @@ function SequenceLibraryHarness({
   initialSnapshots = [],
   initialBars = [],
   initialTempi = [],
+  initialSource = "",
+  initialBuiltInName = "",
   initialName = "",
   initialSavedName = "",
   initialDescription = "",
@@ -17,6 +19,8 @@ function SequenceLibraryHarness({
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [bars, setBars] = useState(initialBars);
   const [tempi, setTempi] = useState(initialTempi);
+  const [source, setSource] = useState(initialSource);
+  const [builtInName, setBuiltInName] = useState(initialBuiltInName);
   const [name, setName] = useState(initialName);
   const [savedName, setSavedName] = useState(initialSavedName);
   const [description, setDescription] = useState(initialDescription);
@@ -28,28 +32,36 @@ function SequenceLibraryHarness({
       tempi={tempi}
       snapshotLabelMode={snapshotLabelMode}
       autoCreateBars={autoCreateBars}
+      activeSequenceSource={source}
+      activeSequenceBuiltInName={builtInName}
       activeSequenceName={name}
       activeSequenceSavedName={savedName}
       activeSequenceDescription={description}
-      onLoadSequence={(sequence) => {
-        onLoadSpy(sequence);
+      onLoadSequence={(sequence, options = {}) => {
+        onLoadSpy(sequence, options);
         setSnapshots(sequence.snapshots ?? []);
         setBars(sequence.bars ?? []);
         setTempi(sequence.tempi ?? []);
+        setSource(options?.source ?? "user");
+        setBuiltInName(options?.source === "builtin" ? (sequence.name ?? "") : "");
         setName(sequence.name ?? "");
-        setSavedName(sequence.name ?? "");
+        setSavedName(options?.source === "user" ? (sequence.name ?? "") : "");
         setDescription(sequence.description ?? "");
       }}
       onClearSequence={() => {
         setSnapshots([]);
         setBars([]);
         setTempi([]);
+        setSource("");
+        setBuiltInName("");
         setName("");
         setSavedName("");
         setDescription("");
       }}
       onSequenceSaved={(nextName) => {
         const trimmed = String(nextName ?? "").trim();
+        setSource("user");
+        setBuiltInName("");
         setName(trimmed);
         setSavedName(trimmed);
       }}
@@ -96,6 +108,7 @@ describe("SequenceLibrary", () => {
           { id: 2, position: 2, numerator: 5, denominator: 4 },
         ],
       }),
+      expect.objectContaining({ source: "user" }),
     );
   });
 
@@ -116,7 +129,7 @@ describe("SequenceLibrary", () => {
       />,
     );
 
-    expect(screen.getByRole("combobox").value).toBe("__draft__");
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("__draft__");
     expect(screen.getByRole("option", { name: "Unsaved sequence" })).toBeTruthy();
     expect(screen.getByText("Save current sequence and overwrite")).toBeTruthy();
   });
@@ -134,16 +147,19 @@ describe("SequenceLibrary", () => {
 
     render(<SequenceLibraryHarness onLoadSpy={onLoadSpy} />);
 
-    fireEvent.change(screen.getByRole("combobox"), {
+    fireEvent.change(screen.getByRole("combobox", { name: "User sequences" }), {
       currentTarget: { value: "Empty Load" },
       target: { value: "Empty Load" },
     });
 
-    expect(onLoadSpy).toHaveBeenCalledWith(expect.objectContaining({ name: "Empty Load" }));
-    expect(screen.getByRole("combobox").value).toBe("Empty Load");
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Empty Load" }),
+      expect.objectContaining({ source: "user" }),
+    );
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("Empty Load");
   });
 
-  it("does not show an unsaved draft when only default transport scaffolding is present", () => {
+  it("does not show a user draft when only default transport scaffolding is present", () => {
     render(
       <SequenceLibraryHarness
         initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
@@ -151,7 +167,8 @@ describe("SequenceLibrary", () => {
       />,
     );
 
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Built-in sequences" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "User sequences" })).toBeNull();
     expect(screen.queryByRole("option", { name: "Unsaved sequence" })).toBeNull();
     expect(screen.queryByText("Save current sequence")).toBeNull();
   });
@@ -200,7 +217,10 @@ describe("SequenceLibrary", () => {
     });
 
     await waitFor(() => {
-      expect(onLoadSpy).toHaveBeenCalledWith(expect.objectContaining({ name: "FALL 2" }));
+      expect(onLoadSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "FALL 2" }),
+        expect.objectContaining({ source: "user" }),
+      );
     });
     expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["FALL", "FALL 2"]);
   });
@@ -226,13 +246,16 @@ describe("SequenceLibrary", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("combobox"), {
+    fireEvent.change(screen.getByRole("combobox", { name: "User sequences" }), {
       currentTarget: { value: "Prompt Load" },
       target: { value: "Prompt Load" },
     });
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(onLoadSpy).toHaveBeenCalledWith(expect.objectContaining({ name: "Prompt Load" }));
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Prompt Load" }),
+      expect.objectContaining({ source: "user" }),
+    );
     expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Prompt Load"]);
   });
 
@@ -257,8 +280,65 @@ describe("SequenceLibrary", () => {
     fireEvent.click(screen.getByText("Delete"));
 
     expect(loadUserSequences()).toEqual([]);
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Built-in sequences" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "User sequences" })).toBeNull();
     expect(screen.queryByText("Save current sequence")).toBeNull();
+    expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
+  });
+
+  it("loads a built-in sequence and keeps the user menu clear", () => {
+    const onLoadSpy = vi.fn();
+
+    render(<SequenceLibraryHarness onLoadSpy={onLoadSpy} />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Built-in sequences" }), {
+      currentTarget: { value: "FALL" },
+      target: { value: "FALL" },
+    });
+
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "FALL" }),
+      expect.objectContaining({ source: "builtin" }),
+    );
+    expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe("FALL");
+    expect(screen.queryByRole("combobox", { name: "User sequences" })).toBeNull();
+  });
+
+  it("clears the built-in selection after saving into the user library", () => {
+    render(
+      <SequenceLibraryHarness
+        initialSource="builtin"
+        initialBuiltInName="FALL"
+        initialSnapshots={[{ id: 1, notes: [] }]}
+        initialName="FALL"
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Save current sequence"));
+
+    expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe("");
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("FALL");
+  });
+
+  it("does not show overwrite messaging when a built-in sequence shares a name with a clean saved user sequence", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "FALL",
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    render(
+      <SequenceLibraryHarness
+        initialSource="builtin"
+        initialBuiltInName="FALL"
+        initialSnapshots={[{ id: 1, notes: [] }]}
+        initialName="FALL"
+      />,
+    );
+
+    expect(screen.getByText("Save current sequence")).toBeTruthy();
     expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
   });
 });

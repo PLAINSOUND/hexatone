@@ -31,6 +31,7 @@ function persistLumatoneFilterSettings(saveControllerPref, mode, filter) {
 const LumatoneSettings = ({
   settings,
   snapshots,
+  tuningRuntime,
   rawPorts,
   midiOutputs,
   keysRef,
@@ -66,22 +67,29 @@ const LumatoneSettings = ({
   const activeFilter = settings.lumatone_degree_filter ?? "";
   const filterActive = settings.lumatone_degree_filter_mode === "filter";
   const showSnapshotFilters = !!settings.lumatone_degree_filter_snapshots;
-  const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
-    snapshots,
-    {
+  const filterRuntime = useMemo(
+    () => tuningRuntime ?? {
       scale: settings.scale,
       equivInterval: settings.equivInterval,
       referenceDegree: settings.reference_degree,
       fundamental: settings.fundamental,
     },
+    [
+      settings.equivInterval,
+      settings.fundamental,
+      settings.reference_degree,
+      settings.scale,
+      tuningRuntime,
+    ],
+  );
+  const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
+    snapshots,
+    filterRuntime,
   ).map((entry) => ({
     ...entry,
     filter: formatLumatoneDegreeFilter(entry.degrees),
   })), [
-    settings.equivInterval,
-    settings.fundamental,
-    settings.reference_degree,
-    settings.scale,
+    filterRuntime,
     showSnapshotFilters,
     snapshots,
   ]);
@@ -496,6 +504,12 @@ const LumatoneSettings = ({
 LumatoneSettings.propTypes = {
   settings: PropTypes.object.isRequired,
   snapshots: PropTypes.arrayOf(PropTypes.object),
+  tuningRuntime: PropTypes.shape({
+    scale: PropTypes.arrayOf(PropTypes.number),
+    equivInterval: PropTypes.number,
+    referenceDegree: PropTypes.number,
+    fundamental: PropTypes.number,
+  }),
   rawPorts: PropTypes.object,
   midiOutputs: PropTypes.object,
   keysRef: PropTypes.object,

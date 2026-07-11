@@ -39,4 +39,17 @@ describe("snapshot-filter-library", () => {
       { id: "__snapshot__:2", name: "Snapshot 2", degrees: [2, 7] },
     ]);
   });
+
+  it("derives snapshot degrees from raw Scala-style scale text", () => {
+    expect(deriveSnapshotDegreeList([
+      { midicents: 69 },
+      { midicents: 64 },
+      { midicents: 60 },
+    ], {
+      scale: ["100.0", "200.0", "300.0", "400.0", "500.0", "600.0", "700.0", "800.0", "900.0", "1000.0", "1100.0", "2/1"],
+      equivInterval: 1200,
+      referenceDegree: 9,
+      fundamental: 440,
+    })).toEqual([0, 4, 9]);
+  });
 });

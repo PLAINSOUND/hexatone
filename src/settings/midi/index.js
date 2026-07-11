@@ -676,6 +676,7 @@ const MIDIio = (props) => {
                   <LumatoneSettings
                     settings={props.settings}
                     snapshots={props.snapshots}
+                    tuningRuntime={props.tuningRuntime}
                     rawPorts={props.lumatoneRawPorts}
                     midiOutputs={props.midi?.outputs}
                     keysRef={props.keysRef}
@@ -979,6 +980,7 @@ const MIDIio = (props) => {
               ctrl={ctrl}
               settings={props.settings}
               snapshots={props.snapshots}
+              tuningRuntime={props.tuningRuntime}
               rawPorts={props.hakenRawPorts}
               midiOutputs={props.midi?.outputs}
               onChange={props.onChange}
@@ -1039,6 +1041,10 @@ MIDIio.propTypes = {
   midiLearnActive: PropTypes.bool,
   hakenPedalLearnActive: PropTypes.bool,
   snapshots: PropTypes.arrayOf(PropTypes.object),
+  tuningRuntime: PropTypes.shape({
+    scale: PropTypes.arrayOf(PropTypes.number),
+    equivInterval: PropTypes.number,
+  }),
   lumatoneRawPorts: PropTypes.object,
   exquisRawPorts: PropTypes.object,
   linnstrumentRawPorts: PropTypes.object,

@@ -93,6 +93,7 @@ const Colors = (props) => {
   const primeFamilyColors = normalizePrimeFamilyColors(rawSettings.prime_family_colors);
   const autoColorSettings = useMemo(() => ({
     scale: rawSettings.scale,
+    equivSteps: rawSettings.equivSteps,
     note_names: rawSettings.note_names,
     note_colors: rawSettings.note_colors,
     key_labels: rawSettings.key_labels,
@@ -110,6 +111,7 @@ const Colors = (props) => {
     heji_frame: props.settings?.heji_frame ?? rawSettings?.heji_frame ?? null,
   }), [
     rawSettings.scale,
+    rawSettings.equivSteps,
     rawSettings.note_names,
     rawSettings.note_colors,
     rawSettings.key_labels,

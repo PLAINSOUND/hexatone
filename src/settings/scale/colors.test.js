@@ -12,6 +12,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import Colors from "./colors";
 import useSettingsChange from "../../use-settings-change.js";
+import { normalizeColors } from "../../normalize-settings.js";
 
 const baseSettings = { spectrum_colors: false, auto_colors: false, fundamental_color: "#abcdef" };
 
@@ -408,6 +409,53 @@ describe("Colors — interactions", () => {
     fireEvent.click(screen.getByRole("button", { name: /commit auto colours/i }));
     expect(onAtomicChange).toHaveBeenCalledWith({
       note_colors: ["#ff9f9f", "#95c69b"],
+      key_colors_mode: "manual",
+      auto_colors: false,
+      spectrum_colors: false,
+    });
+  });
+
+  it("commits the live equal-division auto palette without drifting to a different manual result", () => {
+    const onAtomicChange = vi.fn();
+    const settings = {
+      ...baseSettings,
+      auto_colors: true,
+      spectrum_colors: false,
+      key_labels: "note_names",
+      note_names: [
+        "C", "D", "C D", "D", "D", "E", "E", "E", "E", "F", "F G",
+        "F G", "F G", "G", "A", "A", "A", "A", "B", "B", "B", "B",
+      ],
+      scale: Array.from({ length: 22 }, (_, index) =>
+        index === 21 ? "2/1" : `${(((index + 1) * 1200) / 22).toFixed(6)}`
+      ),
+      equivSteps: 22,
+      reference_degree: 17,
+      fundamental: 440,
+      note_colors: Array(22).fill("#ffffff"),
+      name: "22edo (HEJI)",
+      short_description: "22edo",
+    };
+    const expectedCommittedColors = normalizeColors({
+      ...settings,
+      key_colors_mode: "auto",
+      auto_colors: true,
+      spectrum_colors: false,
+    }).note_colors.map((color) => `#${color}`);
+
+    render(
+      <Colors
+        settings={settings}
+        rawSettings={settings}
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /commit auto colours/i }));
+
+    expect(onAtomicChange).toHaveBeenCalledWith({
+      note_colors: expectedCommittedColors,
       key_colors_mode: "manual",
       auto_colors: false,
       spectrum_colors: false,

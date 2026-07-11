@@ -24,6 +24,7 @@ const HakenContinuumSettings = ({
   ctrl,
   settings,
   snapshots,
+  tuningRuntime,
   rawPorts,
   midiOutputs,
   onChange,
@@ -84,22 +85,29 @@ const HakenContinuumSettings = ({
   const activeFilter = settings.hakenaudio_raster_filter ?? "";
   const filterActive = settings.hakenaudio_raster_filter_mode === "filter";
   const showSnapshotFilters = !!settings.hakenaudio_raster_filter_snapshots;
-  const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
-    snapshots,
-    {
+  const filterRuntime = useMemo(
+    () => tuningRuntime ?? {
       scale: settings.scale,
       equivInterval: settings.equivInterval,
       referenceDegree: settings.reference_degree,
       fundamental: settings.fundamental,
     },
+    [
+      settings.equivInterval,
+      settings.fundamental,
+      settings.reference_degree,
+      settings.scale,
+      tuningRuntime,
+    ],
+  );
+  const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
+    snapshots,
+    filterRuntime,
   ).map((entry) => ({
     ...entry,
     filter: formatContinuumRasterFilter(entry.degrees),
   })), [
-    settings.equivInterval,
-    settings.fundamental,
-    settings.reference_degree,
-    settings.scale,
+    filterRuntime,
     showSnapshotFilters,
     snapshots,
   ]);
@@ -590,6 +598,12 @@ HakenContinuumSettings.propTypes = {
   ctrl: PropTypes.object.isRequired,
   settings: PropTypes.object.isRequired,
   snapshots: PropTypes.arrayOf(PropTypes.object),
+  tuningRuntime: PropTypes.shape({
+    scale: PropTypes.arrayOf(PropTypes.number),
+    equivInterval: PropTypes.number,
+    referenceDegree: PropTypes.number,
+    fundamental: PropTypes.number,
+  }),
   rawPorts: PropTypes.object,
   midiOutputs: PropTypes.object,
   onChange: PropTypes.func.isRequired,

@@ -832,6 +832,8 @@ const App = () => {
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
   const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
   const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
+  const [activeSequenceSource, setActiveSequenceSource] = useState("");
+  const [activeSequenceBuiltInName, setActiveSequenceBuiltInName] = useState("");
   const [activeSequenceName, setActiveSequenceName] = useState("");
   const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
@@ -899,7 +901,9 @@ const App = () => {
     appendSequenceSnapshot([]);
   }, [appendSequenceSnapshot]);
 
-  const onLoadSequence = useCallback((sequence) => {
+  const onLoadSequence = useCallback((sequence, options = {}) => {
+    const source = String(options?.source ?? "user").trim();
+    const nextName = String(sequence?.name ?? "").trim();
     const nextSnapshots = Array.isArray(sequence?.snapshots)
       ? JSON.parse(JSON.stringify(sequence.snapshots))
       : [];
@@ -932,8 +936,10 @@ const App = () => {
     setSequenceAutoCreateBars(sequence?.autoCreateBars !== false);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
-    setActiveSequenceName(String(sequence?.name ?? "").trim());
-    setActiveSequenceSavedName(String(sequence?.name ?? "").trim());
+    setActiveSequenceSource(source);
+    setActiveSequenceBuiltInName(source === "builtin" ? nextName : "");
+    setActiveSequenceName(nextName);
+    setActiveSequenceSavedName(source === "user" ? nextName : "");
     setActiveSequenceDescription(String(sequence?.description ?? ""));
     setSequencePlayhead({
       barIndex: 0,
@@ -959,6 +965,8 @@ const App = () => {
     setSequenceTempi(nextTempi);
     setSequenceRepeats(nextRepeats);
     setSnapshotLabelMode(restoredSequence.snapshotLabelMode);
+    setActiveSequenceSource(restoredSequence.activeSequenceSource);
+    setActiveSequenceBuiltInName(restoredSequence.activeSequenceBuiltInName);
     setActiveSequenceName(restoredSequence.activeSequenceName);
     setActiveSequenceSavedName(restoredSequence.activeSequenceSavedName);
     setActiveSequenceDescription(restoredSequence.activeSequenceDescription);
@@ -991,6 +999,8 @@ const App = () => {
       tempi: sequenceTempi,
       repeats: sequenceRepeats,
       snapshotLabelMode,
+      activeSequenceSource,
+      activeSequenceBuiltInName,
       activeSequenceName,
       activeSequenceSavedName,
       activeSequenceDescription,
@@ -1000,7 +1010,9 @@ const App = () => {
     });
   }, [
     activeSequenceDescription,
+    activeSequenceBuiltInName,
     activeSequenceName,
+    activeSequenceSource,
     activeSequenceSavedName,
     sequenceAutoCreateBars,
     sequenceBars,
@@ -1698,6 +1710,8 @@ const App = () => {
     setSequenceRepeats([]);
     snapshotIdRef.current = 0;
     sequenceBarIdRef.current = 0;
+    setActiveSequenceSource("");
+    setActiveSequenceBuiltInName("");
     setActiveSequenceName("");
     setActiveSequenceSavedName("");
     setActiveSequenceDescription("");
@@ -1715,6 +1729,8 @@ const App = () => {
     setSequenceRepeats([]);
     snapshotIdRef.current = 0;
     sequenceBarIdRef.current = 0;
+    setActiveSequenceSource("");
+    setActiveSequenceBuiltInName("");
     setActiveSequenceName("");
     setActiveSequenceSavedName("");
     setActiveSequenceDescription("");
@@ -1730,6 +1746,8 @@ const App = () => {
 
   const onSequenceSaved = useCallback((name) => {
     const nextName = String(name ?? "").trim();
+    setActiveSequenceSource("user");
+    setActiveSequenceBuiltInName("");
     setActiveSequenceName(nextName);
     setActiveSequenceSavedName(nextName);
   }, []);
@@ -3627,6 +3645,8 @@ const App = () => {
               tempi={sequenceTempi}
               snapshotLabelMode={snapshotLabelMode}
               autoCreateBars={sequenceAutoCreateBars}
+              activeSequenceSource={activeSequenceSource}
+              activeSequenceBuiltInName={activeSequenceBuiltInName}
               activeSequenceName={activeSequenceName}
               activeSequenceSavedName={activeSequenceSavedName}
               activeSequenceDescription={activeSequenceDescription}
@@ -3737,6 +3757,7 @@ const App = () => {
                 hakenRawPorts={hakenRawPorts}
                 exquisLedStatus={exquisLedStatus}
                 snapshots={snapshots}
+                tuningRuntime={tuningRuntime}
                 playingSnapshotId={playingSnapshotId}
                 onPlaySnapshot={onPlaySnapshot}
                 onDeleteSnapshot={onDeleteSnapshot}

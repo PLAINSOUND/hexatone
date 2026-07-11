@@ -97,6 +97,8 @@ const Sequencer = ({
   repeats,
   tempi,
   snapshotLabelMode,
+  activeSequenceSource,
+  activeSequenceBuiltInName,
   activeSequenceName,
   activeSequenceSavedName,
   activeSequenceDescription,
@@ -1477,6 +1479,8 @@ const Sequencer = ({
         tempi={tempi}
         snapshotLabelMode={snapshotLabelMode}
         autoCreateBars={sequenceAutoCreateBars}
+        activeSequenceSource={activeSequenceSource ?? ""}
+        activeSequenceBuiltInName={activeSequenceBuiltInName ?? ""}
         activeSequenceName={activeSequenceName ?? ""}
         activeSequenceSavedName={activeSequenceSavedName ?? ""}
         activeSequenceDescription={activeSequenceDescription ?? ""}
