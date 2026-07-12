@@ -47,7 +47,6 @@ vi.mock("./manual/manual-sidebar.jsx", () => ({
     </div>
   ),
 }));
-vi.mock("./settings/presets/preset_values", () => ({ presets: [] }));
 vi.mock("./sample_synth/instruments", () => ({ instruments: [] }));
 vi.mock("./keyboard/keycodes", () => ({ default: {} }));
 vi.mock("./settings/normalize-settings.js", () => ({

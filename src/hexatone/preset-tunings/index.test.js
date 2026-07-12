@@ -1,32 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("../../settings/presets/preset_values", () => ({
-  presets: [
-    {
-      name: "Tests",
-      settings: [
-        {
-          name: "Pauline Oliveros: Heart of Tones",
-          description: "legacy demo",
-          scale: ["1.", "2."],
-          auto_colors: true,
-        },
-        {
-          name: "Legacy Only",
-          description: "legacy only",
-          scale: ["3.", "4."],
-          auto_colors: true,
-        },
-      ],
-    },
-  ],
-  default_settings: {
-    name: "Pauline Oliveros: Heart of Tones",
-    description: "legacy demo",
-    scale: ["1.", "2."],
-    auto_colors: true,
-  },
-}));
+import { describe, expect, it } from "vitest";
 
 import {
   buildFilePresetTuningGroups,
@@ -118,7 +90,7 @@ describe("preset tunings registry", () => {
     ]);
   });
 
-  it("finds a built-in tuning by name", () => {
+  it("finds a built-in tuning by name from the file-backed library", () => {
     const tuning = findPresetTuningByName("Pauline Oliveros: Heart of Tones");
     expect(tuning).toEqual(expect.objectContaining({
       name: "Pauline Oliveros: Heart of Tones",
@@ -126,19 +98,19 @@ describe("preset tunings registry", () => {
     }));
   });
 
-  it("exposes a canonical default tuning record", () => {
+  it("exposes a canonical default tuning record from the first built-in preset", () => {
     expect(defaultTuningRecord).toEqual(expect.objectContaining({
       name: expect.any(String),
       scale: expect.any(Array),
       key_colors_mode: expect.any(String),
     }));
+    expect(defaultTuningRecord).toEqual(presetTuningGroups[0].settings[0]);
   });
 
-  it("merges file-backed presets with legacy groups while preserving unmigrated presets", () => {
-    const testsGroup = presetTuningGroups.find((group) => group.name === "Tests");
-    expect(testsGroup).toBeTruthy();
-    expect(testsGroup.settings.map((setting) => setting.name)).toEqual([
-      "Legacy Only",
-    ]);
+  it("publishes only file-backed preset groups", () => {
+    expect(presetTuningGroups.length).toBeGreaterThan(0);
+    expect(
+      presetTuningGroups.some((group) => group.settings.some((preset) => preset.name === "Legacy Only")),
+    ).toBe(false);
   });
 });

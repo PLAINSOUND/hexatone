@@ -294,7 +294,7 @@ export const settingsToPlainScala = (settings) => {
   const name = settings.name || "custom";
   const description = settings.description || name;
   // settings.scale has degree 0 (0.0) prepended and equivInterval appended by normalize();
-  // preset_values.js stores the raw scala array without degree 0.
+  // persisted tuning records store the raw scala array without degree 0.
   // We work from settings.scale_import parse if available, else reconstruct.
   const rawScale = getRawScale(settings);
   const lines = [
@@ -374,7 +374,7 @@ export const settingsToKbm = (settings) => {
 // ─── Internal helper ──────────────────────────────────────────────────────────
 
 // Extract the raw scale array (without degree 0, with equivInterval at end)
-// as stored in preset_values.js / settings.scale before normalize() processes it.
+// as stored in tuning JSON / settings.scale before normalize() processes it.
 // settings.scale after normalize() has 0 prepended and equivInterval popped off.
 // We detect which form we have by checking if settings.scale[0] === 0.
 const getRawScale = (settings) => {
@@ -467,7 +467,7 @@ export const settingsToPresetJson = (settings, extra = {}) => {
     }
   }
 
-  // Pretty-print with 2-space indent, matching preset_values.js style
+  // Pretty-print with 2-space indent, matching the built-in JSON tuning files.
   return JSON.stringify(preset, null, 2);
 };
 

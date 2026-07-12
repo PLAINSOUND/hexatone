@@ -5,14 +5,9 @@
  *
  * This module is the entrypoint for built-in tuning presets. It eagerly loads
  * the JSON preset files grouped under `preset-tunings/`, applies registry-based
- * ordering metadata, normalizes each record into the shared tuning-record
- * format, and then merges the file-backed library with any still-unmigrated
- * legacy preset groups from `settings/presets/preset_values`.
+ * ordering metadata, and normalizes each record into the shared tuning-record
+ * format.
  */
-import {
-  default_settings as legacyDefaultSettings,
-  presets as legacyPresetGroups,
-} from "../../settings/presets/preset_values";
 import { normalizeTuningGroup, normalizeTuningRecord } from "../tuning-record.js";
 import presetRegistry from "./preset-registry.json";
 
@@ -104,51 +99,15 @@ export function buildFilePresetTuningGroups({
   });
 }
 
-function mergePresetTuningGroups(fileGroups, legacyGroups) {
-  const normalizedFileGroups = fileGroups
-    .map((group) => normalizeTuningGroup(group))
-    .filter(Boolean);
-  const normalizedLegacyGroups = legacyGroups
-    .map((group) => normalizeTuningGroup(group))
-    .filter(Boolean);
-
-  const migratedNames = new Set(
-    normalizedFileGroups.flatMap((group) => group.settings.map((setting) => setting.name)),
-  );
-  const fileGroupByName = new Map(normalizedFileGroups.map((group) => [group.name, group]));
-  const consumedFileGroupNames = new Set();
-
-  const merged = normalizedLegacyGroups.flatMap((legacyGroup) => {
-    const remainingLegacySettings = legacyGroup.settings.filter(
-      (setting) => !migratedNames.has(setting.name),
-    );
-    const fileGroup = fileGroupByName.get(legacyGroup.name);
-    if (!fileGroup) {
-      return remainingLegacySettings.length > 0
-        ? [{ ...legacyGroup, settings: remainingLegacySettings }]
-        : [];
-    }
-    consumedFileGroupNames.add(legacyGroup.name);
-    return [{
-      name: legacyGroup.name,
-      settings: [...fileGroup.settings, ...remainingLegacySettings],
-    }];
-  });
-
-  for (const fileGroup of normalizedFileGroups) {
-    if (!consumedFileGroupNames.has(fileGroup.name)) merged.push(fileGroup);
-  }
-
-  return merged;
-}
-
 // Eager import keeps the built-in tuning list synchronous for the sidebar UI.
 const filePresetJsonModules = import.meta.glob("./*/*.json", { eager: true });
 export const filePresetTuningGroups = buildFilePresetTuningGroups({
   jsonModules: filePresetJsonModules,
 });
 
-export const presetTuningGroups = mergePresetTuningGroups(filePresetTuningGroups, legacyPresetGroups);
+export const presetTuningGroups = filePresetTuningGroups
+  .map((group) => normalizeTuningGroup(group))
+  .filter(Boolean);
 
 export function findPresetTuningByName(name) {
   const target = String(name ?? "").trim();
@@ -161,8 +120,9 @@ export function findPresetTuningByName(name) {
 }
 
 export const defaultTuningRecord =
-  findPresetTuningByName(legacyDefaultSettings?.name) ?? normalizeTuningRecord(legacyDefaultSettings);
-
-export const legacyPresetTuningGroups = legacyPresetGroups
-  .map((group) => normalizeTuningGroup(group))
-  .filter(Boolean);
+  presetTuningGroups.flatMap((group) => group.settings)[0] ?? normalizeTuningRecord({
+    name: "Untitled Tuning",
+    description: "",
+    scale: ["2/1"],
+    key_colors_mode: "auto",
+  }, { allowEmptyScale: false });

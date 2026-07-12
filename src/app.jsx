@@ -13,7 +13,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks"
 
 import Keyboard from "./keyboard";
 import { primeSharedSampleAudio } from "./sample_synth";
-import { presets } from "./settings/presets/preset_values";
 import { normalizeColors, normalizeStructural } from "./settings/normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
@@ -3717,7 +3716,6 @@ const App = () => {
             <>
               <Settings
                 presetChanged={presetChanged}
-                presets={presets}
                 onChange={onChange}
                 onAtomicChange={onAtomicChange}
                 midiLearnActive={midiLearnActive}

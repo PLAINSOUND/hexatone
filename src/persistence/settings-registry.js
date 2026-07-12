@@ -577,8 +577,8 @@ export const PRESET_SKIP_KEYS = SETTINGS_REGISTRY.filter((e) => e.presetSkip).ma
  */
 /**
  * Build a flat object of default values for all url-tier and runtime-tier keys.
- * Used as the base layer in the useQuery defaults object, before preset_values
- * default_settings and sessionDefaults are spread on top.
+ * Used as the base layer in the useQuery defaults object, before the active
+ * built-in tuning defaults and sessionDefaults are spread on top.
  *
  * This restores the blank-slate defaults that previously lived at the bottom of
  * settings/session-defaults.js (scale, rSteps, drSteps, hexSize, rotation, equivSteps,
