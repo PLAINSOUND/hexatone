@@ -1187,6 +1187,7 @@ const ScaleTable = (props) => {
                 <div class="freq-cell">
                   <ScalaInput
                     context="degree"
+                    commitNegative
                     name={`scale${i}`}
                     value={freq}
                     onChange={(str) => scaleCommitAt(i, str, i + 1)}
@@ -1315,6 +1316,7 @@ const ScaleTable = (props) => {
               <div class="freq-cell">
                 <ScalaInput
                   context="interval"
+                  commitNegative
                   name={`scale${scale.length - 1}`}
                   value={equiv_interval}
                   onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}

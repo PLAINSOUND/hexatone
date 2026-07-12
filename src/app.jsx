@@ -750,6 +750,7 @@ const App = () => {
     setPersistOnReload,
     activatePendingPreset,
     presetChanged,
+    onLoadBuiltinPreset,
     onLoadCustomPreset,
     onClearUserPresets,
     onRevertBuiltin,
@@ -3717,6 +3718,7 @@ const App = () => {
                 onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
                 onImport={onImport}
                 importCount={importCount}
+                onLoadBuiltinPreset={onLoadBuiltinPreset}
                 onLoadCustomPreset={onLoadCustomPreset}
                 onClearUserPresets={onClearUserPresets}
                 activeSource={activeSource}

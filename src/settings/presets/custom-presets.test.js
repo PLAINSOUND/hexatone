@@ -1,16 +1,10 @@
 import { render, fireEvent, waitFor, screen } from "@testing-library/preact";
 import { vi } from "vitest";
 
-vi.mock("./preset_values", () => ({
-  presets: [
-    {
-      name: "Tests",
-      settings: [
-        { name: "Preset A" },
-        { name: "Preset B" },
-      ],
-    },
-  ],
+vi.mock("../../hexatone/preset-tunings/index.js", () => ({
+  findPresetTuningByName: vi.fn((name) => (
+    name === "Preset A" || name === "Preset B" ? { name } : null
+  )),
 }));
 
 import CustomPresets, { loadCustomPresets } from "./custom-presets.js";

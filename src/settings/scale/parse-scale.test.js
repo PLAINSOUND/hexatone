@@ -14,6 +14,7 @@ import {
   parseScalaInterval,
   settingsToAbletonScala,
   hasNegativeScalaExportValues,
+  deriveImportedLayoutSteps,
   fileToPreset,
   settingsToPresetJson,
 } from "./parse-scale";
@@ -180,6 +181,32 @@ describe("hasNegativeScalaExportValues", () => {
         equivInterval: 2,
       }),
     ).toBe(false);
+  });
+});
+
+describe("deriveImportedLayoutSteps", () => {
+  it("guesses a Wicki-Hayden style 12-tone layout", () => {
+    expect(deriveImportedLayoutSteps(12)).toEqual({ rSteps: 2, drSteps: 1 });
+  });
+
+  it("guesses a compact Bosanquet-like 19-tone layout", () => {
+    expect(deriveImportedLayoutSteps(19)).toEqual({ rSteps: 3, drSteps: 2 });
+  });
+
+  it("keeps 22-tone imports conservative on the down-right axis", () => {
+    expect(deriveImportedLayoutSteps(22)).toEqual({ rSteps: 4, drSteps: 1 });
+  });
+
+  it("matches common 31-tone imported layouts", () => {
+    expect(deriveImportedLayoutSteps(31)).toEqual({ rSteps: 5, drSteps: 3 });
+  });
+
+  it("matches common 36-tone imported layouts", () => {
+    expect(deriveImportedLayoutSteps(36)).toEqual({ rSteps: 6, drSteps: 5 });
+  });
+
+  it("matches common 53-tone imported layouts", () => {
+    expect(deriveImportedLayoutSteps(53)).toEqual({ rSteps: 9, drSteps: 5 });
   });
 });
 
@@ -526,8 +553,10 @@ describe("fileToPreset — .scl", () => {
     const preset = fileToPreset("just.scl", SCALE_JUST);
     expect(preset).not.toBeNull();
     expect(preset.scale).toHaveLength(5);
-    expect(preset.key_colors_mode).toBe("spectrum");
-    expect(preset.key_labels).toBe("scala_names");
+    expect(preset.rSteps).toBe(2);
+    expect(preset.drSteps).toBe(1);
+    expect(preset.key_colors_mode).toBe("auto");
+    expect(preset.key_labels).toBe("heji");
   });
 
   it("uses filename (minus extension) as name when no ! name line", () => {

@@ -9,6 +9,48 @@
 
 import { resolveKeyColorsMode } from "./key-colors-mode.js";
 
+const gcd = (a, b) => {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+  while (y) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x || 1;
+};
+
+export const deriveImportedLayoutSteps = (equivSteps) => {
+  const count = Math.max(1, Math.round(Number(equivSteps) || 0));
+  const rSteps = Math.max(2, Math.round(count / 6));
+
+  if (rSteps <= 2) {
+    return { rSteps: 2, drSteps: 1 };
+  }
+
+  // Small scales look best when the down-right move stays conservative;
+  // larger scales benefit from a Bosanquet-like skew nearer the middle.
+  const targetDrSteps = rSteps <= 4
+    ? Math.round(rSteps / 2)
+    : Math.round(rSteps * 0.6);
+
+  let best = 1;
+  let bestDistance = Infinity;
+  for (let candidate = 1; candidate < rSteps; candidate += 1) {
+    if (gcd(rSteps, candidate) !== 1) continue;
+    const distance = Math.abs(candidate - targetDrSteps);
+    if (
+      distance < bestDistance
+      || (distance === bestDistance && candidate < best)
+    ) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+
+  return { rSteps, drSteps: best };
+};
+
 export const parseScale = (scala) => {
   const out = {
     scale: [],
@@ -413,6 +455,7 @@ export const fileToPreset = (filename, text) => {
   if (ext === "scl" || ext === "ascl") {
     const parsed = parseScale(text);
     if (!parsed.scale || !parsed.scale.length) return null;
+    const { rSteps, drSteps } = deriveImportedLayoutSteps(parsed.equivSteps);
 
     const name = parsed.filename || filename.replace(/\.(a?scl)$/i, "").replace(/_/g, " ");
 
@@ -428,8 +471,10 @@ export const fileToPreset = (filename, text) => {
       equivSteps: parsed.equivSteps,
       note_names,
       note_colors,
-      key_labels: hasMetadata ? "note_names" : "scala_names",
-      key_colors_mode: hasMetadata ? "manual" : "spectrum",
+      rSteps,
+      drSteps,
+      key_labels: hasMetadata ? "note_names" : "heji",
+      key_colors_mode: hasMetadata ? "manual" : "auto",
       fundamental_color: "#ffdbe8",
       fundamental: parsed.hexatone_fundamental || 440,
       reference_degree: parsed.hexatone_reference_degree || 0,

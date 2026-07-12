@@ -1,5 +1,3 @@
-import Presets from "./presets/presets";
-import CustomPresets from "./presets/custom-presets";
 import { useMemo } from "preact/hooks";
 import Info from "./scale/info";
 import Scale from "./scale";
@@ -9,10 +7,11 @@ import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
 import { normalizeColors } from "../normalize-settings.js";
+import { presetTuningGroups } from "../hexatone/preset-tunings/index.js";
+import TuningLibrary from "../hexatone/tuning-library.jsx";
 
 const Settings = ({
-  presetChanged,
-  presets,
+  onLoadBuiltinPreset,
   settings,
   onChange,
   onAtomicChange,
@@ -73,56 +72,25 @@ const Settings = ({
 
   return (
     <div autoComplete="off" role="group" aria-label="Hexatone settings">
-    <fieldset class="settings-form__section-top">
-      <legend>
-        <b>Built-in Tunings</b>
-      </legend>
-      <label class="preset-selector-row">
-        <Presets
-          onChange={presetChanged}
-          presets={presets}
-          isActive={activeSource === "builtin"}
-          activePresetName={activeSource === "builtin" ? activePresetName : null}
-        />
-        {activeSource === "builtin" && onRevertBuiltin && (
-          <button type="button" class="preset-refresh-btn" onClick={onRevertBuiltin}>
-            <span class="preset-refresh-glyph">⟳</span>
-          </button>
-        )}
-      </label>
-      <div class="settings-form__reload-row settings-form__checkbox-row--sm">
-        {showActivateAudioContext && (activateAudioContext || activatePendingPreset) ? (
-          <button
-            type="button"
-            class="preset-action-btn settings-form__activate-audio-btn"
-            onClick={() => void (activateAudioContext || activatePendingPreset)()}
-          >
-            Activate Audio Context
-          </button>
-        ) : (
-          <label class="settings-form__checkbox-row settings-form__reload-checkbox">
-            <input
-              type="checkbox"
-              checked={persistOnReload}
-              onChange={(e) => setPersistOnReload(e.target.checked)}
-            />
-            <em class="settings-form__helper-text">Restore preset on reload</em>
-          </label>
-        )}
-      </div>
-    </fieldset>
-    <CustomPresets
+    <TuningLibrary
+      presetGroups={presetTuningGroups}
       settings={settings}
-      onLoad={onLoadCustomPreset}
-      onClear={onClearUserPresets}
-      isActive={activeSource === "user"}
+      currentModulationLibrary={currentModulationLibrary}
       activeSource={activeSource}
       activePresetName={activePresetName}
       isPresetDirty={isPresetDirty}
-      currentModulationLibrary={currentModulationLibrary}
+      onLoadBuiltinTuning={onLoadBuiltinPreset}
+      onLoadUserTuning={onLoadCustomPreset}
+      onClearWorkspace={onClearUserPresets}
+      persistOnReload={persistOnReload}
+      setPersistOnReload={setPersistOnReload}
+      showActivateAudioContext={showActivateAudioContext}
+      activateAudioContext={activateAudioContext}
+      activatePendingPreset={activatePendingPreset}
+      onRevertBuiltin={onRevertBuiltin}
+      onRevertUser={onRevertUser}
       canCommitModulation={canCommitModulation}
       onCommitCurrentModulation={onCommitCurrentModulation}
-      onRevert={onRevertUser}
     />
     <Info onChange={onChange} settings={settings} />
     <Scale

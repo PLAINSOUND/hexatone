@@ -388,9 +388,16 @@ const SequenceLibrary = ({
     if (!nextName) return;
     const targetSequence = findPresetSequenceByName(nextName);
     if (!targetSequence) return;
+    const switchingBetweenSameNamedSavedSources =
+      activeSource === "user" &&
+      !!savedSequenceName &&
+      !!sequenceName &&
+      savedSequenceName === sequenceName &&
+      nextName === savedSequenceName;
     if (
       workspaceStatus !== "empty" &&
       (workspaceStatus === "draft" || hasUnsavedChanges) &&
+      !switchingBetweenSameNamedSavedSources &&
       !(activeSource === "builtin" && nextName === activeBuiltInName) &&
       typeof window !== "undefined" &&
       !window.confirm("Discard current unsaved sequence?")

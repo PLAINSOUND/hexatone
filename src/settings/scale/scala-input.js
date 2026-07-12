@@ -23,6 +23,9 @@ import { normaliseDegree, parseScalaInterval } from "./parse-scale.js";
  *  wrapperStyle  {object}             Extra style for the outer <span> wrapper.
  *  wrapperClass  {string}             CSS class for the outer <span> wrapper.
  *  showCents     {boolean}            Show ¢ preview. Default true.
+ *  showCanonicalOnCommit {boolean}    Replace typed display with committed canonical value.
+ *  allowNegative {boolean}            Accept signed intervals without marking invalid.
+ *  commitNegative {boolean}           Commit negative values while keeping warning styling.
  *  ...rest       Passed to <input> (name, aria-label, disabled, etc.).
  */
 const ScalaInput = ({
@@ -36,8 +39,29 @@ const ScalaInput = ({
   wrapperStyle,
   wrapperClass,
   showCents = true,
+  showCanonicalOnCommit = false,
+  allowNegative = false,
+  commitNegative = false,
   ...rest
 }) => {
+  const parseDraftValue = (str) => {
+    if (!allowNegative || typeof str !== "string") {
+      return parseScalaInterval(str, context);
+    }
+    const trimmed = str.trim();
+    if (!trimmed.startsWith("-")) {
+      return parseScalaInterval(trimmed, context);
+    }
+    const unsigned = trimmed.slice(1).trim();
+    const parsed = parseScalaInterval(unsigned, context);
+    if (!parsed.valid) return parsed;
+    return {
+      cents: parsed.cents == null ? parsed.cents : -parsed.cents,
+      valid: true,
+      error: null,
+    };
+  };
+
   // Local draft while the user is typing.
   const [draft, setDraft] = useState(value ?? "");
   const lastCommittedRef = useRef({ canonical: null, display: null });
@@ -52,7 +76,8 @@ const ScalaInput = ({
     setDraft(nextValue);
   }, [value]);
 
-  const { cents, valid, error } = parseScalaInterval(draft, context);
+  const parsedDraft = parseDraftValue(draft);
+  const { cents, valid, error } = parsedDraft;
 
   const previewText = Number.isFinite(cents)
     ? `${Math.round(cents)}¢`
@@ -74,6 +99,7 @@ const ScalaInput = ({
   const handleBlur = () => {
     let displayStr = draft.trim();
     if (displayStr.endsWith(".")) displayStr = `${displayStr}0`;
+    const typedBareInteger = displayStr !== "" && !(/[/.\\]/).test(displayStr);
 
     // Coerce bare zero entries to canonical "0." in degree context, but preserve
     // explicit Scala forms such as 1/1 or 0\12 in the display layer.
@@ -91,10 +117,11 @@ const ScalaInput = ({
       finalStr = normaliseDegree(displayStr);
     }
 
-    const result = parseScalaInterval(displayStr, context);
-    if (result.valid) {
-      setDraft(displayStr);
-      lastCommittedRef.current = { canonical: finalStr, display: displayStr };
+    const result = parseDraftValue(displayStr);
+    if (result.valid || (commitNegative && result.error === "negative")) {
+      const committedDisplay = (showCanonicalOnCommit || typedBareInteger) ? finalStr : displayStr;
+      setDraft(committedDisplay);
+      lastCommittedRef.current = { canonical: finalStr, display: committedDisplay };
       onChange(finalStr);
     } else {
       // Keep invalid but parseable entries visible so the user can correct them.

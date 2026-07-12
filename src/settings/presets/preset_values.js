@@ -71,7 +71,7 @@ import { parseScale } from "../scale/parse-scale";
 
 export const presets = [
   {
-    "name": "Marc Sabat / NYKY Ensemble",
+    "name": "Marc Sabat NYKY Ensemble",
     "settings": [
       {
         "name": "Harry Partch: 43 tone Just Intonation scale",

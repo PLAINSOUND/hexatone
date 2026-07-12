@@ -267,12 +267,14 @@ const LinnstrumentSettings = ({
             <ScalaInput
               context="interval"
               value={settings.midiin_bend_range ?? "28/27"}
+              allowNegative
               onChange={(str) => {
                 onChange("midiin_bend_range", str);
                 saveControllerPref(null, "midiin_bend_range", str);
               }}
+              showCanonicalOnCommit
               wrapperClass="sidebar-input"
-              inputClass="settings-form__scala-input"
+              inputClass="settings-form__scala-input settings-form__scala-input--right"
             />
           </label>
         ) : (
@@ -284,12 +286,14 @@ const LinnstrumentSettings = ({
               <ScalaInput
                 context="interval"
                 value={settings.midiin_bend_range ?? "28/27"}
+                allowNegative
                 onChange={(str) => {
                   onChange("midiin_bend_range", str);
                   saveControllerPref(null, "midiin_bend_range", str);
                 }}
+                showCanonicalOnCommit
                 wrapperClass="sidebar-input"
-                inputClass="settings-form__scala-input"
+                inputClass="settings-form__scala-input settings-form__scala-input--right"
               />
             </label>
           ) : (

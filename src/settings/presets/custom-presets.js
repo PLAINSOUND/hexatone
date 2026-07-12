@@ -13,9 +13,11 @@ import {
 } from "../scale/parse-scale";
 import { normalizeModulationHistory } from "../../tuning/modulation-runtime.js";
 import { resolveKeyColorsMode } from "../scale/key-colors-mode.js";
-import { presets as builtinPresetGroups } from "./preset_values";
-
-const STORAGE_KEY = "hexatone_custom_presets";
+import {
+  loadUserTunings,
+  saveUserTunings,
+} from "../../hexatone/user-tunings.js";
+import { findPresetTuningByName } from "../../hexatone/preset-tunings/index.js";
 
 const PRESET_FIELDS = [
   "name",
@@ -51,18 +53,9 @@ const PRESET_FIELDS = [
   "modulation_library",
 ];
 
-export const loadCustomPresets = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
+export const loadCustomPresets = () => loadUserTunings();
 
-const saveCustomPresets = (presets) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
-};
+const saveCustomPresets = (presets) => saveUserTunings(presets);
 
 const downloadFile = (content, filename, mimeType = "application/json") => {
   const blob = new Blob([content], { type: mimeType });
@@ -79,7 +72,7 @@ const safeName = (name) => (name || "preset").replace(/[^a-zA-Z0-9_\-]/g, "_");
 const isBuiltinPresetName = (name) => {
   const trimmed = String(name ?? "").trim();
   if (!trimmed) return false;
-  return builtinPresetGroups.some((group) => group.settings.some((preset) => preset.name === trimmed));
+  return !!findPresetTuningByName(trimmed);
 };
 
 const CustomPresets = ({

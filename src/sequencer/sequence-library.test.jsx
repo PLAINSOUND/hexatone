@@ -341,4 +341,39 @@ describe("SequenceLibrary", () => {
     expect(screen.getByText("Save current sequence")).toBeTruthy();
     expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
   });
+
+  it("does not warn when switching from a clean saved user sequence to a built-in sequence with the same name", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "FALL",
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    const confirmSpy = vi.fn(() => true);
+    window.confirm = confirmSpy;
+    const onLoadSpy = vi.fn();
+
+    render(
+      <SequenceLibraryHarness
+        initialSource="user"
+        initialSnapshots={[{ id: 1, notes: [] }]}
+        initialName="FALL"
+        initialSavedName="FALL"
+        onLoadSpy={onLoadSpy}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Built-in sequences" }), {
+      currentTarget: { value: "FALL" },
+      target: { value: "FALL" },
+    });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "FALL" }),
+      expect.objectContaining({ source: "builtin" }),
+    );
+  });
 });

@@ -1,7 +1,11 @@
 import { useState, useEffect } from "preact/hooks";
-import { presets, default_settings } from "./settings/presets/preset_values";
+import {
+  defaultTuningRecord,
+  findPresetTuningByName,
+  presetTuningGroups,
+} from "./hexatone/preset-tunings/index.js";
 import { settingsToAbletonScala } from "./settings/scale/parse-scale.js";
-import { loadCustomPresets } from "./settings/presets/custom-presets";
+import { loadUserTunings } from "./hexatone/user-tunings.js";
 import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "./persistence/settings-registry.js";
 import { normalizeModulationHistory } from "./tuning/modulation-runtime.js";
 import { getControllerById } from "./controllers/registry.js";
@@ -58,20 +62,17 @@ function buildBlankPresetSettings() {
 }
 
 export const findPreset = (preset) => {
-  for (let g of presets) {
-    for (let p of g.settings) {
-      if (p.name === preset) {
-        return { ...p, scale_import: settingsToAbletonScala(p) };
-      }
-    }
-  }
-  return default_settings;
+  const matchedPreset = findPresetTuningByName(preset) ?? defaultTuningRecord;
+  return {
+    ...matchedPreset,
+    scale_import: settingsToAbletonScala(matchedPreset),
+  };
 };
 
 function isBuiltinPresetName(name) {
   const trimmed = String(name ?? "").trim();
   if (!trimmed) return false;
-  for (const group of presets) {
+  for (const group of presetTuningGroups) {
     for (const preset of group.settings) {
       if (preset.name === trimmed) return true;
     }
@@ -367,7 +368,7 @@ const usePresets = (
           onPresetModulationLibraryLoaded?.(savedLibrary);
         }
       } else if (savedSource === "user") {
-        const preset = loadCustomPresets().find((p) => p.name === savedName);
+        const preset = loadUserTunings().find((p) => p.name === savedName);
         if (preset) {
           const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
           setPresetModulationLibrary(savedLibrary);
@@ -404,7 +405,7 @@ const usePresets = (
       }
     } else if (savedSource === "user") {
       setRestoredOnMount(true);
-      const customPresets = loadCustomPresets();
+      const customPresets = loadUserTunings();
       const preset = customPresets.find((p) => p.name === savedName);
       if (preset) {
         setActiveSource("user");
@@ -453,7 +454,7 @@ const usePresets = (
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
       setSettings(() => merged);
     } else if (source === "user") {
-      const preset = loadCustomPresets().find((p) => p.name === name);
+      const preset = loadUserTunings().find((p) => p.name === name);
       if (!preset) return false;
       const adjustedPreset = {
         ...preset,
@@ -474,21 +475,15 @@ const usePresets = (
     return true;
   };
 
-  const presetChanged = async (e) => {
-    const presetName = e.target.value;
-    if (!presetName) return;
-    // Mark user interaction immediately so sample/audio warmup can begin in the
-    // current gesture turn, but do not await prepare() here — iOS select
-    // controls can lose the first committed value if the handler blocks before
-    // the controlled value/state update lands.
-    onUserInteraction();
+  const applyBuiltinPreset = (presetData) => {
+    if (!presetData) return;
+    const presetName = presetData.name;
     setRestoredOnMount(false);
     setPendingRestoredPreset(null);
     setActiveSource("builtin");
     setActivePresetName(presetName);
     sessionStorage.setItem("hexatone_preset_source", "builtin");
     sessionStorage.setItem("hexatone_preset_name", presetName);
-    const presetData = findPreset(presetName);
     const adjustedPreset = {
       ...presetData,
       hexSize: scaleHexSizeForScreen(presetData.hexSize),
@@ -502,6 +497,23 @@ const usePresets = (
     setSettings(() => merged);
     schedulePresetRuntimeReset(bumpPresetRuntimeReset);
     synthRef.current?.prepare?.();
+  };
+
+  const presetChanged = async (e) => {
+    const presetName = e.target.value;
+    if (!presetName) return;
+    // Mark user interaction immediately so sample/audio warmup can begin in the
+    // current gesture turn, but do not await prepare() here — iOS select
+    // controls can lose the first committed value if the handler blocks before
+    // the controlled value/state update lands.
+    onUserInteraction();
+    const presetData = findPreset(presetName);
+    applyBuiltinPreset(presetData);
+  };
+
+  const onLoadBuiltinPreset = (preset) => {
+    onUserInteraction();
+    applyBuiltinPreset(preset);
   };
 
   const onLoadCustomPreset = (preset) => {
@@ -531,7 +543,7 @@ const usePresets = (
   };
 
   const onClearUserPresets = () => {
-    const remaining = loadCustomPresets();
+    const remaining = loadUserTunings();
     setActiveSource(null);
     setActivePresetName(null);
     setPendingRestoredPreset(null);
@@ -592,7 +604,7 @@ const usePresets = (
     setRestoredOnMount(false);
     setPendingRestoredPreset(null);
     if (activePresetName) {
-      const saved = loadCustomPresets().find((p) => p.name === activePresetName);
+      const saved = loadUserTunings().find((p) => p.name === activePresetName);
       if (saved) {
         const adjustedPreset = {
           ...saved,
@@ -636,6 +648,7 @@ const usePresets = (
     setPersistOnReload,
     activatePendingPreset,
     presetChanged,
+    onLoadBuiltinPreset,
     onLoadCustomPreset,
     onClearUserPresets,
     onRevertBuiltin,

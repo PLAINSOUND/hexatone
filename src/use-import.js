@@ -1,5 +1,9 @@
 import { useState } from "preact/hooks";
-import { parseScale, parsedScaleToLabels } from "./settings/scale/parse-scale.js";
+import {
+  deriveImportedLayoutSteps,
+  parseScale,
+  parsedScaleToLabels,
+} from "./settings/scale/parse-scale.js";
 
 /**
  * Manages scale-file import state and logic.
@@ -37,6 +41,7 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
       const parsed = parseScale(s.scale_import);
       const { filename, description, equivSteps, scale, labels, colors } = parsed;
       const scala_names = parsedScaleToLabels(scale);
+      const { rSteps, drSteps } = deriveImportedLayoutSteps(equivSteps);
 
       const hasNames = parsed.hexatone_note_names && parsed.hexatone_note_names.some((n) => n);
       const hasColors = parsed.hexatone_note_colors && parsed.hexatone_note_colors.some((c) => c);
@@ -82,11 +87,14 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
         scala_names,
         note_names,
         note_colors,
+        rSteps,
+        drSteps,
         fundamental,
         reference_degree,
         midiin_anchor_note,
-        key_labels: hasMetadata ? "note_names" : "scala_names",
-        spectrum_colors: hasMetadata ? false : true,
+        key_labels: hasMetadata ? "note_names" : "heji",
+        auto_colors: hasMetadata ? false : true,
+        spectrum_colors: false,
         fundamental_color: hasMetadata ? s.fundamental_color : "#ffdbe8",
       };
     });

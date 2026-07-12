@@ -2,8 +2,34 @@ import { render, screen, fireEvent } from "@testing-library/preact";
 import Settings from "./index.jsx";
 
 vi.mock("./settings.css", () => ({}));
-vi.mock("./presets/presets", () => ({ default: () => <div>Presets Stub</div> }));
-vi.mock("./presets/custom-presets", () => ({ default: () => <div>User Tunings Stub</div> }));
+vi.mock("../hexatone/preset-tunings/index.js", () => ({
+  presetTuningGroups: [],
+}));
+vi.mock("../hexatone/tuning-library.jsx", () => ({
+  default: (props) => (
+    <div>
+      {props.showActivateAudioContext && (props.activateAudioContext || props.activatePendingPreset) ? (
+        <button
+          type="button"
+          onClick={() => void (props.activateAudioContext || props.activatePendingPreset)()}
+        >
+          Activate Audio Context
+        </button>
+      ) : (
+        <label>
+          <input
+            type="checkbox"
+            aria-label="Restore preset on reload"
+            checked={props.persistOnReload}
+            onChange={(e) => props.setPersistOnReload(e.target.checked)}
+          />
+          Restore preset on reload
+        </label>
+      )}
+      Tuning Library Stub
+    </div>
+  ),
+}));
 vi.mock("./scale/info", () => ({ default: () => <div>Info Stub</div> }));
 const scaleMockState = vi.hoisted(() => ({ props: [] }));
 vi.mock("./scale", () => ({
@@ -18,8 +44,7 @@ vi.mock("./midi", () => ({ default: () => <div>MIDI In Stub</div> }));
 vi.mock("./midi/midioutputs", () => ({ default: () => <div>MIDI Out Stub</div> }));
 
 const baseProps = {
-  presetChanged: () => {},
-  presets: [],
+  onLoadBuiltinPreset: () => {},
   settings: {},
   onChange: () => {},
   onAtomicChange: () => {},

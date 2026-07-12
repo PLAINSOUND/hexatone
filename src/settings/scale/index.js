@@ -215,10 +215,13 @@ const Scale = (props) => {
         Equave
         <ScalaInput
           context="interval"
+          commitNegative
           value={equaveValue}
           onChange={handleEquaveChange}
+          showCanonicalOnCommit
           inputClass="settings-form__scala-input settings-form__scala-input--right"
           wrapperClass="sidebar-input"
+          aria-label="equave"
         />
       </label>
       {effectiveEquivSteps > 1 && (

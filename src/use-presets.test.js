@@ -3,8 +3,8 @@ import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect } from "preact/hooks";
 
-vi.mock("./settings/presets/preset_values", () => ({
-  presets: [
+vi.mock("./hexatone/preset-tunings/index.js", () => ({
+  presetTuningGroups: [
     {
       name: "Tests",
       settings: [
@@ -20,10 +20,23 @@ vi.mock("./settings/presets/preset_values", () => ({
       ],
     },
   ],
-  default_settings: {},
+  defaultTuningRecord: {},
+  findPresetTuningByName: vi.fn((name) => (
+    name === "Preset A"
+      ? {
+          name: "Preset A",
+          scale: ["100.", "1200."],
+          note_names: ["A", "B"],
+          note_colors: ["#ffffff", "#eeeeee"],
+          key_labels: "note_names",
+          fundamental: 440,
+          reference_degree: 0,
+        }
+      : null
+  )),
 }));
-vi.mock("./settings/presets/custom-presets", () => ({
-  loadCustomPresets: vi.fn(() => []),
+vi.mock("./hexatone/user-tunings.js", () => ({
+  loadUserTunings: vi.fn(() => []),
 }));
 
 import {
@@ -509,8 +522,8 @@ describe("usePresets refresh ordering", () => {
   });
 
   it("returns to blank settings instead of reloading when the last user preset is deleted", async () => {
-    const { loadCustomPresets } = await import("./settings/presets/custom-presets");
-    loadCustomPresets.mockReturnValue([]);
+    const { loadUserTunings } = await import("./hexatone/user-tunings.js");
+    loadUserTunings.mockReturnValue([]);
 
     const setSettings = vi.fn();
     const bumpPresetRuntimeReset = vi.fn();

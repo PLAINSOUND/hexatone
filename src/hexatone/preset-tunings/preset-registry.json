@@ -1,0 +1,146 @@
+{
+  "categories": [
+    {
+      "slug": "marc-sabat-nyky-ensemble",
+      "name": "Marc Sabat NYKY Ensemble",
+      "presets": [
+        "harry-partch-43-tone-just-intonation-scale",
+        "pauline-oliveros-heart-of-tones",
+        "chromatic-scale-of-harmonic-partials-over-a",
+        "james-tenney-critical-band-55-tone-layout",
+        "elsie-hamilton-subharmonic-modes",
+        "sabat-the-tree-modulations"
+      ]
+    },
+    {
+      "slug": "12-note-scales",
+      "name": "12 Note Scales",
+      "presets": [
+        "12edo-12-tone-equal-temperament",
+        "12-pythagorean-pure-fifths",
+        "1-4-comma-meantone-pure-thirds",
+        "12-ptolemaic-pure-fifths-and-thirds-5-limit-ji",
+        "compare-the-common-12-tone-systems",
+        "12-harmonic-partials-fundamental-a",
+        "12-subharmonic-elsie-hamilton-19-limit",
+        "12-subharmonic-elsie-hamilton-e-a-d-13-limit",
+        "12-septimal-quintal",
+        "12-septimal-blues",
+        "12-ji-3-7-11",
+        "12-ji-3-5-13",
+        "12-sabat-i-ji-well-temperament",
+        "12-sabat-ii-ji-well-temperament"
+      ]
+    },
+    {
+      "slug": "arabic-and-persian-theoretical-systems",
+      "name": "Arabic and Persian Theoretical Systems",
+      "presets": [
+        "22-farabi",
+        "22-sabat-maqam",
+        "17-ibn-sina",
+        "17-ormavi"
+      ]
+    },
+    {
+      "slug": "indian-theoretical-systems",
+      "name": "Indian Theoretical Systems",
+      "presets": [
+        "22-sruti-sambamurthy-danielou"
+      ]
+    },
+    {
+      "slug": "harmonics-and-subharmonics",
+      "name": "Harmonics and Subharmonics",
+      "presets": [
+        "hs-12-48-harmonic-partial-row-from-12-to-48",
+        "hs-12-48-odd-partial-notation",
+        "hs-sh-12-48-harmonics-subharmonics-combined",
+        "sh-hs-12-48-subharmonics-harmonics-combined",
+        "19-tone-partial-sequence-32-52-repeating-at-3-2",
+        "19-tone-partial-sequence-32-52-odd-partials",
+        "hs-53-106-harmonic-partial-row-from-53-to-106",
+        "hs-55-110-harmonic-partial-row-from-55-to-110",
+        "55-critical-band"
+      ]
+    },
+    {
+      "slug": "odd-partial-pitch-class-sets",
+      "name": "Odd Partial Pitch Class Sets",
+      "presets": [
+        "14-3-5-256",
+        "12-3-7-256",
+        "18-3-7-11-256",
+        "20-3-5-13-256",
+        "40-13-limit-256",
+        "55-19-limit-256",
+        "81-47-limit-256-sabat-the-tree",
+        "22-37to47-256",
+        "53-256-isomorphic"
+      ]
+    },
+    {
+      "slug": "rational-intonation-ji",
+      "name": "Rational Intonation (JI)",
+      "presets": [
+        "53-tertial-center-d",
+        "55-quintal-sabat-euler-lattice-center-d",
+        "41-septimal-tertial",
+        "41-septimal-tertial-tonnetz-layout",
+        "18-oliveros-septimal-quintal",
+        "31-7-limit-fokker",
+        "31-divided-fifth-ratios-repeating-at-the-3-2",
+        "43-11-limit-partch-original-ratios",
+        "43-11-limit-partch-degree-0-1-1-a-440-hz-heji",
+        "17-11-limit-wilson",
+        "41-13-limit-breed",
+        "53-13-limit-taylor"
+      ]
+    },
+    {
+      "slug": "extended-meantone",
+      "name": "Extended Meantone",
+      "presets": [
+        "38-vicentino-ii-1555-adaptive-meantone-ji",
+        "36-2-17-schisma-mt-based-on-helmholtz",
+        "31-vicentino-i-1555-1-4-comma-g-a",
+        "43-1-5-syntonic-comma-mt-dbbb-d",
+        "55-1-6-pythagorean-comma-mt-abbbb-g"
+      ]
+    },
+    {
+      "slug": "equal-divisions",
+      "name": "Equal Divisions",
+      "presets": [
+        "19edo-salinas-1577",
+        "19edo-enharmonic-septimal-notation",
+        "22edo-heji",
+        "31edo-gbb-a",
+        "31edo-quartertone-notation",
+        "31edo-in-vicentino-notation-1555",
+        "36ed2",
+        "36ed2-rationalised-to-7lim",
+        "41edo-septimal-tertial-notation",
+        "53edo-mercator-newton-quintal-tertial-notation",
+        "53edo-tonnetz-layout",
+        "72edo-sims-tenney",
+        "205ed2-tonalplexus",
+        "55-heart-of-tones",
+        "43edo-sauveur-1696-dbbb-d",
+        "55edo-telemann-1767-abbbb-g"
+      ]
+    },
+    {
+      "slug": "scordatura",
+      "name": "Scordatura",
+      "presets": [
+        "88-note-piano-scordatura-template",
+        "pedal-harp-layout-12edo",
+        "pedal-harp-84edo-subset-nicholson",
+        "pedal-harp-scordatura-145-note-layout",
+        "pedal-harp-81-odd-145-note-layout",
+        "275-tone-lumatone-scordatura-layout"
+      ]
+    }
+  ]
+}

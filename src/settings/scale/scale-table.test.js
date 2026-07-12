@@ -7,6 +7,7 @@
  */
 
 import { render, screen, fireEvent } from "@testing-library/preact";
+import { useState } from "preact/hooks";
 import ScaleTable from "./scale-table/index.js";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -174,6 +175,30 @@ describe("ScaleTable — scale value inputs", () => {
     expect(commitCall).toBeTruthy();
   });
 
+  it("keeps a committed integer normalized to explicit ratio form after the table rerenders", () => {
+    const Harness = () => {
+      const [settings, setSettings] = useState(settingsBase);
+      return (
+        <ScaleTable
+          settings={settings}
+          onChange={(key, value) => {
+            if (key === "scale") {
+              setSettings((prev) => ({ ...prev, scale: value }));
+            }
+          }}
+        />
+      );
+    };
+
+    render(<Harness />);
+    const input = screen.getByLabelText("pitch value 4");
+
+    fireEvent.input(input, { target: { value: "3" } });
+    fireEvent.blur(input);
+
+    expect(screen.getByLabelText("pitch value 4").value).toBe("3/1");
+  });
+
   it("preserves a typed tempered step in the field after committing its parsed Scala value", () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
@@ -237,7 +262,7 @@ describe("ScaleTable — scale value inputs", () => {
     );
   });
 
-  it("keeps invalid negative Scala values visible with a warning preview instead of reverting", () => {
+  it("keeps invalid negative Scala values visible with a warning preview while still committing them", () => {
     const onChange = vi.fn();
     render(<ScaleTable settings={settingsBase} onChange={onChange} />);
     const input = screen.getByLabelText("pitch value 4");
@@ -246,7 +271,9 @@ describe("ScaleTable — scale value inputs", () => {
     fireEvent.blur(input);
 
     expect(input.value).toBe("-1\\7");
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith("scale", expect.any(Array));
+    const committed = onChange.mock.calls.at(-1)[1];
+    expect(committed[4]).toBe("-171.428571");
     expect(document.querySelector(".scala-input__cents--error")?.textContent).toBe("-171¢");
   });
 });
@@ -917,6 +944,25 @@ describe("ScaleTable — table structure", () => {
     expect(document.querySelector('input[aria-label="pitch frequency 9"]').value).toBe("440.0");
     expect(document.querySelector('input[aria-label="pitch frequency 0"]').value).toBe("261.6");
     expect(document.querySelector('input[aria-label="equave frequency"]').value).toBe("523.3");
+  });
+
+  it("updates the equave row frequency when a descending equave is committed", () => {
+    const onChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9 }}
+        onChange={onChange}
+      />,
+    );
+
+    const equaveInput = screen.getByLabelText("pitch 11");
+    fireEvent.input(equaveInput, { target: { value: "2/3" } });
+    fireEvent.blur(equaveInput);
+
+    expect(equaveInput.value).toBe("2/3");
+    expect(onChange).toHaveBeenCalledWith("scale", expect.any(Array));
+    const committed = onChange.mock.calls.at(-1)[1];
+    expect(committed[11]).toBe("2/3");
   });
 
   it("shows degree 0 frequency as read-only display", () => {

@@ -924,6 +924,7 @@ td.scale-color-col .color-input {
 
 .settings-form__sidebar-input--short {
   width: 3.5em !important;
+  text-align: right;
 }
 
 .settings-form__scala-input {

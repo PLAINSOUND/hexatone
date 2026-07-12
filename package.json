@@ -13,6 +13,7 @@
     "osc-bridge": "node osc-bridge/index.js",
     "build-bridge": "node osc-bridge/build-sea.mjs",
     "build": "vite build && node copy-build-docs.mjs && node generate-sw.js",
+    "generate:preset-tunings": "node scripts/generate-preset-tunings.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

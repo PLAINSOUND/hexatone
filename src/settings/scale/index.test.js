@@ -243,6 +243,24 @@ describe("Scale panel — default state", () => {
     expect(frequencyInput.value).toBe("440.000000");
   });
 
+  it("commits a descending equave ratio and keeps the typed form visible", () => {
+    const onChange = vi.fn();
+    render(<Scale settings={minimalSettings} onChange={onChange} onImport={() => {}} />);
+
+    const equaveInput = screen.getByLabelText("equave");
+    fireEvent.input(equaveInput, { target: { value: "1/2" } });
+    fireEvent.blur(equaveInput);
+
+    expect(equaveInput.value).toBe("1/2");
+    expect(onChange).toHaveBeenCalledWith(
+      "scale",
+      expect.arrayContaining([
+        expect.any(String),
+        "1/2",
+      ]),
+    );
+  });
+
   it("shows the computed frequency of 1/1 from the assigned reference degree", () => {
     render(
       <Scale
