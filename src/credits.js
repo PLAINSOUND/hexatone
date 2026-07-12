@@ -1,3 +1,12 @@
+/**
+ * src/credits.js
+ *
+ * Static credits/about panel content shown from the sidebar.
+ *
+ * Kept separate from app.jsx because it is pure presentation content with no
+ * runtime wiring, and it changes on a different cadence from the main app
+ * orchestration code.
+ */
 
 const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "unknown";
 

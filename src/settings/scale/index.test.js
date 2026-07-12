@@ -9,8 +9,8 @@
 
 import { render, screen, fireEvent } from "@testing-library/preact";
 import { useState } from "preact/hooks";
-import { normalizeColors } from "../../normalize-settings.js";
-import useSettingsChange from "../../use-settings-change.js";
+import { normalizeColors } from "../normalize-settings.js";
+import useSettingsChange from "../../hooks/use-settings-change.js";
 vi.mock("./fundamental-tune-cell.js", () => ({
   default: ({ onPreviewChange }) => (
     <div class="tune-cell--inline">

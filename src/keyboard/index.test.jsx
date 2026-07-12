@@ -4,8 +4,8 @@ import { useRef, useState } from "preact/hooks";
 import Keyboard from "./index.js";
 import Keys from "./keys.js";
 import Colors from "../settings/scale/colors.js";
-import useSettingsChange from "../use-settings-change.js";
-import { normalizeColors } from "../normalize-settings.js";
+import useSettingsChange from "../hooks/use-settings-change.js";
+import { normalizeColors } from "../settings/normalize-settings.js";
 
 vi.mock("./keyboard.css", () => ({}));
 

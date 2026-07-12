@@ -3,7 +3,7 @@
  *
  * Canonical registry of all Hexatone settings keys.
  *
- * Every key that appears in useQuery's spec, session-defaults, or anywhere
+ * Every key that appears in useQuery's spec, settings/session-defaults, or anywhere
  * else in the persistence layer should have an entry here.
  *
  * ## Tiers
@@ -14,7 +14,7 @@
  *
  *   'session'  — stored in sessionStorage only.
  *                Survives tab refresh but not a new tab/window.
- *                These are the keys in session-defaults.js.
+ *                These are the keys restored by settings/session-defaults.js.
  *
  *   'local'    — stored in localStorage only (not in URL).
  *                Survives browser restart but not shareable.
@@ -35,7 +35,7 @@
  * ## Preset skip
  *
  *   presetSkip: true  — key is excluded from URL/localStorage persistence
- *                       (matches PRESET_SKIP_KEYS in use-presets.js).
+ *                       (matches PRESET_SKIP_KEYS in hooks/use-presets.js).
  *                       Only populated by explicit preset load or session storage.
  *
  * ## Intentional omissions
@@ -44,11 +44,11 @@
  *                   It is reset to 0 on every synth rebuild (output routing change),
  *                   structural rebuild (preset/scale/layout change), and PANIC.
  *                   Persisting it would cause pitch mismatches after these events.
- *                   Implementation: resetOctave() in use-synth-wiring.js, called
+ *                   Implementation: resetOctave() in hooks/use-synth-wiring.js, called
  *                   from useEffect([synth]) and the PANIC button in app.jsx.
  *                   The structuralSettings reset lives in app.jsx useEffect([structuralSettings]).
  *
- *   octave_deferred — Stored directly in sessionStorage by use-synth-wiring.js
+ *   octave_deferred — Stored directly in sessionStorage by hooks/use-synth-wiring.js
  *                     (key: "octave_deferred"). Not in this registry because it is
  *                     UI interaction state, not a settings value — it controls whether
  *                     the next OCT shift defers to the next note-on rather than
@@ -107,7 +107,7 @@ export const SETTINGS_REGISTRY = [
   // tier: 'local'  — stored in localStorage, not URL-synced, not session-scoped.
   // perController: true  — storage key is `${controllerId}_${key}`.
   //                        Value is loaded into settings on controller connect
-  //                        via loadControllerPrefs() in controller-anchor.js.
+  //                        via loadControllerPrefs() in input/controller-anchor.js.
   // perController: false — storage key is the plain key (cross-controller pref).
   //
   // These keys also appear in the 'session' section below as their runtime
@@ -380,10 +380,10 @@ export const SETTINGS_REGISTRY = [
   { key: "fluidsynth_channel", tier: "session", type: "int", default: -1 },
   { key: "output_osc", tier: "session", type: "bool", default: false },
   { key: "osc_bridge_url", tier: "session", type: "string", default: "ws://localhost:8089" },
-  // OSC layer volumes — written by onOscLayerVolumeChange in use-synth-wiring.js
+  // OSC layer volumes — written by onOscLayerVolumeChange in hooks/use-synth-wiring.js
   // via both setSettings (so deriveOscVolumes reads the live value on every
   // in-session rebuild) and localStorage (so values survive page reload and
-  // are read back via CROSS_CONTROLLER_ENTRIES in session-defaults.js).
+  // are read back via CROSS_CONTROLLER_ENTRIES in settings/session-defaults.js).
   // tier: 'local', perController: false — plain key, cross-controller.
   { key: "osc_volume_pluck", tier: "local", type: "float", default: 0.5, perController: false },
   { key: "osc_volume_buzz", tier: "local", type: "float", default: 0.5, perController: false },
@@ -506,7 +506,7 @@ export const SETTINGS_REGISTRY = [
   },
 
   // ── App preferences (localStorage, not session) ───────────────────────────────
-  // hexatone_persist_on_reload is handled separately in app.jsx / use-presets.js
+  // hexatone_persist_on_reload is handled separately in app.jsx / hooks/use-presets.js
   // and is intentionally not part of the settings object.
 
   // ── Rationalisation search prefs ──────────────────────────────────────────────
@@ -570,7 +570,7 @@ export const PRESET_SKIP_KEYS = SETTINGS_REGISTRY.filter((e) => e.presetSkip).ma
  *
  * Usage in app.jsx:
  *   import { buildQuerySpec } from './persistence/settings-registry.js';
- *   import { ExtractInt, ExtractFloat, ... } from './use-query.js';
+ *   import { ExtractInt, ExtractFloat, ... } from './hooks/use-query.js';
  *   const spec = buildQuerySpec({ int: ExtractInt, float: ExtractFloat,
  *                                  bool: ExtractBool, string: ExtractString,
  *                                  joined: ExtractJoinedString });
@@ -581,7 +581,7 @@ export const PRESET_SKIP_KEYS = SETTINGS_REGISTRY.filter((e) => e.presetSkip).ma
  * default_settings and sessionDefaults are spread on top.
  *
  * This restores the blank-slate defaults that previously lived at the bottom of
- * session-defaults.js (scale, rSteps, drSteps, hexSize, rotation, equivSteps,
+ * settings/session-defaults.js (scale, rSteps, drSteps, hexSize, rotation, equivSteps,
  * reference_degree, center_degree, fundamental, etc.).
  */
 export function buildRegistryDefaults() {

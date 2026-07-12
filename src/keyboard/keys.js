@@ -9,7 +9,7 @@ import { calculateRotationMatrix } from "./matrix";
 import Point from "./point";
 import Euclid from "./euclidean";
 import { WebMidi } from "webmidi";
-import { RecencyStack } from "../recency_stack.js";
+import { RecencyStack } from "../polyphony/recency-stack.js";
 import { MidiCoordResolver } from "./midi-coord-resolver.js";
 import {
   degree0ToRef,

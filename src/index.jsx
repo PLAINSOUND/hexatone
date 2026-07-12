@@ -1,3 +1,11 @@
+/**
+ * src/index.jsx
+ *
+ * Browser entrypoint for the main Hexatone SPA.
+ *
+ * It mounts App, installs development-time prop-type checking, owns version /
+ * cache-busting startup behaviour, and registers the production service worker.
+ */
 import { render } from "preact";
 import { options } from "preact";
 import PropTypes from "prop-types";

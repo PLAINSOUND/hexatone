@@ -1,3 +1,13 @@
+/**
+ * src/hexatone/tuning-library.jsx
+ *
+ * Sidebar UI for built-in and user tuning management.
+ *
+ * This is the Hexatone-side analogue of the sequence library UI: it presents
+ * the built-in tuning menu, user tuning library, import/export, overwrite, and
+ * clear actions, while coordinating the active workspace state with those
+ * library operations.
+ */
 import { createRef } from "preact";
 import { useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";

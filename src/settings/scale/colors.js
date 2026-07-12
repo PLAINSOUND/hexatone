@@ -1,7 +1,7 @@
 import { createRef } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
-import { deriveSpectrumNoteColors, normalizeColors } from "../../normalize-settings.js";
+import { deriveSpectrumNoteColors, normalizeColors } from "../normalize-settings.js";
 import { deriveAutoNoteColors, normaliseColorForCompare } from "./auto-colors.js";
 import ColorCell from "./scale-table/color-cell.js";
 import {

@@ -3,7 +3,7 @@
 // and bulk-dump-based outputs, handling voice allocation plus retune/noteOn
 // sequencing against external MIDI devices. It does not resolve keyboard input.
 
-import { VoicePool } from "../voice_pool_nearest";
+import { VoicePool } from "../polyphony/voice-pool-nearest";
 import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 import { traceMidiOutput } from "../debug/midi-jitter.js";

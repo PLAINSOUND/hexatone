@@ -1,0 +1,331 @@
+/**
+ * src/hooks/use-settings-change.js
+ *
+ * Central dispatcher for UI-driven settings edits.
+ *
+ * It classifies changes as structural, controller-related, or runtime-only,
+ * normalizes dependent values, persists controller anchor/preferences where
+ * needed, and coordinates the live colour/runtime update path before the main
+ * synth wiring reacts.
+ */
+
+import { useRef, useCallback, useEffect } from "preact/hooks";
+import { detectController, getControllerById } from "../controllers/registry.js";
+import { normalizeColors } from "../settings/normalize-settings.js";
+import { deriveImportedLayoutSteps } from "../settings/scale/parse-scale.js";
+import {
+  saveAnchor,
+  saveAnchorChannel,
+  loadAnchorSettingsUpdate,
+} from "../input/controller-anchor.js";
+
+// Keys whose changes are pushed imperatively to the live canvas before
+// setSettings fires, so color-picker drags are smooth without reconstruction.
+const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color", "auto_colors", "prime_family_colors"]);
+const CONTROLLER_OUTPUT_OVERRIDE_KEYS = {
+  exquis: "exquis_out_port",
+  hakenaudio: "hakenaudio_out_port",
+  linnstrument: "linnstrument_out_port",
+  lumatone: "lumatone_out_port",
+};
+
+export function resizeScaleWithEquavePadding(settings, newSize) {
+  const currentScale = Array.isArray(settings?.scale) ? settings.scale : [];
+  const equave = currentScale.length ? currentScale[currentScale.length - 1] : "2/1";
+  const degreeZeroName = settings?.note_names?.[0] ?? "";
+  const degreeZeroColor = settings?.note_colors?.[0] ?? "#ffffff";
+
+  let scale;
+  if (newSize > currentScale.length) {
+    scale = [...currentScale, ...Array(newSize - currentScale.length).fill(equave)];
+  } else {
+    scale = currentScale.slice(0, newSize);
+  }
+
+  const note_names = Array.from(
+    { length: newSize },
+    (_, index) => settings?.note_names?.[index] ?? degreeZeroName,
+  );
+  const note_colors = Array.from(
+    { length: newSize },
+    (_, index) => settings?.note_colors?.[index] ?? degreeZeroColor,
+  );
+
+  return { scale, note_names, note_colors };
+}
+
+// Return the detectController entry for the currently connected input device, or null.
+const getConnectedController = (deviceId, midi, controllerOverrideId = "auto") => {
+  if (controllerOverrideId && controllerOverrideId !== "auto") {
+    return getControllerById(controllerOverrideId);
+  }
+  if (!deviceId || deviceId === "OFF" || !midi) return null;
+  const input = Array.from(midi.inputs.values()).find((m) => m.id === deviceId);
+  return input ? detectController(input.name.toLowerCase()) : null;
+};
+
+/**
+ * Produces the `onChange` and `onAtomicChange` callbacks used by the
+ * Settings panel and the Keyboard component.
+ *
+ * `onChange` handles every special-cased setting change in one place:
+ *   - MIDI-learn toggle (no state, just side-effect)
+ *   - MIDI input device selection (loads per-controller anchor note)
+ *   - Anchor-note persistence (localStorage keyed by controller ID)
+ *   - Instrument switch (panic + latch reset)
+ *   - equivSteps resize (panic, scale resize, bump importCount)
+ *   - scale_divide (panic, scale replace, bump importCount, switch preset focus)
+ *   - Color changes (imperative canvas push before React re-render)
+ *   - All other keys (plain setSettings)
+ *
+ * @param {object}   settings           - Current app settings
+ * @param {function} setSettings        - Settings updater from useQuery
+ * @param {object}   options
+ * @param {object}   options.midi            - Web MIDI access object
+ * @param {function} options.setMidiLearnActive
+ * @param {object}   options.keysRef         - Ref to the live Keys canvas
+ * @param {function} options.setLatch        - Latch state setter
+ * @param {function} options.bumpImportCount - Increment the scale import counter
+ * @param {function} options.onUserScaleEdit - Called with the new scale name when
+ *                                            scale_divide fires; switches preset
+ *                                            focus to User Tunings in the UI
+ *
+ * @returns {{ onChange, onAtomicChange }}
+ */
+const useSettingsChange = (
+  settings,
+  setSettings,
+  {
+    midi,
+    setMidiLearnActive,
+    setHakenPedalLearnActive,
+    keysRef,
+    setLatch,
+    bumpImportCount,
+    onUserScaleEdit,
+  },
+) => {
+  // Keep a ref to settings so onChange/onAtomicChange can read current values
+  // without being recreated on every render. This is the key optimisation:
+  // stable callback references mean the Settings tree doesn't re-render on
+  // every color drag tick — only the canvas (imperative) and the color memos update.
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  // midi can also change (device connect/disconnect), keep it stable too.
+  const midiRef = useRef(midi);
+  useEffect(() => {
+    midiRef.current = midi;
+  }, [midi]);
+
+  const onChange = useCallback((key, value) => {
+    const s = settingsRef.current;
+    const m = midiRef.current;
+
+    // Toggle MIDI-learn mode — handled outside settings state (no URL sync needed).
+    if (key === "midiLearnAnchor") {
+      setMidiLearnActive(value);
+      return;
+    }
+
+    if (key === "midiLearnHakenPedal") {
+      setHakenPedalLearnActive(value);
+      return;
+    }
+
+    // When the MIDI input device is selected, load the per-controller saved anchor note
+    // (or fall back to the controller's built-in default on first use).
+    if (key === "midiin_device") {
+      const input = m ? Array.from(m.inputs.values()).find((mm) => mm.id === value) : null;
+      const overrideId = s.midiin_controller_override || "auto";
+      const ctrl =
+        overrideId !== "auto"
+          ? getControllerById(overrideId)
+          : input
+            ? detectController(input.name.toLowerCase())
+            : null;
+      // Optimistically preload known-controller prefs on explicit device selection
+      // so the first live instance is constructed with the right anchor/mode.
+      // The derived-state effect in use-synth-wiring.js remains the long-term owner
+      // for refresh, reconnect, and any future non-UI connect paths.
+      setSettings((prev) => ({
+        ...prev,
+        midiin_device: value,
+        ...(ctrl ? loadAnchorSettingsUpdate(ctrl, prev) : {}),
+      }));
+      sessionStorage.setItem("midiin_device", value);
+      return;
+    }
+
+    if (key === "midiin_controller_override") {
+      const ctrl = getConnectedController(s.midiin_device, m, value);
+      const outputOverrideKey =
+        value === "auto" ? CONTROLLER_OUTPUT_OVERRIDE_KEYS[ctrl?.id] ?? null : null;
+      setSettings((prev) => ({
+        ...prev,
+        midiin_controller_override: value,
+        ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
+        ...(ctrl
+          ? loadAnchorSettingsUpdate(ctrl, {
+              ...prev,
+              midiin_controller_override: value,
+              ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
+            })
+          : {}),
+      }));
+      sessionStorage.setItem("midiin_controller_override", value);
+      if (outputOverrideKey) sessionStorage.removeItem(outputOverrideKey);
+      return;
+    }
+
+    if (key === "tonalplexus_input_mode") {
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
+      setSettings((prev) => ({
+        ...prev,
+        tonalplexus_input_mode: value,
+        ...(ctrl?.id === "tonalplexus"
+          ? loadAnchorSettingsUpdate(ctrl, { ...prev, tonalplexus_input_mode: value })
+          : {}),
+      }));
+      return;
+    }
+
+    // When the user manually changes the anchor note for a known controller, save it
+    // to localStorage keyed by controller ID so it's restored on next connect.
+    if (key === "midiin_anchor_note") {
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
+      // value IS the raw physical MIDI note number — store directly.
+      if (ctrl) saveAnchor(ctrl, value, s);
+      // Fall through to normal setSettings
+    }
+
+    // When the user manually changes the anchor channel for a channel-aware controller
+    // (e.g. Lumatone), persist it to localStorage so it's restored on next connect.
+    if (key === "midiin_anchor_channel") {
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
+      if (ctrl) saveAnchorChannel(ctrl, value, s);
+      sessionStorage.setItem("midiin_anchor_channel", String(value));
+      // Fall through to normal setSettings
+    }
+
+    // If instrument is about to change, stop all currently playing notes.
+    // This prevents the old instrument's sounds from continuing after switch.
+    if (key === "instrument") {
+      if (keysRef.current) keysRef.current.panic();
+      setLatch(false);
+    }
+
+    // When equivSteps changes, resize the scale array and reset scale-related settings.
+    // Handled before the COLOR_KEYS block so panic() is called instead of sustainOff().
+    if (key === "equivSteps") {
+      if (keysRef.current) keysRef.current.panic();
+      setLatch(false);
+      bumpImportCount();
+      setSettings((prev) => {
+        const { scale, note_names, note_colors } = resizeScaleWithEquavePadding(prev, value);
+        return {
+          ...prev,
+          [key]: value,
+          scale,
+          note_names,
+          note_colors,
+        };
+      });
+      return;
+    }
+
+    // When scale is divided into equal parts (Divide Equave / Divide Octave buttons).
+    // Same treatment as equivSteps: panic and reset scale-related settings.
+    if (key === "scale_divide") {
+      if (keysRef.current) keysRef.current.panic();
+      setLatch(false);
+      bumpImportCount();
+      // Compute name before setSettings so we can pass it to onUserScaleEdit
+      // synchronously — setSettings is async (batched), so we derive the name
+      // from the current settings snapshot rather than waiting for the update.
+      const newScale = value;
+      const equivSteps = Array.isArray(newScale) && newScale.length > 0
+        ? newScale.length
+        : (s.equivSteps || 1);
+      const { rSteps, drSteps } = deriveImportedLayoutSteps(equivSteps);
+      const equaveValue = newScale[newScale.length - 1];
+      const isOctave =
+        equaveValue === "2" ||
+        equaveValue === "2/1" ||
+        equaveValue === "1200" ||
+        equaveValue === "1200.0" ||
+        /^1200\.?0*$/.test(equaveValue);
+      const equaveForName = isOctave ? "2" : equaveValue;
+      const equaveForDesc = isOctave ? "Octave" : `${equaveValue} cents`;
+      const newName = `${equivSteps}ed${equaveForName}`;
+      const newDescription = `${equaveForDesc} divided into ${equivSteps} equal steps`;
+      const newNoteNames = newScale.map(
+        (_, i) => newScale[(i - 1 + newScale.length) % newScale.length],
+      );
+      setSettings((prev) => ({
+        ...prev,
+        scale: newScale,
+        equivSteps,
+        name: newName,
+        description: newDescription,
+        note_names: newNoteNames,
+        rSteps,
+        drSteps,
+        spectrum_colors: true,
+        fundamental_color: "#ffdbe8",
+      }));
+      // Switch the preset selector to User Tunings showing the generated name.
+      if (onUserScaleEdit) onUserScaleEdit(newName);
+      return;
+    }
+
+    // For color changes, push to the live Keys instance BEFORE setSettings.
+    // Reading current colors from settingsRef avoids stale closure values.
+    const next = { ...s, [key]: value };
+    settingsRef.current = next;
+
+    if (COLOR_KEYS.has(key) && keysRef.current) {
+      const normalizedColors = normalizeColors(next);
+      const colorUpdate = {
+        note_colors: normalizedColors.note_colors,
+        spectrum_colors: normalizedColors.spectrum_colors,
+        fundamental_color: normalizedColors.fundamental_color,
+      };
+      keysRef.current.updateColors(colorUpdate);
+      if (key === "note_colors" && s.linnstrument_led_sync && keysRef.current.syncLinnstrumentLEDs) {
+        keysRef.current.syncLinnstrumentLEDs();
+      }
+    }
+
+    setSettings(() => next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Stable by design: reads live values via settingsRef/midiRef; keysRef/setters are stable
+
+  const onAtomicChange = useCallback((updates) => {
+    const s = settingsRef.current;
+    const next = { ...s, ...updates };
+    settingsRef.current = next;
+
+    if (keysRef.current && Object.keys(updates).some((key) => COLOR_KEYS.has(key))) {
+      const normalizedColors = normalizeColors(next);
+      const colorUpdate = {
+        note_colors: normalizedColors.note_colors,
+        spectrum_colors: normalizedColors.spectrum_colors,
+        fundamental_color: normalizedColors.fundamental_color,
+      };
+      keysRef.current.updateColors(colorUpdate);
+      if ("note_colors" in updates && s.linnstrument_led_sync && keysRef.current.syncLinnstrumentLEDs) {
+        keysRef.current.syncLinnstrumentLEDs();
+      }
+    }
+
+    setSettings(() => next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable React state setter
+  }, []);
+
+  return { onChange, onAtomicChange };
+};
+
+export default useSettingsChange;

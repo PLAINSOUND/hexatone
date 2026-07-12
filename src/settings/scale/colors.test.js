@@ -11,8 +11,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import Colors from "./colors";
-import useSettingsChange from "../../use-settings-change.js";
-import { normalizeColors } from "../../normalize-settings.js";
+import useSettingsChange from "../../hooks/use-settings-change.js";
+import { normalizeColors } from "../normalize-settings.js";
 
 const baseSettings = { spectrum_colors: false, auto_colors: false, fundamental_color: "#abcdef" };
 

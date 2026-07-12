@@ -6,7 +6,7 @@ import SampleSynth from "./sample";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
-import { normalizeColors } from "../normalize-settings.js";
+import { normalizeColors } from "./normalize-settings.js";
 import { presetTuningGroups } from "../hexatone/preset-tunings/index.js";
 import TuningLibrary from "../hexatone/tuning-library.jsx";
 

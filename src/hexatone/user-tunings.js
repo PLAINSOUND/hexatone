@@ -1,3 +1,12 @@
+/**
+ * src/hexatone/user-tunings.js
+ *
+ * LocalStorage-backed user tuning library helpers.
+ *
+ * This module owns persistence for the user-editable tuning library: loading,
+ * saving, overwrite/upsert, deletion, clear-all, duplicate-name handling, and
+ * parsing imported tuning JSON into normalized tuning records.
+ */
 import { findPresetTuningByName } from "./preset-tunings/index.js";
 import { normalizeTuningRecord } from "./tuning-record.js";
 

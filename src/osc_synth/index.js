@@ -1,4 +1,4 @@
-import { VoicePool } from "../voice_pool_nearest";
+import { VoicePool } from "../polyphony/voice-pool-nearest";
 import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
 import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
 

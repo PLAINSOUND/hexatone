@@ -1,3 +1,14 @@
+/**
+ * src/hexatone/preset-tunings/index.js
+ *
+ * Built-in Hexatone tuning library loader.
+ *
+ * This module is the entrypoint for built-in tuning presets. It eagerly loads
+ * the JSON preset files grouped under `preset-tunings/`, applies registry-based
+ * ordering metadata, normalizes each record into the shared tuning-record
+ * format, and then merges the file-backed library with any still-unmigrated
+ * legacy preset groups from `settings/presets/preset_values`.
+ */
 import {
   default_settings as legacyDefaultSettings,
   presets as legacyPresetGroups,
@@ -131,6 +142,7 @@ function mergePresetTuningGroups(fileGroups, legacyGroups) {
   return merged;
 }
 
+// Eager import keeps the built-in tuning list synchronous for the sidebar UI.
 const filePresetJsonModules = import.meta.glob("./*/*.json", { eager: true });
 export const filePresetTuningGroups = buildFilePresetTuningGroups({
   jsonModules: filePresetJsonModules,

@@ -28,11 +28,18 @@ export const deriveImportedLayoutSteps = (equivSteps) => {
     return { rSteps: 2, drSteps: 1 };
   }
 
-  // Small scales look best when the down-right move stays conservative;
-  // larger scales benefit from a Bosanquet-like skew nearer the middle.
-  const targetDrSteps = rSteps <= 4
-    ? Math.round(rSteps / 2)
-    : Math.round(rSteps * 0.6);
+  // Favor a six-column octave with a diatonic-style split:
+  // 5 whole-step spans land at roughly half the octave width.
+  // Scales just below 6*rSteps prefer the lower half split, scales above
+  // prefer the upper half split, and exact fits choose the balanced center.
+  const halfOctave = rSteps / 2;
+  const targetDrSteps = count <= 17 && rSteps <= 4
+    ? 1
+    : count < rSteps * 6
+      ? Math.floor(halfOctave)
+      : count > rSteps * 6
+        ? Math.ceil(halfOctave)
+        : halfOctave;
 
   let best = 1;
   let bestDistance = Infinity;
@@ -41,7 +48,13 @@ export const deriveImportedLayoutSteps = (equivSteps) => {
     const distance = Math.abs(candidate - targetDrSteps);
     if (
       distance < bestDistance
-      || (distance === bestDistance && candidate < best)
+      || (
+        distance === bestDistance &&
+        (
+          (count >= rSteps * 6 && candidate > best)
+          || (count < rSteps * 6 && candidate < best)
+        )
+      )
     ) {
       best = candidate;
       bestDistance = distance;
@@ -58,6 +71,12 @@ export const parseScale = (scala) => {
     labels: [],
     errors: [],
   };
+  const isIntegerLine = (value) => /^\s*[0-9]+\s*$/.test(value);
+  const isIntervalLine = (value) => (
+    /^\s*-?[0-9]+(?:\.[0-9]*)?\s*$/.test(value)
+    || /^\s*-?[0-9]+\s*\/\s*-?[0-9]+\s*$/.test(value)
+    || /^\s*-?[0-9]+\s*\\\s*[0-9]+\s*$/.test(value)
+  );
   var lines = scala.split("\n");
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
@@ -84,8 +103,24 @@ export const parseScale = (scala) => {
         if (fname) out.filename = fname;
       }
       continue;
-    } else if (!out.description) {
-      out.description = line.trim();
+    } else if (out.description === undefined) {
+      const trimmed = line.trim();
+      if (isIntegerLine(trimmed)) {
+        let nextContent = "";
+        for (let j = i + 1; j < lines.length; j += 1) {
+          const candidate = lines[j].trim();
+          if (!candidate) continue;
+          if (candidate.startsWith("!")) continue;
+          nextContent = candidate;
+          break;
+        }
+        if (isIntervalLine(nextContent)) {
+          out.equivSteps = parseInt(trimmed);
+          out.description = "";
+          continue;
+        }
+      }
+      out.description = trimmed;
     } else if (!out.equivSteps && line.match(/^\s*[0-9]+\s*$/)) {
       out.equivSteps = parseInt(line.trim());
     } else if (
@@ -127,6 +162,9 @@ export const parseScale = (scala) => {
       line: lines.length,
       error: `${out.equivSteps} pitches specified, but ${out.scale.length} provided`,
     });
+  }
+  if (!out.equivSteps && out.scale.length > 0) {
+    out.equivSteps = out.scale.length;
   }
   return out;
 };
@@ -455,7 +493,10 @@ export const fileToPreset = (filename, text) => {
   if (ext === "scl" || ext === "ascl") {
     const parsed = parseScale(text);
     if (!parsed.scale || !parsed.scale.length) return null;
-    const { rSteps, drSteps } = deriveImportedLayoutSteps(parsed.equivSteps);
+    const importedEquivSteps = Number.isFinite(Number(parsed.equivSteps))
+      ? Number(parsed.equivSteps)
+      : parsed.scale.length;
+    const { rSteps, drSteps } = deriveImportedLayoutSteps(importedEquivSteps);
 
     const name = parsed.filename || filename.replace(/\.(a?scl)$/i, "").replace(/_/g, " ");
 
@@ -468,7 +509,7 @@ export const fileToPreset = (filename, text) => {
       description: parsed.description || "",
       scale_import: text,
       scale: parsed.scale,
-      equivSteps: parsed.equivSteps,
+      equivSteps: importedEquivSteps,
       note_names,
       note_colors,
       rSteps,

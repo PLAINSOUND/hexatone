@@ -1,10 +1,20 @@
+/**
+ * src/app.jsx
+ *
+ * Main application shell for PLAINSOUND HEXATONE and SEQUENCER.
+ *
+ * This file composes the major runtime layers: persisted settings, tuning
+ * normalization, keyboard/synth wiring, controller integration, manual/help
+ * surfaces, and the two primary workspaces (Hexatone and Sequencer). It is the
+ * orchestration boundary where domain modules are combined into the live app.
+ */
 import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
 import { primeSharedSampleAudio } from "./sample_synth";
 import { presets } from "./settings/presets/preset_values";
-import { normalizeColors, normalizeStructural } from "./normalize-settings.js";
+import { normalizeColors, normalizeStructural } from "./settings/normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import {
@@ -27,9 +37,9 @@ import {
 } from "./tuning/modulation-frame-runtime.js";
 import { parseExactInterval } from "./tuning/interval.js";
 
-import useSynthWiring from "./use-synth-wiring.js";
-import { useMidiGuardian } from "./use-midi-guardian.js";
-import useDeferredModulationHistory from "./use-deferred-modulation-history.js";
+import useSynthWiring from "./hooks/use-synth-wiring.js";
+import { useMidiGuardian } from "./hooks/use-midi-guardian.js";
+import useDeferredModulationHistory from "./tuning/use-deferred-modulation-history.js";
 import {
   useQuery,
   ExtractInt,
@@ -37,10 +47,10 @@ import {
   ExtractFloat,
   ExtractBool,
   ExtractJoinedString,
-} from "./use-query";
+} from "./hooks/use-query";
 import usePresets, {
   SCALE_KEYS_TO_CLEAR,
-} from "./use-presets.js";
+} from "./hooks/use-presets.js";
 import {
   buildQuerySpec,
   buildRegistryDefaults,
@@ -50,9 +60,9 @@ import {
   settingsImpactKey,
   settingsImpactSnapshot,
 } from "./settings/settings-impact-registry.js";
-import useImport from "./use-import.js";
-import useSettingsChange from "./use-settings-change.js";
-import sessionDefaults from "./session-defaults.js";
+import useImport from "./hooks/use-import.js";
+import useSettingsChange from "./hooks/use-settings-change.js";
+import sessionDefaults from "./settings/session-defaults.js";
 import { detectController, getControllerById } from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
@@ -85,7 +95,7 @@ import {
 } from "./sequencer/repeat-playback-runtime.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
-const ManualSidebar = lazy(() => import("./manual-sidebar.jsx"));
+const ManualSidebar = lazy(() => import("./manual/manual-sidebar.jsx"));
 const loadExquisLEDs = (() => {
   let promise = null;
   return () => (promise ??= import("./controllers/exquis-leds.js"));
@@ -492,6 +502,10 @@ const App = () => {
   const viewportBaselineRef = useRef(0);
   const audioNeedsHardRefreshRef = useRef(false);
   const audioWakePromiseRef = useRef(null);
+  const switchWorkspaceTab = useCallback((nextTab) => {
+    setShowManual(false);
+    setWorkspaceTab(nextTab);
+  }, []);
   const primeAudioFromUserInteraction = useCallback(async () => {
     const needsInitialPrepare = !userHasInteracted;
     const needsHardRefresh = audioNeedsHardRefreshRef.current;
@@ -3588,7 +3602,7 @@ const App = () => {
             role="tab"
             aria-selected={workspaceTab === "hexatone"}
             class={`workspace-tab${workspaceTab === "hexatone" ? " workspace-tab--active" : ""}`}
-            onClick={() => setWorkspaceTab("hexatone")}
+            onClick={() => switchWorkspaceTab("hexatone")}
           >
             HEXATONE
           </button>
@@ -3597,10 +3611,7 @@ const App = () => {
             role="tab"
             aria-selected={workspaceTab === "sequencer"}
             class={`workspace-tab${workspaceTab === "sequencer" ? " workspace-tab--active" : ""}`}
-            onClick={() => {
-              setShowManual(false);
-              setWorkspaceTab("sequencer");
-            }}
+            onClick={() => switchWorkspaceTab("sequencer")}
           >
             SEQUENCER
           </button>

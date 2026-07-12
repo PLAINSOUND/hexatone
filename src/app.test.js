@@ -13,6 +13,7 @@
  */
 
 import { render, waitFor, screen } from "@testing-library/preact";
+import userEvent from "@testing-library/user-event";
 import { act } from "preact/test-utils";
 import { parseExactInterval } from "./tuning/interval.js";
 import { SEQUENCE_WORKSPACE_STORAGE_KEY } from "./sequencer/session-persistence.js";
@@ -38,10 +39,18 @@ vi.mock("./settings", () => ({
 vi.mock("./credits", () => ({
   default: () => <div>Credits Stub</div>,
 }));
+vi.mock("./manual/manual-sidebar.jsx", () => ({
+  default: ({ onClose }) => (
+    <div data-testid="manual-sidebar">
+      <button type="button" onClick={onClose}>Close Manual</button>
+      Manual Stub
+    </div>
+  ),
+}));
 vi.mock("./settings/presets/preset_values", () => ({ presets: [] }));
 vi.mock("./sample_synth/instruments", () => ({ instruments: [] }));
 vi.mock("./keyboard/keycodes", () => ({ default: {} }));
-vi.mock("./normalize-settings.js", () => ({
+vi.mock("./settings/normalize-settings.js", () => ({
   normalizeColors: (s) => s,
   normalizeStructural: (s) => s,
 }));
@@ -112,7 +121,7 @@ let settings = {
   midiin_steps_per_channel: 0,
 };
 
-vi.mock("./use-query", () => ({
+vi.mock("./hooks/use-query", () => ({
   useQuery: () => [settings, vi.fn()],
   ExtractInt: {},
   ExtractString: {},
@@ -120,7 +129,7 @@ vi.mock("./use-query", () => ({
   ExtractBool: {},
   ExtractJoinedString: {},
 }));
-vi.mock("./use-presets.js", () => ({
+vi.mock("./hooks/use-presets.js", () => ({
   default: (_settings, _setSettings, options) => {
     lastUsePresetsOptions = options;
     return {
@@ -139,23 +148,23 @@ vi.mock("./use-presets.js", () => ({
   },
   SCALE_KEYS_TO_CLEAR: [],
 }));
-vi.mock("./use-import.js", () => ({
+vi.mock("./hooks/use-import.js", () => ({
   default: () => ({
     onImport: vi.fn(),
     importCount: 0,
     bumpImportCount: vi.fn(),
   }),
 }));
-vi.mock("./use-settings-change.js", () => ({
+vi.mock("./hooks/use-settings-change.js", () => ({
   default: () => ({
     onChange: vi.fn(),
     onAtomicChange: vi.fn(),
   }),
 }));
-vi.mock("./use-synth-wiring.js", () => ({
+vi.mock("./hooks/use-synth-wiring.js", () => ({
   default: () => synthWiringState,
 }));
-vi.mock("./use-midi-guardian.js", () => ({
+vi.mock("./hooks/use-midi-guardian.js", () => ({
   useMidiGuardian: () => ({ panic: vi.fn() }),
 }));
 vi.mock("./persistence/settings-registry.js", () => ({
@@ -163,7 +172,7 @@ vi.mock("./persistence/settings-registry.js", () => ({
   buildRegistryDefaults: () => ({}),
   PRESET_SKIP_KEYS: [],
 }));
-vi.mock("./session-defaults.js", () => ({ default: {} }));
+vi.mock("./settings/session-defaults.js", () => ({ default: {} }));
 vi.mock("./controllers/exquis-leds.js", () => ({ ExquisLEDs: class {} }));
 vi.mock("./controllers/lumatone-leds.js", () => ({ LumatoneLEDs: class {} }));
 vi.mock("./controllers/linnstrument-user-firmware.js", () => ({
@@ -734,6 +743,29 @@ describe("App input runtime", () => {
         synthWiringState.linnstrumentRawPorts.output,
         keys,
       ));
+  });
+});
+
+describe("App workspace tabs", () => {
+  it("closes the inline manual whenever the user switches tabs", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText("… more"));
+    expect(await screen.findByTestId("manual-sidebar")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("manual-sidebar")).toBeNull();
+    });
+
+    await user.click(screen.getByText("… more"));
+    expect(await screen.findByTestId("manual-sidebar")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("manual-sidebar")).toBeNull();
+    });
   });
 });
 

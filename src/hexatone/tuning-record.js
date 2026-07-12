@@ -1,3 +1,13 @@
+/**
+ * src/hexatone/tuning-record.js
+ *
+ * Shared record normalizer/serializer for Hexatone tuning presets.
+ *
+ * Built-in JSON presets, imported tuning files, user tunings, and exported
+ * tunings all pass through this module so they share one structural contract.
+ * It defines which settings fields belong in a tuning record and normalizes
+ * them into a stable, serializable format.
+ */
 import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
 import { resolveKeyColorsMode } from "../settings/scale/key-colors-mode.js";
 import { derivePresetControllerAnchorFields } from "../settings/scale/parse-scale.js";

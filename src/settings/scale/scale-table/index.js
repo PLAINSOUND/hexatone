@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "../parse-scale";
-import { normalizeColors } from "../../../normalize-settings.js";
+import { normalizeColors } from "../../normalize-settings.js";
 import ScalaInput from "../scala-input.js";
 import { createScaleWorkspace } from "../../../tuning/workspace.js";
 import { scorePrimeConsistency } from "../../../tuning/rationalise.js";

@@ -21,7 +21,7 @@
  *   bend, minimising the audible pitch jump on the stolen tail.
  */
 
-import { VoicePool } from "../voice_pool_oldest";
+import { VoicePool } from "../polyphony/voice-pool-oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
 

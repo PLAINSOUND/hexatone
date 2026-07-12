@@ -193,6 +193,10 @@ describe("deriveImportedLayoutSteps", () => {
     expect(deriveImportedLayoutSteps(19)).toEqual({ rSteps: 3, drSteps: 2 });
   });
 
+  it("keeps 17-tone imports on a compact six-column octave", () => {
+    expect(deriveImportedLayoutSteps(17)).toEqual({ rSteps: 3, drSteps: 1 });
+  });
+
   it("keeps 22-tone imports conservative on the down-right axis", () => {
     expect(deriveImportedLayoutSteps(22)).toEqual({ rSteps: 4, drSteps: 1 });
   });
@@ -205,8 +209,20 @@ describe("deriveImportedLayoutSteps", () => {
     expect(deriveImportedLayoutSteps(36)).toEqual({ rSteps: 6, drSteps: 5 });
   });
 
+  it("keeps 41-tone imports on the lower diatonic half split", () => {
+    expect(deriveImportedLayoutSteps(41)).toEqual({ rSteps: 7, drSteps: 3 });
+  });
+
+  it("keeps 53-tone imports on the lower diatonic half split", () => {
+    expect(deriveImportedLayoutSteps(53)).toEqual({ rSteps: 9, drSteps: 4 });
+  });
+
+  it("keeps 55-tone imports on the upper diatonic half split", () => {
+    expect(deriveImportedLayoutSteps(55)).toEqual({ rSteps: 9, drSteps: 5 });
+  });
+
   it("matches common 53-tone imported layouts", () => {
-    expect(deriveImportedLayoutSteps(53)).toEqual({ rSteps: 9, drSteps: 5 });
+    expect(deriveImportedLayoutSteps(53)).toEqual({ rSteps: 9, drSteps: 4 });
   });
 });
 
@@ -265,6 +281,55 @@ My tuning
  5/4
  2/1
 `;
+
+const SCALE_43_DESCRIPTIONLESS = `! 43-MT-1/5-Comma
+!
+! 43-tone scale in extended 1/5 Syntonic Comma meantone.
+43
+!
+28.1551
+55.4211
+83.5762
+111.731
+139.886
+167.152
+195.307
+223.463
+250.729
+278.884
+307.039
+335.194
+362.46
+390.615
+418.77
+446.925
+474.191
+502.346
+530.501
+557.767
+585.922
+614.078
+642.233
+669.499
+697.654
+725.809
+753.075
+781.23
+809.385
+837.54
+864.806
+892.961
+921.116
+949.271
+976.537
+1004.69
+1032.85
+1060.11
+1088.27
+1116.42
+1144.58
+1171.84
+2/1`;
 
 describe("parseScale — 12edo", () => {
   const result = parseScale(SCALE_12EDO);
@@ -353,6 +418,21 @@ describe("parseScale — HEXATONE metadata", () => {
   it("still parses the scale itself", () => {
     expect(result.scale).toHaveLength(3);
     expect(result.scale[0]).toBe("9/8");
+  });
+});
+
+describe("parseScale — description-less scala files", () => {
+  const result = parseScale(SCALE_43_DESCRIPTIONLESS);
+
+  it("treats the first bare integer line as the scale size", () => {
+    expect(result.equivSteps).toBe(43);
+    expect(result.description).toBe("");
+  });
+
+  it("still parses the full scale body", () => {
+    expect(result.scale).toHaveLength(43);
+    expect(result.scale[0]).toBe("28.1551");
+    expect(result.scale[42]).toBe("2/1");
   });
 });
 
@@ -573,5 +653,14 @@ describe("fileToPreset — .ascl with HEXATONE metadata", () => {
     expect(preset.note_colors).toEqual(["#ffffff", "#dddddd", "#bbbbbb"]);
     expect(preset.key_labels).toBe("note_names");
     expect(preset.key_colors_mode).toBe("manual");
+  });
+});
+
+describe("fileToPreset — description-less .ascl", () => {
+  it("derives the imported layout from the declared scale size", () => {
+    const preset = fileToPreset("43-MT-1-5-Comma.ascl", SCALE_43_DESCRIPTIONLESS);
+    expect(preset.equivSteps).toBe(43);
+    expect(preset.rSteps).toBe(7);
+    expect(preset.drSteps).toBe(4);
   });
 });
