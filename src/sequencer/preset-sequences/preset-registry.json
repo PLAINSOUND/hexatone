@@ -1,0 +1,11 @@
+{
+  "categories": [
+    {
+      "slug": "demo",
+      "name": "Demo",
+      "sequences": [
+        "FALL"
+      ]
+    }
+  ]
+}
