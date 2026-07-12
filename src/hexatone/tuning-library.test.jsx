@@ -102,6 +102,33 @@ describe("TuningLibrary", () => {
     );
   });
 
+  it("does not warn when switching between clean built-in tunings", () => {
+    const onLoadSpy = vi.fn();
+
+    render(
+      <TuningLibraryHarness
+        initialSettings={{
+          name: "Built A",
+          scale: ["100.", "1200."],
+        }}
+        initialSource="builtin"
+        initialPresetName="Built A"
+        onLoadSpy={onLoadSpy}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Built-in tunings" }), {
+      currentTarget: { value: "Built B" },
+      target: { value: "Built B" },
+    });
+
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Built B" }),
+      expect.objectContaining({ source: "builtin" }),
+    );
+  });
+
   it("saves the current workspace as a user tuning and activates it", () => {
     const onLoadSpy = vi.fn();
 
@@ -175,6 +202,39 @@ describe("TuningLibrary", () => {
 
     expect(loadUserTunings()).toEqual([]);
     expect(onClearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warn when switching away from a clean recalled user tuning", () => {
+    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
+      {
+        name: "Alpha",
+        scale: ["100.", "1200."],
+      },
+    ]));
+    const onLoadSpy = vi.fn();
+
+    render(
+      <TuningLibraryHarness
+        initialSettings={{
+          name: "Alpha",
+          scale: ["100.", "1200."],
+        }}
+        initialSource="user"
+        initialPresetName="Alpha"
+        onLoadSpy={onLoadSpy}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Built-in tunings" }), {
+      currentTarget: { value: "Built B" },
+      target: { value: "Built B" },
+    });
+
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Built B" }),
+      expect.objectContaining({ source: "builtin" }),
+    );
   });
 
   it("clears all user tunings after confirmation", () => {

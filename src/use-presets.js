@@ -4,6 +4,7 @@ import {
   findPresetTuningByName,
   presetTuningGroups,
 } from "./hexatone/preset-tunings/index.js";
+import { settingsToTuningRecord } from "./hexatone/tuning-record.js";
 import { settingsToAbletonScala } from "./settings/scale/parse-scale.js";
 import { loadUserTunings } from "./hexatone/user-tunings.js";
 import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "./persistence/settings-registry.js";
@@ -247,23 +248,20 @@ export const mergePresetIntoSettings = (settings, preset) => {
   };
 };
 
-// Fields that count as "edits" for dirty detection — same as PRESET_SKIP_KEYS.
-const DIRTY_FIELDS = PRESET_SKIP_KEYS;
-
 const snapshotOf = (s, modulationLibrary = []) => {
-  const settingsSnap = {};
-  for (const k of DIRTY_FIELDS) settingsSnap[k] = JSON.stringify(s[k]);
   return {
-    settings: settingsSnap,
+    tuningRecord: JSON.stringify(settingsToTuningRecord(s, {
+      modulation_library: modulationLibrary,
+    })),
     modulationLibrary: JSON.stringify(normalizeModulationHistory(modulationLibrary, { zeroCounts: true })),
   };
 };
 
 const isDirty = (snap, s, modulationLibrary = []) => {
   if (!snap) return false;
-  for (const k of DIRTY_FIELDS) {
-    if (JSON.stringify(s[k]) !== snap.settings[k]) return true;
-  }
+  if (JSON.stringify(settingsToTuningRecord(s, {
+    modulation_library: modulationLibrary,
+  })) !== snap.tuningRecord) return true;
   return (
     JSON.stringify(normalizeModulationHistory(modulationLibrary, { zeroCounts: true })) !==
     snap.modulationLibrary

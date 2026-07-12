@@ -1,7 +1,7 @@
 import { render, waitFor } from "@testing-library/preact";
 import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 
 vi.mock("./hexatone/preset-tunings/index.js", () => ({
   presetTuningGroups: [
@@ -708,5 +708,143 @@ describe("usePresets refresh ordering", () => {
 
     expect(lastHook?.activePresetName).toBeNull();
     expect(lastHook?.pendingRestoredPreset).toBeNull();
+  });
+
+  it("keeps a freshly loaded user tuning clean until the user actually edits it", async () => {
+    const { loadUserTunings } = await import("./hexatone/user-tunings.js");
+    const preset = {
+      name: "User A",
+      scale: ["100.", "1200."],
+      note_names: ["A", "B"],
+      note_colors: ["#ffffff", "#eeeeee"],
+      key_labels: "note_names",
+      key_colors_mode: "manual",
+      auto_colors: false,
+      spectrum_colors: false,
+      fundamental: 440,
+      reference_degree: 0,
+    };
+    loadUserTunings.mockReturnValue([preset]);
+
+    let lastHook = null;
+
+    const Harness = () => {
+      const [liveSettings, setLiveSettings] = useState({
+        name: "",
+        scale: null,
+        note_names: null,
+        note_colors: null,
+        key_labels: "heji",
+        key_colors_mode: "auto",
+        auto_colors: true,
+        spectrum_colors: false,
+        fundamental: 440,
+        reference_degree: 0,
+      });
+
+      const hook = usePresets(
+        liveSettings,
+        (updater) => {
+          setLiveSettings((previous) => (
+            typeof updater === "function" ? updater(previous) : updater
+          ));
+        },
+        {
+          synthRef: { current: null },
+          onUserInteraction: vi.fn(),
+          bumpImportCount: vi.fn(),
+          bumpPresetRuntimeReset: vi.fn(),
+          currentModulationLibrary: [],
+          setPresetModulationLibrary: vi.fn(),
+          onPresetModulationLibraryLoaded: vi.fn(),
+        },
+      );
+
+      useEffect(() => {
+        lastHook = hook;
+      }, [hook]);
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await act(async () => {
+      lastHook.onLoadCustomPreset(preset);
+    });
+
+    await waitFor(() => {
+      expect(lastHook?.activeSource).toBe("user");
+      expect(lastHook?.activePresetName).toBe("User A");
+      expect(lastHook?.isPresetDirty).toBe(false);
+    });
+  });
+
+  it("keeps a freshly loaded built-in tuning clean until the user actually edits it", async () => {
+    const preset = {
+      name: "Preset A",
+      scale: ["100.", "1200."],
+      note_names: ["A", "B"],
+      note_colors: ["#ffffff", "#eeeeee"],
+      key_labels: "note_names",
+      key_colors_mode: "manual",
+      auto_colors: false,
+      spectrum_colors: false,
+      fundamental: 440,
+      reference_degree: 0,
+    };
+
+    let lastHook = null;
+
+    const Harness = () => {
+      const [liveSettings, setLiveSettings] = useState({
+        name: "",
+        scale: null,
+        note_names: null,
+        note_colors: null,
+        key_labels: "heji",
+        key_colors_mode: "auto",
+        auto_colors: true,
+        spectrum_colors: false,
+        fundamental: 440,
+        reference_degree: 0,
+      });
+
+      const hook = usePresets(
+        liveSettings,
+        (updater) => {
+          setLiveSettings((previous) => (
+            typeof updater === "function" ? updater(previous) : updater
+          ));
+        },
+        {
+          synthRef: { current: null },
+          onUserInteraction: vi.fn(),
+          bumpImportCount: vi.fn(),
+          bumpPresetRuntimeReset: vi.fn(),
+          currentModulationLibrary: [],
+          setPresetModulationLibrary: vi.fn(),
+          onPresetModulationLibraryLoaded: vi.fn(),
+        },
+      );
+
+      useEffect(() => {
+        lastHook = hook;
+      }, [hook]);
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await act(async () => {
+      lastHook.onLoadBuiltinPreset(preset);
+    });
+
+    await waitFor(() => {
+      expect(lastHook?.activeSource).toBe("builtin");
+      expect(lastHook?.activePresetName).toBe("Preset A");
+      expect(lastHook?.isPresetDirty).toBe(false);
+    });
   });
 });

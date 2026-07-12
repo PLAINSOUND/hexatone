@@ -60,19 +60,32 @@ const TuningLibrary = ({
 
   const builtInValue = activeBuiltInName || "";
   const userValue = activeUserName || "";
+  const workspaceRecord = useMemo(() => settingsToTuningRecord(settings, {
+    modulation_library: currentModulationLibrary,
+  }), [currentModulationLibrary, settings]);
   const existingUserTuning = useMemo(
     () => userTunings.find((entry) => entry.name === tuningName) ?? null,
     [tuningName, userTunings],
   );
+  const isLoadedExistingUserTuning = !!(
+    activeSource === "user" &&
+    activePresetName &&
+    tuningName &&
+    activePresetName === tuningName &&
+    existingUserTuning &&
+    existingUserTuning.name === activePresetName
+  );
   const showWorkspaceActions = !!activeSource || (hasWorkspace && !!tuningName);
-  const saveLabel = existingUserTuning && (activeSource !== "user" || isPresetDirty || activePresetName !== tuningName)
+  const saveLabel = existingUserTuning && (!isLoadedExistingUserTuning || isPresetDirty)
     ? "Save current settings and overwrite user preset"
     : "Save current settings";
-  const hasUnsavedWorkspace = !!tuningName && (
-    activeSource !== "user" ||
-    isPresetDirty ||
-    !activePresetName ||
-    activePresetName !== tuningName
+  const hasUnsavedWorkspace = !!workspaceRecord && (
+    (!activeSource && !!tuningName) ||
+    (activeSource === "builtin" && !!isPresetDirty) ||
+    (activeSource === "user" && (
+      (activePresetName ? !!isPresetDirty : !!tuningName)
+      || activePresetName !== tuningName
+    ))
   );
 
   const handleBuiltInSelect = (e) => {
