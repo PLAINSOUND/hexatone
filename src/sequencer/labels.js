@@ -19,13 +19,13 @@ function formatMidicents(value) {
 function formatIntervalCents(value) {
   const cents = Number(value);
   if (!Number.isFinite(cents)) return "";
-  return `${cents.toFixed(3)}¢`;
+  return cents.toFixed(1);
 }
 
 function formatFrequency(value) {
   const frequency = noteFrequency(value);
   if (!Number.isFinite(frequency)) return "";
-  return `${frequency >= 100 ? frequency.toFixed(2) : frequency.toFixed(3)} Hz`;
+  return `${frequency >= 100 ? frequency.toFixed(2) : frequency.toFixed(3)}`;
 }
 
 function parsePositiveRatioText(value) {
@@ -42,22 +42,84 @@ function parsePositiveRatioText(value) {
   };
 }
 
-export function buildChordProportion(notes = []) {
-  if (!Array.isArray(notes) || notes.length === 0) return "";
-  const ratios = sortSnapshotNotes(notes).map((note) => parsePositiveRatioText(note?.ratioText));
+function compareRatios(left, right) {
+  const scaledLeft = left.numerator * right.denominator;
+  const scaledRight = right.numerator * left.denominator;
+  if (scaledLeft < scaledRight) return -1;
+  if (scaledLeft > scaledRight) return 1;
+  return 0;
+}
+
+function liftRatioByOctaves(ratio, minimum) {
+  if (!ratio || !minimum) return ratio;
+  let current = ratio;
+  while (compareRatios(current, minimum) <= 0) {
+    current = {
+      numerator: current.numerator * 2n,
+      denominator: current.denominator,
+    };
+  }
+  return current;
+}
+
+function buildVoicedRatios(notes = []) {
+  if (!Array.isArray(notes) || notes.length === 0) return [];
+  const ratios = [];
+  let previousRatio = null;
+  for (const note of sortSnapshotNotes(notes)) {
+    const ratio = parsePositiveRatioText(note?.ratioText);
+    if (!ratio) return [];
+    const voicedRatio = previousRatio
+      ? liftRatioByOctaves(ratio, previousRatio)
+      : ratio;
+    ratios.push(voicedRatio);
+    previousRatio = voicedRatio;
+  }
+
+  return ratios;
+}
+
+function ratiosToIntegerProportion(ratios = [], { sort = false } = {}) {
+  if (!Array.isArray(ratios) || ratios.length === 0) return "";
   if (ratios.some((ratio) => ratio == null)) return "";
 
-  const commonDenominator = ratios.reduce(
+  let integers = ratios.map((ratio) => ratio);
+  if (sort) {
+    integers = [...integers].sort(compareRatios);
+  }
+
+  const commonDenominator = integers.reduce(
     (current, ratio) => lcm(current, ratio.denominator),
     1n,
   );
-  const integers = ratios.map((ratio) => ratio.numerator * (commonDenominator / ratio.denominator));
-  const commonFactor = integers.reduce((current, value) => gcd(current, value));
-  return integers
+  const scaledIntegers = integers.map((ratio) => ratio.numerator * (commonDenominator / ratio.denominator));
+  const commonFactor = scaledIntegers.reduce((current, value) => gcd(current, value));
+  return scaledIntegers
     .map((value) => value / commonFactor)
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     .map((value) => value.toString())
     .join(":");
+}
+
+function reduceRatioToOddPartial(ratio) {
+  let numerator = ratio.numerator;
+  while (numerator % 2n === 0n && numerator > 0n) {
+    numerator /= 2n;
+  }
+  return {
+    numerator,
+    denominator: 1n,
+  };
+}
+
+export function buildChordProportion(notes = []) {
+  const ratios = buildVoicedRatios(notes);
+  return ratiosToIntegerProportion(ratios);
+}
+
+export function buildOddPartialProportion(notes = []) {
+  if (!Array.isArray(notes) || notes.length === 0) return "";
+  const oddRatios = buildVoicedRatios(notes).map(reduceRatioToOddPartial);
+  return ratiosToIntegerProportion(oddRatios, { sort: true });
 }
 
 function buildChordIntervals(notes = []) {
@@ -77,6 +139,7 @@ export const SNAPSHOT_LABEL_MODES = [
   { value: "midicents", label: "MIDIcents" },
   { value: "interval_cents", label: "Chord Intervals from Lowest Note (¢)" },
   { value: "proportion", label: "Chord Proportion" },
+  { value: "odd_proportion", label: "Odd Partial Proportion" },
 ];
 
 export function buildSnapshotDescription(notes = [], mode = "labels") {
@@ -97,6 +160,13 @@ export function buildSnapshotDescription(notes = [], mode = "labels") {
 
   if (mode === "proportion") {
     const proportion = buildChordProportion(sorted);
+    if (proportion) return proportion;
+    const intervals = buildChordIntervals(sorted);
+    if (intervals) return intervals;
+  }
+
+  if (mode === "odd_proportion") {
+    const proportion = buildOddPartialProportion(sorted);
     if (proportion) return proportion;
     const intervals = buildChordIntervals(sorted);
     if (intervals) return intervals;

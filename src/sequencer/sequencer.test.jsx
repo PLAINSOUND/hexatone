@@ -1,7 +1,8 @@
 import { useState } from "preact/hooks";
-import { fireEvent, render, screen } from "@testing-library/preact";
+import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import Sequencer from "./sequencer.jsx";
+import { buildSnapshotDescription } from "./labels.js";
 import { loadUserSequences } from "./sequence-library.jsx";
 import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
 
@@ -2588,6 +2589,108 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("bar 1 beat unit").value).toBe("1");
     expect(screen.getByLabelText("bar 2 beats per bar").value).toBe("3");
     expect(screen.getByLabelText("bar 2 beat unit").value).toBe("2");
+  });
+
+  it("updates the visible snapshot description when the snapshot label mode changes", async () => {
+    const Harness = () => {
+      const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
+      const snapshots = [
+        {
+          id: 1,
+          length: 1,
+          description: "stale",
+          descriptionManual: false,
+          notes: [
+            { id: "a", midicents: 69, ratioText: "5/4", displayLabel: "E" },
+            { id: "b", midicents: 72, ratioText: "3/2", displayLabel: "G" },
+          ],
+        },
+      ];
+
+      const displaySnapshots = snapshots.map((snapshot) => ({
+        ...snapshot,
+        description: buildSnapshotDescription(snapshot.notes, snapshotLabelMode),
+      }));
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          displaySnapshots={displaySnapshots}
+          bars={normalizeBarMarkers([{ id: 1, position: 1 }])}
+          repeats={[]}
+          tempi={normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }])}
+          snapshotLabelMode={snapshotLabelMode}
+          activeSequenceName="Test"
+          activeSequenceSavedName=""
+          activeSequenceDescription=""
+          sequenceLegato
+          sequenceAutoCreateBars
+          selectedSnapshotId={null}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onAddEmptySnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceSaved={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSnapSequenceToCurrentTuningChange={vi.fn()}
+          onSequenceAutoCreateBarsChange={vi.fn()}
+          onSetSnapshotLabelMode={setSnapshotLabelMode}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onCueSequenceSnapshot={vi.fn()}
+          onCueSequenceCue={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onJumpSequenceSnapshot={vi.fn()}
+          onJumpSequenceCue={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onPlayTimedCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onJumpSequenceEnd={vi.fn()}
+          getTimedTransportClockSeconds={() => 0}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddRepeat={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onDeleteRepeat={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onUpdateRepeat={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onDeleteAllSnapshots={vi.fn()}
+          onClearSequence={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onDuplicateSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    const descriptionInput = screen.getByLabelText("snapshot 1 description");
+    expect(descriptionInput.value).toBe("5:6");
+
+    fireEvent.change(screen.getByLabelText("Snapshot Labels"), {
+      currentTarget: { value: "labels" },
+      target: { value: "labels" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("snapshot 1 description").value).toBe("E, G");
+    });
   });
 
   it("preserves the fractional offset when the user changes beat", () => {

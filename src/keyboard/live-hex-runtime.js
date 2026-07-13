@@ -127,7 +127,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
       frame: noteContext.frame,
       geometryMode: noteContext.geometryMode,
     });
-    const scaleIdentity = scaleIdentityForDegree(keys, pressed_interval);
+    const scaleIdentity = scaleIdentityForDegree(keys, steps);
     if (scaleIdentity) {
       noteContext.scaleRatioText = scaleIdentity.ratioText;
       noteContext.scaleMonzo = scaleIdentity.monzo;

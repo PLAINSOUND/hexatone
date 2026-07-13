@@ -1055,13 +1055,22 @@ const App = () => {
       : null;
   })();
   const sequenceDisplaySnapshots = useMemo(() => {
-    if (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) return snapshots;
     const keys = keysRef.current;
-    return remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
-      noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
-      hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
-    });
-  }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshots]);
+    const displayedSnapshots = (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime)
+      ? snapshots
+      : remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
+        noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
+        hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
+      });
+    return displayedSnapshots.map((snapshot) => (
+      snapshot?.descriptionManual
+        ? snapshot
+        : {
+          ...snapshot,
+          description: buildSnapshotDescription(snapshot?.notes ?? [], snapshotLabelMode),
+        }
+    ));
+  }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshotLabelMode, snapshots]);
   const sortedSequenceBars = useMemo(
     () => [...sequenceBars].sort((a, b) => (
       Number(a.position) - Number(b.position) ||
@@ -1861,15 +1870,23 @@ const App = () => {
   const onUpdateSnapshot = useCallback((id, updates) => {
     setSnapshots((prev) => prev.map((snapshot) => {
       if (snapshot.id !== id) return snapshot;
-      return {
+      const nextSnapshot = {
         ...snapshot,
         ...updates,
         ...(Object.prototype.hasOwnProperty.call(updates, "description")
           ? { descriptionManual: true }
           : {}),
       };
+      if (
+        !nextSnapshot.descriptionManual &&
+        Object.prototype.hasOwnProperty.call(updates, "notes") &&
+        !Object.prototype.hasOwnProperty.call(updates, "description")
+      ) {
+        nextSnapshot.description = buildSnapshotDescription(nextSnapshot.notes, snapshotLabelMode);
+      }
+      return nextSnapshot;
     }));
-  }, []);
+  }, [snapshotLabelMode]);
 
   const onResetSnapshotDescription = useCallback((id) => {
     setSnapshots((prev) => prev.map((snapshot) => {
@@ -1879,16 +1896,6 @@ const App = () => {
         description: buildSnapshotDescription(snapshot.notes, snapshotLabelMode),
         descriptionManual: false,
       };
-    }));
-  }, [snapshotLabelMode]);
-
-  useEffect(() => {
-    setSnapshots((prev) => prev.map((snapshot) => {
-      if (snapshot.descriptionManual) return snapshot;
-      const description = buildSnapshotDescription(snapshot.notes, snapshotLabelMode);
-      return snapshot.description === description
-        ? snapshot
-        : { ...snapshot, description };
     }));
   }, [snapshotLabelMode]);
 
