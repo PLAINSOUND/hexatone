@@ -536,11 +536,17 @@ const SequenceLibrary = ({
             {showDraftOption && (
               <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>
             )}
-            {savedSequences.map((sequence) => (
-              <option key={sequence.name} value={sequence.name}>
-                {sequence.name === savedSequenceName && hasUnsavedChanges ? `${sequence.name}*` : sequence.name}
-              </option>
-            ))}
+            {savedSequences.map((sequence) => {
+              const isDirtyActiveSequence = (
+                sequence.name === savedSequenceName &&
+                (hasUnsavedChanges || sequenceName !== savedSequenceName)
+              );
+              return (
+                <option key={sequence.name} value={sequence.name}>
+                  {isDirtyActiveSequence ? `${sequence.name}*` : sequence.name}
+                </option>
+              );
+            })}
           </select>
           {savedSequenceName && (
             <button

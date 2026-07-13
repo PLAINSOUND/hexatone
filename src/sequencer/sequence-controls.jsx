@@ -20,10 +20,13 @@ const SequenceControls = ({
   addTempoAtRequestedPosition,
   addTempoTransitionAtRequestedPosition,
   newBarPosition,
+  suggestedBarPosition,
   setNewBarPosition,
   addBarAtRequestedPosition,
   newBarNumerator,
   newBarDenominator,
+  suggestedBarNumerator,
+  suggestedBarDenominator,
   updateNewBarMeterField,
   sequenceAutoCreateBars,
   onSequenceAutoCreateBarsChange,
@@ -124,7 +127,7 @@ const SequenceControls = ({
           <span class="sequencer-bars-add sequencer-bars-add--bar">
             <input
               type="text"
-              class={`sidebar-input sequencer-bars-add__position${newBarPosition === "1" ? " sequencer-bars-add__position--hint" : ""}`}
+              class={`sidebar-input sequencer-bars-add__position${newBarPosition === suggestedBarPosition ? " sequencer-bars-add__position--hint" : ""}`}
               aria-label="new bar position"
               value={newBarPosition}
               onFocus={selectControlValue}
@@ -139,7 +142,7 @@ const SequenceControls = ({
                 type="number"
                 step="1"
                 min="0"
-                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input sequencer-bars-add__meter-input--numerator${newBarNumerator === "4" ? " sequencer-bars-add__position--hint" : ""}`}
+                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input sequencer-bars-add__meter-input--numerator${newBarNumerator === suggestedBarNumerator ? " sequencer-bars-add__position--hint" : ""}`}
                 aria-label="new bar numerator"
                 value={newBarNumerator}
                 onFocus={selectControlValue}
@@ -150,7 +153,7 @@ const SequenceControls = ({
                 type="number"
                 step="1"
                 min="1"
-                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarDenominator === "4" ? " sequencer-bars-add__position--hint" : ""}`}
+                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarDenominator === suggestedBarDenominator ? " sequencer-bars-add__position--hint" : ""}`}
                 aria-label="new bar denominator"
                 value={newBarDenominator}
                 onFocus={selectControlValue}

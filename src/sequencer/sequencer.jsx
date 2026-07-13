@@ -220,6 +220,20 @@ const Sequencer = ({
   const [timedTransportClockSeconds, setTimedTransportClockSeconds] = useState(0);
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
+  const suggestedBarPosition = useMemo(
+    () => String(Math.max(1, snapshots.length + 1)),
+    [snapshots.length],
+  );
+  const suggestedBarMeter = useMemo(() => {
+    const targetPosition = Math.max(1, Number(suggestedBarPosition) || 1);
+    const previousBar = [...sortedBars]
+      .filter((bar) => Number(bar.position) < targetPosition)
+      .at(-1);
+    return {
+      numerator: String(previousBar?.numerator ?? 4),
+      denominator: String(previousBar?.denominator ?? 4),
+    };
+  }, [sortedBars, suggestedBarPosition]);
   const sortedTempi = useMemo(
     () => (Array.isArray(tempi) ? normalizeTempoMarkers(tempi) : []),
     [tempi],
@@ -1312,9 +1326,9 @@ const Sequencer = ({
     const denominator = Math.max(1, Math.round(Number(newBarDenominator) || 1));
     if (!Number.isFinite(numeric)) return;
     onAddBar?.(Math.max(1, Math.round(numeric)), numerator, denominator);
-    setNewBarPosition("1");
-    setNewBarNumerator("4");
-    setNewBarDenominator("4");
+    setNewBarPosition(suggestedBarPosition);
+    setNewBarNumerator(suggestedBarMeter.numerator);
+    setNewBarDenominator(suggestedBarMeter.denominator);
   };
 
   const addTempoAtRequestedPosition = () => {
@@ -1356,6 +1370,21 @@ const Sequencer = ({
     }
     setNewBarDenominator(String(Math.max(1, parsed)));
   };
+
+  useEffect(() => {
+    setNewBarPosition((current) => (
+      current === "1" || current === suggestedBarPosition ? suggestedBarPosition : current
+    ));
+  }, [suggestedBarPosition]);
+
+  useEffect(() => {
+    setNewBarNumerator((current) => (
+      current === "4" || current === suggestedBarMeter.numerator ? suggestedBarMeter.numerator : current
+    ));
+    setNewBarDenominator((current) => (
+      current === "4" || current === suggestedBarMeter.denominator ? suggestedBarMeter.denominator : current
+    ));
+  }, [suggestedBarMeter]);
 
   const handleEnterCommit = (e, commit) => {
     if (e.key !== "Enter") return;
@@ -1595,10 +1624,13 @@ const Sequencer = ({
           addTempoAtRequestedPosition={addTempoAtRequestedPosition}
           addTempoTransitionAtRequestedPosition={addTempoTransitionAtRequestedPosition}
           newBarPosition={newBarPosition}
+          suggestedBarPosition={suggestedBarPosition}
           setNewBarPosition={setNewBarPosition}
           addBarAtRequestedPosition={addBarAtRequestedPosition}
           newBarNumerator={newBarNumerator}
           newBarDenominator={newBarDenominator}
+          suggestedBarNumerator={suggestedBarMeter.numerator}
+          suggestedBarDenominator={suggestedBarMeter.denominator}
           updateNewBarMeterField={updateNewBarMeterField}
           sequenceAutoCreateBars={sequenceAutoCreateBars}
           onSequenceAutoCreateBarsChange={onSequenceAutoCreateBarsChange}

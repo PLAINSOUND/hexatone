@@ -201,6 +201,28 @@ describe("TuningLibrary", () => {
     expect(screen.getByRole("combobox", { name: "User tunings" }).value).toBe("Beta");
   });
 
+  it("marks the attached user tuning with * when only the name changes", () => {
+    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
+      {
+        name: "Alpha",
+        scale: ["100.", "1200."],
+      },
+    ]));
+
+    render(
+      <TuningLibraryHarness
+        initialSettings={{
+          name: "Beta",
+          scale: ["100.", "1200."],
+        }}
+        initialSource="user"
+        initialPresetName="Alpha"
+      />,
+    );
+
+    expect(screen.getByRole("option", { name: "Alpha *" })).toBeTruthy();
+  });
+
   it("saves a copy with a unique numbered name", () => {
     render(
       <TuningLibraryHarness

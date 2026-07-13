@@ -441,7 +441,11 @@ const TuningLibrary = ({
             <select aria-label="User tunings" value={userValue} onChange={handleUserSelect}>
               <option value="">Choose a user tuning:</option>
               {userTunings.map((entry) => {
-                const isDirtyActivePreset = activeSource === "user" && isPresetDirty && entry.name === activePresetName;
+                const isDirtyActivePreset = (
+                  activeSource === "user" &&
+                  entry.name === activePresetName &&
+                  (isPresetDirty || tuningName !== activePresetName)
+                );
                 return (
                   <option key={entry.name} value={entry.name}>
                     {isDirtyActivePreset ? `${entry.name} *` : entry.name}

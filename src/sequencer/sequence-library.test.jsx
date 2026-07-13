@@ -236,6 +236,28 @@ describe("SequenceLibrary", () => {
     expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("Beta");
   });
 
+  it("marks the attached user sequence with * when only the name changes", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "Alpha",
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    render(
+      <SequenceLibraryHarness
+        initialSource="user"
+        initialSnapshots={[{ id: 1, notes: [] }]}
+        initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        initialName="Beta"
+        initialSavedName="Alpha"
+      />,
+    );
+
+    expect(screen.getByRole("option", { name: "Alpha*" })).toBeTruthy();
+  });
+
   it("loads a selected saved sequence immediately when the workspace is empty", () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       normalizeSequenceRecord({
