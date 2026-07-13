@@ -1189,12 +1189,12 @@ td.scale-color-col .color-input {
   background: var(--color-bg-btn-alt-hover);
 }
 
-.preset-action-btn:active,
-.preset-utility-btn:active {
+.preset-action-btn:active:hover,
+.preset-utility-btn:active:hover {
   background: #f5ddd2;
 }
 
-.section-collapse-toggle:active {
+.section-collapse-toggle:active:hover {
   background: #f5ddd2;
   border-color: var(--color-border-ui);
   box-shadow: none;
