@@ -1,5 +1,3 @@
-import { timingBarAtNumber } from "./transport.js";
-
 function isWholeSequencePosition(time) {
   const value = Number(time);
   if (!Number.isFinite(value)) return false;
@@ -60,10 +58,4 @@ export function buildStructuralMarkersByDisplayBucket(bars = [], tempi = [], rep
   }
 
   return groups;
-}
-
-export function isStoppedBarNumber(barNumber, bars = []) {
-  const bar = timingBarAtNumber(barNumber, bars);
-  const beatsPerBar = Math.max(0, Math.round(Number(bar?.numerator) || 0));
-  return beatsPerBar === 0;
 }

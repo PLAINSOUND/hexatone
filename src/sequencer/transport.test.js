@@ -678,7 +678,7 @@ describe("sequencer transport", () => {
     }, bars)).toBe(1.25);
   });
 
-  it("preserves a 0/n bar signature as a stopped bar", () => {
+  it("normalizes legacy 0/n bar signatures up to 4/n bars", () => {
     const bars = [
       { id: 1, position: 1, numerator: 0, denominator: 4 },
       { id: 2, position: 2, numerator: 4, denominator: 4 },
@@ -687,25 +687,24 @@ describe("sequencer transport", () => {
     expect(normalizeBarMarkers(bars)[0]).toEqual({
       id: 1,
       position: 1,
-      numerator: 0,
+      numerator: 4,
       denominator: 4,
     });
 
     expect(absolutePositionToBarBeat(1, bars)).toEqual({
       barNumber: 1,
-      beat: 0,
+      beat: 1,
       numerator: 0,
       denominator: 1,
       barStart: 1,
       barLength: 1,
-      beatsPerBar: 0,
+      beatsPerBar: 4,
       beatUnit: 4,
-      stopped: true,
     });
 
     expect(barBeatToAbsolutePosition({
       barNumber: 1,
-      beat: 0,
+      beat: 1,
       numerator: 0,
       denominator: 4,
     }, bars)).toBe(1);

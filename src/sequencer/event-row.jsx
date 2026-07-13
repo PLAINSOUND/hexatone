@@ -142,10 +142,9 @@ const EventRow = ({
   const eventSequenceDraft = drafts.eventSequenceDrafts[eventSequenceKey] ?? null;
   const isEventSequenceDraftActive = eventSequenceDraft != null;
   const isBarRelativeDraftActive = view.currentEventPane === "timing" && barRelativeDraft != null;
-  const isStoppedBar = drafts.stoppedBarStateForBarNumber(barRelativeDraft?.barNumber ?? barBeat?.barNumber ?? 1);
-  const beatValue = isStoppedBar ? "0" : (barRelativeDraft?.beat ?? String(barBeat?.beat ?? 1));
-  const numeratorValue = isStoppedBar ? "0" : (barRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0));
-  const denominatorValue = isStoppedBar ? "1" : (barRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1));
+  const beatValue = barRelativeDraft?.beat ?? String(barBeat?.beat ?? 1);
+  const numeratorValue = barRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0);
+  const denominatorValue = barRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1);
 
   return (
     <div
@@ -375,11 +374,10 @@ const EventRow = ({
             <input
               type="number"
               step="1"
-              min={isStoppedBar ? "0" : "1"}
+              min="1"
               class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
               value={beatValue}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
-              disabled={isStoppedBar}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true })}
               onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, {
@@ -398,7 +396,6 @@ const EventRow = ({
               class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
               value={numeratorValue}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
-              disabled={isStoppedBar}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true })}
               onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value, {
@@ -417,7 +414,6 @@ const EventRow = ({
               class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
               value={denominatorValue}
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
-              disabled={isStoppedBar}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true })}
               onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value, {

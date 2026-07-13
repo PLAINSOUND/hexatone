@@ -2278,7 +2278,7 @@ describe("Sequencer", () => {
     expect(onUpdateBar).toHaveBeenCalledWith(1, { denominator: 8 });
   });
 
-  it("allows bar 1 to commit a stopped 0/n time signature", () => {
+  it("clamps bar numerators below 1 to 1 when editing a time signature", () => {
     const onUpdateBar = vi.fn();
 
     render(
@@ -2329,7 +2329,7 @@ describe("Sequencer", () => {
     denominatorInput.value = "4";
     fireEvent.blur(denominatorInput);
 
-    expect(onUpdateBar).toHaveBeenCalledWith(1, { numerator: 0 });
+    expect(onUpdateBar).toHaveBeenCalledWith(1, { numerator: 1 });
     expect(onUpdateBar).toHaveBeenCalledWith(1, { denominator: 4 });
   });
 
@@ -3616,6 +3616,64 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("new bar denominator").value).toBe("8");
   });
 
+  it("keeps a manually typed end-position bar value active until the bar is created, then restores the next suggested hint", () => {
+    const onAddBar = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          { id: 1, length: 1, description: "A", notes: [] },
+          { id: 2, length: 1, description: "B", notes: [] },
+          { id: 3, length: 1, description: "C", notes: [] },
+        ]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={1}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={onAddBar}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const positionInput = screen.getByLabelText("new bar position");
+    expect(positionInput.value).toBe("4");
+    expect(positionInput.className).toContain("sequencer-bars-add__position--hint");
+
+    fireEvent.input(positionInput, { target: { value: "4" } });
+    expect(positionInput.value).toBe("4");
+    expect(positionInput.className).not.toContain("sequencer-bars-add__position--hint");
+
+    fireEvent.click(screen.getByText("Add Bar"));
+    expect(onAddBar).toHaveBeenCalledWith(4, 4, 4);
+    expect(positionInput.value).toBe("4");
+    expect(positionInput.className).toContain("sequencer-bars-add__position--hint");
+  });
+
   it("wraps mid-snapshot tempo rows in the structural bar wrapper inside the expanded event flow", () => {
     const { container } = render(
       <Sequencer
@@ -3750,7 +3808,7 @@ describe("Sequencer", () => {
     expect(onUpdateTempo).toHaveBeenLastCalledWith(1, { position: 2.666667 });
   });
 
-  it("shows stopped 0/1 bars as beat 0 with non-editable beat, num, and den fields", () => {
+  it("normalizes legacy 0/1 bars to ordinary editable beat-1 timing fields", () => {
     render(
       <Sequencer
         snapshots={[
@@ -3802,18 +3860,18 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getByLabelText("snapshot 1 attack beat").value).toBe("0");
+    expect(screen.getByLabelText("snapshot 1 attack beat").value).toBe("1");
     expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").value).toBe("0");
     expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").value).toBe("1");
-    expect(screen.getByLabelText("snapshot 1 attack beat").disabled).toBe(true);
-    expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").disabled).toBe(true);
-    expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").disabled).toBe(true);
-    expect(screen.getByLabelText("tempo beat").value).toBe("0");
+    expect(screen.getByLabelText("snapshot 1 attack beat").disabled).toBe(false);
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").disabled).toBe(false);
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").disabled).toBe(false);
+    expect(screen.getByLabelText("tempo beat").value).toBe("1");
     expect(screen.getByLabelText("tempo beat fraction numerator").value).toBe("0");
     expect(screen.getByLabelText("tempo beat fraction denominator").value).toBe("1");
-    expect(screen.getByLabelText("tempo beat").disabled).toBe(true);
-    expect(screen.getByLabelText("tempo beat fraction numerator").disabled).toBe(true);
-    expect(screen.getByLabelText("tempo beat fraction denominator").disabled).toBe(true);
+    expect(screen.getByLabelText("tempo beat").disabled).toBe(false);
+    expect(screen.getByLabelText("tempo beat fraction numerator").disabled).toBe(false);
+    expect(screen.getByLabelText("tempo beat fraction denominator").disabled).toBe(false);
   });
 
   it("renders a whole-position bar inside the expanded snapshot flow ahead of the coincident note event", () => {

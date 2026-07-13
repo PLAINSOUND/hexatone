@@ -84,7 +84,7 @@ const BarRow = ({
           <input
             type="number"
             step="1"
-            min="0"
+            min="1"
             class="sequencer-event__input sequencer-event__input--stepper sequencer-bar-row__signature-input"
             defaultValue={String(bar.numerator ?? 4)}
             aria-label={`bar ${barNumber} beats per bar`}

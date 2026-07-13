@@ -26,10 +26,9 @@ const RepeatRow = ({
   const draftKey = timing.repeatBarRelativeDraftKey(repeatId);
   const repeatBarRelativeDraft = timing.repeatBarRelativeDrafts[draftKey] ?? null;
   const isRepeatBarRelativeDraftActive = repeatBarRelativeDraft != null;
-  const isRepeatStoppedBar = timing.stoppedBarStateForBarNumber(repeatBarRelativeDraft?.barNumber ?? barBeat?.barNumber ?? 1);
-  const repeatBeatValue = isRepeatStoppedBar ? "0" : (repeatBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1));
-  const repeatNumValue = isRepeatStoppedBar ? "0" : (repeatBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0));
-  const repeatDenValue = isRepeatStoppedBar ? "1" : (repeatBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1));
+  const repeatBeatValue = repeatBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1);
+  const repeatNumValue = repeatBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0);
+  const repeatDenValue = repeatBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1);
   const isStart = (repeat.kind ?? repeat.structuralType) !== "end" && repeat.type !== "repeat-end";
   const repeatCount = Math.max(2, Math.round(Number(repeat.repeatCount) || 2));
   const [repeatCountDraft, setRepeatCountDraft] = useState(String(repeatCount));
@@ -104,11 +103,10 @@ const RepeatRow = ({
         <input
           type="number"
           step="1"
-          min={isRepeatStoppedBar ? "0" : "1"}
+          min="1"
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isRepeatBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={repeatBeatValue}
           aria-label="repeat beat"
-          disabled={isRepeatStoppedBar}
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateRepeatBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, { repeatId })}
           onKeyDown={buildDraftEnterCommit(() => editing.commitRepeatBarRelativeDraft(repeatId, draftKey))}
@@ -122,7 +120,6 @@ const RepeatRow = ({
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isRepeatBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={repeatNumValue}
           aria-label="repeat beat fraction numerator"
-          disabled={isRepeatStoppedBar}
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateRepeatBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value, { repeatId })}
           onKeyDown={buildDraftEnterCommit(() => editing.commitRepeatBarRelativeDraft(repeatId, draftKey))}
@@ -136,7 +133,6 @@ const RepeatRow = ({
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isRepeatBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={repeatDenValue}
           aria-label="repeat beat fraction denominator"
-          disabled={isRepeatStoppedBar}
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateRepeatBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value, { repeatId })}
           onKeyDown={buildDraftEnterCommit(() => editing.commitRepeatBarRelativeDraft(repeatId, draftKey))}

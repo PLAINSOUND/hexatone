@@ -18,7 +18,6 @@ import {
 import {
   buildBarNumberById,
   buildStructuralMarkersByDisplayBucket,
-  isStoppedBarNumber,
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
 import {
@@ -177,6 +176,8 @@ const Sequencer = ({
   const [newTempoBpm, setNewTempoBpm] = useState("60");
   const [newBarNumerator, setNewBarNumerator] = useState("4");
   const [newBarDenominator, setNewBarDenominator] = useState("4");
+  const [newBarPositionIsSuggested, setNewBarPositionIsSuggested] = useState(true);
+  const [newBarMeterIsSuggested, setNewBarMeterIsSuggested] = useState(true);
   const [confirmClearSnapshots, setConfirmClearSnapshots] = useState(false);
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
@@ -1166,12 +1167,8 @@ const Sequencer = ({
     setEventSequenceDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
   }, [commitNoteTransfer, snapshots]);
 
-  const stoppedBarStateForBarNumber = useCallback(
-    (barNumber) => isStoppedBarNumber(barNumber, sortedBars),
-    [sortedBars],
-  );
   const beatsPerBarForBarNumber = useCallback(
-    (barNumber) => Math.max(0, Math.round(Number(timingBarAtNumber(barNumber, sortedBars)?.numerator) || 0)),
+    (barNumber) => Math.max(1, Math.round(Number(timingBarAtNumber(barNumber, sortedBars)?.numerator) || 1)),
     [sortedBars],
   );
 
@@ -1216,7 +1213,6 @@ const Sequencer = ({
       value,
       meta,
       scopePrefix: "event",
-      isStoppedBar: stoppedBarStateForBarNumber,
       beatsPerBarForBarNumber,
     }));
   };
@@ -1233,7 +1229,6 @@ const Sequencer = ({
       value,
       meta,
       scopePrefix: "tempo",
-      isStoppedBar: stoppedBarStateForBarNumber,
       beatsPerBarForBarNumber,
     }));
   };
@@ -1250,7 +1245,6 @@ const Sequencer = ({
       value,
       meta,
       scopePrefix: "repeat",
-      isStoppedBar: stoppedBarStateForBarNumber,
       beatsPerBarForBarNumber,
     }));
   };
@@ -1360,7 +1354,7 @@ const Sequencer = ({
   const updateBarTimeSignatureField = (barId, field, rawValue) => {
     const parsed = Math.round(Number(rawValue) || 0);
     const numeric = field === "numerator"
-      ? Math.max(0, parsed)
+      ? Math.max(1, parsed)
       : Math.max(1, parsed);
     if (!Number.isFinite(numeric)) return;
     if (field !== "numerator" && numeric <= 0) return;
@@ -1369,13 +1363,15 @@ const Sequencer = ({
 
   const addBarAtRequestedPosition = () => {
     const numeric = Number(newBarPosition);
-    const numerator = Math.max(0, Math.round(Number(newBarNumerator) || 0));
+    const numerator = Math.max(1, Math.round(Number(newBarNumerator) || 1));
     const denominator = Math.max(1, Math.round(Number(newBarDenominator) || 1));
     if (!Number.isFinite(numeric)) return;
     onAddBar?.(Math.max(1, Math.round(numeric)), numerator, denominator);
     setNewBarPosition(suggestedBarPosition);
     setNewBarNumerator(suggestedBarMeter.numerator);
     setNewBarDenominator(suggestedBarMeter.denominator);
+    setNewBarPositionIsSuggested(true);
+    setNewBarMeterIsSuggested(true);
   };
 
   const addTempoAtRequestedPosition = () => {
@@ -1403,7 +1399,13 @@ const Sequencer = ({
     setNewRepeatPosition("1.000000");
   };
 
+  const updateNewBarPosition = (rawValue, isSuggested = false) => {
+    setNewBarPosition(rawValue);
+    setNewBarPositionIsSuggested(Boolean(isSuggested));
+  };
+
   const updateNewBarMeterField = (field, rawValue) => {
+    setNewBarMeterIsSuggested(false);
     const digitsOnly = String(rawValue ?? "").replace(/[^\d]/g, "");
     if (digitsOnly === "") {
       if (field === "numerator") setNewBarNumerator("");
@@ -1412,26 +1414,22 @@ const Sequencer = ({
     }
     const parsed = Math.round(Number(digitsOnly) || 0);
     if (field === "numerator") {
-      setNewBarNumerator(String(Math.max(0, parsed)));
+      setNewBarNumerator(String(Math.max(1, parsed)));
       return;
     }
     setNewBarDenominator(String(Math.max(1, parsed)));
   };
 
   useEffect(() => {
-    setNewBarPosition((current) => (
-      current === "1" || current === suggestedBarPosition ? suggestedBarPosition : current
-    ));
-  }, [suggestedBarPosition]);
+    if (!newBarPositionIsSuggested) return;
+    setNewBarPosition(suggestedBarPosition);
+  }, [newBarPositionIsSuggested, suggestedBarPosition]);
 
   useEffect(() => {
-    setNewBarNumerator((current) => (
-      current === "4" || current === suggestedBarMeter.numerator ? suggestedBarMeter.numerator : current
-    ));
-    setNewBarDenominator((current) => (
-      current === "4" || current === suggestedBarMeter.denominator ? suggestedBarMeter.denominator : current
-    ));
-  }, [suggestedBarMeter]);
+    if (!newBarMeterIsSuggested) return;
+    setNewBarNumerator(suggestedBarMeter.numerator);
+    setNewBarDenominator(suggestedBarMeter.denominator);
+  }, [newBarMeterIsSuggested, suggestedBarMeter]);
 
   const handleEnterCommit = (e, commit) => {
     if (e.key !== "Enter") return;
@@ -1470,7 +1468,6 @@ const Sequencer = ({
     terminalBarlinePosition,
     tempoBarRelativeDraftKey,
     tempoBarRelativeDrafts,
-    stoppedBarStateForBarNumber,
     tempoTransitionCueMap,
   };
 
@@ -1479,7 +1476,6 @@ const Sequencer = ({
     terminalBarlinePosition,
     repeatBarRelativeDraftKey,
     repeatBarRelativeDrafts,
-    stoppedBarStateForBarNumber,
   };
 
   const tempoRowEditing = {
@@ -1525,7 +1521,6 @@ const Sequencer = ({
     barRelativeDrafts,
     eventSequenceDraftKey,
     eventSequenceDrafts,
-    stoppedBarStateForBarNumber,
   };
 
   const eventRowDrag = {
@@ -1671,13 +1666,12 @@ const Sequencer = ({
           addTempoAtRequestedPosition={addTempoAtRequestedPosition}
           addTempoTransitionAtRequestedPosition={addTempoTransitionAtRequestedPosition}
           newBarPosition={newBarPosition}
-          suggestedBarPosition={suggestedBarPosition}
-          setNewBarPosition={setNewBarPosition}
+          newBarPositionIsSuggested={newBarPositionIsSuggested}
+          setNewBarPosition={updateNewBarPosition}
           addBarAtRequestedPosition={addBarAtRequestedPosition}
           newBarNumerator={newBarNumerator}
           newBarDenominator={newBarDenominator}
-          suggestedBarNumerator={suggestedBarMeter.numerator}
-          suggestedBarDenominator={suggestedBarMeter.denominator}
+          newBarMeterIsSuggested={newBarMeterIsSuggested}
           updateNewBarMeterField={updateNewBarMeterField}
           sequenceAutoCreateBars={sequenceAutoCreateBars}
           onSequenceAutoCreateBarsChange={onSequenceAutoCreateBarsChange}

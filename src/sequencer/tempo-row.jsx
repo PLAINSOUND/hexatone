@@ -31,10 +31,9 @@ const TempoRow = ({
   const draftKey = timing.tempoBarRelativeDraftKey(tempoId);
   const tempoBarRelativeDraft = timing.tempoBarRelativeDrafts[draftKey] ?? null;
   const isTempoBarRelativeDraftActive = tempoBarRelativeDraft != null;
-  const isTempoStoppedBar = timing.stoppedBarStateForBarNumber(tempoBarRelativeDraft?.barNumber ?? barBeat?.barNumber ?? 1);
-  const tempoBeatValue = isTempoStoppedBar ? "0" : (tempoBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1));
-  const tempoNumValue = isTempoStoppedBar ? "0" : (tempoBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0));
-  const tempoDenValue = isTempoStoppedBar ? "1" : (tempoBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1));
+  const tempoBeatValue = tempoBarRelativeDraft?.beat ?? String(barBeat?.beat ?? 1);
+  const tempoNumValue = tempoBarRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0);
+  const tempoDenValue = tempoBarRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1);
   const commitTempoBeatFraction = (event) => {
     const row = event.currentTarget.closest(".sequencer-tempo-row");
     editing.updateTempoBeatFraction(
@@ -142,11 +141,10 @@ const TempoRow = ({
         <input
           type="number"
           step="1"
-          min={isTempoStoppedBar ? "0" : "1"}
+          min="1"
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__beat${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={tempoBeatValue}
           aria-label="tempo beat"
-          disabled={isTempoStoppedBar}
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, { tempoId })}
           onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
@@ -160,7 +158,6 @@ const TempoRow = ({
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-num${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={tempoNumValue}
           aria-label="tempo beat fraction numerator"
-          disabled={isTempoStoppedBar}
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value, { tempoId })}
           onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
@@ -174,7 +171,6 @@ const TempoRow = ({
           class={`sequencer-event__input sequencer-event__input--stepper sequencer-event__fraction-den${isTempoBarRelativeDraftActive ? " sequencer-event__input--draft" : ""}`}
           value={tempoDenValue}
           aria-label="tempo beat fraction denominator"
-          disabled={isTempoStoppedBar}
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
           onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value, { tempoId })}
           onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}

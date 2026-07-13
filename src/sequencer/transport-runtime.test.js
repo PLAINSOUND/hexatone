@@ -3,7 +3,6 @@ import {
   barDisplayBucket,
   buildBarNumberById,
   buildStructuralMarkersByDisplayBucket,
-  isStoppedBarNumber,
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
 
@@ -72,13 +71,4 @@ describe("sequencer transport runtime", () => {
     expect(groups.has(1)).toBe(false);
   });
 
-  it("treats zero-numerator bars as stopped bars", () => {
-    const bars = [
-      { id: "bar-1", position: 1, numerator: 4, denominator: 4 },
-      { id: "bar-2", position: 2, numerator: 0, denominator: 1 },
-    ];
-
-    expect(isStoppedBarNumber(1, bars)).toBe(false);
-    expect(isStoppedBarNumber(2, bars)).toBe(true);
-  });
 });

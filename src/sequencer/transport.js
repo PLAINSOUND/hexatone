@@ -282,7 +282,7 @@ export function normalizeSequenceTransport(record = {}) {
 
 function normalizeBeatsPerBar(value) {
   const n = Math.round(Number(value));
-  if (!Number.isFinite(n) || n < 0) return 4;
+  if (!Number.isFinite(n) || n < 1) return 4;
   return n;
 }
 
@@ -591,19 +591,6 @@ export function absolutePositionToBarBeat(
 
   const { bar, barNumber, barLength } = context;
   const numerator = normalizeBeatsPerBar(bar?.numerator);
-  if (numerator === 0) {
-    return {
-      barNumber,
-      beat: 0,
-      numerator: 0,
-      denominator: 1,
-      barStart: bar.position,
-      barLength,
-      beatsPerBar: 0,
-      beatUnit: normalizeBeatUnit(bar?.denominator),
-      stopped: true,
-    };
-  }
   const normalizedTerminalPosition = Number.isFinite(Number(terminalPosition))
     ? Number(terminalPosition)
     : null;

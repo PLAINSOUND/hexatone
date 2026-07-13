@@ -5,7 +5,6 @@ import {
   commitForeignDrafts,
   eventBarRelativeDraftKey,
   eventSequenceDraftKey,
-  normalizeDraftForStoppedBar,
   removeDraftEntry,
   resolveBarRelativeDraftPosition,
   resolveDraftScopeTarget,
@@ -45,18 +44,6 @@ describe("sequencer sequence drafts", () => {
       .toEqual({ barNumber: "2", beat: "3", numerator: "5", denominator: "8" });
   });
 
-  it("forces stopped bars to 0/1 position semantics", () => {
-    expect(normalizeDraftForStoppedBar(
-      { barNumber: "4", beat: "2", numerator: "3", denominator: "8" },
-      (barNumber) => Number(barNumber) === 4,
-    )).toEqual({
-      barNumber: "4",
-      beat: "0",
-      numerator: "0",
-      denominator: "1",
-    });
-  });
-
   it("updates bar-relative draft scopes and removes entries immutably", () => {
     const drafts = updateBarRelativeDrafts({}, {
       draftKey: "a",
@@ -65,7 +52,6 @@ describe("sequencer sequence drafts", () => {
       value: "3",
       meta: { snapshotId: "s1" },
       scopePrefix: "event",
-      isStoppedBar: () => false,
       beatsPerBarForBarNumber: () => 4,
     });
 
@@ -85,7 +71,6 @@ describe("sequencer sequence drafts", () => {
       value: "9",
       meta: { snapshotId: "s1" },
       scopePrefix: "event",
-      isStoppedBar: () => false,
       beatsPerBarForBarNumber: (barNumber) => (Number(barNumber) === 2 ? 3 : 4),
     });
 
