@@ -82,10 +82,12 @@ describe("user tunings store", () => {
   it("generates a unique name against user and built-in tunings", () => {
     saveUserTunings([
       { name: "User Tuning", scale: ["100."] },
+      { name: "User Tuning 2", scale: ["100."] },
       { name: "Pauline Oliveros: Heart of Tones 2", scale: ["100."] },
     ]);
 
-    expect(uniqueTuningName("User Tuning")).toBe("User Tuning 2");
+    expect(uniqueTuningName("User Tuning")).toBe("User Tuning 3");
+    expect(uniqueTuningName("User Tuning 2")).toBe("User Tuning 3");
     expect(uniqueTuningName("Pauline Oliveros: Heart of Tones")).toBe("Pauline Oliveros: Heart of Tones 3");
   });
 

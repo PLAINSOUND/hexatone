@@ -1761,9 +1761,7 @@ const App = () => {
 
   const onSequenceNameChange = useCallback((value) => {
     const nextName = String(value ?? "");
-    const trimmed = nextName.trim();
     setActiveSequenceName(nextName);
-    setActiveSequenceSavedName((current) => (current && current === trimmed ? current : ""));
   }, []);
 
   const onSequenceSaved = useCallback((name) => {

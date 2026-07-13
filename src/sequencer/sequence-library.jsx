@@ -98,11 +98,14 @@ function safeName(name) {
 }
 
 function uniqueSequenceName(baseName, takenNames) {
-  const base = String(baseName ?? "").trim() || "User Sequence";
-  if (!takenNames.has(base)) return base;
-  let suffix = 2;
-  while (takenNames.has(`${base} ${suffix}`)) suffix += 1;
-  return `${base} ${suffix}`;
+  const rawBase = String(baseName ?? "").trim() || "User Sequence";
+  const match = rawBase.match(/^(.*?)(?:\s+(\d+))?$/);
+  const stem = String(match?.[1] ?? rawBase).trim() || "User Sequence";
+  const startingSuffix = Number.parseInt(match?.[2] ?? "", 10);
+  if (!takenNames.has(rawBase)) return rawBase;
+  let suffix = Number.isFinite(startingSuffix) ? startingSuffix + 1 : 2;
+  while (takenNames.has(`${stem} ${suffix}`)) suffix += 1;
+  return `${stem} ${suffix}`;
 }
 
 function sequenceRecordKey(record) {
@@ -183,12 +186,11 @@ const SequenceLibrary = ({
   }, [activeBuiltInSequence, activeSavedSequence, activeSource, workspaceHasContent, workspaceRecord]);
   const nameCollision = useMemo(
     () => (
-      activeSource !== "builtin" &&
       !!sequenceName &&
       savedSequences.some((sequence) => sequence.name === sequenceName) &&
       sequenceName !== savedSequenceName
     ),
-    [activeSource, savedSequences, savedSequenceName, sequenceName],
+    [savedSequences, savedSequenceName, sequenceName],
   );
   const workspaceStatus = !workspaceHasContent
     ? "empty"
@@ -210,7 +212,7 @@ const SequenceLibrary = ({
   const builtInMenuValue = activeSource === "builtin" ? activeBuiltInName : "";
   const saveLabel = activeSource === "builtin"
     ? "Save current sequence in user library"
-    : (activeSavedSequence && hasUnsavedChanges) || nameCollision
+    : nameCollision
       ? "Save current sequence and overwrite"
       : "Save current sequence";
 
@@ -285,13 +287,35 @@ const SequenceLibrary = ({
       setError("There is no valid sequence to save.");
       return;
     }
-    const next = savedSequences.some((entry) => entry.name === sequenceName)
-      ? savedSequences.map((entry) => (entry.name === sequenceName ? record : entry))
-      : [...savedSequences, record];
+    const attachedName = activeSavedSequence?.name ?? "";
+    const conflictingSequence = savedSequences.find(
+      (entry) => entry.name === sequenceName && entry.name !== attachedName,
+    ) ?? null;
+
+    if (
+      conflictingSequence &&
+      typeof window !== "undefined" &&
+      !window.confirm("A user sequence with this name exists. Overwrite it?")
+    ) {
+      return;
+    }
+
+    let next = savedSequences;
+    if (attachedName) {
+      next = savedSequences.filter(
+        (entry) => entry.name !== attachedName && entry.name !== record.name,
+      );
+      next.push(record);
+    } else if (conflictingSequence) {
+      next = savedSequences.map((entry) => (entry.name === record.name ? record : entry));
+    } else {
+      next = [...savedSequences, record];
+    }
     commitSequences(next);
     setError("");
-    onSequenceSaved?.(sequenceName);
+    onSequenceSaved?.(record.name);
   }, [
+    activeSavedSequence,
     buildWorkspaceRecord,
     commitSequences,
     onSequenceSaved,
@@ -309,7 +333,7 @@ const SequenceLibrary = ({
     }
     commitSequences([...savedSequences, record]);
     setError("");
-    onSequenceSaved?.(uniqueName);
+    onSequenceSaved?.(record.name);
   }, [
     buildWorkspaceRecord,
     commitSequences,
@@ -529,14 +553,15 @@ const SequenceLibrary = ({
               <span class="preset-refresh-glyph">⟳</span>
             </button>
           )}
-          <button
-            type="button"
-            class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-            disabled={!savedSequenceName}
-            onClick={handleDelete}
-          >
-            Delete
-          </button>
+          {savedSequenceName && (
+            <button
+              type="button"
+              class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+              onClick={handleDelete}
+            >
+              Delete
+            </button>
+          )}
         </label>
         )}
 

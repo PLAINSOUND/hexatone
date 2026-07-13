@@ -775,6 +775,19 @@ td.scale-color-col .color-input {
   margin-left: 0.25rem;
   height: auto;
   flex: 0 0 auto;
+  align-self: center;
+  line-height: 1.5em;
+}
+
+.preset-actions__inline-checkbox input[type="checkbox"] {
+  position: relative;
+  top: -0.1em;
+}
+
+.preset-actions__inline-checkbox .settings-form__helper-text {
+  display: inline-block;
+  position: relative;
+  top: -0.08em;
 }
 
 .preset-actions__import-group {

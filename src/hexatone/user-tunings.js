@@ -53,15 +53,18 @@ export function clearUserTunings() {
 }
 
 export function uniqueTuningName(baseName, existing = loadUserTunings()) {
-  const base = String(baseName ?? "").trim() || "User Tuning";
+  const rawBase = String(baseName ?? "").trim() || "User Tuning";
+  const match = rawBase.match(/^(.*?)(?:\s+(\d+))?$/);
+  const stem = String(match?.[1] ?? rawBase).trim() || "User Tuning";
+  const startingSuffix = Number.parseInt(match?.[2] ?? "", 10);
   const taken = new Set(existing.map((entry) => entry.name));
-  if (findPresetTuningByName(base)) taken.add(base);
-  if (!taken.has(base)) return base;
-  let suffix = 2;
-  while (taken.has(`${base} ${suffix}`) || findPresetTuningByName(`${base} ${suffix}`)) {
+  if (findPresetTuningByName(rawBase)) taken.add(rawBase);
+  if (!taken.has(rawBase) && !findPresetTuningByName(rawBase)) return rawBase;
+  let suffix = Number.isFinite(startingSuffix) ? startingSuffix + 1 : 2;
+  while (taken.has(`${stem} ${suffix}`) || findPresetTuningByName(`${stem} ${suffix}`)) {
     suffix += 1;
   }
-  return `${base} ${suffix}`;
+  return `${stem} ${suffix}`;
 }
 
 export function parseTuningJson(text) {

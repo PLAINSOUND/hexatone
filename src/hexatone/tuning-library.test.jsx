@@ -176,6 +176,31 @@ describe("TuningLibrary", () => {
     expect(screen.getByText("Save current settings in user library")).toBeTruthy();
   });
 
+  it("keeps save attached to the loaded user tuning after renaming", () => {
+    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
+      {
+        name: "Alpha",
+        scale: ["100.", "1200."],
+      },
+    ]));
+
+    render(
+      <TuningLibraryHarness
+        initialSettings={{
+          name: "Beta",
+          scale: ["100.", "1200."],
+        }}
+        initialSource="user"
+        initialPresetName="Alpha"
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Save current settings"));
+
+    expect(loadUserTunings().map((entry) => entry.name)).toEqual(["Beta"]);
+    expect(screen.getByRole("combobox", { name: "User tunings" }).value).toBe("Beta");
+  });
+
   it("saves a copy with a unique numbered name", () => {
     render(
       <TuningLibraryHarness
@@ -217,6 +242,21 @@ describe("TuningLibrary", () => {
 
     expect(loadUserTunings()).toEqual([]);
     expect(onClearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides Delete when no user tuning is selected", () => {
+    render(
+      <TuningLibraryHarness
+        initialSettings={{
+          name: "Built A",
+          scale: ["100.", "1200."],
+        }}
+        initialSource="builtin"
+        initialPresetName="Built A"
+      />,
+    );
+
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 
   it("does not warn when switching away from a clean recalled user tuning", () => {

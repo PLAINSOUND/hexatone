@@ -18,6 +18,7 @@ import {
   deleteUserTuning,
   loadUserTunings,
   parseTuningJson,
+  saveUserTunings,
   uniqueTuningName,
   upsertUserTuning,
 } from "./user-tunings.js";
@@ -77,20 +78,20 @@ const TuningLibrary = ({
     () => userTunings.find((entry) => entry.name === tuningName) ?? null,
     [tuningName, userTunings],
   );
-  const isLoadedExistingUserTuning = !!(
-    activeSource === "user" &&
-    activePresetName &&
-    tuningName &&
-    activePresetName === tuningName &&
-    existingUserTuning &&
-    existingUserTuning.name === activePresetName
+  const attachedUserTuning = useMemo(
+    () => (
+      activeSource === "user" && activePresetName
+        ? userTunings.find((entry) => entry.name === activePresetName) ?? null
+        : null
+    ),
+    [activePresetName, activeSource, userTunings],
   );
   const showWorkspaceActions = !!activeSource || (hasWorkspace && !!tuningName);
   const saveLabel = activeSource === "builtin"
     ? "Save current settings in user library"
-    : existingUserTuning && (!isLoadedExistingUserTuning || isPresetDirty)
+    : existingUserTuning && (!attachedUserTuning || existingUserTuning.name !== attachedUserTuning.name)
       ? "Save current settings and overwrite user preset"
-      : "Save current settings";
+    : "Save current settings";
   const hasUnsavedWorkspace = !!workspaceRecord && (
     (!activeSource && !!tuningName) ||
     (activeSource === "builtin" && !!isPresetDirty) ||
@@ -148,7 +149,33 @@ const TuningLibrary = ({
       setError("There is no valid tuning to save.");
       return;
     }
-    const nextLibrary = upsertUserTuning(record, userTunings);
+    const attachedName = attachedUserTuning?.name ?? "";
+    const conflictingTuning = userTunings.find(
+      (entry) => entry.name === tuningName && entry.name !== attachedName,
+    ) ?? null;
+
+    if (
+      conflictingTuning &&
+      typeof window !== "undefined" &&
+      !window.confirm("A user tuning with this name exists. Overwrite it?")
+    ) {
+      return;
+    }
+
+    let nextLibrary = userTunings;
+    if (attachedName) {
+      nextLibrary = userTunings.filter(
+        (entry) => entry.name !== attachedName && entry.name !== record.name,
+      );
+      nextLibrary.push(record);
+      nextLibrary = saveUserTunings(nextLibrary);
+    } else if (conflictingTuning) {
+      nextLibrary = saveUserTunings(
+        userTunings.map((entry) => (entry.name === record.name ? record : entry)),
+      );
+    } else {
+      nextLibrary = upsertUserTuning(record, userTunings);
+    }
     setUserTunings(nextLibrary);
     setError("");
     onLoadUserTuning?.(record);
@@ -427,14 +454,15 @@ const TuningLibrary = ({
                 <span class="preset-refresh-glyph">⟳</span>
               </button>
             )}
-            <button
-              type="button"
-              class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-              disabled={!activeUserName}
-              onClick={handleDelete}
-            >
-              Delete
-            </button>
+            {activeUserName && (
+              <button
+                type="button"
+                class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+                onClick={handleDelete}
+              >
+                Delete
+              </button>
+            )}
           </label>
         )}
         <div class="preset-actions preset-actions--library">

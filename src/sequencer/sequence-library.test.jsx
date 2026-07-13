@@ -188,6 +188,54 @@ describe("SequenceLibrary", () => {
     expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("FALL 2");
   });
 
+  it("increments an existing numeric suffix when saving a sequence copy", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "FALL 2",
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    render(
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        initialBars={[{ id: 1, position: 1, numerator: 3, denominator: 2 }]}
+        initialName="FALL 2"
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Save as copy"));
+
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["FALL 2", "FALL 3"]);
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("FALL 3");
+  });
+
+  it("keeps save attached to the loaded user sequence after renaming", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "Alpha",
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    render(
+      <SequenceLibraryHarness
+        initialSource="user"
+        initialSnapshots={[{ id: 1, notes: [] }]}
+        initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        initialName="Beta"
+        initialSavedName="Alpha"
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Save current sequence"));
+
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["Beta"]);
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("Beta");
+  });
+
   it("loads a selected saved sequence immediately when the workspace is empty", () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       normalizeSequenceRecord({
@@ -338,6 +386,19 @@ describe("SequenceLibrary", () => {
     expect(screen.queryByRole("combobox", { name: "User sequences" })).toBeNull();
     expect(screen.queryByText("Save current sequence")).toBeNull();
     expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
+  });
+
+  it("hides Delete when no user sequence is selected", () => {
+    render(
+      <SequenceLibraryHarness
+        initialSource="builtin"
+        initialBuiltInName="FALL"
+        initialSnapshots={[{ id: 1, notes: [] }]}
+        initialName="FALL"
+      />,
+    );
+
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 
   it("loads a built-in sequence and keeps the user menu clear", () => {
