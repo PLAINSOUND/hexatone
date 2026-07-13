@@ -532,6 +532,166 @@ describe("Sequencer", () => {
     vi.useRealTimers();
   });
 
+  it("pauses timed playback by stopping sound and resumes from the current cue", () => {
+    vi.useFakeTimers();
+
+    let nowSeconds = 0;
+    const onPlayTimedCue = vi.fn();
+    const onStopSnapshot = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              { id: "a", midicents: 69, start: 0, end: 0.5 },
+              { id: "b", midicents: 72, start: 0.5, end: 1 },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={onStopSnapshot}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onPlayTimedCue={onPlayTimedCue}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        getTimedTransportClockSeconds={() => nowSeconds}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    vi.runOnlyPendingTimers();
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(1);
+    expect(onPlayTimedCue.mock.calls[0][0]).toBe(0);
+
+    nowSeconds = 2.1;
+    vi.advanceTimersByTime(50);
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(2);
+    expect(onPlayTimedCue.mock.calls[1][0]).toBe(1);
+
+    fireEvent.click(screen.getByLabelText("pause timed transport"));
+    expect(onStopSnapshot).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("play timed transport")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).toBeTruthy();
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(3);
+    expect(onPlayTimedCue.mock.calls[2][0]).toBe(1);
+
+    vi.useRealTimers();
+  });
+
+  it("starts timed playback from the queued cue instead of the previous cue", () => {
+    vi.useFakeTimers();
+
+    let nowSeconds = 0;
+    const onPlayTimedCue = vi.fn();
+
+    const Harness = () => {
+      const [playhead, setPlayhead] = useState({ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true });
+      return (
+        <Sequencer
+          snapshots={[
+            {
+              id: 10,
+              length: 1,
+              description: "A",
+              notes: [
+                { id: "a", midicents: 69, start: 0, end: 0.25 },
+                { id: "b", midicents: 71, start: 0.25, end: 0.5 },
+                { id: "c", midicents: 72, start: 0.5, end: 0.75 },
+              ],
+            },
+          ]}
+          bars={[{ id: 1, position: 1 }]}
+          tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={playhead}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onCueSequenceCue={(cueIndex) => setPlayhead({ barIndex: 0, stepIndex: 0, markerIndex: cueIndex, stopped: true })}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onPlayTimedCue={onPlayTimedCue}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+          getTimedTransportClockSeconds={() => nowSeconds}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "2" } });
+    expect(screen.getByLabelText("next cue target").value).toBe("2");
+
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    vi.runOnlyPendingTimers();
+
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(1);
+    expect(onPlayTimedCue.mock.calls[0][0]).toBe(2);
+
+    vi.useRealTimers();
+  });
+
   it("stops timed playback before jumping the timed transport to the start or end", () => {
     vi.useFakeTimers();
     const originalRaf = window.requestAnimationFrame;
@@ -665,51 +825,57 @@ describe("Sequencer", () => {
     globalThis.requestAnimationFrame = raf;
     globalThis.cancelAnimationFrame = cancelRaf;
 
-    render(
-      <Sequencer
-        snapshots={[
-          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
-          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
-        ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
-        snapshotLabelMode="labels"
-        selectedSnapshotId={10}
-        selectedMarker={null}
-        playingSnapshotId={null}
-        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: false }}
-        onTakeSnapshot={vi.fn()}
-        onLoadSequence={vi.fn()}
-        onSequenceNameChange={vi.fn()}
-        onSequenceDescriptionChange={vi.fn()}
-        onSequenceLegatoChange={vi.fn()}
-        onSetSnapshotLabelMode={vi.fn()}
-        onSelectSnapshot={vi.fn()}
-        onSelectMarker={vi.fn()}
-        onPlaySnapshot={vi.fn()}
-        onStopSnapshot={vi.fn()}
-        onSelectSequenceBar={vi.fn()}
-        onStepSequence={vi.fn()}
-        onStepSequenceMarker={vi.fn()}
-        onPlaySequence={vi.fn()}
-        onPlayCue={vi.fn()}
-        onResetSequencePlayhead={vi.fn()}
-        onJumpSequenceEnd={vi.fn()}
-        onAddBar={vi.fn()}
-        onAddTempo={vi.fn()}
-        onAddBarsBeforeSnapshots={vi.fn()}
-        onDeleteBar={vi.fn()}
-        onDeleteTempo={vi.fn()}
-        onUpdateBar={vi.fn()}
-        onUpdateTempo={vi.fn()}
-        onMoveBar={vi.fn()}
-        onDeleteSnapshot={vi.fn()}
-        onMoveSnapshot={vi.fn()}
-        onUpdateSnapshot={vi.fn()}
-        onResetSnapshotDescription={vi.fn()}
-        getTimedTransportClockSeconds={() => 0}
-      />,
-    );
+    const Harness = () => {
+      const [playhead, setPlayhead] = useState({ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: false });
+      return (
+        <Sequencer
+          snapshots={[
+            { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
+            { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+          ]}
+          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+          tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={playhead}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onCueSequenceCue={(cueIndex) => setPlayhead({ barIndex: 1, stepIndex: 1, markerIndex: cueIndex, stopped: true })}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onJumpSequenceEnd={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+          getTimedTransportClockSeconds={() => 0}
+        />
+      );
+    };
+
+    render(<Harness />);
 
     fireEvent.click(screen.getByLabelText("play timed transport"));
     expect(screen.getByLabelText("pause timed transport")).toBeTruthy();

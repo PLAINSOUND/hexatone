@@ -51,7 +51,6 @@ export function deriveSoundingAttackEventIds({
 
 export function deriveExpandedSnapshotIds({
   showAllEvents,
-  pendingCueJumpIndex,
   cueExpandedSnapshotIdsAt,
   playheadIsOff,
   playheadIsEnd,
@@ -60,18 +59,13 @@ export function deriveExpandedSnapshotIds({
   cueExpandedSnapshotIds,
 }) {
   if (showAllEvents) return null;
-  if (pendingCueJumpIndex !== "") {
-    const previewCueIndex = Number(pendingCueJumpIndex);
-    if (Number.isFinite(previewCueIndex)) {
-      const previewIds = cueExpandedSnapshotIdsAt(previewCueIndex);
-      if (previewIds.size > 0) return previewIds;
-    }
-  }
   if (playheadIsOff || playheadIsEnd || selectedSnapshotId == null) {
     return new Set();
   }
   if (activeCueIndex != null) {
-    return cueExpandedSnapshotIds.size > 0 ? new Set(cueExpandedSnapshotIds) : new Set([selectedSnapshotId]);
+    if (cueExpandedSnapshotIds.size > 0) return new Set(cueExpandedSnapshotIds);
+    const previewIds = cueExpandedSnapshotIdsAt(activeCueIndex - 1);
+    return previewIds.size > 0 ? previewIds : new Set([selectedSnapshotId]);
   }
   return new Set([selectedSnapshotId]);
 }

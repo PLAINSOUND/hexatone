@@ -659,6 +659,18 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
   const tol = merged.centsTolerance;
   const normalizedTargetCents = normalizeCentsToOctavePitchClass(targetCents);
   const candidates = [];
+  // Exact octave multiples need an explicit unison pitch-class candidate.
+  // The cartesian search intentionally skips the all-zero monzo to avoid
+  // flooding ordinary searches with 1/1, but at 0 mod 1200 that candidate is
+  // musically real and must be present so the scale-table adapter can lift it
+  // to 2/1, 4/1, etc.
+  _tryPushCandidate(
+    new Array(CANONICAL_MONZO_BASIS.length).fill(0),
+    normalizedTargetCents,
+    tol,
+    merged,
+    candidates,
+  );
 
   // ── Three-layer pruned search ─────────────────────────────────────────────
   //

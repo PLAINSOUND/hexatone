@@ -48,14 +48,11 @@ const SequenceControls = ({
   snapshotSelectValue,
   renderedSnapshots,
   impliedPendingSnapshotIndex,
-  setPendingSnapshotJumpIndex,
-  setPendingCueJumpIndex,
   armPendingSnapshot,
   snapshots,
   playheadIsOff,
   prevSnapshotIndexFromBar,
   nextSnapshotIndexFromBar,
-  pendingSnapshotJumpIndex,
   playheadIsEnd,
   runTransportAction,
   onJumpSequenceSnapshot,
@@ -66,7 +63,6 @@ const SequenceControls = ({
   armPendingCue,
   prevCueIndexFromBar,
   nextCueIndexFromBar,
-  pendingCueJumpIndex,
   onJumpSequenceCue,
   onStepSequenceMarker,
   onResetSequencePlayhead,
@@ -288,13 +284,9 @@ const SequenceControls = ({
             stopTimedTransportBefore(() => {
               const { value } = e.currentTarget;
               if (value === "") {
-                setPendingSnapshotJumpIndex("");
-                setPendingCueJumpIndex("");
                 return;
               }
               if (value === terminalSequenceTarget) {
-                setPendingSnapshotJumpIndex("");
-                setPendingCueJumpIndex("");
                 return;
               }
               armPendingSnapshot(value);
@@ -324,13 +316,6 @@ const SequenceControls = ({
             ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
             : false)}
           onClick={() => {
-            if (pendingSnapshotJumpIndex !== "") {
-              const targetIndex = Number(pendingSnapshotJumpIndex);
-              setPendingSnapshotJumpIndex("");
-              setPendingCueJumpIndex("");
-              runTransportAction(() => onJumpSequenceSnapshot?.(targetIndex));
-              return;
-            }
             if (playheadIsEnd) {
               runTransportAction(() => onJumpSequenceSnapshot?.(0));
               return;
@@ -364,13 +349,9 @@ const SequenceControls = ({
             stopTimedTransportBefore(() => {
               const { value } = e.currentTarget;
               if (value === "") {
-                setPendingCueJumpIndex("");
-                setPendingSnapshotJumpIndex("");
                 return;
               }
               if (value === terminalSequenceTarget) {
-                setPendingCueJumpIndex("");
-                setPendingSnapshotJumpIndex("");
                 return;
               }
               armPendingCue(value);
@@ -400,13 +381,6 @@ const SequenceControls = ({
             ? nextCueIndexFromBar < 0
             : false)}
           onClick={() => {
-            if (pendingCueJumpIndex !== "") {
-              const targetIndex = Number(pendingCueJumpIndex);
-              setPendingCueJumpIndex("");
-              setPendingSnapshotJumpIndex("");
-              runTransportAction(() => onJumpSequenceCue?.(targetIndex));
-              return;
-            }
             if (playheadIsEnd) {
               runTransportAction(() => onJumpSequenceCue?.(0));
               return;

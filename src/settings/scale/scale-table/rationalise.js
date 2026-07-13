@@ -1,4 +1,7 @@
-import { CANONICAL_MONZO_BASIS } from "../../../tuning/interval.js";
+import {
+  CANONICAL_MONZO_BASIS,
+  monzoToFractionOnBasis,
+} from "../../../tuning/interval.js";
 import { getWorkspaceSlot } from "../../../tuning/workspace.js";
 import {
   compareRationalCandidatesBy,
@@ -15,13 +18,40 @@ import { parseOptionalPositiveInt, buildPrimeBoundsFromPrefs } from "./search-pr
 
 const PREVIEW_RATIO_TOLERANCE_CENTS = 0.05;
 
+export function liftRationalCandidateToAbsoluteCents(candidate, targetCents) {
+  if (!candidate || !Array.isArray(candidate.monzo) || !Number.isFinite(targetCents)) {
+    return candidate;
+  }
+  const pitchClassCents = candidate.cents ?? 0;
+  const octaveShift = Math.round((targetCents - pitchClassCents) / 1200);
+  if (octaveShift === 0) {
+    return {
+      ...candidate,
+      deviation: targetCents - pitchClassCents,
+    };
+  }
+
+  const monzo = [...candidate.monzo];
+  monzo[0] = (monzo[0] ?? 0) + octaveShift;
+  const ratio = monzoToFractionOnBasis(monzo);
+  const cents = pitchClassCents + octaveShift * 1200;
+  return {
+    ...candidate,
+    monzo,
+    ratio,
+    ratioText: formatRatioText(ratio.toFraction()),
+    cents,
+    deviation: targetCents - cents,
+  };
+}
+
 // Format the prime-limit of a candidate as an overtonal/undertonal pair.
 // Overtonal limit = highest prime with a positive non-2 exponent, shown with ° suffix.
 // Undertonal limit = highest prime with a negative non-2 exponent, shown with u prefix.
 // Examples: 21/20 → "7°u5",  7/4 → "7°",  8/5 → "u5",  1/1 → "1"
 // Fraction.toFraction() collapses "1/1" to "1". Always show the denominator.
 export function formatRatioText(ratioText) {
-  if (ratioText === "1") return "1/1";
+  if (/^-?\d+$/.test(String(ratioText))) return `${ratioText}/1`;
   return ratioText;
 }
 
@@ -210,10 +240,12 @@ export function getHumanTestableRationalCandidates(baseRequest) {
         maxCandidates,
       }),
     );
-    const merged = mergeUniqueCandidates(candidateSets, maxCandidates);
+    const merged = mergeUniqueCandidates(candidateSets, maxCandidates)
+      .map((candidate) => liftRationalCandidateToAbsoluteCents(candidate, baseRequest.targetCents));
     if (merged.length >= 6) return merged;
   }
-  return mergeUniqueCandidates(candidateSets, maxCandidates);
+  return mergeUniqueCandidates(candidateSets, maxCandidates)
+    .map((candidate) => liftRationalCandidateToAbsoluteCents(candidate, baseRequest.targetCents));
 }
 
 export function getSaveString({ committedInterval, previewInterval, tunedCents, committedCents }) {

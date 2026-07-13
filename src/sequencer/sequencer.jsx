@@ -27,7 +27,6 @@ import {
 } from "./trigger-groups.js";
 import {
   buildCueExpandedSnapshotIds,
-  buildFirstCueIndexBySnapshotIndex,
   buildFirstCueTimeBySnapshotIndex,
   buildFirstEventIdByCueIndex,
   buildFirstSnapshotCueEventIds,
@@ -125,6 +124,8 @@ const Sequencer = ({
   onPlaySnapshot,
   onStopSnapshot,
   onSelectSequenceBar,
+  onCueSequenceSnapshot,
+  onCueSequenceCue,
   onStepSequence,
   onStepSequenceMarker,
   onJumpSequenceSnapshot,
@@ -177,8 +178,6 @@ const Sequencer = ({
   const [newBarNumerator, setNewBarNumerator] = useState("4");
   const [newBarDenominator, setNewBarDenominator] = useState("4");
   const [confirmClearSnapshots, setConfirmClearSnapshots] = useState(false);
-  const [pendingSnapshotJumpIndex, setPendingSnapshotJumpIndex] = useState("");
-  const [pendingCueJumpIndex, setPendingCueJumpIndex] = useState("");
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
@@ -210,6 +209,7 @@ const Sequencer = ({
   const scheduledTimedPlaybackIndexRef = useRef(0);
   const timedTransportSchedulerTokenRef = useRef(0);
   const timedTransportTimeoutsRef = useRef(new Set());
+  const timedTransportStartTargetRef = useRef(null);
   const onPlayCueRef = useRef(onPlayCue);
   const onPlayTimedCueRef = useRef(onPlayTimedCue);
   const onStopSnapshotRef = useRef(onStopSnapshot);
@@ -308,11 +308,7 @@ const Sequencer = ({
     sortedBars,
     sequenceCueGroups,
     snapshots,
-    pendingSnapshotJumpIndex,
-    pendingCueJumpIndex,
   }), [
-    pendingCueJumpIndex,
-    pendingSnapshotJumpIndex,
     playhead,
     sequenceCueGroups,
     snapshots,
@@ -391,10 +387,6 @@ const Sequencer = ({
   const firstEventIdByCueIndex = useMemo(
     () => buildFirstEventIdByCueIndex(sequenceEvents),
     [sequenceEvents],
-  );
-  const firstCueIndexBySnapshotIndex = useMemo(
-    () => buildFirstCueIndexBySnapshotIndex(sequenceCueGroups),
-    [sequenceCueGroups],
   );
   const firstCueTimeBySnapshotIndex = useMemo(
     () => buildFirstCueTimeBySnapshotIndex(sequenceCueGroups),
@@ -496,15 +488,36 @@ const Sequencer = ({
     timedTransportTimeoutsRef.current.clear();
   }, []);
 
+  const deriveTimedTransportStartTarget = useCallback((playbackIndex) => {
+    const burst = timedPlaybackBursts[playbackIndex] ?? null;
+    if (!burst) return null;
+    if (Number.isFinite(burst?.sourceCueIndex)) {
+      return { kind: "cue", index: Number(burst.sourceCueIndex) - 1 };
+    }
+    if (Array.isArray(burst?.sourceSnapshotIndexes) && burst.sourceSnapshotIndexes.length > 0) {
+      return { kind: "snapshot", index: Number(burst.sourceSnapshotIndexes[0]) };
+    }
+    const barContext = barContextForPosition(Number(burst?.sequenceTime ?? 1), sortedBars);
+    return { kind: "bar", index: Number(barContext?.barIndex ?? 0) };
+  }, [sortedBars, timedPlaybackBursts]);
+
+  const restoreTimedTransportStartTarget = useCallback(() => {
+    const target = timedTransportStartTargetRef.current;
+    if (!target) return;
+    if (target.kind === "cue") {
+      onCueSequenceCue?.(target.index);
+      return;
+    }
+    if (target.kind === "snapshot") {
+      onCueSequenceSnapshot?.(target.index);
+      return;
+    }
+    onSelectSequenceBar?.(target.index);
+  }, [onCueSequenceCue, onCueSequenceSnapshot, onSelectSequenceBar]);
+
   const resolveTimedTransportStartIndex = useCallback(() => {
-    if (pendingCueJumpIndex !== "") {
-      return findPlaybackStartIndex(timedPlaybackBursts, { cueIndex: Number(pendingCueJumpIndex) });
-    }
     if (Number.isFinite(playheadMarkerIndex)) {
-      return findPlaybackStartIndex(timedPlaybackBursts, { cueIndex: Number(playheadMarkerIndex) });
-    }
-    if (pendingSnapshotJumpIndex !== "") {
-      return findPlaybackStartIndex(timedPlaybackBursts, { snapshotIndex: Number(pendingSnapshotJumpIndex) });
+      return findPlaybackStartIndex(timedPlaybackBursts, { cueIndex: Number(playheadMarkerIndex) + 1 });
     }
     if (Number.isFinite(playheadStepIndex) && playheadStepIndex >= 0 && !playheadIsEnd) {
       return findPlaybackStartIndex(timedPlaybackBursts, { snapshotIndex: Number(playheadStepIndex) });
@@ -512,8 +525,6 @@ const Sequencer = ({
     const selectedBarPosition = Number(sortedBars[selectedBarIndex]?.position ?? 1);
     return findPlaybackStartIndex(timedPlaybackBursts, { sequenceTime: selectedBarPosition });
   }, [
-    pendingCueJumpIndex,
-    pendingSnapshotJumpIndex,
     playheadIsEnd,
     playheadMarkerIndex,
     playheadStepIndex,
@@ -560,6 +571,20 @@ const Sequencer = ({
     scheduledTimedPlaybackIndexRef.current = nextPlaybackIndex;
     if (cueBursts.length > 0) scheduleTimedCueBursts(cueBursts, nowSeconds);
   }, [scheduleTimedCueBursts]);
+
+  const replayPausedTimedTransportCue = useCallback((state) => {
+    const playbackIndex = Number(state?.lastDispatchedPlaybackIndex);
+    if (!Number.isFinite(playbackIndex) || playbackIndex < 0) return;
+    const burst = timedPlaybackBurstsRef.current[playbackIndex] ?? null;
+    if (!burst || !Number.isFinite(burst?.sourceCueIndex)) return;
+    const cueIndex = Number(burst.sourceCueIndex) - 1;
+    const trigger = timedCueTriggerBySourceIndexRef.current.get(Number(burst.sourceCueIndex)) ?? null;
+    if (onPlayTimedCueRef.current) {
+      onPlayTimedCueRef.current(cueIndex, trigger, { hardRestart: true });
+      return;
+    }
+    onPlayCueRef.current?.(cueIndex);
+  }, []);
 
   useEffect(() => {
     if (timedTransportState.status !== "running") return undefined;
@@ -628,23 +653,52 @@ const Sequencer = ({
     if (!timedPlaybackBursts.length) return;
     const nowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
     setTimedTransportClockSeconds(nowSeconds);
-    setTimedTransportState((previous) => {
-      if (previous.status === "running") return pauseTimedTransport(previous, nowSeconds);
-      if (previous.status === "paused") return resumeTimedTransport(previous, nowSeconds);
-      const startIndex = resolveTimedTransportStartIndex();
-      return startTimedTransport(previous, timedPlaybackBursts, {
-        playbackIndex: startIndex < 0 ? 0 : startIndex,
-        clockSeconds: nowSeconds,
-      });
+    const previous = timedTransportStateRef.current;
+
+    if (previous.status === "running") {
+      clearScheduledTimedCueCallbacks();
+      onStopSnapshotRef.current?.();
+      const pausedState = pauseTimedTransport(previous, nowSeconds);
+      timedTransportStateRef.current = pausedState;
+      setTimedTransportState(pausedState);
+      return;
+    }
+
+    if (previous.status === "paused") {
+      clearScheduledTimedCueCallbacks();
+      replayPausedTimedTransportCue(previous);
+      const resumedState = resumeTimedTransport(previous, nowSeconds);
+      timedTransportStateRef.current = resumedState;
+      setTimedTransportState(resumedState);
+      return;
+    }
+
+    const startIndex = resolveTimedTransportStartIndex();
+    const startedState = startTimedTransport(previous, timedPlaybackBursts, {
+      playbackIndex: startIndex < 0 ? 0 : startIndex,
+      clockSeconds: nowSeconds,
     });
-  }, [getTimedTransportClockSeconds, resolveTimedTransportStartIndex, timedPlaybackBursts]);
+    timedTransportStartTargetRef.current = deriveTimedTransportStartTarget(startIndex < 0 ? 0 : startIndex);
+    timedTransportStateRef.current = startedState;
+    setTimedTransportState(startedState);
+  }, [
+    deriveTimedTransportStartTarget,
+    clearScheduledTimedCueCallbacks,
+    getTimedTransportClockSeconds,
+    replayPausedTimedTransportCue,
+    resolveTimedTransportStartIndex,
+    timedPlaybackBursts,
+  ]);
 
   const handleTimedTransportStop = useCallback(() => {
     clearScheduledTimedCueCallbacks();
     onStopSnapshot?.();
     scheduledTimedPlaybackIndexRef.current = 0;
-    setTimedTransportState(stopTimedTransport(timedPlaybackBursts));
-  }, [clearScheduledTimedCueCallbacks, onStopSnapshot, timedPlaybackBursts]);
+    const stoppedState = stopTimedTransport(timedPlaybackBursts);
+    timedTransportStateRef.current = stoppedState;
+    setTimedTransportState(stoppedState);
+    restoreTimedTransportStartTarget();
+  }, [clearScheduledTimedCueCallbacks, onStopSnapshot, restoreTimedTransportStartTarget, timedPlaybackBursts]);
 
   const timedTransportDisplay = useMemo(() => {
     const runningElapsed = currentTimedTransportElapsedSeconds(timedTransportState, timedTransportClockSeconds);
@@ -708,14 +762,10 @@ const Sequencer = ({
     transportScrollTargetRef.current = "snapshot";
     const nextSnapshotIndex = Number(snapshotIndex);
     if (!Number.isFinite(nextSnapshotIndex)) {
-      setPendingSnapshotJumpIndex("");
-      setPendingCueJumpIndex("");
       return;
     }
-    setPendingSnapshotJumpIndex(String(nextSnapshotIndex));
-    const nextCueIndex = firstCueIndexBySnapshotIndex.get(nextSnapshotIndex);
-    setPendingCueJumpIndex(nextCueIndex == null ? "" : String(nextCueIndex));
     const snapshotTime = firstCueTimeBySnapshotIndex.get(nextSnapshotIndex) ?? (nextSnapshotIndex + 1);
+    onCueSequenceSnapshot?.(nextSnapshotIndex);
     const repeatStartKey = repeatStartKeyAtPosition(snapshotTime);
     if (repeatStartKey != null) {
       const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
@@ -734,16 +784,13 @@ const Sequencer = ({
     transportScrollTargetRef.current = "cue";
     const nextCueIndex = Number(cueIndex);
     if (!Number.isFinite(nextCueIndex)) {
-      setPendingCueJumpIndex("");
       return;
     }
     const cueGroup = sequenceCueGroups[nextCueIndex];
     if (!cueGroup) {
-      setPendingCueJumpIndex("");
       return;
     }
-    setPendingCueJumpIndex(String(nextCueIndex));
-    setPendingSnapshotJumpIndex(String(cueGroup.snapshotIndex));
+    onCueSequenceCue?.(nextCueIndex);
     const repeatStartKey = repeatStartKeyAtPosition(cueGroup.time);
     if (repeatStartKey != null) {
       const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
@@ -788,7 +835,6 @@ const Sequencer = ({
   useEffect(() => {
     const nextExpandedIds = deriveExpandedSnapshotIds({
       showAllEvents,
-      pendingCueJumpIndex,
       cueExpandedSnapshotIdsAt,
       playheadIsOff,
       playheadIsEnd,
@@ -798,13 +844,11 @@ const Sequencer = ({
     });
     if (nextExpandedIds == null) return;
     setExpandedIds((prev) => (sameSnapshotSet(prev, nextExpandedIds) ? prev : nextExpandedIds));
-  }, [activeCueIndex, cueExpandedSnapshotIds, cueExpandedSnapshotIdsAt, pendingCueJumpIndex, playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
+  }, [activeCueIndex, cueExpandedSnapshotIds, cueExpandedSnapshotIdsAt, playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
 
   useEffect(() => {
     if (snapshots.length > 0 || sortedBars.length > 0 || sortedTempi.length > 0) return;
     setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
-    setPendingSnapshotJumpIndex("");
-    setPendingCueJumpIndex("");
     setEventSequenceDrafts({});
   }, [snapshots.length, sortedBars.length, sortedTempi.length]);
 
@@ -1652,14 +1696,11 @@ const Sequencer = ({
           snapshotSelectValue={snapshotSelectValue}
           renderedSnapshots={renderedSnapshots}
           impliedPendingSnapshotIndex={impliedPendingSnapshotIndex}
-          setPendingSnapshotJumpIndex={setPendingSnapshotJumpIndex}
-          setPendingCueJumpIndex={setPendingCueJumpIndex}
           armPendingSnapshot={armPendingSnapshot}
           snapshots={snapshots}
           playheadIsOff={playheadIsOff}
           prevSnapshotIndexFromBar={prevSnapshotIndexFromBar}
           nextSnapshotIndexFromBar={nextSnapshotIndexFromBar}
-          pendingSnapshotJumpIndex={pendingSnapshotJumpIndex}
           playheadIsEnd={playheadIsEnd}
           runTransportAction={runTransportAction}
           onJumpSequenceSnapshot={onJumpSequenceSnapshot}
@@ -1670,7 +1711,6 @@ const Sequencer = ({
           armPendingCue={armPendingCue}
           prevCueIndexFromBar={prevCueIndexFromBar}
           nextCueIndexFromBar={nextCueIndexFromBar}
-          pendingCueJumpIndex={pendingCueJumpIndex}
           onJumpSequenceCue={onJumpSequenceCue}
           onStepSequenceMarker={onStepSequenceMarker}
           onResetSequencePlayhead={resetSequencePlayheadAndScrollTop}

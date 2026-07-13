@@ -44,18 +44,17 @@ describe("sequencer view runtime", () => {
     expect(buildCueExpandedSnapshotIdsAt(0, snapshots, bars, tempi, sequenceEvents)).toEqual(new Set(["s1", "s2"]));
   });
 
-  it("derives compact-view expanded snapshots from pending cue preview and playhead state", () => {
+  it("derives compact-view expanded snapshots from the active cue and playhead state", () => {
     const cueExpandedSnapshotIdsAt = (index) => (index === 1 ? new Set(["s2", "s3"]) : new Set());
     expect(deriveExpandedSnapshotIds({
       showAllEvents: false,
-      pendingCueJumpIndex: "1",
       cueExpandedSnapshotIdsAt,
       playheadIsOff: false,
       playheadIsEnd: false,
       selectedSnapshotId: "s1",
       activeCueIndex: 2,
       cueExpandedSnapshotIds: new Set(["s1", "s2"]),
-    })).toEqual(new Set(["s2", "s3"]));
+    })).toEqual(new Set(["s1", "s2"]));
   });
 
   it("derives cue scroll anchors for expanded and compact views", () => {

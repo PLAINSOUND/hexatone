@@ -1254,6 +1254,50 @@ const App = () => {
     });
   }, []);
 
+  const onCueSequenceSnapshot = useCallback((targetIndex) => {
+    const nextIndex = Number(targetIndex);
+    if (!Number.isFinite(nextIndex) || nextIndex < 0 || nextIndex >= snapshots.length) return;
+    const snapshot = snapshots[nextIndex];
+    if (!snapshot) return;
+    keysRef.current?.stopSnapshot();
+    sequenceRepeatPlaybackStateRef.current = {};
+    setPlayingSnapshotId(null);
+    setSelectedSnapshotId(snapshot.id);
+    setSelectedSnapshotMarker(null);
+    setSequencePlayhead({
+      barIndex: barIndexForTime(nextIndex + 1),
+      stepIndex: nextIndex,
+      markerIndex: null,
+      stopped: true,
+    });
+  }, [barIndexForTime, snapshots]);
+
+  const onCueSequenceCue = useCallback((targetCueIndex) => {
+    const nextCueIndex = Number(targetCueIndex);
+    if (!Number.isFinite(nextCueIndex) || nextCueIndex < 0 || nextCueIndex >= sequenceCueGroups.length) return;
+    const cueGroup = sequenceCueGroups[nextCueIndex];
+    if (!cueGroup) return;
+    const snapshot = snapshots[cueGroup.snapshotIndex];
+    keysRef.current?.stopSnapshot();
+    sequenceRepeatPlaybackStateRef.current = {};
+    setPlayingSnapshotId(null);
+    setSelectedSnapshotId(snapshot?.id ?? null);
+    setSelectedSnapshotMarker(
+      snapshot
+        ? {
+          snapshotId: snapshot.id,
+          time: cueGroup.time - (cueGroup.snapshotIndex + 1),
+        }
+        : null,
+    );
+    setSequencePlayhead({
+      barIndex: barIndexForTime(cueGroup.time),
+      stepIndex: cueGroup.snapshotIndex,
+      markerIndex: nextCueIndex,
+      stopped: true,
+    });
+  }, [barIndexForTime, sequenceCueGroups, snapshots]);
+
   const onAddSequenceBar = useCallback((position = null, numerator = 4, denominator = 4) => {
     const id = ++sequenceBarIdRef.current;
     setSequenceBars((prev) => {
@@ -3689,6 +3733,8 @@ const App = () => {
               onPlaySnapshot={onPlaySnapshot}
               onStopSnapshot={onStopSnapshot}
               onSelectSequenceBar={onSelectSequenceBar}
+              onCueSequenceSnapshot={onCueSequenceSnapshot}
+              onCueSequenceCue={onCueSequenceCue}
               onStepSequence={onStepSequence}
               onStepSequenceMarker={onStepSequenceMarker}
               onJumpSequenceSnapshot={onJumpSequenceSnapshot}
