@@ -3566,6 +3566,56 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("new bar denominator").value).toBe("2");
   });
 
+  it("advances the next bar defaults after an explicit last bar beyond the snapshot end", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          { id: 1, length: 1, description: "A", notes: [] },
+          { id: 2, length: 1, description: "B", notes: [] },
+          { id: 3, length: 1, description: "C", notes: [] },
+        ]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 5, numerator: 7, denominator: 8 },
+        ]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={1}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("new bar position").value).toBe("6");
+    expect(screen.getByLabelText("new bar numerator").value).toBe("7");
+    expect(screen.getByLabelText("new bar denominator").value).toBe("8");
+  });
+
   it("wraps mid-snapshot tempo rows in the structural bar wrapper inside the expanded event flow", () => {
     const { container } = render(
       <Sequencer

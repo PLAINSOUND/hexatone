@@ -220,10 +220,13 @@ const Sequencer = ({
   const [timedTransportClockSeconds, setTimedTransportClockSeconds] = useState(0);
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
-  const suggestedBarPosition = useMemo(
-    () => String(Math.max(1, snapshots.length + 1)),
-    [snapshots.length],
-  );
+  const suggestedBarPosition = useMemo(() => {
+    const snapshotEndPosition = Math.max(1, snapshots.length + 1);
+    const lastBarPosition = sortedBars.length > 0
+      ? Math.max(...sortedBars.map((bar) => Math.round(Number(bar?.position) || 1)))
+      : 0;
+    return String(Math.max(snapshotEndPosition, lastBarPosition + 1));
+  }, [snapshots.length, sortedBars]);
   const suggestedBarMeter = useMemo(() => {
     const targetPosition = Math.max(1, Number(suggestedBarPosition) || 1);
     const previousBar = [...sortedBars]
