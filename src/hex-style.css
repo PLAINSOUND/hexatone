@@ -708,7 +708,7 @@ a:hover {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  transition: background-color 0.1s ease;
+  transition: background-color 0.085s ease, color 0.085s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -792,9 +792,18 @@ a:hover {
   background-color: rgba(220, 200, 200, 0.85);
 }
 
+.snapshot-play-btn:active {
+  background-color: rgba(245, 221, 210, 0.78);
+}
+
 .snapshot-play-btn--plain:active,
 .snapshot-playing .snapshot-play-btn--plain {
   background: transparent;
+}
+
+.snapshot-play-btn--plain:active {
+  color: #550000;
+  box-shadow: none;
 }
 
 .snapshot-playing .snapshot-play-btn {

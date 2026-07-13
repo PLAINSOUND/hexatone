@@ -215,6 +215,8 @@
 }
 
 .section-collapse-toggle {
+  appearance: none;
+  -webkit-appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -227,6 +229,15 @@
   font-size: 0.95em;
   line-height: 1;
   vertical-align: middle;
+  background: var(--color-bg-btn-alt);
+  border: 1px solid var(--color-border-ui);
+  border-radius: 3px;
+  box-shadow: none;
+  transition: background-color 0.085s ease;
+}
+
+.section-collapse-toggle:hover {
+  background: var(--color-bg-btn-alt-hover);
 }
 
 .disclosure-toggle-glyph {
@@ -1170,11 +1181,32 @@ td.scale-color-col .color-input {
   border: 1px solid var(--color-border-ui);
   color: var(--color-text);
   border-radius: var(--btn-radius-square);
+  transition: background-color 0.085s ease;
 }
 
 .preset-action-btn:hover,
 .preset-utility-btn:hover {
   background: var(--color-bg-btn-alt-hover);
+}
+
+.preset-action-btn:active,
+.preset-utility-btn:active {
+  background: #f5ddd2;
+}
+
+.section-collapse-toggle:active {
+  background: #f5ddd2;
+  border-color: var(--color-border-ui);
+  box-shadow: none;
+}
+
+.section-collapse-toggle:focus {
+  outline: none;
+}
+
+.section-collapse-toggle:focus-visible {
+  outline: 1px solid var(--color-border-ui);
+  outline-offset: 1px;
 }
 
 .preset-utility-btn {
