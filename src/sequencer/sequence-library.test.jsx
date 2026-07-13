@@ -2,10 +2,12 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SequenceLibrary, { loadUserSequences, normalizeSequenceRecord } from "./sequence-library.jsx";
+import { findPresetSequenceByName } from "./preset-sequences/index.js";
 
 function SequenceLibraryHarness({
   initialSnapshots = [],
   initialBars = [],
+  initialRepeats = [],
   initialTempi = [],
   initialSource = "",
   initialBuiltInName = "",
@@ -18,6 +20,7 @@ function SequenceLibraryHarness({
 }) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [bars, setBars] = useState(initialBars);
+  const [repeats, setRepeats] = useState(initialRepeats);
   const [tempi, setTempi] = useState(initialTempi);
   const [source, setSource] = useState(initialSource);
   const [builtInName, setBuiltInName] = useState(initialBuiltInName);
@@ -29,6 +32,7 @@ function SequenceLibraryHarness({
     <SequenceLibrary
       snapshots={snapshots}
       bars={bars}
+      repeats={repeats}
       tempi={tempi}
       snapshotLabelMode={snapshotLabelMode}
       autoCreateBars={autoCreateBars}
@@ -41,6 +45,7 @@ function SequenceLibraryHarness({
         onLoadSpy(sequence, options);
         setSnapshots(sequence.snapshots ?? []);
         setBars(sequence.bars ?? []);
+        setRepeats(sequence.repeats ?? []);
         setTempi(sequence.tempi ?? []);
         setSource(options?.source ?? "user");
         setBuiltInName(options?.source === "builtin" ? (sequence.name ?? "") : "");
@@ -51,6 +56,7 @@ function SequenceLibraryHarness({
       onClearSequence={() => {
         setSnapshots([]);
         setBars([]);
+        setRepeats([]);
         setTempi([]);
         setSource("");
         setBuiltInName("");
@@ -154,6 +160,32 @@ describe("SequenceLibrary", () => {
     expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("__draft__");
     expect(screen.getByRole("option", { name: "Unsaved sequence" })).toBeTruthy();
     expect(screen.getByText("Save current sequence and overwrite")).toBeTruthy();
+  });
+
+  it("saves a copy under a unique name", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "FALL",
+        snapshots: [{ id: 1, notes: [] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      }),
+    ]));
+
+    const onLoadSpy = vi.fn();
+
+    render(
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 99, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+        initialBars={[{ id: 1, position: 1, numerator: 3, denominator: 2 }]}
+        initialName="FALL"
+        onLoadSpy={onLoadSpy}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Save as copy"));
+
+    expect(loadUserSequences().map((sequence) => sequence.name)).toEqual(["FALL", "FALL 2"]);
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("FALL 2");
   });
 
   it("loads a selected saved sequence immediately when the workspace is empty", () => {
@@ -336,10 +368,28 @@ describe("SequenceLibrary", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("Save current sequence"));
+    fireEvent.click(screen.getByText("Save current sequence in user library"));
 
     expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe("");
     expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("FALL");
+  });
+
+  it("uses the user-library save label for built-in sequences", () => {
+    const builtIn = findPresetSequenceByName("FALL");
+
+    render(
+      <SequenceLibraryHarness
+        initialSource="builtin"
+        initialBuiltInName="FALL"
+        initialSnapshots={builtIn?.snapshots ?? []}
+        initialBars={builtIn?.bars ?? []}
+        initialRepeats={builtIn?.repeats ?? []}
+        initialTempi={builtIn?.tempi ?? []}
+        initialName="FALL"
+      />,
+    );
+
+    expect(screen.getByText("Save current sequence in user library")).toBeTruthy();
   });
 
   it("does not show overwrite messaging when a built-in sequence shares a name with a clean saved user sequence", () => {
@@ -360,7 +410,7 @@ describe("SequenceLibrary", () => {
       />,
     );
 
-    expect(screen.getByText("Save current sequence")).toBeTruthy();
+    expect(screen.getByText("Save current sequence in user library")).toBeTruthy();
     expect(screen.queryByText("Save current sequence and overwrite")).toBeNull();
   });
 
@@ -396,6 +446,50 @@ describe("SequenceLibrary", () => {
     expect(onLoadSpy).toHaveBeenCalledWith(
       expect.objectContaining({ name: "FALL" }),
       expect.objectContaining({ source: "builtin" }),
+    );
+  });
+
+  it("does not warn when switching from a clean built-in sequence to a user sequence with the same name but different data", () => {
+    const builtIn = findPresetSequenceByName("FALL");
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      normalizeSequenceRecord({
+        name: "FALL",
+        snapshots: [
+          { id: 10, notes: [{ id: "u", midicents: 70, start: 0, end: 1 }] },
+        ],
+        bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
+      }),
+    ]));
+
+    const confirmSpy = vi.fn(() => true);
+    window.confirm = confirmSpy;
+    const onLoadSpy = vi.fn();
+
+    render(
+      <SequenceLibraryHarness
+        initialSource="builtin"
+        initialBuiltInName="FALL"
+        initialSnapshots={builtIn?.snapshots ?? []}
+        initialBars={builtIn?.bars ?? []}
+        initialRepeats={builtIn?.repeats ?? []}
+        initialTempi={builtIn?.tempi ?? []}
+        initialName="FALL"
+        initialDescription={builtIn?.description ?? ""}
+        snapshotLabelMode={builtIn?.snapshotLabelMode ?? "labels"}
+        autoCreateBars={builtIn?.autoCreateBars ?? true}
+        onLoadSpy={onLoadSpy}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "User sequences" }), {
+      currentTarget: { value: "FALL" },
+      target: { value: "FALL" },
+    });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "FALL" }),
+      expect.objectContaining({ source: "user" }),
     );
   });
 });

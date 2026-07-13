@@ -34,18 +34,19 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
   // Increment importCount from outside the hook (e.g. onChange equivSteps / scale_divide).
   const bumpImportCount = () => setImportCount((c) => c + 1);
 
-  const onImport = () => {
+  const onImport = (overrideScaleImport = null) => {
     setImportCount((c) => c + 1);
     // On fresh load, scale exists but scale_import may not — ensure the app
     // is marked ready so the keyboard renders with the loaded scale.
-    if (!settings.scale_import && settings.scale) {
+    if (!(overrideScaleImport ?? settings.scale_import) && settings.scale) {
       onReady();
       onUserInteraction();
     }
     setSettings((s) => {
-      if (!s.scale_import) return s;
+      const scaleImport = typeof overrideScaleImport === "string" ? overrideScaleImport : s.scale_import;
+      if (!scaleImport) return s;
 
-      const parsed = parseScale(s.scale_import);
+      const parsed = parseScale(scaleImport);
       const { filename, description, equivSteps, scale, labels, colors } = parsed;
       const scala_names = parsedScaleToLabels(scale);
       const importedEquivSteps = Number.isFinite(Number(equivSteps)) ? Number(equivSteps) : scale?.length;
@@ -88,6 +89,7 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
 
       return {
         ...s,
+        scale_import: scaleImport,
         name: filename || s.name,
         description: description || s.description,
         equivSteps: importedEquivSteps,

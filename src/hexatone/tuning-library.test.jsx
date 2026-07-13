@@ -161,6 +161,21 @@ describe("TuningLibrary", () => {
     expect(screen.getByRole("combobox", { name: "User tunings" }).value).toBe("Workspace");
   });
 
+  it("uses the user-library save label for built-in tunings", () => {
+    render(
+      <TuningLibraryHarness
+        initialSettings={{
+          name: "Built A",
+          scale: ["100.", "1200."],
+        }}
+        initialSource="builtin"
+        initialPresetName="Built A"
+      />,
+    );
+
+    expect(screen.getByText("Save current settings in user library")).toBeTruthy();
+  });
+
   it("saves a copy with a unique numbered name", () => {
     render(
       <TuningLibraryHarness

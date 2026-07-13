@@ -1,4 +1,5 @@
 import { createRef } from "preact";
+import { useEffect, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
   settingsToPlainScala,
@@ -24,13 +25,25 @@ const safeName = (settings) => (settings.name || "custom").replace(/[^a-zA-Z0-9_
 const ScalaImport = (props) => {
   const fileInputRef = createRef();
   const hasNegativeExportValues = hasNegativeScalaExportValues(props.settings);
+  const [scaleImportDraft, setScaleImportDraft] = useState(props.settings.scale_import || "");
+
+  useEffect(() => {
+    setScaleImportDraft(props.settings.scale_import || "");
+  }, [props.settings.scale_import]);
+
+  const commitScaleImportDraft = (value) => {
+    if (value === (props.settings.scale_import || "")) return;
+    props.onChange("scale_import", value);
+  };
 
   const handleFileOpen = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      props.onChange("scale_import", ev.target.result);
+      const nextValue = String(ev.target.result ?? "");
+      setScaleImportDraft(nextValue);
+      props.onChange("scale_import", nextValue);
     };
     reader.readAsText(file);
     // Reset so the same file can be re-opened if needed
@@ -71,8 +84,9 @@ const ScalaImport = (props) => {
         <label>
           <textarea
             name="scale_import"
-            onInput={(e) => props.onChange(e.currentTarget.name, e.currentTarget.value)}
-            value={props.settings.scale_import}
+            onInput={(e) => setScaleImportDraft(e.currentTarget.value)}
+            onBlur={(e) => commitScaleImportDraft(e.currentTarget.value)}
+            value={scaleImportDraft}
           />
         </label>
         <br />
@@ -88,7 +102,13 @@ const ScalaImport = (props) => {
           Open .scl / .ascl file
         </button>
         &nbsp;&nbsp;
-        <button type="button" onClick={props.onImport}>
+        <button
+          type="button"
+          onClick={() => {
+            commitScaleImportDraft(scaleImportDraft);
+            props.onImport(scaleImportDraft);
+          }}
+        >
           Build Layout
         </button>
       </fieldset>

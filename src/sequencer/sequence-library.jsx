@@ -164,12 +164,23 @@ const SequenceLibrary = ({
     () => savedSequences.find((sequence) => sequence.name === savedSequenceName) ?? null,
     [savedSequences, savedSequenceName],
   );
+  const activeBuiltInSequence = useMemo(
+    () => (
+      activeSource === "builtin" && activeBuiltInName
+        ? findPresetSequenceByName(activeBuiltInName)
+        : null
+    ),
+    [activeBuiltInName, activeSource],
+  );
   const hasUnsavedChanges = useMemo(() => {
     if (!workspaceRecord || !workspaceHasContent) return false;
+    if (activeSource === "builtin" && activeBuiltInSequence) {
+      return sequenceRecordContentKey(workspaceRecord) !== sequenceRecordContentKey(activeBuiltInSequence);
+    }
     if (!activeSavedSequence) return true;
     return sequenceRecordKey({ ...workspaceRecord, name: activeSavedSequence.name })
       !== sequenceRecordKey(activeSavedSequence);
-  }, [activeSavedSequence, workspaceHasContent, workspaceRecord]);
+  }, [activeBuiltInSequence, activeSavedSequence, activeSource, workspaceHasContent, workspaceRecord]);
   const nameCollision = useMemo(
     () => (
       activeSource !== "builtin" &&
@@ -181,6 +192,8 @@ const SequenceLibrary = ({
   );
   const workspaceStatus = !workspaceHasContent
     ? "empty"
+    : activeSource === "builtin" && activeBuiltInSequence && !hasUnsavedChanges
+      ? "builtin-clean"
     : !activeSavedSequence
       ? "draft"
       : hasUnsavedChanges
@@ -195,9 +208,11 @@ const SequenceLibrary = ({
       ? DRAFT_SEQUENCE_VALUE
       : "";
   const builtInMenuValue = activeSource === "builtin" ? activeBuiltInName : "";
-  const saveLabel = (activeSavedSequence && hasUnsavedChanges) || nameCollision
-    ? "Save current sequence and overwrite"
-    : "Save current sequence";
+  const saveLabel = activeSource === "builtin"
+    ? "Save current sequence in user library"
+    : (activeSavedSequence && hasUnsavedChanges) || nameCollision
+      ? "Save current sequence and overwrite"
+      : "Save current sequence";
 
   const commitSequences = useCallback((next) => {
     saveUserSequences(next);
@@ -276,6 +291,25 @@ const SequenceLibrary = ({
     commitSequences(next);
     setError("");
     onSequenceSaved?.(sequenceName);
+  }, [
+    buildWorkspaceRecord,
+    commitSequences,
+    onSequenceSaved,
+    savedSequences,
+    sequenceName,
+  ]);
+
+  const handleSaveCopy = useCallback(() => {
+    const baseName = sequenceName || "User Sequence";
+    const uniqueName = uniqueSequenceName(baseName, new Set(savedSequences.map((entry) => entry.name)));
+    const record = buildWorkspaceRecord(uniqueName);
+    if (!record) {
+      setError("There is no valid sequence to save.");
+      return;
+    }
+    commitSequences([...savedSequences, record]);
+    setError("");
+    onSequenceSaved?.(uniqueName);
   }, [
     buildWorkspaceRecord,
     commitSequences,
@@ -452,6 +486,25 @@ const SequenceLibrary = ({
           <b>User Sequences</b>
         </legend>
 
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".json"
+          class="settings-form__hidden-file-input"
+          onChange={handleOpenFiles}
+        />
+
+        <div class="preset-actions preset-actions--library">
+          <button
+            type="button"
+            class="preset-action-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Open File(s)…
+          </button>
+        </div>
+
         {(savedSequences.length > 0 || showDraftOption) && (
         <label class="preset-selector-row">
           <select aria-label="User sequences" value={menuValue} onChange={handleSelect}>
@@ -487,23 +540,7 @@ const SequenceLibrary = ({
         </label>
         )}
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept=".json"
-          class="settings-form__hidden-file-input"
-          onChange={handleOpenFiles}
-        />
-
         <div class="preset-actions preset-actions--library">
-          <button
-            type="button"
-            class="preset-action-btn"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Open File(s)…
-          </button>
           {savedSequences.length > 0 &&
             (
               <span class="preset-actions__clear-slot">
@@ -535,6 +572,9 @@ const SequenceLibrary = ({
             <span class="settings-form__action-group settings-form__action-group--wrap">
               <button type="button" class="preset-action-btn" onClick={handleSave}>
                 {saveLabel}
+              </button>
+              <button type="button" class="preset-action-btn" onClick={handleSaveCopy}>
+                Save as copy
               </button>
             </span>
             <span class="settings-form__action-group">

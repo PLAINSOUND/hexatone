@@ -86,9 +86,11 @@ const TuningLibrary = ({
     existingUserTuning.name === activePresetName
   );
   const showWorkspaceActions = !!activeSource || (hasWorkspace && !!tuningName);
-  const saveLabel = existingUserTuning && (!isLoadedExistingUserTuning || isPresetDirty)
-    ? "Save current settings and overwrite user preset"
-    : "Save current settings";
+  const saveLabel = activeSource === "builtin"
+    ? "Save current settings in user library"
+    : existingUserTuning && (!isLoadedExistingUserTuning || isPresetDirty)
+      ? "Save current settings and overwrite user preset"
+      : "Save current settings";
   const hasUnsavedWorkspace = !!workspaceRecord && (
     (!activeSource && !!tuningName) ||
     (activeSource === "builtin" && !!isPresetDirty) ||
@@ -388,8 +390,8 @@ const TuningLibrary = ({
           onChange={(e) => void handleImportFolders(e)}
         />
 
-        <div class="preset-actions preset-actions--library">
-          <span class="settings-form__action-group settings-form__action-group--wrap">
+        <div class="preset-actions preset-actions--library preset-actions--library-import">
+          <span class="settings-form__action-group preset-actions__import-group">
             <button type="button" class="preset-action-btn" onClick={handleOpenFiles}>
               Open File(s)...
             </button>
@@ -397,15 +399,15 @@ const TuningLibrary = ({
               Import Folder(s)...
             </button>
           </span>
+          <label class="settings-form__checkbox-row preset-actions__inline-checkbox">
+            <input
+              type="checkbox"
+              checked={includeSubfolders}
+              onChange={(e) => setIncludeSubfolders(e.target.checked)}
+            />
+            <em class="settings-form__helper-text">Include subfolders</em>
+          </label>
         </div>
-        <label class="settings-form__checkbox-row settings-form__checkbox-row--sm">
-          <input
-            type="checkbox"
-            checked={includeSubfolders}
-            onChange={(e) => setIncludeSubfolders(e.target.checked)}
-          />
-          <em class="settings-form__helper-text">Include subfolders</em>
-        </label>
 
         {userTunings.length > 0 && (
           <label class="preset-selector-row">

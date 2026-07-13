@@ -63,8 +63,11 @@ const Scale = (props) => {
     return keys.subscribeLiveScaleTable(setLiveScaleTableSnapshot);
   }, [collapsed, props.keysRef, props.keysReadyRevision]);
 
-  const doImport = () => {
-    props.onImport();
+  const doImport = (scaleImportText = null) => {
+    if (typeof scaleImportText === "string" && scaleImportText !== props.settings.scale_import) {
+      props.onChange("scale_import", scaleImportText);
+    }
+    props.onImport(scaleImportText);
     setImporting(false);
   };
   const cancelImport = () => setImporting(false);

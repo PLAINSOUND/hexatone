@@ -734,6 +734,10 @@ td.scale-color-col .color-input {
   min-height: calc(1.5em + 0.2em + 2px);
 }
 
+.preset-actions--library-import {
+  flex-wrap: nowrap;
+}
+
 .preset-actions__clear-slot {
   display: inline-flex;
   align-items: center;
@@ -763,6 +767,21 @@ td.scale-color-col .color-input {
 
 .preset-actions__clear-trigger {
   margin-left: 0;
+}
+
+.preset-actions__inline-checkbox {
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 0.25rem;
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.preset-actions__import-group {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 
 .settings-form__hidden-file-input {
