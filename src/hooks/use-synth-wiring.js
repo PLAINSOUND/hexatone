@@ -627,6 +627,7 @@ const useSynthWiring = (
     const recoveredMidi = snapshotWebMidiPorts();
     if (!recoveredMidi) return;
     setMidi(recoveredMidi);
+    setMidiTick((current) => current + 1);
     setMidiAccess((current) => {
       if (current !== "none") return current;
       return settings.webmidi_sysex_enabled ? "sysex" : "basic";

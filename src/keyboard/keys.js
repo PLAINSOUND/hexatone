@@ -1887,6 +1887,22 @@ class Keys {
         InputMidiListeners.rebindMidiInput.call(this);
         return;
       }
+      let currentSelectedInput = null;
+      if (this.settings.midiin_device !== "OFF") {
+        try {
+          currentSelectedInput = WebMidi.getInputById(this.settings.midiin_device);
+        } catch {
+          currentSelectedInput = null;
+        }
+      }
+      if (
+        currentSelectedInput &&
+        this.midiin_data &&
+        currentSelectedInput !== this.midiin_data
+      ) {
+        InputMidiListeners.rebindMidiInput.call(this);
+        return;
+      }
       if (!this.midiin_data && this.settings.midiin_device !== "OFF") {
         InputMidiListeners.rebindMidiInput.call(this);
         return;

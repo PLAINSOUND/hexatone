@@ -5385,13 +5385,51 @@ describe("Keys MIDI input integration", () => {
       },
     );
 
-    expect(getInputById).toHaveBeenCalledTimes(2);
+    expect(getInputById).toHaveBeenCalledTimes(3);
     expect(input.addListener).toHaveBeenCalledWith("noteon", expect.any(Function));
     expect(input.addListener).toHaveBeenCalledWith("pitchbend", expect.any(Function));
     expect(keys.midiin_data).toBe(input);
     expect(keys.controller?.id).toBe("linnstrument");
     expect(keys.controllerMap).toBeInstanceOf(Map);
     expect(keys.syncLinnstrumentLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebinds MIDI input listeners when the selected input object is replaced under the same id", () => {
+    const staleInput = {
+      name: "Lumatone",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    const refreshedInput = {
+      name: "Lumatone",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    };
+    const getInputById = vi.spyOn(WebMidi, "getInputById")
+      .mockReturnValueOnce(staleInput)
+      .mockReturnValue(refreshedInput);
+
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+    });
+
+    expect(keys.midiin_data).toBe(staleInput);
+
+    keys.updateInputRuntime(
+      { ...keys.inputRuntime },
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+      },
+    );
+
+    expect(getInputById).toHaveBeenCalledTimes(3);
+    expect(staleInput.removeListener).toHaveBeenCalledWith("noteon");
+    expect(staleInput.removeListener).toHaveBeenCalledWith("pitchbend");
+    expect(refreshedInput.addListener).toHaveBeenCalledWith("noteon", expect.any(Function));
+    expect(refreshedInput.addListener).toHaveBeenCalledWith("pitchbend", expect.any(Function));
+    expect(keys.midiin_data).toBe(refreshedInput);
   });
 
   it("applies channel offsets for generic keyboard step arithmetic without a controller map", () => {
