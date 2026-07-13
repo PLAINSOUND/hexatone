@@ -23,6 +23,9 @@ const TempoRow = ({
   );
   const sequenceTime = tempoPosition.toFixed(6);
   const isAlwaysOnTempo = Math.abs(tempoPosition - 1) < 1e-9;
+  const isTransitionTempo = tempo.mode === "transition";
+  const tempoLabel = isTransitionTempo ? "target:" : "";
+  const transitionCue = timing.tempoTransitionCueMap?.get(tempoId) ?? null;
   const beatNumerator = String(tempo.beatNumerator ?? 1);
   const beatDenominator = String(tempo.beatDenominator ?? 4);
   const draftKey = timing.tempoBarRelativeDraftKey(tempoId);
@@ -44,7 +47,7 @@ const TempoRow = ({
   return (
     <div
       key={`tempo:${tempoId}`}
-      class={`sequencer-tempo-row${isTempoBarRelativeDraftActive ? " sequencer-tempo-row--bar-relative-draft" : ""}`}
+      class={`sequencer-tempo-row${isTempoBarRelativeDraftActive ? " sequencer-tempo-row--bar-relative-draft" : ""}${isTransitionTempo ? " sequencer-tempo-row--transition" : " sequencer-tempo-row--immediate"}`}
       data-bar-relative-draft-scope={`tempo:${draftKey}`}
     >
       <div class="sequencer-tempo-row__line" aria-hidden="true" />
@@ -66,6 +69,9 @@ const TempoRow = ({
       </div>
       <div class="sequencer-tempo-row__gutter-spacer" aria-hidden="true" />
       <div class="sequencer-tempo-row__summary sequencer-grid-offset">
+        {tempoLabel ? (
+          <span class="sequencer-tempo-row__label">{tempoLabel}</span>
+        ) : null}
         <input
           type="number"
           step="1"
@@ -103,6 +109,11 @@ const TempoRow = ({
         />
         <span class="sequencer-tempo-row__summary-unit">bpm</span>
       </div>
+      {transitionCue ? (
+        <div class="sequencer-tempo-row__transition-cue sequencer-grid-offset">
+          {transitionCue.text}
+        </div>
+      ) : null}
       <div class="sequencer-event__cell sequencer-bar-row__position-cell sequencer-tempo-row__position-cell">
         <input
           type="text"

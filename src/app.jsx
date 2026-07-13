@@ -855,7 +855,7 @@ const App = () => {
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [sequenceBars, setSequenceBars] = useState(() => normalizeBarMarkers([{ id: 1, position: 1 }]));
-  const [sequenceTempi, setSequenceTempi] = useState(() => normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
+  const [sequenceTempi, setSequenceTempi] = useState(() => normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1, mode: "immediate" }]));
   const [sequenceRepeats, setSequenceRepeats] = useState([]);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
@@ -1318,10 +1318,18 @@ const App = () => {
     setSequenceBars((prev) => prev.filter((bar) => bar.id !== id));
   }, []);
 
-  const onAddSequenceTempo = useCallback((position = null, bpm = 60) => {
+  const onAddSequenceTempo = useCallback((position = null, bpm = 60, mode = "immediate") => {
     setSequenceTempi((prev) => {
       const id = prev.reduce((max, tempo) => Math.max(max, Number(tempo?.id) || 0), 0) + 1;
-      return [...prev, { id, position, bpm, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }];
+      return [...prev, {
+        id,
+        position,
+        bpm,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: mode === "transition" ? "transition" : "immediate",
+      }];
     });
   }, []);
 

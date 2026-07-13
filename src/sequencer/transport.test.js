@@ -5,6 +5,7 @@ import {
   buildTempoSegments,
   deriveImplicitRepeatStartPosition,
   deriveImplicitRepeatStartPositionsForDanglingEnds,
+  deriveTempoTransitionCueMap,
   deriveTerminalBarlinePosition,
   normalizeBarMarkers,
   normalizeRepeatMarkers,
@@ -26,6 +27,7 @@ describe("sequencer transport", () => {
         beatNumerator: 1,
         beatDenominator: 4,
         beatLength: 1,
+        mode: "immediate",
       },
     ]);
   });
@@ -36,8 +38,18 @@ describe("sequencer transport", () => {
       { id: "b", position: 1, bpm: 72, beatLength: 0.5 },
       { id: "c", position: 3, bpm: 90, beatLength: 1 },
     ])).toEqual([
-      { id: "b", position: 1, bpm: 72, beatNumerator: 1, beatDenominator: 8, beatLength: 0.5 },
-      { id: "c", position: 3, bpm: 90, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+      { id: "b", position: 1, bpm: 72, beatNumerator: 1, beatDenominator: 8, beatLength: 0.5, mode: "immediate" },
+      { id: "c", position: 3, bpm: 90, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+    ]);
+  });
+
+  it("preserves explicit transition tempo markers and defaults missing modes to immediate", () => {
+    expect(normalizeTempoMarkers([
+      { id: "a", position: 1, bpm: 60, beatLength: 1 },
+      { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
+    ], { includeDefault: false })).toEqual([
+      { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
     ]);
   });
 
@@ -89,6 +101,7 @@ describe("sequencer transport", () => {
         beatNumerator: 1,
         beatDenominator: 4,
         beatLength: 1,
+        mode: "immediate",
         startPosition: 1,
         endPosition: 3,
         startSeconds: 0,
@@ -101,12 +114,61 @@ describe("sequencer transport", () => {
         beatNumerator: 1,
         beatDenominator: 4,
         beatLength: 1,
+        mode: "immediate",
         startPosition: 3,
         endPosition: Infinity,
         startSeconds: 2,
         secondsPerUnit: 0.5,
       },
     ]);
+  });
+
+  it("derives transition cues from normalized tempo targets using whole-note speed", () => {
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+      { id: 2, position: 2, numerator: 3, denominator: 2 },
+      { id: 3, position: 4, numerator: 4, denominator: 4 },
+    ];
+
+    const cues = deriveTempoTransitionCueMap([
+      { id: "t1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+      { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, mode: "transition" },
+      { id: "t3", position: 4, bpm: 48, beatNumerator: 1, beatDenominator: 4, mode: "transition" },
+    ], bars);
+
+    expect(cues.get("t1")).toEqual({
+      anchorTempoId: "t1",
+      targetTempoId: "t2",
+      direction: "ritardando",
+      targetBarBeat: {
+        barNumber: 2,
+        beat: 1,
+        numerator: 0,
+        denominator: 1,
+        barStart: 2,
+        barLength: 2,
+        beatsPerBar: 3,
+        beatUnit: 2,
+      },
+      text: "ritardando until 3/16 = 72 bpm at Bar 2 Beat 1",
+    });
+
+    expect(cues.get("t2")).toEqual({
+      anchorTempoId: "t2",
+      targetTempoId: "t3",
+      direction: "ritardando",
+      targetBarBeat: {
+        barNumber: 3,
+        beat: 1,
+        numerator: 0,
+        denominator: 1,
+        barStart: 4,
+        barLength: 1,
+        beatsPerBar: 4,
+        beatUnit: 4,
+      },
+      text: "ritardando until 1/4 = 48 bpm at Bar 3 Beat 1",
+    });
   });
 
   it("maps exact sequence positions to seconds under tempo automation", () => {

@@ -90,7 +90,14 @@ describe("Sequencer", () => {
 
     render(
       <Sequencer
-        snapshots={[]}
+        snapshots={[
+          {
+            id: 1,
+            length: 1,
+            notes: [],
+            description: "",
+          },
+        ]}
         bars={[{ id: 1, position: 1 }]}
         snapshotLabelMode="labels"
         selectedSnapshotId={null}
@@ -131,6 +138,114 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Empty" }));
     expect(onAddEmptySnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers a separate Add Tempo Target action in sequence controls", () => {
+    render(
+      <Sequencer
+        snapshots={[]}
+        bars={[{ id: 1, position: 1 }]}
+        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={null}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onAddEmptySnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Add Tempo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add Target Tempo" })).toBeTruthy();
+  });
+
+  it("renders a derived transition cue on the previous tempo row", () => {
+    const { container } = render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 1,
+            length: 1,
+            notes: [],
+            description: "",
+          },
+        ]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 3, denominator: 2 },
+        ]}
+        tempi={[
+          { id: "t1", position: 1.5, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+          { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75, mode: "transition" },
+        ]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={null}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onAddEmptySnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+      />,
+    );
+
+    expect(container.querySelector(".sequencer-tempo-row__transition-cue")?.textContent).toContain("ritardando until 3/16 = 72 bpm at Bar 2 Beat 1");
   });
 
   it("duplicates the save current sequence action at the bottom of Edit & Play", () => {
@@ -414,6 +529,199 @@ describe("Sequencer", () => {
     rerender(<Sequencer {...baseProps} sequenceLegato={false} />);
 
     expect(screen.getByLabelText("pause timed transport")).toBeTruthy();
+    vi.useRealTimers();
+  });
+
+  it("stops timed playback before jumping the timed transport to the start or end", () => {
+    vi.useFakeTimers();
+    const originalRaf = window.requestAnimationFrame;
+    const originalCancelRaf = window.cancelAnimationFrame;
+    const raf = vi.fn(() => 1);
+    const cancelRaf = vi.fn();
+    window.requestAnimationFrame = raf;
+    window.cancelAnimationFrame = cancelRaf;
+    globalThis.requestAnimationFrame = raf;
+    globalThis.cancelAnimationFrame = cancelRaf;
+
+    const { rerender } = render(
+      <Sequencer
+        snapshots={[
+          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
+          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: false }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onJumpSequenceEnd={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("move timed transport to end"));
+    expect(screen.getByLabelText("play timed transport")).toBeTruthy();
+
+    rerender(
+      <Sequencer
+        snapshots={[
+          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
+          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: false }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onJumpSequenceEnd={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("move timed transport to start"));
+    expect(screen.getByLabelText("play timed transport")).toBeTruthy();
+
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCancelRaf;
+    globalThis.requestAnimationFrame = originalRaf;
+    globalThis.cancelAnimationFrame = originalCancelRaf;
+    vi.useRealTimers();
+  });
+
+  it("stops timed playback when PLAY FROM selectors are changed", () => {
+    vi.useFakeTimers();
+    const originalRaf = window.requestAnimationFrame;
+    const originalCancelRaf = window.cancelAnimationFrame;
+    const raf = vi.fn(() => 1);
+    const cancelRaf = vi.fn();
+    window.requestAnimationFrame = raf;
+    window.cancelAnimationFrame = cancelRaf;
+    globalThis.requestAnimationFrame = raf;
+    globalThis.cancelAnimationFrame = cancelRaf;
+
+    render(
+      <Sequencer
+        snapshots={[
+          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
+          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: false }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onJumpSequenceEnd={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
+    expect(screen.getByLabelText("play timed transport")).toBeTruthy();
+    expect(screen.getByLabelText("next cue target").value).toBe("1");
+
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCancelRaf;
+    globalThis.requestAnimationFrame = originalRaf;
+    globalThis.cancelAnimationFrame = originalCancelRaf;
     vi.useRealTimers();
   });
 

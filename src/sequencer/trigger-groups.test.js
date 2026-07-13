@@ -390,8 +390,40 @@ describe("deriveSnapshotTriggerGroups", () => {
 
     expect(events.find((event) => event.type === "tempo")).toEqual(
       expect.objectContaining({
+        mode: "immediate",
         beatNumerator: 1,
         beatDenominator: 4,
+      }),
+    );
+  });
+
+  it("preserves transition tempo marker mode in derived sequence events", () => {
+    const events = deriveSequenceEvents(
+      [
+        {
+          id: 1,
+          length: 1,
+          notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+        },
+      ],
+      [{ id: 100, position: 1 }],
+      [
+        { id: 200, position: 1, bpm: 60, beatLength: 1, mode: "immediate" },
+        { id: 201, position: 1.5, bpm: 72, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75, mode: "transition" },
+      ],
+      [],
+    );
+
+    expect(events.find((event) => event.tempoId === 200)).toEqual(
+      expect.objectContaining({
+        type: "tempo",
+        mode: "immediate",
+      }),
+    );
+    expect(events.find((event) => event.tempoId === 201)).toEqual(
+      expect.objectContaining({
+        type: "tempo",
+        mode: "transition",
       }),
     );
   });

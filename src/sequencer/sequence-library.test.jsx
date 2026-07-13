@@ -112,6 +112,28 @@ describe("SequenceLibrary", () => {
     );
   });
 
+  it("reloads the selected built-in sequence from the packaged library", () => {
+    const onLoadSpy = vi.fn();
+
+    render(
+      <SequenceLibraryHarness
+        initialSource="builtin"
+        initialBuiltInName="FALL"
+        initialName="FALL"
+        initialSnapshots={[{ id: 999, notes: [{ id: "stale", midicents: 69, start: 0, end: 1 }] }]}
+        onLoadSpy={onLoadSpy}
+      />,
+    );
+
+    const refreshButtons = document.querySelectorAll(".preset-refresh-btn");
+    fireEvent.click(refreshButtons[0]);
+
+    expect(onLoadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "FALL" }),
+      expect.objectContaining({ source: "builtin" }),
+    );
+  });
+
   it("shows an unsaved draft in the menu and prompts overwrite on name collision", () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       normalizeSequenceRecord({

@@ -209,4 +209,49 @@ describe("playback timeline", () => {
     expect(elapsed[2]).toBeCloseTo(4.444444, 5);
     expect(elapsed[3]).toBeCloseTo(6.666667, 6);
   });
+
+  it("compresses cue spacing across a gradual transition target before the destination marker", () => {
+    const snapshots = [
+      {
+        id: "s1",
+        length: 1,
+        notes: [
+          { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+        ],
+      },
+      {
+        id: "s2",
+        length: 1,
+        notes: [
+          { id: "n2", midicents: 72, attackVelocity: 75, releaseVelocity: 35, start: 0, end: 0.5 },
+        ],
+      },
+    ];
+    const bars = [{ id: "bar-1", position: 1, numerator: 1, denominator: 1 }];
+    const immediateTempi = [
+      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+    ];
+    const transitionTempi = [
+      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
+    ];
+
+    const immediateTimeline = buildPlaybackTimeline({ snapshots, bars, tempi: immediateTempi });
+    const transitionTimeline = buildPlaybackTimeline({ snapshots, bars, tempi: transitionTempi });
+
+    const immediateElapsed = immediateTimeline.playbackBursts.map((burst) => burst.elapsedSeconds);
+    const transitionElapsed = transitionTimeline.playbackBursts.map((burst) => burst.elapsedSeconds);
+
+    expect(immediateElapsed).toEqual([0, 1, 2, 3, 4]);
+    expect(transitionElapsed[0]).toBe(0);
+    expect(transitionElapsed[1]).toBeCloseTo(0.892574, 5);
+    expect(transitionElapsed[2]).toBeCloseTo(1.62186, 5);
+    expect(transitionElapsed[3]).toBeCloseTo(2.238463, 5);
+    expect(transitionElapsed[4]).toBeCloseTo(2.772589, 5);
+    expect(transitionElapsed[1]).toBeLessThan(immediateElapsed[1]);
+    expect(transitionElapsed[2]).toBeLessThan(immediateElapsed[2]);
+    expect(transitionElapsed[3]).toBeLessThan(immediateElapsed[3]);
+    expect(transitionElapsed[4]).toBeLessThan(immediateElapsed[4]);
+  });
 });

@@ -19,6 +19,13 @@ function normalizeSeconds(value) {
   return Math.round(Number(value) * 1000000) / 1000000;
 }
 
+function canonicalWholeNotesPerMinute(marker) {
+  const bpm = Math.max(0.000001, Number(marker?.bpm) || 60);
+  const beatNumerator = Math.max(1, Math.round(Number(marker?.beatNumerator) || 1));
+  const beatDenominator = Math.max(1, Math.round(Number(marker?.beatDenominator) || 4));
+  return bpm * (beatNumerator / beatDenominator);
+}
+
 function buildBarTimingSegments(bars = [], terminalPosition = null) {
   const normalizedBars = normalizeBarMarkers(bars);
   const resolvedTerminalPosition = Number.isFinite(Number(terminalPosition))
@@ -95,8 +102,25 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
     const endQuarterNotes = Number.isFinite(endPosition)
       ? sequencePositionToQuarterNotes(endPosition, barTimingSegments)
       : Infinity;
-    const secondsPerQuarter = 60 / Number(marker.bpm || 60)
-      * (Number(marker.beatDenominator || 4) / (4 * Number(marker.beatNumerator || 1)));
+    const wholeNotesPerMinute = canonicalWholeNotesPerMinute(marker);
+    const nextWholeNotesPerMinute = canonicalWholeNotesPerMinute(nextMarker);
+    const nextMode = nextMarker?.mode === "transition" ? "transition" : "immediate";
+    const quarterNotesSpan = Number.isFinite(endQuarterNotes)
+      ? Math.max(0, endQuarterNotes - startQuarterNotes)
+      : Infinity;
+    const secondsPerQuarter = 15 / wholeNotesPerMinute;
+
+    let integratedSeconds = null;
+    if (Number.isFinite(quarterNotesSpan)) {
+      if (nextMarker && nextMode === "transition" && quarterNotesSpan > 1e-9) {
+        const slope = (nextWholeNotesPerMinute - wholeNotesPerMinute) / quarterNotesSpan;
+        integratedSeconds = Math.abs(slope) <= 1e-12
+          ? quarterNotesSpan * (15 / wholeNotesPerMinute)
+          : (15 / slope) * Math.log(nextWholeNotesPerMinute / wholeNotesPerMinute);
+      } else {
+        integratedSeconds = quarterNotesSpan * secondsPerQuarter;
+      }
+    }
 
     segments.push({
       startPosition,
@@ -105,10 +129,15 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
       endQuarterNotes,
       startSeconds: normalizeSeconds(elapsedSeconds),
       secondsPerQuarter,
+      wholeNotesPerMinute,
+      endWholeNotesPerMinute: nextMarker && nextMode === "transition"
+        ? nextWholeNotesPerMinute
+        : wholeNotesPerMinute,
+      transitionMode: nextMode,
     });
 
-    if (Number.isFinite(endQuarterNotes)) {
-      elapsedSeconds += Math.max(0, endQuarterNotes - startQuarterNotes) * secondsPerQuarter;
+    if (integratedSeconds != null) {
+      elapsedSeconds += integratedSeconds;
     }
   }
 
@@ -134,8 +163,24 @@ function sequencePositionToTimedSeconds(position, timingModel) {
   if (quarterNotes == null) return null;
   const segment = findTempoSegmentForPosition(position, timingModel.tempoSegments);
   if (!segment) return null;
+  const quarterNoteOffset = Math.max(0, quarterNotes - segment.startQuarterNotes);
+  let elapsedWithinSegment = quarterNoteOffset * segment.secondsPerQuarter;
+
+  if (
+    segment.transitionMode === "transition"
+    && Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
+  ) {
+    const quarterNotesSpan = Math.max(0, segment.endQuarterNotes - segment.startQuarterNotes);
+    const slope = quarterNotesSpan > 1e-9
+      ? (segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) / quarterNotesSpan
+      : 0;
+    if (Math.abs(slope) > 1e-12 && quarterNoteOffset > 0) {
+      const currentWholeNotesPerMinute = segment.wholeNotesPerMinute + slope * quarterNoteOffset;
+      elapsedWithinSegment = (15 / slope) * Math.log(currentWholeNotesPerMinute / segment.wholeNotesPerMinute);
+    }
+  }
   return normalizeSeconds(
-    segment.startSeconds + Math.max(0, quarterNotes - segment.startQuarterNotes) * segment.secondsPerQuarter,
+    segment.startSeconds + elapsedWithinSegment,
   );
 }
 

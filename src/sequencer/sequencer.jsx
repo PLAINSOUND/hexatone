@@ -9,6 +9,7 @@ import RepeatRow from "./repeat-row.jsx";
 import {
   absolutePositionToBarBeat,
   barContextForPosition,
+  deriveTempoTransitionCueMap,
   deriveTerminalBarlinePosition,
   normalizeBarMarkers,
   normalizeTempoMarkers,
@@ -234,6 +235,10 @@ const Sequencer = ({
   const terminalBarlinePosition = useMemo(
     () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
     [renderedSnapshots, sortedBars],
+  );
+  const tempoTransitionCueMap = useMemo(
+    () => deriveTempoTransitionCueMap(sortedTempi, sortedBars, terminalBarlinePosition),
+    [sortedBars, sortedTempi, terminalBarlinePosition],
   );
   const formatTransportBarBeat = useCallback((position) => {
     const resolved = absolutePositionToBarBeat(position, sortedBars, 1, 9, terminalBarlinePosition);
@@ -1316,7 +1321,16 @@ const Sequencer = ({
     const position = Number(newTempoPosition);
     const bpm = Number(newTempoBpm);
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
-    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm);
+    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "immediate");
+    setNewTempoPosition("1.000000");
+    setNewTempoBpm("60");
+  };
+
+  const addTempoTransitionAtRequestedPosition = () => {
+    const position = Number(newTempoPosition);
+    const bpm = Number(newTempoBpm);
+    if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
+    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "transition");
     setNewTempoPosition("1.000000");
     setNewTempoBpm("60");
   };
@@ -1376,10 +1390,12 @@ const Sequencer = ({
 
   const tempoRowTiming = {
     sortedBars,
+    sortedTempi,
     terminalBarlinePosition,
     tempoBarRelativeDraftKey,
     tempoBarRelativeDrafts,
     stoppedBarStateForBarNumber,
+    tempoTransitionCueMap,
   };
 
   const repeatRowTiming = {
@@ -1577,6 +1593,7 @@ const Sequencer = ({
           newTempoBpm={newTempoBpm}
           setNewTempoBpm={setNewTempoBpm}
           addTempoAtRequestedPosition={addTempoAtRequestedPosition}
+          addTempoTransitionAtRequestedPosition={addTempoTransitionAtRequestedPosition}
           newBarPosition={newBarPosition}
           setNewBarPosition={setNewBarPosition}
           addBarAtRequestedPosition={addBarAtRequestedPosition}

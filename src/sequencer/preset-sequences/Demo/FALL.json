@@ -16,7 +16,8 @@
       "bpm": 58,
       "beatNumerator": 1,
       "beatDenominator": 4,
-      "beatLength": 1
+      "beatLength": 1,
+      "mode": "immediate"
     }
   ],
   "snapshots": [

@@ -209,6 +209,7 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats =
       kind: "tempo",
       tempoId: tempo?.id ?? `tempo:${absoluteTime}:${tempoOrder}`,
       tempoOrder,
+      mode: tempo?.mode === "transition" ? "transition" : "immediate",
       bpm: Number(tempo?.bpm),
       beatNumerator: Number.isFinite(Number(tempo?.beatNumerator)) ? Number(tempo.beatNumerator) : 1,
       beatDenominator: Number.isFinite(Number(tempo?.beatDenominator)) ? Number(tempo.beatDenominator) : 4,

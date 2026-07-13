@@ -24,6 +24,17 @@ function tempoFractionToBeatLength(numerator, denominator) {
   return (4 * numerator) / denominator;
 }
 
+function normalizeTempoMode(value) {
+  return value === "transition" ? "transition" : "immediate";
+}
+
+function tempoWholeNotesPerMinute(marker) {
+  const bpm = normalizePositiveNumber(marker?.bpm, 60);
+  const beatNumerator = normalizePositiveInteger(marker?.beatNumerator, 1);
+  const beatDenominator = normalizePositiveInteger(marker?.beatDenominator, 4);
+  return bpm * (beatNumerator / beatDenominator);
+}
+
 function normalizeTempoMarker(marker, index) {
   const explicitBeatLength = normalizePositiveNumber(marker?.beatLength, 1);
   const beatFraction = marker?.beatNumerator != null || marker?.beatDenominator != null
@@ -41,6 +52,7 @@ function normalizeTempoMarker(marker, index) {
     beatNumerator: beatFraction.numerator,
     beatDenominator: beatFraction.denominator,
     beatLength,
+    mode: normalizeTempoMode(marker?.mode),
   };
 }
 
@@ -59,6 +71,7 @@ export function normalizeTempoMarkers(markers = [], options = {}) {
       beatNumerator: 1,
       beatDenominator: 4,
       beatLength: 1,
+      mode: "immediate",
     });
   }
 
@@ -146,6 +159,75 @@ export function buildTempoSegments(markers = []) {
   }
 
   return segments;
+}
+
+function formatBarBeatFractionTarget(barBeat) {
+  if (!barBeat) return "Bar 1 Beat 1";
+  let barNumber = barBeat.barNumber ?? 1;
+  let beat = barBeat.beat ?? 1;
+  let numerator = barBeat.numerator ?? 0;
+  let denominator = barBeat.denominator ?? 1;
+  const beatsPerBar = barBeat.beatsPerBar ?? 1;
+
+  if (denominator > 0 && numerator === denominator) {
+    beat += 1;
+    numerator = 0;
+    denominator = 1;
+    if (beat > beatsPerBar) {
+      barNumber += 1;
+      beat = 1;
+    }
+  }
+
+  const fractionText = numerator > 0 ? ` ${numerator}/${denominator}` : "";
+  return `Bar ${barNumber} Beat ${beat}${fractionText}`;
+}
+
+function formatTempoTarget(marker) {
+  const beatNumerator = normalizePositiveInteger(marker?.beatNumerator, 1);
+  const beatDenominator = normalizePositiveInteger(marker?.beatDenominator, 4);
+  const bpm = normalizePositiveNumber(marker?.bpm, 60);
+  return `${beatNumerator}/${beatDenominator} = ${bpm} bpm`;
+}
+
+export function deriveTempoTransitionCueMap(tempi = [], bars = [], terminalPosition = null) {
+  const normalizedTempi = normalizeTempoMarkers(tempi);
+  const cueMap = new Map();
+
+  for (let index = 1; index < normalizedTempi.length; index += 1) {
+    const marker = normalizedTempi[index];
+    if (marker.mode !== "transition") continue;
+
+    const anchor = normalizedTempi[index - 1] ?? null;
+    if (!anchor) continue;
+
+    const startRate = tempoWholeNotesPerMinute(anchor);
+    const endRate = tempoWholeNotesPerMinute(marker);
+    const direction = endRate > startRate + 1e-9
+      ? "accelerando"
+      : endRate < startRate - 1e-9
+        ? "ritardando"
+        : null;
+    if (!direction) continue;
+
+    const targetBarBeat = absolutePositionToBarBeat(
+      marker.position,
+      bars,
+      1,
+      9,
+      terminalPosition,
+    );
+
+    cueMap.set(anchor.id, {
+      anchorTempoId: anchor.id,
+      targetTempoId: marker.id,
+      direction,
+      targetBarBeat,
+      text: `${direction} until ${formatTempoTarget(marker)} at ${formatBarBeatFractionTarget(targetBarBeat)}`,
+    });
+  }
+
+  return cueMap;
 }
 
 function findTempoSegmentForPosition(position, segments) {

@@ -408,6 +408,14 @@ const SequenceLibrary = ({
     onLoadSequence(targetSequence, { source: "builtin" });
   };
 
+  const handleReloadBuiltIn = () => {
+    if (!activeBuiltInName) return;
+    const targetSequence = findPresetSequenceByName(activeBuiltInName);
+    if (!targetSequence) return;
+    setError("");
+    onLoadSequence(targetSequence, { source: "builtin" });
+  };
+
   return (
     <>
       <fieldset>
@@ -427,6 +435,15 @@ const SequenceLibrary = ({
               </optgroup>
             ))}
           </select>
+          {activeSource === "builtin" && activeBuiltInName && (
+            <button
+              type="button"
+              class="preset-refresh-btn"
+              onClick={handleReloadBuiltIn}
+            >
+              <span class="preset-refresh-glyph">⟳</span>
+            </button>
+          )}
         </label>
       </fieldset>
 

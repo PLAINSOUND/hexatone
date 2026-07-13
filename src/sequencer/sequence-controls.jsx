@@ -4,6 +4,13 @@ function selectControlValue(event) {
   event.currentTarget.select?.();
 }
 
+function stopTimedTransportBefore(action, timedTransportDisplay, onTimedTransportStop) {
+  if (timedTransportDisplay?.running || timedTransportDisplay?.paused) {
+    onTimedTransportStop?.();
+  }
+  action?.();
+}
+
 const SequenceControls = ({
   showAllEvents,
   newTempoPosition,
@@ -11,6 +18,7 @@ const SequenceControls = ({
   newTempoBpm,
   setNewTempoBpm,
   addTempoAtRequestedPosition,
+  addTempoTransitionAtRequestedPosition,
   newBarPosition,
   setNewBarPosition,
   addBarAtRequestedPosition,
@@ -95,6 +103,18 @@ const SequenceControls = ({
             </span>
             <button type="button" class="preset-action-btn sequencer-bars-add__button" onClick={addTempoAtRequestedPosition}>
               Add Tempo
+            </button>
+          </span>
+        </div>
+        <div class="sequencer-option-row sequencer-option-row--tempo-transition-action">
+          <span>Make Gradual Transition</span>
+          <span class="sequencer-bars-add__stacked-button-slot">
+            <button
+              type="button"
+              class="preset-action-btn sequencer-bars-add__button sequencer-bars-add__button--stacked"
+              onClick={addTempoTransitionAtRequestedPosition}
+            >
+              Add Target Tempo
             </button>
           </span>
         </div>
@@ -229,8 +249,10 @@ const SequenceControls = ({
           class="sidebar-input sequencer-playback-select"
           value={playhead?.barIndex ?? 0}
           onChange={(e) => {
-            transportScrollTargetRef.current = "bar";
-            onSelectSequenceBar?.(Number(e.currentTarget.value));
+            stopTimedTransportBefore(() => {
+              transportScrollTargetRef.current = "bar";
+              onSelectSequenceBar?.(Number(e.currentTarget.value));
+            }, timedTransportDisplay, onTimedTransportStop);
           }}
         >
           {sortedBars.map((bar, index) => (
@@ -260,18 +282,20 @@ const SequenceControls = ({
           aria-label="next snapshot target"
           value={snapshotSelectValue}
           onChange={(e) => {
-            const { value } = e.currentTarget;
-            if (value === "") {
-              setPendingSnapshotJumpIndex("");
-              setPendingCueJumpIndex("");
-              return;
-            }
-            if (value === terminalSequenceTarget) {
-              setPendingSnapshotJumpIndex("");
-              setPendingCueJumpIndex("");
-              return;
-            }
-            armPendingSnapshot(value);
+            stopTimedTransportBefore(() => {
+              const { value } = e.currentTarget;
+              if (value === "") {
+                setPendingSnapshotJumpIndex("");
+                setPendingCueJumpIndex("");
+                return;
+              }
+              if (value === terminalSequenceTarget) {
+                setPendingSnapshotJumpIndex("");
+                setPendingCueJumpIndex("");
+                return;
+              }
+              armPendingSnapshot(value);
+            }, timedTransportDisplay, onTimedTransportStop);
           }}
         >
           {renderedSnapshots.map((snapshot, index) => (
@@ -334,18 +358,20 @@ const SequenceControls = ({
           aria-label="next cue target"
           value={cueSelectValue}
           onChange={(e) => {
-            const { value } = e.currentTarget;
-            if (value === "") {
-              setPendingCueJumpIndex("");
-              setPendingSnapshotJumpIndex("");
-              return;
-            }
-            if (value === terminalSequenceTarget) {
-              setPendingCueJumpIndex("");
-              setPendingSnapshotJumpIndex("");
-              return;
-            }
-            armPendingCue(value);
+            stopTimedTransportBefore(() => {
+              const { value } = e.currentTarget;
+              if (value === "") {
+                setPendingCueJumpIndex("");
+                setPendingSnapshotJumpIndex("");
+                return;
+              }
+              if (value === terminalSequenceTarget) {
+                setPendingCueJumpIndex("");
+                setPendingSnapshotJumpIndex("");
+                return;
+              }
+              armPendingCue(value);
+            }, timedTransportDisplay, onTimedTransportStop);
           }}
         >
           {sequenceCueGroups.map((group, index) => (
@@ -484,7 +510,11 @@ const SequenceControls = ({
           aria-label="move timed transport to start"
           disabled={snapshots.length === 0 && playheadIsOff}
           onClick={() => {
-            runTransportAction(() => onResetSequencePlayhead?.());
+            runTransportAction(() => stopTimedTransportBefore(
+              () => onResetSequencePlayhead?.(),
+              timedTransportDisplay,
+              onTimedTransportStop,
+            ));
           }}
         >
           <svg
@@ -530,7 +560,11 @@ const SequenceControls = ({
           aria-label="move timed transport to end"
           disabled={snapshots.length === 0 && playheadIsEnd}
           onClick={() => {
-            runTransportAction(() => onJumpSequenceEnd?.());
+            runTransportAction(() => stopTimedTransportBefore(
+              () => onJumpSequenceEnd?.(),
+              timedTransportDisplay,
+              onTimedTransportStop,
+            ));
           }}
         >
           <svg
