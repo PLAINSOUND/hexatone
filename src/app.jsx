@@ -1249,6 +1249,17 @@ const App = () => {
     [playingSnapshotId],
   );
 
+  const previousWorkspaceTabRef = useRef(workspaceTab);
+
+  useEffect(() => {
+    const previousTab = previousWorkspaceTabRef.current;
+    previousWorkspaceTabRef.current = workspaceTab;
+    if (previousTab !== "sequencer" || workspaceTab === "sequencer") return;
+    onStopSnapshot();
+    guardianPanic();
+    keysRef.current?.panic?.();
+  }, [guardianPanic, onStopSnapshot, workspaceTab]);
+
   const onSelectSequenceBar = useCallback((barIndex) => {
     keysRef.current?.stopSnapshot();
     sequenceRepeatPlaybackStateRef.current = {};

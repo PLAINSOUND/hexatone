@@ -766,6 +766,29 @@ describe("App workspace tabs", () => {
       expect(screen.queryByTestId("manual-sidebar")).toBeNull();
     });
   });
+
+  it("stops sequencer-owned playback when leaving the Sequencer tab", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const keys = {
+      stopSnapshot: vi.fn(),
+      panic: vi.fn(),
+    };
+
+    await waitFor(() => {
+      expect(lastKeyboardProps).not.toBeNull();
+    });
+
+    act(() => {
+      lastKeyboardProps.onKeysReady(keys);
+    });
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
+
+    expect(keys.stopSnapshot).toHaveBeenCalledTimes(1);
+    expect(keys.panic).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ── Full App rendering ────────────────────────────────────────────────────────
