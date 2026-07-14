@@ -2715,8 +2715,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-event__heji-wrap {
-  justify-content: space-between;
-  gap: 0.22em;
+  justify-content: flex-start;
   width: 100%;
   padding-right: 0.16em;
 }
@@ -2724,27 +2723,6 @@ td.scale-color-col .color-input {
 .sequencer-event__heji--edited {
   color: #b00000;
   font-style: italic;
-}
-
-.sequencer-event__restore-btn {
-  all: unset;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.15em;
-  min-width: 1.15em;
-  height: 1.15em;
-  border: 0.06rem solid var(--pane);
-  border-radius: 0.22rem;
-  color: var(--maroon);
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.72);
-  box-sizing: border-box;
-  flex-shrink: 0;
-}
-
-.sequencer-event__restore-btn:hover {
-  background: rgba(255, 255, 255, 0.92);
 }
 
 .sequencer-event-row--cue-active {

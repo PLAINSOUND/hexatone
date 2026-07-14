@@ -85,6 +85,7 @@ import {
 } from "./sequence-drafts.js";
 import {
   applyEventBarRelativeDraftToSnapshot,
+  commitEventPitchLabelInSnapshot,
   deleteEventNoteFromSnapshot,
   restoreEventPitchLabelInSnapshot,
   updateEventFieldInSnapshot,
@@ -1510,6 +1511,11 @@ const Sequencer = ({
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
+  const commitEventPitchLabel = (snapshot, noteKey) => {
+    const notes = commitEventPitchLabelInSnapshot(snapshot, noteKey);
+    onUpdateSnapshot(snapshot.id, { notes });
+  };
+
   const updateBarPosition = (barId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
@@ -1738,6 +1744,7 @@ const Sequencer = ({
     handleBlurCommit,
     snapSequenceToCurrentTuning,
     restoreEventPitchLabel,
+    commitEventPitchLabel,
     updateEventBarRelativeDraftField,
     commitEventBarRelativeDraft,
     cancelEventBarRelativeDraft,

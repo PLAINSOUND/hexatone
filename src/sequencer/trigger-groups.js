@@ -55,6 +55,11 @@ function noteIdentity(note, fallbackLength = 1) {
   return note?.id ?? `${midicents}:${start}:${end}`;
 }
 
+function canRestoreEditedDisplayLabel(note) {
+  return Number.isFinite(Number(note?.originalMidicents))
+    || (note?.displayLabelEdited === true && note?.originalDisplayLabel != null);
+}
+
 export function deriveSnapshotTriggerGroups(snapshot) {
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
   const events = [];
@@ -78,7 +83,7 @@ export function deriveSnapshotTriggerGroups(snapshot) {
       frequency,
       displayLabel: note.displayLabel ?? "",
       displayLabelEdited: note.displayLabelEdited === true,
-      canRestoreDisplayLabel: Number.isFinite(Number(note.originalMidicents)),
+      canRestoreDisplayLabel: canRestoreEditedDisplayLabel(note),
       attackVelocity: note.attackVelocity ?? note.velocity ?? null,
       releaseVelocity: note.releaseVelocity ?? null,
       pressure: note.pressure ?? 0,
@@ -99,7 +104,7 @@ export function deriveSnapshotTriggerGroups(snapshot) {
       frequency,
       displayLabel: note.displayLabel ?? "",
       displayLabelEdited: note.displayLabelEdited === true,
-      canRestoreDisplayLabel: Number.isFinite(Number(note.originalMidicents)),
+      canRestoreDisplayLabel: canRestoreEditedDisplayLabel(note),
       attackVelocity: note.attackVelocity ?? note.velocity ?? null,
       releaseVelocity: note.releaseVelocity ?? null,
       pressure: note.pressure ?? 0,

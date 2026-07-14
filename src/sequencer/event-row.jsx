@@ -330,24 +330,18 @@ const EventRow = ({
       </div>
       <div class="sequencer-event__cell sequencer-grid-offset">
         <span class="sequencer-event__content sequencer-event__heji-wrap">
-          <span class={`sequencer-event__heji${event.displayLabelEdited ? " sequencer-event__heji--edited" : ""}`}>
-            {event.displayLabel || ""}
-          </span>
-          {event.canRestoreDisplayLabel ? (
-            <button
-              type="button"
-              class="sequencer-event__restore-btn"
-              aria-label={`restore snapshot ${snapshotIndex + 1} ${event.kind} captured pitch and name`}
-              title="Restore captured pitch and name"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                  editing.restoreEventPitchLabel(sourceSnapshot, event.noteKey);
-                }}
-            >
-              <span class="preset-refresh-glyph" aria-hidden="true">⟳</span>
-            </button>
-          ) : null}
+          <input
+            key={`${event.eventId}-displayLabel-${event.displayLabel ?? ""}-${event.displayLabelEdited ? "edited" : "captured"}`}
+            type="text"
+            class={`sequencer-event__input sequencer-event__heji${event.displayLabelEdited ? " sequencer-event__heji--edited sequencer-event__input--draft" : ""}`}
+            defaultValue={event.displayLabel || ""}
+            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} name`}
+            {...stopProps}
+            disabled={editing.snapSequenceToCurrentTuning}
+            onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+            onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "displayLabel", value))}
+            onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(sourceSnapshot, event.noteKey, "displayLabel", value))}
+          />
         </span>
       </div>
       {view.currentEventPane === "timing" ? (
@@ -527,6 +521,33 @@ const EventRow = ({
               onClick={(e) => {
                 e.stopPropagation();
                 editing.cancelEventBarRelativeDraft(draftKey);
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ) : (event.kind === "attack" && event.canRestoreDisplayLabel) ? (
+          <span class="sequencer-event__draft-actions">
+            <button
+              type="button"
+              class="sequencer-event__draft-btn"
+              aria-label={`commit snapshot ${snapshotIndex + 1} ${event.kind} current pitch and name`}
+              title="Commit current pitch and name to snapshot"
+              onClick={(e) => {
+                e.stopPropagation();
+                editing.commitEventPitchLabel(snapshot, event.noteKey);
+              }}
+            >
+              ✓
+            </button>
+            <button
+              type="button"
+              class="sequencer-event__draft-btn"
+              aria-label={`restore snapshot ${snapshotIndex + 1} ${event.kind} captured pitch and name`}
+              title="Restore captured pitch and name"
+              onClick={(e) => {
+                e.stopPropagation();
+                editing.restoreEventPitchLabel(snapshot, event.noteKey);
               }}
             >
               ×

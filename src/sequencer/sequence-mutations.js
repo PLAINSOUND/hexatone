@@ -43,6 +43,21 @@ export function applyEventBarRelativeDraftToSnapshot(snapshot, draft, absoluteTi
 
 export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
   if (!snapshot) return null;
+  if (field === "displayLabel") {
+    const nextLabel = String(rawValue ?? "");
+    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    return (snapshot.notes ?? []).map((note) => {
+      if (noteIdentity(note, length) !== noteKey) return note;
+      if ((note.displayLabel ?? "") === nextLabel) return note;
+      const originalDisplayLabel = note.originalDisplayLabel ?? note.displayLabel ?? "";
+      return {
+        ...note,
+        originalDisplayLabel,
+        displayLabel: nextLabel,
+        displayLabelEdited: true,
+      };
+    });
+  }
   const numeric = Number(rawValue);
   if (!Number.isFinite(numeric)) return null;
   const pitchUnchanged = (a, b) => Math.abs(Number(a) - Number(b)) < 0.0000005;
@@ -95,13 +110,30 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
   });
 }
 
+export function commitEventPitchLabelInSnapshot(snapshot, noteKey) {
+  if (!snapshot) return null;
+  const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+  return (snapshot.notes ?? []).map((note) => {
+    if (noteIdentity(note, length) !== noteKey) return note;
+    const {
+      originalMidicents: _originalMidicents,
+      originalDisplayLabel: _originalDisplayLabel,
+      displayLabelEdited: _displayLabelEdited,
+      ...rest
+    } = note;
+    return rest;
+  });
+}
+
 export function restoreEventPitchLabelInSnapshot(snapshot, noteKey) {
   if (!snapshot) return null;
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
   return (snapshot.notes ?? []).map((note) => {
     if (noteIdentity(note, length) !== noteKey) return note;
     const originalMidicents = Number(note.originalMidicents);
-    if (!Number.isFinite(originalMidicents)) return note;
+    const canRestorePitch = Number.isFinite(originalMidicents);
+    const canRestoreLabel = note.displayLabelEdited === true && note.originalDisplayLabel != null;
+    if (!canRestorePitch && !canRestoreLabel) return note;
     const {
       originalMidicents: _originalMidicents,
       originalDisplayLabel,
@@ -110,7 +142,7 @@ export function restoreEventPitchLabelInSnapshot(snapshot, noteKey) {
     } = note;
     return {
       ...rest,
-      midicents: originalMidicents,
+      midicents: canRestorePitch ? originalMidicents : note.midicents,
       displayLabel: originalDisplayLabel ?? "",
     };
   });

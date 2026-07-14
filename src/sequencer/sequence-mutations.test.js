@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyEventBarRelativeDraftToSnapshot,
+  commitEventPitchLabelInSnapshot,
   deleteEventNoteFromSnapshot,
   restoreEventPitchLabelInSnapshot,
   updateEventFieldInSnapshot,
@@ -69,6 +70,51 @@ describe("sequencer sequence mutations", () => {
       displayLabel: "A",
     });
     expect(restored[0].originalMidicents).toBeUndefined();
+    expect(restored[0].displayLabelEdited).toBeUndefined();
+  });
+
+  it("commits edited pitch and name as the new snapshot baseline", () => {
+    const editedSnapshot = {
+      ...snapshot,
+      notes: [{
+        id: "a",
+        midicents: 69.1,
+        start: 0,
+        end: 1,
+        displayLabel: "La 441",
+        displayLabelEdited: true,
+        originalMidicents: 69,
+        originalDisplayLabel: "A",
+      }],
+    };
+    const committed = commitEventPitchLabelInSnapshot(editedSnapshot, "a");
+    expect(committed[0]).toMatchObject({
+      midicents: 69.1,
+      displayLabel: "La 441",
+    });
+    expect(committed[0].originalMidicents).toBeUndefined();
+    expect(committed[0].originalDisplayLabel).toBeUndefined();
+    expect(committed[0].displayLabelEdited).toBeUndefined();
+  });
+
+  it("restores a name-only edit when no pitch change was made", () => {
+    const editedSnapshot = {
+      ...snapshot,
+      notes: [{
+        id: "a",
+        midicents: 69,
+        start: 0,
+        end: 1,
+        displayLabel: "La 440",
+        displayLabelEdited: true,
+        originalDisplayLabel: "A",
+      }],
+    };
+    const restored = restoreEventPitchLabelInSnapshot(editedSnapshot, "a");
+    expect(restored[0]).toMatchObject({
+      midicents: 69,
+      displayLabel: "A",
+    });
     expect(restored[0].displayLabelEdited).toBeUndefined();
   });
 });
