@@ -233,7 +233,12 @@
   border: 1px solid var(--color-border-ui);
   border-radius: 3px;
   box-shadow: none;
-  transition: background-color 0.085s ease;
+  transition:
+    background 0.34s ease,
+    background-color 0.34s ease,
+    border-color 0.34s ease,
+    color 0.34s ease;
+  will-change: background-color;
 }
 
 .section-collapse-toggle:hover {
@@ -242,23 +247,22 @@
 
 .disclosure-toggle-glyph {
   display: inline-block;
-  width: 0;
-  height: 0;
+  width: 0.42em;
+  height: 0.54em;
   flex: 0 0 auto;
   line-height: 0;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  transform-origin: 50% 50%;
+  transition: transform 0.34s ease;
 }
 
 .disclosure-toggle-glyph--collapsed {
-  border-top: 0.27em solid transparent;
-  border-bottom: 0.27em solid transparent;
-  border-left: 0.41em solid currentColor;
+  transform: rotate(0deg);
 }
 
 .disclosure-toggle-glyph--expanded {
-  border-left: 0.29em solid transparent;
-  border-right: 0.29em solid transparent;
-  border-top: 0.41em solid currentColor;
-  transform: translateY(0.04em);
+  transform: rotate(90deg);
 }
 
 #sidebar label {
@@ -1181,7 +1185,7 @@ td.scale-color-col .color-input {
   border: 1px solid var(--color-border-ui);
   color: var(--color-text);
   border-radius: var(--btn-radius-square);
-  transition: background-color 0.085s ease;
+  transition: background-color 0.24s ease;
 }
 
 .preset-action-btn:hover,
@@ -3900,6 +3904,11 @@ input.equiv-cell:disabled,
   font-size: 1.7em;
   margin-left: auto;
   margin-right: 0;
+  transition:
+    background 0.24s ease,
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    color 0.24s ease;
 }
 
 .tune-handle:hover  { background: #ddd0d0; }
@@ -3938,6 +3947,11 @@ input.equiv-cell:disabled,
   color: var(--color-text);
   font-size: 1.05em;
   line-height: 1;
+  transition:
+    background 0.24s ease,
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    color 0.24s ease;
 }
 
 .tune-btn:hover { background: #ddd0d0; }
@@ -4057,6 +4071,11 @@ input.equiv-cell:disabled,
   background: var(--color-bg-btn-alt);
   color: var(--color-text);
   font-size: 1em;
+  transition:
+    background 0.24s ease,
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    color 0.24s ease;
 }
 
 .scale-table-toolbar__rationalisation-group {
