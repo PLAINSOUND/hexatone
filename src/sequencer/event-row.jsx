@@ -128,7 +128,7 @@ const EventRow = ({
     event.relativeTime,
   );
   const eventSnapshotNumber = view.snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1;
-  const barBeat = absolutePositionToBarBeat(
+  const barBeat = drafts.barBeatByEventId?.get(event.eventId) ?? absolutePositionToBarBeat(
     event.absoluteTime,
     drafts.sortedBars,
     event.fractionDenominator,

@@ -15,7 +15,7 @@ const RepeatRow = ({
 }) => {
   const repeatId = repeat.repeatId ?? repeat.id;
   const repeatPosition = Number(repeat.position ?? repeat.absoluteTime);
-  const barBeat = absolutePositionToBarBeat(
+  const barBeat = timing.barBeatByEventId?.get(repeat.eventId) ?? absolutePositionToBarBeat(
     repeatPosition,
     timing.sortedBars,
     null,

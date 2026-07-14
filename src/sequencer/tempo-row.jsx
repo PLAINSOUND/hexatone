@@ -14,7 +14,7 @@ const TempoRow = ({
 }) => {
   const tempoId = tempo.tempoId ?? tempo.id;
   const tempoPosition = Number(tempo.position ?? tempo.absoluteTime);
-  const barBeat = absolutePositionToBarBeat(
+  const barBeat = timing.barBeatByEventId?.get(tempo.eventId) ?? absolutePositionToBarBeat(
     tempoPosition,
     timing.sortedBars,
     null,

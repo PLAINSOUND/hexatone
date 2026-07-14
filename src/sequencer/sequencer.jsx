@@ -1630,6 +1630,26 @@ const Sequencer = ({
 
   const currentEventPane = eventPane === "expression" ? "expression" : "timing";
 
+  const barBeatByEventId = useMemo(() => {
+    const next = new Map();
+    for (const event of sequenceEvents) {
+      if (!event?.eventId) continue;
+      if (event.type !== "note" && event.type !== "tempo" && event.type !== "repeat-start" && event.type !== "repeat-end") {
+        continue;
+      }
+      const barBeat = absolutePositionToBarBeat(
+        event.absoluteTime,
+        sortedBars,
+        event.type === "note" ? event.fractionDenominator : null,
+        9,
+        terminalBarlinePosition,
+        event.type === "note" && event.kind === "release",
+      );
+      if (barBeat) next.set(event.eventId, barBeat);
+    }
+    return next;
+  }, [sequenceEvents, sortedBars, terminalBarlinePosition]);
+
   const barRowDnd = {
     draggedBarId,
     barDragIdRef,
@@ -1649,6 +1669,7 @@ const Sequencer = ({
     sortedBars,
     sortedTempi,
     terminalBarlinePosition,
+    barBeatByEventId,
     tempoBarRelativeDraftKey,
     tempoBarRelativeDrafts,
     tempoTransitionCueMap,
@@ -1657,6 +1678,7 @@ const Sequencer = ({
   const repeatRowTiming = {
     sortedBars,
     terminalBarlinePosition,
+    barBeatByEventId,
     repeatBarRelativeDraftKey,
     repeatBarRelativeDrafts,
   };
@@ -1700,6 +1722,7 @@ const Sequencer = ({
   const eventRowDrafts = {
     sortedBars,
     terminalBarlinePosition,
+    barBeatByEventId,
     eventBarRelativeDraftKey,
     barRelativeDrafts,
     eventSequenceDraftKey,
