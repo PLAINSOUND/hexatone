@@ -21,7 +21,7 @@ import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
 import { getControllerById } from "../controllers/registry.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "../input/controller-anchor.js";
 import { deriveKeyColorFlags } from "../settings/scale/key-colors-mode.js";
-import { primeSharedSampleAudio } from "../sample_synth";
+import { primeSharedSampleAudio } from "../sample_synth/prime-shared-audio.js";
 
 export { PRESET_SKIP_KEYS };
 const isIOS =

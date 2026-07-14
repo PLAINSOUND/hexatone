@@ -12,7 +12,7 @@ import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
-import { primeSharedSampleAudio } from "./sample_synth";
+import { primeSharedSampleAudio } from "./sample_synth/prime-shared-audio.js";
 import { normalizeColors, normalizeStructural } from "./settings/normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";

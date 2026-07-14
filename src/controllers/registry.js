@@ -6,7 +6,7 @@ import {
   LUMATONE_NOTES_PER_BLOCK,
   LUMATONE_BLOCKS,
 } from "./lumatone.js";
-import { detectHakenDeviceName } from "./hakenaudio.js";
+import { detectHakenDeviceName } from "./hakenaudio-detect.js";
 
 /**
  * controllers/registry.js

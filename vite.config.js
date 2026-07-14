@@ -37,6 +37,20 @@ function resolveDevHttpsConfig() {
   };
 }
 
+function manualChunks(id) {
+  const normalized = id.split(path.sep).join('/');
+
+  if (normalized.includes('/node_modules/')) {
+    if (normalized.includes('/preact/')) return 'vendor-preact';
+    if (normalized.includes('/webmidi/')) return 'vendor-webmidi';
+    return 'vendor';
+  }
+
+  if (normalized.includes('/src/settings/')) return 'settings';
+
+  return null;
+}
+
 export default defineConfig({
 
   plugins: [
@@ -92,6 +106,9 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
         retune: path.resolve(__dirname, 'retune.html'),
         usermanual: path.resolve(__dirname, 'usermanual.html'),
+      },
+      output: {
+        manualChunks,
       },
     },
   },

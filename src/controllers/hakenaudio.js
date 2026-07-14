@@ -18,18 +18,9 @@
  * sequential address path rather than a Continuum-specific lattice map.
  */
 
-const HAKEN_DEVICE_PATTERNS = [
-  "continuum",
-  "haken",
-  "eaganmatrix",
-  "um-one",
-  "um one",
-];
+import { detectHakenDeviceName } from "./hakenaudio-detect.js";
 
-export function detectHakenDeviceName(name = "") {
-  const lower = name.toLowerCase();
-  return HAKEN_DEVICE_PATTERNS.some((pattern) => lower.includes(pattern));
-}
+export { detectHakenDeviceName };
 
 function sendHakenCc(output, channel1, cc, value) {
   if (!output) return;
