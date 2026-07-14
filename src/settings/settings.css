@@ -1226,7 +1226,7 @@ td.scale-color-col .color-input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding-bottom: max(8rem, 35vh);
+  padding-bottom: 80rem;
 }
 
 .sequencer-item {
@@ -1495,7 +1495,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-scroll-panel {
-  max-height: calc(100vh - 12.5rem);
+  max-height: calc(100vh - 10rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.08em;
@@ -1503,14 +1503,25 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-scroll-panel__save-row {
-  margin-top: 0.3em;
-  margin-bottom: 0.15em;
-  padding-bottom: 0.1em;
+  position: sticky;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  justify-content: flex-start;
+  margin-top: 0.2em;
+  margin-bottom: 0;
+  padding: 0.28em 0 0.16em;
+  background: linear-gradient(
+    to bottom,
+    rgba(250, 249, 248, 0) 0%,
+    rgba(250, 249, 248, 0.92) 26%,
+    rgba(250, 249, 248, 1) 100%
+  );
 }
 
 @media (max-width: 480px) {
   .sequencer-scroll-panel {
-    max-height: calc(100vh - 15.5rem);
+    max-height: calc(100vh - 14.6rem);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -1595,14 +1606,14 @@ td.scale-color-col .color-input {
 
 @media (min-width: 481px) {
   .sequencer-playback-row {
-    top: 2.55em;
+    top: 2.1em;
     flex-wrap: nowrap;
   }
 }
 
 @media (max-width: 480px) {
   .sequencer-playback-row {
-    top: 4.35em;
+    top: 3.95em;
   }
 }
 

@@ -222,6 +222,11 @@ const SequenceControls = ({
           </select>
         </label>
 
+      </>
+    ) : null}
+
+    {showAllEvents ? (
+      <>
         <label class="sequencer-option-row sequencer-option-row--mobile-inline">
           <span>Legato</span>
           <input
@@ -486,6 +491,7 @@ const SequenceControls = ({
       onTimedTransportPlayPause={onTimedTransportPlayPause}
       onTimedTransportStop={onTimedTransportStop}
     />
+
   </>
 );
 
