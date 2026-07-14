@@ -2286,6 +2286,12 @@ td.scale-color-col .color-input {
   padding-left: 0;
 }
 
+.sequencer-tempo-row__summary-input--fraction-den {
+  text-align: right;
+  padding-right: 0.16em;
+  padding-left: 0;
+}
+
 .sequencer-tempo-row__summary-input--bpm {
   width: 3.4em;
   max-width: 3.4em;
@@ -3219,6 +3225,12 @@ td.scale-color-col .color-input {
 }
 
 #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-num {
+  text-align: right;
+  padding-left: 0;
+  padding-right: 0.16em;
+}
+
+#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-den {
   text-align: right;
   padding-left: 0;
   padding-right: 0.16em;
