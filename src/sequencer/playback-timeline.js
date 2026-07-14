@@ -1,6 +1,10 @@
 import { deriveRepeatSections } from "./repeat-playback-runtime.js";
 import { remapSequenceSnapshotsToRuntime } from "./runtime-pitch-map.js";
-import { deriveSequenceCueGroups, deriveSequenceEvents } from "./trigger-groups.js";
+import {
+  deriveSequenceCueGroups,
+  deriveSequenceCueGroupsFromEvents,
+  deriveSequenceEvents,
+} from "./trigger-groups.js";
 import {
   deriveTerminalBarlinePosition,
   normalizeBarMarkers,
@@ -430,6 +434,8 @@ export function buildPlaybackTimeline({
   repeats = [],
   runtimePitchMode = "stored",
   runtimePitchContext = null,
+  sequenceEvents: precomputedSequenceEvents = null,
+  sequenceCueGroups: precomputedSequenceCueGroups = null,
 } = {}) {
   const effectiveSnapshots = runtimePitchMode === "snapped" && runtimePitchContext
     ? remapSequenceSnapshotsToRuntime(snapshots, runtimePitchContext, {
@@ -438,9 +444,15 @@ export function buildPlaybackTimeline({
     })
     : snapshots;
 
-  const sequenceEvents = deriveSequenceEvents(effectiveSnapshots, bars, tempi, repeats);
+  const sequenceEvents = Array.isArray(precomputedSequenceEvents)
+    ? precomputedSequenceEvents
+    : deriveSequenceEvents(effectiveSnapshots, bars, tempi, repeats);
   const cueBursts = deriveBurstSoundingState(buildCueBursts(sequenceEvents));
-  const sequenceCueGroups = deriveSequenceCueGroups(effectiveSnapshots, bars, tempi, repeats);
+  const sequenceCueGroups = Array.isArray(precomputedSequenceCueGroups)
+    ? precomputedSequenceCueGroups
+    : Array.isArray(precomputedSequenceEvents)
+      ? deriveSequenceCueGroupsFromEvents(precomputedSequenceEvents)
+      : deriveSequenceCueGroups(effectiveSnapshots, bars, tempi, repeats);
   const repeatSections = deriveRepeatSections(sequenceCueGroups, repeats);
   const timingModel = buildMusicalTempoSegments(
     tempi,

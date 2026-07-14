@@ -21,7 +21,7 @@ import {
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
 import {
-  deriveSequenceCueGroups,
+  deriveSequenceCueGroupsFromEvents,
   deriveSequenceEvents,
 } from "./trigger-groups.js";
 import {
@@ -258,8 +258,8 @@ const Sequencer = ({
     [renderedSnapshots, repeats, sortedBars, sortedTempi],
   );
   const sequenceCueGroups = useMemo(
-    () => deriveSequenceCueGroups(renderedSnapshots, sortedBars, sortedTempi, repeats),
-    [renderedSnapshots, repeats, sortedBars, sortedTempi],
+    () => deriveSequenceCueGroupsFromEvents(sequenceEvents),
+    [sequenceEvents],
   );
   const terminalBarlinePosition = useMemo(
     () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
@@ -285,8 +285,10 @@ const Sequencer = ({
       bars: sortedBars,
       tempi: sortedTempi,
       repeats,
+      sequenceEvents,
+      sequenceCueGroups,
     }),
-    [renderedSnapshots, repeats, sortedBars, sortedTempi],
+    [renderedSnapshots, repeats, sequenceCueGroups, sequenceEvents, sortedBars, sortedTempi],
   );
   const timedPlaybackBursts = playbackTimeline.playbackBursts;
   const timedCueTriggers = useMemo(

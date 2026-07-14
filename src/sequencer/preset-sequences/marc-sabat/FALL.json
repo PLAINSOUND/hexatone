@@ -198,7 +198,7 @@
     {
       "id": 2,
       "length": 1,
-      "description": "61.899, 63.405, 64.791, 67.269",
+      "description": "11:12:13:15",
       "descriptionManual": false,
       "notes": [
         {
@@ -342,7 +342,7 @@
     {
       "id": 3,
       "length": 1,
-      "description": "61.899, 64.377, 65.494, 67.533",
+      "description": "13:15:16:18",
       "descriptionManual": false,
       "notes": [
         {
@@ -486,7 +486,7 @@
     {
       "id": 4,
       "length": 1,
-      "description": "58.499, 61.655, 66.636",
+      "description": "5:6:8",
       "descriptionManual": false,
       "notes": [
         {
@@ -594,7 +594,7 @@
     {
       "id": 5,
       "length": 1,
-      "description": "56.552, 59.220, 59.708, 61.532, 64.688, 65.395, 68.552",
+      "description": "30:35:36:40:48:50:60",
       "descriptionManual": false,
       "notes": [
         {
@@ -836,7 +836,7 @@
     {
       "id": 10,
       "length": 1,
-      "description": "61.283, 62.020, 64.059, 64.059, 67.000, 67.000, 69.039",
+      "description": "23:24:27:54:64:128:144",
       "descriptionManual": false,
       "notes": [
         {
@@ -1077,7 +1077,7 @@
     {
       "id": 11,
       "length": 1,
-      "description": "58.127, 59.777, 63.952, 66.263, 68.302",
+      "description": "10:11:14:16:18",
       "descriptionManual": false,
       "notes": [
         {
@@ -1245,7 +1245,7 @@
     {
       "id": 12,
       "length": 1,
-      "description": "58.718, 61.030, 63.069, 64.893, 66.543, 68.050",
+      "description": "7:8:9:10:11:12",
       "descriptionManual": false,
       "notes": [
         {
@@ -1449,7 +1449,7 @@
     {
       "id": 13,
       "length": 1,
-      "description": "60.902, 62.020, 64.059, 65.883, 69.039",
+      "description": "15:16:18:20:24",
       "descriptionManual": false,
       "notes": [
         {
@@ -1756,7 +1756,7 @@
     {
       "id": 15,
       "length": 1,
-      "description": "60.513, 63.182, 65.494, 67.533",
+      "description": "6:7:8:9",
       "descriptionManual": false,
       "notes": [
         {
@@ -1893,7 +1893,7 @@
     {
       "id": 16,
       "length": 1,
-      "description": "60.249, 63.405, 68.386, 70.425",
+      "description": "5:6:8:9",
       "descriptionManual": false,
       "notes": [
         {
@@ -2035,7 +2035,7 @@
     {
       "id": 17,
       "length": 1,
-      "description": "60.115, 65.096, 68.959",
+      "description": "3:4:5",
       "descriptionManual": false,
       "notes": [
         {
@@ -2140,7 +2140,7 @@
     {
       "id": 18,
       "length": 1,
-      "description": "59.981, 62.020, 62.020, 67.000",
+      "description": "8:9:18:24",
       "descriptionManual": false,
       "notes": [
         {
@@ -2285,7 +2285,7 @@
     {
       "id": 19,
       "length": 1,
-      "description": "59.981, 61.030, 62.956, 63.844, 67.000",
+      "description": "16:17:19:20:24",
       "descriptionManual": false,
       "notes": [
         {
@@ -2448,7 +2448,7 @@
     {
       "id": 20,
       "length": 1,
-      "description": "59.913, 61.030, 63.069, 64.893",
+      "description": "15:16:18:20",
       "descriptionManual": false,
       "notes": [
         {
@@ -2584,7 +2584,7 @@
     {
       "id": 21,
       "length": 1,
-      "description": "59.777, 60.513, 64.377",
+      "description": "23:24:30",
       "descriptionManual": false,
       "notes": [
         {
@@ -2694,7 +2694,7 @@
     {
       "id": 22,
       "length": 1,
-      "description": "59.777, 61.283, 63.952, 66.263",
+      "description": "11:12:14:16",
       "descriptionManual": false,
       "notes": [
         {
@@ -2831,7 +2831,7 @@
     {
       "id": 31,
       "length": 1,
-      "description": "59.708, 62.377, 64.688, 66.728, 67.357",
+      "description": "18:21:24:27:28",
       "descriptionManual": false,
       "notes": [
         {
@@ -3001,7 +3001,7 @@
     {
       "id": 23,
       "length": 1,
-      "description": "67.000",
+      "description": "1",
       "descriptionManual": false,
       "notes": [
         {
@@ -3042,7 +3042,7 @@
     {
       "id": 24,
       "length": 1,
-      "description": "59.570, 62.726, 62.726, 67.707, 69.746",
+      "description": "5:6:12:16:18",
       "descriptionManual": false,
       "notes": [
         {
@@ -3215,7 +3215,7 @@
     {
       "id": 30,
       "length": 1,
-      "description": "59.431, 63.294, 66.451, 69.119",
+      "description": "4:5:6:7",
       "descriptionManual": false,
       "notes": [
         {
@@ -3353,7 +3353,7 @@
     {
       "id": 25,
       "length": 1,
-      "description": "59.981, 62.020, 64.059, 67.000",
+      "description": "64:72:81:96",
       "descriptionManual": false,
       "notes": [
         {
@@ -3497,7 +3497,7 @@
     {
       "id": 27,
       "length": 1,
-      "description": "59.361, 59.361, 60.249, 60.249, 63.405, 63.405, 64.791, 67.269, 68.386",
+      "description": "19:38:40:80:96:192:208:240:256",
       "descriptionManual": false,
       "notes": [
         {
@@ -3802,7 +3802,7 @@
     {
       "id": 29,
       "length": 1,
-      "description": "59.291, 64.271, 68.134",
+      "description": "3:4:5",
       "descriptionManual": false,
       "notes": [
         {
@@ -3905,7 +3905,7 @@
     {
       "id": 28,
       "length": 1,
-      "description": "59.981, 62.020",
+      "description": "8:9",
       "descriptionManual": false,
       "notes": [
         {
@@ -3981,7 +3981,7 @@
     {
       "id": 32,
       "length": 1,
-      "description": "59.220, 61.532, 62.377, 67.357, 67.357",
+      "description": "35:40:42:56:112",
       "descriptionManual": false,
       "notes": [
         {
@@ -4156,7 +4156,7 @@
     {
       "id": 33,
       "length": 1,
-      "description": "62.377, 64.688, 64.688, 66.728",
+      "description": "7:8:16:18",
       "descriptionManual": false,
       "notes": [
         {
@@ -4299,7 +4299,7 @@
     {
       "id": 34,
       "length": 1,
-      "description": "59.078, 60.902, 60.902, 64.059, 64.059",
+      "description": "9:10:20:24:48",
       "descriptionManual": false,
       "notes": [
         {
@@ -4473,7 +4473,7 @@
     {
       "id": 35,
       "length": 1,
-      "description": "59.007, 59.007, 60.513, 60.513, 60.513, 63.182, 63.182, 65.494, 65.494, 67.533",
+      "description": "11:22:24:48:96:112:224:256:512:576",
       "descriptionManual": false,
       "notes": [
         {
@@ -4820,7 +4820,7 @@
     {
       "id": 36,
       "length": 1,
-      "description": "58.863, 60.902, 60.902, 62.726, 63.844, 63.844, 65.883, 67.707",
+      "description": "24:27:54:60:64:128:144:160",
       "descriptionManual": false,
       "notes": [
         {
@@ -5098,7 +5098,7 @@
     {
       "id": 37,
       "length": 1,
-      "description": "58.718, 61.030, 63.069, 68.050",
+      "description": "7:8:9:12",
       "descriptionManual": false,
       "notes": [
         {
@@ -5237,7 +5237,7 @@
     {
       "id": 38,
       "length": 1,
-      "description": "58.499, 61.655, 66.636",
+      "description": "5:6:8",
       "descriptionManual": false,
       "notes": [
         {
@@ -5338,7 +5338,7 @@
     {
       "id": 39,
       "length": 1,
-      "description": "56.386, 58.425, 60.249, 63.405, 64.791",
+      "description": "8:9:10:12:13",
       "descriptionManual": false,
       "notes": [
         {
@@ -5901,7 +5901,9 @@
             0
           ],
           "pressure14": 0,
-          "timbre14": 0
+          "timbre14": 0,
+          "end": 0.4,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 58.20164005542541,
@@ -5932,7 +5934,9 @@
             0
           ],
           "pressure14": 0,
-          "timbre14": 0
+          "timbre14": 0,
+          "end": 1.6,
+          "endFractionDenominator": 2
         }
       ]
     },
@@ -5971,7 +5975,10 @@
             0
           ],
           "pressure14": 0,
-          "timbre14": 0
+          "timbre14": 0,
+          "start": -0.6,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 64.3765181293825,
@@ -6035,7 +6042,9 @@
           "pressure14": 0,
           "timbre14": 0,
           "end": 1.25,
-          "endFractionDenominator": 4
+          "endFractionDenominator": 4,
+          "start": 0.4,
+          "startFractionDenominator": 2
         }
       ]
     },
@@ -6184,7 +6193,7 @@
     {
       "id": 46,
       "length": 1,
-      "description": "18:36:48:57:64:72:144:152",
+      "description": "18:32:36:36:38:48:57:72",
       "descriptionManual": false,
       "notes": [
         {
@@ -6473,7 +6482,7 @@
     {
       "id": 47,
       "length": 1,
-      "description": "5:12:16:32:36",
+      "description": "5:8:8:9:12",
       "descriptionManual": false,
       "notes": [
         {
@@ -6824,7 +6833,7 @@
     {
       "id": 49,
       "length": 1,
-      "description": "24:27:54:56:112:128:256:288:384",
+      "description": "24:27:27:28:28:32:32:36:48",
       "descriptionManual": false,
       "notes": [
         {
@@ -7133,7 +7142,7 @@
     {
       "id": 50,
       "length": 1,
-      "description": "27:32:64:72:144:288:344:688",
+      "description": "27:32:32:36:36:36:43:43",
       "descriptionManual": false,
       "notes": [
         {
@@ -7412,7 +7421,7 @@
     {
       "id": 51,
       "length": 1,
-      "description": "3:6:12:16:32:40",
+      "description": "3:3:3:4:4:5",
       "descriptionManual": false,
       "notes": [
         {
@@ -8004,6 +8013,835 @@
           "startFractionDenominator": 1
         }
       ]
+    },
+    {
+      "id": 55,
+      "length": 1,
+      "description": "7:8:10:12",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 57.11926634776646,
+          "attackVelocity": 51,
+          "releaseVelocity": 34,
+          "velocity": 51,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "B",
+          "ratioText": "217/256",
+          "monzo": [
+            -8,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0
+        },
+        {
+          "midicents": 59.43100728307521,
+          "attackVelocity": 60,
+          "releaseVelocity": 25,
+          "velocity": 60,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "C",
+          "ratioText": "31/32",
+          "monzo": [
+            -5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0
+        },
+        {
+          "midicents": 63.294144421723566,
+          "attackVelocity": 36,
+          "releaseVelocity": 23,
+          "velocity": 36,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "E",
+          "ratioText": "155/128",
+          "monzo": [
+            -7,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0
+        },
+        {
+          "midicents": 66.45055729172908,
+          "attackVelocity": 99,
+          "releaseVelocity": 38,
+          "velocity": 99,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "G",
+          "ratioText": "93/64",
+          "monzo": [
+            -6,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.333333,
+          "end": 0.833333,
+          "startFractionDenominator": 3,
+          "endFractionDenominator": 6
+        }
+      ]
+    },
+    {
+      "id": 56,
+      "length": 1,
+      "description": "6:8:9:18:21:42",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 66.72756064908559,
+          "attackVelocity": 66,
+          "releaseVelocity": 58,
+          "velocity": 66,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "G",
+          "ratioText": "189/128",
+          "monzo": [
+            -7,
+            3,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": -0.166667,
+          "end": 0.333333,
+          "startFractionDenominator": 6,
+          "endFractionDenominator": 2
+        },
+        {
+          "midicents": 62.01975157574046,
+          "attackVelocity": 53,
+          "releaseVelocity": 35,
+          "velocity": 53,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "D",
+          "ratioText": "9/8",
+          "monzo": [
+            -3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "end": 2.166667,
+          "endFractionDenominator": 2
+        },
+        {
+          "midicents": 57.03930158439433,
+          "attackVelocity": 112,
+          "releaseVelocity": 82,
+          "velocity": 112,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "A",
+          "ratioText": "27/32",
+          "monzo": [
+            -5,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0
+        },
+        {
+          "midicents": 64.0588515930482,
+          "attackVelocity": 94,
+          "releaseVelocity": 40,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "E",
+          "ratioText": "81/64",
+          "monzo": [
+            -6,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.333333,
+          "end": 0.5,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 4
+        },
+        {
+          "midicents": 64.0588515930482,
+          "attackVelocity": 94,
+          "releaseVelocity": 40,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "E",
+          "ratioText": "81/64",
+          "monzo": [
+            -6,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.666667,
+          "end": 1.166667,
+          "startFractionDenominator": 2,
+          "id": "64.0588515930482:0.333333:1:copy:2",
+          "endFractionDenominator": 4
+        },
+        {
+          "midicents": 66.72756064908559,
+          "attackVelocity": 66,
+          "releaseVelocity": 58,
+          "velocity": 66,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "G",
+          "ratioText": "189/128",
+          "monzo": [
+            -7,
+            3,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.5,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 4,
+          "id": "66.72756064908559:-0.166667:0.333333:copy:1"
+        }
+      ]
+    },
+    {
+      "id": 57,
+      "length": 1,
+      "description": "18:24:36:57:64",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 57.03930158439433,
+          "attackVelocity": 29,
+          "releaseVelocity": 19,
+          "velocity": 29,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "A",
+          "ratioText": "27/16",
+          "monzo": [
+            -4,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": -0.166667,
+          "end": 1.5,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 2
+        },
+        {
+          "midicents": 50.01975157574046,
+          "attackVelocity": 63,
+          "releaseVelocity": 43,
+          "velocity": 63,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "D",
+          "ratioText": "9/8",
+          "monzo": [
+            -3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0
+        },
+        {
+          "midicents": 45.03930158439433,
+          "attackVelocity": 77,
+          "releaseVelocity": 44,
+          "velocity": 77,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "A",
+          "ratioText": "27/32",
+          "monzo": [
+            -5,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "end": 0.833333,
+          "endFractionDenominator": 4
+        },
+        {
+          "midicents": 64.99488173706348,
+          "attackVelocity": 42,
+          "releaseVelocity": 27,
+          "velocity": 42,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "F",
+          "ratioText": "171/64",
+          "monzo": [
+            -6,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.166667,
+          "end": 1,
+          "startFractionDenominator": 4
+        },
+        {
+          "midicents": 67.00020156708658,
+          "attackVelocity": 45,
+          "releaseVelocity": 31,
+          "velocity": 45,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "G",
+          "ratioText": "3/2",
+          "monzo": [
+            -1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 1.166667,
+          "end": 1.833333,
+          "__selectedTime": 1,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 2
+        }
+      ]
+    },
+    {
+      "id": 58,
+      "length": 1,
+      "description": "5:6:8",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 65.09582861485788,
+          "attackVelocity": 44,
+          "releaseVelocity": 30,
+          "velocity": 44,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "F",
+          "ratioText": "43/32",
+          "monzo": [
+            -5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0
+        },
+        {
+          "midicents": 60.11537862351175,
+          "attackVelocity": 77,
+          "releaseVelocity": 40,
+          "velocity": 77,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "C",
+          "ratioText": "129/128",
+          "monzo": [
+            -7,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.5,
+          "end": 1,
+          "startFractionDenominator": 2
+        },
+        {
+          "midicents": 56.95896575350623,
+          "attackVelocity": 71,
+          "releaseVelocity": 38,
+          "velocity": 71,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "A",
+          "ratioText": "215/256",
+          "monzo": [
+            -8,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": -0.166667,
+          "end": 1,
+          "startFractionDenominator": 4
+        }
+      ]
+    },
+    {
+      "id": 59,
+      "length": 1,
+      "description": "15:18:20:24",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 64.68846063177783,
+          "attackVelocity": 66,
+          "releaseVelocity": 53,
+          "velocity": 66,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "F",
+          "ratioText": "21/16",
+          "monzo": [
+            -4,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.666667,
+          "end": 1.333333,
+          "startFractionDenominator": 3,
+          "endFractionDenominator": 3
+        },
+        {
+          "midicents": 61.532047761772304,
+          "attackVelocity": 50,
+          "releaseVelocity": 24,
+          "velocity": 50,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "D",
+          "ratioText": "35/32",
+          "monzo": [
+            -5,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": -0.333333,
+          "end": 2,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 2
+        },
+        {
+          "midicents": 59.70801064043171,
+          "attackVelocity": 56,
+          "releaseVelocity": 38,
+          "velocity": 56,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "C",
+          "ratioText": "63/64",
+          "monzo": [
+            -6,
+            2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0
+        },
+        {
+          "midicents": 56.551597770426184,
+          "attackVelocity": 54,
+          "releaseVelocity": 49,
+          "velocity": 54,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "A",
+          "ratioText": "105/128",
+          "monzo": [
+            -7,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "end": 2,
+          "endFractionDenominator": 2
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "length": 1,
+      "description": "7:10",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 65.39518490042066,
+          "attackVelocity": 60,
+          "releaseVelocity": 33,
+          "velocity": 60,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "F",
+          "ratioText": "175/128",
+          "monzo": [
+            -7,
+            0,
+            2,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0.333333,
+          "end": 1,
+          "endFractionDenominator": 2,
+          "startFractionDenominator": 3
+        },
+        {
+          "midicents": 59.220306826463556,
+          "attackVelocity": 94,
+          "releaseVelocity": 43,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 88,
+          "displayLabel": "C",
+          "ratioText": "245/256",
+          "monzo": [
+            -8,
+            0,
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "start": 0,
+          "end": 1,
+          "endFractionDenominator": 8
+        }
+      ]
     }
   ],
   "bars": [
@@ -8214,6 +9052,42 @@
     {
       "id": 44,
       "position": 48,
+      "numerator": 5,
+      "denominator": 4
+    },
+    {
+      "id": 45,
+      "position": 49,
+      "numerator": 1,
+      "denominator": 1
+    },
+    {
+      "id": 46,
+      "position": 50,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 48,
+      "position": 52,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 49,
+      "position": 53,
+      "numerator": 1,
+      "denominator": 1
+    },
+    {
+      "id": 53,
+      "position": 55,
+      "numerator": 1,
+      "denominator": 1
+    },
+    {
+      "id": 54,
+      "position": 56,
       "numerator": 5,
       "denominator": 4
     }

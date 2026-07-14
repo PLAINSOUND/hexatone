@@ -339,11 +339,11 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats =
   return events;
 }
 
-export function deriveSequenceCueGroups(snapshots, bars = [], tempi = [], repeats = []) {
+export function deriveSequenceCueGroupsFromEvents(sequenceEvents = []) {
   const groups = [];
-  const sequenceEvents = deriveSequenceEvents(snapshots, bars, tempi, repeats).filter((event) => event.type === "note");
 
   for (const event of sequenceEvents) {
+    if (event?.type !== "note") continue;
     const previous = groups.at(-1);
     if (!previous || previous.time !== event.absoluteTime) {
       groups.push({
@@ -358,6 +358,12 @@ export function deriveSequenceCueGroups(snapshots, bars = [], tempi = [], repeat
   }
 
   return groups;
+}
+
+export function deriveSequenceCueGroups(snapshots, bars = [], tempi = [], repeats = []) {
+  return deriveSequenceCueGroupsFromEvents(
+    deriveSequenceEvents(snapshots, bars, tempi, repeats),
+  );
 }
 
 export function sequenceNotesAtCueTime(snapshots, cueTime) {
