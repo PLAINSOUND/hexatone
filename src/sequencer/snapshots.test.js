@@ -486,6 +486,57 @@ describe("sequencer snapshots", () => {
     expect(nextHexes).toEqual([heldA, newHex]);
   });
 
+  it("prefers stable note identity over pitch when legato voices overlap", () => {
+    const heldA = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotInstanceKey: "s1:a",
+      _snapshotReleaseVelocity: 31,
+    };
+    const heldB = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotInstanceKey: "s2:b",
+      _snapshotReleaseVelocity: 47,
+    };
+    const runtime = makeRuntime({
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [heldA, heldB],
+      synth: {
+        makeHex: vi.fn(() => ({
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          aftertouch: vi.fn(),
+          polyTimbre: vi.fn(),
+        })),
+      },
+    });
+
+    const nextHexes = playSnapshot(runtime, [
+      {
+        midicents: 69,
+        attackVelocity: 100,
+        releaseVelocity: 40,
+        snapshotId: "s2",
+        noteId: "b",
+        pressure: 55,
+      },
+    ], { legato: true });
+
+    expect(heldA.noteOff).toHaveBeenCalledWith(31);
+    expect(heldB.noteOff).not.toHaveBeenCalled();
+    expect(heldB.aftertouch).toHaveBeenCalledWith(55);
+    expect(nextHexes).toEqual([heldB]);
+  });
+
   it("transitions deterministically across successive legato cue steps", () => {
     const makeRuntimeHex = (name) => ({
       name,

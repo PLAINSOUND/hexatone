@@ -1,5 +1,6 @@
 function cloneTimedNote(note, { reattack = false } = {}) {
   return {
+    instanceKey: note.instanceKey ?? null,
     noteKey: note.noteKey,
     noteId: note.noteId ?? null,
     snapshotId: note.snapshotId ?? null,

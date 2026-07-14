@@ -37,6 +37,8 @@ const SequenceControls = ({
   onSetSnapshotLabelMode,
   sequenceLegato,
   onSequenceLegatoChange,
+  autoScrollEnabled,
+  onAutoScrollEnabledChange,
   snapSequenceToCurrentTuning,
   onSnapSequenceToCurrentTuningChange,
   playbackRowRef,
@@ -224,6 +226,15 @@ const SequenceControls = ({
             type="checkbox"
             checked={sequenceLegato}
             onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
+          />
+        </label>
+
+        <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+          <span>Auto-Scroll</span>
+          <input
+            type="checkbox"
+            checked={autoScrollEnabled}
+            onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
           />
         </label>
 

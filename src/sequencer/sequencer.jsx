@@ -36,6 +36,12 @@ import { buildPlaybackTimeline } from "./playback-timeline.js";
 import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
 import { collectTimedCueBurstsWithinLookahead } from "./timed-cue-scheduler.js";
 import {
+  createTimedTransportDiagnostics,
+  pushTimedTransportDiagnostic,
+  resetTimedTransportDiagnostics,
+  summarizeTimedTransportDiagnostics,
+} from "./timed-transport-diagnostics.js";
+import {
   advanceTimedTransport,
   createTimedTransportState,
   currentTimedTransportElapsedSeconds,
@@ -190,6 +196,7 @@ const Sequencer = ({
   const [repeatBarRelativeDrafts, setRepeatBarRelativeDrafts] = useState({});
   const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
@@ -217,6 +224,8 @@ const Sequencer = ({
   const getTimedTransportClockSecondsRef = useRef(getTimedTransportClockSeconds);
   const timedPlaybackBurstsRef = useRef([]);
   const timedCueTriggerBySourceIndexRef = useRef(new Map());
+  const timedTransportDisplayClockRef = useRef(0);
+  const timedTransportDiagnosticsRef = useRef(createTimedTransportDiagnostics());
   const [timedTransportState, setTimedTransportState] = useState(() => createTimedTransportState([]));
   const [timedTransportClockSeconds, setTimedTransportClockSeconds] = useState(0);
 
@@ -492,6 +501,13 @@ const Sequencer = ({
     timedTransportTimeoutsRef.current.clear();
   }, []);
 
+  const recordTimedTransportDiagnostic = useCallback((entry) => {
+    timedTransportDiagnosticsRef.current = pushTimedTransportDiagnostic(
+      timedTransportDiagnosticsRef.current,
+      entry,
+    );
+  }, []);
+
   const deriveTimedTransportStartTarget = useCallback((playbackIndex) => {
     const burst = timedPlaybackBursts[playbackIndex] ?? null;
     if (!burst) return null;
@@ -544,10 +560,35 @@ const Sequencer = ({
 
     cueBursts.forEach((burst) => {
       const delayMs = Math.max(0, (Number(burst.elapsedSeconds) - currentElapsed) * 1000);
+      recordTimedTransportDiagnostic({
+        type: "schedule",
+        clockSeconds: nowSeconds,
+        elapsedSeconds: burst.elapsedSeconds,
+        cueIndex: Number.isFinite(burst.sourceCueIndex) ? Number(burst.sourceCueIndex) : null,
+        playbackIndex: burst.playbackIndex,
+        scheduledDelayMs: delayMs,
+        queueDepth: timedTransportTimeoutsRef.current.size + 1,
+        activeNotes: Array.isArray(burst.soundingBefore) ? burst.soundingBefore.length : null,
+        noteCount: Array.isArray(burst.events) ? burst.events.filter((event) => event?.type === "note").length : null,
+      });
       const timeoutId = window.setTimeout(() => {
         timedTransportTimeoutsRef.current.delete(timeoutId);
         if (timedTransportSchedulerTokenRef.current !== schedulerToken) return;
         if (timedTransportStateRef.current.status !== "running") return;
+        const fireNowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+        const actualElapsed = currentTimedTransportElapsedSeconds(timedTransportStateRef.current, fireNowSeconds);
+        recordTimedTransportDiagnostic({
+          type: "fire",
+          clockSeconds: fireNowSeconds,
+          elapsedSeconds: actualElapsed,
+          cueIndex: Number.isFinite(burst.sourceCueIndex) ? Number(burst.sourceCueIndex) : null,
+          playbackIndex: burst.playbackIndex,
+          scheduledDelayMs: delayMs,
+          latenessMs: (actualElapsed - Number(burst.elapsedSeconds)) * 1000,
+          queueDepth: timedTransportTimeoutsRef.current.size,
+          activeNotes: Array.isArray(burst.soundingBefore) ? burst.soundingBefore.length : null,
+          noteCount: Array.isArray(burst.events) ? burst.events.filter((event) => event?.type === "note").length : null,
+        });
         if (Number.isFinite(burst.sourceCueIndex)) {
           const cueIndex = Number(burst.sourceCueIndex) - 1;
           const trigger = timedCueTriggerBySourceIndexRef.current.get(Number(burst.sourceCueIndex)) ?? null;
@@ -562,7 +603,7 @@ const Sequencer = ({
       }, delayMs);
       timedTransportTimeoutsRef.current.add(timeoutId);
     });
-  }, []);
+  }, [recordTimedTransportDiagnostic]);
 
   const runTimedCueLookahead = useCallback((nowSeconds) => {
     const currentElapsed = currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds);
@@ -599,18 +640,14 @@ const Sequencer = ({
     clearScheduledTimedCueCallbacks();
 
     const initialNowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+    timedTransportDisplayClockRef.current = initialNowSeconds;
     setTimedTransportClockSeconds(initialNowSeconds);
     runTimedCueLookahead(initialNowSeconds);
 
-    const schedulerId = window.setInterval(() => {
+    const transportId = window.setInterval(() => {
       if (cancelled) return;
       const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
       runTimedCueLookahead(nowSeconds);
-    }, schedulerIntervalMs);
-
-    const monitorId = window.setInterval(() => {
-      if (cancelled) return;
-      const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
       const previous = timedTransportStateRef.current;
       const result = advanceTimedTransport(previous, timedPlaybackBurstsRef.current, nowSeconds);
       timedTransportStateRef.current = result.state;
@@ -625,30 +662,39 @@ const Sequencer = ({
         clearScheduledTimedCueCallbacks();
         onStopSnapshotRef.current?.();
         setTimedTransportState(result.state);
-        window.clearInterval(monitorId);
+        window.clearInterval(transportId);
         return;
       }
 
       if (stateChanged) {
         setTimedTransportState(result.state);
       }
+      if (result.dueBursts.length > 1) {
+        const latestBurst = result.dueBursts.at(-1) ?? null;
+        recordTimedTransportDiagnostic({
+          type: "late-tick",
+          clockSeconds: nowSeconds,
+          elapsedSeconds: currentTimedTransportElapsedSeconds(result.state, nowSeconds),
+          cueIndex: Number.isFinite(latestBurst?.sourceCueIndex) ? Number(latestBurst.sourceCueIndex) : null,
+          playbackIndex: latestBurst?.playbackIndex ?? null,
+          queueDepth: result.dueBursts.length,
+          detail: "multiple bursts became due in one transport tick",
+        });
+      }
+      if (nowSeconds - timedTransportDisplayClockRef.current >= displayIntervalMs / 1000) {
+        timedTransportDisplayClockRef.current = nowSeconds;
+        setTimedTransportClockSeconds(nowSeconds);
+      }
     }, schedulerIntervalMs);
-
-    const displayId = window.setInterval(() => {
-      if (cancelled) return;
-      const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
-      setTimedTransportClockSeconds(nowSeconds);
-    }, displayIntervalMs);
 
     return () => {
       cancelled = true;
       clearScheduledTimedCueCallbacks();
-      window.clearInterval(schedulerId);
-      window.clearInterval(monitorId);
-      window.clearInterval(displayId);
+      window.clearInterval(transportId);
     };
   }, [
     clearScheduledTimedCueCallbacks,
+    recordTimedTransportDiagnostic,
     runTimedCueLookahead,
     timedTransportState.status,
   ]);
@@ -662,6 +708,12 @@ const Sequencer = ({
     if (previous.status === "running") {
       clearScheduledTimedCueCallbacks();
       onStopSnapshotRef.current?.();
+      recordTimedTransportDiagnostic({
+        type: "pause",
+        clockSeconds: nowSeconds,
+        elapsedSeconds: currentTimedTransportElapsedSeconds(previous, nowSeconds),
+        status: previous.status,
+      });
       const pausedState = pauseTimedTransport(previous, nowSeconds);
       timedTransportStateRef.current = pausedState;
       setTimedTransportState(pausedState);
@@ -671,6 +723,12 @@ const Sequencer = ({
     if (previous.status === "paused") {
       clearScheduledTimedCueCallbacks();
       replayPausedTimedTransportCue(previous);
+      recordTimedTransportDiagnostic({
+        type: "resume",
+        clockSeconds: nowSeconds,
+        elapsedSeconds: currentTimedTransportElapsedSeconds(previous, nowSeconds),
+        status: previous.status,
+      });
       const resumedState = resumeTimedTransport(previous, nowSeconds);
       timedTransportStateRef.current = resumedState;
       setTimedTransportState(resumedState);
@@ -678,9 +736,17 @@ const Sequencer = ({
     }
 
     const startIndex = resolveTimedTransportStartIndex();
+    timedTransportDiagnosticsRef.current = resetTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
     const startedState = startTimedTransport(previous, timedPlaybackBursts, {
       playbackIndex: startIndex < 0 ? 0 : startIndex,
       clockSeconds: nowSeconds,
+    });
+    recordTimedTransportDiagnostic({
+      type: "start",
+      clockSeconds: nowSeconds,
+      elapsedSeconds: startedState.pausedElapsedSeconds,
+      playbackIndex: startIndex < 0 ? 0 : startIndex,
+      status: startedState.status,
     });
     timedTransportStartTargetRef.current = deriveTimedTransportStartTarget(startIndex < 0 ? 0 : startIndex);
     timedTransportStateRef.current = startedState;
@@ -689,20 +755,43 @@ const Sequencer = ({
     deriveTimedTransportStartTarget,
     clearScheduledTimedCueCallbacks,
     getTimedTransportClockSeconds,
+    recordTimedTransportDiagnostic,
     replayPausedTimedTransportCue,
     resolveTimedTransportStartIndex,
     timedPlaybackBursts,
   ]);
 
   const handleTimedTransportStop = useCallback(() => {
+    const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
     clearScheduledTimedCueCallbacks();
     onStopSnapshot?.();
     scheduledTimedPlaybackIndexRef.current = 0;
+    recordTimedTransportDiagnostic({
+      type: "stop",
+      clockSeconds: nowSeconds,
+      elapsedSeconds: currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds),
+      status: timedTransportStateRef.current.status,
+    });
     const stoppedState = stopTimedTransport(timedPlaybackBursts);
     timedTransportStateRef.current = stoppedState;
     setTimedTransportState(stoppedState);
     restoreTimedTransportStartTarget();
-  }, [clearScheduledTimedCueCallbacks, onStopSnapshot, restoreTimedTransportStartTarget, timedPlaybackBursts]);
+  }, [clearScheduledTimedCueCallbacks, onStopSnapshot, recordTimedTransportDiagnostic, restoreTimedTransportStartTarget, timedPlaybackBursts]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const api = {
+      get: () => summarizeTimedTransportDiagnostics(timedTransportDiagnosticsRef.current),
+      reset: () => {
+        timedTransportDiagnosticsRef.current = resetTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
+        return summarizeTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
+      },
+    };
+    window.__hexatoneTimedTransportDiagnostics = api;
+    return () => {
+      delete window.__hexatoneTimedTransportDiagnostics;
+    };
+  }, []);
 
   const timedTransportDisplay = useMemo(() => {
     const runningElapsed = currentTimedTransportElapsedSeconds(timedTransportState, timedTransportClockSeconds);
@@ -747,6 +836,7 @@ const Sequencer = ({
   };
 
   const scrollNodeIntoPanel = useCallback((targetNode) => {
+    if (!autoScrollEnabled) return;
     const scrollPanel = scrollPanelRef.current;
     if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
 
@@ -760,7 +850,7 @@ const Sequencer = ({
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
       scrollPanel.scrollTop = nextTop;
     });
-  }, []);
+  }, [autoScrollEnabled]);
 
   const armPendingSnapshot = (snapshotIndex) => {
     transportScrollTargetRef.current = "snapshot";
@@ -864,6 +954,7 @@ const Sequencer = ({
   }, [editCommitTick, snapshots]);
 
  useEffect(() => {
+    if (!autoScrollEnabled) return;
     if (Number.isFinite(activeCueIndex)) {
       const anchorTarget = deriveCueScrollAnchorTarget({
         showAllEvents,
@@ -886,9 +977,10 @@ const Sequencer = ({
       return;
     }
     lastAutoScrolledCueTargetRef.current = null;
-  }, [activeCueIndex, cueExpandedSnapshotIds, scrollNodeIntoPanel, sequenceCueGroups, sequenceRepeatSections, showAllEvents, snapshots]);
+  }, [activeCueIndex, autoScrollEnabled, cueExpandedSnapshotIds, scrollNodeIntoPanel, sequenceCueGroups, sequenceRepeatSections, showAllEvents, snapshots]);
 
   useEffect(() => {
+    if (!autoScrollEnabled) return;
     if (Number.isFinite(activeCueIndex)) {
       lastAutoScrolledSnapshotIdRef.current = null;
       return;
@@ -940,9 +1032,10 @@ const Sequencer = ({
       scrollPanel.scrollTop = nextTop;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeCueIndex, activeSnapshotId, firstRepeatStartMarker, playheadStepIndex, repeatStartBySnapshotId, scrollNodeIntoPanel]);
+  }, [activeCueIndex, activeSnapshotId, autoScrollEnabled, firstRepeatStartMarker, playheadStepIndex, repeatStartBySnapshotId, scrollNodeIntoPanel]);
 
   useEffect(() => {
+    if (!autoScrollEnabled) return;
     const pendingTarget = pendingResetScrollTargetRef.current;
     if (!playheadIsOff || pendingTarget == null) return;
     pendingResetScrollTargetRef.current = null;
@@ -958,9 +1051,10 @@ const Sequencer = ({
     suppressNextBarAutoScrollRef.current = true;
     lastAutoScrolledSnapshotIdRef.current = pendingTarget;
     scrollNodeIntoPanel(repeatRow);
-  }, [playheadIsOff, scrollNodeIntoPanel]);
+  }, [autoScrollEnabled, playheadIsOff, scrollNodeIntoPanel]);
 
   useEffect(() => {
+    if (!autoScrollEnabled) return;
     if (!playheadIsOff || transportScrollTargetRef.current !== "bar") {
       lastAutoScrolledBarIdRef.current = null;
       return;
@@ -992,7 +1086,7 @@ const Sequencer = ({
       scrollPanel.scrollTop = nextTop;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [playheadIsOff, repeatStartKeyAtPosition, selectedBarIndex, sortedBars]);
+  }, [autoScrollEnabled, playheadIsOff, repeatStartKeyAtPosition, selectedBarIndex, sortedBars]);
 
   const notifyEditCommitted = () => {
     setEditCommitTick((value) => value + 1);
@@ -1683,6 +1777,8 @@ const Sequencer = ({
           onSetSnapshotLabelMode={onSetSnapshotLabelMode}
           sequenceLegato={sequenceLegato}
           onSequenceLegatoChange={onSequenceLegatoChange}
+          autoScrollEnabled={autoScrollEnabled}
+          onAutoScrollEnabledChange={setAutoScrollEnabled}
           snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
           onSnapSequenceToCurrentTuningChange={onSnapSequenceToCurrentTuningChange}
           playbackRowRef={playbackRowRef}

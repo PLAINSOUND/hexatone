@@ -32,6 +32,15 @@ const snapshotPitchKey = (midicents) => {
   return n.toFixed(3);
 };
 
+const snapshotInstanceKey = (note) => {
+  if (note == null || typeof note !== "object") return null;
+  if (typeof note.instanceKey === "string" && note.instanceKey) return note.instanceKey;
+  if (typeof note.noteId === "string" && note.noteId) {
+    return `${note.snapshotId ?? ""}:${note.noteId}`;
+  }
+  return null;
+};
+
 function currentControllerTimbre(runtime) {
   const liveCc1 = runtime?._controllerCCValues?.get?.(1);
   const persistedCc1 = runtime?.settings?.midiin_modwheel_value;
@@ -242,6 +251,7 @@ function createSnapshotHex(runtime, note) {
   hex._snapshotReleaseVelocity = releaseVelocity;
   hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
   hex._snapshotMidicents = Number(note.midicents);
+  hex._snapshotInstanceKey = snapshotInstanceKey(note);
   const timbre = normalize7Bit(note.timbre);
   const timbre14 = normalize14Bit(note.timbre14);
   if ((timbre != null || timbre14 != null) && typeof runtime?.synth?.setMod === "function") {
@@ -270,7 +280,10 @@ export function playSnapshot(runtime, notes, options = {}) {
   }
 
   const availableHexesByPitch = new Map();
+  const availableHexesByInstance = new Map();
   for (const hex of runtime._snapshotHexes ?? []) {
+    const instanceKey = typeof hex?._snapshotInstanceKey === "string" ? hex._snapshotInstanceKey : null;
+    if (instanceKey) availableHexesByInstance.set(instanceKey, hex);
     const key = hex?._snapshotPitchKey ?? snapshotPitchKey(hex?._snapshotMidicents);
     if (!key) continue;
     const list = availableHexesByPitch.get(key) ?? [];
@@ -281,8 +294,19 @@ export function playSnapshot(runtime, notes, options = {}) {
   const nextHexes = [];
   for (const note of notes) {
     const key = snapshotPitchKey(note.midicents);
+    const instanceKey = snapshotInstanceKey(note);
+    const reusedByInstance = instanceKey != null
+      ? (availableHexesByInstance.get(instanceKey) ?? null)
+      : null;
+    if (instanceKey != null) availableHexesByInstance.delete(instanceKey);
     const available = key ? (availableHexesByPitch.get(key) ?? []) : [];
-    const reusedHex = available.shift() ?? null;
+    let reusedHex = reusedByInstance;
+    if (reusedHex) {
+      const reusedIndex = available.indexOf(reusedHex);
+      if (reusedIndex >= 0) available.splice(reusedIndex, 1);
+    } else {
+      reusedHex = available.shift() ?? null;
+    }
     if (key) availableHexesByPitch.set(key, available);
 
     if (reusedHex && !note?.reattack) {
@@ -291,6 +315,7 @@ export function playSnapshot(runtime, notes, options = {}) {
       reusedHex._snapshotReleaseVelocity = releaseVelocity;
       reusedHex._snapshotPitchKey = key;
       reusedHex._snapshotMidicents = Number(note.midicents);
+      reusedHex._snapshotInstanceKey = instanceKey;
       // Future note-transition work can layer timed pressure/timbre ramps here.
       applySnapshotExpression(runtime, reusedHex, note);
       nextHexes.push(reusedHex);
