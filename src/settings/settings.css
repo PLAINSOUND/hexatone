@@ -235,10 +235,10 @@
   border-radius: 3px;
   box-shadow: none;
   transition:
-    background 0.34s ease,
-    background-color 0.34s ease,
-    border-color 0.34s ease,
-    color 0.34s ease;
+    background 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
   will-change: background-color;
 }
 
@@ -255,7 +255,7 @@
   background: currentColor;
   clip-path: polygon(0 0, 100% 50%, 0 100%);
   transform-origin: 50% 50%;
-  transition: transform 0.34s ease;
+  transition: transform 0.15s ease;
 }
 
 .disclosure-toggle-glyph--collapsed {
@@ -479,7 +479,7 @@
   background: var(--color-accent);
   border: none;
   margin-top: -0.32em;
-  transition: background 0.1s ease;
+  transition: background 0.15s ease;
 }
 
 #sidebar input[type="range"]::-moz-range-thumb {
@@ -488,7 +488,7 @@
   border-radius: 50%;
   background: var(--color-accent);
   border: none;
-  transition: background 0.1s ease;
+  transition: background 0.15s ease;
 }
 
 #sidebar input[type="range"]:hover::-webkit-slider-thumb,
@@ -600,7 +600,7 @@
   border: 1px solid #c3c8cb;
   flex-shrink: 0;
   cursor: pointer;
-  transition: box-shadow 0.1s ease;
+  transition: box-shadow 0.15s ease;
 }
 
 .color-swatch:hover {
@@ -1186,7 +1186,7 @@ td.scale-color-col .color-input {
   border: 1px solid var(--color-border-ui);
   color: var(--color-text);
   border-radius: var(--btn-radius-square);
-  transition: background-color 0.24s ease;
+  transition: background-color 0.15s ease;
 }
 
 .preset-action-btn:hover,
@@ -3917,10 +3917,10 @@ input.equiv-cell:disabled,
   margin-left: auto;
   margin-right: 0;
   transition:
-    background 0.24s ease,
-    background-color 0.24s ease,
-    border-color 0.24s ease,
-    color 0.24s ease;
+    background 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .tune-handle:hover  { background: #ddd0d0; }
@@ -3960,10 +3960,10 @@ input.equiv-cell:disabled,
   font-size: 1.05em;
   line-height: 1;
   transition:
-    background 0.24s ease,
-    background-color 0.24s ease,
-    border-color 0.24s ease,
-    color 0.24s ease;
+    background 0.15 ease,
+    background-color 0.15 ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .tune-btn:hover { background: #ddd0d0; }
@@ -4084,10 +4084,10 @@ input.equiv-cell:disabled,
   color: var(--color-text);
   font-size: 1em;
   transition:
-    background 0.24s ease,
-    background-color 0.24s ease,
-    border-color 0.24s ease,
-    color 0.24s ease;
+    background 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .scale-table-toolbar__rationalisation-group {
