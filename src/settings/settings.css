@@ -2993,6 +2993,10 @@ td.scale-color-col .color-input {
   gap: 0;
 }
 
+.sequencer-event__cue-marker--courtesy .sequencer-event__cue-number-wrap {
+  transform: translateX(0.22em);
+}
+
 .sequencer-event__cue-actions {
   display: inline-flex;
   align-items: center;
