@@ -599,7 +599,7 @@ a:hover {
   gap: 4px;
   min-width: 9.8rem;
   max-width: min(15.75rem, calc(100vw - 1rem));
-  max-height: calc(60vh - 4.5rem);
+  max-height: calc(62vh);
   overflow: auto;
   padding: 7px 9px;
   border-radius: 5px;
