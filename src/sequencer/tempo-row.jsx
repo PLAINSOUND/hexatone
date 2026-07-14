@@ -24,7 +24,7 @@ const TempoRow = ({
   const sequenceTime = tempoPosition.toFixed(6);
   const isAlwaysOnTempo = Math.abs(tempoPosition - 1) < 1e-9;
   const isTransitionTempo = tempo.mode === "transition";
-  const tempoLabel = isTransitionTempo ? "target:" : "";
+  const tempoLabel = isTransitionTempo ? "target:" : "tempo:";
   const transitionCue = timing.tempoTransitionCueMap?.get(tempoId) ?? null;
   const beatNumerator = String(tempo.beatNumerator ?? 1);
   const beatDenominator = String(tempo.beatDenominator ?? 4);
