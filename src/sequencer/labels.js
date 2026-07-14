@@ -94,10 +94,11 @@ function ratiosToIntegerProportion(ratios = [], { sort = false } = {}) {
   );
   const scaledIntegers = integers.map((ratio) => ratio.numerator * (commonDenominator / ratio.denominator));
   const commonFactor = scaledIntegers.reduce((current, value) => gcd(current, value));
-  return scaledIntegers
+  const normalized = scaledIntegers
     .map((value) => value / commonFactor)
-    .map((value) => value.toString())
-    .join(":");
+    .map((value) => value.toString());
+  const unique = normalized.filter((value, index) => normalized.indexOf(value) === index);
+  return unique.join(":");
 }
 
 function reduceRatioToOddPartial(ratio) {

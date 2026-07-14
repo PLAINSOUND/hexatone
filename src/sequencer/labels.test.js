@@ -57,6 +57,15 @@ describe("sequencer snapshot labels", () => {
     ])).toBe("10:11:14:16:18");
   });
 
+  it("drops repeated integers from odd-partial proportions", () => {
+    expect(buildOddPartialProportion([
+      { midicents: 69, ratioText: "3/2" },
+      { midicents: 81, ratioText: "2/1" },
+      { midicents: 88, ratioText: "4/1" },
+      { midicents: 93, ratioText: "9/4" },
+    ])).toBe("1:3:9");
+  });
+
   it("derives an odd-partial proportion by removing powers of two and sorting the result", () => {
     expect(buildOddPartialProportion([
       { midicents: 69, ratioText: "29/16" },

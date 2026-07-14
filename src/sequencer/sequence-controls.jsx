@@ -207,54 +207,50 @@ const SequenceControls = ({
           </span>
         </div>
 
-        <label class="sequencer-option-row">
-          <span>Snapshot Labels</span>
-          <select
-            class="sidebar-input"
-            value={snapshotLabelMode}
-            onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
-          >
-            {SNAPSHOT_LABEL_MODES.map((mode) => (
-              <option key={mode.value} value={mode.value}>
-                {mode.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
       </>
     ) : null}
 
-    {showAllEvents ? (
-      <>
-        <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-          <span>Legato</span>
-          <input
-            type="checkbox"
-            checked={sequenceLegato}
-            onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
-          />
-        </label>
+    <label class="sequencer-option-row">
+      <span>Snapshot Labels</span>
+      <select
+        class="sidebar-input"
+        value={snapshotLabelMode}
+        onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
+      >
+        {SNAPSHOT_LABEL_MODES.map((mode) => (
+          <option key={mode.value} value={mode.value}>
+            {mode.label}
+          </option>
+        ))}
+      </select>
+    </label>
 
-        <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-          <span>Auto-Scroll</span>
-          <input
-            type="checkbox"
-            checked={autoScrollEnabled}
-            onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
-          />
-        </label>
+    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+      <span>Legato</span>
+      <input
+        type="checkbox"
+        checked={sequenceLegato}
+        onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
+      />
+    </label>
 
-        <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-          <span>Snap Sequence to Current Hexatone Tuning</span>
-          <input
-            type="checkbox"
-            checked={snapSequenceToCurrentTuning}
-            onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
-          />
-        </label>
-      </>
-    ) : null}
+    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+      <span>Auto-Scroll</span>
+      <input
+        type="checkbox"
+        checked={autoScrollEnabled}
+        onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
+      />
+    </label>
+
+    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+      <span>Snap Sequence to Current Hexatone Tuning</span>
+      <input
+        type="checkbox"
+        checked={snapSequenceToCurrentTuning}
+        onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
+      />
+    </label>
 
     <div ref={playbackRowRef} class="sequencer-playback-row" aria-label="Sequence playback">
       <span class="sequencer-playback-label">PLAY FROM</span>
