@@ -2514,11 +2514,11 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-tempo-row--immediate .sequencer-tempo-row__line {
-  border-top-style: dotted;
   border-top-color: rgba(149, 127, 127, 0.74);
 }
 
 .sequencer-tempo-row--transition .sequencer-tempo-row__line {
+  border-top-style: dashed;
   border-top-color: rgba(182, 142, 104, 0.72);
 }
 

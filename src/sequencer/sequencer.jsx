@@ -37,6 +37,7 @@ import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
 import { collectTimedCueBurstsWithinLookahead } from "./timed-cue-scheduler.js";
 import {
   createTimedTransportDiagnostics,
+  isTimedTransportDiagnosticsEnabled,
   loadPersistedTimedTransportDiagnostics,
   persistTimedTransportDiagnostics,
   pushTimedTransportDiagnostic,
@@ -226,10 +227,8 @@ const Sequencer = ({
   const getTimedTransportClockSecondsRef = useRef(getTimedTransportClockSeconds);
   const timedPlaybackBurstsRef = useRef([]);
   const timedCueTriggerBySourceIndexRef = useRef(new Map());
-  const timedTransportDisplayClockRef = useRef(0);
   const timedTransportDiagnosticsRef = useRef(createTimedTransportDiagnostics());
   const [timedTransportState, setTimedTransportState] = useState(() => createTimedTransportState([]));
-  const [timedTransportClockSeconds, setTimedTransportClockSeconds] = useState(0);
 
   const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
   const suggestedBarPosition = useMemo(() => {
@@ -504,12 +503,66 @@ const Sequencer = ({
   }, []);
 
   const recordTimedTransportDiagnostic = useCallback((entry) => {
+    if (!isTimedTransportDiagnosticsEnabled()) return;
     timedTransportDiagnosticsRef.current = pushTimedTransportDiagnostic(
       timedTransportDiagnosticsRef.current,
       entry,
     );
     persistTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!isTimedTransportDiagnosticsEnabled()) return undefined;
+    if (typeof PerformanceObserver === "undefined") return undefined;
+    let observer = null;
+    try {
+      observer = new PerformanceObserver((list) => {
+        list.getEntries().forEach((entry) => {
+          recordTimedTransportDiagnostic({
+            type: "longtask",
+            clockSeconds: performance.now() / 1000,
+            durationMs: entry.duration,
+            detail: entry.name || "long task",
+          });
+        });
+      });
+      observer.observe({ entryTypes: ["longtask"] });
+    } catch {
+      observer = null;
+    }
+    return () => observer?.disconnect?.();
+  }, [recordTimedTransportDiagnostic]);
+
+  useEffect(() => {
+    if (!isTimedTransportDiagnosticsEnabled()) return undefined;
+    if (timedTransportState.status !== "running") return undefined;
+    let cancelled = false;
+    let previousFrameSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+
+    const tickFrame = () => {
+      if (cancelled) return;
+      const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+      const gapMs = (nowSeconds - previousFrameSeconds) * 1000;
+      previousFrameSeconds = nowSeconds;
+      if (gapMs > 34) {
+        recordTimedTransportDiagnostic({
+          type: "frame-gap",
+          clockSeconds: nowSeconds,
+          elapsedSeconds: currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds),
+          durationMs: gapMs,
+          nextPlaybackIndex: timedTransportStateRef.current?.nextPlaybackIndex ?? null,
+          detail: "requestAnimationFrame gap exceeded 34ms",
+        });
+      }
+      window.requestAnimationFrame(tickFrame);
+    };
+
+    const frameId = window.requestAnimationFrame(tickFrame);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [recordTimedTransportDiagnostic, timedTransportState.status]);
 
   const deriveTimedTransportStartTarget = useCallback((playbackIndex) => {
     const burst = timedPlaybackBursts[playbackIndex] ?? null;
@@ -595,6 +648,7 @@ const Sequencer = ({
         if (Number.isFinite(burst.sourceCueIndex)) {
           const cueIndex = Number(burst.sourceCueIndex) - 1;
           const trigger = timedCueTriggerBySourceIndexRef.current.get(Number(burst.sourceCueIndex)) ?? null;
+          const dispatchStart = performance.now();
           if (onPlayTimedCueRef.current) {
             onPlayTimedCueRef.current(cueIndex, trigger, {
               hardRestart: burst.repeatJump != null,
@@ -602,6 +656,19 @@ const Sequencer = ({
           } else {
             onPlayCueRef.current?.(cueIndex);
           }
+          recordTimedTransportDiagnostic({
+            type: "dispatch",
+            clockSeconds: (getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000),
+            elapsedSeconds: currentTimedTransportElapsedSeconds(
+              timedTransportStateRef.current,
+              getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000,
+            ),
+            cueIndex: Number(burst.sourceCueIndex),
+            playbackIndex: burst.playbackIndex,
+            durationMs: performance.now() - dispatchStart,
+            activeNotes: Array.isArray(burst.soundingAfter) ? burst.soundingAfter.length : null,
+            noteCount: Array.isArray(burst.events) ? burst.events.filter((event) => event?.type === "note").length : null,
+          });
         }
       }, delayMs);
       timedTransportTimeoutsRef.current.add(timeoutId);
@@ -638,17 +705,15 @@ const Sequencer = ({
     if (timedTransportState.status !== "running") return undefined;
     let cancelled = false;
     const schedulerIntervalMs = 25;
-    const displayIntervalMs = 125;
     scheduledTimedPlaybackIndexRef.current = Math.max(0, timedTransportStateRef.current.nextPlaybackIndex);
     clearScheduledTimedCueCallbacks();
 
     const initialNowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
-    timedTransportDisplayClockRef.current = initialNowSeconds;
-    setTimedTransportClockSeconds(initialNowSeconds);
     runTimedCueLookahead(initialNowSeconds);
 
     const transportId = window.setInterval(() => {
       if (cancelled) return;
+      const tickStart = performance.now();
       const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
       runTimedCueLookahead(nowSeconds);
       const previous = timedTransportStateRef.current;
@@ -681,12 +746,23 @@ const Sequencer = ({
           cueIndex: Number.isFinite(latestBurst?.sourceCueIndex) ? Number(latestBurst.sourceCueIndex) : null,
           playbackIndex: latestBurst?.playbackIndex ?? null,
           queueDepth: result.dueBursts.length,
+          timeoutCount: timedTransportTimeoutsRef.current.size,
+          nextPlaybackIndex: result.state.nextPlaybackIndex,
           detail: "multiple bursts became due in one transport tick",
         });
       }
-      if (nowSeconds - timedTransportDisplayClockRef.current >= displayIntervalMs / 1000) {
-        timedTransportDisplayClockRef.current = nowSeconds;
-        setTimedTransportClockSeconds(nowSeconds);
+      const tickDurationMs = performance.now() - tickStart;
+      if (tickDurationMs > schedulerIntervalMs * 2) {
+        recordTimedTransportDiagnostic({
+          type: "slow-tick",
+          clockSeconds: nowSeconds,
+          elapsedSeconds: currentTimedTransportElapsedSeconds(result.state, nowSeconds),
+          durationMs: tickDurationMs,
+          queueDepth: result.dueBursts.length,
+          timeoutCount: timedTransportTimeoutsRef.current.size,
+          nextPlaybackIndex: result.state.nextPlaybackIndex,
+          detail: "transport interval callback exceeded budget",
+        });
       }
     }, schedulerIntervalMs);
 
@@ -705,7 +781,6 @@ const Sequencer = ({
   const handleTimedTransportPlayPause = useCallback(() => {
     if (!timedPlaybackBursts.length) return;
     const nowSeconds = getTimedTransportClockSeconds?.() ?? performance.now() / 1000;
-    setTimedTransportClockSeconds(nowSeconds);
     const previous = timedTransportStateRef.current;
 
     if (previous.status === "running") {
@@ -784,6 +859,7 @@ const Sequencer = ({
   useEffect(() => {
     if (typeof globalThis === "undefined") return undefined;
     const api = {
+      enabled: isTimedTransportDiagnosticsEnabled(),
       get: () => summarizeTimedTransportDiagnostics(timedTransportDiagnosticsRef.current),
       getPersisted: () => loadPersistedTimedTransportDiagnostics(),
       reset: () => {
@@ -798,16 +874,27 @@ const Sequencer = ({
     };
   }, []);
 
-  const timedTransportDisplay = useMemo(() => {
-    const runningElapsed = currentTimedTransportElapsedSeconds(timedTransportState, timedTransportClockSeconds);
-    const queuedPlaybackIndex = timedTransportState.status === "stopped" || timedTransportState.status === "empty"
+  const timedTransportUiState = useMemo(() => {
+    return {
+      running: timedTransportState.status === "running",
+      paused: timedTransportState.status === "paused",
+      canPlay: timedCueTriggers.length > 0,
+      canStop: timedTransportState.status === "running" || timedTransportState.status === "paused",
+    };
+  }, [timedCueTriggers.length, timedTransportState.status]);
+
+  const getTimedTransportDisplay = useCallback(() => {
+    const clockSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+    const currentState = timedTransportStateRef.current;
+    const runningElapsed = currentTimedTransportElapsedSeconds(currentState, clockSeconds);
+    const queuedPlaybackIndex = currentState.status === "stopped" || currentState.status === "empty"
       ? resolveTimedTransportStartIndex()
-      : timedTransportState.nextPlaybackIndex >= 0
-        ? Math.max(0, timedTransportState.nextPlaybackIndex)
-        : Math.max(0, timedPlaybackBursts.length - 1);
-    const queuedBurst = queuedPlaybackIndex >= 0 ? timedPlaybackBursts[queuedPlaybackIndex] ?? null : null;
-    const lastDispatchedBurst = timedTransportState.lastDispatchedPlaybackIndex >= 0
-      ? (timedPlaybackBursts[timedTransportState.lastDispatchedPlaybackIndex] ?? null)
+      : currentState.nextPlaybackIndex >= 0
+        ? Math.max(0, currentState.nextPlaybackIndex)
+        : Math.max(0, timedPlaybackBurstsRef.current.length - 1);
+    const queuedBurst = queuedPlaybackIndex >= 0 ? timedPlaybackBurstsRef.current[queuedPlaybackIndex] ?? null : null;
+    const lastDispatchedBurst = currentState.lastDispatchedPlaybackIndex >= 0
+      ? (timedPlaybackBurstsRef.current[currentState.lastDispatchedPlaybackIndex] ?? null)
       : null;
     const displaySequenceTime = (
       lastDispatchedBurst?.sequenceTime
@@ -818,10 +905,6 @@ const Sequencer = ({
     return {
       clock: formatTransportClock(runningElapsed),
       barBeat: formatTransportBarBeat(displaySequenceTime),
-      running: timedTransportState.status === "running",
-      paused: timedTransportState.status === "paused",
-      canPlay: timedCueTriggers.length > 0,
-      canStop: timedTransportState.status === "running" || timedTransportState.status === "paused",
     };
   }, [
     formatTransportBarBeat,
@@ -829,10 +912,6 @@ const Sequencer = ({
     resolveTimedTransportStartIndex,
     selectedBarIndex,
     sortedBars,
-    timedPlaybackBursts,
-    timedCueTriggers.length,
-    timedTransportClockSeconds,
-    timedTransportState,
   ]);
 
   const selectBarForPosition = (position) => {
@@ -846,6 +925,7 @@ const Sequencer = ({
     if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
 
     window.requestAnimationFrame(() => {
+      const scrollStartMs = performance.now();
       const panelRect = scrollPanel.getBoundingClientRect();
       const targetRect = targetNode.getBoundingClientRect();
       const gap = 6;
@@ -854,8 +934,17 @@ const Sequencer = ({
       const nextTop = Math.max(0, Math.min(maxTop, targetTop));
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
       scrollPanel.scrollTop = nextTop;
+      const durationMs = performance.now() - scrollStartMs;
+      if (durationMs > 8) {
+        recordTimedTransportDiagnostic({
+          type: "scroll",
+          clockSeconds: performance.now() / 1000,
+          durationMs,
+          detail: "scrollNodeIntoPanel",
+        });
+      }
     });
-  }, [autoScrollEnabled]);
+  }, [autoScrollEnabled, recordTimedTransportDiagnostic]);
 
   const armPendingSnapshot = (snapshotIndex) => {
     transportScrollTargetRef.current = "snapshot";
@@ -1044,6 +1133,21 @@ const Sequencer = ({
     const pendingTarget = pendingResetScrollTargetRef.current;
     if (!playheadIsOff || pendingTarget == null) return;
     pendingResetScrollTargetRef.current = null;
+    if (pendingTarget === "__first_structural__") {
+      const firstStructuralRow = [...barRowRefs.current.values()]
+        .filter((node) => node instanceof HTMLElement)
+        .sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top)[0] ?? null;
+      if (!(firstStructuralRow instanceof HTMLElement)) {
+        const scrollPanel = scrollPanelRef.current;
+        if (scrollPanel instanceof HTMLElement) {
+          scrollPanel.scrollTop = 0;
+        }
+        return;
+      }
+      suppressNextBarAutoScrollRef.current = true;
+      scrollNodeIntoPanel(firstStructuralRow);
+      return;
+    }
     if (pendingTarget === "__top__") {
       const scrollPanel = scrollPanelRef.current;
       if (scrollPanel instanceof HTMLElement) {
@@ -1117,23 +1221,13 @@ const Sequencer = ({
   const resetSequencePlayheadAndScrollTop = useCallback(() => {
     transportScrollTargetRef.current = "bar";
     lastAutoScrolledBarIdRef.current = null;
-    const repeatStartKey = firstRepeatStartMarker != null
-      ? structuralEventRenderKey({
-        type: "repeat-start",
-        repeatId: firstRepeatStartMarker.id,
-      })
-      : null;
-    if (repeatStartKey != null) {
-      pendingResetScrollTargetRef.current = repeatStartKey;
-    } else {
-      pendingResetScrollTargetRef.current = null;
-      const scrollPanel = scrollPanelRef.current;
-      if (scrollPanel instanceof HTMLElement) {
-        scrollPanel.scrollTop = 0;
-      }
+    pendingResetScrollTargetRef.current = "__first_structural__";
+    const scrollPanel = scrollPanelRef.current;
+    if (scrollPanel instanceof HTMLElement) {
+      scrollPanel.scrollTop = 0;
     }
     onResetSequencePlayhead?.();
-  }, [firstRepeatStartMarker, onResetSequencePlayhead]);
+  }, [onResetSequencePlayhead]);
 
   const jumpSequencePlayheadToEndAndScrollBottom = useCallback(() => {
     transportScrollTargetRef.current = "bar";
@@ -1816,7 +1910,8 @@ const Sequencer = ({
           onPlaySequence={onPlaySequence}
           playingSnapshotId={playingSnapshotId}
           onStopSnapshot={onStopSnapshot}
-          timedTransportDisplay={timedTransportDisplay}
+          timedTransportUiState={timedTransportUiState}
+          getTimedTransportDisplay={getTimedTransportDisplay}
           onTimedTransportPlayPause={handleTimedTransportPlayPause}
           onTimedTransportStop={handleTimedTransportStop}
           terminalSequenceTarget={terminalSequenceTarget}

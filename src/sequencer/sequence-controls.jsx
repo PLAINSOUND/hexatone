@@ -1,3 +1,4 @@
+import { useEffect, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 
 function selectControlValue(event) {
@@ -71,7 +72,8 @@ const SequenceControls = ({
   onPlaySequence,
   playingSnapshotId,
   onStopSnapshot,
-  timedTransportDisplay,
+  timedTransportUiState,
+  getTimedTransportDisplay,
   onTimedTransportPlayPause,
   onTimedTransportStop,
   terminalSequenceTarget,
@@ -261,7 +263,7 @@ const SequenceControls = ({
             stopTimedTransportBefore(() => {
               transportScrollTargetRef.current = "bar";
               onSelectSequenceBar?.(Number(e.currentTarget.value));
-            }, timedTransportDisplay, onTimedTransportStop);
+            }, timedTransportUiState, onTimedTransportStop);
           }}
         >
           {sortedBars.map((bar, index) => (
@@ -300,7 +302,7 @@ const SequenceControls = ({
                 return;
               }
               armPendingSnapshot(value);
-            }, timedTransportDisplay, onTimedTransportStop);
+            }, timedTransportUiState, onTimedTransportStop);
           }}
         >
           {renderedSnapshots.map((snapshot, index) => (
@@ -365,7 +367,7 @@ const SequenceControls = ({
                 return;
               }
               armPendingCue(value);
-            }, timedTransportDisplay, onTimedTransportStop);
+            }, timedTransportUiState, onTimedTransportStop);
           }}
         >
           {sequenceCueGroups.map((group, index) => (
@@ -472,20 +474,68 @@ const SequenceControls = ({
       </span>
     </div>
 
+    <TimedPlaybackRow
+      snapshots={snapshots}
+      playheadIsOff={playheadIsOff}
+      playheadIsEnd={playheadIsEnd}
+      runTransportAction={runTransportAction}
+      onResetSequencePlayhead={onResetSequencePlayhead}
+      onJumpSequenceEnd={onJumpSequenceEnd}
+      timedTransportUiState={timedTransportUiState}
+      getTimedTransportDisplay={getTimedTransportDisplay}
+      onTimedTransportPlayPause={onTimedTransportPlayPause}
+      onTimedTransportStop={onTimedTransportStop}
+    />
+  </>
+);
+
+function TimedPlaybackRow({
+  snapshots,
+  playheadIsOff,
+  playheadIsEnd,
+  runTransportAction,
+  onResetSequencePlayhead,
+  onJumpSequenceEnd,
+  timedTransportUiState,
+  getTimedTransportDisplay,
+  onTimedTransportPlayPause,
+  onTimedTransportStop,
+}) {
+  const [timedTransportDisplay, setTimedTransportDisplay] = useState(() => (
+    getTimedTransportDisplay?.() ?? {
+      clock: "00:00:00",
+      barBeat: "1:1",
+    }
+  ));
+
+  useEffect(() => {
+    const refreshDisplay = () => {
+      setTimedTransportDisplay(getTimedTransportDisplay?.() ?? {
+        clock: "00:00:00",
+        barBeat: "1:1",
+      });
+    };
+    refreshDisplay();
+    if (!timedTransportUiState?.running) return undefined;
+    const intervalId = window.setInterval(refreshDisplay, 250);
+    return () => window.clearInterval(intervalId);
+  }, [getTimedTransportDisplay, timedTransportUiState?.running]);
+
+  return (
     <div class="sequencer-playback-row sequencer-playback-row--timed" aria-label="Timed sequence playback">
       <span class="sequencer-playback-label">TIMED PLAYBACK</span>
 
       <span class="sequencer-playback-control sequencer-playback-control--timed">
         <span class="sequencer-playback-key">CLOCK</span>
         <span class="sequencer-playback-status sequencer-playback-status--timed">
-          {timedTransportDisplay?.clock ?? "00:00:00"}
+          {timedTransportDisplay.clock}
         </span>
       </span>
 
       <span class="sequencer-playback-control sequencer-playback-control--timed">
         <span class="sequencer-playback-key">BAR:BEAT</span>
         <span class="sequencer-playback-status sequencer-playback-status--timed">
-          {timedTransportDisplay?.barBeat ?? "1:1"}
+          {timedTransportDisplay.barBeat}
         </span>
       </span>
 
@@ -499,7 +549,7 @@ const SequenceControls = ({
           onClick={() => {
             runTransportAction(() => stopTimedTransportBefore(
               () => onResetSequencePlayhead?.(),
-              timedTransportDisplay,
+              timedTransportUiState,
               onTimedTransportStop,
             ));
           }}
@@ -517,12 +567,12 @@ const SequenceControls = ({
         <button
           type="button"
           class="snapshot-play-btn"
-          title={timedTransportDisplay?.running ? "Pause timed transport" : "Play timed transport"}
-          aria-label={timedTransportDisplay?.running ? "pause timed transport" : "play timed transport"}
-          disabled={!timedTransportDisplay?.canPlay}
+          title={timedTransportUiState?.running ? "Pause timed transport" : "Play timed transport"}
+          aria-label={timedTransportUiState?.running ? "pause timed transport" : "play timed transport"}
+          disabled={!timedTransportUiState?.canPlay}
           onClick={() => onTimedTransportPlayPause?.()}
         >
-          {timedTransportDisplay?.running ? (
+          {timedTransportUiState?.running ? (
             <span class="sequencer-pause-glyph" aria-hidden="true" />
           ) : (
             <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
@@ -533,7 +583,7 @@ const SequenceControls = ({
           class="snapshot-play-btn snapshot-stop-btn"
           title="Stop timed transport"
           aria-label="stop timed transport"
-          disabled={!timedTransportDisplay?.canStop}
+          disabled={!timedTransportUiState?.canStop}
           onClick={() => onTimedTransportStop?.()}
         >
           <span class="snapshot-stop-glyph" aria-hidden="true">
@@ -549,7 +599,7 @@ const SequenceControls = ({
           onClick={() => {
             runTransportAction(() => stopTimedTransportBefore(
               () => onJumpSequenceEnd?.(),
-              timedTransportDisplay,
+              timedTransportUiState,
               onTimedTransportStop,
             ));
           }}
@@ -566,7 +616,7 @@ const SequenceControls = ({
         </button>
       </span>
     </div>
-  </>
-);
+  );
+}
 
 export default SequenceControls;

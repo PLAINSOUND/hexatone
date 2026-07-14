@@ -63,6 +63,10 @@ import * as PanicRuntime from "./panic-runtime.js";
 import * as InputMidiListeners from "../input/keys-midi-listeners.js";
 import * as InputExpressionRuntime from "../input/keys-expression-runtime.js";
 import * as SequencerSnapshots from "../sequencer/snapshots.js";
+import {
+  appendPersistedTimedTransportDiagnostic,
+  isTimedTransportDiagnosticsEnabled,
+} from "../debug/timed-transport-diagnostics.js";
 import * as MtsOutputRuntime from "../midi_synth/mts-output-runtime.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
 import {
@@ -1925,9 +1929,20 @@ class Keys {
   }
 
   playSnapshot(notes, options = {}) {
+    const playbackStartMs = performance.now();
     const snapshotNotes = Array.isArray(notes) ? notes.map((note) => ({ ...note })) : [];
     this._snapshotHexes = SequencerSnapshots.playSnapshot(this, snapshotNotes, options);
     this._snapshotNotes = snapshotNotes;
+    const durationMs = performance.now() - playbackStartMs;
+    if (isTimedTransportDiagnosticsEnabled() && durationMs > 8) {
+      appendPersistedTimedTransportDiagnostic({
+        type: "keys-playSnapshot",
+        clockSeconds: performance.now() / 1000,
+        durationMs,
+        noteCount: snapshotNotes.length,
+        detail: options?.legato ? "legato" : "plain",
+      });
+    }
   }
 
   stopSnapshot() {

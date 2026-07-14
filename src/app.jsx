@@ -82,6 +82,10 @@ import {
   loadSequenceWorkspaceFromSession,
   saveSequenceWorkspaceToSession,
 } from "./sequencer/session-persistence.js";
+import {
+  appendPersistedTimedTransportDiagnostic,
+  isTimedTransportDiagnosticsEnabled,
+} from "./debug/timed-transport-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   deriveSequenceCueGroups,
@@ -143,6 +147,8 @@ export function applyReloadPersistencePolicy({
 applyReloadPersistencePolicy();
 
 export const Loading = () => <LoadingIcon />;
+
+const TIMED_PLAYBACK_UI_REFRESH_SECONDS = 0.2;
 
 function SidebarLoadingFallback() {
   return (
@@ -863,6 +869,13 @@ const App = () => {
     markerIndex: null,
     stopped: true,
   });
+  const sequencePlayheadRef = useRef(sequencePlayhead);
+  const timedPlaybackUiRef = useRef({
+    clockSeconds: -Infinity,
+    stepIndex: -1,
+    markerIndex: null,
+    barIndex: 0,
+  });
   const sequenceRepeatPlaybackStateRef = useRef({});
   const previousSnapSequenceToCurrentTuningRef = useRef(false);
   const snapshotIdRef = useRef(0);
@@ -961,6 +974,12 @@ const App = () => {
       markerIndex: null,
       stopped: true,
     });
+    timedPlaybackUiRef.current = {
+      clockSeconds: -Infinity,
+      stepIndex: -1,
+      markerIndex: null,
+      barIndex: 0,
+    };
   }, []);
 
   useEffect(() => {
@@ -996,6 +1015,12 @@ const App = () => {
       markerIndex: null,
       stopped: true,
     });
+    timedPlaybackUiRef.current = {
+      clockSeconds: -Infinity,
+      stepIndex: -1,
+      markerIndex: null,
+      barIndex: 0,
+    };
     snapshotIdRef.current = nextSnapshots.reduce(
       (max, snapshot) => Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
       0,
@@ -1116,26 +1141,14 @@ const App = () => {
       : sequenceCueGroups.findLastIndex((group) => group.time < anchorTime);
   }, [barTimeForIndex, sequenceCueGroups]);
 
-  const applySequencePlayback = useCallback((stepIndex, markerIndex = null, notes = [], options = {}) => {
-    const hardRestart = options?.hardRestart === true;
-    const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
-    const snapshot = snapshots[safeStepIndex];
-    if (!snapshot) return;
-    const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
-      ? null
-      : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-    const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
-    const normalizedNotes = Array.isArray(notes) ? notes : [];
-    const useLegato = sequenceLegato && safeMarkerIndex != null;
-    const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
-    const barIndex = barIndexForTime(playheadTime);
-
-    if (hardRestart) keysRef.current?.stopSnapshot();
-    if (normalizedNotes.length > 0) {
-      keysRef.current?.playSnapshot(normalizedNotes, { legato: hardRestart ? false : useLegato });
-    } else {
-      keysRef.current?.stopSnapshot();
-    }
+  const commitSequencePlaybackUi = useCallback(({
+    safeStepIndex,
+    safeMarkerIndex,
+    snapshot,
+    cueGroup,
+    normalizedNotes,
+    barIndex,
+  }) => {
     setPlayingSnapshotId(normalizedNotes.length > 0 ? snapshot.id : null);
     setSelectedSnapshotId(cueGroup?.snapshotIndex != null
       ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id)
@@ -1156,13 +1169,83 @@ const App = () => {
       markerIndex: safeMarkerIndex,
       stopped: normalizedNotes.length === 0,
     });
-  }, [barIndexForTime, sequenceCueGroups, sequenceLegato, snapshots]);
+  }, [snapshots]);
+
+  const shouldUpdateTimedPlaybackUi = useCallback(({
+    stepIndex,
+    markerIndex,
+    barIndex,
+    hardRestart = false,
+    clockSeconds = performance.now() / 1000,
+  }) => {
+    const currentPlayhead = sequencePlayheadRef.current;
+    const previousUi = timedPlaybackUiRef.current;
+    if (hardRestart) return true;
+    if (currentPlayhead?.stopped) return true;
+    if (previousUi.stepIndex !== stepIndex) return true;
+    if (previousUi.barIndex !== barIndex) return true;
+    if (previousUi.markerIndex == null && markerIndex != null) return true;
+    if ((clockSeconds - previousUi.clockSeconds) >= TIMED_PLAYBACK_UI_REFRESH_SECONDS) return true;
+    return false;
+  }, []);
+
+  const applySequencePlayback = useCallback((stepIndex, markerIndex = null, notes = [], options = {}) => {
+    const playbackStartMs = performance.now();
+    const hardRestart = options?.hardRestart === true;
+    const updateUi = options?.updateUi !== false;
+    const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
+    const snapshot = snapshots[safeStepIndex];
+    if (!snapshot) return;
+    const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
+      ? null
+      : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+    const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
+    const normalizedNotes = Array.isArray(notes) ? notes : [];
+    const useLegato = sequenceLegato && safeMarkerIndex != null;
+    const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
+    const barIndex = barIndexForTime(playheadTime);
+
+    if (hardRestart) keysRef.current?.stopSnapshot();
+    if (normalizedNotes.length > 0) {
+      keysRef.current?.playSnapshot(normalizedNotes, { legato: hardRestart ? false : useLegato });
+    } else {
+      keysRef.current?.stopSnapshot();
+    }
+    if (updateUi) {
+      commitSequencePlaybackUi({
+        safeStepIndex,
+        safeMarkerIndex,
+        snapshot,
+        cueGroup,
+        normalizedNotes,
+        barIndex,
+      });
+    }
+    const durationMs = performance.now() - playbackStartMs;
+    if (isTimedTransportDiagnosticsEnabled() && durationMs > 8) {
+      appendPersistedTimedTransportDiagnostic({
+        type: "apply-playback",
+        clockSeconds: performance.now() / 1000,
+        cueIndex: safeMarkerIndex == null ? null : safeMarkerIndex + 1,
+        playbackIndex: safeMarkerIndex,
+        durationMs,
+        noteCount: normalizedNotes.length,
+        detail: `${hardRestart ? "hard restart" : "playback apply"}${updateUi ? "" : " (audio only)"}`,
+      });
+    }
+  }, [barIndexForTime, commitSequencePlaybackUi, sequenceCueGroups, sequenceLegato, snapshots]);
 
   const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     const hardRestart = options?.hardRestart === true;
     if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
       keysRef.current?.stopSnapshot();
       sequenceRepeatPlaybackStateRef.current = {};
+      timedPlaybackUiRef.current = {
+        clockSeconds: -Infinity,
+        stepIndex: -1,
+        markerIndex: null,
+        barIndex: 0,
+      };
       setPlayingSnapshotId(null);
       setSelectedSnapshotId(null);
       setSelectedSnapshotMarker(null);
@@ -1181,6 +1264,12 @@ const App = () => {
         : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
       keysRef.current?.stopSnapshot();
       sequenceRepeatPlaybackStateRef.current = {};
+      timedPlaybackUiRef.current = {
+        clockSeconds: -Infinity,
+        stepIndex: snapshots.length,
+        markerIndex: safeMarkerIndex,
+        barIndex: 0,
+      };
       setPlayingSnapshotId(null);
       setSelectedSnapshotId(null);
       setSelectedSnapshotMarker(null);
@@ -1243,6 +1332,12 @@ const App = () => {
       if (id != null && playingSnapshotId !== id) return;
       keysRef.current?.stopSnapshot();
       sequenceRepeatPlaybackStateRef.current = {};
+      timedPlaybackUiRef.current = {
+        clockSeconds: -Infinity,
+        stepIndex: -1,
+        markerIndex: null,
+        barIndex: 0,
+      };
       setPlayingSnapshotId(null);
       setSequencePlayhead((prev) => ({ ...prev, stopped: true }));
     },
@@ -1250,6 +1345,10 @@ const App = () => {
   );
 
   const previousWorkspaceTabRef = useRef(workspaceTab);
+
+  useEffect(() => {
+    sequencePlayheadRef.current = sequencePlayhead;
+  }, [sequencePlayhead]);
 
   useEffect(() => {
     const previousTab = previousWorkspaceTabRef.current;
@@ -1711,6 +1810,12 @@ const App = () => {
 
   const onResetSequencePlayhead = useCallback(() => {
     sequenceRepeatPlaybackStateRef.current = {};
+    timedPlaybackUiRef.current = {
+      clockSeconds: -Infinity,
+      stepIndex: -1,
+      markerIndex: null,
+      barIndex: 0,
+    };
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
@@ -1728,6 +1833,12 @@ const App = () => {
       markerIndex: lastCueIndex,
       stopped: true,
     });
+    timedPlaybackUiRef.current = {
+      clockSeconds: -Infinity,
+      stepIndex: snapshots.length,
+      markerIndex: lastCueIndex,
+      barIndex: lastBarIndex,
+    };
   }, [sequenceCueGroups.length, snapshots.length, sortedSequenceBars.length]);
 
   const getTimedTransportClockSeconds = useCallback(() => {
@@ -1750,13 +1861,38 @@ const App = () => {
     if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
     const cueGroup = sequenceCueGroups[index];
     if (!cueGroup) return;
+    const clockSeconds = getTimedTransportClockSeconds();
+    const barIndex = barIndexForTime(cueGroup.time);
+    const updateUi = shouldUpdateTimedPlaybackUi({
+      stepIndex: cueGroup.snapshotIndex,
+      markerIndex: index,
+      barIndex,
+      hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
+      clockSeconds,
+    });
     const notes = Array.isArray(timedCueTrigger?.notes)
       ? timedCueTrigger.notes
       : sequenceNotesAtCueIndex(sequenceDisplaySnapshots, index);
     applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
       hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
+      updateUi,
     });
-  }, [applySequencePlayback, sequenceCueGroups, sequenceDisplaySnapshots]);
+    if (updateUi) {
+      timedPlaybackUiRef.current = {
+        clockSeconds,
+        stepIndex: cueGroup.snapshotIndex,
+        markerIndex: index,
+        barIndex,
+      };
+    }
+  }, [
+    applySequencePlayback,
+    barIndexForTime,
+    getTimedTransportClockSeconds,
+    sequenceCueGroups,
+    sequenceDisplaySnapshots,
+    shouldUpdateTimedPlaybackUi,
+  ]);
 
   const onDeleteSnapshot = useCallback(
     (id) => {
