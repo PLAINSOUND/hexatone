@@ -1196,11 +1196,11 @@ td.scale-color-col .color-input {
 
 .preset-action-btn:active:hover,
 .preset-utility-btn:active:hover {
-  background: #f5ddd2;
+  background: #ffdbcc;
 }
 
 .section-collapse-toggle:active:hover {
-  background: #f5ddd2;
+  background: #ffdbcc;
   border-color: var(--color-border-ui);
   box-shadow: none;
 }
