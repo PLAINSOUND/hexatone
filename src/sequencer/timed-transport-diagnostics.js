@@ -8,6 +8,8 @@ function roundMetric(value, digits = 3) {
   return Math.round(numeric * scale) / scale;
 }
 
+export const TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY = "hexatone_timed_transport_diagnostics";
+
 export function createTimedTransportDiagnostics(limit = 200) {
   return {
     limit: Math.max(1, Math.round(Number(limit) || 200)),
@@ -64,3 +66,36 @@ export function summarizeTimedTransportDiagnostics(state) {
     recent: entries.slice(-20),
   };
 }
+
+export function persistTimedTransportDiagnostics(state, storage = globalThis?.sessionStorage) {
+  if (!storage?.setItem) return;
+  storage.setItem(
+    TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY,
+    JSON.stringify({
+      state,
+      summary: summarizeTimedTransportDiagnostics(state),
+    }),
+  );
+}
+
+export function loadPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
+  if (!storage?.getItem) return null;
+  const raw = storage.getItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function installTimedTransportDiagnosticsGlobal() {
+  if (typeof globalThis === "undefined") return;
+  const existing = globalThis.__hexatoneTimedTransportDiagnostics ?? {};
+  globalThis.__hexatoneTimedTransportDiagnostics = {
+    ...existing,
+    getPersisted: () => loadPersistedTimedTransportDiagnostics(),
+  };
+}
+
+installTimedTransportDiagnosticsGlobal();

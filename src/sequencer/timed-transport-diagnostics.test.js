@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   createTimedTransportDiagnostics,
+  loadPersistedTimedTransportDiagnostics,
+  persistTimedTransportDiagnostics,
   pushTimedTransportDiagnostic,
   resetTimedTransportDiagnostics,
   summarizeTimedTransportDiagnostics,
@@ -44,6 +46,32 @@ describe("timed transport diagnostics", () => {
       limit: 5,
       entries: [],
       nextId: 1,
+    });
+  });
+
+  it("round-trips persisted diagnostics through storage", () => {
+    const storage = {
+      values: new Map(),
+      getItem(key) {
+        return this.values.has(key) ? this.values.get(key) : null;
+      },
+      setItem(key, value) {
+        this.values.set(key, value);
+      },
+    };
+    let diagnostics = createTimedTransportDiagnostics(10);
+    diagnostics = pushTimedTransportDiagnostic(diagnostics, { type: "fire", latenessMs: 18, cueIndex: 7 });
+
+    persistTimedTransportDiagnostics(diagnostics, storage);
+
+    expect(loadPersistedTimedTransportDiagnostics(storage)).toEqual({
+      state: diagnostics,
+      summary: {
+        entryCount: 1,
+        overrunCount: 0,
+        maxLatenessMs: 18,
+        recent: diagnostics.entries,
+      },
     });
   });
 });

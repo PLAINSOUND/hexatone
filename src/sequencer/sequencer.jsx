@@ -37,6 +37,8 @@ import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
 import { collectTimedCueBurstsWithinLookahead } from "./timed-cue-scheduler.js";
 import {
   createTimedTransportDiagnostics,
+  loadPersistedTimedTransportDiagnostics,
+  persistTimedTransportDiagnostics,
   pushTimedTransportDiagnostic,
   resetTimedTransportDiagnostics,
   summarizeTimedTransportDiagnostics,
@@ -506,6 +508,7 @@ const Sequencer = ({
       timedTransportDiagnosticsRef.current,
       entry,
     );
+    persistTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
   }, []);
 
   const deriveTimedTransportStartTarget = useCallback((playbackIndex) => {
@@ -779,17 +782,19 @@ const Sequencer = ({
   }, [clearScheduledTimedCueCallbacks, onStopSnapshot, recordTimedTransportDiagnostic, restoreTimedTransportStartTarget, timedPlaybackBursts]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
+    if (typeof globalThis === "undefined") return undefined;
     const api = {
       get: () => summarizeTimedTransportDiagnostics(timedTransportDiagnosticsRef.current),
+      getPersisted: () => loadPersistedTimedTransportDiagnostics(),
       reset: () => {
         timedTransportDiagnosticsRef.current = resetTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
+        persistTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
         return summarizeTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
       },
     };
-    window.__hexatoneTimedTransportDiagnostics = api;
+    globalThis.__hexatoneTimedTransportDiagnostics = api;
     return () => {
-      delete window.__hexatoneTimedTransportDiagnostics;
+      delete globalThis.__hexatoneTimedTransportDiagnostics;
     };
   }, []);
 
