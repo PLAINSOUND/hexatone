@@ -4,10 +4,26 @@
 // `?debugTimedTransport=1`.
 
 function roundMetric(value, digits = 3) {
+  if (value == null) return null;
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return null;
   const scale = 10 ** digits;
   return Math.round(numeric * scale) / scale;
+}
+
+function mean(values = []) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
+  return total / values.length;
+}
+
+function rms(values = []) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const total = values.reduce((sum, value) => {
+    const numeric = Number(value || 0);
+    return sum + (numeric * numeric);
+  }, 0);
+  return Math.sqrt(total / values.length);
 }
 
 function readTimedTransportDiagnosticsFlag() {
@@ -79,12 +95,44 @@ export function summarizeTimedTransportDiagnostics(state) {
   const latenessSamples = entries
     .map((entry) => Number(entry?.latenessMs))
     .filter((value) => Number.isFinite(value));
+  const meanLatenessMs = mean(latenessSamples);
+  const rmsLatenessMs = rms(latenessSamples);
+  const meanAbsoluteLatenessMs = mean(latenessSamples.map((value) => Math.abs(value)));
   const maxLatenessMs = latenessSamples.length > 0 ? Math.max(...latenessSamples) : null;
   const overrunCount = latenessSamples.filter((value) => value > 25).length;
+  const fireEntries = entries.filter((entry) => (
+    entry?.type === "fire"
+    && entry?.clockSeconds != null
+    && entry?.elapsedSeconds != null
+    && Number.isFinite(Number(entry.clockSeconds))
+    && Number.isFinite(Number(entry.elapsedSeconds))
+  ));
+  const intervalJitterSamples = [];
+  for (let index = 1; index < fireEntries.length; index += 1) {
+    const previous = fireEntries[index - 1];
+    const current = fireEntries[index];
+    const actualDeltaMs = (Number(current.clockSeconds) - Number(previous.clockSeconds)) * 1000;
+    const expectedDeltaMs = (Number(current.elapsedSeconds) - Number(previous.elapsedSeconds)) * 1000;
+    intervalJitterSamples.push(actualDeltaMs - expectedDeltaMs);
+  }
+  const meanIntervalJitterMs = mean(intervalJitterSamples);
+  const rmsIntervalJitterMs = rms(intervalJitterSamples);
+  const meanAbsoluteIntervalJitterMs = mean(intervalJitterSamples.map((value) => Math.abs(value)));
+  const maxAbsoluteIntervalJitterMs = intervalJitterSamples.length > 0
+    ? Math.max(...intervalJitterSamples.map((value) => Math.abs(value)))
+    : null;
   return {
     entryCount: entries.length,
     overrunCount,
+    meanLatenessMs: roundMetric(meanLatenessMs),
+    meanAbsoluteLatenessMs: roundMetric(meanAbsoluteLatenessMs),
+    rmsLatenessMs: roundMetric(rmsLatenessMs),
     maxLatenessMs: roundMetric(maxLatenessMs),
+    intervalJitterSampleCount: intervalJitterSamples.length,
+    meanIntervalJitterMs: roundMetric(meanIntervalJitterMs),
+    meanAbsoluteIntervalJitterMs: roundMetric(meanAbsoluteIntervalJitterMs),
+    rmsIntervalJitterMs: roundMetric(rmsIntervalJitterMs),
+    maxAbsoluteIntervalJitterMs: roundMetric(maxAbsoluteIntervalJitterMs),
     recent: entries.slice(-20),
   };
 }
