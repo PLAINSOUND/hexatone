@@ -85,6 +85,13 @@ export function normalizeTempoMarkers(markers = [], options = {}) {
     deduped.push(marker);
   }
 
+  if (deduped.length > 0 && Math.abs(deduped[0].position - 1) < 1e-9) {
+    deduped[0] = {
+      ...deduped[0],
+      mode: "immediate",
+    };
+  }
+
   return deduped;
 }
 

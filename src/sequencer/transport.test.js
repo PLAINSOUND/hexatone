@@ -53,6 +53,16 @@ describe("sequencer transport", () => {
     ]);
   });
 
+  it("forces the initial tempo marker at position 1 to immediate mode", () => {
+    expect(normalizeTempoMarkers([
+      { id: "a", position: 1, bpm: 60, beatLength: 1, mode: "transition" },
+      { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
+    ], { includeDefault: false })).toEqual([
+      { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
+    ]);
+  });
+
   it("injects a default meter marker at sequence position 1", () => {
     expect(normalizeMeterMarkers([])).toEqual([
       {

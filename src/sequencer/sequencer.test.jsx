@@ -187,6 +187,8 @@ describe("Sequencer", () => {
 
     expect(screen.getByRole("button", { name: "Add Tempo" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add Target Tempo" })).toBeTruthy();
+    expect(screen.getByLabelText("sequence playback speed")).toBeTruthy();
+    expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
   });
 
   it("renders a derived transition cue on the previous tempo row", () => {

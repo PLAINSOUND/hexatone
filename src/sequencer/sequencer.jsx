@@ -52,7 +52,9 @@ import {
   resumeTimedTransport,
   startTimedTransport,
   stopTimedTransport,
+  updateTimedTransportSpeed,
 } from "./timed-transport-runtime.js";
+import { clampSequencePlaybackSpeed } from "./playback-modifiers-runtime.js";
 import {
   buildCueExpandedSnapshotIdsAt,
   deriveCueScrollAnchorTarget,
@@ -101,6 +103,7 @@ import {
 const Sequencer = ({
   snapshots,
   displaySnapshots,
+  playbackSnapshots,
   bars,
   repeats,
   tempi,
@@ -111,6 +114,8 @@ const Sequencer = ({
   activeSequenceSavedName,
   activeSequenceDescription,
   sequenceLegato,
+  sequencePlaybackSpeed = 1,
+  sequencePlaybackPitchOffset = 0,
   snapSequenceToCurrentTuning,
   sequenceAutoCreateBars,
   selectedSnapshotId,
@@ -124,6 +129,8 @@ const Sequencer = ({
   onSequenceDescriptionChange,
   onSequenceSaved,
   onSequenceLegatoChange,
+  onSequencePlaybackSpeedChange,
+  onSequencePlaybackPitchOffsetChange,
   onSnapSequenceToCurrentTuningChange,
   onSequenceAutoCreateBarsChange,
   onSetSnapshotLabelMode,
@@ -174,6 +181,9 @@ const Sequencer = ({
   }, []);
 
   const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
+  const playbackRenderedSnapshots = Array.isArray(playbackSnapshots)
+    ? playbackSnapshots
+    : renderedSnapshots;
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(true);
   const [sequenceSaveActionState, setSequenceSaveActionState] = useState({
@@ -257,9 +267,25 @@ const Sequencer = ({
     () => deriveSequenceEvents(renderedSnapshots, sortedBars, sortedTempi, repeats),
     [renderedSnapshots, repeats, sortedBars, sortedTempi],
   );
+  const playbackSequenceEvents = useMemo(
+    () => (
+      playbackRenderedSnapshots === renderedSnapshots
+        ? sequenceEvents
+        : deriveSequenceEvents(playbackRenderedSnapshots, sortedBars, sortedTempi, repeats)
+    ),
+    [playbackRenderedSnapshots, renderedSnapshots, repeats, sequenceEvents, sortedBars, sortedTempi],
+  );
   const sequenceCueGroups = useMemo(
     () => deriveSequenceCueGroupsFromEvents(sequenceEvents),
     [sequenceEvents],
+  );
+  const playbackSequenceCueGroups = useMemo(
+    () => (
+      playbackSequenceEvents === sequenceEvents
+        ? sequenceCueGroups
+        : deriveSequenceCueGroupsFromEvents(playbackSequenceEvents)
+    ),
+    [playbackSequenceEvents, sequenceCueGroups, sequenceEvents],
   );
   const terminalBarlinePosition = useMemo(
     () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
@@ -281,14 +307,21 @@ const Sequencer = ({
   );
   const playbackTimeline = useMemo(
     () => buildPlaybackTimeline({
-      snapshots: renderedSnapshots,
+      snapshots: playbackRenderedSnapshots,
       bars: sortedBars,
       tempi: sortedTempi,
       repeats,
-      sequenceEvents,
-      sequenceCueGroups,
+      sequenceEvents: playbackSequenceEvents,
+      sequenceCueGroups: playbackSequenceCueGroups,
     }),
-    [renderedSnapshots, repeats, sequenceCueGroups, sequenceEvents, sortedBars, sortedTempi],
+    [
+      playbackRenderedSnapshots,
+      playbackSequenceCueGroups,
+      playbackSequenceEvents,
+      repeats,
+      sortedBars,
+      sortedTempi,
+    ],
   );
   const timedPlaybackBursts = playbackTimeline.playbackBursts;
   const timedCueTriggers = useMemo(
@@ -470,7 +503,9 @@ const Sequencer = ({
 
   useEffect(() => {
     setTimedTransportState((previous) => {
-      const freshState = createTimedTransportState(timedPlaybackBursts);
+      const freshState = createTimedTransportState(timedPlaybackBursts, {
+        speedMultiplier: previous?.speedMultiplier ?? sequencePlaybackSpeed,
+      });
       if (
         previous?.status !== "running"
         && previous?.status !== "paused"
@@ -495,7 +530,7 @@ const Sequencer = ({
       timedTransportStateRef.current = preservedState;
       return preservedState;
     });
-  }, [timedPlaybackBursts]);
+  }, [sequencePlaybackSpeed, timedPlaybackBursts]);
 
   const clearScheduledTimedCueCallbacks = useCallback(() => {
     timedTransportSchedulerTokenRef.current += 1;
@@ -641,6 +676,10 @@ const Sequencer = ({
 
   const armNextTimedCueDispatch = useCallback(() => {
     if (timedTransportStateRef.current.status !== "running") return;
+    if (timedTransportTimeoutRef.current != null) {
+      window.clearTimeout(timedTransportTimeoutRef.current);
+      timedTransportTimeoutRef.current = null;
+    }
 
     const playbackIndex = Number(timedTransportStateRef.current.nextPlaybackIndex);
     if (!Number.isFinite(playbackIndex) || playbackIndex < 0) {
@@ -649,7 +688,9 @@ const Sequencer = ({
 
     const burst = timedPlaybackBurstsRef.current[playbackIndex] ?? null;
     if (!burst) {
-      const stoppedState = stopTimedTransport(timedPlaybackBurstsRef.current);
+      const stoppedState = stopTimedTransport(timedPlaybackBurstsRef.current, {
+        speedMultiplier: timedTransportStateRef.current?.speedMultiplier ?? sequencePlaybackSpeed,
+      });
       timedTransportStateRef.current = stoppedState;
       setTimedTransportState(stoppedState);
       return;
@@ -736,7 +777,25 @@ const Sequencer = ({
 
       armNextTimedCueDispatch();
     }, delayMs);
-  }, [dispatchTimedCueBurst, recordTimedTransportDiagnostic]);
+  }, [dispatchTimedCueBurst, recordTimedTransportDiagnostic, sequencePlaybackSpeed]);
+
+  useEffect(() => {
+    const nextSpeedMultiplier = clampSequencePlaybackSpeed(sequencePlaybackSpeed);
+    const previous = timedTransportStateRef.current;
+    if (clampSequencePlaybackSpeed(previous?.speedMultiplier ?? 1) === nextSpeedMultiplier) return;
+    const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+    const nextState = updateTimedTransportSpeed(previous, nowSeconds, nextSpeedMultiplier);
+    timedTransportStateRef.current = nextState;
+    setTimedTransportState(nextState);
+    if (nextState?.status === "running") {
+      clearScheduledTimedCueCallbacks();
+      armNextTimedCueDispatch();
+    }
+  }, [
+    armNextTimedCueDispatch,
+    clearScheduledTimedCueCallbacks,
+    sequencePlaybackSpeed,
+  ]);
 
   const replayPausedTimedTransportCue = useCallback((state) => {
     const playbackIndex = Number(state?.lastDispatchedPlaybackIndex);
@@ -806,6 +865,7 @@ const Sequencer = ({
     const startedState = startTimedTransport(previous, timedPlaybackBursts, {
       playbackIndex: startIndex < 0 ? 0 : startIndex,
       clockSeconds: nowSeconds,
+      speedMultiplier: sequencePlaybackSpeed,
     });
     recordTimedTransportDiagnostic({
       type: "start",
@@ -824,6 +884,7 @@ const Sequencer = ({
     recordTimedTransportDiagnostic,
     replayPausedTimedTransportCue,
     resolveTimedTransportStartIndex,
+    sequencePlaybackSpeed,
     timedPlaybackBursts,
   ]);
 
@@ -837,11 +898,20 @@ const Sequencer = ({
       elapsedSeconds: currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds),
       status: timedTransportStateRef.current.status,
     });
-    const stoppedState = stopTimedTransport(timedPlaybackBursts);
+    const stoppedState = stopTimedTransport(timedPlaybackBursts, {
+      speedMultiplier: timedTransportStateRef.current?.speedMultiplier ?? sequencePlaybackSpeed,
+    });
     timedTransportStateRef.current = stoppedState;
     setTimedTransportState(stoppedState);
     restoreTimedTransportStartTarget();
-  }, [clearScheduledTimedCueCallbacks, onStopSnapshot, recordTimedTransportDiagnostic, restoreTimedTransportStartTarget, timedPlaybackBursts]);
+  }, [
+    clearScheduledTimedCueCallbacks,
+    onStopSnapshot,
+    recordTimedTransportDiagnostic,
+    restoreTimedTransportStartTarget,
+    sequencePlaybackSpeed,
+    timedPlaybackBursts,
+  ]);
 
   useEffect(() => {
     if (typeof globalThis === "undefined") return undefined;
@@ -1892,6 +1962,10 @@ const Sequencer = ({
           onSetSnapshotLabelMode={onSetSnapshotLabelMode}
           sequenceLegato={sequenceLegato}
           onSequenceLegatoChange={onSequenceLegatoChange}
+          sequencePlaybackSpeed={sequencePlaybackSpeed}
+          sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+          onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
+          onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
           autoScrollEnabled={autoScrollEnabled}
           onAutoScrollEnabledChange={setAutoScrollEnabled}
           snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}

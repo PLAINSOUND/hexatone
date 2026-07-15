@@ -43,12 +43,6 @@ function snapshotBaseTime(snapshotIndex) {
   return Number(snapshotIndex) + 1;
 }
 
-function pitchKeyFromMidicents(midicents) {
-  const pitch = Number(midicents);
-  if (!Number.isFinite(pitch)) return null;
-  return pitch.toFixed(3);
-}
-
 function noteIdentity(note, fallbackLength = 1) {
   const midicents = Number.isFinite(Number(note?.midicents)) ? Number(note.midicents) : "na";
   const { start, end } = normalizeNoteSpan(note, fallbackLength);
@@ -390,19 +384,22 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
   const index = Number(cueIndex);
   if (!Number.isFinite(index) || index < 0 || index >= groups.length) return [];
 
-  const activeByPitch = new Map();
+  const activeByInstance = new Map();
 
   for (let i = 0; i <= index; i += 1) {
     const group = groups[i];
-    for (const note of activeByPitch.values()) {
+    for (const note of activeByInstance.values()) {
       delete note.reattack;
     }
 
     for (const event of group.events) {
-      const pitchKey = pitchKeyFromMidicents(event.midicents);
-      if (!pitchKey) continue;
+      const instanceKey = `${event.snapshotId ?? ""}:${event.noteKey}`;
       if (event.kind === "attack") {
-        activeByPitch.set(pitchKey, {
+        activeByInstance.set(instanceKey, {
+          instanceKey,
+          noteKey: event.noteKey,
+          noteId: event.noteId ?? null,
+          snapshotId: event.snapshotId ?? null,
           midicents: event.midicents,
           frequency: event.frequency,
           attackVelocity: event.attackVelocity,
@@ -414,12 +411,12 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
           reattack: true,
         });
       } else {
-        activeByPitch.delete(pitchKey);
+        activeByInstance.delete(instanceKey);
       }
     }
   }
 
-  return [...activeByPitch.values()].sort((a, b) => (
+  return [...activeByInstance.values()].sort((a, b) => (
     Number(b.midicents) - Number(a.midicents)
   ));
 }

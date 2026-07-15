@@ -93,9 +93,15 @@ import {
 } from "./sequencer/trigger-groups.js";
 import { remapSequenceSnapshotsToRuntime } from "./sequencer/runtime-pitch-map.js";
 import {
+  applyPlaybackPitchOffsetToSnapshots,
+  clampSequencePlaybackPitchCents,
+  clampSequencePlaybackSpeed,
+} from "./sequencer/playback-modifiers-runtime.js";
+import {
   advanceCueIndexWithRepeats,
   deriveRepeatSections,
 } from "./sequencer/repeat-playback-runtime.js";
+import { retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual/manual-sidebar.jsx"));
@@ -858,6 +864,8 @@ const App = () => {
   const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
   const [sequenceLegato, setSequenceLegato] = useState(true);
+  const [sequencePlaybackSpeed, setSequencePlaybackSpeed] = useState(1);
+  const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [sequenceBars, setSequenceBars] = useState(() => normalizeBarMarkers([{ id: 1, position: 1 }]));
@@ -878,6 +886,7 @@ const App = () => {
   });
   const sequenceRepeatPlaybackStateRef = useRef({});
   const previousSnapSequenceToCurrentTuningRef = useRef(false);
+  const previousSequencePlaybackPitchOffsetRef = useRef(0);
   const snapshotIdRef = useRef(0);
   const sequenceBarIdRef = useRef(1);
   const dragIdRef = useRef(null);
@@ -1079,6 +1088,27 @@ const App = () => {
       ? liveRuntime
       : null;
   })();
+  const sequencePitchShiftedSnapshots = useMemo(
+    () => applyPlaybackPitchOffsetToSnapshots(
+      snapshots,
+      clampSequencePlaybackPitchCents(sequencePlaybackPitchOffset),
+    ),
+    [sequencePlaybackPitchOffset, snapshots],
+  );
+  const sequencePlaybackSnapshots = useMemo(() => {
+    const keys = keysRef.current;
+    if (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) {
+      return sequencePitchShiftedSnapshots;
+    }
+    return remapSequenceSnapshotsToRuntime(sequencePitchShiftedSnapshots, currentSequenceSnapRuntime, {
+      noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
+      hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
+    });
+  }, [
+    currentSequenceSnapRuntime,
+    sequencePitchShiftedSnapshots,
+    snapSequenceToCurrentTuning,
+  ]);
   const sequenceDisplaySnapshots = useMemo(() => {
     const keys = keysRef.current;
     const displayedSnapshots = (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime)
@@ -1235,6 +1265,16 @@ const App = () => {
     }
   }, [barIndexForTime, commitSequencePlaybackUi, sequenceCueGroups, sequenceLegato, snapshots]);
 
+  const sequencePlaybackNotesAtPosition = useCallback((stepIndex, markerIndex = null) => {
+    if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= snapshots.length) return [];
+    const playbackSnapshot = sequencePlaybackSnapshots[stepIndex] ?? snapshots[stepIndex];
+    if (markerIndex == null || sequenceCueGroups.length === 0) {
+      return playbackSnapshot?.notes ?? [];
+    }
+    const safeMarkerIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+    return sequenceNotesAtCueIndex(sequencePlaybackSnapshots, safeMarkerIndex);
+  }, [sequenceCueGroups, sequencePlaybackSnapshots, snapshots]);
+
   const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     const hardRestart = options?.hardRestart === true;
     if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
@@ -1284,25 +1324,45 @@ const App = () => {
 
     const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
     const snapshot = snapshots[safeStepIndex];
-    const displaySnapshot = sequenceDisplaySnapshots[safeStepIndex] ?? snapshot;
     if (!snapshot) return;
     const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
       ? null
       : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-    const notes = safeMarkerIndex == null
-      ? (displaySnapshot?.notes ?? [])
-      : sequenceNotesAtCueIndex(sequenceDisplaySnapshots, safeMarkerIndex);
+    const notes = sequencePlaybackNotesAtPosition(safeStepIndex, safeMarkerIndex);
     applySequencePlayback(safeStepIndex, safeMarkerIndex, notes, { hardRestart });
-  }, [applySequencePlayback, sequenceCueGroups, sequenceDisplaySnapshots, snapshots]);
+  }, [applySequencePlayback, sequenceCueGroups, sequencePlaybackNotesAtPosition, snapshots]);
 
   useEffect(() => {
-    const previous = previousSnapSequenceToCurrentTuningRef.current;
+    const previousSnap = previousSnapSequenceToCurrentTuningRef.current;
+    const previousPitch = previousSequencePlaybackPitchOffsetRef.current;
     previousSnapSequenceToCurrentTuningRef.current = snapSequenceToCurrentTuning;
-    if (previous === snapSequenceToCurrentTuning) return;
+    previousSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
+    if (
+      previousSnap === snapSequenceToCurrentTuning
+      && previousPitch === sequencePlaybackPitchOffset
+    ) return;
     if (sequencePlayhead?.stopped) return;
     if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
-    playSequencePosition(sequencePlayhead.stepIndex, sequencePlayhead.markerIndex);
-  }, [playSequencePosition, sequencePlayhead, snapSequenceToCurrentTuning]);
+    const currentNotes = sequencePlaybackNotesAtPosition(
+      sequencePlayhead.stepIndex,
+      sequencePlayhead.markerIndex,
+    );
+    if (currentNotes.length > 0) {
+      if (sequenceLegato) {
+        retuneSnapshotHexes(keysRef.current, currentNotes, { bendOnly: true });
+      } else {
+        keysRef.current?.playSnapshot(currentNotes, { legato: false });
+      }
+    } else {
+      keysRef.current?.stopSnapshot();
+    }
+  }, [
+    sequenceLegato,
+    sequencePlaybackNotesAtPosition,
+    sequencePlayhead,
+    sequencePlaybackPitchOffset,
+    snapSequenceToCurrentTuning,
+  ]);
 
   const onSelectSequencerSnapshot = useCallback((id) => {
     sequenceRepeatPlaybackStateRef.current = {};
@@ -1872,7 +1932,7 @@ const App = () => {
     });
     const notes = Array.isArray(timedCueTrigger?.notes)
       ? timedCueTrigger.notes
-      : sequenceNotesAtCueIndex(sequenceDisplaySnapshots, index);
+      : sequenceNotesAtCueIndex(sequencePlaybackSnapshots, index);
     applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
       hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
       updateUi,
@@ -1890,7 +1950,7 @@ const App = () => {
     barIndexForTime,
     getTimedTransportClockSeconds,
     sequenceCueGroups,
-    sequenceDisplaySnapshots,
+    sequencePlaybackSnapshots,
     shouldUpdateTimedPlaybackUi,
   ]);
 
@@ -3855,6 +3915,7 @@ const App = () => {
             <Sequencer
               snapshots={snapshots}
               displaySnapshots={sequenceDisplaySnapshots}
+              playbackSnapshots={sequencePlaybackSnapshots}
               bars={sequenceBars}
               repeats={sequenceRepeats}
               tempi={sequenceTempi}
@@ -3866,6 +3927,8 @@ const App = () => {
               activeSequenceSavedName={activeSequenceSavedName}
               activeSequenceDescription={activeSequenceDescription}
               sequenceLegato={sequenceLegato}
+              sequencePlaybackSpeed={sequencePlaybackSpeed}
+              sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
               snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
               sequenceAutoCreateBars={sequenceAutoCreateBars}
               selectedSnapshotId={selectedSnapshotId}
@@ -3879,6 +3942,8 @@ const App = () => {
               onSequenceDescriptionChange={setActiveSequenceDescription}
               onSequenceSaved={onSequenceSaved}
               onSequenceLegatoChange={setSequenceLegato}
+              onSequencePlaybackSpeedChange={(value) => setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))}
+              onSequencePlaybackPitchOffsetChange={(value) => setSequencePlaybackPitchOffset(clampSequencePlaybackPitchCents(value))}
               onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
               onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
               onSetSnapshotLabelMode={setSnapshotLabelMode}

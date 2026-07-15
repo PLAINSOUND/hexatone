@@ -4,12 +4,14 @@ import { buildPlaybackTimeline } from "./playback-timeline.js";
 import {
   advanceTimedTransport,
   createTimedTransportState,
+  currentTimedTransportElapsedSeconds,
   findPlaybackStartIndex,
   pauseTimedTransport,
   resumeTimedTransport,
   seekTimedTransport,
   startTimedTransport,
   stopTimedTransport,
+  updateTimedTransportSpeed,
 } from "./timed-transport-runtime.js";
 
 describe("timed transport runtime", () => {
@@ -77,6 +79,32 @@ describe("timed transport runtime", () => {
     expect(advanced.dueBursts.map((burst) => burst.sequenceTime)).toEqual([2]);
 
     expect(stopTimedTransport(playbackBursts)).toEqual(createTimedTransportState(playbackBursts));
+  });
+
+  it("preserves elapsed time when playback speed changes during a run", () => {
+    const playbackBursts = buildPlaybackTimeline({
+      snapshots: [
+        {
+          id: "s1",
+          length: 1,
+          notes: [
+            { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+          ],
+        },
+      ],
+    }).playbackBursts;
+
+    const started = startTimedTransport(createTimedTransportState(playbackBursts), playbackBursts, {
+      clockSeconds: 10,
+      speedMultiplier: 1,
+    });
+    const firstAdvance = advanceTimedTransport(started, playbackBursts, 10);
+    const spedUp = updateTimedTransportSpeed(firstAdvance.state, 10.5, 2);
+
+    expect(spedUp.pausedElapsedSeconds).toBe(0.5);
+    expect(spedUp.speedMultiplier).toBe(2);
+
+    expect(currentTimedTransportElapsedSeconds(spedUp, 10.75)).toBe(1);
   });
 
   it("dispatches same-time repeat jump bursts in a single scheduler tick", () => {

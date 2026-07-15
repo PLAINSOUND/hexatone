@@ -35,6 +35,9 @@ const snapshotPitchKey = (midicents) => {
 const snapshotInstanceKey = (note) => {
   if (note == null || typeof note !== "object") return null;
   if (typeof note.instanceKey === "string" && note.instanceKey) return note.instanceKey;
+  if (typeof note.id === "string" && note.id) {
+    return `${note.snapshotId ?? ""}:${note.id}`;
+  }
   if (typeof note.noteId === "string" && note.noteId) {
     return `${note.snapshotId ?? ""}:${note.noteId}`;
   }
@@ -59,6 +62,15 @@ function frequencyForSnapshotHex(runtime, hex) {
   const fund = runtime.settings.fundamental;
   if (!Number.isFinite(fund) || !Number.isFinite(Number(hex?.cents))) return null;
   return fund * Math.pow(2, (Number(hex.cents) - centsToRef) / 1200);
+}
+
+function synthCentsForSnapshotNote(runtime, note) {
+  const centsToRef = centsToReference(runtime.settings, runtime.tuning);
+  const fundamental = Number(runtime?.settings?.fundamental);
+  const frequency = 440 * Math.pow(2, (Number(note?.midicents) - 69) / 12);
+  if (!Number.isFinite(centsToRef) || !Number.isFinite(fundamental) || fundamental <= 0) return null;
+  if (!Number.isFinite(frequency) || frequency <= 0) return null;
+  return centsToRef + Math.log2(frequency / fundamental) * 1200;
 }
 
 function attackVelocityOf(hex, settings) {
@@ -217,6 +229,16 @@ function applySnapshotExpression(runtime, hex, note) {
   }
 }
 
+function activeSnapshotHexesByInstance(runtime) {
+  const byInstance = new Map();
+  if (!runtime) return byInstance;
+  for (const hex of runtime._snapshotHexes ?? []) {
+    const instanceKey = typeof hex?._snapshotInstanceKey === "string" ? hex._snapshotInstanceKey : null;
+    if (instanceKey) byInstance.set(instanceKey, hex);
+  }
+  return byInstance;
+}
+
 function nextSnapshotCoords(runtime) {
   const nextId = Number.isFinite(Number(runtime?._snapshotCoordSeed))
     ? Number(runtime._snapshotCoordSeed)
@@ -229,11 +251,8 @@ function nextSnapshotCoords(runtime) {
 function createSnapshotHex(runtime, note) {
   const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
   const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
-  const centsToRef = centsToReference(runtime.settings, runtime.tuning);
-  const fund = runtime.settings.fundamental;
   const degree0toRefRatio = runtime.tuning.degree0toRef_asArray?.[1] ?? 1;
-  const freq = 440 * Math.pow(2, (note.midicents - 69) / 12);
-  const synthCents = centsToRef + Math.log2(freq / fund) * 1200;
+  const synthCents = synthCentsForSnapshotNote(runtime, note);
   const dummyCoords = nextSnapshotCoords(runtime);
   const hex = runtime.synth.makeHex(
     dummyCoords,
@@ -252,6 +271,7 @@ function createSnapshotHex(runtime, note) {
   hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
   hex._snapshotMidicents = Number(note.midicents);
   hex._snapshotInstanceKey = snapshotInstanceKey(note);
+  hex._baseCents = synthCents;
   const timbre = normalize7Bit(note.timbre);
   const timbre14 = normalize14Bit(note.timbre14);
   if ((timbre != null || timbre14 != null) && typeof runtime?.synth?.setMod === "function") {
@@ -274,6 +294,7 @@ function createSnapshotHex(runtime, note) {
  */
 export function playSnapshot(runtime, notes, options = {}) {
   const legato = !!options.legato;
+  const bendOnlyRetune = !!options.bendOnlyRetune;
   if (!legato) {
     runtime.stopSnapshot();
     return notes.map((note, index) => createSnapshotHex(runtime, note, index));
@@ -299,23 +320,36 @@ export function playSnapshot(runtime, notes, options = {}) {
       ? (availableHexesByInstance.get(instanceKey) ?? null)
       : null;
     if (instanceKey != null) availableHexesByInstance.delete(instanceKey);
-    const available = key ? (availableHexesByPitch.get(key) ?? []) : [];
     let reusedHex = reusedByInstance;
     if (reusedHex) {
-      const reusedIndex = available.indexOf(reusedHex);
-      if (reusedIndex >= 0) available.splice(reusedIndex, 1);
+      const previousKey = reusedHex?._snapshotPitchKey ?? snapshotPitchKey(reusedHex?._snapshotMidicents);
+      const previousAvailable = previousKey ? (availableHexesByPitch.get(previousKey) ?? []) : [];
+      const reusedIndex = previousAvailable.indexOf(reusedHex);
+      if (reusedIndex >= 0) previousAvailable.splice(reusedIndex, 1);
+      if (previousKey) availableHexesByPitch.set(previousKey, previousAvailable);
     } else {
+      const available = key ? (availableHexesByPitch.get(key) ?? []) : [];
       reusedHex = available.shift() ?? null;
+      if (key) availableHexesByPitch.set(key, available);
     }
-    if (key) availableHexesByPitch.set(key, available);
 
     if (reusedHex && !note?.reattack) {
       const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
       const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
+      const synthCents = synthCentsForSnapshotNote(runtime, note);
       reusedHex._snapshotReleaseVelocity = releaseVelocity;
       reusedHex._snapshotPitchKey = key;
       reusedHex._snapshotMidicents = Number(note.midicents);
       reusedHex._snapshotInstanceKey = instanceKey;
+      if (Number.isFinite(synthCents)) {
+        if (typeof runtime?._retuneHexFromBase === "function") {
+          runtime._retuneHexFromBase(reusedHex, synthCents, bendOnlyRetune);
+        }
+        else if (typeof reusedHex?.retune === "function") {
+          reusedHex._baseCents = synthCents;
+          reusedHex.retune(synthCents, bendOnlyRetune);
+        }
+      }
       // Future note-transition work can layer timed pressure/timbre ramps here.
       applySnapshotExpression(runtime, reusedHex, note);
       nextHexes.push(reusedHex);
@@ -336,6 +370,50 @@ export function playSnapshot(runtime, notes, options = {}) {
   }
 
   return nextHexes;
+}
+
+/**
+ * Retune currently sounding snapshot hexes in place without replaying them.
+ *
+ * This is used by real-time playback modifiers such as the sequencer pitch
+ * offset, where already sounding notes should bend smoothly rather than
+ * rearticulate. It only updates existing snapshot hexes and does not create
+ * or release notes.
+ *
+ * @param {object} runtime Keys-like runtime with active `_snapshotHexes`
+ * @param {Array<object>} notes snapshot notes describing the current sounding set
+ * @param {{ bendOnly?: boolean }} options
+ */
+export function retuneSnapshotHexes(runtime, notes, options = {}) {
+  if (!runtime) return;
+  const bendOnly = options?.bendOnly !== false;
+  const activeByInstance = activeSnapshotHexesByInstance(runtime);
+  const fallbackHexes = [...(runtime._snapshotHexes ?? [])];
+  const usedHexes = new Set();
+
+  for (const note of notes ?? []) {
+    const instanceKey = snapshotInstanceKey(note);
+    let hex = instanceKey != null ? (activeByInstance.get(instanceKey) ?? null) : null;
+    if (!hex) {
+      hex = fallbackHexes.find((candidate) => candidate && !usedHexes.has(candidate)) ?? null;
+    }
+    if (!hex || usedHexes.has(hex)) continue;
+    usedHexes.add(hex);
+
+    const synthCents = synthCentsForSnapshotNote(runtime, note);
+    hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
+    hex._snapshotMidicents = Number(note.midicents);
+    if (instanceKey != null) hex._snapshotInstanceKey = instanceKey;
+    if (Number.isFinite(synthCents)) {
+      if (typeof runtime?._retuneHexFromBase === "function") {
+        runtime._retuneHexFromBase(hex, synthCents, bendOnly);
+      } else if (typeof hex?.retune === "function") {
+        hex._baseCents = synthCents;
+        hex.retune(synthCents, bendOnly);
+      }
+    }
+    applySnapshotExpression(runtime, hex, note);
+  }
 }
 
 /**

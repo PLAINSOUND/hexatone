@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { captureSnapshot, playSnapshot, stopSnapshot } from "./snapshots.js";
+import { captureSnapshot, playSnapshot, retuneSnapshotHexes, stopSnapshot } from "./snapshots.js";
 
 function makeRuntime(overrides = {}) {
   return {
@@ -429,6 +429,141 @@ describe("sequencer snapshots", () => {
     expect(reusedHex.aftertouch).toHaveBeenCalledWith(64);
     expect(reusedHex.polyTimbre).toHaveBeenCalledWith(91);
     expect(reusedHex._snapshotReleaseVelocity).toBe(44);
+    expect(nextHexes).toEqual([reusedHex]);
+  });
+
+  it("retunes a reused legato note when its playback pitch changes", () => {
+    const reusedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      retune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 30,
+      _snapshotInstanceKey: "s:note",
+    };
+    const runtime = makeRuntime({
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [reusedHex],
+    });
+
+    const nextHexes = playSnapshot(runtime, [
+      {
+        noteId: "note",
+        snapshotId: "s",
+        midicents: 70,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+      },
+    ], { legato: true });
+
+    expect(runtime.stopSnapshot).not.toHaveBeenCalled();
+    expect(reusedHex.noteOn).not.toHaveBeenCalled();
+    expect(reusedHex.noteOff).not.toHaveBeenCalled();
+    expect(reusedHex.retune).toHaveBeenCalledTimes(1);
+    expect(reusedHex._snapshotMidicents).toBe(70);
+    expect(reusedHex._baseCents).toBeCloseTo(100, 6);
+    expect(nextHexes).toEqual([reusedHex]);
+  });
+
+  it("marks slider-style reused retunes as bend-only", () => {
+    const reusedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      retune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 30,
+      _snapshotInstanceKey: "s:note",
+    };
+    const runtime = makeRuntime({
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [reusedHex],
+    });
+
+    playSnapshot(runtime, [
+      {
+        noteId: "note",
+        snapshotId: "s",
+        midicents: 70,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+      },
+    ], { legato: true, bendOnlyRetune: true });
+
+    expect(reusedHex.retune).toHaveBeenCalledTimes(1);
+    expect(reusedHex.retune.mock.calls[0][0]).toBeCloseTo(100, 6);
+    expect(reusedHex.retune.mock.calls[0][1]).toBe(true);
+  });
+
+  it("retunes currently sounding snapshot hexes in place for pitch modifiers", () => {
+    const reusedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      retune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 30,
+      _snapshotInstanceKey: "s:note",
+    };
+    const runtime = makeRuntime({
+      _snapshotHexes: [reusedHex],
+    });
+
+    retuneSnapshotHexes(runtime, [
+      {
+        noteId: "note",
+        snapshotId: "s",
+        midicents: 70,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+      },
+    ], { bendOnly: true });
+
+    expect(reusedHex.noteOn).not.toHaveBeenCalled();
+    expect(reusedHex.noteOff).not.toHaveBeenCalled();
+    expect(reusedHex.retune).toHaveBeenCalledTimes(1);
+    expect(reusedHex.retune.mock.calls[0][0]).toBeCloseTo(100, 6);
+    expect(reusedHex.retune.mock.calls[0][1]).toBe(true);
+    expect(reusedHex._snapshotMidicents).toBe(70);
+    expect(reusedHex._baseCents).toBeCloseTo(100, 6);
+  });
+
+  it("reuses a legato note by standard sequence id when pitch changes", () => {
+    const reusedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      retune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 30,
+      _snapshotInstanceKey: ":note-a",
+    };
+    const runtime = makeRuntime({
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [reusedHex],
+    });
+
+    const nextHexes = playSnapshot(runtime, [
+      {
+        id: "note-a",
+        midicents: 70,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+      },
+    ], { legato: true });
+
+    expect(reusedHex.noteOn).not.toHaveBeenCalled();
+    expect(reusedHex.noteOff).not.toHaveBeenCalled();
+    expect(reusedHex.retune).toHaveBeenCalledTimes(1);
     expect(nextHexes).toEqual([reusedHex]);
   });
 
