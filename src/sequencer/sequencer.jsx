@@ -984,9 +984,18 @@ const Sequencer = ({
     window.requestAnimationFrame(() => {
       const scrollStartMs = performance.now();
       const panelRect = scrollPanel.getBoundingClientRect();
+      const playbackRect = playbackRowRef.current instanceof HTMLElement
+        ? playbackRowRef.current.getBoundingClientRect()
+        : null;
       const targetRect = targetNode.getBoundingClientRect();
       const gap = 6;
-      const targetTop = scrollPanel.scrollTop + (targetRect.top - panelRect.top) - gap;
+      const stickyTransportOverlap = playbackRect == null
+        ? 0
+        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      const targetTop = scrollPanel.scrollTop
+        + (targetRect.top - panelRect.top)
+        - stickyTransportOverlap
+        - gap;
       const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
       const nextTop = Math.max(0, Math.min(maxTop, targetTop));
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
@@ -1174,9 +1183,18 @@ const Sequencer = ({
     lastAutoScrolledSnapshotIdRef.current = snapshotId;
     const frame = window.requestAnimationFrame(() => {
       const panelRect = scrollPanel.getBoundingClientRect();
+      const playbackRect = playbackRowRef.current instanceof HTMLElement
+        ? playbackRowRef.current.getBoundingClientRect()
+        : null;
       const snapshotRect = snapshotRow.getBoundingClientRect();
       const gap = 6;
-      const targetTop = scrollPanel.scrollTop + (snapshotRect.top - panelRect.top) - gap;
+      const stickyTransportOverlap = playbackRect == null
+        ? 0
+        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      const targetTop = scrollPanel.scrollTop
+        + (snapshotRect.top - panelRect.top)
+        - stickyTransportOverlap
+        - gap;
       const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
       const nextTop = Math.max(0, Math.min(maxTop, targetTop));
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
@@ -1243,9 +1261,18 @@ const Sequencer = ({
     lastAutoScrolledBarIdRef.current = targetKey;
     const frame = window.requestAnimationFrame(() => {
       const panelRect = scrollPanel.getBoundingClientRect();
+      const playbackRect = playbackRowRef.current instanceof HTMLElement
+        ? playbackRowRef.current.getBoundingClientRect()
+        : null;
       const barRect = barRow.getBoundingClientRect();
       const gap = 6;
-      const targetTop = scrollPanel.scrollTop + (barRect.top - panelRect.top) - gap;
+      const stickyTransportOverlap = playbackRect == null
+        ? 0
+        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      const targetTop = scrollPanel.scrollTop
+        + (barRect.top - panelRect.top)
+        - stickyTransportOverlap
+        - gap;
       const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
       const nextTop = Math.max(0, Math.min(maxTop, targetTop));
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;

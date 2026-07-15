@@ -67,21 +67,37 @@ import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
 import {
-  shiftStructuralMarkersAfterSnapshotDeletion,
-  shiftStructuralMarkersAfterSnapshotInsertion,
+  addBarsBeforeSnapshots,
+  addSequenceBarMarker,
+  addSequenceRepeatMarker,
+  addSequenceTempoMarker,
+  moveSequenceBarMarker,
+  updateSequenceBarMarker,
+  updateSequenceRepeatMarker,
+  updateSequenceTempoMarker,
 } from "./sequencer/structure-editing.js";
 import {
-  deriveImplicitRepeatStartPosition,
-  deriveImplicitRepeatStartPositionsForDanglingEnds,
-  normalizeBarMarker,
-  normalizeBarMarkers,
-  normalizeTempoMarkers,
 } from "./sequencer/transport.js";
 import {
   SEQUENCE_WORKSPACE_STORAGE_KEY,
   loadSequenceWorkspaceFromSession,
   saveSequenceWorkspaceToSession,
 } from "./sequencer/session-persistence.js";
+import {
+  buildLoadedSequenceWorkspace,
+  buildRestoredSequenceWorkspace,
+  defaultSequenceBars,
+  defaultSequenceTempi,
+} from "./sequencer/workspace-runtime.js";
+import {
+  appendSnapshotToWorkspace,
+  buildClearedSequenceWorkspaceState,
+  deleteSnapshotFromWorkspace,
+  duplicateSnapshotInWorkspace,
+  moveSnapshotInWorkspace,
+  resetSnapshotDescriptionInWorkspace,
+  updateSnapshotInWorkspace,
+} from "./sequencer/snapshot-workspace-runtime.js";
 import {
   appendPersistedTimedTransportDiagnostic,
   isTimedTransportDiagnosticsEnabled,
@@ -869,8 +885,8 @@ const App = () => {
   const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
-  const [sequenceBars, setSequenceBars] = useState(() => normalizeBarMarkers([{ id: 1, position: 1 }]));
-  const [sequenceTempi, setSequenceTempi] = useState(() => normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1, mode: "immediate" }]));
+  const [sequenceBars, setSequenceBars] = useState(defaultSequenceBars);
+  const [sequenceTempi, setSequenceTempi] = useState(defaultSequenceTempi);
   const [sequenceRepeats, setSequenceRepeats] = useState([]);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
@@ -900,33 +916,23 @@ const App = () => {
   const snapshotPaletteUserMovedRef = useRef(false);
 
   const appendSequenceSnapshot = useCallback((notes = []) => {
-    const id = ++snapshotIdRef.current;
-    const snapshotNotes = Array.isArray(notes) ? notes : [];
-    setSnapshots((prev) => {
-      const nextSnapshots = [
-        ...prev,
-        {
-          id,
-          length: 1,
-          description: buildSnapshotDescription(snapshotNotes, snapshotLabelMode),
-          descriptionManual: false,
-          notes: snapshotNotes,
-        },
-      ];
-      if (sequenceAutoCreateBars) {
-        const nextPosition = nextSnapshots.length;
-        setSequenceBars((prevBars) => {
-          if (prevBars.some((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9)) return prevBars;
-          const nextId = sequenceBarIdRef.current + 1;
-          sequenceBarIdRef.current = nextId;
-          return [...prevBars, normalizeBarMarker({ id: nextId, position: nextPosition })];
-        });
-      }
-      return nextSnapshots;
+    const nextSnapshotId = snapshotIdRef.current + 1;
+    const result = appendSnapshotToWorkspace({
+      snapshots,
+      notes,
+      snapshotLabelMode,
+      sequenceAutoCreateBars,
+      sequenceBars,
+      nextSnapshotId,
+      nextBarId: sequenceBarIdRef.current,
     });
-    setSelectedSnapshotId(id);
-    setSelectedSnapshotMarker(null);
-  }, [sequenceAutoCreateBars, snapshotLabelMode]);
+    snapshotIdRef.current = result.ids.snapshotId;
+    sequenceBarIdRef.current = result.ids.barId;
+    setSnapshots(result.snapshots);
+    setSequenceBars(result.bars);
+    setSelectedSnapshotId(result.selectedSnapshotId);
+    setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+  }, [sequenceAutoCreateBars, sequenceBars, snapshotLabelMode, snapshots]);
 
   const onTakeSnapshot = useCallback(() => {
     const notes = keysRef.current?.getSnapshot();
@@ -939,45 +945,24 @@ const App = () => {
   }, [appendSequenceSnapshot]);
 
   const onLoadSequence = useCallback((sequence, options = {}) => {
-    const source = String(options?.source ?? "user").trim();
-    const nextName = String(sequence?.name ?? "").trim();
-    const nextSnapshots = Array.isArray(sequence?.snapshots)
-      ? JSON.parse(JSON.stringify(sequence.snapshots))
-      : [];
-    const loadedBars = Array.isArray(sequence?.bars)
-      ? JSON.parse(JSON.stringify(sequence.bars))
-      : [];
-    const loadedTempi = Array.isArray(sequence?.tempi)
-      ? JSON.parse(JSON.stringify(sequence.tempi))
-      : [];
-    const loadedRepeats = Array.isArray(sequence?.repeats)
-      ? JSON.parse(JSON.stringify(sequence.repeats))
-      : [];
-    const nextBars = normalizeBarMarkers(loadedBars);
-    const nextTempi = normalizeTempoMarkers(loadedTempi);
+    const workspace = buildLoadedSequenceWorkspace(sequence, options);
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
-    setSnapshots(nextSnapshots);
-    setSequenceBars(nextBars);
-    setSequenceTempi(nextTempi);
-    setSequenceRepeats(loadedRepeats);
-    snapshotIdRef.current = nextSnapshots.reduce(
-      (max, snapshot) => Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
-      0,
-    );
-    sequenceBarIdRef.current = nextBars.reduce(
-      (max, bar) => Math.max(max, Number.isFinite(Number(bar?.id)) ? Number(bar.id) : 0),
-      0,
-    );
-    setSnapshotLabelMode(String(sequence?.snapshotLabelMode ?? "proportion"));
-    setSequenceAutoCreateBars(sequence?.autoCreateBars !== false);
+    setSnapshots(workspace.snapshots);
+    setSequenceBars(workspace.bars);
+    setSequenceTempi(workspace.tempi);
+    setSequenceRepeats(workspace.repeats);
+    snapshotIdRef.current = workspace.ids.snapshotId;
+    sequenceBarIdRef.current = workspace.ids.barId;
+    setSnapshotLabelMode(workspace.snapshotLabelMode);
+    setSequenceAutoCreateBars(workspace.sequenceAutoCreateBars);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
-    setActiveSequenceSource(source);
-    setActiveSequenceBuiltInName(source === "builtin" ? nextName : "");
-    setActiveSequenceName(nextName);
-    setActiveSequenceSavedName(source === "user" ? nextName : "");
-    setActiveSequenceDescription(String(sequence?.description ?? ""));
+    setActiveSequenceSource(workspace.activeSequenceSource);
+    setActiveSequenceBuiltInName(workspace.activeSequenceBuiltInName);
+    setActiveSequenceName(workspace.activeSequenceName);
+    setActiveSequenceSavedName(workspace.activeSequenceSavedName);
+    setActiveSequenceDescription(workspace.activeSequenceDescription);
     setSequencePlayhead({
       barIndex: 0,
       stepIndex: -1,
@@ -997,25 +982,21 @@ const App = () => {
     if (localStorage.getItem("hexatone_persist_on_reload") !== "true") return;
     const restoredSequence = loadSequenceWorkspaceFromSession();
     if (!restoredSequence) return;
+    const workspace = buildRestoredSequenceWorkspace(restoredSequence);
 
-    const nextSnapshots = restoredSequence.snapshots;
-    const nextBars = restoredSequence.bars;
-    const nextTempi = restoredSequence.tempi;
-    const nextRepeats = restoredSequence.repeats;
-
-    setSnapshots(nextSnapshots);
-    setSequenceBars(nextBars);
-    setSequenceTempi(nextTempi);
-    setSequenceRepeats(nextRepeats);
-    setSnapshotLabelMode(restoredSequence.snapshotLabelMode);
-    setActiveSequenceSource(restoredSequence.activeSequenceSource);
-    setActiveSequenceBuiltInName(restoredSequence.activeSequenceBuiltInName);
-    setActiveSequenceName(restoredSequence.activeSequenceName);
-    setActiveSequenceSavedName(restoredSequence.activeSequenceSavedName);
-    setActiveSequenceDescription(restoredSequence.activeSequenceDescription);
-    setSequenceLegato(restoredSequence.sequenceLegato);
-    setSnapSequenceToCurrentTuning(restoredSequence.snapSequenceToCurrentTuning);
-    setSequenceAutoCreateBars(restoredSequence.sequenceAutoCreateBars);
+    setSnapshots(workspace.snapshots);
+    setSequenceBars(workspace.bars);
+    setSequenceTempi(workspace.tempi);
+    setSequenceRepeats(workspace.repeats);
+    setSnapshotLabelMode(workspace.snapshotLabelMode);
+    setActiveSequenceSource(workspace.activeSequenceSource);
+    setActiveSequenceBuiltInName(workspace.activeSequenceBuiltInName);
+    setActiveSequenceName(workspace.activeSequenceName);
+    setActiveSequenceSavedName(workspace.activeSequenceSavedName);
+    setActiveSequenceDescription(workspace.activeSequenceDescription);
+    setSequenceLegato(workspace.sequenceLegato);
+    setSnapSequenceToCurrentTuning(workspace.snapSequenceToCurrentTuning);
+    setSequenceAutoCreateBars(workspace.sequenceAutoCreateBars);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
     setPlayingSnapshotId(null);
@@ -1031,14 +1012,8 @@ const App = () => {
       markerIndex: null,
       barIndex: 0,
     };
-    snapshotIdRef.current = nextSnapshots.reduce(
-      (max, snapshot) => Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
-      0,
-    );
-    sequenceBarIdRef.current = nextBars.reduce(
-      (max, bar) => Math.max(max, Number.isFinite(Number(bar?.id)) ? Number(bar.id) : 0),
-      0,
-    );
+    snapshotIdRef.current = workspace.ids.snapshotId;
+    sequenceBarIdRef.current = workspace.ids.barId;
   }, []);
 
   useEffect(() => {
@@ -1482,62 +1457,30 @@ const App = () => {
   }, [barIndexForTime, sequenceCueGroups, snapshots]);
 
   const onAddSequenceBar = useCallback((position = null, numerator = 4, denominator = 4) => {
-    const id = ++sequenceBarIdRef.current;
     setSequenceBars((prev) => {
-      const explicitPosition = Number(position);
-      const nextPosition = Number.isFinite(explicitPosition)
-        ? Math.max(1, Math.round(explicitPosition))
-        : prev.length > 0
-          ? Math.max(...prev.map((bar) => Number(bar.position) || 1)) + 1
-          : 1;
-      const nextNumerator = Math.max(0, Math.round(Number(numerator) || 0));
-      const nextDenominator = Math.max(1, Math.round(Number(denominator) || 1));
-      const existingBar = prev.find((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9);
-      if (existingBar) {
-        const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
-        if (!shouldReplace) {
-          sequenceBarIdRef.current -= 1;
-          return prev;
-        }
-        return [...prev.filter((bar) => bar.id !== existingBar.id), normalizeBarMarker({
-          id,
-          position: nextPosition,
-          numerator: nextNumerator,
-          denominator: nextDenominator,
-        })];
-      }
-      return [...prev, normalizeBarMarker({
-        id,
-        position: nextPosition,
-        numerator: nextNumerator,
-        denominator: nextDenominator,
-      })];
+      const nextId = sequenceBarIdRef.current + 1;
+      const result = addSequenceBarMarker({
+        bars: prev,
+        nextBarId: nextId,
+        position,
+        numerator,
+        denominator,
+        confirmReplace: () => window.confirm("There already is a bar at the specified position. Replace?"),
+      });
+      sequenceBarIdRef.current = result.nextBarId;
+      return result.bars;
     });
   }, []);
 
   const onAddBarsBeforeSnapshots = useCallback(() => {
     setSequenceBars((prev) => {
-      const existingPositions = new Set(
-        prev
-          .map((bar) => Number(bar.position))
-          .filter((position) => Number.isFinite(position))
-          .map((position) => position.toFixed(3)),
-      );
-
-      const additions = [];
-      let nextId = sequenceBarIdRef.current;
-      for (let i = 0; i < snapshots.length; i += 1) {
-        const position = i + 1;
-        const key = position.toFixed(3);
-        if (existingPositions.has(key)) continue;
-        nextId += 1;
-        additions.push(normalizeBarMarker({ id: nextId, position }));
-        existingPositions.add(key);
-      }
-
-      if (additions.length === 0) return prev;
-      sequenceBarIdRef.current = nextId;
-      return [...prev, ...additions];
+      const result = addBarsBeforeSnapshots({
+        bars: prev,
+        snapshotCount: snapshots.length,
+        nextBarId: sequenceBarIdRef.current,
+      });
+      sequenceBarIdRef.current = result.nextBarId;
+      return result.bars;
     });
   }, [snapshots.length]);
 
@@ -1546,18 +1489,7 @@ const App = () => {
   }, []);
 
   const onAddSequenceTempo = useCallback((position = null, bpm = 60, mode = "immediate") => {
-    setSequenceTempi((prev) => {
-      const id = prev.reduce((max, tempo) => Math.max(max, Number(tempo?.id) || 0), 0) + 1;
-      return [...prev, {
-        id,
-        position,
-        bpm,
-        beatNumerator: 1,
-        beatDenominator: 4,
-        beatLength: 1,
-        mode: mode === "transition" ? "transition" : "immediate",
-      }];
-    });
+    setSequenceTempi((prev) => addSequenceTempoMarker({ tempi: prev, position, bpm, mode }));
   }, []);
 
   const onDeleteSequenceTempo = useCallback((id) => {
@@ -1565,60 +1497,7 @@ const App = () => {
   }, []);
 
   const onAddSequenceRepeat = useCallback((position = null, kind = "start") => {
-    setSequenceRepeats((prev) => {
-      let nextId = prev.reduce((max, marker) => Math.max(max, Number(marker?.id) || 0), 0) + 1;
-      const normalizedKind = kind === "end" ? "end" : "start";
-      const normalizedPosition = Number.isFinite(Number(position))
-        ? Math.round(Number(position) * 1000000) / 1000000
-        : 1;
-
-      if (normalizedKind === "end" && normalizedPosition <= 1) {
-        return prev;
-      }
-
-      const additions = [];
-      if (normalizedKind === "end") {
-        const implicitStartPosition = deriveImplicitRepeatStartPosition(prev, normalizedPosition);
-        if (implicitStartPosition != null) {
-          additions.push({
-            id: nextId,
-            position: implicitStartPosition,
-            kind: "start",
-            repeatCount: null,
-          });
-          nextId += 1;
-        }
-      }
-
-      additions.push({
-        id: nextId,
-        position: normalizedPosition,
-        kind: normalizedKind,
-        repeatCount: normalizedKind === "end" ? 2 : null,
-      });
-      nextId += 1;
-
-      if (normalizedKind === "end") {
-        const completed = [...prev, ...additions];
-        const supplementalStartPositions = deriveImplicitRepeatStartPositionsForDanglingEnds(completed);
-        supplementalStartPositions.forEach((startPosition) => {
-          if (
-            additions.some((marker) => marker.kind === "start" && Math.abs(Number(marker.position) - Number(startPosition)) < 1e-9)
-          ) {
-            return;
-          }
-          additions.push({
-            id: nextId,
-            position: startPosition,
-            kind: "start",
-            repeatCount: null,
-          });
-          nextId += 1;
-        });
-      }
-
-      return [...prev, ...additions];
-    });
+    setSequenceRepeats((prev) => addSequenceRepeatMarker({ repeats: prev, position, kind }));
   }, []);
 
   const onDeleteSequenceRepeat = useCallback((id) => {
@@ -1626,108 +1505,42 @@ const App = () => {
   }, []);
 
   const onUpdateSequenceRepeat = useCallback((id, updates) => {
-    setSequenceRepeats((prev) => prev.map((marker) => {
-      if (marker.id !== id) return marker;
-      const nextMarker = { ...marker, ...updates };
-      if (
-        nextMarker.kind === "end"
-        && updates != null
-        && Object.hasOwn(updates, "position")
-        && Number(nextMarker.position) <= 1
-      ) {
-        return marker;
-      }
-      return nextMarker;
-    }));
+    setSequenceRepeats((prev) => updateSequenceRepeatMarker({ repeats: prev, repeatId: id, updates }));
   }, []);
 
   const onUpdateSequenceTempo = useCallback((id, updates) => {
-    setSequenceTempi((prev) => prev.map((tempo) => (
-      tempo.id === id ? { ...tempo, ...updates } : tempo
-    )));
+    setSequenceTempi((prev) => updateSequenceTempoMarker({ tempi: prev, tempoId: id, updates }));
   }, []);
 
   const onUpdateSequenceBar = useCallback((id, updates) => {
     setSequenceBars((prev) => {
-      const currentBar = prev.find((bar) => bar.id === id);
-      const isRootBar = currentBar != null && Math.abs(Number(currentBar.position) - 1) < 1e-9;
-      const rawNextPosition = Number(updates?.position);
-      const nextPosition = Number.isFinite(rawNextPosition)
-        ? Math.max(1, Math.round(rawNextPosition))
-        : NaN;
-      const normalizedUpdates = Number.isFinite(nextPosition)
-        ? { ...updates, position: nextPosition }
-        : updates;
-      if (Number.isFinite(nextPosition) && isRootBar) {
-        const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
-        if (existingBar) {
-          const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
-          if (!shouldReplace) return prev;
-          const nextId = sequenceBarIdRef.current + 1;
-          sequenceBarIdRef.current = nextId;
-          return [
-            ...prev.filter((bar) => bar.id !== existingBar.id),
-            normalizeBarMarker({ ...currentBar, ...normalizedUpdates, id: nextId, position: nextPosition }),
-          ];
-        }
-        const nextId = sequenceBarIdRef.current + 1;
-        sequenceBarIdRef.current = nextId;
-        return [...prev, normalizeBarMarker({ ...currentBar, ...normalizedUpdates, id: nextId, position: nextPosition })];
-      }
-      if (Number.isFinite(nextPosition)) {
-        const existingBar = prev.find((bar) => bar.id !== id && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
-        if (existingBar) {
-          const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
-          if (!shouldReplace) return prev;
-          return prev
-            .filter((bar) => bar.id !== existingBar.id)
-            .map((bar) => (bar.id === id ? { ...bar, ...normalizedUpdates } : bar));
-        }
-      }
-      return prev.map((bar) => (
-        bar.id === id ? { ...bar, ...normalizedUpdates } : bar
-      ));
+      const result = updateSequenceBarMarker({
+        bars: prev,
+        snapshots,
+        barId: id,
+        updates,
+        nextBarId: sequenceBarIdRef.current,
+        confirmReplace: () => window.confirm("There already is a bar at the specified position. Replace?"),
+      });
+      sequenceBarIdRef.current = result.nextBarId;
+      return result.bars;
     });
-  }, []);
+  }, [snapshots]);
 
   const onMoveSequenceBar = useCallback((fromId, position) => {
-    const rawPosition = Number(position);
-    const nextPosition = Number.isFinite(rawPosition)
-      ? Math.max(1, Math.round(rawPosition))
-      : NaN;
-    if (!Number.isFinite(nextPosition)) return;
     setSequenceBars((prev) => {
-      const currentBar = prev.find((bar) => bar.id === fromId);
-      const isRootBar = currentBar != null && Math.abs(Number(currentBar.position) - 1) < 1e-9;
-      if (isRootBar) {
-        const existingBar = prev.find((bar) => bar.id !== fromId && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
-        if (existingBar) {
-          const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
-          if (!shouldReplace) return prev;
-          const nextId = sequenceBarIdRef.current + 1;
-          sequenceBarIdRef.current = nextId;
-          return [
-            ...prev.filter((bar) => bar.id !== existingBar.id),
-            normalizeBarMarker({ ...currentBar, id: nextId, position: nextPosition }),
-          ];
-        }
-        const nextId = sequenceBarIdRef.current + 1;
-        sequenceBarIdRef.current = nextId;
-        return [...prev, normalizeBarMarker({ ...currentBar, id: nextId, position: nextPosition })];
-      }
-      const existingBar = prev.find((bar) => bar.id !== fromId && Math.abs(Number(bar.position) - nextPosition) < 1e-9);
-      if (existingBar) {
-        const shouldReplace = window.confirm("There already is a bar at the specified position. Replace?");
-        if (!shouldReplace) return prev;
-        return prev
-          .filter((bar) => bar.id !== existingBar.id)
-          .map((bar) => (bar.id === fromId ? { ...bar, position: nextPosition } : bar));
-      }
-      return prev.map((bar) => (
-        bar.id === fromId ? { ...bar, position: nextPosition } : bar
-      ));
+      const result = moveSequenceBarMarker({
+        bars: prev,
+        snapshots,
+        barId: fromId,
+        position,
+        nextBarId: sequenceBarIdRef.current,
+        confirmReplace: () => window.confirm("There already is a bar at the specified position. Replace?"),
+      });
+      sequenceBarIdRef.current = result.nextBarId;
+      return result.bars;
     });
-  }, []);
+  }, [snapshots]);
 
   const onStepSequence = useCallback((direction) => {
     sequenceRepeatPlaybackStateRef.current = {};
@@ -1964,62 +1777,62 @@ const App = () => {
         keysRef.current?.stopSnapshot();
         setPlayingSnapshotId(null);
       }
-      const deletedSnapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === id);
-      const nextSnapshots = snapshots.filter((snapshot) => snapshot.id !== id);
-      if (deletedSnapshotIndex >= 0) {
-        const deletionPosition = deletedSnapshotIndex + 1;
-        const shifted = shiftStructuralMarkersAfterSnapshotDeletion({
-          bars: sequenceBars,
-          tempi: sequenceTempi,
-          repeats: sequenceRepeats,
-          deletionPosition,
-        });
-        setSequenceBars(shifted.bars);
-        setSequenceTempi(shifted.tempi);
-        setSequenceRepeats(shifted.repeats);
-      }
-      setSnapshots(nextSnapshots);
-      setSelectedSnapshotId((current) => (current === id ? (nextSnapshots[0]?.id ?? null) : current));
-      setSelectedSnapshotMarker((current) => (current?.snapshotId === id ? null : current));
+      const result = deleteSnapshotFromWorkspace({
+        snapshots,
+        bars: sequenceBars,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        snapshotId: id,
+        selectedSnapshotId,
+        selectedSnapshotMarker,
+      });
+      setSequenceBars(result.bars);
+      setSequenceTempi(result.tempi);
+      setSequenceRepeats(result.repeats);
+      setSnapshots(result.snapshots);
+      setSelectedSnapshotId(result.selectedSnapshotId);
+      setSelectedSnapshotMarker(result.selectedSnapshotMarker);
     },
-    [playingSnapshotId, sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
+    [playingSnapshotId, selectedSnapshotId, selectedSnapshotMarker, sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
   );
 
   const onDeleteAllSnapshots = useCallback(() => {
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
-    setSnapshots([]);
-    setSelectedSnapshotId(null);
-    setSelectedSnapshotMarker(null);
-    setSequenceBars([]);
-    setSequenceTempi([]);
-    setSequenceRepeats([]);
-    snapshotIdRef.current = 0;
-    sequenceBarIdRef.current = 0;
-    setActiveSequenceSource("");
-    setActiveSequenceBuiltInName("");
-    setActiveSequenceName("");
-    setActiveSequenceSavedName("");
-    setActiveSequenceDescription("");
+    const cleared = buildClearedSequenceWorkspaceState();
+    setSnapshots(cleared.snapshots);
+    setSelectedSnapshotId(cleared.selectedSnapshotId);
+    setSelectedSnapshotMarker(cleared.selectedSnapshotMarker);
+    setSequenceBars(cleared.bars);
+    setSequenceTempi(cleared.tempi);
+    setSequenceRepeats(cleared.repeats);
+    snapshotIdRef.current = cleared.ids.snapshotId;
+    sequenceBarIdRef.current = cleared.ids.barId;
+    setActiveSequenceSource(cleared.activeSequenceSource);
+    setActiveSequenceBuiltInName(cleared.activeSequenceBuiltInName);
+    setActiveSequenceName(cleared.activeSequenceName);
+    setActiveSequenceSavedName(cleared.activeSequenceSavedName);
+    setActiveSequenceDescription(cleared.activeSequenceDescription);
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
   const onClearSequence = useCallback(() => {
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
-    setSnapshots([]);
-    setSelectedSnapshotId(null);
-    setSelectedSnapshotMarker(null);
-    setSequenceBars([]);
-    setSequenceTempi([]);
-    setSequenceRepeats([]);
-    snapshotIdRef.current = 0;
-    sequenceBarIdRef.current = 0;
-    setActiveSequenceSource("");
-    setActiveSequenceBuiltInName("");
-    setActiveSequenceName("");
-    setActiveSequenceSavedName("");
-    setActiveSequenceDescription("");
+    const cleared = buildClearedSequenceWorkspaceState();
+    setSnapshots(cleared.snapshots);
+    setSelectedSnapshotId(cleared.selectedSnapshotId);
+    setSelectedSnapshotMarker(cleared.selectedSnapshotMarker);
+    setSequenceBars(cleared.bars);
+    setSequenceTempi(cleared.tempi);
+    setSequenceRepeats(cleared.repeats);
+    snapshotIdRef.current = cleared.ids.snapshotId;
+    sequenceBarIdRef.current = cleared.ids.barId;
+    setActiveSequenceSource(cleared.activeSequenceSource);
+    setActiveSequenceBuiltInName(cleared.activeSequenceBuiltInName);
+    setActiveSequenceName(cleared.activeSequenceName);
+    setActiveSequenceSavedName(cleared.activeSequenceSavedName);
+    setActiveSequenceDescription(cleared.activeSequenceDescription);
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
@@ -2037,78 +1850,43 @@ const App = () => {
   }, []);
 
   const onMoveSnapshot = useCallback((fromId, toId, side = "before") => {
-    setSnapshots((prev) => {
-      const fromIdx = prev.findIndex((s) => s.id === fromId);
-      const toIdx = prev.findIndex((s) => s.id === toId);
-      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(fromIdx, 1);
-      const adjustedToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
-      const insertIdx = side === "after" ? adjustedToIdx + 1 : adjustedToIdx;
-      next.splice(insertIdx, 0, moved);
-      return next;
-    });
-  }, []);
+    setSnapshots(moveSnapshotInWorkspace({ snapshots, fromId, toId, side }));
+  }, [snapshots]);
 
   const onDuplicateSnapshot = useCallback((fromId, toId, side = "before") => {
-    setSnapshots((prev) => {
-      const fromIdx = prev.findIndex((s) => s.id === fromId);
-      const toIdx = prev.findIndex((s) => s.id === toId);
-      if (fromIdx === -1 || toIdx === -1) return prev;
-      const source = prev[fromIdx];
-      if (!source) return prev;
-      const duplicate = {
-        ...JSON.parse(JSON.stringify(source)),
-        id: ++snapshotIdRef.current,
-      };
-      const next = [...prev];
-      const insertIdx = side === "after" ? toIdx + 1 : toIdx;
-      next.splice(insertIdx, 0, duplicate);
-      const insertionPosition = insertIdx + 1;
-      const shifted = shiftStructuralMarkersAfterSnapshotInsertion({
-        bars: sequenceBars,
-        tempi: sequenceTempi,
-        repeats: sequenceRepeats,
-        insertionPosition,
-      });
-      setSequenceBars(shifted.bars);
-      setSequenceTempi(shifted.tempi);
-      setSequenceRepeats(shifted.repeats);
-      return next;
+    const result = duplicateSnapshotInWorkspace({
+      snapshots,
+      bars: sequenceBars,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      fromId,
+      toId,
+      side,
+      nextSnapshotId: snapshotIdRef.current + 1,
     });
-  }, [sequenceBars, sequenceRepeats, sequenceTempi]);
+    snapshotIdRef.current = result.ids.snapshotId;
+    setSnapshots(result.snapshots);
+    setSequenceBars(result.bars);
+    setSequenceTempi(result.tempi);
+    setSequenceRepeats(result.repeats);
+  }, [sequenceBars, sequenceRepeats, sequenceTempi, snapshots]);
 
   const onUpdateSnapshot = useCallback((id, updates) => {
-    setSnapshots((prev) => prev.map((snapshot) => {
-      if (snapshot.id !== id) return snapshot;
-      const nextSnapshot = {
-        ...snapshot,
-        ...updates,
-        ...(Object.prototype.hasOwnProperty.call(updates, "description")
-          ? { descriptionManual: true }
-          : {}),
-      };
-      if (
-        !nextSnapshot.descriptionManual &&
-        Object.prototype.hasOwnProperty.call(updates, "notes") &&
-        !Object.prototype.hasOwnProperty.call(updates, "description")
-      ) {
-        nextSnapshot.description = buildSnapshotDescription(nextSnapshot.notes, snapshotLabelMode);
-      }
-      return nextSnapshot;
+    setSnapshots(updateSnapshotInWorkspace({
+      snapshots,
+      snapshotId: id,
+      updates,
+      snapshotLabelMode,
     }));
-  }, [snapshotLabelMode]);
+  }, [snapshotLabelMode, snapshots]);
 
   const onResetSnapshotDescription = useCallback((id) => {
-    setSnapshots((prev) => prev.map((snapshot) => {
-      if (snapshot.id !== id) return snapshot;
-      return {
-        ...snapshot,
-        description: buildSnapshotDescription(snapshot.notes, snapshotLabelMode),
-        descriptionManual: false,
-      };
+    setSnapshots(resetSnapshotDescriptionInWorkspace({
+      snapshots,
+      snapshotId: id,
+      snapshotLabelMode,
     }));
-  }, [snapshotLabelMode]);
+  }, [snapshotLabelMode, snapshots]);
 
   useEffect(() => {
     setSequencePlayhead((prev) => {
