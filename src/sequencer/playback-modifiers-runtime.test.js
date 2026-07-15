@@ -4,6 +4,7 @@ import {
   applyPlaybackPitchOffsetToNote,
   parseSequencePlaybackPitchInput,
   normaliseSequencePlaybackPitchInput,
+  shouldRetuneSequencePlaybackInPlace,
 } from "./playback-modifiers-runtime.js";
 
 describe("playback modifiers runtime", () => {
@@ -27,5 +28,20 @@ describe("playback modifiers runtime", () => {
   it("parses backslash notation through the shared scala cents path", () => {
     expect(parseSequencePlaybackPitchInput("4\\12")).toBeCloseTo(400, 6);
     expect(parseSequencePlaybackPitchInput("3/2")).toBeCloseTo(701.9550009, 6);
+  });
+
+  it("only uses in-place retune for unsnapped legato playback", () => {
+    expect(shouldRetuneSequencePlaybackInPlace({
+      sequenceLegato: true,
+      snapSequenceToCurrentTuning: false,
+    })).toBe(true);
+    expect(shouldRetuneSequencePlaybackInPlace({
+      sequenceLegato: true,
+      snapSequenceToCurrentTuning: true,
+    })).toBe(false);
+    expect(shouldRetuneSequencePlaybackInPlace({
+      sequenceLegato: false,
+      snapSequenceToCurrentTuning: false,
+    })).toBe(false);
   });
 });

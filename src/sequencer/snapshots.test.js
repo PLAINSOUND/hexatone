@@ -500,6 +500,39 @@ describe("sequencer snapshots", () => {
     expect(reusedHex.retune.mock.calls[0][1]).toBe(true);
   });
 
+  it("prefers standard wheel retune for bend-only snapshot retunes", () => {
+    const reusedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      retune: vi.fn(),
+      standardWheelRetune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 30,
+      _snapshotInstanceKey: "s:note",
+    };
+    const runtime = makeRuntime({
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [reusedHex],
+    });
+
+    playSnapshot(runtime, [
+      {
+        noteId: "note",
+        snapshotId: "s",
+        midicents: 70,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+      },
+    ], { legato: true, bendOnlyRetune: true });
+
+    expect(reusedHex.standardWheelRetune).toHaveBeenCalledTimes(1);
+    expect(reusedHex.standardWheelRetune.mock.calls[0][0]).toBeCloseTo(100, 6);
+    expect(reusedHex.retune).not.toHaveBeenCalled();
+  });
+
   it("retunes currently sounding snapshot hexes in place for pitch modifiers", () => {
     const reusedHex = {
       noteOn: vi.fn(),
@@ -533,6 +566,38 @@ describe("sequencer snapshots", () => {
     expect(reusedHex.retune.mock.calls[0][1]).toBe(true);
     expect(reusedHex._snapshotMidicents).toBe(70);
     expect(reusedHex._baseCents).toBeCloseTo(100, 6);
+  });
+
+  it("uses standard wheel retune for in-place pitch modifier bends when available", () => {
+    const reusedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      retune: vi.fn(),
+      standardWheelRetune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotReleaseVelocity: 30,
+      _snapshotInstanceKey: "s:note",
+    };
+    const runtime = makeRuntime({
+      _snapshotHexes: [reusedHex],
+    });
+
+    retuneSnapshotHexes(runtime, [
+      {
+        noteId: "note",
+        snapshotId: "s",
+        midicents: 70,
+        attackVelocity: 120,
+        releaseVelocity: 44,
+      },
+    ], { bendOnly: true });
+
+    expect(reusedHex.standardWheelRetune).toHaveBeenCalledTimes(1);
+    expect(reusedHex.standardWheelRetune.mock.calls[0][0]).toBeCloseTo(100, 6);
+    expect(reusedHex.retune).not.toHaveBeenCalled();
   });
 
   it("reuses a legato note by standard sequence id when pitch changes", () => {

@@ -239,6 +239,22 @@ function activeSnapshotHexesByInstance(runtime) {
   return byInstance;
 }
 
+function retuneSnapshotHex(runtime, hex, synthCents, bendOnly = false) {
+  if (!Number.isFinite(synthCents)) return;
+  hex._baseCents = synthCents;
+  if (bendOnly && typeof hex?.standardWheelRetune === "function") {
+    hex.standardWheelRetune(synthCents);
+    return;
+  }
+  if (typeof runtime?._retuneHexFromBase === "function") {
+    runtime._retuneHexFromBase(hex, synthCents, bendOnly);
+    return;
+  }
+  if (typeof hex?.retune === "function") {
+    hex.retune(synthCents, bendOnly);
+  }
+}
+
 function nextSnapshotCoords(runtime) {
   const nextId = Number.isFinite(Number(runtime?._snapshotCoordSeed))
     ? Number(runtime._snapshotCoordSeed)
@@ -341,15 +357,7 @@ export function playSnapshot(runtime, notes, options = {}) {
       reusedHex._snapshotPitchKey = key;
       reusedHex._snapshotMidicents = Number(note.midicents);
       reusedHex._snapshotInstanceKey = instanceKey;
-      if (Number.isFinite(synthCents)) {
-        if (typeof runtime?._retuneHexFromBase === "function") {
-          runtime._retuneHexFromBase(reusedHex, synthCents, bendOnlyRetune);
-        }
-        else if (typeof reusedHex?.retune === "function") {
-          reusedHex._baseCents = synthCents;
-          reusedHex.retune(synthCents, bendOnlyRetune);
-        }
-      }
+      retuneSnapshotHex(runtime, reusedHex, synthCents, bendOnlyRetune);
       // Future note-transition work can layer timed pressure/timbre ramps here.
       applySnapshotExpression(runtime, reusedHex, note);
       nextHexes.push(reusedHex);
@@ -404,14 +412,7 @@ export function retuneSnapshotHexes(runtime, notes, options = {}) {
     hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
     hex._snapshotMidicents = Number(note.midicents);
     if (instanceKey != null) hex._snapshotInstanceKey = instanceKey;
-    if (Number.isFinite(synthCents)) {
-      if (typeof runtime?._retuneHexFromBase === "function") {
-        runtime._retuneHexFromBase(hex, synthCents, bendOnly);
-      } else if (typeof hex?.retune === "function") {
-        hex._baseCents = synthCents;
-        hex.retune(synthCents, bendOnly);
-      }
-    }
+    retuneSnapshotHex(runtime, hex, synthCents, bendOnly);
     applySnapshotExpression(runtime, hex, note);
   }
 }

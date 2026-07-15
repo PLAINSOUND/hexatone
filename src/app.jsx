@@ -96,6 +96,7 @@ import {
   applyPlaybackPitchOffsetToSnapshots,
   clampSequencePlaybackPitchCents,
   clampSequencePlaybackSpeed,
+  shouldRetuneSequencePlaybackInPlace,
 } from "./sequencer/playback-modifiers-runtime.js";
 import {
   advanceCueIndexWithRepeats,
@@ -1348,7 +1349,10 @@ const App = () => {
       sequencePlayhead.markerIndex,
     );
     if (currentNotes.length > 0) {
-      if (sequenceLegato) {
+      if (shouldRetuneSequencePlaybackInPlace({
+        sequenceLegato,
+        snapSequenceToCurrentTuning,
+      })) {
         retuneSnapshotHexes(keysRef.current, currentNotes, { bendOnly: true });
       } else {
         keysRef.current?.playSnapshot(currentNotes, { legato: false });
