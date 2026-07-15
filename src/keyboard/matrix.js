@@ -1,3 +1,7 @@
+// This module owns small affine-matrix helpers used by the keyboard canvas.
+// It keeps rotation math separate from Keys so geometry and renderer code can
+// share the same transform utilities.
+
 import Point from "./point";
 
 export function calculateRotationMatrix(rotation, center) {

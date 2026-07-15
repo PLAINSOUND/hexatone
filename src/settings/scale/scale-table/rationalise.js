@@ -1,3 +1,7 @@
+// This module adapts the pure tuning rationaliser to scale-table workflows.
+// It builds search requests, lifts pitch-class candidates to absolute pitch
+// context, and formats the candidate data the TuneCell popup needs.
+
 import {
   CANONICAL_MONZO_BASIS,
   monzoToFractionOnBasis,

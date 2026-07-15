@@ -1,3 +1,7 @@
+// This module provides the legacy extended Euclidean helper used by keyboard
+// layout math. It remains a small standalone numeric utility so the geometry
+// code can stay independent of the larger Keys runtime.
+
 export function Euclid(a, b) {
   // extended Euclidean algorithm
   var a_sign = Sign(a); // keep track of signs for later implementation

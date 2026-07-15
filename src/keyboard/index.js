@@ -1,3 +1,7 @@
+// Keyboard is the Preact wrapper around the long-lived Keys runtime.
+// It mounts the canvas-backed keyboard, keeps a single Keys instance alive
+// across prop changes, and forwards changed settings into that runtime.
+
 import { Fragment } from "preact";
 import { useRef, useEffect } from "preact/hooks";
 import Keys from "./keys";

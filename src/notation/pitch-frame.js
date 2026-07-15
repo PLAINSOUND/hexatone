@@ -1,3 +1,7 @@
+// This module owns pitch-frame resolution above committed scale data.
+// It turns workspace slots plus notation structure into resolved pitch objects
+// with ratio, cents, frequency, and display information for the UI.
+
 import { addMonzos, subtractMonzos } from "./heji.js";
 import { createPitchStructure, parseHejiToStructure, pitchStructureToMonzo } from "./pitch-structure.js";
 import { getCommittedInterval, getWorkspaceSlot } from "../tuning/workspace.js";

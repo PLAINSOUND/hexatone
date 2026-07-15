@@ -1,3 +1,7 @@
+// This module derives cue trigger payloads for timed playback.
+// It turns cue groups plus sounding-note state into concrete attack/release
+// bursts that can be dispatched through the existing play-cue path.
+
 function cloneTimedNote(note, { reattack = false } = {}) {
   return {
     instanceKey: note.instanceKey ?? null,

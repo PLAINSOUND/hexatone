@@ -1,3 +1,8 @@
+// This module owns the current lookahead scheduler for timed cue playback.
+// It turns the playback timeline into near-future bursts that can be triggered
+// on a tight interval loop, without yet committing to a full timestamped MIDI
+// export scheduler.
+
 function normalizeIndex(value) {
   const numeric = Math.max(0, Math.round(Number(value) || 0));
   return Number.isFinite(numeric) ? numeric : 0;

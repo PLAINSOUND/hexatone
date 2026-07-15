@@ -1,3 +1,7 @@
+// This module owns whole-workspace normalization for the sequencer sidebar.
+// It rebuilds the canonical snapshot/bar/tempo/repeat shape used when creating,
+// loading, or restoring a sequence, but does not handle per-row editing.
+
 import {
   normalizeBarMarkers,
   normalizeTempoMarkers,

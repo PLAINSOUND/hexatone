@@ -1,9 +1,10 @@
+// This module owns timed-playback modifier parsing and application.
+// It keeps the SPEED and PITCH controls deterministic by normalizing user
+// input, formatting display values, and deciding whether playback can retune
+// in place or must rearticulate notes.
+
 import { classifyIntervalText } from "../tuning/interval.js";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
-
-// Playback modifiers are transport-time transforms only. They do not mutate
-// saved snapshot data; instead they derive a live playback view for auditioning
-// a sequence faster/slower or transposed before snap-to-tuning is applied.
 
 export const MIN_SEQUENCE_PLAYBACK_SPEED = 0.5;
 export const MAX_SEQUENCE_PLAYBACK_SPEED = 2;

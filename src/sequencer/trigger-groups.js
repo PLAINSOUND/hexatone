@@ -1,3 +1,8 @@
+// This module derives the sequencer's canonical event and cue stream.
+// It converts snapshots plus structural markers into ordered note/bar/tempo/
+// repeat events, then groups those events into shared-time cue bursts used by
+// stepping, playback, and display logic.
+
 import { deriveTerminalBarlinePosition, normalizeBarMarkers, normalizeRepeatMarkers } from "./transport.js";
 
 // Distinguish releases that belong to already-sounding notes from note-offs

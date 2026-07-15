@@ -1,3 +1,7 @@
+// TempoRow renders one immediate or transition tempo marker row.
+// It handles the local editor behavior for tempo position, beat unit, bpm, and
+// transition hints, while the sequencer controllers own the actual mutations.
+
 import { absolutePositionToBarBeat } from "./transport.js";
 import { readNumericInput } from "./value-runtime.js";
 import {

@@ -1,3 +1,7 @@
+// This module owns the small compatibility helpers for key-colour modes.
+// It bridges legacy boolean settings with the newer explicit
+// manual/auto/spectrum mode selector used by the scale settings UI.
+
 export const KEY_COLOR_MODES = ["manual", "auto", "spectrum"];
 
 export const resolveKeyColorsMode = (settings = {}) => {

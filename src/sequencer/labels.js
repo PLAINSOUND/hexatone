@@ -1,3 +1,7 @@
+// This module owns human-readable snapshot labels for the sequencer.
+// It formats proportions, odd-partial reductions, cents, frequencies, and
+// note-name derived descriptions from the stored snapshot note data.
+
 import { gcd, lcm } from "xen-dev-utils";
 
 function noteFrequency(midicents) {

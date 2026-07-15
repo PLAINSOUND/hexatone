@@ -1,3 +1,8 @@
+// This module owns direct note-row mutations inside a snapshot.
+// It updates editable pitch/name/timing fields and note deletion in the shape
+// expected by the sequencer UI, while leaving cross-snapshot moves to the
+// higher-level sequence-operations helpers.
+
 import {
   clamp,
   frequencyToMidicents,

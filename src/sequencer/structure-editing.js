@@ -1,3 +1,8 @@
+// This module owns structural marker edits around snapshots.
+// It updates bars, tempi, and repeats when snapshots are inserted, deleted, or
+// moved so the sequence timeline stays aligned without embedding that logic in
+// app.jsx or row components.
+
 import {
   deriveTerminalBarlinePosition,
   deriveImplicitRepeatStartPosition,

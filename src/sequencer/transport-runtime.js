@@ -1,3 +1,7 @@
+// This module owns small derived transport display/runtime helpers.
+// It builds bar-number maps, structural display buckets, and normalized beat
+// fraction data that the sequencer UI consumes after transport normalization.
+
 function isWholeSequencePosition(time) {
   const value = Number(time);
   if (!Number.isFinite(value)) return false;

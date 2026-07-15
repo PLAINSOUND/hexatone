@@ -1,3 +1,7 @@
+// This module owns the core HEJI glyph/monzo vocabulary.
+// It converts between HEJI accidentals, glyph strings, and monzo deltas, and
+// acts as the low-level symbolic layer beneath higher notation-frame modules.
+
 import { monzoToCents, monzosEqual } from "xen-dev-utils";
 import { CANONICAL_MONZO_BASIS } from "../tuning/interval.js";
 

@@ -1,3 +1,7 @@
+// This module owns view-only derivations for the sequencer event list.
+// It answers which snapshots should expand, which rows should highlight, and
+// where cue scrolling should anchor, without mutating playback or sequence data.
+
 import { sequenceAttackEventIdsAtCueIndex } from "./trigger-groups.js";
 import { buildCueExpandedSnapshotIds } from "./timeline-runtime.js";
 import { structuralEventRenderKey } from "./value-runtime.js";

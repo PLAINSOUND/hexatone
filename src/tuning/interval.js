@@ -1,3 +1,7 @@
+// This module owns exact interval parsing and monzo conversion for Hexatone.
+// It is the core tuning syntax layer used by workspace parsing, HEJI logic,
+// rationalisation, and export, independent of UI or live playback state.
+
 import {
   Fraction,
   PRIMES,
@@ -5,10 +9,6 @@ import {
   primeLimit as xenPrimeLimit,
   toMonzo,
 } from "xen-dev-utils";
-
-// Exact interval primitives used by workspace, rationalisation, notation, and
-// future retuning. This module preserves ratio/monzo identity alongside cents
-// so downstream code does not have to recover musical structure from floats.
 
 export const DEFAULT_MONZO_BASIS = [2, 3, 5, 7, 11, 13, 17, 19, 23];
 

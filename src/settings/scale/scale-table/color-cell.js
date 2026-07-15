@@ -1,3 +1,7 @@
+// ColorCell renders one editable manual colour cell in the scale table.
+// It keeps hex-string input local until commit and normalizes the entered value
+// into the canonical #rrggbb form expected by settings persistence.
+
 import { createRef } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 

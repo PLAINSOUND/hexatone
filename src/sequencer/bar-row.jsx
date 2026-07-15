@@ -1,3 +1,7 @@
+// BarRow renders one explicit bar marker row in the sequence.
+// It owns local editing affordances for bar position and time signature while
+// higher-level sequencer controllers own normalization and structural moves.
+
 import {
   buildBlurCommit,
   buildEnterCommit,

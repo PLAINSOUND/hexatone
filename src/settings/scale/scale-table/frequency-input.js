@@ -1,3 +1,7 @@
+// FrequencyInput renders one Hz editor used inside the scale table.
+// It keeps the editable display string local while exposing normalized
+// frequency values back to the parent table on commit.
+
 import { useEffect, useMemo, useState } from "preact/hooks";
 
 export const formatFrequencyHz = (value) => {

@@ -1,3 +1,8 @@
+// This component renders the full Scale settings panel.
+// It composes labels, colours, table editing, and Scala import/export around
+// the current tuning settings, but delegates pure parsing and preview logic out
+// to the tuning and scale runtime modules.
+
 import { useState, useEffect, useMemo, useCallback } from "preact/hooks";
 import PropTypes from "prop-types";
 import Colors from "./colors";

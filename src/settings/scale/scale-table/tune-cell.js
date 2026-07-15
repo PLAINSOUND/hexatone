@@ -1,3 +1,7 @@
+// TuneCell renders the main per-degree pitch editor in the scale table.
+// It coordinates scala-entry drafting, rationalisation UI, HEJI display, and
+// live preview hooks for one degree without owning the full table state.
+
 import { useState, useRef, useCallback, useEffect } from "preact/hooks";
 import { parseExactInterval } from "../../../tuning/interval.js";
 import { spelledHejiLabel } from "../../../notation/key-label.js";

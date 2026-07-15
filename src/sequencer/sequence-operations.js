@@ -1,3 +1,7 @@
+// This module owns cross-note and cross-snapshot sequence note transforms.
+// It builds the shared operations used for moving, duplicating, and retiming
+// notes without tying that logic to any particular row component.
+
 import { normalizeSequenceNumber, noteIdentity, sortSnapshotNotes } from "./value-runtime.js";
 
 export function applyNoteUpdateToSnapshot(targetSnapshot, buildNotes) {

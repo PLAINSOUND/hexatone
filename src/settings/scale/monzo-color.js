@@ -1,3 +1,7 @@
+// This module owns monzo-aware color inference for rational/notation contexts.
+// It maps interval structure, fifths position, and prime families into the
+// suggested manual/auto key colors used by the scale settings UI.
+
 import { EXTENDED_MONZO_BASIS } from "../../tuning/interval.js";
 import { okhsl_to_srgb, srgb_to_okhsl } from "./okhsl.js";
 

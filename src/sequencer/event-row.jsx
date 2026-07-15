@@ -1,3 +1,8 @@
+// EventRow renders one sequencer note-on or note-off row.
+// It is the leaf editor for note timing, pitch, expression, and drag/drop
+// movement between snapshots, while delegating all mutation policy back up to
+// the sequencer controllers.
+
 import {
   absolutePositionToBarBeat,
 } from "./transport.js";

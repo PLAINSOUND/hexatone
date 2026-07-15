@@ -1,3 +1,7 @@
+// SnapshotSequenceItem renders one snapshot plus its expanded structural/event rows.
+// It composes the bar, tempo, repeat, and note-row subcomponents that make up
+// the visible event list for a snapshot in the sequencer.
+
 import { Fragment } from "preact";
 import EventsGridHeader from "./events-grid-header.jsx";
 import BarRow from "./bar-row.jsx";

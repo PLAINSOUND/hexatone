@@ -1,3 +1,8 @@
+// RepeatRow renders one repeat start or repeat end marker row.
+// It owns the local row UI for repeat symbols, repeat-count editing, and
+// position drafts, while repeat normalization and playback behavior live in the
+// sequencer runtime modules.
+
 import { useEffect, useState } from "preact/hooks";
 
 import { absolutePositionToBarBeat } from "./transport.js";

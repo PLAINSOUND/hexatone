@@ -1,12 +1,12 @@
+// This module owns the pure rationalisation search and scoring engine.
+// It enumerates candidate ratios/monzos around a target pitch and ranks them
+// using Hexatone's harmonic and contextual heuristics, without any UI code.
+
 import { Fraction, monzoToCents, primeLimit as xenPrimeLimit, toMonzo } from "xen-dev-utils";
 import { CANONICAL_MONZO_BASIS, monzoToFractionOnBasis } from "./interval.js";
 import {
   DEFAULT_TUNEABLE_INTERVALS,
 } from "./tuneable-intervals.js";
-
-// Pure candidate-search and scoring engine for scale rationalisation.
-// Input is a target cents value plus optional ScaleWorkspace context; output is
-// ranked exact-ratio candidates. UI modules decide whether to preview or commit.
 
 // Maximum log2 of numerator or denominator we will try to materialise as a
 // Fraction.  2^53 is Number.MAX_SAFE_INTEGER; anything beyond that breaks the

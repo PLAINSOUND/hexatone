@@ -1,3 +1,7 @@
+// This module owns structural reordering helpers for the scale table.
+// It sorts, moves, and deletes scale degrees while remapping coupled note-name
+// and note-colour arrays so the settings object stays internally aligned.
+
 import { scalaToCents } from "./parse-scale.js";
 
 function remapDegreeIndex(index, sortedEntries, equaveDegree) {

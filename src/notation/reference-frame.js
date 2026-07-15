@@ -1,3 +1,7 @@
+// This module owns reference-frame spelling for rational pitch classes.
+// It builds the diatonic/chromatic reference context used to spell a scale or
+// a pitch class coherently around a chosen anchor and harmonic frame.
+
 import { Fraction, toMonzo } from "xen-dev-utils";
 import {
   hejiToMonzo,

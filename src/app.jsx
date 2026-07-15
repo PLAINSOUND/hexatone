@@ -122,6 +122,8 @@ import { retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual/manual-sidebar.jsx"));
+// Lazy controller imports keep optional hardware paths out of the initial app
+// shell until the relevant controller/runtime actually needs them.
 const loadExquisLEDs = (() => {
   let promise = null;
   return () => (promise ??= import("./controllers/exquis-leds.js"));
@@ -512,6 +514,9 @@ function isTextEntryElement(el) {
   ].includes(type);
 }
 
+// App is the orchestration boundary: below this point persisted settings are
+// normalized into the live runtime slices consumed by Keyboard, Settings, and
+// Sequencer.
 const App = () => {
   const [ready, setReady] = useState(false);
   const [showManual, setShowManual] = useState(false);
@@ -530,6 +535,8 @@ const App = () => {
   const viewportBaselineRef = useRef(0);
   const audioNeedsHardRefreshRef = useRef(false);
   const audioWakePromiseRef = useRef(null);
+
+  // Session / lifecycle bootstrap.
   const switchWorkspaceTab = useCallback((nextTab) => {
     setShowManual(false);
     setWorkspaceTab(nextTab);
@@ -1048,6 +1055,7 @@ const App = () => {
     snapshots,
   ]);
 
+  // Sequencer workspace derivation and playback-ready snapshot views.
   const sequenceCueGroups = useMemo(
     () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi, sequenceRepeats),
     [sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
@@ -2189,6 +2197,7 @@ const App = () => {
     return hasLayout && hasScale && labelsValid && colorsValid;
   }, [settings]);
 
+  // Tuning/runtime derivation for the live Hexatone surface.
   const tuningImpactKey = useMemo(() => settingsImpactKey(settings, "tuning"), [settings]);
   const structuralImpactKey = useMemo(() => settingsImpactKey(settings, "structural"), [settings]);
   const keysReconstructionImpactKey = useMemo(

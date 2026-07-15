@@ -1,3 +1,7 @@
+// This module owns small reusable input-event helpers for sequencer rows.
+// It keeps the many row editors consistent about focus selection, blur
+// commits, and Enter-key commits without repeating inline handlers.
+
 export function stopPropagation(event) {
   event.stopPropagation();
 }

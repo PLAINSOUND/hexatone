@@ -1,3 +1,7 @@
+// This module maps browser keyboard codes onto visible hex-grid coords.
+// It is the static lookup table used by the computer-keyboard input path in
+// Keys, separate from MIDI/controller address resolution.
+
 import Point from "../keyboard/point";
 
 const keyCodeToCoords = {

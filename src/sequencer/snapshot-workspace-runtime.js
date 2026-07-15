@@ -1,3 +1,7 @@
+// This module owns structural snapshot mutations within a sequence workspace.
+// It appends, duplicates, deletes, moves, and normalizes snapshots while
+// keeping bars, tempi, repeats, and related workspace state aligned.
+
 import { buildSnapshotDescription } from "./labels.js";
 import {
   shiftStructuralMarkersAfterSnapshotDeletion,

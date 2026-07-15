@@ -1,3 +1,6 @@
+// Info renders the scale name and description fields.
+// It keeps local text drafts until commit so the larger settings panel does not
+// rebuild the tuning workspace on every keystroke.
 
 import { useEffect, useState } from "preact/hooks";
 

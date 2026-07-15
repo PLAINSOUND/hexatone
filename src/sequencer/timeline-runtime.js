@@ -1,3 +1,7 @@
+// This module derives cue- and snapshot-level lookup tables for the sequencer.
+// It turns normalized event and cue data into fast indexes used by playback,
+// scrolling, and row expansion logic, without mutating sequence state.
+
 export function buildSnapshotEventsById(sequenceEvents = []) {
   const groups = new Map();
 

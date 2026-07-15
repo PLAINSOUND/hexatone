@@ -1,3 +1,7 @@
+// This module owns sequencer sessionStorage persistence.
+// It saves and restores the active workspace shape so the Sequencer tab can
+// survive reloads independently of user-library save/load actions.
+
 import {
   normalizeBarMarkers,
   normalizeRepeatMarkers,

@@ -1,3 +1,7 @@
+// ScaleTable renders the editable per-degree tuning table.
+// It is the main structured editor for scale entries, note names, key colours,
+// rationalisation, and tuning previews around the committed workspace.
+
 import { useState, useCallback, useEffect, useMemo, useRef } from "preact/hooks";
 import PropTypes from "prop-types";
 import { scalaToCents } from "../parse-scale";

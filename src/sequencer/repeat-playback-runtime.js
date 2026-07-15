@@ -1,3 +1,7 @@
+// This module derives repeat sections from normalized repeat markers and cues.
+// It is the bridge between visual repeat symbols in the sequence and the
+// runtime playback ranges that stepping, timed transport, and export will use.
+
 import { normalizeRepeatMarkers } from "./transport.js";
 
 export function deriveRepeatSections(sequenceCueGroups = [], repeats = []) {

@@ -1,3 +1,7 @@
+// Colors renders the key-colour settings panel for the current scale.
+// It manages manual color editing plus Auto/Spectrum preview and commit flows,
+// while delegating the actual color inference math to the pure runtime modules.
+
 import { createRef } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";

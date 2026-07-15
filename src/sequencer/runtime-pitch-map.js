@@ -1,3 +1,7 @@
+// This module remaps stored sequence notes into the current tuning runtime.
+// It is used when Snap Sequence to Current Tuning is active, translating saved
+// snapshot pitches into nearest current-scale pitches before playback.
+
 import { findNearestDegree } from "../input/scale-mapper.js";
 
 function mod(value, modulus) {

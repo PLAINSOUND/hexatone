@@ -1,3 +1,7 @@
+// This module owns transient tuning-preview state for the scale editor.
+// It lets the UI compare proposed degree/fundamental changes against the
+// committed workspace without rewriting the actual tuning until commit.
+
 import { getWorkspaceSlot } from "./workspace.js";
 
 const EMPTY_DEGREE_PREVIEWS = Object.freeze({});

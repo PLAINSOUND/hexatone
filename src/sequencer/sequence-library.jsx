@@ -1,3 +1,8 @@
+// SequenceLibrary owns the built-in and user sequence pickers.
+// It mirrors the Hexatone tuning-library workflow inside the Sequencer tab:
+// recall, save, save-as-copy, import, delete, and dirty-state confirmation for
+// the current sequence workspace.
+
 import { createRef } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";

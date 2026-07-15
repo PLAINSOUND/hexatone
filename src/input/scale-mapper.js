@@ -1,6 +1,8 @@
 /**
  * scale-mapper.js
  *
+ * Nearest-degree pitch matching for live input and sequence remapping.
+ *
  * Maps an absolute pitch (in cents) to the nearest scale degree, with
  * equave-octave wrapping. Used by keys.js when inputRuntime.target === 'scale'.
  *

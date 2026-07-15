@@ -1,3 +1,7 @@
+// This module derives playhead-facing selector state for the sequencer.
+// It translates the raw playhead into the BAR / SNAPSHOT / CUE values shown in
+// the UI, along with off/end boundary flags used by navigation logic.
+
 export function derivePlayheadNavigationState({
   playhead,
   sortedBars = [],

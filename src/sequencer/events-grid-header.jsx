@@ -1,3 +1,7 @@
+// EventsGridHeader renders the responsive column headings for snapshot events.
+// It switches between timing and expression panes while keeping the mobile and
+// desktop label variants in one small, reusable header component.
+
 const renderResponsiveHeading = (full, short = full) => (
   <>
     <span class="sequencer-events-grid__heading-label sequencer-events-grid__heading-label--full">{full}</span>

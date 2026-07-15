@@ -1,3 +1,7 @@
+// SequenceInfo renders the editable name/description header for a sequence.
+// It keeps text-entry drafts local until commit so the larger app does not
+// rebuild the full sequencer workspace on every keystroke.
+
 import { useEffect, useState } from "preact/hooks";
 
 const SequenceInfo = ({

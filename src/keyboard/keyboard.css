@@ -1,3 +1,8 @@
+/* Keyboard canvas layout and interaction styles.
+ * This file only handles the fixed fullscreen keyboard surface and related
+ * browser interaction defaults; visual key rendering lives in canvas code.
+ */
+
 .keyboard {
   -webkit-touch-callout: none;
   -webkit-user-select: none;

@@ -1,3 +1,7 @@
+// SequenceControls renders the transport and playback control strips.
+// It owns the PLAY FROM, TIMED PLAYBACK, and SPEED/PITCH row UI, while the
+// sequencer and timed-transport controllers own the actual playback state.
+
 import { useEffect, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import {

@@ -1,3 +1,7 @@
+// This module owns the non-JI and JI auto-colour inference engine.
+// It inspects spelling, monzo clues, and tuning context to derive attractive
+// suggested key colours when the user selects Auto Colours.
+
 import { createScaleWorkspace } from "../../tuning/workspace.js";
 import { buildHejiNotationFrame } from "../../notation/heji-frame.js";
 import { parseHejiToStructure, pitchStructureToMonzo } from "../../notation/pitch-structure.js";

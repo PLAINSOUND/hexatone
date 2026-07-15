@@ -1,3 +1,8 @@
+// This module owns core sequencer time and marker normalization.
+// It converts between absolute sequence positions and Bar/Beat/Num/Den space,
+// normalizes bars/tempi/repeats, and derives tempo/barline helpers shared
+// across UI, playback, and persistence.
+
 function normalizePosition(value, fallback = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;

@@ -1,3 +1,7 @@
+// This module builds controller filter lists from sequencer snapshots.
+// It turns stored snapshot note data into tuning-aware Lumatone and Continuum
+// filter entries so the sequencer can feed controller-side snapshot recall.
+
 import { findNearestDegree } from "../input/scale-mapper.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "../tuning/workspace.js";
 

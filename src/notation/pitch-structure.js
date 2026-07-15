@@ -1,3 +1,7 @@
+// This module owns editable pitch-structure objects for notation entry.
+// It keeps note letter, accidental counts, HEJI primes, and related flags in a
+// mutable-friendly structured form before those choices are resolved to pitch.
+
 import {
   BASE_BY_ID,
   BASE_SYMBOLS,

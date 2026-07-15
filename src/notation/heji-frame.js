@@ -1,3 +1,7 @@
+// This module owns HEJI-specific notation frame derivation and typed-label parsing.
+// It adapts the generic pitch/reference frame logic to HEJI anchoring, HEJI
+// glyph entry, and scale-wide HEJI spelling decisions.
+
 import { Fraction, monzoToCents } from "xen-dev-utils";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
 import { addMonzos } from "./heji.js";

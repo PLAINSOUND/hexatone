@@ -1,3 +1,7 @@
+// This module owns normalization and defaulting around HEJI text input.
+// It reconciles typed HEJI glyph strings, anchor defaults, and mixed tempered
+// vs HEJI spelling states so the notation UI can stay forgiving and consistent.
+
 import { Fraction } from "xen-dev-utils";
 import { monzoToFractionOnBasis, parseExactInterval } from "../tuning/interval.js";
 import { addMonzos, parseHejiPitchClassLabel, subtractMonzos } from "./heji.js";

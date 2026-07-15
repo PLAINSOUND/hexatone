@@ -1,3 +1,7 @@
+// This module owns low-level color conversions shared by keyboard rendering and
+// controller LED output. It intentionally stays framework-free and small so the
+// same helpers can be reused by canvas, device LEDs, and color tests.
+
 export function rgb(r, g, b) {
   return "rgb(" + r + "," + g + "," + b + ")";
 }

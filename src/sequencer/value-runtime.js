@@ -1,3 +1,7 @@
+// This module owns the sequencer's scalar formatting and normalization helpers.
+// It keeps display strings, editable strings, note identity keys, and numeric
+// clamping rules consistent across snapshot rows, transport rows, and labels.
+
 export function formatSequenceTime(snapshotIndex, relativeTime) {
   const baseIndex = Number(snapshotIndex);
   const offset = Number(relativeTime);

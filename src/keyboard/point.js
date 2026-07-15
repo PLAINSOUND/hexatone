@@ -1,3 +1,7 @@
+// Point is the small mutable geometry primitive shared across keyboard code.
+// Older keyboard utilities still use this prototype-style helper for hex-grid
+// math, matrix transforms, and controller coordinate bookkeeping.
+
 export function Point(x, y) {
   this.x = x;
   this.y = y;

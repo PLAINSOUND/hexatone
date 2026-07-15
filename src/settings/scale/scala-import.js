@@ -1,3 +1,7 @@
+// ScalaImport renders the Scala/Ableton import-export workspace.
+// It exposes raw text editing, validation warnings, and file export/import
+// actions without owning the canonical parsed scale representation itself.
+
 import { createRef } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import PropTypes from "prop-types";

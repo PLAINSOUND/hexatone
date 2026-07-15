@@ -1,3 +1,7 @@
+// This module owns the serializable draft objects used by sequencer row edits.
+// It provides keys, scope resolution, draft normalization, and conversion from
+// Bar/Beat/Num/Den edits back into absolute sequence positions.
+
 import { barBeatToAbsolutePosition } from "./transport.js";
 import { formatSequenceOffset, normalizeSequenceNumber } from "./value-runtime.js";
 

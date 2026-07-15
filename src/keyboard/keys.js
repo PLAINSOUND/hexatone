@@ -146,6 +146,8 @@ class Keys {
     onModulationStateChange = null,
     initialModulationLibrary = null,
   ) {
+    // 1. Normalize committed tuning plus static layout settings into the
+    //    long-lived runtime shape that live input and rendering consume.
     const gcd = Euclid(settings.rSteps, settings.drSteps);
     this.tuning = {
       scale: tuningRuntime?.scale ? [...tuningRuntime.scale] : [...(settings.scale || [])],
@@ -216,6 +218,8 @@ class Keys {
       bendFlip: !!settings.midiin_bend_flip,
     };
 
+    // 2. Bind environment/runtime dependencies and initialize ephemeral live
+    //    state that should survive outside React render cycles.
     this.synth = synth; // use built-in sounds and/or send MIDI out (MTS, MPE, or MTS bulk dump) to an external synth
     this.typing = typing;
     this.onLatchChange = onLatchChange || null;
@@ -259,6 +263,9 @@ class Keys {
         return new Point(displayed.x, displayed.y);
       },
     );
+
+    // 3. Initialize higher-level modulation, preview, and controller state on
+    //    top of the committed tuning/input substrate prepared above.
 
     // Scale mode microtuning state.
     // _mtsInputTable:    Map<noteNumber (0–127), Hz> — populated by incoming MTS
@@ -1546,6 +1553,7 @@ class Keys {
     );
   }
 
+  // Expression routing and modulation settlement helpers.
   _applyPolyAftertouch(hex, value, value14 = null) {
     return InputExpressionRuntime.applyPolyAftertouch.call(this, hex, value, value14);
   }
@@ -2395,6 +2403,7 @@ class Keys {
     return PanicRuntime.resetLatch(this);
   };
 
+  // Live note lifecycle entry points.
   hexOn(coords, note_played, velocity_played, bend, options = null) {
     return LiveHexRuntime.hexOn(this, coords, note_played, velocity_played, bend, options);
   }
@@ -2575,6 +2584,9 @@ class Keys {
   };
 
   /**************** Rendering ****************/
+
+  // Rendering bridge: the heavy canvas code lives in keys-renderer.js, while
+  // Keys exposes the imperative surface used by the rest of the app runtime.
 
   scheduleGridRedraw() {
     return KeysRenderer.scheduleGridRedraw.call(this);

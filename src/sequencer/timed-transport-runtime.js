@@ -1,3 +1,7 @@
+// This module owns pure timed-transport state transitions.
+// It advances, pauses, resumes, seeks, and normalizes the transport cursor
+// against the derived playback timeline without touching UI or synth code.
+
 import { clampSequencePlaybackSpeed } from "./playback-modifiers-runtime.js";
 
 function normalizePlaybackIndex(value, playbackBursts) {

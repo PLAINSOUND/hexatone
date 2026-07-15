@@ -1,3 +1,7 @@
+// KeyLabels renders the label/spelling controls for the current scale.
+// It coordinates HEJI anchor data, label modes, and notation structure editing
+// without owning the underlying tuning workspace or keyboard runtime.
+
 import { useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { normaliseHejiAnchorRatio, scalaToCents } from "./parse-scale.js";

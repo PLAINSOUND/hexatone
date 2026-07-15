@@ -1,3 +1,7 @@
+// FundamentalTuneCell renders the compare/preview cell for the fundamental.
+// It bridges the scale settings UI to the transient tuning-preview runtime so
+// users can audition fundamental changes before committing them.
+
 import { useEffect, useRef, useCallback } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
