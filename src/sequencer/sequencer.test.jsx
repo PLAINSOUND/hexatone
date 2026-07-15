@@ -1528,13 +1528,13 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
 
-    expect(screen.getByText("Snapshot Labels")).toBeInTheDocument();
+    expect(screen.queryByText("Snapshot Labels")).not.toBeNull();
     expect(screen.queryByText("Choose Tempo Position")).toBeNull();
     expect(screen.queryByText("Choose Bar Position")).toBeNull();
     expect(screen.queryByText("Auto-Create Bars")).toBeNull();
-    expect(screen.getByText("Legato")).toBeInTheDocument();
-    expect(screen.getByText("Auto-Scroll")).toBeInTheDocument();
-    expect(screen.getByText("Snap Sequence to Current Hexatone Tuning")).toBeInTheDocument();
+    expect(screen.queryByText("Legato")).not.toBeNull();
+    expect(screen.queryByText("Auto-Scroll")).not.toBeNull();
+    expect(screen.queryByText("Snap Sequence to Current Hexatone Tuning")).not.toBeNull();
   });
 
   it("keeps the standard two event panes in phone portrait mode", () => {
