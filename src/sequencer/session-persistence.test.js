@@ -16,7 +16,7 @@ describe("sequencer session persistence", () => {
     saveSequenceWorkspaceToSession({
       snapshots: [{ id: 1, length: 1, notes: [] }],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" }],
+      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
       repeats: [{ id: "r1", position: 2, kind: "end", repeatCount: 3 }],
       snapshotLabelMode: "proportion",
       activeSequenceSource: "builtin",
@@ -33,7 +33,7 @@ describe("sequencer session persistence", () => {
       version: 1,
       snapshots: [{ id: 1, length: 1, notes: [] }],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" }],
+      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
       repeats: [{ id: "r1", position: 2, kind: "end", repeatCount: 3 }],
       snapshotLabelMode: "proportion",
       activeSequenceSource: "builtin",
