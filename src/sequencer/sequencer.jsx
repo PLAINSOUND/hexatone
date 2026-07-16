@@ -30,7 +30,7 @@ import {
   buildSnapshotEventsById,
 } from "./timeline-runtime.js";
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
-import { buildPlaybackTimeline } from "./playback-timeline.js";
+import { buildPlaybackTimeline, deriveTempoAtSequencePosition } from "./playback-timeline.js";
 import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
 import useTimedTransportController from "./timed-transport-controller.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
@@ -239,6 +239,19 @@ const Sequencer = ({
     const fraction = resolved.numerator > 0 ? ` ${resolved.numerator}/${resolved.denominator}` : "";
     return `${resolved.barNumber}:${resolved.beat}${fraction}`;
   }, [sortedBars, terminalBarlinePosition]);
+  const describeTransportTempo = useCallback((position, speedMultiplier = 1) => {
+    const tempo = deriveTempoAtSequencePosition(
+      position,
+      sortedTempi,
+      sortedBars,
+      terminalBarlinePosition,
+    );
+    if (!tempo) return null;
+    return {
+      ...tempo,
+      effectiveBpm: Math.round(tempo.bpm * Math.max(0, Number(speedMultiplier) || 1) * 10) / 10,
+    };
+  }, [sortedBars, sortedTempi, terminalBarlinePosition]);
   const sequenceRepeatSections = useMemo(
     () => deriveRepeatSections(sequenceCueGroups, repeats),
     [sequenceCueGroups, repeats],
@@ -429,6 +442,7 @@ const Sequencer = ({
     sortedBars,
     formatTransportClock,
     formatTransportBarBeat,
+    describeTransportTempo,
     onCueSequenceCue,
     onCueSequenceSnapshot,
     onSelectSequenceBar,

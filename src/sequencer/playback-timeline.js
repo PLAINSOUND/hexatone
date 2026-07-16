@@ -134,6 +134,8 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
       startSeconds: normalizeSeconds(elapsedSeconds),
       secondsPerQuarter,
       wholeNotesPerMinute,
+      beatNumerator: Math.max(1, Math.round(Number(marker?.beatNumerator) || 1)),
+      beatDenominator: Math.max(1, Math.round(Number(marker?.beatDenominator) || 4)),
       endWholeNotesPerMinute: nextMarker && nextMode === "transition"
         ? nextWholeNotesPerMinute
         : wholeNotesPerMinute,
@@ -193,6 +195,43 @@ function sequenceSpanToTimedSeconds(startPosition, endPosition, timingModel) {
   const endSeconds = sequencePositionToTimedSeconds(endPosition, timingModel);
   if (startSeconds == null || endSeconds == null) return null;
   return normalizeSeconds(endSeconds - startSeconds);
+}
+
+function wholeNotesPerMinuteAtPosition(position, timingModel) {
+  const quarterNotes = sequencePositionToQuarterNotes(position, timingModel?.barTimingSegments);
+  if (quarterNotes == null) return null;
+  const segment = findTempoSegmentForPosition(position, timingModel?.tempoSegments);
+  if (!segment) return null;
+  const quarterNoteOffset = Math.max(0, quarterNotes - segment.startQuarterNotes);
+  if (
+    segment.transitionMode === "transition"
+    && Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
+  ) {
+    const quarterNotesSpan = Math.max(0, segment.endQuarterNotes - segment.startQuarterNotes);
+    const slope = quarterNotesSpan > 1e-9
+      ? (segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) / quarterNotesSpan
+      : 0;
+    if (Math.abs(slope) > 1e-12) {
+      return normalizeSeconds(segment.wholeNotesPerMinute + slope * quarterNoteOffset);
+    }
+  }
+  return normalizeSeconds(segment.wholeNotesPerMinute);
+}
+
+export function deriveTempoAtSequencePosition(position, tempi = [], bars = [], terminalPosition = null) {
+  const timingModel = buildMusicalTempoSegments(tempi, bars, terminalPosition);
+  const segment = findTempoSegmentForPosition(position, timingModel.tempoSegments);
+  if (!segment) return null;
+  const wholeNotesPerMinute = wholeNotesPerMinuteAtPosition(position, timingModel);
+  if (!Number.isFinite(wholeNotesPerMinute)) return null;
+  const beatNumerator = Math.max(1, Math.round(Number(segment.beatNumerator) || 1));
+  const beatDenominator = Math.max(1, Math.round(Number(segment.beatDenominator) || 4));
+  return {
+    wholeNotesPerMinute,
+    beatNumerator,
+    beatDenominator,
+    bpm: normalizeSeconds(wholeNotesPerMinute * (beatDenominator / beatNumerator)),
+  };
 }
 
 function noteInstanceKey(event) {

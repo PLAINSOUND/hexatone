@@ -4,6 +4,7 @@ import {
   buildCueBursts,
   buildPlaybackBursts,
   buildPlaybackTimeline,
+  deriveTempoAtSequencePosition,
   deriveBurstSoundingState,
 } from "./playback-timeline.js";
 import { deriveRepeatSections } from "./repeat-playback-runtime.js";
@@ -253,5 +254,26 @@ describe("playback timeline", () => {
     expect(transitionElapsed[2]).toBeLessThan(immediateElapsed[2]);
     expect(transitionElapsed[3]).toBeLessThan(immediateElapsed[3]);
     expect(transitionElapsed[4]).toBeLessThan(immediateElapsed[4]);
+  });
+
+  it("derives the live tempo at a transport position inside a gradual transition", () => {
+    const bars = [{ id: "bar-1", position: 1, numerator: 1, denominator: 1 }];
+    const tempi = [
+      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
+    ];
+
+    expect(deriveTempoAtSequencePosition(1, tempi, bars, 3)).toEqual({
+      wholeNotesPerMinute: 15,
+      beatNumerator: 1,
+      beatDenominator: 4,
+      bpm: 60,
+    });
+    expect(deriveTempoAtSequencePosition(2, tempi, bars, 3)).toEqual({
+      wholeNotesPerMinute: 22.5,
+      beatNumerator: 1,
+      beatDenominator: 4,
+      bpm: 90,
+    });
   });
 });

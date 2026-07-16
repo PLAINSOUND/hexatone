@@ -305,7 +305,7 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(screen.getAllByRole("button", { name: "Save current sequence" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Save current sequence" })).toHaveLength(1);
   });
 
   it("prefers the dedicated timed cue callback when timed transport dispatches a cue", () => {

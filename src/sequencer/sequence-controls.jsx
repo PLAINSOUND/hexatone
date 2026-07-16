@@ -23,6 +23,12 @@ function sliderExponentToSpeed(value) {
   return Math.pow(2, exponent);
 }
 
+function formatEffectiveTempoCourtesy(tempo) {
+  const bpm = Number(tempo?.effectiveBpm ?? tempo?.bpm);
+  if (!Number.isFinite(bpm) || bpm <= 0) return "";
+  return `${bpm.toFixed(1)} bpm`;
+}
+
 function selectControlValue(event) {
   event.currentTarget.select?.();
 }
@@ -520,6 +526,8 @@ const SequenceControls = ({
         sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
         onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
         onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
+        timedTransportUiState={timedTransportUiState}
+        getTimedTransportDisplay={getTimedTransportDisplay}
       />
     </div>
 
@@ -531,6 +539,8 @@ function PlaybackModifiersRow({
   sequencePlaybackPitchOffset,
   onSequencePlaybackSpeedChange,
   onSequencePlaybackPitchOffsetChange,
+  timedTransportUiState,
+  getTimedTransportDisplay,
 }) {
   const [speedDraft, setSpeedDraft] = useState(() => formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1));
   const [pitchDraft, setPitchDraft] = useState(() => formatSequencePlaybackPitchCents(sequencePlaybackPitchOffset ?? 0));
@@ -543,6 +553,13 @@ function PlaybackModifiersRow({
   const pendingSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
   const pendingPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const committedPitchTextRef = useRef("");
+  const [timedTransportDisplay, setTimedTransportDisplay] = useState(() => (
+    getTimedTransportDisplay?.() ?? {
+      clock: "00:00:00",
+      barBeat: "1:1",
+      tempo: null,
+    }
+  ));
 
   useEffect(() => {
     setSpeedDraft(formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1));
@@ -568,6 +585,20 @@ function PlaybackModifiersRow({
     if (speedFrameRef.current != null) window.cancelAnimationFrame(speedFrameRef.current);
     if (pitchFrameRef.current != null) window.cancelAnimationFrame(pitchFrameRef.current);
   }, []);
+
+  useEffect(() => {
+    const refreshDisplay = () => {
+      setTimedTransportDisplay(getTimedTransportDisplay?.() ?? {
+        clock: "00:00:00",
+        barBeat: "1:1",
+        tempo: null,
+      });
+    };
+    refreshDisplay();
+    if (!timedTransportUiState?.running) return undefined;
+    const intervalId = window.setInterval(refreshDisplay, 250);
+    return () => window.clearInterval(intervalId);
+  }, [getTimedTransportDisplay, timedTransportUiState?.running]);
 
   const scheduleSpeedChange = (value) => {
     pendingSpeedValueRef.current = value;
@@ -612,6 +643,25 @@ function PlaybackModifiersRow({
   };
 
   const parsedPitchDraft = parseSequencePlaybackPitchInput(pitchDraft);
+  const parsedSpeedDraft = parseSequencePlaybackSpeedInput(speedDraft);
+  const currentTimedTransportDisplay = timedTransportUiState?.running
+    ? timedTransportDisplay
+    : (
+      getTimedTransportDisplay?.() ?? {
+        clock: "00:00:00",
+        barBeat: "1:1",
+        tempo: null,
+      }
+    );
+  const speedCourtesy = formatEffectiveTempoCourtesy(
+    currentTimedTransportDisplay?.tempo
+      ? {
+        ...currentTimedTransportDisplay.tempo,
+        effectiveBpm: Number(currentTimedTransportDisplay.tempo.bpm ?? 0)
+          * (parsedSpeedDraft ?? sequencePlaybackSpeed ?? 1),
+      }
+      : null,
+  );
   const pitchCourtesy = formatSequencePlaybackPitchCourtesy(
     parsedPitchDraft ?? sequencePlaybackPitchOffset ?? 0,
   );
@@ -651,7 +701,7 @@ function PlaybackModifiersRow({
                 commitSpeedDraft(e.currentTarget.value);
               }}
             />
-            <span class="sequencer-playback-modifier__suffix">×</span>
+            <span class="sequencer-playback-modifier__courtesy">{speedCourtesy}</span>
           </span>
         </span>
         <span class="sequencer-playback-modifier__slider-row">

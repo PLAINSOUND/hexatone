@@ -40,6 +40,7 @@ export default function useTimedTransportController({
   sortedBars,
   formatTransportClock,
   formatTransportBarBeat,
+  describeTransportTempo,
   onCueSequenceCue,
   onCueSequenceSnapshot,
   onSelectSequenceBar,
@@ -550,11 +551,17 @@ export default function useTimedTransportController({
     return {
       clock: formatTransportClock(runningElapsed),
       barBeat: formatTransportBarBeat(displaySequenceTime),
+      tempo: describeTransportTempo?.(
+        displaySequenceTime,
+        currentState.speedMultiplier ?? sequencePlaybackSpeed,
+      ) ?? null,
     };
   }, [
+    describeTransportTempo,
     formatTransportBarBeat,
     formatTransportClock,
     resolveTimedTransportStartIndex,
+    sequencePlaybackSpeed,
     selectedBarIndex,
     sortedBars,
   ]);
