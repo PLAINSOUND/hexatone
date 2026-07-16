@@ -496,7 +496,7 @@ const TuningLibrary = ({
         </div>
 
         {showWorkspaceActions && (
-          <div class="settings-form__action-row">
+          <div class="settings-form__action-row settings-form__action-row--top">
             <span class="settings-form__action-group settings-form__action-group--wrap">
               <button type="button" class="preset-action-btn" onClick={handleSave}>
                 {saveLabel}
@@ -510,7 +510,7 @@ const TuningLibrary = ({
                 </button>
               )}
             </span>
-            <span class="settings-form__action-group">
+            <span class="settings-form__action-group settings-form__action-group--tuning-export">
               <button type="button" class="preset-utility-btn settings-form__utility-btn--export" onClick={handleExport}>
                 Export .json
               </button>
