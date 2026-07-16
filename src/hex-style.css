@@ -637,6 +637,12 @@ a:hover {
   line-height: 1;
 }
 
+@media (max-width: 600px) and (orientation: portrait) {
+  #snapshot-palette {
+    max-height: 56vh;
+  }
+}
+
 .snapshot-palette-header {
   color: #7f2525;
 }
