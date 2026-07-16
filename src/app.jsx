@@ -104,19 +104,21 @@ import {
 } from "./debug/timed-transport-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
-  deriveSequenceCueGroups,
   sequenceNotesAtCueIndex,
 } from "./sequencer/trigger-groups.js";
-import { remapSequenceSnapshotsToRuntime } from "./sequencer/runtime-pitch-map.js";
 import {
-  applyPlaybackPitchOffsetToSnapshots,
+  remapSequenceNoteToRuntime,
+  remapSequenceSnapshotsToRuntime,
+} from "./sequencer/runtime-pitch-map.js";
+import { buildSequenceRuntimeModel } from "./sequencer/runtime-model.js";
+import {
+  applyPlaybackPitchOffsetToNotes,
   clampSequencePlaybackPitchCents,
   clampSequencePlaybackSpeed,
   shouldRetuneSequencePlaybackInPlace,
 } from "./sequencer/playback-modifiers-runtime.js";
 import {
   advanceCueIndexWithRepeats,
-  deriveRepeatSections,
 } from "./sequencer/repeat-playback-runtime.js";
 import { retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
@@ -1056,14 +1058,6 @@ const App = () => {
   ]);
 
   // Sequencer workspace derivation and playback-ready snapshot views.
-  const sequenceCueGroups = useMemo(
-    () => deriveSequenceCueGroups(snapshots, sequenceBars, sequenceTempi, sequenceRepeats),
-    [sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
-  );
-  const sequenceRepeatSections = useMemo(
-    () => deriveRepeatSections(sequenceCueGroups, sequenceRepeats),
-    [sequenceCueGroups, sequenceRepeats],
-  );
   const currentSequenceSnapRuntime = (() => {
     const keys = keysRef.current;
     const frame = keys?._activeFrame?.();
@@ -1072,26 +1066,19 @@ const App = () => {
       ? liveRuntime
       : null;
   })();
-  const sequencePitchShiftedSnapshots = useMemo(
-    () => applyPlaybackPitchOffsetToSnapshots(
-      snapshots,
-      clampSequencePlaybackPitchCents(sequencePlaybackPitchOffset),
-    ),
-    [sequencePlaybackPitchOffset, snapshots],
-  );
   const sequencePlaybackSnapshots = useMemo(() => {
     const keys = keysRef.current;
     if (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) {
-      return sequencePitchShiftedSnapshots;
+      return snapshots;
     }
-    return remapSequenceSnapshotsToRuntime(sequencePitchShiftedSnapshots, currentSequenceSnapRuntime, {
+    return remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
       noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
       hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
     });
   }, [
     currentSequenceSnapRuntime,
-    sequencePitchShiftedSnapshots,
     snapSequenceToCurrentTuning,
+    snapshots,
   ]);
   const sequenceDisplaySnapshots = useMemo(() => {
     const keys = keysRef.current;
@@ -1110,13 +1097,27 @@ const App = () => {
         }
     ));
   }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshotLabelMode, snapshots]);
-  const sortedSequenceBars = useMemo(
-    () => [...sequenceBars].sort((a, b) => (
-      Number(a.position) - Number(b.position) ||
-      String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
-    )),
-    [sequenceBars],
-  );
+  const sequenceRuntimeModel = useMemo(() => buildSequenceRuntimeModel({
+    snapshots,
+    displaySnapshots: sequenceDisplaySnapshots,
+    playbackSnapshots: sequencePlaybackSnapshots,
+    bars: sequenceBars,
+    tempi: sequenceTempi,
+    repeats: sequenceRepeats,
+    sequenceLegato,
+    source: "app",
+  }), [
+    sequenceBars,
+    sequenceDisplaySnapshots,
+    sequenceLegato,
+    sequencePlaybackSnapshots,
+    sequenceRepeats,
+    sequenceTempi,
+    snapshots,
+  ]);
+  const sequenceCueGroups = sequenceRuntimeModel.sequenceCueGroups;
+  const sequenceRepeatSections = sequenceRuntimeModel.sequenceRepeatSections;
+  const sortedSequenceBars = sequenceRuntimeModel.sortedBars;
 
   const barIndexForTime = useCallback((absoluteTime) => {
     const time = Number(absoluteTime);
@@ -1251,13 +1252,36 @@ const App = () => {
 
   const sequencePlaybackNotesAtPosition = useCallback((stepIndex, markerIndex = null) => {
     if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= snapshots.length) return [];
-    const playbackSnapshot = sequencePlaybackSnapshots[stepIndex] ?? snapshots[stepIndex];
+    const keys = keysRef.current;
+    const noteNameOptions = {
+      noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
+      hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
+    };
+    const pitchOffset = clampSequencePlaybackPitchCents(sequencePlaybackPitchOffset);
+    const transformNotes = (notes) => {
+      let nextNotes = Array.isArray(notes) ? notes : [];
+      if (Math.abs(pitchOffset) > 1e-9) {
+        nextNotes = applyPlaybackPitchOffsetToNotes(nextNotes, pitchOffset);
+      }
+      if (snapSequenceToCurrentTuning && currentSequenceSnapRuntime) {
+        nextNotes = nextNotes.map((note) => (
+          remapSequenceNoteToRuntime(note, currentSequenceSnapRuntime, noteNameOptions)
+        ));
+      }
+      return nextNotes;
+    };
     if (markerIndex == null || sequenceCueGroups.length === 0) {
-      return playbackSnapshot?.notes ?? [];
+      return transformNotes(snapshots[stepIndex]?.notes ?? []);
     }
     const safeMarkerIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-    return sequenceNotesAtCueIndex(sequencePlaybackSnapshots, safeMarkerIndex);
-  }, [sequenceCueGroups, sequencePlaybackSnapshots, snapshots]);
+    return transformNotes(sequenceNotesAtCueIndex(snapshots, safeMarkerIndex));
+  }, [
+    currentSequenceSnapRuntime,
+    sequenceCueGroups,
+    sequencePlaybackPitchOffset,
+    snapSequenceToCurrentTuning,
+    snapshots,
+  ]);
 
   const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     const hardRestart = options?.hardRestart === true;
@@ -1755,9 +1779,7 @@ const App = () => {
       hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
       clockSeconds,
     });
-    const notes = Array.isArray(timedCueTrigger?.notes)
-      ? timedCueTrigger.notes
-      : sequenceNotesAtCueIndex(sequencePlaybackSnapshots, index);
+    const notes = sequencePlaybackNotesAtPosition(cueGroup.snapshotIndex, index);
     applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
       hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
       updateUi,
@@ -1775,7 +1797,7 @@ const App = () => {
     barIndexForTime,
     getTimedTransportClockSeconds,
     sequenceCueGroups,
-    sequencePlaybackSnapshots,
+    sequencePlaybackNotesAtPosition,
     shouldUpdateTimedPlaybackUi,
   ]);
 
@@ -2590,12 +2612,13 @@ const App = () => {
   // independently of Keys reconstruction. Keys receives a reference via
   // onKeysReady and lumatoneLedsRef, exactly like exquisLedsRef.
   //
-  // We depend on the port IDs (stable strings) rather than lumatoneRawPorts
-  // (a new object reference every render), so the effect only recreates the
-  // LumatoneLEDs engine when the actual hardware ports change — not on every
-  // settings update that happens to re-run the lumatoneRawPorts useMemo.
-  const lumatoneInId = lumatoneRawPorts?.input?.id ?? null;
-  const lumatoneOutId = lumatoneRawPorts?.output?.id ?? null;
+  // Depend on the raw port objects themselves. Sleep/wake and Vite HMR can
+  // recreate WebMidi port instances without changing their IDs, so ID-only
+  // tracking leaves the ACK/input listeners attached to stale ports.
+  const lumatoneInputPort = lumatoneRawPorts?.input ?? null;
+  const lumatoneOutputPort = lumatoneRawPorts?.output ?? null;
+  const lumatoneInId = lumatoneInputPort?.id ?? null;
+  const lumatoneOutId = lumatoneOutputPort?.id ?? null;
   useEffect(() => {
     if (!lumatoneRawPorts) {
       if (lumatoneLedsRef.current) {
@@ -2627,16 +2650,14 @@ const App = () => {
       bindControllerLedRefs(keysRef.current, { lumatone: null }, { eagerSync: false });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lumatoneInId, lumatoneOutId]);
+  }, [lumatoneInputPort, lumatoneOutputPort]);
 
   // ── LinnStrument 128 lifecycle ────────────────────────────────────────────
   // Mirrors the Lumatone/Exquis pattern.  LinnStrumentLEDs and the initial
   // NRPN config burst live here so they survive Keys reconstruction.
   //
-  // Port ID stability: same technique as Lumatone — we depend on the stable
-  // port ID strings rather than linnstrumentRawPorts (a new object each render)
-  // so the effect only fires when the actual hardware port changes.
-  const linnstrumentOutId = linnstrumentRawPorts?.output?.id ?? null;
+  // Depend on the raw output object so a recreated WebMidi port with the same
+  // ID still rebuilds the LED/config driver after sleep/wake or HMR.
   const linnstrumentOutput = linnstrumentRawPorts?.output ?? null;
   useEffect(() => {
     if (!linnstrumentRawPorts) {
@@ -2679,7 +2700,7 @@ const App = () => {
       if (detach) detach();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linnstrumentOutId, linnstrumentUserFirmwareEligible]);
+  }, [linnstrumentOutput, linnstrumentUserFirmwareEligible]);
 
   useEffect(() => {
     const output = linnstrumentOutput;
@@ -3705,6 +3726,7 @@ const App = () => {
           ) : workspaceTab === "sequencer" ? (
             <Sequencer
               snapshots={snapshots}
+              runtimeModel={sequenceRuntimeModel}
               displaySnapshots={sequenceDisplaySnapshots}
               playbackSnapshots={sequencePlaybackSnapshots}
               bars={sequenceBars}

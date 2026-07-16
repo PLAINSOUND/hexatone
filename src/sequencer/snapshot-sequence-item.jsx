@@ -120,8 +120,7 @@ const SnapshotSequenceItem = ({
         <div
           class={`sequencer-row${isSelected ? " sequencer-row--selected" : ""}`}
           onClick={() => {
-            actions.onSelectSnapshot(snapshot.id);
-            if (!showAllEvents) actions.toggleExpanded(snapshot.id);
+            actions.onSnapshotRowClick?.(snapshot.id, isSelected);
           }}
         >
           <span class="sequencer-row__delete-cell">

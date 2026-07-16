@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import ScalaInput from "../../scale/scala-input.js";
+import CustomRangeSlider from "../../shared/range-slider.jsx";
 import OutputPortPicker from "../output-port-picker.js";
 import MpeInputSettings from "../mpe-input-settings.js";
 
@@ -164,16 +165,15 @@ const LinnstrumentSettings = ({
         >
           Row Glide Shaping
           <span class="sidebar-input settings-form__range-row">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
+            <CustomRangeSlider
+              ariaLabel="Row Glide Shaping"
+              min={0}
+              max={100}
+              step={1}
               value={pitchBendShape}
               disabled={pitchBendMode !== "follow_scale_geometry"}
-              class="settings-form__range-input"
-              onInput={(e) => {
-                const parsed = parseInt(e.target.value, 10);
+              onInputValue={(nextValue) => {
+                const parsed = parseInt(nextValue, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 50 : parsed));
                 onChange("linnstrument_pitch_bend_shape", v);
                 saveControllerPref(
@@ -197,16 +197,15 @@ const LinnstrumentSettings = ({
         >
           X Spike Reduction
           <span class="sidebar-input settings-form__range-row">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
+            <CustomRangeSlider
+              ariaLabel="X Spike Reduction"
+              min={0}
+              max={100}
+              step={1}
               value={xSpikeReduction}
               disabled={pitchBendMode !== "follow_scale_geometry"}
-              class="settings-form__range-input"
-              onInput={(e) => {
-                const parsed = parseInt(e.target.value, 10);
+              onInputValue={(nextValue) => {
+                const parsed = parseInt(nextValue, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 50 : parsed));
                 onChange("linnstrument_x_spike_reduction", v);
                 saveControllerPref(
@@ -230,16 +229,15 @@ const LinnstrumentSettings = ({
         >
           X Input Smoothing
           <span class="sidebar-input settings-form__range-row">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
+            <CustomRangeSlider
+              ariaLabel="X Input Smoothing"
+              min={0}
+              max={100}
+              step={1}
               value={xInputSmoothing}
               disabled={pitchBendMode !== "follow_scale_geometry"}
-              class="settings-form__range-input"
-              onInput={(e) => {
-                const parsed = parseInt(e.target.value, 10);
+              onInputValue={(nextValue) => {
+                const parsed = parseInt(nextValue, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
                 onChange("linnstrument_x_input_smoothing", v);
                 saveControllerPref(

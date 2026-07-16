@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import OutputPortPicker from "../output-port-picker.js";
+import CustomRangeSlider from "../../shared/range-slider.jsx";
 
 function ExquisAppModeStatus() {
   return (
@@ -101,15 +102,14 @@ const ExquisSettings = ({
           <label>
             LED Brightness
             <span class="sidebar-input settings-form__range-row">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
+              <CustomRangeSlider
+                ariaLabel="LED Brightness"
+                min={0}
+                max={100}
+                step={1}
                 value={settings.exquis_led_luminosity ?? 15}
-                class="settings-form__range-input"
-                onInput={(e) => {
-                  const v = parseInt(e.target.value, 10);
+                onInputValue={(nextValue) => {
+                  const v = parseInt(nextValue, 10);
                   onChange("exquis_led_luminosity", v);
                   localStorage.setItem("exquis_led_luminosity", String(v));
                   keysRef?.current?.exquisLEDs?.setLuminosity(v);
@@ -123,15 +123,14 @@ const ExquisSettings = ({
           <label>
             LED Saturation
             <span class="sidebar-input settings-form__range-row">
-              <input
-                type="range"
-                min="0.75"
-                max="2.5"
-                step="0.01"
+              <CustomRangeSlider
+                ariaLabel="LED Saturation"
+                min={0.75}
+                max={2.5}
+                step={0.01}
                 value={settings.exquis_led_saturation ?? 1.3}
-                class="settings-form__range-input"
-                onInput={(e) => {
-                  const v = parseFloat(e.target.value);
+                onInputValue={(nextValue) => {
+                  const v = parseFloat(nextValue);
                   onChange("exquis_led_saturation", v);
                   localStorage.setItem("exquis_led_saturation", String(v));
                   keysRef?.current?.exquisLEDs?.setSaturation(v);

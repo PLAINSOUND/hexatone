@@ -61,6 +61,7 @@ export function deriveExpandedSnapshotIds({
   selectedSnapshotId,
   activeCueIndex,
   cueExpandedSnapshotIds,
+  suppressSelectedSnapshotPreview = false,
 }) {
   if (showAllEvents) return null;
   if (playheadIsOff || playheadIsEnd || selectedSnapshotId == null) {
@@ -71,6 +72,7 @@ export function deriveExpandedSnapshotIds({
     const previewIds = cueExpandedSnapshotIdsAt(activeCueIndex - 1);
     return previewIds.size > 0 ? previewIds : new Set([selectedSnapshotId]);
   }
+  if (suppressSelectedSnapshotPreview) return new Set();
   return new Set([selectedSnapshotId]);
 }
 

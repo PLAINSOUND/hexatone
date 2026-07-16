@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "./retune.css";
+import CustomRangeSlider from "../settings/shared/range-slider.jsx";
 import {
   BASE_SYMBOLS,
   EXTRA_MODIFIERS,
@@ -799,15 +800,17 @@ export default function RetuneApp() {
         />
         <label className="meta">
           Zoom{" "}
-          <input
-            type="range"
-            min={zoomBounds.min}
-            max={zoomBounds.max}
-            step="0.0025"
-            value={pxPerTick}
-            onInput={(e) => setZoom(Number(e.target.value))}
-            style={{ verticalAlign: "middle", marginLeft: "0.4rem" }}
-          />
+          <span style={{ display: "inline-flex", width: "12rem", marginLeft: "0.4rem", verticalAlign: "middle" }}>
+            <CustomRangeSlider
+              ariaLabel="Retune zoom"
+              min={zoomBounds.min}
+              max={zoomBounds.max}
+              step={0.0025}
+              value={pxPerTick}
+              onInputValue={(nextValue) => setZoom(Number(nextValue))}
+              onCommitValue={(nextValue) => setZoom(Number(nextValue))}
+            />
+          </span>
         </label>
         <div className="meta retune-shortcuts">
           <span>Cmd/Ctrl-click: add or remove note</span>

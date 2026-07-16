@@ -8,20 +8,12 @@ import TempoRow from "./tempo-row.jsx";
 import RepeatRow from "./repeat-row.jsx";
 import {
   absolutePositionToBarBeat,
-  deriveTempoTransitionCueMap,
-  deriveTerminalBarlinePosition,
-  normalizeBarMarkers,
-  normalizeTempoMarkers,
 } from "./transport.js";
 import {
   buildBarNumberById,
   buildStructuralMarkersByDisplayBucket,
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
-import {
-  deriveSequenceCueGroupsFromEvents,
-  deriveSequenceEvents,
-} from "./trigger-groups.js";
 import {
   buildCueExpandedSnapshotIds,
   buildFirstCueTimeBySnapshotIndex,
@@ -30,8 +22,8 @@ import {
   buildSnapshotEventsById,
 } from "./timeline-runtime.js";
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
-import { buildPlaybackTimeline, deriveTempoAtSequencePosition } from "./playback-timeline.js";
-import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
+import { deriveTempoAtSequencePosition } from "./playback-timeline.js";
+import { buildSequenceRuntimeModel } from "./runtime-model.js";
 import useTimedTransportController from "./timed-transport-controller.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
 import useDraftEditingController from "./draft-editing-controller.js";
@@ -41,7 +33,6 @@ import {
   deriveSoundingAttackEventIds,
   sameSnapshotSet,
 } from "./view-runtime.js";
-import { deriveRepeatSections } from "./repeat-playback-runtime.js";
 import {
   commitTextInput,
   noteIdentity,
@@ -67,6 +58,7 @@ import {
  */
 const Sequencer = ({
   snapshots,
+  runtimeModel = null,
   displaySnapshots,
   playbackSnapshots,
   bars,
@@ -143,10 +135,6 @@ const Sequencer = ({
     return `${hours}:${minutes}:${secs}`;
   }, []);
 
-  const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
-  const playbackRenderedSnapshots = Array.isArray(playbackSnapshots)
-    ? playbackSnapshots
-    : renderedSnapshots;
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(true);
   const [sequenceSaveActionState, setSequenceSaveActionState] = useState({
@@ -172,6 +160,7 @@ const Sequencer = ({
   const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] = useState(null);
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
@@ -179,7 +168,29 @@ const Sequencer = ({
   const pendingTransportActionRef = useRef(null);
 
   // Derived sequence/timeline state.
-  const sortedBars = useMemo(() => normalizeBarMarkers(bars), [bars]);
+  const sequenceRuntime = useMemo(() => (
+    runtimeModel ?? buildSequenceRuntimeModel({
+      snapshots,
+      displaySnapshots,
+      playbackSnapshots,
+      bars,
+      tempi,
+      repeats,
+      sequenceLegato,
+      source: "sequencer",
+    })
+  ), [
+    bars,
+    displaySnapshots,
+    playbackSnapshots,
+    repeats,
+    runtimeModel,
+    sequenceLegato,
+    snapshots,
+    tempi,
+  ]);
+  const renderedSnapshots = sequenceRuntime.renderedSnapshots;
+  const sortedBars = sequenceRuntime.sortedBars;
   const suggestedBarPosition = useMemo(() => {
     const snapshotEndPosition = Math.max(1, snapshots.length + 1);
     const lastBarPosition = sortedBars.length > 0
@@ -197,42 +208,11 @@ const Sequencer = ({
       denominator: String(previousBar?.denominator ?? 4),
     };
   }, [sortedBars, suggestedBarPosition]);
-  const sortedTempi = useMemo(
-    () => (Array.isArray(tempi) ? normalizeTempoMarkers(tempi) : []),
-    [tempi],
-  );
-  const sequenceEvents = useMemo(
-    () => deriveSequenceEvents(renderedSnapshots, sortedBars, sortedTempi, repeats),
-    [renderedSnapshots, repeats, sortedBars, sortedTempi],
-  );
-  const playbackSequenceEvents = useMemo(
-    () => (
-      playbackRenderedSnapshots === renderedSnapshots
-        ? sequenceEvents
-        : deriveSequenceEvents(playbackRenderedSnapshots, sortedBars, sortedTempi, repeats)
-    ),
-    [playbackRenderedSnapshots, renderedSnapshots, repeats, sequenceEvents, sortedBars, sortedTempi],
-  );
-  const sequenceCueGroups = useMemo(
-    () => deriveSequenceCueGroupsFromEvents(sequenceEvents),
-    [sequenceEvents],
-  );
-  const playbackSequenceCueGroups = useMemo(
-    () => (
-      playbackSequenceEvents === sequenceEvents
-        ? sequenceCueGroups
-        : deriveSequenceCueGroupsFromEvents(playbackSequenceEvents)
-    ),
-    [playbackSequenceEvents, sequenceCueGroups, sequenceEvents],
-  );
-  const terminalBarlinePosition = useMemo(
-    () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
-    [renderedSnapshots, sortedBars],
-  );
-  const tempoTransitionCueMap = useMemo(
-    () => deriveTempoTransitionCueMap(sortedTempi, sortedBars, terminalBarlinePosition),
-    [sortedBars, sortedTempi, terminalBarlinePosition],
-  );
+  const sortedTempi = sequenceRuntime.sortedTempi;
+  const sequenceEvents = sequenceRuntime.sequenceEvents;
+  const sequenceCueGroups = sequenceRuntime.sequenceCueGroups;
+  const terminalBarlinePosition = sequenceRuntime.terminalBarlinePosition;
+  const tempoTransitionCueMap = sequenceRuntime.tempoTransitionCueMap;
   const formatTransportBarBeat = useCallback((position) => {
     const resolved = absolutePositionToBarBeat(position, sortedBars, 1, 9, terminalBarlinePosition);
     if (!resolved) return "1:1";
@@ -252,42 +232,10 @@ const Sequencer = ({
       effectiveBpm: Math.round(tempo.bpm * Math.max(0, Number(speedMultiplier) || 1) * 10) / 10,
     };
   }, [sortedBars, sortedTempi, terminalBarlinePosition]);
-  const sequenceRepeatSections = useMemo(
-    () => deriveRepeatSections(sequenceCueGroups, repeats),
-    [sequenceCueGroups, repeats],
-  );
-  const playbackTimeline = useMemo(
-    () => buildPlaybackTimeline({
-      snapshots: playbackRenderedSnapshots,
-      bars: sortedBars,
-      tempi: sortedTempi,
-      repeats,
-      sequenceEvents: playbackSequenceEvents,
-      sequenceCueGroups: playbackSequenceCueGroups,
-    }),
-    [
-      playbackRenderedSnapshots,
-      playbackSequenceCueGroups,
-      playbackSequenceEvents,
-      repeats,
-      sortedBars,
-      sortedTempi,
-    ],
-  );
-  const timedPlaybackBursts = playbackTimeline.playbackBursts;
-  const timedCueTriggers = useMemo(
-    () => deriveTimedCueTriggers(playbackTimeline, { legato: sequenceLegato }),
-    [playbackTimeline, sequenceLegato],
-  );
-  const timedCueTriggerBySourceIndex = useMemo(() => {
-    const mapping = new Map();
-    timedCueTriggers.forEach((trigger) => {
-      const sourceCueIndex = Number(trigger?.cueIndex);
-      if (!Number.isFinite(sourceCueIndex)) return;
-      mapping.set(sourceCueIndex, trigger);
-    });
-    return mapping;
-  }, [timedCueTriggers]);
+  const sequenceRepeatSections = sequenceRuntime.sequenceRepeatSections;
+  const timedPlaybackBursts = sequenceRuntime.timedPlaybackBursts;
+  const timedCueTriggers = sequenceRuntime.timedCueTriggers;
+  const timedCueTriggerBySourceIndex = sequenceRuntime.timedCueTriggerBySourceIndex;
 
   const {
     playheadIsOff,
@@ -502,10 +450,49 @@ const Sequencer = ({
       selectedSnapshotId,
       activeCueIndex,
       cueExpandedSnapshotIds,
+      suppressSelectedSnapshotPreview: (
+        !showAllEvents &&
+        activeCueIndex == null &&
+        selectedSnapshotId != null &&
+        compactSelectionPreviewSuppressedId === selectedSnapshotId
+      ),
     });
     if (nextExpandedIds == null) return;
     setExpandedIds((prev) => (sameSnapshotSet(prev, nextExpandedIds) ? prev : nextExpandedIds));
-  }, [activeCueIndex, cueExpandedSnapshotIds, cueExpandedSnapshotIdsAt, playheadIsEnd, playheadIsOff, selectedSnapshotId, showAllEvents]);
+  }, [
+    activeCueIndex,
+    compactSelectionPreviewSuppressedId,
+    cueExpandedSnapshotIds,
+    cueExpandedSnapshotIdsAt,
+    playheadIsEnd,
+    playheadIsOff,
+    selectedSnapshotId,
+    showAllEvents,
+  ]);
+
+  useEffect(() => {
+    if (showAllEvents || activeCueIndex != null || playheadIsOff || playheadIsEnd) {
+      if (compactSelectionPreviewSuppressedId != null) setCompactSelectionPreviewSuppressedId(null);
+      return;
+    }
+    if (selectedSnapshotId == null) {
+      if (compactSelectionPreviewSuppressedId != null) setCompactSelectionPreviewSuppressedId(null);
+      return;
+    }
+    if (
+      compactSelectionPreviewSuppressedId != null &&
+      compactSelectionPreviewSuppressedId !== selectedSnapshotId
+    ) {
+      setCompactSelectionPreviewSuppressedId(null);
+    }
+  }, [
+    activeCueIndex,
+    compactSelectionPreviewSuppressedId,
+    playheadIsEnd,
+    playheadIsOff,
+    selectedSnapshotId,
+    showAllEvents,
+  ]);
 
   useEffect(() => {
     if (!pendingTransportActionRef.current) return;
@@ -538,6 +525,20 @@ const Sequencer = ({
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
   };
+
+  const handleSnapshotRowClick = useCallback((snapshotId, isSelected) => {
+    onSelectSnapshot?.(snapshotId);
+    if (showAllEvents) {
+      setCompactSelectionPreviewSuppressedId(null);
+      return;
+    }
+    if (isSelected) {
+      setCompactSelectionPreviewSuppressedId(null);
+      toggleExpanded(snapshotId);
+      return;
+    }
+    setCompactSelectionPreviewSuppressedId(snapshotId);
+  }, [onSelectSnapshot, showAllEvents]);
 
   const resolveDropSide = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1130,6 +1131,7 @@ const Sequencer = ({
                     moveEventNoteToSnapshot,
                     onDuplicateSnapshot,
                     onMoveSnapshot,
+                    onSnapshotRowClick: handleSnapshotRowClick,
                     onSelectSnapshot,
                     toggleExpanded,
                     onDeleteSnapshot,

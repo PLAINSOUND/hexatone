@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import OutputPortPicker from "../output-port-picker.js";
+import CustomRangeSlider from "../../shared/range-slider.jsx";
 import {
   CONTINUUM_RASTER_FILTER_ALL,
   CONTINUUM_RASTER_FILTER_CUSTOM,
@@ -474,15 +475,14 @@ const HakenContinuumSettings = ({
       <label title="Shapes Continuum X bending around the current note. 0 is linear. Higher values create stronger pockets of stability around note centers and faster movement between them.">
         X Glide Shaping
         <span class="sidebar-input settings-form__range-row">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
+          <CustomRangeSlider
+            ariaLabel="X Glide Shaping"
+            min={0}
+            max={100}
+            step={1}
             value={xGlideShaping}
-            class="settings-form__range-input"
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
+            onInputValue={(nextValue) => {
+              const parsed = parseInt(nextValue, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
               updateHakenPref("hakenaudio_x_glide_shaping", v, {
                 hakenaudio_x_glide_shaping: v,
@@ -498,15 +498,14 @@ const HakenContinuumSettings = ({
       <label title="Varies Continuum Raster to Notes retrigger velocity around the original attack using current Z pressure. 0 keeps the original attack for each retrigger. 127 applies the full pressure-based deviation range to both note-on and auto-generated note-off velocities.">
         Pressure → Velocity
         <span class="sidebar-input settings-form__range-row">
-          <input
-            type="range"
-            min="0"
-            max="127"
-            step="1"
+          <CustomRangeSlider
+            ariaLabel="Pressure to Velocity"
+            min={0}
+            max={127}
+            step={1}
             value={pressureVelocity}
-            class="settings-form__range-input"
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
+            onInputValue={(nextValue) => {
+              const parsed = parseInt(nextValue, 10);
               const v = Math.max(0, Math.min(127, Number.isNaN(parsed) ? 0 : parsed));
               updateHakenPref("hakenaudio_pressure_velocity", v, {
                 hakenaudio_pressure_velocity: v,
@@ -522,15 +521,14 @@ const HakenContinuumSettings = ({
       <label title="Enforces a minimum lifetime for auto-generated Raster to Notes notes. Real Continuum note-off messages still release all sounding notes immediately. Uses a timer rather than requestAnimationFrame so it also works while the app is in the background.">
         Minimum Note Duration
         <span class="sidebar-input settings-form__range-row">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
+          <CustomRangeSlider
+            ariaLabel="Minimum Note Duration"
+            min={0}
+            max={100}
+            step={1}
             value={noteOffDelay}
-            class="settings-form__range-input"
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
+            onInputValue={(nextValue) => {
+              const parsed = parseInt(nextValue, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
               updateHakenPref("hakenaudio_note_off_delay", v, {
                 hakenaudio_note_off_delay: v,
@@ -546,15 +544,14 @@ const HakenContinuumSettings = ({
       <label title="Sets a minimum interval between Continuum Raster to Notes retriggers. Higher values reduce event density and output overload at the cost of skipping some very fast crossings.">
         Minimum Retrigger Interval
         <span class="sidebar-input settings-form__range-row">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
+          <CustomRangeSlider
+            ariaLabel="Minimum Retrigger Interval"
+            min={0}
+            max={100}
+            step={1}
             value={rasterThrottleMs}
-            class="settings-form__range-input"
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
+            onInputValue={(nextValue) => {
+              const parsed = parseInt(nextValue, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
               updateHakenPref("hakenaudio_raster_throttle_ms", v, {
                 hakenaudio_raster_throttle_ms: v,
@@ -570,15 +567,14 @@ const HakenContinuumSettings = ({
       <label title="Adds hysteresis around the current Raster to Notes pitch so small back-and-forth movements near note boundaries do not immediately retrigger neighbouring notes.">
         Raster Stability
         <span class="sidebar-input settings-form__range-row">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
+          <CustomRangeSlider
+            ariaLabel="Raster Stability"
+            min={0}
+            max={100}
+            step={1}
             value={rasterStability}
-            class="settings-form__range-input"
-            onInput={(e) => {
-              const parsed = parseInt(e.target.value, 10);
+            onInputValue={(nextValue) => {
+              const parsed = parseInt(nextValue, 10);
               const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
               updateHakenPref("hakenaudio_raster_stability", v, {
                 hakenaudio_raster_stability: v,

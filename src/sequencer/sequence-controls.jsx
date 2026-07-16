@@ -23,6 +23,52 @@ function sliderExponentToSpeed(value) {
   return Math.pow(2, exponent);
 }
 
+function deriveStickyCenterValue(rawValue, {
+  lockRef,
+  engageThreshold = 0,
+  releaseThreshold = engageThreshold,
+  maxAbs = 1,
+  outputMaxAbs = maxAbs,
+} = {}) {
+  const raw = Number(rawValue) || 0;
+  const distance = Math.abs(raw);
+  const sign = Math.sign(raw);
+  const safeEngageThreshold = Math.max(0, Number(engageThreshold) || 0);
+  const safeReleaseThreshold = Math.max(safeEngageThreshold, Number(releaseThreshold) || 0);
+  const safeMaxAbs = Math.max(safeReleaseThreshold, Number(maxAbs) || 0);
+  const safeOutputMaxAbs = Math.max(0, Number(outputMaxAbs) || 0);
+
+  if (lockRef?.current) {
+    if (distance <= safeReleaseThreshold) {
+      return { sliderValue: 0, outputValue: 0, locked: true };
+    }
+    lockRef.current = false;
+  }
+
+  if (distance <= safeEngageThreshold) {
+    if (lockRef) lockRef.current = true;
+    return { sliderValue: 0, outputValue: 0, locked: true };
+  }
+
+  if (safeMaxAbs <= safeReleaseThreshold) {
+    return {
+      sliderValue: raw,
+      outputValue: sign * Math.min(safeOutputMaxAbs, distance),
+      locked: false,
+    };
+  }
+
+  const normalized = Math.max(
+    0,
+    Math.min(1, (distance - safeReleaseThreshold) / (safeMaxAbs - safeReleaseThreshold)),
+  );
+  return {
+    sliderValue: sign * normalized * safeMaxAbs,
+    outputValue: sign * normalized * safeOutputMaxAbs,
+    locked: false,
+  };
+}
+
 function formatEffectiveTempoCourtesy(tempo) {
   const bpm = Number(tempo?.effectiveBpm ?? tempo?.bpm);
   if (!Number.isFinite(bpm) || bpm <= 0) return "";
@@ -38,6 +84,148 @@ function stopTimedTransportBefore(action, timedTransportDisplay, onTimedTranspor
     onTimedTransportStop?.();
   }
   action?.();
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, Number(value) || 0));
+}
+
+function buildSliderText(value, formatValue) {
+  return typeof formatValue === "function" ? formatValue(value) : String(value);
+}
+
+function StickyPlaybackSlider({
+  ariaLabel,
+  min,
+  max,
+  step,
+  value,
+  deadZone,
+  releaseZone = deadZone,
+  onInputValue,
+  onCommitValue,
+  formatAriaValue,
+}) {
+  const trackRef = useRef(null);
+  const draggingRef = useRef(false);
+  const lockRef = useRef(Math.abs(Number(value) || 0) <= deadZone);
+  const [isActive, setIsActive] = useState(false);
+  const safeMin = Number(min);
+  const safeMax = Number(max);
+  const safeStep = Math.max(Number(step) || 0, 0);
+  const safeDeadZone = Math.max(0, Number(deadZone) || 0);
+  const safeReleaseZone = Math.max(safeDeadZone, Number(releaseZone) || 0);
+  const clampedValue = clamp(value, safeMin, safeMax);
+
+  useEffect(() => {
+    if (!draggingRef.current) {
+      lockRef.current = Math.abs(clampedValue) <= safeDeadZone;
+    }
+  }, [clampedValue, safeDeadZone]);
+
+  const snapToStep = (nextValue) => {
+    if (!safeStep) return nextValue;
+    return Math.round(nextValue / safeStep) * safeStep;
+  };
+
+  const mapPointerValue = (rawValue) => {
+    const { outputValue } = deriveStickyCenterValue(
+      clamp(rawValue, safeMin, safeMax),
+      {
+        lockRef,
+        engageThreshold: safeDeadZone,
+        releaseThreshold: safeReleaseZone,
+        maxAbs: safeMax,
+        outputMaxAbs: safeMax,
+      },
+    );
+    return snapToStep(outputValue);
+  };
+
+  const valueFromClientX = (clientX) => {
+    const rect = trackRef.current?.getBoundingClientRect?.();
+    if (!rect || rect.width <= 0) return clampedValue;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return safeMin + (ratio * (safeMax - safeMin));
+  };
+
+  const commitPointerValue = (clientX) => {
+    const nextValue = mapPointerValue(valueFromClientX(clientX));
+    onInputValue?.(nextValue);
+    return nextValue;
+  };
+
+  const handlePointerDown = (event) => {
+    event.preventDefault();
+    draggingRef.current = true;
+    setIsActive(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    commitPointerValue(event.clientX);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!draggingRef.current) return;
+    commitPointerValue(event.clientX);
+  };
+
+  const finishPointerDrag = (event) => {
+    if (!draggingRef.current) return;
+    const nextValue = commitPointerValue(event.clientX);
+    draggingRef.current = false;
+    lockRef.current = Math.abs(nextValue) <= safeDeadZone;
+    setIsActive(false);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    onCommitValue?.(nextValue);
+  };
+
+  const handleKeyDown = (event) => {
+    let nextValue = clampedValue;
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") nextValue -= safeStep || 1;
+    else if (event.key === "ArrowRight" || event.key === "ArrowUp") nextValue += safeStep || 1;
+    else if (event.key === "Home") nextValue = 0;
+    else if (event.key === "End") nextValue = clampedValue >= 0 ? safeMax : safeMin;
+    else return;
+
+    event.preventDefault();
+    lockRef.current = Math.abs(nextValue) <= safeDeadZone;
+    const committedValue = snapToStep(clamp(nextValue, safeMin, safeMax));
+    onInputValue?.(committedValue);
+    onCommitValue?.(committedValue);
+  };
+
+  const percent = ((clampedValue - safeMin) / (safeMax - safeMin)) * 100;
+  const centerPercent = ((0 - safeMin) / (safeMax - safeMin)) * 100;
+
+  return (
+    <div
+      ref={trackRef}
+      role="slider"
+      tabIndex={0}
+      class={`sequencer-playback-slider${isActive ? " sequencer-playback-slider--active" : ""}`}
+      aria-label={ariaLabel}
+      aria-valuemin={safeMin}
+      aria-valuemax={safeMax}
+      aria-valuenow={clampedValue}
+      aria-valuetext={buildSliderText(clampedValue, formatAriaValue)}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointerDrag}
+      onPointerCancel={finishPointerDrag}
+      onKeyDown={handleKeyDown}
+    >
+      <span class="sequencer-playback-slider__track" aria-hidden="true" />
+      <span
+        class="sequencer-playback-slider__center"
+        aria-hidden="true"
+        style={{ left: `${centerPercent}%` }}
+      />
+      <span
+        class="sequencer-playback-slider__thumb"
+        aria-hidden="true"
+        style={{ left: `${percent}%` }}
+      />
+    </div>
+  );
 }
 
 const SequenceControls = ({
@@ -546,12 +734,12 @@ function PlaybackModifiersRow({
   const [pitchDraft, setPitchDraft] = useState(() => formatSequencePlaybackPitchCents(sequencePlaybackPitchOffset ?? 0));
   const [speedSliderValue, setSpeedSliderValue] = useState(() => speedToSliderExponent(sequencePlaybackSpeed ?? 1));
   const [pitchSliderValue, setPitchSliderValue] = useState(() => Number(sequencePlaybackPitchOffset ?? 0));
-  const speedSlidingRef = useRef(false);
-  const pitchSlidingRef = useRef(false);
   const speedFrameRef = useRef(null);
   const pitchFrameRef = useRef(null);
   const pendingSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
   const pendingPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
+  const lastSentSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
+  const lastSentPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const committedPitchTextRef = useRef("");
   const [timedTransportDisplay, setTimedTransportDisplay] = useState(() => (
     getTimedTransportDisplay?.() ?? {
@@ -563,7 +751,7 @@ function PlaybackModifiersRow({
 
   useEffect(() => {
     setSpeedDraft(formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1));
-    if (!speedSlidingRef.current) setSpeedSliderValue(speedToSliderExponent(sequencePlaybackSpeed ?? 1));
+    setSpeedSliderValue(speedToSliderExponent(sequencePlaybackSpeed ?? 1));
   }, [sequencePlaybackSpeed]);
 
   useEffect(() => {
@@ -578,7 +766,15 @@ function PlaybackModifiersRow({
         ? preservedText
         : formatSequencePlaybackPitchCents(nextPitch),
     );
-    if (!pitchSlidingRef.current) setPitchSliderValue(Number(sequencePlaybackPitchOffset ?? 0));
+    setPitchSliderValue(Number(sequencePlaybackPitchOffset ?? 0));
+  }, [sequencePlaybackPitchOffset]);
+
+  useEffect(() => {
+    lastSentSpeedValueRef.current = Number(sequencePlaybackSpeed ?? 1);
+  }, [sequencePlaybackSpeed]);
+
+  useEffect(() => {
+    lastSentPitchValueRef.current = Number(sequencePlaybackPitchOffset ?? 0);
   }, [sequencePlaybackPitchOffset]);
 
   useEffect(() => () => {
@@ -605,7 +801,10 @@ function PlaybackModifiersRow({
     if (speedFrameRef.current != null) return;
     speedFrameRef.current = window.requestAnimationFrame(() => {
       speedFrameRef.current = null;
-      onSequencePlaybackSpeedChange?.(pendingSpeedValueRef.current);
+      const nextValue = pendingSpeedValueRef.current;
+      if (Math.abs(nextValue - lastSentSpeedValueRef.current) < 1e-9) return;
+      lastSentSpeedValueRef.current = nextValue;
+      onSequencePlaybackSpeedChange?.(nextValue);
     });
   };
 
@@ -614,7 +813,10 @@ function PlaybackModifiersRow({
     if (pitchFrameRef.current != null) return;
     pitchFrameRef.current = window.requestAnimationFrame(() => {
       pitchFrameRef.current = null;
-      onSequencePlaybackPitchOffsetChange?.(pendingPitchValueRef.current);
+      const nextValue = pendingPitchValueRef.current;
+      if (Math.abs(nextValue - lastSentPitchValueRef.current) < 1e-9) return;
+      lastSentPitchValueRef.current = nextValue;
+      onSequencePlaybackPitchOffsetChange?.(nextValue);
     });
   };
 
@@ -665,17 +867,31 @@ function PlaybackModifiersRow({
   const pitchCourtesy = formatSequencePlaybackPitchCourtesy(
     parsedPitchDraft ?? sequencePlaybackPitchOffset ?? 0,
   );
+  const handleSpeedSliderInput = (nextExponent) => {
+    const clampedExponent = clamp(nextExponent, -1, 1);
+    const nextSpeed = sliderExponentToSpeed(clampedExponent);
+    setSpeedSliderValue(clampedExponent);
+    setSpeedDraft(formatSequencePlaybackSpeed(nextSpeed));
+    scheduleSpeedChange(nextSpeed);
+  };
+  const handlePitchSliderInput = (nextPitch) => {
+    const clampedPitch = clamp(nextPitch, -1200, 1200);
+    committedPitchTextRef.current = "";
+    setPitchSliderValue(clampedPitch);
+    setPitchDraft(formatSequencePlaybackPitchCents(clampedPitch));
+    schedulePitchChange(clampedPitch);
+  };
   const resetSpeed = () => {
-    speedSlidingRef.current = false;
     pendingSpeedValueRef.current = 1;
+    lastSentSpeedValueRef.current = 1;
     setSpeedSliderValue(0);
     setSpeedDraft(formatSequencePlaybackSpeed(1));
     onSequencePlaybackSpeedChange?.(1);
   };
   const resetPitch = () => {
-    pitchSlidingRef.current = false;
     committedPitchTextRef.current = "";
     pendingPitchValueRef.current = 0;
+    lastSentPitchValueRef.current = 0;
     setPitchSliderValue(0);
     setPitchDraft(formatSequencePlaybackPitchCents(0));
     onSequencePlaybackPitchOffsetChange?.(0);
@@ -683,7 +899,7 @@ function PlaybackModifiersRow({
 
   return (
     <div class="sequencer-playback-row sequencer-playback-row--modifiers" aria-label="Sequence playback modifiers">
-      <label class="sequencer-playback-modifier">
+      <div class="sequencer-playback-modifier">
         <span class="sequencer-playback-modifier__head">
           <span class="sequencer-playback-modifier__label">SPEED</span>
           <span class="sequencer-playback-modifier__value-wrap">
@@ -705,28 +921,22 @@ function PlaybackModifiersRow({
           </span>
         </span>
         <span class="sequencer-playback-modifier__slider-row">
-          <input
-            type="range"
-            class="sequencer-playback-slider"
+          <StickyPlaybackSlider
             aria-label="sequence playback speed slider"
-            min="-1"
-            max="1"
-            step="0.001"
+            min={-1}
+            max={1}
+            step={0.001}
             value={speedSliderValue}
-            onPointerDown={() => {
-              speedSlidingRef.current = true;
+            deadZone={0.03}
+            releaseZone={0.085}
+            onInputValue={handleSpeedSliderInput}
+            onCommitValue={(nextExponent) => {
+              const nextValue = sliderExponentToSpeed(clamp(nextExponent, -1, 1));
+              pendingSpeedValueRef.current = nextValue;
+              lastSentSpeedValueRef.current = nextValue;
+              onSequencePlaybackSpeedChange?.(nextValue);
             }}
-            onPointerUp={() => {
-              speedSlidingRef.current = false;
-              onSequencePlaybackSpeedChange?.(pendingSpeedValueRef.current);
-            }}
-            onInput={(e) => {
-              const nextExponent = Number(e.currentTarget.value);
-              const nextValue = sliderExponentToSpeed(nextExponent);
-              setSpeedSliderValue(nextExponent);
-              setSpeedDraft(formatSequencePlaybackSpeed(nextValue));
-              scheduleSpeedChange(nextValue);
-            }}
+            formatAriaValue={(exponentValue) => formatSequencePlaybackSpeed(sliderExponentToSpeed(exponentValue))}
           />
           <button
             type="button"
@@ -738,9 +948,9 @@ function PlaybackModifiersRow({
             ↺
           </button>
         </span>
-      </label>
+      </div>
 
-      <label class="sequencer-playback-modifier">
+      <div class="sequencer-playback-modifier">
         <span class="sequencer-playback-modifier__head">
           <span class="sequencer-playback-modifier__label">PITCH</span>
           <span class="sequencer-playback-modifier__value-wrap">
@@ -762,28 +972,22 @@ function PlaybackModifiersRow({
           </span>
         </span>
         <span class="sequencer-playback-modifier__slider-row">
-          <input
-            type="range"
-            class="sequencer-playback-slider"
+          <StickyPlaybackSlider
             aria-label="sequence playback pitch slider"
-            min="-1200"
-            max="1200"
-            step="1"
+            min={-1200}
+            max={1200}
+            step={1}
             value={pitchSliderValue}
-            onPointerDown={() => {
-              pitchSlidingRef.current = true;
+            deadZone={24}
+            releaseZone={52}
+            onInputValue={handlePitchSliderInput}
+            onCommitValue={(nextPitch) => {
+              const nextValue = clamp(nextPitch, -1200, 1200);
+              pendingPitchValueRef.current = nextValue;
+              lastSentPitchValueRef.current = nextValue;
+              onSequencePlaybackPitchOffsetChange?.(nextValue);
             }}
-            onPointerUp={() => {
-              pitchSlidingRef.current = false;
-              onSequencePlaybackPitchOffsetChange?.(pendingPitchValueRef.current);
-            }}
-            onInput={(e) => {
-              const nextValue = Number(e.currentTarget.value);
-              committedPitchTextRef.current = "";
-              setPitchSliderValue(nextValue);
-              setPitchDraft(formatSequencePlaybackPitchCents(nextValue));
-              schedulePitchChange(nextValue);
-            }}
+            formatAriaValue={(pitchValue) => formatSequencePlaybackPitchCourtesy(pitchValue)}
           />
           <button
             type="button"
@@ -795,7 +999,7 @@ function PlaybackModifiersRow({
             ↺
           </button>
         </span>
-      </label>
+      </div>
     </div>
   );
 }

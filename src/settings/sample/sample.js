@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import CustomRangeSlider from "../shared/range-slider.jsx";
 
 const Sample = (props) => {
   const [muted, setMuted] = useState(() => localStorage.getItem("synth_muted") === "true");
@@ -34,15 +35,18 @@ const Sample = (props) => {
       <label>
         <span>Synth Volume</span>
         <span class="sidebar-input settings-form__range-row">
-          <input
-            type="range"
-            name="synth_volume"
-            min="0"
-            max="1"
-            step="0.01"
+          <CustomRangeSlider
+            ariaLabel="Synth Volume"
+            min={0}
+            max={1}
+            step={0.01}
             value={volume}
-            class="settings-form__range-input"
-            onInput={handleVolume}
+            onInputValue={(nextValue) => {
+              handleVolume({ target: { value: String(nextValue) } });
+            }}
+            onCommitValue={(nextValue) => {
+              handleVolume({ target: { value: String(nextValue) } });
+            }}
           />
           <span class="settings-form__range-value settings-form__range-value--short">
             {Number.isInteger(volume) ? volume.toFixed(0) : volume.toFixed(2)}

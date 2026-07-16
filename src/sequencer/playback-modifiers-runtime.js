@@ -105,6 +105,13 @@ export function applyPlaybackPitchOffsetToNote(note, cents) {
   };
 }
 
+export function applyPlaybackPitchOffsetToNotes(notes, cents) {
+  if (!Array.isArray(notes)) return [];
+  const offsetCents = clampSequencePlaybackPitchCents(cents);
+  if (Math.abs(offsetCents) < 1e-9) return notes;
+  return notes.map((note) => applyPlaybackPitchOffsetToNote(note, offsetCents));
+}
+
 export function applyPlaybackPitchOffsetToSnapshots(snapshots, cents) {
   if (!Array.isArray(snapshots)) return [];
   const offsetCents = clampSequencePlaybackPitchCents(cents);

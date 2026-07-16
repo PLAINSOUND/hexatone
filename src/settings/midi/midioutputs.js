@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";
 import { resolveBulkDumpName, sanitizeBulkDumpName } from "../../tuning/mts-format.js";
+import CustomRangeSlider from "../shared/range-slider.jsx";
 
 const voiceChannels = (masterCh) => {
   if (masterCh === "1") return Array.from({ length: 15 }, (_, i) => i + 2);
@@ -442,17 +443,14 @@ const MidiOutputs = (props) => {
                   <label>
                     FluidSynth Volume
                     <span class="sidebar-input settings-form__range-row">
-                      <input
-                        type="range"
-                        min="0"
-                        max="127"
-                        step="1"
-                        class="settings-form__range-input"
-                        defaultValue={parseInt(
-                          localStorage.getItem("fluidsynth_volume_pref") ?? "127",
-                        )}
-                        onInput={(e) => {
-                          const v = parseInt(e.target.value);
+                      <CustomRangeSlider
+                        ariaLabel="FluidSynth Volume"
+                        min={0}
+                        max={127}
+                        step={1}
+                        value={fsVolume}
+                        onInputValue={(nextValue) => {
+                          const v = parseInt(nextValue, 10);
                           localStorage.setItem("fluidsynth_volume_pref", v);
                           setFsVolume(v);
                           if (fluidsynthOutput && settings.fluidsynth_channel >= 0) {
@@ -868,22 +866,21 @@ const MidiOutputs = (props) => {
             <label key={key}>
               {label}
               <span class="sidebar-input settings-form__range-row">
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
+                <CustomRangeSlider
+                  ariaLabel={`${label} volume`}
+                  min={0}
+                  max={1}
+                  step={0.01}
                   value={oscDraftVolumes[key] ?? 0.5}
-                  onInput={(e) => {
-                    const next = clampOscVolume(parseFloat(e.target.value));
+                  onInputValue={(nextValue) => {
+                    const next = clampOscVolume(parseFloat(nextValue));
                     setOscDraftVolumes((prev) => ({ ...prev, [key]: next }));
                     props.onOscLayerVolumeChange?.(index, next);
                   }}
-                  onChange={(e) => {
-                    const next = clampOscVolume(parseFloat(e.target.value));
+                  onCommitValue={(nextValue) => {
+                    const next = clampOscVolume(parseFloat(nextValue));
                     saveOscVolume(key, next);
                   }}
-                  class="settings-form__range-input"
                 />
                 <span class="settings-form__range-value">
                   {(oscDraftVolumes[key] ?? 0.5).toFixed(2)}
@@ -894,24 +891,23 @@ const MidiOutputs = (props) => {
           <label>
             Quick Release
             <span class="sidebar-input settings-form__range-row">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
+              <CustomRangeSlider
+                ariaLabel="Quick Release"
+                min={0}
+                max={1}
+                step={0.01}
                 value={oscQuickRelease}
-                onInput={(e) => {
-                  const next = clampOscQuickRelease(parseFloat(e.target.value));
+                onInputValue={(nextValue) => {
+                  const next = clampOscQuickRelease(parseFloat(nextValue));
                   setOscQuickRelease(next);
                   props.onOscQuickReleaseChange?.(next);
                 }}
-                onChange={(e) => {
-                  const next = clampOscQuickRelease(parseFloat(e.target.value));
+                onCommitValue={(nextValue) => {
+                  const next = clampOscQuickRelease(parseFloat(nextValue));
                   localStorage.setItem("osc_quick_release", String(next));
                   sessionStorage.setItem("osc_quick_release", String(next));
                   onChange("osc_quick_release", next);
                 }}
-                class="settings-form__range-input"
               />
               <span class="settings-form__range-value">
                 {oscQuickRelease.toFixed(2)}
@@ -934,24 +930,23 @@ const MidiOutputs = (props) => {
           <label>
             Quick Release Time
             <span class="sidebar-input settings-form__range-row">
-              <input
-                type="range"
-                min="0.01"
-                max="1"
-                step="0.005"
+              <CustomRangeSlider
+                ariaLabel="Quick Release Time"
+                min={0.01}
+                max={1}
+                step={0.005}
                 value={oscQuickReleaseTime}
-                onInput={(e) => {
-                  const next = clampOscQuickReleaseTime(parseFloat(e.target.value));
+                onInputValue={(nextValue) => {
+                  const next = clampOscQuickReleaseTime(parseFloat(nextValue));
                   setOscQuickReleaseTime(next);
                   props.onOscQuickReleaseTimeChange?.(next);
                 }}
-                onChange={(e) => {
-                  const next = clampOscQuickReleaseTime(parseFloat(e.target.value));
+                onCommitValue={(nextValue) => {
+                  const next = clampOscQuickReleaseTime(parseFloat(nextValue));
                   localStorage.setItem("osc_quick_release_time", String(next));
                   sessionStorage.setItem("osc_quick_release_time", String(next));
                   onChange("osc_quick_release_time", next);
                 }}
-                class="settings-form__range-input"
               />
               <span class="settings-form__range-value">
                 {Math.round(oscQuickReleaseTime * 1000)} ms
