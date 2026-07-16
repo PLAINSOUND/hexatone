@@ -473,6 +473,25 @@ a:hover {
 
 /* Phone landscape: keep panic button clear of right edge */
 @media (max-height: 500px) and (orientation: landscape) {
+  #main-bottom-controls #sustain-island {
+    padding: 0.32em 0.92em !important;
+    font-size: 0.95em !important;
+  }
+
+  #main-bottom-controls #modulation-island {
+    padding: 0.32em 0.92em !important;
+    font-size: 0.95em !important;
+  }
+
+  #main-bottom-controls #panic-button {
+    padding: 0.32em 0.78em !important;
+    font-size: 0.95em !important;
+  }
+
+  #main-bottom-controls #octave-island {
+    font-size: 0.95em !important;
+  }
+
   #sustain-island {
     left: 50%;
     transform: translateX(-50%);

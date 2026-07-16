@@ -1635,22 +1635,6 @@ td.scale-color-col .color-input {
   }
 }
 
-@media (max-width: 480px), (max-width: 926px) and (orientation: landscape) {
-  #sidebar .sequencer-bars-add__meter-input:not(.sequencer-bars-add__meter-input--numerator) {
-    text-align: left !important;
-    padding-left: 0.18em !important;
-    padding-right: 0 !important;
-  }
-
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-den,
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den,
-  #sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den {
-    text-align: left !important;
-    padding-left: 0.18em !important;
-    padding-right: 0 !important;
-  }
-}
-
 @media (max-width: 480px) and (orientation: portrait) {
   .sequencer-fieldset__save-row {
     bottom: 3rem;
@@ -3799,6 +3783,28 @@ td.scale-color-col .color-input {
     max-width: 2.9em;
   }
 
+  #sidebar .sequencer-bars-add__meter-input:not(.sequencer-bars-add__meter-input--numerator),
+  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper.sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den,
+  #sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den {
+    text-align: left !important;
+    padding-left: 0.18em !important;
+    padding-right: 0 !important;
+  }
+
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  #sidebar .sequencer-bars-add__meter-input:not(.sequencer-bars-add__meter-input--numerator),
+  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper.sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den,
+  #sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den {
+    text-align: left !important;
+    padding-left: 0.18em !important;
+    padding-right: 0 !important;
+  }
 }
 
 @media (max-width: 932px) and (pointer: coarse) {
