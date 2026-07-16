@@ -154,6 +154,7 @@ const Sequencer = ({
     label: "",
     action: null,
   });
+  const [topSequenceSaveVisible, setTopSequenceSaveVisible] = useState(false);
   const [newBarPosition, setNewBarPosition] = useState("1");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newRepeatPosition, setNewRepeatPosition] = useState("1.000000");
@@ -873,6 +874,7 @@ const Sequencer = ({
         onClearSequence={onClearSequence}
         onSequenceSaved={onSequenceSaved}
         onSaveActionStateChange={setSequenceSaveActionState}
+        onPrimarySaveVisibilityChange={setTopSequenceSaveVisible}
       />
 
       <SequenceInfo
@@ -1129,20 +1131,23 @@ const Sequencer = ({
             </div>
           )}
 
-          {sequenceSaveActionState.visible && typeof sequenceSaveActionState.action === "function" && (
-            <div class="settings-form__action-row sequencer-scroll-panel__save-row">
-              <span class="settings-form__action-group settings-form__action-group--wrap">
-                <button
-                  type="button"
-                  class="preset-action-btn"
-                  onClick={sequenceSaveActionState.action}
-                >
-                  {sequenceSaveActionState.label}
-                </button>
-              </span>
-            </div>
-          )}
         </div>
+
+        {!topSequenceSaveVisible &&
+          sequenceSaveActionState.visible &&
+          typeof sequenceSaveActionState.action === "function" && (
+          <div class="settings-form__action-row sequencer-fieldset__save-row">
+            <span class="settings-form__action-group settings-form__action-group--wrap">
+              <button
+                type="button"
+                class="preset-action-btn"
+                onClick={sequenceSaveActionState.action}
+              >
+                {sequenceSaveActionState.label}
+              </button>
+            </span>
+          </div>
+        )}
       </fieldset>
     </div>
   );

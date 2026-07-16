@@ -4,7 +4,7 @@
 // the current sequence workspace.
 
 import { createRef } from "preact";
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import {
   normalizeBarMarkers,
@@ -141,11 +141,13 @@ const SequenceLibrary = ({
   onClearSequence,
   onSequenceSaved,
   onSaveActionStateChange,
+  onPrimarySaveVisibilityChange,
 }) => {
   const [savedSequences, setSavedSequences] = useState(loadUserSequences);
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const fileInputRef = createRef();
+  const primarySaveRowRef = useRef(null);
 
   const sequenceName = String(activeSequenceName ?? "").trim();
   const activeSource = String(activeSequenceSource ?? "").trim();
@@ -384,6 +386,34 @@ const SequenceLibrary = ({
     });
   }, [onSaveActionStateChange]);
 
+  useEffect(() => {
+    if (typeof onPrimarySaveVisibilityChange !== "function") return undefined;
+    if (!workspaceHasContent) {
+      onPrimarySaveVisibilityChange(false);
+      return undefined;
+    }
+    const node = primarySaveRowRef.current;
+    if (!node) {
+      onPrimarySaveVisibilityChange(false);
+      return undefined;
+    }
+    if (typeof IntersectionObserver !== "function") {
+      onPrimarySaveVisibilityChange(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        onPrimarySaveVisibilityChange(Boolean(entry?.isIntersecting));
+      },
+      { threshold: 0.01 },
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      onPrimarySaveVisibilityChange(false);
+    };
+  }, [onPrimarySaveVisibilityChange, workspaceHasContent]);
+
   const handleDelete = () => {
     if (!savedSequenceName) return;
     const next = savedSequences.filter((entry) => entry.name !== savedSequenceName);
@@ -604,7 +634,7 @@ const SequenceLibrary = ({
         </div>
 
         {workspaceHasContent && (
-          <div class="settings-form__action-row">
+          <div ref={primarySaveRowRef} class="settings-form__action-row">
             <span class="settings-form__action-group settings-form__action-group--wrap">
               <button type="button" class="preset-action-btn" onClick={handleSave}>
                 {saveLabel}
@@ -647,6 +677,7 @@ SequenceLibrary.propTypes = {
   onClearSequence: PropTypes.func,
   onSequenceSaved: PropTypes.func,
   onSaveActionStateChange: PropTypes.func,
+  onPrimarySaveVisibilityChange: PropTypes.func,
 };
 
 export default SequenceLibrary;

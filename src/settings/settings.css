@@ -1515,21 +1515,32 @@ td.scale-color-col .color-input {
   background: var(--color-bg);
 }
 
-.sequencer-scroll-panel__save-row {
+.sequencer-fieldset__save-row {
   position: sticky;
   left: 0;
-  bottom: 0;
-  z-index: 5;
+  bottom: 0.65rem;
+  z-index: 7;
   justify-content: flex-start;
-  margin-top: 0.2em;
+  margin-top: 0.28em;
   margin-bottom: 0;
-  padding: 0.28em 0 0.16em;
+  padding: 0.38em 0 0.16em;
   background: linear-gradient(
     to bottom,
     rgba(250, 249, 248, 0) 0%,
     rgba(250, 249, 248, 0.92) 26%,
     rgba(250, 249, 248, 1) 100%
   );
+}
+
+.sequencer-fieldset__save-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 10rem;
+  background: var(--color-bg);
+  pointer-events: none;
 }
 
 @media (max-width: 480px) {
