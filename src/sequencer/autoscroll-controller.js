@@ -25,6 +25,7 @@ export default function useSequencerAutoscroll({
   firstCueTimeBySnapshotIndex,
   firstEventIdByCueIndex,
   firstRepeatStartMarker,
+  firstStructuralScrollKey,
   repeatStartBySnapshotId,
   repeatStartKeyAtPosition,
   showAllEvents,
@@ -272,9 +273,14 @@ export default function useSequencerAutoscroll({
     if (!playheadIsOff || pendingTarget == null) return;
     pendingResetScrollTargetRef.current = null;
     if (pendingTarget === "__first_structural__") {
-      const firstStructuralRow = [...barRowRefs.current.values()]
-        .filter((node) => node instanceof HTMLElement)
-        .sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top)[0] ?? null;
+      const keyedStructuralRow = firstStructuralScrollKey != null
+        ? (barRowRefs.current.get(firstStructuralScrollKey) ?? null)
+        : null;
+      const firstStructuralRow = keyedStructuralRow instanceof HTMLElement
+        ? keyedStructuralRow
+        : ([...barRowRefs.current.values()]
+          .filter((node) => node instanceof HTMLElement)
+          .sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top)[0] ?? null);
       if (!(firstStructuralRow instanceof HTMLElement)) {
         const scrollPanel = scrollPanelRef.current;
         if (scrollPanel instanceof HTMLElement) {
@@ -298,7 +304,7 @@ export default function useSequencerAutoscroll({
     suppressNextBarAutoScrollRef.current = true;
     lastAutoScrolledSnapshotIdRef.current = pendingTarget;
     scrollNodeIntoPanel(repeatRow);
-  }, [autoScrollEnabled, playheadIsOff, scrollNodeIntoPanel]);
+  }, [autoScrollEnabled, firstStructuralScrollKey, playheadIsOff, scrollNodeIntoPanel]);
 
   useEffect(() => {
     if (!autoScrollEnabled) return;

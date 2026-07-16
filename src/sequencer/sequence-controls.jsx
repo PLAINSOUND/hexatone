@@ -328,7 +328,7 @@ const SequenceControls = ({
             </button>
           </span>
         </div>
-        <div class="sequencer-option-row sequencer-option-row--tempo-transition-action">
+        <div class="sequencer-option-row sequencer-option-row--tempo-transition-action sequencer-option-row--mobile-inline">
           <span>Make Gradual Transition</span>
           <span class="sequencer-bars-add__stacked-button-slot">
             <button
@@ -430,7 +430,7 @@ const SequenceControls = ({
       </>
     ) : null}
 
-    <label class="sequencer-option-row">
+    <label class="sequencer-option-row sequencer-option-row--label-left">
       <span>Snapshot Labels</span>
       <select
         class="sidebar-input"
@@ -476,7 +476,7 @@ const SequenceControls = ({
       <div class="sequencer-playback-row" aria-label="Sequence playback">
         <span class="sequencer-playback-label">PLAY FROM</span>
 
-        <span class="sequencer-playback-control">
+        <span class="sequencer-playback-control sequencer-playback-control--bar">
           <span class="sequencer-playback-key">BAR</span>
           <select
             class="sidebar-input sequencer-playback-select"
@@ -694,6 +694,8 @@ const SequenceControls = ({
             </svg>
           </button>
         </span>
+
+        <span class="sequencer-playback-row__break" aria-hidden="true" />
       </div>
 
       <TimedPlaybackRow
@@ -1130,6 +1132,8 @@ function TimedPlaybackRow({
           </svg>
         </button>
       </span>
+
+      <span class="sequencer-playback-row__break" aria-hidden="true" />
     </div>
   );
 }

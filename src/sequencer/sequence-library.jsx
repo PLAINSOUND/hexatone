@@ -634,7 +634,7 @@ const SequenceLibrary = ({
         </div>
 
         {workspaceHasContent && (
-          <div ref={primarySaveRowRef} class="settings-form__action-row">
+          <div ref={primarySaveRowRef} class="settings-form__action-row settings-form__action-row--top">
             <span class="settings-form__action-group settings-form__action-group--wrap">
               <button type="button" class="preset-action-btn" onClick={handleSave}>
                 {saveLabel}
@@ -643,7 +643,7 @@ const SequenceLibrary = ({
                 Save as copy
               </button>
             </span>
-            <span class="settings-form__action-group">
+            <span class="settings-form__action-group settings-form__action-group--sequence-export">
               <button
                 type="button"
                 class="preset-utility-btn settings-form__utility-btn--export"

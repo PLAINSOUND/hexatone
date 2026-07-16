@@ -298,6 +298,15 @@ const Sequencer = ({
     () => buildStructuralMarkersByDisplayBucket(sortedBars, sortedTempi, repeats),
     [repeats, sortedBars, sortedTempi],
   );
+  const firstStructuralScrollKey = useMemo(() => {
+    const orderedBuckets = [...structuralMarkersByDisplayBucket.keys()].sort((left, right) => left - right);
+    for (const bucket of orderedBuckets) {
+      const firstMarker = structuralMarkersByDisplayBucket.get(bucket)?.[0] ?? null;
+      const markerKey = structuralEventRenderKey(firstMarker);
+      if (markerKey) return markerKey;
+    }
+    return null;
+  }, [structuralMarkersByDisplayBucket]);
   const firstRepeatStartMarker = useMemo(() => (
     [...(Array.isArray(repeats) ? repeats : [])]
       .filter((repeat) => repeat?.kind === "start")
@@ -429,6 +438,7 @@ const Sequencer = ({
     firstCueTimeBySnapshotIndex,
     firstEventIdByCueIndex,
     firstRepeatStartMarker,
+    firstStructuralScrollKey,
     repeatStartBySnapshotId,
     repeatStartKeyAtPosition,
     showAllEvents,
