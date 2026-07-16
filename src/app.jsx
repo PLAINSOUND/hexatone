@@ -3696,7 +3696,7 @@ const App = () => {
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
-              BUILD step sequences from snapshots and trigger them event by event. CAPTURE chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining. Layer new notes over captured sounds. EDIT start and stop times within a chord to make a melody or arpeggiation. Specify articulation and connections from note to note, chord by chord. Create bars and optional tempo automations.{" "}
+              Capture chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining as SNAPSHOTS. Build step sequences and trigger them event by event. EDIT start and stop times within a chord to make CUES that sound a melody or arpeggiation. Create bars, repeats, and tempo markers to generate an automated timed playback.{" "}
               {!showManual && (
                 <span className="app-shell__intro-more" onClick={() => setShowManual(true)}>
                   … more
@@ -3707,10 +3707,7 @@ const App = () => {
         ) : (
           <p class="sidebar-intro">
             <em>
-              TO PLAY choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic
-              controller like Lumatone or Exquis. Use internal sounds or retune MIDI synths. Edit the
-              scale in the table or drag to retune. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes
-              snapshots across tunings.<br />{" "}
+              TO PLAY, choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes snapshots across tunings; build a sequence.{" "}
               {!showManual && (
                 <span className="app-shell__intro-more" onClick={() => setShowManual(true)}>
                   … more
