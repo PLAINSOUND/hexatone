@@ -148,6 +148,11 @@ export function persistTimedTransportDiagnostics(state, storage = globalThis?.se
   );
 }
 
+export function clearPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
+  if (!storage?.removeItem) return;
+  storage.removeItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
+}
+
 export function loadPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
   if (!storage?.getItem) return null;
   const raw = storage.getItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
@@ -160,6 +165,7 @@ export function loadPersistedTimedTransportDiagnostics(storage = globalThis?.ses
 }
 
 export function appendPersistedTimedTransportDiagnostic(entry, storage = globalThis?.sessionStorage) {
+  if (!isTimedTransportDiagnosticsEnabled()) return null;
   const persisted = loadPersistedTimedTransportDiagnostics(storage);
   const nextState = pushTimedTransportDiagnostic(persisted?.state, entry);
   persistTimedTransportDiagnostics(nextState, storage);
@@ -168,14 +174,17 @@ export function appendPersistedTimedTransportDiagnostic(entry, storage = globalT
 
 function installTimedTransportDiagnosticsGlobal() {
   if (typeof globalThis === "undefined") return;
+  if (!isTimedTransportDiagnosticsEnabled()) {
+    clearPersistedTimedTransportDiagnostics();
+    delete globalThis.__hexatoneTimedTransportDiagnostics;
+    return;
+  }
   const existing = globalThis.__hexatoneTimedTransportDiagnostics ?? {};
   globalThis.__hexatoneTimedTransportDiagnostics = {
     ...existing,
-    enabled: isTimedTransportDiagnosticsEnabled(),
+    enabled: true,
     record: (entry) => (
-      isTimedTransportDiagnosticsEnabled()
-        ? appendPersistedTimedTransportDiagnostic(entry)
-        : null
+      appendPersistedTimedTransportDiagnostic(entry)
     ),
     getPersisted: () => loadPersistedTimedTransportDiagnostics(),
   };

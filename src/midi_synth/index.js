@@ -8,13 +8,24 @@ import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
 
+function safeSend(output, message, timestamp = undefined) {
+  if (!output || typeof output.send !== "function") return false;
+  try {
+    if (timestamp == null) output.send(message);
+    else output.send(message, timestamp);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
-  midi_output.send([0xb0 + channel0, 101, msb & 0x7f]);
-  midi_output.send([0xb0 + channel0, 100, lsb & 0x7f]);
-  midi_output.send([0xb0 + channel0, 6, dataMsb & 0x7f]);
-  midi_output.send([0xb0 + channel0, 38, dataLsb & 0x7f]);
-  midi_output.send([0xb0 + channel0, 101, 127]);
-  midi_output.send([0xb0 + channel0, 100, 127]);
+  safeSend(midi_output, [0xb0 + channel0, 101, msb & 0x7f]);
+  safeSend(midi_output, [0xb0 + channel0, 100, lsb & 0x7f]);
+  safeSend(midi_output, [0xb0 + channel0, 6, dataMsb & 0x7f]);
+  safeSend(midi_output, [0xb0 + channel0, 38, dataLsb & 0x7f]);
+  safeSend(midi_output, [0xb0 + channel0, 101, 127]);
+  safeSend(midi_output, [0xb0 + channel0, 100, 127]);
 }
 
 export const tuningmap = new Array(128);
@@ -199,21 +210,21 @@ export const create_midi_synth = async ({
     allSoundOff: () => {
       if (!midi_output) return;
       // Send CC123 on the configured output channel.
-      midi_output.send([0xb0 + channel, 123, 0]);
+      safeSend(midi_output, [0xb0 + channel, 123, 0]);
     },
 
     applyControllerState: (state = {}) => {
       if (!midi_output || channel == null || channel < 0) return;
       const ccValues = state.ccValues || {};
       for (const [cc, value] of Object.entries(ccValues)) {
-        midi_output.send([0xb0 + channel, Number(cc) & 0x7f, Math.max(0, Math.min(127, value))]);
+        safeSend(midi_output, [0xb0 + channel, Number(cc) & 0x7f, Math.max(0, Math.min(127, value))]);
       }
       if (state.channelPressure != null) {
-        midi_output.send([0xd0 + channel, Math.max(0, Math.min(127, state.channelPressure))]);
+        safeSend(midi_output, [0xd0 + channel, Math.max(0, Math.min(127, state.channelPressure))]);
       }
       if (state.pitchBend14 != null) {
         const bend = Math.max(0, Math.min(16383, state.pitchBend14));
-        midi_output.send([0xe0 + channel, bend & 0x7f, (bend >> 7) & 0x7f]);
+        safeSend(midi_output, [0xe0 + channel, bend & 0x7f, (bend >> 7) & 0x7f]);
       }
     },
 
@@ -306,7 +317,7 @@ function MidiHex(
 
       // If voice was stolen, send noteOff on that slot
       if (stolen !== null) {
-        midi_output.send([128 + channel, slot, velocity]);
+        safeSend(midi_output, [128 + channel, slot, velocity]);
       }
 
       // Now compute MTS tuning for this slot
@@ -365,7 +376,7 @@ MidiHex.prototype.noteOn = function () {
   if (this.mts.length > 0) {
     // F0 <rt> <device_id> 08 02 00 01 <slot> <note> <fine_msb> <fine_lsb> F7
     // rt: single-note real-time MUST always be 0x7F (not affected by sysex_type setting)
-    this.midi_output.send([
+    safeSend(this.midi_output, [
       0xf0,
       127,
       this.sysex_dev_id,
@@ -386,7 +397,7 @@ MidiHex.prototype.noteOn = function () {
       carrier: this.mts[0],
     });
   }
-  this.midi_output.send([144 + this.channel, this.steps, this.velocity]);
+  safeSend(this.midi_output, [144 + this.channel, this.steps, this.velocity]);
   traceMidiOutput("mtsNoteOn", {
     family: "mts",
     channel: this.channel,
@@ -399,7 +410,7 @@ MidiHex.prototype.noteOn = function () {
 MidiHex.prototype.aftertouch = function (value) {
   // Polyphonic key pressure on the carrier note.
   if (this.midi_output && this.steps != null) {
-    this.midi_output.send([0xa0 + this.channel, this.steps, Math.max(0, Math.min(127, value))]);
+    safeSend(this.midi_output, [0xa0 + this.channel, this.steps, Math.max(0, Math.min(127, value))]);
     traceMidiOutput("mtsAftertouchOut", {
       family: "mts",
       channel: this.channel,
@@ -413,7 +424,7 @@ MidiHex.prototype.aftertouch = function (value) {
 // pressure: channel pressure on the output channel (coarser than poly AT, but widely supported).
 MidiHex.prototype.pressure = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsPressureOut", {
     family: "mts",
     channel: this.channel,
@@ -426,7 +437,7 @@ MidiHex.prototype.pressure = function (value) {
 // cc74: brightness / timbre on the output channel.
 MidiHex.prototype.cc74 = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsCC74Out", {
     family: "mts",
     channel: this.channel,
@@ -439,18 +450,18 @@ MidiHex.prototype.cc74 = function (value) {
 // modwheel: CC1 on the output channel.
 MidiHex.prototype.modwheel = function (value) {
   if (!this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
 };
 
 // expression: CC11 on the output channel.
 MidiHex.prototype.expression = function (value) {
   if (!this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
 MidiHex.prototype.noteOff = function (release_velocity) {
   const velocity = release_velocity != null ? release_velocity : this.velocity;
-  this.midi_output.send([128 + this.channel, this.steps, velocity]);
+  safeSend(this.midi_output, [128 + this.channel, this.steps, velocity]);
   traceMidiOutput("mtsNoteOff", {
     family: "mts",
     channel: this.channel,
@@ -492,7 +503,7 @@ MidiHex.prototype.retune = function (newCents) {
   if (delta >= MTS_JUMP_THRESHOLD_CENTS) {
     // Large jump: silence the note, retune, restart — avoids audible pitch-
     // glide artefacts when the synth hears the old pitch while ringing.
-    this.midi_output.send([0x80 + this.channel, this.steps, this.velocity]);
+    safeSend(this.midi_output, [0x80 + this.channel, this.steps, this.velocity]);
     traceMidiOutput("mtsNoteOff", {
       family: "mts",
       channel: this.channel,
@@ -501,7 +512,7 @@ MidiHex.prototype.retune = function (newCents) {
       value: this.velocity,
     });
     this._sendMtsTuning(newCents);
-    this.midi_output.send([0x90 + this.channel, this.steps, this.velocity]);
+    safeSend(this.midi_output, [0x90 + this.channel, this.steps, this.velocity]);
     traceMidiOutput("mtsNoteOn", {
       family: "mts",
       channel: this.channel,
@@ -535,7 +546,7 @@ MidiHex.prototype._sendMtsTuning = function (cents) {
   this.mts[3] = fine & 127;
 
   // Send real-time single-note tuning message
-  this.midi_output.send([
+  safeSend(this.midi_output, [
     0xf0,
     127,
     this.sysex_dev_id,
@@ -605,7 +616,7 @@ function createBulkDynamicTransport({
       liveConfig?.name ?? name,
       entriesForDump,
     );
-    midi_output.send([0xf0, ...dump, 0xf7]);
+    safeSend(midi_output, [0xf0, ...dump, 0xf7]);
     traceMidiOutput("mtsBulkDumpOut", {
       family: "mts_bulk",
       channel,
@@ -629,7 +640,7 @@ function createBulkDynamicTransport({
       sendBulkDump();
       const noteOnVelocity = noteVelocity > 0 ? noteVelocity : velocity;
       const at = MTS_BULK_GUARD_MS > 0 ? performance.now() + MTS_BULK_GUARD_MS : undefined;
-      midi_output.send([0x90 + channel, carrier, noteOnVelocity], at);
+      safeSend(midi_output, [0x90 + channel, carrier, noteOnVelocity], at);
       traceMidiOutput("mtsBulkNoteOn", {
         family: "mts_bulk",
         channel,
@@ -638,7 +649,7 @@ function createBulkDynamicTransport({
       });
     },
     noteOff({ carrier, velocity: noteVelocity }) {
-      midi_output.send([0x80 + channel, carrier, noteVelocity != null ? noteVelocity : velocity]);
+      safeSend(midi_output, [0x80 + channel, carrier, noteVelocity != null ? noteVelocity : velocity]);
       traceMidiOutput("mtsBulkNoteOff", {
         family: "mts_bulk",
         channel,
@@ -767,7 +778,7 @@ DynamicBulkHex.prototype.noteOff = function (release_velocity) {
 
 DynamicBulkHex.prototype.aftertouch = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xa0 + this.channel, this.carrier, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xa0 + this.channel, this.carrier, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsBulkAftertouchOut", {
     family: "mts_bulk",
     channel: this.channel,
@@ -778,7 +789,7 @@ DynamicBulkHex.prototype.aftertouch = function (value) {
 
 DynamicBulkHex.prototype.pressure = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsBulkPressureOut", {
     family: "mts_bulk",
     channel: this.channel,
@@ -789,7 +800,7 @@ DynamicBulkHex.prototype.pressure = function (value) {
 
 DynamicBulkHex.prototype.cc74 = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsBulkCC74Out", {
     family: "mts_bulk",
     channel: this.channel,
@@ -800,12 +811,12 @@ DynamicBulkHex.prototype.cc74 = function (value) {
 
 DynamicBulkHex.prototype.modwheel = function (value) {
   if (!this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
 };
 
 DynamicBulkHex.prototype.expression = function (value) {
   if (!this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
 DynamicBulkHex.prototype.retune = function (newCents) {
@@ -868,7 +879,7 @@ StaticBulkHex.prototype._updateMts = function (cents) {
 
 StaticBulkHex.prototype.noteOn = function () {
   if (this.channel >= 0 && this.midi_output) {
-    this.midi_output.send([0x90 + this.channel, this.carrier, this.velocity]);
+    safeSend(this.midi_output, [0x90 + this.channel, this.carrier, this.velocity]);
     traceMidiOutput("mtsStaticNoteOn", {
       family: "mts_static",
       channel: this.channel,
@@ -884,7 +895,7 @@ StaticBulkHex.prototype.noteOff = function (release_velocity) {
   this.release = true;
   if (this.channel >= 0 && this.midi_output) {
     const vel = release_velocity != null ? release_velocity : this.velocity;
-    this.midi_output.send([0x80 + this.channel, this.carrier, vel]);
+    safeSend(this.midi_output, [0x80 + this.channel, this.carrier, vel]);
     traceMidiOutput("mtsStaticNoteOff", {
       family: "mts_static",
       channel: this.channel,
@@ -896,7 +907,7 @@ StaticBulkHex.prototype.noteOff = function (release_velocity) {
 
 StaticBulkHex.prototype.aftertouch = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xa0 + this.channel, this.carrier, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xa0 + this.channel, this.carrier, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsStaticAftertouchOut", {
     family: "mts_static",
     channel: this.channel,
@@ -907,7 +918,7 @@ StaticBulkHex.prototype.aftertouch = function (value) {
 
 StaticBulkHex.prototype.pressure = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsStaticPressureOut", {
     family: "mts_static",
     channel: this.channel,
@@ -918,7 +929,7 @@ StaticBulkHex.prototype.pressure = function (value) {
 
 StaticBulkHex.prototype.cc74 = function (value) {
   if (this.release || !this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsStaticCC74Out", {
     family: "mts_static",
     channel: this.channel,
@@ -929,12 +940,12 @@ StaticBulkHex.prototype.cc74 = function (value) {
 
 StaticBulkHex.prototype.modwheel = function (value) {
   if (!this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
 };
 
 StaticBulkHex.prototype.expression = function (value) {
   if (!this.midi_output) return;
-  this.midi_output.send([0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
+  safeSend(this.midi_output, [0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
 StaticBulkHex.prototype.retune = function (newCents) {

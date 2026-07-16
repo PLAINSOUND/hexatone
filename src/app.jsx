@@ -102,6 +102,10 @@ import {
   appendPersistedTimedTransportDiagnostic,
   isTimedTransportDiagnosticsEnabled,
 } from "./debug/timed-transport-diagnostics.js";
+import {
+  appendPersistedMidiRestoreDiagnostic,
+  isMidiRestoreDiagnosticsEnabled,
+} from "./debug/midi-restore-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   sequenceNotesAtCueIndex,
@@ -537,7 +541,29 @@ const App = () => {
   const viewportBaselineRef = useRef(0);
   const audioNeedsHardRefreshRef = useRef(false);
   const audioWakePromiseRef = useRef(null);
+  const pendingRestoreMidiReconnectRef = useRef(false);
+  const restoredMountMidiReconnectDoneRef = useRef(false);
+  const restoredMountMidiReconnectRunningRef = useRef(false);
+  const ensureMidiAccessRef = useRef(null);
+  const settingsOnChangeRef = useRef(null);
+  const midiRestoreSettingsRef = useRef({
+    webmidiEnabled: false,
+    webmidiSysexEnabled: false,
+    midiinDevice: "OFF",
+    midiAccess: "none",
+  });
 
+  const recordMidiRestoreDiagnostic = useCallback((entry) => {
+    if (!isMidiRestoreDiagnosticsEnabled()) return;
+    appendPersistedMidiRestoreDiagnostic(entry);
+  }, []);
+  const waitForKeysRuntime = useCallback(async (maxFrames = 8) => {
+    for (let frame = 0; frame < maxFrames; frame += 1) {
+      if (keysRef.current?.ensureMidiInputBinding) return true;
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    return !!keysRef.current?.ensureMidiInputBinding;
+  }, []);
   // Session / lifecycle bootstrap.
   const switchWorkspaceTab = useCallback((nextTab) => {
     setShowManual(false);
@@ -779,6 +805,25 @@ const App = () => {
     [],
     PRESET_SKIP_KEYS,
   );
+  const replayMidiInputSelection = useCallback(async (deviceId) => {
+    if (!deviceId || deviceId === "OFF") return false;
+    if (typeof settingsOnChangeRef.current !== "function") return false;
+    recordMidiRestoreDiagnostic({
+      type: "restore-reselect-device",
+      status: "begin",
+      detail: deviceId,
+    });
+    settingsOnChangeRef.current("midiin_device", "OFF");
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    settingsOnChangeRef.current("midiin_device", deviceId);
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    recordMidiRestoreDiagnostic({
+      type: "restore-reselect-device",
+      status: "done",
+      detail: deviceId,
+    });
+    return true;
+  }, [recordMidiRestoreDiagnostic]);
 
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");
@@ -860,6 +905,22 @@ const App = () => {
     synthRef,
     deferSampleActivation: deferRestoredSampleActivation,
   });
+  useEffect(() => {
+    ensureMidiAccessRef.current = ensureMidiAccess;
+  }, [ensureMidiAccess]);
+  useEffect(() => {
+    midiRestoreSettingsRef.current = {
+      webmidiEnabled: !!settings.webmidi_enabled,
+      webmidiSysexEnabled: !!settings.webmidi_sysex_enabled,
+      midiinDevice: settings.midiin_device ?? "OFF",
+      midiAccess,
+    };
+  }, [
+    settings.webmidi_enabled,
+    settings.webmidi_sysex_enabled,
+    settings.midiin_device,
+    midiAccess,
+  ]);
 
   const { panic: guardianPanic } = useMidiGuardian(midi, settings);
 
@@ -1964,24 +2025,193 @@ const App = () => {
     return true;
   }, []);
   const refreshKeyboardAndAudio = useCallback(async () => {
+    const refreshMidiBinding = async () => {
+      if (settings.webmidi_enabled) {
+        await ensureMidiAccess({ sysex: !!settings.webmidi_sysex_enabled });
+      }
+      keysRef.current?.ensureMidiInputBinding?.();
+    };
     if (keysRef.current) {
       keysRef.current.resizeHandler();
       keysRef.current.scheduleImmediateGridRedraw();
     }
     if (pendingRestoredPreset) {
+      pendingRestoreMidiReconnectRef.current = true;
+      recordMidiRestoreDiagnostic({
+        type: "restore-activate-pending",
+        status: "begin",
+        detail: pendingRestoredPreset?.source ?? null,
+        device: settings.midiin_device ?? null,
+        midiAccess,
+      });
       await activatePendingPreset();
       if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
       return;
     }
     if (!userHasInteracted) {
       await primeAudioFromUserInteraction();
+      await refreshMidiBinding();
       if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
       return;
     }
+    await refreshMidiBinding();
     if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
     if (synthRef.current?.prepare) await synthRef.current.prepare();
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
-  }, [activatePendingPreset, pendingRestoredPreset, primeAudioFromUserInteraction, userHasInteracted]);
+  }, [
+    activatePendingPreset,
+    ensureMidiAccess,
+    midiAccess,
+    pendingRestoredPreset,
+    primeAudioFromUserInteraction,
+    recordMidiRestoreDiagnostic,
+    settings.midiin_device,
+    settings.webmidi_enabled,
+    settings.webmidi_sysex_enabled,
+    userHasInteracted,
+  ]);
+
+  useEffect(() => {
+    if (!pendingRestoreMidiReconnectRef.current) return;
+    if (pendingRestoredPreset || restoredOnMount) return;
+
+    let cancelled = false;
+    pendingRestoreMidiReconnectRef.current = false;
+
+    const run = async () => {
+      const restoreSettings = midiRestoreSettingsRef.current;
+        recordMidiRestoreDiagnostic({
+          type: "restore-post-activate",
+          status: "begin",
+          device: restoreSettings.midiinDevice ?? null,
+          midiAccess: restoreSettings.midiAccess,
+        });
+      try {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+        if (cancelled) return;
+        if (restoreSettings.webmidiEnabled) {
+          await ensureMidiAccessRef.current?.({ sysex: restoreSettings.webmidiSysexEnabled });
+        }
+        if (cancelled) return;
+        const replayed = await replayMidiInputSelection(restoreSettings.midiinDevice);
+        if (cancelled) return;
+        if (!replayed) return;
+        const hasKeysRuntime = await waitForKeysRuntime();
+        if (cancelled) return;
+        if (!hasKeysRuntime) {
+          recordMidiRestoreDiagnostic({
+            type: "restore-post-activate-missing-keys",
+            status: "missing",
+            device: restoreSettings.midiinDevice ?? null,
+            midiAccess: restoreSettings.midiAccess,
+          });
+          return;
+        }
+        keysRef.current?.ensureMidiInputBinding?.({ force: true });
+      } catch (err) {
+        recordMidiRestoreDiagnostic({
+          type: "restore-post-activate-rebind-failure",
+          status: err?.name ?? "error",
+          detail: err?.message ?? null,
+          device: restoreSettings.midiinDevice ?? null,
+          midiAccess: restoreSettings.midiAccess,
+        });
+        throw err;
+      }
+      recordMidiRestoreDiagnostic({
+        type: "restore-post-activate",
+        status: "done",
+        device: restoreSettings.midiinDevice ?? null,
+        midiAccess: restoreSettings.midiAccess,
+      });
+      keysRef.current?.scheduleImmediateGridRedraw?.();
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    pendingRestoredPreset,
+    restoredOnMount,
+    recordMidiRestoreDiagnostic,
+    replayMidiInputSelection,
+    waitForKeysRuntime,
+  ]);
+
+  useEffect(() => {
+    if (!restoredOnMount || pendingRestoredPreset) return;
+    if (restoredMountMidiReconnectDoneRef.current) return;
+    if (restoredMountMidiReconnectRunningRef.current) return;
+
+    let cancelled = false;
+    restoredMountMidiReconnectRunningRef.current = true;
+
+    const run = async () => {
+      const restoreSettings = midiRestoreSettingsRef.current;
+        recordMidiRestoreDiagnostic({
+          type: "restore-mount-reconnect",
+          status: "begin",
+          device: restoreSettings.midiinDevice ?? null,
+          midiAccess: restoreSettings.midiAccess,
+        });
+      try {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+        if (cancelled) return;
+        if (restoreSettings.webmidiEnabled) {
+          await ensureMidiAccessRef.current?.({ sysex: restoreSettings.webmidiSysexEnabled });
+        }
+        if (cancelled) return;
+        const replayed = await replayMidiInputSelection(restoreSettings.midiinDevice);
+        if (cancelled) return;
+        if (!replayed) return;
+        const hasKeysRuntime = await waitForKeysRuntime();
+        if (cancelled) return;
+        if (!hasKeysRuntime) {
+          recordMidiRestoreDiagnostic({
+            type: "restore-mount-missing-keys",
+            status: "missing",
+            device: restoreSettings.midiinDevice ?? null,
+            midiAccess: restoreSettings.midiAccess,
+          });
+          return;
+        }
+        keysRef.current?.ensureMidiInputBinding?.({ force: true });
+      } catch (err) {
+        recordMidiRestoreDiagnostic({
+          type: "restore-mount-rebind-failure",
+          status: err?.name ?? "error",
+          detail: err?.message ?? null,
+          device: restoreSettings.midiinDevice ?? null,
+          midiAccess: restoreSettings.midiAccess,
+        });
+        throw err;
+      }
+      restoredMountMidiReconnectDoneRef.current = true;
+      recordMidiRestoreDiagnostic({
+        type: "restore-mount-reconnect",
+        status: "done",
+        device: restoreSettings.midiinDevice ?? null,
+        midiAccess: restoreSettings.midiAccess,
+      });
+      keysRef.current?.scheduleImmediateGridRedraw?.();
+    };
+
+    void run().finally(() => {
+      restoredMountMidiReconnectRunningRef.current = false;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    pendingRestoredPreset,
+    recordMidiRestoreDiagnostic,
+    replayMidiInputSelection,
+    restoredOnMount,
+    waitForKeysRuntime,
+  ]);
 
   const clampModulationPalettePos = useCallback((position) => {
     if (typeof window === "undefined") return position;
@@ -2171,6 +2401,9 @@ const App = () => {
     bumpImportCount,
     onUserScaleEdit,
   });
+  useEffect(() => {
+    settingsOnChangeRef.current = onChange;
+  }, [onChange]);
 
   // Validate that all required settings are present and consistent.
   // This prevents Keys from being constructed with invalid state that would crash.
@@ -3099,6 +3332,7 @@ const App = () => {
           tuningRuntime={tuningRuntime}
           reconstructionKey={keysReconstructionImpactKey}
           liveInputSettings={liveInputSettings}
+          liveMidiInputPort={connectedInput}
           liveOutputSettings={liveOutputSettings}
           colorSettings={colorSettings}
           inputRuntime={inputRuntime}

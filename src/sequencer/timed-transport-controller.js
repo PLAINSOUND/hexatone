@@ -504,8 +504,12 @@ export default function useTimedTransportController({
 
   useEffect(() => {
     if (typeof globalThis === "undefined") return undefined;
+    if (!isTimedTransportDiagnosticsEnabled()) {
+      delete globalThis.__hexatoneTimedTransportDiagnostics;
+      return undefined;
+    }
     const api = {
-      enabled: isTimedTransportDiagnosticsEnabled(),
+      enabled: true,
       get: () => summarizeTimedTransportDiagnostics(timedTransportDiagnosticsRef.current),
       getPersisted: () => loadPersistedTimedTransportDiagnostics(),
       reset: () => {

@@ -35,6 +35,7 @@ import { resolveBulkDumpName } from "../tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 import { localBool, localFloat } from "../persistence/storage-utils.js";
 import { debugLog, warnLog } from "../debug/logging.js";
+import { appendPersistedMidiRestoreDiagnostic, isMidiRestoreDiagnosticsEnabled } from "../debug/midi-restore-diagnostics.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
@@ -73,6 +74,11 @@ const snapshotWebMidiPorts = () => {
     onstatechange: null,
   };
 };
+
+function recordMidiRestoreDiagnostic(entry) {
+  if (!isMidiRestoreDiagnosticsEnabled()) return;
+  appendPersistedMidiRestoreDiagnostic(entry);
+}
 
 export const deriveOscVolumes = (settings) => {
   if (Array.isArray(settings.osc_volumes) && settings.osc_volumes.length === 4) {
@@ -551,6 +557,11 @@ const useSynthWiring = (
 
       const request = (async () => {
         setMidiAccessError(null);
+        recordMidiRestoreDiagnostic({
+          type: "ensure-start",
+          midiAccess,
+          sysex,
+        });
         try {
           await enableMidi({ sysex });
           const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
@@ -559,6 +570,12 @@ const useSynthWiring = (
           setMidi(midiAccessObj);
           setMidiAccess(targetAccess);
           sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, targetAccess);
+          recordMidiRestoreDiagnostic({
+            type: "ensure-success",
+            status: "ok",
+            midiAccess: targetAccess,
+            sysex,
+          });
           return true;
         } catch (err) {
           warnLog("Web MIDI could not initialise:", err);
@@ -570,6 +587,13 @@ const useSynthWiring = (
           setMidiAccessError(
             sysex ? "MIDI SysEx access was not granted." : "MIDI access was not granted.",
           );
+          recordMidiRestoreDiagnostic({
+            type: "ensure-failure",
+            status: err?.name ?? "error",
+            detail: err?.message ?? null,
+            midiAccess,
+            sysex,
+          });
           return false;
         } finally {
           midiRequestRef.current = null;
@@ -580,6 +604,90 @@ const useSynthWiring = (
       return request;
     },
     [midiAccess],
+  );
+
+  const reconnectMidiAccess = useCallback(
+    async ({ sysex = false } = {}) => {
+      const targetAccess = sysex ? "sysex" : "basic";
+      if (!navigator.requestMIDIAccess) {
+        setMidiAccessError("Web MIDI is not available in this browser.");
+        return false;
+      }
+      if (midiRequestRef.current && midiRequestRef.current.target === `reconnect:${targetAccess}`) {
+        return midiRequestRef.current.promise;
+      }
+
+      const request = (async () => {
+        setMidiAccessError(null);
+        midiRequestRef.current = null;
+        recordMidiRestoreDiagnostic({
+          type: "reconnect-start",
+          midiAccess,
+          sysex,
+        });
+        try {
+          if (midi) midi.onstatechange = null;
+          if (typeof WebMidi.disable === "function") {
+            await WebMidi.disable();
+          }
+          recordMidiRestoreDiagnostic({
+            type: "reconnect-disabled",
+            status: "ok",
+            midiAccess: "none",
+            sysex,
+          });
+        } catch (err) {
+          warnLog("Web MIDI reconnect pre-disable could not complete cleanly:", err);
+          recordMidiRestoreDiagnostic({
+            type: "reconnect-disable-failure",
+            status: err?.name ?? "error",
+            detail: err?.message ?? null,
+            midiAccess,
+            sysex,
+          });
+        }
+
+        try {
+          await enableMidi({ sysex });
+          const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
+          debugLog("midi", sysex ? "Web MIDI API with sysex reconnected!" : "Web MIDI API reconnected!");
+          midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
+          setMidi(midiAccessObj);
+          setMidiAccess(targetAccess);
+          sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, targetAccess);
+          setMidiTick((current) => current + 1);
+          recordMidiRestoreDiagnostic({
+            type: "reconnect-success",
+            status: "ok",
+            midiAccess: targetAccess,
+            sysex,
+          });
+          return true;
+        } catch (err) {
+          warnLog("Web MIDI reconnect could not initialise:", err);
+          setMidi(null);
+          setMidiAccess("none");
+          sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, "none");
+          setMidiAccessError(
+            sysex ? "MIDI SysEx access was not granted." : "MIDI access was not granted.",
+          );
+          recordMidiRestoreDiagnostic({
+            type: "reconnect-failure",
+            status: err?.name ?? "error",
+            detail: err?.message ?? null,
+            midiAccess: "none",
+            sysex,
+          });
+          return false;
+        } finally {
+          midiRequestRef.current = null;
+        }
+      })();
+
+      midiRequestRef.current = { target: `reconnect:${targetAccess}`, promise: request };
+      return request;
+    },
+    [midi, midiAccess],
   );
 
   const disableMidiAccess = useCallback(
@@ -1521,6 +1629,7 @@ const useSynthWiring = (
     midiAccessError,
     ensureMidiAccess,
     enableWebMidi: ensureMidiAccess,
+    reconnectMidiAccess,
     disableWebMidi: disableMidiAccess,
     midiTick,
     loading,

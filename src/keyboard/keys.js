@@ -1932,6 +1932,10 @@ class Keys {
     this._refreshHakenGlideModeForActiveNotes();
   };
 
+  ensureMidiInputBinding = (options = {}) => {
+    return InputMidiListeners.ensureMidiInputBinding.call(this, options);
+  };
+
   getSnapshot() {
     return SequencerSnapshots.captureSnapshot(this);
   }
