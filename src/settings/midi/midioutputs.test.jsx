@@ -128,7 +128,7 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(button.disabled).toBe(true);
   });
 
-  it("updates OSC layer volume imperatively during drag and persists locally on commit", () => {
+  it("updates OSC layer volume through the custom slider and persists locally on commit", () => {
     const onChange = vi.fn();
     const onOscLayerVolumeChange = vi.fn();
 
@@ -136,20 +136,18 @@ describe("MidiOutputs FluidSynth independence", () => {
       <MidiOutputs
         {...makeProps({
           output_osc: true,
-          osc_volume_pluck: 0.5,
+          osc_volume_pluck: 0.72,
         })}
         onChange={onChange}
         onOscLayerVolumeChange={onOscLayerVolumeChange}
       />,
     );
 
-    const slider = screen.getAllByRole("slider")[0];
-    fireEvent.input(slider, { target: { value: "0.73" } });
+    const slider = screen.getByRole("slider", { name: "Pluck volume" });
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
 
     expect(onOscLayerVolumeChange).toHaveBeenCalledWith(0, 0.73);
     expect(onChange).not.toHaveBeenCalledWith("osc_volume_pluck", 0.73);
-
-    fireEvent.change(slider, { target: { value: "0.73" } });
 
     expect(onChange).not.toHaveBeenCalledWith("osc_volume_pluck", 0.73);
     expect(localStorage.getItem("osc_volume_pluck")).toBe("0.73");
