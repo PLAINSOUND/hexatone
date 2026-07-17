@@ -122,23 +122,23 @@ export function deriveSnapshotDegreeList(notes, runtime) {
   if (!scaleLength || !Array.isArray(notes)) return [];
   const degrees = [];
   for (const note of notes) {
-    const exactDegree = exactDegreeForSnapshotNote(note, runtime);
-    if (Number.isFinite(exactDegree)) {
-      degrees.push(mod(exactDegree, scaleLength));
-      continue;
-    }
     const frequency = noteFrequency(note);
     const pitchCents = absoluteCentsForFrequency(frequency, normalizedRuntime);
-    if (!Number.isFinite(pitchCents)) continue;
-    const nearest = findNearestDegree(
-      pitchCents,
-      scale,
-      Number(normalizedRuntime?.equivInterval ?? 1200),
-      Number.POSITIVE_INFINITY,
-      "accept",
-    );
-    if (!nearest) continue;
-    degrees.push(mod(nearest.steps, scaleLength));
+    if (Number.isFinite(pitchCents)) {
+      const nearest = findNearestDegree(
+        pitchCents,
+        scale,
+        Number(normalizedRuntime?.equivInterval ?? 1200),
+        Number.POSITIVE_INFINITY,
+        "accept",
+      );
+      if (nearest) {
+        degrees.push(mod(nearest.steps, scaleLength));
+        continue;
+      }
+    }
+    const exactDegree = exactDegreeForSnapshotNote(note, runtime);
+    if (Number.isFinite(exactDegree)) degrees.push(mod(exactDegree, scaleLength));
   }
   return uniqueSorted(degrees);
 }

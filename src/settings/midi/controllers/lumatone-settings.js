@@ -68,12 +68,14 @@ const LumatoneSettings = ({
   const filterActive = settings.lumatone_degree_filter_mode === "filter";
   const showSnapshotFilters = !!settings.lumatone_degree_filter_snapshots;
   const filterRuntime = useMemo(
-    () => tuningRuntime ?? {
-      scale: settings.scale,
-      equivInterval: settings.equivInterval,
+    () => ({
+      ...(tuningRuntime ?? {
+        scale: settings.scale,
+        equivInterval: settings.equivInterval,
+      }),
       referenceDegree: settings.reference_degree,
       fundamental: settings.fundamental,
-    },
+    }),
     [
       settings.equivInterval,
       settings.fundamental,

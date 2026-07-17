@@ -55,20 +55,17 @@ describe("snapshot-filter-library", () => {
     })).toEqual([0, 4, 9]);
   });
 
-  it("prefers exact monzo identity over nearest-frequency matching", () => {
+  it("falls back to exact monzo identity when snapshot pitch data is unavailable", () => {
     expect(deriveSnapshotDegreeList([
       {
-        midicents: 69,
         ratioText: "45/32",
         monzo: [-5, 2, 1],
       },
       {
-        midicents: 64,
         ratioText: "9/8",
         monzo: [-3, 2, 0],
       },
       {
-        midicents: 60,
         ratioText: "153/128",
         monzo: [-7, 2, 0, 0, 0, 0, 1],
       },
@@ -113,5 +110,30 @@ describe("snapshot-filter-library", () => {
     runtime.fundamental = tuning.fundamental ?? 440;
 
     expect(deriveSnapshotDegreeList(sequence.snapshots[0].notes, runtime)).toEqual([11, 17, 29, 34, 56]);
+  });
+
+  it("maps FALL snapshot 1 to the nearest available Elsie Hamilton degrees by sounding pitch", () => {
+    const tuning = JSON.parse(
+      readFileSync(
+        "src/hexatone/preset-tunings/12-note-scales/12-subharmonic-elsie-hamilton-e-a-d-13-limit.json",
+        "utf8",
+      ),
+    );
+    const sequence = JSON.parse(
+      readFileSync(
+        "src/sequencer/preset-sequences/marc-sabat/FALL.json",
+        "utf8",
+      ),
+    );
+    const workspace = createScaleWorkspace({
+      scale: tuning.scale,
+      reference_degree: tuning.reference_degree ?? 0,
+      fundamental: tuning.fundamental ?? 440,
+    });
+    const runtime = normalizeWorkspaceForKeys(workspace);
+    runtime.referenceDegree = tuning.reference_degree ?? 0;
+    runtime.fundamental = tuning.fundamental ?? 440;
+
+    expect(deriveSnapshotDegreeList(sequence.snapshots[0].notes, runtime)).toEqual([4, 5, 7, 8, 11]);
   });
 });

@@ -87,12 +87,14 @@ const HakenContinuumSettings = ({
   const filterActive = settings.hakenaudio_raster_filter_mode === "filter";
   const showSnapshotFilters = !!settings.hakenaudio_raster_filter_snapshots;
   const filterRuntime = useMemo(
-    () => tuningRuntime ?? {
-      scale: settings.scale,
-      equivInterval: settings.equivInterval,
+    () => ({
+      ...(tuningRuntime ?? {
+        scale: settings.scale,
+        equivInterval: settings.equivInterval,
+      }),
       referenceDegree: settings.reference_degree,
       fundamental: settings.fundamental,
-    },
+    }),
     [
       settings.equivInterval,
       settings.fundamental,
