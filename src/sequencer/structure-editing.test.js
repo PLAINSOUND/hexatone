@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addBarsBeforeSnapshots,
   addSequenceBarMarker,
@@ -172,6 +172,7 @@ describe("structure editing", () => {
   });
 
   it("allows moving a bar to the implicit terminal position without treating it as a collision", () => {
+    const confirmReplace = vi.fn(() => true);
     const result = moveSequenceBarMarker({
       bars: [
         { id: 1, position: 1, numerator: 4, denominator: 4 },
@@ -184,13 +185,16 @@ describe("structure editing", () => {
       barId: 2,
       position: 4,
       nextBarId: 2,
+      confirmReplace,
     });
 
     expect(result.bars.find((bar) => bar.id === 2)?.position).toBe(4);
     expect(result.nextBarId).toBe(2);
+    expect(confirmReplace).not.toHaveBeenCalled();
   });
 
   it("preserves root-bar replacement semantics while ignoring the implicit terminal slot", () => {
+    const confirmReplace = vi.fn(() => true);
     const result = updateSequenceBarMarker({
       bars: [
         { id: 1, position: 1, numerator: 4, denominator: 4 },
@@ -203,6 +207,7 @@ describe("structure editing", () => {
       barId: 1,
       updates: { position: 4, numerator: 3, denominator: 2 },
       nextBarId: 2,
+      confirmReplace,
     });
 
     expect(result.bars.find((bar) => bar.id === 3)).toMatchObject({
@@ -211,6 +216,28 @@ describe("structure editing", () => {
       denominator: 2,
     });
     expect(result.nextBarId).toBe(3);
+    expect(confirmReplace).not.toHaveBeenCalled();
+  });
+
+  it("does not prompt when moving a bar anywhere in the implicit tail beyond the terminal slot", () => {
+    const confirmReplace = vi.fn(() => true);
+    const result = moveSequenceBarMarker({
+      bars: [
+        { id: 1, position: 1, numerator: 4, denominator: 4 },
+        { id: 2, position: 3, numerator: 4, denominator: 4 },
+      ],
+      snapshots: [
+        { id: "s1", length: 1, notes: [] },
+        { id: "s2", length: 1, notes: [] },
+      ],
+      barId: 2,
+      position: 5,
+      nextBarId: 2,
+      confirmReplace,
+    });
+
+    expect(result.bars.find((bar) => bar.id === 2)?.position).toBe(5);
+    expect(confirmReplace).not.toHaveBeenCalled();
   });
 
   it("returns the decremented id seed when adding a duplicate bar is cancelled", () => {

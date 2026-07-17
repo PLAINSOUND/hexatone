@@ -140,7 +140,7 @@ function normalizeRequestedBarPosition(position, bars = []) {
 function findExistingBarAtPosition(bars, excludedBarId, nextPosition, snapshots) {
   const remainingBars = (bars ?? []).filter((bar) => bar.id !== excludedBarId);
   const terminalPosition = deriveTerminalBarlinePosition(snapshots, remainingBars);
-  if (Math.abs(Number(terminalPosition) - Number(nextPosition)) < 1e-9) return null;
+  if (Number(nextPosition) >= Number(terminalPosition) - 1e-9) return null;
   return (bars ?? []).find((bar) => (
     bar.id !== excludedBarId && Math.abs(Number(bar.position) - Number(nextPosition)) < 1e-9
   )) ?? null;
