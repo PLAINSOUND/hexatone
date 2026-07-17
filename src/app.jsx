@@ -920,6 +920,8 @@ const App = () => {
   const previousSequencePlaybackPitchOffsetRef = useRef(0);
   const snapshotIdRef = useRef(0);
   const sequenceBarIdRef = useRef(1);
+  const snapshotsRef = useRef([]);
+  const sequenceBarsRef = useRef(defaultSequenceBars);
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
   const modulationPaletteRef = useRef(null);
@@ -929,24 +931,34 @@ const App = () => {
   const snapshotPaletteDragRef = useRef(null);
   const snapshotPaletteUserMovedRef = useRef(false);
 
+  useEffect(() => {
+    snapshotsRef.current = snapshots;
+  }, [snapshots]);
+
+  useEffect(() => {
+    sequenceBarsRef.current = sequenceBars;
+  }, [sequenceBars]);
+
   const appendSequenceSnapshot = useCallback((notes = []) => {
     const nextSnapshotId = snapshotIdRef.current + 1;
     const result = appendSnapshotToWorkspace({
-      snapshots,
+      snapshots: snapshotsRef.current,
       notes,
       snapshotLabelMode,
       sequenceAutoCreateBars,
-      sequenceBars,
+      sequenceBars: sequenceBarsRef.current,
       nextSnapshotId,
       nextBarId: sequenceBarIdRef.current,
     });
     snapshotIdRef.current = result.ids.snapshotId;
     sequenceBarIdRef.current = result.ids.barId;
+    snapshotsRef.current = result.snapshots;
+    sequenceBarsRef.current = result.bars;
     setSnapshots(result.snapshots);
     setSequenceBars(result.bars);
     setSelectedSnapshotId(result.selectedSnapshotId);
     setSelectedSnapshotMarker(result.selectedSnapshotMarker);
-  }, [sequenceAutoCreateBars, sequenceBars, snapshotLabelMode, snapshots]);
+  }, [sequenceAutoCreateBars, snapshotLabelMode]);
 
   const onTakeSnapshot = useCallback(() => {
     const notes = keysRef.current?.getSnapshot();
@@ -962,6 +974,8 @@ const App = () => {
     const workspace = buildLoadedSequenceWorkspace(sequence, options);
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
+    snapshotsRef.current = workspace.snapshots;
+    sequenceBarsRef.current = workspace.bars;
     setSnapshots(workspace.snapshots);
     setSequenceBars(workspace.bars);
     setSequenceTempi(workspace.tempi);
@@ -998,6 +1012,8 @@ const App = () => {
     if (!restoredSequence) return;
     const workspace = buildRestoredSequenceWorkspace(restoredSequence);
 
+    snapshotsRef.current = workspace.snapshots;
+    sequenceBarsRef.current = workspace.bars;
     setSnapshots(workspace.snapshots);
     setSequenceBars(workspace.bars);
     setSequenceTempi(workspace.tempi);
