@@ -3303,10 +3303,10 @@ td.scale-color-col .color-input {
 
 .sequencer-event__cue-number-wrap {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 0.42rem;
+  grid-template-columns: minmax(0, 1fr) 0.5rem;
   align-items: center;
   min-width: 0;
-  column-gap: 0.12em;
+  column-gap: 0.2em;
 }
 
 .sequencer-event__cue-number {
@@ -3347,10 +3347,7 @@ td.scale-color-col .color-input {
 
 .sequencer-event__cue-marker--courtesy .sequencer-event__cue-number-group {
   gap: 0;
-}
-
-.sequencer-event__cue-marker--courtesy .sequencer-event__cue-number-wrap {
-  transform: translateX(0.22em);
+  transform: translateX(0.3em);
 }
 
 .sequencer-event__cue-actions {
