@@ -39,6 +39,10 @@ import {
   PER_CONTROLLER_ENTRIES,
   CROSS_CONTROLLER_ENTRIES,
 } from "../persistence/settings-registry.js";
+import {
+  controllerRequiresMpeInput,
+  getControllerMpeInputPolicy,
+} from "../controllers/registry.js";
 
 const MODE_SCOPED_URL_PREFS = [
   {
@@ -75,8 +79,9 @@ function getModeDefault(controller, modeKey, key) {
 
 function getForcedControllerPrefValue(controller, key) {
   if (key === "midiin_mpe_input") {
-    if (controller?.id === "hakenaudio") return true;
-    if (controller?.id === "lumatone") return false;
+    const policy = getControllerMpeInputPolicy(controller);
+    if (policy === "always") return true;
+    if (policy === "never") return false;
   }
   if (key === "midi_passthrough" && controller?.id === "hakenaudio") {
     return false;
@@ -150,8 +155,9 @@ function parseLocalValue(raw, type) {
  *
  * Per-controller prefs: read from `${controller.id}_${key}`.
  *   Falls back to the registry default if never saved.
- *   Special case for midiin_mpe_input: falls back to controller.mpe capability
- *   rather than the registry default (false), so MPE devices default to MPE on.
+ *   Special case for midiin_mpe_input: falls back to controller MPE input policy
+ *   rather than the registry default, so "always" controllers default on and
+ *   "never" controllers default off.
  *
  * Cross-controller prefs: read from plain `key`.
  *   Falls back to a controller mode default when supplied, then the registry
@@ -186,7 +192,7 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
       if (modeDefault !== undefined) {
         update[entry.key] = modeDefault;
       } else if (entry.key === "midiin_mpe_input") {
-        update[entry.key] = controller.id === "hakenaudio" ? true : !!controller.mpe;
+        update[entry.key] = controllerRequiresMpeInput(controller);
       } else if (entry.key === "midi_passthrough" && controller.id === "hakenaudio") {
         update[entry.key] = false;
       } else if (entry.key === "midi_passthrough") {
@@ -344,7 +350,8 @@ export function saveAnchorChannel(controller, channel, settings = null, override
  *   - Anchor note / channel (special, controller-specific fallbacks)
  *   - All local-tier prefs (registry-driven via loadControllerPrefs)
  *     midi_passthrough and midiin_mpe_input use first-connect fallbacks
- *     (controller.passthroughDefault, controller.mpe) when nothing is saved.
+ *     (controller.passthroughDefault, controller MPE input policy) when
+ *     nothing is saved.
  *   - Fixed MPE voice channel range (if controller defines mpeVoiceChannels)
  *   - Controller-specific configurable MPE defaults/bounds
  *     (if controller defines mpeMemberChannelBounds)

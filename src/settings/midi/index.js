@@ -1,6 +1,8 @@
 import PropTypes from "prop-types";
 import {
+  controllerRequiresMpeInput,
   detectController,
+  getControllerMpeInputPolicy,
   getControllerById,
   getTonalPlexusInputMode,
 } from "../../controllers/registry.js";
@@ -58,6 +60,7 @@ const MIDIio = (props) => {
   const detectedController = detectController(deviceName);
   const autoUnknownController = controllerOverrideId === "auto" && !!connectedDevice && !detectedController;
   const ctrl = resolveControllerDisplay(controllerOverrideId, detectedController, connectedDevice);
+  const mpeInputPolicy = autoUnknownController ? "optional" : getControllerMpeInputPolicy(ctrl);
   const tonalPlexus41Mode =
     ctrl?.id === "tonalplexus" && getTonalPlexusInputMode(props.settings) === "blocks_41";
   const tonalPlexus205Mode =
@@ -121,11 +124,11 @@ const MIDIio = (props) => {
   const isLinnstrument = ctrl?.id === "linnstrument";
   const isHakenContinuum = ctrl?.id === "hakenaudio";
   const isGenericMpeController = ctrl?.id === "generic_mpe";
-  const showMpeInputControls = autoUnknownController || (!isLinnstrument && (!ctrl || ctrl.mpe));
+  const showMpeInputSection = !isLinnstrument && mpeInputPolicy !== "never";
+  const showMpeInputControls = !isLinnstrument && mpeInputPolicy === "optional";
   const mpeInputEnabled =
-    isHakenContinuum ||
-    isGenericMpeController ||
-    (showMpeInputControls && !!props.settings.midiin_mpe_input);
+    controllerRequiresMpeInput(ctrl) ||
+    (mpeInputPolicy !== "never" && !!props.settings.midiin_mpe_input);
   const linnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
     controllerId: ctrl?.id ?? null,
     scaleMode,
@@ -163,8 +166,8 @@ const MIDIio = (props) => {
   const linnstrumentPitchBendShape = props.settings.linnstrument_pitch_bend_shape ?? 60;
   const linnstrumentXSpikeReduction = props.settings.linnstrument_x_spike_reduction ?? 25;
   const linnstrumentXInputSmoothing = props.settings.linnstrument_x_input_smoothing ?? 80;
-  const showExquisBendControls = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input);
-  const showWheelToRecent = !(ctrl?.id === "exquis" && !props.settings.midiin_mpe_input) && !isLinnstrument;
+  const showExquisBendControls = !(ctrl?.id === "exquis" && !mpeInputEnabled);
+  const showWheelToRecent = !(ctrl?.id === "exquis" && !mpeInputEnabled) && !isLinnstrument;
   const showHakenContinuumUi = isHakenContinuum;
   const genericBypassesGeometry = ctrl?.id === "generic" || ctrl?.id === "generic_mpe";
   const mpeMemberChannelBounds = ctrl?.mpeMemberChannelBounds ?? null;
@@ -362,9 +365,9 @@ const MIDIio = (props) => {
               Shown first — MPE mode changes the meaning of all controls below it.
               Shown for MPE-capable controllers and unknown controllers.
               See claude-context/midi-input-ux.md for the full visibility spec. */}
-          {showMpeInputControls && (
+          {showMpeInputSection && (
             <>
-              {!isHakenContinuum && !isGenericMpeController && (
+              {showMpeInputControls && !isHakenContinuum && !isGenericMpeController && (
                 <label>
                   Enable MPE Input
                   <input
@@ -630,10 +633,10 @@ const MIDIio = (props) => {
                         if (linnstrumentUserFirmwareEligible && e.target.checked) {
                           deactivateLinnstrumentUserFirmwareNow();
                         }
-                        if (ctrl?.id === "linnstrument" && e.target.checked && !props.settings.midiin_mpe_input) {
+                        if (ctrl?.id === "linnstrument" && e.target.checked && !mpeInputEnabled) {
                           applyLinnstrumentBypassNonMpeDefaults();
                         }
-                        if (ctrl?.id === "linnstrument" && e.target.checked && props.settings.midiin_mpe_input) {
+                        if (ctrl?.id === "linnstrument" && e.target.checked && mpeInputEnabled) {
                           applyLinnstrumentMpeDefaults();
                         }
                         props.onChange("midi_passthrough", e.target.checked);
@@ -760,7 +763,7 @@ const MIDIio = (props) => {
                     />
                   </span>
                 </label>
-                {!props.settings.midiin_mpe_input && showWheelToRecent && (
+                {!mpeInputEnabled && showWheelToRecent && (
                   <label>
                     Pitch Wheel → Most Recent Note
                     <input
@@ -862,7 +865,7 @@ const MIDIio = (props) => {
           )}
 
           {/* Pitch Wheel → Most Recent Note — shown only when MPE is off */}
-          {ctrl && !props.settings.midiin_mpe_input && showWheelToRecent && (
+          {ctrl && !mpeInputEnabled && showWheelToRecent && (
             <label>
               Pitch Wheel → Most Recent Note
               <input
@@ -927,7 +930,7 @@ const MIDIio = (props) => {
                 xInputSmoothing={linnstrumentXInputSmoothing}
                 showPitchBlock={true}
               />
-            ) : (props.settings.midiin_mpe_input || props.settings.wheel_to_recent ? (
+            ) : (mpeInputEnabled || props.settings.wheel_to_recent ? (
               <label title="Pitch Bending Interval: the musical interval that ±full deflection maps to. Set hardware to max range for best resolution.">
                 Pitch Bending Interval (ratio/cents)
                 <ScalaInput

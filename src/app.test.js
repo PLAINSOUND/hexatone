@@ -183,6 +183,8 @@ vi.mock("./controllers/linnstrument-user-firmware.js", () => ({
 vi.mock("./controllers/registry.js", () => ({
   detectController: () => mockDetectedController,
   getControllerById: () => mockControllerById,
+  getControllerMpeInputPolicy: (controller) => controller?.mpeInputPolicy ?? "never",
+  controllerRequiresMpeInput: (controller) => controller?.mpeInputPolicy === "always",
 }));
 
 // ── Loading spinner ───────────────────────────────────────────────────────────

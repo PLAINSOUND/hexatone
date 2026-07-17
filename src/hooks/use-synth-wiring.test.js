@@ -334,13 +334,13 @@ describe("use-synth-wiring controller resolution", () => {
   it("detects Haken Continuum inputs as the dedicated Haken controller entry", () => {
     const ctrl = resolveInputController({ name: "Haken Audio Continuum" });
     expect(ctrl?.id).toBe("hakenaudio");
-    expect(ctrl?.mpe).toBe(true);
+    expect(ctrl?.mpeInputPolicy).toBe("always");
   });
 
   it("treats UM-ONE as a Haken Continuum auto-detect fallback", () => {
     const ctrl = resolveInputController({ name: "UM-ONE" });
     expect(ctrl?.id).toBe("hakenaudio");
-    expect(ctrl?.mpe).toBe(true);
+    expect(ctrl?.mpeInputPolicy).toBe("always");
   });
 
   it("honors manual controller override before port-name detection", () => {

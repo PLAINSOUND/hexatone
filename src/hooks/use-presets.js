@@ -18,7 +18,10 @@ import { settingsToAbletonScala } from "../settings/scale/parse-scale.js";
 import { loadUserTunings } from "../hexatone/user-tunings.js";
 import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "../persistence/settings-registry.js";
 import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
-import { getControllerById } from "../controllers/registry.js";
+import {
+  getControllerById,
+  getControllerMpeInputPolicy,
+} from "../controllers/registry.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "../input/controller-anchor.js";
 import { deriveKeyColorFlags } from "../settings/scale/key-colors-mode.js";
 import { primeSharedSampleAudio } from "../sample_synth/prime-shared-audio.js";
@@ -377,13 +380,13 @@ function normalizePresetControllerInputSettings(preset = {}) {
     normalized.midiin_controller_override && normalized.midiin_controller_override !== "auto"
       ? normalized.midiin_controller_override
       : activePresetAnchorConfig?.controllerId ?? null;
+  const controller = controllerId ? getControllerById(controllerId) : null;
+  const policy = getControllerMpeInputPolicy(controller);
 
-  if (controllerId === "lumatone") {
-    normalized.midiin_mpe_input = false;
-  }
-
-  if (controllerId === "hakenaudio") {
+  if (policy === "always") {
     normalized.midiin_mpe_input = true;
+  } else if (policy === "never") {
+    normalized.midiin_mpe_input = false;
   }
 
   return normalized;

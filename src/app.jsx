@@ -62,7 +62,12 @@ import {
 import useImport from "./hooks/use-import.js";
 import useSettingsChange from "./hooks/use-settings-change.js";
 import sessionDefaults from "./settings/session-defaults.js";
-import { detectController, getControllerById } from "./controllers/registry.js";
+import {
+  controllerRequiresMpeInput,
+  detectController,
+  getControllerById,
+  getControllerMpeInputPolicy,
+} from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
 import Sequencer from "./sequencer/sequencer.jsx";
@@ -2319,6 +2324,9 @@ const App = () => {
     if (overrideId !== "auto") return getControllerById(overrideId);
     return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
   }, [connectedInput, settings.midiin_controller_override]);
+  const effectiveMpeInput =
+    controllerRequiresMpeInput(inputController) ||
+    (getControllerMpeInputPolicy(inputController) !== "never" && !!settings.midiin_mpe_input);
   const linnstrumentUserFirmwareEligible =
     inputController?.id === "linnstrument" &&
     (settings.midiin_mapping_target || "hex_layout") !== "scale" &&
@@ -2329,7 +2337,7 @@ const App = () => {
     inputController?.id === "linnstrument" &&
     (settings.midiin_mapping_target || "hex_layout") !== "scale" &&
     !!settings.midi_passthrough &&
-    !settings.midiin_mpe_input &&
+    !effectiveMpeInput &&
     !!settings.midiin_device &&
     settings.midiin_device !== "OFF";
   const linnstrumentBypassChannelPerRow =
@@ -2380,7 +2388,7 @@ const App = () => {
         inputController?.id === "hakenaudio"
           ? "controller_geometry"
           : (settings.midi_passthrough ? "sequential" : "controller_geometry"),
-      mpeInput: inputController?.id === "hakenaudio" ? true : !!settings.midiin_mpe_input,
+      mpeInput: effectiveMpeInput,
       seqAnchorNote: normalizedSeqAnchor.note,
       seqAnchorChannel: normalizedSeqAnchor.channel,
       stepsPerChannel: settings.midiin_steps_per_channel,
@@ -2423,7 +2431,7 @@ const App = () => {
       normalizedSeqAnchor,
       settings.midiin_mapping_target,
       settings.midi_passthrough,
-      settings.midiin_mpe_input,
+      effectiveMpeInput,
       settings.midiin_steps_per_channel,
       settings.equivSteps,
       settings.midiin_channel_group_size,
@@ -2556,7 +2564,7 @@ const App = () => {
         },
         settings.exquis_led_luminosity ?? 15,
         settings.exquis_led_saturation ?? 1.3,
-        settings.midiin_mpe_input ?? true,
+        effectiveMpeInput,
       );
       if (disposed) {
         leds.exit();
@@ -2580,9 +2588,9 @@ const App = () => {
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.
   useEffect(() => {
     if (exquisLedsRef.current?.ready) {
-      exquisLedsRef.current.setMPEMode(!!settings.midiin_mpe_input);
+      exquisLedsRef.current.setMPEMode(effectiveMpeInput);
     }
-  }, [settings.midiin_mpe_input]);
+  }, [effectiveMpeInput]);
 
   useEffect(() => {
     if (

@@ -23,14 +23,14 @@ const AXIS49 = {
   id: "axis49",
   anchorDefault: 53,
   anchorChannelDefault: undefined,
-  mpe: false,
+  mpeInputPolicy: "never",
 };
 
 const GENERIC = {
   id: "generic",
   anchorDefault: 60,
   anchorChannelDefault: undefined,
-  mpe: false,
+  mpeInputPolicy: "never",
 };
 
 // Channel-aware controller (Lumatone)
@@ -38,7 +38,7 @@ const LUMATONE = {
   id: "lumatone",
   anchorDefault: 26,
   anchorChannelDefault: 3,
-  mpe: false,
+  mpeInputPolicy: "never",
 };
 
 // Mode-aware AXIS-49 (matches the real registry entry)
@@ -46,7 +46,7 @@ const AXIS49_MODES = {
   id: "axis49",
   anchorDefault: 53,
   anchorChannelDefault: undefined,
-  mpe: false,
+  mpeInputPolicy: "never",
   defaultMode: "layout2d",
   modes: {
     layout2d: {
@@ -71,7 +71,7 @@ function makeSingleChannelModes(id, layout2dNote, bypassNote = 60) {
     id,
     anchorDefault: layout2dNote,
     anchorChannelDefault: undefined,
-    mpe: false,
+    mpeInputPolicy: "never",
     defaultMode: "layout2d",
     modes: {
       layout2d: { defaultPrefs: { anchorNote: layout2dNote, midi_passthrough: false } },
@@ -95,7 +95,7 @@ const LUMATONE_MODES = {
   id: "lumatone",
   anchorDefault: 26,
   anchorChannelDefault: 3,
-  mpe: false,
+  mpeInputPolicy: "never",
   sequentialTransposeDefault: null, // null = equave per channel
   sequentialLegacyDefault: true, // wrap channels 9–16 → 1–8
   defaultMode: "layout2d",
@@ -122,7 +122,7 @@ const TONALPLEXUS_MODES = {
   id: "tonalplexus",
   anchorDefault: 7,
   anchorChannelDefault: 9,
-  mpe: false,
+  mpeInputPolicy: "never",
   sequentialTransposeDefault: null,
   sequentialChannelGroupSize: 1,
   sequentialLegacyDefault: false,
@@ -154,7 +154,7 @@ const LINNSTRUMENT = {
   id: "linnstrument",
   anchorDefault: 30,
   anchorChannelDefault: undefined,
-  mpe: true,
+  mpeInputPolicy: "always",
   mpeVoiceChannels: null,
 };
 
@@ -162,7 +162,7 @@ const HAKEN = {
   id: "hakenaudio",
   anchorDefault: 60,
   anchorChannelDefault: undefined,
-  mpe: true,
+  mpeInputPolicy: "always",
   mpeVoiceChannels: null,
   mpeMemberChannelBounds: {
     min: 2,
@@ -205,7 +205,7 @@ const EXQUIS = {
   id: "exquis",
   anchorDefault: 19,
   anchorChannelDefault: undefined,
-  mpe: true,
+  mpeInputPolicy: "optional",
   mpeVoiceChannels: { lo: 2, hi: 15 },
   defaultMode: "mpe",
   modes: {

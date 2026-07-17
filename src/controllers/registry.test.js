@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   CONTROLLER_REGISTRY,
+  controllerRequiresMpeInput,
+  controllerSupportsOptionalMpeInput,
   detectController,
+  getControllerMpeInputPolicy,
   normalizeTonalPlexus41Input,
   normalizeTonalPlexus41InputWithSettings,
   normalizeTonalPlexus205Degree,
@@ -252,6 +255,14 @@ describe("controller registry", () => {
     const linn = getController("linnstrument");
     expect(linn.resolveMode({})).toBe("userfw");
     expect(linn.resolveMode({ midiin_mpe_input: true })).toBe("userfw");
+  });
+
+  it("declares explicit MPE input policy for representative controllers", () => {
+    expect(getControllerMpeInputPolicy(getController("hakenaudio"))).toBe("always");
+    expect(getControllerMpeInputPolicy(getController("lumatone"))).toBe("never");
+    expect(getControllerMpeInputPolicy(getController("exquis"))).toBe("optional");
+    expect(controllerRequiresMpeInput(getController("generic_mpe"))).toBe(true);
+    expect(controllerSupportsOptionalMpeInput(getController("exquis"))).toBe(true);
   });
 
   it("anchors TPX 205edo pitch mapping to the current center degree", () => {

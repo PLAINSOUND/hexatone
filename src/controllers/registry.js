@@ -20,14 +20,20 @@ import { detectHakenDeviceName } from "./hakenaudio-detect.js";
  *   description   – shown in UI
  *   multiChannel  – true if channel encodes layout position (e.g. Lumatone blocks)
  *                   false if channel only carries step offset (AXIS-49, Push, etc.)
- *   mpe           – true if the controller sends MPE (per-channel per-voice pitch bend,
- *                   pressure, and CC74). When true, Hexatone should automatically enable
- *                   midiin_mpe_input so each channel's expression is routed to its hex.
- *                   false for single-channel or block-channel controllers.
+ *   mpeInputPolicy – one of:
+ *                      "always"   – MPE input is intrinsic to this controller/mode and
+ *                                   should be hard-coded on (e.g. Haken Continuum,
+ *                                   Generic MPE override).
+ *                      "never"    – MPE input should be hard-coded off because the
+ *                                   controller does not use MPE for note expression
+ *                                   (e.g. Lumatone, AXIS-49).
+ *                      "optional" – controller can operate with or without MPE input,
+ *                                   so the UI exposes the toggle and the setting is
+ *                                   persisted per controller (e.g. Exquis).
  *   mpeVoiceChannels – { lo, hi } if the controller uses a fixed, known MPE voice
  *                   channel range (e.g. Exquis: { lo: 2, hi: 15 }). null means the
  *                   range is user-configurable and the UI picker is shown. Only
- *                   present on entries where mpe is true.
+ *                   present on entries where mpeInputPolicy is not "never".
  *   mpeMemberChannelBounds – optional { min, max, defaultLo, defaultHi } used
  *                   when the controller exposes a user-configurable MPE member
  *                   range but its valid zone is narrower than the generic
@@ -654,7 +660,7 @@ export const CONTROLLER_REGISTRY = [
       name.includes("tonal plexus") || name.includes("tonalplexus") || name.includes("tpx"),
     description: "6 Bosanquet blocks across channel pairs 3–14.",
     multiChannel: true,
-    mpe: false,
+    mpeInputPolicy: "optional",
     anchorDefault: 7,
     anchorChannelDefault: 9,
     sequentialTransposeDefault: null,
@@ -715,7 +721,7 @@ export const CONTROLLER_REGISTRY = [
     description:
       "Haken Audio Continuum MPE+ expressive surface.",
     multiChannel: false,
-    mpe: true,
+    mpeInputPolicy: "always",
     // Continuum voice-channel layouts are hardware/profile dependent, so keep
     // the channel range user-configurable until a dedicated config layer lands.
     mpeVoiceChannels: null,
@@ -762,7 +768,7 @@ export const CONTROLLER_REGISTRY = [
     detect: (name) => name.includes("axis-4") || name.includes("axis 4"),
     description: "Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hexes.",
     multiChannel: false,
-    mpe: false,
+    mpeInputPolicy: "never",
     anchorDefault: 53, // note 53 is the centre key in selfless mode
     defaultMode: "layout2d",
     modes: {
@@ -791,7 +797,7 @@ export const CONTROLLER_REGISTRY = [
     detect: (name) => name.includes("ts41"),
     description: "41edo mode (Ch 1, Notes 1–126). Bosanquet Layout.",
     multiChannel: false,
-    mpe: false,
+    mpeInputPolicy: "never",
     anchorDefault: 36,
     defaultMode: "layout2d",
     modes: {
@@ -820,7 +826,7 @@ export const CONTROLLER_REGISTRY = [
     detect: (name) => name.includes("lumatone") || name.includes("midi function"),
     description: "5 blocks × 56 keys, channels 1–5 encode block position.",
     multiChannel: true,
-    mpe: false, // channels encode block geometry, not per-voice MPE expression
+    mpeInputPolicy: "never", // channels encode block geometry, not per-voice MPE expression
     anchorDefault: 26, // note 26 in centre block is the default centre key
     anchorChannelDefault: 3, // centre block
     // In sequential/bypass mode: channels 1–5 map to blocks — transposition by equave
@@ -884,7 +890,7 @@ export const CONTROLLER_REGISTRY = [
     // ch=row(1-8) and note=col(1-25) are the native UF coordinates.
     // multiChannel=true so keys.js uses the real incoming channel for map lookup.
     multiChannel: true,
-    mpe: false,
+    mpeInputPolicy: "never",
     sequentialTransposeDefault: 0,
     sequentialLegacyDefault: false,
     // Anchor in native UF coordinates: col (1-indexed) + channel/row (1-indexed).
@@ -940,7 +946,7 @@ export const CONTROLLER_REGISTRY = [
       name.includes("push3"),
     description: "8×8 isomorphic grid, single channel. Default 4ths tuning.",
     multiChannel: false,
-    mpe: false,
+    mpeInputPolicy: "never",
     anchorDefault: 36,
     defaultMode: "layout2d",
     modes: {
@@ -968,7 +974,7 @@ export const CONTROLLER_REGISTRY = [
     description:
       "8×8 grid in programmer mode. Set device to scale/isomorphic mode for best results.",
     multiChannel: false,
-    mpe: false,
+    mpeInputPolicy: "never",
     anchorDefault: 36,
     defaultMode: "layout2d",
     modes: {
@@ -998,7 +1004,7 @@ export const CONTROLLER_REGISTRY = [
     descriptionScale:
       "61-note hexagonal grid. User may choose Exquis Layout and MPE/Polytouch mode manually on their device. Set Exquis Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     multiChannel: false,
-    mpe: true, // Exquis sends MPE (per-note pitch bend and pressure on individual channels)
+    mpeInputPolicy: "optional", // Exquis can switch between MPE and non-MPE input handling
     // In Rainbow Layout the Exquis always uses ch 2–15 for MPE voices.
     // This is fixed by the device — the channel range picker is hidden in the UI.
     mpeVoiceChannels: { lo: 2, hi: 15 },
@@ -1036,7 +1042,7 @@ export const CONTROLLER_REGISTRY = [
     description:
       "Scale starts on anchor note + ch (default note 60 ch 1); per-channel scale offset is user-configurable.",
     multiChannel: false,
-    mpe: false,
+    mpeInputPolicy: "never",
     anchorDefault: 60,
     anchorChannelDefault: 1,
     supportsSequentialChannelOffset: true,
@@ -1058,7 +1064,7 @@ export const CONTROLLER_REGISTRY = [
     description:
       "Incoming notes are matched to the nearest scale degree and per-channel polyphonic expression is enabled.",
     multiChannel: false,
-    mpe: true,
+    mpeInputPolicy: "always",
     anchorDefault: 60,
     anchorChannelDefault: 1,
     supportsSequentialChannelOffset: true,
@@ -1083,6 +1089,18 @@ export function detectController(deviceName) {
   if (!deviceName) return null;
   const name = deviceName.toLowerCase();
   return CONTROLLER_REGISTRY.find((c) => c.detect(name)) ?? null;
+}
+
+export function getControllerMpeInputPolicy(controller) {
+  return controller?.mpeInputPolicy ?? "never";
+}
+
+export function controllerRequiresMpeInput(controller) {
+  return getControllerMpeInputPolicy(controller) === "always";
+}
+
+export function controllerSupportsOptionalMpeInput(controller) {
+  return getControllerMpeInputPolicy(controller) === "optional";
 }
 
 export function getControllerById(id) {
