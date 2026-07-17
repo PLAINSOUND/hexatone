@@ -44,6 +44,46 @@ function uniqueSorted(values) {
   return [...new Set(values)].sort((a, b) => a - b);
 }
 
+function normalizedRatioText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function normalizedMonzoKey(monzo) {
+  if (!Array.isArray(monzo)) return null;
+  let end = monzo.length;
+  while (end > 0 && Number(monzo[end - 1] ?? 0) === 0) end -= 1;
+  return JSON.stringify(monzo.slice(0, end).map((value) => Number(value) || 0));
+}
+
+function buildExactDegreeLookup(runtime) {
+  const degreeIntervals = Array.isArray(runtime?.degreeIntervals) ? runtime.degreeIntervals : [];
+  if (!degreeIntervals.length) return null;
+  const byMonzo = new Map();
+  const byRatioText = new Map();
+  degreeIntervals.forEach((interval, degree) => {
+    const monzoKey = normalizedMonzoKey(interval?.monzo);
+    if (monzoKey && !byMonzo.has(monzoKey)) byMonzo.set(monzoKey, degree);
+    const ratioText = normalizedRatioText(
+      typeof interval?.ratio?.toFraction === "function"
+        ? interval.ratio.toFraction()
+        : interval?.ratioText,
+    );
+    if (ratioText && !byRatioText.has(ratioText)) byRatioText.set(ratioText, degree);
+  });
+  return { byMonzo, byRatioText };
+}
+
+function exactDegreeForSnapshotNote(note, runtime) {
+  const lookup = buildExactDegreeLookup(runtime);
+  if (!lookup) return null;
+  const monzoKey = normalizedMonzoKey(note?.monzo);
+  if (monzoKey && lookup.byMonzo.has(monzoKey)) return lookup.byMonzo.get(monzoKey);
+  const ratioText = normalizedRatioText(note?.ratioText);
+  if (ratioText && lookup.byRatioText.has(ratioText)) return lookup.byRatioText.get(ratioText);
+  return null;
+}
+
 function normalizeSnapshotRuntime(runtime) {
   const scale = Array.isArray(runtime?.scale) ? runtime.scale : [];
   if (scale.length > 0 && scale.every((entry) => Number.isFinite(Number(entry)))) {
@@ -82,6 +122,11 @@ export function deriveSnapshotDegreeList(notes, runtime) {
   if (!scaleLength || !Array.isArray(notes)) return [];
   const degrees = [];
   for (const note of notes) {
+    const exactDegree = exactDegreeForSnapshotNote(note, runtime);
+    if (Number.isFinite(exactDegree)) {
+      degrees.push(mod(exactDegree, scaleLength));
+      continue;
+    }
     const frequency = noteFrequency(note);
     const pitchCents = absoluteCentsForFrequency(frequency, normalizedRuntime);
     if (!Number.isFinite(pitchCents)) continue;
