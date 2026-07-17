@@ -7,13 +7,6 @@ import { useRef, useEffect } from "preact/hooks";
 import Keys from "./keys";
 import PropTypes from "prop-types";
 
-let midiInputHotReloadRevision = 0;
-if (import.meta.hot) {
-  const hotData = import.meta.hot.data ?? (import.meta.hot.data = {});
-  hotData.midiInputHotReloadRevision = (hotData.midiInputHotReloadRevision ?? 0) + 1;
-  midiInputHotReloadRevision = hotData.midiInputHotReloadRevision;
-}
-
 const sameArray = (a = [], b = []) => {
   if (a === b) return true;
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
@@ -98,23 +91,17 @@ const Keyboard = (props) => {
   }, [props.liveMidiInputPort]);
 
   useEffect(() => {
-    if (!keysRef.current?.ensureMidiInputBinding) return;
-    if (!midiInputHotReloadRevision || midiInputHotReloadRevision <= 1) return;
-    keysRef.current.ensureMidiInputBinding({ force: true });
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") return undefined;
-    if (!keysRef.current?.ensureMidiInputBinding) return undefined;
-    const refreshBinding = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      keysRef.current?.ensureMidiInputBinding();
+    if (!keysRef.current?.ensureMidiInputBinding || typeof window === "undefined") return undefined;
+    const refresh = () => keysRef.current?.ensureMidiInputBinding({ force: true });
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
     };
-    window.addEventListener("pageshow", refreshBinding);
-    document.addEventListener("visibilitychange", refreshBinding);
+    const onPageShow = () => refresh();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pageshow", onPageShow);
     return () => {
-      window.removeEventListener("pageshow", refreshBinding);
-      document.removeEventListener("visibilitychange", refreshBinding);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, []);
 
@@ -185,8 +172,8 @@ const Keyboard = (props) => {
 Keyboard.propTypes = {
   reconstructionKey: PropTypes.string,
   liveInputSettings: PropTypes.object,
-  liveMidiInputPort: PropTypes.object,
   liveOutputSettings: PropTypes.object,
+  liveMidiInputPort: PropTypes.object,
   colorSettings: PropTypes.object,
   lumatoneLedsRef: PropTypes.object,
   exquisLedsRef: PropTypes.object,

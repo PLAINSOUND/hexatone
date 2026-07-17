@@ -73,6 +73,17 @@ function getModeDefault(controller, modeKey, key) {
   return controller?.modes?.[modeKey]?.defaultPrefs?.[key];
 }
 
+function getForcedControllerPrefValue(controller, key) {
+  if (key === "midiin_mpe_input") {
+    if (controller?.id === "hakenaudio") return true;
+    if (controller?.id === "lumatone") return false;
+  }
+  if (key === "midi_passthrough" && controller?.id === "hakenaudio") {
+    return false;
+  }
+  return undefined;
+}
+
 export function getControllerMode(
   controller,
   settings = null,
@@ -162,8 +173,11 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
       ? (localStorage.getItem(getModeScopedStorageKey(controller, modeKey, entry.key)) ??
         localStorage.getItem(getLegacyStorageKey(controller, entry.key)))
       : localStorage.getItem(getLegacyStorageKey(controller, entry.key));
+    const forcedValue = getForcedControllerPrefValue(controller, entry.key);
 
-    if (raw !== null) {
+    if (forcedValue !== undefined) {
+      update[entry.key] = forcedValue;
+    } else if (raw !== null) {
       update[entry.key] = parseLocalValue(raw, entry.type);
     } else {
       const modeDefault = getModeDefault(controller, modeKey, entry.key);
@@ -180,15 +194,9 @@ export function loadControllerPrefs(controller, settings = null, { preferStored 
       } else {
         update[entry.key] = entry.default;
       }
-      if (entry.key === "midiin_mpe_input" && controller.id === "hakenaudio") {
-        update[entry.key] = true;
-      }
     }
-    if (entry.key === "midiin_mpe_input" && controller.id === "hakenaudio") {
-      update[entry.key] = true;
-    }
-    if (entry.key === "midi_passthrough" && controller.id === "hakenaudio") {
-      update[entry.key] = false;
+    if (forcedValue !== undefined) {
+      update[entry.key] = forcedValue;
     }
   }
 

@@ -132,6 +132,23 @@ describe("normalizeTuningRecord", () => {
       }],
     }));
   });
+
+  it("preserves explicit preset anchor fields even when controller override is not set to that device", () => {
+    const record = settingsToTuningRecord({
+      name: "Built-in anchor preserved",
+      scale: ["100.", "1200."],
+      fundamental: 440,
+      midiin_controller_override: "auto",
+      lumatone_anchor_note: 41,
+      lumatone_anchor_channel: 2,
+    });
+
+    expect(record).toEqual(expect.objectContaining({
+      name: "Built-in anchor preserved",
+      lumatone_anchor_note: 41,
+      lumatone_anchor_channel: 2,
+    }));
+  });
 });
 
 describe("normalizeTuningGroup", () => {

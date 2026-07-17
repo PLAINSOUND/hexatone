@@ -1,15 +1,6 @@
-// MIDI restore diagnostics track WebMIDI restore/reconnect and live input
-// rebinding across reloads, wakeups, and dev restarts. Enable with
+// MIDI restore diagnostics are strictly opt-in. Enable with
 // `localStorage.hexatone_debug_midi_restore = "true"` or
 // `?debugMidiRestore=1`.
-
-function roundMetric(value, digits = 3) {
-  if (value == null) return null;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
-  const scale = 10 ** digits;
-  return Math.round(numeric * scale) / scale;
-}
 
 function readMidiRestoreDiagnosticsFlag() {
   if (typeof globalThis === "undefined") return false;
@@ -38,29 +29,14 @@ export function createMidiRestoreDiagnostics(limit = 200) {
   };
 }
 
-export function resetMidiRestoreDiagnostics(state, limit = null) {
-  const nextLimit = limit == null
-    ? Math.max(1, Math.round(Number(state?.limit) || 200))
-    : Math.max(1, Math.round(Number(limit) || 200));
-  return createMidiRestoreDiagnostics(nextLimit);
-}
-
 export function pushMidiRestoreDiagnostic(state, entry = {}) {
   const diagnostics = state ?? createMidiRestoreDiagnostics();
   const normalizedEntry = {
     id: diagnostics.nextId,
     type: String(entry.type || "event"),
-    atMs: roundMetric(entry.atMs, 3),
+    atMs: Number.isFinite(Number(entry.atMs)) ? Math.round(Number(entry.atMs) * 10) / 10 : null,
     detail: entry.detail == null ? null : String(entry.detail),
     status: entry.status == null ? null : String(entry.status),
-    device: entry.device == null ? null : String(entry.device),
-    midiAccess: entry.midiAccess == null ? null : String(entry.midiAccess),
-    sysex: entry.sysex == null ? null : !!entry.sysex,
-    tick: Number.isFinite(Number(entry.tick)) ? Number(entry.tick) : null,
-    listenerHealth: entry.listenerHealth == null ? null : String(entry.listenerHealth),
-    inputId: entry.inputId == null ? null : String(entry.inputId),
-    inputName: entry.inputName == null ? null : String(entry.inputName),
-    outputId: entry.outputId == null ? null : String(entry.outputId),
   };
   const entries = diagnostics.entries.length >= diagnostics.limit
     ? [...diagnostics.entries.slice(1), normalizedEntry]
@@ -91,11 +67,6 @@ export function persistMidiRestoreDiagnostics(state, storage = globalThis?.sessi
   );
 }
 
-export function clearPersistedMidiRestoreDiagnostics(storage = globalThis?.sessionStorage) {
-  if (!storage?.removeItem) return;
-  storage.removeItem(MIDI_RESTORE_DIAGNOSTICS_STORAGE_KEY);
-}
-
 export function loadPersistedMidiRestoreDiagnostics(storage = globalThis?.sessionStorage) {
   if (!storage?.getItem) return null;
   const raw = storage.getItem(MIDI_RESTORE_DIAGNOSTICS_STORAGE_KEY);
@@ -107,13 +78,15 @@ export function loadPersistedMidiRestoreDiagnostics(storage = globalThis?.sessio
   }
 }
 
+export function clearPersistedMidiRestoreDiagnostics(storage = globalThis?.sessionStorage) {
+  if (!storage?.removeItem) return;
+  storage.removeItem(MIDI_RESTORE_DIAGNOSTICS_STORAGE_KEY);
+}
+
 export function appendPersistedMidiRestoreDiagnostic(entry, storage = globalThis?.sessionStorage) {
   if (!isMidiRestoreDiagnosticsEnabled()) return null;
   const persisted = loadPersistedMidiRestoreDiagnostics(storage);
-  const nextState = pushMidiRestoreDiagnostic(persisted?.state, {
-    atMs: performance.now(),
-    ...entry,
-  });
+  const nextState = pushMidiRestoreDiagnostic(persisted?.state, entry);
   persistMidiRestoreDiagnostics(nextState, storage);
   return nextState;
 }
@@ -125,18 +98,13 @@ function installMidiRestoreDiagnosticsGlobal() {
     delete globalThis.__hexatoneMidiRestoreDiagnostics;
     return;
   }
-  const existing = globalThis.__hexatoneMidiRestoreDiagnostics ?? {};
   globalThis.__hexatoneMidiRestoreDiagnostics = {
-    ...existing,
     enabled: true,
-    record: (entry) => (
-      appendPersistedMidiRestoreDiagnostic(entry)
-    ),
+    record: (entry) => appendPersistedMidiRestoreDiagnostic(entry),
     getPersisted: () => loadPersistedMidiRestoreDiagnostics(),
     reset: () => {
-      const nextState = resetMidiRestoreDiagnostics(loadPersistedMidiRestoreDiagnostics()?.state);
-      persistMidiRestoreDiagnostics(nextState);
-      return summarizeMidiRestoreDiagnostics(nextState);
+      clearPersistedMidiRestoreDiagnostics();
+      return null;
     },
   };
 }

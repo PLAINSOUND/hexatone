@@ -117,7 +117,7 @@ export const SETTINGS_REGISTRY = [
     key: "midiin_mpe_input",
     tier: "local",
     type: "bool",
-    default: true,
+    default: false,
     perController: true,
     description: "Enable MPE input for this controller",
   },

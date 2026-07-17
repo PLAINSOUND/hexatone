@@ -396,6 +396,12 @@ describe("loadAnchorSettingsUpdate", () => {
     expect(update.midiin_mpe_input).toBe(false);
   });
 
+  it("ignores stale stored MPE input prefs for Lumatone", () => {
+    localStorage.setItem("lumatone_midiin_mpe_input", "true");
+    const update = loadAnchorSettingsUpdate(LUMATONE);
+    expect(update.midiin_mpe_input).toBe(false);
+  });
+
   it("restores saved channel for Lumatone", () => {
     localStorage.setItem("lumatone_anchor", "10");
     localStorage.setItem("lumatone_anchor_channel", "4");
@@ -592,6 +598,15 @@ describe("Lumatone mode-aware controller prefs", () => {
     expect(update.midiin_anchor_note).toBe(26);
     expect(update.midiin_anchor_channel).toBe(3);
     expect(update.midi_passthrough).toBe(false);
+  });
+
+  it("ignores stale mode-scoped MPE prefs for Lumatone", () => {
+    localStorage.setItem("lumatone__layout2d__midiin_mpe_input", "true");
+    localStorage.setItem("lumatone__bypass__midiin_mpe_input", "true");
+    const updateLayout = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: false });
+    const updateBypass = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
+    expect(updateLayout.midiin_mpe_input).toBe(false);
+    expect(updateBypass.midiin_mpe_input).toBe(false);
   });
 
   it("loads default bypass anchor note and channel when nothing stored", () => {

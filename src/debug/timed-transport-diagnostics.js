@@ -148,11 +148,6 @@ export function persistTimedTransportDiagnostics(state, storage = globalThis?.se
   );
 }
 
-export function clearPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
-  if (!storage?.removeItem) return;
-  storage.removeItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
-}
-
 export function loadPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
   if (!storage?.getItem) return null;
   const raw = storage.getItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
@@ -162,6 +157,11 @@ export function loadPersistedTimedTransportDiagnostics(storage = globalThis?.ses
   } catch {
     return null;
   }
+}
+
+export function clearPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
+  if (!storage?.removeItem) return;
+  storage.removeItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
 }
 
 export function appendPersistedTimedTransportDiagnostic(entry, storage = globalThis?.sessionStorage) {
@@ -179,14 +179,14 @@ function installTimedTransportDiagnosticsGlobal() {
     delete globalThis.__hexatoneTimedTransportDiagnostics;
     return;
   }
-  const existing = globalThis.__hexatoneTimedTransportDiagnostics ?? {};
   globalThis.__hexatoneTimedTransportDiagnostics = {
-    ...existing,
     enabled: true,
-    record: (entry) => (
-      appendPersistedTimedTransportDiagnostic(entry)
-    ),
+    record: (entry) => appendPersistedTimedTransportDiagnostic(entry),
     getPersisted: () => loadPersistedTimedTransportDiagnostics(),
+    reset: () => {
+      clearPersistedTimedTransportDiagnostics();
+      return null;
+    },
   };
 }
 

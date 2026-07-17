@@ -13,7 +13,7 @@ import {
   findPresetTuningByName,
   presetTuningGroups,
 } from "../hexatone/preset-tunings/index.js";
-import { settingsToTuningRecord } from "../hexatone/tuning-record.js";
+import { normalizeTuningRecord, settingsToTuningRecord } from "../hexatone/tuning-record.js";
 import { settingsToAbletonScala } from "../settings/scale/parse-scale.js";
 import { loadUserTunings } from "../hexatone/user-tunings.js";
 import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "../persistence/settings-registry.js";
@@ -279,6 +279,7 @@ const isDirty = (snap, s, modulationLibrary = []) => {
 
 // localStorage key for the "restore on reload" preference
 const PERSIST_ON_RELOAD_KEY = "hexatone_persist_on_reload";
+const RESTORED_PRESET_PAYLOAD_KEY = "hexatone_restored_preset_payload";
 
 function schedulePresetRuntimeReset(callback) {
   if (typeof callback !== "function") return;
@@ -287,6 +288,112 @@ function schedulePresetRuntimeReset(callback) {
     return;
   }
   setTimeout(() => callback(), 0);
+}
+
+const RESTORABLE_INPUT_RUNTIME_KEYS = [
+  "midiin_controller_override",
+  "midiin_mapping_target",
+  "midi_passthrough",
+  "midiin_mpe_input",
+  "midiin_bend_flip",
+  "midiin_bend_range",
+  "midiin_scale_bend_range",
+  "midiin_steps_per_channel",
+  "midiin_channel_legacy",
+  "midiin_scale_tolerance",
+  "midiin_scale_fallback",
+  "midiin_pitchbend_mode",
+  "midiin_pressure_mode",
+  "wheel_to_recent",
+  "wheel_scale_aware",
+  "midi_wheel_semitones",
+  "linnstrument_pitch_bend_mode",
+  "linnstrument_pitch_bend_shape",
+  "linnstrument_x_spike_reduction",
+  "linnstrument_x_input_smoothing",
+  "linnstrument_channel_allocation",
+  "hakenaudio_x_glide_shaping",
+  "hakenaudio_x_glide_mode",
+  "hakenaudio_glide_flip_cc",
+  "hakenaudio_pressure_velocity",
+  "hakenaudio_note_off_delay",
+  "hakenaudio_raster_throttle_ms",
+  "hakenaudio_raster_stability",
+  "hakenaudio_raster_filter_mode",
+  "hakenaudio_raster_filter",
+];
+
+function buildRestorablePresetPayload(source, appliedSettings, savedLibrary = []) {
+  if (!source || !appliedSettings) return null;
+  const canonicalPreset =
+    settingsToTuningRecord(appliedSettings, {
+      modulation_library: savedLibrary,
+    }) ??
+    normalizeTuningRecord({
+      ...appliedSettings,
+      modulation_library: normalizeModulationHistory(savedLibrary, { zeroCounts: true }),
+    }, { allowEmptyScale: true });
+  if (!canonicalPreset) return null;
+  for (const key of RESTORABLE_INPUT_RUNTIME_KEYS) {
+    if (appliedSettings[key] !== undefined) {
+      canonicalPreset[key] = appliedSettings[key];
+    }
+  }
+  return {
+    source,
+    name: canonicalPreset.name ?? null,
+    preset: canonicalPreset,
+  };
+}
+
+function writeRestorablePresetPayload(source, appliedSettings, savedLibrary = []) {
+  const payload = buildRestorablePresetPayload(source, appliedSettings, savedLibrary);
+  if (!payload) {
+    sessionStorage.removeItem(RESTORED_PRESET_PAYLOAD_KEY);
+    return;
+  }
+  sessionStorage.setItem(RESTORED_PRESET_PAYLOAD_KEY, JSON.stringify(payload));
+}
+
+function readRestorablePresetPayload() {
+  const raw = sessionStorage.getItem(RESTORED_PRESET_PAYLOAD_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    sessionStorage.removeItem(RESTORED_PRESET_PAYLOAD_KEY);
+    return null;
+  }
+}
+
+function clearRestorablePresetPayload() {
+  sessionStorage.removeItem(RESTORED_PRESET_PAYLOAD_KEY);
+}
+
+function normalizePresetControllerInputSettings(preset = {}) {
+  const normalized = { ...preset };
+  const activePresetAnchorConfig = getPresetAnchorConfig(normalized);
+  const controllerId =
+    normalized.midiin_controller_override && normalized.midiin_controller_override !== "auto"
+      ? normalized.midiin_controller_override
+      : activePresetAnchorConfig?.controllerId ?? null;
+
+  if (controllerId === "lumatone") {
+    normalized.midiin_mpe_input = false;
+  }
+
+  if (controllerId === "hakenaudio") {
+    normalized.midiin_mpe_input = true;
+  }
+
+  return normalized;
+}
+
+function adjustPresetForRestore(preset = {}) {
+  return normalizePresetControllerInputSettings({
+    ...preset,
+    hexSize: scaleHexSizeForScreen(preset.hexSize),
+  });
 }
 
 /**
@@ -345,6 +452,7 @@ const usePresets = (
 
     const savedSource = sessionStorage.getItem("hexatone_preset_source");
     const savedName = sessionStorage.getItem("hexatone_preset_name");
+    const savedPayload = readRestorablePresetPayload();
 
     if (!savedSource) {
       const currentScale = settings?.scale;
@@ -365,8 +473,19 @@ const usePresets = (
     if (!savedName) return;
 
     if (isIOS) {
+      const payloadPreset = savedPayload?.source === savedSource &&
+        savedPayload?.name === savedName
+        ? savedPayload.preset
+        : null;
       setActiveSource(savedSource);
       setActivePresetName(savedName);
+      if (payloadPreset) {
+        const savedLibrary = normalizeModulationHistory(payloadPreset.modulation_library, { zeroCounts: true });
+        setPresetModulationLibrary(savedLibrary);
+        onPresetModulationLibraryLoaded?.(savedLibrary);
+        setPendingRestoredPreset({ source: savedSource, name: savedName, preset: payloadPreset });
+        return;
+      }
       if (savedSource === "builtin") {
         const presetData = findPreset(savedName);
         if (presetData) {
@@ -387,20 +506,30 @@ const usePresets = (
           return;
         }
       }
-      setPendingRestoredPreset({ source: savedSource, name: savedName });
+      setPendingRestoredPreset({ source: savedSource, name: savedName, preset: null });
       return;
     }
 
-    if (savedSource === "builtin") {
+    if (savedPayload?.source === savedSource && savedPayload?.name === savedName && savedPayload?.preset) {
+      setRestoredOnMount(true);
+      setActiveSource(savedSource);
+      setActivePresetName(savedName);
+      const adjustedPreset = adjustPresetForRestore(savedPayload.preset);
+      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      const savedLibrary = normalizeModulationHistory(savedPayload.preset.modulation_library, { zeroCounts: true });
+      setPresetModulationLibrary(savedLibrary);
+      onPresetModulationLibraryLoaded?.(savedLibrary);
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      bumpImportCount?.();
+      setSettings(() => merged, { updateUrl: false });
+      schedulePresetRuntimeReset(bumpPresetRuntimeReset);
+    } else if (savedSource === "builtin") {
       setRestoredOnMount(true);
       setActiveSource("builtin");
       setActivePresetName(savedName);
       const presetData = findPreset(savedName);
       if (presetData) {
-        const adjustedPreset = {
-          ...presetData,
-          hexSize: scaleHexSizeForScreen(presetData.hexSize),
-        };
+        const adjustedPreset = adjustPresetForRestore(presetData);
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
         const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
         setPresetModulationLibrary(savedLibrary);
@@ -417,10 +546,7 @@ const usePresets = (
       if (preset) {
         setActiveSource("user");
         setActivePresetName(preset.name);
-        const adjustedPreset = {
-          ...preset,
-          hexSize: scaleHexSizeForScreen(preset.hexSize),
-        };
+        const adjustedPreset = adjustPresetForRestore(preset);
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
         const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
         setPresetModulationLibrary(savedLibrary);
@@ -441,18 +567,24 @@ const usePresets = (
 
   const activatePendingPreset = async () => {
     if (!pendingRestoredPreset) return false;
-    const { source, name } = pendingRestoredPreset;
+    const { source, name, preset: pendingPreset } = pendingRestoredPreset;
     if (isIOS) {
       await primeSharedSampleAudio();
     }
     await onUserInteraction?.();
-    if (source === "builtin") {
+    if (pendingPreset) {
+      const adjustedPreset = adjustPresetForRestore(pendingPreset);
+      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      bumpImportCount?.();
+      const savedLibrary = normalizeModulationHistory(pendingPreset.modulation_library, { zeroCounts: true });
+      setPresetModulationLibrary(savedLibrary);
+      onPresetModulationLibraryLoaded?.(savedLibrary);
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSettings(() => merged);
+    } else if (source === "builtin") {
       const presetData = findPreset(name);
       if (!presetData) return false;
-      const adjustedPreset = {
-        ...presetData,
-        hexSize: scaleHexSizeForScreen(presetData.hexSize),
-      };
+      const adjustedPreset = adjustPresetForRestore(presetData);
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
@@ -463,10 +595,7 @@ const usePresets = (
     } else if (source === "user") {
       const preset = loadUserTunings().find((p) => p.name === name);
       if (!preset) return false;
-      const adjustedPreset = {
-        ...preset,
-        hexSize: scaleHexSizeForScreen(preset.hexSize),
-      };
+      const adjustedPreset = adjustPresetForRestore(preset);
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
@@ -491,16 +620,14 @@ const usePresets = (
     setActivePresetName(presetName);
     sessionStorage.setItem("hexatone_preset_source", "builtin");
     sessionStorage.setItem("hexatone_preset_name", presetName);
-    const adjustedPreset = {
-      ...presetData,
-      hexSize: scaleHexSizeForScreen(presetData.hexSize),
-    };
+    const adjustedPreset = adjustPresetForRestore(presetData);
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
     bumpImportCount?.();
     const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+    writeRestorablePresetPayload("builtin", merged, savedLibrary);
     setSettings(() => merged);
     schedulePresetRuntimeReset(bumpPresetRuntimeReset);
     synthRef.current?.prepare?.();
@@ -535,16 +662,14 @@ const usePresets = (
     } else {
       sessionStorage.removeItem("hexatone_preset_name");
     }
-    const adjustedPreset = {
-      ...preset,
-      hexSize: scaleHexSizeForScreen(preset.hexSize),
-    };
+    const adjustedPreset = adjustPresetForRestore(preset);
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
     bumpImportCount?.();
     const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+    writeRestorablePresetPayload("user", merged, savedLibrary);
     setSettings(() => merged);
     schedulePresetRuntimeReset(bumpPresetRuntimeReset);
   };
@@ -558,6 +683,7 @@ const usePresets = (
     onPresetModulationLibraryLoaded?.([]);
     sessionStorage.removeItem("hexatone_preset_source");
     sessionStorage.removeItem("hexatone_preset_name");
+    clearRestorablePresetPayload();
 
     if (remaining.length > 0) {
       // Load the first remaining preset after the deleted one(s)
@@ -571,11 +697,13 @@ const usePresets = (
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      writeRestorablePresetPayload("user", merged, savedLibrary);
       setSettings(() => merged);
     } else {
       // No user presets remain — return to the blank Hexatone state while
       // preserving runtime/device settings from the current session.
       clearScaleSettings();
+      clearRestorablePresetPayload();
       const merged = mergePresetIntoSettings(settings, buildBlankPresetSettings());
       setSavedPresetSnapshot(null);
       bumpImportCount?.();
@@ -592,8 +720,7 @@ const usePresets = (
     if (activePresetName) {
       const presetData = findPreset(activePresetName);
       const adjustedPreset = {
-        ...presetData,
-        hexSize: scaleHexSizeForScreen(presetData.hexSize),
+        ...adjustPresetForRestore(presetData),
       };
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
@@ -601,6 +728,7 @@ const usePresets = (
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      writeRestorablePresetPayload("builtin", merged, savedLibrary);
       setSettings(() => merged);
       schedulePresetRuntimeReset(bumpPresetRuntimeReset);
     }
@@ -613,16 +741,14 @@ const usePresets = (
     if (activePresetName) {
       const saved = loadUserTunings().find((p) => p.name === activePresetName);
       if (saved) {
-        const adjustedPreset = {
-          ...saved,
-          hexSize: scaleHexSizeForScreen(saved.hexSize),
-        };
+        const adjustedPreset = adjustPresetForRestore(saved);
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
         bumpImportCount?.();
         const savedLibrary = normalizeModulationHistory(saved.modulation_library, { zeroCounts: true });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+        writeRestorablePresetPayload("user", merged, savedLibrary);
         setSettings(() => merged);
         schedulePresetRuntimeReset(bumpPresetRuntimeReset);
       }

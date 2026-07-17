@@ -1,11 +1,10 @@
 # debug README
 
-Hexatone currently exposes four kinds of debug controls:
+Hexatone currently exposes three kinds of debug controls:
 
 1. Log-category flags via `localStorage` / `sessionStorage`
 2. Diagnostics toggles via `localStorage` or URL query params
 3. Console globals for reading persisted diagnostics
-4. MIDI restore diagnostics
 
 ## 1. Log Categories
 
@@ -99,8 +98,48 @@ Notes:
 - `get()` returns the in-memory summary for the current page session.
 - `getPersisted()` returns the persisted session snapshot.
 - `reset()` clears the current diagnostics buffer and persisted copy.
+- When disabled, the persisted snapshot and console global are removed.
 
-## 3. Sequence Runtime Diagnostics
+## 3. MIDI Restore Diagnostics
+
+Enable with either:
+
+```js
+localStorage.setItem("hexatone_debug_midi_restore", "true")
+```
+
+or URL:
+
+```txt
+?debugMidiRestore=1
+```
+
+These diagnostics persist structured MIDI restore / rebind events into `sessionStorage` under:
+
+```txt
+hexatone_midi_restore_diagnostics
+```
+
+### Console global
+
+```js
+globalThis.__hexatoneMidiRestoreDiagnostics
+```
+
+Available methods:
+
+```js
+globalThis.__hexatoneMidiRestoreDiagnostics?.getPersisted()
+globalThis.__hexatoneMidiRestoreDiagnostics?.reset()
+```
+
+Notes:
+
+- This is intended only for reload / restore / device-rebind tracing.
+- The global exists only when explicitly enabled.
+- When disabled, stale persisted MIDI-restore data is removed automatically.
+
+## 4. Sequence Runtime Diagnostics
 
 Enable with either:
 
@@ -138,47 +177,6 @@ Notes:
 - This tracks expensive sequencer derivation steps such as event, cue, timeline, and repeat-section building.
 - It is intended to stay off during normal use.
 
-## 4. MIDI Restore Diagnostics
-
-Enable with either:
-
-```js
-localStorage.setItem("hexatone_debug_midi_restore", "true")
-```
-
-or URL:
-
-```txt
-?debugMidiRestore=1
-```
-
-These diagnostics persist structured WebMIDI restore / reconnect / input-rebind
-events into `sessionStorage` under:
-
-```txt
-hexatone_midi_restore_diagnostics
-```
-
-### Console global
-
-```js
-globalThis.__hexatoneMidiRestoreDiagnostics
-```
-
-Available methods:
-
-```js
-globalThis.__hexatoneMidiRestoreDiagnostics?.getPersisted()
-globalThis.__hexatoneMidiRestoreDiagnostics?.reset()
-```
-
-Notes:
-
-- This is the dedicated tracer for restore-on-reload / Activate Audio Context / WebMIDI reconnect failures.
-- It records `ensure`, `reconnect`, and `input-ensure` / `input-rebind` events.
-- The console global is only installed when the debug flag is enabled. After changing the flag, reload the page.
-- When the flag is off, any persisted MIDI restore trace is cleared on load.
-
 ## Typical examples
 
 Enable MIDI input tracing:
@@ -205,20 +203,14 @@ Enable sequencer runtime profiling:
 localStorage.setItem("hexatone_debug_sequence_runtime", "true")
 ```
 
-Read the persisted sequence-runtime summary:
-
-```js
-globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted()
-```
-
 Enable MIDI restore diagnostics:
 
 ```js
 localStorage.setItem("hexatone_debug_midi_restore", "true")
 ```
 
-Read the last persisted MIDI restore summary:
+Read the persisted sequence-runtime summary:
 
 ```js
-globalThis.__hexatoneMidiRestoreDiagnostics?.getPersisted()
+globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted()
 ```

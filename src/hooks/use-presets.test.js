@@ -524,6 +524,88 @@ describe("usePresets refresh ordering", () => {
     globalThis.requestAnimationFrame = originalRaf;
   });
 
+  it("stores a canonical builtin tuning snapshot for restore-on-reload without runtime MIDI state", async () => {
+    let lastHook = null;
+    const preset = {
+      name: "Sabat mock",
+      scale: ["100.", "1200."],
+      note_names: ["A", "B"],
+      note_colors: ["#ffffff", "#eeeeee"],
+      key_labels: "note_names",
+      fundamental: 440,
+      reference_degree: 0,
+      lumatone_anchor_note: 41,
+      lumatone_anchor_channel: 2,
+    };
+
+    const Harness = () => {
+      const [liveSettings, setLiveSettings] = useState({
+        key_labels: "no_labels",
+        heji_anchor_ratio: "",
+        heji_anchor_label: "",
+        fundamental: 440,
+        reference_degree: 0,
+        midiin_device: "input-1",
+        midiin_controller_override: "lumatone",
+        midiin_mapping_target: "hex_layout",
+        midiin_mpe_input: true,
+        midiin_bend_range: "28/27",
+        midiin_scale_bend_range: 48,
+        wheel_to_recent: true,
+        output_mts: true,
+        midi_device: "out-1",
+        midi_passthrough: false,
+        lumatone_anchor_note: 41,
+        lumatone_anchor_channel: 2,
+      });
+
+      const hook = usePresets(
+        liveSettings,
+        (updater) => {
+          setLiveSettings((previous) => (
+            typeof updater === "function" ? updater(previous) : updater
+          ));
+        },
+        {
+          synthRef: { current: null },
+          onUserInteraction: vi.fn(),
+          bumpImportCount: vi.fn(),
+          bumpPresetRuntimeReset: vi.fn(),
+          currentModulationLibrary: [],
+          setPresetModulationLibrary: vi.fn(),
+          onPresetModulationLibraryLoaded: vi.fn(),
+        },
+      );
+
+      useEffect(() => {
+        lastHook = hook;
+      }, [hook]);
+
+      return null;
+    };
+
+    render(<Harness />);
+
+    await act(async () => {
+      lastHook.onLoadBuiltinPreset(preset);
+    });
+
+    const payload = JSON.parse(sessionStorage.getItem("hexatone_restored_preset_payload"));
+    expect(payload.source).toBe("builtin");
+    expect(payload.name).toBe("Sabat mock");
+    expect(payload.preset.midiin_device).toBeUndefined();
+    expect(payload.preset.midiin_controller_override).toBe("lumatone");
+    expect(payload.preset.midiin_mapping_target).toBe("hex_layout");
+    expect(payload.preset.midiin_mpe_input).toBe(false);
+    expect(payload.preset.midiin_bend_range).toBe("28/27");
+    expect(payload.preset.midiin_scale_bend_range).toBe(48);
+    expect(payload.preset.wheel_to_recent).toBe(true);
+    expect(payload.preset.output_mts).toBeUndefined();
+    expect(payload.preset.midi_device).toBeUndefined();
+    expect(payload.preset.lumatone_anchor_note).toBe(41);
+    expect(payload.preset.lumatone_anchor_channel).toBe(2);
+  });
+
   it("returns to blank settings instead of reloading when the last user preset is deleted", async () => {
     const { loadUserTunings } = await import("../hexatone/user-tunings.js");
     loadUserTunings.mockReturnValue([]);

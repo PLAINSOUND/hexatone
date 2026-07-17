@@ -154,7 +154,7 @@ const useSettingsChange = (
         ...prev,
         midiin_device: value,
         ...(ctrl ? loadAnchorSettingsUpdate(ctrl, prev) : {}),
-      }));
+      }), { updateUrl: false });
       sessionStorage.setItem("midiin_device", value);
       return;
     }
@@ -174,7 +174,7 @@ const useSettingsChange = (
               ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
             })
           : {}),
-      }));
+      }), { updateUrl: false });
       sessionStorage.setItem("midiin_controller_override", value);
       if (outputOverrideKey) sessionStorage.removeItem(outputOverrideKey);
       return;
@@ -188,7 +188,7 @@ const useSettingsChange = (
         ...(ctrl?.id === "tonalplexus"
           ? loadAnchorSettingsUpdate(ctrl, { ...prev, tonalplexus_input_mode: value })
           : {}),
-      }));
+      }), { updateUrl: false });
       return;
     }
 

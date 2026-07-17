@@ -397,6 +397,35 @@ export const hasNegativeScalaExportValues = (settings) => {
 export const derivePresetControllerAnchorFields = (settings = {}) => {
   if (settings.midi_passthrough === true) return {};
 
+  const explicitAnchors = {};
+  if (Number.isFinite(settings.lumatone_anchor_note)) {
+    explicitAnchors.lumatone_anchor_note = settings.lumatone_anchor_note;
+  }
+  if (Number.isFinite(settings.lumatone_anchor_channel)) {
+    explicitAnchors.lumatone_anchor_channel = settings.lumatone_anchor_channel;
+  }
+  if (Number.isFinite(settings.exquis_anchor_note)) {
+    explicitAnchors.exquis_anchor_note = settings.exquis_anchor_note;
+  }
+  if (Number.isFinite(settings.exquis_anchor_channel)) {
+    explicitAnchors.exquis_anchor_channel = settings.exquis_anchor_channel;
+  }
+  if (Number.isFinite(settings.linnstrument_anchor_note)) {
+    explicitAnchors.linnstrument_anchor_note = settings.linnstrument_anchor_note;
+  }
+  if (Number.isFinite(settings.linnstrument_anchor_channel)) {
+    explicitAnchors.linnstrument_anchor_channel = settings.linnstrument_anchor_channel;
+  }
+  if (Number.isFinite(settings.haken_anchor_note)) {
+    explicitAnchors.haken_anchor_note = settings.haken_anchor_note;
+  }
+  if (Number.isFinite(settings.haken_anchor_channel)) {
+    explicitAnchors.haken_anchor_channel = settings.haken_anchor_channel;
+  }
+  if (Object.keys(explicitAnchors).length > 0) {
+    return explicitAnchors;
+  }
+
   if (settings.midiin_controller_override === "lumatone") {
     const anchor = {};
     const note = Number.isFinite(settings.lumatone_anchor_note)

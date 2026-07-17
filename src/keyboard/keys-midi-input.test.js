@@ -2,7 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import Keys from "./keys.js";
 import Point from "./point.js";
 import { WebMidi } from "webmidi";
-import { rebuildControllerMap } from "../input/keys-midi-listeners.js";
+import { ensureMidiInputBinding, rebuildControllerMap } from "../input/keys-midi-listeners.js";
 import { parseExactInterval } from "../tuning/interval.js";
 import {
   applyContinuumPitchShape,
@@ -5014,6 +5014,31 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.controller?.id).toBe("lumatone");
     expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
+  });
+
+  it("does not auto-send Lumatone colors during passive midi input rebinding", () => {
+    const input = {
+      id: "input-1",
+      name: "MIDI Function",
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      hasListener: vi.fn().mockReturnValue(false),
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+    const keys = createKeys({
+      midiin_device: "input-1",
+      midiin_controller_override: "auto",
+      midi_passthrough: false,
+      midiin_anchor_channel: 3,
+      midiin_anchor_note: 26,
+      lumatone_led_sync: true,
+    }, { layoutMode: "controller_geometry" });
+    keys.autoSyncLumatoneLEDs = vi.fn();
+
+    ensureMidiInputBinding.call(keys, { force: true });
+
+    expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
+    expect(input.addListener).toHaveBeenCalled();
   });
 
   it("syncs Exquis colors after a live anchor-map change when auto-send is enabled", () => {

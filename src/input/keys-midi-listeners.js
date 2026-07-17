@@ -9,7 +9,10 @@ import { keymap, notes } from "../midi_synth";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
 import { withMidiJitterInput } from "../debug/midi-jitter.js";
-import { appendPersistedMidiRestoreDiagnostic, isMidiRestoreDiagnosticsEnabled } from "../debug/midi-restore-diagnostics.js";
+import {
+  appendPersistedMidiRestoreDiagnostic,
+  isMidiRestoreDiagnosticsEnabled,
+} from "../debug/midi-restore-diagnostics.js";
 
 const MIDI_INPUT_EVENT_NAMES = [
   "noteon",
@@ -20,48 +23,7 @@ const MIDI_INPUT_EVENT_NAMES = [
   "pitchbend",
   "sysex",
 ];
-
-const MIDI_INPUT_REQUIRED_EVENT_NAMES = [
-  "noteon",
-  "noteoff",
-  "controlchange",
-  "channelaftertouch",
-  "pitchbend",
-];
-
-function inputHasListener(input, eventName) {
-  if (!input || typeof input.hasListener !== "function") return null;
-  try {
-    return !!input.hasListener(eventName);
-  } catch {
-    return null;
-  }
-}
-
-function hasRequiredMidiInputListeners(input) {
-  let sawInspectableListenerState = false;
-  for (const eventName of MIDI_INPUT_REQUIRED_EVENT_NAMES) {
-    const present = inputHasListener(input, eventName);
-    if (present == null) continue;
-    sawInspectableListenerState = true;
-    if (!present) return false;
-  }
-  return sawInspectableListenerState ? true : null;
-}
-
-function recordMidiRestoreDiagnostic(entry) {
-  if (!isMidiRestoreDiagnosticsEnabled()) return;
-  appendPersistedMidiRestoreDiagnostic(entry);
-}
-
-function safePortField(port, key) {
-  if (!port || typeof port !== "object") return null;
-  try {
-    return port[key] ?? null;
-  } catch {
-    return null;
-  }
-}
+const MIDI_INPUT_REQUIRED_EVENT_NAMES = ["noteon", "noteoff", "controlchange", "pitchbend"];
 const LINNSTRUMENT_UF_X_OUTLIER_THRESHOLD = 10;
 const LINNSTRUMENT_UF_X_CONFIRM_TOLERANCE = 4;
 const LINNSTRUMENT_UF_LOW_PRESSURE_THRESHOLD = 40;
@@ -82,6 +44,35 @@ function hasTransientUserActivation() {
   const userActivation = globalThis.navigator?.userActivation;
   // Older browsers do not expose the API; keep the previous behavior there.
   return !userActivation || userActivation.isActive;
+}
+
+function recordMidiRestoreDiagnostic(entry = {}) {
+  if (!isMidiRestoreDiagnosticsEnabled()) return;
+  appendPersistedMidiRestoreDiagnostic({
+    atMs: performance.now(),
+    ...entry,
+  });
+}
+
+function safePortField(port, field) {
+  try {
+    return port?.[field] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function inputHasListener(input, eventName) {
+  if (!input || typeof input.hasListener !== "function") return false;
+  try {
+    return !!input.hasListener(eventName);
+  } catch {
+    return false;
+  }
+}
+
+function hasRequiredMidiInputListeners(input) {
+  return MIDI_INPUT_REQUIRED_EVENT_NAMES.every((eventName) => inputHasListener(input, eventName));
 }
 
 function isHakenMpePlusInputActive() {
@@ -617,69 +608,41 @@ export function syncControllerAutoColors() {
   }
 }
 
-export function rebindMidiInput() {
-  const currentInput = this.midiin_data && typeof this.midiin_data === "object"
-    ? this.midiin_data
-    : null;
+export function rebindMidiInput(options = {}) {
+  const syncColors = options.syncColors !== false;
   recordMidiRestoreDiagnostic({
     type: "input-rebind",
-    device: this.settings?.midiin_device ?? null,
-    inputId: safePortField(currentInput, "id"),
-    inputName: safePortField(currentInput, "name"),
+    detail: safePortField(this.midiin_data, "id") ?? safePortField(this.settings, "midiin_device"),
   });
   teardownMidiInput.call(this);
   setupMidiInput.call(this);
-  syncControllerAutoColors.call(this);
+  if (syncColors) syncControllerAutoColors.call(this);
 }
 
-export function ensureMidiInputBinding({ force = false } = {}) {
-  if (!this.settings?.midiin_device || this.settings.midiin_device === "OFF") {
-    teardownMidiInput.call(this);
-    return false;
-  }
-
+export function ensureMidiInputBinding(options = {}) {
+  const force = options?.force === true;
+  const selectedId = this.settings?.midiin_device;
+  if (!selectedId || selectedId === "OFF") return false;
+  recordMidiRestoreDiagnostic({
+    type: "input-ensure",
+    detail: force ? "force" : "normal",
+  });
   let selectedInput = null;
   try {
-    selectedInput = WebMidi.getInputById(this.settings.midiin_device);
+    selectedInput = WebMidi.getInputById(selectedId);
   } catch {
     selectedInput = null;
   }
-
+  if (!selectedInput) return false;
+  const selectedChanged = selectedInput !== this.midiin_data;
+  const missingListeners = !hasRequiredMidiInputListeners(selectedInput);
+  if (!force && !selectedChanged && !missingListeners) return true;
   recordMidiRestoreDiagnostic({
-    type: "input-ensure",
-    device: this.settings?.midiin_device ?? null,
-    inputId: safePortField(selectedInput, "id"),
-    inputName: safePortField(selectedInput, "name"),
-    listenerHealth: selectedInput ? String(hasRequiredMidiInputListeners(selectedInput)) : "missing",
-    detail: force ? "force" : "normal",
+    type: "input-ensure-rebind",
+    detail: force ? "force" : (selectedChanged ? "selected-changed" : "missing-listeners"),
   });
-
-  if (!selectedInput) {
-    teardownMidiInput.call(this);
-    return false;
-  }
-
-  const sameInputObject = selectedInput === this.midiin_data;
-  const listenerHealth = sameInputObject ? hasRequiredMidiInputListeners(this.midiin_data) : false;
-  if (force || !sameInputObject || listenerHealth === false) {
-    recordMidiRestoreDiagnostic({
-      type: "input-ensure-rebind",
-      device: this.settings?.midiin_device ?? null,
-      inputId: safePortField(selectedInput, "id"),
-      inputName: safePortField(selectedInput, "name"),
-      listenerHealth: listenerHealth == null ? "unknown" : String(listenerHealth),
-      detail: force ? "force" : (!sameInputObject ? "port-replaced" : "listener-health"),
-    });
-    rebindMidiInput.call(this);
-    return true;
-  }
-
-  if (!this.midiin_data) {
-    rebindMidiInput.call(this);
-    return true;
-  }
-
-  return false;
+  rebindMidiInput.call(this, { syncColors: false });
+  return hasRequiredMidiInputListeners(this.midiin_data);
 }
 
 export function setupMidiInput() {
@@ -692,8 +655,10 @@ export function setupMidiInput() {
       } catch {
         this.midiin_data = null;
       }
-      if (!this.midiin_data || typeof this.midiin_data.addListener !== "function") {
+      if (this.midiin_data && typeof this.midiin_data.addListener !== "function") {
         this.midiin_data = null;
+      }
+      if (!this.midiin_data) {
       } else {
         // this.midiin_data exists
 
