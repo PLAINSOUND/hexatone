@@ -24,6 +24,10 @@ import {
 } from "./sequence-drafts.js";
 import { normalizeSequenceNumber } from "./value-runtime.js";
 
+const DRAFT_COMMIT_EVENT = typeof window !== "undefined" && "PointerEvent" in window
+  ? "pointerdown"
+  : "mousedown";
+
 export default function useDraftEditingController({
   snapshots,
   sortedBars,
@@ -278,11 +282,9 @@ export default function useDraftEditingController({
       commitForeignDrafts(eventSequenceDrafts, targetScope, applyEventSequenceDraft);
     };
 
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("mousedown", handlePointerDown, true);
+    document.addEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("mousedown", handlePointerDown, true);
+      document.removeEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     };
   }, [applyEventSequenceDraft, eventSequenceDrafts]);
 
@@ -294,11 +296,9 @@ export default function useDraftEditingController({
       commitForeignDrafts(repeatBarRelativeDrafts, targetScope, applyRepeatBarRelativeDraft);
     };
 
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("mousedown", handlePointerDown, true);
+    document.addEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("mousedown", handlePointerDown, true);
+      document.removeEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     };
   }, [barRelativeDrafts, tempoBarRelativeDrafts, repeatBarRelativeDrafts, applyEventBarRelativeDraft, applyTempoBarRelativeDraft, applyRepeatBarRelativeDraft]);
 
