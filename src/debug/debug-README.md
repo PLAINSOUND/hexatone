@@ -5,6 +5,7 @@ Hexatone currently exposes three kinds of debug controls:
 1. Log-category flags via `localStorage` / `sessionStorage`
 2. Diagnostics toggles via `localStorage` or URL query params
 3. Console globals for reading persisted diagnostics
+4. Crash-oriented sequencer commit tracing
 
 ## 1. Log Categories
 
@@ -214,3 +215,57 @@ Read the persisted sequence-runtime summary:
 ```js
 globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted()
 ```
+
+## 5. Sequencer Crash Diagnostics
+
+Enable with either:
+
+```js
+localStorage.setItem("hexatone_debug_sequencer_crash", "true")
+```
+
+or URL:
+
+```txt
+?debugSequencerCrash=1
+```
+
+These diagnostics persist the last few sequencer bar-relative event commits plus
+any uncaught browser `error` / `unhandledrejection` that follows into
+`sessionStorage` under:
+
+```txt
+hexatone_sequencer_crash_diagnostics
+```
+
+### Console global
+
+```js
+globalThis.__hexatoneSequencerCrashDiagnostics
+```
+
+Available methods:
+
+```js
+globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted()
+globalThis.__hexatoneSequencerCrashDiagnostics?.reset()
+```
+
+Typical workflow:
+
+```js
+localStorage.setItem("hexatone_debug_sequencer_crash", "true")
+location.reload()
+```
+
+After an `Aw, Snap` or reload, inspect:
+
+```js
+globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted()
+```
+
+Notes:
+
+- This is aimed at sequencer timing edits, especially Bar/Beat/Num/Den commits.
+- For note events it records the committed draft fields plus resolved absolute time.
+- If an uncaught runtime error or rejection happens after that, the persisted log should show both the last commit context and the exception details.

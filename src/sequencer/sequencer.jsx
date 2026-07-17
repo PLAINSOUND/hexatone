@@ -166,6 +166,7 @@ const Sequencer = ({
   const eventDragRef = useRef(null);
   const duplicateNoteIdRef = useRef(0);
   const pendingTransportActionRef = useRef(null);
+  const editCommitPendingRef = useRef(false);
 
   // Derived sequence/timeline state.
   const sequenceRuntime = useMemo(() => (
@@ -505,10 +506,11 @@ const Sequencer = ({
   ]);
 
   useEffect(() => {
-    if (!pendingTransportActionRef.current) return;
+    if (!editCommitPendingRef.current && !pendingTransportActionRef.current) return;
     const action = pendingTransportActionRef.current;
     pendingTransportActionRef.current = null;
-    action();
+    editCommitPendingRef.current = false;
+    action?.();
   }, [editCommitTick, snapshots]);
 
   const notifyEditCommitted = () => {
@@ -520,11 +522,16 @@ const Sequencer = ({
       action?.();
       return;
     }
+    if (editCommitPendingRef.current) {
+      pendingTransportActionRef.current = action;
+      return;
+    }
     const active = document.activeElement;
     if (
       active instanceof HTMLElement &&
       active.matches?.(".sequencer-event__input")
     ) {
+      editCommitPendingRef.current = true;
       pendingTransportActionRef.current = action;
       active.blur();
       return;

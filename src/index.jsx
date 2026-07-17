@@ -11,6 +11,7 @@ import { options } from "preact";
 import PropTypes from "prop-types";
 import App from "./app.jsx";
 import { debugLog, warnLog } from "./debug/logging.js";
+import "./debug/sequencer-crash-diagnostics.js";
 import "normalize.css";
 import "./hex-style.css";
 import "./loader.css";

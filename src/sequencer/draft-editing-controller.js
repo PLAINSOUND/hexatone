@@ -3,7 +3,8 @@
 // drafts so sequencer.jsx can stay focused on composition rather than editing
 // bookkeeping and commit/cancel wiring.
 
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
 import { timingBarAtNumber } from "./transport.js";
 import {
   applyEventBarRelativeDraftToSnapshot,
@@ -47,27 +48,81 @@ export default function useDraftEditingController({
   const [eventSequenceDrafts, setEventSequenceDrafts] = useState({});
   const [tempoBarRelativeDrafts, setTempoBarRelativeDrafts] = useState({});
   const [repeatBarRelativeDrafts, setRepeatBarRelativeDrafts] = useState({});
+  const snapshotsRef = useRef(snapshots);
+  const sortedBarsRef = useRef(sortedBars);
+  const terminalBarlinePositionRef = useRef(terminalBarlinePosition);
+  const snapshotIndexByIdRef = useRef(snapshotIndexById);
+  const barRelativeDraftsRef = useRef(barRelativeDrafts);
+  const eventSequenceDraftsRef = useRef(eventSequenceDrafts);
+  const tempoBarRelativeDraftsRef = useRef(tempoBarRelativeDrafts);
+  const repeatBarRelativeDraftsRef = useRef(repeatBarRelativeDrafts);
 
-  const resetDraftEditingState = useCallback(() => {
-    setBarRelativeDrafts({});
-    setEventSequenceDrafts({});
-    setTempoBarRelativeDrafts({});
-    setRepeatBarRelativeDrafts({});
+  snapshotsRef.current = snapshots;
+  sortedBarsRef.current = sortedBars;
+  terminalBarlinePositionRef.current = terminalBarlinePosition;
+  snapshotIndexByIdRef.current = snapshotIndexById;
+  barRelativeDraftsRef.current = barRelativeDrafts;
+  eventSequenceDraftsRef.current = eventSequenceDrafts;
+  tempoBarRelativeDraftsRef.current = tempoBarRelativeDrafts;
+  repeatBarRelativeDraftsRef.current = repeatBarRelativeDrafts;
+
+  const setBarRelativeDraftsState = useCallback((updater) => {
+    setBarRelativeDrafts((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      barRelativeDraftsRef.current = next;
+      return next;
+    });
   }, []);
 
+  const setEventSequenceDraftsState = useCallback((updater) => {
+    setEventSequenceDrafts((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      eventSequenceDraftsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const setTempoBarRelativeDraftsState = useCallback((updater) => {
+    setTempoBarRelativeDrafts((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      tempoBarRelativeDraftsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const setRepeatBarRelativeDraftsState = useCallback((updater) => {
+    setRepeatBarRelativeDrafts((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      repeatBarRelativeDraftsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const resetDraftEditingState = useCallback(() => {
+    setBarRelativeDraftsState({});
+    setEventSequenceDraftsState({});
+    setTempoBarRelativeDraftsState({});
+    setRepeatBarRelativeDraftsState({});
+  }, [
+    setBarRelativeDraftsState,
+    setEventSequenceDraftsState,
+    setTempoBarRelativeDraftsState,
+    setRepeatBarRelativeDraftsState,
+  ]);
+
   const updateEventSequenceDraftField = useCallback((draftKey, field, value, meta) => {
-    setEventSequenceDrafts((prev) => updateEventSequenceDrafts(prev, {
+    setEventSequenceDraftsState((prev) => updateEventSequenceDrafts(prev, {
       draftKey,
       field,
       value,
       meta,
-      snapshotCount: snapshots.length,
+      snapshotCount: snapshotsRef.current.length,
     }));
-  }, [snapshots.length]);
+  }, [setEventSequenceDraftsState]);
 
   const cancelEventSequenceDraft = useCallback((draftKey) => {
-    setEventSequenceDrafts((prev) => removeDraftEntry(prev, draftKey));
-  }, []);
+    setEventSequenceDraftsState((prev) => removeDraftEntry(prev, draftKey));
+  }, [setEventSequenceDraftsState]);
 
   const commitNoteTransfer = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, mutateNote, options = {}) => {
     const sourceSnapshot = findSnapshotById(sourceSnapshotId);
@@ -142,7 +197,7 @@ export default function useDraftEditingController({
   }, [commitNoteTransfer]);
 
   const applyEventSequenceDraft = useCallback((draft) => {
-    const resolved = resolveEventSequenceDraftTarget(draft, snapshots);
+    const resolved = resolveEventSequenceDraftTarget(draft, snapshotsRef.current);
     if (!resolved) return;
     const { targetSnapshot, nextAbsoluteTime } = resolved;
 
@@ -164,49 +219,79 @@ export default function useDraftEditingController({
       { selectKind: draft.kind },
     );
 
-    setEventSequenceDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
-  }, [commitNoteTransfer, snapshots]);
+    setEventSequenceDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
+  }, [commitNoteTransfer, setEventSequenceDraftsState]);
 
   const beatsPerBarForBarNumber = useCallback(
-    (barNumber) => Math.max(1, Math.round(Number(timingBarAtNumber(barNumber, sortedBars)?.numerator) || 1)),
-    [sortedBars],
+    (barNumber) => Math.max(1, Math.round(Number(timingBarAtNumber(barNumber, sortedBarsRef.current)?.numerator) || 1)),
+    [],
   );
 
   const applyTempoBarRelativeDraft = useCallback((draft) => {
-    const position = resolveBarRelativeDraftPosition(draft, sortedBars, terminalBarlinePosition);
+    const position = resolveBarRelativeDraftPosition(
+      draft,
+      sortedBarsRef.current,
+      terminalBarlinePositionRef.current,
+    );
     if (position == null) return;
     onUpdateTempo?.(draft.tempoId, { position });
-    setTempoBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
+    setTempoBarRelativeDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted?.();
-  }, [notifyEditCommitted, onUpdateTempo, sortedBars, terminalBarlinePosition]);
+  }, [notifyEditCommitted, onUpdateTempo, setTempoBarRelativeDraftsState]);
 
   const applyRepeatBarRelativeDraft = useCallback((draft) => {
-    const position = resolveBarRelativeDraftPosition(draft, sortedBars, terminalBarlinePosition);
+    const position = resolveBarRelativeDraftPosition(
+      draft,
+      sortedBarsRef.current,
+      terminalBarlinePositionRef.current,
+    );
     if (position == null) return;
     onUpdateRepeat?.(draft.repeatId, { position });
-    setRepeatBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
+    setRepeatBarRelativeDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted?.();
-  }, [notifyEditCommitted, onUpdateRepeat, sortedBars, terminalBarlinePosition]);
+  }, [notifyEditCommitted, onUpdateRepeat, setRepeatBarRelativeDraftsState]);
 
   const applyEventBarRelativeDraft = useCallback((draft) => {
     if (!draft) return;
-    const snapshot = snapshots.find((entry) => entry.id === draft.snapshotId);
+    const snapshot = snapshotsRef.current.find((entry) => entry.id === draft.snapshotId);
     if (!snapshot) return;
-    const absoluteTime = resolveBarRelativeDraftPosition(draft, sortedBars, terminalBarlinePosition);
+    const absoluteTime = resolveBarRelativeDraftPosition(
+      draft,
+      sortedBarsRef.current,
+      terminalBarlinePositionRef.current,
+    );
     if (absoluteTime == null) return;
     const notes = applyEventBarRelativeDraftToSnapshot(
       snapshot,
       draft,
       absoluteTime,
-      snapshotIndexById.get(snapshot.id) ?? 1,
+      snapshotIndexByIdRef.current.get(snapshot.id) ?? 1,
     );
+    appendPersistedSequencerCrashDiagnostic({
+      type: "event-bar-relative-commit",
+      detail: "Committed sequencer bar-relative event timing",
+      context: {
+        source: "sequencer",
+        snapshotId: draft.snapshotId,
+        noteKey: draft.noteKey,
+        kind: draft.kind,
+        draftKey: draft.draftKey,
+        barNumber: draft.barNumber,
+        beat: draft.beat,
+        numerator: draft.numerator,
+        denominator: draft.denominator,
+        absoluteTime,
+        snapshotTime: absoluteTime - (snapshotIndexByIdRef.current.get(snapshot.id) ?? 1),
+        snapshotLength: snapshot?.length,
+      },
+    });
     onUpdateSnapshot(snapshot.id, { notes });
-    setBarRelativeDrafts((prev) => removeDraftEntry(prev, draft.draftKey));
+    setBarRelativeDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted?.();
-  }, [notifyEditCommitted, onUpdateSnapshot, snapshots, sortedBars, snapshotIndexById, terminalBarlinePosition]);
+  }, [notifyEditCommitted, onUpdateSnapshot, setBarRelativeDraftsState]);
 
   const updateEventBarRelativeDraftField = useCallback((draftKey, barBeat, field, value, meta) => {
-    setBarRelativeDrafts((prev) => updateBarRelativeDrafts(prev, {
+    setBarRelativeDraftsState((prev) => updateBarRelativeDrafts(prev, {
       draftKey,
       barBeat,
       field,
@@ -215,14 +300,14 @@ export default function useDraftEditingController({
       scopePrefix: "event",
       beatsPerBarForBarNumber,
     }));
-  }, [beatsPerBarForBarNumber]);
+  }, [beatsPerBarForBarNumber, setBarRelativeDraftsState]);
 
   const cancelEventBarRelativeDraft = useCallback((draftKey) => {
-    setBarRelativeDrafts((prev) => removeDraftEntry(prev, draftKey));
-  }, []);
+    setBarRelativeDraftsState((prev) => removeDraftEntry(prev, draftKey));
+  }, [setBarRelativeDraftsState]);
 
   const updateTempoBarRelativeDraftField = useCallback((draftKey, barBeat, field, value, meta) => {
-    setTempoBarRelativeDrafts((prev) => updateBarRelativeDrafts(prev, {
+    setTempoBarRelativeDraftsState((prev) => updateBarRelativeDrafts(prev, {
       draftKey,
       barBeat,
       field,
@@ -231,14 +316,14 @@ export default function useDraftEditingController({
       scopePrefix: "tempo",
       beatsPerBarForBarNumber,
     }));
-  }, [beatsPerBarForBarNumber]);
+  }, [beatsPerBarForBarNumber, setTempoBarRelativeDraftsState]);
 
   const cancelTempoBarRelativeDraft = useCallback((draftKey) => {
-    setTempoBarRelativeDrafts((prev) => removeDraftEntry(prev, draftKey));
-  }, []);
+    setTempoBarRelativeDraftsState((prev) => removeDraftEntry(prev, draftKey));
+  }, [setTempoBarRelativeDraftsState]);
 
   const updateRepeatBarRelativeDraftField = useCallback((draftKey, barBeat, field, value, meta) => {
-    setRepeatBarRelativeDrafts((prev) => updateBarRelativeDrafts(prev, {
+    setRepeatBarRelativeDraftsState((prev) => updateBarRelativeDrafts(prev, {
       draftKey,
       barBeat,
       field,
@@ -247,26 +332,26 @@ export default function useDraftEditingController({
       scopePrefix: "repeat",
       beatsPerBarForBarNumber,
     }));
-  }, [beatsPerBarForBarNumber]);
+  }, [beatsPerBarForBarNumber, setRepeatBarRelativeDraftsState]);
 
   const cancelRepeatBarRelativeDraft = useCallback((draftKey) => {
-    setRepeatBarRelativeDrafts((prev) => removeDraftEntry(prev, draftKey));
-  }, []);
+    setRepeatBarRelativeDraftsState((prev) => removeDraftEntry(prev, draftKey));
+  }, [setRepeatBarRelativeDraftsState]);
 
   const commitTempoBarRelativeDraft = useCallback((_tempoId, draftKey) => {
-    const draft = tempoBarRelativeDrafts[draftKey];
+    const draft = tempoBarRelativeDraftsRef.current[draftKey];
     if (!draft) return;
     applyTempoBarRelativeDraft(draft);
-  }, [applyTempoBarRelativeDraft, tempoBarRelativeDrafts]);
+  }, [applyTempoBarRelativeDraft]);
 
   const commitRepeatBarRelativeDraft = useCallback((_repeatId, draftKey) => {
-    const draft = repeatBarRelativeDrafts[draftKey];
+    const draft = repeatBarRelativeDraftsRef.current[draftKey];
     if (!draft) return;
     applyRepeatBarRelativeDraft(draft);
-  }, [applyRepeatBarRelativeDraft, repeatBarRelativeDrafts]);
+  }, [applyRepeatBarRelativeDraft]);
 
   const commitEventBarRelativeDraft = useCallback((snapshot, noteKey, kind, draftKey) => {
-    const draft = barRelativeDrafts[draftKey];
+    const draft = barRelativeDraftsRef.current[draftKey];
     if (!draft) return;
     applyEventBarRelativeDraft({
       ...draft,
@@ -274,33 +359,33 @@ export default function useDraftEditingController({
       noteKey,
       kind,
     });
-  }, [applyEventBarRelativeDraft, barRelativeDrafts]);
+  }, [applyEventBarRelativeDraft]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
       const targetScope = resolveDraftScopeTarget(event, "data-event-sequence-draft-scope");
-      commitForeignDrafts(eventSequenceDrafts, targetScope, applyEventSequenceDraft);
+      commitForeignDrafts(eventSequenceDraftsRef.current, targetScope, applyEventSequenceDraft);
     };
 
     document.addEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     return () => {
       document.removeEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     };
-  }, [applyEventSequenceDraft, eventSequenceDrafts]);
+  }, [applyEventSequenceDraft]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
       const targetScope = resolveDraftScopeTarget(event, "data-bar-relative-draft-scope");
-      commitForeignDrafts(barRelativeDrafts, targetScope, applyEventBarRelativeDraft);
-      commitForeignDrafts(tempoBarRelativeDrafts, targetScope, applyTempoBarRelativeDraft);
-      commitForeignDrafts(repeatBarRelativeDrafts, targetScope, applyRepeatBarRelativeDraft);
+      commitForeignDrafts(barRelativeDraftsRef.current, targetScope, applyEventBarRelativeDraft);
+      commitForeignDrafts(tempoBarRelativeDraftsRef.current, targetScope, applyTempoBarRelativeDraft);
+      commitForeignDrafts(repeatBarRelativeDraftsRef.current, targetScope, applyRepeatBarRelativeDraft);
     };
 
     document.addEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     return () => {
       document.removeEventListener(DRAFT_COMMIT_EVENT, handlePointerDown, true);
     };
-  }, [barRelativeDrafts, tempoBarRelativeDrafts, repeatBarRelativeDrafts, applyEventBarRelativeDraft, applyTempoBarRelativeDraft, applyRepeatBarRelativeDraft]);
+  }, [applyEventBarRelativeDraft, applyTempoBarRelativeDraft, applyRepeatBarRelativeDraft]);
 
   return {
     barRelativeDrafts,

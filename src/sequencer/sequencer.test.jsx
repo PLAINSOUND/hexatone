@@ -2240,6 +2240,79 @@ describe("Sequencer", () => {
     });
   });
 
+  it("commits the latest release draft when a note-off is pushed into the next bar", () => {
+    const onUpdateSnapshot = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              {
+                id: "a",
+                midicents: 81,
+                start: 0,
+                end: 1,
+              },
+            ],
+          },
+        ]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 3, denominator: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={10}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.input(screen.getByLabelText("snapshot 1 release bar"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getByLabelText("snapshot 1 release beat"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getByLabelText("snapshot 1 release beat fraction numerator"), {
+      currentTarget: { value: "1" },
+      target: { value: "1" },
+    });
+    fireEvent.input(screen.getByLabelText("snapshot 1 release beat fraction denominator"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByLabelText("commit snapshot 1 release bar-relative timing"));
+
+    expect(onUpdateSnapshot).toHaveBeenLastCalledWith(10, {
+      notes: [expect.objectContaining({ id: "a", end: 1.5, endFractionDenominator: 2 })],
+    });
+  });
+
   it("shows exact note-off barlines as the end of the current bar", () => {
     render(
       <Sequencer

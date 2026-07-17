@@ -58,7 +58,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: -1px;
   z-index: 0;
   border-bottom: 1px solid var(--color-border-ui);
   pointer-events: none;
@@ -68,9 +68,16 @@
   position: sticky;
   top: 1.55em;
   z-index: 4;
-  height: 0.45em;
-  margin: -0.45em 0 0.45em;
-  background: var(--color-bg);
+  height: 0.42em;
+  margin: -0.26em 0.75em 0.18em;
+  background: linear-gradient(
+    to bottom,
+    var(--color-bg) 0,
+    var(--color-bg) 52%,
+    rgb(250 249 248 / 0.88) 76%,
+    rgb(250 249 248 / 0) 100%
+  );
+  border-radius: 0 0 3px 3px;
   pointer-events: none;
 }
 
@@ -98,12 +105,13 @@
   }
 
   #sidebar .workspace-tabs::after {
-    left: var(--workspace-tabs-desktop-inset);
-    right: 0;
+    left: calc(var(--workspace-tabs-desktop-inset) - 1px);
+    right: calc(var(--workspace-tabs-desktop-inset) * -1);
   }
 
   #sidebar .workspace-tabs-deadzone {
-    display: none;
+    top: calc(0.35em + 1.42em);
+    display: block;
   }
 }
 
@@ -119,13 +127,15 @@
   }
 
   #sidebar .workspace-tabs::after {
-    left: var(--workspace-tabs-phone-inset);
-    right: var(--workspace-tabs-phone-inset);
-    bottom: 0;
+    left: calc(var(--workspace-tabs-phone-inset) - 1px);
+    right: calc(var(--workspace-tabs-phone-inset) - 1px);
   }
 
   #sidebar .workspace-tabs-deadzone {
-    display: none;
+    top: 2.78em;
+    margin-left: 1.1em;
+    margin-right: 1.1em;
+    display: block;
   }
 
   #sidebar .workspace-tabs .workspace-tab {
@@ -180,7 +190,9 @@
   background: var(--color-bg);
   border-color: var(--color-border-ui);
   border-bottom-color: var(--color-bg);
-  margin-bottom: 0;
+  margin-bottom: -2px;
+  padding-top: calc(0.42em - 2px);
+  padding-bottom: calc(0.38em + 2px);
 }
 
 #sidebar .workspace-tab--active::after {
