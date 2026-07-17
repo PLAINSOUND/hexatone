@@ -124,8 +124,8 @@ const MIDIio = (props) => {
   const isLinnstrument = ctrl?.id === "linnstrument";
   const isHakenContinuum = ctrl?.id === "hakenaudio";
   const isGenericMpeController = ctrl?.id === "generic_mpe";
-  const showMpeInputSection = !isLinnstrument && mpeInputPolicy !== "never";
-  const showMpeInputControls = !isLinnstrument && mpeInputPolicy === "optional";
+  const showMpeInputSection = mpeInputPolicy !== "never";
+  const showMpeInputControls = mpeInputPolicy === "optional";
   const mpeInputEnabled =
     controllerRequiresMpeInput(ctrl) ||
     (mpeInputPolicy !== "never" && !!props.settings.midiin_mpe_input);

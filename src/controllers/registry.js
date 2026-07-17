@@ -768,7 +768,7 @@ export const CONTROLLER_REGISTRY = [
     detect: (name) => name.includes("axis-4") || name.includes("axis 4"),
     description: "Selfless mode (Ch 1, Notes 1–98). 14×7 isomorphic hexes.",
     multiChannel: false,
-    mpeInputPolicy: "never",
+    mpeInputPolicy: "optional",
     anchorDefault: 53, // note 53 is the centre key in selfless mode
     defaultMode: "layout2d",
     modes: {
@@ -890,7 +890,7 @@ export const CONTROLLER_REGISTRY = [
     // ch=row(1-8) and note=col(1-25) are the native UF coordinates.
     // multiChannel=true so keys.js uses the real incoming channel for map lookup.
     multiChannel: true,
-    mpeInputPolicy: "never",
+    mpeInputPolicy: "optional",
     sequentialTransposeDefault: 0,
     sequentialLegacyDefault: false,
     // Anchor in native UF coordinates: col (1-indexed) + channel/row (1-indexed).

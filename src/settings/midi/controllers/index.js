@@ -138,8 +138,8 @@ const MIDIio = (props) => {
         ? "channel_per_note"
         : "single_channel"))
     : null;
-  const showMpeInputSection = !isLinnstrument && mpeInputPolicy !== "never";
-  const showMpeInputControls = !isLinnstrument && mpeInputPolicy === "optional";
+  const showMpeInputSection = mpeInputPolicy !== "never";
+  const showMpeInputControls = mpeInputPolicy === "optional";
   const mpeInputEnabled = effectiveMpeInput;
   const showChannelTransposeLinnstrumentOverride =
     isLinnstrument && linnstrumentChannelAllocation === "channel_per_row";

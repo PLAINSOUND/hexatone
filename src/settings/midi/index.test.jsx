@@ -98,6 +98,17 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByRole("option", { name: "Generic MPE" })).toBeTruthy();
   });
 
+  it("shows the MPE toggle for manual LinnStrument geometry", () => {
+    const props = makeProps({
+      midiin_controller_override: "linnstrument",
+      midiin_mpe_input: false,
+    });
+
+    render(<MIDIio {...props} />);
+
+    expect(screen.getByRole("checkbox", { name: "Enable MPE Input" })).toBeTruthy();
+  });
+
   it("shows controller registry text when a known controller geometry is auto-detected", () => {
     const props = makeProps({
       midiin_controller_override: "auto",
