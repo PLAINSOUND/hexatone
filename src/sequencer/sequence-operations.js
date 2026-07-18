@@ -6,6 +6,7 @@ import {
   assignStableSequencerNoteIds,
   normalizeSequenceNumber,
   noteIdentity,
+  noteMatchesReference,
   sortSnapshotNotes,
   stableSequencerNoteId,
 } from "./value-runtime.js";
@@ -20,7 +21,7 @@ export function buildTransferredNote({
   sourceSnapshot,
   targetSnapshot,
   note,
-  noteKey,
+  noteRef,
   snapshotIndexById,
   mutateNote,
 }) {
@@ -35,9 +36,10 @@ export function buildTransferredNote({
   const absoluteStart = normalizeSequenceNumber(sourceSnapshotNumber + start);
   const absoluteEnd = normalizeSequenceNumber(sourceSnapshotNumber + end);
   const targetLength = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
+  const identity = typeof noteRef === "string" ? noteRef : (noteRef?.noteKey ?? note?.id ?? noteIdentity(note, sourceLength));
   const baseMovedNote = {
     ...JSON.parse(JSON.stringify(note)),
-    id: note?.id ?? stableSequencerNoteId(noteKey),
+    id: note?.id ?? stableSequencerNoteId(identity),
     start: normalizeSequenceNumber(absoluteStart - targetSnapshotNumber),
     end: normalizeSequenceNumber(absoluteEnd - targetSnapshotNumber),
   };
@@ -51,7 +53,7 @@ export function buildTransferredNote({
     absoluteEnd,
     sourceLength,
     targetLength,
-    noteKey,
+    noteKey: identity,
   });
 
   return movedNote ? {
@@ -66,7 +68,7 @@ export function buildTransferredNote({
 export function applyTransferredNote({
   sourceSnapshot,
   targetSnapshot,
-  noteKey,
+  noteRef,
   movedNote,
   duplicate = false,
   duplicateId = null,
@@ -89,7 +91,7 @@ export function applyTransferredNote({
     return {
       sourceNotes: applyNoteUpdateToSnapshot(sourceSnapshot, (snapshot, length) => (
         (snapshot.notes ?? []).map((entry) => (
-          noteIdentity(entry, length) === noteKey ? movedNote : entry
+          noteMatchesReference(entry, noteRef, length) ? movedNote : entry
         ))
       )),
       targetNotes: null,
@@ -100,7 +102,7 @@ export function applyTransferredNote({
 
   return {
     sourceNotes: applyNoteUpdateToSnapshot(sourceSnapshot, (snapshot, length) => (
-      (snapshot.notes ?? []).filter((entry) => noteIdentity(entry, length) !== noteKey)
+      (snapshot.notes ?? []).filter((entry) => !noteMatchesReference(entry, noteRef, length))
     )),
     targetNotes: applyNoteUpdateToSnapshot(targetSnapshot, (snapshot) => [
       ...(snapshot.notes ?? []),

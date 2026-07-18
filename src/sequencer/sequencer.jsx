@@ -39,7 +39,7 @@ import {
 } from "./view-runtime.js";
 import {
   commitTextInput,
-  noteIdentity,
+  noteMatchesReference,
   structuralEventInstanceKey,
   structuralEventRenderKey,
 } from "./value-runtime.js";
@@ -278,10 +278,10 @@ const Sequencer = ({
     snapshots.find((snapshot) => snapshot.id === snapshotId) ?? null
   ), [snapshots]);
 
-  const findNoteInSnapshot = useCallback((snapshot, noteKey) => {
+  const findNoteInSnapshot = useCallback((snapshot, noteRef) => {
     if (!snapshot) return null;
     const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-    const note = (snapshot.notes ?? []).find((entry) => noteIdentity(entry, length) === noteKey) ?? null;
+    const note = (snapshot.notes ?? []).find((entry) => noteMatchesReference(entry, noteRef, length)) ?? null;
     return note ? { note, length } : null;
   }, []);
 
@@ -526,12 +526,22 @@ const Sequencer = ({
     const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
     if (!lastEntry || lastEntry.type !== "event-bar-relative-commit") return;
     const context = lastEntry.context ?? null;
-    if (!context?.snapshotId || !context?.noteKey || !context?.kind) return;
+    if (!context?.snapshotId || !context?.kind) return;
     const matchingEvent = sequenceEvents.find((event) => (
       event?.type === "note"
       && event.snapshotId === context.snapshotId
-      && event.noteKey === context.noteKey
       && event.kind === context.kind
+      && (
+        (typeof context.resolvedNoteId === "string" && context.resolvedNoteId
+          ? event.noteId === context.resolvedNoteId
+          : false)
+        || (typeof context.noteId === "string" && context.noteId
+          ? event.noteId === context.noteId
+          : false)
+        || (typeof context.noteKey === "string" && context.noteKey
+          ? event.noteKey === context.noteKey
+          : false)
+      )
     )) ?? null;
     if (!matchingEvent) return;
     const barBeat = absolutePositionToBarBeat(
@@ -660,19 +670,19 @@ const Sequencer = ({
   }, [resetDraftEditingState, snapshots.length, sortedBars.length, sortedTempi.length]);
 
   // Local mutation adapters passed down into row components.
-  const updateEventField = (snapshot, noteKey, field, rawValue) => {
-    const notes = updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue);
+  const updateEventField = (snapshot, noteRef, field, rawValue) => {
+    const notes = updateEventFieldInSnapshot(snapshot, noteRef, field, rawValue);
     if (!notes) return;
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
-  const restoreEventPitchLabel = (snapshot, noteKey) => {
-    const notes = restoreEventPitchLabelInSnapshot(snapshot, noteKey);
+  const restoreEventPitchLabel = (snapshot, noteRef) => {
+    const notes = restoreEventPitchLabelInSnapshot(snapshot, noteRef);
     onUpdateSnapshot(snapshot.id, { notes });
   };
 
-  const commitEventPitchLabel = (snapshot, noteKey) => {
-    const notes = commitEventPitchLabelInSnapshot(snapshot, noteKey);
+  const commitEventPitchLabel = (snapshot, noteRef) => {
+    const notes = commitEventPitchLabelInSnapshot(snapshot, noteRef);
     onUpdateSnapshot(snapshot.id, { notes });
   };
 

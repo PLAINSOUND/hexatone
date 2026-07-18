@@ -7,14 +7,14 @@ import {
   assignStableSequencerNoteIds,
   clamp,
   frequencyToMidicents,
-  noteIdentity,
+  noteMatchesReference,
   sortSnapshotNotes,
 } from "./value-runtime.js";
 
-export function deleteEventNoteFromSnapshot(snapshot, noteKey) {
+export function deleteEventNoteFromSnapshot(snapshot, noteRef) {
   if (!snapshot) return null;
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-  const nextNotes = (snapshot.notes ?? []).filter((note) => noteIdentity(note, length) !== noteKey);
+  const nextNotes = (snapshot.notes ?? []).filter((note) => !noteMatchesReference(note, noteRef, length));
   return sortSnapshotNotes(assignStableSequencerNoteIds(nextNotes, length), length);
 }
 
@@ -23,7 +23,7 @@ export function applyEventBarRelativeDraftToSnapshot(snapshot, draft, absoluteTi
   const denominator = Math.max(1, Math.round(Number(draft.denominator) || 1));
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
   return assignStableSequencerNoteIds((snapshot.notes ?? []).map((note) => {
-    if (noteIdentity(note, length) !== draft.noteKey) return note;
+    if (!noteMatchesReference(note, draft, length)) return note;
     const nextRelativeTime = Math.round((absoluteTime - snapshotNumber) * 1000000) / 1000000;
     if (draft.kind === "attack") {
       return {
@@ -53,7 +53,7 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
     const nextLabel = String(rawValue ?? "");
     const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
     return assignStableSequencerNoteIds((snapshot.notes ?? []).map((note) => {
-      if (noteIdentity(note, length) !== noteKey) return note;
+      if (!noteMatchesReference(note, noteKey, length)) return note;
       if ((note.displayLabel ?? "") === nextLabel) return note;
       const originalDisplayLabel = note.originalDisplayLabel ?? note.displayLabel ?? "";
       return {
@@ -70,7 +70,7 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
 
   return assignStableSequencerNoteIds((snapshot.notes ?? []).map((note) => {
-    if (noteIdentity(note, length) !== noteKey) return note;
+    if (!noteMatchesReference(note, noteKey, length)) return note;
 
     const originalMidicents = Number.isFinite(Number(note.originalMidicents))
       ? Number(note.originalMidicents)
@@ -120,7 +120,7 @@ export function commitEventPitchLabelInSnapshot(snapshot, noteKey) {
   if (!snapshot) return null;
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
   return assignStableSequencerNoteIds((snapshot.notes ?? []).map((note) => {
-    if (noteIdentity(note, length) !== noteKey) return note;
+    if (!noteMatchesReference(note, noteKey, length)) return note;
     const {
       originalMidicents: _originalMidicents,
       originalDisplayLabel: _originalDisplayLabel,
@@ -135,7 +135,7 @@ export function restoreEventPitchLabelInSnapshot(snapshot, noteKey) {
   if (!snapshot) return null;
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
   return assignStableSequencerNoteIds((snapshot.notes ?? []).map((note) => {
-    if (noteIdentity(note, length) !== noteKey) return note;
+    if (!noteMatchesReference(note, noteKey, length)) return note;
     const originalMidicents = Number(note.originalMidicents);
     const canRestorePitch = Number.isFinite(originalMidicents);
     const canRestoreLabel = note.displayLabelEdited === true && note.originalDisplayLabel != null;

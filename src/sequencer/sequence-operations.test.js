@@ -31,7 +31,7 @@ describe("sequencer sequence operations", () => {
       sourceSnapshot,
       targetSnapshot,
       note: sourceSnapshot.notes[0],
-      noteKey: "a",
+      noteRef: { noteId: "a", noteKey: "a" },
       snapshotIndexById,
       mutateNote: (note) => note,
     });
@@ -50,7 +50,7 @@ describe("sequencer sequence operations", () => {
       },
       targetSnapshot,
       note: { midicents: 69, start: 0, end: 1 },
-      noteKey: "69:0:1",
+      noteRef: { noteKey: "69:0:1" },
       snapshotIndexById,
       mutateNote: (note) => note,
     });
@@ -63,7 +63,7 @@ describe("sequencer sequence operations", () => {
     const duplicatePlan = applyTransferredNote({
       sourceSnapshot,
       targetSnapshot,
-      noteKey: "a",
+      noteRef: { noteId: "a", noteKey: "a" },
       movedNote,
       duplicate: true,
       duplicateId: "a-copy",
@@ -73,7 +73,7 @@ describe("sequencer sequence operations", () => {
     const movePlan = applyTransferredNote({
       sourceSnapshot,
       targetSnapshot,
-      noteKey: "a",
+      noteRef: { noteId: "a", noteKey: "a" },
       movedNote,
     });
     expect(movePlan.sourceNotes).toEqual([]);

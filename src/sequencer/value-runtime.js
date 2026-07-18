@@ -74,6 +74,30 @@ export function noteIdentity(note, fallbackLength = 1) {
   return note?.id ?? `${midicents}:${start}:${end}`;
 }
 
+export function noteReference(note, fallbackLength = 1) {
+  return {
+    noteId: typeof note?.id === "string" && note.id ? note.id : null,
+    noteKey: noteIdentity(note, fallbackLength),
+  };
+}
+
+export function noteMatchesReference(note, reference, fallbackLength = 1) {
+  if (reference == null) return false;
+  if (typeof reference === "string") return noteIdentity(note, fallbackLength) === reference;
+  if (
+    typeof reference?.noteId === "string" &&
+    reference.noteId &&
+    typeof note?.id === "string" &&
+    note.id === reference.noteId
+  ) {
+    return true;
+  }
+  if (typeof reference?.noteKey === "string" && reference.noteKey) {
+    return noteIdentity(note, fallbackLength) === reference.noteKey;
+  }
+  return false;
+}
+
 export function stableSequencerNoteId(identity) {
   return `__seq__:${String(identity ?? "note")}`;
 }

@@ -57,6 +57,25 @@ describe("sequencer sequence mutations", () => {
     expect(next[0].id).toMatch(/^__seq__:69:0:/);
   });
 
+  it("matches a note by stable id before falling back to noteKey", () => {
+    const next = applyEventBarRelativeDraftToSnapshot(
+      {
+        id: "s1",
+        length: 1,
+        notes: [{ id: "held", midicents: 69, start: 0, end: 1 }],
+      },
+      { noteId: "held", noteKey: "stale:key", kind: "release", denominator: "8" },
+      2.5,
+      1,
+    );
+
+    expect(next[0]).toMatchObject({
+      id: "held",
+      end: 1.5,
+      endFractionDenominator: 8,
+    });
+  });
+
   it("marks pitch fields as edited only when changed", () => {
     const unchanged = updateEventFieldInSnapshot(snapshot, "a", "midicents", 69);
     expect(unchanged[0].displayLabelEdited).toBeUndefined();

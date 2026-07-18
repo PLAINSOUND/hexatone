@@ -77,14 +77,14 @@ const SnapshotSequenceItem = ({
             if (e.altKey) {
               actions.duplicateEventNoteToSnapshot(
                 draggedEvent.snapshotId,
-                draggedEvent.noteKey,
+                draggedEvent,
                 snapshot.id,
                 draggedEvent.kind,
               );
             } else {
               actions.moveEventNoteToSnapshot(
                 draggedEvent.snapshotId,
-                draggedEvent.noteKey,
+                draggedEvent,
                 snapshot.id,
                 draggedEvent.kind,
               );

@@ -23,7 +23,7 @@ import {
   updateBarRelativeDrafts,
   updateEventSequenceDrafts,
 } from "./sequence-drafts.js";
-import { normalizeSequenceNumber, noteIdentity } from "./value-runtime.js";
+import { normalizeSequenceNumber, noteMatchesReference } from "./value-runtime.js";
 
 const DRAFT_COMMIT_EVENT = typeof window !== "undefined" && "PointerEvent" in window
   ? "pointerdown"
@@ -124,19 +124,19 @@ export default function useDraftEditingController({
     setEventSequenceDraftsState((prev) => removeDraftEntry(prev, draftKey));
   }, [setEventSequenceDraftsState]);
 
-  const commitNoteTransfer = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, mutateNote, options = {}) => {
+  const commitNoteTransfer = useCallback((sourceSnapshotId, noteRef, targetSnapshotId, mutateNote, options = {}) => {
     const sourceSnapshot = findSnapshotById(sourceSnapshotId);
     const targetSnapshot = findSnapshotById(targetSnapshotId);
     if (!sourceSnapshot || !targetSnapshot) return;
 
-    const sourceFound = findNoteInSnapshot(sourceSnapshot, noteKey);
+    const sourceFound = findNoteInSnapshot(sourceSnapshot, noteRef);
     if (!sourceFound) return;
     const { note } = sourceFound;
     const transferred = buildTransferredNote({
       sourceSnapshot,
       targetSnapshot,
       note,
-      noteKey,
+      noteRef,
       snapshotIndexById,
       mutateNote,
     });
@@ -148,10 +148,10 @@ export default function useDraftEditingController({
     const applied = applyTransferredNote({
       sourceSnapshot,
       targetSnapshot,
-      noteKey,
+      noteRef,
       movedNote,
       duplicate: options.duplicate === true,
-      duplicateId: options.duplicate ? nextDuplicateNoteId(note.id ?? noteKey) : null,
+      duplicateId: options.duplicate ? nextDuplicateNoteId(note.id ?? noteRef?.noteKey ?? noteRef) : null,
     });
     if (!applied) return;
 
@@ -176,21 +176,21 @@ export default function useDraftEditingController({
     snapshotIndexById,
   ]);
 
-  const deleteEventNote = useCallback((snapshotId, noteKey) => {
+  const deleteEventNote = useCallback((snapshotId, noteRef) => {
     const snapshot = findSnapshotById(snapshotId);
     if (!snapshot) return;
-    const notes = deleteEventNoteFromSnapshot(snapshot, noteKey);
+    const notes = deleteEventNoteFromSnapshot(snapshot, noteRef);
     onUpdateSnapshot(snapshot.id, { notes });
     notifyEditCommitted?.();
   }, [findSnapshotById, notifyEditCommitted, onUpdateSnapshot]);
 
-  const moveEventNoteToSnapshot = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, selectKind = "attack") => {
+  const moveEventNoteToSnapshot = useCallback((sourceSnapshotId, noteRef, targetSnapshotId, selectKind = "attack") => {
     if (sourceSnapshotId === targetSnapshotId) return;
-    commitNoteTransfer(sourceSnapshotId, noteKey, targetSnapshotId, (note) => note, { selectKind });
+    commitNoteTransfer(sourceSnapshotId, noteRef, targetSnapshotId, (note) => note, { selectKind });
   }, [commitNoteTransfer]);
 
-  const duplicateEventNoteToSnapshot = useCallback((sourceSnapshotId, noteKey, targetSnapshotId, selectKind = "attack") => {
-    commitNoteTransfer(sourceSnapshotId, noteKey, targetSnapshotId, (note) => note, {
+  const duplicateEventNoteToSnapshot = useCallback((sourceSnapshotId, noteRef, targetSnapshotId, selectKind = "attack") => {
+    commitNoteTransfer(sourceSnapshotId, noteRef, targetSnapshotId, (note) => note, {
       duplicate: true,
       selectKind,
     });
@@ -203,7 +203,7 @@ export default function useDraftEditingController({
 
     commitNoteTransfer(
       draft.snapshotId,
-      draft.noteKey,
+      draft,
       targetSnapshot.id,
       (note, context) => {
         const nextStartAbsolute = draft.kind === "attack" ? nextAbsoluteTime : context.absoluteStart;
@@ -269,14 +269,17 @@ export default function useDraftEditingController({
     );
     const snapshotNumber = snapshotIndexByIdRef.current.get(snapshot.id) ?? 1;
     const snapshotLength = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-    const previousNote = (snapshot.notes ?? []).find((note) => noteIdentity(note, snapshotLength) === draft.noteKey) ?? null;
-    const nextNote = (notes ?? []).find((note) => noteIdentity(note, snapshotLength) === draft.noteKey) ?? null;
+    const previousNoteIndex = (snapshot.notes ?? []).findIndex((note) => noteMatchesReference(note, draft, snapshotLength));
+    const previousNote = previousNoteIndex >= 0 ? (snapshot.notes ?? [])[previousNoteIndex] ?? null : null;
+    const nextNote = previousNoteIndex >= 0 ? (notes ?? [])[previousNoteIndex] ?? null : null;
     appendPersistedSequencerCrashDiagnostic({
       type: "event-bar-relative-commit",
       detail: "Committed sequencer bar-relative event timing",
       context: {
         source: "sequencer",
         snapshotId: draft.snapshotId,
+        noteId: draft.noteId ?? previousNote?.id ?? null,
+        resolvedNoteId: nextNote?.id ?? draft.noteId ?? previousNote?.id ?? null,
         noteKey: draft.noteKey,
         kind: draft.kind,
         draftKey: draft.draftKey,
@@ -358,13 +361,14 @@ export default function useDraftEditingController({
     applyRepeatBarRelativeDraft(draft);
   }, [applyRepeatBarRelativeDraft]);
 
-  const commitEventBarRelativeDraft = useCallback((snapshot, noteKey, kind, draftKey) => {
+  const commitEventBarRelativeDraft = useCallback((snapshot, noteRef, kind, draftKey) => {
     const draft = barRelativeDraftsRef.current[draftKey];
     if (!draft) return;
     applyEventBarRelativeDraft({
       ...draft,
       snapshotId: snapshot.id,
-      noteKey,
+      noteId: draft.noteId ?? noteRef?.noteId ?? null,
+      noteKey: draft.noteKey ?? noteRef?.noteKey ?? noteRef,
       kind,
     });
   }, [applyEventBarRelativeDraft]);
