@@ -41,6 +41,23 @@ describe("sequencer sequence operations", () => {
     });
   });
 
+  it("assigns a stable internal id when transferring a captured note without an id", () => {
+    const result = buildTransferredNote({
+      sourceSnapshot: {
+        id: "s1",
+        length: 1,
+        notes: [{ midicents: 69, start: 0, end: 1 }],
+      },
+      targetSnapshot,
+      note: { midicents: 69, start: 0, end: 1 },
+      noteKey: "69:0:1",
+      snapshotIndexById,
+      mutateNote: (note) => note,
+    });
+
+    expect(result.movedNote.id).toBe("__seq__:69:0:1");
+  });
+
   it("applies duplicate and move transfer plans", () => {
     const movedNote = { id: "a", midicents: 69, start: 0.25, end: 1.25 };
     const duplicatePlan = applyTransferredNote({

@@ -37,6 +37,26 @@ describe("sequencer sequence mutations", () => {
     });
   });
 
+  it("assigns a stable internal id when editing timing of a captured note without an id", () => {
+    const next = applyEventBarRelativeDraftToSnapshot(
+      {
+        id: "s1",
+        length: 1,
+        notes: [{ midicents: 69, start: 0, end: 1 }],
+      },
+      { noteKey: "69:0:1", kind: "release", denominator: "4" },
+      2.25,
+      1,
+    );
+
+    expect(next[0]).toMatchObject({
+      start: 0,
+      end: 1.25,
+      endFractionDenominator: 4,
+    });
+    expect(next[0].id).toMatch(/^__seq__:69:0:/);
+  });
+
   it("marks pitch fields as edited only when changed", () => {
     const unchanged = updateEventFieldInSnapshot(snapshot, "a", "midicents", 69);
     expect(unchanged[0].displayLabelEdited).toBeUndefined();

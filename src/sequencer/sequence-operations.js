@@ -2,12 +2,18 @@
 // It builds the shared operations used for moving, duplicating, and retiming
 // notes without tying that logic to any particular row component.
 
-import { normalizeSequenceNumber, noteIdentity, sortSnapshotNotes } from "./value-runtime.js";
+import {
+  assignStableSequencerNoteIds,
+  normalizeSequenceNumber,
+  noteIdentity,
+  sortSnapshotNotes,
+  stableSequencerNoteId,
+} from "./value-runtime.js";
 
 export function applyNoteUpdateToSnapshot(targetSnapshot, buildNotes) {
   if (!targetSnapshot) return null;
   const length = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
-  return sortSnapshotNotes(buildNotes(targetSnapshot, length), length);
+  return sortSnapshotNotes(assignStableSequencerNoteIds(buildNotes(targetSnapshot, length), length), length);
 }
 
 export function buildTransferredNote({
@@ -31,6 +37,7 @@ export function buildTransferredNote({
   const targetLength = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
   const baseMovedNote = {
     ...JSON.parse(JSON.stringify(note)),
+    id: note?.id ?? stableSequencerNoteId(noteKey),
     start: normalizeSequenceNumber(absoluteStart - targetSnapshotNumber),
     end: normalizeSequenceNumber(absoluteEnd - targetSnapshotNumber),
   };
