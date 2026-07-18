@@ -74,6 +74,24 @@ export function noteIdentity(note, fallbackLength = 1) {
   return note?.id ?? `${midicents}:${start}:${end}`;
 }
 
+export function stableSequencerNoteId(identity) {
+  return `__seq__:${String(identity ?? "note")}`;
+}
+
+export function assignStableSequencerNoteIds(notes = [], fallbackLength = 1) {
+  const seen = new Map();
+  return (notes ?? []).map((note) => {
+    if (typeof note?.id === "string" && note.id) return note;
+    const baseId = stableSequencerNoteId(noteIdentity(note, fallbackLength));
+    const seenCount = seen.get(baseId) ?? 0;
+    seen.set(baseId, seenCount + 1);
+    return {
+      ...note,
+      id: seenCount === 0 ? baseId : `${baseId}:${seenCount + 1}`,
+    };
+  });
+}
+
 export function sortSnapshotNotes(notes = [], fallbackLength = 1) {
   return [...notes].sort((a, b) => {
     const aStart = Number.isFinite(Number(a?.start)) ? Number(a.start) : 0;

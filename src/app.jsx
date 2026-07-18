@@ -1923,21 +1923,21 @@ const App = () => {
   }, [sequenceBars, sequenceRepeats, sequenceTempi, snapshots]);
 
   const onUpdateSnapshot = useCallback((id, updates) => {
-    setSnapshots(updateSnapshotInWorkspace({
-      snapshots,
+    setSnapshots((prev) => updateSnapshotInWorkspace({
+      snapshots: prev,
       snapshotId: id,
       updates,
       snapshotLabelMode,
     }));
-  }, [snapshotLabelMode, snapshots]);
+  }, [snapshotLabelMode]);
 
   const onResetSnapshotDescription = useCallback((id) => {
-    setSnapshots(resetSnapshotDescriptionInWorkspace({
-      snapshots,
+    setSnapshots((prev) => resetSnapshotDescriptionInWorkspace({
+      snapshots: prev,
       snapshotId: id,
       snapshotLabelMode,
     }));
-  }, [snapshotLabelMode, snapshots]);
+  }, [snapshotLabelMode]);
 
   useEffect(() => {
     setSequencePlayhead((prev) => {

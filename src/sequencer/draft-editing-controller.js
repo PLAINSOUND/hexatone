@@ -23,7 +23,7 @@ import {
   updateBarRelativeDrafts,
   updateEventSequenceDrafts,
 } from "./sequence-drafts.js";
-import { normalizeSequenceNumber } from "./value-runtime.js";
+import { normalizeSequenceNumber, noteIdentity } from "./value-runtime.js";
 
 const DRAFT_COMMIT_EVENT = typeof window !== "undefined" && "PointerEvent" in window
   ? "pointerdown"
@@ -267,6 +267,10 @@ export default function useDraftEditingController({
       absoluteTime,
       snapshotIndexByIdRef.current.get(snapshot.id) ?? 1,
     );
+    const snapshotNumber = snapshotIndexByIdRef.current.get(snapshot.id) ?? 1;
+    const snapshotLength = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    const previousNote = (snapshot.notes ?? []).find((note) => noteIdentity(note, snapshotLength) === draft.noteKey) ?? null;
+    const nextNote = (notes ?? []).find((note) => noteIdentity(note, snapshotLength) === draft.noteKey) ?? null;
     appendPersistedSequencerCrashDiagnostic({
       type: "event-bar-relative-commit",
       detail: "Committed sequencer bar-relative event timing",
@@ -281,8 +285,12 @@ export default function useDraftEditingController({
         numerator: draft.numerator,
         denominator: draft.denominator,
         absoluteTime,
-        snapshotTime: absoluteTime - (snapshotIndexByIdRef.current.get(snapshot.id) ?? 1),
+        snapshotTime: absoluteTime - snapshotNumber,
         snapshotLength: snapshot?.length,
+        previousStart: previousNote?.start,
+        previousEnd: previousNote?.end,
+        nextStart: nextNote?.start,
+        nextEnd: nextNote?.end,
       },
     });
     onUpdateSnapshot(snapshot.id, { notes });

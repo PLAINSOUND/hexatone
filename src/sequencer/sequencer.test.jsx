@@ -1910,6 +1910,84 @@ describe("Sequencer", () => {
     expect(kindCells).toEqual([true, true, false, false]);
   });
 
+  it("moves an event to another snapshot when its snapshot number is committed", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 82,
+          length: 1,
+          description: "Earlier",
+          notes: [],
+        },
+        {
+          id: 83,
+          length: 1,
+          description: "Later",
+          notes: [
+            {
+              id: "a",
+              midicents: 81,
+              start: 0.5,
+              end: 1,
+            },
+          ],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={83}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 1, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    expect(screen.getByLabelText("snapshot 2 attack snapshot").value).toBe("2");
+    expect(screen.getByLabelText("snapshot 2 attack offset").value).toBe("0.500");
+
+    fireEvent.input(screen.getByLabelText("snapshot 2 attack snapshot"), {
+      currentTarget: { value: "1" },
+      target: { value: "1" },
+    });
+    fireEvent.click(screen.getByLabelText("commit snapshot 2 attack sequence placement"));
+
+    expect(screen.queryByLabelText("snapshot 2 attack snapshot")).toBeNull();
+    expect(screen.getByLabelText("snapshot 1 attack snapshot").value).toBe("1");
+    expect(screen.getByLabelText("snapshot 1 attack offset").value).toBe("1.500");
+  });
+
   it("does not mark the name as edited when MIDI¢ is focused and blurred unchanged", () => {
     const Harness = () => {
       const [snapshots, setSnapshots] = useState([

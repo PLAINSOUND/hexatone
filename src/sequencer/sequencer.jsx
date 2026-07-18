@@ -28,6 +28,10 @@ import useTimedTransportController from "./timed-transport-controller.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
 import useDraftEditingController from "./draft-editing-controller.js";
 import {
+  appendPersistedSequencerCrashDiagnostic,
+  loadPersistedSequencerCrashDiagnostics,
+} from "../debug/sequencer-crash-diagnostics.js";
+import {
   buildCueExpandedSnapshotIdsAt,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
@@ -516,6 +520,57 @@ const Sequencer = ({
   const notifyEditCommitted = () => {
     setEditCommitTick((value) => value + 1);
   };
+
+  useEffect(() => {
+    const persisted = loadPersistedSequencerCrashDiagnostics();
+    const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
+    if (!lastEntry || lastEntry.type !== "event-bar-relative-commit") return;
+    const context = lastEntry.context ?? null;
+    if (!context?.snapshotId || !context?.noteKey || !context?.kind) return;
+    const matchingEvent = sequenceEvents.find((event) => (
+      event?.type === "note"
+      && event.snapshotId === context.snapshotId
+      && event.noteKey === context.noteKey
+      && event.kind === context.kind
+    )) ?? null;
+    if (!matchingEvent) return;
+    const barBeat = absolutePositionToBarBeat(
+      matchingEvent.absoluteTime,
+      sortedBars,
+      matchingEvent.fractionDenominator,
+      9,
+      terminalBarlinePosition,
+      matchingEvent.kind === "release",
+    );
+    const courtesyStart = (
+      !matchingEvent.cueDisplayLead
+      && firstSnapshotCueEventIds.get(`${matchingEvent.snapshotId}:${matchingEvent.cueIndex}`) === matchingEvent.eventId
+    );
+    appendPersistedSequencerCrashDiagnostic({
+      type: "event-derived-post-commit",
+      detail: "Derived sequencer event after bar-relative commit",
+      context: {
+        ...context,
+        eventRelativeTime: matchingEvent.relativeTime,
+        eventAbsoluteTime: matchingEvent.absoluteTime,
+        snapshotIndex: (snapshotIndexById.get(matchingEvent.snapshotId) ?? 1) - 1,
+        cueIndex: matchingEvent.cueIndex,
+        cueDisplayLead: matchingEvent.cueDisplayLead === true,
+        courtesyStart,
+        derivedBarNumber: barBeat?.barNumber,
+        derivedBeat: barBeat?.beat,
+        derivedNumerator: barBeat?.numerator,
+        derivedDenominator: barBeat?.denominator,
+      },
+    });
+  }, [
+    editCommitTick,
+    firstSnapshotCueEventIds,
+    sequenceEvents,
+    snapshotIndexById,
+    sortedBars,
+    terminalBarlinePosition,
+  ]);
 
   const runTransportAction = (action) => {
     if (typeof document === "undefined") {
