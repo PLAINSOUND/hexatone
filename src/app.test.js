@@ -12,7 +12,7 @@
  * require a more complete browser mock and are left as todos for future work.
  */
 
-import { render, waitFor, screen } from "@testing-library/preact";
+import { fireEvent, render, waitFor, screen } from "@testing-library/preact";
 import userEvent from "@testing-library/user-event";
 import { act } from "preact/test-utils";
 import { parseExactInterval } from "./tuning/interval.js";
@@ -748,6 +748,42 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
+  it("resizes and redraws the keyboard after toggling the sidebar", async () => {
+    vi.useFakeTimers();
+    const { container } = render(<App />);
+
+    await waitFor(() => {
+      expect(lastKeyboardProps).not.toBeNull();
+    });
+
+    const keys = {
+      resizeHandler: vi.fn(),
+      scheduleImmediateGridRedraw: vi.fn(),
+    };
+
+    act(() => {
+      lastKeyboardProps.onKeysReady(keys);
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(350);
+    });
+    keys.resizeHandler.mockClear();
+    keys.scheduleImmediateGridRedraw.mockClear();
+
+    act(() => {
+      fireEvent.click(container.querySelector("#sidebar-button"));
+    });
+    act(() => {
+      vi.advanceTimersByTime(350);
+    });
+
+    expect(keys.resizeHandler).toHaveBeenCalledTimes(1);
+    expect(keys.scheduleImmediateGridRedraw).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
   it("closes the inline manual whenever the user switches tabs", async () => {
     render(<App />);
     const user = userEvent.setup();

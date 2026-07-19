@@ -2171,6 +2171,7 @@ const App = () => {
   useEffect(() => {
     if (!keysRef.current || textEntryActive || viewportKeyboardOpen) return undefined;
     const timer = setTimeout(() => {
+      keysRef.current?.resizeHandler?.();
       keysRef.current?.scheduleImmediateGridRedraw?.();
     }, 320);
     return () => {
