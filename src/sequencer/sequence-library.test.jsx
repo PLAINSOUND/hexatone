@@ -465,7 +465,7 @@ describe("SequenceLibrary", () => {
     fireEvent.click(screen.getByText("Save current sequence in user library"));
 
     expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe("");
-    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("FALL");
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe(builtIn?.name ?? "");
   });
 
   it("uses the user-library save label for built-in sequences", () => {
