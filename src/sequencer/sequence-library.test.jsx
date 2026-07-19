@@ -2,7 +2,14 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SequenceLibrary, { loadUserSequences, normalizeSequenceRecord } from "./sequence-library.jsx";
-import { findPresetSequenceByName } from "./preset-sequences/index.js";
+import { presetSequenceGroups } from "./preset-sequences/index.js";
+
+function findFallPresetSequence() {
+  return presetSequenceGroups
+    .flatMap((group) => group.sequences)
+    .find((sequence) => String(sequence?.name ?? "").startsWith("FALL"))
+    ?? null;
+}
 
 function SequenceLibraryHarness({
   initialSnapshots = [],
@@ -120,11 +127,12 @@ describe("SequenceLibrary", () => {
 
   it("reloads the selected built-in sequence from the packaged library", () => {
     const onLoadSpy = vi.fn();
+    const builtIn = findFallPresetSequence();
 
     render(
       <SequenceLibraryHarness
         initialSource="builtin"
-        initialBuiltInName="FALL"
+        initialBuiltInName={builtIn?.name ?? ""}
         initialName="FALL"
         initialSnapshots={[{ id: 999, notes: [{ id: "stale", midicents: 69, start: 0, end: 1 }] }]}
         onLoadSpy={onLoadSpy}
@@ -135,7 +143,7 @@ describe("SequenceLibrary", () => {
     fireEvent.click(refreshButtons[0]);
 
     expect(onLoadSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "FALL" }),
+      expect.objectContaining({ name: builtIn?.name }),
       expect.objectContaining({ source: "builtin" }),
     );
   });
@@ -425,29 +433,32 @@ describe("SequenceLibrary", () => {
 
   it("loads a built-in sequence and keeps the user menu clear", () => {
     const onLoadSpy = vi.fn();
+    const builtIn = findFallPresetSequence();
 
     render(<SequenceLibraryHarness onLoadSpy={onLoadSpy} />);
 
     fireEvent.change(screen.getByRole("combobox", { name: "Built-in sequences" }), {
-      currentTarget: { value: "FALL" },
-      target: { value: "FALL" },
+      currentTarget: { value: builtIn?.name ?? "" },
+      target: { value: builtIn?.name ?? "" },
     });
 
     expect(onLoadSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "FALL" }),
+      expect.objectContaining({ name: builtIn?.name }),
       expect.objectContaining({ source: "builtin" }),
     );
-    expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe("FALL");
+    expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe(builtIn?.name ?? "");
     expect(screen.queryByRole("combobox", { name: "User sequences" })).toBeNull();
   });
 
   it("clears the built-in selection after saving into the user library", () => {
+    const builtIn = findFallPresetSequence();
+
     render(
       <SequenceLibraryHarness
         initialSource="builtin"
-        initialBuiltInName="FALL"
+        initialBuiltInName={builtIn?.name ?? ""}
         initialSnapshots={[{ id: 1, notes: [] }]}
-        initialName="FALL"
+        initialName={builtIn?.name ?? ""}
       />,
     );
 
@@ -458,17 +469,20 @@ describe("SequenceLibrary", () => {
   });
 
   it("uses the user-library save label for built-in sequences", () => {
-    const builtIn = findPresetSequenceByName("FALL");
+    const builtIn = findFallPresetSequence();
 
     render(
       <SequenceLibraryHarness
         initialSource="builtin"
-        initialBuiltInName="FALL"
+        initialBuiltInName={builtIn?.name ?? ""}
         initialSnapshots={builtIn?.snapshots ?? []}
         initialBars={builtIn?.bars ?? []}
         initialRepeats={builtIn?.repeats ?? []}
         initialTempi={builtIn?.tempi ?? []}
-        initialName="FALL"
+        initialName={builtIn?.name ?? ""}
+        initialDescription={builtIn?.description ?? ""}
+        snapshotLabelMode={builtIn?.snapshotLabelMode ?? "labels"}
+        autoCreateBars={builtIn?.autoCreateBars ?? true}
       />,
     );
 
@@ -476,20 +490,33 @@ describe("SequenceLibrary", () => {
   });
 
   it("does not show overwrite messaging when a built-in sequence shares a name with a clean saved user sequence", () => {
+    const builtIn = findFallPresetSequence();
+
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       normalizeSequenceRecord({
-        name: "FALL",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        name: builtIn?.name ?? "FALL",
+        description: builtIn?.description ?? "",
+        snapshotLabelMode: builtIn?.snapshotLabelMode,
+        autoCreateBars: builtIn?.autoCreateBars,
+        tempi: builtIn?.tempi,
+        snapshots: builtIn?.snapshots ?? [],
+        bars: builtIn?.bars ?? [],
+        repeats: builtIn?.repeats,
       }),
     ]));
 
     render(
       <SequenceLibraryHarness
         initialSource="builtin"
-        initialBuiltInName="FALL"
-        initialSnapshots={[{ id: 1, notes: [] }]}
-        initialName="FALL"
+        initialBuiltInName={builtIn?.name ?? ""}
+        initialSnapshots={builtIn?.snapshots ?? []}
+        initialBars={builtIn?.bars ?? []}
+        initialRepeats={builtIn?.repeats ?? []}
+        initialTempi={builtIn?.tempi ?? []}
+        initialName={builtIn?.name ?? ""}
+        initialDescription={builtIn?.description ?? ""}
+        snapshotLabelMode={builtIn?.snapshotLabelMode ?? "labels"}
+        autoCreateBars={builtIn?.autoCreateBars ?? true}
       />,
     );
 
@@ -498,11 +525,18 @@ describe("SequenceLibrary", () => {
   });
 
   it("does not warn when switching from a clean saved user sequence to a built-in sequence with the same name", () => {
+    const builtIn = findFallPresetSequence();
+
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       normalizeSequenceRecord({
-        name: "FALL",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        name: builtIn?.name ?? "FALL",
+        description: builtIn?.description ?? "",
+        snapshotLabelMode: builtIn?.snapshotLabelMode,
+        autoCreateBars: builtIn?.autoCreateBars,
+        tempi: builtIn?.tempi,
+        snapshots: builtIn?.snapshots ?? [],
+        bars: builtIn?.bars ?? [],
+        repeats: builtIn?.repeats,
       }),
     ]));
 
@@ -513,30 +547,38 @@ describe("SequenceLibrary", () => {
     render(
       <SequenceLibraryHarness
         initialSource="user"
-        initialSnapshots={[{ id: 1, notes: [] }]}
-        initialName="FALL"
-        initialSavedName="FALL"
+        initialSnapshots={builtIn?.snapshots ?? []}
+        initialBars={builtIn?.bars ?? []}
+        initialRepeats={builtIn?.repeats ?? []}
+        initialTempi={builtIn?.tempi ?? []}
+        initialName={builtIn?.name ?? ""}
+        initialSavedName={builtIn?.name ?? ""}
+        initialDescription={builtIn?.description ?? ""}
+        snapshotLabelMode={builtIn?.snapshotLabelMode ?? "labels"}
+        autoCreateBars={builtIn?.autoCreateBars ?? true}
         onLoadSpy={onLoadSpy}
       />,
     );
 
     fireEvent.change(screen.getByRole("combobox", { name: "Built-in sequences" }), {
-      currentTarget: { value: "FALL" },
-      target: { value: "FALL" },
+      currentTarget: { value: builtIn?.name ?? "" },
+      target: { value: builtIn?.name ?? "" },
     });
 
     expect(confirmSpy).not.toHaveBeenCalled();
-    expect(onLoadSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "FALL" }),
-      expect.objectContaining({ source: "builtin" }),
-    );
+    return waitFor(() => {
+      expect(onLoadSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ name: builtIn?.name }),
+        expect.objectContaining({ source: "builtin" }),
+      );
+    });
   });
 
   it("does not warn when switching from a clean built-in sequence to a user sequence with the same name but different data", () => {
-    const builtIn = findPresetSequenceByName("FALL");
+    const builtIn = findFallPresetSequence();
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       normalizeSequenceRecord({
-        name: "FALL",
+        name: builtIn?.name ?? "FALL",
         snapshots: [
           { id: 10, notes: [{ id: "u", midicents: 70, start: 0, end: 1 }] },
         ],
@@ -551,12 +593,12 @@ describe("SequenceLibrary", () => {
     render(
       <SequenceLibraryHarness
         initialSource="builtin"
-        initialBuiltInName="FALL"
+        initialBuiltInName={builtIn?.name ?? ""}
         initialSnapshots={builtIn?.snapshots ?? []}
         initialBars={builtIn?.bars ?? []}
         initialRepeats={builtIn?.repeats ?? []}
         initialTempi={builtIn?.tempi ?? []}
-        initialName="FALL"
+        initialName={builtIn?.name ?? ""}
         initialDescription={builtIn?.description ?? ""}
         snapshotLabelMode={builtIn?.snapshotLabelMode ?? "labels"}
         autoCreateBars={builtIn?.autoCreateBars ?? true}
@@ -565,13 +607,13 @@ describe("SequenceLibrary", () => {
     );
 
     fireEvent.change(screen.getByRole("combobox", { name: "User sequences" }), {
-      currentTarget: { value: "FALL" },
-      target: { value: "FALL" },
+      currentTarget: { value: builtIn?.name ?? "" },
+      target: { value: builtIn?.name ?? "" },
     });
 
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(onLoadSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "FALL" }),
+      expect.objectContaining({ name: builtIn?.name }),
       expect.objectContaining({ source: "user" }),
     );
   });
