@@ -529,7 +529,7 @@ const Sequencer = ({
     if (!context?.snapshotId || !context?.kind) return;
     const matchingEvent = sequenceEvents.find((event) => (
       event?.type === "note"
-      && event.snapshotId === context.snapshotId
+      && String(event.snapshotId) === String(context.snapshotId)
       && event.kind === context.kind
       && (
         (typeof context.resolvedNoteId === "string" && context.resolvedNoteId

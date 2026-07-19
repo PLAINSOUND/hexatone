@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
+import { loadPersistedSequencerCrashDiagnostics, SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY } from "../debug/sequencer-crash-diagnostics.js";
 import Sequencer from "./sequencer.jsx";
 import { buildSnapshotDescription } from "./labels.js";
 import { loadUserSequences } from "./sequence-library.jsx";
@@ -2464,6 +2465,101 @@ describe("Sequencer", () => {
     expect(onUpdateSnapshot).toHaveBeenLastCalledWith(10, {
       notes: [expect.objectContaining({ id: "a", end: 1.5, endFractionDenominator: 2 })],
     });
+  });
+
+  it("records a derived post-commit diagnostic for numeric snapshot ids", async () => {
+    localStorage.setItem("hexatone_debug_sequencer_crash", "true");
+    sessionStorage.removeItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY);
+
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [
+            {
+              id: "a",
+              midicents: 81,
+              start: 0,
+              end: 1,
+            },
+          ],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    fireEvent.input(screen.getByLabelText("snapshot 1 attack beat"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getByLabelText("snapshot 1 attack beat fraction numerator"), {
+      currentTarget: { value: "1" },
+      target: { value: "1" },
+    });
+    fireEvent.input(screen.getByLabelText("snapshot 1 attack beat fraction denominator"), {
+      currentTarget: { value: "4" },
+      target: { value: "4" },
+    });
+    fireEvent.click(screen.getByLabelText("commit snapshot 1 attack bar-relative timing"));
+
+    await waitFor(() => {
+      const persisted = loadPersistedSequencerCrashDiagnostics();
+      const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
+      expect(lastEntry?.type).toBe("event-derived-post-commit");
+      expect(lastEntry?.context).toMatchObject({
+        snapshotId: "10",
+        noteId: "a",
+        resolvedNoteId: "a",
+        eventAbsoluteTime: 1.3125,
+        derivedBarNumber: 1,
+        derivedBeat: 2,
+        derivedNumerator: 1,
+        derivedDenominator: 4,
+      });
+    });
+
+    localStorage.removeItem("hexatone_debug_sequencer_crash");
+    sessionStorage.removeItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY);
   });
 
   it("shows exact note-off barlines as the end of the current bar", () => {

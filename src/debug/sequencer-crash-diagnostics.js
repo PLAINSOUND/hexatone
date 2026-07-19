@@ -51,6 +51,8 @@ function normalizeContext(context) {
   return {
     source: context.source == null ? null : String(context.source),
     snapshotId: context.snapshotId == null ? null : String(context.snapshotId),
+    noteId: context.noteId == null ? null : String(context.noteId),
+    resolvedNoteId: context.resolvedNoteId == null ? null : String(context.resolvedNoteId),
     noteKey: context.noteKey == null ? null : String(context.noteKey),
     kind: context.kind == null ? null : String(context.kind),
     draftKey: context.draftKey == null ? null : String(context.draftKey),
