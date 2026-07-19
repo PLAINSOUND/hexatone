@@ -2977,7 +2977,7 @@ describe("Sequencer", () => {
 
     render(<Harness />);
 
-    fireEvent.change(screen.getAllByRole("combobox")[0], {
+    fireEvent.change(screen.getByLabelText("User sequences"), {
       currentTarget: { value: "FALL" },
       target: { value: "FALL" },
     });

@@ -413,6 +413,56 @@ describe("sequencer transport", () => {
     });
   });
 
+  it("preserves a preferred sextuplet denominator for nonzero note-event fractions", () => {
+    const bars = [
+      { id: 1, position: 1, numerator: 4, denominator: 4 },
+    ];
+
+    expect(absolutePositionToBarBeat(1 + ((2 / 6) * 0.25), bars, 6, 9, null, false, true)).toEqual({
+      barNumber: 1,
+      beat: 1,
+      numerator: 2,
+      denominator: 6,
+      barStart: 1,
+      barLength: 1,
+      beatsPerBar: 4,
+      beatUnit: 4,
+    });
+
+    expect(absolutePositionToBarBeat(1.083333, bars, 6, 9, null, false, true)).toEqual({
+      barNumber: 1,
+      beat: 1,
+      numerator: 2,
+      denominator: 6,
+      barStart: 1,
+      barLength: 1,
+      beatsPerBar: 4,
+      beatUnit: 4,
+    });
+
+    expect(absolutePositionToBarBeat(1 + ((3 / 6) * 0.25), bars, 6, 9, null, false, true)).toEqual({
+      barNumber: 1,
+      beat: 1,
+      numerator: 3,
+      denominator: 6,
+      barStart: 1,
+      barLength: 1,
+      beatsPerBar: 4,
+      beatUnit: 4,
+    });
+
+    expect(absolutePositionToBarBeat(1, bars, 6, 9, null, false, true)).toEqual({
+      barNumber: 1,
+      beat: 1,
+      numerator: 0,
+      denominator: 1,
+      barStart: 1,
+      barLength: 1,
+      beatsPerBar: 4,
+      beatUnit: 4,
+    });
+  });
+
   it("keeps the last explicit bar active until another explicit bar marker appears", () => {
     const bars = [
       { id: 1, position: 1, numerator: 4, denominator: 4 },

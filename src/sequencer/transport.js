@@ -411,13 +411,25 @@ function preferredDenominatorOrder(maxDenominator) {
   return ordered;
 }
 
-function approximateFraction(value, maxDenominator = 9, tolerance = 0.000001, preferredDenominator = null) {
+function approximateFraction(
+  value,
+  maxDenominator = 9,
+  tolerance = 0.000001,
+  preferredDenominator = null,
+  preservePreferredDenominator = false,
+) {
   const n = Number(value);
   if (!Number.isFinite(n) || Math.abs(n) < 1e-9) return { numerator: 0, denominator: 1 };
 
   const preferred = Math.round(Number(preferredDenominator));
   if (Number.isFinite(preferred) && preferred > 0) {
     const numerator = Math.round(n * preferred);
+    if (preservePreferredDenominator) {
+      return {
+        numerator,
+        denominator: preferred,
+      };
+    }
     const error = Math.abs(n - numerator / preferred);
     if (error <= tolerance) {
       return {
@@ -468,6 +480,18 @@ function gcd(a, b) {
     y = next;
   }
   return x || 1;
+}
+
+function normalizeDisplayedBeatFraction(fraction) {
+  const numerator = Math.max(0, Math.round(Number(fraction?.numerator) || 0));
+  const denominator = Math.max(1, Math.round(Number(fraction?.denominator) || 1));
+  if (numerator <= 0) {
+    return { numerator: 0, denominator: 1 };
+  }
+  if (numerator === denominator) {
+    return { numerator: 1, denominator: 1 };
+  }
+  return { numerator, denominator };
 }
 
 export function barContextForPosition(position, bars = [], terminalPosition = null) {
@@ -571,6 +595,7 @@ export function absolutePositionToBarBeat(
   maxDenominator = 9,
   terminalPosition = null,
   preferBarEnd = false,
+  preservePreferredDenominator = false,
 ) {
   const numericPosition = Number(position);
   if (preferBarEnd && Number.isFinite(numericPosition)) {
@@ -635,12 +660,13 @@ export function absolutePositionToBarBeat(
     maxDenominator,
     Number.isFinite(Number(preferredDenominator)) ? Math.round(Number(preferredDenominator)) : 0,
   );
-  const fraction = approximateFraction(
+  const fraction = normalizeDisplayedBeatFraction(approximateFraction(
     Math.max(0, snappedBeatOffset - beatWhole),
     resolvedMax,
     0.000001,
     preferredDenominator,
-  );
+    preservePreferredDenominator,
+  ));
 
   return {
     barNumber,

@@ -551,6 +551,7 @@ const Sequencer = ({
       9,
       terminalBarlinePosition,
       matchingEvent.kind === "release",
+      true,
     );
     const courtesyStart = (
       !matchingEvent.cueDisplayLead
@@ -831,6 +832,7 @@ const Sequencer = ({
         9,
         terminalBarlinePosition,
         event.type === "note" && event.kind === "release",
+        event.type === "note",
       );
       if (barBeat) next.set(event.eventId, barBeat);
     }
