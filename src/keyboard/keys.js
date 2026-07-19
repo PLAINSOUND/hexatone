@@ -131,6 +131,11 @@ function isTextEntryElement(el) {
   ].includes(type);
 }
 
+function cssPx(value) {
+  const parsed = parseFloat(String(value ?? "").trim());
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 class Keys {
   constructor(
     canvas,
@@ -227,7 +232,14 @@ class Keys {
     this.onModulationStateChange = onModulationStateChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
     this.visualViewportResizeHandler = () => {
-      if (isTextEntryElement(document.activeElement)) return;
+      const viewport = window.visualViewport;
+      if (isTextEntryElement(document.activeElement) && viewport) {
+        const viewportWidth = Math.max(1, Math.round(viewport.width ?? window.innerWidth));
+        const viewportOffsetLeft = Math.round(viewport.offsetLeft ?? 0);
+        const currentWidth = Math.max(1, Math.round(this.state.viewportWidth || cssPx(this.state.canvas.style.width) || window.innerWidth));
+        const currentOffsetLeft = Math.round(cssPx(this.state.canvas.style.left));
+        if (viewportWidth === currentWidth && viewportOffsetLeft === currentOffsetLeft) return;
+      }
       this.resizeHandler();
     };
     // Called once on the first touch — within the iOS gesture window — so the

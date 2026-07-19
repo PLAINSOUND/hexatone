@@ -107,6 +107,7 @@ import {
   appendPersistedTimedTransportDiagnostic,
   isTimedTransportDiagnosticsEnabled,
 } from "./debug/timed-transport-diagnostics.js";
+import { appendPersistedSequencerCrashDiagnostic } from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   sequenceNotesAtCueIndex,
@@ -940,6 +941,7 @@ const App = () => {
   }, [sequenceBars]);
 
   const appendSequenceSnapshot = useCallback((notes = []) => {
+    const snapshotCountBefore = snapshotsRef.current.length;
     const nextSnapshotId = snapshotIdRef.current + 1;
     const result = appendSnapshotToWorkspace({
       snapshots: snapshotsRef.current,
@@ -950,6 +952,20 @@ const App = () => {
       nextSnapshotId,
       nextBarId: sequenceBarIdRef.current,
     });
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-capture-appended",
+      detail: "Appended snapshot to workspace",
+      context: {
+        source: "snapshot-capture",
+        captureStage: "append",
+        captureNoteCount: Array.isArray(notes) ? notes.length : 0,
+        snapshotCountBefore,
+        snapshotCountAfter: result.snapshots.length,
+        snapshotId: result.selectedSnapshotId,
+        selectedSnapshotId: result.selectedSnapshotId,
+        workspaceTab,
+      },
+    });
     snapshotIdRef.current = result.ids.snapshotId;
     sequenceBarIdRef.current = result.ids.barId;
     snapshotsRef.current = result.snapshots;
@@ -958,17 +974,86 @@ const App = () => {
     setSequenceBars(result.bars);
     setSelectedSnapshotId(result.selectedSnapshotId);
     setSelectedSnapshotMarker(result.selectedSnapshotMarker);
-  }, [sequenceAutoCreateBars, snapshotLabelMode]);
+  }, [sequenceAutoCreateBars, snapshotLabelMode, workspaceTab]);
 
   const onTakeSnapshot = useCallback(() => {
-    const notes = keysRef.current?.getSnapshot();
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-capture-requested",
+      detail: "Requested live snapshot capture",
+      context: {
+        source: "snapshot-capture",
+        captureStage: "requested",
+        snapshotCountBefore: snapshotsRef.current.length,
+        selectedSnapshotId,
+        workspaceTab,
+      },
+    });
+    let notes = null;
+    try {
+      notes = keysRef.current?.getSnapshot() ?? null;
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-capture-collected",
+        detail: "Collected live snapshot notes",
+        context: {
+          source: "snapshot-capture",
+          captureStage: "collected",
+          captureNoteCount: Array.isArray(notes) ? notes.length : 0,
+          snapshotCountBefore: snapshotsRef.current.length,
+          selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+    } catch (error) {
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-capture-error",
+        detail: "Snapshot capture failed while collecting notes",
+        context: {
+          source: "snapshot-capture",
+          captureStage: "collect",
+          snapshotCountBefore: snapshotsRef.current.length,
+          selectedSnapshotId,
+          workspaceTab,
+        },
+        error,
+      });
+      throw error;
+    }
     if (!notes?.length) return;
-    appendSequenceSnapshot(notes);
-  }, [appendSequenceSnapshot]);
+    try {
+      appendSequenceSnapshot(notes);
+    } catch (error) {
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-capture-error",
+        detail: "Snapshot capture failed while appending workspace snapshot",
+        context: {
+          source: "snapshot-capture",
+          captureStage: "append",
+          captureNoteCount: Array.isArray(notes) ? notes.length : 0,
+          snapshotCountBefore: snapshotsRef.current.length,
+          selectedSnapshotId,
+          workspaceTab,
+        },
+        error,
+      });
+      throw error;
+    }
+  }, [appendSequenceSnapshot, selectedSnapshotId, workspaceTab]);
 
   const onAddEmptySnapshot = useCallback(() => {
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-capture-requested",
+      detail: "Requested empty snapshot append",
+      context: {
+        source: "snapshot-capture",
+        captureStage: "empty-requested",
+        captureNoteCount: 0,
+        snapshotCountBefore: snapshotsRef.current.length,
+        selectedSnapshotId,
+        workspaceTab,
+      },
+    });
     appendSequenceSnapshot([]);
-  }, [appendSequenceSnapshot]);
+  }, [appendSequenceSnapshot, selectedSnapshotId, workspaceTab]);
 
   const onLoadSequence = useCallback((sequence, options = {}) => {
     const workspace = buildLoadedSequenceWorkspace(sequence, options);

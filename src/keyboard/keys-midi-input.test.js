@@ -183,6 +183,58 @@ describe("Keys MIDI input integration", () => {
     expect(Object.keys(snapshots.at(-1)?.rowsByDegree ?? {})).toHaveLength(0);
   });
 
+  it("still resizes on visualViewport width changes while a text input is focused", () => {
+    vi.stubGlobal("visualViewport", {
+      width: 800,
+      height: 600,
+      offsetLeft: 0,
+      offsetTop: 0,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const input = document.createElement("input");
+    input.type = "text";
+    document.body.appendChild(input);
+    input.focus();
+
+    const keys = createKeys();
+    const resizeSpy = vi.spyOn(keys, "resizeHandler");
+    resizeSpy.mockClear();
+
+    globalThis.visualViewport.width = 720;
+    keys.visualViewportResizeHandler();
+
+    expect(resizeSpy).toHaveBeenCalledTimes(1);
+    input.remove();
+  });
+
+  it("ignores height-only visualViewport changes while a text input is focused", () => {
+    vi.stubGlobal("visualViewport", {
+      width: 800,
+      height: 600,
+      offsetLeft: 0,
+      offsetTop: 0,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const input = document.createElement("input");
+    input.type = "text";
+    document.body.appendChild(input);
+    input.focus();
+
+    const keys = createKeys();
+    const resizeSpy = vi.spyOn(keys, "resizeHandler");
+    resizeSpy.mockClear();
+
+    globalThis.visualViewport.height = 520;
+    keys.visualViewportResizeHandler();
+
+    expect(resizeSpy).not.toHaveBeenCalled();
+    input.remove();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
