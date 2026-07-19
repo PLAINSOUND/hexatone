@@ -1702,59 +1702,146 @@ const App = () => {
   }, [playSequencePosition, sequencePlayhead.barIndex, sequencePlayhead.stepIndex, snapshotIndexNearBar, snapshots.length]);
 
   const onStepSequenceMarker = useCallback((direction) => {
-    if (!snapshots.length) return;
-    const cueCount = sequenceCueGroups.length;
-    if (cueCount === 0) {
-      const currentStep = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
-      if (currentStep < 0) {
-        const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
-        if (target < 0) {
-          playSequencePosition(-1, null);
-          return;
-        }
-        if (target >= snapshots.length) {
-          playSequencePosition(snapshots.length, null);
-          return;
-        }
-        playSequencePosition(target, null);
-        return;
-      }
-      const nextStep = Math.max(-1, Math.min(snapshots.length, currentStep + direction));
-      playSequencePosition(nextStep, null);
-      return;
-    }
+    const currentCueIndex = Number.isFinite(sequencePlayhead.markerIndex) ? sequencePlayhead.markerIndex : null;
+    const playheadStepIndex = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : null;
+    const playheadBarIndex = Number.isFinite(sequencePlayhead.barIndex) ? sequencePlayhead.barIndex : null;
+    const recordCueNavigation = (type, detail, extraContext = {}, error = null) => {
+      appendPersistedSequencerCrashDiagnostic({
+        type,
+        detail,
+        context: {
+          source: "cue-navigation",
+          navigationDirection: direction,
+          currentCueIndex,
+          playheadStepIndex,
+          playheadBarIndex,
+          snapshotCountBefore: snapshots.length,
+          workspaceTab,
+          ...extraContext,
+        },
+        error,
+      });
+    };
 
-    const atOff = !Number.isFinite(sequencePlayhead.stepIndex) || sequencePlayhead.stepIndex < 0;
-    const atEnd = Number.isFinite(sequencePlayhead.stepIndex) && sequencePlayhead.stepIndex >= snapshots.length;
-    const currentCue = Number.isFinite(sequencePlayhead.markerIndex) ? sequencePlayhead.markerIndex : null;
+    recordCueNavigation(
+      "cue-navigation-requested",
+      direction < 0 ? "Requested previous cue" : "Requested next cue",
+      { navigationStage: "requested" },
+    );
 
-    let nextCue = currentCue;
-    if (atOff) {
-      nextCue = cueIndexNearBar(sequencePlayhead.barIndex, direction);
-      if (nextCue < 0) {
-        if (direction < 0) {
-          playSequencePosition(-1, null);
+    try {
+      if (!snapshots.length) {
+        recordCueNavigation(
+          "cue-navigation-resolved",
+          "Ignored cue navigation because the sequence is empty",
+          { navigationStage: "resolved", nextCueIndex: null },
+        );
+        return;
+      }
+
+      const cueCount = sequenceCueGroups.length;
+      if (cueCount === 0) {
+        const currentStep = playheadStepIndex ?? -1;
+        if (currentStep < 0) {
+          const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
+          if (target < 0) {
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved cue navigation to sequence start",
+              { navigationStage: "resolved", nextCueIndex: -1 },
+            );
+            playSequencePosition(-1, null);
+            return;
+          }
+          if (target >= snapshots.length) {
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved cue navigation to sequence end",
+              { navigationStage: "resolved", nextCueIndex: cueCount },
+            );
+            playSequencePosition(snapshots.length, null);
+            return;
+          }
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            "Resolved cue navigation to snapshot playhead",
+            {
+              navigationStage: "resolved",
+              nextCueIndex: null,
+              snapshotId: snapshots[target]?.id ?? null,
+            },
+          );
+          playSequencePosition(target, null);
           return;
         }
-        playSequencePosition(snapshots.length, cueCount - 1);
+
+        const nextStep = Math.max(-1, Math.min(snapshots.length, currentStep + direction));
+        recordCueNavigation(
+          "cue-navigation-resolved",
+          "Resolved cue navigation without cue markers",
+          {
+            navigationStage: "resolved",
+            nextCueIndex: null,
+            snapshotId: snapshots[nextStep]?.id ?? null,
+          },
+        );
+        playSequencePosition(nextStep, null);
         return;
       }
-    } else if (atEnd) {
-      if (direction >= 0) return;
-      nextCue = currentCue == null ? cueCount - 1 : Math.max(0, currentCue - 1);
-    } else if (currentCue == null) {
-      const currentTime = Number(sequencePlayhead.stepIndex) + 1;
-      nextCue = direction > 0
-        ? sequenceCueGroups.findIndex((group) => group.time > currentTime)
-        : sequenceCueGroups.findLastIndex((group) => group.time < currentTime);
-      if (nextCue < 0) {
-        playSequencePosition(direction > 0 ? snapshots.length : -1, null);
-        return;
-      }
-    } else {
-      if (direction > 0) {
+
+      const atOff = playheadStepIndex == null || playheadStepIndex < 0;
+      const atEnd = playheadStepIndex != null && playheadStepIndex >= snapshots.length;
+      let nextCue = currentCueIndex;
+
+      if (atOff) {
+        nextCue = cueIndexNearBar(sequencePlayhead.barIndex, direction);
+        if (nextCue < 0) {
+          if (direction < 0) {
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved previous cue navigation to off state",
+              { navigationStage: "resolved", nextCueIndex: -1 },
+            );
+            playSequencePosition(-1, null);
+            return;
+          }
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            "Resolved next cue navigation to sequence end",
+            { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
+          );
+          playSequencePosition(snapshots.length, cueCount - 1);
+          return;
+        }
+      } else if (atEnd) {
+        if (direction >= 0) {
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            "Resolved next cue navigation to stay at sequence end",
+            { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
+          );
+          return;
+        }
+        nextCue = currentCueIndex == null ? cueCount - 1 : Math.max(0, currentCueIndex - 1);
+      } else if (currentCueIndex == null) {
+        const currentTime = Number(sequencePlayhead.stepIndex) + 1;
+        nextCue = direction > 0
+          ? sequenceCueGroups.findIndex((group) => group.time > currentTime)
+          : sequenceCueGroups.findLastIndex((group) => group.time < currentTime);
+        if (nextCue < 0) {
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            direction > 0
+              ? "Resolved next cue navigation to sequence end"
+              : "Resolved previous cue navigation to off state",
+            { navigationStage: "resolved", nextCueIndex: direction > 0 ? cueCount - 1 : -1 },
+          );
+          playSequencePosition(direction > 0 ? snapshots.length : -1, null);
+          return;
+        }
+      } else if (direction > 0) {
         const repeatAdvance = advanceCueIndexWithRepeats({
-          currentCueIndex: currentCue,
+          currentCueIndex,
           cueCount,
           cueGroups: sequenceCueGroups,
           repeatSections: sequenceRepeatSections,
@@ -1763,27 +1850,82 @@ const App = () => {
         sequenceRepeatPlaybackStateRef.current = repeatAdvance.nextRepeatPlaybackState;
         nextCue = repeatAdvance.nextCueIndex;
         if (nextCue >= cueCount) {
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            "Resolved next cue navigation beyond final cue",
+            { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
+          );
           playSequencePosition(snapshots.length, cueCount - 1);
           return;
         }
         const nextCueGroup = sequenceCueGroups[nextCue];
-        if (!nextCueGroup) return;
+        if (!nextCueGroup) {
+          recordCueNavigation(
+            "cue-navigation-error",
+            "Resolved next cue index without a cue group",
+            { navigationStage: "error", nextCueIndex: nextCue },
+          );
+          return;
+        }
+        recordCueNavigation(
+          "cue-navigation-resolved",
+          repeatAdvance.didLoop
+            ? "Resolved next cue navigation with repeat loop"
+            : "Resolved next cue navigation",
+          {
+            navigationStage: "resolved",
+            nextCueIndex: nextCue,
+            snapshotId: snapshots[nextCueGroup.snapshotIndex]?.id ?? null,
+          },
+        );
         playSequencePosition(nextCueGroup.snapshotIndex, nextCue, {
           hardRestart: repeatAdvance.didLoop,
         });
         return;
+      } else {
+        sequenceRepeatPlaybackStateRef.current = {};
+        nextCue = Math.max(-1, Math.min(cueCount, currentCueIndex + direction));
+        if (nextCue < 0) {
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            "Resolved previous cue navigation to off state",
+            { navigationStage: "resolved", nextCueIndex: -1 },
+          );
+          playSequencePosition(-1, null);
+          return;
+        }
       }
-      sequenceRepeatPlaybackStateRef.current = {};
-      nextCue = Math.max(-1, Math.min(cueCount, currentCue + direction));
-      if (nextCue < 0) {
-        playSequencePosition(-1, null);
+
+      const cueGroup = sequenceCueGroups[nextCue];
+      if (!cueGroup) {
+        recordCueNavigation(
+          "cue-navigation-error",
+          "Resolved cue index without a cue group",
+          { navigationStage: "error", nextCueIndex: nextCue },
+        );
         return;
       }
+      recordCueNavigation(
+        "cue-navigation-resolved",
+        direction < 0 ? "Resolved previous cue navigation" : "Resolved next cue navigation",
+        {
+          navigationStage: "resolved",
+          nextCueIndex: nextCue,
+          snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? null,
+        },
+      );
+      playSequencePosition(cueGroup.snapshotIndex, nextCue);
+    } catch (error) {
+      recordCueNavigation(
+        "cue-navigation-error",
+        direction < 0
+          ? "Previous cue navigation threw an error"
+          : "Next cue navigation threw an error",
+        { navigationStage: "error" },
+        error,
+      );
+      throw error;
     }
-
-    const cueGroup = sequenceCueGroups[nextCue];
-    if (!cueGroup) return;
-    playSequencePosition(cueGroup.snapshotIndex, nextCue);
   }, [
     sequenceRepeatSections,
     cueIndexNearBar,
@@ -1793,7 +1935,8 @@ const App = () => {
     sequencePlayhead.markerIndex,
     sequencePlayhead.stepIndex,
     snapshotIndexNearBar,
-    snapshots.length,
+    snapshots,
+    workspaceTab,
   ]);
 
   const onJumpSequenceSnapshot = useCallback((targetIndex) => {
