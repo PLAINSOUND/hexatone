@@ -2472,6 +2472,84 @@ describe("Sequencer", () => {
     });
   });
 
+  it("preserves a user-edited equivalent denominator like 2/6 after commit and rerender", async () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [
+            {
+              id: "a",
+              midicents: 81,
+              start: 0.083333,
+              end: 1,
+              startFractionDenominator: 3,
+            },
+          ],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").value).toBe("1");
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").value).toBe("3");
+
+    fireEvent.input(screen.getByLabelText("snapshot 1 attack beat fraction numerator"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getByLabelText("snapshot 1 attack beat fraction denominator"), {
+      currentTarget: { value: "6" },
+      target: { value: "6" },
+    });
+    fireEvent.click(screen.getByLabelText("commit snapshot 1 attack bar-relative timing"));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").value).toBe("2");
+      expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").value).toBe("6");
+    });
+  });
+
   it("records a derived post-commit diagnostic for numeric snapshot ids", async () => {
     localStorage.setItem("hexatone_debug_sequencer_crash", "true");
     sessionStorage.removeItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY);
