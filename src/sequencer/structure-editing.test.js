@@ -51,6 +51,20 @@ describe("structure editing", () => {
     expect(result.repeats.map((repeat) => repeat.position)).toEqual([2.5, 4]);
   });
 
+  it("shifts structural markers by the full inserted block length", () => {
+    const result = shiftStructuralMarkersAfterSnapshotInsertion({
+      bars: [{ id: 1, position: 1 }, { id: 2, position: 3 }],
+      tempi: [{ id: 1, position: 2.5 }, { id: 2, position: 3 }],
+      repeats: [{ id: 1, position: 3, kind: "start", repeatCount: null }],
+      insertionPosition: 2,
+      snapshotCount: 3,
+    });
+
+    expect(result.bars.map((bar) => bar.position)).toEqual([1, 6]);
+    expect(result.tempi.map((tempo) => tempo.position)).toEqual([5.5, 6]);
+    expect(result.repeats.map((repeat) => repeat.position)).toEqual([6]);
+  });
+
   it("decrements later structural markers after deleting a snapshot and gives later bars/tempi precedence on collisions", () => {
     const result = shiftStructuralMarkersAfterSnapshotDeletion({
       bars: [

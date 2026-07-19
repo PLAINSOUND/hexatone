@@ -18,12 +18,12 @@ function normalizeStructuralPosition(value) {
   return Math.round(numeric * 1000000) / 1000000;
 }
 
-function shiftMarkerAfterInsertion(marker, insertionPosition) {
+function shiftMarkerAfterInsertion(marker, insertionPosition, snapshotCount = 1) {
   const position = normalizeStructuralPosition(marker?.position);
   if (position == null || position < insertionPosition - 1e-9) return marker;
   return {
     ...marker,
-    position: normalizeStructuralPosition(position + 1),
+    position: normalizeStructuralPosition(position + snapshotCount),
   };
 }
 
@@ -44,6 +44,37 @@ function shiftMarkerAfterDeletion(marker, deletionPosition, { collapseWithinSnap
     return {
       ...marker,
       position: normalizeStructuralPosition(position - 1),
+    };
+  }
+
+  return marker;
+}
+
+function shiftMarkerAfterRangeDeletion(
+  marker,
+  startPosition,
+  endPosition,
+  {
+    collapseWithinRange = false,
+  } = {},
+) {
+  const position = normalizeStructuralPosition(marker?.position);
+  if (position == null) return marker;
+  const snapshotStart = startPosition;
+  const snapshotEnd = endPosition + 1;
+  const deletedCount = Math.max(1, endPosition - startPosition + 1);
+
+  if (collapseWithinRange && position > snapshotStart + 1e-9 && position < snapshotEnd - 1e-9) {
+    return {
+      ...marker,
+      position: snapshotStart,
+    };
+  }
+
+  if (position >= snapshotEnd - 1e-9) {
+    return {
+      ...marker,
+      position: normalizeStructuralPosition(position - deletedCount),
     };
   }
 
@@ -78,17 +109,19 @@ export function shiftStructuralMarkersAfterSnapshotInsertion({
   tempi = [],
   repeats = [],
   insertionPosition,
+  snapshotCount = 1,
 } = {}) {
   const normalizedInsertionPosition = Math.max(1, Math.round(Number(insertionPosition) || 1));
+  const normalizedSnapshotCount = Math.max(1, Math.round(Number(snapshotCount) || 1));
   return {
     bars: Array.isArray(bars)
-      ? bars.map((bar) => shiftMarkerAfterInsertion(bar, normalizedInsertionPosition))
+      ? bars.map((bar) => shiftMarkerAfterInsertion(bar, normalizedInsertionPosition, normalizedSnapshotCount))
       : [],
     tempi: Array.isArray(tempi)
-      ? tempi.map((tempo) => shiftMarkerAfterInsertion(tempo, normalizedInsertionPosition))
+      ? tempi.map((tempo) => shiftMarkerAfterInsertion(tempo, normalizedInsertionPosition, normalizedSnapshotCount))
       : [],
     repeats: Array.isArray(repeats)
-      ? repeats.map((repeat) => shiftMarkerAfterInsertion(repeat, normalizedInsertionPosition))
+      ? repeats.map((repeat) => shiftMarkerAfterInsertion(repeat, normalizedInsertionPosition, normalizedSnapshotCount))
       : [],
   };
 }
@@ -119,6 +152,64 @@ export function shiftStructuralMarkersAfterSnapshotDeletion({
 
   const nextRepeats = (Array.isArray(repeats) ? repeats : [])
     .map((repeat) => shiftMarkerAfterDeletion(repeat, normalizedDeletionPosition, { collapseWithinSnapshot: true }));
+
+  return {
+    bars: nextBars,
+    tempi: nextTempi,
+    repeats: nextRepeats,
+  };
+}
+
+export function shiftStructuralMarkersAfterSnapshotRangeDeletion({
+  bars = [],
+  tempi = [],
+  repeats = [],
+  startPosition,
+  endPosition,
+  deleteBarsInRange = false,
+  deleteTempiInRange = false,
+  deleteRepeatsInRange = false,
+} = {}) {
+  const normalizedStartPosition = Math.max(1, Math.round(Number(startPosition) || 1));
+  const normalizedEndPosition = Math.max(normalizedStartPosition, Math.round(Number(endPosition) || normalizedStartPosition));
+  const annotateOriginalPosition = (marker) => ({
+    ...marker,
+    _originalPosition: normalizeStructuralPosition(marker?.position),
+  });
+  const isWithinDeletedRange = (marker) => {
+    const position = normalizeStructuralPosition(marker?.position);
+    return position != null
+      && position >= normalizedStartPosition - 1e-9
+      && position < normalizedEndPosition + 1 - 1e-9;
+  };
+
+  const nextBars = dedupeStructuralCollisions(
+    (Array.isArray(bars) ? bars : [])
+      .filter((bar) => !(deleteBarsInRange && isWithinDeletedRange(bar)))
+      .map(annotateOriginalPosition)
+      .map((bar) => shiftMarkerAfterRangeDeletion(bar, normalizedStartPosition, normalizedEndPosition)),
+  );
+
+  const nextTempi = dedupeStructuralCollisions(
+    (Array.isArray(tempi) ? tempi : [])
+      .filter((tempo) => !(deleteTempiInRange && isWithinDeletedRange(tempo)))
+      .map(annotateOriginalPosition)
+      .map((tempo) => shiftMarkerAfterRangeDeletion(
+        tempo,
+        normalizedStartPosition,
+        normalizedEndPosition,
+        { collapseWithinRange: true },
+      )),
+  );
+
+  const nextRepeats = (Array.isArray(repeats) ? repeats : [])
+    .filter((repeat) => !(deleteRepeatsInRange && isWithinDeletedRange(repeat)))
+    .map((repeat) => shiftMarkerAfterRangeDeletion(
+      repeat,
+      normalizedStartPosition,
+      normalizedEndPosition,
+      { collapseWithinRange: true },
+    ));
 
   return {
     bars: nextBars,

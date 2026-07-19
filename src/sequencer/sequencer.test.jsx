@@ -6,6 +6,10 @@ import Sequencer from "./sequencer.jsx";
 import { buildSnapshotDescription } from "./labels.js";
 import { loadUserSequences } from "./sequence-library.jsx";
 import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
+import {
+  deleteSnapshotRangeFromWorkspace,
+  resetSnapshotRangeNoteOffsetsInWorkspace,
+} from "./snapshot-workspace-runtime.js";
 
 describe("Sequencer", () => {
   beforeEach(() => {
@@ -143,8 +147,170 @@ describe("Sequencer", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Empty" }));
+    fireEvent.click(screen.getByRole("button", { name: "Append Empty Snapshot" }));
     expect(onAddEmptySnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets note offsets in place from the Copy & Insert controls", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 69, start: 0.25, end: 0.75, startFractionDenominator: 4, endFractionDenominator: 4 }],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onResetSnapshotRangeNoteOffsetsInPlace={(selection) => {
+            const result = resetSnapshotRangeNoteOffsetsInWorkspace({
+              snapshots,
+              bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+              startPosition: selection?.startPosition,
+              endPosition: selection?.endPosition,
+              includeBars: selection?.includeBars === true,
+            });
+            setSnapshots(result.snapshots);
+            return result;
+          }}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    expect(screen.getAllByLabelText("snapshot 1 attack offset")[0].value).toBe("0.250");
+    expect(screen.getAllByLabelText("snapshot 1 release offset")[0].value).toBe("0.750");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset Note Offsets in Place" }));
+
+    expect(screen.getAllByLabelText("snapshot 1 attack offset")[0].value).toBe("0.000");
+    expect(screen.getAllByLabelText("snapshot 1 release offset")[0].value).toBe("1.000");
+  });
+
+  it("deletes the selected range from the Copy & Insert controls", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+        },
+        {
+          id: 11,
+          length: 1,
+          description: "B",
+          notes: [{ id: "b", midicents: 71, start: 0.5, end: 1 }],
+        },
+      ]);
+      const [selectedSnapshotId, setSelectedSnapshotId] = useState(10);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={selectedSnapshotId}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={setSelectedSnapshotId}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onDeleteSnapshotRange={(selection) => {
+            const result = deleteSnapshotRangeFromWorkspace({
+              snapshots,
+              bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+              tempi: [],
+              repeats: [],
+              startPosition: selection?.startPosition,
+              endPosition: selection?.endPosition,
+              includeBars: selection?.includeBars === true,
+              includeTempi: selection?.includeTempi === true,
+              includeRepeats: selection?.includeRepeats === true,
+              selectedSnapshotId,
+              selectedSnapshotMarker: null,
+            });
+            setSnapshots(result.snapshots);
+            setSelectedSnapshotId(result.selectedSnapshotId);
+            return result;
+          }}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    expect(screen.getByDisplayValue("A")).not.toBeNull();
+    expect(screen.getByDisplayValue("B")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Selected Range" }));
+
+    expect(screen.queryByDisplayValue("A")).toBeNull();
+    expect(screen.getByDisplayValue("B")).not.toBeNull();
   });
 
   it("offers a separate Add Tempo Target action in sequence controls", () => {
@@ -195,6 +361,103 @@ describe("Sequencer", () => {
     expect(screen.getByRole("button", { name: "Add Target Tempo" })).toBeTruthy();
     expect(screen.getByLabelText("sequence playback speed")).toBeTruthy();
     expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
+  });
+
+  it("copies a snapshot range and inserts the copied block through the app callback", () => {
+    const onInsertSnapshotCopyBlock = vi.fn(() => null);
+
+    render(
+      <Sequencer
+        snapshots={[
+          { id: 1, length: 1, notes: [{ id: "n1", midicents: 69, start: 0.25, end: 0.75 }], description: "A" },
+          { id: 2, length: 1, notes: [{ id: "n2", midicents: 71, start: 0.5, end: 0.9 }], description: "B" },
+          { id: 3, length: 1, notes: [], description: "C" },
+        ]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={2}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onAddEmptySnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceSaved={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSequencePlaybackSpeedChange={vi.fn()}
+        onSequencePlaybackPitchOffsetChange={vi.fn()}
+        onSnapSequenceToCurrentTuningChange={vi.fn()}
+        onSequenceAutoCreateBarsChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onCueSequenceSnapshot={vi.fn()}
+        onCueSequenceCue={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onJumpSequenceSnapshot={vi.fn()}
+        onJumpSequenceCue={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onPlayTimedCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onJumpSequenceEnd={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddRepeat={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onDeleteRepeat={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onUpdateRepeat={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onDeleteAllSnapshots={vi.fn()}
+        onClearSequence={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onDuplicateSnapshot={vi.fn()}
+        onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.input(screen.getByLabelText("copy snapshot range start"), {
+      currentTarget: { value: "1" },
+      target: { value: "1" },
+    });
+    fireEvent.input(screen.getByLabelText("copy snapshot range end"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getByLabelText("copy snapshot insert global position"), {
+      currentTarget: { value: "4" },
+      target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
+
+    expect(onInsertSnapshotCopyBlock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        length: 2,
+        includeBars: false,
+        snapshots: [
+          expect.objectContaining({ id: 1 }),
+          expect.objectContaining({ id: 2 }),
+        ],
+      }),
+      4,
+    );
+    expect(screen.getByText("Inserted 2 snapshots at slot 4.")).toBeTruthy();
   });
 
   it("renders a derived transition cue on the previous tempo row", () => {
@@ -2627,9 +2890,11 @@ describe("Sequencer", () => {
 
     await waitFor(() => {
       const persisted = loadPersistedSequencerCrashDiagnostics();
-      const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
-      expect(lastEntry?.type).toBe("event-derived-post-commit");
-      expect(lastEntry?.context).toMatchObject({
+      const derivedEntry = [...(persisted?.state?.entries ?? [])]
+        .reverse()
+        .find((entry) => entry?.type === "event-derived-post-commit") ?? null;
+      expect(derivedEntry).not.toBeNull();
+      expect(derivedEntry?.context).toMatchObject({
         snapshotId: "10",
         noteId: "a",
         resolvedNoteId: "a",

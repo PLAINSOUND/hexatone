@@ -3,6 +3,7 @@
 // which snapshot/bar/event should be brought into view during navigation.
 
 import { useCallback, useEffect, useRef } from "preact/hooks";
+import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
 import { structuralEventRenderKey } from "./value-runtime.js";
 import {
   deriveCueScrollAnchorTarget,
@@ -60,6 +61,17 @@ export default function useSequencerAutoscroll({
     const scrollPanel = scrollPanelRef.current;
     if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
 
+    appendPersistedSequencerCrashDiagnostic({
+      type: "sequencer-autoscroll-requested",
+      detail: "Requested sequencer autoscroll target",
+      context: {
+        source: "sequencer",
+        autoScrollEnabled,
+        scrollTop: scrollPanel.scrollTop,
+        targetTop: targetNode.getBoundingClientRect?.().top ?? null,
+      },
+    });
+
     window.requestAnimationFrame(() => {
       const scrollStartMs = performance.now();
       const panelRect = scrollPanel.getBoundingClientRect();
@@ -79,6 +91,16 @@ export default function useSequencerAutoscroll({
       const nextTop = Math.max(0, Math.min(maxTop, targetTop));
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
       scrollPanel.scrollTop = nextTop;
+      appendPersistedSequencerCrashDiagnostic({
+        type: "sequencer-autoscroll-applied",
+        detail: "Applied sequencer autoscroll target",
+        context: {
+          source: "sequencer",
+          autoScrollEnabled,
+          scrollTop: scrollPanel.scrollTop,
+          targetTop: nextTop,
+        },
+      });
       const durationMs = performance.now() - scrollStartMs;
       if (durationMs > 8) {
         recordTimedTransportDiagnostic?.({

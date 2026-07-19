@@ -336,6 +336,22 @@ export default function useDraftEditingController({
         nextEnd: nextNote?.end,
       },
     });
+    appendPersistedSequencerCrashDiagnostic({
+      type: "event-bar-relative-update-dispatched",
+      detail: "Dispatching snapshot update after bar-relative event commit",
+      context: {
+        source: "sequencer",
+        snapshotId: draft.snapshotId,
+        noteId: draft.noteId ?? previousNote?.id ?? null,
+        resolvedNoteId: nextNote?.id ?? draft.noteId ?? previousNote?.id ?? null,
+        noteKey: draft.noteKey,
+        kind: draft.kind,
+        draftKey: draft.draftKey,
+        snapshotCountBefore: snapshotsRef.current.length,
+        noteCountBefore: snapshot.notes?.length ?? null,
+        noteCountAfter: notes?.length ?? null,
+      },
+    });
     onUpdateSnapshot(snapshot.id, { notes });
     setBarRelativeDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
     notifyEditCommitted?.();

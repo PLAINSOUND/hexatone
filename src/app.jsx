@@ -97,9 +97,12 @@ import {
 import {
   appendSnapshotToWorkspace,
   buildClearedSequenceWorkspaceState,
+  deleteSnapshotRangeFromWorkspace,
   deleteSnapshotFromWorkspace,
   duplicateSnapshotInWorkspace,
+  insertSnapshotCopyBlock,
   moveSnapshotInWorkspace,
+  resetSnapshotRangeNoteOffsetsInWorkspace,
   resetSnapshotDescriptionInWorkspace,
   updateSnapshotInWorkspace,
 } from "./sequencer/snapshot-workspace-runtime.js";
@@ -107,7 +110,10 @@ import {
   appendPersistedTimedTransportDiagnostic,
   isTimedTransportDiagnosticsEnabled,
 } from "./debug/timed-transport-diagnostics.js";
-import { appendPersistedSequencerCrashDiagnostic } from "./debug/sequencer-crash-diagnostics.js";
+import {
+  appendPersistedSequencerCrashDiagnostic,
+  loadPersistedSequencerCrashDiagnostics,
+} from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import {
   sequenceNotesAtCueIndex,
@@ -1221,6 +1227,30 @@ const App = () => {
     sequenceTempi,
     snapshots,
   ]);
+  useEffect(() => {
+    const persisted = loadPersistedSequencerCrashDiagnostics();
+    const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
+    if (!lastEntry) return;
+    if (
+      lastEntry.type !== "snapshot-update-applied"
+      && lastEntry.type !== "event-bar-relative-update-dispatched"
+    ) {
+      return;
+    }
+    appendPersistedSequencerCrashDiagnostic({
+      type: "sequence-runtime-rebuilt",
+      detail: "Rebuilt sequence runtime model after snapshot update",
+      context: {
+        source: "sequencer",
+        snapshotCountBefore: lastEntry.context?.snapshotCountBefore ?? null,
+        snapshotCountAfter: snapshots.length,
+        selectedSnapshotId,
+        sequenceEventCount: sequenceRuntimeModel.sequenceEvents?.length ?? null,
+        cueGroupCount: sequenceRuntimeModel.sequenceCueGroups?.length ?? null,
+        workspaceTab,
+      },
+    });
+  }, [selectedSnapshotId, sequenceRuntimeModel, snapshots.length, workspaceTab]);
   const sequenceCueGroups = sequenceRuntimeModel.sequenceCueGroups;
   const sequenceRepeatSections = sequenceRuntimeModel.sequenceRepeatSections;
   const sortedSequenceBars = sequenceRuntimeModel.sortedBars;
@@ -2150,12 +2180,284 @@ const App = () => {
     setSequenceRepeats(result.repeats);
   }, [sequenceBars, sequenceRepeats, sequenceTempi, snapshots]);
 
+  const onInsertSnapshotCopyBlock = useCallback((block, insertionPosition) => {
+    const result = insertSnapshotCopyBlock({
+      snapshots: snapshotsRef.current,
+      bars: sequenceBars,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      block,
+      insertionPosition,
+      nextSnapshotId: snapshotIdRef.current + 1,
+      nextBarId: sequenceBarIdRef.current,
+    });
+    if (result.error) return result.error;
+    snapshotIdRef.current = result.ids.snapshotId;
+    sequenceBarIdRef.current = result.ids.barId;
+    snapshotsRef.current = result.snapshots;
+    sequenceBarsRef.current = result.bars;
+    saveSequenceWorkspaceToSession({
+      snapshots: result.snapshots,
+      bars: result.bars,
+      tempi: result.tempi,
+      repeats: result.repeats,
+      snapshotLabelMode,
+      activeSequenceSource,
+      activeSequenceBuiltInName,
+      activeSequenceName,
+      activeSequenceSavedName,
+      activeSequenceDescription,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      sequenceAutoCreateBars,
+    });
+    setSnapshots(result.snapshots);
+    setSequenceBars(result.bars);
+    setSequenceTempi(result.tempi);
+    setSequenceRepeats(result.repeats);
+    setSelectedSnapshotId(result.selectedSnapshotId);
+    setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+    return null;
+  }, [
+    activeSequenceBuiltInName,
+    activeSequenceDescription,
+    activeSequenceName,
+    activeSequenceSavedName,
+    activeSequenceSource,
+    sequenceAutoCreateBars,
+    sequenceBars,
+    sequenceLegato,
+    sequenceRepeats,
+    sequenceTempi,
+    snapSequenceToCurrentTuning,
+    snapshotLabelMode,
+  ]);
+
+  const onResetSnapshotRangeNoteOffsetsInPlace = useCallback((selection) => {
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-range-reset-requested",
+      detail: "Requested in-place reset of note offsets for snapshot range",
+      context: {
+        source: "sequencer",
+        startPosition: selection?.startPosition ?? null,
+        endPosition: selection?.endPosition ?? null,
+        includeBars: selection?.includeBars === true,
+        snapshotCountBefore: snapshotsRef.current.length,
+        selectedSnapshotId,
+        workspaceTab,
+      },
+    });
+    const result = resetSnapshotRangeNoteOffsetsInWorkspace({
+      snapshots: snapshotsRef.current,
+      bars: sequenceBarsRef.current,
+      startPosition: selection?.startPosition,
+      endPosition: selection?.endPosition,
+      includeBars: selection?.includeBars === true,
+    });
+    if (result.error) {
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-range-reset-failed",
+        detail: "Failed to reset note offsets for snapshot range",
+        context: {
+          source: "sequencer",
+          startPosition: selection?.startPosition ?? null,
+          endPosition: selection?.endPosition ?? null,
+          includeBars: selection?.includeBars === true,
+          snapshotCountBefore: snapshotsRef.current.length,
+          selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+      return result.error;
+    }
+    snapshotsRef.current = result.snapshots;
+    saveSequenceWorkspaceToSession({
+      snapshots: result.snapshots,
+      bars: sequenceBarsRef.current,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      snapshotLabelMode,
+      activeSequenceSource,
+      activeSequenceBuiltInName,
+      activeSequenceName,
+      activeSequenceSavedName,
+      activeSequenceDescription,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      sequenceAutoCreateBars,
+    });
+    setSnapshots(result.snapshots);
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-range-reset-applied",
+      detail: "Applied in-place reset of note offsets for snapshot range",
+      context: {
+        source: "sequencer",
+        startPosition: result.range?.startPosition ?? null,
+        endPosition: result.range?.endPosition ?? null,
+        includeBars: result.range?.includeBars === true,
+        snapshotCountBefore: snapshotsRef.current.length,
+        snapshotCountAfter: result.snapshots.length,
+        selectedSnapshotId,
+        workspaceTab,
+      },
+    });
+    return result;
+  }, [
+    activeSequenceBuiltInName,
+    activeSequenceDescription,
+    activeSequenceName,
+    activeSequenceSavedName,
+    activeSequenceSource,
+    selectedSnapshotId,
+    sequenceAutoCreateBars,
+    sequenceLegato,
+    sequenceRepeats,
+    sequenceTempi,
+    snapSequenceToCurrentTuning,
+    snapshotLabelMode,
+    workspaceTab,
+  ]);
+
+  const onDeleteSnapshotRange = useCallback((selection) => {
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-range-delete-requested",
+      detail: "Requested deletion of snapshot range",
+      context: {
+        source: "sequencer",
+        startPosition: selection?.startPosition ?? null,
+        endPosition: selection?.endPosition ?? null,
+        includeBars: selection?.includeBars === true,
+        includeTempi: selection?.includeTempi === true,
+        includeRepeats: selection?.includeRepeats === true,
+        snapshotCountBefore: snapshotsRef.current.length,
+        selectedSnapshotId,
+        workspaceTab,
+      },
+    });
+    const result = deleteSnapshotRangeFromWorkspace({
+      snapshots: snapshotsRef.current,
+      bars: sequenceBarsRef.current,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      startPosition: selection?.startPosition,
+      endPosition: selection?.endPosition,
+      includeBars: selection?.includeBars === true,
+      includeTempi: selection?.includeTempi === true,
+      includeRepeats: selection?.includeRepeats === true,
+      selectedSnapshotId,
+      selectedSnapshotMarker,
+    });
+    if (result.error) {
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-range-delete-failed",
+        detail: "Failed to delete snapshot range",
+        context: {
+          source: "sequencer",
+          startPosition: selection?.startPosition ?? null,
+          endPosition: selection?.endPosition ?? null,
+          includeBars: selection?.includeBars === true,
+          includeTempi: selection?.includeTempi === true,
+          includeRepeats: selection?.includeRepeats === true,
+          snapshotCountBefore: snapshotsRef.current.length,
+          selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+      return result.error;
+    }
+    const snapshotCountBefore = snapshotsRef.current.length;
+    snapshotsRef.current = result.snapshots;
+    sequenceBarsRef.current = result.bars;
+    saveSequenceWorkspaceToSession({
+      snapshots: result.snapshots,
+      bars: result.bars,
+      tempi: result.tempi,
+      repeats: result.repeats,
+      snapshotLabelMode,
+      activeSequenceSource,
+      activeSequenceBuiltInName,
+      activeSequenceName,
+      activeSequenceSavedName,
+      activeSequenceDescription,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      sequenceAutoCreateBars,
+    });
+    setSnapshots(result.snapshots);
+    setSequenceBars(result.bars);
+    setSequenceTempi(result.tempi);
+    setSequenceRepeats(result.repeats);
+    setSelectedSnapshotId(result.selectedSnapshotId);
+    setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-range-delete-applied",
+      detail: "Applied deletion of snapshot range",
+      context: {
+        source: "sequencer",
+        startPosition: result.range?.startPosition ?? null,
+        endPosition: result.range?.endPosition ?? null,
+        includeBars: selection?.includeBars === true,
+        includeTempi: selection?.includeTempi === true,
+        includeRepeats: selection?.includeRepeats === true,
+        snapshotCountBefore,
+        snapshotCountAfter: result.snapshots.length,
+        selectedSnapshotId: result.selectedSnapshotId,
+        workspaceTab,
+      },
+    });
+    return result;
+  }, [
+    activeSequenceBuiltInName,
+    activeSequenceDescription,
+    activeSequenceName,
+    activeSequenceSavedName,
+    activeSequenceSource,
+    selectedSnapshotId,
+    selectedSnapshotMarker,
+    sequenceAutoCreateBars,
+    sequenceLegato,
+    sequenceRepeats,
+    sequenceTempi,
+    snapSequenceToCurrentTuning,
+    snapshotLabelMode,
+    workspaceTab,
+  ]);
+
   const onUpdateSnapshot = useCallback((id, updates) => {
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-update-requested",
+      detail: "Requested snapshot workspace update",
+      context: {
+        source: "sequencer",
+        snapshotId: id,
+        selectedSnapshotId,
+        snapshotCountBefore: snapshotsRef.current.length,
+        updateKeys: Object.keys(updates ?? {}),
+        noteCountBefore: snapshotsRef.current.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
+        noteCountAfter: Array.isArray(updates?.notes) ? updates.notes.length : null,
+        workspaceTab,
+      },
+    });
     const nextSnapshots = updateSnapshotInWorkspace({
       snapshots: snapshotsRef.current,
       snapshotId: id,
       updates,
       snapshotLabelMode,
+    });
+    appendPersistedSequencerCrashDiagnostic({
+      type: "snapshot-update-applied",
+      detail: "Applied snapshot workspace update",
+      context: {
+        source: "sequencer",
+        snapshotId: id,
+        selectedSnapshotId,
+        snapshotCountBefore: snapshotsRef.current.length,
+        snapshotCountAfter: nextSnapshots.length,
+        updateKeys: Object.keys(updates ?? {}),
+        noteCountBefore: snapshotsRef.current.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
+        noteCountAfter: nextSnapshots.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
+        workspaceTab,
+      },
     });
     snapshotsRef.current = nextSnapshots;
     saveSequenceWorkspaceToSession({
@@ -2180,6 +2482,7 @@ const App = () => {
     activeSequenceName,
     activeSequenceSavedName,
     activeSequenceSource,
+    selectedSnapshotId,
     sequenceAutoCreateBars,
     sequenceBars,
     sequenceLegato,
@@ -2187,6 +2490,7 @@ const App = () => {
     sequenceTempi,
     snapSequenceToCurrentTuning,
     snapshotLabelMode,
+    workspaceTab,
   ]);
 
   const onResetSnapshotDescription = useCallback((id) => {
@@ -4074,6 +4378,9 @@ const App = () => {
               onClearSequence={onClearSequence}
               onMoveSnapshot={onMoveSnapshot}
               onDuplicateSnapshot={onDuplicateSnapshot}
+              onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+              onResetSnapshotRangeNoteOffsetsInPlace={onResetSnapshotRangeNoteOffsetsInPlace}
+              onDeleteSnapshotRange={onDeleteSnapshotRange}
               onUpdateSnapshot={onUpdateSnapshot}
               onResetSnapshotDescription={onResetSnapshotDescription}
             />

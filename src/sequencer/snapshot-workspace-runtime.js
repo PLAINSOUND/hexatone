@@ -4,12 +4,410 @@
 
 import { buildSnapshotDescription } from "./labels.js";
 import {
+  shiftStructuralMarkersAfterSnapshotRangeDeletion,
   shiftStructuralMarkersAfterSnapshotDeletion,
   shiftStructuralMarkersAfterSnapshotInsertion,
 } from "./structure-editing.js";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeSnapshotPosition(value, snapshotCount = 0, fallback = 1) {
+  if (snapshotCount <= 0) return null;
+  const numeric = Math.round(Number(value) || fallback);
+  if (!Number.isFinite(numeric)) return Math.max(1, Math.min(snapshotCount, fallback));
+  return Math.max(1, Math.min(snapshotCount, numeric));
+}
+
+function normalizeInsertionPosition(value, snapshotCount = 0) {
+  const numeric = Math.round(Number(value) || 1);
+  if (!Number.isFinite(numeric)) return 1;
+  return Math.max(1, Math.min(snapshotCount + 1, numeric));
+}
+
+function normalizeMarkerPosition(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return Math.round(numeric * 1000000) / 1000000;
+}
+
+function sortMarkers(markers = []) {
+  return [...markers].sort((left, right) => {
+    const leftPosition = Number(left?.position) || 0;
+    const rightPosition = Number(right?.position) || 0;
+    if (Math.abs(leftPosition - rightPosition) > 1e-9) return leftPosition - rightPosition;
+    return String(left?.id ?? "").localeCompare(String(right?.id ?? ""));
+  });
+}
+
+function nextNumericMarkerId(markers = []) {
+  return (markers ?? []).reduce((max, marker) => Math.max(max, Number(marker?.id) || 0), 0) + 1;
+}
+
+function barStartAtOrBefore(position, bars = []) {
+  const normalizedBars = sortMarkers(bars)
+    .map((bar) => Math.round(Number(bar?.position) || 0))
+    .filter((barPosition) => barPosition >= 1);
+  let resolved = 1;
+  normalizedBars.forEach((barPosition) => {
+    if (barPosition <= position) resolved = barPosition;
+  });
+  return resolved;
+}
+
+function nextBarStartAfter(position, bars = []) {
+  return sortMarkers(bars)
+    .map((bar) => Math.round(Number(bar?.position) || 0))
+    .find((barPosition) => barPosition > position)
+    ?? null;
+}
+
+function resetCopiedNotes(notes = []) {
+  return (notes ?? []).map((note) => ({
+    ...note,
+    start: 0,
+    end: 1,
+    startFractionDenominator: 1,
+    endFractionDenominator: 1,
+  }));
+}
+
+export function resolveSnapshotCopyRange({
+  snapshots = [],
+  bars = [],
+  startPosition = 1,
+  endPosition = 1,
+  includeBars = false,
+} = {}) {
+  const snapshotCount = Array.isArray(snapshots) ? snapshots.length : 0;
+  if (snapshotCount <= 0) {
+    return {
+      snapshotCount: 0,
+      valid: false,
+      startPosition: null,
+      endPosition: null,
+      length: 0,
+      includeBars: includeBars === true,
+    };
+  }
+
+  const requestedStart = normalizeSnapshotPosition(startPosition, snapshotCount, 1);
+  const requestedEnd = normalizeSnapshotPosition(endPosition, snapshotCount, requestedStart);
+  const lowerRequested = Math.min(requestedStart, requestedEnd);
+  const upperRequested = Math.max(requestedStart, requestedEnd);
+
+  if (includeBars !== true) {
+    return {
+      snapshotCount,
+      valid: true,
+      requestedStartPosition: lowerRequested,
+      requestedEndPosition: upperRequested,
+      startPosition: lowerRequested,
+      endPosition: upperRequested,
+      length: upperRequested - lowerRequested + 1,
+      includeBars: false,
+    };
+  }
+
+  const expandedStart = barStartAtOrBefore(lowerRequested, bars);
+  const nextBarStart = nextBarStartAfter(upperRequested, bars);
+  const expandedEnd = nextBarStart == null
+    ? snapshotCount
+    : Math.max(expandedStart, Math.min(snapshotCount, nextBarStart - 1));
+
+  return {
+    snapshotCount,
+    valid: true,
+    requestedStartPosition: lowerRequested,
+    requestedEndPosition: upperRequested,
+    startPosition: expandedStart,
+    endPosition: expandedEnd,
+    length: expandedEnd - expandedStart + 1,
+    includeBars: true,
+  };
+}
+
+export function buildSnapshotCopyBlock({
+  snapshots = [],
+  bars = [],
+  tempi = [],
+  repeats = [],
+  startPosition = 1,
+  endPosition = 1,
+  includeBars = false,
+  includeTempi = false,
+  includeRepeats = false,
+  resetNoteOffsets = false,
+} = {}) {
+  const range = resolveSnapshotCopyRange({
+    snapshots,
+    bars,
+    startPosition,
+    endPosition,
+    includeBars,
+  });
+  if (!range.valid) return null;
+
+  const startIndex = range.startPosition - 1;
+  const endIndex = range.endPosition - 1;
+  const selectionEndBoundary = range.endPosition + 1;
+  const copiedSnapshots = (snapshots ?? [])
+    .slice(startIndex, endIndex + 1)
+    .map((snapshot) => {
+      const copiedSnapshot = clone(snapshot);
+      if (resetNoteOffsets === true) {
+        copiedSnapshot.notes = resetCopiedNotes(copiedSnapshot.notes);
+      }
+      return copiedSnapshot;
+    });
+
+  const mapMarkerIntoBlock = (marker) => {
+    const position = normalizeMarkerPosition(marker?.position);
+    if (position == null) return null;
+    return {
+      ...clone(marker),
+      position: normalizeMarkerPosition(position - range.startPosition + 1),
+    };
+  };
+
+  const isMarkerWithinRange = (marker) => {
+    const position = normalizeMarkerPosition(marker?.position);
+    return position != null
+      && position >= range.startPosition - 1e-9
+      && position < selectionEndBoundary - 1e-9;
+  };
+
+  return {
+    range,
+    length: range.length,
+    includeBars: includeBars === true,
+    includeTempi: includeTempi === true,
+    includeRepeats: includeRepeats === true,
+    resetNoteOffsets: resetNoteOffsets === true,
+    snapshots: copiedSnapshots,
+    bars: includeBars === true
+      ? sortMarkers((bars ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean))
+      : [],
+    tempi: includeTempi === true
+      ? sortMarkers((tempi ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean))
+      : [],
+    repeats: includeRepeats === true
+      ? sortMarkers((repeats ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean))
+      : [],
+  };
+}
+
+export function insertSnapshotCopyBlock({
+  snapshots = [],
+  bars = [],
+  tempi = [],
+  repeats = [],
+  block = null,
+  insertionPosition = 1,
+  nextSnapshotId = 1,
+  nextBarId = 0,
+} = {}) {
+  const snapshotCount = Array.isArray(snapshots) ? snapshots.length : 0;
+  if (!block || !Array.isArray(block.snapshots) || block.snapshots.length === 0) {
+    return {
+      snapshots,
+      bars,
+      tempi,
+      repeats,
+      ids: {
+        snapshotId: nextSnapshotId - 1,
+        barId: nextBarId,
+      },
+      selectedSnapshotId: null,
+      selectedSnapshotMarker: null,
+      error: "empty-block",
+    };
+  }
+
+  const normalizedInsertionPosition = normalizeInsertionPosition(insertionPosition, snapshotCount);
+  const insertionAtBarBoundary = normalizedInsertionPosition === 1
+    || normalizedInsertionPosition === snapshotCount + 1
+    || (bars ?? []).some((bar) => Math.abs((Number(bar?.position) || 0) - normalizedInsertionPosition) < 1e-9);
+
+  if (block.includeBars === true && !insertionAtBarBoundary) {
+    return {
+      snapshots,
+      bars,
+      tempi,
+      repeats,
+      ids: {
+        snapshotId: nextSnapshotId - 1,
+        barId: nextBarId,
+      },
+      selectedSnapshotId: null,
+      selectedSnapshotMarker: null,
+      error: "bar-boundary-required",
+    };
+  }
+
+  let resolvedNextSnapshotId = Math.max(1, Number(nextSnapshotId) || 1);
+  const insertedSnapshots = block.snapshots.map((snapshot) => ({
+    ...clone(snapshot),
+    id: resolvedNextSnapshotId++,
+  }));
+  const insertIndex = normalizedInsertionPosition - 1;
+  const nextSnapshots = [...(snapshots ?? [])];
+  nextSnapshots.splice(insertIndex, 0, ...insertedSnapshots);
+
+  const shifted = shiftStructuralMarkersAfterSnapshotInsertion({
+    bars,
+    tempi,
+    repeats,
+    insertionPosition: normalizedInsertionPosition,
+    snapshotCount: block.length,
+  });
+
+  let resolvedNextBarId = Math.max(0, Number(nextBarId) || 0);
+  const insertedBars = (block.includeBars === true ? block.bars : []).map((bar) => ({
+    ...clone(bar),
+    id: ++resolvedNextBarId,
+    position: normalizeMarkerPosition((Number(bar?.position) || 1) + normalizedInsertionPosition - 1),
+  }));
+
+  let nextTempoId = nextNumericMarkerId(shifted.tempi);
+  const insertedTempi = (block.includeTempi === true ? block.tempi : []).map((tempo) => ({
+    ...clone(tempo),
+    id: nextTempoId++,
+    position: normalizeMarkerPosition((Number(tempo?.position) || 1) + normalizedInsertionPosition - 1),
+  }));
+
+  let nextRepeatId = nextNumericMarkerId(shifted.repeats);
+  const insertedRepeats = (block.includeRepeats === true ? block.repeats : []).map((repeat) => ({
+    ...clone(repeat),
+    id: nextRepeatId++,
+    position: normalizeMarkerPosition((Number(repeat?.position) || 1) + normalizedInsertionPosition - 1),
+  }));
+
+  return {
+    snapshots: nextSnapshots,
+    bars: sortMarkers([...(shifted.bars ?? []), ...insertedBars]),
+    tempi: sortMarkers([...(shifted.tempi ?? []), ...insertedTempi]),
+    repeats: sortMarkers([...(shifted.repeats ?? []), ...insertedRepeats]),
+    ids: {
+      snapshotId: resolvedNextSnapshotId - 1,
+      barId: resolvedNextBarId,
+    },
+    selectedSnapshotId: insertedSnapshots[0]?.id ?? null,
+    selectedSnapshotMarker: null,
+    error: null,
+  };
+}
+
+export function resetSnapshotRangeNoteOffsetsInWorkspace({
+  snapshots = [],
+  bars = [],
+  startPosition = 1,
+  endPosition = 1,
+  includeBars = false,
+} = {}) {
+  const range = resolveSnapshotCopyRange({
+    snapshots,
+    bars,
+    startPosition,
+    endPosition,
+    includeBars,
+  });
+  if (!range.valid) {
+    return {
+      snapshots,
+      range,
+      changed: false,
+      error: "empty-range",
+    };
+  }
+
+  const startIndex = range.startPosition - 1;
+  const endIndex = range.endPosition - 1;
+  const nextSnapshots = (snapshots ?? []).map((snapshot, index) => {
+    if (index < startIndex || index > endIndex) return snapshot;
+    return {
+      ...snapshot,
+      notes: resetCopiedNotes(snapshot.notes),
+    };
+  });
+
+  return {
+    snapshots: nextSnapshots,
+    range,
+    changed: true,
+    error: null,
+  };
+}
+
+export function deleteSnapshotRangeFromWorkspace({
+  snapshots = [],
+  bars = [],
+  tempi = [],
+  repeats = [],
+  startPosition = 1,
+  endPosition = 1,
+  includeBars = false,
+  includeTempi = false,
+  includeRepeats = false,
+  selectedSnapshotId = null,
+  selectedSnapshotMarker = null,
+} = {}) {
+  const range = resolveSnapshotCopyRange({
+    snapshots,
+    bars,
+    startPosition,
+    endPosition,
+    includeBars,
+  });
+  if (!range.valid) {
+    return {
+      snapshots,
+      bars,
+      tempi,
+      repeats,
+      selectedSnapshotId,
+      selectedSnapshotMarker,
+      range,
+      changed: false,
+      error: "empty-range",
+    };
+  }
+
+  const startIndex = range.startPosition - 1;
+  const endIndex = range.endPosition - 1;
+  const removedIds = new Set(
+    (snapshots ?? []).slice(startIndex, endIndex + 1).map((snapshot) => snapshot.id),
+  );
+  const nextSnapshots = (snapshots ?? []).filter((_, index) => index < startIndex || index > endIndex);
+  const shifted = shiftStructuralMarkersAfterSnapshotRangeDeletion({
+    bars,
+    tempi,
+    repeats,
+    startPosition: range.startPosition,
+    endPosition: range.endPosition,
+    deleteBarsInRange: includeBars === true,
+    deleteTempiInRange: includeTempi === true,
+    deleteRepeatsInRange: includeRepeats === true,
+  });
+
+  const replacementIndex = nextSnapshots.length <= 0
+    ? -1
+    : Math.max(0, Math.min(startIndex - 1, nextSnapshots.length - 1));
+  const replacementSnapshotId = replacementIndex >= 0 ? nextSnapshots[replacementIndex]?.id ?? null : null;
+  const markerRemoved = removedIds.has(selectedSnapshotMarker?.snapshotId);
+
+  return {
+    snapshots: nextSnapshots,
+    bars: shifted.bars,
+    tempi: shifted.tempi,
+    repeats: shifted.repeats,
+    selectedSnapshotId: removedIds.has(selectedSnapshotId) ? replacementSnapshotId : selectedSnapshotId,
+    selectedSnapshotMarker: markerRemoved ? null : selectedSnapshotMarker,
+    range,
+    changed: true,
+    error: null,
+  };
 }
 
 export function appendSnapshotToWorkspace({
@@ -172,6 +570,7 @@ export function duplicateSnapshotInWorkspace({
     tempi,
     repeats,
     insertionPosition,
+    snapshotCount: 1,
   });
 
   return {

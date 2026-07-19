@@ -7,6 +7,10 @@ import BarRow from "./bar-row.jsx";
 import TempoRow from "./tempo-row.jsx";
 import RepeatRow from "./repeat-row.jsx";
 import {
+  buildSnapshotCopyBlock,
+  resolveSnapshotCopyRange,
+} from "./snapshot-workspace-runtime.js";
+import {
   absolutePositionToBarBeat,
 } from "./transport.js";
 import {
@@ -128,6 +132,9 @@ const Sequencer = ({
   onClearSequence,
   onMoveSnapshot,
   onDuplicateSnapshot,
+  onInsertSnapshotCopyBlock,
+  onResetSnapshotRangeNoteOffsetsInPlace,
+  onDeleteSnapshotRange,
   onUpdateSnapshot,
   onResetSnapshotDescription,
 }) => {
@@ -165,6 +172,16 @@ const Sequencer = ({
   const [eventPane, setEventPane] = useState("timing");
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] = useState(null);
+  const [copyRangeStart, setCopyRangeStart] = useState("1");
+  const [copyRangeEnd, setCopyRangeEnd] = useState("1");
+  const [copyInsertPosition, setCopyInsertPosition] = useState("1");
+  const [copyInsertBarNumber, setCopyInsertBarNumber] = useState("1");
+  const [copyIncludeBars, setCopyIncludeBars] = useState(false);
+  const [copyIncludeTempi, setCopyIncludeTempi] = useState(false);
+  const [copyIncludeRepeats, setCopyIncludeRepeats] = useState(false);
+  const [copyResetNoteOffsets, setCopyResetNoteOffsets] = useState(false);
+  const [copiedSnapshotBlock, setCopiedSnapshotBlock] = useState(null);
+  const [copyInsertStatus, setCopyInsertStatus] = useState("");
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
@@ -218,6 +235,15 @@ const Sequencer = ({
   const sequenceCueGroups = sequenceRuntime.sequenceCueGroups;
   const terminalBarlinePosition = sequenceRuntime.terminalBarlinePosition;
   const tempoTransitionCueMap = sequenceRuntime.tempoTransitionCueMap;
+  const explicitBarPositions = useMemo(() => sortedBars.map((bar) => ({
+    position: Math.round(Number(bar?.position) || 1),
+    barNumber: absolutePositionToBarBeat(Number(bar?.position) || 1, sortedBars, 1, 9, terminalBarlinePosition)?.barNumber ?? 1,
+  })), [sortedBars, terminalBarlinePosition]);
+  const selectedSnapshotPosition = useMemo(() => {
+    if (selectedSnapshotId == null) return null;
+    const index = snapshots.findIndex((snapshot) => snapshot.id === selectedSnapshotId);
+    return index >= 0 ? index + 1 : null;
+  }, [selectedSnapshotId, snapshots]);
   const formatTransportBarBeat = useCallback((position) => {
     const resolved = absolutePositionToBarBeat(position, sortedBars, 1, 9, terminalBarlinePosition);
     if (!resolved) return "1:1";
@@ -360,6 +386,168 @@ const Sequencer = ({
   const activeCueIndex = playheadMarkerIndex != null ? playheadMarkerIndex + 1 : null;
   const activeSnapshotId =
     playheadStepIndex >= 0 && !playheadIsEnd ? (snapshots[playheadStepIndex]?.id ?? null) : null;
+  useEffect(() => {
+    if (snapshots.length === 0) {
+      setCopyRangeStart("1");
+      setCopyRangeEnd("1");
+      setCopyInsertPosition("1");
+      setCopyInsertBarNumber("1");
+      setCopiedSnapshotBlock(null);
+      setCopyInsertStatus("");
+      return;
+    }
+    setCopyRangeStart((prev) => {
+      const parsed = Math.round(Number(prev) || 0);
+      if (parsed >= 1 && parsed <= snapshots.length) return prev;
+      return String(selectedSnapshotPosition ?? 1);
+    });
+    setCopyRangeEnd((prev) => {
+      const parsed = Math.round(Number(prev) || 0);
+      if (parsed >= 1 && parsed <= snapshots.length) return prev;
+      return String(selectedSnapshotPosition ?? snapshots.length);
+    });
+    setCopyInsertPosition((prev) => {
+      const parsed = Math.round(Number(prev) || 0);
+      if (parsed >= 1 && parsed <= snapshots.length + 1) return prev;
+      return String(snapshots.length + 1);
+    });
+  }, [selectedSnapshotPosition, snapshots.length]);
+
+  const handleCopyRangeStartInput = useCallback((rawValue) => {
+    const nextValue = rawValue;
+    setCopyRangeStart(nextValue);
+    const nextStart = Math.max(1, Math.round(Number(nextValue) || 1));
+    const currentEnd = Math.max(1, Math.round(Number(copyRangeEnd) || 1));
+    if (currentEnd < nextStart) {
+      setCopyRangeEnd(String(nextStart));
+    }
+  }, [copyRangeEnd]);
+
+  const handleCopyRangeEndInput = useCallback((rawValue) => {
+    const nextEnd = Math.max(1, Math.round(Number(rawValue) || 1));
+    const currentStart = Math.max(1, Math.round(Number(copyRangeStart) || 1));
+    setCopyRangeEnd(String(nextEnd));
+    if (nextEnd < currentStart) {
+      setCopyRangeStart(String(nextEnd));
+    }
+  }, [copyRangeStart]);
+
+  const derivedInsertBarBeat = useMemo(() => {
+    const position = Math.round(Number(copyInsertPosition) || 1);
+    return absolutePositionToBarBeat(position, sortedBars, 1, 9, terminalBarlinePosition);
+  }, [copyInsertPosition, sortedBars, terminalBarlinePosition]);
+
+  const derivedInsertBarNumber = derivedInsertBarBeat?.barNumber ?? 1;
+  const insertIsInsideBar = useMemo(() => {
+    const position = Math.round(Number(copyInsertPosition) || 1);
+    return !sortedBars.some((bar) => Math.abs((Number(bar?.position) || 0) - position) < 1e-9)
+      && position > 1
+      && position <= snapshots.length;
+  }, [copyInsertPosition, snapshots.length, sortedBars]);
+
+  useEffect(() => {
+    setCopyInsertBarNumber(insertIsInsideBar ? `[${derivedInsertBarNumber}]` : String(derivedInsertBarNumber));
+  }, [derivedInsertBarNumber, insertIsInsideBar]);
+
+  const resolvedCopyRange = useMemo(() => resolveSnapshotCopyRange({
+    snapshots,
+    bars,
+    startPosition: copyRangeStart,
+    endPosition: copyRangeEnd,
+    includeBars: copyIncludeBars,
+  }), [bars, copyIncludeBars, copyRangeEnd, copyRangeStart, snapshots]);
+
+  const copyInsertAtBarBoundary = useMemo(() => {
+    const position = Math.round(Number(copyInsertPosition) || 0);
+    if (position === 1 || position === snapshots.length + 1) return true;
+    return bars.some((bar) => Math.abs((Number(bar?.position) || 0) - position) < 1e-9);
+  }, [bars, copyInsertPosition, snapshots.length]);
+
+  const resolveBarPositionFromBarNumber = useCallback((rawValue) => {
+    const numeric = Math.round(Number(String(rawValue ?? "").replace(/[^\d-]/g, "")) || 0);
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+    const exact = explicitBarPositions.find((entry) => entry.barNumber === numeric);
+    return exact?.position ?? null;
+  }, [explicitBarPositions]);
+
+  const snapInsertPositionToBar = useCallback((rawValue) => {
+    const numeric = Math.round(Number(rawValue) || 0);
+    if (!Number.isFinite(numeric)) return;
+    if (numeric <= 1) {
+      setCopyInsertPosition("1");
+      return;
+    }
+    if (numeric >= snapshots.length + 1) {
+      setCopyInsertPosition(String(snapshots.length + 1));
+      return;
+    }
+    const currentBar = absolutePositionToBarBeat(numeric, sortedBars, 1, 9, terminalBarlinePosition)?.barNumber ?? 1;
+    const snapped = resolveBarPositionFromBarNumber(currentBar) ?? 1;
+    setCopyInsertPosition(String(snapped));
+  }, [resolveBarPositionFromBarNumber, snapshots.length, sortedBars, terminalBarlinePosition]);
+
+  const handleCopySnapshotBlock = useCallback(() => {
+    const block = buildSnapshotCopyBlock({
+      snapshots,
+      bars,
+      tempi,
+      repeats,
+      startPosition: copyRangeStart,
+      endPosition: copyRangeEnd,
+      includeBars: copyIncludeBars,
+      includeTempi: copyIncludeTempi,
+      includeRepeats: copyIncludeRepeats,
+      resetNoteOffsets: copyResetNoteOffsets,
+    });
+    if (!block) {
+      setCopiedSnapshotBlock(null);
+      setCopyInsertStatus("No snapshots available to copy.");
+      return;
+    }
+    setCopiedSnapshotBlock(block);
+    setCopyInsertStatus(
+      `Copied ${block.length} snapshot${block.length === 1 ? "" : "s"}`
+      + `${block.includeBars ? " with bars" : ""}`
+      + `${block.includeTempi ? ", tempi" : ""}`
+      + `${block.includeRepeats ? ", repeats" : ""}.`,
+    );
+  }, [
+    bars,
+    copyIncludeBars,
+    copyIncludeRepeats,
+    copyIncludeTempi,
+    copyRangeEnd,
+    copyRangeStart,
+    copyResetNoteOffsets,
+    repeats,
+    snapshots,
+    tempi,
+  ]);
+
+  const handleInsertSnapshotBlock = useCallback(() => {
+    if (!copiedSnapshotBlock) {
+      setCopyInsertStatus("Copy a snapshot block first.");
+      return;
+    }
+    const position = Math.round(Number(copyInsertPosition) || 0);
+    if (!Number.isFinite(position) || position < 1 || position > snapshots.length + 1) {
+      setCopyInsertStatus("Choose a valid insert slot.");
+      return;
+    }
+    const result = onInsertSnapshotCopyBlock?.(copiedSnapshotBlock, position);
+    if (result === "bar-boundary-required") {
+      setCopyInsertStatus("Bar-inclusive insertion must start at a bar marker, the beginning, or the end.");
+      return;
+    }
+    if (typeof result === "string" && result) {
+      setCopyInsertStatus("Unable to insert the copied snapshot block.");
+      return;
+    }
+    setCopyInsertStatus(
+      `Inserted ${copiedSnapshotBlock.length} snapshot${copiedSnapshotBlock.length === 1 ? "" : "s"} at slot ${position}.`,
+    );
+  }, [copiedSnapshotBlock, copyInsertPosition, onInsertSnapshotCopyBlock, snapshots.length]);
+
   const sequencePlaybackActive = !!playingSnapshotId && playhead?.stopped !== true;
   const soundingAttackEventIds = useMemo(() => {
     return deriveSoundingAttackEventIds({
@@ -523,9 +711,11 @@ const Sequencer = ({
 
   useEffect(() => {
     const persisted = loadPersistedSequencerCrashDiagnostics();
-    const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
-    if (!lastEntry || lastEntry.type !== "event-bar-relative-commit") return;
-    const context = lastEntry.context ?? null;
+    const lastCommitEntry = [...(persisted?.state?.entries ?? [])]
+      .reverse()
+      .find((entry) => entry?.type === "event-bar-relative-commit") ?? null;
+    if (!lastCommitEntry) return;
+    const context = lastCommitEntry.context ?? null;
     if (!context?.snapshotId || !context?.kind) return;
     const matchingEvent = sequenceEvents.find((event) => (
       event?.type === "note"
@@ -669,6 +859,68 @@ const Sequencer = ({
     setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
     resetDraftEditingState();
   }, [resetDraftEditingState, snapshots.length, sortedBars.length, sortedTempi.length]);
+
+  const handleResetSnapshotRangeNoteOffsetsInPlace = useCallback(() => {
+    if (!resolvedCopyRange?.valid) {
+      setCopyInsertStatus("Choose a valid snapshot range first.");
+      return;
+    }
+    resetDraftEditingState();
+    const result = onResetSnapshotRangeNoteOffsetsInPlace?.({
+      startPosition: copyRangeStart,
+      endPosition: copyRangeEnd,
+      includeBars: copyIncludeBars,
+    });
+    if (typeof result === "string" && result) {
+      setCopyInsertStatus("Unable to reset note offsets for the selected range.");
+      return;
+    }
+    setCopyInsertStatus(
+      `Reset note offsets in ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}.`,
+    );
+  }, [
+    copyIncludeBars,
+    copyRangeEnd,
+    copyRangeStart,
+    onResetSnapshotRangeNoteOffsetsInPlace,
+    resetDraftEditingState,
+    resolvedCopyRange,
+  ]);
+
+  const handleDeleteSnapshotRange = useCallback(() => {
+    if (!resolvedCopyRange?.valid) {
+      setCopyInsertStatus("Choose a valid snapshot range first.");
+      return;
+    }
+    resetDraftEditingState();
+    const result = onDeleteSnapshotRange?.({
+      startPosition: copyRangeStart,
+      endPosition: copyRangeEnd,
+      includeBars: copyIncludeBars,
+      includeTempi: copyIncludeTempi,
+      includeRepeats: copyIncludeRepeats,
+    });
+    if (typeof result === "string" && result) {
+      setCopyInsertStatus("Unable to delete the selected range.");
+      return;
+    }
+    setCopiedSnapshotBlock(null);
+    setCopyInsertStatus(
+      `Deleted ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}`
+      + `${copyIncludeBars ? " with bars" : ""}`
+      + `${copyIncludeTempi ? ", tempi" : ""}`
+      + `${copyIncludeRepeats ? ", repeats" : ""}.`,
+    );
+  }, [
+    copyIncludeBars,
+    copyIncludeRepeats,
+    copyIncludeTempi,
+    copyRangeEnd,
+    copyRangeStart,
+    onDeleteSnapshotRange,
+    resetDraftEditingState,
+    resolvedCopyRange,
+  ]);
 
   // Local mutation adapters passed down into row components.
   const updateEventField = (snapshot, noteRef, field, rawValue) => {
@@ -997,7 +1249,7 @@ const Sequencer = ({
             Capture
           </button>
           <button type="button" class="preset-action-btn" onClick={onAddEmptySnapshot}>
-            Empty
+            Append Empty Snapshot
           </button>
           {snapshots.length > 0 &&
             (
@@ -1034,6 +1286,169 @@ const Sequencer = ({
                 )}
               </span>
             )}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>
+          <b>Copy & Insert</b>
+        </legend>
+        <div class="settings-form__action-row settings-form__action-row--top sequencer-copy-block__range-row">
+          <span class="sequencer-copy-block__range-label">Select Snapshot Range</span>
+          <span class="sequencer-copy-block__range-controls">
+            <label class="sequencer-copy-block__range-item sequencer-copy-block__range-item--start">
+              <span class="sequencer-copy-block__range-item-label">Start</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                aria-label="copy snapshot range start"
+                value={copyRangeStart}
+                onInput={(e) => handleCopyRangeStartInput(e.currentTarget.value)}
+              />
+            </label>
+            <label class="sequencer-copy-block__range-item sequencer-copy-block__range-item--end">
+              <span class="sequencer-copy-block__range-item-label">End</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                aria-label="copy snapshot range end"
+                value={copyRangeEnd}
+                onInput={(e) => handleCopyRangeEndInput(e.currentTarget.value)}
+              />
+            </label>
+          </span>
+        </div>
+        <div class="sequencer-copy-block__include-row">
+          <span class="sequencer-copy-block__options-label">Include</span>
+          <div class="sequencer-copy-block__options-right">
+            <label class="settings-form__checkbox-row settings-form__reload-checkbox sequencer-copy-block__include-option">
+              <input
+                type="checkbox"
+                checked={copyIncludeBars}
+                onInput={(e) => setCopyIncludeBars(e.currentTarget.checked)}
+              />
+              <span>Bars</span>
+            </label>
+            <label class="settings-form__checkbox-row settings-form__reload-checkbox sequencer-copy-block__include-option sequencer-copy-block__include-option--repeats">
+              <input
+                type="checkbox"
+                checked={copyIncludeRepeats}
+                onInput={(e) => setCopyIncludeRepeats(e.currentTarget.checked)}
+              />
+              <span>Repeats</span>
+            </label>
+            <label class="settings-form__checkbox-row settings-form__reload-checkbox sequencer-copy-block__include-option">
+              <input
+                type="checkbox"
+                checked={copyIncludeTempi}
+                onInput={(e) => setCopyIncludeTempi(e.currentTarget.checked)}
+              />
+              <span>Tempi</span>
+            </label>
+          </div>
+        </div>
+        <div class="sequencer-copy-block__copy-row">
+          <label class="settings-form__checkbox-row settings-form__reload-checkbox">
+            <input
+              type="checkbox"
+              checked={copyResetNoteOffsets}
+              onInput={(e) => setCopyResetNoteOffsets(e.currentTarget.checked)}
+            />
+            <span class="sequencer-copy-block__option-text">Reset Note Offsets</span>
+          </label>
+          <span class="sequencer-copy-block__copy-actions">
+            {resolvedCopyRange?.valid && (
+              <span class="controller-inline-row controller-status-row sequencer-copy-block__summary">
+                <span class="sequencer-copy-block__summary-text">
+                  {resolvedCopyRange.startPosition === resolvedCopyRange.endPosition
+                    ? `Snapshot ${resolvedCopyRange.startPosition} selected`
+                    : `Snapshots ${resolvedCopyRange.startPosition}-${resolvedCopyRange.endPosition} selected`}
+                  {copyIncludeBars && (
+                    resolvedCopyRange.requestedStartPosition !== resolvedCopyRange.startPosition
+                    || resolvedCopyRange.requestedEndPosition !== resolvedCopyRange.endPosition
+                  ) ? " (expanded to full bars)." : "."}
+                  {copiedSnapshotBlock?.includeBars && !copyInsertAtBarBoundary ? " Insert position must be at a bar marker, the beginning, or the end." : ""}
+                </span>
+              </span>
+            )}
+            <button type="button" class="preset-action-btn sequencer-copy-block__copy-button" onClick={handleCopySnapshotBlock}>
+              Copy Selection
+            </button>
+          </span>
+        </div>
+        <div class="sequencer-copy-block__range-actions">
+          <button
+            type="button"
+            class="preset-action-btn"
+            onClick={handleResetSnapshotRangeNoteOffsetsInPlace}
+            disabled={!resolvedCopyRange?.valid}
+          >
+            Reset Note Offsets in Place
+          </button>
+          <button
+            type="button"
+            class="preset-utility-btn sequencer-copy-block__delete-range-btn"
+            onClick={handleDeleteSnapshotRange}
+            disabled={!resolvedCopyRange?.valid}
+          >
+            Delete Selected Range
+          </button>
+        </div>
+        {copyInsertStatus && (
+          <p class="sequencer-copy-block__status">
+            <em>{copyInsertStatus}</em>
+          </p>
+        )}
+        <div class="settings-form__action-row settings-form__action-row--top sequencer-copy-block__insert-row">
+          <span class="sequencer-copy-block__insert-label">Insert at</span>
+          <span class="sequencer-copy-block__insert-controls">
+            <label class="sequencer-copy-block__range-item">
+              <span class="sequencer-copy-block__range-item-label">Position</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                aria-label="copy snapshot insert global position"
+                value={copyInsertPosition}
+                onInput={(e) => setCopyInsertPosition(e.currentTarget.value)}
+                onBlur={(e) => {
+                  if (copyIncludeBars) snapInsertPositionToBar(e.currentTarget.value);
+                }}
+              />
+            </label>
+            <label class="sequencer-copy-block__range-item">
+              <span class="sequencer-copy-block__range-item-label">Bar</span>
+              <input
+                type={insertIsInsideBar ? "text" : "number"}
+                inputMode="numeric"
+                min={insertIsInsideBar ? undefined : "1"}
+                step={insertIsInsideBar ? undefined : "1"}
+                aria-label="copy snapshot insert bar number"
+                value={copyInsertBarNumber}
+                onInput={(e) => {
+                  const nextValue = e.currentTarget.value;
+                  setCopyInsertBarNumber(nextValue);
+                  const nextPosition = resolveBarPositionFromBarNumber(nextValue);
+                  if (nextPosition != null) setCopyInsertPosition(String(nextPosition));
+                }}
+                onBlur={() => {
+                  setCopyInsertBarNumber(insertIsInsideBar ? `[${derivedInsertBarNumber}]` : String(derivedInsertBarNumber));
+                }}
+              />
+            </label>
+          </span>
+        </div>
+        <div class="preset-actions preset-actions--library sequencer-copy-block__insert-actions">
+          <button
+            type="button"
+            class="preset-action-btn"
+            onClick={handleInsertSnapshotBlock}
+            disabled={!copiedSnapshotBlock || (copiedSnapshotBlock.includeBars && !copyInsertAtBarBoundary)}
+          >
+            Insert Copied Block
+          </button>
         </div>
       </fieldset>
 
