@@ -188,6 +188,7 @@ const Sequencer = ({
   const duplicateNoteIdRef = useRef(0);
   const pendingTransportActionRef = useRef(null);
   const editCommitPendingRef = useRef(false);
+  const lastPostCommitFrameLoggedRef = useRef(0);
 
   // Derived sequence/timeline state.
   const sequenceRuntime = useMemo(() => (
@@ -771,6 +772,57 @@ const Sequencer = ({
     snapshotIndexById,
     sortedBars,
     terminalBarlinePosition,
+  ]);
+
+  useEffect(() => {
+    if (editCommitTick <= 0) return undefined;
+    if (lastPostCommitFrameLoggedRef.current === editCommitTick) return undefined;
+    lastPostCommitFrameLoggedRef.current = editCommitTick;
+    appendPersistedSequencerCrashDiagnostic({
+      type: "sequencer-post-commit-state",
+      detail: "Derived sequencer UI state after edit commit",
+      context: {
+        source: "sequencer",
+        effectStage: "state",
+        selectedSnapshotId,
+        activeCueIndex,
+        playheadStepIndex,
+        playheadBarIndex: selectedBarIndex,
+        expandedCount: expandedIds.size,
+        sequenceEventCount: sequenceEvents.length,
+        cueGroupCount: sequenceCueGroups.length,
+        showAllEvents,
+      },
+    });
+    const frame = window.requestAnimationFrame(() => {
+      appendPersistedSequencerCrashDiagnostic({
+        type: "sequencer-post-commit-frame",
+        detail: "Reached first animation frame after edit commit",
+        context: {
+          source: "sequencer",
+          effectStage: "frame",
+          selectedSnapshotId,
+          activeCueIndex,
+          playheadStepIndex,
+          playheadBarIndex: selectedBarIndex,
+          expandedCount: expandedIds.size,
+          sequenceEventCount: sequenceEvents.length,
+          cueGroupCount: sequenceCueGroups.length,
+          showAllEvents,
+        },
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    activeCueIndex,
+    editCommitTick,
+    expandedIds,
+    playheadStepIndex,
+    selectedBarIndex,
+    selectedSnapshotId,
+    sequenceCueGroups.length,
+    sequenceEvents.length,
+    showAllEvents,
   ]);
 
   const runTransportAction = (action) => {
