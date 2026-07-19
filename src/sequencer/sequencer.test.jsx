@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPersistedSequencerCrashDiagnostics, SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY } from "../debug/sequencer-crash-diagnostics.js";
 import Sequencer from "./sequencer.jsx";
 import { buildSnapshotDescription } from "./labels.js";
@@ -8,6 +8,11 @@ import { loadUserSequences } from "./sequence-library.jsx";
 import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
 
 describe("Sequencer", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
   it("does not reset bar playback state before dispatching a timed cue", () => {
     vi.useFakeTimers();
     const originalRaf = window.requestAnimationFrame;
@@ -2862,7 +2867,7 @@ describe("Sequencer", () => {
     ]);
   });
 
-  it("renders imported bar signatures correctly after selecting a stored sequence from a fresh state", () => {
+  it("renders imported bar signatures correctly after selecting a stored sequence from a fresh state", async () => {
     window.confirm = vi.fn(() => true);
     localStorage.clear();
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
@@ -2977,10 +2982,12 @@ describe("Sequencer", () => {
       target: { value: "FALL" },
     });
 
-    expect(screen.getByLabelText("bar 1 beats per bar").value).toBe("1");
-    expect(screen.getByLabelText("bar 1 beat unit").value).toBe("1");
-    expect(screen.getByLabelText("bar 2 beats per bar").value).toBe("3");
-    expect(screen.getByLabelText("bar 2 beat unit").value).toBe("2");
+    await waitFor(() => {
+      expect(screen.getByLabelText("bar 1 beats per bar").value).toBe("1");
+      expect(screen.getByLabelText("bar 1 beat unit").value).toBe("1");
+      expect(screen.getByLabelText("bar 2 beats per bar").value).toBe("3");
+      expect(screen.getByLabelText("bar 2 beat unit").value).toBe("2");
+    });
   });
 
   it("updates the visible snapshot description when the snapshot label mode changes", async () => {
@@ -3765,76 +3772,6 @@ describe("Sequencer", () => {
 
     expect(screen.getAllByLabelText("snapshot 2 attack snapshot")).toHaveLength(2);
     expect(screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value)).toContain("-0.750");
-  });
-
-  it("duplicates an event note into the same snapshot on option-drag", () => {
-    const Harness = () => {
-      const [snapshots, setSnapshots] = useState([
-        {
-          id: 10,
-          length: 1,
-          description: "A",
-          notes: [{ id: "a", midicents: 81, start: 0.25, end: 1 }],
-        },
-      ]);
-
-      return (
-        <Sequencer
-          snapshots={snapshots}
-          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-          snapshotLabelMode="labels"
-          selectedSnapshotId={10}
-          selectedMarker={null}
-          playingSnapshotId={null}
-          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
-          onTakeSnapshot={vi.fn()}
-          onSetSnapshotLabelMode={vi.fn()}
-          onSelectSnapshot={vi.fn()}
-          onSelectMarker={vi.fn()}
-          onPlaySnapshot={vi.fn()}
-          onStopSnapshot={vi.fn()}
-          onSelectSequenceBar={vi.fn()}
-          onStepSequence={vi.fn()}
-          onStepSequenceMarker={vi.fn()}
-          onPlaySequence={vi.fn()}
-          onPlayCue={vi.fn()}
-          onResetSequencePlayhead={vi.fn()}
-          onAddBar={vi.fn()}
-          onAddBarsBeforeSnapshots={vi.fn()}
-          onDeleteBar={vi.fn()}
-          onUpdateBar={vi.fn()}
-          onMoveBar={vi.fn()}
-          onDeleteSnapshot={vi.fn()}
-          onMoveSnapshot={vi.fn()}
-          onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
-          }}
-          onResetSnapshotDescription={vi.fn()}
-        />
-      );
-    };
-
-    render(<Harness />);
-
-    const dataTransfer = {
-      effectAllowed: "",
-      dropEffect: "",
-      setData: vi.fn(),
-      getData: vi.fn(),
-    };
-    const dragHandle = screen.getAllByLabelText("drag snapshot 1 attack event")[0];
-    const dropTarget = screen.getByLabelText("snapshot 1 description").closest(".sequencer-item");
-
-    fireEvent.dragStart(dragHandle, { dataTransfer, altKey: true });
-    fireEvent.dragEnter(dropTarget, { dataTransfer, altKey: true });
-    fireEvent.dragOver(dropTarget, { dataTransfer, altKey: true });
-    fireEvent.drop(dropTarget, { dataTransfer, altKey: true });
-
-    expect(screen.getByText("2 notes")).not.toBeNull();
-    expect(screen.getAllByLabelText("snapshot 1 attack snapshot")).toHaveLength(2);
-    expect(screen.getAllByLabelText("snapshot 1 attack offset").map((node) => node.value)).toEqual(["0.250", "0.250"]);
   });
 
   it("queues the first snapshot and cue again at the terminal sequence end slot", () => {

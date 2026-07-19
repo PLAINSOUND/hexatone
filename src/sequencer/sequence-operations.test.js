@@ -79,4 +79,24 @@ describe("sequencer sequence operations", () => {
     expect(movePlan.sourceNotes).toEqual([]);
     expect(movePlan.targetNotes[0].id).toBe("a");
   });
+
+  it("duplicates a note into the same snapshot with a distinct id", () => {
+    const movedNote = { id: "a", midicents: 69, start: 0.25, end: 1.25 };
+    const duplicatePlan = applyTransferredNote({
+      sourceSnapshot,
+      targetSnapshot: sourceSnapshot,
+      noteRef: { noteId: "a", noteKey: "a" },
+      movedNote,
+      duplicate: true,
+      duplicateId: "a-copy",
+    });
+
+    expect(duplicatePlan.sourceNotes).toBeNull();
+    expect(duplicatePlan.targetNotes.map((note) => note.id)).toEqual(["a", "a-copy"]);
+    expect(duplicatePlan.targetNotes[1]).toMatchObject({
+      start: 0.25,
+      end: 1.25,
+    });
+    expect(duplicatePlan.selectedSnapshotId).toBe("s1");
+  });
 });
