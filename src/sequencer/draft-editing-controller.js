@@ -125,6 +125,23 @@ export default function useDraftEditingController({
   }, [setEventSequenceDraftsState]);
 
   const commitNoteTransfer = useCallback((sourceSnapshotId, noteRef, targetSnapshotId, mutateNote, options = {}) => {
+    appendPersistedSequencerCrashDiagnostic({
+      type: "event-note-transfer-requested",
+      detail: options.duplicate === true
+        ? "Requested sequencer event note duplication"
+        : "Requested sequencer event note move",
+      context: {
+        source: "sequencer",
+        snapshotId: sourceSnapshotId,
+        targetSnapshotId,
+        selectedSnapshotId: targetSnapshotId,
+        noteId: noteRef?.noteId ?? null,
+        noteKey: noteRef?.noteKey ?? noteRef ?? null,
+        kind: options.selectKind ?? null,
+        transferKind: options.duplicate === true ? "duplicate" : "move",
+        duplicate: options.duplicate === true,
+      },
+    });
     const sourceSnapshot = findSnapshotById(sourceSnapshotId);
     const targetSnapshot = findSnapshotById(targetSnapshotId);
     if (!sourceSnapshot || !targetSnapshot) return;
@@ -154,6 +171,29 @@ export default function useDraftEditingController({
       duplicateId: options.duplicate ? nextDuplicateNoteId(note.id ?? noteRef?.noteKey ?? noteRef) : null,
     });
     if (!applied) return;
+
+    appendPersistedSequencerCrashDiagnostic({
+      type: "event-note-transfer-applied",
+      detail: options.duplicate === true
+        ? "Applied sequencer event note duplication"
+        : "Applied sequencer event note move",
+      context: {
+        source: "sequencer",
+        snapshotId: sourceSnapshotId,
+        targetSnapshotId,
+        selectedSnapshotId: applied.selectedSnapshotId ?? targetSnapshotId,
+        noteId: noteRef?.noteId ?? note?.id ?? null,
+        resolvedNoteId: movedNote?.id ?? null,
+        noteKey: noteRef?.noteKey ?? noteRef ?? null,
+        kind: options.selectKind ?? null,
+        transferKind: options.duplicate === true ? "duplicate" : "move",
+        duplicate: options.duplicate === true,
+        previousStart: note?.start,
+        previousEnd: note?.end,
+        nextStart: movedNote?.start,
+        nextEnd: movedNote?.end,
+      },
+    });
 
     if (applied.sourceNotes != null) {
       onUpdateSnapshot(sourceSnapshot.id, { notes: applied.sourceNotes });

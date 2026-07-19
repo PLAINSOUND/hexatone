@@ -2151,13 +2151,43 @@ const App = () => {
   }, [sequenceBars, sequenceRepeats, sequenceTempi, snapshots]);
 
   const onUpdateSnapshot = useCallback((id, updates) => {
-    setSnapshots((prev) => updateSnapshotInWorkspace({
-      snapshots: prev,
+    const nextSnapshots = updateSnapshotInWorkspace({
+      snapshots: snapshotsRef.current,
       snapshotId: id,
       updates,
       snapshotLabelMode,
-    }));
-  }, [snapshotLabelMode]);
+    });
+    snapshotsRef.current = nextSnapshots;
+    saveSequenceWorkspaceToSession({
+      snapshots: nextSnapshots,
+      bars: sequenceBars,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      snapshotLabelMode,
+      activeSequenceSource,
+      activeSequenceBuiltInName,
+      activeSequenceName,
+      activeSequenceSavedName,
+      activeSequenceDescription,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      sequenceAutoCreateBars,
+    });
+    setSnapshots(nextSnapshots);
+  }, [
+    activeSequenceBuiltInName,
+    activeSequenceDescription,
+    activeSequenceName,
+    activeSequenceSavedName,
+    activeSequenceSource,
+    sequenceAutoCreateBars,
+    sequenceBars,
+    sequenceLegato,
+    sequenceRepeats,
+    sequenceTempi,
+    snapSequenceToCurrentTuning,
+    snapshotLabelMode,
+  ]);
 
   const onResetSnapshotDescription = useCallback((id) => {
     setSnapshots((prev) => resetSnapshotDescriptionInWorkspace({

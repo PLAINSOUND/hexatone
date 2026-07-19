@@ -3767,6 +3767,76 @@ describe("Sequencer", () => {
     expect(screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value)).toContain("-0.750");
   });
 
+  it("duplicates an event note into the same snapshot on option-drag", () => {
+    const Harness = () => {
+      const [snapshots, setSnapshots] = useState([
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 81, start: 0.25, end: 1 }],
+        },
+      ]);
+
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={(id, updates) => {
+            setSnapshots((prev) => prev.map((snapshot) => (
+              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    const dataTransfer = {
+      effectAllowed: "",
+      dropEffect: "",
+      setData: vi.fn(),
+      getData: vi.fn(),
+    };
+    const dragHandle = screen.getAllByLabelText("drag snapshot 1 attack event")[0];
+    const dropTarget = screen.getByLabelText("snapshot 1 description").closest(".sequencer-item");
+
+    fireEvent.dragStart(dragHandle, { dataTransfer, altKey: true });
+    fireEvent.dragEnter(dropTarget, { dataTransfer, altKey: true });
+    fireEvent.dragOver(dropTarget, { dataTransfer, altKey: true });
+    fireEvent.drop(dropTarget, { dataTransfer, altKey: true });
+
+    expect(screen.getByText("2 notes")).not.toBeNull();
+    expect(screen.getAllByLabelText("snapshot 1 attack snapshot")).toHaveLength(2);
+    expect(screen.getAllByLabelText("snapshot 1 attack offset").map((node) => node.value)).toEqual(["0.250", "0.250"]);
+  });
+
   it("queues the first snapshot and cue again at the terminal sequence end slot", () => {
     const onJumpSequenceSnapshot = vi.fn();
     const onJumpSequenceCue = vi.fn();
