@@ -66,6 +66,15 @@ export function pushSequenceRuntimeDiagnostic(state, entry = {}) {
     rowCount: Number.isFinite(Number(entry.rowCount)) ? Number(entry.rowCount) : null,
     visibleRowCount: Number.isFinite(Number(entry.visibleRowCount)) ? Number(entry.visibleRowCount) : null,
     scrollTop: Number.isFinite(Number(entry.scrollTop)) ? Number(entry.scrollTop) : null,
+    runtimeInstanceId: Number.isFinite(Number(entry.runtimeInstanceId)) ? Number(entry.runtimeInstanceId) : null,
+    playbackRuntimeToken: entry.playbackRuntimeToken == null ? null : String(entry.playbackRuntimeToken),
+    timedTriggerToken: entry.timedTriggerToken == null ? null : String(entry.timedTriggerToken),
+    transportStatus: entry.transportStatus == null ? null : String(entry.transportStatus),
+    changedKeys: entry.changedKeys == null
+      ? null
+      : Array.isArray(entry.changedKeys)
+        ? entry.changedKeys.map((key) => String(key))
+        : String(entry.changedKeys).split(",").map((key) => key.trim()).filter(Boolean),
     detail: entry.detail == null ? null : String(entry.detail),
   };
   const entries = diagnostics.entries.length >= diagnostics.limit

@@ -111,6 +111,10 @@ import {
   isTimedTransportDiagnosticsEnabled,
 } from "./debug/timed-transport-diagnostics.js";
 import {
+  appendPersistedSequenceRuntimeDiagnostic,
+  isSequenceRuntimeDiagnosticsEnabled,
+} from "./debug/sequence-runtime-diagnostics.js";
+import {
   appendPersistedSequencerCrashDiagnostic,
   isSequencerCrashDiagnosticsEnabled,
   loadPersistedSequencerCrashDiagnostics,
@@ -146,6 +150,7 @@ import {
 import {
   advanceCueIndexWithRepeats,
 } from "./sequencer/repeat-playback-runtime.js";
+import { buildDependencyToken } from "./sequencer/dependency-token.js";
 import { retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
@@ -1225,6 +1230,23 @@ const App = () => {
         }
     ));
   }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshotLabelMode, snapshots]);
+  const sequencePlaybackRuntimeToken = useMemo(() => buildDependencyToken([
+    sequencePlaybackSnapshots,
+    sequenceBars,
+    sequenceTempi,
+    sequenceRepeats,
+    sequencePlayRepeats,
+  ]), [
+    sequenceBars,
+    sequencePlaybackSnapshots,
+    sequencePlayRepeats,
+    sequenceRepeats,
+    sequenceTempi,
+  ]);
+  const sequenceTimedTriggerToken = useMemo(() => buildDependencyToken([
+    sequencePlaybackRuntimeToken,
+    sequenceLegato,
+  ]), [sequenceLegato, sequencePlaybackRuntimeToken]);
   const sequenceRuntimeModel = useMemo(() => buildSequenceRuntimeModel({
     snapshots,
     displaySnapshots: sequenceDisplaySnapshots,
@@ -1243,6 +1265,52 @@ const App = () => {
     sequencePlayRepeats,
     sequenceRepeats,
     sequenceTempi,
+    snapshots,
+  ]);
+  const previousSequenceRuntimeDepsRef = useRef(null);
+  useEffect(() => {
+    if (!isSequenceRuntimeDiagnosticsEnabled()) return;
+    const nextDeps = {
+      snapshots,
+      displaySnapshots: sequenceDisplaySnapshots,
+      playbackSnapshots: sequencePlaybackSnapshots,
+      bars: sequenceBars,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      sequenceLegato,
+      sequencePlayRepeats,
+    };
+    const previousDeps = previousSequenceRuntimeDepsRef.current;
+    const changedKeys = previousDeps == null
+      ? ["initial-build"]
+      : Object.keys(nextDeps).filter((key) => previousDeps[key] !== nextDeps[key]);
+    appendPersistedSequenceRuntimeDiagnostic({
+      type: "rebuild-cause",
+      step: "build-sequence-runtime-model",
+      source: "app",
+      runtimeInstanceId: sequenceRuntimeModel.runtimeInstanceId,
+      playbackRuntimeToken: sequencePlaybackRuntimeToken,
+      timedTriggerToken: sequenceTimedTriggerToken,
+      changedKeys,
+      detail: changedKeys.join(", "),
+      snapshotCount: snapshots.length,
+      playbackSnapshotCount: sequencePlaybackSnapshots.length,
+      barCount: sequenceBars.length,
+      tempoCount: sequenceTempi.length,
+      repeatCount: sequenceRepeats.length,
+    });
+    previousSequenceRuntimeDepsRef.current = nextDeps;
+  }, [
+    sequenceBars,
+    sequenceDisplaySnapshots,
+    sequenceLegato,
+    sequencePlaybackRuntimeToken,
+    sequencePlaybackSnapshots,
+    sequencePlayRepeats,
+    sequenceRepeats,
+    sequenceRuntimeModel.runtimeInstanceId,
+    sequenceTempi,
+    sequenceTimedTriggerToken,
     snapshots,
   ]);
   useEffect(() => {

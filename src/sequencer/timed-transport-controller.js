@@ -3,6 +3,10 @@
 // diagnostics, and handoff to the existing cue-trigger path.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  appendPersistedSequenceRuntimeDiagnostic,
+  isSequenceRuntimeDiagnosticsEnabled,
+} from "../debug/sequence-runtime-diagnostics.js";
 import { barContextForPosition } from "./transport.js";
 import {
   createTimedTransportDiagnostics,
@@ -32,6 +36,8 @@ export default function useTimedTransportController({
   timedPlaybackBursts,
   timedCueTriggers,
   timedCueTriggerBySourceIndex,
+  playbackRuntimeToken = null,
+  timedTriggerToken = null,
   sequencePlaybackSpeed = 1,
   pendingTransportSelection = null,
   playheadMarkerIndex,
@@ -61,6 +67,8 @@ export default function useTimedTransportController({
   const timedPlaybackBurstsRef = useRef([]);
   const timedCueTriggerBySourceIndexRef = useRef(new Map());
   const timedTransportDiagnosticsRef = useRef(createTimedTransportDiagnostics());
+  const activePlaybackRuntimeTokenRef = useRef(null);
+  const activeTimedTriggerTokenRef = useRef(null);
   const [timedTransportState, setTimedTransportState] = useState(() => createTimedTransportState([]));
 
   useEffect(() => {
@@ -137,6 +145,11 @@ export default function useTimedTransportController({
       entry,
     );
     persistTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
+  }, []);
+
+  const recordSequenceRuntimeDiagnostic = useCallback((entry) => {
+    if (!isSequenceRuntimeDiagnosticsEnabled()) return;
+    appendPersistedSequenceRuntimeDiagnostic(entry);
   }, []);
 
   useEffect(() => {
@@ -380,6 +393,42 @@ export default function useTimedTransportController({
     }, delayMs);
   }, [dispatchTimedCueBurst, recordTimedTransportDiagnostic, sequencePlaybackSpeed]);
 
+  const invalidateTimedTransportPlayback = useCallback((detail, extra = {}) => {
+    const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+    clearScheduledTimedCueCallbacks();
+    onStopSnapshotRef.current?.();
+    recordTimedTransportDiagnostic({
+      type: "runtime-invalidated",
+      clockSeconds: nowSeconds,
+      elapsedSeconds: currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds),
+      playbackIndex: timedTransportStateRef.current?.nextPlaybackIndex ?? null,
+      detail,
+      ...extra,
+    });
+    recordSequenceRuntimeDiagnostic({
+      type: "runtime-invalidated",
+      source: "timed-transport",
+      step: "timed-transport-runtime-invalidated",
+      playbackRuntimeToken,
+      timedTriggerToken,
+      transportStatus: timedTransportStateRef.current?.status ?? null,
+      detail,
+      ...extra,
+    });
+    const stoppedState = stopTimedTransport(timedPlaybackBurstsRef.current, {
+      speedMultiplier: timedTransportStateRef.current?.speedMultiplier ?? sequencePlaybackSpeed,
+    });
+    timedTransportStateRef.current = stoppedState;
+    setTimedTransportState(stoppedState);
+  }, [
+    clearScheduledTimedCueCallbacks,
+    playbackRuntimeToken,
+    recordSequenceRuntimeDiagnostic,
+    recordTimedTransportDiagnostic,
+    sequencePlaybackSpeed,
+    timedTriggerToken,
+  ]);
+
   useEffect(() => {
     const nextSpeedMultiplier = clampSequencePlaybackSpeed(sequencePlaybackSpeed);
     const previous = timedTransportStateRef.current;
@@ -424,6 +473,61 @@ export default function useTimedTransportController({
     armNextTimedCueDispatch,
     clearScheduledTimedCueCallbacks,
     timedTransportState.status,
+  ]);
+
+  useEffect(() => {
+    if (timedTransportState.status !== "running" && timedTransportState.status !== "paused") {
+      activePlaybackRuntimeTokenRef.current = playbackRuntimeToken;
+      activeTimedTriggerTokenRef.current = timedTriggerToken;
+      return;
+    }
+    if (
+      activePlaybackRuntimeTokenRef.current != null
+      && playbackRuntimeToken != null
+      && activePlaybackRuntimeTokenRef.current !== playbackRuntimeToken
+    ) {
+      invalidateTimedTransportPlayback(
+        "Playback runtime token changed during timed transport",
+        {
+          playbackRuntimeToken,
+          changedKeys: ["playback-runtime-token"],
+        },
+      );
+      activePlaybackRuntimeTokenRef.current = playbackRuntimeToken;
+      activeTimedTriggerTokenRef.current = timedTriggerToken;
+      return;
+    }
+    if (
+      activeTimedTriggerTokenRef.current != null
+      && timedTriggerToken != null
+      && activeTimedTriggerTokenRef.current !== timedTriggerToken
+    ) {
+      const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+      recordTimedTransportDiagnostic({
+        type: "trigger-runtime-changed",
+        clockSeconds: nowSeconds,
+        elapsedSeconds: currentTimedTransportElapsedSeconds(timedTransportStateRef.current, nowSeconds),
+        playbackIndex: timedTransportStateRef.current?.nextPlaybackIndex ?? null,
+        detail: "Timed trigger token changed during timed transport",
+      });
+      recordSequenceRuntimeDiagnostic({
+        type: "trigger-runtime-changed",
+        source: "timed-transport",
+        step: "timed-transport-trigger-runtime-changed",
+        playbackRuntimeToken,
+        timedTriggerToken,
+        transportStatus: timedTransportStateRef.current?.status ?? null,
+        detail: "Timed trigger token changed during timed transport",
+      });
+      activeTimedTriggerTokenRef.current = timedTriggerToken;
+    }
+  }, [
+    invalidateTimedTransportPlayback,
+    playbackRuntimeToken,
+    recordSequenceRuntimeDiagnostic,
+    recordTimedTransportDiagnostic,
+    timedTransportState.status,
+    timedTriggerToken,
   ]);
 
   const handleTimedTransportPlayPause = useCallback(() => {
@@ -475,17 +579,31 @@ export default function useTimedTransportController({
       playbackIndex: startIndex < 0 ? 0 : startIndex,
       status: startedState.status,
     });
+    recordSequenceRuntimeDiagnostic({
+      type: "start",
+      source: "timed-transport",
+      step: "timed-transport-start",
+      playbackRuntimeToken,
+      timedTriggerToken,
+      transportStatus: startedState.status,
+      detail: "Started timed transport with current playback runtime token",
+    });
     timedTransportStartTargetRef.current = deriveTimedTransportStartTarget(startIndex < 0 ? 0 : startIndex);
+    activePlaybackRuntimeTokenRef.current = playbackRuntimeToken;
+    activeTimedTriggerTokenRef.current = timedTriggerToken;
     timedTransportStateRef.current = startedState;
     setTimedTransportState(startedState);
   }, [
     deriveTimedTransportStartTarget,
     clearScheduledTimedCueCallbacks,
     getTimedTransportClockSeconds,
+    playbackRuntimeToken,
     recordTimedTransportDiagnostic,
+    recordSequenceRuntimeDiagnostic,
     replayPausedTimedTransportCue,
     resolveTimedTransportStartIndex,
     sequencePlaybackSpeed,
+    timedTriggerToken,
     timedPlaybackBursts,
   ]);
 

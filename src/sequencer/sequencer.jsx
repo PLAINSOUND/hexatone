@@ -26,6 +26,7 @@ import {
 } from "./timeline-runtime.js";
 import { derivePlayheadNavigationState } from "./playhead-runtime.js";
 import { deriveTempoAtSequencePosition } from "./playback-timeline.js";
+import { buildDependencyToken } from "./dependency-token.js";
 import { buildSequenceRuntimeModel } from "./runtime-model.js";
 import useTimedTransportController from "./timed-transport-controller.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
@@ -210,6 +211,24 @@ const Sequencer = ({
     tempi,
   ]);
   const renderedSnapshots = sequenceRuntime.renderedSnapshots;
+  const effectivePlaybackSnapshotSource = playbackSnapshots ?? snapshots;
+  const playbackRuntimeToken = useMemo(() => buildDependencyToken([
+    effectivePlaybackSnapshotSource,
+    bars,
+    tempi,
+    repeats,
+    sequencePlayRepeats,
+  ]), [
+    bars,
+    effectivePlaybackSnapshotSource,
+    repeats,
+    sequencePlayRepeats,
+    tempi,
+  ]);
+  const timedTriggerToken = useMemo(() => buildDependencyToken([
+    playbackRuntimeToken,
+    sequenceLegato,
+  ]), [playbackRuntimeToken, sequenceLegato]);
   const sortedBars = sequenceRuntime.sortedBars;
   const suggestedBarPosition = useMemo(() => {
     const snapshotEndPosition = Math.max(1, snapshots.length + 1);
@@ -633,6 +652,8 @@ const Sequencer = ({
     timedPlaybackBursts,
     timedCueTriggers,
     timedCueTriggerBySourceIndex,
+    playbackRuntimeToken,
+    timedTriggerToken,
     sequencePlaybackSpeed,
     pendingTransportSelection,
     playheadMarkerIndex,

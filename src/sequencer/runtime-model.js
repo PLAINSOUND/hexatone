@@ -14,6 +14,8 @@ import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
 import { normalizeBarMarkers, normalizeTempoMarkers, deriveTempoTransitionCueMap, deriveTerminalBarlinePosition } from "./transport.js";
 import { deriveSequenceCueGroupsFromEvents, deriveSequenceEvents } from "./trigger-groups.js";
 
+let nextRuntimeInstanceId = 1;
+
 export function buildSequenceRuntimeModel({
   snapshots = [],
   displaySnapshots = null,
@@ -26,6 +28,8 @@ export function buildSequenceRuntimeModel({
   source = "runtime",
 } = {}) {
   const buildStartMs = performance.now();
+  const runtimeInstanceId = nextRuntimeInstanceId;
+  nextRuntimeInstanceId += 1;
   const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
   const playbackRenderedSnapshots = Array.isArray(playbackSnapshots)
     ? playbackSnapshots
@@ -160,6 +164,7 @@ export function buildSequenceRuntimeModel({
   );
 
   const model = {
+    runtimeInstanceId,
     renderedSnapshots,
     playbackRenderedSnapshots,
     sortedBars,
@@ -186,6 +191,7 @@ export function buildSequenceRuntimeModel({
       eventCount: sequenceEvents.length,
       cueCount: sequenceCueGroups.length,
       burstCount: timedPlaybackBursts.length,
+      runtimeInstanceId,
       detail: source,
     });
   }

@@ -944,6 +944,88 @@ describe("Sequencer", () => {
     vi.useRealTimers();
   });
 
+  it("stops timed transport when the playback snapshot source changes mid-run", () => {
+    vi.useFakeTimers();
+
+    let nowSeconds = 0;
+    const onStopSnapshot = vi.fn();
+    const baseProps = {
+      snapshots: [
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [
+            { id: "a", midicents: 69, start: 0, end: 0.5 },
+          ],
+        },
+      ],
+      bars: [{ id: 1, position: 1 }],
+      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }],
+      snapshotLabelMode: "labels",
+      selectedSnapshotId: 10,
+      selectedMarker: null,
+      playingSnapshotId: null,
+      playhead: { barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true },
+      onTakeSnapshot: vi.fn(),
+      onLoadSequence: vi.fn(),
+      onSequenceNameChange: vi.fn(),
+      onSequenceDescriptionChange: vi.fn(),
+      onSequenceLegatoChange: vi.fn(),
+      onSetSnapshotLabelMode: vi.fn(),
+      onSelectSnapshot: vi.fn(),
+      onSelectMarker: vi.fn(),
+      onPlaySnapshot: vi.fn(),
+      onStopSnapshot,
+      onSelectSequenceBar: vi.fn(),
+      onStepSequence: vi.fn(),
+      onStepSequenceMarker: vi.fn(),
+      onPlaySequence: vi.fn(),
+      onPlayCue: vi.fn(),
+      onPlayTimedCue: vi.fn(),
+      onResetSequencePlayhead: vi.fn(),
+      onAddBar: vi.fn(),
+      onAddTempo: vi.fn(),
+      onAddBarsBeforeSnapshots: vi.fn(),
+      onDeleteBar: vi.fn(),
+      onDeleteTempo: vi.fn(),
+      onUpdateBar: vi.fn(),
+      onUpdateTempo: vi.fn(),
+      onMoveBar: vi.fn(),
+      onDeleteSnapshot: vi.fn(),
+      onMoveSnapshot: vi.fn(),
+      onUpdateSnapshot: vi.fn(),
+      onResetSnapshotDescription: vi.fn(),
+      getTimedTransportClockSeconds: () => nowSeconds,
+    };
+
+    const { rerender } = render(<Sequencer {...baseProps} />);
+
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).toBeTruthy();
+
+    rerender(
+      <Sequencer
+        {...baseProps}
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [
+              { id: "a", midicents: 69, start: 0, end: 0.5 },
+              { id: "b", midicents: 72, start: 0.5, end: 1 },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByLabelText("play timed transport")).toBeTruthy();
+    expect(onStopSnapshot).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it("pauses timed playback by stopping sound and resumes from the current cue", () => {
     vi.useFakeTimers();
 
