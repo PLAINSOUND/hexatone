@@ -2,6 +2,8 @@
 // It turns normalized event and cue data into fast indexes used by playback,
 // scrolling, and row expansion logic, without mutating sequence state.
 
+import { deriveSelectedCueAbsoluteTime as deriveTransportSelectedCueAbsoluteTime } from "./transport-selection.js";
+
 export function buildSnapshotEventsById(sequenceEvents = []) {
   const groups = new Map();
 
@@ -124,15 +126,12 @@ export function deriveSelectedCueAbsoluteTime(
   sequenceCueGroups,
   snapshotIndexById,
 ) {
-  if (selectedMarker?.snapshotId != null && Number.isFinite(Number(selectedMarker?.time))) {
-    const snapshotStart = snapshotIndexById.get(selectedMarker.snapshotId);
-    if (snapshotStart != null) return Number((snapshotStart + Number(selectedMarker.time)).toFixed(6));
-  }
-  if (playheadMarkerIndex != null) {
-    const cueGroup = sequenceCueGroups[playheadMarkerIndex];
-    if (cueGroup) return Number(cueGroup.time.toFixed(6));
-  }
-  return null;
+  return deriveTransportSelectedCueAbsoluteTime(
+    selectedMarker,
+    playheadMarkerIndex,
+    sequenceCueGroups,
+    snapshotIndexById,
+  );
 }
 
 function isWholeSequencePosition(time) {

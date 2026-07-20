@@ -41,6 +41,50 @@ function sortMarkers(markers = []) {
   });
 }
 
+function shiftMarkerForCopyInsertion(marker, insertionPosition, snapshotCount = 1, shouldStayAtBoundary = () => false) {
+  const position = normalizeMarkerPosition(marker?.position);
+  if (position == null || position < insertionPosition - 1e-9) return marker;
+  if (Math.abs(position - insertionPosition) < 1e-9 && shouldStayAtBoundary(marker)) {
+    return marker;
+  }
+  return {
+    ...marker,
+    position: normalizeMarkerPosition(position + snapshotCount),
+  };
+}
+
+function shiftStructuralMarkersForCopyInsertion({
+  bars = [],
+  tempi = [],
+  repeats = [],
+  insertionPosition,
+  snapshotCount = 1,
+} = {}) {
+  const normalizedInsertionPosition = Math.max(1, Math.round(Number(insertionPosition) || 1));
+  const normalizedSnapshotCount = Math.max(1, Math.round(Number(snapshotCount) || 1));
+  return {
+    bars: Array.isArray(bars)
+      ? bars.map((bar) => shiftMarkerForCopyInsertion(bar, normalizedInsertionPosition, normalizedSnapshotCount))
+      : [],
+    tempi: Array.isArray(tempi)
+      ? tempi.map((tempo) => shiftMarkerForCopyInsertion(
+        tempo,
+        normalizedInsertionPosition,
+        normalizedSnapshotCount,
+        (marker) => marker?.mode === "transition",
+      ))
+      : [],
+    repeats: Array.isArray(repeats)
+      ? repeats.map((repeat) => shiftMarkerForCopyInsertion(
+        repeat,
+        normalizedInsertionPosition,
+        normalizedSnapshotCount,
+        (marker) => marker?.kind === "end",
+      ))
+      : [],
+  };
+}
+
 function nextNumericMarkerId(markers = []) {
   return (markers ?? []).reduce((max, marker) => Math.max(max, Number(marker?.id) || 0), 0) + 1;
 }
@@ -255,7 +299,7 @@ export function insertSnapshotCopyBlock({
   const nextSnapshots = [...(snapshots ?? [])];
   nextSnapshots.splice(insertIndex, 0, ...insertedSnapshots);
 
-  const shifted = shiftStructuralMarkersAfterSnapshotInsertion({
+  const shifted = shiftStructuralMarkersForCopyInsertion({
     bars,
     tempi,
     repeats,

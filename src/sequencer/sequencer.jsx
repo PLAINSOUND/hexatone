@@ -85,6 +85,7 @@ const Sequencer = ({
   sequenceAutoCreateBars,
   selectedSnapshotId,
   selectedMarker,
+  pendingTransportSelection = null,
   playingSnapshotId,
   playhead,
   onTakeSnapshot,
@@ -240,11 +241,6 @@ const Sequencer = ({
     position: Math.round(Number(bar?.position) || 1),
     barNumber: absolutePositionToBarBeat(Number(bar?.position) || 1, sortedBars, 1, 9, terminalBarlinePosition)?.barNumber ?? 1,
   })), [sortedBars, terminalBarlinePosition]);
-  const selectedSnapshotPosition = useMemo(() => {
-    if (selectedSnapshotId == null) return null;
-    const index = snapshots.findIndex((snapshot) => snapshot.id === selectedSnapshotId);
-    return index >= 0 ? index + 1 : null;
-  }, [selectedSnapshotId, snapshots]);
   const formatTransportBarBeat = useCallback((position) => {
     const resolved = absolutePositionToBarBeat(position, sortedBars, 1, 9, terminalBarlinePosition);
     if (!resolved) return "1:1";
@@ -279,6 +275,10 @@ const Sequencer = ({
     prevCueIndexFromBar,
     nextSnapshotIndexFromBar,
     prevSnapshotIndexFromBar,
+    selectedSnapshotPosition,
+    activeNavigationMode,
+    activeCueIndex,
+    activeSnapshotId,
     snapshotSelectValue,
     cueSelectValue,
     impliedPendingSnapshotIndex,
@@ -289,8 +289,14 @@ const Sequencer = ({
     sortedBars,
     sequenceCueGroups,
     snapshots,
+    selectedSnapshotId,
+    selectedMarker,
+    pendingTransportSelection,
   }), [
+    pendingTransportSelection,
     playhead,
+    selectedMarker,
+    selectedSnapshotId,
     sequenceCueGroups,
     snapshots,
     sortedBars,
@@ -373,6 +379,16 @@ const Sequencer = ({
         repeatId: repeat.id,
       });
   }, [repeats]);
+  const structuralScrollKeyAtPosition = useCallback((position) => {
+    const time = Number(position);
+    if (!Number.isFinite(time)) return null;
+    for (const markers of structuralMarkersByDisplayBucket.values()) {
+      const marker = markers.find((entry) => Math.abs(Number(entry?.position) - time) < 1e-9) ?? null;
+      const markerKey = structuralEventRenderKey(marker);
+      if (markerKey) return markerKey;
+    }
+    return null;
+  }, [structuralMarkersByDisplayBucket]);
 
   const firstEventIdByCueIndex = useMemo(
     () => buildFirstEventIdByCueIndex(sequenceEvents),
@@ -383,10 +399,6 @@ const Sequencer = ({
     [sequenceCueGroups],
   );
 
-  const activeNavigationMode = playheadMarkerIndex != null ? "cue" : "snapshot";
-  const activeCueIndex = playheadMarkerIndex != null ? playheadMarkerIndex + 1 : null;
-  const activeSnapshotId =
-    playheadStepIndex >= 0 && !playheadIsEnd ? (snapshots[playheadStepIndex]?.id ?? null) : null;
   useEffect(() => {
     if (snapshots.length === 0) {
       setCopyRangeStart("1");
@@ -463,6 +475,34 @@ const Sequencer = ({
     if (position === 1 || position === snapshots.length + 1) return true;
     return bars.some((bar) => Math.abs((Number(bar?.position) || 0) - position) < 1e-9);
   }, [bars, copyInsertPosition, snapshots.length]);
+
+  const copySummaryText = useMemo(() => {
+    if (!resolvedCopyRange?.valid) {
+      return "";
+    }
+    return (
+      (resolvedCopyRange.startPosition === resolvedCopyRange.endPosition
+        ? `Snapshot ${resolvedCopyRange.startPosition} selected`
+        : `Snapshots ${resolvedCopyRange.startPosition}-${resolvedCopyRange.endPosition} selected`)
+      + (
+        copyIncludeBars
+        && (
+          resolvedCopyRange.requestedStartPosition !== resolvedCopyRange.startPosition
+          || resolvedCopyRange.requestedEndPosition !== resolvedCopyRange.endPosition
+        )
+          ? " (expanded to full bars)."
+          : "."
+      )
+      + (copiedSnapshotBlock?.includeBars && !copyInsertAtBarBoundary
+        ? " Insert position must be at a bar marker, the beginning, or the end."
+        : "")
+    );
+  }, [
+    copyIncludeBars,
+    copyInsertAtBarBoundary,
+    copiedSnapshotBlock?.includeBars,
+    resolvedCopyRange,
+  ]);
 
   const resolveBarPositionFromBarNumber = useCallback((rawValue) => {
     const numeric = Math.round(Number(String(rawValue ?? "").replace(/[^\d-]/g, "")) || 0);
@@ -561,10 +601,6 @@ const Sequencer = ({
       playingSnapshotId,
     });
   }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, renderedSnapshots, sequencePlaybackActive, sortedBars, sortedTempi]);
-  const cueExpandedSnapshotIds = useMemo(
-    () => buildCueExpandedSnapshotIds(activeCueIndex, sequenceEvents, soundingAttackEventIds),
-    [activeCueIndex, sequenceEvents, soundingAttackEventIds],
-  );
   const cueExpandedSnapshotIdsAt = useCallback((cueIndexZeroBased) => {
     return buildCueExpandedSnapshotIdsAt(
       cueIndexZeroBased,
@@ -574,6 +610,12 @@ const Sequencer = ({
       sequenceEvents,
     );
   }, [renderedSnapshots, sequenceEvents, sortedBars, sortedTempi]);
+  const cueExpandedSnapshotIds = useMemo(() => {
+    if (!Number.isFinite(activeCueIndex)) return new Set();
+    const previewIds = cueExpandedSnapshotIdsAt(activeCueIndex - 1);
+    if (previewIds.size > 0) return previewIds;
+    return buildCueExpandedSnapshotIds(activeCueIndex, sequenceEvents, soundingAttackEventIds);
+  }, [activeCueIndex, cueExpandedSnapshotIdsAt, sequenceEvents, soundingAttackEventIds]);
 
   const {
     timedTransportUiState,
@@ -625,6 +667,7 @@ const Sequencer = ({
     selectedBarIndex,
     sortedBars,
     snapshots,
+    sequenceEvents,
     sequenceCueGroups,
     sequenceRepeatSections,
     cueExpandedSnapshotIds,
@@ -635,6 +678,7 @@ const Sequencer = ({
     firstStructuralScrollKey,
     repeatStartBySnapshotId,
     repeatStartKeyAtPosition,
+    structuralScrollKeyAtPosition,
     showAllEvents,
     setExpandedIds,
     onCueSequenceSnapshot,
@@ -1411,18 +1455,9 @@ const Sequencer = ({
             <span class="sequencer-copy-block__option-text">Reset Note Offsets</span>
           </label>
           <span class="sequencer-copy-block__copy-actions">
-            {resolvedCopyRange?.valid && (
+            {copySummaryText && (
               <span class="controller-inline-row controller-status-row sequencer-copy-block__summary">
-                <span class="sequencer-copy-block__summary-text">
-                  {resolvedCopyRange.startPosition === resolvedCopyRange.endPosition
-                    ? `Snapshot ${resolvedCopyRange.startPosition} selected`
-                    : `Snapshots ${resolvedCopyRange.startPosition}-${resolvedCopyRange.endPosition} selected`}
-                  {copyIncludeBars && (
-                    resolvedCopyRange.requestedStartPosition !== resolvedCopyRange.startPosition
-                    || resolvedCopyRange.requestedEndPosition !== resolvedCopyRange.endPosition
-                  ) ? " (expanded to full bars)." : "."}
-                  {copiedSnapshotBlock?.includeBars && !copyInsertAtBarBoundary ? " Insert position must be at a bar marker, the beginning, or the end." : ""}
-                </span>
+                <span class="sequencer-copy-block__summary-text">{copySummaryText}</span>
               </span>
             )}
             <button type="button" class="preset-action-btn sequencer-copy-block__copy-button" onClick={handleCopySnapshotBlock}>
@@ -1450,7 +1485,9 @@ const Sequencer = ({
         </div>
         {copyInsertStatus && (
           <p class="sequencer-copy-block__status">
-            <em>{copyInsertStatus}</em>
+            <span class="sequencer-copy-block__summary-text">
+              <em>{copyInsertStatus}</em>
+            </span>
           </p>
         )}
         <div class="settings-form__action-row settings-form__action-row--top sequencer-copy-block__insert-row">

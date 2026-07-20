@@ -4,6 +4,7 @@ import {
   deriveCueScrollAnchorTarget,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
+  firstSnapshotIdForCueIndex,
   firstSnapshotIdInSet,
   sameSnapshotSet,
 } from "./view-runtime.js";
@@ -11,6 +12,14 @@ import {
 describe("sequencer view runtime", () => {
   it("finds the first snapshot id present in a set", () => {
     expect(firstSnapshotIdInSet(new Set(["s2", "s3"]), [{ id: "s1" }, { id: "s2" }, { id: "s3" }])).toBe("s2");
+  });
+
+  it("finds the first snapshot that actually carries a cue index", () => {
+    expect(firstSnapshotIdForCueIndex(13, [
+      { type: "note", cueIndex: 4, snapshotId: "s1" },
+      { type: "note", cueIndex: 13, snapshotId: "s3" },
+      { type: "note", cueIndex: 13, snapshotId: "s4" },
+    ], [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }])).toBe("s3");
   });
 
   it("derives sounding attack ids for active cue and active snapshot playback", () => {
@@ -95,6 +104,10 @@ describe("sequencer view runtime", () => {
       showAllEvents: true,
       activeCueIndex: 2,
       sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }, { snapshotIndex: 2 }],
+      sequenceEvents: [
+        { type: "note", cueIndex: 1, snapshotId: "s1", eventId: "s1:c1" },
+        { type: "note", cueIndex: 2, snapshotId: "s2", eventId: "s2:c2" },
+      ],
       snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
       cueExpandedSnapshotIds: new Set(["s2"]),
       repeatSections: [{
@@ -103,6 +116,25 @@ describe("sequencer view runtime", () => {
         endCueIndex: 1,
       }],
     })).toEqual({ kind: "snapshot", targetKey: "s2" });
+  });
+
+  it("anchors cue scrolling to the first snapshot that shows the selected cue, not an earlier sustained-note origin", () => {
+    expect(deriveCueScrollAnchorTarget({
+      showAllEvents: true,
+      activeCueIndex: 13,
+      sequenceCueGroups: [
+        { snapshotIndex: 0 },
+        { snapshotIndex: 1 },
+        { snapshotIndex: 2 },
+      ],
+      sequenceEvents: [
+        { type: "note", cueIndex: 4, snapshotId: "s1", eventId: "s1:c4" },
+        { type: "note", cueIndex: 13, snapshotId: "s3", eventId: "s3:c13" },
+        { type: "note", cueIndex: 13, snapshotId: "s4", eventId: "s4:c13" },
+      ],
+      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
+      cueExpandedSnapshotIds: new Set(["s1", "s3", "s4"]),
+    })).toEqual({ kind: "snapshot", targetKey: "s3" });
   });
 
   it("compares snapshot sets by membership", () => {

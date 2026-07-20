@@ -1367,6 +1367,7 @@ describe("Sequencer", () => {
         snapshotLabelMode="labels"
         selectedSnapshotId={11}
         selectedMarker={null}
+        pendingTransportSelection={{ snapshotIndex: 1, cueIndex: 1 }}
         playingSnapshotId={null}
         playhead={{ barIndex: 1, stepIndex: 1, markerIndex: null, stopped: true }}
         onTakeSnapshot={vi.fn()}
@@ -2528,7 +2529,7 @@ describe("Sequencer", () => {
     expect(onDeleteAllSnapshots).toHaveBeenCalledTimes(1);
   });
 
-  it("updates the bar selector when a snapshot or cue target is chosen", () => {
+  it("does not clear snapshot or cue selection by re-dispatching bar selection", () => {
     const onSelectSequenceBar = vi.fn();
 
     render(
@@ -2590,13 +2591,13 @@ describe("Sequencer", () => {
       currentTarget: { value: "1" },
       target: { value: "1" },
     });
-    expect(onSelectSequenceBar).toHaveBeenLastCalledWith(1);
+    expect(onSelectSequenceBar).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("next cue target"), {
       currentTarget: { value: "1" },
       target: { value: "1" },
     });
-    expect(onSelectSequenceBar).toHaveBeenLastCalledWith(1);
+    expect(onSelectSequenceBar).not.toHaveBeenCalled();
   });
 
   it("commits bar-relative timing edits back into absolute event positions", () => {
@@ -4209,6 +4210,171 @@ describe("Sequencer", () => {
         selectedMarker={null}
         playingSnapshotId={null}
         playhead={{ barIndex: 1, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
+    const cueTargetSelect = screen.getByLabelText("next cue target");
+    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
+    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)", "3"]);
+    expect(snapshotTargetSelect.value).toBe("1");
+    expect(cueTargetSelect.value).toBe("1");
+  });
+
+  it("shows the selected snapshot and its first cue in brackets when a snapshot is selected", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={11}
+        selectedMarker={null}
+        pendingTransportSelection={{ snapshotIndex: 1, cueIndex: 1 }}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 1, stepIndex: 1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
+    const cueTargetSelect = screen.getByLabelText("next cue target");
+    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
+    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)", "3"]);
+    expect(snapshotTargetSelect.value).toBe("1");
+    expect(cueTargetSelect.value).toBe("1");
+  });
+
+  it("shows the selected snapshot in brackets even when the playhead remains off", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={11}
+        selectedMarker={null}
+        pendingTransportSelection={{ snapshotIndex: 1, cueIndex: 1 }}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
+    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
+    expect(snapshotTargetSelect.value).toBe("1");
+  });
+
+  it("keeps the containing snapshot and selected cue bracketed when a cue is armed", () => {
+    render(
+      <Sequencer
+        snapshots={[
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
+          },
+        ]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={11}
+        selectedMarker={2}
+        pendingTransportSelection={{ snapshotIndex: 1, cueIndex: 1 }}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 1, stepIndex: 1, markerIndex: 1, stopped: true }}
         onTakeSnapshot={vi.fn()}
         onSetSnapshotLabelMode={vi.fn()}
         onSelectSnapshot={vi.fn()}

@@ -269,6 +269,59 @@ describe("snapshot workspace runtime", () => {
     expect(result.ids).toEqual({ snapshotId: 23, barId: 4 });
   });
 
+  it("keeps end repeats and transition tempi at the insertion point before the inserted block", () => {
+    const block = buildSnapshotCopyBlock({
+      snapshots: [
+        { id: 1, length: 1, description: "a", notes: [] },
+        { id: 2, length: 1, description: "b", notes: [] },
+      ],
+      startPosition: 1,
+      endPosition: 2,
+    });
+
+    const result = insertSnapshotCopyBlock({
+      snapshots: [{ id: 10 }, { id: 11 }, { id: 12 }],
+      bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      tempi: [{ id: 1, position: 2, bpm: 72, beatLength: 1, mode: "transition" }],
+      repeats: [{ id: 1, position: 2, kind: "end", repeatCount: 2 }],
+      block,
+      insertionPosition: 2,
+      nextSnapshotId: 20,
+      nextBarId: 1,
+    });
+
+    expect(result.tempi.map((tempo) => tempo.position)).toEqual([2]);
+    expect(result.repeats.map((repeat) => repeat.position)).toEqual([2]);
+  });
+
+  it("bumps bars and immediate tempi at the insertion point to the end of the inserted block", () => {
+    const block = buildSnapshotCopyBlock({
+      snapshots: [
+        { id: 1, length: 1, description: "a", notes: [] },
+        { id: 2, length: 1, description: "b", notes: [] },
+      ],
+      startPosition: 1,
+      endPosition: 2,
+    });
+
+    const result = insertSnapshotCopyBlock({
+      snapshots: [{ id: 10 }, { id: 11 }, { id: 12 }],
+      bars: [
+        { id: 1, position: 1, numerator: 4, denominator: 4 },
+        { id: 2, position: 2, numerator: 3, denominator: 4 },
+      ],
+      tempi: [{ id: 1, position: 2, bpm: 60, beatLength: 1, mode: "immediate" }],
+      repeats: [],
+      block,
+      insertionPosition: 2,
+      nextSnapshotId: 20,
+      nextBarId: 2,
+    });
+
+    expect(result.bars.map((bar) => bar.position)).toEqual([1, 4]);
+    expect(result.tempi.map((tempo) => tempo.position)).toEqual([4]);
+  });
+
   it("rejects inserting a bar-bounded block away from a bar boundary", () => {
     const block = buildSnapshotCopyBlock({
       snapshots: [{ id: 1, length: 1, description: "a", notes: [] }],

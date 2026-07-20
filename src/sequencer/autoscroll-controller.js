@@ -1,5 +1,5 @@
 // This hook owns sequencer viewport tracking and auto-scroll behavior.
-// It manages row refs, sticky transport offsets, and the logic that decides
+// It manages row refs, transport offsets, and the logic that decides
 // which snapshot/bar/event should be brought into view during navigation.
 
 import { useCallback, useEffect, useRef } from "preact/hooks";
@@ -7,6 +7,7 @@ import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-cras
 import { structuralEventRenderKey } from "./value-runtime.js";
 import {
   deriveCueScrollAnchorTarget,
+  firstSnapshotIdForCueIndex,
   firstSnapshotIdInSet,
 } from "./view-runtime.js";
 
@@ -19,6 +20,7 @@ export default function useSequencerAutoscroll({
   selectedBarIndex,
   sortedBars,
   snapshots,
+  sequenceEvents,
   sequenceCueGroups,
   sequenceRepeatSections,
   cueExpandedSnapshotIds,
@@ -29,11 +31,11 @@ export default function useSequencerAutoscroll({
   firstStructuralScrollKey,
   repeatStartBySnapshotId,
   repeatStartKeyAtPosition,
+  structuralScrollKeyAtPosition,
   showAllEvents,
   setExpandedIds,
   onCueSequenceSnapshot,
   onCueSequenceCue,
-  onSelectSequenceBar,
   onResetSequencePlayhead,
   onJumpSequenceEnd,
   recordTimedTransportDiagnostic,
@@ -49,12 +51,6 @@ export default function useSequencerAutoscroll({
   const pendingResetScrollTargetRef = useRef(null);
   const suppressNextBarAutoScrollRef = useRef(false);
   const transportScrollTargetRef = useRef("snapshot");
-
-  const selectBarForPosition = useCallback((position) => {
-    const target = Number(position);
-    const barIndex = sortedBars.findLastIndex((bar) => Number(bar?.position) <= target + 1e-9);
-    if (barIndex >= 0) onSelectSequenceBar?.(barIndex);
-  }, [onSelectSequenceBar, sortedBars]);
 
   const scrollNodeIntoPanel = useCallback((targetNode) => {
     if (!autoScrollEnabled) return;
@@ -130,13 +126,11 @@ export default function useSequencerAutoscroll({
         scrollNodeIntoPanel(snapshotRow);
       }
     }
-    selectBarForPosition(snapshotTime);
   }, [
     firstCueTimeBySnapshotIndex,
     onCueSequenceSnapshot,
     repeatStartKeyAtPosition,
     scrollNodeIntoPanel,
-    selectBarForPosition,
     snapshots,
   ]);
 
@@ -151,12 +145,17 @@ export default function useSequencerAutoscroll({
     if (repeatStartKey != null) {
       const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
       scrollNodeIntoPanel(repeatRow);
-      selectBarForPosition(cueGroup.time);
       return;
     }
+    const cueSnapshotId = firstSnapshotIdForCueIndex(
+      nextCueIndex + 1,
+      sequenceEvents,
+      snapshots,
+    );
     const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
     if (showAllEvents) {
-      const anchorSnapshotId = firstSnapshotIdInSet(previewExpandedIds, snapshots)
+      const anchorSnapshotId = cueSnapshotId
+        ?? firstSnapshotIdInSet(previewExpandedIds, snapshots)
         ?? (snapshots[cueGroup.snapshotIndex]?.id ?? null);
       if (anchorSnapshotId != null) {
         const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
@@ -165,7 +164,7 @@ export default function useSequencerAutoscroll({
     } else {
       if (previewExpandedIds.size > 0) {
         setExpandedIds(previewExpandedIds);
-        const anchorSnapshotId = firstSnapshotIdInSet(previewExpandedIds, snapshots);
+        const anchorSnapshotId = cueSnapshotId ?? firstSnapshotIdInSet(previewExpandedIds, snapshots);
         if (anchorSnapshotId != null) {
           const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
           scrollNodeIntoPanel(snapshotRow);
@@ -178,15 +177,14 @@ export default function useSequencerAutoscroll({
         }
       }
     }
-    selectBarForPosition(cueGroup.time);
   }, [
     cueExpandedSnapshotIdsAt,
     firstEventIdByCueIndex,
     onCueSequenceCue,
     repeatStartKeyAtPosition,
     scrollNodeIntoPanel,
-    selectBarForPosition,
     sequenceCueGroups,
+    sequenceEvents,
     setExpandedIds,
     showAllEvents,
     snapshots,
@@ -206,6 +204,7 @@ export default function useSequencerAutoscroll({
         showAllEvents,
         activeCueIndex,
         sequenceCueGroups,
+        sequenceEvents,
         snapshots,
         cueExpandedSnapshotIds,
         repeatSections: sequenceRepeatSections,
@@ -223,7 +222,7 @@ export default function useSequencerAutoscroll({
       return;
     }
     lastAutoScrolledCueTargetRef.current = null;
-  }, [activeCueIndex, autoScrollEnabled, cueExpandedSnapshotIds, scrollNodeIntoPanel, sequenceCueGroups, sequenceRepeatSections, showAllEvents, snapshots]);
+  }, [activeCueIndex, autoScrollEnabled, cueExpandedSnapshotIds, scrollNodeIntoPanel, sequenceCueGroups, sequenceEvents, sequenceRepeatSections, showAllEvents, snapshots]);
 
   useEffect(() => {
     if (!autoScrollEnabled) return;
@@ -342,8 +341,8 @@ export default function useSequencerAutoscroll({
     const selectedBar = sortedBars[selectedBarIndex] ?? null;
     const selectedBarId = selectedBar?.id ?? null;
     if (selectedBarId == null) return;
-    const repeatStartKey = repeatStartKeyAtPosition(selectedBar.position);
-    const targetKey = repeatStartKey ?? selectedBarId;
+    const structuralKey = structuralScrollKeyAtPosition(selectedBar.position);
+    const targetKey = structuralKey ?? selectedBarId;
     if (lastAutoScrolledBarIdRef.current === targetKey) return;
     const scrollPanel = scrollPanelRef.current;
     const barRow = barRowRefs.current.get(targetKey) ?? null;
@@ -370,7 +369,7 @@ export default function useSequencerAutoscroll({
       scrollPanel.scrollTop = nextTop;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [autoScrollEnabled, playheadIsOff, repeatStartKeyAtPosition, selectedBarIndex, sortedBars]);
+  }, [autoScrollEnabled, playheadIsOff, selectedBarIndex, sortedBars, structuralScrollKeyAtPosition]);
 
   const resetSequencePlayheadAndScrollTop = useCallback(() => {
     transportScrollTargetRef.current = "bar";

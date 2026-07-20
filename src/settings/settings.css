@@ -1616,7 +1616,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-scroll-panel {
-  max-height: calc(100vh - 10rem);
+  max-height: calc(100vh - 16.5rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.08em;
@@ -2166,6 +2166,19 @@ td.scale-color-col .color-input {
 .sequencer-copy-block__summary,
 .sequencer-copy-block__status {
   margin: 0.35em 0 0;
+}
+
+.sequencer-copy-block__status {
+  min-width: 0;
+  color: #996666;
+  font-size: 0.82em;
+  line-height: 1.5em;
+  text-align: right;
+}
+
+.sequencer-copy-block__status em {
+  font-style: italic;
+  color: inherit;
 }
 
 .sequencer-copy-block__copy-row {
