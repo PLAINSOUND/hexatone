@@ -3,6 +3,7 @@
 // the visible event list for a snapshot in the sequencer.
 
 import { Fragment } from "preact";
+import { memo } from "preact/compat";
 import EventsGridHeader from "./events-grid-header.jsx";
 import BarRow from "./bar-row.jsx";
 import BarlineRow from "./barline-row.jsx";
@@ -309,4 +310,4 @@ const SnapshotSequenceItem = ({
   );
 };
 
-export default SnapshotSequenceItem;
+export default memo(SnapshotSequenceItem);

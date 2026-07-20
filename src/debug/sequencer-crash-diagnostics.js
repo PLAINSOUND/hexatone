@@ -25,6 +25,8 @@ function readSequencerCrashDiagnosticsFlag() {
 }
 
 export const SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY = "hexatone_sequencer_crash_diagnostics";
+let cachedPersistedSequencerCrashDiagnostics = null;
+let hasLoadedPersistedSequencerCrashDiagnostics = false;
 
 export function isSequencerCrashDiagnosticsEnabled() {
   return readSequencerCrashDiagnosticsFlag();
@@ -140,22 +142,36 @@ export function pushSequencerCrashDiagnostic(state, entry = {}) {
 
 export function persistSequencerCrashDiagnostics(state, storage = globalThis?.sessionStorage) {
   if (!storage?.setItem) return;
-  storage.setItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY, JSON.stringify({ state }));
+  const persisted = { state };
+  cachedPersistedSequencerCrashDiagnostics = persisted;
+  hasLoadedPersistedSequencerCrashDiagnostics = true;
+  storage.setItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY, JSON.stringify(persisted));
 }
 
 export function loadPersistedSequencerCrashDiagnostics(storage = globalThis?.sessionStorage) {
+  if (hasLoadedPersistedSequencerCrashDiagnostics) return cachedPersistedSequencerCrashDiagnostics;
   if (!storage?.getItem) return null;
   const raw = storage.getItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY);
-  if (!raw) return null;
+  if (!raw) {
+    cachedPersistedSequencerCrashDiagnostics = null;
+    hasLoadedPersistedSequencerCrashDiagnostics = true;
+    return null;
+  }
   try {
-    return JSON.parse(raw);
+    cachedPersistedSequencerCrashDiagnostics = JSON.parse(raw);
+    hasLoadedPersistedSequencerCrashDiagnostics = true;
+    return cachedPersistedSequencerCrashDiagnostics;
   } catch {
+    cachedPersistedSequencerCrashDiagnostics = null;
+    hasLoadedPersistedSequencerCrashDiagnostics = true;
     return null;
   }
 }
 
 export function clearPersistedSequencerCrashDiagnostics(storage = globalThis?.sessionStorage) {
   if (!storage?.removeItem) return;
+  cachedPersistedSequencerCrashDiagnostics = null;
+  hasLoadedPersistedSequencerCrashDiagnostics = true;
   storage.removeItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY);
 }
 

@@ -890,57 +890,57 @@ const Sequencer = ({
   ]);
 
   // Local mutation adapters passed down into row components.
-  const updateEventField = (snapshot, noteRef, field, rawValue) => {
+  const updateEventField = useCallback((snapshot, noteRef, field, rawValue) => {
     const notes = updateEventFieldInSnapshot(snapshot, noteRef, field, rawValue);
     if (!notes) return;
     onUpdateSnapshot(snapshot.id, { notes });
-  };
+  }, [onUpdateSnapshot]);
 
-  const restoreEventPitchLabel = (snapshot, noteRef) => {
+  const restoreEventPitchLabel = useCallback((snapshot, noteRef) => {
     const notes = restoreEventPitchLabelInSnapshot(snapshot, noteRef);
     onUpdateSnapshot(snapshot.id, { notes });
-  };
+  }, [onUpdateSnapshot]);
 
-  const commitEventPitchLabel = (snapshot, noteRef) => {
+  const commitEventPitchLabel = useCallback((snapshot, noteRef) => {
     const notes = commitEventPitchLabelInSnapshot(snapshot, noteRef);
     onUpdateSnapshot(snapshot.id, { notes });
-  };
+  }, [onUpdateSnapshot]);
 
-  const updateBarPosition = (barId, rawValue) => {
+  const updateBarPosition = useCallback((barId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
     onUpdateBar?.(barId, { position: Math.max(1, Math.round(numeric)) });
-  };
+  }, [onUpdateBar]);
 
-  const updateTempoPosition = (tempoId, rawValue) => {
+  const updateTempoPosition = useCallback((tempoId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
     onUpdateTempo?.(tempoId, { position: Math.round(numeric * 1000000) / 1000000 });
-  };
+  }, [onUpdateTempo]);
 
-  const updateRepeatPosition = (repeatId, rawValue) => {
+  const updateRepeatPosition = useCallback((repeatId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric)) return;
     onUpdateRepeat?.(repeatId, { position: Math.round(numeric * 1000000) / 1000000 });
-  };
+  }, [onUpdateRepeat]);
 
-  const updateRepeatCount = (repeatId, rawValue) => {
+  const updateRepeatCount = useCallback((repeatId, rawValue) => {
     const numeric = Math.max(2, Math.round(Number(rawValue) || 2));
     if (!Number.isFinite(numeric)) return;
     onUpdateRepeat?.(repeatId, { repeatCount: numeric });
-  };
+  }, [onUpdateRepeat]);
 
-  const updateTempoBpm = (tempoId, rawValue) => {
+  const updateTempoBpm = useCallback((tempoId, rawValue) => {
     const numeric = Number(rawValue);
     if (!Number.isFinite(numeric) || numeric <= 0) return;
     onUpdateTempo?.(tempoId, { bpm: numeric });
-  };
+  }, [onUpdateTempo]);
 
-  const updateTempoBeatFraction = (tempoId, numerator, denominator) => {
+  const updateTempoBeatFraction = useCallback((tempoId, numerator, denominator) => {
     onUpdateTempo?.(tempoId, normalizeTempoBeatFraction(numerator, denominator));
-  };
+  }, [onUpdateTempo]);
 
-  const updateBarTimeSignatureField = (barId, field, rawValue) => {
+  const updateBarTimeSignatureField = useCallback((barId, field, rawValue) => {
     const parsed = Math.round(Number(rawValue) || 0);
     const numeric = field === "numerator"
       ? Math.max(1, parsed)
@@ -948,7 +948,7 @@ const Sequencer = ({
     if (!Number.isFinite(numeric)) return;
     if (field !== "numerator" && numeric <= 0) return;
     onUpdateBar?.(barId, { [field]: numeric });
-  };
+  }, [onUpdateBar]);
 
   const addBarAtRequestedPosition = () => {
     const numeric = Number(newBarPosition);
@@ -1020,19 +1020,19 @@ const Sequencer = ({
     setNewBarDenominator(suggestedBarMeter.denominator);
   }, [newBarMeterIsSuggested, suggestedBarMeter]);
 
-  const handleEnterCommit = (e, commit) => {
+  const handleEnterCommit = useCallback((e, commit) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
     commitTextInput(e.currentTarget, commit);
     notifyEditCommitted();
     e.currentTarget.blur();
-  };
+  }, [notifyEditCommitted]);
 
-  const handleBlurCommit = (e, commit, afterCommit = null) => {
+  const handleBlurCommit = useCallback((e, commit, afterCommit = null) => {
     commitTextInput(e.currentTarget, commit);
     if (typeof afterCommit === "function") afterCommit();
     notifyEditCommitted();
-  };
+  }, [notifyEditCommitted]);
 
   const currentEventPane = eventPane === "expression" ? "expression" : "timing";
 
@@ -1058,22 +1058,28 @@ const Sequencer = ({
     return next;
   }, [sequenceEvents, sortedBars, terminalBarlinePosition]);
 
-  const barRowDnd = {
+  const barRowDnd = useMemo(() => ({
     draggedBarId,
     barDragIdRef,
     setDraggedBarId,
     onMoveBar,
-  };
+  }), [draggedBarId, onMoveBar]);
 
-  const barRowEditing = {
+  const barRowEditing = useMemo(() => ({
     onDeleteBar,
     handleEnterCommit,
     handleBlurCommit,
     updateBarPosition,
     updateBarTimeSignatureField,
-  };
+  }), [
+    handleBlurCommit,
+    handleEnterCommit,
+    onDeleteBar,
+    updateBarPosition,
+    updateBarTimeSignatureField,
+  ]);
 
-  const tempoRowTiming = {
+  const tempoRowTiming = useMemo(() => ({
     sortedBars,
     sortedTempi,
     terminalBarlinePosition,
@@ -1081,17 +1087,29 @@ const Sequencer = ({
     tempoBarRelativeDraftKey,
     tempoBarRelativeDrafts,
     tempoTransitionCueMap,
-  };
+  }), [
+    barBeatByEventId,
+    sortedBars,
+    sortedTempi,
+    tempoBarRelativeDrafts,
+    tempoTransitionCueMap,
+    terminalBarlinePosition,
+  ]);
 
-  const repeatRowTiming = {
+  const repeatRowTiming = useMemo(() => ({
     sortedBars,
     terminalBarlinePosition,
     barBeatByEventId,
     repeatBarRelativeDraftKey,
     repeatBarRelativeDrafts,
-  };
+  }), [
+    barBeatByEventId,
+    repeatBarRelativeDrafts,
+    sortedBars,
+    terminalBarlinePosition,
+  ]);
 
-  const tempoRowEditing = {
+  const tempoRowEditing = useMemo(() => ({
     handleEnterCommit,
     handleBlurCommit,
     updateTempoBeatFraction,
@@ -1101,9 +1119,19 @@ const Sequencer = ({
     commitTempoBarRelativeDraft,
     cancelTempoBarRelativeDraft,
     onDeleteTempo,
-  };
+  }), [
+    cancelTempoBarRelativeDraft,
+    commitTempoBarRelativeDraft,
+    handleBlurCommit,
+    handleEnterCommit,
+    onDeleteTempo,
+    updateTempoBarRelativeDraftField,
+    updateTempoBeatFraction,
+    updateTempoBpm,
+    updateTempoPosition,
+  ]);
 
-  const repeatRowEditing = {
+  const repeatRowEditing = useMemo(() => ({
     handleEnterCommit,
     handleBlurCommit,
     updateRepeatPosition,
@@ -1112,9 +1140,18 @@ const Sequencer = ({
     commitRepeatBarRelativeDraft,
     cancelRepeatBarRelativeDraft,
     onDeleteRepeat,
-  };
+  }), [
+    cancelRepeatBarRelativeDraft,
+    commitRepeatBarRelativeDraft,
+    handleBlurCommit,
+    handleEnterCommit,
+    onDeleteRepeat,
+    updateRepeatBarRelativeDraftField,
+    updateRepeatCount,
+    updateRepeatPosition,
+  ]);
 
-  const eventRowView = {
+  const eventRowView = useMemo(() => ({
     findSnapshotById,
     selectedMarker,
     activeNavigationMode,
@@ -1125,9 +1162,20 @@ const Sequencer = ({
     snapshotIndexById,
     firstSnapshotCueEventIds,
     currentEventPane,
-  };
+  }), [
+    activeCueIndex,
+    activeNavigationMode,
+    activeSnapshotId,
+    currentEventPane,
+    findSnapshotById,
+    firstSnapshotCueEventIds,
+    selectedMarker,
+    sequencePlaybackActive,
+    snapshotIndexById,
+    soundingAttackEventIds,
+  ]);
 
-  const eventRowDrafts = {
+  const eventRowDrafts = useMemo(() => ({
     sortedBars,
     terminalBarlinePosition,
     barBeatByEventId,
@@ -1135,9 +1183,15 @@ const Sequencer = ({
     barRelativeDrafts,
     eventSequenceDraftKey,
     eventSequenceDrafts,
-  };
+  }), [
+    barBeatByEventId,
+    barRelativeDrafts,
+    eventSequenceDrafts,
+    sortedBars,
+    terminalBarlinePosition,
+  ]);
 
-  const eventRowDrag = {
+  const eventRowDrag = useMemo(() => ({
     eventRowRefs,
     barDragIdRef,
     onMoveBar,
@@ -1146,9 +1200,9 @@ const Sequencer = ({
     setDraggedEventId,
     setDragOverId,
     draggedEventId,
-  };
+  }), [draggedEventId, eventRowRefs, onMoveBar]);
 
-  const eventRowEditing = {
+  const eventRowEditing = useMemo(() => ({
     onSelectMarker,
     deleteEventNote,
     updateEventSequenceDraftField,
@@ -1163,14 +1217,111 @@ const Sequencer = ({
     updateEventBarRelativeDraftField,
     commitEventBarRelativeDraft,
     cancelEventBarRelativeDraft,
-  };
+  }), [
+    cancelEventBarRelativeDraft,
+    cancelEventSequenceDraft,
+    commitEventBarRelativeDraft,
+    commitEventPitchLabel,
+    deleteEventNote,
+    handleBlurCommit,
+    handleEnterCommit,
+    onSelectMarker,
+    restoreEventPitchLabel,
+    snapSequenceToCurrentTuning,
+    updateEventBarRelativeDraftField,
+    updateEventField,
+    updateEventSequenceDraftField,
+    applyEventSequenceDraft,
+  ]);
 
-  const eventRowTransport = {
+  const eventRowTransport = useMemo(() => ({
     playingSnapshotId,
     runTransportAction,
     onPlayCue,
     onStopSnapshot,
-  };
+  }), [onPlayCue, onStopSnapshot, playingSnapshotId, runTransportAction]);
+
+  const sharedDragState = useMemo(() => ({
+    dragOverId,
+    dragOverSide,
+    draggedId,
+    dragIdRef,
+    snapshotRowRefs,
+    eventDragRef,
+    barDragIdRef,
+    setDragOverId,
+    setDragOverSide,
+    setDraggedId,
+    setDraggedEventId,
+    setDraggedBarId,
+    onMoveBar,
+  }), [dragOverId, dragOverSide, draggedId, onMoveBar, snapshotRowRefs]);
+
+  const sharedStructure = useMemo(() => ({
+    snapshotEventsById,
+    structuralMarkersByDisplayBucket,
+    barRowRefs,
+    barNumberById,
+  }), [barNumberById, barRowRefs, snapshotEventsById, structuralMarkersByDisplayBucket]);
+
+  const sharedRows = useMemo(() => ({
+    eventPane,
+    setEventPane,
+    barRowDnd,
+    barRowEditing,
+    tempoRowTiming,
+    tempoRowEditing,
+    repeatRowTiming,
+    repeatRowEditing,
+    eventRowView,
+    eventRowDrafts,
+    eventRowDrag,
+    eventRowEditing,
+    eventRowTransport,
+  }), [
+    barRowDnd,
+    barRowEditing,
+    eventPane,
+    eventRowDrafts,
+    eventRowDrag,
+    eventRowEditing,
+    eventRowTransport,
+    eventRowView,
+    repeatRowEditing,
+    repeatRowTiming,
+    tempoRowEditing,
+    tempoRowTiming,
+  ]);
+
+  const sharedActions = useMemo(() => ({
+    resolveDropSide,
+    duplicateEventNoteToSnapshot,
+    moveEventNoteToSnapshot,
+    onDuplicateSnapshot,
+    onMoveSnapshot,
+    onSnapshotRowClick: handleSnapshotRowClick,
+    onSelectSnapshot,
+    toggleExpanded,
+    onDeleteSnapshot,
+    ensureExpanded,
+    onUpdateSnapshot,
+    onResetSnapshotDescription,
+    onPlaySnapshot,
+    onStopSnapshot,
+  }), [
+    duplicateEventNoteToSnapshot,
+    ensureExpanded,
+    handleSnapshotRowClick,
+    moveEventNoteToSnapshot,
+    onDeleteSnapshot,
+    onDuplicateSnapshot,
+    onMoveSnapshot,
+    onPlaySnapshot,
+    onResetSnapshotDescription,
+    onSelectSnapshot,
+    onStopSnapshot,
+    onUpdateSnapshot,
+  ]);
 
   // Render the Sequencer as a thin view/composition layer over the derived
   // runtime state and controller hooks assembled above.
@@ -1548,58 +1699,10 @@ const Sequencer = ({
                   playingSnapshotId={playingSnapshotId}
                   showAllEvents={showAllEvents}
                   expandedIds={expandedIds}
-                  dragState={{
-                    dragOverId,
-                    dragOverSide,
-                    draggedId,
-                    dragIdRef,
-                    snapshotRowRefs,
-                    eventDragRef,
-                    barDragIdRef,
-                    setDragOverId,
-                    setDragOverSide,
-                    setDraggedId,
-                    setDraggedEventId,
-                    setDraggedBarId,
-                    onMoveBar,
-                  }}
-                  structure={{
-                    snapshotEventsById,
-                    structuralMarkersByDisplayBucket,
-                    barRowRefs,
-                    barNumberById,
-                  }}
-                  rows={{
-                    eventPane,
-                    setEventPane,
-                    barRowDnd,
-                    barRowEditing,
-                    tempoRowTiming,
-                    tempoRowEditing,
-                    repeatRowTiming,
-                    repeatRowEditing,
-                    eventRowView,
-                    eventRowDrafts,
-                    eventRowDrag,
-                    eventRowEditing,
-                    eventRowTransport,
-                  }}
-                  actions={{
-                    resolveDropSide,
-                    duplicateEventNoteToSnapshot,
-                    moveEventNoteToSnapshot,
-                    onDuplicateSnapshot,
-                    onMoveSnapshot,
-                    onSnapshotRowClick: handleSnapshotRowClick,
-                    onSelectSnapshot,
-                    toggleExpanded,
-                    onDeleteSnapshot,
-                    ensureExpanded,
-                    onUpdateSnapshot,
-                    onResetSnapshotDescription,
-                    onPlaySnapshot,
-                    onStopSnapshot,
-                  }}
+                  dragState={sharedDragState}
+                  structure={sharedStructure}
+                  rows={sharedRows}
+                  actions={sharedActions}
                 />
               );
               })}

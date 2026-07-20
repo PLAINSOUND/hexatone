@@ -112,6 +112,7 @@ import {
 } from "./debug/timed-transport-diagnostics.js";
 import {
   appendPersistedSequencerCrashDiagnostic,
+  isSequencerCrashDiagnosticsEnabled,
   loadPersistedSequencerCrashDiagnostics,
 } from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
@@ -1242,6 +1243,7 @@ const App = () => {
     snapshots,
   ]);
   useEffect(() => {
+    if (!isSequencerCrashDiagnosticsEnabled()) return;
     const persisted = loadPersistedSequencerCrashDiagnostics();
     const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
     if (!lastEntry) return;

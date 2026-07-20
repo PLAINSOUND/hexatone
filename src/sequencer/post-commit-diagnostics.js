@@ -5,6 +5,7 @@
 import { useEffect, useRef } from "preact/hooks";
 import {
   appendPersistedSequencerCrashDiagnostic,
+  isSequencerCrashDiagnosticsEnabled,
   loadPersistedSequencerCrashDiagnostics,
 } from "../debug/sequencer-crash-diagnostics.js";
 import { absolutePositionToBarBeat } from "./transport.js";
@@ -27,6 +28,7 @@ export default function useSequencerPostCommitDiagnostics({
   const lastPostCommitFrameLoggedRef = useRef(0);
 
   useEffect(() => {
+    if (!isSequencerCrashDiagnosticsEnabled()) return;
     const persisted = loadPersistedSequencerCrashDiagnostics();
     const lastCommitEntry = [...(persisted?.state?.entries ?? [])]
       .reverse()
@@ -91,6 +93,7 @@ export default function useSequencerPostCommitDiagnostics({
   ]);
 
   useEffect(() => {
+    if (!isSequencerCrashDiagnosticsEnabled()) return undefined;
     if (editCommitTick <= 0) return undefined;
     if (lastPostCommitFrameLoggedRef.current === editCommitTick) return undefined;
     lastPostCommitFrameLoggedRef.current = editCommitTick;
