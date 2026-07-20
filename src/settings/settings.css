@@ -1373,6 +1373,8 @@ td.scale-color-col .color-input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  content-visibility: auto;
+  contain-intrinsic-size: 2.1rem 48rem;
 }
 
 .sequencer-capture-fieldset {
@@ -1392,6 +1394,8 @@ td.scale-color-col .color-input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  content-visibility: auto;
+  contain-intrinsic-size: 1.9rem 16rem;
 }
 
 .sequencer-item--bar + .sequencer-item {
@@ -1621,6 +1625,7 @@ td.scale-color-col .color-input {
   overscroll-behavior: contain;
   padding-right: 0.08em;
   background: var(--color-bg);
+  will-change: scroll-position;
 }
 
 .sequencer-fieldset__save-row {
