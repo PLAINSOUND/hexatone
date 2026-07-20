@@ -125,14 +125,17 @@ import {
 import { buildSequenceRuntimeModel } from "./sequencer/runtime-model.js";
 import {
   buildCueExpandedSnapshotIdsAt,
-  firstSnapshotIdForCueIndex,
-  firstSnapshotIdInSet,
 } from "./sequencer/view-runtime.js";
 import {
-  armPendingCueSelection,
-  armPendingSnapshotSelection,
   clearPendingTransportSelection,
 } from "./sequencer/transport-selection.js";
+import {
+  buildCommittedSequencePlaybackState,
+  buildStoppedSequenceTransportState,
+  buildTimedPlaybackUiResetState,
+  resolvePendingCueTransportState,
+  resolvePendingSnapshotTransportState,
+} from "./sequencer/transport-intent-runtime.js";
 import {
   applyPlaybackPitchOffsetToNotes,
   clampSequencePlaybackPitchCents,
@@ -1303,36 +1306,16 @@ const App = () => {
       : sequenceCueGroups.findLastIndex((group) => group.time < anchorTime);
   }, [barTimeForIndex, sequenceCueGroups]);
 
-  const applyStoppedSequenceTransportState = useCallback(({
-    barIndex = 0,
-    stepIndex = -1,
-    markerIndex = null,
-    selectedSnapshotId: nextSelectedSnapshotId = null,
-    selectedSnapshotMarker: nextSelectedSnapshotMarker = null,
-    playingSnapshotId: nextPlayingSnapshotId = null,
-  } = {}) => {
-    setPlayingSnapshotId(nextPlayingSnapshotId);
-    setSelectedSnapshotId(nextSelectedSnapshotId);
-    setSelectedSnapshotMarker(nextSelectedSnapshotMarker);
-    setSequencePlayhead({
-      barIndex,
-      stepIndex,
-      markerIndex,
-      stopped: true,
-    });
+  const applyStoppedSequenceTransportState = useCallback((nextState = {}) => {
+    const resolvedState = buildStoppedSequenceTransportState(nextState);
+    setPlayingSnapshotId(resolvedState.playingSnapshotId);
+    setSelectedSnapshotId(resolvedState.selectedSnapshotId);
+    setSelectedSnapshotMarker(resolvedState.selectedSnapshotMarker);
+    setSequencePlayhead(resolvedState.playhead);
   }, []);
 
-  const resetTimedPlaybackUi = useCallback(({
-    barIndex = 0,
-    stepIndex = -1,
-    markerIndex = null,
-  } = {}) => {
-    timedPlaybackUiRef.current = {
-      clockSeconds: -Infinity,
-      stepIndex,
-      markerIndex,
-      barIndex,
-    };
+  const resetTimedPlaybackUi = useCallback((nextState = {}) => {
+    timedPlaybackUiRef.current = buildTimedPlaybackUiResetState(nextState);
   }, []);
 
   const commitSequencePlaybackUi = useCallback(({
@@ -1343,27 +1326,20 @@ const App = () => {
     normalizedNotes,
     barIndex,
   }) => {
-    pendingTransportSelectionRef.current = clearPendingTransportSelection();
-    setPlayingSnapshotId(normalizedNotes.length > 0 ? snapshot.id : null);
-    setSelectedSnapshotId(cueGroup?.snapshotIndex != null
-      ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id)
-      : snapshot.id);
-    setSelectedSnapshotMarker(
-      safeMarkerIndex == null
-        ? null
-        : cueGroup == null
-          ? null
-          : {
-            snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? snapshot.id,
-            time: cueGroup.time - (cueGroup.snapshotIndex + 1),
-          },
-    );
-    setSequencePlayhead({
+    const nextState = buildCommittedSequencePlaybackState({
+      safeStepIndex,
+      safeMarkerIndex,
+      snapshot,
+      cueGroup,
+      normalizedNotes,
       barIndex,
-      stepIndex: safeStepIndex,
-      markerIndex: safeMarkerIndex,
-      stopped: normalizedNotes.length === 0,
+      snapshots,
     });
+    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+    setPlayingSnapshotId(nextState.playingSnapshotId);
+    setSelectedSnapshotId(nextState.selectedSnapshotId);
+    setSelectedSnapshotMarker(nextState.selectedSnapshotMarker);
+    setSequencePlayhead(nextState.playhead);
   }, [snapshots]);
 
   const shouldUpdateTimedPlaybackUi = useCallback(({
@@ -1607,57 +1583,40 @@ const App = () => {
   }, [applyStoppedSequenceTransportState]);
 
   const onCueSequenceSnapshot = useCallback((targetIndex) => {
-    const nextIndex = Number(targetIndex);
-    if (!Number.isFinite(nextIndex) || nextIndex < 0 || nextIndex >= snapshots.length) return;
-    const snapshot = snapshots[nextIndex];
-    if (!snapshot) return;
+    const nextState = resolvePendingSnapshotTransportState({
+      targetIndex,
+      snapshots,
+      sequenceCueGroups,
+      barIndexForTime,
+    });
+    if (!nextState) return;
     keysRef.current?.stopSnapshot();
     sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = armPendingSnapshotSelection(nextIndex, sequenceCueGroups);
-    applyStoppedSequenceTransportState({
-      barIndex: barIndexForTime(nextIndex + 1),
-      stepIndex: nextIndex,
-      selectedSnapshotId: snapshot.id,
-    });
+    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+    applyStoppedSequenceTransportState(nextState);
   }, [applyStoppedSequenceTransportState, barIndexForTime, sequenceCueGroups, snapshots]);
 
   const onCueSequenceCue = useCallback((targetCueIndex) => {
-    const nextCueIndex = Number(targetCueIndex);
-    if (!Number.isFinite(nextCueIndex) || nextCueIndex < 0 || nextCueIndex >= sequenceCueGroups.length) return;
-    const cueGroup = sequenceCueGroups[nextCueIndex];
-    if (!cueGroup) return;
     const previewExpandedIds = buildCueExpandedSnapshotIdsAt(
-      nextCueIndex,
+      targetCueIndex,
       sequenceRuntimeModel.renderedSnapshots,
       sortedSequenceBars,
       sequenceRuntimeModel.sortedTempi,
       sequenceRuntimeModel.sequenceEvents,
     );
-    const anchorSnapshotId = firstSnapshotIdForCueIndex(nextCueIndex + 1, sequenceRuntimeModel.sequenceEvents, snapshots)
-      ?? firstSnapshotIdInSet(previewExpandedIds, snapshots)
-      ?? (snapshots[cueGroup.snapshotIndex]?.id ?? null);
-    const anchorSnapshotIndex = anchorSnapshotId == null
-      ? cueGroup.snapshotIndex
-      : snapshots.findIndex((snapshot) => snapshot.id === anchorSnapshotId);
-    const safeAnchorSnapshotIndex = anchorSnapshotIndex >= 0
-      ? anchorSnapshotIndex
-      : cueGroup.snapshotIndex;
-    const snapshot = snapshots[safeAnchorSnapshotIndex];
+    const nextState = resolvePendingCueTransportState({
+      targetCueIndex,
+      sequenceCueGroups,
+      sequenceEvents: sequenceRuntimeModel.sequenceEvents,
+      snapshots,
+      previewExpandedIds,
+      barIndexForTime,
+    });
+    if (!nextState) return;
     keysRef.current?.stopSnapshot();
     sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = armPendingCueSelection(nextCueIndex, safeAnchorSnapshotIndex);
-    applyStoppedSequenceTransportState({
-      barIndex: barIndexForTime(cueGroup.time),
-      stepIndex: safeAnchorSnapshotIndex,
-      markerIndex: nextCueIndex,
-      selectedSnapshotId: snapshot?.id ?? null,
-      selectedSnapshotMarker: snapshot
-        ? {
-          snapshotId: snapshot.id,
-          time: cueGroup.time - (safeAnchorSnapshotIndex + 1),
-        }
-        : null,
-    });
+    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+    applyStoppedSequenceTransportState(nextState);
   }, [applyStoppedSequenceTransportState, barIndexForTime, sequenceCueGroups, sequenceRuntimeModel.renderedSnapshots, sequenceRuntimeModel.sequenceEvents, sequenceRuntimeModel.sortedTempi, snapshots, sortedSequenceBars]);
 
   const onAddSequenceBar = useCallback((position = null, numerator = 4, denominator = 4) => {

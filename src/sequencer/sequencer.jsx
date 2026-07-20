@@ -30,6 +30,7 @@ import { buildSequenceRuntimeModel } from "./runtime-model.js";
 import useTimedTransportController from "./timed-transport-controller.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
 import useDraftEditingController from "./draft-editing-controller.js";
+import useEditCommitTransportController from "./edit-commit-transport-controller.js";
 import {
   appendPersistedSequencerCrashDiagnostic,
   loadPersistedSequencerCrashDiagnostics,
@@ -169,7 +170,6 @@ const Sequencer = ({
   const [draggedId, setDraggedId] = useState(null);
   const [draggedBarId, setDraggedBarId] = useState(null);
   const [draggedEventId, setDraggedEventId] = useState(null);
-  const [editCommitTick, setEditCommitTick] = useState(0);
   const [eventPane, setEventPane] = useState("timing");
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] = useState(null);
@@ -187,8 +187,6 @@ const Sequencer = ({
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
   const duplicateNoteIdRef = useRef(0);
-  const pendingTransportActionRef = useRef(null);
-  const editCommitPendingRef = useRef(false);
   const lastPostCommitFrameLoggedRef = useRef(0);
 
   // Derived sequence/timeline state.
@@ -589,6 +587,14 @@ const Sequencer = ({
     );
   }, [copiedSnapshotBlock, copyInsertPosition, onInsertSnapshotCopyBlock, snapshots.length]);
 
+  const {
+    editCommitTick,
+    notifyEditCommitted,
+    runTransportAction,
+  } = useEditCommitTransportController({
+    snapshots,
+  });
+
   const sequencePlaybackActive = !!playingSnapshotId && playhead?.stopped !== true;
   const soundingAttackEventIds = useMemo(() => {
     return deriveSoundingAttackEventIds({
@@ -745,18 +751,6 @@ const Sequencer = ({
   ]);
 
   useEffect(() => {
-    if (!editCommitPendingRef.current && !pendingTransportActionRef.current) return;
-    const action = pendingTransportActionRef.current;
-    pendingTransportActionRef.current = null;
-    editCommitPendingRef.current = false;
-    action?.();
-  }, [editCommitTick, snapshots]);
-
-  const notifyEditCommitted = () => {
-    setEditCommitTick((value) => value + 1);
-  };
-
-  useEffect(() => {
     const persisted = loadPersistedSequencerCrashDiagnostics();
     const lastCommitEntry = [...(persisted?.state?.entries ?? [])]
       .reverse()
@@ -870,28 +864,6 @@ const Sequencer = ({
     sequenceEvents.length,
     showAllEvents,
   ]);
-
-  const runTransportAction = (action) => {
-    if (typeof document === "undefined") {
-      action?.();
-      return;
-    }
-    if (editCommitPendingRef.current) {
-      pendingTransportActionRef.current = action;
-      return;
-    }
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLElement &&
-      active.matches?.(".sequencer-event__input")
-    ) {
-      editCommitPendingRef.current = true;
-      pendingTransportActionRef.current = action;
-      active.blur();
-      return;
-    }
-    action?.();
-  };
 
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
