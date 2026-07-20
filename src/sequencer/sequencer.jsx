@@ -19,7 +19,6 @@ import {
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
 import {
-  buildCueExpandedSnapshotIds,
   buildFirstCueTimeBySnapshotIndex,
   buildFirstEventIdByCueIndex,
   buildFirstSnapshotCueEventIds,
@@ -37,6 +36,7 @@ import {
 } from "../debug/sequencer-crash-diagnostics.js";
 import {
   buildCueExpandedSnapshotIdsAt,
+  deriveCueExpandedSnapshotIds,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
   sameSnapshotSet,
@@ -611,10 +611,12 @@ const Sequencer = ({
     );
   }, [renderedSnapshots, sequenceEvents, sortedBars, sortedTempi]);
   const cueExpandedSnapshotIds = useMemo(() => {
-    if (!Number.isFinite(activeCueIndex)) return new Set();
-    const previewIds = cueExpandedSnapshotIdsAt(activeCueIndex - 1);
-    if (previewIds.size > 0) return previewIds;
-    return buildCueExpandedSnapshotIds(activeCueIndex, sequenceEvents, soundingAttackEventIds);
+    return deriveCueExpandedSnapshotIds({
+      activeCueIndex,
+      cueExpandedSnapshotIdsAt,
+      sequenceEvents,
+      soundingAttackEventIds,
+    });
   }, [activeCueIndex, cueExpandedSnapshotIdsAt, sequenceEvents, soundingAttackEventIds]);
 
   const {

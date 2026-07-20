@@ -36,6 +36,18 @@ export function buildCueExpandedSnapshotIdsAt(cueIndexZeroBased, renderedSnapsho
   return buildCueExpandedSnapshotIds(cueIndexOneBased, sequenceEvents, attackIds);
 }
 
+export function deriveCueExpandedSnapshotIds({
+  activeCueIndex,
+  cueExpandedSnapshotIdsAt,
+  sequenceEvents,
+  soundingAttackEventIds,
+}) {
+  if (!Number.isFinite(activeCueIndex)) return new Set();
+  const previewIds = cueExpandedSnapshotIdsAt(activeCueIndex - 1);
+  if (previewIds.size > 0) return previewIds;
+  return buildCueExpandedSnapshotIds(activeCueIndex, sequenceEvents, soundingAttackEventIds);
+}
+
 export function deriveSoundingAttackEventIds({
   sequencePlaybackActive,
   playheadMarkerIndex,
@@ -117,13 +129,13 @@ export function deriveCueScrollAnchorTarget({
       };
     }
   }
+  const expandedSnapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
+  if (expandedSnapshotId != null) {
+    return { kind: "snapshot", targetKey: expandedSnapshotId };
+  }
   const cueSnapshotId = firstSnapshotIdForCueIndex(activeCueIndex, sequenceEvents, snapshots);
   if (cueSnapshotId != null) {
     return { kind: "snapshot", targetKey: cueSnapshotId };
-  }
-  const snapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
-  if (snapshotId != null) {
-    return { kind: "snapshot", targetKey: snapshotId };
   }
   if (showAllEvents) {
     const cueGroup = sequenceCueGroups[activeCueIndex - 1] ?? null;

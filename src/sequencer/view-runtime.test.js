@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCueExpandedSnapshotIdsAt,
+  deriveCueExpandedSnapshotIds,
   deriveCueScrollAnchorTarget,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
@@ -66,6 +67,26 @@ describe("sequencer view runtime", () => {
     })).toEqual(new Set(["s1", "s2"]));
   });
 
+  it("derives active cue-expanded snapshots from preview rows before falling back to sounding attacks", () => {
+    const cueExpandedSnapshotIdsAt = (index) => (index === 1 ? new Set(["s2", "s3"]) : new Set());
+    expect(deriveCueExpandedSnapshotIds({
+      activeCueIndex: 2,
+      cueExpandedSnapshotIdsAt,
+      sequenceEvents: [],
+      soundingAttackEventIds: new Set(["unused"]),
+    })).toEqual(new Set(["s2", "s3"]));
+
+    expect(deriveCueExpandedSnapshotIds({
+      activeCueIndex: 3,
+      cueExpandedSnapshotIdsAt: () => new Set(),
+      sequenceEvents: [
+        { type: "note", kind: "attack", cueIndex: 3, snapshotId: "s4" },
+        { type: "note", kind: "attack", cueIndex: 1, snapshotId: "s1", eventId: "s1:a" },
+      ],
+      soundingAttackEventIds: new Set(["s1:a"]),
+    })).toEqual(new Set(["s4", "s1"]));
+  });
+
   it("derives cue scroll anchors for expanded and compact views", () => {
     expect(deriveCueScrollAnchorTarget({
       showAllEvents: true,
@@ -118,7 +139,7 @@ describe("sequencer view runtime", () => {
     })).toEqual({ kind: "snapshot", targetKey: "s2" });
   });
 
-  it("anchors cue scrolling to the first snapshot that shows the selected cue, not an earlier sustained-note origin", () => {
+  it("anchors cue scrolling to the earliest expanded snapshot whose notes sound in the selected cue", () => {
     expect(deriveCueScrollAnchorTarget({
       showAllEvents: true,
       activeCueIndex: 13,
@@ -134,7 +155,7 @@ describe("sequencer view runtime", () => {
       ],
       snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
       cueExpandedSnapshotIds: new Set(["s1", "s3", "s4"]),
-    })).toEqual({ kind: "snapshot", targetKey: "s3" });
+    })).toEqual({ kind: "snapshot", targetKey: "s1" });
   });
 
   it("compares snapshot sets by membership", () => {
