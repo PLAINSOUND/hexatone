@@ -258,6 +258,8 @@ const SequenceControls = ({
   sequencePlaybackPitchOffset,
   onSequencePlaybackSpeedChange,
   onSequencePlaybackPitchOffsetChange,
+  sequencePlayRepeats,
+  onSequencePlayRepeatsChange,
   autoScrollEnabled,
   onAutoScrollEnabledChange,
   snapSequenceToCurrentTuning,
@@ -460,6 +462,15 @@ const SequenceControls = ({
         type="checkbox"
         checked={autoScrollEnabled}
         onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
+      />
+    </label>
+
+    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+      <span>Play Repeats</span>
+      <input
+        type="checkbox"
+        checked={sequencePlayRepeats}
+        onChange={(e) => onSequencePlayRepeatsChange?.(e.currentTarget.checked)}
       />
     </label>
 

@@ -923,6 +923,7 @@ const App = () => {
   const [sequenceBars, setSequenceBars] = useState(defaultSequenceBars);
   const [sequenceTempi, setSequenceTempi] = useState(defaultSequenceTempi);
   const [sequenceRepeats, setSequenceRepeats] = useState([]);
+  const [sequencePlayRepeats, setSequencePlayRepeats] = useState(true);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -1231,6 +1232,7 @@ const App = () => {
     bars: sequenceBars,
     tempi: sequenceTempi,
     repeats: sequenceRepeats,
+    playbackRepeats: sequencePlayRepeats ? sequenceRepeats : [],
     sequenceLegato,
     source: "app",
   }), [
@@ -1238,6 +1240,7 @@ const App = () => {
     sequenceDisplaySnapshots,
     sequenceLegato,
     sequencePlaybackSnapshots,
+    sequencePlayRepeats,
     sequenceRepeats,
     sequenceTempi,
     snapshots,
@@ -4391,6 +4394,7 @@ const App = () => {
               sequenceLegato={sequenceLegato}
               sequencePlaybackSpeed={sequencePlaybackSpeed}
               sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+              sequencePlayRepeats={sequencePlayRepeats}
               snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
               sequenceAutoCreateBars={sequenceAutoCreateBars}
               selectedSnapshotId={selectedSnapshotId}
@@ -4407,6 +4411,7 @@ const App = () => {
               onSequenceLegatoChange={setSequenceLegato}
               onSequencePlaybackSpeedChange={(value) => setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))}
               onSequencePlaybackPitchOffsetChange={(value) => setSequencePlaybackPitchOffset(clampSequencePlaybackPitchCents(value))}
+              onSequencePlayRepeatsChange={setSequencePlayRepeats}
               onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
               onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
               onSetSnapshotLabelMode={setSnapshotLabelMode}

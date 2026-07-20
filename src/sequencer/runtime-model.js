@@ -21,6 +21,7 @@ export function buildSequenceRuntimeModel({
   bars = [],
   tempi = [],
   repeats = [],
+  playbackRepeats = null,
   sequenceLegato = true,
   source = "runtime",
 } = {}) {
@@ -37,6 +38,9 @@ export function buildSequenceRuntimeModel({
     tempoCount: Array.isArray(tempi) ? tempi.length : 0,
     repeatCount: Array.isArray(repeats) ? repeats.length : 0,
   };
+  const effectivePlaybackRepeats = Array.isArray(playbackRepeats)
+    ? playbackRepeats
+    : repeats;
 
   const sortedBars = measureSequenceRuntimeStep(
     "normalize-bars",
@@ -57,8 +61,9 @@ export function buildSequenceRuntimeModel({
     "derive-playback-sequence-events",
     () => (
       playbackRenderedSnapshots === renderedSnapshots
+        && effectivePlaybackRepeats === repeats
         ? sequenceEvents
-        : deriveSequenceEvents(playbackRenderedSnapshots, sortedBars, sortedTempi, repeats)
+        : deriveSequenceEvents(playbackRenderedSnapshots, sortedBars, sortedTempi, effectivePlaybackRepeats)
     ),
     {
       ...entryMeta,
@@ -116,7 +121,7 @@ export function buildSequenceRuntimeModel({
       snapshots: playbackRenderedSnapshots,
       bars: sortedBars,
       tempi: sortedTempi,
-      repeats,
+      repeats: effectivePlaybackRepeats,
       sequenceEvents: playbackSequenceEvents,
       sequenceCueGroups: playbackSequenceCueGroups,
     }),

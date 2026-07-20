@@ -79,6 +79,7 @@ const Sequencer = ({
   sequenceLegato,
   sequencePlaybackSpeed = 1,
   sequencePlaybackPitchOffset = 0,
+  sequencePlayRepeats = true,
   snapSequenceToCurrentTuning,
   sequenceAutoCreateBars,
   selectedSnapshotId,
@@ -95,6 +96,7 @@ const Sequencer = ({
   onSequenceLegatoChange,
   onSequencePlaybackSpeedChange,
   onSequencePlaybackPitchOffsetChange,
+  onSequencePlayRepeatsChange,
   onSnapSequenceToCurrentTuningChange,
   onSequenceAutoCreateBarsChange,
   onSetSnapshotLabelMode,
@@ -1613,6 +1615,8 @@ const Sequencer = ({
           sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
           onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
           onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
+          sequencePlayRepeats={sequencePlayRepeats}
+          onSequencePlayRepeatsChange={onSequencePlayRepeatsChange}
           autoScrollEnabled={autoScrollEnabled}
           onAutoScrollEnabledChange={setAutoScrollEnabled}
           snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
