@@ -3,7 +3,6 @@
 // movement between snapshots, while delegating all mutation policy back up to
 // the sequencer controllers.
 
-import { memo } from "preact/compat";
 import {
   absolutePositionToBarBeat,
 } from "./transport.js";
@@ -581,4 +580,4 @@ const EventRow = ({
   );
 };
 
-export default memo(EventRow);
+export default EventRow;

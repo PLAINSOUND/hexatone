@@ -170,14 +170,14 @@ export function deriveTransportSelectionState({
     ? pendingSnapshotJumpIndex
     : impliedSnapshotBracketIndex != null
       ? String(impliedSnapshotBracketIndex)
-      : playheadIsEnd && pendingTransportSelection?.terminal === true
+      : playheadIsEnd
         ? snapshots.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
         : "";
   const impliedPendingCueIndex = pendingCueJumpIndex !== ""
     ? pendingCueJumpIndex
     : impliedCueBracketIndex != null
       ? String(impliedCueBracketIndex)
-      : playheadIsEnd && pendingTransportSelection?.terminal === true
+      : playheadIsEnd
         ? sequenceCueGroups.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
         : "";
 
