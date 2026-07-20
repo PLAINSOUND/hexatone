@@ -3,6 +3,7 @@
 // the visible event list for a snapshot in the sequencer.
 
 import { Fragment } from "preact";
+import { memo } from "preact/compat";
 import EventsGridHeader from "./events-grid-header.jsx";
 import BarRow from "./bar-row.jsx";
 import BarlineRow from "./barline-row.jsx";
@@ -13,6 +14,15 @@ import {
   structuralEventInstanceKey,
   structuralEventRenderKey,
 } from "./value-runtime.js";
+
+function sameEventList(left = [], right = []) {
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
 
 const SnapshotSequenceItem = ({
   snapshot,
@@ -309,4 +319,50 @@ const SnapshotSequenceItem = ({
   );
 };
 
-export default SnapshotSequenceItem;
+function areSnapshotSequenceItemPropsEqual(prevProps, nextProps) {
+  if (prevProps.snapshot !== nextProps.snapshot) return false;
+  if (prevProps.index !== nextProps.index) return false;
+
+  const snapshotId = nextProps.snapshot.id;
+  const wasExpanded = prevProps.showAllEvents || prevProps.expandedIds.has(snapshotId);
+  const isExpanded = nextProps.showAllEvents || nextProps.expandedIds.has(snapshotId);
+  if (wasExpanded !== isExpanded) return false;
+  if ((prevProps.selectedSnapshotId === snapshotId) !== (nextProps.selectedSnapshotId === snapshotId)) return false;
+  if ((prevProps.playingSnapshotId === snapshotId) !== (nextProps.playingSnapshotId === snapshotId)) return false;
+  if ((prevProps.dragState.dragOverId === snapshotId) !== (nextProps.dragState.dragOverId === snapshotId)) return false;
+  if (
+    prevProps.dragState.dragOverId === snapshotId &&
+    prevProps.dragState.dragOverSide !== nextProps.dragState.dragOverSide
+  ) return false;
+  if ((prevProps.dragState.draggedId === snapshotId) !== (nextProps.dragState.draggedId === snapshotId)) return false;
+
+  const prevSnapshotEvents = prevProps.structure.snapshotEventsById.get(snapshotId) ?? [];
+  const nextSnapshotEvents = nextProps.structure.snapshotEventsById.get(snapshotId) ?? [];
+  if (!sameEventList(prevSnapshotEvents, nextSnapshotEvents)) return false;
+
+  const prevStructuralMarkers = prevProps.structure.structuralMarkersByDisplayBucket.get(prevProps.index) ?? [];
+  const nextStructuralMarkers = nextProps.structure.structuralMarkersByDisplayBucket.get(nextProps.index) ?? [];
+  if (!sameEventList(prevStructuralMarkers, nextStructuralMarkers)) return false;
+
+  if (wasExpanded) {
+    if (prevProps.rows.eventPane !== nextProps.rows.eventPane) return false;
+    if (prevProps.rows.barRowDnd !== nextProps.rows.barRowDnd) return false;
+    if (prevProps.rows.barRowEditing !== nextProps.rows.barRowEditing) return false;
+    if (prevProps.rows.tempoRowTiming !== nextProps.rows.tempoRowTiming) return false;
+    if (prevProps.rows.tempoRowEditing !== nextProps.rows.tempoRowEditing) return false;
+    if (prevProps.rows.repeatRowTiming !== nextProps.rows.repeatRowTiming) return false;
+    if (prevProps.rows.repeatRowEditing !== nextProps.rows.repeatRowEditing) return false;
+    if (prevProps.rows.eventRowView !== nextProps.rows.eventRowView) return false;
+    if (prevProps.rows.eventRowDrafts !== nextProps.rows.eventRowDrafts) return false;
+    if (prevProps.rows.eventRowDrag !== nextProps.rows.eventRowDrag) return false;
+    if (prevProps.rows.eventRowEditing !== nextProps.rows.eventRowEditing) return false;
+    if (prevProps.rows.eventRowTransport !== nextProps.rows.eventRowTransport) return false;
+  }
+
+  if (prevProps.structure.barNumberById !== nextProps.structure.barNumberById) return false;
+  if (prevProps.actions !== nextProps.actions) return false;
+
+  return true;
+}
+
+export default memo(SnapshotSequenceItem, areSnapshotSequenceItemPropsEqual);

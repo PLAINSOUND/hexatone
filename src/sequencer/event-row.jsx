@@ -3,6 +3,7 @@
 // movement between snapshots, while delegating all mutation policy back up to
 // the sequencer controllers.
 
+import { memo } from "preact/compat";
 import {
   absolutePositionToBarBeat,
 } from "./transport.js";
@@ -104,6 +105,31 @@ const renderCueMarker = ({
     </span>
   );
 };
+
+function isSelectedMarkerForRow(marker, snapshotId, relativeTime) {
+  return marker?.snapshotId === snapshotId && marker?.time === relativeTime;
+}
+
+function isCueActiveForRow(view, cueIndex) {
+  return view.activeNavigationMode === "cue" && view.activeCueIndex === cueIndex;
+}
+
+function isSnapshotActiveForRow(view, snapshotId) {
+  return view.activeNavigationMode === "snapshot" && view.activeSnapshotId === snapshotId;
+}
+
+function isSoundingAttackForRow(view, event, snapshotId) {
+  if (!view.sequencePlaybackActive || event.kind !== "attack") return false;
+  return (
+    view.soundingAttackEventIds.has(event.eventId) ||
+    isCueActiveForRow(view, event.cueIndex) ||
+    isSnapshotActiveForRow(view, snapshotId)
+  );
+}
+
+function isCourtesyCueStartForRow(view, snapshotId, event) {
+  return view.firstSnapshotCueEventIds.get(`${snapshotId}:${event.cueIndex}`) === event.eventId;
+}
 
 const EventRow = ({
   snapshot,
@@ -580,4 +606,56 @@ const EventRow = ({
   );
 };
 
-export default EventRow;
+function areEventRowPropsEqual(prevProps, nextProps) {
+  if (prevProps.snapshot !== nextProps.snapshot) return false;
+  if (prevProps.snapshotIndex !== nextProps.snapshotIndex) return false;
+  if (prevProps.event !== nextProps.event) return false;
+  if (prevProps.keySuffix !== nextProps.keySuffix) return false;
+
+  const { snapshot, event } = nextProps;
+  const rowSnapshotId = snapshot.id;
+  const rowRelativeTime = event.relativeTime;
+
+  if (prevProps.view.currentEventPane !== nextProps.view.currentEventPane) return false;
+  if (
+    isSelectedMarkerForRow(prevProps.view.selectedMarker, rowSnapshotId, rowRelativeTime) !==
+    isSelectedMarkerForRow(nextProps.view.selectedMarker, rowSnapshotId, rowRelativeTime)
+  ) return false;
+  if (isCueActiveForRow(prevProps.view, event.cueIndex) !== isCueActiveForRow(nextProps.view, event.cueIndex)) return false;
+  if (
+    isSnapshotActiveForRow(prevProps.view, rowSnapshotId) !==
+    isSnapshotActiveForRow(nextProps.view, rowSnapshotId)
+  ) return false;
+  if (
+    isSoundingAttackForRow(prevProps.view, event, rowSnapshotId) !==
+    isSoundingAttackForRow(nextProps.view, event, rowSnapshotId)
+  ) return false;
+  if (
+    isCourtesyCueStartForRow(prevProps.view, rowSnapshotId, event) !==
+    isCourtesyCueStartForRow(nextProps.view, rowSnapshotId, event)
+  ) return false;
+
+  if (prevProps.drafts.barBeatByEventId?.get(event.eventId) !== nextProps.drafts.barBeatByEventId?.get(event.eventId)) return false;
+  if (prevProps.drafts.barRelativeDrafts !== nextProps.drafts.barRelativeDrafts) {
+    const prevDraftKey = prevProps.drafts.eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
+    const nextDraftKey = nextProps.drafts.eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
+    if (prevProps.drafts.barRelativeDrafts[prevDraftKey] !== nextProps.drafts.barRelativeDrafts[nextDraftKey]) return false;
+  }
+  if (prevProps.drafts.eventSequenceDrafts !== nextProps.drafts.eventSequenceDrafts) {
+    const prevDraftKey = prevProps.drafts.eventSequenceDraftKey(snapshot.id, event.eventId, event.kind);
+    const nextDraftKey = nextProps.drafts.eventSequenceDraftKey(snapshot.id, event.eventId, event.kind);
+    if (prevProps.drafts.eventSequenceDrafts[prevDraftKey] !== nextProps.drafts.eventSequenceDrafts[nextDraftKey]) return false;
+  }
+  if (prevProps.drafts.sortedBars !== nextProps.drafts.sortedBars) return false;
+  if (prevProps.drafts.terminalBarlinePosition !== nextProps.drafts.terminalBarlinePosition) return false;
+
+  if ((prevProps.drag.draggedEventId === event.eventId) !== (nextProps.drag.draggedEventId === event.eventId)) return false;
+  if (prevProps.transport.playingSnapshotId !== nextProps.transport.playingSnapshotId) {
+    const showsCueTransport = event.cueDisplayLead || isCourtesyCueStartForRow(nextProps.view, rowSnapshotId, event);
+    if (showsCueTransport) return false;
+  }
+
+  return true;
+}
+
+export default memo(EventRow, areEventRowPropsEqual);

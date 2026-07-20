@@ -632,6 +632,7 @@ const Sequencer = ({
     timedCueTriggers,
     timedCueTriggerBySourceIndex,
     sequencePlaybackSpeed,
+    pendingTransportSelection,
     playheadMarkerIndex,
     playheadStepIndex,
     playheadIsEnd,

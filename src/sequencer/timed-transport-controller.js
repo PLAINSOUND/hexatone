@@ -33,6 +33,7 @@ export default function useTimedTransportController({
   timedCueTriggers,
   timedCueTriggerBySourceIndex,
   sequencePlaybackSpeed = 1,
+  pendingTransportSelection = null,
   playheadMarkerIndex,
   playheadStepIndex,
   playheadIsEnd,
@@ -219,6 +220,16 @@ export default function useTimedTransportController({
   }, [onCueSequenceCue, onCueSequenceSnapshot, onSelectSequenceBar]);
 
   const resolveTimedTransportStartIndex = useCallback(() => {
+    if (Number.isFinite(pendingTransportSelection?.cueIndex)) {
+      return findPlaybackStartIndex(timedPlaybackBursts, {
+        cueIndex: Number(pendingTransportSelection.cueIndex) + 1,
+      });
+    }
+    if (Number.isFinite(pendingTransportSelection?.snapshotIndex)) {
+      return findPlaybackStartIndex(timedPlaybackBursts, {
+        snapshotIndex: Number(pendingTransportSelection.snapshotIndex),
+      });
+    }
     if (Number.isFinite(playheadMarkerIndex)) {
       return findPlaybackStartIndex(timedPlaybackBursts, { cueIndex: Number(playheadMarkerIndex) + 1 });
     }
@@ -228,6 +239,7 @@ export default function useTimedTransportController({
     const selectedBarPosition = Number(sortedBars[selectedBarIndex]?.position ?? 1);
     return findPlaybackStartIndex(timedPlaybackBursts, { sequenceTime: selectedBarPosition });
   }, [
+    pendingTransportSelection,
     playheadIsEnd,
     playheadMarkerIndex,
     playheadStepIndex,
