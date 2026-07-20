@@ -3,7 +3,11 @@
 // list, cue groups, repeat sections, playback timeline, and timed triggers so
 // structural edits do not fan out into duplicate rebuild trees.
 
-import { measureSequenceRuntimeStep } from "../debug/sequence-runtime-diagnostics.js";
+import {
+  appendPersistedSequenceRuntimeDiagnostic,
+  isSequenceRuntimeDiagnosticsEnabled,
+  measureSequenceRuntimeStep,
+} from "../debug/sequence-runtime-diagnostics.js";
 import { buildPlaybackTimeline } from "./playback-timeline.js";
 import { deriveRepeatSections } from "./repeat-playback-runtime.js";
 import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
@@ -20,6 +24,7 @@ export function buildSequenceRuntimeModel({
   sequenceLegato = true,
   source = "runtime",
 } = {}) {
+  const buildStartMs = performance.now();
   const renderedSnapshots = Array.isArray(displaySnapshots) ? displaySnapshots : snapshots;
   const playbackRenderedSnapshots = Array.isArray(playbackSnapshots)
     ? playbackSnapshots
@@ -149,7 +154,7 @@ export function buildSequenceRuntimeModel({
     },
   );
 
-  return {
+  const model = {
     renderedSnapshots,
     playbackRenderedSnapshots,
     sortedBars,
@@ -166,4 +171,19 @@ export function buildSequenceRuntimeModel({
     timedCueTriggers,
     timedCueTriggerBySourceIndex,
   };
+
+  if (isSequenceRuntimeDiagnosticsEnabled()) {
+    appendPersistedSequenceRuntimeDiagnostic({
+      type: "build",
+      step: "build-sequence-runtime-model",
+      durationMs: performance.now() - buildStartMs,
+      ...entryMeta,
+      eventCount: sequenceEvents.length,
+      cueCount: sequenceCueGroups.length,
+      burstCount: timedPlaybackBursts.length,
+      detail: source,
+    });
+  }
+
+  return model;
 }

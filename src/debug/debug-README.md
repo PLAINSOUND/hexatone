@@ -176,6 +176,7 @@ globalThis.__hexatoneSequenceRuntimeDiagnostics?.reset()
 Notes:
 
 - This tracks expensive sequencer derivation steps such as event, cue, timeline, and repeat-section building.
+- It also records total runtime build durations, first-frame latency after sequencer edit commits, and first-scroll response timing in the sequencer list.
 - It is intended to stay off during normal use.
 
 ## Typical examples

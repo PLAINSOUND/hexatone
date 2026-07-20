@@ -53,6 +53,7 @@ export function pushSequenceRuntimeDiagnostic(state, entry = {}) {
     source: entry.source == null ? null : String(entry.source),
     step: entry.step == null ? null : String(entry.step),
     durationMs: roundMetric(entry.durationMs),
+    latencyMs: roundMetric(entry.latencyMs),
     snapshotCount: Number.isFinite(Number(entry.snapshotCount)) ? Number(entry.snapshotCount) : null,
     playbackSnapshotCount: Number.isFinite(Number(entry.playbackSnapshotCount)) ? Number(entry.playbackSnapshotCount) : null,
     barCount: Number.isFinite(Number(entry.barCount)) ? Number(entry.barCount) : null,
@@ -61,6 +62,10 @@ export function pushSequenceRuntimeDiagnostic(state, entry = {}) {
     eventCount: Number.isFinite(Number(entry.eventCount)) ? Number(entry.eventCount) : null,
     cueCount: Number.isFinite(Number(entry.cueCount)) ? Number(entry.cueCount) : null,
     burstCount: Number.isFinite(Number(entry.burstCount)) ? Number(entry.burstCount) : null,
+    expandedCount: Number.isFinite(Number(entry.expandedCount)) ? Number(entry.expandedCount) : null,
+    rowCount: Number.isFinite(Number(entry.rowCount)) ? Number(entry.rowCount) : null,
+    visibleRowCount: Number.isFinite(Number(entry.visibleRowCount)) ? Number(entry.visibleRowCount) : null,
+    scrollTop: Number.isFinite(Number(entry.scrollTop)) ? Number(entry.scrollTop) : null,
     detail: entry.detail == null ? null : String(entry.detail),
   };
   const entries = diagnostics.entries.length >= diagnostics.limit
@@ -76,6 +81,7 @@ export function pushSequenceRuntimeDiagnostic(state, entry = {}) {
 export function summarizeSequenceRuntimeDiagnostics(state) {
   const entries = Array.isArray(state?.entries) ? state.entries : [];
   const byStep = {};
+  const byType = {};
   entries.forEach((entry) => {
     const step = String(entry?.step || "unknown");
     if (!byStep[step]) {
@@ -89,15 +95,41 @@ export function summarizeSequenceRuntimeDiagnostics(state) {
     const duration = Number(entry?.durationMs) || 0;
     byStep[step].totalDurationMs += duration;
     byStep[step].maxDurationMs = Math.max(byStep[step].maxDurationMs, duration);
+
+    const type = String(entry?.type || "unknown");
+    if (!byType[type]) {
+      byType[type] = {
+        count: 0,
+        totalDurationMs: 0,
+        maxDurationMs: 0,
+        totalLatencyMs: 0,
+        maxLatencyMs: 0,
+      };
+    }
+    byType[type].count += 1;
+    byType[type].totalDurationMs += duration;
+    byType[type].maxDurationMs = Math.max(byType[type].maxDurationMs, duration);
+    const latency = Number(entry?.latencyMs) || 0;
+    byType[type].totalLatencyMs += latency;
+    byType[type].maxLatencyMs = Math.max(byType[type].maxLatencyMs, latency);
   });
   Object.values(byStep).forEach((stepSummary) => {
     stepSummary.totalDurationMs = roundMetric(stepSummary.totalDurationMs);
     stepSummary.maxDurationMs = roundMetric(stepSummary.maxDurationMs);
     stepSummary.meanDurationMs = roundMetric(stepSummary.totalDurationMs / Math.max(1, stepSummary.count));
   });
+  Object.values(byType).forEach((typeSummary) => {
+    typeSummary.totalDurationMs = roundMetric(typeSummary.totalDurationMs);
+    typeSummary.maxDurationMs = roundMetric(typeSummary.maxDurationMs);
+    typeSummary.meanDurationMs = roundMetric(typeSummary.totalDurationMs / Math.max(1, typeSummary.count));
+    typeSummary.totalLatencyMs = roundMetric(typeSummary.totalLatencyMs);
+    typeSummary.maxLatencyMs = roundMetric(typeSummary.maxLatencyMs);
+    typeSummary.meanLatencyMs = roundMetric(typeSummary.totalLatencyMs / Math.max(1, typeSummary.count));
+  });
   return {
     entryCount: entries.length,
     byStep,
+    byType,
     recent: entries.slice(-20),
   };
 }

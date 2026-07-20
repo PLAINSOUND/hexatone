@@ -3,6 +3,10 @@
 // which snapshot/bar/event should be brought into view during navigation.
 
 import { useCallback, useEffect, useRef } from "preact/hooks";
+import {
+  appendPersistedSequenceRuntimeDiagnostic,
+  isSequenceRuntimeDiagnosticsEnabled,
+} from "../debug/sequence-runtime-diagnostics.js";
 import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
 import { structuralEventRenderKey } from "./value-runtime.js";
 import {
@@ -50,6 +54,9 @@ export default function useSequencerAutoscroll({
   const pendingResetScrollTargetRef = useRef(null);
   const suppressNextBarAutoScrollRef = useRef(false);
   const transportScrollTargetRef = useRef("snapshot");
+  const lastScrollInputAtRef = useRef(0);
+  const awaitingScrollResponseRef = useRef(false);
+  const lastObservedScrollTopRef = useRef(0);
 
   const scrollNodeIntoPanel = useCallback((targetNode) => {
     if (!autoScrollEnabled) return;
@@ -193,6 +200,43 @@ export default function useSequencerAutoscroll({
       return new Set([id]);
     });
   }, [setExpandedIds]);
+
+  useEffect(() => {
+    if (!isSequenceRuntimeDiagnosticsEnabled()) return undefined;
+    const scrollPanel = scrollPanelRef.current;
+    if (!(scrollPanel instanceof HTMLElement)) return undefined;
+
+    const recordInput = () => {
+      lastScrollInputAtRef.current = performance.now();
+      awaitingScrollResponseRef.current = true;
+    };
+
+    const handleScroll = () => {
+      const now = performance.now();
+      const nextScrollTop = scrollPanel.scrollTop;
+      const previousScrollTop = lastObservedScrollTopRef.current;
+      const delta = Math.abs(nextScrollTop - previousScrollTop);
+      lastObservedScrollTopRef.current = nextScrollTop;
+      if (!awaitingScrollResponseRef.current) return;
+      awaitingScrollResponseRef.current = false;
+      appendPersistedSequenceRuntimeDiagnostic({
+        type: "scroll-hitch",
+        step: "sequencer-scroll-response",
+        latencyMs: now - lastScrollInputAtRef.current,
+        scrollTop: nextScrollTop,
+        detail: delta > 0 ? "first scroll response after input" : "scroll input without position change",
+      });
+    };
+
+    scrollPanel.addEventListener("wheel", recordInput, { passive: true });
+    scrollPanel.addEventListener("touchmove", recordInput, { passive: true });
+    scrollPanel.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      scrollPanel.removeEventListener("wheel", recordInput);
+      scrollPanel.removeEventListener("touchmove", recordInput);
+      scrollPanel.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   useEffect(() => {
     if (!autoScrollEnabled) return;

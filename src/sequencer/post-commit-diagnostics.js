@@ -4,6 +4,10 @@
 
 import { useEffect, useRef } from "preact/hooks";
 import {
+  appendPersistedSequenceRuntimeDiagnostic,
+  isSequenceRuntimeDiagnosticsEnabled,
+} from "../debug/sequence-runtime-diagnostics.js";
+import {
   appendPersistedSequencerCrashDiagnostic,
   isSequencerCrashDiagnosticsEnabled,
   loadPersistedSequencerCrashDiagnostics,
@@ -26,6 +30,28 @@ export default function useSequencerPostCommitDiagnostics({
   showAllEvents,
 } = {}) {
   const lastPostCommitFrameLoggedRef = useRef(0);
+  const commitPerformanceStartRef = useRef(0);
+
+  useEffect(() => {
+    if (!isSequenceRuntimeDiagnosticsEnabled()) return;
+    if (editCommitTick <= 0) return;
+    commitPerformanceStartRef.current = performance.now();
+    appendPersistedSequenceRuntimeDiagnostic({
+      type: "ui-commit",
+      step: "sequencer-post-commit-state",
+      snapshotCount: snapshotIndexById.size,
+      eventCount: sequenceEvents.length,
+      cueCount: sequenceCueGroups.length,
+      expandedCount: expandedIds.size,
+      detail: "post-commit state",
+    });
+  }, [
+    editCommitTick,
+    expandedIds.size,
+    sequenceCueGroups.length,
+    sequenceEvents.length,
+    snapshotIndexById.size,
+  ]);
 
   useEffect(() => {
     if (!isSequencerCrashDiagnosticsEnabled()) return;
@@ -114,6 +140,18 @@ export default function useSequencerPostCommitDiagnostics({
       },
     });
     const frame = window.requestAnimationFrame(() => {
+      if (isSequenceRuntimeDiagnosticsEnabled()) {
+        appendPersistedSequenceRuntimeDiagnostic({
+          type: "ui-frame",
+          step: "sequencer-post-commit-frame",
+          latencyMs: performance.now() - commitPerformanceStartRef.current,
+          snapshotCount: snapshotIndexById.size,
+          eventCount: sequenceEvents.length,
+          cueCount: sequenceCueGroups.length,
+          expandedCount: expandedIds.size,
+          detail: "first frame after commit",
+        });
+      }
       appendPersistedSequencerCrashDiagnostic({
         type: "sequencer-post-commit-frame",
         detail: "Reached first animation frame after edit commit",
@@ -139,6 +177,7 @@ export default function useSequencerPostCommitDiagnostics({
     playheadStepIndex,
     selectedBarIndex,
     selectedSnapshotId,
+    snapshotIndexById.size,
     sequenceCueGroups.length,
     sequenceEvents.length,
     showAllEvents,
