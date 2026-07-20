@@ -7,6 +7,7 @@ import {
   deriveSoundingAttackEventIds,
   firstSnapshotIdForCueIndex,
   firstSnapshotIdInSet,
+  resolveCueAnchorSnapshotId,
   sameSnapshotSet,
 } from "./view-runtime.js";
 
@@ -156,6 +157,36 @@ describe("sequencer view runtime", () => {
       snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
       cueExpandedSnapshotIds: new Set(["s1", "s3", "s4"]),
     })).toEqual({ kind: "snapshot", targetKey: "s1" });
+  });
+
+  it("resolves cue anchor snapshots with the same precedence used by app and autoscroll", () => {
+    expect(resolveCueAnchorSnapshotId({
+      activeCueIndex: 13,
+      sequenceCueGroups: [
+        { snapshotIndex: 0 },
+        { snapshotIndex: 1 },
+        { snapshotIndex: 2 },
+      ],
+      sequenceEvents: [
+        { type: "note", cueIndex: 13, snapshotId: "s3", eventId: "s3:c13" },
+      ],
+      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      cueExpandedSnapshotIds: new Set(["s1", "s3"]),
+    })).toBe("s1");
+
+    expect(resolveCueAnchorSnapshotId({
+      activeCueIndex: 13,
+      sequenceCueGroups: [
+        { snapshotIndex: 0 },
+        { snapshotIndex: 1 },
+        { snapshotIndex: 2 },
+      ],
+      sequenceEvents: [
+        { type: "note", cueIndex: 13, snapshotId: "s3", eventId: "s3:c13" },
+      ],
+      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      cueExpandedSnapshotIds: new Set(),
+    })).toBe("s3");
   });
 
   it("compares snapshot sets by membership", () => {

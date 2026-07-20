@@ -1,3 +1,7 @@
+// This hook isolates the edit-commit transport queue used by the sequencer UI.
+// It defers transport actions until active draft inputs blur and commit, so
+// stepping/play commands do not race against in-row event edits.
+
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 export default function useEditCommitTransportController({

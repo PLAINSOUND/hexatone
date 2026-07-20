@@ -103,6 +103,22 @@ export function deriveExpandedSnapshotIds({
   return new Set([selectedSnapshotId]);
 }
 
+export function resolveCueAnchorSnapshotId({
+  activeCueIndex,
+  sequenceCueGroups,
+  sequenceEvents = [],
+  snapshots = [],
+  cueExpandedSnapshotIds = new Set(),
+} = {}) {
+  if (!Number.isFinite(activeCueIndex)) return null;
+  const expandedSnapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
+  if (expandedSnapshotId != null) return expandedSnapshotId;
+  const cueSnapshotId = firstSnapshotIdForCueIndex(activeCueIndex, sequenceEvents, snapshots);
+  if (cueSnapshotId != null) return cueSnapshotId;
+  const cueGroup = sequenceCueGroups[activeCueIndex - 1] ?? null;
+  return cueGroup != null ? (snapshots[cueGroup.snapshotIndex]?.id ?? null) : null;
+}
+
 export function deriveCueScrollAnchorTarget({
   showAllEvents,
   activeCueIndex,
@@ -129,19 +145,15 @@ export function deriveCueScrollAnchorTarget({
       };
     }
   }
-  const expandedSnapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
-  if (expandedSnapshotId != null) {
-    return { kind: "snapshot", targetKey: expandedSnapshotId };
-  }
-  const cueSnapshotId = firstSnapshotIdForCueIndex(activeCueIndex, sequenceEvents, snapshots);
-  if (cueSnapshotId != null) {
-    return { kind: "snapshot", targetKey: cueSnapshotId };
-  }
-  if (showAllEvents) {
-    const cueGroup = sequenceCueGroups[activeCueIndex - 1] ?? null;
-    const fallbackSnapshotId = cueGroup != null ? (snapshots[cueGroup.snapshotIndex]?.id ?? null) : null;
-    return fallbackSnapshotId == null ? null : { kind: "snapshot", targetKey: fallbackSnapshotId };
-  }
+  const snapshotId = resolveCueAnchorSnapshotId({
+    activeCueIndex,
+    sequenceCueGroups,
+    sequenceEvents,
+    snapshots,
+    cueExpandedSnapshotIds,
+  });
+  if (snapshotId != null) return { kind: "snapshot", targetKey: snapshotId };
+  if (!showAllEvents) return null;
   return null;
 }
 

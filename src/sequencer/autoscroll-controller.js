@@ -7,8 +7,7 @@ import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-cras
 import { structuralEventRenderKey } from "./value-runtime.js";
 import {
   deriveCueScrollAnchorTarget,
-  firstSnapshotIdForCueIndex,
-  firstSnapshotIdInSet,
+  resolveCueAnchorSnapshotId,
 } from "./view-runtime.js";
 
 export default function useSequencerAutoscroll({
@@ -147,16 +146,15 @@ export default function useSequencerAutoscroll({
       scrollNodeIntoPanel(repeatRow);
       return;
     }
-    const cueSnapshotId = firstSnapshotIdForCueIndex(
-      nextCueIndex + 1,
+    const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
+    const anchorSnapshotId = resolveCueAnchorSnapshotId({
+      activeCueIndex: nextCueIndex + 1,
+      sequenceCueGroups,
       sequenceEvents,
       snapshots,
-    );
-    const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
+      cueExpandedSnapshotIds: previewExpandedIds,
+    });
     if (showAllEvents) {
-      const anchorSnapshotId = cueSnapshotId
-        ?? firstSnapshotIdInSet(previewExpandedIds, snapshots)
-        ?? (snapshots[cueGroup.snapshotIndex]?.id ?? null);
       if (anchorSnapshotId != null) {
         const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
         scrollNodeIntoPanel(snapshotRow);
@@ -164,7 +162,6 @@ export default function useSequencerAutoscroll({
     } else {
       if (previewExpandedIds.size > 0) {
         setExpandedIds(previewExpandedIds);
-        const anchorSnapshotId = cueSnapshotId ?? firstSnapshotIdInSet(previewExpandedIds, snapshots);
         if (anchorSnapshotId != null) {
           const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
           scrollNodeIntoPanel(snapshotRow);

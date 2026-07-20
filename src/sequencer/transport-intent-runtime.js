@@ -1,11 +1,14 @@
+// This module is the write-side transport runtime for the sequencer.
+// It builds the next stopped/armed transport state when app-level actions
+// select, queue, or commit snapshot/cue playback targets.
+
 import {
   armPendingCueSelection,
   armPendingSnapshotSelection,
   clearPendingTransportSelection,
 } from "./transport-selection.js";
 import {
-  firstSnapshotIdForCueIndex,
-  firstSnapshotIdInSet,
+  resolveCueAnchorSnapshotId,
 } from "./view-runtime.js";
 
 export function buildStoppedSequenceTransportState({
@@ -106,9 +109,13 @@ export function resolvePendingCueTransportState({
   if (!Number.isFinite(nextCueIndex) || nextCueIndex < 0 || nextCueIndex >= sequenceCueGroups.length) return null;
   const cueGroup = sequenceCueGroups[nextCueIndex] ?? null;
   if (!cueGroup) return null;
-  const anchorSnapshotId = firstSnapshotIdInSet(previewExpandedIds, snapshots)
-    ?? firstSnapshotIdForCueIndex(nextCueIndex + 1, sequenceEvents, snapshots)
-    ?? (snapshots[cueGroup.snapshotIndex]?.id ?? null);
+  const anchorSnapshotId = resolveCueAnchorSnapshotId({
+    activeCueIndex: nextCueIndex + 1,
+    sequenceCueGroups,
+    sequenceEvents,
+    snapshots,
+    cueExpandedSnapshotIds: previewExpandedIds,
+  });
   const anchorSnapshotIndex = anchorSnapshotId == null
     ? cueGroup.snapshotIndex
     : snapshots.findIndex((snapshot) => snapshot.id === anchorSnapshotId);
