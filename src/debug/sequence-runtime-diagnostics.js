@@ -26,6 +26,10 @@ function readSequenceRuntimeDiagnosticsFlag() {
 
 export const SEQUENCE_RUNTIME_DIAGNOSTICS_STORAGE_KEY = "hexatone_sequence_runtime_diagnostics";
 
+let bufferedDiagnosticsState = null;
+let bufferedDiagnosticsStorage = null;
+let pendingPersistenceTimer = null;
+
 export function isSequenceRuntimeDiagnosticsEnabled() {
   return readSequenceRuntimeDiagnosticsFlag();
 }
@@ -91,6 +95,13 @@ export function summarizeSequenceRuntimeDiagnostics(state) {
   const entries = Array.isArray(state?.entries) ? state.entries : [];
   const byStep = {};
   const byType = {};
+  const rebuildCauseCounts = {};
+  const rebuildCauseSetCounts = {};
+  const recentRebuilds = [];
+  let previousPlaybackRuntimeToken = null;
+  let previousTimedTriggerToken = null;
+  let playbackRuntimeTokenChangeCount = 0;
+  let timedTriggerTokenChangeCount = 0;
   entries.forEach((entry) => {
     const step = String(entry?.step || "unknown");
     if (!byStep[step]) {
@@ -121,6 +132,37 @@ export function summarizeSequenceRuntimeDiagnostics(state) {
     const latency = Number(entry?.latencyMs) || 0;
     byType[type].totalLatencyMs += latency;
     byType[type].maxLatencyMs = Math.max(byType[type].maxLatencyMs, latency);
+
+    if (type === "rebuild-cause") {
+      const changedKeys = Array.isArray(entry?.changedKeys) ? entry.changedKeys : [];
+      const causeSet = changedKeys.length > 0 ? changedKeys.join(" + ") : "unknown";
+      rebuildCauseSetCounts[causeSet] = (rebuildCauseSetCounts[causeSet] ?? 0) + 1;
+      changedKeys.forEach((key) => {
+        rebuildCauseCounts[key] = (rebuildCauseCounts[key] ?? 0) + 1;
+      });
+      const playbackTokenChanged = previousPlaybackRuntimeToken != null
+        && entry?.playbackRuntimeToken != null
+        && previousPlaybackRuntimeToken !== entry.playbackRuntimeToken;
+      const timedTriggerTokenChanged = previousTimedTriggerToken != null
+        && entry?.timedTriggerToken != null
+        && previousTimedTriggerToken !== entry.timedTriggerToken;
+      if (playbackTokenChanged) playbackRuntimeTokenChangeCount += 1;
+      if (timedTriggerTokenChanged) timedTriggerTokenChangeCount += 1;
+      recentRebuilds.push({
+        id: entry.id,
+        changedKeys,
+        playbackTokenChanged,
+        timedTriggerTokenChanged,
+        runtimeInstanceId: entry.runtimeInstanceId,
+        snapshotCount: entry.snapshotCount,
+        playbackSnapshotCount: entry.playbackSnapshotCount,
+        barCount: entry.barCount,
+        tempoCount: entry.tempoCount,
+        repeatCount: entry.repeatCount,
+      });
+      previousPlaybackRuntimeToken = entry?.playbackRuntimeToken ?? previousPlaybackRuntimeToken;
+      previousTimedTriggerToken = entry?.timedTriggerToken ?? previousTimedTriggerToken;
+    }
   });
   Object.values(byStep).forEach((stepSummary) => {
     stepSummary.totalDurationMs = roundMetric(stepSummary.totalDurationMs);
@@ -139,11 +181,19 @@ export function summarizeSequenceRuntimeDiagnostics(state) {
     entryCount: entries.length,
     byStep,
     byType,
+    rebuilds: {
+      count: recentRebuilds.length,
+      byChangedKey: rebuildCauseCounts,
+      byChangedKeySet: rebuildCauseSetCounts,
+      playbackRuntimeTokenChangeCount,
+      timedTriggerTokenChangeCount,
+      recent: recentRebuilds.slice(-20),
+    },
     recent: entries.slice(-20),
   };
 }
 
-export function persistSequenceRuntimeDiagnostics(state, storage = globalThis?.sessionStorage) {
+function writeSequenceRuntimeDiagnostics(state, storage) {
   if (!storage?.setItem) return;
   storage.setItem(
     SEQUENCE_RUNTIME_DIAGNOSTICS_STORAGE_KEY,
@@ -152,6 +202,16 @@ export function persistSequenceRuntimeDiagnostics(state, storage = globalThis?.s
       summary: summarizeSequenceRuntimeDiagnostics(state),
     }),
   );
+}
+
+export function persistSequenceRuntimeDiagnostics(state, storage = globalThis?.sessionStorage) {
+  if (pendingPersistenceTimer != null) {
+    globalThis.clearTimeout?.(pendingPersistenceTimer);
+    pendingPersistenceTimer = null;
+  }
+  bufferedDiagnosticsState = state;
+  bufferedDiagnosticsStorage = storage;
+  writeSequenceRuntimeDiagnostics(state, storage);
 }
 
 export function loadPersistedSequenceRuntimeDiagnostics(storage = globalThis?.sessionStorage) {
@@ -166,10 +226,34 @@ export function loadPersistedSequenceRuntimeDiagnostics(storage = globalThis?.se
 }
 
 export function appendPersistedSequenceRuntimeDiagnostic(entry, storage = globalThis?.sessionStorage) {
-  const persisted = loadPersistedSequenceRuntimeDiagnostics(storage);
-  const nextState = pushSequenceRuntimeDiagnostic(persisted?.state, entry);
-  persistSequenceRuntimeDiagnostics(nextState, storage);
+  if (bufferedDiagnosticsStorage && bufferedDiagnosticsStorage !== storage) {
+    writeSequenceRuntimeDiagnostics(bufferedDiagnosticsState, bufferedDiagnosticsStorage);
+    bufferedDiagnosticsState = null;
+  }
+  const currentState = bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
+    ? bufferedDiagnosticsState
+    : loadPersistedSequenceRuntimeDiagnostics(storage)?.state;
+  const nextState = pushSequenceRuntimeDiagnostic(currentState, entry);
+  bufferedDiagnosticsState = nextState;
+  bufferedDiagnosticsStorage = storage;
+  if (pendingPersistenceTimer == null) {
+    pendingPersistenceTimer = globalThis.setTimeout?.(() => {
+      pendingPersistenceTimer = null;
+      writeSequenceRuntimeDiagnostics(bufferedDiagnosticsState, bufferedDiagnosticsStorage);
+    }, 0) ?? null;
+  }
   return nextState;
+}
+
+export function flushPersistedSequenceRuntimeDiagnostics() {
+  if (pendingPersistenceTimer != null) {
+    globalThis.clearTimeout?.(pendingPersistenceTimer);
+    pendingPersistenceTimer = null;
+  }
+  if (bufferedDiagnosticsState && bufferedDiagnosticsStorage) {
+    writeSequenceRuntimeDiagnostics(bufferedDiagnosticsState, bufferedDiagnosticsStorage);
+  }
+  return bufferedDiagnosticsState;
 }
 
 export function measureSequenceRuntimeStep(step, compute, entry = {}) {
@@ -193,9 +277,19 @@ function installSequenceRuntimeDiagnosticsGlobal() {
   globalThis.__hexatoneSequenceRuntimeDiagnostics = {
     ...existing,
     enabled: isSequenceRuntimeDiagnosticsEnabled(),
-    getPersisted: () => loadPersistedSequenceRuntimeDiagnostics(),
+    getPersisted: () => {
+      flushPersistedSequenceRuntimeDiagnostics();
+      return loadPersistedSequenceRuntimeDiagnostics();
+    },
+    getRebuildReport: () => {
+      const state = flushPersistedSequenceRuntimeDiagnostics()
+        ?? loadPersistedSequenceRuntimeDiagnostics()?.state;
+      return summarizeSequenceRuntimeDiagnostics(state).rebuilds;
+    },
     reset: () => {
-      const nextState = resetSequenceRuntimeDiagnostics(loadPersistedSequenceRuntimeDiagnostics()?.state);
+      const currentState = flushPersistedSequenceRuntimeDiagnostics()
+        ?? loadPersistedSequenceRuntimeDiagnostics()?.state;
+      const nextState = resetSequenceRuntimeDiagnostics(currentState);
       persistSequenceRuntimeDiagnostics(nextState);
       return summarizeSequenceRuntimeDiagnostics(nextState);
     },

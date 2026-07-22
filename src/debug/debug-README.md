@@ -170,12 +170,15 @@ Available methods:
 
 ```js
 globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted()
+globalThis.__hexatoneSequenceRuntimeDiagnostics?.getRebuildReport()
 globalThis.__hexatoneSequenceRuntimeDiagnostics?.reset()
 ```
 
 Notes:
 
 - This tracks expensive sequencer derivation steps such as event, cue, timeline, and repeat-section building.
+- `getRebuildReport()` provides compact changed-dependency counts and playback-token transitions without requiring DevTools objects to be expanded manually.
+- Runtime entries are buffered and persisted once per synchronous build burst to avoid synchronous storage churn during playback.
 - It also records total runtime build durations, first-frame latency after sequencer edit commits, and first-scroll response timing in the sequencer list.
 - It is intended to stay off during normal use.
 
