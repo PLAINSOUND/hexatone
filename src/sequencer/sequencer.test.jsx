@@ -1438,8 +1438,8 @@ describe("Sequencer", () => {
     vi.useRealTimers();
   });
 
-  it("keeps each fresh PLAY FROM snapshot selection after presenter replacement", () => {
-    const snapshots = Array.from({ length: 17 }, (_, index) => ({
+  it("virtualizes long sequences while keeping each fresh PLAY FROM selection", () => {
+    const snapshots = Array.from({ length: 100 }, (_, index) => ({
       id: index + 1,
       length: 1,
       description: `Snapshot ${index + 1}`,
@@ -1508,6 +1508,9 @@ describe("Sequencer", () => {
 
     render(<Harness />);
     const snapshotSelect = screen.getByLabelText("next snapshot target");
+
+    expect(screen.getAllByLabelText(/^snapshot \d+ description$/).length).toBeLessThan(snapshots.length);
+    expect(document.querySelector(".sequencer-virtual-spacer")).not.toBeNull();
 
     fireEvent.change(snapshotSelect, { target: { value: "4" } });
     expect(snapshotSelect.value).toBe("4");

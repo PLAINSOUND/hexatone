@@ -82,6 +82,49 @@ describe("repeat playback runtime", () => {
     });
   });
 
+  it("skips a disabled repeat without forgetting earlier completed passes", () => {
+    const repeatSections = [{
+      repeatId: "end",
+      startCueIndex: 0,
+      endCueIndex: 1,
+      startPosition: 1,
+      endPosition: 2,
+      repeatCount: 4,
+    }];
+    const cueGroups = [{ time: 1 }, { time: 1.5 }, { time: 2 }, { time: 3 }];
+    const first = advanceCueIndexWithRepeats({
+      currentCueIndex: 1,
+      cueCount: cueGroups.length,
+      cueGroups,
+      repeatSections,
+      repeatPlaybackState: {},
+    });
+    const skipped = advanceCueIndexWithRepeats({
+      currentCueIndex: 1,
+      cueCount: cueGroups.length,
+      cueGroups,
+      repeatSections,
+      repeatPlaybackState: first.nextRepeatPlaybackState,
+      playRepeats: false,
+    });
+    const enabledAgain = advanceCueIndexWithRepeats({
+      currentCueIndex: 1,
+      cueCount: cueGroups.length,
+      cueGroups,
+      repeatSections,
+      repeatPlaybackState: skipped.nextRepeatPlaybackState,
+      playRepeats: true,
+    });
+
+    expect(first.nextRepeatPlaybackState).toEqual({ end: 2 });
+    expect(skipped).toEqual({
+      nextCueIndex: 2,
+      nextRepeatPlaybackState: { end: 2 },
+      didLoop: false,
+    });
+    expect(enabledAgain.nextRepeatPlaybackState).toEqual({ end: 1 });
+  });
+
   it("loops when the next cue would cross the repeat end position even without a cue exactly at the boundary", () => {
     const repeatSections = [
       {

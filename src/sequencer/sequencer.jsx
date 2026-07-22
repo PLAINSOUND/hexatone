@@ -228,12 +228,10 @@ const Sequencer = ({
     bars,
     tempi,
     repeats,
-    sequencePlayRepeats,
   ]), [
     bars,
     effectivePlaybackSnapshotSource,
     repeats,
-    sequencePlayRepeats,
     tempi,
   ]);
   const timedTriggerToken = useMemo(() => buildDependencyToken([
@@ -669,6 +667,7 @@ const Sequencer = ({
     playbackRuntimeToken,
     timedTriggerToken,
     sequencePlaybackSpeed,
+    sequencePlayRepeats,
     pendingTransportSelection,
     playheadMarkerIndex,
     playheadStepIndex,

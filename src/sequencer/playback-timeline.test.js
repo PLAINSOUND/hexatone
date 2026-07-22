@@ -76,6 +76,11 @@ describe("playback timeline", () => {
     });
     expect(timeline.playbackBursts[1].events.some((event) => event.repeatCleanup === true)).toBe(true);
     expect(timeline.playbackBursts[1].soundingAfter).toEqual([]);
+    expect(timeline.playbackBursts[1].repeatSkip).toMatchObject({
+      nextPlaybackIndex: 4,
+      soundingAfter: expect.any(Array),
+    });
+    expect(timeline.playbackBursts[1].repeatSkip.events.some((event) => event.repeatCleanup === true)).toBe(false);
     expect(timeline.playbackBursts[3].repeatJump).toBeNull();
   });
 

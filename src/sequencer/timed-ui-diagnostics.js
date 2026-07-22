@@ -11,7 +11,10 @@ const LONG_UI_INTERVAL_MS = 50;
 const SLOW_COMMIT_MS = 16;
 
 function uniqueNodes(ref) {
-  return new Set(ref?.current?.values?.() ?? []);
+  return new Set(
+    [...(ref?.current?.values?.() ?? [])]
+      .filter((node) => node instanceof HTMLElement && node.isConnected),
+  );
 }
 
 export function collectSequencerUiMetrics({
@@ -35,7 +38,7 @@ export function collectSequencerUiMetrics({
     structuralRowCount: structuralRows.size,
     rowCount: allRows.size,
     visibleRowCount: null,
-    mountedNodeCount: null,
+    mountedNodeCount: allRows.size,
     scrollTop: scrollPanel == null ? null : Number(scrollPanel.scrollTop),
     measurementDurationMs: performance.now() - measurementStartMs,
   };

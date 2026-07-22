@@ -396,6 +396,7 @@ export function buildPlaybackBursts(cueBursts = [], repeatSections = [], timingM
   const activeNotes = new Map();
   const playbackBursts = [];
   const repeatPlaybackState = {};
+  const pendingRepeatSkips = new Map();
 
   let currentBurstIndex = 0;
   let playbackIndex = 0;
@@ -409,6 +410,19 @@ export function buildPlaybackBursts(cueBursts = [], repeatSections = [], timingM
     const repeatEndEvent = firstRepeatEndEvent(burst.events, repeatSectionsById);
     const repeatSection = repeatEndEvent ? repeatSectionsById.get(repeatEndEvent.repeatId) : null;
     const repeatJump = repeatJumpForEvent(repeatEndEvent, repeatSection, repeatPlaybackState);
+    let repeatSkip = null;
+
+    if (repeatJump && repeatEndEvent) {
+      const skipActiveNotes = new Map(activeNotes);
+      const skipResult = applyEventsToActiveNotes(burst.events, skipActiveNotes);
+      repeatSkip = {
+        nextPlaybackIndex: null,
+        events: burst.events,
+        soundingAfter: cloneSoundingNotes(skipActiveNotes),
+        newlyAttacked: skipResult.newlyAttacked,
+        released: skipResult.released,
+      };
+    }
 
     let executedEvents = burst.events;
     if (repeatJump && repeatEndEvent) {
@@ -444,9 +458,22 @@ export function buildPlaybackBursts(cueBursts = [], repeatSections = [], timingM
       newlyAttacked,
       released: releasedAfterCleanup,
       repeatJump,
+      repeatSkip,
     };
     playbackBursts.push(playbackBurst);
     playbackIndex += 1;
+
+    if (repeatJump && repeatSection) {
+      const pending = pendingRepeatSkips.get(repeatSection.repeatId) ?? [];
+      pending.push(repeatSkip);
+      pendingRepeatSkips.set(repeatSection.repeatId, pending);
+    } else if (repeatEndEvent && repeatSection) {
+      const pending = pendingRepeatSkips.get(repeatSection.repeatId) ?? [];
+      pending.forEach((skip) => {
+        skip.nextPlaybackIndex = playbackIndex;
+      });
+      pendingRepeatSkips.delete(repeatSection.repeatId);
+    }
 
     let nextBurstIndex = currentBurstIndex + 1;
     let nextElapsedSeconds = elapsedSeconds;

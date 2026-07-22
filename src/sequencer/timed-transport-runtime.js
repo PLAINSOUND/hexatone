@@ -166,11 +166,61 @@ export function advanceTimedTransport(state, playbackBursts = [], clockSeconds =
     state: {
       ...state,
       status: finished ? "finished" : state.status,
+      // A finished transport no longer derives elapsed time from its clock
+      // anchor. Preserve the elapsed value reached on this tick so terminal
+      // diagnostics and consumers do not fall back to the start offset.
+      pausedElapsedSeconds: finished ? elapsedSeconds : state.pausedElapsedSeconds,
       nextPlaybackIndex: finished ? -1 : nextPlaybackIndex,
       lastDispatchedPlaybackIndex: dueBursts.length > 0
         ? dueBursts.at(-1).playbackIndex
         : state.lastDispatchedPlaybackIndex,
     },
     dueBursts,
+  };
+}
+
+export function applyLiveRepeatDecision(
+  state,
+  dueBursts = [],
+  playbackBursts = [],
+  { playRepeats = true, clockSeconds = 0 } = {},
+) {
+  if (playRepeats) return { state, dueBursts };
+  const repeatIndex = dueBursts.findIndex((burst) => (
+    burst?.repeatJump != null
+    && Number.isInteger(Number(burst?.repeatSkip?.nextPlaybackIndex))
+  ));
+  if (repeatIndex < 0) return { state, dueBursts };
+
+  const repeatBurst = dueBursts[repeatIndex];
+  const nextPlaybackIndex = Number(repeatBurst.repeatSkip.nextPlaybackIndex);
+  const nextBurst = playbackBursts[nextPlaybackIndex] ?? null;
+  const skippedBurst = {
+    ...repeatBurst,
+    events: repeatBurst.repeatSkip.events,
+    soundingAfter: repeatBurst.repeatSkip.soundingAfter,
+    newlyAttacked: repeatBurst.repeatSkip.newlyAttacked,
+    released: repeatBurst.repeatSkip.released,
+    repeatJump: null,
+    repeatSkipped: {
+      fromRepeatId: repeatBurst.repeatJump.fromRepeatId,
+      skippedAtPlaybackIndex: repeatBurst.playbackIndex,
+    },
+  };
+  const selectedDueBursts = [...dueBursts.slice(0, repeatIndex), skippedBurst];
+  const finished = nextBurst == null;
+
+  return {
+    state: {
+      ...state,
+      status: finished ? "finished" : "running",
+      anchorClockSeconds: Number(clockSeconds),
+      pausedElapsedSeconds: finished
+        ? currentTimedTransportElapsedSeconds(state, clockSeconds)
+        : Number(nextBurst.elapsedSeconds ?? 0),
+      nextPlaybackIndex: finished ? -1 : nextPlaybackIndex,
+      lastDispatchedPlaybackIndex: Number(repeatBurst.playbackIndex),
+    },
+    dueBursts: selectedDueBursts,
   };
 }

@@ -1235,11 +1235,9 @@ const App = () => {
     sequenceBars,
     sequenceTempi,
     sequenceRepeats,
-    sequencePlayRepeats,
   ]), [
     sequenceBars,
     sequencePlaybackSnapshots,
-    sequencePlayRepeats,
     sequenceRepeats,
     sequenceTempi,
   ]);
@@ -1254,7 +1252,6 @@ const App = () => {
     bars: sequenceBars,
     tempi: sequenceTempi,
     repeats: sequenceRepeats,
-    playbackRepeats: sequencePlayRepeats ? sequenceRepeats : [],
     sequenceLegato,
     source: "app",
   }), [
@@ -1262,7 +1259,6 @@ const App = () => {
     sequenceDisplaySnapshots,
     sequenceLegato,
     sequencePlaybackSnapshots,
-    sequencePlayRepeats,
     sequenceRepeats,
     sequenceTempi,
     snapshots,
@@ -1278,7 +1274,6 @@ const App = () => {
       tempi: sequenceTempi,
       repeats: sequenceRepeats,
       sequenceLegato,
-      sequencePlayRepeats,
     };
     const previousDeps = previousSequenceRuntimeDepsRef.current;
     const changedKeys = previousDeps == null
@@ -1306,7 +1301,6 @@ const App = () => {
     sequenceLegato,
     sequencePlaybackRuntimeToken,
     sequencePlaybackSnapshots,
-    sequencePlayRepeats,
     sequenceRepeats,
     sequenceRuntimeModel.runtimeInstanceId,
     sequenceTempi,
@@ -2022,6 +2016,7 @@ const App = () => {
           cueGroups: sequenceCueGroups,
           repeatSections: sequenceRepeatSections,
           repeatPlaybackState: sequenceRepeatPlaybackStateRef.current,
+          playRepeats: sequencePlayRepeats,
         });
         sequenceRepeatPlaybackStateRef.current = repeatAdvance.nextRepeatPlaybackState;
         nextCue = repeatAdvance.nextCueIndex;
@@ -2107,6 +2102,7 @@ const App = () => {
     cueIndexNearBar,
     playSequencePosition,
     sequenceCueGroups,
+    sequencePlayRepeats,
     sequencePlayhead.barIndex,
     sequencePlayhead.markerIndex,
     sequencePlayhead.stepIndex,

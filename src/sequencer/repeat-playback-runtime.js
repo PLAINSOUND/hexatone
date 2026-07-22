@@ -48,6 +48,7 @@ export function advanceCueIndexWithRepeats({
   cueGroups = [],
   repeatSections = [],
   repeatPlaybackState = {},
+  playRepeats = true,
 }) {
   const safeCueCount = Number(cueCount) || 0;
   if (safeCueCount <= 0) {
@@ -81,6 +82,13 @@ export function advanceCueIndexWithRepeats({
     return nextCueTime >= Number(section.endPosition) - 1e-9;
   });
   if (matchingSection) {
+    if (!playRepeats) {
+      return {
+        nextCueIndex: naturalNextCueIndex,
+        nextRepeatPlaybackState: repeatPlaybackState,
+        didLoop: false,
+      };
+    }
     const remaining = Number.isFinite(Number(repeatPlaybackState[matchingSection.repeatId]))
       ? Number(repeatPlaybackState[matchingSection.repeatId])
       : matchingSection.repeatCount - 1;

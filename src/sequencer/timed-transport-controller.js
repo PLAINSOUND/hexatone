@@ -20,6 +20,7 @@ import {
   summarizeTimedTransportDiagnostics,
 } from "./timed-transport-diagnostics.js";
 import {
+  applyLiveRepeatDecision,
   advanceTimedTransport,
   createTimedTransportState,
   currentTimedTransportElapsedSeconds,
@@ -41,6 +42,7 @@ export default function useTimedTransportController({
   playbackRuntimeToken = null,
   timedTriggerToken = null,
   sequencePlaybackSpeed = 1,
+  sequencePlayRepeats = true,
   pendingTransportSelection = null,
   playheadMarkerIndex,
   playheadStepIndex,
@@ -69,6 +71,7 @@ export default function useTimedTransportController({
   const onStopSnapshotRef = useRef(onStopSnapshot);
   const getTimedTransportClockSecondsRef = useRef(getTimedTransportClockSeconds);
   const timedPlaybackBurstsRef = useRef([]);
+  const sequencePlayRepeatsRef = useRef(sequencePlayRepeats);
   const timedCueTriggerBySourceIndexRef = useRef(new Map());
   const timedTransportDiagnosticsRef = useRef(createTimedTransportDiagnostics());
   const activePlaybackRuntimeTokenRef = useRef(null);
@@ -76,6 +79,7 @@ export default function useTimedTransportController({
   const lastScheduledDiagnosticPlaybackIndexRef = useRef(-1);
   const lastFinalScheduleDiagnosticPlaybackIndexRef = useRef(-1);
   const [timedTransportState, setTimedTransportState] = useState(() => createTimedTransportState([]));
+  sequencePlayRepeatsRef.current = sequencePlayRepeats;
 
   useEffect(() => {
     onPlayCueRef.current = onPlayCue;
@@ -268,7 +272,10 @@ export default function useTimedTransportController({
   const dispatchTimedCueBurst = useCallback((burst) => {
     if (!Number.isFinite(burst?.sourceCueIndex)) return;
     const cueIndex = Number(burst.sourceCueIndex) - 1;
-    const trigger = timedCueTriggerBySourceIndexRef.current.get(Number(burst.sourceCueIndex)) ?? null;
+    const storedTrigger = timedCueTriggerBySourceIndexRef.current.get(Number(burst.sourceCueIndex)) ?? null;
+    const trigger = burst.repeatSkipped && storedTrigger
+      ? { ...storedTrigger, repeatJump: null }
+      : storedTrigger;
     const dispatchStart = performance.now();
     if (onPlayTimedCueRef.current) {
       onPlayTimedCueRef.current(cueIndex, trigger, {
@@ -356,7 +363,16 @@ export default function useTimedTransportController({
         return;
       }
       const previous = timedTransportStateRef.current;
-      const result = advanceTimedTransport(previous, timedPlaybackBurstsRef.current, fireNowSeconds);
+      const advanced = advanceTimedTransport(previous, timedPlaybackBurstsRef.current, fireNowSeconds);
+      const result = applyLiveRepeatDecision(
+        advanced.state,
+        advanced.dueBursts,
+        timedPlaybackBurstsRef.current,
+        {
+          playRepeats: sequencePlayRepeatsRef.current,
+          clockSeconds: fireNowSeconds,
+        },
+      );
       timedTransportStateRef.current = result.state;
 
       if (result.dueBursts.length > 1) {
@@ -374,7 +390,7 @@ export default function useTimedTransportController({
       }
 
       result.dueBursts.forEach((dueBurst) => {
-        const actualElapsed = currentTimedTransportElapsedSeconds(timedTransportStateRef.current, fireNowSeconds);
+        const actualElapsed = fireElapsedSeconds;
         recordTimedTransportDiagnostic({
           type: "fire",
           clockSeconds: fireNowSeconds,
@@ -387,6 +403,17 @@ export default function useTimedTransportController({
           activeNotes: Array.isArray(dueBurst.soundingBefore) ? dueBurst.soundingBefore.length : null,
           noteCount: Array.isArray(dueBurst.events) ? dueBurst.events.filter((event) => event?.type === "note").length : null,
         });
+        if (dueBurst.repeatSkipped) {
+          recordTimedTransportDiagnostic({
+            type: "repeat-skipped",
+            clockSeconds: fireNowSeconds,
+            elapsedSeconds: actualElapsed,
+            cueIndex: Number.isFinite(dueBurst.sourceCueIndex) ? Number(dueBurst.sourceCueIndex) : null,
+            playbackIndex: dueBurst.playbackIndex,
+            nextPlaybackIndex: result.state.nextPlaybackIndex,
+            detail: `Skipped repeat ${dueBurst.repeatSkipped.fromRepeatId} at playback boundary`,
+          });
+        }
         dispatchTimedCueBurst(dueBurst);
       });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildPlaybackTimeline } from "./playback-timeline.js";
 import {
+  applyLiveRepeatDecision,
   advanceTimedTransport,
   createTimedTransportState,
   currentTimedTransportElapsedSeconds,
@@ -107,6 +108,21 @@ describe("timed transport runtime", () => {
     expect(currentTimedTransportElapsedSeconds(spedUp, 10.75)).toBe(1);
   });
 
+  it("preserves the terminal elapsed time after the final burst finishes playback", () => {
+    const playbackBursts = [
+      { playbackIndex: 0, elapsedSeconds: 64 },
+      { playbackIndex: 1, elapsedSeconds: 162.75 },
+    ];
+    const started = startTimedTransport(createTimedTransportState(playbackBursts), playbackBursts, {
+      clockSeconds: 10,
+    });
+
+    const result = advanceTimedTransport(started, playbackBursts, 108.755);
+
+    expect(result.state.status).toBe("finished");
+    expect(currentTimedTransportElapsedSeconds(result.state, 108.755)).toBeCloseTo(162.755);
+  });
+
   it("dispatches same-time repeat jump bursts in a single scheduler tick", () => {
     const playbackBursts = buildPlaybackTimeline({
       snapshots: [
@@ -131,6 +147,59 @@ describe("timed transport runtime", () => {
     const firstPass = advanceTimedTransport(state, playbackBursts, 2);
     expect(firstPass.dueBursts.map((burst) => burst.sequenceTime)).toEqual([1, 2, 1]);
     expect(firstPass.dueBursts[1].repeatJump?.jumpToSequenceTime).toBe(1);
+  });
+
+  it("branches past remaining repeat passes when repeats are disabled live", () => {
+    const playbackBursts = [
+      { playbackIndex: 0, elapsedSeconds: 0 },
+      {
+        playbackIndex: 1,
+        elapsedSeconds: 2,
+        events: [{ type: "note", repeatCleanup: true }],
+        soundingAfter: [],
+        newlyAttacked: [],
+        released: ["held"],
+        repeatJump: { fromRepeatId: "end", jumpToSequenceTime: 1 },
+        repeatSkip: {
+          nextPlaybackIndex: 4,
+          events: [{ type: "repeat-end" }],
+          soundingAfter: [{ noteKey: "held" }],
+          newlyAttacked: [],
+          released: [],
+        },
+      },
+      { playbackIndex: 2, elapsedSeconds: 2 },
+      { playbackIndex: 3, elapsedSeconds: 4 },
+      { playbackIndex: 4, elapsedSeconds: 6 },
+    ];
+    const running = {
+      status: "running",
+      anchorClockSeconds: 10,
+      pausedElapsedSeconds: 0,
+      speedMultiplier: 1,
+      nextPlaybackIndex: 4,
+      lastDispatchedPlaybackIndex: 3,
+    };
+
+    const result = applyLiveRepeatDecision(running, [playbackBursts[1], playbackBursts[2]], playbackBursts, {
+      playRepeats: false,
+      clockSeconds: 12,
+    });
+
+    expect(result.dueBursts).toHaveLength(1);
+    expect(result.dueBursts[0]).toMatchObject({
+      playbackIndex: 1,
+      repeatJump: null,
+      repeatSkipped: { fromRepeatId: "end" },
+      soundingAfter: [{ noteKey: "held" }],
+    });
+    expect(result.state).toMatchObject({
+      status: "running",
+      anchorClockSeconds: 12,
+      pausedElapsedSeconds: 6,
+      nextPlaybackIndex: 4,
+      lastDispatchedPlaybackIndex: 1,
+    });
   });
 
   it("finds a playback start index by cue, snapshot, or sequence time", () => {

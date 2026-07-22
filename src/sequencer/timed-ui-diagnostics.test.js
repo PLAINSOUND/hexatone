@@ -17,12 +17,19 @@ describe("timed UI diagnostics", () => {
     const visibleSnapshot = row(120, 160);
     const visibleEvent = row(280, 320);
     const hiddenBar = row(20, 80);
+    const staleDetachedSnapshot = row(0, 0);
     scrollPanel.append(visibleSnapshot, visibleEvent, hiddenBar);
+    document.body.append(scrollPanel);
     visibleSnapshot.append(document.createElement("span"));
 
     const metrics = collectSequencerUiMetrics({
       scrollPanelRef: { current: scrollPanel },
-      snapshotRowRefs: { current: new Map([["snapshot", visibleSnapshot]]) },
+      snapshotRowRefs: {
+        current: new Map([
+          ["snapshot", visibleSnapshot],
+          ["stale-detached-snapshot", staleDetachedSnapshot],
+        ]),
+      },
       eventRowRefs: { current: new Map([["event", visibleEvent]]) },
       barRowRefs: {
         current: new Map([
@@ -38,7 +45,7 @@ describe("timed UI diagnostics", () => {
       structuralRowCount: 2,
       rowCount: 3,
       visibleRowCount: null,
-      mountedNodeCount: null,
+      mountedNodeCount: 3,
       scrollTop: 640,
     });
     expect(scrollPanel.getBoundingClientRect).not.toHaveBeenCalled();
