@@ -12,7 +12,11 @@ import {
   normalizeSequenceTransport,
   normalizeTempoMarkers,
 } from "./transport.js";
-import { findPresetSequenceByName, presetSequenceGroups } from "./preset-sequences/index.js";
+import {
+  findPresetSequenceByName,
+  loadPresetSequenceByName,
+  presetSequenceGroups,
+} from "./preset-sequences/index.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
 
@@ -146,6 +150,8 @@ const SequenceLibrary = ({
   const [savedSequences, setSavedSequences] = useState(loadUserSequences);
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [loadedBuiltInSequence, setLoadedBuiltInSequence] = useState(null);
+  const [loadingBuiltInName, setLoadingBuiltInName] = useState("");
   const fileInputRef = createRef();
   const primarySaveRowRef = useRef(null);
 
@@ -177,15 +183,30 @@ const SequenceLibrary = ({
   const activeBuiltInSequence = useMemo(
     () => (
       activeSource === "builtin" && activeBuiltInName
-        ? findPresetSequenceByName(activeBuiltInName)
+        ? loadedBuiltInSequence?.name === activeBuiltInName
+          ? loadedBuiltInSequence
+          : findPresetSequenceByName(activeBuiltInName)
         : null
     ),
-    [activeBuiltInName, activeSource],
+    [activeBuiltInName, activeSource, loadedBuiltInSequence],
   );
+
+  useEffect(() => {
+    if (activeSource !== "builtin" || !activeBuiltInName || activeBuiltInSequence) return undefined;
+    let cancelled = false;
+    loadPresetSequenceByName(activeBuiltInName).then((sequence) => {
+      if (!cancelled && sequence) setLoadedBuiltInSequence(sequence);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBuiltInName, activeBuiltInSequence, activeSource]);
   const hasUnsavedChanges = useMemo(() => {
     if (!workspaceRecord || !workspaceHasContent) return false;
-    if (activeSource === "builtin" && activeBuiltInSequence) {
-      return sequenceRecordContentKey(workspaceRecord) !== sequenceRecordContentKey(activeBuiltInSequence);
+    if (activeSource === "builtin") {
+      return activeBuiltInSequence
+        ? sequenceRecordContentKey(workspaceRecord) !== sequenceRecordContentKey(activeBuiltInSequence)
+        : false;
     }
     if (!activeSavedSequence) return true;
     return sequenceRecordKey({ ...workspaceRecord, name: activeSavedSequence.name })
@@ -226,6 +247,20 @@ const SequenceLibrary = ({
   const commitSequences = useCallback((next) => {
     saveUserSequences(next);
     setSavedSequences(next);
+  }, []);
+
+  const loadBuiltInSequence = useCallback(async (name) => {
+    setLoadingBuiltInName(name);
+    try {
+      const sequence = await loadPresetSequenceByName(name);
+      if (sequence) setLoadedBuiltInSequence(sequence);
+      return sequence;
+    } catch {
+      setError("Unable to load the selected built-in sequence.");
+      return null;
+    } finally {
+      setLoadingBuiltInName("");
+    }
   }, []);
 
   const buildWorkspaceRecord = useCallback((name) => normalizeSequenceRecord({
@@ -476,11 +511,9 @@ const SequenceLibrary = ({
     if (input) input.value = "";
   };
 
-  const handleBuiltInSelect = (e) => {
+  const handleBuiltInSelect = async (e) => {
     const nextName = e.currentTarget.value;
     if (!nextName) return;
-    const targetSequence = findPresetSequenceByName(nextName);
-    if (!targetSequence) return;
     const switchingBetweenSameNamedSavedSources =
       activeSource === "user" &&
       !!savedSequenceName &&
@@ -498,14 +531,16 @@ const SequenceLibrary = ({
       return;
     }
     setError("");
+    const targetSequence = await loadBuiltInSequence(nextName);
+    if (!targetSequence) return;
     onLoadSequence(targetSequence, { source: "builtin" });
   };
 
-  const handleReloadBuiltIn = () => {
+  const handleReloadBuiltIn = async () => {
     if (!activeBuiltInName) return;
-    const targetSequence = findPresetSequenceByName(activeBuiltInName);
-    if (!targetSequence) return;
     setError("");
+    const targetSequence = await loadBuiltInSequence(activeBuiltInName);
+    if (!targetSequence) return;
     onLoadSequence(targetSequence, { source: "builtin" });
   };
 
@@ -516,7 +551,12 @@ const SequenceLibrary = ({
           <b>Built-in Sequences</b>
         </legend>
         <label class="preset-selector-row">
-          <select aria-label="Built-in sequences" value={builtInMenuValue} onChange={handleBuiltInSelect}>
+          <select
+            aria-label="Built-in sequences"
+            value={builtInMenuValue}
+            onChange={handleBuiltInSelect}
+            disabled={!!loadingBuiltInName}
+          >
             <option value="">Choose a built-in sequence:</option>
             {presetSequenceGroups.map((group) => (
               <optgroup key={group.name} label={group.name}>

@@ -4,7 +4,10 @@
       "slug": "marc-sabat",
       "name": "Music Examples by Marc Sabat",
       "sequences": [
-        "FALL"
+        {
+          "slug": "FALL",
+          "name": "FALL (Tuning: “Sabat: The Tree + Modulations”)"
+        }
       ]
     }
   ]

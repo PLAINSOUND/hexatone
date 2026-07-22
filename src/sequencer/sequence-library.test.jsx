@@ -1,14 +1,16 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { useState } from "preact/hooks";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import SequenceLibrary, { loadUserSequences, normalizeSequenceRecord } from "./sequence-library.jsx";
-import { presetSequenceGroups } from "./preset-sequences/index.js";
+import {
+  loadPresetSequenceByName,
+  presetSequenceGroups,
+} from "./preset-sequences/index.js";
+
+let fallPresetSequence = null;
 
 function findFallPresetSequence() {
-  return presetSequenceGroups
-    .flatMap((group) => group.sequences)
-    .find((sequence) => String(sequence?.name ?? "").startsWith("FALL"))
-    ?? null;
+  return fallPresetSequence;
 }
 
 function SequenceLibraryHarness({
@@ -83,6 +85,13 @@ function SequenceLibraryHarness({
 }
 
 describe("SequenceLibrary", () => {
+  beforeAll(async () => {
+    const descriptor = presetSequenceGroups
+      .flatMap((group) => group.sequences)
+      .find((sequence) => String(sequence?.name ?? "").startsWith("FALL"));
+    fallPresetSequence = await loadPresetSequenceByName(descriptor?.name);
+  });
+
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -125,7 +134,7 @@ describe("SequenceLibrary", () => {
     );
   });
 
-  it("reloads the selected built-in sequence from the packaged library", () => {
+  it("reloads the selected built-in sequence from the packaged library", async () => {
     const onLoadSpy = vi.fn();
     const builtIn = findFallPresetSequence();
 
@@ -142,10 +151,12 @@ describe("SequenceLibrary", () => {
     const refreshButtons = document.querySelectorAll(".preset-refresh-btn");
     fireEvent.click(refreshButtons[0]);
 
-    expect(onLoadSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ name: builtIn?.name }),
-      expect.objectContaining({ source: "builtin" }),
-    );
+    await waitFor(() => {
+      expect(onLoadSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ name: builtIn?.name }),
+        expect.objectContaining({ source: "builtin" }),
+      );
+    });
   });
 
   it("shows an unsaved draft in the menu and prompts overwrite on name collision", () => {
@@ -431,7 +442,7 @@ describe("SequenceLibrary", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("loads a built-in sequence and keeps the user menu clear", () => {
+  it("loads a built-in sequence and keeps the user menu clear", async () => {
     const onLoadSpy = vi.fn();
     const builtIn = findFallPresetSequence();
 
@@ -442,10 +453,12 @@ describe("SequenceLibrary", () => {
       target: { value: builtIn?.name ?? "" },
     });
 
-    expect(onLoadSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ name: builtIn?.name }),
-      expect.objectContaining({ source: "builtin" }),
-    );
+    await waitFor(() => {
+      expect(onLoadSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ name: builtIn?.name }),
+        expect.objectContaining({ source: "builtin" }),
+      );
+    });
     expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe(builtIn?.name ?? "");
     expect(screen.queryByRole("combobox", { name: "User sequences" })).toBeNull();
   });

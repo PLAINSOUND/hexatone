@@ -28,7 +28,20 @@ function categoryNameFromSlug(slug) {
     .join(" ");
 }
 
-function normalizeSequenceModule(pathname, moduleValue) {
+function normalizeSequenceModule(pathname, moduleValue, metadata = null) {
+  if (typeof moduleValue === "function") {
+    const categorySlug = categorySlugFromPath(pathname);
+    if (!categorySlug) return null;
+    const fileSlug = fileSlugFromPath(pathname);
+    return {
+      categorySlug,
+      fileSlug,
+      sequence: {
+        name: String(metadata?.name ?? fileSlug).trim(),
+        load: moduleValue,
+      },
+    };
+  }
   const sequence = moduleValue?.default ?? moduleValue;
   if (!sequence || typeof sequence !== "object") return null;
   const name = String(sequence.name ?? "").trim();
@@ -48,15 +61,27 @@ export function buildPresetSequenceGroups({
 }) {
   const sequencesByCategory = new Map();
 
+  const registryCategories = Array.isArray(registry?.categories) ? registry.categories : [];
+  const registrySequenceMetadata = new Map();
+  for (const category of registryCategories) {
+    for (const item of Array.isArray(category?.sequences) ? category.sequences : []) {
+      if (item && typeof item === "object") {
+        registrySequenceMetadata.set(`${category.slug}/${item.slug}`, item);
+      }
+    }
+  }
+
   for (const [pathname, moduleValue] of Object.entries(jsonModules)) {
-    const entry = normalizeSequenceModule(pathname, moduleValue);
+    const categorySlug = categorySlugFromPath(pathname);
+    const fileSlug = fileSlugFromPath(pathname);
+    const metadata = registrySequenceMetadata.get(`${categorySlug}/${fileSlug}`) ?? null;
+    const entry = normalizeSequenceModule(pathname, moduleValue, metadata);
     if (!entry) continue;
     const existing = sequencesByCategory.get(entry.categorySlug) ?? [];
     existing.push(entry);
     sequencesByCategory.set(entry.categorySlug, existing);
   }
 
-  const registryCategories = Array.isArray(registry?.categories) ? registry.categories : [];
   const registryBySlug = new Map(
     registryCategories
       .filter((entry) => entry && typeof entry.slug === "string")
@@ -75,7 +100,9 @@ export function buildPresetSequenceGroups({
     return {
       slug,
       name: metadata?.name ?? categoryNameFromSlug(slug),
-      order: Array.isArray(metadata?.sequences) ? metadata.sequences.map((item) => String(item)) : [],
+      order: Array.isArray(metadata?.sequences)
+        ? metadata.sequences.map((item) => String(item?.slug ?? item))
+        : [],
     };
   });
 
@@ -104,9 +131,9 @@ export function buildPresetSequenceGroups({
   });
 }
 
-// Eager import keeps the built-in sequence list synchronous for the sidebar UI.
+// The registry supplies menu metadata; each large sequence payload becomes its
+// own Vite chunk and is fetched only when selected.
 const presetSequenceModules = import.meta.glob("./*/*.json", {
-  eager: true,
   import: "default",
 });
 
@@ -114,7 +141,9 @@ export const presetSequenceGroups = buildPresetSequenceGroups({
   jsonModules: presetSequenceModules,
 });
 
-export function findPresetSequenceByName(name) {
+const loadedPresetSequences = new Map();
+
+function findPresetSequenceDescriptorByName(name) {
   const target = String(name ?? "").trim();
   if (!target) return null;
   for (const group of presetSequenceGroups) {
@@ -122,4 +151,26 @@ export function findPresetSequenceByName(name) {
     if (match) return match;
   }
   return null;
+}
+
+export function findPresetSequenceByName(name) {
+  return loadedPresetSequences.get(String(name ?? "").trim()) ?? null;
+}
+
+export async function loadPresetSequenceByName(name) {
+  const target = String(name ?? "").trim();
+  if (!target) return null;
+  const cached = loadedPresetSequences.get(target);
+  if (cached) return cached;
+  const descriptor = findPresetSequenceDescriptorByName(target);
+  if (!descriptor) return null;
+  if (typeof descriptor.load !== "function") {
+    loadedPresetSequences.set(target, descriptor);
+    return descriptor;
+  }
+  const moduleValue = await descriptor.load();
+  const sequence = moduleValue?.default ?? moduleValue;
+  if (!sequence || typeof sequence !== "object") return null;
+  loadedPresetSequences.set(target, sequence);
+  return sequence;
 }
