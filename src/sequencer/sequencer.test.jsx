@@ -4543,6 +4543,8 @@ describe("Sequencer", () => {
   });
 
   it("shows the next snapshot and cue in brackets when a bar is selected", () => {
+    const onStepSequence = vi.fn();
+    const onStepSequenceMarker = vi.fn();
     render(
       <Sequencer
         snapshots={[
@@ -4572,8 +4574,8 @@ describe("Sequencer", () => {
         onPlaySnapshot={vi.fn()}
         onStopSnapshot={vi.fn()}
         onSelectSequenceBar={vi.fn()}
-        onStepSequence={vi.fn()}
-        onStepSequenceMarker={vi.fn()}
+        onStepSequence={onStepSequence}
+        onStepSequenceMarker={onStepSequenceMarker}
         onPlaySequence={vi.fn()}
         onPlayCue={vi.fn()}
         onResetSequencePlayhead={vi.fn()}
@@ -4595,6 +4597,16 @@ describe("Sequencer", () => {
     expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)", "3"]);
     expect(snapshotTargetSelect.value).toBe("1");
     expect(cueTargetSelect.value).toBe("1");
+    expect(screen.getByLabelText("previous sequence step").disabled).toBe(false);
+    expect(screen.getByLabelText("previous sequence marker").disabled).toBe(false);
+
+    fireEvent.click(screen.getByLabelText("previous sequence step"));
+    fireEvent.click(screen.getByLabelText("next sequence step"));
+    expect(onStepSequence.mock.calls.map(([direction]) => direction)).toEqual([-1, 1]);
+
+    fireEvent.click(screen.getByLabelText("previous sequence marker"));
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+    expect(onStepSequenceMarker.mock.calls.map(([direction]) => direction)).toEqual([-1, 1]);
   });
 
   it("shows the selected snapshot and its first cue in brackets when a snapshot is selected", () => {

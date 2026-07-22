@@ -291,9 +291,7 @@ const Sequencer = ({
     playheadMarkerIndex,
     selectedBarIndex,
     nextCueIndexFromBar,
-    prevCueIndexFromBar,
     nextSnapshotIndexFromBar,
-    prevSnapshotIndexFromBar,
     selectedSnapshotPosition,
     activeNavigationMode,
     activeCueIndex,
@@ -1752,7 +1750,6 @@ const Sequencer = ({
           armPendingSnapshot={armPendingSnapshot}
           snapshots={snapshots}
           playheadIsOff={playheadIsOff}
-          prevSnapshotIndexFromBar={prevSnapshotIndexFromBar}
           nextSnapshotIndexFromBar={nextSnapshotIndexFromBar}
           playheadIsEnd={playheadIsEnd}
           runTransportAction={runTransportAction}
@@ -1762,7 +1759,6 @@ const Sequencer = ({
           sequenceCueGroups={sequenceCueGroups}
           impliedPendingCueIndex={impliedPendingCueIndex}
           armPendingCue={armPendingCue}
-          prevCueIndexFromBar={prevCueIndexFromBar}
           nextCueIndexFromBar={nextCueIndexFromBar}
           onJumpSequenceCue={onJumpSequenceCue}
           onStepSequenceMarker={onStepSequenceMarker}

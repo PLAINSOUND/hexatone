@@ -291,7 +291,6 @@ const SequenceControls = ({
   armPendingSnapshot,
   snapshots,
   playheadIsOff,
-  prevSnapshotIndexFromBar,
   nextSnapshotIndexFromBar,
   playheadIsEnd,
   runTransportAction,
@@ -301,7 +300,6 @@ const SequenceControls = ({
   sequenceCueGroups,
   impliedPendingCueIndex,
   armPendingCue,
-  prevCueIndexFromBar,
   nextCueIndexFromBar,
   onJumpSequenceCue,
   onStepSequenceMarker,
@@ -315,8 +313,16 @@ const SequenceControls = ({
   onTimedTransportPlayPause,
   onTimedTransportStop,
   terminalSequenceTarget,
-}) => (
-  <>
+}) => {
+  const snapshotBackAvailable = snapshotSelectValue === terminalSequenceTarget
+    ? snapshots.length > 0
+    : Number.isFinite(Number(snapshotSelectValue)) && Number(snapshotSelectValue) > 0;
+  const cueBackAvailable = cueSelectValue === terminalSequenceTarget
+    ? sequenceCueGroups.length > 0
+    : Number.isFinite(Number(cueSelectValue)) && Number(cueSelectValue) > 0;
+
+  return (
+    <>
     {showAllEvents ? (
       <>
         <div class="sequencer-option-row">
@@ -532,7 +538,7 @@ const SequenceControls = ({
             class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
             aria-label="previous sequence step"
             title="Previous step"
-            disabled={snapshots.length === 0 || (playheadIsOff ? prevSnapshotIndexFromBar < 0 : false)}
+            disabled={snapshots.length === 0 || !snapshotBackAvailable}
             onClick={() => {
               runTransportAction(() => onStepSequence?.(-1));
             }}
@@ -598,7 +604,7 @@ const SequenceControls = ({
             class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
             aria-label="previous sequence marker"
             title="Previous marker"
-            disabled={snapshots.length === 0 || (playheadIsOff ? prevCueIndexFromBar < 0 : false)}
+            disabled={snapshots.length === 0 || !cueBackAvailable}
             onClick={() => {
               runTransportAction(() => onStepSequenceMarker?.(-1));
             }}
@@ -754,8 +760,9 @@ const SequenceControls = ({
       />
     </div>
 
-  </>
-);
+    </>
+  );
+};
 
 function PlaybackModifiersRow({
   sequencePlaybackSpeed,
