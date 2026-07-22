@@ -99,6 +99,19 @@ Notes:
 - `get()` returns the in-memory summary for the current page session.
 - `getPersisted()` flushes pending buffered entries and returns the persisted session snapshot.
 - `reset()` clears the current diagnostics buffer and persisted copy.
+- While timed playback is running, `ui-commit` and `ui-frame-sample` entries
+  sample sequencer commit latency, frame intervals, mounted row counts, scroll
+  position, and the cost of taking the measurement.
+- Live sampling does not traverse the DOM or read row geometry. Consequently,
+  `visibleRowCount` and `mountedNodeCount` remain null until viewport rendering
+  can provide those values directly without forcing layout.
+- `runtime-rebuild` entries identify playback runtime-instance changes that
+  occur while the transport is running. The summary exposes these under
+  `ui` and `runtimeRebuildCount` in the same TimedTransport report.
+- Lateness summaries exclude entries without a lateness measurement and expose
+  the number of actual measurements as `latenessSampleCount`.
+- Healthy UI sampling is capped at once per second; commits of at least 16 ms
+  and frame intervals of at least 50 ms are retained immediately.
 - Hot-path entries are buffered and written to `sessionStorage` at most once every two seconds.
 - Pending entries are also flushed on `pagehide`; a renderer crash may lose at most the newest two-second window.
 - When disabled, the persisted snapshot and console global are removed.

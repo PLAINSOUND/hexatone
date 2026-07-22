@@ -1615,7 +1615,7 @@
                             {
                                 "box": {
                                     "id": "obj-123",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "Dubler2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -4102,7 +4102,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 833.0, 524.0, 236.0, 91.0 ],
-                                    "text": "s_new formant 3041 1 1 freq 261.33333 bend 1. on_vel 53 mod 1. filter 1. gate 1 vol 0.5 ff0 400. ff1 1620. ff2 2400. ff3 2800. ff4 3100. fr0 0.1 fr1 0.049383 fr2 0.041667 fr3 0.042857 fr4 0.03871 fa0 1 fa1 0.251189 fa2 0.354813 fa3 0.251189 fa4 0.125893"
+                                    "text": "s_new formant 3065 1 1 freq 52.062499 bend 1. on_vel 44 mod 1. filter 1. gate 1 vol 0.5 ff0 270. ff1 2140. ff2 2950. ff3 3900. ff4 4950. fr0 0.222222 fr1 0.042056 fr2 0.033898 fr3 0.030769 fr4 0.024242 fa0 1 fa1 0.251189 fa2 0.050119 fa3 0.050119 fa4 0.00631"
                                 }
                             },
                             {
@@ -4557,7 +4557,7 @@
                                                     "numoutlets": 1,
                                                     "outlettype": [ "" ],
                                                     "patching_rect": [ 39.0, 84.0, 50.0, 22.0 ],
-                                                    "text": "41 47"
+                                                    "text": "65 63"
                                                 }
                                             },
                                             {
@@ -4881,7 +4881,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 851.0, 488.0, 135.0, 22.0 ],
-                                    "text": "3030 freq 397.222219"
+                                    "text": "3062 freq 58.1875"
                                 }
                             },
                             {
@@ -5348,7 +5348,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 257.0, 300.0, 50.0, 22.0 ],
-                                    "text": "41 47"
+                                    "text": "65 63"
                                 }
                             },
                             {
@@ -5359,7 +5359,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 375.0, 300.0, 50.0, 22.0 ],
-                                    "text": "41 53"
+                                    "text": "65 44"
                                 }
                             },
                             {
@@ -6691,7 +6691,6 @@
                         "rect": [ 514.0, 519.0, 790.0, 549.0 ],
                         "openinpresentation": 1,
                         "toolbarvisible": 0,
-                        "visible": 1,
                         "boxes": [
                             {
                                 "box": {
@@ -11707,7 +11706,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 684.0, 696.0, 29.5, 22.0 ],
-                                    "text": "0"
+                                    "text": "1"
                                 }
                             },
                             {
@@ -11719,7 +11718,8 @@
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 19.0, 836.0, 338.0, 22.0 ],
                                     "presentation": 1,
-                                    "presentation_rect": [ 23.0, 348.0, 565.0, 22.0 ]
+                                    "presentation_rect": [ 23.0, 348.0, 565.0, 22.0 ],
+                                    "text": "35 53 1 5, 94 46 1 4, 71 34 1 4, 77 39 1 4"
                                 }
                             },
                             {
@@ -15034,7 +15034,7 @@
                             {
                                 "box": {
                                     "id": "obj-4",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "Dubler2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -16791,7 +16791,7 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 229.0, 519.0, 805.0, 349.0 ],
+                        "rect": [ 229.0, 380.0, 805.0, 349.0 ],
                         "openinpresentation": 1,
                         "toolbarvisible": 0,
                         "visible": 1,
@@ -17331,7 +17331,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 503.0, 365.0, 43.0, 22.0 ],
-                                    "text": "123 0"
+                                    "text": "120 0"
                                 }
                             },
                             {
@@ -59499,7 +59499,7 @@
                             {
                                 "box": {
                                     "id": "obj-125",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "Dubler2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -59535,7 +59535,7 @@
                             {
                                 "box": {
                                     "id": "obj-116",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "Dubler2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -66036,7 +66036,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 527.0, 544.0, 50.0, 22.0 ],
-                                    "text": "444 -1"
+                                    "text": "156 -1"
                                 }
                             },
                             {
@@ -75876,7 +75876,7 @@
             {
                 "box": {
                     "id": "obj-144",
-                    "items": [ "AU DLS Synth 1", ",", "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "from Max 1", ",", "from Max 2" ],
+                    "items": [ "AU DLS Synth 1", ",", "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "from Max 1", ",", "from Max 2", ",", "FluidSynth virtual port (6835)", ",", "Lumatone" ],
                     "maxclass": "umenu",
                     "numinlets": 1,
                     "numoutlets": 3,
@@ -76100,7 +76100,7 @@
             {
                 "box": {
                     "id": "obj-83",
-                    "items": [ "AU DLS Synth 1", ",", "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "from Max 1", ",", "from Max 2" ],
+                    "items": [ "AU DLS Synth 1", ",", "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "from Max 1", ",", "from Max 2", ",", "FluidSynth virtual port (6835)", ",", "Lumatone" ],
                     "maxclass": "umenu",
                     "numinlets": 1,
                     "numoutlets": 3,
@@ -76257,7 +76257,7 @@
             {
                 "box": {
                     "id": "obj-4",
-                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "Dubler2", ",", "to Max 1", ",", "to Max 2" ],
+                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2", ",", "Lumatone" ],
                     "maxclass": "umenu",
                     "numinlets": 1,
                     "numoutlets": 3,

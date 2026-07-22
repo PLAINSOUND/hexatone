@@ -34,6 +34,7 @@ import useSequencerAutoscroll from "./autoscroll-controller.js";
 import useDraftEditingController from "./draft-editing-controller.js";
 import useEditCommitTransportController from "./edit-commit-transport-controller.js";
 import useSequencerPostCommitDiagnostics from "./post-commit-diagnostics.js";
+import useTimedUiDiagnostics from "./timed-ui-diagnostics.js";
 import {
   buildCueExpandedSnapshotIdsAt,
   deriveCueExpandedSnapshotIds,
@@ -142,6 +143,7 @@ const Sequencer = ({
   onUpdateSnapshot,
   onResetSnapshotDescription,
 }) => {
+  const renderStartedAtMs = performance.now();
   const formatTransportClock = useCallback((seconds) => {
     const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
     const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
@@ -879,6 +881,20 @@ const Sequencer = ({
     expandedIds,
     sequenceCueGroups,
     showAllEvents,
+  });
+
+  useTimedUiDiagnostics({
+    running: timedTransportUiState.running,
+    renderStartedAtMs,
+    runtimeInstanceId: sequenceRuntime.runtimeInstanceId,
+    scrollPanelRef,
+    snapshotRowRefs,
+    eventRowRefs,
+    barRowRefs,
+    snapshotCount: snapshots.length,
+    eventCount: sequenceEvents.length,
+    cueCount: sequenceCueGroups.length,
+    recordDiagnostic: recordTimedTransportDiagnostic,
   });
 
   const toggleExpanded = (id) => {

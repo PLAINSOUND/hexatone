@@ -16,6 +16,26 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+const EMPTY_UI_SUMMARY = {
+  sampleCount: 0,
+  commitSampleCount: 0,
+  frameSampleCount: 0,
+  longFrameCount: 0,
+  meanCommitDurationMs: null,
+  maxCommitDurationMs: null,
+  meanFrameIntervalMs: null,
+  maxFrameIntervalMs: null,
+  meanMeasurementDurationMs: null,
+  maxMeasurementDurationMs: null,
+  maxSnapshotRowCount: null,
+  maxEventRowCount: null,
+  maxStructuralRowCount: null,
+  maxRowCount: null,
+  maxVisibleRowCount: null,
+  maxMountedNodeCount: null,
+  recent: [],
+};
+
 describe("timed transport diagnostics", () => {
   it("keeps a bounded ring buffer of entries", () => {
     let diagnostics = createTimedTransportDiagnostics(2);
@@ -34,6 +54,7 @@ describe("timed transport diagnostics", () => {
 
     expect(summarizeTimedTransportDiagnostics(diagnostics)).toEqual({
       entryCount: 2,
+      latenessSampleCount: 2,
       overrunCount: 1,
       meanLatenessMs: 21.5,
       meanAbsoluteLatenessMs: 21.5,
@@ -44,6 +65,8 @@ describe("timed transport diagnostics", () => {
       meanAbsoluteIntervalJitterMs: null,
       rmsIntervalJitterMs: null,
       maxAbsoluteIntervalJitterMs: null,
+      ui: EMPTY_UI_SUMMARY,
+      runtimeRebuildCount: 0,
       recent: diagnostics.entries,
     });
   });
@@ -71,6 +94,7 @@ describe("timed transport diagnostics", () => {
 
     expect(summarizeTimedTransportDiagnostics(diagnostics)).toEqual({
       entryCount: 3,
+      latenessSampleCount: 3,
       overrunCount: 2,
       meanLatenessMs: 26.667,
       meanAbsoluteLatenessMs: 26.667,
@@ -81,8 +105,65 @@ describe("timed transport diagnostics", () => {
       meanAbsoluteIntervalJitterMs: 35,
       rmsIntervalJitterMs: 38.079,
       maxAbsoluteIntervalJitterMs: 50,
+      ui: EMPTY_UI_SUMMARY,
+      runtimeRebuildCount: 0,
       recent: diagnostics.entries,
     });
+  });
+
+  it("summarizes sampled sequencer UI work and runtime rebuilds", () => {
+    let diagnostics = createTimedTransportDiagnostics();
+    diagnostics = pushTimedTransportDiagnostic(diagnostics, {
+      type: "ui-commit",
+      commitDurationMs: 18.25,
+      measurementDurationMs: 1.5,
+      snapshotRowCount: 24,
+      eventRowCount: 12,
+      structuralRowCount: 8,
+      rowCount: 40,
+      visibleRowCount: 10,
+      mountedNodeCount: 320,
+    });
+    diagnostics = pushTimedTransportDiagnostic(diagnostics, {
+      type: "ui-frame-sample",
+      frameIntervalMs: 55,
+      measurementDurationMs: 0.5,
+      snapshotRowCount: 26,
+      eventRowCount: 14,
+      structuralRowCount: 8,
+      rowCount: 44,
+      visibleRowCount: 12,
+      mountedNodeCount: 340,
+    });
+    diagnostics = pushTimedTransportDiagnostic(diagnostics, {
+      type: "runtime-rebuild",
+      runtimeInstanceId: 12,
+    });
+
+    const summary = summarizeTimedTransportDiagnostics(diagnostics);
+
+    expect(summary.latenessSampleCount).toBe(0);
+    expect(summary.meanLatenessMs).toBeNull();
+    expect(summary.ui).toEqual({
+      sampleCount: 2,
+      commitSampleCount: 1,
+      frameSampleCount: 1,
+      longFrameCount: 1,
+      meanCommitDurationMs: 18.25,
+      maxCommitDurationMs: 18.25,
+      meanFrameIntervalMs: 55,
+      maxFrameIntervalMs: 55,
+      meanMeasurementDurationMs: 1,
+      maxMeasurementDurationMs: 1.5,
+      maxSnapshotRowCount: 26,
+      maxEventRowCount: 14,
+      maxStructuralRowCount: 8,
+      maxRowCount: 44,
+      maxVisibleRowCount: 12,
+      maxMountedNodeCount: 340,
+      recent: diagnostics.entries.slice(0, 2),
+    });
+    expect(summary.runtimeRebuildCount).toBe(1);
   });
 
   it("resets while preserving or replacing the configured limit", () => {
@@ -120,6 +201,7 @@ describe("timed transport diagnostics", () => {
       state: diagnostics,
       summary: {
         entryCount: 1,
+        latenessSampleCount: 1,
         overrunCount: 0,
         meanLatenessMs: 18,
         meanAbsoluteLatenessMs: 18,
@@ -130,6 +212,8 @@ describe("timed transport diagnostics", () => {
         meanAbsoluteIntervalJitterMs: null,
         rmsIntervalJitterMs: null,
         maxAbsoluteIntervalJitterMs: null,
+        ui: EMPTY_UI_SUMMARY,
+        runtimeRebuildCount: 0,
         recent: diagnostics.entries,
       },
     });

@@ -77,11 +77,25 @@ export function pushTimedTransportDiagnostic(state, entry = {}) {
     scheduledDelayMs: roundMetric(entry.scheduledDelayMs),
     latenessMs: roundMetric(entry.latenessMs),
     durationMs: roundMetric(entry.durationMs),
+    commitDurationMs: roundMetric(entry.commitDurationMs),
+    frameIntervalMs: roundMetric(entry.frameIntervalMs),
+    measurementDurationMs: roundMetric(entry.measurementDurationMs),
     queueDepth: Number.isFinite(Number(entry.queueDepth)) ? Number(entry.queueDepth) : null,
     timeoutCount: Number.isFinite(Number(entry.timeoutCount)) ? Number(entry.timeoutCount) : null,
     activeNotes: Number.isFinite(Number(entry.activeNotes)) ? Number(entry.activeNotes) : null,
     noteCount: Number.isFinite(Number(entry.noteCount)) ? Number(entry.noteCount) : null,
     nextPlaybackIndex: Number.isFinite(Number(entry.nextPlaybackIndex)) ? Number(entry.nextPlaybackIndex) : null,
+    snapshotCount: Number.isFinite(Number(entry.snapshotCount)) ? Number(entry.snapshotCount) : null,
+    eventCount: Number.isFinite(Number(entry.eventCount)) ? Number(entry.eventCount) : null,
+    cueCount: Number.isFinite(Number(entry.cueCount)) ? Number(entry.cueCount) : null,
+    snapshotRowCount: Number.isFinite(Number(entry.snapshotRowCount)) ? Number(entry.snapshotRowCount) : null,
+    eventRowCount: Number.isFinite(Number(entry.eventRowCount)) ? Number(entry.eventRowCount) : null,
+    structuralRowCount: Number.isFinite(Number(entry.structuralRowCount)) ? Number(entry.structuralRowCount) : null,
+    rowCount: Number.isFinite(Number(entry.rowCount)) ? Number(entry.rowCount) : null,
+    visibleRowCount: Number.isFinite(Number(entry.visibleRowCount)) ? Number(entry.visibleRowCount) : null,
+    mountedNodeCount: Number.isFinite(Number(entry.mountedNodeCount)) ? Number(entry.mountedNodeCount) : null,
+    scrollTop: roundMetric(entry.scrollTop),
+    runtimeInstanceId: Number.isFinite(Number(entry.runtimeInstanceId)) ? Number(entry.runtimeInstanceId) : null,
     status: entry.status == null ? null : String(entry.status),
     detail: entry.detail == null ? null : String(entry.detail),
   };
@@ -98,6 +112,7 @@ export function pushTimedTransportDiagnostic(state, entry = {}) {
 export function summarizeTimedTransportDiagnostics(state) {
   const entries = Array.isArray(state?.entries) ? state.entries : [];
   const latenessSamples = entries
+    .filter((entry) => entry?.latenessMs != null)
     .map((entry) => Number(entry?.latenessMs))
     .filter((value) => Number.isFinite(value));
   const meanLatenessMs = mean(latenessSamples);
@@ -126,8 +141,30 @@ export function summarizeTimedTransportDiagnostics(state) {
   const maxAbsoluteIntervalJitterMs = intervalJitterSamples.length > 0
     ? Math.max(...intervalJitterSamples.map((value) => Math.abs(value)))
     : null;
+  const uiEntries = entries.filter((entry) => entry?.type === "ui-commit" || entry?.type === "ui-frame-sample");
+  const commitDurationSamples = uiEntries
+    .filter((entry) => entry?.commitDurationMs != null)
+    .map((entry) => Number(entry?.commitDurationMs))
+    .filter((value) => Number.isFinite(value));
+  const frameIntervalSamples = uiEntries
+    .filter((entry) => entry?.frameIntervalMs != null)
+    .map((entry) => Number(entry?.frameIntervalMs))
+    .filter((value) => Number.isFinite(value));
+  const measurementDurationSamples = uiEntries
+    .filter((entry) => entry?.measurementDurationMs != null)
+    .map((entry) => Number(entry?.measurementDurationMs))
+    .filter((value) => Number.isFinite(value));
+  const maximumMetric = (key) => {
+    const values = uiEntries
+      .filter((entry) => entry?.[key] != null)
+      .map((entry) => Number(entry[key]))
+      .filter((value) => Number.isFinite(value));
+    return values.length > 0 ? Math.max(...values) : null;
+  };
+  const runtimeRebuildCount = entries.filter((entry) => entry?.type === "runtime-rebuild").length;
   return {
     entryCount: entries.length,
+    latenessSampleCount: latenessSamples.length,
     overrunCount,
     meanLatenessMs: roundMetric(meanLatenessMs),
     meanAbsoluteLatenessMs: roundMetric(meanAbsoluteLatenessMs),
@@ -138,6 +175,26 @@ export function summarizeTimedTransportDiagnostics(state) {
     meanAbsoluteIntervalJitterMs: roundMetric(meanAbsoluteIntervalJitterMs),
     rmsIntervalJitterMs: roundMetric(rmsIntervalJitterMs),
     maxAbsoluteIntervalJitterMs: roundMetric(maxAbsoluteIntervalJitterMs),
+    ui: {
+      sampleCount: uiEntries.length,
+      commitSampleCount: commitDurationSamples.length,
+      frameSampleCount: frameIntervalSamples.length,
+      longFrameCount: frameIntervalSamples.filter((value) => value >= 50).length,
+      meanCommitDurationMs: roundMetric(mean(commitDurationSamples)),
+      maxCommitDurationMs: roundMetric(commitDurationSamples.length > 0 ? Math.max(...commitDurationSamples) : null),
+      meanFrameIntervalMs: roundMetric(mean(frameIntervalSamples)),
+      maxFrameIntervalMs: roundMetric(frameIntervalSamples.length > 0 ? Math.max(...frameIntervalSamples) : null),
+      meanMeasurementDurationMs: roundMetric(mean(measurementDurationSamples)),
+      maxMeasurementDurationMs: roundMetric(measurementDurationSamples.length > 0 ? Math.max(...measurementDurationSamples) : null),
+      maxSnapshotRowCount: maximumMetric("snapshotRowCount"),
+      maxEventRowCount: maximumMetric("eventRowCount"),
+      maxStructuralRowCount: maximumMetric("structuralRowCount"),
+      maxRowCount: maximumMetric("rowCount"),
+      maxVisibleRowCount: maximumMetric("visibleRowCount"),
+      maxMountedNodeCount: maximumMetric("mountedNodeCount"),
+      recent: uiEntries.slice(-20),
+    },
+    runtimeRebuildCount,
     recent: entries.slice(-20),
   };
 }
