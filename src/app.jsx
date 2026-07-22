@@ -946,6 +946,8 @@ const App = () => {
   const sequenceRepeatPlaybackStateRef = useRef({});
   const previousSnapSequenceToCurrentTuningRef = useRef(false);
   const previousSequencePlaybackPitchOffsetRef = useRef(0);
+  const liveSequencePlaybackPitchOffsetRef = useRef(0);
+  const appliedSequencePlaybackPitchOffsetRef = useRef(0);
   const snapshotIdRef = useRef(0);
   const sequenceBarIdRef = useRef(1);
   const snapshotsRef = useRef([]);
@@ -1487,7 +1489,7 @@ const App = () => {
       hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
     };
     const pitchOffset = clampSequencePlaybackPitchCents(
-      options?.pitchOffset ?? sequencePlaybackPitchOffset,
+      options?.pitchOffset ?? liveSequencePlaybackPitchOffsetRef.current,
     );
     const transformNotes = (notes) => {
       let nextNotes = Array.isArray(notes) ? notes : [];
@@ -1509,22 +1511,31 @@ const App = () => {
   }, [
     currentSequenceSnapRuntime,
     sequenceCueGroups,
-    sequencePlaybackPitchOffset,
     snapSequenceToCurrentTuning,
     snapshots,
   ]);
 
   const previewSequencePlaybackPitchOffset = useCallback((value) => {
+    const nextPitchOffset = clampSequencePlaybackPitchCents(value);
+    liveSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
     if (sequencePlayhead?.stopped) return;
     if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
     const currentNotes = sequencePlaybackNotesAtPosition(
       sequencePlayhead.stepIndex,
       sequencePlayhead.markerIndex,
-      { pitchOffset: value },
+      { pitchOffset: nextPitchOffset },
     );
-    if (currentNotes.length === 0) return;
-    retuneSnapshotHexes(keysRef.current, currentNotes, { bendOnly: true });
+    if (currentNotes.length > 0) {
+      retuneSnapshotHexes(keysRef.current, currentNotes, { bendOnly: true });
+    }
+    appliedSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
   }, [sequencePlaybackNotesAtPosition, sequencePlayhead]);
+
+  const commitSequencePlaybackPitchOffset = useCallback((value) => {
+    const nextPitchOffset = clampSequencePlaybackPitchCents(value);
+    liveSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
+    setSequencePlaybackPitchOffset(nextPitchOffset);
+  }, []);
 
   const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     const hardRestart = options?.hardRestart === true;
@@ -1577,11 +1588,18 @@ const App = () => {
   useEffect(() => {
     const previousSnap = previousSnapSequenceToCurrentTuningRef.current;
     const previousPitch = previousSequencePlaybackPitchOffsetRef.current;
+    const pitchAlreadyApplied = Math.abs(
+      appliedSequencePlaybackPitchOffsetRef.current - sequencePlaybackPitchOffset,
+    ) < 1e-9;
     previousSnapSequenceToCurrentTuningRef.current = snapSequenceToCurrentTuning;
     previousSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
+    liveSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
     if (
       previousSnap === snapSequenceToCurrentTuning
-      && previousPitch === sequencePlaybackPitchOffset
+      && (
+        previousPitch === sequencePlaybackPitchOffset
+        || pitchAlreadyApplied
+      )
     ) return;
     if (sequencePlayhead?.stopped) return;
     if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
@@ -1601,6 +1619,7 @@ const App = () => {
     } else {
       keysRef.current?.stopSnapshot();
     }
+    appliedSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
   }, [
     sequenceLegato,
     sequencePlaybackNotesAtPosition,
@@ -4492,7 +4511,7 @@ const App = () => {
               onSequenceSaved={onSequenceSaved}
               onSequenceLegatoChange={setSequenceLegato}
               onSequencePlaybackSpeedChange={(value) => setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))}
-              onSequencePlaybackPitchOffsetChange={(value) => setSequencePlaybackPitchOffset(clampSequencePlaybackPitchCents(value))}
+              onSequencePlaybackPitchOffsetChange={commitSequencePlaybackPitchOffset}
               onSequencePlaybackPitchOffsetPreview={previewSequencePlaybackPitchOffset}
               onSequencePlayRepeatsChange={setSequencePlayRepeats}
               onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}

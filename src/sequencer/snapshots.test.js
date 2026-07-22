@@ -600,6 +600,32 @@ describe("sequencer snapshots", () => {
     expect(reusedHex.retune).not.toHaveBeenCalled();
   });
 
+  it("does not bend an unrelated sounding voice for a newly entering note", () => {
+    const soundingHex = {
+      retune: vi.fn(),
+      standardWheelRetune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotInstanceKey: "old:note",
+    };
+    const runtime = makeRuntime({
+      _snapshotHexes: [soundingHex],
+    });
+
+    retuneSnapshotHexes(runtime, [
+      {
+        noteId: "note",
+        snapshotId: "new",
+        midicents: 72,
+      },
+    ], { bendOnly: true });
+
+    expect(soundingHex.standardWheelRetune).not.toHaveBeenCalled();
+    expect(soundingHex.retune).not.toHaveBeenCalled();
+    expect(soundingHex._snapshotMidicents).toBe(69);
+    expect(soundingHex._snapshotInstanceKey).toBe("old:note");
+  });
+
   it("reuses a legato note by standard sequence id when pitch changes", () => {
     const reusedHex = {
       noteOn: vi.fn(),

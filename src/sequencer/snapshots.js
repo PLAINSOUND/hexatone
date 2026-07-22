@@ -402,7 +402,10 @@ export function retuneSnapshotHexes(runtime, notes, options = {}) {
   for (const note of notes ?? []) {
     const instanceKey = snapshotInstanceKey(note);
     let hex = instanceKey != null ? (activeByInstance.get(instanceKey) ?? null) : null;
-    if (!hex) {
+    // A note with an instance id that is absent from the active map is a new
+    // or already-released note, not a license to bend an unrelated voice.
+    // The positional fallback only exists for legacy notes without ids.
+    if (!hex && instanceKey == null) {
       hex = fallbackHexes.find((candidate) => candidate && !usedHexes.has(candidate)) ?? null;
     }
     if (!hex || usedHexes.has(hex)) continue;
