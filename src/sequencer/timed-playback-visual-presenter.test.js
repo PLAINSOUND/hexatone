@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createTimedPlaybackVisualPresenter,
+  TIMED_PLAYBACK_EVENT_CLASS,
   TIMED_PLAYBACK_ROW_CLASS,
 } from "./timed-playback-visual-presenter.js";
 
@@ -107,5 +108,65 @@ describe("timed playback visual presenter", () => {
     frames.flush();
     expect(rows.get(3).classList.contains(TIMED_PLAYBACK_ROW_CLASS)).toBe(true);
     expect(scrollSnapshotRow).toHaveBeenCalledTimes(2);
+  });
+
+  it("scrolls the earliest sounding snapshot without moving the current-cue highlight", () => {
+    const frames = createFrameHarness();
+    const rows = new Map([
+      [6, document.createElement("div")],
+      [7, document.createElement("div")],
+    ]);
+    const scrollSnapshotRow = vi.fn();
+    const presenter = createTimedPlaybackVisualPresenter({
+      resolveSnapshotRow: (id) => rows.get(id),
+      scrollSnapshotRow,
+      requestFrame: frames.requestFrame,
+      cancelFrame: frames.cancelFrame,
+    });
+
+    presenter.enqueue({ snapshotId: 7, scrollSnapshotId: 6 });
+    frames.flush();
+
+    expect(rows.get(7).classList.contains(TIMED_PLAYBACK_ROW_CLASS)).toBe(true);
+    expect(rows.get(6).classList.contains(TIMED_PLAYBACK_ROW_CLASS)).toBe(false);
+    expect(scrollSnapshotRow).toHaveBeenCalledWith(rows.get(6));
+  });
+
+  it("coalesces transport values and mutates only changed sounding event rows", () => {
+    const frames = createFrameHarness();
+    const eventRows = new Map([
+      ["a", document.createElement("div")],
+      ["b", document.createElement("div")],
+      ["c", document.createElement("div")],
+    ]);
+    const presentTransportPosition = vi.fn();
+    const clearTransportPosition = vi.fn();
+    const presenter = createTimedPlaybackVisualPresenter({
+      resolveEventRow: (id) => eventRows.get(id),
+      presentTransportPosition,
+      clearTransportPosition,
+      requestFrame: frames.requestFrame,
+      cancelFrame: frames.cancelFrame,
+    });
+
+    presenter.enqueue({ soundingEventIds: ["a"], transport: { barIndex: 0 } });
+    presenter.enqueue({ soundingEventIds: ["a", "b"], transport: { barIndex: 1 } });
+    frames.flush();
+    expect(eventRows.get("a").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(true);
+    expect(eventRows.get("b").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(true);
+    expect(eventRows.get("c").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(false);
+    expect(presentTransportPosition).toHaveBeenCalledOnce();
+    expect(presentTransportPosition).toHaveBeenLastCalledWith({ barIndex: 1 });
+
+    presenter.enqueue({ soundingEventIds: ["b", "c"], transport: { barIndex: 2 } });
+    frames.flush();
+    expect(eventRows.get("a").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(false);
+    expect(eventRows.get("b").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(true);
+    expect(eventRows.get("c").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(true);
+
+    presenter.clear();
+    expect(eventRows.get("b").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(false);
+    expect(eventRows.get("c").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(false);
+    expect(clearTransportPosition).toHaveBeenCalledOnce();
   });
 });

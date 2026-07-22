@@ -614,7 +614,7 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1 }]}
+        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
         tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
@@ -667,10 +667,36 @@ describe("Sequencer", () => {
 
     frameCallbacks.shift()?.();
     const firstSnapshotRow = screen.getByLabelText("snapshot 1 description").closest(".sequencer-item");
+    const secondSnapshotRow = screen.getByLabelText("snapshot 2 description").closest(".sequencer-item");
+    const attackRows = document.querySelectorAll(".sequencer-event-row--attack");
+    const barSelect = document.querySelector('[data-timed-transport-field="bar"]');
+    const snapshotSelect = screen.getByLabelText("next snapshot target");
+    const cueSelect = screen.getByLabelText("next cue target");
     expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
+    expect(attackRows[0]?.classList.contains("sequencer-event-row--timed-sounding")).toBe(true);
+    expect(barSelect?.value).toBe("0");
+    expect(snapshotSelect.value).toBe("0");
+    expect(cueSelect.value).toBe("0");
+
+    nowSeconds = 4.1;
+    vi.advanceTimersByTime(50);
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(3);
+    frameCallbacks.pop()?.();
+
+    expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
+    expect(attackRows[0]?.classList.contains("sequencer-event-row--timed-sounding")).toBe(false);
+    expect(attackRows[1]?.classList.contains("sequencer-event-row--timed-sounding")).toBe(true);
+    expect(barSelect?.value).toBe("1");
+    expect(snapshotSelect.value).toBe("1");
+    expect(cueSelect.value).toBe("2");
 
     fireEvent.click(screen.getByLabelText("pause timed transport"));
     expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
+    expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
+    expect(attackRows[1]?.classList.contains("sequencer-event-row--timed-sounding")).toBe(false);
+    expect(barSelect?.value).toBe("0");
+    expect(snapshotSelect.value).toBe("0");
+    expect(cueSelect.value).toBe("0");
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;

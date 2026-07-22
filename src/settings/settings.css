@@ -3976,7 +3976,8 @@ td.scale-color-col .color-input {
   line-height: 1.2;
 }
 
-.sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active {
+.sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active,
+.sequencer-event-row--attack.sequencer-event-row--timed-sounding .sequencer-event__cell.sequencer-event__kind-cell {
   background: #a4ec82;
   background-image: linear-gradient(180deg, #fbfff6 0%, #a4ec82 50%, #6ed84b 100%);
   box-shadow:
@@ -3988,7 +3989,8 @@ td.scale-color-col .color-input {
   border-color: rgba(86, 164, 56, 0.88);
 }
 
-.sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active .sequencer-event__kind {
+.sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active .sequencer-event__kind,
+.sequencer-event-row--attack.sequencer-event-row--timed-sounding .sequencer-event__kind-cell .sequencer-event__kind {
   color: #336f1e;
   font-weight: 700;
 }

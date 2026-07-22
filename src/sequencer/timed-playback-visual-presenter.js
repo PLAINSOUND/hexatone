@@ -4,17 +4,22 @@
 // frame and touches only the previously active and next active row.
 
 export const TIMED_PLAYBACK_ROW_CLASS = "sequencer-item--timed-playing";
+export const TIMED_PLAYBACK_EVENT_CLASS = "sequencer-event-row--timed-sounding";
 
 export function createTimedPlaybackVisualPresenter({
   resolveSnapshotRow,
+  resolveEventRow,
   scrollSnapshotRow,
+  presentTransportPosition,
+  clearTransportPosition,
   requestFrame = (callback) => window.requestAnimationFrame(callback),
   cancelFrame = (frameId) => window.cancelAnimationFrame(frameId),
   now = () => performance.now(),
   scrollIntervalMs = 200,
 } = {}) {
   let activeSnapshotId = null;
-  let pendingSnapshotId = null;
+  let activeEventIds = new Set();
+  let pendingPosition = null;
   let frameId = null;
   let disposed = false;
   let lastScrollAtMs = -Infinity;
@@ -25,42 +30,74 @@ export function createTimedPlaybackVisualPresenter({
     activeSnapshotId = null;
   };
 
+  const clearActiveEvents = () => {
+    for (const eventId of activeEventIds) {
+      resolveEventRow?.(eventId)?.classList?.remove(TIMED_PLAYBACK_EVENT_CLASS);
+    }
+    activeEventIds = new Set();
+  };
+
+  const presentActiveEvents = (eventIds = []) => {
+    const nextEventIds = new Set(eventIds.filter((eventId) => eventId != null));
+    for (const eventId of activeEventIds) {
+      if (nextEventIds.has(eventId)) continue;
+      resolveEventRow?.(eventId)?.classList?.remove(TIMED_PLAYBACK_EVENT_CLASS);
+    }
+    for (const eventId of nextEventIds) {
+      if (activeEventIds.has(eventId)) continue;
+      resolveEventRow?.(eventId)?.classList?.add(TIMED_PLAYBACK_EVENT_CLASS);
+    }
+    activeEventIds = nextEventIds;
+  };
+
   const flush = () => {
     frameId = null;
     if (disposed) return;
-    const nextSnapshotId = pendingSnapshotId;
-    pendingSnapshotId = null;
+    const nextPosition = pendingPosition;
+    pendingPosition = null;
+    const nextSnapshotId = nextPosition?.snapshotId ?? null;
+    const nextScrollSnapshotId = nextPosition?.scrollSnapshotId ?? nextSnapshotId;
     if (nextSnapshotId == null) {
       removeActiveClass();
-      return;
+    } else if (nextSnapshotId !== activeSnapshotId) {
+      removeActiveClass();
+      const nextRow = resolveSnapshotRow?.(nextSnapshotId) ?? null;
+      if (nextRow) {
+        nextRow.classList?.add(TIMED_PLAYBACK_ROW_CLASS);
+        activeSnapshotId = nextSnapshotId;
+      }
     }
-    if (nextSnapshotId === activeSnapshotId) return;
 
-    removeActiveClass();
-    const nextRow = resolveSnapshotRow?.(nextSnapshotId) ?? null;
-    if (!nextRow) return;
-    nextRow.classList?.add(TIMED_PLAYBACK_ROW_CLASS);
-    activeSnapshotId = nextSnapshotId;
+    const scrollRow = nextScrollSnapshotId == null
+      ? null
+      : (resolveSnapshotRow?.(nextScrollSnapshotId) ?? null);
     const nowMs = now();
-    if (nowMs - lastScrollAtMs >= scrollIntervalMs) {
+    if (scrollRow && nowMs - lastScrollAtMs >= scrollIntervalMs) {
       lastScrollAtMs = nowMs;
-      scrollSnapshotRow?.(nextRow);
+      scrollSnapshotRow?.(scrollRow);
     }
+
+    presentActiveEvents(nextPosition?.soundingEventIds ?? []);
+    presentTransportPosition?.(nextPosition?.transport ?? null);
   };
 
   const clear = () => {
-    pendingSnapshotId = null;
+    pendingPosition = null;
     if (frameId != null) {
       cancelFrame(frameId);
       frameId = null;
     }
     removeActiveClass();
+    clearActiveEvents();
+    clearTransportPosition?.();
   };
 
   return {
-    enqueue(snapshotId) {
+    enqueue(position) {
       if (disposed) return;
-      pendingSnapshotId = snapshotId ?? null;
+      pendingPosition = position != null && typeof position === "object"
+        ? position
+        : { snapshotId: position ?? null };
       if (frameId != null) return;
       frameId = requestFrame(flush);
     },

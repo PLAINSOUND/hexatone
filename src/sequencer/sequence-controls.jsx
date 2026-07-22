@@ -507,6 +507,7 @@ const SequenceControls = ({
           <span class="sequencer-playback-key">BAR</span>
           <select
             class="sidebar-input sequencer-playback-select"
+            data-timed-transport-field="bar"
             value={playhead?.barIndex ?? 0}
             onChange={(e) => {
               stopTimedTransportBefore(() => {
@@ -540,6 +541,7 @@ const SequenceControls = ({
           <select
             class="sidebar-input sequencer-playback-select sequencer-playback-select--pending"
             aria-label="next snapshot target"
+            data-timed-transport-field="snapshot"
             value={snapshotSelectValue}
             onChange={(e) => {
               stopTimedTransportBefore(() => {
@@ -605,6 +607,7 @@ const SequenceControls = ({
           <select
             class="sidebar-input sequencer-playback-select sequencer-playback-select--pending"
             aria-label="next cue target"
+            data-timed-transport-field="cue"
             value={cueSelectValue}
             onChange={(e) => {
               stopTimedTransportBefore(() => {

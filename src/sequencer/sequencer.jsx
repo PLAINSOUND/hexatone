@@ -729,17 +729,60 @@ const Sequencer = ({
   });
 
   useEffect(() => {
+    const setTransportField = (field, value) => {
+      const select = playbackRowRef.current?.querySelector?.(
+        `[data-timed-transport-field="${field}"]`,
+      ) ?? null;
+      if (select && value != null) select.value = String(value);
+    };
     const presenter = createTimedPlaybackVisualPresenter({
       resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
+      resolveEventRow: (eventId) => eventRowRefs.current.get(eventId) ?? null,
       scrollSnapshotRow: scrollNodeIntoPanel,
+      presentTransportPosition: (position) => {
+        setTransportField("bar", position?.barIndex);
+        setTransportField("snapshot", position?.snapshotIndex);
+        setTransportField("cue", position?.cueIndex);
+      },
+      clearTransportPosition: () => {
+        setTransportField("bar", playhead?.barIndex ?? 0);
+        setTransportField("snapshot", snapshotSelectValue);
+        setTransportField("cue", cueSelectValue);
+      },
     });
     timedVisualPresenterRef.current = presenter;
-    timedVisualCueHandlerRef.current = (cueIndex) => {
+    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst) => {
       const cueGroup = sequenceCueGroups[cueIndex] ?? null;
+      const snapshotIndex = cueGroup?.snapshotIndex ?? null;
       const snapshotId = cueGroup == null
         ? null
-        : (snapshots[cueGroup.snapshotIndex]?.id ?? null);
-      presenter.enqueue(snapshotId);
+        : (snapshots[snapshotIndex]?.id ?? null);
+      const earliestSoundingSnapshotIndex = Array.isArray(burst?.soundingAfter)
+        ? burst.soundingAfter.reduce((earliest, note) => {
+          if (!Number.isFinite(note?.snapshotIndex)) return earliest;
+          const noteSnapshotIndex = Number(note.snapshotIndex);
+          return earliest == null ? noteSnapshotIndex : Math.min(earliest, noteSnapshotIndex);
+        }, null)
+        : null;
+      const scrollSnapshotIndex = Number.isFinite(earliestSoundingSnapshotIndex)
+        ? Math.min(snapshotIndex ?? earliestSoundingSnapshotIndex, earliestSoundingSnapshotIndex)
+        : snapshotIndex;
+      const sequenceTime = Number(burst?.sequenceTime ?? trigger?.sequenceTime);
+      const barBeat = Number.isFinite(sequenceTime)
+        ? absolutePositionToBarBeat(sequenceTime, sortedBars, 1, 9, terminalBarlinePosition)
+        : null;
+      presenter.enqueue({
+        snapshotId,
+        scrollSnapshotId: snapshots[scrollSnapshotIndex]?.id ?? snapshotId,
+        soundingEventIds: Array.isArray(burst?.soundingAfter)
+          ? burst.soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null)
+          : [],
+        transport: {
+          barIndex: Number.isFinite(barBeat?.barNumber) ? barBeat.barNumber - 1 : null,
+          snapshotIndex,
+          cueIndex,
+        },
+      });
     };
 
     return () => {
@@ -747,7 +790,19 @@ const Sequencer = ({
       timedVisualPresenterRef.current = null;
       presenter.dispose();
     };
-  }, [scrollNodeIntoPanel, sequenceCueGroups, snapshotRowRefs, snapshots]);
+  }, [
+    cueSelectValue,
+    eventRowRefs,
+    playbackRowRef,
+    playhead?.barIndex,
+    scrollNodeIntoPanel,
+    sequenceCueGroups,
+    snapshotRowRefs,
+    snapshotSelectValue,
+    snapshots,
+    sortedBars,
+    terminalBarlinePosition,
+  ]);
 
   useEffect(() => {
     if (timedTransportUiState.running) return;
