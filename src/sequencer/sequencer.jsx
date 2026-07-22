@@ -97,6 +97,7 @@ const Sequencer = ({
   onSequenceLegatoChange,
   onSequencePlaybackSpeedChange,
   onSequencePlaybackPitchOffsetChange,
+  onSequencePlaybackPitchOffsetPreview,
   onSequencePlayRepeatsChange,
   onSnapSequenceToCurrentTuningChange,
   onSequenceAutoCreateBarsChange,
@@ -647,6 +648,7 @@ const Sequencer = ({
     getTimedTransportDisplay,
     handleTimedTransportPlayPause,
     handleTimedTransportStop,
+    previewTimedTransportSpeed,
     recordTimedTransportDiagnostic,
   } = useTimedTransportController({
     timedPlaybackBursts,
@@ -1635,7 +1637,9 @@ const Sequencer = ({
           sequencePlaybackSpeed={sequencePlaybackSpeed}
           sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
           onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
+          onSequencePlaybackSpeedPreview={previewTimedTransportSpeed}
           onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
+          onSequencePlaybackPitchOffsetPreview={onSequencePlaybackPitchOffsetPreview}
           sequencePlayRepeats={sequencePlayRepeats}
           onSequencePlayRepeatsChange={onSequencePlayRepeatsChange}
           autoScrollEnabled={autoScrollEnabled}

@@ -313,7 +313,7 @@ describe("Sequencer", () => {
     expect(screen.getByDisplayValue("B")).not.toBeNull();
   });
 
-  it("offers a separate Add Tempo Target action in sequence controls", () => {
+  it("offers sequence structure and playback modifier controls", () => {
     render(
       <Sequencer
         snapshots={[]}
@@ -361,6 +361,8 @@ describe("Sequencer", () => {
     expect(screen.getByRole("button", { name: "Add Target Tempo" })).toBeTruthy();
     expect(screen.getByLabelText("sequence playback speed")).toBeTruthy();
     expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
+    expect(screen.getByRole("slider", { name: "sequence playback speed slider" })).toBeTruthy();
+    expect(screen.getByRole("slider", { name: "sequence playback pitch slider" })).toBeTruthy();
   });
 
   it("copies a snapshot range and inserts the copied block through the app callback", () => {

@@ -13,6 +13,8 @@ import {
   parseSequencePlaybackSpeedInput,
 } from "./playback-modifiers-runtime.js";
 
+const SPEED_DRAG_PREVIEW_INTERVAL_MS = 100;
+
 function speedToSliderExponent(value) {
   const speed = Math.min(2, Math.max(0.5, Number(value) || 1));
   return Math.log2(speed);
@@ -257,7 +259,9 @@ const SequenceControls = ({
   sequencePlaybackSpeed,
   sequencePlaybackPitchOffset,
   onSequencePlaybackSpeedChange,
+  onSequencePlaybackSpeedPreview,
   onSequencePlaybackPitchOffsetChange,
+  onSequencePlaybackPitchOffsetPreview,
   sequencePlayRepeats,
   onSequencePlayRepeatsChange,
   autoScrollEnabled,
@@ -726,7 +730,9 @@ const SequenceControls = ({
         sequencePlaybackSpeed={sequencePlaybackSpeed}
         sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
         onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
+        onSequencePlaybackSpeedPreview={onSequencePlaybackSpeedPreview}
         onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
+        onSequencePlaybackPitchOffsetPreview={onSequencePlaybackPitchOffsetPreview}
         timedTransportUiState={timedTransportUiState}
         getTimedTransportDisplay={getTimedTransportDisplay}
       />
@@ -739,7 +745,9 @@ function PlaybackModifiersRow({
   sequencePlaybackSpeed,
   sequencePlaybackPitchOffset,
   onSequencePlaybackSpeedChange,
+  onSequencePlaybackSpeedPreview,
   onSequencePlaybackPitchOffsetChange,
+  onSequencePlaybackPitchOffsetPreview,
   timedTransportUiState,
   getTimedTransportDisplay,
 }) {
@@ -748,8 +756,9 @@ function PlaybackModifiersRow({
   const [speedSliderValue, setSpeedSliderValue] = useState(() => speedToSliderExponent(sequencePlaybackSpeed ?? 1));
   const [pitchSliderValue, setPitchSliderValue] = useState(() => Number(sequencePlaybackPitchOffset ?? 0));
   const pitchFrameRef = useRef(null);
+  const lastSpeedPreviewTimeRef = useRef(-Infinity);
   const pendingPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
-  const lastSentPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
+  const lastPreviewedPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const committedPitchTextRef = useRef("");
   const [timedTransportDisplay, setTimedTransportDisplay] = useState(() => (
     getTimedTransportDisplay?.() ?? {
@@ -780,7 +789,7 @@ function PlaybackModifiersRow({
   }, [sequencePlaybackPitchOffset]);
 
   useEffect(() => {
-    lastSentPitchValueRef.current = Number(sequencePlaybackPitchOffset ?? 0);
+    lastPreviewedPitchValueRef.current = Number(sequencePlaybackPitchOffset ?? 0);
   }, [sequencePlaybackPitchOffset]);
 
   useEffect(() => () => {
@@ -807,10 +816,17 @@ function PlaybackModifiersRow({
     pitchFrameRef.current = window.requestAnimationFrame(() => {
       pitchFrameRef.current = null;
       const nextValue = pendingPitchValueRef.current;
-      if (Math.abs(nextValue - lastSentPitchValueRef.current) < 1e-9) return;
-      lastSentPitchValueRef.current = nextValue;
-      onSequencePlaybackPitchOffsetChange?.(nextValue);
+      if (Math.abs(nextValue - lastPreviewedPitchValueRef.current) < 1e-9) return;
+      lastPreviewedPitchValueRef.current = nextValue;
+      onSequencePlaybackPitchOffsetPreview?.(nextValue);
     });
+  };
+
+  const previewSpeedChange = (value) => {
+    const now = performance.now();
+    if (now - lastSpeedPreviewTimeRef.current < SPEED_DRAG_PREVIEW_INTERVAL_MS) return;
+    lastSpeedPreviewTimeRef.current = now;
+    onSequencePlaybackSpeedPreview?.(value);
   };
 
   const commitSpeedDraft = (value = speedDraft) => {
@@ -865,6 +881,7 @@ function PlaybackModifiersRow({
     const nextSpeed = sliderExponentToSpeed(clampedExponent);
     setSpeedSliderValue(clampedExponent);
     setSpeedDraft(formatSequencePlaybackSpeed(nextSpeed));
+    previewSpeedChange(nextSpeed);
   };
   const handlePitchSliderInput = (nextPitch) => {
     const clampedPitch = clamp(nextPitch, -1200, 1200);
@@ -881,7 +898,7 @@ function PlaybackModifiersRow({
   const resetPitch = () => {
     committedPitchTextRef.current = "";
     pendingPitchValueRef.current = 0;
-    lastSentPitchValueRef.current = 0;
+    lastPreviewedPitchValueRef.current = 0;
     setPitchSliderValue(0);
     setPitchDraft(formatSequencePlaybackPitchCents(0));
     onSequencePlaybackPitchOffsetChange?.(0);
@@ -972,7 +989,7 @@ function PlaybackModifiersRow({
             onCommitValue={(nextPitch) => {
               const nextValue = clamp(nextPitch, -1200, 1200);
               pendingPitchValueRef.current = nextValue;
-              lastSentPitchValueRef.current = nextValue;
+              lastPreviewedPitchValueRef.current = nextValue;
               onSequencePlaybackPitchOffsetChange?.(nextValue);
             }}
             formatAriaValue={(pitchValue) => formatSequencePlaybackPitchCourtesy(pitchValue)}

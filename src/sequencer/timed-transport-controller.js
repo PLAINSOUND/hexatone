@@ -431,8 +431,8 @@ export default function useTimedTransportController({
     timedTriggerToken,
   ]);
 
-  useEffect(() => {
-    const nextSpeedMultiplier = clampSequencePlaybackSpeed(sequencePlaybackSpeed);
+  const updateLiveTimedTransportSpeed = useCallback((value) => {
+    const nextSpeedMultiplier = clampSequencePlaybackSpeed(value);
     const previous = timedTransportStateRef.current;
     if (clampSequencePlaybackSpeed(previous?.speedMultiplier ?? 1) === nextSpeedMultiplier) return;
     const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
@@ -446,8 +446,11 @@ export default function useTimedTransportController({
   }, [
     armNextTimedCueDispatch,
     clearScheduledTimedCueCallbacks,
-    sequencePlaybackSpeed,
   ]);
+
+  useEffect(() => {
+    updateLiveTimedTransportSpeed(sequencePlaybackSpeed);
+  }, [sequencePlaybackSpeed, updateLiveTimedTransportSpeed]);
 
   const replayPausedTimedTransportCue = useCallback((state) => {
     const playbackIndex = Number(state?.lastDispatchedPlaybackIndex);
@@ -710,6 +713,7 @@ export default function useTimedTransportController({
     getTimedTransportDisplay,
     handleTimedTransportPlayPause,
     handleTimedTransportStop,
+    previewTimedTransportSpeed: updateLiveTimedTransportSpeed,
     recordTimedTransportDiagnostic,
   };
 }
