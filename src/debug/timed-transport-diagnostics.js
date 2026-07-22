@@ -40,6 +40,11 @@ function readTimedTransportDiagnosticsFlag() {
 }
 
 export const TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY = "hexatone_timed_transport_diagnostics";
+export const TIMED_TRANSPORT_DIAGNOSTICS_PERSIST_INTERVAL_MS = 2000;
+
+let bufferedDiagnosticsState = null;
+let bufferedDiagnosticsStorage = null;
+let pendingPersistenceTimer = null;
 
 export function isTimedTransportDiagnosticsEnabled() {
   return readTimedTransportDiagnosticsFlag();
@@ -137,7 +142,7 @@ export function summarizeTimedTransportDiagnostics(state) {
   };
 }
 
-export function persistTimedTransportDiagnostics(state, storage = globalThis?.sessionStorage) {
+function writeTimedTransportDiagnostics(state, storage) {
   if (!storage?.setItem) return;
   storage.setItem(
     TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY,
@@ -148,7 +153,54 @@ export function persistTimedTransportDiagnostics(state, storage = globalThis?.se
   );
 }
 
+function clearPendingTimedTransportPersistence() {
+  if (pendingPersistenceTimer != null && typeof globalThis.clearTimeout === "function") {
+    globalThis.clearTimeout(pendingPersistenceTimer);
+  }
+  pendingPersistenceTimer = null;
+}
+
+export function persistTimedTransportDiagnostics(state, storage = globalThis?.sessionStorage) {
+  if (bufferedDiagnosticsStorage === storage) {
+    clearPendingTimedTransportPersistence();
+    bufferedDiagnosticsState = null;
+    bufferedDiagnosticsStorage = null;
+  }
+  writeTimedTransportDiagnostics(state, storage);
+}
+
+export function flushPersistedTimedTransportDiagnostics() {
+  clearPendingTimedTransportPersistence();
+  const state = bufferedDiagnosticsState;
+  const storage = bufferedDiagnosticsStorage;
+  bufferedDiagnosticsState = null;
+  bufferedDiagnosticsStorage = null;
+  if (state && storage) writeTimedTransportDiagnostics(state, storage);
+  return state;
+}
+
+export function bufferTimedTransportDiagnostics(state, storage = globalThis?.sessionStorage) {
+  if (!storage?.setItem) return state;
+  if (bufferedDiagnosticsStorage && bufferedDiagnosticsStorage !== storage) {
+    flushPersistedTimedTransportDiagnostics();
+  }
+  bufferedDiagnosticsState = state;
+  bufferedDiagnosticsStorage = storage;
+  if (pendingPersistenceTimer == null && typeof globalThis.setTimeout === "function") {
+    pendingPersistenceTimer = globalThis.setTimeout(() => {
+      flushPersistedTimedTransportDiagnostics();
+    }, TIMED_TRANSPORT_DIAGNOSTICS_PERSIST_INTERVAL_MS);
+  }
+  return state;
+}
+
 export function loadPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
+  if (bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState) {
+    return {
+      state: bufferedDiagnosticsState,
+      summary: summarizeTimedTransportDiagnostics(bufferedDiagnosticsState),
+    };
+  }
   if (!storage?.getItem) return null;
   const raw = storage.getItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
   if (!raw) return null;
@@ -161,14 +213,21 @@ export function loadPersistedTimedTransportDiagnostics(storage = globalThis?.ses
 
 export function clearPersistedTimedTransportDiagnostics(storage = globalThis?.sessionStorage) {
   if (!storage?.removeItem) return;
+  if (bufferedDiagnosticsStorage === storage) {
+    clearPendingTimedTransportPersistence();
+    bufferedDiagnosticsState = null;
+    bufferedDiagnosticsStorage = null;
+  }
   storage.removeItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
 }
 
 export function appendPersistedTimedTransportDiagnostic(entry, storage = globalThis?.sessionStorage) {
   if (!isTimedTransportDiagnosticsEnabled()) return null;
-  const persisted = loadPersistedTimedTransportDiagnostics(storage);
-  const nextState = pushTimedTransportDiagnostic(persisted?.state, entry);
-  persistTimedTransportDiagnostics(nextState, storage);
+  const currentState = bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
+    ? bufferedDiagnosticsState
+    : loadPersistedTimedTransportDiagnostics(storage)?.state;
+  const nextState = pushTimedTransportDiagnostic(currentState, entry);
+  bufferTimedTransportDiagnostics(nextState, storage);
   return nextState;
 }
 
@@ -182,7 +241,10 @@ function installTimedTransportDiagnosticsGlobal() {
   globalThis.__hexatoneTimedTransportDiagnostics = {
     enabled: true,
     record: (entry) => appendPersistedTimedTransportDiagnostic(entry),
-    getPersisted: () => loadPersistedTimedTransportDiagnostics(),
+    getPersisted: () => {
+      flushPersistedTimedTransportDiagnostics();
+      return loadPersistedTimedTransportDiagnostics();
+    },
     reset: () => {
       clearPersistedTimedTransportDiagnostics();
       return null;
@@ -191,3 +253,7 @@ function installTimedTransportDiagnosticsGlobal() {
 }
 
 installTimedTransportDiagnosticsGlobal();
+
+if (isTimedTransportDiagnosticsEnabled() && typeof globalThis.addEventListener === "function") {
+  globalThis.addEventListener("pagehide", flushPersistedTimedTransportDiagnostics);
+}

@@ -747,11 +747,8 @@ function PlaybackModifiersRow({
   const [pitchDraft, setPitchDraft] = useState(() => formatSequencePlaybackPitchCents(sequencePlaybackPitchOffset ?? 0));
   const [speedSliderValue, setSpeedSliderValue] = useState(() => speedToSliderExponent(sequencePlaybackSpeed ?? 1));
   const [pitchSliderValue, setPitchSliderValue] = useState(() => Number(sequencePlaybackPitchOffset ?? 0));
-  const speedFrameRef = useRef(null);
   const pitchFrameRef = useRef(null);
-  const pendingSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
   const pendingPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
-  const lastSentSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
   const lastSentPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const committedPitchTextRef = useRef("");
   const [timedTransportDisplay, setTimedTransportDisplay] = useState(() => (
@@ -783,15 +780,10 @@ function PlaybackModifiersRow({
   }, [sequencePlaybackPitchOffset]);
 
   useEffect(() => {
-    lastSentSpeedValueRef.current = Number(sequencePlaybackSpeed ?? 1);
-  }, [sequencePlaybackSpeed]);
-
-  useEffect(() => {
     lastSentPitchValueRef.current = Number(sequencePlaybackPitchOffset ?? 0);
   }, [sequencePlaybackPitchOffset]);
 
   useEffect(() => () => {
-    if (speedFrameRef.current != null) window.cancelAnimationFrame(speedFrameRef.current);
     if (pitchFrameRef.current != null) window.cancelAnimationFrame(pitchFrameRef.current);
   }, []);
 
@@ -808,18 +800,6 @@ function PlaybackModifiersRow({
     const intervalId = window.setInterval(refreshDisplay, 250);
     return () => window.clearInterval(intervalId);
   }, [getTimedTransportDisplay, timedTransportUiState?.running]);
-
-  const scheduleSpeedChange = (value) => {
-    pendingSpeedValueRef.current = value;
-    if (speedFrameRef.current != null) return;
-    speedFrameRef.current = window.requestAnimationFrame(() => {
-      speedFrameRef.current = null;
-      const nextValue = pendingSpeedValueRef.current;
-      if (Math.abs(nextValue - lastSentSpeedValueRef.current) < 1e-9) return;
-      lastSentSpeedValueRef.current = nextValue;
-      onSequencePlaybackSpeedChange?.(nextValue);
-    });
-  };
 
   const schedulePitchChange = (value) => {
     pendingPitchValueRef.current = value;
@@ -885,7 +865,6 @@ function PlaybackModifiersRow({
     const nextSpeed = sliderExponentToSpeed(clampedExponent);
     setSpeedSliderValue(clampedExponent);
     setSpeedDraft(formatSequencePlaybackSpeed(nextSpeed));
-    scheduleSpeedChange(nextSpeed);
   };
   const handlePitchSliderInput = (nextPitch) => {
     const clampedPitch = clamp(nextPitch, -1200, 1200);
@@ -895,8 +874,6 @@ function PlaybackModifiersRow({
     schedulePitchChange(clampedPitch);
   };
   const resetSpeed = () => {
-    pendingSpeedValueRef.current = 1;
-    lastSentSpeedValueRef.current = 1;
     setSpeedSliderValue(0);
     setSpeedDraft(formatSequencePlaybackSpeed(1));
     onSequencePlaybackSpeedChange?.(1);
@@ -935,7 +912,7 @@ function PlaybackModifiersRow({
         </span>
         <span class="sequencer-playback-modifier__slider-row">
           <StickyPlaybackSlider
-            aria-label="sequence playback speed slider"
+            ariaLabel="sequence playback speed slider"
             min={-1}
             max={1}
             step={0.001}
@@ -945,8 +922,6 @@ function PlaybackModifiersRow({
             onInputValue={handleSpeedSliderInput}
             onCommitValue={(nextExponent) => {
               const nextValue = sliderExponentToSpeed(clamp(nextExponent, -1, 1));
-              pendingSpeedValueRef.current = nextValue;
-              lastSentSpeedValueRef.current = nextValue;
               onSequencePlaybackSpeedChange?.(nextValue);
             }}
             formatAriaValue={(exponentValue) => formatSequencePlaybackSpeed(sliderExponentToSpeed(exponentValue))}
@@ -986,7 +961,7 @@ function PlaybackModifiersRow({
         </span>
         <span class="sequencer-playback-modifier__slider-row">
           <StickyPlaybackSlider
-            aria-label="sequence playback pitch slider"
+            ariaLabel="sequence playback pitch slider"
             min={-1200}
             max={1200}
             step={1}

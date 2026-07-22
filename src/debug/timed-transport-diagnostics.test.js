@@ -1,13 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  bufferTimedTransportDiagnostics,
   createTimedTransportDiagnostics,
+  flushPersistedTimedTransportDiagnostics,
   loadPersistedTimedTransportDiagnostics,
   persistTimedTransportDiagnostics,
   pushTimedTransportDiagnostic,
   resetTimedTransportDiagnostics,
   summarizeTimedTransportDiagnostics,
 } from "./timed-transport-diagnostics.js";
+
+afterEach(() => {
+  flushPersistedTimedTransportDiagnostics();
+  vi.useRealTimers();
+});
 
 describe("timed transport diagnostics", () => {
   it("keeps a bounded ring buffer of entries", () => {
@@ -126,5 +133,34 @@ describe("timed transport diagnostics", () => {
         recent: diagnostics.entries,
       },
     });
+  });
+
+  it("batches hot-path persistence and writes only the latest state", () => {
+    vi.useFakeTimers();
+    const storage = {
+      values: new Map(),
+      writes: 0,
+      getItem(key) {
+        return this.values.has(key) ? this.values.get(key) : null;
+      },
+      setItem(key, value) {
+        this.writes += 1;
+        this.values.set(key, value);
+      },
+    };
+    let diagnostics = pushTimedTransportDiagnostic(
+      createTimedTransportDiagnostics(10),
+      { type: "schedule", cueIndex: 1 },
+    );
+    bufferTimedTransportDiagnostics(diagnostics, storage);
+    diagnostics = pushTimedTransportDiagnostic(diagnostics, { type: "fire", cueIndex: 2 });
+    bufferTimedTransportDiagnostics(diagnostics, storage);
+
+    expect(storage.writes).toBe(0);
+    vi.advanceTimersByTime(1999);
+    expect(storage.writes).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(storage.writes).toBe(1);
+    expect(loadPersistedTimedTransportDiagnostics(storage)?.state).toEqual(diagnostics);
   });
 });

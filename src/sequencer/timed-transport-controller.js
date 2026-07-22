@@ -9,7 +9,9 @@ import {
 } from "../debug/sequence-runtime-diagnostics.js";
 import { barContextForPosition } from "./transport.js";
 import {
+  bufferTimedTransportDiagnostics,
   createTimedTransportDiagnostics,
+  flushPersistedTimedTransportDiagnostics,
   isTimedTransportDiagnosticsEnabled,
   loadPersistedTimedTransportDiagnostics,
   persistTimedTransportDiagnostics,
@@ -102,7 +104,7 @@ export default function useTimedTransportController({
   useEffect(() => {
     setTimedTransportState((previous) => {
       const freshState = createTimedTransportState(timedPlaybackBursts, {
-        speedMultiplier: previous?.speedMultiplier ?? sequencePlaybackSpeed,
+        speedMultiplier: sequencePlaybackSpeed,
       });
       if (
         previous?.status !== "running"
@@ -144,7 +146,7 @@ export default function useTimedTransportController({
       timedTransportDiagnosticsRef.current,
       entry,
     );
-    persistTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
+    bufferTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
   }, []);
 
   const recordSequenceRuntimeDiagnostic = useCallback((entry) => {
@@ -303,7 +305,7 @@ export default function useTimedTransportController({
     const burst = timedPlaybackBurstsRef.current[playbackIndex] ?? null;
     if (!burst) {
       const stoppedState = stopTimedTransport(timedPlaybackBurstsRef.current, {
-        speedMultiplier: timedTransportStateRef.current?.speedMultiplier ?? sequencePlaybackSpeed,
+        speedMultiplier: sequencePlaybackSpeed,
       });
       timedTransportStateRef.current = stoppedState;
       setTimedTransportState(stoppedState);
@@ -416,7 +418,7 @@ export default function useTimedTransportController({
       ...extra,
     });
     const stoppedState = stopTimedTransport(timedPlaybackBurstsRef.current, {
-      speedMultiplier: timedTransportStateRef.current?.speedMultiplier ?? sequencePlaybackSpeed,
+      speedMultiplier: sequencePlaybackSpeed,
     });
     timedTransportStateRef.current = stoppedState;
     setTimedTransportState(stoppedState);
@@ -618,7 +620,7 @@ export default function useTimedTransportController({
       status: timedTransportStateRef.current.status,
     });
     const stoppedState = stopTimedTransport(timedPlaybackBursts, {
-      speedMultiplier: timedTransportStateRef.current?.speedMultiplier ?? sequencePlaybackSpeed,
+      speedMultiplier: sequencePlaybackSpeed,
     });
     timedTransportStateRef.current = stoppedState;
     setTimedTransportState(stoppedState);
@@ -641,7 +643,10 @@ export default function useTimedTransportController({
     const api = {
       enabled: true,
       get: () => summarizeTimedTransportDiagnostics(timedTransportDiagnosticsRef.current),
-      getPersisted: () => loadPersistedTimedTransportDiagnostics(),
+      getPersisted: () => {
+        flushPersistedTimedTransportDiagnostics();
+        return loadPersistedTimedTransportDiagnostics();
+      },
       reset: () => {
         timedTransportDiagnosticsRef.current = resetTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);
         persistTimedTransportDiagnostics(timedTransportDiagnosticsRef.current);

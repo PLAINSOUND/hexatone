@@ -147,6 +147,27 @@ describe("structure editing", () => {
     })]);
   });
 
+  it("materializes the implicit opening tempo when it is edited", () => {
+    const result = updateSequenceTempoMarker({
+      tempi: [{ id: 4, position: 3, bpm: 72, beatNumerator: 1, beatDenominator: 8 }],
+      tempoId: "tempo:default",
+      updates: { bpm: 90, beatNumerator: 3, beatDenominator: 8 },
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 5,
+        position: 1,
+        bpm: 90,
+        beatNumerator: 3,
+        beatDenominator: 8,
+        beatLength: 1.5,
+        mode: "immediate",
+      }),
+      expect.objectContaining({ id: 4, position: 3, bpm: 72 }),
+    ]);
+  });
+
   it("adds an end repeat with its implicit start marker", () => {
     const result = addSequenceRepeatMarker({
       repeats: [],

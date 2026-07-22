@@ -337,7 +337,27 @@ export function updateSequenceTempoMarker({
   tempoId,
   updates = {},
 } = {}) {
-  return (tempi ?? []).map((tempo) => (
+  const source = Array.isArray(tempi) ? tempi : [];
+  const hasMatchingTempo = source.some((tempo) => tempo.id === tempoId);
+  if (!hasMatchingTempo && tempoId === "tempo:default") {
+    const id = source.reduce(
+      (max, tempo) => Math.max(max, Number(tempo?.id) || 0),
+      0,
+    ) + 1;
+    const materializedDefault = normalizeTempoMarkers([{
+      id,
+      position: 1,
+      bpm: 60,
+      beatNumerator: 1,
+      beatDenominator: 4,
+      beatLength: 1,
+      mode: "immediate",
+      ...updates,
+    }], { includeDefault: false })[0];
+    return [materializedDefault, ...source];
+  }
+
+  return source.map((tempo) => (
     tempo.id === tempoId
       ? normalizeTempoMarkers([{ ...tempo, ...updates }], { includeDefault: false })[0]
       : tempo

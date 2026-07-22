@@ -97,8 +97,10 @@ globalThis.__hexatoneTimedTransportDiagnostics?.reset()
 Notes:
 
 - `get()` returns the in-memory summary for the current page session.
-- `getPersisted()` returns the persisted session snapshot.
+- `getPersisted()` flushes pending buffered entries and returns the persisted session snapshot.
 - `reset()` clears the current diagnostics buffer and persisted copy.
+- Hot-path entries are buffered and written to `sessionStorage` at most once every two seconds.
+- Pending entries are also flushed on `pagehide`; a renderer crash may lose at most the newest two-second window.
 - When disabled, the persisted snapshot and console global are removed.
 
 ## 3. MIDI Restore Diagnostics
@@ -272,4 +274,6 @@ Notes:
 
 - This is aimed at sequencer timing edits, especially Bar/Beat/Num/Den commits.
 - For note events it records the committed draft fields plus resolved absolute time.
+- Entries are buffered and persisted at most once every two seconds, and empty context fields are omitted.
+- Uncaught errors and unhandled rejections bypass the buffer and persist immediately.
 - If an uncaught runtime error or rejection happens after that, the persisted log should show both the last commit context and the exception details.

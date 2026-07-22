@@ -25,8 +25,12 @@ function readSequencerCrashDiagnosticsFlag() {
 }
 
 export const SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY = "hexatone_sequencer_crash_diagnostics";
+export const SEQUENCER_CRASH_DIAGNOSTICS_PERSIST_INTERVAL_MS = 2000;
 let cachedPersistedSequencerCrashDiagnostics = null;
 let hasLoadedPersistedSequencerCrashDiagnostics = false;
+let bufferedDiagnosticsState = null;
+let bufferedDiagnosticsStorage = null;
+let pendingPersistenceTimer = null;
 
 export function isSequencerCrashDiagnosticsEnabled() {
   return readSequencerCrashDiagnosticsFlag();
@@ -50,7 +54,7 @@ export function resetSequencerCrashDiagnostics(state, limit = null) {
 
 function normalizeContext(context) {
   if (!context || typeof context !== "object") return null;
-  return {
+  const normalized = {
     source: context.source == null ? null : String(context.source),
     snapshotId: context.snapshotId == null ? null : String(context.snapshotId),
     selectedSnapshotId: context.selectedSnapshotId == null ? null : String(context.selectedSnapshotId),
@@ -107,6 +111,9 @@ function normalizeContext(context) {
     derivedDenominator: Number.isFinite(Number(context.derivedDenominator)) ? Number(context.derivedDenominator) : null,
     timestamp: context.timestamp == null ? null : String(context.timestamp),
   };
+  return Object.fromEntries(
+    Object.entries(normalized).filter(([, value]) => value !== null && value !== false),
+  );
 }
 
 function serializeError(error) {
@@ -140,7 +147,7 @@ export function pushSequencerCrashDiagnostic(state, entry = {}) {
   };
 }
 
-export function persistSequencerCrashDiagnostics(state, storage = globalThis?.sessionStorage) {
+function writeSequencerCrashDiagnostics(state, storage) {
   if (!storage?.setItem) return;
   const persisted = { state };
   cachedPersistedSequencerCrashDiagnostics = persisted;
@@ -148,7 +155,51 @@ export function persistSequencerCrashDiagnostics(state, storage = globalThis?.se
   storage.setItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY, JSON.stringify(persisted));
 }
 
+function clearPendingSequencerCrashPersistence() {
+  if (pendingPersistenceTimer != null && typeof globalThis.clearTimeout === "function") {
+    globalThis.clearTimeout(pendingPersistenceTimer);
+  }
+  pendingPersistenceTimer = null;
+}
+
+export function persistSequencerCrashDiagnostics(state, storage = globalThis?.sessionStorage) {
+  if (bufferedDiagnosticsStorage === storage) {
+    clearPendingSequencerCrashPersistence();
+    bufferedDiagnosticsState = null;
+    bufferedDiagnosticsStorage = null;
+  }
+  writeSequencerCrashDiagnostics(state, storage);
+}
+
+export function flushPersistedSequencerCrashDiagnostics() {
+  clearPendingSequencerCrashPersistence();
+  const state = bufferedDiagnosticsState;
+  const storage = bufferedDiagnosticsStorage;
+  bufferedDiagnosticsState = null;
+  bufferedDiagnosticsStorage = null;
+  if (state && storage) writeSequencerCrashDiagnostics(state, storage);
+  return state;
+}
+
+export function bufferSequencerCrashDiagnostics(state, storage = globalThis?.sessionStorage) {
+  if (!storage?.setItem) return state;
+  if (bufferedDiagnosticsStorage && bufferedDiagnosticsStorage !== storage) {
+    flushPersistedSequencerCrashDiagnostics();
+  }
+  bufferedDiagnosticsState = state;
+  bufferedDiagnosticsStorage = storage;
+  if (pendingPersistenceTimer == null && typeof globalThis.setTimeout === "function") {
+    pendingPersistenceTimer = globalThis.setTimeout(() => {
+      flushPersistedSequencerCrashDiagnostics();
+    }, SEQUENCER_CRASH_DIAGNOSTICS_PERSIST_INTERVAL_MS);
+  }
+  return state;
+}
+
 export function loadPersistedSequencerCrashDiagnostics(storage = globalThis?.sessionStorage) {
+  if (bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState) {
+    return { state: bufferedDiagnosticsState };
+  }
   if (hasLoadedPersistedSequencerCrashDiagnostics) return cachedPersistedSequencerCrashDiagnostics;
   if (!storage?.getItem) return null;
   const raw = storage.getItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY);
@@ -170,16 +221,31 @@ export function loadPersistedSequencerCrashDiagnostics(storage = globalThis?.ses
 
 export function clearPersistedSequencerCrashDiagnostics(storage = globalThis?.sessionStorage) {
   if (!storage?.removeItem) return;
+  if (bufferedDiagnosticsStorage === storage) {
+    clearPendingSequencerCrashPersistence();
+    bufferedDiagnosticsState = null;
+    bufferedDiagnosticsStorage = null;
+  }
   cachedPersistedSequencerCrashDiagnostics = null;
   hasLoadedPersistedSequencerCrashDiagnostics = true;
   storage.removeItem(SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY);
 }
 
-export function appendPersistedSequencerCrashDiagnostic(entry, storage = globalThis?.sessionStorage) {
+export function appendPersistedSequencerCrashDiagnostic(
+  entry,
+  storage = globalThis?.sessionStorage,
+  { immediate = false } = {},
+) {
   if (!isSequencerCrashDiagnosticsEnabled()) return null;
-  const persisted = loadPersistedSequencerCrashDiagnostics(storage);
-  const nextState = pushSequencerCrashDiagnostic(persisted?.state, entry);
-  persistSequencerCrashDiagnostics(nextState, storage);
+  const currentState = bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
+    ? bufferedDiagnosticsState
+    : loadPersistedSequencerCrashDiagnostics(storage)?.state;
+  const nextState = pushSequencerCrashDiagnostic(currentState, entry);
+  if (immediate) {
+    persistSequencerCrashDiagnostics(nextState, storage);
+  } else {
+    bufferSequencerCrashDiagnostics(nextState, storage);
+  }
   return nextState;
 }
 
@@ -208,14 +274,14 @@ function installSequencerCrashDiagnosticsGlobal() {
         type: "error",
         detail: event?.message ?? "uncaught error",
         error: event?.error ?? { message: event?.message, stack: null },
-      });
+      }, globalThis.sessionStorage, { immediate: true });
     };
     rejectionListener = (event) => {
       appendPersistedSequencerCrashDiagnostic({
         type: "unhandledrejection",
         detail: "unhandled rejection",
         error: event?.reason,
-      });
+      }, globalThis.sessionStorage, { immediate: true });
     };
     globalThis.addEventListener("error", errorListener);
     globalThis.addEventListener("unhandledrejection", rejectionListener);
@@ -225,7 +291,10 @@ function installSequencerCrashDiagnosticsGlobal() {
   globalThis.__hexatoneSequencerCrashDiagnostics = {
     enabled: true,
     record: (entry) => appendPersistedSequencerCrashDiagnostic(entry),
-    getPersisted: () => loadPersistedSequencerCrashDiagnostics(),
+    getPersisted: () => {
+      flushPersistedSequencerCrashDiagnostics();
+      return loadPersistedSequencerCrashDiagnostics();
+    },
     reset: () => {
       clearPersistedSequencerCrashDiagnostics();
       return null;
@@ -234,3 +303,7 @@ function installSequencerCrashDiagnosticsGlobal() {
 }
 
 installSequencerCrashDiagnosticsGlobal();
+
+if (isSequencerCrashDiagnosticsEnabled() && typeof globalThis.addEventListener === "function") {
+  globalThis.addEventListener("pagehide", flushPersistedSequencerCrashDiagnostics);
+}
