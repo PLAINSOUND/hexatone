@@ -57,24 +57,18 @@ export default function useSequencerAutoscroll({
   const lastScrollInputAtRef = useRef(0);
   const awaitingScrollResponseRef = useRef(false);
   const lastObservedScrollTopRef = useRef(0);
+  const pendingAutoScrollFrameRef = useRef(null);
 
   const scrollNodeIntoPanel = useCallback((targetNode) => {
     if (!autoScrollEnabled) return;
     const scrollPanel = scrollPanelRef.current;
     if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
 
-    appendPersistedSequencerCrashDiagnostic({
-      type: "sequencer-autoscroll-requested",
-      detail: "Requested sequencer autoscroll target",
-      context: {
-        source: "sequencer",
-        autoScrollEnabled,
-        scrollTop: scrollPanel.scrollTop,
-        targetTop: targetNode.getBoundingClientRect?.().top ?? null,
-      },
-    });
-
-    window.requestAnimationFrame(() => {
+    if (pendingAutoScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
+    }
+    pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+      pendingAutoScrollFrameRef.current = null;
       const scrollStartMs = performance.now();
       const panelRect = scrollPanel.getBoundingClientRect();
       const playbackRect = playbackRowRef.current instanceof HTMLElement
@@ -91,6 +85,16 @@ export default function useSequencerAutoscroll({
         - gap;
       const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
       const nextTop = Math.max(0, Math.min(maxTop, targetTop));
+      appendPersistedSequencerCrashDiagnostic({
+        type: "sequencer-autoscroll-requested",
+        detail: "Requested sequencer autoscroll target",
+        context: {
+          source: "sequencer",
+          autoScrollEnabled,
+          scrollTop: scrollPanel.scrollTop,
+          targetTop: nextTop,
+        },
+      });
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
       scrollPanel.scrollTop = nextTop;
       appendPersistedSequencerCrashDiagnostic({
@@ -114,6 +118,13 @@ export default function useSequencerAutoscroll({
       }
     });
   }, [autoScrollEnabled, recordTimedTransportDiagnostic]);
+
+  useEffect(() => () => {
+    if (pendingAutoScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
+      pendingAutoScrollFrameRef.current = null;
+    }
+  }, []);
 
   const armPendingSnapshot = useCallback((snapshotIndex) => {
     transportScrollTargetRef.current = "snapshot";
