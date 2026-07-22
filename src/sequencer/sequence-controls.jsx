@@ -13,8 +13,6 @@ import {
   parseSequencePlaybackSpeedInput,
 } from "./playback-modifiers-runtime.js";
 
-const SPEED_DRAG_PREVIEW_INTERVAL_MS = 100;
-
 function speedToSliderExponent(value) {
   const speed = Math.min(2, Math.max(0.5, Number(value) || 1));
   return Math.log2(speed);
@@ -755,8 +753,10 @@ function PlaybackModifiersRow({
   const [pitchDraft, setPitchDraft] = useState(() => formatSequencePlaybackPitchCents(sequencePlaybackPitchOffset ?? 0));
   const [speedSliderValue, setSpeedSliderValue] = useState(() => speedToSliderExponent(sequencePlaybackSpeed ?? 1));
   const [pitchSliderValue, setPitchSliderValue] = useState(() => Number(sequencePlaybackPitchOffset ?? 0));
+  const speedFrameRef = useRef(null);
   const pitchFrameRef = useRef(null);
-  const lastSpeedPreviewTimeRef = useRef(-Infinity);
+  const pendingSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
+  const lastPreviewedSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
   const pendingPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const lastPreviewedPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const committedPitchTextRef = useRef("");
@@ -771,6 +771,8 @@ function PlaybackModifiersRow({
   useEffect(() => {
     setSpeedDraft(formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1));
     setSpeedSliderValue(speedToSliderExponent(sequencePlaybackSpeed ?? 1));
+    pendingSpeedValueRef.current = Number(sequencePlaybackSpeed ?? 1);
+    lastPreviewedSpeedValueRef.current = Number(sequencePlaybackSpeed ?? 1);
   }, [sequencePlaybackSpeed]);
 
   useEffect(() => {
@@ -793,6 +795,7 @@ function PlaybackModifiersRow({
   }, [sequencePlaybackPitchOffset]);
 
   useEffect(() => () => {
+    if (speedFrameRef.current != null) window.cancelAnimationFrame(speedFrameRef.current);
     if (pitchFrameRef.current != null) window.cancelAnimationFrame(pitchFrameRef.current);
   }, []);
 
@@ -822,11 +825,16 @@ function PlaybackModifiersRow({
     });
   };
 
-  const previewSpeedChange = (value) => {
-    const now = performance.now();
-    if (now - lastSpeedPreviewTimeRef.current < SPEED_DRAG_PREVIEW_INTERVAL_MS) return;
-    lastSpeedPreviewTimeRef.current = now;
-    onSequencePlaybackSpeedPreview?.(value);
+  const scheduleSpeedChange = (value) => {
+    pendingSpeedValueRef.current = value;
+    if (speedFrameRef.current != null) return;
+    speedFrameRef.current = window.requestAnimationFrame(() => {
+      speedFrameRef.current = null;
+      const nextValue = pendingSpeedValueRef.current;
+      if (Math.abs(nextValue - lastPreviewedSpeedValueRef.current) < 1e-9) return;
+      lastPreviewedSpeedValueRef.current = nextValue;
+      onSequencePlaybackSpeedPreview?.(nextValue);
+    });
   };
 
   const commitSpeedDraft = (value = speedDraft) => {
@@ -881,7 +889,7 @@ function PlaybackModifiersRow({
     const nextSpeed = sliderExponentToSpeed(clampedExponent);
     setSpeedSliderValue(clampedExponent);
     setSpeedDraft(formatSequencePlaybackSpeed(nextSpeed));
-    previewSpeedChange(nextSpeed);
+    scheduleSpeedChange(nextSpeed);
   };
   const handlePitchSliderInput = (nextPitch) => {
     const clampedPitch = clamp(nextPitch, -1200, 1200);
@@ -939,6 +947,15 @@ function PlaybackModifiersRow({
             onInputValue={handleSpeedSliderInput}
             onCommitValue={(nextExponent) => {
               const nextValue = sliderExponentToSpeed(clamp(nextExponent, -1, 1));
+              if (speedFrameRef.current != null) {
+                window.cancelAnimationFrame(speedFrameRef.current);
+                speedFrameRef.current = null;
+              }
+              pendingSpeedValueRef.current = nextValue;
+              if (Math.abs(nextValue - lastPreviewedSpeedValueRef.current) >= 1e-9) {
+                lastPreviewedSpeedValueRef.current = nextValue;
+                onSequencePlaybackSpeedPreview?.(nextValue);
+              }
               onSequencePlaybackSpeedChange?.(nextValue);
             }}
             formatAriaValue={(exponentValue) => formatSequencePlaybackSpeed(sliderExponentToSpeed(exponentValue))}

@@ -431,14 +431,20 @@ export default function useTimedTransportController({
     timedTriggerToken,
   ]);
 
-  const updateLiveTimedTransportSpeed = useCallback((value) => {
+  const updateLiveTimedTransportSpeed = useCallback((value, { publish = false } = {}) => {
     const nextSpeedMultiplier = clampSequencePlaybackSpeed(value);
     const previous = timedTransportStateRef.current;
-    if (clampSequencePlaybackSpeed(previous?.speedMultiplier ?? 1) === nextSpeedMultiplier) return;
+    if (clampSequencePlaybackSpeed(previous?.speedMultiplier ?? 1) === nextSpeedMultiplier) {
+      if (publish) setTimedTransportState(previous);
+      return;
+    }
     const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
     const nextState = updateTimedTransportSpeed(previous, nowSeconds, nextSpeedMultiplier);
     timedTransportStateRef.current = nextState;
-    setTimedTransportState(nextState);
+    // Drag previews live entirely in the scheduler ref. Publishing each
+    // preview through hook state rerenders the full sequencer and forces the
+    // large event list to reconcile before the next cue can be scheduled.
+    if (publish) setTimedTransportState(nextState);
     if (nextState?.status === "running") {
       clearScheduledTimedCueCallbacks();
       armNextTimedCueDispatch();
@@ -449,8 +455,12 @@ export default function useTimedTransportController({
   ]);
 
   useEffect(() => {
-    updateLiveTimedTransportSpeed(sequencePlaybackSpeed);
+    updateLiveTimedTransportSpeed(sequencePlaybackSpeed, { publish: true });
   }, [sequencePlaybackSpeed, updateLiveTimedTransportSpeed]);
+
+  const previewTimedTransportSpeed = useCallback((value) => {
+    updateLiveTimedTransportSpeed(value);
+  }, [updateLiveTimedTransportSpeed]);
 
   const replayPausedTimedTransportCue = useCallback((state) => {
     const playbackIndex = Number(state?.lastDispatchedPlaybackIndex);
@@ -713,7 +723,7 @@ export default function useTimedTransportController({
     getTimedTransportDisplay,
     handleTimedTransportPlayPause,
     handleTimedTransportStop,
-    previewTimedTransportSpeed: updateLiveTimedTransportSpeed,
+    previewTimedTransportSpeed,
     recordTimedTransportDiagnostic,
   };
 }
