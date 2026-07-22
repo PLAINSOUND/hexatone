@@ -37,6 +37,23 @@ const EMPTY_UI_SUMMARY = {
 };
 
 describe("timed transport diagnostics", () => {
+  it("preserves absent row metrics as null instead of coercing them to zero", () => {
+    const diagnostics = pushTimedTransportDiagnostic(createTimedTransportDiagnostics(), {
+      type: "ui-frame-sample",
+      visibleRowCount: null,
+      mountedNodeCount: null,
+    });
+
+    expect(diagnostics.entries[0]).toMatchObject({
+      visibleRowCount: null,
+      mountedNodeCount: null,
+    });
+    expect(summarizeTimedTransportDiagnostics(diagnostics).ui).toMatchObject({
+      maxVisibleRowCount: null,
+      maxMountedNodeCount: null,
+    });
+  });
+
   it("keeps a bounded ring buffer of entries", () => {
     let diagnostics = createTimedTransportDiagnostics(2);
     diagnostics = pushTimedTransportDiagnostic(diagnostics, { type: "schedule", cueIndex: 1 });

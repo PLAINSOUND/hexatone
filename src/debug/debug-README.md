@@ -103,8 +103,9 @@ Notes:
   sample sequencer commit latency, frame intervals, mounted row counts, scroll
   position, and the cost of taking the measurement.
 - Live sampling does not traverse the DOM or read row geometry. Consequently,
-  `visibleRowCount` and `mountedNodeCount` remain null until viewport rendering
-  can provide those values directly without forcing layout.
+  `visibleRowCount` and `mountedNodeCount` remain null because exact live DOM
+  visibility/node traversal is deliberately disabled; absent values are kept as
+  null rather than coerced to zero.
 - `runtime-rebuild` entries identify playback runtime-instance changes that
   occur while the transport is running. The summary exposes these under
   `ui` and `runtimeRebuildCount` in the same TimedTransport report.

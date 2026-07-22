@@ -11,6 +11,12 @@ function roundMetric(value, digits = 3) {
   return Math.round(numeric * scale) / scale;
 }
 
+function nullableNumber(value) {
+  if (value == null) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function mean(values = []) {
   if (!Array.isArray(values) || values.length === 0) return null;
   const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
@@ -72,30 +78,30 @@ export function pushTimedTransportDiagnostic(state, entry = {}) {
     type: String(entry.type || "event"),
     clockSeconds: roundMetric(entry.clockSeconds, 6),
     elapsedSeconds: roundMetric(entry.elapsedSeconds, 6),
-    cueIndex: Number.isFinite(Number(entry.cueIndex)) ? Number(entry.cueIndex) : null,
-    playbackIndex: Number.isFinite(Number(entry.playbackIndex)) ? Number(entry.playbackIndex) : null,
+    cueIndex: nullableNumber(entry.cueIndex),
+    playbackIndex: nullableNumber(entry.playbackIndex),
     scheduledDelayMs: roundMetric(entry.scheduledDelayMs),
     latenessMs: roundMetric(entry.latenessMs),
     durationMs: roundMetric(entry.durationMs),
     commitDurationMs: roundMetric(entry.commitDurationMs),
     frameIntervalMs: roundMetric(entry.frameIntervalMs),
     measurementDurationMs: roundMetric(entry.measurementDurationMs),
-    queueDepth: Number.isFinite(Number(entry.queueDepth)) ? Number(entry.queueDepth) : null,
-    timeoutCount: Number.isFinite(Number(entry.timeoutCount)) ? Number(entry.timeoutCount) : null,
-    activeNotes: Number.isFinite(Number(entry.activeNotes)) ? Number(entry.activeNotes) : null,
-    noteCount: Number.isFinite(Number(entry.noteCount)) ? Number(entry.noteCount) : null,
-    nextPlaybackIndex: Number.isFinite(Number(entry.nextPlaybackIndex)) ? Number(entry.nextPlaybackIndex) : null,
-    snapshotCount: Number.isFinite(Number(entry.snapshotCount)) ? Number(entry.snapshotCount) : null,
-    eventCount: Number.isFinite(Number(entry.eventCount)) ? Number(entry.eventCount) : null,
-    cueCount: Number.isFinite(Number(entry.cueCount)) ? Number(entry.cueCount) : null,
-    snapshotRowCount: Number.isFinite(Number(entry.snapshotRowCount)) ? Number(entry.snapshotRowCount) : null,
-    eventRowCount: Number.isFinite(Number(entry.eventRowCount)) ? Number(entry.eventRowCount) : null,
-    structuralRowCount: Number.isFinite(Number(entry.structuralRowCount)) ? Number(entry.structuralRowCount) : null,
-    rowCount: Number.isFinite(Number(entry.rowCount)) ? Number(entry.rowCount) : null,
-    visibleRowCount: Number.isFinite(Number(entry.visibleRowCount)) ? Number(entry.visibleRowCount) : null,
-    mountedNodeCount: Number.isFinite(Number(entry.mountedNodeCount)) ? Number(entry.mountedNodeCount) : null,
+    queueDepth: nullableNumber(entry.queueDepth),
+    timeoutCount: nullableNumber(entry.timeoutCount),
+    activeNotes: nullableNumber(entry.activeNotes),
+    noteCount: nullableNumber(entry.noteCount),
+    nextPlaybackIndex: nullableNumber(entry.nextPlaybackIndex),
+    snapshotCount: nullableNumber(entry.snapshotCount),
+    eventCount: nullableNumber(entry.eventCount),
+    cueCount: nullableNumber(entry.cueCount),
+    snapshotRowCount: nullableNumber(entry.snapshotRowCount),
+    eventRowCount: nullableNumber(entry.eventRowCount),
+    structuralRowCount: nullableNumber(entry.structuralRowCount),
+    rowCount: nullableNumber(entry.rowCount),
+    visibleRowCount: nullableNumber(entry.visibleRowCount),
+    mountedNodeCount: nullableNumber(entry.mountedNodeCount),
     scrollTop: roundMetric(entry.scrollTop),
-    runtimeInstanceId: Number.isFinite(Number(entry.runtimeInstanceId)) ? Number(entry.runtimeInstanceId) : null,
+    runtimeInstanceId: nullableNumber(entry.runtimeInstanceId),
     status: entry.status == null ? null : String(entry.status),
     detail: entry.detail == null ? null : String(entry.detail),
   };

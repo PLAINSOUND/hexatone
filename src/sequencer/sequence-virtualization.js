@@ -1,0 +1,202 @@
+// Viewport virtualization for the sequencer list. Snapshot groups remain the
+// unit of rendering so their nested event rows, structural markers, and drag
+// interactions keep their existing component ownership.
+
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+
+export const SEQUENCE_VIRTUALIZATION_MIN_ITEMS = 40;
+export const SEQUENCE_VIRTUALIZATION_OVERSCAN_PX = 900;
+
+export function estimateSequenceGroupHeight({ eventCount = 0, structuralCount = 0, expanded = false } = {}) {
+  const snapshotRowHeight = 30;
+  const eventHeaderHeight = expanded ? 27 : 0;
+  const eventRowsHeight = expanded ? Math.max(0, Number(eventCount) || 0) * 25 : 0;
+  const structuralRowsHeight = Math.max(0, Number(structuralCount) || 0) * 30;
+  return snapshotRowHeight + eventHeaderHeight + eventRowsHeight + structuralRowsHeight;
+}
+
+export function buildVirtualSequenceLayout({
+  items = [],
+  measuredSizes = new Map(),
+  scrollTop = 0,
+  viewportHeight = 0,
+  overscan = SEQUENCE_VIRTUALIZATION_OVERSCAN_PX,
+  pinnedIndexes = [],
+  enabled = true,
+} = {}) {
+  const sizes = items.map((item) => (
+    measuredSizes.get(item.key) ?? Math.max(1, Number(item.estimatedSize) || 1)
+  ));
+  const offsets = [0];
+  sizes.forEach((size) => offsets.push(offsets[offsets.length - 1] + size));
+  const totalSize = offsets[offsets.length - 1] ?? 0;
+
+  if (!enabled || items.length === 0) {
+    return {
+      rows: items.map((item, index) => ({ type: "item", key: item.key, item, index })),
+      offsets,
+      sizes,
+      totalSize,
+      visibleItemCount: items.length,
+      mountedItemCount: items.length,
+    };
+  }
+
+  const start = Math.max(0, Number(scrollTop) - overscan);
+  const end = Math.max(start, Number(scrollTop) + Math.max(1, Number(viewportHeight) || 1) + overscan);
+  const indexes = new Set();
+  for (let index = 0; index < items.length; index += 1) {
+    if (offsets[index + 1] >= start && offsets[index] <= end) indexes.add(index);
+  }
+  pinnedIndexes.forEach((index) => {
+    const numeric = Number(index);
+    if (Number.isInteger(numeric) && numeric >= 0 && numeric < items.length) indexes.add(numeric);
+  });
+
+  const orderedIndexes = [...indexes].sort((left, right) => left - right);
+  const rows = [];
+  let cursor = 0;
+  orderedIndexes.forEach((index) => {
+    const spacerSize = offsets[index] - offsets[cursor];
+    if (spacerSize > 0) {
+      rows.push({ type: "spacer", key: `spacer:${cursor}:${index}`, size: spacerSize });
+    }
+    rows.push({ type: "item", key: items[index].key, item: items[index], index });
+    cursor = index + 1;
+  });
+  const trailingSize = totalSize - offsets[cursor];
+  if (trailingSize > 0) {
+    rows.push({ type: "spacer", key: `spacer:${cursor}:${items.length}`, size: trailingSize });
+  }
+
+  const visibleItemCount = orderedIndexes.filter((index) => (
+    offsets[index + 1] >= Number(scrollTop)
+    && offsets[index] <= Number(scrollTop) + Math.max(1, Number(viewportHeight) || 1)
+  )).length;
+  return {
+    rows,
+    offsets,
+    sizes,
+    totalSize,
+    visibleItemCount,
+    mountedItemCount: orderedIndexes.length,
+  };
+}
+
+export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIndexes = [] } = {}) {
+  const enabled = items.length >= SEQUENCE_VIRTUALIZATION_MIN_ITEMS;
+  const observedNodesRef = useRef(new Map());
+  const resizeObserverRef = useRef(null);
+  const pendingFrameRef = useRef(null);
+  const layoutRef = useRef(null);
+  const [measuredSizes, setMeasuredSizes] = useState(() => new Map());
+  const [viewport, setViewport] = useState({ scrollTop: 0, height: 640 });
+
+  const recordMeasurement = useCallback((key, size) => {
+    const numeric = Number(size);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    setMeasuredSizes((previous) => {
+      const previousSize = previous.get(key);
+      if (previousSize != null && Math.abs(previousSize - numeric) < 0.5) return previous;
+      const next = new Map(previous);
+      next.set(key, numeric);
+      return next;
+    });
+  }, []);
+
+  const measureItem = useCallback((key, node) => {
+    const previousNode = observedNodesRef.current.get(key) ?? null;
+    if (previousNode && previousNode !== node) resizeObserverRef.current?.unobserve?.(previousNode);
+    if (!(node instanceof HTMLElement)) {
+      observedNodesRef.current.delete(key);
+      return;
+    }
+    observedNodesRef.current.set(key, node);
+    resizeObserverRef.current?.observe?.(node);
+    recordMeasurement(key, node.getBoundingClientRect().height || node.offsetHeight);
+  }, [recordMeasurement]);
+
+  useLayoutEffect(() => {
+    if (!enabled || typeof ResizeObserver !== "function") return undefined;
+    const observer = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        for (const [key, node] of observedNodesRef.current.entries()) {
+          if (node !== entry.target) continue;
+          recordMeasurement(key, entry.contentRect?.height ?? node.getBoundingClientRect().height);
+          break;
+        }
+      });
+    });
+    resizeObserverRef.current = observer;
+    observedNodesRef.current.forEach((node) => observer.observe(node));
+    return () => {
+      observer.disconnect();
+      resizeObserverRef.current = null;
+    };
+  }, [enabled, recordMeasurement]);
+
+  useEffect(() => {
+    const keys = new Set(items.map((item) => item.key));
+    setMeasuredSizes((previous) => {
+      const staleKeys = [...previous.keys()].filter((key) => !keys.has(key));
+      if (staleKeys.length === 0) return previous;
+      const next = new Map(previous);
+      staleKeys.forEach((key) => next.delete(key));
+      return next;
+    });
+  }, [items]);
+
+  useLayoutEffect(() => {
+    const panel = scrollPanelRef?.current;
+    if (!(panel instanceof HTMLElement)) return undefined;
+    const updateViewport = () => {
+      pendingFrameRef.current = null;
+      const next = { scrollTop: panel.scrollTop, height: panel.clientHeight || 640 };
+      setViewport((previous) => (
+        previous.scrollTop === next.scrollTop && previous.height === next.height ? previous : next
+      ));
+    };
+    const scheduleUpdate = () => {
+      if (pendingFrameRef.current != null) return;
+      pendingFrameRef.current = window.requestAnimationFrame(updateViewport);
+    };
+    updateViewport();
+    panel.addEventListener("scroll", scheduleUpdate, { passive: true });
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(scheduleUpdate) : null;
+    observer?.observe(panel);
+    return () => {
+      panel.removeEventListener("scroll", scheduleUpdate);
+      observer?.disconnect();
+      if (pendingFrameRef.current != null) window.cancelAnimationFrame(pendingFrameRef.current);
+      pendingFrameRef.current = null;
+    };
+  }, [scrollPanelRef]);
+
+  const layout = useMemo(() => buildVirtualSequenceLayout({
+    items,
+    measuredSizes,
+    scrollTop: viewport.scrollTop,
+    viewportHeight: viewport.height,
+    pinnedIndexes,
+    enabled,
+  }), [enabled, items, measuredSizes, pinnedIndexes, viewport.height, viewport.scrollTop]);
+  layoutRef.current = layout;
+
+  const ensureIndexVisible = useCallback((index) => {
+    const numeric = Number(index);
+    const panel = scrollPanelRef?.current;
+    if (!enabled || !Number.isInteger(numeric) || !(panel instanceof HTMLElement)) return false;
+    const top = layoutRef.current?.offsets?.[numeric];
+    const bottom = layoutRef.current?.offsets?.[numeric + 1];
+    if (!Number.isFinite(top) || !Number.isFinite(bottom)) return false;
+    const viewportHeight = panel.clientHeight || 640;
+    const viewportBottom = panel.scrollTop + viewportHeight;
+    if (top >= panel.scrollTop && bottom <= viewportBottom) return false;
+    const nextTop = Math.max(0, top - Math.min(120, SEQUENCE_VIRTUALIZATION_OVERSCAN_PX / 2));
+    panel.scrollTop = nextTop;
+    setViewport({ scrollTop: nextTop, height: viewportHeight });
+    return true;
+  }, [enabled, scrollPanelRef]);
+
+  return { enabled, layout, measureItem, ensureIndexVisible };
+}

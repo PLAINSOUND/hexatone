@@ -2,7 +2,6 @@
 // It composes the bar, tempo, repeat, and note-row subcomponents that make up
 // the visible event list for a snapshot in the sequencer.
 
-import { Fragment } from "preact";
 import EventsGridHeader from "./events-grid-header.jsx";
 import BarRow from "./bar-row.jsx";
 import BarlineRow from "./barline-row.jsx";
@@ -25,6 +24,7 @@ const SnapshotSequenceItem = ({
   structure,
   rows,
   actions,
+  virtualMeasure,
 }) => {
   const isPlaying = snapshot.id === playingSnapshotId;
   const isSelected = snapshot.id === selectedSnapshotId;
@@ -38,7 +38,10 @@ const SnapshotSequenceItem = ({
   );
 
   return (
-    <Fragment key={snapshot.id}>
+    <div
+      class="sequencer-virtual-item"
+      ref={(node) => virtualMeasure?.(snapshot.id, node)}
+    >
       <div
         ref={(node) => {
           if (node) dragState.snapshotRowRefs.current.set(snapshot.id, node);
@@ -305,7 +308,7 @@ const SnapshotSequenceItem = ({
             )}
           </div>
         ))}
-    </Fragment>
+    </div>
   );
 };
 

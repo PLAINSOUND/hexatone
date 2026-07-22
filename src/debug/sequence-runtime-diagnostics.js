@@ -11,6 +11,12 @@ function roundMetric(value, digits = 3) {
   return Math.round(numeric * scale) / scale;
 }
 
+function nullableNumber(value) {
+  if (value == null) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function readSequenceRuntimeDiagnosticsFlag() {
   if (typeof globalThis === "undefined") return false;
   try {
@@ -58,19 +64,19 @@ export function pushSequenceRuntimeDiagnostic(state, entry = {}) {
     step: entry.step == null ? null : String(entry.step),
     durationMs: roundMetric(entry.durationMs),
     latencyMs: roundMetric(entry.latencyMs),
-    snapshotCount: Number.isFinite(Number(entry.snapshotCount)) ? Number(entry.snapshotCount) : null,
-    playbackSnapshotCount: Number.isFinite(Number(entry.playbackSnapshotCount)) ? Number(entry.playbackSnapshotCount) : null,
-    barCount: Number.isFinite(Number(entry.barCount)) ? Number(entry.barCount) : null,
-    tempoCount: Number.isFinite(Number(entry.tempoCount)) ? Number(entry.tempoCount) : null,
-    repeatCount: Number.isFinite(Number(entry.repeatCount)) ? Number(entry.repeatCount) : null,
-    eventCount: Number.isFinite(Number(entry.eventCount)) ? Number(entry.eventCount) : null,
-    cueCount: Number.isFinite(Number(entry.cueCount)) ? Number(entry.cueCount) : null,
-    burstCount: Number.isFinite(Number(entry.burstCount)) ? Number(entry.burstCount) : null,
-    expandedCount: Number.isFinite(Number(entry.expandedCount)) ? Number(entry.expandedCount) : null,
-    rowCount: Number.isFinite(Number(entry.rowCount)) ? Number(entry.rowCount) : null,
-    visibleRowCount: Number.isFinite(Number(entry.visibleRowCount)) ? Number(entry.visibleRowCount) : null,
-    scrollTop: Number.isFinite(Number(entry.scrollTop)) ? Number(entry.scrollTop) : null,
-    runtimeInstanceId: Number.isFinite(Number(entry.runtimeInstanceId)) ? Number(entry.runtimeInstanceId) : null,
+    snapshotCount: nullableNumber(entry.snapshotCount),
+    playbackSnapshotCount: nullableNumber(entry.playbackSnapshotCount),
+    barCount: nullableNumber(entry.barCount),
+    tempoCount: nullableNumber(entry.tempoCount),
+    repeatCount: nullableNumber(entry.repeatCount),
+    eventCount: nullableNumber(entry.eventCount),
+    cueCount: nullableNumber(entry.cueCount),
+    burstCount: nullableNumber(entry.burstCount),
+    expandedCount: nullableNumber(entry.expandedCount),
+    rowCount: nullableNumber(entry.rowCount),
+    visibleRowCount: nullableNumber(entry.visibleRowCount),
+    scrollTop: nullableNumber(entry.scrollTop),
+    runtimeInstanceId: nullableNumber(entry.runtimeInstanceId),
     playbackRuntimeToken: entry.playbackRuntimeToken == null ? null : String(entry.playbackRuntimeToken),
     timedTriggerToken: entry.timedTriggerToken == null ? null : String(entry.timedTriggerToken),
     transportStatus: entry.transportStatus == null ? null : String(entry.transportStatus),

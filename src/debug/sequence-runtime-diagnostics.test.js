@@ -13,6 +13,21 @@ describe("sequence runtime diagnostics", () => {
     vi.useRealTimers();
   });
 
+  it("preserves absent numeric metrics as null", () => {
+    const state = pushSequenceRuntimeDiagnostic(createSequenceRuntimeDiagnostics(), {
+      type: "ui-frame",
+      rowCount: null,
+      visibleRowCount: null,
+      scrollTop: null,
+    });
+
+    expect(state.entries[0]).toMatchObject({
+      rowCount: null,
+      visibleRowCount: null,
+      scrollTop: null,
+    });
+  });
+
   it("summarizes rebuild causes and playback token changes", () => {
     let state = createSequenceRuntimeDiagnostics();
     state = pushSequenceRuntimeDiagnostic(state, {

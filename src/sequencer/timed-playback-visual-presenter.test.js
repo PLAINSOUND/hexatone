@@ -165,6 +165,30 @@ describe("timed playback visual presenter", () => {
     expect(scrollSnapshotRow).toHaveBeenCalledWith(rows.get(6));
   });
 
+  it("prepares an unmounted virtual row and retries presentation on the next frame", () => {
+    const frames = createFrameHarness();
+    const rows = new Map();
+    const preparedRow = document.createElement("div");
+    const prepareSnapshotRow = vi.fn((id) => {
+      rows.set(id, preparedRow);
+      return true;
+    });
+    const presenter = createTimedPlaybackVisualPresenter({
+      resolveSnapshotRow: (id) => rows.get(id),
+      prepareSnapshotRow,
+      requestFrame: frames.requestFrame,
+      cancelFrame: frames.cancelFrame,
+    });
+
+    presenter.enqueue(42);
+    frames.flush();
+    expect(prepareSnapshotRow).toHaveBeenCalledWith(42);
+    expect(preparedRow.classList.contains(TIMED_PLAYBACK_ROW_CLASS)).toBe(false);
+
+    frames.flush();
+    expect(preparedRow.classList.contains(TIMED_PLAYBACK_ROW_CLASS)).toBe(true);
+  });
+
   it("coalesces transport values and mutates only changed sounding event rows", () => {
     const frames = createFrameHarness();
     const eventRows = new Map([

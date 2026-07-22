@@ -14,6 +14,7 @@ import {
   absolutePositionToBarBeat,
 } from "./transport.js";
 import {
+  barDisplayBucket,
   buildBarNumberById,
   buildStructuralMarkersByDisplayBucket,
   normalizeTempoBeatFraction,
@@ -35,6 +36,10 @@ import useDraftEditingController from "./draft-editing-controller.js";
 import useEditCommitTransportController from "./edit-commit-transport-controller.js";
 import useSequencerPostCommitDiagnostics from "./post-commit-diagnostics.js";
 import useTimedUiDiagnostics from "./timed-ui-diagnostics.js";
+import {
+  estimateSequenceGroupHeight,
+  useSequenceVirtualization,
+} from "./sequence-virtualization.js";
 import {
   buildCueExpandedSnapshotIdsAt,
   deriveCueExpandedSnapshotIds,
@@ -728,6 +733,62 @@ const Sequencer = ({
     recordTimedTransportDiagnostic,
   });
 
+  const virtualSequenceItems = useMemo(() => renderedSnapshots.map((snapshot, index) => {
+    const snapshotEvents = snapshotEventsById.get(snapshot.id) ?? [];
+    const expanded = showAllEvents || expandedIds.has(snapshot.id);
+    const embeddedStructuralKeys = expanded
+      ? new Set(snapshotEvents
+        .filter((event) => event.type === "bar" || event.type === "tempo" || event.type === "repeat-start" || event.type === "repeat-end")
+        .map((event) => structuralEventRenderKey(event)))
+      : new Set();
+    const structuralCount = (structuralMarkersByDisplayBucket.get(index) ?? [])
+      .filter((marker) => !embeddedStructuralKeys.has(structuralEventRenderKey(marker)))
+      .length;
+    return {
+      key: snapshot.id,
+      snapshot,
+      estimatedSize: estimateSequenceGroupHeight({
+        expanded,
+        eventCount: snapshotEvents.length,
+        structuralCount,
+      }),
+    };
+  }), [expandedIds, renderedSnapshots, showAllEvents, snapshotEventsById, structuralMarkersByDisplayBucket]);
+  const virtualPinnedIndexes = useMemo(() => {
+    const pinnedIds = new Set([
+      selectedSnapshotId,
+      activeSnapshotId,
+      playingSnapshotId,
+      draggedId,
+    ].filter((id) => id != null));
+    const indexes = [];
+    renderedSnapshots.forEach((snapshot, index) => {
+      if (pinnedIds.has(snapshot.id)) indexes.push(index);
+    });
+    const selectedBarBucket = barDisplayBucket(sortedBars[selectedBarIndex]?.position);
+    if (selectedBarBucket >= 0 && selectedBarBucket < renderedSnapshots.length) {
+      indexes.push(selectedBarBucket);
+    }
+    return indexes;
+  }, [activeSnapshotId, draggedId, playingSnapshotId, renderedSnapshots, selectedBarIndex, selectedSnapshotId, sortedBars]);
+  const sequenceVirtualization = useSequenceVirtualization({
+    scrollPanelRef,
+    items: virtualSequenceItems,
+    pinnedIndexes: virtualPinnedIndexes,
+  });
+  const {
+    layout: virtualSequenceLayout,
+    measureItem: measureVirtualSequenceItem,
+    ensureIndexVisible: ensureVirtualSequenceIndexVisible,
+  } = sequenceVirtualization;
+  const renderedSnapshotIndexById = useMemo(() => new Map(
+    renderedSnapshots.map((snapshot, index) => [snapshot.id, index]),
+  ), [renderedSnapshots]);
+  const prepareVirtualSnapshotRow = useCallback((snapshotId) => {
+    const index = renderedSnapshotIndexById.get(snapshotId);
+    return index == null ? false : ensureVirtualSequenceIndexVisible(index);
+  }, [ensureVirtualSequenceIndexVisible, renderedSnapshotIndexById]);
+
   useEffect(() => {
     const setTransportField = (field, value) => {
       const select = playbackRowRef.current?.querySelector?.(
@@ -738,6 +799,7 @@ const Sequencer = ({
     const presenter = createTimedPlaybackVisualPresenter({
       resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
       resolveEventRow: (eventId) => eventRowRefs.current.get(eventId) ?? null,
+      prepareSnapshotRow: prepareVirtualSnapshotRow,
       scrollSnapshotRow: scrollNodeIntoPanel,
       presentTransportPosition: (position) => {
         setTransportField("bar", position?.barIndex);
@@ -800,6 +862,7 @@ const Sequencer = ({
     eventRowRefs,
     playbackRowRef,
     playhead?.barIndex,
+    prepareVirtualSnapshotRow,
     scrollNodeIntoPanel,
     sequenceCueGroups,
     snapshotRowRefs,
@@ -1826,23 +1889,31 @@ const Sequencer = ({
                   )}
                 </div>
               ))}
-              {renderedSnapshots.map((snapshot, index) => {
-              return (
-                <SnapshotSequenceItem
-                  key={snapshot.id}
-                  snapshot={snapshot}
-                  index={index}
-                  selectedSnapshotId={selectedSnapshotId}
-                  playingSnapshotId={playingSnapshotId}
-                  showAllEvents={showAllEvents}
-                  expandedIds={expandedIds}
-                  dragState={sharedDragState}
-                  structure={sharedStructure}
-                  rows={sharedRows}
-                  actions={sharedActions}
-                />
-              );
-              })}
+              {virtualSequenceLayout.rows.map((row) => (
+                row.type === "spacer" ? (
+                  <div
+                    key={row.key}
+                    class="sequencer-virtual-spacer"
+                    style={{ height: `${row.size}px` }}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <SnapshotSequenceItem
+                    key={row.item.snapshot.id}
+                    snapshot={row.item.snapshot}
+                    index={row.index}
+                    selectedSnapshotId={selectedSnapshotId}
+                    playingSnapshotId={playingSnapshotId}
+                    showAllEvents={showAllEvents}
+                    expandedIds={expandedIds}
+                    dragState={sharedDragState}
+                    structure={sharedStructure}
+                    rows={sharedRows}
+                    actions={sharedActions}
+                    virtualMeasure={measureVirtualSequenceItem}
+                  />
+                )
+              ))}
             </div>
           )}
 

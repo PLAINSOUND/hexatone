@@ -9,6 +9,7 @@ export const TIMED_PLAYBACK_EVENT_CLASS = "sequencer-event-row--timed-sounding";
 export function createTimedPlaybackVisualPresenter({
   resolveSnapshotRow,
   resolveEventRow,
+  prepareSnapshotRow,
   scrollSnapshotRow,
   presentTransportPosition,
   clearTransportPosition,
@@ -57,20 +58,31 @@ export function createTimedPlaybackVisualPresenter({
     pendingPosition = null;
     const nextSnapshotId = nextPosition?.snapshotId ?? null;
     const nextScrollSnapshotId = nextPosition?.scrollSnapshotId ?? nextSnapshotId;
+    const nextSnapshotRow = nextSnapshotId == null ? null : (resolveSnapshotRow?.(nextSnapshotId) ?? null);
+    const nextScrollRow = nextScrollSnapshotId == null ? null : (resolveSnapshotRow?.(nextScrollSnapshotId) ?? null);
+    const preparedSnapshot = nextSnapshotId != null && nextSnapshotRow == null
+      ? prepareSnapshotRow?.(nextSnapshotId) === true
+      : false;
+    const preparedScrollSnapshot = nextScrollSnapshotId != null && nextScrollRow == null
+      ? prepareSnapshotRow?.(nextScrollSnapshotId) === true
+      : false;
+    if (preparedSnapshot || preparedScrollSnapshot) {
+      pendingPosition = nextPosition;
+      frameId = requestFrame(flush);
+      return;
+    }
     if (nextSnapshotId == null) {
       removeActiveClass();
     } else if (nextSnapshotId !== activeSnapshotId) {
       removeActiveClass();
-      const nextRow = resolveSnapshotRow?.(nextSnapshotId) ?? null;
+      const nextRow = nextSnapshotRow;
       if (nextRow) {
         nextRow.classList?.add(TIMED_PLAYBACK_ROW_CLASS);
         activeSnapshotId = nextSnapshotId;
       }
     }
 
-    const scrollRow = nextScrollSnapshotId == null
-      ? null
-      : (resolveSnapshotRow?.(nextScrollSnapshotId) ?? null);
+    const scrollRow = nextScrollRow;
     const nowMs = now();
     if (scrollRow && nowMs - lastScrollAtMs >= scrollIntervalMs) {
       lastScrollAtMs = nowMs;

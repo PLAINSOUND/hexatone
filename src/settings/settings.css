@@ -1331,6 +1331,20 @@ td.scale-color-col .color-input {
   padding-bottom: 50rem;
 }
 
+.sequencer-virtual-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.sequencer-virtual-spacer {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  pointer-events: none;
+}
+
 .sequencer-item {
   --sequencer-delete-col: 1.15em;
   --sequencer-number-col: 1.55em;
