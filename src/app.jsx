@@ -151,7 +151,7 @@ import {
   advanceCueIndexWithRepeats,
 } from "./sequencer/repeat-playback-runtime.js";
 import { buildDependencyToken } from "./sequencer/dependency-token.js";
-import { retuneSnapshotHexes } from "./sequencer/snapshots.js";
+import { bendActiveSnapshotHexes, retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual/manual-sidebar.jsx"));
@@ -1517,19 +1517,13 @@ const App = () => {
 
   const previewSequencePlaybackPitchOffset = useCallback((value) => {
     const nextPitchOffset = clampSequencePlaybackPitchCents(value);
+    const previousPitchOffset = liveSequencePlaybackPitchOffsetRef.current;
     liveSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
     if (sequencePlayhead?.stopped) return;
     if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
-    const currentNotes = sequencePlaybackNotesAtPosition(
-      sequencePlayhead.stepIndex,
-      sequencePlayhead.markerIndex,
-      { pitchOffset: nextPitchOffset },
-    );
-    if (currentNotes.length > 0) {
-      retuneSnapshotHexes(keysRef.current, currentNotes, { bendOnly: true });
-    }
+    bendActiveSnapshotHexes(keysRef.current, nextPitchOffset - previousPitchOffset);
     appliedSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
-  }, [sequencePlaybackNotesAtPosition, sequencePlayhead]);
+  }, [sequencePlayhead]);
 
   const commitSequencePlaybackPitchOffset = useCallback((value) => {
     const nextPitchOffset = clampSequencePlaybackPitchCents(value);

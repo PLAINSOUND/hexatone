@@ -421,6 +421,33 @@ export function retuneSnapshotHexes(runtime, notes, options = {}) {
 }
 
 /**
+ * Bend every currently sounding snapshot voice by a relative cents delta.
+ *
+ * Unlike retuneSnapshotHexes, this deliberately does not reconstruct a cue's
+ * note set. Legato voices may have originated in an earlier cue and must still
+ * follow a live global pitch gesture.
+ */
+export function bendActiveSnapshotHexes(runtime, deltaCents) {
+  if (!runtime) return;
+  const safeDeltaCents = Number(deltaCents);
+  if (!Number.isFinite(safeDeltaCents) || Math.abs(safeDeltaCents) < 1e-9) return;
+
+  for (const hex of runtime._snapshotHexes ?? []) {
+    if (!hex) continue;
+    const currentBaseCents = Number(hex._baseCents);
+    if (!Number.isFinite(currentBaseCents)) continue;
+    const nextBaseCents = currentBaseCents + safeDeltaCents;
+    const currentMidicents = Number(hex._snapshotMidicents);
+    if (Number.isFinite(currentMidicents)) {
+      const nextMidicents = currentMidicents + (safeDeltaCents / 100);
+      hex._snapshotMidicents = nextMidicents;
+      hex._snapshotPitchKey = snapshotPitchKey(nextMidicents);
+    }
+    retuneSnapshotHex(runtime, hex, nextBaseCents, true);
+  }
+}
+
+/**
  * Stop snapshot playback.
  *
  * @param {Array<object>} snapshotHexes active snapshot hexes

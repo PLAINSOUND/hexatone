@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { captureSnapshot, playSnapshot, retuneSnapshotHexes, stopSnapshot } from "./snapshots.js";
+import {
+  bendActiveSnapshotHexes,
+  captureSnapshot,
+  playSnapshot,
+  retuneSnapshotHexes,
+  stopSnapshot,
+} from "./snapshots.js";
 
 function makeRuntime(overrides = {}) {
   return {
@@ -624,6 +630,33 @@ describe("sequencer snapshots", () => {
     expect(soundingHex.retune).not.toHaveBeenCalled();
     expect(soundingHex._snapshotMidicents).toBe(69);
     expect(soundingHex._snapshotInstanceKey).toBe("old:note");
+  });
+
+  it("bends every active snapshot voice including legato carry-over voices", () => {
+    const carriedHex = {
+      standardWheelRetune: vi.fn(),
+      _baseCents: 0,
+      _snapshotMidicents: 69,
+      _snapshotPitchKey: "69.000",
+      _snapshotInstanceKey: "earlier:carried",
+    };
+    const currentHex = {
+      standardWheelRetune: vi.fn(),
+      _baseCents: 300,
+      _snapshotMidicents: 72,
+      _snapshotPitchKey: "72.000",
+      _snapshotInstanceKey: "current:note",
+    };
+    const runtime = makeRuntime({
+      _snapshotHexes: [carriedHex, currentHex],
+    });
+
+    bendActiveSnapshotHexes(runtime, 37);
+
+    expect(carriedHex.standardWheelRetune).toHaveBeenCalledWith(37);
+    expect(currentHex.standardWheelRetune).toHaveBeenCalledWith(337);
+    expect(carriedHex._snapshotMidicents).toBeCloseTo(69.37, 9);
+    expect(currentHex._snapshotMidicents).toBeCloseTo(72.37, 9);
   });
 
   it("reuses a legato note by standard sequence id when pitch changes", () => {
