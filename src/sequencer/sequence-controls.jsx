@@ -282,6 +282,7 @@ const SequenceControls = ({
   onSnapSequenceToCurrentTuningChange,
   playbackRowRef,
   playhead,
+  timedBarSelectValue,
   sortedBars,
   transportScrollTargetRef,
   onSelectSequenceBar,
@@ -514,7 +515,7 @@ const SequenceControls = ({
           <select
             class="sidebar-input sequencer-playback-select"
             data-timed-transport-field="bar"
-            value={playhead?.barIndex ?? 0}
+            value={timedBarSelectValue ?? playhead?.barIndex ?? 0}
             onChange={(e) => {
               const selectedBarIndex = Number(e.currentTarget.value);
               stopTimedTransportBefore(() => {

@@ -690,6 +690,11 @@ describe("Sequencer", () => {
     expect(snapshotSelect.value).toBe("1");
     expect(cueSelect.value).toBe("2");
 
+    fireEvent.click(screen.getByLabelText("Auto-Scroll"));
+    expect(barSelect?.value).toBe("1");
+    expect(snapshotSelect.value).toBe("1");
+    expect(cueSelect.value).toBe("2");
+
     fireEvent.click(screen.getByLabelText("pause timed transport"));
     expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
     expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);

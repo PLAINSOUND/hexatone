@@ -197,6 +197,11 @@ const Sequencer = ({
   const eventDragRef = useRef(null);
   const timedVisualCueHandlerRef = useRef(null);
   const timedVisualPresenterRef = useRef(null);
+  const timedTransportFieldValuesRef = useRef({
+    bar: null,
+    snapshot: null,
+    cue: null,
+  });
   const duplicateNoteIdRef = useRef(0);
 
   // Derived sequence/timeline state.
@@ -790,6 +795,7 @@ const Sequencer = ({
 
   useEffect(() => {
     const setTransportField = (field, value) => {
+      if (value != null) timedTransportFieldValuesRef.current[field] = String(value);
       const select = playbackRowRef.current?.querySelector?.(
         `[data-timed-transport-field="${field}"]`,
       ) ?? null;
@@ -875,6 +881,21 @@ const Sequencer = ({
     if (timedTransportUiState.running) return;
     timedVisualPresenterRef.current?.clear();
   }, [timedTransportUiState.running]);
+
+  if (!timedTransportUiState.running) {
+    timedTransportFieldValuesRef.current = {
+      bar: String(playhead?.barIndex ?? 0),
+      snapshot: String(snapshotSelectValue),
+      cue: String(cueSelectValue),
+    };
+  }
+  const timedTransportFieldValues = timedTransportFieldValuesRef.current;
+  const displayedSnapshotSelectValue = timedTransportUiState.running
+    ? timedTransportFieldValues.snapshot
+    : snapshotSelectValue;
+  const displayedCueSelectValue = timedTransportUiState.running
+    ? timedTransportFieldValues.cue
+    : cueSelectValue;
 
   useEffect(() => {
     const nextExpandedIds = deriveExpandedSnapshotIds({
@@ -1819,10 +1840,11 @@ const Sequencer = ({
           onSnapSequenceToCurrentTuningChange={onSnapSequenceToCurrentTuningChange}
           playbackRowRef={playbackRowRef}
           playhead={playhead}
+          timedBarSelectValue={timedTransportUiState.running ? timedTransportFieldValues.bar : null}
           sortedBars={sortedBars}
           transportScrollTargetRef={transportScrollTargetRef}
           onSelectSequenceBar={onSelectSequenceBar}
-          snapshotSelectValue={snapshotSelectValue}
+          snapshotSelectValue={displayedSnapshotSelectValue}
           renderedSnapshots={renderedSnapshots}
           impliedPendingSnapshotIndex={impliedPendingSnapshotIndex}
           armPendingSnapshot={armPendingSnapshot}
@@ -1833,7 +1855,7 @@ const Sequencer = ({
           runTransportAction={runTransportAction}
           onJumpSequenceSnapshot={onJumpSequenceSnapshot}
           onStepSequence={onStepSequence}
-          cueSelectValue={cueSelectValue}
+          cueSelectValue={displayedCueSelectValue}
           sequenceCueGroups={sequenceCueGroups}
           impliedPendingCueIndex={impliedPendingCueIndex}
           armPendingCue={armPendingCue}
