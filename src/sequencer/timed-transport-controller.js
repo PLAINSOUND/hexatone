@@ -55,6 +55,7 @@ export default function useTimedTransportController({
   onSelectSequenceBar,
   onPlayCue,
   onPlayTimedCue,
+  onPresentTimedCue,
   onStopSnapshot,
   getTimedTransportClockSeconds,
 } = {}) {
@@ -64,6 +65,7 @@ export default function useTimedTransportController({
   const timedTransportStartTargetRef = useRef(null);
   const onPlayCueRef = useRef(onPlayCue);
   const onPlayTimedCueRef = useRef(onPlayTimedCue);
+  const onPresentTimedCueRef = useRef(onPresentTimedCue);
   const onStopSnapshotRef = useRef(onStopSnapshot);
   const getTimedTransportClockSecondsRef = useRef(getTimedTransportClockSeconds);
   const timedPlaybackBurstsRef = useRef([]);
@@ -71,11 +73,9 @@ export default function useTimedTransportController({
   const timedTransportDiagnosticsRef = useRef(createTimedTransportDiagnostics());
   const activePlaybackRuntimeTokenRef = useRef(null);
   const activeTimedTriggerTokenRef = useRef(null);
+  const lastScheduledDiagnosticPlaybackIndexRef = useRef(-1);
+  const lastFinalScheduleDiagnosticPlaybackIndexRef = useRef(-1);
   const [timedTransportState, setTimedTransportState] = useState(() => createTimedTransportState([]));
-
-  useEffect(() => {
-    timedTransportStateRef.current = timedTransportState;
-  }, [timedTransportState]);
 
   useEffect(() => {
     onPlayCueRef.current = onPlayCue;
@@ -84,6 +84,10 @@ export default function useTimedTransportController({
   useEffect(() => {
     onPlayTimedCueRef.current = onPlayTimedCue;
   }, [onPlayTimedCue]);
+
+  useEffect(() => {
+    onPresentTimedCueRef.current = onPresentTimedCue;
+  }, [onPresentTimedCue]);
 
   useEffect(() => {
     onStopSnapshotRef.current = onStopSnapshot;
@@ -102,34 +106,32 @@ export default function useTimedTransportController({
   }, [timedCueTriggerBySourceIndex]);
 
   useEffect(() => {
-    setTimedTransportState((previous) => {
-      const freshState = createTimedTransportState(timedPlaybackBursts, {
-        speedMultiplier: sequencePlaybackSpeed,
-      });
-      if (
-        previous?.status !== "running"
-        && previous?.status !== "paused"
-      ) {
-        timedTransportStateRef.current = freshState;
-        return freshState;
-      }
-
-      const lastPlaybackIndex = Math.max(0, timedPlaybackBursts.length - 1);
-      const nextPlaybackIndex = timedPlaybackBursts.length === 0
-        ? -1
-        : Math.max(0, Math.min(lastPlaybackIndex, Number(previous?.nextPlaybackIndex ?? 0)));
-      const lastDispatchedPlaybackIndex = timedPlaybackBursts.length === 0
-        ? -1
-        : Math.max(-1, Math.min(lastPlaybackIndex, Number(previous?.lastDispatchedPlaybackIndex ?? -1)));
-      const preservedState = {
-        ...previous,
-        status: timedPlaybackBursts.length === 0 ? "empty" : previous.status,
-        nextPlaybackIndex,
-        lastDispatchedPlaybackIndex,
-      };
-      timedTransportStateRef.current = preservedState;
-      return preservedState;
+    const currentState = timedTransportStateRef.current;
+    const freshState = createTimedTransportState(timedPlaybackBursts, {
+      speedMultiplier: sequencePlaybackSpeed,
     });
+    if (currentState?.status !== "running" && currentState?.status !== "paused") {
+      timedTransportStateRef.current = freshState;
+      setTimedTransportState(freshState);
+      return;
+    }
+
+    // Playback refs are authoritative. A delayed visual state must never move
+    // the scheduler cursor backwards when a presentation-only array changes.
+    const lastPlaybackIndex = Math.max(0, timedPlaybackBursts.length - 1);
+    timedTransportStateRef.current = {
+      ...currentState,
+      status: timedPlaybackBursts.length === 0 ? "empty" : currentState.status,
+      nextPlaybackIndex: timedPlaybackBursts.length === 0
+        ? -1
+        : Math.max(0, Math.min(lastPlaybackIndex, Number(currentState.nextPlaybackIndex ?? 0))),
+      lastDispatchedPlaybackIndex: timedPlaybackBursts.length === 0
+        ? -1
+        : Math.max(-1, Math.min(
+          lastPlaybackIndex,
+          Number(currentState.lastDispatchedPlaybackIndex ?? -1),
+        )),
+    };
   }, [sequencePlaybackSpeed, timedPlaybackBursts]);
 
   const clearScheduledTimedCueCallbacks = useCallback(() => {
@@ -288,6 +290,7 @@ export default function useTimedTransportController({
       activeNotes: Array.isArray(burst.soundingAfter) ? burst.soundingAfter.length : null,
       noteCount: Array.isArray(burst.events) ? burst.events.filter((event) => event?.type === "note").length : null,
     });
+    onPresentTimedCueRef.current?.(cueIndex, trigger, burst);
   }, [recordTimedTransportDiagnostic]);
 
   const armNextTimedCueDispatch = useCallback(() => {
@@ -318,17 +321,28 @@ export default function useTimedTransportController({
     const targetDelayMs = Math.max(0, (Number(burst.elapsedSeconds) - currentElapsed) * 1000);
     const delayMs = Math.min(targetDelayMs, TIMED_TRANSPORT_WAKE_SLICE_MS);
 
-    recordTimedTransportDiagnostic({
-      type: "schedule",
-      clockSeconds: nowSeconds,
-      elapsedSeconds: burst.elapsedSeconds,
-      cueIndex: Number.isFinite(burst.sourceCueIndex) ? Number(burst.sourceCueIndex) : null,
-      playbackIndex: burst.playbackIndex,
-      scheduledDelayMs: delayMs,
-      queueDepth: 1,
-      activeNotes: Array.isArray(burst.soundingBefore) ? burst.soundingBefore.length : null,
-      noteCount: Array.isArray(burst.events) ? burst.events.filter((event) => event?.type === "note").length : null,
-    });
+    const isFirstScheduleForBurst = lastScheduledDiagnosticPlaybackIndexRef.current !== playbackIndex;
+    const isFirstFinalScheduleForBurst = (
+      delayMs < TIMED_TRANSPORT_WAKE_SLICE_MS
+      && lastFinalScheduleDiagnosticPlaybackIndexRef.current !== playbackIndex
+    );
+    if (isFirstScheduleForBurst || isFirstFinalScheduleForBurst) {
+      lastScheduledDiagnosticPlaybackIndexRef.current = playbackIndex;
+      if (isFirstFinalScheduleForBurst) {
+        lastFinalScheduleDiagnosticPlaybackIndexRef.current = playbackIndex;
+      }
+      recordTimedTransportDiagnostic({
+        type: "schedule",
+        clockSeconds: nowSeconds,
+        elapsedSeconds: burst.elapsedSeconds,
+        cueIndex: Number.isFinite(burst.sourceCueIndex) ? Number(burst.sourceCueIndex) : null,
+        playbackIndex: burst.playbackIndex,
+        scheduledDelayMs: delayMs,
+        queueDepth: 1,
+        activeNotes: Array.isArray(burst.soundingBefore) ? burst.soundingBefore.length : null,
+        noteCount: Array.isArray(burst.events) ? burst.events.filter((event) => event?.type === "note").length : null,
+      });
+    }
 
     timedTransportTimeoutRef.current = window.setTimeout(() => {
       timedTransportTimeoutRef.current = null;
@@ -376,24 +390,22 @@ export default function useTimedTransportController({
         dispatchTimedCueBurst(dueBurst);
       });
 
-      const stateChanged = (
-        result.state.status !== previous.status ||
-        result.state.nextPlaybackIndex !== previous.nextPlaybackIndex ||
-        result.state.lastDispatchedPlaybackIndex !== previous.lastDispatchedPlaybackIndex
-      );
-
-      if (stateChanged) {
-        setTimedTransportState(result.state);
-      }
-
       if (result.state.status === "finished") {
+        // The scheduler ref is authoritative while running. Publish only the
+        // terminal status; per-burst hook updates reconcile the full sequencer
+        // even though the transport clock already reads this ref directly.
+        setTimedTransportState(result.state);
         onStopSnapshotRef.current?.();
         return;
       }
 
       armNextTimedCueDispatch();
     }, delayMs);
-  }, [dispatchTimedCueBurst, recordTimedTransportDiagnostic, sequencePlaybackSpeed]);
+  }, [
+    dispatchTimedCueBurst,
+    recordTimedTransportDiagnostic,
+    sequencePlaybackSpeed,
+  ]);
 
   const invalidateTimedTransportPlayback = useCallback((detail, extra = {}) => {
     const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
@@ -435,7 +447,9 @@ export default function useTimedTransportController({
     const nextSpeedMultiplier = clampSequencePlaybackSpeed(value);
     const previous = timedTransportStateRef.current;
     if (clampSequencePlaybackSpeed(previous?.speedMultiplier ?? 1) === nextSpeedMultiplier) {
-      if (publish) setTimedTransportState(previous);
+      if (publish) {
+        setTimedTransportState(previous);
+      }
       return;
     }
     const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
@@ -444,7 +458,9 @@ export default function useTimedTransportController({
     // Drag previews live entirely in the scheduler ref. Publishing each
     // preview through hook state rerenders the full sequencer and forces the
     // large event list to reconcile before the next cue can be scheduled.
-    if (publish) setTimedTransportState(nextState);
+    if (publish) {
+      setTimedTransportState(nextState);
+    }
     if (nextState?.status === "running") {
       clearScheduledTimedCueCallbacks();
       armNextTimedCueDispatch();
@@ -607,6 +623,8 @@ export default function useTimedTransportController({
     activePlaybackRuntimeTokenRef.current = playbackRuntimeToken;
     activeTimedTriggerTokenRef.current = timedTriggerToken;
     timedTransportStateRef.current = startedState;
+    lastScheduledDiagnosticPlaybackIndexRef.current = -1;
+    lastFinalScheduleDiagnosticPlaybackIndexRef.current = -1;
     setTimedTransportState(startedState);
   }, [
     deriveTimedTransportStartTarget,

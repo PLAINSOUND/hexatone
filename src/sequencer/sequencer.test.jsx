@@ -581,6 +581,14 @@ describe("Sequencer", () => {
 
   it("prefers the dedicated timed cue callback when timed transport dispatches a cue", () => {
     vi.useFakeTimers();
+    const originalRaf = window.requestAnimationFrame;
+    const originalCancelRaf = window.cancelAnimationFrame;
+    const frameCallbacks = [];
+    window.requestAnimationFrame = vi.fn((callback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
+    });
+    window.cancelAnimationFrame = vi.fn();
 
     let nowSeconds = 0;
     const onPlayCue = vi.fn();
@@ -595,6 +603,14 @@ describe("Sequencer", () => {
             description: "A",
             notes: [
               { id: "a", midicents: 69, start: 0, end: 0.5 },
+            ],
+          },
+          {
+            id: 20,
+            length: 1,
+            description: "B",
+            notes: [
+              { id: "b", midicents: 72, start: 0, end: 0.5 },
             ],
           },
         ]}
@@ -649,6 +665,15 @@ describe("Sequencer", () => {
     });
     expect(onPlayCue).not.toHaveBeenCalled();
 
+    frameCallbacks.shift()?.();
+    const firstSnapshotRow = screen.getByLabelText("snapshot 1 description").closest(".sequencer-item");
+    expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("pause timed transport"));
+    expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
+
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCancelRaf;
     vi.useRealTimers();
   });
 

@@ -29,6 +29,7 @@ import { deriveTempoAtSequencePosition } from "./playback-timeline.js";
 import { buildDependencyToken } from "./dependency-token.js";
 import { buildSequenceRuntimeModel } from "./runtime-model.js";
 import useTimedTransportController from "./timed-transport-controller.js";
+import { createTimedPlaybackVisualPresenter } from "./timed-playback-visual-presenter.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
 import useDraftEditingController from "./draft-editing-controller.js";
 import useEditCommitTransportController from "./edit-commit-transport-controller.js";
@@ -187,6 +188,8 @@ const Sequencer = ({
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
+  const timedVisualCueHandlerRef = useRef(null);
+  const timedVisualPresenterRef = useRef(null);
   const duplicateNoteIdRef = useRef(0);
 
   // Derived sequence/timeline state.
@@ -643,6 +646,10 @@ const Sequencer = ({
     });
   }, [activeCueIndex, cueExpandedSnapshotIdsAt, sequenceEvents, soundingAttackEventIds]);
 
+  const presentTimedCue = useCallback((cueIndex, trigger, burst) => {
+    timedVisualCueHandlerRef.current?.(cueIndex, trigger, burst);
+  }, []);
+
   const {
     timedTransportUiState,
     getTimedTransportDisplay,
@@ -671,6 +678,7 @@ const Sequencer = ({
     onSelectSequenceBar,
     onPlayCue,
     onPlayTimedCue,
+    onPresentTimedCue: presentTimedCue,
     onStopSnapshot,
     getTimedTransportClockSeconds,
   });
@@ -688,6 +696,7 @@ const Sequencer = ({
     ensureExpanded,
     resetSequencePlayheadAndScrollTop,
     jumpSequencePlayheadToEndAndScrollBottom,
+    scrollNodeIntoPanel,
   } = useSequencerAutoscroll({
     autoScrollEnabled,
     activeCueIndex,
@@ -718,6 +727,32 @@ const Sequencer = ({
     onJumpSequenceEnd,
     recordTimedTransportDiagnostic,
   });
+
+  useEffect(() => {
+    const presenter = createTimedPlaybackVisualPresenter({
+      resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
+      scrollSnapshotRow: scrollNodeIntoPanel,
+    });
+    timedVisualPresenterRef.current = presenter;
+    timedVisualCueHandlerRef.current = (cueIndex) => {
+      const cueGroup = sequenceCueGroups[cueIndex] ?? null;
+      const snapshotId = cueGroup == null
+        ? null
+        : (snapshots[cueGroup.snapshotIndex]?.id ?? null);
+      presenter.enqueue(snapshotId);
+    };
+
+    return () => {
+      timedVisualCueHandlerRef.current = null;
+      timedVisualPresenterRef.current = null;
+      presenter.dispose();
+    };
+  }, [scrollNodeIntoPanel, sequenceCueGroups, snapshotRowRefs, snapshots]);
+
+  useEffect(() => {
+    if (timedTransportUiState.running) return;
+    timedVisualPresenterRef.current?.clear();
+  }, [timedTransportUiState.running]);
 
   useEffect(() => {
     const nextExpandedIds = deriveExpandedSnapshotIds({

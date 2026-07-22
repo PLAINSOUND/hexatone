@@ -206,7 +206,6 @@ applyReloadPersistencePolicy();
 
 export const Loading = () => <LoadingIcon />;
 
-const TIMED_PLAYBACK_UI_REFRESH_SECONDS = 0.2;
 
 function SidebarLoadingFallback() {
   return (
@@ -935,7 +934,6 @@ const App = () => {
     markerIndex: null,
     stopped: true,
   });
-  const sequencePlayheadRef = useRef(sequencePlayhead);
   const pendingTransportSelectionRef = useRef(clearPendingTransportSelection());
   const timedPlaybackUiRef = useRef({
     clockSeconds: -Infinity,
@@ -1417,24 +1415,6 @@ const App = () => {
     setSequencePlayhead(nextState.playhead);
   }, [snapshots]);
 
-  const shouldUpdateTimedPlaybackUi = useCallback(({
-    stepIndex,
-    markerIndex,
-    barIndex,
-    hardRestart = false,
-    clockSeconds = performance.now() / 1000,
-  }) => {
-    const currentPlayhead = sequencePlayheadRef.current;
-    const previousUi = timedPlaybackUiRef.current;
-    if (hardRestart) return true;
-    if (currentPlayhead?.stopped) return true;
-    if (previousUi.stepIndex !== stepIndex) return true;
-    if (previousUi.barIndex !== barIndex) return true;
-    if (previousUi.markerIndex == null && markerIndex != null) return true;
-    if ((clockSeconds - previousUi.clockSeconds) >= TIMED_PLAYBACK_UI_REFRESH_SECONDS) return true;
-    return false;
-  }, []);
-
   const applySequencePlayback = useCallback((stepIndex, markerIndex = null, notes = [], options = {}) => {
     const playbackStartMs = performance.now();
     const hardRestart = options?.hardRestart === true;
@@ -1683,10 +1663,6 @@ const App = () => {
   );
 
   const previousWorkspaceTabRef = useRef(workspaceTab);
-
-  useEffect(() => {
-    sequencePlayheadRef.current = sequencePlayhead;
-  }, [sequencePlayhead]);
 
   useEffect(() => {
     const previousTab = previousWorkspaceTabRef.current;
@@ -2238,33 +2214,24 @@ const App = () => {
     if (!cueGroup) return;
     const clockSeconds = getTimedTransportClockSeconds();
     const barIndex = barIndexForTime(cueGroup.time);
-    const updateUi = shouldUpdateTimedPlaybackUi({
+    const hardRestart = options?.hardRestart === true || timedCueTrigger?.repeatJump != null;
+    const notes = sequencePlaybackNotesAtPosition(cueGroup.snapshotIndex, index);
+    applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
+      hardRestart,
+      updateUi: false,
+    });
+    timedPlaybackUiRef.current = {
+      clockSeconds,
       stepIndex: cueGroup.snapshotIndex,
       markerIndex: index,
       barIndex,
-      hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
-      clockSeconds,
-    });
-    const notes = sequencePlaybackNotesAtPosition(cueGroup.snapshotIndex, index);
-    applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
-      hardRestart: options?.hardRestart === true || timedCueTrigger?.repeatJump != null,
-      updateUi,
-    });
-    if (updateUi) {
-      timedPlaybackUiRef.current = {
-        clockSeconds,
-        stepIndex: cueGroup.snapshotIndex,
-        markerIndex: index,
-        barIndex,
-      };
-    }
+    };
   }, [
     applySequencePlayback,
     barIndexForTime,
     getTimedTransportClockSeconds,
     sequenceCueGroups,
     sequencePlaybackNotesAtPosition,
-    shouldUpdateTimedPlaybackUi,
   ]);
 
   const onDeleteSnapshot = useCallback(
