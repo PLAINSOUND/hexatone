@@ -14,7 +14,7 @@ import {
   resolveCueAnchorSnapshotId,
 } from "./view-runtime.js";
 
-export function deriveMinimalPanelScrollTop({
+export function derivePagedPanelScrollTop({
   scrollTop,
   scrollHeight,
   clientHeight,
@@ -27,15 +27,10 @@ export function deriveMinimalPanelScrollTop({
 }) {
   const visibleTop = panelTop + stickyTop + gap;
   const visibleBottom = Math.max(visibleTop, panelBottom - gap);
-  const targetHeight = Math.max(0, targetBottom - targetTop);
-  const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-  let nextTop = scrollTop;
-
-  if (targetTop < visibleTop || targetHeight > visibleHeight) {
-    nextTop += targetTop - visibleTop;
-  } else if (targetBottom > visibleBottom) {
-    nextTop += targetBottom - visibleBottom;
-  }
+  const targetIsVisible = targetTop >= visibleTop && targetBottom <= visibleBottom;
+  const nextTop = targetIsVisible
+    ? scrollTop
+    : scrollTop + targetTop - visibleTop;
 
   const maxTop = Math.max(0, scrollHeight - clientHeight);
   return Math.max(0, Math.min(maxTop, nextTop));
@@ -106,7 +101,7 @@ export default function useSequencerAutoscroll({
       const stickyTransportOverlap = playbackRect == null
         ? 0
         : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-      const nextTop = deriveMinimalPanelScrollTop({
+      const nextTop = derivePagedPanelScrollTop({
         scrollTop: scrollPanel.scrollTop,
         scrollHeight: scrollPanel.scrollHeight,
         clientHeight: scrollPanel.clientHeight,

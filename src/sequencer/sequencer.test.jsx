@@ -1647,7 +1647,7 @@ describe("Sequencer", () => {
     globalThis.cancelAnimationFrame = originalCancelRaf;
   });
 
-  it("minimally auto-scrolls to reveal the selected pending snapshot target", () => {
+  it("auto-scrolls an offscreen pending snapshot target to the top", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -1724,7 +1724,7 @@ describe("Sequencer", () => {
 
     fireEvent.change(screen.getByLabelText("next snapshot target"), { target: { value: "1" } });
 
-    expect(scrollTopValue).toBe(76);
+    expect(scrollTopValue).toBe(234);
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;

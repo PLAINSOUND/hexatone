@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveMinimalPanelScrollTop } from "./autoscroll-controller.js";
+import { derivePagedPanelScrollTop } from "./autoscroll-controller.js";
 
 const baseGeometry = {
   scrollTop: 400,
@@ -13,23 +13,23 @@ const baseGeometry = {
 
 describe("sequencer autoscroll geometry", () => {
   it("does not scroll a target that is already visible below the sticky transport", () => {
-    expect(deriveMinimalPanelScrollTop({
+    expect(derivePagedPanelScrollTop({
       ...baseGeometry,
       targetTop: 200,
       targetBottom: 260,
     })).toBe(400);
   });
 
-  it("reveals a target below the viewport with the smallest possible scroll", () => {
-    expect(deriveMinimalPanelScrollTop({
+  it("moves a target below the viewport to the top to restore look-ahead space", () => {
+    expect(derivePagedPanelScrollTop({
       ...baseGeometry,
       targetTop: 570,
       targetBottom: 630,
-    })).toBe(436);
+    })).toBe(814);
   });
 
   it("reveals a target hidden behind the sticky transport", () => {
-    expect(deriveMinimalPanelScrollTop({
+    expect(derivePagedPanelScrollTop({
       ...baseGeometry,
       targetTop: 130,
       targetBottom: 190,
@@ -37,7 +37,7 @@ describe("sequencer autoscroll geometry", () => {
   });
 
   it("top-aligns a target that is taller than the usable viewport and clamps the result", () => {
-    expect(deriveMinimalPanelScrollTop({
+    expect(derivePagedPanelScrollTop({
       ...baseGeometry,
       scrollTop: 20,
       targetTop: 80,
