@@ -43,8 +43,6 @@ const ColorCell = ({
   const pickerRef = createRef();
   const textRef = createRef();
   const swatchRef = createRef();
-  const lastFire = useRef(0);
-  const lastEventTime = useRef(0);
   const safeRef = useRef(safe);
   const draftRef = useRef(safe);
   const comparingRef = useRef(false);
@@ -99,28 +97,12 @@ const ColorCell = ({
     }
   };
 
-  // onInput: velocity-adaptive throttling
-  // Fast movement → fewer updates (coarser, ~100ms gap)
-  // Slow movement → more updates (finer, ~16ms gap = 60fps)
+  // The owning colour editor coalesces these previews to one canvas update per
+  // frame. Keep the picker itself local and immediate so its swatch never lags.
   const handlePickerInput = (e) => {
     const hex = e.target.value;
-    const now = Date.now();
-
-    // Always update local UI immediately (no perceived lag)
     applyDraft(hex);
     onPreviewColor?.(hex);
-
-    // Measure event frequency as proxy for drag speed
-    const timeSinceLastEvent = now - lastEventTime.current;
-    lastEventTime.current = now;
-
-    // Adaptive throttle: fast drag (small gap) → longer throttle
-    // 0ms gap (very fast) → 100ms throttle
-    // 80ms+ gap (slow) → 16ms throttle (60fps)
-    const speedFactor = Math.max(0, Math.min(1, (80 - timeSinceLastEvent) / 80));
-    const throttle = 16 + speedFactor * 84; // 16-100ms range
-
-    if (now - lastFire.current >= throttle) lastFire.current = now;
   };
 
   // onChange: update preview on picker close; explicit save commits
@@ -128,7 +110,6 @@ const ColorCell = ({
     const hex = e.target.value;
     applyDraft(hex);
     onPreviewColor?.(hex);
-    lastFire.current = 0; // reset throttle so final value always commits
   };
 
   // Text input — update swatch live while typing

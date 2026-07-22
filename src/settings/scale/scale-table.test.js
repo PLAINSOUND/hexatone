@@ -6,7 +6,7 @@
  * avoiding brittleness from position or implementation details.
  */
 
-import { render, screen, fireEvent } from "@testing-library/preact";
+import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import ScaleTable from "./scale-table/index.js";
 
@@ -309,7 +309,7 @@ describe("ScaleTable — explicit colors", () => {
     expect(updated[0]).toBe("#ffffff");
   });
 
-  it("shows compare and save controls for manual edits without an auto suggestion", () => {
+  it("shows compare and save controls for manual edits without an auto suggestion", async () => {
     const onChange = vi.fn();
     const keysRef = {
       current: {
@@ -325,16 +325,26 @@ describe("ScaleTable — explicit colors", () => {
     expect(screen.getByLabelText("save colour for color2")).not.toBeNull();
     expect(screen.queryByLabelText("revert colour for color2")).toBeNull();
 
-    expect(keysRef.current.updateColors).toHaveBeenCalled();
+    await waitFor(() => expect(keysRef.current.updateColors).toHaveBeenCalled());
     let lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
     expect(lastCall.note_colors[2]).toBe("ff0000");
+    expect(keysRef.current.updateColors.mock.calls.at(-1)[1]).toEqual({
+      preview: true,
+      degreeIndex: 2,
+    });
     expect(onChange).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByLabelText("compare original colour for color2"));
+    await waitFor(() => {
+      expect(keysRef.current.updateColors.mock.calls.at(-1)[0].note_colors[2]).toBe("ffffff");
+    });
     lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
     expect(lastCall.note_colors[2]).toBe("ffffff");
 
     fireEvent.click(screen.getByLabelText("compare original colour for color2"));
+    await waitFor(() => {
+      expect(keysRef.current.updateColors.mock.calls.at(-1)[0].note_colors[2]).toBe("ff0000");
+    });
     lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
     expect(lastCall.note_colors[2]).toBe("ff0000");
 
@@ -805,7 +815,7 @@ describe("ScaleTable — explicit colors", () => {
     );
   });
 
-  it("pushes auto-colour previews to the live keys renderer before save", () => {
+  it("pushes auto-colour previews to the live keys renderer before save", async () => {
     const onChange = vi.fn();
     const keysRef = {
       current: {
@@ -826,10 +836,44 @@ describe("ScaleTable — explicit colors", () => {
 
     fireEvent.click(screen.getByLabelText("apply suggested colour for color1"));
 
-    expect(keysRef.current.updateColors).toHaveBeenCalled();
+    await waitFor(() => expect(keysRef.current.updateColors).toHaveBeenCalled());
     const lastCall = keysRef.current.updateColors.mock.calls.at(-1)[0];
     expect(lastCall.note_colors[1]).toBe("95c69b");
+    expect(keysRef.current.updateColors.mock.calls.at(-1)[1]).toEqual({
+      preview: true,
+      degreeIndex: 1,
+    });
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("coalesces rapid picker previews to the latest colour in one animation frame", () => {
+    let previewFrame;
+    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      previewFrame = callback;
+      return 41;
+    });
+    const keysRef = { current: { updateColors: vi.fn() } };
+    const { container } = render(
+      <ScaleTable settings={settingsBase} onChange={() => {}} keysRef={keysRef} />,
+    );
+    const picker = container.querySelector('input[type="color"]');
+
+    fireEvent.input(picker, { target: { value: "#110000" } });
+    fireEvent.input(picker, { target: { value: "#220000" } });
+    fireEvent.input(picker, { target: { value: "#330000" } });
+
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(keysRef.current.updateColors).not.toHaveBeenCalled();
+
+    previewFrame(16);
+
+    expect(keysRef.current.updateColors).toHaveBeenCalledTimes(1);
+    expect(keysRef.current.updateColors.mock.calls[0][0].note_colors[0]).toBe("330000");
+    expect(keysRef.current.updateColors.mock.calls[0][1]).toEqual({
+      preview: true,
+      degreeIndex: 0,
+    });
+    requestFrame.mockRestore();
   });
 });
 

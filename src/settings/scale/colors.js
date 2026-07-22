@@ -260,7 +260,7 @@ const Colors = (props) => {
       note_colors: normalized.note_colors,
       spectrum_colors: normalized.spectrum_colors,
       fundamental_color: normalized.fundamental_color,
-    });
+    }, { preview: true });
   };
 
   useEffect(() => () => {

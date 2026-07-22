@@ -88,10 +88,15 @@ export function canAutoSendLinnstrumentColors() {
   );
 }
 
-export function updateColors(colors) {
+export function updateColors(colors, options = {}) {
   this.settings.note_colors = colors.note_colors;
   this.settings.spectrum_colors = colors.spectrum_colors;
   this.settings.fundamental_color = colors.fundamental_color;
+
+  if (options.preview) {
+    this.scheduleColorPreviewRedraw(options.degreeIndex);
+    return;
+  }
 
   this.scheduleGridRedraw();
 

@@ -184,13 +184,21 @@ const ScaleTable = (props) => {
     bumpResetVersion(tuneCellDegree);
   };
 
+  const colorPreviewFrameRef = useRef(null);
+  const pendingColorPreviewRef = useRef(null);
+
   const colorChange = (e) => {
+    if (colorPreviewFrameRef.current != null) {
+      window.cancelAnimationFrame(colorPreviewFrameRef.current);
+      colorPreviewFrameRef.current = null;
+    }
+    pendingColorPreviewRef.current = null;
     const next = [...(props.settings.note_colors || [])];
     next[parseInt(e.target.name.replace(/color/, ""))] = e.target.value;
     props.onChange("note_colors", next);
   };
 
-  const previewColorAt = useCallback((degreeIndex, colorHex) => {
+  const applyColorPreview = useCallback((degreeIndex, colorHex) => {
     if (!props.keysRef?.current?.updateColors || (props.settings.spectrum_colors && !props.settings.auto_colors)) return;
     const next = [...(props.settings.note_colors || [])];
     next[degreeIndex] = colorHex;
@@ -199,8 +207,26 @@ const ScaleTable = (props) => {
       note_colors: normalized.note_colors,
       spectrum_colors: normalized.spectrum_colors,
       fundamental_color: (props.settings.fundamental_color || "").replace(/#/, ""),
-    });
+    }, { preview: true, degreeIndex });
   }, [props.keysRef, props.settings]);
+
+  const previewColorAt = useCallback((degreeIndex, colorHex) => {
+    pendingColorPreviewRef.current = { degreeIndex, colorHex };
+    if (colorPreviewFrameRef.current != null) return;
+    colorPreviewFrameRef.current = window.requestAnimationFrame(() => {
+      colorPreviewFrameRef.current = null;
+      const pending = pendingColorPreviewRef.current;
+      pendingColorPreviewRef.current = null;
+      if (pending) applyColorPreview(pending.degreeIndex, pending.colorHex);
+    });
+  }, [applyColorPreview]);
+
+  useEffect(() => () => {
+    if (colorPreviewFrameRef.current != null) {
+      window.cancelAnimationFrame(colorPreviewFrameRef.current);
+      colorPreviewFrameRef.current = null;
+    }
+  }, []);
 
   const nameChange = (e) => {
     setDraftNoteNames((prev) => ({

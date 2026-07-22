@@ -1824,10 +1824,11 @@ class Keys {
 
   /**
    * Imperatively update colors and redraw without reconstructing the Keys instance.
-   * RAF-batched: multiple rapid color changes result in only one redraw per frame.
+   * Picker previews use the RAF-batched display-only path; committed updates also
+   * flow through the normal controller-colour synchronization path.
    */
-  updateColors = (colors) => {
-    return KeysControllerLeds.updateColors.call(this, colors);
+  updateColors = (colors, options = {}) => {
+    return KeysControllerLeds.updateColors.call(this, colors, options);
   };
 
   /**
@@ -2606,6 +2607,14 @@ class Keys {
 
   scheduleGridRedraw() {
     return KeysRenderer.scheduleGridRedraw.call(this);
+  }
+
+  scheduleColorPreviewRedraw(degreeIndex = null) {
+    return KeysRenderer.scheduleColorPreviewRedraw.call(this, degreeIndex);
+  }
+
+  drawColorPreviewDegrees(degreeIndexes) {
+    return KeysRenderer.drawColorPreviewDegrees.call(this, degreeIndexes);
   }
 
   scheduleImmediateGridRedraw() {

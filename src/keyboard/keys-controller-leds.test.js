@@ -1,10 +1,40 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildLinnstrumentColorArray,
   buildLumatoneBypassLayoutEntries,
   buildLumatoneColorEntries,
   sendLumatoneLayout,
+  updateColors,
 } from "./keys-controller-leds.js";
+
+describe("updateColors", () => {
+  it("uses the display-only redraw path and skips controller output for previews", () => {
+    const ctx = {
+      settings: {
+        lumatone_led_sync: true,
+        midiin_controller_override: "auto",
+        midi_passthrough: false,
+      },
+      controller: { id: "lumatone" },
+      controllerMap: new Map(),
+      inputRuntime: {},
+      lumatoneLEDs: { sendAll: vi.fn() },
+      scheduleGridRedraw: vi.fn(),
+      scheduleColorPreviewRedraw: vi.fn(),
+    };
+
+    updateColors.call(ctx, {
+      note_colors: ["ffffff"],
+      spectrum_colors: false,
+      fundamental_color: "ffffff",
+    }, { preview: true, degreeIndex: 3 });
+
+    expect(ctx.settings.note_colors).toEqual(["ffffff"]);
+    expect(ctx.scheduleColorPreviewRedraw).toHaveBeenCalledWith(3);
+    expect(ctx.scheduleGridRedraw).not.toHaveBeenCalled();
+    expect(ctx.lumatoneLEDs.sendAll).not.toHaveBeenCalled();
+  });
+});
 
 describe("buildLinnstrumentColorArray", () => {
   it("colors degree 0 red on LinnStrument", () => {

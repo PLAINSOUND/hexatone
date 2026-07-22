@@ -53,6 +53,33 @@ export function scheduleGridRedraw() {
   this._gridRedrawTimer = setTimeout(scheduleWhenSafe, 0);
 }
 
+// Colour-picker previews are display-only and need to track the pointer even
+// while notes are sounding. Collapse an arbitrary number of picker events to
+// the latest settings value and patch the changed degrees at most once per frame.
+export function scheduleColorPreviewRedraw(degreeIndex = null) {
+  if (!this._pendingColorPreviewDegrees) this._pendingColorPreviewDegrees = new Set();
+  if (Number.isInteger(degreeIndex) && !this._colorPreviewNeedsFullRedraw) {
+    this._pendingColorPreviewDegrees.add(degreeIndex);
+  } else {
+    this._colorPreviewNeedsFullRedraw = true;
+    this._pendingColorPreviewDegrees.clear();
+    this._staticGridValid = false;
+  }
+  if (this._gridRedrawRaf != null) return;
+  this._gridRedrawRaf = requestAnimationFrame(() => {
+    this._gridRedrawRaf = null;
+    const needsFullRedraw = !!this._colorPreviewNeedsFullRedraw;
+    const degrees = [...this._pendingColorPreviewDegrees];
+    this._colorPreviewNeedsFullRedraw = false;
+    this._pendingColorPreviewDegrees.clear();
+    if (needsFullRedraw || !this._staticGridValid || !degrees.length) {
+      this.drawGrid();
+      return;
+    }
+    this.drawColorPreviewDegrees(degrees);
+  });
+}
+
 export function scheduleImmediateGridRedraw() {
   this._staticGridValid = false;
   if (this._gridRedrawTimer != null) {
@@ -343,6 +370,29 @@ export function drawGrid() {
   for (const coords of this._visibleGridCoords) {
     this.hexOff(coords);
   }
+}
+
+// A manual scale-table edit changes one palette entry. Patch only the visible
+// hexes that resolve to that degree into the cached static canvas, then use the
+// existing single drawImage copy for presentation. Geometry, unaffected hexes,
+// and their labels remain cached.
+export function drawColorPreviewDegrees(degreeIndexes) {
+  if (!this._staticGridValid || !this._staticGridContext || !this._staticGridCanvas) {
+    this.drawGrid();
+    return;
+  }
+  const changedDegrees = new Set(degreeIndexes);
+  for (const coords of this._visibleGridCoords) {
+    const [, degreeIndex] = this.hexCoordsToCents(coords);
+    if (changedDegrees.has(degreeIndex)) {
+      this._drawStaticHex(coords, this._staticGridContext);
+    }
+  }
+  if (this._copyStaticGridToMain()) {
+    this._redrawSoundingHexes();
+    return;
+  }
+  this.drawGrid();
 }
 
 export function hexCoordsToScreen(hex) {
