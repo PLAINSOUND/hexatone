@@ -14,6 +14,33 @@ import {
   resolveCueAnchorSnapshotId,
 } from "./view-runtime.js";
 
+export function deriveMinimalPanelScrollTop({
+  scrollTop,
+  scrollHeight,
+  clientHeight,
+  panelTop,
+  panelBottom,
+  targetTop,
+  targetBottom,
+  stickyTop = 0,
+  gap = 6,
+}) {
+  const visibleTop = panelTop + stickyTop + gap;
+  const visibleBottom = Math.max(visibleTop, panelBottom - gap);
+  const targetHeight = Math.max(0, targetBottom - targetTop);
+  const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+  let nextTop = scrollTop;
+
+  if (targetTop < visibleTop || targetHeight > visibleHeight) {
+    nextTop += targetTop - visibleTop;
+  } else if (targetBottom > visibleBottom) {
+    nextTop += targetBottom - visibleBottom;
+  }
+
+  const maxTop = Math.max(0, scrollHeight - clientHeight);
+  return Math.max(0, Math.min(maxTop, nextTop));
+}
+
 export default function useSequencerAutoscroll({
   autoScrollEnabled,
   activeCueIndex,
@@ -79,12 +106,18 @@ export default function useSequencerAutoscroll({
       const stickyTransportOverlap = playbackRect == null
         ? 0
         : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-      const targetTop = scrollPanel.scrollTop
-        + (targetRect.top - panelRect.top)
-        - stickyTransportOverlap
-        - gap;
-      const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
-      const nextTop = Math.max(0, Math.min(maxTop, targetTop));
+      const nextTop = deriveMinimalPanelScrollTop({
+        scrollTop: scrollPanel.scrollTop,
+        scrollHeight: scrollPanel.scrollHeight,
+        clientHeight: scrollPanel.clientHeight,
+        panelTop: panelRect.top,
+        panelBottom: panelRect.bottom,
+        targetTop: targetRect.top,
+        targetBottom: targetRect.bottom,
+        stickyTop: stickyTransportOverlap,
+        gap,
+      });
+      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
       appendPersistedSequencerCrashDiagnostic({
         type: "sequencer-autoscroll-requested",
         detail: "Requested sequencer autoscroll target",
@@ -95,7 +128,6 @@ export default function useSequencerAutoscroll({
           targetTop: nextTop,
         },
       });
-      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
       scrollPanel.scrollTop = nextTop;
       appendPersistedSequencerCrashDiagnostic({
         type: "sequencer-autoscroll-applied",
