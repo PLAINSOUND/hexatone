@@ -418,6 +418,30 @@ export default function useTimedTransportController({
       });
 
       if (result.state.status === "finished") {
+        const finalBurst = result.dueBursts.at(-1) ?? null;
+        recordTimedTransportDiagnostic({
+          type: "finished",
+          clockSeconds: fireNowSeconds,
+          elapsedSeconds: result.state.pausedElapsedSeconds,
+          cueIndex: Number.isFinite(finalBurst?.sourceCueIndex) ? Number(finalBurst.sourceCueIndex) : null,
+          playbackIndex: result.state.lastDispatchedPlaybackIndex,
+          nextPlaybackIndex: result.state.nextPlaybackIndex,
+          activeNotes: Array.isArray(finalBurst?.soundingAfter) ? finalBurst.soundingAfter.length : null,
+          noteCount: Array.isArray(finalBurst?.events)
+            ? finalBurst.events.filter((event) => event?.type === "note").length
+            : null,
+          status: result.state.status,
+          detail: "Timed transport reached the terminal playback burst",
+        });
+        recordSequenceRuntimeDiagnostic({
+          type: "finished",
+          source: "timed-transport",
+          step: "timed-transport-finished",
+          playbackRuntimeToken,
+          timedTriggerToken,
+          transportStatus: result.state.status,
+          detail: "Timed transport reached the terminal playback burst",
+        });
         // The scheduler ref is authoritative while running. Publish only the
         // terminal status; per-burst hook updates reconcile the full sequencer
         // even though the transport clock already reads this ref directly.
@@ -430,8 +454,11 @@ export default function useTimedTransportController({
     }, delayMs);
   }, [
     dispatchTimedCueBurst,
+    playbackRuntimeToken,
+    recordSequenceRuntimeDiagnostic,
     recordTimedTransportDiagnostic,
     sequencePlaybackSpeed,
+    timedTriggerToken,
   ]);
 
   const invalidateTimedTransportPlayback = useCallback((detail, extra = {}) => {

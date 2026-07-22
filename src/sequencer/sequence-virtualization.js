@@ -88,33 +88,49 @@ export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIn
   const observedNodesRef = useRef(new Map());
   const resizeObserverRef = useRef(null);
   const pendingFrameRef = useRef(null);
+  const pendingMeasurementFrameRef = useRef(null);
+  const pendingMeasurementsRef = useRef(new Map());
   const layoutRef = useRef(null);
   const [measuredSizes, setMeasuredSizes] = useState(() => new Map());
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 640 });
 
-  const recordMeasurement = useCallback((key, size) => {
-    const numeric = Number(size);
-    if (!Number.isFinite(numeric) || numeric <= 0) return;
+  const flushMeasurements = useCallback(() => {
+    pendingMeasurementFrameRef.current = null;
+    const pendingMeasurements = pendingMeasurementsRef.current;
+    pendingMeasurementsRef.current = new Map();
+    if (pendingMeasurements.size === 0) return;
     setMeasuredSizes((previous) => {
-      const previousSize = previous.get(key);
-      if (previousSize != null && Math.abs(previousSize - numeric) < 0.5) return previous;
-      const next = new Map(previous);
-      next.set(key, numeric);
+      let next = previous;
+      pendingMeasurements.forEach((numeric, key) => {
+        const previousSize = previous.get(key);
+        if (previousSize != null && Math.abs(previousSize - numeric) < 0.5) return;
+        if (next === previous) next = new Map(previous);
+        next.set(key, numeric);
+      });
       return next;
     });
   }, []);
+
+  const queueMeasurement = useCallback((key, size) => {
+    const numeric = Number(size);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    pendingMeasurementsRef.current.set(key, numeric);
+    if (pendingMeasurementFrameRef.current != null) return;
+    pendingMeasurementFrameRef.current = window.requestAnimationFrame(flushMeasurements);
+  }, [flushMeasurements]);
 
   const measureItem = useCallback((key, node) => {
     const previousNode = observedNodesRef.current.get(key) ?? null;
     if (previousNode && previousNode !== node) resizeObserverRef.current?.unobserve?.(previousNode);
     if (!(node instanceof HTMLElement)) {
       observedNodesRef.current.delete(key);
+      pendingMeasurementsRef.current.delete(key);
       return;
     }
     observedNodesRef.current.set(key, node);
     resizeObserverRef.current?.observe?.(node);
-    recordMeasurement(key, node.getBoundingClientRect().height || node.offsetHeight);
-  }, [recordMeasurement]);
+    queueMeasurement(key, node.getBoundingClientRect().height || node.offsetHeight);
+  }, [queueMeasurement]);
 
   useLayoutEffect(() => {
     if (!enabled || typeof ResizeObserver !== "function") return undefined;
@@ -122,7 +138,11 @@ export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIn
       entries.forEach((entry) => {
         for (const [key, node] of observedNodesRef.current.entries()) {
           if (node !== entry.target) continue;
-          recordMeasurement(key, entry.contentRect?.height ?? node.getBoundingClientRect().height);
+          // ResizeObserver callbacks run during layout delivery. Updating the
+          // virtual spacers here can resize the observed row again in the same
+          // delivery cycle, producing an observer loop. Apply all row sizes in
+          // one state update on the next animation frame instead.
+          queueMeasurement(key, entry.contentRect?.height ?? node.getBoundingClientRect().height);
           break;
         }
       });
@@ -133,10 +153,21 @@ export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIn
       observer.disconnect();
       resizeObserverRef.current = null;
     };
-  }, [enabled, recordMeasurement]);
+  }, [enabled, queueMeasurement]);
+
+  useEffect(() => () => {
+    if (pendingMeasurementFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingMeasurementFrameRef.current);
+    }
+    pendingMeasurementFrameRef.current = null;
+    pendingMeasurementsRef.current.clear();
+  }, []);
 
   useEffect(() => {
     const keys = new Set(items.map((item) => item.key));
+    pendingMeasurementsRef.current.forEach((_, key) => {
+      if (!keys.has(key)) pendingMeasurementsRef.current.delete(key);
+    });
     setMeasuredSizes((previous) => {
       const staleKeys = [...previous.keys()].filter((key) => !keys.has(key));
       if (staleKeys.length === 0) return previous;

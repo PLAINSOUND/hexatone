@@ -19,6 +19,7 @@ describe("Sequencer", () => {
 
   it("does not reset bar playback state before dispatching a timed cue", () => {
     vi.useFakeTimers();
+    localStorage.setItem("hexatone_debug_timed_transport", "true");
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn(() => 1);
@@ -88,6 +89,20 @@ describe("Sequencer", () => {
 
     expect(onPlayCue).toHaveBeenCalledWith(0);
     expect(onSelectSequenceBar).not.toHaveBeenCalled();
+
+    nowSeconds = 2;
+    vi.runOnlyPendingTimers();
+    nowSeconds = 5;
+    vi.runOnlyPendingTimers();
+    expect(globalThis.__hexatoneTimedTransportDiagnostics.get().recent).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "finished",
+          status: "finished",
+          detail: "Timed transport reached the terminal playback burst",
+        }),
+      ]),
+    );
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;
