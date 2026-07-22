@@ -510,9 +510,10 @@ const SequenceControls = ({
             data-timed-transport-field="bar"
             value={playhead?.barIndex ?? 0}
             onChange={(e) => {
+              const selectedBarIndex = Number(e.currentTarget.value);
               stopTimedTransportBefore(() => {
                 transportScrollTargetRef.current = "bar";
-                onSelectSequenceBar?.(Number(e.currentTarget.value));
+                onSelectSequenceBar?.(selectedBarIndex);
               }, timedTransportUiState, onTimedTransportStop);
             }}
           >
@@ -544,15 +545,15 @@ const SequenceControls = ({
             data-timed-transport-field="snapshot"
             value={snapshotSelectValue}
             onChange={(e) => {
+              const selectedSnapshotValue = e.currentTarget.value;
               stopTimedTransportBefore(() => {
-                const { value } = e.currentTarget;
-                if (value === "") {
+                if (selectedSnapshotValue === "") {
                   return;
                 }
-                if (value === terminalSequenceTarget) {
+                if (selectedSnapshotValue === terminalSequenceTarget) {
                   return;
                 }
-                armPendingSnapshot(value);
+                armPendingSnapshot(selectedSnapshotValue);
               }, timedTransportUiState, onTimedTransportStop);
             }}
           >
@@ -610,15 +611,15 @@ const SequenceControls = ({
             data-timed-transport-field="cue"
             value={cueSelectValue}
             onChange={(e) => {
+              const selectedCueValue = e.currentTarget.value;
               stopTimedTransportBefore(() => {
-                const { value } = e.currentTarget;
-                if (value === "") {
+                if (selectedCueValue === "") {
                   return;
                 }
-                if (value === terminalSequenceTarget) {
+                if (selectedCueValue === terminalSequenceTarget) {
                   return;
                 }
-                armPendingCue(value);
+                armPendingCue(selectedCueValue);
               }, timedTransportUiState, onTimedTransportStop);
             }}
           >

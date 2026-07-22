@@ -81,7 +81,7 @@ export function createTimedPlaybackVisualPresenter({
     presentTransportPosition?.(nextPosition?.transport ?? null);
   };
 
-  const clear = () => {
+  const clear = ({ restoreTransport = true } = {}) => {
     pendingPosition = null;
     if (frameId != null) {
       cancelFrame(frameId);
@@ -89,22 +89,37 @@ export function createTimedPlaybackVisualPresenter({
     }
     removeActiveClass();
     clearActiveEvents();
-    clearTransportPosition?.();
+    if (restoreTransport) clearTransportPosition?.();
   };
 
   return {
     enqueue(position) {
       if (disposed) return;
-      pendingPosition = position != null && typeof position === "object"
+      const nextPosition = position != null && typeof position === "object"
         ? position
         : { snapshotId: position ?? null };
+      const pendingScrollIndex = Number(pendingPosition?.scrollSnapshotIndex);
+      const nextScrollIndex = Number(nextPosition?.scrollSnapshotIndex);
+      const preservePendingScrollTarget = (
+        pendingPosition != null
+        && Number.isFinite(pendingScrollIndex)
+        && Number.isFinite(nextScrollIndex)
+        && pendingScrollIndex < nextScrollIndex
+      );
+      pendingPosition = preservePendingScrollTarget
+        ? {
+          ...nextPosition,
+          scrollSnapshotId: pendingPosition.scrollSnapshotId,
+          scrollSnapshotIndex: pendingScrollIndex,
+        }
+        : nextPosition;
       if (frameId != null) return;
       frameId = requestFrame(flush);
     },
     clear,
-    dispose() {
+    dispose({ restoreTransport = true } = {}) {
       if (disposed) return;
-      clear();
+      clear({ restoreTransport });
       disposed = true;
     },
   };

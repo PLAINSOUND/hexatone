@@ -757,8 +757,12 @@ const Sequencer = ({
       const snapshotId = cueGroup == null
         ? null
         : (snapshots[snapshotIndex]?.id ?? null);
-      const earliestSoundingSnapshotIndex = Array.isArray(burst?.soundingAfter)
-        ? burst.soundingAfter.reduce((earliest, note) => {
+      const soundingNotesForScroll = [
+        ...(Array.isArray(burst?.soundingBefore) ? burst.soundingBefore : []),
+        ...(Array.isArray(burst?.soundingAfter) ? burst.soundingAfter : []),
+      ];
+      const earliestSoundingSnapshotIndex = soundingNotesForScroll.length > 0
+        ? soundingNotesForScroll.reduce((earliest, note) => {
           if (!Number.isFinite(note?.snapshotIndex)) return earliest;
           const noteSnapshotIndex = Number(note.snapshotIndex);
           return earliest == null ? noteSnapshotIndex : Math.min(earliest, noteSnapshotIndex);
@@ -774,6 +778,7 @@ const Sequencer = ({
       presenter.enqueue({
         snapshotId,
         scrollSnapshotId: snapshots[scrollSnapshotIndex]?.id ?? snapshotId,
+        scrollSnapshotIndex,
         soundingEventIds: Array.isArray(burst?.soundingAfter)
           ? burst.soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null)
           : [],
@@ -788,7 +793,7 @@ const Sequencer = ({
     return () => {
       timedVisualCueHandlerRef.current = null;
       timedVisualPresenterRef.current = null;
-      presenter.dispose();
+      presenter.dispose({ restoreTransport: false });
     };
   }, [
     cueSelectValue,

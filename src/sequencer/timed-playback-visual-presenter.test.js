@@ -132,6 +132,39 @@ describe("timed playback visual presenter", () => {
     expect(scrollSnapshotRow).toHaveBeenCalledWith(rows.get(6));
   });
 
+  it("preserves the earliest scroll anchor when adjacent cues share a visual frame", () => {
+    const frames = createFrameHarness();
+    const rows = new Map([
+      [6, document.createElement("div")],
+      [7, document.createElement("div")],
+    ]);
+    const scrollSnapshotRow = vi.fn();
+    const presenter = createTimedPlaybackVisualPresenter({
+      resolveSnapshotRow: (id) => rows.get(id),
+      scrollSnapshotRow,
+      requestFrame: frames.requestFrame,
+      cancelFrame: frames.cancelFrame,
+    });
+
+    presenter.enqueue({
+      snapshotId: 7,
+      scrollSnapshotId: 6,
+      scrollSnapshotIndex: 5,
+      transport: { cueIndex: 27 },
+    });
+    presenter.enqueue({
+      snapshotId: 7,
+      scrollSnapshotId: 7,
+      scrollSnapshotIndex: 6,
+      transport: { cueIndex: 28 },
+    });
+    frames.flush();
+
+    expect(rows.get(7).classList.contains(TIMED_PLAYBACK_ROW_CLASS)).toBe(true);
+    expect(scrollSnapshotRow).toHaveBeenCalledOnce();
+    expect(scrollSnapshotRow).toHaveBeenCalledWith(rows.get(6));
+  });
+
   it("coalesces transport values and mutates only changed sounding event rows", () => {
     const frames = createFrameHarness();
     const eventRows = new Map([
@@ -168,5 +201,19 @@ describe("timed playback visual presenter", () => {
     expect(eventRows.get("b").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(false);
     expect(eventRows.get("c").classList.contains(TIMED_PLAYBACK_EVENT_CLASS)).toBe(false);
     expect(clearTransportPosition).toHaveBeenCalledOnce();
+  });
+
+  it("does not restore controlled transport fields when replaced during a rerender", () => {
+    const frames = createFrameHarness();
+    const clearTransportPosition = vi.fn();
+    const presenter = createTimedPlaybackVisualPresenter({
+      clearTransportPosition,
+      requestFrame: frames.requestFrame,
+      cancelFrame: frames.cancelFrame,
+    });
+
+    presenter.dispose({ restoreTransport: false });
+
+    expect(clearTransportPosition).not.toHaveBeenCalled();
   });
 });

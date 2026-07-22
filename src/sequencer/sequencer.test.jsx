@@ -1438,6 +1438,86 @@ describe("Sequencer", () => {
     vi.useRealTimers();
   });
 
+  it("keeps each fresh PLAY FROM snapshot selection after presenter replacement", () => {
+    const snapshots = Array.from({ length: 17 }, (_, index) => ({
+      id: index + 1,
+      length: 1,
+      description: `Snapshot ${index + 1}`,
+      notes: [{ id: `note-${index + 1}`, midicents: 60 + index, start: 0, end: 1 }],
+    }));
+
+    const Harness = () => {
+      const [selectedSnapshotId, setSelectedSnapshotId] = useState(1);
+      const [pendingTransportSelection, setPendingTransportSelection] = useState({
+        snapshotIndex: null,
+        cueIndex: null,
+      });
+      const [playhead, setPlayhead] = useState({
+        barIndex: 0,
+        stepIndex: -1,
+        markerIndex: null,
+        stopped: true,
+      });
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={selectedSnapshotId}
+          selectedMarker={null}
+          pendingTransportSelection={pendingTransportSelection}
+          playingSnapshotId={null}
+          playhead={playhead}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onCueSequenceSnapshot={(targetIndex) => {
+            const snapshotIndex = Number(targetIndex);
+            setPendingTransportSelection({ snapshotIndex, cueIndex: null });
+            setSelectedSnapshotId(snapshots[snapshotIndex].id);
+            setPlayhead({ barIndex: 0, stepIndex: snapshotIndex, markerIndex: null, stopped: true });
+          }}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+    const snapshotSelect = screen.getByLabelText("next snapshot target");
+
+    fireEvent.change(snapshotSelect, { target: { value: "4" } });
+    expect(snapshotSelect.value).toBe("4");
+    expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(5)");
+
+    fireEvent.change(snapshotSelect, { target: { value: "16" } });
+    expect(snapshotSelect.value).toBe("16");
+    expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(17)");
+  });
+
   it("keeps cue stepping anchored to the earliest sounding snapshot in full-list view", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
