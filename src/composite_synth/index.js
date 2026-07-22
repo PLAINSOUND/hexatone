@@ -46,6 +46,16 @@ export const create_composite_synth = (synths) => ({
         hexes.forEach((h) => h.retune && h.retune(newCents, bendOnly, bend21));
       },
 
+      sequenceRetune(newCents) {
+        // Sequencer PITCH is an absolute playback transform, not controller
+        // wheel expression. Every child must receive the same target cents.
+        this.cents = newCents;
+        hexes.forEach((h) => {
+          if (h.sequenceRetune) h.sequenceRetune(newCents);
+          else if (h.retune) h.retune(newCents, true);
+        });
+      },
+
       standardWheelRetune(newCents) {
         this.cents = newCents;
         hexes.forEach((h) => {

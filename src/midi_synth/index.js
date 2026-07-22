@@ -520,6 +520,16 @@ MidiHex.prototype.retune = function (newCents) {
   this._updateKeymap();
 };
 
+// Sequencer PITCH retunes the already-sounding carrier in place. The encoded
+// MTS tuning note may cross semitone boundaries; the MIDI carrier itself stays
+// on, so no noteOff/noteOn pair is required.
+MidiHex.prototype.sequenceRetune = function (newCents) {
+  if (this.release || !Number.isFinite(Number(newCents))) return;
+  this.cents = Number(newCents);
+  this._sendMtsTuning(this.cents);
+  this._updateKeymap();
+};
+
 /**
  * Send MTS tuning message for given cents value.
  */

@@ -133,6 +133,26 @@ describe("sample_synth modwheel", () => {
     expect(hex.source.playbackRate.setValueAtTime.mock.calls[0][0]).toBeGreaterThan(1);
   });
 
+  it("uses the unshifted cue layer so absolute live retune matches retrigger", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    await synth.prepare();
+    const sourceCents = 550;
+    const targetCents = sourceCents + 147;
+    const sourceOptions = { playbackSourceCents: sourceCents };
+
+    const held = synth.makeHex(null, sourceCents, 0, 0, 12, null, null, 60, 96, 0, 1, sourceOptions);
+    held.noteOn();
+    held.sequenceRetune(targetCents);
+    const heldRate = held.source.playbackRate.setTargetAtTime.mock.calls.at(-1)[0];
+
+    const retriggered = synth.makeHex(null, targetCents, 0, 0, 12, null, null, 60, 96, 0, 1, sourceOptions);
+    retriggered.noteOn();
+
+    expect(held.sampleFreq).toBe(440);
+    expect(retriggered.sampleFreq).toBe(440);
+    expect(retriggered.source.playbackRate.value).toBeCloseTo(heldRate, 12);
+  });
+
   it("wakes a suspended audio context without rebuilding decoded buffers", async () => {
     const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
     await synth.prepare();

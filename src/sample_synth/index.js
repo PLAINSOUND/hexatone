@@ -396,6 +396,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         velocity_played,
         _bend,
         _degree0toRef_ratio,
+        playbackOptions = {},
       ) => {
         const hex = new ActiveHex(
           coords,
@@ -404,6 +405,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           note_played,
           fundamental,
           centsToReference,
+          playbackOptions?.playbackSourceCents,
           sampleGain,
           sampleAttack,
           sampleRelease,
@@ -447,6 +449,7 @@ function ActiveHex(
   note_played,
   fundamental,
   centsToReference,
+  playbackSourceCents,
   sampleGain,
   sampleAttack,
   sampleRelease,
@@ -470,6 +473,9 @@ function ActiveHex(
   this.note_played = note_played;
   this.fundamental = fundamental;
   this.centsToReference = centsToReference;
+  this.playbackSourceCents = Number.isFinite(Number(playbackSourceCents))
+    ? Number(playbackSourceCents)
+    : cents;
   this.sampleGain = sampleGain;
   this.sampleAttack = sampleAttack;
   this.sampleRelease = sampleRelease;
@@ -493,6 +499,10 @@ ActiveHex.prototype.noteOn = function () {
   if (!this.sampleBuffer || !this.audioContext) return;
 
   const freq = this.fundamental * Math.pow(2, (this.cents - this.centsToReference) / 1200);
+  const sourceSelectionFreq = this.fundamental * Math.pow(
+    2,
+    (this.playbackSourceCents - this.centsToReference) / 1200,
+  );
   const vol = this.velocity_response
     ? this.velocity_floor +
       (1 - this.velocity_floor) * (this.velocity_played / 127) ** this.velocity_exp
@@ -505,9 +515,9 @@ ActiveHex.prototype.noteOn = function () {
   // Choose the sample closest to the target frequency
   let sampleFreq = 110;
   let sampleNumber = 0;
-  if (freq > 155) {
-    if (freq > 311) {
-      if (freq > 622) {
+  if (sourceSelectionFreq > 155) {
+    if (sourceSelectionFreq > 311) {
+      if (sourceSelectionFreq > 622) {
         sampleFreq = 880;
         sampleNumber = 3;
       } else {
@@ -598,6 +608,10 @@ ActiveHex.prototype.retune = function (newCents) {
 // cents space. External MIDI/MPE outputs use raw pitch-bend passthrough instead.
 ActiveHex.prototype.standardWheelRetune = function (newCents) {
   this.retune(newCents, true);
+};
+
+ActiveHex.prototype.sequenceRetune = function (newCents) {
+  this.retune(newCents);
 };
 
 ActiveHex.prototype.aftertouch = function (value, value14 = null) {

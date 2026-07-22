@@ -108,6 +108,7 @@ function StickyPlaybackSlider({
 }) {
   const trackRef = useRef(null);
   const draggingRef = useRef(false);
+  const lastDragValueRef = useRef(clamp(value, Number(min), Number(max)));
   const lockRef = useRef(Math.abs(Number(value) || 0) <= deadZone);
   const [isActive, setIsActive] = useState(false);
   const safeMin = Number(min);
@@ -151,6 +152,7 @@ function StickyPlaybackSlider({
 
   const commitPointerValue = (clientX) => {
     const nextValue = mapPointerValue(valueFromClientX(clientX));
+    lastDragValueRef.current = nextValue;
     onInputValue?.(nextValue);
     return nextValue;
   };
@@ -170,11 +172,22 @@ function StickyPlaybackSlider({
 
   const finishPointerDrag = (event) => {
     if (!draggingRef.current) return;
-    const nextValue = commitPointerValue(event.clientX);
+    const nextValue = event.type === "pointercancel"
+      ? lastDragValueRef.current
+      : commitPointerValue(event.clientX);
     draggingRef.current = false;
     lockRef.current = Math.abs(nextValue) <= safeDeadZone;
     setIsActive(false);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
+    onCommitValue?.(nextValue);
+  };
+
+  const handleLostPointerCapture = () => {
+    if (!draggingRef.current) return;
+    const nextValue = lastDragValueRef.current;
+    draggingRef.current = false;
+    lockRef.current = Math.abs(nextValue) <= safeDeadZone;
+    setIsActive(false);
     onCommitValue?.(nextValue);
   };
 
@@ -211,6 +224,7 @@ function StickyPlaybackSlider({
       onPointerMove={handlePointerMove}
       onPointerUp={finishPointerDrag}
       onPointerCancel={finishPointerDrag}
+      onLostPointerCapture={handleLostPointerCapture}
       onKeyDown={handleKeyDown}
     >
       <span class="sequencer-playback-slider__track" aria-hidden="true" />
@@ -1005,7 +1019,13 @@ function PlaybackModifiersRow({
             onInputValue={handlePitchSliderInput}
             onCommitValue={(nextPitch) => {
               const nextValue = clamp(nextPitch, -1200, 1200);
+              if (pitchFrameRef.current != null) {
+                window.cancelAnimationFrame(pitchFrameRef.current);
+                pitchFrameRef.current = null;
+              }
               pendingPitchValueRef.current = nextValue;
+              // Commit dispatches one synchronous full-chord retune. Mark the
+              // pending preview consumed so it cannot run afterward.
               lastPreviewedPitchValueRef.current = nextValue;
               onSequencePlaybackPitchOffsetChange?.(nextValue);
             }}

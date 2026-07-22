@@ -151,7 +151,7 @@ import {
   advanceCueIndexWithRepeats,
 } from "./sequencer/repeat-playback-runtime.js";
 import { buildDependencyToken } from "./sequencer/dependency-token.js";
-import { bendActiveSnapshotHexes, retuneSnapshotHexes } from "./sequencer/snapshots.js";
+import { retuneActiveSnapshotHexes, retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const ManualSidebar = lazy(() => import("./manual/manual-sidebar.jsx"));
@@ -1453,7 +1453,10 @@ const App = () => {
 
     if (hardRestart) keysRef.current?.stopSnapshot();
     if (normalizedNotes.length > 0) {
-      keysRef.current?.playSnapshot(normalizedNotes, { legato: hardRestart ? false : useLegato });
+      keysRef.current?.playSnapshot(normalizedNotes, {
+        legato: hardRestart ? false : useLegato,
+        pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
+      });
     } else {
       keysRef.current?.stopSnapshot();
     }
@@ -1493,13 +1496,15 @@ const App = () => {
     );
     const transformNotes = (notes) => {
       let nextNotes = Array.isArray(notes) ? notes : [];
-      if (Math.abs(pitchOffset) > 1e-9) {
-        nextNotes = applyPlaybackPitchOffsetToNotes(nextNotes, pitchOffset);
-      }
       if (snapSequenceToCurrentTuning && currentSequenceSnapRuntime) {
         nextNotes = nextNotes.map((note) => (
           remapSequenceNoteToRuntime(note, currentSequenceSnapRuntime, noteNameOptions)
         ));
+      }
+      // PITCH is a global translation. Resolve any tuning snap first, then add
+      // the exact same cents value to every resulting note.
+      if (Math.abs(pitchOffset) > 1e-9) {
+        nextNotes = applyPlaybackPitchOffsetToNotes(nextNotes, pitchOffset);
       }
       return nextNotes;
     };
@@ -1517,19 +1522,29 @@ const App = () => {
 
   const previewSequencePlaybackPitchOffset = useCallback((value) => {
     const nextPitchOffset = clampSequencePlaybackPitchCents(value);
-    const previousPitchOffset = liveSequencePlaybackPitchOffsetRef.current;
     liveSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
     if (sequencePlayhead?.stopped) return;
     if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
-    bendActiveSnapshotHexes(keysRef.current, nextPitchOffset - previousPitchOffset);
+    retuneActiveSnapshotHexes(keysRef.current, nextPitchOffset);
     appliedSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
   }, [sequencePlayhead]);
 
   const commitSequencePlaybackPitchOffset = useCallback((value) => {
     const nextPitchOffset = clampSequencePlaybackPitchCents(value);
     liveSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
+    if (
+      sequencePlayhead?.stopped !== true
+      && Number.isFinite(sequencePlayhead?.stepIndex)
+      && sequencePlayhead.stepIndex >= 0
+    ) {
+      // Mouse-up/text commit is a synchronous final chord transaction. This
+      // intentionally resends every active voice even if the last preview had
+      // the same displayed value.
+      retuneActiveSnapshotHexes(keysRef.current, nextPitchOffset);
+      appliedSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
+    }
     setSequencePlaybackPitchOffset(nextPitchOffset);
-  }, []);
+  }, [sequencePlayhead]);
 
   const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     const hardRestart = options?.hardRestart === true;
@@ -1606,9 +1621,19 @@ const App = () => {
         sequenceLegato,
         snapSequenceToCurrentTuning,
       })) {
-        retuneSnapshotHexes(keysRef.current, currentNotes, { bendOnly: true });
+        const retunedHexes = retuneSnapshotHexes(keysRef.current, currentNotes, {
+          bendOnly: true,
+          sequencePitch: true,
+          pitchOffsetCents: sequencePlaybackPitchOffset,
+        });
+        retuneActiveSnapshotHexes(keysRef.current, sequencePlaybackPitchOffset, {
+          skipHexes: retunedHexes,
+        });
       } else {
-        keysRef.current?.playSnapshot(currentNotes, { legato: false });
+        keysRef.current?.playSnapshot(currentNotes, {
+          legato: false,
+          pitchOffsetCents: sequencePlaybackPitchOffset,
+        });
       }
     } else {
       keysRef.current?.stopSnapshot();

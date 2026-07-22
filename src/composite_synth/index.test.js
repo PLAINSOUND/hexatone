@@ -138,4 +138,25 @@ describe("composite_synth controller-state replay", () => {
     expect(sampleHex.standardWheelRetune).toHaveBeenCalledWith(1234);
     expect(mtsOrOscHex.retune).toHaveBeenCalledWith(1234, true);
   });
+
+  it("sends absolute sequencer targets to every child without wheel passthrough", () => {
+    const mpeHex = {
+      coords: { x: 0, y: 0 }, cents: 0, note_played: 60,
+      standardWheelPassthroughOnly: true,
+      retune: vi.fn(),
+    };
+    const mtsHex = {
+      coords: { x: 0, y: 0 }, cents: 0, note_played: 60,
+      sequenceRetune: vi.fn(),
+    };
+    const wrapper = create_composite_synth([
+      { makeHex: vi.fn(() => mpeHex) },
+      { makeHex: vi.fn(() => mtsHex) },
+    ]).makeHex();
+
+    wrapper.sequenceRetune(147);
+
+    expect(mpeHex.retune).toHaveBeenCalledWith(147, true);
+    expect(mtsHex.sequenceRetune).toHaveBeenCalledWith(147);
+  });
 });

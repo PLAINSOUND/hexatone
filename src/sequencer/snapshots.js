@@ -255,6 +255,16 @@ function retuneSnapshotHex(runtime, hex, synthCents, bendOnly = false) {
   }
 }
 
+function sequenceRetuneSnapshotHex(hex, synthCents) {
+  if (!Number.isFinite(synthCents) || !hex) return;
+  hex._baseCents = synthCents;
+  if (typeof hex.sequenceRetune === "function") {
+    hex.sequenceRetune(synthCents);
+    return;
+  }
+  if (typeof hex.retune === "function") hex.retune(synthCents, true);
+}
+
 function nextSnapshotCoords(runtime) {
   const nextId = Number.isFinite(Number(runtime?._snapshotCoordSeed))
     ? Number(runtime._snapshotCoordSeed)
@@ -264,11 +274,20 @@ function nextSnapshotCoords(runtime) {
   return new Point(base, base);
 }
 
-function createSnapshotHex(runtime, note) {
+function setSnapshotPitchReference(hex, synthCents, noteMidicents, pitchOffsetCents = 0) {
+  const safeOffset = Number.isFinite(Number(pitchOffsetCents)) ? Number(pitchOffsetCents) : 0;
+  hex._snapshotSourceBaseCents = synthCents - safeOffset;
+  hex._snapshotSourceMidicents = Number(noteMidicents) - (safeOffset / 100);
+  hex._snapshotAppliedPitchOffsetCents = safeOffset;
+}
+
+function createSnapshotHex(runtime, note, options = {}) {
   const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
   const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
   const degree0toRefRatio = runtime.tuning.degree0toRef_asArray?.[1] ?? 1;
   const synthCents = synthCentsForSnapshotNote(runtime, note);
+  const pitchOffsetCents = Number(options?.pitchOffsetCents) || 0;
+  const playbackSourceCents = synthCents - pitchOffsetCents;
   const dummyCoords = nextSnapshotCoords(runtime);
   const hex = runtime.synth.makeHex(
     dummyCoords,
@@ -282,12 +301,14 @@ function createSnapshotHex(runtime, note) {
     attackVelocity,
     0,
     degree0toRefRatio,
+    { playbackSourceCents },
   );
   hex._snapshotReleaseVelocity = releaseVelocity;
   hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
   hex._snapshotMidicents = Number(note.midicents);
   hex._snapshotInstanceKey = snapshotInstanceKey(note);
   hex._baseCents = synthCents;
+  setSnapshotPitchReference(hex, synthCents, note.midicents, pitchOffsetCents);
   const timbre = normalize7Bit(note.timbre);
   const timbre14 = normalize14Bit(note.timbre14);
   if ((timbre != null || timbre14 != null) && typeof runtime?.synth?.setMod === "function") {
@@ -311,9 +332,10 @@ function createSnapshotHex(runtime, note) {
 export function playSnapshot(runtime, notes, options = {}) {
   const legato = !!options.legato;
   const bendOnlyRetune = !!options.bendOnlyRetune;
+  const pitchOffsetCents = Number(options?.pitchOffsetCents) || 0;
   if (!legato) {
     runtime.stopSnapshot();
-    return notes.map((note, index) => createSnapshotHex(runtime, note, index));
+    return notes.map((note) => createSnapshotHex(runtime, note, { pitchOffsetCents }));
   }
 
   const availableHexesByPitch = new Map();
@@ -357,6 +379,7 @@ export function playSnapshot(runtime, notes, options = {}) {
       reusedHex._snapshotPitchKey = key;
       reusedHex._snapshotMidicents = Number(note.midicents);
       reusedHex._snapshotInstanceKey = instanceKey;
+      setSnapshotPitchReference(reusedHex, synthCents, note.midicents, pitchOffsetCents);
       retuneSnapshotHex(runtime, reusedHex, synthCents, bendOnlyRetune);
       // Future note-transition work can layer timed pressure/timbre ramps here.
       applySnapshotExpression(runtime, reusedHex, note);
@@ -368,7 +391,7 @@ export function playSnapshot(runtime, notes, options = {}) {
       reusedHex.noteOff(reusedHex._snapshotReleaseVelocity ?? 0);
     }
 
-    nextHexes.push(createSnapshotHex(runtime, note));
+    nextHexes.push(createSnapshotHex(runtime, note, { pitchOffsetCents }));
   }
 
   for (const remainingHexes of availableHexesByPitch.values()) {
@@ -393,11 +416,13 @@ export function playSnapshot(runtime, notes, options = {}) {
  * @param {{ bendOnly?: boolean }} options
  */
 export function retuneSnapshotHexes(runtime, notes, options = {}) {
-  if (!runtime) return;
+  const usedHexes = new Set();
+  if (!runtime) return usedHexes;
   const bendOnly = options?.bendOnly !== false;
+  const sequencePitch = options?.sequencePitch === true;
+  const pitchOffsetCents = Number(options?.pitchOffsetCents) || 0;
   const activeByInstance = activeSnapshotHexesByInstance(runtime);
   const fallbackHexes = [...(runtime._snapshotHexes ?? [])];
-  const usedHexes = new Set();
 
   for (const note of notes ?? []) {
     const instanceKey = snapshotInstanceKey(note);
@@ -415,35 +440,46 @@ export function retuneSnapshotHexes(runtime, notes, options = {}) {
     hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
     hex._snapshotMidicents = Number(note.midicents);
     if (instanceKey != null) hex._snapshotInstanceKey = instanceKey;
-    retuneSnapshotHex(runtime, hex, synthCents, bendOnly);
+    setSnapshotPitchReference(hex, synthCents, note.midicents, pitchOffsetCents);
+    if (sequencePitch) sequenceRetuneSnapshotHex(hex, synthCents);
+    else retuneSnapshotHex(runtime, hex, synthCents, bendOnly);
     applySnapshotExpression(runtime, hex, note);
   }
+  return usedHexes;
 }
 
 /**
- * Bend every currently sounding snapshot voice by a relative cents delta.
+ * Retune every currently sounding snapshot voice to one absolute offset.
  *
  * Unlike retuneSnapshotHexes, this deliberately does not reconstruct a cue's
  * note set. Legato voices may have originated in an earlier cue and must still
- * follow a live global pitch gesture.
+ * follow a live global pitch gesture. Each target is reconstructed from the
+ * voice's immutable unshifted base, so skipped frames cannot accumulate error.
  */
-export function bendActiveSnapshotHexes(runtime, deltaCents) {
+export function retuneActiveSnapshotHexes(runtime, pitchOffsetCents, options = {}) {
   if (!runtime) return;
-  const safeDeltaCents = Number(deltaCents);
-  if (!Number.isFinite(safeDeltaCents) || Math.abs(safeDeltaCents) < 1e-9) return;
+  const safePitchOffsetCents = Number(pitchOffsetCents);
+  if (!Number.isFinite(safePitchOffsetCents)) return;
+  const skipHexes = options?.skipHexes instanceof Set ? options.skipHexes : null;
 
   for (const hex of runtime._snapshotHexes ?? []) {
-    if (!hex) continue;
+    if (!hex || skipHexes?.has(hex)) continue;
+    const storedSourceBaseCents = Number(hex._snapshotSourceBaseCents);
+    const appliedOffset = Number(hex._snapshotAppliedPitchOffsetCents) || 0;
     const currentBaseCents = Number(hex._baseCents);
-    if (!Number.isFinite(currentBaseCents)) continue;
-    const nextBaseCents = currentBaseCents + safeDeltaCents;
-    const currentMidicents = Number(hex._snapshotMidicents);
-    if (Number.isFinite(currentMidicents)) {
-      const nextMidicents = currentMidicents + (safeDeltaCents / 100);
+    const sourceBaseCents = Number.isFinite(storedSourceBaseCents)
+      ? storedSourceBaseCents
+      : currentBaseCents - appliedOffset;
+    if (!Number.isFinite(sourceBaseCents)) continue;
+    hex._snapshotSourceBaseCents = sourceBaseCents;
+    hex._snapshotAppliedPitchOffsetCents = safePitchOffsetCents;
+    const sourceMidicents = Number(hex._snapshotSourceMidicents);
+    if (Number.isFinite(sourceMidicents)) {
+      const nextMidicents = sourceMidicents + (safePitchOffsetCents / 100);
       hex._snapshotMidicents = nextMidicents;
       hex._snapshotPitchKey = snapshotPitchKey(nextMidicents);
     }
-    retuneSnapshotHex(runtime, hex, nextBaseCents, true);
+    sequenceRetuneSnapshotHex(hex, sourceBaseCents + safePitchOffsetCents);
   }
 }
 

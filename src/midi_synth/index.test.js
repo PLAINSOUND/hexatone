@@ -265,6 +265,37 @@ describe("midi_synth bulk-dump retune policy", () => {
     expect(output.send.mock.calls[2]).toEqual([[0x90, hex.steps, hex.velocity]]);
   });
 
+  it("retunes a sounding MTS carrier across tuning-note boundaries without retriggering it", async () => {
+    const output = { send: vi.fn() };
+    const synth = await create_midi_synth({
+      outputMode: {
+        output, channel: 0, midiMapping: "MTS1", transportMode: "single_note_realtime",
+        velocity: 72, sysexType: 127, deviceId: 127, mapNumber: 0, anchorNote: 60,
+        pitchBendRange: 2,
+      },
+      tuningContext: {
+        fundamental: 440, degree0toRefAsArray: [0, 1], scale: scale12,
+        equivInterval: 1200, name: "test",
+      },
+      legacyInput: { midiin_device: "input-1", midiin_anchor_note: 60 },
+    });
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 60, -100, 100, 60, 72, 0, 1);
+    hex.noteOn();
+    const carrier = hex.steps;
+    output.send.mockClear();
+
+    hex.sequenceRetune(747);
+
+    expect(output.send).toHaveBeenCalledTimes(1);
+    const sysex = output.send.mock.calls[0][0];
+    expect(sysex[0]).toBe(0xf0);
+    expect(sysex[7]).toBe(carrier);
+    expect(sysex[8]).toBe(hex.mts[1]);
+    expect(sysex[8]).not.toBe(carrier);
+    expect(output.send.mock.calls.some(([bytes]) => (bytes[0] & 0xf0) === 0x80)).toBe(false);
+    expect(output.send.mock.calls.some(([bytes]) => (bytes[0] & 0xf0) === 0x90)).toBe(false);
+  });
+
   it("avoids immediately reusing a recently released dynamic bulk carrier", async () => {
     const output = { send: vi.fn() };
     const synth = await create_midi_synth({

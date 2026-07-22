@@ -542,6 +542,12 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
   }
 };
 
+// Sequencer PITCH keeps the allocated MPE note/channel sounding and expresses
+// the absolute target through its configured bend range.
+MpeHex.prototype.sequenceRetune = function (newCents) {
+  this.retune(newCents, true);
+};
+
 MpeHex.prototype.setMpePlusPitchBendEnabled = function (enabled) {
   const next = enabled === true;
   if (this.mpePlusPitchBendEnabled === next) return;

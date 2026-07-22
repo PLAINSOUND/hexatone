@@ -676,6 +676,10 @@ OscHex.prototype.retune = function (newCents) {
   }
 };
 
+OscHex.prototype.sequenceRetune = function (newCents) {
+  this.retune(newCents);
+};
+
 OscHex.prototype.aftertouch = function (value, value14 = null) {
   if (this.release) return;
   const filter = 1 + (

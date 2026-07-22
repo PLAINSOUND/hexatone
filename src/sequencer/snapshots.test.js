@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  bendActiveSnapshotHexes,
   captureSnapshot,
   playSnapshot,
+  retuneActiveSnapshotHexes,
   retuneSnapshotHexes,
   stopSnapshot,
 } from "./snapshots.js";
@@ -230,6 +230,19 @@ describe("sequencer snapshots", () => {
     expect(synth.makeHex.mock.calls[0][8]).toBe(120);
     expect(noteOn).toHaveBeenCalledTimes(1);
     expect(noteOff).toHaveBeenCalledWith(44);
+  });
+
+  it("records an unshifted source pitch while starting at the absolute sequencer target", () => {
+    const hex = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const synth = { makeHex: vi.fn(() => hex) };
+    const runtime = makeRuntime({ synth });
+
+    playSnapshot(runtime, [{ midicents: 70.47 }], { pitchOffsetCents: 147 });
+
+    expect(synth.makeHex.mock.calls[0][1]).toBeCloseTo(147, 9);
+    expect(synth.makeHex.mock.calls[0][11].playbackSourceCents).toBeCloseTo(0, 9);
+    expect(hex._snapshotSourceBaseCents).toBeCloseTo(0, 9);
+    expect(hex._snapshotSourceMidicents).toBeCloseTo(69, 9);
   });
 
   it("reconstructs snapshot playback cents from the normalized degree-0 reference offset", () => {
@@ -632,18 +645,24 @@ describe("sequencer snapshots", () => {
     expect(soundingHex._snapshotInstanceKey).toBe("old:note");
   });
 
-  it("bends every active snapshot voice including legato carry-over voices", () => {
+  it("retunes every active voice from an immutable base including legato carry-over voices", () => {
     const carriedHex = {
-      standardWheelRetune: vi.fn(),
-      _baseCents: 0,
-      _snapshotMidicents: 69,
+      sequenceRetune: vi.fn(),
+      _baseCents: 112,
+      _snapshotSourceBaseCents: 0,
+      _snapshotSourceMidicents: 69,
+      _snapshotAppliedPitchOffsetCents: 112,
+      _snapshotMidicents: 70.12,
       _snapshotPitchKey: "69.000",
       _snapshotInstanceKey: "earlier:carried",
     };
     const currentHex = {
-      standardWheelRetune: vi.fn(),
-      _baseCents: 300,
-      _snapshotMidicents: 72,
+      sequenceRetune: vi.fn(),
+      _baseCents: 412,
+      _snapshotSourceBaseCents: 300,
+      _snapshotSourceMidicents: 72,
+      _snapshotAppliedPitchOffsetCents: 112,
+      _snapshotMidicents: 73.12,
       _snapshotPitchKey: "72.000",
       _snapshotInstanceKey: "current:note",
     };
@@ -651,12 +670,60 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [carriedHex, currentHex],
     });
 
-    bendActiveSnapshotHexes(runtime, 37);
+    retuneActiveSnapshotHexes(runtime, -45);
 
-    expect(carriedHex.standardWheelRetune).toHaveBeenCalledWith(37);
-    expect(currentHex.standardWheelRetune).toHaveBeenCalledWith(337);
-    expect(carriedHex._snapshotMidicents).toBeCloseTo(69.37, 9);
-    expect(currentHex._snapshotMidicents).toBeCloseTo(72.37, 9);
+    expect(carriedHex.sequenceRetune).toHaveBeenCalledWith(-45);
+    expect(currentHex.sequenceRetune).toHaveBeenCalledWith(255);
+    expect(carriedHex._snapshotMidicents).toBeCloseTo(68.55, 9);
+    expect(currentHex._snapshotMidicents).toBeCloseTo(71.55, 9);
+
+    retuneActiveSnapshotHexes(runtime, 147);
+    expect(carriedHex.sequenceRetune).toHaveBeenLastCalledWith(147);
+    expect(currentHex.sequenceRetune).toHaveBeenLastCalledWith(447);
+    expect(carriedHex._snapshotMidicents).toBeCloseTo(70.47, 9);
+    expect(currentHex._snapshotMidicents).toBeCloseTo(73.47, 9);
+  });
+
+  it("produces the same absolute pure-triad targets live and on retrigger", () => {
+    const pureTriad = [69, 69 + (386.3137139 / 100), 69 + (701.9550009 / 100)];
+    const makeSynth = () => ({
+      makeHex: vi.fn((_coords, cents) => ({
+        cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        sequenceRetune: vi.fn(),
+      })),
+    });
+    const liveSynth = makeSynth();
+    const liveRuntime = makeRuntime({ synth: liveSynth });
+    const initialOffset = 147;
+    const shiftedInitialNotes = pureTriad.map((midicents) => ({
+      midicents: midicents + (initialOffset / 100),
+    }));
+    liveRuntime._snapshotHexes = playSnapshot(liveRuntime, shiftedInitialNotes, {
+      pitchOffsetCents: initialOffset,
+    });
+
+    retuneActiveSnapshotHexes(liveRuntime, -45);
+    const liveTargets = liveRuntime._snapshotHexes.map(
+      (hex) => hex.sequenceRetune.mock.calls.at(-1)[0],
+    );
+
+    const retriggerSynth = makeSynth();
+    const retriggerRuntime = makeRuntime({ synth: retriggerSynth });
+    playSnapshot(
+      retriggerRuntime,
+      pureTriad.map((midicents) => ({ midicents: midicents - 0.45 })),
+      { pitchOffsetCents: -45 },
+    );
+    const retriggerTargets = retriggerSynth.makeHex.mock.calls.map((call) => call[1]);
+
+    expect(liveTargets).toHaveLength(3);
+    liveTargets.forEach((target, index) => {
+      expect(target).toBeCloseTo(retriggerTargets[index], 9);
+    });
+    expect(liveTargets[1] - liveTargets[0]).toBeCloseTo(386.3137139, 7);
+    expect(liveTargets[2] - liveTargets[0]).toBeCloseTo(701.9550009, 7);
   });
 
   it("reuses a legato note by standard sequence id when pitch changes", () => {
