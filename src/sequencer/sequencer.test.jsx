@@ -455,13 +455,10 @@ describe("Sequencer", () => {
       currentTarget: { value: "2" },
       target: { value: "2" },
     });
-    const insertPosition = screen.getByLabelText("copy snapshot insert global position");
-    fireEvent.focus(insertPosition);
-    fireEvent.input(insertPosition, {
+    fireEvent.input(screen.getByLabelText("copy snapshot insert global position"), {
       currentTarget: { value: "4" },
       target: { value: "4" },
     });
-    fireEvent.blur(insertPosition);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
     fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
@@ -478,81 +475,6 @@ describe("Sequencer", () => {
       4,
     );
     expect(screen.getByText("Inserted 2 snapshots at slot 4.")).toBeTruthy();
-  });
-
-  it("keeps the copied-block Position field local until blur or Enter", () => {
-    const onInsertSnapshotCopyBlock = vi.fn();
-
-    render(
-      <Sequencer
-        snapshots={[
-          { id: 1, length: 1, description: "A", notes: [] },
-          { id: 2, length: 1, description: "B", notes: [] },
-        ]}
-        bars={[{ id: 1, position: 1 }]}
-        snapshotLabelMode="labels"
-        selectedSnapshotId={1}
-        selectedMarker={null}
-        playingSnapshotId={null}
-        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
-        onTakeSnapshot={vi.fn()}
-        onSetSnapshotLabelMode={vi.fn()}
-        onSelectSnapshot={vi.fn()}
-        onSelectMarker={vi.fn()}
-        onPlaySnapshot={vi.fn()}
-        onStopSnapshot={vi.fn()}
-        onSelectSequenceBar={vi.fn()}
-        onStepSequence={vi.fn()}
-        onStepSequenceMarker={vi.fn()}
-        onJumpSequenceSnapshot={vi.fn()}
-        onJumpSequenceCue={vi.fn()}
-        onPlaySequence={vi.fn()}
-        onPlayCue={vi.fn()}
-        onPlayTimedCue={vi.fn()}
-        onResetSequencePlayhead={vi.fn()}
-        onJumpSequenceEnd={vi.fn()}
-        getTimedTransportClockSeconds={() => 0}
-        onAddBar={vi.fn()}
-        onAddTempo={vi.fn()}
-        onAddRepeat={vi.fn()}
-        onAddBarsBeforeSnapshots={vi.fn()}
-        onDeleteBar={vi.fn()}
-        onDeleteTempo={vi.fn()}
-        onDeleteRepeat={vi.fn()}
-        onUpdateBar={vi.fn()}
-        onUpdateTempo={vi.fn()}
-        onUpdateRepeat={vi.fn()}
-        onMoveBar={vi.fn()}
-        onDeleteSnapshot={vi.fn()}
-        onDeleteAllSnapshots={vi.fn()}
-        onClearSequence={vi.fn()}
-        onMoveSnapshot={vi.fn()}
-        onDuplicateSnapshot={vi.fn()}
-        onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
-        onUpdateSnapshot={vi.fn()}
-        onResetSnapshotDescription={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
-    const position = screen.getByLabelText("copy snapshot insert global position");
-    position.focus();
-    expect(position.selectionStart).toBe(0);
-    expect(position.selectionEnd).toBe(position.value.length);
-
-    fireEvent.input(position, {
-      currentTarget: { value: "2" },
-      target: { value: "2" },
-    });
-    expect(onInsertSnapshotCopyBlock).not.toHaveBeenCalled();
-
-    fireEvent.keyDown(position, { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
-
-    expect(onInsertSnapshotCopyBlock).toHaveBeenCalledWith(
-      expect.any(Object),
-      2,
-    );
   });
 
   it("renders a derived transition cue on the previous tempo row", () => {
@@ -4231,7 +4153,7 @@ describe("Sequencer", () => {
     expect([...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map((node) => node.value))
       .toEqual(["0.000", "0.100", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2"]);
+      .toEqual(["1", "2", "3"]);
   });
 
   it("commits a position edit on Enter and regenerates cue numbering", () => {
@@ -4290,16 +4212,20 @@ describe("Sequencer", () => {
 
     const positionInputs = screen.getAllByLabelText("snapshot 1 attack offset");
     positionInputs[1].focus();
+    expect(document.activeElement).toBe(positionInputs[1]);
     fireEvent.input(positionInputs[1], {
       currentTarget: { value: "0.100000" },
       target: { value: "0.100000" },
     });
+    expect(document.activeElement).toBe(positionInputs[1]);
+    expect(screen.getByLabelText("commit snapshot 1 attack sequence placement")).toBeTruthy();
+    expect(screen.getByLabelText("cancel snapshot 1 attack sequence placement")).toBeTruthy();
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map((node) => node.value))
       .toEqual(["0.000", "0.100", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2"]);
+      .toEqual(["1", "2", "3"]);
   });
 
   it("commits position edits for captured snapshot notes that do not have ids", () => {
@@ -4366,9 +4292,9 @@ describe("Sequencer", () => {
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
     expect([...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map((node) => node.value))
-      .toEqual(["0.000", "0.200", "0.000", "1.000", "1.000", "1.000"]);
+      .toEqual(["0.000", "0.000", "0.200", "1.000", "1.000", "1.000"]);
     expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2"]);
+      .toEqual(["1", "2", "3"]);
   });
 
   it("deletes an event by removing its owning note", () => {

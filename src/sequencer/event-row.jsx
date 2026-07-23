@@ -246,7 +246,7 @@ const EventRow = ({
       </div>
       <div class="sequencer-event__cell sequencer-grid-offset">
         <input
-          key={`${event.eventId}-offset-${eventSequenceDraft?.offset ?? event.relativeTime}`}
+          key={`${event.eventId}-offset`}
           type="text"
           class={`sequencer-event__input sequencer-event__position${isOutOfSnapshotRange(snapshot, event.relativeTime) ? " sequencer-event__position--out-of-range" : ""}${isEventSequenceDraftActive ? " sequencer-event__input--draft" : ""}`}
           defaultValue={formatDisplaySequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime)}

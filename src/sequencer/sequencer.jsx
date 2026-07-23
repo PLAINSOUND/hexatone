@@ -195,7 +195,6 @@ const Sequencer = ({
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
-  const copyInsertPositionInputRef = useRef(null);
   const timedVisualCueHandlerRef = useRef(null);
   const timedVisualPresenterRef = useRef(null);
   const timedTransportFieldValuesRef = useRef({
@@ -454,12 +453,6 @@ const Sequencer = ({
     });
   }, [selectedSnapshotPosition, snapshots.length]);
 
-  useEffect(() => {
-    const input = copyInsertPositionInputRef.current;
-    if (!input || document.activeElement === input) return;
-    input.value = copyInsertPosition;
-  }, [copyInsertPosition]);
-
   const handleCopyRangeStartInput = useCallback((rawValue) => {
     const nextValue = rawValue;
     setCopyRangeStart(nextValue);
@@ -560,12 +553,6 @@ const Sequencer = ({
     const snapped = resolveBarPositionFromBarNumber(currentBar) ?? 1;
     setCopyInsertPosition(String(snapped));
   }, [resolveBarPositionFromBarNumber, snapshots.length, sortedBars, terminalBarlinePosition]);
-
-  const commitCopyInsertPosition = useCallback((event) => {
-    const nextValue = event.currentTarget.value;
-    setCopyInsertPosition(nextValue);
-    if (copyIncludeBars) snapInsertPositionToBar(nextValue);
-  }, [copyIncludeBars, snapInsertPositionToBar]);
 
   const handleCopySnapshotBlock = useCallback(() => {
     const block = buildSnapshotCopyBlock({
@@ -1749,18 +1736,15 @@ const Sequencer = ({
             <label class="sequencer-copy-block__range-item">
               <span class="sequencer-copy-block__range-item-label">Position</span>
               <input
-                ref={copyInsertPositionInputRef}
-                type="text"
-                inputMode="numeric"
+                type="number"
+                min="1"
+                step="1"
                 aria-label="copy snapshot insert global position"
-                defaultValue={copyInsertPosition}
-                onFocus={(e) => e.currentTarget.select()}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  e.currentTarget.blur();
+                value={copyInsertPosition}
+                onInput={(e) => setCopyInsertPosition(e.currentTarget.value)}
+                onBlur={(e) => {
+                  if (copyIncludeBars) snapInsertPositionToBar(e.currentTarget.value);
                 }}
-                onBlur={commitCopyInsertPosition}
               />
             </label>
             <label class="sequencer-copy-block__range-item">
