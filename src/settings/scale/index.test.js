@@ -82,6 +82,50 @@ describe("Scale panel — default state", () => {
     expect(onChange).toHaveBeenCalledWith("equivSteps", 13);
   });
 
+  it("shows the tuning save action below the scale actions when the primary save is out of view", () => {
+    const save = vi.fn();
+    render(
+      <Scale
+        settings={minimalSettings}
+        onChange={() => {}}
+        onImport={() => {}}
+        primaryTuningSaveVisible={false}
+        tuningSaveActionState={{
+          visible: true,
+          label: "Save current settings",
+          action: save,
+        }}
+      />,
+    );
+
+    const scaleActions = screen.getByRole("button", { name: /edit scala file/i })
+      .closest(".settings-form__action-group");
+    const stickySave = screen.getByRole("button", { name: "Save current settings" });
+
+    expect(scaleActions.compareDocumentPosition(stickySave) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+    fireEvent.click(stickySave);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the tuning save duplicate while the primary save is visible", () => {
+    render(
+      <Scale
+        settings={minimalSettings}
+        onChange={() => {}}
+        onImport={() => {}}
+        primaryTuningSaveVisible
+        tuningSaveActionState={{
+          visible: true,
+          label: "Save current settings",
+          action: vi.fn(),
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Save current settings" })).toBeNull();
+  });
+
   it("does not show the scala import textarea initially", () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     expect(document.querySelector("textarea")).toBeNull();

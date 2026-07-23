@@ -326,6 +326,21 @@ const Scale = (props) => {
           </div>
         </>
       )}
+      {!props.primaryTuningSaveVisible &&
+        props.tuningSaveActionState?.visible &&
+        typeof props.tuningSaveActionState.action === "function" && (
+        <div class="settings-form__action-row scale-fieldset__save-row">
+          <span class="settings-form__action-group settings-form__action-group--wrap">
+            <button
+              type="button"
+              class="preset-action-btn"
+              onClick={props.tuningSaveActionState.action}
+            >
+              {props.tuningSaveActionState.label}
+            </button>
+          </span>
+        </div>
+      )}
     </fieldset>
   );
 };
@@ -340,6 +355,12 @@ Scale.propTypes = {
   keysReadyRevision: PropTypes.number,
   modulation_transposition_cents: PropTypes.number,
   modulation_display_active: PropTypes.bool,
+  tuningSaveActionState: PropTypes.shape({
+    visible: PropTypes.bool,
+    label: PropTypes.string,
+    action: PropTypes.func,
+  }),
+  primaryTuningSaveVisible: PropTypes.bool,
 };
 
 export default Scale;

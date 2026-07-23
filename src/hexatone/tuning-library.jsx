@@ -9,7 +9,7 @@
  * library operations.
  */
 import { createRef } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { settingsToTuningRecord, serializeTuningRecord } from "./tuning-record.js";
 import { fileToPreset } from "../settings/scale/parse-scale.js";
@@ -56,6 +56,8 @@ const TuningLibrary = ({
   onRevertUser,
   canCommitModulation,
   onCommitCurrentModulation,
+  onSaveActionStateChange,
+  onPrimarySaveVisibilityChange,
 }) => {
   const [userTunings, setUserTunings] = useState(loadUserTunings);
   const [error, setError] = useState("");
@@ -63,6 +65,7 @@ const TuningLibrary = ({
   const [includeSubfolders, setIncludeSubfolders] = useState(false);
   const fileInputRef = createRef();
   const folderInputRef = createRef();
+  const primarySaveRowRef = useRef(null);
 
   const tuningName = String(settings?.name ?? "").trim();
   const hasWorkspace = Array.isArray(settings?.scale) && settings.scale.length > 0;
@@ -137,7 +140,7 @@ const TuningLibrary = ({
     onLoadUserTuning?.(target);
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!tuningName) {
       setError("Please enter a name in the Name and Description section first.");
       return;
@@ -179,7 +182,66 @@ const TuningLibrary = ({
     setUserTunings(nextLibrary);
     setError("");
     onLoadUserTuning?.(record);
-  };
+  }, [
+    attachedUserTuning,
+    currentModulationLibrary,
+    onLoadUserTuning,
+    settings,
+    tuningName,
+    userTunings,
+  ]);
+
+  useEffect(() => {
+    onSaveActionStateChange?.(
+      showWorkspaceActions
+        ? {
+          visible: true,
+          label: saveLabel,
+          action: handleSave,
+        }
+        : {
+          visible: false,
+          label: "",
+          action: null,
+        },
+    );
+  }, [handleSave, onSaveActionStateChange, saveLabel, showWorkspaceActions]);
+
+  useEffect(() => () => {
+    onSaveActionStateChange?.({
+      visible: false,
+      label: "",
+      action: null,
+    });
+  }, [onSaveActionStateChange]);
+
+  useEffect(() => {
+    if (typeof onPrimarySaveVisibilityChange !== "function") return undefined;
+    if (!showWorkspaceActions) {
+      onPrimarySaveVisibilityChange(false);
+      return undefined;
+    }
+    const node = primarySaveRowRef.current;
+    if (!node) {
+      onPrimarySaveVisibilityChange(false);
+      return undefined;
+    }
+    if (typeof IntersectionObserver !== "function") {
+      onPrimarySaveVisibilityChange(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        onPrimarySaveVisibilityChange(Boolean(entry?.isIntersecting));
+      },
+      { threshold: 0.01 },
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      onPrimarySaveVisibilityChange(false);
+    };
+  }, [onPrimarySaveVisibilityChange, showWorkspaceActions]);
 
   const handleSaveCopy = () => {
     const record = settingsToTuningRecord(settings, {
@@ -496,7 +558,10 @@ const TuningLibrary = ({
         </div>
 
         {showWorkspaceActions && (
-          <div class="settings-form__action-row settings-form__action-row--top">
+          <div
+            ref={primarySaveRowRef}
+            class="settings-form__action-row settings-form__action-row--top"
+          >
             <span class="settings-form__action-group settings-form__action-group--wrap">
               <button type="button" class="preset-action-btn" onClick={handleSave}>
                 {saveLabel}
@@ -552,6 +617,8 @@ TuningLibrary.propTypes = {
   onRevertUser: PropTypes.func,
   canCommitModulation: PropTypes.bool,
   onCommitCurrentModulation: PropTypes.func,
+  onSaveActionStateChange: PropTypes.func,
+  onPrimarySaveVisibilityChange: PropTypes.func,
 };
 
 export default TuningLibrary;

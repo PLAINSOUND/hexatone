@@ -1647,7 +1647,8 @@ td.scale-color-col .color-input {
   will-change: scroll-position;
 }
 
-.sequencer-fieldset__save-row {
+.sequencer-fieldset__save-row,
+.scale-fieldset__save-row {
   position: sticky;
   left: 0;
   bottom: 0.65rem;
@@ -1664,7 +1665,8 @@ td.scale-color-col .color-input {
   );
 }
 
-.sequencer-fieldset__save-row::after {
+.sequencer-fieldset__save-row::after,
+.scale-fieldset__save-row::after {
   content: "";
   position: absolute;
   left: 1px;

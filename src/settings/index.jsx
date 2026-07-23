@@ -1,4 +1,4 @@
-import { useMemo } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import Info from "./scale/info";
 import Scale from "./scale";
 import Layout from "./layout";
@@ -65,6 +65,12 @@ const Settings = ({
   tuningRuntime,
   onEnableLumatoneAutoSync,
 }) => {
+  const [tuningSaveActionState, setTuningSaveActionState] = useState({
+    visible: false,
+    label: "",
+    action: null,
+  });
+  const [primaryTuningSaveVisible, setPrimaryTuningSaveVisible] = useState(false);
   const effectiveScaleSettings = useMemo(() => ({
     ...settings,
     ...normalizeColors(settings),
@@ -91,6 +97,8 @@ const Settings = ({
       onRevertUser={onRevertUser}
       canCommitModulation={canCommitModulation}
       onCommitCurrentModulation={onCommitCurrentModulation}
+      onSaveActionStateChange={setTuningSaveActionState}
+      onPrimarySaveVisibilityChange={setPrimaryTuningSaveVisible}
     />
     <Info onChange={onChange} settings={settings} />
     <Scale
@@ -110,6 +118,8 @@ const Settings = ({
       importCount={importCount}
       keysRef={keysRef}
       keysReadyRevision={keysReadyRevision}
+      tuningSaveActionState={tuningSaveActionState}
+      primaryTuningSaveVisible={primaryTuningSaveVisible}
     />
     <Layout onChange={onChange} settings={settings} />
     <SampleSynth
