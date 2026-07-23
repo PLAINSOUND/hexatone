@@ -160,6 +160,10 @@ const SequenceLibrary = ({
   const activeBuiltInName = String(activeSequenceBuiltInName ?? "").trim();
   const savedSequenceName = String(activeSequenceSavedName ?? "").trim();
   const snapshotsPresent = (snapshots?.length ?? 0) > 0;
+  const metadataPresent = (
+    sequenceName.length > 0 ||
+    String(activeSequenceDescription ?? "").trim().length > 0
+  );
   const workspaceRecord = useMemo(
     () => normalizeSequenceRecord({
       name: sequenceName || "User Sequence",
@@ -174,8 +178,8 @@ const SequenceLibrary = ({
     [activeSequenceDescription, autoCreateBars, bars, repeats, sequenceName, snapshotLabelMode, snapshots, tempi],
   );
   const workspaceHasContent = useMemo(() => {
-    return snapshotsPresent;
-  }, [snapshotsPresent]);
+    return snapshotsPresent || metadataPresent;
+  }, [metadataPresent, snapshotsPresent]);
   const activeSavedSequence = useMemo(
     () => savedSequences.find((sequence) => sequence.name === savedSequenceName) ?? null,
     [savedSequences, savedSequenceName],

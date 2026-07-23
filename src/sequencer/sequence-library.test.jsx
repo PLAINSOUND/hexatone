@@ -316,6 +316,29 @@ describe("SequenceLibrary", () => {
     expect(screen.queryByText("Save current sequence")).toBeNull();
   });
 
+  it("saves a named sequence with metadata and no snapshots", () => {
+    render(
+      <SequenceLibraryHarness
+        initialName="Empty Study"
+        initialDescription="A sequence to populate later."
+        initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        initialTempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+      />,
+    );
+
+    expect(screen.getByRole("option", { name: "Unsaved sequence" })).toBeTruthy();
+    fireEvent.click(screen.getByText("Save current sequence"));
+
+    expect(loadUserSequences()).toEqual([
+      expect.objectContaining({
+        name: "Empty Study",
+        description: "A sequence to populate later.",
+        snapshots: [],
+      }),
+    ]);
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("Empty Study");
+  });
+
   it("imports duplicate names with a numeric suffix without stashing the current draft", async () => {
     localStorage.setItem("hexatone_user_sequences", JSON.stringify([
       normalizeSequenceRecord({
