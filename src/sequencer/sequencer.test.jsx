@@ -455,10 +455,13 @@ describe("Sequencer", () => {
       currentTarget: { value: "2" },
       target: { value: "2" },
     });
-    fireEvent.input(screen.getByLabelText("copy snapshot insert global position"), {
+    const insertPosition = screen.getByLabelText("copy snapshot insert global position");
+    fireEvent.focus(insertPosition);
+    fireEvent.input(insertPosition, {
       currentTarget: { value: "4" },
       target: { value: "4" },
     });
+    fireEvent.blur(insertPosition);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
     fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
@@ -475,6 +478,81 @@ describe("Sequencer", () => {
       4,
     );
     expect(screen.getByText("Inserted 2 snapshots at slot 4.")).toBeTruthy();
+  });
+
+  it("keeps the copied-block Position field local until blur or Enter", () => {
+    const onInsertSnapshotCopyBlock = vi.fn();
+
+    render(
+      <Sequencer
+        snapshots={[
+          { id: 1, length: 1, description: "A", notes: [] },
+          { id: 2, length: 1, description: "B", notes: [] },
+        ]}
+        bars={[{ id: 1, position: 1 }]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={1}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onJumpSequenceSnapshot={vi.fn()}
+        onJumpSequenceCue={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onPlayTimedCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onJumpSequenceEnd={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddRepeat={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onDeleteRepeat={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onUpdateRepeat={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onDeleteAllSnapshots={vi.fn()}
+        onClearSequence={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onDuplicateSnapshot={vi.fn()}
+        onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
+    const position = screen.getByLabelText("copy snapshot insert global position");
+    position.focus();
+    expect(position.selectionStart).toBe(0);
+    expect(position.selectionEnd).toBe(position.value.length);
+
+    fireEvent.input(position, {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    expect(onInsertSnapshotCopyBlock).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(position, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
+
+    expect(onInsertSnapshotCopyBlock).toHaveBeenCalledWith(
+      expect.any(Object),
+      2,
+    );
   });
 
   it("renders a derived transition cue on the previous tempo row", () => {
