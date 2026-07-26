@@ -241,31 +241,25 @@ export default function useSequencerAutoscroll({
     pendingSnapshotAnchorIdRef.current = snapshotId;
     pendingSnapshotAnchorExpiresAtRef.current = performance.now() + 1500;
 
-    const tryAlign = (remainingFrames, stableFrames) => {
+    const tryAlign = (remainingFrames) => {
       if (!autoScrollEnabledRef.current) return;
       const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
       if (snapshotRow instanceof HTMLElement) {
-        const delta = alignNodeToPanelTopNow(snapshotRow);
-        const nextStableFrames = Number(delta) < 2 ? stableFrames - 1 : 6;
-        if (nextStableFrames <= 0 || remainingFrames <= 0) return;
-        pendingSnapshotAnchorFrameRef.current = window.requestAnimationFrame(() => {
-          pendingSnapshotAnchorFrameRef.current = null;
-          tryAlign(remainingFrames - 1, nextStableFrames);
-        });
+        alignNodeToPanelTop(snapshotRow);
         return;
       }
       if (remainingFrames <= 0) return;
       pendingSnapshotAnchorFrameRef.current = window.requestAnimationFrame(() => {
         pendingSnapshotAnchorFrameRef.current = null;
-        tryAlign(remainingFrames - 1, stableFrames);
+        tryAlign(remainingFrames - 1);
       });
     };
 
     // A distant virtualized row is mounted on the render following the
-    // viewport move. Keep its real DOM geometry aligned until it remains
-    // stable, with a hard ceiling so this can never become an open redraw loop.
-    tryAlign(30, 6);
-  }, [alignNodeToPanelTopNow]);
+    // viewport move. Retry only until it exists; later virtual-layout changes
+    // are reconciled by refreshPendingSnapshotAlignment.
+    tryAlign(3);
+  }, [alignNodeToPanelTop]);
 
   const refreshPendingSnapshotAlignment = useCallback(() => {
     if (!autoScrollEnabledRef.current) return;

@@ -43,7 +43,7 @@ export function buildVirtualSequenceLayout({
     };
   }
 
-  const normalizedAnchorIndex = Number(anchorIndex);
+  const normalizedAnchorIndex = anchorIndex == null ? null : Number(anchorIndex);
   const effectiveScrollTop = Number.isInteger(normalizedAnchorIndex)
     && normalizedAnchorIndex >= 0
     && normalizedAnchorIndex < items.length
