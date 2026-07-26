@@ -11,6 +11,7 @@
 import { createRef } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { orderPresetsByName } from "../persistence/preset-name-order.js";
 import { settingsToTuningRecord, serializeTuningRecord } from "./tuning-record.js";
 import { fileToPreset } from "../settings/scale/parse-scale.js";
 import {
@@ -74,6 +75,10 @@ const TuningLibrary = ({
 
   const builtInValue = activeBuiltInName || "";
   const userValue = activeUserName || "";
+  const orderedUserTunings = useMemo(
+    () => orderPresetsByName(userTunings),
+    [userTunings],
+  );
   const workspaceRecord = useMemo(() => settingsToTuningRecord(settings, {
     modulation_library: currentModulationLibrary,
   }), [currentModulationLibrary, settings]);
@@ -502,7 +507,7 @@ const TuningLibrary = ({
           <label class="preset-selector-row">
             <select aria-label="User tunings" value={userValue} onChange={handleUserSelect}>
               <option value="">Choose a user tuning:</option>
-              {userTunings.map((entry) => {
+              {orderedUserTunings.map((entry) => {
                 const isDirtyActivePreset = (
                   activeSource === "user" &&
                   entry.name === activePresetName &&

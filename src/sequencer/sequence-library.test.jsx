@@ -98,6 +98,21 @@ describe("SequenceLibrary", () => {
     window.confirm = vi.fn(() => true);
   });
 
+  it("orders numbered user sequence names naturally", () => {
+    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
+      { name: "Study 10", snapshots: [] },
+      { name: "Study 2", snapshots: [] },
+      { name: "Study 9", snapshots: [] },
+    ]));
+
+    render(<SequenceLibraryHarness />);
+
+    const options = [...screen.getByRole("combobox", { name: "User sequences" }).options]
+      .slice(1)
+      .map((option) => option.textContent);
+    expect(options).toEqual(["Study 2", "Study 9", "Study 10"]);
+  });
+
   it("persists tempo changes with canonical immediate and gradual modes", () => {
     const normalized = normalizeSequenceRecord({
       name: "Tempo modes",

@@ -81,6 +81,23 @@ describe("TuningLibrary", () => {
     window.confirm = vi.fn(() => true);
   });
 
+  it("orders numbered user tuning names naturally", () => {
+    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
+      { name: "Study 10", scale: ["100.", "1200."] },
+      { name: "Study 2", scale: ["100.", "1200."] },
+      { name: "Study 9", scale: ["100.", "1200."] },
+    ]));
+
+    render(
+      <TuningLibraryHarness initialSettings={{ name: "", scale: null }} />,
+    );
+
+    const options = [...screen.getByRole("combobox", { name: "User tunings" }).options]
+      .slice(1)
+      .map((option) => option.textContent);
+    expect(options).toEqual(["Study 2", "Study 9", "Study 10"]);
+  });
+
   it("loads a selected built-in tuning", () => {
     const onLoadSpy = vi.fn();
 

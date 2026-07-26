@@ -6,6 +6,7 @@
 import { createRef } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { orderPresetsByName } from "../persistence/preset-name-order.js";
 import {
   normalizeBarMarkers,
   normalizeRepeatMarkers,
@@ -148,6 +149,10 @@ const SequenceLibrary = ({
   onPrimarySaveVisibilityChange,
 }) => {
   const [savedSequences, setSavedSequences] = useState(loadUserSequences);
+  const orderedSavedSequences = useMemo(
+    () => orderPresetsByName(savedSequences),
+    [savedSequences],
+  );
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const [loadedBuiltInSequence, setLoadedBuiltInSequence] = useState(null);
@@ -615,7 +620,7 @@ const SequenceLibrary = ({
             {showDraftOption && (
               <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>
             )}
-            {savedSequences.map((sequence) => {
+            {orderedSavedSequences.map((sequence) => {
               const isDirtyActiveSequence = (
                 sequence.name === savedSequenceName &&
                 (hasUnsavedChanges || sequenceName !== savedSequenceName)
