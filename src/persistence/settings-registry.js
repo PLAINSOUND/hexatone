@@ -90,6 +90,12 @@ export const SETTINGS_REGISTRY = [
   { key: "heji_tempered_only", tier: "url", type: "bool", default: false, presetSkip: true },
   // When false, cents deviation is omitted from key labels (still shown in scale table).
   { key: "heji_show_cents", tier: "url", type: "bool", default: false, presetSkip: true },
+  // HEJI palette UI state is session-scoped: it survives Settings remounts and
+  // page refreshes without becoming part of a tuning preset or share URL.
+  { key: "heji_palette_visible", tier: "session", type: "bool", default: false },
+  { key: "heji_palette_structure", tier: "session", type: "string", default: "" },
+  { key: "heji_palette_deviation", tier: "session", type: "string", default: "" },
+  { key: "heji_palette_decimals", tier: "session", type: "int", default: 0 },
   // Internal-only for now: TuneCell supports an alternate reference-degree save
   // mode ('transpose_scale'), but there is no exposed UI toggle yet, so this
   // remains session-scoped and stays out of share URLs.

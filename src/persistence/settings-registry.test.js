@@ -153,6 +153,19 @@ describe("SESSION_KEYS", () => {
     expect(URL_KEYS).not.toContain("retuning_mode");
   });
 
+  it("keeps HEJI palette preferences session-scoped and out of share URLs", () => {
+    const paletteKeys = [
+      "heji_palette_visible",
+      "heji_palette_structure",
+      "heji_palette_deviation",
+      "heji_palette_decimals",
+    ];
+    paletteKeys.forEach((key) => {
+      expect(SESSION_KEYS).toContain(key);
+      expect(URL_KEYS).not.toContain(key);
+    });
+  });
+
   it("does not keep the newer shareable demo-state settings in session scope", () => {
     const expected = [
       "modulation_style",

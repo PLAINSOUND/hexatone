@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
+import { useState } from "preact/hooks";
 import KeyLabels from "./key-labels.js";
 import { buildPitchFrame } from "../../notation/pitch-frame.js";
 import { createScaleWorkspace } from "../../tuning/workspace.js";
@@ -672,6 +673,55 @@ describe("KeyLabels HEJI anchor handling", () => {
     fireEvent.click(screen.getByRole("button", { name: "" }));
     fireEvent.click(screen.getByRole("button", { name: "A" }));
 
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+  });
+
+  it("restores registered palette preferences after the settings component remounts", () => {
+    function Harness({ mounted }) {
+      const [settings, setSettings] = useState({
+        key_labels: "heji",
+        show_equaves: false,
+        heji_anchor_ratio: "",
+        heji_anchor_label: "",
+        heji_tempered_only: false,
+        heji_show_cents: true,
+        heji_palette_visible: false,
+        heji_palette_structure: "",
+        heji_palette_deviation: "",
+        heji_palette_decimals: 0,
+      });
+      if (!mounted) return null;
+      return (
+        <KeyLabels
+          onChange={(key, value) => {
+            setSettings((current) => ({ ...current, [key]: value }));
+          }}
+          onAtomicChange={(updates) => {
+            setSettings((current) => ({ ...current, ...updates }));
+          }}
+          heji_names={[]}
+          heji_anchor_ratio_eff=""
+          heji_anchor_label_eff=""
+          settings={settings}
+        />
+      );
+    }
+
+    const { rerender } = render(<Harness mounted />);
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByLabelText("Double Flat/Sharp"));
+    fireEvent.change(screen.getByLabelText("HEJI palette cents decimal places"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    rerender(<Harness mounted={false} />);
+    rerender(<Harness mounted />);
+
+    expect(screen.getByLabelText("Palette").checked).toBe(true);
+    expect(screen.getByLabelText("Double Flat/Sharp").checked).toBe(false);
+    expect(screen.getByLabelText("HEJI palette cents decimal places").value).toBe("3");
     expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
   });
 

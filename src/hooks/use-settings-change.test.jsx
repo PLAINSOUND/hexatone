@@ -151,4 +151,36 @@ describe("useSettingsChange", () => {
     expect(updateColors.mock.calls.at(-1)[0].note_colors).toHaveLength(2);
     expect(updateColors.mock.calls.at(-1)[0].note_colors).not.toEqual(["ffa5a5", "95c69b"]);
   });
+
+  it("persists registered HEJI palette settings through the session registry tier", () => {
+    const setSettings = vi.fn();
+    let handlers = null;
+    render(
+      <HookHarness
+        settings={{
+          heji_palette_visible: false,
+          heji_palette_structure: "",
+          heji_palette_deviation: "",
+          heji_palette_decimals: 0,
+        }}
+        setSettings={setSettings}
+        midi={null}
+        capture={(value) => {
+          handlers = value;
+        }}
+      />,
+    );
+
+    handlers.onChange("heji_palette_visible", true);
+    handlers.onAtomicChange({
+      heji_palette_structure: "{\"letter\":\"A\"}",
+      heji_palette_deviation: "+17",
+      heji_palette_decimals: 2,
+    });
+
+    expect(sessionStorage.getItem("heji_palette_visible")).toBe("true");
+    expect(sessionStorage.getItem("heji_palette_structure")).toBe("{\"letter\":\"A\"}");
+    expect(sessionStorage.getItem("heji_palette_deviation")).toBe("+17");
+    expect(sessionStorage.getItem("heji_palette_decimals")).toBe("2");
+  });
 });

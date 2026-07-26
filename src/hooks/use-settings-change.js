@@ -18,6 +18,7 @@ import {
   saveAnchorChannel,
   loadAnchorSettingsUpdate,
 } from "../input/controller-anchor.js";
+import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
@@ -28,6 +29,16 @@ const CONTROLLER_OUTPUT_OVERRIDE_KEYS = {
   linnstrument: "linnstrument_out_port",
   lumatone: "lumatone_out_port",
 };
+
+function persistRegisteredSessionSetting(key, value, storage = globalThis.sessionStorage) {
+  if (REGISTRY_BY_KEY[key]?.tier !== "session") return;
+  try {
+    if (value == null) storage?.removeItem?.(key);
+    else storage?.setItem?.(key, String(value));
+  } catch {
+    // Storage can be unavailable in private or embedded browsing contexts.
+  }
+}
 
 export function resizeScaleWithEquavePadding(settings, newSize) {
   const currentScale = Array.isArray(settings?.scale) ? settings.scale : [];
@@ -285,6 +296,7 @@ const useSettingsChange = (
     // Reading current colors from settingsRef avoids stale closure values.
     const next = { ...s, [key]: value };
     settingsRef.current = next;
+    persistRegisteredSessionSetting(key, value);
 
     if (COLOR_KEYS.has(key) && keysRef.current) {
       const normalizedColors = normalizeColors(next);
@@ -307,6 +319,9 @@ const useSettingsChange = (
     const s = settingsRef.current;
     const next = { ...s, ...updates };
     settingsRef.current = next;
+    Object.entries(updates).forEach(([key, value]) => {
+      persistRegisteredSessionSetting(key, value);
+    });
 
     if (keysRef.current && Object.keys(updates).some((key) => COLOR_KEYS.has(key))) {
       const normalizedColors = normalizeColors(next);

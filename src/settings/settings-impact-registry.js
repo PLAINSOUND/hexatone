@@ -132,6 +132,12 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
   scaleEditorOnly: [
     "retuning_mode",
   ],
+  paletteUiOnly: [
+    "heji_palette_visible",
+    "heji_palette_structure",
+    "heji_palette_deviation",
+    "heji_palette_decimals",
+  ],
   inputUiOnly: [],
   synthRuntimeOnly: [
     "osc_volume_pluck",

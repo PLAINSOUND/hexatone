@@ -155,15 +155,53 @@ function convertTemperedAccidentalToJi(structure, accidentalCount) {
   return withPitchStructureAccidentalCount(convertPaletteStructureToJiBase(structure), accidentalCount);
 }
 
+function parsePaletteStructureSetting(value) {
+  try {
+    return createPitchStructure(JSON.parse(value || "{}"));
+  } catch {
+    return createPitchStructure();
+  }
+}
+
 // choose options for the displayed text on the keys
 const KeyLabels = (props) => {
   const hejiDisabled = props.heji_supported === false;
   const selectedKeyLabel = props.settings.key_labels === "equaves" ? "no_labels" : props.settings.key_labels;
   const showEquaves = props.settings.show_equaves || props.settings.key_labels === "equaves";
-  const [showPalette, setShowPalette] = useState(false);
-  const [paletteStructure, setPaletteStructure] = useState(() => createPitchStructure());
-  const [paletteDeviation, setPaletteDeviation] = useState("");
-  const [paletteDeviationDecimals, setPaletteDeviationDecimals] = useState(0);
+  const [showPalette, setShowPaletteState] = useState(
+    () => props.settings.heji_palette_visible === true,
+  );
+  const [paletteStructure, setPaletteStructureState] = useState(
+    () => parsePaletteStructureSetting(props.settings.heji_palette_structure),
+  );
+  const [paletteDeviation, setPaletteDeviationState] = useState(
+    () => String(props.settings.heji_palette_deviation ?? ""),
+  );
+  const [paletteDeviationDecimals, setPaletteDeviationDecimalsState] = useState(
+    () => Math.max(0, Math.min(6, Number(props.settings.heji_palette_decimals) || 0)),
+  );
+  const setShowPalette = (value) => {
+    const next = value === true;
+    setShowPaletteState(next);
+    props.onChange("heji_palette_visible", next);
+  };
+  const setPaletteStructure = (update) => {
+    const next = typeof update === "function" ? update(paletteStructure) : update;
+    const normalized = createPitchStructure(next);
+    setPaletteStructureState(normalized);
+    props.onChange("heji_palette_structure", JSON.stringify(normalized));
+  };
+  const setPaletteDeviation = (update) => {
+    const next = typeof update === "function" ? update(paletteDeviation) : update;
+    const normalized = String(next ?? "");
+    setPaletteDeviationState(normalized);
+    props.onChange("heji_palette_deviation", normalized);
+  };
+  const setPaletteDeviationDecimals = (value) => {
+    const next = Math.max(0, Math.min(6, Number(value) || 0));
+    setPaletteDeviationDecimalsState(next);
+    props.onChange("heji_palette_decimals", next);
+  };
   const [copied, setCopied] = useState(false);
   const [anchorRatioDraft, setAnchorRatioDraft] = useState(() => props.settings.heji_anchor_ratio || "");
   const [anchorLabelDraft, setAnchorLabelDraft] = useState(() => props.settings.heji_anchor_label || "");
@@ -171,6 +209,20 @@ const KeyLabels = (props) => {
   const [editingAnchorFrequency, setEditingAnchorFrequency] = useState(false);
   const effectiveAnchorLabel = props.settings.heji_anchor_label || props.heji_anchor_label_eff || "A";
   const effectiveAnchorRatio = props.settings.heji_anchor_ratio || props.heji_anchor_ratio_eff || "1/1";
+  useEffect(() => {
+    setShowPaletteState(props.settings.heji_palette_visible === true);
+  }, [props.settings.heji_palette_visible]);
+  useEffect(() => {
+    setPaletteStructureState(parsePaletteStructureSetting(props.settings.heji_palette_structure));
+  }, [props.settings.heji_palette_structure]);
+  useEffect(() => {
+    setPaletteDeviationState(String(props.settings.heji_palette_deviation ?? ""));
+  }, [props.settings.heji_palette_deviation]);
+  useEffect(() => {
+    setPaletteDeviationDecimalsState(
+      Math.max(0, Math.min(6, Number(props.settings.heji_palette_decimals) || 0)),
+    );
+  }, [props.settings.heji_palette_decimals]);
   useEffect(() => {
     setAnchorRatioDraft(props.settings.heji_anchor_ratio || "");
   }, [props.settings.heji_anchor_ratio]);
@@ -911,6 +963,10 @@ KeyLabels.propTypes = {
     heji_anchor_frequency: PropTypes.string,
     heji_tempered_only: PropTypes.bool,
     heji_show_cents: PropTypes.bool,
+    heji_palette_visible: PropTypes.bool,
+    heji_palette_structure: PropTypes.string,
+    heji_palette_deviation: PropTypes.string,
+    heji_palette_decimals: PropTypes.number,
     pitch_frame: PropTypes.object,
     fundamental: PropTypes.number,
   }),
