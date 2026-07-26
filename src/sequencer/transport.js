@@ -29,8 +29,8 @@ function tempoFractionToBeatLength(numerator, denominator) {
   return (4 * numerator) / denominator;
 }
 
-function normalizeTempoMode(value) {
-  return value === "transition" ? "transition" : "immediate";
+export function normalizeTempoMode(value) {
+  return value === "gradual" || value === "transition" ? "gradual" : "immediate";
 }
 
 function tempoWholeNotesPerMinute(marker) {
@@ -208,7 +208,7 @@ export function deriveTempoTransitionCueMap(tempi = [], bars = [], terminalPosit
 
   for (let index = 1; index < normalizedTempi.length; index += 1) {
     const marker = normalizedTempi[index];
-    if (marker.mode !== "transition") continue;
+    if (marker.mode !== "gradual") continue;
 
     const anchor = normalizedTempi[index - 1] ?? null;
     if (!anchor) continue;

@@ -2788,7 +2788,7 @@ td.scale-color-col .color-input {
   line-height: 1.2;
 }
 
-.sequencer-tempo-row--transition .sequencer-tempo-row__summary {
+.sequencer-tempo-row--gradual .sequencer-tempo-row__summary {
   background: #fff0e3;
   border-color: rgba(216, 172, 136, 0.72);
 }
@@ -2898,6 +2898,20 @@ td.scale-color-col .color-input {
   line-height: 1;
 }
 
+.sequencer-tempo-row__mode-toggle {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sequencer-tempo-row__mode-toggle:hover,
+.sequencer-tempo-row__mode-toggle:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
 .sequencer-tempo-row__summary-input {
   min-width: 0;
   padding-left: 0;
@@ -2908,7 +2922,7 @@ td.scale-color-col .color-input {
   line-height: 1.2;
 }
 
-.sequencer-tempo-row--transition .sequencer-tempo-row__summary-input {
+.sequencer-tempo-row--gradual .sequencer-tempo-row__summary-input {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
@@ -3180,7 +3194,7 @@ td.scale-color-col .color-input {
   border-top-color: rgba(149, 127, 127, 0.74);
 }
 
-.sequencer-tempo-row--transition .sequencer-tempo-row__line {
+.sequencer-tempo-row--gradual .sequencer-tempo-row__line {
   border-top-style: dashed;
   border-top-color: rgba(182, 142, 104, 0.72);
 }
@@ -3828,8 +3842,8 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input,
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position {
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input,
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
@@ -3849,8 +3863,8 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper,
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper,
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
@@ -3931,8 +3945,8 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input:focus,
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position:focus {
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input:focus,
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position:focus {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
@@ -3959,8 +3973,8 @@ td.scale-color-col .color-input {
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper:focus,
-#sidebar .sequencer-tempo-row--transition .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper:focus,
+#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;

@@ -3,7 +3,12 @@
 // repeat events, then groups those events into shared-time cue bursts used by
 // stepping, playback, and display logic.
 
-import { deriveTerminalBarlinePosition, normalizeBarMarkers, normalizeRepeatMarkers } from "./transport.js";
+import {
+  deriveTerminalBarlinePosition,
+  normalizeBarMarkers,
+  normalizeRepeatMarkers,
+  normalizeTempoMode,
+} from "./transport.js";
 
 // Distinguish releases that belong to already-sounding notes from note-offs
 // that are paired with a same-time note-on inside the current cue burst.
@@ -213,7 +218,7 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats =
       kind: "tempo",
       tempoId: tempo?.id ?? `tempo:${absoluteTime}:${tempoOrder}`,
       tempoOrder,
-      mode: tempo?.mode === "transition" ? "transition" : "immediate",
+      mode: normalizeTempoMode(tempo?.mode),
       bpm: Number(tempo?.bpm),
       beatNumerator: Number.isFinite(Number(tempo?.beatNumerator)) ? Number(tempo.beatNumerator) : 1,
       beatDenominator: Number.isFinite(Number(tempo?.beatDenominator)) ? Number(tempo.beatDenominator) : 4,

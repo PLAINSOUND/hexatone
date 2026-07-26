@@ -1415,6 +1415,12 @@ const Sequencer = ({
     onUpdateTempo?.(tempoId, normalizeTempoBeatFraction(numerator, denominator));
   }, [onUpdateTempo]);
 
+  const updateTempoMode = useCallback((tempoId, mode) => {
+    onUpdateTempo?.(tempoId, {
+      mode: mode === "gradual" ? "gradual" : "immediate",
+    });
+  }, [onUpdateTempo]);
+
   const updateBarTimeSignatureField = useCallback((barId, field, rawValue) => {
     const parsed = Math.round(Number(rawValue) || 0);
     const numeric = field === "numerator"
@@ -1451,7 +1457,7 @@ const Sequencer = ({
     const position = Number(newTempoPosition);
     const bpm = Number(newTempoBpm);
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
-    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "transition");
+    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "gradual");
     setNewTempoPosition("1.000000");
     setNewTempoBpm("60");
   };
@@ -1589,6 +1595,7 @@ const Sequencer = ({
     handleBlurCommit,
     updateTempoBeatFraction,
     updateTempoBpm,
+    updateTempoMode,
     updateTempoPosition,
     updateTempoBarRelativeDraftField,
     commitTempoBarRelativeDraft,
@@ -1603,6 +1610,7 @@ const Sequencer = ({
     updateTempoBarRelativeDraftField,
     updateTempoBeatFraction,
     updateTempoBpm,
+    updateTempoMode,
     updateTempoPosition,
   ]);
 

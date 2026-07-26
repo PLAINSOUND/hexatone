@@ -119,7 +119,7 @@ describe("structure editing", () => {
       tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
       position: 2,
       bpm: 72,
-      mode: "transition",
+      mode: "gradual",
     });
 
     expect(result.at(-1)).toMatchObject({
@@ -128,7 +128,7 @@ describe("structure editing", () => {
       bpm: 72,
       beatNumerator: 1,
       beatDenominator: 4,
-      mode: "transition",
+      mode: "gradual",
     });
   });
 
@@ -136,14 +136,14 @@ describe("structure editing", () => {
     const result = updateSequenceTempoMarker({
       tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
       tempoId: 1,
-      updates: { position: 1.5, bpm: 80, mode: "transition" },
+      updates: { position: 1.5, bpm: 80, mode: "gradual" },
     });
 
     expect(result).toEqual([expect.objectContaining({
       id: 1,
       position: 1.5,
       bpm: 80,
-      mode: "transition",
+      mode: "gradual",
     })]);
   });
 

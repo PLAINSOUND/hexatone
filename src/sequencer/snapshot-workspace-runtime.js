@@ -8,6 +8,7 @@ import {
   shiftStructuralMarkersAfterSnapshotDeletion,
   shiftStructuralMarkersAfterSnapshotInsertion,
 } from "./structure-editing.js";
+import { normalizeTempoMode } from "./transport.js";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -71,7 +72,7 @@ function shiftStructuralMarkersForCopyInsertion({
         tempo,
         normalizedInsertionPosition,
         normalizedSnapshotCount,
-        (marker) => marker?.mode === "transition",
+        (marker) => normalizeTempoMode(marker?.mode) === "gradual",
       ))
       : [],
     repeats: Array.isArray(repeats)

@@ -43,13 +43,13 @@ describe("sequencer transport", () => {
     ]);
   });
 
-  it("preserves explicit transition tempo markers and defaults missing modes to immediate", () => {
+  it("normalizes legacy transition tempo markers to gradual and defaults missing modes to immediate", () => {
     expect(normalizeTempoMarkers([
       { id: "a", position: 1, bpm: 60, beatLength: 1 },
       { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
     ], { includeDefault: false })).toEqual([
       { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
+      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
     ]);
   });
 
@@ -59,7 +59,7 @@ describe("sequencer transport", () => {
       { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
     ], { includeDefault: false })).toEqual([
       { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
+      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
     ]);
   });
 
@@ -142,8 +142,8 @@ describe("sequencer transport", () => {
 
     const cues = deriveTempoTransitionCueMap([
       { id: "t1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
-      { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, mode: "transition" },
-      { id: "t3", position: 4, bpm: 48, beatNumerator: 1, beatDenominator: 4, mode: "transition" },
+      { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, mode: "gradual" },
+      { id: "t3", position: 4, bpm: 48, beatNumerator: 1, beatDenominator: 4, mode: "gradual" },
     ], bars);
 
     expect(cues.get("t1")).toEqual({

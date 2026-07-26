@@ -1,6 +1,6 @@
-// TempoRow renders one immediate or transition tempo marker row.
+// TempoRow renders one immediate or gradual tempo marker row.
 // It handles the local editor behavior for tempo position, beat unit, bpm, and
-// transition hints, while the sequencer controllers own the actual mutations.
+// gradual-change hints, while the sequencer controllers own the mutations.
 
 import { absolutePositionToBarBeat } from "./transport.js";
 import { readNumericInput } from "./value-runtime.js";
@@ -27,8 +27,8 @@ const TempoRow = ({
   );
   const sequenceTime = tempoPosition.toFixed(6);
   const isAlwaysOnTempo = Math.abs(tempoPosition - 1) < 1e-9;
-  const isTransitionTempo = tempo.mode === "transition";
-  const tempoLabel = isTransitionTempo ? "target:" : "tempo:";
+  const isGradualTempo = tempo.mode === "gradual";
+  const tempoLabel = isGradualTempo ? "target:" : "tempo:";
   const transitionCue = timing.tempoTransitionCueMap?.get(tempoId) ?? null;
   const beatNumerator = String(tempo.beatNumerator ?? 1);
   const beatDenominator = String(tempo.beatDenominator ?? 4);
@@ -50,7 +50,7 @@ const TempoRow = ({
   return (
     <div
       key={`tempo:${tempoId}`}
-      class={`sequencer-tempo-row${isTempoBarRelativeDraftActive ? " sequencer-tempo-row--bar-relative-draft" : ""}${isTransitionTempo ? " sequencer-tempo-row--transition" : " sequencer-tempo-row--immediate"}`}
+      class={`sequencer-tempo-row${isTempoBarRelativeDraftActive ? " sequencer-tempo-row--bar-relative-draft" : ""}${isGradualTempo ? " sequencer-tempo-row--gradual" : " sequencer-tempo-row--immediate"}`}
       data-bar-relative-draft-scope={`tempo:${draftKey}`}
     >
       <div class="sequencer-tempo-row__line" aria-hidden="true" />
@@ -72,9 +72,31 @@ const TempoRow = ({
       </div>
       <div class="sequencer-tempo-row__gutter-spacer" aria-hidden="true" />
       <div class="sequencer-tempo-row__summary sequencer-grid-offset">
-        {tempoLabel ? (
-          <span class="sequencer-tempo-row__label">{tempoLabel}</span>
-        ) : null}
+        {isAlwaysOnTempo ? (
+          <span
+            class="sequencer-tempo-row__label"
+            title="The opening tempo is always immediate"
+          >
+            {tempoLabel}
+          </span>
+        ) : (
+          <button
+            type="button"
+            class="sequencer-tempo-row__label sequencer-tempo-row__mode-toggle"
+            aria-label={`tempo mode ${isGradualTempo ? "gradual" : "immediate"}; change to ${isGradualTempo ? "immediate" : "gradual"}`}
+            aria-pressed={isGradualTempo}
+            title={`Change to ${isGradualTempo ? "immediate" : "gradual"} tempo`}
+            onClick={(event) => {
+              event.stopPropagation();
+              editing.updateTempoMode(
+                tempoId,
+                isGradualTempo ? "immediate" : "gradual",
+              );
+            }}
+          >
+            {tempoLabel}
+          </button>
+        )}
         <input
           type="number"
           step="1"

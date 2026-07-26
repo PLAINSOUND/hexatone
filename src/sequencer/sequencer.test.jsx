@@ -477,7 +477,8 @@ describe("Sequencer", () => {
     expect(screen.getByText("Inserted 2 snapshots at slot 4.")).toBeTruthy();
   });
 
-  it("renders a derived transition cue on the previous tempo row", () => {
+  it("renders a derived gradual cue and toggles tempo mode by clicking its label", () => {
+    const onUpdateTempo = vi.fn();
     const { container } = render(
       <Sequencer
         snapshots={[
@@ -494,7 +495,7 @@ describe("Sequencer", () => {
         ]}
         tempi={[
           { id: "t1", position: 1.5, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-          { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75, mode: "transition" },
+          { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75, mode: "gradual" },
         ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={null}
@@ -524,7 +525,7 @@ describe("Sequencer", () => {
         onDeleteBar={vi.fn()}
         onDeleteTempo={vi.fn()}
         onUpdateBar={vi.fn()}
-        onUpdateTempo={vi.fn()}
+        onUpdateTempo={onUpdateTempo}
         onMoveBar={vi.fn()}
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
@@ -535,6 +536,14 @@ describe("Sequencer", () => {
     );
 
     expect(container.querySelector(".sequencer-tempo-row__transition-cue")?.textContent).toContain("ritardando until 3/16 = 72 bpm at Bar 2 Beat 1");
+    fireEvent.click(screen.getByRole("button", {
+      name: "tempo mode gradual; change to immediate",
+    }));
+    expect(onUpdateTempo).toHaveBeenCalledWith("t2", { mode: "immediate" });
+    fireEvent.click(screen.getByRole("button", {
+      name: "tempo mode immediate; change to gradual",
+    }));
+    expect(onUpdateTempo).toHaveBeenCalledWith("t1", { mode: "gradual" });
   });
 
   it("duplicates the save current sequence action at the bottom of Edit & Play", () => {

@@ -108,7 +108,7 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
       : Infinity;
     const wholeNotesPerMinute = canonicalWholeNotesPerMinute(marker);
     const nextWholeNotesPerMinute = canonicalWholeNotesPerMinute(nextMarker);
-    const nextMode = nextMarker?.mode === "transition" ? "transition" : "immediate";
+    const nextMode = nextMarker?.mode === "gradual" ? "gradual" : "immediate";
     const quarterNotesSpan = Number.isFinite(endQuarterNotes)
       ? Math.max(0, endQuarterNotes - startQuarterNotes)
       : Infinity;
@@ -116,7 +116,7 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
 
     let integratedSeconds = null;
     if (Number.isFinite(quarterNotesSpan)) {
-      if (nextMarker && nextMode === "transition" && quarterNotesSpan > 1e-9) {
+      if (nextMarker && nextMode === "gradual" && quarterNotesSpan > 1e-9) {
         const slope = (nextWholeNotesPerMinute - wholeNotesPerMinute) / quarterNotesSpan;
         integratedSeconds = Math.abs(slope) <= 1e-12
           ? quarterNotesSpan * (15 / wholeNotesPerMinute)
@@ -136,7 +136,7 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
       wholeNotesPerMinute,
       beatNumerator: Math.max(1, Math.round(Number(marker?.beatNumerator) || 1)),
       beatDenominator: Math.max(1, Math.round(Number(marker?.beatDenominator) || 4)),
-      endWholeNotesPerMinute: nextMarker && nextMode === "transition"
+      endWholeNotesPerMinute: nextMarker && nextMode === "gradual"
         ? nextWholeNotesPerMinute
         : wholeNotesPerMinute,
       transitionMode: nextMode,
@@ -173,7 +173,7 @@ function sequencePositionToTimedSeconds(position, timingModel) {
   let elapsedWithinSegment = quarterNoteOffset * segment.secondsPerQuarter;
 
   if (
-    segment.transitionMode === "transition"
+    segment.transitionMode === "gradual"
     && Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
   ) {
     const quarterNotesSpan = Math.max(0, segment.endQuarterNotes - segment.startQuarterNotes);
@@ -204,7 +204,7 @@ function wholeNotesPerMinuteAtPosition(position, timingModel) {
   if (!segment) return null;
   const quarterNoteOffset = Math.max(0, quarterNotes - segment.startQuarterNotes);
   if (
-    segment.transitionMode === "transition"
+    segment.transitionMode === "gradual"
     && Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
   ) {
     const quarterNotesSpan = Math.max(0, segment.endQuarterNotes - segment.startQuarterNotes);

@@ -240,7 +240,7 @@ describe("playback timeline", () => {
     ];
     const transitionTempi = [
       { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
+      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
     ];
 
     const immediateTimeline = buildPlaybackTimeline({ snapshots, bars, tempi: immediateTempi });
@@ -265,7 +265,7 @@ describe("playback timeline", () => {
     const bars = [{ id: "bar-1", position: 1, numerator: 1, denominator: 1 }];
     const tempi = [
       { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "transition" },
+      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
     ];
 
     expect(deriveTempoAtSequencePosition(1, tempi, bars, 3)).toEqual({
@@ -280,5 +280,42 @@ describe("playback timeline", () => {
       beatDenominator: 4,
       bpm: 90,
     });
+  });
+
+  it("applies an immediate tempo marker after a completed gradual change", () => {
+    const snapshots = Array.from({ length: 5 }, (_, index) => ({
+      id: `s${index + 1}`,
+      length: 1,
+      notes: [{
+        id: `n${index + 1}`,
+        midicents: 69 + index,
+        attackVelocity: 80,
+        releaseVelocity: 40,
+        start: 0,
+        end: 1,
+      }],
+    }));
+    const bars = Array.from({ length: 6 }, (_, index) => ({
+      id: `bar-${index + 1}`,
+      position: index + 1,
+      numerator: 1,
+      denominator: 4,
+    }));
+    const tempi = [
+      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, mode: "gradual" },
+      { id: "tempo-3", position: 4, bpm: 30, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+    ];
+
+    const timeline = buildPlaybackTimeline({ snapshots, bars, tempi });
+    const elapsedByPosition = new Map(
+      timeline.playbackBursts.map((burst) => [burst.sequenceTime, burst.elapsedSeconds]),
+    );
+
+    expect(deriveTempoAtSequencePosition(3.5, tempi, bars, 6)?.bpm).toBe(120);
+    expect(deriveTempoAtSequencePosition(4, tempi, bars, 6)?.bpm).toBe(30);
+    expect(deriveTempoAtSequencePosition(4.5, tempi, bars, 6)?.bpm).toBe(30);
+    expect(elapsedByPosition.get(4) - elapsedByPosition.get(3)).toBeCloseTo(0.5, 6);
+    expect(elapsedByPosition.get(5) - elapsedByPosition.get(4)).toBeCloseTo(2, 6);
   });
 });

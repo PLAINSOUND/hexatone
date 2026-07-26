@@ -269,7 +269,7 @@ describe("snapshot workspace runtime", () => {
     expect(result.ids).toEqual({ snapshotId: 23, barId: 4 });
   });
 
-  it("keeps end repeats and transition tempi at the insertion point before the inserted block", () => {
+  it("keeps end repeats and gradual tempi at the insertion point before the inserted block", () => {
     const block = buildSnapshotCopyBlock({
       snapshots: [
         { id: 1, length: 1, description: "a", notes: [] },
@@ -282,7 +282,7 @@ describe("snapshot workspace runtime", () => {
     const result = insertSnapshotCopyBlock({
       snapshots: [{ id: 10 }, { id: 11 }, { id: 12 }],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      tempi: [{ id: 1, position: 2, bpm: 72, beatLength: 1, mode: "transition" }],
+      tempi: [{ id: 1, position: 2, bpm: 72, beatLength: 1, mode: "gradual" }],
       repeats: [{ id: 1, position: 2, kind: "end", repeatCount: 2 }],
       block,
       insertionPosition: 2,

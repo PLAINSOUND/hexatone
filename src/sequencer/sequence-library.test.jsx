@@ -98,6 +98,24 @@ describe("SequenceLibrary", () => {
     window.confirm = vi.fn(() => true);
   });
 
+  it("persists tempo changes with canonical immediate and gradual modes", () => {
+    const normalized = normalizeSequenceRecord({
+      name: "Tempo modes",
+      snapshots: [{ id: 1, length: 1, notes: [] }],
+      tempi: [
+        { id: 1, position: 1, bpm: 60, mode: "immediate" },
+        { id: 2, position: 2, bpm: 90, mode: "transition" },
+        { id: 3, position: 3, bpm: 72, mode: "immediate" },
+      ],
+    });
+
+    expect(normalized.tempi.map(({ mode }) => mode)).toEqual([
+      "immediate",
+      "gradual",
+      "immediate",
+    ]);
+  });
+
   it("persists and reloads bar time signatures through saved sequences", () => {
     const onLoadSpy = vi.fn();
 

@@ -67,7 +67,7 @@ describe("workspace runtime", () => {
       id: 3,
       position: 2,
       bpm: 72,
-      mode: "transition",
+      mode: "gradual",
     });
   });
 
