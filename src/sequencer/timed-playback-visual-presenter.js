@@ -36,7 +36,15 @@ export function deriveTimedPageFollowPosition({
   const orderedEventIds = sequenceEvents
     .filter((event) => newlyAttackedEventIds.has(event?.eventId))
     .map((event) => event.eventId);
-  if (orderedEventIds.length === 0) return null;
+  if (orderedEventIds.length === 0) {
+    if (fallbackSnapshotId == null) return null;
+    return {
+      scrollSnapshotId: fallbackSnapshotId,
+      scrollSnapshotEndId: fallbackSnapshotId,
+      scrollSnapshotIndex: fallbackSnapshotIndex,
+      scrollEventIds: [],
+    };
+  }
 
   const attackedSnapshotIndexes = newlyAttackedNotes
     .map((note) => Number(note?.snapshotIndex))

@@ -212,7 +212,6 @@ const Sequencer = ({
   const timedAutoscrollPresenterRef = useRef(null);
   const timedReadoutPresenterRef = useRef(null);
   const pendingTimedVisualNotificationRef = useRef(null);
-  const pendingTimedPageFollowNotificationRef = useRef(null);
   const timedVisualNotificationFrameRef = useRef(null);
   const autoScrollEnabledRef = useRef(autoScrollEnabled);
   autoScrollEnabledRef.current = autoScrollEnabled;
@@ -655,25 +654,16 @@ const Sequencer = ({
   const presentTimedCue = useCallback((cueIndex, trigger, burst) => {
     const notification = { cueIndex, trigger, burst };
     pendingTimedVisualNotificationRef.current = notification;
-    if (Array.isArray(burst?.newlyAttacked) && burst.newlyAttacked.length > 0) {
-      // Highlighting may discard intermediate states within one animation
-      // frame, but a note-ON at the viewport boundary must not lose its page
-      // turn merely because a release or structural burst followed it.
-      pendingTimedPageFollowNotificationRef.current = notification;
-    }
     if (timedVisualNotificationFrameRef.current != null) return;
     timedVisualNotificationFrameRef.current = window.requestAnimationFrame(() => {
       timedVisualNotificationFrameRef.current = null;
       const notification = pendingTimedVisualNotificationRef.current;
-      const pageFollowNotification = pendingTimedPageFollowNotificationRef.current;
       pendingTimedVisualNotificationRef.current = null;
-      pendingTimedPageFollowNotificationRef.current = null;
       if (!notification) return;
       timedVisualCueHandlerRef.current?.(
         notification.cueIndex,
         notification.trigger,
         notification.burst,
-        pageFollowNotification?.burst ?? null,
       );
     });
   }, []);
@@ -1014,7 +1004,7 @@ const Sequencer = ({
     timedHighlightPresenterRef.current = highlightPresenter;
     timedAutoscrollPresenterRef.current = autoscrollPresenter;
     timedReadoutPresenterRef.current = readoutPresenter;
-    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst, pageFollowBurst) => {
+    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst) => {
       const cueGroup = sequenceCueGroups[cueIndex] ?? null;
       const snapshotIndex = cueGroup?.snapshotIndex ?? null;
       const snapshotId = cueGroup == null
@@ -1061,15 +1051,15 @@ const Sequencer = ({
       }
 
       const pageFollowPosition = deriveTimedPageFollowPosition({
-        burst: pageFollowBurst,
+        burst,
         sequenceEvents,
         snapshots,
         fallbackSnapshotIndex: snapshotIndex,
         fallbackSnapshotId: snapshotId,
       });
-      // Only new note-ON rows drive page following. Sustained notes remain
-      // highlighted, while release-only cues and shrinking sounding sets do
-      // not pull the viewport back toward earlier events.
+      // Newly attacked rows are preferred. When this playback position has no
+      // note-ON, its current snapshot row still drives the page turn. Sustained
+      // old notes never become scroll targets.
       if (pageFollowPosition != null) autoscrollPresenter.enqueue(pageFollowPosition);
     };
 
@@ -1105,7 +1095,6 @@ const Sequencer = ({
   useEffect(() => {
     if (timedTransportUiState.running) return;
     pendingTimedVisualNotificationRef.current = null;
-    pendingTimedPageFollowNotificationRef.current = null;
     if (timedVisualNotificationFrameRef.current != null) {
       window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
       timedVisualNotificationFrameRef.current = null;
@@ -1125,7 +1114,6 @@ const Sequencer = ({
 
   useEffect(() => () => {
     pendingTimedVisualNotificationRef.current = null;
-    pendingTimedPageFollowNotificationRef.current = null;
     if (timedVisualNotificationFrameRef.current != null) {
       window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
       timedVisualNotificationFrameRef.current = null;

@@ -106,7 +106,7 @@ describe("timed playback autoscroll presenter", () => {
     });
   });
 
-  it("does not issue a reverse page-follow target for a release-only cue", () => {
+  it("follows the current snapshot for a release-only cue without targeting an old note", () => {
     expect(deriveTimedPageFollowPosition({
       burst: {
         newlyAttacked: [],
@@ -115,8 +115,15 @@ describe("timed playback autoscroll presenter", () => {
         ],
       },
       sequenceEvents: [{ eventId: "event-held" }],
-      snapshots: [{ id: 1 }],
-    })).toBeNull();
+      snapshots: [{ id: 1 }, { id: 2 }],
+      fallbackSnapshotIndex: 1,
+      fallbackSnapshotId: 2,
+    })).toEqual({
+      scrollSnapshotId: 2,
+      scrollSnapshotEndId: 2,
+      scrollSnapshotIndex: 1,
+      scrollEventIds: [],
+    });
   });
 
   it("coalesces positions and scrolls only the latest target", () => {
