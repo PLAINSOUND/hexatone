@@ -22,6 +22,7 @@ import {
   getControllerById,
   getControllerMpeInputPolicy,
 } from "../controllers/registry.js";
+import { CONTROLLER_PRESET_ANCHOR_CONFIGS } from "../controllers/preset-anchors.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "../input/controller-anchor.js";
 import { deriveKeyColorFlags } from "../settings/scale/key-colors-mode.js";
 import { primeSharedSampleAudio } from "../sample_synth/prime-shared-audio.js";
@@ -140,30 +141,10 @@ function restorePersistentAnchorFields(fallback = {}) {
   };
 }
 
-const PRESET_ANCHOR_CONFIGS = [
-  {
-    controllerId: "lumatone",
-    controller: getControllerById("lumatone"),
-    noteKey: "lumatone_anchor_note",
-    channelKey: "lumatone_anchor_channel",
-    appliesInSettings: (settings) =>
-      settings.midiin_controller_override === "lumatone" && settings.midi_passthrough !== true,
-  },
-  {
-    controllerId: "exquis",
-    controller: getControllerById("exquis"),
-    noteKey: "exquis_anchor_note",
-    appliesInSettings: (settings) =>
-      settings.midiin_controller_override === "exquis" && settings.midi_passthrough !== true,
-  },
-  {
-    controllerId: "linnstrument",
-    controller: getControllerById("linnstrument"),
-    noteKey: "linnstrument_anchor_note",
-    appliesInSettings: (settings) =>
-      settings.midiin_controller_override === "linnstrument" && settings.midi_passthrough !== true,
-  },
-];
+const PRESET_ANCHOR_CONFIGS = CONTROLLER_PRESET_ANCHOR_CONFIGS.map((config) => ({
+  ...config,
+  controller: getControllerById(config.controllerId),
+}));
 
 function hasPresetAnchor(settings = {}) {
   return PRESET_ANCHOR_CONFIGS.some(

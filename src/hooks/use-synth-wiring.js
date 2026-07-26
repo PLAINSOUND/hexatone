@@ -18,6 +18,11 @@ import { create_composite_synth } from "../composite_synth";
 import { create_osc_synth } from "../osc_synth";
 import { detectController, getControllerById } from "../controllers/registry.js";
 import {
+  applyControllerPresetAnchor,
+  buildControllerPresetAnchorUpdate,
+  hasControllerPresetAnchor,
+} from "../controllers/preset-anchors.js";
+import {
   saveAnchorFromLearn,
   saveControllerPref,
   loadAnchorSettingsUpdate,
@@ -122,79 +127,15 @@ export const resolveControllerPrefsTarget = (input, controllerOverrideId = "auto
 };
 
 export const applyPresetControllerAnchor = (settings, controllerId, anchorUpdate = {}) => {
-  if (!controllerId || !settings || settings.midi_passthrough === true) return anchorUpdate;
-
-  if (controllerId === "lumatone") {
-    return {
-      ...anchorUpdate,
-      ...(Number.isFinite(settings.lumatone_anchor_note)
-        ? { midiin_anchor_note: settings.lumatone_anchor_note }
-        : {}),
-      ...(Number.isFinite(settings.lumatone_anchor_channel)
-        ? { midiin_anchor_channel: settings.lumatone_anchor_channel }
-        : {}),
-    };
-  }
-
-  if (controllerId === "exquis" && Number.isFinite(settings.exquis_anchor_note)) {
-    return {
-      ...anchorUpdate,
-      midiin_anchor_note: settings.exquis_anchor_note,
-    };
-  }
-
-  if (controllerId === "linnstrument" && Number.isFinite(settings.linnstrument_anchor_note)) {
-    return {
-      ...anchorUpdate,
-      midiin_anchor_note: settings.linnstrument_anchor_note,
-    };
-  }
-
-  return anchorUpdate;
+  return applyControllerPresetAnchor(settings, controllerId, anchorUpdate);
 };
 
 export const hasExplicitPresetControllerAnchor = (settings, controllerId) => {
-  if (!controllerId || !settings || settings.midi_passthrough === true) return false;
-
-  if (controllerId === "lumatone") {
-    return (
-      Number.isFinite(settings.lumatone_anchor_note) ||
-      Number.isFinite(settings.lumatone_anchor_channel)
-    );
-  }
-
-  if (controllerId === "exquis") {
-    return Number.isFinite(settings.exquis_anchor_note);
-  }
-
-  if (controllerId === "linnstrument") {
-    return Number.isFinite(settings.linnstrument_anchor_note);
-  }
-
-  return false;
+  return hasControllerPresetAnchor(settings, controllerId);
 };
 
 export const buildPresetControllerAnchorUpdate = (controllerId, note, channel = 1) => {
-  if (controllerId === "lumatone") {
-    return {
-      lumatone_anchor_note: note,
-      lumatone_anchor_channel: channel,
-    };
-  }
-
-  if (controllerId === "exquis") {
-    return {
-      exquis_anchor_note: note,
-    };
-  }
-
-  if (controllerId === "linnstrument") {
-    return {
-      linnstrument_anchor_note: note,
-    };
-  }
-
-  return {};
+  return buildControllerPresetAnchorUpdate(controllerId, note, channel);
 };
 
 const normalizeMidiPortName = (name = "") =>
@@ -1359,6 +1300,8 @@ const useSynthWiring = (
     settings.lumatone_anchor_channel,
     settings.exquis_anchor_note,
     settings.linnstrument_anchor_note,
+    settings.linnstrument_anchor_channel,
+    settings.haken_anchor_note,
   ]);
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────

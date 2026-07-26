@@ -11,15 +11,13 @@
 import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
 import { resolveKeyColorsMode } from "../settings/scale/key-colors-mode.js";
 import { derivePresetControllerAnchorFields } from "../settings/scale/parse-scale.js";
+import { CONTROLLER_PRESET_ANCHOR_FIELDS } from "../controllers/preset-anchors.js";
 
 const CONTROLLER_ANCHOR_FIELDS = [
-  "lumatone_anchor_note",
-  "lumatone_anchor_channel",
-  "exquis_anchor_note",
+  ...CONTROLLER_PRESET_ANCHOR_FIELDS,
+  // Accepted for backwards/forwards compatibility even though these
+  // single-channel controllers do not currently derive a channel value.
   "exquis_anchor_channel",
-  "linnstrument_anchor_note",
-  "linnstrument_anchor_channel",
-  "haken_anchor_note",
   "haken_anchor_channel",
 ];
 

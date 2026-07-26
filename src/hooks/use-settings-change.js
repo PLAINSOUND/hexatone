@@ -11,6 +11,7 @@
 
 import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController, getControllerById } from "../controllers/registry.js";
+import { buildControllerPresetAnchorUpdate } from "../controllers/preset-anchors.js";
 import { normalizeColors } from "../settings/normalize-settings.js";
 import { deriveImportedLayoutSteps } from "../settings/scale/parse-scale.js";
 import {
@@ -294,7 +295,18 @@ const useSettingsChange = (
 
     // For color changes, push to the live Keys instance BEFORE setSettings.
     // Reading current colors from settingsRef avoids stale closure values.
-    const next = { ...s, [key]: value };
+    let controllerAnchorUpdate = {};
+    if (key === "midiin_anchor_note" || key === "midiin_anchor_channel") {
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
+      if (ctrl && s.midi_passthrough !== true) {
+        controllerAnchorUpdate = buildControllerPresetAnchorUpdate(
+          ctrl.id,
+          key === "midiin_anchor_note" ? value : s.midiin_anchor_note,
+          key === "midiin_anchor_channel" ? value : s.midiin_anchor_channel,
+        );
+      }
+    }
+    const next = { ...s, [key]: value, ...controllerAnchorUpdate };
     settingsRef.current = next;
     persistRegisteredSessionSetting(key, value);
 
@@ -317,7 +329,19 @@ const useSettingsChange = (
 
   const onAtomicChange = useCallback((updates) => {
     const s = settingsRef.current;
-    const next = { ...s, ...updates };
+    let controllerAnchorUpdate = {};
+    if ("midiin_anchor_note" in updates || "midiin_anchor_channel" in updates) {
+      const m = midiRef.current;
+      const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
+      if (ctrl && s.midi_passthrough !== true) {
+        controllerAnchorUpdate = buildControllerPresetAnchorUpdate(
+          ctrl.id,
+          updates.midiin_anchor_note ?? s.midiin_anchor_note,
+          updates.midiin_anchor_channel ?? s.midiin_anchor_channel,
+        );
+      }
+    }
+    const next = { ...s, ...updates, ...controllerAnchorUpdate };
     settingsRef.current = next;
     Object.entries(updates).forEach(([key, value]) => {
       persistRegisteredSessionSetting(key, value);
