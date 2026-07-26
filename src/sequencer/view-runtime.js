@@ -27,6 +27,50 @@ export function firstSnapshotIdForCueIndex(cueIndexOneBased, sequenceEvents = []
   return firstSnapshotIdInSet(snapshotIds, snapshots);
 }
 
+export function mostRecentAttackSnapshotId({
+  sequenceEvents = [],
+  snapshots = [],
+  attackEventIds = null,
+  snapshotIds = null,
+  maxCueIndex = null,
+} = {}) {
+  const constrainedEventIds = attackEventIds instanceof Set ? attackEventIds : null;
+  const constrainedSnapshotIds = snapshotIds instanceof Set ? snapshotIds : null;
+  const cueLimit = maxCueIndex == null ? null : Number(maxCueIndex);
+  const candidates = sequenceEvents.filter((event) => (
+    event?.type === "note"
+    && event?.kind === "attack"
+    && (!constrainedEventIds || constrainedEventIds.has(event.eventId))
+    && (!constrainedSnapshotIds || constrainedSnapshotIds.has(event.snapshotId))
+    && (cueLimit == null || !Number.isFinite(cueLimit) || Number(event.cueIndex) <= cueLimit)
+  ));
+  if (candidates.length === 0) return null;
+
+  const eventRank = (event) => {
+    const absoluteTime = Number(event.absoluteTime);
+    if (Number.isFinite(absoluteTime)) return absoluteTime;
+    const cueIndex = Number(event.cueIndex);
+    return Number.isFinite(cueIndex) ? cueIndex : -Infinity;
+  };
+  const mostRecentRank = Math.max(...candidates.map(eventRank));
+  const mostRecentSnapshotIds = new Set(
+    candidates
+      .filter((event) => Math.abs(eventRank(event) - mostRecentRank) < 1e-9)
+      .map((event) => event.snapshotId),
+  );
+  return firstSnapshotIdInSet(mostRecentSnapshotIds, snapshots);
+}
+
+export function contentSpanFitsViewport({
+  contentHeight,
+  viewportHeight,
+  stickyHeight = 0,
+  gap = 6,
+} = {}) {
+  const usableHeight = Math.max(0, Number(viewportHeight) - Number(stickyHeight) - (2 * Number(gap)));
+  return Number.isFinite(Number(contentHeight)) && Number(contentHeight) <= usableHeight;
+}
+
 export function buildCueExpandedSnapshotIdsAt(cueIndexZeroBased, renderedSnapshots, sortedBars, sortedTempi, sequenceEvents) {
   const cueIndexOneBased = Number(cueIndexZeroBased) + 1;
   if (!Number.isFinite(cueIndexOneBased) || cueIndexOneBased <= 0) return new Set();
@@ -111,6 +155,13 @@ export function resolveCueAnchorSnapshotId({
   cueExpandedSnapshotIds = new Set(),
 } = {}) {
   if (!Number.isFinite(activeCueIndex)) return null;
+  const recentSoundingSnapshotId = mostRecentAttackSnapshotId({
+    sequenceEvents,
+    snapshots,
+    snapshotIds: cueExpandedSnapshotIds,
+    maxCueIndex: activeCueIndex,
+  });
+  if (recentSoundingSnapshotId != null) return recentSoundingSnapshotId;
   const expandedSnapshotId = firstSnapshotIdInSet(cueExpandedSnapshotIds, snapshots);
   if (expandedSnapshotId != null) return expandedSnapshotId;
   const cueSnapshotId = firstSnapshotIdForCueIndex(activeCueIndex, sequenceEvents, snapshots);

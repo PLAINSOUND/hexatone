@@ -1338,6 +1338,13 @@ td.scale-color-col .color-input {
   min-width: 0;
 }
 
+.sequencer-virtual-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
 .sequencer-virtual-spacer {
   flex: 0 0 auto;
   width: 100%;
@@ -1641,6 +1648,7 @@ td.scale-color-col .color-input {
 .sequencer-scroll-panel {
   max-height: calc(100vh - 16.5rem);
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding-right: 0.08em;
   background: var(--color-bg);

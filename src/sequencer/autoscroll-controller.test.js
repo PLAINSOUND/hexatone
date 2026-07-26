@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { derivePagedPanelScrollTop } from "./autoscroll-controller.js";
+import {
+  derivePagedPanelScrollTop,
+  derivePreferredTargetBounds,
+  deriveTopAlignedPanelScrollTop,
+} from "./autoscroll-controller.js";
 
 const baseGeometry = {
   scrollTop: 400,
@@ -12,6 +16,27 @@ const baseGeometry = {
 };
 
 describe("sequencer autoscroll geometry", () => {
+  it("top-aligns a selected transport target even when it is already visible", () => {
+    expect(deriveTopAlignedPanelScrollTop({
+      scrollTop: 300,
+      scrollHeight: 2000,
+      clientHeight: 500,
+      panelTop: 100,
+      targetTop: 240,
+      stickyTop: 50,
+      gap: 6,
+    })).toBe(384);
+  });
+
+  it("uses the complete sounding range when it fits and the newest row when it does not", () => {
+    const targets = [
+      { top: 180, bottom: 240 },
+      { top: 420, bottom: 480 },
+    ];
+    expect(derivePreferredTargetBounds(targets, 320)).toEqual({ top: 180, bottom: 480 });
+    expect(derivePreferredTargetBounds(targets, 250)).toEqual({ top: 420, bottom: 480 });
+  });
+
   it("does not scroll a target that is already visible below the sticky transport", () => {
     expect(derivePagedPanelScrollTop({
       ...baseGeometry,

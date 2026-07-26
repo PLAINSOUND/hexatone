@@ -36,6 +36,26 @@ describe("sequence virtualization", () => {
     expect(estimateSequenceGroupHeight({ expanded: true, eventCount: 4, structuralCount: 2 })).toBe(217);
   });
 
+  it("keeps the render window centered on an explicit index regardless of physical scrollTop", () => {
+    const items = Array.from({ length: 100 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 50,
+    }));
+    const layout = buildVirtualSequenceLayout({
+      items,
+      scrollTop: 4800,
+      viewportHeight: 100,
+      overscan: 100,
+      anchorIndex: 20,
+    });
+
+    const mountedIndexes = layout.rows
+      .filter((row) => row.type === "item")
+      .map((row) => row.index);
+    expect(mountedIndexes).toContain(20);
+    expect(mountedIndexes).not.toContain(96);
+  });
+
   it("batches ResizeObserver row measurements into the next animation frame", () => {
     const animationFrames = [];
     let nextFrameId = 1;
@@ -96,6 +116,72 @@ describe("sequence virtualization", () => {
 
     act(() => animationFrames.shift()(16));
     expect(virtualization.layout.sizes[0]).toBe(160);
+
+    view.unmount();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps a start-aligned index anchored while mounted row measurements settle", () => {
+    const animationFrames = [];
+    let nextFrameId = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => {
+      animationFrames.push(callback);
+      return nextFrameId++;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const items = Array.from({ length: 40 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 50,
+    }));
+    let virtualization = null;
+    let scrollTop = 0;
+    function Probe() {
+      const scrollPanelRef = useRef(null);
+      const contentRef = useRef(null);
+      virtualization = useSequenceVirtualization({
+        scrollPanelRef,
+        contentRef,
+        items,
+      });
+      return h(
+        "div",
+        { ref: scrollPanelRef },
+        h("div", { ref: contentRef }),
+      );
+    }
+
+    const view = render(h(Probe));
+    const panel = view.container.firstElementChild;
+    const content = panel.firstElementChild;
+    Object.defineProperty(panel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(panel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = value;
+      },
+    });
+    panel.getBoundingClientRect = () => ({ top: 0 });
+    content.getBoundingClientRect = () => ({ top: -scrollTop });
+
+    act(() => virtualization.scrollIndexIntoView(20, { align: "start" }));
+    expect(scrollTop).toBe(1000);
+
+    for (let index = 0; index < 12; index += 1) {
+      const measuredRow = document.createElement("div");
+      measuredRow.getBoundingClientRect = () => ({ height: 20 });
+      act(() => virtualization.measureItem(`item-${index}`, measuredRow));
+
+      let safety = 20;
+      while (virtualization.layout.sizes[index] !== 20 && animationFrames.length > 0 && safety > 0) {
+        safety -= 1;
+        act(() => animationFrames.shift()(0));
+      }
+      expect(virtualization.layout.sizes[index]).toBe(20);
+    }
+
+    expect(scrollTop).toBe(640);
 
     view.unmount();
     vi.unstubAllGlobals();

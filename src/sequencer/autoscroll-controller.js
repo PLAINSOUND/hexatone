@@ -8,7 +8,6 @@ import {
   isSequenceRuntimeDiagnosticsEnabled,
 } from "../debug/sequence-runtime-diagnostics.js";
 import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
-import { structuralEventRenderKey } from "./value-runtime.js";
 import {
   deriveCueScrollAnchorTarget,
   resolveCueAnchorSnapshotId,
@@ -36,11 +35,41 @@ export function derivePagedPanelScrollTop({
   return Math.max(0, Math.min(maxTop, nextTop));
 }
 
+export function deriveTopAlignedPanelScrollTop({
+  scrollTop,
+  scrollHeight,
+  clientHeight,
+  panelTop,
+  targetTop,
+  stickyTop = 0,
+  gap = 6,
+}) {
+  const nextTop = Number(scrollTop)
+    + (Number(targetTop) - Number(panelTop))
+    - Number(stickyTop)
+    - Number(gap);
+  const maxTop = Math.max(0, Number(scrollHeight) - Number(clientHeight));
+  return Math.max(0, Math.min(maxTop, nextTop));
+}
+
+export function derivePreferredTargetBounds(targetRects = [], usableHeight = 0) {
+  const rects = targetRects.filter((rect) => (
+    Number.isFinite(Number(rect?.top)) && Number.isFinite(Number(rect?.bottom))
+  ));
+  if (rects.length === 0) return null;
+  const rangeTop = Math.min(...rects.map((rect) => Number(rect.top)));
+  const rangeBottom = Math.max(...rects.map((rect) => Number(rect.bottom)));
+  if (rangeBottom - rangeTop <= Math.max(0, Number(usableHeight))) {
+    return { top: rangeTop, bottom: rangeBottom };
+  }
+  const preferredRect = rects.at(-1);
+  return { top: Number(preferredRect.top), bottom: Number(preferredRect.bottom) };
+}
+
 export default function useSequencerAutoscroll({
   autoScrollEnabled,
   activeCueIndex,
   activeSnapshotId,
-  playheadStepIndex,
   playheadIsOff,
   selectedBarIndex,
   sortedBars,
@@ -50,11 +79,8 @@ export default function useSequencerAutoscroll({
   sequenceRepeatSections,
   cueExpandedSnapshotIds,
   cueExpandedSnapshotIdsAt,
-  firstCueTimeBySnapshotIndex,
   firstEventIdByCueIndex,
-  firstRepeatStartMarker,
   firstStructuralScrollKey,
-  repeatStartBySnapshotId,
   repeatStartKeyAtPosition,
   structuralScrollKeyAtPosition,
   showAllEvents,
@@ -80,35 +106,48 @@ export default function useSequencerAutoscroll({
   const awaitingScrollResponseRef = useRef(false);
   const lastObservedScrollTopRef = useRef(0);
   const pendingAutoScrollFrameRef = useRef(null);
+  const pendingSnapshotAnchorFrameRef = useRef(null);
+  const pendingSnapshotAnchorIdRef = useRef(null);
+  const pendingSnapshotAnchorExpiresAtRef = useRef(0);
+  const autoScrollEnabledRef = useRef(autoScrollEnabled);
+  const recordTimedTransportDiagnosticRef = useRef(recordTimedTransportDiagnostic);
+  autoScrollEnabledRef.current = autoScrollEnabled;
+  recordTimedTransportDiagnosticRef.current = recordTimedTransportDiagnostic;
 
-  const scrollNodeIntoPanel = useCallback((targetNode) => {
-    if (!autoScrollEnabled) return;
+  const scrollNodesIntoPanel = useCallback((targetNodes) => {
+    if (!autoScrollEnabledRef.current) return;
     const scrollPanel = scrollPanelRef.current;
-    if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
+    const nodes = (Array.isArray(targetNodes) ? targetNodes : [targetNodes])
+      .filter((node) => node instanceof HTMLElement);
+    if (!(scrollPanel instanceof HTMLElement) || nodes.length === 0) return;
 
     if (pendingAutoScrollFrameRef.current != null) {
       window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
     }
     pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
       pendingAutoScrollFrameRef.current = null;
+      if (!autoScrollEnabledRef.current) return;
       const scrollStartMs = performance.now();
       const panelRect = scrollPanel.getBoundingClientRect();
       const playbackRect = playbackRowRef.current instanceof HTMLElement
         ? playbackRowRef.current.getBoundingClientRect()
         : null;
-      const targetRect = targetNode.getBoundingClientRect();
+      const targetRects = nodes.map((node) => node.getBoundingClientRect());
       const gap = 6;
       const stickyTransportOverlap = playbackRect == null
         ? 0
         : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      const usableHeight = Math.max(0, panelRect.height - stickyTransportOverlap - (2 * gap));
+      const targetBounds = derivePreferredTargetBounds(targetRects, usableHeight);
+      if (targetBounds == null) return;
       const nextTop = derivePagedPanelScrollTop({
         scrollTop: scrollPanel.scrollTop,
         scrollHeight: scrollPanel.scrollHeight,
         clientHeight: scrollPanel.clientHeight,
         panelTop: panelRect.top,
         panelBottom: panelRect.bottom,
-        targetTop: targetRect.top,
-        targetBottom: targetRect.bottom,
+        targetTop: targetBounds.top,
+        targetBottom: targetBounds.bottom,
         stickyTop: stickyTransportOverlap,
         gap,
       });
@@ -118,7 +157,7 @@ export default function useSequencerAutoscroll({
         detail: "Requested sequencer autoscroll target",
         context: {
           source: "sequencer",
-          autoScrollEnabled,
+          autoScrollEnabled: autoScrollEnabledRef.current,
           scrollTop: scrollPanel.scrollTop,
           targetTop: nextTop,
         },
@@ -129,14 +168,14 @@ export default function useSequencerAutoscroll({
         detail: "Applied sequencer autoscroll target",
         context: {
           source: "sequencer",
-          autoScrollEnabled,
+          autoScrollEnabled: autoScrollEnabledRef.current,
           scrollTop: scrollPanel.scrollTop,
           targetTop: nextTop,
         },
       });
       const durationMs = performance.now() - scrollStartMs;
       if (durationMs > 8) {
-        recordTimedTransportDiagnostic?.({
+        recordTimedTransportDiagnosticRef.current?.({
           type: "scroll",
           clockSeconds: performance.now() / 1000,
           durationMs,
@@ -144,37 +183,142 @@ export default function useSequencerAutoscroll({
         });
       }
     });
-  }, [autoScrollEnabled, recordTimedTransportDiagnostic]);
+  }, []);
+
+  const scrollNodeIntoPanel = useCallback((targetNode) => {
+    scrollNodesIntoPanel([targetNode]);
+  }, [scrollNodesIntoPanel]);
+
+  const alignNodeToPanelTopNow = useCallback((targetNode) => {
+    if (!autoScrollEnabledRef.current) return;
+    const scrollPanel = scrollPanelRef.current;
+    if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
+    const panelRect = scrollPanel.getBoundingClientRect();
+    const playbackRect = playbackRowRef.current instanceof HTMLElement
+      ? playbackRowRef.current.getBoundingClientRect()
+      : null;
+    const targetRect = targetNode.getBoundingClientRect();
+    const stickyTransportOverlap = playbackRect == null
+      ? 0
+      : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+    const nextTop = deriveTopAlignedPanelScrollTop({
+      scrollTop: scrollPanel.scrollTop,
+      scrollHeight: scrollPanel.scrollHeight,
+      clientHeight: scrollPanel.clientHeight,
+      panelTop: panelRect.top,
+      targetTop: targetRect.top,
+      stickyTop: stickyTransportOverlap,
+    });
+    const delta = Math.abs(nextTop - scrollPanel.scrollTop);
+    if (delta >= 2) scrollPanel.scrollTop = nextTop;
+    return delta;
+  }, []);
+
+  const alignNodeToPanelTop = useCallback((targetNode) => {
+    if (!autoScrollEnabledRef.current) return;
+    if (pendingAutoScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
+    }
+    pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+      pendingAutoScrollFrameRef.current = null;
+      if (!autoScrollEnabledRef.current) return;
+      alignNodeToPanelTopNow(targetNode);
+    });
+  }, [alignNodeToPanelTopNow]);
+
+  const alignSnapshotToPanelTop = useCallback((snapshotId) => {
+    // A queued alignment for the previous playhead must not be allowed to
+    // restore the old viewport while a distant virtual row is mounting.
+    if (pendingAutoScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
+      pendingAutoScrollFrameRef.current = null;
+    }
+    if (pendingSnapshotAnchorFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
+      pendingSnapshotAnchorFrameRef.current = null;
+    }
+    if (!autoScrollEnabledRef.current || snapshotId == null) return;
+    pendingSnapshotAnchorIdRef.current = snapshotId;
+    pendingSnapshotAnchorExpiresAtRef.current = performance.now() + 1500;
+
+    const tryAlign = (remainingFrames, stableFrames) => {
+      if (!autoScrollEnabledRef.current) return;
+      const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
+      if (snapshotRow instanceof HTMLElement) {
+        const delta = alignNodeToPanelTopNow(snapshotRow);
+        const nextStableFrames = Number(delta) < 2 ? stableFrames - 1 : 6;
+        if (nextStableFrames <= 0 || remainingFrames <= 0) return;
+        pendingSnapshotAnchorFrameRef.current = window.requestAnimationFrame(() => {
+          pendingSnapshotAnchorFrameRef.current = null;
+          tryAlign(remainingFrames - 1, nextStableFrames);
+        });
+        return;
+      }
+      if (remainingFrames <= 0) return;
+      pendingSnapshotAnchorFrameRef.current = window.requestAnimationFrame(() => {
+        pendingSnapshotAnchorFrameRef.current = null;
+        tryAlign(remainingFrames - 1, stableFrames);
+      });
+    };
+
+    // A distant virtualized row is mounted on the render following the
+    // viewport move. Keep its real DOM geometry aligned until it remains
+    // stable, with a hard ceiling so this can never become an open redraw loop.
+    tryAlign(30, 6);
+  }, [alignNodeToPanelTopNow]);
+
+  const refreshPendingSnapshotAlignment = useCallback(() => {
+    if (!autoScrollEnabledRef.current) return;
+    const snapshotId = pendingSnapshotAnchorIdRef.current;
+    if (snapshotId == null) return;
+    if (performance.now() > pendingSnapshotAnchorExpiresAtRef.current) {
+      pendingSnapshotAnchorIdRef.current = null;
+      return;
+    }
+    const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
+    if (snapshotRow instanceof HTMLElement) alignNodeToPanelTopNow(snapshotRow);
+  }, [alignNodeToPanelTopNow]);
 
   useEffect(() => () => {
     if (pendingAutoScrollFrameRef.current != null) {
       window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
       pendingAutoScrollFrameRef.current = null;
     }
+    if (pendingSnapshotAnchorFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
+      pendingSnapshotAnchorFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const scrollPanel = scrollPanelRef.current;
+    if (!(scrollPanel instanceof HTMLElement)) return undefined;
+    const releaseManualSnapshotAnchor = () => {
+      pendingSnapshotAnchorIdRef.current = null;
+      pendingSnapshotAnchorExpiresAtRef.current = 0;
+      if (pendingSnapshotAnchorFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
+        pendingSnapshotAnchorFrameRef.current = null;
+      }
+    };
+    scrollPanel.addEventListener("wheel", releaseManualSnapshotAnchor, { passive: true });
+    scrollPanel.addEventListener("touchmove", releaseManualSnapshotAnchor, { passive: true });
+    return () => {
+      scrollPanel.removeEventListener("wheel", releaseManualSnapshotAnchor);
+      scrollPanel.removeEventListener("touchmove", releaseManualSnapshotAnchor);
+    };
   }, []);
 
   const armPendingSnapshot = useCallback((snapshotIndex) => {
     transportScrollTargetRef.current = "snapshot";
     const nextSnapshotIndex = Number(snapshotIndex);
     if (!Number.isFinite(nextSnapshotIndex)) return;
-    const snapshotTime = firstCueTimeBySnapshotIndex.get(nextSnapshotIndex) ?? (nextSnapshotIndex + 1);
     onCueSequenceSnapshot?.(nextSnapshotIndex);
-    const repeatStartKey = repeatStartKeyAtPosition(snapshotTime);
-    if (repeatStartKey != null) {
-      const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
-      scrollNodeIntoPanel(repeatRow);
-    } else {
-      const snapshotId = snapshots[nextSnapshotIndex]?.id ?? null;
-      if (snapshotId != null) {
-        const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
-        scrollNodeIntoPanel(snapshotRow);
-      }
-    }
+    const snapshotId = snapshots[nextSnapshotIndex]?.id ?? null;
+    alignSnapshotToPanelTop(snapshotId);
   }, [
-    firstCueTimeBySnapshotIndex,
+    alignSnapshotToPanelTop,
     onCueSequenceSnapshot,
-    repeatStartKeyAtPosition,
-    scrollNodeIntoPanel,
     snapshots,
   ]);
 
@@ -309,31 +453,6 @@ export default function useSequencerAutoscroll({
       lastAutoScrolledSnapshotIdRef.current = null;
       return;
     }
-    const repeatStartKey = activeSnapshotId != null
-      ? (repeatStartBySnapshotId.get(activeSnapshotId) ?? (
-        playheadStepIndex === 0 && firstRepeatStartMarker != null
-          ? structuralEventRenderKey({
-            type: "repeat-start",
-            repeatId: firstRepeatStartMarker.id,
-          })
-          : null
-      ))
-      : (
-        playheadStepIndex === 0 && firstRepeatStartMarker != null
-          ? structuralEventRenderKey({
-            type: "repeat-start",
-            repeatId: firstRepeatStartMarker.id,
-          })
-          : null
-      );
-    if (repeatStartKey != null) {
-      if (lastAutoScrolledSnapshotIdRef.current === repeatStartKey) return;
-      const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
-      if (!(repeatRow instanceof HTMLElement)) return;
-      lastAutoScrolledSnapshotIdRef.current = repeatStartKey;
-      scrollNodeIntoPanel(repeatRow);
-      return;
-    }
     const snapshotId = activeSnapshotId ?? null;
     if (snapshotId == null) {
       lastAutoScrolledSnapshotIdRef.current = null;
@@ -345,27 +464,8 @@ export default function useSequencerAutoscroll({
     if (!(scrollPanel instanceof HTMLElement) || !(snapshotRow instanceof HTMLElement)) return;
 
     lastAutoScrolledSnapshotIdRef.current = snapshotId;
-    const frame = window.requestAnimationFrame(() => {
-      const panelRect = scrollPanel.getBoundingClientRect();
-      const playbackRect = playbackRowRef.current instanceof HTMLElement
-        ? playbackRowRef.current.getBoundingClientRect()
-        : null;
-      const snapshotRect = snapshotRow.getBoundingClientRect();
-      const gap = 6;
-      const stickyTransportOverlap = playbackRect == null
-        ? 0
-        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-      const targetTop = scrollPanel.scrollTop
-        + (snapshotRect.top - panelRect.top)
-        - stickyTransportOverlap
-        - gap;
-      const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
-      const nextTop = Math.max(0, Math.min(maxTop, targetTop));
-      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
-      scrollPanel.scrollTop = nextTop;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeCueIndex, activeSnapshotId, autoScrollEnabled, firstRepeatStartMarker, playheadStepIndex, repeatStartBySnapshotId, scrollNodeIntoPanel]);
+    alignNodeToPanelTop(snapshotRow);
+  }, [activeCueIndex, activeSnapshotId, alignNodeToPanelTop, autoScrollEnabled]);
 
   useEffect(() => {
     if (!autoScrollEnabled) return;
@@ -423,32 +523,12 @@ export default function useSequencerAutoscroll({
     const structuralKey = structuralScrollKeyAtPosition(selectedBar.position);
     const targetKey = structuralKey ?? selectedBarId;
     if (lastAutoScrolledBarIdRef.current === targetKey) return;
-    const scrollPanel = scrollPanelRef.current;
     const barRow = barRowRefs.current.get(targetKey) ?? null;
-    if (!(scrollPanel instanceof HTMLElement) || !(barRow instanceof HTMLElement)) return;
+    if (!(barRow instanceof HTMLElement)) return;
 
     lastAutoScrolledBarIdRef.current = targetKey;
-    const frame = window.requestAnimationFrame(() => {
-      const panelRect = scrollPanel.getBoundingClientRect();
-      const playbackRect = playbackRowRef.current instanceof HTMLElement
-        ? playbackRowRef.current.getBoundingClientRect()
-        : null;
-      const barRect = barRow.getBoundingClientRect();
-      const gap = 6;
-      const stickyTransportOverlap = playbackRect == null
-        ? 0
-        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-      const targetTop = scrollPanel.scrollTop
-        + (barRect.top - panelRect.top)
-        - stickyTransportOverlap
-        - gap;
-      const maxTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
-      const nextTop = Math.max(0, Math.min(maxTop, targetTop));
-      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
-      scrollPanel.scrollTop = nextTop;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [autoScrollEnabled, playheadIsOff, selectedBarIndex, sortedBars, structuralScrollKeyAtPosition]);
+    alignNodeToPanelTop(barRow);
+  }, [alignNodeToPanelTop, autoScrollEnabled, playheadIsOff, selectedBarIndex, sortedBars, structuralScrollKeyAtPosition]);
 
   const resetSequencePlayheadAndScrollTop = useCallback(() => {
     transportScrollTargetRef.current = "bar";
@@ -485,5 +565,7 @@ export default function useSequencerAutoscroll({
     resetSequencePlayheadAndScrollTop,
     jumpSequencePlayheadToEndAndScrollBottom,
     scrollNodeIntoPanel,
+    scrollNodesIntoPanel,
+    refreshPendingSnapshotAlignment,
   };
 }

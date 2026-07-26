@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildPresetSequenceGroups } from "./index.js";
+import {
+  buildPresetSequenceGroups,
+  loadPresetSequenceByName,
+  presetSequenceGroups,
+} from "./index.js";
 
 describe("buildPresetSequenceGroups", () => {
   it("normalizes slug folders into display names and orders categories from the registry", () => {
@@ -33,5 +37,14 @@ describe("buildPresetSequenceGroups", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe("Studies");
     expect(groups[0].sequences.map((sequence) => sequence.name)).toEqual(["Alpha", "Beta"]);
+  });
+
+  it("keeps each registry menu name identical to the loaded sequence name", async () => {
+    for (const group of presetSequenceGroups) {
+      for (const descriptor of group.sequences) {
+        const sequence = await loadPresetSequenceByName(descriptor.name);
+        expect(sequence?.name).toBe(descriptor.name);
+      }
+    }
   });
 });

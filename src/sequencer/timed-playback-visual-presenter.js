@@ -1,137 +1,182 @@
-// Timed playback visuals are intentionally imperative. The sequencer list is
-// large enough that publishing a playhead through component state can starve
-// the audio scheduler. This presenter coalesces positions to one animation
-// frame and touches only the previously active and next active row.
+// Timed playback visuals are deliberately split into independent presenters.
+// Highlighting never locates or scrolls rows. Autoscroll may mount/locate rows,
+// but is disposable and may drop intermediate positions. Transport readouts
+// mutate only their own controls.
 
 export const TIMED_PLAYBACK_ROW_CLASS = "sequencer-item--timed-playing";
 export const TIMED_PLAYBACK_EVENT_CLASS = "sequencer-event-row--timed-sounding";
 
-export function createTimedPlaybackVisualPresenter({
+export function createTimedPlaybackHighlightPresenter({
   resolveSnapshotRow,
   resolveEventRow,
-  prepareSnapshotRow,
-  scrollSnapshotRow,
+} = {}) {
+  let activeSnapshotId = null;
+  let activeEventIds = new Set();
+  let disposed = false;
+
+  const removeSnapshotClass = (snapshotId) => {
+    if (snapshotId == null) return;
+    resolveSnapshotRow?.(snapshotId)?.classList?.remove(TIMED_PLAYBACK_ROW_CLASS);
+  };
+
+  const removeEventClass = (eventId) => {
+    resolveEventRow?.(eventId)?.classList?.remove(TIMED_PLAYBACK_EVENT_CLASS);
+  };
+
+  const refresh = () => {
+    if (disposed) return;
+    if (activeSnapshotId != null) {
+      resolveSnapshotRow?.(activeSnapshotId)?.classList?.add(TIMED_PLAYBACK_ROW_CLASS);
+    }
+    for (const eventId of activeEventIds) {
+      resolveEventRow?.(eventId)?.classList?.add(TIMED_PLAYBACK_EVENT_CLASS);
+    }
+  };
+
+  const present = ({ snapshotId = null, soundingEventIds = [] } = {}) => {
+    if (disposed) return;
+    const nextSnapshotId = snapshotId ?? null;
+    const nextEventIds = new Set(soundingEventIds.filter((eventId) => eventId != null));
+
+    if (activeSnapshotId !== nextSnapshotId) removeSnapshotClass(activeSnapshotId);
+    for (const eventId of activeEventIds) {
+      if (!nextEventIds.has(eventId)) removeEventClass(eventId);
+    }
+
+    activeSnapshotId = nextSnapshotId;
+    activeEventIds = nextEventIds;
+    refresh();
+  };
+
+  const clear = () => {
+    removeSnapshotClass(activeSnapshotId);
+    for (const eventId of activeEventIds) removeEventClass(eventId);
+    activeSnapshotId = null;
+    activeEventIds = new Set();
+  };
+
+  return {
+    present,
+    refresh,
+    clear,
+    dispose() {
+      if (disposed) return;
+      clear();
+      disposed = true;
+    },
+  };
+}
+
+export function createTimedTransportReadoutPresenter({
   presentTransportPosition,
   clearTransportPosition,
+} = {}) {
+  let disposed = false;
+  return {
+    present(position) {
+      if (!disposed) presentTransportPosition?.(position ?? null);
+    },
+    clear({ restore = true } = {}) {
+      if (!disposed && restore) clearTransportPosition?.();
+    },
+    dispose() {
+      disposed = true;
+    },
+  };
+}
+
+export function createTimedPlaybackAutoscrollPresenter({
+  isEnabled = () => true,
+  resolveSnapshotRow,
+  prepareSnapshotRow,
+  scrollSnapshotRow,
+  scrollSnapshotRows,
   requestFrame = (callback) => window.requestAnimationFrame(callback),
   cancelFrame = (frameId) => window.cancelAnimationFrame(frameId),
   now = () => performance.now(),
   scrollIntervalMs = 200,
+  maxPrepareFrames = 3,
 } = {}) {
-  let activeSnapshotId = null;
-  let activeEventIds = new Set();
   let pendingPosition = null;
   let frameId = null;
   let disposed = false;
   let lastScrollAtMs = -Infinity;
+  let prepareFrames = 0;
+  let preparedTargetKey = "";
 
-  const removeActiveClass = () => {
-    if (activeSnapshotId == null) return;
-    resolveSnapshotRow?.(activeSnapshotId)?.classList?.remove(TIMED_PLAYBACK_ROW_CLASS);
-    activeSnapshotId = null;
-  };
-
-  const clearActiveEvents = () => {
-    for (const eventId of activeEventIds) {
-      resolveEventRow?.(eventId)?.classList?.remove(TIMED_PLAYBACK_EVENT_CLASS);
-    }
-    activeEventIds = new Set();
-  };
-
-  const presentActiveEvents = (eventIds = []) => {
-    const nextEventIds = new Set(eventIds.filter((eventId) => eventId != null));
-    for (const eventId of activeEventIds) {
-      if (nextEventIds.has(eventId)) continue;
-      resolveEventRow?.(eventId)?.classList?.remove(TIMED_PLAYBACK_EVENT_CLASS);
-    }
-    for (const eventId of nextEventIds) {
-      if (activeEventIds.has(eventId)) continue;
-      resolveEventRow?.(eventId)?.classList?.add(TIMED_PLAYBACK_EVENT_CLASS);
-    }
-    activeEventIds = nextEventIds;
-  };
-
-  const flush = () => {
-    frameId = null;
-    if (disposed) return;
-    const nextPosition = pendingPosition;
+  const cancel = () => {
     pendingPosition = null;
-    const nextSnapshotId = nextPosition?.snapshotId ?? null;
-    const nextScrollSnapshotId = nextPosition?.scrollSnapshotId ?? nextSnapshotId;
-    const nextSnapshotRow = nextSnapshotId == null ? null : (resolveSnapshotRow?.(nextSnapshotId) ?? null);
-    const nextScrollRow = nextScrollSnapshotId == null ? null : (resolveSnapshotRow?.(nextScrollSnapshotId) ?? null);
-    const preparedSnapshot = nextSnapshotId != null && nextSnapshotRow == null
-      ? prepareSnapshotRow?.(nextSnapshotId) === true
-      : false;
-    const preparedScrollSnapshot = nextScrollSnapshotId != null && nextScrollRow == null
-      ? prepareSnapshotRow?.(nextScrollSnapshotId) === true
-      : false;
-    if (preparedSnapshot || preparedScrollSnapshot) {
-      pendingPosition = nextPosition;
-      frameId = requestFrame(flush);
-      return;
-    }
-    if (nextSnapshotId == null) {
-      removeActiveClass();
-    } else if (nextSnapshotId !== activeSnapshotId) {
-      removeActiveClass();
-      const nextRow = nextSnapshotRow;
-      if (nextRow) {
-        nextRow.classList?.add(TIMED_PLAYBACK_ROW_CLASS);
-        activeSnapshotId = nextSnapshotId;
-      }
-    }
-
-    const scrollRow = nextScrollRow;
-    const nowMs = now();
-    if (scrollRow && nowMs - lastScrollAtMs >= scrollIntervalMs) {
-      lastScrollAtMs = nowMs;
-      scrollSnapshotRow?.(scrollRow);
-    }
-
-    presentActiveEvents(nextPosition?.soundingEventIds ?? []);
-    presentTransportPosition?.(nextPosition?.transport ?? null);
-  };
-
-  const clear = ({ restoreTransport = true } = {}) => {
-    pendingPosition = null;
+    prepareFrames = 0;
+    preparedTargetKey = "";
     if (frameId != null) {
       cancelFrame(frameId);
       frameId = null;
     }
-    removeActiveClass();
-    clearActiveEvents();
-    if (restoreTransport) clearTransportPosition?.();
+  };
+
+  const flush = () => {
+    frameId = null;
+    if (disposed || !isEnabled()) {
+      cancel();
+      return;
+    }
+    const position = pendingPosition;
+    pendingPosition = null;
+    const startId = position?.scrollSnapshotId ?? null;
+    const endId = position?.scrollSnapshotEndId ?? startId;
+    if (startId == null) return;
+
+    const targetKey = `${startId}:${endId}`;
+    if (preparedTargetKey !== targetKey) {
+      preparedTargetKey = targetKey;
+      prepareFrames = 0;
+    }
+
+    const startRow = resolveSnapshotRow?.(startId) ?? null;
+    const endRow = endId == null ? startRow : (resolveSnapshotRow?.(endId) ?? null);
+    const missingIds = [
+      startRow == null ? startId : null,
+      endRow == null && endId !== startId ? endId : null,
+    ].filter((id) => id != null);
+
+    if (missingIds.length > 0 && prepareFrames < maxPrepareFrames) {
+      prepareFrames += 1;
+      let prepared = false;
+      for (const id of missingIds) {
+        if (!isEnabled()) return;
+        prepared = prepareSnapshotRow?.(id) === true || prepared;
+      }
+      if (prepared && isEnabled()) {
+        pendingPosition = position;
+        frameId = requestFrame(flush);
+      }
+      return;
+    }
+
+    if (!isEnabled() || startRow == null) return;
+    const nowMs = now();
+    if (nowMs - lastScrollAtMs < scrollIntervalMs) return;
+    lastScrollAtMs = nowMs;
+    if (typeof scrollSnapshotRows === "function") {
+      scrollSnapshotRows(endRow && endRow !== startRow ? [startRow, endRow] : [startRow]);
+    } else {
+      scrollSnapshotRow?.(startRow);
+    }
   };
 
   return {
     enqueue(position) {
-      if (disposed) return;
-      const nextPosition = position != null && typeof position === "object"
-        ? position
-        : { snapshotId: position ?? null };
-      const pendingScrollIndex = Number(pendingPosition?.scrollSnapshotIndex);
-      const nextScrollIndex = Number(nextPosition?.scrollSnapshotIndex);
-      const preservePendingScrollTarget = (
-        pendingPosition != null
-        && Number.isFinite(pendingScrollIndex)
-        && Number.isFinite(nextScrollIndex)
-        && pendingScrollIndex < nextScrollIndex
-      );
-      pendingPosition = preservePendingScrollTarget
-        ? {
-          ...nextPosition,
-          scrollSnapshotId: pendingPosition.scrollSnapshotId,
-          scrollSnapshotIndex: pendingScrollIndex,
-        }
-        : nextPosition;
-      if (frameId != null) return;
-      frameId = requestFrame(flush);
+      if (disposed || !isEnabled()) {
+        cancel();
+        return;
+      }
+      pendingPosition = position;
+      if (frameId == null) frameId = requestFrame(flush);
     },
-    clear,
-    dispose({ restoreTransport = true } = {}) {
+    cancel,
+    dispose() {
       if (disposed) return;
-      clear({ restoreTransport });
+      cancel();
       disposed = true;
     },
   };

@@ -20,7 +20,6 @@ import {
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
 import {
-  buildFirstCueTimeBySnapshotIndex,
   buildFirstEventIdByCueIndex,
   buildFirstSnapshotCueEventIds,
   buildSnapshotEventsById,
@@ -30,8 +29,16 @@ import { deriveTempoAtSequencePosition } from "./playback-timeline.js";
 import { buildDependencyToken } from "./dependency-token.js";
 import { buildSequenceRuntimeModel } from "./runtime-model.js";
 import useTimedTransportController from "./timed-transport-controller.js";
-import { createTimedPlaybackVisualPresenter } from "./timed-playback-visual-presenter.js";
+import {
+  createTimedPlaybackAutoscrollPresenter,
+  createTimedPlaybackHighlightPresenter,
+  createTimedTransportReadoutPresenter,
+} from "./timed-playback-visual-presenter.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
+import {
+  loadSequencerAutoScrollPreference,
+  saveSequencerAutoScrollPreference,
+} from "./autoscroll-preference.js";
 import useDraftEditingController from "./draft-editing-controller.js";
 import useEditCommitTransportController from "./edit-commit-transport-controller.js";
 import useSequencerPostCommitDiagnostics from "./post-commit-diagnostics.js";
@@ -43,8 +50,10 @@ import {
 import {
   buildCueExpandedSnapshotIdsAt,
   deriveCueExpandedSnapshotIds,
+  contentSpanFitsViewport,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
+  mostRecentAttackSnapshotId,
   sameSnapshotSet,
 } from "./view-runtime.js";
 import {
@@ -180,7 +189,7 @@ const Sequencer = ({
   const [draggedBarId, setDraggedBarId] = useState(null);
   const [draggedEventId, setDraggedEventId] = useState(null);
   const [eventPane, setEventPane] = useState("timing");
-  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(loadSequencerAutoScrollPreference);
   const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] = useState(null);
   const [copyRangeStart, setCopyRangeStart] = useState("1");
   const [copyRangeEnd, setCopyRangeEnd] = useState("1");
@@ -196,13 +205,23 @@ const Sequencer = ({
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
   const timedVisualCueHandlerRef = useRef(null);
-  const timedVisualPresenterRef = useRef(null);
+  const timedHighlightPresenterRef = useRef(null);
+  const timedAutoscrollPresenterRef = useRef(null);
+  const timedReadoutPresenterRef = useRef(null);
+  const pendingTimedVisualNotificationRef = useRef(null);
+  const timedVisualNotificationFrameRef = useRef(null);
+  const autoScrollEnabledRef = useRef(autoScrollEnabled);
+  autoScrollEnabledRef.current = autoScrollEnabled;
   const timedTransportFieldValuesRef = useRef({
     bar: null,
     snapshot: null,
     cue: null,
   });
   const duplicateNoteIdRef = useRef(0);
+
+  useEffect(() => {
+    saveSequencerAutoScrollPreference(autoScrollEnabled);
+  }, [autoScrollEnabled]);
 
   // Derived sequence/timeline state.
   const sequenceRuntime = useMemo(() => (
@@ -372,26 +391,6 @@ const Sequencer = ({
     }
     return null;
   }, [structuralMarkersByDisplayBucket]);
-  const firstRepeatStartMarker = useMemo(() => (
-    [...(Array.isArray(repeats) ? repeats : [])]
-      .filter((repeat) => repeat?.kind === "start")
-      .sort((left, right) => Number(left?.position) - Number(right?.position))[0] ?? null
-  ), [repeats]);
-  const repeatStartBySnapshotId = useMemo(() => {
-    const mapping = new Map();
-    sequenceRepeatSections.forEach((section) => {
-      const cueGroup = sequenceCueGroups[section.startCueIndex] ?? null;
-      const snapshotId = cueGroup?.snapshotIndex != null
-        ? (snapshots[cueGroup.snapshotIndex]?.id ?? null)
-        : null;
-      if (snapshotId == null || section.startRepeatId == null || mapping.has(snapshotId)) return;
-      mapping.set(snapshotId, structuralEventRenderKey({
-        type: "repeat-start",
-        repeatId: section.startRepeatId,
-      }));
-    });
-    return mapping;
-  }, [sequenceCueGroups, sequenceRepeatSections, snapshots]);
   const repeatStartKeyAtPosition = useCallback((position) => {
     const time = Number(position);
     if (!Number.isFinite(time)) return null;
@@ -421,11 +420,6 @@ const Sequencer = ({
     () => buildFirstEventIdByCueIndex(sequenceEvents),
     [sequenceEvents],
   );
-  const firstCueTimeBySnapshotIndex = useMemo(
-    () => buildFirstCueTimeBySnapshotIndex(sequenceCueGroups),
-    [sequenceCueGroups],
-  );
-
   useEffect(() => {
     if (snapshots.length === 0) {
       setCopyRangeStart("1");
@@ -655,7 +649,19 @@ const Sequencer = ({
   }, [activeCueIndex, cueExpandedSnapshotIdsAt, sequenceEvents, soundingAttackEventIds]);
 
   const presentTimedCue = useCallback((cueIndex, trigger, burst) => {
-    timedVisualCueHandlerRef.current?.(cueIndex, trigger, burst);
+    pendingTimedVisualNotificationRef.current = { cueIndex, trigger, burst };
+    if (timedVisualNotificationFrameRef.current != null) return;
+    timedVisualNotificationFrameRef.current = window.requestAnimationFrame(() => {
+      timedVisualNotificationFrameRef.current = null;
+      const notification = pendingTimedVisualNotificationRef.current;
+      pendingTimedVisualNotificationRef.current = null;
+      if (!notification) return;
+      timedVisualCueHandlerRef.current?.(
+        notification.cueIndex,
+        notification.trigger,
+        notification.burst,
+      );
+    });
   }, []);
 
   const {
@@ -706,11 +712,12 @@ const Sequencer = ({
     resetSequencePlayheadAndScrollTop,
     jumpSequencePlayheadToEndAndScrollBottom,
     scrollNodeIntoPanel,
+    scrollNodesIntoPanel,
+    refreshPendingSnapshotAlignment,
   } = useSequencerAutoscroll({
     autoScrollEnabled,
     activeCueIndex,
     activeSnapshotId,
-    playheadStepIndex,
     playheadIsOff,
     selectedBarIndex,
     sortedBars,
@@ -720,11 +727,8 @@ const Sequencer = ({
     sequenceRepeatSections,
     cueExpandedSnapshotIds,
     cueExpandedSnapshotIdsAt,
-    firstCueTimeBySnapshotIndex,
     firstEventIdByCueIndex,
-    firstRepeatStartMarker,
     firstStructuralScrollKey,
-    repeatStartBySnapshotId,
     repeatStartKeyAtPosition,
     structuralScrollKeyAtPosition,
     showAllEvents,
@@ -756,8 +760,16 @@ const Sequencer = ({
         eventCount: snapshotEvents.length,
         structuralCount,
       }),
+      expandedEstimatedSize: estimateSequenceGroupHeight({
+        expanded: true,
+        eventCount: snapshotEvents.length,
+        structuralCount,
+      }),
     };
   }), [expandedIds, renderedSnapshots, showAllEvents, snapshotEventsById, structuralMarkersByDisplayBucket]);
+  const virtualSequenceItemsRef = useRef(virtualSequenceItems);
+  const virtualSequenceListRef = useRef(null);
+  virtualSequenceItemsRef.current = virtualSequenceItems;
   const virtualPinnedIndexes = useMemo(() => {
     const pinnedIds = new Set([
       selectedSnapshotId,
@@ -777,21 +789,51 @@ const Sequencer = ({
   }, [activeSnapshotId, draggedId, playingSnapshotId, renderedSnapshots, selectedBarIndex, selectedSnapshotId, sortedBars]);
   const sequenceVirtualization = useSequenceVirtualization({
     scrollPanelRef,
+    contentRef: virtualSequenceListRef,
     items: virtualSequenceItems,
     pinnedIndexes: virtualPinnedIndexes,
   });
   const {
     layout: virtualSequenceLayout,
     measureItem: measureVirtualSequenceItem,
-    ensureIndexVisible: ensureVirtualSequenceIndexVisible,
+    scrollIndexIntoView: scrollVirtualSequenceIndexIntoView,
   } = sequenceVirtualization;
   const renderedSnapshotIndexById = useMemo(() => new Map(
     renderedSnapshots.map((snapshot, index) => [snapshot.id, index]),
   ), [renderedSnapshots]);
-  const prepareVirtualSnapshotRow = useCallback((snapshotId) => {
+  const scrollVirtualSnapshotRowIntoView = useCallback((snapshotId) => {
     const index = renderedSnapshotIndexById.get(snapshotId);
-    return index == null ? false : ensureVirtualSequenceIndexVisible(index);
-  }, [ensureVirtualSequenceIndexVisible, renderedSnapshotIndexById]);
+    return index == null ? false : scrollVirtualSequenceIndexIntoView(index);
+  }, [renderedSnapshotIndexById, scrollVirtualSequenceIndexIntoView]);
+  const armVirtualizedPendingSnapshot = useCallback((snapshotIndex) => {
+    const numericIndex = Number(snapshotIndex);
+    if (autoScrollEnabledRef.current && Number.isInteger(numericIndex)) {
+      const scrollPanel = scrollPanelRef.current;
+      const playbackRect = playbackRowRef.current instanceof HTMLElement
+        ? playbackRowRef.current.getBoundingClientRect()
+        : null;
+      const panelRect = scrollPanel instanceof HTMLElement
+        ? scrollPanel.getBoundingClientRect()
+        : null;
+      const stickyTransportOverlap = playbackRect == null || panelRect == null
+        ? 0
+        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      scrollVirtualSequenceIndexIntoView(numericIndex, {
+        align: "start",
+        topOffset: stickyTransportOverlap + 6,
+      });
+    }
+    armPendingSnapshot(snapshotIndex);
+  }, [
+    armPendingSnapshot,
+    playbackRowRef,
+    scrollPanelRef,
+    scrollVirtualSequenceIndexIntoView,
+  ]);
+
+  useEffect(() => {
+    refreshPendingSnapshotAlignment();
+  }, [refreshPendingSnapshotAlignment, virtualSequenceLayout]);
 
   useEffect(() => {
     const setTransportField = (field, value) => {
@@ -801,11 +843,18 @@ const Sequencer = ({
       ) ?? null;
       if (select && value != null) select.value = String(value);
     };
-    const presenter = createTimedPlaybackVisualPresenter({
+    const highlightPresenter = createTimedPlaybackHighlightPresenter({
       resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
       resolveEventRow: (eventId) => eventRowRefs.current.get(eventId) ?? null,
-      prepareSnapshotRow: prepareVirtualSnapshotRow,
+    });
+    const autoscrollPresenter = createTimedPlaybackAutoscrollPresenter({
+      isEnabled: () => autoScrollEnabledRef.current,
+      resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
+      prepareSnapshotRow: scrollVirtualSnapshotRowIntoView,
       scrollSnapshotRow: scrollNodeIntoPanel,
+      scrollSnapshotRows: scrollNodesIntoPanel,
+    });
+    const readoutPresenter = createTimedTransportReadoutPresenter({
       presentTransportPosition: (position) => {
         setTransportField("bar", position?.barIndex);
         setTransportField("snapshot", position?.snapshotIndex);
@@ -817,70 +866,160 @@ const Sequencer = ({
         setTransportField("cue", cueSelectValue);
       },
     });
-    timedVisualPresenterRef.current = presenter;
+    timedHighlightPresenterRef.current = highlightPresenter;
+    timedAutoscrollPresenterRef.current = autoscrollPresenter;
+    timedReadoutPresenterRef.current = readoutPresenter;
     timedVisualCueHandlerRef.current = (cueIndex, trigger, burst) => {
       const cueGroup = sequenceCueGroups[cueIndex] ?? null;
       const snapshotIndex = cueGroup?.snapshotIndex ?? null;
       const snapshotId = cueGroup == null
         ? null
         : (snapshots[snapshotIndex]?.id ?? null);
-      const soundingNotesForScroll = [
-        ...(Array.isArray(burst?.soundingBefore) ? burst.soundingBefore : []),
-        ...(Array.isArray(burst?.soundingAfter) ? burst.soundingAfter : []),
-      ];
-      const earliestSoundingSnapshotIndex = soundingNotesForScroll.length > 0
-        ? soundingNotesForScroll.reduce((earliest, note) => {
-          if (!Number.isFinite(note?.snapshotIndex)) return earliest;
-          const noteSnapshotIndex = Number(note.snapshotIndex);
-          return earliest == null ? noteSnapshotIndex : Math.min(earliest, noteSnapshotIndex);
-        }, null)
-        : null;
-      const scrollSnapshotIndex = Number.isFinite(earliestSoundingSnapshotIndex)
-        ? Math.min(snapshotIndex ?? earliestSoundingSnapshotIndex, earliestSoundingSnapshotIndex)
-        : snapshotIndex;
+      const soundingAfter = Array.isArray(burst?.soundingAfter) ? burst.soundingAfter : [];
+      const soundingEventIds = new Set(
+        soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null),
+      );
       const sequenceTime = Number(burst?.sequenceTime ?? trigger?.sequenceTime);
       const barBeat = Number.isFinite(sequenceTime)
         ? absolutePositionToBarBeat(sequenceTime, sortedBars, 1, 9, terminalBarlinePosition)
         : null;
-      presenter.enqueue({
+      const transport = {
+        barIndex: Number.isFinite(barBeat?.barNumber) ? barBeat.barNumber - 1 : null,
+        snapshotIndex,
+        cueIndex,
+      };
+      highlightPresenter.present({
         snapshotId,
+        soundingEventIds: [...soundingEventIds],
+      });
+      readoutPresenter.present(transport);
+
+      if (!autoScrollEnabledRef.current) {
+        autoscrollPresenter.cancel();
+        return;
+      }
+
+      const soundingSnapshotIndexes = soundingAfter
+        .map((note) => Number(note?.snapshotIndex))
+        .filter((index) => Number.isInteger(index) && index >= 0 && index < snapshots.length);
+      const earliestSoundingSnapshotIndex = soundingSnapshotIndexes.length > 0
+        ? Math.min(...soundingSnapshotIndexes)
+        : null;
+      const latestSoundingSnapshotIndex = soundingSnapshotIndexes.length > 0
+        ? Math.max(...soundingSnapshotIndexes)
+        : null;
+      const recentSoundingSnapshotId = mostRecentAttackSnapshotId({
+        sequenceEvents,
+        snapshots,
+        attackEventIds: soundingEventIds,
+      });
+      const recentSoundingSnapshotIndex = recentSoundingSnapshotId == null
+        ? latestSoundingSnapshotIndex
+        : snapshots.findIndex((entry) => entry.id === recentSoundingSnapshotId);
+      const soundingSnapshotIndexSet = new Set(soundingSnapshotIndexes);
+      const soundingContentHeight = (
+        Number.isInteger(earliestSoundingSnapshotIndex)
+        && Number.isInteger(latestSoundingSnapshotIndex)
+      )
+        ? virtualSequenceItemsRef.current
+          .slice(earliestSoundingSnapshotIndex, latestSoundingSnapshotIndex + 1)
+          .reduce((height, item, offset) => {
+            const itemIndex = earliestSoundingSnapshotIndex + offset;
+            return height + (
+              soundingSnapshotIndexSet.has(itemIndex)
+                ? item.expandedEstimatedSize
+                : item.estimatedSize
+            );
+          }, 0)
+        : 0;
+      const scrollPanel = scrollPanelRef.current;
+      const panelRect = scrollPanel instanceof HTMLElement
+        ? scrollPanel.getBoundingClientRect()
+        : null;
+      const playbackRect = playbackRowRef.current instanceof HTMLElement
+        ? playbackRowRef.current.getBoundingClientRect()
+        : null;
+      const stickyHeight = panelRect == null || playbackRect == null
+        ? 0
+        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      const allSoundingNotesFit = (
+        scrollPanel instanceof HTMLElement
+        && contentSpanFitsViewport({
+          contentHeight: soundingContentHeight,
+          viewportHeight: scrollPanel.clientHeight,
+          stickyHeight,
+        })
+      );
+      const scrollSnapshotIndex = allSoundingNotesFit
+        ? earliestSoundingSnapshotIndex
+        : (
+          Number.isInteger(recentSoundingSnapshotIndex) && recentSoundingSnapshotIndex >= 0
+            ? recentSoundingSnapshotIndex
+            : snapshotIndex
+        );
+      autoscrollPresenter.enqueue({
         scrollSnapshotId: snapshots[scrollSnapshotIndex]?.id ?? snapshotId,
+        scrollSnapshotEndId: allSoundingNotesFit
+          ? (snapshots[latestSoundingSnapshotIndex]?.id ?? snapshotId)
+          : (snapshots[scrollSnapshotIndex]?.id ?? snapshotId),
         scrollSnapshotIndex,
-        soundingEventIds: Array.isArray(burst?.soundingAfter)
-          ? burst.soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null)
-          : [],
-        transport: {
-          barIndex: Number.isFinite(barBeat?.barNumber) ? barBeat.barNumber - 1 : null,
-          snapshotIndex,
-          cueIndex,
-        },
       });
     };
 
     return () => {
       timedVisualCueHandlerRef.current = null;
-      timedVisualPresenterRef.current = null;
-      presenter.dispose({ restoreTransport: false });
+      timedHighlightPresenterRef.current = null;
+      timedAutoscrollPresenterRef.current = null;
+      timedReadoutPresenterRef.current = null;
+      highlightPresenter.dispose();
+      autoscrollPresenter.dispose();
+      readoutPresenter.dispose();
     };
   }, [
     cueSelectValue,
     eventRowRefs,
     playbackRowRef,
     playhead?.barIndex,
-    prepareVirtualSnapshotRow,
+    scrollVirtualSnapshotRowIntoView,
     scrollNodeIntoPanel,
+    scrollNodesIntoPanel,
+    scrollPanelRef,
     sequenceCueGroups,
     snapshotRowRefs,
     snapshotSelectValue,
     snapshots,
     sortedBars,
     terminalBarlinePosition,
+    sequenceEvents,
   ]);
 
   useEffect(() => {
     if (timedTransportUiState.running) return;
-    timedVisualPresenterRef.current?.clear();
+    pendingTimedVisualNotificationRef.current = null;
+    if (timedVisualNotificationFrameRef.current != null) {
+      window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
+      timedVisualNotificationFrameRef.current = null;
+    }
+    timedHighlightPresenterRef.current?.clear();
+    timedAutoscrollPresenterRef.current?.cancel();
+    timedReadoutPresenterRef.current?.clear();
   }, [timedTransportUiState.running]);
+
+  useEffect(() => {
+    if (!timedTransportUiState.running) return undefined;
+    const refreshFrame = window.requestAnimationFrame(() => {
+      timedHighlightPresenterRef.current?.refresh();
+    });
+    return () => window.cancelAnimationFrame(refreshFrame);
+  }, [timedTransportUiState.running, virtualSequenceLayout]);
+
+  useEffect(() => () => {
+    pendingTimedVisualNotificationRef.current = null;
+    if (timedVisualNotificationFrameRef.current != null) {
+      window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
+      timedVisualNotificationFrameRef.current = null;
+    }
+  }, []);
 
   if (!timedTransportUiState.running) {
     timedTransportFieldValuesRef.current = {
@@ -1847,7 +1986,7 @@ const Sequencer = ({
           snapshotSelectValue={displayedSnapshotSelectValue}
           renderedSnapshots={renderedSnapshots}
           impliedPendingSnapshotIndex={impliedPendingSnapshotIndex}
-          armPendingSnapshot={armPendingSnapshot}
+          armPendingSnapshot={armVirtualizedPendingSnapshot}
           snapshots={snapshots}
           playheadIsOff={playheadIsOff}
           nextSnapshotIndexFromBar={nextSnapshotIndexFromBar}
@@ -1910,31 +2049,33 @@ const Sequencer = ({
                   )}
                 </div>
               ))}
-              {virtualSequenceLayout.rows.map((row) => (
-                row.type === "spacer" ? (
-                  <div
-                    key={row.key}
-                    class="sequencer-virtual-spacer"
-                    style={{ height: `${row.size}px` }}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <SnapshotSequenceItem
-                    key={row.item.snapshot.id}
-                    snapshot={row.item.snapshot}
-                    index={row.index}
-                    selectedSnapshotId={selectedSnapshotId}
-                    playingSnapshotId={playingSnapshotId}
-                    showAllEvents={showAllEvents}
-                    expandedIds={expandedIds}
-                    dragState={sharedDragState}
-                    structure={sharedStructure}
-                    rows={sharedRows}
-                    actions={sharedActions}
-                    virtualMeasure={measureVirtualSequenceItem}
-                  />
-                )
-              ))}
+              <div ref={virtualSequenceListRef} class="sequencer-virtual-list">
+                {virtualSequenceLayout.rows.map((row) => (
+                  row.type === "spacer" ? (
+                    <div
+                      key={row.key}
+                      class="sequencer-virtual-spacer"
+                      style={{ height: `${row.size}px` }}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <SnapshotSequenceItem
+                      key={row.item.snapshot.id}
+                      snapshot={row.item.snapshot}
+                      index={row.index}
+                      selectedSnapshotId={selectedSnapshotId}
+                      playingSnapshotId={playingSnapshotId}
+                      showAllEvents={showAllEvents}
+                      expandedIds={expandedIds}
+                      dragState={sharedDragState}
+                      structure={sharedStructure}
+                      rows={sharedRows}
+                      actions={sharedActions}
+                      virtualMeasure={measureVirtualSequenceItem}
+                    />
+                  )
+                ))}
+              </div>
             </div>
           )}
 

@@ -127,5 +127,7 @@
   "rSteps": 6,
   "drSteps": 5,
   "hexSize": 42,
-  "rotation": -21.2
+  "rotation": -21.2,
+  "lumatone_anchor_note": 13,
+  "lumatone_anchor_channel": 3
 }

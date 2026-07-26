@@ -604,6 +604,9 @@ describe("Sequencer", () => {
       return frameCallbacks.length;
     });
     window.cancelAnimationFrame = vi.fn();
+    const flushQueuedFrames = () => {
+      frameCallbacks.splice(0).forEach((callback) => callback());
+    };
 
     let nowSeconds = 0;
     const onPlayCue = vi.fn();
@@ -680,7 +683,7 @@ describe("Sequencer", () => {
     });
     expect(onPlayCue).not.toHaveBeenCalled();
 
-    frameCallbacks.shift()?.();
+    flushQueuedFrames();
     const firstSnapshotRow = screen.getByLabelText("snapshot 1 description").closest(".sequencer-item");
     const secondSnapshotRow = screen.getByLabelText("snapshot 2 description").closest(".sequencer-item");
     const attackRows = document.querySelectorAll(".sequencer-event-row--attack");
@@ -693,10 +696,16 @@ describe("Sequencer", () => {
     expect(snapshotSelect.value).toBe("0");
     expect(cueSelect.value).toBe("0");
 
+    fireEvent.click(screen.getByLabelText("Auto-Scroll"));
+    expect(screen.getByLabelText("Auto-Scroll").checked).toBe(false);
+    expect(localStorage.getItem("hexatone_sequencer_auto_scroll_enabled")).toBe("false");
+    expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
+    expect(attackRows[0]?.classList.contains("sequencer-event-row--timed-sounding")).toBe(true);
+
     nowSeconds = 4.1;
     vi.advanceTimersByTime(50);
     expect(onPlayTimedCue).toHaveBeenCalledTimes(3);
-    frameCallbacks.pop()?.();
+    flushQueuedFrames();
 
     expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
     expect(attackRows[0]?.classList.contains("sequencer-event-row--timed-sounding")).toBe(false);
@@ -705,7 +714,6 @@ describe("Sequencer", () => {
     expect(snapshotSelect.value).toBe("1");
     expect(cueSelect.value).toBe("2");
 
-    fireEvent.click(screen.getByLabelText("Auto-Scroll"));
     expect(barSelect?.value).toBe("1");
     expect(snapshotSelect.value).toBe("1");
     expect(cueSelect.value).toBe("2");
@@ -1458,7 +1466,7 @@ describe("Sequencer", () => {
     vi.useRealTimers();
   });
 
-  it("virtualizes long sequences while keeping each fresh PLAY FROM selection", () => {
+  it("finds distant virtualized PLAY FROM snapshots in both directions", async () => {
     const snapshots = Array.from({ length: 100 }, (_, index) => ({
       id: index + 1,
       length: 1,
@@ -1526,19 +1534,59 @@ describe("Sequencer", () => {
       );
     };
 
-    render(<Harness />);
+    const { container } = render(<Harness />);
     const snapshotSelect = screen.getByLabelText("next snapshot target");
+    const scrollPanel = container.querySelector(".sequencer-scroll-panel");
+    Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 10000 });
+    let scrollTopValue = 0;
+    Object.defineProperty(scrollPanel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTopValue,
+      set: (value) => {
+        scrollTopValue = value;
+      },
+    });
+    scrollPanel.getBoundingClientRect = () => ({
+      top: 0,
+      bottom: 200,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 200,
+    });
+    const virtualList = container.querySelector(".sequencer-virtual-list");
+    virtualList.getBoundingClientRect = () => ({
+      top: -scrollTopValue,
+      bottom: 10000 - scrollTopValue,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 10000,
+    });
 
     expect(screen.getAllByLabelText(/^snapshot \d+ description$/).length).toBeLessThan(snapshots.length);
     expect(document.querySelector(".sequencer-virtual-spacer")).not.toBeNull();
+    expect(screen.queryByLabelText("snapshot 41 description")).toBeNull();
 
-    fireEvent.change(snapshotSelect, { target: { value: "4" } });
-    expect(snapshotSelect.value).toBe("4");
-    expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(5)");
+    fireEvent.change(snapshotSelect, { target: { value: "40" } });
 
-    fireEvent.change(snapshotSelect, { target: { value: "16" } });
-    expect(snapshotSelect.value).toBe("16");
-    expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(17)");
+    expect(snapshotSelect.value).toBe("40");
+    expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(41)");
+    expect(scrollTopValue).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(screen.getByLabelText("snapshot 41 description")).toBeTruthy();
+    });
+
+    const forwardScrollTop = scrollTopValue;
+    fireEvent.change(snapshotSelect, { target: { value: "15" } });
+
+    expect(snapshotSelect.value).toBe("15");
+    expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(16)");
+    expect(scrollTopValue).toBeLessThan(forwardScrollTop);
+    await waitFor(() => {
+      expect(screen.getByLabelText("snapshot 16 description")).toBeTruthy();
+    });
   });
 
   it("keeps cue stepping anchored to the earliest sounding snapshot in full-list view", () => {
@@ -1647,7 +1695,7 @@ describe("Sequencer", () => {
     globalThis.cancelAnimationFrame = originalCancelRaf;
   });
 
-  it("auto-scrolls an offscreen pending snapshot target to the top", () => {
+  it("top-aligns a pending snapshot target even when it is already visible", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -1708,7 +1756,7 @@ describe("Sequencer", () => {
     const scrollPanel = container.querySelector(".sequencer-scroll-panel");
     Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
     Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 1000 });
-    let scrollTopValue = 0;
+    let scrollTopValue = 300;
     Object.defineProperty(scrollPanel, "scrollTop", {
       configurable: true,
       get: () => scrollTopValue,
@@ -1720,11 +1768,11 @@ describe("Sequencer", () => {
 
     const snapshotRows = container.querySelectorAll(".sequencer-item:not(.sequencer-item--bar)");
     snapshotRows[0].getBoundingClientRect = () => ({ top: 60, bottom: 90, left: 0, right: 0, width: 0, height: 30 });
-    snapshotRows[1].getBoundingClientRect = () => ({ top: 240, bottom: 270, left: 0, right: 0, width: 0, height: 30 });
+    snapshotRows[1].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
 
     fireEvent.change(screen.getByLabelText("next snapshot target"), { target: { value: "1" } });
 
-    expect(scrollTopValue).toBe(234);
+    expect(scrollTopValue).toBe(414);
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;

@@ -22,6 +22,7 @@ export function buildVirtualSequenceLayout({
   viewportHeight = 0,
   overscan = SEQUENCE_VIRTUALIZATION_OVERSCAN_PX,
   pinnedIndexes = [],
+  anchorIndex = null,
   enabled = true,
 } = {}) {
   const sizes = items.map((item) => (
@@ -42,8 +43,14 @@ export function buildVirtualSequenceLayout({
     };
   }
 
-  const start = Math.max(0, Number(scrollTop) - overscan);
-  const end = Math.max(start, Number(scrollTop) + Math.max(1, Number(viewportHeight) || 1) + overscan);
+  const normalizedAnchorIndex = Number(anchorIndex);
+  const effectiveScrollTop = Number.isInteger(normalizedAnchorIndex)
+    && normalizedAnchorIndex >= 0
+    && normalizedAnchorIndex < items.length
+    ? offsets[normalizedAnchorIndex]
+    : Number(scrollTop);
+  const start = Math.max(0, effectiveScrollTop - overscan);
+  const end = Math.max(start, effectiveScrollTop + Math.max(1, Number(viewportHeight) || 1) + overscan);
   const indexes = new Set();
   for (let index = 0; index < items.length; index += 1) {
     if (offsets[index + 1] >= start && offsets[index] <= end) indexes.add(index);
@@ -70,8 +77,8 @@ export function buildVirtualSequenceLayout({
   }
 
   const visibleItemCount = orderedIndexes.filter((index) => (
-    offsets[index + 1] >= Number(scrollTop)
-    && offsets[index] <= Number(scrollTop) + Math.max(1, Number(viewportHeight) || 1)
+    offsets[index + 1] >= effectiveScrollTop
+    && offsets[index] <= effectiveScrollTop + Math.max(1, Number(viewportHeight) || 1)
   )).length;
   return {
     rows,
@@ -83,7 +90,12 @@ export function buildVirtualSequenceLayout({
   };
 }
 
-export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIndexes = [] } = {}) {
+export function useSequenceVirtualization({
+  scrollPanelRef,
+  contentRef,
+  items = [],
+  pinnedIndexes = [],
+} = {}) {
   const enabled = items.length >= SEQUENCE_VIRTUALIZATION_MIN_ITEMS;
   const observedNodesRef = useRef(new Map());
   const resizeObserverRef = useRef(null);
@@ -91,8 +103,10 @@ export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIn
   const pendingMeasurementFrameRef = useRef(null);
   const pendingMeasurementsRef = useRef(new Map());
   const layoutRef = useRef(null);
+  const pendingStartAnchorRef = useRef(null);
   const [measuredSizes, setMeasuredSizes] = useState(() => new Map());
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 640 });
+  const [startAnchorIndex, setStartAnchorIndex] = useState(null);
 
   const flushMeasurements = useCallback(() => {
     pendingMeasurementFrameRef.current = null;
@@ -209,11 +223,69 @@ export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIn
     scrollTop: viewport.scrollTop,
     viewportHeight: viewport.height,
     pinnedIndexes,
+    anchorIndex: startAnchorIndex,
     enabled,
-  }), [enabled, items, measuredSizes, pinnedIndexes, viewport.height, viewport.scrollTop]);
+  }), [enabled, items, measuredSizes, pinnedIndexes, startAnchorIndex, viewport.height, viewport.scrollTop]);
   layoutRef.current = layout;
 
-  const ensureIndexVisible = useCallback((index) => {
+  const clearPendingStartAnchor = useCallback(() => {
+    pendingStartAnchorRef.current = null;
+    setStartAnchorIndex(null);
+  }, []);
+
+  const applyStartAnchor = useCallback((anchor, activeLayout = layoutRef.current) => {
+    const panel = scrollPanelRef?.current;
+    const contentNode = contentRef?.current;
+    if (!(panel instanceof HTMLElement) || !(contentNode instanceof HTMLElement)) return false;
+    const panelRect = panel.getBoundingClientRect();
+    const mountedTarget = contentNode.querySelector(
+      `[data-sequence-virtual-index="${anchor.index}"]`,
+    );
+    let targetContentTop;
+    if (mountedTarget instanceof HTMLElement) {
+      targetContentTop = panel.scrollTop + mountedTarget.getBoundingClientRect().top - panelRect.top;
+    } else {
+      const top = activeLayout?.offsets?.[anchor.index];
+      if (!Number.isFinite(top)) return false;
+      targetContentTop = panel.scrollTop
+        + contentNode.getBoundingClientRect().top
+        - panelRect.top
+        + top;
+    }
+    const nextTop = Math.max(0, targetContentTop - anchor.topOffset);
+    if (Math.abs(nextTop - panel.scrollTop) >= 1) panel.scrollTop = nextTop;
+    setViewport((previous) => (
+      previous.scrollTop === nextTop
+        ? previous
+        : { scrollTop: nextTop, height: panel.clientHeight || 640 }
+    ));
+    return true;
+  }, [contentRef, scrollPanelRef]);
+
+  useLayoutEffect(() => {
+    const anchor = pendingStartAnchorRef.current;
+    if (anchor == null) return;
+    applyStartAnchor(anchor, layout);
+  }, [
+    applyStartAnchor,
+    layout,
+  ]);
+
+  useEffect(() => {
+    const panel = scrollPanelRef?.current;
+    if (!(panel instanceof HTMLElement)) return undefined;
+    panel.addEventListener("wheel", clearPendingStartAnchor, { passive: true });
+    panel.addEventListener("touchmove", clearPendingStartAnchor, { passive: true });
+    return () => {
+      panel.removeEventListener("wheel", clearPendingStartAnchor);
+      panel.removeEventListener("touchmove", clearPendingStartAnchor);
+    };
+  }, [clearPendingStartAnchor, scrollPanelRef]);
+
+  const scrollIndexIntoView = useCallback((index, {
+    align = "nearest",
+    topOffset = 0,
+  } = {}) => {
     const numeric = Number(index);
     const panel = scrollPanelRef?.current;
     if (!enabled || !Number.isInteger(numeric) || !(panel instanceof HTMLElement)) return false;
@@ -221,13 +293,44 @@ export function useSequenceVirtualization({ scrollPanelRef, items = [], pinnedIn
     const bottom = layoutRef.current?.offsets?.[numeric + 1];
     if (!Number.isFinite(top) || !Number.isFinite(bottom)) return false;
     const viewportHeight = panel.clientHeight || 640;
+    if (align === "start") {
+      const anchor = {
+        index: numeric,
+        topOffset: Math.max(0, Number(topOffset) || 0),
+      };
+      pendingStartAnchorRef.current = anchor;
+      setStartAnchorIndex(numeric);
+      const applied = applyStartAnchor(anchor);
+      return applied;
+    }
+    clearPendingStartAnchor();
+    const contentNode = contentRef?.current;
+    const contentTop = contentNode instanceof HTMLElement
+      ? panel.scrollTop
+        + contentNode.getBoundingClientRect().top
+        - panel.getBoundingClientRect().top
+      : 0;
     const viewportBottom = panel.scrollTop + viewportHeight;
-    if (top >= panel.scrollTop && bottom <= viewportBottom) return false;
-    const nextTop = Math.max(0, top - Math.min(120, SEQUENCE_VIRTUALIZATION_OVERSCAN_PX / 2));
+    const absoluteTop = contentTop + top;
+    const absoluteBottom = contentTop + bottom;
+    if (absoluteTop >= panel.scrollTop && absoluteBottom <= viewportBottom) return false;
+    const nextTop = Math.max(0, absoluteTop - Math.min(120, SEQUENCE_VIRTUALIZATION_OVERSCAN_PX / 2));
     panel.scrollTop = nextTop;
     setViewport({ scrollTop: nextTop, height: viewportHeight });
     return true;
-  }, [enabled, scrollPanelRef]);
+  }, [
+    applyStartAnchor,
+    clearPendingStartAnchor,
+    contentRef,
+    enabled,
+    scrollPanelRef,
+  ]);
 
-  return { enabled, layout, measureItem, ensureIndexVisible };
+  return {
+    enabled,
+    layout,
+    measureItem,
+    scrollIndexIntoView,
+    cancelPendingStartAnchor: clearPendingStartAnchor,
+  };
 }

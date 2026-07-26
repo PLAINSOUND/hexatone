@@ -40,6 +40,7 @@ const SnapshotSequenceItem = ({
   return (
     <div
       class="sequencer-virtual-item"
+      data-sequence-virtual-index={index}
       ref={(node) => virtualMeasure?.(snapshot.id, node)}
     >
       <div
