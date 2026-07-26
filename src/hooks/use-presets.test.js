@@ -236,6 +236,64 @@ describe("mergePresetIntoSettings", () => {
     expect(merged.linnstrument_anchor_note).toBe(9);
   });
 
+  it("restores LinnStrument channel and Haken note preset anchors", () => {
+    const linnstrument = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 9,
+        midiin_anchor_channel: 4,
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: false,
+      },
+      {
+        name: "LinnStrument row anchor",
+        linnstrument_anchor_note: 12,
+        linnstrument_anchor_channel: 6,
+      },
+    );
+    expect(linnstrument.midiin_anchor_note).toBe(12);
+    expect(linnstrument.midiin_anchor_channel).toBe(6);
+
+    const haken = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 60,
+        midiin_anchor_channel: 1,
+        midiin_controller_override: "hakenaudio",
+        midi_passthrough: false,
+      },
+      {
+        name: "Haken anchor",
+        haken_anchor_note: 67,
+      },
+    );
+    expect(haken.midiin_anchor_note).toBe(67);
+    expect(haken.haken_anchor_note).toBe(67);
+  });
+
+  it("applies the selected controller's anchor when a preset carries several", () => {
+    const merged = mergePresetIntoSettings(
+      {
+        midiin_anchor_note: 19,
+        midiin_anchor_channel: 1,
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+      },
+      {
+        name: "Multi-controller anchors",
+        lumatone_anchor_note: 41,
+        lumatone_anchor_channel: 2,
+        exquis_anchor_note: 27,
+        linnstrument_anchor_note: 12,
+        linnstrument_anchor_channel: 6,
+      },
+    );
+
+    expect(merged.midiin_anchor_note).toBe(27);
+    expect(merged.midiin_anchor_channel).toBe(1);
+    expect(merged.exquis_anchor_note).toBe(27);
+    expect(merged.lumatone_anchor_note).toBe(41);
+    expect(merged.linnstrument_anchor_note).toBe(12);
+  });
+
   it("lets an incoming preset anchor win even if the previous live controller differed", () => {
     sessionStorage.setItem("midiin_anchor_note", "31");
     sessionStorage.setItem("midiin_anchor_channel", "2");

@@ -183,4 +183,74 @@ describe("useSettingsChange", () => {
     expect(sessionStorage.getItem("heji_palette_deviation")).toBe("+17");
     expect(sessionStorage.getItem("heji_palette_decimals")).toBe("2");
   });
+
+  it("copies manual Lumatone anchor edits into preset-specific fields", () => {
+    const setSettings = vi.fn();
+    let handlers = null;
+    render(
+      <HookHarness
+        settings={{
+          midiin_device: "input-1",
+          midiin_controller_override: "lumatone",
+          midi_passthrough: false,
+          midiin_anchor_note: 26,
+          midiin_anchor_channel: 3,
+        }}
+        setSettings={setSettings}
+        midi={{
+          inputs: new Map([["input-1", { id: "input-1", name: "Lumatone" }]]),
+          outputs: new Map(),
+        }}
+        capture={(value) => {
+          handlers = value;
+        }}
+      />,
+    );
+
+    handlers.onChange("midiin_anchor_note", 41);
+    handlers.onChange("midiin_anchor_channel", 2);
+
+    expect(setSettings.mock.calls[0][0]()).toEqual(expect.objectContaining({
+      midiin_anchor_note: 41,
+      lumatone_anchor_note: 41,
+      lumatone_anchor_channel: 3,
+    }));
+    expect(setSettings.mock.calls[1][0]()).toEqual(expect.objectContaining({
+      midiin_anchor_note: 41,
+      midiin_anchor_channel: 2,
+      lumatone_anchor_note: 41,
+      lumatone_anchor_channel: 2,
+    }));
+  });
+
+  it("copies atomic Haken anchor edits into preset-specific fields", () => {
+    const setSettings = vi.fn();
+    let handlers = null;
+    render(
+      <HookHarness
+        settings={{
+          midiin_device: "input-1",
+          midiin_controller_override: "hakenaudio",
+          midi_passthrough: false,
+          midiin_anchor_note: 60,
+          midiin_anchor_channel: 1,
+        }}
+        setSettings={setSettings}
+        midi={{
+          inputs: new Map([["input-1", { id: "input-1", name: "Haken Audio Continuum" }]]),
+          outputs: new Map(),
+        }}
+        capture={(value) => {
+          handlers = value;
+        }}
+      />,
+    );
+
+    handlers.onAtomicChange({ midiin_anchor_note: 67 });
+
+    expect(setSettings.mock.calls[0][0]()).toEqual(expect.objectContaining({
+      midiin_anchor_note: 67,
+      haken_anchor_note: 67,
+    }));
+  });
 });

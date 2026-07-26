@@ -153,8 +153,13 @@ function hasPresetAnchor(settings = {}) {
   );
 }
 
-function getPresetAnchorConfig(settings = {}) {
-  return PRESET_ANCHOR_CONFIGS.find(
+function getPresetAnchorConfig(settings = {}, preferredControllerId = null) {
+  const hasAnchor = ({ noteKey, channelKey }) =>
+    Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey]));
+  const preferred = PRESET_ANCHOR_CONFIGS.find(
+    (config) => config.controllerId === preferredControllerId && hasAnchor(config),
+  );
+  return preferred ?? PRESET_ANCHOR_CONFIGS.find(
     ({ noteKey, channelKey }) =>
       Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
   );
@@ -168,7 +173,10 @@ function getAnchorFallback(settings = {}) {
     };
   }
 
-  const presetAnchorConfig = getPresetAnchorConfig(settings);
+  const presetAnchorConfig = getPresetAnchorConfig(
+    settings,
+    settings.midiin_controller_override,
+  );
   if (!presetAnchorConfig?.controller) {
     return {
       midiin_anchor_note: settings.midiin_anchor_note ?? 60,
@@ -190,7 +198,10 @@ function getAnchorFallback(settings = {}) {
 export const mergePresetIntoSettings = (settings, preset) => {
   const persistentAnchorFallback = getAnchorFallback(settings);
   const restoredAnchor = restorePersistentAnchorFields(persistentAnchorFallback);
-  const activePresetAnchorConfig = getPresetAnchorConfig(preset);
+  const activePresetAnchorConfig = getPresetAnchorConfig(
+    preset,
+    settings.midiin_controller_override,
+  );
   const presetAnchorNote =
     activePresetAnchorConfig && Number.isFinite(preset[activePresetAnchorConfig.noteKey])
       ? preset[activePresetAnchorConfig.noteKey]
