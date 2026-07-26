@@ -33,6 +33,7 @@ import {
   createTimedPlaybackAutoscrollPresenter,
   createTimedPlaybackHighlightPresenter,
   createTimedTransportReadoutPresenter,
+  deriveTimedPageFollowPosition,
   resolveSequencerViewportOwner,
   SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
 } from "./timed-playback-visual-presenter.js";
@@ -52,10 +53,8 @@ import {
 import {
   buildCueExpandedSnapshotIdsAt,
   deriveCueExpandedSnapshotIds,
-  contentSpanFitsViewport,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
-  mostRecentAttackSnapshotId,
   resolveCueAnchorSnapshotId,
   sameSnapshotSet,
 } from "./view-runtime.js";
@@ -213,6 +212,7 @@ const Sequencer = ({
   const timedAutoscrollPresenterRef = useRef(null);
   const timedReadoutPresenterRef = useRef(null);
   const pendingTimedVisualNotificationRef = useRef(null);
+  const pendingTimedPageFollowNotificationRef = useRef(null);
   const timedVisualNotificationFrameRef = useRef(null);
   const autoScrollEnabledRef = useRef(autoScrollEnabled);
   autoScrollEnabledRef.current = autoScrollEnabled;
@@ -653,17 +653,27 @@ const Sequencer = ({
   }, [activeCueIndex, cueExpandedSnapshotIdsAt, sequenceEvents, soundingAttackEventIds]);
 
   const presentTimedCue = useCallback((cueIndex, trigger, burst) => {
-    pendingTimedVisualNotificationRef.current = { cueIndex, trigger, burst };
+    const notification = { cueIndex, trigger, burst };
+    pendingTimedVisualNotificationRef.current = notification;
+    if (Array.isArray(burst?.newlyAttacked) && burst.newlyAttacked.length > 0) {
+      // Highlighting may discard intermediate states within one animation
+      // frame, but a note-ON at the viewport boundary must not lose its page
+      // turn merely because a release or structural burst followed it.
+      pendingTimedPageFollowNotificationRef.current = notification;
+    }
     if (timedVisualNotificationFrameRef.current != null) return;
     timedVisualNotificationFrameRef.current = window.requestAnimationFrame(() => {
       timedVisualNotificationFrameRef.current = null;
       const notification = pendingTimedVisualNotificationRef.current;
+      const pageFollowNotification = pendingTimedPageFollowNotificationRef.current;
       pendingTimedVisualNotificationRef.current = null;
+      pendingTimedPageFollowNotificationRef.current = null;
       if (!notification) return;
       timedVisualCueHandlerRef.current?.(
         notification.cueIndex,
         notification.trigger,
         notification.burst,
+        pageFollowNotification?.burst ?? null,
       );
     });
   }, []);
@@ -779,9 +789,7 @@ const Sequencer = ({
       }),
     };
   }), [expandedIds, renderedSnapshots, showAllEvents, snapshotEventsById, structuralMarkersByDisplayBucket]);
-  const virtualSequenceItemsRef = useRef(virtualSequenceItems);
   const virtualSequenceListRef = useRef(null);
-  virtualSequenceItemsRef.current = virtualSequenceItems;
   const virtualPinnedIndexes = useMemo(() => {
     const pinnedIds = new Set([
       selectedSnapshotId,
@@ -1006,7 +1014,7 @@ const Sequencer = ({
     timedHighlightPresenterRef.current = highlightPresenter;
     timedAutoscrollPresenterRef.current = autoscrollPresenter;
     timedReadoutPresenterRef.current = readoutPresenter;
-    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst) => {
+    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst, pageFollowBurst) => {
       const cueGroup = sequenceCueGroups[cueIndex] ?? null;
       const snapshotIndex = cueGroup?.snapshotIndex ?? null;
       const snapshotId = cueGroup == null
@@ -1016,9 +1024,6 @@ const Sequencer = ({
       const soundingEventIds = new Set(
         soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null),
       );
-      const orderedSoundingEventIds = sequenceEvents
-        .filter((event) => soundingEventIds.has(event.eventId))
-        .map((event) => event.eventId);
       const sequenceTime = Number(burst?.sequenceTime ?? trigger?.sequenceTime);
       const barBeat = Number.isFinite(sequenceTime)
         ? absolutePositionToBarBeat(sequenceTime, sortedBars, 1, 9, terminalBarlinePosition)
@@ -1055,75 +1060,17 @@ const Sequencer = ({
         return;
       }
 
-      const soundingSnapshotIndexes = soundingAfter
-        .map((note) => Number(note?.snapshotIndex))
-        .filter((index) => Number.isInteger(index) && index >= 0 && index < snapshots.length);
-      const earliestSoundingSnapshotIndex = soundingSnapshotIndexes.length > 0
-        ? Math.min(...soundingSnapshotIndexes)
-        : null;
-      const latestSoundingSnapshotIndex = soundingSnapshotIndexes.length > 0
-        ? Math.max(...soundingSnapshotIndexes)
-        : null;
-      const recentSoundingSnapshotId = mostRecentAttackSnapshotId({
+      const pageFollowPosition = deriveTimedPageFollowPosition({
+        burst: pageFollowBurst,
         sequenceEvents,
         snapshots,
-        attackEventIds: soundingEventIds,
+        fallbackSnapshotIndex: snapshotIndex,
+        fallbackSnapshotId: snapshotId,
       });
-      const recentSoundingSnapshotIndex = recentSoundingSnapshotId == null
-        ? latestSoundingSnapshotIndex
-        : snapshots.findIndex((entry) => entry.id === recentSoundingSnapshotId);
-      const soundingSnapshotIndexSet = new Set(soundingSnapshotIndexes);
-      const soundingContentHeight = (
-        Number.isInteger(earliestSoundingSnapshotIndex)
-        && Number.isInteger(latestSoundingSnapshotIndex)
-      )
-        ? virtualSequenceItemsRef.current
-          .slice(earliestSoundingSnapshotIndex, latestSoundingSnapshotIndex + 1)
-          .reduce((height, item, offset) => {
-            const itemIndex = earliestSoundingSnapshotIndex + offset;
-            return height + (
-              soundingSnapshotIndexSet.has(itemIndex)
-                ? item.expandedEstimatedSize
-                : item.estimatedSize
-            );
-          }, 0)
-        : 0;
-      const scrollPanel = scrollPanelRef.current;
-      const panelRect = scrollPanel instanceof HTMLElement
-        ? scrollPanel.getBoundingClientRect()
-        : null;
-      const playbackRect = playbackRowRef.current instanceof HTMLElement
-        ? playbackRowRef.current.getBoundingClientRect()
-        : null;
-      const stickyHeight = panelRect == null || playbackRect == null
-        ? 0
-        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-      const allSoundingNotesFit = (
-        scrollPanel instanceof HTMLElement
-        && contentSpanFitsViewport({
-          contentHeight: soundingContentHeight,
-          viewportHeight: scrollPanel.clientHeight,
-          stickyHeight,
-        })
-      );
-      const scrollSnapshotIndex = allSoundingNotesFit
-        ? earliestSoundingSnapshotIndex
-        : (
-          Number.isInteger(recentSoundingSnapshotIndex) && recentSoundingSnapshotIndex >= 0
-            ? recentSoundingSnapshotIndex
-            : snapshotIndex
-        );
-      autoscrollPresenter.enqueue({
-        scrollSnapshotId: snapshots[scrollSnapshotIndex]?.id ?? snapshotId,
-        scrollSnapshotEndId: allSoundingNotesFit
-          ? (snapshots[latestSoundingSnapshotIndex]?.id ?? snapshotId)
-          : (snapshots[scrollSnapshotIndex]?.id ?? snapshotId),
-        scrollSnapshotIndex,
-        // Event rows are the authoritative visibility targets. Passing them
-        // in list order lets the panel show the whole sounding span when it
-        // fits, or bottom-prioritize the most recent event when it does not.
-        scrollEventIds: orderedSoundingEventIds,
-      });
+      // Only new note-ON rows drive page following. Sustained notes remain
+      // highlighted, while release-only cues and shrinking sounding sets do
+      // not pull the viewport back toward earlier events.
+      if (pageFollowPosition != null) autoscrollPresenter.enqueue(pageFollowPosition);
     };
 
     return () => {
@@ -1158,6 +1105,7 @@ const Sequencer = ({
   useEffect(() => {
     if (timedTransportUiState.running) return;
     pendingTimedVisualNotificationRef.current = null;
+    pendingTimedPageFollowNotificationRef.current = null;
     if (timedVisualNotificationFrameRef.current != null) {
       window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
       timedVisualNotificationFrameRef.current = null;
@@ -1177,6 +1125,7 @@ const Sequencer = ({
 
   useEffect(() => () => {
     pendingTimedVisualNotificationRef.current = null;
+    pendingTimedPageFollowNotificationRef.current = null;
     if (timedVisualNotificationFrameRef.current != null) {
       window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
       timedVisualNotificationFrameRef.current = null;

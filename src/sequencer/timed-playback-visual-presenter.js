@@ -14,6 +14,48 @@ export function resolveSequencerViewportOwner({ timedPlaybackRunning = false } =
     : SEQUENCER_VIEWPORT_OWNER_NAVIGATION;
 }
 
+export function deriveTimedPageFollowPosition({
+  burst = null,
+  sequenceEvents = [],
+  snapshots = [],
+  fallbackSnapshotIndex = null,
+  fallbackSnapshotId = null,
+} = {}) {
+  const soundingAfter = Array.isArray(burst?.soundingAfter) ? burst.soundingAfter : [];
+  const newlyAttacked = new Set(
+    Array.isArray(burst?.newlyAttacked) ? burst.newlyAttacked : [],
+  );
+  const newlyAttackedNotes = soundingAfter.filter(
+    (note) => newlyAttacked.has(note?.instanceKey),
+  );
+  const newlyAttackedEventIds = new Set(
+    newlyAttackedNotes
+      .map((note) => note?.eventId)
+      .filter((eventId) => eventId != null),
+  );
+  const orderedEventIds = sequenceEvents
+    .filter((event) => newlyAttackedEventIds.has(event?.eventId))
+    .map((event) => event.eventId);
+  if (orderedEventIds.length === 0) return null;
+
+  const attackedSnapshotIndexes = newlyAttackedNotes
+    .map((note) => Number(note?.snapshotIndex))
+    .filter((index) => Number.isInteger(index) && index >= 0 && index < snapshots.length);
+  const earliestSnapshotIndex = attackedSnapshotIndexes.length > 0
+    ? Math.min(...attackedSnapshotIndexes)
+    : fallbackSnapshotIndex;
+  const latestSnapshotIndex = attackedSnapshotIndexes.length > 0
+    ? Math.max(...attackedSnapshotIndexes)
+    : fallbackSnapshotIndex;
+
+  return {
+    scrollSnapshotId: snapshots[earliestSnapshotIndex]?.id ?? fallbackSnapshotId,
+    scrollSnapshotEndId: snapshots[latestSnapshotIndex]?.id ?? fallbackSnapshotId,
+    scrollSnapshotIndex: latestSnapshotIndex,
+    scrollEventIds: orderedEventIds,
+  };
+}
+
 export function createTimedPlaybackHighlightPresenter({
   resolveSnapshotRow,
   resolveEventRow,

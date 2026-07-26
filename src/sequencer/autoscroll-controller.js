@@ -26,7 +26,9 @@ export function derivePagedPanelScrollTop({
 }) {
   const visibleTop = panelTop + stickyTop + gap;
   const visibleBottom = Math.max(visibleTop, panelBottom - gap);
-  const targetIsVisible = targetTop >= visibleTop && targetBottom <= visibleBottom;
+  // Timed page following must turn the page when the active row reaches the
+  // boundary, not one cue later after it has already crossed it.
+  const targetIsVisible = targetTop >= visibleTop && targetBottom < visibleBottom;
   const nextTop = targetIsVisible
     ? scrollTop
     : scrollTop + targetTop - visibleTop;

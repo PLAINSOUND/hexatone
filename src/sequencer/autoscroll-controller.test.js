@@ -53,6 +53,14 @@ describe("sequencer autoscroll geometry", () => {
     })).toBe(814);
   });
 
+  it("turns the page as soon as a target reaches the usable bottom edge", () => {
+    expect(derivePagedPanelScrollTop({
+      ...baseGeometry,
+      targetTop: 534,
+      targetBottom: 594,
+    })).toBe(778);
+  });
+
   it("reveals a target hidden behind the sticky transport", () => {
     expect(derivePagedPanelScrollTop({
       ...baseGeometry,

@@ -3,6 +3,7 @@ import {
   createTimedPlaybackAutoscrollPresenter,
   createTimedPlaybackHighlightPresenter,
   createTimedTransportReadoutPresenter,
+  deriveTimedPageFollowPosition,
   resolveSequencerViewportOwner,
   SEQUENCER_VIEWPORT_OWNER_NAVIGATION,
   SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
@@ -75,6 +76,47 @@ describe("timed playback autoscroll presenter", () => {
       .toBe(SEQUENCER_VIEWPORT_OWNER_NAVIGATION);
     expect(resolveSequencerViewportOwner({ timedPlaybackRunning: true }))
       .toBe(SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK);
+  });
+
+  it("follows only newly attacked rows while sustained earlier notes remain highlighted", () => {
+    expect(deriveTimedPageFollowPosition({
+      burst: {
+        newlyAttacked: ["new"],
+        soundingAfter: [
+          { instanceKey: "held", eventId: "event-held", snapshotIndex: 0 },
+          { instanceKey: "new", eventId: "event-new", snapshotIndex: 4 },
+        ],
+      },
+      sequenceEvents: [
+        { eventId: "event-held" },
+        { eventId: "event-new" },
+      ],
+      snapshots: [
+        { id: 1 },
+        { id: 2 },
+        { id: 3 },
+        { id: 4 },
+        { id: 5 },
+      ],
+    })).toEqual({
+      scrollSnapshotId: 5,
+      scrollSnapshotEndId: 5,
+      scrollSnapshotIndex: 4,
+      scrollEventIds: ["event-new"],
+    });
+  });
+
+  it("does not issue a reverse page-follow target for a release-only cue", () => {
+    expect(deriveTimedPageFollowPosition({
+      burst: {
+        newlyAttacked: [],
+        soundingAfter: [
+          { instanceKey: "held", eventId: "event-held", snapshotIndex: 0 },
+        ],
+      },
+      sequenceEvents: [{ eventId: "event-held" }],
+      snapshots: [{ id: 1 }],
+    })).toBeNull();
   });
 
   it("coalesces positions and scrolls only the latest target", () => {
