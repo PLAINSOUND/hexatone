@@ -3,6 +3,9 @@ import {
   createTimedPlaybackAutoscrollPresenter,
   createTimedPlaybackHighlightPresenter,
   createTimedTransportReadoutPresenter,
+  resolveSequencerViewportOwner,
+  SEQUENCER_VIEWPORT_OWNER_NAVIGATION,
+  SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
   TIMED_PLAYBACK_EVENT_CLASS,
   TIMED_PLAYBACK_ROW_CLASS,
 } from "./timed-playback-visual-presenter.js";
@@ -67,6 +70,13 @@ describe("timed playback highlight presenter", () => {
 });
 
 describe("timed playback autoscroll presenter", () => {
+  it("takes exclusive viewport ownership only while timed playback is running", () => {
+    expect(resolveSequencerViewportOwner({ timedPlaybackRunning: false }))
+      .toBe(SEQUENCER_VIEWPORT_OWNER_NAVIGATION);
+    expect(resolveSequencerViewportOwner({ timedPlaybackRunning: true }))
+      .toBe(SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK);
+  });
+
   it("coalesces positions and scrolls only the latest target", () => {
     const frames = createFrameHarness();
     const rows = new Map([

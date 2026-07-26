@@ -596,6 +596,7 @@ export default function useSequencerAutoscroll({
     jumpSequencePlayheadToEndAndScrollBottom,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,
+    cancelNavigationAutoscroll: cancelPendingSnapshotAlignment,
     refreshPendingSnapshotAlignment,
   };
 }

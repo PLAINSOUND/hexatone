@@ -5,6 +5,14 @@
 
 export const TIMED_PLAYBACK_ROW_CLASS = "sequencer-item--timed-playing";
 export const TIMED_PLAYBACK_EVENT_CLASS = "sequencer-event-row--timed-sounding";
+export const SEQUENCER_VIEWPORT_OWNER_NAVIGATION = "navigation";
+export const SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK = "timed-playback";
+
+export function resolveSequencerViewportOwner({ timedPlaybackRunning = false } = {}) {
+  return timedPlaybackRunning
+    ? SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK
+    : SEQUENCER_VIEWPORT_OWNER_NAVIGATION;
+}
 
 export function createTimedPlaybackHighlightPresenter({
   resolveSnapshotRow,

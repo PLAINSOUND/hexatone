@@ -33,6 +33,8 @@ import {
   createTimedPlaybackAutoscrollPresenter,
   createTimedPlaybackHighlightPresenter,
   createTimedTransportReadoutPresenter,
+  resolveSequencerViewportOwner,
+  SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
 } from "./timed-playback-visual-presenter.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
 import {
@@ -699,6 +701,11 @@ const Sequencer = ({
     onStopSnapshot,
     getTimedTransportClockSeconds,
   });
+  const viewportOwner = resolveSequencerViewportOwner({
+    timedPlaybackRunning: timedTransportUiState.running,
+  });
+  const timedPlaybackOwnsViewport =
+    viewportOwner === SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK;
   // UI controllers: scroll tracking, timed transport, and row draft editing
   // are split out so this component can remain a composition layer.
   const {
@@ -715,6 +722,7 @@ const Sequencer = ({
     jumpSequencePlayheadToEndAndScrollBottom,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,
+    cancelNavigationAutoscroll,
     refreshPendingSnapshotAlignment,
   } = useSequencerAutoscroll({
     autoScrollEnabled,
@@ -811,7 +819,11 @@ const Sequencer = ({
   }, [renderedSnapshotIndexById, scrollVirtualSequenceIndexIntoView]);
   const prepareSnapshotViewport = useCallback((snapshotIndex) => {
     const numericIndex = Number(snapshotIndex);
-    if (!autoScrollEnabledRef.current || !Number.isInteger(numericIndex)) return false;
+    if (
+      timedPlaybackOwnsViewport
+      || !autoScrollEnabledRef.current
+      || !Number.isInteger(numericIndex)
+    ) return false;
     const scrollPanel = scrollPanelRef.current;
     const playbackRect = playbackRowRef.current instanceof HTMLElement
       ? playbackRowRef.current.getBoundingClientRect()
@@ -830,6 +842,7 @@ const Sequencer = ({
     playbackRowRef,
     scrollPanelRef,
     scrollVirtualSequenceIndexIntoView,
+    timedPlaybackOwnsViewport,
   ]);
   const armVirtualizedPendingSnapshot = useCallback((snapshotIndex) => {
     prepareSnapshotViewport(snapshotIndex);
@@ -840,7 +853,11 @@ const Sequencer = ({
   ]);
   const prepareCueViewport = useCallback((cueIndex) => {
     const numericCueIndex = Number(cueIndex);
-    if (!autoScrollEnabledRef.current || !Number.isInteger(numericCueIndex)) return false;
+    if (
+      timedPlaybackOwnsViewport
+      || !autoScrollEnabledRef.current
+      || !Number.isInteger(numericCueIndex)
+    ) return false;
     const soundingSnapshotIds = cueExpandedSnapshotIdsAt(numericCueIndex);
     const soundingEventIds = new Set(sequenceAttackEventIdsAtCueIndex(
       renderedSnapshots,
@@ -911,6 +928,7 @@ const Sequencer = ({
     snapshots,
     sortedBars,
     sortedTempi,
+    timedPlaybackOwnsViewport,
   ]);
   const armVirtualizedPendingCue = useCallback((cueIndex) => {
     prepareCueViewport(cueIndex);
@@ -921,14 +939,17 @@ const Sequencer = ({
   ]);
 
   useLayoutEffect(() => {
+    if (timedPlaybackOwnsViewport) return;
     if (!Number.isFinite(activeCueIndex)) return;
     prepareCueViewport(activeCueIndex - 1);
   }, [
     activeCueIndex,
     prepareCueViewport,
+    timedPlaybackOwnsViewport,
   ]);
 
   useLayoutEffect(() => {
+    if (timedPlaybackOwnsViewport) return;
     if (Number.isFinite(activeCueIndex) || activeSnapshotId == null) return;
     const activeSnapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === activeSnapshotId);
     if (activeSnapshotIndex < 0) return;
@@ -938,7 +959,13 @@ const Sequencer = ({
     activeSnapshotId,
     prepareSnapshotViewport,
     snapshots,
+    timedPlaybackOwnsViewport,
   ]);
+
+  useEffect(() => {
+    if (!timedPlaybackOwnsViewport) return;
+    cancelNavigationAutoscroll();
+  }, [cancelNavigationAutoscroll, timedPlaybackOwnsViewport]);
 
   useEffect(() => {
     refreshPendingSnapshotAlignment();
@@ -1002,6 +1029,22 @@ const Sequencer = ({
         soundingEventIds: [...soundingEventIds],
       });
       readoutPresenter.present(transport);
+
+      if (!showAllEvents) {
+        const timedExpandedSnapshotIds = new Set(
+          soundingAfter
+            .map((note) => note?.snapshotId)
+            .filter((id) => id != null),
+        );
+        if (timedExpandedSnapshotIds.size === 0 && snapshotId != null) {
+          timedExpandedSnapshotIds.add(snapshotId);
+        }
+        setExpandedIds((previous) => (
+          sameSnapshotSet(previous, timedExpandedSnapshotIds)
+            ? previous
+            : timedExpandedSnapshotIds
+        ));
+      }
 
       if (!autoScrollEnabledRef.current) {
         autoscrollPresenter.cancel();
@@ -1094,6 +1137,8 @@ const Sequencer = ({
     scrollNodesIntoPanel,
     scrollPanelRef,
     sequenceCueGroups,
+    setExpandedIds,
+    showAllEvents,
     snapshotRowRefs,
     snapshotSelectValue,
     snapshots,
@@ -1146,6 +1191,7 @@ const Sequencer = ({
     : cueSelectValue;
 
   useEffect(() => {
+    if (timedPlaybackOwnsViewport) return;
     const pendingCueIndex = (
       transportScrollTargetRef.current === "cue"
       && Number.isFinite(pendingTransportSelection?.cueIndex)
@@ -1180,6 +1226,7 @@ const Sequencer = ({
     pendingTransportSelection?.cueIndex,
     selectedSnapshotId,
     showAllEvents,
+    timedPlaybackOwnsViewport,
     transportScrollTargetRef,
   ]);
 
