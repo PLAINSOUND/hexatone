@@ -242,8 +242,11 @@ export function useSequenceVirtualization({
       `[data-sequence-virtual-index="${anchor.index}"]`,
     );
     let targetContentTop;
-    if (mountedTarget instanceof HTMLElement) {
-      targetContentTop = panel.scrollTop + mountedTarget.getBoundingClientRect().top - panelRect.top;
+    const mountedTargetRect = mountedTarget instanceof HTMLElement
+      ? mountedTarget.getBoundingClientRect()
+      : null;
+    if (mountedTargetRect != null && mountedTargetRect.height > 0) {
+      targetContentTop = panel.scrollTop + mountedTargetRect.top - panelRect.top;
     } else {
       const top = activeLayout?.offsets?.[anchor.index];
       if (!Number.isFinite(top)) return false;
