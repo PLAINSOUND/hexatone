@@ -96,13 +96,14 @@ export function createTimedTransportReadoutPresenter({
 export function createTimedPlaybackAutoscrollPresenter({
   isEnabled = () => true,
   resolveSnapshotRow,
+  resolveEventRow,
   prepareSnapshotRow,
   scrollSnapshotRow,
   scrollSnapshotRows,
   requestFrame = (callback) => window.requestAnimationFrame(callback),
   cancelFrame = (frameId) => window.cancelAnimationFrame(frameId),
   now = () => performance.now(),
-  scrollIntervalMs = 200,
+  scrollIntervalMs = 0,
   maxPrepareFrames = 3,
 } = {}) {
   let pendingPosition = null;
@@ -134,7 +135,10 @@ export function createTimedPlaybackAutoscrollPresenter({
     const endId = position?.scrollSnapshotEndId ?? startId;
     if (startId == null) return;
 
-    const targetKey = `${startId}:${endId}`;
+    const eventIds = Array.isArray(position?.scrollEventIds)
+      ? position.scrollEventIds.filter((eventId) => eventId != null)
+      : [];
+    const targetKey = `${startId}:${endId}:${eventIds.join(",")}`;
     if (preparedTargetKey !== targetKey) {
       preparedTargetKey = targetKey;
       prepareFrames = 0;
@@ -142,19 +146,24 @@ export function createTimedPlaybackAutoscrollPresenter({
 
     const startRow = resolveSnapshotRow?.(startId) ?? null;
     const endRow = endId == null ? startRow : (resolveSnapshotRow?.(endId) ?? null);
+    const eventRows = eventIds
+      .map((eventId) => resolveEventRow?.(eventId) ?? null);
     const missingIds = [
       startRow == null ? startId : null,
       endRow == null && endId !== startId ? endId : null,
     ].filter((id) => id != null);
+    const hasMissingEventRows = eventRows.some((row) => row == null);
 
-    if (missingIds.length > 0 && prepareFrames < maxPrepareFrames) {
+    if ((missingIds.length > 0 || hasMissingEventRows) && prepareFrames < maxPrepareFrames) {
       prepareFrames += 1;
-      let prepared = false;
       for (const id of missingIds) {
         if (!isEnabled()) return;
-        prepared = prepareSnapshotRow?.(id) === true || prepared;
+        prepareSnapshotRow?.(id);
       }
-      if (prepared && isEnabled()) {
+      if (missingIds.length === 0 && startId != null) {
+        prepareSnapshotRow?.(startId);
+      }
+      if (isEnabled()) {
         pendingPosition = position;
         frameId = requestFrame(flush);
       }
@@ -165,10 +174,15 @@ export function createTimedPlaybackAutoscrollPresenter({
     const nowMs = now();
     if (nowMs - lastScrollAtMs < scrollIntervalMs) return;
     lastScrollAtMs = nowMs;
+    const resolvedEventRows = eventRows.filter((row) => row != null);
     if (typeof scrollSnapshotRows === "function") {
-      scrollSnapshotRows(endRow && endRow !== startRow ? [startRow, endRow] : [startRow]);
+      scrollSnapshotRows(
+        resolvedEventRows.length > 0
+          ? resolvedEventRows
+          : (endRow && endRow !== startRow ? [startRow, endRow] : [startRow]),
+      );
     } else {
-      scrollSnapshotRow?.(startRow);
+      scrollSnapshotRow?.(resolvedEventRows.at(-1) ?? startRow);
     }
   };
 

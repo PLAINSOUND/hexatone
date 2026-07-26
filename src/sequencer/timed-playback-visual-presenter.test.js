@@ -163,6 +163,55 @@ describe("timed playback autoscroll presenter", () => {
 
     expect(scrollSnapshotRows).toHaveBeenCalledWith([rows.get(2), rows.get(4)]);
   });
+
+  it("uses sounding event rows as the authoritative timed viewport targets", () => {
+    const frames = createFrameHarness();
+    const snapshotRow = document.createElement("div");
+    const earlyEvent = document.createElement("div");
+    const latestEvent = document.createElement("div");
+    const scrollSnapshotRows = vi.fn();
+    const presenter = createTimedPlaybackAutoscrollPresenter({
+      resolveSnapshotRow: () => snapshotRow,
+      resolveEventRow: (id) => (
+        id === "early" ? earlyEvent : id === "latest" ? latestEvent : null
+      ),
+      scrollSnapshotRows,
+      requestFrame: frames.requestFrame,
+      cancelFrame: frames.cancelFrame,
+    });
+
+    presenter.enqueue({
+      scrollSnapshotId: 2,
+      scrollEventIds: ["early", "latest"],
+    });
+    frames.flush();
+
+    expect(scrollSnapshotRows).toHaveBeenCalledWith([earlyEvent, latestEvent]);
+  });
+
+  it("does not drop a below-viewport cue that arrives within the former throttle window", () => {
+    const frames = createFrameHarness();
+    const rows = new Map([
+      [1, document.createElement("div")],
+      [2, document.createElement("div")],
+    ]);
+    const scrollSnapshotRows = vi.fn();
+    const presenter = createTimedPlaybackAutoscrollPresenter({
+      resolveSnapshotRow: (id) => rows.get(id),
+      scrollSnapshotRows,
+      requestFrame: frames.requestFrame,
+      cancelFrame: frames.cancelFrame,
+      now: () => 100,
+    });
+
+    presenter.enqueue({ scrollSnapshotId: 1 });
+    frames.flush();
+    presenter.enqueue({ scrollSnapshotId: 2 });
+    frames.flush();
+
+    expect(scrollSnapshotRows).toHaveBeenNthCalledWith(1, [rows.get(1)]);
+    expect(scrollSnapshotRows).toHaveBeenNthCalledWith(2, [rows.get(2)]);
+  });
 });
 
 describe("timed transport readout presenter", () => {

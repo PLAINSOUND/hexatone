@@ -986,6 +986,7 @@ const Sequencer = ({
     const autoscrollPresenter = createTimedPlaybackAutoscrollPresenter({
       isEnabled: () => autoScrollEnabledRef.current,
       resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
+      resolveEventRow: (eventId) => eventRowRefs.current.get(eventId) ?? null,
       prepareSnapshotRow: scrollVirtualSnapshotRowIntoView,
       scrollSnapshotRow: scrollNodeIntoPanel,
       scrollSnapshotRows: scrollNodesIntoPanel,
@@ -1015,6 +1016,9 @@ const Sequencer = ({
       const soundingEventIds = new Set(
         soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null),
       );
+      const orderedSoundingEventIds = sequenceEvents
+        .filter((event) => soundingEventIds.has(event.eventId))
+        .map((event) => event.eventId);
       const sequenceTime = Number(burst?.sequenceTime ?? trigger?.sequenceTime);
       const barBeat = Number.isFinite(sequenceTime)
         ? absolutePositionToBarBeat(sequenceTime, sortedBars, 1, 9, terminalBarlinePosition)
@@ -1115,6 +1119,10 @@ const Sequencer = ({
           ? (snapshots[latestSoundingSnapshotIndex]?.id ?? snapshotId)
           : (snapshots[scrollSnapshotIndex]?.id ?? snapshotId),
         scrollSnapshotIndex,
+        // Event rows are the authoritative visibility targets. Passing them
+        // in list order lets the panel show the whole sounding span when it
+        // fits, or bottom-prioritize the most recent event when it does not.
+        scrollEventIds: orderedSoundingEventIds,
       });
     };
 
