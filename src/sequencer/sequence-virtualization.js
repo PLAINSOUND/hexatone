@@ -15,6 +15,34 @@ export function estimateSequenceGroupHeight({ eventCount = 0, structuralCount = 
   return snapshotRowHeight + eventHeaderHeight + eventRowsHeight + structuralRowsHeight;
 }
 
+export function deriveRecentFittingEventBounds(eventRects = [], usableHeight = 0) {
+  const rects = eventRects.filter((rect) => (
+    Number.isFinite(Number(rect?.top)) && Number.isFinite(Number(rect?.bottom))
+  ));
+  if (rects.length === 0) return null;
+  const boundsFor = (targets) => ({
+    top: Math.min(...targets.map((rect) => Number(rect.top))),
+    bottom: Math.max(...targets.map((rect) => Number(rect.bottom))),
+  });
+  const allBounds = boundsFor(rects);
+  if (allBounds.bottom - allBounds.top <= Math.max(0, Number(usableHeight))) {
+    return { ...allBounds, allFit: true, includedCount: rects.length };
+  }
+
+  const recentRects = [rects.at(-1)];
+  for (let index = rects.length - 2; index >= 0; index -= 1) {
+    const candidate = [rects[index], ...recentRects];
+    const candidateBounds = boundsFor(candidate);
+    if (candidateBounds.bottom - candidateBounds.top > Math.max(0, Number(usableHeight))) break;
+    recentRects.unshift(rects[index]);
+  }
+  return {
+    ...boundsFor(recentRects),
+    allFit: false,
+    includedCount: recentRects.length,
+  };
+}
+
 export function buildVirtualSequenceLayout({
   items = [],
   measuredSizes = new Map(),
@@ -106,7 +134,7 @@ export function useSequenceVirtualization({
   const pendingStartAnchorRef = useRef(null);
   const [measuredSizes, setMeasuredSizes] = useState(() => new Map());
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 640 });
-  const [startAnchorIndex, setStartAnchorIndex] = useState(null);
+  const [startAnchor, setStartAnchor] = useState(null);
 
   const flushMeasurements = useCallback(() => {
     pendingMeasurementFrameRef.current = null;
@@ -222,15 +250,18 @@ export function useSequenceVirtualization({
     measuredSizes,
     scrollTop: viewport.scrollTop,
     viewportHeight: viewport.height,
-    pinnedIndexes,
-    anchorIndex: startAnchorIndex,
+    pinnedIndexes: [
+      ...pinnedIndexes,
+      ...(startAnchor?.targetIndexes ?? []),
+    ],
+    anchorIndex: startAnchor?.preferredIndex ?? null,
     enabled,
-  }), [enabled, items, measuredSizes, pinnedIndexes, startAnchorIndex, viewport.height, viewport.scrollTop]);
+  }), [enabled, items, measuredSizes, pinnedIndexes, startAnchor, viewport.height, viewport.scrollTop]);
   layoutRef.current = layout;
 
   const clearPendingStartAnchor = useCallback(() => {
     pendingStartAnchorRef.current = null;
-    setStartAnchorIndex(null);
+    setStartAnchor(null);
   }, []);
 
   const applyStartAnchor = useCallback((anchor, activeLayout = layoutRef.current) => {
@@ -238,24 +269,90 @@ export function useSequenceVirtualization({
     const contentNode = contentRef?.current;
     if (!(panel instanceof HTMLElement) || !(contentNode instanceof HTMLElement)) return false;
     const panelRect = panel.getBoundingClientRect();
-    const mountedTarget = contentNode.querySelector(
-      `[data-sequence-virtual-index="${anchor.index}"]`,
+    const targetIndexes = anchor.targetIndexes.length > 0
+      ? anchor.targetIndexes
+      : [anchor.preferredIndex];
+    const mountedTargets = targetIndexes.map((index) => contentNode.querySelector(
+      `[data-sequence-virtual-index="${index}"]`,
+    ));
+    const mountedTargetRects = mountedTargets.map((target) => (
+      target instanceof HTMLElement ? target.getBoundingClientRect() : null
+    ));
+    const allTargetsMeasured = mountedTargetRects.every((rect) => rect != null && rect.height > 0);
+    let mountedTargetRect = mountedTargetRects[
+      Math.max(0, targetIndexes.indexOf(anchor.preferredIndex))
+    ] ?? null;
+    let alignToBottom = false;
+    const eventNodesById = new Map(
+      [...contentNode.querySelectorAll("[data-sequence-event-id]")]
+        .map((node) => [node.dataset.sequenceEventId, node]),
     );
+    const mountedEventRects = anchor.targetEventIds.map((eventId) => {
+      const node = eventNodesById.get(String(eventId));
+      return node instanceof HTMLElement ? node.getBoundingClientRect() : null;
+    });
+    const allEventsMeasured = (
+      mountedEventRects.length > 0
+      && mountedEventRects.every((rect) => rect != null && rect.height > 0)
+    );
+    if (anchor.targetEventIds.length > 0) {
+      if (allEventsMeasured) {
+        const usableHeight = Math.max(0, panel.clientHeight - anchor.topOffset - 6);
+        const preferredBounds = deriveRecentFittingEventBounds(mountedEventRects, usableHeight);
+        mountedTargetRect = {
+          top: preferredBounds.top,
+          bottom: preferredBounds.bottom,
+          height: preferredBounds.bottom - preferredBounds.top,
+        };
+        alignToBottom = !preferredBounds.allFit;
+      } else {
+        const preferredEventNode = eventNodesById.get(String(anchor.preferredEventId));
+        const preferredEventRect = preferredEventNode instanceof HTMLElement
+          ? preferredEventNode.getBoundingClientRect()
+          : null;
+        if (preferredEventRect != null && preferredEventRect.height > 0) {
+          mountedTargetRect = preferredEventRect;
+        }
+        // A partial sounding set must never favor an old attack. Keep the
+        // newest available event at the bottom until every row can be judged.
+        alignToBottom = true;
+      }
+    } else if (allTargetsMeasured) {
+      const topmostRect = mountedTargetRects.reduce((topmost, rect) => (
+        topmost == null || rect.top < topmost.top ? rect : topmost
+      ), null);
+      const rangeTop = Math.min(...mountedTargetRects.map((rect) => rect.top));
+      const rangeBottom = Math.max(...mountedTargetRects.map((rect) => rect.bottom));
+      const usableHeight = Math.max(0, panel.clientHeight - anchor.topOffset - 6);
+      if (rangeBottom - rangeTop <= usableHeight) {
+        mountedTargetRect = topmostRect;
+      } else if (anchor.overflowAlignment === "end") {
+        const preferredEventNode = [...contentNode.querySelectorAll("[data-sequence-event-id]")]
+          .find((node) => node.dataset.sequenceEventId === String(anchor.preferredEventId));
+        const preferredEventRect = preferredEventNode instanceof HTMLElement
+          ? preferredEventNode.getBoundingClientRect()
+          : null;
+        if (preferredEventRect != null && preferredEventRect.height > 0) {
+          mountedTargetRect = preferredEventRect;
+        }
+        alignToBottom = true;
+      }
+    }
     let targetContentTop;
-    const mountedTargetRect = mountedTarget instanceof HTMLElement
-      ? mountedTarget.getBoundingClientRect()
-      : null;
     if (mountedTargetRect != null && mountedTargetRect.height > 0) {
-      targetContentTop = panel.scrollTop + mountedTargetRect.top - panelRect.top;
+      targetContentTop = alignToBottom
+        ? panel.scrollTop + mountedTargetRect.bottom - panelRect.bottom + 6
+        : panel.scrollTop + mountedTargetRect.top - panelRect.top - anchor.topOffset;
     } else {
-      const top = activeLayout?.offsets?.[anchor.index];
+      const top = activeLayout?.offsets?.[anchor.preferredIndex];
       if (!Number.isFinite(top)) return false;
       targetContentTop = panel.scrollTop
         + contentNode.getBoundingClientRect().top
         - panelRect.top
-        + top;
+        + top
+        - anchor.topOffset;
     }
-    const nextTop = Math.max(0, targetContentTop - anchor.topOffset);
+    const nextTop = Math.max(0, targetContentTop);
     if (Math.abs(nextTop - panel.scrollTop) >= 1) panel.scrollTop = nextTop;
     setViewport((previous) => (
       previous.scrollTop === nextTop
@@ -288,24 +385,45 @@ export function useSequenceVirtualization({
   const scrollIndexIntoView = useCallback((index, {
     align = "nearest",
     topOffset = 0,
+    targetIndexes = null,
+    overflowAlignment = "start",
+    preferredEventId = null,
+    targetEventIds = null,
   } = {}) => {
     const numeric = Number(index);
     const panel = scrollPanelRef?.current;
-    if (!enabled || !Number.isInteger(numeric) || !(panel instanceof HTMLElement)) return false;
+    if (!Number.isInteger(numeric) || !(panel instanceof HTMLElement)) return false;
     const top = layoutRef.current?.offsets?.[numeric];
     const bottom = layoutRef.current?.offsets?.[numeric + 1];
     if (!Number.isFinite(top) || !Number.isFinite(bottom)) return false;
     const viewportHeight = panel.clientHeight || 640;
     if (align === "start") {
+      const normalizedTargetIndexes = [...new Set(
+        (Array.isArray(targetIndexes) ? targetIndexes : [numeric])
+          .map((targetIndex) => Number(targetIndex))
+          .filter((targetIndex) => (
+            Number.isInteger(targetIndex)
+            && targetIndex >= 0
+            && targetIndex < items.length
+          )),
+      )];
       const anchor = {
-        index: numeric,
+        preferredIndex: numeric,
+        targetIndexes: normalizedTargetIndexes,
         topOffset: Math.max(0, Number(topOffset) || 0),
+        overflowAlignment,
+        preferredEventId,
+        targetEventIds: Array.isArray(targetEventIds)
+          ? targetEventIds.filter((eventId) => eventId != null)
+          : [],
       };
+      if (!enabled) return applyStartAnchor(anchor);
       pendingStartAnchorRef.current = anchor;
-      setStartAnchorIndex(numeric);
+      setStartAnchor(anchor);
       const applied = applyStartAnchor(anchor);
       return applied;
     }
+    if (!enabled) return false;
     clearPendingStartAnchor();
     const contentNode = contentRef?.current;
     const contentTop = contentNode instanceof HTMLElement
@@ -326,6 +444,7 @@ export function useSequenceVirtualization({
     clearPendingStartAnchor,
     contentRef,
     enabled,
+    items.length,
     scrollPanelRef,
   ]);
 

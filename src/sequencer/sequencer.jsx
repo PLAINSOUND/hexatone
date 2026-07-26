@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
 import SequenceControls from "./sequence-controls.jsx";
@@ -54,8 +54,10 @@ import {
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
   mostRecentAttackSnapshotId,
+  resolveCueAnchorSnapshotId,
   sameSnapshotSet,
 } from "./view-runtime.js";
+import { sequenceAttackEventIdsAtCueIndex } from "./trigger-groups.js";
 import {
   commitTextInput,
   noteMatchesReference,
@@ -717,7 +719,9 @@ const Sequencer = ({
   } = useSequencerAutoscroll({
     autoScrollEnabled,
     activeCueIndex,
+    manageActiveCueViewport: true,
     activeSnapshotId,
+    manageActiveSnapshotViewport: true,
     playheadIsOff,
     selectedBarIndex,
     sortedBars,
@@ -805,30 +809,135 @@ const Sequencer = ({
     const index = renderedSnapshotIndexById.get(snapshotId);
     return index == null ? false : scrollVirtualSequenceIndexIntoView(index);
   }, [renderedSnapshotIndexById, scrollVirtualSequenceIndexIntoView]);
-  const armVirtualizedPendingSnapshot = useCallback((snapshotIndex) => {
+  const prepareSnapshotViewport = useCallback((snapshotIndex) => {
     const numericIndex = Number(snapshotIndex);
-    if (autoScrollEnabledRef.current && Number.isInteger(numericIndex)) {
-      const scrollPanel = scrollPanelRef.current;
-      const playbackRect = playbackRowRef.current instanceof HTMLElement
-        ? playbackRowRef.current.getBoundingClientRect()
-        : null;
-      const panelRect = scrollPanel instanceof HTMLElement
-        ? scrollPanel.getBoundingClientRect()
-        : null;
-      const stickyTransportOverlap = playbackRect == null || panelRect == null
-        ? 0
-        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-      scrollVirtualSequenceIndexIntoView(numericIndex, {
-        align: "start",
-        topOffset: stickyTransportOverlap + 6,
-      });
-    }
-    armPendingSnapshot(snapshotIndex);
+    if (!autoScrollEnabledRef.current || !Number.isInteger(numericIndex)) return false;
+    const scrollPanel = scrollPanelRef.current;
+    const playbackRect = playbackRowRef.current instanceof HTMLElement
+      ? playbackRowRef.current.getBoundingClientRect()
+      : null;
+    const panelRect = scrollPanel instanceof HTMLElement
+      ? scrollPanel.getBoundingClientRect()
+      : null;
+    const stickyTransportOverlap = playbackRect == null || panelRect == null
+      ? 0
+      : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+    return scrollVirtualSequenceIndexIntoView(numericIndex, {
+      align: "start",
+      topOffset: stickyTransportOverlap + 6,
+    });
   }, [
-    armPendingSnapshot,
     playbackRowRef,
     scrollPanelRef,
     scrollVirtualSequenceIndexIntoView,
+  ]);
+  const armVirtualizedPendingSnapshot = useCallback((snapshotIndex) => {
+    prepareSnapshotViewport(snapshotIndex);
+    armPendingSnapshot(snapshotIndex, { viewportPrepared: true });
+  }, [
+    armPendingSnapshot,
+    prepareSnapshotViewport,
+  ]);
+  const prepareCueViewport = useCallback((cueIndex) => {
+    const numericCueIndex = Number(cueIndex);
+    if (!autoScrollEnabledRef.current || !Number.isInteger(numericCueIndex)) return false;
+    const soundingSnapshotIds = cueExpandedSnapshotIdsAt(numericCueIndex);
+    const soundingEventIds = new Set(sequenceAttackEventIdsAtCueIndex(
+      renderedSnapshots,
+      sortedBars,
+      sortedTempi,
+      numericCueIndex,
+    ));
+    const soundingAttackEvents = sequenceEvents.filter((event) => (
+      event?.type === "note"
+      && event?.kind === "attack"
+      && soundingEventIds.has(event.eventId)
+    ));
+    const attackRank = (event) => {
+      const absoluteTime = Number(event?.absoluteTime);
+      return Number.isFinite(absoluteTime) ? absoluteTime : Number(event?.cueIndex) || -Infinity;
+    };
+    const mostRecentRank = soundingAttackEvents.length > 0
+      ? Math.max(...soundingAttackEvents.map(attackRank))
+      : -Infinity;
+    const mostRecentAttackEvent = soundingAttackEvents
+      .filter((event) => Math.abs(attackRank(event) - mostRecentRank) < 1e-9)
+      .at(-1) ?? null;
+    const orderedSoundingAttackEvents = [...soundingAttackEvents].sort((left, right) => (
+      attackRank(left) - attackRank(right)
+    ));
+    const soundingSnapshotIndexes = snapshots
+      .map((snapshot, index) => (soundingSnapshotIds.has(snapshot.id) ? index : null))
+      .filter((index) => index != null);
+    const recentSnapshotId = mostRecentAttackEvent?.snapshotId ?? resolveCueAnchorSnapshotId({
+      activeCueIndex: numericCueIndex + 1,
+      sequenceCueGroups,
+      sequenceEvents,
+      snapshots,
+      cueExpandedSnapshotIds: soundingSnapshotIds,
+    });
+    const recentSnapshotIndex = recentSnapshotId == null
+      ? (sequenceCueGroups[numericCueIndex]?.snapshotIndex ?? null)
+      : snapshots.findIndex((snapshot) => snapshot.id === recentSnapshotId);
+    if (!Number.isInteger(recentSnapshotIndex) || recentSnapshotIndex < 0) return false;
+    const scrollPanel = scrollPanelRef.current;
+    const playbackRect = playbackRowRef.current instanceof HTMLElement
+      ? playbackRowRef.current.getBoundingClientRect()
+      : null;
+    const panelRect = scrollPanel instanceof HTMLElement
+      ? scrollPanel.getBoundingClientRect()
+      : null;
+    const stickyTransportOverlap = playbackRect == null || panelRect == null
+      ? 0
+      : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+    return scrollVirtualSequenceIndexIntoView(recentSnapshotIndex, {
+      align: "start",
+      topOffset: stickyTransportOverlap + 6,
+      targetIndexes: soundingSnapshotIndexes.length > 0
+        ? soundingSnapshotIndexes
+        : [recentSnapshotIndex],
+      overflowAlignment: "end",
+      preferredEventId: mostRecentAttackEvent?.eventId ?? null,
+      targetEventIds: orderedSoundingAttackEvents.map((event) => event.eventId),
+    });
+  }, [
+    cueExpandedSnapshotIdsAt,
+    playbackRowRef,
+    renderedSnapshots,
+    scrollPanelRef,
+    scrollVirtualSequenceIndexIntoView,
+    sequenceCueGroups,
+    sequenceEvents,
+    snapshots,
+    sortedBars,
+    sortedTempi,
+  ]);
+  const armVirtualizedPendingCue = useCallback((cueIndex) => {
+    prepareCueViewport(cueIndex);
+    armPendingCue(cueIndex, { viewportPrepared: true });
+  }, [
+    armPendingCue,
+    prepareCueViewport,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!Number.isFinite(activeCueIndex)) return;
+    prepareCueViewport(activeCueIndex - 1);
+  }, [
+    activeCueIndex,
+    prepareCueViewport,
+  ]);
+
+  useLayoutEffect(() => {
+    if (Number.isFinite(activeCueIndex) || activeSnapshotId == null) return;
+    const activeSnapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === activeSnapshotId);
+    if (activeSnapshotIndex < 0) return;
+    prepareSnapshotViewport(activeSnapshotIndex);
+  }, [
+    activeCueIndex,
+    activeSnapshotId,
+    prepareSnapshotViewport,
+    snapshots,
   ]);
 
   useEffect(() => {
@@ -1037,6 +1146,12 @@ const Sequencer = ({
     : cueSelectValue;
 
   useEffect(() => {
+    const pendingCueIndex = (
+      transportScrollTargetRef.current === "cue"
+      && Number.isFinite(pendingTransportSelection?.cueIndex)
+    )
+      ? pendingTransportSelection.cueIndex
+      : null;
     const nextExpandedIds = deriveExpandedSnapshotIds({
       showAllEvents,
       cueExpandedSnapshotIdsAt,
@@ -1044,6 +1159,7 @@ const Sequencer = ({
       playheadIsEnd,
       selectedSnapshotId,
       activeCueIndex,
+      pendingCueIndex,
       cueExpandedSnapshotIds,
       suppressSelectedSnapshotPreview: (
         !showAllEvents &&
@@ -1061,8 +1177,10 @@ const Sequencer = ({
     cueExpandedSnapshotIdsAt,
     playheadIsEnd,
     playheadIsOff,
+    pendingTransportSelection?.cueIndex,
     selectedSnapshotId,
     showAllEvents,
+    transportScrollTargetRef,
   ]);
 
   useEffect(() => {
@@ -1997,7 +2115,7 @@ const Sequencer = ({
           cueSelectValue={displayedCueSelectValue}
           sequenceCueGroups={sequenceCueGroups}
           impliedPendingCueIndex={impliedPendingCueIndex}
-          armPendingCue={armPendingCue}
+          armPendingCue={armVirtualizedPendingCue}
           nextCueIndexFromBar={nextCueIndexFromBar}
           onJumpSequenceCue={onJumpSequenceCue}
           onStepSequenceMarker={onStepSequenceMarker}

@@ -131,17 +131,22 @@ export function deriveExpandedSnapshotIds({
   playheadIsEnd,
   selectedSnapshotId,
   activeCueIndex,
+  pendingCueIndex = null,
   cueExpandedSnapshotIds,
   suppressSelectedSnapshotPreview = false,
 }) {
   if (showAllEvents) return null;
-  if (playheadIsOff || playheadIsEnd || selectedSnapshotId == null) {
-    return new Set();
-  }
   if (activeCueIndex != null) {
     if (cueExpandedSnapshotIds.size > 0) return new Set(cueExpandedSnapshotIds);
     const previewIds = cueExpandedSnapshotIdsAt(activeCueIndex - 1);
     return previewIds.size > 0 ? previewIds : new Set([selectedSnapshotId]);
+  }
+  if (Number.isFinite(pendingCueIndex)) {
+    const previewIds = cueExpandedSnapshotIdsAt(pendingCueIndex);
+    if (previewIds.size > 0) return previewIds;
+  }
+  if (playheadIsOff || playheadIsEnd || selectedSnapshotId == null) {
+    return new Set();
   }
   if (suppressSelectedSnapshotPreview) return new Set();
   return new Set([selectedSnapshotId]);

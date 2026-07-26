@@ -4,6 +4,7 @@ import { act, render } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildVirtualSequenceLayout,
+  deriveRecentFittingEventBounds,
   estimateSequenceGroupHeight,
   useSequenceVirtualization,
 } from "./sequence-virtualization.js";
@@ -54,6 +55,19 @@ describe("sequence virtualization", () => {
       .map((row) => row.index);
     expect(mountedIndexes).toContain(20);
     expect(mountedIndexes).not.toContain(96);
+  });
+
+  it("keeps the largest suffix of recent sounding events that fits", () => {
+    expect(deriveRecentFittingEventBounds([
+      { top: 0, bottom: 30 },
+      { top: 300, bottom: 330 },
+      { top: 350, bottom: 380 },
+    ], 100)).toEqual({
+      top: 300,
+      bottom: 380,
+      allFit: false,
+      includedCount: 2,
+    });
   });
 
   it("batches ResizeObserver row measurements into the next animation frame", () => {
@@ -185,5 +199,103 @@ describe("sequence virtualization", () => {
 
     view.unmount();
     vi.unstubAllGlobals();
+  });
+
+  it("shows a fitting target range but bottom-aligns the preferred event when it overflows", () => {
+    const items = Array.from({ length: 40 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 50,
+    }));
+    let virtualization = null;
+    let scrollTop = 500;
+    function Probe() {
+      const scrollPanelRef = useRef(null);
+      const contentRef = useRef(null);
+      virtualization = useSequenceVirtualization({
+        scrollPanelRef,
+        contentRef,
+        items,
+      });
+      return h(
+        "div",
+        { ref: scrollPanelRef },
+        h(
+          "div",
+          { ref: contentRef },
+          h(
+            "div",
+            { "data-sequence-virtual-index": "10" },
+            h("div", { "data-sequence-event-id": "early" }),
+          ),
+          h(
+            "div",
+            { "data-sequence-virtual-index": "12" },
+            h("div", { "data-sequence-event-id": "middle" }),
+            h("div", { "data-sequence-event-id": "recent" }),
+          ),
+        ),
+      );
+    }
+
+    const view = render(h(Probe));
+    const panel = view.container.firstElementChild;
+    const content = panel.firstElementChild;
+    const early = content.querySelector('[data-sequence-virtual-index="10"]');
+    const recent = content.querySelector('[data-sequence-virtual-index="12"]');
+    const earlyEvent = content.querySelector('[data-sequence-event-id="early"]');
+    const middleEvent = content.querySelector('[data-sequence-event-id="middle"]');
+    const recentEvent = content.querySelector('[data-sequence-event-id="recent"]');
+    Object.defineProperty(panel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(panel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = value;
+      },
+    });
+    panel.getBoundingClientRect = () => ({ top: 0, bottom: 200 });
+    content.getBoundingClientRect = () => ({ top: -scrollTop });
+    early.getBoundingClientRect = () => ({ top: 1000 - scrollTop, bottom: 1040 - scrollTop, height: 40 });
+    recent.getBoundingClientRect = () => ({ top: 1100 - scrollTop, bottom: 1140 - scrollTop, height: 40 });
+    earlyEvent.getBoundingClientRect = () => ({ top: 1010 - scrollTop, bottom: 1030 - scrollTop, height: 20 });
+    middleEvent.getBoundingClientRect = () => ({ top: 1080 - scrollTop, bottom: 1100 - scrollTop, height: 20 });
+    recentEvent.getBoundingClientRect = () => ({ top: 1110 - scrollTop, bottom: 1130 - scrollTop, height: 20 });
+
+    act(() => virtualization.scrollIndexIntoView(12, {
+      align: "start",
+      topOffset: 6,
+      targetIndexes: [10, 12],
+      overflowAlignment: "end",
+      preferredEventId: "recent",
+      targetEventIds: ["early", "missing", "recent"],
+    }));
+    expect(scrollTop).toBe(936);
+
+    act(() => virtualization.scrollIndexIntoView(12, {
+      align: "start",
+      topOffset: 6,
+      targetIndexes: [10, 12],
+      overflowAlignment: "end",
+      preferredEventId: "recent",
+      targetEventIds: ["early", "middle", "recent"],
+    }));
+    expect(scrollTop).toBe(1004);
+
+    early.getBoundingClientRect = () => ({ top: 500 - scrollTop, bottom: 540 - scrollTop, height: 40 });
+    recent.getBoundingClientRect = () => ({ top: 1200 - scrollTop, bottom: 1240 - scrollTop, height: 40 });
+    earlyEvent.getBoundingClientRect = () => ({ top: 510 - scrollTop, bottom: 530 - scrollTop, height: 20 });
+    middleEvent.getBoundingClientRect = () => ({ top: 1160 - scrollTop, bottom: 1180 - scrollTop, height: 20 });
+    recentEvent.getBoundingClientRect = () => ({ top: 1210 - scrollTop, bottom: 1230 - scrollTop, height: 20 });
+    act(() => virtualization.scrollIndexIntoView(12, {
+      align: "start",
+      topOffset: 6,
+      targetIndexes: [10, 12],
+      overflowAlignment: "end",
+      preferredEventId: "recent",
+      targetEventIds: ["early", "middle", "recent"],
+    }));
+    expect(scrollTop).toBe(1036);
+
+    view.unmount();
   });
 });

@@ -1589,7 +1589,7 @@ describe("Sequencer", () => {
     });
   });
 
-  it("keeps cue stepping anchored to the earliest sounding snapshot in full-list view", () => {
+  it("bottom-aligns the newest sounding note when cue stepping advances", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -1644,7 +1644,7 @@ describe("Sequencer", () => {
           id: 10,
           length: 2,
           description: "carry",
-          notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1.25 }],
+          notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 2.5 }],
         },
         {
           id: 11,
@@ -1676,9 +1676,23 @@ describe("Sequencer", () => {
     scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
 
     const eventRows = container.querySelectorAll(".sequencer-event-row");
-    eventRows[0].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
-    eventRows[1].getBoundingClientRect = () => ({ top: 320, bottom: 350, left: 0, right: 0, width: 0, height: 30 });
-    eventRows[2].getBoundingClientRect = () => ({ top: 680, bottom: 710, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[0].getBoundingClientRect = () => ({ top: 120 - scrollTopValue, bottom: 150 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[1].getBoundingClientRect = () => ({ top: 320 - scrollTopValue, bottom: 350 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[2].getBoundingClientRect = () => ({ top: 680 - scrollTopValue, bottom: 710 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
+    const originalElementRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function getCueStepRect() {
+      if (this.dataset?.sequenceEventId === "11:b:attack:0.25") {
+        return {
+          top: 680 - scrollTopValue,
+          bottom: 710 - scrollTopValue,
+          left: 0,
+          right: 0,
+          width: 0,
+          height: 30,
+        };
+      }
+      return originalElementRect.call(this);
+    };
 
     rerender(
       <Sequencer
@@ -1687,15 +1701,16 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(scrollTopValue).toBe(0);
+    expect(scrollTopValue).toBe(516);
 
+    HTMLElement.prototype.getBoundingClientRect = originalElementRect;
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;
     globalThis.requestAnimationFrame = originalRaf;
     globalThis.cancelAnimationFrame = originalCancelRaf;
   });
 
-  it("top-aligns a pending snapshot target even when it is already visible", () => {
+  it("top-aligns snapshot dropdown selection and snapshot stepping identically", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -1707,8 +1722,15 @@ describe("Sequencer", () => {
     globalThis.requestAnimationFrame = raf;
     globalThis.cancelAnimationFrame = window.cancelAnimationFrame;
 
-    const { container } = render(
-      <Sequencer
+    function Harness() {
+      const [playhead, setPlayhead] = useState({
+        barIndex: 0,
+        stepIndex: 0,
+        markerIndex: null,
+        stopped: true,
+      });
+      return (
+        <Sequencer
         snapshots={[
           { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
           { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
@@ -1718,7 +1740,7 @@ describe("Sequencer", () => {
         selectedSnapshotId={10}
         selectedMarker={null}
         playingSnapshotId={null}
-        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        playhead={playhead}
         onTakeSnapshot={vi.fn()}
         onLoadSequence={vi.fn()}
         onSequenceNameChange={vi.fn()}
@@ -1730,7 +1752,12 @@ describe("Sequencer", () => {
         onPlaySnapshot={vi.fn()}
         onStopSnapshot={vi.fn()}
         onSelectSequenceBar={vi.fn()}
-        onStepSequence={vi.fn()}
+        onStepSequence={(direction) => {
+          setPlayhead((current) => ({
+            ...current,
+            stepIndex: current.stepIndex + direction,
+          }));
+        }}
         onStepSequenceMarker={vi.fn()}
         onPlaySequence={vi.fn()}
         onPlayCue={vi.fn()}
@@ -1750,8 +1777,11 @@ describe("Sequencer", () => {
         activeSequenceName=""
         activeSequenceDescription=""
         sequenceLegato
-      />,
-    );
+        />
+      );
+    }
+
+    const { container } = render(<Harness />);
 
     const scrollPanel = container.querySelector(".sequencer-scroll-panel");
     Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
@@ -1769,8 +1799,30 @@ describe("Sequencer", () => {
     const snapshotRows = container.querySelectorAll(".sequencer-item:not(.sequencer-item--bar)");
     snapshotRows[0].getBoundingClientRect = () => ({ top: 60, bottom: 90, left: 0, right: 0, width: 0, height: 30 });
     snapshotRows[1].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
+    const snapshotGroups = container.querySelectorAll(".sequencer-virtual-item");
+    snapshotGroups[0].getBoundingClientRect = () => ({
+      top: 360 - scrollTopValue,
+      bottom: 390 - scrollTopValue,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
+    snapshotGroups[1].getBoundingClientRect = () => ({
+      top: 420 - scrollTopValue,
+      bottom: 450 - scrollTopValue,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
 
     fireEvent.change(screen.getByLabelText("next snapshot target"), { target: { value: "1" } });
+
+    expect(scrollTopValue).toBe(414);
+
+    scrollTopValue = 300;
+    fireEvent.click(screen.getByLabelText("next sequence step"));
 
     expect(scrollTopValue).toBe(414);
 
@@ -1936,7 +1988,7 @@ describe("Sequencer", () => {
     expect(onJumpSequenceEnd).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps pending cue selection anchored to the earliest sounding snapshot in full-list view", () => {
+  it("bottom-aligns the most recent sounding note when a pending cue span does not fit", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -1955,7 +2007,7 @@ describe("Sequencer", () => {
             id: 10,
             length: 2,
             description: "carry",
-            notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1.25 }],
+            notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1.5 }],
           },
           {
             id: 11,
@@ -2017,6 +2069,23 @@ describe("Sequencer", () => {
     });
     scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
 
+    const snapshotGroups = container.querySelectorAll(".sequencer-virtual-item");
+    snapshotGroups[0].getBoundingClientRect = () => ({
+      top: 100,
+      bottom: 350,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 250,
+    });
+    snapshotGroups[1].getBoundingClientRect = () => ({
+      top: 350,
+      bottom: 710,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 360,
+    });
     const eventRows = container.querySelectorAll(".sequencer-event-row");
     eventRows[0].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
     eventRows[1].getBoundingClientRect = () => ({ top: 320, bottom: 350, left: 0, right: 0, width: 0, height: 30 });
@@ -2024,7 +2093,7 @@ describe("Sequencer", () => {
 
     fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
 
-    expect(scrollTopValue).toBe(0);
+    expect(scrollTopValue).toBe(516);
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;

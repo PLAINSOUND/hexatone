@@ -160,6 +160,7 @@ const EventRow = ({
         else drag.eventRowRefs.current.delete(event.eventId);
       }}
       class={`sequencer-event-row sequencer-event-row--${event.kind}${isMarkerSelected ? " sequencer-group--selected" : ""}${isCueActive ? " sequencer-event-row--cue-active" : ""}${isSnapshotActive ? " sequencer-event-row--snapshot-active" : ""}${isBarRelativeDraftActive ? " sequencer-event-row--bar-relative-draft" : ""}${isEventSequenceDraftActive ? " sequencer-event-row--sequence-draft" : ""}${drag.draggedEventId === event.eventId ? " sequencer-event-row--dragging" : ""}`}
+      data-sequence-event-id={event.eventId}
       data-bar-relative-draft-scope={`event:${draftKey}`}
       data-event-sequence-draft-scope={`event-sequence:${eventSequenceKey}`}
       onClick={() => {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import flightSequence from "./preset-sequences/marc-sabat/Flight.json";
-import { deriveSequenceEvents } from "./trigger-groups.js";
+import {
+  deriveSequenceEvents,
+  sequenceAttackEventIdsAtCueIndex,
+} from "./trigger-groups.js";
 import {
   buildCueExpandedSnapshotIdsAt,
   contentSpanFitsViewport,
@@ -70,6 +73,21 @@ describe("sequencer view runtime", () => {
       activeCueIndex: 2,
       cueExpandedSnapshotIds: new Set(["s1", "s2"]),
     })).toEqual(new Set(["s1", "s2"]));
+  });
+
+  it("keeps a pending cue's sounding snapshots expanded while the playhead is off", () => {
+    expect(deriveExpandedSnapshotIds({
+      showAllEvents: false,
+      cueExpandedSnapshotIdsAt: (index) => (
+        index === 8 ? new Set(["s2", "s3", "s7", "s8", "s9"]) : new Set()
+      ),
+      playheadIsOff: true,
+      playheadIsEnd: false,
+      selectedSnapshotId: "s9",
+      activeCueIndex: null,
+      pendingCueIndex: 8,
+      cueExpandedSnapshotIds: new Set(),
+    })).toEqual(new Set(["s2", "s3", "s7", "s8", "s9"]));
   });
 
   it("derives active cue-expanded snapshots from preview rows before falling back to sounding attacks", () => {
@@ -272,6 +290,39 @@ describe("sequencer view runtime", () => {
 
     expect(example).not.toBeNull();
     expect(example.recentIndex).toBeGreaterThan(example.earliestIndex);
+  });
+
+  it("includes every Flight Cue 9 attack across the early and later snapshot groups", () => {
+    const events = deriveSequenceEvents(
+      flightSequence.snapshots,
+      flightSequence.bars,
+      flightSequence.tempi,
+      flightSequence.repeats,
+    );
+    const soundingIds = new Set(sequenceAttackEventIdsAtCueIndex(
+      flightSequence.snapshots,
+      flightSequence.bars,
+      flightSequence.tempi,
+      8,
+    ));
+    const cueNineAttacksInDisplaySnapshotNine = events.filter((event) => (
+      event.type === "note"
+      && event.kind === "attack"
+      && event.cueIndex === 9
+      && event.snapshotIndex === 8
+    ));
+
+    expect(cueNineAttacksInDisplaySnapshotNine).toHaveLength(3);
+    expect(cueNineAttacksInDisplaySnapshotNine.every((event) => (
+      soundingIds.has(event.eventId)
+    ))).toBe(true);
+    expect(buildCueExpandedSnapshotIdsAt(
+      8,
+      flightSequence.snapshots,
+      flightSequence.bars,
+      flightSequence.tempi,
+      events,
+    )).toContain(flightSequence.snapshots[8].id);
   });
 
   it("compares snapshot sets by membership", () => {
