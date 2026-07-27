@@ -1497,28 +1497,25 @@ const App = () => {
   const previewSequencePlaybackPitchOffset = useCallback((value) => {
     const nextPitchOffset = clampSequencePlaybackPitchCents(value);
     liveSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
-    if (sequencePlayhead?.stopped) return;
-    if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
-    retuneActiveSnapshotHexes(keysRef.current, nextPitchOffset);
+    const keys = keysRef.current;
+    if (!Array.isArray(keys?._snapshotHexes) || keys._snapshotHexes.length === 0) return;
+    retuneActiveSnapshotHexes(keys, nextPitchOffset);
     appliedSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
-  }, [sequencePlayhead]);
+  }, []);
 
   const commitSequencePlaybackPitchOffset = useCallback((value) => {
     const nextPitchOffset = clampSequencePlaybackPitchCents(value);
     liveSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
-    if (
-      sequencePlayhead?.stopped !== true
-      && Number.isFinite(sequencePlayhead?.stepIndex)
-      && sequencePlayhead.stepIndex >= 0
-    ) {
+    const keys = keysRef.current;
+    if (Array.isArray(keys?._snapshotHexes) && keys._snapshotHexes.length > 0) {
       // Mouse-up/text commit is a synchronous final chord transaction. This
       // intentionally resends every active voice even if the last preview had
       // the same displayed value.
-      retuneActiveSnapshotHexes(keysRef.current, nextPitchOffset);
+      retuneActiveSnapshotHexes(keys, nextPitchOffset);
       appliedSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
     }
     setSequencePlaybackPitchOffset(nextPitchOffset);
-  }, [sequencePlayhead]);
+  }, []);
 
   const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     const hardRestart = options?.hardRestart === true;

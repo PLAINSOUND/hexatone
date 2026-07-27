@@ -748,6 +748,42 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
+  it("retunes active timed-playback voices while the navigation playhead is stopped", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const soundingHex = {
+      _baseCents: 0,
+      _snapshotSourceBaseCents: 0,
+      _snapshotSourceMidicents: 69,
+      _snapshotAppliedPitchOffsetCents: 0,
+      sequenceRetune: vi.fn(),
+    };
+    const keys = {
+      _snapshotHexes: [soundingHex],
+      stopSnapshot: vi.fn(),
+      panic: vi.fn(),
+    };
+
+    await waitFor(() => {
+      expect(lastKeyboardProps).not.toBeNull();
+    });
+    act(() => {
+      lastKeyboardProps.onKeysReady(keys);
+    });
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    const pitchSlider = await screen.findByRole(
+      "slider",
+      { name: "sequence playback pitch slider" },
+    );
+    fireEvent.keyDown(
+      pitchSlider,
+      { key: "ArrowRight" },
+    );
+
+    expect(soundingHex.sequenceRetune).toHaveBeenCalledWith(1);
+  });
+
   it("resizes and redraws the keyboard after toggling the sidebar", async () => {
     vi.useFakeTimers();
     const { container } = render(<App />);
