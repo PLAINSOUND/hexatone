@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 import flightSequence from "./preset-sequences/marc-sabat/Flight.json";
-import {
-  deriveSequenceEvents,
-  sequenceAttackEventIdsAtCueIndex,
-} from "./trigger-groups.js";
+import { deriveSequenceEvents } from "./trigger-groups.js";
 import {
   buildCueExpandedSnapshotIdsAt,
   contentSpanFitsViewport,
   deriveCueExpandedSnapshotIds,
   deriveCueScrollAnchorTarget,
+  deriveCueViewportModel,
+  deriveCueViewportPlan,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
   firstSnapshotIdForCueIndex,
@@ -16,6 +15,7 @@ import {
   mostRecentAttackSnapshotId,
   resolveCueAnchorSnapshotId,
   sameSnapshotSet,
+  sequenceSoundingAttackEventIdsAtCueIndex,
 } from "./view-runtime.js";
 
 describe("sequencer view runtime", () => {
@@ -60,6 +60,86 @@ describe("sequencer view runtime", () => {
       { type: "note", cueIndex: 2, kind: "release", snapshotId: "s1", eventId: "s1:a:release:1.25" },
     ];
     expect(buildCueExpandedSnapshotIdsAt(0, snapshots, bars, tempi, sequenceEvents)).toEqual(new Set(["s1", "s2"]));
+  });
+
+  it("models a cue from its own attack/releases plus attacks still sounding from earlier cues", () => {
+    expect(deriveCueViewportModel({
+      cueIndexZeroBased: 8,
+      sequenceEvents: [
+        { type: "note", cueIndex: 2, kind: "attack", snapshotId: "early", eventId: "early:on" },
+        { type: "note", cueIndex: 7, kind: "attack", snapshotId: "ended", eventId: "ended:on" },
+        { type: "note", cueIndex: 9, kind: "release", snapshotId: "release-a", eventId: "early:off" },
+        { type: "note", cueIndex: 9, kind: "attack", snapshotId: "arrival", eventId: "arrival:on" },
+        { type: "note", cueIndex: 9, kind: "release", snapshotId: "release-b", eventId: "ended:off" },
+        { type: "note", cueIndex: 10, kind: "attack", snapshotId: "later", eventId: "later:on" },
+      ],
+      soundingAttackEventIds: new Set(["early:on", "arrival:on"]),
+    })).toEqual({
+      eventIds: ["early:on", "early:off", "arrival:on", "ended:off"],
+      snapshotIds: new Set(["early", "release-a", "arrival", "release-b"]),
+      firstEventId: "early:on",
+      overflowEventId: "arrival:on",
+    });
+  });
+
+  it("derives the complete cue viewport plan in the rendered event-id domain", () => {
+    const sequenceEvents = [
+      {
+        type: "note",
+        cueIndex: 2,
+        kind: "attack",
+        snapshotId: "s2",
+        snapshotIndex: 1,
+        noteKey: "held",
+        eventId: "rendered:held:on",
+      },
+      {
+        type: "note",
+        cueIndex: 9,
+        kind: "release",
+        snapshotId: "s2",
+        snapshotIndex: 1,
+        noteKey: "held",
+        eventId: "rendered:held:off",
+      },
+      {
+        type: "note",
+        cueIndex: 9,
+        kind: "attack",
+        snapshotId: "s9",
+        snapshotIndex: 8,
+        noteKey: "arrival-a",
+        eventId: "rendered:arrival-a:on",
+      },
+      {
+        type: "note",
+        cueIndex: 9,
+        kind: "attack",
+        snapshotId: "s9",
+        snapshotIndex: 8,
+        noteKey: "arrival-b",
+        eventId: "rendered:arrival-b:on",
+      },
+    ];
+
+    expect(deriveCueViewportPlan({
+      cueIndexZeroBased: 8,
+      sequenceEvents,
+    })).toEqual({
+      cueIndex: 8,
+      soundingAttackEventIds: new Set([
+        "rendered:arrival-a:on",
+        "rendered:arrival-b:on",
+      ]),
+      eventIds: [
+        "rendered:held:off",
+        "rendered:arrival-a:on",
+        "rendered:arrival-b:on",
+      ],
+      snapshotIds: new Set(["s2", "s9"]),
+      firstEventId: "rendered:held:off",
+      overflowEventId: "rendered:arrival-b:on",
+    });
   });
 
   it("derives compact-view expanded snapshots from the active cue and playhead state", () => {
@@ -299,12 +379,7 @@ describe("sequencer view runtime", () => {
       flightSequence.tempi,
       flightSequence.repeats,
     );
-    const soundingIds = new Set(sequenceAttackEventIdsAtCueIndex(
-      flightSequence.snapshots,
-      flightSequence.bars,
-      flightSequence.tempi,
-      8,
-    ));
+    const soundingIds = new Set(sequenceSoundingAttackEventIdsAtCueIndex(events, 8));
     const cueNineAttacksInDisplaySnapshotNine = events.filter((event) => (
       event.type === "note"
       && event.kind === "attack"
@@ -323,6 +398,31 @@ describe("sequencer view runtime", () => {
       flightSequence.tempi,
       events,
     )).toContain(flightSequence.snapshots[8].id);
+  });
+
+  it("resolves representative Flight cues to their exact audible overflow rows", () => {
+    const sequenceEvents = deriveSequenceEvents(
+      flightSequence.snapshots,
+      flightSequence.bars,
+      flightSequence.tempi,
+      flightSequence.repeats,
+    );
+    const expectedSnapshotIndexes = new Map([
+      [8, 7],
+      [46, 1],
+      [47, 46],
+      [48, 47],
+      [67, 66],
+    ]);
+
+    for (const [cueNumber, expectedSnapshotIndex] of expectedSnapshotIndexes) {
+      const model = deriveCueViewportPlan({
+        cueIndexZeroBased: cueNumber - 1,
+        sequenceEvents,
+      });
+      const overflowEvent = sequenceEvents.find((event) => event.eventId === model.overflowEventId);
+      expect(overflowEvent?.snapshotIndex).toBe(expectedSnapshotIndex);
+    }
   });
 
   it("compares snapshot sets by membership", () => {

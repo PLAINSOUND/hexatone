@@ -2,7 +2,6 @@
 // It answers which snapshots should expand, which rows should highlight, and
 // where cue scrolling should anchor, without mutating playback or sequence data.
 
-import { sequenceAttackEventIdsAtCueIndex } from "./trigger-groups.js";
 import { buildCueExpandedSnapshotIds } from "./timeline-runtime.js";
 import { structuralEventRenderKey } from "./value-runtime.js";
 
@@ -71,13 +70,94 @@ export function contentSpanFitsViewport({
   return Number.isFinite(Number(contentHeight)) && Number(contentHeight) <= usableHeight;
 }
 
+export function deriveCueViewportModel({
+  cueIndexZeroBased,
+  sequenceEvents = [],
+  soundingAttackEventIds = new Set(),
+} = {}) {
+  const cueIndexOneBased = Number(cueIndexZeroBased) + 1;
+  if (!Number.isFinite(cueIndexOneBased) || cueIndexOneBased <= 0) {
+    return {
+      eventIds: [],
+      snapshotIds: new Set(),
+      firstEventId: null,
+      overflowEventId: null,
+    };
+  }
+
+  const soundingIds = soundingAttackEventIds instanceof Set
+    ? soundingAttackEventIds
+    : new Set();
+  const events = sequenceEvents
+    .map((event, sourceOrder) => ({ event, sourceOrder }))
+    .filter(({ event }) => (
+      event?.type === "note"
+      && (
+        Number(event?.cueIndex) === cueIndexOneBased
+        || (event?.kind === "attack" && soundingIds.has(event.eventId))
+      )
+    ))
+    // The rendered list groups by snapshot, then retains sequence-event order
+    // inside each snapshot. Anchor selection must use that same visual order.
+    .sort((left, right) => {
+      const leftSnapshotIndex = Number(left.event?.snapshotIndex);
+      const rightSnapshotIndex = Number(right.event?.snapshotIndex);
+      const leftRank = Number.isFinite(leftSnapshotIndex) ? leftSnapshotIndex : Infinity;
+      const rightRank = Number.isFinite(rightSnapshotIndex) ? rightSnapshotIndex : Infinity;
+      return leftRank - rightRank || left.sourceOrder - right.sourceOrder;
+    })
+    .map(({ event }) => event);
+  const latestAttack = events.findLast((event) => event?.kind === "attack") ?? null;
+  return {
+    eventIds: events.map((event) => event.eventId).filter((eventId) => eventId != null),
+    snapshotIds: new Set(events.map((event) => event.snapshotId).filter((snapshotId) => snapshotId != null)),
+    firstEventId: events[0]?.eventId ?? null,
+    // A release-only cue can have no surviving attack. In that case the last
+    // cue row is the only deterministic overflow anchor available.
+    overflowEventId: latestAttack?.eventId ?? events.at(-1)?.eventId ?? null,
+  };
+}
+
+export function sequenceSoundingAttackEventIdsAtCueIndex(sequenceEvents = [], cueIndexZeroBased) {
+  const cueIndexOneBased = Number(cueIndexZeroBased) + 1;
+  if (!Number.isFinite(cueIndexOneBased) || cueIndexOneBased <= 0) return [];
+  const activeAttacks = new Map();
+  for (const event of sequenceEvents) {
+    if (event?.type !== "note") continue;
+    if (!Number.isFinite(Number(event?.cueIndex))) continue;
+    if (Number(event.cueIndex) > cueIndexOneBased) break;
+    const instanceKey = `${event.snapshotId}:${event.noteKey}`;
+    if (event.kind === "attack") activeAttacks.set(instanceKey, event.eventId);
+    else activeAttacks.delete(instanceKey);
+  }
+  return [...activeAttacks.values()];
+}
+
+export function deriveCueViewportPlan({
+  cueIndexZeroBased,
+  sequenceEvents = [],
+} = {}) {
+  const soundingAttackEventIds = new Set(
+    sequenceSoundingAttackEventIdsAtCueIndex(sequenceEvents, cueIndexZeroBased),
+  );
+  return {
+    cueIndex: Number(cueIndexZeroBased),
+    soundingAttackEventIds,
+    ...deriveCueViewportModel({
+      cueIndexZeroBased,
+      sequenceEvents,
+      soundingAttackEventIds,
+    }),
+  };
+}
+
 export function buildCueExpandedSnapshotIdsAt(cueIndexZeroBased, renderedSnapshots, sortedBars, sortedTempi, sequenceEvents) {
   const cueIndexOneBased = Number(cueIndexZeroBased) + 1;
   if (!Number.isFinite(cueIndexOneBased) || cueIndexOneBased <= 0) return new Set();
-  const attackIds = new Set(
-    sequenceAttackEventIdsAtCueIndex(renderedSnapshots, sortedBars, sortedTempi, cueIndexZeroBased),
-  );
-  return buildCueExpandedSnapshotIds(cueIndexOneBased, sequenceEvents, attackIds);
+  return deriveCueViewportPlan({
+    cueIndexZeroBased,
+    sequenceEvents,
+  }).snapshotIds;
 }
 
 export function deriveCueExpandedSnapshotIds({
@@ -96,14 +176,15 @@ export function deriveSoundingAttackEventIds({
   sequencePlaybackActive,
   playheadMarkerIndex,
   renderedSnapshots,
-  sortedBars,
-  sortedTempi,
+  sortedBars: _sortedBars,
+  sortedTempi: _sortedTempi,
   activeSnapshotId,
   playingSnapshotId,
+  sequenceEvents = [],
 }) {
   if (!sequencePlaybackActive) return new Set();
   if (playheadMarkerIndex != null) {
-    return new Set(sequenceAttackEventIdsAtCueIndex(renderedSnapshots, sortedBars, sortedTempi, playheadMarkerIndex));
+    return new Set(sequenceSoundingAttackEventIdsAtCueIndex(sequenceEvents, playheadMarkerIndex));
   }
   const activeSnapshot = activeSnapshotId != null
     ? renderedSnapshots.find((snapshot) => snapshot.id === activeSnapshotId)

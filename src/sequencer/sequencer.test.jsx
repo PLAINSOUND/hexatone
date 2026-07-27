@@ -4,8 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadPersistedSequencerCrashDiagnostics, SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY } from "../debug/sequencer-crash-diagnostics.js";
 import Sequencer from "./sequencer.jsx";
 import { buildSnapshotDescription } from "./labels.js";
+import flightSequence from "./preset-sequences/marc-sabat/Flight.json";
 import { loadUserSequences } from "./sequence-library.jsx";
 import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
+import { deriveSequenceCueGroups, deriveSequenceEvents } from "./trigger-groups.js";
+import { deriveCueViewportPlan } from "./view-runtime.js";
 import {
   deleteSnapshotRangeFromWorkspace,
   resetSnapshotRangeNoteOffsetsInWorkspace,
@@ -1670,7 +1673,7 @@ describe("Sequencer", () => {
     });
   });
 
-  it("bottom-aligns the newest sounding note when cue stepping advances", () => {
+  it("keeps the transport-selected cue viewport fixed when the arrow triggers it", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -1736,21 +1739,66 @@ describe("Sequencer", () => {
       ],
     };
 
-    const { container, rerender } = render(
-      <Sequencer
-        {...baseProps}
-        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: false }}
-      />,
-    );
+    function Harness() {
+      const [pendingTransportSelection, setPendingTransportSelection] = useState({
+        snapshotIndex: null,
+        cueIndex: null,
+      });
+      const [snapshots, setSnapshots] = useState(baseProps.snapshots);
+      const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
+      const [playhead, setPlayhead] = useState({
+        barIndex: 0,
+        stepIndex: 0,
+        markerIndex: null,
+        stopped: true,
+      });
+      return (
+        <Sequencer
+          {...baseProps}
+          snapshots={snapshots}
+          pendingTransportSelection={pendingTransportSelection}
+          playingSnapshotId={playingSnapshotId}
+          playhead={playhead}
+          onCueSequenceCue={(cueIndex) => {
+            setPendingTransportSelection({ snapshotIndex: 0, cueIndex: Number(cueIndex) });
+            setPlayhead({
+              barIndex: 0,
+              stepIndex: 0,
+              markerIndex: Number(cueIndex),
+              stopped: true,
+            });
+          }}
+          onUpdateSnapshot={(snapshotId, updates) => {
+            setSnapshots((current) => current.map((snapshot) => (
+              snapshot.id === snapshotId ? { ...snapshot, ...updates } : snapshot
+            )));
+          }}
+          onStepSequenceMarker={() => {
+            setPendingTransportSelection({ snapshotIndex: null, cueIndex: null });
+            setPlayingSnapshotId(11);
+            setPlayhead((current) => ({
+              barIndex: 0,
+              stepIndex: 1,
+              markerIndex: current.stopped ? 1 : current.markerIndex + 1,
+              stopped: false,
+            }));
+          }}
+        />
+      );
+    }
+
+    const { container } = render(<Harness />);
 
     const scrollPanel = container.querySelector(".sequencer-scroll-panel");
     Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
     Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 1000 });
     let scrollTopValue = 0;
+    let scrollWriteCount = 0;
     Object.defineProperty(scrollPanel, "scrollTop", {
       configurable: true,
       get: () => scrollTopValue,
       set: (value) => {
+        scrollWriteCount += 1;
         scrollTopValue = value;
       },
     });
@@ -1760,6 +1808,7 @@ describe("Sequencer", () => {
     eventRows[0].getBoundingClientRect = () => ({ top: 120 - scrollTopValue, bottom: 150 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
     eventRows[1].getBoundingClientRect = () => ({ top: 320 - scrollTopValue, bottom: 350 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
     eventRows[2].getBoundingClientRect = () => ({ top: 680 - scrollTopValue, bottom: 710 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[3].getBoundingClientRect = () => ({ top: 760 - scrollTopValue, bottom: 790 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
     const originalElementRect = HTMLElement.prototype.getBoundingClientRect;
     HTMLElement.prototype.getBoundingClientRect = function getCueStepRect() {
       if (this.dataset?.sequenceEventId === "11:b:attack:0.25") {
@@ -1775,14 +1824,35 @@ describe("Sequencer", () => {
       return originalElementRect.call(this);
     };
 
-    rerender(
-      <Sequencer
-        {...baseProps}
-        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: 1, stopped: false }}
-      />,
-    );
+    fireEvent.change(screen.getByLabelText("next cue target"), {
+      target: { value: "1" },
+    });
 
     expect(scrollTopValue).toBe(516);
+    expect(scrollWriteCount).toBe(1);
+    const linedUpScrollTop = scrollTopValue;
+    const linedUpScrollWriteCount = scrollWriteCount;
+
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+
+    expect(scrollTopValue).toBe(linedUpScrollTop);
+    expect(scrollWriteCount).toBe(linedUpScrollWriteCount);
+    expect(container.querySelectorAll(".sequencer-event__kind--active")).toHaveLength(2);
+
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+
+    expect(scrollTopValue).not.toBe(linedUpScrollTop);
+    expect(scrollWriteCount).toBe(linedUpScrollWriteCount + 1);
+    expect(container.querySelectorAll(".sequencer-event__kind--active")).toHaveLength(1);
+
+    scrollTopValue = 275;
+    fireEvent.input(screen.getByLabelText("snapshot 2 attack offset"), {
+      currentTarget: { value: "0.5" },
+      target: { value: "0.5" },
+    });
+    fireEvent.click(screen.getByLabelText("commit snapshot 2 attack sequence placement"));
+
+    expect(scrollTopValue).toBe(275);
 
     HTMLElement.prototype.getBoundingClientRect = originalElementRect;
     window.requestAnimationFrame = originalRaf;
@@ -1790,6 +1860,171 @@ describe("Sequencer", () => {
     globalThis.requestAnimationFrame = originalRaf;
     globalThis.cancelAnimationFrame = originalCancelRaf;
   });
+
+  it("tracks Flight sounding notes forward through cue 17 and backward after manual scrolling", async () => {
+    const sequenceEvents = deriveSequenceEvents(
+      flightSequence.snapshots,
+      flightSequence.bars,
+      flightSequence.tempi,
+      flightSequence.repeats,
+    );
+    const cueGroups = deriveSequenceCueGroups(
+      flightSequence.snapshots,
+      flightSequence.bars,
+      flightSequence.tempi,
+      flightSequence.repeats,
+    );
+    const eventOrderById = new Map();
+    const eventCountBySnapshot = new Map();
+    sequenceEvents.forEach((event) => {
+      if (event.type !== "note") return;
+      const order = eventCountBySnapshot.get(event.snapshotIndex) ?? 0;
+      eventOrderById.set(event.eventId, { snapshotIndex: event.snapshotIndex, order });
+      eventCountBySnapshot.set(event.snapshotIndex, order + 1);
+    });
+    const originalElementRect = HTMLElement.prototype.getBoundingClientRect;
+    let scrollTop = 0;
+    HTMLElement.prototype.getBoundingClientRect = function getFlightCueRect() {
+      if (this.classList?.contains("sequencer-scroll-panel")) {
+        return { top: 0, bottom: 300, left: 0, right: 600, width: 600, height: 300 };
+      }
+      if (this.dataset?.sequenceVirtualIndex != null) {
+        const index = Number(this.dataset.sequenceVirtualIndex);
+        const top = (index * 220) - scrollTop;
+        return { top, bottom: top + 200, left: 0, right: 600, width: 600, height: 200 };
+      }
+      if (this.dataset?.sequenceEventId != null) {
+        const eventPosition = eventOrderById.get(this.dataset.sequenceEventId);
+        if (eventPosition) {
+          const top = (eventPosition.snapshotIndex * 220)
+            + 42
+            + (eventPosition.order * 24)
+            - scrollTop;
+          return { top, bottom: top + 22, left: 0, right: 600, width: 600, height: 22 };
+        }
+      }
+      if (
+        this.classList?.contains("sequencer-list")
+        || this.classList?.contains("sequencer-virtual-list")
+      ) {
+        return {
+          top: -scrollTop,
+          bottom: (flightSequence.snapshots.length * 220) - scrollTop,
+          left: 0,
+          right: 600,
+          width: 600,
+          height: flightSequence.snapshots.length * 220,
+        };
+      }
+      return originalElementRect.call(this);
+    };
+
+    const baseProps = {
+      bars: flightSequence.bars,
+      tempi: flightSequence.tempi,
+      repeats: flightSequence.repeats,
+      snapshotLabelMode: "labels",
+      selectedMarker: null,
+      onTakeSnapshot: vi.fn(),
+      onLoadSequence: vi.fn(),
+      onSequenceNameChange: vi.fn(),
+      onSequenceDescriptionChange: vi.fn(),
+      onSequenceLegatoChange: vi.fn(),
+      onSetSnapshotLabelMode: vi.fn(),
+      onSelectSnapshot: vi.fn(),
+      onSelectMarker: vi.fn(),
+      onPlaySnapshot: vi.fn(),
+      onStopSnapshot: vi.fn(),
+      onSelectSequenceBar: vi.fn(),
+      onStepSequence: vi.fn(),
+      onPlaySequence: vi.fn(),
+      onPlayCue: vi.fn(),
+      onResetSequencePlayhead: vi.fn(),
+      onAddBar: vi.fn(),
+      onAddTempo: vi.fn(),
+      onAddBarsBeforeSnapshots: vi.fn(),
+      onDeleteBar: vi.fn(),
+      onDeleteTempo: vi.fn(),
+      onUpdateBar: vi.fn(),
+      onUpdateTempo: vi.fn(),
+      onMoveBar: vi.fn(),
+      onDeleteSnapshot: vi.fn(),
+      onMoveSnapshot: vi.fn(),
+      onUpdateSnapshot: vi.fn(),
+      onResetSnapshotDescription: vi.fn(),
+      activeSequenceName: "Flight",
+      activeSequenceDescription: "",
+      sequenceLegato: true,
+      snapshots: flightSequence.snapshots,
+      pendingTransportSelection: { snapshotIndex: null, cueIndex: null },
+    };
+
+    function Harness() {
+      const [markerIndex, setMarkerIndex] = useState(10);
+      const cueGroup = cueGroups[markerIndex];
+      const snapshot = flightSequence.snapshots[cueGroup.snapshotIndex];
+      return (
+        <Sequencer
+          {...baseProps}
+          selectedSnapshotId={snapshot.id}
+          playingSnapshotId={snapshot.id}
+          playhead={{
+            barIndex: 0,
+            stepIndex: cueGroup.snapshotIndex,
+            markerIndex,
+            stopped: false,
+          }}
+          onStepSequenceMarker={(direction) => {
+            setMarkerIndex((current) => Math.max(0, Math.min(cueGroups.length - 1, current + direction)));
+          }}
+          onJumpSequenceCue={setMarkerIndex}
+        />
+      );
+    }
+
+    const { container } = render(<Harness />);
+    const panel = container.querySelector(".sequencer-scroll-panel");
+    Object.defineProperty(panel, "clientHeight", { configurable: true, value: 300 });
+    Object.defineProperty(panel, "scrollHeight", {
+      configurable: true,
+      value: flightSequence.snapshots.length * 220,
+    });
+    Object.defineProperty(panel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = value;
+      },
+    });
+    const eventNodeFor = (eventId) => [...container.querySelectorAll("[data-sequence-event-id]")]
+      .find((node) => node.dataset.sequenceEventId === eventId) ?? null;
+    const expectCueAnchorVisible = async (cueIndexZeroBased) => {
+      const plan = deriveCueViewportPlan({ cueIndexZeroBased, sequenceEvents });
+      await waitFor(() => {
+        const node = eventNodeFor(plan.overflowEventId);
+        expect(node).toBeTruthy();
+        const rect = node.getBoundingClientRect();
+        expect(rect.top).toBeGreaterThanOrEqual(0);
+        expect(rect.bottom).toBeLessThanOrEqual(300);
+      });
+    };
+
+    for (let cueIndex = 11; cueIndex <= 16; cueIndex += 1) {
+      fireEvent.click(screen.getByLabelText("next sequence marker"));
+      await expectCueAnchorVisible(cueIndex);
+    }
+
+    scrollTop = 18000;
+    fireEvent.wheel(panel);
+    fireEvent.scroll(panel);
+
+    for (let cueIndex = 15; cueIndex >= 9; cueIndex -= 1) {
+      fireEvent.click(screen.getByLabelText("previous sequence marker"));
+      await expectCueAnchorVisible(cueIndex);
+    }
+
+    HTMLElement.prototype.getBoundingClientRect = originalElementRect;
+  }, 10000);
 
   it("top-aligns snapshot dropdown selection and snapshot stepping identically", () => {
     const originalRaf = window.requestAnimationFrame;
@@ -2247,7 +2482,7 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
 
-    expect(screen.queryByLabelText("snapshot 1 events")).toBeNull();
+    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
     expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
     expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
   });
@@ -2318,7 +2553,7 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
     fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
 
-    expect(screen.queryByLabelText("snapshot 1 events")).toBeNull();
+    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
     expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
     expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
   });

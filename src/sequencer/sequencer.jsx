@@ -55,10 +55,10 @@ import {
   deriveCueExpandedSnapshotIds,
   deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
+  deriveCueViewportPlan,
   resolveCueAnchorSnapshotId,
   sameSnapshotSet,
 } from "./view-runtime.js";
-import { sequenceAttackEventIdsAtCueIndex } from "./trigger-groups.js";
 import {
   commitTextInput,
   noteMatchesReference,
@@ -194,6 +194,7 @@ const Sequencer = ({
   const [draggedEventId, setDraggedEventId] = useState(null);
   const [eventPane, setEventPane] = useState("timing");
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(loadSequencerAutoScrollPreference);
+  const [cueViewportTransaction, setCueViewportTransaction] = useState(null);
   const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] = useState(null);
   const [copyRangeStart, setCopyRangeStart] = useState("1");
   const [copyRangeEnd, setCopyRangeEnd] = useState("1");
@@ -214,6 +215,9 @@ const Sequencer = ({
   const timedReadoutPresenterRef = useRef(null);
   const pendingTimedVisualNotificationRef = useRef(null);
   const timedVisualNotificationFrameRef = useRef(null);
+  const navigationAutoscrollIntentRef = useRef(null);
+  const cueStepViewportRequestedRef = useRef(false);
+  const cueViewportGenerationRef = useRef(0);
   const autoScrollEnabledRef = useRef(autoScrollEnabled);
   autoScrollEnabledRef.current = autoScrollEnabled;
   const timedTransportFieldValuesRef = useRef({
@@ -409,16 +413,6 @@ const Sequencer = ({
         repeatId: repeat.id,
       });
   }, [repeats]);
-  const structuralScrollKeyAtPosition = useCallback((position) => {
-    const time = Number(position);
-    if (!Number.isFinite(time)) return null;
-    for (const markers of structuralMarkersByDisplayBucket.values()) {
-      const marker = markers.find((entry) => Math.abs(Number(entry?.position) - time) < 1e-9) ?? null;
-      const markerKey = structuralEventRenderKey(marker);
-      if (markerKey) return markerKey;
-    }
-    return null;
-  }, [structuralMarkersByDisplayBucket]);
   const structuralScrollKeysAtPosition = useCallback((position) => {
     const time = Number(position);
     if (!Number.isFinite(time)) return [];
@@ -645,8 +639,9 @@ const Sequencer = ({
       sortedTempi,
       activeSnapshotId,
       playingSnapshotId,
+      sequenceEvents,
     });
-  }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, renderedSnapshots, sequencePlaybackActive, sortedBars, sortedTempi]);
+  }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, renderedSnapshots, sequenceEvents, sequencePlaybackActive, sortedBars, sortedTempi]);
   const cueExpandedSnapshotIdsAt = useCallback((cueIndexZeroBased) => {
     return buildCueExpandedSnapshotIdsAt(
       cueIndexZeroBased,
@@ -745,8 +740,6 @@ const Sequencer = ({
     activeSnapshotId,
     manageActiveSnapshotViewport: true,
     playheadIsOff,
-    selectedBarIndex,
-    sortedBars,
     snapshots,
     sequenceEvents,
     sequenceCueGroups,
@@ -756,7 +749,6 @@ const Sequencer = ({
     firstEventIdByCueIndex,
     firstStructuralScrollKey,
     repeatStartKeyAtPosition,
-    structuralScrollKeyAtPosition,
     showAllEvents,
     setExpandedIds,
     onCueSequenceSnapshot,
@@ -840,11 +832,16 @@ const Sequencer = ({
     items: virtualSequenceItems,
     pinnedIndexes: virtualPinnedIndexes,
     revision: sequenceRuntime.runtimeInstanceId,
+    // Cue transactions measure their complete target interval explicitly.
+    // Ordinary scrolling must not mutate spacer geometry after rows mount.
+    measureRows: false,
   });
   const {
     layout: virtualSequenceLayout,
     measureItem: measureVirtualSequenceItem,
     scrollIndexIntoView: scrollVirtualSequenceIndexIntoView,
+    cancelPendingStartAnchor: cancelVirtualSequenceAnchor,
+    releaseStartAnchorLayout: releaseVirtualSequenceAnchor,
   } = sequenceVirtualization;
   const renderedSnapshotIndexById = useMemo(() => new Map(
     renderedSnapshots.map((snapshot, index) => [snapshot.id, index]),
@@ -921,52 +918,45 @@ const Sequencer = ({
     armPendingSnapshot,
     prepareSnapshotViewport,
   ]);
-  const prepareCueViewport = useCallback((cueIndex) => {
+  const prepareCueViewport = useCallback((cueIndex, { onApplied = null } = {}) => {
     const numericCueIndex = Number(cueIndex);
     if (
       timedPlaybackOwnsViewport
       || !autoScrollEnabledRef.current
       || !Number.isInteger(numericCueIndex)
     ) return false;
-    const soundingSnapshotIds = cueExpandedSnapshotIdsAt(numericCueIndex);
-    const soundingEventIds = new Set(sequenceAttackEventIdsAtCueIndex(
-      renderedSnapshots,
-      sortedBars,
-      sortedTempi,
-      numericCueIndex,
-    ));
-    const soundingAttackEvents = sequenceEvents.filter((event) => (
-      event?.type === "note"
-      && event?.kind === "attack"
-      && soundingEventIds.has(event.eventId)
-    ));
-    const attackRank = (event) => {
-      const absoluteTime = Number(event?.absoluteTime);
-      return Number.isFinite(absoluteTime) ? absoluteTime : Number(event?.cueIndex) || -Infinity;
-    };
-    const mostRecentRank = soundingAttackEvents.length > 0
-      ? Math.max(...soundingAttackEvents.map(attackRank))
-      : -Infinity;
-    const mostRecentAttackEvent = soundingAttackEvents
-      .filter((event) => Math.abs(attackRank(event) - mostRecentRank) < 1e-9)
-      .at(-1) ?? null;
-    const orderedSoundingAttackEvents = [...soundingAttackEvents].sort((left, right) => (
-      attackRank(left) - attackRank(right)
-    ));
-    const soundingSnapshotIndexes = snapshots
-      .map((snapshot, index) => (soundingSnapshotIds.has(snapshot.id) ? index : null))
+    const cueViewport = deriveCueViewportPlan({
+      cueIndexZeroBased: numericCueIndex,
+      sequenceEvents,
+    });
+    const cueSnapshotIds = cueViewport.snapshotIds;
+    const overflowEvent = cueViewport.overflowEventId == null
+      ? null
+      : sequenceEvents.find((event) => event.eventId === cueViewport.overflowEventId) ?? null;
+    const cueSnapshotIndexes = snapshots
+      .map((snapshot, index) => (cueSnapshotIds.has(snapshot.id) ? index : null))
       .filter((index) => index != null);
-    const recentSnapshotId = mostRecentAttackEvent?.snapshotId ?? resolveCueAnchorSnapshotId({
+    const recentSnapshotId = overflowEvent?.snapshotId ?? resolveCueAnchorSnapshotId({
       activeCueIndex: numericCueIndex + 1,
       sequenceCueGroups,
       sequenceEvents,
       snapshots,
-      cueExpandedSnapshotIds: soundingSnapshotIds,
+      cueExpandedSnapshotIds: cueSnapshotIds,
     });
     const recentSnapshotIndex = recentSnapshotId == null
       ? (sequenceCueGroups[numericCueIndex]?.snapshotIndex ?? null)
       : snapshots.findIndex((snapshot) => snapshot.id === recentSnapshotId);
     if (!Number.isInteger(recentSnapshotIndex) || recentSnapshotIndex < 0) return false;
+    const firstRelevantIndex = cueSnapshotIndexes.length > 0
+      ? Math.min(...cueSnapshotIndexes)
+      : recentSnapshotIndex;
+    const lastRelevantIndex = cueSnapshotIndexes.length > 0
+      ? Math.max(...cueSnapshotIndexes)
+      : recentSnapshotIndex;
+    const materializedIndexes = Array.from(
+      { length: lastRelevantIndex - firstRelevantIndex + 1 },
+      (_, offset) => firstRelevantIndex + offset,
+    );
     const scrollPanel = scrollPanelRef.current;
     const playbackRect = playbackRowRef.current instanceof HTMLElement
       ? playbackRowRef.current.getBoundingClientRect()
@@ -980,67 +970,187 @@ const Sequencer = ({
     return scrollVirtualSequenceIndexIntoView(recentSnapshotIndex, {
       align: "start",
       topOffset: stickyTransportOverlap + 6,
-      targetIndexes: soundingSnapshotIndexes.length > 0
-        ? soundingSnapshotIndexes
-        : [recentSnapshotIndex],
+      // Mount the complete physical interval. No estimated spacer is then
+      // allowed between the first and last relevant event row.
+      targetIndexes: materializedIndexes,
+      // Keep the exact interval used to calculate this one scroll. Dropping
+      // the intervening snapshots immediately after applying the anchor
+      // changes the virtual offsets and invalidates the chosen row position.
+      // The next cue transaction replaces this interval.
+      retainedIndexes: materializedIndexes,
       overflowAlignment: "end",
-      preferredEventId: mostRecentAttackEvent?.eventId ?? null,
-      targetEventIds: orderedSoundingAttackEvents.map((event) => event.eventId),
+      preferredEventId: cueViewport.overflowEventId,
+      targetEventIds: cueViewport.eventIds,
+      requireMountedEventTargets: true,
+      requireMeasuredLayout: true,
+      applyOnce: true,
+      onApplied,
     });
   }, [
-    cueExpandedSnapshotIdsAt,
     playbackRowRef,
-    renderedSnapshots,
     scrollPanelRef,
     scrollVirtualSequenceIndexIntoView,
     sequenceCueGroups,
     sequenceEvents,
     snapshots,
-    sortedBars,
-    sortedTempi,
     timedPlaybackOwnsViewport,
   ]);
+  const startCueViewportTransaction = useCallback((cueIndex) => {
+    const numericCueIndex = Number(cueIndex);
+    if (!Number.isInteger(numericCueIndex)) return;
+    cueViewportGenerationRef.current += 1;
+    cancelVirtualSequenceAnchor();
+    setCueViewportTransaction({
+      generation: cueViewportGenerationRef.current,
+      cueIndex: numericCueIndex,
+      phase: "expand",
+    });
+  }, [cancelVirtualSequenceAnchor]);
   const armVirtualizedPendingCue = useCallback((cueIndex) => {
-    prepareCueViewport(cueIndex);
     armPendingCue(cueIndex, { viewportPrepared: true });
+    startCueViewportTransaction(cueIndex);
   }, [
     armPendingCue,
-    prepareCueViewport,
+    startCueViewportTransaction,
   ]);
+
+  const armNavigationAutoscrollIntent = useCallback((mode, fromTarget) => {
+    navigationAutoscrollIntentRef.current = {
+      mode,
+      fromTarget,
+    };
+  }, []);
+  const consumeNavigationAutoscrollIntent = useCallback((mode, currentTarget) => {
+    const intent = navigationAutoscrollIntentRef.current;
+    if (intent == null) return false;
+    if (intent.mode !== mode) return false;
+    navigationAutoscrollIntentRef.current = null;
+    if (Object.is(intent.fromTarget, currentTarget)) return false;
+    return true;
+  }, []);
+  const stepSequenceWithAutoscroll = useCallback((direction) => {
+    armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
+    onStepSequence?.(direction);
+  }, [activeSnapshotId, armNavigationAutoscrollIntent, onStepSequence]);
+  const jumpSequenceSnapshotWithAutoscroll = useCallback((snapshotIndex) => {
+    armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
+    onJumpSequenceSnapshot?.(snapshotIndex);
+  }, [activeSnapshotId, armNavigationAutoscrollIntent, onJumpSequenceSnapshot]);
+  // CUE selection has already prepared its viewport. Triggering that queued
+  // cue leaves activeCueIndex unchanged, so the intent below deliberately
+  // produces no scroll. Later arrow presses change the cue index and prepare
+  // the newly reached cue through the layout effect.
+  const stepSequenceMarkerWithAutoscroll = useCallback((direction) => {
+    const triggersPreparedCue = (
+      direction > 0
+      && playhead?.stopped === true
+      && Number.isFinite(pendingTransportSelection?.cueIndex)
+    );
+    if (triggersPreparedCue) {
+      cueStepViewportRequestedRef.current = false;
+      cueViewportGenerationRef.current += 1;
+      setCueViewportTransaction(null);
+      cancelNavigationAutoscroll();
+      cancelVirtualSequenceAnchor();
+      onStepSequenceMarker?.(direction);
+      return;
+    }
+    cueStepViewportRequestedRef.current = true;
+    onStepSequenceMarker?.(direction);
+  }, [
+    cancelNavigationAutoscroll,
+    cancelVirtualSequenceAnchor,
+    onStepSequenceMarker,
+    pendingTransportSelection?.cueIndex,
+    playhead?.stopped,
+  ]);
+  const jumpSequenceCueWithAutoscroll = useCallback((cueIndex) => {
+    cueStepViewportRequestedRef.current = true;
+    onJumpSequenceCue?.(cueIndex);
+  }, [onJumpSequenceCue]);
 
   useLayoutEffect(() => {
     if (timedPlaybackOwnsViewport) return;
     if (!Number.isFinite(activeCueIndex)) return;
-    prepareCueViewport(activeCueIndex - 1);
+    if (!cueStepViewportRequestedRef.current) return;
+    cueStepViewportRequestedRef.current = false;
+    startCueViewportTransaction(activeCueIndex - 1);
   }, [
     activeCueIndex,
-    prepareCueViewport,
+    startCueViewportTransaction,
     timedPlaybackOwnsViewport,
   ]);
 
   useLayoutEffect(() => {
-    if (transportScrollTargetRef.current !== "bar") return;
-    prepareBarViewport(selectedBarIndex);
-  }, [prepareBarViewport, selectedBarIndex, transportScrollTargetRef]);
+    if (cueViewportTransaction == null) return;
+    const { cueIndex, generation, phase } = cueViewportTransaction;
+    if (phase === "expand") {
+      const requiredExpandedIds = cueExpandedSnapshotIdsAt(cueIndex);
+      if (!showAllEvents && !sameSnapshotSet(expandedIds, requiredExpandedIds)) {
+        setExpandedIds(requiredExpandedIds);
+      }
+      setCueViewportTransaction((current) => (
+        current?.generation === generation
+          ? { ...current, phase: "materialize" }
+          : current
+      ));
+      return;
+    }
+    if (phase !== "materialize") return;
+    if (
+      timedPlaybackOwnsViewport
+      || !autoScrollEnabledRef.current
+    ) {
+      setCueViewportTransaction((current) => (
+        current?.generation === generation ? null : current
+      ));
+      return;
+    }
+    const onApplied = () => {
+      setCueViewportTransaction((current) => (
+        current?.generation === generation
+          ? { ...current, phase: "prepared" }
+          : current
+      ));
+    };
+    setCueViewportTransaction((current) => (
+      current?.generation === generation
+        ? { ...current, phase: "measuring" }
+        : current
+    ));
+    prepareCueViewport(cueIndex, { onApplied });
+  }, [
+    cueExpandedSnapshotIdsAt,
+    cueViewportTransaction,
+    expandedIds,
+    prepareCueViewport,
+    showAllEvents,
+    timedPlaybackOwnsViewport,
+  ]);
 
   useLayoutEffect(() => {
     if (timedPlaybackOwnsViewport) return;
     if (Number.isFinite(activeCueIndex) || activeSnapshotId == null) return;
+    if (!consumeNavigationAutoscrollIntent("snapshot", activeSnapshotId)) return;
     const activeSnapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === activeSnapshotId);
     if (activeSnapshotIndex < 0) return;
     prepareSnapshotViewport(activeSnapshotIndex);
   }, [
     activeCueIndex,
     activeSnapshotId,
+    consumeNavigationAutoscrollIntent,
     prepareSnapshotViewport,
     snapshots,
     timedPlaybackOwnsViewport,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!timedPlaybackOwnsViewport) return;
+    cueViewportGenerationRef.current += 1;
+    setCueViewportTransaction(null);
+    releaseVirtualSequenceAnchor();
     cancelNavigationAutoscroll();
-  }, [cancelNavigationAutoscroll, timedPlaybackOwnsViewport]);
+  }, [cancelNavigationAutoscroll, releaseVirtualSequenceAnchor, timedPlaybackOwnsViewport]);
 
   useEffect(() => {
     refreshPendingSnapshotAlignment();
@@ -2210,15 +2320,15 @@ const Sequencer = ({
           nextSnapshotIndexFromBar={nextSnapshotIndexFromBar}
           playheadIsEnd={playheadIsEnd}
           runTransportAction={runTransportAction}
-          onJumpSequenceSnapshot={onJumpSequenceSnapshot}
-          onStepSequence={onStepSequence}
+          onJumpSequenceSnapshot={jumpSequenceSnapshotWithAutoscroll}
+          onStepSequence={stepSequenceWithAutoscroll}
           cueSelectValue={displayedCueSelectValue}
           sequenceCueGroups={sequenceCueGroups}
           impliedPendingCueIndex={impliedPendingCueIndex}
           armPendingCue={armVirtualizedPendingCue}
           nextCueIndexFromBar={nextCueIndexFromBar}
-          onJumpSequenceCue={onJumpSequenceCue}
-          onStepSequenceMarker={onStepSequenceMarker}
+          onJumpSequenceCue={jumpSequenceCueWithAutoscroll}
+          onStepSequenceMarker={stepSequenceMarkerWithAutoscroll}
           onResetSequencePlayhead={resetSequencePlayheadAndScrollTop}
           onJumpSequenceEnd={jumpSequencePlayheadToEndAndScrollBottom}
           onPlaySequence={onPlaySequence}

@@ -220,10 +220,10 @@
     {
       "id": 25,
       "position": 81,
-      "bpm": 69,
-      "beatNumerator": 2,
+      "bpm": 60,
+      "beatNumerator": 3,
       "beatDenominator": 8,
-      "beatLength": 1,
+      "beatLength": 1.5,
       "mode": "gradual"
     },
     {
@@ -234,6 +234,33 @@
       "beatDenominator": 8,
       "beatLength": 1.5,
       "mode": "immediate"
+    },
+    {
+      "id": 27,
+      "position": 86,
+      "bpm": 69,
+      "beatNumerator": 3,
+      "beatDenominator": 8,
+      "beatLength": 1.5,
+      "mode": "immediate"
+    },
+    {
+      "id": 29,
+      "position": 101,
+      "bpm": 69,
+      "beatNumerator": 1,
+      "beatDenominator": 4,
+      "beatLength": 1,
+      "mode": "gradual"
+    },
+    {
+      "id": 28,
+      "position": 105,
+      "bpm": 44,
+      "beatNumerator": 1,
+      "beatDenominator": 4,
+      "beatLength": 1,
+      "mode": "gradual"
     },
     {
       "id": 2,
@@ -965,7 +992,7 @@
         },
         {
           "midicents": 71.03910001730775,
-          "attackVelocity": 28,
+          "attackVelocity": 66,
           "releaseVelocity": 38,
           "velocity": 28,
           "pressure": 0,
@@ -2976,6 +3003,40 @@
           ],
           "pressure14": 0,
           "id": "__seq__:78.27107404676313:0:1",
+          "start": 0,
+          "end": 2,
+          "__selectedTime": 2
+        },
+        {
+          "midicents": 85.290624055417,
+          "attackVelocity": 50,
+          "releaseVelocity": 56,
+          "velocity": 50,
+          "pressure": 0,
+          "timbre": 34,
+          "displayLabel": "C",
+          "ratioText": "369/256",
+          "monzo": [
+            -8,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "id": "__seq__:78.27107404676313:0:1:copy:1",
           "start": 0,
           "end": 2,
           "__selectedTime": 2
@@ -7461,7 +7522,9 @@
             0
           ],
           "pressure14": 0,
-          "id": "__seq__:40.01955000865387:0:1"
+          "id": "__seq__:40.01955000865387:0:1",
+          "end": 5,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 44.99999999999999,
@@ -10204,6 +10267,135 @@
       "description": "",
       "descriptionManual": false,
       "notes": []
+    },
+    {
+      "id": 117,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 88.01955000865388,
+          "attackVelocity": 94,
+          "releaseVelocity": 63,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 52,
+          "displayLabel": "E",
+          "ratioText": "81/64",
+          "monzo": [
+            -6,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "timbre14": 0,
+          "id": "__seq__:88.01955000865388:0:1",
+          "start": 0,
+          "end": 13,
+          "__selectedTime": 13
+        }
+      ]
+    },
+    {
+      "id": 118,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 73.3508409526165,
+          "attackVelocity": 89,
+          "releaseVelocity": 71,
+          "velocity": 89,
+          "pressure": 0,
+          "timbre": 51,
+          "displayLabel": "C",
+          "ratioText": "243/224",
+          "monzo": [
+            -5,
+            5,
+            0,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "timbre14": 0,
+          "id": "__seq__:73.3508409526165:0:1",
+          "start": 0,
+          "end": 16,
+          "__selectedTime": 16
+        }
+      ]
+    },
+    {
+      "id": 119,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "notes": [
+        {
+          "midicents": 85.3508409526165,
+          "attackVelocity": 94,
+          "releaseVelocity": 56,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 52,
+          "displayLabel": "C",
+          "ratioText": "243/224",
+          "monzo": [
+            -5,
+            5,
+            0,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pressure14": 0,
+          "timbre14": 0,
+          "id": "__seq__:85.3508409526165:0:1",
+          "start": 0,
+          "end": 12,
+          "__selectedTime": 12
+        }
+      ]
     }
   ],
   "bars": [
@@ -10366,6 +10558,12 @@
     {
       "id": 32,
       "position": 106,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 33,
+      "position": 109,
       "numerator": 3,
       "denominator": 2
     }

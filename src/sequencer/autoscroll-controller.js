@@ -12,6 +12,7 @@ import {
   deriveCueScrollAnchorTarget,
   resolveCueAnchorSnapshotId,
 } from "./view-runtime.js";
+import { visibleElementBounds } from "./viewport-geometry.js";
 
 export function derivePagedPanelScrollTop({
   scrollTop,
@@ -84,8 +85,6 @@ export default function useSequencerAutoscroll({
   activeSnapshotId,
   manageActiveSnapshotViewport = false,
   playheadIsOff,
-  selectedBarIndex,
-  sortedBars,
   snapshots,
   sequenceEvents,
   sequenceCueGroups,
@@ -95,7 +94,6 @@ export default function useSequencerAutoscroll({
   firstEventIdByCueIndex,
   firstStructuralScrollKey,
   repeatStartKeyAtPosition,
-  structuralScrollKeyAtPosition,
   showAllEvents,
   setExpandedIds,
   onCueSequenceSnapshot,
@@ -110,10 +108,8 @@ export default function useSequencerAutoscroll({
   const barRowRefs = useRef(new Map());
   const eventRowRefs = useRef(new Map());
   const lastAutoScrolledSnapshotIdRef = useRef(null);
-  const lastAutoScrolledBarIdRef = useRef(null);
   const lastAutoScrolledCueTargetRef = useRef(null);
   const pendingResetScrollTargetRef = useRef(null);
-  const suppressNextBarAutoScrollRef = useRef(false);
   const suppressNextCueAutoScrollRef = useRef(false);
   const transportScrollTargetRef = useRef("snapshot");
   const lastScrollInputAtRef = useRef(0);
@@ -146,7 +142,8 @@ export default function useSequencerAutoscroll({
       ));
       if (liveNodes.length === 0) return;
       const scrollStartMs = performance.now();
-      const panelRect = scrollPanel.getBoundingClientRect();
+      const visiblePanel = visibleElementBounds(scrollPanel);
+      if (visiblePanel == null || visiblePanel.height <= 0) return;
       const playbackRect = playbackRowRef.current instanceof HTMLElement
         ? playbackRowRef.current.getBoundingClientRect()
         : null;
@@ -154,16 +151,16 @@ export default function useSequencerAutoscroll({
       const gap = 6;
       const stickyTransportOverlap = playbackRect == null
         ? 0
-        : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-      const usableHeight = Math.max(0, panelRect.height - stickyTransportOverlap - (2 * gap));
+        : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
+      const usableHeight = Math.max(0, visiblePanel.height - stickyTransportOverlap - (2 * gap));
       const targetBounds = derivePreferredTargetBounds(targetRects, usableHeight);
       if (targetBounds == null) return;
       const nextTop = derivePagedPanelScrollTop({
         scrollTop: scrollPanel.scrollTop,
         scrollHeight: scrollPanel.scrollHeight,
         clientHeight: scrollPanel.clientHeight,
-        panelTop: panelRect.top,
-        panelBottom: panelRect.bottom,
+        panelTop: visiblePanel.top,
+        panelBottom: visiblePanel.bottom,
         targetTop: targetBounds.top,
         targetBottom: targetBounds.bottom,
         stickyTop: stickyTransportOverlap,
@@ -211,19 +208,20 @@ export default function useSequencerAutoscroll({
     if (!autoScrollEnabledRef.current) return;
     const scrollPanel = scrollPanelRef.current;
     if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
-    const panelRect = scrollPanel.getBoundingClientRect();
+    const visiblePanel = visibleElementBounds(scrollPanel);
+    if (visiblePanel == null || visiblePanel.height <= 0) return;
     const playbackRect = playbackRowRef.current instanceof HTMLElement
       ? playbackRowRef.current.getBoundingClientRect()
       : null;
     const targetRect = targetNode.getBoundingClientRect();
     const stickyTransportOverlap = playbackRect == null
       ? 0
-      : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
     const nextTop = deriveTopAlignedPanelScrollTop({
       scrollTop: scrollPanel.scrollTop,
       scrollHeight: scrollPanel.scrollHeight,
       clientHeight: scrollPanel.clientHeight,
-      panelTop: panelRect.top,
+      panelTop: visiblePanel.top,
       targetTop: targetRect.top,
       stickyTop: stickyTransportOverlap,
     });
@@ -318,21 +316,15 @@ export default function useSequencerAutoscroll({
   useEffect(() => {
     const scrollPanel = scrollPanelRef.current;
     if (!(scrollPanel instanceof HTMLElement)) return undefined;
-    const releaseManualSnapshotAnchor = () => {
-      pendingSnapshotAnchorIdRef.current = null;
-      pendingSnapshotAnchorExpiresAtRef.current = 0;
-      if (pendingSnapshotAnchorFrameRef.current != null) {
-        window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
-        pendingSnapshotAnchorFrameRef.current = null;
-      }
-    };
-    scrollPanel.addEventListener("wheel", releaseManualSnapshotAnchor, { passive: true });
-    scrollPanel.addEventListener("touchmove", releaseManualSnapshotAnchor, { passive: true });
+    scrollPanel.addEventListener("wheel", cancelPendingSnapshotAlignment, { passive: true });
+    scrollPanel.addEventListener("touchmove", cancelPendingSnapshotAlignment, { passive: true });
+    scrollPanel.addEventListener("pointerdown", cancelPendingSnapshotAlignment, { passive: true });
     return () => {
-      scrollPanel.removeEventListener("wheel", releaseManualSnapshotAnchor);
-      scrollPanel.removeEventListener("touchmove", releaseManualSnapshotAnchor);
+      scrollPanel.removeEventListener("wheel", cancelPendingSnapshotAlignment);
+      scrollPanel.removeEventListener("touchmove", cancelPendingSnapshotAlignment);
+      scrollPanel.removeEventListener("pointerdown", cancelPendingSnapshotAlignment);
     };
-  }, []);
+  }, [cancelPendingSnapshotAlignment]);
 
   const armPendingSnapshot = useCallback((snapshotIndex, { viewportPrepared = false } = {}) => {
     transportScrollTargetRef.current = "snapshot";
@@ -533,7 +525,6 @@ export default function useSequencerAutoscroll({
         }
         return;
       }
-      suppressNextBarAutoScrollRef.current = true;
       scrollNodeIntoPanel(firstStructuralRow);
       return;
     }
@@ -546,38 +537,12 @@ export default function useSequencerAutoscroll({
     }
     const repeatRow = barRowRefs.current.get(pendingTarget) ?? null;
     if (!(repeatRow instanceof HTMLElement)) return;
-    suppressNextBarAutoScrollRef.current = true;
     lastAutoScrolledSnapshotIdRef.current = pendingTarget;
     scrollNodeIntoPanel(repeatRow);
   }, [autoScrollEnabled, firstStructuralScrollKey, playheadIsOff, scrollNodeIntoPanel]);
 
-  useEffect(() => {
-    if (!autoScrollEnabled) return;
-    if (!playheadIsOff || transportScrollTargetRef.current !== "bar") {
-      lastAutoScrolledBarIdRef.current = null;
-      return;
-    }
-    if (pendingResetScrollTargetRef.current != null) return;
-    if (suppressNextBarAutoScrollRef.current) {
-      suppressNextBarAutoScrollRef.current = false;
-      return;
-    }
-    const selectedBar = sortedBars[selectedBarIndex] ?? null;
-    const selectedBarId = selectedBar?.id ?? null;
-    if (selectedBarId == null) return;
-    const structuralKey = structuralScrollKeyAtPosition(selectedBar.position);
-    const targetKey = structuralKey ?? selectedBarId;
-    if (lastAutoScrolledBarIdRef.current === targetKey) return;
-    const barRow = barRowRefs.current.get(targetKey) ?? null;
-    if (!(barRow instanceof HTMLElement)) return;
-
-    lastAutoScrolledBarIdRef.current = targetKey;
-    alignNodeToPanelTop(barRow);
-  }, [alignNodeToPanelTop, autoScrollEnabled, playheadIsOff, selectedBarIndex, sortedBars, structuralScrollKeyAtPosition]);
-
   const resetSequencePlayheadAndScrollTop = useCallback(() => {
     transportScrollTargetRef.current = "bar";
-    lastAutoScrolledBarIdRef.current = null;
     pendingResetScrollTargetRef.current = "__first_structural__";
     const scrollPanel = scrollPanelRef.current;
     if (scrollPanel instanceof HTMLElement) {
@@ -588,7 +553,6 @@ export default function useSequencerAutoscroll({
 
   const jumpSequencePlayheadToEndAndScrollBottom = useCallback(() => {
     transportScrollTargetRef.current = "bar";
-    lastAutoScrolledBarIdRef.current = null;
     pendingResetScrollTargetRef.current = null;
     const scrollPanel = scrollPanelRef.current;
     if (scrollPanel instanceof HTMLElement) {
