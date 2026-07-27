@@ -3,6 +3,7 @@ import {
   derivePagedPanelScrollTop,
   derivePreferredTargetBounds,
   deriveTopAlignedPanelScrollTop,
+  isLiveSequencerScrollTarget,
 } from "./autoscroll-controller.js";
 
 const baseGeometry = {
@@ -76,5 +77,19 @@ describe("sequencer autoscroll geometry", () => {
       targetTop: 80,
       targetBottom: 700,
     })).toBe(0);
+  });
+
+  it("rejects a queued target after virtualization detaches it", () => {
+    const panel = document.createElement("div");
+    const target = document.createElement("div");
+    document.body.append(panel);
+    panel.append(target);
+
+    expect(isLiveSequencerScrollTarget(target, panel)).toBe(true);
+
+    target.remove();
+
+    expect(isLiveSequencerScrollTarget(target, panel)).toBe(false);
+    panel.remove();
   });
 });

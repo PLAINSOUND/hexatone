@@ -141,6 +141,7 @@ export function useSequenceVirtualization({
   const pendingFrameRef = useRef(null);
   const pendingMeasurementFrameRef = useRef(null);
   const pendingMeasurementsRef = useRef(new Map());
+  const pendingStartAnchorReleaseFramesRef = useRef([]);
   const measurementTokensRef = useRef(new Map());
   const appliedRevisionRef = useRef(revision);
   const layoutRef = useRef(null);
@@ -216,6 +217,10 @@ export function useSequenceVirtualization({
     }
     pendingMeasurementFrameRef.current = null;
     pendingMeasurementsRef.current.clear();
+    pendingStartAnchorReleaseFramesRef.current.forEach((frameId) => {
+      window.cancelAnimationFrame(frameId);
+    });
+    pendingStartAnchorReleaseFramesRef.current = [];
   }, []);
 
   useEffect(() => {
@@ -349,6 +354,10 @@ export function useSequenceVirtualization({
   }, [queueMeasurement, revision, scrollPanelRef]);
 
   const clearPendingStartAnchor = useCallback(() => {
+    pendingStartAnchorReleaseFramesRef.current.forEach((frameId) => {
+      window.cancelAnimationFrame(frameId);
+    });
+    pendingStartAnchorReleaseFramesRef.current = [];
     pendingStartAnchorRef.current = null;
     setStartAnchor(null);
   }, []);
@@ -488,8 +497,29 @@ export function useSequenceVirtualization({
     const anchor = pendingStartAnchorRef.current;
     if (anchor == null) return;
     applyStartAnchor(anchor, layout);
+    const contentNode = contentRef?.current;
+    const preferredRow = contentNode instanceof HTMLElement
+      ? contentNode.querySelector(`[data-sequence-virtual-index="${anchor.preferredIndex}"]`)
+      : null;
+    if (!(preferredRow instanceof HTMLElement)) return;
+    pendingStartAnchorReleaseFramesRef.current.forEach((frameId) => {
+      window.cancelAnimationFrame(frameId);
+    });
+    pendingStartAnchorReleaseFramesRef.current = [];
+    const firstFrame = window.requestAnimationFrame(() => {
+      pendingStartAnchorReleaseFramesRef.current = [];
+      const secondFrame = window.requestAnimationFrame(() => {
+        pendingStartAnchorReleaseFramesRef.current = [];
+        if (pendingStartAnchorRef.current !== anchor) return;
+        pendingStartAnchorRef.current = null;
+        setStartAnchor((current) => (current === anchor ? null : current));
+      });
+      pendingStartAnchorReleaseFramesRef.current = [secondFrame];
+    });
+    pendingStartAnchorReleaseFramesRef.current = [firstFrame];
   }, [
     applyStartAnchor,
+    contentRef,
     layout,
   ]);
 

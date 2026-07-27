@@ -68,6 +68,15 @@ export function derivePreferredTargetBounds(targetRects = [], usableHeight = 0) 
   return { top: Number(preferredRect.top), bottom: Number(preferredRect.bottom) };
 }
 
+export function isLiveSequencerScrollTarget(node, scrollPanel) {
+  return (
+    node instanceof HTMLElement
+    && scrollPanel instanceof HTMLElement
+    && node.isConnected
+    && scrollPanel.contains(node)
+  );
+}
+
 export default function useSequencerAutoscroll({
   autoScrollEnabled,
   activeCueIndex,
@@ -132,12 +141,16 @@ export default function useSequencerAutoscroll({
     pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
       pendingAutoScrollFrameRef.current = null;
       if (!autoScrollEnabledRef.current) return;
+      const liveNodes = nodes.filter((node) => (
+        isLiveSequencerScrollTarget(node, scrollPanel)
+      ));
+      if (liveNodes.length === 0) return;
       const scrollStartMs = performance.now();
       const panelRect = scrollPanel.getBoundingClientRect();
       const playbackRect = playbackRowRef.current instanceof HTMLElement
         ? playbackRowRef.current.getBoundingClientRect()
         : null;
-      const targetRects = nodes.map((node) => node.getBoundingClientRect());
+      const targetRects = liveNodes.map((node) => node.getBoundingClientRect());
       const gap = 6;
       const stickyTransportOverlap = playbackRect == null
         ? 0
