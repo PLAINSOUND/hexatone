@@ -380,11 +380,43 @@ export function useSequenceVirtualization({
       const node = eventNodesById.get(String(eventId));
       return node instanceof HTMLElement ? node.getBoundingClientRect() : null;
     });
+    const structuralNodesByKey = new Map(
+      [...contentNode.querySelectorAll("[data-sequence-structural-key]")]
+        .map((node) => [node.dataset.sequenceStructuralKey, node]),
+    );
+    const mountedStructuralRects = anchor.targetStructuralKeys.map((structuralKey) => {
+      const node = structuralNodesByKey.get(String(structuralKey));
+      return node instanceof HTMLElement ? node.getBoundingClientRect() : null;
+    });
+    const allStructuralTargetsMeasured = (
+      mountedStructuralRects.length > 0
+      && mountedStructuralRects.every((rect) => rect != null && rect.height > 0)
+    );
     const allEventsMeasured = (
       mountedEventRects.length > 0
       && mountedEventRects.every((rect) => rect != null && rect.height > 0)
     );
-    if (anchor.targetEventIds.length > 0) {
+    if (anchor.targetStructuralKeys.length > 0) {
+      if (allStructuralTargetsMeasured) {
+        const rangeTop = Math.min(...mountedStructuralRects.map((rect) => rect.top));
+        const rangeBottom = Math.max(...mountedStructuralRects.map((rect) => rect.bottom));
+        mountedTargetRect = {
+          top: rangeTop,
+          bottom: rangeBottom,
+          height: rangeBottom - rangeTop,
+        };
+        const usableHeight = Math.max(0, panel.clientHeight - anchor.topOffset - 6);
+        alignToBottom = rangeBottom - rangeTop > usableHeight;
+      } else {
+        const preferredNode = structuralNodesByKey.get(String(anchor.preferredStructuralKey));
+        const preferredRect = preferredNode instanceof HTMLElement
+          ? preferredNode.getBoundingClientRect()
+          : null;
+        if (preferredRect != null && preferredRect.height > 0) {
+          mountedTargetRect = preferredRect;
+        }
+      }
+    } else if (anchor.targetEventIds.length > 0) {
       if (allEventsMeasured) {
         const usableHeight = Math.max(0, panel.clientHeight - anchor.topOffset - 6);
         const preferredBounds = deriveRecentFittingEventBounds(mountedEventRects, usableHeight);
@@ -443,10 +475,11 @@ export function useSequenceVirtualization({
     }
     const nextTop = Math.max(0, targetContentTop);
     if (Math.abs(nextTop - panel.scrollTop) >= 1) panel.scrollTop = nextTop;
+    const appliedTop = panel.scrollTop;
     setViewport((previous) => (
-      previous.scrollTop === nextTop
+      previous.scrollTop === appliedTop
         ? previous
-        : { scrollTop: nextTop, height: panel.clientHeight || 640 }
+        : { scrollTop: appliedTop, height: panel.clientHeight || 640 }
     ));
     return true;
   }, [contentRef, scrollPanelRef]);
@@ -465,9 +498,11 @@ export function useSequenceVirtualization({
     if (!(panel instanceof HTMLElement)) return undefined;
     panel.addEventListener("wheel", clearPendingStartAnchor, { passive: true });
     panel.addEventListener("touchmove", clearPendingStartAnchor, { passive: true });
+    panel.addEventListener("pointerdown", clearPendingStartAnchor, { passive: true });
     return () => {
       panel.removeEventListener("wheel", clearPendingStartAnchor);
       panel.removeEventListener("touchmove", clearPendingStartAnchor);
+      panel.removeEventListener("pointerdown", clearPendingStartAnchor);
     };
   }, [clearPendingStartAnchor, scrollPanelRef]);
 
@@ -478,6 +513,8 @@ export function useSequenceVirtualization({
     overflowAlignment = "start",
     preferredEventId = null,
     targetEventIds = null,
+    preferredStructuralKey = null,
+    targetStructuralKeys = null,
   } = {}) => {
     const numeric = Number(index);
     const panel = scrollPanelRef?.current;
@@ -505,6 +542,10 @@ export function useSequenceVirtualization({
         targetEventIds: Array.isArray(targetEventIds)
           ? targetEventIds.filter((eventId) => eventId != null)
           : [],
+        preferredStructuralKey,
+        targetStructuralKeys: Array.isArray(targetStructuralKeys)
+          ? targetStructuralKeys.filter((key) => key != null)
+          : [],
       };
       if (!enabled) return applyStartAnchor(anchor);
       pendingStartAnchorRef.current = anchor;
@@ -526,7 +567,7 @@ export function useSequenceVirtualization({
     if (absoluteTop >= panel.scrollTop && absoluteBottom <= viewportBottom) return false;
     const nextTop = Math.max(0, absoluteTop - Math.min(120, SEQUENCE_VIRTUALIZATION_OVERSCAN_PX / 2));
     panel.scrollTop = nextTop;
-    setViewport({ scrollTop: nextTop, height: viewportHeight });
+    setViewport({ scrollTop: panel.scrollTop, height: viewportHeight });
     return true;
   }, [
     applyStartAnchor,

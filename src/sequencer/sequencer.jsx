@@ -419,6 +419,19 @@ const Sequencer = ({
     }
     return null;
   }, [structuralMarkersByDisplayBucket]);
+  const structuralScrollKeysAtPosition = useCallback((position) => {
+    const time = Number(position);
+    if (!Number.isFinite(time)) return [];
+    const keys = [];
+    for (const markers of structuralMarkersByDisplayBucket.values()) {
+      markers.forEach((marker) => {
+        if (Math.abs(Number(marker?.position) - time) >= 1e-9) return;
+        const markerKey = structuralEventRenderKey(marker);
+        if (markerKey) keys.push(markerKey);
+      });
+    }
+    return keys;
+  }, [structuralMarkersByDisplayBucket]);
 
   const firstEventIdByCueIndex = useMemo(
     () => buildFirstEventIdByCueIndex(sequenceEvents),
@@ -872,6 +885,35 @@ const Sequencer = ({
     scrollVirtualSequenceIndexIntoView,
     timedPlaybackOwnsViewport,
   ]);
+  const prepareBarViewport = useCallback((barIndex) => {
+    const numericBarIndex = Number(barIndex);
+    if (
+      timedPlaybackOwnsViewport
+      || !autoScrollEnabledRef.current
+      || !Number.isInteger(numericBarIndex)
+    ) return false;
+    const bar = sortedBars[numericBarIndex] ?? null;
+    const virtualIndex = barDisplayBucket(bar?.position);
+    if (virtualIndex < 0 || virtualIndex >= renderedSnapshots.length) return false;
+    const structuralKeys = structuralScrollKeysAtPosition(bar.position);
+    return scrollVirtualSequenceIndexIntoView(virtualIndex, {
+      align: "start",
+      topOffset: 6,
+      targetIndexes: [virtualIndex],
+      preferredStructuralKey: structuralKeys[0] ?? null,
+      targetStructuralKeys: structuralKeys,
+    });
+  }, [
+    renderedSnapshots.length,
+    scrollVirtualSequenceIndexIntoView,
+    sortedBars,
+    structuralScrollKeysAtPosition,
+    timedPlaybackOwnsViewport,
+  ]);
+  const selectSequenceBarWithViewport = useCallback((barIndex) => {
+    prepareBarViewport(barIndex);
+    onSelectSequenceBar?.(barIndex);
+  }, [onSelectSequenceBar, prepareBarViewport]);
   const armVirtualizedPendingSnapshot = useCallback((snapshotIndex) => {
     prepareSnapshotViewport(snapshotIndex);
     armPendingSnapshot(snapshotIndex, { viewportPrepared: true });
@@ -975,6 +1017,11 @@ const Sequencer = ({
     prepareCueViewport,
     timedPlaybackOwnsViewport,
   ]);
+
+  useLayoutEffect(() => {
+    if (transportScrollTargetRef.current !== "bar") return;
+    prepareBarViewport(selectedBarIndex);
+  }, [prepareBarViewport, selectedBarIndex, transportScrollTargetRef]);
 
   useLayoutEffect(() => {
     if (timedPlaybackOwnsViewport) return;
@@ -2153,7 +2200,7 @@ const Sequencer = ({
           timedBarSelectValue={timedTransportUiState.running ? timedTransportFieldValues.bar : null}
           sortedBars={sortedBars}
           transportScrollTargetRef={transportScrollTargetRef}
-          onSelectSequenceBar={onSelectSequenceBar}
+          onSelectSequenceBar={selectSequenceBarWithViewport}
           snapshotSelectValue={displayedSnapshotSelectValue}
           renderedSnapshots={renderedSnapshots}
           impliedPendingSnapshotIndex={impliedPendingSnapshotIndex}
@@ -2206,6 +2253,7 @@ const Sequencer = ({
                     }
                   }}
                   class="sequencer-item sequencer-item--bar"
+                  data-sequence-structural-key={structuralEventRenderKey(marker)}
                 >
                   {marker.structuralType === "bar" ? (
                     <BarRow bar={marker} barNumberById={barNumberById} dnd={barRowDnd} editing={barRowEditing} />

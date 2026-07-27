@@ -252,6 +252,7 @@ const SnapshotSequenceItem = ({
                           }
                         }}
                         class="sequencer-item sequencer-item--bar"
+                        data-sequence-structural-key={structuralEventRenderKey(event)}
                       >
                         {event.type === "bar" ? (
                           <BarRow bar={event} barNumberById={structure.barNumberById} dnd={rows.barRowDnd} editing={rows.barRowEditing} />
@@ -299,6 +300,7 @@ const SnapshotSequenceItem = ({
               }
             }}
             class="sequencer-item sequencer-item--bar"
+            data-sequence-structural-key={structuralEventRenderKey(marker)}
           >
             {marker.structuralType === "bar" ? (
               <BarRow bar={marker} barNumberById={structure.barNumberById} dnd={rows.barRowDnd} editing={rows.barRowEditing} />

@@ -389,4 +389,118 @@ describe("sequence virtualization", () => {
 
     view.unmount();
   });
+
+  it("aligns all structural rows at a distant selected bar position", () => {
+    const items = Array.from({ length: 40 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 50,
+    }));
+    let virtualization = null;
+    let scrollTop = 0;
+    function Probe() {
+      const scrollPanelRef = useRef(null);
+      const contentRef = useRef(null);
+      virtualization = useSequenceVirtualization({
+        scrollPanelRef,
+        contentRef,
+        items,
+      });
+      return h(
+        "div",
+        { ref: scrollPanelRef },
+        h(
+          "div",
+          { ref: contentRef },
+          h(
+            "div",
+            { "data-sequence-virtual-index": "20" },
+            h("div", { "data-sequence-structural-key": "tempo:22" }),
+            h("div", { "data-sequence-structural-key": "bar:22" }),
+          ),
+        ),
+      );
+    }
+
+    const view = render(h(Probe));
+    const panel = view.container.firstElementChild;
+    const content = panel.firstElementChild;
+    const tempoRow = content.querySelector('[data-sequence-structural-key="tempo:22"]');
+    const barRow = content.querySelector('[data-sequence-structural-key="bar:22"]');
+    Object.defineProperty(panel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(panel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = value;
+      },
+    });
+    panel.getBoundingClientRect = () => ({ top: 0, bottom: 200 });
+    content.getBoundingClientRect = () => ({ top: -scrollTop });
+    tempoRow.getBoundingClientRect = () => ({
+      top: 1010 - scrollTop,
+      bottom: 1040 - scrollTop,
+      height: 30,
+    });
+    barRow.getBoundingClientRect = () => ({
+      top: 1040 - scrollTop,
+      bottom: 1070 - scrollTop,
+      height: 30,
+    });
+
+    act(() => virtualization.scrollIndexIntoView(20, {
+      align: "start",
+      topOffset: 6,
+      targetIndexes: [20],
+      preferredStructuralKey: "tempo:22",
+      targetStructuralKeys: ["tempo:22", "bar:22"],
+    }));
+
+    expect(scrollTop).toBe(1004);
+    expect(tempoRow.getBoundingClientRect().top).toBe(6);
+    expect(barRow.getBoundingClientRect().bottom).toBe(66);
+
+    view.unmount();
+  });
+
+  it("tracks the scroll position actually accepted by the browser", () => {
+    const items = Array.from({ length: 40 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 50,
+    }));
+    let virtualization = null;
+    let scrollTop = 0;
+    function Probe() {
+      const scrollPanelRef = useRef(null);
+      const contentRef = useRef(null);
+      virtualization = useSequenceVirtualization({
+        scrollPanelRef,
+        contentRef,
+        items,
+      });
+      return h("div", { ref: scrollPanelRef }, h("div", { ref: contentRef }));
+    }
+
+    const view = render(h(Probe));
+    const panel = view.container.firstElementChild;
+    const content = panel.firstElementChild;
+    Object.defineProperty(panel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(panel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = Math.min(800, value);
+      },
+    });
+    panel.getBoundingClientRect = () => ({ top: 0, bottom: 200 });
+    content.getBoundingClientRect = () => ({ top: -scrollTop });
+
+    act(() => virtualization.scrollIndexIntoView(20, { align: "start" }));
+
+    expect(scrollTop).toBe(800);
+    expect(virtualization.layout.rows.some((row) => (
+      row.type === "item" && row.index === 16
+    ))).toBe(true);
+
+    view.unmount();
+  });
 });
