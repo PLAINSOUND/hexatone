@@ -3,6 +3,25 @@ import { describe, expect, it } from "vitest";
 import { buildSequenceRuntimeModel } from "./runtime-model.js";
 
 describe("buildSequenceRuntimeModel", () => {
+  it("keeps piled tempi in the event list in creation order", () => {
+    const runtime = buildSequenceRuntimeModel({
+      snapshots: [{ id: "s1", length: 2, notes: [] }],
+      tempi: [
+        { id: 9, position: 1, bpm: 60 },
+        { id: 10, position: 1, bpm: 72 },
+        { id: 11, position: 1, bpm: 84 },
+      ],
+      source: "test",
+    });
+
+    expect(runtime.sortedTempi.map((tempo) => tempo.id)).toEqual([9, 10, 11]);
+    expect(
+      runtime.sequenceEvents
+        .filter((event) => event.type === "tempo")
+        .map((event) => event.tempoId),
+    ).toEqual([9, 10, 11]);
+  });
+
   it("can preserve visual repeat sections while disabling repeat playback", () => {
     const snapshots = [
       {

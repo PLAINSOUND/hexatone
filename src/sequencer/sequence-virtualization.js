@@ -7,12 +7,22 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 export const SEQUENCE_VIRTUALIZATION_MIN_ITEMS = 40;
 export const SEQUENCE_VIRTUALIZATION_OVERSCAN_PX = 900;
 
-export function estimateSequenceGroupHeight({ eventCount = 0, structuralCount = 0, expanded = false } = {}) {
+export function estimateSequenceGroupHeight({
+  eventCount = 0,
+  structuralCount = 0,
+  transitionCueCount = 0,
+  expanded = false,
+} = {}) {
   const snapshotRowHeight = 30;
   const eventHeaderHeight = expanded ? 27 : 0;
   const eventRowsHeight = expanded ? Math.max(0, Number(eventCount) || 0) * 25 : 0;
   const structuralRowsHeight = Math.max(0, Number(structuralCount) || 0) * 30;
-  return snapshotRowHeight + eventHeaderHeight + eventRowsHeight + structuralRowsHeight;
+  const transitionCueHeight = Math.max(0, Number(transitionCueCount) || 0) * 12;
+  return snapshotRowHeight
+    + eventHeaderHeight
+    + eventRowsHeight
+    + structuralRowsHeight
+    + transitionCueHeight;
 }
 
 export function deriveRecentFittingEventBounds(eventRects = [], usableHeight = 0) {
@@ -123,6 +133,7 @@ export function useSequenceVirtualization({
   contentRef,
   items = [],
   pinnedIndexes = [],
+  revision = null,
 } = {}) {
   const enabled = items.length >= SEQUENCE_VIRTUALIZATION_MIN_ITEMS;
   const observedNodesRef = useRef(new Map());
@@ -130,6 +141,8 @@ export function useSequenceVirtualization({
   const pendingFrameRef = useRef(null);
   const pendingMeasurementFrameRef = useRef(null);
   const pendingMeasurementsRef = useRef(new Map());
+  const measurementTokensRef = useRef(new Map());
+  const appliedRevisionRef = useRef(revision);
   const layoutRef = useRef(null);
   const pendingStartAnchorRef = useRef(null);
   const [measuredSizes, setMeasuredSizes] = useState(() => new Map());
@@ -220,6 +233,39 @@ export function useSequenceVirtualization({
   }, [items]);
 
   useLayoutEffect(() => {
+    const nextTokens = new Map(items.map((item) => [
+      item.key,
+      item.measurementToken ?? item.estimatedSize,
+    ]));
+    const changedKeys = items
+      .filter((item) => (
+        measurementTokensRef.current.has(item.key)
+        && measurementTokensRef.current.get(item.key) !== nextTokens.get(item.key)
+      ))
+      .map((item) => item.key);
+    measurementTokensRef.current = nextTokens;
+    if (changedKeys.length === 0) return;
+
+    // A structural edit can change an unmounted virtual row. Its old measured
+    // height would otherwise override the new estimate until manual scrolling
+    // mounts the row again. Invalidate it immediately and remeasure any changed
+    // row that is already mounted.
+    setMeasuredSizes((previous) => {
+      const staleKeys = changedKeys.filter((key) => previous.has(key));
+      if (staleKeys.length === 0) return previous;
+      const next = new Map(previous);
+      staleKeys.forEach((key) => next.delete(key));
+      return next;
+    });
+    changedKeys.forEach((key) => {
+      const node = observedNodesRef.current.get(key);
+      if (node instanceof HTMLElement) {
+        queueMeasurement(key, node.getBoundingClientRect().height || node.offsetHeight);
+      }
+    });
+  }, [items, queueMeasurement]);
+
+  useLayoutEffect(() => {
     const panel = scrollPanelRef?.current;
     if (!(panel instanceof HTMLElement)) return undefined;
     const updateViewport = () => {
@@ -245,19 +291,62 @@ export function useSequenceVirtualization({
     };
   }, [scrollPanelRef]);
 
-  const layout = useMemo(() => buildVirtualSequenceLayout({
+  const revisionChanged = !Object.is(appliedRevisionRef.current, revision);
+  const layout = useMemo(() => {
+    const activeMeasurements = revisionChanged ? new Map() : measuredSizes;
+    return buildVirtualSequenceLayout({
+      items,
+      measuredSizes: activeMeasurements,
+      scrollTop: viewport.scrollTop,
+      viewportHeight: viewport.height,
+      pinnedIndexes: [
+        ...pinnedIndexes,
+        ...(startAnchor?.targetIndexes ?? []),
+      ],
+      anchorIndex: startAnchor?.preferredIndex ?? null,
+      enabled,
+    });
+  }, [
+    enabled,
     items,
     measuredSizes,
-    scrollTop: viewport.scrollTop,
-    viewportHeight: viewport.height,
-    pinnedIndexes: [
-      ...pinnedIndexes,
-      ...(startAnchor?.targetIndexes ?? []),
-    ],
-    anchorIndex: startAnchor?.preferredIndex ?? null,
-    enabled,
-  }), [enabled, items, measuredSizes, pinnedIndexes, startAnchor, viewport.height, viewport.scrollTop]);
+    pinnedIndexes,
+    revisionChanged,
+    startAnchor,
+    viewport.height,
+    viewport.scrollTop,
+  ]);
   layoutRef.current = layout;
+
+  useLayoutEffect(() => {
+    if (Object.is(appliedRevisionRef.current, revision)) return;
+    appliedRevisionRef.current = revision;
+
+    if (pendingMeasurementFrameRef.current != null) {
+      window.cancelAnimationFrame(pendingMeasurementFrameRef.current);
+      pendingMeasurementFrameRef.current = null;
+    }
+    pendingMeasurementsRef.current.clear();
+    pendingStartAnchorRef.current = null;
+    setStartAnchor(null);
+    setMeasuredSizes(new Map());
+
+    const panel = scrollPanelRef?.current;
+    if (panel instanceof HTMLElement) {
+      setViewport({
+        scrollTop: panel.scrollTop,
+        height: panel.clientHeight || 640,
+      });
+    }
+
+    // Rebuild cheaply: estimates are already active for the full list, while
+    // only mounted rows are measured again on the next frame.
+    observedNodesRef.current.forEach((node, key) => {
+      if (node instanceof HTMLElement) {
+        queueMeasurement(key, node.getBoundingClientRect().height || node.offsetHeight);
+      }
+    });
+  }, [queueMeasurement, revision, scrollPanelRef]);
 
   const clearPendingStartAnchor = useCallback(() => {
     pendingStartAnchorRef.current = null;

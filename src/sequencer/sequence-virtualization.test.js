@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { useRef } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import { act, render } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -130,6 +130,97 @@ describe("sequence virtualization", () => {
 
     act(() => animationFrames.shift()(16));
     expect(virtualization.layout.sizes[0]).toBe(160);
+
+    view.unmount();
+    vi.unstubAllGlobals();
+  });
+
+  it("invalidates an unmounted row measurement when structural content changes", () => {
+    const animationFrames = [];
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const initialItems = Array.from({ length: 40 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 50,
+      measurementToken: "initial",
+    }));
+    let virtualization = null;
+    let updateItems = null;
+    function Probe() {
+      const scrollPanelRef = useRef(null);
+      const [items, setItems] = useState(initialItems);
+      updateItems = setItems;
+      virtualization = useSequenceVirtualization({ scrollPanelRef, items });
+      return h("div", { ref: scrollPanelRef });
+    }
+
+    const view = render(h(Probe));
+    const row = document.createElement("div");
+    row.getBoundingClientRect = () => ({ height: 100 });
+    act(() => virtualization.measureItem("item-0", row));
+    act(() => animationFrames.shift()(0));
+    expect(virtualization.layout.sizes[0]).toBe(100);
+
+    act(() => virtualization.measureItem("item-0", null));
+    act(() => updateItems(initialItems.map((item, index) => (
+      index === 0
+        ? { ...item, estimatedSize: 80, measurementToken: "tempo-added" }
+        : item
+    ))));
+
+    expect(virtualization.layout.sizes[0]).toBe(80);
+
+    view.unmount();
+    vi.unstubAllGlobals();
+  });
+
+  it("rebuilds from fresh estimates immediately when the event-list revision changes", () => {
+    const animationFrames = [];
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const initialItems = Array.from({ length: 40 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 50,
+      measurementToken: "unchanged-shape",
+    }));
+    let virtualization = null;
+    let rebuild = null;
+    function Probe() {
+      const scrollPanelRef = useRef(null);
+      const [state, setState] = useState({ items: initialItems, revision: 1 });
+      rebuild = setState;
+      virtualization = useSequenceVirtualization({
+        scrollPanelRef,
+        items: state.items,
+        revision: state.revision,
+      });
+      return h("div", { ref: scrollPanelRef });
+    }
+
+    const view = render(h(Probe));
+    const row = document.createElement("div");
+    row.getBoundingClientRect = () => ({ height: 100 });
+    act(() => virtualization.measureItem("item-0", row));
+    act(() => animationFrames.shift()(0));
+    expect(virtualization.layout.sizes[0]).toBe(100);
+    act(() => virtualization.measureItem("item-0", null));
+
+    act(() => rebuild({
+      items: initialItems.map((item, index) => (
+        index === 0 ? { ...item, estimatedSize: 80 } : item
+      )),
+      revision: 2,
+    }));
+
+    expect(virtualization.layout.sizes[0]).toBe(80);
 
     view.unmount();
     vi.unstubAllGlobals();

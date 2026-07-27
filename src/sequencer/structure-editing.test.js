@@ -65,7 +65,7 @@ describe("structure editing", () => {
     expect(result.repeats.map((repeat) => repeat.position)).toEqual([6]);
   });
 
-  it("decrements later structural markers after deleting a snapshot and gives later bars/tempi precedence on collisions", () => {
+  it("dedupes colliding bars but preserves colliding tempi as an editable stack", () => {
     const result = shiftStructuralMarkersAfterSnapshotDeletion({
       bars: [
         { id: 1, position: 1, numerator: 4, denominator: 4 },
@@ -90,6 +90,7 @@ describe("structure editing", () => {
     ]);
     expect(result.tempi.map((tempo) => ({ id: tempo.id, position: tempo.position }))).toEqual([
       { id: 1, position: 1 },
+      { id: 2, position: 2 },
       { id: 3, position: 2 },
     ]);
     expect(result.repeats.map((repeat) => ({ id: repeat.id, position: repeat.position }))).toEqual([

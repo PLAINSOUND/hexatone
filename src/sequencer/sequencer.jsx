@@ -181,6 +181,7 @@ const Sequencer = ({
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newRepeatPosition, setNewRepeatPosition] = useState("1.000000");
   const [newTempoBpm, setNewTempoBpm] = useState("60");
+  const [newTempoBpmIsSuggested, setNewTempoBpmIsSuggested] = useState(true);
   const [newBarNumerator, setNewBarNumerator] = useState("4");
   const [newBarDenominator, setNewBarDenominator] = useState("4");
   const [newBarPositionIsSuggested, setNewBarPositionIsSuggested] = useState(true);
@@ -761,24 +762,47 @@ const Sequencer = ({
         .filter((event) => event.type === "bar" || event.type === "tempo" || event.type === "repeat-start" || event.type === "repeat-end")
         .map((event) => structuralEventRenderKey(event)))
       : new Set();
-    const structuralCount = (structuralMarkersByDisplayBucket.get(index) ?? [])
-      .filter((marker) => !embeddedStructuralKeys.has(structuralEventRenderKey(marker)))
-      .length;
+    const outsideStructuralMarkers = (structuralMarkersByDisplayBucket.get(index) ?? [])
+      .filter((marker) => !embeddedStructuralKeys.has(structuralEventRenderKey(marker)));
+    const structuralCount = outsideStructuralMarkers.length;
+    const visibleTempoMarkers = [
+      ...(expanded ? snapshotEvents.filter((event) => event.type === "tempo") : []),
+      ...outsideStructuralMarkers.filter((marker) => marker.structuralType === "tempo"),
+    ];
+    const transitionCueCount = visibleTempoMarkers.filter((tempo) => (
+      tempoTransitionCueMap.has(tempo.tempoId ?? tempo.id)
+    )).length;
+    const measurementToken = [
+      expanded ? 1 : 0,
+      snapshotEvents.length,
+      structuralCount,
+      transitionCueCount,
+    ].join(":");
     return {
       key: snapshot.id,
       snapshot,
+      measurementToken,
       estimatedSize: estimateSequenceGroupHeight({
         expanded,
         eventCount: snapshotEvents.length,
         structuralCount,
+        transitionCueCount,
       }),
       expandedEstimatedSize: estimateSequenceGroupHeight({
         expanded: true,
         eventCount: snapshotEvents.length,
         structuralCount,
+        transitionCueCount,
       }),
     };
-  }), [expandedIds, renderedSnapshots, showAllEvents, snapshotEventsById, structuralMarkersByDisplayBucket]);
+  }), [
+    expandedIds,
+    renderedSnapshots,
+    showAllEvents,
+    snapshotEventsById,
+    structuralMarkersByDisplayBucket,
+    tempoTransitionCueMap,
+  ]);
   const virtualSequenceListRef = useRef(null);
   const virtualPinnedIndexes = useMemo(() => {
     const pinnedIds = new Set([
@@ -802,6 +826,7 @@ const Sequencer = ({
     contentRef: virtualSequenceListRef,
     items: virtualSequenceItems,
     pinnedIndexes: virtualPinnedIndexes,
+    revision: sequenceRuntime.runtimeInstanceId,
   });
   const {
     layout: virtualSequenceLayout,
@@ -815,6 +840,11 @@ const Sequencer = ({
     const index = renderedSnapshotIndexById.get(snapshotId);
     return index == null ? false : scrollVirtualSequenceIndexIntoView(index);
   }, [renderedSnapshotIndexById, scrollVirtualSequenceIndexIntoView]);
+
+  useLayoutEffect(() => {
+    cancelNavigationAutoscroll();
+    timedAutoscrollPresenterRef.current?.cancel();
+  }, [cancelNavigationAutoscroll, sequenceRuntime.runtimeInstanceId]);
   const prepareSnapshotViewport = useCallback((snapshotIndex) => {
     const numericIndex = Number(snapshotIndex);
     if (
@@ -1441,8 +1471,6 @@ const Sequencer = ({
     const bpm = Number(newTempoBpm);
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
     onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "immediate");
-    setNewTempoPosition("1.000000");
-    setNewTempoBpm("60");
   };
 
   const addTempoTransitionAtRequestedPosition = () => {
@@ -1450,9 +1478,33 @@ const Sequencer = ({
     const bpm = Number(newTempoBpm);
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
     onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "gradual");
-    setNewTempoPosition("1.000000");
-    setNewTempoBpm("60");
   };
+
+  const updateNewTempoPosition = useCallback((rawValue) => {
+    setNewTempoPosition(rawValue);
+    if (!newTempoBpmIsSuggested || String(rawValue).trim() === "") return;
+    const position = Number(rawValue);
+    if (!Number.isFinite(position)) return;
+    const tempo = deriveTempoAtSequencePosition(
+      position,
+      sortedTempi,
+      sortedBars,
+      terminalBarlinePosition,
+    );
+    const quarterNoteBpm = Number(tempo?.wholeNotesPerMinute) * 4;
+    if (!Number.isFinite(quarterNoteBpm) || quarterNoteBpm <= 0) return;
+    setNewTempoBpm(String(Math.round(quarterNoteBpm * 1000000) / 1000000));
+  }, [
+    newTempoBpmIsSuggested,
+    sortedBars,
+    sortedTempi,
+    terminalBarlinePosition,
+  ]);
+
+  const updateNewTempoBpm = useCallback((rawValue) => {
+    setNewTempoBpm(rawValue);
+    setNewTempoBpmIsSuggested(false);
+  }, []);
 
   const addRepeatAtRequestedPosition = (kind) => {
     const position = Number(newRepeatPosition);
@@ -2060,9 +2112,10 @@ const Sequencer = ({
         <SequenceControls
           showAllEvents={showAllEvents}
           newTempoPosition={newTempoPosition}
-          setNewTempoPosition={setNewTempoPosition}
+          setNewTempoPosition={updateNewTempoPosition}
           newTempoBpm={newTempoBpm}
-          setNewTempoBpm={setNewTempoBpm}
+          newTempoBpmIsSuggested={newTempoBpmIsSuggested}
+          setNewTempoBpm={updateNewTempoBpm}
           addTempoAtRequestedPosition={addTempoAtRequestedPosition}
           addTempoTransitionAtRequestedPosition={addTempoTransitionAtRequestedPosition}
           newBarPosition={newBarPosition}

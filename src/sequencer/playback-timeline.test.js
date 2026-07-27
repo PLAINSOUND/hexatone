@@ -282,6 +282,21 @@ describe("playback timeline", () => {
     });
   });
 
+  it("uses the newest piled tempo and ignores superseded gradual behavior", () => {
+    const bars = [
+      { id: "bar-1", position: 1, numerator: 4, denominator: 4 },
+      { id: "bar-2", position: 3, numerator: 4, denominator: 4 },
+    ];
+    const tempi = [
+      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+      { id: "tempo-old", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, mode: "gradual" },
+      { id: "tempo-new", position: 3, bpm: 90, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+    ];
+
+    expect(deriveTempoAtSequencePosition(2, tempi, bars, 4)?.bpm).toBe(60);
+    expect(deriveTempoAtSequencePosition(3, tempi, bars, 4)?.bpm).toBe(90);
+  });
+
   it("applies an immediate tempo marker after a completed gradual change", () => {
     const snapshots = Array.from({ length: 5 }, (_, index) => ({
       id: `s${index + 1}`,

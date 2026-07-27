@@ -3,6 +3,7 @@ import {
   absolutePositionToBarBeat,
   barBeatToAbsolutePosition,
   buildTempoSegments,
+  deriveEffectiveTempoMarkers,
   deriveImplicitRepeatStartPosition,
   deriveImplicitRepeatStartPositionsForDanglingEnds,
   deriveTempoTransitionCueMap,
@@ -32,15 +33,33 @@ describe("sequencer transport", () => {
     ]);
   });
 
-  it("dedupes tempo markers by position keeping the later marker", () => {
+  it("preserves tempo stacks in creation order and makes the newest effective", () => {
     expect(normalizeTempoMarkers([
       { id: "a", position: 1, bpm: 60, beatLength: 1 },
       { id: "b", position: 1, bpm: 72, beatLength: 0.5 },
       { id: "c", position: 3, bpm: 90, beatLength: 1 },
     ])).toEqual([
+      { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
       { id: "b", position: 1, bpm: 72, beatNumerator: 1, beatDenominator: 8, beatLength: 0.5, mode: "immediate" },
       { id: "c", position: 3, bpm: 90, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
     ]);
+    expect(deriveEffectiveTempoMarkers([
+      { id: 9, position: 1, bpm: 60 },
+      { id: 10, position: 1, bpm: 72 },
+      { id: 11, position: 3, bpm: 90 },
+    ]).map((tempo) => tempo.id)).toEqual([10, 11]);
+  });
+
+  it("uses only the newest piled marker in tempo segments", () => {
+    const segments = buildTempoSegments([
+      { id: 1, position: 1, bpm: 60 },
+      { id: 2, position: 3, bpm: 120 },
+      { id: 3, position: 3, bpm: 90 },
+    ]);
+
+    expect(segments.map((segment) => segment.id)).toEqual([1, 3]);
+    expect(segments[0].endPosition).toBe(3);
+    expect(segments[1].bpm).toBe(90);
   });
 
   it("normalizes legacy transition tempo markers to gradual and defaults missing modes to immediate", () => {

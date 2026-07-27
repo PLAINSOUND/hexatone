@@ -27,6 +27,10 @@ const TempoRow = ({
   );
   const sequenceTime = tempoPosition.toFixed(6);
   const isAlwaysOnTempo = Math.abs(tempoPosition - 1) < 1e-9;
+  const openingTempoCount = (timing.sortedTempi ?? []).filter(
+    (marker) => Math.abs(Number(marker?.position) - 1) < 1e-9,
+  ).length;
+  const isRequiredOpeningTempo = isAlwaysOnTempo && openingTempoCount <= 1;
   const isGradualTempo = tempo.mode === "gradual";
   const tempoLabel = isGradualTempo ? "target:" : "tempo:";
   const transitionCue = timing.tempoTransitionCueMap?.get(tempoId) ?? null;
@@ -55,7 +59,7 @@ const TempoRow = ({
     >
       <div class="sequencer-tempo-row__line" aria-hidden="true" />
       <div class="sequencer-row__delete-cell">
-        {!isAlwaysOnTempo ? (
+        {!isRequiredOpeningTempo ? (
           <button
             type="button"
             class="sequencer-gutter__delete"

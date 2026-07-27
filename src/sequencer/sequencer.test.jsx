@@ -380,6 +380,78 @@ describe("Sequencer", () => {
     expect(screen.getByRole("slider", { name: "sequence playback pitch slider" })).toBeTruthy();
   });
 
+  it("suggests the tempo at a chosen position and retains user-entered tempo values after adding", () => {
+    const onAddTempo = vi.fn();
+    render(
+      <Sequencer
+        snapshots={[]}
+        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+          { id: 2, position: 3, bpm: 120, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75 },
+        ]}
+        snapshotLabelMode="labels"
+        selectedSnapshotId={null}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onAddEmptySnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={vi.fn()}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={onAddTempo}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={vi.fn()}
+        onResetSnapshotDescription={vi.fn()}
+        getTimedTransportClockSeconds={() => 0}
+      />,
+    );
+
+    const positionInput = screen.getByLabelText("new tempo position");
+    const bpmInput = screen.getByLabelText("new tempo bpm");
+
+    fireEvent.input(positionInput, { target: { value: "3" } });
+    expect(bpmInput.value).toBe("90");
+    expect(bpmInput.classList.contains("sequencer-bars-add__position--hint")).toBe(true);
+
+    fireEvent.input(bpmInput, { target: { value: "88" } });
+    fireEvent.input(positionInput, { target: { value: "2" } });
+    expect(bpmInput.value).toBe("88");
+    expect(bpmInput.classList.contains("sequencer-bars-add__position--hint")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Tempo" }));
+
+    expect(onAddTempo).toHaveBeenCalledWith(2, 88, "immediate");
+    expect(positionInput.value).toBe("2");
+    expect(bpmInput.value).toBe("88");
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Target Tempo" }));
+    expect(onAddTempo).toHaveBeenLastCalledWith(2, 88, "gradual");
+    expect(positionInput.value).toBe("2");
+    expect(bpmInput.value).toBe("88");
+  });
+
   it("copies a snapshot range and inserts the copied block through the app callback", () => {
     const onInsertSnapshotCopyBlock = vi.fn(() => null);
 

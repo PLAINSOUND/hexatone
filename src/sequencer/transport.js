@@ -65,8 +65,15 @@ export function normalizeTempoMarkers(markers = [], options = {}) {
   const { includeDefault = true } = options;
   const source = Array.isArray(markers) ? markers : [];
   const normalized = source
-    .map((marker, index) => normalizeTempoMarker(marker, index))
-    .sort((a, b) => a.position - b.position || String(a.id).localeCompare(String(b.id)));
+    .map((marker, index) => ({
+      marker: normalizeTempoMarker(marker, index),
+      sourceIndex: index,
+    }))
+    .sort((a, b) => (
+      a.marker.position - b.marker.position
+      || a.sourceIndex - b.sourceIndex
+    ))
+    .map(({ marker }) => marker);
 
   if (includeDefault && (normalized.length === 0 || Math.abs(normalized[0].position - 1) > 1e-9)) {
     normalized.unshift({
@@ -80,24 +87,30 @@ export function normalizeTempoMarkers(markers = [], options = {}) {
     });
   }
 
-  const deduped = [];
+  return normalized.map((marker) => (
+    Math.abs(marker.position - 1) < 1e-9
+      ? { ...marker, mode: "immediate" }
+      : marker
+  ));
+}
+
+/**
+ * Project the editable tempo stack into the one marker that governs playback
+ * at each position. Stable normalization keeps creation order within a stack,
+ * so replacing the previous entry makes the newest marker authoritative.
+ */
+export function deriveEffectiveTempoMarkers(markers = [], options = {}) {
+  const normalized = normalizeTempoMarkers(markers, options);
+  const effective = [];
   for (const marker of normalized) {
-    const previous = deduped.at(-1);
+    const previous = effective.at(-1);
     if (previous && Math.abs(previous.position - marker.position) < 1e-9) {
-      deduped[deduped.length - 1] = marker;
-      continue;
+      effective[effective.length - 1] = marker;
+    } else {
+      effective.push(marker);
     }
-    deduped.push(marker);
   }
-
-  if (deduped.length > 0 && Math.abs(deduped[0].position - 1) < 1e-9) {
-    deduped[0] = {
-      ...deduped[0],
-      mode: "immediate",
-    };
-  }
-
-  return deduped;
+  return effective;
 }
 
 function normalizeMeterMarker(marker, index) {
@@ -147,7 +160,7 @@ export function normalizeMeterMarkers(markers = []) {
 }
 
 export function buildTempoSegments(markers = []) {
-  const normalized = normalizeTempoMarkers(markers);
+  const normalized = deriveEffectiveTempoMarkers(markers);
   const segments = [];
   let elapsedSeconds = 0;
 
@@ -203,7 +216,7 @@ function formatTempoTarget(marker) {
 }
 
 export function deriveTempoTransitionCueMap(tempi = [], bars = [], terminalPosition = null) {
-  const normalizedTempi = normalizeTempoMarkers(tempi);
+  const normalizedTempi = deriveEffectiveTempoMarkers(tempi);
   const cueMap = new Map();
 
   for (let index = 1; index < normalizedTempi.length; index += 1) {

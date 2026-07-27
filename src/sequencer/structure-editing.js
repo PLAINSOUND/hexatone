@@ -144,11 +144,12 @@ export function shiftStructuralMarkersAfterSnapshotDeletion({
       .map((bar) => shiftMarkerAfterDeletion(bar, normalizedDeletionPosition)),
   );
 
-  const nextTempi = dedupeStructuralCollisions(
-    (Array.isArray(tempi) ? tempi : [])
-      .map(annotateOriginalPosition)
-      .map((tempo) => shiftMarkerAfterDeletion(tempo, normalizedDeletionPosition, { collapseWithinSnapshot: true })),
-  );
+  const nextTempi = (Array.isArray(tempi) ? tempi : [])
+    .map((tempo) => shiftMarkerAfterDeletion(
+      tempo,
+      normalizedDeletionPosition,
+      { collapseWithinSnapshot: true },
+    ));
 
   const nextRepeats = (Array.isArray(repeats) ? repeats : [])
     .map((repeat) => shiftMarkerAfterDeletion(repeat, normalizedDeletionPosition, { collapseWithinSnapshot: true }));
@@ -190,17 +191,14 @@ export function shiftStructuralMarkersAfterSnapshotRangeDeletion({
       .map((bar) => shiftMarkerAfterRangeDeletion(bar, normalizedStartPosition, normalizedEndPosition)),
   );
 
-  const nextTempi = dedupeStructuralCollisions(
-    (Array.isArray(tempi) ? tempi : [])
-      .filter((tempo) => !(deleteTempiInRange && isWithinDeletedRange(tempo)))
-      .map(annotateOriginalPosition)
-      .map((tempo) => shiftMarkerAfterRangeDeletion(
-        tempo,
-        normalizedStartPosition,
-        normalizedEndPosition,
-        { collapseWithinRange: true },
-      )),
-  );
+  const nextTempi = (Array.isArray(tempi) ? tempi : [])
+    .filter((tempo) => !(deleteTempiInRange && isWithinDeletedRange(tempo)))
+    .map((tempo) => shiftMarkerAfterRangeDeletion(
+      tempo,
+      normalizedStartPosition,
+      normalizedEndPosition,
+      { collapseWithinRange: true },
+    ));
 
   const nextRepeats = (Array.isArray(repeats) ? repeats : [])
     .filter((repeat) => !(deleteRepeatsInRange && isWithinDeletedRange(repeat)))

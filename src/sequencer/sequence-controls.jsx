@@ -247,6 +247,7 @@ const SequenceControls = ({
   newTempoPosition,
   setNewTempoPosition,
   newTempoBpm,
+  newTempoBpmIsSuggested,
   setNewTempoBpm,
   addTempoAtRequestedPosition,
   addTempoTransitionAtRequestedPosition,
@@ -340,7 +341,7 @@ const SequenceControls = ({
             <span class="sequencer-bars-add__tempo">
               <input
                 type="text"
-                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpm === "60" ? " sequencer-bars-add__position--hint" : ""}`}
+                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpmIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
                 aria-label="new tempo bpm"
                 value={newTempoBpm}
                 onFocus={selectControlValue}

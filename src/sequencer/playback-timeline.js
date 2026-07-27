@@ -6,9 +6,9 @@ import {
   deriveSequenceEvents,
 } from "./trigger-groups.js";
 import {
+  deriveEffectiveTempoMarkers,
   deriveTerminalBarlinePosition,
   normalizeBarMarkers,
-  normalizeTempoMarkers,
 } from "./transport.js";
 
 function normalizeTime(value) {
@@ -92,7 +92,7 @@ function sequencePositionToQuarterNotes(position, segments = []) {
 }
 
 function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = null) {
-  const normalizedTempi = normalizeTempoMarkers(tempi);
+  const normalizedTempi = deriveEffectiveTempoMarkers(tempi);
   const barTimingSegments = buildBarTimingSegments(bars, terminalPosition);
   const segments = [];
   let elapsedSeconds = 0;
