@@ -355,7 +355,7 @@ export function useSequenceVirtualization({
       pinnedIndexes: [
         ...pinnedIndexes,
         ...stabilizedIndexes,
-        ...(startAnchor?.targetIndexes ?? []),
+        ...(startAnchor?.materializedIndexes ?? startAnchor?.targetIndexes ?? []),
       ],
       anchorIndex: startAnchor?.preferredIndex ?? null,
       enabled,
@@ -594,8 +594,8 @@ export function useSequenceVirtualization({
     // coordinate used by applyStartAnchor. Preserve that small prefix window
     // as well; replacing it with estimates after the scroll would move the
     // target. Mounted rows after the target cannot affect its coordinate.
-    const firstTargetIndex = anchor.targetIndexes.length > 0
-      ? Math.min(...anchor.targetIndexes)
+    const firstTargetIndex = anchor.materializedIndexes.length > 0
+      ? Math.min(...anchor.materializedIndexes)
       : anchor.preferredIndex;
     (activeLayout?.rows ?? []).forEach((row) => {
       if (row.type === "item" && row.index < firstTargetIndex) {
@@ -620,7 +620,15 @@ export function useSequenceVirtualization({
     const contentNode = contentRef?.current;
     if (!(contentNode instanceof HTMLElement)) return false;
     const exactSizes = new Map();
-    anchor.targetIndexes.forEach((index) => {
+    const mountedIndexes = [
+      ...contentNode.querySelectorAll("[data-sequence-virtual-index]"),
+    ]
+      .map((node) => Number(node.dataset.sequenceVirtualIndex))
+      .filter((index) => Number.isInteger(index));
+    // Rows already mounted above a distant target contribute their real
+    // heights to its DOM coordinate. Record them in the same transaction so
+    // replacing that old viewport with spacers cannot move the chosen anchor.
+    new Set([...anchor.materializedIndexes, ...mountedIndexes]).forEach((index) => {
       const item = items[index];
       const node = contentNode.querySelector(`[data-sequence-virtual-index="${index}"]`);
       const height = node instanceof HTMLElement
@@ -657,7 +665,7 @@ export function useSequenceVirtualization({
     if (anchor.requireMeasuredLayout && anchor.measurementsCommitted !== true) {
       const contentNode = contentRef?.current;
       const targetRowsReady = contentNode instanceof HTMLElement
-        && anchor.targetIndexes.every((index) => {
+        && anchor.materializedIndexes.every((index) => {
           const node = contentNode.querySelector(`[data-sequence-virtual-index="${index}"]`);
           return node instanceof HTMLElement && node.getBoundingClientRect().height > 0;
         });
@@ -758,6 +766,7 @@ export function useSequenceVirtualization({
     align = "nearest",
     topOffset = 0,
     targetIndexes = null,
+    materializedIndexes = null,
     retainedIndexes = null,
     overflowAlignment = "start",
     preferredEventId = null,
@@ -786,11 +795,21 @@ export function useSequenceVirtualization({
             && targetIndex < items.length
           )),
       )];
+      const normalizedMaterializedIndexes = [...new Set(
+        (Array.isArray(materializedIndexes) ? materializedIndexes : normalizedTargetIndexes)
+          .map((targetIndex) => Number(targetIndex))
+          .filter((targetIndex) => (
+            Number.isInteger(targetIndex)
+            && targetIndex >= 0
+            && targetIndex < items.length
+          )),
+      )];
       const anchor = {
         preferredIndex: numeric,
         targetIndexes: normalizedTargetIndexes,
+        materializedIndexes: normalizedMaterializedIndexes,
         retainedIndexes: [...new Set(
-          (Array.isArray(retainedIndexes) ? retainedIndexes : normalizedTargetIndexes)
+          (Array.isArray(retainedIndexes) ? retainedIndexes : normalizedMaterializedIndexes)
             .map((targetIndex) => Number(targetIndex))
             .filter((targetIndex) => (
               Number.isInteger(targetIndex)

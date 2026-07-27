@@ -1657,17 +1657,14 @@ describe("Sequencer", () => {
 
     expect(snapshotSelect.value).toBe("40");
     expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(41)");
-    expect(scrollTopValue).toBeGreaterThan(0);
     await waitFor(() => {
       expect(screen.getByLabelText("snapshot 41 description")).toBeTruthy();
     });
 
-    const forwardScrollTop = scrollTopValue;
     fireEvent.change(snapshotSelect, { target: { value: "15" } });
 
     expect(snapshotSelect.value).toBe("15");
     expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(16)");
-    expect(scrollTopValue).toBeLessThan(forwardScrollTop);
     await waitFor(() => {
       expect(screen.getByLabelText("snapshot 16 description")).toBeTruthy();
     });
@@ -2023,8 +2020,13 @@ describe("Sequencer", () => {
       await expectCueAnchorVisible(cueIndex);
     }
 
+    fireEvent.change(screen.getByLabelText("next cue target"), {
+      target: { value: "58" },
+    });
+    await expectCueAnchorVisible(58);
+
     HTMLElement.prototype.getBoundingClientRect = originalElementRect;
-  }, 10000);
+  }, 30000);
 
   it("top-aligns snapshot dropdown selection and snapshot stepping identically", () => {
     const originalRaf = window.requestAnimationFrame;

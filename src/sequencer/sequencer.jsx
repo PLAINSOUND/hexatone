@@ -48,6 +48,7 @@ import useSequencerPostCommitDiagnostics from "./post-commit-diagnostics.js";
 import useTimedUiDiagnostics from "./timed-ui-diagnostics.js";
 import {
   estimateSequenceGroupHeight,
+  SEQUENCE_VIRTUALIZATION_OVERSCAN_PX,
   useSequenceVirtualization,
 } from "./sequence-virtualization.js";
 import {
@@ -846,6 +847,26 @@ const Sequencer = ({
   const renderedSnapshotIndexById = useMemo(() => new Map(
     renderedSnapshots.map((snapshot, index) => [snapshot.id, index]),
   ), [renderedSnapshots]);
+  const materializeVirtualViewport = useCallback((firstIndex, lastIndex = firstIndex) => {
+    if (virtualSequenceItems.length === 0) return [];
+    let first = Math.max(0, Math.min(virtualSequenceItems.length - 1, Number(firstIndex)));
+    let last = Math.max(first, Math.min(virtualSequenceItems.length - 1, Number(lastIndex)));
+    const panelHeight = scrollPanelRef.current instanceof HTMLElement
+      ? scrollPanelRef.current.clientHeight || 640
+      : 640;
+    const paddingBudget = panelHeight + SEQUENCE_VIRTUALIZATION_OVERSCAN_PX;
+    let beforeHeight = 0;
+    while (first > 0 && beforeHeight < paddingBudget) {
+      first -= 1;
+      beforeHeight += Math.max(1, Number(virtualSequenceItems[first]?.estimatedSize) || 1);
+    }
+    let afterHeight = 0;
+    while (last < virtualSequenceItems.length - 1 && afterHeight < paddingBudget) {
+      last += 1;
+      afterHeight += Math.max(1, Number(virtualSequenceItems[last]?.estimatedSize) || 1);
+    }
+    return Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
+  }, [scrollPanelRef, virtualSequenceItems]);
   const scrollVirtualSnapshotRowIntoView = useCallback((snapshotId) => {
     const index = renderedSnapshotIndexById.get(snapshotId);
     return index == null ? false : scrollVirtualSequenceIndexIntoView(index);
@@ -872,12 +893,21 @@ const Sequencer = ({
     const stickyTransportOverlap = playbackRect == null || panelRect == null
       ? 0
       : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+    const materializedIndexes = materializeVirtualViewport(numericIndex);
+    releaseVirtualSequenceAnchor();
     return scrollVirtualSequenceIndexIntoView(numericIndex, {
       align: "start",
       topOffset: stickyTransportOverlap + 6,
+      targetIndexes: [numericIndex],
+      materializedIndexes,
+      retainedIndexes: materializedIndexes,
+      requireMeasuredLayout: true,
+      applyOnce: true,
     });
   }, [
     playbackRowRef,
+    materializeVirtualViewport,
+    releaseVirtualSequenceAnchor,
     scrollPanelRef,
     scrollVirtualSequenceIndexIntoView,
     timedPlaybackOwnsViewport,
@@ -893,14 +923,22 @@ const Sequencer = ({
     const virtualIndex = barDisplayBucket(bar?.position);
     if (virtualIndex < 0 || virtualIndex >= renderedSnapshots.length) return false;
     const structuralKeys = structuralScrollKeysAtPosition(bar.position);
+    const materializedIndexes = materializeVirtualViewport(virtualIndex);
+    releaseVirtualSequenceAnchor();
     return scrollVirtualSequenceIndexIntoView(virtualIndex, {
       align: "start",
       topOffset: 6,
       targetIndexes: [virtualIndex],
+      materializedIndexes,
+      retainedIndexes: materializedIndexes,
       preferredStructuralKey: structuralKeys[0] ?? null,
       targetStructuralKeys: structuralKeys,
+      requireMeasuredLayout: true,
+      applyOnce: true,
     });
   }, [
+    releaseVirtualSequenceAnchor,
+    materializeVirtualViewport,
     renderedSnapshots.length,
     scrollVirtualSequenceIndexIntoView,
     sortedBars,
@@ -933,9 +971,20 @@ const Sequencer = ({
     const overflowEvent = cueViewport.overflowEventId == null
       ? null
       : sequenceEvents.find((event) => event.eventId === cueViewport.overflowEventId) ?? null;
-    const cueSnapshotIndexes = snapshots
-      .map((snapshot, index) => (cueSnapshotIds.has(snapshot.id) ? index : null))
-      .filter((index) => index != null);
+    const cueEventIds = new Set(cueViewport.eventIds);
+    // sequenceEvents.snapshotIndex addresses renderedSnapshots. Source
+    // snapshot indexes diverge after the runtime inserts display snapshots, so
+    // converting these IDs through `snapshots` can anchor a later visible row.
+    const cueSnapshotIndexes = [...new Set(
+      sequenceEvents
+        .filter((event) => cueEventIds.has(event.eventId))
+        .map((event) => renderedSnapshotIndexById.get(event.snapshotId))
+        .filter((index) => (
+          Number.isInteger(index)
+          && index >= 0
+          && index < renderedSnapshots.length
+        )),
+    )];
     const recentSnapshotId = overflowEvent?.snapshotId ?? resolveCueAnchorSnapshotId({
       activeCueIndex: numericCueIndex + 1,
       sequenceCueGroups,
@@ -943,9 +992,12 @@ const Sequencer = ({
       snapshots,
       cueExpandedSnapshotIds: cueSnapshotIds,
     });
-    const recentSnapshotIndex = recentSnapshotId == null
-      ? (sequenceCueGroups[numericCueIndex]?.snapshotIndex ?? null)
-      : snapshots.findIndex((snapshot) => snapshot.id === recentSnapshotId);
+    const overflowSnapshotIndex = renderedSnapshotIndexById.get(overflowEvent?.snapshotId);
+    const recentSnapshotIndex = Number.isInteger(overflowSnapshotIndex)
+      ? overflowSnapshotIndex
+      : recentSnapshotId == null
+        ? (sequenceCueGroups[numericCueIndex]?.snapshotIndex ?? null)
+        : (renderedSnapshotIndexById.get(recentSnapshotId) ?? null);
     if (!Number.isInteger(recentSnapshotIndex) || recentSnapshotIndex < 0) return false;
     const firstRelevantIndex = cueSnapshotIndexes.length > 0
       ? Math.min(...cueSnapshotIndexes)
@@ -953,9 +1005,13 @@ const Sequencer = ({
     const lastRelevantIndex = cueSnapshotIndexes.length > 0
       ? Math.max(...cueSnapshotIndexes)
       : recentSnapshotIndex;
-    const materializedIndexes = Array.from(
+    const relevantIndexes = Array.from(
       { length: lastRelevantIndex - firstRelevantIndex + 1 },
       (_, offset) => firstRelevantIndex + offset,
+    );
+    const materializedIndexes = materializeVirtualViewport(
+      relevantIndexes[0],
+      relevantIndexes.at(-1),
     );
     const scrollPanel = scrollPanelRef.current;
     const playbackRect = playbackRowRef.current instanceof HTMLElement
@@ -972,7 +1028,8 @@ const Sequencer = ({
       topOffset: stickyTransportOverlap + 6,
       // Mount the complete physical interval. No estimated spacer is then
       // allowed between the first and last relevant event row.
-      targetIndexes: materializedIndexes,
+      targetIndexes: relevantIndexes,
+      materializedIndexes,
       // Keep the exact interval used to calculate this one scroll. Dropping
       // the intervening snapshots immediately after applying the anchor
       // changes the virtual offsets and invalidates the chosen row position.
@@ -988,6 +1045,9 @@ const Sequencer = ({
     });
   }, [
     playbackRowRef,
+    materializeVirtualViewport,
+    renderedSnapshotIndexById,
+    renderedSnapshots.length,
     scrollPanelRef,
     scrollVirtualSequenceIndexIntoView,
     sequenceCueGroups,
@@ -999,13 +1059,13 @@ const Sequencer = ({
     const numericCueIndex = Number(cueIndex);
     if (!Number.isInteger(numericCueIndex)) return;
     cueViewportGenerationRef.current += 1;
-    cancelVirtualSequenceAnchor();
+    releaseVirtualSequenceAnchor();
     setCueViewportTransaction({
       generation: cueViewportGenerationRef.current,
       cueIndex: numericCueIndex,
       phase: "expand",
     });
-  }, [cancelVirtualSequenceAnchor]);
+  }, [releaseVirtualSequenceAnchor]);
   const armVirtualizedPendingCue = useCallback((cueIndex) => {
     armPendingCue(cueIndex, { viewportPrepared: true });
     startCueViewportTransaction(cueIndex);
