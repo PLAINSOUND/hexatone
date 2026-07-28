@@ -29,6 +29,19 @@ Example:
 ./osc-bridge/dist/osc-bridge-darwin-arm64
 ```
 
+## Tracing live pitch
+
+To log every outgoing OSC frequency update while diagnosing live retuning, run
+the source bridge with its opt-in pitch trace:
+
+```sh
+HEXATONE_OSC_PITCH_TRACE=1 yarn osc-bridge
+```
+
+Each `/n_set ... freq ...` packet is printed with its exact sequence number,
+bridge timestamp, destination port, node ID, and frequency. Leave the variable
+unset for normal operation.
+
 ## Notes
 
 - The produced binary is for the current host platform only.

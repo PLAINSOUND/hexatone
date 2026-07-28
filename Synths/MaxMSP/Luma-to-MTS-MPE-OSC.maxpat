@@ -1615,7 +1615,7 @@
                             {
                                 "box": {
                                     "id": "obj-123",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -15034,7 +15034,7 @@
                             {
                                 "box": {
                                     "id": "obj-4",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -16791,7 +16791,7 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 229.0, 380.0, 805.0, 349.0 ],
+                        "rect": [ 229.0, 392.0, 807.0, 337.0 ],
                         "openinpresentation": 1,
                         "toolbarvisible": 0,
                         "visible": 1,
@@ -17331,7 +17331,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 503.0, 365.0, 43.0, 22.0 ],
-                                    "text": "120 0"
+                                    "text": "1 34"
                                 }
                             },
                             {
@@ -36878,7 +36878,7 @@
                                     "maxclass": "newobj",
                                     "numinlets": 5,
                                     "numoutlets": 1,
-                                    "outlettype": [ "bang" ],
+                                    "outlettype": [ "" ],
                                     "patcher": {
                                         "fileversion": 1,
                                         "appversion": {
@@ -36889,7 +36889,7 @@
                                             "modernui": 1
                                         },
                                         "classnamespace": "box",
-                                        "rect": [ 800.0, 199.0, 543.0, 724.0 ],
+                                        "rect": [ 160.0, 293.0, 543.0, 724.0 ],
                                         "boxes": [
                                             {
                                                 "box": {
@@ -36900,17 +36900,6 @@
                                                     "numinlets": 1,
                                                     "numoutlets": 0,
                                                     "patching_rect": [ 21.0, 666.0, 30.0, 30.0 ]
-                                                }
-                                            },
-                                            {
-                                                "box": {
-                                                    "id": "obj-6",
-                                                    "maxclass": "button",
-                                                    "numinlets": 1,
-                                                    "numoutlets": 1,
-                                                    "outlettype": [ "bang" ],
-                                                    "parameter_enable": 0,
-                                                    "patching_rect": [ 21.0, 628.0, 24.0, 24.0 ]
                                                 }
                                             },
                                             {
@@ -37784,6 +37773,14 @@
                                             },
                                             {
                                                 "patchline": {
+                                                    "destination": [ "obj-7", 0 ],
+                                                    "midpoints": [ 59.5, 363.00390625, 30.5, 363.00390625 ],
+                                                    "order": 2,
+                                                    "source": [ "obj-226", 0 ]
+                                                }
+                                            },
+                                            {
+                                                "patchline": {
                                                     "destination": [ "obj-55", 0 ],
                                                     "source": [ "obj-29", 0 ]
                                                 }
@@ -37900,21 +37897,7 @@
                                             },
                                             {
                                                 "patchline": {
-                                                    "destination": [ "obj-7", 0 ],
-                                                    "source": [ "obj-6", 0 ]
-                                                }
-                                            },
-                                            {
-                                                "patchline": {
-                                                    "destination": [ "obj-6", 0 ],
-                                                    "order": 1,
-                                                    "source": [ "obj-60", 0 ]
-                                                }
-                                            },
-                                            {
-                                                "patchline": {
                                                     "destination": [ "obj-61", 0 ],
-                                                    "order": 0,
                                                     "source": [ "obj-60", 0 ]
                                                 }
                                             },
@@ -38033,7 +38016,7 @@
                                             "modernui": 1
                                         },
                                         "classnamespace": "box",
-                                        "rect": [ 0.0, 0.0, 1000.0, 780.0 ],
+                                        "rect": [ 255.0, 120.0, 1000.0, 780.0 ],
                                         "boxes": [
                                             {
                                                 "box": {
@@ -38255,7 +38238,7 @@
                                 "box": {
                                     "id": "obj-211",
                                     "maxclass": "newobj",
-                                    "numinlets": 7,
+                                    "numinlets": 8,
                                     "numoutlets": 3,
                                     "outlettype": [ "", "float", "" ],
                                     "patcher": {
@@ -38268,10 +38251,59 @@
                                             "modernui": 1
                                         },
                                         "classnamespace": "box",
-                                        "rect": [ 256.0, 144.0, 1135.0, 815.0 ],
+                                        "rect": [ 256.0, 144.0, 1501.0, 815.0 ],
                                         "default_fontsize": 13.0,
                                         "style": "rnbohighcontrast",
                                         "boxes": [
+                                            {
+                                                "box": {
+                                                    "id": "obj-11",
+                                                    "maxclass": "number",
+                                                    "numinlets": 1,
+                                                    "numoutlets": 2,
+                                                    "outlettype": [ "", "bang" ],
+                                                    "parameter_enable": 0,
+                                                    "patching_rect": [ 494.0, 77.0, 66.11110812425613, 23.0 ]
+                                                }
+                                            },
+                                            {
+                                                "box": {
+                                                    "id": "obj-10",
+                                                    "maxclass": "comment",
+                                                    "numinlets": 1,
+                                                    "numoutlets": 0,
+                                                    "patching_rect": [ 456.0, 17.0, 128.0, 21.0 ],
+                                                    "presentation_linecount": 2,
+                                                    "text": "MTS index incoming"
+                                                }
+                                            },
+                                            {
+                                                "box": {
+                                                    "id": "obj-9",
+                                                    "maxclass": "newobj",
+                                                    "numinlets": 1,
+                                                    "numoutlets": 4,
+                                                    "outlettype": [ "", "", "", "" ],
+                                                    "patching_rect": [ 447.0, 145.0, 146.0, 23.0 ],
+                                                    "saved_object_attributes": {
+                                                        "embed": 0,
+                                                        "precision": 6
+                                                    },
+                                                    "text": "coll MTS-real-time-table"
+                                                }
+                                            },
+                                            {
+                                                "box": {
+                                                    "comment": "MPE bend range",
+                                                    "id": "obj-5",
+                                                    "index": 4,
+                                                    "maxclass": "inlet",
+                                                    "numinlets": 0,
+                                                    "numoutlets": 1,
+                                                    "outlettype": [ "" ],
+                                                    "patching_rect": [ 494.0, 35.0, 30.0, 30.0 ]
+                                                }
+                                            },
                                             {
                                                 "box": {
                                                     "id": "obj-110",
@@ -38770,7 +38802,7 @@
                                                     "maxclass": "comment",
                                                     "numinlets": 1,
                                                     "numoutlets": 0,
-                                                    "patching_rect": [ 526.0, 270.0, 132.0, 36.0 ],
+                                                    "patching_rect": [ 515.75, 270.5, 132.0, 36.0 ],
                                                     "text": "assigns note based on MIDI channel"
                                                 }
                                             },
@@ -39016,7 +39048,7 @@
                                                 "box": {
                                                     "comment": "MPE bend range",
                                                     "id": "obj-14",
-                                                    "index": 7,
+                                                    "index": 8,
                                                     "maxclass": "inlet",
                                                     "numinlets": 0,
                                                     "numoutlets": 1,
@@ -39073,7 +39105,7 @@
                                                 "box": {
                                                     "comment": "MPE channel",
                                                     "id": "obj-3",
-                                                    "index": 6,
+                                                    "index": 7,
                                                     "maxclass": "inlet",
                                                     "numinlets": 0,
                                                     "numoutlets": 1,
@@ -39085,7 +39117,7 @@
                                                 "box": {
                                                     "comment": "MTS bend",
                                                     "id": "obj-2",
-                                                    "index": 5,
+                                                    "index": 6,
                                                     "maxclass": "inlet",
                                                     "numinlets": 0,
                                                     "numoutlets": 1,
@@ -39097,7 +39129,7 @@
                                                 "box": {
                                                     "comment": "MTS note",
                                                     "id": "obj-1",
-                                                    "index": 4,
+                                                    "index": 5,
                                                     "maxclass": "inlet",
                                                     "numinlets": 0,
                                                     "numoutlets": 1,
@@ -39158,6 +39190,12 @@
                                                     "midpoints": [ 298.5, 625.5, 714.5, 625.5 ],
                                                     "order": 0,
                                                     "source": [ "obj-105", 1 ]
+                                                }
+                                            },
+                                            {
+                                                "patchline": {
+                                                    "destination": [ "obj-9", 0 ],
+                                                    "source": [ "obj-11", 0 ]
                                                 }
                                             },
                                             {
@@ -39298,9 +39336,15 @@
                                             {
                                                 "patchline": {
                                                     "destination": [ "obj-69", 0 ],
-                                                    "midpoints": [ 186.5, 338.76171875, 576.5, 338.76171875 ],
+                                                    "midpoints": [ 186.5, 326.20703125, 576.5, 326.20703125 ],
                                                     "order": 1,
                                                     "source": [ "obj-49", 0 ]
+                                                }
+                                            },
+                                            {
+                                                "patchline": {
+                                                    "destination": [ "obj-11", 0 ],
+                                                    "source": [ "obj-5", 0 ]
                                                 }
                                             },
                                             {
@@ -39567,6 +39611,12 @@
                                                     "destination": [ "obj-90", 0 ],
                                                     "order": 1,
                                                     "source": [ "obj-88", 0 ]
+                                                }
+                                            },
+                                            {
+                                                "patchline": {
+                                                    "destination": [ "obj-76", 0 ],
+                                                    "source": [ "obj-9", 0 ]
                                                 }
                                             },
                                             {
@@ -59499,7 +59549,7 @@
                             {
                                 "box": {
                                     "id": "obj-125",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -59535,7 +59585,7 @@
                             {
                                 "box": {
                                     "id": "obj-116",
-                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "to Max 1", ",", "to Max 2" ],
+                                    "items": [ "IAC Bus 1", ",", "IAC Bus 2", ",", "IAC MPE-output", ",", "IAC MTS-output", ",", "UM-ONE", ",", "USB MIDI Device Port 1", ",", "USB MIDI Device Port 2", ",", "Lumatone", ",", "to Max 1", ",", "to Max 2" ],
                                     "maxclass": "umenu",
                                     "numinlets": 1,
                                     "numoutlets": 3,
@@ -60559,15 +60609,13 @@
                             {
                                 "box": {
                                     "id": "obj-17",
-                                    "linecount": 2,
                                     "maxclass": "comment",
                                     "numinlets": 1,
                                     "numoutlets": 0,
-                                    "patching_rect": [ 1387.0, 1001.0, 50.0, 33.0 ],
+                                    "patching_rect": [ 1387.0, 1001.0, 50.0, 20.0 ],
                                     "presentation": 1,
-                                    "presentation_linecount": 2,
-                                    "presentation_rect": [ 188.0, 310.0, 43.0, 33.0 ],
-                                    "text": "on/off\nvel"
+                                    "presentation_rect": [ 188.0, 310.0, 43.0, 20.0 ],
+                                    "text": "vel"
                                 }
                             },
                             {
@@ -63477,8 +63525,8 @@
                             },
                             {
                                 "patchline": {
-                                    "destination": [ "obj-211", 2 ],
-                                    "midpoints": [ 1341.5, 826.55078125, 992.1666666666666, 826.55078125 ],
+                                    "destination": [ "obj-211", 3 ],
+                                    "midpoints": [ 1341.5, 826.55078125, 1008.3571428571429, 826.55078125 ],
                                     "source": [ "obj-155", 0 ]
                                 }
                             },
@@ -63917,7 +63965,7 @@
                             },
                             {
                                 "patchline": {
-                                    "destination": [ "obj-211", 4 ],
+                                    "destination": [ "obj-211", 5 ],
                                     "source": [ "obj-232", 0 ]
                                 }
                             },
@@ -64565,7 +64613,7 @@
                             },
                             {
                                 "patchline": {
-                                    "destination": [ "obj-211", 6 ],
+                                    "destination": [ "obj-211", 7 ],
                                     "midpoints": [ 220.5, 839.1922512054443, 1105.5, 839.1922512054443 ],
                                     "order": 1,
                                     "source": [ "obj-77", 0 ]
@@ -64801,14 +64849,14 @@
                             },
                             {
                                 "patchline": {
-                                    "destination": [ "obj-211", 5 ],
+                                    "destination": [ "obj-211", 6 ],
                                     "order": 2,
                                     "source": [ "obj-96", 2 ]
                                 }
                             },
                             {
                                 "patchline": {
-                                    "destination": [ "obj-211", 3 ],
+                                    "destination": [ "obj-211", 4 ],
                                     "order": 1,
                                     "source": [ "obj-96", 0 ]
                                 }

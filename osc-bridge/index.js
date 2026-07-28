@@ -31,6 +31,8 @@ const WS_PORT = 8089;
 const SC_HOST = "127.0.0.1";
 const SC_PORT = 57100; // sclang / dispatcher port in the Hexatone SC setup
 const SC_LANG_PORT = Number(process.env.SC_LANG_PORT || 57120);
+const PITCH_TRACE_ENABLED = process.env.HEXATONE_OSC_PITCH_TRACE === "1";
+let PITCH_TRACE_SEQ = 0;
 // Temporary OSC trace logging retained for future debugging.
 // let TRACE_SEQ = 0;
 let JITTER_LAST_BRIDGE_PERF = null;
@@ -45,6 +47,14 @@ udp.on("error", (err) => console.error("[osc-bridge] UDP error:", err.message));
 
 function sendOsc(address, args, port = SC_PORT) {
   const buf = encodeOsc(address, args);
+  const parameterName = address === "/n_set" ? oscArgValue(args?.[1]) : null;
+  if (PITCH_TRACE_ENABLED && parameterName === "freq") {
+    const nodeId = oscArgValue(args?.[0]);
+    const frequency = Number(oscArgValue(args?.[2]));
+    console.log(
+      `[osc-bridge:pitch] seq=${++PITCH_TRACE_SEQ} time=${performance.now().toFixed(3)} port=${port} node=${nodeId} freq=${frequency.toPrecision(12)}`,
+    );
+  }
   // const seq = ++TRACE_SEQ;
   // const nodeId =
   //   address === "/s_new"
