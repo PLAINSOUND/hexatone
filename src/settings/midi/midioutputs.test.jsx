@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
+import { beforeEach } from "vitest";
+import { EAGAN_BRIGHTNESS_EVENT } from "../../mpe_synth/eagan-matrix.js";
 import MidiOutputs from "./midioutputs.js";
 
 const makeProps = (overrides = {}) => ({
@@ -30,6 +32,10 @@ const makeProps = (overrides = {}) => ({
 });
 
 describe("MidiOutputs FluidSynth independence", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it("labels the section as output routing", () => {
     render(<MidiOutputs {...makeProps()} />);
 
@@ -190,5 +196,149 @@ describe("MidiOutputs FluidSynth independence", () => {
     fireEvent.click(screen.getByLabelText("MPE+ PB"));
 
     expect(onChange).toHaveBeenCalledWith("mpe_plus_output", true);
+  });
+
+  it("offers automatic Y/Z generation only inside configured MPE output routing", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <MidiOutputs
+        {...makeProps({
+          output_mpe: false,
+          mpe_device: "OFF",
+          mpe_auto_generate_yz: false,
+        })}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Auto-Generate MPE YZ")).toBeNull();
+
+    rerender(
+      <MidiOutputs
+        {...makeProps({
+          output_mpe: true,
+          mpe_device: "main-1",
+          mpe_auto_generate_yz: false,
+        })}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Auto-Generate MPE YZ"));
+
+    expect(screen.getByRole("group", { name: "Eagan Matrix" })).not.toBeNull();
+    expect(onChange).toHaveBeenCalledWith("mpe_auto_generate_yz", true);
+  });
+
+  it("sends and persists Eagan Matrix controls on the MPE manager channel", () => {
+    const onChange = vi.fn();
+    const mpeOutput = {
+      id: "main-1",
+      name: "Main Port",
+      send: vi.fn(),
+    };
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_mpe: true,
+          mpe_device: "main-1",
+          midiin_mpe_manager_ch: "16",
+          mpe_eagan_brightness: 64,
+          mpe_eagan_tilt_eq: 65,
+          mpe_eagan_pre_level: 66,
+          mpe_eagan_post_level: 67,
+        })}
+        onChange={onChange}
+        midi={{
+          outputs: new Map([
+            ["main-1", mpeOutput],
+            ["fluid-1", { id: "fluid-1", name: "FluidSynth Virtual Port" }],
+          ]),
+        }}
+      />,
+    );
+
+    const controls = [
+      ["Brightness", 13, 65, "mpe_eagan_brightness"],
+      ["Tilt EQ", 83, 66, "mpe_eagan_tilt_eq"],
+      ["Pre Level", 18, 67, "mpe_eagan_pre_level"],
+      ["Post Level", 26, 68, "mpe_eagan_post_level"],
+    ];
+
+    for (const [label, cc, value, key] of controls) {
+      const slider = screen.getByRole("slider", { name: label });
+      fireEvent.keyDown(slider, { key: "ArrowRight" });
+
+      expect(mpeOutput.send).toHaveBeenCalledWith([0xbf, cc, value]);
+      expect(onChange).toHaveBeenCalledWith(key, value);
+      expect(sessionStorage.getItem(key)).toBe(String(value));
+      expect(slider.getAttribute("aria-valuenow")).toBe(String(value));
+    }
+  });
+
+  it("defaults Eagan Matrix controls to 64 and sends them when Auto-Generate is enabled", () => {
+    const onChange = vi.fn();
+    const mpeOutput = {
+      id: "main-1",
+      name: "Main Port",
+      send: vi.fn(),
+    };
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_mpe: true,
+          mpe_device: "main-1",
+          midiin_mpe_manager_ch: "1",
+          mpe_auto_generate_yz: false,
+        })}
+        onChange={onChange}
+        midi={{
+          outputs: new Map([
+            ["main-1", mpeOutput],
+            ["fluid-1", { id: "fluid-1", name: "FluidSynth Virtual Port" }],
+          ]),
+        }}
+      />,
+    );
+
+    for (const label of ["Brightness", "Tilt EQ", "Pre Level", "Post Level"]) {
+      expect(screen.getByRole("slider", { name: label }).getAttribute("aria-valuenow")).toBe("64");
+    }
+
+    fireEvent.click(screen.getByLabelText("Auto-Generate MPE YZ"));
+
+    expect(mpeOutput.send.mock.calls).toEqual([
+      [[0xb0, 13, 64]],
+      [[0xb0, 83, 64]],
+      [[0xb0, 18, 64]],
+      [[0xb0, 26, 64]],
+    ]);
+    expect(onChange).toHaveBeenCalledWith("mpe_auto_generate_yz", true);
+  });
+
+  it("enables Mod Wheel to Brightness and follows incoming CC1 values", () => {
+    const onChange = vi.fn();
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_mpe: true,
+          mpe_device: "main-1",
+          mpe_eagan_modwheel_brightness: false,
+          mpe_eagan_brightness: 64,
+        })}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Mod Wheel → Brightness"));
+    expect(onChange).toHaveBeenCalledWith("mpe_eagan_modwheel_brightness", true);
+
+    fireEvent(
+      window,
+      new CustomEvent(EAGAN_BRIGHTNESS_EVENT, { detail: { value: 103 } }),
+    );
+
+    expect(screen.getByRole("slider", { name: "Brightness" }).getAttribute("aria-valuenow")).toBe(
+      "103",
+    );
   });
 });

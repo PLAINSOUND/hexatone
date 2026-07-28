@@ -72,6 +72,13 @@ export const create_composite_synth = (synths) => ({
         hexes.forEach((h) => h.aftertouch && h.aftertouch(value, value14));
       },
 
+      applySnapshotPressure(value, value14 = null) {
+        hexes.forEach((h) => {
+          if (h.applySnapshotPressure) h.applySnapshotPressure(value, value14);
+          else h.aftertouch?.(value, value14);
+        });
+      },
+
       pressure(value, value14 = null) {
         hexes.forEach((h) => h.pressure && h.pressure(value, value14));
       },

@@ -4935,7 +4935,8 @@ input.equiv-cell:disabled,
 
 /* Extra breathing room above HEJI anchor fieldset, which sits immediately
    below the Key Labels select row */
-.heji-anchor-fieldset {
+.heji-anchor-fieldset,
+.eagan-matrix-fieldset {
   margin-top: 0.75em;
 }
 
@@ -4949,6 +4950,7 @@ input.equiv-cell:disabled,
 }
 
 #sidebar .heji-anchor-fieldset__toggle-row,
+#sidebar .eagan-matrix-fieldset__toggle-row,
 #sidebar .auto-prime-colors-fieldset__toggle-row {
   display: flex;
   align-items: center !important;
@@ -4958,7 +4960,8 @@ input.equiv-cell:disabled,
   line-height: 1.5em;
 }
 
-#sidebar .heji-anchor-fieldset__toggle-row {
+#sidebar .heji-anchor-fieldset__toggle-row,
+#sidebar .eagan-matrix-fieldset__toggle-row {
   margin-top: 0.5em;
   width: 100%;
   max-width: 100%;

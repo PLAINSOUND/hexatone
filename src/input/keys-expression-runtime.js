@@ -5,6 +5,7 @@
 
 import { WebMidi } from "webmidi";
 import { scalaToCents } from "../settings/scale/parse-scale";
+import { publishEaganBrightness } from "../mpe_synth/eagan-matrix.js";
 import {
   applyTransferredCC74,
   applyTransferredPitchBend,
@@ -30,7 +31,13 @@ export function passthroughCC(cc, value) {
     if (mpeOutput) {
       const managerCh = parseInt(this.settings.midiin_mpe_manager_ch, 10) || 1;
       mpeOutput.sendControlChange(cc, value, { channels: managerCh });
+      if (cc === 1 && this.settings.mpe_eagan_modwheel_brightness) {
+        mpeOutput.sendControlChange(13, value, { channels: managerCh });
+      }
     }
+  }
+  if (cc === 1 && this.settings.mpe_eagan_modwheel_brightness) {
+    publishEaganBrightness(value);
   }
 }
 

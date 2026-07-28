@@ -24,6 +24,7 @@
 import { VoicePool } from "../polyphony/voice-pool-oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
+import { createAutoMpeYzScheduler } from "./auto-yz.js";
 
 // PB and noteOn are sent in the same synchronous call — the MIDI driver
 // processes them in FIFO order, so PB always arrives before noteOn.
@@ -163,6 +164,7 @@ export const create_mpe_synth = async (
   releaseGuardMs = RELEASE_GUARD_MS, // ms — should match your synth's longest release
   closestPitchSteal = true, // steal closest-pitch SOUNDING voice
   mpePlusPitchBendEnabled = false,
+  autoGenerateMpeYzEnabled = false,
 ) => {
   if (!midi_output) return null;
 
@@ -215,7 +217,14 @@ export const create_mpe_synth = async (
 
   const activeHexes = new Set();
   const mpePlusPitchBendScheduler = createMpePlusPitchBendScheduler(midi_output);
+  const autoMpeYzScheduler = createAutoMpeYzScheduler(midi_output);
   let mpePlusPitchBendDefault = mpePlusPitchBendEnabled === true;
+  let autoGenerateMpeYzDefault = autoGenerateMpeYzEnabled === true;
+  const releaseAllVoices = () => {
+    for (const hex of [...activeHexes]) hex.noteOff(0);
+    mpePlusPitchBendScheduler.clear();
+    for (const channel of voiceIds) autoMpeYzScheduler.reset(channel);
+  };
 
   return {
     family: "mpe",
@@ -249,6 +258,8 @@ export const create_mpe_synth = async (
         masterCh,
         mpePlusPitchBendDefault,
         mpePlusPitchBendScheduler,
+        autoGenerateMpeYzDefault,
+        autoMpeYzScheduler,
       );
       activeHexes.add(hex);
       const originalNoteOff = hex.noteOff.bind(hex);
@@ -286,14 +297,27 @@ export const create_mpe_synth = async (
       }
     },
 
-    releaseAll: () => {
+    releaseAll: releaseAllVoices,
+
+    shutdown: () => {
       for (const hex of [...activeHexes]) hex.noteOff(0);
       mpePlusPitchBendScheduler.clear();
+      for (const channel of voiceIds) {
+        const channel0 = channel - 1;
+        midi_output.send([0xb0 + channel0, 74, 0]);
+        midi_output.send([0xd0 + channel0, 0]);
+      }
+      autoMpeYzScheduler.shutdown();
     },
 
     setMpePlusPitchBendEnabled: (enabled) => {
       mpePlusPitchBendDefault = enabled === true;
       for (const hex of activeHexes) hex.setMpePlusPitchBendEnabled(enabled);
+    },
+
+    setAutoGenerateMpeYzEnabled: (enabled) => {
+      autoGenerateMpeYzDefault = enabled === true;
+      for (const hex of activeHexes) hex.setAutoGenerateMpeYzEnabled(enabled);
     },
   };
 };
@@ -315,6 +339,8 @@ function MpeHex(
   masterCh,
   mpePlusPitchBendEnabled,
   mpePlusPitchBendScheduler,
+  autoGenerateMpeYzEnabled,
+  autoMpeYzScheduler,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -334,6 +360,8 @@ function MpeHex(
   this.note_played = note_played;
   this.mpePlusPitchBendEnabled = mpePlusPitchBendEnabled === true;
   this.mpePlusPitchBendScheduler = mpePlusPitchBendScheduler;
+  this.autoGeneratesMpeYZ = autoGenerateMpeYzEnabled === true;
+  this.autoMpeYzScheduler = autoMpeYzScheduler;
   this._lastSentBend = null;
   this._lastSentBend21 = null;
   this._lastSentAftertouch = null;
@@ -400,6 +428,9 @@ function MpeHex(
     note: this.note,
     value: this.velocity,
   });
+  if (this.autoGeneratesMpeYZ) {
+    this.autoMpeYzScheduler?.onset(this.channel, this.velocity);
+  }
 
   pool.setLastBend(this.channel, this.bend);
   pool.setLastNote(this.channel, this.note);
@@ -438,6 +469,9 @@ MpeHex.prototype.noteOff = function (release_velocity) {
     note: this.note,
     value: vel,
   });
+  if (this.autoGeneratesMpeYZ) {
+    this.autoMpeYzScheduler?.release(this.channel, vel);
+  }
   // Mark RELEASING in pool (starts the guard timer)
   this.pool.noteOff(this.coords);
   // Guard against aftertouch arriving after release
@@ -579,16 +613,37 @@ MpeHex.prototype.setMpePlusPitchBendEnabled = function (enabled) {
   this._lastSentBend21 = next ? this.bend21 : null;
 };
 
+MpeHex.prototype.setAutoGenerateMpeYzEnabled = function (enabled) {
+  const next = enabled === true;
+  if (this.autoGeneratesMpeYZ === next) return;
+  this.autoGeneratesMpeYZ = next;
+  if (next && !this.release && this._ownsVoiceChannel()) {
+    this.autoMpeYzScheduler?.onset(this.channel, this.velocity);
+  } else if (!next && this._ownsVoiceChannel()) {
+    this.autoMpeYzScheduler?.reset(this.channel);
+  }
+};
+
 MpeHex.prototype._sendMpePlusPitchBend = function (bend21, { immediate = false } = {}) {
   if (this.release) return;
   if (immediate) this.mpePlusPitchBendScheduler?.sendImmediate(this, bend21);
   else this.mpePlusPitchBendScheduler?.enqueue(this, bend21);
 };
 
-MpeHex.prototype.aftertouch = function (value, value14 = null) {
+MpeHex.prototype.aftertouch = function (value, value14 = null, context = null) {
   if (this.release) return;
   if (!this._ownsVoiceChannel()) {
     this._invalidateDisplacedVoice();
+    return;
+  }
+  if (this.autoGeneratesMpeYZ) {
+    const pressure = Number.isFinite(value14) ? value14 >> 7 : value;
+    // Sequence snapshots normally carry an explicit zero-pressure default
+    // immediately after note-on. That is not pressure activity and must not
+    // erase the generated velocity onset. A captured non-zero value is real
+    // expression and does shape the generated envelope.
+    if (context?.initialSnapshotExpression && pressure <= 0) return;
+    this.autoMpeYzScheduler?.pressure(this.channel, pressure, this.velocity);
     return;
   }
   const c = this.channel - 1;
@@ -619,6 +674,10 @@ MpeHex.prototype.aftertouch = function (value, value14 = null) {
   this._lastSentAftertouch14 = null;
 };
 
+MpeHex.prototype.applySnapshotPressure = function (value, value14 = null) {
+  this.aftertouch(value, value14, { initialSnapshotExpression: true });
+};
+
 // pressure: channel pressure on the voice's own channel (same as aftertouch for MPE).
 MpeHex.prototype.pressure = function (value, value14 = null) {
   this.aftertouch(value, value14);
@@ -631,6 +690,10 @@ MpeHex.prototype.cc74 = function (value, value14 = null) {
     this._invalidateDisplacedVoice();
     return;
   }
+  // Auto Y/Z owns both expression dimensions. Incoming CC74 is intentionally
+  // ignored so a stored snapshot's default timbre=0 cannot erase its generated
+  // velocity onset.
+  if (this.autoGeneratesMpeYZ) return;
   const c = this.channel - 1;
   if (Number.isFinite(value14)) {
     const next = Math.max(0, Math.min(16256, value14));

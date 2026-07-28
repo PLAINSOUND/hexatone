@@ -955,6 +955,9 @@ const useSynthWiring = (
       ]);
       if (mpeSynthRef.current.key === mpeKey && mpeSynthRef.current.synth) {
         mpeSynthRef.current.synth.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
+        mpeSynthRef.current.synth.setAutoGenerateMpeYzEnabled?.(
+          !!settings.mpe_auto_generate_yz,
+        );
         promises.push(Promise.resolve(mpeSynthRef.current.synth));
       } else {
         promises.push(
@@ -976,8 +979,10 @@ const useSynthWiring = (
             undefined,
             undefined,
             !!settings.mpe_plus_output,
+            !!settings.mpe_auto_generate_yz,
           ).then((s) => {
             s?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
+            s?.setAutoGenerateMpeYzEnabled?.(!!settings.mpe_auto_generate_yz);
             if (!cancelled) mpeSynthRef.current = { key: mpeKey, synth: s };
             return s;
           }),
@@ -1100,6 +1105,12 @@ const useSynthWiring = (
   useEffect(() => {
     mpeSynthRef.current.synth?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
   }, [settings.mpe_plus_output]);
+
+  useEffect(() => {
+    mpeSynthRef.current.synth?.setAutoGenerateMpeYzEnabled?.(
+      !!settings.mpe_auto_generate_yz,
+    );
+  }, [settings.mpe_auto_generate_yz]);
 
   // Keep synthRef in sync so volume control and preset loading can reach the
   // live synth without depending on the React render cycle.

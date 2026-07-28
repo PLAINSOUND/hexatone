@@ -94,6 +94,30 @@ describe("composite_synth controller-state replay", () => {
     expect(sampleHex.cc74).toHaveBeenCalledWith(91, 12000);
   });
 
+  it("uses the snapshot-pressure hook only on children that provide it", () => {
+    const first = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      note_played: 60,
+      applySnapshotPressure: vi.fn(),
+    };
+    const second = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      note_played: 60,
+      aftertouch: vi.fn(),
+    };
+    const wrapper = create_composite_synth([
+      { makeHex: () => first },
+      { makeHex: () => second },
+    ]).makeHex();
+
+    wrapper.applySnapshotPressure(0, null);
+
+    expect(first.applySnapshotPressure).toHaveBeenCalledWith(0, null);
+    expect(second.aftertouch).toHaveBeenCalledWith(0, null);
+  });
+
   it("exposes child families and forwards onset mod state", () => {
     const oscSetMod = vi.fn();
     const sampleSetMod = vi.fn();

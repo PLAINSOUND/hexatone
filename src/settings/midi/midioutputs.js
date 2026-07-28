@@ -2,6 +2,11 @@ import { useEffect, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";
 import { resolveBulkDumpName, sanitizeBulkDumpName } from "../../tuning/mts-format.js";
+import {
+  clampMidiCc,
+  EAGAN_BRIGHTNESS_EVENT,
+  EAGAN_MATRIX_CONTROLS,
+} from "../../mpe_synth/eagan-matrix.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
 
 const voiceChannels = (masterCh) => {
@@ -40,6 +45,11 @@ const readOscQuickReleaseTime = (name, fallback = 0.1) => {
 const saveOscVolume = (name, value) => {
   localStorage.setItem(name, String(value));
   sessionStorage.setItem(name, String(value));
+};
+
+const readEaganCc = (name, fallback = 64) => {
+  const stored = parseInt(sessionStorage.getItem(name) ?? "", 10);
+  return clampMidiCc(Number.isFinite(stored) ? stored : fallback);
 };
 
 const sendRpn = (output, channel0, msb, lsb, dataMsb, dataLsb = 0) => {
@@ -160,6 +170,21 @@ const MidiOutputs = (props) => {
   const [oscQuickReleaseTime, setOscQuickReleaseTime] = useState(
     readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
   );
+  const [eaganCcDrafts, setEaganCcDrafts] = useState(() => ({
+    mpe_eagan_brightness: readEaganCc(
+      "mpe_eagan_brightness",
+      settings.mpe_eagan_brightness ?? 64,
+    ),
+    mpe_eagan_tilt_eq: readEaganCc("mpe_eagan_tilt_eq", settings.mpe_eagan_tilt_eq ?? 64),
+    mpe_eagan_pre_level: readEaganCc(
+      "mpe_eagan_pre_level",
+      settings.mpe_eagan_pre_level ?? 64,
+    ),
+    mpe_eagan_post_level: readEaganCc(
+      "mpe_eagan_post_level",
+      settings.mpe_eagan_post_level ?? 64,
+    ),
+  }));
   const masterCh = settings.midiin_mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
@@ -201,6 +226,39 @@ const MidiOutputs = (props) => {
       readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
     );
   }, [settings.osc_quick_release_time]);
+
+  useEffect(() => {
+    setEaganCcDrafts({
+      mpe_eagan_brightness: clampMidiCc(settings.mpe_eagan_brightness ?? 64),
+      mpe_eagan_tilt_eq: clampMidiCc(settings.mpe_eagan_tilt_eq ?? 64),
+      mpe_eagan_pre_level: clampMidiCc(settings.mpe_eagan_pre_level ?? 64),
+      mpe_eagan_post_level: clampMidiCc(settings.mpe_eagan_post_level ?? 64),
+    });
+  }, [
+    settings.mpe_eagan_brightness,
+    settings.mpe_eagan_tilt_eq,
+    settings.mpe_eagan_pre_level,
+    settings.mpe_eagan_post_level,
+  ]);
+
+  useEffect(() => {
+    const handleBrightness = (event) => {
+      const next = clampMidiCc(event.detail?.value);
+      setEaganCcDrafts((prev) => ({ ...prev, mpe_eagan_brightness: next }));
+    };
+    window.addEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
+    return () => window.removeEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
+  }, []);
+
+  const sendEaganMatrixCc = (cc, value) => {
+    const output =
+      midi?.outputs?.get?.(settings.mpe_device) ?? WebMidi.getOutputById(settings.mpe_device);
+    if (!output || typeof output.send !== "function") return;
+
+    const managerChannel = parseInt(settings.midiin_mpe_manager_ch, 10);
+    const channel0 = managerChannel >= 1 && managerChannel <= 16 ? managerChannel - 1 : 0;
+    output.send([0xb0 + channel0, cc, clampMidiCc(value)]);
+  };
 
   // Auto-detect FluidSynth: any output whose name contains "fluid" (case-insensitive).
   // If the user has manually overridden the port, use that instead.
@@ -787,6 +845,64 @@ const MidiOutputs = (props) => {
                   onChange={(e) => save(e.target.name, e.target.checked, onChange)}
                 />
               </label>
+              <fieldset class="eagan-matrix-fieldset">
+                <legend>Eagan Matrix</legend>
+                <label
+                  class="eagan-matrix-fieldset__toggle-row"
+                  title="Generate per-voice MPE Y (CC74) and Z (channel pressure) envelopes from attack velocity and subsequent polyphonic pressure. Applies to live input and stored sequences."
+                >
+                  <input
+                    name="mpe_auto_generate_yz"
+                    type="checkbox"
+                    checked={!!settings.mpe_auto_generate_yz}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      save(e.target.name, enabled, onChange);
+                      if (enabled) {
+                        for (const { key, cc } of EAGAN_MATRIX_CONTROLS) {
+                          sendEaganMatrixCc(cc, eaganCcDrafts[key] ?? 64);
+                        }
+                      }
+                    }}
+                  />
+                  Auto-Generate MPE YZ
+                </label>
+                <label
+                  class="eagan-matrix-fieldset__toggle-row"
+                  title="Mirror incoming modulation-wheel CC1 values to Eagan Matrix Brightness CC13."
+                >
+                  <input
+                    name="mpe_eagan_modwheel_brightness"
+                    type="checkbox"
+                    checked={!!settings.mpe_eagan_modwheel_brightness}
+                    onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+                  />
+                  Mod Wheel → Brightness
+                </label>
+                {EAGAN_MATRIX_CONTROLS.map(({ key, label, cc }) => (
+                  <label key={key}>
+                    {label}
+                    <span class="sidebar-input settings-form__range-row">
+                      <CustomRangeSlider
+                        ariaLabel={label}
+                        min={0}
+                        max={127}
+                        step={1}
+                        value={eaganCcDrafts[key] ?? 64}
+                        onInputValue={(nextValue) => {
+                          const next = clampMidiCc(nextValue);
+                          setEaganCcDrafts((prev) => ({ ...prev, [key]: next }));
+                          sendEaganMatrixCc(cc, next);
+                        }}
+                        onCommitValue={(nextValue) => {
+                          save(key, clampMidiCc(nextValue), onChange);
+                        }}
+                      />
+                      <span class="settings-form__range-value">{eaganCcDrafts[key] ?? 64}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
               <label>
                 MPE Configuration (RPN)
                 <span class="sidebar-input settings-form__activate-row">
@@ -992,6 +1108,12 @@ MidiOutputs.propTypes = {
     mpe_pitchbend_range: PropTypes.number,
     mpe_pitchbend_range_manager: PropTypes.number,
     mpe_plus_output: PropTypes.bool,
+    mpe_auto_generate_yz: PropTypes.bool,
+    mpe_eagan_modwheel_brightness: PropTypes.bool,
+    mpe_eagan_brightness: PropTypes.number,
+    mpe_eagan_tilt_eq: PropTypes.number,
+    mpe_eagan_pre_level: PropTypes.number,
+    mpe_eagan_post_level: PropTypes.number,
     output_osc: PropTypes.bool,
     osc_bridge_url: PropTypes.string,
     osc_volume_pluck: PropTypes.number,

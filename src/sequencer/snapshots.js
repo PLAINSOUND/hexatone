@@ -204,8 +204,13 @@ function applySnapshotExpression(runtime, hex, note) {
   const pressure14 = normalize14Bit(note.pressure14);
   if (pressure != null || pressure14 != null) {
     const value = pressure ?? (pressure14 >> 7);
-    if (pressure14 != null) hex.aftertouch?.(value, pressure14);
-    else hex.aftertouch?.(value);
+    if (hex.applySnapshotPressure) {
+      hex.applySnapshotPressure(value, pressure14);
+    } else if (pressure14 != null) {
+      hex.aftertouch?.(value, pressure14);
+    } else {
+      hex.aftertouch?.(value);
+    }
   }
 
   const timbre = normalize7Bit(note.timbre);

@@ -585,3 +585,129 @@ describe("mpe_synth MPE+ emission", () => {
     expect(owner.release).toBe(false);
   });
 });
+
+describe("mpe_synth automatic Y/Z output", () => {
+  const createAutoYzSynth = (midiOutput, enabled = true) => create_mpe_synth(
+    midiOutput,
+    "1",
+    2,
+    4,
+    440,
+    0,
+    0,
+    60,
+    scale12,
+    "standard",
+    96,
+    2,
+    12,
+    2,
+    500,
+    true,
+    false,
+    enabled,
+  );
+
+  it("schedules velocity-shaped CC74 and channel pressure after note-on", async () => {
+    const midiOutput = { send: vi.fn() };
+    const synth = await createAutoYzSynth(midiOutput);
+    midiOutput.send.mockClear();
+
+    synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 100, 0, 1);
+
+    const calls = midiOutput.send.mock.calls;
+    const noteOnIndex = calls.findIndex(([message]) => (message[0] & 0xf0) === 0x90);
+    const generatedIndex = calls.findIndex(
+      ([message], index) => index > noteOnIndex && message[1] === 74,
+    );
+    expect(noteOnIndex).toBeGreaterThanOrEqual(0);
+    expect(generatedIndex).toBeGreaterThan(noteOnIndex);
+    expect(calls[generatedIndex]).toHaveLength(2);
+    expect(calls[generatedIndex + 1]).toHaveLength(2);
+  });
+
+  it("does not let a sequence's default zero pressure erase the velocity onset", async () => {
+    const midiOutput = { send: vi.fn() };
+    const synth = await createAutoYzSynth(midiOutput);
+    const hex = synth.makeHex(
+      { x: 0, y: 0 },
+      37.5,
+      0,
+      0,
+      12,
+      0,
+      100,
+      60,
+      100,
+      0,
+      1,
+    );
+    midiOutput.send.mockClear();
+
+    hex.aftertouch(0, null, { initialSnapshotExpression: true });
+    expect(midiOutput.send).not.toHaveBeenCalled();
+
+    hex.aftertouch(80, null, { initialSnapshotExpression: true });
+    expect(midiOutput.send).toHaveBeenCalled();
+  });
+
+  it("sends note-off before the short generated release ramp", async () => {
+    const midiOutput = { send: vi.fn() };
+    const synth = await createAutoYzSynth(midiOutput);
+    const hex = synth.makeHex(
+      { x: 0, y: 0 },
+      37.5,
+      0,
+      0,
+      12,
+      0,
+      100,
+      60,
+      120,
+      0,
+      1,
+    );
+    midiOutput.send.mockClear();
+
+    // The experimental release curve follows Note Off velocity, independently
+    // of the stored attack velocity (120).
+    hex.noteOff(1);
+
+    expect(midiOutput.send.mock.calls[0][0][0] & 0xf0).toBe(0x80);
+    expect(midiOutput.send.mock.calls[0][0][2]).toBe(1);
+    expect(midiOutput.send.mock.calls[1][0].slice(0, 2)).toEqual([0xb0 + 1, 74]);
+    expect(midiOutput.send.mock.calls[1]).toHaveLength(2);
+    expect(midiOutput.send.mock.calls.at(-2)[0][2]).toBe(0);
+    expect(midiOutput.send.mock.calls.at(-1)[0][1]).toBe(0);
+  });
+
+  it("can be toggled live and leaves ordinary MPE expression unchanged when off", async () => {
+    const midiOutput = { send: vi.fn() };
+    const synth = await createAutoYzSynth(midiOutput, false);
+    const hex = synth.makeHex(
+      { x: 0, y: 0 },
+      37.5,
+      0,
+      0,
+      12,
+      0,
+      100,
+      60,
+      100,
+      0,
+      1,
+    );
+    midiOutput.send.mockClear();
+
+    hex.aftertouch(71);
+    hex.cc74(82);
+    expect(midiOutput.send.mock.calls.map(([message]) => message)).toEqual([
+      [0xd0 + 1, 71],
+      [0xb0 + 1, 74, 82],
+    ]);
+
+    midiOutput.send.mockClear();
+    synth.setAutoGenerateMpeYzEnabled(true);
+    expect(midiOutput.send.mock.calls.some(([message]) => message[1] === 74)).toBe(true);
+  });
+});

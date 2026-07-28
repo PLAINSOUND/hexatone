@@ -372,6 +372,12 @@ export const SETTINGS_REGISTRY = [
   { key: "mpe_pitchbend_range", tier: "session", type: "int", default: 48 },
   { key: "mpe_pitchbend_range_manager", tier: "session", type: "int", default: 2 },
   { key: "mpe_plus_output", tier: "session", type: "bool", default: false },
+  { key: "mpe_auto_generate_yz", tier: "session", type: "bool", default: false },
+  { key: "mpe_eagan_modwheel_brightness", tier: "session", type: "bool", default: false },
+  { key: "mpe_eagan_brightness", tier: "session", type: "int", default: 64 },
+  { key: "mpe_eagan_tilt_eq", tier: "session", type: "int", default: 64 },
+  { key: "mpe_eagan_pre_level", tier: "session", type: "int", default: 64 },
+  { key: "mpe_eagan_post_level", tier: "session", type: "int", default: 64 },
 
   // ── FluidSynth / OSC mirror ───────────────────────────────────────────────────
   {

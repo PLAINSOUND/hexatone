@@ -396,7 +396,7 @@ const HakenContinuumSettings = ({
           )}
         </span>
       </label>
-      <label class="settings-form__checkbox-row settings-form__checkbox-row--sm">
+      <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
         <input
           type="checkbox"
           checked={showSnapshotFilters}
