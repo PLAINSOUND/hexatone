@@ -296,6 +296,71 @@ describe("osc_synth pooled slot allocation", () => {
     expect(onsetFreq).toBeCloseTo(523.2511306, 3);
   });
 
+  it("sends sequencer PITCH directly to every active OSC voice node", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-sequencer-pitch",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+    await Promise.resolve();
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    const ws = MockWebSocket.instances.at(-1);
+    ws.sent.length = 0;
+
+    hex.sequenceRetune(1200);
+
+    const updates = ws.sent.filter((message) => (
+      message.address === "/n_set" && message.args[1]?.value === "freq"
+    ));
+    expect(updates).toHaveLength(4);
+    updates.forEach((message) => {
+      expect(message.args[2]?.value).toBeCloseTo(523.2511306, 3);
+    });
+  });
+
+  it("sends the same live sequencer offset to both notes of an OSC octave", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-sequencer-octave",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+    await Promise.resolve();
+
+    const upper = synth.makeHex({ x: 0, y: 0 }, 1901.955, 19, 0, 12, 1800, 2000, 88, 72, 0, 1);
+    const lower = synth.makeHex({ x: 1, y: 0 }, 701.955, 7, 0, 12, 600, 800, 76, 72, 0, 1);
+    upper.noteOn();
+    lower.noteOn();
+    const ws = MockWebSocket.instances.at(-1);
+    ws.sent.length = 0;
+
+    upper.sequenceRetune(2048.955);
+    lower.sequenceRetune(848.955);
+
+    const frequencies = ws.sent
+      .filter((message) => message.address === "/n_set" && message.args[1]?.value === "freq")
+      .map((message) => message.args[2]?.value);
+    expect(frequencies).toHaveLength(8);
+    for (let layer = 0; layer < 4; layer++) {
+      expect(frequencies[layer] / frequencies[layer + 4]).toBeCloseTo(2, 12);
+    }
+  });
+
   it("forceFree sends /n_free for all active layer nodes", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-force-free",

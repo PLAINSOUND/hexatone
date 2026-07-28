@@ -162,6 +162,8 @@ export const create_midi_synth = async ({
             anchorNote ?? midiin_anchor_note,
             degree0toRef_ratio,
             fundamental,
+            sysex_dev_id,
+            mapNumber,
           );
         }
       } else {
@@ -839,6 +841,20 @@ DynamicBulkHex.prototype.retune = function (newCents) {
   // heard pitch without sending live bulk traffic on every retune gesture.
 };
 
+// Sequencer PITCH is intentionally different from general tuning edits: it is
+// a performance control, so a held bulk-map carrier must receive a live map
+// update. The transport coalesces a chord's updates into one dump.
+DynamicBulkHex.prototype.sequenceRetune = function (newCents) {
+  if (this.release || !this.transport || this.carrier == null) return;
+  this.cents = newCents;
+  const targetMIDIFloat =
+    (newCents + 1200 * Math.log2(this.fundamental / this.degree0toRef_ratio / 261.6255653)) * 0.01 +
+    60;
+  const triplet = centsToMTS(this.carrier, (targetMIDIFloat - this.carrier) * 100);
+  this.mts = [this.carrier, ...triplet];
+  this.transport.retune?.({ carrier: this.carrier, triplet });
+};
+
 /**
  * StaticBulkHex — sequential playback against a pre-sent centered bulk map.
  */
@@ -855,6 +871,8 @@ function StaticBulkHex(
   anchor,
   degree0toRef_ratio,
   fundamental,
+  sysex_dev_id,
+  mapNumber,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -868,6 +886,8 @@ function StaticBulkHex(
   this.carrier = Math.max(0, Math.min(anchor + steps, 127));
   this.degree0toRef_ratio = degree0toRef_ratio;
   this.fundamental = fundamental;
+  this.sysex_dev_id = sysex_dev_id != null ? sysex_dev_id : 127;
+  this.mapNumber = mapNumber != null ? mapNumber & 0x7f : 0;
   this.mts = null;
   this._updateMts(cents);
 }
@@ -960,6 +980,34 @@ StaticBulkHex.prototype.retune = function (newCents) {
     this.cents = newCents;
     this._updateMts(newCents);
   }
+};
+
+// A static bulk map normally avoids live map traffic. The sequencer PITCH
+// fader is an explicit exception: send a real-time single-note MTS update for
+// this already-sounding carrier, leaving the static map untouched.
+StaticBulkHex.prototype.sequenceRetune = function (newCents) {
+  if (this.release || !Number.isFinite(Number(newCents))) return;
+  this.retune(Number(newCents));
+  if (!this.midi_output || !Array.isArray(this.mts) || this.mts.length < 4) return;
+  this.midi_output.send([
+    0xf0,
+    127,
+    this.sysex_dev_id,
+    0x08,
+    0x02,
+    this.mapNumber,
+    0x01,
+    this.mts[0],
+    this.mts[1],
+    this.mts[2],
+    this.mts[3],
+    0xf7,
+  ]);
+  traceMidiOutput("mtsRetuneOut", {
+    family: "mts_bulk",
+    channel: this.channel,
+    carrier: this.carrier,
+  });
 };
 
 // centsToMTS is imported from mts-helpers.js above and re-exported here

@@ -684,6 +684,51 @@ describe("sequencer snapshots", () => {
     expect(currentHex._snapshotMidicents).toBeCloseTo(73.47, 9);
   });
 
+  it("retunes a Flight cue 1 voice carried into cue 2 even if the cue payload array is replaced", () => {
+    const upperHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      sequenceRetune: vi.fn(),
+    };
+    const lowerHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      sequenceRetune: vi.fn(),
+    };
+    const synth = {
+      makeHex: vi.fn()
+        .mockReturnValueOnce(upperHex)
+        .mockReturnValueOnce(lowerHex),
+    };
+    const runtime = makeRuntime({ synth });
+    const upper = {
+      snapshotId: "3",
+      noteId: "__seq__:88.01955000865388:0:2",
+      midicents: 88.01955000865388,
+    };
+    const lower = {
+      snapshotId: "4",
+      noteId: "__seq__:76.01955000865388:0:1",
+      midicents: 76.01955000865388,
+    };
+
+    runtime._snapshotHexes = playSnapshot(runtime, [upper], { legato: true });
+    runtime._snapshotHexes = playSnapshot(runtime, [upper, lower], { legato: true });
+    // Model a cue-payload replacement: the upper carrier remains sounding,
+    // but only the newly attacked cue-2 carrier is present in the payload list.
+    runtime._snapshotHexes = [lowerHex];
+
+    retuneActiveSnapshotHexes(runtime, 147);
+
+    expect(upperHex.noteOff).not.toHaveBeenCalled();
+    expect(upperHex.sequenceRetune).toHaveBeenCalledWith(
+      expect.closeTo((88.01955000865388 - 69) * 100 + 147, 9),
+    );
+    expect(lowerHex.sequenceRetune).toHaveBeenCalledWith(
+      expect.closeTo((76.01955000865388 - 69) * 100 + 147, 9),
+    );
+  });
+
   it("produces the same absolute pure-triad targets live and on retrigger", () => {
     const pureTriad = [69, 69 + (386.3137139 / 100), 69 + (701.9550009 / 100)];
     const makeSynth = () => ({

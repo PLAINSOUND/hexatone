@@ -512,4 +512,76 @@ describe("mpe_synth MPE+ emission", () => {
       expect(cc87Index).toBeGreaterThanOrEqual(0);
       expect(pitchBendIndex).toBeGreaterThan(cc87Index);
   });
+
+  it("keeps an octave's live sequencer bends on two distinct owned channels", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      3,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+    );
+    const upper = synth.makeHex({ x: 0, y: 0 }, 1901.955, 19, 0, 12, 1800, 2000, 88, 72, 0, 1);
+    const lower = synth.makeHex({ x: 1, y: 0 }, 701.955, 7, 0, 12, 600, 800, 76, 72, 0, 1);
+    midi_output.send.mockClear();
+
+    upper.sequenceRetune(2048.955);
+    lower.sequenceRetune(848.955);
+
+    const bends = midi_output.send.mock.calls
+      .map(([message]) => message)
+      .filter((message) => (message[0] & 0xf0) === 0xe0);
+    expect(bends).toHaveLength(2);
+    expect(bends.map((message) => (message[0] & 0x0f) + 1)).toEqual([2, 3]);
+    expect(bends[0].slice(1)).toEqual(bends[1].slice(1));
+  });
+
+  it("never lets a displaced MPE hex bend or note-off the channel's new owner", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+    );
+    const displaced = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, -100, 100, 69, 72, 0, 1);
+    const owner = synth.makeHex({ x: 1, y: 0 }, 400, 4, 0, 12, 300, 500, 73, 72, 0, 1);
+    midi_output.send.mockClear();
+
+    displaced.sequenceRetune(147);
+    owner.sequenceRetune(547);
+    displaced.noteOff(40);
+
+    const messages = midi_output.send.mock.calls.map(([message]) => message);
+    expect(messages.filter((message) => (message[0] & 0xf0) === 0xe0)).toHaveLength(1);
+    expect(messages.filter((message) => (message[0] & 0xf0) === 0x80)).toHaveLength(0);
+    expect(displaced.release).toBe(true);
+    expect(owner.release).toBe(false);
+  });
 });

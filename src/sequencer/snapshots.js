@@ -239,6 +239,24 @@ function activeSnapshotHexesByInstance(runtime) {
   return byInstance;
 }
 
+function soundingSnapshotHexes(runtime) {
+  if (!(runtime?._soundingSnapshotHexes instanceof Set)) {
+    runtime._soundingSnapshotHexes = new Set(runtime?._snapshotHexes ?? []);
+  }
+  return runtime._soundingSnapshotHexes;
+}
+
+function registerSoundingSnapshotHex(runtime, hex) {
+  if (!runtime || !hex) return;
+  soundingSnapshotHexes(runtime).add(hex);
+}
+
+function releaseSnapshotHex(runtime, hex, releaseVelocity = 0) {
+  if (!hex) return;
+  hex.noteOff?.(releaseVelocity);
+  runtime?._soundingSnapshotHexes?.delete(hex);
+}
+
 function retuneSnapshotHex(runtime, hex, synthCents, bendOnly = false) {
   if (!Number.isFinite(synthCents)) return;
   hex._baseCents = synthCents;
@@ -315,6 +333,7 @@ function createSnapshotHex(runtime, note, options = {}) {
     runtime.synth.setMod(timbreToOnsetMod(timbre, timbre14));
   }
   hex.noteOn();
+  registerSoundingSnapshotHex(runtime, hex);
   applySnapshotExpression(runtime, hex, note);
   return hex;
 }
@@ -388,7 +407,7 @@ export function playSnapshot(runtime, notes, options = {}) {
     }
 
     if (reusedHex) {
-      reusedHex.noteOff(reusedHex._snapshotReleaseVelocity ?? 0);
+      releaseSnapshotHex(runtime, reusedHex, reusedHex._snapshotReleaseVelocity ?? 0);
     }
 
     nextHexes.push(createSnapshotHex(runtime, note, { pitchOffsetCents }));
@@ -396,7 +415,7 @@ export function playSnapshot(runtime, notes, options = {}) {
 
   for (const remainingHexes of availableHexesByPitch.values()) {
     for (const hex of remainingHexes) {
-      hex.noteOff(hex._snapshotReleaseVelocity ?? 0);
+      releaseSnapshotHex(runtime, hex, hex._snapshotReleaseVelocity ?? 0);
     }
   }
 
@@ -462,8 +481,15 @@ export function retuneActiveSnapshotHexes(runtime, pitchOffsetCents, options = {
   if (!Number.isFinite(safePitchOffsetCents)) return;
   const skipHexes = options?.skipHexes instanceof Set ? options.skipHexes : null;
 
-  for (const hex of runtime._snapshotHexes ?? []) {
-    if (!hex || skipHexes?.has(hex)) continue;
+  const activeHexes = new Set([
+    ...(runtime._snapshotHexes ?? []),
+    ...soundingSnapshotHexes(runtime),
+  ]);
+  for (const hex of activeHexes) {
+    if (!hex || hex.release === true || skipHexes?.has(hex)) {
+      if (hex?.release === true) runtime._soundingSnapshotHexes?.delete(hex);
+      continue;
+    }
     const storedSourceBaseCents = Number(hex._snapshotSourceBaseCents);
     const appliedOffset = Number(hex._snapshotAppliedPitchOffsetCents) || 0;
     const currentBaseCents = Number(hex._baseCents);
@@ -488,9 +514,9 @@ export function retuneActiveSnapshotHexes(runtime, pitchOffsetCents, options = {
  *
  * @param {Array<object>} snapshotHexes active snapshot hexes
  */
-export function stopSnapshot(snapshotHexes) {
+export function stopSnapshot(snapshotHexes, runtime = null) {
   if (!snapshotHexes?.length) return;
   for (const hex of snapshotHexes) {
-    hex.noteOff(hex._snapshotReleaseVelocity ?? 0);
+    releaseSnapshotHex(runtime, hex, hex._snapshotReleaseVelocity ?? 0);
   }
 }

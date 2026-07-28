@@ -349,12 +349,13 @@ function MpeHex(
   const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
   const bendGuess = deviationToBend((69 + 12 * Math.log2(freq / 440) - noteGuess) * 100, bendRange);
 
-  const { slot, stolen: _stolen, stolenSlot, stolenNote, stolenWasReleasing: _stolenWasReleasing, retrigger } = pool.noteOn(
+  const { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing: _stolenWasReleasing, retrigger } = pool.noteOn(
     coords,
     bendGuess,
   );
 
   this.channel = slot; // 1-based
+  this._stolenCoords = stolen;
 
   // Recalculate with actual channel (matters for Ableton_workaround mode)
   const { note, deviation } = freqToMidiAndCents(freq, center_degree, this.channel, scale, mode);
@@ -409,7 +410,23 @@ MpeHex.prototype.noteOn = function () {
   // This method is called by keys.js after construction — nothing to do here.
 };
 
+MpeHex.prototype._ownsVoiceChannel = function () {
+  return this.pool?.getSlot?.(this.coords) === this.channel;
+};
+
+MpeHex.prototype._invalidateDisplacedVoice = function () {
+  this.mpePlusPitchBendScheduler?.cancel(this);
+  this.release = true;
+};
+
 MpeHex.prototype.noteOff = function (release_velocity) {
+  if (this.release) return;
+  // A stolen MPE hex still exists in higher-level legato registries, but its
+  // channel now belongs to another note. It must never note-off that owner.
+  if (!this._ownsVoiceChannel()) {
+    this._invalidateDisplacedVoice();
+    return;
+  }
   const c = this.channel - 1;
   const vel = release_velocity != null ? release_velocity : this.velocity;
   this.mpePlusPitchBendScheduler?.cancel(this);
@@ -458,6 +475,12 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
   //  - PB messages continue to a RELEASING channel → audible pitch bend on tail
   //  - A note-number change triggers noteOff+noteOn on a RELEASING channel → ghost note
   if (this.release) return;
+  // Voice stealing removes this coordinate from the pool before reassigning
+  // the channel. A stale sequencer voice must not bend the replacement note.
+  if (!this._ownsVoiceChannel()) {
+    this._invalidateDisplacedVoice();
+    return;
+  }
   this.cents = newCents;
 
   const freq = this.freqAtCentral * Math.pow(2, newCents / 1200);
@@ -564,6 +587,10 @@ MpeHex.prototype._sendMpePlusPitchBend = function (bend21, { immediate = false }
 
 MpeHex.prototype.aftertouch = function (value, value14 = null) {
   if (this.release) return;
+  if (!this._ownsVoiceChannel()) {
+    this._invalidateDisplacedVoice();
+    return;
+  }
   const c = this.channel - 1;
   if (Number.isFinite(value14)) {
     const next = Math.max(0, Math.min(16256, value14));
@@ -600,6 +627,10 @@ MpeHex.prototype.pressure = function (value, value14 = null) {
 // cc74: brightness / timbre — per-voice CC on the voice channel (MPE dimension 3).
 MpeHex.prototype.cc74 = function (value, value14 = null) {
   if (this.release) return;
+  if (!this._ownsVoiceChannel()) {
+    this._invalidateDisplacedVoice();
+    return;
+  }
   const c = this.channel - 1;
   if (Number.isFinite(value14)) {
     const next = Math.max(0, Math.min(16256, value14));
@@ -638,12 +669,14 @@ MpeHex.prototype.polyTimbre = function (value, value14 = null) {
 
 // modwheel: CC1 — zone-wide, sent on manager channel.
 MpeHex.prototype.modwheel = function (value) {
+  if (this.release || !this._ownsVoiceChannel()) return;
   if (this.masterCh < 0) return;
   this.midi_output.send([0xb0 + this.masterCh, 1, Math.max(0, Math.min(127, value))]);
 };
 
 // expression: CC11 — zone-wide, sent on manager channel.
 MpeHex.prototype.expression = function (value) {
+  if (this.release || !this._ownsVoiceChannel()) return;
   if (this.masterCh < 0) return;
   this.midi_output.send([0xb0 + this.masterCh, 11, Math.max(0, Math.min(127, value))]);
 };

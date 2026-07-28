@@ -255,6 +255,7 @@ class Keys {
       ...createSoundingNoteState(),
     };
     this._snapshotHexes = [];
+    this._soundingSnapshotHexes = new Set();
     this._snapshotNotes = [];
     // Recency stack — tracks all sounding notes most-recent-first.
     // The front entry receives wheel bend; see _handleWheelBend().
@@ -1971,9 +1972,13 @@ class Keys {
   }
 
   stopSnapshot() {
-    SequencerSnapshots.stopSnapshot(this._snapshotHexes);
+    const soundingHexes = this._soundingSnapshotHexes instanceof Set
+      ? [...this._soundingSnapshotHexes]
+      : this._snapshotHexes;
+    SequencerSnapshots.stopSnapshot(soundingHexes, this);
     this._snapshotHexes = [];
     this._snapshotNotes = [];
+    this._soundingSnapshotHexes?.clear();
   }
 
   /**

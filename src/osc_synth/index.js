@@ -661,13 +661,12 @@ OscHex.prototype.retune = function (newCents) {
   this._freq = this._centsToHz(newCents);
   this._sendJitter?.("retune", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
-    if (this._slot == null) continue;
-    const slotState = this._slotState[i][this._slot];
-    if (!slotState.active || slotState.token !== this._tokens[i]) continue;
+    const nodeId = this._nodeIds[i];
+    if (nodeId == null) continue;
     this._socket.send(
       "/n_set",
       [
-        { type: "i", value: this._nodeIds[i] },
+        { type: "i", value: nodeId },
         { type: "s", value: "freq" },
         { type: "f", value: this._freq },
       ],

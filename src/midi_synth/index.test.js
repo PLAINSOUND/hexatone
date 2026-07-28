@@ -377,4 +377,51 @@ describe("midi_synth bulk-dump retune policy", () => {
     expect(output.send).toHaveBeenCalledWith([0x90, secondHex.carrier, secondHex.velocity]);
     expect(firstHex.mts).toEqual(firstMts);
   });
+
+  it("sends live sequencer PITCH updates for dynamic and static bulk carriers", async () => {
+    const makeSynth = async (transportMode) => {
+      const output = { send: vi.fn() };
+      const synth = await create_midi_synth({
+        outputMode: {
+          output,
+          channel: 0,
+          midiMapping: "MTS_BULK",
+          transportMode,
+          velocity: 72,
+          sysexType: 126,
+          deviceId: 127,
+          mapNumber: 3,
+          mapName: "test",
+          anchorNote: 60,
+        },
+        tuningContext: {
+          fundamental: 440,
+          degree0toRefAsArray: [0, 1],
+          scale: scale12,
+          equivInterval: 1200,
+          name: "test",
+        },
+        legacyInput: { midiin_device: "input-1", midiin_anchor_note: 60 },
+      });
+      return { output, synth };
+    };
+
+    const dynamic = await makeSynth("bulk_dynamic_map");
+    const dynamicHex = dynamic.synth.makeHex({ x: 0, y: 0 }, 100, 1, 0, 12, 0, 200, 60, 72, 0, 1);
+    dynamicHex.noteOn();
+    dynamic.output.send.mockClear();
+    dynamicHex.sequenceRetune(247);
+    vi.runAllTimers();
+    expect(dynamic.output.send.mock.calls.some(([bytes]) => bytes[0] === 0xf0)).toBe(true);
+
+    const staticMap = await makeSynth("bulk_static_map");
+    const staticHex = staticMap.synth.makeHex({ x: 1, y: 0 }, 100, 1, 0, 12, 0, 200, 61, 72, 0, 1);
+    staticHex.noteOn();
+    staticMap.output.send.mockClear();
+    staticHex.sequenceRetune(247);
+    expect(staticMap.output.send).toHaveBeenCalledTimes(1);
+    expect(staticMap.output.send.mock.calls[0][0].slice(0, 8)).toEqual([
+      0xf0, 127, 127, 0x08, 0x02, 3, 0x01, staticHex.carrier,
+    ]);
+  });
 });
