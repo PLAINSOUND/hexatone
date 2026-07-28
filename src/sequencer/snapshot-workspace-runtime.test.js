@@ -79,6 +79,16 @@ describe("snapshot workspace runtime", () => {
       activeSequenceName: "",
       activeSequenceSavedName: "",
       activeSequenceDescription: "",
+      manualArpeggiation: {
+        mode: "off",
+        styleId: "positional",
+        initialSpreadMs: 2000,
+        spreadVariation: 0.3,
+        timingVariation: 0.5,
+        decayMs: 5000,
+        decayVariation: 0.75,
+        styleParameters: {},
+      },
     });
   });
 

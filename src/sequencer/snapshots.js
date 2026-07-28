@@ -343,6 +343,104 @@ function createSnapshotHex(runtime, note, options = {}) {
   return hex;
 }
 
+function snapshotGestureVoices(runtime) {
+  if (!(runtime?._snapshotGestureVoices instanceof Map)) {
+    runtime._snapshotGestureVoices = new Map();
+  }
+  return runtime._snapshotGestureVoices;
+}
+
+function snapshotVoiceOwners(runtime) {
+  if (!(runtime?._snapshotVoiceOwners instanceof Map)) {
+    runtime._snapshotVoiceOwners = new Map();
+  }
+  return runtime._snapshotVoiceOwners;
+}
+
+export function beginSnapshotGesture(runtime, gestureId, options = {}) {
+  if (!runtime || gestureId == null) return;
+  if (options.replace === true) runtime.stopSnapshot?.();
+  snapshotGestureVoices(runtime).set(gestureId, new Set());
+}
+
+export function attackSnapshotGestureNote(runtime, gestureId, note, options = {}) {
+  if (!runtime || gestureId == null || !note) return null;
+  const gestureVoices = snapshotGestureVoices(runtime);
+  const voiceOwners = snapshotVoiceOwners(runtime);
+  const ownedVoices = gestureVoices.get(gestureId) ?? new Set();
+  gestureVoices.set(gestureId, ownedVoices);
+  const pitchKey = snapshotPitchKey(note.midicents);
+
+  let hex = null;
+  let attacked = false;
+  if (options.legato === true && pitchKey) {
+    hex = [...soundingSnapshotHexes(runtime)].find((candidate) => {
+      if (!candidate || candidate.release === true) return false;
+      const candidateKey = candidate._snapshotPitchKey
+        ?? snapshotPitchKey(candidate._snapshotMidicents);
+      const owners = voiceOwners.get(candidate);
+      return candidateKey === pitchKey && !owners?.has(gestureId);
+    }) ?? null;
+  }
+
+  if (hex) {
+    const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
+    hex._snapshotReleaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
+    applySnapshotExpression(runtime, hex, note);
+  } else {
+    hex = createSnapshotHex(runtime, note, options);
+    runtime._snapshotHexes = [...(runtime._snapshotHexes ?? []), hex];
+    attacked = true;
+  }
+
+  const owners = voiceOwners.get(hex) ?? new Set();
+  owners.add(gestureId);
+  voiceOwners.set(hex, owners);
+  ownedVoices.add(hex);
+  runtime._snapshotNotes = [
+    ...(runtime._snapshotNotes ?? []),
+    { ...note, _snapshotGestureId: gestureId, _snapshotHex: hex },
+  ];
+  return { hex, attacked };
+}
+
+export function releaseSnapshotGestureNote(runtime, gestureId, hex) {
+  if (!runtime || gestureId == null || !hex) return;
+  const gestureVoices = snapshotGestureVoices(runtime);
+  const voiceOwners = snapshotVoiceOwners(runtime);
+  const ownedVoices = gestureVoices.get(gestureId);
+  if (!ownedVoices?.has(hex)) return;
+
+  ownedVoices.delete(hex);
+  const owners = voiceOwners.get(hex);
+  owners?.delete(gestureId);
+  if (!owners?.size) {
+    voiceOwners.delete(hex);
+    releaseSnapshotHex(runtime, hex, hex._snapshotReleaseVelocity ?? 0);
+    runtime._snapshotHexes = (runtime._snapshotHexes ?? []).filter(
+      (candidate) => candidate !== hex,
+    );
+  }
+  runtime._snapshotNotes = (runtime._snapshotNotes ?? []).filter(
+    (note) => !(note?._snapshotGestureId === gestureId && note?._snapshotHex === hex),
+  );
+}
+
+export function stopSnapshotGesture(runtime, gestureId) {
+  if (!runtime || gestureId == null) return;
+  const gestureVoices = snapshotGestureVoices(runtime);
+  const ownedVoices = gestureVoices.get(gestureId);
+  if (ownedVoices) {
+    for (const hex of ownedVoices) {
+      releaseSnapshotGestureNote(runtime, gestureId, hex);
+    }
+  }
+  gestureVoices.delete(gestureId);
+  runtime._snapshotNotes = (runtime._snapshotNotes ?? []).filter(
+    (note) => note?._snapshotGestureId !== gestureId,
+  );
+}
+
 /**
  * Play snapshot notes through the current synth.
  *
@@ -520,8 +618,9 @@ export function retuneActiveSnapshotHexes(runtime, pitchOffsetCents, options = {
  * @param {Array<object>} snapshotHexes active snapshot hexes
  */
 export function stopSnapshot(snapshotHexes, runtime = null) {
-  if (!snapshotHexes?.length) return;
-  for (const hex of snapshotHexes) {
+  for (const hex of snapshotHexes ?? []) {
     releaseSnapshotHex(runtime, hex, hex._snapshotReleaseVelocity ?? 0);
   }
+  runtime?._snapshotGestureVoices?.clear();
+  runtime?._snapshotVoiceOwners?.clear();
 }

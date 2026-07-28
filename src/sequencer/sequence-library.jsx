@@ -18,6 +18,10 @@ import {
   loadPresetSequenceByName,
   presetSequenceGroups,
 } from "./preset-sequences/index.js";
+import {
+  normalizeManualArpeggiation,
+  normalizeSnapshotManualTrigger,
+} from "./manual-snapshot-arpeggiation.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
 
@@ -33,7 +37,7 @@ export function normalizeSequenceRecord(record) {
   if (!record || typeof record !== "object") return null;
   const name = String(record.name ?? "").trim();
   if (!name) return null;
-  const snapshots = cloneSnapshots(record.snapshots);
+  const snapshots = cloneSnapshots(record.snapshots).map(normalizeSnapshotManualTrigger);
   const rawBars = Array.isArray(record.bars) && record.bars.length > 0
     ? record.bars
     : record.meters;
@@ -42,11 +46,12 @@ export function normalizeSequenceRecord(record) {
   if (!Array.isArray(snapshots)) return null;
   return {
     type: "hexatone-sequence",
-    version: 3,
+    version: 4,
     name,
     description: String(record.description ?? ""),
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),
     autoCreateBars: record.autoCreateBars !== false,
+    manualArpeggiation: normalizeManualArpeggiation(record.manualArpeggiation),
     transport: normalizeSequenceTransport(record.transport),
     tempi: normalizeTempoMarkers(record.tempi, { includeDefault: false }),
     snapshots,
@@ -80,6 +85,7 @@ function parseSequenceJson(name, text) {
       description: parsed?.description ?? "",
       snapshotLabelMode: parsed?.snapshotLabelMode,
       autoCreateBars: parsed?.autoCreateBars,
+      manualArpeggiation: parsed?.manualArpeggiation,
       transport: parsed?.transport,
       tempi: parsed?.tempi,
       snapshots: parsed?.snapshots,
@@ -137,6 +143,7 @@ const SequenceLibrary = ({
   tempi,
   snapshotLabelMode,
   autoCreateBars,
+  manualArpeggiation,
   activeSequenceSource,
   activeSequenceBuiltInName,
   activeSequenceName,
@@ -175,12 +182,13 @@ const SequenceLibrary = ({
       description: activeSequenceDescription,
       snapshotLabelMode,
       autoCreateBars,
+      manualArpeggiation,
       tempi,
       snapshots,
       bars,
       repeats,
     }),
-    [activeSequenceDescription, autoCreateBars, bars, repeats, sequenceName, snapshotLabelMode, snapshots, tempi],
+    [activeSequenceDescription, autoCreateBars, bars, manualArpeggiation, repeats, sequenceName, snapshotLabelMode, snapshots, tempi],
   );
   const workspaceHasContent = useMemo(() => {
     return snapshotsPresent || metadataPresent;
@@ -214,7 +222,8 @@ const SequenceLibrary = ({
     if (!workspaceRecord || !workspaceHasContent) return false;
     if (activeSource === "builtin") {
       return activeBuiltInSequence
-        ? sequenceRecordContentKey(workspaceRecord) !== sequenceRecordContentKey(activeBuiltInSequence)
+        ? sequenceRecordContentKey(workspaceRecord)
+          !== sequenceRecordContentKey(normalizeSequenceRecord(activeBuiltInSequence))
         : false;
     }
     if (!activeSavedSequence) return true;
@@ -277,6 +286,7 @@ const SequenceLibrary = ({
     description: activeSequenceDescription,
     snapshotLabelMode,
     autoCreateBars,
+    manualArpeggiation,
     tempi,
     snapshots,
     bars,
@@ -285,6 +295,7 @@ const SequenceLibrary = ({
     activeSequenceDescription,
     autoCreateBars,
     bars,
+    manualArpeggiation,
     repeats,
     snapshotLabelMode,
     snapshots,
@@ -717,6 +728,7 @@ SequenceLibrary.propTypes = {
   tempi: PropTypes.arrayOf(PropTypes.object),
   snapshotLabelMode: PropTypes.string.isRequired,
   autoCreateBars: PropTypes.bool.isRequired,
+  manualArpeggiation: PropTypes.object,
   activeSequenceSource: PropTypes.string,
   activeSequenceBuiltInName: PropTypes.string,
   activeSequenceName: PropTypes.string.isRequired,

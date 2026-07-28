@@ -12,12 +12,18 @@ import {
   structuralEventInstanceKey,
   structuralEventRenderKey,
 } from "./value-runtime.js";
+import {
+  effectiveManualSnapshotArticulation,
+  normalizeManualSnapshotTrigger,
+} from "./manual-snapshot-arpeggiation.js";
 
 const SnapshotSequenceItem = ({
   snapshot,
   index,
   selectedSnapshotId,
   playingSnapshotId,
+  playingSnapshotIds = [],
+  manualArpeggiationMode,
   showAllEvents,
   expandedIds,
   dragState,
@@ -26,10 +32,18 @@ const SnapshotSequenceItem = ({
   actions,
   virtualMeasure,
 }) => {
-  const isPlaying = snapshot.id === playingSnapshotId;
+  const isPlaying =
+    snapshot.id === playingSnapshotId
+    || playingSnapshotIds.includes(snapshot.id);
   const isSelected = snapshot.id === selectedSnapshotId;
   const isExpanded = showAllEvents || expandedIds.has(snapshot.id);
   const isDragOver = dragState.dragOverId === snapshot.id;
+  const manualTrigger = normalizeManualSnapshotTrigger(snapshot.manualTrigger);
+  const manualArticulation = effectiveManualSnapshotArticulation(
+    manualArpeggiationMode,
+    manualTrigger,
+  );
+  const manualArticulationEditable = manualArpeggiationMode === "per-snapshot";
   const snapshotEvents = structure.snapshotEventsById.get(snapshot.id) ?? [];
   const snapshotStructuralKeys = new Set(
     snapshotEvents
@@ -165,6 +179,29 @@ const SnapshotSequenceItem = ({
           <span class="sequencer-row__count sequencer-cell">
             {snapshot.notes.length} note{snapshot.notes.length !== 1 ? "s" : ""}
           </span>
+          <button
+            type="button"
+            class={`sequencer-row__articulation${manualArticulation === "arpeggiate" ? " sequencer-row__articulation--arp" : " sequencer-row__articulation--chord"}`}
+            aria-label={`${manualArticulation === "arpeggiate" ? "arpeggiate" : "chord"} snapshot ${index + 1}`}
+            aria-pressed={manualArticulation === "arpeggiate"}
+            disabled={!manualArticulationEditable}
+            title={manualArticulationEditable
+              ? "Choose whether this snapshot is triggered as a chord or arpeggio"
+              : `Controlled by the ${manualArpeggiationMode === "all" ? "All Snapshots" : "Off"} arpeggiation mode`}
+            onClick={(e) => {
+              e.stopPropagation();
+              actions.onUpdateSnapshot(snapshot.id, {
+                manualTrigger: {
+                  ...manualTrigger,
+                  articulation: manualArticulation === "arpeggiate"
+                    ? "chord"
+                    : "arpeggiate",
+                },
+              });
+            }}
+          >
+            {manualArticulation === "arpeggiate" ? "arp" : "chord"}
+          </button>
           <input
             type="text"
             class="sequencer-row__description sequencer-cell"

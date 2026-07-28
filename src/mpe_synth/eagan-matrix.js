@@ -3,8 +3,8 @@ export const EAGAN_BRIGHTNESS_EVENT = "hexatone:eagan-brightness";
 export const EAGAN_MATRIX_CONTROLS = [
   { key: "mpe_eagan_brightness", label: "Brightness", cc: 13 },
   { key: "mpe_eagan_tilt_eq", label: "Tilt EQ", cc: 83 },
-  { key: "mpe_eagan_pre_level", label: "Pre Level", cc: 18 },
-  { key: "mpe_eagan_post_level", label: "Post Level", cc: 26 },
+  { key: "mpe_eagan_pre_level", label: "Pre Level", cc: 26 },
+  { key: "mpe_eagan_post_level", label: "Post Level", cc: 18 },
 ];
 
 export const clampMidiCc = (value) =>

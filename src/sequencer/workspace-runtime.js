@@ -6,6 +6,10 @@ import {
   normalizeBarMarkers,
   normalizeTempoMarkers,
 } from "./transport.js";
+import {
+  normalizeManualArpeggiation,
+  normalizeSnapshotManualTrigger,
+} from "./manual-snapshot-arpeggiation.js";
 
 function cloneSequenceRecords(records) {
   return Array.isArray(records) ? JSON.parse(JSON.stringify(records)) : [];
@@ -35,7 +39,7 @@ export function deriveSequenceWorkspaceIds({ snapshots = [], bars = [] } = {}) {
 export function buildLoadedSequenceWorkspace(sequence, options = {}) {
   const source = String(options?.source ?? "user").trim();
   const name = String(sequence?.name ?? "").trim();
-  const snapshots = cloneSequenceRecords(sequence?.snapshots);
+  const snapshots = cloneSequenceRecords(sequence?.snapshots).map(normalizeSnapshotManualTrigger);
   const bars = normalizeBarMarkers(cloneSequenceRecords(sequence?.bars));
   const tempi = normalizeTempoMarkers(cloneSequenceRecords(sequence?.tempi));
   const repeats = cloneSequenceRecords(sequence?.repeats);
@@ -53,12 +57,15 @@ export function buildLoadedSequenceWorkspace(sequence, options = {}) {
     activeSequenceName: name,
     activeSequenceSavedName: source === "user" ? name : "",
     activeSequenceDescription: String(sequence?.description ?? ""),
+    manualArpeggiation: normalizeManualArpeggiation(sequence?.manualArpeggiation),
     ids,
   };
 }
 
 export function buildRestoredSequenceWorkspace(restoredSequence) {
-  const snapshots = Array.isArray(restoredSequence?.snapshots) ? restoredSequence.snapshots : [];
+  const snapshots = Array.isArray(restoredSequence?.snapshots)
+    ? restoredSequence.snapshots.map(normalizeSnapshotManualTrigger)
+    : [];
   const bars = Array.isArray(restoredSequence?.bars) ? restoredSequence.bars : [];
   const tempi = Array.isArray(restoredSequence?.tempi) ? restoredSequence.tempi : [];
   const repeats = Array.isArray(restoredSequence?.repeats) ? restoredSequence.repeats : [];
@@ -78,6 +85,7 @@ export function buildRestoredSequenceWorkspace(restoredSequence) {
     sequenceLegato: restoredSequence?.sequenceLegato !== false,
     snapSequenceToCurrentTuning: restoredSequence?.snapSequenceToCurrentTuning === true,
     sequenceAutoCreateBars: restoredSequence?.sequenceAutoCreateBars !== false,
+    manualArpeggiation: normalizeManualArpeggiation(restoredSequence?.manualArpeggiation),
     ids,
   };
 }

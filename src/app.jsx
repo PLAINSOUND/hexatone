@@ -94,6 +94,12 @@ import {
   defaultSequenceTempi,
 } from "./sequencer/workspace-runtime.js";
 import {
+  effectiveManualSnapshotArticulation,
+  normalizeManualArpeggiation,
+} from "./sequencer/manual-snapshot-arpeggiation.js";
+import { planManualSnapshotFormation } from "./sequencer/manual-snapshot-gesture-planner.js";
+import { createManualSnapshotGestureRuntime } from "./sequencer/manual-snapshot-gesture-runtime.js";
+import {
   appendSnapshotToWorkspace,
   buildClearedSequenceWorkspaceState,
   deleteSnapshotRangeFromWorkspace,
@@ -911,6 +917,7 @@ const App = () => {
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
   const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
+  const [manualPlayingSnapshotIds, setManualPlayingSnapshotIds] = useState([]);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
   const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
   const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
@@ -924,6 +931,9 @@ const App = () => {
   const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
+  const [manualArpeggiation, setManualArpeggiation] = useState(
+    () => normalizeManualArpeggiation(),
+  );
   const [sequenceBars, setSequenceBars] = useState(defaultSequenceBars);
   const [sequenceTempi, setSequenceTempi] = useState(defaultSequenceTempi);
   const [sequenceRepeats, setSequenceRepeats] = useState([]);
@@ -949,6 +959,13 @@ const App = () => {
   const snapshotIdRef = useRef(0);
   const sequenceBarIdRef = useRef(1);
   const snapshotsRef = useRef([]);
+  const manualSnapshotGesturesRef = useRef(new Map());
+  const manualGestureSnapshotsRef = useRef(new Map());
+  const manualGestureEventVoicesRef = useRef(new Map());
+  const manualGestureRuntimeRef = useRef(null);
+  if (!manualGestureRuntimeRef.current) {
+    manualGestureRuntimeRef.current = createManualSnapshotGestureRuntime();
+  }
   const sequenceBarsRef = useRef(defaultSequenceBars);
   const dragIdRef = useRef(null);
   const [dragOverId, setDragOverId] = useState(null);
@@ -1084,8 +1101,10 @@ const App = () => {
 
   const onLoadSequence = useCallback((sequence, options = {}) => {
     const workspace = buildLoadedSequenceWorkspace(sequence, options);
+    manualGestureRuntimeRef.current.cancelAll();
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
+    setManualPlayingSnapshotIds([]);
     snapshotsRef.current = workspace.snapshots;
     sequenceBarsRef.current = workspace.bars;
     setSnapshots(workspace.snapshots);
@@ -1096,6 +1115,7 @@ const App = () => {
     sequenceBarIdRef.current = workspace.ids.barId;
     setSnapshotLabelMode(workspace.snapshotLabelMode);
     setSequenceAutoCreateBars(workspace.sequenceAutoCreateBars);
+    setManualArpeggiation(workspace.manualArpeggiation);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
     setActiveSequenceSource(workspace.activeSequenceSource);
@@ -1139,6 +1159,7 @@ const App = () => {
     setSequenceLegato(workspace.sequenceLegato);
     setSnapSequenceToCurrentTuning(workspace.snapSequenceToCurrentTuning);
     setSequenceAutoCreateBars(workspace.sequenceAutoCreateBars);
+    setManualArpeggiation(workspace.manualArpeggiation);
     setSelectedSnapshotId(null);
     setSelectedSnapshotMarker(null);
     setPlayingSnapshotId(null);
@@ -1173,6 +1194,7 @@ const App = () => {
       sequenceLegato,
       snapSequenceToCurrentTuning,
       sequenceAutoCreateBars,
+      manualArpeggiation,
     });
   }, [
     activeSequenceDescription,
@@ -1183,6 +1205,7 @@ const App = () => {
     sequenceAutoCreateBars,
     sequenceBars,
     sequenceLegato,
+    manualArpeggiation,
     sequenceRepeats,
     sequenceTempi,
     snapSequenceToCurrentTuning,
@@ -1385,6 +1408,34 @@ const App = () => {
     timedPlaybackUiRef.current = buildTimedPlaybackUiResetState(nextState);
   }, []);
 
+  const releaseManualSnapshotGesture = useCallback((gestureId) => {
+    const snapshotId = manualGestureSnapshotsRef.current.get(gestureId);
+    keysRef.current?.stopSnapshotGesture?.(gestureId);
+    manualGestureEventVoicesRef.current.delete(gestureId);
+    manualGestureSnapshotsRef.current.delete(gestureId);
+    if (snapshotId != null) {
+      const gestureIds = manualSnapshotGesturesRef.current.get(snapshotId);
+      gestureIds?.delete(gestureId);
+      if (!gestureIds?.size) manualSnapshotGesturesRef.current.delete(snapshotId);
+    }
+    const activeSnapshotIds = [...manualSnapshotGesturesRef.current.keys()];
+    setManualPlayingSnapshotIds(activeSnapshotIds);
+    setPlayingSnapshotId((current) => (
+      current === snapshotId ? (activeSnapshotIds.at(-1) ?? null) : current
+    ));
+    if (activeSnapshotIds.length === 0) {
+      setSequencePlayhead((current) => ({ ...current, stopped: true }));
+    }
+  }, []);
+
+  const cancelManualSnapshotGestures = useCallback((snapshotId = null) => {
+    const runtime = manualGestureRuntimeRef.current;
+    const gestureIds = snapshotId == null
+      ? runtime.activeGestureIds()
+      : [...(manualSnapshotGesturesRef.current.get(snapshotId) ?? [])];
+    for (const gestureId of gestureIds) runtime.cancel(gestureId);
+  }, []);
+
   const commitSequencePlaybackUi = useCallback(({
     safeStepIndex,
     safeMarkerIndex,
@@ -1410,6 +1461,7 @@ const App = () => {
   }, [snapshots]);
 
   const applySequencePlayback = useCallback((stepIndex, markerIndex = null, notes = [], options = {}) => {
+    cancelManualSnapshotGestures();
     const playbackStartMs = performance.now();
     const hardRestart = options?.hardRestart === true;
     const updateUi = options?.updateUi !== false;
@@ -1456,7 +1508,14 @@ const App = () => {
         detail: `${hardRestart ? "hard restart" : "playback apply"}${updateUi ? "" : " (audio only)"}`,
       });
     }
-  }, [barIndexForTime, commitSequencePlaybackUi, sequenceCueGroups, sequenceLegato, snapshots]);
+  }, [
+    barIndexForTime,
+    cancelManualSnapshotGestures,
+    commitSequencePlaybackUi,
+    sequenceCueGroups,
+    sequenceLegato,
+    snapshots,
+  ]);
 
   const sequencePlaybackNotesAtPosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
     if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= snapshots.length) return [];
@@ -1521,6 +1580,7 @@ const App = () => {
     const hardRestart = options?.hardRestart === true;
     if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
       pendingTransportSelectionRef.current = clearPendingTransportSelection();
+      cancelManualSnapshotGestures();
       keysRef.current?.stopSnapshot();
       sequenceRepeatPlaybackStateRef.current = {};
       resetTimedPlaybackUi();
@@ -1533,6 +1593,7 @@ const App = () => {
       const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
         ? null
         : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+      cancelManualSnapshotGestures();
       keysRef.current?.stopSnapshot();
       sequenceRepeatPlaybackStateRef.current = {};
       resetTimedPlaybackUi({
@@ -1559,6 +1620,7 @@ const App = () => {
   }, [
     applySequencePlayback,
     applyStoppedSequenceTransportState,
+    cancelManualSnapshotGestures,
     resetTimedPlaybackUi,
     sequenceCueGroups,
     sequencePlaybackNotesAtPosition,
@@ -1630,27 +1692,110 @@ const App = () => {
     setSelectedSnapshotMarker({ snapshotId, time });
   }, []);
 
-  const onPlaySnapshot = useCallback(
-    (id) => {
+  const playManualSnapshotAtIndex = useCallback(
+    (stepIndex) => {
       sequenceRepeatPlaybackStateRef.current = {};
-      const stepIndex = snapshots.findIndex((s) => s.id === id);
       const snap = snapshots[stepIndex];
       if (!snap) return;
-      playSequencePosition(stepIndex, null);
+      const id = snap.id;
+      const notes = sequencePlaybackNotesAtPosition(stepIndex, null);
+      const articulation = effectiveManualSnapshotArticulation(
+        manualArpeggiation.mode,
+        snap.manualTrigger,
+      );
+      const arpeggiate = articulation === "arpeggiate";
+      if (!notes.length) {
+        cancelManualSnapshotGestures();
+        keysRef.current?.stopSnapshot();
+        applyStoppedSequenceTransportState();
+        return;
+      }
+      if (!arpeggiate) cancelManualSnapshotGestures();
+      const plan = planManualSnapshotFormation(notes, {
+        ...manualArpeggiation,
+        initialSpreadMs: arpeggiate ? manualArpeggiation.initialSpreadMs : 0,
+        timingVariation: arpeggiate ? manualArpeggiation.timingVariation : 0,
+        decayMs: arpeggiate ? manualArpeggiation.decayMs : 0,
+      });
+      const runtime = manualGestureRuntimeRef.current;
+      runtime.start(plan, {
+        onStart: (gestureId) => {
+          manualGestureSnapshotsRef.current.set(gestureId, id);
+          const gestureIds = manualSnapshotGesturesRef.current.get(id) ?? new Set();
+          gestureIds.add(gestureId);
+          manualSnapshotGesturesRef.current.set(id, gestureIds);
+          manualGestureEventVoicesRef.current.set(gestureId, new Map());
+          setManualPlayingSnapshotIds([...manualSnapshotGesturesRef.current.keys()]);
+          keysRef.current?.beginSnapshotGesture?.(gestureId, {
+            replace: !arpeggiate,
+          });
+        },
+        onAttack: (event, gestureId) => {
+          const result = keysRef.current?.attackSnapshotGestureNote?.(gestureId, event.note, {
+            legato: sequenceLegato,
+            pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
+          });
+          if (result?.hex) {
+            manualGestureEventVoicesRef.current.get(gestureId)?.set(event.eventId, result.hex);
+          }
+        },
+        onRelease: (event, gestureId) => {
+          const eventVoices = manualGestureEventVoicesRef.current.get(gestureId);
+          const hex = eventVoices?.get(event.eventId);
+          if (!hex) return;
+          keysRef.current?.releaseSnapshotGestureNote?.(gestureId, hex);
+          eventVoices.delete(event.eventId);
+        },
+        onCancel: releaseManualSnapshotGesture,
+        onComplete: releaseManualSnapshotGesture,
+      });
+      const normalizedNotes = Array.isArray(notes) ? notes : [];
+      commitSequencePlaybackUi({
+        safeStepIndex: stepIndex,
+        safeMarkerIndex: null,
+        snapshot: snap,
+        cueGroup: null,
+        normalizedNotes,
+        barIndex: barIndexForTime(stepIndex + 1),
+      });
     },
-    [playSequencePosition, snapshots],
+    [
+      applyStoppedSequenceTransportState,
+      barIndexForTime,
+      cancelManualSnapshotGestures,
+      commitSequencePlaybackUi,
+      manualArpeggiation,
+      releaseManualSnapshotGesture,
+      sequenceLegato,
+      sequencePlaybackNotesAtPosition,
+      snapshots,
+    ],
   );
+
+  const onPlaySnapshot = useCallback((id) => {
+    const stepIndex = snapshots.findIndex((snapshot) => snapshot.id === id);
+    if (stepIndex < 0) return;
+    playManualSnapshotAtIndex(stepIndex);
+  }, [playManualSnapshotAtIndex, snapshots]);
 
   const onStopSnapshot = useCallback(
     (id = null) => {
+      const hasManualGesture = id == null
+        ? manualGestureRuntimeRef.current.activeGestureIds().length > 0
+        : manualSnapshotGesturesRef.current.has(id);
+      if (hasManualGesture) {
+        cancelManualSnapshotGestures(id);
+        if (id != null) return;
+      }
       if (id != null && playingSnapshotId !== id) return;
       keysRef.current?.stopSnapshot();
       sequenceRepeatPlaybackStateRef.current = {};
       resetTimedPlaybackUi();
       setPlayingSnapshotId(null);
+      setManualPlayingSnapshotIds([]);
       setSequencePlayhead((prev) => ({ ...prev, stopped: true }));
     },
-    [playingSnapshotId, resetTimedPlaybackUi],
+    [cancelManualSnapshotGestures, playingSnapshotId, resetTimedPlaybackUi],
   );
 
   const previousWorkspaceTabRef = useRef(workspaceTab);
@@ -1665,6 +1810,7 @@ const App = () => {
   }, [guardianPanic, onStopSnapshot, workspaceTab]);
 
   const onSelectSequenceBar = useCallback((barIndex) => {
+    manualGestureRuntimeRef.current.cancelAll();
     keysRef.current?.stopSnapshot();
     sequenceRepeatPlaybackStateRef.current = {};
     pendingTransportSelectionRef.current = clearPendingTransportSelection();
@@ -1682,6 +1828,7 @@ const App = () => {
       barIndexForTime,
     });
     if (!nextState) return;
+    manualGestureRuntimeRef.current.cancelAll();
     keysRef.current?.stopSnapshot();
     sequenceRepeatPlaybackStateRef.current = {};
     pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
@@ -1705,6 +1852,7 @@ const App = () => {
       barIndexForTime,
     });
     if (!nextState) return;
+    manualGestureRuntimeRef.current.cancelAll();
     keysRef.current?.stopSnapshot();
     sequenceRepeatPlaybackStateRef.current = {};
     pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
@@ -1800,14 +1948,16 @@ const App = () => {
   const onStepSequence = useCallback((direction) => {
     sequenceRepeatPlaybackStateRef.current = {};
     if (!snapshots.length) return;
-    const pendingSnapshotIndex = pendingTransportSelectionRef.current.snapshotIndex;
-    if (sequencePlayhead.stopped === true && Number.isFinite(pendingSnapshotIndex) && pendingSnapshotIndex >= 0) {
-      if (direction > 0) {
-        playSequencePosition(pendingSnapshotIndex, null);
+      const pendingSnapshotIndex = pendingTransportSelectionRef.current.snapshotIndex;
+      if (sequencePlayhead.stopped === true && Number.isFinite(pendingSnapshotIndex) && pendingSnapshotIndex >= 0) {
+        if (direction > 0) {
+          playManualSnapshotAtIndex(pendingSnapshotIndex);
+          return;
+        }
+        const previousIndex = pendingSnapshotIndex - 1;
+        if (previousIndex >= 0) playManualSnapshotAtIndex(previousIndex);
+        else playSequencePosition(-1, null);
         return;
-      }
-      playSequencePosition(pendingSnapshotIndex - 1, null);
-      return;
     }
     const current = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
     if (current < 0) {
@@ -1820,12 +1970,14 @@ const App = () => {
         playSequencePosition(snapshots.length, null);
         return;
       }
-      playSequencePosition(target, null);
+      playManualSnapshotAtIndex(target);
       return;
     }
     const next = Math.max(-1, Math.min(snapshots.length, current + direction));
-    playSequencePosition(next, null);
+    if (next >= 0 && next < snapshots.length) playManualSnapshotAtIndex(next);
+    else playSequencePosition(next, null);
   }, [
+    playManualSnapshotAtIndex,
     playSequencePosition,
     sequencePlayhead.barIndex,
     sequencePlayhead.stepIndex,
@@ -2114,8 +2266,12 @@ const App = () => {
     pendingTransportSelectionRef.current = clearPendingTransportSelection();
     const nextIndex = Number(targetIndex);
     if (!Number.isFinite(nextIndex)) return;
+    if (nextIndex >= 0 && nextIndex < snapshots.length) {
+      playManualSnapshotAtIndex(nextIndex);
+      return;
+    }
     playSequencePosition(nextIndex, null);
-  }, [playSequencePosition]);
+  }, [playManualSnapshotAtIndex, playSequencePosition, snapshots.length]);
 
   const onJumpSequenceCue = useCallback((targetCueIndex) => {
     sequenceRepeatPlaybackStateRef.current = {};
@@ -2170,6 +2326,7 @@ const App = () => {
   const onJumpSequenceEnd = useCallback(() => {
     const lastCueIndex = sequenceCueGroups.length > 0 ? sequenceCueGroups.length - 1 : null;
     const lastBarIndex = sortedSequenceBars.length > 0 ? sortedSequenceBars.length - 1 : 0;
+    manualGestureRuntimeRef.current.cancelAll();
     keysRef.current?.stopSnapshot();
     sequenceRepeatPlaybackStateRef.current = {};
     pendingTransportSelectionRef.current = clearPendingTransportSelection();
@@ -2229,7 +2386,13 @@ const App = () => {
 
   const onDeleteSnapshot = useCallback(
     (id) => {
-      if (playingSnapshotId === id) {
+      const manualGestureIds = [
+        ...(manualSnapshotGesturesRef.current.get(id) ?? []),
+      ];
+      for (const gestureId of manualGestureIds) {
+        manualGestureRuntimeRef.current.cancel(gestureId);
+      }
+      if (playingSnapshotId === id && manualGestureIds.length === 0) {
         keysRef.current?.stopSnapshot();
         setPlayingSnapshotId(null);
       }
@@ -2253,8 +2416,10 @@ const App = () => {
   );
 
   const onDeleteAllSnapshots = useCallback(() => {
+    manualGestureRuntimeRef.current.cancelAll();
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
+    setManualPlayingSnapshotIds([]);
     const cleared = buildClearedSequenceWorkspaceState();
     setSnapshots(cleared.snapshots);
     setSelectedSnapshotId(cleared.selectedSnapshotId);
@@ -2269,12 +2434,15 @@ const App = () => {
     setActiveSequenceName(cleared.activeSequenceName);
     setActiveSequenceSavedName(cleared.activeSequenceSavedName);
     setActiveSequenceDescription(cleared.activeSequenceDescription);
+    setManualArpeggiation(cleared.manualArpeggiation);
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
   const onClearSequence = useCallback(() => {
+    manualGestureRuntimeRef.current.cancelAll();
     keysRef.current?.stopSnapshot();
     setPlayingSnapshotId(null);
+    setManualPlayingSnapshotIds([]);
     const cleared = buildClearedSequenceWorkspaceState();
     setSnapshots(cleared.snapshots);
     setSelectedSnapshotId(cleared.selectedSnapshotId);
@@ -2289,6 +2457,7 @@ const App = () => {
     setActiveSequenceName(cleared.activeSequenceName);
     setActiveSequenceSavedName(cleared.activeSequenceSavedName);
     setActiveSequenceDescription(cleared.activeSequenceDescription);
+    setManualArpeggiation(cleared.manualArpeggiation);
     playSequencePosition(-1, null);
   }, [playSequencePosition]);
 
@@ -2357,6 +2526,7 @@ const App = () => {
       sequenceLegato,
       snapSequenceToCurrentTuning,
       sequenceAutoCreateBars,
+      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     setSequenceBars(result.bars);
@@ -2374,6 +2544,7 @@ const App = () => {
     sequenceAutoCreateBars,
     sequenceBars,
     sequenceLegato,
+    manualArpeggiation,
     sequenceRepeats,
     sequenceTempi,
     snapSequenceToCurrentTuning,
@@ -2432,6 +2603,7 @@ const App = () => {
       sequenceLegato,
       snapSequenceToCurrentTuning,
       sequenceAutoCreateBars,
+      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     appendPersistedSequencerCrashDiagnostic({
@@ -2458,6 +2630,7 @@ const App = () => {
     selectedSnapshotId,
     sequenceAutoCreateBars,
     sequenceLegato,
+    manualArpeggiation,
     sequenceRepeats,
     sequenceTempi,
     snapSequenceToCurrentTuning,
@@ -2529,6 +2702,7 @@ const App = () => {
       sequenceLegato,
       snapSequenceToCurrentTuning,
       sequenceAutoCreateBars,
+      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     setSequenceBars(result.bars);
@@ -2563,6 +2737,7 @@ const App = () => {
     selectedSnapshotMarker,
     sequenceAutoCreateBars,
     sequenceLegato,
+    manualArpeggiation,
     sequenceRepeats,
     sequenceTempi,
     snapSequenceToCurrentTuning,
@@ -2621,6 +2796,7 @@ const App = () => {
       sequenceLegato,
       snapSequenceToCurrentTuning,
       sequenceAutoCreateBars,
+      manualArpeggiation,
     });
     setSnapshots(nextSnapshots);
   }, [
@@ -2633,6 +2809,7 @@ const App = () => {
     sequenceAutoCreateBars,
     sequenceBars,
     sequenceLegato,
+    manualArpeggiation,
     sequenceRepeats,
     sequenceTempi,
     snapSequenceToCurrentTuning,
@@ -4153,7 +4330,9 @@ const App = () => {
           {!snapshotPaletteCollapsed && (
             <div className="snapshot-palette-body">
               {snapshots.map((snap, index) => {
-                const isPlaying = snap.id === playingSnapshotId;
+                const isPlaying =
+                  snap.id === playingSnapshotId
+                  || manualPlayingSnapshotIds.includes(snap.id);
                 const isDragOver = dragOverId === snap.id;
                 return (
                   <div
@@ -4477,10 +4656,12 @@ const App = () => {
               sequencePlayRepeats={sequencePlayRepeats}
               snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
               sequenceAutoCreateBars={sequenceAutoCreateBars}
+              manualArpeggiation={manualArpeggiation}
               selectedSnapshotId={selectedSnapshotId}
               selectedMarker={selectedSnapshotMarker}
               pendingTransportSelection={pendingTransportSelectionRef.current}
               playingSnapshotId={playingSnapshotId}
+              playingSnapshotIds={manualPlayingSnapshotIds}
               playhead={sequencePlayhead}
               onTakeSnapshot={onTakeSnapshot}
               onAddEmptySnapshot={onAddEmptySnapshot}
@@ -4495,6 +4676,12 @@ const App = () => {
               onSequencePlayRepeatsChange={setSequencePlayRepeats}
               onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
               onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
+              onManualArpeggiationChange={(updates) => {
+                setManualArpeggiation((current) => normalizeManualArpeggiation({
+                  ...current,
+                  ...updates,
+                }));
+              }}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
               onSelectSnapshot={onSelectSequencerSnapshot}
               onSelectMarker={onSelectSequencerMarker}

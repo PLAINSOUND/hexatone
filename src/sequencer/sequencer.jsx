@@ -77,6 +77,7 @@ import {
   restoreEventPitchLabelInSnapshot,
   updateEventFieldInSnapshot,
 } from "./sequence-mutations.js";
+import { normalizeManualArpeggiation } from "./manual-snapshot-arpeggiation.js";
 
 /**
  * Sequencer — sidebar workspace for building, editing, and auditioning
@@ -103,10 +104,12 @@ const Sequencer = ({
   sequencePlayRepeats = true,
   snapSequenceToCurrentTuning,
   sequenceAutoCreateBars,
+  manualArpeggiation,
   selectedSnapshotId,
   selectedMarker,
   pendingTransportSelection = null,
   playingSnapshotId,
+  playingSnapshotIds = [],
   playhead,
   onTakeSnapshot,
   onAddEmptySnapshot,
@@ -121,6 +124,7 @@ const Sequencer = ({
   onSequencePlayRepeatsChange,
   onSnapSequenceToCurrentTuningChange,
   onSequenceAutoCreateBarsChange,
+  onManualArpeggiationChange,
   onSetSnapshotLabelMode,
   onSelectSnapshot,
   onSelectMarker,
@@ -161,6 +165,10 @@ const Sequencer = ({
   onUpdateSnapshot,
   onResetSnapshotDescription,
 }) => {
+  const normalizedManualArpeggiation = useMemo(
+    () => normalizeManualArpeggiation(manualArpeggiation),
+    [manualArpeggiation],
+  );
   const renderStartedAtMs = performance.now();
   const formatTransportClock = useCallback((seconds) => {
     const totalSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -2078,6 +2086,7 @@ const Sequencer = ({
         tempi={tempi}
         snapshotLabelMode={snapshotLabelMode}
         autoCreateBars={sequenceAutoCreateBars}
+        manualArpeggiation={normalizedManualArpeggiation}
         activeSequenceSource={activeSequenceSource ?? ""}
         activeSequenceBuiltInName={activeSequenceBuiltInName ?? ""}
         activeSequenceName={activeSequenceName ?? ""}
@@ -2351,6 +2360,8 @@ const Sequencer = ({
           onAddRepeatMarker={addRepeatAtRequestedPosition}
           snapshotLabelMode={snapshotLabelMode}
           onSetSnapshotLabelMode={onSetSnapshotLabelMode}
+          manualArpeggiation={normalizedManualArpeggiation}
+          onManualArpeggiationChange={onManualArpeggiationChange}
           sequenceLegato={sequenceLegato}
           onSequenceLegatoChange={onSequenceLegatoChange}
           sequencePlaybackSpeed={sequencePlaybackSpeed}
@@ -2454,6 +2465,8 @@ const Sequencer = ({
                       index={row.index}
                       selectedSnapshotId={selectedSnapshotId}
                       playingSnapshotId={playingSnapshotId}
+                      playingSnapshotIds={playingSnapshotIds}
+                      manualArpeggiationMode={normalizedManualArpeggiation.mode}
                       showAllEvents={showAllEvents}
                       expandedIds={expandedIds}
                       dragState={sharedDragState}

@@ -41,6 +41,11 @@ describe("workspace runtime", () => {
       repeats: [{ id: 5, position: 3, kind: "end", repeatCount: 4 }],
       snapshotLabelMode: "odd-partials",
       autoCreateBars: false,
+      manualArpeggiation: {
+        mode: "all",
+        initialSpreadMs: 1100,
+        timingVariation: 0.2,
+      },
       description: "demo",
     }, { source: "builtin" });
 
@@ -52,6 +57,11 @@ describe("workspace runtime", () => {
       activeSequenceName: "FALL",
       activeSequenceSavedName: "",
       activeSequenceDescription: "demo",
+      manualArpeggiation: {
+        mode: "all",
+        initialSpreadMs: 1100,
+        timingVariation: 0.2,
+      },
       ids: {
         snapshotId: 4,
         barId: 2,

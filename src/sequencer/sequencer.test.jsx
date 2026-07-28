@@ -116,6 +116,7 @@ describe("Sequencer", () => {
 
   it("offers an Empty snapshot button alongside Capture", () => {
     const onAddEmptySnapshot = vi.fn();
+    const onUpdateSnapshot = vi.fn();
 
     render(
       <Sequencer
@@ -129,6 +130,7 @@ describe("Sequencer", () => {
         ]}
         bars={[{ id: 1, position: 1 }]}
         snapshotLabelMode="labels"
+        manualArpeggiation={{ mode: "per-snapshot" }}
         selectedSnapshotId={null}
         selectedMarker={null}
         playingSnapshotId={null}
@@ -160,13 +162,22 @@ describe("Sequencer", () => {
         onMoveBar={vi.fn()}
         onDeleteSnapshot={vi.fn()}
         onMoveSnapshot={vi.fn()}
-        onUpdateSnapshot={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
         onResetSnapshotDescription={vi.fn()}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Append Empty Snapshot" }));
     expect(onAddEmptySnapshot).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "chord snapshot 1" }));
+    expect(onUpdateSnapshot).toHaveBeenCalledWith(1, {
+      manualTrigger: {
+        articulation: "arpeggiate",
+        styleId: null,
+        styleParameters: null,
+      },
+    });
   });
 
   it("resets note offsets in place from the Copy & Insert controls", () => {
@@ -332,12 +343,21 @@ describe("Sequencer", () => {
   });
 
   it("offers sequence structure and playback modifier controls", () => {
+    const onManualArpeggiationChange = vi.fn();
     render(
       <Sequencer
         snapshots={[]}
         bars={[{ id: 1, position: 1 }]}
         tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }]}
         snapshotLabelMode="labels"
+        manualArpeggiation={{
+          mode: "per-snapshot",
+          initialSpreadMs: 825,
+          spreadVariation: 0.33,
+          timingVariation: 0.18,
+          decayMs: 4200,
+          decayVariation: 0.22,
+        }}
         selectedSnapshotId={null}
         selectedMarker={null}
         playingSnapshotId={null}
@@ -348,6 +368,7 @@ describe("Sequencer", () => {
         onSequenceNameChange={vi.fn()}
         onSequenceDescriptionChange={vi.fn()}
         onSequenceLegatoChange={vi.fn()}
+        onManualArpeggiationChange={onManualArpeggiationChange}
         onSetSnapshotLabelMode={vi.fn()}
         onSelectSnapshot={vi.fn()}
         onSelectMarker={vi.fn()}
@@ -381,6 +402,44 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback speed slider" })).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback pitch slider" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "manual snapshot arpeggiation mode" }).value)
+      .toBe("per-snapshot");
+    expect(screen.getByRole("slider", { name: "manual arpeggiation initial spread" }).value)
+      .toBe("825");
+    expect(screen.getByRole("slider", { name: "manual arpeggiation spread variation" }).value)
+      .toBe("33");
+    expect(screen.getByRole("slider", { name: "manual arpeggiation timing variation" }).value)
+      .toBe("18");
+    expect(screen.getByRole("slider", { name: "manual arpeggiation decay" }).value)
+      .toBe("4200");
+    expect(screen.getByRole("slider", { name: "manual arpeggiation decay variation" }).value)
+      .toBe("22");
+
+    fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation initial spread" }), {
+      currentTarget: { value: "1200" },
+      target: { value: "1200" },
+    });
+    fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation timing variation" }), {
+      currentTarget: { value: "25" },
+      target: { value: "25" },
+    });
+    fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation spread variation" }), {
+      currentTarget: { value: "40" },
+      target: { value: "40" },
+    });
+    fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation decay" }), {
+      currentTarget: { value: "7500" },
+      target: { value: "7500" },
+    });
+    fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation decay variation" }), {
+      currentTarget: { value: "35" },
+      target: { value: "35" },
+    });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(1, { initialSpreadMs: 1200 });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(2, { timingVariation: 0.25 });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(3, { spreadVariation: 0.4 });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(4, { decayMs: 7500 });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(5, { decayVariation: 0.35 });
   });
 
   it("suggests the tempo at a chosen position and retains user-entered tempo values after adding", () => {

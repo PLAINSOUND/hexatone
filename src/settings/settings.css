@@ -1361,6 +1361,7 @@ td.scale-color-col .color-input {
   --sequencer-event-pitch-col: minmax(0, 1fr);
   --sequencer-event-value-col: minmax(0, 0.82fr);
   --sequencer-snapshot-primary-col: 4.1em;
+  --sequencer-snapshot-articulation-col: 3.4em;
   --sequencer-event-actions-col: 3.45em;
   --sequencer-detail-columns:
     var(--sequencer-delete-col)
@@ -1381,6 +1382,14 @@ td.scale-color-col .color-input {
     var(--sequencer-delete-col)
     var(--sequencer-number-col)
     var(--sequencer-snapshot-primary-col)
+    minmax(0, 1fr)
+    max-content
+    max-content;
+  --sequencer-snapshot-row-columns:
+    var(--sequencer-delete-col)
+    var(--sequencer-number-col)
+    var(--sequencer-snapshot-primary-col)
+    var(--sequencer-snapshot-articulation-col)
     minmax(0, 1fr)
     max-content
     max-content;
@@ -1427,7 +1436,7 @@ td.scale-color-col .color-input {
 .sequencer-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: var(--sequencer-snapshot-columns);
+  grid-template-columns: var(--sequencer-snapshot-row-columns);
   gap: 0.45em;
   align-items: center;
   padding: 0;
@@ -1543,6 +1552,38 @@ td.scale-color-col .color-input {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   padding: 0 0.45em;
+}
+
+.sequencer-row__articulation {
+  appearance: none;
+  width: var(--sequencer-snapshot-articulation-col);
+  min-width: var(--sequencer-snapshot-articulation-col);
+  height: 1.5em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25em;
+  border: 1px solid var(--color-border-ui);
+  border-radius: 3px;
+  background: var(--color-bg);
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sequencer-row__articulation--arp {
+  border-color: #d3aa42;
+  background: #fff2bd;
+  color: #6b5012;
+  box-shadow: 0 0 0.45em rgb(229 175 39 / 48%);
+}
+
+.sequencer-row__articulation:disabled {
+  opacity: 0.68;
+  cursor: default;
 }
 
 .sequencer-row__description {
@@ -2010,6 +2051,33 @@ td.scale-color-col .color-input {
   margin: 0;
 }
 
+.sequencer-manual-arpeggiation-controls {
+  margin: -0.05em 0 0.5em 1em;
+  padding-left: 0.7em;
+  border-left: 1px solid var(--color-border-ui);
+}
+
+.sequencer-manual-arpeggiation-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55em;
+  width: min(17em, 100%);
+  margin-left: auto;
+}
+
+.sequencer-manual-arpeggiation-control input[type="range"] {
+  min-width: 5em;
+  flex: 1 1 auto;
+}
+
+.sequencer-manual-arpeggiation-control output {
+  width: 4.8em;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .sequencer-option-row > span:first-child {
   flex: 0 0 auto;
 }
@@ -2426,6 +2494,11 @@ td.scale-color-col .color-input {
   .sequencer-option-row.sequencer-option-row--label-left > span:first-child {
     align-self: flex-start;
     text-align: left;
+  }
+
+  .sequencer-manual-arpeggiation-control {
+    width: 100%;
+    margin-left: 0;
   }
 
   .sequencer-option-row.sequencer-option-row--mobile-inline {
@@ -4644,8 +4717,7 @@ input.equiv-cell:disabled,
   font-size: 1.05em;
   line-height: 1;
   transition:
-    background 0.15 ease,
-    background-color 0.15 ease,
+    background-color 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease;
 }

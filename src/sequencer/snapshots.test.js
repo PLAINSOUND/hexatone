@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  attackSnapshotGestureNote,
+  beginSnapshotGesture,
   captureSnapshot,
   playSnapshot,
+  releaseSnapshotGestureNote,
   retuneActiveSnapshotHexes,
   retuneSnapshotHexes,
+  stopSnapshotGesture,
   stopSnapshot,
 } from "./snapshots.js";
 
@@ -1001,5 +1005,81 @@ describe("sequencer snapshots", () => {
     ], { legato: true });
 
     expect(coordsSeen).toEqual(["9000,9000", "9001,9001", "9002,9002"]);
+  });
+
+  it("shares a matching pitch between overlapping legato gestures until its last owner stops", () => {
+    const sharedHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+    };
+    const runtime = makeRuntime({
+      synth: { makeHex: vi.fn(() => sharedHex) },
+    });
+    const first = { midicents: 60, attackVelocity: 100, releaseVelocity: 31 };
+    const second = { midicents: 60, attackVelocity: 90, releaseVelocity: 47 };
+
+    beginSnapshotGesture(runtime, "first");
+    expect(attackSnapshotGestureNote(runtime, "first", first, { legato: true })).toMatchObject({
+      hex: sharedHex,
+      attacked: true,
+    });
+    beginSnapshotGesture(runtime, "second");
+    expect(attackSnapshotGestureNote(runtime, "second", second, { legato: true })).toMatchObject({
+      hex: sharedHex,
+      attacked: false,
+    });
+
+    expect(runtime.synth.makeHex).toHaveBeenCalledTimes(1);
+    stopSnapshotGesture(runtime, "first");
+    expect(sharedHex.noteOff).not.toHaveBeenCalled();
+    stopSnapshotGesture(runtime, "second");
+    expect(sharedHex.noteOff).toHaveBeenCalledOnce();
+    expect(sharedHex.noteOff).toHaveBeenCalledWith(47);
+  });
+
+  it("decays one legato gesture owner without cutting off a shared pitch", () => {
+    const sharedHex = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const runtime = makeRuntime({
+      synth: { makeHex: vi.fn(() => sharedHex) },
+    });
+    const note = { midicents: 60, attackVelocity: 100, releaseVelocity: 42 };
+
+    beginSnapshotGesture(runtime, "first");
+    const first = attackSnapshotGestureNote(runtime, "first", note, { legato: true });
+    beginSnapshotGesture(runtime, "second");
+    const second = attackSnapshotGestureNote(runtime, "second", note, { legato: true });
+    expect(first.hex).toBe(second.hex);
+
+    releaseSnapshotGestureNote(runtime, "second", second.hex);
+    expect(sharedHex.noteOff).not.toHaveBeenCalled();
+    releaseSnapshotGestureNote(runtime, "first", first.hex);
+    expect(sharedHex.noteOff).toHaveBeenCalledWith(42);
+  });
+
+  it("rearticulates matching pitches for overlapping non-legato gestures", () => {
+    const firstHex = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const secondHex = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const runtime = makeRuntime({
+      synth: {
+        makeHex: vi.fn()
+          .mockReturnValueOnce(firstHex)
+          .mockReturnValueOnce(secondHex),
+      },
+    });
+    const note = { midicents: 60, attackVelocity: 100, releaseVelocity: 40 };
+
+    beginSnapshotGesture(runtime, "first");
+    attackSnapshotGestureNote(runtime, "first", note, { legato: false });
+    beginSnapshotGesture(runtime, "second");
+    attackSnapshotGestureNote(runtime, "second", note, { legato: false });
+
+    expect(runtime.synth.makeHex).toHaveBeenCalledTimes(2);
+    stopSnapshotGesture(runtime, "first");
+    expect(firstHex.noteOff).toHaveBeenCalledWith(40);
+    expect(secondHex.noteOff).not.toHaveBeenCalled();
+    stopSnapshotGesture(runtime, "second");
+    expect(secondHex.noteOff).toHaveBeenCalledWith(40);
   });
 });

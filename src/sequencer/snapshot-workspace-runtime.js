@@ -4,6 +4,10 @@
 
 import { buildSnapshotDescription } from "./labels.js";
 import {
+  normalizeManualArpeggiation,
+  normalizeManualSnapshotTrigger,
+} from "./manual-snapshot-arpeggiation.js";
+import {
   shiftStructuralMarkersAfterSnapshotRangeDeletion,
   shiftStructuralMarkersAfterSnapshotDeletion,
   shiftStructuralMarkersAfterSnapshotInsertion,
@@ -470,6 +474,7 @@ export function appendSnapshotToWorkspace({
     length: 1,
     description: buildSnapshotDescription(snapshotNotes, snapshotLabelMode),
     descriptionManual: false,
+    manualTrigger: normalizeManualSnapshotTrigger(),
     notes: snapshotNotes,
   };
   const nextSnapshots = [...(snapshots ?? []), snapshot];
@@ -551,6 +556,7 @@ export function buildClearedSequenceWorkspaceState() {
     activeSequenceName: "",
     activeSequenceSavedName: "",
     activeSequenceDescription: "",
+    manualArpeggiation: normalizeManualArpeggiation(),
   };
 }
 

@@ -5,6 +5,10 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import {
+  MANUAL_ARPEGGIATION_MODES,
+  normalizeManualArpeggiation,
+} from "./manual-snapshot-arpeggiation.js";
+import {
   formatSequencePlaybackPitchCents,
   formatSequencePlaybackPitchCourtesy,
   formatSequencePlaybackSpeed,
@@ -267,6 +271,8 @@ const SequenceControls = ({
   onAddRepeatMarker,
   snapshotLabelMode,
   onSetSnapshotLabelMode,
+  manualArpeggiation,
+  onManualArpeggiationChange,
   sequenceLegato,
   onSequenceLegatoChange,
   sequencePlaybackSpeed,
@@ -316,6 +322,16 @@ const SequenceControls = ({
   onTimedTransportStop,
   terminalSequenceTarget,
 }) => {
+  const normalizedManualArpeggiation = normalizeManualArpeggiation(manualArpeggiation);
+  const spreadVariationPercent = Math.round(
+    normalizedManualArpeggiation.spreadVariation * 100,
+  );
+  const timingVariationPercent = Math.round(
+    normalizedManualArpeggiation.timingVariation * 100,
+  );
+  const decayVariationPercent = Math.round(
+    normalizedManualArpeggiation.decayVariation * 100,
+  );
   const snapshotBackAvailable = snapshotSelectValue === terminalSequenceTarget
     ? snapshots.length > 0
     : Number.isFinite(Number(snapshotSelectValue)) && Number(snapshotSelectValue) > 0;
@@ -470,6 +486,122 @@ const SequenceControls = ({
         ))}
       </select>
     </label>
+
+    <label class="sequencer-option-row sequencer-option-row--label-left">
+      <span>Snapshot Arpeggiation</span>
+      <select
+        class="sidebar-input"
+        aria-label="manual snapshot arpeggiation mode"
+        value={normalizedManualArpeggiation.mode}
+        onChange={(e) => onManualArpeggiationChange?.({
+          mode: e.currentTarget.value,
+        })}
+      >
+        {MANUAL_ARPEGGIATION_MODES.map((mode) => (
+          <option key={mode.value} value={mode.value}>
+            {mode.label}
+          </option>
+        ))}
+      </select>
+    </label>
+
+    {normalizedManualArpeggiation.mode !== "off" ? (
+      <div class="sequencer-manual-arpeggiation-controls">
+        <label class="sequencer-option-row sequencer-option-row--label-left">
+          <span>Initial Spread</span>
+          <span class="sequencer-manual-arpeggiation-control">
+            <input
+              type="range"
+              min="0"
+              max="5000"
+              step="25"
+              aria-label="manual arpeggiation initial spread"
+              value={normalizedManualArpeggiation.initialSpreadMs}
+              onInput={(e) => onManualArpeggiationChange?.({
+                initialSpreadMs: Number(e.currentTarget.value),
+              })}
+            />
+            <output>{normalizedManualArpeggiation.initialSpreadMs} ms</output>
+          </span>
+        </label>
+
+        <label class="sequencer-option-row sequencer-option-row--label-left">
+          <span>Spread Variation</span>
+          <span class="sequencer-manual-arpeggiation-control">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              aria-label="manual arpeggiation spread variation"
+              value={spreadVariationPercent}
+              onInput={(e) => onManualArpeggiationChange?.({
+                spreadVariation: Number(e.currentTarget.value) / 100,
+              })}
+            />
+            <output>{spreadVariationPercent}%</output>
+          </span>
+        </label>
+
+        <label class="sequencer-option-row sequencer-option-row--label-left">
+          <span>Timing Variation</span>
+          <span class="sequencer-manual-arpeggiation-control">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              aria-label="manual arpeggiation timing variation"
+              value={timingVariationPercent}
+              onInput={(e) => onManualArpeggiationChange?.({
+                timingVariation: Number(e.currentTarget.value) / 100,
+              })}
+            />
+            <output>{timingVariationPercent}%</output>
+          </span>
+        </label>
+
+        <label class="sequencer-option-row sequencer-option-row--label-left">
+          <span>Decay</span>
+          <span class="sequencer-manual-arpeggiation-control">
+            <input
+              type="range"
+              min="0"
+              max="20000"
+              step="100"
+              aria-label="manual arpeggiation decay"
+              value={normalizedManualArpeggiation.decayMs}
+              onInput={(e) => onManualArpeggiationChange?.({
+                decayMs: Number(e.currentTarget.value),
+              })}
+            />
+            <output>
+              {normalizedManualArpeggiation.decayMs === 0
+                ? "sustain"
+                : `${normalizedManualArpeggiation.decayMs} ms`}
+            </output>
+          </span>
+        </label>
+
+        <label class="sequencer-option-row sequencer-option-row--label-left">
+          <span>Decay Variation</span>
+          <span class="sequencer-manual-arpeggiation-control">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              aria-label="manual arpeggiation decay variation"
+              value={decayVariationPercent}
+              onInput={(e) => onManualArpeggiationChange?.({
+                decayVariation: Number(e.currentTarget.value) / 100,
+              })}
+            />
+            <output>{decayVariationPercent}%</output>
+          </span>
+        </label>
+      </div>
+    ) : null}
 
     <label class="sequencer-option-row sequencer-option-row--mobile-inline">
       <span>Legato</span>

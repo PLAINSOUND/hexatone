@@ -257,6 +257,8 @@ class Keys {
     this._snapshotHexes = [];
     this._soundingSnapshotHexes = new Set();
     this._snapshotNotes = [];
+    this._snapshotGestureVoices = new Map();
+    this._snapshotVoiceOwners = new Map();
     // Recency stack — tracks all sounding notes most-recent-first.
     // The front entry receives wheel bend; see _handleWheelBend().
     this.recencyStack = new RecencyStack();
@@ -1971,6 +1973,22 @@ class Keys {
     }
   }
 
+  beginSnapshotGesture(gestureId, options = {}) {
+    SequencerSnapshots.beginSnapshotGesture(this, gestureId, options);
+  }
+
+  attackSnapshotGestureNote(gestureId, note, options = {}) {
+    return SequencerSnapshots.attackSnapshotGestureNote(this, gestureId, note, options);
+  }
+
+  releaseSnapshotGestureNote(gestureId, hex) {
+    SequencerSnapshots.releaseSnapshotGestureNote(this, gestureId, hex);
+  }
+
+  stopSnapshotGesture(gestureId) {
+    SequencerSnapshots.stopSnapshotGesture(this, gestureId);
+  }
+
   stopSnapshot() {
     const soundingHexes = this._soundingSnapshotHexes instanceof Set
       ? [...this._soundingSnapshotHexes]
@@ -1979,6 +1997,8 @@ class Keys {
     this._snapshotHexes = [];
     this._snapshotNotes = [];
     this._soundingSnapshotHexes?.clear();
+    this._snapshotGestureVoices?.clear();
+    this._snapshotVoiceOwners?.clear();
   }
 
   /**

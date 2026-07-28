@@ -260,8 +260,8 @@ describe("MidiOutputs FluidSynth independence", () => {
     const controls = [
       ["Brightness", 13, 65, "mpe_eagan_brightness"],
       ["Tilt EQ", 83, 66, "mpe_eagan_tilt_eq"],
-      ["Pre Level", 18, 67, "mpe_eagan_pre_level"],
-      ["Post Level", 26, 68, "mpe_eagan_post_level"],
+      ["Pre Level", 26, 67, "mpe_eagan_pre_level"],
+      ["Post Level", 18, 68, "mpe_eagan_post_level"],
     ];
 
     for (const [label, cc, value, key] of controls) {
@@ -309,8 +309,8 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(mpeOutput.send.mock.calls).toEqual([
       [[0xb0, 13, 64]],
       [[0xb0, 83, 64]],
-      [[0xb0, 18, 64]],
       [[0xb0, 26, 64]],
+      [[0xb0, 18, 64]],
     ]);
     expect(onChange).toHaveBeenCalledWith("mpe_auto_generate_yz", true);
   });
