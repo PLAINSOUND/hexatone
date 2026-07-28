@@ -25,14 +25,14 @@ Hexatone 3.3-beta is a live microtonal keyboard and scale workspace featuring:
 - HEJI spelling controls with editable notation reference, ratio / cents offset, spelling frequency, and scale-degree-0 frequency
 - a HEJI entry palette for building and copying exact spellings up to 47-limit
 - built-in tunings, Scala import/export, and user presets
-- user sequence save / load / export support
+- built-in and user sequence libraries with save, load, and export support
 - scale editing, including note names and colours
 - live retuning of scale degrees and reference frequency
 - rationalisation and modulation
 - MPE-aware MIDI input with automatic mapping of 2D controller geometries
 - MIDI Output (MTS and MPE)
 - snapshots for comparing chords and tunings
-- a Sequencer tab for editing snapshots into cue-based event sequences with bars, tempo markers, repeat markers, and `PLAY FROM` transport
+- a Sequencer tab for editing snapshots into cue-based event sequences with bars, tempo markers, repeats, manual arpeggiation, and timed playback
 
 PLAINSOUND HEXATONE can be used entirely in the browser:
 
@@ -43,7 +43,8 @@ PLAINSOUND HEXATONE can be used entirely in the browser:
 - scale rationalisation to user chosen parameters
 - snapshots
 - bar-, snapshot-, and cue-based sequence editing and playback
-- repeat-aware sequence playback with start/end repeat markers
+- manual snapshot and cue navigation alongside timed sequence playback
+- repeat-aware playback with start- and end-repeat markers
 
 Hexatone also supports:
 
@@ -70,70 +71,66 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ### 3.3-beta *(current beta branch)*
 
-Hexatone 3.3-beta introduces a substantial expansion of the Sequencer and HEJI
-notation workspace.
+Hexatone 3.3-beta substantially expands the Sequencer and HEJI notation workspace.
 
-The Sequencer now supports editable snapshots, cues, bars, tempo changes, and
-repeat markers in one unified event list. Captured snapshots can be expanded
-into individual note events whose snapshot membership, offset, MIDI¢,
-frequency, displayed name, bar-relative position, and expression data can be
-edited directly. Sequence structure is no longer limited to chord-to-chord
-playback: bars and time signatures may occur between snapshots or inside them,
-tempo changes can be placed anywhere in the timeline, repeat starts and ends
-may loop cue ranges, and the `PLAY FROM` transport can step by bar, snapshot,
-or cue.
+The Sequencer supports editable snapshots, cues, bars, tempo changes, and repeat markers in a unified event list. Captured snapshots can be expanded into individual note events whose snapshot membership, position offset, MIDI¢, Hz, displayed name, bar-relative position, and expression data can be edited directly. Bars and time signatures may be placed between snapshots,
+tempo markers support immediate and gradual changes, and repeat markers can loop between sequence positions.
 
-User sequences can be named, saved, reopened, exported, and continued later,
-with snapshot labels, bars, tempo markers, repeat markers, and event edits
-preserved. Unsaved sequence drafts are distinguished from saved sequences in the
-menu workflow. The event list also now supports a more compact paging model on
-small screens so that timing fields and expression fields remain usable on
-mobile devices.
+The `PLAY FROM` transport can locate a start position by bar, snapshot, or cue, and `Auto-Scroll` keeps the event list aligned with the playhead. Sequences may be explored by triggering snapshots or cues manually, stepping through them in sequence, or by using `TIMED PLAYBACK`. Manual snapshot triggering and stepping support arpeggiation with adjustable spread, timing, and decay. Snapshot and cue triggering offer a `Legato` option to sustain common tones. `TIMED PLAYBACK` also provides live controls for `SPEED` scaling and `PITCH` transposition.
 
-The HEJI workspace has also been expanded significantly. Spelling is now tied
-to an explicit reference model based on `Notation (Spelling)`, `Ratio/Cents from
-1/1`, `Spelling Frequency`, and the frequency of scale degree `0`. The HEJI
-palette can construct tempered or exact spellings, calculate cents deviations
-automatically for exact HEJI accidentals, and copy combined notation-plus-cents
-strings for reuse in the scale table. Auto-colours and key labels are now more
-tightly aligned with exact interval identity, giving a more coherent rational
-pitch workspace across notation, colour, and tuning.
+User sequences can be named, saved, reopened, exported, and continued later, with their musical material and structural settings preserved. The event list supports range-based copying and insertion, while its compact and virtualized layout keeps long sequences practical on desktop and mobile displays.
+
+The HEJI workspace has also been expanded significantly. Spelling is now tied to an explicit reference model based on `Notation (Spelling)`, `Ratio/Cents from 1/1`, `Spelling Frequency`, and the frequency of scale degree `0`. The HEJI palette can construct tempered or exact spellings, calculate cents deviations automatically for exact HEJI accidentals, and copy combined notation-plus-cents strings for reuse in the scale table. Auto-colours and key labels are now more tightly aligned with exact interval identity, giving a more coherent rational pitch workspace across notation, colour, and tuning.
 
 **Sequencer**
 
 - added a dedicated Sequencer tab for editing captured snapshots as event-based sequences
-- snapshot rows can now be expanded into editable event rows with per-event:
+- snapshot rows can now be expanded into editable note events with per-event:
   - snapshot number
-  - offset within the snapshot
-  - on / off triggers
+  - position offset within the snapshot
+  - note on / note off triggers
   - MIDI¢
   - Hz
-  - displayed name
+  - displayed note name
   - bar / beat / numerator / denominator timing
-  - on-velocity
-  - off-velocity
+  - note-on velocity
+  - note-off velocity
   - pressure
   - timbre
-- generated `CUE` structure now follows event positions within and across snapshots
-- added `BAR` support, including:
-  - manual bar creation at explicit positions
-  - automatic bar creation before snapshots
-  - inline bars inside snapshots when the bar position is not at an exact snapshot boundary
-- added repeat markers:
+- generated `CUE` structure follows event positions within and across snapshots
+- `BAR` support includes:
+  - manual bar creation at explicit positions between snapshots
+  - optional automatic bar creation before snapshots
+  - time signatures may include any natural number as numerator or denominator
+- looping:
   - start repeat and end repeat markers may be placed anywhere in sequence position space
-  - end-repeat markers carry repeat counts
-  - missing start-repeat markers are auto-created when needed
-  - later repeat ends can fall back to an earlier start marker if an intermediate start is deleted
-- added `PLAY FROM BAR / SNAPSHOT / CUE` navigation and per-cue play / stop controls
-- selecting a bar, snapshot, or cue queues the destination in brackets until the next transport step
-- transport scrolling now reveals repeat starts when they coincide with the selected bar, snapshot, or cue position
-- end-of-sequence stepping queues the transport back to the start for loop-oriented workflows
-- added tempo-change markers with editable beat fraction and bpm
-- added `Legato` cue playback mode for sustaining repeated pitches across cues
-- added `Snap Sequence to Current Hexatone Tuning` so saved sequence pitch data may optionally be remapped to the current live tuning
-- added user sequence save / load / export support with name and description fields
-- unsaved / saved-clean / saved-dirty sequence states are now reflected in the user-sequence workflow
-- added option-drag snapshot duplication and expanded drag / reorder support
+  - end-repeat markers carry repeat counts, defaulting to `2x`
+  - `Play Repeats` option allows repeat playback to be bypassed
+- `PLAY FROM` provides bar, snapshot, and cue navigation with stepping and play/retrigger/stop controls
+  - selecting a snapshot or using the snapshot arrows arms Snapshot playback
+  - selecting a cue, choosing a bar, or using the cue arrows arms Cue playback
+  - a highlight shows which target the PLAY button will trigger
+  - cue rows provide immediate play and stop controls
+  - stepping beyond the end returns the transport to the sequence start
+- `TIMED PLAYBACK` provides start, play/pause, stop, and end controls, following the sequence‘s bars, tempo markings, and repeats
+- `Auto-Scroll` keeps the event list aligned with manual navigation and timed playback
+- tempo markers have editable beat units and bpm, supporting immediate and gradual tempo changes
+- `SPEED` scales the tempo of timed playback from `0.5x` to `2x`, while `PITCH` transposes by up to `±1200 cents`
+- `Legato` playback sustains common tones between snapshots or cues
+- `Snap Sequence to Current Hexatone Tuning` remaps sequence pitches to the closest notes in the current live tuning
+- manual snapshot arpeggiation includes:
+  - `Off`, `Per Snapshot`, and `All Snapshots` modes
+  - a per-snapshot `Chord` / `Arp` setting
+  - adjustable initial spread, spread variation, timing variation, decay, and decay variation
+  - overlapping arpeggiations with legato or rearticulated playback
+- snapshot ranges can be selected, copied, inserted, or deleted
+  - copied ranges may optionally include associated bars, tempo markers, and repeats
+  - insertion may preserve or reset sequence-position offsets
+- added a built-in sequence library alongside saved user sequences
+- user sequences can be named, described, saved, reopened, and exported
+- unsaved, saved-clean, and saved-dirty states are reflected in the user-sequence workflow
+- option-drag snapshot duplication and expanded drag / reorder support
+- improved rendering and scrolling performance for long event lists
 
 **HEJI notation and pitch model**
 

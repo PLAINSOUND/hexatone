@@ -40,10 +40,17 @@ vi.mock("./credits", () => ({
   default: () => <div>Credits Stub</div>,
 }));
 vi.mock("./manual/manual-sidebar.jsx", () => ({
-  default: ({ onClose }) => (
-    <div data-testid="manual-sidebar">
-      <button type="button" onClick={onClose}>Close Manual</button>
+  default: ({ initialSectionTitle, onSectionChange, onClose }) => (
+    <div data-testid="manual-sidebar" data-initial-section-title={initialSectionTitle}>
       Manual Stub
+      <button type="button" onClick={() => onSectionChange?.("Quick Start")}>
+        Select Quick Start
+      </button>
+      {onClose ? (
+        <button type="button" onClick={onClose}>
+          Close contextual manual
+        </button>
+      ) : null}
     </div>
   ),
 }));
@@ -879,12 +886,40 @@ describe("App workspace tabs", () => {
     vi.useRealTimers();
   });
 
-  it("closes the inline manual whenever the user switches tabs", async () => {
+  it("keeps independent remembered positions for the main and contextual manuals", async () => {
     render(<App />);
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole("tab", { name: "MANUAL" }));
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
+      "About",
+    );
+    await user.click(screen.getByRole("button", { name: "Select Quick Start" }));
+    await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
+    await user.click(screen.getByRole("tab", { name: "MANUAL" }));
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
+      "Quick Start",
+    );
+
+    await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
     await user.click(screen.getByText("… more"));
-    expect(await screen.findByTestId("manual-sidebar")).not.toBeNull();
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
+      "Hexatone Tab",
+    );
+    expect(screen.getByRole("tab", { name: "HEXATONE" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "MANUAL" }).getAttribute("aria-selected")).toBe(
+      "false",
+    );
+    expect(screen.getByRole("heading", { name: "PLAINSOUND HEXATONE" })).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Select Quick Start" }));
+    await user.click(screen.getByRole("button", { name: "Close contextual manual" }));
+    await user.click(screen.getByText("… more"));
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
+      "Quick Start",
+    );
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     await waitFor(() => {
@@ -892,7 +927,9 @@ describe("App workspace tabs", () => {
     });
 
     await user.click(screen.getByText("… more"));
-    expect(await screen.findByTestId("manual-sidebar")).not.toBeNull();
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
+      "Sequencer Tab",
+    );
 
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
     await waitFor(() => {

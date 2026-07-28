@@ -1,0 +1,2 @@
+export const MANUAL_INTRO =
+  "PLAINSOUND HEXATONE and SEQUENCER is a webapp designed for exploring rational tuning (JI). A tool for learning, playing, and composing, it features 2D microtonal tuning layouts, a scale workspace with live retuning, modulation, and rationalisation, built-in sounds, support for MIDI controllers and external synths. Sounds may be captured as snapshots and edited into a step sequence.";

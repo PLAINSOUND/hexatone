@@ -8,20 +8,57 @@
  * Hexatone or Sequencer workspace. It renders a section picker plus the
  * selected manual sections below it.
  */
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { MANUAL_INTRO } from "./content.js";
 import { getManualSections } from "./markdown.js";
 
 const { updated, sections } = getManualSections();
 
-const DEFAULT_SECTION_ID = sections.find((section) => section.title === "About")?.id ?? sections[0]?.id;
+const DEFAULT_SECTION_ID =
+  sections.find((section) => section.title === "About")?.id ?? sections[0]?.id;
 
-const ManualSidebar = ({ onClose }) => {
-  const [selectedSectionId, setSelectedSectionId] = useState(DEFAULT_SECTION_ID);
+function getInitialSectionId(initialSectionTitle) {
+  return (
+    sections.find((section) => section.title === initialSectionTitle)?.id ?? DEFAULT_SECTION_ID
+  );
+}
+
+const ManualSidebar = ({
+  onClose,
+  initialSectionTitle = "About",
+  onSectionChange,
+}) => {
+  const [selectedSectionId, setSelectedSectionId] = useState(() =>
+    getInitialSectionId(initialSectionTitle),
+  );
+  const [showTopButton, setShowTopButton] = useState(false);
+  const sectionsPanelRef = useRef(null);
   const selectedIndex = Math.max(
     0,
     sections.findIndex((section) => section.id === selectedSectionId),
   );
   const visibleSections = sections.slice(selectedIndex);
+
+  useEffect(() => {
+    const sidebar = document.getElementById("sidebar");
+    if (!sidebar) return undefined;
+
+    const updateTopButton = () => {
+      const panel = sectionsPanelRef.current;
+      if (!panel) return;
+      const panelBottom = panel.offsetTop + panel.offsetHeight;
+      setShowTopButton(sidebar.scrollTop > panelBottom);
+    };
+
+    updateTopButton();
+    sidebar.addEventListener("scroll", updateTopButton, { passive: true });
+    window.addEventListener("resize", updateTopButton);
+
+    return () => {
+      sidebar.removeEventListener("scroll", updateTopButton);
+      window.removeEventListener("resize", updateTopButton);
+    };
+  }, []);
 
   return (
     <div class="manual-sidebar">
@@ -29,26 +66,28 @@ const ManualSidebar = ({ onClose }) => {
         <legend>
           <b>Manual</b>
         </legend>
-        <button
-          type="button"
-          class="settings-panel__close"
-          onClick={onClose}
-          title="Close"
-        >
-          ✕
-        </button>
+        {onClose ? (
+          <button
+            type="button"
+            class="settings-panel__close"
+            onClick={onClose}
+            title="Close"
+          >
+            ✕
+          </button>
+        ) : null}
 
-        <p class="manual-sidebar__intro">
-          PLAINSOUND HEXATONE and SEQUENCER is a webapp designed for exploring rational tuning (JI). A tool for learning, playing, and composing, it features 2D microtonal tuning layouts, a scale workspace with live retuning, modulation, and rationalisation, built-in sounds, support for MIDI controllers and external synths. Sounds may be captured as snapshots and edited into a step sequence.
-        </p>
-        {updated && (
-          <p class="manual-sidebar__updated">
-            <em>{updated}</em>
-          </p>
-        )}
+        <p class="manual-sidebar__intro">{MANUAL_INTRO}</p>
+        <div class="manual-sidebar__meta">
+          {updated && (
+            <p class="manual-sidebar__updated">
+              <em>{updated}</em>
+            </p>
+          )}
+        </div>
       </fieldset>
 
-      <fieldset class="manual-sidebar__panel">
+      <fieldset ref={sectionsPanelRef} class="manual-sidebar__panel">
         <legend>
           <b>Sections</b>
         </legend>
@@ -60,7 +99,10 @@ const ManualSidebar = ({ onClose }) => {
                 class={`manual-sidebar__toc-button${
                   section.id === selectedSectionId ? " manual-sidebar__toc-button--active" : ""
                 }`}
-                onClick={() => setSelectedSectionId(section.id)}
+                onClick={() => {
+                  setSelectedSectionId(section.id);
+                  onSectionChange?.(section.title);
+                }}
               >
                 {section.title}
               </button>
@@ -81,18 +123,23 @@ const ManualSidebar = ({ onClose }) => {
         </fieldset>
       ))}
 
-      <div class="manual-sidebar__footer">
-        <button
-          type="button"
-          class="preset-action-btn"
-          onClick={() => {
-            const sidebar = document.getElementById("sidebar");
-            if (sidebar) sidebar.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-        >
-          Top
-        </button>
-      </div>
+      {showTopButton ? (
+        <div class="settings-form__action-row manual-sidebar__footer">
+          <span class="settings-form__action-group">
+            <button
+              type="button"
+              class="preset-action-btn"
+              onClick={() => {
+                const sidebar = document.getElementById("sidebar");
+                if (sidebar) sidebar.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Top
+            </button>
+          </span>
+        </div>
+      ) : null}
+
     </div>
   );
 };

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
 import SequenceControls from "./sequence-controls.jsx";
+import SidebarTopAction from "../sidebar-top-action.jsx";
 import SnapshotSequenceItem from "./snapshot-sequence-item.jsx";
 import BarRow from "./bar-row.jsx";
 import TempoRow from "./tempo-row.jsx";
@@ -2482,6 +2483,7 @@ const Sequencer = ({
             </div>
           )}
 
+          <SidebarTopAction scrollTargetRef={scrollPanelRef} threshold={48} />
         </div>
 
         {!topSequenceSaveVisible &&

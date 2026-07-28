@@ -1,4 +1,4 @@
-import { useMemo, useState } from "preact/hooks";
+import { useMemo, useRef, useState } from "preact/hooks";
 import Info from "./scale/info";
 import Scale from "./scale";
 import Layout from "./layout";
@@ -9,6 +9,7 @@ import WebMIDISettings from "./midi/webmidi-settings.jsx";
 import { normalizeColors } from "./normalize-settings.js";
 import { presetTuningGroups } from "../hexatone/preset-tunings/index.js";
 import TuningLibrary from "../hexatone/tuning-library.jsx";
+import SidebarTopAction from "../sidebar-top-action.jsx";
 
 const Settings = ({
   onLoadBuiltinPreset,
@@ -65,6 +66,7 @@ const Settings = ({
   tuningRuntime,
   onEnableLumatoneAutoSync,
 }) => {
+  const settingsRootRef = useRef(null);
   const [tuningSaveActionState, setTuningSaveActionState] = useState({
     visible: false,
     label: "",
@@ -77,7 +79,12 @@ const Settings = ({
   }), [settings]);
 
   return (
-    <div autoComplete="off" role="group" aria-label="Hexatone settings">
+    <div
+      ref={settingsRootRef}
+      autoComplete="off"
+      role="group"
+      aria-label="Hexatone settings"
+    >
     <TuningLibrary
       presetGroups={presetTuningGroups}
       settings={settings}
@@ -170,6 +177,7 @@ const Settings = ({
       midiTick={midiTick}
       keysRef={keysRef}
     />
+    <SidebarTopAction thresholdRootRef={settingsRootRef} />
     </div>
   );
 };

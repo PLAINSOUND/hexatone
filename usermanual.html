@@ -12,43 +12,26 @@
 </head>
 <body>
   <main class="manual-shell">
-    <h1 class="manual-brand">PLAINSOUND HEXATONE</h1>
+    <h1 class="manual-brand">USER MANUAL</h1>
 
-    <fieldset class="manual-panel" aria-label="User manual links">
-      <legend><b>User Manual</b></legend>
-      <div class="manual-header__links">
-        <a href="./">Run the keyboard</a>
-        <a href="https://github.com/PLAINSOUND/hexatone/blob/main/usermanual.md">Markdown source</a>
-        <a href="https://github.com/PLAINSOUND/hexatone/blob/main/DEVELOPER_QUICKSTART.md">Developer quickstart</a>
+    <div class="manual-sidebar">
+      <fieldset class="settings-panel settings-panel--manual">
+        <legend><b>Manual</b></legend>
+        <p id="manual-intro" class="manual-sidebar__intro"></p>
+        <div class="manual-sidebar__meta">
+          <p id="manual-updated" class="manual-sidebar__updated"></p>
+        </div>
+      </fieldset>
+
+      <fieldset class="manual-sidebar__panel">
+        <legend><b>Sections</b></legend>
+        <ol id="manual-toc" class="manual-sidebar__toc"></ol>
+      </fieldset>
+
+      <div id="manual-content">
+        <p class="manual-status">Loading manual…</p>
       </div>
-      <p id="manual-updated" class="manual-updated"></p>
-    </fieldset>
-
-    <nav aria-label="Table of contents">
-      <legend><b>Sections</b></legend>
-      <ol>
-        <li><a href="#manual-about">About</a></li>
-        <li><a href="#manual-quick-start">Quick Start</a></li>
-        <li><a href="#manual-components">Components</a></li>
-        <li><a href="#manual-playing">Playing</a></li>
-        <li><a href="#manual-settings">Settings</a></li>
-        <li><a href="#manual-rationalisation">Rationalisation</a></li>
-        <li><a href="#manual-creating-presets">Creating Presets</a></li>
-        <li><a href="#manual-snapshot">Snapshot</a></li>
-        <li><a href="#manual-webmidi">WebMIDI</a></li>
-        <li><a href="#manual-midi-in">MIDI In</a></li>
-        <li><a href="#manual-colours">Colours</a></li>
-        <li><a href="#manual-midi-out">MIDI Out</a></li>
-        <li><a href="#manual-osc">OSC</a></li>
-        <li><a href="#manual-starting">Starting</a></li>
-        <li><a href="#manual-roadmap">Roadmap</a></li>
-        <li><a href="#manual-developer">Developer</a></li>
-      </ol>
-    </nav>
-
-    <article id="manual-content" class="markdown-body manual-content">
-      <p class="manual-status">Loading manual…</p>
-    </article>
+    </div>
   </main>
   <script type="module" src="/src/manual/usermanual.js"></script>
 </body>

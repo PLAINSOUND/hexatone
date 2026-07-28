@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-07-19
+Updated: 2026-07-28
 
 ## About
 
@@ -433,12 +433,9 @@ A repeat row shows:
 
 Repeat markers participate directly in cue playback. When cue stepping crosses an end-repeat boundary, Hexatone jumps back to the associated start-repeat position and restarts the cue range as many times as the repeat count requires. Any carried note-offs that need to occur before the repeat bounce are preserved by the event-ordering rules.
 
-## Roadmap
+## Developer Roadmap
 
 Hexatone is currently working towards extending the sequencer functionality and integrating context-aware live retuning.
-
-## Developer
-
 If you want to clone and run Hexatone locally, or help test, find issues, join the coding, see:
 
 - [DEVELOPER_QUICKSTART.md](./DEVELOPER_QUICKSTART.md)

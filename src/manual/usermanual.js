@@ -3,66 +3,39 @@
  *
  * Entry script for the standalone user manual page.
  *
- * This is separate from the in-app sidebar manual: it bootstraps the full-page
- * manual HTML entrypoint, renders the markdown, then groups the content into
- * fieldset sections so the standalone manual visually matches the app UI.
+ * This bootstraps the full-page manual with the same content structure and
+ * shared styles as the in-app MANUAL workspace.
  */
 import "normalize.css";
 import "./usermanual.css";
-import { parseMarkdown, escapeHtml, manualMarkdown } from "./markdown.js";
-
-function groupSections(target) {
-  const updatedEl = document.getElementById("manual-updated");
-  const nodes = Array.from(target.childNodes);
-
-  const h1 = nodes.find((node) => node.nodeType === Node.ELEMENT_NODE && node.tagName === "H1");
-  if (h1) h1.remove();
-
-  const firstParagraph = target.querySelector("p");
-  if (firstParagraph?.textContent?.startsWith("Updated:")) {
-    if (updatedEl) updatedEl.textContent = firstParagraph.textContent;
-    firstParagraph.remove();
-  }
-
-  const remaining = Array.from(target.childNodes).filter(
-    (node) => !(node.nodeType === Node.TEXT_NODE && !node.textContent.trim()),
-  );
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "manual-groups";
-
-  let currentGroup = null;
-  for (const node of remaining) {
-    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "H2") {
-      currentGroup = document.createElement("fieldset");
-      currentGroup.className = "manual-group markdown-body";
-      const legend = document.createElement("legend");
-      const strong = document.createElement("b");
-      const anchor = document.createElement("a");
-      anchor.href = `#${node.id}`;
-      anchor.textContent = node.textContent;
-      strong.appendChild(anchor);
-      legend.appendChild(strong);
-      currentGroup.appendChild(legend);
-      wrapper.appendChild(currentGroup);
-      continue;
-    }
-
-    if (!currentGroup) continue;
-    currentGroup.appendChild(node);
-  }
-
-  target.innerHTML = "";
-  target.appendChild(wrapper);
-}
+import "./manual-shared.css";
+import { MANUAL_INTRO } from "./content.js";
+import { escapeHtml, getManualSections } from "./markdown.js";
 
 async function renderManual() {
   const target = document.getElementById("manual-content");
+  const toc = document.getElementById("manual-toc");
+  const intro = document.getElementById("manual-intro");
+  const updated = document.getElementById("manual-updated");
   const status = document.querySelector(".manual-status");
+
   try {
-    target.innerHTML = parseMarkdown(manualMarkdown);
+    const manual = getManualSections();
+    intro.textContent = MANUAL_INTRO;
+    updated.innerHTML = manual.updated ? `<em>${escapeHtml(manual.updated)}</em>` : "";
+    toc.innerHTML = manual.sections
+      .map(
+        (section) =>
+          `<li><a class="manual-sidebar__toc-link" href="#${section.id}">${escapeHtml(section.title)}</a></li>`,
+      )
+      .join("");
+    target.innerHTML = manual.sections
+      .map(
+        (section) =>
+          `<fieldset id="${section.id}" class="manual-sidebar__section"><legend><b>${escapeHtml(section.title)}</b></legend><div class="manual-sidebar__content">${section.html}</div></fieldset>`,
+      )
+      .join("");
     if (status) status.remove();
-    groupSections(target);
   } catch (error) {
     if (status) status.remove();
     target.innerHTML = `<p class="manual-error">Could not render the user manual.</p><p>${escapeHtml(

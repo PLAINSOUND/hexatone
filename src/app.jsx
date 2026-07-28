@@ -552,13 +552,29 @@ function isTextEntryElement(el) {
   ].includes(type);
 }
 
+const MANUAL_VIEW_DEFAULT_SECTIONS = {
+  main: "About",
+  hexatone: "Hexatone Tab",
+  sequencer: "Sequencer Tab",
+};
+
 // App is the orchestration boundary: below this point persisted settings are
 // normalized into the live runtime slices consumed by Keyboard, Settings, and
 // Sequencer.
 const App = () => {
   const [ready, setReady] = useState(false);
-  const [showManual, setShowManual] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState("hexatone");
+  const [inlineManualView, setInlineManualView] = useState(null);
+  const [manualSectionTitles, setManualSectionTitles] = useState(
+    MANUAL_VIEW_DEFAULT_SECTIONS,
+  );
+  const manualScrollPositionsRef = useRef({
+    main: 0,
+    hexatone: 0,
+    sequencer: 0,
+  });
+  const activeManualView =
+    workspaceTab === "manual" ? "main" : inlineManualView;
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [showRotationDebug, setShowRotationDebug] = useState(getRotationDebugDefault);
   const [rotationDebugEvents, setRotationDebugEvents] = useState([]);
@@ -575,10 +591,36 @@ const App = () => {
   const audioWakePromiseRef = useRef(null);
 
   // Session / lifecycle bootstrap.
+  const rememberManualScrollPosition = useCallback(() => {
+    if (!activeManualView) return;
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar) manualScrollPositionsRef.current[activeManualView] = sidebar.scrollTop;
+  }, [activeManualView]);
   const switchWorkspaceTab = useCallback((nextTab) => {
-    setShowManual(false);
+    rememberManualScrollPosition();
+    setInlineManualView(null);
     setWorkspaceTab(nextTab);
-  }, []);
+  }, [rememberManualScrollPosition]);
+  const openManualWorkspace = useCallback(() => {
+    rememberManualScrollPosition();
+    setInlineManualView(null);
+    setWorkspaceTab("manual");
+  }, [rememberManualScrollPosition]);
+  const openInlineManual = useCallback((nextManualView) => {
+    rememberManualScrollPosition();
+    setInlineManualView(nextManualView);
+  }, [rememberManualScrollPosition]);
+  const closeInlineManual = useCallback(() => {
+    rememberManualScrollPosition();
+    setInlineManualView(null);
+  }, [rememberManualScrollPosition]);
+  const rememberManualSection = useCallback((sectionTitle) => {
+    if (!activeManualView) return;
+    setManualSectionTitles((current) => ({
+      ...current,
+      [activeManualView]: sectionTitle,
+    }));
+  }, [activeManualView]);
   const primeAudioFromUserInteraction = useCallback(async () => {
     const needsInitialPrepare = !userHasInteracted;
     const needsHardRefresh = audioNeedsHardRefreshRef.current;
@@ -680,10 +722,10 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (!showManual) return;
+    if (!activeManualView) return;
     const sidebar = document.getElementById("sidebar");
-    if (sidebar) sidebar.scrollTop = 0;
-  }, [showManual]);
+    if (sidebar) sidebar.scrollTop = manualScrollPositionsRef.current[activeManualView] ?? 0;
+  }, [activeManualView]);
 
   useEffect(() => {
     const readPxVar = (name) => {
@@ -3078,7 +3120,7 @@ const App = () => {
     return () => {
       clearTimeout(timer);
     };
-  }, [active, showManual, textEntryActive, viewportKeyboardOpen]);
+  }, [active, workspaceTab, textEntryActive, viewportKeyboardOpen]);
 
   useEffect(() => {
     // Enable the app — triggers synth creation and makes the keyboard visible.
@@ -4297,7 +4339,7 @@ const App = () => {
       </div>
 
       {/* ── Snapshot palette — floating overlay, visible without opening the sidebar ── */}
-      {workspaceTab !== "sequencer" && snapshots.length > 0 && (
+      {workspaceTab === "hexatone" && !inlineManualView && snapshots.length > 0 && (
         <div
           id="snapshot-palette"
           ref={snapshotPaletteRef}
@@ -4439,7 +4481,7 @@ const App = () => {
         </div>
       )}
 
-      {modulationPaletteVisible && workspaceTab !== "sequencer" && (
+      {modulationPaletteVisible && workspaceTab === "hexatone" && !inlineManualView && (
         <div
           id="modulation-palette"
           ref={modulationPaletteRef}
@@ -4619,36 +4661,58 @@ const App = () => {
           >
             SEQUENCER
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={workspaceTab === "manual"}
+            class={`workspace-tab${workspaceTab === "manual" ? " workspace-tab--active" : ""}`}
+            onClick={openManualWorkspace}
+          >
+            MANUAL
+          </button>
         </div>
         <div class="workspace-tabs-deadzone" aria-hidden="true" />
-        <h1>{workspaceTab === "sequencer" ? "PLAINSOUND SEQUENCER" : "PLAINSOUND HEXATONE"}</h1>
+        <h1>
+          {workspaceTab === "manual"
+            ? "USER MANUAL"
+            : workspaceTab === "sequencer"
+              ? "PLAINSOUND SEQUENCER"
+              : "PLAINSOUND HEXATONE"}
+        </h1>
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
               Capture chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining as SNAPSHOTS. Build step sequences and trigger them event by event. EDIT start and stop times within a chord to make CUES that sound a melody or arpeggiation. Create bars, repeats, and tempo markers to generate an automated timed playback.{" "}
-              {!showManual && (
-                <span className="app-shell__intro-more" onClick={() => setShowManual(true)}>
-                  … more
-                </span>
-              )}
+              <span
+                className="app-shell__intro-more"
+                onClick={() => openInlineManual("sequencer")}
+              >
+                … more
+              </span>
             </em>
           </p>
-        ) : (
+        ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
               TO PLAY, choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes snapshots across tunings; build a sequence.{" "}
-              {!showManual && (
-                <span className="app-shell__intro-more" onClick={() => setShowManual(true)}>
-                  … more
-                </span>
-              )}
+              <span
+                className="app-shell__intro-more"
+                onClick={() => openInlineManual("hexatone")}
+              >
+                … more
+              </span>
             </em>
           </p>
-        )}
+        ) : null}
 
         <Suspense fallback={<SidebarLoadingFallback />}>
-          {showManual ? (
-            <ManualSidebar onClose={() => setShowManual(false)} />
+          {activeManualView ? (
+            <ManualSidebar
+              key={activeManualView}
+              initialSectionTitle={manualSectionTitles[activeManualView]}
+              onSectionChange={rememberManualSection}
+              onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
+            />
           ) : workspaceTab === "sequencer" ? (
             <Sequencer
               snapshots={snapshots}

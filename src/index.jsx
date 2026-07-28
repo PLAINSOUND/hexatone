@@ -16,6 +16,7 @@ import "normalize.css";
 import "./hex-style.css";
 import "./loader.css";
 import "./settings/settings.css";
+import "./manual/manual-shared.css";
 import "./keyboard/keyboard.css";
 
 if (import.meta.env.DEV) {
