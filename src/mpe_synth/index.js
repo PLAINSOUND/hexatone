@@ -377,12 +377,18 @@ function MpeHex(
   const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
   const bendGuess = deviationToBend((69 + 12 * Math.log2(freq / 440) - noteGuess) * 100, bendRange);
 
-  const { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing: _stolenWasReleasing, retrigger } = pool.noteOn(
-    coords,
-    bendGuess,
-  );
+  const {
+    slot,
+    allocationToken,
+    stolen,
+    stolenSlot,
+    stolenNote,
+    stolenWasReleasing: _stolenWasReleasing,
+    retrigger,
+  } = pool.noteOn(coords, bendGuess);
 
   this.channel = slot; // 1-based
+  this.allocationToken = allocationToken;
   this._stolenCoords = stolen;
 
   // Recalculate with actual channel (matters for Ableton_workaround mode)
@@ -442,7 +448,7 @@ MpeHex.prototype.noteOn = function () {
 };
 
 MpeHex.prototype._ownsVoiceChannel = function () {
-  return this.pool?.getSlot?.(this.coords) === this.channel;
+  return this.pool?.owns?.(this.coords, this.channel, this.allocationToken) === true;
 };
 
 MpeHex.prototype._invalidateDisplacedVoice = function () {
@@ -473,7 +479,7 @@ MpeHex.prototype.noteOff = function (release_velocity) {
     this.autoMpeYzScheduler?.release(this.channel, vel);
   }
   // Mark RELEASING in pool (starts the guard timer)
-  this.pool.noteOff(this.coords);
+  this.pool.noteOff(this.coords, this.allocationToken);
   // Guard against aftertouch arriving after release
   this.release = true;
 

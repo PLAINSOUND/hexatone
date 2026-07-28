@@ -748,6 +748,65 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
+  it("uses manual arpeggiation when PLAY FROM starts a snapshot", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{
+        id: 1,
+        length: 1,
+        notes: [
+          { id: "first", midicents: 60, start: 0, attackVelocity: 90 },
+          { id: "second", midicents: 64, start: 0.5, attackVelocity: 90 },
+        ],
+      }],
+      bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      tempi: [],
+      repeats: [],
+      manualArpeggiation: {
+        mode: "all",
+        initialSpreadMs: 1000,
+        spreadVariation: 0,
+        timingVariation: 0,
+        decayMs: 0,
+        decayVariation: 0,
+      },
+    }));
+    const { unmount } = render(<App />);
+    const keys = {
+      settings: {
+        note_names: [],
+        heji_names: [],
+      },
+      beginSnapshotGesture: vi.fn(),
+      attackSnapshotGestureNote: vi.fn((_gestureId, note) => ({ hex: { note } })),
+      releaseSnapshotGestureNote: vi.fn(),
+      stopSnapshotGesture: vi.fn(),
+      stopSnapshot: vi.fn(),
+      panic: vi.fn(),
+    };
+
+    await waitFor(() => {
+      expect(lastKeyboardProps).not.toBeNull();
+    });
+    act(() => {
+      lastKeyboardProps.onKeysReady(keys);
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    fireEvent.click(await screen.findByLabelText("play current sequence position"));
+
+    expect(keys.beginSnapshotGesture).toHaveBeenCalledWith(
+      expect.any(Number),
+      { replace: false },
+    );
+    expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(1);
+    expect(keys.attackSnapshotGestureNote.mock.calls[0][1].id).toBe("first");
+
+    unmount();
+    localStorage.removeItem("hexatone_persist_on_reload");
+    sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+  });
+
   it("retunes active timed-playback voices while the navigation playhead is stopped", async () => {
     render(<App />);
     const user = userEvent.setup();

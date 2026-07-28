@@ -64,6 +64,32 @@ describe("transport intent runtime", () => {
     });
   });
 
+  it("keeps an empty snapshot as the current stopped transport position", () => {
+    expect(buildCommittedSequencePlaybackState({
+      safeStepIndex: 19,
+      safeMarkerIndex: null,
+      snapshot: { id: "empty-s20" },
+      cueGroup: null,
+      normalizedNotes: [],
+      barIndex: 4,
+      snapshots: [],
+    })).toEqual({
+      pendingTransportSelection: {
+        snapshotIndex: null,
+        cueIndex: null,
+      },
+      playingSnapshotId: null,
+      selectedSnapshotId: "empty-s20",
+      selectedSnapshotMarker: null,
+      playhead: {
+        barIndex: 4,
+        stepIndex: 19,
+        markerIndex: null,
+        stopped: true,
+      },
+    });
+  });
+
   it("resolves pending snapshot transport selection", () => {
     expect(resolvePendingSnapshotTransportState({
       targetIndex: 1,

@@ -584,6 +584,44 @@ describe("mpe_synth MPE+ emission", () => {
     expect(displaced.release).toBe(true);
     expect(owner.release).toBe(false);
   });
+
+  it("does not let an older same-coordinate retrigger release the newer allocation", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+    );
+    const older = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, -100, 100, 69, 72, 0, 1);
+    const newer = synth.makeHex({ x: 0, y: 0 }, 400, 4, 0, 12, 300, 500, 73, 72, 0, 1);
+    midi_output.send.mockClear();
+
+    older.noteOff(40);
+    newer.sequenceRetune(547);
+    newer.noteOff(50);
+
+    const messages = midi_output.send.mock.calls.map(([message]) => message);
+    const noteOffs = messages.filter((message) => (message[0] & 0xf0) === 0x80);
+    const bends = messages.filter((message) => (message[0] & 0xf0) === 0xe0);
+    expect(noteOffs).toEqual([[0x81, newer.note, 50]]);
+    expect(bends).toHaveLength(1);
+    expect(older.release).toBe(true);
+    expect(newer.release).toBe(true);
+  });
 });
 
 describe("mpe_synth automatic Y/Z output", () => {

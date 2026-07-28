@@ -1803,6 +1803,14 @@ td.scale-color-col .color-input {
   min-width: 3.75em;
 }
 
+#sidebar .sequencer-playback-select--active-target {
+  border-color: rgba(205, 159, 49, 0.78);
+  background-color: color-mix(in srgb, #ffd96a 18%, var(--color-bg));
+  box-shadow:
+    0 0 0 1px rgba(230, 181, 58, 0.2),
+    0 0 0.42em rgba(237, 190, 65, 0.34);
+}
+
 .sequencer-playback-status {
   min-width: 1.8em;
   text-align: center;

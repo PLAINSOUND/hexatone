@@ -2899,13 +2899,37 @@ describe("Sequencer", () => {
 
     expect(screen.getByLabelText("snapshot 1 description").value).toBe("A, F");
     expect(screen.getByText("PLAY FROM")).not.toBeNull();
+    const snapshotTarget = screen.getByLabelText("next snapshot target");
+    const cueTarget = screen.getByLabelText("next cue target");
+    const playButton = screen.getByLabelText("play current sequence position");
+    expect(snapshotTarget.dataset.playFromActive).toBe("true");
+    expect(cueTarget.dataset.playFromActive).toBe("false");
+
     fireEvent.mouseDown(screen.getByLabelText("next sequence marker"));
     fireEvent.click(screen.getByLabelText("next sequence marker"));
     expect(onStepSequenceMarker).toHaveBeenCalledWith(1);
+    expect(snapshotTarget.dataset.playFromActive).toBe("false");
+    expect(cueTarget.dataset.playFromActive).toBe("true");
+    fireEvent.click(playButton);
+    expect(onPlayCue).toHaveBeenCalledWith(0);
+    expect(onPlaySequence).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText("next sequence step"));
+    expect(snapshotTarget.dataset.playFromActive).toBe("true");
+    expect(cueTarget.dataset.playFromActive).toBe("false");
+    fireEvent.click(playButton);
+    expect(onPlaySequence).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(container.querySelector('[data-timed-transport-field="bar"]'), {
+      target: { value: "1" },
+    });
+    expect(snapshotTarget.dataset.playFromActive).toBe("false");
+    expect(cueTarget.dataset.playFromActive).toBe("true");
+    fireEvent.click(playButton);
+    expect(onPlayCue).toHaveBeenCalledTimes(2);
+
     fireEvent.click(screen.getByLabelText("move sequence playhead to start"));
     expect(onResetSequencePlayhead).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByLabelText("play current sequence position"));
-    expect(onPlaySequence).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText("stop sequence playback"));
     expect(onStopSnapshot).toHaveBeenCalledWith();
     expect(screen.getByLabelText("Snapshot Labels").value).toBe("labels");

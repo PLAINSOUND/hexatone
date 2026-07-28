@@ -314,6 +314,7 @@ const SequenceControls = ({
   onResetSequencePlayhead,
   onJumpSequenceEnd,
   onPlaySequence,
+  onPlayCue,
   playingSnapshotId,
   onStopSnapshot,
   timedTransportUiState,
@@ -322,6 +323,9 @@ const SequenceControls = ({
   onTimedTransportStop,
   terminalSequenceTarget,
 }) => {
+  const [playFromTarget, setPlayFromTarget] = useState(
+    Number.isFinite(playhead?.markerIndex) ? "cue" : "snapshot",
+  );
   const normalizedManualArpeggiation = normalizeManualArpeggiation(manualArpeggiation);
   const spreadVariationPercent = Math.round(
     normalizedManualArpeggiation.spreadVariation * 100,
@@ -651,6 +655,7 @@ const SequenceControls = ({
             value={timedBarSelectValue ?? playhead?.barIndex ?? 0}
             onChange={(e) => {
               const selectedBarIndex = Number(e.currentTarget.value);
+              setPlayFromTarget("cue");
               stopTimedTransportBefore(() => {
                 transportScrollTargetRef.current = "bar";
                 onSelectSequenceBar?.(selectedBarIndex);
@@ -674,18 +679,21 @@ const SequenceControls = ({
             title="Previous step"
             disabled={snapshots.length === 0 || !snapshotBackAvailable}
             onClick={() => {
+              setPlayFromTarget("snapshot");
               runTransportAction(() => onStepSequence?.(-1));
             }}
           >
             <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
           </button>
           <select
-            class="sidebar-input sequencer-playback-select sequencer-playback-select--pending"
+            class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "snapshot" ? " sequencer-playback-select--active-target" : ""}`}
             aria-label="next snapshot target"
+            data-play-from-active={playFromTarget === "snapshot" ? "true" : "false"}
             data-timed-transport-field="snapshot"
             value={snapshotSelectValue}
             onChange={(e) => {
               const selectedSnapshotValue = e.currentTarget.value;
+              setPlayFromTarget("snapshot");
               stopTimedTransportBefore(() => {
                 if (selectedSnapshotValue === "") {
                   return;
@@ -720,6 +728,7 @@ const SequenceControls = ({
               ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
               : false)}
             onClick={() => {
+              setPlayFromTarget("snapshot");
               if (playheadIsEnd) {
                 runTransportAction(() => onJumpSequenceSnapshot?.(0));
                 return;
@@ -740,18 +749,21 @@ const SequenceControls = ({
             title="Previous marker"
             disabled={snapshots.length === 0 || !cueBackAvailable}
             onClick={() => {
+              setPlayFromTarget("cue");
               runTransportAction(() => onStepSequenceMarker?.(-1));
             }}
           >
             <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
           </button>
           <select
-            class="sidebar-input sequencer-playback-select sequencer-playback-select--pending"
+            class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "cue" ? " sequencer-playback-select--active-target" : ""}`}
             aria-label="next cue target"
+            data-play-from-active={playFromTarget === "cue" ? "true" : "false"}
             data-timed-transport-field="cue"
             value={cueSelectValue}
             onChange={(e) => {
               const selectedCueValue = e.currentTarget.value;
+              setPlayFromTarget("cue");
               stopTimedTransportBefore(() => {
                 if (selectedCueValue === "") {
                   return;
@@ -786,6 +798,7 @@ const SequenceControls = ({
               ? nextCueIndexFromBar < 0
               : false)}
             onClick={() => {
+              setPlayFromTarget("cue");
               if (playheadIsEnd) {
                 runTransportAction(() => onJumpSequenceCue?.(0));
                 return;
@@ -821,11 +834,26 @@ const SequenceControls = ({
           <button
             type="button"
             class="snapshot-play-btn"
-            title="Play current sequence position"
+            title={`Play highlighted ${playFromTarget} target`}
             aria-label="play current sequence position"
             disabled={snapshots.length === 0}
             onClick={() => {
-              runTransportAction(() => onPlaySequence?.());
+              runTransportAction(() => {
+                const cueIndex = cueSelectValue === "" || cueSelectValue === terminalSequenceTarget
+                  ? NaN
+                  : Number(cueSelectValue);
+                if (
+                  playFromTarget === "cue"
+                  && Number.isInteger(cueIndex)
+                  && cueIndex >= 0
+                  && cueIndex < sequenceCueGroups.length
+                  && typeof onPlayCue === "function"
+                ) {
+                  onPlayCue(cueIndex);
+                  return;
+                }
+                onPlaySequence?.();
+              });
             }}
           >
             <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />

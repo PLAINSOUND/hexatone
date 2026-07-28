@@ -43,9 +43,10 @@ export class VoicePool {
     this._idleQueue = [...slotIds]; // FIFO: front = next to use, back = most recently released
     this._lastBend = new Map(); // slot → last bend value (14-bit unsigned)
     this._lastNote = new Map(); // slot → last MIDI note number
+    this._nextAllocationToken = 1;
 
     // Active voice linked list (oldest head → newest tail)
-    this._active = new Map(); // coordsKey → entry { key, coords, slot, prev, next }
+    this._active = new Map(); // coordsKey → entry { key, coords, slot, allocationToken, prev, next }
     this._head = null;
     this._tail = null;
 
@@ -60,7 +61,7 @@ export class VoicePool {
    * Allocate a channel for a new note at `coords`.
    *
    * Returns:
-   *  { slot, stolen, stolenSlot, stolenNote, retrigger }
+   *  { slot, allocationToken, stolen, stolenSlot, stolenNote, retrigger }
    *
    *  stolen     – coords of the killed note (null if no steal)
    *  stolenSlot – channel of the killed note (null if no steal)
@@ -77,9 +78,11 @@ export class VoicePool {
     // Retrigger: note already active, just refresh its position in the LRU list
     if (this._active.has(key)) {
       const entry = this._active.get(key);
+      entry.allocationToken = this._nextAllocationToken++;
       this._moveToTail(entry);
       return {
         slot: entry.slot,
+        allocationToken: entry.allocationToken,
         stolen: null,
         stolenSlot: null,
         stolenNote: null,
@@ -157,14 +160,29 @@ export class VoicePool {
     }
 
     // Register the new voice
-    const entry = { key, coords, slot, prev: this._tail, next: null };
+    const entry = {
+      key,
+      coords,
+      slot,
+      allocationToken: this._nextAllocationToken++,
+      prev: this._tail,
+      next: null,
+    };
     if (this._tail) this._tail.next = entry;
     this._tail = entry;
     if (!this._head) this._head = entry;
     this._active.set(key, entry);
     this._state.set(slot, "SOUNDING");
 
-    return { slot, stolen, stolenSlot, stolenNote, stolenWasReleasing, retrigger: false };
+    return {
+      slot,
+      allocationToken: entry.allocationToken,
+      stolen,
+      stolenSlot,
+      stolenNote,
+      stolenWasReleasing,
+      retrigger: false,
+    };
   }
 
   /**
@@ -172,10 +190,11 @@ export class VoicePool {
    * Marks it RELEASING (not immediately available) to let the tail decay.
    * Returns the slot, or null if coords wasn't active.
    */
-  noteOff(coords) {
+  noteOff(coords, allocationToken = null) {
     const key = coordsKey(coords);
     const entry = this._active.get(key);
     if (!entry) return null;
+    if (allocationToken !== null && entry.allocationToken !== allocationToken) return null;
 
     const slot = entry.slot;
     this._remove(entry);
@@ -212,6 +231,19 @@ export class VoicePool {
   getSlot(coords) {
     const entry = this._active.get(coordsKey(coords));
     return entry ? entry.slot : null;
+  }
+
+  /**
+   * True only for the exact allocation that currently owns this coordinate
+   * and channel. The token distinguishes same-coordinate retriggers, where
+   * channel and coordinate alone are not sufficient ownership identifiers.
+   */
+  owns(coords, slot, allocationToken) {
+    const entry = this._active.get(coordsKey(coords));
+    return (
+      entry?.slot === slot &&
+      entry?.allocationToken === allocationToken
+    );
   }
 
   get activeCount() {

@@ -2403,6 +2403,7 @@ const Sequencer = ({
           onResetSequencePlayhead={resetSequencePlayheadAndScrollTop}
           onJumpSequenceEnd={jumpSequencePlayheadToEndAndScrollBottom}
           onPlaySequence={onPlaySequence}
+          onPlayCue={onPlayCue}
           playingSnapshotId={playingSnapshotId}
           onStopSnapshot={onStopSnapshot}
           timedTransportUiState={timedTransportUiState}

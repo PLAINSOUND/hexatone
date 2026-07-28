@@ -1693,12 +1693,16 @@ const App = () => {
   }, []);
 
   const playManualSnapshotAtIndex = useCallback(
-    (stepIndex) => {
+    (stepIndex, markerIndex = null) => {
       sequenceRepeatPlaybackStateRef.current = {};
       const snap = snapshots[stepIndex];
       if (!snap) return;
       const id = snap.id;
-      const notes = sequencePlaybackNotesAtPosition(stepIndex, null);
+      const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
+        ? null
+        : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+      const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
+      const notes = sequencePlaybackNotesAtPosition(stepIndex, safeMarkerIndex);
       const articulation = effectiveManualSnapshotArticulation(
         manualArpeggiation.mode,
         snap.manualTrigger,
@@ -1707,7 +1711,14 @@ const App = () => {
       if (!notes.length) {
         cancelManualSnapshotGestures();
         keysRef.current?.stopSnapshot();
-        applyStoppedSequenceTransportState();
+        commitSequencePlaybackUi({
+          safeStepIndex: stepIndex,
+          safeMarkerIndex,
+          snapshot: snap,
+          cueGroup,
+          normalizedNotes: [],
+          barIndex: barIndexForTime(cueGroup?.time ?? (stepIndex + 1)),
+        });
         return;
       }
       if (!arpeggiate) cancelManualSnapshotGestures();
@@ -1752,20 +1763,20 @@ const App = () => {
       const normalizedNotes = Array.isArray(notes) ? notes : [];
       commitSequencePlaybackUi({
         safeStepIndex: stepIndex,
-        safeMarkerIndex: null,
+        safeMarkerIndex,
         snapshot: snap,
-        cueGroup: null,
+        cueGroup,
         normalizedNotes,
-        barIndex: barIndexForTime(stepIndex + 1),
+        barIndex: barIndexForTime(cueGroup?.time ?? (stepIndex + 1)),
       });
     },
     [
-      applyStoppedSequenceTransportState,
       barIndexForTime,
       cancelManualSnapshotGestures,
       commitSequencePlaybackUi,
       manualArpeggiation,
       releaseManualSnapshotGesture,
+      sequenceCueGroups,
       sequenceLegato,
       sequencePlaybackNotesAtPosition,
       snapshots,
@@ -2298,7 +2309,7 @@ const App = () => {
         playSequencePosition(snapshots.length, null);
         return;
       }
-      playSequencePosition(target, null);
+      playManualSnapshotAtIndex(target);
       return;
     }
     if ((sequencePlayhead.stepIndex ?? -1) >= snapshots.length) {
@@ -2306,8 +2317,12 @@ const App = () => {
       playSequencePosition(sequencePlayhead.stepIndex ?? -1, null);
       return;
     }
-    playSequencePosition(sequencePlayhead.stepIndex ?? 0, sequencePlayhead.markerIndex);
+    playManualSnapshotAtIndex(
+      sequencePlayhead.stepIndex ?? 0,
+      sequencePlayhead.markerIndex,
+    );
   }, [
+    playManualSnapshotAtIndex,
     playSequencePosition,
     sequencePlayhead.barIndex,
     sequencePlayhead.markerIndex,
