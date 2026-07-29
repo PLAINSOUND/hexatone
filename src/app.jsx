@@ -1296,15 +1296,18 @@ const App = () => {
     ));
   }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshotLabelMode, snapshots]);
   const sequencePlaybackRuntimeToken = useMemo(() => buildDependencyToken([
-    sequencePlaybackSnapshots,
+    // Tuning snap changes pitch mapping, not timed-transport structure.
+    // Keep the transport token tied to the stored sequence so live remapping
+    // can update sounding and future notes without stopping the clock.
+    snapshots,
     sequenceBars,
     sequenceTempi,
     sequenceRepeats,
   ]), [
     sequenceBars,
-    sequencePlaybackSnapshots,
     sequenceRepeats,
     sequenceTempi,
+    snapshots,
   ]);
   const sequenceTimedTriggerToken = useMemo(() => buildDependencyToken([
     sequencePlaybackRuntimeToken,

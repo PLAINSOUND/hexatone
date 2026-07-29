@@ -264,16 +264,18 @@ const Sequencer = ({
     tempi,
   ]);
   const renderedSnapshots = sequenceRuntime.renderedSnapshots;
-  const effectivePlaybackSnapshotSource = playbackSnapshots ?? snapshots;
+  // The stored snapshots define timed-transport structure. `playbackSnapshots`
+  // may be a live pitch-remapped view of the same events, so changing that
+  // view must not invalidate a running transport.
   const playbackRuntimeToken = useMemo(() => buildDependencyToken([
-    effectivePlaybackSnapshotSource,
+    snapshots,
     bars,
     tempi,
     repeats,
   ]), [
     bars,
-    effectivePlaybackSnapshotSource,
     repeats,
+    snapshots,
     tempi,
   ]);
   const timedTriggerToken = useMemo(() => buildDependencyToken([

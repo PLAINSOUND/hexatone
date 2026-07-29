@@ -4,7 +4,7 @@ Updated: 2026-07-28
 
 ## About
 
-Choose a tab: HEXATONE is a microtonal workspace based on an hexagonal 2D pitch layout invented by Erv Wilson; SEQUENCER is a step sequencer allowing users to edit and walk through chords captured in the workspace. 
+Choose among three tabs: HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented by Erv Wilson; SEQUENCER is a step sequencer for editing and performing chords captured in the workspace; MANUAL provides the complete documentation. The “… more” links in HEXATONE and SEQUENCER open the relevant manual section inline.
 
 Features:
 
@@ -27,13 +27,15 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
 - use built-in sounds to play with touch, mouse, computer keyboard
 - use on-screen `OCT` / `SUSTAIN` / `MOD` controls or keyboard shortcuts 
 - edit the scale table, drag to retune individual scale degrees
-- capture snapshots, trigger them in the sequencer tab
+- capture sounding notes as snapshots with `SHIFT+ENTER`
+- open SEQUENCER to edit, navigate, and play the snapshots
+- open MANUAL for complete documentation, or use “… more” for contextual help
 
 ## Components
 
 ### Keyboard Canvas
 
-- draws the current scale in an hexagonal 2D layout, defined by:
+- draws the current scale in a hexagonal 2D layout, defined by:
     - central scale degree
     - scale steps to the right
     - scale steps to the right and down
@@ -51,6 +53,7 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
 - MIDI Setup
 - MIDI Input
 - Output Routing (MTS / MPE / OSC)
+- contextual manual access through “… more”
 
 ### Performance Controls
 
@@ -64,7 +67,7 @@ Left-to-right along the bottom of the app there are buttons and these are also m
 
 ### Sequencing Snapshots
 
-- capture currently sounding notes (ENTER key); a list appears bottom left of the app: click to play, drag to reorder, x to delete
+- capture currently sounding or sustained notes (`SHIFT+ENTER`); a list appears bottom left of the app: click to play, drag to reorder, x to delete
 - switch to PLAINSOUND SEQUENCER Tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence of cues
 - Sequence is a collection of snapshots, ordered and numbered, along with the relative position of individual events (cues), bars with time signatures, tempo markers, and repeat markers; multiple sequences may be saved and loaded as `.json` files; sequences are kept in local browser storage and may be swiftly reloaded from the menu to play different sections or pieces
 - Snapshot is a captured chord or note collection including momentary expression data; it can be replayed as a full vertical sonority (stepping by snapshots); snapshots may be ordered and are automatically numbered
@@ -72,12 +75,12 @@ Left-to-right along the bottom of the app there are buttons and these are also m
 - Bars have a user-defined time signature expressed as a fraction of one whole note: the denominator expresses "what fraction of the bar is considered to be a beat" and the numerator expresses "how many" beats comprise this particular bar
 - example: in a time signature like 6/7, 7 means the beat length is 1/7 of a whole note = one septuplet subdivision of a whole note, and 6 means this bar is made up of 6 septuplets
   - a bar allows the global positioning of events to be expressed in rational time units (beats, fractions of beats)
-  - bars may occupy any global position: i.e. barlines may occur between snapshots or inside a snapshot
+  - barlines may occur at valid boundaries in global sequence-position space, including between snapshots; bars cannot be placed within a snapshot
   - for most applications, bars are automatically generated at snapshot boundaries, and any extra bars that are not needed may be deleted
 - a user-defined tempo marker can occur anywhere in sequence position space; it is expressed as a beat fraction and a tempo in bpm, for example `1 / 4 = 60 bpm`
 - repeat start and repeat end markers can occur anywhere in sequence position space; the start marker defines the return point and the end marker carries a repeat count (default `2x`)
 - multiple events at the same global position follow an order of precedence rule: `note-offs` of previously triggered notes -> `repeat end` -> `repeat start` -> `tempo` -> `bar` -> new `note-ons` -> new `note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
-- the sequence uses one exact global position space, defined by the ordered snapshots: bars and tempi are overlays on that space rather than containers for the notes; this approach allows a very flexible triggered-step or tempo driven realisation of the sequenced data
+- the sequence uses one exact global position space defined by its ordered snapshots: bars, tempo markers, and repeats organise navigation and timed playback without acting as containers for the note events
 
 ## Hexatone Tab
 
@@ -97,7 +100,7 @@ Click or tap the on-screen hexes to play notes. When the sidebar is collapsed an
 
 ### Presets
 
-Hexatone includes built-in tunings and supports user presets. Users may import a scala file or a previously saved Hexatone `.json` file. It is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
+Hexatone includes built-in tunings and supports user presets. Users may import a Scala file or a previously saved Hexatone `.json` file. It is possible to set up a user folder with subfolders and import the entire folder as a library of user tunings.
 
 - create a scale in Scala or Scale Workshop and import it into Hexatone
 - edit name and description, save as a user tuning, try different layouts
@@ -274,7 +277,7 @@ The app includes support for several recognized controller types, including devi
 
 The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user (on appropriate outputs).
 
-Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes.
+Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom in 5 blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes. The `Lumatone Colour Filter` can store, order, import, and export named collections of scale degrees. `Auto-Generate from Snapshots` adds filters derived from the notes present in captured snapshots.
 
 Alternately, some users may prefer to generate a "traditional" multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave transpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
 
@@ -282,7 +285,7 @@ LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Redu
 
 Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using App Mode.
 
-Haken `Continuum X Glide` offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). Continuum Raster Filter allows the user to choose various collections of scale degrees that will be rastered; collections may be named, sorted, and exported as a single .json file. MPE+ PB output is optional, because the many generated CC87 LSB messages may overload older MIDI connections.
+Haken `Continuum X Glide` offers two modes: Pitch Bending and Raster to Notes, along with controls for `X Glide Shaping` (applied to Pitch Bending) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Raster to Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). `Continuum Raster Filter` lets the user store and order named collections of scale degrees used by Raster to Notes. Collections may be imported or exported together as a `.json` file, while `Auto-Generate from Snapshots` adds filters derived from captured snapshots. Optional MPE+ pitch-bend output adds high-resolution CC87 data; it may be disabled when older MIDI connections cannot sustain the additional message density.
 
 ### Input Modes
 
@@ -302,6 +305,26 @@ Hexatone can send tuning and performance data through:
 - MTS (MIDI Tuning Standard) Real-Time Tuning
 - MTS Bulk Dump Tuning Maps
 - MPE (MIDI Polyphonic Expression)
+
+MPE output offers two message styles:
+
+- `Ableton compatible` uses unique MIDI notes with a 48-semitone pitch-bend range
+- `MPE standard` uses nearest MIDI notes and a user-defined pitch-bend range
+
+`MPE+ PB` adds CC87 low-bit messages for higher-resolution pitch bend on compatible instruments. CC74 carries per-note timbre and Channel Pressure carries per-note pressure.
+
+### Eagan Matrix
+
+The Eagan Matrix controls appear within MPE output settings:
+
+- `Auto-Generate MPE YZ` generates per-voice timbre (Y/CC74) and pressure (Z/Channel Pressure) envelopes from attack velocity and subsequent polyphonic pressure. It applies to live input and stored sequences, including release shaping driven by Note Off velocity.
+- `Mod Wheel → Brightness` mirrors incoming modulation-wheel CC1 values to Brightness and updates its displayed fader.
+- `Brightness` sends CC13.
+- `Tilt EQ` sends CC83.
+- `Pre Level` sends CC26.
+- `Post Level` sends CC18.
+
+The four faders use MIDI values from 0–127 and default to 64. Enabling `Auto-Generate MPE YZ` also sends their current values so the receiving Eagan Matrix begins from the displayed state.
 
 ## OSC
 
@@ -358,7 +381,7 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 ### Sequence Settings
 
-`Snapshot Labels` may be `Note Names`, `Frequencies`, `MIDIcents`, `Chord Intervals from Lowest Note (cents)`, or `Chord Proportion`. The summary text for each snapshot can be changed independently of the underlying note data and that these labels are saved with the user sequence. The reset button reloads the automatically generated label.
+`Snapshot Labels` may be `Note Names`, `Frequencies (Hz)`, `MIDIcents`, `Chord Intervals from Lowest Note (¢)`, `Chord Proportion` or `Odd Partial Proportion`. The summary text for each snapshot can be changed independently of the underlying note data and that these labels are saved with the user sequence. The reset button reloads the automatically generated label.
 
 `Auto-Create Bars` places a new bar at each snapshot. Bars can be deleted or additional bars created at any point.
 
