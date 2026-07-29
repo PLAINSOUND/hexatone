@@ -1548,6 +1548,16 @@ const Sequencer = ({
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
   };
 
+  const selectSnapshotForEditing = useCallback((snapshotId) => {
+    const snapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === snapshotId);
+    if (snapshotIndex >= 0) {
+      const snapshotPosition = String(snapshotIndex + 1);
+      setCopyRangeStart(snapshotPosition);
+      setCopyRangeEnd(snapshotPosition);
+    }
+    onSelectSnapshot?.(snapshotId);
+  }, [onSelectSnapshot, snapshots]);
+
   const toggleEditPlayLayout = useCallback(() => {
     const target = transportScrollTargetRef.current;
     let index = null;
@@ -1591,7 +1601,7 @@ const Sequencer = ({
   ]);
 
   const handleSnapshotRowClick = useCallback((snapshotId, isSelected) => {
-    onSelectSnapshot?.(snapshotId);
+    selectSnapshotForEditing(snapshotId);
     if (showAllEvents) {
       setCompactSelectionPreviewSuppressedId(null);
       return;
@@ -1602,7 +1612,7 @@ const Sequencer = ({
       return;
     }
     setCompactSelectionPreviewSuppressedId(snapshotId);
-  }, [onSelectSnapshot, showAllEvents]);
+  }, [selectSnapshotForEditing, showAllEvents]);
 
   const resolveDropSide = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -2222,7 +2232,7 @@ const Sequencer = ({
     onDuplicateSnapshot,
     onMoveSnapshot,
     onSnapshotRowClick: handleSnapshotRowClick,
-    onSelectSnapshot,
+    onSelectSnapshot: selectSnapshotForEditing,
     toggleExpanded,
     onDeleteSnapshot,
     ensureExpanded,
@@ -2240,7 +2250,7 @@ const Sequencer = ({
     onMoveSnapshot,
     onPlaySnapshot,
     onResetSnapshotDescription,
-    onSelectSnapshot,
+    selectSnapshotForEditing,
     onStopSnapshot,
     onUpdateSnapshot,
   ]);

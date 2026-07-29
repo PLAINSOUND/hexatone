@@ -2880,6 +2880,85 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
   });
 
+  it("sets the Copy & Insert range from snapshot selection in open and collapsed views", () => {
+    const snapshots = [
+      {
+        id: 10,
+        length: 1,
+        description: "First",
+        notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1 }],
+      },
+      {
+        id: 11,
+        length: 1,
+        description: "Second",
+        notes: [{ id: "b", midicents: 72, displayLabel: "C", start: 0, end: 1 }],
+      },
+    ];
+
+    const Harness = () => {
+      const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={[{ id: 1, position: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={selectedSnapshotId}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={setSelectedSnapshotId}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+          activeSequenceName=""
+          activeSequenceDescription=""
+          sequenceLegato
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    const rangeStart = screen.getByLabelText("copy snapshot range start");
+    const rangeEnd = screen.getByLabelText("copy snapshot range end");
+    fireEvent.click(screen.getByLabelText("snapshot 2 description"));
+    expect(rangeStart.value).toBe("2");
+    expect(rangeEnd.value).toBe("2");
+
+    fireEvent.input(rangeStart, { target: { value: "1" } });
+    fireEvent.input(rangeEnd, { target: { value: "1" } });
+    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+    fireEvent.click(screen.getByLabelText("snapshot 2 description"));
+
+    expect(rangeStart.value).toBe("2");
+    expect(rangeEnd.value).toBe("2");
+  });
+
   it("keeps the standard two event panes in phone portrait mode", () => {
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = vi.fn().mockImplementation((query) => ({
